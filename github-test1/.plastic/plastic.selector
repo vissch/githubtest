@@ -1,0 +1,4 @@
+repository "github-test1@vissch@cloud.cn"
+  path "/"
+    br "/main"
+    co "/main"
