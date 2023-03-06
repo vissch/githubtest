@@ -2,8 +2,8 @@ Shader "URP Unlit Shadow masked"
 {
     Properties
     {
-        _BaseMap("Base Map", 2D) = "white"
-        _ShadowMap("Shadow Map", 2D) = "white"
+       // _BaseMap("Base Map", 2D) = "white"
+       // _ShadowMap("Shadow Map", 2D) = "white"
         _ShadowRange("Shadow Range", float) = 50.0
     }
     SubShader
@@ -53,19 +53,9 @@ Shader "URP Unlit Shadow masked"
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
-            // This macro declares _BaseMap as a Texture2D object.
-            TEXTURE2D(_BaseMap);
-            TEXTURE2D(_ShadowMap);
-            // This macro declares the sampler for the _BaseMap texture.
-            SAMPLER(sampler_BaseMap);
-            SAMPLER(sampler_ShadowMap);
-
+        
             CBUFFER_START(UnityPerMaterial)
-                // The following line declares the _BaseMap_ST variable, so that you
-                // can use the _BaseMap variable in the fragment shader. The _ST 
-                // suffix is necessary for the tiling and offset function to work.
-                float4 _BaseMap_ST;
-                float4 _ShadowMap_ST;
+         
                 float _ShadowRange;
             CBUFFER_END
 
@@ -78,19 +68,17 @@ Shader "URP Unlit Shadow masked"
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
                 //output.positionCS = vertexInput.positionCS;
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-
                 output.positionWS = vertexInput.positionWS;
-                //output.fogCoord = ComputeFogFactor(vertexInput.positionCS.z);
-                output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
+               output.uv = input.uv;
                 return output;
             }
-            half4 frag (Varyings input) : SV_Target
+            float4 frag (Varyings input) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                half4 color = half4(1,1,1,1);
-                half4 mainColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
-                half4 shadowColor = SAMPLE_TEXTURE2D(_ShadowMap, sampler_ShadowMap, input.uv);
+                //half4 color = half4(1,1,1,1);
+             //   half4 mainColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv);
+             //   half4 shadowColor = SAMPLE_TEXTURE2D(_ShadowMap, sampler_ShadowMap, input.uv);
 
             /*#ifdef _MAIN_LIGHT_SHADOWS
                 VertexPositionInputs vertexInput = (VertexPositionInputs)0;
@@ -102,7 +90,7 @@ Shader "URP Unlit Shadow masked"
                 color.rgb = MixFogColor(color.rgb, half3(1,1,1), input.fogCoord);
             #endif*/
 
-            #ifdef _ADDITIONAL_LIGHT_SHADOWS
+           // #ifdef _ADDITIONAL_LIGHT_SHADOWS
                 VertexPositionInputs vertexInput = (VertexPositionInputs)0;
                 vertexInput.positionWS = input.positionWS;
                 
@@ -117,20 +105,14 @@ Shader "URP Unlit Shadow masked"
 
                 for (int i = 0; i < lightAmount; i++) {
                 Light light = GetAdditionalLight(i, vertexInput.positionWS);
-                //shadowAttenutation = AdditionalLightRealtimeShadow(i, vertexInput.positionWS, light.direction);
+
                 shadowAttenutation = (1 - AdditionalLightRealtimeShadow(i, vertexInput.positionWS, light.direction))*clamp(_ShadowRange * light.distanceAttenuation, 0, 1);
-                //shadow = clamp(1-shadowAttenutation,0,1);
-                //radius = clamp(50 * light.distanceAttenuation, 0, 1);
-                //combined = clamp(radius*shadow,0,1);
+              
                 product = clamp(product + shadowAttenutation,0,1);
                 }
 
-                // lerp from alpha 0 instead of 1 to have the mesh surface be fully transparent:
-                color = lerp(mainColor, shadowColor, product);
-                //color.rgb = MixFogColor(color.rgb, half3(1, 1, 1), input.fogCoord);
-
-            #endif
-                return color;
+           // #endif
+                return float4(input.uv,product,1.);
             }
             ENDHLSL
         }
