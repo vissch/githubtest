@@ -1,0 +1,24 @@
+{
+  "name": "TW.UI",
+  "rootNamespace": "TW.UI",
+  "references": [
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "Unity.InputSystem",
+    "TW.Sim.Core",
+    "TW.Sim.Terrain",
+    "TW.Sim.Units",
+    "TW.Sim.Match",
+    "TW.Data",
+    "TW.Presentation.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

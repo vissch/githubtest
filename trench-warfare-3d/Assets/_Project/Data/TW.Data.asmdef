@@ -1,0 +1,22 @@
+{
+  "name": "TW.Data",
+  "rootNamespace": "TW.Data",
+  "references": [
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "TW.Sim.Core",
+    "TW.Sim.Terrain",
+    "TW.Sim.Combat",
+    "TW.Sim.Units",
+    "TW.Sim.Match"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

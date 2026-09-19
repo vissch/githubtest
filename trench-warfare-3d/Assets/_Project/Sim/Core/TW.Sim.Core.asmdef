@@ -1,0 +1,14 @@
+{
+  "name": "TW.Sim.Core",
+  "rootNamespace": "TW.Sim",
+  "references": [ "Unity.Burst", "Unity.Collections", "Unity.Mathematics" ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

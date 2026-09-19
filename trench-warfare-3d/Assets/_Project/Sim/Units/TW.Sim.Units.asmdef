@@ -1,0 +1,14 @@
+{
+  "name": "TW.Sim.Units",
+  "rootNamespace": "TW.Sim.Units",
+  "references": [ "Unity.Burst", "Unity.Collections", "Unity.Mathematics", "TW.Sim.Core", "TW.Sim.Terrain", "TW.Sim.Nav", "TW.Sim.Combat" ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

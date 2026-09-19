@@ -1,0 +1,27 @@
+{
+  "name": "TW.Presentation.Core",
+  "rootNamespace": "TW.Presentation",
+  "references": [
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "TW.Sim.Core",
+    "TW.Sim.Terrain",
+    "TW.Sim.Nav",
+    "TW.Sim.Combat",
+    "TW.Sim.Units",
+    "TW.Sim.Match",
+    "TW.Net",
+    "TW.Data"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

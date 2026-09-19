@@ -1,0 +1,14 @@
+{
+  "name": "TW.Net",
+  "rootNamespace": "TW.Net",
+  "references": [ "Unity.Collections", "Unity.Mathematics", "Unity.Networking.Transport", "TW.Sim.Core" ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

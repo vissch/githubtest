@@ -1,0 +1,28 @@
+{
+  "name": "TW.Presentation.Audio",
+  "rootNamespace": "TW.Presentation.Audio",
+  "references": [
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.InputSystem",
+    "TW.Sim.Core",
+    "TW.Sim.Terrain",
+    "TW.Sim.Nav",
+    "TW.Sim.Combat",
+    "TW.Sim.Units",
+    "TW.Sim.Match",
+    "TW.Data",
+    "TW.Presentation.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,28 @@
+{
+  "name": "TW.Tests.PlayMode",
+  "rootNamespace": "TW.Tests",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "TW.Sim.Core",
+    "TW.Sim.Match",
+    "TW.Sim.Terrain",
+    "TW.Net",
+    "TW.Presentation.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

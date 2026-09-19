@@ -1,0 +1,14 @@
+{
+  "name": "TW.Sim.Terrain",
+  "rootNamespace": "TW.Sim.Terrain",
+  "references": [ "Unity.Burst", "Unity.Collections", "Unity.Mathematics", "TW.Sim.Core" ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
