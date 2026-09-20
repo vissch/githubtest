@@ -15,6 +15,7 @@ namespace TW.Sim.Terrain
         public short NextTrenchForTeam0;         // trench a ">>" from here sends team 0 to (-1 = enemy HQ)
         public short NextTrenchForTeam1;
         public float FacingYaw;                  // parapet facing (radians) for the directional cover arc
+        public float WidthMeters;                // parapet-to-parados width; tracked vehicles cross it if ≤ their crossing width
     }
 
     public enum ObjectiveKind : byte { OutpostLine = 0, MainLine = 1, ReserveLine = 2, HQ = 3, Custom = 4 }

@@ -23,8 +23,13 @@ namespace TW.Presentation
         public float SilverPerSecond = 1f;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
-        [Tooltip("Stress preset: both players start with enough silver to field this many riflemen.")]
+        [Tooltip("Stress preset: both players start with enough silver to field this many riflemen each, deployed at 4 per tick.")]
         public int StressUnits = 0;
+        [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
+        public int StressAdvanceDelayTicks = 300;
+        int stressDeployed;
+        uint stressAdvanceTick;
+        bool stressAdvanced;
 
         public MatchSim Local { get; private set; }
         public MatchSim Peer { get; private set; }
@@ -83,10 +88,24 @@ namespace TW.Presentation
             if (!ScriptedPeer) return;
             uint t = Peer.World.Tick;
             if (t % (uint)PeerDeployEveryTicks == 0) PeerDriver.Issue(SimCommand.Deploy(t, 1, (int)(t / (uint)PeerDeployEveryTicks) % 3));
-            if (StressUnits > 0 && t < 400 && t % 2 == 0)
+            if (StressUnits > 0)
             {
-                PeerDriver.Issue(SimCommand.Deploy(t, 1, 0));
-                LocalDriver.Issue(SimCommand.Deploy(t, 0, 0));
+                if (stressDeployed < StressUnits)
+                {
+                    for (int k = 0; k < 4 && stressDeployed < StressUnits; k++, stressDeployed++)
+                    {
+                        PeerDriver.Issue(SimCommand.Deploy(t, 1, 0));
+                        LocalDriver.Issue(SimCommand.Deploy(t, 0, 0));
+                    }
+                    stressAdvanceTick = t + (uint)StressAdvanceDelayTicks;
+                }
+                else if (!stressAdvanced && t >= stressAdvanceTick)
+                {
+                    stressAdvanced = true;
+                    short front0 = Local.Fields.FrontTrench(0), front1 = Peer.Fields.FrontTrench(1);
+                    if (front0 >= 0) LocalDriver.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = front0 });
+                    if (front1 >= 0) PeerDriver.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = front1 });
+                }
             }
         }
 

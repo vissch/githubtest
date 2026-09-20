@@ -18,6 +18,8 @@ namespace TW.Sim.Terrain
         public int NavWidth, NavLength;
         public NativeArray<byte> NavLayers;  // NavLayer bits per nav cell
         public NativeArray<byte> NavCost;    // derived from NavLayers; A4 updates locally
+        public NativeArray<short> CellTrenchId; // trench id per nav cell, -1 outside trenches (derived from TrenchCells)
+        public int Version;                  // bumped on every nav/height mutation; hashed instead of the arrays themselves
 
         public NativeList<TrenchDef> Trenches;
         public NativeList<int> TrenchCells;
@@ -41,6 +43,8 @@ namespace TW.Sim.Terrain
             NavLength = (int)(sizeMeters.y / NavCellSize);
             NavLayers = new NativeArray<byte>(NavWidth * NavLength, allocator);
             NavCost = new NativeArray<byte>(NavWidth * NavLength, allocator);
+            CellTrenchId = new NativeArray<short>(NavWidth * NavLength, allocator);
+            for (int i = 0; i < CellTrenchId.Length; i++) CellTrenchId[i] = -1;
             Trenches = new NativeList<TrenchDef>(16, allocator);
             TrenchCells = new NativeList<int>(1024, allocator);
             FireStepCells = new NativeList<int>(512, allocator);
@@ -73,11 +77,16 @@ namespace TW.Sim.Terrain
             int i = NavIndex(x, z);
             NavLayers[i] = (byte)layer;
             NavCost[i] = NavCosts.For(layer);
+            Version++;
         }
+
+        /// <summary>Call after mutating the heightfield or nav arrays directly (A4) so the tick hash sees the change.</summary>
+        public void Touch() => Version++;
 
         public void RebuildCost()
         {
             for (int i = 0; i < NavLayers.Length; i++) NavCost[i] = NavCosts.For((NavLayer)NavLayers[i]);
+            Version++;
         }
 
         public SimConfig.WorldInit ToWorldInit()
@@ -93,12 +102,13 @@ namespace TW.Sim.Terrain
             h = SimHash.Array(Height.Cm, h);
             h = SimHash.Array(NavLayers, h);
             h = SimHash.Array(NavCost, h);
+            h = SimHash.Array(CellTrenchId, h);
             return h;
         }
 
         public void Dispose()
         {
-            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose();
+            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose();
             Trenches.Dispose(); TrenchCells.Dispose(); FireStepCells.Dispose(); LinkCells.Dispose();
             Objectives.Dispose(); ObjectiveCells.Dispose(); StaticCover.Dispose(); Spawns.Dispose();
             SupplyRoad.Dispose(); Triggers.Dispose(); Emplacements.Dispose();

@@ -1,7 +1,7 @@
 // Phase: B1 (implemented for P0 needs; nav/LoS/cover layers grow with A1/A2)
-// Renders every alive unit as an instanced capsule coloured by team, draws flow-field arrows for the cells around
-// the mouse (editor gizmo lines), shows tick/hash/silver/stall stats, and maps number keys 1-5 to DeployUnit and
-// F1-F3 to overlay layers. This is Track A's main debugging tool.
+// Renders every alive unit as an instanced capsule coloured by team, draws flow-field arrows of one goal (F3 cycles)
+// for the cells around the mouse (editor gizmo lines), shows tick/hash/silver/stall/trench stats, and maps number
+// keys 1-5 to DeployUnit, Space/Backspace/L to >> / ↩ / lock on the front trench. Track A's main debugging tool.
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
@@ -18,6 +18,7 @@ namespace TW.Presentation.Tactical
         public bool ShowFlowField = true;
         public bool ShowStats = true;
         public int FlowArrowRadiusCells = 12;
+        public int ViewGoal;
 
         Mesh capsule;
         Material matA, matB;
@@ -53,6 +54,21 @@ namespace TW.Presentation.Tactical
             if (kb.digit5Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 4));
             if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
             if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
+            if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
+            if (kb.spaceKey.wasPressedThisFrame) IssueTrenchOrder(CommandType.TrenchAdvance, 0);
+            if (kb.backspaceKey.wasPressedThisFrame) IssueTrenchOrder(CommandType.TrenchFallback, 0);
+            if (kb.lKey.wasPressedThisFrame)
+            {
+                short tr = Host.Local.Fields.FrontTrench(0);
+                if (tr >= 0) IssueTrenchOrder(CommandType.TrenchLock, Host.Local.Fields.Trenches[tr].Locked != 0 ? 0 : 1);
+            }
+        }
+
+        void IssueTrenchOrder(CommandType type, int b)
+        {
+            short tr = Host.Local.Fields.FrontTrench(0);
+            if (tr < 0) return;
+            Host.Issue(new SimCommand { Tick = Host.Local.World.Tick, Type = type, A = tr, B = b });
         }
 
         void DrawUnits()
@@ -98,7 +114,10 @@ namespace TW.Presentation.Tactical
             if (t < 0f) return;
             Vector3 hit = ray.origin + ray.direction * t;
             var map = Host.Local.Map;
-            var field = Host.Local.Movement.FieldTeam0;
+            var fields = Host.Local.Fields;
+            if (fields.GoalCount == 0) return;
+            int g = ((ViewGoal % fields.GoalCount) + fields.GoalCount) % fields.GoalCount;
+            var field = fields.Field(g);
             var hf = map.Height;
             var c = map.NavCellOf(new float3(hit.x, 0f, hit.z));
             for (int dz = -FlowArrowRadiusCells; dz <= FlowArrowRadiusCells; dz++)
@@ -121,10 +140,19 @@ namespace TW.Presentation.Tactical
         {
             if (!ShowStats || Host == null || Host.Local == null) return;
             var w = Host.Local.World;
-            GUI.Label(new Rect(10, 10, 700, 160),
+            var fields = Host.Local.Fields;
+            int g = fields.GoalCount == 0 ? -1 : ((ViewGoal % fields.GoalCount) + fields.GoalCount) % fields.GoalCount;
+            string trenches = "";
+            for (int t = 0; t < fields.Trenches.Length; t++)
+            {
+                var s = fields.Trenches[t];
+                trenches += $"T{t}: owner {s.OwnerTeam} garrison {s.GarrisonCount}{(s.Locked != 0 ? " LOCKED" : "")}   ";
+            }
+            GUI.Label(new Rect(10, 10, 900, 200),
                 $"tick {w.Tick}  hash {w.LastHash:X16}  alive {w.AliveCount}  silver P0 {w.Silver[0]} P1 {w.Silver[1]}\n" +
                 $"stall {Host.LocalDriver.StallTicks}  desync {(Host.Desync ? "YES" : "no")}  events/frame {Host.Events.Frame.Count}  overrun {Host.Events.OverrunTotal}\n" +
-                "1-5 deploy slot   F1 flow field   F2 stats   WASD pan   wheel zoom   Q/E rotate");
+                $"goals {fields.GoalCount}  viewing {(g >= 0 ? fields.Goals[g].ToString() : "-")}   {trenches}\n" +
+                "1-5 deploy   Space >> advance   Backspace fallback   L lock   F1 flow field   F2 stats   F3 next goal   WASD pan   wheel zoom   Q/E rotate");
         }
     }
 }

@@ -1,8 +1,9 @@
-// Phase: A1 (initial implementation) — depends on: MapData (P0)
-// Layered Dijkstra flow field on the 2 m nav grid. One field per goal group. A move between neighbouring cells
-// is legal only if they share a traversal layer (Surface or Trench) or one of them is a Link cell, so paths
-// enter and leave trenches only through ladders, ramps and vault points. Time-slicing across ticks and the
-// per-team goal-group manager are still to do (see FlowFieldManager).
+// Phase: A1 (implemented) — depends on: MapData (P0)
+// Layered Dijkstra flow field on the 2 m nav grid. FlowFieldManager owns one per goal; tests build them standalone.
+// Infantry mode: a move between neighbouring cells is legal only if they share a traversal layer (Surface or Trench)
+// or one of them is a Link cell, so paths enter and leave trenches only through ladders, ramps and vault points.
+// Tracked mode (vehicles): links mean nothing; a trench cell is crossed directly at a high cost when the trench is
+// narrow enough for the vehicle (FlowFieldManager.TrenchCrossable) and never entered otherwise; wire is crushed.
 using System;
 using Unity.Burst;
 using Unity.Collections;
@@ -12,14 +13,19 @@ using TW.Sim.Terrain;
 
 namespace TW.Sim.Nav
 {
+    public enum NavMode : byte { Infantry = 0, Tracked = 1 }
+
     public struct FlowField : IDisposable
     {
         public const int Unreachable = int.MaxValue;
         public const byte NoDirection = 255;
+        public const int TrackedTrenchCost = 20;   // per trench cell while a tracked vehicle crosses it
+        public const int TrackedWireCost = 2;      // tracks crush wire
 
         public int Width, Length;
         public NativeArray<int> Integration;   // accumulated cost to reach the goal (units: cost*10 straight, cost*14 diagonal)
         public NativeArray<byte> Direction;    // 0..7 index into Offsets; 255 = goal cell or unreachable
+        readonly bool owns;
 
         // 8-neighbourhood, fixed order (determinism): E, NE, N, NW, W, SW, S, SE  (x right, z up)
 
@@ -28,6 +34,15 @@ namespace TW.Sim.Nav
             Width = width; Length = length;
             Integration = new NativeArray<int>(width * length, allocator);
             Direction = new NativeArray<byte>(width * length, allocator);
+            owns = true;
+        }
+
+        /// <summary>Non-owning view over slices of a larger buffer (FlowFieldManager). Dispose is a no-op.</summary>
+        public FlowField(int width, int length, NativeArray<int> integration, NativeArray<byte> direction)
+        {
+            Width = width; Length = length;
+            Integration = integration; Direction = direction;
+            owns = false;
         }
 
         public bool IsCreated => Integration.IsCreated;
@@ -64,7 +79,8 @@ namespace TW.Sim.Nav
             }
         }
 
-        static bool CanStep(byte from, byte to)
+        /// <summary>Infantry traversal rule: trenches are entered and left only through Link cells.</summary>
+        public static bool CanStepInfantry(byte from, byte to)
         {
             if ((to & (byte)NavLayer.Blocked) != 0) return false;
             const byte traversal = (byte)(NavLayer.Surface | NavLayer.Trench);
@@ -72,23 +88,55 @@ namespace TW.Sim.Nav
             return (from & to & traversal) != 0;
         }
 
-        /// <summary>Synchronous full rebuild. Goals are nav cell indices.</summary>
-        public void Build(MapData map, NativeArray<int> goals)
+        /// <summary>Traversal rule per nav mode. <paramref name="toTrench"/> is the trench id of the destination cell (-1 none).</summary>
+        public static bool CanStep(NavMode mode, byte from, byte to, short toTrench, NativeArray<byte> trenchCrossable)
+        {
+            if (mode == NavMode.Infantry) return CanStepInfantry(from, to);
+            if ((to & (byte)NavLayer.Blocked) != 0) return false;
+            if ((to & (byte)NavLayer.Trench) != 0) return toTrench >= 0 && toTrench < trenchCrossable.Length && trenchCrossable[toTrench] != 0;
+            return true;
+        }
+
+        public static int StepCost(NavMode mode, byte layer, byte cost)
+        {
+            if (mode == NavMode.Tracked)
+            {
+                if ((layer & (byte)NavLayer.Trench) != 0) return TrackedTrenchCost;
+                if ((layer & (byte)NavLayer.Wire) != 0) return TrackedWireCost;
+            }
+            return cost;
+        }
+
+        /// <summary>Synchronous infantry-mode rebuild. Goals are nav cell indices.</summary>
+        public void Build(MapData map, NativeArray<int> goals) => Build(map, goals, NavMode.Infantry, default);
+
+        /// <summary>Synchronous full rebuild. <paramref name="trenchCrossable"/> has one byte per TrenchDef and is only read in Tracked mode.</summary>
+        public void Build(MapData map, NativeArray<int> goals, NavMode mode, NativeArray<byte> trenchCrossable)
         {
             // Callers hand in Temp-allocated goal lists; the job safety system rejects Temp containers on any job, Run() included,
             // so the goals are copied into a TempJob array for the duration of the build.
             using var jobGoals = new NativeArray<int>(goals.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             jobGoals.CopyFrom(goals);
-            var job = new BuildJob { Width = Width, Length = Length, Layers = map.NavLayers, Cost = map.NavCost, Goals = jobGoals, Integration = Integration, Direction = Direction };
+            bool ownCrossable = !trenchCrossable.IsCreated;
+            var crossable = ownCrossable ? new NativeArray<byte>(1, Allocator.TempJob) : trenchCrossable;
+            var job = new BuildJob
+            {
+                Width = Width, Length = Length, Mode = mode, Layers = map.NavLayers, Cost = map.NavCost, CellTrenchId = map.CellTrenchId,
+                TrenchCrossable = crossable, Goals = jobGoals, Integration = Integration, Direction = Direction,
+            };
             job.Run();
+            if (ownCrossable) crossable.Dispose();
         }
 
         [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct BuildJob : IJob
         {
             public int Width, Length;
+            public NavMode Mode;
             [ReadOnly] public NativeArray<byte> Layers;
             [ReadOnly] public NativeArray<byte> Cost;
+            [ReadOnly] public NativeArray<short> CellTrenchId;
+            [ReadOnly] public NativeArray<byte> TrenchCrossable;
             [ReadOnly] public NativeArray<int> Goals;
             public NativeArray<int> Integration;
             public NativeArray<byte> Direction;
@@ -118,14 +166,14 @@ namespace TW.Sim.Nav
                         if (nx < 0 || nz < 0 || nx >= Width || nz >= Length) continue;
                         int nc = nz * Width + nx;
                         byte to = Layers[nc];
-                        if (!CanStep(from, to)) continue;
+                        if (!CanStep(Mode, from, to, CellTrenchId[nc], TrenchCrossable)) continue;
                         // corner cutting through blocked cells is not allowed on diagonals
                         if ((d & 1) == 1)
                         {
                             int ax = z * Width + nx, az = nz * Width + x;
                             if ((Layers[ax] & (byte)NavLayer.Blocked) != 0 || (Layers[az] & (byte)NavLayer.Blocked) != 0) continue;
                         }
-                        int step = Cost[nc] * ((d & 1) == 1 ? 14 : 10);
+                        int step = StepCost(Mode, to, Cost[nc]) * ((d & 1) == 1 ? 14 : 10);
                         int nCost = cost + step;
                         if (nCost < Integration[nc])
                         {
@@ -148,7 +196,7 @@ namespace TW.Sim.Nav
                         int nx = x + o.x, nz = z + o.y;
                         if (nx < 0 || nz < 0 || nx >= Width || nz >= Length) continue;
                         int nc = nz * Width + nx;
-                        if (!CanStep(from, Layers[nc])) continue;
+                        if (!CanStep(Mode, from, Layers[nc], CellTrenchId[nc], TrenchCrossable)) continue;
                         int v = Integration[nc];
                         if (v < best) { best = v; bestD = (byte)d; }
                     }
@@ -202,6 +250,7 @@ namespace TW.Sim.Nav
 
         public void Dispose()
         {
+            if (!owns) return;
             if (Integration.IsCreated) Integration.Dispose();
             if (Direction.IsCreated) Direction.Dispose();
         }

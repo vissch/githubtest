@@ -58,14 +58,14 @@ C#. `unity test` is the real gate.
 ## What is implemented vs. stubbed
 | Implemented (Phase 0 / M1 groundwork) | Stubbed with `// Phase:` header |
 |---|---|
-| `SimWorld` tick loop, slot allocator, economy, command validation, state hash, seeded RNG, platform-safe math | Direct/indirect fire, suppression, armour, gas/smoke, deformation, trench orders, garrison, stances |
+| `SimWorld` tick loop, slot allocator, economy, command validation, state hash, seeded RNG, platform-safe math, stance/terrain speed rules | Direct/indirect fire, suppression, armour, gas/smoke, deformation, stance overrides |
 | Map data contract, heightfield, greybox corridor generator | Wire, mud, crater stamps, map authoring tool |
-| Layered flow field (trench/surface/link), spatial hash, separation, movement | Flow-field goal manager, vehicle kinematics |
+| Layered flow fields per goal (`FlowFieldManager`: trench / objective / rally / cell goals, infantry and tracked modes, time-sliced rebuilds), spatial hash, separation with vehicle avoidance, infantry movement with garrison stop, vehicle kinematics, trench orders `>>` `↑` lock `↩` hold-fire | Ownership flips (sector control), fire-step assignment, wheeled vehicles, bog checks |
 | Heightfield line-of-sight raycast | Target acquisition, blast, burning |
 | Lockstep driver + loopback transport with latency/jitter/loss, replay recorder/player (format v2) | Unity Transport session, hash exchange, snapshots |
 | Presenter (pose interpolation), event pump, tactical camera, debug overlay, greybox terrain view | VAT renderer, ragdolls, terrain chunks, VFX, audio, UI |
 | ScriptableObject schemas, data baker, slice roster generator (British, German, French vehicles, all off-map abilities) | Mission runner, wave AI (schemas exist) |
-| EditMode tests (determinism, replay, hash, flow field, raycast, commands) and PlayMode lockstep tests | — |
+| EditMode tests (determinism, replay, hash, flow field, flow-field manager, garrison and orders, raycast, commands) and PlayMode lockstep tests incl. the M1 2,000-unit / 5,000-tick acceptance run | — |
 
 ## Working in phases
 Every assembly under `Assets/_Project` maps to a phase in [01 Phases and dependencies](docs/01-phases-and-dependencies.md).

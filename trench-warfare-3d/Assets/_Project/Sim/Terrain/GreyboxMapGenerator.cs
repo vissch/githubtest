@@ -40,17 +40,18 @@ namespace TW.Sim.Terrain
             return map;
         }
 
-        /// <summary>A straight fire trench across the full width at world Z, 2 cells (4 m) deep in Z, with a link every 10 cells.</summary>
+        /// <summary>A straight fire trench across the full corridor width at world Z, 2 cells deep in Z, with a link every 10 cells.
+        /// It reaches both map edges so that nothing can bypass it round the end (tanks must cross, infantry must use links).</summary>
         static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1)
         {
             int zc = (int)(z / MapData.NavCellSize);
             var def = new TrenchDef
             {
-                Id = id, OwnerTeam = team, Kind = 0, FacingYaw = facingYaw,
+                Id = id, OwnerTeam = team, Kind = 0, FacingYaw = facingYaw, WidthMeters = 3f,
                 CellStart = map.TrenchCells.Length, FireStepStart = map.FireStepCells.Length, LinkStart = map.LinkCells.Length,
                 NextTrenchForTeam0 = next0, NextTrenchForTeam1 = next1,
             };
-            for (int x = 2; x < map.NavWidth - 2; x++)
+            for (int x = 0; x < map.NavWidth; x++)
             {
                 for (int dz = 0; dz < 2; dz++)
                 {
@@ -59,6 +60,7 @@ namespace TW.Sim.Terrain
                     map.SetLayer(x, cz, link ? (NavLayer.Trench | NavLayer.Link) : NavLayer.Trench);
                     int idx = map.NavIndex(x, cz);
                     map.TrenchCells.Add(idx);
+                    map.CellTrenchId[idx] = id;
                     if (link) map.LinkCells.Add(idx);
                 }
                 // fire-step is the trench cell on the enemy-facing side

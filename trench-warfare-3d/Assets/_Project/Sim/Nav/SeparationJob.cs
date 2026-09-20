@@ -1,6 +1,7 @@
-// Phase: A1 (initial implementation)
-// Soft repulsion between infantry within 2r. Each slot reads its own 3x3 hash buckets and writes only its own
-// velocity adjustment, so the job is parallel and deterministic.
+// Phase: A1 (implemented)
+// Soft repulsion between infantry within 2r, plus avoidance of vehicles. Each slot reads its own 3x3 hash buckets
+// and the (short) vehicle list and writes only its own velocity adjustment, so the job is parallel and deterministic.
+// Vehicles take no push: they are moved by VehicleKinematicsSystem and shove infantry, not the other way round.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -11,18 +12,21 @@ namespace TW.Sim.Nav
     [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
     public struct SeparationJob : IJobParallelFor
     {
-        public const float Radius = 0.5f;       // infantry collision radius (m)
-        public const float Strength = 4f;       // m/s per metre of overlap
+        public const float Radius = 0.5f;          // infantry collision radius (m)
+        public const float VehicleRadius = 2.5f;   // hull half-width used for infantry avoidance (m)
+        public const float Strength = 4f;          // m/s per metre of overlap
 
         [ReadOnly] public SpatialHash Hash;
         [ReadOnly] public NativeArray<float3> Position;
         [ReadOnly] public NativeArray<uint> Flags;
-        public NativeArray<float3> Push;        // output: additive velocity for this tick
+        [ReadOnly] public NativeArray<int> Vehicles;   // alive vehicle slots (slot order)
+        public NativeArray<float3> Push;               // output: additive velocity for this tick
 
         public void Execute(int i)
         {
             Push[i] = float3.zero;
-            if ((Flags[i] & (uint)UnitFlags.Alive) == 0) return;
+            uint f = Flags[i];
+            if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) return;
             float3 p = Position[i];
             int cx = math.clamp((int)(p.x / Hash.CellSize), 0, Hash.Width - 1);
             int cz = math.clamp((int)(p.z / Hash.CellSize), 0, Hash.Length - 1);
@@ -37,7 +41,7 @@ namespace TW.Sim.Nav
                 {
                     do
                     {
-                        if (j == i) continue;
+                        if (j == i || (Flags[j] & (uint)UnitFlags.Vehicle) != 0) continue;
                         float3 d = p - Position[j];
                         d.y = 0f;
                         float dist = SimMath.Length(d);
@@ -47,6 +51,20 @@ namespace TW.Sim.Nav
                             sum += n * (diameter - dist) * Strength;
                         }
                     } while (Hash.Map.TryGetNextValue(out j, ref it));
+                }
+            }
+            // vehicles: few of them, so every unit checks the whole list rather than widening the bucket search
+            float reach = Radius + VehicleRadius;
+            for (int k = 0; k < Vehicles.Length; k++)
+            {
+                int j = Vehicles[k];
+                float3 d = p - Position[j];
+                d.y = 0f;
+                float dist = SimMath.Length(d);
+                if (dist < reach)
+                {
+                    float3 n = dist > 1e-4f ? d / dist : new float3(((i & 1) == 0) ? 1f : -1f, 0f, 0f);
+                    sum += n * (reach - dist) * Strength;
                 }
             }
             Push[i] = sum;

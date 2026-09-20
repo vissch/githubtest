@@ -66,3 +66,4 @@ Dropping is deterministic because validation reads only sim state, never present
 | Date | Change | Replay format |
 |---|---|---|
 | 2026-09-20 | Replay header gains `FormatVersion` (ushort), `MapHash` (ulong, `MapData.Hash()`), `DataHash` (ulong, baked stat tables; 0 until C2 wires it). `ReplayPlayer.Parse` rejects a mismatched format version. | v1 → **v2** |
+| 2026-09-20 (M1) | Map data: `TrenchDef.WidthMeters` (tracked vehicles cross a trench ≤ 3.5 m), `MapData.CellTrenchId` (nav cell → trench id, derived), `MapData.Version` (bumped on every nav/height mutation; the tick hash covers it instead of the arrays). Per-slot state: `SimWorld.SourceTrench` (trench a unit last left under orders; the `↩` target), hashed. Layout unchanged, but hashes of replays recorded before this commit no longer verify. | v2 (hash content) |

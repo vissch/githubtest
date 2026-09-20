@@ -74,7 +74,7 @@ off-map support. The plan then added ~30 new systems. The slice proves the **cor
 | Milestone | Composed of | Acceptance |
 |---|---|---|
 | **P0.5 Baseline is true** | §2 fixes, Entities out, metas + ProjectSettings committed, `unity test` green (EditMode + PlayMode), CI workflow committed | `unity test --mode EditMode` and `--mode PlayMode` exit 0 on a fresh clone; `validate.py` OK |
-| **M1 Greybox corridor** | A1 (goal-group `FlowFieldManager`, garrison stop, vehicle kinematics), B1 done, N1 done, greybox generator | 2,000 capsules flow through trench links; two loopback sims with 120 ms fake latency stay hash-identical for 5,000 ticks; sim ≤ 3 ms/tick |
+| **M1 Greybox corridor** — **done 2026-09-20** | A1: `FlowFieldManager` (goal table, lazy fields, ≤ 2 rebuilds/tick, tracked-vehicle mode), garrison stop + `>>` `↑` lock `↩` hold-fire orders (`TrenchOrdersSystem`, A1 initial), stance/terrain speed, `VehicleKinematicsSystem`; B1, N1, greybox generator | Measured: 2,000 units, `>>` on both sides, 5,000 ticks over loopback with 3-tick latency / 2 jitter / 10 % loss, hash-identical, **0.31 ms/tick** (budget 3). `LockstepLoopbackTests.M1_TwoThousandUnits_AdvanceAcrossCorridor_StayInSync` |
 | **M1.5 Fun gate** *(new)* | A2 core (LoS, direct fire, near-miss suppression, garrison/fire-step), A3 core (deploy, silver, `>>` / `↩`, objective capture), A5a-lite (one HE barrage with crater stamp, one gas cloud); capsules + IMGUI only | Two trench lines, riflemen + MG, one scripted enemy wave. **Playtest with both developers: is trench-to-trench assault better in 3D than in 2D?** Decide unit density and whether VAT is needed. Nothing below is scheduled until this passes. |
 | **M2 Look** | B3 (as sized by M1.5), B6 UI, B2 terrain mesh + trench kit, C2 British/German infantry | Riflemen visibly garrison and fire from the fire-step; `>>` / `↩` from the UI; ≤ 3 draw calls per archetype if VAT |
 | **M3 Mission 1** | A4 craters/wire/mud, A5a full, A6, B5 (particles), C3 Ypres | Mission 1 completable on Normal |
@@ -140,8 +140,12 @@ an agent can drive the open editor once `com.unity.pipeline` is in the project.
 
 - Wire `MapHash` into `ReplayRecorder` at the call sites (`LockstepDriver`, tests) and `DataHash` when C2 bakes
   tables into the sim.
-- `SeparationJob` carries a `[ReadOnly] SpatialHash` struct inside an `IJobParallelFor`; the Jobs Debugger may
-  object to the nested container attribute. Check on the first PlayMode run with the debugger on.
+- ~~`SeparationJob` `[ReadOnly] SpatialHash` inside an `IJobParallelFor`~~ — runs clean under the safety system.
+- M1 findings to carry into A2/A3: a garrison only spreads by separation, so A2 should assign fire-step cells
+  along the trench; real maps must close trench ends (blocked cells or wire) or units and tanks path round
+  them, as the tracked field did before the greybox trenches were extended to the edges; `GoalKind.Rally` exists
+  but deploy does not use it until A3 logistics; ownership never flips until A3 sector control, so a `>>` into
+  the enemy trench garrisons it without capturing it.
 - Bump `SimConfig.MaxSlots` when vehicles/emplacements land (A3).
 - Decide camera max zoom-out (B1) before sizing B3 render tiers.
 - ~~Add `com.unity.pipeline`~~ Done: `com.unity.pipeline@0.7.0-exp.1` is in the manifest and its agent skill is mirrored at

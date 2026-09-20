@@ -14,19 +14,24 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
 | `github-test1/` | Unrelated older test project. Do not touch |
 
 ## 2. State of the work
-- The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode (see the P0.5 commit for the
-  exact run). Entities / Entities Graphics were removed; the replay format is v2.
+- **M1 is done.** A1 is implemented: `FlowFieldManager` (goals, lazy time-sliced fields, tracked mode), garrison stop,
+  trench orders (`TrenchOrdersSystem`, initial), stance/terrain speed, `VehicleKinematicsSystem`. The M1 acceptance run
+  (`M1_TwoThousandUnits_AdvanceAcrossCorridor_StayInSync`) holds 2,000 units hash-identical over lossy loopback for
+  5,000 ticks at 0.31 ms/tick. In the greybox scene: 1-5 deploy, Space `>>`, Backspace `↩`, L lock, F3 cycles the
+  flow-field view; `SimHost.StressUnits` deploys N per side and sends both over the top.
+- The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode. Entities / Entities Graphics
+  were removed; the replay format is v2 (hash content changed again at M1, see docs/02 change log).
 - Decisions that shape everything after this: Windows x64 only; online multiplayer deferred until after Mission 3;
   two developers, one can do art; unit density (300 vs 2,000) decided at the **M1.5 fun gate**.
 - Unity tooling on the workstation: Unity CLI 1.0.0-beta, the `unity@unity-agent-plugin` Claude Code plugin, and the
   Unity MCP server registered for Claude Code (`unity mcp configure claude-code`).
 
 ## 3. Next steps in order (docs/11 §5)
-1. **M1**: finish A1 — goal-group `FlowFieldManager`, trench garrison stop, vehicle kinematics. Greybox stays a
-   generator (no map-authoring window).
-2. **M1.5 fun gate**: A2 core (LoS, direct fire, near-miss suppression, garrison/fire-step), A3 core (deploy, silver,
-   `>>` / `↩`, capture), one HE barrage with crater, one gas cloud — capsules and IMGUI only. Playtest. Nothing below
-   is scheduled until it passes.
+1. ~~M1~~ done.
+2. **M1.5 fun gate**: A2 core (target acquisition, direct fire, near-miss suppression, fire-step assignment along the
+   garrisoned trench, hold-fire), A3 core (sector control so a `>>` into the enemy trench captures it and flips
+   ownership; deploy queue / logistics can wait), one HE barrage with crater stamp, one gas cloud — capsules and
+   IMGUI only. Playtest with both developers. Nothing below is scheduled until it passes.
 3. M2 look (B3 sized by the gate, B6, B2, C2 infantry) → M3 Mission 1 → M4 Mission 2 → M5 Mission 3 + perf → M6
    online (if required) → M7 meta.
 
