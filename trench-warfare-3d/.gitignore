@@ -37,3 +37,5 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 DeterminismReport-*.txt
+test-results*.xml
+*.junit.xml

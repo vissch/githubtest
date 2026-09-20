@@ -5,7 +5,7 @@ import json, pathlib, re, sys
 root = pathlib.Path(__file__).parent
 errors = []
 asm = {}
-for p in list(root.rglob('*.asmdef')) + [root / 'Packages/manifest.json']:
+for p in list((root / 'Assets').rglob('*.asmdef')) + [root / 'Packages/manifest.json']:  # Assets only: Library/PackageCache holds package asmdefs
     try:
         d = json.loads(p.read_text())
     except Exception as e:

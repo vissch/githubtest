@@ -12,9 +12,10 @@ command stream. Every rule below exists to protect that property.
   `UnityEngine.Random`, PhysX, or managed collections in sim. Seeded `Unity.Mathematics.Random` from
   `hash(matchSeed, tick, systemId, slot)`.
 - Parallel jobs write only to their own index; reductions are fixed-order.
-- Transcendentals via `SimMath` (LUT sin/cos/atan2, integer sqrt option) so cross-platform behaviour is ours.
-- **Phase 0 gate:** cross-platform determinism test (Windows x64 / Linux x64 / macOS ARM64). If strict floats
-  diverge, switch `SimMath` to Q32.32 fixed-point; the abstraction keeps the swap local.
+- Transcendentals via `SimMath` (polynomial sin/cos/atan2 built from +, −, ×, ÷, sqrt under `FloatMode.Strict`) so behaviour is ours, not the platform libm's.
+- **Platform decision (2026-09-20):** Windows x64 is the only ship target. The sim is float-based under Burst
+  `FloatMode.Strict`; there is **no fixed-point fallback** (`SimMath.Fixed` is a placeholder, not a swap — every sim
+  array is `float`/`float3`). Determinism is guaranteed same-build, same-architecture. Online play, if it ships, is x64-only.
 - Ragdolls/PhysX are cosmetic, presentation-only, never read back into sim.
 
 ## Code review checklist for anything under `Assets/_Project/Sim/`
@@ -26,16 +27,17 @@ command stream. Every rule below exists to protect that property.
 - [ ] New state arrays are registered in `SimWorld.Hash()` and in `Snapshot` (or explicitly marked transient)
 - [ ] `sin/cos/atan2/sqrt/exp` go through `SimMath`
 - [ ] Tests: `DeterminismReplayTests` still pass
+- [ ] New sim system: a `DeterminismReplayTests` case runs with the system registered, and its arrays are covered by `SimWorld.Hash()`
 
-## Platform gate (Phase 0)
-Run `TW → Determinism → Write Platform Report` on each target machine. It steps the greybox sim for 2,000 ticks with
-seed `0xC0FFEE` and writes the per-tick hash list to `DeterminismReport-<platform>.txt`. Compare files across
-platforms. Record results here:
+## Same-build gate (replaces the cross-platform gate)
 
-| Date | Platform A | Platform B | Result | Action |
+`TW → Determinism → Write Platform Report` steps the greybox sim for 2,000 ticks with seed `0xC0FFEE` and writes the
+per-tick hash list to `DeterminismReport-<platform>-<arch>.txt` (gitignored). Run it on two Windows x64 machines, or
+once from the editor and once from a player build, and diff the files. Record results here:
+
+| Date | Build A | Build B | Result | Action |
 |---|---|---|---|---|
-| (pending) | Windows x64 | Linux x64 | | |
-| (pending) | Windows x64 | macOS ARM64 | | |
+| (pending) | Editor, Burst on | Player build | | |
 
-If any pair diverges: switch `SimMath` to the fixed-point implementation (`SimMath.Fixed`) and re-run. If they still
-diverge, restrict matchmaking to same-architecture peers until the source is found.
+A divergence between editor and player usually means a job ran managed in one and Burst-compiled in the other
+(check `Burst → Enable Compilation` and that every sim job carries `[BurstCompile]`), not a platform issue.

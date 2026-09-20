@@ -10,7 +10,11 @@
     "TW.Sim.Match",
     "TW.Sim.Terrain",
     "TW.Net",
-    "TW.Presentation.Core"
+    "TW.Presentation.Core",
+    "TW.Sim.Nav",
+    "TW.Sim.Combat",
+    "TW.Sim.Units",
+    "TW.Data"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

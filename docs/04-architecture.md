@@ -6,14 +6,15 @@
 Simulation never references presentation. Presentation reads interpolated snapshots and an event stream.
 The three contracts ([02-contracts](02-contracts.md)) are frozen in Phase 0; every later phase builds against them independently.
 
-## Deterministic sim core = plain Burst Structure-of-Arrays; Entities = presentation world
+## Deterministic sim core = plain Burst Structure-of-Arrays; presentation reads the pose stream
 Authoritative state is a `SimWorld` struct of `NativeArray`/`NativeList` keyed by **stable slot indices**
 (free-list, generation counter), stepped by Burst jobs at a fixed tick.
 - Hashing/snapshotting (desync detection, late join, replays) is a byte walk over contiguous arrays.
 - No `EntityCommandBuffer` ordering subtleties in the sim.
-- Entities 1.3 + Entities Graphics run the **presentation world**: one entity mirrors each visible sim slot;
-  BatchRendererGroup instancing for non-VAT meshes (vehicles, guns, wire, props). VAT infantry uses
-  `Graphics.RenderMeshIndirect` from a job-filled `GraphicsBuffer`.
+- Presentation is plain MonoBehaviours + jobs over `SimPresenter`'s pose stream; **no Entities** (dropped 2026-09-20,
+  [11-plan-review](11-plan-review.md) §3 — nothing referenced it and its package pin broke the import).
+  `BatchRendererGroup` instancing for non-VAT meshes (vehicles, guns, wire, props). VAT infantry uses
+  `Graphics.RenderMeshIndirect` from a job-filled `GraphicsBuffer` — built only if the M1.5 fun gate shows 2,000 units matter.
 
 ## Lockstep and networking
 Command frames with 2–3 ticks input delay, per-tick hash exchange, desync dump, deterministic replay files.

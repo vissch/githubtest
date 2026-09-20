@@ -53,6 +53,10 @@ Target: **60 fps (16.6 ms) at 1920×1080** on a GTX 1050 / Intel Iris Xe with a 
 | Corpse instances | ≤ 1,000 before oldest-first fade |
 | Managed allocations during play | **0 B/frame** (verified with Profiler GC Alloc column) |
 
+`SimConfig.MaxSlots = 2048` is a **combined** cap (infantry + vehicles + emplacements). The target above (2,000 + 20 + 40)
+does not fit; bump to 4096 when A3 lands vehicles and emplacements. Whether 2,000 infantry is a requirement at all is
+decided at the M1.5 fun gate.
+
 ## Draw calls
 - Infantry: ≤ 3 `RenderMeshIndirect` calls per archetype per LOD tier.
 - Terrain: 1 draw per visible chunk, shared material.

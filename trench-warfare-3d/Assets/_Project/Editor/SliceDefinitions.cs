@@ -20,6 +20,7 @@ namespace TW.Editor
         {
             Directory.CreateDirectory($"{Root}/Weapons"); Directory.CreateDirectory($"{Root}/British");
             Directory.CreateDirectory($"{Root}/German"); Directory.CreateDirectory($"{Root}/French"); Directory.CreateDirectory($"{Root}/Abilities");
+            AssetDatabase.Refresh(); // folders must be imported before CreateAsset can target them
 
             // ---- weapons ----
             var smle = Weapon(1, "SMLE Mk III", 25, 60, 0.8f, acc: 0.6f);

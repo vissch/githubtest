@@ -18,21 +18,23 @@ support fire, and a silver-per-second in-match economy. 3D adds what the 2D game
 ## Hard constraints
 | Constraint | Value |
 |---|---|
-| Engine | Unity 6 LTS (6000.0.x), URP 17, Entities 1.3, Burst 1.8, Collections 2.5 |
-| Multiplayer | Deterministic lockstep from day one; single-player is the same sim with an AI peer |
-| Hardware target | 60 fps at 1080p on GTX 1050 / Intel Iris Xe, quad-core CPU |
+| Engine | Unity 6 LTS (6000.0.50f1), URP 17, Burst 1.8, Collections 2.5, Mathematics 1.3 — **no Entities** (dropped 2026-09-20, [11-plan-review](11-plan-review.md) §3) |
+| Multiplayer | Deterministic lockstep from day one; single-player is the same sim with an AI peer. Online transport (N2/N3) comes **after** the single-player slice |
+| Platform / hardware | **Windows x64 only**; 60 fps at 1080p on GTX 1050 / Intel Iris Xe, quad-core CPU |
 | Simulation budget | ≤ 4 ms per 20 Hz tick at 2,000 infantry slots; 0 B/frame GC allocation |
 | Team | 1–2 developers; two parallel tracks maximum |
 
 ## What "done" looks like per milestone
 | Milestone | Outcome |
 |---|---|
+| P0.5 Baseline is true | Project compiles, EditMode + PlayMode tests green on a fresh clone, CI workflow committed |
 | M1 Greybox corridor | 2,000 capsules flow through trench links under local lockstep, hash-identical across two sims |
+| **M1.5 Fun gate** | Riflemen + MG, two trench lines, one barrage, one gas cloud — capsules only. Playtest decides unit density and whether VAT is built |
 | M2 First firefight | Riflemen on the fire-step, MG enfilade pins an advance, `>>` and `↩` work, VAT infantry rendered |
 | M3 Shells and gas | Barrage craters, gas sinking into trenches, **Mission 1 playable** |
 | M4 Combined arms | Tanks, wire, mud, creeping barrage, **Mission 2 playable** |
-| M5 Online | Two clients over a real network with desync detection and replays |
-| M6 Vertical slice | **Mission 3 playable**, three missions on Normal/Hard at target performance |
+| M5 Vertical slice | **Mission 3 playable**, three missions on Normal/Hard at target performance |
+| M6 Online (if a launch requirement) | Two clients over a real network with desync detection and replays |
 | M7 Modes and meta | Survival, Operations, campaign shell, upgrades, skins |
 
 ## Reading order
@@ -43,3 +45,4 @@ support fire, and a silver-per-second in-match economy. 3D adds what the 2D game
 5. [Performance budgets](05-performance-budgets.md)
 6. [Units and factions](06-units-and-factions.md), [Abilities](07-abilities.md), [Missions](08-missions.md)
 7. [Game modes and meta](09-game-modes-and-meta.md), [Risks](10-risks.md)
+8. **[Plan review and re-cut](11-plan-review.md)** — decisions of 2026-09-20; wins over the docs above where they conflict

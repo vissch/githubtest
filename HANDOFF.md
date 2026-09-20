@@ -1,59 +1,50 @@
 # Handoff: Trench Warfare 1917 → 3D
 
-This branch (`claude/trench-warfare-2d-3d-plan-idt7lf`) holds the approved roadmap and a Unity 6 project skeleton with
-Phase 0 implemented. It was produced in a sandbox that could not push to GitHub. Everything below is what the next agent
-needs to continue.
+Branch `claude/trench-warfare-2d-3d-plan-idt7lf` holds the roadmap, its 2026-09-20 review, and a Unity 6000.0.50f1
+project with Phase 0 implemented and a true, tested baseline (P0.5).
 
 ## 1. Where things are
 | Path | Content |
 |---|---|
-| `docs/PLAN.md` | The approved plan as a single document (architecture, contracts, all units, abilities, three missions, phase graph, schedules) |
-| `docs/00-…10-*.md` | The same plan split into working documents; `docs/01` is the phase and dependency map |
-| `trench-warfare-3d/` | Unity 6000.0 LTS project: 18 assembly definitions, Phase 0 code, stubs for every later phase, tests |
-| `trench-warfare-3d/validate.py` | Offline validation (JSON, assembly graph, sim purity, phase headers). Run it before every commit |
+| `docs/11-plan-review.md` | **Plan of record.** Owner decisions, what was wrong with the first skeleton, re-cut milestones, Unity skill map, open follow-ups |
+| `docs/PLAN.md`, `docs/00-…10-*.md` | The original plan; catalogs (units, abilities, missions) still authoritative, architecture/milestones partly superseded by 11 |
+| `trench-warfare-3d/` | Unity project: 18 assembly definitions, Phase 0 code, stubs for every later phase, tests, generated `ProjectSettings/` and `.meta` files |
+| `trench-warfare-3d/validate.py` | Offline checks (JSON, assembly graph, sim purity, phase headers). Not a compile check |
+| `.github/workflows/unity.yml` | CI from `unity ci init`; needs the secrets named in its header before it goes green |
 | `github-test1/` | Unrelated older test project. Do not touch |
 
 ## 2. State of the work
-- Commit `ec43c27` + this handoff commit contain everything. No uncommitted changes.
-- The C# has **not** been compiled: the sandbox had no Unity. First task for the next agent with Unity access: open the
-  project, fix any compile errors, run `TW → Build Bootstrap Scenes`, then run EditMode and PlayMode tests.
-- Package versions in `Packages/manifest.json` are known-good pins; let the Package Manager resolve newer patches if it asks.
-- The Entities and Entities Graphics packages are installed but no assembly references them yet (B3 adds them).
+- The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode (see the P0.5 commit for the
+  exact run). Entities / Entities Graphics were removed; the replay format is v2.
+- Decisions that shape everything after this: Windows x64 only; online multiplayer deferred until after Mission 3;
+  two developers, one can do art; unit density (300 vs 2,000) decided at the **M1.5 fun gate**.
+- Unity tooling on the workstation: Unity CLI 1.0.0-beta, the `unity@unity-agent-plugin` Claude Code plugin, and the
+  Unity MCP server registered for Claude Code (`unity mcp configure claude-code`).
 
-## 3. Next steps in order (from docs/01)
-1. Compile and run the tests (see above). Fix before anything else.
-2. Milestone M1: finish A1 (goal-group `FlowFieldManager`, trench garrison stop, vehicle kinematics) and C1 map tool greybox.
-3. Then A2 (fire, suppression, cover), A3 (units, orders, economy, sector control), B3 (VAT), B6 (UI) → M2.
-4. Then A4/A5/A6 + B2/B5 + C3 → M3 (Mission 1 playable).
-Every stub carries a `// Phase: <id>` header naming its phase and contract dependencies. Never change the three contracts in
-`docs/02-contracts.md` without bumping the replay format version.
+## 3. Next steps in order (docs/11 §5)
+1. **M1**: finish A1 — goal-group `FlowFieldManager`, trench garrison stop, vehicle kinematics. Greybox stays a
+   generator (no map-authoring window).
+2. **M1.5 fun gate**: A2 core (LoS, direct fire, near-miss suppression, garrison/fire-step), A3 core (deploy, silver,
+   `>>` / `↩`, capture), one HE barrage with crater, one gas cloud — capsules and IMGUI only. Playtest. Nothing below
+   is scheduled until it passes.
+3. M2 look (B3 sized by the gate, B6, B2, C2 infantry) → M3 Mission 1 → M4 Mission 2 → M5 Mission 3 + perf → M6
+   online (if required) → M7 meta.
 
-## 4. Getting the code into GitHub
-The sandbox received HTTP 403 from GitHub: Claude had no write access to `vissch/githubtest` for the organization.
-Either of these fixes it before the next agent starts:
-- An org admin installs the Claude GitHub App on the repository: https://github.com/apps/claude/installations/select_target
-- Or reconnect GitHub in claude.ai settings: https://claude.ai/customize/connectors?auth_start=github&auth_start_force=1
+Every stub carries a `// Phase: <id>` header. Never change the three contracts in `docs/02-contracts.md` without
+bumping `ReplayRecorder.FormatVersion` and logging it in that file's change log.
 
-Then, with the handoff files:
-```bash
-# Option A: git bundle (exact commits, keeps history)
-git clone https://github.com/vissch/githubtest
-cd githubtest
-git fetch ../trench-warfare-handoff.bundle claude/trench-warfare-2d-3d-plan-idt7lf:claude/trench-warfare-2d-3d-plan-idt7lf
-git checkout claude/trench-warfare-2d-3d-plan-idt7lf
-git push -u origin claude/trench-warfare-2d-3d-plan-idt7lf
-
-# Option B: tarball (no git history needed)
-git clone https://github.com/vissch/githubtest && cd githubtest
-git checkout -b claude/trench-warfare-2d-3d-plan-idt7lf
-tar -xzf ../trench-warfare-handoff.tar.gz
-git add -A && git commit -m "Add 3D transition roadmap docs and Unity 6 project skeleton"
-git push -u origin claude/trench-warfare-2d-3d-plan-idt7lf
+## 4. Before every commit
+```powershell
+cd trench-warfare-3d
+python validate.py
+unity test . --mode EditMode --timeout 600
+unity test . --mode PlayMode --timeout 600 -- -nographics
 ```
-Open a pull request against `main` only if the owner asks for one.
+Commit `.meta` files with their assets and `Packages/packages-lock.json` with `manifest.json`. Push to the same branch.
 
 ## 5. Prompt for the next agent
-> Continue the Trench Warfare 3D project on branch `claude/trench-warfare-2d-3d-plan-idt7lf`. Read `HANDOFF.md`, then
-> `docs/PLAN.md` and `docs/01-phases-and-dependencies.md`. First compile the Unity project and make the tests pass, then
-> work the phases in the order in section 3 of HANDOFF.md, keeping the determinism rules in `docs/03` and the frozen
-> contracts in `docs/02`. Run `trench-warfare-3d/validate.py` before each commit and push to the same branch.
+> Continue the Trench Warfare 3D project on branch `claude/trench-warfare-2d-3d-plan-idt7lf`. Read `HANDOFF.md`,
+> then `docs/11-plan-review.md`, then `docs/01-phases-and-dependencies.md` for the systems catalog. Work M1 then the
+> M1.5 fun gate as listed in HANDOFF §3, keeping the determinism rules in `docs/03` and the frozen contracts in
+> `docs/02`. Use the `unity-cli` skill for tests and editor control; run `validate.py` and `unity test` before each
+> commit and push to the same branch.

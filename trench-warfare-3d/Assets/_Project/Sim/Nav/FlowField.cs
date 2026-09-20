@@ -75,7 +75,11 @@ namespace TW.Sim.Nav
         /// <summary>Synchronous full rebuild. Goals are nav cell indices.</summary>
         public void Build(MapData map, NativeArray<int> goals)
         {
-            var job = new BuildJob { Width = Width, Length = Length, Layers = map.NavLayers, Cost = map.NavCost, Goals = goals, Integration = Integration, Direction = Direction };
+            // Callers hand in Temp-allocated goal lists; the job safety system rejects Temp containers on any job, Run() included,
+            // so the goals are copied into a TempJob array for the duration of the build.
+            using var jobGoals = new NativeArray<int>(goals.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            jobGoals.CopyFrom(goals);
+            var job = new BuildJob { Width = Width, Length = Length, Layers = map.NavLayers, Cost = map.NavCost, Goals = jobGoals, Integration = Integration, Direction = Direction };
             job.Run();
         }
 

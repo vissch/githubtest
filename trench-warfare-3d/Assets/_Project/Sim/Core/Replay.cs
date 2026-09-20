@@ -1,5 +1,7 @@
 // Phase: P0 (implemented)
-// Replay file v1: header (config, world init, map id) + per tick (command count, commands, state hash).
+// Replay file v2: header (magic, format version, config, world init, map id, map hash, data hash) + per tick
+// (command count, commands, state hash). Bump FormatVersion whenever a contract in docs/02 or this layout changes;
+// MapHash/DataHash let a player reject a replay recorded against different map or unit data instead of desyncing.
 // Used by DeterminismReplayTests, the platform gate report, desync dumps (N3) and the spectator/replay UI.
 using System.Collections.Generic;
 using System.IO;
@@ -11,14 +13,17 @@ namespace TW.Sim
     public sealed class ReplayRecorder
     {
         public const uint Magic = 0x31525754; // "TWR1"
+        public const ushort FormatVersion = 2;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
+        public ulong MapHash;   // MapData.Hash() of the map the replay was recorded on (0 = unknown)
+        public ulong DataHash;  // hash of the baked unit/weapon/ability tables (0 until C2 wires it)
         public readonly List<SimCommand[]> Commands = new List<SimCommand[]>();
         public readonly List<ulong> Hashes = new List<ulong>();
 
-        public ReplayRecorder(SimConfig config, SimConfig.WorldInit init, int mapId)
-        { Config = config; Init = init; MapId = mapId; }
+        public ReplayRecorder(SimConfig config, SimConfig.WorldInit init, int mapId, ulong mapHash = 0, ulong dataHash = 0)
+        { Config = config; Init = init; MapId = mapId; MapHash = mapHash; DataHash = dataHash; }
 
         public void Record(NativeArray<SimCommand> tickCommands, ulong hashAfterStep)
         {
@@ -31,10 +36,12 @@ namespace TW.Sim
             using var ms = new MemoryStream();
             using var w = new BinaryWriter(ms);
             w.Write(Magic);
+            w.Write(FormatVersion);
             w.Write(Config.TickRate); w.Write(Config.InputDelayTicks); w.Write(Config.MaxSlots); w.Write(Config.Seed);
             w.Write(Config.SilverPerSecond); w.Write(Config.StartingSilver); w.Write(Config.EventCapacity);
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
             w.Write(MapId);
+            w.Write(MapHash); w.Write(DataHash);
             w.Write(Commands.Count);
             for (int t = 0; t < Commands.Count; t++)
             {
@@ -57,6 +64,8 @@ namespace TW.Sim
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
+        public ushort FormatVersion;
+        public ulong MapHash, DataHash;
         public SimCommand[][] Commands;
         public ulong[] Hashes;
         public int TickCount => Commands.Length;
@@ -67,6 +76,9 @@ namespace TW.Sim
             using var r = new BinaryReader(ms);
             if (r.ReadUInt32() != ReplayRecorder.Magic) throw new InvalidDataException("Not a TWR1 replay");
             var p = new ReplayPlayer();
+            p.FormatVersion = r.ReadUInt16();
+            if (p.FormatVersion != ReplayRecorder.FormatVersion)
+                throw new InvalidDataException($"Replay format v{p.FormatVersion}, this build reads v{ReplayRecorder.FormatVersion}");
             p.Config = new SimConfig
             {
                 TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
@@ -75,6 +87,7 @@ namespace TW.Sim
             float3 size = ReadF3(r);
             p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };
             p.MapId = r.ReadInt32();
+            p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
             int ticks = r.ReadInt32();
             p.Commands = new SimCommand[ticks][];
             p.Hashes = new ulong[ticks];

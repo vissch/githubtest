@@ -1,5 +1,10 @@
 # Trench Warfare 1917 → 3D: Phased Project Plan (exhaustive)
 
+> **Superseded in part on 2026-09-20 — read [11-plan-review.md](11-plan-review.md) first.** Entities/Entities Graphics
+> are out (§2.2 below is stale), the sim is float-only with no fixed-point fallback (§2.3), the replay header is v2 (§3),
+> milestones are re-cut with a P0.5 baseline step and an M1.5 fun gate, and Online moves after Mission 3 (§11).
+> Ship target is Windows x64 only. The unit, ability and mission catalogs (§5–§10) are unchanged.
+
 ## 1. Context
 
 Rebuild the lane-based 2D tug-of-war RTS *Trench Warfare 1917* as a 3D tactical title: high-angle isometric

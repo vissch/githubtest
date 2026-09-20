@@ -60,3 +60,9 @@ Dropping is deterministic because validation reads only sim state, never present
 - `a` / `b` carry slot indices, trench ids, objective ids or ability ids depending on `type` (see the enum comments in `SimEvents.cs`).
 - `scalar` carries damage, concentration or radius; `dir` carries shot direction or wind.
 - Presentation must tolerate dropped events (ring buffer overrun is reported via `SimEvents.Overrun`) and rebuild from state, never rely on events for correctness.
+
+## Change log
+
+| Date | Change | Replay format |
+|---|---|---|
+| 2026-09-20 | Replay header gains `FormatVersion` (ushort), `MapHash` (ulong, `MapData.Hash()`), `DataHash` (ulong, baked stat tables; 0 until C2 wires it). `ReplayPlayer.Parse` rejects a mismatched format version. | v1 → **v2** |

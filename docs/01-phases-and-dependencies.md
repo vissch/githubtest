@@ -1,6 +1,9 @@
 # Phases, dependencies and schedules
 
 > Part of the Trench Warfare 3D roadmap. See [README](../README.md) for the index.
+>
+> **Re-cut 2026-09-20:** milestones below were revised in [11-plan-review](11-plan-review.md) §5 — a P0.5 baseline step, a new **M1.5 fun gate** before
+> any presentation investment, A5 split into A5a/b/c, and Online (N2/N3) moved after Mission 3. The systems catalog is unchanged.
 
 ## Systems catalog by phase
 
@@ -10,7 +13,7 @@
 | Project | New Unity 6 LTS project, packages, `.gitignore`, folder layout, asmdefs (see [04-architecture](04-architecture.md)) |
 | `SimWorld` | Slot arrays: `pos, vel, yaw, hp, suppression, stance, team, archetype, trenchId, layer, targetSlot, cooldowns, flags`; free-list; `Step()` runs systems in fixed order |
 | `SimConfig` | Tick rate, input delay, grid sizes, tuning constants (ScriptableObject → blob) |
-| `SimRandom`, `SimHash` (xxHash64 over arrays), `SimMath` (LUT transcendentals) |
+| `SimRandom`, `SimHash` (FNV-1a 64 over arrays), `SimMath` (polynomial transcendentals under Burst Strict) |
 | `SimEvents` | Ring buffer, per-tick begin/end indices |
 | `ReplayRecorder/Player` | Seed + map id + command stream + per-tick hashes, file format v1 |
 | `MapData` + `GreyboxMapGenerator` | Flat corridor, one trench line per side, links, spawn points |
@@ -160,15 +163,19 @@ graph TD
 ### Milestones and acceptance criteria
 | Milestone | Composed of | Acceptance |
 |---|---|---|
-| M1 Greybox corridor | P0, A1, B1, N1, C1 (greybox) | 2,000 capsules flow across the corridor through trench links; two loopback sims with 120 ms fake latency stay hash-identical for 5,000 ticks; sim ≤ 3 ms/tick |
+| P0.5 Baseline is true | compile fixes, Entities out, metas + ProjectSettings, `unity test` green, CI | EditMode + PlayMode exit 0 on a fresh clone |
+| M1 Greybox corridor | P0, A1, B1, N1, greybox generator | 2,000 capsules flow across the corridor through trench links; two loopback sims with 120 ms fake latency stay hash-identical for 5,000 ticks; sim ≤ 3 ms/tick |
+| **M1.5 Fun gate** | A2 core, A3 core, A5a-lite (one HE, one gas), capsules + IMGUI | Playtest: is trench-to-trench assault better in 3D? Decides unit density and B3 scope |
 | M2 First firefight | A2, A3, B3, B6 (slots + trench widgets), C2 (Brit/Ger infantry) | Riflemen garrison and fire from fire-step, MG enfilade pins an advancing wave, `>>`/`↩` work; VAT infantry ≤ 3 draw calls per archetype |
 | M3 Shells and gas → **Mission 1 playable** | A4, A5 (HE, gas, smoke, sniper, sentry), A6, B2, B5, C3 (M1) | Barrage carves craters, gas sinks into trenches, Mission 1 completable on Normal |
 | M4 Combined arms → **Mission 2 playable** | A5 (creeping barrage, field gun, armor, Bangalore, tanks), B4, C1 (Somme) | Mission 2 completable; tank crosses trench, bogs in mud, wire crushed |
-| M5 Online | N2, N3 | Two clients over a real network, symmetric map, desync detected and dumped, replay playback |
-| M6 Vertical slice → **Mission 3 playable** | A5 (mines, fascine, AA, flamethrower, A7V), B7, C2 full, C3 (M3), perf pass | Three missions on Normal/Hard, **60 fps on GTX 1050 at 1080p**, sim ≤ 4 ms/tick at 2,000 units, zero GC alloc/frame |
+| M5 Vertical slice → **Mission 3 playable** | A5c (mines, fascine, AA, flamethrower, A7V), B7, C2 full, C3 (M3), perf pass | Three missions on Normal/Hard, **60 fps on GTX 1050 at 1080p**, sim ≤ 4 ms/tick at 2,000 units, zero GC alloc/frame |
+| M6 Online (only if a launch requirement) | N2, N3 | Two clients over a real network, symmetric map, desync detected and dumped, replay playback |
 | M7 Modes + meta | A7 | Survival, Operations, campaign shell, upgrades, skins |
 
 ### Single-developer order
+> Original ordering; apply the re-cut in [11-plan-review](11-plan-review.md) §5 (M1.5 after M1, B3 after M1.5, N2/N3 last).
+
 P0 → B1 → C1 (greybox) → A1 → N1 → **M1** → A2 → A3 → C2 (infantry) → B3 → B6 → **M2** → A4 → B2 →
 A5 (HE, gas, smoke, sniper, sentry) → B5 → A6 → C3 (M1) → **M3** → A5 (armor, field gun, creeping, Bangalore) →
 B4 → C1 (Somme) → C3 (M2) → **M4** → N2 → N3 → **M5** → A5 (mines, fascine, AA, flamethrower) → B7 →

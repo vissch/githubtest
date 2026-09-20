@@ -17,7 +17,7 @@ namespace TW.Sim.Nav
 
         readonly MapData map;
         public FlowField FieldTeam0, FieldTeam1;   // goal = enemy HQ objective cells
-        public SpatialHash Hash;
+        public SpatialHash Spatial;
         NativeArray<float3> push;
 
         public MovementSystem(MapData map) { this.map = map; }
@@ -28,7 +28,7 @@ namespace TW.Sim.Nav
             FieldTeam1 = new FlowField(map.NavWidth, map.NavLength, Allocator.Persistent);
             BuildTeamField(ref FieldTeam0, 0);
             BuildTeamField(ref FieldTeam1, 1);
-            Hash = new SpatialHash(map.SizeMeters, 1f, world.Config.MaxSlots * 2, Allocator.Persistent);
+            Spatial = new SpatialHash(map.SizeMeters, 1f, world.Config.MaxSlots * 2, Allocator.Persistent);
             push = new NativeArray<float3>(world.Config.MaxSlots, Allocator.Persistent);
         }
 
@@ -55,8 +55,8 @@ namespace TW.Sim.Nav
         {
             int n = w.HighWater;
             if (n == 0) return;
-            Hash.Rebuild(w.Position, w.Flags, n);
-            new SeparationJob { Hash = Hash, Position = w.Position, Flags = w.Flags, Push = push }.Schedule(n, 64).Complete();
+            Spatial.Rebuild(w.Position, w.Flags, n);
+            new SeparationJob { Hash = Spatial, Position = w.Position, Flags = w.Flags, Push = push }.Schedule(n, 64).Complete();
             new MoveJob
             {
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
@@ -121,7 +121,7 @@ namespace TW.Sim.Nav
 
         public void Dispose()
         {
-            FieldTeam0.Dispose(); FieldTeam1.Dispose(); Hash.Dispose();
+            FieldTeam0.Dispose(); FieldTeam1.Dispose(); Spatial.Dispose();
             if (push.IsCreated) push.Dispose();
         }
     }
