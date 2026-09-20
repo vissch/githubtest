@@ -37,9 +37,9 @@ namespace TW.Tests
 
         /// <summary>M1 acceptance: 2,000 units, both garrisons sent over the top, 5,000 ticks over lossy loopback, identical hashes.</summary>
         [Test]
-        public void M1_TwoThousandUnits_AdvanceAcrossCorridor_StayInSync()
+        public void Stress_ThreeThousandUnits_AdvanceAcrossCorridor_StayInSync()
         {
-            const int perTeam = 1000;
+            const int perTeam = 1500;   // the unit ceiling: 3,000 on the map
             const uint target = 5000, advanceTick = 1500;
             var cfg = SimConfig.Default; cfg.StartingSilver = perTeam * 25 + 500;
             using var a = MatchSim.CreateGreybox(cfg, combat: false);
@@ -61,13 +61,13 @@ namespace TW.Tests
                 if (ta != lastIssueA)
                 {
                     lastIssueA = ta;
-                    for (int k = 0; k < 2 && deployedA < perTeam; k++, deployedA++) da.Issue(SimCommand.Deploy(0, 0, 0));
+                    for (int k = 0; k < 3 && deployedA < perTeam; k++, deployedA++) da.Issue(SimCommand.Deploy(0, 0, 0));
                     if (!advancedA && ta >= advanceTick) { advancedA = true; da.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = a.Fields.FrontTrench(0) }); }
                 }
                 if (tb != lastIssueB)
                 {
                     lastIssueB = tb;
-                    for (int k = 0; k < 2 && deployedB < perTeam; k++, deployedB++) db.Issue(SimCommand.Deploy(0, 1, 0));
+                    for (int k = 0; k < 3 && deployedB < perTeam; k++, deployedB++) db.Issue(SimCommand.Deploy(0, 1, 0));
                     if (!advancedB && tb >= advanceTick) { advancedB = true; db.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = b.Fields.FrontTrench(1) }); }
                 }
                 if (ta < target) { sw.Start(); if (da.TryStep()) stepsA++; sw.Stop(); }
@@ -89,7 +89,7 @@ namespace TW.Tests
             Assert.Greater(crossed0, perTeam / 2, "team 0 crossed the corridor after >>");
             Assert.Greater(crossed1, perTeam / 2, "team 1 crossed the corridor after >>");
             double msPerTick = sw.Elapsed.TotalMilliseconds / System.Math.Max(1, stepsA);
-            UnityEngine.Debug.Log($"M1 stress: {a.World.AliveCount} units, {target} ticks, sim {msPerTick:F2} ms/tick (budget 3 ms, warm Burst)");
+            UnityEngine.Debug.Log($"Stress: {a.World.AliveCount} units, {target} ticks, sim {msPerTick:F2} ms/tick (budget 3 ms, warm Burst)");
             Assert.Less(msPerTick, 25.0, "sim step time exploded (budget is 3 ms/tick on target hardware)");
         }
 

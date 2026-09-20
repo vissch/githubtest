@@ -12,7 +12,7 @@
 | Ship platforms | **Windows x64 only** | Determinism = Burst `FloatMode.Strict` on x64. No ARM64 gate, no fixed-point fallback. Online play, when it comes, is x64-only. |
 | Online multiplayer | **Keep the door open** | Lockstep sim, replays and `LoopbackTransport` (N1) stay. Transport, hash exchange, late join (N2, N3) move **after** the single-player slice. |
 | Team and art | **2 developers, one can do art** | Two-track schedule stands. `C4 art` gets an owner and a week count instead of "ongoing". |
-| Unit density | **Decide at the fun gate (M1.5)** | VAT + impostors + `RenderMeshIndirect` (B3) is not scheduled until a playtest shows 2,000 units matter. If ~300–500 is enough, B3 shrinks to GPU-instanced skinned meshes. |
+| Unit density | **3,000 units maximum (owner decision 2026-09-20).** `SimConfig.MaxSlots` = 3,584. B3 is therefore the full VAT + impostor + `RenderMeshIndirect` path. Original note: decide at the fun gate (M1.5) | VAT + impostors + `RenderMeshIndirect` (B3) is not scheduled until a playtest shows 2,000 units matter. If ~300–500 is enough, B3 shrinks to GPU-instanced skinned meshes. |
 
 ## 2. The baseline was not true — fixed in P0.5
 
@@ -74,7 +74,7 @@ off-map support. The plan then added ~30 new systems. The slice proves the **cor
 | Milestone | Composed of | Acceptance |
 |---|---|---|
 | **P0.5 Baseline is true** | §2 fixes, Entities out, metas + ProjectSettings committed, `unity test` green (EditMode + PlayMode), CI workflow committed | `unity test --mode EditMode` and `--mode PlayMode` exit 0 on a fresh clone; `validate.py` OK |
-| **M1 Greybox corridor** — **done 2026-09-20** | A1: `FlowFieldManager` (goal table, lazy fields, ≤ 2 rebuilds/tick, tracked-vehicle mode), garrison stop + `>>` `↑` lock `↩` hold-fire orders (`TrenchOrdersSystem`, A1 initial), stance/terrain speed, `VehicleKinematicsSystem`; B1, N1, greybox generator | Measured: 2,000 units, `>>` on both sides, 5,000 ticks over loopback with 3-tick latency / 2 jitter / 10 % loss, hash-identical, **0.31 ms/tick** (budget 3). `LockstepLoopbackTests.M1_TwoThousandUnits_AdvanceAcrossCorridor_StayInSync` |
+| **M1 Greybox corridor** — **done 2026-09-20** | A1: `FlowFieldManager` (goal table, lazy fields, ≤ 2 rebuilds/tick, tracked-vehicle mode), garrison stop + `>>` `↑` lock `↩` hold-fire orders (`TrenchOrdersSystem`, A1 initial), stance/terrain speed, `VehicleKinematicsSystem`; B1, N1, greybox generator | Measured: 2,000 units, `>>` on both sides, 5,000 ticks over loopback with 3-tick latency / 2 jitter / 10 % loss, hash-identical, **0.31 ms/tick** (budget 3). `LockstepLoopbackTests.Stress_ThreeThousandUnits_AdvanceAcrossCorridor_StayInSync` |
 | **M1.5 Fun gate** *(new)* | A2 core (LoS, direct fire, near-miss suppression, garrison/fire-step), A3 core (deploy, silver, `>>` / `↩`, objective capture), A5a-lite (one HE barrage with crater stamp, one gas cloud); capsules + IMGUI only | Two trench lines, riflemen + MG, one scripted enemy wave. **Playtest with both developers: is trench-to-trench assault better in 3D than in 2D?** Decide unit density and whether VAT is needed. Nothing below is scheduled until this passes. |
 | **M2 Look** | B3 (as sized by M1.5), B6 UI, B2 terrain mesh + trench kit, C2 British/German infantry | Riflemen visibly garrison and fire from the fire-step; `>>` / `↩` from the UI; ≤ 3 draw calls per archetype if VAT |
 | **M3 Mission 1** | A4 craters/wire/mud, A5a full, A6, B5 (particles), C3 Ypres | Mission 1 completable on Normal |

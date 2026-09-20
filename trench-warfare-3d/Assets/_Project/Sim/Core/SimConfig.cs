@@ -29,7 +29,7 @@ namespace TW.Sim
         {
             TickRate = 20,
             InputDelayTicks = 3,
-            MaxSlots = 2048,
+            MaxSlots = 3584,   // owner decision 2026-09-20: 3,000 units is the ceiling; the rest is head room for vehicles and emplacements
             Seed = 0xC0FFEEu,
             SilverPerSecond = 1f,
             StartingSilver = 120,

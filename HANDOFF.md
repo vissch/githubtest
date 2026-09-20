@@ -16,7 +16,7 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
 ## 2. State of the work
 - **M1 is done.** A1 is implemented: `FlowFieldManager` (goals, lazy time-sliced fields, tracked mode), garrison stop,
   trench orders (`TrenchOrdersSystem`, initial), stance/terrain speed, `VehicleKinematicsSystem`. The M1 acceptance run
-  (`M1_TwoThousandUnits_AdvanceAcrossCorridor_StayInSync`) holds 2,000 units hash-identical over lossy loopback for
+  (`Stress_ThreeThousandUnits_AdvanceAcrossCorridor_StayInSync`) holds 2,000 units hash-identical over lossy loopback for
   5,000 ticks at 0.31 ms/tick. In the greybox scene the **test panel** (right side, `TestPanel`) has everything:
   deploy buttons, per-trench `>>` `↩` lock hold-fire for both sides (so you can stage an enemy assault), speed 0-8x,
   camera presets, restart. Hotkeys still work (1-5 deploy, Space `>>`, Backspace `↩`, L lock, F3 field view);
@@ -37,8 +37,9 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   order buttons anchored to each owned trench); `TestPanel` is the debug drawer behind the top-right button.
 - The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode. Entities / Entities Graphics
   were removed; the replay format is v2 (hash content changed again at M1, see docs/02 change log).
-- Decisions that shape everything after this: Windows x64 only; online multiplayer deferred until after Mission 3;
-  two developers, one can do art; unit density (300 vs 2,000) decided at the **M1.5 fun gate**.
+- Decisions that shape everything after this: **3,000 units maximum** (2026-09-20; the stress test runs at that count);
+  Windows x64 only; online multiplayer deferred until after Mission 3;
+  two developers, one can do art; the M1.5 fun gate still decides whether the design holds.
 - Unity tooling on the workstation: Unity CLI 1.0.0-beta, the `unity@unity-agent-plugin` Claude Code plugin, and the
   Unity MCP server registered for Claude Code (`unity mcp configure claude-code`).
 
