@@ -13,11 +13,11 @@ namespace TW.Presentation.Tactical
         public float PanSpeed = 60f;
         public float EdgeScrollMargin = 12f;
         public float ZoomMin = 25f, ZoomMax = 220f;
-        public float Zoom = 90f;
+        public float Zoom = 50f;
         public float Pitch = 58f;
         public float YawLimit = 45f;
         public float RotateSpeed = 60f;
-        public Vector2 Focus = new Vector2(150f, 100f);
+        public Vector2 Focus = new Vector2(150f, 110f);
         float yaw;
 
         void LateUpdate()
@@ -37,8 +37,12 @@ namespace TW.Presentation.Tactical
             if (mouse != null)
             {
                 Vector2 m = mouse.position.ReadValue();
-                if (m.x < EdgeScrollMargin) pan.x -= 1f; else if (m.x > Screen.width - EdgeScrollMargin) pan.x += 1f;
-                if (m.y < EdgeScrollMargin) pan.y -= 1f; else if (m.y > Screen.height - EdgeScrollMargin) pan.y += 1f;
+                bool inside = m.x >= 0f && m.y >= 0f && m.x <= Screen.width && m.y <= Screen.height;   // cursor outside the view (editor, alt-tab) must not pan
+                if (inside)
+                {
+                    if (m.x < EdgeScrollMargin) pan.x -= 1f; else if (m.x > Screen.width - EdgeScrollMargin) pan.x += 1f;
+                    if (m.y < EdgeScrollMargin) pan.y -= 1f; else if (m.y > Screen.height - EdgeScrollMargin) pan.y += 1f;
+                }
                 float wheel = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(wheel) > 0.01f) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
             }

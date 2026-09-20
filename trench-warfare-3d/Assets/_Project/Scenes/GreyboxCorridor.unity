@@ -423,11 +423,11 @@ MonoBehaviour:
   EdgeScrollMargin: 12
   ZoomMin: 25
   ZoomMax: 220
-  Zoom: 90
+  Zoom: 50
   Pitch: 58
   YawLimit: 45
   RotateSpeed: 60
-  Focus: {x: 150, y: 100}
+  Focus: {x: 150, y: 110}
 --- !u!81 &2030695035
 AudioListener:
   m_ObjectHideFlags: 0

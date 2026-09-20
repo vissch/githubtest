@@ -46,6 +46,7 @@ namespace TW.Presentation
 
         void Awake()
         {
+            Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
             var cfg = SimConfig.Default;
             cfg.Seed = Seed;
             cfg.StartingSilver = StressUnits > 0 ? StressUnits * 25 : StartingSilver;
