@@ -23,7 +23,8 @@ The handoff said "Phase 0 implemented, compilable stubs, known-good pins". None 
 | 1 | Compilable | `MovementSystem` declared a field `Hash` and a method `Hash(ulong)` → CS0102. `TW.Sim.Nav` failed, and every other assembly references it, so **nothing compiled**. | Field renamed `Spatial`. |
 | 2 | Known-good pins | `com.unity.entities.graphics@1.3.14` does not exist on the registry; Package Manager aborted the whole import. | Entities and Entities Graphics removed (see §3). |
 | 3 | Press Play → capsules flow | `ProjectSettings/` held only `ProjectVersion.txt`: render pipeline was Built-in, Active Input Handling was legacy, so URP shaders fell back and `Keyboard.current` was null. | `TW → Setup Project` now also switches input handling; `BootstrapSceneBuilder.SetupAll` runs it all from batch mode; real `ProjectSettings/` committed. |
-| 4 | — | PlayMode test asmdef did not reference `TW.Sim.Nav` although `MatchSim` exposes `MovementSystem` (CS0012). | References added. |
+| 4 | — | PlayMode test asmdef did not reference `TW.Sim.Nav` although `MatchSim` exposes `MovementSystem`; `TW.Presentation.Camera` used `LockstepDriver` without referencing `TW.Net` (both CS0012). | References added. |
+| 4b | Tests pass | First real run: 12 of 18 failed. `FlowField.Build` ran `BuildJob` with a `Temp`-allocated goals array; the job safety system rejects Temp containers even for `Run()`. | Goals copied to a `TempJob` array inside `Build`. |
 | 5 | — | `SliceDefinitions.Create()` created folders on disk and called `AssetDatabase.CreateAsset` before an import. | `AssetDatabase.Refresh()` added. |
 | 6 | — | No `.meta` files; first open generates ~120 GUIDs. | Generated once and committed before any parallel work. |
 | 7 | `validate.py` "passes" | It walked `Library/PackageCache` and only checked braces, so it passed with a compile error. | Restricted to `Assets/`; the real gate is `unity test` (§6). |
@@ -143,5 +144,6 @@ an agent can drive the open editor once `com.unity.pipeline` is in the project.
   object to the nested container attribute. Check on the first PlayMode run with the debugger on.
 - Bump `SimConfig.MaxSlots` when vehicles/emplacements land (A3).
 - Decide camera max zoom-out (B1) before sizing B3 render tiers.
-- Add `com.unity.pipeline` (`unity pipeline install`) so agents can drive the editor; mirror its skill with
-  `unity skill install claude-code --local`.
+- ~~Add `com.unity.pipeline`~~ Done: `com.unity.pipeline@0.7.0-exp.1` is in the manifest and its agent skill is mirrored at
+  `.claude/skills/unity-pipeline/SKILL.md` (Claude Code cannot read it from `Library/PackageCache`). With the editor open,
+  `unity status` then `unity command` lists what it exposes (recompile, run_tests, eval C#).
