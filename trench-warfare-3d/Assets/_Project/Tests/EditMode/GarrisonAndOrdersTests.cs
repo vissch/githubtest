@@ -19,7 +19,7 @@ namespace TW.Tests
         static MatchSim NewMatch(int silver = 100000, uint seed = 0xC0FFEE)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = silver; cfg.Seed = seed;
-            return MatchSim.CreateGreybox(cfg);
+            return MatchSim.CreateGreybox(cfg, combat: false);
         }
 
         static void Step(MatchSim m, params SimCommand[] cmds)

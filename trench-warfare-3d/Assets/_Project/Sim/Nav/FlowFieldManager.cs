@@ -140,6 +140,17 @@ namespace TW.Sim.Nav
             return -1;
         }
 
+        /// <summary>Objective id of <paramref name="team"/>'s own HQ, or -1.</summary>
+        public short OwnHq(byte team)
+        {
+            for (int i = 0; i < map.Objectives.Length; i++)
+            {
+                var o = map.Objectives[i];
+                if (o.Kind == ObjectiveKind.HQ && o.SideTeam == team) return o.Id;
+            }
+            return -1;
+        }
+
         /// <summary>The goal a ">>" from <paramref name="trenchId"/> sends <paramref name="team"/> to: the next trench in the chain, or the enemy HQ when the chain ends.</summary>
         public int NextGoalFrom(short trenchId, byte team, NavMode mode = NavMode.Infantry)
         {
@@ -160,8 +171,8 @@ namespace TW.Sim.Nav
             }
             short front = FrontTrench(team);
             if (front >= 0) return GetGoal(GoalKey.Trench(front));
-            short hq2 = EnemyHq(team);
-            return hq2 >= 0 ? GetGoal(GoalKey.Objective(hq2)) : -1;
+            short own = OwnHq(team);                      // every trench lost: make a stand at the HQ
+            return own >= 0 ? GetGoal(GoalKey.Objective(own)) : -1;
         }
 
         // ------------------------------------------------------------------ tick

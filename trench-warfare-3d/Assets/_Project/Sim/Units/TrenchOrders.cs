@@ -54,7 +54,9 @@ namespace TW.Sim.Units
             {
                 short t = w.TrenchId[i];
                 if (t < 0 || (w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
-                var s = trenches[t]; s.GarrisonCount++; trenches[t] = s;
+                var s = trenches[t];
+                if (w.Team[i] != s.OwnerTeam) continue;   // assaulters inside an enemy trench are not its garrison
+                s.GarrisonCount++; trenches[t] = s;
             }
         }
 
@@ -68,6 +70,7 @@ namespace TW.Sim.Units
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
                 if (w.Team[i] != team || w.TrenchId[i] != trenchId) continue;
                 if (archetypeMask != 0 && (archetypeMask & (1 << w.Archetype[i])) == 0) continue;
+                if (w.Suppression[i] >= StanceRules.PinnedSuppression) continue;   // pinned men refuse to go over the top
                 w.GoalId[i] = goal;
                 w.TrenchId[i] = -1;
                 w.SourceTrench[i] = trenchId;

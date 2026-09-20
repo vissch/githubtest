@@ -57,6 +57,8 @@ namespace TW.Presentation.Tactical
             GUILayout.EndHorizontal();
             GUILayout.Label($"tick {w.Tick}   {w.Tick * w.Config.TickSeconds:0}s   alive {w.AliveCount}   {(Host.Desync ? "DESYNC" : "in sync")}", small);
             GUILayout.Label($"You: {w.Silver[0]} silver   Enemy: {w.Silver[1]} silver", small);
+            var fire = Host.Local.Fire;
+            if (fire != null) GUILayout.Label($"Kills  you {fire.Kills[0]}  enemy {fire.Kills[1]}     shots {fire.Shots[0]} / {fire.Shots[1]}", small);
             if (w.WinnerTeam >= 0) GUILayout.Label(w.WinnerTeam == 0 ? "YOU WIN" : "YOU LOSE", header);
             GUILayout.BeginHorizontal();
             GUILayout.Label("Speed", GUILayout.Width(45));
@@ -112,6 +114,23 @@ namespace TW.Presentation.Tactical
                 GUILayout.EndVertical();
             }
 
+            // ---- objectives -------------------------------------------------------------------------------------
+            var sectors = Host.Local.Sectors;
+            if (sectors != null && sectors.States.IsCreated)
+            {
+                GUILayout.Space(8);
+                GUILayout.Label("Objectives (3 men, no defenders, 10 s)", header);
+                for (int o = 0; o < sectors.States.Length; o++)
+                {
+                    var def = Host.Local.Map.Objectives[o];
+                    var st = sectors.States[o];
+                    string side = def.SideTeam == 0 ? "your" : "enemy";
+                    string owner = st.Owner == 0 ? "YOU" : "ENEMY";
+                    string progress = st.CaptureProgressTicks > 0 ? $"   capturing {100 * st.CaptureProgressTicks / Mathf.Max(1, def.CaptureTicks)}%" : "";
+                    GUILayout.Label($"{side} {def.Kind}: held by {owner}{progress}", small);
+                }
+            }
+
             // ---- enemy ------------------------------------------------------------------------------------------
             GUILayout.Space(8);
             GUILayout.Label("Enemy (scripted peer)", header);
@@ -119,7 +138,8 @@ namespace TW.Presentation.Tactical
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Enemy deploy 5")) for (int k = 0; k < 5; k++) Host.IssuePeer(SimCommand.Deploy(Host.Peer.World.Tick, 1, 0));
             GUILayout.EndHorizontal();
-            GUILayout.Label("Use the enemy trench's >> above to send them at you.", small);
+            Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own with {Host.PeerAttackGarrison}+ men");
+            GUILayout.Label("Or use the enemy trench's >> above to send them at you.", small);
 
             // ---- camera -----------------------------------------------------------------------------------------
             GUILayout.Space(8);
@@ -131,7 +151,7 @@ namespace TW.Presentation.Tactical
                 short f0 = fields.FrontTrench(0), f1 = fields.FrontTrench(1);
                 float z0 = f0 >= 0 ? TrenchZ(f0) : 120f, z1 = f1 >= 0 ? TrenchZ(f1) : size.y - 120f;
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button("My trench")) Cam.Frame(new Vector2(mid, z0 + 14f), 30f);
+                if (GUILayout.Button("My trench")) Cam.Frame(new Vector2(mid, z0 + 6f), 30f);   // trench just right of this panel, no man's land beyond
                 if (GUILayout.Button("No man's land")) Cam.Frame(new Vector2(mid, (z0 + z1) * 0.5f), 220f);
                 if (GUILayout.Button("Enemy trench")) Cam.Frame(new Vector2(mid, z1), 30f);
                 GUILayout.EndHorizontal();

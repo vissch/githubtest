@@ -62,7 +62,7 @@ C#. `unity test` is the real gate.
 | `SimWorld` tick loop, slot allocator, economy, command validation, state hash, seeded RNG, platform-safe math, stance/terrain speed rules | Direct/indirect fire, suppression, armour, gas/smoke, deformation, stance overrides |
 | Map data contract, heightfield, greybox corridor generator | Wire, mud, crater stamps, map authoring tool |
 | Layered flow fields per goal (`FlowFieldManager`: trench / objective / rally / cell goals, infantry and tracked modes, time-sliced rebuilds), spatial hash, separation with vehicle avoidance, infantry movement with garrison stop, vehicle kinematics, trench orders `>>` `↑` lock `↩` hold-fire | Ownership flips (sector control), fire-step assignment, wheeled vehicles, bog checks |
-| Heightfield line-of-sight raycast | Target acquisition, blast, burning |
+| Heightfield line-of-sight raycast, target acquisition (staggered, coarse grid, over-the-parapet LoS), direct fire with cover / stance / range, near-miss suppression, prone / pinned / fire-step, deaths, sector control (objective order, trench ownership, HQ ends the match) | Indirect fire, blast, burning, armour penetration, gas / smoke |
 | Lockstep driver + loopback transport with latency/jitter/loss, replay recorder/player (format v2) | Unity Transport session, hash exchange, snapshots |
 | Presenter (pose interpolation), event pump, tactical camera with presets, debug overlay, IMGUI test panel, greybox terrain view with nav-layer texture | VAT renderer, ragdolls, terrain chunks, VFX, audio, UI |
 | ScriptableObject schemas, data baker, slice roster generator (British, German, French vehicles, all off-map abilities) | Mission runner, wave AI (schemas exist) |

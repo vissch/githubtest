@@ -25,6 +25,9 @@ namespace TW.Presentation
         public float TimeScale = 1f;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
+        [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
+        public bool PeerAttacks = true;
+        public int PeerAttackGarrison = 8;
         [Tooltip("Stress preset: both players start with enough silver to field this many riflemen each, deployed at 4 per tick.")]
         public int StressUnits = 0;
         [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
@@ -91,6 +94,12 @@ namespace TW.Presentation
             if (!ScriptedPeer) return;
             uint t = Peer.World.Tick;
             if (t % (uint)PeerDeployEveryTicks == 0) PeerDriver.Issue(SimCommand.Deploy(t, 1, (int)(t / (uint)PeerDeployEveryTicks) % 3));
+            if (PeerAttacks && t % 100 == 50)
+            {
+                short front = Peer.Fields.FrontTrench(1);
+                if (front >= 0 && Peer.Fields.Trenches[front].GarrisonCount >= PeerAttackGarrison)
+                    PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = front });
+            }
             if (StressUnits > 0)
             {
                 if (stressDeployed < StressUnits)

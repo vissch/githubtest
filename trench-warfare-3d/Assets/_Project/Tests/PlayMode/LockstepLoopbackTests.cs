@@ -42,8 +42,8 @@ namespace TW.Tests
             const int perTeam = 1000;
             const uint target = 5000, advanceTick = 1500;
             var cfg = SimConfig.Default; cfg.StartingSilver = perTeam * 25 + 500;
-            using var a = MatchSim.CreateGreybox(cfg);
-            using var b = MatchSim.CreateGreybox(cfg);
+            using var a = MatchSim.CreateGreybox(cfg, combat: false);
+            using var b = MatchSim.CreateGreybox(cfg, combat: false);
             var net = new LoopbackNetwork(latencyTicks: 3, jitterTicks: 2, lossChance: 0.1f, seed: 11);
             var ra = new ReplayRecorder(cfg, default, 1);
             var rb = new ReplayRecorder(cfg, default, 1);

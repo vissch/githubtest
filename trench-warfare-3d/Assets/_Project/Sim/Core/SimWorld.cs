@@ -36,6 +36,7 @@ namespace TW.Sim
         public NativeArray<uint> Flags;        // UnitFlags
         public NativeArray<ushort> Generation; // bumps on every spawn so stale slot references can be detected
         public NativeArray<int> Cooldown;      // generic per-unit cooldown ticks (grenade, ability)
+        public NativeArray<int> FireCooldown;  // ticks until the primary weapon may fire again (A2)
 
         // ---- per-player state ----
         public NativeArray<int> Silver;
@@ -80,6 +81,7 @@ namespace TW.Sim
             Flags = new NativeArray<uint>(n, Allocator.Persistent);
             Generation = new NativeArray<ushort>(n, Allocator.Persistent);
             Cooldown = new NativeArray<int>(n, Allocator.Persistent);
+            FireCooldown = new NativeArray<int>(n, Allocator.Persistent);
             for (int i = 0; i < n; i++) { TrenchId[i] = -1; SourceTrench[i] = -1; TargetSlot[i] = -1; GoalId[i] = -1; }
 
             int p = SimConfig.MaxPlayers;
@@ -130,7 +132,7 @@ namespace TW.Sim
             Position[slot] = pos; Velocity[slot] = float3.zero; Yaw[slot] = team == 0 ? 0f : SimMath.Pi;
             Hp[slot] = hp; MaxHp[slot] = hp; Suppression[slot] = 0f; Speed[slot] = speed;
             StanceOf[slot] = (byte)Stance.Standing; Team[slot] = team; Archetype[slot] = archetype; Layer[slot] = 1;
-            TrenchId[slot] = -1; SourceTrench[slot] = -1; TargetSlot[slot] = -1; GoalId[slot] = -1; Cooldown[slot] = 0;
+            TrenchId[slot] = -1; SourceTrench[slot] = -1; TargetSlot[slot] = -1; GoalId[slot] = -1; Cooldown[slot] = 0; FireCooldown[slot] = 0;
             Flags[slot] = (uint)UnitFlags.Alive | (vehicle ? (uint)UnitFlags.Vehicle : 0u);
             Generation[slot] = (ushort)(Generation[slot] + 1);
             AliveCount++;
@@ -204,7 +206,7 @@ namespace TW.Sim
             if (deployTick != Tick) { deployTick = Tick; System.Array.Clear(deploysThisTick, 0, deploysThisTick.Length); }
             var rng = SimRandom.For(Config.Seed, Tick, SimRandom.SystemId.Deployment, (uint)c.Player + 16u * (uint)deploysThisTick[c.Player]++);
             float3 spawn = c.Player == 0 ? Init.SpawnA : Init.SpawnB;
-            spawn.x += rng.NextFloat(-6f, 6f);
+            spawn.x += rng.NextFloat(-30f, 30f);   // reinforcements come up on a front, so they use several ladders
             spawn.z += rng.NextFloat(-2f, 2f);
             int slot = Spawn(c.Player, entry.Archetype, ClampToMap(spawn), entry.Hp, entry.Speed, entry.IsVehicle);
             if (slot < 0) { Reject(c); return; }
@@ -311,6 +313,7 @@ namespace TW.Sim
             h = SimHash.Array(Flags, n, h);
             h = SimHash.Array(Generation, n, h);
             h = SimHash.Array(Cooldown, n, h);
+            h = SimHash.Array(FireCooldown, n, h);
             foreach (var s in systems) h = s.Hash(h);
             return h;
         }
@@ -321,7 +324,7 @@ namespace TW.Sim
             systems.Clear();
             Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose();
             Speed.Dispose(); StanceOf.Dispose(); Team.Dispose(); Archetype.Dispose(); Layer.Dispose(); TrenchId.Dispose(); SourceTrench.Dispose();
-            TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose();
+            TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose();
             Silver.Dispose(); SilverFraction.Dispose(); Rally.Dispose(); Roster.Dispose(); SlotCooldown.Dispose(); SlotUnlocked.Dispose();
             freeSlots.Dispose(); Events.Dispose(); TickCommands.Dispose(); sortScratch.Dispose();
         }

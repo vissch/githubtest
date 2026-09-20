@@ -15,11 +15,14 @@ namespace TW.Sim.Nav
         public const float Radius = 0.5f;          // infantry collision radius (m)
         public const float VehicleRadius = 2.5f;   // hull half-width used for infantry avoidance (m)
         public const float Strength = 4f;          // m/s per metre of overlap
+        public const float GarrisonSpacing = 2f;   // a garrison spreads along its trench until men stand this far apart
+        public const float GarrisonStrength = 0.75f;   // soft: it must lose against the push that clears a ladder
         public const float MaxPush = 6f;           // m/s cap, so a dense stack spreads out instead of being fired across the map
 
         [ReadOnly] public SpatialHash Hash;
         [ReadOnly] public NativeArray<float3> Position;
         [ReadOnly] public NativeArray<uint> Flags;
+        [ReadOnly] public NativeArray<short> TrenchId;  // garrison trench per slot, -1 none
         [ReadOnly] public NativeArray<int> Vehicles;   // alive vehicle slots (slot order)
         public NativeArray<float3> Push;               // output: additive velocity for this tick
 
@@ -44,8 +47,10 @@ namespace TW.Sim.Nav
             int cz = math.clamp((int)(p.z / Hash.CellSize), 0, Hash.Length - 1);
             float3 sum = float3.zero;
             float diameter = Radius * 2f;
-            for (int dz = -1; dz <= 1; dz++)
-            for (int dx = -1; dx <= 1; dx++)
+            short garrison = TrenchId[i];
+            int cells = garrison >= 0 ? 2 : 1;   // the hash cell is 1 m
+            for (int dz = -cells; dz <= cells; dz++)
+            for (int dx = -cells; dx <= cells; dx++)
             {
                 int x = cx + dx, z = cz + dz;
                 if (x < 0 || z < 0 || x >= Hash.Width || z >= Hash.Length) continue;
@@ -57,10 +62,12 @@ namespace TW.Sim.Nav
                         float3 d = p - Position[j];
                         d.y = 0f;
                         float dist = SimMath.Length(d);
-                        if (dist < diameter)
+                        bool mates = garrison >= 0 && TrenchId[j] == garrison;
+                        float want = mates ? GarrisonSpacing : diameter;
+                        if (dist < want)
                         {
                             float3 n = dist > 1e-4f ? d / dist : CoincidentNormal(i, j);
-                            sum += n * (diameter - dist) * Strength;
+                            sum += n * (want - dist) * (mates && dist >= diameter ? GarrisonStrength : Strength);
                         }
                     } while (Hash.Map.TryGetNextValue(out j, ref it));
                 }

@@ -2,6 +2,7 @@
 // Composes MapData + SimWorld + systems for one match. Presentation, Net and tests never build a SimWorld
 // directly for a real match; they go through MatchSim so system order is identical everywhere.
 using Unity.Collections;
+using TW.Sim.Combat;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
 using TW.Sim.Units;
@@ -16,14 +17,19 @@ namespace TW.Sim.Match
         public TrenchOrdersSystem Orders;
         public MovementSystem Movement;
         public VehicleKinematicsSystem Vehicles;
+        public TargetAcquisitionSystem Acquisition;
+        public DirectFireSystem Fire;
+        public SuppressionSystem Suppression;
+        public SectorControlSystem Sectors;
 
-        public static MatchSim CreateGreybox(SimConfig config)
+        /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
+        public static MatchSim CreateGreybox(SimConfig config, bool combat = true)
         {
             var map = GreyboxMapGenerator.Create(Allocator.Persistent);
-            return new MatchSim(config, map);
+            return new MatchSim(config, map, combat);
         }
 
-        public MatchSim(SimConfig config, MapData map)
+        public MatchSim(SimConfig config, MapData map, bool combat = true)
         {
             Map = map;
             World = new SimWorld(config, map.ToWorldInit());
@@ -35,13 +41,19 @@ namespace TW.Sim.Match
             World.AddSystem(Orders);                        // A1 initial / A3: >> ↑ lock ↩ hold-fire
             // A6: World.AddSystem(new MissionRunner(script));
             // A3: World.AddSystem(new LogisticsSystem(map));
-            // A2: World.AddSystem(new TW.Sim.Combat.TargetAcquisitionSystem());
-            // A2: World.AddSystem(new TW.Sim.Combat.DirectFireSystem());
+            if (combat)
+            {
+                Acquisition = new TargetAcquisitionSystem(map);
+                World.AddSystem(Acquisition);               // A2: who shoots at whom
+                Fire = new DirectFireSystem(map);
+                World.AddSystem(Fire);                      // A2: shots, damage, near-miss suppression, deaths
+            }
             // A5: World.AddSystem(new TW.Sim.Units.GrenadeSystem());
             // A5: World.AddSystem(new TW.Sim.Combat.IndirectFireSystem());
             // A5: World.AddSystem(new TW.Sim.Combat.BlastSystem());
             // A5: World.AddSystem(new TW.Sim.Combat.BurningSystem());
-            // A2: World.AddSystem(new TW.Sim.Combat.SuppressionSystem());
+            Suppression = new SuppressionSystem();
+            World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
             // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());
             // A3: World.AddSystem(new TW.Sim.Units.TrenchGarrisonSystem());
             // A5: World.AddSystem(new TW.Sim.Combat.GasSmokeSystem());
@@ -51,7 +63,8 @@ namespace TW.Sim.Match
             Vehicles = new VehicleKinematicsSystem(map);
             World.AddSystem(Vehicles);                      // A1: vehicles
             // A5: World.AddSystem(new TW.Sim.Units.VehicleModulesSystem());
-            // A3: World.AddSystem(new SectorControlSystem(map));
+            Sectors = new SectorControlSystem(map);
+            World.AddSystem(Sectors);                       // A3 core: objectives, trench ownership, HQ = match end
             // A5: World.AddSystem(new OffMapAbilitySystem());
             // A6: World.AddSystem(new WaveAiSystem());
         }

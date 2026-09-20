@@ -28,6 +28,9 @@ namespace TW.Presentation.Tactical
         void Start()
         {
             capsule = Resources.GetBuiltinResource<Mesh>("Capsule.fbx");
+            var fx = GetComponent<CombatFx>();                       // scenes built before A2 do not have it yet
+            if (fx == null) fx = gameObject.AddComponent<CombatFx>();
+            if (fx.Host == null) fx.Host = Host;
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             matA = new Material(shader) { enableInstancing = true, color = new Color(0.55f, 0.45f, 0.25f) };

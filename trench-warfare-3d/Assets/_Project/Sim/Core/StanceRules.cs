@@ -7,6 +7,9 @@ namespace TW.Sim
     {
         const byte WireBit = 1 << 4, MudBit = 1 << 5, CraterBit = 1 << 6;   // NavLayer.Wire / Mud / Crater
 
+        public const float ProneSuppression = 60f;    // above this a unit in the open goes prone
+        public const float PinnedSuppression = 85f;   // above this it stops moving and firing, and refuses >>
+
         public static float SpeedMultiplier(Stance s)
         {
             switch (s)

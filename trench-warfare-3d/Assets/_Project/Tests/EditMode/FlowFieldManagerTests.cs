@@ -15,7 +15,7 @@ namespace TW.Tests
         static MatchSim NewMatch()
         {
             var cfg = SimConfig.Default;
-            return MatchSim.CreateGreybox(cfg);
+            return MatchSim.CreateGreybox(cfg, combat: false);
         }
 
         static void Step(MatchSim m, params SimCommand[] cmds)

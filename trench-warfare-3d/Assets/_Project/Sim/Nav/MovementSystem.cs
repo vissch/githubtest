@@ -57,7 +57,7 @@ namespace TW.Sim.Nav
 
             // 2. neighbours
             Spatial.Rebuild(w.Position, w.Flags, n);
-            new SeparationJob { Hash = Spatial, Position = w.Position, Flags = w.Flags, Vehicles = Vehicles.AsArray(), Push = push }
+            new SeparationJob { Hash = Spatial, Position = w.Position, Flags = w.Flags, TrenchId = w.TrenchId, Vehicles = Vehicles.AsArray(), Push = push }
                 .Schedule(n, 64).Complete();
 
             // 3. move
@@ -65,7 +65,7 @@ namespace TW.Sim.Nav
             {
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
                 GoalId = w.GoalId, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
-                Speed = w.Speed, Push = push,
+                Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
@@ -98,7 +98,8 @@ namespace TW.Sim.Nav
             public NativeArray<int> GoalId;
             public NativeArray<short> TrenchId;
             public NativeArray<short> ArrivedLocked, Garrisoned;
-            [ReadOnly] public NativeArray<float> Speed;
+            [ReadOnly] public NativeArray<float> Speed, Suppression;
+            [ReadOnly] public NativeArray<int> TargetSlot;
             [ReadOnly] public NativeArray<float3> Push;
             [ReadOnly] public NativeArray<byte> Directions;
             [ReadOnly] public NativeArray<byte> Ready;
@@ -115,6 +116,14 @@ namespace TW.Sim.Nav
                 int cx = math.clamp((int)(p.x / NavCell), 0, NavWidth - 1);
                 int cz = math.clamp((int)(p.z / NavCell), 0, NavLength - 1);
                 return cz * NavWidth + cx;
+            }
+
+            bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, float pushX, byte from, int ncell)
+            {
+                byte to = Layers[ncell];
+                return isGarrisoned
+                    ? CellTrenchId[ncell] == garrison && ((to & (byte)NavLayer.Link) == 0 || onLadder)   // keep the ladders clear for arrivals
+                    : FlowField.CanStepInfantry(from, to);
             }
 
             public void Execute(int i)
@@ -140,21 +149,42 @@ namespace TW.Sim.Nav
                     if (d != FlowField.NoDirection) dir = FlowField.Offset(d);
                 }
 
-                // stance from situation; A2/A3 layer suppression, fire-step and player overrides on top of this
-                Stance stance = isGarrisoned || inTrench ? Stance.Crouch : ((f & (uint)UnitFlags.Exposed) != 0 ? Stance.Sprint : Stance.Standing);
+                // stance from situation: a garrison mans the fire-step while it has a target, suppression forces prone /
+                // pinned in the open; A3 adds player overrides on top of this
+                float supp = Suppression[i];
+                Stance stance;
+                if (isGarrisoned) stance = TargetSlot[i] >= 0 ? Stance.FireStep : Stance.Crouch;
+                else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
+                else if (inTrench) stance = Stance.Crouch;
+                else if (supp >= StanceRules.ProneSuppression) stance = Stance.Prone;
+                else stance = (f & (uint)UnitFlags.Exposed) != 0 ? Stance.Sprint : Stance.Standing;
                 float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
                 float3 v = isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
+                bool onLadder = isGarrisoned && (from & (byte)NavLayer.Link) != 0;
+                if (onLadder)
+                {
+                    // safety net: a garrison never stands on a ladder; if one ends up there, step off to the nearer side
+                    float centre = ((int)(p.x / NavCell) + 0.5f) * NavCell;
+                    v.x += (p.x >= centre ? 1f : -1f) * 2.5f;
+                }
                 float3 np = p + v * Dt;
                 np.x = math.clamp(np.x, 0.5f, Size.x - 0.5f);
                 np.z = math.clamp(np.z, 0.5f, Size.y - 0.5f);
 
-                // block moves into cells that are not steppable from the current one; a garrison never leaves its trench
+                // block moves into cells that are not steppable from the current one; a garrison never leaves its trench.
+                // A blocked step slides along the obstacle (X only, then Z only) instead of stopping dead: a diagonal
+                // path that clips a trench wall next to a ladder would otherwise pin the unit there for good.
+                float pushX = Push[i].x;
                 int ncell = CellOf(np);
+                if (!CanEnter(isGarrisoned, garrison, onLadder, pushX, from, ncell))
+                {
+                    float3 slideX = new float3(np.x, np.y, p.z), slideZ = new float3(p.x, np.y, np.z);
+                    int cellX = CellOf(slideX), cellZ = CellOf(slideZ);
+                    if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
+                    else if (math.abs(v.z) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellZ)) { np = slideZ; v.x = 0f; ncell = cellZ; }
+                    else { np = p; v = float3.zero; ncell = cell; }
+                }
                 byte to = Layers[ncell];
-                bool ok = isGarrisoned
-                    ? CellTrenchId[ncell] == garrison && (to & (byte)NavLayer.Link) == 0   // keep the ladders clear for arrivals
-                    : FlowField.CanStepInfantry(from, to);
-                if (!ok) { np = p; v = float3.zero; ncell = cell; to = from; }
                 Position[i] = np;
                 Velocity[i] = v;
                 if (SimMath.Length(v) > 0.05f) Yaw[i] = SimMath.YawOf(v);
