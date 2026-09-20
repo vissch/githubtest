@@ -17,8 +17,10 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
 - **M1 is done.** A1 is implemented: `FlowFieldManager` (goals, lazy time-sliced fields, tracked mode), garrison stop,
   trench orders (`TrenchOrdersSystem`, initial), stance/terrain speed, `VehicleKinematicsSystem`. The M1 acceptance run
   (`M1_TwoThousandUnits_AdvanceAcrossCorridor_StayInSync`) holds 2,000 units hash-identical over lossy loopback for
-  5,000 ticks at 0.31 ms/tick. In the greybox scene: 1-5 deploy, Space `>>`, Backspace `↩`, L lock, F3 cycles the
-  flow-field view; `SimHost.StressUnits` deploys N per side and sends both over the top.
+  5,000 ticks at 0.31 ms/tick. In the greybox scene the **test panel** (right side, `TestPanel`) has everything:
+  deploy buttons, per-trench `>>` `↩` lock hold-fire for both sides (so you can stage an enemy assault), speed 0-8x,
+  camera presets, restart. Hotkeys still work (1-5 deploy, Space `>>`, Backspace `↩`, L lock, F3 field view);
+  `SimHost.StressUnits` deploys N per side and sends both over the top.
 - The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode. Entities / Entities Graphics
   were removed; the replay format is v2 (hash content changed again at M1, see docs/02 change log).
 - Decisions that shape everything after this: Windows x64 only; online multiplayer deferred until after Mission 3;

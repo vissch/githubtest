@@ -12,13 +12,16 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         public float PanSpeed = 60f;
         public float EdgeScrollMargin = 12f;
-        public float ZoomMin = 25f, ZoomMax = 220f;
+        public float ZoomMin = 20f, ZoomMax = 600f;
         public float Zoom = 50f;
-        public float Pitch = 58f;
+        public float Pitch = 52f;
         public float YawLimit = 45f;
         public float RotateSpeed = 60f;
         public Vector2 Focus = new Vector2(150f, 110f);
         float yaw;
+
+        /// <summary>Snap to a point on the map at a zoom distance; used by the test panel's presets.</summary>
+        public void Frame(Vector2 focus, float zoom) { Focus = focus; Zoom = Mathf.Clamp(zoom, ZoomMin, ZoomMax); yaw = 0f; }
 
         void LateUpdate()
         {
@@ -57,7 +60,9 @@ namespace TW.Presentation.Tactical
                 Focus.x = Mathf.Clamp(Focus.x, 0f, size.x);
                 Focus.y = Mathf.Clamp(Focus.y, 0f, size.y);
             }
-            var camRot = Quaternion.Euler(Pitch, yaw, 0f);
+            // flatten the pitch when zoomed in so units read as figures, steepen it for the overview
+            float pitch = Mathf.Lerp(Pitch - 12f, Pitch + 20f, Mathf.InverseLerp(ZoomMin, ZoomMax, Zoom));
+            var camRot = Quaternion.Euler(pitch, yaw, 0f);
             transform.rotation = camRot;
             transform.position = new Vector3(Focus.x, 0f, Focus.y) - camRot * Vector3.forward * Zoom;
         }

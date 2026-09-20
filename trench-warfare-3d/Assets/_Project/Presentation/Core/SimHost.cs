@@ -19,8 +19,10 @@ namespace TW.Presentation
 
         [Header("Match")]
         public uint Seed = 0xC0FFEE;
-        public int StartingSilver = 120;
-        public float SilverPerSecond = 1f;
+        public int StartingSilver = 300;
+        public float SilverPerSecond = 2f;
+        [Tooltip("Sim time multiplier for testing: 0 pauses, 1 is real time. Both sims step together, so it never affects determinism.")]
+        public float TimeScale = 1f;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
         [Tooltip("Stress preset: both players start with enough silver to field this many riflemen each, deployed at 4 per tick.")]
@@ -63,8 +65,8 @@ namespace TW.Presentation
         void Update()
         {
             float tick = Local.World.Config.TickSeconds;
-            accumulator += Time.deltaTime;
-            int guard = 8;
+            accumulator += Time.deltaTime * Mathf.Max(0f, TimeScale);
+            int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
             while (accumulator >= tick && guard-- > 0)
             {
                 IssuePeerCommands();
@@ -112,6 +114,12 @@ namespace TW.Presentation
 
         /// <summary>Entry point for UI and debug input: queue a command for the local player.</summary>
         public void Issue(SimCommand c) => LocalDriver.Issue(c);
+
+        /// <summary>Test panel only: queue a command as the peer (player 1), so the greybox can stage an enemy assault.</summary>
+        public void IssuePeer(SimCommand c) => PeerDriver.Issue(c);
+
+        /// <summary>Reload the active scene: fresh sims, same seed.</summary>
+        public void Restart() => UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.buildIndex >= 0 ? gameObject.scene.buildIndex : 0);
 
         void OnDestroy()
         {

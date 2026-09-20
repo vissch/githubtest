@@ -40,7 +40,58 @@ namespace TW.Presentation.Terrain
             GetComponent<MeshFilter>().sharedMesh = mesh;
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
-            GetComponent<MeshRenderer>().sharedMaterial = new Material(shader) { color = new Color(0.36f, 0.32f, 0.26f) };
+            var mat = new Material(shader) { color = Color.white };
+            var tex = BuildLayerTexture();
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex); else mat.mainTexture = tex;
+            GetComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
+        /// <summary>One texel per nav cell: open ground, trench body (dark), ladders (sand), HQ lines (team tint),
+        /// wire / mud / craters when A4 adds them, and a faint ruler line every 50 m so distances read on flat ground.</summary>
+        Texture2D BuildLayerTexture()
+        {
+            var map = Host.Local.Map;
+            int w = map.NavWidth, l = map.NavLength;
+            var tex = new Texture2D(w, l, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[w * l];
+            var ground = new Color(0.40f, 0.35f, 0.27f);
+            var groundAlt = new Color(0.415f, 0.365f, 0.28f);
+            var trench = new Color(0.16f, 0.13f, 0.10f);
+            var link = new Color(0.62f, 0.52f, 0.34f);
+            var wire = new Color(0.30f, 0.30f, 0.32f);
+            var mud = new Color(0.30f, 0.24f, 0.16f);
+            var crater = new Color(0.28f, 0.24f, 0.19f);
+            var blocked = new Color(0.10f, 0.10f, 0.10f);
+            Color[] teamTint = { new Color(0.55f, 0.45f, 0.25f), new Color(0.35f, 0.40f, 0.55f) };
+            int rulerEvery = Mathf.RoundToInt(50f / TW.Sim.Terrain.MapData.NavCellSize);
+            for (int z = 0; z < l; z++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = z * w + x;
+                var layer = (TW.Sim.Terrain.NavLayer)map.NavLayers[i];
+                Color c = ((x / 10 + z / 10) & 1) == 0 ? ground : groundAlt;   // 20 m checker, barely there
+                if (z % rulerEvery == 0) c = Color.Lerp(c, Color.white, 0.12f);
+                if ((layer & TW.Sim.Terrain.NavLayer.Mud) != 0) c = mud;
+                if ((layer & TW.Sim.Terrain.NavLayer.Crater) != 0) c = crater;
+                if ((layer & TW.Sim.Terrain.NavLayer.Wire) != 0) c = wire;
+                if ((layer & TW.Sim.Terrain.NavLayer.Trench) != 0) c = (layer & TW.Sim.Terrain.NavLayer.Link) != 0 ? link : trench;
+                if ((layer & TW.Sim.Terrain.NavLayer.Blocked) != 0) c = blocked;
+                px[i] = c;
+            }
+            for (int o = 0; o < map.Objectives.Length; o++)
+            {
+                var def = map.Objectives[o];
+                if (def.Kind != TW.Sim.Terrain.ObjectiveKind.HQ) continue;
+                var tint = teamTint[def.SideTeam & 1];
+                for (int k = 0; k < def.CellCount; k++)
+                {
+                    int i = map.ObjectiveCells[def.CellStart + k];
+                    px[i] = Color.Lerp(px[i], tint, 0.6f);
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            return tex;
         }
     }
 }

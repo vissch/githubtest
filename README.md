@@ -49,8 +49,9 @@ unity pipeline install
 ```
 
 In the editor the same steps are menu items: **TW → Setup Project**, **TW → Setup Input Handling**, **TW → Build
-Bootstrap Scenes**, then **Window → General → Test Runner**. Press Play in `GreyboxCorridor`: capsule units flow
-along the corridor under the debug overlay.
+Bootstrap Scenes**, then **Window → General → Test Runner**. Press Play in `GreyboxCorridor` and use the test panel
+on the right: deploy, trench orders for both sides, speed, camera presets. Capsule units flow along the corridor
+under the debug overlay.
 
 `validate.py` checks JSON, the assembly graph, sim purity and phase headers **without Unity**; it does not compile
 C#. `unity test` is the real gate.
@@ -63,7 +64,7 @@ C#. `unity test` is the real gate.
 | Layered flow fields per goal (`FlowFieldManager`: trench / objective / rally / cell goals, infantry and tracked modes, time-sliced rebuilds), spatial hash, separation with vehicle avoidance, infantry movement with garrison stop, vehicle kinematics, trench orders `>>` `↑` lock `↩` hold-fire | Ownership flips (sector control), fire-step assignment, wheeled vehicles, bog checks |
 | Heightfield line-of-sight raycast | Target acquisition, blast, burning |
 | Lockstep driver + loopback transport with latency/jitter/loss, replay recorder/player (format v2) | Unity Transport session, hash exchange, snapshots |
-| Presenter (pose interpolation), event pump, tactical camera, debug overlay, greybox terrain view | VAT renderer, ragdolls, terrain chunks, VFX, audio, UI |
+| Presenter (pose interpolation), event pump, tactical camera with presets, debug overlay, IMGUI test panel, greybox terrain view with nav-layer texture | VAT renderer, ragdolls, terrain chunks, VFX, audio, UI |
 | ScriptableObject schemas, data baker, slice roster generator (British, German, French vehicles, all off-map abilities) | Mission runner, wave AI (schemas exist) |
 | EditMode tests (determinism, replay, hash, flow field, flow-field manager, garrison and orders, raycast, commands) and PlayMode lockstep tests incl. the M1 2,000-unit / 5,000-tick acceptance run | — |
 

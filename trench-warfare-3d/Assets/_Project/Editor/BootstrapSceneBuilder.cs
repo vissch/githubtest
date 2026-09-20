@@ -89,6 +89,9 @@ namespace TW.Editor
             cam.farClipPlane = 1500f;
             var overlay = cam.gameObject.AddComponent<DebugOverlay>();
             overlay.Host = host;
+            var panel = cam.gameObject.AddComponent<TestPanel>();
+            panel.Host = host;
+            panel.Cam = cam.GetComponent<TacticalCamera>();
 
             var terrain = new GameObject("GreyboxTerrain");
             terrain.AddComponent<MeshFilter>();
