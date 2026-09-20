@@ -37,7 +37,7 @@ namespace TW.Presentation.Tactical
             if (mouse != null)
             {
                 Vector2 m = mouse.position.ReadValue();
-                bool inside = m.x >= 0f && m.y >= 0f && m.x <= Screen.width && m.y <= Screen.height;   // cursor outside the view (editor, alt-tab) must not pan
+                bool inside = Application.isFocused && m.x >= 0f && m.y >= 0f && m.x <= Screen.width && m.y <= Screen.height;   // no edge scroll while unfocused or with the cursor outside the view
                 if (inside)
                 {
                     if (m.x < EdgeScrollMargin) pan.x -= 1f; else if (m.x > Screen.width - EdgeScrollMargin) pan.x += 1f;
