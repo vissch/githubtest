@@ -16,7 +16,7 @@ namespace TW.Presentation.Tactical
     {
         public SimHost Host;
         public bool ShowFlowField = true;
-        public bool ShowStats = true;
+        public bool ShowStats = false;   // F2; the BattleHud is the playing interface
         public int FlowArrowRadiusCells = 12;
         public int ViewGoal;
 
@@ -31,6 +31,9 @@ namespace TW.Presentation.Tactical
             var fx = GetComponent<CombatFx>();                       // scenes built before A2 do not have it yet
             if (fx == null) fx = gameObject.AddComponent<CombatFx>();
             if (fx.Host == null) fx.Host = Host;
+            var hud = GetComponent<BattleHud>();
+            if (hud == null) hud = gameObject.AddComponent<BattleHud>();
+            if (hud.Host == null) hud.Host = Host;
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             matA = new Material(shader) { enableInstancing = true, color = new Color(0.55f, 0.45f, 0.25f) };
@@ -151,7 +154,7 @@ namespace TW.Presentation.Tactical
                 var s = fields.Trenches[t];
                 trenches += $"T{t}: owner {s.OwnerTeam} garrison {s.GarrisonCount}{(s.Locked != 0 ? " LOCKED" : "")}   ";
             }
-            GUI.Label(new Rect(325, 10, Screen.width - 340, 200),
+            GUI.Label(new Rect(340, 58, Screen.width - 460, 200),
                 $"tick {w.Tick}  hash {w.LastHash:X16}  alive {w.AliveCount}  silver P0 {w.Silver[0]} P1 {w.Silver[1]}\n" +
                 $"stall {Host.LocalDriver.StallTicks}  desync {(Host.Desync ? "YES" : "no")}  events/frame {Host.Events.Frame.Count}  overrun {Host.Events.OverrunTotal}\n" +
                 $"goals {fields.GoalCount}  viewing {(g >= 0 ? fields.Goals[g].ToString() : "-")}   {trenches}\n" +

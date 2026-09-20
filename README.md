@@ -49,8 +49,9 @@ unity pipeline install
 ```
 
 In the editor the same steps are menu items: **TW → Setup Project**, **TW → Setup Input Handling**, **TW → Build
-Bootstrap Scenes**, then **Window → General → Test Runner**. Press Play in `GreyboxCorridor` and use the test panel
-on the right: deploy, trench orders for both sides, speed, camera presets. Capsule units flow along the corridor
+Bootstrap Scenes**, then **Window → General → Test Runner**. Press Play in `GreyboxCorridor`: the HUD has silver top-left, a
+deploy and support bar along the bottom and order buttons on each of your trenches; the debug panel (top right) adds
+enemy orders, camera presets and restart. Capsule units flow along the corridor
 under the debug overlay.
 
 `validate.py` checks JSON, the assembly graph, sim purity and phase headers **without Unity**; it does not compile

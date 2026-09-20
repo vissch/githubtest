@@ -7,7 +7,7 @@
 //  - a garrison below the rim (in a trench, not on the fire-step) can only be engaged from within 8 m or from
 //    inside the same trench; a garrison whose trench is on hold-fire, or that is suppressed past 40, does not look;
 //  - units under a >> order are running: they only engage within 60 m;
-//  - small arms cannot hurt vehicles, so they never target them (A5 adds penetration).
+//  - small arms cannot hurt vehicles (A5 adds penetration); infantry within 8 m close-assault them with grenades.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -101,10 +101,11 @@ namespace TW.Sim.Combat
                 distSq = 0f;
                 uint fj = Flags[j];
                 if ((fj & (uint)UnitFlags.Alive) == 0 || Team[j] == Team[i]) return false;
-                if ((fj & (uint)UnitFlags.Vehicle) != 0) return false;                       // small arms: A5 adds penetration
                 float3 d = Position[j] - p; d.y = 0f;
                 distSq = math.lengthsq(d);
                 if (distSq > rangeSq) return false;
+                if ((fj & (uint)UnitFlags.Vehicle) != 0)   // small arms do nothing to armour (A5 adds penetration); infantry close-assault it instead
+                    return (Flags[i] & (uint)UnitFlags.Vehicle) == 0 && distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
                     short theirs = TrenchAt(Position[j]);

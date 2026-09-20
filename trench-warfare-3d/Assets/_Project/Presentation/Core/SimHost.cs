@@ -23,6 +23,8 @@ namespace TW.Presentation
         public float SilverPerSecond = 2f;
         [Tooltip("Sim time multiplier for testing: 0 pauses, 1 is real time. Both sims step together, so it never affects determinism.")]
         public float TimeScale = 1f;
+        [Tooltip("Two trench lines a side and 200 m of no man's land. Off = the 800 m M1 corridor.")]
+        public bool PlaytestMap = true;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
         [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
@@ -60,8 +62,8 @@ namespace TW.Presentation
             cfg.Seed = Seed;
             cfg.StartingSilver = StressUnits > 0 ? StressUnits * 25 : StartingSilver;
             cfg.SilverPerSecond = SilverPerSecond;
-            Local = MatchSim.CreateGreybox(cfg);
-            Peer = MatchSim.CreateGreybox(cfg);
+            Local = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
+            Peer = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
             net = new LoopbackNetwork(LatencyTicks, JitterTicks, LossChance, Seed);
             LocalDriver = new LockstepDriver(Local.World, net.A);
             PeerDriver = new LockstepDriver(Peer.World, net.B);
@@ -104,6 +106,19 @@ namespace TW.Presentation
                 int cost = Peer.World.Roster[RosterEntry.SlotCount + slot].Cost;
                 int reserve = PeerUsesSupport && Peer.World.AliveCount > 0 && t > 600 ? PeerSupportReserve : 0;
                 if (Peer.World.Silver[1] >= cost + reserve) PeerDriver.Issue(SimCommand.Deploy(t, 1, slot));
+            }
+            if (t % 100 == 20)
+            {
+                // every trench behind the front is locked so reinforcements walk through to the front line
+                short front = Peer.Fields.FrontTrench(1);
+                for (int k = 0; k < Peer.Fields.Trenches.Length; k++)
+                {
+                    var ts = Peer.Fields.Trenches[k];
+                    if (ts.OwnerTeam != 1) continue;
+                    byte want = (byte)(k != front ? 1 : 0);
+                    if (ts.Locked != want) PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchLock, A = k, B = want });
+                    if (k != front && ts.GarrisonCount > 0) PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = k });
+                }
             }
             if (PeerAttacks && t % 100 == 50)
             {

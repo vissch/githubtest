@@ -111,9 +111,25 @@ namespace TW.Sim.Combat
                     if (t < 0) continue;
                     if ((Flags[t] & (uint)UnitFlags.Alive) == 0 || Hp[t] <= 0f) { TargetSlot[i] = -1; continue; }
 
+                    float3 p = Position[i], q = Position[t];
+                    if ((Flags[t] & (uint)UnitFlags.Vehicle) != 0)
+                    {
+                        // close assault: a bundle of grenades on the tracks or through a vision slit
+                        FireCooldown[i] = CombatTables.CloseAssaultCooldownTicks;
+                        var dice = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
+                        float3 toward = q - p; toward.y = 0f;
+                        float reach = SimMath.Length(toward);
+                        Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = reach > 1e-3f ? toward / reach : new float3(0f, 0f, 1f), Scalar = 1f });
+                        if (dice.NextFloat() < CombatTables.CloseAssaultChance)
+                        {
+                            Hp[t] = Hp[t] - CombatTables.CloseAssaultDamage;
+                            Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Scalar = CombatTables.CloseAssaultDamage });
+                            if (Hp[t] <= 0f) { Killed.Add(new int2(t, i)); TargetSlot[i] = -1; }
+                        }
+                        continue;
+                    }
                     var weapon = CombatTables.WeaponFor(Archetype[i]);
                     FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
-                    float3 p = Position[i], q = Position[t];
                     float3 d = q - p; d.y = 0f;
                     float dist = SimMath.Length(d);
                     float3 dir = dist > 1e-3f ? d / dist : new float3(0f, 0f, 1f);

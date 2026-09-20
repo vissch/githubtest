@@ -90,6 +90,7 @@ namespace TW.Editor
             var overlay = cam.gameObject.AddComponent<DebugOverlay>();
             overlay.Host = host;
             cam.gameObject.AddComponent<CombatFx>().Host = host;
+            cam.gameObject.AddComponent<BattleHud>().Host = host;
             var panel = cam.gameObject.AddComponent<TestPanel>();
             panel.Host = host;
             panel.Cam = cam.GetComponent<TacticalCamera>();

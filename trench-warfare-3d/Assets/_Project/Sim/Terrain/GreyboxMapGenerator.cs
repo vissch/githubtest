@@ -40,6 +40,44 @@ namespace TW.Sim.Terrain
             return map;
         }
 
+        public const int PlaytestMapId = 2;
+
+        /// <summary>The M1.5 playtest map: 300 x 480 m, a reserve and a front trench per side, 200 m of no man's land
+        /// (about 45 s at a sprint). Trench chain for team 0: 0 -> 1 -> 2 -> 3 -> enemy HQ, and the reverse for team 1.
+        /// Objectives fall in order on each side: main line, reserve line, HQ.</summary>
+        public static MapData CreatePlaytest(Allocator allocator)
+        {
+            const float width = 300f, length = 480f;
+            var map = new MapData(PlaytestMapId, new float2(width, length), allocator);
+            for (int z = 0; z < map.Height.Length; z++)
+            {
+                float t = z / (float)map.Height.Length;
+                float h = 2f * (1f - math.abs(t - 0.5f) * 2f);
+                for (int x = 0; x < map.Height.Width; x++) map.Height.Set(x, z, h);
+            }
+            AddFireTrench(map, 0, (short)0, 60f, 0f, next0: 1, next1: -1);
+            AddFireTrench(map, 0, (short)1, 140f, 0f, next0: 2, next1: 0);
+            AddFireTrench(map, 1, (short)2, length - 140f, SimMath.Pi, next0: 3, next1: 1);
+            AddFireTrench(map, 1, (short)3, length - 60f, SimMath.Pi, next0: -1, next1: 2);
+
+            AddLineObjective(map, 0, ObjectiveKind.MainLine, sideTeam: 0, ownerTeam: 0, z: 140f, orderIndex: 1);
+            AddLineObjective(map, 1, ObjectiveKind.ReserveLine, sideTeam: 0, ownerTeam: 0, z: 60f, orderIndex: 2);
+            AddLineObjective(map, 2, ObjectiveKind.HQ, sideTeam: 0, ownerTeam: 0, z: 20f, orderIndex: 3);
+            AddLineObjective(map, 3, ObjectiveKind.MainLine, sideTeam: 1, ownerTeam: 1, z: length - 140f, orderIndex: 1);
+            AddLineObjective(map, 4, ObjectiveKind.ReserveLine, sideTeam: 1, ownerTeam: 1, z: length - 60f, orderIndex: 2);
+            AddLineObjective(map, 5, ObjectiveKind.HQ, sideTeam: 1, ownerTeam: 1, z: length - 20f, orderIndex: 3);
+
+            map.Spawns.Add(new SpawnPoint { Team = 0, Pos = new float3(width * 0.5f, 0f, 6f), Kind = 0 });
+            map.Spawns.Add(new SpawnPoint { Team = 1, Pos = new float3(width * 0.5f, 0f, length - 6f), Kind = 0 });
+            map.SupplyRoad.Add(new float3(width * 0.5f, 0f, 0f));
+            map.SupplyRoad.Add(new float3(width * 0.5f, 0f, 40f));
+            map.SupplyRoad.Add(new float3(width * 0.5f, 0f, length));
+            map.SupplyRoad.Add(new float3(width * 0.5f, 0f, length - 40f));
+            map.Wind = new float2(0f, -1f);
+            map.RebuildCost();
+            return map;
+        }
+
         /// <summary>A straight fire trench across the full corridor width at world Z, 2 cells deep in Z, with a link every 10 cells.
         /// It reaches both map edges so that nothing can bypass it round the end (tanks must cross, infantry must use links).</summary>
         static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1)

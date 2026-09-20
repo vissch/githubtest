@@ -30,7 +30,11 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   (`GasSmokeSystem`: wind drift, pools in trenches, a gassed garrison runs for its HQ and `fall back` brings it home).
   Weapons and abilities are placeholder tables (`CombatTables.WeaponFor`, `OffMapAbilitySystem.TryGetStats`). Known
   balance state, for the playtest to judge: a defended trench beats an unsupported assault about 30 to 0, so an attack
-  needs a barrage or gas first; small arms cannot hurt the tank until A5; no man's land is 560 m, a three-minute walk.
+  needs a barrage or gas first. The scene now plays on the **playtest map** (`SimHost.PlaytestMap`, 300 x 480 m, reserve
+  and front trench per side, 200 m of no man's land): reinforcements stop at the rear trench, `>>` moves them up the
+  chain, a locked trench passes them on, the lines fall front, reserve, HQ. Small arms still cannot hurt the tank, but
+  infantry within 8 m close-assault it with grenades. The playing interface is `BattleHud` (silver, bottom deploy bar,
+  order buttons anchored to each owned trench); `TestPanel` is the debug drawer behind the top-right button.
 - The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode. Entities / Entities Graphics
   were removed; the replay format is v2 (hash content changed again at M1, see docs/02 change log).
 - Decisions that shape everything after this: Windows x64 only; online multiplayer deferred until after Mission 3;

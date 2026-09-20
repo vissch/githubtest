@@ -16,7 +16,7 @@ namespace TW.Presentation.Tactical
     {
         public SimHost Host;
         public TacticalCamera Cam;
-        public bool Visible = true;
+        public bool Visible = false;   // the BattleHud is the playing interface; this is the debug drawer
 
         static readonly string[] SlotNames = { "Rifleman", "Assault", "MG team", "Sniper", "Mark IV" };
         const float Width = 300f;
@@ -26,6 +26,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The ability waiting for a target click, or None. CombatFx draws the aiming circle from it.</summary>
         public OffMapAbilityId Armed => armed;
+        public void Arm(OffMapAbilityId id) => armed = id;
 
         /// <summary>Where the mouse points on the ground plane, if it is over the map and not over this panel.</summary>
         public bool TryGroundPoint(out Vector3 point)
@@ -37,6 +38,7 @@ namespace TW.Presentation.Tactical
             Vector2 m = mouse.position.ReadValue();
             if (m.x < 0f || m.y < 0f || m.x > Screen.width || m.y > Screen.height) return false;
             if (Visible && m.x < Width + 20f) return false;
+            if (m.y < BattleHud.BarHeight + 4f) return false;   // the deploy bar (mouse Y counts from the bottom)
             var ray = cam.ScreenPointToRay(m);
             if (Mathf.Abs(ray.direction.y) < 1e-4f) return false;
             float t = (1f - ray.origin.y) / ray.direction.y;   // the greybox ground lies between 0 and 2 m
@@ -92,7 +94,7 @@ namespace TW.Presentation.Tactical
             EnsureStyles();
             if (!Visible)
             {
-                if (GUI.Button(new Rect(10, 10, 100, 24), "Show panel")) Visible = true;
+                if (GUI.Button(new Rect(Screen.width - 100, 10, 90, 24), "Debug panel")) Visible = true;
                 return;
             }
             var w = Host.Local.World;

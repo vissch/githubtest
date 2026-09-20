@@ -154,7 +154,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Host: {fileID: 1728060848}
   Cam: {fileID: 387420980}
-  Visible: 1
+  Visible: 0
 --- !u!114 &387420979
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -169,7 +169,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Host: {fileID: 1728060848}
   ShowFlowField: 1
-  ShowStats: 1
+  ShowStats: 0
   FlowArrowRadiusCells: 12
   ViewGoal: 0
 --- !u!114 &387420980
@@ -195,7 +195,7 @@ MonoBehaviour:
   YawLimit: 15
   Fov: 25
   RotateSpeed: 60
-  Focus: {x: 150, y: 127}
+  Focus: {x: 150, y: 146}
 --- !u!81 &387420981
 AudioListener:
   m_ObjectHideFlags: 0

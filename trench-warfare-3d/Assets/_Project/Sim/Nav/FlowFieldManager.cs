@@ -129,6 +129,22 @@ namespace TW.Sim.Nav
             return best;
         }
 
+        /// <summary>The fire trench this team owns that lies closest to its own spawn: where reinforcements stop first.</summary>
+        public short RearTrench(byte team)
+        {
+            short best = -1;
+            float bestZ = team == 0 ? float.MaxValue : float.MinValue;
+            for (int t = 0; t < map.Trenches.Length; t++)
+            {
+                if (Trenches[t].OwnerTeam != team) continue;
+                var def = map.Trenches[t];
+                if (def.Kind != 0 || def.CellCount == 0) continue;
+                float z = map.NavCellCenter(map.TrenchCells[def.CellStart]).z;
+                if (team == 0 ? z < bestZ : z > bestZ) { bestZ = z; best = (short)t; }
+            }
+            return best;
+        }
+
         /// <summary>Objective id of the enemy HQ for <paramref name="team"/>, or -1.</summary>
         public short EnemyHq(byte team)
         {
@@ -161,7 +177,8 @@ namespace TW.Sim.Nav
             return hq >= 0 ? GetGoal(GoalKey.Objective(hq, mode)) : -1;
         }
 
-        /// <summary>Goal for a freshly deployed unit: infantry walk to their team's front trench, vehicles drive at the enemy HQ.</summary>
+        /// <summary>Goal for a freshly deployed unit: infantry walk to the first trench their team owns and stop there (a
+        /// locked trench passes them on up the chain), vehicles drive at the enemy HQ.</summary>
         public int DefaultGoal(byte team, bool vehicle)
         {
             if (vehicle)
@@ -169,8 +186,8 @@ namespace TW.Sim.Nav
                 short hq = EnemyHq(team);
                 return hq >= 0 ? GetGoal(GoalKey.Objective(hq, NavMode.Tracked)) : -1;
             }
-            short front = FrontTrench(team);
-            if (front >= 0) return GetGoal(GoalKey.Trench(front));
+            short rear = RearTrench(team);
+            if (rear >= 0) return GetGoal(GoalKey.Trench(rear));
             short own = OwnHq(team);                      // every trench lost: make a stand at the HQ
             return own >= 0 ? GetGoal(GoalKey.Objective(own)) : -1;
         }
