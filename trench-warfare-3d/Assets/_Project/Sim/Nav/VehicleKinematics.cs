@@ -56,7 +56,7 @@ namespace TW.Sim.Nav
         }
 
         // Few vehicles, so a single-threaded job over the vehicle list: no parallel-write restrictions to work around.
-        [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct VehicleJob : IJob
         {
             [ReadOnly] public NativeArray<int> Vehicles;

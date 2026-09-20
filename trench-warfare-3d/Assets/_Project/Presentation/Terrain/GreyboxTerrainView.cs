@@ -54,10 +54,10 @@ namespace TW.Presentation.Terrain
             int w = map.NavWidth, l = map.NavLength;
             var tex = new Texture2D(w, l, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
             var px = new Color32[w * l];
-            var ground = new Color(0.40f, 0.35f, 0.27f);
-            var groundAlt = new Color(0.415f, 0.365f, 0.28f);
-            var trench = new Color(0.16f, 0.13f, 0.10f);
-            var link = new Color(0.62f, 0.52f, 0.34f);
+            var ground = new Color(0.36f, 0.47f, 0.34f);      // the 2D game's muddy grass
+            var groundAlt = new Color(0.37f, 0.485f, 0.35f);
+            var trench = new Color(0.30f, 0.21f, 0.15f);      // duckboards and earth
+            var link = new Color(0.60f, 0.48f, 0.30f);
             var wire = new Color(0.30f, 0.30f, 0.32f);
             var mud = new Color(0.30f, 0.24f, 0.16f);
             var crater = new Color(0.28f, 0.24f, 0.19f);

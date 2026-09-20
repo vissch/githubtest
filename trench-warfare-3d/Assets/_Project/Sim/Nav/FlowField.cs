@@ -128,7 +128,7 @@ namespace TW.Sim.Nav
             if (ownCrossable) crossable.Dispose();
         }
 
-        [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct BuildJob : IJob
         {
             public int Width, Length;

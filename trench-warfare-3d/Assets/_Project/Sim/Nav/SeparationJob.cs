@@ -9,18 +9,30 @@ using Unity.Mathematics;
 
 namespace TW.Sim.Nav
 {
-    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+    [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
     public struct SeparationJob : IJobParallelFor
     {
         public const float Radius = 0.5f;          // infantry collision radius (m)
         public const float VehicleRadius = 2.5f;   // hull half-width used for infantry avoidance (m)
         public const float Strength = 4f;          // m/s per metre of overlap
+        public const float MaxPush = 6f;           // m/s cap, so a dense stack spreads out instead of being fired across the map
 
         [ReadOnly] public SpatialHash Hash;
         [ReadOnly] public NativeArray<float3> Position;
         [ReadOnly] public NativeArray<uint> Flags;
         [ReadOnly] public NativeArray<int> Vehicles;   // alive vehicle slots (slot order)
         public NativeArray<float3> Push;               // output: additive velocity for this tick
+
+        /// <summary>Two units on the same point: opposite directions for the pair (antisymmetric in i, j), and a
+        /// different axis per pair so a stack of N fans out instead of moving as one.</summary>
+        static float3 CoincidentNormal(int i, int j)
+        {
+            int lo = math.min(i, j), hi = math.max(i, j);
+            int k = (lo * 7 + hi * 3) & 3;                       // 4 axes, 45 degrees apart
+            float3 axis = k == 0 ? new float3(1f, 0f, 0f) : k == 1 ? new float3(0.70710677f, 0f, 0.70710677f)
+                        : k == 2 ? new float3(0f, 0f, 1f) : new float3(-0.70710677f, 0f, 0.70710677f);
+            return i < j ? axis : -axis;
+        }
 
         public void Execute(int i)
         {
@@ -47,7 +59,7 @@ namespace TW.Sim.Nav
                         float dist = SimMath.Length(d);
                         if (dist < diameter)
                         {
-                            float3 n = dist > 1e-4f ? d / dist : new float3(((i & 1) == 0) ? 1f : -1f, 0f, 0f);
+                            float3 n = dist > 1e-4f ? d / dist : CoincidentNormal(i, j);
                             sum += n * (diameter - dist) * Strength;
                         }
                     } while (Hash.Map.TryGetNextValue(out j, ref it));
@@ -67,7 +79,8 @@ namespace TW.Sim.Nav
                     sum += n * (reach - dist) * Strength;
                 }
             }
-            Push[i] = sum;
+            float len = SimMath.Length(sum);
+            Push[i] = len > MaxPush ? sum * (MaxPush / len) : sum;
         }
     }
 }

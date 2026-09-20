@@ -148,7 +148,7 @@ namespace TW.Presentation.Tactical
                 var s = fields.Trenches[t];
                 trenches += $"T{t}: owner {s.OwnerTeam} garrison {s.GarrisonCount}{(s.Locked != 0 ? " LOCKED" : "")}   ";
             }
-            GUI.Label(new Rect(10, 10, Screen.width - 340, 200),
+            GUI.Label(new Rect(325, 10, Screen.width - 340, 200),
                 $"tick {w.Tick}  hash {w.LastHash:X16}  alive {w.AliveCount}  silver P0 {w.Silver[0]} P1 {w.Silver[1]}\n" +
                 $"stall {Host.LocalDriver.StallTicks}  desync {(Host.Desync ? "YES" : "no")}  events/frame {Host.Events.Frame.Count}  overrun {Host.Events.OverrunTotal}\n" +
                 $"goals {fields.GoalCount}  viewing {(g >= 0 ? fields.Goals[g].ToString() : "-")}   {trenches}\n" +

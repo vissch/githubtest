@@ -39,7 +39,7 @@ namespace TW.Sim.Nav
             new BuildJob { Hash = this, Positions = positions, Flags = flags, Count = count }.Run();
         }
 
-        [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct BuildJob : IJob
         {
             public SpatialHash Hash;

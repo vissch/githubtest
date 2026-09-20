@@ -41,3 +41,10 @@ once from the editor and once from a player build, and diff the files. Record re
 
 A divergence between editor and player usually means a job ran managed in one and Burst-compiled in the other
 (check `Burst → Enable Compilation` and that every sim job carries `[BurstCompile]`), not a platform issue.
+
+## Burst must compile synchronously in the sim
+
+Every sim job carries `[BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, ...)]`. Without it the editor runs a
+freshly edited job as managed code while Burst compiles in the background, Mono evaluates float maths differently, and two
+identical runs diverge (seen 2026-09-20: `SameSeedAndCommands_ProduceIdenticalHashes` failed at tick 9 on a cold cache).
+Players are compiled ahead of time and are not affected.

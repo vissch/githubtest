@@ -5,7 +5,7 @@ using Unity.Mathematics;
 
 namespace TW.Sim
 {
-    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+    [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
     public static class SimRandom
     {
         /// <summary>System ids keep two systems drawing in the same tick from producing correlated streams.</summary>

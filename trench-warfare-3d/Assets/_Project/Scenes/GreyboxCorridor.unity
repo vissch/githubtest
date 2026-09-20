@@ -187,13 +187,15 @@ MonoBehaviour:
   Host: {fileID: 1728060848}
   PanSpeed: 60
   EdgeScrollMargin: 12
-  ZoomMin: 20
+  ZoomMin: 15
   ZoomMax: 600
-  Zoom: 50
-  Pitch: 52
-  YawLimit: 45
+  Zoom: 30
+  Pitch: 72
+  BaseYaw: -90
+  YawLimit: 15
+  Fov: 25
   RotateSpeed: 60
-  Focus: {x: 150, y: 110}
+  Focus: {x: 150, y: 135}
 --- !u!81 &387420981
 AudioListener:
   m_ObjectHideFlags: 0

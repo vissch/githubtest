@@ -8,7 +8,7 @@ using Unity.Mathematics;
 
 namespace TW.Sim
 {
-    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+    [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
     public static class SimMath
     {
         public const float Pi = 3.14159265358979f;

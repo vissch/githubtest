@@ -220,5 +220,31 @@ namespace TW.Tests
             var b = RunScript();
             for (int i = 0; i < a.Length; i++) Assert.AreEqual(a[i], b[i], $"diverged at tick {i}");
         }
-    }
+    
+
+        [Test]
+        public void SameTickDeploys_SpreadOut_AndAllGarrison()
+        {
+            // Regression: deploys issued in one tick shared one spawn point; the coincident stack was pushed sideways as a
+            // block at several m/s and ended pinned against the map edge, never reaching a ladder.
+            using var m = NewMatch();
+            var cmds = new SimCommand[8];
+            for (int k = 0; k < cmds.Length; k++) cmds[k] = SimCommand.Deploy(m.World.Tick, 0, Rifleman);
+            Step(m, cmds);
+            var w = m.World;
+            Assert.AreEqual(8, Count(w, i => w.Team[i] == 0));
+            for (int a = 0; a < w.HighWater; a++)
+                for (int b = a + 1; b < w.HighWater; b++)
+                    Assert.Greater(math.distance(w.Position[a], w.Position[b]), 0.01f, "two deploys share a spawn point");
+
+            float maxSpeed = 0f;
+            for (int t = 0; t < 1200; t++)
+            {
+                Step(m);
+                for (int i = 0; i < w.HighWater; i++) maxSpeed = math.max(maxSpeed, math.length(w.Velocity[i]));
+            }
+            Assert.Less(maxSpeed, 3f * 1.5f + SeparationJob.MaxPush + 0.01f, "separation push must stay bounded");
+            Assert.AreEqual(8, Count(w, i => w.TrenchId[i] == m.Fields.FrontTrench(0)), "every unit garrisons the front trench");
+        }
+}
 }

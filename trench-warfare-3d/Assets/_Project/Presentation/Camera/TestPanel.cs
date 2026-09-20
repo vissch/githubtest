@@ -40,12 +40,12 @@ namespace TW.Presentation.Tactical
             EnsureStyles();
             if (!Visible)
             {
-                if (GUI.Button(new Rect(Screen.width - 110, 10, 100, 24), "Show panel")) Visible = true;
+                if (GUI.Button(new Rect(10, 10, 100, 24), "Show panel")) Visible = true;
                 return;
             }
             var w = Host.Local.World;
             var fields = Host.Local.Fields;
-            var area = new Rect(Screen.width - Width - 10, 10, Width, Screen.height - 20);
+            var area = new Rect(10, 10, Width, Screen.height - 20);   // left = behind your own lines; the enemy side stays clear
             GUILayout.BeginArea(area, box);
             scroll = GUILayout.BeginScrollView(scroll);
 
@@ -107,7 +107,7 @@ namespace TW.Presentation.Tactical
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button(ts.Locked != 0 ? "Unlock" : "Lock")) Order(player, CommandType.TrenchLock, t, ts.Locked != 0 ? 0 : 1);
                 if (GUILayout.Button(ts.HoldFire != 0 ? "Free fire" : "Hold fire")) Order(player, CommandType.TrenchHoldFire, t, ts.HoldFire != 0 ? 0 : 1);
-                if (GUILayout.Button("Look", GUILayout.Width(50)) && Cam != null) Cam.Frame(new Vector2(Host.Local.Map.SizeMeters.x * 0.5f, z), 60f);
+                if (GUILayout.Button("Look", GUILayout.Width(50)) && Cam != null) Cam.Frame(new Vector2(Host.Local.Map.SizeMeters.x * 0.5f, z), 30f);
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
@@ -131,15 +131,16 @@ namespace TW.Presentation.Tactical
                 short f0 = fields.FrontTrench(0), f1 = fields.FrontTrench(1);
                 float z0 = f0 >= 0 ? TrenchZ(f0) : 120f, z1 = f1 >= 0 ? TrenchZ(f1) : size.y - 120f;
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button("My trench")) Cam.Frame(new Vector2(mid, z0), 60f);
+                if (GUILayout.Button("My trench")) Cam.Frame(new Vector2(mid, z0 + 14f), 30f);
                 if (GUILayout.Button("No man's land")) Cam.Frame(new Vector2(mid, (z0 + z1) * 0.5f), 220f);
-                if (GUILayout.Button("Enemy trench")) Cam.Frame(new Vector2(mid, z1), 60f);
+                if (GUILayout.Button("Enemy trench")) Cam.Frame(new Vector2(mid, z1), 30f);
                 GUILayout.EndHorizontal();
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Overview")) Cam.Frame(new Vector2(mid, size.y * 0.5f), Cam.ZoomMax);
                 if (GUILayout.Button("Follow my units")) FollowUnits();
                 GUILayout.EndHorizontal();
-                GUILayout.Label("WASD / edge: pan   wheel: zoom   Q/E: rotate   F1 flow field   F2 stats", small);
+                GUILayout.Label("You are on the LEFT, the enemy on the RIGHT.", small);
+                GUILayout.Label("WASD / edge: pan   wheel: zoom   Q/E: tilt   F1 flow field   F2 stats", small);
             }
 
             GUILayout.EndScrollView();
@@ -179,7 +180,7 @@ namespace TW.Presentation.Tactical
             }
             if (n == 0) return;
             sum /= n;
-            Cam.Frame(new Vector2(sum.x, sum.z), 70f);
+            Cam.Frame(new Vector2(sum.x, sum.z), 35f);
         }
     }
 }

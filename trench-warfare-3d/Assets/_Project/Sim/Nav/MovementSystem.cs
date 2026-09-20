@@ -88,7 +88,7 @@ namespace TW.Sim.Nav
             }
         }
 
-        [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct MoveJob : IJobParallelFor
         {
             public NativeArray<float3> Position, Velocity;

@@ -8,7 +8,7 @@ using TW.Sim.Terrain;
 
 namespace TW.Sim.Combat
 {
-    [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+    [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
     public static class HeightfieldRaycast
     {
         public const float Margin = 0.05f;

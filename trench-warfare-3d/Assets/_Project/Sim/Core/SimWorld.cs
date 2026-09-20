@@ -190,13 +190,19 @@ namespace TW.Sim
             }
         }
 
+        // transient, derived from the tick's commands: not hashed. Per player, so the stream does not depend on how the
+        // two players' commands interleave within a tick.
+        uint deployTick; readonly int[] deploysThisTick = new int[SimConfig.MaxPlayers];
+
         void Deploy(SimCommand c)
         {
             if (c.A < 0 || c.A >= RosterEntry.SlotCount) { Reject(c); return; }
             int ri = c.Player * RosterEntry.SlotCount + c.A;
             var entry = Roster[ri];
             if (SlotUnlocked[ri] == 0 || SlotCooldown[ri] > 0 || Silver[c.Player] < entry.Cost) { Reject(c); return; }
-            var rng = SimRandom.For(Config.Seed, Tick, SimRandom.SystemId.Deployment, (uint)c.Player);
+            // one stream per deploy: several deploys by one player in one tick must not share a spawn point
+            if (deployTick != Tick) { deployTick = Tick; System.Array.Clear(deploysThisTick, 0, deploysThisTick.Length); }
+            var rng = SimRandom.For(Config.Seed, Tick, SimRandom.SystemId.Deployment, (uint)c.Player + 16u * (uint)deploysThisTick[c.Player]++);
             float3 spawn = c.Player == 0 ? Init.SpawnA : Init.SpawnB;
             spawn.x += rng.NextFloat(-6f, 6f);
             spawn.z += rng.NextFloat(-2f, 2f);
@@ -233,7 +239,7 @@ namespace TW.Sim
         }
 
         // ------------------------------------------------------------------ Phase 0 movement (replaced in A1)
-        [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct Phase0MoveJob : IJobParallelFor
         {
             public NativeArray<float3> Position;
