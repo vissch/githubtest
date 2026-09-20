@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
+using TW.Sim.Match;
 using TW.Presentation;
 
 namespace TW.Presentation.Tactical
@@ -17,13 +18,19 @@ namespace TW.Presentation.Tactical
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; }
         struct Body { public Vector3 Pos; public float Yaw; public byte Team; }
+        struct Burst { public Vector3 Pos; public float Radius, Born; }
+        struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
         readonly List<Body> bodies = new List<Body>(600);
+        readonly List<Burst> bursts = new List<Burst>(64);
+        readonly List<Marker> markers = new List<Marker>(8);
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
-        Mesh cube, capsule;
-        Material tracerMat, bodyMatA, bodyMatB;
+        Mesh cube, capsule, sphere;
+        Material tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat;
+        readonly Material[] gasMats = new Material[3];
+        TestPanel panel;
         string banner; float bannerUntil;
         bool subscribed;
 
@@ -38,6 +45,31 @@ namespace TW.Presentation.Tactical
             tracerMat = new Material(unlit) { enableInstancing = true, color = new Color(1f, 0.9f, 0.45f) };
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
+            sphere = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
+            burstMat = Transparent(unlit, new Color(1f, 0.62f, 0.2f, 0.55f));
+            markMine = Transparent(unlit, new Color(1f, 0.85f, 0.3f, 0.35f));
+            markTheirs = Transparent(unlit, new Color(1f, 0.2f, 0.15f, 0.35f));
+            aimMat = Transparent(unlit, new Color(1f, 1f, 1f, 0.22f));
+            gasMats[0] = Transparent(unlit, new Color(0.78f, 0.85f, 0.25f, 0.18f));
+            gasMats[1] = Transparent(unlit, new Color(0.78f, 0.85f, 0.25f, 0.34f));
+            gasMats[2] = Transparent(unlit, new Color(0.80f, 0.86f, 0.22f, 0.52f));
+            panel = GetComponent<TestPanel>();
+        }
+
+        /// <summary>URP Unlit set up for alpha blending from code (the shader GUI normally does this).</summary>
+        static Material Transparent(Shader shader, Color color)
+        {
+            var m = new Material(shader) { enableInstancing = true, color = color };
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 0f);
+            m.SetFloat("_ZWrite", 0f);
+            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            return m;
         }
 
         void OnDestroy()
@@ -67,6 +99,23 @@ namespace TW.Presentation.Tactical
                     p.y = hf.Sample(p.x, p.z) + 0.25f;
                     byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
                     bodies.Add(new Body { Pos = p, Yaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg, Team = team });
+                    break;
+                }
+                case SimEventType.Explosion:
+                {
+                    Vector3 p = (Vector3)e.Pos;
+                    p.y = hf.Sample(p.x, p.z);
+                    if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time });
+                    break;
+                }
+                case SimEventType.AbilityFired:
+                {
+                    Vector3 p = (Vector3)e.Pos;
+                    p.y = hf.Sample(p.x, p.z) + 0.15f;
+                    float radius = e.Scalar > 0f ? e.Scalar : 8f;
+                    markers.Add(new Marker { Pos = p, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
+                    string what = e.A == (int)OffMapAbilityId.ChlorineGas ? "gas" : "barrage";
+                    Banner(e.B == 0 ? $"Your {what} is on its way" : $"INCOMING {what.ToUpper()}: fall back or keep below the rim", 3f);
                     break;
                 }
                 case SimEventType.TrenchCaptured:
@@ -106,6 +155,59 @@ namespace TW.Presentation.Tactical
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);
+
+            // explosions: a fireball that swells to the blast radius and fades
+            bursts.RemoveAll(b => now - b.Born > 0.45f);
+            batch.Clear();
+            for (int i = 0; i < bursts.Count; i++)
+            {
+                float k = (now - bursts[i].Born) / 0.45f;
+                float r = Mathf.Lerp(1.5f, bursts[i].Radius, Mathf.Sqrt(k));
+                batch.Add(Matrix4x4.TRS(bursts[i].Pos, Quaternion.identity, new Vector3(r * 2f, r * (1.2f - k), r * 2f)));
+            }
+            if (batch.Count > 0) Flush(sphere, new RenderParams(burstMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+
+            // target markers (both sides see where support fire was called) and the aiming circle
+            markers.RemoveAll(m => now > m.Until);
+            for (int pass = 0; pass < 2; pass++)
+            {
+                batch.Clear();
+                for (int i = 0; i < markers.Count; i++)
+                    if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(markers[i].Pos, Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));
+                if (batch.Count > 0) Flush(sphere, new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+            }
+            if (panel != null && panel.Armed != OffMapAbilityId.None && panel.TryGroundPoint(out var aim) && OffMapAbilitySystem.TryGetStats((int)panel.Armed, out var aimStats))
+            {
+                float r = aimStats.Radius > 0f ? aimStats.Radius : 8f;
+                aim.y = Host.Local.Map.Height.Sample(aim.x, aim.z) + 0.2f;
+                batch.Clear();
+                batch.Add(Matrix4x4.TRS(aim, Quaternion.identity, new Vector3(r * 2f, 0.05f, r * 2f)));
+                Flush(sphere, new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+            }
+
+            // gas: one translucent block per 4 m field cell, three density bands
+            var gas = Host.Local.Gas;
+            if (gas != null && gas.Active)
+            {
+                var hfg = Host.Local.Map.Height;
+                float cs = TW.Sim.Terrain.MapData.FieldCellSize;
+                for (int band = 0; band < 3; band++)
+                {
+                    float lo = band == 0 ? 1f : band == 1 ? 6f : 18f, hi = band == 0 ? 6f : band == 1 ? 18f : float.MaxValue;
+                    var rpG = new RenderParams(gasMats[band]) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                    batch.Clear();
+                    for (int z = 0; z < gas.Length; z++)
+                    for (int x = 0; x < gas.Width; x++)
+                    {
+                        float c = gas.Gas[z * gas.Width + x];
+                        if (c < lo || c >= hi) continue;
+                        float wx = (x + 0.5f) * cs, wz = (z + 0.5f) * cs;
+                        batch.Add(Matrix4x4.TRS(new Vector3(wx, hfg.Sample(wx, wz) + 1.1f, wz), Quaternion.identity, new Vector3(cs, 2.4f, cs)));
+                        if (batch.Count == 1023) Flush(cube, rpG);
+                    }
+                    if (batch.Count > 0) Flush(cube, rpG);
+                }
+            }
 
             // bodies
             for (int team = 0; team < 2; team++)

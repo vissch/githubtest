@@ -28,6 +28,10 @@ namespace TW.Presentation
         [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
         public bool PeerAttacks = true;
         public int PeerAttackGarrison = 8;
+        [Tooltip("Scripted peer shells or gasses your front trench when it can afford it and you have men there.")]
+        public bool PeerUsesSupport = true;
+        public int PeerSupportReserve = 180;
+        int peerSupportCount;
         [Tooltip("Stress preset: both players start with enough silver to field this many riflemen each, deployed at 4 per tick.")]
         public int StressUnits = 0;
         [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
@@ -93,12 +97,40 @@ namespace TW.Presentation
         {
             if (!ScriptedPeer) return;
             uint t = Peer.World.Tick;
-            if (t % (uint)PeerDeployEveryTicks == 0) PeerDriver.Issue(SimCommand.Deploy(t, 1, (int)(t / (uint)PeerDeployEveryTicks) % 3));
+            if (t % (uint)PeerDeployEveryTicks == 0)
+            {
+                // keep a reserve for support fire once the first squad is out; silver is the only brake on the script
+                int slot = (int)(t / (uint)PeerDeployEveryTicks) % 3;
+                int cost = Peer.World.Roster[RosterEntry.SlotCount + slot].Cost;
+                int reserve = PeerUsesSupport && Peer.World.AliveCount > 0 && t > 600 ? PeerSupportReserve : 0;
+                if (Peer.World.Silver[1] >= cost + reserve) PeerDriver.Issue(SimCommand.Deploy(t, 1, slot));
+            }
             if (PeerAttacks && t % 100 == 50)
             {
                 short front = Peer.Fields.FrontTrench(1);
                 if (front >= 0 && Peer.Fields.Trenches[front].GarrisonCount >= PeerAttackGarrison)
                     PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = front });
+            }
+            if (PeerUsesSupport && t % 200 == 150 && Peer.Abilities != null)
+            {
+                short mine = Peer.Fields.FrontTrench(0);
+                var ability = (peerSupportCount & 1) == 0 ? OffMapAbilityId.HeBarrage : OffMapAbilityId.ChlorineGas;
+                if (mine >= 0 && Peer.Fields.Trenches[mine].GarrisonCount >= 6 && Peer.Abilities.CooldownOf(1, ability) == 0
+                    && OffMapAbilitySystem.TryGetStats((int)ability, out var stats) && Peer.World.Silver[1] >= stats.Cost + 20)
+                {
+                    var pw = Peer.World;
+                    Vector3 sum = Vector3.zero; int n = 0;
+                    for (int i = 0; i < pw.HighWater; i++)
+                        if (pw.IsAlive(i) && pw.TrenchId[i] == mine) { sum += (Vector3)pw.Position[i]; n++; }
+                    if (n > 0)
+                    {
+                        sum /= n;
+                        // gas is released upwind (the map wind blows toward -Z) so the cloud rolls over the trench
+                        float dz = ability == OffMapAbilityId.ChlorineGas ? 12f : 0f;
+                        PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.SupportFire, A = (int)ability, Pos = new Unity.Mathematics.float3(sum.x, 0f, sum.z + dz) });
+                        peerSupportCount++;
+                    }
+                }
             }
             if (StressUnits > 0)
             {

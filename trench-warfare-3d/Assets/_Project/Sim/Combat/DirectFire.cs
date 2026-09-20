@@ -46,7 +46,7 @@ namespace TW.Sim.Combat
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
-                Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
+                Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed,
             }.Run();
 
@@ -76,17 +76,20 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public SpatialHash Spatial;
             [ReadOnly] public NativeArray<short> CellTrenchId;
+            [ReadOnly] public NativeArray<byte> Layers;
             public NativeArray<int> TargetSlot, FireCooldown;
             public NativeArray<float> Hp, Suppression;
             public NativeList<SimEvent> Events;
             public NativeList<int2> Killed;
 
-            short TrenchAt(float3 p)
+            int CellOf(float3 p)
             {
                 int cx = math.clamp((int)(p.x / MapData.NavCellSize), 0, NavWidth - 1);
                 int cz = math.clamp((int)(p.z / MapData.NavCellSize), 0, NavLength - 1);
-                return CellTrenchId[cz * NavWidth + cx];
+                return cz * NavWidth + cx;
             }
+
+            short TrenchAt(float3 p) => CellTrenchId[CellOf(p)];
 
             void AddSuppression(int slot, float amount)
             {
@@ -128,7 +131,11 @@ namespace TW.Sim.Combat
                         bool sameTrench = (Flags[i] & (uint)UnitFlags.InTrench) != 0 && TrenchAt(p) == TrenchAt(q);
                         cover = sameTrench ? 0f : theirStance == Stance.FireStep ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
                     }
-                    else cover = StanceRules.CoverBonusInOpen(theirStance);
+                    else
+                    {
+                        cover = StanceRules.CoverBonusInOpen(theirStance);
+                        if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);   // a shell hole is the only cover in no man's land
+                    }
                     chance = math.clamp(chance * (1f - cover), 0.02f, 0.95f);
 
                     var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);

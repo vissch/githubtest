@@ -21,6 +21,10 @@ namespace TW.Sim.Match
         public DirectFireSystem Fire;
         public SuppressionSystem Suppression;
         public SectorControlSystem Sectors;
+        public BlastSystem Blast;
+        public GasSmokeSystem Gas;
+        public DeformationSystem Deformation;
+        public OffMapAbilitySystem Abilities;
 
         /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
         public static MatchSim CreateGreybox(SimConfig config, bool combat = true)
@@ -50,14 +54,17 @@ namespace TW.Sim.Match
             }
             // A5: World.AddSystem(new TW.Sim.Units.GrenadeSystem());
             // A5: World.AddSystem(new TW.Sim.Combat.IndirectFireSystem());
-            // A5: World.AddSystem(new TW.Sim.Combat.BlastSystem());
+            Blast = new BlastSystem(map);
+            World.AddSystem(Blast);                         // A5 core: radius damage, suppression, craters out
             // A5: World.AddSystem(new TW.Sim.Combat.BurningSystem());
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
             // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());
             // A3: World.AddSystem(new TW.Sim.Units.TrenchGarrisonSystem());
-            // A5: World.AddSystem(new TW.Sim.Combat.GasSmokeSystem());
-            // A4: World.AddSystem(new DeformationSystem(map));
+            Gas = new GasSmokeSystem(map);
+            World.AddSystem(Gas);                           // A5 core: chlorine field, wind, trench sink, gassed garrisons run
+            Deformation = new DeformationSystem(map);
+            World.AddSystem(Deformation);                   // A4 core: crater stamps
             Movement = new MovementSystem(map);
             World.AddSystem(Movement);                      // A1: infantry
             Vehicles = new VehicleKinematicsSystem(map);
@@ -65,7 +72,8 @@ namespace TW.Sim.Match
             // A5: World.AddSystem(new TW.Sim.Units.VehicleModulesSystem());
             Sectors = new SectorControlSystem(map);
             World.AddSystem(Sectors);                       // A3 core: objectives, trench ownership, HQ = match end
-            // A5: World.AddSystem(new OffMapAbilitySystem());
+            Abilities = new OffMapAbilitySystem();
+            World.AddSystem(Abilities);                     // A5 core: HE barrage, chlorine gas
             // A6: World.AddSystem(new WaveAiSystem());
         }
 

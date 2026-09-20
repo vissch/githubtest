@@ -11,6 +11,7 @@ namespace TW.Sim.Combat
     {
         public const float TrenchCover = 0.75f;          // fire-step target shot at from outside its trench
         public const float BelowRimRevealRange = 8f;     // a garrison below the rim can only be engaged from this close
+        public const float CraterCover = 0.35f;          // added to the stance cover of a man standing in a shell hole
         public const float MovingAccuracy = 0.5f;        // shooter moving faster than MovingSpeed
         public const float MovingSpeed = 0.5f;
         public const float AdvanceFireRange = 60f;       // units under >> only engage this close: they are running

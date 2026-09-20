@@ -10,13 +10,19 @@ namespace TW.Presentation.Terrain
     {
         public SimHost Host;
         public int Step = 2;
+        Vector3[] verts;
+        Mesh mesh;
+        Texture2D layerTex;
+        int vertsW, vertsL;
+        bool meshDirty, subscribed;
 
         void Start()
         {
             if (Host == null || Host.Local == null) return;
             var hf = Host.Local.Map.Height;
             int w = hf.Width / Step + 1, l = hf.Length / Step + 1;
-            var verts = new Vector3[w * l];
+            verts = new Vector3[w * l];
+            vertsW = w; vertsL = l;
             var uvs = new Vector2[w * l];
             for (int z = 0; z < l; z++)
             for (int x = 0; x < w; x++)
@@ -34,7 +40,7 @@ namespace TW.Presentation.Terrain
                 tris[t++] = i; tris[t++] = i + w; tris[t++] = i + 1;
                 tris[t++] = i + 1; tris[t++] = i + w; tris[t++] = i + w + 1;
             }
-            var mesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32, vertices = verts, uv = uvs, triangles = tris };
+            mesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32, vertices = verts, uv = uvs, triangles = tris };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             GetComponent<MeshFilter>().sharedMesh = mesh;
@@ -42,8 +48,44 @@ namespace TW.Presentation.Terrain
             if (shader == null) shader = Shader.Find("Standard");
             var mat = new Material(shader) { color = Color.white };
             var tex = BuildLayerTexture();
+            layerTex = tex;
             if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex); else mat.mainTexture = tex;
             GetComponent<MeshRenderer>().sharedMaterial = mat;
+        }
+
+        void Update()
+        {
+            if (Host == null || Host.Local == null) return;
+            if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
+            if (!meshDirty || mesh == null) return;
+            meshDirty = false;
+            mesh.vertices = verts;
+            mesh.RecalculateNormals();
+            layerTex.Apply(false, false);
+        }
+
+        void OnDestroy() { if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent; }
+
+        /// <summary>A crater landed: re-read the heightfield and the nav layers around it.</summary>
+        void OnSimEvent(TW.Sim.SimEvent e)
+        {
+            if (e.Type != TW.Sim.SimEventType.CraterStamp || verts == null) return;
+            var map = Host.Local.Map;
+            var hf = map.Height;
+            float r = e.Scalar + Step;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt((e.Pos.x - r) / Step)), x1 = Mathf.Min(vertsW - 1, Mathf.CeilToInt((e.Pos.x + r) / Step));
+            int z0 = Mathf.Max(0, Mathf.FloorToInt((e.Pos.z - r) / Step)), z1 = Mathf.Min(vertsL - 1, Mathf.CeilToInt((e.Pos.z + r) / Step));
+            for (int z = z0; z <= z1; z++)
+            for (int x = x0; x <= x1; x++)
+                verts[z * vertsW + x].y = hf.Sample(x * Step, z * Step);
+            float n = TW.Sim.Terrain.MapData.NavCellSize;
+            var scorched = new Color(0.22f, 0.20f, 0.17f);
+            int nx0 = Mathf.Max(0, Mathf.FloorToInt((e.Pos.x - r) / n)), nx1 = Mathf.Min(map.NavWidth - 1, Mathf.FloorToInt((e.Pos.x + r) / n));
+            int nz0 = Mathf.Max(0, Mathf.FloorToInt((e.Pos.z - r) / n)), nz1 = Mathf.Min(map.NavLength - 1, Mathf.FloorToInt((e.Pos.z + r) / n));
+            for (int z = nz0; z <= nz1; z++)
+            for (int x = nx0; x <= nx1; x++)
+                if ((map.NavLayers[map.NavIndex(x, z)] & (byte)TW.Sim.Terrain.NavLayer.Crater) != 0) layerTex.SetPixel(x, z, scorched);
+            meshDirty = true;
         }
 
         /// <summary>One texel per nav cell: open ground, trench body (dark), ladders (sand), HQ lines (team tint),
@@ -90,7 +132,7 @@ namespace TW.Presentation.Terrain
                 }
             }
             tex.SetPixels32(px);
-            tex.Apply(false, true);
+            tex.Apply(false, false);   // stays readable: craters repaint texels at run time
             return tex;
         }
     }

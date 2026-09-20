@@ -21,14 +21,16 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   deploy buttons, per-trench `>>` `↩` lock hold-fire for both sides (so you can stage an enemy assault), speed 0-8x,
   camera presets, restart. Hotkeys still work (1-5 deploy, Space `>>`, Backspace `↩`, L lock, F3 field view);
   `SimHost.StressUnits` deploys N per side and sends both over the top.
-- **M1.5 is in progress.** Landed: A2 core (`TargetAcquisitionSystem`, `DirectFireSystem` with near-miss suppression and
+- **M1.5 is code complete; the two-developer playtest is what remains.** Landed: A2 core (`TargetAcquisitionSystem`, `DirectFireSystem` with near-miss suppression and
   deaths, `SuppressionSystem` decay, prone / pinned / fire-step stances in the move job, hold-fire that hides a garrison
   below the rim), garrison spacing along the trench, wall sliding, A3 core (`SectorControlSystem`: objectives fall in
   order, a captured trench changes owner, an HQ ends the match), tracers / bodies / banners (`CombatFx`), a scripted
-  enemy that attacks on its own. Weapons are a placeholder table (`CombatTables.WeaponFor`). Still open for the gate:
-  one HE barrage with crater stamp, one gas cloud, then the two-developer playtest. Known balance state: a defended
-  trench beats an unsupported assault about 30 to 0, by design until barrage, gas and smoke exist; small arms cannot
-  hurt the tank until A5.
+  enemy that attacks on its own and calls support. Support fire (`OffMapAbilitySystem`): HE barrage (12 shells, 25 m,
+  4 s warning, `BlastSystem`, craters through `DeformationSystem` that are cover and show on the ground) and chlorine
+  (`GasSmokeSystem`: wind drift, pools in trenches, a gassed garrison runs for its HQ and `fall back` brings it home).
+  Weapons and abilities are placeholder tables (`CombatTables.WeaponFor`, `OffMapAbilitySystem.TryGetStats`). Known
+  balance state, for the playtest to judge: a defended trench beats an unsupported assault about 30 to 0, so an attack
+  needs a barrage or gas first; small arms cannot hurt the tank until A5; no man's land is 560 m, a three-minute walk.
 - The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode. Entities / Entities Graphics
   were removed; the replay format is v2 (hash content changed again at M1, see docs/02 change log).
 - Decisions that shape everything after this: Windows x64 only; online multiplayer deferred until after Mission 3;
@@ -38,8 +40,8 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
 
 ## 3. Next steps in order (docs/11 §5)
 1. ~~M1~~ done.
-2. **M1.5 fun gate**: ~~A2 core, A3 core~~ done; remaining: one HE barrage with crater stamp, one gas cloud —
-   capsules and IMGUI only. Then playtest with both developers. Nothing below is scheduled until it passes.
+2. **M1.5 fun gate**: code done. Playtest with both developers against the questions in docs/11 (is trench-to-trench
+   assault better in 3D, do 2,000 units matter, is the crossing too long). Nothing below is scheduled until it passes.
 3. M2 look (B3 sized by the gate, B6, B2, C2 infantry) → M3 Mission 1 → M4 Mission 2 → M5 Mission 3 + perf → M6
    online (if required) → M7 meta.
 

@@ -4,7 +4,9 @@
 // time control, camera presets and restart. Everything goes through SimHost.Issue / IssuePeer so the lockstep path
 // is exercised exactly as it will be with a real opponent.
 using UnityEngine;
+using UnityEngine.InputSystem;
 using TW.Sim;
+using TW.Sim.Match;
 using TW.Sim.Nav;
 using TW.Presentation;
 
@@ -20,6 +22,56 @@ namespace TW.Presentation.Tactical
         const float Width = 300f;
         GUIStyle box, header, small;
         Vector2 scroll;
+        OffMapAbilityId armed = OffMapAbilityId.None;   // waiting for a click on the map
+
+        /// <summary>The ability waiting for a target click, or None. CombatFx draws the aiming circle from it.</summary>
+        public OffMapAbilityId Armed => armed;
+
+        /// <summary>Where the mouse points on the ground plane, if it is over the map and not over this panel.</summary>
+        public bool TryGroundPoint(out Vector3 point)
+        {
+            point = default;
+            var mouse = Mouse.current;
+            var cam = Camera.main;
+            if (mouse == null || cam == null) return false;
+            Vector2 m = mouse.position.ReadValue();
+            if (m.x < 0f || m.y < 0f || m.x > Screen.width || m.y > Screen.height) return false;
+            if (Visible && m.x < Width + 20f) return false;
+            var ray = cam.ScreenPointToRay(m);
+            if (Mathf.Abs(ray.direction.y) < 1e-4f) return false;
+            float t = (1f - ray.origin.y) / ray.direction.y;   // the greybox ground lies between 0 and 2 m
+            if (t <= 0f) return false;
+            point = ray.origin + ray.direction * t;
+            var size = Host.Local.Map.SizeMeters;
+            return point.x >= 0f && point.z >= 0f && point.x <= size.x && point.z <= size.y;
+        }
+
+        void Update()
+        {
+            if (armed == OffMapAbilityId.None || Host == null || Host.Local == null) return;
+            var mouse = Mouse.current;
+            var kb = Keyboard.current;
+            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)) { armed = OffMapAbilityId.None; return; }
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame && TryGroundPoint(out var p))
+            {
+                Host.Issue(new SimCommand { Tick = Host.Local.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)armed, Pos = new Unity.Mathematics.float3(p.x, 0f, p.z) });
+                armed = OffMapAbilityId.None;
+            }
+        }
+
+        void SupportButton(string name, OffMapAbilityId id)
+        {
+            var w = Host.Local.World;
+            var abilities = Host.Local.Abilities;
+            if (abilities == null || !OffMapAbilitySystem.TryGetStats((int)id, out var stats)) return;
+            int cd = abilities.CooldownOf(0, id);
+            bool can = cd == 0 && w.Silver[0] >= stats.Cost && w.WinnerTeam < 0;
+            GUI.enabled = can || armed == id;
+            string label = armed == id ? $"{name}: click the map  (Esc cancels)" : $"{name}   {stats.Cost}s" + (cd > 0 ? $"   ({cd * w.Config.TickSeconds:0}s)" : "");
+            if (GUILayout.Button(label)) armed = armed == id ? OffMapAbilityId.None : id;
+            GUI.enabled = true;
+        }
+
 
         void Start()
         {
@@ -79,6 +131,13 @@ namespace TW.Presentation.Tactical
                 if (GUILayout.Button(label)) Host.Issue(SimCommand.Deploy(w.Tick, 0, s));
                 GUI.enabled = true;
             }
+
+            // ---- support ----------------------------------------------------------------------------------------
+            GUILayout.Space(8);
+            GUILayout.Label("Support (click the button, then the map)", header);
+            SupportButton("HE barrage", OffMapAbilityId.HeBarrage);
+            SupportButton("Chlorine gas", OffMapAbilityId.ChlorineGas);
+            GUILayout.Label("Barrage: 12 shells in 25 m after 4 s, craters give cover. Gas drifts left with the wind, pools in trenches, drives the garrison out.", small);
 
             // ---- trenches ---------------------------------------------------------------------------------------
             GUILayout.Space(8);
