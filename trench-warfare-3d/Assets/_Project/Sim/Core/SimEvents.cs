@@ -34,6 +34,7 @@ namespace TW.Sim
         CellBurning,        // pos, scalar = seconds
         MatchEnded,         // a = winning team (-1 draw)
         CommandRejected,    // a = command type, b = player (debug only; not hashed)
+        PropChanged,        // a = prop index, b = new PropKind, pos (a tree broke, a wreck appeared)
     }
 
     public struct SimEvent

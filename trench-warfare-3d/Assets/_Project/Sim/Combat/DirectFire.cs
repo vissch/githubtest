@@ -46,7 +46,7 @@ namespace TW.Sim.Combat
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
-                Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, NavWidth = map.NavWidth, NavLength = map.NavLength,
+                Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed,
             }.Run();
 
@@ -76,6 +76,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public SpatialHash Spatial;
             [ReadOnly] public NativeArray<short> CellTrenchId;
+            [ReadOnly] public NativeArray<byte> CellCover;
             [ReadOnly] public NativeArray<byte> Layers;
             public NativeArray<int> TargetSlot, FireCooldown;
             public NativeArray<float> Hp, Suppression;
@@ -150,7 +151,8 @@ namespace TW.Sim.Combat
                     else
                     {
                         cover = StanceRules.CoverBonusInOpen(theirStance);
-                        if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);   // a shell hole is the only cover in no man's land
+                        if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);
+                        cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
                     }
                     chance = math.clamp(chance * (1f - cover), 0.02f, 0.95f);
 

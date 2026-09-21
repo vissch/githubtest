@@ -34,6 +34,13 @@ namespace TW.Sim.Terrain
         public NativeList<EmplacementDef> Emplacements;
         public float2 Wind;                        // metres per second in XZ, for gas/smoke
 
+        /// <summary>The water table in metres. Ground below it is wet: more than WetDepth under is Mud, more than
+        /// DeepDepth under is Blocked (the generator only; a shell never makes ground impassable). NoWater = dry map.</summary>
+        public float WaterLevel = NoWater;
+        public const float NoWater = -1000f, WetDepth = 0.15f, DeepDepth = 1.0f;
+        public NativeList<PropDef> Props;          // trees, stumps, wrecks, bridges (A4); mutable during a match
+        public NativeArray<byte> CellCover;        // derived from Props: cover percent per nav cell
+
         public MapData(int mapId, float2 sizeMeters, Allocator allocator)
         {
             MapId = mapId;
@@ -44,6 +51,8 @@ namespace TW.Sim.Terrain
             NavLayers = new NativeArray<byte>(NavWidth * NavLength, allocator);
             NavCost = new NativeArray<byte>(NavWidth * NavLength, allocator);
             CellTrenchId = new NativeArray<short>(NavWidth * NavLength, allocator);
+            CellCover = new NativeArray<byte>(NavWidth * NavLength, allocator);
+            Props = new NativeList<PropDef>(256, allocator);
             for (int i = 0; i < CellTrenchId.Length; i++) CellTrenchId[i] = -1;
             Trenches = new NativeList<TrenchDef>(16, allocator);
             TrenchCells = new NativeList<int>(1024, allocator);
@@ -89,6 +98,83 @@ namespace TW.Sim.Terrain
             Version++;
         }
 
+        // ---- water ------------------------------------------------------------------------------------------
+        /// <summary>Depth of water over the middle of a nav cell; zero or less is dry.</summary>
+        public float WaterDepthAtCell(int x, int z) => WaterLevel - Height.Sample((x + 0.5f) * NavCellSize, (z + 0.5f) * NavCellSize);
+
+        /// <summary>Re-apply the water table to a rectangle of nav cells. Trench, link and bunker cells are left alone
+        /// (trenches are drained). Returns how many cells changed layer.</summary>
+        public int ApplyWater(int x0, int z0, int x1, int z1, bool allowBlock)
+        {
+            if (WaterLevel <= NoWater) return 0;
+            int changed = 0;
+            for (int z = math.max(0, z0); z <= math.min(NavLength - 1, z1); z++)
+            for (int x = math.max(0, x0); x <= math.min(NavWidth - 1, x1); x++)
+            {
+                var layer = (NavLayer)NavLayers[NavIndex(x, z)];
+                if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Bunker)) != 0) continue;
+                float depth = WaterDepthAtCell(x, z);
+                var wanted = layer;
+                if (depth > WetDepth) wanted |= NavLayer.Mud;
+                if (allowBlock && depth > DeepDepth) wanted |= NavLayer.Blocked;
+                if (wanted == layer) continue;
+                SetLayer(x, z, wanted);
+                changed++;
+            }
+            return changed;
+        }
+
+        // ---- props ------------------------------------------------------------------------------------------
+        /// <summary>Place a prop; returns its index, or -1 on a trench, link, bunker or blocked cell. Keeping props off
+        /// objectives and crossings is the generator's job.</summary>
+        public int AddProp(PropDef prop)
+        {
+            var c = NavCellOf(prop.Pos);
+            int cell = NavIndex(c.x, c.y);
+            var layer = (NavLayer)NavLayers[cell];
+            if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Bunker | NavLayer.Blocked)) != 0) return -1;
+            prop.Cell = cell;
+            if (prop.Hp <= 0f) prop.Hp = PropRules.StartHp(prop.Kind);
+            Props.Add(prop);
+            if (PropRules.Blocks(prop.Kind)) SetLayer(c.x, c.y, layer | NavLayer.Blocked);
+            StampCover(cell, PropRules.CoverPercent(prop.Kind));
+            Version++;
+            return Props.Length - 1;
+        }
+
+        /// <summary>Change what a prop is (a tree breaks). Returns true when its nav cell opened or closed.</summary>
+        public bool SetPropKind(int index, PropKind kind)
+        {
+            var prop = Props[index];
+            bool was = PropRules.Blocks(prop.Kind), now = PropRules.Blocks(kind);
+            prop.Kind = kind; prop.Hp = PropRules.StartHp(kind);
+            Props[index] = prop;
+            int x = prop.Cell % NavWidth, z = prop.Cell / NavWidth;
+            var layer = (NavLayer)NavLayers[prop.Cell];
+            if (was != now) SetLayer(x, z, now ? layer | NavLayer.Blocked : layer & ~NavLayer.Blocked);   // props never stand on cells that were blocked before them
+            RebuildCover();
+            return was != now;
+        }
+
+        public void RebuildCover()
+        {
+            for (int i = 0; i < CellCover.Length; i++) CellCover[i] = 0;
+            for (int i = 0; i < Props.Length; i++) StampCover(Props[i].Cell, PropRules.CoverPercent(Props[i].Kind));
+            Version++;
+        }
+
+        void StampCover(int cell, byte percent)
+        {
+            if (percent == 0) return;
+            int cx = cell % NavWidth, cz = cell / NavWidth;
+            for (int z = math.max(0, cz - 1); z <= math.min(NavLength - 1, cz + 1); z++)
+            for (int x = math.max(0, cx - 1); x <= math.min(NavWidth - 1, cx + 1); x++)
+            {
+                int i = NavIndex(x, z);
+                if (CellCover[i] < percent) CellCover[i] = percent;
+            }
+        }
+
         public SimConfig.WorldInit ToWorldInit()
         {
             float3 a = default, b = default;
@@ -103,12 +189,19 @@ namespace TW.Sim.Terrain
             h = SimHash.Array(NavLayers, h);
             h = SimHash.Array(NavCost, h);
             h = SimHash.Array(CellTrenchId, h);
+            h = SimHash.Array(CellCover, h);
+            h = SimHash.Value(WaterLevel, h);
+            for (int i = 0; i < Props.Length; i++)   // field by field: the struct has padding bytes
+            {
+                var p = Props[i];
+                h = SimHash.Value(p.Pos, h); h = SimHash.Value(p.Hp, h); h = SimHash.Value(p.Cell, h); h = SimHash.Value((int)p.Kind, h);
+            }
             return h;
         }
 
         public void Dispose()
         {
-            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose();
+            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose(); CellCover.Dispose(); Props.Dispose();
             Trenches.Dispose(); TrenchCells.Dispose(); FireStepCells.Dispose(); LinkCells.Dispose();
             Objectives.Dispose(); ObjectiveCells.Dispose(); StaticCover.Dispose(); Spawns.Dispose();
             SupplyRoad.Dispose(); Triggers.Dispose(); Emplacements.Dispose();

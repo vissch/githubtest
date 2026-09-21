@@ -27,6 +27,7 @@ namespace TW.Sim.Combat
         readonly MapData map;
         public NativeList<Impact> Pending;         // filled by abilities / indirect fire earlier in the same tick
         public NativeList<CraterStamp> Craters;    // drained by DeformationSystem later in the same tick
+        public NativeList<Impact> Resolved;        // this tick's impacts, for what they do to props and wire; drained the same way
         NativeList<int> killed;
 
         public BlastSystem(MapData map) { this.map = map; }
@@ -35,6 +36,7 @@ namespace TW.Sim.Combat
         {
             Pending = new NativeList<Impact>(32, Allocator.Persistent);
             Craters = new NativeList<CraterStamp>(32, Allocator.Persistent);
+            Resolved = new NativeList<Impact>(32, Allocator.Persistent);
             killed = new NativeList<int>(64, Allocator.Persistent);
         }
 
@@ -54,6 +56,7 @@ namespace TW.Sim.Combat
             {
                 var im = Pending[k];
                 w.Events.Add(w.Tick, SimEventType.Explosion, im.Source, im.Player, im.Pos, default, im.Radius);
+                Resolved.Add(im);
                 if (im.CraterRadius > 0f) Craters.Add(new CraterStamp { Center = im.Pos, Radius = im.CraterRadius, Depth = im.CraterDepth });
             }
             for (int k = 0; k < killed.Length; k++) w.Despawn(killed[k], -1, new float3(0f, 1f, 0f));
@@ -113,6 +116,7 @@ namespace TW.Sim.Combat
         {
             if (Pending.IsCreated) Pending.Dispose();
             if (Craters.IsCreated) Craters.Dispose();
+            if (Resolved.IsCreated) Resolved.Dispose();
             if (killed.IsCreated) killed.Dispose();
         }
     }

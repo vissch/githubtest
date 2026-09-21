@@ -48,6 +48,7 @@ namespace TW.Sim.Terrain
                 map.SetLayer(x, z, layer | NavLayer.Crater);
                 changed++;
             }
+            changed += map.ApplyWater(nMinX, nMinZ, nMaxX, nMaxZ, allowBlock: false);   // a hole below the water table fills: slow going, never impassable
             map.Touch();
             return changed;
         }
