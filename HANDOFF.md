@@ -75,6 +75,13 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   to the broad tone beyond 90 m. The river and flooded shell holes use `Shaders/Water_URP.shader`: one opaque quad,
   three texture reads a pixel, no scene-depth read or grab pass; depth bands, shoreline and lapping rings come from a
   depth map baked off the drawn ground (one texel a ground vertex, repainted with the chunks a crater touches).
+  Same day, second pass: `QuietFog` (a thin low fog inside the field that lifts within 55 m of the player's men,
+  round their HQ and briefly at shell bursts; a 4 m presence map read by every world shader; presentation only, it
+  hides nothing from the sim or HUD; team 0 is assumed local), `FogWisps` (28 drifting soft cards at most, one mesh
+  and draw call, `Shaders/FogWisp_URP.shader`), `WaterRings` (16 shader rings for wading men and shell bursts in
+  water, `Shaders/TWWater.hlsl`), painted puddles drawn with the river's bands and shore (ground texture alpha now
+  carries depth: 0.4 .. 0 water, 0.5 liquid mud, below 1 a sheen), and mud by zone in `GroundColor` (cracked crust on
+  rises, sheen in dips, boot-churned patches round ladders and ramps).
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

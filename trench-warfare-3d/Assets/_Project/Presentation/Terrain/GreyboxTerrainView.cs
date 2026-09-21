@@ -55,6 +55,7 @@ namespace TW.Presentation.Terrain
             if (old != null) old.enabled = false;
 
             var mat = Toon(Color.white);
+            BuildChurn(map);
             colorTex = BuildColorTexture(map);
             mat.SetTexture("_BaseMap", colorTex);
 
@@ -93,6 +94,19 @@ namespace TW.Presentation.Terrain
             if (map.WaterLevel > MapData.NoWater) BuildWater(map);
             BuildSkirt(map);
             if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>();
+            if (GetComponent<QuietFog>() == null) gameObject.AddComponent<QuietFog>().Host = Host;
+            if (GetComponent<FogWisps>() == null) gameObject.AddComponent<FogWisps>().Build(map);
+            if (GetComponent<WaterRings>() == null)
+            {
+                var rings = gameObject.AddComponent<WaterRings>();
+                rings.Host = Host;
+                rings.IsWater = (x, z) =>
+                {
+                    if (x < 0f || z < 0f || x >= map.SizeMeters.x || z >= map.SizeMeters.y) return false;
+                    if (map.WaterLevel > MapData.NoWater && RenderGround.Sample(map, x, z) < map.WaterLevel - .04f) return true;
+                    return colorTex.GetPixel((int)(x * Tpm), (int)(z * Tpm)).a < .42f;   // a painted puddle
+                };
+            }
             var props = GetComponent<BattlefieldProps>();
             if (props == null) props = gameObject.AddComponent<BattlefieldProps>();
             props.Host = Host;
@@ -511,6 +525,50 @@ namespace TW.Presentation.Terrain
             return tex;
         }
 
+        float[] churn;   // per nav cell: how trodden the ground is, 1 at a ladder or ramp, fading over 5 m
+
+        /// <summary>Where men climb in and out of the trenches the ground is beaten to a dark, slick mess.</summary>
+        void BuildChurn(MapData map)
+        {
+            churn = new float[map.NavWidth * map.NavLength];
+            for (int z = 0; z < map.NavLength; z++)
+            for (int x = 0; x < map.NavWidth; x++)
+            {
+                if (((NavLayer)map.NavLayers[map.NavIndex(x, z)] & NavLayer.Link) == 0) continue;
+                for (int dz = -3; dz <= 3; dz++)
+                for (int dx = -3; dx <= 3; dx++)
+                {
+                    int cx = x + dx, cz = z + dz;
+                    if (cx < 0 || cz < 0 || cx >= map.NavWidth || cz >= map.NavLength) continue;
+                    float v = 1f - Mathf.Sqrt(dx * dx + dz * dz) / 3.2f;
+                    if (v > churn[cz * map.NavWidth + cx]) churn[cz * map.NavWidth + cx] = v;
+                }
+            }
+        }
+
+        float Churn(MapData map, float wx, float wz)
+        {
+            float fx = wx / MapData.NavCellSize - .5f, fz = wz / MapData.NavCellSize - .5f;
+            int x0 = Mathf.Clamp(Mathf.FloorToInt(fx), 0, map.NavWidth - 2), z0 = Mathf.Clamp(Mathf.FloorToInt(fz), 0, map.NavLength - 2);
+            float tx = Mathf.Clamp01(fx - x0), tz = Mathf.Clamp01(fz - z0);
+            return Mathf.Lerp(Mathf.Lerp(churn[z0 * map.NavWidth + x0], churn[z0 * map.NavWidth + x0 + 1], tx), Mathf.Lerp(churn[(z0 + 1) * map.NavWidth + x0], churn[(z0 + 1) * map.NavWidth + x0 + 1], tx), tz);
+        }
+
+        /// <summary>Dried crust: distance to the nearest crack (cellular noise, plates about 0.6 m) and a tone for the plate.</summary>
+        static float Crackle(float wx, float wz, out float plate)
+        {
+            float u = wx / .62f, v = wz / .62f; int cx = Mathf.FloorToInt(u), cz = Mathf.FloorToInt(v);
+            float f1 = 9f, f2 = 9f; plate = 0f;
+            for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                float px = cx + dx + .12f + .76f * Grain(cx + dx + 1013, cz + dz), pz = cz + dz + .12f + .76f * Grain(cx + dx, cz + dz + 2027);
+                float d = (px - u) * (px - u) + (pz - v) * (pz - v);
+                if (d < f1) { f2 = f1; f1 = d; plate = Grain(cx + dx + 31, cz + dz + 57); } else if (d < f2) f2 = d;
+            }
+            return Mathf.Sqrt(f2) - Mathf.Sqrt(f1);
+        }
+
         static float Grain(int x, int z)
         {
             uint h = (uint)x * 0x9E3779B1u ^ (uint)z * 0x85EBCA77u;
@@ -534,7 +592,8 @@ namespace TW.Presentation.Terrain
         }
 
         // Palette (owner's breakdown, 2026-09-21): umber dirt, peat, olive drab; water is dark and takes its light from
-        // the sky reflection in the shader (texture alpha 0 = standing water, 0.5 = liquid mud), not from a pale albedo.
+        // the sky reflection in the shader (texture alpha 0.4 .. 0 = standing water by depth, 0.5 = liquid mud, below 1 = a
+        // slick sheen), not from a pale albedo.
         static readonly Color Ink = new Color(0.13f, 0.105f, 0.085f);
         static readonly Color MudDark = new Color(0.235f, 0.205f, 0.175f);   // thick wet mud: mid ground, crater rims
         static readonly Color MudMid = new Color(0.325f, 0.285f, 0.24f);
@@ -681,6 +740,37 @@ namespace TW.Presentation.Terrain
             else if (sample.Hollow < 0 && bowl > 0.25f) c = Color.Lerp(c, Ink, .55f);
             else if (sample.Hollow < 0 && bowl < -0.12f) c = Color.Lerp(c, MudPale, 0.22f);
 
+            // Mud by zone: a dried, cracked crust on the rises; a slick sheen in the dips between them (alpha below 1 is
+            // gloss in TW/Toon); and round every ladder and ramp a dark beaten patch with boot prints pointing both ways.
+            float sheen = 0f;
+            if (sample.Hollow < 0 && !inside && sample.BankDistance > 1.5f)
+            {
+                float mound = BattlefieldSurface.Mound(wx, wz);
+                float crust = Band(.15f, .30f, mound) * Band(.38f, .56f, Mathf.PerlinNoise(wx * .05f + 61f, wz * .05f + 17f));
+                if (crust > .02f && sample.BankDistance > 7f)
+                {
+                    float seam = Crackle(wx + .25f * Mathf.PerlinNoise(wx * 1.3f, wz * 1.3f), wz, out float plate);
+                    c = Color.Lerp(c, MudPale * (.93f + .14f * plate), crust * .50f);
+                    if (seam < .05f) c = Color.Lerp(c, Ink, crust * .62f);
+                }
+                sheen = Band(-.10f, -.28f, mound) * .30f;
+                c = Color.Lerp(c, MudDark, sheen * .6f);
+                float trodden = churn != null ? Churn(map, wx, wz) : 0f;
+                if (trodden > .02f)
+                {
+                    float blot = Mathf.PerlinNoise(wx * 1.9f + 5f, wz * 1.9f + 71f);
+                    c = Color.Lerp(c, Color.Lerp(MudDark, Ink, .30f), trodden * (.30f + .50f * blot));
+                    int bx = Mathf.FloorToInt(wx / .55f), bz = Mathf.FloorToInt(wz / .55f);
+                    if (Grain(bx + 907, bz + 411) < .55f * trodden + .15f)
+                    {
+                        float ox = (bx + .25f + .5f * Grain(bx, bz + 77)) * .55f - wx, oz = (bz + .25f + .5f * Grain(bx + 55, bz)) * .55f - wz;
+                        float lean = (Grain(bx + 3, bz + 9) - .5f) * .9f; float ax = ox + oz * lean;
+                        if (ax * ax / (.075f * .075f) + oz * oz / (.15f * .15f) < 1f) c = Color.Lerp(c, Ink, .55f);
+                    }
+                    sheen = Mathf.Max(sheen, trodden * .26f);
+                }
+            }
+
             // puddles: standing water just above the water table, and in the low spots of muddy ground
             // Gradient noise and a warped domain avoid the square islands produced by thresholded lattice noise.
             float px = wx + 2f * Mathf.PerlinNoise(wx * 0.27f + 8f, wz * 0.27f);
@@ -703,7 +793,8 @@ namespace TW.Presentation.Terrain
                 if (soak > .55f) silt = true;
             }
 
-            c.a = water ? 0f : silt ? .5f : 1f;
+            // alpha, as TW/Toon reads it: 0.4 .. 0 standing water from its edge to its deepest, 0.5 liquid mud, below 1 a sheen
+            c.a = water ? .4f * (1f - Mathf.Clamp01((wetness - .82f) / .09f)) : silt ? .5f : 1f - sheen;
             return c;
         }
     }

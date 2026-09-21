@@ -7,6 +7,8 @@
 // side, both hard-edged like the rest of the look.
 // Outline: an inverted hull pushed out along the smoothed normal stored in TEXCOORD3 (BattlefieldProps.Combine writes
 // it; hard-edged meshes would split at the corners otherwise). Its width is set in pixels and shrinks with distance.
+// Base-map alpha (the ground writes it): 1 dry, down to 0.7 a slick sheen, 0.5 liquid mud, 0.4 .. 0 standing water from
+// its edge to 0.7 m deep, which is painted with the river's depth bands, shore line and rings (TWWater.hlsl).
 // Water: _Gloss, or a base-map alpha below 1 (the ground's puddles), mirrors the sky with a fresnel and takes a hard sun
 // glint; still water takes a slow ripple from the same slopes. Mist and the fog bank round the battlefield come from
 // TWAtmosphere.hlsl (set by Atmosphere).
@@ -41,6 +43,7 @@ Shader "TW/Toon (URP)"
             float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss;
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
+        #include "Assets/_Project/Shaders/TWWater.hlsl"
         ENDHLSL
 
         Pass
@@ -77,6 +80,13 @@ Shader "TW/Toon (URP)"
                 half4 base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
                 half3 albedo = base.rgb * _BaseColor.rgb * i.color.rgb;
                 half gloss = max(_Gloss, 1.0 - base.a);
+                half shore = 0;
+                if (base.a < 0.45)
+                {
+                    gloss = 1.0;
+                    half lapNoise = frac(dot(floor(i.positionWS.xz * 0.5), float2(0.37, 0.61)));
+                    albedo = TWWaterAlbedo((1.0 - base.a / 0.4) * 0.7, i.positionWS.xz, lapNoise, half3(0.36, 0.34, 0.27), half3(0.235, 0.255, 0.215), half3(0.135, 0.165, 0.16), half3(0.70, 0.71, 0.66), 0.45, shore) * i.color.rgb;
+                }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half2 slope = 0;
                 if (_DetailStrength > 0.0)
@@ -112,7 +122,7 @@ Shader "TW/Toon (URP)"
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                     half3 sky = unity_FogColor.rgb * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
-                    color = lerp(color, sky, gloss * (0.22 + 0.70 * fresnel));
+                    color = lerp(color, sky, gloss * (0.22 + 0.70 * fresnel) * (1.0 - shore * 0.7));
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                 }

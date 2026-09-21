@@ -29,7 +29,7 @@ namespace TW.Presentation.Terrain
         public float MistTop = 2.3f, MistDepth = 2.2f;
         [Header("Fog bank round the battlefield")]
         public Color Bank = new Color(0.66f, 0.67f, 0.66f);
-        [Range(0f, 1f)] public float BankDensity = 0.94f;
+        [Range(0f, 1f)] public float BankDensity = 0.97f;
         [Tooltip("Metres outside the map edge where the bank begins (negative = inside), and how far it takes to close.")]
         public float BankStart = -5f, BankRange = 28f;
         [Tooltip("Height of the bank at the edge, and how much taller it stands for each metre further out.")]

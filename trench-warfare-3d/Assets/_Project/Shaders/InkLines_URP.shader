@@ -48,7 +48,7 @@ Shader "TW/Ink Lines (URP)"
                 float eye = LinearEyeDepth(c, _ZBufferParams);
                 float fade = 1.0 - saturate((eye - _FadeStart) / max(1.0, _FadeEnd - _FadeStart));
                 half ink = smoothstep(_Threshold, _Threshold * 1.6, bend * _Sensitivity) * _Strength * fade;
-                if (ink > 0.001 && _TWFieldFogColor.a > 0.0) ink *= 1.0 - FieldFogAmount(ComputeWorldSpacePosition(uv, c, UNITY_MATRIX_I_VP));
+                if (ink > 0.001 && _TWFieldFogColor.a > 0.0) ink *= saturate(1.0 - 1.15 * FieldFogAmount(ComputeWorldSpacePosition(uv, c, UNITY_MATRIX_I_VP)));
                 color.rgb = lerp(color.rgb, _InkColor.rgb, ink);
                 return color;
             }

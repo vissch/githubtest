@@ -40,6 +40,7 @@ Shader "TW/Water (URP)"
             float _Ripple, _Rings, _Streaks;
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
+        #include "Assets/_Project/Shaders/TWWater.hlsl"
         ENDHLSL
 
         Pass
@@ -77,19 +78,13 @@ Shader "TW/Water (URP)"
 
                 // depth in metres, read a little off-centre so every band edge wobbles with the ripples
                 float depth = SAMPLE_TEXTURE2D(_DepthMap, sampler_DepthMap, (xz + slope * 1.1) * _DepthST.xy + _DepthST.zw).r * 2.0 - 0.4;
-                half margin = 1.0 - smoothstep(0.16, 0.24, depth);
-                half channel = smoothstep(0.62, 0.78, depth);
-                half3 albedo = lerp(lerp(_Body.rgb, _Deep.rgb, channel), _Shallow.rgb, margin);
+                // depth bands, the shore line, lapping rings and the rings men and shells throw (TWWater.hlsl)
+                half shore;
+                half3 albedo = TWWaterAlbedo(depth, xz, r2.b, _Shallow.rgb, _Body.rgb, _Deep.rgb, _Foam.rgb, _Rings, shore);
 
-                // current streaks: long pale strokes where two drifting layers agree, thinner over the margin
-                half streak = smoothstep(0.63, 0.68, r1.b * 0.6 + r2.b * 0.4) * _Streaks * (1.0 - margin * 0.6);
+                // current streaks: long pale strokes where two drifting layers agree, none over the margin
+                half streak = smoothstep(0.63, 0.68, r1.b * 0.6 + r2.b * 0.4) * _Streaks * smoothstep(0.10, 0.30, depth);
                 albedo = lerp(albedo, albedo * 1.35 + 0.035, streak);
-
-                // the shore: a pale wet line, and contour rings that lap toward it and die out in deeper water
-                half shore = 1.0 - smoothstep(0.015, 0.05, depth);
-                float lap = frac(depth * 3.2 + _Time.y * 0.11 + r2.b * 0.35);
-                half ring = smoothstep(0.0, 0.10, lap) * (1.0 - smoothstep(0.10, 0.22, lap)) * (1.0 - smoothstep(0.12, 0.62, depth)) * _Rings;
-                albedo = lerp(albedo, _Foam.rgb, max(shore * 0.85, ring * 0.5));
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half3 color = albedo * lerp(_ShadeColor.rgb, mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);

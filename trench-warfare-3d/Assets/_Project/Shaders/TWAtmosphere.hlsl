@@ -4,6 +4,8 @@
 // Fog bank: a wall of fog round the fought-over ground. It is a function of world position only (signed distance to
 // the battlefield's rectangle, a slow billow along its edge, thinning with height), so it costs a few instructions a
 // pixel, needs no extra geometry or overdraw, and the ink pass can ask the same question to keep lines out of the fog.
+// Quiet fog: inside the battlefield the same fog lies, thinner and lower, over ground where nothing is happening.
+// _TWPresence (QuietFog.cs: one texel per 4 m, 1 = the player's men, their HQ or a recent shell burst are near) lifts it.
 #ifndef TW_ATMOSPHERE_INCLUDED
 #define TW_ATMOSPHERE_INCLUDED
 
@@ -12,6 +14,8 @@ float4 _TWMistColor;     // rgb, a = density
 float4 _TWField;         // xz min, xz max of the fought-over ground
 float4 _TWFieldFog;      // x metres outside the bounds where the bank begins (negative = inside), y 1/range, z top height at the edge, w top rise per metre out
 float4 _TWFieldFogColor; // rgb, a = density
+float4 _TWQuiet;         // x density (0 = off), y top height, z 1/height fade
+TEXTURE2D(_TWPresence); SAMPLER(sampler_TWPresence);
 
 half3 ApplyMist(half3 color, float3 positionWS)
 {
@@ -33,7 +37,13 @@ half FieldFogAmount(float3 positionWS)
     reach = reach * reach * (3.0 - 2.0 * reach);
     float top = _TWFieldFog.z + max(outside, 0.0) * _TWFieldFog.w;    // the bank stands taller the further out it lies
     float low = saturate((top - positionWS.y) / max(top * 0.6, 0.5)); // tree tops near the edge show through
-    return reach * low * _TWFieldFogColor.a;
+    half bank = reach * low * _TWFieldFogColor.a;
+    if (_TWQuiet.x <= 0.0) return bank;
+    float2 uv = (positionWS.xz - _TWField.xy) / max(_TWField.zw - _TWField.xy, 1.0);
+    half presence = SAMPLE_TEXTURE2D_LOD(_TWPresence, sampler_TWPresence, uv, 0).r;
+    half quiet = saturate((1.0 - presence) * 1.25 + billow * 0.10 - 0.12);
+    quiet *= saturate((_TWQuiet.y - positionWS.y) * _TWQuiet.z) * _TWQuiet.x;   // past the edge the presence map clamps, and the bank takes over
+    return max(bank, quiet * _TWFieldFogColor.a);
 }
 
 half3 ApplyFieldFog(half3 color, float3 positionWS)

@@ -42,7 +42,7 @@ Shader "TW/VAT Infantry (URP)"
             float4 _WoundCenter, _WoundRadii;
             float4 _OutlineColor; float _OutlineWidth;
         CBUFFER_END
-        float4 _TWMist, _TWMistColor;   // ground mist, as in TW/Toon (set by Atmosphere)
+        #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
 
         struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; };
 
@@ -115,8 +115,8 @@ Shader "TW/VAT Infantry (URP)"
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
                 half3 color = albedo * 1.18 * lerp(half3(0.70, 0.72, 0.76), mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
-                float mistFar = saturate((distance(_WorldSpaceCameraPos, i.positionWS) - _TWMist.z) * _TWMist.w);
-                color = lerp(color, _TWMistColor.rgb, saturate((_TWMist.x - i.positionWS.y) * _TWMist.y) * mistFar * _TWMistColor.a);
+                color = ApplyMist(color, i.positionWS);
+                color = ApplyFieldFog(color, i.positionWS);
                 return half4(MixFog(color, i.fog), 1.0);
             }
             ENDHLSL
