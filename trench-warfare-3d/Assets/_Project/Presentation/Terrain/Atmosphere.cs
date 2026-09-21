@@ -52,7 +52,7 @@ namespace TW.Presentation.Terrain
             profile = ScriptableObject.CreateInstance<VolumeProfile>();
             profile.hideFlags = HideFlags.HideAndDontSave;
             var adjust = profile.Add<ColorAdjustments>(true);
-            adjust.contrast.Override(9f); adjust.saturation.Override(-18f);
+            adjust.postExposure.Override(0.32f); adjust.contrast.Override(12f); adjust.saturation.Override(-18f);
             var tones = profile.Add<ShadowsMidtonesHighlights>(true);
             tones.shadows.Override(new Vector4(1.03f, 0.99f, 0.95f, 0f));      // umber in the dark
             tones.midtones.Override(new Vector4(1.03f, 1.0f, 0.95f, 0f));     // sepia through the middle
