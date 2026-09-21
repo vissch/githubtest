@@ -194,7 +194,7 @@ namespace TW.Sim.Terrain
             for (int i = 0; i < Props.Length; i++)   // field by field: the struct has padding bytes
             {
                 var p = Props[i];
-                h = SimHash.Value(p.Pos, h); h = SimHash.Value(p.Hp, h); h = SimHash.Value(p.Cell, h); h = SimHash.Value((int)p.Kind, h);
+                h = SimHash.Value(p.Pos, h); h = SimHash.Value(p.Hp, h); h = SimHash.Value(p.Scale, h); h = SimHash.Value(p.Cell, h); h = SimHash.Value((int)p.Kind, h);
             }
             return h;
         }

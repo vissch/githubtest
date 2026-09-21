@@ -62,27 +62,31 @@ namespace TW.Sim.Terrain
             float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
             float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
             float[] trenchZ = { ReserveZ, FrontZ, L - FrontZ, L - ReserveZ };
-            // Trenches are not ruled lines (owner, 2026-09-21): each 20 m fire bay sits up to 4 m forward or back of its
-            // neighbour and a traverse joins them. Bays change on columns x % 10 == 0, the ladders stand on x % 10 == 5,
-            // so a ladder always climbs out of the middle of a bay onto open ground.
-            var bends = new int[4][];
+            // Nothing on a battlefield is ruled (owner, 2026-09-21). A trench follows the ground: its line wanders on two
+            // octaves of noise (about 36 m and 13 m) and jogs a cell forward or back at traverses spaced 12 to 24 m
+            // apart. Ladders stand at uneven intervals, each in a short straight piece so it opens onto clear ground.
+            var bends = new int[4][]; var ladders = new bool[4][]; var line = new float[4][];
             for (int t = 0; t < 4; t++)
             {
-                var bendRng = new Random(math.max(1u, p.Seed * 2246822519u + (uint)t * 3266489917u));
-                bends[t] = new int[map.NavWidth];
-                int bay = bendRng.NextInt(-1, 2);
-                for (int x = 0; x < map.NavWidth; x++)
+                var lineRng = new Random(math.max(1u, p.Seed * 2246822519u + (uint)t * 3266489917u));
+                int n = map.NavWidth;
+                bends[t] = new int[n]; ladders[t] = new bool[n]; line[t] = new float[n];
+                uint salt = p.Seed + 40u + (uint)t * 7u;
+                int jog = 0, nextJog = lineRng.NextInt(5, 10);
+                for (int x = 0; x < n; x++)
                 {
-                    if (x > 0 && x % 10 == 0)
-                    {
-                        int step = bendRng.NextInt(1, 3) * (bendRng.NextBool() ? 1 : -1);
-                        int next = math.clamp(bay + step, -2, 2);
-                        bay = next != bay ? next : math.clamp(bay - step, -2, 2);   // at the limit, bend the other way: never a straight joint
-                    }
-                    bends[t][x] = bay;
+                    if (x == nextJog) { jog = math.clamp(jog + (lineRng.NextBool() ? 1 : -1), -1, 1); nextJog = x + lineRng.NextInt(6, 13); }
+                    float wx = (x + 0.5f) * MapData.NavCellSize;
+                    float wander = 2.3f * (Noise(salt, wx, 0f, 36f) - 0.5f) * 2f + 0.9f * (Noise(salt + 1u, wx, 0f, 13f) - 0.5f) * 2f;
+                    bends[t][x] = math.clamp((int)math.round(wander + jog), -3, 3);
                 }
+                for (int x = lineRng.NextInt(2, 6); x < n - 1; x += lineRng.NextInt(7, 13))
+                {
+                    ladders[t][x] = true;
+                    for (int dx = -2; dx <= 2; dx++) if (x + dx >= 0 && x + dx < n) bends[t][x + dx] = bends[t][x];
+                }
+                for (int x = 0; x < n; x++) line[t][x] = trenchZ[t] + bends[t][x] * MapData.NavCellSize + 2f;   // the trench's own middle, in metres
             }
-
             // ---- 1. rolling ground, levelled where men dig in ---------------------------------------------------
             var hf = map.Height;
             for (int z = 0; z < hf.Length; z++)
@@ -91,15 +95,17 @@ namespace TW.Sim.Terrain
                 float wx = x + 0.5f, wz = z + 0.5f;
                 float h = BaseHeight + 2.6f * (Noise(p.Seed, wx, wz, 70f) - 0.5f) + 0.7f * (Noise(p.Seed + 1u, wx, wz, 18f) - 0.5f);
                 float keep = math.min(Ramp(wz - HqDepth, 0f, 16f * sz), Ramp(L - HqDepth - wz, 0f, 16f * sz));   // HQ areas are level
-                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - (trenchZ[t] + 2f)) - 9f, 0f, 14f * sz));   // level under every bay, 4 m either way
-                hf.Set(x, z, math.lerp(DugInHeight, h, keep));
+                int nx = math.min(map.NavWidth - 1, x / 2);
+                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - line[t][nx]) - 5f, 0f, 14f * sz));   // dug-in ground follows the trench
+                float dugIn = DugInHeight + 0.4f * Noise(p.Seed + 2u, wx, wz, 9f);   // never lower: the trench floor must clear the water table
+                hf.Set(x, z, math.lerp(dugIn, h, keep));
             }
 
             // ---- 2. the river: a channel across the width, two fords and a plank bridge -------------------------
             bool river = p.River && p.WaterLevel > MapData.NoWater;
             float[] crossingX = { W * 0.2f + rng.NextFloat(-15f, 15f) * sx, W * 0.5f + rng.NextFloat(-20f, 20f) * sx, W * 0.8f + rng.NextFloat(-15f, 15f) * sx };
             int bridge = 1;
-            float riverShift = rng.NextFloat(-25f, 25f) * sz;
+            float riverShift = rng.NextFloat(-10f, 10f) * sz;   // the meander takes the rest of the room
             if (river)
             {
                 float bed = p.WaterLevel - RiverBedDepth;
@@ -107,14 +113,16 @@ namespace TW.Sim.Terrain
                 for (int x = 0; x < hf.Width; x++)
                 {
                     float wx = x + 0.5f, wz = z + 0.5f;
-                    float d = math.abs(wz - RiverZ(p, riverShift, wx));
-                    if (d >= RiverHalfWidth) continue;
-                    float h = math.lerp(hf.HeightAtCell(x, z), bed, Ramp(RiverHalfWidth - d, 0f, 6f));
+                    float half = RiverHalfAt(p, wx);
+                    float ragged = 2.4f * (Noise(p.Seed + 6u, wx, wz, 5f) - 0.5f);   // banks cave in and silt up: never a clean edge
+                    float d = math.abs(wz - RiverZ(p, riverShift, wx)) + ragged;
+                    if (d >= half) continue;
+                    float h = math.lerp(hf.HeightAtCell(x, z), bed, Ramp(half - d, 0f, 5f));
                     for (int c = 0; c < crossingX.Length; c++)
                     {
-                        float half = c == bridge ? 3f : 7f;
+                        float reach = c == bridge ? 3f : 7f;
                         float top = c == bridge ? p.WaterLevel + 0.3f : p.WaterLevel - 0.4f;   // planks stay dry, a ford is knee deep
-                        float on = 1f - Ramp(math.abs(wx - crossingX[c]) - half, 0f, 3f);
+                        float on = 1f - Ramp(math.abs(wx - crossingX[c]) - reach, 0f, 3f);
                         h = math.max(h, math.lerp(h, top, on));
                     }
                     hf.Set(x, z, math.min(hf.HeightAtCell(x, z), h));
@@ -122,10 +130,10 @@ namespace TW.Sim.Terrain
             }
 
             // ---- 3. trenches, objectives, spawns (the playtest layout) ------------------------------------------
-            GreyboxMapGenerator.AddFireTrench(map, 0, 0, ReserveZ, 0f, next0: 1, next1: -1, offsets: bends[0]);
-            GreyboxMapGenerator.AddFireTrench(map, 0, 1, FrontZ, 0f, next0: 2, next1: 0, offsets: bends[1]);
-            GreyboxMapGenerator.AddFireTrench(map, 1, 2, L - FrontZ, SimMath.Pi, next0: 3, next1: 1, offsets: bends[2]);
-            GreyboxMapGenerator.AddFireTrench(map, 1, 3, L - ReserveZ, SimMath.Pi, next0: -1, next1: 2, offsets: bends[3]);
+            GreyboxMapGenerator.AddFireTrench(map, 0, 0, ReserveZ, 0f, next0: 1, next1: -1, offsets: bends[0], ladders: ladders[0]);
+            GreyboxMapGenerator.AddFireTrench(map, 0, 1, FrontZ, 0f, next0: 2, next1: 0, offsets: bends[1], ladders: ladders[1]);
+            GreyboxMapGenerator.AddFireTrench(map, 1, 2, L - FrontZ, SimMath.Pi, next0: 3, next1: 1, offsets: bends[2], ladders: ladders[2]);
+            GreyboxMapGenerator.AddFireTrench(map, 1, 3, L - ReserveZ, SimMath.Pi, next0: -1, next1: 2, offsets: bends[3], ladders: ladders[3]);
             GreyboxMapGenerator.AddLineObjective(map, 0, ObjectiveKind.MainLine, 0, 0, FrontZ, 1, bends[1]);
             GreyboxMapGenerator.AddLineObjective(map, 1, ObjectiveKind.ReserveLine, 0, 0, ReserveZ, 2, bends[0]);
             GreyboxMapGenerator.AddLineObjective(map, 2, ObjectiveKind.HQ, 0, 0, 20f * sz, 3);
@@ -142,14 +150,27 @@ namespace TW.Sim.Terrain
             map.ApplyWater(0, 0, map.NavWidth - 1, map.NavLength - 1, allowBlock: true);
 
             // ---- 5. years of shelling (craters fill where they go under the water table, never block) ----------
-            int shells = (int)(p.Shelling * 0.0017f * W * L);
-            for (int k = 0; k < shells; k++)
+            // Shells come in salvos, not as even rain: a battery fires on one spot, so holes crowd together, overlap and
+            // chain, and the ground between salvos is left alone. Each salvo is one big hole, a few medium, more small.
+            int salvos = math.max(3, (int)(p.Shelling * 0.00075f * W * L));
+            for (int k = 0; k < salvos; k++)
             {
-                float z = L * 0.5f + (rng.NextFloat() + rng.NextFloat() - 1f) * L * 0.42f;   // thickest in no man's land
-                float x = rng.NextFloat(4f, W - 4f);
-                float radius = rng.NextFloat(2f, 4.6f);
-                if (z < HqDepth || z > L - HqDepth) continue;
-                new CraterStamp { Center = new float3(x, 0f, z), Radius = radius, Depth = radius * 0.38f }.Apply(map);
+                float cz = L * 0.5f + (rng.NextFloat() + rng.NextFloat() - 1f) * L * 0.42f;   // thickest in no man's land
+                float cx = rng.NextFloat(4f, W - 4f);
+                float spread = rng.NextFloat(4f, 9f);
+                int count = rng.NextInt(3, 8);
+                for (int i = 0; i < count; i++)
+                {
+                    float angle = rng.NextFloat(0f, 6.2831853f), dist = spread * math.sqrt(rng.NextFloat());
+                    float x = cx + SimMath.Cos(angle) * dist, z = cz + SimMath.Sin(angle) * dist * 0.75f;
+                    float radius = i == 0 ? rng.NextFloat(3.8f, 5.2f) : i < 3 ? rng.NextFloat(2.4f, 3.4f) : rng.NextFloat(1.3f, 2.1f);
+                    if (x < 3f || x > W - 3f || z < HqDepth || z > L - HqDepth) continue;
+                    bool onTrench = false;
+                    int nx = math.clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1);
+                    for (int t = 0; t < 4; t++) if (math.abs(z - line[t][nx]) < radius + 4f) onTrench = true;   // the generator leaves the garrison's trench whole
+                    if (onTrench) continue;
+                    new CraterStamp { Center = new float3(x, 0f, z), Radius = radius, Depth = radius * 0.38f }.Apply(map);
+                }
             }
 
             // ---- 6. mud, by patches ------------------------------------------------------------------------------
@@ -164,36 +185,64 @@ namespace TW.Sim.Terrain
                 map.SetLayer(x, z, layer | NavLayer.Mud);
             }
 
-            // ---- 7. wire in front of both front lines, with gaps ------------------------------------------------
+            // ---- 7. wire in front of both front lines: it follows the trench at a wandering distance, thickens and
+            // thins, and is broken by gaps of uneven width -------------------------------------------------------------
             for (int side = 0; side < 2; side++)
             {
-                float z0 = side == 0 ? FrontZ + 16f * sz + 6f : L - FrontZ - 16f * sz - 4f - 6f;   // clear of the most forward bay
-                float x = 0f;
-                while (x < W)
+                int t = side == 0 ? 1 : 2; float outward = side == 0 ? 1f : -1f;
+                uint salt = p.Seed + 21u + (uint)side * 5u;
+                int col = 0;
+                while (col < map.NavWidth)
                 {
-                    float run = rng.NextFloat(38f, 64f) * sx;
-                    new WireBelt { Min = new float3(x, 0f, z0), Max = new float3(math.min(W - 1f, x + run), 0f, z0 + 3.9f) }.Place(map);
-                    x += run + rng.NextFloat(8f, 12f);   // the gap
+                    int run = (int)(rng.NextFloat(14f, 30f) * sx) + 3;
+                    for (int x = col; x < math.min(map.NavWidth, col + run); x++)
+                    {
+                        float wx = (x + 0.5f) * MapData.NavCellSize;
+                        float away = 11f + 3.2f * (Noise(salt, wx, 0f, 17f) - 0.5f) * 2f;
+                        bool thick = Noise(salt + 1u, wx, 0f, 9f) > 0.55f;
+                        float z0 = line[t][x] + outward * away, z1 = z0 + outward * (thick ? 3.9f : 1.9f);
+                        new WireBelt { Min = new float3(x * MapData.NavCellSize, 0f, math.min(z0, z1)), Max = new float3(x * MapData.NavCellSize + 1.9f, 0f, math.max(z0, z1)) }.Place(map);
+                    }
+                    col += run + rng.NextInt(3, 7);   // the gap
                 }
             }
 
-            // ---- 8. what is left of the wood, and the wrecks ----------------------------------------------------
-            const float grid = 6f;
-            for (float gz = HqDepth; gz < L - HqDepth; gz += grid)
-            for (float gx = 3f; gx < W - 3f; gx += grid)
+            // ---- 8. what is left of the wood, in clumps ----------------------------------------------------------
+            // Trees do not stand on a grid. Clump centres are Poisson-disc spaced (no two within 11 m) inside the noise
+            // patches that were wood; each clump has one big tree, a ring of medium ones and a scatter of small stumps
+            // and logs, thinning outward. Shelling decides how much of each clump is still standing.
+            var centres = new System.Collections.Generic.List<float2>();
+            int tries = (int)(W * (L - 2f * HqDepth) / 12f);
+            for (int k = 0; k < tries; k++)
             {
-                float x = gx + rng.NextFloat(0f, grid - 2f), z = gz + rng.NextFloat(0f, grid - 2f);
-                float roll = rng.NextFloat();   // drawn for every grid point so the stream does not depend on what is skipped
-                if (Noise(p.Seed + 11u, x, z, 46f) < 1f - p.Forest * 0.62f) continue;
-                if (!ClearForProp(map, p, riverShift, river, trenchZ, x, z)) continue;
-                PropKind kind = roll < p.Shelling * 0.45f ? PropKind.Stump : roll < p.Shelling * 0.8f ? PropKind.BrokenTree
-                    : roll < p.Shelling * 0.92f ? PropKind.Log : PropKind.Tree;
-                map.AddProp(new PropDef { Pos = new float3(x, 0f, z), Yaw = roll * 6.2831853f, Kind = kind });
+                var c = new float2(rng.NextFloat(3f, W - 3f), rng.NextFloat(HqDepth, L - HqDepth));
+                float wood = Noise(p.Seed + 11u, c.x, c.y, 46f) * 0.7f + Noise(p.Seed + 12u, c.x, c.y, 15f) * 0.3f;
+                if (wood < 1f - p.Forest * 0.78f) continue;
+                bool crowded = false;
+                for (int j = 0; j < centres.Count; j++) if (math.lengthsq(centres[j] - c) < 11f * 11f) { crowded = true; break; }
+                if (!crowded) centres.Add(c);
+            }
+            for (int k = 0; k < centres.Count; k++)
+            {
+                int members = rng.NextInt(4, 10);
+                for (int i = 0; i < members; i++)
+                {
+                    // 0 = the big one at the heart, 1-2 medium close by, the rest small and further out
+                    float reach = i == 0 ? 0f : i < 3 ? rng.NextFloat(2.2f, 4.5f) : rng.NextFloat(3.5f, 8.5f);
+                    float angle = rng.NextFloat(0f, 6.2831853f), roll = rng.NextFloat(), size = rng.NextFloat();
+                    float x = centres[k].x + SimMath.Cos(angle) * reach, z = centres[k].y + SimMath.Sin(angle) * reach;
+                    if (x < 3f || x > W - 3f || !ClearForProp(map, p, riverShift, river, line, x, z)) continue;
+                    PropKind kind; float scale;
+                    if (i == 0) { kind = roll < p.Shelling * 0.55f ? PropKind.BrokenTree : PropKind.Tree; scale = 1.25f + 0.35f * size; }
+                    else if (i < 3) { kind = roll < p.Shelling * 0.75f ? PropKind.BrokenTree : PropKind.Tree; scale = 0.8f + 0.25f * size; }
+                    else { kind = roll < 0.55f ? PropKind.Stump : roll < 0.85f ? PropKind.Log : PropKind.BrokenTree; scale = 0.5f + 0.3f * size; }
+                    map.AddProp(new PropDef { Pos = new float3(x, 0f, z), Yaw = angle, Kind = kind, Scale = scale });
+                }
             }
             for (int k = 0; k < p.Wrecks; k++)
             {
                 float x = rng.NextFloat(20f, W - 20f), z = rng.NextFloat(FrontZ + 30f * sz, L - FrontZ - 30f * sz), yaw = rng.NextFloat(0f, 6.2831853f);
-                if (ClearForProp(map, p, riverShift, river, trenchZ, x, z)) map.AddProp(new PropDef { Pos = new float3(x, 0f, z), Yaw = yaw, Kind = PropKind.Wreck });
+                if (ClearForProp(map, p, riverShift, river, line, x, z)) map.AddProp(new PropDef { Pos = new float3(x, 0f, z), Yaw = yaw, Kind = PropKind.Wreck });
             }
             if (river) map.AddProp(new PropDef { Pos = new float3(crossingX[bridge], 0f, RiverZ(p, riverShift, crossingX[bridge])), Yaw = 0f, Kind = PropKind.Bridge });
 
@@ -204,19 +253,25 @@ namespace TW.Sim.Terrain
 
         /// <summary>Solid props stay off trench approaches (ladders must not be sealed), the river and its crossings,
         /// wire, water and the supply road.</summary>
-        static bool ClearForProp(MapData map, BattlefieldParams p, float riverShift, bool river, float[] trenchZ, float x, float z)
+        static bool ClearForProp(MapData map, BattlefieldParams p, float riverShift, bool river, float[][] line, float x, float z)
         {
-            for (int t = 0; t < trenchZ.Length; t++) if (math.abs(z - (trenchZ[t] + 2f)) < 14f) return false;
-            if (river && math.abs(z - RiverZ(p, riverShift, x)) < RiverHalf(p) + 6f) return false;
+            int nx = math.clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1);
+            for (int t = 0; t < line.Length; t++) if (math.abs(z - line[t][nx]) < 8f) return false;
+            if (river && math.abs(z - RiverZ(p, riverShift, x)) < RiverHalfAt(p, x) + 5f) return false;
             if (math.abs(x - p.Width * 0.5f) < 5f && (z < ReserveAt * p.Length / 480f || z > p.Length - ReserveAt * p.Length / 480f)) return false;
             var layer = map.LayerAt(new float3(x, 0f, z));
-            return (layer & (NavLayer.Wire | NavLayer.Blocked | NavLayer.Trench | NavLayer.Link)) == 0 && map.WaterDepthAtCell(map.NavCellOf(new float3(x, 0f, z)).x, map.NavCellOf(new float3(x, 0f, z)).y) < MapData.WetDepth;
+            return (layer & (NavLayer.Wire | NavLayer.Blocked | NavLayer.Trench | NavLayer.Link | NavLayer.Crater)) == 0 &&   // nothing is left standing in a shell hole
+                   map.WaterDepthAtCell(map.NavCellOf(new float3(x, 0f, z)).x, map.NavCellOf(new float3(x, 0f, z)).y) < MapData.WetDepth;
         }
 
         static float RiverHalf(BattlefieldParams p) => RiverHalfWidthAt * math.max(0.6f, p.Length / 480f);
 
+        /// <summary>The river's half width where it crosses x: it pools wide and pinches narrow.</summary>
+        static float RiverHalfAt(BattlefieldParams p, float x) => RiverHalf(p) * (0.7f + 0.75f * Noise(p.Seed + 5u, x, 0f, 22f));
+
+        /// <summary>The river meanders: a slow swing (about 40 m) with a quicker one (about 15 m) on top.</summary>
         static float RiverZ(BattlefieldParams p, float shift, float x)
-            => p.Length * 0.5f + shift + 44f * (p.Length / 480f) * (Noise(p.Seed + 3u, x, 0f, 90f) - 0.5f);
+            => p.Length * 0.5f + shift + (p.Length / 480f) * (44f * (Noise(p.Seed + 3u, x, 0f, 40f) - 0.5f) + 17f * (Noise(p.Seed + 4u, x, 0f, 15f) - 0.5f));
 
         /// <summary>True when infantry can walk from one spawn to the other (trenches through their ladders).</summary>
         public static bool Connected(MapData map)

@@ -166,7 +166,7 @@ namespace TW.Presentation.Terrain
             var hf = map.Height;
             float w = map.SizeMeters.x, l = map.SizeMeters.y;
             const float far = 1500f, level = SkirtLevel;
-            float[] outs = { 0f, 4f, 10f, 18f, 30f, 60f, 140f, far };
+            float[] outs = { 0f, 2f, 4f, 7f, 10f, 14f, 18f, 24f, 30f, 60f, 140f, far };
             var verts = new List<Vector3>(); var cols = new List<Color>(); var tris = new List<int>();
             // side 0/1: along Z at x = 0 / w (these also cover the corners); side 2/3: along X at z = 0 / l
             for (int side = 0; side < 4; side++)
@@ -179,27 +179,30 @@ namespace TW.Presentation.Terrain
                 int row0 = verts.Count, cols_ = outs.Length;
                 foreach (float t in stops)
                 {
+                    // The land beyond the map continues what reaches the edge (the river's channel, a rise, a hollow), but not
+                    // as a straight extrusion: each feature drifts sideways as it runs out and fades, the way the river would
+                    // go on bending. A trench that runs out at the edge is closed by the bank beside it instead.
+                    float ex = high ? w - .5f : .5f;
+                    System.Func<float, bool> dug = zz => alongZ && ((NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(ex / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(zz / MapData.NavCellSize), 0, map.NavLength - 1))] & NavLayer.Trench) != 0;
+                    System.Func<float, float> edgeAt = tt =>
+                    {
+                        float c = Mathf.Clamp(tt, 0f, span);
+                        if (dug(c))
+                            for (float reach = 1f; reach <= 14f; reach += 1f)
+                            {
+                                if (!dug(c - reach)) return Surface.VisualHeight(high ? w : 0f, Mathf.Max(0f, c - reach - 1.5f));
+                                if (!dug(c + reach)) return Surface.VisualHeight(high ? w : 0f, Mathf.Min(span, c + reach + 1.5f));
+                            }
+                        return alongZ ? Surface.VisualHeight(high ? w : 0f, c) : Surface.VisualHeight(c, high ? l : 0f);
+                    };
                     float tc = Mathf.Clamp(t, 0f, span);
                     float edge = alongZ ? Surface.VisualHeight(high ? w : 0f, tc) : Surface.VisualHeight(tc, high ? l : 0f);   // the very heights the ground mesh uses
                     float beyond = alongZ ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
-                    // A trench runs out at the map edge. Beyond it the land takes the height of the bank beside the trench,
-                    // so the cut closes in one short ramp instead of running on for 30 m as a sunken road.
-                    float bank = edge;
-                    if (alongZ && t >= 0f && t <= span)
-                    {
-                        float ex = high ? w - .5f : .5f;
-                        System.Func<float, bool> dug = zz => ((NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(ex / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(zz / MapData.NavCellSize), 0, map.NavLength - 1))] & NavLayer.Trench) != 0;
-                        if (dug(tc))
-                            for (float reach = 1f; reach <= 14f; reach += 1f)
-                            {
-                                if (!dug(tc - reach)) { bank = Surface.VisualHeight(high ? w : 0f, Mathf.Max(0f, tc - reach - 1.5f)); break; }
-                                if (!dug(tc + reach)) { bank = Surface.VisualHeight(high ? w : 0f, Mathf.Min(span, tc + reach + 1.5f)); break; }
-                            }
-                    }
                     for (int k = 0; k < cols_; k++)
                     {
                         float d = outs[k], blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Max(d, beyond) / 30f));
-                        float y = Mathf.Lerp(k == 0 ? edge : bank, level, blend);
+                        float drift = (12f * Mathf.Sin(d * .11f + side * 1.9f) + 5f * Mathf.Sin(d * .31f + side)) * Mathf.SmoothStep(0f, 1f, d / 8f);
+                        float y = Mathf.Lerp(k == 0 ? edge : edgeAt(t + drift), level, blend);
                         float off = high ? span2(alongZ, w, l) + d : -d;
                         var v = alongZ ? new Vector3(off, y, t) : new Vector3(t, y, off);
                         verts.Add(v); cols.Add(MudMid);   // one tone: the columns are too far apart to carry the painted patches
@@ -256,7 +259,7 @@ namespace TW.Presentation.Terrain
             var mesh = new Mesh
             {
                 name = "Water",
-                vertices = new[] { new Vector3(0f, y, 0f), new Vector3(0f, y, l), new Vector3(w, y, l), new Vector3(w, y, 0f) },
+                vertices = new[] { new Vector3(-40f, y, 0f), new Vector3(-40f, y, l), new Vector3(w + 40f, y, l), new Vector3(w + 40f, y, 0f) },   // past the edge: the rising land beyond pinches the river out
                 normals = new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up },
                 triangles = new[] { 0, 1, 2, 0, 2, 3 },
             };

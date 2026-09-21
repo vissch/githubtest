@@ -47,7 +47,12 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   1.5 M budget. The battlefield is 90 x 240 m (owner: 300 wide was too wide to fill, then halved both ways); the
   generator's layout scales with the params, no man's land is 100 m, so rifles (130 m) now reach trench to trench.
   Trenches are bent, not ruled (owner, 2026-09-21): 20 m fire bays set up to 4 m forward or back, joined by traverses;
-  bays change on nav columns x % 10 == 0 and ladders stand on x % 10 == 5, so a ladder always opens onto clear ground.
+  **Placement rule (owner, 2026-09-21): nothing is ruled or evenly spread.** Lines (trenches, wire, river) wander on
+  noise; point features cluster (craters in salvos, trees in Poisson-spaced clumps) and every clump has one big member,
+  a few medium and many small (`PropDef.Scale`). The dressing follows the same rule: `BattlefieldComposer.Clumps`
+  gathers scrub, grass and stones round every big shape, litter gathers by a density noise, knife-rests are shoved,
+  turned and sometimes knocked over, and the land beyond the map lets edge features drift and fade instead of
+  extruding them. Ladders stand at uneven intervals, each in a short straight piece of trench.
 - **Visual standard (owner, 2026-09-21): painted cartoon mudfield**, led by
   `docs/reference/battlefield-northstar.jpeg`. The rebuilt generation contract and three-round critique are in
   `docs/13-environment-system-rebuild.md` (supersedes the original generator details in document 12).

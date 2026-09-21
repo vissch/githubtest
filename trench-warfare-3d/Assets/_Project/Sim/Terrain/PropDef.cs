@@ -13,6 +13,7 @@ namespace TW.Sim.Terrain
         public float3 Pos;
         public float Yaw;
         public float Hp;
+        public float Scale;     // drawn size, 0 = unset (1). Clumps have one big member, some medium, many small
         public int Cell;        // nav cell index, set by MapData.AddProp
         public PropKind Kind;
     }

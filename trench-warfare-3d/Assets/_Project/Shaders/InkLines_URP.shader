@@ -13,8 +13,8 @@ Shader "TW/Ink Lines (URP)"
         _Sensitivity ("Sensitivity", Float) = 900
         _Threshold ("Threshold", Range(0, 2)) = 0.55
         _Strength ("Strength", Range(0, 1)) = 0.7
-        _FadeStart ("Fade start (m)", Float) = 90
-        _FadeEnd ("Fade end (m)", Float) = 220
+        _FadeStart ("Fade start (m)", Float) = 70
+        _FadeEnd ("Fade end (m)", Float) = 170
     }
     SubShader
     {

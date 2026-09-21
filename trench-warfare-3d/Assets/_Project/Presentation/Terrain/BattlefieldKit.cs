@@ -10,7 +10,7 @@ namespace TW.Presentation.Terrain
         {
             public Mesh Mesh; public Material Material; public bool Shadows;
         }
-        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases;
+        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones;
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
@@ -74,7 +74,7 @@ namespace TW.Presentation.Terrain
                 for (int k = 0; k < sides; k++)
                 {
                     float a = 2f * Mathf.PI * (k + .5f) / sides;
-                    float h = r1 * point * (.5f + 1.9f * Mathf.Abs(Mathf.Sin(k * 2.399f + height * 3.1f + r0 * 17f)));
+                    float h = r1 * point * (.35f + 1.15f * Mathf.Abs(Mathf.Sin(k * 2.399f + height * 3.1f + r0 * 17f)));
                     int tip = v.Count; v.Add(new Vector3(Mathf.Cos(a) * r1 * .72f + lean.x, height + h, Mathf.Sin(a) * r1 * .72f + lean.y));
                     int i = sides + 1 + k;
                     t.Add(i); t.Add(tip); t.Add(i + 1);             // the outer face of the spike
@@ -197,12 +197,12 @@ namespace TW.Presentation.Terrain
             var timber = new Color(0.49f, 0.405f, 0.31f); var sack = new Color(0.72f, 0.655f, 0.53f);
             // the wood is dead: a standing tree is a bare, leaning trunk with a few broken limbs
             trunk = Make(Combine("DeadTree",
-                (Taper(0.54f, 0.27f, 6.3f, new Vector2(0.55f, 0.2f), 2.2f), Vector3.zero, Vector3.zero, Vector3.one),   // a thick trunk, so its torn top reads
+                (Taper(0.54f, 0.27f, 6.3f, new Vector2(0.55f, 0.2f), 1.5f), Vector3.zero, Vector3.zero, Vector3.one),   // a thick trunk, so its torn top reads
                 (Taper(0.21f, 0.09f, 2.4f, new Vector2(0.2f, 0f), 2f), new Vector3(0.30f, 3.0f, 0.1f), new Vector3(0f, 0f, -55f), Vector3.one),
                 (Taper(0.17f, 0.07f, 1.8f, new Vector2(0f, 0.2f), 2f), new Vector3(0.36f, 4.3f, 0.1f), new Vector3(15f, 0f, 50f), Vector3.one),
                 (Taper(0.12f, 0.05f, 1.2f, Vector2.zero), new Vector3(0.46f, 5.3f, 0.15f), new Vector3(-40f, 0f, -35f), Vector3.one)), bark);
             snag = Make(Combine("Snag",
-                (Taper(0.58f, 0.36f, 2.7f, new Vector2(-0.15f, 0.1f), 2.4f), Vector3.zero, Vector3.zero, Vector3.one),
+                (Taper(0.58f, 0.36f, 2.7f, new Vector2(-0.15f, 0.1f), 1.3f), Vector3.zero, Vector3.zero, Vector3.one),
                 (Taper(0.10f, 0.03f, 1.1f, Vector2.zero), new Vector3(-0.1f, 1.7f, 0f), new Vector3(0f, 0f, 60f), Vector3.one)), charred);
             fallen = Make(Combine("FallenTop", (Taper(0.26f, 0.10f, 4.2f, Vector2.zero), new Vector3(0.6f, 0.22f, 0.3f), new Vector3(86f, 18f, 0f), Vector3.one)), bark);
             stump = Make(Combine("Stump", (Taper(0.42f, 0.32f, 0.55f, Vector2.zero, 0.25f), Vector3.zero, Vector3.zero, Vector3.one)), charred);
@@ -317,6 +317,25 @@ namespace TW.Presentation.Terrain
                 (cube, new Vector3(0f, 0.36f, -0.39f), new Vector3(0f, 0f, 28f), new Vector3(1.06f, 0.10f, 0.065f)),
                 (cube, new Vector3(-0.37f, 0.735f, 0f), Vector3.zero, new Vector3(0.10f, 0.06f, 0.78f)),
                 (cube, new Vector3(0.37f, 0.735f, 0f), Vector3.zero, new Vector3(0.10f, 0.06f, 0.78f))), new Color(0.43f, 0.435f, 0.31f), true, 1f);
+            // The small and medium shapes that gather round the big ones (BattlefieldComposer.Clumps): dead scrub, dry
+            // grass, stones. No shadows and a thin line: there are hundreds of them.
+            bush = Make(Combine("Dead scrub",
+                (Taper(0.05f, 0.012f, 1.25f, new Vector2(0.10f, 0.05f), 2f), Vector3.zero, new Vector3(8f, 0f, 6f), Vector3.one),
+                (Taper(0.04f, 0.010f, 1.05f, Vector2.zero, 2f), new Vector3(0.05f, 0f, 0f), new Vector3(28f, 40f, -22f), Vector3.one),
+                (Taper(0.04f, 0.010f, 0.95f, Vector2.zero, 2f), new Vector3(-0.04f, 0f, 0.03f), new Vector3(-30f, 110f, 18f), Vector3.one),
+                (Taper(0.035f, 0.010f, 0.85f, Vector2.zero, 2f), new Vector3(0f, 0f, -0.05f), new Vector3(24f, 200f, 30f), Vector3.one),
+                (Taper(0.03f, 0.008f, 0.6f, Vector2.zero, 2f), new Vector3(0.12f, 0.55f, 0.04f), new Vector3(48f, 70f, -40f), Vector3.one),
+                (Taper(0.03f, 0.008f, 0.55f, Vector2.zero, 2f), new Vector3(-0.10f, 0.5f, 0.02f), new Vector3(-44f, 250f, 36f), Vector3.one)), new Color(0.40f, 0.34f, 0.25f), false, 0.8f);
+            tuft = Make(Combine("Dry grass",
+                (Taper(0.035f, 0.004f, 0.42f, new Vector2(0.06f, 0f), 1f), Vector3.zero, Vector3.zero, Vector3.one),
+                (Taper(0.03f, 0.004f, 0.36f, new Vector2(-0.07f, 0.04f), 1f), new Vector3(0.06f, 0f, 0.03f), Vector3.zero, Vector3.one),
+                (Taper(0.03f, 0.004f, 0.48f, new Vector2(0.02f, -0.08f), 1f), new Vector3(-0.05f, 0f, 0.04f), Vector3.zero, Vector3.one),
+                (Taper(0.03f, 0.004f, 0.30f, new Vector2(0.09f, 0.07f), 1f), new Vector3(0.01f, 0f, -0.07f), Vector3.zero, Vector3.one),
+                (Taper(0.025f, 0.004f, 0.38f, new Vector2(-0.05f, -0.06f), 1f), new Vector3(-0.07f, 0f, -0.04f), Vector3.zero, Vector3.one)), new Color(0.62f, 0.58f, 0.34f), false, 0.35f);
+            stones = Make(Combine("Stones",
+                (WornBox(.10f, .08f, 3), new Vector3(0f, 0.09f, 0f), new Vector3(6f, 20f, -5f), new Vector3(0.42f, 0.24f, 0.34f)),
+                (WornBox(.10f, .08f, 4), new Vector3(0.32f, 0.05f, 0.12f), new Vector3(-8f, 65f, 4f), new Vector3(0.22f, 0.13f, 0.19f)),
+                (WornBox(.10f, .08f, 8), new Vector3(-0.12f, 0.04f, 0.28f), new Vector3(3f, 130f, 9f), new Vector3(0.15f, 0.10f, 0.13f))), new Color(0.43f, 0.41f, 0.38f), false, 1.0f);
             // loose battlefield litter, scattered by BattlefieldComposer.Debris
             branches = Make(Combine("Broken branches",
                 (Taper(0.09f, 0.025f, 2.3f, new Vector2(0.15f, 0f)), new Vector3(0f, 0.08f, 0f), new Vector3(88f, 0f, 0f), Vector3.one),

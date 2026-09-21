@@ -37,6 +37,7 @@ namespace TW.Presentation.Terrain
             MapProps(map);
             TrenchKit(map, surface);
             Debris(map, surface);
+            Clumps(map, surface);
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
             { sites.Clear(); rejections.Clear(); PlaceSites(map, surface); layoutMap = map; }
             else
@@ -196,13 +197,18 @@ namespace TW.Presentation.Terrain
         /// candidate per 7 m square, placed by hash so it never moves between rebuilds.</summary>
         void Debris(MapData map, BattlefieldSurface surface)
         {
-            const float grid = 7f;
+            const float grid = 4.5f;
             int k = 0;
             for (float gz = 4f; gz < map.SizeMeters.y - 4f; gz += grid)
             for (float gx = 3f; gx < map.SizeMeters.x - 3f; gx += grid, k++)
             {
-                if (Rand(k, 61) > .62f) continue;
                 float x = gx + Rand(k, 62) * (grid - 1f), z = gz + Rand(k, 63) * (grid - 1f);
+                // Litter gathers: thick in some stretches and absent in others (a slow noise), thicker again round shell
+                // holes and along the trench, where things get thrown, dropped and blown.
+                float gather = Mathf.PerlinNoise(x * .045f + 17f, z * .045f + 3f);
+                var near = surface.At(x, z);
+                float chance = gather * gather * 1.15f + (near.Hollow >= 0 ? .45f : 0f) + (near.BankDistance < 7f ? .30f : 0f);
+                if (Rand(k, 61) > chance) continue;
                 var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire)) != 0) continue;
                 var at = surface.At(x, z);
@@ -213,13 +219,75 @@ namespace TW.Presentation.Terrain
             }
         }
 
+        bool Open(MapData map, BattlefieldSurface surface, float x, float z)
+        {
+            if (x < 1f || z < 1f || x > map.SizeMeters.x - 1f || z > map.SizeMeters.y - 1f) return false;
+            var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
+            if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) return false;
+            var at = surface.At(x, z);
+            return at.Wetness < .3f && at.BankDistance > 1.3f && at.Hollow < 0;
+        }
+
+        /// <summary>One gathering of small and medium shapes round a big one: scrub close in, grass and stones thinning
+        /// outward (distance grows with the square root of a uniform roll, so the middle is densest).</summary>
+        void Gather(MapData map, BattlefieldSurface surface, Vector3 heart, int key, float reach, int scrub, int small)
+        {
+            for (int i = 0; i < scrub + small; i++)
+            {
+                int k = key * 32 + i;
+                bool medium = i < scrub;
+                float far = medium ? .9f + Rand(k, 91) * reach * .55f : (.4f + Mathf.Sqrt(Rand(k, 91)) * reach), angle = Rand(k, 92) * Mathf.PI * 2f;
+                float x = heart.x + Mathf.Cos(angle) * far, z = heart.z + Mathf.Sin(angle) * far;
+                if (!Open(map, surface, x, z)) continue;
+                var module = medium ? kit.bush : Rand(k, 93) < .78f ? kit.tuft : kit.stones;
+                float size = medium ? .8f + Rand(k, 94) * .7f : .7f + Rand(k, 94) * .9f;
+                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - .02f, z), Quaternion.Euler(0f, Rand(k, 95) * 360f, 0f), Vector3.one * size));
+            }
+        }
+
+        /// <summary>Big, medium, small (owner, 2026-09-21): every big shape on the field gathers smaller ones round it,
+        /// and the dry rises grow their own patches. Nothing here is on a grid: patch centres are dart-thrown with a
+        /// minimum spacing, members fall off from the middle.</summary>
+        void Clumps(MapData map, BattlefieldSurface surface)
+        {
+            for (int i = 0; i < map.Props.Length; i++)
+            {
+                var p = map.Props[i];
+                if (p.Kind == PropKind.Bridge) continue;
+                bool big = p.Kind == PropKind.Wreck || p.Scale >= 1.1f;
+                if (big) Gather(map, surface, p.Pos, i + 1, p.Kind == PropKind.Wreck ? 5.5f : 4.2f, 1 + (int)(Rand(i, 96) * 3f), 6 + (int)(Rand(i, 97) * 7f));
+                else if (p.Scale >= .75f && Rand(i, 98) < .5f) Gather(map, surface, p.Pos, i + 1, 2.2f, 0, 2 + (int)(Rand(i, 97) * 4f));
+            }
+            for (int i = 0; i < surface.Hollows.Count; i++)
+            {
+                if (Rand(i, 99) > .55f) continue;   // fresh holes are bare; old ones have grown a fringe
+                var h = surface.Hollows[i];
+                float angle = Rand(i, 100) * Mathf.PI * 2f;   // on one side of the rim, not a wreath
+                var heart = new Vector3(h.Center.x + Mathf.Cos(angle) * (h.Radius + 1.2f), 0f, h.Center.y + Mathf.Sin(angle) * (h.Radius + 1.2f));
+                Gather(map, surface, heart, 5000 + i, 2.6f, Rand(i, 101) < .4f ? 1 : 0, 3 + (int)(Rand(i, 102) * 5f));
+            }
+            // free patches on the dry rises: dart-throwing with a 9 m minimum spacing
+            var patches = new List<Vector2>();
+            int darts = (int)(map.SizeMeters.x * map.SizeMeters.y / 40f);
+            for (int d = 0; d < darts; d++)
+            {
+                var c = new Vector2(2f + Rand(d, 103) * (map.SizeMeters.x - 4f), 2f + Rand(d, 104) * (map.SizeMeters.y - 4f));
+                if (BattlefieldSurface.Mound(c.x, c.y) < .08f || !Open(map, surface, c.x, c.y)) continue;
+                bool crowded = false;
+                foreach (var other in patches) if ((other - c).sqrMagnitude < 81f) { crowded = true; break; }
+                if (crowded) continue;
+                patches.Add(c);
+                Gather(map, surface, new Vector3(c.x, 0f, c.y), 9000 + d, 3.4f, Rand(d, 105) < .6f ? 1 : 2, 5 + (int)(Rand(d, 106) * 8f));
+            }
+        }
+
         void MapProps(MapData map)
         {
             var hf = map.Height;
             for (int i = 0; i < map.Props.Length; i++)
             {
                 var p = map.Props[i];
-                float s = 0.85f + 0.3f * ((i * 37) % 100) / 100f;   // no two trees the same height
+                float s = p.Scale > 0f ? p.Scale : 0.85f + 0.3f * ((i * 37) % 100) / 100f;   // the generator sizes clump members: big, medium, small
                 var m = Matrix4x4.TRS(new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.05f, p.Pos.z), Quaternion.Euler(0f, p.Yaw * Mathf.Rad2Deg, 0f), new Vector3(s, s, s));
                 switch (p.Kind)
                 {
@@ -237,11 +305,24 @@ namespace TW.Presentation.Terrain
             for (int x = 0; x < map.NavWidth; x++)
             {
                 if ((map.NavLayers[map.NavIndex(x, z)] & (byte)NavLayer.Wire) == 0) continue;
-                float wx = (x + 0.5f) * n, wz = (z + 0.5f) * n;
-                var at = new Vector3(wx, hf.Sample(wx, wz), wz);
-                var turn = Quaternion.Euler(0f, (x * 13 + z * 7) % 16 - 8f, 0f);
-                emit(kit.knifeRest, Matrix4x4.TRS(at, turn, Vector3.one));
-                emit(kit.wire, Matrix4x4.TRS(at, turn, Vector3.one));
+                int key = z * map.NavWidth + x;
+                if (Rand(key, 31) < .07f) continue;   // a frame carried off or blown to bits
+                // stand each frame along the belt's own direction (where is the wire in the next column?), then
+                // shove, turn and size it a little: set out by tired men at night, not by a surveyor
+                float lean = 0f;
+                for (int dz = -2; dz <= 2; dz++)
+                {
+                    int zz = z + dz;
+                    if (x + 1 < map.NavWidth && zz >= 0 && zz < map.NavLength && (map.NavLayers[map.NavIndex(x + 1, zz)] & (byte)NavLayer.Wire) != 0) { lean = dz; if (dz == 0) break; }
+                }
+                float wx = (x + 0.5f) * n + (Rand(key, 32) - .5f) * 1.1f, wz = (z + 0.5f) * n + (Rand(key, 33) - .5f) * 1.3f;
+                float yaw = -Mathf.Atan2(lean * n, n) * Mathf.Rad2Deg * .6f + (Rand(key, 34) - .5f) * 30f;
+                bool down = Rand(key, 35) < .13f;
+                var turn = Quaternion.Euler(down ? 62f + Rand(key, 36) * 25f : (Rand(key, 36) - .5f) * 14f, yaw, (Rand(key, 37) - .5f) * 10f);
+                float size = .85f + Rand(key, 38) * .35f;
+                var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (down ? .15f : 0f), wz);
+                emit(kit.knifeRest, Matrix4x4.TRS(at, turn, Vector3.one * size));
+                if (!down) emit(kit.wire, Matrix4x4.TRS(at, turn, Vector3.one * size));
             }
 
             Horizon(map);
@@ -251,15 +332,25 @@ namespace TW.Presentation.Terrain
         void Horizon(MapData map)
         {
             float w = map.SizeMeters.x, l = map.SizeMeters.y;
-            for (int i = 0; i < 520; i++)
+            // clumps, as on the field: a big tree, a couple of medium ones close by, small stuff round them
+            for (int c = 0; c < 110; c++)
             {
-                float x = -260f + Rand(i, 1) * (w + 520f), z = -200f + Rand(i, 2) * (l + 400f);
-                float outside = Mathf.Max(Mathf.Max(-x, x - w), Mathf.Max(-z, z - l));
-                if (outside < 5f) continue;
-                float level = GreyboxTerrainView.SkirtHeight(map, x, z) - 0.05f;
-                float s = 0.9f + 0.7f * Rand(i, 3);
-                var m = Matrix4x4.TRS(new Vector3(x, level, z), Quaternion.Euler(0f, Rand(i, 4) * 360f, 0f), new Vector3(s, s, s));
-                if (Rand(i, 5) < 0.26f) emit(kit.fork, m); else if (Rand(i, 5) < 0.62f) emit(kit.trunk, m); else if (Rand(i, 5) < 0.85f) emit(kit.snag, m); else emit(kit.stump, m);
+                float cx = -260f + Rand(c, 1) * (w + 520f), cz = -200f + Rand(c, 2) * (l + 400f);
+                int members = 3 + (int)(Rand(c, 3) * 6f);
+                for (int i = 0; i < members; i++)
+                {
+                    int key = c * 16 + i;
+                    float reach = i == 0 ? 0f : i < 3 ? 3f + Rand(key, 4) * 4f : 5f + Rand(key, 4) * 9f, angle = Rand(key, 5) * Mathf.PI * 2f;
+                    float x = cx + Mathf.Cos(angle) * reach, z = cz + Mathf.Sin(angle) * reach;
+                    float outside = Mathf.Max(Mathf.Max(-x, x - w), Mathf.Max(-z, z - l));
+                    if (outside < 5f) continue;
+                    float level = GreyboxTerrainView.SkirtHeight(map, x, z) - 0.05f;
+                    float s = i == 0 ? 1.3f + Rand(key, 6) * .5f : i < 3 ? .85f + Rand(key, 6) * .3f : .5f + Rand(key, 6) * .3f;
+                    var m = Matrix4x4.TRS(new Vector3(x, level, z), Quaternion.Euler(0f, Rand(key, 7) * 360f, 0f), new Vector3(s, s, s));
+                    if (i == 0) emit(Rand(key, 8) < .4f ? kit.fork : kit.trunk, m);
+                    else if (i < 3) emit(Rand(key, 8) < .5f ? kit.trunk : kit.snag, m);
+                    else emit(Rand(key, 8) < .45f ? kit.stump : Rand(key, 8) < .75f ? kit.bush : kit.snag, m);
+                }
             }
             for (int i = 0; i < 9; i++)
             {

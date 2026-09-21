@@ -81,8 +81,9 @@ namespace TW.Sim.Terrain
         /// <summary>A straight fire trench across the full corridor width at world Z, 2 cells deep in Z, with a link every 10 cells.
         /// It reaches both map edges so that nothing can bypass it round the end (tanks must cross, infantry must use links).</summary>
         /// <summary><paramref name="offsets"/> (optional, one per nav column, in cells along Z) bends the trench: fire bays
-        /// set forward and back, joined by a traverse wherever two neighbouring columns differ. Null = a straight line.</summary>
-        internal static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1, int[] offsets = null)
+        /// set forward and back, joined by a traverse wherever two neighbouring columns differ. Null = a straight line.
+        /// <paramref name="ladders"/> (optional) marks the link columns; null = every tenth column.</summary>
+        internal static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1, int[] offsets = null, bool[] ladders = null)
         {
             int zBase = (int)(z / MapData.NavCellSize);
             var def = new TrenchDef
@@ -97,7 +98,7 @@ namespace TW.Sim.Terrain
                 // the traverse: where this column's bay sits forward or back of the last one, dig the cells between
                 int prev = x > 0 ? zBase + (offsets != null ? offsets[x - 1] : 0) : zc;
                 int from = math.min(zc, prev), to = math.max(zc, prev) + 1;
-                bool link = (x % 10) == 5;
+                bool link = ladders != null ? ladders[x] : (x % 10) == 5;
                 for (int cz = from; cz <= to; cz++)
                 {
                     map.SetLayer(x, cz, link ? (NavLayer.Trench | NavLayer.Link) : NavLayer.Trench);
