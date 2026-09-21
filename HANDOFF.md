@@ -59,6 +59,10 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   mesh. Shared `RenderGround` heights keep units and combat effects aligned; simulation data and floor heights
   in trenches/links are unchanged. Terrain repaint tiles coalesce and spread work across frames.
   Standard sample: 118,923 base prop vertices and 100 instanced submissions, excluding terrain and other passes.
+  Later the same day: presentation-only mounds and crater lips (`BattlefieldSurface.Mound`), dark reflective water,
+  ground mist and a colour grade (`Atmosphere`), and a screen-space ink pass for lines inside shapes
+  (`Shaders/InkLines_URP.shader`, a Full Screen Pass feature on `Settings/TW-Renderer.asset`, depth only, 5 taps a
+  pixel; unmeasured on the GTX 1050). The scored critique log is `docs/reference/visual-score.md` (46 to 57 of 80).
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level
