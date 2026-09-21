@@ -101,6 +101,7 @@ namespace TW.Presentation.Terrain
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<NightLights>() == null) gameObject.AddComponent<NightLights>().Host = Host;
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Rain>() == null) gameObject.AddComponent<Rain>();
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Storm>() == null) gameObject.AddComponent<Storm>();
+            if (GetComponent<SmallLife>() == null) gameObject.AddComponent<SmallLife>().Host = Host;
             if (GetComponent<QuietFog>() == null) gameObject.AddComponent<QuietFog>().Host = Host;
             if (GetComponent<FogWisps>() == null) gameObject.AddComponent<FogWisps>().Build(map);
             if (GetComponent<WaterRings>() == null)

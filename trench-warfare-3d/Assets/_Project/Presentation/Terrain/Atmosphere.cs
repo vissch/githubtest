@@ -34,6 +34,8 @@ namespace TW.Presentation.Terrain
         public static Vector2 WindNow { get; private set; }
         [Tooltip("Let the storm's lightning (Storm.cs) flash the whole field (night only).")]
         public bool Lightning = true;
+        [Tooltip("In the super zoom the far field goes softly out of focus and the vignette closes a little. Costs nothing at any other zoom; off = never.")]
+        public bool CloseLens = true;
         Color shadeNow; float flashNow;
         /// <summary>Set by Storm each frame: how bright the strike is right now, 0..1, and the way its light travels.</summary>
         public static float StormFlash;
@@ -107,6 +109,8 @@ namespace TW.Presentation.Terrain
             if (Grade) BuildGrade();
         }
 
+        Vignette vignette; DepthOfField focus;
+
         void BuildGrade()
         {
             profile = ScriptableObject.CreateInstance<VolumeProfile>();
@@ -130,8 +134,17 @@ namespace TW.Presentation.Terrain
                 var glow = profile.Add<Bloom>(true);   // muzzle flashes, lamps, tracers, the flare
                 glow.threshold.Override(0.85f); glow.intensity.Override(bloom); glow.scatter.Override(0.62f); glow.tint.Override(new Color(1f, 0.92f, 0.82f));
             }
-            var vignette = profile.Add<Vignette>(true);
+            vignette = profile.Add<Vignette>(true);
             vignette.intensity.Override(vignetteAmount); vignette.smoothness.Override(0.5f); vignette.color.Override(new Color(0.10f, 0.08f, 0.06f));
+            if (CloseLens)
+            {
+                // among the men the far field falls softly out of focus. Off (not merely weak) everywhere else: the base look
+                // does without depth of field for its cost on the minimum GPU.
+                focus = profile.Add<DepthOfField>(true);
+                focus.mode.Override(DepthOfFieldMode.Gaussian); focus.gaussianMaxRadius.Override(0.9f); focus.highQualitySampling.Override(false);
+                focus.gaussianStart.Override(40f); focus.gaussianEnd.Override(120f);
+                focus.active = false;
+            }
             var go = new GameObject("Grade") { hideFlags = HideFlags.DontSave };
             go.transform.SetParent(transform, false);
             var volume = go.AddComponent<Volume>();
@@ -154,6 +167,19 @@ namespace TW.Presentation.Terrain
                 if (cam != null && Grade) cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             }
             if (cam == null) return;
+            if (focus != null)
+            {
+                float lens = Mathf.InverseLerp(0.80f, 1f, SceneHooks.CloseUp);   // the super zoom only
+                bool on = lens > 0.001f;
+                if (focus.active != on) focus.active = on;
+                if (on)
+                {
+                    float reach = cam.transform.position.y / Mathf.Max(0.12f, -cam.transform.forward.y);   // to the ground the view looks at
+                    focus.gaussianStart.Override(reach * 2.2f + 8f); focus.gaussianEnd.Override(reach * 6f + 40f);
+                    focus.gaussianMaxRadius.Override(0.9f * lens);
+                }
+                vignette.intensity.Override(vignetteAmount + 0.10f * lens);
+            }
             // lightning: while a bolt burns (Storm.cs) the whole field jumps out of the dark. The moon's light becomes the
             // bolt's: far brighter, white, and coming from where it struck, so every shadow swings round for an instant.
             float flash = 0f;

@@ -142,6 +142,26 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   the Inspector to see the day look); the bolt is a drift-corrected random walk with its points crowded toward the
   ground, where the camera sees it; thunder is soft-limited and normalised (it used to hard-clip) and the far
   variant fades in; the guns beyond the horizon are lower and dimmer.
+  Close-up detail (what only a zoomed-in camera sees): `TacticalCamera` publishes `SceneHooks.CloseUp` and the shader
+  global `_TWClose` (1 at zoom <= `DetailFullZoom` 12, 0 from `DetailGoneZoom` 28, so 0 at the standard view). Every
+  item below is made and drawn only while it is above 0; `BattlefieldKit.Module.MaxDistance` is the draw distance for
+  small props (`BattlefieldProps` skips their 32 m pages beyond it, and always at the standard view).
+  Shaders: TW/Toon reads the mud detail a third time, five times finer and turned (grit, sparkle); `TWWater.hlsl`
+  clouds the water inside a young wading ring with silt, adds a finer rain-ring grid and scum flecks at puddle rims;
+  the VAT shader cakes boots and shins with mud and puts a rain film and bursting drops on helmets and shoulders.
+  The fallen: `VATRenderer.AddFallen` plays one of the four death rows once and holds its last frame (own small
+  buffer, near model within 70 m, box model beyond, no shadows), replacing the flattened capsules;
+  `ProceduralSoldier.BuildFallen` is the fallback when the VAT path is unavailable (there the helmet rolls off).
+  `CombatFx`: boot prints and tank ruts (`TW/GroundMark`, pooled quads with three fade bands, matt pressed mud with
+  sky-mirroring water in the deepest part), ejected brass that bounces and lies, a thread of muzzle smoke, breath at
+  night, tank exhaust and mud flung from the tracks, clods round fresh craters that steam in the rain; tracers thin
+  to 30% up close. Small kit (`BattlefieldKit.BuildSmallKit`, 13 modules, no shadows, 55 m): helmets, boots, mess
+  tins, entrenching tools, ammunition tins, rifle-and-helmet markers (`BattlefieldComposer.Litter`); rifles against
+  the wall, tins on a nail, buckets, signboards by the ladders and the telephone wire along the revetment
+  (`TrenchKit`); rags and alarm tins on the wire (`MapProps`, TW/Toon `_Sway`). `SmallLife`: moths, ash and drips
+  are one mesh moved in the TW/Motes vertex shader; up to six rats run the trench floors and bolt from men and shells.
+  `Atmosphere.CloseLens`: Gaussian depth of field and a closer vignette in the super zoom only (component inactive
+  otherwise). Not measured on the minimum GPU; nothing here runs at the standard view.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

@@ -37,6 +37,7 @@ namespace TW.Presentation.Terrain
             MapProps(map);
             TrenchKit(map, surface);
             Debris(map, surface);
+            Litter(map, surface);
             Clumps(map, surface);
             Margins(map, surface);
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
@@ -67,6 +68,12 @@ namespace TW.Presentation.Terrain
                 if (edge.Link)
                 {
                     emit(kit.ladder, Matrix4x4.TRS(new Vector3(center.x, floor, center.z) - outward * .35f, rotation, Vector3.one));
+                    if (Rand(edge.Key, 815) < .35f)
+                    {
+                        // a board by the way out says where it leads
+                        var post = center + outward * 1.1f + (rotation * Vector3.right) * (Rand(edge.Key, 816) < .5f ? 1.0f : -1.0f);
+                        emit(kit.signBoard, Matrix4x4.TRS(new Vector3(post.x, surface.VisualHeight(post.x, post.z) - .05f, post.z), rotation * Quaternion.Euler(0f, 180f + (Rand(edge.Key, 817) - .5f) * 30f, 0f), Vector3.one));
+                    }
                     continue;
                 }
                 center = edge.DressCenter; outward = edge.DressOutward; rotation = Quaternion.LookRotation(outward);
@@ -75,6 +82,14 @@ namespace TW.Presentation.Terrain
                 float upper = surface.VisualHeight(lip.x, lip.z);
                 float height = Mathf.Clamp((upper - floor) / 2f, .55f, 1.3f);
                 emit(kit.TrenchWalls[variant], Matrix4x4.TRS(new Vector3(wall.x, floor, wall.z), rotation * Quaternion.Euler(-4f - Rand(edge.Key, 73) * 3f, 0f, 0f), new Vector3(edge.DressLength / 2f, height, 1f)));
+                // the trench is lived in (small kit, close camera only): rifles stood against the wall, tins on a nail, a
+                // bucket on the boards, and the telephone wire stapled along the revetment in sagging lengths
+                var along = rotation * Vector3.right;
+                float depth = Mathf.Max(.8f, upper - floor), life = Rand(edge.Key, 811);
+                if (life < .10f) emit(kit.leanRifle, Matrix4x4.TRS(new Vector3(wall.x, floor + .04f, wall.z) - outward * .30f + along * ((Rand(edge.Key, 812) - .5f) * edge.DressLength * .5f), rotation * Quaternion.Euler(13f, 0f, 0f), Vector3.one));
+                else if (life < .16f) emit(kit.hangingTins, Matrix4x4.TRS(new Vector3(wall.x, floor + depth * .72f, wall.z) - outward * .16f + along * ((Rand(edge.Key, 812) - .5f) * edge.DressLength * .5f), rotation, Vector3.one));
+                else if (life < .21f) emit(kit.bucket, Matrix4x4.TRS(new Vector3(wall.x, floor + .05f, wall.z) - outward * .45f + along * ((Rand(edge.Key, 812) - .5f) * edge.DressLength * .5f), Quaternion.Euler(0f, Rand(edge.Key, 813) * 360f, 0f), Vector3.one));
+                if (Rand(edge.Key, 814) < .62f) emit(kit.phoneWire, Matrix4x4.TRS(new Vector3(wall.x, floor + depth * .84f, wall.z) - outward * .13f, Quaternion.LookRotation(outward) , new Vector3(edge.DressLength / 2f, 1f, 1f)));
                 float frontage = Mathf.PerlinNoise(center.x * .09f + 19f, center.z * .09f + 7f);
                 if (frontage > .26f)
                 {
@@ -222,6 +237,36 @@ namespace TW.Presentation.Terrain
                 float pick = Rand(k, 64);
                 var module = at.BankDistance < 7f && pick < .45f ? kit.shellCases : pick < .72f ? kit.branches : kit.looseBoards;
                 emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) + .01f, z), Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f), Vector3.one * (.85f + Rand(k, 66) * .5f)));
+            }
+        }
+
+        /// <summary>
+        /// What men drop and leave (small kit, close camera only): helmets, boots, mess tins, tools and opened ammunition
+        /// tins, thick along the trenches and round the shell holes, thin in between; now and then a rifle stood in the
+        /// ground with a helmet on it. One candidate per 3.4 m square, placed by hash so it never moves between rebuilds.
+        /// </summary>
+        void Litter(MapData map, BattlefieldSurface surface)
+        {
+            const float grid = 3.4f;
+            int k = 0;
+            for (float gz = 4f; gz < map.SizeMeters.y - 4f; gz += grid)
+            for (float gx = 3f; gx < map.SizeMeters.x - 3f; gx += grid, k++)
+            {
+                float x = gx + Rand(k, 132) * (grid - .6f), z = gz + Rand(k, 133) * (grid - .6f);
+                var at = surface.At(x, z);
+                bool byTrench = at.BankDistance < 6f;
+                float gather = Mathf.PerlinNoise(x * .06f + 41f, z * .06f + 9f);
+                float chance = gather * gather * .34f + (at.Hollow >= 0 ? .22f : 0f) + (byTrench ? .34f : 0f);
+                if (Rand(k, 131) > chance) continue;
+                var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
+                if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) continue;
+                if (at.Wetness > .35f || at.BankDistance < 1.1f) continue;
+                float pick = Rand(k, 134);
+                BattlefieldKit.Module module;
+                if (byTrench) module = pick < .28f ? kit.ammoTin : pick < .50f ? kit.messKit : pick < .68f ? kit.spade : pick < .84f ? kit.helmet : kit.boots;
+                else module = pick < .07f && at.Hollow < 0 ? kit.graveMarker : pick < .50f ? kit.helmet : pick < .66f ? kit.boots : pick < .82f ? kit.spade : kit.messKit;
+                float sink = module == kit.graveMarker || module == kit.spade ? .06f : .015f;
+                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - sink, z), Quaternion.Euler(0f, Rand(k, 135) * 360f, 0f), Vector3.one * (.92f + Rand(k, 136) * .2f)));
             }
         }
 
@@ -374,6 +419,12 @@ namespace TW.Presentation.Terrain
                 var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (down ? .15f : 0f), wz);
                 emit(kit.knifeRest, Matrix4x4.TRS(at, turn, Vector3.one * size));
                 if (!down) emit(kit.wire, Matrix4x4.TRS(at, turn, Vector3.one * size));
+                if (!down && Rand(key, 39) < .20f)
+                {
+                    // something has caught on the top strand: a strip of cloth, or the tins hung there to rattle (small kit)
+                    var hang = at + turn * (new Vector3((Rand(key, 40) - .5f) * 1.6f, 1.05f, Rand(key, 41) < .5f ? .30f : -.30f) * size);
+                    emit(Rand(key, 42) < .6f ? kit.rag : kit.wireTins, Matrix4x4.TRS(hang, Quaternion.Euler(0f, yaw + (Rand(key, 43) - .5f) * 40f, 0f), Vector3.one));
+                }
             }
 
             Horizon(map);

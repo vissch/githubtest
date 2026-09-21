@@ -13,6 +13,9 @@ namespace TW.Presentation.Terrain
             public float MaxDistance = float.PositiveInfinity;
         }
         public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
+        /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
+        public Module helmet, messKit, spade, ammoTin, boots, graveMarker, leanRifle, signBoard, bucket, hangingTins, phoneWire, rag, wireTins;
+        public const float SmallReach = 55f;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
@@ -394,11 +397,90 @@ namespace TW.Presentation.Terrain
                 (Taper(0.065f, 0.055f, 0.5f, Vector2.zero, 0.1f), new Vector3(0f, 0.07f, 0f), new Vector3(90f, 20f, 0f), Vector3.one),
                 (Taper(0.065f, 0.055f, 0.5f, Vector2.zero, 0.1f), new Vector3(0.3f, 0.07f, 0.25f), new Vector3(90f, -50f, 0f), Vector3.one),
                 (Taper(0.065f, 0.055f, 0.5f, Vector2.zero, 0.1f), new Vector3(-0.2f, 0.07f, 0.4f), new Vector3(90f, 85f, 0f), Vector3.one)), new Color(0.62f, 0.50f, 0.24f), false);
+            BuildSmallKit(cube);
             fork = Make(Combine("Forked shell tree",
                 (Taper(0.58f, 0.17f, 5.5f, new Vector2(-0.5f, 0.12f)), Vector3.zero, Vector3.zero, Vector3.one),
                 (Taper(0.20f, 0.04f, 3.2f, new Vector2(0.6f, 0f)), new Vector3(-0.22f, 2.2f, 0f), new Vector3(12f, 0f, -32f), Vector3.one),
                 (Taper(0.12f, 0.015f, 1.4f, Vector2.zero), new Vector3(-0.35f, 3.8f, 0f), new Vector3(-10f, 0f, 58f), Vector3.one),
                 (Taper(0.30f, 0.02f, 1.5f, new Vector2(0.1f, 0f)), new Vector3(0f, 0.12f, 0f), new Vector3(65f, 25f, 10f), Vector3.one)), new Color(0.32f, 0.28f, 0.24f));
+        }
+
+        Module Small(Module module) { module.MaxDistance = SmallReach; return module; }
+
+        /// <summary>
+        /// Things no bigger than a man's hand or boot. None casts a shadow, all are a hundred-odd vertices at most, and none
+        /// is drawn beyond SmallReach or at the standard view (BattlefieldProps): they are there for the camera among the men.
+        /// </summary>
+        void BuildSmallKit(Mesh cube)
+        {
+            var dome = Blob(8, 5); var tin = Taper(0.07f, 0.07f, 0.10f, Vector2.zero, 0.1f);
+            var steel = new Color(0.36f, 0.40f, 0.34f); var leather = new Color(0.17f, 0.14f, 0.115f); var rifleWood = new Color(0.31f, 0.23f, 0.16f);
+            helmet = Small(Make(Combine("Lost helmet",
+                (dome, new Vector3(0f, 0.06f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.29f, 0.15f, 0.31f)),
+                (dome, new Vector3(0f, 0.035f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.40f, 0.03f, 0.43f))), steel, false, 0.9f));
+            messKit = Small(Make(Combine("Mess tin and bottle",
+                (tin, new Vector3(0f, 0f, 0f), Vector3.zero, new Vector3(1.2f, 1f, 0.8f)),
+                (tin, new Vector3(0.22f, 0.05f, 0.10f), new Vector3(90f, 35f, 0f), new Vector3(0.7f, 1.1f, 0.7f)),
+                (Taper(0.045f, 0.018f, 0.27f, Vector2.zero, 0.1f), new Vector3(-0.16f, 0.045f, -0.12f), new Vector3(90f, -60f, 0f), Vector3.one)), new Color(0.44f, 0.46f, 0.45f), false, 0.7f));
+            spade = Small(Make(Combine("Entrenching tool",
+                (cube, new Vector3(0f, 0.36f, 0f), new Vector3(9f, 0f, -7f), new Vector3(0.035f, 0.62f, 0.035f)),
+                (cube, new Vector3(0.04f, 0.70f, 0.055f), new Vector3(9f, 0f, -7f), new Vector3(0.13f, 0.035f, 0.04f)),
+                (WornBox(.02f, .02f, 41), new Vector3(-0.015f, 0.06f, -0.02f), new Vector3(9f, 0f, -7f), new Vector3(0.17f, 0.24f, 0.022f))), new Color(0.34f, 0.29f, 0.22f), false, 0.8f));
+            ammoTin = Small(Make(Combine("Open ammunition tin",
+                (WornBox(.03f, .02f, 42), new Vector3(0f, 0.10f, 0f), new Vector3(0f, 8f, 0f), new Vector3(0.42f, 0.20f, 0.24f)),
+                (WornBox(.03f, .02f, 43), new Vector3(0f, 0.27f, -0.19f), new Vector3(-68f, 8f, 0f), new Vector3(0.42f, 0.02f, 0.24f)),
+                (cube, new Vector3(0.24f, 0.015f, 0.22f), new Vector3(0f, 40f, 0f), new Vector3(0.10f, 0.03f, 0.05f)),
+                (cube, new Vector3(0.10f, 0.015f, 0.30f), new Vector3(0f, -25f, 0f), new Vector3(0.10f, 0.03f, 0.05f))), new Color(0.33f, 0.36f, 0.25f), false, 0.9f));
+            boots = Small(Make(Combine("A pair of boots",
+                (WornBox(.04f, .03f, 44), new Vector3(0f, 0.05f, 0.05f), Vector3.zero, new Vector3(0.11f, 0.10f, 0.29f)),
+                (WornBox(.04f, .03f, 45), new Vector3(0f, 0.19f, -0.04f), new Vector3(-6f, 0f, 0f), new Vector3(0.10f, 0.22f, 0.12f)),
+                (WornBox(.04f, .03f, 46), new Vector3(0.24f, 0.055f, 0f), new Vector3(0f, 35f, 88f), new Vector3(0.11f, 0.10f, 0.29f)),
+                (WornBox(.04f, .03f, 47), new Vector3(0.36f, 0.05f, -0.07f), new Vector3(0f, 35f, 88f), new Vector3(0.10f, 0.22f, 0.12f))), leather, false, 0.8f));
+            graveMarker = Small(Make(Combine("Rifle and helmet",
+                (cube, new Vector3(0f, 0.55f, 0f), new Vector3(4f, 0f, -5f), new Vector3(0.045f, 1.10f, 0.06f)),
+                (cube, new Vector3(0.035f, 0.98f, 0.03f), new Vector3(4f, 0f, -5f), new Vector3(0.055f, 0.36f, 0.12f)),
+                (dome, new Vector3(0.05f, 1.20f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.29f, 0.15f, 0.31f)),
+                (dome, new Vector3(0.05f, 1.175f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.40f, 0.03f, 0.43f))), new Color(0.29f, 0.27f, 0.21f), false, 0.9f));
+            // a trench is lived in: rifles stood against the wall, a board that points the way, a bucket, tins on a nail, the telephone wire
+            leanRifle = Small(Make(Combine("Rifle stood against the wall",
+                (cube, new Vector3(0f, 0.62f, 0f), Vector3.zero, new Vector3(0.04f, 1.22f, 0.055f)),
+                (cube, new Vector3(0f, 0.20f, -0.02f), Vector3.zero, new Vector3(0.05f, 0.40f, 0.11f)),
+                (cube, new Vector3(0.22f, 0.60f, 0.02f), new Vector3(0f, 0f, 3f), new Vector3(0.04f, 1.18f, 0.055f)),
+                (cube, new Vector3(0.21f, 0.19f, 0f), new Vector3(0f, 0f, 3f), new Vector3(0.05f, 0.40f, 0.11f))), rifleWood, false, 0.8f));
+            signBoard = Small(Make(Combine("Trench signboard",
+                (cube, new Vector3(0f, 0.70f, 0f), new Vector3(0f, 0f, 3f), new Vector3(0.07f, 1.40f, 0.07f)),
+                (WornBox(.03f, .03f, 48), new Vector3(0.20f, 1.22f, 0.05f), new Vector3(0f, 0f, -4f), new Vector3(0.74f, 0.20f, 0.035f)),
+                (WornBox(.03f, .03f, 49), new Vector3(-0.12f, 0.95f, 0.05f), new Vector3(0f, 0f, 6f), new Vector3(0.52f, 0.16f, 0.035f))), new Color(0.52f, 0.45f, 0.34f), false, 0.9f));
+            bucket = Small(Make(Combine("Bucket",
+                (Taper(0.12f, 0.16f, 0.28f, Vector2.zero, 0.1f), Vector3.zero, new Vector3(0f, 0f, 3f), Vector3.one),
+                (cube, new Vector3(0f, 0.30f, 0f), new Vector3(0f, 20f, 0f), new Vector3(0.30f, 0.015f, 0.015f))), new Color(0.40f, 0.42f, 0.43f), false, 0.8f));
+            hangingTins = Small(Make(Combine("Tins on a nail",
+                (cube, new Vector3(0f, 0f, 0f), Vector3.zero, new Vector3(0.5f, 0.05f, 0.03f)),
+                (tin, new Vector3(-0.15f, -0.24f, -0.06f), new Vector3(0f, 0f, 6f), new Vector3(0.9f, 1.3f, 0.6f)),
+                (tin, new Vector3(0.10f, -0.20f, -0.06f), new Vector3(0f, 0f, -8f), new Vector3(0.8f, 1.0f, 0.8f)),
+                (cube, new Vector3(0.22f, -0.22f, -0.04f), new Vector3(0f, 0f, 4f), new Vector3(0.10f, 0.34f, 0.02f))), new Color(0.42f, 0.43f, 0.40f), false, 0.7f));
+            var line = new List<(Mesh, Vector3, Vector3, Vector3)>();
+            for (int i = 0; i < 4; i++)
+            {
+                // a 2 m length that sags between its two staples: four straight pieces along a shallow curve
+                float t0 = i / 4f, t1 = (i + 1) / 4f, y0 = -0.14f * (1f - (2f * t0 - 1f) * (2f * t0 - 1f)), y1 = -0.14f * (1f - (2f * t1 - 1f) * (2f * t1 - 1f));
+                line.Add((cube, new Vector3((t0 + t1) - 1f, (y0 + y1) * 0.5f, 0f), new Vector3(0f, 0f, Mathf.Atan2(y1 - y0, 0.5f) * Mathf.Rad2Deg), new Vector3(0.52f, 0.016f, 0.016f)));
+            }
+            phoneWire = Small(Make(Combine("Telephone wire", line.ToArray()), new Color(0.10f, 0.09f, 0.09f), false, 0f));
+            // caught on the wire: a torn strip of cloth that the wind pulls at, and the tins hung there to rattle when it is touched.
+            // Both hang from their origin (y below 0), so TW/Toon's sway moves the free end.
+            rag = Small(Make(Combine("Rag on the wire",
+                (cube, new Vector3(0f, -0.24f, 0f), new Vector3(0f, 0f, 5f), new Vector3(0.17f, 0.50f, 0.012f)),
+                (cube, new Vector3(0.10f, -0.15f, 0.01f), new Vector3(0f, 12f, -9f), new Vector3(0.09f, 0.32f, 0.012f))), new Color(0.52f, 0.50f, 0.44f), false, 0.6f));
+            rag.Material.SetFloat("_Sway", 1.6f);
+            wireTins = Small(Make(Combine("Tins on the wire",
+                (cube, new Vector3(-0.12f, -0.07f, 0f), Vector3.zero, new Vector3(0.008f, 0.14f, 0.008f)),
+                (tin, new Vector3(-0.12f, -0.24f, 0f), Vector3.zero, new Vector3(0.75f, 1.0f, 0.75f)),
+                (cube, new Vector3(0.10f, -0.05f, 0f), Vector3.zero, new Vector3(0.008f, 0.10f, 0.008f)),
+                (tin, new Vector3(0.10f, -0.20f, 0f), new Vector3(0f, 0f, 10f), new Vector3(0.75f, 1.0f, 0.75f))), new Color(0.43f, 0.41f, 0.37f), false, 0.6f));
+            wireTins.Material.SetFloat("_Sway", 3.5f);
+            // steel and tin are wet and bright-edged: under the moon they are what picks a small thing out of the mud
+            foreach (var metal in new[] { helmet, messKit, ammoTin, bucket, hangingTins, wireTins, graveMarker }) metal.Material.SetFloat("_Gloss", .42f);
         }
 
         Mesh ShelterMound()

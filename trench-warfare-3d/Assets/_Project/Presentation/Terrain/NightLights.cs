@@ -31,6 +31,11 @@ namespace TW.Presentation.Terrain
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
         readonly List<Vector3> lanternHome = new List<Vector3>();
+        readonly List<Vector3> firePoints = new List<Vector3>();
+        /// <summary>Where the lamps hang and the big fires burn, once built (SmallLife puts moths and ash there).</summary>
+        public IReadOnlyList<Vector3> LampPoints => lanternHome;
+        public IReadOnlyList<Vector3> FirePoints => firePoints;
+        public bool Built => built;
         readonly List<Object> owned = new List<Object>();
         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
         bool subscribed, built;
@@ -207,6 +212,8 @@ namespace TW.Presentation.Terrain
             SceneHooks.SmokeSources.Clear();
             for (int i = 0; i < sites.Count && SceneHooks.SmokeSources.Count < 8; i += step) SceneHooks.SmokeSources.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
             for (int i = 0; i < flameFeet.Count; i += 2) if (flameShapes[i].x > 1f) SceneHooks.SmokeSources.Add(flameFeet[i] + Vector3.up * 1.8f);
+            firePoints.Clear();
+            for (int i = 0; i < flameFeet.Count; i++) if (flameShapes[i].x > 1f) firePoints.Add(flameFeet[i]);
             if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
