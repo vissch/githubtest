@@ -48,6 +48,7 @@ namespace TW.Sim.Terrain
     {
         public const int MapId = 3;
         const float ReserveZ = 60f, FrontZ = 140f, HqDepth = 34f, BaseHeight = 1.2f;
+        const float DugInHeight = 2.3f;   // trench lines and HQs sit on the higher ground, so a 1.8 m trench floor stays above the water table
         const float RiverHalfWidth = 10f, RiverBedDepth = 1.7f;
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
@@ -67,7 +68,7 @@ namespace TW.Sim.Terrain
                 float h = BaseHeight + 2.6f * (Noise(p.Seed, wx, wz, 70f) - 0.5f) + 0.7f * (Noise(p.Seed + 1u, wx, wz, 18f) - 0.5f);
                 float keep = math.min(Ramp(wz - HqDepth, 0f, 16f), Ramp(L - HqDepth - wz, 0f, 16f));   // HQ areas are level
                 for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - (trenchZ[t] + 2f)) - 5f, 0f, 14f));
-                hf.Set(x, z, math.lerp(BaseHeight, h, keep));
+                hf.Set(x, z, math.lerp(DugInHeight, h, keep));
             }
 
             // ---- 2. the river: a channel across the width, two fords and a plank bridge -------------------------

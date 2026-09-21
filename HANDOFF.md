@@ -51,7 +51,13 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
    placeholder, F4 switches back to capsules; combat at 2,770 units costs 1.57 ms/tick). `VATBaker` done for the one rig we have
    (`Art/Characters/CrouchedRun.fbx`, Mixamo, 881 vertices, one clip; menu TW/VAT/Bake Infantry writes
    `Resources/Units/InfantryVat*`; the clip drives walk/sprint/crouch, its widest stride is the standing pose, prone
-   and deaths are posed in code from the bind T-pose; helmet brim and rifle are added boxes). Still open in M2: more
+   and deaths are posed in code from the bind T-pose; helmet brim and rifle are added boxes). **Reactive battlefield done** (2026-09-21, plan in the commit log): `BattlefieldGenerator` builds the map
+   from `BattlefieldParams` (seed, forest, shelling, mud, river, water level); `MapData` has a water table, props and a
+   cover grid; `DeformationSystem` is the only thing that edits the map (craters that fill below the water table, trees
+   breaking to stumps, wrecks, wire breaches); `GreyboxTerrainView` is chunked with code-made ground colours and a water
+   sheet, `BattlefieldProps` draws props, wire and the trench kit with placeholder meshes. `SimHost.GeneratedBattlefield`
+   switches back to the flat playtest map. Not done from that plan: GPU-displaced terrain, slow crater fill, camouflage
+   netting, debris bursts. Still open in M2: more
    clips (idle, fire, prone, death) and a German variant, B6 UI in UI Toolkit (the IMGUI `BattleHud` is the layout to port), B2 terrain mesh + trench kit,
    C2 infantry → M3 Mission 1 → M4 Mission 2 → M5 Mission 3 + perf → M6
    online (if required) → M7 meta.
