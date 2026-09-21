@@ -137,6 +137,11 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   watercourse (dark slick channel, pale silt margin); a slope rule shows streaked subsoil on steep ground; and
   `BattlefieldComposer.Margins` is a biome-style spawn rule: reed stands (`kit.reeds`) only on the river's margin, the
   rims of flooded shell holes and the wet ends of drainage lines, dart-thrown 3.5 m apart, big / medium / small.
+  Refinements: reeds, grass and scrub bend with `Atmosphere.WindNow` (TW/Toon `_Sway`, the same in every pass so ink
+  and depth follow); `GreyboxTerrainView.Look` sets the mood of the Atmosphere it adds (set it to `OvercastDay` in
+  the Inspector to see the day look); the bolt is a drift-corrected random walk with its points crowded toward the
+  ground, where the camera sees it; thunder is soft-limited and normalised (it used to hard-clip) and the far
+  variant fades in; the guns beyond the horizon are lower and dimmer.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

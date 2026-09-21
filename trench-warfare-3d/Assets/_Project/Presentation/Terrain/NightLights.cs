@@ -356,9 +356,9 @@ namespace TW.Presentation.Terrain
                 bool salvo = Hash(Time.frameCount, 41) < .35f;
                 nextGuns = Time.time + (salvo ? .18f : Mathf.Lerp(2.5f, 8f, Hash(Time.frameCount, 43)));
                 bool far = Hash(Time.frameCount, 47) < .7f;
-                Vector3 at = far ? new Vector3(-70f - 90f * Hash(Time.frameCount, 53), 5f, map.SizeMeters.y * Hash(Time.frameCount, 59))
-                                 : new Vector3(map.SizeMeters.x * Hash(Time.frameCount, 61), 5f, map.SizeMeters.y + 80f + 90f * Hash(Time.frameCount, 67));
-                Flash(at, new Color(1f, .80f, .55f), 1.2f, 130f, .28f, .30f);
+                Vector3 at = far ? new Vector3(-90f - 110f * Hash(Time.frameCount, 53), 1.5f, map.SizeMeters.y * Hash(Time.frameCount, 59))
+                                 : new Vector3(map.SizeMeters.x * Hash(Time.frameCount, 61), 1.5f, map.SizeMeters.y + 100f + 110f * Hash(Time.frameCount, 67));
+                Flash(at, new Color(1f, .72f, .45f), .6f, 60f, .22f, .16f);
             }
             UpdateFlare();
         }

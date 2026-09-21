@@ -374,6 +374,8 @@ namespace TW.Presentation.Terrain
                 (Taper(0.022f, 0.006f, 0.80f, new Vector2(0.20f, -0.04f), 1f), new Vector3(0.13f, 0f, -0.03f), Vector3.zero, Vector3.one),
                 (Taper(0.045f, 0.030f, 0.20f, Vector2.zero, 0.5f), new Vector3(0.10f, 1.40f, 0.02f), new Vector3(6f, 0f, 4f), Vector3.one),      // seed heads
                 (Taper(0.045f, 0.030f, 0.18f, Vector2.zero, 0.5f), new Vector3(-0.04f, 1.56f, -0.07f), new Vector3(-5f, 0f, 8f), Vector3.one)), new Color(0.44f, 0.45f, 0.27f), false, 0.35f);
+            // what grows bends in the wind (TW/Toon _Sway); reeds most, scrub least
+            reeds.Material.SetFloat("_Sway", .34f); tuft.Material.SetFloat("_Sway", .55f); bush.Material.SetFloat("_Sway", .10f);
             stones = Make(Combine("Stones",
                 (WornBox(.10f, .08f, 3), new Vector3(0f, 0.09f, 0f), new Vector3(6f, 20f, -5f), new Vector3(0.42f, 0.24f, 0.34f)),
                 (WornBox(.10f, .08f, 4), new Vector3(0.32f, 0.05f, 0.12f), new Vector3(-8f, 65f, 4f), new Vector3(0.22f, 0.13f, 0.19f)),

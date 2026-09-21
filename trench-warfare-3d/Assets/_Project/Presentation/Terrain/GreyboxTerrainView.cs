@@ -20,6 +20,8 @@ namespace TW.Presentation.Terrain
     public sealed class GreyboxTerrainView : MonoBehaviour
     {
         public SimHost Host;
+        [Tooltip("The mood given to the Atmosphere this view adds when the scene has none of its own.")]
+        public Atmosphere.Mood Look = Atmosphere.Mood.Night;
         public BattlefieldSurface Surface { get; private set; }
         public const int ChunkMeters = 32;
         const float GridStep = .5f; // Presentation mesh only: simulation height and traversal remain untouched.
@@ -49,7 +51,7 @@ namespace TW.Presentation.Terrain
             var map = Host.Local.Map;
             var hf = map.Height;
             var mood = GetComponent<Atmosphere>();
-            flooding = mood == null || mood.Look == Atmosphere.Mood.Night ? .78f : 0f;   // the night look is a soaked field
+            flooding = (mood != null ? mood.Look : Look) == Atmosphere.Mood.Night ? .78f : 0f;   // the night look is a soaked field
             Surface = new BattlefieldSurface(map, flooding);
             renderGrid = new RenderGroundGrid { Width = Mathf.RoundToInt(hf.Width / GridStep) + 1, Length = Mathf.RoundToInt(hf.Length / GridStep) + 1, Step = GridStep };
             renderGrid.Heights = new Unity.Collections.NativeArray<float>(renderGrid.Width * renderGrid.Length, Unity.Collections.Allocator.Persistent);
@@ -95,7 +97,7 @@ namespace TW.Presentation.Terrain
             RenderGround.Map = map; RenderGround.Grid = renderGrid;
             if (map.WaterLevel > MapData.NoWater) BuildWater(map);
             BuildSkirt(map);
-            if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>();
+            if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>().Look = Look;
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<NightLights>() == null) gameObject.AddComponent<NightLights>().Host = Host;
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Rain>() == null) gameObject.AddComponent<Rain>();
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Storm>() == null) gameObject.AddComponent<Storm>();

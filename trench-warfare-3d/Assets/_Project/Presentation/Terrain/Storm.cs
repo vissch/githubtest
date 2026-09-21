@@ -55,7 +55,7 @@ namespace TW.Presentation.Terrain
             var gm = new Mesh { name = "Lightning glow", hideFlags = HideFlags.HideAndDontSave };
             gm.SetVertices(new List<Vector3> { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero });
             gm.SetUVs(0, new List<Vector2> { new Vector2(-1, -1), new Vector2(1, -1), new Vector2(1, 1), new Vector2(-1, 1) });
-            gm.SetUVs(1, new List<Vector4> { new Vector4(22f, .2f, 0f, .1f), new Vector4(22f, .2f, 0f, .1f), new Vector4(22f, .2f, 0f, .1f), new Vector4(22f, .2f, 0f, .1f) });
+            gm.SetUVs(1, new List<Vector4> { new Vector4(13f, .2f, 0f, .1f), new Vector4(13f, .2f, 0f, .1f), new Vector4(13f, .2f, 0f, .1f), new Vector4(13f, .2f, 0f, .1f) });
             gm.SetColors(new List<Color> { new Color(.7f, .82f, 1f, .7f), new Color(.7f, .82f, 1f, .7f), new Color(.7f, .82f, 1f, .7f), new Color(.7f, .82f, 1f, .7f) });
             gm.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0); gm.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
             glowCard.AddComponent<MeshFilter>().sharedMesh = gm;
@@ -97,10 +97,17 @@ namespace TW.Presentation.Terrain
                 lower += (low - lower) * .02f;         // and what is under it
                 float roll = 0f;
                 for (int k = 0; k < 4; k++) { float d = (t - swellAt[k]) / (.35f + k * .15f); roll += swellSize[k] * Mathf.Exp(-d * d); }
-                float envelope = (roll + .25f) * Mathf.Exp(-t * .55f) * Mathf.Clamp01(t * 30f) * Mathf.Clamp01((seconds - t) * 2f);
+                // a near strike starts at once; a far one creeps in over half a second, the crack long since lost on the way
+                float attack = Mathf.Clamp01(t / Mathf.Lerp(.6f, .02f, crack));
+                float envelope = (roll + .25f) * Mathf.Exp(-t * .55f) * attack * Mathf.Clamp01((seconds - t) * 2f);
                 float snap = crack * white * Mathf.Exp(-t * 22f) * .9f + crack * low * Mathf.Exp(-t * 6f) * 2.2f;
-                data[i] = Mathf.Clamp((low * 3.2f + lower * 9f) * envelope + snap, -1f, 1f);
+                data[i] = (low * 3.2f + lower * 9f) * envelope + snap;
             }
+            // no hard clipping: round the peaks off (tanh), then bring the loudest sample to 0.9
+            float peak = 0f;
+            for (int i = 0; i < n; i++) { data[i] = (float)System.Math.Tanh(data[i] * 1.2f); peak = Mathf.Max(peak, Mathf.Abs(data[i])); }
+            float gain = peak > 0f ? .9f / peak : 1f;
+            for (int i = 0; i < n; i++) data[i] *= gain;
             var clip = AudioClip.Create("Thunder " + variant, n, 1, rate, false);
             clip.SetData(data, 0);
             return clip;
@@ -142,12 +149,16 @@ namespace TW.Presentation.Terrain
             verts.Clear(); uvs.Clear(); cols.Clear(); tris.Clear();
             float height = Random.Range(150f, 210f);
             Vector3 top = foot + new Vector3(Random.Range(-35f, 35f), height, Random.Range(-35f, 35f));
-            const int steps = 16;
-            var path = new Vector3[steps + 1];
+            // The camera only ever sees the bottom fifth of the bolt, so that is where the detail goes: the points crowd
+            // toward the ground, and the zigzag is a random walk (each kink starts from the last one) with its drift taken
+            // back out, so it is as crooked at the foot as in the middle and still lands exactly where it was aimed.
+            const int steps = 24;
+            var path = new Vector3[steps + 1]; var wander = new Vector3[steps + 1];
+            for (int k = 1; k <= steps; k++) wander[k] = wander[k - 1] + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * (height * .018f);
             for (int k = 0; k <= steps; k++)
             {
-                float f = k / (float)steps, slack = Mathf.Sin(f * Mathf.PI);   // free in the middle, pinned at both ends
-                path[k] = Vector3.Lerp(top, foot, f) + new Vector3(Random.Range(-1f, 1f), Random.Range(-.3f, .3f), Random.Range(-1f, 1f)) * (height * .055f * slack);
+                float f = Mathf.Pow(k / (float)steps, .55f);
+                path[k] = Vector3.Lerp(top, foot, f) + wander[k] - wander[steps] * (k / (float)steps);
             }
             for (int k = 0; k < steps; k++) Ribbon(path[k], path[k + 1], eye, 1.5f, 1f);
             int branches = Random.Range(2, 4);
@@ -197,7 +208,7 @@ namespace TW.Presentation.Terrain
             boltMaterial.SetColor("_Tint", Color.white * flash * 1.6f);
             glowMaterial.SetColor("_Tint", Color.white * flash);
             flashLight.enabled = flash > .01f;
-            if (flashLight.enabled) { flashLight.transform.position = struckWhere + Vector3.up * 9f; flashLight.intensity = 320f * flash; }
+            if (flashLight.enabled) { flashLight.transform.position = struckWhere + Vector3.up * 3f; flashLight.intensity = 320f * flash; }
 
             for (int k = pending.Count - 1; k >= 0; k--)
             {

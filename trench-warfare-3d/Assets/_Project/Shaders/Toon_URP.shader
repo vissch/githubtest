@@ -26,6 +26,7 @@ Shader "TW/Toon (URP)"
         _Gloss ("Gloss (1 = standing water)", Range(0,1)) = 0
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         [HDR] _Emission ("Emission (lamp glass, embers)", Color) = (0, 0, 0, 0)
+        _Sway ("Sway in the wind (reeds, grass, scrub)", Range(0,1)) = 0
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.6
     }
@@ -41,8 +42,19 @@ Shader "TW/Toon (URP)"
         CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor, _ShadeColor, _OutlineColor, _Emission;
             float4 _BaseMap_ST;
-            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss;
+            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway;
         CBUFFER_END
+        float4 _TWWind;   // xz: the wind (Atmosphere.WindNow, scaled), w: 1 when set
+        /// Reeds, grass and scrub lean with the wind and shiver in the gusts: the bend grows with the square of the height
+        /// above the root (object space), so the foot stays planted. Same in every pass.
+        float3 TWSway(float3 positionWS, float heightOS)
+        {
+            if (_Sway <= 0.0) return positionWS;
+            float phase = dot(positionWS.xz, float2(0.35, 0.27));
+            float gust = 0.55 + sin(_Time.y * 1.7 + phase) * 0.6 + sin(_Time.y * 3.9 + phase * 2.3) * 0.25;
+            positionWS.xz += _TWWind.xy * (gust * _Sway * heightOS * heightOS);
+            return positionWS;
+        }
         ENDHLSL
 
         Pass
@@ -70,7 +82,7 @@ Shader "TW/Toon (URP)"
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 Varyings o;
-                o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
+                o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
                 o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
@@ -190,9 +202,9 @@ Shader "TW/Toon (URP)"
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 Varyings o;
-                o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
+                o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 float3 n = dot(v.smoothOS, v.smoothOS) > 0.01 ? v.smoothOS : v.normalOS;
-                float4 cs = TransformObjectToHClip(v.positionOS.xyz);
+                float4 cs = TransformWorldToHClip(o.positionWS);
                 float3 nWS = TransformObjectToWorldNormal(n);
                 float2 dir = mul((float3x3)UNITY_MATRIX_VP, nWS).xy;
                 dir = dir / max(length(dir), 1e-4);
@@ -224,7 +236,7 @@ Shader "TW/Toon (URP)"
             float4 vertShadow(Attributes v) : SV_POSITION
             {
                 UNITY_SETUP_INSTANCE_ID(v);
-                float3 ws = TransformObjectToWorld(v.positionOS.xyz);
+                float3 ws = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 float3 n = TransformObjectToWorldNormal(v.normalOS);
             #if _CASTING_PUNCTUAL_LIGHT_SHADOW
                 float3 lightDir = normalize(_LightPosition - ws);
@@ -253,7 +265,7 @@ Shader "TW/Toon (URP)"
             #pragma fragment fragDepth
             #pragma multi_compile_instancing
             struct Attributes { float4 positionOS : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); return TransformObjectToHClip(v.positionOS.xyz); }
+            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); return TransformWorldToHClip(TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y)); }
             half4 fragDepth() : SV_Target { return 0; }
             ENDHLSL
         }

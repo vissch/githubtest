@@ -69,6 +69,7 @@ namespace TW.Presentation.Terrain
         VolumeProfile profile;
         static readonly int MistId = Shader.PropertyToID("_TWMist"), MistColorId = Shader.PropertyToID("_TWMistColor");
         static readonly int ShadeTintId = Shader.PropertyToID("_TWShadeTint"), SkyId = Shader.PropertyToID("_TWSky"), WetId = Shader.PropertyToID("_TWWet");
+        static readonly int WindId = Shader.PropertyToID("_TWWind");
         static readonly int FieldId = Shader.PropertyToID("_TWField"), FieldFogId = Shader.PropertyToID("_TWFieldFog"), FieldFogColorId = Shader.PropertyToID("_TWFieldFogColor");
 
         void ApplyNight()
@@ -196,6 +197,8 @@ namespace TW.Presentation.Terrain
             float blow = Mathf.Lerp(1.5f, 9f, Mathf.Clamp01(level * .7f + gust * .5f));
             WindNow = new Vector2(Mathf.Cos(heading), Mathf.Sin(heading)) * blow;
             Shader.SetGlobalVector(WetId, new Vector4(Wetness, WetGlint, Mathf.Clamp01(RainNow), 0f));
+            Vector2 breeze = Rain > 0f ? WindNow : new Vector2(1.6f, .7f) * (.7f + .5f * Mathf.PerlinNoise(clock * .11f, 5.5f));   // a dry day still has a breeze
+            Shader.SetGlobalVector(WindId, new Vector4(breeze.x * .034f, breeze.y * .034f, 0f, 1f));
 
             var map = RenderGround.Map;
             if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));
