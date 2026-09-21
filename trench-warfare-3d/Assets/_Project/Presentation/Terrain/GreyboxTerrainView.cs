@@ -770,6 +770,22 @@ namespace TW.Presentation.Terrain
                 }
                 sheen = Band(-.10f, -.28f, mound) * .30f;
                 c = Color.Lerp(c, MudDark, sheen * .6f);
+                // Texturing by rule, as a terrain tool's splat rules do it. Flow: where water gathers (BattlefieldSurface.Rill)
+                // the ground is a dark, slick channel with a pale margin of washed-out silt beside it. Slope: steep ground
+                // has shed its topsoil and shows streaked subsoil.
+                float rill = Surface.Rill(wx, wz);
+                if (rill > .04f)
+                {
+                    if (rill < .30f) c = Color.Lerp(c, MudPale, Band(.04f, .16f, rill) * (1f - Band(.20f, .30f, rill)) * .34f);
+                    c = Color.Lerp(c, Color.Lerp(MudDark, Ink, .40f), Band(.22f, .55f, rill) * .80f);
+                    sheen = Mathf.Max(sheen, Band(.25f, .6f, rill) * .34f);
+                }
+                if (sample.Slope > .30f)
+                {
+                    float steep = Band(.30f, .65f, sample.Slope);
+                    c = Color.Lerp(c, new Color(.285f, .235f, .185f), steep * .55f);
+                    if (Mathf.PerlinNoise(wx * 3.1f + 7f, wz * 3.1f + 3f) > .60f) c = Color.Lerp(c, Ink, steep * .35f);
+                }
                 float trodden = churn != null ? Churn(map, wx, wz) : 0f;
                 if (trodden > .02f)
                 {

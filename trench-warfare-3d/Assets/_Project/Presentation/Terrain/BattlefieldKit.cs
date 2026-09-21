@@ -10,7 +10,7 @@ namespace TW.Presentation.Terrain
         {
             public Mesh Mesh; public Material Material; public bool Shadows;
         }
-        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones;
+        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
@@ -365,6 +365,15 @@ namespace TW.Presentation.Terrain
                 (Taper(0.03f, 0.004f, 0.48f, new Vector2(0.02f, -0.08f), 1f), new Vector3(-0.05f, 0f, 0.04f), Vector3.zero, Vector3.one),
                 (Taper(0.03f, 0.004f, 0.30f, new Vector2(0.09f, 0.07f), 1f), new Vector3(0.01f, 0f, -0.07f), Vector3.zero, Vector3.one),
                 (Taper(0.025f, 0.004f, 0.38f, new Vector2(-0.05f, -0.06f), 1f), new Vector3(-0.07f, 0f, -0.04f), Vector3.zero, Vector3.one)), new Color(0.62f, 0.58f, 0.34f), false, 0.35f);
+            reeds = Make(Combine("Reeds",
+                (Taper(0.028f, 0.006f, 1.45f, new Vector2(0.10f, 0.02f), 1f), Vector3.zero, Vector3.zero, Vector3.one),
+                (Taper(0.026f, 0.006f, 1.20f, new Vector2(-0.12f, 0.06f), 1f), new Vector3(0.09f, 0f, 0.04f), Vector3.zero, Vector3.one),
+                (Taper(0.026f, 0.006f, 1.62f, new Vector2(0.03f, -0.13f), 1f), new Vector3(-0.07f, 0f, 0.06f), Vector3.zero, Vector3.one),
+                (Taper(0.024f, 0.006f, 0.95f, new Vector2(0.16f, 0.10f), 1f), new Vector3(0.02f, 0f, -0.10f), Vector3.zero, Vector3.one),
+                (Taper(0.024f, 0.006f, 1.30f, new Vector2(-0.08f, -0.10f), 1f), new Vector3(-0.11f, 0f, -0.05f), Vector3.zero, Vector3.one),
+                (Taper(0.022f, 0.006f, 0.80f, new Vector2(0.20f, -0.04f), 1f), new Vector3(0.13f, 0f, -0.03f), Vector3.zero, Vector3.one),
+                (Taper(0.045f, 0.030f, 0.20f, Vector2.zero, 0.5f), new Vector3(0.10f, 1.40f, 0.02f), new Vector3(6f, 0f, 4f), Vector3.one),      // seed heads
+                (Taper(0.045f, 0.030f, 0.18f, Vector2.zero, 0.5f), new Vector3(-0.04f, 1.56f, -0.07f), new Vector3(-5f, 0f, 8f), Vector3.one)), new Color(0.44f, 0.45f, 0.27f), false, 0.35f);
             stones = Make(Combine("Stones",
                 (WornBox(.10f, .08f, 3), new Vector3(0f, 0.09f, 0f), new Vector3(6f, 20f, -5f), new Vector3(0.42f, 0.24f, 0.34f)),
                 (WornBox(.10f, .08f, 4), new Vector3(0.32f, 0.05f, 0.12f), new Vector3(-8f, 65f, 4f), new Vector3(0.22f, 0.13f, 0.19f)),

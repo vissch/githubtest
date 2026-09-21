@@ -32,6 +32,12 @@ namespace TW.Presentation.Terrain
 
         /// <summary>Share of shell holes that stand full of water, 0..1 (the night look floods most of them).</summary>
         public readonly float Flooding;
+        // Erosion, the way a terrain tool does it, but as a rule over our own ground instead of a baked heightmap: rain
+        // falls on every square metre and runs to its lowest neighbour (D8), and where enough of it gathers the ground
+        // is cut into a rill and painted as a drainage line. Recomputed when shell holes change, so new craters capture
+        // the water round them. Presentation only: the sim's heights are never touched.
+        float[] drained;      // per height cell: 0 .. 1, how much of a watercourse runs through it
+        float[] moundAt;      // per height cell: the mound the drawn ground adds there (it never changes)
 
         public BattlefieldSurface(MapData map, float flooding = 0f)
         {
@@ -212,7 +218,9 @@ namespace TW.Presentation.Terrain
                     height = Mathf.Lerp(floor, height, Mathf.SmoothStep(0f, 1f, (across + .20f) / .35f));
                 }
             }
-            height += Mound(x, z) * MoundWeight(x, z, height);
+            float free = MoundWeight(x, z, height);
+            height += Mound(x, z) * free;
+            height -= Rill(x, z) * .17f * free;   // running water has cut the ground: up to a hand's depth along a gully
             float rise = BankRise(x, z);
             int index = nearHollow[Index(x, z)];
             if (index >= 0)
@@ -242,6 +250,53 @@ namespace TW.Presentation.Terrain
                 BankDistance = BankDistance(x, z), Hollow = nearHollow[Index(x, z)],
                 Trench = ((NavLayer)map.NavLayers[map.NavIndex(nx, nz)] & NavLayer.Trench) != 0,
                 Wetness = map.WaterLevel > MapData.NoWater ? Mathf.Clamp01(1f - (h - map.WaterLevel) / .6f) : 0f };
+        }
+
+        /// <summary>How much of a watercourse runs through this point, 0 (none) .. 1 (a gully), wandering a little so it is not cell-straight.</summary>
+        public float Rill(float x, float z)
+        {
+            if (drained == null) return 0f;
+            float wx = x + (Mathf.PerlinNoise(x * .9f + 17f, z * .9f) - .5f) * 1.1f, wz = z + (Mathf.PerlinNoise(x * .9f, z * .9f + 43f) - .5f) * 1.1f;
+            float fx = Mathf.Clamp(wx - .5f, 0f, width - 1.001f), fz = Mathf.Clamp(wz - .5f, 0f, length - 1.001f);
+            int x0 = (int)fx, z0 = (int)fz; float tx = fx - x0, tz = fz - z0;
+            return Mathf.Lerp(Mathf.Lerp(drained[z0 * width + x0], drained[z0 * width + x0 + 1], tx), Mathf.Lerp(drained[(z0 + 1) * width + x0], drained[(z0 + 1) * width + x0 + 1], tx), tz);
+        }
+
+        void BuildDrainage()
+        {
+            int n = width * length;
+            if (moundAt == null)
+            {
+                moundAt = new float[n];
+                for (int z = 0; z < length; z++)
+                for (int x = 0; x < width; x++) moundAt[z * width + x] = Mound(x + .5f, z + .5f) * MoundWeight(x + .5f, z + .5f, map.Height.HeightAtCell(x, z));
+            }
+            drained ??= new float[n];
+            var ground = new float[n]; var order = new int[n]; var water = new float[n];
+            for (int i = 0; i < n; i++) { ground[i] = map.Height.HeightAtCell(i % width, i / width) + moundAt[i]; order[i] = i; water[i] = 1f; }
+            var keys = (float[])ground.Clone();
+            System.Array.Sort(keys, order);   // lowest first; walk it from the top down
+            for (int k = n - 1; k >= 0; k--)
+            {
+                int i = order[k], x = i % width, z = i / width, to = -1; float drop = 0f;
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dz == 0) continue;
+                    int xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= width || zz >= length) continue;
+                    float fall = (ground[i] - ground[zz * width + xx]) / (dx != 0 && dz != 0 ? 1.414f : 1f);
+                    if (fall > drop) { drop = fall; to = zz * width + xx; }
+                }
+                if (to >= 0) water[to] += water[i];
+            }
+            for (int i = 0; i < n; i++)
+            {
+                int x = i % width, z = i / width;
+                int cell = map.NavIndex(Mathf.Min((int)((x + .5f) / MapData.NavCellSize), map.NavWidth - 1), Mathf.Min((int)((z + .5f) / MapData.NavCellSize), map.NavLength - 1));
+                bool dug = ((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0;
+                // half a dozen square metres of catchment starts a rill, ninety make a gully
+                drained[i] = dug ? 0f : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Mathf.Log(6f), Mathf.Log(90f), Mathf.Log(water[i])));
+            }
         }
 
         public void RefreshHollows()
@@ -282,6 +337,7 @@ namespace TW.Presentation.Terrain
                     if (nearHollow[i] < 0 || distance < Vector2.Distance(new Vector2(xx + .5f, zz + .5f), Hollows[nearHollow[i]].Center)) nearHollow[i] = mark;
                 }
             }
+            BuildDrainage();
         }
     }
 }

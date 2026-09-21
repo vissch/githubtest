@@ -38,6 +38,7 @@ namespace TW.Presentation.Terrain
             TrenchKit(map, surface);
             Debris(map, surface);
             Clumps(map, surface);
+            Margins(map, surface);
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
             { sites.Clear(); rejections.Clear(); PlaceSites(map, surface); layoutMap = map; }
             else
@@ -283,6 +284,51 @@ namespace TW.Presentation.Terrain
                 if (crowded) continue;
                 patches.Add(c);
                 Gather(map, surface, new Vector3(c.x, 0f, c.y), 9000 + d, 3.4f, Rand(d, 105) < .6f ? 1 : 2, 5 + (int)(Rand(d, 106) * 8f));
+            }
+        }
+
+        /// <summary>
+        /// A spawn rule, the way a world generator scatters a biome: reeds grow where the ground is only just above
+        /// standing water (the river's margin, the rim of a flooded shell hole, the wet end of a drainage line) and
+        /// nowhere else. Stands are dart-thrown 3.5 m apart and each is a big / medium / small family of stems.
+        /// </summary>
+        void Margins(MapData map, BattlefieldSurface surface)
+        {
+            var stands = new List<Vector2>();
+            int darts = (int)(map.SizeMeters.x * map.SizeMeters.y / 9f), planted = 0;
+            bool river = map.WaterLevel > MapData.NoWater;
+            for (int d = 0; d < darts && planted < 320; d++)
+            {
+                var c = new Vector2(2f + Rand(d, 121) * (map.SizeMeters.x - 4f), 2f + Rand(d, 122) * (map.SizeMeters.y - 4f));
+                var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(c.x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(c.y / MapData.NavCellSize), 0, map.NavLength - 1))];
+                if ((layer & (NavLayer.Trench | NavLayer.Link)) != 0) continue;
+                var at = surface.At(c.x, c.y);
+                if (at.BankDistance < 2.5f) continue;
+                float bed = surface.Bed(c.x, c.y);
+                bool shore = river && bed > map.WaterLevel + .03f && bed < map.WaterLevel + .40f;
+                bool rim = false;
+                if (!shore && at.Hollow >= 0)
+                {
+                    var h = surface.Hollows[at.Hollow];
+                    float r = (c - h.Center).magnitude / h.Radius;
+                    rim = h.Level > -100f && r > .80f && r < 1.12f && bed > h.Level - .05f;
+                }
+                bool seep = !shore && !rim && at.Hollow < 0 && surface.Rill(c.x, c.y) > .7f && Rand(d, 123) < .35f;
+                if (!shore && !rim && !seep) continue;
+                bool crowded = false;
+                foreach (var other in stands) if ((other - c).sqrMagnitude < 12.25f) { crowded = true; break; }
+                if (crowded) continue;
+                stands.Add(c);
+                int stems = 3 + (int)(Rand(d, 124) * 6f);
+                for (int k = 0; k < stems; k++)
+                {
+                    float far = Mathf.Sqrt(Rand(d * 16 + k, 125)) * 1.3f, angle = Rand(d * 16 + k, 126) * Mathf.PI * 2f;
+                    float x = c.x + Mathf.Cos(angle) * far, z = c.y + Mathf.Sin(angle) * far;
+                    if (x < 1f || z < 1f || x > map.SizeMeters.x - 1f || z > map.SizeMeters.y - 1f) continue;
+                    float size = k == 0 ? 1.25f + Rand(d, 127) * .35f : k < 3 ? .85f + Rand(d * 16 + k, 128) * .3f : .5f + Rand(d * 16 + k, 128) * .3f;
+                    emit(kit.reeds, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .04f, z), Quaternion.Euler(0f, Rand(d * 16 + k, 129) * 360f, 0f), Vector3.one * size));
+                    planted++;
+                }
             }
         }
 

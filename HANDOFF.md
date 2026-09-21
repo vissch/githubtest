@@ -131,6 +131,12 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   point, and drives `Atmosphere.StormFlash` / `StormLightFrom` (the key light becomes the bolt's for the flash, so
   shadows swing). Thunder is synthesised from noise in `Storm.MakeThunder` (the project has no audio assets yet),
   three variants by distance, delayed by the speed of sound. Strikes every 7-24 s by rain level.
+  World-generator rules on our own terrain (owner's notes on Gaia / Terrain Tools / MicroVerse, 2026-09-21; no asset
+  bought, nothing baked): `BattlefieldSurface.BuildDrainage` is hydraulic erosion as a D8 flow map over the drawn
+  ground (recomputed when shell holes change); `Rill` cuts the mesh up to 0.17 m and `GroundColor` paints the
+  watercourse (dark slick channel, pale silt margin); a slope rule shows streaked subsoil on steep ground; and
+  `BattlefieldComposer.Margins` is a biome-style spawn rule: reed stands (`kit.reeds`) only on the river's margin, the
+  rims of flooded shell holes and the wet ends of drainage lines, dart-thrown 3.5 m apart, big / medium / small.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level
