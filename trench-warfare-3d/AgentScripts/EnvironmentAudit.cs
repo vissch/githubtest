@@ -33,6 +33,7 @@ public static class EnvironmentAudit
 
     public static string Run()
     {
+        if (!Application.isPlaying) throw new InvalidOperationException("Run EnvironmentAudit in Play mode so its temporary kit is released through Unity's runtime lifecycle.");
         var report = new StringBuilder();
         using var kit = new BattlefieldKit();
         for (int sample = 0; sample < 3; sample++)
@@ -42,6 +43,23 @@ public static class EnvironmentAudit
             using var map = BattlefieldGenerator.Create(p, Allocator.TempJob);
             ulong before = map.Hash(14695981039346656037UL);
             var surface = new BattlefieldSurface(map);
+            var joins = new System.Collections.Generic.Dictionary<Vector3, Vector3>();
+            float maxSway = 0f;
+            foreach (var edge in surface.Edges)
+            {
+                if (edge.DressLength < .5f || Vector3.Dot(edge.DressOutward, edge.Outward) < .5f) throw new Exception($"Collapsed or reversed trench segment: center={edge.Center}, length={edge.DressLength}, dot={Vector3.Dot(edge.DressOutward, edge.Outward)}");
+                if (edge.Link && Vector3.Distance(edge.Center, edge.DressCenter) > .001f) throw new Exception("Trench contour moved a ladder opening");
+                maxSway = Mathf.Max(maxSway, Vector3.Distance(edge.Center, edge.DressCenter));
+                var tangent = Vector3.Cross(Vector3.up, edge.Outward);
+                for (int end = 0; end < 2; end++)
+                {
+                    var original = edge.Center + tangent * (end == 0 ? -1f : 1f);
+                    var shaped = end == 0 ? edge.DressStart : edge.DressEnd;
+                    if (joins.TryGetValue(original, out var other) && Vector3.Distance(other, shaped) > .001f) throw new Exception("Open join in the trench contour");
+                    joins[original] = shaped;
+                }
+            }
+            if (maxSway < .25f || maxSway > 1.6f) throw new Exception("Trench sway outside intended bounds");
             var composer = new BattlefieldComposer(kit, 1917 + sample);
             ulong first = 0; int instances = 0;
             for (int repeat = 0; repeat < 3; repeat++)

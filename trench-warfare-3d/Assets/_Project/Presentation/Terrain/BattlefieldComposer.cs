@@ -61,20 +61,25 @@ namespace TW.Presentation.Terrain
                 var center = edge.Center; var outward = edge.Outward; var rotation = edge.Rotation;
                 var inside = center - outward * .95f;
                 float floor = map.Height.Sample(inside.x, inside.z);
-                if (floors.Add(edge.Cell)) emit(kit.duckboards, Matrix4x4.TRS(new Vector3(inside.x, floor + .035f, inside.z), rotation, Vector3.one));
+                int variant = Mathf.Min(2, (int)(Rand(edge.Key, 802) * 3f));
+                if (floors.Add(edge.Cell)) emit(kit.TrenchFloors[variant], Matrix4x4.TRS(new Vector3(inside.x, floor + .035f, inside.z), rotation * Quaternion.Euler(0f, edge.Link ? 0f : (Rand(edge.Key, 803) - .5f) * 7f, 0f), Vector3.one));
                 if (edge.Link)
                 {
                     emit(kit.ladder, Matrix4x4.TRS(new Vector3(center.x, floor, center.z) - outward * .35f, rotation, Vector3.one));
                     continue;
                 }
-                float waviness = (Mathf.PerlinNoise(center.x * .23f + 8f, center.z * .23f) - .5f) * .65f;
-                var wall = center - outward * (.36f + waviness * .25f);
-                var lip = center + outward * (.65f + waviness);
+                center = edge.DressCenter; outward = edge.DressOutward; rotation = Quaternion.LookRotation(outward);
+                var wall = center - outward * .08f;
+                var lip = center + outward * (.60f + (Rand(edge.Key, 804) - .5f) * .12f);
                 float upper = surface.VisualHeight(lip.x, lip.z);
                 float height = Mathf.Clamp((upper - floor) / 2f, .55f, 1.3f);
-                emit(kit.planks, Matrix4x4.TRS(new Vector3(wall.x, floor, wall.z), rotation * Quaternion.Euler(-5f, 0f, Rand(edge.Key, 73) * 4f - 2f), new Vector3(.99f, height, 1.5f)));
-                if ((edge.Cell / 3) % 9 != 4)
-                    emit(kit.sandbags, Matrix4x4.TRS(new Vector3(lip.x, upper + .02f, lip.z), rotation * Quaternion.Euler(0f, Rand(edge.Key, 75) * 10f - 5f, 0f), new Vector3(1.04f, .95f, 1.2f)));
+                emit(kit.TrenchWalls[variant], Matrix4x4.TRS(new Vector3(wall.x, floor, wall.z), rotation * Quaternion.Euler(-4f - Rand(edge.Key, 73) * 3f, 0f, 0f), new Vector3(edge.DressLength / 2f, height, 1f)));
+                float frontage = Mathf.PerlinNoise(center.x * .09f + 19f, center.z * .09f + 7f);
+                if (frontage > .26f)
+                {
+                    int course = frontage > .62f ? 0 : frontage > .43f ? 1 : 2;
+                    emit(kit.TrenchBags[course], Matrix4x4.TRS(new Vector3(lip.x, upper + .025f, lip.z), rotation * Quaternion.Euler((Rand(edge.Key, 805) - .5f) * 4f, Rand(edge.Key, 75) * 6f - 3f, (Rand(edge.Key, 806) - .5f) * 3f), new Vector3(edge.DressLength / 2f, .88f + Rand(edge.Key, 807) * .20f, 1.05f)));
+                }
             }
         }
 

@@ -11,6 +11,8 @@ namespace TW.Presentation.Terrain
         public struct Edge
         {
             public Vector3 Center, Outward;
+            public Vector3 DressStart, DressEnd, DressCenter, DressOutward, DressTangent;
+            public float DressLength;
             public int Cell, Trench, Key;
             public bool Link;
             public Quaternion Rotation => Quaternion.LookRotation(Outward);
@@ -69,7 +71,62 @@ namespace TW.Presentation.Terrain
                     }
                 }
             }
+            BuildDressingContours();
             RefreshHollows();
+        }
+
+        void BuildDressingContours()
+        {
+            // Shared vertices join neighbouring modules. Broad sway, bay-scale shoulders and small wear are separate.
+            var joins = new Dictionary<Vector3, List<int>>();
+            for (int i = 0; i < Edges.Count; i++)
+            {
+                var e = Edges[i]; var tangent = Vector3.Cross(Vector3.up, e.Outward);
+                foreach (var p in new[] { e.Center - tangent, e.Center + tangent })
+                { if (!joins.TryGetValue(p, out var list)) joins[p] = list = new List<int>(2); list.Add(i); }
+            }
+            var points = new Dictionary<Vector3, Vector3>();
+            foreach (var join in joins)
+            {
+                var p = join.Key; var normal = Vector3.zero; var toward = Vector3.zero;
+                foreach (int i in join.Value) { normal += Edges[i].Outward; toward += Edges[i].Center - p; }
+                normal.Normalize();
+                float clearance = 100f;
+                foreach (var edge in Edges) if (edge.Link) clearance = Mathf.Min(clearance, Vector3.Distance(p, edge.Center));
+                float taper = Mathf.SmoothStep(0f, 1f, (clearance - 2f) / 4f);
+                int trench = Edges[join.Value[0]].Trench;
+                var sway = new Vector3(Mathf.Sin(p.z * .14f + 8f) * .20f, 0f, Mathf.Sin(p.x * .14f + trench * 1.7f) * .52f);
+                float medium = (Mathf.PerlinNoise(p.x * .15f + 17f, p.z * .15f) - .5f) * .28f;
+                // Positive shoulder allowance keeps the widening outside the walking corridor.
+                bool corner = Vector3.Dot(normal, Edges[join.Value[0]].Outward) < .95f;
+                float outset = Mathf.Max(corner ? .48f : .12f, .68f + Vector3.Dot(sway, normal) + medium);
+                points[p] = p + (normal * outset + toward * .30f) * taper;
+            }
+            // Tight one-cell notches cannot accept the full broad offset. Relax shared endpoints together,
+            // retaining a useful panel length without opening a seam in either neighbouring segment.
+            for (int pass = 0; pass < 8; pass++)
+            {
+                bool changed = false;
+                foreach (var edge in Edges)
+                {
+                    var tangent = Vector3.Cross(Vector3.up, edge.Outward);
+                    var a = edge.Center - tangent; var b = edge.Center + tangent;
+                    var segment = points[b] - points[a];
+                    if (Vector3.Dot(segment, tangent) >= .85f && Vector3.Dot(segment.normalized, tangent) >= .65f) continue;
+                    points[a] = Vector3.Lerp(a, points[a], .5f); points[b] = Vector3.Lerp(b, points[b], .5f); changed = true;
+                }
+                if (!changed) break;
+            }
+            for (int i = 0; i < Edges.Count; i++)
+            {
+                var edge = Edges[i]; var tangent = Vector3.Cross(Vector3.up, edge.Outward);
+                edge.DressStart = points[edge.Center - tangent]; edge.DressEnd = points[edge.Center + tangent];
+                edge.DressCenter = (edge.DressStart + edge.DressEnd) * .5f;
+                edge.DressLength = Vector3.Distance(edge.DressStart, edge.DressEnd);
+                edge.DressTangent = (edge.DressEnd - edge.DressStart) / edge.DressLength;
+                edge.DressOutward = Vector3.Cross(edge.DressTangent, Vector3.up);
+                Edges[i] = edge;
+            }
         }
 
         int Index(float x, float z) => Mathf.Clamp(Mathf.FloorToInt(z), 0, length - 1) * width + Mathf.Clamp(Mathf.FloorToInt(x), 0, width - 1);
@@ -77,9 +134,9 @@ namespace TW.Presentation.Terrain
         {
             int i = nearEdge[Index(x, z)];
             if (i < 0) return 8f;
-            var e = Edges[i]; var delta = new Vector3(x, 0f, z) - e.Center;
-            float along = Mathf.Max(0f, Mathf.Abs(Vector3.Dot(delta, Vector3.Cross(Vector3.up, e.Outward))) - MapData.NavCellSize * .5f);
-            float across = Vector3.Dot(delta, e.Outward);
+            var e = Edges[i]; var delta = new Vector3(x, 0f, z) - e.DressCenter;
+            float along = Mathf.Max(0f, Mathf.Abs(Vector3.Dot(delta, e.DressTangent)) - e.DressLength * .5f);
+            float across = Vector3.Dot(delta, e.DressOutward);
             return Mathf.Sqrt(along * along + across * across);
         }
 
@@ -91,11 +148,11 @@ namespace TW.Presentation.Terrain
             int index = nearEdge[Index(x, z)];
             if (index < 0 || Edges[index].Link) return 0f;
             var edge = Edges[index];
-            if (Vector3.Dot(new Vector3(x, 0f, z) - edge.Center, edge.Outward) < 0f) return 0f;
+            if (Vector3.Dot(new Vector3(x, 0f, z) - edge.DressCenter, edge.DressOutward) < 0f) return 0f;
             float distance = BankDistance(x, z);
             // World-coordinate profile: neighbouring terrain chunks and boundary segments agree exactly.
-            float widthScale = 3.2f + Mathf.PerlinNoise(x * .19f + 41f, z * .19f) * 1.3f;
-            float crest = .54f + Mathf.PerlinNoise(x * .38f, z * .38f + 17f) * .36f;
+            float widthScale = 2.4f + Mathf.PerlinNoise(x * .10f + 41f, z * .10f) * 2.6f;
+            float crest = .40f + Mathf.PerlinNoise(x * .13f, z * .13f + 17f) * .65f;
             return crest * Mathf.SmoothStep(0f, 1f, distance / .65f) * (1f - Mathf.SmoothStep(0f, 1f, (distance - .8f) / widthScale));
         }
 
@@ -143,6 +200,18 @@ namespace TW.Presentation.Terrain
             if (x <= .5f || z <= .5f || x >= width - .5f || z >= length - .5f) return height;
             int cell = map.NavIndex((int)(x / MapData.NavCellSize), (int)(z / MapData.NavCellSize));
             if (((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0) return height;
+            int boundary = nearEdge[Index(x, z)];
+            if (boundary >= 0)
+            {
+                var edge = Edges[boundary]; var p = new Vector3(x, 0f, z);
+                float across = Vector3.Dot(p - edge.DressCenter, edge.DressOutward);
+                if (!edge.Link && across < .15f && Vector3.Dot(p - edge.Center, edge.Outward) >= 0f)
+                {
+                    var inside = edge.Center - edge.Outward * .95f;
+                    float floor = map.Height.Sample(inside.x, inside.z);
+                    height = Mathf.Lerp(floor, height, Mathf.SmoothStep(0f, 1f, (across + .20f) / .35f));
+                }
+            }
             height += Mound(x, z) * MoundWeight(x, z, height);
             float rise = BankRise(x, z);
             int index = nearHollow[Index(x, z)];

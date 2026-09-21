@@ -53,8 +53,13 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   gathers scrub, grass and stones round every big shape, litter gathers by a density noise, knife-rests are shoved,
   turned and sometimes knocked over, and the land beyond the map lets edge features drift and fade instead of
   extruding them. Ladders stand at uneven intervals, each in a short straight piece of trench.
-- **Visual standard (owner, 2026-09-21): painted cartoon mudfield**, led by
-  `docs/reference/battlefield-northstar.jpeg`. The rebuilt generation contract and three-round critique are in
+- **Visual standard (owner, 2026-09-21): painted cartoon mudfield**.
+  Organic trench pass: shared dressing contours now sway at roughly 40 m wavelength, ease around bay corners and
+  taper back to fixed ladder openings. Bank mass, revetment and parapets follow the same contour. Three timber,
+  sandbag and duckboard variants provide repaired sections, uneven courses and small wear; trench lamps follow
+  the reshaped walls. Tight notches locally reduce sway to keep joins connected. Simulation routes and trench/link
+  floor heights are preserved. See `docs/14-organic-trenches.md` and its standard-view before/after captures.
+  Northstar: `docs/reference/battlefield-northstar.jpeg`. The rebuilt generation contract and three-round critique are in
   `docs/13-environment-system-rebuild.md` (supersedes the original generator details in document 12).
   `BattlefieldProps` now renders spatial instance pages; `BattlefieldKit`, `BattlefieldGeometry` and
   `BattlefieldPigment` build reusable parts and materials. `BattlefieldBlueprint` describes named sockets and

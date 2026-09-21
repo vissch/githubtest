@@ -11,6 +11,7 @@ namespace TW.Presentation.Terrain
             public Mesh Mesh; public Material Material; public bool Shadows;
         }
         public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones;
+        public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
@@ -267,7 +268,39 @@ namespace TW.Presentation.Terrain
             roof.Material.SetTexture("_BaseMap", earthPaint);
             bunker.Material.SetTexture("_BaseMap", concretePaint);
             sandbags.Material.SetTexture("_BaseMap", canvasPaint);
+            BuildTrenchVariants(cube, sackMesh, timber, sack, woodPaint, canvasPaint);
             foreach (var b in new[] { trunk, snag, fallen, stump, fork, log }) b.Material.SetTexture("_BaseMap", barkPaint);
+        }
+
+        void BuildTrenchVariants(Mesh cube, Mesh sackMesh, Color timber, Color sack, Texture2D woodPaint, Texture2D canvasPaint)
+        {
+            var worn = WornBox(.035f, .10f, 217);
+            for (int variant = 0; variant < 3; variant++)
+            {
+                var parts = new List<(Mesh, Vector3, Vector3, Vector3)>();
+                for (int row = 0; row < 3; row++)
+                    parts.Add((row == 2 ? worn : cube, new Vector3((Rand(row, variant + 302) - .5f) * .10f, .30f + row * .58f, .025f * row),
+                        new Vector3(0f, 0f, (Rand(row, variant + 303) - .5f) * 4f), new Vector3(2.14f, .46f + Rand(row, variant + 304) * .07f, .10f)));
+                parts.Add((cube, new Vector3(-.91f, .96f, -.10f), new Vector3(0f, 0f, variant == 1 ? 4f : -2f), new Vector3(.18f, 2f, .20f)));
+                if (variant == 2) parts.Add((cube, new Vector3(.28f, .90f, -.13f), new Vector3(0f, 0f, -24f), new Vector3(.15f, 1.6f, .16f)));
+                TrenchWalls[variant] = Make(Combine("Weathered revetment " + variant, parts.ToArray()), timber * (variant == 2 ? .9f : 1f), false, 1.6f);
+                TrenchWalls[variant].Material.SetTexture("_BaseMap", woodPaint);
+                parts.Clear();
+                for (int bag = 0; bag < 2; bag++)
+                    parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .15f, (Rand(bag, variant + 315) - .5f) * .10f),
+                        new Vector3(0f, (Rand(bag, variant + 316) - .5f) * 15f, (Rand(bag, variant + 317) - .5f) * 5f), new Vector3(1.06f, .33f, .73f)));
+                if (variant != 2) parts.Add((sackMesh, new Vector3(variant == 0 ? -.04f : .30f, .44f, -.08f), new Vector3(0f, -8f, 3f), new Vector3(1.02f, .37f, .65f)));
+                if (variant == 0) parts.Add((sackMesh, new Vector3(1.0f, .43f, -.05f), new Vector3(0f, 7f, -3f), new Vector3(.95f, .35f, .63f)));
+                TrenchBags[variant] = Make(Combine("Settled parapet " + variant, parts.ToArray()), sack);
+                TrenchBags[variant].Material.SetTexture("_BaseMap", canvasPaint);
+                parts.Clear();
+                for (int board = 0; board < 5; board++)
+                    parts.Add((cube, new Vector3((board - 2) * .39f, .08f + Rand(board, variant + 321) * .025f, (Rand(board, variant + 322) - .5f) * .14f),
+                        new Vector3(0f, (Rand(board, variant + 323) - .5f) * 7f, 0f), new Vector3(.32f + Rand(board, variant + 324) * .045f, .10f, 1.43f + Rand(board, variant + 325) * .30f)));
+                for (int rail = -1; rail <= 1; rail += 2) parts.Add((cube, new Vector3(0f, .025f, rail * .55f), Vector3.zero, new Vector3(2f, .10f, .14f)));
+                TrenchFloors[variant] = Make(Combine("Uneven duckboards " + variant, parts.ToArray()), timber, false, .8f);
+                TrenchFloors[variant].Material.SetTexture("_BaseMap", woodPaint);
+            }
         }
 
         // Every module has a ground pivot and metre dimensions; placement reads the map, never modifies it.

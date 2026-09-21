@@ -125,6 +125,14 @@ namespace TW.Presentation.Terrain
                 if (!trench || !wall || (x + (z / 7) * 5) % 15 != 4 || Hash(x, z) < .2f) continue;
                 float wx = (x + .5f) * MapData.NavCellSize, wz = (z + .12f) * MapData.NavCellSize;
                 Vector3 at = new Vector3(wx, RenderGround.Sample(map, wx, (z + .5f) * MapData.NavCellSize) + 1.35f, wz);
+                var terrain = GetComponent<GreyboxTerrainView>();
+                if (terrain != null && terrain.Surface != null)
+                    foreach (var edge in terrain.Surface.Edges)
+                        if (edge.Cell == map.NavIndex(x, z) && edge.Outward.z < -.9f)
+                        {
+                            var mount = edge.DressCenter - edge.DressOutward * .24f;
+                            at.x = mount.x; at.z = mount.z; break;
+                        }
                 Part(PrimitiveType.Cube, at, new Vector3(.18f, .26f, .18f), glass, Quaternion.identity);
                 Part(PrimitiveType.Cube, at + Vector3.up * .2f, new Vector3(.05f, .16f, .05f), post, Quaternion.identity);
                 var l = MakeLight("Trench lamp " + hung, Lantern, LanternIntensity * .8f, 8.5f);
