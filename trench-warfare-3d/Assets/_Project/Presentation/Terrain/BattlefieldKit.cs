@@ -193,16 +193,16 @@ namespace TW.Presentation.Terrain
         {
             var cyl = Primitive(PrimitiveType.Cylinder); var cube = Primitive(PrimitiveType.Cube);
             var bag = Blob(12, 7);
-            var bark = new Color(0.34f, 0.30f, 0.26f); var charred = new Color(0.24f, 0.225f, 0.21f);
+            var bark = new Color(0.45f, 0.38f, 0.31f); var charred = new Color(0.32f, 0.28f, 0.25f);
             var timber = new Color(0.49f, 0.405f, 0.31f); var sack = new Color(0.72f, 0.655f, 0.53f);
             // the wood is dead: a standing tree is a bare, leaning trunk with a few broken limbs
             trunk = Make(Combine("DeadTree",
-                (Taper(0.34f, 0.12f, 7.2f, new Vector2(0.5f, 0.2f)), Vector3.zero, Vector3.zero, Vector3.one),
-                (Taper(0.12f, 0.04f, 2.2f, new Vector2(0.2f, 0f)), new Vector3(0.22f, 3.4f, 0.1f), new Vector3(0f, 0f, -55f), Vector3.one),
-                (Taper(0.10f, 0.03f, 1.7f, new Vector2(0f, 0.2f)), new Vector3(0.30f, 4.8f, 0.1f), new Vector3(15f, 0f, 50f), Vector3.one),
-                (Taper(0.08f, 0.03f, 1.2f, Vector2.zero), new Vector3(0.40f, 5.9f, 0.15f), new Vector3(-40f, 0f, -35f), Vector3.one)), bark);
+                (Taper(0.54f, 0.27f, 6.3f, new Vector2(0.55f, 0.2f), 2.2f), Vector3.zero, Vector3.zero, Vector3.one),   // a thick trunk, so its torn top reads
+                (Taper(0.21f, 0.09f, 2.4f, new Vector2(0.2f, 0f), 2f), new Vector3(0.30f, 3.0f, 0.1f), new Vector3(0f, 0f, -55f), Vector3.one),
+                (Taper(0.17f, 0.07f, 1.8f, new Vector2(0f, 0.2f), 2f), new Vector3(0.36f, 4.3f, 0.1f), new Vector3(15f, 0f, 50f), Vector3.one),
+                (Taper(0.12f, 0.05f, 1.2f, Vector2.zero), new Vector3(0.46f, 5.3f, 0.15f), new Vector3(-40f, 0f, -35f), Vector3.one)), bark);
             snag = Make(Combine("Snag",
-                (Taper(0.36f, 0.20f, 2.9f, new Vector2(-0.15f, 0.1f)), Vector3.zero, Vector3.zero, Vector3.one),
+                (Taper(0.58f, 0.36f, 2.7f, new Vector2(-0.15f, 0.1f), 2.4f), Vector3.zero, Vector3.zero, Vector3.one),
                 (Taper(0.10f, 0.03f, 1.1f, Vector2.zero), new Vector3(-0.1f, 1.7f, 0f), new Vector3(0f, 0f, 60f), Vector3.one)), charred);
             fallen = Make(Combine("FallenTop", (Taper(0.26f, 0.10f, 4.2f, Vector2.zero), new Vector3(0.6f, 0.22f, 0.3f), new Vector3(86f, 18f, 0f), Vector3.one)), bark);
             stump = Make(Combine("Stump", (Taper(0.42f, 0.32f, 0.55f, Vector2.zero, 0.25f), Vector3.zero, Vector3.zero, Vector3.one)), charred);
