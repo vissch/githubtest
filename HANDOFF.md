@@ -96,6 +96,14 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   pool, `RenderGround` keeps the bed at most 0.42 m under it so men wade and debris half sinks; presentation only);
   long stretches of trench floor are flooded under the duckboards; more puddles; at night each side's tracers are
   over-bright green / red (`SceneMood.Night` in Presentation.Core, read by `CombatFx`).
+  Night, third pass (owner's second target `docs/reference/battlefield-night-game.jpeg`): glows and light pools are
+  layered (white-hot core, the light's colour, a halo pushed to its deepest channel) in `Glow_URP.shader` and
+  `TWLocalLights.hlsl`; every pooled flash light has a glow card; tracers are a white-hot streak inside an additive
+  coloured halo; a rifle shot leaves one small smoke puff (capped at 420 live chunks); smoke is cold blue at night.
+  Hard wet glints come from a second, 4.3x finer read of the mud slopes (close range only). Every TW/Toon prop is
+  wet at night (gloss by how far a face points up). `Rain` + `Shaders/Rain_URP.shader`: 1,040 streaks in one mesh,
+  wrapped round the camera's view in the vertex shader; raindrop rings on all water come from `TWWater.hlsl`
+  (`_TWWet.z`, `Atmosphere.Rain`).
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

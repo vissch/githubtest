@@ -26,6 +26,7 @@ namespace TW.Presentation.Terrain
         public Color ShadeTint = Color.white;
         public Color SkyMirror = new Color(0.60f, 0.61f, 0.60f);
         [Range(0f, 1f)] public float Wetness = 0f, WetGlint = 0f;
+        [Range(0f, 1f)] public float Rain = 0f;
         public Vector3 KeyEuler = new Vector3(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
         public Color Ambient = new Color(0.52f, 0.52f, 0.56f);
         float exposure = 0.32f, contrast = 12f, saturation = -18f, vignetteAmount = 0.24f, bloom = 0f;
@@ -65,7 +66,7 @@ namespace TW.Presentation.Terrain
             Ambient = new Color(0.10f, 0.13f, 0.20f);
             ShadeTint = new Color(0.20f, 0.29f, 0.56f);
             SkyMirror = new Color(0.44f, 0.54f, 0.74f);
-            Wetness = 0.85f; WetGlint = 0.75f;
+            Wetness = 0.85f; WetGlint = 0.75f; Rain = 0.65f;
             Depth = 230f;
             Mist = new Color(0.17f, 0.23f, 0.35f); MistDensity = 0.55f;
             Bank = new Color(0.10f, 0.14f, 0.22f);
@@ -144,7 +145,7 @@ namespace TW.Presentation.Terrain
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(ShadeTint.r, ShadeTint.g, ShadeTint.b, 1f));
             Shader.SetGlobalVector(SkyId, new Vector4(SkyMirror.r, SkyMirror.g, SkyMirror.b, 1f));
-            Shader.SetGlobalVector(WetId, new Vector4(Wetness, WetGlint, 0f, 0f));
+            Shader.SetGlobalVector(WetId, new Vector4(Wetness, WetGlint, Rain, 0f));
 
             var map = RenderGround.Map;
             if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));

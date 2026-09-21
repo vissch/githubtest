@@ -33,6 +33,7 @@ namespace TW.Presentation.Terrain
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
         Material glow, flareGlow;
+        Mesh flashMesh; readonly Vector3[] flashPos = new Vector3[PoolSize * 4]; readonly Color[] flashCol = new Color[PoolSize * 4]; readonly List<Vector4> flashShape = new List<Vector4>(PoolSize * 4);
         const float FlareLife = 16f;
 
         void Start()
@@ -50,6 +51,14 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(9f, .25f, .3f, .2f) }, new[] { new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
             flareGlow.SetColor("_Tint", Color.black);
             nextFlare = Time.time + 6f;
+            // one small mesh holds a card per pooled light; its vertices are rewritten each frame (32 of them)
+            var host = new GameObject("Flash glows") { hideFlags = HideFlags.DontSave };
+            host.transform.SetParent(transform, false);
+            var centres = new Vector3[PoolSize]; var shapes = new Vector4[PoolSize]; var colors = new Color[PoolSize];
+            for (int i = 0; i < PoolSize; i++) shapes[i] = new Vector4(1f, 0f, i * .19f, .15f);
+            AddGlowMesh(host, glow, centres, shapes, colors);
+            flashMesh = host.GetComponent<MeshFilter>().sharedMesh; flashMesh.MarkDynamic();
+            for (int i = 0; i < PoolSize * 4; i++) flashShape.Add(new Vector4(1f, 0f, (i / 4) * .19f, .15f));
         }
 
         Light MakeLight(string name, Color color, float intensity, float range)
@@ -219,11 +228,17 @@ namespace TW.Presentation.Terrain
             }
             for (int i = 0; i < PoolSize; i++)
             {
-                if (!pool[i].Light.enabled) continue;
-                float age = (Time.time - pool[i].Born) / pool[i].Life;
-                if (age >= 1f) { pool[i].Light.enabled = false; continue; }
-                pool[i].Light.intensity = pool[i].Peak * (1f - age) * (1f - age);
+                float age = pool[i].Light.enabled ? (Time.time - pool[i].Born) / pool[i].Life : 1f;
+                if (age >= 1f) pool[i].Light.enabled = false;
+                else pool[i].Light.intensity = pool[i].Peak * (1f - age) * (1f - age);
+                // the card: as wide as a third of the light's reach, over-bright at birth so the bloom takes it
+                float live = age >= 1f ? 0f : (1f - age) * (1f - age);
+                var c = pool[i].Light.color; var card = new Color(c.r, c.g, c.b, live * 2.6f);
+                var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age), 0f, i * .19f, .15f);
+                for (int k = 0; k < 4; k++) { flashPos[i * 4 + k] = pool[i].Light.transform.position; flashCol[i * 4 + k] = card; flashShape[i * 4 + k] = shape; }
             }
+            flashMesh.vertices = flashPos; flashMesh.colors = flashCol; flashMesh.SetUVs(1, flashShape);
+            flashMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
             UpdateFlare();
         }
 

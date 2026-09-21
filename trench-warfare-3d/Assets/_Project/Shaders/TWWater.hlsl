@@ -26,6 +26,27 @@ half TWRings(float2 xz)
     return saturate(sum);
 }
 
+/// Raindrops on the water: in every cell of two offset grids a ring opens at a random point and time (_TWWet.z = how
+/// many cells are raining). No loop over drops and no state: a pixel only ever looks at its own two cells.
+half TWRainRings(float2 xz)
+{
+    half sum = 0;
+    if (_TWWet.z > 0.0)
+    {
+        for (int k = 0; k < 2; k++)
+        {
+            float2 p = xz * (1.15 + 0.55 * k) + k * 17.3;
+            float2 cell = floor(p), f = frac(p);
+            float h = frac(sin(dot(cell, float2(127.1, 311.7))) * 43758.5453);
+            float2 c = float2(frac(h * 13.7), frac(h * 7.3)) * 0.5 + 0.25;
+            float age = frac(_Time.y * (0.75 + 0.5 * h) + h * 9.0);
+            float d = distance(f, c);
+            sum += (1.0 - smoothstep(0.018, 0.04, abs(d - age * 0.24))) * (1.0 - age) * (1.0 - age) * step(h, _TWWet.z);
+        }
+    }
+    return saturate(sum);
+}
+
 /// Water colour from its depth in metres: silty margin, body, dark channel, a pale wet line at the shore and slow
 /// contour rings lapping toward it. noise (0..1) breaks the rings up; shore returns how much of the pixel is shoreline.
 half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 body, half3 deep, half3 foam, half ringAmount, out half shore)
@@ -37,7 +58,7 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
     float lap = frac(depth * 3.2 + _Time.y * 0.11 + noise * 0.35);
     half ring = smoothstep(0.0, 0.10, lap) * (1.0 - smoothstep(0.10, 0.22, lap)) * (1.0 - smoothstep(0.12, 0.62, depth)) * ringAmount;
     half3 pale = foam * lerp(half3(1, 1, 1), TWShadeTint() * 1.6, 0.7);   // under a night mood the pale lines dim with everything else
-    return lerp(albedo, pale, max(max(shore * 0.85, ring * 0.5), TWRings(xz) * 0.75));
+    return lerp(albedo, pale, max(max(shore * 0.85, ring * 0.5), max(TWRings(xz) * 0.75, TWRainRings(xz) * 0.55)));
 }
 
 #endif

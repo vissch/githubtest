@@ -36,7 +36,19 @@ namespace TW.Presentation.Tactical
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
         Mesh cube, capsule, sphere, plume, puff, flashMesh;
         Material flashMat;
-        Material tracerNightA, tracerNightB;
+        Material tracerNightA, tracerNightB, tracerCore;
+        bool nightTinted;
+
+        /// <summary>An unlit material that adds its colour to what is behind it (glow halos).</summary>
+        static Material Additive(Shader unlit, Color color)
+        {
+            var m = new Material(unlit) { enableInstancing = true, color = color };
+            m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 2f);
+            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One); m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            m.SetInt("_ZWrite", 0); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.SetOverrideTag("RenderType", "Transparent"); m.renderQueue = 3100;
+            return m;
+        }
         Material tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat;
         readonly Material[] gasMats = new Material[3];
         TestPanel panel;
@@ -54,8 +66,9 @@ namespace TW.Presentation.Tactical
             if (lit == null) lit = Shader.Find("Standard");
             tracerMat = new Material(unlit) { enableInstancing = true, color = new Color(0.95f, 0.84f, 0.57f) };
             // night (SceneMood): each side's fire is its own colour, over-bright so the bloom takes it
-            tracerNightA = new Material(unlit) { enableInstancing = true, color = new Color(0.55f, 2.3f, 0.75f) };
-            tracerNightB = new Material(unlit) { enableInstancing = true, color = new Color(2.6f, 0.45f, 0.38f) };
+            tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
+            tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
+            tracerCore = new Material(unlit) { enableInstancing = true, color = new Color(3.0f, 2.7f, 2.3f) };   // the streak itself: white-hot
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
             sphere = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
@@ -176,7 +189,7 @@ namespace TW.Presentation.Tactical
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
-            foreach (var mat in new[] { tracerNightA, tracerNightB, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
         }
@@ -205,6 +218,10 @@ namespace TW.Presentation.Tactical
                     tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
                     Vector3 direction = (to - from).normalized;
                     if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
+                    // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
+                    // under the chunk budget so a big firefight never starves the shell bursts of theirs.
+                    if (e.Scalar < 0.5f && chunks.Count < 420)
+                        chunks.Add(new Chunk { Pos = from + direction * (0.9f * scale), Vel = direction * 1.4f + Vector3.up * 0.35f, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
                     break;
                 }
                 case SimEventType.Death:
@@ -263,14 +280,22 @@ namespace TW.Presentation.Tactical
             float now = Time.time;
             tracers.RemoveAll(t => now - t.Born > TracerSeconds);
             bool night = SceneMood.Night;
-            for (int side = 0; side < (night ? 2 : 1); side++)
+            if (night && !nightTinted)
             {
-            var rpT = new RenderParams(night ? (side == 0 ? tracerNightA : tracerNightB) : tracerMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                // under the moon smoke is a cold dark blue, and the flash is over-bright so the bloom spreads it
+                nightTinted = true;
+                smokeMat.color = new Color(0.17f, 0.20f, 0.27f, 0.36f); smokeThin.color = new Color(0.17f, 0.20f, 0.27f, 0.20f); smokeFaint.color = new Color(0.17f, 0.20f, 0.27f, 0.07f);
+                flashMat.color = new Color(3.2f, 2.5f, 1.3f);
+            }
+            // night: three layers a tracer. side 0 / 1 = a wide additive halo in the side's colour, side 2 = the white-hot streak.
+            for (int side = 0; side < (night ? 3 : 1); side++)
+            {
+            var rpT = new RenderParams(night ? (side == 0 ? tracerNightA : side == 1 ? tracerNightB : tracerCore) : tracerMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
             batch.Clear();
             for (int i = 0; i < tracers.Count; i++)
             {
                 var t = tracers[i];
-                if (night && (t.Team & 1) != side) continue;
+                if (night && side < 2 && (t.Team & 1) != side) continue;
                 Vector3 d = t.To - t.From;
                 float len = d.magnitude;
                 if (len < 0.1f) continue;
@@ -278,7 +303,8 @@ namespace TW.Presentation.Tactical
                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
                 float streak = Mathf.Min(len, night ? 10f : 6f);
                 Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
-                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(night ? 0.06f : 0.045f, night ? 0.06f : 0.045f, streak)));
+                float thick = !night ? 0.045f : side == 2 ? 0.075f : 0.24f;
+                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);

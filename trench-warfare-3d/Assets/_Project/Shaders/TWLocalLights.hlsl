@@ -18,8 +18,10 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS)
         half facing = saturate(dot(normalWS, l.direction) * 0.6 + 0.4);   // wrapped: a lantern still shows on the wall beside it
         half peak = max(l.color.r, max(l.color.g, l.color.b));
         half e = l.distanceAttenuation * facing * peak;                    // how much light arrives, whatever its colour
-        half steps = smoothstep(0.02, 0.04, e) * 0.22 + smoothstep(0.12, 0.20, e) * 0.38 + smoothstep(0.55, 0.75, e) * 0.40;
-        sum += l.color / max(peak, 1e-4) * steps;
+        // the pool of light is layered like the glow: a deep-coloured reach, the light's own colour, a hotter heart
+        half3 tint = l.color / max(peak, 1e-4);
+        half3 deep = tint * tint * tint;
+        sum += deep * smoothstep(0.02, 0.04, e) * 0.24 + tint * smoothstep(0.12, 0.20, e) * 0.38 + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44;
     LIGHT_LOOP_END
 #endif
     return sum;

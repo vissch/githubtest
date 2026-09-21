@@ -1,5 +1,7 @@
 // Phase: B2 (implemented) — points of light at night: the halo round a lantern, the star of a flare, fires burning far
-// off in the fog. Additive camera-facing cards; the falloff is computed, so there is no texture read at all, and every
+// off in the fog. A glow is built in three layers, the way a flame photographs (owner's reference, 2026-09-21): a small
+// white-hot core, a body in the light's own colour, and a wide halo pushed toward the colour's deepest channel (an orange
+// lamp ends in red, a cold flare in blue). Additive camera-facing cards; the falloff is computed, so there is no texture read at all, and every
 // glow in a mesh is one draw call. They test depth (a lamp behind a wall is hidden) and write none.
 // Vertex data: position = the glow's centre (object space), uv0 = corner (-1..1), uv1 = size in metres, flicker 0..1,
 // phase, how much the haze dims it 0..1; colour = the light's colour (alpha scales it).
@@ -49,8 +51,13 @@ Shader "TW/Glow (URP)"
             half4 frag(Varyings i) : SV_Target
             {
                 half d = saturate(1.0 - dot(i.corner, i.corner));
-                half core = d * d * d * d, halo = d * d * 0.35;
-                return half4(i.color * (core + halo), 1.0);
+                half peak = max(i.color.r, max(i.color.g, i.color.b));
+                half3 hot = lerp(i.color, peak.xxx, 0.85);                 // nearly white
+                half3 deep = i.color * i.color / max(peak, 1e-3);          // same brightness, hue pulled to the strongest channel
+                deep = deep * deep / max(peak, 1e-3);
+                half d2 = d * d, d4 = d2 * d2;
+                half3 glow = hot * d4 * d4 * 1.3 + i.color * d2 * d * 0.55 + deep * pow(d, 1.3) * 0.30;
+                return half4(glow, 1.0);
             }
             ENDHLSL
         }

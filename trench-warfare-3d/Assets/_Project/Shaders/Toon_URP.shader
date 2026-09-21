@@ -93,12 +93,20 @@ Shader "TW/Toon (URP)"
                 }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half2 slope = 0;
+                half near = 1;
+                if (_DetailBump < 0.5 && _Gloss < 0.5 && _TWWet.x > 0.0)
+                {
+                    // everything standing in the rain is wet: bags, timber, trunks, wrecks. Wettest on top.
+                    half soaked = _TWWet.x * saturate(normalize(i.normalWS).y * 0.55 + 0.5);
+                    gloss = max(gloss, soaked * 0.46);
+                    albedo *= 1.0 - 0.28 * soaked;
+                }
                 if (_DetailStrength > 0.0)
                 {
                     float2 uv1 = i.positionWS.xz * _DetailScale;
                     float2 uv2 = float2(uv1.x * 0.259 - uv1.y * 0.117, uv1.x * 0.117 + uv1.y * 0.259) + 0.37;   // turned and 3.5x larger: the broad blotches
                     half3 d1 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv1).rgb;
-                    half near = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
+                    near = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
                     half tone = (d1.r - 0.5) * near + (SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv2).a - 0.5);
                     slope = (d1.gb - 0.5) * near;
                     gloss = max(gloss, _TWWet.x * _DetailBump * (0.30 + 0.25 * saturate(0.5 - d1.r * 1.0 + 0.3)));   // soaked ground: every surface with relief shines a little, the dark crevices most
@@ -116,7 +124,7 @@ Shader "TW/Toon (URP)"
                 if (gloss > 0.01)
                 {
                     float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
-                    float3 n = normalize(lerp(normalize(i.normalWS), float3(0, 1, 0), 0.8));   // water lies flat whatever the ground does
+                    float3 n = normalize(lerp(normalize(i.normalWS), float3(0, 1, 0), _DetailBump > 0.5 || _Gloss > 0.5 ? 0.8 : 0.0));   // water lies flat whatever the ground does; a wet prop keeps its own planes
                     if (_DetailStrength > 0.0)
                     {
                         // liquid mud keeps the clods' broken surface; still water breathes with a slow ripple
@@ -133,7 +141,17 @@ Shader "TW/Toon (URP)"
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                     // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
                     half toLight = saturate(dot(r, mainLight.direction));
-                    color += (pow(toLight, 14.0) * 0.4 + smoothstep(0.93, 0.96, toLight) * 0.9) * gloss * (1.0 - saturate(gloss * 2.0 - 1.0) * 0.72) * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;   // the sheen is the mud's; still water only mirrors
+                    half mudOnly = 1.0 - saturate(gloss * 2.0 - 1.0) * 0.72;   // the sheen is the mud's; still water only mirrors
+                    color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * 0.40) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    if (_DetailStrength > 0.0 && _TWWet.y > 0.0)
+                    {
+                        // hard wet glints: a second, much finer read of the slopes tilts tiny facets into the moon, so the
+                        // highlight breaks into sharp specks instead of one soft patch. Close range only (the mips flatten it).
+                        half2 fine = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale * 4.3 + 0.17).gb - 0.5;
+                        float3 facet = normalize(n + float3(fine.x, 0, fine.y) * 1.25);
+                        half spark = smoothstep(0.972, 0.984, dot(reflect(-view, facet), mainLight.direction));
+                        color += spark * 1.7 * near * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    }
                 }
                 color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS);
                 color += _Emission.rgb;

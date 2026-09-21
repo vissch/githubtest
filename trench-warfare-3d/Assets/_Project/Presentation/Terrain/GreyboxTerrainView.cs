@@ -97,6 +97,7 @@ namespace TW.Presentation.Terrain
             BuildSkirt(map);
             if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>();
             if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<NightLights>() == null) gameObject.AddComponent<NightLights>().Host = Host;
+            if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Rain>() == null) gameObject.AddComponent<Rain>();
             if (GetComponent<QuietFog>() == null) gameObject.AddComponent<QuietFog>().Host = Host;
             if (GetComponent<FogWisps>() == null) gameObject.AddComponent<FogWisps>().Build(map);
             if (GetComponent<WaterRings>() == null)
