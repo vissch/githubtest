@@ -36,6 +36,7 @@ namespace TW.Presentation.Terrain
             this.emit = emit;
             MapProps(map);
             TrenchKit(map, surface);
+            Debris(map, surface);
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
             { sites.Clear(); rejections.Clear(); PlaceSites(map, surface); layoutMap = map; }
             else
@@ -191,6 +192,27 @@ namespace TW.Presentation.Terrain
             h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12;
             return (h & 0xFFFF) / 65535f;
         }
+        /// <summary>Loose litter on open ground: branches and boards everywhere, spent cases near the trenches. One
+        /// candidate per 7 m square, placed by hash so it never moves between rebuilds.</summary>
+        void Debris(MapData map, BattlefieldSurface surface)
+        {
+            const float grid = 7f;
+            int k = 0;
+            for (float gz = 4f; gz < map.SizeMeters.y - 4f; gz += grid)
+            for (float gx = 3f; gx < map.SizeMeters.x - 3f; gx += grid, k++)
+            {
+                if (Rand(k, 61) > .62f) continue;
+                float x = gx + Rand(k, 62) * (grid - 1f), z = gz + Rand(k, 63) * (grid - 1f);
+                var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
+                if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire)) != 0) continue;
+                var at = surface.At(x, z);
+                if (at.Wetness > .35f || at.BankDistance < 1.2f) continue;
+                float pick = Rand(k, 64);
+                var module = at.BankDistance < 7f && pick < .45f ? kit.shellCases : pick < .72f ? kit.branches : kit.looseBoards;
+                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) + .01f, z), Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f), Vector3.one * (.85f + Rand(k, 66) * .5f)));
+            }
+        }
+
         void MapProps(MapData map)
         {
             var hf = map.Height;

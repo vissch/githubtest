@@ -10,7 +10,7 @@ namespace TW.Presentation.Terrain
         {
             public Mesh Mesh; public Material Material; public bool Shadows;
         }
-        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker;
+        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases;
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
@@ -263,6 +263,18 @@ namespace TW.Presentation.Terrain
                 (cube, new Vector3(0f, 0.36f, -0.39f), new Vector3(0f, 0f, 28f), new Vector3(1.06f, 0.10f, 0.065f)),
                 (cube, new Vector3(-0.37f, 0.735f, 0f), Vector3.zero, new Vector3(0.10f, 0.06f, 0.78f)),
                 (cube, new Vector3(0.37f, 0.735f, 0f), Vector3.zero, new Vector3(0.10f, 0.06f, 0.78f))), new Color(0.43f, 0.435f, 0.31f), true, 1f);
+            // loose battlefield litter, scattered by BattlefieldComposer.Debris
+            branches = Make(Combine("Broken branches",
+                (Taper(0.09f, 0.025f, 2.3f, new Vector2(0.15f, 0f)), new Vector3(0f, 0.08f, 0f), new Vector3(88f, 0f, 0f), Vector3.one),
+                (Taper(0.05f, 0.015f, 1.1f, Vector2.zero), new Vector3(0.05f, 0.10f, 1.0f), new Vector3(80f, 55f, 0f), Vector3.one),
+                (Taper(0.07f, 0.02f, 1.5f, Vector2.zero), new Vector3(0.7f, 0.07f, -0.3f), new Vector3(86f, -70f, 0f), Vector3.one)), new Color(0.34f, 0.30f, 0.26f), false);
+            looseBoards = Make(Combine("Loose boards",
+                (WornBox(.02f, .02f, 5), new Vector3(0f, 0.05f, 0f), new Vector3(3f, 0f, 2f), new Vector3(0.22f, 0.05f, 1.9f)),
+                (WornBox(.02f, .02f, 6), new Vector3(0.35f, 0.09f, 0.2f), new Vector3(-4f, 38f, 3f), new Vector3(0.20f, 0.05f, 1.3f))), new Color(0.49f, 0.405f, 0.31f), false);
+            shellCases = Make(Combine("Spent shell cases",
+                (Taper(0.065f, 0.055f, 0.5f, Vector2.zero, 0.1f), new Vector3(0f, 0.07f, 0f), new Vector3(90f, 20f, 0f), Vector3.one),
+                (Taper(0.065f, 0.055f, 0.5f, Vector2.zero, 0.1f), new Vector3(0.3f, 0.07f, 0.25f), new Vector3(90f, -50f, 0f), Vector3.one),
+                (Taper(0.065f, 0.055f, 0.5f, Vector2.zero, 0.1f), new Vector3(-0.2f, 0.07f, 0.4f), new Vector3(90f, 85f, 0f), Vector3.one)), new Color(0.62f, 0.50f, 0.24f), false);
             fork = Make(Combine("Forked shell tree",
                 (Taper(0.58f, 0.17f, 5.5f, new Vector2(-0.5f, 0.12f)), Vector3.zero, Vector3.zero, Vector3.one),
                 (Taper(0.20f, 0.04f, 3.2f, new Vector2(0.6f, 0f)), new Vector3(-0.22f, 2.2f, 0f), new Vector3(12f, 0f, -32f), Vector3.one),
