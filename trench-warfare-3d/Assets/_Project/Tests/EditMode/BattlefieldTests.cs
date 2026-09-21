@@ -134,7 +134,7 @@ namespace TW.Tests
             Assert.Greater(Count(map, NavLayer.Crater), 200, "shell holes");
             Assert.Greater(Count(map, NavLayer.Mud), 900, "mud");
             Assert.Greater(Count(map, NavLayer.Wire), 90, "wire");
-            Assert.Greater(Count(map, NavLayer.Blocked), 250, "the river channel and solid props");
+            Assert.Greater(Count(map, NavLayer.Blocked), 70, "the river channel and solid props");   // 90 x 240 m: a quarter of the first field's area
             int standing = 0, broken = 0, wrecks = 0;
             for (int i = 0; i < map.Props.Length; i++)
             {
@@ -167,8 +167,8 @@ namespace TW.Tests
             {
                 var cmds = new System.Collections.Generic.List<SimCommand>();
                 if (t < 40 && t % 2 == 0) { cmds.Add(SimCommand.Deploy(a.World.Tick, 0, 0)); cmds.Add(SimCommand.Deploy(a.World.Tick, 1, 0)); }
-                if (t == 300) cmds.Add(new SimCommand { Tick = a.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(90f, 0f, 330f) });
-                if (t == 320) cmds.Add(new SimCommand { Tick = a.World.Tick, Player = 1, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(85f, 0f, 200f) });
+                if (t == 300) cmds.Add(new SimCommand { Tick = a.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(45f, 0f, 165f) });
+                if (t == 320) cmds.Add(new SimCommand { Tick = a.World.Tick, Player = 1, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(42f, 0f, 100f) });
                 using var arr = new NativeArray<SimCommand>(cmds.ToArray(), Allocator.Temp);
                 a.Step(arr); b.Step(arr);
                 Assert.AreEqual(a.World.LastHash, b.World.LastHash, $"tick {t}");

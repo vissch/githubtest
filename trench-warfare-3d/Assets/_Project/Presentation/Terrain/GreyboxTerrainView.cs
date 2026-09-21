@@ -132,11 +132,22 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>The land beyond the map: meets the edge heights, levels out over 30 m and runs to the horizon.</summary>
+        public const float SkirtLevel = 1.6f, SkirtBlend = 30f;
+
+        /// <summary>Height of the land outside the map at a point (BattlefieldProps stands trees on it).</summary>
+        public static float SkirtHeight(MapData map, float x, float z)
+        {
+            float w = map.SizeMeters.x, l = map.SizeMeters.y;
+            float outside = Mathf.Max(Mathf.Max(-x, x - w), Mathf.Max(-z, z - l));
+            float edge = map.Height.Sample(Mathf.Clamp(x, 0f, w), Mathf.Clamp(z, 0f, l));
+            return Mathf.Lerp(edge, SkirtLevel, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(outside / SkirtBlend)));
+        }
+
         void BuildSkirt(MapData map)
         {
             var hf = map.Height;
             float w = map.SizeMeters.x, l = map.SizeMeters.y;
-            const float far = 1500f, level = 1.6f;
+            const float far = 1500f, level = SkirtLevel;
             float[] outs = { 0f, 4f, 10f, 18f, 30f, 60f, 140f, far };
             var verts = new List<Vector3>(); var cols = new List<Color>(); var tris = new List<int>();
             // side 0/1: along Z at x = 0 / w (these also cover the corners); side 2/3: along X at z = 0 / l
@@ -145,13 +156,13 @@ namespace TW.Presentation.Terrain
                 bool alongZ = side < 2; bool high = (side & 1) == 1;
                 float from = alongZ ? -far : 0f, to = alongZ ? l + far : w, span = alongZ ? l : w;
                 var stops = new List<float> { from };
-                for (float t = 0f; t <= span; t += 4f) stops.Add(t);
+                for (float t = 0f; t <= span; t += 1f) stops.Add(t);   // the ground's own vertex spacing, so the two meet exactly
                 if (alongZ) stops.Add(to); else stops.Add(span);
                 int row0 = verts.Count, cols_ = outs.Length;
                 foreach (float t in stops)
                 {
-                    float tc = Mathf.Clamp(t, 0.5f, span - 0.5f);
-                    float edge = alongZ ? hf.Sample(high ? w - 0.5f : 0.5f, tc) : hf.Sample(tc, high ? l - 0.5f : 0.5f);
+                    float tc = Mathf.Clamp(t, 0f, span);
+                    float edge = alongZ ? hf.Sample(high ? w : 0f, tc) : hf.Sample(tc, high ? l : 0f);
                     float beyond = alongZ ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
                     for (int k = 0; k < cols_; k++)
                     {
@@ -159,7 +170,7 @@ namespace TW.Presentation.Terrain
                         float y = Mathf.Lerp(edge, level, blend);
                         float off = high ? span2(alongZ, w, l) + d : -d;
                         var v = alongZ ? new Vector3(off, y, t) : new Vector3(t, y, off);
-                        verts.Add(v); cols.Add(Tone(v.x, v.z));
+                        verts.Add(v); cols.Add(MudMid);   // one tone: the columns are too far apart to carry the painted patches
                     }
                 }
                 for (int r = 0; r < stops.Count - 1; r++)
@@ -345,7 +356,9 @@ namespace TW.Presentation.Terrain
             // shell holes, read from the ground itself so they are round: how far this point lies under the ground
             // 3 m around it. Dark inside, an ink rim, a pale lip of thrown earth (and a pale parapet along a trench).
             var hf = map.Height;
-            float bowl = (hf.Sample(wx - 3f, wz) + hf.Sample(wx + 3f, wz) + hf.Sample(wx, wz - 3f) + hf.Sample(wx, wz + 3f)) * 0.25f - h;
+            float bowlX = (hf.Sample(wx - 3f, wz) + hf.Sample(wx + 3f, wz)) * 0.5f - h, bowlZ = (hf.Sample(wx, wz - 3f) + hf.Sample(wx, wz + 3f)) * 0.5f - h;
+            float hollow = Mathf.Min(bowlX, bowlZ);   // a shell hole is hollow both ways; the foot of a slope only one way
+            float bowl = hollow > 0.1f ? (bowlX + bowlZ) * 0.5f : Mathf.Min(0f, (bowlX + bowlZ) * 0.5f);
             bool inside = bowl > 0.34f;
             if (inside) c = Color.Lerp(MudDark, Ink, 0.35f);
             else if (bowl > 0.25f) c = Ink;

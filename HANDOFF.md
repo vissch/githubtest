@@ -44,7 +44,8 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   "75 % like the 2D game" view. Men are about 60-90 pixels tall in it, so unit art budget is now: full model
   1,200-1,500 vertices (ceiling 2,000), far model 250-400 (used beyond `VATRenderer.LodDistance` = 170 m; the box
   soldier stands in). Measured worst case, 2,900 units with 650 in view: 1.2 M unit vertices with shadows, under the
-  1.5 M budget. Battlefield width is 180 m (owner: 300 was too wide to fill).
+  1.5 M budget. The battlefield is 90 x 240 m (owner: 300 wide was too wide to fill, then halved both ways); the
+  generator's layout scales with the params, no man's land is 100 m, so rifles (130 m) now reach trench to trench.
 - **Visual standard (owner, 2026-09-21): a painted cartoon mudfield**, after the owner's two "Trench Tactics"
   reference images: flat two-step shading with a dark ink outline, grey-brown mud in flat tones, pale grey puddles,
   dark round shell holes with a pale lip, bare dead trees, fat sandbags, plank revetment, knife-rest wire, overcast

@@ -24,7 +24,7 @@ namespace TW.Sim.Terrain
         public float Bombardment; // ambient shells per minute on no man's land during the match; 0 = a quiet sector
 
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
-        { Seed = seed, Width = 180f, Length = 480f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 5, Bombardment = 8f };
+        { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f };
 
         public byte[] Serialize()
         {
@@ -48,16 +48,19 @@ namespace TW.Sim.Terrain
     public static class BattlefieldGenerator
     {
         public const int MapId = 3;
-        const float ReserveZ = 60f, FrontZ = 140f, HqDepth = 34f, BaseHeight = 1.2f;
+        // The layout was drawn for a 180 x 480 m field and scales with the params: along the front axis by Length / 480
+        // (trench lines, HQ depth, the river's wander), across it by Width / 180 (crossings, wire runs).
+        const float ReserveAt = 60f, FrontAt = 140f, HqDepthAt = 34f, BaseHeight = 1.2f;
         const float DugInHeight = 2.3f;   // trench lines and HQs sit on the higher ground, so a 1.8 m trench floor stays above the water table
-        const float RiverHalfWidth = 10f, RiverBedDepth = 1.7f;
+        const float RiverHalfWidthAt = 10f, RiverBedDepth = 1.7f;
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
         {
             var map = new MapData(MapId, new float2(p.Width, p.Length), allocator);
             map.WaterLevel = p.WaterLevel;
             var rng = new Random(math.max(1u, p.Seed * 747796405u + 2891336453u));
-            float L = p.Length, W = p.Width;
+            float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
+            float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
             float[] trenchZ = { ReserveZ, FrontZ, L - FrontZ, L - ReserveZ };
 
             // ---- 1. rolling ground, levelled where men dig in ---------------------------------------------------
@@ -67,16 +70,16 @@ namespace TW.Sim.Terrain
             {
                 float wx = x + 0.5f, wz = z + 0.5f;
                 float h = BaseHeight + 2.6f * (Noise(p.Seed, wx, wz, 70f) - 0.5f) + 0.7f * (Noise(p.Seed + 1u, wx, wz, 18f) - 0.5f);
-                float keep = math.min(Ramp(wz - HqDepth, 0f, 16f), Ramp(L - HqDepth - wz, 0f, 16f));   // HQ areas are level
-                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - (trenchZ[t] + 2f)) - 5f, 0f, 14f));
+                float keep = math.min(Ramp(wz - HqDepth, 0f, 16f * sz), Ramp(L - HqDepth - wz, 0f, 16f * sz));   // HQ areas are level
+                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - (trenchZ[t] + 2f)) - 5f, 0f, 14f * sz));
                 hf.Set(x, z, math.lerp(DugInHeight, h, keep));
             }
 
             // ---- 2. the river: a channel across the width, two fords and a plank bridge -------------------------
             bool river = p.River && p.WaterLevel > MapData.NoWater;
-            float[] crossingX = { W * 0.2f + rng.NextFloat(-15f, 15f), W * 0.5f + rng.NextFloat(-20f, 20f), W * 0.8f + rng.NextFloat(-15f, 15f) };
+            float[] crossingX = { W * 0.2f + rng.NextFloat(-15f, 15f) * sx, W * 0.5f + rng.NextFloat(-20f, 20f) * sx, W * 0.8f + rng.NextFloat(-15f, 15f) * sx };
             int bridge = 1;
-            float riverShift = rng.NextFloat(-25f, 25f);
+            float riverShift = rng.NextFloat(-25f, 25f) * sz;
             if (river)
             {
                 float bed = p.WaterLevel - RiverBedDepth;
@@ -105,14 +108,14 @@ namespace TW.Sim.Terrain
             GreyboxMapGenerator.AddFireTrench(map, 1, 3, L - ReserveZ, SimMath.Pi, next0: -1, next1: 2);
             GreyboxMapGenerator.AddLineObjective(map, 0, ObjectiveKind.MainLine, 0, 0, FrontZ, 1);
             GreyboxMapGenerator.AddLineObjective(map, 1, ObjectiveKind.ReserveLine, 0, 0, ReserveZ, 2);
-            GreyboxMapGenerator.AddLineObjective(map, 2, ObjectiveKind.HQ, 0, 0, 20f, 3);
+            GreyboxMapGenerator.AddLineObjective(map, 2, ObjectiveKind.HQ, 0, 0, 20f * sz, 3);
             GreyboxMapGenerator.AddLineObjective(map, 3, ObjectiveKind.MainLine, 1, 1, L - FrontZ, 1);
             GreyboxMapGenerator.AddLineObjective(map, 4, ObjectiveKind.ReserveLine, 1, 1, L - ReserveZ, 2);
-            GreyboxMapGenerator.AddLineObjective(map, 5, ObjectiveKind.HQ, 1, 1, L - 20f, 3);
+            GreyboxMapGenerator.AddLineObjective(map, 5, ObjectiveKind.HQ, 1, 1, L - 20f * sz, 3);
             map.Spawns.Add(new SpawnPoint { Team = 0, Pos = new float3(W * 0.5f, 0f, 6f), Kind = 0 });
             map.Spawns.Add(new SpawnPoint { Team = 1, Pos = new float3(W * 0.5f, 0f, L - 6f), Kind = 0 });
-            map.SupplyRoad.Add(new float3(W * 0.5f, 0f, 0f)); map.SupplyRoad.Add(new float3(W * 0.5f, 0f, 40f));
-            map.SupplyRoad.Add(new float3(W * 0.5f, 0f, L)); map.SupplyRoad.Add(new float3(W * 0.5f, 0f, L - 40f));
+            map.SupplyRoad.Add(new float3(W * 0.5f, 0f, 0f)); map.SupplyRoad.Add(new float3(W * 0.5f, 0f, 40f * sz));
+            map.SupplyRoad.Add(new float3(W * 0.5f, 0f, L)); map.SupplyRoad.Add(new float3(W * 0.5f, 0f, L - 40f * sz));
             map.Wind = new float2(0f, -1f);
 
             // ---- 4. standing water: the river and the lowest hollows. Only here may water close a cell. ---------
@@ -144,11 +147,11 @@ namespace TW.Sim.Terrain
             // ---- 7. wire in front of both front lines, with gaps ------------------------------------------------
             for (int side = 0; side < 2; side++)
             {
-                float z0 = side == 0 ? FrontZ + 16f : L - FrontZ - 20f;
+                float z0 = side == 0 ? FrontZ + 16f * sz : L - FrontZ - 16f * sz - 4f;
                 float x = 0f;
                 while (x < W)
                 {
-                    float run = rng.NextFloat(38f, 64f);
+                    float run = rng.NextFloat(38f, 64f) * sx;
                     new WireBelt { Min = new float3(x, 0f, z0), Max = new float3(math.min(W - 1f, x + run), 0f, z0 + 3.9f) }.Place(map);
                     x += run + rng.NextFloat(8f, 12f);   // the gap
                 }
@@ -169,7 +172,7 @@ namespace TW.Sim.Terrain
             }
             for (int k = 0; k < p.Wrecks; k++)
             {
-                float x = rng.NextFloat(20f, W - 20f), z = rng.NextFloat(FrontZ + 30f, L - FrontZ - 30f), yaw = rng.NextFloat(0f, 6.2831853f);
+                float x = rng.NextFloat(20f, W - 20f), z = rng.NextFloat(FrontZ + 30f * sz, L - FrontZ - 30f * sz), yaw = rng.NextFloat(0f, 6.2831853f);
                 if (ClearForProp(map, p, riverShift, river, trenchZ, x, z)) map.AddProp(new PropDef { Pos = new float3(x, 0f, z), Yaw = yaw, Kind = PropKind.Wreck });
             }
             if (river) map.AddProp(new PropDef { Pos = new float3(crossingX[bridge], 0f, RiverZ(p, riverShift, crossingX[bridge])), Yaw = 0f, Kind = PropKind.Bridge });
@@ -184,14 +187,16 @@ namespace TW.Sim.Terrain
         static bool ClearForProp(MapData map, BattlefieldParams p, float riverShift, bool river, float[] trenchZ, float x, float z)
         {
             for (int t = 0; t < trenchZ.Length; t++) if (math.abs(z - (trenchZ[t] + 2f)) < 10f) return false;
-            if (river && math.abs(z - RiverZ(p, riverShift, x)) < RiverHalfWidth + 6f) return false;
-            if (math.abs(x - p.Width * 0.5f) < 5f && (z < 60f || z > p.Length - 60f)) return false;
+            if (river && math.abs(z - RiverZ(p, riverShift, x)) < RiverHalf(p) + 6f) return false;
+            if (math.abs(x - p.Width * 0.5f) < 5f && (z < ReserveAt * p.Length / 480f || z > p.Length - ReserveAt * p.Length / 480f)) return false;
             var layer = map.LayerAt(new float3(x, 0f, z));
             return (layer & (NavLayer.Wire | NavLayer.Blocked | NavLayer.Trench | NavLayer.Link)) == 0 && map.WaterDepthAtCell(map.NavCellOf(new float3(x, 0f, z)).x, map.NavCellOf(new float3(x, 0f, z)).y) < MapData.WetDepth;
         }
 
+        static float RiverHalf(BattlefieldParams p) => RiverHalfWidthAt * math.max(0.6f, p.Length / 480f);
+
         static float RiverZ(BattlefieldParams p, float shift, float x)
-            => p.Length * 0.5f + shift + 44f * (Noise(p.Seed + 3u, x, 0f, 90f) - 0.5f);
+            => p.Length * 0.5f + shift + 44f * (p.Length / 480f) * (Noise(p.Seed + 3u, x, 0f, 90f) - 0.5f);
 
         /// <summary>True when infantry can walk from one spawn to the other (trenches through their ladders).</summary>
         public static bool Connected(MapData map)

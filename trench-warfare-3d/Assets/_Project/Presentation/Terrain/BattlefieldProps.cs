@@ -187,12 +187,12 @@ namespace TW.Presentation.Terrain
         void Horizon(MapData map)
         {
             float w = map.SizeMeters.x, l = map.SizeMeters.y;
-            const float level = 1.55f;   // GreyboxTerrainView's skirt levels out here
-            for (int i = 0; i < 420; i++)
+            for (int i = 0; i < 520; i++)
             {
                 float x = -260f + Rand(i, 1) * (w + 520f), z = -200f + Rand(i, 2) * (l + 400f);
                 float outside = Mathf.Max(Mathf.Max(-x, x - w), Mathf.Max(-z, z - l));
-                if (outside < 32f) continue;   // the skirt is still sloping here
+                if (outside < 5f) continue;
+                float level = GreyboxTerrainView.SkirtHeight(map, x, z) - 0.05f;
                 float s = 0.9f + 0.7f * Rand(i, 3);
                 var m = Matrix4x4.TRS(new Vector3(x, level, z), Quaternion.Euler(0f, Rand(i, 4) * 360f, 0f), new Vector3(s, s, s));
                 if (Rand(i, 5) < 0.62f) trunk.Add(m); else if (Rand(i, 5) < 0.85f) snag.Add(m); else stump.Add(m);
@@ -202,7 +202,7 @@ namespace TW.Presentation.Terrain
                 bool farSide = i < 6;   // the standard view looks along -X, so most of them stand there
                 float x = farSide ? -45f - Rand(i, 6) * 120f : w + 45f + Rand(i, 6) * 90f, z = Rand(i, 7) * l;
                 float s = 1.2f + Rand(i, 8) * 1.0f;
-                ruin.Add(Matrix4x4.TRS(new Vector3(x, level - 0.2f, z), Quaternion.Euler(0f, 80f + Rand(i, 9) * 40f, 0f), new Vector3(s, s, s)));
+                ruin.Add(Matrix4x4.TRS(new Vector3(x, GreyboxTerrainView.SkirtLevel - 0.25f, z), Quaternion.Euler(0f, 80f + Rand(i, 9) * 40f, 0f), new Vector3(s, s, s)));
             }
         }
 

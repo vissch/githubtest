@@ -19,7 +19,7 @@ namespace TW.Presentation.Tactical
         public const float BarHeight = 100f;
         /// <summary>Where the minimap is on screen (GUI coordinates), so map clicks under it are not taken for targets.</summary>
         public static Rect MinimapRect;
-        const float MapScale = 1.6f;   // minimap pixels per nav cell
+        const float MapScale = 3.2f;   // minimap pixels per nav cell
         Texture2D mapGround, mapDots, whiteTex;
         Color32[] dotPixels;
         float nextGround, nextDots;
