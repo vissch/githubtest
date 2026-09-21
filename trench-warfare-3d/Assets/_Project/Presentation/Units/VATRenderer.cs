@@ -6,8 +6,10 @@
 // LodTiers.BlendZoom, nearest-frame above it. The soldier is ~260 vertices, so 3,000 of them are under a million
 // vertices a frame and impostors are not needed (docs/11 B3). Vehicles are instanced boxes until C2.
 // Men outside the camera frustum are dropped in the fill job, and the draw is held to LodTiers.VertexBudget: when
-// the men on screen times the mesh's vertices (twice with shadows) exceed it, shadows go first; a far mesh per unit
-// (150-300 vertices, its own atlas) is the next step once the art exists.
+// the men on screen times the mesh's vertices (twice with shadows) exceed it, shadows go first.
+// The standard view is flat (25 degrees), so one frame holds men 40 m and 400 m away: beyond LodDistance a man is
+// drawn with the far model in a second indirect draw from the same instance buffer (near records from the front,
+// far records from the back). Until C2 delivers far models the far tier is the 264-vertex box soldier.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -40,23 +42,29 @@ namespace TW.Presentation.Units
         public float GrowFromZoom = 24f;
         public float MaxGrow = 4f;
         public bool CastShadows = true;
+        [Tooltip("Metres from the camera beyond which the far model is used (a man is under about 40 pixels tall there).")]
+        public float LodDistance = 170f;
 
         /// <summary>Infantry drawn last frame (for the stats overlay and tests).</summary>
         public int DrawnInfantry { get; private set; }
         public int DrawnVehicles { get; private set; }
+        public int DrawnNear { get; private set; }
+        public int DrawnFar { get; private set; }
+        /// <summary>Unit vertices submitted last frame, shadow pass included.</summary>
+        public long VerticesThisFrame { get; private set; }
         public bool ShadowsThisFrame { get; private set; }
         public bool Ready => material != null;
 
-        VatAsset asset;
-        Material material, tankMatA, tankMatB;
+        VatAsset asset, farAsset;
+        Material material, farMaterial, tankMatA, tankMatB;
         Mesh tankMesh;
-        GraphicsBuffer instanceBuffer, rowBuffer, argsBuffer;
+        GraphicsBuffer instanceBuffer, rowBuffer, farRowBuffer, argsBuffer;
         NativeArray<VatInstance> instances;
         NativeArray<float4> vehicles;   // xyz + yaw; w sign carries the team
         NativeArray<int> counts;
         NativeArray<float4> planes;
         readonly Plane[] frustum = new Plane[6];
-        readonly GraphicsBuffer.IndirectDrawIndexedArgs[] args = new GraphicsBuffer.IndirectDrawIndexedArgs[1];
+        readonly GraphicsBuffer.IndirectDrawIndexedArgs[] args = new GraphicsBuffer.IndirectDrawIndexedArgs[2];
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
         static readonly int LerpId = Shader.PropertyToID("_Lerp");
 
@@ -74,7 +82,17 @@ namespace TW.Presentation.Units
 
             rowBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, asset.RowTable.Length, 8);
             rowBuffer.SetData(asset.RowTable);
-            argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+            argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 2, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+            if (baked != null && baked.Mesh != null)   // a real model up close, the box soldier far away
+            {
+                farAsset = ProceduralSoldier.Build();
+                farMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+                farMaterial.SetTexture("_PosTex", farAsset.Positions); farMaterial.SetTexture("_NrmTex", farAsset.Normals);
+                farMaterial.SetFloat("_VertexCount", farAsset.Mesh.vertexCount); farMaterial.SetFloat("_TotalFrames", farAsset.TotalFrames);
+                farMaterial.SetFloat(LerpId, 0f);
+                farRowBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, farAsset.RowTable.Length, 8);
+                farRowBuffer.SetData(farAsset.RowTable);
+            }
 
             var lit = Shader.Find("Universal Render Pipeline/Lit");
             tankMatA = new Material(lit) { enableInstancing = true, color = new Color(0.36f, 0.33f, 0.22f) };
@@ -88,7 +106,7 @@ namespace TW.Presentation.Units
             Release();
             instances = new NativeArray<VatInstance>(maxSlots, Allocator.Persistent);
             vehicles = new NativeArray<float4>(maxSlots, Allocator.Persistent);
-            counts = new NativeArray<int>(2, Allocator.Persistent);
+            counts = new NativeArray<int>(3, Allocator.Persistent);
             planes = new NativeArray<float4>(6, Allocator.Persistent);
             instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 32);
         }
@@ -110,34 +128,53 @@ namespace TW.Presentation.Units
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Instances = instances, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
+                CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = farAsset != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
             }.Run();
-            DrawnInfantry = counts[0];
+            DrawnNear = counts[0]; DrawnFar = counts[2];
+            DrawnInfantry = DrawnNear + DrawnFar;
             DrawnVehicles = counts[1];
 
             var size = Host.Local.Map.SizeMeters;
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
             if (DrawnInfantry > 0)
             {
-                instanceBuffer.SetData(instances, 0, 0, DrawnInfantry);
+                int farStart = instances.Length - DrawnFar;
+                if (DrawnNear > 0) instanceBuffer.SetData(instances, 0, 0, DrawnNear);
+                if (DrawnFar > 0) instanceBuffer.SetData(instances, farStart, farStart, DrawnFar);
                 args[0] = new GraphicsBuffer.IndirectDrawIndexedArgs
                 {
-                    indexCountPerInstance = asset.Mesh.GetIndexCount(0), instanceCount = (uint)DrawnInfantry,
+                    indexCountPerInstance = asset.Mesh.GetIndexCount(0), instanceCount = (uint)DrawnNear,
                     startIndex = asset.Mesh.GetIndexStart(0), baseVertexIndex = asset.Mesh.GetBaseVertex(0), startInstance = 0,
                 };
+                if (farAsset != null)
+                    args[1] = new GraphicsBuffer.IndirectDrawIndexedArgs
+                    {
+                        indexCountPerInstance = farAsset.Mesh.GetIndexCount(0), instanceCount = (uint)DrawnFar,
+                        startIndex = farAsset.Mesh.GetIndexStart(0), baseVertexIndex = farAsset.Mesh.GetBaseVertex(0), startInstance = (uint)farStart,
+                    };
                 argsBuffer.SetData(args);
                 material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
-                ShadowsThisFrame = CastShadows && (long)DrawnInfantry * asset.Mesh.vertexCount * 2 <= LodTiers.VertexBudget;
+                long farVerts = farAsset != null ? (long)DrawnFar * farAsset.Mesh.vertexCount : 0;
+                ShadowsThisFrame = CastShadows && (long)DrawnNear * asset.Mesh.vertexCount * 2 + farVerts <= LodTiers.VertexBudget;   // only the near tier casts
+                VerticesThisFrame = (long)DrawnNear * asset.Mesh.vertexCount * (ShadowsThisFrame ? 2 : 1) + farVerts;
                 var rp = new RenderParams(material)
                 {
                     worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true,
                     matProps = Props(),
                 };
-                Graphics.RenderMeshIndirect(rp, asset.Mesh, argsBuffer, 1);
+                if (DrawnNear > 0) Graphics.RenderMeshIndirect(rp, asset.Mesh, argsBuffer, 1, 0);
+                if (DrawnFar > 0)
+                {
+                    if (farProps == null) farProps = new MaterialPropertyBlock();
+                    farProps.SetBuffer("_Instances", instanceBuffer); farProps.SetBuffer("_RowTable", farRowBuffer);
+                    var far = new RenderParams(farMaterial) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = farProps };
+                    Graphics.RenderMeshIndirect(far, farAsset.Mesh, argsBuffer, 1, 1);
+                }
             }
             if (DrawnVehicles > 0) DrawVehicles(bounds);
         }
 
-        MaterialPropertyBlock props;
+        MaterialPropertyBlock props, farProps;
         MaterialPropertyBlock Props()
         {
             if (props == null) props = new MaterialPropertyBlock();
@@ -174,7 +211,8 @@ namespace TW.Presentation.Units
             public NativeArray<int> Counts;
             [ReadOnly] public NativeArray<float4> Planes;
             public bool Cull;
-            public float Radius;
+            public float Radius, FarSq;
+            public float3 CamPos;
 
             bool Visible(float3 p)
             {
@@ -186,7 +224,7 @@ namespace TW.Presentation.Units
 
             public void Execute()
             {
-                int n = 0, v = 0;
+                int n = 0, v = 0, far = 0, last = Instances.Length - 1;
                 for (int i = 0; i < PoseCount; i++)
                 {
                     var p = Poses[i];
@@ -198,12 +236,13 @@ namespace TW.Presentation.Units
                         Vehicles[v++] = new float4(p.Pos.x, y, p.Pos.z, (p.Yaw + 10f) * (p.Team == 0 ? 1f : -1f));
                         continue;
                     }
-                    Instances[n++] = new VatInstance
+                    bool distant = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;
+                    Instances[distant ? last - far++ : n++] = new VatInstance
                     {
                         Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = p.AnimRow, AnimT = p.AnimT, Tint = p.Team, Scale = Scale,
                     };
                 }
-                Counts[0] = n; Counts[1] = v;
+                Counts[0] = n; Counts[1] = v; Counts[2] = far;
             }
         }
 
@@ -240,7 +279,7 @@ namespace TW.Presentation.Units
         void OnDestroy()
         {
             Release();
-            rowBuffer?.Dispose(); argsBuffer?.Dispose();
+            rowBuffer?.Dispose(); farRowBuffer?.Dispose(); argsBuffer?.Dispose();
         }
     }
 }

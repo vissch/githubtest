@@ -37,6 +37,14 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   order buttons anchored to each owned trench); `TestPanel` is the debug drawer behind the top-right button.
 - The project compiles under 6000.0.50f1 and `unity test` passes EditMode and PlayMode. Entities / Entities Graphics
   were removed; the replay format is v2 (hash content changed again at M1, see docs/02 change log).
+- **Standard view (owner, 2026-09-21): everything on screen is built for it.** 25 degree lens, 25 degrees above the
+  horizon, zoom 30 (camera about 78 m from its focus, 33 m up), looking across the front and turned 21 degrees towards
+  the enemy. `TacticalCamera` follows the battle along Z: behind your men +21 degrees, between the sides square-on and
+  17 degrees flat, beyond the enemy -21 degrees; far zoom lifts to 62 degrees. This replaces the earlier near-top-down
+  "75 % like the 2D game" view. Men are about 60-90 pixels tall in it, so unit art budget is now: full model
+  1,200-1,500 vertices (ceiling 2,000), far model 250-400 (used beyond `VATRenderer.LodDistance` = 170 m; the box
+  soldier stands in). Measured worst case, 2,900 units with 650 in view: 1.2 M unit vertices with shadows, under the
+  1.5 M budget. Battlefield width is 180 m (owner: 300 was too wide to fill).
 - Decisions that shape everything after this: **3,000 units maximum** (2026-09-20; the stress test runs at that count);
   Windows x64 only; online multiplayer deferred until after Mission 3;
   two developers, one can do art; the M1.5 fun gate still decides whether the design holds.

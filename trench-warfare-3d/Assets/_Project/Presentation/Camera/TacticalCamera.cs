@@ -1,12 +1,15 @@
 // Phase: B1 (implemented)
-// Near-top-down camera matching the 2D game's view at ~75 %: the battle axis (world Z) runs left → right on
-// screen (you on the left, the enemy on the right), trenches run vertically, pitch 72° keeps a slight 3D feel.
-// WASD/arrows or edge scroll to pan, wheel to zoom, Q/E to rotate a little around the base yaw. Bounds come from
-// the map size on SimHost.
-// Super zoom: below CloseZoom the camera keeps going in to ZoomMin, tilting down towards ClosePitch and opening the
-// lens to CloseFov, so the last stretch of the wheel ends among the men instead of above them. Z jumps there and back.
-// Right mouse drag turns and tilts the view freely, middle mouse drag pans, Home puts the view back. Panning speeds
-// up the longer a direction is held (PanAccel times faster after PanAccelSeconds).
+// The standard view (owner, 2026-09-21; everything on screen is built for it): a 25 degree lens 25 degrees above the
+// horizon, 30 m of zoom, looking across the front and turned 21 degrees towards the enemy, so you stand behind your
+// own men and see their backs. The view follows the battle along the front axis (world Z):
+//   behind your own men   -> turned towards the enemy (+StandardYaw), Pitch
+//   between the two sides -> square to the front (0), flatter (FlatPitch)
+//   beyond the enemy      -> turned back towards your side (-StandardYaw), Pitch
+// "Your men" and "the enemy" are the mean Z of each side's living units, so the turning point moves with the fight.
+// Zooming far out lifts the view to OverviewPitch and takes the turn out; the last stretch of zooming in (below
+// CloseZoom) drops to ClosePitch and opens the lens, ending among the men. Z jumps there and back.
+// WASD/arrows or edge scroll pan and speed up while held, the wheel zooms, Q/E turn a little, right mouse drag turns
+// and tilts freely on top of all this, middle mouse drag pans, Home puts the view back.
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TW.Presentation;
@@ -21,25 +24,38 @@ namespace TW.Presentation.Tactical
         public float PanAccel = 3.5f, PanAccelSeconds = 2f;
         [Tooltip("Degrees per pixel of right-mouse drag.")]
         public float LookSpeed = 0.22f;
-        public float PitchMin = 18f, PitchMax = 89f;
+        public float PitchMin = 8f, PitchMax = 89f;
         public float EdgeScrollMargin = 12f;
         [Tooltip("Pan when the cursor touches the screen edge. Off in the editor: the Game view is a panel, and a cursor resting on its border drags the view into the map corner.")]
         public bool EdgeScroll = true;
         public float ZoomMin = 6f, ZoomMax = 600f;
         [Tooltip("Below this zoom the view tilts and widens towards ClosePitch / CloseFov (super zoom).")]
         public float CloseZoom = 15f;
-        public float ClosePitch = 32f, CloseFov = 42f, CloseYawLimit = 100f;
-        public float Zoom = 50f;
-        [Tooltip("90 = straight down. 72 keeps a slight 3D feel over the 2D game's top-down view.")]
-        public float Pitch = 72f;
+        public float ClosePitch = 13f, CloseFov = 42f, CloseYawLimit = 100f;
+        public float Zoom = 30f;
+        [Tooltip("Degrees above the horizon in the standard view (behind your own men, or beyond the enemy).")]
+        public float Pitch = 25f;
+        [Tooltip("Turn towards the enemy when the view is behind your own men; mirrored when it is beyond the enemy.")]
+        public float StandardYaw = 21f;
+        [Tooltip("Pitch when the view sits between the two sides.")]
+        public float FlatPitch = 17f;
+        [Tooltip("Zoomed far out the view lifts to this pitch and loses its turn.")]
+        public float OverviewPitch = 62f;
+        public float OverviewFromZoom = 60f, OverviewFullZoom = 240f;
+        [Tooltip("How fast the view eases to a new angle, per second.")]
+        public float FollowRate = 2.2f;
         [Tooltip("Yaw that puts world +Z (the enemy) on screen-right, as in the 2D game.")]
         public float BaseYaw = -90f;
         public float YawLimit = 15f;
         [Tooltip("Narrow lens = flatter, closer to the 2D game's orthographic look. Zoom keeps its meaning (visible height of a 60 degree lens at that distance).")]
         public float Fov = 25f;
         public float RotateSpeed = 60f;
-        public Vector2 Focus = new Vector2(90f, 104f);   // both of your trenches in view: men arrive at the left one
+        public Vector2 Focus = new Vector2(77f, 64f);   // the owner's standard view: on your rear trench, where men arrive
         float yaw, zoomBeforeSuper, pitchOffset, panHeld;
+        float autoYaw, autoPitch, mineZ, theirsZ, nextArmies;
+        bool autoPrimed;
+        /// <summary>Where the view sits between the sides: 0 behind your men, 0.5 between, 1 beyond the enemy (for the HUD and tests).</summary>
+        public float Along { get; private set; }
         bool freeLook;   // the right mouse button has turned the view past the Q/E limits
         Camera cam;
 
@@ -52,6 +68,33 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Snap to a point on the map at a zoom distance; used by the test panel's presets.</summary>
         public void Frame(Vector2 focus, float zoom) { Focus = focus; Zoom = Mathf.Clamp(zoom, ZoomMin, ZoomMax); yaw = 0f; pitchOffset = 0f; freeLook = false; }
+
+        /// <summary>The angle the battle asks for at this focus and zoom, eased in.</summary>
+        void FollowBattle(float close)
+        {
+            if (Host != null && Host.Local != null && Time.unscaledTime >= nextArmies)
+            {
+                nextArmies = Time.unscaledTime + 0.25f;
+                var w = Host.Local.World;
+                float length = Host.Local.Map.SizeMeters.y, sumA = 0f, sumB = 0f; int a = 0, b = 0;
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    if ((w.Flags[i] & (uint)TW.Sim.UnitFlags.Alive) == 0) continue;
+                    if (w.Team[i] == 0) { sumA += w.Position[i].z; a++; } else { sumB += w.Position[i].z; b++; }
+                }
+                mineZ = a > 0 ? sumA / a : length * 0.2f;      // nobody on the field yet: the trench lines
+                theirsZ = b > 0 ? sumB / b : length * 0.8f;
+                if (theirsZ < mineZ + 40f) { float mid = (mineZ + theirsZ) * 0.5f; mineZ = mid - 20f; theirsZ = mid + 20f; }   // a melee: keep a span to turn across
+            }
+            Along = Mathf.InverseLerp(mineZ, theirsZ, Focus.y);
+            float side = 1f - 2f * Mathf.SmoothStep(0f, 1f, Along);   // +1 behind your men, 0 between, -1 beyond the enemy
+            float overview = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(OverviewFromZoom, OverviewFullZoom, Zoom));
+            float wantYaw = StandardYaw * side * (1f - overview);
+            float wantPitch = Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(Pitch, FlatPitch, 1f - Mathf.Abs(side)), OverviewPitch, overview), ClosePitch, close);
+            float k = autoPrimed ? 1f - Mathf.Exp(-FollowRate * Time.unscaledDeltaTime) : 1f;
+            autoYaw = Mathf.Lerp(autoYaw, wantYaw, k); autoPitch = Mathf.Lerp(autoPitch, wantPitch, k);
+            autoPrimed = true;
+        }
 
         void LateUpdate()
         {
@@ -101,7 +144,7 @@ namespace TW.Presentation.Tactical
             bool steadyPan = keysPan || (pan.sqrMagnitude > 0f && (mouse == null || !mouse.middleButton.isPressed));   // keys or edge scroll, not a drag
             panHeld = steadyPan ? panHeld + Time.unscaledDeltaTime : 0f;
             float accel = steadyPan ? Mathf.Lerp(1f, PanAccel, Mathf.SmoothStep(0f, 1f, panHeld / Mathf.Max(0.01f, PanAccelSeconds))) : 1f;
-            var rot = Quaternion.Euler(0f, BaseYaw + yaw, 0f);
+            var rot = Quaternion.Euler(0f, BaseYaw + autoYaw + yaw, 0f);
             Vector3 fwd = rot * Vector3.forward, right = rot * Vector3.right;
             Vector3 delta = (fwd * pan.y + right * pan.x) * PanSpeed * accel * Time.unscaledDeltaTime * (Zoom / 90f);
             Focus += new Vector2(delta.x, delta.z);
@@ -113,9 +156,10 @@ namespace TW.Presentation.Tactical
             }
             float fov = Mathf.Lerp(Fov, CloseFov, close);
             if (cam != null) { cam.fieldOfView = fov; cam.nearClipPlane = 0.2f; }
-            float pitch = Mathf.Clamp(Mathf.Lerp(Pitch, ClosePitch, close) + pitchOffset, PitchMin, PitchMax);
-            pitchOffset = pitch - Mathf.Lerp(Pitch, ClosePitch, close);   // do not wind up past the limits
-            var camRot = Quaternion.Euler(pitch, BaseYaw + yaw, 0f);
+            FollowBattle(close);
+            float pitch = Mathf.Clamp(autoPitch + pitchOffset, PitchMin, PitchMax);
+            pitchOffset = pitch - autoPitch;   // do not wind up past the limits
+            var camRot = Quaternion.Euler(pitch, BaseYaw + autoYaw + yaw, 0f);
             transform.rotation = camRot;
             float distance = Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
             float ground = Host != null && Host.Local != null ? Host.Local.Map.Height.Sample(Focus.x, Focus.y) : 0f;
