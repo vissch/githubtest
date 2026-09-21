@@ -21,6 +21,12 @@ namespace TW.Presentation
             return tx + tz <= 1f ? a + (b - a) * tx + (c - a) * tz : d + (c - d) * (1f - tx) + (b - d) * (1f - tz);
         }
     }
+    /// <summary>The scene's mood, set by Atmosphere; effects in other assemblies (tracers) read it.</summary>
+    public static class SceneMood
+    {
+        public static bool Night;
+    }
+
     public static class RenderGround
     {
         public static MapData Map;

@@ -48,7 +48,9 @@ namespace TW.Presentation.Terrain
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             var hf = map.Height;
-            Surface = new BattlefieldSurface(map);
+            var mood = GetComponent<Atmosphere>();
+            flooding = mood == null || mood.Look == Atmosphere.Mood.Night ? .78f : 0f;   // the night look is a soaked field
+            Surface = new BattlefieldSurface(map, flooding);
             renderGrid = new RenderGroundGrid { Width = Mathf.RoundToInt(hf.Width / GridStep) + 1, Length = Mathf.RoundToInt(hf.Length / GridStep) + 1, Step = GridStep };
             renderGrid.Heights = new Unity.Collections.NativeArray<float>(renderGrid.Width * renderGrid.Length, Unity.Collections.Allocator.Persistent);
             var old = GetComponent<MeshRenderer>();   // scenes built for the single-mesh version
@@ -120,8 +122,10 @@ namespace TW.Presentation.Terrain
             for (int x = 0; x < c.W; x++)
             {
                 float wx = c.X0 + x * GridStep, wz = c.Z0 + z * GridStep;
-                c.Verts[z * c.W + x] = new Vector3(wx, Surface.VisualHeight(wx, wz), wz);
-                renderGrid.Heights[Mathf.RoundToInt(wz / GridStep) * renderGrid.Width + Mathf.RoundToInt(wx / GridStep)] = c.Verts[z * c.W + x].y;
+                float bed = Surface.Bed(wx, wz), top = Surface.VisualHeight(wx, wz);
+                c.Verts[z * c.W + x] = new Vector3(wx, top, wz);
+                // men and debris stand on the bed of a flooded hole, but never deeper than the knee
+                renderGrid.Heights[Mathf.RoundToInt(wz / GridStep) * renderGrid.Width + Mathf.RoundToInt(wx / GridStep)] = Mathf.Max(bed, top - .42f);
                 float dx = Surface.VisualHeight(wx + .25f, wz) - Surface.VisualHeight(wx - .25f, wz), dz = Surface.VisualHeight(wx, wz + .25f) - Surface.VisualHeight(wx, wz - .25f);
                 c.Normals[z * c.W + x] = new Vector3(-dx, .5f, -dz).normalized;
             }
@@ -526,6 +530,7 @@ namespace TW.Presentation.Terrain
             return tex;
         }
 
+        float flooding;  // 0 dry day .. 1: share of shell holes and trench bays under water
         float[] churn;   // per nav cell: how trodden the ground is, 1 at a ladder or ramp, fading over 5 m
 
         /// <summary>Where men climb in and out of the trenches the ground is beaten to a dark, slick mess.</summary>
@@ -678,6 +683,13 @@ namespace TW.Presentation.Terrain
                 // Actual duckboards are instanced in the kit; the banks remain earth rather than striped wood.
                 c = Color.Lerp(Ink, Tone(wx, wz), 0.70f);
                 c.a = 1f;
+                // soaked field: long stretches of the trench floor stand in water, shallow, under and beside the duckboards
+                if (flooding > 0f)
+                {
+                    float bay = Mathf.PerlinNoise(wx * .07f + 211f, wz * .07f + 97f) + .25f * Mathf.PerlinNoise(wx * .9f, wz * .9f + 40f);
+                    float under = (bay - (1.02f - flooding * .62f)) / .16f;
+                    if (under > 0f) { c = Puddle; c.a = .4f * (1f - Mathf.Clamp01(under) * .45f); }
+                }
                 return c;
             }
 
@@ -777,7 +789,7 @@ namespace TW.Presentation.Terrain
             float px = wx + 2f * Mathf.PerlinNoise(wx * 0.27f + 8f, wz * 0.27f);
             float pz = wz + 2f * Mathf.PerlinNoise(wx * 0.27f, wz * 0.27f + 31f);
             float pool = Mathf.PerlinNoise(px * 0.20f + 133f, pz * 0.20f);
-            float wetness = pool + 0.08f * mud + (inside ? 0.10f : 0f);
+            float wetness = pool + 0.08f * mud + (inside ? 0.10f : 0f) + flooding * .075f;
             if (map.WaterLevel > MapData.NoWater) wetness += Mathf.Clamp01(1f - (h - map.WaterLevel) / 0.5f) * 0.45f;
             if (wetness > 0.82f)
             {
@@ -796,6 +808,8 @@ namespace TW.Presentation.Terrain
 
             // alpha, as TW/Toon reads it: 0.4 .. 0 standing water from its edge to its deepest, 0.5 liquid mud, below 1 a sheen
             c.a = water ? .4f * (1f - Mathf.Clamp01((wetness - .82f) / .09f)) : silt ? .5f : 1f - sheen;
+            float poolDepth = flooding > 0f ? Surface.PoolDepth(wx, wz) : 0f;
+            if (poolDepth > .01f) { c = Puddle; c.a = .4f * (1f - Mathf.Clamp01(poolDepth / .7f)); }   // a flooded shell hole: the river's bands by its own depth
             return c;
         }
     }

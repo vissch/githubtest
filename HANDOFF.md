@@ -91,6 +91,11 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   flashes and shell bursts, a star shell every 22-40 s, and additive glow cards (`Shaders/Glow_URP.shader`) for lamp
   halos and horizon fires. Per-object additional light limit raised 4 -> 8 in `Settings/TW-URP.asset`; the renderer
   stays Forward. Unmeasured on the GTX 1050.
+  Night, second pass: soaked ground is darker and throws a highlight from every clod (`_TWWet` in TW/Toon); most
+  shell holes stand full of water (`BattlefieldSurface.Flooding`, `Bed` / `PoolDepth`: the drawn surface is the flat
+  pool, `RenderGround` keeps the bed at most 0.42 m under it so men wade and debris half sinks; presentation only);
+  long stretches of trench floor are flooded under the duckboards; more puddles; at night each side's tracers are
+  over-bright green / red (`SceneMood.Night` in Presentation.Core, read by `CombatFx`).
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

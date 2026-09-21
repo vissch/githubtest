@@ -103,6 +103,7 @@ Shader "TW/Toon (URP)"
                     slope = (d1.gb - 0.5) * near;
                     gloss = max(gloss, _TWWet.x * _DetailBump * (0.30 + 0.25 * saturate(0.5 - d1.r * 1.0 + 0.3)));   // soaked ground: every surface with relief shines a little, the dark crevices most
                     half dry = 1.0 - saturate(gloss * 2.0 - 1.0);   // only standing water is smooth
+                    albedo *= 1.0 - 0.55 * _TWWet.x * _DetailBump * dry;   // soaked earth is darker: black mud under the moon
                     albedo *= 1.0 + tone * 2.0 * _DetailStrength * dry;
                     half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
                     albedo *= 1.0 + smoothstep(0.035, 0.06, relief) * 0.13 - smoothstep(0.03, 0.055, -relief) * 0.20;
@@ -122,7 +123,7 @@ Shader "TW/Toon (URP)"
                         float2 uvr = i.positionWS.xz * 0.19 + float2(_Time.y * 0.021, _Time.y * 0.013);
                         half2 ripple = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uvr).gb - 0.5;
                         half still = saturate(gloss * 2.0 - 1.0);
-                        n = normalize(n + float3(lerp(slope * 0.35, ripple * 0.22, still), 0).xzy);
+                        n = normalize(n + float3(lerp(slope * (0.35 + 0.45 * _TWWet.x), ripple * 0.22, still), 0).xzy);   // soaked: every clod throws its own highlight
                     }
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
@@ -131,7 +132,8 @@ Shader "TW/Toon (URP)"
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                     // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
-                    color += pow(saturate(dot(r, mainLight.direction)), 14.0) * gloss * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    half toLight = saturate(dot(r, mainLight.direction));
+                    color += (pow(toLight, 14.0) * 0.4 + smoothstep(0.93, 0.96, toLight) * 0.9) * gloss * (1.0 - saturate(gloss * 2.0 - 1.0) * 0.72) * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;   // the sheen is the mud's; still water only mirrors
                 }
                 color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS);
                 color += _Emission.rgb;

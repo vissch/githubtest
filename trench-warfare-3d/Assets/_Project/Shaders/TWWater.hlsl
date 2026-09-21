@@ -36,7 +36,8 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
     shore = 1.0 - smoothstep(0.015, 0.05, depth);
     float lap = frac(depth * 3.2 + _Time.y * 0.11 + noise * 0.35);
     half ring = smoothstep(0.0, 0.10, lap) * (1.0 - smoothstep(0.10, 0.22, lap)) * (1.0 - smoothstep(0.12, 0.62, depth)) * ringAmount;
-    return lerp(albedo, foam, max(max(shore * 0.85, ring * 0.5), TWRings(xz) * 0.75));
+    half3 pale = foam * lerp(half3(1, 1, 1), TWShadeTint() * 1.6, 0.7);   // under a night mood the pale lines dim with everything else
+    return lerp(albedo, pale, max(max(shore * 0.85, ring * 0.5), TWRings(xz) * 0.75));
 }
 
 #endif

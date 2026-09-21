@@ -15,7 +15,7 @@ namespace TW.Presentation.Terrain
             public bool Link;
             public Quaternion Rotation => Quaternion.LookRotation(Outward);
         }
-        public struct Hollow { public Vector2 Center; public float Radius, Depth; }
+        public struct Hollow { public Vector2 Center; public float Radius, Depth, Level; }   // Level: water surface, or very low when dry
         public struct Sample
         {
             public float Height, Slope, Concavity, BankDistance, Wetness;
@@ -28,8 +28,12 @@ namespace TW.Presentation.Terrain
         readonly int[] nearEdge, nearHollow;
         readonly int width, length;
 
-        public BattlefieldSurface(MapData map)
+        /// <summary>Share of shell holes that stand full of water, 0..1 (the night look floods most of them).</summary>
+        public readonly float Flooding;
+
+        public BattlefieldSurface(MapData map, float flooding = 0f)
         {
+            Flooding = flooding;
             this.map = map; width = map.Height.Width; length = map.Height.Length;
             nearEdge = new int[width * length]; nearHollow = new int[width * length];
             for (int i = 0; i < nearEdge.Length; i++) nearEdge[i] = nearHollow[i] = -1;
@@ -112,7 +116,28 @@ namespace TW.Presentation.Terrain
             return weight;
         }
 
+        /// <summary>The drawn surface: the bed, or the flat water standing in a flooded shell hole.</summary>
         public float VisualHeight(float x, float z)
+        {
+            float bed = Bed(x, z);
+            return bed + Mathf.Max(0f, PoolDepth(x, z, bed));
+        }
+
+        /// <summary>Depth of standing water in a flooded shell hole at this point, 0 or less when there is none.</summary>
+        public float PoolDepth(float x, float z) => PoolDepth(x, z, Bed(x, z));
+
+        float PoolDepth(float x, float z, float bed)
+        {
+            if (Flooding <= 0f || x <= .5f || z <= .5f || x >= width - .5f || z >= length - .5f) return 0f;
+            int index = nearHollow[Index(x, z)];
+            if (index < 0) return 0f;
+            var hollow = Hollows[index];
+            if ((new Vector2(x, z) - hollow.Center).magnitude > hollow.Radius * 1.02f) return 0f;   // the pool stays inside its own rim
+            return hollow.Level - bed;
+        }
+
+        /// <summary>The ground itself, under any standing water: men wade on it, debris lies on it.</summary>
+        public float Bed(float x, float z)
         {
             float height = map.Height.Sample(x, z);
             if (x <= .5f || z <= .5f || x >= width - .5f || z >= length - .5f) return height;
@@ -175,7 +200,10 @@ namespace TW.Presentation.Terrain
                     if (shoulder - h > depth * .86f) break;
                 }
                 int mark = Hollows.Count;
-                Hollows.Add(new Hollow { Center = new Vector2(wx, wz), Radius = radius, Depth = depth });
+                // most holes hold water, each to its own level; hashed on the cell so a hole keeps its water when others land
+                uint hash = (uint)x * 0x9E3779B1u ^ (uint)z * 0x85EBCA77u; hash ^= hash >> 15; hash *= 0x2C1B3C6Du; hash ^= hash >> 12;
+                float roll = (hash & 0xFFFF) / 65535f, fill = .40f + .28f * ((hash >> 16) & 0xFF) / 255f;
+                Hollows.Add(new Hollow { Center = new Vector2(wx, wz), Radius = radius, Depth = depth, Level = roll < Flooding ? h + depth * fill : -1000f });
                 for (int zz = Mathf.Max(0, z - 8); zz <= Mathf.Min(length - 1, z + 8); zz++)
                 for (int xx = Mathf.Max(0, x - 8); xx <= Mathf.Min(width - 1, x + 8); xx++)
                 {

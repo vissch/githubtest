@@ -64,8 +64,8 @@ namespace TW.Presentation.Terrain
             KeyEuler = new Vector3(30f, 122f, 0f);   // low, and coming toward the standard view: rims, long shadows, glints on the wet
             Ambient = new Color(0.10f, 0.13f, 0.20f);
             ShadeTint = new Color(0.20f, 0.29f, 0.56f);
-            SkyMirror = new Color(0.27f, 0.35f, 0.52f);
-            Wetness = 0.80f; WetGlint = 0.55f;
+            SkyMirror = new Color(0.44f, 0.54f, 0.74f);
+            Wetness = 0.85f; WetGlint = 0.75f;
             Depth = 230f;
             Mist = new Color(0.17f, 0.23f, 0.35f); MistDensity = 0.55f;
             Bank = new Color(0.10f, 0.14f, 0.22f);
@@ -76,7 +76,7 @@ namespace TW.Presentation.Terrain
         void Start()
         {
             if (Look == Mood.Night) ApplyNight();
-            Current = Look;
+            Current = Look; SceneMood.Night = Look == Mood.Night;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = Haze;

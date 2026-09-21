@@ -144,8 +144,8 @@ namespace TW.Presentation.Terrain
             for (int k = 0; k < 10; k++)
             {
                 float a = Hash(k, 3), b = Hash(k, 5);
-                Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 2.5f + 4f * b, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 4f + 5f * b, len + 30f + 60f * a);
-                centres.Add(p); shapes.Add(new Vector4(9f + 12f * b, .55f, k * .31f, .35f)); colors.Add(new Color(1f, .42f, .13f, .55f + .3f * a));
+                Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 1.2f + 1.6f * b, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 1.5f + 2f * b, len + 30f + 60f * a);
+                centres.Add(p); shapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); colors.Add(new Color(1f, .42f, .13f, .30f + .2f * a));   // low and small: a glow on the ground far off, not a sun
             }
             foreach (var l in lanterns) lanternBase.Add(l.intensity);
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
