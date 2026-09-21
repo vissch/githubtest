@@ -1,5 +1,7 @@
 // Phase: P0 (implemented) — Pose stream producer, see docs/02-contracts.md
 // Captures two consecutive tick states and interpolates them at display rate into UnitPose[].
+// A slot that was (re)spawned since the last capture starts at its own position: slots are reused, and without this a
+// fresh man is drawn sliding in from wherever the slot's last owner died.
 using System;
 using Unity.Burst;
 using Unity.Collections;
@@ -16,6 +18,7 @@ namespace TW.Presentation
         NativeArray<byte> stance, archetype, team;
         NativeArray<uint> flags;
         NativeArray<int> target;
+        NativeArray<ushort> generation;
         public NativeArray<UnitPose> Poses;
         public NativeArray<int> PoseSlot;   // slot index per pose (for picking / UI)
         public int PoseCount;
@@ -33,6 +36,7 @@ namespace TW.Presentation
             team = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             flags = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             target = new NativeArray<int>(maxSlots, Allocator.Persistent);
+            generation = new NativeArray<ushort>(maxSlots, Allocator.Persistent);
             Poses = new NativeArray<UnitPose>(maxSlots, Allocator.Persistent);
             PoseSlot = new NativeArray<int>(maxSlots, Allocator.Persistent);
         }
@@ -53,6 +57,11 @@ namespace TW.Presentation
             NativeArray<byte>.Copy(w.Team, team, count);
             NativeArray<uint>.Copy(w.Flags, flags, count);
             NativeArray<int>.Copy(w.TargetSlot, target, count);
+            for (int i = 0; i < count; i++)
+            {
+                if (generation[i] == w.Generation[i]) continue;
+                generation[i] = w.Generation[i]; prevPos[i] = curPos[i]; prevYaw[i] = curYaw[i];
+            }
             if (!primed)
             {
                 NativeArray<float3>.Copy(curPos, prevPos, count);
@@ -124,7 +133,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             prevPos.Dispose(); curPos.Dispose(); prevYaw.Dispose(); curYaw.Dispose(); stance.Dispose(); archetype.Dispose();
-            team.Dispose(); flags.Dispose(); target.Dispose(); Poses.Dispose(); PoseSlot.Dispose();
+            team.Dispose(); flags.Dispose(); target.Dispose(); generation.Dispose(); Poses.Dispose(); PoseSlot.Dispose();
         }
     }
 }

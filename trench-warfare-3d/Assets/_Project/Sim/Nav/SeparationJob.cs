@@ -1,6 +1,7 @@
 // Phase: A1 (implemented)
 // Soft repulsion between infantry within 2r, plus avoidance of vehicles. Each slot reads its own 3x3 hash buckets
 // and the (short) vehicle list and writes only its own velocity adjustment, so the job is parallel and deterministic.
+// A garrison and a man outside the trench never push each other (the trench wall is between them).
 // Vehicles take no push: they are moved by VehicleKinematicsSystem and shove infantry, not the other way round.
 using Unity.Burst;
 using Unity.Collections;
@@ -59,6 +60,9 @@ namespace TW.Sim.Nav
                     do
                     {
                         if (j == i || (Flags[j] & (uint)UnitFlags.Vehicle) != 0) continue;
+                        // a garrison and a man on the surface are on either side of the trench wall: no push through it,
+                        // or the men lining the wall hold an arrival off the ladder for good
+                        if ((garrison >= 0 && (Flags[j] & (uint)UnitFlags.InTrench) == 0) || (TrenchId[j] >= 0 && (f & (uint)UnitFlags.InTrench) == 0)) continue;
                         float3 d = p - Position[j];
                         d.y = 0f;
                         float dist = SimMath.Length(d);
