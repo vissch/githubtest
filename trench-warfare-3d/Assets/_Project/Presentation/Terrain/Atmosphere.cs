@@ -24,7 +24,7 @@ namespace TW.Presentation.Terrain
         public Color Mist = new Color(0.74f, 0.76f, 0.75f);
         [Range(0f, 1f)] public float MistDensity = 0.55f;
         [Tooltip("Metres above the water table where the mist ends, and how deep it takes to reach full density.")]
-        public float MistTop = 1.0f, MistDepth = 1.3f;
+        public float MistTop = 2.3f, MistDepth = 2.2f;
         [Header("Grade")]
         public bool Grade = true;
         Camera cam;
@@ -88,7 +88,7 @@ namespace TW.Presentation.Terrain
             RenderSettings.fogEndDistance = toFocus * StartFactor + Depth + toFocus;
 
             float water = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
-            Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.9f, 1f / Mathf.Max(10f, toFocus * 0.9f)));
+            Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
         }
     }
