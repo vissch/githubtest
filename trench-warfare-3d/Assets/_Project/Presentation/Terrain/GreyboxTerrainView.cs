@@ -459,6 +459,23 @@ namespace TW.Presentation.Terrain
                 if (seam < .10f) c = Color.Lerp(c, Ink, .72f);
                 else if (seam < .24f) c = Color.Lerp(c, MudPale, .7f);
             }
+            // Cart ruts and a trampled path run along every trench, just clear of the bank: two wheel lines a cart's
+            // width apart with a pale ridge squeezed up beside each, and a darker beaten strip where men walk. Broken
+            // up by noise so they fade in and out instead of ruling the field.
+            if (sample.BankDistance > 3.9f && sample.BankDistance < 7.6f && sample.Hollow < 0)
+            {
+                float wander = (Mathf.PerlinNoise(wx * .11f + 3f, wz * .11f + 47f) - .5f) * 1.4f;
+                float d = sample.BankDistance + wander;
+                float worn = Mathf.PerlinNoise(wx * .06f + 19f, wz * .06f + 7f);
+                if (worn > .34f)
+                {
+                    float wheel = Mathf.Min(Mathf.Abs(d - 5.3f), Mathf.Abs(d - 6.7f));
+                    if (wheel < .11f) c = Color.Lerp(c, Ink, .62f);
+                    else if (wheel < .26f) c = Color.Lerp(c, MudPale, .55f);
+                    else if (d > 5.3f && d < 6.7f) c = Color.Lerp(c, MudDark, .30f);
+                }
+                if (Mathf.Abs(d - 4.4f) < .34f && worn < .62f) c = Color.Lerp(c, MudDark, .42f);
+            }
             // shell holes, read from the ground itself so they are round: how far this point lies under the ground
             // 3 m around it. Dark inside, an ink rim, a pale lip of thrown earth (and a pale parapet along a trench).
             var hf = map.Height;
