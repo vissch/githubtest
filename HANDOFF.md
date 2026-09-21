@@ -45,6 +45,14 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   1,200-1,500 vertices (ceiling 2,000), far model 250-400 (used beyond `VATRenderer.LodDistance` = 170 m; the box
   soldier stands in). Measured worst case, 2,900 units with 650 in view: 1.2 M unit vertices with shadows, under the
   1.5 M budget. Battlefield width is 180 m (owner: 300 was too wide to fill).
+- **Visual standard (owner, 2026-09-21): a painted cartoon mudfield**, after the owner's two "Trench Tactics"
+  reference images: flat two-step shading with a dark ink outline, grey-brown mud in flat tones, pale grey puddles,
+  dark round shell holes with a pale lip, bare dead trees, fat sandbags, plank revetment, knife-rest wire, overcast
+  haze with dead trees and ruins on the horizon. In code: `Shaders/Toon_URP.shader` (ground, props; the soldier
+  shader has the same light, haze and outline), the ground painting in `GreyboxTerrainView.GroundColor` (3 texels a
+  metre, craters read from the heightfield), the skirt beyond the map edge, `Atmosphere` (haze, sky, key light) and
+  the prop meshes in `BattlefieldProps`. All meshes are still code-made stand-ins; real art should keep this palette
+  and line weight. Not done yet: dugouts and bunkers, explosion and muzzle-flash art, the HUD in the reference style.
 - Decisions that shape everything after this: **3,000 units maximum** (2026-09-20; the stress test runs at that count);
   Windows x64 only; online multiplayer deferred until after Mission 3;
   two developers, one can do art; the M1.5 fun gate still decides whether the design holds.

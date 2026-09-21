@@ -3,6 +3,7 @@
 // object-space position and signed normal. Per-instance data is a 32-byte record in a StructuredBuffer filled by
 // VATRenderer. _Lerp = 1 blends two frames (near), 0 samples the nearest frame (zoomed out). Loops wrap inside a row.
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it.
+// Look: the same two-step cartoon light, haze and ink outline as TW/Toon, so the men sit in the painted field.
 Shader "TW/VAT Infantry (URP)"
 {
     Properties
@@ -14,6 +15,8 @@ Shader "TW/VAT Infantry (URP)"
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
         _TeamColorA ("Team 0 cloth", Color) = (0.47, 0.40, 0.24, 1)
         _TeamColorB ("Team 1 cloth", Color) = (0.34, 0.38, 0.40, 1)
+        _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
+        _OutlineWidth ("Outline width (m)", Float) = 0.028
         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
     }
@@ -37,6 +40,7 @@ Shader "TW/VAT Infantry (URP)"
             float _VertexCount, _TotalFrames, _Lerp;
             float4 _TeamColorA, _TeamColorB;
             float4 _WoundCenter, _WoundRadii;
+            float4 _OutlineColor; float _OutlineWidth;
         CBUFFER_END
 
         struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; };
@@ -75,10 +79,11 @@ Shader "TW/VAT Infantry (URP)"
             #pragma fragment frag
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
@@ -90,6 +95,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.normalWS = a.normalWS;
                 o.color = v.color;
                 o.tint = a.tint;
+                o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
 
@@ -104,10 +110,35 @@ Shader "TW/VAT Infantry (URP)"
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
-                half ndl = saturate(dot(normalize(i.normalWS), mainLight.direction));
-                half3 color = albedo * (mainLight.color * (ndl * mainLight.shadowAttenuation) + half3(0.34, 0.36, 0.40));
-                return half4(color, 1.0);
+                half lit = (dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5) * lerp(0.35, 1.0, mainLight.shadowAttenuation);
+                half band = smoothstep(0.30, 0.34, lit) * 0.5 + smoothstep(0.58, 0.62, lit) * 0.5;
+                half3 color = albedo * lerp(half3(0.50, 0.47, 0.52), mainLight.color, band);
+                return half4(MixFog(color, i.fog), 1.0);
             }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Outline"
+            Tags { "LightMode"="SRPDefaultUnlit" }
+            Cull Front
+            HLSLPROGRAM
+            #pragma vertex vertOutline
+            #pragma fragment fragOutline
+            #pragma multi_compile_fog
+            struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; };
+            OutlineVaryings vertOutline(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
+            {
+                Animated a = Animate(vertexID, instanceID);
+                OutlineVaryings o;
+                float w = TransformWorldToHClip(a.positionWS).w;
+                float width = _OutlineWidth * clamp(w / 40.0, 1.0, 2.2);   // hold the line's weight as the man gets smaller
+                o.positionCS = TransformWorldToHClip(a.positionWS + a.normalWS * width);
+                o.fog = ComputeFogFactor(o.positionCS.z);
+                return o;
+            }
+            half4 fragOutline(OutlineVaryings i) : SV_Target { return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
             ENDHLSL
         }
 

@@ -1,4 +1,9 @@
 // Phase: B2 (implemented with code-made colours; textures and the GPU-displaced version come with the art pass)
+// Look (owner's visual target, 2026-09-21): a painted cartoon mudfield. The colour texture (2 texels a metre) is flat
+// tones of grey-brown mud cut by dark ink contours, pale puddles with an ink edge in the low and muddy ground, dark
+// shell holes with an ink rim and a pale lip, plank floors in the trenches; a tiling stroke texture adds the brush
+// marks up close. Shading is TW/Toon. Beyond the map edge the same mud runs on to the horizon (the skirt), and
+// Atmosphere adds the overcast haze, so the flat standard view never shows a void.
 // The ground. One mesh per 32 m chunk at the heightfield's 1 m resolution, normals taken from the heightfield so
 // chunks meet without seams. A crater re-reads only the chunks it touches. Colour is one texel per height cell:
 // churned earth with grass left on the higher ground, darker where it is mud or close to the water table, scorched
@@ -16,6 +21,7 @@ namespace TW.Presentation.Terrain
     {
         public SimHost Host;
         public const int ChunkMeters = 32;
+        const int Tpm = 3;   // colour texels per metre
 
         sealed class Chunk { public Mesh Mesh; public Vector3[] Verts; public Vector3[] Normals; public int X0, Z0, W, L; public bool Dirty; }
 
@@ -32,9 +38,7 @@ namespace TW.Presentation.Terrain
             var old = GetComponent<MeshRenderer>();   // scenes built for the single-mesh version
             if (old != null) old.enabled = false;
 
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            var mat = new Material(shader) { color = Color.white };
-            mat.SetFloat("_Smoothness", 0.08f);
+            var mat = Toon(Color.white);
             colorTex = BuildColorTexture(map);
             mat.SetTexture("_BaseMap", colorTex);
 
@@ -69,6 +73,8 @@ namespace TW.Presentation.Terrain
             }
 
             if (map.WaterLevel > MapData.NoWater) BuildWater(map);
+            BuildSkirt(map);
+            if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>();
             var props = GetComponent<BattlefieldProps>();
             if (props == null) props = gameObject.AddComponent<BattlefieldProps>();
             props.Host = Host;
@@ -87,10 +93,100 @@ namespace TW.Presentation.Terrain
             }
         }
 
+        static Texture2D strokes;
+
+        /// <summary>A ground material: toon shading, brush strokes in world space, no hull outline.</summary>
+        static Material Toon(Color color)
+        {
+            var mat = new Material(Shader.Find("TW/Toon (URP)")) { hideFlags = HideFlags.HideAndDontSave };
+            mat.SetColor("_BaseColor", color);
+            if (strokes == null) strokes = BuildStrokes();
+            mat.SetTexture("_DetailMap", strokes);
+            mat.SetFloat("_DetailScale", 1f / 12f);
+            mat.SetFloat("_DetailStrength", 0.22f);
+            mat.SetShaderPassEnabled("SRPDefaultUnlit", false);
+            return mat;
+        }
+
+        /// <summary>Tiling brush marks: short dark dashes and a few pale flecks on mid grey.</summary>
+        static Texture2D BuildStrokes()
+        {
+            const int n = 256;
+            var px = new Color32[n * n];
+            for (int i = 0; i < px.Length; i++) px[i] = new Color32(128, 128, 128, 255);
+            for (int k = 0; k < 420; k++)
+            {
+                int x = (int)(Grain(k, 11) * n), z = (int)(Grain(k, 23) * n), len = 4 + (int)(Grain(k, 37) * 9f);
+                float slope = Grain(k, 41) * 0.8f - 0.4f;
+                byte v = (byte)(Grain(k, 53) < 0.78f ? 70 : 176);
+                for (int t = 0; t < len; t++)
+                {
+                    int xx = (x + t) % n, zz = ((z + (int)(t * slope)) % n + n) % n;
+                    px[zz * n + xx] = new Color32(v, v, v, 255);
+                    if (v < 128) px[((zz + 1) % n) * n + xx] = new Color32(v, v, v, 255);
+                }
+            }
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4, hideFlags = HideFlags.HideAndDontSave };
+            tex.SetPixels32(px); tex.Apply(true, true);
+            return tex;
+        }
+
+        /// <summary>The land beyond the map: meets the edge heights, levels out over 30 m and runs to the horizon.</summary>
+        void BuildSkirt(MapData map)
+        {
+            var hf = map.Height;
+            float w = map.SizeMeters.x, l = map.SizeMeters.y;
+            const float far = 1500f, level = 1.6f;
+            float[] outs = { 0f, 4f, 10f, 18f, 30f, 60f, 140f, far };
+            var verts = new List<Vector3>(); var cols = new List<Color>(); var tris = new List<int>();
+            // side 0/1: along Z at x = 0 / w (these also cover the corners); side 2/3: along X at z = 0 / l
+            for (int side = 0; side < 4; side++)
+            {
+                bool alongZ = side < 2; bool high = (side & 1) == 1;
+                float from = alongZ ? -far : 0f, to = alongZ ? l + far : w, span = alongZ ? l : w;
+                var stops = new List<float> { from };
+                for (float t = 0f; t <= span; t += 4f) stops.Add(t);
+                if (alongZ) stops.Add(to); else stops.Add(span);
+                int row0 = verts.Count, cols_ = outs.Length;
+                foreach (float t in stops)
+                {
+                    float tc = Mathf.Clamp(t, 0.5f, span - 0.5f);
+                    float edge = alongZ ? hf.Sample(high ? w - 0.5f : 0.5f, tc) : hf.Sample(tc, high ? l - 0.5f : 0.5f);
+                    float beyond = alongZ ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
+                    for (int k = 0; k < cols_; k++)
+                    {
+                        float d = outs[k], blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Max(d, beyond) / 30f));
+                        float y = Mathf.Lerp(edge, level, blend);
+                        float off = high ? span2(alongZ, w, l) + d : -d;
+                        var v = alongZ ? new Vector3(off, y, t) : new Vector3(t, y, off);
+                        verts.Add(v); cols.Add(Tone(v.x, v.z));
+                    }
+                }
+                for (int r = 0; r < stops.Count - 1; r++)
+                for (int k = 0; k < cols_ - 1; k++)
+                {
+                    int a = row0 + r * cols_ + k, b = a + 1, c = a + cols_, d2 = c + 1;
+                    bool flip = alongZ == high;   // keep the faces up on all four sides
+                    if (flip) { tris.Add(a); tris.Add(c); tris.Add(b); tris.Add(b); tris.Add(c); tris.Add(d2); }
+                    else { tris.Add(a); tris.Add(b); tris.Add(c); tris.Add(b); tris.Add(d2); tris.Add(c); }
+                }
+            }
+            var mesh = new Mesh { name = "Skirt", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            mesh.SetVertices(verts); mesh.SetColors(cols); mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            var go = new GameObject("Skirt") { hideFlags = HideFlags.DontSave };
+            go.transform.SetParent(transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r2 = go.AddComponent<MeshRenderer>();
+            r2.sharedMaterial = Toon(Color.white); r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        static float span2(bool alongZ, float w, float l) => alongZ ? w : l;
+
         void BuildWater(MapData map)
         {
             var unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            var m = new Material(unlit) { color = new Color(0.20f, 0.24f, 0.22f, 0.82f) };
+            var m = new Material(unlit) { color = new Color(Puddle.r, Puddle.g, Puddle.b, 0.93f) };
             m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 0f); m.SetFloat("_ZWrite", 0f);
             m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
@@ -139,12 +235,13 @@ namespace TW.Presentation.Terrain
             float r = e.Scalar + 2f;
             int x0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + r));
             int z0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.z - r)), z1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(e.Pos.z + r));
-            for (int z = z0; z <= z1; z++)
-            for (int x = x0; x <= x1; x++)
+            for (int z = z0 * Tpm; z < (z1 + 1) * Tpm; z++)
+            for (int x = x0 * Tpm; x < (x1 + 1) * Tpm; x++)
             {
-                Color c = GroundColor(map, x, z);
-                float d = Vector2.Distance(new Vector2(x + 0.5f, z + 0.5f), new Vector2(e.Pos.x, e.Pos.z));
-                if (e.Type == TW.Sim.SimEventType.CraterStamp && d < e.Scalar * 1.25f) c = Color.Lerp(c, new Color(0.10f, 0.09f, 0.08f), 0.55f * (1f - d / (e.Scalar * 1.25f)));   // fresh burn
+                float wx = (x + 0.5f) / Tpm, wz = (z + 0.5f) / Tpm;
+                Color c = GroundColor(map, wx, wz);
+                float d = Vector2.Distance(new Vector2(wx, wz), new Vector2(e.Pos.x, e.Pos.z));
+                if (e.Type == TW.Sim.SimEventType.CraterStamp && d < e.Scalar * 1.25f) c = Color.Lerp(c, new Color(0.10f, 0.09f, 0.08f), 0.45f * (1f - d / (e.Scalar * 1.25f)));   // fresh burn
                 colorTex.SetPixel(x, z, c);
             }
             colorDirty = true;
@@ -158,11 +255,11 @@ namespace TW.Presentation.Terrain
 
         Texture2D BuildColorTexture(MapData map)
         {
-            int w = map.Height.Width, l = map.Height.Length;
+            int w = map.Height.Width * Tpm, l = map.Height.Length * Tpm;
             var tex = new Texture2D(w, l, TextureFormat.RGBA32, true) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
             var px = new Color[w * l];
             for (int z = 0; z < l; z++)
-            for (int x = 0; x < w; x++) px[z * w + x] = GroundColor(map, x, z);
+            for (int x = 0; x < w; x++) px[z * w + x] = GroundColor(map, (x + 0.5f) / Tpm, (z + 0.5f) / Tpm);
             Color[] teamTint = { new Color(0.55f, 0.45f, 0.25f), new Color(0.35f, 0.40f, 0.55f) };
             for (int o = 0; o < map.Objectives.Length; o++)
             {
@@ -172,10 +269,11 @@ namespace TW.Presentation.Terrain
                 {
                     int cell = map.ObjectiveCells[def.CellStart + k];
                     int nx = cell % map.NavWidth, nz = cell / map.NavWidth;
-                    for (int dz = 0; dz < 2; dz++) for (int dx = 0; dx < 2; dx++)
+                    int cellPx = (int)MapData.NavCellSize * Tpm;
+                    for (int dz = 0; dz < cellPx; dz++) for (int dx = 0; dx < cellPx; dx++)
                     {
-                        int i = (nz * 2 + dz) * w + nx * 2 + dx;
-                        if (i < px.Length) px[i] = Color.Lerp(px[i], teamTint[def.SideTeam & 1], 0.45f);
+                        int i = (nz * cellPx + dz) * w + nx * cellPx + dx;
+                        if (i < px.Length) px[i] = Color.Lerp(px[i], teamTint[def.SideTeam & 1], 0.30f);
                     }
                 }
             }
@@ -191,10 +289,10 @@ namespace TW.Presentation.Terrain
             return (h & 0xFFFF) / 65535f;
         }
 
-        /// <summary>How much of a layer lies around a height cell, 0..1: nav cells are 2 m blocks, this blends them.</summary>
-        static float Amount(MapData map, int x, int z, NavLayer bit)
+        /// <summary>How much of a layer lies around a point, 0..1: nav cells are 2 m blocks, this blends them.</summary>
+        static float Amount(MapData map, float wx, float wz, NavLayer bit)
         {
-            float fx = (x + 0.5f) / MapData.NavCellSize - 0.5f, fz = (z + 0.5f) / MapData.NavCellSize - 0.5f;
+            float fx = wx / MapData.NavCellSize - 0.5f, fz = wz / MapData.NavCellSize - 0.5f;
             int x0 = Mathf.FloorToInt(fx), z0 = Mathf.FloorToInt(fz);
             float tx = fx - x0, tz = fz - z0, sum = 0f;
             for (int dz = 0; dz < 2; dz++)
@@ -206,27 +304,60 @@ namespace TW.Presentation.Terrain
             return sum;
         }
 
-        /// <summary>The colour of one height cell from what the sim knows about it.</summary>
-        static Color GroundColor(MapData map, int x, int z)
-        {
-            var earth = new Color(0.34f, 0.27f, 0.19f);
-            var grass = new Color(0.33f, 0.38f, 0.22f);
-            var mud = new Color(0.24f, 0.19f, 0.13f);
-            var wet = new Color(0.17f, 0.15f, 0.11f);
-            var crater = new Color(0.21f, 0.18f, 0.14f);
-            var boards = new Color(0.30f, 0.22f, 0.15f);
-            var ladder = new Color(0.58f, 0.47f, 0.30f);
+        static readonly Color Ink = new Color(0.15f, 0.12f, 0.10f);
+        static readonly Color MudDark = new Color(0.245f, 0.21f, 0.195f);
+        static readonly Color MudMid = new Color(0.335f, 0.29f, 0.26f);
+        static readonly Color MudPale = new Color(0.43f, 0.375f, 0.33f);
+        static readonly Color Puddle = new Color(0.43f, 0.46f, 0.49f);
 
-            float h = map.Height.HeightAtCell(x, z);
-            int nx = Mathf.Min(map.NavWidth - 1, x / 2), nz = Mathf.Min(map.NavLength - 1, z / 2);
+        /// <summary>Bare painted mud: three flat tones from two octaves of noise, an ink line where two tones meet.</summary>
+        static Color Tone(float wx, float wz)
+        {
+            float n = BattlefieldGenerator.Noise(91u, wx, wz, 8f) * 0.55f + BattlefieldGenerator.Noise(47u, wx, wz, 2.9f) * 0.30f + BattlefieldGenerator.Noise(19u, wx, wz, 1.1f) * 0.15f;
+            Color c = Color.Lerp(Color.Lerp(MudDark, MudMid, Mathf.SmoothStep(0.455f, 0.47f, n)), MudPale, Mathf.SmoothStep(0.535f, 0.55f, n));
+            float edge = Mathf.Abs(n - 0.4625f);
+            float broken = BattlefieldGenerator.Noise(5u, wx, wz, 4f);
+            if (edge < 0.012f && broken > 0.45f) c = Color.Lerp(c, Ink, 0.55f);   // an ink contour under the darkest tone, broken up
+            return c;
+        }
+
+        /// <summary>The colour of one point of ground from what the sim knows about it.</summary>
+        static Color GroundColor(MapData map, float wx, float wz)
+        {
+            float h = map.Height.Sample(wx, wz);
+            int nx = Mathf.Clamp((int)(wx / MapData.NavCellSize), 0, map.NavWidth - 1), nz = Mathf.Clamp((int)(wz / MapData.NavCellSize), 0, map.NavLength - 1);
             var layer = (NavLayer)map.NavLayers[map.NavIndex(nx, nz)];
-            float patch = BattlefieldGenerator.Noise(91u, x, z, 9f);
-            Color c = Color.Lerp(earth, grass, Mathf.Clamp01((h - 1.5f) * 0.9f + (patch - 0.62f) * 1.8f));   // grass survives on the higher ground
-            c = Color.Lerp(c, mud, 0.8f * Amount(map, x, z, NavLayer.Mud));
-            c = Color.Lerp(c, crater, 0.75f * Amount(map, x, z, NavLayer.Crater));
-            if (map.WaterLevel > MapData.NoWater) c = Color.Lerp(c, wet, Mathf.Clamp01(1f - (h - map.WaterLevel) / 0.6f) * 0.8f);   // dark, soaked rim
-            if ((layer & NavLayer.Trench) != 0) c = (layer & NavLayer.Link) != 0 ? ladder : boards;
-            c *= 0.9f + 0.2f * Grain(x, z);
+            Color c = Tone(wx, wz);
+
+            if ((layer & NavLayer.Trench) != 0)
+            {
+                // duckboards: planks across the trench, a dark gap between them
+                float plank = wx * 2.2f - Mathf.Floor(wx * 2.2f);
+                Color wood = (layer & NavLayer.Link) != 0 ? new Color(0.52f, 0.42f, 0.29f) : new Color(0.36f, 0.28f, 0.20f);
+                wood *= 0.92f + 0.16f * Grain((int)Mathf.Floor(wx * 2.2f), nz);
+                c = plank < 0.12f ? Color.Lerp(Ink, wood, 0.25f) : wood;
+                c.a = 1f;
+                return c;
+            }
+
+            float mud = Amount(map, wx, wz, NavLayer.Mud);
+            c = Color.Lerp(c, MudDark, 0.55f * mud);
+            // shell holes, read from the ground itself so they are round: how far this point lies under the ground
+            // 3 m around it. Dark inside, an ink rim, a pale lip of thrown earth (and a pale parapet along a trench).
+            var hf = map.Height;
+            float bowl = (hf.Sample(wx - 3f, wz) + hf.Sample(wx + 3f, wz) + hf.Sample(wx, wz - 3f) + hf.Sample(wx, wz + 3f)) * 0.25f - h;
+            bool inside = bowl > 0.34f;
+            if (inside) c = Color.Lerp(MudDark, Ink, 0.35f);
+            else if (bowl > 0.25f) c = Ink;
+            else if (bowl < -0.12f) c = Color.Lerp(c, MudPale, 0.75f);
+
+            // puddles: standing water just above the water table, and in the low spots of muddy ground
+            float pool = BattlefieldGenerator.Noise(133u, wx, wz, 6.5f);
+            float wetness = pool + 0.08f * mud + (inside ? 0.10f : 0f);
+            if (map.WaterLevel > MapData.NoWater) wetness += Mathf.Clamp01(1f - (h - map.WaterLevel) / 0.5f) * 0.45f;
+            if (wetness > 0.86f) c = Puddle * (0.96f + 0.08f * BattlefieldGenerator.Noise(7u, wx, wz, 1.5f));
+            else if (wetness > 0.835f) c = Color.Lerp(Ink, MudDark, 0.25f);
+
             c.a = 1f;
             return c;
         }
