@@ -32,10 +32,13 @@ namespace TW.Presentation.Terrain
         /// <summary>The rain right now, 0..1, and the wind it falls in (m/s, world XZ). Rain.cs and the shaders follow these.</summary>
         public static float RainNow { get; private set; }
         public static Vector2 WindNow { get; private set; }
-        [Tooltip("Sheet lightning when the rain is at its heaviest (night only).")]
+        [Tooltip("Let the storm's lightning (Storm.cs) flash the whole field (night only).")]
         public bool Lightning = true;
         Color shadeNow; float flashNow;
-        Light key; float boltAt = -10f, nextBolt = 25f;
+        /// <summary>Set by Storm each frame: how bright the strike is right now, 0..1, and the way its light travels.</summary>
+        public static float StormFlash;
+        public static Vector3 StormLightFrom = Vector3.down;
+        Light key;
         public Vector3 KeyEuler = new Vector3(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
         public Color Ambient = new Color(0.52f, 0.52f, 0.56f);
         bool filmic;
@@ -150,26 +153,22 @@ namespace TW.Presentation.Terrain
                 if (cam != null && Grade) cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             }
             if (cam == null) return;
-            // sheet lightning: when a squall is at its height the whole field jumps out of the dark for a third of a second
-            // (a hard flash, a gap, a weaker second one), the way the references light their far ground.
+            // lightning: while a bolt burns (Storm.cs) the whole field jumps out of the dark. The moon's light becomes the
+            // bolt's: far brighter, white, and coming from where it struck, so every shadow swings round for an instant.
             float flash = 0f;
             if (Lightning && Look == Mood.Night && key != null)
             {
-                if (Time.time >= nextBolt)
-                {
-                    nextBolt = Time.time + Random.Range(14f, 45f);
-                    if (RainNow > Rain * .8f) boltAt = Time.time;
-                }
-                float a = Time.time - boltAt;
-                if (a < .5f) flash = Mathf.Max(a < .09f ? 1f - a / .09f : 0f, a > .15f && a < .36f ? .65f * (1f - (a - .15f) / .21f) : 0f);
-                key.intensity = KeyIntensity * (1f + 5f * flash);
+                flash = Mathf.Clamp01(StormFlash);
+                key.intensity = KeyIntensity * (1f + 1.9f * flash);
                 key.color = Color.Lerp(Key, new Color(.90f, .94f, 1f), flash);
+                Vector3 from = StormLightFrom; from.y = Mathf.Min(from.y, -.35f);   // never so low that the shadows run to the horizon
+                key.transform.rotation = flash > .02f ? Quaternion.LookRotation(from.normalized) : Quaternion.Euler(KeyEuler);
             }
-            Color sky = Color.Lerp(Haze, new Color(.40f, .48f, .66f), flash * .55f);
+            Color sky = Color.Lerp(Haze, new Color(.40f, .48f, .66f), flash * .40f);
             RenderSettings.fogColor = sky;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = sky;
-            shadeNow = Color.Lerp(ShadeTint, new Color(.60f, .66f, .85f), flash * .8f);
+            shadeNow = Color.Lerp(ShadeTint, new Color(.60f, .66f, .85f), flash * .4f);
             flashNow = flash;
             float height = Mathf.Max(1f, cam.transform.position.y);
             float pitch = Mathf.Max(0.12f, -cam.transform.forward.y);
@@ -184,7 +183,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
-            Color mirror = Color.Lerp(SkyMirror, new Color(.85f, .90f, 1f), flashNow * .85f);   // lightning shows in every puddle
+            Color mirror = Color.Lerp(SkyMirror, new Color(.85f, .90f, 1f), flashNow * .55f);   // lightning shows in every puddle
             Shader.SetGlobalVector(SkyId, new Vector4(mirror.r, mirror.g, mirror.b, 1f));
             // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
             // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.

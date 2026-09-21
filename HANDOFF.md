@@ -126,6 +126,11 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   drops; guns flicker beyond the horizon; lightning shows in every puddle; squalls close the haze in; and rain far
   off hangs in wind-driven curtains (`Shaders/RainCurtain_URP.shader`, 49 cards, empty cells collapse in the vertex
   shader). `SceneHooks` in Presentation.Core carries the few calls between the camera and terrain assemblies.
+  Thunder and lightning: `Storm` aims each strike at a point in the upper part of the frame (the camera never sees
+  the sky), builds a forked bolt as ribbons (`Shaders/Bolt_URP.shader`), flickers it 2-4 times, lights the landing
+  point, and drives `Atmosphere.StormFlash` / `StormLightFrom` (the key light becomes the bolt's for the flash, so
+  shadows swing). Thunder is synthesised from noise in `Storm.MakeThunder` (the project has no audio assets yet),
+  three variants by distance, delayed by the speed of sound. Strikes every 7-24 s by rain level.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level
