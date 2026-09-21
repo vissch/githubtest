@@ -187,7 +187,7 @@ MonoBehaviour:
   Host: {fileID: 1728060848}
   PanSpeed: 60
   EdgeScrollMargin: 12
-  ZoomMin: 15
+  ZoomMin: 6
   ZoomMax: 600
   Zoom: 30
   Pitch: 72

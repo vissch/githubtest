@@ -3,6 +3,8 @@
 // screen (you on the left, the enemy on the right), trenches run vertically, pitch 72° keeps a slight 3D feel.
 // WASD/arrows or edge scroll to pan, wheel to zoom, Q/E to rotate a little around the base yaw. Bounds come from
 // the map size on SimHost.
+// Super zoom: below CloseZoom the camera keeps going in to ZoomMin, tilting down towards ClosePitch and opening the
+// lens to CloseFov, so the last stretch of the wheel ends among the men instead of above them. Z jumps there and back.
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TW.Presentation;
@@ -15,7 +17,10 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         public float PanSpeed = 60f;
         public float EdgeScrollMargin = 12f;
-        public float ZoomMin = 15f, ZoomMax = 600f;
+        public float ZoomMin = 6f, ZoomMax = 600f;
+        [Tooltip("Below this zoom the view tilts and widens towards ClosePitch / CloseFov (super zoom).")]
+        public float CloseZoom = 15f;
+        public float ClosePitch = 32f, CloseFov = 42f, CloseYawLimit = 100f;
         public float Zoom = 30f;
         [Tooltip("90 = straight down. 72 keeps a slight 3D feel over the 2D game's top-down view.")]
         public float Pitch = 72f;
@@ -26,7 +31,7 @@ namespace TW.Presentation.Tactical
         public float Fov = 25f;
         public float RotateSpeed = 60f;
         public Vector2 Focus = new Vector2(150f, 146f);   // front trench sits left of centre, no man's land to the right
-        float yaw;
+        float yaw, zoomBeforeSuper;
         Camera cam;
 
         void Start()
@@ -52,6 +57,11 @@ namespace TW.Presentation.Tactical
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) pan.x -= 1f;
                 if (kb.qKey.isPressed) yaw -= RotateSpeed * Time.deltaTime;
                 if (kb.eKey.isPressed) yaw += RotateSpeed * Time.deltaTime;
+                if (kb.zKey.wasPressedThisFrame)
+                {
+                    if (Zoom > ZoomMin * 1.5f) { zoomBeforeSuper = Zoom; Zoom = ZoomMin; }
+                    else Zoom = zoomBeforeSuper > CloseZoom ? zoomBeforeSuper : 30f;
+                }
             }
             if (mouse != null)
             {
@@ -65,7 +75,9 @@ namespace TW.Presentation.Tactical
                 float wheel = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(wheel) > 0.01f) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
             }
-            yaw = Mathf.Clamp(yaw, -YawLimit, YawLimit);
+            float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(ZoomMin, CloseZoom, Zoom));   // 0 tactical, 1 among the men
+            float yawLimit = Mathf.Lerp(YawLimit, CloseYawLimit, close);   // up close Q/E can turn to face the enemy
+            yaw = Mathf.Clamp(yaw, -yawLimit, yawLimit);
             var rot = Quaternion.Euler(0f, BaseYaw + yaw, 0f);
             Vector3 fwd = rot * Vector3.forward, right = rot * Vector3.right;
             Vector3 delta = (fwd * pan.y + right * pan.x) * PanSpeed * Time.deltaTime * (Zoom / 90f);
@@ -76,10 +88,13 @@ namespace TW.Presentation.Tactical
                 Focus.x = Mathf.Clamp(Focus.x, 0f, size.x);
                 Focus.y = Mathf.Clamp(Focus.y, 0f, size.y);
             }
-            var camRot = Quaternion.Euler(Pitch, BaseYaw + yaw, 0f);
+            float fov = Mathf.Lerp(Fov, CloseFov, close);
+            if (cam != null) { cam.fieldOfView = fov; cam.nearClipPlane = 0.2f; }
+            var camRot = Quaternion.Euler(Mathf.Lerp(Pitch, ClosePitch, close), BaseYaw + yaw, 0f);
             transform.rotation = camRot;
-            float distance = Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(Fov * 0.5f * Mathf.Deg2Rad);
-            transform.position = new Vector3(Focus.x, 0f, Focus.y) - camRot * Vector3.forward * distance;
+            float distance = Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            float ground = Host != null && Host.Local != null ? Host.Local.Map.Height.Sample(Focus.x, Focus.y) : 0f;
+            transform.position = new Vector3(Focus.x, ground * close + 1.1f * close, Focus.y) - camRot * Vector3.forward * distance;
         }
     }
 }
