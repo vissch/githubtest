@@ -9,6 +9,7 @@ using UnityEngine.InputSystem;
 using TW.Sim;
 using TW.Sim.Nav;
 using TW.Presentation;
+using TW.Presentation.Units;
 
 namespace TW.Presentation.Tactical
 {
@@ -19,6 +20,9 @@ namespace TW.Presentation.Tactical
         public bool ShowStats = false;   // F2; the BattleHud is the playing interface
         public int FlowArrowRadiusCells = 12;
         public int ViewGoal;
+        public bool ForceCapsules;   // F4: the P0 capsules instead of the B3 renderer
+
+        VATRenderer units;
 
         Mesh capsule;
         Material matA, matB;
@@ -34,6 +38,9 @@ namespace TW.Presentation.Tactical
             var hud = GetComponent<BattleHud>();
             if (hud == null) hud = gameObject.AddComponent<BattleHud>();
             if (hud.Host == null) hud.Host = Host;
+            units = GetComponent<VATRenderer>();
+            if (units == null) units = gameObject.AddComponent<VATRenderer>();
+            if (units.Host == null) units.Host = Host;
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             matA = new Material(shader) { enableInstancing = true, color = new Color(0.55f, 0.45f, 0.25f) };
@@ -44,7 +51,9 @@ namespace TW.Presentation.Tactical
         {
             if (Host == null || Host.Presenter == null) return;
             HandleInput();
-            DrawUnits();
+            bool capsules = ForceCapsules || units == null || !units.Ready;
+            if (units != null) units.enabled = !ForceCapsules;   // never disabled before its Start has run
+            if (capsules) DrawUnits();
             if (ShowFlowField) DrawFlowField();
         }
 
@@ -61,6 +70,7 @@ namespace TW.Presentation.Tactical
             if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
             if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
             if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
+            if (kb.f4Key.wasPressedThisFrame) ForceCapsules = !ForceCapsules;
             if (kb.spaceKey.wasPressedThisFrame) IssueTrenchOrder(CommandType.TrenchAdvance, 0);
             if (kb.backspaceKey.wasPressedThisFrame) IssueTrenchOrder(CommandType.TrenchFallback, 0);
             if (kb.lKey.wasPressedThisFrame)

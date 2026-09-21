@@ -15,6 +15,7 @@
     "TW.Sim.Match",
     "TW.Data",
     "TW.Presentation.Core",
+    "TW.Presentation.Units",
     "TW.Net"
   ],
   "includePlatforms": [],

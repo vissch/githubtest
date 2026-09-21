@@ -47,7 +47,10 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
 1. ~~M1~~ done.
 2. **M1.5 fun gate**: code done. Playtest with both developers against the questions in docs/11 (is trench-to-trench
    assault better in 3D, do 2,000 units matter, is the crossing too long). Nothing below is scheduled until it passes.
-3. M2 look (B3 sized by the gate, B6, B2, C2 infantry) → M3 Mission 1 → M4 Mission 2 → M5 Mission 3 + perf → M6
+3. M2 look, started 2026-09-21 on the owner's word: **B3 renderer done** (`VATRenderer` + `ProceduralSoldier`
+   placeholder, F4 switches back to capsules; combat at 2,770 units costs 1.57 ms/tick). Still open in M2: `VATBaker`
+   for real rigs, B6 UI in UI Toolkit (the IMGUI `BattleHud` is the layout to port), B2 terrain mesh + trench kit,
+   C2 infantry → M3 Mission 1 → M4 Mission 2 → M5 Mission 3 + perf → M6
    online (if required) → M7 meta.
 
 Every stub carries a `// Phase: <id>` header. Never change the three contracts in `docs/02-contracts.md` without

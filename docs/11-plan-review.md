@@ -61,7 +61,7 @@ off-map support. The plan then added ~30 new systems. The slice proves the **cor
 | Cut or deferred | Was | Now |
 |---|---|---|
 | B4 gore (ellipsoid-clipped wounds, ragdoll → corpse baking) | M4 | Cut from the slice. VAT death frame + fade. |
-| B3 four render tiers + 8-direction impostors | M2 | Decide the camera's max zoom-out first; a 300 m corridor at high-angle iso rarely shows > 150 m. Two tiers. |
+| B3 four render tiers + 8-direction impostors | M2 | Decide the camera's max zoom-out first; a 300 m corridor at high-angle iso rarely shows > 150 m. Two tiers. | **Done 2026-09-21 (renderer):** `VATRenderer` draws all infantry with one `RenderMeshIndirect` from a 32-byte instance buffer; tiers are picked by camera zoom (frame blend up to 120 m of view, nearest frame beyond) because the 25-degree camera shows every unit at the same size. Impostors dropped: the soldier is 264 vertices, so 3,000 are under 0.8 M vertices. Measured in the editor with 2,770 units fighting: 9.8 ms frame, sim 1.57 ms/tick. The soldier and its atlas are generated in code (`ProceduralSoldier`) until C2 delivers rigs; `VATBaker` must emit the same layout. |
 | B5 volumetric gas raymarch (1.5 ms on a GTX 1050) | M3 | Particle fog volumes first. |
 | A5 grab-bag (three "parts" across three milestones) | A5 | Three named phases: **A5a** artillery + gas/smoke fields, **A5b** armour + vehicles + creeping barrage + Bangalore, **A5c** mines, fascine, AA, flamethrower. |
 | A2 / A3 overlap ("trench garrison" listed under both) | — | Garrison + fire-step belong to **A2**; stances, orders, economy, capture to **A3**. |

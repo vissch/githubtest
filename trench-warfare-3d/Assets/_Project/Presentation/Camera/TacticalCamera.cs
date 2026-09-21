@@ -9,8 +9,9 @@ using TW.Presentation;
 
 namespace TW.Presentation.Tactical
 {
-    public sealed class TacticalCamera : MonoBehaviour
+    public sealed class TacticalCamera : MonoBehaviour, IZoomSource
     {
+        public float CurrentZoom => Zoom;
         public SimHost Host;
         public float PanSpeed = 60f;
         public float EdgeScrollMargin = 12f;

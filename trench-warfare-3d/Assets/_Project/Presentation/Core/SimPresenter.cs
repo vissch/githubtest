@@ -15,6 +15,7 @@ namespace TW.Presentation
         NativeArray<float> prevYaw, curYaw;
         NativeArray<byte> stance, archetype, team;
         NativeArray<uint> flags;
+        NativeArray<int> target;
         public NativeArray<UnitPose> Poses;
         public NativeArray<int> PoseSlot;   // slot index per pose (for picking / UI)
         public int PoseCount;
@@ -31,6 +32,7 @@ namespace TW.Presentation
             archetype = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             team = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             flags = new NativeArray<uint>(maxSlots, Allocator.Persistent);
+            target = new NativeArray<int>(maxSlots, Allocator.Persistent);
             Poses = new NativeArray<UnitPose>(maxSlots, Allocator.Persistent);
             PoseSlot = new NativeArray<int>(maxSlots, Allocator.Persistent);
         }
@@ -50,6 +52,7 @@ namespace TW.Presentation
             NativeArray<byte>.Copy(w.Archetype, archetype, count);
             NativeArray<byte>.Copy(w.Team, team, count);
             NativeArray<uint>.Copy(w.Flags, flags, count);
+            NativeArray<int>.Copy(w.TargetSlot, target, count);
             if (!primed)
             {
                 NativeArray<float3>.Copy(curPos, prevPos, count);
@@ -65,7 +68,7 @@ namespace TW.Presentation
             var job = new InterpolateJob
             {
                 PrevPos = prevPos, CurPos = curPos, PrevYaw = prevYaw, CurYaw = curYaw, Stance = stance, Archetype = archetype,
-                Team = team, Flags = flags, Poses = Poses, Alpha = alpha, AnimTime = animTime,
+                Team = team, Flags = flags, Target = target, Poses = Poses, Alpha = alpha, AnimTime = animTime,
             };
             job.Schedule(count, 128).Complete();
             // compaction (single-threaded, cheap)
@@ -87,6 +90,7 @@ namespace TW.Presentation
             [ReadOnly] public NativeArray<float> PrevYaw, CurYaw;
             [ReadOnly] public NativeArray<byte> Stance, Archetype, Team;
             [ReadOnly] public NativeArray<uint> Flags;
+            [ReadOnly] public NativeArray<int> Target;
             public NativeArray<UnitPose> Poses;
             public float Alpha, AnimTime;
 
@@ -97,16 +101,17 @@ namespace TW.Presentation
                 float d = b - a;
                 if (d > math.PI) d -= 2f * math.PI; else if (d < -math.PI) d += 2f * math.PI;
                 float yaw = a + d * Alpha;
+                bool moving = math.distancesq(PrevPos[i].xz, CurPos[i].xz) > 1e-4f, firing = Target[i] >= 0;
                 ushort row;
                 switch ((TW.Sim.Stance)Stance[i])
                 {
                     case TW.Sim.Stance.Sprint: row = (ushort)AnimRow.Sprint; break;
                     case TW.Sim.Stance.Crouch: row = (ushort)AnimRow.CrouchWalk; break;
-                    case TW.Sim.Stance.Prone: row = (ushort)AnimRow.ProneCrawl; break;
+                    case TW.Sim.Stance.Prone: row = (ushort)(!moving && firing ? AnimRow.FireProne : AnimRow.ProneCrawl); break;
                     case TW.Sim.Stance.FireStep: row = (ushort)AnimRow.FireFireStep; break;
                     case TW.Sim.Stance.Pinned: row = (ushort)AnimRow.PinnedLoop; break;
                     case TW.Sim.Stance.Vault: row = (ushort)AnimRow.Vault; break;
-                    default: row = (ushort)AnimRow.Walk; break;
+                    default: row = (ushort)(moving ? AnimRow.Walk : firing ? AnimRow.FireStanding : AnimRow.Idle); break;
                 }
                 Poses[i] = new UnitPose
                 {
@@ -119,7 +124,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             prevPos.Dispose(); curPos.Dispose(); prevYaw.Dispose(); curYaw.Dispose(); stance.Dispose(); archetype.Dispose();
-            team.Dispose(); flags.Dispose(); Poses.Dispose(); PoseSlot.Dispose();
+            team.Dispose(); flags.Dispose(); target.Dispose(); Poses.Dispose(); PoseSlot.Dispose();
         }
     }
 }

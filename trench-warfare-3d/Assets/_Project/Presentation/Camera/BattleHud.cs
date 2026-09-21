@@ -29,6 +29,7 @@ namespace TW.Presentation.Tactical
         GUIStyle stone, slate, wood, green, number, cost, unitName, silver, hint, tip, speed;
         Texture2D sideTex, stripTex, coin, lockClosed, lockOpen, lockGrey, advance, fallback, fire, fireHeld, pause, barrage, gas;
         Texture2D[] unitIcons;
+        readonly System.Collections.Generic.List<Vector3> anchors = new System.Collections.Generic.List<Vector3>(8);   // x, y = screen, z = trench index
 
         // ---- generated art -------------------------------------------------------------------------------------
         static Texture2D Icon(Color main, Color shade, params string[] rows)
@@ -266,10 +267,24 @@ namespace TW.Presentation.Tactical
                 var map = Host.Local.Map;
                 float focusX = tc != null ? tc.Focus.x : map.SizeMeters.x * 0.5f;
                 const float b = 62f, gap = 6f, off = 40f;
+                // zoomed out, neighbouring trenches' buttons would overlap: the trench nearest the enemy keeps its buttons
+                anchors.Clear();
+                for (int t = fields.Trenches.Length - 1; t >= 0; t--)
+                {
+                    if (fields.Trenches[t].OwnerTeam != 0 || map.Trenches[t].CellCount == 0) continue;
+                    float z = map.NavCellCenter(map.TrenchCells[map.Trenches[t].CellStart]).z + 1f;
+                    Vector3 s = cam.WorldToScreenPoint(new Vector3(focusX + 9f, 0f, z));
+                    if (s.z > 0f) anchors.Add(new Vector3(s.x, s.y, t));
+                }
+                anchors.Sort((p, q) => q.x.CompareTo(p.x));   // the enemy is on screen-right
+                for (int k = anchors.Count - 1; k >= 0; k--)
+                    for (int j = 0; j < k; j++)
+                        if (Mathf.Abs(anchors[j].x - anchors[k].x) < 2f * (off + 2f * b + gap)) { anchors.RemoveAt(k); break; }
                 for (int t = 0; t < fields.Trenches.Length; t++)
                 {
                     var ts = fields.Trenches[t];
                     if (ts.OwnerTeam != 0) continue;
+                    if (!anchors.Exists(p => (int)p.z == t)) continue;
                     var def = map.Trenches[t];
                     if (def.CellCount == 0) continue;
                     float tz = map.NavCellCenter(map.TrenchCells[def.CellStart]).z + 1f;

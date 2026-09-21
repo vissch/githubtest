@@ -1,23 +1,71 @@
-// Phase: B3 (skeleton) — Vertex Animation Texture shader for URP.
-// Atlas layout (from VATBaker): U = vertex index / VertexCount, V = (rowStart + frame) / TotalFrames.
-// Per-instance data comes from a StructuredBuffer filled by VATRenderer (RenderMeshIndirect).
-// Near tier lerps two frames; the distant tier sets _Lerp = 0 for nearest-frame sampling.
+// Phase: B3 (implemented) — Vertex Animation Texture shader for URP, drawn with Graphics.RenderMeshIndirect.
+// Atlas layout (VATBaker / ProceduralSoldier): U = vertex index / VertexCount, V = frame / TotalFrames, RGBAHalf,
+// object-space position and signed normal. Per-instance data is a 32-byte record in a StructuredBuffer filled by
+// VATRenderer. _Lerp = 1 blends two frames (near), 0 samples the nearest frame (zoomed out). Loops wrap inside a row.
+// Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it.
 Shader "TW/VAT Infantry (URP)"
 {
     Properties
     {
-        _BaseMap ("Albedo Atlas", 2D) = "white" {}
         _PosTex ("VAT Position (RGBAHalf)", 2D) = "black" {}
-        _NrmTex ("VAT Normal (RGBAHalf)", 2D) = "gray" {}
-        _VertexCount ("Vertex Count", Float) = 1024
-        _TotalFrames ("Total Frames", Float) = 512
+        _NrmTex ("VAT Normal (RGBAHalf)", 2D) = "black" {}
+        _VertexCount ("Vertex Count", Float) = 264
+        _TotalFrames ("Total Frames", Float) = 288
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
+        _TeamColorA ("Team 0 cloth", Color) = (0.47, 0.40, 0.24, 1)
+        _TeamColorB ("Team 1 cloth", Color) = (0.34, 0.38, 0.40, 1)
         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
     }
     SubShader
     {
         Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" }
+
+        HLSLINCLUDE
+        #pragma target 4.5
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
+        #include "UnityIndirect.cginc"
+
+        struct VatInstance { float3 pos; float yaw; float animRow; float animT; float tint; float scale; };
+        StructuredBuffer<VatInstance> _Instances;
+        StructuredBuffer<float2> _RowTable;   // x = row start frame, y = row frame count (AnimRow order)
+
+        TEXTURE2D(_PosTex); SAMPLER(sampler_PosTex);
+        TEXTURE2D(_NrmTex); SAMPLER(sampler_NrmTex);
+        CBUFFER_START(UnityPerMaterial)
+            float _VertexCount, _TotalFrames, _Lerp;
+            float4 _TeamColorA, _TeamColorB;
+            float4 _WoundCenter, _WoundRadii;
+        CBUFFER_END
+
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; };
+
+        Animated Animate(uint vertexID, uint svInstanceID)
+        {
+            InitIndirectDrawArgs(0);
+            VatInstance inst = _Instances[GetIndirectInstanceID(svInstanceID)];
+            float2 row = _RowTable[(uint)inst.animRow];
+            float local = frac(inst.animT) * row.y;
+            float f0 = floor(local), f1 = fmod(f0 + 1.0, row.y);
+            float u = (vertexID + 0.5) / _VertexCount;
+            float v0 = (row.x + f0 + 0.5) / _TotalFrames, v1 = (row.x + f1 + 0.5) / _TotalFrames;
+            float w = frac(local) * _Lerp;
+            float3 p = lerp(SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v0), 0).xyz,
+                            SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v1), 0).xyz, w);
+            float3 n = lerp(SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v0), 0).xyz,
+                            SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
+            float s = sin(inst.yaw), c = cos(inst.yaw);   // yaw turns +Z towards +X, as Quaternion.Euler(0, yaw, 0)
+            Animated o;
+            o.positionOS = p;
+            p *= inst.scale;
+            o.positionWS = inst.pos + float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
+            o.normalWS = normalize(float3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c));
+            o.tint = inst.tint;
+            return o;
+        }
+        ENDHLSL
+
         Pass
         {
             Name "ForwardLit"
@@ -25,43 +73,23 @@ Shader "TW/VAT Infantry (URP)"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma target 4.5
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            struct VatInstance { float4x4 objectToWorld; float animRow; float animT; float tint; float lod; };
-            StructuredBuffer<VatInstance> _Instances;
-            StructuredBuffer<float2> _RowTable;   // x = row start frame, y = row frame count (AnimRow order)
-
-            TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
-            TEXTURE2D(_PosTex);  SAMPLER(sampler_PosTex);
-            TEXTURE2D(_NrmTex);  SAMPLER(sampler_NrmTex);
-            CBUFFER_START(UnityPerMaterial)
-                float _VertexCount, _TotalFrames, _Lerp;
-                float4 _WoundCenter, _WoundRadii;
-            CBUFFER_END
-
-            struct Attributes { uint vertexID : SV_VertexID; float2 uv : TEXCOORD0; };
-            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; };
+            struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
-                VatInstance inst = _Instances[instanceID];
-                float2 row = _RowTable[(uint)inst.animRow];
-                float frame = row.x + frac(inst.animT) * row.y;
-                float f0 = floor(frame), f1 = min(f0 + 1.0, row.x + row.y - 1.0);
-                float u = (v.vertexID + 0.5) / _VertexCount;
-                float3 p0 = SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, (f0 + 0.5) / _TotalFrames), 0).xyz;
-                float3 p1 = SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, (f1 + 0.5) / _TotalFrames), 0).xyz;
-                float3 n0 = SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, (f0 + 0.5) / _TotalFrames), 0).xyz * 2.0 - 1.0;
-                float3 pos = lerp(p0, p1, frac(frame) * _Lerp);
+                Animated a = Animate(v.vertexID, instanceID);
                 Varyings o;
-                o.positionOS = pos;
-                o.positionWS = mul(inst.objectToWorld, float4(pos, 1.0)).xyz;
-                o.positionCS = TransformWorldToHClip(o.positionWS);
-                o.normalWS = normalize(mul((float3x3)inst.objectToWorld, n0));
-                o.uv = v.uv;
-                o.tint = inst.tint;
+                o.positionOS = a.positionOS;
+                o.positionWS = a.positionWS;
+                o.positionCS = TransformWorldToHClip(a.positionWS);
+                o.normalWS = a.normalWS;
+                o.color = v.color;
+                o.tint = a.tint;
                 return o;
             }
 
@@ -73,13 +101,63 @@ Shader "TW/VAT Infantry (URP)"
                     float3 d = (i.positionOS - _WoundCenter.xyz) / _WoundRadii.xyz;
                     clip(dot(d, d) - 1.0);
                 }
-                half3 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb;
-                albedo = lerp(albedo, albedo * half3(0.8, 0.85, 1.0), i.tint);
-                Light mainLight = GetMainLight();
-                half ndl = saturate(dot(i.normalWS, mainLight.direction));
-                half3 color = albedo * (mainLight.color * ndl + half3(0.25, 0.27, 0.3));
+                half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
+                half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
+                Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
+                half ndl = saturate(dot(normalize(i.normalWS), mainLight.direction));
+                half3 color = albedo * (mainLight.color * (ndl * mainLight.shadowAttenuation) + half3(0.34, 0.36, 0.40));
                 return half4(color, 1.0);
             }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode"="ShadowCaster" }
+            ZWrite On ZTest LEqual ColorMask 0
+            HLSLPROGRAM
+            #pragma vertex vertShadow
+            #pragma fragment fragNull
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+            float3 _LightDirection;
+            float3 _LightPosition;
+
+            float4 vertShadow(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) : SV_POSITION
+            {
+                Animated a = Animate(vertexID, instanceID);
+            #if _CASTING_PUNCTUAL_LIGHT_SHADOW
+                float3 lightDir = normalize(_LightPosition - a.positionWS);
+            #else
+                float3 lightDir = _LightDirection;
+            #endif
+                float4 cs = TransformWorldToHClip(ApplyShadowBias(a.positionWS, a.normalWS, lightDir));
+            #if UNITY_REVERSED_Z
+                cs.z = min(cs.z, UNITY_NEAR_CLIP_VALUE);
+            #else
+                cs.z = max(cs.z, UNITY_NEAR_CLIP_VALUE);
+            #endif
+                return cs;
+            }
+            half4 fragNull() : SV_Target { return 0; }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode"="DepthOnly" }
+            ZWrite On ColorMask R
+            HLSLPROGRAM
+            #pragma vertex vertDepth
+            #pragma fragment fragDepth
+            float4 vertDepth(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) : SV_POSITION
+            {
+                return TransformWorldToHClip(Animate(vertexID, instanceID).positionWS);
+            }
+            half4 fragDepth() : SV_Target { return 0; }
             ENDHLSL
         }
     }

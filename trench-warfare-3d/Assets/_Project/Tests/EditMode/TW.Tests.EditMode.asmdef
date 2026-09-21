@@ -13,7 +13,8 @@
     "TW.Sim.Combat",
     "TW.Sim.Match",
     "TW.Net",
-    "TW.Sim.Units"
+    "TW.Sim.Units",
+    "TW.Presentation.Units"
   ],
   "includePlatforms": [
     "Editor"
