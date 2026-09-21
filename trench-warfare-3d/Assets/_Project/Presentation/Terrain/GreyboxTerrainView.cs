@@ -547,8 +547,14 @@ namespace TW.Presentation.Terrain
                 float ripple = Mathf.PerlinNoise(wx * 1.8f, wz * 7f + 19f);
                 if (ripple > 0.68f) c = Color.Lerp(c, new Color(0.36f, 0.39f, 0.38f), 0.5f);
             }
-            else if (wetness > 0.79f) c = Ink;
-            else if (wetness > 0.765f) c = Color.Lerp(c, MudDark, 0.65f);   // a soaked margin, not a pale one
+            else if (wetness > 0.808f) c = Color.Lerp(Puddle, new Color(0.52f, 0.54f, 0.52f), .8f);   // a thin pale shoreline where the sky catches the wet edge
+            else if (wetness > 0.70f)
+            {
+                // soaked margin: darkest at the water, fading out into the mud; glossy close in, so it still mirrors a little
+                float soak = Mathf.SmoothStep(0f, 1f, (wetness - .70f) / .108f);
+                c = Color.Lerp(c, Color.Lerp(MudDark, Ink, .45f), soak * .85f);
+                if (soak > .55f) silt = true;
+            }
 
             c.a = water ? 0f : silt ? .5f : 1f;
             return c;
