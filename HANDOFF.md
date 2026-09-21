@@ -57,7 +57,11 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   vertices, 106 instanced submissions (excluding terrain, outline/shadow passes and soldiers). Unit rendering and
   its 1.5M budget are unchanged; GTX 1050 timing remains to be measured on that hardware.
   Still procedural art: straight simulation trenches remain; hand-painted grain and richer asymmetric ruins are
-  future refinements. Explosion/muzzle-flash art and HUD palette are the next small presentation pass.
+  future refinements. CombatFx now uses capped painted dirt splashes, fading low-poly smoke and 65 ms muzzle
+  flashes aligned to rendered soldier scale/stance; the IMGUI HUD uses canvas/charcoal/olive tones. VAT lighting
+  matches the environment. Stress review: 3,000 alive, no desync, 1,267 drawn, 1,177,043 reported unit vertices
+  with unit shadows disabled by the existing budget guard. Captures and repeatable review scripts are in the art
+  direction document. No Sim code changed.
 - Decisions that shape everything after this: **3,000 units maximum** (2026-09-20; the stress test runs at that count);
   Windows x64 only; online multiplayer deferred until after Mission 3;
   two developers, one can do art; the M1.5 fun gate still decides whether the design holds.

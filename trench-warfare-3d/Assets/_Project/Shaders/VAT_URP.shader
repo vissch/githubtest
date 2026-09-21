@@ -110,9 +110,10 @@ Shader "TW/VAT Infantry (URP)"
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
-                half lit = (dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5) * lerp(0.35, 1.0, mainLight.shadowAttenuation);
-                half band = smoothstep(0.30, 0.34, lit) * 0.5 + smoothstep(0.58, 0.62, lit) * 0.5;
-                half3 color = albedo * lerp(half3(0.50, 0.47, 0.52), mainLight.color, band);
+                half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
+                half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
+                half3 color = albedo * lerp(half3(0.57, 0.60, 0.64), mainLight.color, band);
+                color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 return half4(MixFog(color, i.fog), 1.0);
             }
             ENDHLSL

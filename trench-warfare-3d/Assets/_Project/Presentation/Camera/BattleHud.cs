@@ -31,7 +31,7 @@ namespace TW.Presentation.Tactical
             "Rifleman: cheap line infantry", "Assault: fast, short range", "MG team: holds a trench, suppresses",
             "Sniper: long range, slow fire", "Tank: immune to small arms, grenades within 8 m hurt it",
         };
-        static readonly Color Gold = new Color(0.87f, 0.69f, 0.22f);
+        static readonly Color Gold = new Color(0.88f, 0.79f, 0.58f);
         static readonly Color Pale = new Color(0.86f, 0.84f, 0.76f);
         static readonly Color Dark = new Color(0.17f, 0.17f, 0.16f);
 
@@ -158,17 +158,17 @@ namespace TW.Presentation.Tactical
         void EnsureStyles()
         {
             if (stone != null) return;
-            stone = Button(new Color(0.48f, 0.48f, 0.45f), new Color(0.27f, 0.27f, 0.25f), 2);
-            slate = Button(new Color(0.29f, 0.29f, 0.40f), new Color(0.10f, 0.10f, 0.15f), 2);
+            stone = Button(new Color(0.53f, 0.50f, 0.43f), new Color(0.19f, 0.19f, 0.18f), 2);
+            slate = Button(new Color(0.28f, 0.31f, 0.31f), new Color(0.12f, 0.14f, 0.14f), 2);
             speed = new GUIStyle(stone) { fontSize = 13 };
             wood = new GUIStyle { border = new RectOffset(6, 6, 6, 6) };
-            wood.normal.background = Frame(new Color(0.37f, 0.37f, 0.34f), new Color(0.36f, 0.23f, 0.16f), 4);
+            wood.normal.background = Frame(new Color(0.30f, 0.31f, 0.29f), new Color(0.21f, 0.19f, 0.16f), 4);
             green = new GUIStyle { border = new RectOffset(5, 5, 5, 5) };
-            green.normal.background = Frame(new Color(0.18f, 0.55f, 0.17f), new Color(0.08f, 0.27f, 0.08f), 2);
+            green.normal.background = Frame(new Color(0.34f, 0.39f, 0.31f), new Color(0.16f, 0.19f, 0.15f), 2);
             number = new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.UpperLeft };
             number.normal.textColor = new Color(0.15f, 0.15f, 0.14f);
             unitName = new GUIStyle(GUI.skin.label) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerLeft };
-            unitName.normal.textColor = Dark;
+            unitName.normal.textColor = new Color(0.10f, 0.11f, 0.10f);
             cost = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerRight };
             cost.normal.textColor = Color.white;
             silver = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
