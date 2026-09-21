@@ -174,18 +174,32 @@ namespace TW.Presentation.Terrain
                 bool alongZ = side < 2; bool high = (side & 1) == 1;
                 float from = alongZ ? -far : 0f, to = alongZ ? l + far : w, span = alongZ ? l : w;
                 var stops = new List<float> { from };
-                for (float t = 0f; t <= span; t += 1f) stops.Add(t);   // the ground's own vertex spacing, so the two meet exactly
+                for (float t = 0f; t <= span; t += GridStep) stops.Add(t);   // the ground's own vertex spacing, so the two meet exactly
                 if (alongZ) stops.Add(to); else stops.Add(span);
                 int row0 = verts.Count, cols_ = outs.Length;
                 foreach (float t in stops)
                 {
                     float tc = Mathf.Clamp(t, 0f, span);
-                    float edge = alongZ ? hf.Sample(high ? w : 0f, tc) : hf.Sample(tc, high ? l : 0f);
+                    float edge = alongZ ? Surface.VisualHeight(high ? w : 0f, tc) : Surface.VisualHeight(tc, high ? l : 0f);   // the very heights the ground mesh uses
                     float beyond = alongZ ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
+                    // A trench runs out at the map edge. Beyond it the land takes the height of the bank beside the trench,
+                    // so the cut closes in one short ramp instead of running on for 30 m as a sunken road.
+                    float bank = edge;
+                    if (alongZ && t >= 0f && t <= span)
+                    {
+                        float ex = high ? w - .5f : .5f;
+                        System.Func<float, bool> dug = zz => ((NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(ex / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(zz / MapData.NavCellSize), 0, map.NavLength - 1))] & NavLayer.Trench) != 0;
+                        if (dug(tc))
+                            for (float reach = 1f; reach <= 14f; reach += 1f)
+                            {
+                                if (!dug(tc - reach)) { bank = Surface.VisualHeight(high ? w : 0f, Mathf.Max(0f, tc - reach - 1.5f)); break; }
+                                if (!dug(tc + reach)) { bank = Surface.VisualHeight(high ? w : 0f, Mathf.Min(span, tc + reach + 1.5f)); break; }
+                            }
+                    }
                     for (int k = 0; k < cols_; k++)
                     {
                         float d = outs[k], blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Max(d, beyond) / 30f));
-                        float y = Mathf.Lerp(edge, level, blend);
+                        float y = Mathf.Lerp(k == 0 ? edge : bank, level, blend);
                         float off = high ? span2(alongZ, w, l) + d : -d;
                         var v = alongZ ? new Vector3(off, y, t) : new Vector3(t, y, off);
                         verts.Add(v); cols.Add(MudMid);   // one tone: the columns are too far apart to carry the painted patches
