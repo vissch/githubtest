@@ -95,12 +95,30 @@ namespace TW.Presentation.Terrain
             return crest * Mathf.SmoothStep(0f, 1f, distance / .65f) * (1f - Mathf.SmoothStep(0f, 1f, (distance - .8f) / widthScale));
         }
 
+        /// <summary>Rolling mounds and soil berms, in metres around zero. A function of the world position only, so the
+        /// ground painter reads the same shapes the mesh shows.</summary>
+        public static float Mound(float x, float z)
+            => (Mathf.PerlinNoise(x * .085f + 13f, z * .085f + 57f) - .5f) * 1.0f
+             + (Mathf.PerlinNoise(x * .23f + 71f, z * .23f + 5f) - .5f) * .42f
+             + (Mathf.PerlinNoise(x * .61f + 29f, z * .61f + 83f) - .5f) * .14f;
+
+        /// <summary>How much of the mounds this point may show: none at the map edge (the skirt meets the sim height),
+        /// next to a trench (the bank owns that ground) or at the water's edge (the water sheet is flat).</summary>
+        float MoundWeight(float x, float z, float height)
+        {
+            float edge = Mathf.Min(Mathf.Min(x, width - x), Mathf.Min(z, length - z));
+            float weight = Mathf.SmoothStep(0f, 1f, (edge - .5f) / 7f) * Mathf.SmoothStep(0f, 1f, (BankDistance(x, z) - 1.5f) / 4f);
+            if (map.WaterLevel > MapData.NoWater) weight *= Mathf.SmoothStep(0f, 1f, (height - map.WaterLevel - .15f) / .7f);
+            return weight;
+        }
+
         public float VisualHeight(float x, float z)
         {
             float height = map.Height.Sample(x, z);
             if (x <= .5f || z <= .5f || x >= width - .5f || z >= length - .5f) return height;
             int cell = map.NavIndex((int)(x / MapData.NavCellSize), (int)(z / MapData.NavCellSize));
             if (((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0) return height;
+            height += Mound(x, z) * MoundWeight(x, z, height);
             float rise = BankRise(x, z);
             int index = nearHollow[Index(x, z)];
             if (index >= 0)
@@ -109,8 +127,12 @@ namespace TW.Presentation.Terrain
                 var delta = new Vector2(x, z) - hollow.Center;
                 float angle = Mathf.Atan2(delta.y, delta.x);
                 float radius = hollow.Radius * (1f + Mathf.Sin(angle * 7f + hollow.Center.x) * .04f);
-                float rim = Mathf.Clamp01(1f - Mathf.Abs(delta.magnitude - radius) / .65f);
-                rise = Mathf.Max(rise, rim * rim * .18f);
+                // ejecta lip: thrown earth stands in clods around the hole, higher for a deeper hole, steep inside and
+                // trailing off outside so neighbouring lips run into each other
+                float across = delta.magnitude - radius;
+                float rim = across < 0f ? Mathf.Clamp01(1f + across / .7f) : Mathf.Clamp01(1f - across / 1.6f);
+                float clods = .72f + .28f * Mathf.Sin(angle * 5f + hollow.Center.y) * Mathf.Sin(angle * 11f + hollow.Center.x * 3f);
+                rise = Mathf.Max(rise, rim * rim * clods * Mathf.Clamp(hollow.Depth * .42f, .22f, .6f));
             }
             return height + rise;
         }

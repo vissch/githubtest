@@ -4,6 +4,8 @@
 // Detail: an optional tiling texture in world XZ (brush strokes on the ground), centred on 0.5 so grey = no change.
 // Outline: an inverted hull pushed out along the smoothed normal stored in TEXCOORD3 (BattlefieldProps.Combine writes
 // it; hard-edged meshes would split at the corners otherwise). Its width is set in pixels and shrinks with distance.
+// Water: _Gloss, or a base-map alpha below 1 (the ground's puddles), mirrors the sky with a fresnel and takes a hard sun
+// glint. Mist: _TWMist / _TWMistColor (set by Atmosphere) lay a pale layer over low, distant ground.
 // The ground switches the pass off (SetShaderPassEnabled("SRPDefaultUnlit", false)): its ink is in its texture.
 Shader "TW/Toon (URP)"
 {
@@ -14,6 +16,7 @@ Shader "TW/Toon (URP)"
         _DetailMap ("World Detail (grey = none)", 2D) = "gray" {}
         _DetailScale ("Detail tiles per metre", Float) = 0.125
         _DetailStrength ("Detail strength", Range(0,1)) = 0
+        _Gloss ("Gloss (1 = standing water)", Range(0,1)) = 0
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.6
@@ -30,8 +33,16 @@ Shader "TW/Toon (URP)"
         CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor, _ShadeColor, _OutlineColor;
             float4 _BaseMap_ST;
-            float _DetailScale, _DetailStrength, _OutlineWidth;
+            float _DetailScale, _DetailStrength, _OutlineWidth, _Gloss;
         CBUFFER_END
+        float4 _TWMist;        // x top height, y 1/depth, z start distance, w 1/range
+        float4 _TWMistColor;   // rgb, a = density (0 when no Atmosphere is present)
+        half3 ApplyMist(half3 color, float3 positionWS)
+        {
+            float far = saturate((distance(_WorldSpaceCameraPos, positionWS) - _TWMist.z) * _TWMist.w);
+            float low = saturate((_TWMist.x - positionWS.y) * _TWMist.y);
+            return lerp(color, _TWMistColor.rgb, low * far * _TWMistColor.a);
+        }
         ENDHLSL
 
         Pass
@@ -65,7 +76,9 @@ Shader "TW/Toon (URP)"
 
             half4 frag(Varyings i) : SV_Target
             {
-                half3 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb * _BaseColor.rgb * i.color.rgb;
+                half4 base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+                half3 albedo = base.rgb * _BaseColor.rgb * i.color.rgb;
+                half gloss = max(_Gloss, 1.0 - base.a);
                 half detail = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale).r;
                 albedo *= 1.0 + (detail - 0.5) * 2.0 * _DetailStrength;
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
@@ -74,6 +87,18 @@ Shader "TW/Toon (URP)"
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
                 half3 color = albedo * lerp(_ShadeColor.rgb, mainLight.color, band);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
+                if (gloss > 0.01)
+                {
+                    float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
+                    float3 n = normalize(lerp(normalize(i.normalWS), float3(0, 1, 0), 0.8));   // water lies flat whatever the ground does
+                    float3 r = reflect(-view, n);
+                    half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
+                    half3 sky = unity_FogColor.rgb * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
+                    color = lerp(color, sky, gloss * (0.22 + 0.70 * fresnel));
+                    half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
+                    color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
+                }
+                color = ApplyMist(color, i.positionWS);
                 color = MixFog(color, i.fog);
                 return half4(color, 1.0);
             }

@@ -237,6 +237,7 @@ namespace TW.Presentation.Terrain
             // Opaque painted water shares lighting/fog with the puddle pigment and writes depth before VFX.
             var m = Toon(Puddle);
             m.SetFloat("_DetailStrength", 0.05f);
+            m.SetFloat("_Gloss", 1f);
             float w = map.SizeMeters.x, l = map.SizeMeters.y, y = map.WaterLevel;
             var mesh = new Mesh
             {
@@ -385,11 +386,13 @@ namespace TW.Presentation.Terrain
             return sum;
         }
 
-        static readonly Color Ink = new Color(0.18f, 0.175f, 0.17f);
-        static readonly Color MudDark = new Color(0.36f, 0.365f, 0.355f);
-        static readonly Color MudMid = new Color(0.425f, 0.42f, 0.395f);
-        static readonly Color MudPale = new Color(0.49f, 0.465f, 0.42f);
-        static readonly Color Puddle = new Color(0.53f, 0.58f, 0.60f);
+        // Palette (owner's breakdown, 2026-09-21): umber dirt, peat, olive drab; water is dark and takes its light from
+        // the sky reflection in the shader (texture alpha 0 = standing water, 0.5 = liquid mud), not from a pale albedo.
+        static readonly Color Ink = new Color(0.13f, 0.105f, 0.085f);
+        static readonly Color MudDark = new Color(0.235f, 0.205f, 0.175f);   // thick wet mud: mid ground, crater rims
+        static readonly Color MudMid = new Color(0.325f, 0.285f, 0.24f);
+        static readonly Color MudPale = new Color(0.42f, 0.37f, 0.31f);   // dry churned dirt: ridges and berms
+        static readonly Color Puddle = new Color(0.20f, 0.215f, 0.19f);
 
         static float Band(float a, float b, float value) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, value));
 
@@ -398,7 +401,12 @@ namespace TW.Presentation.Terrain
         {
             float broad = Mathf.PerlinNoise(wx * .07f + 91f, wz * .07f);
             // Quiet pigment variation. Dark lines describe erosion and material edges, not noise thresholds.
-            return Color.Lerp(MudMid * .95f, MudMid * 1.06f, broad);
+            Color c = Color.Lerp(MudMid * .93f, MudMid * 1.07f, broad);
+            // Soil follows the mounds: dry and pale on the rises, dark and wet in the dips between them.
+            float mound = BattlefieldSurface.Mound(wx, wz);
+            c = Color.Lerp(c, MudPale, Band(.12f, .30f, mound) * .75f);
+            c = Color.Lerp(c, MudDark, Band(-.08f, -.30f, mound) * .50f);
+            return c;
         }
 
         static Color Sediment(Color c, float x, float z, float activity)
@@ -440,7 +448,7 @@ namespace TW.Presentation.Terrain
             if (sample.BankDistance < 3.7f)
             {
                 float mass = Surface.BankRise(wx, wz);
-                c = Color.Lerp(c, new Color(.57f, .505f, .42f), Mathf.Clamp01(mass * 1.5f));
+                c = Color.Lerp(c, new Color(.45f, .395f, .325f), Mathf.Clamp01(mass * 1.5f));
                 float crest = .75f + Mathf.Sin(wx * 3f + wz * 3f) * .13f;
                 if (Mathf.Abs(sample.BankDistance - crest) < .09f) c = Color.Lerp(c, Ink, .64f);
                 float erosion = Mathf.Sin(wx * 5.8f + wz * 5.3f + Mathf.Sin(wx + wz) * .8f);
@@ -457,14 +465,14 @@ namespace TW.Presentation.Terrain
             float bowlX = (hf.Sample(wx - 3f, wz) + hf.Sample(wx + 3f, wz)) * 0.5f - h, bowlZ = (hf.Sample(wx, wz - 3f) + hf.Sample(wx, wz + 3f)) * 0.5f - h;
             float hollow = Mathf.Min(bowlX, bowlZ);   // a shell hole is hollow both ways; the foot of a slope only one way
             float bowl = hollow > 0.1f ? (bowlX + bowlZ) * 0.5f : Mathf.Min(0f, (bowlX + bowlZ) * 0.5f);
-            bool inside = bowl > 0.34f;
+            bool inside = bowl > 0.34f, silt = false, water = false;
             if (sample.Hollow >= 0)
             {
                 var depression = Surface.Hollows[sample.Hollow];
                 Vector2 delta = new Vector2(wx, wz) - depression.Center;
                 float a = Mathf.Atan2(delta.y, delta.x);
                 float r = delta.magnitude / depression.Radius + Mathf.Sin(a * 7f + depression.Center.x) * .04f;
-                if (r < .72f) c = Color.Lerp(Ink, MudDark, .45f);
+                if (r < .72f) { c = Color.Lerp(Ink, MudDark, .45f); silt = true; }
                 else if (r < .92f) c = Color.Lerp(Ink, MudDark, .13f);
                 else if (r < 1.02f) c = Ink;
                 else if (r < 1.17f) c = MudPale;
@@ -482,14 +490,14 @@ namespace TW.Presentation.Terrain
             if (map.WaterLevel > MapData.NoWater) wetness += Mathf.Clamp01(1f - (h - map.WaterLevel) / 0.5f) * 0.45f;
             if (wetness > 0.82f)
             {
-                c = Puddle;
+                c = Puddle; water = true;
                 float ripple = Mathf.PerlinNoise(wx * 1.8f, wz * 7f + 19f);
-                if (ripple > 0.68f) c = Color.Lerp(c, new Color(0.76f, 0.77f, 0.73f), 0.55f);
+                if (ripple > 0.68f) c = Color.Lerp(c, new Color(0.36f, 0.39f, 0.38f), 0.5f);
             }
             else if (wetness > 0.79f) c = Ink;
-            else if (wetness > 0.765f) c = Color.Lerp(c, MudPale, 0.65f);
+            else if (wetness > 0.765f) c = Color.Lerp(c, MudDark, 0.65f);   // a soaked margin, not a pale one
 
-            c.a = 1f;
+            c.a = water ? 0f : silt ? .5f : 1f;
             return c;
         }
     }
