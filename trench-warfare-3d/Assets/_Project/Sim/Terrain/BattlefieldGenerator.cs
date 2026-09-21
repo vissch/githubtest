@@ -62,6 +62,26 @@ namespace TW.Sim.Terrain
             float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
             float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
             float[] trenchZ = { ReserveZ, FrontZ, L - FrontZ, L - ReserveZ };
+            // Trenches are not ruled lines (owner, 2026-09-21): each 20 m fire bay sits up to 4 m forward or back of its
+            // neighbour and a traverse joins them. Bays change on columns x % 10 == 0, the ladders stand on x % 10 == 5,
+            // so a ladder always climbs out of the middle of a bay onto open ground.
+            var bends = new int[4][];
+            for (int t = 0; t < 4; t++)
+            {
+                var bendRng = new Random(math.max(1u, p.Seed * 2246822519u + (uint)t * 3266489917u));
+                bends[t] = new int[map.NavWidth];
+                int bay = bendRng.NextInt(-1, 2);
+                for (int x = 0; x < map.NavWidth; x++)
+                {
+                    if (x > 0 && x % 10 == 0)
+                    {
+                        int step = bendRng.NextInt(1, 3) * (bendRng.NextBool() ? 1 : -1);
+                        int next = math.clamp(bay + step, -2, 2);
+                        bay = next != bay ? next : math.clamp(bay - step, -2, 2);   // at the limit, bend the other way: never a straight joint
+                    }
+                    bends[t][x] = bay;
+                }
+            }
 
             // ---- 1. rolling ground, levelled where men dig in ---------------------------------------------------
             var hf = map.Height;
@@ -71,7 +91,7 @@ namespace TW.Sim.Terrain
                 float wx = x + 0.5f, wz = z + 0.5f;
                 float h = BaseHeight + 2.6f * (Noise(p.Seed, wx, wz, 70f) - 0.5f) + 0.7f * (Noise(p.Seed + 1u, wx, wz, 18f) - 0.5f);
                 float keep = math.min(Ramp(wz - HqDepth, 0f, 16f * sz), Ramp(L - HqDepth - wz, 0f, 16f * sz));   // HQ areas are level
-                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - (trenchZ[t] + 2f)) - 5f, 0f, 14f * sz));
+                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - (trenchZ[t] + 2f)) - 9f, 0f, 14f * sz));   // level under every bay, 4 m either way
                 hf.Set(x, z, math.lerp(DugInHeight, h, keep));
             }
 
@@ -102,15 +122,15 @@ namespace TW.Sim.Terrain
             }
 
             // ---- 3. trenches, objectives, spawns (the playtest layout) ------------------------------------------
-            GreyboxMapGenerator.AddFireTrench(map, 0, 0, ReserveZ, 0f, next0: 1, next1: -1);
-            GreyboxMapGenerator.AddFireTrench(map, 0, 1, FrontZ, 0f, next0: 2, next1: 0);
-            GreyboxMapGenerator.AddFireTrench(map, 1, 2, L - FrontZ, SimMath.Pi, next0: 3, next1: 1);
-            GreyboxMapGenerator.AddFireTrench(map, 1, 3, L - ReserveZ, SimMath.Pi, next0: -1, next1: 2);
-            GreyboxMapGenerator.AddLineObjective(map, 0, ObjectiveKind.MainLine, 0, 0, FrontZ, 1);
-            GreyboxMapGenerator.AddLineObjective(map, 1, ObjectiveKind.ReserveLine, 0, 0, ReserveZ, 2);
+            GreyboxMapGenerator.AddFireTrench(map, 0, 0, ReserveZ, 0f, next0: 1, next1: -1, offsets: bends[0]);
+            GreyboxMapGenerator.AddFireTrench(map, 0, 1, FrontZ, 0f, next0: 2, next1: 0, offsets: bends[1]);
+            GreyboxMapGenerator.AddFireTrench(map, 1, 2, L - FrontZ, SimMath.Pi, next0: 3, next1: 1, offsets: bends[2]);
+            GreyboxMapGenerator.AddFireTrench(map, 1, 3, L - ReserveZ, SimMath.Pi, next0: -1, next1: 2, offsets: bends[3]);
+            GreyboxMapGenerator.AddLineObjective(map, 0, ObjectiveKind.MainLine, 0, 0, FrontZ, 1, bends[1]);
+            GreyboxMapGenerator.AddLineObjective(map, 1, ObjectiveKind.ReserveLine, 0, 0, ReserveZ, 2, bends[0]);
             GreyboxMapGenerator.AddLineObjective(map, 2, ObjectiveKind.HQ, 0, 0, 20f * sz, 3);
-            GreyboxMapGenerator.AddLineObjective(map, 3, ObjectiveKind.MainLine, 1, 1, L - FrontZ, 1);
-            GreyboxMapGenerator.AddLineObjective(map, 4, ObjectiveKind.ReserveLine, 1, 1, L - ReserveZ, 2);
+            GreyboxMapGenerator.AddLineObjective(map, 3, ObjectiveKind.MainLine, 1, 1, L - FrontZ, 1, bends[2]);
+            GreyboxMapGenerator.AddLineObjective(map, 4, ObjectiveKind.ReserveLine, 1, 1, L - ReserveZ, 2, bends[3]);
             GreyboxMapGenerator.AddLineObjective(map, 5, ObjectiveKind.HQ, 1, 1, L - 20f * sz, 3);
             map.Spawns.Add(new SpawnPoint { Team = 0, Pos = new float3(W * 0.5f, 0f, 6f), Kind = 0 });
             map.Spawns.Add(new SpawnPoint { Team = 1, Pos = new float3(W * 0.5f, 0f, L - 6f), Kind = 0 });
@@ -147,7 +167,7 @@ namespace TW.Sim.Terrain
             // ---- 7. wire in front of both front lines, with gaps ------------------------------------------------
             for (int side = 0; side < 2; side++)
             {
-                float z0 = side == 0 ? FrontZ + 16f * sz : L - FrontZ - 16f * sz - 4f;
+                float z0 = side == 0 ? FrontZ + 16f * sz + 6f : L - FrontZ - 16f * sz - 4f - 6f;   // clear of the most forward bay
                 float x = 0f;
                 while (x < W)
                 {
@@ -186,7 +206,7 @@ namespace TW.Sim.Terrain
         /// wire, water and the supply road.</summary>
         static bool ClearForProp(MapData map, BattlefieldParams p, float riverShift, bool river, float[] trenchZ, float x, float z)
         {
-            for (int t = 0; t < trenchZ.Length; t++) if (math.abs(z - (trenchZ[t] + 2f)) < 10f) return false;
+            for (int t = 0; t < trenchZ.Length; t++) if (math.abs(z - (trenchZ[t] + 2f)) < 14f) return false;
             if (river && math.abs(z - RiverZ(p, riverShift, x)) < RiverHalf(p) + 6f) return false;
             if (math.abs(x - p.Width * 0.5f) < 5f && (z < ReserveAt * p.Length / 480f || z > p.Length - ReserveAt * p.Length / 480f)) return false;
             var layer = map.LayerAt(new float3(x, 0f, z));

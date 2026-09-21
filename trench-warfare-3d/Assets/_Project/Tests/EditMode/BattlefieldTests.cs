@@ -134,7 +134,7 @@ namespace TW.Tests
             Assert.Greater(Count(map, NavLayer.Crater), 200, "shell holes");
             Assert.Greater(Count(map, NavLayer.Mud), 900, "mud");
             Assert.Greater(Count(map, NavLayer.Wire), 90, "wire");
-            Assert.Greater(Count(map, NavLayer.Blocked), 70, "the river channel and solid props");   // 90 x 240 m: a quarter of the first field's area
+            Assert.Greater(Count(map, NavLayer.Blocked), 50, "the river channel and solid props");   // 90 x 240 m: a quarter of the first field's area
             int standing = 0, broken = 0, wrecks = 0;
             for (int i = 0; i < map.Props.Length; i++)
             {

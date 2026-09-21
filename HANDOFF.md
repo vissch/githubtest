@@ -46,6 +46,8 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   soldier stands in). Measured worst case, 2,900 units with 650 in view: 1.2 M unit vertices with shadows, under the
   1.5 M budget. The battlefield is 90 x 240 m (owner: 300 wide was too wide to fill, then halved both ways); the
   generator's layout scales with the params, no man's land is 100 m, so rifles (130 m) now reach trench to trench.
+  Trenches are bent, not ruled (owner, 2026-09-21): 20 m fire bays set up to 4 m forward or back, joined by traverses;
+  bays change on nav columns x % 10 == 0 and ladders stand on x % 10 == 5, so a ladder always opens onto clear ground.
 - **Visual standard (owner, 2026-09-21): painted cartoon mudfield**, led by
   `docs/reference/battlefield-northstar.jpeg`. The rebuilt generation contract and three-round critique are in
   `docs/13-environment-system-rebuild.md` (supersedes the original generator details in document 12).

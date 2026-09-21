@@ -80,9 +80,11 @@ namespace TW.Sim.Terrain
 
         /// <summary>A straight fire trench across the full corridor width at world Z, 2 cells deep in Z, with a link every 10 cells.
         /// It reaches both map edges so that nothing can bypass it round the end (tanks must cross, infantry must use links).</summary>
-        internal static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1)
+        /// <summary><paramref name="offsets"/> (optional, one per nav column, in cells along Z) bends the trench: fire bays
+        /// set forward and back, joined by a traverse wherever two neighbouring columns differ. Null = a straight line.</summary>
+        internal static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1, int[] offsets = null)
         {
-            int zc = (int)(z / MapData.NavCellSize);
+            int zBase = (int)(z / MapData.NavCellSize);
             var def = new TrenchDef
             {
                 Id = id, OwnerTeam = team, Kind = 0, FacingYaw = facingYaw, WidthMeters = 3f,
@@ -91,23 +93,26 @@ namespace TW.Sim.Terrain
             };
             for (int x = 0; x < map.NavWidth; x++)
             {
-                for (int dz = 0; dz < 2; dz++)
+                int zc = zBase + (offsets != null ? offsets[x] : 0);
+                // the traverse: where this column's bay sits forward or back of the last one, dig the cells between
+                int prev = x > 0 ? zBase + (offsets != null ? offsets[x - 1] : 0) : zc;
+                int from = math.min(zc, prev), to = math.max(zc, prev) + 1;
+                bool link = (x % 10) == 5;
+                for (int cz = from; cz <= to; cz++)
                 {
-                    int cz = zc + dz;
-                    bool link = (x % 10) == 5;
                     map.SetLayer(x, cz, link ? (NavLayer.Trench | NavLayer.Link) : NavLayer.Trench);
                     int idx = map.NavIndex(x, cz);
                     map.TrenchCells.Add(idx);
                     map.CellTrenchId[idx] = id;
                     if (link) map.LinkCells.Add(idx);
+                    // carve the heightfield 1.8 m down across the cell
+                    for (int hz = cz * 2; hz < cz * 2 + 2; hz++)
+                        for (int hx = x * 2; hx < x * 2 + 2; hx++)
+                            map.Height.Set(hx, hz, map.Height.HeightAtCell(hx, hz) - 1.8f);
                 }
                 // fire-step is the trench cell on the enemy-facing side
                 int fsz = team == 0 ? zc + 1 : zc;
                 map.FireStepCells.Add(map.NavIndex(x, fsz));
-                // carve the heightfield 1.8 m down across the trench footprint
-                for (int hz = zc * 2; hz < zc * 2 + 4; hz++)
-                    for (int hx = x * 2; hx < x * 2 + 2; hx++)
-                        map.Height.Set(hx, hz, map.Height.HeightAtCell(hx, hz) - 1.8f);
             }
             def.CellCount = map.TrenchCells.Length - def.CellStart;
             def.FireStepCount = map.FireStepCells.Length - def.FireStepStart;
@@ -118,11 +123,11 @@ namespace TW.Sim.Terrain
                 map.StaticCover.Add(new CoverVolume { Center = new float3(x, 0f, z + 2f), Radius = 10f, ArcCenterYaw = facingYaw, ArcHalfWidth = SimMath.HalfPi, Bonus = 0.85f, Height = 1.5f, OwnerSlot = -1 });
         }
 
-        internal static void AddLineObjective(MapData map, short id, ObjectiveKind kind, byte sideTeam, byte ownerTeam, float z, short orderIndex)
+        internal static void AddLineObjective(MapData map, short id, ObjectiveKind kind, byte sideTeam, byte ownerTeam, float z, short orderIndex, int[] offsets = null)
         {
-            int zc = (int)(z / MapData.NavCellSize);
+            int zBase = (int)(z / MapData.NavCellSize);
             var def = new ObjectiveDef { Id = id, Kind = kind, OwnerTeam = ownerTeam, SideTeam = sideTeam, CellStart = map.ObjectiveCells.Length, RequiredUnits = 3, CaptureTicks = 200, OrderIndex = orderIndex };
-            for (int x = 0; x < map.NavWidth; x++) for (int dz = 0; dz < 2; dz++) map.ObjectiveCells.Add(map.NavIndex(x, zc + dz));
+            for (int x = 0; x < map.NavWidth; x++) for (int dz = 0; dz < 2; dz++) map.ObjectiveCells.Add(map.NavIndex(x, zBase + (offsets != null ? offsets[x] : 0) + dz));   // the line follows the trench's bays
             def.CellCount = map.ObjectiveCells.Length - def.CellStart;
             map.Objectives.Add(def);
         }
