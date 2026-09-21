@@ -28,6 +28,11 @@ namespace TW.Presentation
         [Tooltip("Play on a generated battlefield (shelled wood, river, mud) instead of the flat playtest map.")]
         public bool GeneratedBattlefield = true;
         public uint BattlefieldSeed = 1917;
+        [Tooltip("Shells per minute that fall on no man's land all match long. 0 = quiet.")]
+        public float BombardmentPerMinute = 8f;
+        /// <summary>Set by the debug panel before a restart; survives the scene reload. Negative = use the field above.</summary>
+        public static float BombardmentOverride = -1f;
+        public float BombardmentNow => Local != null && Local.Bombardment != null ? Local.Bombardment.ShellsPerMinute : 0f;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
         [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
@@ -60,7 +65,12 @@ namespace TW.Presentation
 
         MatchSim NewMatch(SimConfig cfg)
         {
-            if (GeneratedBattlefield) return MatchSim.CreateBattlefield(cfg, TW.Sim.Terrain.BattlefieldParams.ShelledForest(BattlefieldSeed));
+            if (GeneratedBattlefield)
+            {
+                var field = TW.Sim.Terrain.BattlefieldParams.ShelledForest(BattlefieldSeed);
+                field.Bombardment = BombardmentOverride >= 0f ? BombardmentOverride : BombardmentPerMinute;
+                return MatchSim.CreateBattlefield(cfg, field);
+            }
             return PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
         }
 

@@ -177,6 +177,21 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AmbientBombardment_FallsAtTheAskedRate_AndNotAtAllWhenQuiet()
+        {
+            var cfg = SimConfig.Default; cfg.Seed = 5;
+            var loud = BattlefieldParams.ShelledForest(3); loud.Bombardment = 60f;
+            var quiet = BattlefieldParams.ShelledForest(3); quiet.Bombardment = 0f;
+            using var a = MatchSim.CreateBattlefield(cfg, loud);
+            using var b = MatchSim.CreateBattlefield(cfg, quiet);
+            for (int t = 0; t < 1200; t++) { Step(a); Step(b); }   // one minute
+            Assert.That(a.Bombardment.Fired, Is.InRange(35, 90), "about sixty shells in a minute");
+            Assert.AreEqual(a.Bombardment.Fired, a.Deformation.Applied + a.Deformation.Queue.Length, "every shell leaves a crater");
+            Assert.AreEqual(0, b.Bombardment.Fired);
+            Assert.AreEqual(0, b.Deformation.Applied);
+        }
+
+        [Test]
         public void EnvironmentEdits_AreDeterministic()
         {
             ulong Run()

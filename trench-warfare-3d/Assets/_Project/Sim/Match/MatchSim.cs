@@ -25,6 +25,7 @@ namespace TW.Sim.Match
         public GasSmokeSystem Gas;
         public DeformationSystem Deformation;
         public OffMapAbilitySystem Abilities;
+        public AmbientBombardmentSystem Bombardment;
 
         /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
         public static MatchSim CreateGreybox(SimConfig config, bool combat = true)
@@ -38,7 +39,11 @@ namespace TW.Sim.Match
 
         /// <summary>A generated battlefield (BattlefieldGenerator): the same params give the same map on every machine.</summary>
         public static MatchSim CreateBattlefield(SimConfig config, BattlefieldParams battlefield, bool combat = true)
-            => new MatchSim(config, BattlefieldGenerator.Create(battlefield, Allocator.Persistent), combat);
+        {
+            var match = new MatchSim(config, BattlefieldGenerator.Create(battlefield, Allocator.Persistent), combat);
+            match.Bombardment.ShellsPerMinute = battlefield.Bombardment;
+            return match;
+        }
 
         public MatchSim(SimConfig config, MapData map, bool combat = true)
         {
@@ -63,6 +68,8 @@ namespace TW.Sim.Match
             // A5: World.AddSystem(new TW.Sim.Combat.IndirectFireSystem());
             Blast = new BlastSystem(map);
             World.AddSystem(Blast);                         // A5 core: radius damage, suppression, craters out
+            Bombardment = new AmbientBombardmentSystem(map);
+            World.AddSystem(Bombardment);                   // A5: nobody's shells on no man's land (off unless the match asks for it)
             // A5: World.AddSystem(new TW.Sim.Combat.BurningSystem());
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)

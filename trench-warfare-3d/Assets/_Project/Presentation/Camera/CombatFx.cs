@@ -20,11 +20,15 @@ namespace TW.Presentation.Tactical
         struct Body { public Vector3 Pos; public float Yaw; public byte Team; }
         struct Burst { public Vector3 Pos; public float Radius, Born; }
         struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
+        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
         readonly List<Marker> markers = new List<Marker>(8);
+        readonly List<Chunk> chunks = new List<Chunk>(768);
+        Material dirtMat, woodMat, smokeMat;
+        const int MaxChunks = 768;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
         Mesh cube, capsule, sphere;
@@ -46,6 +50,8 @@ namespace TW.Presentation.Tactical
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
             sphere = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
+            dirtMat = new Material(lit) { enableInstancing = true, color = new Color(0.20f, 0.16f, 0.11f) };
+            woodMat = new Material(lit) { enableInstancing = true, color = new Color(0.36f, 0.27f, 0.17f) };
             burstMat = Transparent(unlit, new Color(1f, 0.62f, 0.2f, 0.55f));
             markMine = Transparent(unlit, new Color(1f, 0.85f, 0.3f, 0.35f));
             markTheirs = Transparent(unlit, new Color(1f, 0.2f, 0.15f, 0.35f));
@@ -106,6 +112,7 @@ namespace TW.Presentation.Tactical
                     Vector3 p = (Vector3)e.Pos;
                     p.y = hf.Sample(p.x, p.z);
                     if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time });
+                    Throw(p, 14, 0, 9f, 0.22f); Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
                     break;
                 }
                 case SimEventType.AbilityFired:
@@ -116,6 +123,13 @@ namespace TW.Presentation.Tactical
                     markers.Add(new Marker { Pos = p, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
                     string what = e.A == (int)OffMapAbilityId.ChlorineGas ? "gas" : "barrage";
                     Banner(e.B == 0 ? $"Your {what} is on its way" : $"INCOMING {what.ToUpper()}: fall back or keep below the rim", 3f);
+                    break;
+                }
+                case SimEventType.PropChanged:
+                {
+                    Vector3 p = (Vector3)e.Pos;
+                    p.y = hf.Sample(p.x, p.z) + 1.5f;
+                    Throw(p, 18, 1, 7f, 0.16f);   // splinters where a tree broke, scrap where a wreck settled
                     break;
                 }
                 case SimEventType.TrenchCaptured:
@@ -166,6 +180,8 @@ namespace TW.Presentation.Tactical
                 batch.Add(Matrix4x4.TRS(bursts[i].Pos, Quaternion.identity, new Vector3(r * 2f, r * (1.2f - k), r * 2f)));
             }
             if (batch.Count > 0) Flush(sphere, new RenderParams(burstMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+
+            DrawChunks(now, bounds);
 
             // target markers (both sides see where support fire was called) and the aiming circle
             markers.RemoveAll(m => now > m.Until);
@@ -222,6 +238,48 @@ namespace TW.Presentation.Tactical
                     if (batch.Count == 1023) Flush(capsule, rp);
                 }
                 if (batch.Count > 0) Flush(capsule, rp);
+            }
+        }
+
+        /// <summary>Throw debris: dirt and splinters fly and fall, smoke rises, swells and thins.</summary>
+        void Throw(Vector3 at, int count, byte kind, float speed, float size)
+        {
+            for (int k = 0; k < count && chunks.Count < MaxChunks; k++)
+            {
+                Vector3 dir = UnityEngine.Random.onUnitSphere; dir.y = Mathf.Abs(dir.y) * (kind == 2 ? 0.4f : 1.4f) + 0.2f;
+                chunks.Add(new Chunk { Pos = at, Vel = dir.normalized * speed * UnityEngine.Random.Range(0.5f, 1.2f), Born = Time.time, Life = kind == 2 ? UnityEngine.Random.Range(3.5f, 6f) : UnityEngine.Random.Range(0.9f, 1.7f),
+                    Size = size * UnityEngine.Random.Range(0.6f, 1.5f), Kind = kind });
+            }
+        }
+
+        void DrawChunks(float now, Bounds bounds)
+        {
+            if (smokeMat == null) smokeMat = Transparent(Shader.Find("Universal Render Pipeline/Unlit"), new Color(0.16f, 0.15f, 0.14f, 0.30f));
+            chunks.RemoveAll(c => now - c.Born > c.Life);
+            float dt = Time.deltaTime;
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                var c = chunks[i];
+                if (c.Kind == 2) { c.Vel = Vector3.Lerp(c.Vel, new Vector3(0f, 1.2f, -0.8f), dt * 1.5f); }   // drifts up and down wind
+                else c.Vel += Vector3.down * 9.8f * dt;
+                c.Pos += c.Vel * dt;
+                chunks[i] = c;
+            }
+            for (byte kind = 0; kind < 3; kind++)
+            {
+                batch.Clear();
+                var rp = new RenderParams(kind == 0 ? dirtMat : kind == 1 ? woodMat : smokeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                for (int i = 0; i < chunks.Count; i++)
+                {
+                    var c = chunks[i];
+                    if (c.Kind != kind) continue;
+                    float k = (now - c.Born) / c.Life;
+                    float s = kind == 2 ? c.Size * (1f + 2.5f * k) * (1f - k * k * 0.6f) : c.Size;
+                    var rot = kind == 2 ? Quaternion.identity : Quaternion.Euler(c.Born * 997f + now * 300f, c.Born * 613f, now * 200f);
+                    batch.Add(Matrix4x4.TRS(c.Pos, rot, kind == 1 ? new Vector3(s * 0.4f, s * 0.4f, s * 3f) : new Vector3(s, s, s)));
+                    if (batch.Count == 1023) Flush(kind == 2 ? sphere : cube, rp);
+                }
+                if (batch.Count > 0) Flush(kind == 2 ? sphere : cube, rp);
             }
         }
 

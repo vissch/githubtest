@@ -24,6 +24,7 @@ namespace TW.Sim
         public const int TargetAcquisition = 600;
         public const int DirectFire = 700;
         public const int IndirectFire = 710;
+        public const int AmbientBombardment = 715;
         public const int Blast = 720;
         public const int Suppression = 800;
         public const int Stance = 810;

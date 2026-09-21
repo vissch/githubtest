@@ -21,15 +21,16 @@ namespace TW.Sim.Terrain
         public float WaterLevel;  // metres; MapData.NoWater for a dry field
         public bool River;
         public int Wrecks;
+        public float Bombardment; // ambient shells per minute on no man's land during the match; 0 = a quiet sector
 
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
-        { Seed = seed, Width = 300f, Length = 480f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 5 };
+        { Seed = seed, Width = 300f, Length = 480f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 5, Bombardment = 8f };
 
         public byte[] Serialize()
         {
             using var ms = new MemoryStream();
             using var w = new BinaryWriter(ms);
-            w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks);
+            w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment);
             return ms.ToArray();
         }
 
@@ -39,7 +40,7 @@ namespace TW.Sim.Terrain
             return new BattlefieldParams
             {
                 Seed = r.ReadUInt32(), Width = r.ReadSingle(), Length = r.ReadSingle(), Forest = r.ReadSingle(), Shelling = r.ReadSingle(),
-                Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(),
+                Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(), Bombardment = r.ReadSingle(),
             };
         }
     }

@@ -119,6 +119,13 @@ namespace TW.Presentation.Tactical
             SpeedButton("||", 0f); SpeedButton("1x", 1f); SpeedButton("2x", 2f); SpeedButton("4x", 4f); SpeedButton("8x", 8f);
             GUILayout.EndHorizontal();
             if (GUILayout.Button("Restart match")) Host.Restart();
+            GUILayout.Label($"Bombardment: {Host.BombardmentNow:0} shells a minute (restarts the match)", small);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Quiet")) { SimHost.BombardmentOverride = 0f; Host.Restart(); }
+            if (GUILayout.Button("Light")) { SimHost.BombardmentOverride = 8f; Host.Restart(); }
+            if (GUILayout.Button("Heavy")) { SimHost.BombardmentOverride = 25f; Host.Restart(); }
+            if (GUILayout.Button("Drumfire")) { SimHost.BombardmentOverride = 70f; Host.Restart(); }
+            GUILayout.EndHorizontal();
 
             // ---- deploy -----------------------------------------------------------------------------------------
             GUILayout.Space(8);
@@ -221,7 +228,8 @@ namespace TW.Presentation.Tactical
                 if (GUILayout.Button("Follow my units")) FollowUnits();
                 GUILayout.EndHorizontal();
                 GUILayout.Label("You are on the LEFT, the enemy on the RIGHT.", small);
-                GUILayout.Label("WASD / edge: pan   wheel: zoom   Q/E: tilt   F1 flow field   F2 stats", small);
+                GUILayout.Label("WASD / edge: pan (speeds up)   wheel: zoom   Z: super zoom", small);
+                GUILayout.Label("right drag: turn and tilt   middle drag: pan   Home: reset view", small);
             }
 
             GUILayout.EndScrollView();
