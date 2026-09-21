@@ -35,7 +35,10 @@ namespace TW.Presentation.Units
     public sealed class VATRenderer : MonoBehaviour
     {
         public SimHost Host;
-        public float UnitScale = 1.5f;   // a little over life size so a man reads at the default zoom
+        public float UnitScale = 1.5f;   // a little over life size so a man reads up close
+        [Tooltip("Men grow with the zoom so they stay readable from far out: x1 up to this zoom, then in proportion, capped at MaxGrow.")]
+        public float GrowFromZoom = 24f;
+        public float MaxGrow = 4f;
         public bool CastShadows = true;
 
         /// <summary>Infantry drawn last frame (for the stats overlay and tests).</summary>
@@ -101,9 +104,11 @@ namespace TW.Presentation.Units
                 GeometryUtility.CalculateFrustumPlanes(cam, frustum);
                 for (int i = 0; i < 6; i++) planes[i] = new float4(frustum[i].normal, frustum[i].distance);
             }
+            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
+            float grow = Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
             new FillJob
             {
-                Poses = presenter.Poses, PoseCount = presenter.PoseCount, Height = Host.Local.Map.Height, Scale = UnitScale,
+                Poses = presenter.Poses, PoseCount = presenter.PoseCount, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Instances = instances, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
             }.Run();
             DrawnInfantry = counts[0];
@@ -120,7 +125,6 @@ namespace TW.Presentation.Units
                     startIndex = asset.Mesh.GetIndexStart(0), baseVertexIndex = asset.Mesh.GetBaseVertex(0), startInstance = 0,
                 };
                 argsBuffer.SetData(args);
-                float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
                 material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
                 ShadowsThisFrame = CastShadows && (long)DrawnInfantry * asset.Mesh.vertexCount * 2 <= LodTiers.VertexBudget;
                 var rp = new RenderParams(material)

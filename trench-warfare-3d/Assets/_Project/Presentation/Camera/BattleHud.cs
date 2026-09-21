@@ -3,6 +3,8 @@
 // divider and two support slots, the income on the left and pause/speed on the right; and for every trench the player
 // owns, slate buttons with gold icons anchored to the trench on screen: fall back and lock on the left, hold fire and
 // >> on the right. IMGUI only, every texture is generated here. Support buttons arm TestPanel's click-to-target.
+// Top right: a minimap (enemy on the right, as on screen) with the ground, both sides' men as dots and the camera's
+// position; click or drag on it to move the view. Next to the silver: how many men each side has on the field.
 using UnityEngine;
 using TW.Sim;
 using TW.Sim.Match;
@@ -15,6 +17,13 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         public TestPanel Panel;
         public const float BarHeight = 100f;
+        /// <summary>Where the minimap is on screen (GUI coordinates), so map clicks under it are not taken for targets.</summary>
+        public static Rect MinimapRect;
+        const float MapScale = 1.6f;   // minimap pixels per nav cell
+        Texture2D mapGround, mapDots, whiteTex;
+        Color32[] dotPixels;
+        float nextGround, nextDots;
+        int myMen, theirMen;
 
         static readonly string[] SlotNames = { "Rifle", "Assault", "MG", "Sniper", "Tank" };
         static readonly string[] SlotTips =
@@ -193,6 +202,10 @@ namespace TW.Presentation.Tactical
             GUI.Label(new Rect(sr.x, sr.y, sr.width - 42f, sr.height), $"{w.Silver[0]}", silver);
             GUI.DrawTexture(new Rect(sr.xMax - 36f, sr.y + 10f, 24f, 24f), coin);
 
+            GUI.Box(new Rect(sr.xMax + 8f, 12f, 176f, 44f), GUIContent.none, stone);
+            GUI.Label(new Rect(sr.xMax + 8f, 12f, 176f, 44f), $"Men {myMen}   Enemy {theirMen}", hint);
+            Minimap(w, over);
+
             // ---- bottom bar: income | wooden frame with roster and support | pause and speed -----------------
             const float sideH = BarHeight - 14f;
             bool narrow = Screen.width - (panelOpen ? 320f : 0f) < 1000f;
@@ -328,6 +341,88 @@ namespace TW.Presentation.Tactical
                 GUI.Label(new Rect((Screen.width - tw) * 0.5f, Screen.height - BarHeight - 30f, tw, 24f), line, tip);
             }
         }
+
+        // ---- minimap ---------------------------------------------------------------------------------------------
+        // Map pixel (u, v): u runs along world Z (you left, enemy right), v along world X, top = X 0, like the main view.
+        void Minimap(SimWorld w, bool over)
+        {
+            var map = Host.Local.Map;
+            int tw = map.NavLength, th = map.NavWidth;
+            if (mapGround == null)
+            {
+                mapGround = new Texture2D(tw, th, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+                mapDots = new Texture2D(tw, th, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+                dotPixels = new Color32[tw * th];
+                whiteTex = Solid(Color.white);
+            }
+            float now = Time.unscaledTime;
+            if (now >= nextGround)   // craters, cut wire and floods change it slowly
+            {
+                nextGround = now + 3f;
+                var px = new Color32[tw * th];
+                for (int x = 0; x < th; x++)
+                for (int z = 0; z < tw; z++)
+                {
+                    var layer = (TW.Sim.Terrain.NavLayer)map.NavLayers[map.NavIndex(x, z)];
+                    Color32 c = new Color32(92, 76, 54, 255);
+                    if ((layer & TW.Sim.Terrain.NavLayer.Mud) != 0) c = new Color32(70, 57, 40, 255);
+                    if ((layer & TW.Sim.Terrain.NavLayer.Crater) != 0) c = new Color32(58, 49, 38, 255);
+                    if ((layer & TW.Sim.Terrain.NavLayer.Wire) != 0) c = new Color32(120, 118, 116, 255);
+                    if ((layer & TW.Sim.Terrain.NavLayer.Blocked) != 0) c = map.WaterDepthAtCell(x, z) > 0.5f ? new Color32(52, 70, 74, 255) : new Color32(40, 52, 34, 255);
+                    if ((layer & TW.Sim.Terrain.NavLayer.Trench) != 0) c = (layer & TW.Sim.Terrain.NavLayer.Link) != 0 ? new Color32(200, 170, 110, 255) : new Color32(30, 22, 16, 255);
+                    px[(th - 1 - x) * tw + z] = c;   // texture rows run bottom-up
+                }
+                mapGround.SetPixels32(px); mapGround.Apply(false, false);
+            }
+            if (now >= nextDots)
+            {
+                nextDots = now + 0.15f;
+                System.Array.Clear(dotPixels, 0, dotPixels.Length);
+                myMen = 0; theirMen = 0;
+                var mine = new Color32(255, 214, 92, 255); var theirs = new Color32(235, 70, 60, 255);
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
+                    bool me = w.Team[i] == 0;
+                    if (me) myMen++; else theirMen++;
+                    var c = map.NavCellOf(w.Position[i]);
+                    int u = c.y, v = th - 1 - c.x;
+                    for (int dv = 0; dv < 2; dv++) for (int du = 0; du < 2; du++)
+                    {
+                        int uu = Mathf.Min(tw - 1, u + du), vv = Mathf.Max(0, v - dv);
+                        dotPixels[vv * tw + uu] = me ? mine : theirs;
+                    }
+                }
+                mapDots.SetPixels32(dotPixels); mapDots.Apply(false, false);
+            }
+
+            float mw = tw * MapScale, mh = th * MapScale;
+            var r = new Rect(Screen.width - mw - 14f, 44f, mw, mh);
+            MinimapRect = new Rect(r.x - 5f, r.y - 5f, r.width + 10f, r.height + 10f);
+            GUI.Box(MinimapRect, GUIContent.none, wood);
+            GUI.DrawTexture(r, mapGround);
+            GUI.DrawTexture(r, mapDots);
+
+            var cam = Camera.main;
+            var tc = cam != null ? cam.GetComponent<TacticalCamera>() : null;
+            if (tc == null) return;
+            // the view: a frame around the camera's focus, as wide as the ground it shows
+            float viewZ = tc.Zoom * cam.aspect * 0.55f, viewX = tc.Zoom * 0.55f;
+            float cx = r.x + tc.Focus.y / MapData_NavCell * MapScale, cy = r.y + tc.Focus.x / MapData_NavCell * MapScale;
+            float fw = Mathf.Clamp(viewZ * 2f / MapData_NavCell * MapScale, 8f, mw), fh = Mathf.Clamp(viewX * 2f / MapData_NavCell * MapScale, 6f, mh);
+            var f = new Rect(Mathf.Clamp(cx - fw * 0.5f, r.x, r.xMax - fw), Mathf.Clamp(cy - fh * 0.5f, r.y, r.yMax - fh), fw, fh);
+            GUI.DrawTexture(new Rect(f.x, f.y, f.width, 2f), whiteTex); GUI.DrawTexture(new Rect(f.x, f.yMax - 2f, f.width, 2f), whiteTex);
+            GUI.DrawTexture(new Rect(f.x, f.y, 2f, f.height), whiteTex); GUI.DrawTexture(new Rect(f.xMax - 2f, f.y, 2f, f.height), whiteTex);
+
+            var e = Event.current;
+            if ((e.type == EventType.MouseDown || e.type == EventType.MouseDrag) && e.button == 0 && r.Contains(e.mousePosition))
+            {
+                tc.Focus = new Vector2((e.mousePosition.y - r.y) / MapScale * MapData_NavCell, (e.mousePosition.x - r.x) / MapScale * MapData_NavCell);
+                e.Use();
+            }
+        }
+
+        const float MapData_NavCell = TW.Sim.Terrain.MapData.NavCellSize;
 
         void SupportSlot(ref float x, float y, float size, Texture2D icon, string tooltip, OffMapAbilityId id, bool over)
         {

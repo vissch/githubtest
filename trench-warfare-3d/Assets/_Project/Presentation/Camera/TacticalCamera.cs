@@ -23,11 +23,13 @@ namespace TW.Presentation.Tactical
         public float LookSpeed = 0.22f;
         public float PitchMin = 18f, PitchMax = 89f;
         public float EdgeScrollMargin = 12f;
+        [Tooltip("Pan when the cursor touches the screen edge. Off in the editor: the Game view is a panel, and a cursor resting on its border drags the view into the map corner.")]
+        public bool EdgeScroll = true;
         public float ZoomMin = 6f, ZoomMax = 600f;
         [Tooltip("Below this zoom the view tilts and widens towards ClosePitch / CloseFov (super zoom).")]
         public float CloseZoom = 15f;
         public float ClosePitch = 32f, CloseFov = 42f, CloseYawLimit = 100f;
-        public float Zoom = 30f;
+        public float Zoom = 50f;
         [Tooltip("90 = straight down. 72 keeps a slight 3D feel over the 2D game's top-down view.")]
         public float Pitch = 72f;
         [Tooltip("Yaw that puts world +Z (the enemy) on screen-right, as in the 2D game.")]
@@ -36,7 +38,7 @@ namespace TW.Presentation.Tactical
         [Tooltip("Narrow lens = flatter, closer to the 2D game's orthographic look. Zoom keeps its meaning (visible height of a 60 degree lens at that distance).")]
         public float Fov = 25f;
         public float RotateSpeed = 60f;
-        public Vector2 Focus = new Vector2(150f, 146f);   // front trench sits left of centre, no man's land to the right
+        public Vector2 Focus = new Vector2(150f, 104f);   // both of your trenches in view: men arrive at the left one
         float yaw, zoomBeforeSuper, pitchOffset, panHeld;
         bool freeLook;   // the right mouse button has turned the view past the Q/E limits
         Camera cam;
@@ -45,6 +47,7 @@ namespace TW.Presentation.Tactical
         {
             cam = GetComponent<Camera>();
             if (cam != null) { cam.fieldOfView = Fov; cam.farClipPlane = 4000f; }
+            if (Application.isEditor) EdgeScroll = false;
         }
 
         /// <summary>Snap to a point on the map at a zoom distance; used by the test panel's presets.</summary>
@@ -74,7 +77,7 @@ namespace TW.Presentation.Tactical
             if (mouse != null)
             {
                 Vector2 m = mouse.position.ReadValue();
-                bool inside = Application.isFocused && m.x >= 0f && m.y >= 0f && m.x <= Screen.width && m.y <= Screen.height;   // no edge scroll while unfocused or with the cursor outside the view
+                bool inside = EdgeScroll && Application.isFocused && m.x > 0f && m.y > 0f && m.x < Screen.width - 1f && m.y < Screen.height - 1f;   // a cursor clamped to the border is outside   // no edge scroll while unfocused or with the cursor outside the view
                 if (inside)
                 {
                     if (m.x < EdgeScrollMargin) pan.x -= 1f; else if (m.x > Screen.width - EdgeScrollMargin) pan.x += 1f;

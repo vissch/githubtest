@@ -189,13 +189,13 @@ MonoBehaviour:
   EdgeScrollMargin: 12
   ZoomMin: 6
   ZoomMax: 600
-  Zoom: 30
+  Zoom: 50
   Pitch: 72
   BaseYaw: -90
   YawLimit: 15
   Fov: 25
   RotateSpeed: 60
-  Focus: {x: 150, y: 146}
+  Focus: {x: 150, y: 104}
 --- !u!81 &387420981
 AudioListener:
   m_ObjectHideFlags: 0

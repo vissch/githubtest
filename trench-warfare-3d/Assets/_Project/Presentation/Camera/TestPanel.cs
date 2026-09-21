@@ -39,6 +39,7 @@ namespace TW.Presentation.Tactical
             if (m.x < 0f || m.y < 0f || m.x > Screen.width || m.y > Screen.height) return false;
             if (Visible && m.x < Width + 20f) return false;
             if (m.y < BattleHud.BarHeight + 4f) return false;   // the deploy bar (mouse Y counts from the bottom)
+            if (BattleHud.MinimapRect.Contains(new Vector2(m.x, Screen.height - m.y))) return false;   // a click on the minimap moves the view
             var ray = cam.ScreenPointToRay(m);
             if (Mathf.Abs(ray.direction.y) < 1e-4f) return false;
             float t = (1f - ray.origin.y) / ray.direction.y;   // the greybox ground lies between 0 and 2 m
@@ -94,7 +95,7 @@ namespace TW.Presentation.Tactical
             EnsureStyles();
             if (!Visible)
             {
-                if (GUI.Button(new Rect(Screen.width - 100, 10, 90, 24), "Debug panel")) Visible = true;
+                if (GUI.Button(new Rect(Screen.width - 104, 8, 90, 24), "Debug panel")) Visible = true;
                 return;
             }
             var w = Host.Local.World;
