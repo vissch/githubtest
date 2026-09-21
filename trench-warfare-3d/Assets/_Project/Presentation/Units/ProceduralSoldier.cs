@@ -19,16 +19,17 @@ namespace TW.Presentation.Units
     public static class ProceduralSoldier
     {
         public const int FramesPerRow = 16;
-        const float HipHeight = 0.9f;
+        public const float HipHeight = 0.9f, Height = 1.78f;
 
         enum Part { Torso, Head, ArmL, ArmR, Rifle, ThighL, ShinL, ThighR, ShinR, Count }
 
         struct Box { public Part Part; public Vector3 Center, Size; public Color Color; }
 
-        struct Pose
+        public struct SoldierPose
         {
             public Vector3 RootPos, RootEuler, Torso, Head, ArmL, ArmR, Rifle;
             public float ThighL, ShinL, ThighR, ShinR;
+            public float ForeL, ForeR;   // elbow bend towards the rifle; only rigs with forearms use it (VATBaker)
         }
 
         // joint pivots in the parent's space; legs hang off the root, everything else off the torso
@@ -148,7 +149,7 @@ namespace TW.Presentation.Units
             return t;
         }
 
-        static void Solve(in Pose p, Matrix4x4[] m)
+        static void Solve(in SoldierPose p, Matrix4x4[] m)
         {
             var root = Matrix4x4.TRS(p.RootPos, Quaternion.Euler(p.RootEuler), Vector3.one);
             var torso = root * Matrix4x4.Rotate(Quaternion.Euler(p.Torso));
@@ -166,14 +167,14 @@ namespace TW.Presentation.Units
         static Matrix4x4 Joint(Part part, Vector3 euler) => Matrix4x4.TRS(Pivot[(int)part], Quaternion.Euler(euler), Vector3.one);
 
         // Positive X pitches forward: a torso leans towards +Z, a hanging limb swings back. Forward swing is negative.
-        static Pose Sample(AnimRow row, float t)
+        public static SoldierPose Sample(AnimRow row, float t)
         {
             float a = t * Mathf.PI * 2f, s = Mathf.Sin(a), c = Mathf.Cos(a);
             float kick = Mathf.Exp(-t * 9f);   // recoil at the start of a fire loop
-            var p = new Pose
+            var p = new SoldierPose
             {
                 RootPos = new Vector3(0f, HipHeight, 0f), ArmL = new Vector3(-62f, 0f, -28f), ArmR = new Vector3(-48f, 0f, 12f),
-                Rifle = new Vector3(-18f, -22f, 0f),
+                Rifle = new Vector3(-18f, -22f, 0f), ForeL = 55f, ForeR = 45f,
             };
             switch (row)
             {
@@ -245,7 +246,7 @@ namespace TW.Presentation.Units
             return p;
         }
 
-        static void Stride(ref Pose p, float s, float c, float swing, float bob)
+        static void Stride(ref SoldierPose p, float s, float c, float swing, float bob)
         {
             p.ThighL = -swing * s; p.ThighR = swing * s;
             p.ShinL = swing * 0.9f * Mathf.Max(0f, c); p.ShinR = swing * 0.9f * Mathf.Max(0f, -c);
@@ -253,7 +254,7 @@ namespace TW.Presentation.Units
             p.ArmL.x += swing * 0.12f * s; p.ArmR.x -= swing * 0.12f * s;
         }
 
-        static void Prone(ref Pose p)
+        static void Prone(ref SoldierPose p)
         {
             p.RootPos = new Vector3(0f, 0.17f, -0.35f); p.RootEuler = new Vector3(84f, 0f, 0f);
             p.Head = new Vector3(-62f, 0f, 0f);

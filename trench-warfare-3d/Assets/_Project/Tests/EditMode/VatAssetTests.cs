@@ -30,5 +30,22 @@ namespace TW.Tests
             Assert.AreEqual(asset.TotalFrames, (int)next);
             Assert.Less(asset.Mesh.vertexCount, 400, "3,000 of these have to stay under about a million vertices");
         }
+
+        [Test]
+        public void BakedInfantry_IfPresent_MatchesTheSameContract()
+        {
+            var data = Resources.Load<VatAssetData>(VatAssetData.ResourcePath);
+            if (data == null) Assert.Ignore("no baked infantry (TW/VAT/Bake Infantry); the renderer falls back to the box soldier");
+            Assert.AreEqual((int)AnimRow.Count, data.RowTable.Length);
+            Assert.AreEqual(data.Mesh.vertexCount, data.Positions.width);
+            Assert.AreEqual(data.TotalFrames, data.Positions.height);
+            Assert.AreEqual(data.Mesh.vertexCount, data.Mesh.colors32.Length, "vertex colours carry albedo and the team mask");
+            foreach (var row in data.RowTable)
+            {
+                Assert.Greater(row.y, 0f);
+                Assert.LessOrEqual(row.x + row.y, data.TotalFrames);
+            }
+            Assert.Less(data.Mesh.vertexCount, 1200, "3,000 of these have to stay near three million vertices");
+        }
     }
 }

@@ -51,7 +51,8 @@ namespace TW.Presentation.Units
         {
             var shader = Shader.Find("TW/VAT Infantry (URP)");
             if (shader == null || !SystemInfo.supportsComputeShaders) { Debug.LogWarning("VATRenderer: VAT shader unavailable, units fall back to capsules"); return; }
-            asset = ProceduralSoldier.Build();
+            var baked = Resources.Load<VatAssetData>(VatAssetData.ResourcePath);   // written by TW/VAT/Bake Infantry
+            asset = baked != null && baked.Mesh != null ? baked.ToAsset() : ProceduralSoldier.Build();
             material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             material.SetTexture("_PosTex", asset.Positions);
             material.SetTexture("_NrmTex", asset.Normals);
