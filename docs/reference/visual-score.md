@@ -1,0 +1,27 @@
+# Visual score: environment against the reference
+
+Scored from one render of the **standard view** (25 degree lens, 25 degree pitch, zoom 30, start focus) with about 16
+men deployed, compared with `battlefield-northstar.jpeg` and the owner's two "Trench Tactics" targets.
+Each line is 0-10: 0 = nothing of the target, 5 = recognisably the same idea, 8 = a viewer would call it the same
+style, 10 = indistinguishable in a side-by-side. Scores are one reviewer's judgement; the trend matters, not the digit.
+
+| # | Criterion | What the target shows |
+|---|---|---|
+| 1 | Terrain form | rolling mounds, raised trench lips, shell holes as real bowls with a thrown-up rim, merged craters |
+| 2 | Ground paint | umber / peat / olive palette, dry ridges, wet dark mud, silt basins, ruts and foot tracks |
+| 3 | Water | dark muddy puddles with crisp cold sky reflection, soft submerged edges, round organic shapes |
+| 4 | Trench kit | irregular plank revetment with pickets, sagging squarish sandbags in a bond, broken duckboards |
+| 5 | Props and clutter | splintered trees, fallen timber, knife rests and pickets, dugouts cut into the wall, crates, tools |
+| 6 | Line and shading | dark ink outline on every silhouette, flat two-step light, occlusion feel under bags and boards |
+| 7 | Atmosphere | pale haze to the horizon, mist in the hollows, sepia midtones with cold highlights |
+| 8 | Readability | men, trench lines and order buttons read at a glance; nothing pretty hides the game |
+
+Rules for the loop: one focused change per round, aimed at the lowest line that code can move. A round that lowers
+the total, or lowers line 8 at all, is reverted. Presentation code only; nothing under `Assets/_Project/Sim`.
+
+## Log
+
+| Round | Commit | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | Total /80 | Change made this round | Next target |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 2cc6a77 | 6 | 5 | 6 | 6 | 5 | 6 | 6 | 6 | 46 | baseline after the landscape pass (mounds, crater lips, dark water, mist, grade) | palette still reads ochre; dark dips too heavy |
+| 1 | (this commit) | 6 | 6 | 6 | 6 | 5 | 6 | 6 | 6 | 47 | palette pulled from ochre to grey-umber, lighter dips, grade less saturated | scene is dark overall and men are hard to pick out in the shaded trench: lift exposure on men and trench floor (line 8), then clutter (line 5) |
