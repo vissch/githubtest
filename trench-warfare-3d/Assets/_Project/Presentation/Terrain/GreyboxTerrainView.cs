@@ -394,6 +394,37 @@ namespace TW.Presentation.Terrain
         static readonly Color MudPale = new Color(0.42f, 0.37f, 0.31f);   // dry churned dirt: ridges and berms
         static readonly Color Puddle = new Color(0.20f, 0.215f, 0.19f);
 
+        static readonly Color Occlusion = new Color(0.115f, 0.085f, 0.065f);
+        float[] propShade; int shadeW, shadeL;
+
+        /// <summary>0..0.7: how much a solid prop darkens the ground here. Stamped once at half-metre cells.</summary>
+        float PropShade(MapData map, float wx, float wz)
+        {
+            if (propShade == null)
+            {
+                shadeW = map.Height.Width * 2; shadeL = map.Height.Length * 2; propShade = new float[shadeW * shadeL];
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var prop = map.Props[i];
+                    if (prop.Kind == PropKind.Bridge) continue;
+                    float reach = prop.Kind == PropKind.Wreck ? 4.2f : prop.Kind == PropKind.Log ? 1.7f : 1.25f;
+                    int x0 = Mathf.Max(0, (int)((prop.Pos.x - reach) * 2f)), x1 = Mathf.Min(shadeW - 1, (int)((prop.Pos.x + reach) * 2f));
+                    int z0 = Mathf.Max(0, (int)((prop.Pos.z - reach) * 2f)), z1 = Mathf.Min(shadeL - 1, (int)((prop.Pos.z + reach) * 2f));
+                    for (int z = z0; z <= z1; z++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        float d = Vector2.Distance(new Vector2((x + .5f) * .5f, (z + .5f) * .5f), new Vector2(prop.Pos.x, prop.Pos.z)) / reach;
+                        float v = .7f * (1f - Mathf.SmoothStep(.25f, 1f, d));
+                        if (v > propShade[z * shadeW + x]) propShade[z * shadeW + x] = v;
+                    }
+                }
+            }
+            float fx = Mathf.Clamp(wx * 2f - .5f, 0f, shadeW - 1.001f), fz = Mathf.Clamp(wz * 2f - .5f, 0f, shadeL - 1.001f);
+            int ix = (int)fx, iz = (int)fz; float tx = fx - ix, tz = fz - iz;
+            return Mathf.Lerp(Mathf.Lerp(propShade[iz * shadeW + ix], propShade[iz * shadeW + ix + 1], tx),
+                              Mathf.Lerp(propShade[(iz + 1) * shadeW + ix], propShade[(iz + 1) * shadeW + ix + 1], tx), tz);
+        }
+
         static float Band(float a, float b, float value) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, value));
 
         /// <summary>Bare painted mud: three flat tones from two octaves of noise, an ink line where two tones meet.</summary>
@@ -459,6 +490,11 @@ namespace TW.Presentation.Terrain
                 if (seam < .10f) c = Color.Lerp(c, Ink, .72f);
                 else if (seam < .24f) c = Color.Lerp(c, MudPale, .7f);
             }
+            // Painted contact occlusion: a warm dark seat under the sandbag courses and around every trunk, stump, log
+            // and wreck, so they sit in the mud instead of floating on it.
+            float seat = PropShade(map, wx, wz);
+            if (sample.BankDistance > .15f && sample.BankDistance < 1.5f) seat = Mathf.Max(seat, .55f * (1f - Mathf.Abs(sample.BankDistance - .8f) / .7f));
+            if (seat > 0f) c = Color.Lerp(c, Occlusion, Mathf.Clamp01(seat));
             // Cart ruts and a trampled path run along every trench, just clear of the bank: two wheel lines a cart's
             // width apart with a pale ridge squeezed up beside each, and a darker beaten strip where men walk. Broken
             // up by noise so they fade in and out instead of ruling the field.
