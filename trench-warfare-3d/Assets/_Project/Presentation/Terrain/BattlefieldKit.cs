@@ -130,6 +130,36 @@ namespace TW.Presentation.Terrain
             var module = new Module { Mesh = mesh, Material = mat, Shadows = shadows }; modules.Add(module); return module;
         }
 
+        /// <summary>A unit sandbag: a squared-off ellipsoid whose underside is flattened and spread, with the ends pinched
+        /// where the sack is tied. About 100 vertices; long axis X.</summary>
+        public Mesh Sack()
+        {
+            const int segments = 12, rings = 7;
+            var v = new List<Vector3>(); var t = new List<int>();
+            for (int r = 0; r <= rings; r++)
+            for (int k = 0; k <= segments; k++)
+            {
+                float lat = Mathf.PI * r / rings, lon = 2f * Mathf.PI * k / segments;
+                float cx = Mathf.Sin(lat) * Mathf.Cos(lon), cy = Mathf.Cos(lat), cz = Mathf.Sin(lat) * Mathf.Sin(lon);
+                // squared: |c|^0.6 pushes the surface out towards a box
+                float x = Mathf.Sign(cx) * Mathf.Pow(Mathf.Abs(cx), .6f), y = Mathf.Sign(cy) * Mathf.Pow(Mathf.Abs(cy), .7f), z = Mathf.Sign(cz) * Mathf.Pow(Mathf.Abs(cz), .6f);
+                float pinch = 1f - .38f * Mathf.Pow(Mathf.Abs(x), 5f);   // the tied ends
+                y *= pinch; z *= pinch;
+                if (y < 0f) { float spread = 1f + .16f * -y; x *= spread; z *= spread; y *= .62f; }   // sag onto the course below
+                else y *= 1f - .10f * (1f - Mathf.Abs(x));   // a slack top
+                v.Add(new Vector3(x, y, z) * .5f);
+            }
+            for (int r = 0; r < rings; r++)
+            for (int k = 0; k < segments; k++)
+            {
+                int i = r * (segments + 1) + k, j = i + segments + 1;
+                t.Add(i); t.Add(i + 1); t.Add(j); t.Add(i + 1); t.Add(j + 1); t.Add(j);
+            }
+            var mesh = new Mesh { name = "Sack", hideFlags = HideFlags.HideAndDontSave };
+            mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); ownedMeshes.Add(mesh);
+            return mesh;
+        }
+
         public Mesh WornBox(float bevel = .05f, float wear = .04f, int seed = 17)
         { var mesh = BattlefieldGeometry.WornBox(bevel, wear, seed); ownedMeshes.Add(mesh); return mesh; }
 
@@ -180,10 +210,15 @@ namespace TW.Presentation.Terrain
                 (cube, new Vector3(0f, 0.22f, 0.36f), new Vector3(0f, 4f, -2f), new Vector3(2.1f, 0.025f, 0.025f)),
                 (cube, new Vector3(0f, 0.22f, -0.36f), new Vector3(0f, -4f, 2f), new Vector3(2.1f, 0.025f, 0.025f))), new Color(0.20f, 0.18f, 0.17f), false, 0.8f);
             // two courses of fat bags, the upper one staggered
+            // Burlap sacks, not pebbles: squarish, sagging onto what is under them, pinched at the tied ends. The lower
+            // course is squashed wider by the weight above; the upper course is laid half a bag along (running bond), so
+            // one of its bags spans the joint into the next 2 m module.
+            var sackMesh = Sack();
             sandbags = Make(Combine("Sandbags",
-                (bag, new Vector3(-0.5f, 0.17f, 0f), new Vector3(0f, 6f, 0f), new Vector3(1.05f, 0.42f, 0.66f)),
-                (bag, new Vector3(0.5f, 0.17f, 0.03f), new Vector3(0f, -7f, 0f), new Vector3(1.05f, 0.42f, 0.66f)),
-                (bag, new Vector3(0f, 0.47f, -0.02f), new Vector3(0f, 3f, 0f), new Vector3(1.05f, 0.40f, 0.62f))), sack);
+                (sackMesh, new Vector3(-0.5f, 0.15f, 0f), new Vector3(0f, 4f, 0f), new Vector3(1.04f, 0.34f, 0.74f)),
+                (sackMesh, new Vector3(0.5f, 0.15f, 0.02f), new Vector3(0f, -5f, 0f), new Vector3(1.04f, 0.34f, 0.74f)),
+                (sackMesh, new Vector3(0f, 0.45f, -0.03f), new Vector3(0f, 3f, 2f), new Vector3(0.98f, 0.38f, 0.62f)),
+                (sackMesh, new Vector3(1.0f, 0.45f, -0.01f), new Vector3(0f, -4f, -2f), new Vector3(0.98f, 0.38f, 0.62f))), sack);
             planks = Make(Combine("Revetment",
                 (cube, new Vector3(0f, 0.30f, 0f), Vector3.zero, new Vector3(2.0f, 0.50f, 0.07f)),
                 (cube, new Vector3(0f, 0.88f, 0f), Vector3.zero, new Vector3(2.0f, 0.50f, 0.07f)),
