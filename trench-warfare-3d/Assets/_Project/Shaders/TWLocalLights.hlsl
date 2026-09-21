@@ -5,9 +5,14 @@
 #define TW_LOCAL_LIGHTS_INCLUDED
 
 /// Lanterns, muzzle flashes, flares: each adds its colour in two hard steps (a bright core, a dim reach).
-half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS)
+/// view and gloss add the wet highlight: the same light mirrored off the surface toward the eye, in one hard step,
+/// so lamps and muzzle flashes streak warm across soaked mud, puddles, bags and helmets. It rides in the same loop as the
+/// diffuse steps, so it costs one reflect and one pow a light. Pass gloss 0 to skip it.
+half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float3 view, half gloss, out half3 highlight)
 {
     half3 sum = 0;
+    highlight = 0;
+    float3 mirrored = reflect(-view, normalWS);
 #if defined(_ADDITIONAL_LIGHTS)
     InputData inputData = (InputData)0;
     inputData.positionWS = positionWS;
@@ -21,6 +26,8 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS)
         // the pool of light is layered like the glow: a deep-coloured reach, the light's own colour, a hotter heart
         half3 tint = l.color / max(peak, 1e-4);
         half3 deep = tint * tint * tint;
+        half glint = pow(saturate(dot(mirrored, l.direction)), 22.0) * l.distanceAttenuation * peak;
+        highlight += lerp(tint, half3(1, 1, 1), 0.35) * (smoothstep(0.05, 0.11, glint) * 0.55 + smoothstep(0.6, 0.9, glint) * 0.6) * gloss;
         sum += deep * smoothstep(0.02, 0.04, e) * 0.24 + tint * smoothstep(0.12, 0.20, e) * 0.38 + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44;
     LIGHT_LOOP_END
 #endif

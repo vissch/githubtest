@@ -159,7 +159,9 @@ Shader "TW/Toon (URP)"
                     half open = saturate(normalize(i.normalWS).y * 2.0 - 0.7) * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 70.0) / 50.0));
                     if (open > 0.0) color += TWRainSplash(i.positionWS.xz) * open * (TWSky() * 0.9 + mainLight.color * 0.25);
                 }
-                color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS);
+                half3 lampGlint;
+                color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
+                color += lampGlint;
                 color += _Emission.rgb;
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);

@@ -32,8 +32,13 @@ namespace TW.Presentation.Terrain
         /// <summary>The rain right now, 0..1, and the wind it falls in (m/s, world XZ). Rain.cs and the shaders follow these.</summary>
         public static float RainNow { get; private set; }
         public static Vector2 WindNow { get; private set; }
+        [Tooltip("Sheet lightning when the rain is at its heaviest (night only).")]
+        public bool Lightning = true;
+        Color shadeNow;
+        Light key; float boltAt = -10f, nextBolt = 25f;
         public Vector3 KeyEuler = new Vector3(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
         public Color Ambient = new Color(0.52f, 0.52f, 0.56f);
+        bool filmic;
         float exposure = 0.32f, contrast = 12f, saturation = -18f, vignetteAmount = 0.24f, bloom = 0f;
         Vector4 gradeShadows = new Vector4(1.03f, 0.99f, 0.95f, 0f), gradeMids = new Vector4(1.03f, 1.0f, 0.95f, 0f), gradeHighs = new Vector4(0.95f, 0.99f, 1.05f, 0f);
         public Color Haze = new Color(0.60f, 0.61f, 0.60f);
@@ -75,7 +80,7 @@ namespace TW.Presentation.Terrain
             Depth = 230f;
             Mist = new Color(0.17f, 0.23f, 0.35f); MistDensity = 0.55f;
             Bank = new Color(0.10f, 0.14f, 0.22f);
-            exposure = 0.45f; contrast = 20f; saturation = 4f; vignetteAmount = 0.34f; bloom = 0.9f;
+            exposure = 0.62f; filmic = true; contrast = 20f; saturation = 4f; vignetteAmount = 0.34f; bloom = 0.9f;
             gradeShadows = new Vector4(0.92f, 0.98f, 1.12f, 0f); gradeMids = new Vector4(0.98f, 1.0f, 1.04f, 0f); gradeHighs = new Vector4(1.08f, 1.0f, 0.90f, 0f);
         }
 
@@ -93,6 +98,7 @@ namespace TW.Presentation.Terrain
                 if (l.type != LightType.Directional) continue;
                 l.color = Key; l.intensity = KeyIntensity; l.shadows = LightShadows.Soft; l.shadowStrength = ShadowStrength;
                 l.transform.rotation = Quaternion.Euler(KeyEuler);
+                key = l;
             }
             if (Grade) BuildGrade();
         }
@@ -107,6 +113,14 @@ namespace TW.Presentation.Terrain
             tones.shadows.Override(gradeShadows);      // day: umber in the dark; night: blue
             tones.midtones.Override(gradeMids);        // day: sepia through the middle
             tones.highlights.Override(gradeHighs);     // day: cold slate on the brightest planes; night: warm, for the lamps
+            if (filmic)
+            {
+                // a film's shoulder, so lamps, flames and flashes roll off to white instead of clipping, and a little grain
+                // to break up the dark blue gradients. Both live in the final post pass: no extra full-screen work.
+                profile.Add<Tonemapping>(true).mode.Override(TonemappingMode.Neutral);
+                var grain = profile.Add<FilmGrain>(true);
+                grain.type.Override(FilmGrainLookup.Thin1); grain.intensity.Override(0.20f); grain.response.Override(0.8f);
+            }
             if (bloom > 0f)
             {
                 var glow = profile.Add<Bloom>(true);   // muzzle flashes, lamps, tracers, the flare
@@ -136,8 +150,26 @@ namespace TW.Presentation.Terrain
                 if (cam != null && Grade) cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             }
             if (cam == null) return;
+            // sheet lightning: when a squall is at its height the whole field jumps out of the dark for a third of a second
+            // (a hard flash, a gap, a weaker second one), the way the references light their far ground.
+            float flash = 0f;
+            if (Lightning && Look == Mood.Night && key != null)
+            {
+                if (Time.time >= nextBolt)
+                {
+                    nextBolt = Time.time + Random.Range(14f, 45f);
+                    if (RainNow > Rain * .8f) boltAt = Time.time;
+                }
+                float a = Time.time - boltAt;
+                if (a < .5f) flash = Mathf.Max(a < .09f ? 1f - a / .09f : 0f, a > .15f && a < .36f ? .65f * (1f - (a - .15f) / .21f) : 0f);
+                key.intensity = KeyIntensity * (1f + 5f * flash);
+                key.color = Color.Lerp(Key, new Color(.90f, .94f, 1f), flash);
+            }
+            Color sky = Color.Lerp(Haze, new Color(.40f, .48f, .66f), flash * .55f);
+            RenderSettings.fogColor = sky;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Haze;
+            cam.backgroundColor = sky;
+            shadeNow = Color.Lerp(ShadeTint, new Color(.60f, .66f, .85f), flash * .8f);
             float height = Mathf.Max(1f, cam.transform.position.y);
             float pitch = Mathf.Max(0.12f, -cam.transform.forward.y);
             float toFocus = height / pitch;   // distance to the ground along the view
@@ -148,7 +180,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
 
-            Shader.SetGlobalVector(ShadeTintId, new Vector4(ShadeTint.r, ShadeTint.g, ShadeTint.b, 1f));
+            Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
             Shader.SetGlobalVector(SkyId, new Vector4(SkyMirror.r, SkyMirror.g, SkyMirror.b, 1f));
             // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
             // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.

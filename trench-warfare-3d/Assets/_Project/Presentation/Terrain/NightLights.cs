@@ -3,7 +3,9 @@
 // which TW/Toon, TW/Water and the soldier shader add in hard steps (TWLocalLights.hlsl), plus additive glow cards.
 // Lanterns: one at each composed site (dugouts, shelters, stores), at most MaxLanterns, a lamp on a post with a
 // breathing flame; and lamps hung low on the trench wall every thirty metres or so, so the men in the line stand in
-// warm light. Fires: a few shattered trees in no man's land still burn. Flashes: a pool of eight lights shared by rifle fire and shell bursts; a shot only takes one when it
+// warm light. Fires: a few shattered trees in no man's land still burn, and torches stand where the paths reach the
+// dugouts; both carry a real flame (TW/Flame: computed, licking, white to red) over their glow and their light. Every
+// lamp and flame light sways a little with the wind, so the pools of light on the mud are never still. Flashes: a pool of eight lights shared by rifle fire and shell bursts; a shot only takes one when it
 // is near what the camera looks at, and no more than one every 30 ms, so a 3,000-man firefight costs eight lights.
 // Flare: a star shell goes up over the ground ahead of the camera every half minute or so and sinks on its parachute,
 // lighting sixty metres of no man's land cold white. Distant fires glow through the fog bank beyond the far edges.
@@ -18,7 +20,7 @@ namespace TW.Presentation.Terrain
     public sealed class NightLights : MonoBehaviour
     {
         public SimHost Host;
-        public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, PoolSize = 8;
+        public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, MaxTorches = 6, PoolSize = 8;
         public Color Lantern = new Color(1f, 0.60f, 0.26f), Muzzle = new Color(1f, 0.74f, 0.40f), Burst = new Color(1f, 0.52f, 0.20f), Flare = new Color(0.82f, 0.90f, 1f);
         public float LanternIntensity = 6f, LanternRange = 10f;
         [Tooltip("Seconds between star shells, least and most.")]
@@ -28,6 +30,7 @@ namespace TW.Presentation.Terrain
         readonly Pooled[] pool = new Pooled[PoolSize];
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
+        readonly List<Vector3> lanternHome = new List<Vector3>();
         readonly List<Object> owned = new List<Object>();
         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
         bool subscribed, built;
@@ -101,6 +104,8 @@ namespace TW.Presentation.Terrain
             glass.SetColor("_BaseColor", new Color(1f, .78f, .45f)); glass.SetColor("_Emission", new Color(2.4f, 1.35f, .5f));
             owned.Add(post); owned.Add(glass);
             var centres = new List<Vector3>(); var shapes = new List<Vector4>(); var colors = new List<Color>();
+            var flameFeet = new List<Vector3>(); var flameShapes = new List<Vector4>();
+            float w = map.SizeMeters.x, len = map.SizeMeters.y;
             int step = Mathf.Max(1, Mathf.CeilToInt(sites.Count / (float)MaxLanterns));
             for (int i = 0; i < sites.Count && lanterns.Count < MaxLanterns; i += step)
             {
@@ -142,7 +147,6 @@ namespace TW.Presentation.Terrain
                 hung++;
             }
             // shattered trees still burning out in the open
-            float w = map.SizeMeters.x, len = map.SizeMeters.y;
             int fires = 0;
             for (int i = 0; i < map.Props.Length && fires < MaxFires; i++)
             {
@@ -154,8 +158,29 @@ namespace TW.Presentation.Terrain
                 l.transform.position = at + Vector3.up * .4f;
                 lanterns.Add(l); lanternPhase.Add(i * .77f);
                 centres.Add(at); shapes.Add(new Vector4(3.4f, .6f, i * .173f, .4f)); colors.Add(new Color(1f, .45f, .12f, .9f));
-                centres.Add(at + Vector3.up * .5f); shapes.Add(new Vector4(1.3f, .8f, i * .311f, .3f)); colors.Add(new Color(1f, .75f, .35f, 1.6f));
+                flameFeet.Add(at - Vector3.up * .15f); flameShapes.Add(new Vector4(1.25f, 1.9f, Hash(i, 97), 0f));
+                flameFeet.Add(at + new Vector3(.35f, -.3f, .2f)); flameShapes.Add(new Vector4(.7f, 1.0f, Hash(i, 101), 0f));
                 fires++;
+            }
+            // torches on a stake where a path reaches a dugout
+            int torches = 0;
+            for (int i = 0; i < sites.Count && torches < MaxTorches; i++)
+            {
+                var site = sites[i];
+                Vector3 at = site.ApproachEnd;
+                if (at == Vector3.zero || (at - site.Position).sqrMagnitude < 9f || Hash(i, 83) < .25f) continue;
+                at += site.Rotation * new Vector3(.9f, 0f, 0f);
+                if (at.x < 2f || at.z < 2f || at.x > w - 2f || at.z > len - 2f) continue;
+                at.y = RenderGround.Sample(map, at.x, at.z);
+                Part(PrimitiveType.Cube, at + Vector3.up * .8f, new Vector3(.07f, 1.6f, .07f), post, Quaternion.Euler(0f, i * 37f, 4f));
+                Part(PrimitiveType.Cube, at + Vector3.up * 1.62f, new Vector3(.14f, .16f, .14f), post, Quaternion.Euler(0f, i * 37f, 4f));
+                Vector3 wick = at + Vector3.up * 1.68f;
+                var l = MakeLight("Torch " + torches, new Color(1f, .58f, .22f), 6.5f, 10f);
+                l.transform.position = wick + Vector3.up * .25f;
+                lanterns.Add(l); lanternPhase.Add(i * 3.1f);
+                centres.Add(wick + Vector3.up * .25f); shapes.Add(new Vector4(3.0f, .5f, i * .213f, .4f)); colors.Add(new Color(1f, .50f, .15f, .8f));
+                flameFeet.Add(wick); flameShapes.Add(new Vector4(.42f, .80f, Hash(i, 89), 0f));
+                torches++;
             }
             // fires on the horizon: seen through the fog bank as soft orange glows that flare and sink
             for (int k = 0; k < 10; k++)
@@ -164,10 +189,52 @@ namespace TW.Presentation.Terrain
                 Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 1.2f + 1.6f * b, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 1.5f + 2f * b, len + 30f + 60f * a);
                 centres.Add(p); shapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); colors.Add(new Color(1f, .42f, .13f, .30f + .2f * a));   // low and small: a glow on the ground far off, not a sun
             }
-            foreach (var l in lanterns) lanternBase.Add(l.intensity);
+            foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternHome.Add(l.transform.position); }
+            if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
             AddGlowMesh(host, glow, centres.ToArray(), shapes.ToArray(), colors.ToArray());
+        }
+
+        void AddFlameMesh(List<Vector3> feet, List<Vector4> flameShapes)
+        {
+            var pos = new List<Vector3>(); var corner = new List<Vector2>(); var shape = new List<Vector4>(); var tris = new List<int>();
+            for (int g = 0; g < feet.Count; g++)
+            {
+                int v0 = pos.Count;
+                for (int k = 0; k < 4; k++) { pos.Add(feet[g]); corner.Add(new Vector2(k == 0 || k == 3 ? -1f : 1f, k < 2 ? -1f : 1f)); shape.Add(flameShapes[g]); }
+                tris.Add(v0); tris.Add(v0 + 2); tris.Add(v0 + 1); tris.Add(v0); tris.Add(v0 + 3); tris.Add(v0 + 2);
+            }
+            var mesh = new Mesh { name = "Flames", hideFlags = HideFlags.HideAndDontSave };
+            mesh.SetVertices(pos); mesh.SetUVs(0, corner); mesh.SetUVs(1, shape); mesh.SetTriangles(tris, 0);
+            mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
+            const int n = 64;
+            var px = new Color32[n * n];
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                float c = Tile(x / (float)n * 4f, z / (float)n * 4f, 4) * .55f + Tile(x / (float)n * 9f, z / (float)n * 9f, 9) * .45f;
+                byte b = (byte)(Mathf.Clamp01(c) * 255f); px[z * n + x] = new Color32(b, b, b, 255);
+            }
+            var noise = new Texture2D(n, n, TextureFormat.RGBA32, true) { name = "Flame noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
+            noise.SetPixels32(px); noise.Apply(true, true);
+            var material = new Material(Shader.Find("TW/Flame (URP)")) { hideFlags = HideFlags.HideAndDontSave };
+            material.SetTexture("_Noise", noise);
+            owned.Add(mesh); owned.Add(noise); owned.Add(material);
+            var host = new GameObject("Flames") { hideFlags = HideFlags.DontSave };
+            host.transform.SetParent(transform, false);
+            host.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = host.AddComponent<MeshRenderer>();
+            r.sharedMaterial = material; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        }
+
+        static float Tile(float x, float z, int period)
+        {
+            int x0 = Mathf.FloorToInt(x), z0 = Mathf.FloorToInt(z);
+            float tx = x - x0, tz = z - z0;
+            tx = tx * tx * (3f - 2f * tx); tz = tz * tz * (3f - 2f * tz);
+            int xa = x0 % period, xb = (xa + 1) % period, za = z0 % period, zb = (za + 1) % period;
+            return Mathf.Lerp(Mathf.Lerp(Hash(xa + period * 131, za), Hash(xb + period * 131, za), tx), Mathf.Lerp(Hash(xa + period * 131, zb), Hash(xb + period * 131, zb), tx), tz);
         }
 
         void Part(PrimitiveType type, Vector3 at, Vector3 scale, Material material, Quaternion rotation)
@@ -232,6 +299,9 @@ namespace TW.Presentation.Terrain
             for (int i = 0; i < lanterns.Count; i++)
             {
                 float t = Time.time * 7f + lanternPhase[i];
+                // the wind rocks every lamp and tears at every flame: the pools of light wander a hand's width
+                float rock = .025f + .012f * Atmosphere.WindNow.magnitude;
+                lanterns[i].transform.position = lanternHome[i] + new Vector3(Mathf.Sin(t * .31f) * rock, 0f, Mathf.Cos(t * .23f + 1.7f) * rock);
                 lanterns[i].intensity = lanternBase[i] * (.86f + .10f * Mathf.Sin(t) * Mathf.Sin(t * .43f) + .04f * Mathf.Sin(t * 3.1f));
             }
             for (int i = 0; i < PoolSize; i++)

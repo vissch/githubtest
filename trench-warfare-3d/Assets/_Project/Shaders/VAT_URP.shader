@@ -121,7 +121,9 @@ Shader "TW/VAT Infantry (URP)"
                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
                 color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
-                color += albedo * 1.18 * TWLocalLights(i.positionWS, normalize(i.normalWS), i.positionCS);   // a muzzle flash lights the man behind it
+                half3 lampGlint;
+                color += albedo * 1.18 * TWLocalLights(i.positionWS, normalize(i.normalWS), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.25 * _TWWet.x, lampGlint);
+                color += lampGlint;   // wet helmets and shoulders catch the lamps   // a muzzle flash lights the man behind it
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 return half4(MixFog(color, i.fog), 1.0);

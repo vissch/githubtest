@@ -103,8 +103,9 @@ Shader "TW/Water (URP)"
                 color += glint * mainLight.color * 0.6 * mainLight.shadowAttenuation;
                 color += pow(saturate(dot(r, mainLight.direction)), 14.0) * _TWWet.y * 0.2 * mainLight.color * mainLight.shadowAttenuation;
                 // lanterns and muzzle flashes lie on the water as a warm pool: lit body plus a mirrored core
-                half3 local = TWLocalLights(i.positionWS, n, i.positionCS);
-                color += (albedo + 0.25) * local;
+                half3 lampGlint;
+                half3 local = TWLocalLights(i.positionWS, n, i.positionCS, view, 1.0, lampGlint);
+                color += (albedo + 0.25) * local + lampGlint * 1.2;
 
                 color = lerp(color, ApplyMist(color, i.positionWS), 0.55);   // the sheet lies below the mist's top everywhere: full mist would paint the whole river white
                 color = ApplyFieldFog(color, i.positionWS);

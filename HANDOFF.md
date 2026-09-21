@@ -113,6 +113,12 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   on the CPU so a wind change bends the streaks, and each of its 2,800 streaks has its own threshold, so a drizzle is
   few and short and a downpour is all of them. Drops burst on every sky-facing TW/Toon surface within 70 m
   (`TWRainSplash`, hashed by cell and time slot, no texture) and ring the water in step with the squalls.
+  Polish inside the low-desktop budget: local lights also glint on anything wet (one reflect and one pow a light, in
+  the existing loop of `TWLocalLights`); `Shaders/Flame_URP.shader` draws computed flames on burning stumps and on up
+  to 6 torches at dugout paths; lamps and flame lights sway with `WindNow`; shell bursts throw additive sparks at
+  night; sheet lightning fires at the height of a squall (`Atmosphere.Lightning`); the night grade adds Neutral
+  tonemapping and film grain, both inside URP's final post pass. Deliberately not added: SSAO, depth of field,
+  Forward+, light shadows, all of which need a GTX 1050 measurement first.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

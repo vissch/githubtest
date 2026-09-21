@@ -21,7 +21,7 @@ namespace TW.Presentation.Tactical
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
         struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
-        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke
+        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night)
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
         readonly List<Body> bodies = new List<Body>(600);
@@ -36,7 +36,7 @@ namespace TW.Presentation.Tactical
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
         Mesh cube, capsule, sphere, plume, puff, flashMesh;
         Material flashMat;
-        Material tracerNightA, tracerNightB, tracerCore;
+        Material tracerNightA, tracerNightB, tracerCore, sparkMat;
         bool nightTinted;
 
         /// <summary>An unlit material that adds its colour to what is behind it (glow halos).</summary>
@@ -68,6 +68,7 @@ namespace TW.Presentation.Tactical
             // night (SceneMood): each side's fire is its own colour, over-bright so the bloom takes it
             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
+            sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
             tracerCore = new Material(unlit) { enableInstancing = true, color = new Color(3.0f, 2.7f, 2.3f) };   // the streak itself: white-hot
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
@@ -189,7 +190,7 @@ namespace TW.Presentation.Tactical
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
-            foreach (var mat in new[] { tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
         }
@@ -239,6 +240,7 @@ namespace TW.Presentation.Tactical
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
                     if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
                     Throw(p, 14, 0, 9f, 0.22f); Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
+                    if (SceneMood.Night) Throw(p + Vector3.up * 0.3f, 14, 3, 15f, 0.05f);   // burning fragments arc out of the burst and die on the way down
                     break;
                 }
                 case SimEventType.AbilityFired:
@@ -411,7 +413,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < count && chunks.Count < MaxChunks; k++)
             {
                 Vector3 dir = UnityEngine.Random.onUnitSphere; dir.y = Mathf.Abs(dir.y) * (kind == 2 ? 0.4f : 1.4f) + 0.2f;
-                chunks.Add(new Chunk { Pos = at, Vel = dir.normalized * speed * UnityEngine.Random.Range(0.5f, 1.2f), Born = Time.time, Life = kind == 2 ? UnityEngine.Random.Range(3.5f, 6f) : UnityEngine.Random.Range(0.9f, 1.7f),
+                chunks.Add(new Chunk { Pos = at, Vel = dir.normalized * speed * UnityEngine.Random.Range(0.5f, 1.2f), Born = Time.time, Life = kind == 2 ? UnityEngine.Random.Range(3.5f, 6f) : kind == 3 ? UnityEngine.Random.Range(0.45f, 1.1f) : UnityEngine.Random.Range(0.9f, 1.7f),
                     Size = size * UnityEngine.Random.Range(0.6f, 1.5f), Kind = kind });
             }
         }
@@ -447,6 +449,18 @@ namespace TW.Presentation.Tactical
                 }
                 if (batch.Count > 0) Flush(kind == 2 ? puff : cube, rp);
             }
+            // sparks: a bright streak along its own flight, shrinking as it burns out
+            batch.Clear();
+            var rpS = new RenderParams(sparkMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                var c = chunks[i];
+                if (c.Kind != 3 || c.Vel.sqrMagnitude < .01f) continue;
+                float burn = 1f - (now - c.Born) / c.Life;
+                batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.LookRotation(c.Vel), new Vector3(c.Size * burn, c.Size * burn, c.Size + c.Vel.magnitude * .035f)));
+                if (batch.Count == 1023) Flush(cube, rpS);
+            }
+            if (batch.Count > 0) Flush(cube, rpS);
         }
 
         void Flush(Mesh mesh, RenderParams rp)
