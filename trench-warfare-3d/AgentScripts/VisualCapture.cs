@@ -3,6 +3,19 @@ using System.IO;
 
 public static class VisualCapture
 {
+    public static string SurfaceReport()
+    {
+        var view = Object.FindFirstObjectByType<TW.Presentation.Terrain.GreyboxTerrainView>();
+        var surface = view.Surface;
+        var watch = System.Diagnostics.Stopwatch.StartNew(); surface.RefreshHollows(); watch.Stop();
+        int links = 0;
+        foreach (var edge in surface.Edges) if (edge.Link) links++;
+        var props = Object.FindFirstObjectByType<TW.Presentation.Terrain.BattlefieldProps>();
+        string sites = "";
+        foreach (var site in props.Sites) sites += $"; {site.Blueprint.Name} trench={site.Trench} at={site.Position}";
+        return $"Boundary edges={surface.Edges.Count}, link edges={links}, classified hollows={surface.Hollows.Count}, hollow refresh CPU={watch.Elapsed.TotalMilliseconds:F2}ms (this machine only), compositions={props.CompositionCount}{sites}";
+    }
+
     public static string PrepareArt()
     {
         PrepareStress();

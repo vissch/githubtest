@@ -127,6 +127,7 @@ namespace TW.Presentation.Units
             new FillJob
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
+                Ground = ReferenceEquals(RenderGround.Map, Host.Local.Map) ? RenderGround.Grid : default,
                 Instances = instances, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = farAsset != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
             }.Run();
@@ -204,6 +205,7 @@ namespace TW.Presentation.Units
         {
             [ReadOnly] public NativeArray<UnitPose> Poses;
             [ReadOnly] public Heightfield Height;
+            public RenderGroundGrid Ground;
             public int PoseCount;
             public float Scale;
             public NativeArray<VatInstance> Instances;
@@ -228,7 +230,7 @@ namespace TW.Presentation.Units
                 for (int i = 0; i < PoseCount; i++)
                 {
                     var p = Poses[i];
-                    float y = Height.Sample(p.Pos.x, p.Pos.z);
+                    float y = Ground.Sample(p.Pos.x, p.Pos.z, Height.Sample(p.Pos.x, p.Pos.z));
                     if (!Visible(new float3(p.Pos.x, y + 1f, p.Pos.z))) continue;
                     if ((p.Flags & (byte)UnitFlags.Vehicle) != 0)
                     {

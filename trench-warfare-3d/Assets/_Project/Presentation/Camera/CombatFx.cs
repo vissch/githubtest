@@ -196,8 +196,8 @@ namespace TW.Presentation.Tactical
                     }
                     var stance = e.A >= 0 && e.A < w.HighWater ? (Stance)w.StanceOf[e.A] : Stance.Standing;
                     float shoulder = stance == Stance.Prone || stance == Stance.Pinned ? 0.35f : stance == Stance.Crouch ? 0.85f : 1.1f;
-                    from.y = hf.Sample(from.x, from.z) + shoulder * scale;
-                    to.y = hf.Sample(to.x, to.z) + 0.9f * scale;
+                    from.y = RenderGround.Sample(Host.Local.Map, from.x, from.z) + shoulder * scale;
+                    to.y = RenderGround.Sample(Host.Local.Map, to.x, to.z) + 0.9f * scale;
                     tracers.Add(new Tracer { From = from, To = to, Born = Time.time });
                     Vector3 direction = (to - from).normalized;
                     if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
@@ -207,7 +207,7 @@ namespace TW.Presentation.Tactical
                 {
                     if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
                     Vector3 p = (Vector3)e.Pos;
-                    p.y = hf.Sample(p.x, p.z) + 0.25f;
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.25f;
                     byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
                     bodies.Add(new Body { Pos = p, Yaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg, Team = team });
                     break;
@@ -215,7 +215,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.Explosion:
                 {
                     Vector3 p = (Vector3)e.Pos;
-                    p.y = hf.Sample(p.x, p.z);
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
                     if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
                     Throw(p, 14, 0, 9f, 0.22f); Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
                     break;
@@ -223,7 +223,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.AbilityFired:
                 {
                     Vector3 p = (Vector3)e.Pos;
-                    p.y = hf.Sample(p.x, p.z) + 0.15f;
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.15f;
                     float radius = e.Scalar > 0f ? e.Scalar : 8f;
                     markers.Add(new Marker { Pos = p, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
                     string what = e.A == (int)OffMapAbilityId.ChlorineGas ? "gas" : "barrage";
@@ -233,7 +233,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.PropChanged:
                 {
                     Vector3 p = (Vector3)e.Pos;
-                    p.y = hf.Sample(p.x, p.z) + 1.5f;
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 1.5f;
                     Throw(p, 18, 1, 7f, 0.16f);   // splinters where a tree broke, scrap where a wreck settled
                     break;
                 }
@@ -318,13 +318,13 @@ namespace TW.Presentation.Tactical
             {
                 batch.Clear();
                 for (int i = 0; i < markers.Count; i++)
-                    if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(new Vector3(markers[i].Pos.x, Host.Local.Map.Height.Sample(markers[i].Pos.x, markers[i].Pos.z) + 0.4f, markers[i].Pos.z), Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));   // on the ground where it was called, not at sea level
+                    if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(new Vector3(markers[i].Pos.x, RenderGround.Sample(Host.Local.Map, markers[i].Pos.x, markers[i].Pos.z) + 0.4f, markers[i].Pos.z), Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));   // on the ground where it was called, not at sea level
                 if (batch.Count > 0) Flush(sphere, new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
             }
             if (panel != null && panel.Armed != OffMapAbilityId.None && panel.TryGroundPoint(out var aim) && OffMapAbilitySystem.TryGetStats((int)panel.Armed, out var aimStats))
             {
                 float r = aimStats.Radius > 0f ? aimStats.Radius : 8f;
-                aim.y = Host.Local.Map.Height.Sample(aim.x, aim.z) + 0.2f;
+                aim.y = RenderGround.Sample(Host.Local.Map, aim.x, aim.z) + 0.2f;
                 batch.Clear();
                 batch.Add(Matrix4x4.TRS(aim, Quaternion.identity, new Vector3(r * 2f, 0.05f, r * 2f)));
                 Flush(sphere, new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
@@ -347,7 +347,7 @@ namespace TW.Presentation.Tactical
                         float c = gas.Gas[z * gas.Width + x];
                         if (c < lo || c >= hi) continue;
                         float wx = (x + 0.5f) * cs, wz = (z + 0.5f) * cs;
-                        batch.Add(Matrix4x4.TRS(new Vector3(wx, hfg.Sample(wx, wz) + 1.1f, wz), Quaternion.identity, new Vector3(cs, 2.4f, cs)));
+                        batch.Add(Matrix4x4.TRS(new Vector3(wx, RenderGround.Sample(Host.Local.Map, wx, wz) + 1.1f, wz), Quaternion.identity, new Vector3(cs, 2.4f, cs)));
                         if (batch.Count == 1023) Flush(cube, rpG);
                     }
                     if (batch.Count > 0) Flush(cube, rpG);

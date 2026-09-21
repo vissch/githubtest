@@ -1,3 +1,5 @@
+> Generator architecture and current measurements are superseded by [the system rebuild and scored critique](13-environment-system-rebuild.md). This document records the earlier art pass.
+
 # Painted battlefield environment
 
 The owner's new north star is [battlefield-northstar.jpeg](reference/battlefield-northstar.jpeg).

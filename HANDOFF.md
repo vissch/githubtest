@@ -46,22 +46,22 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   soldier stands in). Measured worst case, 2,900 units with 650 in view: 1.2 M unit vertices with shadows, under the
   1.5 M budget. The battlefield is 90 x 240 m (owner: 300 wide was too wide to fill, then halved both ways); the
   generator's layout scales with the params, no man's land is 100 m, so rifles (130 m) now reach trench to trench.
-- **Visual standard (owner, 2026-09-21): a painted cartoon mudfield**, now led by
-  `docs/reference/battlefield-northstar.jpeg`; see `docs/12-environment-art-direction.md` for the reusable kit and budgets.
-  Cool grey-brown mud, irregular pale puddles, broken ink contours, warm timber and canvas, dark shelter recesses.
-  Ground pigment is 8 texels/metre with event-refreshed mipmaps; the painted skirt continues beyond the map edge.
-  Instanced kit: inset revetment, actual duckboard panels, ragged earth banks, rounded shaded sandbags, forked dead
-  trees, timber supply recesses, ruined concrete shelters and braced crates. Shelter footprints reject links/water;
-  they are decorative, with no new gameplay cover. Spatial prop pages cull at 32 m granularity.
-  Cross-light and separate shadow pigment preserve the toon forms. Standard sample: 112,749 environment base
-  vertices, 106 instanced submissions (excluding terrain, outline/shadow passes and soldiers). Unit rendering and
-  its 1.5M budget are unchanged; GTX 1050 timing remains to be measured on that hardware.
-  Still procedural art: straight simulation trenches remain; hand-painted grain and richer asymmetric ruins are
-  future refinements. CombatFx now uses capped painted dirt splashes, fading low-poly smoke and 65 ms muzzle
-  flashes aligned to rendered soldier scale/stance; the IMGUI HUD uses canvas/charcoal/olive tones. VAT lighting
-  matches the environment. Stress review: 3,000 alive, no desync, 1,267 drawn, 1,177,043 reported unit vertices
-  with unit shadows disabled by the existing budget guard. Captures and repeatable review scripts are in the art
-  direction document. No Sim code changed.
+- **Visual standard (owner, 2026-09-21): painted cartoon mudfield**, led by
+  `docs/reference/battlefield-northstar.jpeg`. The rebuilt generation contract and three-round critique are in
+  `docs/13-environment-system-rebuild.md` (supersedes the original generator details in document 12).
+  `BattlefieldProps` now renders spatial instance pages; `BattlefieldKit`, `BattlefieldGeometry` and
+  `BattlefieldPigment` build reusable parts and materials. `BattlefieldBlueprint` describes named sockets and
+  mesh-derived footprints. `BattlefieldComposer` places them from seeded trench-boundary candidates, with
+  terrain/prop/link clearance and connected approaches. New content uses `Kit.CreateModule` and `UseBlueprints`.
+  `BattlefieldSurface` drives continuous earth shoulders and crater interpretation on a half-metre presentation
+  mesh. Shared `RenderGround` heights keep units and combat effects aligned; simulation data and floor heights
+  in trenches/links are unchanged. Terrain repaint tiles coalesce and spread work across frames.
+  Standard sample: 118,923 base prop vertices and 100 instanced submissions, excluding terrain and other passes.
+  Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
+  1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
+  Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level
+  beauty. Biggest gaps: smooth earth/crater shapes, isolated compositions, repetitive material wear and roof forms.
+  GTX 1050 frame timing remains unverified; captures use an RTX 4070 Laptop GPU. No Sim or github-test1 files changed.
 - Decisions that shape everything after this: **3,000 units maximum** (2026-09-20; the stress test runs at that count);
   Windows x64 only; online multiplayer deferred until after Mission 3;
   two developers, one can do art; the M1.5 fun gate still decides whether the design holds.

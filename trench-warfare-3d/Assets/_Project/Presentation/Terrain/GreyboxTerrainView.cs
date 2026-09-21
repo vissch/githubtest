@@ -20,7 +20,9 @@ namespace TW.Presentation.Terrain
     public sealed class GreyboxTerrainView : MonoBehaviour
     {
         public SimHost Host;
+        public BattlefieldSurface Surface { get; private set; }
         public const int ChunkMeters = 32;
+        const float GridStep = .5f; // Presentation mesh only: simulation height and traversal remain untouched.
         const int Tpm = 8;   // 720 x 1920 on the standard map: ~7 MiB including mipmaps; no per-pixel noise shader
 
         sealed class Chunk { public Mesh Mesh; public Vector3[] Verts; public Vector3[] Normals; public int X0, Z0, W, L; public bool Dirty; }
@@ -29,13 +31,24 @@ namespace TW.Presentation.Terrain
         readonly List<Object> owned = new List<Object>();
         int chunksX;
         Texture2D colorTex;
+        RenderGroundGrid renderGrid;
         bool colorDirty, subscribed;
+        readonly Queue<Vector2Int> paintTiles = new Queue<Vector2Int>();
+        readonly HashSet<Vector2Int> queuedTiles = new HashSet<Vector2Int>();
+        readonly List<TW.Sim.SimEvent> scorchMarks = new List<TW.Sim.SimEvent>();
+        bool hollowsDirty;
+        readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
+        public int PendingPaintTiles => paintTiles.Count;
+        public float LastPaintMilliseconds { get; private set; }
 
         void Start()
         {
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             var hf = map.Height;
+            Surface = new BattlefieldSurface(map);
+            renderGrid = new RenderGroundGrid { Width = Mathf.RoundToInt(hf.Width / GridStep) + 1, Length = Mathf.RoundToInt(hf.Length / GridStep) + 1, Step = GridStep };
+            renderGrid.Heights = new Unity.Collections.NativeArray<float>(renderGrid.Width * renderGrid.Length, Unity.Collections.Allocator.Persistent);
             var old = GetComponent<MeshRenderer>();   // scenes built for the single-mesh version
             if (old != null) old.enabled = false;
 
@@ -49,7 +62,7 @@ namespace TW.Presentation.Terrain
             for (int cx = 0; cx < chunksX; cx++)
             {
                 var c = new Chunk { X0 = cx * ChunkMeters, Z0 = cz * ChunkMeters };
-                c.W = Mathf.Min(ChunkMeters, hf.Width - c.X0) + 1; c.L = Mathf.Min(ChunkMeters, hf.Length - c.Z0) + 1;
+                c.W = Mathf.RoundToInt(Mathf.Min(ChunkMeters, hf.Width - c.X0) / GridStep) + 1; c.L = Mathf.RoundToInt(Mathf.Min(ChunkMeters, hf.Length - c.Z0) / GridStep) + 1;
                 c.Verts = new Vector3[c.W * c.L]; c.Normals = new Vector3[c.W * c.L];
                 var uvs = new Vector2[c.W * c.L];
                 var tris = new int[(c.W - 1) * (c.L - 1) * 6];
@@ -57,7 +70,7 @@ namespace TW.Presentation.Terrain
                 for (int z = 0; z < c.L; z++)
                 for (int x = 0; x < c.W; x++)
                 {
-                    uvs[z * c.W + x] = new Vector2((c.X0 + x) / (float)hf.Width, (c.Z0 + z) / (float)hf.Length);
+                    uvs[z * c.W + x] = new Vector2((c.X0 + x * GridStep) / hf.Width, (c.Z0 + z * GridStep) / hf.Length);
                     if (x == c.W - 1 || z == c.L - 1) continue;
                     int i = z * c.W + x;
                     tris[t++] = i; tris[t++] = i + c.W; tris[t++] = i + 1;
@@ -74,6 +87,7 @@ namespace TW.Presentation.Terrain
                 chunks.Add(c);
             }
 
+            RenderGround.Map = map; RenderGround.Grid = renderGrid;
             if (map.WaterLevel > MapData.NoWater) BuildWater(map);
             BuildSkirt(map);
             if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>();
@@ -83,15 +97,16 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>Vertices sit on the corners between height cells; normals come from the heightfield, not the chunk.</summary>
-        static void Fill(Chunk c, TW.Sim.Terrain.Heightfield hf)
+        void Fill(Chunk c, TW.Sim.Terrain.Heightfield hf)
         {
             for (int z = 0; z < c.L; z++)
             for (int x = 0; x < c.W; x++)
             {
-                float wx = c.X0 + x, wz = c.Z0 + z;
-                c.Verts[z * c.W + x] = new Vector3(wx, hf.Sample(wx, wz), wz);
-                float dx = hf.Sample(wx + 1f, wz) - hf.Sample(wx - 1f, wz), dz = hf.Sample(wx, wz + 1f) - hf.Sample(wx, wz - 1f);
-                c.Normals[z * c.W + x] = new Vector3(-dx, 2f, -dz).normalized;
+                float wx = c.X0 + x * GridStep, wz = c.Z0 + z * GridStep;
+                c.Verts[z * c.W + x] = new Vector3(wx, Surface.VisualHeight(wx, wz), wz);
+                renderGrid.Heights[Mathf.RoundToInt(wz / GridStep) * renderGrid.Width + Mathf.RoundToInt(wx / GridStep)] = c.Verts[z * c.W + x].y;
+                float dx = Surface.VisualHeight(wx + .25f, wz) - Surface.VisualHeight(wx - .25f, wz), dz = Surface.VisualHeight(wx, wz + .25f) - Surface.VisualHeight(wx, wz - .25f);
+                c.Normals[z * c.W + x] = new Vector3(-dx, .5f, -dz).normalized;
             }
         }
 
@@ -242,6 +257,15 @@ namespace TW.Presentation.Terrain
         {
             if (Host == null || Host.Local == null || colorTex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
+            if (hollowsDirty) { Surface.RefreshHollows(); hollowsDirty = false; }
+            // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
+            paintWatch.Restart();
+            while (paintTiles.Count > 0 && paintWatch.Elapsed.TotalMilliseconds < 2.0)
+            {
+                var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
+                RepaintTile(tile); colorDirty = true;
+            }
+            LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
             if (colorDirty) { colorTex.Apply(true, false); colorDirty = false; }
             for (int i = 0; i < chunks.Count; i++)
             {
@@ -257,6 +281,11 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
+            if (renderGrid.Heights.IsCreated)
+            {
+                if (RenderGround.Grid.Heights.Equals(renderGrid.Heights)) { RenderGround.Grid = default; RenderGround.Map = null; }
+                renderGrid.Heights.Dispose();
+            }
             foreach (var resource in owned) if (resource != null) Destroy(resource);
         }
 
@@ -265,24 +294,41 @@ namespace TW.Presentation.Terrain
         {
             if (e.Type != TW.Sim.SimEventType.CraterStamp && e.Type != TW.Sim.SimEventType.WireBreached) return;
             var map = Host.Local.Map;
-            float r = e.Scalar + 2f;
+            if (e.Type == TW.Sim.SimEventType.CraterStamp)
+            {
+                hollowsDirty = true;
+                if (scorchMarks.Count == 64) scorchMarks.RemoveAt(0);
+                scorchMarks.Add(e);
+            }
+            float r = e.Scalar + 8f; // Include the inferred rim and its pale outer shoulder.
             int x0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + r));
             int z0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.z - r)), z1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(e.Pos.z + r));
-            for (int z = z0 * Tpm; z < (z1 + 1) * Tpm; z++)
-            for (int x = x0 * Tpm; x < (x1 + 1) * Tpm; x++)
-            {
-                float wx = (x + 0.5f) / Tpm, wz = (z + 0.5f) / Tpm;
-                Color c = GroundColor(map, wx, wz);
-                float d = Vector2.Distance(new Vector2(wx, wz), new Vector2(e.Pos.x, e.Pos.z));
-                if (e.Type == TW.Sim.SimEventType.CraterStamp && d < e.Scalar * 1.25f) c = Color.Lerp(c, new Color(0.10f, 0.09f, 0.08f), 0.45f * (1f - d / (e.Scalar * 1.25f)));   // fresh burn
-                colorTex.SetPixel(x, z, c);
-            }
-            colorDirty = true;
+            for (int z = z0 / 2; z <= z1 / 2; z++) for (int x = x0 / 2; x <= x1 / 2; x++)
+            { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
             for (int cz = z0 / ChunkMeters; cz <= z1 / ChunkMeters; cz++)
             for (int cx = Mathf.Max(0, (x0 - 1) / ChunkMeters); cx <= x1 / ChunkMeters; cx++)
             {
                 int i = cz * chunksX + cx;
                 if (i >= 0 && i < chunks.Count) chunks[i].Dirty = true;
+            }
+        }
+
+        void RepaintTile(Vector2Int tile)
+        {
+            int x1 = Mathf.Min(colorTex.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(colorTex.height, (tile.y + 1) * 2 * Tpm);
+            for (int z = tile.y * 2 * Tpm; z < z1; z++) for (int x = tile.x * 2 * Tpm; x < x1; x++)
+            {
+                float wx = (x + .5f) / Tpm, wz = (z + .5f) / Tpm;
+                Color c = GroundColor(Host.Local.Map, wx, wz);
+                float burn = 0f;
+                foreach (var mark in scorchMarks)
+                {
+                    float radius = mark.Scalar * 1.25f;
+                    if (radius <= 0f || Mathf.Abs(wx - mark.Pos.x) > radius || Mathf.Abs(wz - mark.Pos.z) > radius) continue;
+                    float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
+                    burn = Mathf.Max(burn, .45f * (1f - distance / radius));
+                }
+                colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
             }
         }
 
@@ -350,23 +396,35 @@ namespace TW.Presentation.Terrain
         /// <summary>Bare painted mud: three flat tones from two octaves of noise, an ink line where two tones meet.</summary>
         static Color Tone(float wx, float wz)
         {
-            float qx = wx + 2.3f * Mathf.PerlinNoise(wx * 0.19f + 17f, wz * 0.19f);
-            float qz = wz + 2.3f * Mathf.PerlinNoise(wx * 0.19f, wz * 0.19f + 43f);
-            float n = Mathf.PerlinNoise(qx * 0.12f + 91f, qz * 0.12f) * 0.7f + Mathf.PerlinNoise(qx * 0.46f, qz * 0.46f + 47f) * 0.3f;
-            Color c = Color.Lerp(Color.Lerp(MudDark, MudMid, Band(0.40f, 0.45f, n)), MudPale, Band(0.57f, 0.61f, n));
-            float edge = Mathf.Min(Mathf.Abs(n - 0.415f), Mathf.Abs(n - 0.59f));
-            float broken = BattlefieldGenerator.Noise(5u, wx, wz, 4f);
-            if (edge < 0.009f && broken > 0.48f) c = Color.Lerp(c, Ink, 0.65f);   // broken painted contours, not an all-over noise texture
+            float broad = Mathf.PerlinNoise(wx * .07f + 91f, wz * .07f);
+            // Quiet pigment variation. Dark lines describe erosion and material edges, not noise thresholds.
+            return Color.Lerp(MudMid * .95f, MudMid * 1.06f, broad);
+        }
+
+        static Color Sediment(Color c, float x, float z, float activity)
+        {
+            const float sx = 2.3f, sz = 1.45f;
+            int ix = Mathf.FloorToInt(x / sx), iz = Mathf.FloorToInt(z / sz);
+            if (Grain(ix, iz + 81) > activity) return c;
+            float cx = (ix + .3f + Grain(ix, iz + 82) * .4f) * sx;
+            float cz = (iz + .3f + Grain(ix, iz + 83) * .4f) * sz;
+            float dx = (x - cx) / (.40f + Grain(ix, iz + 84) * .45f), dz = (z - cz) / .29f;
+            float arc = Mathf.Sqrt(dx * dx + dz * dz) + Mathf.Sin(x * 14f + z * 5f) * .11f;
+            if (z > cz + .09f || Mathf.Abs(dx) > 1.25f) return c;
+            if (arc > .86f && arc < 1.10f) return Color.Lerp(c, Ink, .67f);
+            if (arc > 1.11f && arc < 1.40f) return Color.Lerp(c, MudPale, .75f);
             return c;
         }
 
         /// <summary>The colour of one point of ground from what the sim knows about it.</summary>
-        static Color GroundColor(MapData map, float wx, float wz)
+        Color GroundColor(MapData map, float wx, float wz)
         {
-            float h = map.Height.Sample(wx, wz);
+            var sample = Surface.At(wx, wz);
+            float h = sample.Height;
             int nx = Mathf.Clamp((int)(wx / MapData.NavCellSize), 0, map.NavWidth - 1), nz = Mathf.Clamp((int)(wz / MapData.NavCellSize), 0, map.NavLength - 1);
             var layer = (NavLayer)map.NavLayers[map.NavIndex(nx, nz)];
             Color c = Tone(wx, wz);
+            c = Sediment(c, wx, wz, sample.BankDistance < 4f ? .88f : sample.Concavity > .1f ? .60f : .23f);
 
             if ((layer & NavLayer.Trench) != 0)
             {
@@ -378,7 +436,21 @@ namespace TW.Presentation.Terrain
             }
 
             float mud = Amount(map, wx, wz, NavLayer.Mud);
-            c = Color.Lerp(c, MudDark, 0.55f * mud);
+            c = Color.Lerp(c, MudDark, 0.28f * mud);
+            if (sample.BankDistance < 3.7f)
+            {
+                float mass = Surface.BankRise(wx, wz);
+                c = Color.Lerp(c, new Color(.57f, .505f, .42f), Mathf.Clamp01(mass * 1.5f));
+                float crest = .75f + Mathf.Sin(wx * 3f + wz * 3f) * .13f;
+                if (Mathf.Abs(sample.BankDistance - crest) < .09f) c = Color.Lerp(c, Ink, .64f);
+                float erosion = Mathf.Sin(wx * 5.8f + wz * 5.3f + Mathf.Sin(wx + wz) * .8f);
+                if (sample.BankDistance < 1.8f && erosion > .95f) c = Color.Lerp(c, Ink, .40f);
+                float d = sample.BankDistance + (Mathf.PerlinNoise(wx * .8f, wz * .8f) - .5f) * .6f;
+                float seam = Mathf.Abs(d - 2.3f);
+                c = Color.Lerp(c, MudPale, .25f * (1f - Mathf.Clamp01(d / 3.7f)));
+                if (seam < .10f) c = Color.Lerp(c, Ink, .72f);
+                else if (seam < .24f) c = Color.Lerp(c, MudPale, .7f);
+            }
             // shell holes, read from the ground itself so they are round: how far this point lies under the ground
             // 3 m around it. Dark inside, an ink rim, a pale lip of thrown earth (and a pale parapet along a trench).
             var hf = map.Height;
@@ -386,9 +458,20 @@ namespace TW.Presentation.Terrain
             float hollow = Mathf.Min(bowlX, bowlZ);   // a shell hole is hollow both ways; the foot of a slope only one way
             float bowl = hollow > 0.1f ? (bowlX + bowlZ) * 0.5f : Mathf.Min(0f, (bowlX + bowlZ) * 0.5f);
             bool inside = bowl > 0.34f;
-            if (inside) c = Color.Lerp(MudDark, Ink, 0.35f);
-            else if (bowl > 0.25f) c = Ink;
-            else if (bowl < -0.12f) c = Color.Lerp(c, MudPale, 0.22f);
+            if (sample.Hollow >= 0)
+            {
+                var depression = Surface.Hollows[sample.Hollow];
+                Vector2 delta = new Vector2(wx, wz) - depression.Center;
+                float a = Mathf.Atan2(delta.y, delta.x);
+                float r = delta.magnitude / depression.Radius + Mathf.Sin(a * 7f + depression.Center.x) * .04f;
+                if (r < .72f) c = Color.Lerp(Ink, MudDark, .45f);
+                else if (r < .92f) c = Color.Lerp(Ink, MudDark, .13f);
+                else if (r < 1.02f) c = Ink;
+                else if (r < 1.17f) c = MudPale;
+            }
+            if (inside && sample.Hollow < 0) c = Color.Lerp(MudDark, Ink, 0.35f);
+            else if (sample.Hollow < 0 && bowl > 0.25f) c = Color.Lerp(c, Ink, .55f);
+            else if (sample.Hollow < 0 && bowl < -0.12f) c = Color.Lerp(c, MudPale, 0.22f);
 
             // puddles: standing water just above the water table, and in the low spots of muddy ground
             // Gradient noise and a warped domain avoid the square islands produced by thresholded lattice noise.
