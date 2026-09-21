@@ -61,8 +61,27 @@ namespace TW.Presentation.Terrain
                 int i = k, j = k + sides + 1;
                 t.Add(i); t.Add(j); t.Add(i + 1); t.Add(i + 1); t.Add(j); t.Add(j + 1);
             }
-            int top = v.Count; v.Add(new Vector3(lean.x, height + r1 * point, lean.y));   // a splintered point
-            for (int k = 0; k < sides; k++) { t.Add(sides + 1 + k); t.Add(top); t.Add(sides + 2 + k); }
+            if (point < 1f)
+            {
+                int top = v.Count; v.Add(new Vector3(lean.x, height + r1 * point, lean.y));   // a sawn or worn top
+                for (int k = 0; k < sides; k++) { t.Add(sides + 1 + k); t.Add(top); t.Add(sides + 2 + k); }
+            }
+            else
+            {
+                // Shell-splintered: every side ends in its own spike of a different length, around a torn hollow in the
+                // middle, instead of one clean stake point.
+                int hollow = v.Count; v.Add(new Vector3(lean.x, height - r1 * .5f, lean.y));
+                for (int k = 0; k < sides; k++)
+                {
+                    float a = 2f * Mathf.PI * (k + .5f) / sides;
+                    float h = r1 * point * (.5f + 1.9f * Mathf.Abs(Mathf.Sin(k * 2.399f + height * 3.1f + r0 * 17f)));
+                    int tip = v.Count; v.Add(new Vector3(Mathf.Cos(a) * r1 * .72f + lean.x, height + h, Mathf.Sin(a) * r1 * .72f + lean.y));
+                    int i = sides + 1 + k;
+                    t.Add(i); t.Add(tip); t.Add(i + 1);             // the outer face of the spike
+                    t.Add(i + 1); t.Add(tip); t.Add(hollow);        // its torn inner faces
+                    t.Add(tip); t.Add(i); t.Add(hollow);
+                }
+            }
             var m = new Mesh { name = "Taper", hideFlags = HideFlags.HideAndDontSave };
             m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals();
             ownedMeshes.Add(m); return m;
