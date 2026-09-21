@@ -3,6 +3,8 @@
 // camera is looking at and keeps its depth as the view zooms, so the overview is not a wall of fog.
 // Ground mist: a cold pale layer that lies in the hollows and the far trenches (TW/Toon and the soldier shader read
 // _TWMist / _TWMistColor); it starts beyond the focus so the men you are commanding stay clear.
+// Fog bank: the ground nobody fights over, beyond the battlefield's edges, stands in a wall of fog that closes the
+// view on every side (TWAtmosphere.hlsl: a function of world position, so it adds no geometry and no overdraw).
 // Grade: one global volume. Shadows and midtones lean to sepia, highlights to cold slate, a touch less saturation,
 // a light vignette. It is a single LUT pass, so it costs the same on the minimum GPU whatever it does.
 using UnityEngine;
@@ -25,11 +27,19 @@ namespace TW.Presentation.Terrain
         [Range(0f, 1f)] public float MistDensity = 0.55f;
         [Tooltip("Metres above the water table where the mist ends, and how deep it takes to reach full density.")]
         public float MistTop = 2.3f, MistDepth = 2.2f;
+        [Header("Fog bank round the battlefield")]
+        public Color Bank = new Color(0.66f, 0.67f, 0.66f);
+        [Range(0f, 1f)] public float BankDensity = 0.94f;
+        [Tooltip("Metres outside the map edge where the bank begins (negative = inside), and how far it takes to close.")]
+        public float BankStart = -5f, BankRange = 28f;
+        [Tooltip("Height of the bank at the edge, and how much taller it stands for each metre further out.")]
+        public float BankTop = 7f, BankRise = 0.45f;
         [Header("Grade")]
         public bool Grade = true;
         Camera cam;
         VolumeProfile profile;
         static readonly int MistId = Shader.PropertyToID("_TWMist"), MistColorId = Shader.PropertyToID("_TWMistColor");
+        static readonly int FieldId = Shader.PropertyToID("_TWField"), FieldFogId = Shader.PropertyToID("_TWFieldFog"), FieldFogColorId = Shader.PropertyToID("_TWFieldFogColor");
 
         void Start()
         {
@@ -68,6 +78,7 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
+            Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
             if (profile != null) Destroy(profile);
         }
 
@@ -90,6 +101,11 @@ namespace TW.Presentation.Terrain
             float water = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
             Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
+
+            var map = RenderGround.Map;
+            if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));
+            Shader.SetGlobalVector(FieldFogId, new Vector4(BankStart, 1f / Mathf.Max(1f, BankRange), BankTop, BankRise));
+            Shader.SetGlobalVector(FieldFogColorId, new Vector4(Bank.r, Bank.g, Bank.b, map != null ? BankDensity : 0f));
         }
     }
 }

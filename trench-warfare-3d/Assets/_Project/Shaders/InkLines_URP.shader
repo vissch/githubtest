@@ -3,7 +3,8 @@
 // renderer feature before the transparents, so smoke, tracers and markers stay clean.
 // Method: device depth is linear in screen space across any flat surface, so its second difference is zero on a plane
 // and jumps at a crease or a silhouette. Five depth taps a pixel, no normals prepass, nothing drawn twice: that is the
-// whole cost, which is why it fits the minimum GPU. The line fades with distance so the far field stays quiet.
+// whole cost, which is why it fits the minimum GPU. The line fades with distance so the far field stays quiet, and
+// inside the fog bank round the battlefield (TWAtmosphere.hlsl), where a crisp line would cut through the fog.
 Shader "TW/Ink Lines (URP)"
 {
     Properties
@@ -29,6 +30,7 @@ Shader "TW/Ink Lines (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+            #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
             half4 _InkColor;
             float _Thickness, _Sensitivity, _Threshold, _Strength, _FadeStart, _FadeEnd;
@@ -46,6 +48,7 @@ Shader "TW/Ink Lines (URP)"
                 float eye = LinearEyeDepth(c, _ZBufferParams);
                 float fade = 1.0 - saturate((eye - _FadeStart) / max(1.0, _FadeEnd - _FadeStart));
                 half ink = smoothstep(_Threshold, _Threshold * 1.6, bend * _Sensitivity) * _Strength * fade;
+                if (ink > 0.001 && _TWFieldFogColor.a > 0.0) ink *= 1.0 - FieldFogAmount(ComputeWorldSpacePosition(uv, c, UNITY_MATRIX_I_VP));
                 color.rgb = lerp(color.rgb, _InkColor.rgb, ink);
                 return color;
             }

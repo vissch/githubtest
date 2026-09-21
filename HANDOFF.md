@@ -68,6 +68,13 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   ground mist and a colour grade (`Atmosphere`), and a screen-space ink pass for lines inside shapes
   (`Shaders/InkLines_URP.shader`, a Full Screen Pass feature on `Settings/TW-Renderer.asset`, depth only, 5 taps a
   pixel; unmeasured on the GTX 1050). The scored critique log is `docs/reference/visual-score.md` (46 to 57 of 80).
+  Fog, mud and water (owner request, 2026-09-21): a fog bank closes the view round the battlefield
+  (`Shaders/TWAtmosphere.hlsl`, shared by TW/Toon, TW/Water and the ink pass: a function of world position, no
+  geometry, no overdraw; `Atmosphere` Bank* fields). The ground's close-up surface is a code-made 512 px detail map
+  (`GreyboxTerrainView.BuildMudDetail`: tone in R, slope in GB lit as a hard-edged relief, broad tone in A) that fades
+  to the broad tone beyond 90 m. The river and flooded shell holes use `Shaders/Water_URP.shader`: one opaque quad,
+  three texture reads a pixel, no scene-depth read or grab pass; depth bands, shoreline and lapping rings come from a
+  depth map baked off the drawn ground (one texel a ground vertex, repainted with the chunks a crater touches).
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

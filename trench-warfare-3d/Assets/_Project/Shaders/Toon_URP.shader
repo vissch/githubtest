@@ -1,11 +1,15 @@
 // Phase: B2 (implemented) — the environment's look (owner's visual target, 2026-09-21): flat cartoon shading in two
 // steps, a dark ink outline, distance haze. Used by the ground, the water's bed and every prop.
 // Light: half-lambert cut into lit / half / shade, the main light's shadow pushes a pixel into shade.
-// Detail: an optional tiling texture in world XZ (brush strokes on the ground), centred on 0.5 so grey = no change.
+// Detail: an optional tiling texture in world XZ. R is tone centred on 0.5 (grey = no change); A is a broader tone, read
+// a second time turned and 3.5x larger so the repeat never shows; G and B are the surface slope, which _DetailBump
+// turns into a painted relief: a pale edge on the side of each clod that faces the light and a dark one on the far
+// side, both hard-edged like the rest of the look.
 // Outline: an inverted hull pushed out along the smoothed normal stored in TEXCOORD3 (BattlefieldProps.Combine writes
 // it; hard-edged meshes would split at the corners otherwise). Its width is set in pixels and shrinks with distance.
 // Water: _Gloss, or a base-map alpha below 1 (the ground's puddles), mirrors the sky with a fresnel and takes a hard sun
-// glint. Mist: _TWMist / _TWMistColor (set by Atmosphere) lay a pale layer over low, distant ground.
+// glint; still water takes a slow ripple from the same slopes. Mist and the fog bank round the battlefield come from
+// TWAtmosphere.hlsl (set by Atmosphere).
 // The ground switches the pass off (SetShaderPassEnabled("SRPDefaultUnlit", false)): its ink is in its texture.
 Shader "TW/Toon (URP)"
 {
@@ -16,6 +20,7 @@ Shader "TW/Toon (URP)"
         _DetailMap ("World Detail (grey = none)", 2D) = "gray" {}
         _DetailScale ("Detail tiles per metre", Float) = 0.125
         _DetailStrength ("Detail strength", Range(0,1)) = 0
+        _DetailBump ("Detail relief", Range(0,1)) = 0
         _Gloss ("Gloss (1 = standing water)", Range(0,1)) = 0
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
@@ -33,16 +38,9 @@ Shader "TW/Toon (URP)"
         CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor, _ShadeColor, _OutlineColor;
             float4 _BaseMap_ST;
-            float _DetailScale, _DetailStrength, _OutlineWidth, _Gloss;
+            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss;
         CBUFFER_END
-        float4 _TWMist;        // x top height, y 1/depth, z start distance, w 1/range
-        float4 _TWMistColor;   // rgb, a = density (0 when no Atmosphere is present)
-        half3 ApplyMist(half3 color, float3 positionWS)
-        {
-            float far = saturate((distance(_WorldSpaceCameraPos, positionWS) - _TWMist.z) * _TWMist.w);
-            float low = saturate((_TWMist.x - positionWS.y) * _TWMist.y);
-            return lerp(color, _TWMistColor.rgb, low * far * _TWMistColor.a);
-        }
+        #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
         ENDHLSL
 
         Pass
@@ -79,9 +77,21 @@ Shader "TW/Toon (URP)"
                 half4 base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
                 half3 albedo = base.rgb * _BaseColor.rgb * i.color.rgb;
                 half gloss = max(_Gloss, 1.0 - base.a);
-                half detail = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale).r;
-                albedo *= 1.0 + (detail - 0.5) * 2.0 * _DetailStrength;
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
+                half2 slope = 0;
+                if (_DetailStrength > 0.0)
+                {
+                    float2 uv1 = i.positionWS.xz * _DetailScale;
+                    float2 uv2 = float2(uv1.x * 0.259 - uv1.y * 0.117, uv1.x * 0.117 + uv1.y * 0.259) + 0.37;   // turned and 3.5x larger: the broad blotches
+                    half3 d1 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv1).rgb;
+                    half near = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
+                    half tone = (d1.r - 0.5) * near + (SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv2).a - 0.5);
+                    slope = (d1.gb - 0.5) * near;
+                    half dry = 1.0 - gloss;   // standing water is smooth
+                    albedo *= 1.0 + tone * 2.0 * _DetailStrength * dry;
+                    half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
+                    albedo *= 1.0 + smoothstep(0.035, 0.06, relief) * 0.13 - smoothstep(0.03, 0.055, -relief) * 0.20;
+                }
                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half lit = wrap;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
@@ -91,6 +101,14 @@ Shader "TW/Toon (URP)"
                 {
                     float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
                     float3 n = normalize(lerp(normalize(i.normalWS), float3(0, 1, 0), 0.8));   // water lies flat whatever the ground does
+                    if (_DetailStrength > 0.0)
+                    {
+                        // liquid mud keeps the clods' broken surface; still water breathes with a slow ripple
+                        float2 uvr = i.positionWS.xz * 0.19 + float2(_Time.y * 0.021, _Time.y * 0.013);
+                        half2 ripple = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uvr).gb - 0.5;
+                        half still = saturate(gloss * 2.0 - 1.0);
+                        n = normalize(n + float3(lerp(slope * 0.35, ripple * 0.22, still), 0).xzy);
+                    }
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                     half3 sky = unity_FogColor.rgb * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
@@ -99,6 +117,7 @@ Shader "TW/Toon (URP)"
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                 }
                 color = ApplyMist(color, i.positionWS);
+                color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
                 return half4(color, 1.0);
             }
@@ -117,12 +136,13 @@ Shader "TW/Toon (URP)"
             #pragma multi_compile_fog
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; };
+            struct Varyings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float3 positionWS : TEXCOORD1; };
 
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
                 Varyings o;
+                o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
                 float3 n = dot(v.smoothOS, v.smoothOS) > 0.01 ? v.smoothOS : v.normalOS;
                 float4 cs = TransformObjectToHClip(v.positionOS.xyz);
                 float3 nWS = TransformObjectToWorldNormal(n);
@@ -134,7 +154,7 @@ Shader "TW/Toon (URP)"
                 o.fog = ComputeFogFactor(cs.z);
                 return o;
             }
-            half4 frag(Varyings i) : SV_Target { return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
+            half4 frag(Varyings i) : SV_Target { return half4(MixFog(ApplyFieldFog(_OutlineColor.rgb, i.positionWS), i.fog), 1.0); }
             ENDHLSL
         }
 

@@ -30,7 +30,9 @@ namespace TW.Presentation.Terrain
         readonly List<Chunk> chunks = new List<Chunk>();
         readonly List<Object> owned = new List<Object>();
         int chunksX;
-        Texture2D colorTex;
+        Texture2D colorTex, depthTex;
+        byte[] depthPx;
+        bool depthDirty;
         RenderGroundGrid renderGrid;
         bool colorDirty, subscribed;
         readonly Queue<Vector2Int> paintTiles = new Queue<Vector2Int>();
@@ -110,41 +112,127 @@ namespace TW.Presentation.Terrain
             }
         }
 
-        static Texture2D strokes;
+        static Texture2D mudDetail, ripples;
 
-        /// <summary>A ground material: toon shading, brush strokes in world space, no hull outline.</summary>
+        /// <summary>A ground material: toon shading, the mud's grain and relief in world space, no hull outline.</summary>
         Material Toon(Color color)
         {
             var mat = new Material(Shader.Find("TW/Toon (URP)")) { hideFlags = HideFlags.HideAndDontSave };
             mat.SetColor("_BaseColor", color);
-            if (strokes == null) strokes = BuildStrokes();
-            mat.SetTexture("_DetailMap", strokes);
+            if (mudDetail == null) mudDetail = BuildMudDetail();
+            mat.SetTexture("_DetailMap", mudDetail);
             mat.SetFloat("_DetailScale", 1f / 12f);
-            mat.SetFloat("_DetailStrength", 0.12f);
+            mat.SetFloat("_DetailStrength", 0.20f);
+            mat.SetFloat("_DetailBump", 1f);
             mat.SetShaderPassEnabled("SRPDefaultUnlit", false);
             owned.Add(mat);
             return mat;
         }
 
-        /// <summary>Tiling brush marks: short dark dashes and a few pale flecks on mid grey.</summary>
-        static Texture2D BuildStrokes()
+        /// <summary>Value noise that repeats after periodX by periodZ cells, so a texture made from it tiles.</summary>
+        static float TileNoise(float x, float z, int periodX, int periodZ, int salt)
         {
-            const int n = 256;
-            var px = new Color32[n * n];
-            for (int i = 0; i < px.Length; i++) px[i] = new Color32(128, 128, 128, 255);
-            for (int k = 0; k < 420; k++)
+            int x0 = Mathf.FloorToInt(x), z0 = Mathf.FloorToInt(z);
+            float tx = x - x0, tz = z - z0;
+            tx = tx * tx * (3f - 2f * tx); tz = tz * tz * (3f - 2f * tz);
+            int xa = ((x0 % periodX) + periodX) % periodX, xb = (xa + 1) % periodX, za = ((z0 % periodZ) + periodZ) % periodZ, zb = (za + 1) % periodZ;
+            float a = Grain(xa + salt * 7919, za), b = Grain(xb + salt * 7919, za), c = Grain(xa + salt * 7919, zb), d = Grain(xb + salt * 7919, zb);
+            return Mathf.Lerp(Mathf.Lerp(a, b, tx), Mathf.Lerp(c, d, tx), tz);
+        }
+
+        /// <summary>
+        /// The mud's close-up surface, tiling over 12 m. A height field is built first: soft lumps everywhere, and in the
+        /// churned patches a bed of clods (cellular noise: each cell a dome of its own height, a crevice where two
+        /// meet), a scatter of stones. R is the tone (crevices dark, clod tops a little pale, brush dashes on top);
+        /// G and B are the slope, which the shader lights as a hard-edged relief; A is the lumps' tone alone, which
+        /// the shader reads a second time, larger and turned, for blotches broad enough to show from the overview.
+        /// </summary>
+        static Texture2D BuildMudDetail()
+        {
+            const int n = 512, cells = 17;
+            var height = new float[n * n]; var tone = new float[n * n]; var broad = new float[n * n];
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
             {
-                int x = (int)(Grain(k, 11) * n), z = (int)(Grain(k, 23) * n), len = 4 + (int)(Grain(k, 37) * 9f);
-                float slope = Grain(k, 41) * 0.8f - 0.4f;
-                byte v = (byte)(Grain(k, 53) < 0.78f ? 70 : 176);
-                for (int t = 0; t < len; t++)
+                float u = x / (float)n, v = z / (float)n;
+                float lumps = TileNoise(u * 6f, v * 6f, 6, 6, 1) * .5f + TileNoise(u * 13f, v * 13f, 13, 13, 2) * .3f + TileNoise(u * 31f, v * 31f, 31, 31, 3) * .2f;
+                float smear = 1f - Mathf.Abs(TileNoise(u * 8f, v * 5f, 8, 5, 6) * 2f - 1f);   // folds where the mud was pushed about
+                lumps = lumps * .7f + smear * smear * .3f;
+                float churn = Mathf.SmoothStep(0f, 1f, (TileNoise(u * 4f, v * 4f, 4, 4, 4) * .7f + TileNoise(u * 9f, v * 9f, 9, 9, 5) * .3f - .53f) / .14f);
+                float cu = u * cells, cv = v * cells; int cx = Mathf.FloorToInt(cu), cz = Mathf.FloorToInt(cv);
+                float f1 = 9f, f2 = 9f, lift = 0f;
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
                 {
-                    int xx = (x + t) % n, zz = ((z + (int)(t * slope)) % n + n) % n;
-                    px[zz * n + xx] = new Color32(v, v, v, 255);
-                    if (v < 128) px[((zz + 1) % n) * n + xx] = new Color32(v, v, v, 255);
+                    int kx = ((cx + dx) % cells + cells) % cells, kz = ((cz + dz) % cells + cells) % cells;
+                    float px2 = cx + dx + .15f + .7f * Grain(kx + 101, kz), pz2 = cz + dz + .15f + .7f * Grain(kx, kz + 211);
+                    float d = (px2 - cu) * (px2 - cu) + (pz2 - cv) * (pz2 - cv);
+                    if (d < f1) { f2 = f1; f1 = d; lift = Grain(kx + 307, kz + 17); }
+                    else if (d < f2) f2 = d;
+                }
+                f1 = Mathf.Sqrt(f1); f2 = Mathf.Sqrt(f2);
+                float seam = Mathf.SmoothStep(0f, 1f, (f2 - f1) / .30f);           // 0 in the crevice between two clods
+                float clod = seam * (1f - .55f * f1 * f1) * (.35f + .65f * lift) * (lift < .22f ? .25f : 1f);   // some cells are trodden flat
+                height[z * n + x] = lumps * .85f + churn * clod * .50f;
+                broad[z * n + x] = (lumps - .5f) * .55f;
+                tone[z * n + x] = (lumps - .5f) * .34f + churn * ((clod - .40f) * .26f - (1f - Mathf.SmoothStep(0f, 1f, (f2 - f1) / .10f)) * .12f);
+            }
+            for (int k = 0; k < 260; k++)   // stones: a small dome with a dark foot
+            {
+                int x = (int)(Grain(k, 61) * n), z = (int)(Grain(k, 67) * n); float r = 1.6f + Grain(k, 71) * 3.2f;
+                for (int dz = -6; dz <= 6; dz++)
+                for (int dx = -6; dx <= 6; dx++)
+                {
+                    float d = Mathf.Sqrt(dx * dx + dz * dz) / r; if (d > 1.35f) continue;
+                    int i = ((z + dz + n) % n) * n + (x + dx + n) % n;
+                    if (d <= 1f) { height[i] += (1f - d * d) * .30f; tone[i] += .10f; } else tone[i] -= .12f;
                 }
             }
-            var tex = new Texture2D(n, n, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4, hideFlags = HideFlags.HideAndDontSave };
+            for (int k = 0; k < 900; k++)   // brush dashes, mostly dark
+            {
+                int x = (int)(Grain(k, 11) * n), z = (int)(Grain(k, 23) * n), len = 7 + (int)(Grain(k, 37) * 16f);
+                float lean = Grain(k, 41) * 0.8f - 0.4f, v = Grain(k, 53) < 0.78f ? -.20f : .16f;
+                for (int t = 0; t < len; t++)
+                {
+                    int xx = (x + t) % n, zz = ((z + (int)(t * lean)) % n + n) % n;
+                    tone[zz * n + xx] += v; if (v < 0f) tone[((zz + 1) % n) * n + xx] += v * .7f;
+                }
+            }
+            var px = new Color32[n * n];
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                int xl = (x + n - 1) % n, xr = (x + 1) % n, zd = (z + n - 1) % n, zu = (z + 1) % n;
+                float sx = (height[z * n + xl] - height[z * n + xr]) * 9f, sz = (height[zd * n + x] - height[zu * n + x]) * 9f;   // the normal's xz
+                px[z * n + x] = new Color32((byte)(Mathf.Clamp01(.5f + tone[z * n + x]) * 255f), (byte)(Mathf.Clamp01(.5f + sx) * 255f), (byte)(Mathf.Clamp01(.5f + sz) * 255f), (byte)(Mathf.Clamp01(.5f + broad[z * n + x]) * 255f));
+            }
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, true) { name = "Mud detail", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 4, hideFlags = HideFlags.HideAndDontSave };
+            tex.SetPixels32(px); tex.Apply(true, true);
+            return tex;
+        }
+
+        /// <summary>The water's moving surface, tiling: R and G the slope of a soft swell, B long streaks lying along x (the current).</summary>
+        static Texture2D BuildRipples()
+        {
+            const int n = 256;
+            var height = new float[n * n];
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = z / (float)n;
+                height[z * n + x] = TileNoise(u * 5f, v * 7f, 5, 7, 11) * .5f + TileNoise(u * 11f, v * 15f, 11, 15, 12) * .3f + TileNoise(u * 23f, v * 29f, 23, 29, 13) * .2f;
+            }
+            var px = new Color32[n * n];
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = x / (float)n, v = z / (float)n;
+                int xl = (x + n - 1) % n, xr = (x + 1) % n, zd = (z + n - 1) % n, zu = (z + 1) % n;
+                float sx = (height[z * n + xl] - height[z * n + xr]) * 14f, sz = (height[zd * n + x] - height[zu * n + x]) * 14f;
+                float streak = TileNoise(u * 2f, v * 13f, 2, 13, 14) * .6f + TileNoise(u * 5f, v * 29f, 5, 29, 15) * .4f;
+                px[z * n + x] = new Color32((byte)(Mathf.Clamp01(.5f + sx) * 255f), (byte)(Mathf.Clamp01(.5f + sz) * 255f), (byte)(Mathf.Clamp01(streak) * 255f), 255);
+            }
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, true) { name = "Water ripples", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 2, hideFlags = HideFlags.HideAndDontSave };
             tex.SetPixels32(px); tex.Apply(true, true);
             return tex;
         }
@@ -182,27 +270,13 @@ namespace TW.Presentation.Terrain
                     // The land beyond the map continues what reaches the edge (the river's channel, a rise, a hollow), but not
                     // as a straight extrusion: each feature drifts sideways as it runs out and fades, the way the river would
                     // go on bending. A trench that runs out at the edge is closed by the bank beside it instead.
-                    float ex = high ? w - .5f : .5f;
-                    System.Func<float, bool> dug = zz => alongZ && ((NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(ex / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(zz / MapData.NavCellSize), 0, map.NavLength - 1))] & NavLayer.Trench) != 0;
-                    System.Func<float, float> edgeAt = tt =>
-                    {
-                        float c = Mathf.Clamp(tt, 0f, span);
-                        if (dug(c))
-                            for (float reach = 1f; reach <= 14f; reach += 1f)
-                            {
-                                if (!dug(c - reach)) return Surface.VisualHeight(high ? w : 0f, Mathf.Max(0f, c - reach - 1.5f));
-                                if (!dug(c + reach)) return Surface.VisualHeight(high ? w : 0f, Mathf.Min(span, c + reach + 1.5f));
-                            }
-                        return alongZ ? Surface.VisualHeight(high ? w : 0f, c) : Surface.VisualHeight(c, high ? l : 0f);
-                    };
                     float tc = Mathf.Clamp(t, 0f, span);
                     float edge = alongZ ? Surface.VisualHeight(high ? w : 0f, tc) : Surface.VisualHeight(tc, high ? l : 0f);   // the very heights the ground mesh uses
                     float beyond = alongZ ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
                     for (int k = 0; k < cols_; k++)
                     {
-                        float d = outs[k], blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Max(d, beyond) / 30f));
-                        float drift = (12f * Mathf.Sin(d * .11f + side * 1.9f) + 5f * Mathf.Sin(d * .31f + side)) * Mathf.SmoothStep(0f, 1f, d / 8f);
-                        float y = Mathf.Lerp(k == 0 ? edge : edgeAt(t + drift), level, blend);
+                        float d = outs[k];
+                        float y = k == 0 ? Mathf.Lerp(edge, level, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(beyond / SkirtBlend))) : SkirtY(map, side, t, d);
                         float off = high ? span2(alongZ, w, l) + d : -d;
                         var v = alongZ ? new Vector3(off, y, t) : new Vector3(t, y, off);
                         verts.Add(v); cols.Add(MudMid);   // one tone: the columns are too far apart to carry the painted patches
@@ -249,12 +323,54 @@ namespace TW.Presentation.Terrain
 
         static float span2(bool alongZ, float w, float l) => alongZ ? w : l;
 
+        /// <summary>The edge height a skirt column continues: the ground's own, or the bank beside a trench that runs out there.</summary>
+        float SkirtEdge(MapData map, int side, float tt)
+        {
+            bool alongZ = side < 2, high = (side & 1) == 1;
+            float w = map.SizeMeters.x, l = map.SizeMeters.y, span = alongZ ? l : w, ex = high ? w - .5f : .5f;
+            System.Func<float, bool> dug = zz => alongZ && ((NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(ex / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(zz / MapData.NavCellSize), 0, map.NavLength - 1))] & NavLayer.Trench) != 0;
+            float c = Mathf.Clamp(tt, 0f, span);
+            if (dug(c))
+                for (float reach = 1f; reach <= 14f; reach += 1f)
+                {
+                    if (!dug(c - reach)) return Surface.VisualHeight(high ? w : 0f, Mathf.Max(0f, c - reach - 1.5f));
+                    if (!dug(c + reach)) return Surface.VisualHeight(high ? w : 0f, Mathf.Min(span, c + reach + 1.5f));
+                }
+            return alongZ ? Surface.VisualHeight(high ? w : 0f, c) : Surface.VisualHeight(c, high ? l : 0f);
+        }
+
+        /// <summary>Skirt height d metres outside a side, t metres along it: the edge's features drift sideways and level out.</summary>
+        float SkirtY(MapData map, int side, float t, float d)
+        {
+            float l = map.SizeMeters.y;
+            float beyond = side < 2 ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
+            float blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Max(d, beyond) / SkirtBlend));
+            float drift = (12f * Mathf.Sin(d * .11f + side * 1.9f) + 5f * Mathf.Sin(d * .31f + side)) * Mathf.SmoothStep(0f, 1f, d / 8f);
+            return Mathf.Lerp(SkirtEdge(map, side, t + drift), SkirtLevel, blend);
+        }
+
         void BuildWater(MapData map)
         {
-            // Opaque painted water shares lighting/fog with the puddle pigment and writes depth before VFX.
-            var m = Toon(Puddle);
-            m.SetFloat("_DetailStrength", 0.05f);
-            m.SetFloat("_Gloss", 1f);
+            // TW/Water: an opaque sheet that reads how deep it is from a map baked off the drawn ground, one texel a
+            // ground vertex, so its shoreline and depth bands sit exactly where the mesh meets it.
+            var m = new Material(Shader.Find("TW/Water (URP)")) { hideFlags = HideFlags.HideAndDontSave };
+            owned.Add(m);
+            if (ripples == null) ripples = BuildRipples();
+            int dw = renderGrid.Width + 2 * DepthBorder;
+            depthPx = new byte[dw * renderGrid.Length];
+            depthTex = new Texture2D(dw, renderGrid.Length, TextureFormat.R8, false) { name = "Water depth", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            owned.Add(depthTex);
+            PaintDepth(0, 0, renderGrid.Width, renderGrid.Length);
+            for (int z = 0; z < renderGrid.Length; z++)   // the land beyond the two long edges, as the skirt draws it
+            for (int k = 1; k <= DepthBorder; k++)
+            {
+                depthPx[z * dw + DepthBorder - k] = DepthByte(map.WaterLevel - SkirtY(map, 0, z * GridStep, k * GridStep));
+                depthPx[z * dw + DepthBorder + renderGrid.Width - 1 + k] = DepthByte(map.WaterLevel - SkirtY(map, 1, z * GridStep, k * GridStep));
+            }
+            depthTex.SetPixelData(depthPx, 0); depthTex.Apply(false, false);
+            m.SetTexture("_DepthMap", depthTex);
+            m.SetTexture("_RippleMap", ripples);
+            m.SetVector("_DepthST", new Vector4(1f / (dw * GridStep), 1f / (renderGrid.Length * GridStep), (DepthBorder + .5f) / dw, .5f / renderGrid.Length));
             float w = map.SizeMeters.x, l = map.SizeMeters.y, y = map.WaterLevel;
             var mesh = new Mesh
             {
@@ -270,6 +386,18 @@ namespace TW.Presentation.Terrain
             var r = go.AddComponent<MeshRenderer>();
             r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
+
+        /// <summary>Water depth over a block of ground vertices: (depth + 0.4 m) / 2 m, as TW/Water reads it.</summary>
+        void PaintDepth(int x0, int z0, int w, int l)
+        {
+            float water = Host.Local.Map.WaterLevel; int dw = renderGrid.Width + 2 * DepthBorder;
+            for (int z = z0; z < z0 + l && z < renderGrid.Length; z++)
+            for (int x = x0; x < x0 + w && x < renderGrid.Width; x++)
+                depthPx[z * dw + DepthBorder + x] = DepthByte(water - renderGrid.Heights[z * renderGrid.Width + x]);
+        }
+
+        const int DepthBorder = 80;   // vertices past each long edge: the 40 m the water sheet runs on
+        static byte DepthByte(float depth) => (byte)(Mathf.Clamp01((depth + .4f) / 2f) * 255f);
 
         void Update()
         {
@@ -293,7 +421,9 @@ namespace TW.Presentation.Terrain
                 Fill(c, Host.Local.Map.Height);
                 c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                 c.Mesh.RecalculateBounds();
+                if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
             }
+            if (depthDirty) { depthTex.SetPixelData(depthPx, 0); depthTex.Apply(false, false); depthDirty = false; }
         }
 
         void OnDestroy()
