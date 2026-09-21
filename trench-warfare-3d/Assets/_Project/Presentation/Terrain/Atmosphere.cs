@@ -34,7 +34,7 @@ namespace TW.Presentation.Terrain
         public static Vector2 WindNow { get; private set; }
         [Tooltip("Sheet lightning when the rain is at its heaviest (night only).")]
         public bool Lightning = true;
-        Color shadeNow;
+        Color shadeNow; float flashNow;
         Light key; float boltAt = -10f, nextBolt = 25f;
         public Vector3 KeyEuler = new Vector3(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
         public Color Ambient = new Color(0.52f, 0.52f, 0.56f);
@@ -170,18 +170,22 @@ namespace TW.Presentation.Terrain
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = sky;
             shadeNow = Color.Lerp(ShadeTint, new Color(.60f, .66f, .85f), flash * .8f);
+            flashNow = flash;
             float height = Mathf.Max(1f, cam.transform.position.y);
             float pitch = Mathf.Max(0.12f, -cam.transform.forward.y);
             float toFocus = height / pitch;   // distance to the ground along the view
             RenderSettings.fogStartDistance = toFocus * StartFactor;
-            RenderSettings.fogEndDistance = toFocus * StartFactor + Depth + toFocus;
+            // a squall closes the distance in: the far ground sinks into the rain
+            float squall = Rain > 0f ? Mathf.Clamp01(RainNow / (Rain * 1.25f)) : 0f;
+            RenderSettings.fogEndDistance = toFocus * StartFactor + Depth * (1f - .38f * squall) + toFocus;
 
             float water = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
             Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
-            Shader.SetGlobalVector(SkyId, new Vector4(SkyMirror.r, SkyMirror.g, SkyMirror.b, 1f));
+            Color mirror = Color.Lerp(SkyMirror, new Color(.85f, .90f, 1f), flashNow * .85f);   // lightning shows in every puddle
+            Shader.SetGlobalVector(SkyId, new Vector4(mirror.r, mirror.g, mirror.b, 1f));
             // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
             // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.
             float clock = Time.time;

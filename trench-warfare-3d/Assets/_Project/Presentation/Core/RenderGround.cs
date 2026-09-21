@@ -27,6 +27,22 @@ namespace TW.Presentation
         public static bool Night;
     }
 
+    /// <summary>
+    /// Small services one presentation assembly offers another (combat effects live with the camera, water and lamps
+    /// with the terrain). Every member may be null or empty: callers must cope with nobody being there.
+    /// </summary>
+    public static class SceneHooks
+    {
+        /// <summary>Is there standing water here? (WaterRings)</summary>
+        public static System.Func<float, float, bool> IsWater;
+        /// <summary>Open a ring on the water: x, z, size in metres. (WaterRings)</summary>
+        public static System.Action<float, float, float> AddRing;
+        /// <summary>Throw some sparks from a point. (CombatFx)</summary>
+        public static System.Action<UnityEngine.Vector3, int> Sparks;
+        /// <summary>Places that smoke or steam gently: dugout chimneys, fires in the rain. (NightLights fills it, CombatFx draws.)</summary>
+        public static readonly System.Collections.Generic.List<UnityEngine.Vector3> SmokeSources = new System.Collections.Generic.List<UnityEngine.Vector3>();
+    }
+
     public static class RenderGround
     {
         public static MapData Map;

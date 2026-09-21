@@ -119,6 +119,13 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   night; sheet lightning fires at the height of a squall (`Atmosphere.Lightning`); the night grade adds Neutral
   tonemapping and film grain, both inside URP's final post pass. Deliberately not added: SSAO, depth of field,
   Forward+, light shadows, all of which need a GTX 1050 measurement first.
+  Battlefield details (owner request): rounds that miss kick up dirt, or a splash and a ring in water, with the odd
+  ricochet spark at night (5 a frame at most); a shell burst puts up crows from the nearest tree, jolts the camera
+  (`CameraShake`, runs after `TacticalCamera`), throws a white column if it lands in water and leaves embers glowing
+  in its hole; running men kick up mud; dugout stoves smoke and rained-on fires steam; the star shell sheds burning
+  drops; guns flicker beyond the horizon; lightning shows in every puddle; squalls close the haze in; and rain far
+  off hangs in wind-driven curtains (`Shaders/RainCurtain_URP.shader`, 49 cards, empty cells collapse in the vertex
+  shader). `SceneHooks` in Presentation.Core carries the few calls between the camera and terrain assemblies.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

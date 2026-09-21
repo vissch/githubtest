@@ -28,6 +28,7 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
+            SceneHooks.IsWater = null; SceneHooks.AddRing = null;
             Awake(); Shader.SetGlobalVectorArray(RingsId, rings);
         }
 
@@ -46,7 +47,7 @@ namespace TW.Presentation.Terrain
         void Update()
         {
             if (Host == null || Host.Local == null) return;
-            if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
+            if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; SceneHooks.IsWater = IsWater; SceneHooks.AddRing = Add; }
             if (Time.time >= nextStep && IsWater != null)
             {
                 // a few wading men a step, taken in turn round the unit slots so a whole column ripples, not its first three

@@ -14,6 +14,9 @@ namespace TW.Presentation.Terrain
         public Vector3 Box = new Vector3(90f, 46f, 90f);
         public float FallSpeed = 17f, StreakLength = 0.75f;
         Mesh mesh; Material material; Camera cam;
+        Mesh curtainMesh; Material curtains; Texture2D curtainNoise; Vector2 drifted;
+        const float CurtainCell = 70f, CurtainHeight = 55f;
+        static readonly int DriftId = Shader.PropertyToID("_Drift"), WeatherId = Shader.PropertyToID("_Weather");
         Vector3 fallen;   // how far the rain has fallen and blown so far: integrated here, so a change of wind bends the streaks without making them jump
         static readonly int OffsetId = Shader.PropertyToID("_Offset"), LevelId = Shader.PropertyToID("_Level");
         static readonly int CentreId = Shader.PropertyToID("_Centre"), SizeId = Shader.PropertyToID("_Size"), FallId = Shader.PropertyToID("_Fall"), ColorId = Shader.PropertyToID("_Color");
@@ -40,6 +43,50 @@ namespace TW.Presentation.Terrain
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r2 = go.AddComponent<MeshRenderer>();
             r2.sharedMaterial = material; r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r2.receiveShadows = false;
+            BuildCurtains();
+        }
+
+        /// <summary>Rain far off hangs in curtains (TW/Rain Curtain): a 7 x 7 block of cards, one a ground cell round the camera.</summary>
+        void BuildCurtains()
+        {
+            var pos = new List<Vector3>(); var corner = new List<Vector2>(); var tris = new List<int>();
+            for (int j = -3; j <= 3; j++)
+            for (int i = -3; i <= 3; i++)
+            {
+                int v0 = pos.Count;
+                for (int k = 0; k < 4; k++) { pos.Add(new Vector3(i, j, 0f)); corner.Add(new Vector2(k == 0 || k == 3 ? -1f : 1f, k < 2 ? -1f : 1f)); }
+                tris.Add(v0); tris.Add(v0 + 2); tris.Add(v0 + 1); tris.Add(v0); tris.Add(v0 + 3); tris.Add(v0 + 2);
+            }
+            curtainMesh = new Mesh { name = "Rain curtains", hideFlags = HideFlags.HideAndDontSave };
+            curtainMesh.SetVertices(pos); curtainMesh.SetUVs(0, corner); curtainMesh.SetTriangles(tris, 0);
+            curtainMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 5000f);
+            const int n = 128;
+            var px = new Color32[n * n];
+            for (int z = 0; z < n; z++)
+            for (int x = 0; x < n; x++)
+            {
+                // fine across, long down: falling streaks; the shader reads it a second time, stretched, for the veil
+                float c = Tile(x / (float)n * 37f, z / (float)n * 3f, 37, 3) * .6f + Tile(x / (float)n * 11f, z / (float)n * 5f, 11, 5) * .4f;
+                byte b = (byte)(Mathf.Clamp01(c) * 255f); px[z * n + x] = new Color32(b, b, b, 255);
+            }
+            curtainNoise = new Texture2D(n, n, TextureFormat.RGBA32, true) { name = "Curtain noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
+            curtainNoise.SetPixels32(px); curtainNoise.Apply(true, true);
+            curtains = new Material(Shader.Find("TW/Rain Curtain (URP)")) { hideFlags = HideFlags.HideAndDontSave };
+            curtains.SetTexture("_Noise", curtainNoise);
+            var go = new GameObject("Rain curtains") { hideFlags = HideFlags.DontSave };
+            go.transform.SetParent(transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = curtainMesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = curtains; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        }
+
+        static float Tile(float x, float z, int periodX, int periodZ)
+        {
+            int x0 = Mathf.FloorToInt(x), z0 = Mathf.FloorToInt(z);
+            float tx = x - x0, tz = z - z0;
+            tx = tx * tx * (3f - 2f * tx); tz = tz * tz * (3f - 2f * tz);
+            int xa = x0 % periodX, xb = (xa + 1) % periodX, za = z0 % periodZ, zb = (za + 1) % periodZ;
+            return Mathf.Lerp(Mathf.Lerp(Hash(xa + 977, za), Hash(xb + 977, za), tx), Mathf.Lerp(Hash(xa + 977, zb), Hash(xb + 977, zb), tx), tz);
         }
 
         static float Hash(int a, int b)
@@ -53,6 +100,9 @@ namespace TW.Presentation.Terrain
         {
             if (mesh != null) Destroy(mesh);
             if (material != null) Destroy(material);
+            if (curtainMesh != null) Destroy(curtainMesh);
+            if (curtains != null) Destroy(curtains);
+            if (curtainNoise != null) Destroy(curtainNoise);
         }
 
         void LateUpdate()
@@ -75,6 +125,14 @@ namespace TW.Presentation.Terrain
             material.SetVector(OffsetId, fallen);
             material.SetVector(FallId, new Vector4(velocity.x, -velocity.y, velocity.z, StreakLength * (.7f + .9f * level)));
             material.SetFloat(LevelId, level);
+            if (curtains != null)
+            {
+                drifted += wind * (Time.deltaTime * 1.6f);   // the curtains cross the field a little faster than the wind at the ground
+                float fall = Mathf.Max(6f, -velocity.y);
+                float ground = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
+                curtains.SetVector(DriftId, new Vector4(drifted.x, drifted.y, CurtainCell, CurtainHeight));
+                curtains.SetVector(WeatherId, new Vector4(level, wind.x / fall, wind.y / fall, ground - 1f));
+            }
         }
     }
 }

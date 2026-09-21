@@ -10,6 +10,34 @@ using TW.Presentation;
 
 namespace TW.Presentation.Tactical
 {
+    /// <summary>
+    /// A shell landing near what you are looking at jolts the camera. Runs after TacticalCamera has placed the camera
+    /// for the frame (which it does from scratch every frame, so the jolt never accumulates) and decays in half a second.
+    /// </summary>
+    [DefaultExecutionOrder(10000)]
+    public sealed class CameraShake : MonoBehaviour
+    {
+        static float trauma;
+        static Vector3 lookPoint;
+        /// <summary>A burst of this radius at this place; how hard it shakes falls off with its distance from the view's centre.</summary>
+        public static void Add(Vector3 at, float radius)
+        {
+            float d = Vector3.Distance(at, lookPoint);
+            trauma = Mathf.Min(0.8f, trauma + Mathf.Clamp01(Mathf.Max(radius, 3f) / (d * 0.45f + 5f)) * 0.55f);
+        }
+
+        void LateUpdate()
+        {
+            var t = transform;
+            lookPoint = t.position + t.forward * (t.position.y / Mathf.Max(0.15f, -t.forward.y));
+            if (trauma <= 0f) return;
+            float s = trauma * trauma, c = Time.time * 28f;
+            t.position += (t.right * (Mathf.PerlinNoise(c, 1.3f) - 0.5f) + t.up * (Mathf.PerlinNoise(2.7f, c) - 0.5f)) * (0.9f * s);
+            t.rotation *= Quaternion.Euler((Mathf.PerlinNoise(c, 5.1f) - 0.5f) * 1.2f * s, (Mathf.PerlinNoise(7.9f, c) - 0.5f) * 1.2f * s, (Mathf.PerlinNoise(c, 9.4f) - 0.5f) * 1.6f * s);
+            trauma = Mathf.Max(0f, trauma - Time.deltaTime * 1.7f);
+        }
+    }
+
     public sealed class CombatFx : MonoBehaviour
     {
         public SimHost Host;
@@ -21,7 +49,12 @@ namespace TW.Presentation.Tactical
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
         struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
-        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night)
+        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water
+        struct Bird { public Vector3 Pos, Vel; public float Born, Phase; }
+        readonly List<Bird> birds = new List<Bird>();
+        const int MaxBirds = 80; const float BirdLife = 8f;
+        float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
+        Material waterMat, birdMat;
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
         readonly List<Body> bodies = new List<Body>(600);
@@ -69,6 +102,11 @@ namespace TW.Presentation.Tactical
             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
+            waterMat = new Material(unlit) { enableInstancing = true, color = new Color(0.62f, 0.70f, 0.82f) };
+            birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
+            SceneHooks.Sparks = (at, count) => Throw(at, count, 3, 2.5f, 0.04f);
+            var lens = Camera.main;
+            if (lens != null && lens.GetComponent<CameraShake>() == null) lens.gameObject.AddComponent<CameraShake>();
             tracerCore = new Material(unlit) { enableInstancing = true, color = new Color(3.0f, 2.7f, 2.3f) };   // the streak itself: white-hot
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
@@ -190,7 +228,8 @@ namespace TW.Presentation.Tactical
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
-            foreach (var mat in new[] { sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            SceneHooks.Sparks = null;
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
         }
@@ -221,6 +260,25 @@ namespace TW.Presentation.Tactical
                     if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
+                    // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
+                    // stands in water, now and then a ricochet spark at night. A few a frame at most, whatever the firefight.
+                    if (e.Scalar < 0.5f && impactsThisFrame < 5 && chunks.Count < 520)
+                    {
+                        impactsThisFrame++;
+                        float angle = UnityEngine.Random.value * 6.2832f, off = UnityEngine.Random.Range(0.35f, 1.7f);
+                        Vector3 hit = new Vector3(to.x + Mathf.Cos(angle) * off, 0f, to.z + Mathf.Sin(angle) * off);
+                        hit.y = RenderGround.Sample(Host.Local.Map, hit.x, hit.z);
+                        if (SceneHooks.IsWater != null && SceneHooks.IsWater(hit.x, hit.z))
+                        {
+                            SceneHooks.AddRing?.Invoke(hit.x, hit.z, 0.8f);
+                            Throw(hit + Vector3.up * 0.4f, 3, 4, 3.4f, 0.05f);
+                        }
+                        else
+                        {
+                            Throw(hit, 3, 0, 3.0f, 0.06f);
+                            if (SceneMood.Night && UnityEngine.Random.value < 0.22f) Throw(hit, 1, 3, 7f, 0.03f);
+                        }
+                    }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
                         chunks.Add(new Chunk { Pos = from + direction * (0.9f * scale), Vel = direction * 1.4f + Vector3.up * 0.35f, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
                     break;
@@ -239,7 +297,12 @@ namespace TW.Presentation.Tactical
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
                     if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
-                    Throw(p, 14, 0, 9f, 0.22f); Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
+                    bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
+                    if (wet) Throw(p + Vector3.up * 0.4f, 26, 4, 12f, 0.13f);   // a shell in the water throws a white column, not earth
+                    else Throw(p, 14, 0, 9f, 0.22f);
+                    Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
+                    Startle(p);
+                    CameraShake.Add(p, e.Scalar);
                     if (SceneMood.Night) Throw(p + Vector3.up * 0.3f, 14, 3, 15f, 0.05f);   // burning fragments arc out of the burst and die on the way down
                     break;
                 }
@@ -408,6 +471,88 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>Throw debris: dirt and splinters fly and fall, smoke rises, swells and thins.</summary>
+        /// <summary>A shell burst puts up the crows from the nearest standing timber: they climb away from the blast and are gone.</summary>
+        void Startle(Vector3 burst)
+        {
+            if (Time.time - lastFlock < 0.8f || birds.Count > MaxBirds - 10) return;
+            var props = Host.Local.Map.Props;
+            int best = -1; float bestSq = 45f * 45f;
+            for (int i = 0; i < props.Length; i++)
+            {
+                var kind = props[i].Kind;
+                if (kind != TW.Sim.Terrain.PropKind.Tree && kind != TW.Sim.Terrain.PropKind.BrokenTree) continue;
+                float dx = props[i].Pos.x - burst.x, dz = props[i].Pos.z - burst.z, sq = dx * dx + dz * dz;
+                if (sq < bestSq && sq > 9f) { bestSq = sq; best = i; }
+            }
+            if (best < 0) return;
+            lastFlock = Time.time;
+            Vector3 perch = new Vector3(props[best].Pos.x, RenderGround.Sample(Host.Local.Map, props[best].Pos.x, props[best].Pos.z) + 4.5f, props[best].Pos.z);
+            Vector3 away = perch - burst; away.y = 0f; away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward;
+            int flock = UnityEngine.Random.Range(5, 10);
+            for (int k = 0; k < flock; k++)
+            {
+                Vector3 dir = Quaternion.Euler(0f, UnityEngine.Random.Range(-40f, 40f), 0f) * away;
+                birds.Add(new Bird { Pos = perch + UnityEngine.Random.insideUnitSphere * 1.2f, Vel = dir * UnityEngine.Random.Range(6f, 10f) + Vector3.up * UnityEngine.Random.Range(3f, 6f),
+                    Born = Time.time + k * 0.06f, Phase = UnityEngine.Random.value * 6.28f });
+            }
+        }
+
+        void DrawBirds(float now, Bounds bounds)
+        {
+            birds.RemoveAll(b => now - b.Born > BirdLife);
+            if (birds.Count == 0) return;
+            float dt = Time.deltaTime;
+            batch.Clear();
+            var rp = new RenderParams(birdMat) { worldBounds = new Bounds(bounds.center, bounds.size + new Vector3(200f, 120f, 200f)), shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+            for (int i = 0; i < birds.Count; i++)
+            {
+                var b = birds[i];
+                float age = now - b.Born; if (age < 0f) continue;
+                b.Vel = Vector3.Lerp(b.Vel, new Vector3(b.Vel.x, 1.2f, b.Vel.z).normalized * 9f, dt * 0.8f);   // the climb flattens into flight
+                b.Pos += b.Vel * dt; birds[i] = b;
+                float flap = Mathf.Sin(age * 15f + b.Phase) * 48f, size = Mathf.Clamp01((BirdLife - age) * 0.7f);
+                var body = Quaternion.LookRotation(b.Vel);
+                for (int wing = -1; wing <= 1; wing += 2)
+                    batch.Add(Matrix4x4.TRS(b.Pos, body * Quaternion.Euler(0f, 0f, wing * flap), Vector3.one) * Matrix4x4.TRS(new Vector3(wing * 0.2f, 0f, 0f), Quaternion.identity, new Vector3(0.40f, 0.025f, 0.15f) * size));
+                batch.Add(Matrix4x4.TRS(b.Pos, body, new Vector3(0.07f, 0.07f, 0.30f) * size));
+                if (batch.Count >= 1020) Flush(cube, rp);
+            }
+            if (batch.Count > 0) Flush(cube, rp);
+        }
+
+        /// <summary>Running men kick up mud, and chimneys and rained-on fires smoke: a few small chunks a step, near the view only.</summary>
+        void Ambient(float now)
+        {
+            var cam = Camera.main; if (cam == null) return;
+            Vector3 look = cam.transform.position + cam.transform.forward * (cam.transform.position.y / Mathf.Max(0.15f, -cam.transform.forward.y));
+            if (now >= nextKick)
+            {
+                nextKick = now + 0.2f;
+                var w = Host.Local.World; int found = 0;
+                for (int n = 0; n < w.HighWater && n < 300 && found < 5 && chunks.Count < 480; n++)
+                {
+                    int i = (kickCursor + n) % w.HighWater;
+                    if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
+                    var v = w.Velocity[i]; if (v.x * v.x + v.z * v.z < 4f) continue;
+                    var p = w.Position[i]; float dx = p.x - look.x, dz = p.z - look.z; if (dx * dx + dz * dz > 60f * 60f) continue;
+                    Vector3 at = new Vector3(p.x, RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.05f, p.z);
+                    if (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z)) Throw(at + Vector3.up * 0.3f, 1, 4, 2.2f, 0.04f); else Throw(at, 1, 0, 1.7f, 0.045f);
+                    found++; kickCursor = i + 1;
+                }
+                if (found < 5 && w.HighWater > 0) kickCursor = (kickCursor + 300) % w.HighWater;
+            }
+            if (now >= nextSmoke)
+            {
+                nextSmoke = now + 0.45f;
+                for (int s = 0; s < SceneHooks.SmokeSources.Count && chunks.Count < 460; s++)
+                {
+                    Vector3 at = SceneHooks.SmokeSources[s];
+                    if ((at - look).sqrMagnitude > 110f * 110f) continue;
+                    chunks.Add(new Chunk { Pos = at, Vel = new Vector3(UnityEngine.Random.Range(-0.2f, 0.2f), 0.9f, UnityEngine.Random.Range(-0.2f, 0.2f)), Born = now, Life = UnityEngine.Random.Range(2.4f, 3.6f), Size = 0.22f, Kind = 2 });
+                }
+            }
+        }
+
         void Throw(Vector3 at, int count, byte kind, float speed, float size)
         {
             for (int k = 0; k < count && chunks.Count < MaxChunks; k++)
@@ -449,6 +594,21 @@ namespace TW.Presentation.Tactical
                 }
                 if (batch.Count > 0) Flush(kind == 2 ? puff : cube, rp);
             }
+            // water thrown up by rounds, shells and boots: pale drops under gravity
+            batch.Clear();
+            var rpW = new RenderParams(waterMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                var c = chunks[i];
+                if (c.Kind != 4) continue;
+                float s = c.Size * (1f - 0.6f * (now - c.Born) / c.Life);
+                batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.identity, new Vector3(s, s * 1.6f, s)));
+                if (batch.Count == 1023) Flush(cube, rpW);
+            }
+            if (batch.Count > 0) Flush(cube, rpW);
+            DrawBirds(now, bounds);
+            Ambient(now);
+            impactsThisFrame = 0;
             // sparks: a bright streak along its own flight, shrinking as it burns out
             batch.Clear();
             var rpS = new RenderParams(sparkMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };

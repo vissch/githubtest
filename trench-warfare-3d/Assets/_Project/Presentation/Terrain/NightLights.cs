@@ -26,7 +26,7 @@ namespace TW.Presentation.Terrain
         [Tooltip("Seconds between star shells, least and most.")]
         public Vector2 FlareEvery = new Vector2(22f, 40f);
 
-        struct Pooled { public Light Light; public float Born, Life, Peak; }
+        struct Pooled { public Light Light; public float Born, Life, Peak, Card; }
         readonly Pooled[] pool = new Pooled[PoolSize];
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
@@ -36,6 +36,11 @@ namespace TW.Presentation.Terrain
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
         Material glow, flareGlow;
+        const int EmberCount = 8;
+        struct Ember { public Vector3 Pos; public float Born, Life, Size; }
+        readonly Ember[] embers = new Ember[EmberCount]; int nextEmber;
+        Mesh emberMesh; readonly Vector3[] emberPos = new Vector3[EmberCount * 4]; readonly Color[] emberCol = new Color[EmberCount * 4]; readonly List<Vector4> emberShape = new List<Vector4>(EmberCount * 4);
+        float nextDrip, nextGuns;
         Mesh flashMesh; readonly Vector3[] flashPos = new Vector3[PoolSize * 4]; readonly Color[] flashCol = new Color[PoolSize * 4]; readonly List<Vector4> flashShape = new List<Vector4>(PoolSize * 4);
         const float FlareLife = 16f;
 
@@ -62,6 +67,14 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(host, glow, centres, shapes, colors);
             flashMesh = host.GetComponent<MeshFilter>().sharedMesh; flashMesh.MarkDynamic();
             for (int i = 0; i < PoolSize * 4; i++) flashShape.Add(new Vector4(1f, 0f, (i / 4) * .19f, .15f));
+            // embers: what a shell leaves glowing in its hole for a few seconds. Cards only, no lights.
+            var emberHost = new GameObject("Ember glows") { hideFlags = HideFlags.DontSave };
+            emberHost.transform.SetParent(transform, false);
+            var ec = new Vector3[EmberCount]; var es = new Vector4[EmberCount]; var ecol = new Color[EmberCount];
+            AddGlowMesh(emberHost, glow, ec, es, ecol);
+            emberMesh = emberHost.GetComponent<MeshFilter>().sharedMesh; emberMesh.MarkDynamic();
+            for (int i = 0; i < EmberCount * 4; i++) emberShape.Add(new Vector4(1f, .7f, (i / 4) * .37f, .3f));
+            for (int i = 0; i < EmberCount; i++) embers[i].Born = -100f;
         }
 
         Light MakeLight(string name, Color color, float intensity, float range)
@@ -190,6 +203,10 @@ namespace TW.Presentation.Terrain
                 centres.Add(p); shapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); colors.Add(new Color(1f, .42f, .13f, .30f + .2f * a));   // low and small: a glow on the ground far off, not a sun
             }
             foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternHome.Add(l.transform.position); }
+            // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
+            SceneHooks.SmokeSources.Clear();
+            for (int i = 0; i < sites.Count && SceneHooks.SmokeSources.Count < 8; i += step) SceneHooks.SmokeSources.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
+            for (int i = 0; i < flameFeet.Count; i += 2) if (flameShapes[i].x > 1f) SceneHooks.SmokeSources.Add(flameFeet[i] + Vector3.up * 1.8f);
             if (flameFeet.Count > 0) AddFlameMesh(flameFeet, flameShapes);
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
@@ -257,14 +274,15 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
+            SceneHooks.SmokeSources.Clear();
             foreach (var o in owned) if (o != null) Destroy(o);
         }
 
-        void Flash(Vector3 at, Color color, float peak, float range, float life)
+        void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f)
         {
             ref var p = ref pool[nextPooled]; nextPooled = (nextPooled + 1) % PoolSize;
             p.Light.transform.position = at; p.Light.color = color; p.Light.range = range; p.Light.intensity = peak; p.Light.enabled = true;
-            p.Born = Time.time; p.Life = life; p.Peak = peak;
+            p.Born = Time.time; p.Life = life; p.Peak = peak; p.Card = card;
         }
 
         void OnSimEvent(SimEvent e)
@@ -284,6 +302,11 @@ namespace TW.Presentation.Terrain
             {
                 Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.5f;
                 Flash(at, Burst, 40f, 22f, .45f);
+                if (SceneHooks.IsWater == null || !SceneHooks.IsWater(at.x, at.z))
+                {
+                    embers[nextEmber] = new Ember { Pos = at - Vector3.up * 1.25f, Born = Time.time, Life = 7f + 5f * Hash(Time.frameCount, 29), Size = Mathf.Clamp(e.Scalar * .55f, 1.6f, 4f) };
+                    nextEmber = (nextEmber + 1) % EmberCount;
+                }
             }
         }
 
@@ -311,12 +334,32 @@ namespace TW.Presentation.Terrain
                 else pool[i].Light.intensity = pool[i].Peak * (1f - age) * (1f - age);
                 // the card: as wide as a third of the light's reach, over-bright at birth so the bloom takes it
                 float live = age >= 1f ? 0f : (1f - age) * (1f - age);
-                var c = pool[i].Light.color; var card = new Color(c.r, c.g, c.b, live * 2.6f);
+                var c = pool[i].Light.color; var card = new Color(c.r, c.g, c.b, live * pool[i].Card);
                 var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age), 0f, i * .19f, .15f);
                 for (int k = 0; k < 4; k++) { flashPos[i * 4 + k] = pool[i].Light.transform.position; flashCol[i * 4 + k] = card; flashShape[i * 4 + k] = shape; }
             }
             flashMesh.vertices = flashPos; flashMesh.colors = flashCol; flashMesh.SetUVs(1, flashShape);
             flashMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
+            for (int i = 0; i < EmberCount; i++)
+            {
+                float age = (Time.time - embers[i].Born) / Mathf.Max(.1f, embers[i].Life);
+                float live = age >= 1f ? 0f : (1f - age) * (1f - age);
+                var card = new Color(1f, .33f, .07f, live * .9f); var shape = new Vector4(embers[i].Size, .7f, i * .37f, .3f);
+                for (int k = 0; k < 4; k++) { emberPos[i * 4 + k] = embers[i].Pos; emberCol[i * 4 + k] = card; emberShape[i * 4 + k] = shape; }
+            }
+            emberMesh.vertices = emberPos; emberMesh.colors = emberCol; emberMesh.SetUVs(1, emberShape);
+            emberMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
+            // the guns beyond the horizon: a soft flash far off in the fog every few seconds, sometimes two or three together
+            if (Time.time >= nextGuns)
+            {
+                var map = Host.Local.Map;
+                bool salvo = Hash(Time.frameCount, 41) < .35f;
+                nextGuns = Time.time + (salvo ? .18f : Mathf.Lerp(2.5f, 8f, Hash(Time.frameCount, 43)));
+                bool far = Hash(Time.frameCount, 47) < .7f;
+                Vector3 at = far ? new Vector3(-70f - 90f * Hash(Time.frameCount, 53), 5f, map.SizeMeters.y * Hash(Time.frameCount, 59))
+                                 : new Vector3(map.SizeMeters.x * Hash(Time.frameCount, 61), 5f, map.SizeMeters.y + 80f + 90f * Hash(Time.frameCount, 67));
+                Flash(at, new Color(1f, .80f, .55f), 1.2f, 130f, .28f, .30f);
+            }
             UpdateFlare();
         }
 
@@ -341,6 +384,7 @@ namespace TW.Presentation.Terrain
             float burn = Mathf.SmoothStep(0f, 1f, age / .06f) * (1f - Mathf.SmoothStep(.8f, 1f, age));
             flareLight.intensity = 420f * burn * (.92f + .08f * Mathf.Sin(Time.time * 31f));
             flareGlow.SetColor("_Tint", Color.white * burn);
+            if (burn > .5f && Time.time >= nextDrip) { nextDrip = Time.time + .14f; SceneHooks.Sparks?.Invoke(flare.position, 1); }   // the star shell sheds burning drops
         }
     }
 }
