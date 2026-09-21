@@ -438,7 +438,7 @@ namespace TW.Presentation.Terrain
             {
                 // duckboards: planks across the trench, a dark gap between them
                 // Actual duckboards are instanced in the kit; the banks remain earth rather than striped wood.
-                c = Color.Lerp(Ink, Tone(wx, wz), 0.48f);
+                c = Color.Lerp(Ink, Tone(wx, wz), 0.70f);
                 c.a = 1f;
                 return c;
             }

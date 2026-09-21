@@ -113,7 +113,7 @@ Shader "TW/VAT Infantry (URP)"
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
-                half3 color = albedo * lerp(half3(0.57, 0.60, 0.64), mainLight.color, band);
+                half3 color = albedo * 1.18 * lerp(half3(0.70, 0.72, 0.76), mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 float mistFar = saturate((distance(_WorldSpaceCameraPos, i.positionWS) - _TWMist.z) * _TWMist.w);
                 color = lerp(color, _TWMistColor.rgb, saturate((_TWMist.x - i.positionWS.y) * _TWMist.y) * mistFar * _TWMistColor.a);

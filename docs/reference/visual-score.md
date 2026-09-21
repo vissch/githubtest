@@ -25,3 +25,4 @@ the total, or lowers line 8 at all, is reverted. Presentation code only; nothing
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 0 | 2cc6a77 | 6 | 5 | 6 | 6 | 5 | 6 | 6 | 6 | 46 | baseline after the landscape pass (mounds, crater lips, dark water, mist, grade) | palette still reads ochre; dark dips too heavy |
 | 1 | (this commit) | 6 | 6 | 6 | 6 | 5 | 6 | 6 | 6 | 47 | palette pulled from ochre to grey-umber, lighter dips, grade less saturated | scene is dark overall and men are hard to pick out in the shaded trench: lift exposure on men and trench floor (line 8), then clutter (line 5) |
+| 2 | (this commit) | 6 | 6 | 6 | 6 | 5 | 6 | 6 | 7 | 48 | men lit a step above the field, trench floor lighter: the garrison now reads at a glance | props and clutter (line 5): loose debris across open ground (branches, planks, shell cases) through BattlefieldComposer / BattlefieldKit |
