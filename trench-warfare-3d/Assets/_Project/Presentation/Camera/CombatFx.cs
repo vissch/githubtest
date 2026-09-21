@@ -45,11 +45,28 @@ namespace TW.Presentation.Tactical
         public int MaxBodies = 600;
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
-        struct Body { public Vector3 Pos; public float Yaw; public byte Team; }
+        struct Body { public Vector3 Pos; public Quaternion Rot; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
         struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
-        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water
+        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water, 5 brass, 6 helmet, 7 vapour
+        // ---- what only a close camera sees (SceneHooks.CloseUp): nothing below is made or drawn at the standard view
+        struct Rest { public Matrix4x4 At; public float Until; public byte Kind; }      // things come to rest: 0 brass, 1 helmet, 2 clod
+        struct Mark { public Matrix4x4 At; public float Born, Life; public byte Kind; }  // pressed into the mud: 0 boot print, 1 track rut
+        struct Trail { public Vector3 Last; public bool Left; public float Seen; }
+        readonly List<Rest> rests = new List<Rest>(256);
+        readonly List<Mark> marks = new List<Mark>(512);
+        readonly Dictionary<int, Trail> trails = new Dictionary<int, Trail>(128);
+        readonly List<Vector4> hotCraters = new List<Vector4>(16);   // xyz, w = cools at
+        readonly List<int> trailSweep = new List<int>(64);
+        const int MaxRests = 320, MaxMarks = 520;
+        const float CloseReach = 42f;
+        readonly Mesh[] fallen = new Mesh[8];
+        readonly Material[] markMats = new Material[6];
+        Material fallenMat, brassMat, helmetMat, vapourMat;
+        Mesh markQuad;
+        float nextPrint, nextBreath, nextExhaust; int breathCursor;
+        static readonly int WetId = Shader.PropertyToID("_TWWet");
         struct Bird { public Vector3 Pos, Vel; public float Born, Phase; }
         readonly List<Bird> birds = new List<Bird>();
         const int MaxBirds = 80; const float BirdLife = 8f;
@@ -127,6 +144,56 @@ namespace TW.Presentation.Tactical
             gasMats[2] = Transparent(unlit, new Color(0.80f, 0.86f, 0.22f, 0.52f));
             panel = GetComponent<TestPanel>();
             units = FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            // the fallen lie as they fell: four deaths a side, in their side's cloth
+            for (int k = 0; k < 8; k++)
+                fallen[k] = TW.Presentation.Units.ProceduralSoldier.BuildFallen(k & 3, k < 4 ? new Color(0.47f, 0.40f, 0.24f) : new Color(0.34f, 0.38f, 0.40f));
+            fallenMat = Painted(Color.white, 1.2f);
+            brassMat = Painted(new Color(0.80f, 0.60f, 0.24f), 0f); brassMat.SetColor("_Emission", new Color(0.20f, 0.14f, 0.04f));
+            helmetMat = Painted(new Color(0.25f, 0.28f, 0.23f), 0.9f);
+            vapourMat = Transparent(unlit, new Color(0.74f, 0.80f, 0.90f, 0.13f));
+            var markShader = Shader.Find("TW/GroundMark (URP)");
+            if (markShader != null)
+                for (int k = 0; k < 6; k++)
+                {
+                    markMats[k] = new Material(markShader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
+                    markMats[k].SetFloat("_Shape", k / 3); markMats[k].SetFloat("_Alpha", (k % 3) == 0 ? 0.88f : (k % 3) == 1 ? 0.58f : 0.26f);
+                }
+            markQuad = new Mesh { name = "Ground mark", hideFlags = HideFlags.HideAndDontSave };
+            markQuad.SetVertices(new List<Vector3> { new Vector3(-.5f, 0f, -.5f), new Vector3(-.5f, 0f, .5f), new Vector3(.5f, 0f, .5f), new Vector3(.5f, 0f, -.5f) });
+            markQuad.SetUVs(0, new List<Vector2> { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) });
+            markQuad.SetNormals(new List<Vector3> { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
+            markQuad.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0); markQuad.RecalculateBounds();
+        }
+
+        /// <summary>The ground point the view looks at, and whether a place is near enough to it for the small things.</summary>
+        static Vector3 LookPoint(Camera cam) => cam.transform.position + cam.transform.forward * (cam.transform.position.y / Mathf.Max(0.15f, -cam.transform.forward.y));
+        static bool Near(Vector3 p, float reach)
+        {
+            if (SceneHooks.CloseUp <= 0f) return false;
+            var cam = Camera.main; if (cam == null) return false;
+            Vector3 eye = cam.transform.position; float dx = p.x - eye.x, dz = p.z - eye.z;
+            return dx * dx + dz * dz < reach * reach;
+        }
+
+        /// <summary>The ground's tilt at a point, so a print or a body lies on the slope and not in the air above it.</summary>
+        Quaternion Lie(float x, float z, float yawDegrees, float span = 0.3f)
+        {
+            var map = Host.Local.Map;
+            float sx = RenderGround.Sample(map, x + span, z) - RenderGround.Sample(map, x - span, z), sz = RenderGround.Sample(map, x, z + span) - RenderGround.Sample(map, x, z - span);
+            return Quaternion.FromToRotation(Vector3.up, new Vector3(-sx, 2f * span, -sz).normalized) * Quaternion.Euler(0f, yawDegrees, 0f);
+        }
+
+        void AddRest(Matrix4x4 at, float seconds, byte kind)
+        {
+            if (rests.Count >= MaxRests) rests.RemoveAt(0);
+            rests.Add(new Rest { At = at, Until = Time.time + seconds, Kind = kind });
+        }
+
+        void AddMark(float x, float z, float yawDegrees, Vector2 size, float life, byte kind)
+        {
+            if (marks.Count >= MaxMarks) marks.RemoveAt(0);
+            Vector3 at = new Vector3(x, RenderGround.Sample(Host.Local.Map, x, z) + 0.025f, z);
+            marks.Add(new Mark { At = Matrix4x4.TRS(at, Lie(x, z, yawDegrees, 0.2f), new Vector3(size.x, 1f, size.y)), Born = Time.time, Life = life, Kind = kind });
         }
 
         static Material Painted(Color color, float outline)
@@ -231,6 +298,10 @@ namespace TW.Presentation.Tactical
             SceneHooks.Sparks = null;
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
+            foreach (var mat in markMats) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
+            foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
+            if (markQuad != null) Destroy(markQuad);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
         }
 
@@ -281,15 +352,31 @@ namespace TW.Presentation.Tactical
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
                         chunks.Add(new Chunk { Pos = from + direction * (0.9f * scale), Vel = direction * 1.4f + Vector3.up * 0.35f, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
+                    if (e.Scalar < 0.5f && chunks.Count < 600 && Near(from, 34f))
+                    {
+                        // up close every shot throws its case out to the right, and the barrel keeps a thread of smoke
+                        Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
+                        chunks.Add(new Chunk { Pos = from + direction * 0.25f + right * 0.08f, Vel = right * UnityEngine.Random.Range(1.5f, 2.5f) + Vector3.up * UnityEngine.Random.Range(1.6f, 2.4f) - direction * UnityEngine.Random.Range(0.1f, 0.6f),
+                            Born = Time.time, Life = 3f, Size = 1f, Kind = 5 });
+                        chunks.Add(new Chunk { Pos = from + direction * 0.7f, Vel = direction * 0.25f + Vector3.up * 0.5f, Born = Time.time, Life = UnityEngine.Random.Range(1.8f, 2.6f), Size = 0.06f, Kind = 7 });
+                    }
                     break;
                 }
                 case SimEventType.Death:
                 {
                     if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
                     Vector3 p = (Vector3)e.Pos;
-                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.25f;
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;
                     byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
-                    bodies.Add(new Body { Pos = p, Yaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg, Team = team });
+                    float fellYaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg;
+                    int death = (Mathf.FloorToInt(p.x * 13f) ^ Mathf.FloorToInt(p.z * 29f)) & 3;
+                    // he goes down as the figure he was (VATRenderer plays the death and holds it); without it, a still box figure
+                    if (units != null && units.Ready) units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad, team, death);
+                    else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Team = team, Variant = (byte)death });
+                    // his helmet comes off as he goes down and rolls a step away
+                    if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
+                        chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + UnityEngine.Random.Range(-70f, 70f), 0f) * Vector3.forward * UnityEngine.Random.Range(1.2f, 2.4f) + Vector3.up * 1.6f,
+                            Born = Time.time, Life = 4f, Size = 1f, Kind = 6 });
                     break;
                 }
                 case SimEventType.Explosion:
@@ -299,7 +386,20 @@ namespace TW.Presentation.Tactical
                     if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
                     bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
                     if (wet) Throw(p + Vector3.up * 0.4f, 26, 4, 12f, 0.13f);   // a shell in the water throws a white column, not earth
-                    else Throw(p, 14, 0, 9f, 0.22f);
+                    else
+                    {
+                        Throw(p, 14, 0, 9f, 0.22f);
+                        // a fresh hole: clods lie thrown round its rim, and the hot earth steams in the rain (seen from close by)
+                        float rim = Mathf.Clamp(e.Scalar * 0.55f, 1.2f, 4.5f);
+                        for (int k = 0; k < 8; k++)
+                        {
+                            float a = (k + UnityEngine.Random.value) * 0.785f, d = rim * UnityEngine.Random.Range(0.75f, 1.5f), s = UnityEngine.Random.Range(0.10f, 0.26f);
+                            float cx = p.x + Mathf.Cos(a) * d, cz = p.z + Mathf.Sin(a) * d;
+                            AddRest(Matrix4x4.TRS(new Vector3(cx, RenderGround.Sample(Host.Local.Map, cx, cz) + s * 0.25f, cz), Quaternion.Euler(a * 97f, a * 311f, a * 53f), new Vector3(s * 1.3f, s * 0.7f, s)), 140f, 2);
+                        }
+                        if (hotCraters.Count >= 16) hotCraters.RemoveAt(0);
+                        hotCraters.Add(new Vector4(p.x, p.y, p.z, Time.time + 22f));
+                    }
                     Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
                     Startle(p);
                     CameraShake.Add(p, e.Scalar);
@@ -368,7 +468,7 @@ namespace TW.Presentation.Tactical
                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
                 float streak = Mathf.Min(len, night ? 10f : 6f);
                 Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
-                float thick = !night ? 0.045f : side == 2 ? 0.075f : 0.24f;
+                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
                 batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
@@ -454,19 +554,162 @@ namespace TW.Presentation.Tactical
                 }
             }
 
-            // bodies
-            for (int team = 0; team < 2; team++)
+            // the fallen: a still figure in one of four deaths, lying on the slope where he fell
+            float grow = 1f;
+            if (units != null && view != null) grow = units.UnitScale * Mathf.Clamp((view.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f) / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
+            var rpF = new RenderParams(fallenMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = true };
+            for (int kind = 0; kind < 8; kind++)
             {
-                var rp = new RenderParams(team == 0 ? bodyMatA : bodyMatB) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
                 batch.Clear();
                 for (int i = 0; i < bodies.Count; i++)
                 {
                     var b = bodies[i];
-                    if (b.Team != team) continue;
-                    batch.Add(Matrix4x4.TRS(b.Pos, Quaternion.Euler(90f, b.Yaw, 0f), new Vector3(0.55f, 0.85f, 0.45f)));
-                    if (batch.Count == 1023) Flush(capsule, rp);
+                    if ((b.Team & 1) * 4 + b.Variant != kind) continue;
+                    batch.Add(Matrix4x4.TRS(b.Pos, b.Rot, new Vector3(grow, grow, grow)));
+                    if (batch.Count == 1023) Flush(fallen[kind], rpF);
                 }
-                if (batch.Count > 0) Flush(capsule, rp);
+                if (batch.Count > 0) Flush(fallen[kind], rpF);
+            }
+            DrawClose(now, bounds);
+        }
+
+        /// <summary>What has come to rest (brass, helmets, clods) and what is pressed into the mud (boot prints, track ruts): close camera only.</summary>
+        void DrawClose(float now, Bounds bounds)
+        {
+            rests.RemoveAll(r => now > r.Until);
+            marks.RemoveAll(m => now - m.Born > m.Life);
+            if (SceneHooks.CloseUp <= 0f) return;
+            var cam = Camera.main; if (cam == null) return;
+            Vector3 eye = cam.transform.position;
+            for (int kind = 0; kind < 3; kind++)
+            {
+                batch.Clear();
+                var rp = new RenderParams(kind == 0 ? brassMat : kind == 1 ? helmetMat : dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = true };
+                for (int i = 0; i < rests.Count; i++)
+                {
+                    var r = rests[i]; if (r.Kind != kind) continue;
+                    float dx = r.At.m03 - eye.x, dz = r.At.m23 - eye.z; if (dx * dx + dz * dz > CloseReach * CloseReach) continue;
+                    batch.Add(r.At);
+                    if (batch.Count == 1023) Flush(kind == 1 ? sphere : cube, rp);
+                }
+                if (batch.Count > 0) Flush(kind == 1 ? sphere : cube, rp);
+            }
+            if (markMats[0] == null) return;
+            for (int pass = 0; pass < 6; pass++)
+            {
+                batch.Clear();
+                var rp = new RenderParams(markMats[pass]) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                for (int i = 0; i < marks.Count; i++)
+                {
+                    var m = marks[i]; if (m.Kind != pass / 3) continue;
+                    float k = (now - m.Born) / m.Life;
+                    if ((k < 0.5f ? 0 : k < 0.8f ? 1 : 2) != pass % 3) continue;
+                    float dx = m.At.m03 - eye.x, dz = m.At.m23 - eye.z; if (dx * dx + dz * dz > CloseReach * CloseReach) continue;
+                    batch.Add(m.At);
+                    if (batch.Count == 1023) Flush(markQuad, rp);
+                }
+                if (batch.Count > 0) Flush(markQuad, rp);
+            }
+        }
+
+        /// <summary>Boot prints behind walking men, ruts and flung mud behind tanks, breath in the cold, steam off fresh craters.</summary>
+        void CloseLife(float now, Camera cam)
+        {
+            if (SceneHooks.CloseUp <= 0f) { if (trails.Count > 0) trails.Clear(); return; }
+            var w = Host.Local.World; var map = Host.Local.Map;
+            Vector3 eye = cam.transform.position;
+            float rain = Shader.GetGlobalVector(WetId).z;
+            if (now >= nextPrint)
+            {
+                nextPrint = now + 0.1f;
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    uint flags = w.Flags[i];
+                    if ((flags & (uint)UnitFlags.Alive) == 0) continue;
+                    var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > CloseReach * CloseReach) continue;
+                    bool tank = (flags & (uint)UnitFlags.Vehicle) != 0;
+                    Vector3 here = new Vector3(p.x, 0f, p.z);
+                    if (!trails.TryGetValue(i, out var trail)) { trails[i] = new Trail { Last = here, Seen = now }; continue; }
+                    trail.Seen = now;
+                    Vector3 step = here - trail.Last; float far = step.magnitude, stride = tank ? 0.85f : 0.72f;
+                    if (far > 6f) { trail.Last = here; trails[i] = trail; continue; }   // the slot was reused by another man
+                    if (far >= stride)
+                    {
+                        Vector3 dir = step / far, side = new Vector3(dir.z, 0f, -dir.x);
+                        float yawDeg = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+                        bool dryFooting = !tank && (flags & (uint)UnitFlags.InTrench) != 0;   // duckboards take no print
+                        for (float d = stride; d <= far && d < stride * 4.5f; d += stride)
+                        {
+                            Vector3 at = trail.Last + dir * d;
+                            if (dryFooting || (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z))) continue;
+                            if (tank)
+                            {
+                                AddMark(at.x + side.x * 0.78f, at.z + side.z * 0.78f, yawDeg, new Vector2(0.50f, 0.92f), 70f, 1);
+                                AddMark(at.x - side.x * 0.78f, at.z - side.z * 0.78f, yawDeg, new Vector2(0.50f, 0.92f), 70f, 1);
+                            }
+                            else
+                            {
+                                float foot = trail.Left ? -0.11f : 0.11f; trail.Left = !trail.Left;
+                                AddMark(at.x + side.x * foot, at.z + side.z * foot, yawDeg + (trail.Left ? 7f : -7f), new Vector2(0.15f, 0.34f), 45f, 0);
+                            }
+                        }
+                        if (tank && chunks.Count < 560)
+                        {
+                            // the tracks fling what they lift
+                            Vector3 rear = new Vector3(p.x, RenderGround.Sample(map, p.x, p.z) + 0.3f, p.z) - dir * 1.9f;
+                            Throw(rear + side * 0.78f, 1, 0, 2.6f, 0.07f); Throw(rear - side * 0.78f, 1, 0, 2.6f, 0.07f);
+                        }
+                        trail.Last = here;
+                    }
+                    trails[i] = trail;
+                }
+                if (trails.Count > 96)
+                {
+                    trailSweep.Clear();
+                    foreach (var kv in trails) if (now - kv.Value.Seen > 1.5f) trailSweep.Add(kv.Key);
+                    for (int k = 0; k < trailSweep.Count; k++) trails.Remove(trailSweep[k]);
+                }
+            }
+            if (now >= nextExhaust)
+            {
+                nextExhaust = now + 0.3f;
+                for (int i = 0; i < w.HighWater && chunks.Count < 560; i++)
+                {
+                    if ((w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) continue;
+                    var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 60f * 60f) continue;
+                    float yaw = w.Yaw[i];
+                    Vector3 back = new Vector3(-Mathf.Sin(yaw), 0f, -Mathf.Cos(yaw));
+                    chunks.Add(new Chunk { Pos = new Vector3(p.x, RenderGround.Sample(map, p.x, p.z) + 1.5f, p.z) + back * 1.7f, Vel = back * 0.8f + Vector3.up * 0.9f, Born = now, Life = UnityEngine.Random.Range(1.6f, 2.4f), Size = 0.2f, Kind = 2 });
+                }
+                // rain on the hot earth of a fresh hole
+                hotCraters.RemoveAll(h => now > h.w);
+                if (rain > 0.05f)
+                    for (int k = 0; k < hotCraters.Count && chunks.Count < 560; k++)
+                    {
+                        Vector3 at = hotCraters[k]; float dx = at.x - eye.x, dz = at.z - eye.z; if (dx * dx + dz * dz > 60f * 60f) continue;
+                        float heat = (hotCraters[k].w - now) / 22f;
+                        if (UnityEngine.Random.value > heat) continue;
+                        Vector2 r = UnityEngine.Random.insideUnitCircle * 1.2f;
+                        chunks.Add(new Chunk { Pos = at + new Vector3(r.x, 0.1f, r.y), Vel = new Vector3(0f, 0.7f, 0f), Born = now, Life = UnityEngine.Random.Range(1.8f, 3f), Size = 0.22f, Kind = 7 });
+                    }
+            }
+            if (SceneMood.Night && now >= nextBreath && w.HighWater > 0)
+            {
+                // a cold night: the men nearest the view breathe out a little cloud, one man at a time
+                nextBreath = now + 0.35f;
+                for (int n = 0; n < w.HighWater && n < 400; n++)
+                {
+                    int i = (breathCursor + n) % w.HighWater;
+                    uint flags = w.Flags[i];
+                    if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
+                    var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 20f * 20f) continue;
+                    var stance = (Stance)w.StanceOf[i];
+                    float head = stance == Stance.Prone || stance == Stance.Pinned ? 0.35f : stance == Stance.Crouch ? 1.05f : 1.58f;
+                    float yaw = w.Yaw[i]; Vector3 ahead = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+                    if (chunks.Count < 600)
+                        chunks.Add(new Chunk { Pos = new Vector3(p.x, RenderGround.Sample(map, p.x, p.z) + head, p.z) + ahead * 0.16f, Vel = ahead * 0.45f + Vector3.up * 0.1f, Born = now, Life = UnityEngine.Random.Range(0.9f, 1.4f), Size = 0.05f, Kind = 7 });
+                    breathCursor = i + 1; break;
+                }
             }
         }
 
@@ -572,8 +815,26 @@ namespace TW.Presentation.Tactical
             {
                 var c = chunks[i];
                 if (c.Kind == 2) { c.Vel = Vector3.Lerp(c.Vel, new Vector3(0f, 1.2f, -0.8f), dt * 1.5f); }   // drifts up and down wind
+                else if (c.Kind == 7) { c.Vel = Vector3.Lerp(c.Vel, new Vector3(0f, 0.45f, -0.35f), dt * 1.2f); }
                 else c.Vel += Vector3.down * 9.8f * dt;
                 c.Pos += c.Vel * dt;
+                if (c.Kind == 5 || c.Kind == 6)
+                {
+                    float floor = RenderGround.Sample(Host.Local.Map, c.Pos.x, c.Pos.z) + (c.Kind == 5 ? 0.012f : 0.06f);
+                    if (c.Pos.y <= floor && c.Vel.y < 0f)
+                    {
+                        c.Pos.y = floor;
+                        if (c.Vel.y < -1.4f) c.Vel = new Vector3(c.Vel.x * 0.45f, -c.Vel.y * 0.32f, c.Vel.z * 0.45f);   // one bounce
+                        else
+                        {
+                            bool water = SceneHooks.IsWater != null && SceneHooks.IsWater(c.Pos.x, c.Pos.z);
+                            if (water) SceneHooks.AddRing?.Invoke(c.Pos.x, c.Pos.z, c.Kind == 5 ? 0.35f : 0.9f);
+                            else if (c.Kind == 5) AddRest(Matrix4x4.TRS(c.Pos, Lie(c.Pos.x, c.Pos.z, c.Born * 733f, 0.15f), new Vector3(0.020f, 0.020f, 0.085f)), 9f, 0);
+                            else AddRest(Matrix4x4.TRS(c.Pos + Vector3.up * 0.02f, Lie(c.Pos.x, c.Pos.z, c.Born * 733f) * Quaternion.Euler(UnityEngine.Random.Range(-16f, 16f), 0f, UnityEngine.Random.Range(150f, 210f)), new Vector3(0.33f, 0.15f, 0.35f)), 150f, 1);
+                            c.Life = 0f;
+                        }
+                    }
+                }
                 chunks[i] = c;
             }
             for (int pass = 0; pass < 5; pass++)
@@ -606,8 +867,25 @@ namespace TW.Presentation.Tactical
                 if (batch.Count == 1023) Flush(cube, rpW);
             }
             if (batch.Count > 0) Flush(cube, rpW);
+            // in flight: brass cases and helmets tumble; breath, muzzle threads and crater steam are a pale vapour
+            for (int kind = 5; kind <= 7; kind++)
+            {
+                batch.Clear();
+                var rpC = new RenderParams(kind == 5 ? brassMat : kind == 6 ? helmetMat : vapourMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                for (int i = 0; i < chunks.Count; i++)
+                {
+                    var c = chunks[i];
+                    if (c.Kind != kind) continue;
+                    float k = (now - c.Born) / Mathf.Max(0.01f, c.Life);
+                    if (kind == 7) { float s = c.Size * (1f + 3.2f * k) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1f, k))); batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.identity, new Vector3(s, s, s))); }
+                    else batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.Euler(now * 640f + c.Born * 997f, c.Born * 613f, now * 410f), kind == 5 ? new Vector3(0.020f, 0.020f, 0.085f) : new Vector3(0.33f, 0.15f, 0.35f)));
+                    if (batch.Count == 1023) Flush(kind == 5 ? cube : kind == 6 ? sphere : puff, rpC);
+                }
+                if (batch.Count > 0) Flush(kind == 5 ? cube : kind == 6 ? sphere : puff, rpC);
+            }
             DrawBirds(now, bounds);
             Ambient(now);
+            var lens = Camera.main; if (lens != null) CloseLife(now, lens);
             impactsThisFrame = 0;
             // sparks: a bright streak along its own flight, shrinking as it burns out
             batch.Clear();

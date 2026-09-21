@@ -33,6 +33,9 @@ namespace TW.Presentation
     /// </summary>
     public static class SceneHooks
     {
+        /// <summary>How close the camera is: 0 at the standard view and beyond, 1 when zoomed in among the men. Small
+        /// things (footprints, brass, breath, litter) exist only while this is above 0. (TacticalCamera)</summary>
+        public static float CloseUp;
         /// <summary>Is there standing water here? (WaterRings)</summary>
         public static System.Func<float, float, bool> IsWater;
         /// <summary>Open a ring on the water: x, z, size in metres. (WaterRings)</summary>

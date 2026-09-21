@@ -8,10 +8,11 @@
 float4 _TWRings[TW_RING_COUNT];   // x, z, start time, size in metres
 float _TWNow;
 
-/// Pale expanding rings at a point on the water: two lines a ring, fading as they spread.
-half TWRings(float2 xz)
+/// Pale expanding rings at a point on the water: two lines a ring, fading as they spread. stir returns how much the
+/// water inside a young ring is stirred up (a wading man or a shell clouds it with silt for as long as the ring lives).
+half TWRings(float2 xz, out half stir)
 {
-    half sum = 0;
+    half sum = 0; stir = 0;
     for (int k = 0; k < TW_RING_COUNT; k++)
     {
         float4 r = _TWRings[k];
@@ -22,7 +23,9 @@ half TWRings(float2 xz)
         float d = distance(xz, r.xy);
         half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius))) + 0.6 * (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.55)));
         sum += lines * (1.0 - age) * (1.0 - age) * alive;
+        stir += (1.0 - smoothstep(radius * 0.35, radius * 0.95 + 0.05, d)) * (1.0 - age) * alive;
     }
+    stir = saturate(stir);
     return saturate(sum);
 }
 
@@ -42,6 +45,17 @@ half TWRainRings(float2 xz)
             float age = frac(_Time.y * (0.75 + 0.5 * h) + h * 9.0);
             float d = distance(f, c);
             sum += (1.0 - smoothstep(0.018, 0.04, abs(d - age * 0.24))) * (1.0 - age) * (1.0 - age) * saturate((_TWWet.z - h * 0.9) * 6.0);
+        }
+        if (_TWClose > 0.0)
+        {
+            // up close the small drops show too: a third, finer grid (gone by 30 m, where it would only shimmer)
+            float2 p = xz * 3.7 + 41.9;
+            float2 cell = floor(p), f = frac(p);
+            float h = frac(sin(dot(cell, float2(74.7, 173.3))) * 43758.5453);
+            float2 c = float2(frac(h * 11.3), frac(h * 5.9)) * 0.5 + 0.25;
+            float age = frac(_Time.y * (1.3 + 0.8 * h) + h * 7.0);
+            half fine = _TWClose * (1.0 - saturate((distance(_WorldSpaceCameraPos.xz, xz) - 14.0) / 16.0));
+            sum += (1.0 - smoothstep(0.03, 0.07, abs(distance(f, c) - age * 0.30))) * (1.0 - age) * saturate((_TWWet.z - h * 0.9) * 6.0) * fine * 0.8;
         }
     }
     return saturate(sum);
@@ -78,7 +92,19 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
     float lap = frac(depth * 3.2 + _Time.y * 0.11 + noise * 0.35);
     half ring = smoothstep(0.0, 0.10, lap) * (1.0 - smoothstep(0.10, 0.22, lap)) * (1.0 - smoothstep(0.12, 0.62, depth)) * ringAmount;
     half3 pale = foam * lerp(half3(1, 1, 1), TWShadeTint() * 1.6, 0.7);   // under a night mood the pale lines dim with everything else
-    return lerp(albedo, pale, max(max(shore * 0.85, ring * 0.5), max(TWRings(xz) * 0.75, TWRainRings(xz) * 0.55)));
+    half stir;
+    half thrown = TWRings(xz, stir);
+    albedo = lerp(albedo, shallow * half3(1.02, 0.86, 0.66), stir * 0.7);   // stirred-up silt clouds the water brown
+    half flecks = 0;
+    if (_TWClose > 0.0)
+    {
+        // scum and chaff gathered at the rim of a puddle: pale flecks in the first hand of water, close camera only
+        float2 sp = xz * 13.0;
+        float fh = frac(sin(dot(floor(sp), float2(39.3, 91.7))) * 43758.5453);
+        half fleck = step(0.83, fh) * (1.0 - smoothstep(0.18, 0.42, distance(frac(sp), float2(frac(fh * 7.1), frac(fh * 3.3)) * 0.4 + 0.3)));
+        flecks = fleck * smoothstep(0.02, 0.05, depth) * (1.0 - smoothstep(0.10, 0.20, depth)) * _TWClose * (1.0 - saturate((distance(_WorldSpaceCameraPos.xz, xz) - 12.0) / 14.0));
+    }
+    return lerp(albedo, pale, max(max(max(shore * 0.85, flecks * 0.6), ring * 0.5), max(thrown * 0.75, TWRainRings(xz) * 0.55)));
 }
 
 #endif

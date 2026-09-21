@@ -9,6 +9,8 @@ namespace TW.Presentation.Terrain
         public sealed class Module
         {
             public Mesh Mesh; public Material Material; public bool Shadows;
+            /// <summary>Small things are not drawn beyond this (metres from the camera to their 32 m page), and only while the camera is close.</summary>
+            public float MaxDistance = float.PositiveInfinity;
         }
         public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];

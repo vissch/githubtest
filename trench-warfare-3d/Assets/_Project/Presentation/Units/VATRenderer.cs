@@ -10,6 +10,7 @@
 // The standard view is flat (25 degrees), so one frame holds men 40 m and 400 m away: beyond LodDistance a man is
 // drawn with the far model in a second indirect draw from the same instance buffer (near records from the front,
 // far records from the back). Until C2 delivers far models the far tier is the 264-vertex box soldier.
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -173,6 +174,74 @@ namespace TW.Presentation.Units
                 }
             }
             if (DrawnVehicles > 0) DrawVehicles(bounds);
+            DrawFallen(cam, bounds, UnitScale * grow);
+        }
+
+        // ---- the fallen: the same figure as the living, played once through one of its four deaths and held on the last
+        // frame where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
+        struct FallenMan { public Vector3 Pos; public float Yaw, Born; public byte Team, Row; }
+        readonly List<FallenMan> fallenMen = new List<FallenMan>(128);
+        public int MaxFallen = 600;
+        public float FallSeconds = 0.9f, FallenNearDistance = 70f;
+        public int FallenCount => fallenMen.Count;
+        GraphicsBuffer fallenBuffer, fallenArgs;
+        NativeArray<VatInstance> fallenInstances;
+        readonly GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[2];
+        MaterialPropertyBlock fallenProps, fallenFarProps;
+
+        /// <summary>A man died here: he goes down facing yaw (radians) and stays. The oldest is taken away past MaxFallen.</summary>
+        public void AddFallen(Vector3 pos, float yaw, int team, int variant)
+        {
+            if (fallenMen.Count >= MaxFallen) fallenMen.RemoveAt(0);
+            fallenMen.Add(new FallenMan { Pos = pos, Yaw = yaw, Born = Time.time, Team = (byte)team, Row = (byte)((int)AnimRow.Death0 + (variant & 3)) });
+        }
+
+        void DrawFallen(Camera cam, Bounds bounds, float scale)
+        {
+            if (fallenMen.Count == 0) return;
+            if (!fallenInstances.IsCreated)
+            {
+                fallenInstances = new NativeArray<VatInstance>(MaxFallen, Allocator.Persistent);
+                fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 32);
+                fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 2, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+            }
+            int near = 0, far = 0, last = fallenInstances.Length - 1;
+            Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
+            float now = Time.time, nearSq = farAsset != null && cam != null ? FallenNearDistance * FallenNearDistance : float.MaxValue;
+            for (int i = 0; i < fallenMen.Count && i < fallenInstances.Length; i++)
+            {
+                var f = fallenMen[i];
+                if (cam != null)
+                {
+                    bool seen = true;
+                    for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(f.Pos) > -2.5f * scale;
+                    if (!seen) continue;
+                }
+                bool distant = (f.Pos - eye).sqrMagnitude > nearSq;
+                float frames = Mathf.Max(2f, (distant ? farAsset : asset).RowTable[f.Row].y);
+                float t = Mathf.Clamp01((now - f.Born) / FallSeconds) * (frames - 0.99f) / frames;   // the shader loops a row: stop on its last frame
+                fallenInstances[distant ? last - far++ : near++] = new VatInstance { Pos = f.Pos, Yaw = f.Yaw, AnimRow = f.Row, AnimT = t, Tint = f.Team, Scale = scale };
+            }
+            if (near + far == 0) return;
+            int farStart = fallenInstances.Length - far;
+            if (near > 0) fallenBuffer.SetData(fallenInstances, 0, 0, near);
+            if (far > 0) fallenBuffer.SetData(fallenInstances, farStart, farStart, far);
+            fallenArgsData[0] = new GraphicsBuffer.IndirectDrawIndexedArgs { indexCountPerInstance = asset.Mesh.GetIndexCount(0), instanceCount = (uint)near, startIndex = asset.Mesh.GetIndexStart(0), baseVertexIndex = asset.Mesh.GetBaseVertex(0), startInstance = 0 };
+            if (farAsset != null)
+                fallenArgsData[1] = new GraphicsBuffer.IndirectDrawIndexedArgs { indexCountPerInstance = farAsset.Mesh.GetIndexCount(0), instanceCount = (uint)far, startIndex = farAsset.Mesh.GetIndexStart(0), baseVertexIndex = farAsset.Mesh.GetBaseVertex(0), startInstance = (uint)farStart };
+            fallenArgs.SetData(fallenArgsData);
+            if (near > 0)
+            {
+                if (fallenProps == null) fallenProps = new MaterialPropertyBlock();
+                fallenProps.SetBuffer("_Instances", fallenBuffer); fallenProps.SetBuffer("_RowTable", rowBuffer);
+                Graphics.RenderMeshIndirect(new RenderParams(material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fallenProps }, asset.Mesh, fallenArgs, 1, 0);
+            }
+            if (far > 0 && farAsset != null)
+            {
+                if (fallenFarProps == null) fallenFarProps = new MaterialPropertyBlock();
+                fallenFarProps.SetBuffer("_Instances", fallenBuffer); fallenFarProps.SetBuffer("_RowTable", farRowBuffer);
+                Graphics.RenderMeshIndirect(new RenderParams(farMaterial) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fallenFarProps }, farAsset.Mesh, fallenArgs, 1, 1);
+            }
         }
 
         MaterialPropertyBlock props, farProps;
@@ -282,6 +351,7 @@ namespace TW.Presentation.Units
         {
             Release();
             rowBuffer?.Dispose(); farRowBuffer?.Dispose(); argsBuffer?.Dispose();
+            fallenBuffer?.Dispose(); fallenArgs?.Dispose(); if (fallenInstances.IsCreated) fallenInstances.Dispose();
         }
     }
 }

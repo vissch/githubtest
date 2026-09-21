@@ -88,9 +88,12 @@ namespace TW.Presentation.Terrain
             var cam = Camera.main;
             if (cam != null) GeometryUtility.CalculateFrustumPlanes(cam, planes);
             VisibleInstances = SubmittedVertices = DrawCalls = 0;
+            Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
             foreach (var b in batches.Values)
             for (int p = 0; p < b.Counts.Count; p++)
             {
+                float reach = b.Module.MaxDistance;
+                if (reach < float.PositiveInfinity && (SceneHooks.CloseUp <= 0f || b.PageBounds[p].SqrDistance(eye) > reach * reach)) continue;   // small things: close camera only
                 var pageBounds = b.PageBounds[p]; pageBounds.Expand(16f);
                 if (cam != null && !GeometryUtility.TestPlanesAABB(planes, pageBounds)) continue;
                 var module = b.Module;

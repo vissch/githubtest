@@ -3,6 +3,7 @@
 // exists. The output has exactly the layout VATBaker will produce from real clips: U = vertex index, V = frame, rows
 // stacked in AnimRow order, RGBAHalf object-space positions and normals, plus a row table (start frame, length).
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it (uniform, pack), 0 elsewhere.
+using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
 
@@ -138,6 +139,48 @@ namespace TW.Presentation.Units
                 Positions = Atlas("SoldierVatPositions", vertexCount, total, posPixels),
                 Normals = Atlas("SoldierVatNormals", vertexCount, total, nrmPixels),
             };
+        }
+
+        /// <summary>
+        /// A man who has fallen, as a still mesh: the last frame of one of the four deaths, his helmet gone (it lies beside
+        /// him), colours final (cloth in the given colour, all of it dulled by the mud he lies in). For the fallen that
+        /// stay on the field (CombatFx); the caller owns the mesh.
+        /// </summary>
+        public static Mesh BuildFallen(int variant, Color cloth)
+        {
+            var boxes = Boxes();
+            var m = new Matrix4x4[(int)Part.Count];
+            Solve(Sample((AnimRow)((int)AnimRow.Death0 + (variant & 3)), 1f), m);
+            var pos = new List<Vector3>(); var nrm = new List<Vector3>(); var col = new List<Color>(); var tris = new List<int>();
+            Vector3[] axes = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
+            var mud = new Color(0.20f, 0.165f, 0.12f);
+            for (int bi = 0; bi < boxes.Length; bi++)
+            {
+                var b = boxes[bi];
+                if (b.Part == Part.Head && b.Size.y < 0.1f) continue;   // the helmet
+                var part = m[(int)b.Part];
+                foreach (var n in axes)
+                {
+                    Vector3 u = Mathf.Abs(n.y) > 0.5f ? Vector3.right : Vector3.up, w = Vector3.Cross(n, u), h = b.Size * 0.5f;
+                    int v = pos.Count;
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float su = (k == 0 || k == 3) ? -1f : 1f, sw = k < 2 ? -1f : 1f;
+                        Vector3 p = part.MultiplyPoint3x4(b.Center + Vector3.Scale(n + u * su + w * sw, h));
+                        pos.Add(p); nrm.Add(part.MultiplyVector(n).normalized);
+                        Color c = b.Color.a > 0.5f ? new Color(b.Color.r * cloth.r, b.Color.g * cloth.g, b.Color.b * cloth.b) : new Color(b.Color.r, b.Color.g, b.Color.b);
+                        c = Color.Lerp(c, mud, Mathf.Lerp(0.62f, 0.18f, Mathf.Clamp01(p.y / 0.3f)));   // what touches the ground is the ground's colour
+                        c.a = 1f; col.Add(c);
+                    }
+                    Vector3 face = Vector3.Cross(pos[v + 1] - pos[v], pos[v + 2] - pos[v]);
+                    bool flip = Vector3.Dot(face, nrm[v]) < 0f;
+                    tris.Add(v); tris.Add(flip ? v + 2 : v + 1); tris.Add(flip ? v + 1 : v + 2);
+                    tris.Add(v); tris.Add(flip ? v + 3 : v + 2); tris.Add(flip ? v + 2 : v + 3);
+                }
+            }
+            var mesh = new Mesh { name = "Fallen man " + (variant & 3), hideFlags = HideFlags.HideAndDontSave };
+            mesh.SetVertices(pos); mesh.SetNormals(nrm); mesh.SetColors(col); mesh.SetTriangles(tris, 0); mesh.RecalculateBounds();
+            return mesh;
         }
 
         static Texture2D Atlas(string name, int width, int height, Color[] pixels)

@@ -31,6 +31,8 @@ namespace TW.Presentation.Tactical
         public float ZoomMin = 6f, ZoomMax = 600f;
         [Tooltip("Below this zoom the view tilts and widens towards ClosePitch / CloseFov (super zoom).")]
         public float CloseZoom = 15f;
+        [Tooltip("The small things of the field (grit, footprints, brass, litter) are all there at DetailFullZoom and gone by DetailGoneZoom, so the standard view never pays for them.")]
+        public float DetailFullZoom = 12f, DetailGoneZoom = 28f;
         public float ClosePitch = 13f, CloseFov = 42f, CloseYawLimit = 100f;
         public float Zoom = 30f;
         [Tooltip("Degrees above the horizon in the standard view (behind your own men, or beyond the enemy).")]
@@ -96,6 +98,9 @@ namespace TW.Presentation.Tactical
             autoPrimed = true;
         }
 
+        static readonly int CloseId = Shader.PropertyToID("_TWClose");
+        void OnDisable() { SceneHooks.CloseUp = 0f; Shader.SetGlobalFloat(CloseId, 0f); }
+
         void LateUpdate()
         {
             bool focused = Application.isFocused;   // an unfocused window still reports stale keys and wheel deltas
@@ -137,6 +142,9 @@ namespace TW.Presentation.Tactical
                 if (Mathf.Abs(wheel) > 0.01f) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
             }
             float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(ZoomMin, CloseZoom, Zoom));   // 0 tactical, 1 among the men
+            // the small things of the field (grit, footprints, brass, litter) come in over a wider band and cost nothing at the standard view
+            SceneHooks.CloseUp = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(DetailFullZoom, DetailGoneZoom, Zoom));
+            Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
             float yawLimit = Mathf.Lerp(YawLimit, CloseYawLimit, close);   // up close Q/E can turn to face the enemy
             if (freeLook) yaw = Mathf.Repeat(yaw + 180f, 360f) - 180f; else yaw = Mathf.Clamp(yaw, -yawLimit, yawLimit);
             bool keysPan = kb != null && (kb.wKey.isPressed || kb.aKey.isPressed || kb.sKey.isPressed || kb.dKey.isPressed || kb.upArrowKey.isPressed

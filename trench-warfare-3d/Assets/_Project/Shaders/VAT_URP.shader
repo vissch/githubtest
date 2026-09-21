@@ -84,6 +84,7 @@ Shader "TW/VAT Infantry (URP)"
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; };
@@ -113,6 +114,11 @@ Shader "TW/VAT Infantry (URP)"
                 }
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
+                // the trench is on every man: boots and shins are caked with mud (a ragged line, higher when the ground is
+                // soaked), and a man who crawls is muddy all over
+                half ragged = frac(sin(dot(floor(i.positionOS.xz * 38.0 + i.positionOS.y * 11.0), float2(12.9898, 78.233))) * 43758.5453);
+                half caked = (1.0 - smoothstep(0.06, 0.34 + 0.16 * _TWWet.x, i.positionOS.y + (ragged - 0.5) * 0.14)) * 0.78;
+                albedo = lerp(albedo, half3(0.215, 0.170, 0.115) * (1.0 - 0.3 * _TWWet.x), caked);
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
@@ -124,6 +130,16 @@ Shader "TW/VAT Infantry (URP)"
                 half3 lampGlint;
                 color += albedo * 1.18 * TWLocalLights(i.positionWS, normalize(i.normalWS), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.25 * _TWWet.x, lampGlint);
                 color += lampGlint;   // wet helmets and shoulders catch the lamps   // a muzzle flash lights the man behind it
+                if (_TWClose > 0.0 && _TWWet.x > 0.0)
+                {
+                    // up close the rain is on him too: helmet and shoulders carry a film that mirrors the sky, and drops burst on them
+                    float3 nrm = normalize(i.normalWS);
+                    half top = saturate(nrm.y * 1.8 - 0.5) * smoothstep(1.15, 1.45, i.positionOS.y);
+                    half nearMan = _TWClose * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 14.0) / 16.0));
+                    half edge = pow(1.0 - saturate(dot(nrm, normalize(_WorldSpaceCameraPos - i.positionWS))), 2.0);
+                    color = lerp(color, TWSky(), top * _TWWet.x * (0.10 + 0.30 * edge) * nearMan);
+                    if (_TWWet.z > 0.0) color += TWRainSplash(i.positionWS.xz * 3.1 + i.positionOS.y) * top * nearMan * (TWSky() * 0.9 + mainLight.color * 0.2);
+                }
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 return half4(MixFog(color, i.fog), 1.0);

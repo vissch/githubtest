@@ -15,6 +15,7 @@
 
 float4 _TWShadeTint;     // rgb multiplies each material's shade colour, a = 1 when Atmosphere has set it
 float4 _TWSky;           // rgb mirrored by water and wet ground, a = 1 when set
+float _TWClose;          // 0 at the standard view, 1 zoomed in among the men: the small detail only exists above 0 (TacticalCamera)
 float4 _TWWet;           // x wetness of open ground 0..1, y glint strength, z rain on the water 0..1
 
 half3 TWShadeTint() { return _TWShadeTint.a > 0.5 ? _TWShadeTint.rgb : half3(1, 1, 1); }

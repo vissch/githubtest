@@ -118,9 +118,20 @@ Shader "TW/Toon (URP)"
                     float2 uv1 = i.positionWS.xz * _DetailScale;
                     float2 uv2 = float2(uv1.x * 0.259 - uv1.y * 0.117, uv1.x * 0.117 + uv1.y * 0.259) + 0.37;   // turned and 3.5x larger: the broad blotches
                     half3 d1 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv1).rgb;
-                    near = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
+                    float eyeDistance = distance(_WorldSpaceCameraPos, i.positionWS);
+                    near = 1.0 - saturate((eyeDistance - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
                     half tone = (d1.r - 0.5) * near + (SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv2).a - 0.5);
                     slope = (d1.gb - 0.5) * near;
+                    if (_TWClose > 0.0)
+                    {
+                        // grit: with the camera among the men the same map is read once more, five times finer and turned, so
+                        // the mud under their boots breaks into pebbles and hairline cracks (and the wet glints into sparkle)
+                        half grit = _TWClose * (1.0 - saturate((eyeDistance - 12.0) / 16.0));
+                        float2 uv3 = float2(uv1.x * 4.55 + uv1.y * 2.10, uv1.y * 4.55 - uv1.x * 2.10) + 0.61;
+                        half3 d3 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv3).rgb;
+                        tone += (d3.r - 0.5) * 0.55 * grit;
+                        slope += (d3.gb - 0.5) * 0.75 * grit;
+                    }
                     gloss = max(gloss, _TWWet.x * _DetailBump * (0.30 + 0.25 * saturate(0.5 - d1.r * 1.0 + 0.3)));   // soaked ground: every surface with relief shines a little, the dark crevices most
                     half dry = 1.0 - saturate(gloss * 2.0 - 1.0);   // only standing water is smooth
                     albedo *= 1.0 - 0.55 * _TWWet.x * _DetailBump * dry;   // soaked earth is darker: black mud under the moon
