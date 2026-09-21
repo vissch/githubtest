@@ -78,10 +78,13 @@ Shader "TW/VAT Infantry (URP)"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _FORWARD_PLUS
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; };
             struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; };
@@ -113,8 +116,12 @@ Shader "TW/VAT Infantry (URP)"
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
-                half3 color = albedo * 1.18 * lerp(half3(0.70, 0.72, 0.76), mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
+                half3 color = albedo * 1.18 * lerp(half3(0.70, 0.72, 0.76) * lerp(half3(1, 1, 1), TWShadeTint(), 0.45), mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
+                // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
+                half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
+                color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
+                color += albedo * 1.18 * TWLocalLights(i.positionWS, normalize(i.normalWS), i.positionCS);   // a muzzle flash lights the man behind it
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 return half4(MixFog(color, i.fog), 1.0);

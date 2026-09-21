@@ -5,6 +5,9 @@
 // _TWMist / _TWMistColor); it starts beyond the focus so the men you are commanding stay clear.
 // Fog bank: the ground nobody fights over, beyond the battlefield's edges, stands in a wall of fog that closes the
 // view on every side (TWAtmosphere.hlsl: a function of world position, so it adds no geometry and no overdraw).
+// Mood: Look picks the whole set. Night (owner's target, 2026-09-21) is a cold blue moon low behind the field, so every
+// wet plane facing the camera glints; near-black blue shade; dark blue haze, mist and fog bank; soaked, shining mud;
+// a grade that keeps the blues cold and lets the warm lights (NightLights) bloom. OvercastDay is the earlier look.
 // Grade: one global volume. Shadows and midtones lean to sepia, highlights to cold slate, a touch less saturation,
 // a light vignette. It is a single LUT pass, so it costs the same on the minimum GPU whatever it does.
 using UnityEngine;
@@ -15,6 +18,18 @@ namespace TW.Presentation.Terrain
 {
     public sealed class Atmosphere : MonoBehaviour
     {
+        public enum Mood { OvercastDay, Night }
+        [Tooltip("Applied in Start: Night overwrites the colour and light fields below with the night set.")]
+        public Mood Look = Mood.Night;
+        public static Mood Current { get; private set; }
+        [Header("Mood")]
+        public Color ShadeTint = Color.white;
+        public Color SkyMirror = new Color(0.60f, 0.61f, 0.60f);
+        [Range(0f, 1f)] public float Wetness = 0f, WetGlint = 0f;
+        public Vector3 KeyEuler = new Vector3(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
+        public Color Ambient = new Color(0.52f, 0.52f, 0.56f);
+        float exposure = 0.32f, contrast = 12f, saturation = -18f, vignetteAmount = 0.24f, bloom = 0f;
+        Vector4 gradeShadows = new Vector4(1.03f, 0.99f, 0.95f, 0f), gradeMids = new Vector4(1.03f, 1.0f, 0.95f, 0f), gradeHighs = new Vector4(0.95f, 0.99f, 1.05f, 0f);
         public Color Haze = new Color(0.60f, 0.61f, 0.60f);
         public Color Key = new Color(1.0f, 0.95f, 0.86f);
         public float KeyIntensity = 1.0f;
@@ -39,20 +54,39 @@ namespace TW.Presentation.Terrain
         Camera cam;
         VolumeProfile profile;
         static readonly int MistId = Shader.PropertyToID("_TWMist"), MistColorId = Shader.PropertyToID("_TWMistColor");
+        static readonly int ShadeTintId = Shader.PropertyToID("_TWShadeTint"), SkyId = Shader.PropertyToID("_TWSky"), WetId = Shader.PropertyToID("_TWWet");
         static readonly int FieldId = Shader.PropertyToID("_TWField"), FieldFogId = Shader.PropertyToID("_TWFieldFog"), FieldFogColorId = Shader.PropertyToID("_TWFieldFogColor");
+
+        void ApplyNight()
+        {
+            Haze = new Color(0.075f, 0.105f, 0.17f);
+            Key = new Color(0.56f, 0.70f, 1.0f); KeyIntensity = 1.0f; ShadowStrength = 0.66f;
+            KeyEuler = new Vector3(30f, 122f, 0f);   // low, and coming toward the standard view: rims, long shadows, glints on the wet
+            Ambient = new Color(0.10f, 0.13f, 0.20f);
+            ShadeTint = new Color(0.20f, 0.29f, 0.56f);
+            SkyMirror = new Color(0.27f, 0.35f, 0.52f);
+            Wetness = 0.80f; WetGlint = 0.55f;
+            Depth = 230f;
+            Mist = new Color(0.17f, 0.23f, 0.35f); MistDensity = 0.55f;
+            Bank = new Color(0.10f, 0.14f, 0.22f);
+            exposure = 0.45f; contrast = 20f; saturation = 4f; vignetteAmount = 0.34f; bloom = 0.9f;
+            gradeShadows = new Vector4(0.92f, 0.98f, 1.12f, 0f); gradeMids = new Vector4(0.98f, 1.0f, 1.04f, 0f); gradeHighs = new Vector4(1.08f, 1.0f, 0.90f, 0f);
+        }
 
         void Start()
         {
+            if (Look == Mood.Night) ApplyNight();
+            Current = Look;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = Haze;
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.52f, 0.52f, 0.56f);
+            RenderSettings.ambientLight = Ambient;
             foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None))
             {
                 if (l.type != LightType.Directional) continue;
                 l.color = Key; l.intensity = KeyIntensity; l.shadows = LightShadows.Soft; l.shadowStrength = ShadowStrength;
-                l.transform.rotation = Quaternion.Euler(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
+                l.transform.rotation = Quaternion.Euler(KeyEuler);
             }
             if (Grade) BuildGrade();
         }
@@ -62,13 +96,18 @@ namespace TW.Presentation.Terrain
             profile = ScriptableObject.CreateInstance<VolumeProfile>();
             profile.hideFlags = HideFlags.HideAndDontSave;
             var adjust = profile.Add<ColorAdjustments>(true);
-            adjust.postExposure.Override(0.32f); adjust.contrast.Override(12f); adjust.saturation.Override(-18f);
+            adjust.postExposure.Override(exposure); adjust.contrast.Override(contrast); adjust.saturation.Override(saturation);
             var tones = profile.Add<ShadowsMidtonesHighlights>(true);
-            tones.shadows.Override(new Vector4(1.03f, 0.99f, 0.95f, 0f));      // umber in the dark
-            tones.midtones.Override(new Vector4(1.03f, 1.0f, 0.95f, 0f));     // sepia through the middle
-            tones.highlights.Override(new Vector4(0.95f, 0.99f, 1.05f, 0f));  // cold slate on the brightest planes
+            tones.shadows.Override(gradeShadows);      // day: umber in the dark; night: blue
+            tones.midtones.Override(gradeMids);        // day: sepia through the middle
+            tones.highlights.Override(gradeHighs);     // day: cold slate on the brightest planes; night: warm, for the lamps
+            if (bloom > 0f)
+            {
+                var glow = profile.Add<Bloom>(true);   // muzzle flashes, lamps, tracers, the flare
+                glow.threshold.Override(0.85f); glow.intensity.Override(bloom); glow.scatter.Override(0.62f); glow.tint.Override(new Color(1f, 0.92f, 0.82f));
+            }
             var vignette = profile.Add<Vignette>(true);
-            vignette.intensity.Override(0.24f); vignette.smoothness.Override(0.5f); vignette.color.Override(new Color(0.10f, 0.08f, 0.06f));
+            vignette.intensity.Override(vignetteAmount); vignette.smoothness.Override(0.5f); vignette.color.Override(new Color(0.10f, 0.08f, 0.06f));
             var go = new GameObject("Grade") { hideFlags = HideFlags.DontSave };
             go.transform.SetParent(transform, false);
             var volume = go.AddComponent<Volume>();
@@ -78,6 +117,7 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
+            Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
             if (profile != null) Destroy(profile);
         }
@@ -101,6 +141,10 @@ namespace TW.Presentation.Terrain
             float water = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
             Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
+
+            Shader.SetGlobalVector(ShadeTintId, new Vector4(ShadeTint.r, ShadeTint.g, ShadeTint.b, 1f));
+            Shader.SetGlobalVector(SkyId, new Vector4(SkyMirror.r, SkyMirror.g, SkyMirror.b, 1f));
+            Shader.SetGlobalVector(WetId, new Vector4(Wetness, WetGlint, 0f, 0f));
 
             var map = RenderGround.Map;
             if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));

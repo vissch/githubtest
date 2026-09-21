@@ -39,8 +39,6 @@ Shader "TW/Water (URP)"
             half4 _Shallow, _Body, _Deep, _Foam, _ShadeColor;
             float _Ripple, _Rings, _Streaks;
         CBUFFER_END
-        #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
-        #include "Assets/_Project/Shaders/TWWater.hlsl"
         ENDHLSL
 
         Pass
@@ -53,7 +51,12 @@ Shader "TW/Water (URP)"
             #pragma multi_compile_fog
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _FORWARD_PLUS
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
+            #include "Assets/_Project/Shaders/TWWater.hlsl"
+            #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; };
             struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; float fog : TEXCOORD1; };
@@ -87,17 +90,21 @@ Shader "TW/Water (URP)"
                 albedo = lerp(albedo, albedo * 1.35 + 0.035, streak);
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
-                half3 color = albedo * lerp(_ShadeColor.rgb, mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);
+                half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);
 
                 float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
                 float3 n = normalize(float3(slope.x * 0.6, 1.0, slope.y * 0.6));
                 float3 r = reflect(-view, n);
                 half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
-                half3 sky = unity_FogColor.rgb * half3(0.93, 0.98, 1.05) * lerp(1.08, 0.58, saturate(r.y * 1.4));   // bright at the horizon, darker overhead, a little colder than the haze
+                half3 sky = TWSky() * half3(0.93, 0.98, 1.05) * lerp(1.08, 0.58, saturate(r.y * 1.4));   // bright at the horizon, darker overhead, a little colder than the haze
                 half mirror = (0.14 + 0.62 * fresnel) * (1.0 - shore * 0.7);
                 color = lerp(color, sky, mirror);
-                half glint = smoothstep(0.988, 0.994, dot(r, mainLight.direction));
+                half glint = smoothstep(0.988, 0.994, dot(r, mainLight.direction)) * 0.6;
                 color += glint * mainLight.color * 0.6 * mainLight.shadowAttenuation;
+                color += pow(saturate(dot(r, mainLight.direction)), 14.0) * _TWWet.y * 0.2 * mainLight.color * mainLight.shadowAttenuation;
+                // lanterns and muzzle flashes lie on the water as a warm pool: lit body plus a mirrored core
+                half3 local = TWLocalLights(i.positionWS, n, i.positionCS);
+                color += (albedo + 0.25) * local;
 
                 color = lerp(color, ApplyMist(color, i.positionWS), 0.55);   // the sheet lies below the mist's top everywhere: full mist would paint the whole river white
                 color = ApplyFieldFog(color, i.positionWS);

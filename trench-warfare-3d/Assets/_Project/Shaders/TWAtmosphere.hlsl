@@ -6,8 +6,20 @@
 // pixel, needs no extra geometry or overdraw, and the ink pass can ask the same question to keep lines out of the fog.
 // Quiet fog: inside the battlefield the same fog lies, thinner and lower, over ground where nothing is happening.
 // _TWPresence (QuietFog.cs: one texel per 4 m, 1 = the player's men, their HQ or a recent shell burst are near) lifts it.
+// Mood (Atmosphere.cs): _TWShadeTint darkens and colours every shaded plane (night: deep blue), _TWSky is what water
+// and wet mud mirror, _TWWet.x is how wet the open ground is (rain-soaked mud glints under the moon).
+// Local lights: lanterns, muzzle flashes and flares are URP additional lights; TWLocalLights adds them in two hard
+// steps so they stay in the painted look (TWLocalLights.hlsl, included after URP's Lighting.hlsl).
 #ifndef TW_ATMOSPHERE_INCLUDED
 #define TW_ATMOSPHERE_INCLUDED
+
+float4 _TWShadeTint;     // rgb multiplies each material's shade colour, a = 1 when Atmosphere has set it
+float4 _TWSky;           // rgb mirrored by water and wet ground, a = 1 when set
+float4 _TWWet;           // x wetness of open ground 0..1, y glint strength
+
+half3 TWShadeTint() { return _TWShadeTint.a > 0.5 ? _TWShadeTint.rgb : half3(1, 1, 1); }
+half3 TWSky() { return _TWSky.a > 0.5 ? _TWSky.rgb : unity_FogColor.rgb; }
+
 
 float4 _TWMist;          // x top height, y 1/depth, z start distance, w 1/range
 float4 _TWMistColor;     // rgb, a = density

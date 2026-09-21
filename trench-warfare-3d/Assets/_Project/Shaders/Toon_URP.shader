@@ -25,6 +25,7 @@ Shader "TW/Toon (URP)"
         _DetailBump ("Detail relief", Range(0,1)) = 0
         _Gloss ("Gloss (1 = standing water)", Range(0,1)) = 0
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
+        [HDR] _Emission ("Emission (lamp glass, embers)", Color) = (0, 0, 0, 0)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.6
     }
@@ -38,12 +39,10 @@ Shader "TW/Toon (URP)"
         TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
         TEXTURE2D(_DetailMap); SAMPLER(sampler_DetailMap);
         CBUFFER_START(UnityPerMaterial)
-            half4 _BaseColor, _ShadeColor, _OutlineColor;
+            half4 _BaseColor, _ShadeColor, _OutlineColor, _Emission;
             float4 _BaseMap_ST;
             float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss;
         CBUFFER_END
-        #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
-        #include "Assets/_Project/Shaders/TWWater.hlsl"
         ENDHLSL
 
         Pass
@@ -57,7 +56,12 @@ Shader "TW/Toon (URP)"
             #pragma multi_compile_fog
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ _FORWARD_PLUS
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
+            #include "Assets/_Project/Shaders/TWWater.hlsl"
+            #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
@@ -97,7 +101,8 @@ Shader "TW/Toon (URP)"
                     half near = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
                     half tone = (d1.r - 0.5) * near + (SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv2).a - 0.5);
                     slope = (d1.gb - 0.5) * near;
-                    half dry = 1.0 - gloss;   // standing water is smooth
+                    gloss = max(gloss, _TWWet.x * _DetailBump * (0.30 + 0.25 * saturate(0.5 - d1.r * 1.0 + 0.3)));   // soaked ground: every surface with relief shines a little, the dark crevices most
+                    half dry = 1.0 - saturate(gloss * 2.0 - 1.0);   // only standing water is smooth
                     albedo *= 1.0 + tone * 2.0 * _DetailStrength * dry;
                     half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
                     albedo *= 1.0 + smoothstep(0.035, 0.06, relief) * 0.13 - smoothstep(0.03, 0.055, -relief) * 0.20;
@@ -105,7 +110,7 @@ Shader "TW/Toon (URP)"
                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half lit = wrap;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
-                half3 color = albedo * lerp(_ShadeColor.rgb, mainLight.color, band);
+                half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, band);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
                 if (gloss > 0.01)
                 {
@@ -121,11 +126,15 @@ Shader "TW/Toon (URP)"
                     }
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
-                    half3 sky = unity_FogColor.rgb * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
+                    half3 sky = TWSky() * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
                     color = lerp(color, sky, gloss * (0.22 + 0.70 * fresnel) * (1.0 - shore * 0.7));
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
+                    // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
+                    color += pow(saturate(dot(r, mainLight.direction)), 14.0) * gloss * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                 }
+                color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS);
+                color += _Emission.rgb;
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
@@ -144,6 +153,7 @@ Shader "TW/Toon (URP)"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma multi_compile_fog
+            #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float3 positionWS : TEXCOORD1; };

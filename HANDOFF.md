@@ -82,6 +82,15 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   water, `Shaders/TWWater.hlsl`), painted puddles drawn with the river's bands and shore (ground texture alpha now
   carries depth: 0.4 .. 0 water, 0.5 liquid mud, below 1 a sheen), and mud by zone in `GroundColor` (cracked crust on
   rises, sheen in dips, boot-churned patches round ladders and ramps).
+  Night (owner's target `docs/reference/battlefield-night.jpeg`, 2026-09-21): `Atmosphere.Look` picks the mood and
+  defaults to `Night` (set `OvercastDay` for the earlier look). Night is a low blue moon coming toward the standard
+  view, a deep blue shade tint (`_TWShadeTint`), a sky colour for mirrors (`_TWSky`), soaked glinting mud (`_TWWet`),
+  dark blue haze / mist / fog bank, a colder grade and Bloom. `NightLights` adds the warm half as plain URP point
+  lights without shadows, stepped by `Shaders/TWLocalLights.hlsl` in TW/Toon, TW/Water and the soldier shader:
+  lanterns at composed sites (12 at most) and on trench walls (14), burning stumps (5), a pool of 8 lights for muzzle
+  flashes and shell bursts, a star shell every 22-40 s, and additive glow cards (`Shaders/Glow_URP.shader`) for lamp
+  halos and horizon fires. Per-object additional light limit raised 4 -> 8 in `Settings/TW-URP.asset`; the renderer
+  stays Forward. Unmeasured on the GTX 1050.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level
