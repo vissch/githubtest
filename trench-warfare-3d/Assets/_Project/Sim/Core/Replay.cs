@@ -13,12 +13,13 @@ namespace TW.Sim
     public sealed class ReplayRecorder
     {
         public const uint Magic = 0x31525754; // "TWR1"
-        public const ushort FormatVersion = 2;
+        public const ushort FormatVersion = 3;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
         public ulong MapHash;   // MapData.Hash() of the map the replay was recorded on (0 = unknown)
         public ulong DataHash;  // hash of the baked unit/weapon/ability tables (0 until C2 wires it)
+        public byte[] MapParams = System.Array.Empty<byte>();   // what a generated map is rebuilt from (BattlefieldParams.Serialize); empty for fixed maps
         public readonly List<SimCommand[]> Commands = new List<SimCommand[]>();
         public readonly List<ulong> Hashes = new List<ulong>();
 
@@ -42,6 +43,7 @@ namespace TW.Sim
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
             w.Write(MapId);
             w.Write(MapHash); w.Write(DataHash);
+            w.Write(MapParams.Length); w.Write(MapParams);
             w.Write(Commands.Count);
             for (int t = 0; t < Commands.Count; t++)
             {
@@ -66,6 +68,7 @@ namespace TW.Sim
         public int MapId;
         public ushort FormatVersion;
         public ulong MapHash, DataHash;
+        public byte[] MapParams;
         public SimCommand[][] Commands;
         public ulong[] Hashes;
         public int TickCount => Commands.Length;
@@ -88,6 +91,7 @@ namespace TW.Sim
             p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };
             p.MapId = r.ReadInt32();
             p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
+            p.MapParams = r.ReadBytes(r.ReadInt32());
             int ticks = r.ReadInt32();
             p.Commands = new SimCommand[ticks][];
             p.Hashes = new ulong[ticks];

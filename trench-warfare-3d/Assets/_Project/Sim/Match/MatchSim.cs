@@ -36,6 +36,10 @@ namespace TW.Sim.Match
         /// <summary>The two-line playtest map (GreyboxMapGenerator.CreatePlaytest).</summary>
         public static MatchSim CreatePlaytest(SimConfig config) => new MatchSim(config, GreyboxMapGenerator.CreatePlaytest(Allocator.Persistent));
 
+        /// <summary>A generated battlefield (BattlefieldGenerator): the same params give the same map on every machine.</summary>
+        public static MatchSim CreateBattlefield(SimConfig config, BattlefieldParams battlefield, bool combat = true)
+            => new MatchSim(config, BattlefieldGenerator.Create(battlefield, Allocator.Persistent), combat);
+
         public MatchSim(SimConfig config, MapData map, bool combat = true)
         {
             Map = map;

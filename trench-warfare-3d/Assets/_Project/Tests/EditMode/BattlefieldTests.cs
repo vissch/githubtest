@@ -107,6 +107,75 @@ namespace TW.Tests
             Assert.Greater(m.Deformation.WireOpened, 0);
         }
 
+        static int Count(MapData map, NavLayer bit)
+        {
+            int n = 0;
+            for (int i = 0; i < map.NavLayers.Length; i++) if ((map.NavLayers[i] & (byte)bit) != 0) n++;
+            return n;
+        }
+
+        [Test]
+        public void Generator_SameParamsSameMap_DifferentSeedDifferentMap()
+        {
+            using var a = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(7), Allocator.Persistent);
+            using var b = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(7), Allocator.Persistent);
+            using var c = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(8), Allocator.Persistent);
+            Assert.AreEqual(a.Hash(SimHash.Offset), b.Hash(SimHash.Offset));
+            Assert.AreNotEqual(a.Hash(SimHash.Offset), c.Hash(SimHash.Offset));
+            var round = BattlefieldParams.Deserialize(BattlefieldParams.ShelledForest(7).Serialize());
+            using var d = BattlefieldGenerator.Create(round, Allocator.Persistent);
+            Assert.AreEqual(a.Hash(SimHash.Offset), d.Hash(SimHash.Offset), "a replay header rebuilds the same map");
+        }
+
+        [Test]
+        public void Generator_MakesAShelledWoodWithARiver()
+        {
+            using var map = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(1917), Allocator.Persistent);
+            Assert.Greater(Count(map, NavLayer.Crater), 300, "shell holes");
+            Assert.Greater(Count(map, NavLayer.Mud), 1500, "mud");
+            Assert.Greater(Count(map, NavLayer.Wire), 150, "wire");
+            Assert.Greater(Count(map, NavLayer.Blocked), 400, "the river channel and solid props");
+            int standing = 0, broken = 0, wrecks = 0;
+            for (int i = 0; i < map.Props.Length; i++)
+            {
+                var kind = map.Props[i].Kind;
+                if (kind == PropKind.Tree) standing++; else if (kind == PropKind.Wreck) wrecks++; else if (kind != PropKind.Bridge) broken++;
+            }
+            Assert.Greater(standing, 20, "some trees are still up");
+            Assert.Greater(broken, standing, "most of the wood is broken");
+            Assert.Greater(wrecks, 0);
+            Assert.AreEqual(4, map.Trenches.Length);
+        }
+
+        [Test]
+        public void Generator_BothSidesCanAlwaysReachEachOther()
+        {
+            for (uint seed = 1; seed <= 40; seed++)
+            {
+                using var map = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(seed), Allocator.Persistent);
+                Assert.IsTrue(BattlefieldGenerator.Connected(map), $"seed {seed}: the river or the wood cut the map in two");
+            }
+        }
+
+        [Test]
+        public void TwoSims_OnAGeneratedBattlefield_StayInSync_ThroughABarrage()
+        {
+            var cfg = SimConfig.Default; cfg.Seed = 99; cfg.StartingSilver = 100000;
+            using var a = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917));
+            using var b = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917));
+            for (int t = 0; t < 900; t++)
+            {
+                var cmds = new System.Collections.Generic.List<SimCommand>();
+                if (t < 40 && t % 2 == 0) { cmds.Add(SimCommand.Deploy(a.World.Tick, 0, 0)); cmds.Add(SimCommand.Deploy(a.World.Tick, 1, 0)); }
+                if (t == 300) cmds.Add(new SimCommand { Tick = a.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(150f, 0f, 330f) });
+                if (t == 320) cmds.Add(new SimCommand { Tick = a.World.Tick, Player = 1, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(140f, 0f, 200f) });
+                using var arr = new NativeArray<SimCommand>(cmds.ToArray(), Allocator.Temp);
+                a.Step(arr); b.Step(arr);
+                Assert.AreEqual(a.World.LastHash, b.World.LastHash, $"tick {t}");
+            }
+            Assert.Greater(a.Deformation.Applied, 0, "the barrage landed");
+        }
+
         [Test]
         public void EnvironmentEdits_AreDeterministic()
         {

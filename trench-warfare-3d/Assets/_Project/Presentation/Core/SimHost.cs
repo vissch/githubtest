@@ -25,6 +25,9 @@ namespace TW.Presentation
         public float TimeScale = 1f;
         [Tooltip("Two trench lines a side and 200 m of no man's land. Off = the 800 m M1 corridor.")]
         public bool PlaytestMap = true;
+        [Tooltip("Play on a generated battlefield (shelled wood, river, mud) instead of the flat playtest map.")]
+        public bool GeneratedBattlefield = true;
+        public uint BattlefieldSeed = 1917;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
         [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
@@ -55,6 +58,12 @@ namespace TW.Presentation
         float accumulator;
         float animTime;
 
+        MatchSim NewMatch(SimConfig cfg)
+        {
+            if (GeneratedBattlefield) return MatchSim.CreateBattlefield(cfg, TW.Sim.Terrain.BattlefieldParams.ShelledForest(BattlefieldSeed));
+            return PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
+        }
+
         void Awake()
         {
             Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
@@ -62,8 +71,8 @@ namespace TW.Presentation
             cfg.Seed = Seed;
             cfg.StartingSilver = StressUnits > 0 ? StressUnits * 25 : StartingSilver;
             cfg.SilverPerSecond = SilverPerSecond;
-            Local = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
-            Peer = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
+            Local = NewMatch(cfg);
+            Peer = NewMatch(cfg);
             net = new LoopbackNetwork(LatencyTicks, JitterTicks, LossChance, Seed);
             LocalDriver = new LockstepDriver(Local.World, net.A);
             PeerDriver = new LockstepDriver(Peer.World, net.B);

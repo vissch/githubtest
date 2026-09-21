@@ -80,7 +80,7 @@ namespace TW.Sim.Terrain
 
         /// <summary>A straight fire trench across the full corridor width at world Z, 2 cells deep in Z, with a link every 10 cells.
         /// It reaches both map edges so that nothing can bypass it round the end (tanks must cross, infantry must use links).</summary>
-        static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1)
+        internal static void AddFireTrench(MapData map, byte team, short id, float z, float facingYaw, short next0, short next1)
         {
             int zc = (int)(z / MapData.NavCellSize);
             var def = new TrenchDef
@@ -118,7 +118,7 @@ namespace TW.Sim.Terrain
                 map.StaticCover.Add(new CoverVolume { Center = new float3(x, 0f, z + 2f), Radius = 10f, ArcCenterYaw = facingYaw, ArcHalfWidth = SimMath.HalfPi, Bonus = 0.85f, Height = 1.5f, OwnerSlot = -1 });
         }
 
-        static void AddLineObjective(MapData map, short id, ObjectiveKind kind, byte sideTeam, byte ownerTeam, float z, short orderIndex)
+        internal static void AddLineObjective(MapData map, short id, ObjectiveKind kind, byte sideTeam, byte ownerTeam, float z, short orderIndex)
         {
             int zc = (int)(z / MapData.NavCellSize);
             var def = new ObjectiveDef { Id = id, Kind = kind, OwnerTeam = ownerTeam, SideTeam = sideTeam, CellStart = map.ObjectiveCells.Length, RequiredUnits = 3, CaptureTicks = 200, OrderIndex = orderIndex };
