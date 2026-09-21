@@ -5,6 +5,9 @@
 // tactical camera is close to orthographic and every unit has the same size on screen: frame-blended below
 // LodTiers.BlendZoom, nearest-frame above it. The soldier is ~260 vertices, so 3,000 of them are under a million
 // vertices a frame and impostors are not needed (docs/11 B3). Vehicles are instanced boxes until C2.
+// Men outside the camera frustum are dropped in the fill job, and the draw is held to LodTiers.VertexBudget: when
+// the men on screen times the mesh's vertices (twice with shadows) exceed it, shadows go first; a far mesh per unit
+// (150-300 vertices, its own atlas) is the next step once the art exists.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -23,6 +26,10 @@ namespace TW.Presentation.Units
     {
         /// <summary>TacticalCamera zoom (metres of ground across the view) above which frames are no longer blended.</summary>
         public const float BlendZoom = 120f;
+        /// <summary>Unit vertices per frame, shadow pass included. Sized for a GTX 1050 next to a heavy environment (estimate, unmeasured).</summary>
+        public const int VertexBudget = 1500000;
+        /// <summary>Metres around a man that still count as on screen (his body, his shadow).</summary>
+        public const float CullRadius = 3f;
     }
 
     public sealed class VATRenderer : MonoBehaviour
@@ -34,6 +41,7 @@ namespace TW.Presentation.Units
         /// <summary>Infantry drawn last frame (for the stats overlay and tests).</summary>
         public int DrawnInfantry { get; private set; }
         public int DrawnVehicles { get; private set; }
+        public bool ShadowsThisFrame { get; private set; }
         public bool Ready => material != null;
 
         VatAsset asset;
@@ -43,6 +51,8 @@ namespace TW.Presentation.Units
         NativeArray<VatInstance> instances;
         NativeArray<float4> vehicles;   // xyz + yaw; w sign carries the team
         NativeArray<int> counts;
+        NativeArray<float4> planes;
+        readonly Plane[] frustum = new Plane[6];
         readonly GraphicsBuffer.IndirectDrawIndexedArgs[] args = new GraphicsBuffer.IndirectDrawIndexedArgs[1];
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
         static readonly int LerpId = Shader.PropertyToID("_Lerp");
@@ -76,6 +86,7 @@ namespace TW.Presentation.Units
             instances = new NativeArray<VatInstance>(maxSlots, Allocator.Persistent);
             vehicles = new NativeArray<float4>(maxSlots, Allocator.Persistent);
             counts = new NativeArray<int>(2, Allocator.Persistent);
+            planes = new NativeArray<float4>(6, Allocator.Persistent);
             instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 32);
         }
 
@@ -84,10 +95,16 @@ namespace TW.Presentation.Units
             if (material == null || Host == null || Host.Presenter == null || Host.Local == null) return;
             var presenter = Host.Presenter;
             EnsureCapacity(presenter.Poses.Length);
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                GeometryUtility.CalculateFrustumPlanes(cam, frustum);
+                for (int i = 0; i < 6; i++) planes[i] = new float4(frustum[i].normal, frustum[i].distance);
+            }
             new FillJob
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, Height = Host.Local.Map.Height, Scale = UnitScale,
-                Instances = instances, Vehicles = vehicles, Counts = counts,
+                Instances = instances, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
             }.Run();
             DrawnInfantry = counts[0];
             DrawnVehicles = counts[1];
@@ -103,12 +120,12 @@ namespace TW.Presentation.Units
                     startIndex = asset.Mesh.GetIndexStart(0), baseVertexIndex = asset.Mesh.GetBaseVertex(0), startInstance = 0,
                 };
                 argsBuffer.SetData(args);
-                var cam = Camera.main;
                 float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
                 material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
+                ShadowsThisFrame = CastShadows && (long)DrawnInfantry * asset.Mesh.vertexCount * 2 <= LodTiers.VertexBudget;
                 var rp = new RenderParams(material)
                 {
-                    worldBounds = bounds, shadowCastingMode = CastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true,
+                    worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true,
                     matProps = Props(),
                 };
                 Graphics.RenderMeshIndirect(rp, asset.Mesh, argsBuffer, 1);
@@ -151,6 +168,17 @@ namespace TW.Presentation.Units
             public NativeArray<VatInstance> Instances;
             public NativeArray<float4> Vehicles;
             public NativeArray<int> Counts;
+            [ReadOnly] public NativeArray<float4> Planes;
+            public bool Cull;
+            public float Radius;
+
+            bool Visible(float3 p)
+            {
+                if (!Cull) return true;
+                for (int k = 0; k < 6; k++)
+                    if (math.dot(Planes[k].xyz, p) + Planes[k].w < -Radius) return false;
+                return true;
+            }
 
             public void Execute()
             {
@@ -159,6 +187,7 @@ namespace TW.Presentation.Units
                 {
                     var p = Poses[i];
                     float y = Height.Sample(p.Pos.x, p.Pos.z);
+                    if (!Visible(new float3(p.Pos.x, y + 1f, p.Pos.z))) continue;
                     if ((p.Flags & (byte)UnitFlags.Vehicle) != 0)
                     {
                         // yaw is within (-2pi, 2pi); +10 keeps it positive so the sign is free for the team
@@ -200,6 +229,7 @@ namespace TW.Presentation.Units
             if (instances.IsCreated) instances.Dispose();
             if (vehicles.IsCreated) vehicles.Dispose();
             if (counts.IsCreated) counts.Dispose();
+            if (planes.IsCreated) planes.Dispose();
             instanceBuffer?.Dispose(); instanceBuffer = null;
         }
 
