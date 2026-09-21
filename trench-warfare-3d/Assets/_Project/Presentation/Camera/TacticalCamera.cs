@@ -38,7 +38,7 @@ namespace TW.Presentation.Tactical
         [Tooltip("Narrow lens = flatter, closer to the 2D game's orthographic look. Zoom keeps its meaning (visible height of a 60 degree lens at that distance).")]
         public float Fov = 25f;
         public float RotateSpeed = 60f;
-        public Vector2 Focus = new Vector2(150f, 104f);   // both of your trenches in view: men arrive at the left one
+        public Vector2 Focus = new Vector2(90f, 104f);   // both of your trenches in view: men arrive at the left one
         float yaw, zoomBeforeSuper, pitchOffset, panHeld;
         bool freeLook;   // the right mouse button has turned the view past the Q/E limits
         Camera cam;

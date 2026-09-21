@@ -24,7 +24,7 @@ namespace TW.Sim.Terrain
         public float Bombardment; // ambient shells per minute on no man's land during the match; 0 = a quiet sector
 
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
-        { Seed = seed, Width = 300f, Length = 480f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 5, Bombardment = 8f };
+        { Seed = seed, Width = 180f, Length = 480f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 5, Bombardment = 8f };
 
         public byte[] Serialize()
         {

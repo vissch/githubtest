@@ -195,7 +195,7 @@ MonoBehaviour:
   YawLimit: 15
   Fov: 25
   RotateSpeed: 60
-  Focus: {x: 150, y: 104}
+  Focus: {x: 90, y: 104}
 --- !u!81 &387420981
 AudioListener:
   m_ObjectHideFlags: 0
