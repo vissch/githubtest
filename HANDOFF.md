@@ -104,6 +104,10 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   wet at night (gloss by how far a face points up). `Rain` + `Shaders/Rain_URP.shader`: 1,040 streaks in one mesh,
   wrapped round the camera's view in the vertex shader; raindrop rings on all water come from `TWWater.hlsl`
   (`_TWWet.z`, `Atmosphere.Rain`).
+  Weather: `Atmosphere.RainNow` / `WindNow` swell and slacken on slow noise (`Squalls`); `Rain` integrates the fall
+  on the CPU so a wind change bends the streaks, and each of its 2,800 streaks has its own threshold, so a drizzle is
+  few and short and a downpour is all of them. Drops burst on every sky-facing TW/Toon surface within 70 m
+  (`TWRainSplash`, hashed by cell and time slot, no texture) and ring the water in step with the squalls.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

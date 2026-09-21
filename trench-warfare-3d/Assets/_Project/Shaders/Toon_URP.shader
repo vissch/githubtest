@@ -153,6 +153,12 @@ Shader "TW/Toon (URP)"
                         color += spark * 1.7 * near * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     }
                 }
+                if (_TWWet.z > 0.0)
+                {
+                    // raindrops burst on everything that faces the sky: mud, duckboards, sandbags, wrecks. Close range only.
+                    half open = saturate(normalize(i.normalWS).y * 2.0 - 0.7) * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 70.0) / 50.0));
+                    if (open > 0.0) color += TWRainSplash(i.positionWS.xz) * open * (TWSky() * 0.9 + mainLight.color * 0.25);
+                }
                 color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS);
                 color += _Emission.rgb;
                 color = ApplyMist(color, i.positionWS);

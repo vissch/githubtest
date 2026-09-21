@@ -41,10 +41,30 @@ half TWRainRings(float2 xz)
             float2 c = float2(frac(h * 13.7), frac(h * 7.3)) * 0.5 + 0.25;
             float age = frac(_Time.y * (0.75 + 0.5 * h) + h * 9.0);
             float d = distance(f, c);
-            sum += (1.0 - smoothstep(0.018, 0.04, abs(d - age * 0.24))) * (1.0 - age) * (1.0 - age) * step(h, _TWWet.z);
+            sum += (1.0 - smoothstep(0.018, 0.04, abs(d - age * 0.24))) * (1.0 - age) * (1.0 - age) * saturate((_TWWet.z - h * 0.9) * 6.0);
         }
     }
     return saturate(sum);
+}
+
+/// Raindrops bursting on ground, boards, bags and steel: a grid of 0.3 m cells, and in each cell a run of short time
+/// slots. A hash of cell and slot decides whether a drop lands in this slot and where, so splashes never repeat in
+/// place or in step; how many slots are live follows the rain (_TWWet.z). A splash is a bright speck that opens into a
+/// tiny ring in a seventh of a second. One cell a pixel, no loop, no texture.
+half TWRainSplash(float2 xz)
+{
+    float2 p = xz * 3.3;
+    float2 cell = floor(p), f = frac(p);
+    float h = frac(sin(dot(cell, float2(269.5, 183.3))) * 43758.5453);
+    float slotTime = _Time.y * (2.6 + 1.4 * h) + h * 31.0;
+    float slot = floor(slotTime), age = frac(slotTime);
+    float r = frac(sin(dot(cell + slot * 0.618, float2(12.9898, 78.233))) * 43758.5453);
+    float2 c = float2(frac(r * 17.3), frac(r * 5.71)) * 0.6 + 0.2;
+    half lands = step(r, _TWWet.z * 0.55);
+    float d = distance(f, c);
+    half speck = (1.0 - smoothstep(0.03, 0.09, d)) * (1.0 - smoothstep(0.0, 0.22, age));
+    half ring = (1.0 - smoothstep(0.02, 0.05, abs(d - age * 0.34))) * (1.0 - smoothstep(0.15, 0.55, age));
+    return lands * saturate(speck * 1.4 + ring * 0.7);
 }
 
 /// Water colour from its depth in metres: silty margin, body, dark channel, a pale wet line at the shore and slow

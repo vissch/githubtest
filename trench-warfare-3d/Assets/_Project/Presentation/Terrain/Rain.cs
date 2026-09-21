@@ -8,12 +8,14 @@ namespace TW.Presentation.Terrain
 {
     public sealed class Rain : MonoBehaviour
     {
-        [Range(0f, 1f)] public float Intensity = 0.65f;
-        public const int MaxStreaks = 1600;
+        [Tooltip("Share of MaxStreaks built; how many of them fall at a moment follows Atmosphere.RainNow.")]
+        [Range(0f, 1f)] public float Intensity = 1f;
+        public const int MaxStreaks = 2800;
         public Vector3 Box = new Vector3(90f, 46f, 90f);
-        public Vector2 Wind = new Vector2(3f, -2f);
-        public float FallSpeed = 19f, StreakLength = 0.9f;
+        public float FallSpeed = 17f, StreakLength = 0.75f;
         Mesh mesh; Material material; Camera cam;
+        Vector3 fallen;   // how far the rain has fallen and blown so far: integrated here, so a change of wind bends the streaks without making them jump
+        static readonly int OffsetId = Shader.PropertyToID("_Offset"), LevelId = Shader.PropertyToID("_Level");
         static readonly int CentreId = Shader.PropertyToID("_Centre"), SizeId = Shader.PropertyToID("_Size"), FallId = Shader.PropertyToID("_Fall"), ColorId = Shader.PropertyToID("_Color");
 
         void Start()
@@ -24,7 +26,7 @@ namespace TW.Presentation.Terrain
             for (int i = 0; i < count; i++)
             {
                 var p = new Vector3(Hash(i, 3), Hash(i, 5), Hash(i, 7));
-                var r = new Vector2(Hash(i, 11), 0f);
+                var r = new Vector2(Hash(i, 11), Hash(i, 13));   // x: speed and length, y: how hard it must rain before this streak falls
                 int v0 = pos.Count;
                 for (int k = 0; k < 4; k++) { pos.Add(p); quad.Add(new Vector2(k == 0 || k == 3 ? -1f : 1f, k < 2 ? 0f : 1f)); random.Add(r); }
                 tris.Add(v0); tris.Add(v0 + 2); tris.Add(v0 + 1); tris.Add(v0); tris.Add(v0 + 3); tris.Add(v0 + 2);
@@ -65,7 +67,14 @@ namespace TW.Presentation.Terrain
             centre.y = Mathf.Max(centre.y, Box.y * .5f - 2f);
             material.SetVector(CentreId, centre);
             material.SetVector(SizeId, Box);
-            material.SetVector(FallId, new Vector4(Wind.x, FallSpeed, Wind.y, StreakLength));
+            float level = Mathf.Clamp01(Atmosphere.RainNow);
+            Vector2 wind = Atmosphere.WindNow;
+            var velocity = new Vector3(wind.x, -(FallSpeed + 7f * level), wind.y);   // heavy drops fall faster
+            fallen += velocity * Time.deltaTime;
+            for (int k = 0; k < 3; k++) fallen[k] = Mathf.Repeat(fallen[k], Box[k] * 64f);   // keep the numbers small; 64 boxes is a whole number of wraps
+            material.SetVector(OffsetId, fallen);
+            material.SetVector(FallId, new Vector4(velocity.x, -velocity.y, velocity.z, StreakLength * (.7f + .9f * level)));
+            material.SetFloat(LevelId, level);
         }
     }
 }

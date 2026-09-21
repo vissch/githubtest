@@ -27,6 +27,11 @@ namespace TW.Presentation.Terrain
         public Color SkyMirror = new Color(0.60f, 0.61f, 0.60f);
         [Range(0f, 1f)] public float Wetness = 0f, WetGlint = 0f;
         [Range(0f, 1f)] public float Rain = 0f;
+        [Tooltip("How much the rain swells and slackens: 0 steady, 1 from almost nothing to a downpour.")]
+        [Range(0f, 1f)] public float Squalls = 0.85f;
+        /// <summary>The rain right now, 0..1, and the wind it falls in (m/s, world XZ). Rain.cs and the shaders follow these.</summary>
+        public static float RainNow { get; private set; }
+        public static Vector2 WindNow { get; private set; }
         public Vector3 KeyEuler = new Vector3(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
         public Color Ambient = new Color(0.52f, 0.52f, 0.56f);
         float exposure = 0.32f, contrast = 12f, saturation = -18f, vignetteAmount = 0.24f, bloom = 0f;
@@ -145,7 +150,17 @@ namespace TW.Presentation.Terrain
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(ShadeTint.r, ShadeTint.g, ShadeTint.b, 1f));
             Shader.SetGlobalVector(SkyId, new Vector4(SkyMirror.r, SkyMirror.g, SkyMirror.b, 1f));
-            Shader.SetGlobalVector(WetId, new Vector4(Wetness, WetGlint, Rain, 0f));
+            // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
+            // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.
+            float clock = Time.time;
+            float swell = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.28f, .72f, Mathf.PerlinNoise(clock * .021f, 3.7f)));
+            float gust = Mathf.PerlinNoise(clock * .13f, 11.3f);
+            float level = Mathf.Clamp01(swell * .8f + gust * .35f - .05f);
+            RainNow = Rain * Mathf.Lerp(1f, Mathf.Lerp(.12f, 1.25f, level), Squalls);
+            float heading = (Mathf.PerlinNoise(clock * .017f, 23.1f) - .5f) * 2.4f + .6f;
+            float blow = Mathf.Lerp(1.5f, 9f, Mathf.Clamp01(level * .7f + gust * .5f));
+            WindNow = new Vector2(Mathf.Cos(heading), Mathf.Sin(heading)) * blow;
+            Shader.SetGlobalVector(WetId, new Vector4(Wetness, WetGlint, Mathf.Clamp01(RainNow), 0f));
 
             var map = RenderGround.Map;
             if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));
