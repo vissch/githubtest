@@ -8,12 +8,12 @@ namespace TW.Presentation.Terrain
     public sealed class Atmosphere : MonoBehaviour
     {
         public Color Haze = new Color(0.58f, 0.61f, 0.64f);
-        public Color Key = new Color(1.0f, 0.95f, 0.86f);
+        public Color Key = new Color(0.96f, 0.98f, 1.0f);
         public float KeyIntensity = 1.0f;
-        [Range(0f, 1f)] public float ShadowStrength = 0.55f;
+        [Range(0f, 1f)] public float ShadowStrength = 0.40f;
         [Tooltip("Haze begins this far behind the point the camera looks at, as a fraction of the camera's distance to it.")]
         public float StartFactor = 0.85f;
-        public float Depth = 420f;
+        public float Depth = 300f;
         Camera cam;
 
         void Start()
@@ -27,7 +27,7 @@ namespace TW.Presentation.Terrain
             {
                 if (l.type != LightType.Directional) continue;
                 l.color = Key; l.intensity = KeyIntensity; l.shadows = LightShadows.Soft; l.shadowStrength = ShadowStrength;
-                l.transform.rotation = Quaternion.Euler(48f, 320f, 0f);   // the view looks along -X: light from over the viewer's left shoulder, shadows fall to the right
+                l.transform.rotation = Quaternion.Euler(52f, 35f, 0f);   // cross-light reveals rounded bags and timber depth from the standard view
             }
         }
 

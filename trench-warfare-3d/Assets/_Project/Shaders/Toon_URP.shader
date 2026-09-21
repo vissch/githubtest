@@ -14,7 +14,7 @@ Shader "TW/Toon (URP)"
         _DetailMap ("World Detail (grey = none)", 2D) = "gray" {}
         _DetailScale ("Detail tiles per metre", Float) = 0.125
         _DetailStrength ("Detail strength", Range(0,1)) = 0
-        _ShadeColor ("Shade tint", Color) = (0.50, 0.47, 0.52, 1)
+        _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.6
     }
@@ -70,9 +70,10 @@ Shader "TW/Toon (URP)"
                 albedo *= 1.0 + (detail - 0.5) * 2.0 * _DetailStrength;
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
-                half lit = wrap * lerp(0.35, 1.0, mainLight.shadowAttenuation);
-                half band = smoothstep(0.30, 0.34, lit) * 0.5 + smoothstep(0.58, 0.62, lit) * 0.5;   // shade, half, lit
+                half lit = wrap;
+                half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
                 half3 color = albedo * lerp(_ShadeColor.rgb, mainLight.color, band);
+                color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
                 color = MixFog(color, i.fog);
                 return half4(color, 1.0);
             }

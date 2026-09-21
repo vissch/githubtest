@@ -21,11 +21,12 @@ namespace TW.Presentation.Terrain
     {
         public SimHost Host;
         public const int ChunkMeters = 32;
-        const int Tpm = 3;   // colour texels per metre
+        const int Tpm = 8;   // 720 x 1920 on the standard map: ~7 MiB including mipmaps; no per-pixel noise shader
 
         sealed class Chunk { public Mesh Mesh; public Vector3[] Verts; public Vector3[] Normals; public int X0, Z0, W, L; public bool Dirty; }
 
         readonly List<Chunk> chunks = new List<Chunk>();
+        readonly List<Object> owned = new List<Object>();
         int chunksX;
         Texture2D colorTex;
         bool colorDirty, subscribed;
@@ -65,6 +66,7 @@ namespace TW.Presentation.Terrain
                 Fill(c, hf);
                 c.Mesh = new Mesh { name = $"Terrain {cx},{cz}", vertices = c.Verts, normals = c.Normals, uv = uvs, triangles = tris };
                 c.Mesh.RecalculateBounds();
+                owned.Add(c.Mesh);
                 var go = new GameObject(c.Mesh.name) { hideFlags = HideFlags.DontSave };
                 go.transform.SetParent(transform, false);
                 go.AddComponent<MeshFilter>().sharedMesh = c.Mesh;
@@ -96,15 +98,16 @@ namespace TW.Presentation.Terrain
         static Texture2D strokes;
 
         /// <summary>A ground material: toon shading, brush strokes in world space, no hull outline.</summary>
-        static Material Toon(Color color)
+        Material Toon(Color color)
         {
             var mat = new Material(Shader.Find("TW/Toon (URP)")) { hideFlags = HideFlags.HideAndDontSave };
             mat.SetColor("_BaseColor", color);
             if (strokes == null) strokes = BuildStrokes();
             mat.SetTexture("_DetailMap", strokes);
             mat.SetFloat("_DetailScale", 1f / 12f);
-            mat.SetFloat("_DetailStrength", 0.22f);
+            mat.SetFloat("_DetailStrength", 0.12f);
             mat.SetShaderPassEnabled("SRPDefaultUnlit", false);
+            owned.Add(mat);
             return mat;
         }
 
@@ -183,28 +186,42 @@ namespace TW.Presentation.Terrain
                 }
             }
             var mesh = new Mesh { name = "Skirt", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-            mesh.SetVertices(verts); mesh.SetColors(cols); mesh.SetTriangles(tris, 0);
+            var skirtUvs = new List<Vector2>(verts.Count);
+            const float paintedBorder = 96f;
+            foreach (var v in verts) skirtUvs.Add(new Vector2((v.x + paintedBorder) / (w + paintedBorder * 2f), (v.z + paintedBorder) / (l + paintedBorder * 2f)));
+            mesh.SetVertices(verts); mesh.SetUVs(0, skirtUvs); mesh.SetTriangles(tris, 0);
             mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            owned.Add(mesh);
             var go = new GameObject("Skirt") { hideFlags = HideFlags.DontSave };
             go.transform.SetParent(transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r2 = go.AddComponent<MeshRenderer>();
-            r2.sharedMaterial = Toon(Color.white); r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var skirtMat = Toon(Color.white);
+            int tw = Mathf.CeilToInt((w + paintedBorder * 2f) * 3f), th = Mathf.CeilToInt((l + paintedBorder * 2f) * 3f);
+            var texture = new Texture2D(tw, th, TextureFormat.RGBA32, true) { name = "Painted horizon", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
+            var pixels = new Color32[tw * th];
+            for (int z = 0; z < th; z++)
+            for (int x = 0; x < tw; x++)
+            {
+                float wx = x / 3f - paintedBorder, wz = z / 3f - paintedBorder;
+                float outside = Mathf.Max(Mathf.Max(-wx, wx - w), Mathf.Max(-wz, wz - l));
+                Color c = Tone(wx, wz);
+                if (outside < 5f) c = Color.Lerp(GroundColor(map, Mathf.Clamp(wx, 0f, w - 0.01f), Mathf.Clamp(wz, 0f, l - 0.01f)), c, Band(0f, 5f, outside));
+                pixels[z * tw + x] = Color.Lerp(c, MudMid, Band(30f, 96f, outside));
+            }
+            texture.SetPixels32(pixels); texture.Apply(true, true);
+            owned.Add(texture);
+            skirtMat.SetTexture("_BaseMap", texture);
+            r2.sharedMaterial = skirtMat; r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         static float span2(bool alongZ, float w, float l) => alongZ ? w : l;
 
         void BuildWater(MapData map)
         {
-            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            var m = new Material(unlit) { color = new Color(Puddle.r, Puddle.g, Puddle.b, 0.93f) };
-            m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 0f); m.SetFloat("_ZWrite", 0f);
-            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.SetOverrideTag("RenderType", "Transparent");
-            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 10;   // under tracers, gas and markers
-            m.SetColor("_BaseColor", m.color);
+            // Opaque painted water shares lighting/fog with the puddle pigment and writes depth before VFX.
+            var m = Toon(Puddle);
+            m.SetFloat("_DetailStrength", 0.05f);
             float w = map.SizeMeters.x, l = map.SizeMeters.y, y = map.WaterLevel;
             var mesh = new Mesh
             {
@@ -213,6 +230,7 @@ namespace TW.Presentation.Terrain
                 normals = new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up },
                 triangles = new[] { 0, 1, 2, 0, 2, 3 },
             };
+            owned.Add(mesh);
             var go = new GameObject("Water") { hideFlags = HideFlags.DontSave };
             go.transform.SetParent(transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
@@ -224,7 +242,7 @@ namespace TW.Presentation.Terrain
         {
             if (Host == null || Host.Local == null || colorTex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            if (colorDirty) { colorTex.Apply(false, false); colorDirty = false; }
+            if (colorDirty) { colorTex.Apply(true, false); colorDirty = false; }
             for (int i = 0; i < chunks.Count; i++)
             {
                 var c = chunks[i];
@@ -236,7 +254,11 @@ namespace TW.Presentation.Terrain
             }
         }
 
-        void OnDestroy() { if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent; }
+        void OnDestroy()
+        {
+            if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
+            foreach (var resource in owned) if (resource != null) Destroy(resource);
+        }
 
         /// <summary>A crater landed: repaint its texels and re-read the chunks it touches.</summary>
         void OnSimEvent(TW.Sim.SimEvent e)
@@ -268,6 +290,7 @@ namespace TW.Presentation.Terrain
         {
             int w = map.Height.Width * Tpm, l = map.Height.Length * Tpm;
             var tex = new Texture2D(w, l, TextureFormat.RGBA32, true) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
+            owned.Add(tex);
             var px = new Color[w * l];
             for (int z = 0; z < l; z++)
             for (int x = 0; x < w; x++) px[z * w + x] = GroundColor(map, (x + 0.5f) / Tpm, (z + 0.5f) / Tpm);
@@ -284,7 +307,8 @@ namespace TW.Presentation.Terrain
                     for (int dz = 0; dz < cellPx; dz++) for (int dx = 0; dx < cellPx; dx++)
                     {
                         int i = (nz * cellPx + dz) * w + nx * cellPx + dx;
-                        if (i < px.Length) px[i] = Color.Lerp(px[i], teamTint[def.SideTeam & 1], 0.30f);
+                        // HQ ownership is communicated by the HUD. Avoid a rectangular team-colour carpet on the mud.
+                        if (i < px.Length) px[i] = Color.Lerp(px[i], teamTint[def.SideTeam & 1], 0.04f);
                     }
                 }
             }
@@ -315,20 +339,24 @@ namespace TW.Presentation.Terrain
             return sum;
         }
 
-        static readonly Color Ink = new Color(0.15f, 0.12f, 0.10f);
-        static readonly Color MudDark = new Color(0.245f, 0.21f, 0.195f);
-        static readonly Color MudMid = new Color(0.335f, 0.29f, 0.26f);
-        static readonly Color MudPale = new Color(0.43f, 0.375f, 0.33f);
-        static readonly Color Puddle = new Color(0.43f, 0.46f, 0.49f);
+        static readonly Color Ink = new Color(0.18f, 0.175f, 0.17f);
+        static readonly Color MudDark = new Color(0.36f, 0.365f, 0.355f);
+        static readonly Color MudMid = new Color(0.425f, 0.42f, 0.395f);
+        static readonly Color MudPale = new Color(0.49f, 0.465f, 0.42f);
+        static readonly Color Puddle = new Color(0.53f, 0.58f, 0.60f);
+
+        static float Band(float a, float b, float value) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, value));
 
         /// <summary>Bare painted mud: three flat tones from two octaves of noise, an ink line where two tones meet.</summary>
         static Color Tone(float wx, float wz)
         {
-            float n = BattlefieldGenerator.Noise(91u, wx, wz, 8f) * 0.55f + BattlefieldGenerator.Noise(47u, wx, wz, 2.9f) * 0.30f + BattlefieldGenerator.Noise(19u, wx, wz, 1.1f) * 0.15f;
-            Color c = Color.Lerp(Color.Lerp(MudDark, MudMid, Mathf.SmoothStep(0.455f, 0.47f, n)), MudPale, Mathf.SmoothStep(0.535f, 0.55f, n));
-            float edge = Mathf.Abs(n - 0.4625f);
+            float qx = wx + 2.3f * Mathf.PerlinNoise(wx * 0.19f + 17f, wz * 0.19f);
+            float qz = wz + 2.3f * Mathf.PerlinNoise(wx * 0.19f, wz * 0.19f + 43f);
+            float n = Mathf.PerlinNoise(qx * 0.12f + 91f, qz * 0.12f) * 0.7f + Mathf.PerlinNoise(qx * 0.46f, qz * 0.46f + 47f) * 0.3f;
+            Color c = Color.Lerp(Color.Lerp(MudDark, MudMid, Band(0.40f, 0.45f, n)), MudPale, Band(0.57f, 0.61f, n));
+            float edge = Mathf.Min(Mathf.Abs(n - 0.415f), Mathf.Abs(n - 0.59f));
             float broken = BattlefieldGenerator.Noise(5u, wx, wz, 4f);
-            if (edge < 0.012f && broken > 0.45f) c = Color.Lerp(c, Ink, 0.55f);   // an ink contour under the darkest tone, broken up
+            if (edge < 0.009f && broken > 0.48f) c = Color.Lerp(c, Ink, 0.65f);   // broken painted contours, not an all-over noise texture
             return c;
         }
 
@@ -343,10 +371,8 @@ namespace TW.Presentation.Terrain
             if ((layer & NavLayer.Trench) != 0)
             {
                 // duckboards: planks across the trench, a dark gap between them
-                float plank = wx * 2.2f - Mathf.Floor(wx * 2.2f);
-                Color wood = (layer & NavLayer.Link) != 0 ? new Color(0.52f, 0.42f, 0.29f) : new Color(0.36f, 0.28f, 0.20f);
-                wood *= 0.92f + 0.16f * Grain((int)Mathf.Floor(wx * 2.2f), nz);
-                c = plank < 0.12f ? Color.Lerp(Ink, wood, 0.25f) : wood;
+                // Actual duckboards are instanced in the kit; the banks remain earth rather than striped wood.
+                c = Color.Lerp(Ink, Tone(wx, wz), 0.48f);
                 c.a = 1f;
                 return c;
             }
@@ -362,14 +388,23 @@ namespace TW.Presentation.Terrain
             bool inside = bowl > 0.34f;
             if (inside) c = Color.Lerp(MudDark, Ink, 0.35f);
             else if (bowl > 0.25f) c = Ink;
-            else if (bowl < -0.12f) c = Color.Lerp(c, MudPale, 0.75f);
+            else if (bowl < -0.12f) c = Color.Lerp(c, MudPale, 0.22f);
 
             // puddles: standing water just above the water table, and in the low spots of muddy ground
-            float pool = BattlefieldGenerator.Noise(133u, wx, wz, 6.5f);
+            // Gradient noise and a warped domain avoid the square islands produced by thresholded lattice noise.
+            float px = wx + 2f * Mathf.PerlinNoise(wx * 0.27f + 8f, wz * 0.27f);
+            float pz = wz + 2f * Mathf.PerlinNoise(wx * 0.27f, wz * 0.27f + 31f);
+            float pool = Mathf.PerlinNoise(px * 0.20f + 133f, pz * 0.20f);
             float wetness = pool + 0.08f * mud + (inside ? 0.10f : 0f);
             if (map.WaterLevel > MapData.NoWater) wetness += Mathf.Clamp01(1f - (h - map.WaterLevel) / 0.5f) * 0.45f;
-            if (wetness > 0.86f) c = Puddle * (0.96f + 0.08f * BattlefieldGenerator.Noise(7u, wx, wz, 1.5f));
-            else if (wetness > 0.835f) c = Color.Lerp(Ink, MudDark, 0.25f);
+            if (wetness > 0.82f)
+            {
+                c = Puddle;
+                float ripple = Mathf.PerlinNoise(wx * 1.8f, wz * 7f + 19f);
+                if (ripple > 0.68f) c = Color.Lerp(c, new Color(0.76f, 0.77f, 0.73f), 0.55f);
+            }
+            else if (wetness > 0.79f) c = Ink;
+            else if (wetness > 0.765f) c = Color.Lerp(c, MudPale, 0.65f);
 
             c.a = 1f;
             return c;
