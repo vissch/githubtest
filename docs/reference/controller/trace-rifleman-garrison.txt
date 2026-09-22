@@ -1,0 +1,19 @@
+tick   t(s)   rung          clip              stance    speed  tgt   supp  reason
+1262    63.10 Idle          KneelToStand      Crouch      0.0   -1      0 idle 5 s: rises to look over the parapet
+1287    64.35 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+1317    65.85 Idle          StandToKneel      Crouch      0.0   -1      0 drops back behind the parapet
+1336    66.80 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2105   105.25 Idle          KneelToStand      Crouch      0.0   -1      0 idle 24 s: rises to look over the parapet
+2130   106.50 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+2160   108.00 Idle          StandToKneel      Crouch      0.0   -1      0 drops back behind the parapet
+2179   108.95 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2419   120.95 Idle          StoopIdle         Crouch      0.0   -1      0 idle 12 s: shifts to a squat
+2613   130.65 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4191   209.55 Idle          StoopIdle         Crouch      0.0   -1      0 idle 21 s: shifts to a squat
+
+time in each clip (s):
+  KneelIdle           160.1
+  StoopIdle            13.4
+  AimedIdle             3.0
+  KneelToStand          2.5
+  StandToKneel          1.9

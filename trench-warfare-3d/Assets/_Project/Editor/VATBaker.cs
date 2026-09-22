@@ -49,6 +49,8 @@ namespace TW.Editor
             public Quaternion[] BindRot;
             public float MinY, Scale, HipHeight, HipScale = 1f;
             public Matrix4x4 HeadBindInverse;
+            public Quaternion HipsBindInverse;
+            public Matrix4x4 GripR, GripL;   // the rifle's socket in each hand's space, from the bind pose
             public Texture2D Albedo;
             public bool HasHelmet;
 
@@ -60,8 +62,9 @@ namespace TW.Editor
             /// <summary>The pelvis' facing (radians about Y, 0 = +Z) in the current pose.</summary>
             public float FacingYaw()
             {
-                Vector3 across = ThighR.position - ThighL.position; across.y = 0f;
-                Vector3 fwd = Vector3.Cross(across, Vector3.up).normalized;   // the left-to-right hip axis turned to the front (right x up = forward)
+                // the pelvis turned from its bind pose, where the man faces +Z (the thigh axis misreads a crossed-leg frame)
+                Vector3 fwd = Hips.rotation * HipsBindInverse * Vector3.forward; fwd.y = 0f;
+                if (fwd.sqrMagnitude < 1e-6f) return 0f;
                 return Mathf.Atan2(fwd.x, fwd.z);
             }
         }
@@ -142,6 +145,14 @@ namespace TW.Editor
             rig.Scale = ProceduralSoldier.Height / (maxY - minY);
             rig.HipHeight = rig.Hips.position.y - minY;
             rig.HeadBindInverse = rig.Head.worldToLocalMatrix;
+            rig.HipsBindInverse = Quaternion.Inverse(rig.Hips.rotation);
+            // the rifle's sockets: in the bind pose it lies in the right hand pointing forward and a little towards the left
+            // hand; each hand keeps that grip in its own space, so the box turns with the hand instead of with the world
+            Vector3 hand = rig.HandR.position, across = (rig.HandL.position - hand).normalized;
+            Vector3 dir = (Vector3.forward * 0.62f + across * 0.38f + Vector3.up * 0.08f).normalized;
+            var gripWorld = Matrix4x4.TRS(hand, Quaternion.LookRotation(dir, Vector3.up), Vector3.one);
+            rig.GripR = rig.HandR.worldToLocalMatrix * gripWorld;
+            rig.GripL = rig.HandL.worldToLocalMatrix * Matrix4x4.TRS(rig.HandL.position, Quaternion.LookRotation(dir, Vector3.up), Vector3.one) * Matrix4x4.Translate(new Vector3(0f, 0f, -0.35f / rig.Scale));
             return rig;
         }
 
@@ -207,10 +218,10 @@ namespace TW.Editor
                 for (int i = 0; i < skinCount; i++) { p[i] = verts[i]; n[i] = normals[i]; }
                 var head = rig.Head.localToWorldMatrix * rig.HeadBindInverse;
                 for (int i = 0; i < helmet.Pos.Length; i++) { p[skinCount + i] = head.MultiplyPoint3x4(helmet.Pos[i]); n[skinCount + i] = head.MultiplyVector(helmet.Nrm[i]).normalized; }
-                // carried in the right hand, pointing forward and a little towards the left hand
-                Vector3 hand = rig.HandR.position, across = (rig.HandL.position - hand).normalized;
-                Vector3 dir = (Vector3.forward * 0.62f + across * 0.38f + Vector3.up * 0.08f).normalized;
-                var grip = Matrix4x4.TRS(hand, Quaternion.LookRotation(dir, Vector3.up), Vector3.one);
+                // carried in the right hand's socket; when the right hand leaves the weapon (bolt, reload, a fidget, the
+                // ladder, a throw) the left hand keeps it
+                bool rightOff = (rig.HandR.position - rig.HandL.position).magnitude > 0.48f / rig.Scale;
+                var grip = rightOff ? rig.HandL.localToWorldMatrix * rig.GripL : rig.HandR.localToWorldMatrix * rig.GripR;
                 int r0 = skinCount + helmet.Pos.Length;
                 for (int i = 0; i < rifle.Pos.Length; i++) { p[r0 + i] = grip.MultiplyPoint3x4(rifle.Pos[i]); n[r0 + i] = grip.MultiplyVector(rifle.Nrm[i]); }
                 var turn = Quaternion.Euler(0f, -yawFix * Mathf.Rad2Deg, 0f);
@@ -257,7 +268,8 @@ namespace TW.Editor
                         {
                             float frac = src.Loop ? f / (float)n : f / (float)(n - 1);
                             Pose(clip, from + frac * span);
-                            Capture(first + travel * (src.KeepRoot ? 0f : frac), yaw0 + (src.StripYaw ? turn * frac : 0f));
+                            Vector3 keep = src.KeepRoot ? travel * Mathf.Max(0f, 1f - 0.35f / rig.Scale / Mathf.Max(1e-4f, travel.magnitude)) : travel;   // a death keeps 35 cm of its fall
+                            Capture(first + keep * frac, yaw0 + (src.StripYaw ? turn * frac : 0f));
                         }
                         table[r] = new Vector2(start, src.Loop ? n : -n); seconds[r] = played;
                         report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} travel {travel.magnitude * rig.Scale * 100f,5:0} cm turn {turn * Mathf.Rad2Deg,5:0} deg");

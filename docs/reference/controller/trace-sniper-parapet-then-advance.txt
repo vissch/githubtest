@@ -1,0 +1,71 @@
+tick   t(s)   rung          clip              stance    speed  tgt   supp  reason
+4086   204.30 Action        KneelAimUp        FireStep    0.0    7      0 target seen: rifle up
+4088   204.40 Reaction      KneelFlinch       FireStep    0.0    7      5 near miss, standing still: ducks
+4100   205.00 Idle          KneelAimedIdle    FireStep    0.0    4     33 idle: KneelAimedIdle
+4102   205.10 Idle          KneelAimedIdle    FireStep    0.0    4     37 idle: KneelAimedIdle
+4104   205.20 Idle          KneelAimedIdle    FireStep    0.0    4     42 idle: KneelAimedIdle
+4107   205.35 Idle          Shield            Crouch      0.0   -1     46 under fire: arm over the face, head down
+4127   206.35 Reaction      KneelFlinch       FireStep    0.0    7     43 near miss, standing still: ducks
+4137   206.85 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+4154   207.70 Reaction      KneelFlinch       FireStep    0.0    7     43 near miss, standing still: ducks
+4167   208.35 Action        KneelAimDown      Crouch      0.0   -1     44 target lost 4 s: rifle down
+4181   209.05 Reaction      KneelFlinch       FireStep    0.0    7     43 near miss, standing still: ducks
+4195   209.75 Idle          Shield            Crouch      0.0   -1     43 under fire: arm over the face, head down
+4206   210.30 Action        KneelAimUp        FireStep    0.0    7     39 target seen: rifle up
+4208   210.40 Reaction      KneelFlinch       FireStep    0.0    7     43 near miss, standing still: ducks
+4219   210.95 Action        KneelAimDown      Crouch      0.0   -1     44 target lost 4 s: rifle down
+4235   211.75 Idle          Shield            Crouch      0.0   -1     38 under fire: arm over the face, head down
+4321   216.05 Idle          KneelIdle         Crouch      0.0   -1      4 idle: KneelIdle
+4567   228.35 Action        ReloadStoop       Crouch      0.0   -1      0 magazine empty: reloads
+4641   232.05 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+5166   258.30 Action        KneelAimUp        FireStep    0.0    7      0 target seen: rifle up
+5168   258.40 Reaction      KneelFlinch       FireStep    0.0    7      5 near miss, standing still: ducks
+5169   258.45 Reaction      KneelFlinch       FireStep    0.0    4     14 hit, from the front
+5172   258.60 Death         DeathSquat        FireStep    0.0    4     13 killed: shot, Crouch
+5404   270.20 Idle          ReadyIdle         Standing    0.0   -1      0 idle: ReadyIdle
+5405   270.25 Locomotion    Run               Standing    3.0   -1      0 moves at 3.0 m/s: Run
+5538   276.90 Locomotion    WalkWary          Standing    1.5   -1      0 moves at 1.5 m/s: WalkWary at night
+5550   277.50 Idle          ReadyIdle         Standing    0.1   -1      0 idle: ReadyIdle
+5615   280.75 Locomotion    WalkWary          Standing    0.2   -1      0 moves at 0.2 m/s: WalkWary at night
+5637   281.85 Trench        JumpDown          Standing    1.0   -1      0 dropping into the trench
+5656   282.80 Locomotion    CrouchRun         Crouch      2.4   -1      0 moves at 2.4 m/s: CrouchRun
+5671   283.55 Trench        ClimbOut          Vault       2.4   -1      0 climbing out of the trench
+5682   284.10 Trench        ClimbLand         Standing    3.0   -1      0 lands on the surface
+5695   284.75 Locomotion    Run               Standing    3.0   -1      0 moves at 3.0 m/s: Run
+5913   295.65 Trench        JumpDown          Standing    3.0   -1      0 dropping into the trench
+5949   297.45 StanceChange  StandToKneel      Crouch      0.0   -1      0 stance Standing -> Crouch: down behind the parapet
+5954   297.70 Trench        ClimbLadder       Crouch      2.4   -1      0 climbing out of the trench
+5974   298.70 Locomotion    CrouchRun         Crouch      2.4   -1      0 moves at 2.4 m/s: CrouchRun
+5991   299.55 Locomotion    Sprint            Sprint      3.7   -1      0 moves at 3.7 m/s: Sprint
+6030   301.50 Locomotion    WireCross         Sprint      1.5   -1      0 moves at 1.5 m/s: WireCross through the wire
+6052   302.60 Locomotion    Sprint            Sprint      3.6   -1      0 moves at 3.6 m/s: Sprint
+6168   308.40 Reaction      HitRun            Sprint      4.5   -1     12 hit hard on the move, from the front
+6182   309.10 Locomotion    Sprint            Sprint      4.5   -1     13 moves at 4.5 m/s: Sprint
+6358   317.90 Reaction      HitRun            Sprint      4.5   -1     12 hit on the move, from the front
+6360   318.00 Death         DeathFront        Sprint      4.5   -1     18 killed: shot, Standing
+6364   318.20 Idle          ReadyIdle         Standing    0.0   -1      0 idle: ReadyIdle
+6365   318.25 Locomotion    Run               Standing    3.0   -1      0 moves at 3.0 m/s: Run
+6498   324.90 Trench        JumpDown          Standing    3.0   -1      0 dropping into the trench
+
+time in each clip (s):
+  KneelIdle            58.0
+  Run                  24.2
+  Sprint               16.5
+  DeathSquat           11.6
+  Shield                6.6
+  ReloadStoop           3.7
+  ReadyIdle             3.3
+  JumpDown              3.3
+  KneelFlinch           3.2
+  WalkWary              1.7
+  CrouchRun             1.6
+  KneelAimDown          1.6
+  WireCross             1.2
+  ClimbLadder           1.0
+  HitRun                0.7
+  ClimbLand             0.7
+  ClimbOut              0.5
+  KneelAimUp            0.3
+  KneelAimedIdle        0.3
+  StandToKneel          0.2
+  DeathFront            0.2

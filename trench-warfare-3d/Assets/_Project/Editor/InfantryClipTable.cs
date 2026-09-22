@@ -32,7 +32,7 @@ namespace TW.Editor
         {
             // idle
             L(Clip.Idle, "Rifle Idle"); L(Clip.AimedIdle, "Rifle Aiming Idle"); L(Clip.ReadyIdle, "Rifle Idle (2)");
-            L(Clip.KneelIdle, "Rifle Kneel Idle"); L(Clip.KneelAimedIdle, "Idle Crouching Aiming"); L(Clip.ProneIdle, "Prone Idle"); L(Clip.StoopIdle, "Crouch Idle");
+            L(Clip.KneelIdle, "Rifle Kneel Idle"); O(Clip.KneelAimedIdle, "Rifle Kneel To Aim", 15, 0.72f, 0.8f); L(Clip.ProneIdle, "Prone Idle"); L(Clip.StoopIdle, "Crouch Idle");
             O(Clip.FidgetLookAround, "Rifle Idle (3)", 12, 0f, 5.3f); O(Clip.FidgetRubEyes, "Rifle Rubbing Eyes"); O(Clip.FidgetCheckShoe, "Check Shoe", 12); O(Clip.FidgetCollar, "Rifle Idle (4)", 12); O(Clip.FidgetInspect, "Inspecting");
             // locomotion
             L(Clip.Walk, "Rifle Walk"); L(Clip.WalkAimed, "Walk With Rifle"); L(Clip.WalkWary, "Walk With Rifle (1)"); L(Clip.WalkBack, "Backwards Rifle Walk");
@@ -45,7 +45,7 @@ namespace TW.Editor
             O(Clip.FireStand, "Firing Rifle (1)", 24); O(Clip.FireSnap, "Firing Rifle", 30); O(Clip.FireKneel, "Fire Rifle", 24); O(Clip.FireProne, "Prone Firing Rifle", 24); L(Clip.FireMG, "Prone Firing Rifle (1)", 30);
             O(Clip.AimUp, "Rifle Down To Aim", 24, 0f, 0f, 1f, true); O(Clip.AimDown, "Rifle Aim To Down", 15, 0f, 0f, 1f, true); O(Clip.KneelAimUp, "Rifle Kneel To Aim", 24, 0f, 0f, 1f, true); O(Clip.KneelAimDown, "Rifle Aim To Kneel", 24, 0f, 0f, 1f, true);
             // actions
-            O(Clip.ReloadStand, "Reloading", 12); O(Clip.ReloadStoop, "Reload", 12); O(Clip.ReloadProne, "Prone Reloading", 10); O(Clip.ReloadBolt, "Reloading", 15, 0f, 2.4f, 2f);
+            O(Clip.ReloadStand, "Reloading", 12); O(Clip.ReloadStoop, "Reload", 12); O(Clip.ReloadProne, "Prone Reloading", 10); O(Clip.ReloadBolt, "Reloading", 20, 2.3f, 3.3f, 1.25f);
             O(Clip.Throw, "Toss Grenade", 12); O(Clip.MeleeStab, "Bayonet Stab", 15); O(Clip.MeleePunch, "Rifle Punch", 15); O(Clip.MeleeSmash, "Smash", 15); O(Clip.MeleeBlock, "Block With Rifle", 15);
             O(Clip.Sling, "Rifle Put Away", 12); O(Clip.Unsling, "Rifle Pull Out", 12);
             // reactions
