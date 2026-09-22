@@ -2,7 +2,8 @@
 // wire breaching and light-vehicle flips are later A5 work.
 // Anything that explodes queues an Impact; this system resolves the tick's impacts in one Burst job: damage falls
 // from 100 % at the centre to 25 % at the edge of the radius, a man in a trench takes 35 % unless the shell landed
-// in that trench, a man in a shell hole 60 %, prone or pinned 70 %, a vehicle 10 % (A5 replaces that with armour).
+// in that trench, a man in a shell hole 60 %, prone or pinned 70 %. Vehicles are not touched here: VehicleModulesSystem
+// reads Resolved and puts each burst against the armour (a direct hit on the top plate, tracks and crew nearby).
 // Suppression is added on the same falloff. Craters are handed to DeformationSystem through Craters. A man in the open
 // who lives through it is thrown clear of it (Knock: KnockNear m/s close in, KnockFar at the edge of KnockReach of the
 // radius, half that lying down), which MovementSystem spends over the next second: about 2 m close in, under 1 m at
@@ -102,9 +103,9 @@ namespace TW.Sim.Combat
                         if (dist >= im.Radius) continue;
                         float falloff = 1f - 0.75f * (dist / im.Radius);
                         int cell = CellOf(Position[i]);
+                        if ((f & (uint)UnitFlags.Vehicle) != 0) continue;   // armour: VehicleModulesSystem
                         float protection = 1f;
-                        if ((f & (uint)UnitFlags.Vehicle) != 0) protection = 0.1f;
-                        else if ((f & (uint)UnitFlags.InTrench) != 0) protection = hitTrench >= 0 && CellTrenchId[cell] == hitTrench ? 1f : 0.35f;
+                        if ((f & (uint)UnitFlags.InTrench) != 0) protection = hitTrench >= 0 && CellTrenchId[cell] == hitTrench ? 1f : 0.35f;
                         else if ((Layers[cell] & (byte)NavLayer.Crater) != 0) protection = 0.6f;
                         else if (StanceOf[i] == (byte)Stance.Prone || StanceOf[i] == (byte)Stance.Pinned) protection = 0.7f;
                         Hp[i] = Hp[i] - im.Damage * falloff * protection;

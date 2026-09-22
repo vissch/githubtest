@@ -37,6 +37,8 @@ namespace TW.Presentation
         public int PeerDeployEveryTicks = 40;
         [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
         public bool PeerAttacks = true;
+        [Tooltip("The scripted enemy sends its tank (roster slot 4) whenever the slot is ready and it has the silver.")]
+        public bool PeerDeploysTanks = false;
         public int PeerAttackGarrison = 8;
         [Tooltip("Scripted peer shells or gasses your front trench when it can afford it and you have men there.")]
         public bool PeerUsesSupport = true;
@@ -121,6 +123,23 @@ namespace TW.Presentation
             Events.Dispatch();
         }
 
+        /// <summary>Tooling (TankCapture): between frames the two lockstep worlds can be a tick apart, so a change made
+        /// to both at once would land on different ticks and desync them. This steps the one behind until they match;
+        /// false when it is waiting on the network.</summary>
+        public bool AlignWorlds()
+        {
+            for (int k = 0; k < 8 && Local.World.Tick != Peer.World.Tick; k++)
+            {
+                if (Local.World.Tick < Peer.World.Tick)
+                {
+                    if (!LocalDriver.TryStep()) return false;
+                    Presenter.Capture(Local.World); Animation.Tick(Local.World); Events.Collect(Local.World);
+                }
+                else if (!PeerDriver.TryStep()) return false;
+            }
+            return Local.World.Tick == Peer.World.Tick;
+        }
+
         void IssuePeerCommands()
         {
             if (!ScriptedPeer) return;
@@ -132,6 +151,12 @@ namespace TW.Presentation
                 int cost = Peer.World.Roster[RosterEntry.SlotCount + slot].Cost;
                 int reserve = PeerUsesSupport && Peer.World.AliveCount > 0 && t > 600 ? PeerSupportReserve : 0;
                 if (Peer.World.Silver[1] >= cost + reserve) PeerDriver.Issue(SimCommand.Deploy(t, 1, slot));
+            }
+            if (PeerDeploysTanks && t % 100 == 70)
+            {
+                var pw = Peer.World;
+                int ri = RosterEntry.SlotCount + 4;
+                if (pw.SlotCooldown[ri] == 0 && pw.Silver[1] >= pw.Roster[ri].Cost) PeerDriver.Issue(SimCommand.Deploy(t, 1, 4));
             }
             if (t % 100 == 20)
             {

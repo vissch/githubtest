@@ -427,7 +427,9 @@ namespace TW.Presentation.Tactical
                         float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
                         scale = units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
                     }
-                    bool vehicle = (w.Flags[e.B] & (uint)UnitFlags.Vehicle) != 0;
+                    // a tank that died this tick has no flags left, and its slot may hold a man already: ask the tank view
+                    bool vehicle = SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.B) : (w.Flags[e.B] & (uint)UnitFlags.Vehicle) != 0;
+                    if (vehicle && SceneHooks.TanksDrawn) { hitsThisFrame--; break; }   // TankRenderer strikes the sparks where the round met the plate
                     Vector3 p;
                     if (vehicle || units == null || !units.Sockets(e.B, out _, out _, out p)) p = EstimateChest(e.B, scale);   // his chest as he is drawn
                     Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
@@ -443,6 +445,9 @@ namespace TW.Presentation.Tactical
                 }
                 case SimEventType.Death:
                 {
+                    // a tank leaves a wreck (TankRenderer), not a body. Its Death comes just before its VehicleDestroyed, while
+                    // the tank view still has the slot; the archetype would be a later tenant's if the slot was refilled
+                    if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : VehicleArchetype.IsTank(w.Archetype[e.A]))) break;
                     if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
                     Vector3 p = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Drawn(e.A) : (Vector3)e.Pos;   // where he was drawn, so the corpse does not hop
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;
@@ -573,6 +578,11 @@ namespace TW.Presentation.Tactical
             var stance = shooter >= 0 && shooter < w.HighWater ? (Stance)(anim != null && Host.UseAnimationController ? anim.State[shooter].Stance : w.StanceOf[shooter]) : Stance.Standing;
             float height = vehicle ? 1.6f : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 1.0f : 1.4f;
             muzzle = new Vector3(at.x, RenderGround.Sample(Host.Local.Map, at.x, at.z) + height * scale, at.z) + barrel * ((vehicle ? 2.4f : 0.75f) * scale);
+            if (vehicle && SceneHooks.VehicleGunPort != null)
+            {
+                var port = SceneHooks.VehicleGunPort(shooter);   // the Maw's mouth, beside the Tusk's gun
+                if (port.w > 0.5f) muzzle = new Vector3(port.x, port.y, port.z) + barrel * 0.3f;
+            }
         }
 
         /// <summary>A man's chest when his figure has no sockets to say, from his (drawn) stance.</summary>
@@ -824,8 +834,9 @@ namespace TW.Presentation.Tactical
                             if (dryFooting || (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z))) continue;
                             if (tank)
                             {
-                                AddMark(at.x + side.x * 0.78f, at.z + side.z * 0.78f, yawDeg, new Vector2(0.50f, 0.92f), 70f, 1);
-                                AddMark(at.x - side.x * 0.78f, at.z - side.z * 0.78f, yawDeg, new Vector2(0.50f, 0.92f), 70f, 1);
+                                float gauge = SceneHooks.VehicleTracks != null ? SceneHooks.VehicleTracks(i).x : 0.78f;
+                                AddMark(at.x + side.x * gauge, at.z + side.z * gauge, yawDeg, new Vector2(0.62f, 0.92f), 70f, 1);
+                                AddMark(at.x - side.x * gauge, at.z - side.z * gauge, yawDeg, new Vector2(0.62f, 0.92f), 70f, 1);
                             }
                             else
                             {
@@ -836,8 +847,9 @@ namespace TW.Presentation.Tactical
                         if (tank && chunks.Count < 560)
                         {
                             // the tracks fling what they lift
-                            Vector3 rear = new Vector3(p.x, RenderGround.Sample(map, p.x, p.z) + 0.3f, p.z) - dir * 1.9f;
-                            Throw(rear + side * 0.78f, 1, 0, 2.6f, 0.07f); Throw(rear - side * 0.78f, 1, 0, 2.6f, 0.07f);
+                            var tracks = SceneHooks.VehicleTracks != null ? SceneHooks.VehicleTracks(i) : new Vector2(0.78f, 1.9f);
+                            Vector3 rear = new Vector3(p.x, RenderGround.Sample(map, p.x, p.z) + 0.3f, p.z) - dir * tracks.y;
+                            Throw(rear + side * tracks.x, 1, 0, 2.6f, 0.07f); Throw(rear - side * tracks.x, 1, 0, 2.6f, 0.07f);
                         }
                         trail.Last = here;
                     }
@@ -853,7 +865,7 @@ namespace TW.Presentation.Tactical
             if (now >= nextExhaust)
             {
                 nextExhaust = now + 0.3f;
-                for (int i = 0; i < w.HighWater && chunks.Count < 560; i++)
+                for (int i = 0; i < w.HighWater && chunks.Count < 560 && !SceneHooks.TanksDrawn; i++)   // the tanks' own exhaust is TankRenderer's
                 {
                     if ((w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) continue;
                     var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > 60f * 60f) continue;

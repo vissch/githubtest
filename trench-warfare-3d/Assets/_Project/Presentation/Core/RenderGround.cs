@@ -44,6 +44,20 @@ namespace TW.Presentation
         public static System.Action<UnityEngine.Vector3, int> Sparks;
         /// <summary>Places that smoke or steam gently: dugout chimneys, fires in the rain. (NightLights fills it, CombatFx draws.)</summary>
         public static readonly System.Collections.Generic.List<UnityEngine.Vector3> SmokeSources = new System.Collections.Generic.List<UnityEngine.Vector3>();
+        /// <summary>The tanks are drawn from their parts, with their own exhaust, sparks and wrecks: the box vehicle and the
+        /// generic vehicle effects stand down. (TankRenderer)</summary>
+        public static bool TanksDrawn;
+        /// <summary>Half the track gauge (x) and half the track length (y) of the vehicle in a slot, metres: where its ruts
+        /// run and where its tracks fling mud. (TankRenderer)</summary>
+        public static System.Func<int, UnityEngine.Vector2> VehicleTracks;
+        /// <summary>Where a vehicle's machine guns fire from (w = 1), or zero when unknown. (TankRenderer)</summary>
+        public static System.Func<int, UnityEngine.Vector4> VehicleGunPort;
+        /// <summary>Is a destroyed tank drawn as its own wreck at this x, z? The prop kit then leaves its stand-in out. (TankRenderer)</summary>
+        public static System.Func<float, float, bool> DrawnWreck;
+        /// <summary>Is this slot the tank TankRenderer draws (alive, or dying in the events being dispatched)? Answered
+        /// from its views, which follow the events, so a slot freed by a tank and refilled by a man in the same tick
+        /// reads right, where the slot's arrays would already hold the man. (TankRenderer)</summary>
+        public static System.Func<int, bool> IsTankSlot;
     }
 
     public static class RenderGround

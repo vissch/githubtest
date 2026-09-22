@@ -18,7 +18,7 @@ namespace TW.Presentation.Tactical
         public TacticalCamera Cam;
         public bool Visible = false;   // the BattleHud is the playing interface; this is the debug drawer
 
-        static readonly string[] SlotNames = { "Rifleman", "Assault", "MG team", "Sniper", "Mark IV" };
+        static readonly string[] SlotNames = { "Rifleman", "Assault", "MG team", "Sniper", "Tank (Maw)" };
         const float Width = 300f;
         GUIStyle box, header, small;
         Vector2 scroll;
@@ -206,7 +206,9 @@ namespace TW.Presentation.Tactical
             Host.ScriptedPeer = GUILayout.Toggle(Host.ScriptedPeer, " auto-deploy a unit every " + (Host.PeerDeployEveryTicks * w.Config.TickSeconds).ToString("0") + " s");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Enemy deploy 5")) for (int k = 0; k < 5; k++) Host.IssuePeer(SimCommand.Deploy(Host.Peer.World.Tick, 1, 0));
+            if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.Peer.World.Tick, 1, 4));
             GUILayout.EndHorizontal();
+            Host.PeerDeploysTanks = GUILayout.Toggle(Host.PeerDeploysTanks, " sends a tank whenever it can afford one");
             Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own with {Host.PeerAttackGarrison}+ men");
             GUILayout.Label("Or use the enemy trench's >> above to send them at you.", small);
 
@@ -228,6 +230,7 @@ namespace TW.Presentation.Tactical
                 if (GUILayout.Button("Overview")) Cam.Frame(new Vector2(mid, size.y * 0.5f), Cam.ZoomMax);
                 if (GUILayout.Button("Follow my units")) FollowUnits();
                 GUILayout.EndHorizontal();
+                if (GUILayout.Button("Next tank")) NextTank();
                 GUILayout.Label("You are on the LEFT, the enemy on the RIGHT.", small);
                 GUILayout.Label("WASD / edge: pan (speeds up)   wheel: zoom   Z: super zoom", small);
                 GUILayout.Label("right drag: turn and tilt   middle drag: pan   Home: reset view", small);
@@ -257,6 +260,22 @@ namespace TW.Presentation.Tactical
             var c = new SimCommand { Type = type, A = trench, B = b, Player = player };
             if (player == 0) { c.Tick = Host.Local.World.Tick; Host.Issue(c); }
             else { c.Tick = Host.Peer.World.Tick; Host.IssuePeer(c); }
+        }
+
+        int lastTank = -1;
+
+        /// <summary>Frame the next tank on the field (either side), close enough to see its tracks run.</summary>
+        void NextTank()
+        {
+            var w = Host.Local.World;
+            for (int k = 1; k <= w.HighWater; k++)
+            {
+                int i = (lastTank + k) % Mathf.Max(1, w.HighWater);
+                if ((w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) continue;
+                lastTank = i;
+                Cam.Frame(new Vector2(w.Position[i].x, w.Position[i].z), 24f);
+                return;
+            }
         }
 
         void FollowUnits()

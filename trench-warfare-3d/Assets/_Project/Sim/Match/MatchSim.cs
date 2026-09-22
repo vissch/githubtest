@@ -17,6 +17,8 @@ namespace TW.Sim.Match
         public TrenchOrdersSystem Orders;
         public MovementSystem Movement;
         public VehicleKinematicsSystem Vehicles;
+        public TankGunnerySystem Gunnery;        // null without combat
+        public VehicleModulesSystem Modules;
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
         public SuppressionSystem Suppression;
@@ -82,8 +84,14 @@ namespace TW.Sim.Match
             Movement = new MovementSystem(map);
             World.AddSystem(Movement);                      // A1: infantry
             Vehicles = new VehicleKinematicsSystem(map);
-            World.AddSystem(Vehicles);                      // A1: vehicles
-            // A5: World.AddSystem(new TW.Sim.Units.VehicleModulesSystem());
+            World.AddSystem(Vehicles);                      // A1 / A5b: vehicles: trenches, ditching, mud, slopes, crushing
+            if (combat)
+            {
+                Gunnery = new TankGunnerySystem(map);
+                World.AddSystem(Gunnery);                   // A5b: tank main guns (steps right after direct fire)
+            }
+            Modules = new VehicleModulesSystem(map);
+            World.AddSystem(Modules);                       // A5b: armour, modules, crew, fire, bail-out, cook-off, wrecks
             Sectors = new SectorControlSystem(map);
             World.AddSystem(Sectors);                       // A3 core: objectives, trench ownership, HQ = match end
             Abilities = new OffMapAbilitySystem();

@@ -4,6 +4,9 @@
 // that dies mid-tick is not shot again. hit = accuracy × range falloff × shooter stance × moving × own suppression
 // × (1 − target cover). A hit adds the weapon's suppression to the target; a miss adds 60 % of it to every enemy
 // of the shooter within 1.5 m of the target (NearMiss). Deaths are applied on the main thread after the job.
+// A vehicle is only ever close-assaulted (TargetAcquisition): the bundle of grenades is a VehicleHit on the armour,
+// queued on TankGunnerySystem.PendingHits for VehicleModulesSystem (without them, it takes the damage straight off).
+// A knocked-out hulk is not worth a grenade.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -21,6 +24,8 @@ namespace TW.Sim.Combat
         MovementSystem movement;
         NativeList<SimEvent> events;
         NativeList<int2> killed;     // (slot, killer) in the order they died
+        NativeList<VehicleHit> ownHits;   // close assaults when no TankGunnerySystem is registered
+        TankGunnerySystem gunnery;
 
         /// <summary>Totals since the match started, per team: shots fired and kills scored. Derived from hashed state, not hashed itself.</summary>
         public readonly int[] Shots = new int[SimConfig.MaxPlayers];
@@ -32,6 +37,7 @@ namespace TW.Sim.Combat
         {
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
+            ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -39,16 +45,25 @@ namespace TW.Sim.Combat
             int n = w.HighWater;
             if (n == 0) return;
             if (movement == null) movement = w.GetSystem<MovementSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs MovementSystem");
+            if (gunnery == null) gunnery = w.GetSystem<TankGunnerySystem>();
             events.Clear();
             killed.Clear();
+            ownHits.Clear();
             new FireJob
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
-                Events = events, Killed = killed,
+                Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
             }.Run();
+            for (int k = 0; k < ownHits.Length; k++)
+            {
+                var hit = ownHits[k];   // no armour model registered: the charge's damage comes straight off
+                w.Hp[hit.Target] = w.Hp[hit.Target] - hit.Damage;
+                w.Events.Add(w.Tick, SimEventType.Hit, hit.Shooter, hit.Target, hit.Pos, hit.Dir, hit.Damage);
+                if (w.Hp[hit.Target] <= 0f && w.IsAlive(hit.Target)) killed.Add(new int2(hit.Target, hit.Shooter));
+            }
 
             for (int e = 0; e < events.Length; e++)
             {
@@ -82,6 +97,7 @@ namespace TW.Sim.Combat
             public NativeArray<float> Hp, Suppression;
             public NativeList<SimEvent> Events;
             public NativeList<int2> Killed;
+            public NativeList<VehicleHit> VehicleHits;
 
             int CellOf(float3 p)
             {
@@ -115,18 +131,16 @@ namespace TW.Sim.Combat
                     float3 p = Position[i], q = Position[t];
                     if ((Flags[t] & (uint)UnitFlags.Vehicle) != 0)
                     {
-                        // close assault: a bundle of grenades on the tracks or through a vision slit
+                        if ((Flags[t] & (uint)UnitFlags.KnockedOut) != 0) { TargetSlot[i] = -1; continue; }
+                        // close assault: a bundle of grenades on the engine deck, the tracks or through a vision slit
                         FireCooldown[i] = CombatTables.CloseAssaultCooldownTicks;
                         var dice = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
                         float3 toward = q - p; toward.y = 0f;
                         float reach = SimMath.Length(toward);
-                        Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = reach > 1e-3f ? toward / reach : new float3(0f, 0f, 1f), Scalar = 1f });
+                        float3 along = reach > 1e-3f ? toward / reach : new float3(0f, 0f, 1f);
+                        Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = along, Scalar = 1f });
                         if (dice.NextFloat() < CombatTables.CloseAssaultChance)
-                        {
-                            Hp[t] = Hp[t] - CombatTables.CloseAssaultDamage;
-                            Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Scalar = CombatTables.CloseAssaultDamage });
-                            if (Hp[t] <= 0f) { Killed.Add(new int2(t, i)); TargetSlot[i] = -1; }
-                        }
+                            VehicleHits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.CloseAssault, PenMm = CombatTables.CloseAssaultPenMm, Damage = CombatTables.CloseAssaultDamage, Pos = q, Dir = along });
                         continue;
                     }
                     var weapon = CombatTables.WeaponFor(Archetype[i]);
@@ -138,7 +152,7 @@ namespace TW.Sim.Combat
                     var myStance = (Stance)StanceOf[i];
                     var theirStance = (Stance)StanceOf[t];
                     float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax)
-                                 * StanceRules.AccuracyMultiplier(myStance, Archetype[i] == 2 || Archetype[i] == 4)
+                                 * StanceRules.AccuracyMultiplier(myStance, Archetype[i] == 2 || VehicleArchetype.IsTank(Archetype[i]))
                                  * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                     if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (Flags[i] & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
 
@@ -201,6 +215,7 @@ namespace TW.Sim.Combat
         {
             if (events.IsCreated) events.Dispose();
             if (killed.IsCreated) killed.Dispose();
+            if (ownHits.IsCreated) ownHits.Dispose();
         }
     }
 }

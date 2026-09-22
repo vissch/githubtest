@@ -3,7 +3,9 @@
 // - craters: at most 4 stamps a tick (the rest wait), each carves the heightfield, marks Crater cells and turns wet
 //   where it went under the water table; emits CraterStamp for the terrain renderer;
 // - props: every blast wears down the trees inside its radius (tree -> broken tree -> stump, PropChanged), and a
-//   destroyed vehicle leaves a wreck that blocks its cell and gives cover;
+//   destroyed vehicle leaves a wreck that blocks its cell and gives cover (a wreck cannot stand in a trench, link,
+//   bunker or blocked cell, so a tank that died ditched, astride a trench or against a tree leaves it in the nearest
+//   cell within two that can hold it, or none);
 // - wire: a cratering blast clears the wire inside its crater (WireBreached).
 // Flow fields are marked stale whenever a nav cell changed. The map's mutable arrays are covered by MapData.Version,
 // which FlowFieldManager hashes; this system hashes its queue and a running checksum of what it has applied.
@@ -28,6 +30,26 @@ namespace TW.Sim.Match
 
         public DeformationSystem(MapData map) { this.map = map; }
 
+        /// <summary>The centre of the nearest nav cell within two of <paramref name="pos"/> that can hold a prop (not a
+        /// trench, link, bunker or blocked cell); ties go to the lower cell index.</summary>
+        bool NearestFreeCell(float3 pos, out float3 at)
+        {
+            var c = map.NavCellOf(pos);
+            float best = float.MaxValue; at = pos;
+            for (int dz = -2; dz <= 2; dz++)
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    int x = c.x + dx, z = c.y + dz;
+                    if (x < 0 || z < 0 || x >= map.NavWidth || z >= map.NavLength) continue;
+                    int cell = map.NavIndex(x, z);
+                    if (((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link | NavLayer.Bunker | NavLayer.Blocked)) != 0) continue;
+                    var centre = map.NavCellCenter(cell);
+                    float d = math.distancesq(centre.xz, pos.xz);
+                    if (d < best) { best = d; at = centre; }
+                }
+            return best < float.MaxValue;
+        }
+
         public void Initialize(SimWorld world)
         {
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("DeformationSystem needs FlowFieldManager registered before it");
@@ -45,17 +67,20 @@ namespace TW.Sim.Match
                 for (int i = 0; i < blast.Resolved.Length; i++) navChanged |= Shake(w, blast.Resolved[i]);
                 blast.Resolved.Clear();
             }
-            // wrecks: this tick's vehicle deaths (events are appended in sim order, so this is deterministic)
+            // wrecks: this tick's vehicle deaths (events are appended in sim order, so this is deterministic). The
+            // PropChanged carries the dead slot + 1 in dir.x, so the view can tie the hull it draws to this prop.
             var events = w.Events.Events;
             for (int i = 0, n0 = events.Length; i < n0; i++)
             {
                 var e = events[i];
                 if (e.Type != SimEventType.VehicleDestroyed) continue;
-                int index = map.AddProp(new PropDef { Pos = e.Pos, Yaw = e.Dir.y, Kind = PropKind.Wreck });
+                float3 at = e.Pos;
+                int index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck });
+                if (index < 0 && NearestFreeCell(e.Pos, out at)) index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck });
                 if (index < 0) continue;
-                checksum = SimHash.Value(e.Pos, checksum);
+                checksum = SimHash.Value(at, checksum);
                 PropsChanged++; navChanged = true;
-                w.Events.Add(w.Tick, SimEventType.PropChanged, index, (int)PropKind.Wreck, e.Pos);
+                w.Events.Add(w.Tick, SimEventType.PropChanged, index, (int)PropKind.Wreck, at, new float3(e.A + 1, 0f, 0f));
             }
 
             int n = Queue.Length < MaxStampsPerTick ? Queue.Length : MaxStampsPerTick;

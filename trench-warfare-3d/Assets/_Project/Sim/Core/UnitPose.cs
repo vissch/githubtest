@@ -21,6 +21,7 @@ namespace TW.Sim
         Masked = 1 << 8,        // gas mask issued (mission unlock)
         Burning = 1 << 9,
         Bogged = 1 << 10,
+        KnockedOut = 1 << 11,   // a vehicle whose crew is dead or gone: it burns until it is despawned into a wreck prop (only then does it block a cell and give cover; tanks already cannot push past it)
     }
 
     public struct UnitPose

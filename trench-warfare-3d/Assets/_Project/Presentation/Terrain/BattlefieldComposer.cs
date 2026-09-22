@@ -489,6 +489,7 @@ namespace TW.Presentation.Terrain
                     }
                     case PropKind.Log: emit(kit.fallenLog, Matrix4x4.TRS(at - new Vector3(0f, .06f, 0f), yaw, Vector3.one * s * .9f)); break;
                     case PropKind.Wreck:
+                        if (SceneHooks.DrawnWreck != null && SceneHooks.DrawnWreck(p.Pos.x, p.Pos.z)) break;   // TankRenderer draws the tank that died here
                         emit(kit.wreck, Matrix4x4.TRS(new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.25f, p.Pos.z), yaw, Vector3.one));
                         if (Rand(i, 141) < .6f)
                         {

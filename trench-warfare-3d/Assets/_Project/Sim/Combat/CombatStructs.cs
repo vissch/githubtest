@@ -28,5 +28,7 @@ namespace TW.Sim.Combat
         public float FrontMm, SideMm, RearMm, TopMm;
     }
 
-    public enum VehicleModule : byte { None = 0, Track = 1, Engine = 2, Crew = 3, Gun = 4 }
+    /// <summary>What a penetrating hit can break (VehicleModulesSystem keeps one health value per module, 1 = whole).
+    /// The first five keep their Phase-0 numbers.</summary>
+    public enum VehicleModule : byte { None = 0, TrackLeft = 1, Engine = 2, Crew = 3, GunA = 4, TrackRight = 5, GunB = 6, Fuel = 7, Ammo = 8, Count = 9 }
 }

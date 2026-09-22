@@ -391,6 +391,7 @@ namespace TW.Presentation.Units
 
         void DrawVehicles(Bounds bounds)
         {
+            if (SceneHooks.TanksDrawn) return;   // TankRenderer draws them from their parts
             int a = 0, b = 0;
             for (int i = 0; i < DrawnVehicles; i++)
             {

@@ -1,5 +1,5 @@
 // Phase: A2 (implemented as placeholder data; C2 bakes the real tables from TW.Data and replaces WeaponFor)
-// One weapon per Phase-0 roster archetype (0 rifleman, 1 assault, 2 machinegunner, 3 sniper, 4 tank hull MGs) and
+// One weapon per Phase-0 roster archetype (0 rifleman, 1 assault, 2 machinegunner, 3 sniper, 4/5 tank MGs) and
 // the shared rules of who can see and hit whom. Everything here is pure and Burst-compatible.
 using Unity.Burst;
 using Unity.Mathematics;
@@ -13,7 +13,8 @@ namespace TW.Sim.Combat
         public const float BelowRimRevealRange = 8f;     // a garrison below the rim can only be engaged from this close
         public const float CraterCover = 0.35f;          // added to the stance cover of a man standing in a shell hole
         public const float CloseAssaultRange = 8f;       // infantry this close to a vehicle attack it with bundled grenades
-        public const float CloseAssaultDamage = 600f;
+        public const float CloseAssaultDamage = 600f;         // structure, when the charge gets through the plate
+        public const float CloseAssaultPenMm = 20f;           // a grenade bundle on the deck: through a top plate, not a front
         public const float CloseAssaultChance = 0.5f;
         public const int CloseAssaultCooldownTicks = 60;
         public const float MovingAccuracy = 0.5f;        // shooter moving faster than MovingSpeed
@@ -31,8 +32,10 @@ namespace TW.Sim.Combat
                     return new WeaponStats { Id = 2, Damage = 24f, RangeMax = 170f, RoundsPerSecond = 7f, Accuracy = 0.30f, SuppressionPerShot = 9f };
                 case 3:  // sniper
                     return new WeaponStats { Id = 3, Damage = 95f, RangeMax = 230f, RoundsPerSecond = 0.3f, Accuracy = 0.9f, SuppressionPerShot = 20f };
-                case 4:  // tank hull machine guns
+                case 4:  // Maw: hull machine guns (its sponson 6-pdrs are TankGunnerySystem's)
                     return new WeaponStats { Id = 4, Damage = 24f, RangeMax = 120f, RoundsPerSecond = 5f, Accuracy = 0.30f, SuppressionPerShot = 10f };
+                case 5:  // Tusk: the machine gun beside the 37 mm in its turret
+                    return new WeaponStats { Id = 5, Damage = 24f, RangeMax = 110f, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f };
                 default: // rifleman
                     return new WeaponStats { Id = 0, Damage = 36f, RangeMax = 130f, RoundsPerSecond = 0.5f, Accuracy = 0.55f, SuppressionPerShot = 12f };
             }

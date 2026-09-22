@@ -7,7 +7,9 @@
 //  - a garrison below the rim (in a trench, not on the fire-step) can only be engaged from within 8 m or from
 //    inside the same trench; a garrison whose trench is on hold-fire, or that is suppressed past 40, does not look;
 //  - units under a >> order are running: they only engage within 60 m;
-//  - small arms cannot hurt vehicles (A5 adds penetration); infantry within 8 m close-assault them with grenades.
+//  - small arms cannot hurt vehicles; infantry within 8 m close-assault them with grenades (a charge on the armour);
+//  - a knocked-out vehicle (UnitFlags.KnockedOut) is no target and fires nothing. A tank's main guns choose their own
+//    targets (TankGunnerySystem); what is found here is for its machine guns.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -100,7 +102,7 @@ namespace TW.Sim.Combat
             {
                 distSq = 0f;
                 uint fj = Flags[j];
-                if ((fj & (uint)UnitFlags.Alive) == 0 || Team[j] == Team[i]) return false;
+                if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.KnockedOut) != 0 || Team[j] == Team[i]) return false;
                 float3 d = Position[j] - p; d.y = 0f;
                 distSq = math.lengthsq(d);
                 if (distSq > rangeSq) return false;
@@ -151,7 +153,7 @@ namespace TW.Sim.Combat
             public void Execute(int i)
             {
                 uint f = Flags[i];
-                if ((f & (uint)UnitFlags.Alive) == 0) { TargetSlot[i] = -1; return; }
+                if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.KnockedOut) != 0) { TargetSlot[i] = -1; return; }
                 short garrison = TrenchId[i];
                 bool silent = Suppression[i] >= SuppressionRules.PinnedThreshold
                               || (garrison >= 0 && (Trenches[garrison].HoldFire != 0 || Suppression[i] >= CombatTables.GarrisonFireSuppressionLimit));

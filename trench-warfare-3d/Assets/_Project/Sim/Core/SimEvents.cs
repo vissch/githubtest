@@ -24,9 +24,9 @@ namespace TW.Sim
         ObjectiveCaptured,  // a = objective id, b = team
         GasCloudSpawned,    // a = agent id, pos, dir = wind, scalar = concentration
         SmokeSpawned,       // pos, dir = line direction, scalar = length
-        VehicleTrackHit,    // a = slot
-        VehicleStalled,     // a = slot
-        VehicleDestroyed,   // a = slot
+        VehicleTrackHit,    // a = slot, b = side (0 left, 1 right)
+        VehicleStalled,     // a = slot, b = 1 the engine died / 0 it runs again
+        VehicleDestroyed,   // a = slot, b = killer, dir.y = hull yaw (SimWorld.Despawn)
         WireBreached,       // pos, scalar = width
         AbilityFired,       // a = ability id, b = player, pos
         WaveStarted,        // a = wave index, b = unit count
@@ -34,8 +34,24 @@ namespace TW.Sim
         CellBurning,        // pos, scalar = seconds
         MatchEnded,         // a = winning team (-1 draw)
         CommandRejected,    // a = command type, b = player (debug only; not hashed)
-        PropChanged,        // a = prop index, b = new PropKind, pos (a tree broke, a wreck appeared)
+        PropChanged,        // a = prop index, b = new PropKind, pos (a tree broke, a wreck appeared; for a wreck dir.x = the dead slot + 1)
+        // ---- armour (A5b): TankGunnerySystem, VehicleModulesSystem, VehicleKinematicsSystem ----
+        VehicleFired,       // a = slot, b = gun index, pos = where the round went, dir = muzzle direction, scalar = 0 AP / 1 HE
+        VehicleArmourHit,   // a = target, b = shooter (-1 blast), pos, dir = the round's direction, scalar = plate mm: + holed, - stopped
+        VehicleModuleHit,   // a = slot, b = VehicleModule, scalar = what is left of it (0 = destroyed)
+        VehicleOnFire,      // a = slot, b = 1 caught / 0 put out, scalar = intensity 0..1
+        VehicleCrewLost,    // a = slot, b = crew left
+        VehicleBailedOut,   // a = slot, b = men who got out (they are riflemen now)
+        VehicleKnockedOut,  // a = slot, b = VehicleKillCause, dir.y = hull yaw
+        VehicleCookOff,     // a = slot, pos, scalar = blast radius (its Explosion comes from BlastSystem the next tick)
+        VehicleBogged,      // a = slot, b = 1 stuck / 0 free
+        VehicleDitched,     // a = slot, b = trench id it nosed into (-1 = climbed out)
+        VehicleCrushed,     // a = slot, b = 0 wire / 1 tree / 2 man, pos
+        VehicleRepaired,    // a = slot, b = VehicleModule
     }
+
+    /// <summary>Why a vehicle stopped fighting (VehicleKnockedOut.b).</summary>
+    public enum VehicleKillCause : byte { Structure = 0, CrewLost = 1, Fire = 2, Ammunition = 3 }
 
     public struct SimEvent
     {

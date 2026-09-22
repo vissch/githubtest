@@ -41,6 +41,9 @@ namespace TW.Presentation.Tactical
             units = GetComponent<VATRenderer>();
             if (units == null) units = gameObject.AddComponent<VATRenderer>();
             if (units.Host == null) units.Host = Host;
+            var tanks = GetComponent<TankRenderer>();
+            if (tanks == null) tanks = gameObject.AddComponent<TankRenderer>();
+            if (tanks.Host == null) tanks.Host = Host;
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             matA = new Material(shader) { enableInstancing = true, color = new Color(0.55f, 0.45f, 0.25f) };
