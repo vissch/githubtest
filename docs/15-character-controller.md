@@ -281,10 +281,15 @@ most: prone death, get up, stumble, wire / wade, crawl.
 
 ## 14. Order of work
 
-Status 2026-09-22: the decision layer (sections 3 to 9) is built ahead of step 1 as `AnimationController` and drives
-today's 18-row atlas through a fallback row per clip; its trace of a rifleman's advance is in
-`docs/reference/controller/`. Steps 1 and 2 (the clip table, the bake, frame-based playback with cross-fades) make it
-visible; steps 3 to 6 become tuning of what already runs.
+Status 2026-09-22 (evening): steps 1 and 2 are built. The clip table is `Editor/InfantryClipTable.cs` (a C# list, not
+the ScriptableObject of section 11: nobody edits it in the inspector), the bake writes one gzip'd atlas per figure
+(`VatCodec`, `Resources/Units/Figure<Name>*`), `VATRenderer` plays once-and-hold rows with a 0.15 s cross-fade and
+the controller's yaw, and the figures are the owner's two Tripo models (`Soldier`, `Sniper`; the officer rig has no
+model yet, and mirroring was dropped because the outline pass cannot flip winding: left variants use real clips or
+another death). Rungs 9, 7, 5, 6, 8, 3, 1 and 2 run on real clips; a trench routine (kneel, peek, squat, kneeling
+fidgets, low under fire) fills the waiting. Left: rung 4's throw / melee / sling (sim steps), cover, the yaw offset
+and tilt of section 11, archetype tables (only the MG carry, the sniper's bolt and the assault's fire-on-the-move
+differ today), the officer, and a bake at 12 fps if the 35 MB per figure proves heavy on the GTX 1050.
 
 
 1. Baker: clip table, root-motion strip per clip, mirror, cut, frame rates; bake the 131; the far-tier map;

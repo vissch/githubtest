@@ -1,15 +1,18 @@
-// Phase: B3 (implemented with a placeholder soldier; C2 replaces the asset, not the renderer)
-// Every infantryman on the map in one draw: a Burst job turns SimPresenter.Poses into 32-byte instance records
-// (position on the terrain, yaw, anim row and phase, team), one GraphicsBuffer upload, one
-// Graphics.RenderMeshIndirect. Sized for the 3,000-unit ceiling. Two tiers, chosen by camera zoom because the
-// tactical camera is close to orthographic and every unit has the same size on screen: frame-blended below
-// LodTiers.BlendZoom, nearest-frame above it. The soldier is ~260 vertices, so 3,000 of them are under a million
-// vertices a frame and impostors are not needed (docs/11 B3). Vehicles are instanced boxes until C2.
+// Phase: B3 (implemented), C1 (clip atlas), C2 (figures)
+// Every infantryman on the map in a handful of draws: a Burst job turns SimPresenter.Poses into 48-byte instance
+// records (position on the terrain, yaw, the clip and phase, the clip fading out, team), sorted by figure, one
+// GraphicsBuffer upload, one Graphics.RenderMeshIndirect per figure. Sized for the 3,000-unit ceiling. Two tiers,
+// chosen by camera zoom because the tactical camera is close to orthographic and every unit has the same size on
+// screen: frame-blended below LodTiers.BlendZoom, nearest-frame above it.
 // Men outside the camera frustum are dropped in the fill job, and the draw is held to LodTiers.VertexBudget: when
 // the men on screen times the mesh's vertices (twice with shadows) exceed it, shadows go first.
 // The standard view is flat (25 degrees), so one frame holds men 40 m and 400 m away: beyond LodDistance a man is
-// drawn with the far model in a second indirect draw from the same instance buffer (near records from the front,
-// far records from the back). Until C2 delivers far models the far tier is the 264-vertex box soldier.
+// drawn with the far model in its own indirect draw from the same instance buffer (near records from the front,
+// far records from the back). The far tier is the 264-vertex box soldier.
+// Figures: the baked atlases in Resources/Units (Figure<Name>, VATBaker.Figures order): the Soldier for the
+// rifleman, assault and machine-gunner, the hooded Sniper for the sniper. Without any bake the box soldier is the
+// only tier. Rows: the controller writes a Clip per man; a clip atlas plays it as is, the box soldier maps it to one
+// of its 18 procedural rows (Clips.Table[].Fallback).
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
@@ -23,7 +26,7 @@ using TW.Presentation;
 
 namespace TW.Presentation.Units
 {
-    public struct VatInstance { public float3 Pos; public float Yaw, AnimRow, AnimT, Tint, Scale; }
+    public struct VatInstance { public float3 Pos; public float Yaw, AnimRow, AnimT, Tint, Scale, PrevRow, PrevT, Blend, Pad; }
 
     public static class LodTiers
     {
@@ -54,45 +57,83 @@ namespace TW.Presentation.Units
         /// <summary>Unit vertices submitted last frame, shadow pass included.</summary>
         public long VerticesThisFrame { get; private set; }
         public bool ShadowsThisFrame { get; private set; }
-        public bool Ready => material != null;
+        public bool Ready => figures != null && figures.Length > 0;
 
-        VatAsset asset, farAsset;
-        Material material, farMaterial, tankMatA, tankMatB;
+        /// <summary>The figure names, in archetype-map order; the assets are Resources/Units/Figure&lt;Name&gt;.</summary>
+        public static readonly string[] FigureNames = { "Soldier", "Sniper" };
+        /// <summary>Which figure each archetype is drawn with (rifleman, assault, machine-gunner: the soldier; sniper: the hooded man).</summary>
+        public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : 0;
+
+        sealed class Figure
+        {
+            public VatAsset Asset; public Material Material; public GraphicsBuffer Rows; public int Near, Start;
+            public MaterialPropertyBlock Props, FallenProps;
+        }
+        Figure[] figures;            // the near tier(s); one box-soldier figure when nothing is baked
+        Figure far;                  // the box soldier beyond LodDistance (null when nothing is baked: the box is then the near tier)
+        bool clipAtlas;
+        Material tankMatA, tankMatB;
         Mesh tankMesh;
-        GraphicsBuffer instanceBuffer, rowBuffer, farRowBuffer, argsBuffer;
-        NativeArray<VatInstance> instances;
+        GraphicsBuffer instanceBuffer, argsBuffer;
+        NativeArray<VatInstance> instances, sorted;
+        NativeArray<byte> figureOf;
         NativeArray<float4> vehicles;   // xyz + yaw; w sign carries the team
         NativeArray<int> counts;
         NativeArray<float4> planes;
+        NativeArray<ushort> nearRowOf, farRowOf;   // Clip -> row in the near / far atlas
+        NativeArray<float> spare;                   // stands in for the controller's arrays when there is no controller
         readonly Plane[] frustum = new Plane[6];
-        readonly GraphicsBuffer.IndirectDrawIndexedArgs[] args = new GraphicsBuffer.IndirectDrawIndexedArgs[2];
+        GraphicsBuffer.IndirectDrawIndexedArgs[] args;
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
-        static readonly int LerpId = Shader.PropertyToID("_Lerp");
+        static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize");
+        /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
+        public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
+        public VatAsset FigureAsset(int figure) => figures != null && figures.Length > 0 ? figures[math.clamp(figure, 0, figures.Length - 1)].Asset : null;
+        public bool ClipAtlas => clipAtlas;
+
+        static Figure Make(Shader shader, VatAsset a)
+        {
+            var m = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            m.SetTexture("_PosTex", a.Positions); m.SetTexture("_NrmTex", a.Normals);
+            m.SetFloat("_VertexCount", a.Mesh.vertexCount); m.SetFloat("_TotalFrames", a.TotalFrames);
+            m.SetVector(PosMinId, a.PosMin); m.SetVector(PosSizeId, a.PosSize);
+            var rows = new GraphicsBuffer(GraphicsBuffer.Target.Structured, a.RowTable.Length, 8);
+            rows.SetData(a.RowTable);
+            return new Figure { Asset = a, Material = m, Rows = rows, Props = new MaterialPropertyBlock(), FallenProps = new MaterialPropertyBlock() };
+        }
 
         void Start()
         {
             var shader = Shader.Find("TW/VAT Infantry (URP)");
             if (shader == null || !SystemInfo.supportsComputeShaders) { Debug.LogWarning("VATRenderer: VAT shader unavailable, units fall back to capsules"); return; }
-            var baked = Resources.Load<VatAssetData>(VatAssetData.ResourcePath);   // written by TW/VAT/Bake Infantry
-            asset = baked != null && baked.Mesh != null ? baked.ToAsset() : ProceduralSoldier.Build();
-            material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-            material.SetTexture("_PosTex", asset.Positions);
-            material.SetTexture("_NrmTex", asset.Normals);
-            material.SetFloat("_VertexCount", asset.Mesh.vertexCount);
-            material.SetFloat("_TotalFrames", asset.TotalFrames);
-
-            rowBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, asset.RowTable.Length, 8);
-            rowBuffer.SetData(asset.RowTable);
-            argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 2, GraphicsBuffer.IndirectDrawIndexedArgs.size);
-            if (baked != null && baked.Mesh != null)   // a real model up close, the box soldier far away
+            var baked = new List<VatAsset>();
+            foreach (var name in FigureNames)
             {
-                farAsset = ProceduralSoldier.Build();
-                farMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-                farMaterial.SetTexture("_PosTex", farAsset.Positions); farMaterial.SetTexture("_NrmTex", farAsset.Normals);
-                farMaterial.SetFloat("_VertexCount", farAsset.Mesh.vertexCount); farMaterial.SetFloat("_TotalFrames", farAsset.TotalFrames);
-                farMaterial.SetFloat(LerpId, 0f);
-                farRowBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, farAsset.RowTable.Length, 8);
-                farRowBuffer.SetData(farAsset.RowTable);
+                var data = Resources.Load<VatAssetData>("Units/Figure" + name);   // written by TW/VAT/Bake Infantry
+                if (data != null && data.Valid) baked.Add(data.ToAsset());
+                else if (baked.Count > 0) baked.Add(baked[baked.Count - 1]);   // a missing figure borrows the one before it
+                else Debug.LogWarning("VATRenderer: no bake for figure " + name);
+            }
+            if (baked.Count > 0 && baked.Count < FigureNames.Length) for (int k = baked.Count; k < FigureNames.Length; k++) baked.Add(baked[0]);
+            clipAtlas = baked.Count > 0 && baked[0].ClipAtlas;
+            if (baked.Count > 0)
+            {
+                figures = new Figure[baked.Count];
+                for (int k = 0; k < baked.Count; k++) figures[k] = Make(shader, baked[k]);
+                far = Make(shader, ProceduralSoldier.Build());
+                far.Material.SetFloat(LerpId, 0f);
+                if (clipAtlas) Clips.Apply(baked[0].RowSeconds);   // the controller times its one-shots by the bake
+            }
+            else figures = new[] { Make(shader, ProceduralSoldier.Build()) };
+            argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+            args = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
+            // the controller hands every man a Clip; each tier turns it into a row of its own atlas
+            nearRowOf = new NativeArray<ushort>((int)Clip.Count, Allocator.Persistent);
+            farRowOf = new NativeArray<ushort>((int)Clip.Count, Allocator.Persistent);
+            for (int c = 0; c < (int)Clip.Count; c++)
+            {
+                farRowOf[c] = (ushort)Clips.Table[c].Fallback;
+                nearRowOf[c] = clipAtlas ? (ushort)c : farRowOf[c];
             }
 
             var lit = Shader.Find("Universal Render Pipeline/Lit");
@@ -106,15 +147,23 @@ namespace TW.Presentation.Units
             if (instances.IsCreated && instances.Length >= maxSlots) return;
             Release();
             instances = new NativeArray<VatInstance>(maxSlots, Allocator.Persistent);
+            sorted = new NativeArray<VatInstance>(maxSlots, Allocator.Persistent);
+            figureOf = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             vehicles = new NativeArray<float4>(maxSlots, Allocator.Persistent);
             counts = new NativeArray<int>(3, Allocator.Persistent);
             planes = new NativeArray<float4>(6, Allocator.Persistent);
-            instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 32);
+            spare = new NativeArray<float>(1, Allocator.Persistent);
+            instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 48);
         }
+
+        static GraphicsBuffer.IndirectDrawIndexedArgs Args(Mesh mesh, int count, int start) => new GraphicsBuffer.IndirectDrawIndexedArgs
+        {
+            indexCountPerInstance = mesh.GetIndexCount(0), instanceCount = (uint)count, startIndex = mesh.GetIndexStart(0), baseVertexIndex = mesh.GetBaseVertex(0), startInstance = (uint)start,
+        };
 
         void LateUpdate()   // after SimHost.Update has interpolated this frame's poses
         {
-            if (material == null || Host == null || Host.Presenter == null || Host.Local == null) return;
+            if (figures == null || Host == null || Host.Presenter == null || Host.Local == null) return;
             var presenter = Host.Presenter;
             EnsureCapacity(presenter.Poses.Length);
             var cam = Camera.main;
@@ -125,12 +174,16 @@ namespace TW.Presentation.Units
             }
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
             float grow = Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
+            var anim = Host.Animation;
+            bool controlled = Host.UseAnimationController && anim != null;
             new FillJob
             {
-                Poses = presenter.Poses, PoseCount = presenter.PoseCount, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
+                Poses = presenter.Poses, PoseCount = presenter.PoseCount, PoseSlot = presenter.PoseSlot, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Ground = ReferenceEquals(RenderGround.Map, Host.Local.Map) ? RenderGround.Grid : default,
-                Instances = instances, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
-                CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = farAsset != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
+                Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
+                CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
+                Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
+                PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare,
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
             DrawnInfantry = DrawnNear + DrawnFar;
@@ -140,74 +193,84 @@ namespace TW.Presentation.Units
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
             if (DrawnInfantry > 0)
             {
+                // the near records grouped by figure, so each figure is one contiguous indirect draw
+                for (int k = 0; k < figures.Length; k++) figures[k].Near = 0;
+                for (int i = 0; i < DrawnNear; i++) figures[figureOf[i]].Near++;
+                for (int k = 0, at = 0; k < figures.Length; k++) { figures[k].Start = at; at += figures[k].Near; }
+                for (int i = 0; i < DrawnNear; i++) { var f = figures[figureOf[i]]; sorted[f.Start++] = instances[i]; }
+                for (int k = 0; k < figures.Length; k++) figures[k].Start -= figures[k].Near;
                 int farStart = instances.Length - DrawnFar;
-                if (DrawnNear > 0) instanceBuffer.SetData(instances, 0, 0, DrawnNear);
+                if (DrawnNear > 0) instanceBuffer.SetData(sorted, 0, 0, DrawnNear);
                 if (DrawnFar > 0) instanceBuffer.SetData(instances, farStart, farStart, DrawnFar);
-                args[0] = new GraphicsBuffer.IndirectDrawIndexedArgs
-                {
-                    indexCountPerInstance = asset.Mesh.GetIndexCount(0), instanceCount = (uint)DrawnNear,
-                    startIndex = asset.Mesh.GetIndexStart(0), baseVertexIndex = asset.Mesh.GetBaseVertex(0), startInstance = 0,
-                };
-                if (farAsset != null)
-                    args[1] = new GraphicsBuffer.IndirectDrawIndexedArgs
-                    {
-                        indexCountPerInstance = farAsset.Mesh.GetIndexCount(0), instanceCount = (uint)DrawnFar,
-                        startIndex = farAsset.Mesh.GetIndexStart(0), baseVertexIndex = farAsset.Mesh.GetBaseVertex(0), startInstance = (uint)farStart,
-                    };
+                long nearVerts = 0;
+                for (int k = 0; k < figures.Length; k++) { args[k] = Args(figures[k].Asset.Mesh, figures[k].Near, figures[k].Start); nearVerts += (long)figures[k].Near * figures[k].Asset.Mesh.vertexCount; }
+                long farVerts = far != null ? (long)DrawnFar * far.Asset.Mesh.vertexCount : 0;
+                if (far != null) args[figures.Length] = Args(far.Asset.Mesh, DrawnFar, farStart);
                 argsBuffer.SetData(args);
-                material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
-                long farVerts = farAsset != null ? (long)DrawnFar * farAsset.Mesh.vertexCount : 0;
-                ShadowsThisFrame = CastShadows && (long)DrawnNear * asset.Mesh.vertexCount * 2 + farVerts <= LodTiers.VertexBudget;   // only the near tier casts
-                VerticesThisFrame = (long)DrawnNear * asset.Mesh.vertexCount * (ShadowsThisFrame ? 2 : 1) + farVerts;
-                var rp = new RenderParams(material)
+                ShadowsThisFrame = CastShadows && nearVerts * 2 + farVerts <= LodTiers.VertexBudget;   // only the near tier casts
+                VerticesThisFrame = nearVerts * (ShadowsThisFrame ? 2 : 1) + farVerts;
+                for (int k = 0; k < figures.Length; k++)
                 {
-                    worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true,
-                    matProps = Props(),
-                };
-                if (DrawnNear > 0) Graphics.RenderMeshIndirect(rp, asset.Mesh, argsBuffer, 1, 0);
-                if (DrawnFar > 0)
+                    var f = figures[k];
+                    if (f.Near == 0) continue;
+                    f.Material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
+                    f.Props.SetBuffer("_Instances", instanceBuffer); f.Props.SetBuffer("_RowTable", f.Rows);
+                    var rp = new RenderParams(f.Material) { worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = f.Props };
+                    Graphics.RenderMeshIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
+                }
+                if (DrawnFar > 0 && far != null)
                 {
-                    if (farProps == null) farProps = new MaterialPropertyBlock();
-                    farProps.SetBuffer("_Instances", instanceBuffer); farProps.SetBuffer("_RowTable", farRowBuffer);
-                    var far = new RenderParams(farMaterial) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = farProps };
-                    Graphics.RenderMeshIndirect(far, farAsset.Mesh, argsBuffer, 1, 1);
+                    far.Props.SetBuffer("_Instances", instanceBuffer); far.Props.SetBuffer("_RowTable", far.Rows);
+                    var rp = new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.Props };
+                    Graphics.RenderMeshIndirect(rp, far.Asset.Mesh, argsBuffer, 1, figures.Length);
                 }
             }
             if (DrawnVehicles > 0) DrawVehicles(bounds);
             DrawFallen(cam, bounds, UnitScale * grow);
         }
 
-        // ---- the fallen: the same figure as the living, played once through one of its four deaths and held on the last
-        // frame where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
-        struct FallenMan { public Vector3 Pos; public float Yaw, Born; public byte Team, Row; }
+        // ---- the fallen: the same figure as the living, played once through his death and held on the last frame
+        // where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
+        struct FallenMan { public Vector3 Pos; public float Yaw, Born, Seconds; public byte Team, Figure; public ushort Row, FarRow; }
         readonly List<FallenMan> fallenMen = new List<FallenMan>(128);
         public int MaxFallen = 600;
         public float FallSeconds = 0.9f, FallenNearDistance = 70f;
         public int FallenCount => fallenMen.Count;
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
-        readonly GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[2];
-        MaterialPropertyBlock fallenProps, fallenFarProps;
+        GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
+        readonly List<int>[] fallenByFigure = new List<int>[8];
 
-        /// <summary>A man died here: he goes down facing yaw (radians) and stays. The oldest is taken away past MaxFallen.</summary>
-        public void AddFallen(Vector3 pos, float yaw, int team, int variant)
+        /// <summary>
+        /// A man died here: he goes down facing yaw (radians) and stays. The oldest is taken away past MaxFallen. With the clip
+        /// atlas the near tier plays the death the controller chose (clip) on his archetype's figure; the far tier and the box
+        /// soldier use the procedural death the variant picks.
+        /// </summary>
+        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0)
         {
             if (fallenMen.Count >= MaxFallen) fallenMen.RemoveAt(0);
-            fallenMen.Add(new FallenMan { Pos = pos, Yaw = yaw, Born = Time.time, Team = (byte)team, Row = (byte)((int)AnimRow.Death0 + (variant & 3)) });
+            ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
+            int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
+            bool near = clipAtlas && clip != Clip.None;
+            float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
+            fallenMen.Add(new FallenMan { Pos = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow });
         }
 
         void DrawFallen(Camera cam, Bounds bounds, float scale)
         {
-            if (fallenMen.Count == 0) return;
+            if (fallenMen.Count == 0 || figures == null) return;
             if (!fallenInstances.IsCreated)
             {
                 fallenInstances = new NativeArray<VatInstance>(MaxFallen, Allocator.Persistent);
-                fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 32);
-                fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 2, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+                fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 48);
+                fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+                fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
+                for (int k = 0; k < fallenByFigure.Length; k++) fallenByFigure[k] = new List<int>(64);
             }
-            int near = 0, far = 0, last = fallenInstances.Length - 1;
+            for (int k = 0; k < figures.Length; k++) fallenByFigure[k].Clear();
+            int farCount = 0, last = fallenInstances.Length - 1;
             Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
-            float now = Time.time, nearSq = farAsset != null && cam != null ? FallenNearDistance * FallenNearDistance : float.MaxValue;
+            float now = Time.time, nearSq = far != null && cam != null ? FallenNearDistance * FallenNearDistance : float.MaxValue;
             for (int i = 0; i < fallenMen.Count && i < fallenInstances.Length; i++)
             {
                 var f = fallenMen[i];
@@ -218,39 +281,41 @@ namespace TW.Presentation.Units
                     if (!seen) continue;
                 }
                 bool distant = (f.Pos - eye).sqrMagnitude > nearSq;
-                float frames = Mathf.Max(2f, (distant ? farAsset : asset).RowTable[f.Row].y);
-                float t = Mathf.Clamp01((now - f.Born) / FallSeconds) * (frames - 0.99f) / frames;   // the shader loops a row: stop on its last frame
-                fallenInstances[distant ? last - far++ : near++] = new VatInstance { Pos = f.Pos, Yaw = f.Yaw, AnimRow = f.Row, AnimT = t, Tint = f.Team, Scale = scale };
+                if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale); }
+                else fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i);
             }
-            if (near + far == 0) return;
-            int farStart = fallenInstances.Length - far;
+            int near = 0;
+            for (int k = 0; k < figures.Length; k++)
+            {
+                int start = near;
+                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; fallenInstances[near++] = Fallen(fallenMen[i], figures[k].Asset, fallenMen[i].Row, now, scale); }
+                fallenArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
+            }
+            if (near + farCount == 0) return;
+            int farStart = fallenInstances.Length - farCount;
             if (near > 0) fallenBuffer.SetData(fallenInstances, 0, 0, near);
-            if (far > 0) fallenBuffer.SetData(fallenInstances, farStart, farStart, far);
-            fallenArgsData[0] = new GraphicsBuffer.IndirectDrawIndexedArgs { indexCountPerInstance = asset.Mesh.GetIndexCount(0), instanceCount = (uint)near, startIndex = asset.Mesh.GetIndexStart(0), baseVertexIndex = asset.Mesh.GetBaseVertex(0), startInstance = 0 };
-            if (farAsset != null)
-                fallenArgsData[1] = new GraphicsBuffer.IndirectDrawIndexedArgs { indexCountPerInstance = farAsset.Mesh.GetIndexCount(0), instanceCount = (uint)far, startIndex = farAsset.Mesh.GetIndexStart(0), baseVertexIndex = farAsset.Mesh.GetBaseVertex(0), startInstance = (uint)farStart };
+            if (farCount > 0) fallenBuffer.SetData(fallenInstances, farStart, farStart, farCount);
+            if (far != null) fallenArgsData[figures.Length] = Args(far.Asset.Mesh, farCount, farStart);
             fallenArgs.SetData(fallenArgsData);
-            if (near > 0)
+            for (int k = 0; k < figures.Length; k++)
             {
-                if (fallenProps == null) fallenProps = new MaterialPropertyBlock();
-                fallenProps.SetBuffer("_Instances", fallenBuffer); fallenProps.SetBuffer("_RowTable", rowBuffer);
-                Graphics.RenderMeshIndirect(new RenderParams(material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fallenProps }, asset.Mesh, fallenArgs, 1, 0);
+                if (fallenArgsData[k].instanceCount == 0) continue;
+                var fig = figures[k];
+                fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);
+                Graphics.RenderMeshIndirect(new RenderParams(fig.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
             }
-            if (far > 0 && farAsset != null)
+            if (farCount > 0 && far != null)
             {
-                if (fallenFarProps == null) fallenFarProps = new MaterialPropertyBlock();
-                fallenFarProps.SetBuffer("_Instances", fallenBuffer); fallenFarProps.SetBuffer("_RowTable", farRowBuffer);
-                Graphics.RenderMeshIndirect(new RenderParams(farMaterial) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fallenFarProps }, farAsset.Mesh, fallenArgs, 1, 1);
+                far.FallenProps.SetBuffer("_Instances", fallenBuffer); far.FallenProps.SetBuffer("_RowTable", far.Rows);
+                Graphics.RenderMeshIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
             }
         }
 
-        MaterialPropertyBlock props, farProps;
-        MaterialPropertyBlock Props()
+        static VatInstance Fallen(in FallenMan f, VatAsset tier, ushort row, float now, float scale)
         {
-            if (props == null) props = new MaterialPropertyBlock();
-            props.SetBuffer("_Instances", instanceBuffer);
-            props.SetBuffer("_RowTable", rowBuffer);
-            return props;
+            float t = Mathf.Clamp01((now - f.Born) / f.Seconds);
+            if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
+            return new VatInstance { Pos = f.Pos, Yaw = f.Yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale };
         }
 
         void DrawVehicles(Bounds bounds)
@@ -273,11 +338,16 @@ namespace TW.Presentation.Units
         struct FillJob : IJob
         {
             [ReadOnly] public NativeArray<UnitPose> Poses;
+            [ReadOnly] public NativeArray<int> PoseSlot;
             [ReadOnly] public Heightfield Height;
             public RenderGroundGrid Ground;
-            public int PoseCount;
+            public int PoseCount, Figures;
             public float Scale;
+            public bool Controlled;
+            [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow;
+            [ReadOnly] public NativeArray<float> PrevPhase, Blend;
             public NativeArray<VatInstance> Instances;
+            public NativeArray<byte> FigureOf;
             public NativeArray<float4> Vehicles;
             public NativeArray<int> Counts;
             [ReadOnly] public NativeArray<float4> Planes;
@@ -308,10 +378,21 @@ namespace TW.Presentation.Units
                         continue;
                     }
                     bool distant = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;
-                    Instances[distant ? last - far++ : n++] = new VatInstance
+                    var map = distant ? FarRowOf : NearRowOf;
+                    int row = p.AnimRow, prevRow = row; float prevT = 0f, blend = 0f;
+                    if (Controlled)
                     {
-                        Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = p.AnimRow, AnimT = p.AnimT, Tint = p.Team, Scale = Scale,
+                        int slot = PoseSlot[i];
+                        row = map[math.min(row, map.Length - 1)];
+                        prevRow = map[math.min(PrevRow[slot], map.Length - 1)]; prevT = PrevPhase[slot]; blend = Blend[slot];
+                    }
+                    var inst = new VatInstance
+                    {
+                        Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = row, AnimT = p.AnimT, Tint = p.Team, Scale = Scale,
+                        PrevRow = prevRow, PrevT = prevT, Blend = blend,
                     };
+                    if (distant) Instances[last - far++] = inst;
+                    else { FigureOf[n] = (byte)math.min(Figures - 1, FigureOfArchetype(p.Archetype)); Instances[n++] = inst; }
                 }
                 Counts[0] = n; Counts[1] = v; Counts[2] = far;
             }
@@ -341,17 +422,22 @@ namespace TW.Presentation.Units
         void Release()
         {
             if (instances.IsCreated) instances.Dispose();
+            if (sorted.IsCreated) sorted.Dispose();
+            if (figureOf.IsCreated) figureOf.Dispose();
             if (vehicles.IsCreated) vehicles.Dispose();
             if (counts.IsCreated) counts.Dispose();
             if (planes.IsCreated) planes.Dispose();
+            if (spare.IsCreated) spare.Dispose();
             instanceBuffer?.Dispose(); instanceBuffer = null;
         }
 
         void OnDestroy()
         {
             Release();
-            rowBuffer?.Dispose(); farRowBuffer?.Dispose(); argsBuffer?.Dispose();
+            if (figures != null) foreach (var f in figures) f.Rows?.Dispose();
+            far?.Rows?.Dispose(); argsBuffer?.Dispose();
             fallenBuffer?.Dispose(); fallenArgs?.Dispose(); if (fallenInstances.IsCreated) fallenInstances.Dispose();
+            if (nearRowOf.IsCreated) nearRowOf.Dispose(); if (farRowOf.IsCreated) farRowOf.Dispose();
         }
     }
 }

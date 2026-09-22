@@ -212,6 +212,22 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   run (drop in, kneel, fire from the step, over the top, sprint, hit on the move, drop into the next trench). Not
   built yet: the cross-fade and rate are recorded in `AnimState` but the atlas cannot play them; reload / throw /
   melee wait for the sim steps; cover, sling and the officer rig are not wired.
+  Clip atlas and figures (2026-09-22, later the same day): docs/15 steps 1 and 2 are built. `Editor/InfantryClipTable.cs`
+  names the Mixamo (or made) file behind each of the 105 `Clip`s with its fps, cuts, loop/hold, root and yaw
+  stripping; `VATBaker` bakes every figure in `VATBaker.Figures` through the table (root travel removed as a trend,
+  first frame turned to +Z, the clips' hips scaled to the rig's leg length) into one gzip'd `.bytes` atlas per figure
+  (`VatCodec`: 16-bit positions, 8-bit normals, ~18 MB each, 3,291 frames) so a bake is not 150 MB of YAML. The
+  figures are the owner's Tripo models auto-rigged on Mixamo: `Art/Characters/Soldier.fbx` (rifleman, assault, MG)
+  and `Sniper.fbx` (the hooded man), ~900 vertices each, textured (the albedo is sampled into vertex colours; the
+  cloth bones carry brightness only and the team colour recolours them); the clip files are in
+  `Art/Characters/Clips` (103 FBX, 47 MB). `VATRenderer` draws one indirect draw per figure by archetype, with
+  play-once-and-hold rows, a 0.15 s cross-fade between clips (48-byte `VatInstance`), the controller's yaw, and the
+  matched death clip in the fallen buffer; the box soldier stays as the far tier. The controller now really shows:
+  kneeling behind the parapet, a periodic peek over it, a squat shift, kneeling fidgets, the bolt worked after each
+  rifle shot, stand↔kneel damped against the sim's target flicker, the three-part climb out. Gotchas: a stale
+  `Library/BurstCache` after the instance struct grew threw inside Burst jobs (delete it); the clip gallery
+  (scratchpad `gal2.sh`, draws one man per clip from the atlas in the air) is how a bake is checked — it caught the
+  whole army baked facing −Z. Still open from the critique rounds: see docs/15 §14.
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one

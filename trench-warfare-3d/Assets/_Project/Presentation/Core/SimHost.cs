@@ -91,7 +91,7 @@ namespace TW.Presentation
             LocalDriver = new LockstepDriver(Local.World, net.A);
             PeerDriver = new LockstepDriver(Peer.World, net.B);
             Presenter = new SimPresenter(cfg.MaxSlots);
-            Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn);
+            Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn, Presenter.YawIn);
             Presenter.Capture(Local.World);
         }
 

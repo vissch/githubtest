@@ -421,7 +421,15 @@ namespace TW.Presentation.Tactical
                     float fellYaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg;
                     int death = (Mathf.FloorToInt(p.x * 13f) ^ Mathf.FloorToInt(p.z * 29f)) & 3;
                     // he goes down as the figure he was (VATRenderer plays the death and holds it); without it, a still box figure
-                    if (units != null && units.Ready) units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad, team, death);
+                    if (units != null && units.Ready)
+                    {
+                        // the controller chose the death for his stance, gait and the side the shot came from; it is drawn where he fell
+                        var anim = Host != null ? Host.Animation : null;
+                        bool controlled = anim != null && Host.UseAnimationController && e.A >= 0 && e.A < w.HighWater;
+                        Clip deathClip = controlled ? anim.State[e.A].Clip : Clip.None;
+                        float yaw = controlled ? anim.State[e.A].ShownYaw : e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad;
+                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0);
+                    }
                     else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Team = team, Variant = (byte)death });
                     // his helmet comes off as he goes down and rolls a step away
                     if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on

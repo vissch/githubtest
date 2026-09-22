@@ -1,6 +1,6 @@
-// Phase: B3 (implemented)
-// What VATBaker writes and VATRenderer loads (Resources/Units/InfantryVat): the mesh, the two RGBAHalf atlases and the
-// row table in AnimRow order. Without one the renderer falls back to ProceduralSoldier.
+// Phase: B3 (implemented), C1 (clip atlas)
+// What VATBaker writes and VATRenderer loads (Resources/Units/InfantryVat): the mesh and the gzip'd atlas bytes
+// (VatCodec), one row per controller Clip. Without one the renderer falls back to ProceduralSoldier.
 using UnityEngine;
 
 namespace TW.Presentation.Units
@@ -10,10 +10,10 @@ namespace TW.Presentation.Units
         public const string ResourcePath = "Units/InfantryVat";
 
         public Mesh Mesh;
-        public Texture2D Positions, Normals;
-        public Vector2[] RowTable;
-        public int TotalFrames;
+        public TextAsset Atlas;
+        public int Rows, TotalFrames, VertexCount;   // what the bytes hold, for the inspector and the tests
 
-        public VatAsset ToAsset() => new VatAsset { Mesh = Mesh, Positions = Positions, Normals = Normals, RowTable = RowTable, TotalFrames = TotalFrames };
+        public bool Valid => Mesh != null && Atlas != null && Atlas.bytes != null && Atlas.bytes.Length > 0;
+        public VatAsset ToAsset() => VatCodec.Decode(Atlas.bytes, Mesh, "InfantryVat");
     }
 }

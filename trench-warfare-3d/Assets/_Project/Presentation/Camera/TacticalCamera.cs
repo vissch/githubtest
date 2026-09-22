@@ -70,6 +70,8 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Snap to a point on the map at a zoom distance; used by the test panel's presets.</summary>
         public void Frame(Vector2 focus, float zoom) { Focus = focus; Zoom = Mathf.Clamp(zoom, ZoomMin, ZoomMax); yaw = 0f; pitchOffset = 0f; freeLook = false; }
+        /// <summary>Frame, turned by yawDeg about the focus (free look, past the Q/E limits): the captures that walk round a man.</summary>
+        public void FrameFrom(Vector2 focus, float zoom, float yawDeg) { Frame(focus, zoom); yaw = yawDeg; freeLook = true; }
 
         /// <summary>The angle the battle asks for at this focus and zoom, eased in.</summary>
         void FollowBattle(float close)

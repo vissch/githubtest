@@ -2,8 +2,9 @@
 // controller. Every sim tick it reads each man's stance, speed, target, flags, the ground under him and the events
 // that named him, and runs the priority ladder: death, trench edge, reaction, action, stance change, turn,
 // locomotion, fire, idle. The top rung with something to say owns the body; a one-shot keeps it until it ends unless
-// a higher rung takes over. Between ticks Advance moves the frame. Until the baker's clip table exists every clip
-// maps to a row of today's 18-row atlas (Clips.Fallback), so the men already change on screen; the trace
+// a higher rung takes over. Between ticks Advance moves the frame, closes the cross-fade and eases the shown yaw. Each clip is
+// a row of the baked atlas (Editor/InfantryClipTable maps it to its Mixamo file; VATRenderer plays it) and also names
+// one of the 18 procedural rows (Fallback) for the far tier and for a project without the bake. The trace
 // (Follow / TraceText) records one man's rung changes with their reasons, which is how the ladder is judged.
 using System.Collections.Generic;
 using System.Text;
@@ -19,20 +20,20 @@ namespace TW.Presentation
     public enum Clip : byte
     {
         None,
-        // idle
-        Idle, AimedIdle, ReadyIdle, KneelIdle, ProneIdle, StoopIdle, FidgetLookAround, FidgetRubEyes, FidgetCheckShoe, FidgetCollar,
+        // idle (KneelAimedIdle is the squat with the rifle up; FidgetRubEyes is a kneeling fidget, the others stand)
+        Idle, AimedIdle, ReadyIdle, KneelIdle, KneelAimedIdle, ProneIdle, StoopIdle, FidgetLookAround, FidgetRubEyes, FidgetCheckShoe, FidgetCollar, FidgetInspect,
         // locomotion
-        Walk, WalkAimed, WalkWary, WalkBack, WalkLeft, WalkRight, Run, RunBack, Sprint, StoopWalk, StoopLow, CrouchRun, Crawl, CrawlBack, Wade, SideStep,
+        Walk, WalkAimed, WalkWary, WalkBack, WalkLeft, WalkRight, Run, RunBack, Sprint, StoopWalk, StoopLow, CrouchRun, Crawl, CrawlBack, Wade, SideStep, MGCarry, WireCross,
         FireWalk, FireRun, FireSprint, FireStoop,
-        // fire
-        FireStand, FireStandSlow, FireKneel, FireProne, FireMG, AimUp, AimDown, KneelAimUp, KneelAimDown,
+        // fire (FireSnap is the 0.27 s aimed shot: the bolt-action rifle and the sniper, followed by ReloadBolt)
+        FireStand, FireSnap, FireKneel, FireProne, FireMG, AimUp, AimDown, KneelAimUp, KneelAimDown,
         // actions
         ReloadStand, ReloadStoop, ReloadProne, ReloadBolt, Throw, MeleeStab, MeleePunch, MeleeSmash, MeleeBlock, Sling, Unsling,
         // reactions
         HitStand, HitHeavy, HitWalk, HitRun, HitProne, KneelFlinch, ProneFlinch, Duck, Shield, DiveRoll, ProneRoll, Trip, GetUp, MaskOn, Burning, Stumble,
-        // trench and stance
-        JumpDown, ClimbOut, ClimbLadder, StandToKneel, KneelToStand, KneelToProne, ProneToKneel, StandToStoop, StoopToStand, TakeCover, Emerge,
-        Turn90L, Turn90R, Turn180, KneelTurn90L, KneelTurn90R,
+        // trench and stance (the climb out is three parts: the push up, the hold while the sim lifts him, the landing)
+        JumpDown, ClimbOut, ClimbHold, ClimbLand, ClimbLadder, StandToKneel, KneelToStand, KneelToProne, ProneToKneel, StandToStoop, StoopToStand, StoopToKneel, KneelToStoop, TakeCover, Emerge,
+        Turn90L, Turn90R, Turn180, KneelTurn90L, KneelTurn90R, StoopTurn90L, StoopTurn90R, StoopTurn180,
         // deaths
         DeathFront, DeathBack, DeathRight, DeathLeft, DeathHeadshot, DeathWalking, DeathRunning, DeathKneel, DeathSquat, DeathProne, DeathBlast,
         Count
@@ -46,22 +47,31 @@ namespace TW.Presentation
     public static class Clips
     {
         public static readonly ClipInfo[] Table = Build();
+
+        /// <summary>The bake's own lengths replace the table's estimates (VATRenderer, once the atlas is loaded).</summary>
+        public static void Apply(float[] rowSeconds)
+        {
+            for (int c = 0; c < Table.Length && c < rowSeconds.Length; c++) if (rowSeconds[c] > 0.01f) Table[c].Seconds = rowSeconds[c];
+        }
         static ClipInfo L(float s, AnimRow row, float speed = 0f, Stance stance = Stance.Standing) => new ClipInfo { Seconds = s, Loop = true, Fallback = row, Speed = speed, Stance = (byte)stance };
         static ClipInfo O(float s, AnimRow row, Stance stance = Stance.Standing) => new ClipInfo { Seconds = s, Loop = false, Fallback = row, Stance = (byte)stance };
         static ClipInfo[] Build()
         {
             var t = new ClipInfo[(int)Clip.Count];
             t[(int)Clip.Idle] = L(2.4f, AnimRow.Idle); t[(int)Clip.AimedIdle] = L(2f, AnimRow.FireStanding); t[(int)Clip.ReadyIdle] = L(2.6f, AnimRow.Idle);
-            t[(int)Clip.KneelIdle] = L(2.4f, AnimRow.CrouchWalk, 0f, Stance.Crouch); t[(int)Clip.ProneIdle] = L(2.6f, AnimRow.PinnedLoop, 0f, Stance.Prone); t[(int)Clip.StoopIdle] = L(2.2f, AnimRow.CrouchWalk, 0f, Stance.Crouch);
-            t[(int)Clip.FidgetLookAround] = O(3.2f, AnimRow.Idle); t[(int)Clip.FidgetRubEyes] = O(2.8f, AnimRow.Idle); t[(int)Clip.FidgetCheckShoe] = O(3.6f, AnimRow.Idle); t[(int)Clip.FidgetCollar] = O(2.6f, AnimRow.Idle);
+            t[(int)Clip.KneelIdle] = L(1.7f, AnimRow.CrouchWalk, 0f, Stance.Crouch); t[(int)Clip.KneelAimedIdle] = L(2.1f, AnimRow.FireFireStep, 0f, Stance.Crouch);
+            t[(int)Clip.ProneIdle] = L(4.9f, AnimRow.PinnedLoop, 0f, Stance.Prone); t[(int)Clip.StoopIdle] = L(6.7f, AnimRow.CrouchWalk, 0f, Stance.Crouch);
+            t[(int)Clip.FidgetLookAround] = O(5.3f, AnimRow.Idle); t[(int)Clip.FidgetRubEyes] = O(1.8f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.FidgetCheckShoe] = O(4.7f, AnimRow.Idle); t[(int)Clip.FidgetCollar] = O(5.9f, AnimRow.Idle);
+            t[(int)Clip.FidgetInspect] = O(3.2f, AnimRow.Idle);
             t[(int)Clip.Walk] = L(1.07f, AnimRow.Walk, 1.4f); t[(int)Clip.WalkAimed] = L(1.1f, AnimRow.Walk, 1.3f); t[(int)Clip.WalkWary] = L(1.33f, AnimRow.Walk, 1.1f);
             t[(int)Clip.WalkBack] = L(1.1f, AnimRow.Walk, 1.1f); t[(int)Clip.WalkLeft] = L(1.1f, AnimRow.Walk, 1.2f); t[(int)Clip.WalkRight] = L(1.1f, AnimRow.Walk, 1.2f);
             t[(int)Clip.Run] = L(0.7f, AnimRow.Sprint, 3.2f); t[(int)Clip.RunBack] = L(0.8f, AnimRow.Sprint, 2.6f); t[(int)Clip.Sprint] = L(0.6f, AnimRow.Sprint, 5f);
             t[(int)Clip.StoopWalk] = L(1.2f, AnimRow.CrouchWalk, 1f, Stance.Crouch); t[(int)Clip.StoopLow] = L(1.3f, AnimRow.CrouchWalk, 0.8f, Stance.Crouch); t[(int)Clip.CrouchRun] = L(0.8f, AnimRow.CrouchWalk, 2.4f, Stance.Crouch);
             t[(int)Clip.Crawl] = L(1.9f, AnimRow.ProneCrawl, 0.5f, Stance.Prone); t[(int)Clip.CrawlBack] = L(1.9f, AnimRow.ProneCrawl, 0.4f, Stance.Prone);
             t[(int)Clip.Wade] = L(2.5f, AnimRow.Walk, 0.7f); t[(int)Clip.SideStep] = L(1.2f, AnimRow.Walk, 0.8f);
+            t[(int)Clip.MGCarry] = L(1.3f, AnimRow.Walk, 1.2f); t[(int)Clip.WireCross] = L(2.4f, AnimRow.CrouchWalk, 0.5f, Stance.Crouch);
             t[(int)Clip.FireWalk] = L(1.1f, AnimRow.FireStanding, 1.3f); t[(int)Clip.FireRun] = L(0.75f, AnimRow.Sprint, 3f); t[(int)Clip.FireSprint] = L(0.65f, AnimRow.Sprint, 4.5f); t[(int)Clip.FireStoop] = L(1.2f, AnimRow.CrouchWalk, 1f, Stance.Crouch);
-            t[(int)Clip.FireStand] = O(0.7f, AnimRow.FireStanding); t[(int)Clip.FireStandSlow] = O(1.4f, AnimRow.FireStanding); t[(int)Clip.FireKneel] = O(0.8f, AnimRow.FireFireStep, Stance.Crouch);
+            t[(int)Clip.FireStand] = O(1.17f, AnimRow.FireStanding); t[(int)Clip.FireSnap] = O(0.27f, AnimRow.FireStanding); t[(int)Clip.FireKneel] = O(1.0f, AnimRow.FireFireStep, Stance.Crouch);
             t[(int)Clip.FireProne] = O(0.9f, AnimRow.FireProne, Stance.Prone); t[(int)Clip.FireMG] = L(0.45f, AnimRow.FireProne, 0f, Stance.Prone);
             t[(int)Clip.AimUp] = O(0.6f, AnimRow.FireStanding); t[(int)Clip.AimDown] = O(0.6f, AnimRow.Idle); t[(int)Clip.KneelAimUp] = O(0.6f, AnimRow.FireFireStep, Stance.Crouch); t[(int)Clip.KneelAimDown] = O(0.6f, AnimRow.CrouchWalk, Stance.Crouch);
             t[(int)Clip.ReloadStand] = O(2.3f, AnimRow.Idle); t[(int)Clip.ReloadStoop] = O(2.4f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.ReloadProne] = O(2.6f, AnimRow.PinnedLoop, Stance.Prone); t[(int)Clip.ReloadBolt] = O(1.2f, AnimRow.FireStanding);
@@ -71,10 +81,12 @@ namespace TW.Presentation
             t[(int)Clip.HitProne] = O(0.8f, AnimRow.PinnedLoop, Stance.Prone); t[(int)Clip.KneelFlinch] = O(0.6f, AnimRow.Flinch1, Stance.Crouch); t[(int)Clip.ProneFlinch] = O(0.6f, AnimRow.PinnedLoop, Stance.Prone);
             t[(int)Clip.Duck] = O(0.9f, AnimRow.Flinch2); t[(int)Clip.Shield] = O(1.4f, AnimRow.Flinch2); t[(int)Clip.DiveRoll] = O(1.5f, AnimRow.Flinch2); t[(int)Clip.ProneRoll] = O(1.2f, AnimRow.PinnedLoop, Stance.Prone);
             t[(int)Clip.Trip] = O(1.3f, AnimRow.Flinch2); t[(int)Clip.GetUp] = O(2.3f, AnimRow.CrouchWalk); t[(int)Clip.MaskOn] = O(2.6f, AnimRow.Flinch2); t[(int)Clip.Burning] = L(1.33f, AnimRow.Sprint, 2.5f); t[(int)Clip.Stumble] = O(2.3f, AnimRow.Sprint);
-            t[(int)Clip.JumpDown] = O(0.7f, AnimRow.Vault); t[(int)Clip.ClimbOut] = O(1.3f, AnimRow.Vault); t[(int)Clip.ClimbLadder] = L(1.2f, AnimRow.Vault, 0.8f);
-            t[(int)Clip.StandToKneel] = O(0.6f, AnimRow.CrouchWalk); t[(int)Clip.KneelToStand] = O(0.6f, AnimRow.CrouchWalk); t[(int)Clip.KneelToProne] = O(0.9f, AnimRow.ProneCrawl, Stance.Prone); t[(int)Clip.ProneToKneel] = O(1.1f, AnimRow.CrouchWalk, Stance.Prone);
-            t[(int)Clip.StandToStoop] = O(0.4f, AnimRow.CrouchWalk); t[(int)Clip.StoopToStand] = O(0.4f, AnimRow.CrouchWalk); t[(int)Clip.TakeCover] = O(1.2f, AnimRow.CrouchWalk); t[(int)Clip.Emerge] = O(0.9f, AnimRow.Walk);
-            t[(int)Clip.Turn90L] = O(0.7f, AnimRow.Idle); t[(int)Clip.Turn90R] = O(0.7f, AnimRow.Idle); t[(int)Clip.Turn180] = O(1f, AnimRow.Idle); t[(int)Clip.KneelTurn90L] = O(0.8f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.KneelTurn90R] = O(0.8f, AnimRow.CrouchWalk, Stance.Crouch);
+            t[(int)Clip.JumpDown] = O(1.8f, AnimRow.Vault); t[(int)Clip.ClimbOut] = O(0.53f, AnimRow.Vault); t[(int)Clip.ClimbHold] = L(1f, AnimRow.Vault); t[(int)Clip.ClimbLand] = O(0.67f, AnimRow.Vault); t[(int)Clip.ClimbLadder] = L(1.2f, AnimRow.Vault, 0.8f);
+            t[(int)Clip.StandToKneel] = O(0.93f, AnimRow.CrouchWalk); t[(int)Clip.KneelToStand] = O(1.23f, AnimRow.CrouchWalk); t[(int)Clip.KneelToProne] = O(1.97f, AnimRow.ProneCrawl, Stance.Prone); t[(int)Clip.ProneToKneel] = O(1.97f, AnimRow.CrouchWalk, Stance.Prone);
+            t[(int)Clip.StandToStoop] = O(1.4f, AnimRow.CrouchWalk); t[(int)Clip.StoopToStand] = O(1.5f, AnimRow.CrouchWalk); t[(int)Clip.StoopToKneel] = O(1.5f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.KneelToStoop] = O(1.5f, AnimRow.CrouchWalk, Stance.Crouch);
+            t[(int)Clip.TakeCover] = O(2.3f, AnimRow.CrouchWalk); t[(int)Clip.Emerge] = O(2.3f, AnimRow.Walk);
+            t[(int)Clip.Turn90L] = O(1.33f, AnimRow.Idle); t[(int)Clip.Turn90R] = O(1.5f, AnimRow.Idle); t[(int)Clip.Turn180] = O(1.9f, AnimRow.Idle); t[(int)Clip.KneelTurn90L] = O(1.3f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.KneelTurn90R] = O(1.3f, AnimRow.CrouchWalk, Stance.Crouch);
+            t[(int)Clip.StoopTurn90L] = O(1.27f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.StoopTurn90R] = O(1.5f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.StoopTurn180] = O(1.47f, AnimRow.CrouchWalk, Stance.Crouch);
             t[(int)Clip.DeathFront] = O(1.8f, AnimRow.Death0); t[(int)Clip.DeathBack] = O(1.8f, AnimRow.Death1); t[(int)Clip.DeathRight] = O(1.8f, AnimRow.Death2); t[(int)Clip.DeathLeft] = O(1.8f, AnimRow.Death3);
             t[(int)Clip.DeathHeadshot] = O(1.6f, AnimRow.Death1); t[(int)Clip.DeathWalking] = O(2f, AnimRow.Death0); t[(int)Clip.DeathRunning] = O(2.2f, AnimRow.Death0); t[(int)Clip.DeathKneel] = O(1.7f, AnimRow.Death2); t[(int)Clip.DeathSquat] = O(1.5f, AnimRow.Death2);
             t[(int)Clip.DeathProne] = O(1.5f, AnimRow.Death3); t[(int)Clip.DeathBlast] = O(1.9f, AnimRow.Death1);
@@ -86,10 +98,10 @@ namespace TW.Presentation
     public struct AnimState
     {
         public Clip Clip, PrevClip;
-        public float Frame, PrevFrame, Blend, Rate;     // seconds into the clip; the fade-out clip; blend left (s); playback rate
+        public float Frame, PrevFrame, Blend, Fade, Rate;   // seconds into the clip; the fade-out clip; blend left (s) of Fade; playback rate
         public Rung Rung;
         public byte Stance, WantStance;                 // animated stance, the stance the situation implies
-        public float AimYaw, BodyYaw;
+        public float AimYaw, BodyYaw, ShownYaw, TurnTo;   // where he aims; where his feet point; what is drawn (eases to BodyYaw); the yaw a turn clip ends at
         public uint IdleSince, LastShot, LastHit, LastNearMiss, LastBlast, LastDuck, ClipStart;
         public ushort Shots, Generation;
         public uint Seed;
@@ -97,14 +109,18 @@ namespace TW.Presentation
         public byte PrevLayer;
         public float Speed;                             // smoothed over the last few ticks: the separation push jolts a man for a tick
         public Clip Pending; public byte PendingTicks;  // a gait change waits until the new gait has held for a few ticks
-        public uint LastClimb;
+        public uint LastClimb, LastTarget, TargetSince; // the last tick he had a target, and when he got it: a garrison waits a moment before rising or dropping back
+        public byte Routine, Routines; public uint RoutineUntil;  // the trench routine in progress (see Decide), how many he has done, when its hold ends
     }
 
     public sealed class AnimationController : System.IDisposable
     {
         public NativeArray<AnimState> State;
-        public NativeArray<ushort> Row;      // today's stand-in row per slot
+        public NativeArray<ushort> Row;      // the Clip per slot (the renderer maps it to its atlas row)
         public NativeArray<float> Phase;     // 0..1 through the clip
+        public NativeArray<float> Yaw;       // the yaw the body is drawn at
+        public NativeArray<ushort> PrevRow;  // the clip fading out, where it stopped, and its weight (VATRenderer reads these)
+        public NativeArray<float> PrevPhase, Blend;
         readonly int maxSlots;
         int count;
         uint tick; float tickSeconds = 0.05f;
@@ -125,12 +141,15 @@ namespace TW.Presentation
         readonly Dictionary<Clip, float> timeIn = new Dictionary<Clip, float>();
         public string LastWhy = "";
 
-        /// <param name="row">The presenter's row and phase arrays: the controller writes them, the presenter owns them.</param>
-        public AnimationController(int maxSlots, MapData map, TW.Sim.Combat.GasSmokeSystem gas, NativeArray<ushort> row, NativeArray<float> phase)
+        /// <param name="row">The presenter's row, phase and yaw arrays: the controller writes them, the presenter owns them.</param>
+        public AnimationController(int maxSlots, MapData map, TW.Sim.Combat.GasSmokeSystem gas, NativeArray<ushort> row, NativeArray<float> phase, NativeArray<float> yaw)
         {
             this.maxSlots = maxSlots; this.map = map; this.gas = gas;
             State = new NativeArray<AnimState>(maxSlots, Allocator.Persistent);
-            Row = row; Phase = phase;
+            Row = row; Phase = phase; Yaw = yaw;
+            PrevRow = new NativeArray<ushort>(maxSlots, Allocator.Persistent);
+            PrevPhase = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            Blend = new NativeArray<float>(maxSlots, Allocator.Persistent);
             hitKind = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             hitDir = new NativeArray<float3>(maxSlots, Allocator.Persistent);
             blastRadius = new NativeArray<float>(maxSlots, Allocator.Persistent);
@@ -143,7 +162,7 @@ namespace TW.Presentation
 
         public void Dispose()
         {
-            State.Dispose(); hitKind.Dispose(); hitDir.Dispose(); blastRadius.Dispose(); blastDist.Dispose();
+            State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose();
         }
 
@@ -158,7 +177,7 @@ namespace TW.Presentation
                 uint f = w.Flags[i];
                 var s = State[i];
                 if (s.Generation != w.Generation[i]) { s = Fresh(i, w); }
-                if ((f & (uint)UnitFlags.Vehicle) != 0) { State[i] = s; Row[i] = (ushort)AnimRow.Idle; continue; }
+                if ((f & (uint)UnitFlags.Vehicle) != 0) { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {
                     if (!s.Dead) { s = Die(i, s, w); }
@@ -173,7 +192,7 @@ namespace TW.Presentation
         AnimState Fresh(int i, SimWorld w)
         {
             var s = new AnimState { Clip = Clip.Idle, Rung = Rung.Idle, Rate = 1f, Generation = w.Generation[i], Seed = (uint)i * 2654435761u ^ (uint)w.Generation[i] * 40503u, IdleSince = w.Tick, ClipStart = w.Tick };
-            s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = w.Yaw[i];
+            s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             prevPos[i] = w.Position[i];
             return s;
         }
@@ -223,7 +242,7 @@ namespace TW.Presentation
         void Start(int i, ref AnimState s, Clip clip, Rung rung, string why, float rate = 1f, float fade = 0.15f)
         {
             if (s.Clip == clip && Clips.Table[(int)clip].Loop) { s.Rung = rung; s.Rate = rate; return; }   // same loop: keep the phase
-            s.PrevClip = s.Clip; s.PrevFrame = s.Frame; s.Blend = fade;
+            s.PrevClip = s.Clip; s.PrevFrame = s.Frame; s.Blend = s.Fade = fade;
             s.Clip = clip; s.Frame = 0f; s.Rate = rate; s.Rung = rung; s.ClipStart = tick;
             if (i == FollowSlot) Note(i, rung, clip, why);
         }
@@ -284,39 +303,48 @@ namespace TW.Presentation
             float depth = map.WaterLevel > MapData.NoWater ? math.max(0f, map.WaterLevel - map.Height.Sample(p.x, p.z)) : 0f;
             if (i == FollowSlot) { lastPos = p; lastStance = (byte)simStance; lastSpeed = speed; lastTarget = target; lastSupp = supp; }
 
-            // yaw: the body follows the heading when moving, aim follows the target
+            // yaw: the body follows the heading when moving, aim follows the target; standing still with a target
+            // within 60 degrees the feet simply come round (Advance eases the shown yaw); beyond that a turn clip plays
             if (speed > 0.15f) s.BodyYaw = math.atan2(step.x, step.z);
             if (target >= 0 && target < count) { float3 d = w.Position[target] - p; s.AimYaw = math.atan2(d.x, d.z); }
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
 
-            // the stance the situation implies (the sim's, refined: a garrison between targets kneels behind the parapet)
+            // the stance the situation implies: the sim's. FireStep is standing at the parapet; Crouch in a trench is one
+            // knee down behind it; a trench routine may hold him up or down for a moment (WantStance is what he drifts to)
             byte want = (byte)simStance;
-            if (simStance == Stance.Vault) want = (byte)Stance.Standing;
+            if (simStance == Stance.Vault || simStance == Stance.FireStep) want = (byte)Stance.Standing;
+            if (simStance == Stance.Sprint) want = (byte)Stance.Standing;
             s.WantStance = want;
 
             // a one-shot that a higher rung did not take keeps the body
             var cur = s.Clip; var info = Clips.Table[(int)cur];
 
-            // ---- rung 2: the trench edge
+            // ---- rung 2: the trench edge. Out: the push up, then the airborne hold while the sim lifts him, then the
+            // landing once he is on the surface. In: the drop, which starts in the air and lands.
+            bool climbing = cur == Clip.ClimbOut || cur == Clip.ClimbHold || cur == Clip.ClimbLadder;
             if (leftTrench[i] != 0 || simStance == Stance.Vault)
             {
-                if (cur != Clip.ClimbOut && cur != Clip.ClimbLadder && tick - s.LastClimb > 40) { s.LastClimb = tick; Start(i, ref s, (layer & (byte)NavLayer.Link) != 0 ? Clip.ClimbLadder : Clip.ClimbOut, Rung.Trench, "climbing out of the trench"); }
-                s.Stance = (byte)Stance.Standing; s.PrevLayer = (byte)NavLayer.Surface; return;
+                if (!climbing && tick - s.LastClimb > 40) { s.LastClimb = tick; Start(i, ref s, (layer & (byte)NavLayer.Link) != 0 ? Clip.ClimbLadder : Clip.ClimbOut, Rung.Trench, "climbing out of the trench"); }
+                else if (cur == Clip.ClimbOut && !Playing(s)) Start(i, ref s, Clip.ClimbHold, Rung.Trench, "over the parapet");
+                s.Stance = (byte)Stance.Standing; s.PrevLayer = (byte)NavLayer.Surface; s.Routine = 0; return;
             }
-            if (inTrench && s.PrevLayer == (byte)NavLayer.Surface && s.Clip != Clip.JumpDown && s.Clip != Clip.ClimbOut && s.Clip != Clip.ClimbLadder)
+            if (climbing && !inTrench && (cur != Clip.ClimbOut || !Playing(s))) { Start(i, ref s, Clip.ClimbLand, Rung.Trench, "lands on the surface"); s.Stance = (byte)Stance.Standing; s.PrevLayer = (byte)NavLayer.Surface; return; }
+            if (climbing && !inTrench) return;
+            if (inTrench && s.PrevLayer == (byte)NavLayer.Surface && s.Clip != Clip.JumpDown && !climbing)
             {
                 s.PrevLayer = (byte)NavLayer.Trench;
-                Start(i, ref s, Clip.JumpDown, Rung.Trench, "dropping into the trench"); s.Stance = (byte)Stance.Crouch; return;
+                Start(i, ref s, Clip.JumpDown, Rung.Trench, "dropping into the trench"); s.Stance = (byte)Stance.Standing; s.Routine = 0; return;
             }
             s.PrevLayer = inTrench ? (byte)NavLayer.Trench : (byte)NavLayer.Surface;
-            if (s.Rung == Rung.Trench && Playing(s)) return;
+            if (s.Rung == Rung.Trench && Playing(s) && !(cur == Clip.JumpDown && speed > 0.5f && s.Frame > 0.9f)) return;   // a drop that lands running is cut short
+            if (s.Rung == Rung.Trench && climbing && tick - s.LastClimb < 20 && speed < 3f) return;   // the ladder and the push-up hold while the sim lifts him
 
             // ---- rung 3: reactions (a hit interrupts anything below a death; a duck does not interrupt a hit)
             bool prone = simStance == Stance.Prone || simStance == Stance.Pinned;
-            bool low = simStance == Stance.Crouch || simStance == Stance.FireStep;
+            bool low = s.Stance == (byte)Stance.Crouch;   // the animated stance: a man on one knee flinches and aims from the knee
             if (hitKind[i] == 1 || hitKind[i] == 2)
             {
-                s.LastHit = tick;
+                s.LastHit = tick; s.Routine = 0;
                 Clip hit = prone ? Clip.HitProne : hitKind[i] == 2 ? Clip.HitHeavy : low ? Clip.KneelFlinch : speed > 2.2f ? Clip.HitRun : speed > 0.3f ? Clip.HitWalk : Clip.HitStand;
                 Start(i, ref s, hit, Rung.Reaction, "hit" + (hitKind[i] == 2 ? " hard" : "") + (speed > 0.3f ? " on the move" : "") + ", from " + Side(hitDir[i], s.BodyYaw));
                 return;
@@ -324,11 +352,12 @@ namespace TW.Presentation
             if (s.Rung == Rung.Reaction && Playing(s) && (cur == Clip.HitHeavy || cur == Clip.HitStand || cur == Clip.HitWalk || cur == Clip.HitRun || cur == Clip.HitProne || cur == Clip.KneelFlinch)) return;
             if (blastRadius[i] > 0f && tick - s.LastBlast > 30)
             {
-                s.LastBlast = tick;
+                s.LastBlast = tick; s.Routine = 0;
                 float r = blastRadius[i], d = blastDist[i];
                 if (prone) Start(i, ref s, Clip.ProneRoll, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: rolls away");
-                else if (d < r * 0.6f) Start(i, ref s, arche <= 1 ? Clip.DiveRoll : Clip.Shield, Rung.Reaction, "shell at " + d.ToString("0.0") + " m inside the burst: " + (arche <= 1 ? "dives" : "shields the face"));
-                else Start(i, ref s, Clip.Duck, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: ducks");
+                else if (d < r * 0.6f && !inTrench && arche <= 1) Start(i, ref s, Clip.DiveRoll, Rung.Reaction, "shell at " + d.ToString("0.0") + " m inside the burst: dives");
+                else if (d < r * 0.6f || (inTrench && d < r)) { Start(i, ref s, Clip.Shield, Rung.Reaction, "shell at " + d.ToString("0.0") + " m" + (inTrench ? " on the trench" : " inside the burst") + ": shields the face"); s.Stance = (byte)Stance.Crouch; }   // the shield ends on a knee
+                else Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: " + (low ? "flinches" : "ducks"));
                 return;
             }
             if (s.Rung == Rung.Reaction && Playing(s)) return;
@@ -339,57 +368,71 @@ namespace TW.Presentation
                 return;
             }
             if (prone && hitKind[i] == 3 && tick - s.LastDuck > 40) { s.LastDuck = tick; Start(i, ref s, Clip.ProneFlinch, Rung.Reaction, "near miss, prone: flinches"); return; }
-            if (gasHere[i] != 0 && !s.Gassed && (f & (uint)UnitFlags.Masked) == 0) { s.Gassed = true; Start(i, ref s, Clip.Shield, Rung.Reaction, "gas on his cell: covers his face"); return; }
+            if (gasHere[i] != 0 && !s.Gassed && (f & (uint)UnitFlags.Masked) == 0) { s.Gassed = true; s.Routine = 0; Start(i, ref s, Clip.MaskOn, Rung.Reaction, "gas on his cell: mask on"); return; }
             if (gasHere[i] == 0 && s.Gassed && tick - s.ClipStart > 200) s.Gassed = false;
             if (s.Down)
             {
                 if (cur == Clip.Trip && !Playing(s)) { Start(i, ref s, Clip.GetUp, Rung.Reaction, "gets up"); return; }
                 if (cur == Clip.GetUp && Playing(s)) return;
-                s.Down = false;
+                s.Down = false; s.Stance = (byte)Stance.Standing;
             }
-            if (!prone && !inTrench && speed > 2.2f)
+            if (!prone && !inTrench && speed > 0.15f && speed < 0.7f && (wire || mud) && s.Rung == Rung.Locomotion)
             {
-                bool trip = (wire && s.Rung != Rung.Reaction) || (mud && Hash(s.Seed, tick) < 0.001f);   // wire at a run; 2 % a second in mud
-                if (trip && tick - s.LastBlast > 40) { s.Down = true; s.LastBlast = tick; Start(i, ref s, Clip.Trip, Rung.Reaction, wire ? "runs into the wire: trips" : "trips in the mud"); return; }
+                // the sim has him nearly stopped in wire or mud: 4 % a second he goes down (a trip at speed slid him metres on his face)
+                if (Hash(s.Seed, tick) < 0.002f && tick - s.LastBlast > 100) { s.Down = true; s.LastBlast = tick; Start(i, ref s, Clip.Trip, Rung.Reaction, wire ? "caught in the wire: falls" : "stuck in the mud: falls"); return; }
             }
 
             // ---- rung 4: actions
             if (s.Rung == Rung.Action && Playing(s)) { if (speed > 0.3f && Left(s) > 0.4f && cur != Clip.Throw) { /* dropped: the run takes over below */ } else return; }
-            int magazine = arche == 1 ? 20 : arche == 2 ? 50 : arche == 3 ? 1 : 5;
+            int magazine = arche == 1 ? 20 : arche == 2 ? 50 : 5;
+            bool bolt = arche == 0 || arche == 3;   // the rifle and the sniper work a bolt after every shot
             if (shotThisTick[i] != 0) { s.Shots++; s.LastShot = tick; }
-            if (target >= 0 && !s.Aimed && speed < 0.3f) { s.Aimed = true; Start(i, ref s, low ? Clip.KneelAimUp : Clip.AimUp, Rung.Action, "target seen: rifle up"); return; }
-            if (target < 0 && s.Aimed && tick - s.LastShot > 80 && speed < 0.3f) { s.Aimed = false; Start(i, ref s, low ? Clip.KneelAimDown : Clip.AimDown, Rung.Action, "target lost 4 s: rifle down"); return; }
-            if (s.Shots >= magazine && speed < 0.3f && arche != 2 && w.FireCooldown[i] > (arche == 3 ? 24 : 40))
+            if (bolt && (cur == Clip.FireSnap || cur == Clip.FireKneel) && !Playing(s) && s.Rung == Rung.Fire && speed < 0.3f && !prone && s.Shots < magazine)
+            { Start(i, ref s, Clip.ReloadBolt, Rung.Action, "works the bolt"); return; }
+            if (target >= 0 && !s.Aimed && speed < 0.3f && !prone) { s.Aimed = true; Start(i, ref s, low ? Clip.KneelAimUp : Clip.AimUp, Rung.Action, "target seen: rifle up"); return; }
+            if (target < 0 && s.Aimed && tick - s.LastShot > 80 && speed < 0.3f && !prone) { s.Aimed = false; Start(i, ref s, low ? Clip.KneelAimDown : Clip.AimDown, Rung.Action, "target lost 4 s: rifle down"); return; }
+            if (s.Shots >= magazine && shotThisTick[i] == 0 && speed < 0.3f && arche != 2 && w.FireCooldown[i] > 40 && !(bolt && Playing(s) && cur == Clip.ReloadBolt))
             {
                 s.Shots = 0;
-                Start(i, ref s, arche == 3 ? Clip.ReloadBolt : prone ? Clip.ReloadProne : low ? Clip.ReloadStoop : Clip.ReloadStand, Rung.Action, "magazine empty: reloads"); return;
+                Start(i, ref s, prone ? Clip.ReloadProne : low ? Clip.ReloadStoop : Clip.ReloadStand, Rung.Action, "magazine empty: reloads"); return;
             }
 
-            // ---- rung 5: stance change (the animated stance lags the sim's by a transition)
+            // ---- rung 5: stance change (the animated stance lags the sim's by a transition); a moving man skips it, the
+            // gait cross-fade does the job. A trench routine holds him where it put him until it ends.
             if (s.Rung == Rung.StanceChange && Playing(s)) return;
-            if (s.Stance != want)
+            if (s.Routine != 0 && speed < 0.15f && target < 0) want = s.Stance;
+            if (target >= 0) { if (tick - s.LastTarget > 1) s.TargetSince = tick; s.LastTarget = tick; }
+            // a garrison man whose target has just dropped out of sight holds the parapet a couple of seconds before kneeling,
+            // and one who has just seen a target takes half a second before he rises to it: the sim's target flickers
+            if (inTrench && s.Stance == (byte)Stance.Standing && want == (byte)Stance.Crouch && target < 0 && tick - s.LastTarget < 50) want = s.Stance;
+            if (inTrench && s.Stance == (byte)Stance.Crouch && want == (byte)Stance.Standing && target >= 0 && tick - s.TargetSince < 10) want = s.Stance;
+            if (s.Stance != want && speed < 0.15f)
             {
                 var from = (Stance)s.Stance; var to = (Stance)want;
                 bool fromProne = from == Stance.Prone || from == Stance.Pinned, toProne = to == Stance.Prone || to == Stance.Pinned;
-                bool fromLow = from == Stance.Crouch || from == Stance.FireStep, toLow = to == Stance.Crouch || to == Stance.FireStep;
+                bool fromLow = from == Stance.Crouch, toLow = to == Stance.Crouch;
+                s.Routine = 0;
                 if (fromProne && !toProne) { Start(i, ref s, Clip.ProneToKneel, Rung.StanceChange, "stance " + from + " -> " + to + ": up to a knee"); s.Stance = (byte)Stance.Crouch; return; }
                 if (!fromProne && toProne) { Start(i, ref s, fromLow ? Clip.KneelToProne : Clip.StandToKneel, Rung.StanceChange, "stance " + from + " -> " + to + ": " + (fromLow ? "down flat" : "down to a knee")); s.Stance = fromLow ? want : (byte)Stance.Crouch; return; }
-                if (fromLow && !toLow) { Start(i, ref s, inTrench ? Clip.StoopToStand : Clip.KneelToStand, Rung.StanceChange, "stance " + from + " -> " + to); s.Stance = want; return; }
-                if (!fromLow && toLow) { Start(i, ref s, inTrench ? Clip.StandToStoop : Clip.StandToKneel, Rung.StanceChange, "stance " + from + " -> " + to); s.Stance = want; return; }
+                if (fromLow && !toLow) { Start(i, ref s, Clip.KneelToStand, Rung.StanceChange, "stance " + from + " -> " + to + (inTrench ? ": up to the parapet" : "")); s.Stance = want; return; }
+                if (!fromLow && toLow) { Start(i, ref s, Clip.StandToKneel, Rung.StanceChange, "stance " + from + " -> " + to + (inTrench ? ": down behind the parapet" : "")); s.Stance = want; return; }
                 s.Stance = want;
             }
+            else if (s.Stance != want) s.Stance = want;
 
-            // ---- rung 6: turn in place
+            // ---- rung 6: turn in place (the clip carries the rotation; the drawn yaw snaps to the new facing as it ends)
             if (s.Rung == Rung.Turn && Playing(s)) return;
-            if (speed < 0.15f && !prone)
+            if (s.Rung == Rung.Turn) { s.BodyYaw = s.ShownYaw = s.TurnTo; }
+            if (speed < 0.15f && !prone && target >= 0)
             {
                 float turn = s.AimYaw - s.BodyYaw; while (turn > math.PI) turn -= 2f * math.PI; while (turn < -math.PI) turn += 2f * math.PI;
                 if (math.abs(turn) > 1.05f)
                 {
-                    Clip t = math.abs(turn) > 2.4f ? Clip.Turn180 : low ? (turn > 0f ? Clip.KneelTurn90R : Clip.KneelTurn90L) : turn > 0f ? Clip.Turn90R : Clip.Turn90L;
+                    Clip t = math.abs(turn) > 2.4f ? (low ? Clip.StoopTurn180 : Clip.Turn180) : low ? (turn > 0f ? Clip.KneelTurn90R : Clip.KneelTurn90L) : turn > 0f ? Clip.Turn90R : Clip.Turn90L;
                     Start(i, ref s, t, Rung.Turn, "turns " + (int)math.degrees(turn) + " deg to the target");
-                    s.BodyYaw = s.AimYaw; return;
+                    s.TurnTo = s.AimYaw; s.Routine = 0; return;
                 }
+                s.BodyYaw = s.AimYaw;   // within 60 degrees the feet come round without a clip
             }
 
             // ---- rung 7: locomotion
@@ -400,10 +443,13 @@ namespace TW.Presentation
                 bool firing = target >= 0 && w.FireCooldown[i] < 30;
                 Clip gait; float authored;
                 string env = "";
+                s.Routine = 0;
                 if (prone) gait = math.abs(rel) > 2.27f ? Clip.CrawlBack : Clip.Crawl;
                 else if (depth > 0.5f) { gait = Clip.Wade; env = " wading"; }
-                else if (inTrench || low) gait = speed > 1.8f ? Clip.CrouchRun : (supp > 40f || wire) ? Clip.StoopLow : Clip.StoopWalk;
-                else if (simStance == Stance.Sprint || speed > 3.6f) gait = firing && arche == 1 ? Clip.FireSprint : Clip.Sprint;
+                else if (wire && speed < 2.2f) { gait = Clip.WireCross; env = " through the wire"; }
+                else if (inTrench || simStance == Stance.Crouch) gait = speed > 1.8f ? Clip.CrouchRun : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
+                else if (arche == 2 && speed < 2.2f && target < 0) { gait = Clip.MGCarry; env = " carrying the gun"; }
+                else if ((simStance == Stance.Sprint && speed > 2.2f) || speed > 3.6f) gait = firing && arche == 1 ? Clip.FireSprint : Clip.Sprint;
                 else if (speed > 2.2f) gait = math.abs(rel) > 2.27f && arche <= 1 ? Clip.RunBack : firing && math.abs(rel) < 0.87f ? Clip.FireRun : Clip.Run;
                 else
                 {
@@ -421,33 +467,70 @@ namespace TW.Presentation
                 }
                 authored = Clips.Table[(int)gait].Speed;
                 float rate = authored > 0f ? math.clamp(speed / authored, 0.6f, 1.6f) : 1f;
-                if (wire && !prone) rate = math.min(rate, 0.6f);
+                if (wire && !prone && gait != Clip.WireCross) rate = math.min(rate, 0.6f);
                 Start(i, ref s, gait, Rung.Locomotion, "moves at " + speed.ToString("0.0") + " m/s: " + gait + env, rate);
+                s.Stance = simStance == Stance.Crouch ? (byte)Stance.Crouch : prone ? (byte)simStance : (byte)Stance.Standing;   // the gait sets the stance, no transition needed
                 return;
             }
 
             // ---- rung 8: fire, standing still
-            if (target >= 0 && (shotThisTick[i] != 0 || (w.FireCooldown[i] <= 1 && tick - s.LastShot < 40)))
+            if (target >= 0 && shotThisTick[i] != 0)
             {
-                Clip fire = arche == 2 ? Clip.FireMG : prone ? Clip.FireProne : simStance == Stance.FireStep ? Clip.FireStand : low ? Clip.FireKneel : arche == 3 ? Clip.FireStandSlow : Clip.FireStand;
-                if (shotThisTick[i] != 0 || cur != fire) Start(i, ref s, fire, Rung.Fire, "fires at " + target, 1f, 0.05f);
+                s.Routine = 0;
+                Clip fire = arche == 2 ? Clip.FireMG : prone ? Clip.FireProne : low ? Clip.FireKneel : bolt ? Clip.FireSnap : Clip.FireStand;
+                Start(i, ref s, fire, Rung.Fire, "fires at " + target, 1f, 0.05f);
                 return;
             }
-            if (s.Rung == Rung.Fire && Playing(s)) return;
+            if (s.Rung == Rung.Fire && (Playing(s) || (cur == Clip.FireMG && w.FireCooldown[i] < 6))) return;
 
             // ---- rung 9: idle
-            if (s.Rung == Rung.Idle && Playing(s)) return;   // a fidget
-            Clip idle = prone ? Clip.ProneIdle : low ? (target >= 0 ? Clip.AimedIdle : Clip.KneelIdle) : target >= 0 || tick - s.LastShot < 80 ? Clip.AimedIdle : Clip.ReadyIdle;
-            if (simStance == Stance.FireStep) idle = target >= 0 ? Clip.AimedIdle : Clip.KneelIdle;
-            if (s.Rung != Rung.Idle) s.IdleSince = tick;
+            if (s.Rung == Rung.Idle && Playing(s)) return;   // a fidget or a routine's transition
+            if (s.Rung != Rung.Idle) { s.IdleSince = tick; s.Routine = 0; }
             uint idleFor = tick - s.IdleSince;
+            bool aimed = target >= 0 || tick - s.LastShot < 80;
+            if (inTrench && !prone && target < 0 && supp < 60f && TrenchRoutine(i, ref s, idleFor, supp)) return;
+            Clip idle = prone ? Clip.ProneIdle : low ? (aimed ? Clip.KneelAimedIdle : Clip.KneelIdle) : aimed ? Clip.AimedIdle : Clip.ReadyIdle;
             if (idle == Clip.ReadyIdle && idleFor > 240 + (s.Seed % 360) && target < 0 && supp < 10f)
             {
                 s.IdleSince = tick;
-                Clip fidget = SceneMood.Night ? ((s.Seed >> 3) % 3 == 0 ? Clip.FidgetRubEyes : (s.Seed >> 3) % 3 == 1 ? Clip.FidgetCollar : Clip.FidgetLookAround) : ((s.Seed >> 3) & 1) == 0 ? Clip.FidgetLookAround : Clip.FidgetCheckShoe;
+                uint pick = ((s.Seed >> 3) + s.Routines++) % 4;
+                Clip fidget = pick == 0 ? Clip.FidgetInspect : pick == 1 ? Clip.FidgetCollar : pick == 2 ? Clip.FidgetLookAround : SceneMood.Night ? Clip.FidgetInspect : Clip.FidgetCheckShoe;
                 Start(i, ref s, fidget, Rung.Idle, "idle " + (idleFor * tickSeconds).ToString("0") + " s out of contact: fidgets"); return;
             }
             Start(i, ref s, idle, Rung.Idle, "idle: " + idle);
+        }
+
+        // Routines: 1 peek rising, 2 peek looking over, 3 peek dropping, 4 squat shift, 5 kneeling fidget, 6 low under fire.
+        /// <summary>
+        /// A man waiting in a trench between contacts. His base is one knee down behind the parapet (KneelIdle). Every
+        /// 6 to 18 s (by seed) he does one thing a man bracing for a fight does: rises to look over the parapet for a
+        /// couple of seconds and drops back; shifts to a squat for a while and back to the knee; rubs his eyes (night)
+        /// or settles his kit. Under fire (Suppression over 30) he only crouches low and flinches. Returns true when
+        /// it started a clip this tick.
+        /// </summary>
+        bool TrenchRoutine(int i, ref AnimState s, uint idleFor, float supp)
+        {
+            bool held = s.Routine != 0 && tick < s.RoutineUntil;
+            switch (s.Routine)
+            {
+                case 1: if (!Playing(s)) { s.Routine = 2; s.RoutineUntil = tick + 30 + (s.Seed >> 5) % 40; Start(i, ref s, Clip.AimedIdle, Rung.Idle, "looks over the parapet"); } return true;
+                case 2: if (held) { Start(i, ref s, Clip.AimedIdle, Rung.Idle, "looks over the parapet"); return true; }
+                        s.Routine = 3; s.Stance = (byte)Stance.Crouch; Start(i, ref s, Clip.StandToKneel, Rung.Idle, "drops back behind the parapet"); return true;
+                case 3: if (Playing(s)) return true; s.Routine = 0; s.IdleSince = tick; break;
+                case 4: if (held) { Start(i, ref s, Clip.StoopIdle, Rung.Idle, "shifts to a squat"); return true; } s.Routine = 0; s.IdleSince = tick; break;
+                case 5: if (Playing(s)) return true; s.Routine = 0; s.IdleSince = tick; break;
+                case 6: if (supp > 20f) { Start(i, ref s, Clip.StoopIdle, Rung.Idle, "keeps low under fire"); return true; } s.Routine = 0; s.IdleSince = tick; break;
+            }
+            if (supp > 30f) { s.Routine = 6; s.Stance = (byte)Stance.Crouch; Start(i, ref s, Clip.StoopIdle, Rung.Idle, "keeps low under fire"); return true; }
+            if (s.Stance != (byte)Stance.Crouch) return false;   // standing in a trench: the stance rung takes him down first
+            uint every = 120 + (uint)((s.Seed >> 7) % 240);
+            if (idleFor < every) return false;
+            s.IdleSince = tick;
+            uint turn = ((s.Seed >> 11) + s.Routines++) % 5;
+            float pick = turn == 0 || turn == 2 ? 0.2f : turn == 1 || turn == 3 ? 0.6f : 0.9f;   // peek, squat, peek, squat, fidget
+            if (pick < 0.45f) { s.Routine = 1; s.Stance = (byte)Stance.Standing; Start(i, ref s, Clip.KneelToStand, Rung.Idle, "idle " + (idleFor * tickSeconds).ToString("0") + " s: rises to look over the parapet"); return true; }
+            if (pick < 0.75f) { s.Routine = 4; s.RoutineUntil = tick + 80 + (uint)((s.Seed >> 9) % 120); Start(i, ref s, Clip.StoopIdle, Rung.Idle, "idle " + (idleFor * tickSeconds).ToString("0") + " s: shifts to a squat"); return true; }
+            s.Routine = 5; Start(i, ref s, Clip.FidgetRubEyes, Rung.Idle, "idle " + (idleFor * tickSeconds).ToString("0") + " s: " + (SceneMood.Night ? "rubs his eyes" : "settles his kit")); return true;
         }
 
         static string Side(float3 dir, float bodyYaw)
@@ -466,16 +549,30 @@ namespace TW.Presentation
             {
                 var s = State[i];
                 var info = Clips.Table[(int)s.Clip];
-                if (s.Clip == Clip.None) { Row[i] = (ushort)AnimRow.Idle; Phase[i] = 0f; continue; }
+                if (s.Clip == Clip.None) { Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; continue; }
                 s.Frame += dt * s.Rate;
                 if (info.Loop) { if (s.Frame >= info.Seconds) s.Frame -= info.Seconds * math.floor(s.Frame / info.Seconds); }
                 else if (s.Frame > info.Seconds) s.Frame = info.Seconds;
                 if (s.Blend > 0f) s.Blend -= dt;
+                // the feet come round to the body yaw at a turn's pace; a turn clip holds the old facing until it ends
+                if (s.Rung != Rung.Turn || Clips.Table[(int)s.Clip].Loop)
+                {
+                    float d = s.BodyYaw - s.ShownYaw; while (d > math.PI) d -= 2f * math.PI; while (d < -math.PI) d += 2f * math.PI;
+                    float step = math.min(math.abs(d), dt * (s.Rung == Rung.Locomotion ? 7f : 3f));
+                    s.ShownYaw += math.sign(d) * step;
+                    while (s.ShownYaw > math.PI) s.ShownYaw -= 2f * math.PI; while (s.ShownYaw < -math.PI) s.ShownYaw += 2f * math.PI;
+                }
                 if (i == FollowSlot) { timeIn.TryGetValue(s.Clip, out float t); timeIn[s.Clip] = t + dt; }
                 State[i] = s;
-                Row[i] = (ushort)info.Fallback;
+                Row[i] = (ushort)s.Clip;
                 float ph = info.Seconds > 0f ? s.Frame / info.Seconds : 0f;
-                Phase[i] = info.Loop ? math.frac(ph) : math.min(ph, 0.999f);
+                Phase[i] = info.Loop ? math.frac(ph) : math.min(ph, 1f);
+                Yaw[i] = s.ShownYaw;
+                var prev = Clips.Table[(int)s.PrevClip];
+                PrevRow[i] = (ushort)s.PrevClip;
+                float pp = prev.Seconds > 0f ? s.PrevFrame / prev.Seconds : 0f;
+                PrevPhase[i] = prev.Loop ? math.frac(pp) : math.min(pp, 1f);
+                Blend[i] = s.Blend > 0f && s.Fade > 0f ? math.saturate(s.Blend / s.Fade) : 0f;
             }
         }
 

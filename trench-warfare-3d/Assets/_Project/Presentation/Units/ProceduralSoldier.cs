@@ -1,7 +1,8 @@
 // Phase: B3 (implemented; placeholder for the C2 rigs)
 // A box soldier and its vertex animation texture, built in code so the B3 renderer can be driven before any rig
-// exists. The output has exactly the layout VATBaker will produce from real clips: U = vertex index, V = frame, rows
-// stacked in AnimRow order, RGBAHalf object-space positions and normals, plus a row table (start frame, length).
+// exists. The output has exactly the layout VATBaker produces from real clips: U = vertex index, V = frame, rows
+// stacked in AnimRow order, quantised object-space positions and normals (VatCodec), plus a row table (start, length).
+// It is the far tier: the controller's clips map onto these 18 rows beyond LodDistance (Clips.Table[].Fallback).
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it (uniform, pack), 0 elsewhere.
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,14 +10,6 @@ using TW.Sim;
 
 namespace TW.Presentation.Units
 {
-    public sealed class VatAsset
-    {
-        public Mesh Mesh;
-        public Texture2D Positions, Normals;
-        public Vector2[] RowTable;   // x = first frame, y = frame count, indexed by AnimRow
-        public int TotalFrames;
-    }
-
     public static class ProceduralSoldier
     {
         public const int FramesPerRow = 16;
@@ -95,23 +88,21 @@ namespace TW.Presentation.Units
                 }
 
             int rows = (int)AnimRow.Count, total = rows * FramesPerRow;
-            var posPixels = new Color[vertexCount * total];
-            var nrmPixels = new Color[vertexCount * total];
-            var table = new Vector2[rows];
+            var frames = new Vector3[total][]; var frameNormals = new Vector3[total][];
+            var table = new Vector2[rows]; var seconds = new float[rows];
             var m = new Matrix4x4[(int)Part.Count];
             for (int r = 0; r < rows; r++)
             {
-                table[r] = new Vector2(r * FramesPerRow, FramesPerRow);
+                table[r] = new Vector2(r * FramesPerRow, FramesPerRow); seconds[r] = 1f;
                 for (int f = 0; f < FramesPerRow; f++)
                 {
                     Solve(Sample((AnimRow)r, f / (float)FramesPerRow), m);
-                    int line = (r * FramesPerRow + f) * vertexCount;
+                    int line = r * FramesPerRow + f;
+                    frames[line] = new Vector3[vertexCount]; frameNormals[line] = new Vector3[vertexCount];
                     for (int i = 0; i < vertexCount; i++)
                     {
-                        Vector3 p = m[(int)part[i]].MultiplyPoint3x4(restPos[i]);
-                        Vector3 n = m[(int)part[i]].MultiplyVector(restNrm[i]);
-                        posPixels[line + i] = new Color(p.x, p.y, p.z, 1f);
-                        nrmPixels[line + i] = new Color(n.x, n.y, n.z, 0f);
+                        frames[line][i] = m[(int)part[i]].MultiplyPoint3x4(restPos[i]);
+                        frameNormals[line][i] = m[(int)part[i]].MultiplyVector(restNrm[i]).normalized;
                     }
                 }
             }
@@ -133,12 +124,8 @@ namespace TW.Presentation.Units
             mesh.SetTriangles(tris, 0);
             mesh.bounds = new Bounds(new Vector3(0f, 0.9f, 0f), new Vector3(2.4f, 2.4f, 2.4f));
 
-            return new VatAsset
-            {
-                Mesh = mesh, RowTable = table, TotalFrames = total,
-                Positions = Atlas("SoldierVatPositions", vertexCount, total, posPixels),
-                Normals = Atlas("SoldierVatNormals", vertexCount, total, nrmPixels),
-            };
+            VatCodec.Textures(frames, frameNormals, vertexCount, "SoldierVat", out var posTex, out var nrmTex, out var min, out var size);
+            return new VatAsset { Mesh = mesh, RowTable = table, RowSeconds = seconds, TotalFrames = total, Positions = posTex, Normals = nrmTex, PosMin = min, PosSize = size };
         }
 
         /// <summary>
@@ -181,15 +168,6 @@ namespace TW.Presentation.Units
             var mesh = new Mesh { name = "Fallen man " + (variant & 3), hideFlags = HideFlags.HideAndDontSave };
             mesh.SetVertices(pos); mesh.SetNormals(nrm); mesh.SetColors(col); mesh.SetTriangles(tris, 0); mesh.RecalculateBounds();
             return mesh;
-        }
-
-        static Texture2D Atlas(string name, int width, int height, Color[] pixels)
-        {
-            var t = new Texture2D(width, height, TextureFormat.RGBAHalf, false, true)
-            { name = name, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
-            t.SetPixels(pixels);
-            t.Apply(false, true);
-            return t;
         }
 
         static void Solve(in SoldierPose p, Matrix4x4[] m)

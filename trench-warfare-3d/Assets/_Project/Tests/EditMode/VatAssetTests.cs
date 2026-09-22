@@ -1,51 +1,93 @@
-// Phase: B3 (implemented)
-// The placeholder soldier has to honour the atlas contract VATBaker will follow: one texel column per vertex, one
-// texel row per frame, a row table entry per AnimRow, and poses that stay inside the mesh bounds.
+// Phase: B3 (implemented), C1 (clip atlas)
+// The atlas contract VATRenderer draws by: one texel column per vertex, one texel row per frame, a row table entry per
+// row (positive count loops, negative holds), rows stacked without gaps; the box soldier has a row per AnimRow, the
+// baked infantry a row per controller Clip, and the codec round-trips exactly what the baker wrote.
 using NUnit.Framework;
 using UnityEngine;
 using TW.Sim;
+using TW.Presentation;
 using TW.Presentation.Units;
 
 namespace TW.Tests
 {
     public class VatAssetTests
     {
-        [Test]
-        public void ProceduralSoldier_AtlasMatchesMeshAndAnimRows()
+        static void CheckContract(VatAsset asset, int rows)
         {
-            var asset = ProceduralSoldier.Build();
-            Assert.AreEqual((int)AnimRow.Count, asset.RowTable.Length);
+            Assert.AreEqual(rows, asset.RowTable.Length);
             Assert.AreEqual(asset.Mesh.vertexCount, asset.Positions.width);
             Assert.AreEqual(asset.TotalFrames, asset.Positions.height);
             Assert.AreEqual(asset.Positions.width, asset.Normals.width);
             Assert.AreEqual(asset.Positions.height, asset.Normals.height);
-            Assert.AreEqual(TextureFormat.RGBAHalf, asset.Positions.format);
+            Assert.AreEqual(TextureFormat.RGBA64, asset.Positions.format);
+            Assert.AreEqual(TextureFormat.RGBA32, asset.Normals.format);
+            Assert.AreEqual(rows, asset.RowSeconds.Length);
             float next = 0f;
-            foreach (var row in asset.RowTable)
+            for (int r = 0; r < rows; r++)
             {
-                Assert.AreEqual(next, row.x, "rows are stacked without gaps, in AnimRow order");
-                Assert.Greater(row.y, 0f);
-                next = row.x + row.y;
+                var row = asset.RowTable[r];
+                Assert.AreEqual(next, row.x, "rows are stacked without gaps, in order");
+                Assert.AreNotEqual(0f, row.y);
+                Assert.Greater(asset.RowSeconds[r], 0f);
+                next = row.x + Mathf.Abs(row.y);
             }
             Assert.AreEqual(asset.TotalFrames, (int)next);
+            Assert.Greater(asset.PosSize.y, 1f, "a standing man is in the atlas");
+        }
+
+        [Test]
+        public void ProceduralSoldier_AtlasMatchesMeshAndAnimRows()
+        {
+            var asset = ProceduralSoldier.Build();
+            CheckContract(asset, (int)AnimRow.Count);
+            Assert.IsFalse(asset.ClipAtlas);
             Assert.Less(asset.Mesh.vertexCount, 400, "3,000 of these have to stay under about a million vertices");
         }
 
         [Test]
-        public void BakedInfantry_IfPresent_MatchesTheSameContract()
+        public void BakedFigures_IfPresent_HaveARowPerClipAndHoldTheirOneShots([Values("Soldier", "Sniper")] string figure)
         {
-            var data = Resources.Load<VatAssetData>(VatAssetData.ResourcePath);
-            if (data == null) Assert.Ignore("no baked infantry (TW/VAT/Bake Infantry); the renderer falls back to the box soldier");
-            Assert.AreEqual((int)AnimRow.Count, data.RowTable.Length);
-            Assert.AreEqual(data.Mesh.vertexCount, data.Positions.width);
-            Assert.AreEqual(data.TotalFrames, data.Positions.height);
-            Assert.AreEqual(data.Mesh.vertexCount, data.Mesh.colors32.Length, "vertex colours carry albedo and the team mask");
-            foreach (var row in data.RowTable)
+            var data = Resources.Load<VatAssetData>("Units/Figure" + figure);
+            if (data == null || !data.Valid) Assert.Ignore("no baked " + figure + " (TW/VAT/Bake Infantry); the renderer falls back to the box soldier");
+            var asset = data.ToAsset();
+            CheckContract(asset, (int)Clip.Count);
+            Assert.IsTrue(asset.ClipAtlas);
+            Assert.AreEqual(asset.Mesh.vertexCount, asset.Mesh.colors32.Length, "vertex colours carry albedo and the team mask");
+            Assert.Less(asset.Mesh.vertexCount, 1200, "3,000 of these have to stay near three million vertices");
+            for (int c = 1; c < (int)Clip.Count; c++)
             {
-                Assert.Greater(row.y, 0f);
-                Assert.LessOrEqual(row.x + row.y, data.TotalFrames);
+                bool loop = Clips.Table[c].Loop;
+                Assert.AreEqual(loop, asset.Loops(c), ((Clip)c) + " loops in the table and in the bake alike");
             }
-            Assert.Less(data.Mesh.vertexCount, 1200, "3,000 of these have to stay near three million vertices");
+            Assert.Less(asset.TotalFrames, 8000, "the atlas stays inside the budget docs/15 section 11 set");
+            Object.DestroyImmediate(asset.Positions); Object.DestroyImmediate(asset.Normals);
+        }
+
+        [Test]
+        public void Codec_RoundTripsFramesWithinQuantisation()
+        {
+            var frames = new Vector3[3][]; var normals = new Vector3[3][];
+            for (int f = 0; f < 3; f++)
+            {
+                frames[f] = new Vector3[4]; normals[f] = new Vector3[4];
+                for (int i = 0; i < 4; i++) { frames[f][i] = new Vector3(i * 0.3f - 0.5f, f * 0.4f + i * 0.1f, 0.2f * i); normals[f][i] = new Vector3(0.6f, 0.8f, 0f); }
+            }
+            var table = new[] { new Vector2(0, 2), new Vector2(2, -1) };
+            var bytes = VatCodec.Encode(frames, normals, 4, table, new[] { 0.5f, 0.1f });
+            var mesh = new Mesh(); mesh.SetVertices(frames[0]);
+            var asset = VatCodec.Decode(bytes, mesh, "Test", true);
+            Assert.AreEqual(3, asset.TotalFrames); Assert.AreEqual(2, asset.RowTable.Length);
+            Assert.IsTrue(asset.Loops(0)); Assert.IsFalse(asset.Loops(1)); Assert.AreEqual(1, asset.Frames(1));
+            Assert.AreEqual(0.5f, asset.RowSeconds[0], 1e-6f);
+            var px = asset.Positions.GetPixelData<ushort>(0);
+            for (int f = 0; f < 3; f++)
+                for (int i = 0; i < 4; i++)
+                {
+                    int k = (f * 4 + i) * 4;
+                    var p = asset.PosMin + new Vector3(px[k] / 65535f * asset.PosSize.x, px[k + 1] / 65535f * asset.PosSize.y, px[k + 2] / 65535f * asset.PosSize.z);
+                    Assert.Less((p - frames[f][i]).magnitude, 1e-4f, "positions come back to within a tenth of a millimetre");
+                }
+            Object.DestroyImmediate(asset.Positions); Object.DestroyImmediate(asset.Normals); Object.DestroyImmediate(mesh);
         }
     }
 }

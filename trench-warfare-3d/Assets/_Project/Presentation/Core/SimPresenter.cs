@@ -21,8 +21,8 @@ namespace TW.Presentation
         NativeArray<ushort> generation;
         public NativeArray<UnitPose> Poses;
         public NativeArray<int> PoseSlot;   // slot index per pose (for picking / UI)
-        /// <summary>When set, the controller's row and phase per slot replace the stance-based pick below.</summary>
-        public NativeArray<ushort> RowIn; public NativeArray<float> PhaseIn; public bool UseController;
+        /// <summary>When set, the controller's clip, phase and drawn yaw per slot replace the stance-based pick below.</summary>
+        public NativeArray<ushort> RowIn; public NativeArray<float> PhaseIn, YawIn; public bool UseController;
         public int PoseCount;
         int count;
         bool primed;
@@ -43,6 +43,7 @@ namespace TW.Presentation
             PoseSlot = new NativeArray<int>(maxSlots, Allocator.Persistent);
             RowIn = new NativeArray<ushort>(maxSlots, Allocator.Persistent);
             PhaseIn = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            YawIn = new NativeArray<float>(maxSlots, Allocator.Persistent);
         }
 
         /// <summary>Call once after every stepped tick.</summary>
@@ -82,7 +83,7 @@ namespace TW.Presentation
             {
                 PrevPos = prevPos, CurPos = curPos, PrevYaw = prevYaw, CurYaw = curYaw, Stance = stance, Archetype = archetype,
                 Team = team, Flags = flags, Target = target, Poses = Poses, Alpha = alpha, AnimTime = animTime,
-                RowIn = RowIn, PhaseIn = PhaseIn, UseController = UseController,
+                RowIn = RowIn, PhaseIn = PhaseIn, YawIn = YawIn, UseController = UseController,
             };
             job.Schedule(count, 128).Complete();
             // compaction (single-threaded, cheap)
@@ -106,7 +107,7 @@ namespace TW.Presentation
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<int> Target;
             [ReadOnly] public NativeArray<ushort> RowIn;
-            [ReadOnly] public NativeArray<float> PhaseIn;
+            [ReadOnly] public NativeArray<float> PhaseIn, YawIn;
             public bool UseController;
             public NativeArray<UnitPose> Poses;
             public float Alpha, AnimTime;
@@ -131,7 +132,7 @@ namespace TW.Presentation
                     default: row = (ushort)(moving ? AnimRow.Walk : firing ? AnimRow.FireStanding : AnimRow.Idle); break;
                 }
                 float t = math.frac(AnimTime + i * 0.137f);
-                if (UseController) { row = RowIn[i]; t = PhaseIn[i]; }
+                if (UseController) { row = RowIn[i]; t = PhaseIn[i]; yaw = YawIn[i]; }
                 Poses[i] = new UnitPose
                 {
                     Pos = p, Yaw = (half)yaw, AnimRow = row, AnimT = (half)t,
@@ -143,7 +144,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             prevPos.Dispose(); curPos.Dispose(); prevYaw.Dispose(); curYaw.Dispose(); stance.Dispose(); archetype.Dispose();
-            team.Dispose(); flags.Dispose(); target.Dispose(); generation.Dispose(); Poses.Dispose(); PoseSlot.Dispose(); RowIn.Dispose(); PhaseIn.Dispose();
+            team.Dispose(); flags.Dispose(); target.Dispose(); generation.Dispose(); Poses.Dispose(); PoseSlot.Dispose(); RowIn.Dispose(); PhaseIn.Dispose(); YawIn.Dispose();
         }
     }
 }

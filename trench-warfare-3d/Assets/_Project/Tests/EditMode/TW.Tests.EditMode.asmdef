@@ -14,7 +14,8 @@
     "TW.Sim.Match",
     "TW.Net",
     "TW.Sim.Units",
-    "TW.Presentation.Units"
+    "TW.Presentation.Units",
+    "TW.Presentation.Core"
   ],
   "includePlatforms": [
     "Editor"

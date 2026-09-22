@@ -1,7 +1,9 @@
-// Phase: B3 (implemented) — Vertex Animation Texture shader for URP, drawn with Graphics.RenderMeshIndirect.
-// Atlas layout (VATBaker / ProceduralSoldier): U = vertex index / VertexCount, V = frame / TotalFrames, RGBAHalf,
-// object-space position and signed normal. Per-instance data is a 32-byte record in a StructuredBuffer filled by
-// VATRenderer. _Lerp = 1 blends two frames (near), 0 samples the nearest frame (zoomed out). Loops wrap inside a row.
+// Phase: B3 (implemented), C1 (clip atlas) — Vertex Animation Texture shader for URP, drawn with Graphics.RenderMeshIndirect.
+// Atlas layout (VATBaker / ProceduralSoldier / VatCodec): U = vertex index / VertexCount, V = frame / TotalFrames;
+// positions RGBA64 quantised over _PosMin.._PosMin+_PosSize, normals RGBA32 (0..1 -> -1..1). Per-instance data is a
+// 48-byte record in a StructuredBuffer filled by VATRenderer: the clip playing (row, 0..1 through it), the clip fading
+// out (prevRow, prevT, blend = its weight) and the yaw. A row whose frame count is negative plays once and holds its
+// last frame; a positive one loops. _Lerp = 1 blends two frames (near), 0 samples the nearest frame (zoomed out).
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it.
 // Look: the same two-step cartoon light, haze and ink outline as TW/Toon, so the men sit in the painted field.
 Shader "TW/VAT Infantry (URP)"
@@ -30,14 +32,15 @@ Shader "TW/VAT Infantry (URP)"
         #define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
         #include "UnityIndirect.cginc"
 
-        struct VatInstance { float3 pos; float yaw; float animRow; float animT; float tint; float scale; };
+        struct VatInstance { float3 pos; float yaw; float animRow; float animT; float tint; float scale; float prevRow; float prevT; float blend; float pad; };
         StructuredBuffer<VatInstance> _Instances;
-        StructuredBuffer<float2> _RowTable;   // x = row start frame, y = row frame count (AnimRow order)
+        StructuredBuffer<float2> _RowTable;   // x = row start frame, y = row frame count (negative: play once and hold)
 
         TEXTURE2D(_PosTex); SAMPLER(sampler_PosTex);
         TEXTURE2D(_NrmTex); SAMPLER(sampler_NrmTex);
         CBUFFER_START(UnityPerMaterial)
             float _VertexCount, _TotalFrames, _Lerp;
+            float4 _PosMin, _PosSize;
             float4 _TeamColorA, _TeamColorB;
             float4 _WoundCenter, _WoundRadii;
             float4 _OutlineColor; float _OutlineWidth;
@@ -46,20 +49,38 @@ Shader "TW/VAT Infantry (URP)"
 
         struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; };
 
+        // one clip: the frame pair at t (0..1 through the row) and the blend between them
+        void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
+        {
+            float2 row = _RowTable[(uint)rowIndex];
+            float count = max(1.0, abs(row.y));
+            bool loops = row.y > 0.0;
+            float local = (loops ? frac(t) : saturate(t)) * count;
+            float f0 = min(floor(local), count - 1.0);
+            float f1 = loops ? fmod(f0 + 1.0, count) : min(f0 + 1.0, count - 1.0);
+            float v0 = (row.x + f0 + 0.5) / _TotalFrames, v1 = (row.x + f1 + 0.5) / _TotalFrames;
+            float w = saturate(local - f0) * _Lerp;
+            p = lerp(SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v0), 0).xyz,
+                     SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v1), 0).xyz, w);
+            n = lerp(SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v0), 0).xyz,
+                     SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
+        }
+
         Animated Animate(uint vertexID, uint svInstanceID)
         {
             InitIndirectDrawArgs(0);
             VatInstance inst = _Instances[GetIndirectInstanceID(svInstanceID)];
-            float2 row = _RowTable[(uint)inst.animRow];
-            float local = frac(inst.animT) * row.y;
-            float f0 = floor(local), f1 = fmod(f0 + 1.0, row.y);
             float u = (vertexID + 0.5) / _VertexCount;
-            float v0 = (row.x + f0 + 0.5) / _TotalFrames, v1 = (row.x + f1 + 0.5) / _TotalFrames;
-            float w = frac(local) * _Lerp;
-            float3 p = lerp(SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v0), 0).xyz,
-                            SAMPLE_TEXTURE2D_LOD(_PosTex, sampler_PosTex, float2(u, v1), 0).xyz, w);
-            float3 n = lerp(SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v0), 0).xyz,
-                            SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
+            float3 p, n;
+            SampleClip(u, inst.animRow, inst.animT, p, n);
+            if (inst.blend > 0.001)   // the clip on its way out, while the cross-fade lasts
+            {
+                float3 pp, pn;
+                SampleClip(u, inst.prevRow, inst.prevT, pp, pn);
+                p = lerp(p, pp, inst.blend); n = lerp(n, pn, inst.blend);
+            }
+            p = _PosMin.xyz + p * _PosSize.xyz;
+            n = n * 2.0 - 1.0;
             float s = sin(inst.yaw), c = cos(inst.yaw);   // yaw turns +Z towards +X, as Quaternion.Euler(0, yaw, 0)
             Animated o;
             o.positionOS = p;
