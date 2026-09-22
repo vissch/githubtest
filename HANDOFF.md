@@ -162,6 +162,12 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   are one mesh moved in the TW/Motes vertex shader; up to six rats run the trench floors and bolt from men and shells.
   `Atmosphere.CloseLens`: Gaussian depth of field and a closer vignette in the super zoom only (component inactive
   otherwise). Not measured on the minimum GPU; nothing here runs at the standard view.
+  Character controller: designed, not built. `docs/15-character-controller.md` is the design of record (the
+  per-man ladder, locomotion, actions, reactions, environment, deaths, archetype tables, the VAT and baker changes,
+  the sim steps that need the owner's yes). `docs/reference/animation-clips.md` classifies the owner's 205 Mixamo
+  clips (131 use / 28 spare / 46 ditch) from measurements made by `Tools/fbxscan.py`; the unnamed download
+  `3e5cc2...fbx` is the forward belly crawl. The clips stay in the owner's Downloads until the baker's clip table
+  exists (step 1 of the order of work).
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

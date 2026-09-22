@@ -1,0 +1,206 @@
+clip,state,stance,kind,rigs,verdict,seconds,frames,loops,travel_cm,hips_min_cm,hips_max_cm,note
+Rifle Aim To Down,Aim.Down,stand,once,RAMS,use,1.5,46,False,15.1,97.8,101.7,lower it when the target is lost
+Rifle Aim To Kneel,Aim.Down,kneel,once,RAMS,use,0.8,25,False,13.4,38.9,49.9,kneeling
+Rifle Down To Aim,Aim.Up,stand,once,RAMS,use,0.87,27,False,11.2,99.6,101.7,raise the rifle when a target appears (34 deg turn: strip)
+Rifle Kneel To Aim,Aim.Up,kneel,once,RAMS,use,0.8,25,False,8.3,38.9,48.2,kneeling
+Emerging,Cover.Leave,stand,once,RAMS,use,2.3,70,False,338.5,84.0,95.4,"out from cover into a run (339 cm, 74 deg turn: strip)"
+Taking Cover,Cover.Take,stand,once,RAMS,use,2.27,69,False,137.3,88.9,100.4,"run in and turn against the wall (137 cm, 90 deg: strip)"
+Death Crouching Headshot Front,Death.Kneel,kneel,once,RAMS,use,1.9,58,False,96.8,11.1,85.5,from the squat
+Rifle Kneel Hit To Back,Death.Kneel,kneel,once,RAMS,use,1.9,58,False,129.3,15.4,44.1,"from one knee, thrown back"
+Rifle Run To Dying,Death.Run,stand,once,RAMS,use,2.47,75,False,401.3,17.0,85.9,shot at a run (401 cm: strip)
+Death From Back Headshot,Death.Stand,stand,once,RAMS,use,3.7,112,False,98.5,15.7,97.6,
+Death From Front Headshot,Death.Stand,stand,once,RAMS,use,2.83,86,False,39.7,13.9,99.5,drops on the spot (40 cm)
+Death From Right,Death.Stand,stand,once,RAMS,use,3.3,100,False,90.2,14.2,97.6,shot from the right
+Death From The Back,Death.Stand,stand,once,RAMS,use,2.97,90,False,117.5,17.2,101.1,shot from behind
+Death From The Front,Death.Stand,stand,once,RAMS,use,3.43,104,False,108.9,18.8,106.2,shot from the front
+Rifle Death,Death.Stand,stand,once,RAMS,use,3.8,115,False,108.2,16.7,100.2,"3.8 s, rifle held"
+Rifle Hit To Back,Death.Stand,stand,once,RAMS,use,1.77,54,False,143.9,17.5,101.7,thrown back (144 cm: strip): shell
+Walking To Dying,Death.Walk,stand,once,RAMS,use,3.07,93,False,167.9,23.7,98.8,shot while walking
+Walking To Dying (1),Death.Walk,stand,once,RAMS,use,2.9,88,False,245.4,23.6,103.6,variant
+Dive Roll,Dive,stand,once,RA,use,2.37,72,True,374.8,17.3,104.2,dive to the ground and up (375 cm travel: strip); shell landing close
+Rifle Rubbing Eyes,Fidget.Kneel,kneel,once,RAMS,use,1.83,56,False,2.2,38.9,46.3,kneeling fidget; at night and in gas
+Check Shoe,Fidget.Stand,stand,once,RAO,use,4.7,142,False,5.0,97.9,101.3,"rear line only; ends in a different foot stance, crossfade back"
+Inspecting,Fidget.Stand,stand,once,RAMSO,use,3.17,96,True,0.0,100.2,100.8,looks the rifle over
+Rifle Idle (4),Fidget.Stand,stand,loop,RAMS,use,5.93,179,True,0.1,81.3,100.9,dips to 81 cm: a stretch; play once as a fidget
+Turning Right 45 Degrees (1),Fidget.Stand,stand,loop,RAMS,spare,1.0,31,True,0.0,100.0,102.5,a foot shuffle in place (no yaw): a fidget
+Firing Rifle (4),Fire.CrouchWalk,crouch,loop,RAM,use,1.17,36,True,0.0,75.2,79.2,firing while stooped (hips 77)
+Fire Rifle,Fire.Kneel,kneel,once,RAMS,use,1.03,32,True,0.0,46.3,47.7,kneeling shot (hips 46)
+Prone Firing Rifle,Fire.Prone,prone,once,RMS,use,0.83,26,True,0.0,13.0,13.2,0.83 s prone shot
+Prone Firing Rifle (1),Fire.Prone,prone,once,M,use,0.43,14,True,0.0,13.0,13.0,0.43 s: the machine-gun burst loop
+Firing Rifle (3),Fire.Run,stand,loop,RA,use,1.0,31,True,0.0,91.9,98.1,firing while running (hips 92 = Rifle Run)
+Shoot Rifle,Fire.Run,stand,loop,RA,use,0.93,29,True,0.0,85.3,97.6,run-and-shoot variant
+Firing Rifle (5),Fire.Sprint,stand,loop,A,use,0.57,18,True,0.0,82.8,91.0,hip fire at a sprint (0.57 s cycle): assault only
+Firing Rifle,Fire.Stand.Aimed,stand,once,RS,use,0.27,9,True,0.0,100.1,100.2,0.27 s single aimed shot: the sniper and the rifleman
+Firing Rifle (1),Fire.Stand.Aimed,stand,once,RS,use,1.17,36,True,0.0,100.1,100.2,1.17 s aimed shot with a settle
+Firing Rifle (2),Fire.Walk,stand,loop,RA,use,3.27,99,True,0.0,94.2,99.8,firing while walking (hips 95 = Walking)
+Firing Rifle (6),Fire.Walk,stand,loop,RA,use,1.37,42,True,0.0,93.7,99.4,variant
+Firing Rifle (7),Fire.Walk,stand,loop,RA,use,1.33,41,True,0.0,94.2,99.9,variant
+Rifle Prone Hit Reaction,Hit.Prone,prone,once,RAMS,use,1.23,38,True,0.0,13.0,13.9,"and, held on its last frame, the prone death (none in the set)"
+Hit Reaction (2),Hit.Run,stand,once,RAMS,use,0.6,19,True,0.2,82.8,91.8,"0.6 s: hit while running, keeps going"
+Hit Reaction (1),Hit.Stand,stand,once,RAMS,use,2.3,70,True,0.0,83.5,93.7,2.3 s
+Hit Reaction (3),Hit.Stand,stand,once,RAMS,use,2.43,74,True,0.0,85.4,95.2,2.4 s variant
+Hit Reaction,Hit.Stand.Heavy,stand,once,RAMS,use,3.1,94,True,0.0,63.2,100.9,3.1 s stagger to 63 cm and back: a heavy hit
+Walking Hit Reaction,Hit.Walk,stand,once,RAMS,use,1.37,42,True,0.6,93.7,99.1,hit while walking
+Crouch Idle,Idle.Crouch,kneel,loop,RAMS,use,6.7,202,True,0.0,46.3,46.6,"hips 46: squat, 6.7 s"
+Idle Crouching,Idle.Crouch,kneel,loop,RAMS,use,2.1,64,True,0.0,46.2,46.4,variant
+Idle Crouching Aiming,Idle.Crouch.Aim,kneel,loop,RAMS,use,2.1,64,True,0.0,46.2,46.4,aimed from the squat
+Rifle Kneel Idle,Idle.Kneel,kneel,loop,RAMS,use,1.7,52,True,0.0,38.9,38.9,hips 39: one knee down
+Prone Idle,Idle.Prone,prone,loop,RAMS,use,4.93,149,True,0.0,13.0,13.2,4.9 s
+Idle,Idle.Stand,stand,loop,RAMSO,use,2.1,64,True,0.0,96.9,97.6,unarmed-style stance; use for the rear line when the rifle is slung
+Idle Aiming,Idle.Stand.Aim,stand,loop,RAMS,use,2.1,64,True,0.0,97.8,97.9,aimed variant
+Rifle Aiming Idle,Idle.Stand.Aim,stand,loop,RAMS,use,3.1,94,True,0.0,100.1,100.4,"aimed, target held, not firing"
+Rifle Idle,Idle.Stand.Ready,stand,loop,RAMS,use,8.57,258,True,0.0,101.8,102.3,"primary ready idle, looks about (8.6 s)"
+Rifle Idle (1),Idle.Stand.Ready,stand,loop,RAMS,use,2.83,86,True,0.0,100.0,100.3,"short variant (2.8 s), for the phase-offset pool"
+Rifle Idle (2),Idle.Stand.Ready,stand,loop,RAMS,use,7.7,232,True,0.0,101.7,102.8,"variant, head turns"
+Rifle Idle (3),Idle.Stand.Ready,stand,loop,RAMS,use,10.63,320,True,0.0,97.3,102.0,"variant, shifts weight (10.6 s)"
+Jump,Jump,stand,once,,ditch,2.77,84,True,396.7,78.2,105.3,4 m running jump
+Jump Backward,Jump,stand,loop,,ditch,0.9,28,True,0.0,93.3,112.8,hop cycle
+Jump Forward,Jump,stand,loop,,ditch,0.9,28,True,0.0,81.4,129.9,hop cycle
+Rifle Jump,Jump,stand,once,,ditch,2.27,69,True,160.4,71.7,121.0,"running long jump, no situation"
+Rifle Jump (1),Jump,stand,once,,ditch,0.6,19,False,0.9,104.1,135.9,hop in place
+Rifle Jump In Place,Jump,stand,once,,ditch,1.93,59,True,0.2,76.3,125.8,hop in place
+Block With Rifle,Melee.Block,stand,once,RA,use,1.63,50,True,0.0,88.4,100.4,
+Rifle Block,Melee.Block,stand,once,RA,spare,2.8,85,True,0.0,86.7,93.2,2.8 s variant
+Upward Rifle Butt Strike,Melee.Crouch,kneel,once,RA,use,2.2,67,True,0.0,55.7,56.5,butt strike from a crouch (hips 56)
+Bayonet Stab,Melee.Stand,stand,once,RA,use,3.27,99,True,0.0,74.2,89.8,3.3 s
+Rifle Punch,Melee.Stand,stand,once,RA,use,2.77,84,True,0.0,71.5,92.6,butt to the face
+Rifle Turn And Kick,Melee.Stand,stand,once,A,spare,2.77,84,False,88.5,88.8,107.7,turns first (47 deg)
+Smash,Melee.Stand,stand,once,RA,use,3.0,91,True,0.0,82.6,92.4,overhead
+Left Cover Sneak W_ Rifle,Move.Cover.Left,crouch,loop,RAMS,use,1.13,35,True,0.0,89.5,95.4,"sidestep along cover, rifle up"
+Right Cover Sneak W_ Rifle,Move.Cover.Right,crouch,loop,RAMS,use,1.13,35,True,0.0,89.4,95.4,
+Moving Backward In Crawl Position,Move.Crawl.Back,crouch,loop,RAMS,spare,1.7,52,True,0.0,34.7,46.3,"hands and knees (hips 43), no forward partner"
+Moving Backward In Prone Position,Move.Prone.Back,prone,loop,RAMS,use,1.9,58,True,0.0,12.2,27.3,backing out of fire
+3e5cc2dade57d51f535dee9a2fe94j7f2,Move.Prone.Fwd,prone,loop,RAMS,use,3.27,99,True,115.9,13.0,24.0,"UNNAMED FILE: a belly crawl forward, 116 cm travel (strip). Rename to Prone Crawl Forward"
+Backwards Rifle Run,Move.Run.Back,stand,loop,RAMS,spare,0.6,19,True,0.0,96.2,101.0,rifle up variant
+Run Backward,Move.Run.Back,stand,loop,RA,use,0.5,16,True,0.0,89.2,97.1,
+Run Backwards,Move.Run.Back,stand,loop,,ditch,0.53,17,True,0.0,96.5,101.0,duplicate
+Run Backward Left,Move.Run.Diag,stand,loop,,ditch,0.5,16,True,0.0,89.2,96.8,diagonal
+Run Backward Right,Move.Run.Diag,stand,loop,,ditch,0.5,16,True,0.0,92.8,99.3,diagonal
+Run Forward Left,Move.Run.Diag,stand,loop,,ditch,0.5,16,True,0.0,91.6,101.4,diagonal
+Run Forward Right,Move.Run.Diag,stand,loop,,ditch,0.5,16,True,0.0,92.6,100.4,diagonal
+Rifle Run,Move.Run.Fwd,stand,loop,RAMS,use,0.73,23,False,0.1,83.7,95.0,the run (hips 85)
+Rifle Run (1),Move.Run.Fwd,stand,loop,RAMS,use,0.67,21,True,0.0,92.3,96.3,variant (hips 92)
+Run Forward,Move.Run.Fwd,stand,loop,RA,spare,0.5,16,True,0.0,84.8,95.6,8-way set
+Run Left,Move.Run.Left,stand,loop,RA,use,0.5,16,True,0.0,95.0,102.4,
+Run Right,Move.Run.Right,stand,loop,RA,use,0.5,16,False,0.0,88.9,97.4,
+Strafe,Move.Run.Side,stand,loop,RA,use,0.67,21,True,0.0,88.7,95.4,a running sidestep (0.67 s)
+Idle To Running,Move.Run.Start,stand,once,RA,spare,0.9,28,False,197.5,80.5,100.2,0.9 s variant
+Rifle Start Run,Move.Run.Start,stand,once,RAMS,use,1.73,53,False,312.6,83.4,100.7,idle -> run (313 cm travel: strip; play at the sim speed ramp)
+Rifle Backward Run To Stop,Move.Run.Stop,stand,once,,ditch,1.53,47,False,213.9,95.7,103.1,covered
+Rifle Run To Stop,Move.Run.Stop,stand,once,RAMS,use,1.47,45,False,293.9,85.3,101.9,run -> idle (294 cm: strip)
+Sprint Backward,Move.Sprint.Back,stand,loop,,ditch,0.5,16,True,0.0,93.7,101.1,nobody sprints backwards
+Sprint Backward Left,Move.Sprint.Diag,stand,loop,,ditch,0.5,16,True,0.0,93.5,101.4,diagonal
+Sprint Backward Right,Move.Sprint.Diag,stand,loop,,ditch,0.5,16,True,0.0,92.5,97.6,diagonal
+Sprint Forward Left,Move.Sprint.Diag,stand,loop,,ditch,0.5,16,True,0.0,94.2,99.1,diagonal
+Sprint Forward Right,Move.Sprint.Diag,stand,loop,,ditch,0.5,16,False,0.0,92.1,96.6,diagonal
+Sprint Forward,Move.Sprint.Fwd,stand,loop,RA,use,0.5,16,True,0.0,88.6,94.9,"flat out, rifle in one hand"
+Sprint Left,Move.Sprint.Side,stand,loop,,ditch,0.5,16,True,0.0,92.3,101.2,
+Sprint Right,Move.Sprint.Side,stand,loop,,ditch,0.5,16,True,0.0,89.2,101.3,
+Rifle Crouch Backward Walk,Move.Stoop.Back,crouch,loop,RAMS,use,2.0,61,True,0.0,89.8,93.0,backing off while covering
+Walk Crouching Backward,Move.Stoop.Back.Low,crouch,loop,RAMS,use,1.0,31,True,0.0,71.5,74.9,
+Walk Crouching Backward Left,Move.Stoop.Diag,crouch,loop,,ditch,1.0,31,True,0.0,68.9,72.5,diagonal
+Walk Crouching Backward Right,Move.Stoop.Diag,crouch,loop,,ditch,1.0,31,True,0.0,71.5,75.2,diagonal
+Walk Crouching Forward Left,Move.Stoop.Diag,crouch,loop,,ditch,1.0,31,True,0.0,71.6,75.2,diagonals: the nearer cardinal is used
+Walk Crouching Forward Right,Move.Stoop.Diag,crouch,loop,,ditch,1.0,31,True,0.0,67.7,72.2,diagonal
+Crouch Walking,Move.Stoop.Fwd,crouch,loop,,ditch,1.17,36,True,143.9,75.4,79.3,not in place (144 cm travel) and covered
+Crouched Walking,Move.Stoop.Fwd,crouch,loop,RAMS,spare,1.7,52,True,0.2,75.2,79.8,"lower stoop (78), arms swing more"
+Rifle Crouch Walk,Move.Stoop.Fwd,crouch,loop,RAMS,use,1.97,60,True,0.0,87.1,91.8,primary in-trench and under-fire walk
+Rifle Crouch Walk (1),Move.Stoop.Fwd,crouch,loop,RAMS,use,1.93,59,True,0.0,86.4,92.7,variant
+Walk Crouching Forward,Move.Stoop.Fwd.Low,crouch,loop,RAMS,use,1.0,31,True,0.0,71.6,74.7,"hips 72, the lowest stoop: below a parapet"
+Crouch Walk Strafe Left,Move.Stoop.Left,crouch,loop,RAMS,use,1.23,38,True,0.0,74.6,82.3,hips 81
+Walk Crouching Left,Move.Stoop.Left.Low,crouch,loop,RAMS,use,1.0,31,True,0.0,72.6,75.4,sidling along a wall
+Crouch Walk Strafe Right,Move.Stoop.Right,crouch,loop,RAMS,use,1.2,37,True,0.0,72.9,81.5,
+Walk Crouching Right,Move.Stoop.Right.Low,crouch,loop,RAMS,use,1.0,31,True,0.0,71.3,75.3,
+Crouched Run,Move.Stoop.Run,crouch,loop,,ditch,0.77,24,True,1.1,0.4,0.5,"the copy already in the project, hips at 0: same clip as (1)"
+Crouched Run (1),Move.Stoop.Run,crouch,loop,RAMS,use,0.77,24,True,0.0,87.8,94.4,the crouched run (hips 88)
+Crouch Run Backwards,Move.Stoop.Run.Back,crouch,loop,RA,use,0.5,16,True,0.0,86.2,90.7,
+Crouch Strafe Run Left,Move.Stoop.Run.Side,crouch,loop,RA,spare,0.5,16,True,0.0,79.7,83.3,mirror of Crouched Strafe Run
+Crouched Strafe Run,Move.Stoop.Run.Side,crouch,loop,RA,use,0.6,19,True,0.0,80.6,88.0,
+Backwards Rifle Walk,Move.Walk.Back,stand,loop,RAMS,spare,1.27,39,True,0.0,97.2,102.4,"variant, rifle up"
+Walk Backward,Move.Walk.Back,stand,loop,RAMS,use,1.0,31,True,0.0,85.0,91.0,covering a withdrawal
+Walking Backwards,Move.Walk.Back,stand,loop,RAMS,spare,1.4,43,True,0.0,90.9,100.2,variant
+Start Walking Backwards,Move.Walk.Back.Start,stand,once,RAMS,spare,2.03,62,False,177.3,91.7,100.2,
+Walk Backward Left,Move.Walk.Diag,stand,loop,,ditch,1.0,31,True,0.0,88.7,95.6,diagonal
+Walk Backward Right,Move.Walk.Diag,stand,loop,,ditch,1.0,31,True,0.0,85.0,91.4,diagonal
+Walk Forward Left,Move.Walk.Diag,stand,loop,,ditch,1.0,31,True,0.0,85.1,91.5,diagonal
+Walk Forward Right,Move.Walk.Diag,stand,loop,,ditch,1.0,31,True,0.0,84.1,92.6,diagonal
+Rifle Walk,Move.Walk.Fwd,stand,loop,RAMS,use,1.3,40,True,0.0,96.6,103.0,"rifle low, walking: the default march"
+Walk Forward,Move.Walk.Fwd,stand,loop,RA,spare,1.0,31,True,0.0,85.5,90.9,"8-way set, forward"
+Walk With Rifle,Move.Walk.Fwd,stand,loop,RMS,use,1.1,34,True,0.0,96.1,101.0,"rifle at the ready, walking (arms still)"
+Walk With Rifle (2),Move.Walk.Fwd,stand,loop,RMS,spare,3.37,102,True,0.0,96.1,102.1,3.4 s long cycle of the same
+Walking,Move.Walk.Fwd,stand,loop,O,use,1.37,42,True,0.0,94.3,99.1,the plain walk: officer / slung rifle
+Walking (1),Move.Walk.Fwd,stand,loop,,ditch,7.0,211,False,211.5,91.6,97.8,7 s with 2 m of travel: not a cycle
+Walk With Rifle (1),Move.Walk.Fwd.Low,stand,loop,RA,use,1.43,44,True,0.0,84.2,90.7,"lower, wary walk (hips 85)"
+Strafe Left,Move.Walk.Left,stand,loop,RAMS,spare,1.03,32,True,0.0,94.2,101.8,variant
+Walk Left,Move.Walk.Left,stand,loop,RAMS,use,1.0,31,True,0.0,82.0,91.1,
+Strafe Right,Move.Walk.Right,stand,loop,RAMS,spare,1.43,44,True,0.0,96.4,100.6,variant
+Walk Right,Move.Walk.Right,stand,loop,RAMS,use,1.0,31,True,0.0,86.8,96.2,
+Rifle Side Step,Move.Walk.Side,stand,loop,RAMS,use,1.17,36,True,0.0,95.8,101.9,"a slow sidestep, rifle up: edging along the fire step"
+Rifle Side Step (1),Move.Walk.Side,stand,loop,RAMS,spare,1.5,46,True,0.0,96.3,101.9,variant
+Rifle Backward Walk To Stop,Move.Walk.Stop,stand,once,,ditch,2.87,87,False,174.3,99.2,102.4,covered
+Rifle Walk To Stop,Move.Walk.Stop,stand,once,RAMS,use,3.57,108,False,181.1,96.3,103.1,3.6 s: only the last 1.2 s is used
+Stop Walking With Rifle,Move.Walk.Stop,stand,once,RAMS,spare,2.27,69,False,123.2,98.8,102.9,"2.3 s, turns 45 deg"
+Walk Backwards Stop,Move.Walk.Stop,stand,once,RAMS,spare,1.37,42,False,91.6,94.5,100.2,
+Prone Roll,Prone.Roll,prone,once,RAMS,use,1.7,52,True,120.3,12.9,22.6,roll aside from a shell (120 cm travel: strip)
+Roll Left,Prone.Roll,prone,once,RAMS,spare,2.5,76,True,127.3,12.7,23.5,2.5 s variant
+Roll Left (1),Prone.Roll,prone,once,RAMS,spare,1.5,46,True,118.7,13.0,26.7,1.5 s variant
+Dodging,React.Duck,stand,once,RAMS,use,1.63,50,True,0.0,79.0,100.6,ducks to 79 cm: near miss
+Rifle Shielding Face,React.Shield,stand,once,RAMS,use,4.3,130,False,61.8,40.9,102.4,"arm over the face, drops to a crouch (4.3 s): shell burst close, gas"
+Fall Over,React.Trip,stand,once,RAMS,use,2.0,61,False,79.9,11.2,100.4,"trips flat (ends at 11 cm): mud, wire; get up with Prone To Kneel + Kneel To Stand"
+Reload,Reload.CrouchWalk,crouch,once,RAM,use,3.67,111,True,0.2,83.7,94.9,stooped reload (hips 85)
+Prone Reloading,Reload.Prone,prone,once,RMS,use,6.4,193,True,0.0,11.0,14.1,6.4 s: the MG belt change
+Reload (1),Reload.Stand,stand,once,RA,use,4.1,124,True,0.1,93.7,99.3,"4.1 s variant, legs shift (walk-and-reload)"
+Reloading,Reload.Stand,stand,once,RAS,use,3.3,100,True,0.0,98.9,100.7,3.3 s; the sniper plays it at 2x as the bolt
+Grab And Put Back Rifle,Sling,stand,once,,ditch,7.5,226,True,0.0,97.1,103.2,7.5 s combined cycle; the two halves are covered
+Grab Rifle And Put Back,Sling,stand,once,,ditch,6.17,186,True,0.0,99.6,103.0,duplicate
+Grab Rifle From The Side And Put Back,Sling,stand,once,,ditch,5.03,152,True,0.0,98.2,103.8,duplicate
+Put Back Rifle,Sling.Away,stand,once,,ditch,3.27,99,False,24.9,99.5,102.6,duplicate of Rifle Put Away
+Put Back Rifle (1),Sling.Away,stand,once,,ditch,2.57,78,False,20.9,97.9,103.3,duplicate
+Put Back Rifle Behind Shoulder,Sling.Away,stand,once,,ditch,3.97,120,False,26.6,97.0,103.2,duplicate
+Rifle Put Away,Sling.Away,stand,once,RAMSO,use,2.3,70,False,0.2,98.8,101.8,sling: arriving in the rear trench
+Grab Rifle From Back,Sling.Ready,stand,once,,ditch,2.9,88,False,24.9,99.7,103.1,duplicate of Rifle Pull Out with 25 cm root motion
+Grab Rifle From Behind Shoulder,Sling.Ready,stand,once,,ditch,3.53,107,False,26.6,99.9,103.3,duplicate
+Grab Rifle From The Side,Sling.Ready,stand,once,,ditch,2.47,75,False,20.9,101.2,104.7,duplicate
+Rifle Pull Out,Sling.Ready,stand,once,RAMSO,use,2.03,62,False,0.3,101.2,102.2,unsling: rear line -> alarm
+Crouch To Standing With Rifle,Stance.CrouchToStand,kneel,once,RAMS,use,1.1,34,False,0.7,45.5,101.2,from the squat
+Rifle Kneel To Prone,Stance.KneelToProne,kneel,once,RAMS,use,1.97,60,False,0.4,12.5,47.6,2.0 s
+Rifle Kneel To Stand,Stance.KneelToStand,kneel,once,RAMS,use,1.23,38,False,23.1,38.8,101.9,1.23 s
+Rifle Crouch Idle To Walk,Stance.KneelToStoop,kneel,once,RAMS,use,2.4,73,False,46.5,38.9,92.3,kneel -> stooped walk
+Rifle Prone To Kneel,Stance.ProneToKneel,prone,once,RAMS,use,1.97,60,False,10.8,13.0,47.5,2.0 s
+Rifle Stand To Kneel,Stance.StandToKneel,stand,once,RAMS,use,0.93,29,False,23.0,38.9,101.9,0.93 s
+Rifle Idle To Crouch,Stance.StandToStoop,stand,once,RAMS,use,2.43,74,False,53.3,74.5,101.7,stand -> stooped walk (53 cm travel: strip)
+Crouch Walk Backwards Stop,Stance.StoopToKneel,crouch,once,RAMS,spare,1.37,42,False,96.4,45.2,90.7,backing off then kneeling; 96 cm travel
+Rifle Crouch Walk To Kneel,Stance.StoopToKneel,crouch,once,RAMS,use,2.73,83,False,140.2,38.9,92.3,stooped -> kneel (140 cm travel: strip)
+Rifle Crouch Walk To Idle,Stance.StoopToStand,crouch,once,RAMS,use,2.93,89,False,53.5,86.7,101.9,stooped -> stand
+Single Step Right,Step,stand,once,,ditch,1.53,47,True,52.0,97.4,100.2,52 cm root motion single step
+Stepping Forward,Step,stand,once,,ditch,2.0,61,True,51.9,97.3,100.3,52 cm root motion single step
+Toss Grenade,Throw,stand,once,RA,use,3.2,97,False,0.0,84.3,100.6,3.2 s; the release is at ~1.4 s
+Jump Up,Trench.ClimbOut.A,stand,once,RAMS,use,0.53,17,False,0.8,69.5,97.6,take-off: the first half of climbing the parapet
+Jump Loop,Trench.ClimbOut.B,stand,loop,RAMS,use,1.0,31,True,0.0,96.9,97.2,airborne hold while the sim lifts the man
+Jump Down,Trench.ClimbOut.C,stand,once,RAMS,use,0.67,21,False,0.8,77.9,97.6,landing
+Jumping Down,Trench.DropIn,stand,once,RAMS,use,2.93,89,False,126.1,66.6,165.9,starts 0.66 m up and lands: the drop into a trench (126 cm travel: strip)
+Jumping Down (1),Trench.DropIn,stand,once,RAMS,use,2.83,86,False,172.6,76.3,163.3,variant (0.63 m)
+Crouching Turn 90 Left,Turn.Crouch.L90,kneel,once,RAMS,use,1.27,39,False,1.3,45.9,56.5,
+Crouching Turn 90 Right,Turn.Crouch.R90,kneel,once,RAMS,use,1.27,39,False,1.3,46.2,63.4,
+Rifle Turn,Turn.Stand,stand,once,RAMS,use,1.7,52,False,7.6,99.8,101.7,standing turn set (8): 45/90/135/180 each way; the 90s and 180s are wired
+Rifle Turn (1),Turn.Stand,stand,once,RAMS,use,1.53,47,False,7.8,98.4,101.9,
+Rifle Turn (2),Turn.Stand,stand,once,RAMS,spare,1.97,60,False,21.8,98.8,102.0,
+Rifle Turn (3),Turn.Stand,stand,once,RAMS,spare,1.87,57,False,30.0,99.0,102.1,
+Rifle Turn (4),Turn.Stand,stand,once,RAMS,use,1.3,40,False,6.5,100.1,102.1,
+Rifle Turn (5),Turn.Stand,stand,once,RAMS,use,1.7,52,False,26.9,101.0,102.0,
+Rifle Turn (6),Turn.Stand,stand,once,RAMS,use,1.47,45,False,28.3,100.4,102.0,
+Rifle Turn (7),Turn.Stand,stand,once,RAMS,spare,1.87,57,False,22.4,98.7,102.8,
+Left Turn,Turn.Stand.L90,stand,once,,ditch,1.5,46,False,26.7,91.8,100.2,covered
+Turn 90 Left,Turn.Stand.L90,stand,once,O,use,1.0,31,False,1.9,94.8,97.6,plain 1 s turns for the slung / officer rig
+Turning Right 45 Degrees,Turn.Stand.R45,stand,once,,ditch,2.0,61,False,0.7,96.3,100.3,covered by the rifle set
+Right Turn,Turn.Stand.R90,stand,once,,ditch,1.8,55,False,45.7,97.5,100.1,covered
+Turn 90 Right,Turn.Stand.R90,stand,once,O,use,1.0,31,False,1.9,95.2,98.0,
+Turning Right 90 Degrees,Turn.Stand.R90,stand,once,,ditch,2.4,73,False,1.1,97.9,100.2,covered
+Rifle Crouch Turn,Turn.Stoop,crouch,once,RAMS,use,1.43,44,False,20.4,79.7,84.7,stooped turn set (8): 45/90/135/180 each way; only the 90s and 180s are wired
+Rifle Crouch Turn (1),Turn.Stoop,crouch,once,RAMS,use,1.23,38,False,30.3,81.1,88.4,
+Rifle Crouch Turn (2),Turn.Stoop,crouch,once,RAMS,spare,1.5,46,False,38.0,81.1,87.9,
+Rifle Crouch Turn (3),Turn.Stoop,crouch,once,RAMS,spare,1.5,46,False,39.4,80.3,87.7,
+Rifle Crouch Turn (4),Turn.Stoop,crouch,once,RAMS,use,1.27,39,False,18.9,81.0,89.9,
+Rifle Crouch Turn (5),Turn.Stoop,crouch,once,RAMS,use,1.47,45,False,4.5,81.1,91.5,
+Rifle Crouch Turn (6),Turn.Stoop,crouch,once,RAMS,spare,2.07,63,False,13.2,81.1,87.1,
+Rifle Crouch Turn (7),Turn.Stoop,crouch,once,RAMS,use,1.47,45,False,27.6,80.2,85.0,
