@@ -18,6 +18,7 @@ namespace TW.Presentation.Tactical
             Spurt,      // the dust a round kicks up where it strikes
             Puff,       // a small round cloud: cloth and dust where a man is hit
             Smoke,      // the same cloud dark: what a burst leaves hanging
+            Gas,        // the same cloud yellow-green: chlorine, drawn per field cell by CombatFx
             Muzzle,     // the flare at the muzzle, along the shot (additive)
             Star,       // the spike of a strike (additive)
             Flash,      // the burst's own light (additive)
@@ -45,6 +46,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "Spurt",  Cols = 2, Rows = 5, Frames = 10, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.50f, High = 0.80f },
             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.86f, 0.80f, 0.66f), Low = 0.20f, High = 0.50f },
             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Erode = true, Tint = new Color(0.46f, 0.47f, 0.50f), Low = 0.10f, High = 0.60f, Play = 0.6f, Lit = 0.6f, RampIn = 0.3f },
+            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.15f, High = 0.60f, Lit = 0.75f },
             new Sheet { Name = "Muzzle", Cols = 3, Rows = 4, Frames = 12, Additive = true, Tint = new Color(1.0f, 0.78f, 0.42f), Low = 0f, High = 1f },
             new Sheet { Name = "Star",   Cols = 1, Rows = 1, Frames = 1,  Additive = true, MaskOnly = true, Tint = new Color(1.0f, 0.88f, 0.62f), Low = 0f, High = 1f },
             new Sheet { Name = "Flash",  Cols = 1, Rows = 1, Frames = 1,  Additive = true, Tint = new Color(1.0f, 0.80f, 0.50f), Low = 0f, High = 1f },
@@ -149,6 +151,20 @@ namespace TW.Presentation.Tactical
                     if (n == batch.Length) { Graphics.RenderMeshInstanced(rp, quad, 0, batch, n); n = 0; }
                 }
                 if (n > 0) Graphics.RenderMeshInstanced(rp, quad, 0, batch, n);
+            }
+        }
+
+        /// <summary>Draw cards the caller keeps itself (a gas field, a persistent cloud): packed records, any count.</summary>
+        public void DrawPacked(Book book, List<Matrix4x4> packed, Bounds bounds)
+        {
+            if (!Ready || packed.Count == 0) return;
+            var mat = mats[(int)book]; if (mat == null) return;
+            var rp = new RenderParams(mat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
+            for (int start = 0; start < packed.Count; start += batch.Length)
+            {
+                int n = Mathf.Min(batch.Length, packed.Count - start);
+                packed.CopyTo(start, batch, 0, n);
+                Graphics.RenderMeshInstanced(rp, quad, 0, batch, n);
             }
         }
 

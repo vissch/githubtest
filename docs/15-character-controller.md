@@ -281,6 +281,12 @@ most: prone death, get up, stumble, wire / wade, crawl.
 
 ## 14. Order of work
 
+Status 2026-09-22: the decision layer (sections 3 to 9) is built ahead of step 1 as `AnimationController` and drives
+today's 18-row atlas through a fallback row per clip; its trace of a rifleman's advance is in
+`docs/reference/controller/`. Steps 1 and 2 (the clip table, the bake, frame-based playback with cross-fades) make it
+visible; steps 3 to 6 become tuning of what already runs.
+
+
 1. Baker: clip table, root-motion strip per clip, mirror, cut, frame rates; bake the 131; the far-tier map;
    tests. Nothing on screen changes yet (the old 18 rows are mapped from the new table).
 2. Renderer: frame-based playback, hold, cross-fade, rate, yaw offset, tilt; `VatInstance` 48 B.

@@ -81,6 +81,7 @@ namespace TW.Presentation.Tactical
         readonly List<Flash> flashes = new List<Flash>(256);
         readonly List<Marker> markers = new List<Marker>(8);
         readonly List<Chunk> chunks = new List<Chunk>(768);
+        readonly List<Matrix4x4> gasCards = new List<Matrix4x4>(2048);
         Material dirtMat, woodMat, smokeMat;
         Material smokeThin, smokeFaint;
         const int MaxChunks = 768;
@@ -609,9 +610,34 @@ namespace TW.Presentation.Tactical
                 Flush(sphere, new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
             }
 
-            // gas: one translucent block per 4 m field cell, three density bands
+            // gas: drawn clouds that boil slowly over each 4 m field cell (the old translucent blocks stand in without the books)
             var gas = Host.Local.Gas;
-            if (gas != null && gas.Active)
+            if (gas != null && gas.Active && books != null && books.Ready)
+            {
+                float cs = TW.Sim.Terrain.MapData.FieldCellSize;
+                gasCards.Clear();
+                for (int z = 0; z < gas.Length; z++)
+                for (int x = 0; x < gas.Width; x++)
+                {
+                    float c = gas.Gas[z * gas.Width + x];
+                    if (c < 0.8f) continue;
+                    uint h = (uint)(x * 73856093 ^ z * 19349663);
+                    float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f, h3 = ((h >> 20) & 1023) / 1023f;
+                    float thick = Mathf.Clamp01(c / 14f);
+                    float wx = (x + 0.5f) * cs + (h1 - 0.5f) * 2.4f, wz = (z + 0.5f) * cs + (h2 - 0.5f) * 2.4f;
+                    float ground = RenderGround.Sample(Host.Local.Map, wx, wz);
+                    float slow = now * 0.22f + h3 * 6.2832f;
+                    // the cloud boils: the book's solid frames back and forth, a slow roll, a slow rise and fall
+                    float frame = 1.2f + 2.6f * (0.5f + 0.5f * Mathf.Sin(slow));
+                    float width = (4.6f + 2.2f * thick) * (0.9f + 0.2f * h2);
+                    var kind = FlipbookFx.Kind.Upright | (((h >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+                    gasCards.Add(FlipbookFx.Pack(new Vector3(wx, ground + width * 0.32f + 0.3f * Mathf.Sin(slow * 0.7f), wz), width, width, frame, 1f, 1f, (h1 - 0.5f) * 0.6f + now * 0.03f, kind, 0.22f + 0.5f * thick));
+                    if (c > 6f)   // a dense cell holds a second, smaller cloud a little off and higher
+                        gasCards.Add(FlipbookFx.Pack(new Vector3(wx + (h3 - 0.5f) * 3f, ground + width * 0.55f, wz + (h1 - 0.5f) * 3f), width * 0.7f, width * 0.7f, 4.0f - frame * 0.5f, 1f, 1f, (h2 - 0.5f) * 0.6f - now * 0.02f, kind ^ FlipbookFx.Kind.Mirror, 0.2f + 0.4f * thick));
+                }
+                books.DrawPacked(FlipbookFx.Book.Gas, gasCards, bounds);
+            }
+            else if (gas != null && gas.Active)
             {
                 var hfg = Host.Local.Map.Height;
                 float cs = TW.Sim.Terrain.MapData.FieldCellSize;

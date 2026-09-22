@@ -55,6 +55,10 @@ namespace TW.Presentation
         public LockstepDriver LocalDriver { get; private set; }
         public LockstepDriver PeerDriver { get; private set; }
         public SimPresenter Presenter { get; private set; }
+        /// <summary>The character controller's decision layer (docs/15): what each man's body is doing, from the sim's state and events.</summary>
+        public AnimationController Animation { get; private set; }
+        [Tooltip("Drive the men's animation rows from the character controller instead of the stance switch.")]
+        public bool UseAnimationController = true;
         public EventPump Events { get; } = new EventPump();
         public bool Desync { get; private set; }
         public float Alpha { get; private set; }
@@ -87,6 +91,7 @@ namespace TW.Presentation
             LocalDriver = new LockstepDriver(Local.World, net.A);
             PeerDriver = new LockstepDriver(Peer.World, net.B);
             Presenter = new SimPresenter(cfg.MaxSlots);
+            Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn);
             Presenter.Capture(Local.World);
         }
 
@@ -100,7 +105,7 @@ namespace TW.Presentation
                 IssuePeerCommands();
                 bool a = LocalDriver.TryStep();
                 bool b = PeerDriver.TryStep();
-                if (a) { Presenter.Capture(Local.World); Events.Collect(Local.World); }
+                if (a) { Presenter.Capture(Local.World); Animation.Tick(Local.World); Events.Collect(Local.World); }
                 if (a && b && Local.World.Tick == Peer.World.Tick && Local.World.LastHash != Peer.World.LastHash && !Desync)
                 {
                     Desync = true;
@@ -110,6 +115,8 @@ namespace TW.Presentation
             }
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += Time.deltaTime;
+            Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale));
+            Presenter.UseController = UseAnimationController;
             Presenter.Interpolate(Alpha, animTime);
             Events.Dispatch();
         }
@@ -199,6 +206,7 @@ namespace TW.Presentation
         void OnDestroy()
         {
             Presenter?.Dispose();
+            Animation?.Dispose();
             Local?.Dispose();
             Peer?.Dispose();
         }

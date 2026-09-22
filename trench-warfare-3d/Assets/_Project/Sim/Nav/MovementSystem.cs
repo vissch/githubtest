@@ -5,6 +5,9 @@
 // below the rim and stays until TrenchOrdersSystem hands it a new goal; a locked trench passes arrivals straight on
 // to the next goal. Layer bookkeeping: on a Surface cell a unit under orders is Exposed and sprints, otherwise it
 // walks; the tick it leaves a trench it vaults. Vehicles are moved by VehicleKinematicsSystem, not here.
+// Spread: the flow direction is blended between the four cells round the man (no eight-way zigzag lines), and on
+// open ground each man carries a slow, hashed lateral drift, so a company fans out across the field instead of
+// filing along one line; SeparationJob adds a soft comfortable spacing on the surface. All of it is deterministic.
 using System;
 using Unity.Burst;
 using Unity.Collections;
@@ -65,7 +68,7 @@ namespace TW.Sim.Nav
             {
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
                 GoalId = w.GoalId, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
-                Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot,
+                Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
@@ -100,7 +103,11 @@ namespace TW.Sim.Nav
             public NativeArray<short> ArrivedLocked, Garrisoned;
             [ReadOnly] public NativeArray<float> Speed, Suppression;
             [ReadOnly] public NativeArray<int> TargetSlot;
+            [ReadOnly] public NativeArray<ushort> Generation;
             [ReadOnly] public NativeArray<float3> Push;
+            public uint Tick;
+            public const float DriftAmount = 0.38f;     // lateral drift as a fraction of the forward speed
+            public const float DriftPeriodTicks = 320f; // one wander cycle: 16 s
             [ReadOnly] public NativeArray<byte> Directions;
             [ReadOnly] public NativeArray<byte> Ready;
             [ReadOnly] public NativeArray<GoalKey> Goals;
@@ -116,6 +123,26 @@ namespace TW.Sim.Nav
                 int cx = math.clamp((int)(p.x / NavCell), 0, NavWidth - 1);
                 int cz = math.clamp((int)(p.z / NavCell), 0, NavLength - 1);
                 return cz * NavWidth + cx;
+            }
+
+            /// <summary>The flow direction blended between the four cells round a point; cells without a direction are left out.</summary>
+            float2 Flow(int goal, float3 p)
+            {
+                float fx = p.x / NavCell - 0.5f, fz = p.z / NavCell - 0.5f;
+                int x0 = (int)math.floor(fx), z0 = (int)math.floor(fz);
+                float tx = fx - x0, tz = fz - z0;
+                float2 sum = float2.zero; float total = 0f;
+                for (int k = 0; k < 4; k++)
+                {
+                    int x = math.clamp(x0 + (k & 1), 0, NavWidth - 1), z = math.clamp(z0 + (k >> 1), 0, NavLength - 1);
+                    float wgt = ((k & 1) == 0 ? 1f - tx : tx) * ((k >> 1) == 0 ? 1f - tz : tz);
+                    byte d = Directions[goal * CellCount + z * NavWidth + x];
+                    if (d == FlowField.NoDirection || wgt <= 0f) continue;
+                    sum += FlowField.Offset(d) * wgt; total += wgt;
+                }
+                if (total <= 0f) return float2.zero;
+                float len = SimMath.Length(new float3(sum.x, 0f, sum.y));
+                return len > 1e-4f ? sum / len : float2.zero;
             }
 
             bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, float pushX, byte from, int ncell)
@@ -145,8 +172,23 @@ namespace TW.Sim.Nav
                 float2 dir = float2.zero;
                 if (!isGarrisoned && goal >= 0 && Ready[goal] != 0)
                 {
-                    byte d = Directions[goal * CellCount + cell];
-                    if (d != FlowField.NoDirection) dir = FlowField.Offset(d);
+                    dir = Flow(goal, p);
+                    if (SimMath.Length(new float3(dir.x, 0f, dir.y)) < 0.5f)
+                    {
+                        byte d = Directions[goal * CellCount + cell];
+                        dir = d != FlowField.NoDirection ? FlowField.Offset(d) : float2.zero;
+                    }
+                    else if (!inTrench)
+                    {
+                        // open ground: a slow wander to one side and back, different for every man, so the company spreads
+                        uint seed = (uint)i * 2654435761u ^ (uint)Generation[i] * 40503u;
+                        float phase = (seed & 0xFFFF) / 65536f * 6.2831853f;
+                        float lat = DriftAmount * SimMath.Sin(Tick * (6.2831853f / DriftPeriodTicks) + phase);
+                        float2 side = new float2(-dir.y, dir.x);
+                        float2 mixed = dir + side * lat;
+                        float ml = SimMath.Length(new float3(mixed.x, 0f, mixed.y));
+                        if (ml > 1e-4f) dir = mixed / ml;
+                    }
                 }
 
                 // stance from situation: a garrison mans the fire-step while it has a target, suppression forces prone /

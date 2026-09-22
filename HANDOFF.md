@@ -200,6 +200,24 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   Still open: the cloud's outline is baked into the drawing (does not follow zoom); the scorch is painted by the
   terrain on CraterStamp (the staged captures never fire it, so no capture shows it); MG carry needs the gun mesh;
   the clips have never been watched in motion, only in stills and numbers.
+  Character controller, decision layer (2026-09-22): `Presentation/Core/AnimationController.cs` runs docs/15's
+  nine-rung ladder per man every sim tick from `SimHost` (after `Presenter.Capture`), latching that tick's events
+  (Hit, NearMiss, Shot, Explosion within radius + 3 m, UnitLeftTrench, gas on his cell) and reading stance, smoothed
+  speed, target, suppression, the nav layer and water depth under him. It picks a `Clip` (the future clip table's
+  names, ~110 of them, with seconds / loop / authored speed in `Clips.Table`) and, until the bake exists, maps it to
+  a row of today's 18-row atlas, so `SimPresenter` now takes its row and phase from the controller
+  (`SimHost.UseAnimationController`, default on). A gait change waits three ticks and speed is smoothed, because
+  the separation push jolts a man for a tick. The trace (`Animation.Follow(slot)` / `TraceText()`) records one
+  man's rung changes with reasons: `docs/reference/controller/trace-rifleman-advance.txt` is a rifleman's whole
+  run (drop in, kneel, fire from the step, over the top, sprint, hit on the move, drop into the next trench). Not
+  built yet: the cross-fade and rate are recorded in `AnimState` but the atlas cannot play them; reload / throw /
+  melee wait for the sim steps; cover, sling and the officer rig are not wired.
+  Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
+  carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
+  a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one
+  line. Gas (2026-09-22): the chlorine field is drawn as yellow-green flipbook clouds boiling over each 4 m cell
+  (`FlipbookFx.Book.Gas`, `CombatFx` gas block; the translucent cubes remain as the fallback). Captures:
+  `docs/reference/vfx/gas-*.png`.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

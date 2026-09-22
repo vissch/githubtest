@@ -18,6 +18,8 @@ namespace TW.Sim.Nav
         public const float Strength = 4f;          // m/s per metre of overlap
         public const float GarrisonSpacing = 2f;   // a garrison spreads along its trench until men stand this far apart
         public const float GarrisonStrength = 0.75f;   // soft: it must lose against the push that clears a ladder
+        public const float SurfaceSpacing = 1.6f;      // men on open ground drift apart until they stand this far apart
+        public const float SurfaceStrength = 0.55f;    // softly: the flow and their own drift still decide where they go
         public const float MaxPush = 6f;           // m/s cap, so a dense stack spreads out instead of being fired across the map
 
         [ReadOnly] public SpatialHash Hash;
@@ -49,7 +51,8 @@ namespace TW.Sim.Nav
             float3 sum = float3.zero;
             float diameter = Radius * 2f;
             short garrison = TrenchId[i];
-            int cells = garrison >= 0 ? 2 : 1;   // the hash cell is 1 m
+            int cells = 2;   // the hash cell is 1 m; the garrison and surface spacings both reach past the next cell
+            bool onSurface = garrison < 0 && (f & (uint)UnitFlags.InTrench) == 0;
             for (int dz = -cells; dz <= cells; dz++)
             for (int dx = -cells; dx <= cells; dx++)
             {
@@ -67,11 +70,13 @@ namespace TW.Sim.Nav
                         d.y = 0f;
                         float dist = SimMath.Length(d);
                         bool mates = garrison >= 0 && TrenchId[j] == garrison;
-                        float want = mates ? GarrisonSpacing : diameter;
+                        bool open = onSurface && TrenchId[j] < 0 && (Flags[j] & (uint)UnitFlags.InTrench) == 0;
+                        float want = mates ? GarrisonSpacing : open ? SurfaceSpacing : diameter;
                         if (dist < want)
                         {
                             float3 n = dist > 1e-4f ? d / dist : CoincidentNormal(i, j);
-                            sum += n * (want - dist) * (mates && dist >= diameter ? GarrisonStrength : Strength);
+                            float strength = dist >= diameter ? (mates ? GarrisonStrength : SurfaceStrength) : Strength;
+                            sum += n * (want - dist) * strength;
                         }
                     } while (Hash.Map.TryGetNextValue(out j, ref it));
                 }

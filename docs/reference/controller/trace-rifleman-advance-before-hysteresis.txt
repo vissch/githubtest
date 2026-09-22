@@ -1,0 +1,53 @@
+tick   t(s)   rung          clip              stance    speed  tgt   supp  reason
+140      7.00 Trench        JumpDown          Standing    3.0   -1      0 dropping into the trench
+154      7.70 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+168      8.40 Locomotion    StoopWalk         Crouch      0.5   -1      0 moves at 0.5 m/s: StoopWalk
+178      8.90 Locomotion    CrouchRun         Crouch      4.9   -1      0 moves at 4.9 m/s: CrouchRun
+179      8.95 Locomotion    StoopWalk         Crouch      0.6   -1      0 moves at 0.6 m/s: StoopWalk
+183      9.15 Locomotion    CrouchRun         Crouch      4.7   -1      0 moves at 4.7 m/s: CrouchRun
+184      9.20 Locomotion    StoopWalk         Crouch      0.7   -1      0 moves at 0.7 m/s: StoopWalk
+229     11.45 Idle          KneelIdle         Crouch      0.1   -1      0 idle: KneelIdle
+253     12.65 Locomotion    StoopWalk         Crouch      0.2   -1      0 moves at 0.2 m/s: StoopWalk
+360     18.00 Idle          KneelIdle         Crouch      0.1   -1      0 idle: KneelIdle
+913     45.65 Trench        ClimbOut          Crouch      2.4   -1      0 climbing out of the trench
+936     46.80 StanceChange  StandToStoop      Crouch      2.4   -1      0 stance Standing -> Crouch
+944     47.20 Locomotion    CrouchRun         Crouch      2.4   -1      0 moves at 2.4 m/s: CrouchRun
+966     48.30 Trench        ClimbOut          Vault       2.2   -1      0 climbing out of the trench
+992     49.60 Locomotion    Sprint            Sprint      4.5   -1      0 moves at 4.5 m/s: Sprint
+1141    57.05 Trench        JumpDown          Sprint      4.5   17      0 dropping into the trench
+1156    57.80 Locomotion    StoopWalk         Crouch      0.8   17      0 moves at 0.8 m/s: StoopWalk
+1165    58.25 Locomotion    CrouchRun         Crouch      2.0   17      0 moves at 2.0 m/s: CrouchRun
+1167    58.35 Locomotion    StoopWalk         FireStep    0.9   17      0 moves at 0.9 m/s: StoopWalk
+1168    58.40 Locomotion    CrouchRun         FireStep    6.0   16      0 moves at 6.0 m/s: CrouchRun
+1169    58.45 Locomotion    StoopWalk         FireStep    0.9   16      0 moves at 0.9 m/s: StoopWalk
+1171    58.55 Locomotion    CrouchRun         FireStep    4.7   16      0 moves at 4.7 m/s: CrouchRun
+1177    58.85 Action        KneelAimUp        FireStep    0.3   19      0 target seen: rifle up
+1189    59.45 Locomotion    StoopWalk         FireStep    0.3   19      0 moves at 0.3 m/s: StoopWalk
+1239    61.95 Turn          KneelTurn90L      FireStep    0.1   12      0 turns -72 deg to the target
+1255    62.75 Idle          AimedIdle         FireStep    0.1   18      0 idle: AimedIdle
+1293    64.65 Fire          FireKneel         FireStep    0.1   20      0 fires at 20
+1295    64.75 Fire          FireKneel         FireStep    0.1   20      0 fires at 20
+1311    65.55 Idle          AimedIdle         FireStep    0.1   20      0 idle: AimedIdle
+1333    66.65 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+1376    68.80 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+1388    69.40 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2444   122.20 Reaction      Duck              Crouch      0.0   -1      0 shell at 10.3 m: ducks
+2462   123.10 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2514   125.70 Reaction      Duck              Crouch      0.0   -1      0 shell at 8.1 m: ducks
+2525   126.25 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+
+time in each clip (s):
+  KneelIdle            96.5
+  StoopWalk            11.2
+  Sprint                7.5
+  AimedIdle             3.0
+  Run                   2.8
+  ClimbOut              2.6
+  Duck                  1.8
+  CrouchRun             1.8
+  JumpDown              1.4
+  FireKneel             0.9
+  KneelTurn90L          0.8
+  KneelAimDown          0.6
+  KneelAimUp            0.6
+  StandToStoop          0.4
