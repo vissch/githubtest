@@ -17,10 +17,10 @@ namespace TW.Presentation.Terrain
     public static class BattlefieldPigment
     {
         /// <summary>The order here IS the layer index the shader is given, so new surfaces go on the end.</summary>
-        public enum Surface { Timber, Earth, Concrete, Canvas, Bark, Rust, Stone, Sacking }
+        public enum Surface { Timber, Earth, Concrete, Canvas, Bark, Rust, Stone, Sacking, Glaze }
 
         public const int Size = 256;
-        public const int Count = 8;
+        public const int Count = 9;
 
         /// <summary>Every surface as one mipmapped array, baked once. R8: these are grey and the kit tints them.</summary>
         public static Texture2DArray Sheet()
@@ -43,8 +43,9 @@ namespace TW.Presentation.Terrain
             return sheet;
         }
 
-        /// <summary>The painted value at one point of one surface, centred on about 1.0 so a tint passes through it.</summary>
-        static float Value(Surface surface, float u, float v)
+        /// <summary>The painted value at one point of one surface, centred on about 1.0 so a tint passes through it.
+        /// Public so tooling can lay the whole vocabulary out as one sheet without baking a texture to read back.</summary>
+        public static float Value(Surface surface, float u, float v)
         {
             float value = .91f + Mathf.PerlinNoise(u * 21f, v * 17f) * .09f;
             if (surface == Surface.Timber || surface == Surface.Bark)
@@ -113,6 +114,19 @@ namespace TW.Presentation.Terrain
                 if (warp < .10f || weft < .10f) value *= .90f;                       // the gaps between threads
                 if (Mathf.PerlinNoise(u * 9f + 21f, v * 9f) > .74f) value *= .94f;   // worn, dirt-darkened patches
             }
+            else if (surface == Surface.Glaze)
+            {
+                // Glazed porcelain, for the walkers: the opposite of Rust in every respect, which is why Rust
+                // would not do for them. A hard, slightly uneven gloss over a narrow range, fine crazing in short
+                // crooked hairlines rather than a net, and a few chips where the glaze has gone and the biscuit
+                // shows dull underneath. Nothing pitted, nothing streaked, no dirt running anywhere.
+                value = Mathf.Lerp(.90f, 1.0f, Mathf.PerlinNoise(u * 7f, v * 7f));                 // uneven gloss
+                value += .04f * Mathf.PerlinNoise(u * 31f + 13f, v * 31f);                         // the hard sheen
+                if (Craze(u, v, 9.3f, .7f, 3.1f) || Craze(v, u, 7.7f, -.5f, 11.4f)) value *= .89f; // hairline crazing
+                float chip = Mathf.PerlinNoise(u * 13f + 41f, v * 13f + 7f);
+                if (chip > .855f) value = .74f;                                                    // bare biscuit
+                else if (chip > .830f) value *= .97f;                                              // its soft rim
+            }
             else
             {
                 float crack = u - (.55f + Mathf.Sin(v * 16f) * .09f + Mathf.Sin(v * 39f) * .025f);
@@ -122,6 +136,21 @@ namespace TW.Presentation.Terrain
                 if (v > .94f) value = 1.12f;
             }
             return value;
+        }
+
+        /// <summary>
+        /// One family of crazing: a wavy line repeated across the surface, broken by a coarse noise so it reads as
+        /// short crooked segments instead of a continuous net. Two families at different angles make a glaze.
+        /// </summary>
+        static bool Craze(float u, float v, float frequency, float bend, float seed)
+        {
+            float along = u * frequency + Mathf.Sin(v * frequency * .7f + seed) * bend;
+            float toLine = Mathf.Abs(Mathf.Repeat(along, 1f) - .5f);
+            // The threshold is in units of the REPEAT, not of the tile, so it has to be divided back out or the
+            // hairline lands under a pixel and vanishes: at frequency 9.3 a threshold of .013 drew a line 0.28% of
+            // the tile wide, which the first preview showed as a blank grey square. Aim at about 1.5 px at 256.
+            float width = .0060f * frequency * .5f;
+            return toLine < width && Mathf.PerlinNoise(u * 5f + seed, v * 5f) > .45f;
         }
     }
 }

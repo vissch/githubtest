@@ -25,12 +25,51 @@ namespace TW.Presentation.Tactical
         float nextGround, nextDots;
         int myMen, theirMen;
 
-        static readonly string[] SlotNames = { "Rifle", "Assault", "MG", "Sniper", "Tank" };
+        // The infantry slots are the same on both sides; the vehicle slots are not — player 0 fields the Maw,
+        // Pincer and Pavise and player 1 the Tusk, Kettle and Censer. So a vehicle is named by WHAT IT IS and not
+        // by which slot it sits in, and the bar cannot fall out of step with the roster the way it just did: these
+        // arrays were five long while RosterEntry.SlotCount had already gone to seven, which is an index out of
+        // range on the first frame the bar is drawn.
+        static readonly string[] SlotNames = { "Rifle", "Assault", "MG", "Sniper" };
         static readonly string[] SlotTips =
         {
             "Rifleman: cheap line infantry", "Assault: fast, short range", "MG team: holds a trench, suppresses",
-            "Sniper: long range, slow fire", "Tank: immune to small arms, grenades within 8 m hurt it",
+            "Sniper: long range, slow fire",
         };
+
+        static string NameOf(int slot, in RosterEntry e) =>
+            slot < SlotNames.Length ? SlotNames[slot] : VehicleName(e.Archetype);
+
+        static string TipOf(int slot, in RosterEntry e) =>
+            slot < SlotTips.Length ? SlotTips[slot] : VehicleTip(e.Archetype);
+
+        static string VehicleName(byte archetype)
+        {
+            switch (archetype)
+            {
+                case VehicleArchetype.Maw: return "Maw";
+                case VehicleArchetype.Tusk: return "Tusk";
+                case VehicleArchetype.Pincer: return "Pincer";
+                case VehicleArchetype.Kettle: return "Kettle";
+                case VehicleArchetype.Censer: return "Censer";
+                case VehicleArchetype.Pavise: return "Pavise";
+                default: return "Vehicle";
+            }
+        }
+
+        static string VehicleTip(byte archetype)
+        {
+            switch (archetype)
+            {
+                case VehicleArchetype.Maw: return "Maw, heavy tank: sponson guns, crosses wide trenches, crushes wire";
+                case VehicleArchetype.Tusk: return "Tusk, light tank: turret gun, quick, ditches in wide trenches";
+                case VehicleArchetype.Pincer: return "Pincer, heavy walker: twin turret guns and two crushing claws, steps over trenches";
+                case VehicleArchetype.Kettle: return "Kettle, light walker: a mortar that fires without seeing its target";
+                case VehicleArchetype.Censer: return "Censer, walker: lays a drum of chlorine as it walks; quick, thin, unarmed";
+                case VehicleArchetype.Pavise: return "Pavise, walker: a long gun behind a shield; plants itself and reaches furthest";
+                default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
+            }
+        }
         static readonly Color Gold = new Color(0.88f, 0.79f, 0.58f);
         static readonly Color Pale = new Color(0.86f, 0.84f, 0.76f);
         static readonly Color Dark = new Color(0.17f, 0.17f, 0.16f);
@@ -152,6 +191,11 @@ namespace TW.Presentation.Tactical
                 Icon(Pale, Dark, "..............", "#############.", "..#####..o....", "...###...o....", "..#...#.......", ".#.....#......"),
                 Icon(Pale, Dark, cross),
                 Icon(Pale, Dark, "...########...", "..##########..", ".############.", "##############", "#o#o#o#o#o#o##", ".############."),
+                // The bar deploys for player 0, so the two walker slots are the Pincer and the Pavise. A walker has
+                // to read as legs at 46 px or it is just another tank: claws and six legs for one, a long gun and a
+                // shield for the other.
+                Icon(Pale, Dark, "##..........##", ".##........##.", "...#o####o#...", "..############", "..############", "#..#..#..#..#."),
+                Icon(Pale, Dark, "###...........", "###..#########", "###o####......", "###...........", ".############.", "..#..#..#..#.."),
             };
         }
 
@@ -220,8 +264,13 @@ namespace TW.Presentation.Tactical
             }
 
             float room = Screen.width - barLeft - leftW - rightW;
-            float size = Mathf.Clamp((room - 8f * 8f - 22f - 16f) / 7f, 46f, BarHeight - 22f);
-            float frameW = 7f * size + 8f * 8f + 22f;
+            // Cells in the wooden frame: every roster slot plus the two support buttons. This was the literal 7,
+            // which meant the frame stopped growing the moment the roster did.
+            const int SupportSlots = 2;
+            int cells = RosterEntry.SlotCount + SupportSlots;
+            float gaps = 8f * (cells + 1);
+            float size = Mathf.Clamp((room - gaps - 22f - 16f) / cells, 46f, BarHeight - 22f);
+            float frameW = cells * size + gaps + 22f;
             float fx = barLeft + leftW + Mathf.Max(0f, (room - frameW) * 0.5f);
             GUI.Box(new Rect(fx, Screen.height - BarHeight, frameW, BarHeight + 6f), GUIContent.none, wood);
             float x = fx + 12f, y = Screen.height - BarHeight + (BarHeight - size) * 0.5f + 2f;
@@ -233,15 +282,15 @@ namespace TW.Presentation.Tactical
                 bool can = !over && unlocked && cd == 0 && w.Silver[0] >= e.Cost;
                 var r = new Rect(x, y, size, size);
                 GUI.enabled = can;
-                if (GUI.Button(r, new GUIContent("", unlocked ? $"{SlotTips[s]}  ({e.Cost} silver, key {s + 1})" : "Locked"), stone))
+                if (GUI.Button(r, new GUIContent("", unlocked ? $"{TipOf(s, e)}  ({e.Cost} silver, key {s + 1})" : "Locked"), stone))
                     Host.Issue(SimCommand.Deploy(w.Tick, 0, s));
                 GUI.enabled = true;
                 if (!unlocked) DrawIcon(r, lockGrey, size * 0.26f);
                 else
                 {
-                    DrawIcon(new Rect(r.x, r.y - 4f, r.width, r.height), unitIcons[s], size * 0.2f, can);
+                    DrawIcon(new Rect(r.x, r.y - 4f, r.width, r.height), unitIcons[Mathf.Min(s, unitIcons.Length - 1)], size * 0.2f, can);
                     GUI.Label(new Rect(r.x + 5f, r.y + 2f, 20f, 14f), $"{s + 1}", number);
-                    if (size >= 70f) GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), SlotNames[s], unitName);
+                    if (size >= 70f) GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), NameOf(s, e), unitName);
                     GUI.Label(new Rect(r.x, r.y, r.width - 5f, r.height - 3f), cd > 0 ? $"{cd * w.Config.TickSeconds:0}s" : $"{e.Cost}", cost);
                 }
                 x += size + 8f;

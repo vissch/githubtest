@@ -538,6 +538,37 @@ namespace TW.Editor
             return "profiling " + frames + " frames into " + path;
         }
 
+        /// <summary>
+        /// Lays every painted surface out side by side as one PNG, each tiled 2x2 so the repeat is visible. There is
+        /// no other way to look at these: the sheet is baked with its CPU copy dropped, and a surface that is wrong
+        /// is only obvious beside the ones that are right.
+        /// </summary>
+        public static string Pigments(string path, int cell = 256)
+        {
+            int n = TW.Presentation.Terrain.BattlefieldPigment.Count, half = cell / 2;
+            var tex = new Texture2D(cell * n, cell, TextureFormat.RGB24, false);
+            var px = new Color32[cell * n * cell];
+            for (int layer = 0; layer < n; layer++)
+            {
+                var surface = (TW.Presentation.Terrain.BattlefieldPigment.Surface)layer;
+                for (int y = 0; y < cell; y++)
+                for (int x = 0; x < cell; x++)
+                {
+                    // 2x2 of the tile, so a seam or a repeat that reads as a grid shows up here and not on a prop
+                    float u = (x % half + .5f) / half, v = (y % half + .5f) / half;
+                    byte g = (byte)Mathf.Clamp(TW.Presentation.Terrain.BattlefieldPigment.Value(surface, u, v) * 200f, 0f, 255f);
+                    px[y * cell * n + layer * cell + x] = new Color32(g, g, g, 255);
+                }
+            }
+            tex.SetPixels32(px); tex.Apply();
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+            var names = new StringBuilder();
+            for (int i = 0; i < n; i++) names.Append(i > 0 ? ", " : "").Append((TW.Presentation.Terrain.BattlefieldPigment.Surface)i);
+            return "left to right: " + names + " -> " + path;
+        }
+
         // ---- what the textures and materials actually cost ---------------------------------------------------
 
         /// <summary>
