@@ -260,3 +260,46 @@ Still open: 80 modules hold 80 materials. Now that a painted module binds no tex
 keeping those materials apart are `_BaseColor`, `_Pigment`, `_Sway`, `_Gloss` and `_OutlineWidth` — all floats and
 a colour. Moving them to a per-module property block is the obvious next experiment against the 321 SetPass calls,
 and it is an experiment, not a certainty: a property block may cost a state change of its own.
+
+## The periodic allocation, located but not yet named (2026-09-23)
+
+The largest remaining budget problem was a GC spike nobody could explain: allocation is bimodal, so the mean says
+nothing. Measured twice tonight with 1,997 men, the second run confirming the first:
+
+| gc bytes per frame | p50 | p95 | p99 |
+|---|---|---|---|
+| 2,000-man stress | 33,560 | 441,456 | 499,986 |
+
+**It is not per-man and it is not per-frame. It is once per sim tick.** The editor profiler's frame hierarchy puts
+it inside `SimHost.Update`'s subtree, in 106 frames of 300, averaging 145,890 bytes across all frames — about
+403 KB on each frame where it appears. The mean gap between those frames is 2.8, and the sim ticks at 20 Hz, so at
+this frame rate "every 2.8 frames" and "every tick" are the same statement. That also explains the shape: a frame
+that carries a tick pays it, a frame that does not carries nothing, and the average of the two is a number that
+describes no frame that ever happened.
+
+The rest of the frame, for scale: `BattleHud.OnGUI` allocates 13,302 bytes in **every** frame (IMGUI string
+interpolation, mine, and the largest steady cost), and `CombatFx.Update` 1,136 bytes.
+
+### What is not yet known, and why the obvious answer is not in this document
+
+Callstack resolution pointed at one line, `LockstepDriver.cs:54`, with 3,146 allocations a frame. That line is not
+recorded here as the cause, because it cannot be corroborated and the arithmetic does not support it: the driver
+steps at most eight ticks a frame, the loopback transport drains its inbox on every receive, and there is no path
+by which that line runs three thousand times. Two independent attempts each returned **exactly one** distinct
+callstack — the first because samples merged by name and one representative stack was resolved for the whole
+merged item, the second out of 40,899 samples, which is the signature of the same artefact rather than agreement.
+
+Two instruments returning the same wrong answer is not corroboration when they share a mechanism. What is solid is
+the subtree; what is not is the line. The subtree is enough to act on and the line is not, so the line waits.
+
+### The instrument that will settle it
+
+`Tests/EditMode/TickAllocationTests.cs` drives the drivers, the presenter, the animation controller and the event
+pump directly and measures `GC.GetAllocatedBytesForCurrentThread()` around each, after a warm-up long enough that
+one-time capacity growth is not mistaken for a leak. It is deterministic, needs no editor, runs in the gate in a
+second, attributes the cost to one of four callers by construction rather than by callstack resolution, and stays
+afterwards as the regression test that keeps a fixed tick from silently un-fixing itself.
+
+The general lesson, which is the same one the HUD taught from the other end: an instrument answers the question it
+was pointed at. `gc_bytes_per_frame` was pointed at "how much", answered it correctly for a day, and was read as if
+it had answered "where".
