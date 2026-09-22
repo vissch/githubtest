@@ -57,10 +57,13 @@ def high_step(base, lift, fwd, back, knee):
 
 def wade():
     base = clip('Walk With Rifle (1)').retime(1 / 1.7, 'Wade Forward')          # slower: the water drags
-    base = high_step(base, 12, 1.25, 0.5, 1.4)
-    base = base.offset('Spine', (16, 0, 0)); base = base.offset('Spine1', (6, 0, 0)); base = drop_hips(base, 8)
+    base = high_step(base, 14, 1.1, 0.4, 1.1)
+    base = base.offset('Spine', (8, 0, 0)); base = drop_hips(base, 3)
     base = base.wave('Hips', 1, 3, 2, kind='T')                                  # the body bobs with each step
     base = base.layer(clip('Rifle Crouch Walk'), ARMS)                          # rifle high at port arms, arms alive
+    base = ik_hold(base, 'Right', lambda p: [p['Hips'][0] - 10, p['Hips'][1] + 20, p['Hips'][2] + 30], 0, None)   # the rifle held clear of the water
+    base = ik_hold(base, 'Left', lambda p: [p['Hips'][0] + 16, p['Hips'][1] + 27, p['Hips'][2] + 40], 0, None)
+    base = base.wave('LeftArm', 0, 3, 2); base = base.wave('RightArm', 0, 3, 2)
     return base.loopify(6)
 
 def ladder():
@@ -68,20 +71,20 @@ def ladder():
     c = clip('Rifle Idle').hold(0, n, 'Ladder Climb')
     for i in range(n):
         ph = 2 * math.pi * i / n
-        for side, sgn in (('Left', 1), ('Right', -1)):
-            lift = smooth(max(0.0, min(1.0, 1.5 * math.sin(ph * sgn) + 0.5)))     # 1 = this knee on the next rung; dwells at both ends
+        for side, shift in (('Left', 0.0), ('Right', -math.pi / 2)):
+            lift = smooth(max(0.0, min(1.0, 1.5 * math.sin(ph + shift) + 0.5)))    # 1 = this knee on the next rung; a quarter apart, so one always dwells
             up = 20 + 55 * lift; leg = -15 - 70 * lift
             c.data[side + 'UpLeg']['R'][i][0] = up
             c.data[side + 'Leg']['R'][i][0] = leg
             c.data[side + 'Foot']['R'][i][0] = -(up + leg) - 10                  # the sole stays level on the rung
         c.data['Spine']['R'][i][0] += 4; c.data['Hips']['R'][i][0] += 2          # chest to the ladder
-        c.data['Hips']['T'][i][2] += 10; c.data['Hips']['T'][i][0] += 3 * math.sin(ph)
+        c.data['Hips']['T'][i][2] += 10; c.data['Hips']['T'][i][0] += 3 * math.sin(ph); c.data['Hips']['T'][i][1] += 5 * math.sin(2 * ph)   # rises on each push
         c.data['Head']['R'][i][0] -= 24                                          # looks up the ladder
     # hands: each reaches for the rung above as the opposite knee rises, elbows bent, solved every fourth frame and blended
-    for side, sgn, x in (('Left', 1, 18), ('Right', -1, -18)):
+    for side, shift, x in (('Left', 0.0, 18), ('Right', -math.pi / 2, -18)):
         keys = {}
         for i in range(0, n, 4):
-            ph = 2 * math.pi * i / n; reach = 0.5 + 0.5 * math.sin(ph * sgn + math.pi)
+            ph = 2 * math.pi * i / n; reach = 0.5 + 0.5 * math.sin(ph + shift + math.pi)
             pos, _ = af.fk(rig, c, i)
             target = [x, pos['Head'][1] - 6 + 44 * reach, pos['Hips'][2] + 22 + 10 * reach]
             keys[i] = af.solve_arm(rig, c, i, side, target)[:2]
@@ -95,11 +98,13 @@ def ladder():
 
 def crawl():
     c = clip('Moving Backward In Crawl Position').reverse('Crawl Forward')
+    for leg in ('Left', 'Right'): c = c.scale_motion(leg + 'UpLeg', 1.0, back=0.6, axis=0)   # the trailing leg does not lay out behind
     c = c.offset('LeftLeg', (-18, 0, 0)); c = c.offset('RightLeg', (-18, 0, 0)); c = c.offset('Spine', (4, 0, 0))   # hips stay low
     return c.loopify(4)
 def prone_crawl_alt():
     c = clip('Moving Backward In Prone Position').reverse('Prone Crawl Forward Alt')
     c = c.offset('Head', (6, 0, 0)); c = c.offset('Neck', (4, 0, 0))            # helmet kept down under fire
+    c = c.offset('Spine', (-8, 0, 0)); c = c.offset('Spine1', (-5, 0, 0))       # the chest rides lower
     c = c.offset('LeftLeg', (-10, 0, 0)); c = c.offset('RightLeg', (-10, 0, 0))   # knees never lock
     return c.loopify(4)
 
@@ -113,8 +118,9 @@ def prone_death():
     c = c.offset('Spine1', (-5, 0, 3), settle); c = c.offset('Hips', (0, 0, 7), settle)
     c = c.offset('Hips', (0, -3, 0), settle, kind='T')
     c = c.offset('RightUpLeg', (0, 0, 9), settle); c = c.offset('LeftUpLeg', (0, 0, -6), settle)   # legs splay on the ground
-    c = c.offset('RightLeg', (38, 0, 0), settle); c = c.offset('RightFoot', (-10, 0, 0), settle)    # the bent knee goes flat, heel up
+    c = c.offset('RightLeg', (16, 0, 0), settle); c = c.offset('RightFoot', (-25, 0, 0), settle)    # the bent knee goes flat, heel up
     c = c.offset('Spine1', (3, 0, 0), bump(0.72, 0.15))                                             # a last breath
+    c = c.offset('Hips', (0, -1.5, 0), trap(0.5, 0.9, 1.0, 1.0), kind='T')                          # and sinks into the mud
     c = ik_hold(c, 'Left', lambda p: [p['LeftShoulder'][0] + 38, 3, p['LeftShoulder'][2] + 14], n - 1, settle)
     c = ik_hold(c, 'Right', lambda p: [p['RightShoulder'][0] - 36, 3, p['RightShoulder'][2] + 22], n - 1, settle)
     return c
@@ -124,11 +130,11 @@ def prone_flinch():
     c = c.offset('Neck', (20, 0, 0), e); c = c.offset('Head', (25, 0, 0), e); c = c.offset('Spine1', (-8, 0, 0), e)   # the chest flattens
     c = c.offset('LeftArm', (15, 0, 0), e); c = c.offset('RightArm', (15, 0, 0), e)                                     # shoulders bunch
     c = c.offset('RightForeArm', (0, 0, -15), e); c = c.offset('LeftForeArm', (0, 0, 15), e)
-    c = c.offset('LeftLeg', (-25, 0, 0), e); c = c.offset('RightLeg', (-25, 0, 0), e); c = c.offset('Spine', (0, 0, 6), e)   # heels flick up, a scrunch
+    c = c.offset('LeftLeg', (-22, 0, 0), e); c = c.offset('RightLeg', (-12, 0, 0), react(0.13, 0.15, 0.6)); c = c.offset('Spine', (0, 0, 6), e)   # heels flick up, one after the other, a scrunch
     return c
 
 def kneel_flinch():
-    c = clip('Rifle Kneel Idle').slice(0, 18, 'Kneel Flinch'); e = react(0.05, 0.15, 0.65)
+    c = clip('Rifle Kneel Idle').slice(0, 18, 'Kneel Flinch'); e = react(0.05, 0.15, 0.65, rise=0.10)
     c = c.offset('Spine', (20, 0, 0), e); c = c.offset('Spine1', (8, 0, 0), e); c = c.offset('Neck', (8, 0, 0), e); c = c.offset('Head', (4, 0, 0), e)
     c = c.offset('LeftArm', (12, 0, 0), e); c = c.offset('RightArm', (12, 0, 0), e)                 # the hands come with the curl
     c = c.offset('RightForeArm', (0, 0, -32), e); c = c.offset('LeftForeArm', (0, 0, 32), e)
@@ -136,7 +142,8 @@ def kneel_flinch():
     return c
 
 def get_up():
-    c = af.Clip.concat([clip('Rifle Prone To Kneel').retime(1.15), clip('Rifle Kneel To Stand').retime(1.3)], fade=8, name='Get Up From Prone')
+    c = af.Clip.concat([clip('Rifle Prone To Kneel').retime(1.15), clip('Rifle Kneel To Stand').retime(1.3)], fade=12, name='Get Up From Prone')
+    c = c.offset('Head', (-10, 0, 0), bump(0.55, 0.08))
     c = c.offset('LeftUpLeg', (0, 0, -15), bump(0.25, 0.10))   # the swept leg comes under the body
     return c.strip_root(trend_only=True)   # the sim owns his place; the drift is removed, the push-back over the feet stays
 
@@ -145,11 +152,12 @@ def stumble():
     c = c.offset('Spine', (28, 0, 0), e); c = c.offset('Hips', (12, 0, 0), e); c = c.offset('Neck', (10, 0, 0), e)
     c = c.offset('Head', (15, 0, 0), late)                                                          # the head follows, two frames late
     c = drop_hips(c, 12, e)
-    c = c.offset('RightLeg', (-40, 0, 0), bump(0.40, 0.05)); c = c.offset('RightFoot', (30, 0, 0), bump(0.40, 0.05))   # the toe catches
+    c = c.offset('RightLeg', (-40, 0, 0), bump(0.41, 0.08)); c = c.offset('RightFoot', (30, 0, 0), bump(0.41, 0.08))   # the toe catches
     c = c.offset('Hips', (0, 0, 8), trap(0.40, 0.44, 0.50, 0.66))                                                     # and he goes off-axis over it
     c = c.offset('RightArm', (45, 0, 0), e); c = c.offset('LeftArm', (45, 0, 0), e)                # arms reach forward and down to catch
     c = c.offset('RightForeArm', (0, 0, 20), e); c = c.offset('LeftForeArm', (0, 0, -20), e)      # elbows straighten
-    return c
+    n = c.n; a, b = int(0.38 * n), int(0.48 * n)
+    return af.Clip.concat([c.slice(0, a), c.slice(a, b).retime(1 / 1.6), c.slice(b, n)], fade=2, name='Stumble Running')   # the stride breaks: the catch is held
 
 def mask():
     n = 78
@@ -158,10 +166,10 @@ def mask():
     c = ik_hold(c, 'Right', lambda p: [p['Hips'][0] - 5, p['Hips'][1] + 30, p['Hips'][2] + 25], 0, bag)            # the hand goes to the bag on the chest
     c = ik_hold(c, 'Left', lambda p: [p['Head'][0] + 8, p['Head'][1] - 10, p['Head'][2] + 24], 0, face)              # both hands bring the mask up
     c = ik_hold(c, 'Right', lambda p: [p['Head'][0] - 8, p['Head'][1] - 10, p['Head'][2] + 24], 0, face)
-    c = ik_hold(c, 'Left', lambda p: [p['Head'][0] + 9, p['Head'][1] - 8, p['Head'][2] - 12], 0, straps)             # then reach behind the head for the straps
-    c = ik_hold(c, 'Right', lambda p: [p['Head'][0] - 9, p['Head'][1] - 8, p['Head'][2] - 12], 0, straps)
+    c = ik_hold(c, 'Left', lambda p: [p['Head'][0] + 6, p['Head'][1] - 4, p['Head'][2] - 14], 0, straps)               # the left hand pulls the harness over the crown
+    c = ik_hold(c, 'Right', lambda p: [p['Head'][0] - 8, p['Head'][1] - 10, p['Head'][2] + 24], 0, straps)             # the right holds the mask to the face
     c = c.offset('Head', (12, 0, 0), trap(0.0, 0.12, 0.20, 0.26)); c = c.offset('Head', (15, 0, 0), face)          # face goes down into the mask
-    c = c.offset('Head', (-20, 0, 0), straps)                                                                       # chin lifts through the straps
+    c = c.offset('Head', (8, 0, 0), straps); c = c.offset('Spine', (6, 0, 0), straps)                               # chin down as the harness comes over
     c = c.offset('Spine', (8, 0, 0), face)
     return c
 
@@ -172,14 +180,14 @@ def burning():
     n = c.n
     for i in range(n):
         c.data['Head']['R'][i][0] -= 10; c.data['Neck']['R'][i][0] -= 8; c.data['Spine']['R'][i][0] += 14   # folding over
-    c = c.wave('Hips', 2, 8, 2); c = c.wave('Hips', 0, 8, 1, kind='T'); c = c.wave('Head', 1, 25, 3)        # rolls, lurches, the head thrashes
+    c = c.wave('Hips', 2, 8, 2); c = c.wave('Hips', 0, 8, 1, kind='T'); c = c.wave('Head', 1, 18, 3); c = c.wave('Head', 0, 10, 2)        # rolls, lurches, the head thrashes
     # each arm swings between two solved poses: thrown up over the head, and clawing at the face; out of step with each other
-    for side, x, ph in (('Left', 1, 0.0), ('Right', -1, 1.9)):
+    for side, x, ph, cycles in (('Left', 1, 0.0, 2), ('Right', -1, 1.9, 3)):   # unequal periods: no metronome
         pos, _ = af.fk(rig, c, 0)
         up = af.solve_arm(rig, c, 0, side, [pos['Head'][0] + 22 * x, pos['Head'][1] + 16, pos['Head'][2] + 22])[:2]
-        face = af.solve_arm(rig, c, 0, side, [pos['Head'][0] + 14 * x, pos['Head'][1] - 4, pos['Head'][2] + 32])[:2]
+        face = af.solve_arm(rig, c, 0, side, [pos['Head'][0] + 14 * x, pos['Head'][1] - 4, pos['Head'][2] + 26])[:2]
         for i in range(n):
-            w = 0.5 + 0.5 * math.sin(4 * math.pi * i / n + ph)
+            w = smooth(0.5 + 0.5 * math.sin(2 * math.pi * cycles * i / n + ph))   # dwells at each pose
             c.data[side + 'Arm']['R'][i] = af._mix(up[0], face[0], w, True)
             c.data[side + 'ForeArm']['R'][i] = af._mix(up[1], face[1], w, True)
     return c.loopify(4)
@@ -190,15 +198,15 @@ def point():
     c = ik_hold(c, 'Right', lambda p: [p['RightShoulder'][0] - 6, p['RightShoulder'][1] + 40, p['RightShoulder'][2] + 34], 0, raise_)   # up
     c = ik_hold(c, 'Right', lambda p: [p['RightShoulder'][0] - 6, p['RightShoulder'][1] + 10, p['RightShoulder'][2] + 54], 0, chop)     # and chops to the point
     c = ik_hold(c, 'Left', lambda p: [p['Hips'][0] + 18, p['Hips'][1] + 2, p['Hips'][2] + 8], 0, trap(0.0, 0.25, 0.75, 1.0))          # the other hand on the hip
-    c = c.offset('Spine', (0, -25, 0), chop); c = c.offset('Head', (-8, 0, 0), chop)   # turns into the point, chin up
+    c = c.offset('Spine', (0, -25, 0), chop); c = c.offset('Head', (-8, -15, 0), chop)   # turns into the point, chin up, the face follows the arm
     c = c.offset('RightArm', (10, 0, 0), bump(0.30, 0.06)); c = c.offset('RightArm', (10, 0, 0), bump(0.55, 0.07)); c = c.offset('Spine', (4, 0, 0), bump(0.55, 0.07))   # lands with an overshoot, jabs again
     return c
 
 def whistle():
     c = clip('Idle').resample(48, 'Officer Whistle')
     c = ik_hold(c, 'Right', lambda p: [p['Head'][0] - 2, p['Head'][1] - 10, p['Head'][2] + 18], 0, trap(0.0, 0.15, 0.70, 0.85))
-    c = ik_hold(c, 'Left', lambda p: [p['LeftShoulder'][0] + 8, p['LeftShoulder'][1] + 40, p['LeftShoulder'][2] + 30], 0, trap(0.05, 0.25, 0.70, 0.90))   # the other arm forward and up: follow me
-    c = c.offset('LeftArm', (18, 0, 0), bump(0.45, 0.08)); c = c.offset('LeftArm', (18, 0, 0), bump(0.62, 0.08))   # two pumps
+    c = ik_hold(c, 'Left', lambda p: [p['LeftShoulder'][0] + 8, p['LeftShoulder'][1] + 50, p['LeftShoulder'][2] + 34], 0, trap(0.05, 0.25, 0.70, 0.90))   # the other arm straight, forward and up: advance
+    c = c.offset('LeftArm', (12, 0, 0), bump(0.45, 0.08)); c = c.offset('LeftArm', (12, 0, 0), bump(0.62, 0.08))   # two pumps
     c = c.offset('Head', (-8, 0, 0), trap(0.2, 0.3, 0.6, 0.75)); c = c.offset('Spine', (-4, 0, 0), trap(0.15, 0.3, 0.5, 0.75))   # head back to blow, a breath in
     return c
 
@@ -207,16 +215,16 @@ def mg_carry():
     c = c.scale_motion('LeftUpLeg', 0.8, axis=0); c = c.scale_motion('RightUpLeg', 0.8, axis=0)   # short steps under the weight
     c = ik_hold(c, 'Right', lambda p: [p['Hips'][0] - 20, p['Hips'][1] - 6, p['Hips'][2] + 24], 0, None)
     c = ik_hold(c, 'Left', lambda p: [p['Hips'][0] + 4, p['Hips'][1] + 4, p['Hips'][2] + 44], 0, None)
-    c = c.offset('Spine', (-6, 0, 10)); c = drop_hips(c, 7); c = c.offset('Head', (8, 0, 0))   # leans back off the weight, eyes down
-    c = c.wave('Spine', 2, 6, 2)                                             # the torso rocks against the stance leg
+    c = c.offset('Spine', (-6, 0, 3)); c = c.offset('Spine1', (-5, 0, 0)); c = drop_hips(c, 7); c = c.offset('Head', (8, 0, 0))   # leans back off the weight, eyes down
+    c = c.wave('Spine', 2, 3, 2)                                             # the torso rocks a little against the stance leg
     c = c.wave('Hips', 1, 2, 2, kind='T')                                   # bobs with the stride
     c = c.wave('LeftArm', 0, 3, 2); c = c.wave('RightArm', 0, 3, 2)          # the gun heaves with each step
     return c.loopify(4)
 
 def wire():
     base = clip('Walk Crouching Forward').retime(1 / 2.0, 'Wire Crossing')
-    base = high_step(base, 10, 1.3, 0.5, 1.5)
-    base = base.offset('Spine', (10, 0, 0)); base = base.offset('Neck', (10, 0, 0)); base = drop_hips(base, 12)
+    base = high_step(base, 18, 0.85, 0.35, 1.8)
+    base = base.offset('Spine', (10, 0, 0)); base = base.offset('Neck', (10, 0, 0)); base = drop_hips(base, 6)
     base = base.layer(clip('Rifle Crouch Walk'), ARMS)
     return base.loopify(6)
 

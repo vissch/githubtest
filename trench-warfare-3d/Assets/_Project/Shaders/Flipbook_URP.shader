@@ -3,7 +3,7 @@
 // Nothing about the sprite is in the mesh: the instance matrix is not a transform but a packed record (see FlipbookFx.Pack)
 //   m03 m13 m23  world position          m00 width (m)      m11 height (m)     m22 frame (fractional: blends to the next)
 //   m01 alpha    m10 brightness           m02 roll (rad)     m12 1 = upright (turns to the view about Y only, stays vertical)
-//   m20 1 = anchored at its bottom edge   m21 -1 mirrors it
+//   m20 1 = anchored at its bottom edge   m21 the card's opacity, negative to mirror it   (m01 is the fade, 1 at birth)
 // and the vertex shader builds the card facing the camera. The books are greyscale drawings with alpha: their own light and
 // dark reads as the toon's lit and shade bands (_Lit), so a tinted cloud sits under the same moon as the men. Additive books
 // (flash, star, muzzle) ignore the scene light and only dim with the fog.
@@ -18,6 +18,7 @@ Shader "TW/Flipbook (URP)"
         _Levels ("Ink levels: the drawing's value that is full shade (x) and full light (y)", Vector) = (0, 1, 0, 0)
         _Lit ("Lit by the scene (0 additive/unlit, 1 toon lit)", Range(0, 1)) = 1
         _MaskOnly ("Use alpha only (a drawing in black)", Float) = 0
+        _Erode ("Tears apart as it fades (0 fades evenly)", Range(0, 1)) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -43,14 +44,16 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels;
                 half4 _Tint, _Shade;
-                float _Lit, _MaskOnly, _SrcBlend, _DstBlend;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
                 float4 uv : TEXCOORD0;        // xy this frame's cell, zw the next frame's
-                float4 tone : TEXCOORD1;      // x alpha, y brightness, z blend to the next frame, w fog
+                float4 tone : TEXCOORD1;      // x fade (1 at birth), y brightness, z blend to the next frame, w fog
+                float opacity : TEXCOORD3;
+                float2 local : TEXCOORD4;     // the card's own uv, for the erode's edge bias and the underside
                 float3 positionWS : TEXCOORD2;
             };
             Varyings vert(Attributes v)
@@ -60,7 +63,7 @@ Shader "TW/Flipbook (URP)"
                 float4x4 m = UNITY_MATRIX_M;
                 float3 at = float3(m._m03, m._m13, m._m23);
                 float width = m._m00, height = m._m11, frame = m._m22;
-                float alpha = m._m01, bright = m._m10, roll = m._m02, upright = m._m12, anchored = m._m20, mirror = m._m21 < 0 ? -1.0 : 1.0;
+                float alpha = m._m01, bright = m._m10, roll = m._m02, upright = m._m12, anchored = m._m20, mirror = m._m21 < 0 ? -1.0 : 1.0, opacity = abs(m._m21);
                 // the card: centred, or standing on its bottom edge; mirrored; rolled in its own plane
                 float2 c = float2((v.uv.x - 0.5) * mirror, v.uv.y - 0.5 * (1.0 - anchored));
                 float sr, cr; sincos(roll, sr, cr);
@@ -79,13 +82,20 @@ Shader "TW/Flipbook (URP)"
                 float2 uv1 = (float2(fmod(f1, cols), rows - 1.0 - floor(f1 / cols)) + v.uv) * cell;
                 o.uv = float4(uv0, uv1);
                 o.tone = float4(alpha, bright, frame - floor(frame), ComputeFogFactor(o.positionCS.z));
+                o.opacity = opacity;
+                o.local = v.uv;
                 return o;
             }
             half4 frag(Varyings i) : SV_Target
             {
                 half4 a = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv.xy), b = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv.zw);
                 half4 tex = lerp(a, b, i.tone.z);
-                half alpha = tex.a * i.tone.x;
+                // a cloud tears apart as it goes: the edges go first and the dense heart last, and what is left thins
+                half gone = 1.0 - i.tone.x;
+                half edge = saturate(length(i.local - 0.5) * 2.0);
+                half threshold = gone * (0.45 + 0.55 * edge);
+                half torn = saturate((tex.a - threshold) / 0.45) * pow(1.0 - gone, 1.5);
+                half alpha = lerp(tex.a * i.tone.x, torn, _Erode) * i.opacity;
                 if (alpha < 0.004) discard;
                 // the packs keep black under their transparent pixels, so the small mips of a thin wisp go dark: read the
                 // drawing's value per unit of coverage
@@ -95,6 +105,7 @@ Shader "TW/Flipbook (URP)"
                 half band = saturate((ink - _Levels.x) / max(0.01, _Levels.y - _Levels.x));
                 half3 lit = lerp(_Shade.rgb * TWShadeTint(), _MainLightColor.rgb, band);
                 half3 color = _Tint.rgb * lerp(ink.xxx, lit, _Lit) * i.tone.y;
+                if (_Erode > 0.5) color *= lerp(0.78, 1.0, smoothstep(0.0, 0.6, i.local.y));   // a cloud's underside is in its own shadow
                 half fog = ComputeFogIntensity(i.tone.w);
                 if (_Lit < 0.5)
                 {

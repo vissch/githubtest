@@ -189,9 +189,17 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   unconsumed) is a soft flash and a puff on the shooter's side. The ink plume and puff meshes remain as the fallback
   when the textures are missing. Captures: `docs/reference/vfx/`. Licence: the packs are Asset Store purchases; their
   textures may ship inside the game but must not be redistributed on their own.
-  Round-3 notes from the critics still open: the cloud's outline is baked into the drawing (does not follow zoom);
-  no scorch decal where a shell landed; clods have no landing spurt; a noise dissolve would tear the cloud instead
-  of fading it; MG carry needs the gun mesh; Get Up's root strip should be watched in motion before the bake.
+  Rounds 3 and 4 (same day): the cloud plays only the first 70 % of its book (the last frames are hollow rings) and
+  tears apart by an edge-biased erode over its last third; the lingering smoke is five staggered cards born 0.5 to
+  1.1 s in (`delay`), ramping in over 0.3 s, mostly its own grey (`Lit 0.6`); clouds shade their underside; big clods
+  spurt where they land; the water column is a muted blue. `Tools/clipcheck.py` measures what a sheet cannot: root
+  drift, the lowest foot and hand, the closest hand to the head joint (helmet clipping); it found Prone Death's foot
+  10 cm under the floor and the Mask straps inside the helmet, both fixed. The critics' bake-now list: Prone Death,
+  Get Up, Kneel Flinch, Prone Flinch, Point, Crawl, Prone Crawl Alt; the rest had one more targeted pass (ladder legs
+  re-phased a quarter apart, stumble time-warped at the catch, wade rifle at the chest, mask straps asymmetric).
+  Still open: the cloud's outline is baked into the drawing (does not follow zoom); the scorch is painted by the
+  terrain on CraterStamp (the staged captures never fire it, so no capture shows it); MG carry needs the gun mesh;
+  the clips have never been watched in motion, only in stills and numbers.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

@@ -6,7 +6,7 @@ Prone Crawl Forward Alt,loop,1.93,58,Moving Backward In Prone Position.fbx,"Movi
 Prone Death,once,1.5,45,Prone Idle.fbx,"Prone Idle: a jolt, the head goes over in 0.3 s and overshoots, the arms slide out (IK to the floor), the bent knee goes flat, 1.5 s"
 Prone Flinch,once,0.6,18,Prone Idle.fbx,"Prone Idle: head pressed down, chest flattened, shoulders bunched; fast in, slow out, 0.6 s"
 Kneel Flinch,once,0.6,18,Rifle Kneel Idle.fbx,"Rifle Kneel Idle curling forward with the hands, fast in, slow out, 0.6 s"
-Get Up From Prone,once,2.43,73,Rifle Prone To Kneel.fbx,"Rifle Prone To Kneel at 1.15x into Rifle Kneel To Stand at 1.3x, cross-faded over 8 frames, root travel stripped"
+Get Up From Prone,once,2.3,69,Rifle Prone To Kneel.fbx,"Rifle Prone To Kneel at 1.15x into Rifle Kneel To Stand at 1.3x, cross-faded over 8 frames, root travel stripped"
 Stumble Running,once,2.3,69,Rifle Run.fbx,"three cycles of Rifle Run; a 3-frame trip: torso pitches, knees buckle, arms reach down to catch, 13 frames to recover"
 Mask Donning,once,2.6,78,Rifle Idle.fbx,"Rifle Idle: right hand to the chest bag, both hands bring the mask up as the face goes down into it, then behind the head for the straps as the chin lifts"
 Burning Run,loop,1.33,40,Sprint Forward.fbx,"Sprint Forward shortened to a stagger, folded over, hips rolling and lurching, head thrashing, arms thrown between over the head and the face (two IK poses each, out of step)"

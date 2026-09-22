@@ -132,7 +132,7 @@ namespace TW.Presentation.Tactical
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
             sphere = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
-            dirtMat = Painted(new Color(0.32f, 0.285f, 0.24f), 0.7f);
+            dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));
@@ -406,7 +406,7 @@ namespace TW.Presentation.Tactical
                     if (vehicle) books.Add(FlipbookFx.Book.Star, p, 0.9f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 3f : 1.8f);
                     else books.Add(FlipbookFx.Book.Flash, p, 1.2f * scale, 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 2.2f : 1.4f, pop: 0.5f);
                     if (e.Scalar > 0f)
-                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.0f : 0.9f) * scale, 0.5f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.2f : 1.2f) * scale, 0.7f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: toward.normalized * 0.6f + Vector3.up * 0.5f, grow: 0.7f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
                     if (vehicle && SceneMood.Night) Throw(p, 4, 3, 5f, 0.03f);   // sparks off armour
                     break;
@@ -443,20 +443,20 @@ namespace TW.Presentation.Tactical
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
                         books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 2.2f, 0.14f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 5f : 2.5f, pop: 0.5f);
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * 1.1f, wet ? 1.2f : 1.5f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (wet ? 0.8f : 1.4f), wet ? 1.2f : 1.5f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 1.7f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 1.45f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         if (!wet)
                         {
-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 1.9f, 2.0f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 1.9f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                 velocity: Vector3.up * (r * 0.3f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: SceneMood.Night ? 2.6f : 1.6f, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
-                            for (int k = 0; k < 3; k++)
+                            for (int k = 0; k < 5; k++)
                             {
-                                Vector3 off = new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.35f + k * 0.28f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r;
-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.2f, 1.7f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 1.6f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.8f, pop: 0.2f);
+                                Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(0.8f, 1.2f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 1.8f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                         }
                     }
@@ -889,7 +889,7 @@ namespace TW.Presentation.Tactical
         {
             if (smokeMat == null) smokeMat = Transparent(Shader.Find("Universal Render Pipeline/Unlit"), new Color(0.16f, 0.15f, 0.14f, 0.30f));
             chunks.RemoveAll(c => now - c.Born > c.Life);
-            float dt = Time.deltaTime;
+            float dt = Time.deltaTime; int landings = 0;
             for (int i = 0; i < chunks.Count; i++)
             {
                 var c = chunks[i];
@@ -897,6 +897,18 @@ namespace TW.Presentation.Tactical
                 else if (c.Kind == 7) { c.Vel = Vector3.Lerp(c.Vel, new Vector3(0f, 0.45f, -0.35f), dt * 1.2f); }
                 else c.Vel += Vector3.down * 9.8f * dt;
                 c.Pos += c.Vel * dt;
+                if (c.Kind == 0 && c.Size > 0.12f && c.Vel.y < -2f && books != null && books.Ready && landings < 6)
+                {
+                    // a big clod thrown by a burst lands: a little spurt of dust where it hits, and it is done
+                    float floor = RenderGround.Sample(Host.Local.Map, c.Pos.x, c.Pos.z);
+                    if (c.Pos.y <= floor + 0.05f)
+                    {
+                        landings++;
+                        if (SceneHooks.IsWater != null && SceneHooks.IsWater(c.Pos.x, c.Pos.z)) SceneHooks.AddRing?.Invoke(c.Pos.x, c.Pos.z, 0.5f);
+                        else books.Add(FlipbookFx.Book.Spurt, new Vector3(c.Pos.x, floor, c.Pos.z), c.Size * 3.5f, 0.35f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((i & 1) == 0 ? FlipbookFx.Kind.Mirror : 0), alpha: 0.7f, pop: 0.3f);
+                        c.Life = 0f;
+                    }
+                }
                 if (c.Kind == 5 || c.Kind == 6)
                 {
                     float floor = RenderGround.Sample(Host.Local.Map, c.Pos.x, c.Pos.z) + (c.Kind == 5 ? 0.012f : 0.06f);
