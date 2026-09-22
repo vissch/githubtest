@@ -656,7 +656,33 @@ namespace TW.Presentation.Tactical
             }
             v.Off[part] = true;
             v.Pieces.Add(d); debris.Add(d);
+            TrimDebris();
             return d;
+        }
+
+        /// <summary>Loose parts on the field at once; past it the oldest piece at rest is taken away (a track slid off is kept: it goes back when mended).</summary>
+        public const int MaxLoose = 160;
+        void TrimDebris()
+        {
+            while (debris.Count > MaxLoose)
+            {
+                int victim = -1;
+                for (int k = 0; k < debris.Count; k++) if (debris[k].Resting && !debris[k].Thrown) { victim = k; break; }
+                if (victim < 0) for (int k = 0; k < debris.Count; k++) if (!debris[k].Thrown) { victim = k; break; }
+                if (victim < 0) return;
+                var d = debris[victim];
+                d.Owner?.Pieces.Remove(d);
+                debris.RemoveAt(victim);
+            }
+        }
+
+        static readonly Color Steel = new Color(0.38f, 0.39f, 0.36f);
+        /// <summary>Plates and scrap off a hull: the armour that a round holed, that a leg tore away, that the ammunition threw (DebrisRenderer).</summary>
+        static void Scrap(Vector3 at, int count, float speed, float size, float burn, float life, Vector3 lean, uint salt)
+        {
+            var d = DebrisRenderer.Instance;
+            if (d == null || !d.Ready) return;
+            d.Burst(DebrisRenderer.Piece.Plate, at, count, speed, size, Steel, life, burn, 1.4f, lean, salt);
         }
 
         void FlyDebris(float dt, TW.Sim.Match.MatchSim match)
@@ -844,6 +870,7 @@ namespace TW.Presentation.Tactical
                     }
                     SceneHooks.Sparks?.Invoke(at, holed ? 8 : 5);
                     if (holed && UnityEngine.Random.value < 0.25f) ShearHorn(v, at);
+                    if (holed) Scrap(at, 3, 7f, 0.22f, 0.7f, 40f, -dir * 0.6f, e.Tick + (uint)e.A);   // the plate the round went through, in pieces
                     break;
                 }
                 case SimEventType.VehicleOnFire:
@@ -871,6 +898,7 @@ namespace TW.Presentation.Tactical
                         v.CookOff = true;
                         var at = v.Pos + Vector3.up * (v.Heave.Value + 2f);
                         for (int k = 0; k < 6; k++) flames.Add(new Flame { Foot = at + UnityEngine.Random.insideUnitSphere * 1.5f, Width = 3.5f, Height = 6f, Phase = k });
+                        Scrap(at, 14, 13f, 0.35f, 1f, 60f, default, e.Tick + (uint)e.A);   // the hull's plates go up with the rounds, burning as they come down
                     }
                     break;
                 case SimEventType.VehicleDestroyed:
@@ -915,6 +943,7 @@ namespace TW.Presentation.Tactical
                         Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 0.7f;
                         books.Add(FlipbookFx.Book.Puff, at, 2.2f, 1.2f, velocity: Vector3.up * 0.8f, grow: 1.3f, alpha: 0.55f);
                     }
+                    { Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 1.0f; Scrap(at, 4, 6f, 0.28f, 0.4f, 40f, default, e.Tick + (uint)e.B); }   // the joint's plates and pins
                     break;
                 case SimEventType.VehicleRepaired:
                     if (v != null && books != null && books.Ready) books.Add(FlipbookFx.Book.Star, v.Pos + Vector3.up * (v.Heave.Value + 1.2f), 0.8f, 0.2f, glow: 1.5f);

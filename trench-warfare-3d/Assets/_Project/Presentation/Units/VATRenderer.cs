@@ -26,6 +26,7 @@ using TW.Presentation;
 
 namespace TW.Presentation.Units
 {
+    /// <summary>Pad: the limbs a dead man has lost, a bit per limb id (VATRenderer.AddFallen gib); 0 for every living man.</summary>
     public struct VatInstance { public float3 Pos; public float Yaw, AnimRow, AnimT, Tint, Scale, PrevRow, PrevT, Blend, Pad; }
 
     public static class LodTiers
@@ -270,7 +271,7 @@ namespace TW.Presentation.Units
 
         // ---- the fallen: the same figure as the living, played once through his death and held on the last frame
         // where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
-        struct FallenMan { public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate, Spin, Lies; public byte Team, Figure; public ushort Row, FarRow, FromRow; }
+        struct FallenMan { public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate, Spin, Lies; public byte Team, Figure, Gib; public ushort Row, FarRow, FromRow; }
         static float Hash01(Vector3 v) { float h = Mathf.Sin(v.x * 12.9898f + v.z * 78.233f) * 43758.5453f; return h - Mathf.Floor(h); }
         /// <summary>Gravity for a thrown corpse (m/s2): a little over the real thing, so the arc reads as a blow, not a float.</summary>
         public float ThrowGravity = 14f;
@@ -288,9 +289,11 @@ namespace TW.Presentation.Units
         /// <summary>
         /// A man died here: he goes down facing yaw (radians) and stays. The oldest is taken away past MaxFallen. With the clip
         /// atlas the near tier plays the death the controller chose (clip) on his archetype's figure; the far tier and the box
-        /// soldier use the procedural death the variant picks.
+        /// soldier use the procedural death the variant picks. gib: the limbs a shell took off him, a bit each (1 head,
+        /// 2 left arm, 3 right arm, 4 left leg, 5 right leg), carried to the shader in the record's spare float; the mesh
+        /// must carry a limb id per vertex (VATBaker writes it to UV1.x) for the cut to show.
         /// </summary>
-        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f, Vector3 fly = default)
+        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f, Vector3 fly = default, int gib = 0)
         {
             if (fallenMen.Count >= MaxFallen) fallenMen.RemoveAt(0);
             ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
@@ -299,7 +302,7 @@ namespace TW.Presentation.Units
             float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
             // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
             bool blend = near && fromClip != Clip.None && fade > 0.01f;
-            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = FallenSeconds * (0.7f + 0.6f * Hash01(pos)), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow,
+            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = FallenSeconds * (0.7f + 0.6f * Hash01(pos)), Team = (byte)team, Figure = (byte)figure, Gib = (byte)(gib & 0xFF), Row = near ? (ushort)clip : farRow, FarRow = farRow,
                 FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f };
             // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
             // and his death clip is played so his back meets it as he lands.
@@ -410,7 +413,7 @@ namespace TW.Presentation.Units
             // thrown: he turns as he goes through the air and comes to rest the way he landed
             float yaw = f.Yaw;
             if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(now - f.Born, f.Flight);
-            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend };
+            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend, Pad = f.Gib };
         }
 
         void DrawVehicles(Bounds bounds)

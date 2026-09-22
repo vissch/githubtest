@@ -134,6 +134,10 @@ namespace TW.Presentation.Tactical
         Material tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat;
         readonly Material[] gasMats = new Material[3];
         FlipbookFx books;   // the drawn bursts, dust, hits and flares; without its textures the older painted meshes stand in
+        DebrisRenderer debris;   // what a blast breaks off: clods, splinters, a tree's crown, a man's limbs and kit (GPU-side arcs)
+        Vector3 lastBlast; float lastBlastAt = -10f;   // the newest burst: what broke this tick fell away from it
+        static readonly Color Mud = new Color(0.30f, 0.26f, 0.21f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
+        static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         int hitsThisFrame;
         TestPanel panel;
         TW.Presentation.Units.VATRenderer units;
@@ -180,6 +184,11 @@ namespace TW.Presentation.Tactical
             units = FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
             books = new FlipbookFx();
             if (!books.Ready) Debug.LogWarning("CombatFx: the flipbook textures (Resources/VFX) or TW/Flipbook are missing; drawing the painted stand-ins.");
+            // the pieces: one renderer on this object, lent the flipbooks for the dust a landing piece or a falling wall raises
+            debris = GetComponent<DebrisRenderer>();
+            if (debris == null) debris = gameObject.AddComponent<DebrisRenderer>();
+            debris.Host = Host;
+            debris.Dust = (at, size) => { if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, at, size, 0.9f + size * 0.15f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.7f, grow: 0.9f, alpha: 0.65f, pop: 0.3f); };
             // the fallen lie as they fell: four deaths a side, in their side's cloth
             for (int k = 0; k < 8; k++)
                 fallen[k] = TW.Presentation.Units.ProceduralSoldier.BuildFallen(k & 3, k < 4 ? new Color(0.47f, 0.40f, 0.24f) : new Color(0.34f, 0.38f, 0.40f));
@@ -481,7 +490,10 @@ namespace TW.Presentation.Tactical
                         }
                         // a shell that killed him throws him (the controller worked out how far and how high)
                         Vector3 fly = controlled ? new Vector3(anim.State[e.A].ThrowX, anim.State[e.A].ThrowUp, anim.State[e.A].ThrowZ) : Vector3.zero;
-                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly);
+                        // a shell close enough to throw him high takes him apart: the figure loses the limbs (a bit each, read by
+                        // the VAT shader), and they fly off with his helmet and rifle
+                        int gib = e.B < 0 && e.Dir.y > 0.5f && fly.y > 0.6f ? Gibs(e.A, p, yaw, team, fly) : 0;
+                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly, gib);
                     }
                     else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
                     // his helmet comes off as he goes down and rolls a step away
@@ -523,10 +535,19 @@ namespace TW.Presentation.Tactical
                         }
                     }
                     else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
+                    lastBlast = p; lastBlastAt = Time.time;
                     if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 28 : 48, 4, 20f, 0.18f);   // a shell in the water throws a white column, not earth
                     else
                     {
-                        Throw(p, drawn ? 17 : 28, 0, 15f, 0.30f);
+                        Throw(p, drawn ? 10 : 28, 0, 15f, 0.30f);
+                        if (debris != null && debris.Ready)
+                        {
+                            // the earth itself: clods the size of a fist to a head, thrown up and out, which lie where they land
+                            // for half a minute; and a hail of smaller ones flung high that comes down over the next seconds
+                            float r = Mathf.Clamp(e.Scalar, 2f, 9f);
+                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, default, e.Tick);
+                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, default, e.Tick + 7u);
+                        }
                         // a fresh hole: clods lie thrown round its rim, and the hot earth steams in the rain (seen from close by)
                         float rim = Mathf.Clamp(e.Scalar * 0.55f, 1.2f, 4.5f);
                         for (int k = 0; k < 12; k++)
@@ -557,9 +578,22 @@ namespace TW.Presentation.Tactical
                 case SimEventType.PropChanged:
                 {
                     Vector3 p = (Vector3)e.Pos;
-                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 1.5f;
-                    Throw(p, 18, 1, 7f, 0.16f);   // splinters where a tree broke, scrap where a wreck settled
+                    float foot = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+                    p.y = foot + 1.5f;
+                    Throw(p, 8, 1, 7f, 0.16f);   // splinters where a tree broke, scrap where a wreck settled
                     if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, p, 2.2f, 0.7f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.8f, grow: 0.6f, alpha: 0.7f);
+                    if (debris != null && debris.Ready) TreeBreaks(e, new Vector3(p.x, foot - 0.05f, p.z));
+                    break;
+                }
+                case SimEventType.VehicleCrushed:
+                {
+                    // a man under the tracks or a claw (b = 2): what is left of him comes out from under, low and slow
+                    if (e.B != 2 || debris == null || !debris.Ready || DebrisRenderer.Gore <= 0f) break;
+                    Vector3 p = (Vector3)e.Pos;
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.3f;
+                    debris.Burst(DebrisRenderer.Piece.Helmet, p, 1, 3.5f, 0.32f * FigureScale(), Steel, 60f, 0f, 1.0f, default, e.Tick);
+                    debris.Burst(DebrisRenderer.Piece.Limb, p, 1, 3f, 0.7f * FigureScale(), ClothOf(e.A) == ClothA ? ClothB : ClothA, 30f, 0f, 0.8f, default, e.Tick + 3u);   // e.A is the machine: the man under it is the other side's
+                    debris.Burst(DebrisRenderer.Piece.Clod, p, Mathf.RoundToInt(4f * DebrisRenderer.Gore), 4f, 0.12f, Gore, 8f, 0f, 0.6f, default, e.Tick + 5u);
                     break;
                 }
                 case SimEventType.TrenchCaptured:
@@ -572,6 +606,100 @@ namespace TW.Presentation.Tactical
         }
 
         void Banner(string text, float seconds = 4f) { banner = text; bannerUntil = Time.time + seconds; }
+
+        /// <summary>How big a man is drawn right now (VATRenderer grows him with the zoom), so what comes off him matches.</summary>
+        float FigureScale()
+        {
+            if (units == null) return 1f;
+            var cam = Camera.main;
+            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
+            return units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
+        }
+
+        Color ClothOf(int slot)
+        {
+            var w = Host.Local.World;
+            return slot >= 0 && slot < w.Team.Length && w.Team[slot] == 1 ? ClothB : ClothA;
+        }
+
+        /// <summary>
+        /// A shell has taken a man apart: which limbs he loses (bits 1 head, 2 left arm, 3 right arm, 4 left leg, 5 right
+        /// leg; the VAT shader cuts them from the figure at the root), and the same limbs, his helmet and his rifle thrown
+        /// from where he stood on the shell's own throw plus a scatter. Seeded from the place, so a replay agrees. Nothing
+        /// with DebrisRenderer.Gore at 0.
+        /// </summary>
+        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly)
+        {
+            if (DebrisRenderer.Gore <= 0f || debris == null || !debris.Ready) return 0;
+            var rng = new DebrisRng(at, 0x6B1u + (uint)slot);
+            if (rng.Next() > 0.7f) return 0;   // most men thrown by a shell come down whole
+            float scale = FigureScale();
+            Color cloth = team == 1 ? ClothB : ClothA;
+            Vector3 chest = at + Vector3.up * (1.2f * scale);
+            Vector3 carry = new Vector3(fly.x, 0f, fly.z) * 0.9f + Vector3.up * (2.5f + fly.y * 2f);   // the shell's throw, and up
+            int mask = 0, limbs = rng.Next() < 0.35f ? 2 : 1;
+            for (int k = 0; k < limbs; k++)
+            {
+                int limb = 2 + (int)(rng.Next() * 3.999f);   // an arm or a leg
+                if ((mask & (1 << limb)) != 0) continue;
+                mask |= 1 << limb;
+                Vector3 vel = carry + rng.OnSphere() * 3.5f; vel.y = Mathf.Abs(vel.y) + 2f;
+                debris.Throw(DebrisRenderer.Piece.Limb, chest + rng.OnSphere() * (0.3f * scale), vel, (limb >= 4 ? 0.85f : 0.62f) * scale, cloth, ref rng, 30f);
+            }
+            if (rng.Next() < 0.22f)
+            {
+                mask |= 1 << 1;   // his head: the helmet goes one way, the head another
+                Vector3 vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 3f;
+                debris.Throw(DebrisRenderer.Piece.Clod, chest + Vector3.up * (0.4f * scale), vel, 0.24f * scale, Skin, ref rng, 30f);
+            }
+            Vector3 helmetVel = carry + rng.OnSphere() * 4f; helmetVel.y = Mathf.Abs(helmetVel.y) + 4f;
+            debris.Throw(DebrisRenderer.Piece.Helmet, chest + Vector3.up * (0.5f * scale), helmetVel, 0.32f * scale, Steel, ref rng, 60f);
+            if (rng.Next() < 0.6f)
+            {
+                Vector3 vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;
+                debris.Throw(DebrisRenderer.Piece.Rifle, chest, vel, scale, Bark, ref rng, 60f);
+            }
+            int lumps = Mathf.RoundToInt(5f * DebrisRenderer.Gore);
+            for (int k = 0; k < lumps; k++)
+            {
+                Vector3 vel = carry * 0.8f + rng.OnSphere() * 4.5f; vel.y = Mathf.Abs(vel.y) + 1.5f;
+                debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * scale, Gore, ref rng, 8f);
+            }
+            return mask;
+        }
+
+        /// <summary>
+        /// A tree the sim has worn down (PropChanged): a standing tree loses its top, which hinges off the break and falls
+        /// away from the newest burst; a broken one is shattered to the stump. The sim swaps the drawn prop the same
+        /// tick (BattlefieldProps recomposes), so the falling crown lives only as long as its fall.
+        /// </summary>
+        void TreeBreaks(SimEvent e, Vector3 foot)
+        {
+            var props = Host.Local.Map.Props;
+            if (e.A < 0 || e.A >= props.Length) return;
+            var def = props[e.A];
+            float s = def.Scale > 0f ? def.Scale : 0.85f + 0.3f * ((e.A * 37) % 100) / 100f;   // as BattlefieldComposer sizes it
+            var kind = (TW.Sim.Terrain.PropKind)e.B;
+            Vector3 away = Time.time - lastBlastAt < 0.5f ? foot - lastBlast : new Vector3(Mathf.Sin(def.Yaw + 1.1f), 0f, Mathf.Cos(def.Yaw + 1.1f));
+            away.y = 0f;
+            switch (kind)
+            {
+                case TW.Sim.Terrain.PropKind.BrokenTree:
+                {
+                    Vector3 pivot = foot + Vector3.up * (2.7f * s);   // the snag the kit leaves standing is 2.7 m
+                    debris.Topple(DebrisRenderer.Piece.Crown, pivot, Quaternion.Euler(0f, def.Yaw * Mathf.Rad2Deg, 0f), away, 1.3f, s, Bark, 1.2f);
+                    debris.Burst(DebrisRenderer.Piece.Shard, pivot, 10, 6f, 0.35f * s, Bark, 25f, 0f, 1.6f, away.normalized * 0.4f, e.Tick);
+                    break;
+                }
+                case TW.Sim.Terrain.PropKind.Stump:
+                    debris.Burst(DebrisRenderer.Piece.Shard, foot + Vector3.up * (1.3f * s), 14, 8f, 0.5f * s, Charred, 25f, 0f, 1.6f, away.normalized * 0.5f, e.Tick);
+                    debris.Burst(DebrisRenderer.Piece.Clod, foot + Vector3.up * 0.2f, 5, 5f, 0.18f, Mud, 20f, 0f, 1.8f, default, e.Tick + 3u);
+                    break;
+                case TW.Sim.Terrain.PropKind.Log:   // a tree gone under a vehicle
+                    debris.Burst(DebrisRenderer.Piece.Shard, foot + Vector3.up * 0.8f, 8, 5f, 0.4f * s, Bark, 25f, 0f, 1.4f, default, e.Tick);
+                    break;
+            }
+        }
 
         /// <summary>
         /// Where a man's muzzle is when his figure has no sockets to say: out in front of him at the height his (drawn)

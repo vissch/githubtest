@@ -47,7 +47,9 @@ Shader "TW/VAT Infantry (URP)"
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
 
-        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; };
+        // gone: 1 on a vertex of a limb this man has lost (the record's pad is a bit per limb id, the mesh's UV1.x the
+        // limb id per vertex, VATBaker); interpolated, so a triangle across the root is cut at its middle by clip()
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; };
 
         // one clip: the frame pair at t (0..1 through the row) and the blend between them
         void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
@@ -66,10 +68,12 @@ Shader "TW/VAT Infantry (URP)"
                      SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
         }
 
-        Animated Animate(uint vertexID, uint svInstanceID)
+        Animated Animate(uint vertexID, uint svInstanceID, float limb)
         {
             InitIndirectDrawArgs(0);
             VatInstance inst = _Instances[GetIndirectInstanceID(svInstanceID)];
+            uint lost = (uint)(inst.pad + 0.5);
+            float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
             float u = (vertexID + 0.5) / _VertexCount;
             float3 p, n;
             SampleClip(u, inst.animRow, inst.animT, p, n);
@@ -89,6 +93,7 @@ Shader "TW/VAT Infantry (URP)"
             o.normalWS = normalize(float3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c));
             o.tint = inst.tint;
             o.scale = inst.scale;
+            o.gone = gone;
             return o;
         }
         ENDHLSL
@@ -109,12 +114,12 @@ Shader "TW/VAT Infantry (URP)"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
-            struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; };
+            struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; float2 limb : TEXCOORD1; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(v.vertexID, instanceID);
+                Animated a = Animate(v.vertexID, instanceID, v.limb.x);
                 Varyings o;
                 o.positionOS = a.positionOS;
                 o.positionWS = a.positionWS;
@@ -122,12 +127,14 @@ Shader "TW/VAT Infantry (URP)"
                 o.normalWS = a.normalWS;
                 o.color = v.color;
                 o.tint = a.tint;
+                o.gone = a.gone;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
 
             half4 frag(Varyings i) : SV_Target
             {
+                clip(0.5 - i.gone);   // a limb a shell took off (DebrisRenderer throws it)
                 // B4: ellipsoid wound clip exposes embedded gore geometry
                 if (_WoundRadii.x > 0.0)
                 {
@@ -182,11 +189,12 @@ Shader "TW/VAT Infantry (URP)"
             #pragma vertex vertOutline
             #pragma fragment fragOutline
             #pragma multi_compile_fog
-            struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; };
-            OutlineVaryings vertOutline(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
+            struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float gone : TEXCOORD1; };
+            OutlineVaryings vertOutline(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(vertexID, instanceID);
+                Animated a = Animate(vertexID, instanceID, limb.x);
                 OutlineVaryings o;
+                o.gone = a.gone;
                 float w = TransformWorldToHClip(a.positionWS).w;
                 // the line is extruded in world space, so it follows how big the man is drawn as well as how far off he is
                 // (the back rank of a standard frame is 149 m out and used to lose its outline entirely)
@@ -195,7 +203,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
-            half4 fragOutline(OutlineVaryings i) : SV_Target { return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
+            half4 fragOutline(OutlineVaryings i) : SV_Target { clip(0.5 - i.gone); return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
             ENDHLSL
         }
 
@@ -214,9 +222,10 @@ Shader "TW/VAT Infantry (URP)"
             float3 _LightDirection;
             float3 _LightPosition;
 
-            float4 vertShadow(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) : SV_POSITION
+            struct ShadowVaryings { float4 positionCS : SV_POSITION; float gone : TEXCOORD0; };
+            ShadowVaryings vertShadow(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(vertexID, instanceID);
+                Animated a = Animate(vertexID, instanceID, limb.x);
             #if _CASTING_PUNCTUAL_LIGHT_SHADOW
                 float3 lightDir = normalize(_LightPosition - a.positionWS);
             #else
@@ -228,9 +237,10 @@ Shader "TW/VAT Infantry (URP)"
             #else
                 cs.z = max(cs.z, UNITY_NEAR_CLIP_VALUE);
             #endif
-                return cs;
+                ShadowVaryings o; o.positionCS = cs; o.gone = a.gone;
+                return o;
             }
-            half4 fragNull() : SV_Target { return 0; }
+            half4 fragNull(ShadowVaryings i) : SV_Target { clip(0.5 - i.gone); return 0; }
             ENDHLSL
         }
 
@@ -242,11 +252,14 @@ Shader "TW/VAT Infantry (URP)"
             HLSLPROGRAM
             #pragma vertex vertDepth
             #pragma fragment fragDepth
-            float4 vertDepth(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID) : SV_POSITION
+            struct DepthVaryings { float4 positionCS : SV_POSITION; float gone : TEXCOORD0; };
+            DepthVaryings vertDepth(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                return TransformWorldToHClip(Animate(vertexID, instanceID).positionWS);
+                Animated a = Animate(vertexID, instanceID, limb.x);
+                DepthVaryings o; o.positionCS = TransformWorldToHClip(a.positionWS); o.gone = a.gone;
+                return o;
             }
-            half4 fragDepth() : SV_Target { return 0; }
+            half4 fragDepth(DepthVaryings i) : SV_Target { clip(0.5 - i.gone); return 0; }
             ENDHLSL
         }
     }
