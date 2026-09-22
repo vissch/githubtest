@@ -100,3 +100,42 @@ its own draw calls and managed allocation, and this machine is far above the GTX
 men alive, not the 2,000-man stress preset — which makes 936 draw calls the most alarming line, because a nearly
 empty field should be nowhere near the ceiling. The honest next steps are the same measurement in a build, then with
 the stress preset, and only then any optimisation work.
+
+## Second measurement (2026-09-22, the same evening, with an army on the field)
+
+The first measurement above had about ten men alive, and said so. `CaptureRig.Stress(unitsPerSide, path, frames)`
+now sets the preset in the scene, enters play mode, waits for both sides to deploy and go over the top, profiles,
+writes the file and puts the scene back — across the domain reload in the middle, which is why the request is held
+in `SessionState`. (The procedure above refers to a menu `TW → Debug → Stress 2000`; no such menu has ever existed.)
+
+**1,996 men alive, 200 frames, same editor, same machine.**
+
+| Recorder | 10 men | 2,000 men | Budget |
+|---|---|---|---|
+| Main Thread p50 | 2.53 ms | **13.76 ms** | 3 ms |
+| Main Thread p95 | 8.05 ms | **44.23 ms** | 3 ms |
+| Main Thread p99 | 13.77 ms | **123.28 ms** | — |
+| GPU p50 | 9.09 ms | 10.83 ms | 13 ms |
+| GPU p95 | 16.17 ms | 16.52 ms | 13 ms |
+| SetPass | 763 | 761 | — |
+| Draw Calls | 936 | **931** | < 300 |
+| GC / frame | 29.6 KB | **428 KB** | 0 B |
+
+Three things fall out of this, and they point optimisation somewhere quite different from where it was heading.
+
+**The men are free in draw calls.** Two hundred times as many soldiers cost *five fewer* draw calls. The instanced
+VAT path does what it was built to do. The 930 draw calls are the world — terrain chunks, props, kit — plus whatever
+the editor adds, and no amount of work on the units will move that number. The alarm raised by the first measurement
+was pointed at the wrong thing.
+
+**The GPU is nearly fine.** 10.8 ms p50 with an army out, against a 13 ms budget, and it barely moved from the empty
+field. Whatever is wrong here is not the shading.
+
+**The main thread and the garbage are the wall.** 2.53 → 13.76 ms p50 and 29.6 KB → 428 KB per frame, both scaling
+with the number of men: roughly 200 bytes allocated per man per frame, which at 60 fps is 25 MB/s of garbage and a
+collection every few seconds. The budget says 0 B/frame in play. This is the first hard lead the project has ever
+had on where the frame goes, and it is a CPU-side lead, not a rendering one.
+
+Still true of both measurements: the editor is not a player build, and this machine is far above the GTX 1050
+target. A build measurement is the next honest step, and the absolute numbers should not be quoted as the game's
+performance until one exists. The *ratios* — men free in draw calls, garbage scaling per man — survive the caveat.

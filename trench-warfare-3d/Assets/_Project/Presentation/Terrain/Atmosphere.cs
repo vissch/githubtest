@@ -32,6 +32,13 @@ namespace TW.Presentation.Terrain
         /// <summary>The rain right now, 0..1, and the wind it falls in (m/s, world XZ). Rain.cs and the shaders follow these.</summary>
         public static float RainNow { get; private set; }
         public static Vector2 WindNow { get; private set; }
+        /// <summary>
+        /// Tooling only (CaptureRig.Hold): the point on the weather cycle to hold the sky at. Below zero the weather
+        /// runs from the game clock as it always has. Two captures taken minutes or days apart otherwise fall in
+        /// different squalls and different gusts, so every before-and-after this project has ever judged by eye was
+        /// confounded by the rain. Pinned, a still of the same field is the same weather forever.
+        /// </summary>
+        public static float PinnedClock = -1f;
         [Tooltip("Let the storm's lightning (Storm.cs) flash the whole field (night only).")]
         public bool Lightning = true;
         [Tooltip("In the super zoom the far field goes softly out of focus and the vignette closes a little. Costs nothing at any other zoom; off = never.")]
@@ -214,7 +221,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(SkyId, new Vector4(mirror.r, mirror.g, mirror.b, 1f));
             // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
             // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.
-            float clock = Time.time;
+            float clock = PinnedClock >= 0f ? PinnedClock : Time.time;
             float swell = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.28f, .72f, Mathf.PerlinNoise(clock * .021f, 3.7f)));
             float gust = Mathf.PerlinNoise(clock * .13f, 11.3f);
             float level = Mathf.Clamp01(swell * .8f + gust * .35f - .05f);
