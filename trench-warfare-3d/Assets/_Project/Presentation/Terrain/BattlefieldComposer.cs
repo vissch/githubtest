@@ -114,36 +114,67 @@ namespace TW.Presentation.Terrain
             var candidates = new List<BattlefieldSurface.Edge>(surface.Edges);
             candidates.Sort((a, b) => { int order = Rand(a.Key, seed).CompareTo(Rand(b.Key, seed)); return order != 0 ? order : a.Key.CompareTo(b.Key); });
             var count = new int[map.Trenches.Length];
+            var bunkers = new List<BattlefieldBlueprint>(); var others = new List<BattlefieldBlueprint>();
+            foreach (var blueprint in blueprints) (IsBunker(blueprint) ? bunkers : others).Add(blueprint);
+
+            // the bunkers first (owner, 2026-09-22): each side's shelter and pillbox behind its line on the stretch nearest
+            // the far edge, where the fog lies, the opening turned towards the fog and the back to the field
+            var farFirst = new List<BattlefieldSurface.Edge>(candidates);
+            farFirst.Sort((a, b) => Vector3.Dot(a.Center, preferredFront).CompareTo(Vector3.Dot(b.Center, preferredFront)));
+            for (int side = 0; side < 2; side++)
+                foreach (var blueprint in bunkers)
+                    foreach (var edge in farFirst)
+                    {
+                        var trench = map.Trenches[edge.Trench];
+                        var facing = new Vector3(Mathf.Sin(trench.FacingYaw), 0f, Mathf.Cos(trench.FacingYaw));
+                        if (edge.Link || count[edge.Trench] >= 2 || (facing.z > 0f ? 0 : 1) != side || Vector3.Dot(edge.Outward, facing) > -.5f) continue;
+                        if (TrySite(map, surface, edge, blueprint, true, count)) break;
+                    }
+
+            if (others.Count == 0) return;
             foreach (var edge in candidates)
             {
                 if (edge.Link || count[edge.Trench] >= 2) continue;
-                var blueprint = blueprints[(edge.Trench + count[edge.Trench]) % blueprints.Length];
-                // Splayed entrances still face the trench, with the readable side chosen by the art direction.
-                var left = edge.Rotation * Quaternion.Euler(0f, -60f, 0f);
-                var right = edge.Rotation * Quaternion.Euler(0f, 60f, 0f);
-                var rotation = Vector3.Dot(left * Vector3.back, preferredFront) > Vector3.Dot(right * Vector3.back, preferredFront) ? left : right;
-                rotation *= Quaternion.Euler(0f, (Rand(edge.Key, seed + 1) - .5f) * 12f, 0f);
-                float nearest = float.MaxValue;
-                for (int corner = 0; corner < 4; corner++)
-                {
-                    var b = blueprint.Footprint;
-                    var p = new Vector3((corner & 1) == 0 ? b.min.x : b.max.x, 0f, (corner & 2) == 0 ? b.min.z : b.max.z);
-                    nearest = Mathf.Min(nearest, Vector3.Dot(rotation * p, edge.Outward));
-                }
-                var at = Vector3.zero; bool found = false; string reason = "spacing";
-                for (int setback = 0; setback < 3; setback++)
-                {
-                    at = edge.Center + edge.Outward * (2.1f + setback * 2f - nearest);
-                    at.y = map.Height.Sample(at.x, at.z) - .10f;
-                    bool crowded = false;
-                    foreach (var other in sites) if (Vector2.Distance(new Vector2(at.x, at.z), new Vector2(other.Position.x, other.Position.z)) < 18f) crowded = true;
-                    if (crowded) continue;
-                    if (Fits(map, surface, blueprint, at, rotation, out reason)) { found = true; break; }
-                }
-                if (!found) { rejections.TryGetValue(reason, out int rejected); rejections[reason] = rejected + 1; continue; }
-                var site = new Site(blueprint, at, rotation, edge.Trench, edge.Center + edge.Outward * 1.8f);
-                sites.Add(site); count[edge.Trench]++; EmitSite(map, surface, site);
+                TrySite(map, surface, edge, others[(edge.Trench + count[edge.Trench]) % others.Count], false, count);
             }
+        }
+
+        bool IsBunker(BattlefieldBlueprint blueprint)
+        {
+            foreach (var socket in blueprint.Sockets) if (socket.Name == "shell" && (socket.Module == kit.sodShelter || socket.Module == kit.pillbox)) return true;
+            return false;
+        }
+
+        bool TrySite(MapData map, BattlefieldSurface surface, BattlefieldSurface.Edge edge, BattlefieldBlueprint blueprint, bool towardsFog, int[] count)
+        {
+            // Splayed entrances still face the trench, with the readable side chosen by the art direction; a bunker turns
+            // the other way, its opening towards the fog.
+            var left = edge.Rotation * Quaternion.Euler(0f, -60f, 0f);
+            var right = edge.Rotation * Quaternion.Euler(0f, 60f, 0f);
+            bool leftReads = Vector3.Dot(left * Vector3.back, preferredFront) > Vector3.Dot(right * Vector3.back, preferredFront);
+            var rotation = leftReads != towardsFog ? left : right;
+            rotation *= Quaternion.Euler(0f, (Rand(edge.Key, seed + 1) - .5f) * 12f, 0f);
+            float nearest = float.MaxValue;
+            for (int corner = 0; corner < 4; corner++)
+            {
+                var b = blueprint.Footprint;
+                var p = new Vector3((corner & 1) == 0 ? b.min.x : b.max.x, 0f, (corner & 2) == 0 ? b.min.z : b.max.z);
+                nearest = Mathf.Min(nearest, Vector3.Dot(rotation * p, edge.Outward));
+            }
+            var at = Vector3.zero; bool found = false; string reason = "spacing";
+            for (int setback = 0; setback < 3; setback++)
+            {
+                at = edge.Center + edge.Outward * (2.1f + setback * 2f - nearest);
+                at.y = map.Height.Sample(at.x, at.z) - .10f;
+                bool crowded = false;
+                foreach (var other in sites) if (Vector2.Distance(new Vector2(at.x, at.z), new Vector2(other.Position.x, other.Position.z)) < 18f) crowded = true;
+                if (crowded) continue;
+                if (Fits(map, surface, blueprint, at, rotation, out reason)) { found = true; break; }
+            }
+            if (!found) { rejections.TryGetValue(reason, out int rejected); rejections[reason] = rejected + 1; return false; }
+            var site = new Site(blueprint, at, rotation, edge.Trench, edge.Center + edge.Outward * 1.8f);
+            sites.Add(site); count[edge.Trench]++; EmitSite(map, surface, site);
+            return true;
         }
 
         void EmitSite(MapData map, BattlefieldSurface surface, Site site)
@@ -533,7 +564,9 @@ namespace TW.Presentation.Terrain
             foreach (var site in sites) taken.Add(site.Position);
             bool Free(Vector3 p, float spacing) { foreach (var t in taken) if ((new Vector2(t.x - p.x, t.z - p.z)).sqrMagnitude < spacing * spacing) return false; return true; }
             void Put(BattlefieldKit.Module module, Vector3 p, Quaternion rotation, float size, float sink)
-                => emit(module, Matrix4x4.TRS(new Vector3(p.x, surface.VisualHeight(p.x, p.z) - sink, p.z), rotation, Vector3.one * size));
+                => emit(module, Matrix4x4.TRS(new Vector3(p.x, Ground(map, surface, p.x, p.z) - sink, p.z), rotation, Vector3.one * size));
+            // half the drawn footprint of a kind: its look's size (Module.Size) spaces what stands round it
+            Vector3 Half(BattlefieldKit.Module module) => Vector3.Scale(module.Mesh.bounds.extents, module.Size);
 
             // MG nests: on the lip of the parapet that faces the enemy, the gun out over no man's land, never by a ladder
             var ladders = new List<Vector3>();
@@ -541,6 +574,7 @@ namespace TW.Presentation.Terrain
             var candidates = new List<BattlefieldSurface.Edge>(surface.Edges);
             candidates.Sort((a, b) => { int order = Rand(a.Key, 850).CompareTo(Rand(b.Key, 850)); return order != 0 ? order : a.Key.CompareTo(b.Key); });
             var nests = new int[map.Trenches.Length];
+            var nest = kit.mgNest.Size;
             foreach (var edge in candidates)
             {
                 var trench = map.Trenches[edge.Trench];
@@ -550,42 +584,49 @@ namespace TW.Presentation.Terrain
                 bool byLadder = false;
                 foreach (var ladder in ladders) if ((ladder - edge.Center).sqrMagnitude < 36f) { byLadder = true; break; }
                 if (byLadder) continue;
-                var at = edge.DressCenter + edge.DressOutward * 1.95f;   // its back on the lip, 2.6 m deep
+                var at = edge.DressCenter + edge.DressOutward * (.66f + 1.29f * nest.z);   // its back on the lip, however deep its look draws it
                 var rotation = Quaternion.LookRotation(edge.DressOutward) * Quaternion.Euler(0f, (Rand(edge.Key, 851) - .5f) * 10f, 0f);
-                if (!Free(at, 9f) || !Room(map, surface, at, rotation, .95f, 1.3f)) continue;
+                if (!Free(at, Mathf.Max(9f, 3.5f * nest.z)) || !Room(map, surface, at, rotation, .95f * nest.x, 1.3f * nest.z, false, 1.0f * nest.z)) continue;   // it hangs over the parapet's fall: a metre of fall for each time its own size it is drawn
                 nests[edge.Trench]++; taken.Add(at);
                 Put(kit.mgNest, at, rotation, 1f, .06f);
-                Put(kit.sandbag, at + rotation * new Vector3(-1.05f, 0f, 1.25f), rotation * Quaternion.Euler(0f, 70f + Rand(edge.Key, 852) * 30f, 0f), 1f, .04f);
-                Put(kit.sandbag, at + rotation * new Vector3(1.1f, 0f, 1.1f), rotation * Quaternion.Euler(0f, -80f - Rand(edge.Key, 853) * 30f, 0f), .95f, .04f);
+                Put(kit.sandbag, at + rotation * Vector3.Scale(new Vector3(-1.05f, 0f, 1.25f), nest), rotation * Quaternion.Euler(0f, 70f + Rand(edge.Key, 852) * 30f, 0f), 1f, .04f);
+                Put(kit.sandbag, at + rotation * Vector3.Scale(new Vector3(1.1f, 0f, 1.1f), nest), rotation * Quaternion.Euler(0f, -80f - Rand(edge.Key, 853) * 30f, 0f), .95f, .04f);
             }
 
-            // each side's rear: a field gun on either flank laid toward the enemy with its shells beside it, an observation
-            // stand off the supply road, and (behind one side) the well of a farm that is no longer there
+            // each side's rear, the owner's way (hand placement, 2026-09-22): a field gun on either flank pulled back to the rear
+            // edge (its trail may run off the map) and laid toward the enemy, its shells and a sack beside it and one limber
+            // behind; and four observation stands, two along the rear edge, half off the map, and two out past the far edge
+            // where the fog lies (the side the standard view looks toward). None stands out in the open between the lines.
+            // Behind one side, the well of a farm that is no longer there.
+            var gun = Half(kit.fieldGun); var stand = Half(kit.armouredStand);
             for (int side = 0; side < 2; side++)
             {
                 float ahead = side == 0 ? 1f : -1f, rear = side == 0 ? 0f : L;
                 var toward = Quaternion.LookRotation(new Vector3(0f, 0f, ahead));
                 for (int flank = 0; flank < 2; flank++)
-                    for (int attempt = 0; attempt < 6; attempt++)
+                    for (int attempt = 0; attempt < 10; attempt++)
                     {
                         int key = side * 64 + flank * 16 + attempt;
-                        var at = new Vector3(W * (flank == 0 ? .12f : .88f) + (Rand(key, 860) - .5f) * 8f, 0f, rear + ahead * (7f + Rand(key, 861) * 7f));
+                        var at = new Vector3(W * (flank == 0 ? .06f : .84f) + Rand(key, 860) * W * .10f, 0f, rear + ahead * (2.5f + Rand(key, 861) * 6.5f));
                         var rotation = toward * Quaternion.Euler(0f, (Rand(key, 862) - .5f) * 24f, 0f);
-                        if (!Free(at, 7f) || !Room(map, surface, at, rotation, 1.0f, 1.5f)) continue;
+                        if (!Free(at, Mathf.Max(7f, gun.z)) || !Room(map, surface, at, rotation, gun.x, gun.z, true)) continue;
                         taken.Add(at);
+                        float outer = flank == 0 ? 1f : -1f;
                         Put(kit.fieldGun, at, rotation, 1f, .05f);
-                        Put(kit.shellStack, at + rotation * new Vector3(flank == 0 ? 1.7f : -1.7f, 0f, -.9f), rotation * Quaternion.Euler(0f, 90f + (Rand(key, 863) - .5f) * 30f, 0f), .9f, .04f);
-                        Put(kit.sandbag, at + rotation * new Vector3(flank == 0 ? -1.3f : 1.3f, 0f, .9f), rotation * Quaternion.Euler(0f, Rand(key, 864) * 180f, 0f), 1f, .04f);
-                        if (flank == side) Put(kit.limber, at + rotation * new Vector3(flank == 0 ? -1.2f : 1.2f, 0f, -3.2f), Quaternion.Euler(0f, Rand(key, 865) * 360f, (Rand(key, 866) - .5f) * 10f), .95f, .08f);
+                        Put(kit.shellStack, at + rotation * new Vector3(outer * (gun.x + .9f), 0f, -.35f * gun.z), rotation * Quaternion.Euler(0f, 90f + (Rand(key, 863) - .5f) * 30f, 0f), .9f, .04f);
+                        Put(kit.sandbag, at + rotation * new Vector3(-outer * (gun.x + .5f), 0f, .3f * gun.z), rotation * Quaternion.Euler(0f, Rand(key, 864) * 180f, 0f), 1f, .04f);
+                        if (flank == side) Put(kit.limber, at + rotation * new Vector3(-outer * (gun.x * .5f + .4f), 0f, -(gun.z + 1.8f)), Quaternion.Euler(0f, Rand(key, 865) * 360f, (Rand(key, 866) - .5f) * 10f), .95f, .08f);
                         break;
                     }
-                for (int attempt = 0; attempt < 6; attempt++)
+                for (int attempt = 0, stands = 0; attempt < 24 && stands < 4; attempt++)
                 {
                     int key = side * 64 + 40 + attempt;
-                    var at = new Vector3(W * (side == 0 ? .30f : .70f) + (Rand(key, 867) - .5f) * 10f, 0f, rear + ahead * (6f + Rand(key, 868) * 6f));
+                    var at = stands < 2
+                        ? new Vector3(W * (.22f + Rand(key, 867) * .72f), 0f, rear + ahead * (-3f + Rand(key, 868) * 7f))
+                        : new Vector3(-3f - Rand(key, 867) * 7f, 0f, rear + ahead * (4f + Rand(key, 868) * L * .28f));
                     var rotation = toward * Quaternion.Euler(0f, 45f + (Rand(key, 869) - .5f) * 20f, 0f);
-                    if (!Free(at, 7f) || !Room(map, surface, at, rotation, 1.2f, 1.2f)) continue;
-                    taken.Add(at); Put(kit.armouredStand, at, rotation, 1f, .05f); break;
+                    if (!Free(at, 14f) || !Room(map, surface, at, rotation, stand.x, stand.z, true)) continue;
+                    taken.Add(at); Put(kit.armouredStand, at, rotation, 1f, .05f); stands++;
                 }
                 if (side == (int)(Rand(seed, 870) * 2f))
                     for (int attempt = 0; attempt < 6; attempt++)
@@ -621,23 +662,34 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>A rectangle (half sizes in metres, turned by rotation) of dry, fairly level, open ground in the map that no
-        /// trench, ladder, wire or blocked cell touches, and not in a shell hole at its middle.</summary>
-        bool Room(MapData map, BattlefieldSurface surface, Vector3 centre, Quaternion rotation, float halfX, float halfZ)
+        /// trench, ladder, wire or blocked cell touches, and not in a shell hole at its middle. With offMap, the part beyond the
+        /// edge stands on the skirt and needs nothing else. rise overrides how much the ground may climb under it.</summary>
+        bool Room(MapData map, BattlefieldSurface surface, Vector3 centre, Quaternion rotation, float halfX, float halfZ, bool offMap = false, float rise = 0f)
         {
-            if (surface.At(centre.x, centre.z).Hollow >= 0) return false;
+            bool Inside(float x, float z) => x >= 0f && z >= 0f && x < map.SizeMeters.x && z < map.SizeMeters.y;
+            if (Inside(centre.x, centre.z) && surface.At(centre.x, centre.z).Hollow >= 0) return false;
             int nx = Mathf.CeilToInt(halfX * 4f), nz = Mathf.CeilToInt(halfZ * 4f);
             float lo = float.MaxValue, hi = float.MinValue;
             for (int iz = 0; iz <= nz; iz++)
             for (int ix = 0; ix <= nx; ix++)
             {
                 var p = centre + rotation * new Vector3(Mathf.Lerp(-halfX, halfX, ix / (float)nx), 0f, Mathf.Lerp(-halfZ, halfZ, iz / (float)nz));
-                if (!Clear(map, p.x, p.z)) return false;
-                float h = surface.VisualHeight(p.x, p.z);
-                if (h < map.WaterLevel + .15f || surface.At(p.x, p.z).Wetness > .45f) return false;
+                float h;
+                if (offMap && !Inside(p.x, p.z)) h = GreyboxTerrainView.SkirtHeight(map, p.x, p.z);   // beyond the edge: the skirt, nothing to keep clear
+                else
+                {
+                    if (!Clear(map, p.x, p.z)) return false;
+                    h = surface.VisualHeight(p.x, p.z);
+                    if (h < map.WaterLevel + .15f || surface.At(p.x, p.z).Wetness > .45f) return false;
+                }
                 lo = Mathf.Min(lo, h); hi = Mathf.Max(hi, h);
             }
-            return hi - lo < .9f;
+            return hi - lo < (rise > 0f ? rise : .9f + .12f * Mathf.Max(0f, Mathf.Max(halfX, halfZ) - 1.3f));   // a big prop spans more ground
         }
+
+        /// <summary>The drawn ground on the map or on the land beyond it.</summary>
+        static float Ground(MapData map, BattlefieldSurface surface, float x, float z)
+            => x >= 0f && z >= 0f && x <= map.SizeMeters.x && z <= map.SizeMeters.y ? surface.VisualHeight(x, z) : GreyboxTerrainView.SkirtHeight(map, x, z);
 
         void Horizon(MapData map)
         {

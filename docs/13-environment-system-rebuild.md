@@ -107,14 +107,14 @@ normals in UV3 plus painted-form vertex colours, as `BattlefieldKit.Combine` giv
 The Blender FBX exporter with a baked space transform always lands Blender −Y on Unity −Z, so each prop is turned
 half round before export. The first import faced every gun backwards; this was checked by where the barrel vertices lie.
 
-| Set | Prop | Size (m) | Where it goes | How often |
+| Set | Prop | Mesh size (m) | Where it goes | How often |
 |---|---|---|---|---|
 | Siege | MGNest | 1.7 × 1.9 × 2.6 | On the lip of each fire trench's enemy-facing parapet, gun out, ≥ 6 m from a ladder | 1 per fire trench |
-| Siege | Pillbox | 3.4 × 2.1 × 3.3 | Shell of the "Concrete pillbox" site blueprint | Via sites (2) |
-| Siege | SodShelterRuin | 2.4 × 2.4 × 2.4 | Shell of the "Sod-roofed shelter" site blueprint | Via sites (2) |
-| Siege | ArmouredStand | 2.3 × 2.8 × 2.1 | Each side's rear, off the supply road (an observation post) | 1 per side |
+| Siege | Pillbox | 3.4 × 2.1 × 3.3 | Shell of the "Concrete pillbox" site blueprint, on the fog side (see below) | 1 per side |
+| Siege | SodShelterRuin | 2.4 × 2.4 × 2.4 | Shell of the "Sod-roofed shelter" site blueprint, on the fog side (see below) | 1 per side |
+| Siege | ArmouredStand | 2.3 × 2.8 × 2.1 | Along each rear edge and beyond the far edge (see below) | 4 per side |
 | Siege | Well | 2.1 × 2.5 × 1.7 | Behind one line, near the map's rear edge | 1 |
-| Weapons | FieldGun | 1.4 × 1.8 × 2.7 | Each rear corner, laid toward the enemy, shells and a sack beside | 2 per side |
+| Weapons | FieldGun | 1.4 × 1.8 × 2.7 | Both flanks of each rear edge, laid toward the enemy, shells and a sack beside | 2 per side |
 | Weapons | TankTurret | 1.5 × 1.05 × 2.3 | Blown off beside a wreck (`PropKind.Wreck`), canted | 60% of wrecks |
 | Weapons | Biplane | 5.6 × 3.3 × 4.5 | Crashed nose-down just beyond the far map edge in no man's land | 1 |
 | Weapons | ShellStack | 1.2 × 1.0 × 1.1 | By the field guns and the sod shelter | Few |
@@ -151,3 +151,57 @@ scene with them hidden: +370 instances, +125k submitted prop vertices (205k → 
 MossStump 517, Poppies 414, Sandbag 390, WireFence 380, GrassClump 328 vertices. GTX 1050 timing still unmeasured.
 Captures: [split props](reference/env/props-review.jpg), [grade before/after](reference/env/grade.png),
 [in game, close](reference/env/in-game-close.jpg), [crashed biplane](reference/env/biplane.png).
+
+## Hand placement and kind looks (2026-09-22)
+
+The imported props can be edited by hand. In Play, click one in the Scene view, then move, rotate or scale it with
+W, E and R. Delete removes it and Ctrl+D copies it. The picked prop becomes a stand-in GameObject (`PropHandle`) while
+selected and goes back into the batched draw when deselected. Every change is saved at once to
+`Resources/Layouts/Battlefield<seed>.asset` (`PropLayout`) and applied in the game whenever the battlefield is built.
+A generated prop is matched by its kind and the spot the composer gave it, so an edit survives the rebuild after every
+crater, but lapses if a rule change moves the prop. Picking is custom (`EnvPropEditor`): Unity's own pick sees only
+the terrain, so the tool makes the terrain unpickable while it is on and tests the click against each prop's mesh,
+stopping at the ground. The TW > Env Props window has the on/off switch, adding a prop, clearing all edits, "Learn
+looks from my edits" and a look for every kind.
+
+A kind's look (`PropLayout.Look`, applied by `BattlefieldProps.Styled`) sets:
+- a baseline scale in place of the composer's;
+- a range each prop varies around it, hashed per prop, so a battlefield always looks the same;
+- a turn with its range;
+- a lean tipped either way;
+- a sink that grows with size.
+
+The composer spaces the pieces round a prop by its kind's size (`Module.Size`): MG nest sandbags, the field gun's
+shells, sack and limber, and the blueprint sockets and footprints. The owner's first round of edits was learned
+this way:
+
+| Kind | Baseline scale | ± | Sink | Other |
+|---|---|---|---|---|
+| ArmouredStand | 2.71 × 2.61 × 2.71 | 18% | 2.0 m | turn ±12° |
+| FieldGun | 3.5 × 2.83 × 5.58 | 18% | 0.59 m | turn ±6° |
+| SodShelterRuin | 2.97 | 10% | 0.25 m | turn ±10° |
+| MGNest | 2.18 | 10% | 0.44 m | turn ±6° |
+| Sandbag | 2.99 | 10% | 0.33 m | |
+| SplitStump | 2.79 | 10% | 0.06 m | |
+| FallenLog | 1.78 | 10% | 0.35 m | roll 36° either way ±25% |
+| Gabion | composer's | | composer's | pitch 28° either way ±25% |
+
+The owner also gave placement rules:
+- **Bunkers and field guns** go at each side's back edge or out on the far side, where the fog lies (the side the
+  standard view looks toward, x < 0), never in the open between the lines.
+- **Field guns:** two per side, 2.5–9 m inside the rear edge on both flanks. The trail may run off the map.
+- **Observation stands:** four per side. Two stand along the rear edge, half of them off the map; two stand 3–10 m
+  beyond the far edge in the back 30% of the side.
+- **Pillbox and sod shelter** (`PlaceSites`, first pass): on each side's trench stretch nearest the far edge, behind
+  the line. The opening is splayed towards the fog and the back faces the field, as the owner turned the shelter.
+- **Room checks:** `Room()` takes off-map ground for the stands and guns. A big footprint is allowed more rise, and
+  the enlarged MG nest a metre of rise per unit of its scale, since it hangs over the parapet's fall.
+
+The generated shelter lands 0.7 m and 10° from where the owner put theirs, and one generated MG nest 0.2 m from theirs.
+
+The owner's edits of the rule-driven kinds (one moved and three added stands, two guns, the shelter, its sack and the
+MG nest) were removed once learned. The rules now place those kinds on both sides. Their gabion, stump and log edits
+stay as hand placements.
+
+Captures: [rear edge](reference/env/looks-rear.jpg), [fog side](reference/env/looks-fog-side.jpg),
+[MG nest](reference/env/looks-mg-nest.jpg).

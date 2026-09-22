@@ -295,6 +295,16 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   eight). The plain cylinder log is gone (the imported log replaces it); every other procedural piece stays. Nothing
   here writes MapData or gives cover. Cost at the standard view: about +125k submitted prop vertices and +65 draws
   (64 m pages for the imported modules). Details, table and captures: docs/13 §"Imported environment sets".
+  Hand placement of the imported props (owner, 2026-09-22):
+  - **Editing:** in Play, click a prop in the Scene view and move, rotate or scale it. The TW > Env Props window holds
+    the rest. Edits save to `Resources/Layouts/Battlefield1917.asset` (`PropLayout`) and ship with the game.
+  - **Kind looks:** a baseline size, turn, lean and sink, each with a hashed per-prop range. They were learned from
+    the owner's first edits: stands, guns, shelter, MG nests and sandbags drawn about 2–3× larger, and the logs and
+    gabions leaning.
+  - **Placement rules:** bunkers and field guns now sit at each side's back edge or out on the far, fog side. The
+    pillbox and sod shelter face their opening to the fog.
+
+  Details: docs/13 §"Hand placement and kind looks".
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one

@@ -1,0 +1,118 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08799f331c03bef44b99ec4730f5d711, type: 3}
+  m_Name: Battlefield1917
+  m_EditorClassIdentifier: 
+  Seed: 1917
+  Edits:
+  - Key: Stones/Gabion@4551,6714
+    Module: Stones/Gabion
+    Added: 0
+    Removed: 0
+    Position: {x: 45.422752, y: -0.071900606, z: 66.99867}
+    Rotation: {x: 0.20422833, y: 0.25737366, z: -0.05574981, w: 0.94283706}
+    Scale: {x: 0.8586405, y: 0.85864043, z: 0.8586405}
+  - Key: Stones/Gabion@4722,7565
+    Module: Stones/Gabion
+    Added: 0
+    Removed: 0
+    Position: {x: 47.086643, y: -0.057006598, z: 75.81739}
+    Rotation: {x: -0.25928846, y: -0.3203877, z: -0.0916424, w: 0.9064893}
+    Scale: {x: 0.8681491, y: 0.86814916, z: 0.8681492}
+  - Key: Plants/SplitStump@2874,4791
+    Module: Plants/SplitStump
+    Added: 0
+    Removed: 0
+    Position: {x: 28.737806, y: -0.061069608, z: 47.911194}
+    Rotation: {x: -0, y: -0.8344322, z: -0, w: 0.5511106}
+    Scale: {x: 2.7899528, y: 2.789953, z: 2.7899528}
+  - Key: Plants/FallenLog@3926,3843
+    Module: Plants/FallenLog
+    Added: 0
+    Removed: 0
+    Position: {x: 39.722267, y: -0.35334456, z: 38.995296}
+    Rotation: {x: -0.27715933, y: 0.8613393, z: -0.13041656, w: 0.40530086}
+    Scale: {x: 1.7828212, y: 1.7828218, z: 1.7828209}
+  Looks:
+  - Module: Siege/ArmouredStand
+    Size: 1
+    Scale: {x: 2.7062218, y: 2.6118126, z: 2.7062218}
+    ScaleRange: 0.18
+    Yaw: 0
+    YawRange: 12
+    Lean: {x: 0, y: 0}
+    LeanRange: 0
+    Sink: 1.9985597
+  - Module: Weapons/FieldGun
+    Size: 1
+    Scale: {x: 3.4969416, y: 2.8272429, z: 5.5806394}
+    ScaleRange: 0.18
+    Yaw: 0
+    YawRange: 6
+    Lean: {x: 0, y: 0}
+    LeanRange: 0
+    Sink: 0.5947832
+  - Module: Siege/SodShelterRuin
+    Size: 1
+    Scale: {x: 2.9746404, y: 2.9746404, z: 2.9746404}
+    ScaleRange: 0.1
+    Yaw: 0
+    YawRange: 10
+    Lean: {x: 0, y: 0}
+    LeanRange: 0
+    Sink: 0.25062856
+  - Module: Stones/Gabion
+    Size: 1
+    Scale: {x: 0, y: 0, z: 0}
+    ScaleRange: 0
+    Yaw: 0
+    YawRange: 0
+    Lean: {x: 27.59853, y: 0}
+    LeanRange: 0.25
+    Sink: -1
+  - Module: Stones/Sandbag
+    Size: 1
+    Scale: {x: 2.9917002, y: 2.9917, z: 2.9917002}
+    ScaleRange: 0.1
+    Yaw: 0
+    YawRange: 0
+    Lean: {x: 0, y: 0}
+    LeanRange: 0
+    Sink: 0.33121628
+  - Module: Plants/SplitStump
+    Size: 1
+    Scale: {x: 2.7899528, y: 2.7899528, z: 2.7899528}
+    ScaleRange: 0.1
+    Yaw: 0
+    YawRange: 0
+    Lean: {x: 0, y: 0}
+    LeanRange: 0
+    Sink: 0.0610696
+  - Module: Plants/FallenLog
+    Size: 1
+    Scale: {x: 1.7828212, y: 1.7828218, z: 1.7828209}
+    ScaleRange: 0.1
+    Yaw: 0
+    YawRange: 0
+    Lean: {x: 0, y: 35.67398}
+    LeanRange: 0.25
+    Sink: 0.35334456
+  - Module: Siege/MGNest
+    Size: 1
+    Scale: {x: 2.1758492, y: 2.1758492, z: 2.1758492}
+    ScaleRange: 0.1
+    Yaw: 0
+    YawRange: 6
+    Lean: {x: 0, y: 0}
+    LeanRange: 0
+    Sink: 0.4358344
+  NextId: 4

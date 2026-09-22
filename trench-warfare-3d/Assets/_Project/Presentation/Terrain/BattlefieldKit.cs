@@ -14,6 +14,11 @@ namespace TW.Presentation.Terrain
             /// <summary>The side of the square pages its instances are batched and culled in (BattlefieldProps): a sparse module
             /// spread over the whole field takes a draw call per page, so it uses larger ones.</summary>
             public float PageSize = 32f;
+            /// <summary>"Set/Prop" for an imported prop, null for the procedural kit: named props can be edited by hand (PropLayout).</summary>
+            public string Name;
+            /// <summary>The kind's drawn scale (PropLayout.Look.Baseline, set by BattlefieldProps): the composer spaces the
+            /// pieces round a prop and checks its footprint by it.</summary>
+            public Vector3 Size = Vector3.one;
         }
         public Module trunk, snag, fallen, stump, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
@@ -303,6 +308,7 @@ namespace TW.Presentation.Terrain
             if (!atlases.TryGetValue(set, out var atlas)) atlases[set] = atlas = Resources.Load<Texture2D>("Env/" + set + "/" + set);
             var module = Make(mesh, tint, shadows, outline);
             module.PageSize = 64f;   // few and scattered: eight pages cover the field instead of twenty-odd draws
+            module.Name = set + "/" + name;
             if (atlas != null) module.Material.SetTexture("_BaseMap", atlas);
             if (sway > 0f) module.Material.SetFloat("_Sway", sway);
             if (gloss > 0f) module.Material.SetFloat("_Gloss", gloss);
