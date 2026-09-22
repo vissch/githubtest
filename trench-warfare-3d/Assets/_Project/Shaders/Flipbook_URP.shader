@@ -106,6 +106,9 @@ Shader "TW/Flipbook (URP)"
                 half3 lit = lerp(_Shade.rgb * TWShadeTint(), _MainLightColor.rgb, band);
                 half3 color = _Tint.rgb * lerp(ink.xxx, lit, _Lit) * i.tone.y;
                 if (_Erode > 0.5) color *= lerp(0.78, 1.0, smoothstep(0.0, 0.6, i.local.y));   // a cloud's underside is in its own shadow
+                // the shell's own flash lights the earth it threw up and the smoke rolling off it: the drawing's light
+                // parts catch it most, its dark parts least, so the column is modelled by its own burst and not flooded
+                color += lerp(ink, 1.0, 0.3) * TWBurstLight(i.positionWS) * _Lit;
                 half fog = ComputeFogIntensity(i.tone.w);
                 if (_Lit < 0.5)
                 {

@@ -7,6 +7,8 @@
 // dugouts; both carry a real flame (TW/Flame: computed, licking, white to red) over their glow and their light. Every
 // lamp and flame light sways a little with the wind, so the pools of light on the mud are never still. Flashes: a pool of eight lights shared by rifle fire and shell bursts; a shot only takes one when it
 // is near what the camera looks at, and no more than one every 30 ms, so a 3,000-man firefight costs eight lights.
+// A shell's flash is the brightest thing on the field while it lasts and its reach rides on the shell's radius, and
+// the hole it leaves keeps a low ember light for two seconds after (three of those, apart from the flash pool).
 // Flare: a star shell goes up over the ground ahead of the camera every half minute or so and sinks on its parachute,
 // lighting sixty metres of no man's land cold white. Distant fires glow through the fog bank beyond the far edges.
 using System.Collections.Generic;
@@ -28,6 +30,14 @@ namespace TW.Presentation.Terrain
 
         struct Pooled { public Light Light; public float Born, Life, Peak, Card; }
         readonly Pooled[] pool = new Pooled[PoolSize];
+        // the hole a shell leaves keeps its heat: a low red light on the rim for a couple of seconds after the flash
+        // is gone. Its own three lights, not the flash pool's, or the next shot would take the slot back at once.
+        const int AfterglowCount = 3;
+        readonly Pooled[] afterglow = new Pooled[AfterglowCount];
+        int nextGlow;
+        // the strongest burst alive, handed to the shaders so the drawn column and smoke are lit by their own shell
+        Vector3 burstAt; float burstPeak, burstBorn, burstLife, burstRange;
+        static readonly int BurstId = Shader.PropertyToID("_TWBurst"), BurstColorId = Shader.PropertyToID("_TWBurstColor");
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
         readonly List<Vector3> lanternHome = new List<Vector3>();
@@ -55,6 +65,11 @@ namespace TW.Presentation.Terrain
             {
                 pool[i].Light = MakeLight("Flash " + i, Muzzle, 0f, 8f);
                 pool[i].Light.enabled = false;
+            }
+            for (int i = 0; i < AfterglowCount; i++)
+            {
+                afterglow[i].Light = MakeLight("Crater glow " + i, Burst, 0f, 12f);
+                afterglow[i].Light.enabled = false;
             }
             glow = new Material(Shader.Find("TW/Glow (URP)")) { hideFlags = HideFlags.HideAndDontSave };
             flareGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
@@ -314,14 +329,31 @@ namespace TW.Presentation.Terrain
 
         void OnDestroy()
         {
+            Shader.SetGlobalColor(BurstColorId, Color.clear);   // nothing is burning once we are gone
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.SmokeSources.Clear();
             foreach (var o in owned) if (o != null) Destroy(o);
         }
 
+        /// <summary>
+        /// Lends one of the pool's lights to a flash. It used to be a plain round robin, which meant a shell's light
+        /// (half a second long) was taken back by an ordinary rifle shot within a quarter of a second — eight slots at
+        /// one shot every 30 ms — and even by a gun flickering beyond the horizon at a fortieth of its brightness.
+        /// Now the dimmest slot goes first, and nothing takes a slot from a light still burning brighter than itself:
+        /// a burst holds its light for as long as it was given, and the shot that cannot have one simply goes unlit.
+        /// </summary>
         void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f)
         {
-            ref var p = ref pool[nextPooled]; nextPooled = (nextPooled + 1) % PoolSize;
+            int slot = -1; float dimmest = float.MaxValue;
+            for (int i = 0; i < PoolSize; i++)
+            {
+                float left = pool[i].Light.enabled ? Mathf.Max(0f, 1f - (Time.time - pool[i].Born) / pool[i].Life) : 0f;
+                float live = pool[i].Peak * left * left;   // the same curve Update draws it with
+                if (live >= dimmest) continue;
+                dimmest = live; slot = i;
+            }
+            if (slot < 0 || dimmest > peak) return;   // every light out there is brighter than this one: it stays dark
+            ref var p = ref pool[slot];
             p.Light.transform.position = at; p.Light.color = color; p.Light.range = range; p.Light.intensity = peak; p.Light.enabled = true;
             p.Born = Time.time; p.Life = life; p.Peak = peak; p.Card = card;
         }
@@ -337,14 +369,32 @@ namespace TW.Presentation.Terrain
                 if (toCam.sqrMagnitude > 150f * 150f || Vector3.Dot(toCam, cam.transform.forward) < 0f) return;
                 at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.2f;
                 lastShot = Time.time;
-                Flash(at, Muzzle, 7f, 7.5f, .08f);
+                Flash(at, Muzzle, 13f, 10f, .09f);
             }
             else if (e.Type == SimEventType.Explosion)
             {
                 Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.5f;
-                Flash(at, Burst, 40f, 22f, .45f);
+                // the burst is the brightest thing on the field for a quarter of a second (owner, 2026-09-22: twice as
+                // strong), and a big shell lights more ground than a light one. Peak rides hard on the shell's radius;
+                // REACH DOES NOT. A light that reaches past about 23 m covers the whole picture at the standard view and
+                // the night grade goes with it — the field turned flat yellow-olive at 44 m (claude-10's fxb_2, 20:05).
+                // So: a hotter core over the same ground, not a bigger one.
+                float r = Mathf.Clamp(e.Scalar, 2f, 9f);
+                float peak = 40f + 3f * r, reach = 13f + 1.1f * r;
+                Flash(at, Burst, peak, reach, .48f, 3.0f);
+                // the drawn burst is lit by this one while it is the brightest on the field; a smaller shell going off
+                // beside a big one does not take the picture back off it
+                float livePeak = burstPeak * Mathf.Max(0f, 1f - (Time.time - burstBorn) / Mathf.Max(.01f, burstLife));
+                if (peak >= livePeak) { burstAt = at; burstPeak = peak; burstBorn = Time.time; burstLife = .48f; burstRange = reach * 1.35f; }
                 if (SceneHooks.IsWater == null || !SceneHooks.IsWater(at.x, at.z))
                 {
+                    // and the hole it tore goes on glowing: the light drops to an ember red and dies over two seconds.
+                    // An eighth of the flash and half its reach — an ember down in the hole, not a second flash. Any
+                    // more and a barrage never lets the field go back to night between shells.
+                    ref var g = ref afterglow[nextGlow]; nextGlow = (nextGlow + 1) % AfterglowCount;
+                    g.Light.transform.position = at - Vector3.up * 1.1f;
+                    g.Light.color = new Color(1f, .34f, .10f); g.Light.range = 6f + 0.55f * r; g.Light.enabled = true;
+                    g.Peak = 4f + 1f * r; g.Born = Time.time; g.Life = 2.1f;
                     embers[nextEmber] = new Ember { Pos = at - Vector3.up * 1.25f, Born = Time.time, Life = 7f + 5f * Hash(Time.frameCount, 29), Size = Mathf.Clamp(e.Scalar * .55f, 1.6f, 4f) };
                     nextEmber = (nextEmber + 1) % EmberCount;
                 }
@@ -381,6 +431,22 @@ namespace TW.Presentation.Terrain
             }
             flashMesh.vertices = flashPos; flashMesh.colors = flashCol; flashMesh.SetUVs(1, flashShape);
             flashMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
+            // hand the live burst to the shaders: its colour carries what is left of it, black once it is out
+            float burstLeft = burstPeak > 0f ? Mathf.Max(0f, 1f - (Time.time - burstBorn) / Mathf.Max(.01f, burstLife)) : 0f;
+            Shader.SetGlobalVector(BurstId, new Vector4(burstAt.x, burstAt.y, burstAt.z, burstRange));
+            // 0.85, not the 2.2 it started at: the drawn column and smoke already sit near white in their lit band, and
+            // anything above about one added the whole burst to a flat white blob with no shape in it, seen from close
+            // by (close/burst_b.png, 20:2x). It has to model the cloud, not replace it.
+            Shader.SetGlobalColor(BurstColorId, Burst * (0.85f * burstLeft * burstLeft));
+            if (burstLeft <= 0f) burstPeak = 0f;
+            for (int i = 0; i < AfterglowCount; i++)
+            {
+                if (!afterglow[i].Light.enabled) continue;
+                float age = (Time.time - afterglow[i].Born) / afterglow[i].Life;
+                // it falls away fast at first and then lingers low, the way hot earth cools
+                if (age >= 1f) afterglow[i].Light.enabled = false;
+                else afterglow[i].Light.intensity = afterglow[i].Peak * (1f - age) * (1f - age) * (1f - age);
+            }
             for (int i = 0; i < EmberCount; i++)
             {
                 float age = (Time.time - embers[i].Born) / Mathf.Max(.1f, embers[i].Life);

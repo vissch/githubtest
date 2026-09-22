@@ -64,4 +64,17 @@ half3 ApplyFieldFog(half3 color, float3 positionWS)
     return lerp(color, _TWFieldFogColor.rgb, FieldFogAmount(positionWS));
 }
 
+// The shell burning on the field right now: xyz where it is, w how far it reaches; the colour already carries how much
+// of it is left, so it is simply added. NightLights writes both every frame and leaves the colour black when nothing is
+// burning. The drawn bursts read it: a shell's own flash has to light the column of earth it threw up and the smoke
+// coming off it, or the brightest event in the game is a grey drawing standing in front of an orange light.
+// Only the strongest burst alive is carried — in a barrage the eye follows the biggest one anyway.
+float4 _TWBurst;
+half4 _TWBurstColor;
+
+half3 TWBurstLight(float3 positionWS)
+{
+    return _TWBurstColor.rgb * saturate(1.0 - distance(positionWS, _TWBurst.xyz) / max(0.01, _TWBurst.w));
+}
+
 #endif

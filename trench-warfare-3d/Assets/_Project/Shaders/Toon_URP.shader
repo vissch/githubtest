@@ -123,6 +123,7 @@ Shader "TW/Toon (URP)"
                     half3 d1 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv1).rgb;
                     float eyeDistance = distance(_WorldSpaceCameraPos, i.positionWS);
                     near = 1.0 - saturate((eyeDistance - 90.0) / 90.0);   // from the overview only the broad tone is left, so the tile never shows
+                    half closeDetail = 0.0;
                     half tone = (d1.r - 0.5) * near + (SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv2).a - 0.5);
                     slope = (d1.gb - 0.5) * near;
                     if (_TWClose > 0.0)
@@ -132,13 +133,14 @@ Shader "TW/Toon (URP)"
                         half grit = _TWClose * (1.0 - saturate((eyeDistance - 12.0) / 16.0));
                         float2 uv3 = float2(uv1.x * 4.55 + uv1.y * 2.10, uv1.y * 4.55 - uv1.x * 2.10) + 0.61;
                         half3 d3 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv3).rgb;
-                        tone += (d3.r - 0.5) * 0.55 * grit;
-                        slope += (d3.gb - 0.5) * 0.75 * grit;
+                        tone += (d3.r - 0.5) * 0.95 * grit;
+                        slope += (d3.gb - 0.5) * 1.10 * grit;
+                        closeDetail = grit;
                     }
                     gloss = max(gloss, _TWWet.x * _DetailBump * (0.30 + 0.25 * saturate(0.5 - d1.r * 1.0 + 0.3)));   // soaked ground: every surface with relief shines a little, the dark crevices most
                     half dry = 1.0 - saturate(gloss * 2.0 - 1.0);   // only standing water is smooth
                     albedo *= 1.0 - 0.55 * _TWWet.x * _DetailBump * dry;   // soaked earth is darker: black mud under the moon
-                    albedo *= 1.0 + tone * 2.0 * _DetailStrength * dry;
+                    albedo *= 1.0 + tone * 2.0 * (_DetailStrength * (1.0 + 1.75 * closeDetail)) * dry;   // 0.20 out at the standard view, about 0.55 among the men
                     half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
                     albedo *= 1.0 + smoothstep(0.035, 0.08, relief) * 0.10 - smoothstep(0.03, 0.08, -relief) * 0.12;   // soft clod edges, not grouted cells
                 }
@@ -185,8 +187,11 @@ Shader "TW/Toon (URP)"
                 if (_TWWet.z > 0.0)
                 {
                     // raindrops burst on everything that faces the sky: mud, duckboards, sandbags, wrecks. Close range only.
-                    half open = saturate(normalize(i.normalWS).y * 2.0 - 0.7) * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 70.0) / 50.0));
-                    if (open > 0.0) color += TWRainSplash(i.positionWS.xz) * open * (TWSky() * 0.9 + mainLight.color * 0.25);
+                    half open = saturate(normalize(i.normalWS).y * 2.0 - 0.7) * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 8.0) / 14.0));
+                    // the burst takes the colour of the ground it lands on and of whatever lights that ground, so it is
+                    // a wet glint inside a lamp pool and almost nothing out in the dark, instead of a white ring lying
+                    // on black mud at the same strength everywhere
+                    if (open > 0.0) color += TWRainSplash(i.positionWS.xz) * open * (color * 2.4 + half3(0.05, 0.055, 0.06)) * (TWSky() * 0.9 + mainLight.color * 0.25);
                 }
                 half3 lampGlint;
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
