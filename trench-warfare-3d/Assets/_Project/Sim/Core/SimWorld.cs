@@ -31,6 +31,8 @@ namespace TW.Sim
         public NativeArray<byte> Layer;        // NavLayer bits of the cell the unit occupies (Surface/Trench)
         public NativeArray<short> TrenchId;    // -1 when not garrisoned
         public NativeArray<short> SourceTrench; // trench a unit last left under orders (fallback target); -1 none
+        public NativeArray<int> PostCell;      // A3: nav cell of his post in the trench he garrisons (-1 none). TrenchGarrisonSystem hands them out, MovementSystem walks him to his, StanceSystem reads the kind
+        public NativeArray<byte> PostKind;     // 0 none, 1 firing (at the parapet, on the fire step), 2 reserve (rear wall, junction, dugout mouth)
         public NativeArray<int> TargetSlot;    // -1 when none
         public NativeArray<int> GoalId;        // flow-field goal group (A1); Phase 0: unused
         public NativeArray<uint> Flags;        // UnitFlags
@@ -72,6 +74,8 @@ namespace TW.Sim
             Suppression = new NativeArray<float>(n, Allocator.Persistent);
             Speed = new NativeArray<float>(n, Allocator.Persistent);
             StanceOf = new NativeArray<byte>(n, Allocator.Persistent);
+            PostCell = new NativeArray<int>(n, Allocator.Persistent);
+            PostKind = new NativeArray<byte>(n, Allocator.Persistent);
             Team = new NativeArray<byte>(n, Allocator.Persistent);
             Archetype = new NativeArray<byte>(n, Allocator.Persistent);
             Layer = new NativeArray<byte>(n, Allocator.Persistent);
@@ -135,6 +139,7 @@ namespace TW.Sim
             Hp[slot] = hp; MaxHp[slot] = hp; Suppression[slot] = 0f; Speed[slot] = speed;
             StanceOf[slot] = (byte)Stance.Standing; Team[slot] = team; Archetype[slot] = archetype; Layer[slot] = 1;
             TrenchId[slot] = -1; SourceTrench[slot] = -1; TargetSlot[slot] = -1; GoalId[slot] = -1; Cooldown[slot] = 0; FireCooldown[slot] = 0; Knock[slot] = float3.zero;
+            PostCell[slot] = -1; PostKind[slot] = 0;
             Flags[slot] = (uint)UnitFlags.Alive | (vehicle ? (uint)UnitFlags.Vehicle : 0u);
             Generation[slot] = (ushort)(Generation[slot] + 1);
             AliveCount++;
@@ -146,7 +151,7 @@ namespace TW.Sim
         {
             if (!IsAlive(slot)) return;
             bool vehicle = (Flags[slot] & (uint)UnitFlags.Vehicle) != 0;
-            Flags[slot] = 0u; StanceOf[slot] = (byte)Stance.Dead; Hp[slot] = 0f; TrenchId[slot] = -1; TargetSlot[slot] = -1;
+            Flags[slot] = 0u; StanceOf[slot] = (byte)Stance.Dead; Hp[slot] = 0f; TrenchId[slot] = -1; TargetSlot[slot] = -1; PostCell[slot] = -1; PostKind[slot] = 0;
             freeSlots.Add(slot);
             AliveCount--;
             Events.Add(Tick, SimEventType.Death, slot, killer, Position[slot], impulse);
@@ -312,6 +317,8 @@ namespace TW.Sim
             h = SimHash.Array(Layer, n, h);
             h = SimHash.Array(TrenchId, n, h);
             h = SimHash.Array(SourceTrench, n, h);
+            h = SimHash.Array(PostCell, n, h);
+            h = SimHash.Array(PostKind, n, h);
             h = SimHash.Array(TargetSlot, n, h);
             h = SimHash.Array(GoalId, n, h);
             h = SimHash.Array(Flags, n, h);
@@ -329,6 +336,7 @@ namespace TW.Sim
             systems.Clear();
             Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose();
             Speed.Dispose(); StanceOf.Dispose(); Team.Dispose(); Archetype.Dispose(); Layer.Dispose(); TrenchId.Dispose(); SourceTrench.Dispose();
+            PostCell.Dispose(); PostKind.Dispose();
             TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose(); Knock.Dispose();
             Silver.Dispose(); SilverFraction.Dispose(); Rally.Dispose(); Roster.Dispose(); SlotCooldown.Dispose(); SlotUnlocked.Dispose();
             freeSlots.Dispose(); Events.Dispose(); TickCommands.Dispose(); sortScratch.Dispose();

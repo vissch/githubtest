@@ -67,6 +67,7 @@ namespace TW.Sim.Nav
             new MoveJob
             {
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
+                PostCell = w.PostCell, PostKind = w.PostKind, TrenchDefs = map.Trenches.AsArray(), Team = w.Team,
                 GoalId = w.GoalId, Cooldown = w.Cooldown, Knock = w.Knock, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
                 Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
@@ -116,10 +117,22 @@ namespace TW.Sim.Nav
             [ReadOnly] public NativeArray<GoalKey> Goals;
             [ReadOnly] public NativeArray<TrenchState> Trenches;
             [ReadOnly] public NativeArray<byte> Layers;
+            public const byte PostReserve = 2;
+            public const float PostReached = 0.22f;   // m: near enough to his post to be standing at it. Posts are a nav
+                                                      // cell apart (2 m), so a loose tolerance would let two men at
+                                                      // neighbouring posts stand within a metre of each other
+
             [ReadOnly] public NativeArray<short> CellTrenchId;
+            [ReadOnly] public NativeArray<int> PostCell;          // A3: his post in the trench (TrenchGarrisonSystem), -1 none
+            [ReadOnly] public NativeArray<byte> PostKind;         // 1 firing (at the parapet), 2 reserve
+            [ReadOnly] public NativeArray<TW.Sim.Terrain.TrenchDef> TrenchDefs;
+            [ReadOnly] public NativeArray<byte> Team;
             public int NavWidth, NavLength, CellCount;
             public float NavCell, Dt;
             public float2 Size;
+
+            /// <summary>The middle of a nav cell, where a post stands.</summary>
+            float3 CellCentre(int cell) => new float3((cell % NavWidth + 0.5f) * NavCell, 0f, (cell / NavWidth + 0.5f) * NavCell);
 
             int CellOf(float3 p)
             {
@@ -148,11 +161,14 @@ namespace TW.Sim.Nav
                 return len > 1e-4f ? sum / len : float2.zero;
             }
 
-            bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, float pushX, byte from, int ncell)
+            bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, bool toPost, float pushX, byte from, int ncell)
             {
                 byte to = Layers[ncell];
+                // a garrison keeps the ladders clear for arrivals, but a man walking to his post may cross one: without
+                // that the ladders cut the trench into segments and half the garrison can never reach the post it was
+                // given, so a company bunches against the nearest ladder instead of spreading along the line
                 return isGarrisoned
-                    ? CellTrenchId[ncell] == garrison && ((to & (byte)NavLayer.Link) == 0 || onLadder)   // keep the ladders clear for arrivals
+                    ? CellTrenchId[ncell] == garrison && ((to & (byte)NavLayer.Link) == 0 || onLadder || toPost)
                     : FlowField.CanStepInfantry(from, to);
             }
 
@@ -195,16 +211,50 @@ namespace TW.Sim.Nav
                 }
 
                 // stance from situation: a garrison mans the fire-step while it has a target, suppression forces prone /
-                // pinned in the open; A3 adds player overrides on top of this
+                // pinned in the open; A3 adds player overrides on top of this.
+                // Only a man at a FIRING post goes up on the step: the rest of the garrison keeps its head down at the
+                // rear wall, so a trench reads as a firing line with men in support rather than one long queue.
                 float supp = Suppression[i];
                 Stance stance;
-                if (isGarrisoned) stance = TargetSlot[i] >= 0 ? Stance.FireStep : Stance.Crouch;
+                bool ladderPost = PostCell[i] >= 0 && (Layers[PostCell[i]] & (byte)NavLayer.Link) != 0;
+                bool atPost = PostCell[i] < 0 || ladderPost || PostCell[i] == cell || SimMath.Length(CellCentre(PostCell[i]) - p) < 0.9f;
+                bool toPost = isGarrisoned && PostCell[i] >= 0 && !atPost && !ladderPost;   // walking to his post: he may cross a ladder, and keeps going across it
+                if (isGarrisoned) stance = TargetSlot[i] >= 0 && PostKind[i] != PostReserve && atPost ? Stance.FireStep : Stance.Crouch;
                 else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
                 else if (inTrench) stance = Stance.Crouch;
                 else if (supp >= StanceRules.ProneSuppression) stance = Stance.Prone;
                 else stance = (f & (uint)UnitFlags.Exposed) != 0 ? Stance.Sprint : Stance.Standing;
                 float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
                 float3 v = isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
+                if (isGarrisoned)
+                {
+                    // he walks to the post he was given and holds it (the parapet, a junction, a dugout mouth), instead of
+                    // relaxing onto the duckboard centreline under separation alone
+                    // a post on a ladder cell is not a place to stand: the ladders stay clear for men coming over the top,
+                    // so he ignores it and the safety net below steps him off if he is on one
+                    int post = PostCell[i];
+                    if (post >= 0 && (Layers[post] & (byte)NavLayer.Link) != 0) post = -1;
+                    if (post >= 0 && post < CellCount)
+                    {
+                        float3 want = CellCentre(post);
+                        float2 toPostDir = new float2(want.x - p.x, want.z - p.z);
+                        float d = SimMath.Length(new float3(toPostDir.x, 0f, toPostDir.y));
+                        // eased, so he settles onto his post instead of overshooting it and jostling the man at the next one
+                        if (d > PostReached)
+                            v += new float3(toPostDir.x, 0f, toPostDir.y) / d * (Speed[i] * StanceRules.SpeedMultiplier(Stance.Crouch) * math.saturate((d - PostReached) / 1.2f));
+                    }
+                    if (stance == Stance.FireStep)
+                    {
+                        // up at the parapet he faces the field, not the exact bearing of his target: a line of men at the
+                        // top of the trench, which is what a fire step is for
+                        short t = TrenchId[i];
+                        if (t >= 0 && t < TrenchDefs.Length)
+                        {
+                            var def = TrenchDefs[t];
+                            Yaw[i] = SimMath.WrapAngle(def.OwnerTeam == Team[i] ? def.FacingYaw : def.FacingYaw + SimMath.Pi);
+                        }
+                    }
+                }
                 // thrown by a shell: the throw replaces his own steering until it is spent
                 float3 knock = Knock[i];
                 if (math.lengthsq(knock) > 0.09f && !isGarrisoned) { v = knock; Knock[i] = knock * KnockDecay; }
@@ -212,9 +262,15 @@ namespace TW.Sim.Nav
                 bool onLadder = isGarrisoned && (from & (byte)NavLayer.Link) != 0;
                 if (onLadder)
                 {
-                    // safety net: a garrison never stands on a ladder; if one ends up there, step off to the nearer side
-                    float centre = ((int)(p.x / NavCell) + 0.5f) * NavCell;
-                    v.x += (p.x >= centre ? 1f : -1f) * 2.5f;
+                    // a garrison never stands on a ladder. A man crossing one on his way to his post is already being
+                    // carried the right way, and nudging him to the nearer side would cancel that and strand him on the
+                    // rungs; everyone else steps off to the nearer side.
+                    if (toPost) v.x += math.sign(v.x) * 1.5f;
+                    else
+                    {
+                        float centre = ((int)(p.x / NavCell) + 0.5f) * NavCell;
+                        v.x += (p.x >= centre ? 1f : -1f) * 2.5f;
+                    }
                 }
                 float3 np = p + v * Dt;
                 np.x = math.clamp(np.x, 0.5f, Size.x - 0.5f);
@@ -225,7 +281,7 @@ namespace TW.Sim.Nav
                 // path that clips a trench wall next to a ladder would otherwise pin the unit there for good.
                 float pushX = Push[i].x;
                 int ncell = CellOf(np);
-                if (!CanEnter(isGarrisoned, garrison, onLadder, pushX, from, ncell))
+                if (!CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, ncell))
                 {
                     // the blended flow at the corner of a trench cell beside a ladder points through the wall: the cell's
                     // own direction never does, so a blocked step takes that first (it used to oscillate against the wall
@@ -235,9 +291,9 @@ namespace TW.Sim.Nav
                     float3 v2 = new float3(o.x, 0f, o.y) * speed; float3 np2 = p + v2 * Dt; int cell2 = CellOf(np2);
                     float3 slideX = new float3(np.x, np.y, p.z), slideZ = new float3(p.x, np.y, np.z);
                     int cellX = CellOf(slideX), cellZ = CellOf(slideZ);
-                    if (d != FlowField.NoDirection && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cell2)) { np = np2; v = v2; ncell = cell2; }
-                    else if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
-                    else if (math.abs(v.z) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellZ)) { np = slideZ; v.x = 0f; ncell = cellZ; }
+                    if (d != FlowField.NoDirection && CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, cell2)) { np = np2; v = v2; ncell = cell2; }
+                    else if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
+                    else if (math.abs(v.z) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, cellZ)) { np = slideZ; v.x = 0f; ncell = cellZ; }
                     else { np = p; v = float3.zero; ncell = cell; }
                 }
                 byte to = Layers[ncell];
@@ -249,7 +305,7 @@ namespace TW.Sim.Nav
                 else if (!crossing) Cooldown[i] = 0;
                 Position[i] = np;
                 Velocity[i] = v;
-                if (SimMath.Length(v) > 0.05f) Yaw[i] = SimMath.YawOf(v);
+                if (SimMath.Length(v) > 0.05f && !(isGarrisoned && stance == Stance.FireStep)) Yaw[i] = SimMath.YawOf(v);   // on the step he keeps facing over the parapet
 
                 // layer bookkeeping
                 bool nowTrench = (to & (byte)NavLayer.Trench) != 0;

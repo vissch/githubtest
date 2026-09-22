@@ -22,6 +22,7 @@ namespace TW.Sim.Match
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
         public SuppressionSystem Suppression;
+        public TW.Sim.Units.TrenchGarrisonSystem Garrison;
         public SectorControlSystem Sectors;
         public BlastSystem Blast;
         public GasSmokeSystem Gas;
@@ -75,8 +76,9 @@ namespace TW.Sim.Match
             // A5: World.AddSystem(new TW.Sim.Combat.BurningSystem());
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
-            // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());
-            // A3: World.AddSystem(new TW.Sim.Units.TrenchGarrisonSystem());
+            // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());   // stance is decided in MoveJob, which has the movement context
+            Garrison = new TW.Sim.Units.TrenchGarrisonSystem(map);
+            World.AddSystem(Garrison);                      // A3: a post per man inside his trench (the fire step, or back from it)
             Gas = new GasSmokeSystem(map);
             World.AddSystem(Gas);                           // A5 core: chlorine field, wind, trench sink, gassed garrisons run
             Deformation = new DeformationSystem(map);

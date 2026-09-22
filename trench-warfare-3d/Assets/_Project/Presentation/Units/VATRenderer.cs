@@ -270,11 +270,14 @@ namespace TW.Presentation.Units
 
         // ---- the fallen: the same figure as the living, played once through his death and held on the last frame
         // where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
-        struct FallenMan { public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate; public byte Team, Figure; public ushort Row, FarRow, FromRow; }
+        struct FallenMan { public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate, Spin, Lies; public byte Team, Figure; public ushort Row, FarRow, FromRow; }
+        static float Hash01(Vector3 v) { float h = Mathf.Sin(v.x * 12.9898f + v.z * 78.233f) * 43758.5453f; return h - Mathf.Floor(h); }
         /// <summary>Gravity for a thrown corpse (m/s2): a little over the real thing, so the arc reads as a blow, not a float.</summary>
         public float ThrowGravity = 14f;
         readonly List<FallenMan> fallenMen = new List<FallenMan>(128);
         public int MaxFallen = 600;
+        public float FallenSeconds = 30f;      // a body lies this long, the last SinkSeconds of it sinking into the mud
+        public const float SinkSeconds = 2.5f, SinkDepth = 1.1f;
         public float FallSeconds = 0.9f, FallenNearDistance = 70f;
         public int FallenCount => fallenMen.Count;
         GraphicsBuffer fallenBuffer, fallenArgs;
@@ -296,7 +299,7 @@ namespace TW.Presentation.Units
             float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
             // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
             bool blend = near && fromClip != Clip.None && fade > 0.01f;
-            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow,
+            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = FallenSeconds * (0.7f + 0.6f * Hash01(pos)), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow,
                 FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f };
             // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
             // and his death clip is played so his back meets it as he lands.
@@ -309,16 +312,22 @@ namespace TW.Presentation.Units
                 float g = Mathf.Max(1f, ThrowGravity), top = Mathf.Max(pos.y, land.y) + fly.y;
                 float up = Mathf.Sqrt(2f * (top - pos.y) / g), down = Mathf.Sqrt(2f * (top - land.y) / g);
                 man.Pos = land; man.Up = up; man.Top = top; man.Flight = up + down;
-                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.6f, 1.8f);
+                // a high arc lasts longer, but under about 0.8x he tumbles in slow motion over a battlefield at full speed:
+                // below that he lands a moment early and holds the pose
+                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.8f, 1.8f);
+                man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f)));   // he goes over as he flies
             }
             fallenMen.Add(man);
         }
 
-        /// <summary>Where a fallen man is drawn now: on his arc while a shell's throw lasts, then where he landed.</summary>
+        /// <summary>Where a fallen man is drawn now: on his arc while a shell's throw lasts, then where he landed, and at
+        /// the end of his time sinking into the mud (the drawn ground hides him: no fading, nothing for the shader to do).</summary>
         Vector3 FallenAt(in FallenMan f, float now)
         {
             float age = now - f.Born;
-            if (f.Flight <= 0f || age >= f.Flight) return f.Pos;
+            float lies = f.Lies > 0.01f ? f.Lies : FallenSeconds;
+            float sunk = FallenSeconds > 0f ? Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds) * SinkDepth : 0f;
+            if (f.Flight <= 0f || age >= f.Flight) return sunk > 0f ? f.Pos - new Vector3(0f, sunk, 0f) : f.Pos;
             Vector3 at = Vector3.Lerp(f.From, f.Pos, age / f.Flight);
             float g = Mathf.Max(1f, ThrowGravity), fromTop = age - f.Up;
             at.y = f.Top - 0.5f * g * fromTop * fromTop;
@@ -335,6 +344,18 @@ namespace TW.Presentation.Units
                 fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
                 fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
                 for (int k = 0; k < fallenByFigure.Length; k++) fallenByFigure[k] = new List<int>(64);
+            }
+            // the mud takes them: a body lies FallenSeconds, then it is gone (they are in the order they fell, so the front of the list goes first)
+            if (FallenSeconds > 0f)
+            {
+                // each man lies his own 0.7-1.3 of the time, so a barrage's dead do not all go under together
+                float now0 = Time.time;
+                for (int i = fallenMen.Count - 1; i >= 0; i--)
+                {
+                    var f = fallenMen[i];
+                    if (now0 - f.Born > (f.Lies > 0.01f ? f.Lies : FallenSeconds)) fallenMen.RemoveAt(i);
+                }
+                if (fallenMen.Count == 0) return;
             }
             for (int k = 0; k < figures.Length; k++) fallenByFigure[k].Clear();
             int farCount = 0, last = fallenInstances.Length - 1;
@@ -386,7 +407,10 @@ namespace TW.Presentation.Units
             float t = Mathf.Clamp01((now - f.Born) * f.Rate / f.Seconds);
             if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
             float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - (now - f.Born) / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
-            return new VatInstance { Pos = at, Yaw = f.Yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend };
+            // thrown: he turns as he goes through the air and comes to rest the way he landed
+            float yaw = f.Yaw;
+            if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(now - f.Born, f.Flight);
+            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend };
         }
 
         void DrawVehicles(Bounds bounds)

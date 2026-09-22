@@ -28,13 +28,17 @@ namespace TW.Presentation.Tactical
         static Vector3 lookPoint;
         static float viewDistance = 70f;
 
+        /// <summary>How far (m, on the ground) a place is from the middle of the picture. Effects use it to spend their
+        /// per-frame budget on what the player is looking at rather than on whatever the sim listed first.</summary>
+        public static float DistanceToLook(Vector3 at) => new Vector2(at.x - lookPoint.x, at.z - lookPoint.z).magnitude;
+
         /// <summary>A burst of this radius (m) at this place.</summary>
         public static void Add(Vector3 at, float radius)
         {
             float reach = 16f + viewDistance * 0.9f;   // about the ground the picture shows
             float d = new Vector2(at.x - lookPoint.x, at.z - lookPoint.z).magnitude;
             float near = 1f - Mathf.SmoothStep(0f, 1f, d / reach);
-            float a = near * Mathf.Clamp(radius / 8f, 0.35f, 1.4f);
+            float a = near * Mathf.Clamp(radius / 8f, 0.35f, 1.9f);
             jolt = Mathf.Min(1f, jolt + a * 0.75f);
             rumble = Mathf.Min(0.75f, rumble + a * 0.2f);
         }
@@ -69,7 +73,7 @@ namespace TW.Presentation.Tactical
         public int MaxBodies = 600;
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
-        struct Body { public Vector3 Pos; public Quaternion Rot; public byte Team, Variant; }
+        struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
         struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
@@ -107,7 +111,9 @@ namespace TW.Presentation.Tactical
         readonly List<Matrix4x4> gasCards = new List<Matrix4x4>(2048);
         Material dirtMat, woodMat, smokeMat;
         Material smokeThin, smokeFaint;
-        const int MaxChunks = 768;
+        const int MaxChunks = 940;
+        const int MaxAmbientChunks = 300;   // kinds 2, 5, 7: rifle smoke, breath, exhaust, crater steam
+        int ambientChunks;                  // counted in DrawChunks, so Throw never has to scan the pool
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
         Mesh cube, capsule, sphere, plume, puff, flashMesh;
@@ -372,7 +378,7 @@ namespace TW.Presentation.Tactical
                         float roll = FlipbookFx.ScreenRoll(cam, barrel);
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
-                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.11f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: SceneMood.Night ? 3.2f : 1.6f);
                     }
                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time });
@@ -380,7 +386,9 @@ namespace TW.Presentation.Tactical
                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
                     // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
                     // stands in water, now and then a ricochet spark at night. A few a frame at most, whatever the firefight.
-                    if (e.Scalar < 0.5f && impactsThisFrame < 5 && chunks.Count < 520)
+                    // near the look point first: a round landing under the eye always draws, one far off only while there is room
+                    float nearHit = CameraShake.DistanceToLook(to);
+                    if (e.Scalar < 0.5f && impactsThisFrame < (nearHit < 45f ? 24 : 8) && chunks.Count < 700)
                     {
                         impactsThisFrame++;
                         float angle = UnityEngine.Random.value * 6.2832f, off = UnityEngine.Random.Range(0.35f, 1.7f);
@@ -390,16 +398,16 @@ namespace TW.Presentation.Tactical
                         if (SceneHooks.IsWater != null && SceneHooks.IsWater(hit.x, hit.z))
                         {
                             SceneHooks.AddRing?.Invoke(hit.x, hit.z, 0.8f);
-                            Throw(hit + Vector3.up * 0.4f, 3, 4, 3.4f, 0.05f);
+                            Throw(hit + Vector3.up * 0.4f, 7, 4, 6f, 0.07f);
                             // a round in the water stands up a little white column
-                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.55f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f);
+                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f);
                         }
                         else
                         {
-                            Throw(hit, drawn ? 2 : 3, 0, 3.0f, 0.06f);
-                            if (SceneMood.Night && UnityEngine.Random.value < 0.22f) Throw(hit, 1, 3, 7f, 0.03f);
+                            Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f);
+                            if (SceneMood.Night && UnityEngine.Random.value < 0.35f) Throw(hit, 3, 3, 11f, 0.035f);
                             // and in the mud a spurt of dust that leans away from the shooter
-                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (0.8f + UnityEngine.Random.value * 0.4f) * scale, 0.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f);
+                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f);
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
@@ -418,7 +426,8 @@ namespace TW.Presentation.Tactical
                 {
                     // a man struck: a spike of light where the round lands and a small cloud off his coat, at chest height for
                     // his stance. A ricochet (negative damage) is only the spike. A few a frame at most, whatever the fight.
-                    if (books == null || !books.Ready || hitsThisFrame >= 8 || e.B < 0 || e.B >= w.HighWater) break;
+                    if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater) break;
+                    if (hitsThisFrame >= (CameraShake.DistanceToLook(w.Position[e.B]) < 45f ? 40 : 10)) break;
                     hitsThisFrame++;
                     var cam = Camera.main;
                     float scale = 1f;
@@ -435,12 +444,13 @@ namespace TW.Presentation.Tactical
                     Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
-                    if (vehicle) books.Add(FlipbookFx.Book.Star, p, 0.9f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 3f : 1.8f);
-                    else books.Add(FlipbookFx.Book.Flash, p, 1.2f * scale, 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 2.2f : 1.4f, pop: 0.5f);
+                    if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 4f : 1.8f);
+                    else books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale, 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 3.2f : 1.4f, pop: 0.5f);
                     if (e.Scalar > 0f)
-                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.2f : 1.2f) * scale, 0.7f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: toward.normalized * 0.6f + Vector3.up * 0.5f, grow: 0.7f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
-                    if (vehicle && SceneMood.Night) Throw(p, 4, 3, 5f, 0.03f);   // sparks off armour
+                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
+                    if (vehicle && SceneMood.Night) Throw(p, 10, 3, 10f, 0.035f);   // sparks off armour
+                    else if (e.Scalar > 0f) Throw(p, 3, 0, 3.5f, 0.05f);           // and something physical comes off a man struck
                     break;
                 }
                 case SimEventType.Death:
@@ -473,7 +483,7 @@ namespace TW.Presentation.Tactical
                         Vector3 fly = controlled ? new Vector3(anim.State[e.A].ThrowX, anim.State[e.A].ThrowUp, anim.State[e.A].ThrowZ) : Vector3.zero;
                         units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly);
                     }
-                    else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Team = team, Variant = (byte)death });
+                    else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
                     // his helmet comes off as he goes down and rolls a step away
                     if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
                         chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + UnityEngine.Random.Range(-70f, 70f), 0f) * Vector3.forward * UnityEngine.Random.Range(1.2f, 2.4f) + Vector3.up * 1.6f,
@@ -494,44 +504,44 @@ namespace TW.Presentation.Tactical
                         bool mirror = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 1) == 0;
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
-                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 2.2f, 0.14f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 5f : 2.5f, pop: 0.5f);
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (wet ? 0.8f : 1.4f), wet ? 1.2f : 1.5f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 7f : 2.5f, pop: 0.5f);
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (wet ? 1.25f : 2.1f), wet ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
-                        books.Add(FlipbookFx.Book.Wings, p, r * 1.7f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
-                        books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 1.45f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
+                        books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
+                        books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         if (!wet)
                         {
-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 1.9f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
-                                velocity: Vector3.up * (r * 0.3f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: SceneMood.Night ? 2.6f : 1.6f, pop: 0.3f);
+                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: SceneMood.Night ? 3.4f : 1.6f, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
-                            for (int k = 0; k < 5; k++)
+                            for (int k = 0; k < 7; k++)
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(0.8f, 1.2f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 1.8f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 2.4f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                         }
                     }
                     else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
-                    if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 14 : 26, 4, 12f, 0.13f);   // a shell in the water throws a white column, not earth
+                    if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 28 : 48, 4, 20f, 0.18f);   // a shell in the water throws a white column, not earth
                     else
                     {
-                        Throw(p, drawn ? 8 : 14, 0, 9f, 0.22f);
+                        Throw(p, drawn ? 17 : 28, 0, 15f, 0.30f);
                         // a fresh hole: clods lie thrown round its rim, and the hot earth steams in the rain (seen from close by)
                         float rim = Mathf.Clamp(e.Scalar * 0.55f, 1.2f, 4.5f);
-                        for (int k = 0; k < 8; k++)
+                        for (int k = 0; k < 12; k++)
                         {
-                            float a = (k + UnityEngine.Random.value) * 0.785f, d = rim * UnityEngine.Random.Range(0.75f, 1.5f), s = UnityEngine.Random.Range(0.10f, 0.26f);
+                            float a = (k + UnityEngine.Random.value) * 0.785f, d = rim * UnityEngine.Random.Range(0.75f, 1.5f), s = UnityEngine.Random.Range(0.13f, 0.34f);
                             float cx = p.x + Mathf.Cos(a) * d, cz = p.z + Mathf.Sin(a) * d;
                             AddRest(Matrix4x4.TRS(new Vector3(cx, RenderGround.Sample(Host.Local.Map, cx, cz) + s * 0.25f, cz), Quaternion.Euler(a * 97f, a * 311f, a * 53f), new Vector3(s * 1.3f, s * 0.7f, s)), 140f, 2);
                         }
                         if (hotCraters.Count >= 16) hotCraters.RemoveAt(0);
                         hotCraters.Add(new Vector4(p.x, p.y, p.z, Time.time + 22f));
                     }
-                    Throw(p + Vector3.up * 0.5f, 4, 2, 1.6f, 1.6f);
+                    Throw(p + Vector3.up * 0.5f, 7, 2, 2.6f, 2.1f);
                     Startle(p);
-                    CameraShake.Add(p, e.Scalar);
-                    if (SceneMood.Night) Throw(p + Vector3.up * 0.3f, 14, 3, 15f, 0.05f);   // burning fragments arc out of the burst and die on the way down
+                    CameraShake.Add(p, e.Scalar * 1.5f);
+                    if (SceneMood.Night) Throw(p + Vector3.up * 0.3f, 26, 3, 26f, 0.055f);   // burning fragments arc out of the burst and die on the way down
                     break;
                 }
                 case SimEventType.AbilityFired:
@@ -638,7 +648,7 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(cube, rpT);
             }
 
-            flashes.RemoveAll(f => now - f.Born > 0.065f);
+            flashes.RemoveAll(f => now - f.Born > 0.12f);
             batch.Clear();
             for (int i = 0; i < flashes.Count; i++)
             {
@@ -748,6 +758,15 @@ namespace TW.Presentation.Tactical
             float grow = 1f;
             if (units != null && view != null) grow = units.UnitScale * Mathf.Clamp((view.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f) / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
             var rpF = new RenderParams(fallenMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = true };
+            // the mud takes these too (the box stand-ins, when the figures are not drawn): the same half minute, the same sinking
+            float bodyLife = units != null ? units.FallenSeconds : 30f;
+            if (bodyLife > 0f)
+            {
+                float cut = Time.time - bodyLife;
+                int drop = 0;
+                while (drop < bodies.Count && bodies[drop].Born <= cut) drop++;
+                if (drop > 0) bodies.RemoveRange(0, drop);
+            }
             for (int kind = 0; kind < 8; kind++)
             {
                 batch.Clear();
@@ -755,7 +774,8 @@ namespace TW.Presentation.Tactical
                 {
                     var b = bodies[i];
                     if ((b.Team & 1) * 4 + b.Variant != kind) continue;
-                    batch.Add(Matrix4x4.TRS(b.Pos, b.Rot, new Vector3(grow, grow, grow)));
+                    float sunk = bodyLife > 0f ? Mathf.Clamp01((Time.time - b.Born - (bodyLife - TW.Presentation.Units.VATRenderer.SinkSeconds)) / TW.Presentation.Units.VATRenderer.SinkSeconds) * TW.Presentation.Units.VATRenderer.SinkDepth : 0f;
+                    batch.Add(Matrix4x4.TRS(sunk > 0f ? b.Pos - new Vector3(0f, sunk, 0f) : b.Pos, b.Rot, new Vector3(grow, grow, grow)));
                     if (batch.Count == 1023) Flush(fallen[kind], rpF);
                 }
                 if (batch.Count > 0) Flush(fallen[kind], rpF);
@@ -990,10 +1010,17 @@ namespace TW.Presentation.Tactical
 
         void Throw(Vector3 at, int count, byte kind, float speed, float size)
         {
-            for (int k = 0; k < count && chunks.Count < MaxChunks; k++)
+            bool ambient = kind == 2 || kind == 5 || kind == 7;
+            if (ambient && ambientChunks >= MaxAmbientChunks) return;
+            for (int k = 0; k < count && chunks.Count < MaxChunks && (!ambient || ambientChunks + k < MaxAmbientChunks); k++)
             {
-                Vector3 dir = UnityEngine.Random.onUnitSphere; dir.y = Mathf.Abs(dir.y) * (kind == 2 ? 0.4f : 1.4f) + 0.2f;
-                chunks.Add(new Chunk { Pos = at, Vel = dir.normalized * speed * UnityEngine.Random.Range(0.5f, 1.2f), Born = Time.time, Life = kind == 2 ? UnityEngine.Random.Range(3.5f, 6f) : kind == 3 ? UnityEngine.Random.Range(0.45f, 1.1f) : UnityEngine.Random.Range(0.9f, 1.7f),
+                // the cone leans up, not out, and dirt lives long enough to come down again (gravity stays at 9.8: floaty reads as cheap)
+                Vector3 dir = UnityEngine.Random.onUnitSphere; dir.y = Mathf.Abs(dir.y) * (kind == 2 ? 0.4f : 2.2f) + (kind == 2 ? 0.2f : 0.45f);
+                // every chunk lives exactly its own arc (2 vy / g, from the speed it actually got), so none is deleted at
+                // the top of its flight and none goes on sinking through the mud after it lands; smoke and sparks keep
+                // their own clocks. The spread in the cone and in the 0.5-1.2 gives the variety, so no extra jitter.
+                Vector3 vel = dir.normalized * speed * UnityEngine.Random.Range(0.5f, 1.2f);
+                chunks.Add(new Chunk { Pos = at, Vel = vel, Born = Time.time, Life = kind == 2 ? UnityEngine.Random.Range(3.5f, 6f) : kind == 3 ? UnityEngine.Random.Range(0.45f, 1.1f) : 2f * Mathf.Max(0f, vel.y) / 9.8f + 0.45f,
                     Size = size * UnityEngine.Random.Range(0.6f, 1.5f), Kind = kind });
             }
         }
@@ -1003,6 +1030,8 @@ namespace TW.Presentation.Tactical
             if (smokeMat == null) smokeMat = Transparent(Shader.Find("Universal Render Pipeline/Unlit"), new Color(0.16f, 0.15f, 0.14f, 0.30f));
             chunks.RemoveAll(c => now - c.Born > c.Life);
             float dt = Time.deltaTime; int landings = 0;
+            ambientChunks = 0;
+            for (int i = 0; i < chunks.Count; i++) { byte k = chunks[i].Kind; if (k == 2 || k == 5 || k == 7) ambientChunks++; }
             for (int i = 0; i < chunks.Count; i++)
             {
                 var c = chunks[i];

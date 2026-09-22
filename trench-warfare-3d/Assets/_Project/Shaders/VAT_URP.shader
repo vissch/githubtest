@@ -15,8 +15,8 @@ Shader "TW/VAT Infantry (URP)"
         _VertexCount ("Vertex Count", Float) = 264
         _TotalFrames ("Total Frames", Float) = 288
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
-        _TeamColorA ("Team 0 cloth", Color) = (0.47, 0.40, 0.24, 1)
-        _TeamColorB ("Team 1 cloth", Color) = (0.34, 0.38, 0.40, 1)
+        _TeamColorA ("Team 0 cloth", Color) = (0.64, 0.56, 0.34, 1)
+        _TeamColorB ("Team 1 cloth", Color) = (0.25, 0.29, 0.32, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (m)", Float) = 0.028
         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
@@ -47,7 +47,7 @@ Shader "TW/VAT Infantry (URP)"
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
 
-        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; };
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; };
 
         // one clip: the frame pair at t (0..1 through the row) and the blend between them
         void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
@@ -88,6 +88,7 @@ Shader "TW/VAT Infantry (URP)"
             o.positionWS = inst.pos + float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
             o.normalWS = normalize(float3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c));
             o.tint = inst.tint;
+            o.scale = inst.scale;
             return o;
         }
         ENDHLSL
@@ -135,6 +136,10 @@ Shader "TW/VAT Infantry (URP)"
                 }
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
+                // webbing, pack and puttees were baked near white, so from the gameplay pitch a man read as a stack of pale
+                // boxes with his kit brighter than his helmet: the brightest cloth is brought back towards the uniform
+                half kit = dot(albedo, half3(0.3, 0.59, 0.11));
+                albedo *= lerp(1.0, 0.52 / max(kit, 0.001), saturate((kit - 0.52) * 4.0));
                 // the trench is on every man: boots and shins are caked with mud (a ragged line, higher when the ground is
                 // soaked), and a man who crawls is muddy all over
                 half ragged = frac(sin(dot(floor(i.positionOS.xz * 38.0 + i.positionOS.y * 11.0), float2(12.9898, 78.233))) * 43758.5453);
@@ -183,7 +188,9 @@ Shader "TW/VAT Infantry (URP)"
                 Animated a = Animate(vertexID, instanceID);
                 OutlineVaryings o;
                 float w = TransformWorldToHClip(a.positionWS).w;
-                float width = _OutlineWidth * clamp(w / 40.0, 1.0, 2.2);   // hold the line's weight as the man gets smaller
+                // the line is extruded in world space, so it follows how big the man is drawn as well as how far off he is
+                // (the back rank of a standard frame is 149 m out and used to lose its outline entirely)
+                float width = _OutlineWidth * a.scale * clamp(w / 25.0, 1.0, 6.0);
                 o.positionCS = TransformWorldToHClip(a.positionWS + a.normalWS * width);
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
