@@ -259,14 +259,15 @@ figure; vehicles keep their box.
 4. Nothing for aim yaw (derived from the target), water (derived from the heightfield), cover (`CellCover` exists),
    trench crossing (`UnitLeftTrench`, Vault stance and the cell bits exist).
 
-## 13. Clips the set does not have (a second download, ~12 files)
+## 13. Clips the set did not have (made 2026-09-22)
 
-Wading (none exists in Mixamo either: the low stoop at half rate stands in), a ladder climb (Mixamo "Climbing
-Ladder"), a hands-and-knees crawl forward (the set has only the backward one), a **prone death**, a get-up from
-prone (Mixamo "Getting Up"), a stumble that keeps going (Mixamo "Stumble Backwards" / "Stumbling"), donning a mask
-(none; `Shielding Face` stands in), a burning run (Mixamo "Running Arms Flailing"?), an officer's point and whistle
-(Mixamo "Pointing", "Whistle"), an MG carry at the hip, wire crossing (none; the low stoop stands in), a kneeling
-near-miss flinch.
+Fifteen were manufactured on the rig by `Tools/make_missing_clips.py` (see the manifest's "Made clips" table and
+`docs/reference/made-clips/`): wading, a ladder climb, a hands-and-knees crawl forward, a second belly crawl, a
+**prone death**, prone and kneeling flinches, a fast get-up from prone, a running stumble, mask donning, a burning
+run, an officer's point and whistle, an MG carry, wire crossing. They are recipes over the originals (reversal,
+retiming, limbs layered from another clip, IK-held poses, procedural cycles), so they can be re-tuned in minutes
+and they import exactly like the originals. Two of them, wading and the ladder, would still be better as captured
+motion if Mixamo has anything closer when the bake exists.
 
 ## 14. Order of work
 
@@ -279,7 +280,7 @@ near-miss flinch.
 5. Rung 2 and the environment table (trench in / out, cover, water, mud, wire, slope, gas, night).
 6. Archetype tables and the fidget pools.
 7. Sim steps 1 to 3 if approved; rung 4 actions on top.
-8. Second download (13), spares as atlas room allows.
+8. Re-tune the made clips (13) against the bake, spares as atlas room allows.
 
 Each step gated (validate, EditMode, PlayMode), committed on its own, editor back in Play; captures at the standard
 view and up close for each. Frame time with 3,000 men checked at steps 1, 2 and 4 (the atlas, the fade, the events).

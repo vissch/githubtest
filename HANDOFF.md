@@ -168,6 +168,11 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   clips (131 use / 28 spare / 46 ditch) from measurements made by `Tools/fbxscan.py`; the unnamed download
   `3e5cc2...fbx` is the forward belly crawl. The clips stay in the owner's Downloads until the baker's clip table
   exists (step 1 of the order of work).
+  The 15 clips the download lacked were manufactured: `Tools/animforge.py` reads and writes Mixamo binary FBX in pure
+  Python (per-frame bone curves, reverse / retime / layer / offset / IK / FK / stick-figure PNGs) and
+  `Tools/make_missing_clips.py` holds the recipes (`python Tools/make_missing_clips.py "<download folder>"` writes
+  them to `<download folder>/Made/`). Verified by importing into Unity (one clip, 340 curves each) and rendering on the
+  skinned figure: `docs/reference/made-clips/`. Not in the repo: the FBX files live with the download.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

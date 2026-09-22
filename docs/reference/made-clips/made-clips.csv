@@ -1,0 +1,16 @@
+clip,kind,seconds,frames,template,recipe
+Wade Forward,loop,2.2,66,Walk With Rifle (1).fbx,"water 0.5 to 1.0 m: Walk With Rifle (1) slowed 1.5x, knees lifted 1.6x, rifle at port arms, leaning in"
+Ladder Climb,loop,1.2,36,Rifle Idle.fbx,"procedural: alternate knees to the next rung, hands reach the rung above (IK), in place; the sim lifts the man"
+Crawl Forward,loop,1.73,52,Moving Backward In Crawl Position.fbx,Moving Backward In Crawl Position reversed
+Prone Crawl Forward Alt,loop,1.93,58,Moving Backward In Prone Position.fbx,Moving Backward In Prone Position reversed: a second belly crawl
+Prone Death,once,2.0,60,Prone Idle.fbx,"Prone Idle: a jolt, then the head goes over, the arms slide out (IK to the floor), the legs splay"
+Prone Flinch,once,0.6,18,Prone Idle.fbx,"Prone Idle with the head pressed down and the elbows pulled in, 0.6 s"
+Kneel Flinch,once,0.6,18,Rifle Kneel Idle.fbx,Rifle Kneel Idle hunching for 0.6 s
+Get Up From Prone,once,2.27,68,Rifle Prone To Kneel.fbx,"Rifle Prone To Kneel at 1.4x into Rifle Kneel To Stand at 1.3x, cross-faded"
+Stumble Running,once,2.3,69,Rifle Run.fbx,"three cycles of Rifle Run; in the middle the torso pitches forward, the hips drop and the arms fly out, then it recovers"
+Mask Donning,once,2.6,78,Rifle Idle.fbx,"Rifle Idle with both hands brought to the face (IK) for 1.2 s, chin down then the head pulls back through the mask"
+Burning Run,loop,1.07,32,Sprint Forward.fbx,"Sprint Forward with the arms thrown between over the head and the face (two IK poses each, out of step), head back, torso rocking"
+Officer Point,once,2.2,66,Idle.fbx,"Idle, the right arm raised level and forward (IK), a small turn of the spine, held 1.1 s"
+Officer Whistle,once,1.6,48,Idle.fbx,"Idle, the right hand to the mouth (IK), chin down, held 0.6 s"
+MG Carry Walk,loop,1.53,46,Rifle Walk.fbx,"Rifle Walk at 0.87x with the right hand at the hip and the left forward on the barrel (IK), leaning off the weight"
+Wire Crossing,loop,1.67,50,Walk Crouching Forward.fbx,"Walk Crouching Forward at 0.62x, steps 1.7x higher, stooped further, watching the ground, rifle up"

@@ -213,3 +213,27 @@ Measured straight from the FBX files (`trench-warfare-3d/Tools/fbxscan.py`: hips
 ditch 46, spare 28, use 131
 
 Seconds of animation: ditch 85 s, spare 45 s, use 274 s.
+
+## Made clips (2026-09-22, `Tools/make_missing_clips.py`)
+
+The clips the download lacked, manufactured on the same rig from the clips above by `Tools/animforge.py` (reversal, retiming, layering, IK-held poses, procedural cycles) and written as Mixamo-format FBX into `<download folder>/Made/`. Each imports into Unity as one clip with the same 340 curves as an original. Previews: `made-clips/sheet-0..3.png` (the skinned figure at four times, alphabetical order, four clips a sheet) and `made-clips/stick-figures.png`. All 15 are **use**.
+
+| Clip | Kind | s | Built from | Recipe |
+|---|---|---|---|---|
+| Wade Forward | loop | 2.2 | Walk With Rifle (1) | water 0.5 to 1.0 m: Walk With Rifle (1) slowed 1.5x, knees lifted 1.6x, rifle at port arms, leaning in |
+| Ladder Climb | loop | 1.2 | Rifle Idle | procedural: alternate knees to the next rung, hands reach the rung above (IK), in place; the sim lifts the man |
+| Crawl Forward | loop | 1.73 | Moving Backward In Crawl Position | Moving Backward In Crawl Position reversed |
+| Prone Crawl Forward Alt | loop | 1.93 | Moving Backward In Prone Position | Moving Backward In Prone Position reversed: a second belly crawl |
+| Prone Death | once | 2.0 | Prone Idle | Prone Idle: a jolt, then the head goes over, the arms slide out (IK to the floor), the legs splay |
+| Prone Flinch | once | 0.6 | Prone Idle | Prone Idle with the head pressed down and the elbows pulled in, 0.6 s |
+| Kneel Flinch | once | 0.6 | Rifle Kneel Idle | Rifle Kneel Idle hunching for 0.6 s |
+| Get Up From Prone | once | 2.27 | Rifle Prone To Kneel | Rifle Prone To Kneel at 1.4x into Rifle Kneel To Stand at 1.3x, cross-faded |
+| Stumble Running | once | 2.3 | Rifle Run | three cycles of Rifle Run; in the middle the torso pitches forward, the hips drop and the arms fly out, then it recovers |
+| Mask Donning | once | 2.6 | Rifle Idle | Rifle Idle with both hands brought to the face (IK) for 1.2 s, chin down then the head pulls back through the mask |
+| Burning Run | loop | 1.07 | Sprint Forward | Sprint Forward with the arms thrown between over the head and the face (two IK poses each, out of step), head back, torso rocking |
+| Officer Point | once | 2.2 | Idle | Idle, the right arm raised level and forward (IK), a small turn of the spine, held 1.1 s |
+| Officer Whistle | once | 1.6 | Idle | Idle, the right hand to the mouth (IK), chin down, held 0.6 s |
+| MG Carry Walk | loop | 1.53 | Rifle Walk | Rifle Walk at 0.87x with the right hand at the hip and the left forward on the barrel (IK), leaning off the weight |
+| Wire Crossing | loop | 1.67 | Walk Crouching Forward | Walk Crouching Forward at 0.62x, steps 1.7x higher, stooped further, watching the ground, rifle up |
+
+Still missing after this: nothing on the list in `docs/15-character-controller.md` section 13; a real wading capture and a real ladder climb would still be better than the manufactured ones, and are worth a second Mixamo search when the bake exists.
