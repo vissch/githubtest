@@ -38,13 +38,13 @@ namespace TW.Presentation.Tactical
         struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly; public Color Tint; public float Low, High; }
         static readonly Sheet[] Sheets =
         {
-            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.80f, 0.74f, 0.66f), Low = 0.12f, High = 0.48f },
-            new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.52f, 0.47f, 0.40f), Low = 0.28f, High = 0.70f },
+            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.60f, 0.58f, 0.60f), Low = 0.12f, High = 0.62f },
+            new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.34f, 0.29f, 0.24f), Low = 0.30f, High = 0.95f },
             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.86f, 0.90f, 0.96f), Low = 0.28f, High = 0.60f },
             new Sheet { Name = "Wings",  Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.74f, 0.65f, 0.52f), Low = 0.15f, High = 0.42f },
             new Sheet { Name = "Spurt",  Cols = 2, Rows = 5, Frames = 10, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.50f, High = 0.80f },
             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.86f, 0.80f, 0.66f), Low = 0.20f, High = 0.50f },
-            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.40f, 0.40f, 0.44f), Low = 0.15f, High = 0.55f },
+            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.24f, 0.24f, 0.28f), Low = 0.15f, High = 0.70f },
             new Sheet { Name = "Muzzle", Cols = 3, Rows = 4, Frames = 12, Additive = true, Tint = new Color(1.0f, 0.78f, 0.42f), Low = 0f, High = 1f },
             new Sheet { Name = "Star",   Cols = 1, Rows = 1, Frames = 1,  Additive = true, MaskOnly = true, Tint = new Color(1.0f, 0.88f, 0.62f), Low = 0f, High = 1f },
             new Sheet { Name = "Flash",  Cols = 1, Rows = 1, Frames = 1,  Additive = true, Tint = new Color(1.0f, 0.80f, 0.50f), Low = 0f, High = 1f },

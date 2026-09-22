@@ -184,11 +184,14 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   matrix is a packed record (position, size, frame, alpha, brightness, roll, upright, anchored, mirror). The books'
   greys are remapped per book into the toon lit / shade bands (`_Levels`) and read per unit of alpha (the packs keep
   black under transparent pixels). CombatFx: a shell burst is flash + earth or water column + two unequal wings + a
-  rising cloud + three drifting dark smoke cards (4 to 6.5 s) + a pooled orange point light (4, 0.4 s); a shot is a
+  rising cloud + three drifting dark smoke cards (4 to 6.5 s); the burst's light is NightLights' existing flash pool; a shot is a
   muzzle flare along the shot and a dust spurt or a small water column where it lands; a Hit (the event was
   unconsumed) is a soft flash and a puff on the shooter's side. The ink plume and puff meshes remain as the fallback
   when the textures are missing. Captures: `docs/reference/vfx/`. Licence: the packs are Asset Store purchases; their
   textures may ship inside the game but must not be redistributed on their own.
+  Round-3 notes from the critics still open: the cloud's outline is baked into the drawing (does not follow zoom);
+  no scorch decal where a shell landed; clods have no landing spurt; a noise dissolve would tear the cloud instead
+  of fading it; MG carry needs the gun mesh; Get Up's root strip should be watched in motion before the bake.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

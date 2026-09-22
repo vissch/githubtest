@@ -275,13 +275,14 @@ class Clip:
                 if axis is not None and a != axis: continue
                 d = f[a] - mean[a]; f[a] = mean[a] + d * (factor if d >= 0 else lo)
         return c
-    def strip_root(self, keep_y=True, name=None):
-        """Remove the hips' travel (the sim moves the man); the height stays unless keep_y is False."""
+    def strip_root(self, keep_y=True, name=None, trend_only=False):
+        """Remove the hips' travel (the sim moves the man); the height stays unless keep_y is False. trend_only
+        removes just the straight-line drift from first to last frame, keeping the body's shifts over the feet."""
         c = self.copy(name)
         if 'Hips' not in c.data or 'T' not in c.data['Hips']: return c
-        v = c.data['Hips']['T']; first = list(v[0])
-        for f in v:
-            for a in (0, 2): f[a] = first[a]
+        v = c.data['Hips']['T']; first = list(v[0]); last = list(v[-1]); n = max(1, len(v) - 1)
+        for i, f in enumerate(v):
+            for a in (0, 2): f[a] = f[a] - (last[a] - first[a]) * i / n if trend_only else first[a]
             if not keep_y: f[1] = first[1]
         return c
     def wave(self, bone, axis, amplitude, cycles, phase=0.0, kind='R', envelope=None, name=None):

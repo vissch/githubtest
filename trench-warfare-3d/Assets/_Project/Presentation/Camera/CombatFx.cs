@@ -105,10 +105,6 @@ namespace TW.Presentation.Tactical
         readonly Material[] gasMats = new Material[3];
         FlipbookFx books;   // the drawn bursts, dust, hits and flares; without its textures the older painted meshes stand in
         int hitsThisFrame;
-        // a burst lights what stands round it for a third of a second: four pooled point lights, the oldest reused
-        readonly Light[] burstLights = new Light[4];
-        readonly float[] burstLit = new float[4];
-        int nextLight;
         TestPanel panel;
         TW.Presentation.Units.VATRenderer units;
         string banner; float bannerUntil;
@@ -307,7 +303,6 @@ namespace TW.Presentation.Tactical
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.Sparks = null;
             books?.Dispose();
-            foreach (var l in burstLights) if (l != null) Destroy(l.gameObject);
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
@@ -345,7 +340,7 @@ namespace TW.Presentation.Tactical
                     {
                         // the flare at the muzzle lies along the shot; over-bright at night so the bloom takes it
                         float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale;
-                        books.Add(FlipbookFx.Book.Muzzle, from + direction * (0.55f * scale), flare, 0.09f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        books.Add(FlipbookFx.Book.Muzzle, from + direction * (0.55f * scale), flare, 0.11f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             roll: FlipbookFx.ScreenRoll(cam, direction) + Mathf.PI, glow: SceneMood.Night ? 3.2f : 1.6f);
                     }
                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
@@ -409,9 +404,9 @@ namespace TW.Presentation.Tactical
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
                     if (vehicle) books.Add(FlipbookFx.Book.Star, p, 0.9f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 3f : 1.8f);
-                    else books.Add(FlipbookFx.Book.Flash, p, 0.7f * scale, 0.06f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 2.2f : 1.4f, pop: 0.5f);
+                    else books.Add(FlipbookFx.Book.Flash, p, 1.2f * scale, 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 2.2f : 1.4f, pop: 0.5f);
                     if (e.Scalar > 0f)
-                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 0.9f : 0.5f) * scale, 0.4f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.0f : 0.9f) * scale, 0.5f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: toward.normalized * 0.6f + Vector3.up * 0.5f, grow: 0.7f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
                     if (vehicle && SceneMood.Night) Throw(p, 4, 3, 5f, 0.03f);   // sparks off armour
                     break;
@@ -461,10 +456,9 @@ namespace TW.Presentation.Tactical
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.35f + k * 0.28f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r;
                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.2f, 1.7f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 1.4f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.6f, pop: 0.2f);
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 1.6f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.8f, pop: 0.2f);
                             }
                         }
-                        BurstLight(p + Vector3.up * (r * 0.4f), r);
                     }
                     else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
                     if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 14 : 26, 4, 12f, 0.13f);   // a shell in the water throws a white column, not earth
@@ -516,35 +510,6 @@ namespace TW.Presentation.Tactical
         }
 
         void Banner(string text, float seconds = 4f) { banner = text; bannerUntil = Time.time + seconds; }
-
-        /// <summary>The fire of a burst thrown on the ground and the men: a point light that peaks at once and is out in 0.4 s.</summary>
-        void BurstLight(Vector3 at, float radius)
-        {
-            int i = nextLight; nextLight = (nextLight + 1) % burstLights.Length;
-            if (burstLights[i] == null)
-            {
-                var go = new GameObject("Burst light " + i) { hideFlags = HideFlags.HideAndDontSave };
-                var l = go.AddComponent<Light>();
-                l.type = LightType.Point; l.shadows = LightShadows.None; l.color = new Color(1f, 0.62f, 0.26f); l.intensity = 0f;
-                burstLights[i] = l;
-            }
-            burstLights[i].transform.position = at;
-            burstLights[i].range = Mathf.Clamp(radius * 3f, 8f, 24f);
-            burstLit[i] = Time.time;
-            burstLights[i].enabled = true;
-        }
-
-        void UpdateLights(float now)
-        {
-            for (int i = 0; i < burstLights.Length; i++)
-            {
-                var l = burstLights[i]; if (l == null || !l.enabled) continue;
-                float age = now - burstLit[i];
-                if (age > 0.4f) { l.enabled = false; l.intensity = 0f; continue; }
-                float k = age < 0.06f ? age / 0.06f : 1f - (age - 0.06f) / 0.34f;
-                l.intensity = (SceneMood.Night ? 9f : 4f) * k * k;
-            }
-        }
 
         void Update()
         {
@@ -624,7 +589,6 @@ namespace TW.Presentation.Tactical
 
             DrawChunks(now, bounds);
             books?.Draw(now, bounds);
-            UpdateLights(now);
             hitsThisFrame = 0;
 
             // target markers (both sides see where support fire was called) and the aiming circle
