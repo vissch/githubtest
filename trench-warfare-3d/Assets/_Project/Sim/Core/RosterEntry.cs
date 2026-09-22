@@ -49,7 +49,8 @@ namespace TW.Sim
         public const byte Tusk = 5;   // light tank: a turret 37 mm with a coaxial MG, quick, ditches in wide trenches
         // The owner's two crab machines (Tools/crabsplit.py). A walker has no tracks to break and no belly to ditch:
         // it steps over a trench and over wire, climbs what a tank cannot, and is stopped by losing its legs.
-        public const byte Pincer = 6; // heavy walker: twin turret guns, two claws that crush what they reach, six legs
+        public const byte Pincer = 6; // heavy walker: two sponson guns, 105 deg either side of a rest yaw of +/-28,
+                                      // so ~94 deg dead astern that neither reaches; two crushing claws, six legs
         public const byte Kettle = 7; // light walker: one mortar over its back that fires without seeing, four legs
         public const byte Censer = 8; // a drum of chlorine on its back, which it lays as it walks; quick, thin, unarmed
         public const byte Pavise = 9; // a long gun on a pintle behind a shield: it plants itself and reaches furthest

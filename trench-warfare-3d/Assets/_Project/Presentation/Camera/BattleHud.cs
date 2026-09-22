@@ -56,6 +56,14 @@ namespace TW.Presentation.Tactical
         public static float BarConsumed(float size) =>
             Inset + (RosterEntry.SlotCount + SupportSlots) * (size + Gap) + Divider + Inset;
 
+        /// <summary>
+        /// How many unit icons the bar has. A slot past the end is clamped to the last icon rather than throwing,
+        /// which sounds safe and is worse: the Banner and the Pavise drew the same picture and the bar looked
+        /// perfectly correct while telling the player two different machines were the same one. A test holds this
+        /// at or above RosterEntry.SlotCount so the next machine added cannot inherit its neighbour's portrait.
+        /// </summary>
+        public const int UnitIcons = 8;
+
 #if UNITY_EDITOR
         /// <summary>Once per session, not once per frame: OnGUI runs twice a frame and this is an error, not a log.</summary>
         static bool barWarned;
@@ -86,7 +94,7 @@ namespace TW.Presentation.Tactical
         static string TipOf(int slot, in RosterEntry e) =>
             slot < SlotTips.Length ? SlotTips[slot] : VehicleTip(e.Archetype);
 
-        static string VehicleName(byte archetype)
+        public static string VehicleName(byte archetype)
         {
             switch (archetype)
             {
@@ -96,6 +104,8 @@ namespace TW.Presentation.Tactical
                 case VehicleArchetype.Kettle: return "Kettle";
                 case VehicleArchetype.Censer: return "Censer";
                 case VehicleArchetype.Pavise: return "Pavise";
+                case VehicleArchetype.Banner: return "Banner";
+                case VehicleArchetype.Redoubt: return "Redoubt";
                 default: return "Vehicle";
             }
         }
@@ -110,7 +120,7 @@ namespace TW.Presentation.Tactical
         /// a crew hit still calls LoseCrew, and what Unmanned buys is only that nobody bails out when it dies
         /// (VehicleModules.cs:457). Keep these under about 100 characters: the hint line clips rather than wraps.
         /// </summary>
-        static string VehicleTip(byte archetype)
+        public static string VehicleTip(byte archetype)
         {
             switch (archetype)
             {
@@ -120,9 +130,17 @@ namespace TW.Presentation.Tactical
                 case VehicleArchetype.Kettle: return "Kettle, mortar walker: fires without line of sight at men behind a parapet. Blind inside 46 m";
                 case VehicleArchetype.Censer: return "Censer, gas walker: no gun. Lays chlorine as it walks; the drum is its ammunition and its weak spot";
                 case VehicleArchetype.Pavise: return "Pavise, siege walker: a 360 m gun, the longest reach on the field. Halts to fire, shielded in front";
+                case VehicleArchetype.Banner: return "Banner, command walker: a 300 m gun, and a standard that steadies your men within 26 m. Thin plate";
+                case VehicleArchetype.Redoubt: return "Redoubt, blockhouse walker: no gun. 38 mm of front plate and the heaviest claws on the field";
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }
+
+        /// <summary>The two support buttons' text. Constants rather than literals at the call site so that the
+        /// numbers in them can be checked against OffMapAbilitySystem's stats by a test: 12 shells, 25 m and a
+        /// 4 s delay are WarmupTicks 80 at TickRate 20, and all three go stale silently if the ability is retuned.</summary>
+        public const string BarrageTip = "HE barrage: 12 shells in 25 m after 4 s; craters give cover";
+        public const string GasTip = "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out";
         static readonly Color Gold = new Color(0.88f, 0.79f, 0.58f);
         static readonly Color Pale = new Color(0.86f, 0.84f, 0.76f);
         static readonly Color Dark = new Color(0.17f, 0.17f, 0.16f);
@@ -244,12 +262,19 @@ namespace TW.Presentation.Tactical
                 Icon(Pale, Dark, "..............", "#############.", "..#####..o....", "...###...o....", "..#...#.......", ".#.....#......"),
                 Icon(Pale, Dark, cross),
                 Icon(Pale, Dark, "...########...", "..##########..", ".############.", "##############", "#o#o#o#o#o#o##", ".############."),
-                // The bar deploys for player 0, so the two walker slots are the Pincer and the Pavise. A walker has
-                // to read as legs at 46 px or it is just another tank: claws and six legs for one, a long gun and a
-                // shield for the other.
+                // The bar deploys for player 0, so the walker slots are the Pincer, the Pavise and the Banner. A
+                // walker has to read as legs at 46 px or it is just another tank: claws and six legs for the first,
+                // a long gun and a shield for the second, a standard over the third.
                 Icon(Pale, Dark, "##..........##", ".##........##.", "...#o####o#...", "..############", "..############", "#..#..#..#..#."),
                 Icon(Pale, Dark, "###...........", "###..#########", "###o####......", "###...........", ".############.", "..#..#..#..#.."),
+                Icon(Pale, Dark, "....######....", "....##........", "....##........", "##############", "..####o#####..", "..#..#..#..#.."),
             };
+#if UNITY_EDITOR
+            // The roster has grown twice while this array did not, and the draw clamps the index, so the overflow
+            // is silent: two different machines share one picture and the bar looks right while lying.
+            if (unitIcons.Length != UnitIcons)
+                Debug.LogError($"BattleHud: {unitIcons.Length} icons built but UnitIcons says {UnitIcons}");
+#endif
         }
 
         void EnsureStyles()
@@ -317,14 +342,8 @@ namespace TW.Presentation.Tactical
             }
 
             float room = Screen.width - barLeft - leftW - rightW;
-            // Cells in the wooden frame: every roster slot plus the two support buttons. This was the literal 7,
-            // which meant the frame stopped growing the moment the roster did.
-            //
-            // The width is derived from what the loop below actually consumes rather than guessed at: a 12 px inset,
-            // then every cell at a (size + Gap) pitch, then the 20 px divider before the support pair, then the same
-            // 12 px inset on the right. Worked out by replaying this arithmetic across six window sizes, which is
-            // how the old figure was caught being two pixels short of its own contents at every one of them — the
-            // buttons had been drawing a hair outside the wood since before the roster grew.
+            // Sized by BarMetrics from the same constants this loop advances by, so the frame cannot drift from its
+            // contents the way it had — and checked against what the loop actually drew, at the end of the bar.
             BarMetrics(room, out float size, out float frameW);
             float fx = barLeft + leftW + Mathf.Max(0f, (room - frameW) * 0.5f);
             GUI.Box(new Rect(fx, Screen.height - BarHeight, frameW, BarHeight + 6f), GUIContent.none, wood);
@@ -352,8 +371,8 @@ namespace TW.Presentation.Tactical
             }
             GUI.DrawTexture(new Rect(x + 3f, Screen.height - BarHeight + 4f, 6f, BarHeight), stripTex);
             x += Divider;
-            SupportSlot(ref x, y, size, barrage, "HE barrage: 12 shells in 25 m after 4 s; craters give cover", OffMapAbilityId.HeBarrage, over);
-            SupportSlot(ref x, y, size, gas, "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out", OffMapAbilityId.ChlorineGas, over);
+            SupportSlot(ref x, y, size, barrage, BarrageTip, OffMapAbilityId.HeBarrage, over);
+            SupportSlot(ref x, y, size, gas, GasTip, OffMapAbilityId.ChlorineGas, over);
 #if UNITY_EDITOR
             // x has now been advanced by the real loop, so this compares the frame against what was actually drawn
             // rather than against a second copy of the arithmetic. A copy is what drifted last time. If anyone adds
