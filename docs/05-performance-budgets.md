@@ -81,3 +81,22 @@ decided at the M1.5 fun gate.
    `EventPump` and `Render` marker averages to `docs/perf/<milestone>-<machine>.md`.
 3. Frame Debugger: count draw calls, confirm indirect batches.
 4. Memory Profiler: confirm 0 B/frame managed allocation in play.
+
+## First measurement (2026-09-22, commit with `Editor/CaptureRig.cs`)
+
+Until this date nothing in the project had ever opened a `ProfilerRecorder`, so every budget above was unverified.
+`TW.Editor.CaptureRig.Profile(path, frames)` samples the recorders over N frames and writes them as json.
+
+| Recorder | p50 | p95 | p99 | Budget | Over |
+|---|---|---|---|---|---|
+| Main Thread | 2.53 ms | 8.05 ms | 13.77 ms | 3 ms | yes, at p95 |
+| GPU Frame Time | 9.09 ms | 16.17 ms | 20.63 ms | 13 ms | yes, at p95 |
+| SetPass Calls | 763 | 768 | 769 | — | — |
+| Draw Calls | 936 | 941 | 942 | < 300 | yes, 3x |
+| GC Allocated / frame | 29.6 KB | 34.1 KB | 59.8 KB | 0 B | yes |
+
+**Read these as a starting point, not a verdict.** They were taken in the editor, not a player build; the editor adds
+its own draw calls and managed allocation, and this machine is far above the GTX 1050 target. The run had about ten
+men alive, not the 2,000-man stress preset — which makes 936 draw calls the most alarming line, because a nearly
+empty field should be nowhere near the ceiling. The honest next steps are the same measurement in a build, then with
+the stress preset, and only then any optimisation work.
