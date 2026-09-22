@@ -205,3 +205,46 @@ stay as hand placements.
 
 Captures: [rear edge](reference/env/looks-rear.jpg), [fog side](reference/env/looks-fog-side.jpg),
 [MG nest](reference/env/looks-mg-nest.jpg).
+
+## The coast, and closing the edges (2026-09-22)
+
+Owner: *"i want more decoration on the edges of the map, i want the trenches to continue past the playble scene as
+well as the environment, the main clusters of decorations should be on the edges of the map to gate off the zone,
+these should be placed prgramaticlly. we're also adding an ocean with boats arriving. bringing units."* The sea was
+put beyond the ENEMY line and the boats were made to carry the reinforcements, both the owner's choice.
+
+**The map grew instead of moving.** `BattlefieldParams.Sea` adds 36 m of coast past the end of the layout, so the
+default field is 90 x 276 m and every trench, objective, spawn, wire belt, crater and tree is exactly where it was.
+The sand starts at the rear's own height (the same noise expression, so there is no step to fall down), falls to the
+waterline 19 m out, and goes on down under the water. `ApplyWater` then floods it with the machinery the river
+already had: shallow is mud, deep is blocked, so nobody walks out to sea.
+
+**The sea is one mesh and one draw call.** `Ocean.cs` grades a grid from two metres between rows in the surf to a
+hundred out in the open — about four thousand vertices over a square kilometre and a half, because the only thing
+that needs resolution is the breaker line. Depth, distance to the waterline and whether a vertex is really under the
+sand are baked into the vertex colours, since they only change when the ground does. `TW/Sea` displaces two Gerstner
+swells that shorten and steepen as they shoal, and cuts the breakers, the spent foam and the wash up the sand out of
+the same wave phase, read per pixel so the hundred-metre triangles offshore still carry whitecaps. It is opaque, has
+no grab pass, no depth read and no reflection camera, like the river before it, and it shares the river's ripple map,
+its ring effects (a boat's wake is `WaterRings`) and its rain.
+
+**The land past the edge already existed; it now knows where the water is.** `Shore.Shape` is the single answer to
+"how high is the ground out there", so the skirt mesh, the horizon props and the sea's depth bake cannot disagree.
+Nothing the skirt invents may stand up out of the sea, and the beach is painted as sand — pale and dry at the top,
+dark and glossy where the tide wets it, with a wrack line — by one rule used both for the map's own ground texture
+and for the painted horizon beyond it.
+
+**`BattlefieldBackdrop`** does the three jobs on the list. The fire trenches are continued off both flanks with
+their parapet, revetment, ladders and wire, wandering the way the generator wanders a trench and thinning from every
+two metres to every eight until they are a line of dots in the haze. Every land edge carries a three-row belt of
+wire, knife rests and hedgehogs three and a half metres outside it, broken where a trench runs out of the map (wire
+is not strung across a trench mouth) and thickened every twenty to forty metres into one of six knots of wreckage.
+The beach gets obstacles standing in the surf off both ends — never in the middle, where a craft grounds — and wire
+and driftwood along the tide line. It all goes through the composer's `emit`, so it is batched and culled with every
+other prop rather than being a second renderer.
+
+**The boats are simulation, not decoration.** `SeaLandingSystem` holds six hulls of eight berths; a deploy is paid
+for at once and goes aboard, the craft runs in from 96 m at 7 m/s, grounds short of the waterline, drops its ramp and
+puts men on the sand three ticks apart. All of it is hashed, because where a craft is decides where men appear. A
+full lift refuses and that unit spawns at the rear as before, so the boats can never block a player. An empty craft
+comes in with stores every 55 s, because a sea with nothing moving on it reads as a painted backdrop.

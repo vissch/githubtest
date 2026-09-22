@@ -15,6 +15,7 @@ namespace TW.Presentation.Tactical
 {
     public sealed class DebugOverlay : MonoBehaviour
     {
+        readonly System.Text.StringBuilder line = new System.Text.StringBuilder(256);
         public SimHost Host;
         public bool ShowFlowField = true;
         public bool ShowStats = false;   // F2; the BattleHud is the playing interface
@@ -161,12 +162,18 @@ namespace TW.Presentation.Tactical
             var w = Host.Local.World;
             var fields = Host.Local.Fields;
             int g = fields.GoalCount == 0 ? -1 : ((ViewGoal % fields.GoalCount) + fields.GoalCount) % fields.GoalCount;
-            string trenches = "";
+            // One builder, reused. This ran inside OnGUI, which Unity calls at least twice a frame (Layout and
+            // Repaint), and concatenating in the loop copied the whole accumulated string once per trench per pass:
+            // steady per-frame garbage for a line of debug text. (claude-68, 2026-09-23.)
+            line.Clear();
             for (int t = 0; t < fields.Trenches.Length; t++)
             {
                 var s = fields.Trenches[t];
-                trenches += $"T{t}: owner {s.OwnerTeam} garrison {s.GarrisonCount}{(s.Locked != 0 ? " LOCKED" : "")}   ";
+                line.Append("T").Append(t).Append(": owner ").Append(s.OwnerTeam).Append(" garrison ").Append(s.GarrisonCount);
+                if (s.Locked != 0) line.Append(" LOCKED");
+                line.Append("   ");
             }
+            string trenches = line.ToString();
             GUI.Label(new Rect(340, 58, Screen.width - 460, 200),
                 $"tick {w.Tick}  hash {w.LastHash:X16}  alive {w.AliveCount}  silver P0 {w.Silver[0]} P1 {w.Silver[1]}\n" +
                 $"stall {Host.LocalDriver.StallTicks}  desync {(Host.Desync ? "YES" : "no")}  events/frame {Host.Events.Frame.Count}  overrun {Host.Events.OverrunTotal}\n" +

@@ -66,6 +66,12 @@ namespace TW.Presentation.Tactical
             public float TreadL, TreadR, WheelL, WheelR;
             public readonly float[] GunYaw = new float[2], GunPitch = new float[2], Recoil = new float[2];
             public float Hatch, Cupola, CupolaWant, NextLook;
+            /// <summary>A walker: how far through its leg cycle it is (0..1, advanced by distance travelled so the
+            /// feet never skate), how much of a stride it is taking, the bob that puts on the body, what its claws
+            /// are doing, and which legs are gone.</summary>
+            public float Stride, Gait, Bob, Claw, ClawOpen;
+            public byte LegsLost;
+            public byte Archetype;
             public float Scorch, Burn, Flash, Furnace, Throttle;
             public bool Ditched, Bogged, Stalled, Dead, CookOff, Hurt;
             public int State; public float Fire;
@@ -97,6 +103,12 @@ namespace TW.Presentation.Tactical
         struct Flame { public Vector3 Foot; public float Width, Height, Phase; }
 
         TankModel maw, tusk;
+        /// <summary>The owner's four crab walkers (Tools/crabsplit.py), by archetype. Each has its own atlas, where
+        /// the two tanks share one, so a crab's material is per machine and per LOD.</summary>
+        readonly TankModel[] crabs = new TankModel[6];
+        readonly Material[,] crabMats = new Material[6, 2];
+        static readonly string[] CrabNames = { "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt" };
+        public const float StrideMetres = 1.15f;   // how far a walker travels per full leg cycle
         readonly Material[] mats = new Material[2];
         FlipbookFx books;
         readonly Dictionary<int, View> views = new Dictionary<int, View>();
@@ -131,6 +143,7 @@ namespace TW.Presentation.Tactical
             if (Host == null) Host = FindFirstObjectByType<SimHost>();
             maw = TankModel.Load("Maw", VehicleArchetype.Maw);
             tusk = TankModel.Load("Tusk", VehicleArchetype.Tusk);
+            for (int c = 0; c < CrabNames.Length; c++) crabs[c] = TankModel.Load(CrabNames[c], (byte)(VehicleArchetype.Pincer + c), "Body");
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null || maw == null) { Debug.LogWarning("TankRenderer: TW/Tank or the tank models are missing; the box tanks stay."); enabled = false; return; }
             for (int lod = 0; lod < 2; lod++)
@@ -139,6 +152,17 @@ namespace TW.Presentation.Tactical
                 var atlas = Resources.Load<Texture2D>("Vehicles/TankAtlas_LOD" + lod);
                 if (atlas != null) mats[lod].SetTexture("_BaseMap", atlas);
                 mats[lod].SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
+            }
+            for (int c = 0; c < CrabNames.Length; c++)
+            {
+                var atlas = Resources.Load<Texture2D>("Vehicles/" + CrabNames[c] + "Atlas");
+                for (int lod = 0; lod < 2; lod++)
+                {
+                    var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = CrabNames[c] + " LOD" + lod };
+                    if (atlas != null) m.SetTexture("_BaseMap", atlas);
+                    m.SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
+                    crabMats[c, lod] = m;
+                }
             }
             books = new FlipbookFx();
             BuildFlames();
@@ -172,10 +196,23 @@ namespace TW.Presentation.Tactical
         }
 
         TankModel ModelFor(SimWorld w, int slot) => w == null || slot < 0 || slot >= w.HighWater ? null : ModelFor(w.Archetype[slot]);
-        TankModel ModelFor(byte archetype) => archetype == VehicleArchetype.Tusk && tusk != null ? tusk : maw;
+        TankModel ModelFor(byte archetype)
+        {
+            if (VehicleArchetype.IsWalker(archetype))
+            {
+                var c = crabs[archetype - VehicleArchetype.Pincer];
+                if (c != null) return c;
+            }
+            return archetype == VehicleArchetype.Tusk && tusk != null ? tusk : maw;
+        }
+
+        /// <summary>The material a machine is drawn in: the tanks share an atlas, each crab has its own.</summary>
+        Material MaterialFor(byte archetype, int lod)
+            => VehicleArchetype.IsWalker(archetype) && crabMats[archetype - VehicleArchetype.Pincer, lod] != null
+                ? crabMats[archetype - VehicleArchetype.Pincer, lod] : mats[lod];
 
         static bool IsTank(SimWorld w, int i)
-            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsTank(w.Archetype[i]);
+            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsArmoured(w.Archetype[i]);
 
         // ------------------------------------------------------------------ frame
         void LateUpdate()
@@ -228,7 +265,7 @@ namespace TW.Presentation.Tactical
         View NewView(SimWorld w, int slot, float now)
         {
             var model = ModelFor(w.Archetype[slot]);
-            var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now };
+            var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot] };
             v.Pos = v.LastPos = (Vector3)(float3)w.Position[slot];
             v.Yaw = v.LastYaw = w.Yaw[slot];
             v.Off = new bool[model.Lods[0].Parts.Count];
@@ -263,6 +300,25 @@ namespace TW.Presentation.Tactical
             float engine = modules != null ? modules.Module[s * M + (int)VehicleModule.Engine] : 1f;
             bool trackL = modules == null || modules.Module[s * M + (int)VehicleModule.TrackLeft] > 0f;
             bool trackR = modules == null || modules.Module[s * M + (int)VehicleModule.TrackRight] > 0f;
+            // A walker's legs. The cycle is advanced by the distance covered rather than by the clock, so its feet
+            // never skate however fast it is going, and the body rides on the same phase.
+            if (v.Model.LegCount > 0)
+            {
+                float pace = Mathf.Abs(v.Speed) + Mathf.Abs(v.YawRate) * 1.3f;
+                bool dead = modules != null && modules.State[s] != 0;
+                v.Gait = Mathf.Lerp(v.Gait, dead ? 0f : Mathf.Clamp01(pace / 1.4f), 1f - Mathf.Exp(-dt * 6f));
+                v.Stride += pace * dt / StrideMetres;
+                if (v.Stride >= 1f) v.Stride -= Mathf.Floor(v.Stride);
+                v.Bob = Mathf.Sin(v.Stride * Mathf.PI * 4f) * 0.05f * v.Gait;
+                byte lost = modules != null ? modules.LegsLost[s] : (byte)0;
+                if (lost != v.LegsLost)
+                {
+                    for (int k = 0; k < 8; k++) if ((lost & (1 << k)) != 0 && (v.LegsLost & (1 << k)) == 0) ThrowLeg(v, k);
+                    v.LegsLost = lost;
+                }
+                v.Claw = Mathf.Max(0f, v.Claw - dt * 1.7f);
+                v.ClawOpen = Mathf.Lerp(v.ClawOpen, v.Claw > 0.45f ? 1f : 0f, 1f - Mathf.Exp(-dt * 14f));
+            }
             v.Ditched = kin != null && kin.DitchTicks[s] > 0;
             v.Bogged = kin != null && kin.BogTicks[s] > 0;
             v.Stalled = engine <= 0f || v.State != 0;
@@ -360,10 +416,46 @@ namespace TW.Presentation.Tactical
             Vector3 pos = p.Local;
             switch (p.Role)
             {
-                case TankPartRole.Turret: rot *= Quaternion.AngleAxis(v.GunYaw[0] * Mathf.Rad2Deg, Vector3.up); break;
+                case TankPartRole.Turret:
+                {
+                    int k = p.Side > 0 ? 1 : 0;   // a crab has one turret a side; a tank has one on the centre line
+                    rot *= Quaternion.AngleAxis(v.GunYaw[k] * Mathf.Rad2Deg, Vector3.up);
+                    break;
+                }
                 case TankPartRole.Gun:
-                    rot *= Quaternion.AngleAxis(-v.GunPitch[0] * Mathf.Rad2Deg, Vector3.right);
-                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[0] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[0]) * 0.45f);
+                {
+                    int k = p.Gun >= 0 ? p.Gun : 0;
+                    if (p.SelfAimed) rot *= Quaternion.AngleAxis(v.GunYaw[k] * Mathf.Rad2Deg, Vector3.up);   // a mortar on its bed, a gun on its pintle
+                    rot *= Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right);
+                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[k]) * 0.45f);
+                    break;
+                }
+                // ---- the walkers ----
+                case TankPartRole.Leg:
+                case TankPartRole.Thigh:
+                {
+                    // the leg swings fore and aft about the body's up axis and lifts about the line across it, half
+                    // the legs a half-cycle behind the other half: the alternating tripod a crab actually walks with
+                    Vector3 across = Vector3.Cross(Vector3.up, p.Outward);
+                    float phase = Phase(v, p);
+                    rot = Quaternion.AngleAxis(Mathf.Sin(phase) * 14f * v.Gait, Vector3.up)
+                        * Quaternion.AngleAxis(-Lift(v, phase), across) * rot;
+                    break;
+                }
+                case TankPartRole.Shin:
+                    rot = Quaternion.AngleAxis(Lift(v, Phase(v, p)) * 1.35f, Vector3.Cross(Vector3.up, p.Outward)) * rot;
+                    break;
+                case TankPartRole.Foot:
+                    rot = Quaternion.AngleAxis(-Lift(v, Phase(v, p)) * 0.85f, Vector3.Cross(Vector3.up, p.Outward)) * rot;
+                    break;
+                case TankPartRole.Claw:
+                {
+                    float sway = Mathf.Sin(Phase(v, p) + (p.Side < 0 ? 0f : Mathf.PI)) * 5f * v.Gait;
+                    rot = Quaternion.AngleAxis(sway - v.Claw * 24f * (p.Side < 0 ? 1f : -1f), Vector3.up) * rot;
+                    break;
+                }
+                case TankPartRole.Jaw:
+                    rot = Quaternion.AngleAxis(-36f * v.ClawOpen, Vector3.right) * rot;
                     break;
                 case TankPartRole.Sponson:
                 {
@@ -383,10 +475,37 @@ namespace TW.Presentation.Tactical
 
         static float Kick(float r) => r <= 0f ? 0f : Mathf.Sin(Mathf.Clamp01((1f - r) * 6f) * Mathf.PI * 0.5f) * r;   // snaps back, runs out slow
 
+        /// <summary>Where one leg is in the cycle: legs alternate along each side, and the two sides are opposite,
+        /// which is the tripod gait. A part with no leg of its own (a claw) rides the body's own phase.</summary>
+        static float Phase(View v, TankModel.Part p)
+        {
+            int perSide = Mathf.Max(1, v.Model.LegCount / 2);
+            int leg = Mathf.Max(0, p.Leg);
+            int group = ((leg % perSide) + (leg >= perSide ? 1 : 0)) & 1;
+            return (v.Stride + group * 0.5f) * Mathf.PI * 2f;
+        }
+
+        /// <summary>How far a leg is off the ground at that phase: up through the forward half of the stride, down
+        /// and planted through the back half.</summary>
+        static float Lift(View v, float phase) => Mathf.Max(0f, Mathf.Cos(phase)) * 11f * v.Gait;
+
+        /// <summary>A leg the damage system has taken off: it goes the way a track does, thrown clear.</summary>
+        void ThrowLeg(View v, int leg)
+        {
+            var parts = v.Model.Lods[0].Parts;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var p = parts[i];
+                if (p.Leg != leg || (p.Role != TankPartRole.Leg && p.Role != TankPartRole.Thigh)) continue;
+                Throw(v, p.Name, true, p.Outward.x < 0f ? -1 : 1);
+                return;
+            }
+        }
+
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
-            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value, v.Pos.z), HullRotation(v), Vector3.one);
+            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob, v.Pos.z), HullRotation(v), Vector3.one);
             for (int i = 0; i < lod.Parts.Count; i++)
             {
                 var p = lod.Parts[i];
@@ -778,6 +897,25 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Puff, at, e.B == 1 ? 3f : 1.6f, 1.4f, velocity: Vector3.up * 0.6f, grow: 1.2f, alpha: 0.6f);
                     }
                     break;
+                case SimEventType.VehicleClawed:
+                    // the claw closes: it swings in, and whatever it caught throws sparks and grit
+                    if (v != null) v.Claw = 1f;
+                    if (SceneHooks.Sparks != null) SceneHooks.Sparks((Vector3)e.Pos + Vector3.up * 0.5f, 7);
+                    if (books != null && books.Ready)
+                    {
+                        Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 0.5f;
+                        books.Add(FlipbookFx.Book.Puff, at, 1.3f, 1.0f, velocity: Vector3.up * 0.5f, grow: 1.15f, alpha: 0.5f);
+                    }
+                    break;
+                case SimEventType.VehicleLegLost:
+                    // a leg comes off: the throw itself is done from the module state (Animate), this is the noise of it
+                    if (SceneHooks.Sparks != null) SceneHooks.Sparks((Vector3)e.Pos + Vector3.up * 0.8f, 12);
+                    if (books != null && books.Ready)
+                    {
+                        Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 0.7f;
+                        books.Add(FlipbookFx.Book.Puff, at, 2.2f, 1.2f, velocity: Vector3.up * 0.8f, grow: 1.3f, alpha: 0.55f);
+                    }
+                    break;
                 case SimEventType.VehicleRepaired:
                     if (v != null && books != null && books.Ready) books.Add(FlipbookFx.Book.Star, v.Pos + Vector3.up * (v.Heave.Value + 1.2f), 0.8f, 0.2f, glow: 1.5f);
                     break;
@@ -840,7 +978,15 @@ namespace TW.Presentation.Tactical
         {
             if (discMat == null || discCount >= discM.Length) return;
             var m = v.Model;
-            float w = (m.HalfGauge + 0.9f) * 2f / 0.72f, l = (m.HalfLength + 0.8f) * 2f / 0.72f;   // the ring sits at 0.72 of the quad
+            // a walker has no tracks to measure, so its ring comes from its own footprint (VehicleProfile) instead of
+            // the model's default gauge, which is a tank's and swallows a crab
+            float halfW = m.HalfGauge, halfL = m.HalfLength;
+            if (VehicleArchetype.IsWalker(v.Archetype))
+            {
+                var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(v.Archetype);
+                halfW = prof.HalfWidth * 0.72f; halfL = prof.HalfLength * 0.72f;
+            }
+            float w = (halfW + 0.9f) * 2f / 0.72f, l = (halfL + 0.8f) * 2f / 0.72f;   // the ring sits at 0.72 of the quad
             // on the ground the tracks settle on (over a trench that is the lip, not the bottom of the hole between)
             var at = new Vector3(v.Pos.x, Mathf.Max(Ground(v.Pos.x, v.Pos.z), v.Heave.Value - 0.3f) + 0.12f, v.Pos.z);
             discM[discCount] = Matrix4x4.TRS(at, Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up), new Vector3(w, 1f, l));
@@ -873,13 +1019,13 @@ namespace TW.Presentation.Tactical
                 var v = d.Owner; var parts = v.Model.Lods[0].Parts;
                 var dmg = new Vector4(Mathf.Max(v.Scorch, d.Burn > 0f ? 0.9f : v.Scorch), Mathf.Max(d.Burn, v.Burn * 0.5f), v.Flash, 0f);
                 var tint = v.Team == 1 ? TeamTintB : new Vector4(1f, 1f, 1f, 0f);
-                Queue(parts[d.Part].Mesh, mats[0], d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, TeamBand(v, parts[d.Part].Role));
+                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, TeamBand(v, parts[d.Part].Role));
                 // what hangs off the piece rides with it
                 for (int c = d.Part + 1; c < parts.Count; c++)
                 {
                     if (!d.Local.TryGetValue(c, out var local)) continue;
                     lodWorld[c] = (parts[c].Parent == d.Part ? d.World : lodWorld[parts[c].Parent]) * local;
-                    Queue(parts[c].Mesh, mats[0], lodWorld[c], 0f, dmg, tint, TeamBand(v, parts[c].Role));
+                    Queue(parts[c].Mesh, MaterialFor(v.Archetype, 0), lodWorld[c], 0f, dmg, tint, TeamBand(v, parts[c].Role));
                 }
             }
         }
@@ -921,7 +1067,7 @@ namespace TW.Presentation.Tactical
                 if (IsOff(v, l, i)) continue;
                 var p = l.Parts[i];
                 float tread = p.Role == TankPartRole.Track ? (p.Side < 0 ? v.TreadL : v.TreadR) : 0f;
-                Queue(p.Mesh, mats[lod], world[i], tread, damage, tint, TeamBand(v, p.Role));
+                Queue(p.Mesh, MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p.Role));
             }
         }
 

@@ -211,6 +211,10 @@ namespace TW.Sim
             int ri = c.Player * RosterEntry.SlotCount + c.A;
             var entry = Roster[ri];
             if (SlotUnlocked[ri] == 0 || SlotCooldown[ri] > 0 || Silver[c.Player] < entry.Cost) { Reject(c); return; }
+            // a shore behind this player's line: his reinforcements are paid for now and come off a boat in a few
+            // seconds (SeaLandingSystem). A lift with no berth left refuses, and he walks up from the rear as before.
+            if (SeaLift != null && SeaLift.Embark(this, c.Player, entry))
+            { Silver[c.Player] -= entry.Cost; SlotCooldown[ri] = entry.CooldownTicks; return; }
             // one stream per deploy: several deploys by one player in one tick must not share a spawn point
             if (deployTick != Tick) { deployTick = Tick; System.Array.Clear(deploysThisTick, 0, deploysThisTick.Length); }
             var rng = SimRandom.For(Config.Seed, Tick, SimRandom.SystemId.Deployment, (uint)c.Player + 16u * (uint)deploysThisTick[c.Player]++);
@@ -222,6 +226,10 @@ namespace TW.Sim
             Silver[c.Player] -= entry.Cost;
             SlotCooldown[ri] = entry.CooldownTicks;
         }
+
+        /// <summary>Set by SeaLandingSystem when the map has a sea: deployed units are carried ashore instead of
+        /// appearing at the spawn point. Null on an inland field.</summary>
+        public ISeaLift SeaLift;
 
         /// <summary>Drop a command deterministically and report it. Systems call this for commands they validate.</summary>
         public void Reject(SimCommand c) => Events.Add(Tick, SimEventType.CommandRejected, (int)c.Type, c.Player);

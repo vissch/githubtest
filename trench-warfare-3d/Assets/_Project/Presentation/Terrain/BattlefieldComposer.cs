@@ -19,6 +19,7 @@ namespace TW.Presentation.Terrain
             { Blueprint = blueprint; Position = position; Rotation = rotation; Trench = trench; ApproachEnd = approachEnd; }
         }
         readonly BattlefieldKit kit;
+        readonly BattlefieldBackdrop backdrop;
         readonly BattlefieldBlueprint[] blueprints;
         readonly int seed;
         readonly Vector3 preferredFront;
@@ -29,7 +30,7 @@ namespace TW.Presentation.Terrain
         Action<BattlefieldKit.Module, Matrix4x4> emit;
         MapData layoutMap;
         public BattlefieldComposer(BattlefieldKit kit, int seed = 1917, BattlefieldBlueprint[] blueprints = null, Vector3? preferredFront = null)
-        { this.kit = kit; this.seed = seed; this.blueprints = blueprints ?? BattlefieldBlueprint.Stock(kit); this.preferredFront = preferredFront ?? Vector3.right; }
+        { this.kit = kit; this.seed = seed; this.blueprints = blueprints ?? BattlefieldBlueprint.Stock(kit); this.preferredFront = preferredFront ?? Vector3.right; backdrop = new BattlefieldBackdrop(kit, seed); }
 
         public void Build(MapData map, BattlefieldSurface surface, Action<BattlefieldKit.Module, Matrix4x4> emit, bool regenerateLayout = false)
         {
@@ -54,6 +55,7 @@ namespace TW.Presentation.Terrain
                 foreach (var site in sites) EmitSite(map, surface, site);
             }
             Landmarks(map, surface);
+            backdrop.Build(map, surface, emit);   // the lines run on past the flanks, and the edges are closed off
         }
 
         void TrenchKit(MapData map, BattlefieldSurface surface)
@@ -708,6 +710,7 @@ namespace TW.Presentation.Terrain
                     float outside = Mathf.Max(Mathf.Max(-x, x - w), Mathf.Max(-z, z - l));
                     if (outside < 5f) continue;
                     float level = GreyboxTerrainView.SkirtHeight(map, x, z) - 0.05f;
+                    if (Shore.UnderWater(map, x, z, level)) continue;   // no wood grows out of the sea
                     float s = i == 0 ? 1.3f + Rand(key, 6) * .5f : i < 3 ? .85f + Rand(key, 6) * .3f : .5f + Rand(key, 6) * .3f;
                     var m = Matrix4x4.TRS(new Vector3(x, level, z), Quaternion.Euler(0f, Rand(key, 7) * 360f, 0f), new Vector3(s, s, s));
                     if (i == 0) emit(Rand(key, 8) < .4f ? kit.fork : kit.trunk, m);
@@ -721,7 +724,9 @@ namespace TW.Presentation.Terrain
                 float x = farSide ? -45f - Rand(i, 6) * 120f : w + 45f + Rand(i, 6) * 90f, z = Rand(i, 7) * l;
                 float s = 1.2f + Rand(i, 8) * 1.0f;
                 var turn = Quaternion.Euler(0f, 80f + Rand(i, 9) * 40f, 0f);
-                var at = new Vector3(x, GreyboxTerrainView.SkirtLevel - 0.25f, z);
+                float stands = GreyboxTerrainView.SkirtHeight(map, x, z);
+                if (Shore.UnderWater(map, x, z, stands)) continue;   // and no village stands in it
+                var at = new Vector3(x, stands - 0.25f, z);
                 emit(kit.ruin, Matrix4x4.TRS(at, turn, new Vector3(s, s, s)));
                 // what else is left of the place: wall stubs either side, a slab and a low wall in the rubble
                 (Vector3 local, BattlefieldKit.Module module, float size)[] rubble =

@@ -37,6 +37,8 @@ namespace TW.Sim.Combat
         public const int Guns = TankSpec.MaxGuns;
         public const int ScanEveryTicks = 4;
         public const int HaltForShot = 24;
+        public const float ClawArc = 1.0f;            // rad either side of the nose a claw can reach
+        public const float ClawPenMm = 26f;           // what a claw is worth against armour: it tears plates apart
         public const float SelfSafeScatter = 2f;   // metres: how far short a miss at close range can fall            // the Tusk stands 1.2 s to lay and fire
         public const float AimTolerance = 0.05f;      // rad (about 3 degrees)
         public const float MovingAccuracy = 0.5f;
@@ -57,12 +59,14 @@ namespace TW.Sim.Combat
         // ---- per slot, hashed ----
         public NativeArray<ushort> Gen;
         public NativeArray<float> CrewFactor;   // VehicleModulesSystem: the men left to load and lay (0 = cannot fire)
+        public NativeArray<int> ClawCooldown;   // ticks until a walker's claws can close again
         /// <summary>This tick's rounds and charges on vehicles (close assaults from DirectFire, then these guns);
         /// VehicleModulesSystem drains it later in the same tick.</summary>
         public NativeList<VehicleHit> PendingHits;
 
         NativeList<SimEvent> events;
         NativeList<Impact> impacts;
+        NativeList<int2> clawed;                // (victim, walker) this tick: men taken in a claw, resolved below
         NativeArray<int> halt;                  // stand-in when no kinematics system is registered
 
         public TankGunnerySystem(MapData map) { this.map = map; }
@@ -77,6 +81,8 @@ namespace TW.Sim.Combat
             GunHealth = new NativeArray<float>(n * Guns, Allocator.Persistent);
             Gen = new NativeArray<ushort>(n, Allocator.Persistent);
             CrewFactor = new NativeArray<float>(n, Allocator.Persistent);
+            ClawCooldown = new NativeArray<int>(n, Allocator.Persistent);
+            clawed = new NativeList<int2>(8, Allocator.Persistent);
             for (int i = 0; i < n * Guns; i++) GunTarget[i] = -1;
             PendingHits = new NativeList<VehicleHit>(32, Allocator.Persistent);
             events = new NativeList<SimEvent>(32, Allocator.Persistent);
@@ -90,19 +96,30 @@ namespace TW.Sim.Combat
             if (n == 0) return;
             if (blast == null) blast = w.GetSystem<BlastSystem>();
             if (kinematics == null) kinematics = w.GetSystem<VehicleKinematicsSystem>();
-            events.Clear(); impacts.Clear();
+            events.Clear(); impacts.Clear(); clawed.Clear();
             new GunneryJob
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, Dt = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype,
                 StanceOf = w.StanceOf, Generation = w.Generation,
                 GunYaw = GunYaw, Reload = Reload, GunTarget = GunTarget, GunHealth = GunHealth, Gen = Gen, CrewFactor = CrewFactor,
+                ClawCooldown = ClawCooldown, Clawed = clawed,
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Hits = PendingHits, Events = events, Impacts = impacts,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
+            // a claw that closed on a man: the job cannot kill him (it never writes Hp), so it is done here, the way
+            // VehicleKinematicsSystem finishes off the men it runs over
+            for (int c = 0; c < clawed.Length; c++)
+            {
+                int j = clawed[c].x, i = clawed[c].y;
+                if (!w.IsAlive(j)) continue;
+                w.Hp[j] = w.Hp[j] - TankSpec.For(w.Archetype[i]).ClawDamage;
+                w.Events.Add(w.Tick, SimEventType.VehicleClawed, i, j, w.Position[j]);
+                if (w.Hp[j] <= 0f) w.Despawn(j, i, SimMath.DirFromYaw(w.Yaw[i]) * 0.5f);
+            }
         }
 
         /// <summary>World position of a gun's mount on a hull (for line of sight and for drawing).</summary>
@@ -126,7 +143,8 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public NativeArray<ushort> Generation;
             public NativeArray<float> GunYaw, GunHealth, CrewFactor;
-            public NativeArray<int> Reload, GunTarget, HaltTicks;
+            public NativeArray<int> Reload, GunTarget, HaltTicks, ClawCooldown;
+            public NativeList<int2> Clawed;
             public NativeArray<ushort> Gen;
             [ReadOnly] public Heightfield Height;
             [ReadOnly] public NativeArray<byte> Layers, CellCover;
@@ -162,6 +180,7 @@ namespace TW.Sim.Combat
                 float3 d = Position[j] - p; d.y = 0f;
                 float dsq = math.lengthsq(d);
                 if (dsq > g.RangeMax * g.RangeMax) return float.MaxValue;
+                if (g.RangeMin > 0f && dsq < g.RangeMin * g.RangeMin) return float.MaxValue;   // a mortar cannot drop one on its own feet
                 if (!TankSpec.InArc(g, SimMath.WrapAngle(SimMath.YawOf(d) - hullYaw))) return float.MaxValue;
                 float dist = SimMath.Sqrt(dsq);
                 if ((Flags[j] & (uint)UnitFlags.Vehicle) != 0) return g.PenMm > 0f ? dist / ArmourPreference : float.MaxValue;
@@ -169,11 +188,12 @@ namespace TW.Sim.Combat
                 // machine guns (VehicleModules bursts reach Radius + HalfWidth from a hull's centre)
                 if (dist < g.HeRadius + VehicleProfile.ForArchetype(Archetype[i]).HalfWidth + SelfSafeScatter) return float.MaxValue;
                 bool belowRim = (Flags[j] & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep;
-                return belowRim ? dist * 1.8f : dist;
+                // a flat-trajectory gun can barely touch a man below the parapet; a mortar is the answer to him
+                return belowRim ? dist * (g.Indirect ? 0.55f : 1.8f) : dist;
             }
 
             bool Sees(int i, int j, in TankGun g)
-                => HeightfieldRaycast.HasLineOfSight(Height, MountWorld(g, Position[i], Yaw[i], Height), AimPoint(j));
+                => g.Indirect || HeightfieldRaycast.HasLineOfSight(Height, MountWorld(g, Position[i], Yaw[i], Height), AimPoint(j));
 
             int Pick(int i, float3 p, float hullYaw, in TankGun g)
             {
@@ -198,7 +218,7 @@ namespace TW.Sim.Combat
                 for (int i = 0; i < Count; i++)
                 {
                     uint f = Flags[i];
-                    if ((f & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) || !VehicleArchetype.IsTank(Archetype[i])) continue;
+                    if ((f & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) || !VehicleArchetype.IsArmoured(Archetype[i])) continue;
                     var spec = TankSpec.For(Archetype[i]);
                     if (Gen[i] != Generation[i])
                     {
@@ -281,6 +301,38 @@ namespace TW.Sim.Combat
                             Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.VehicleFired, A = i, B = k, Pos = land, Dir = dir, Scalar = 1f });
                         }
                     }
+
+                    // The claws. A walker takes hold of whatever comes within reach of its front and crushes it: a man
+                    // dies, a hull takes it as a close assault against its armour. It is what a walker has instead of
+                    // the machine guns a tank carries, and the reason infantry cannot simply walk up to one.
+                    if (spec.ClawReach > 0f && ClawCooldown[i] <= 0)
+                    {
+                        float reach = spec.ClawReach + VehicleProfile.ForArchetype(Archetype[i]).HalfLength;
+                        int victim = -1; float best = reach * reach;
+                        for (int j = 0; j < Count; j++)
+                        {
+                            if (!Enemy(i, j)) continue;
+                            float3 d = Position[j] - p; d.y = 0f;
+                            float dsq = math.lengthsq(d);
+                            if (dsq >= best) continue;
+                            if (math.abs(SimMath.WrapAngle(SimMath.YawOf(d) - hullYaw)) > ClawArc) continue;   // in front of it, not behind
+                            best = dsq; victim = j;
+                        }
+                        if (victim >= 0)
+                        {
+                            ClawCooldown[i] = (int)math.round(spec.ClawSeconds / Dt);
+                            float3 to = Position[victim] - p; to.y = 0f;
+                            float len = SimMath.Length(to);
+                            float3 dir = len > 1e-3f ? to / len : SimMath.DirFromYaw(hullYaw);
+                            if ((Flags[victim] & (uint)UnitFlags.Vehicle) != 0)
+                            {
+                                Hits.Add(new VehicleHit { Target = victim, Shooter = i, Kind = VehicleHitKind.CloseAssault, PenMm = ClawPenMm, Damage = spec.ClawDamage, Pos = Position[victim], Dir = dir });
+                                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.VehicleClawed, A = i, B = victim, Pos = Position[victim], Dir = dir });
+                            }
+                            else Clawed.Add(new int2(victim, i));   // the system finishes him: this job never writes Hp
+                        }
+                    }
+                    else if (ClawCooldown[i] > 0) ClawCooldown[i]--;
                 }
             }
         }
@@ -294,6 +346,7 @@ namespace TW.Sim.Combat
             h = SimHash.Array(GunHealth, n * Guns, h);
             h = SimHash.Array(Gen, n, h);
             h = SimHash.Array(CrewFactor, n, h);
+            h = SimHash.Array(ClawCooldown, n, h);
             return SimHash.Value(PendingHits.Length, h);   // empty between ticks
         }
 
@@ -305,6 +358,8 @@ namespace TW.Sim.Combat
             if (GunHealth.IsCreated) GunHealth.Dispose();
             if (Gen.IsCreated) Gen.Dispose();
             if (CrewFactor.IsCreated) CrewFactor.Dispose();
+            if (ClawCooldown.IsCreated) ClawCooldown.Dispose();
+            if (clawed.IsCreated) clawed.Dispose();
             if (PendingHits.IsCreated) PendingHits.Dispose();
             if (events.IsCreated) events.Dispose();
             if (impacts.IsCreated) impacts.Dispose();

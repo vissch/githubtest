@@ -79,10 +79,17 @@ namespace TW.Editor
         {
             var h = Host; if (h == null) return "no SimHost";
             if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
-            bool tank = VehicleArchetype.IsTank((byte)archetype);
-            var entry = archetype == VehicleArchetype.Tusk ? RosterEntry.Tusk : archetype == VehicleArchetype.Maw ? RosterEntry.Maw : h.Local.World.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
-            int a = h.Local.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, tank);
-            int b = h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, tank);
+            bool vehicle = VehicleArchetype.IsArmoured((byte)archetype);
+            var entry =
+                archetype == VehicleArchetype.Tusk ? RosterEntry.Tusk :
+                archetype == VehicleArchetype.Maw ? RosterEntry.Maw :
+                archetype == VehicleArchetype.Pincer ? RosterEntry.Pincer :
+                archetype == VehicleArchetype.Kettle ? RosterEntry.Kettle :
+                archetype == VehicleArchetype.Censer ? RosterEntry.Censer :
+                archetype == VehicleArchetype.Pavise ? RosterEntry.Pavise :
+                h.Local.World.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
+            int a = h.Local.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
+            int b = h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
             if (yawDeg > -900f) { h.Local.World.Yaw[a] = yawDeg * Mathf.Deg2Rad; h.Peer.World.Yaw[b] = yawDeg * Mathf.Deg2Rad; }
             return a == b ? "slot " + a : $"MISMATCH local {a} peer {b}";
         }

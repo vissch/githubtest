@@ -22,6 +22,8 @@ namespace TW.Sim.Match
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
         public SuppressionSystem Suppression;
+        /// <summary>Null on an inland map.</summary>
+        public SeaLandingSystem Landing;
         public TW.Sim.Units.TrenchGarrisonSystem Garrison;
         public SectorControlSystem Sectors;
         public BlastSystem Blast;
@@ -59,7 +61,8 @@ namespace TW.Sim.Match
             Orders = new TrenchOrdersSystem();
             World.AddSystem(Orders);                        // A1 initial / A3: >> ↑ lock ↩ hold-fire
             // A6: World.AddSystem(new MissionRunner(script));
-            // A3: World.AddSystem(new LogisticsSystem(map));
+            // A3: World.AddSystem(new LogisticsSystem(map));     // the land half: units walk up the supply road
+            if (map.HasSea) { Landing = new SeaLandingSystem(map); World.AddSystem(Landing); }   // A3: the sea half: they come ashore off a boat
             if (combat)
             {
                 Acquisition = new TargetAcquisitionSystem(map);

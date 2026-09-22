@@ -22,15 +22,17 @@ namespace TW.Sim.Terrain
         public bool River;
         public int Wrecks;
         public float Bombardment; // ambient shells per minute on no man's land during the match; 0 = a quiet sector
+        public bool Sea;          // the far side of the field is a coast: the map runs on into sand and water and
+                                  // team 1's reinforcements land there (SeaLandingSystem)
 
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
-        { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f };
+        { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f, Sea = true };
 
         public byte[] Serialize()
         {
             using var ms = new MemoryStream();
             using var w = new BinaryWriter(ms);
-            w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment);
+            w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment); w.Write(Sea);
             return ms.ToArray();
         }
 
@@ -41,6 +43,7 @@ namespace TW.Sim.Terrain
             {
                 Seed = r.ReadUInt32(), Width = r.ReadSingle(), Length = r.ReadSingle(), Forest = r.ReadSingle(), Shelling = r.ReadSingle(),
                 Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(), Bombardment = r.ReadSingle(),
+                Sea = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
             };
         }
     }
@@ -53,11 +56,23 @@ namespace TW.Sim.Terrain
         const float ReserveAt = 60f, FrontAt = 140f, HqDepthAt = 34f, BaseHeight = 1.2f;
         const float DugInHeight = 2.3f;   // trench lines and HQs sit on the higher ground, so a 1.8 m trench floor stays above the water table
         const float RiverHalfWidthAt = 10f, RiverBedDepth = 1.7f;
+        // The coast, beyond the far end of the layout: dry sand and dunes, then the waterline, then shallows out to
+        // the map edge. A craft grounds at the waterline and puts men down on the sand (SeaLandingSystem), so the dry
+        // part has to be wide enough to land a company on and to hold the beach obstacles.
+        public const float SeaMargin = 36f;     // metres of coast added to the map beyond the layout
+        public const float ShoreAt = 19f;       // where the water meets the sand, measured from the top of the beach
+        const float ShallowSlope = 0.085f;      // how fast the bed falls away under the water
+        const float SeaFallback = 0.15f;        // the water table a dry field is given when it is made a coast
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
         {
-            var map = new MapData(MapId, new float2(p.Width, p.Length), allocator);
+            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMargin : 0f)), allocator);
             map.WaterLevel = p.WaterLevel;
+            if (p.Sea)
+            {
+                if (map.WaterLevel <= MapData.NoWater) map.WaterLevel = SeaFallback;   // the sea IS the water table: without one nothing would be wet
+                map.SeaSide = 1; map.SeaStartZ = p.Length; map.ShoreZ = p.Length + ShoreAt; map.SeaLevel = map.WaterLevel;
+            }
             var rng = new Random(math.max(1u, p.Seed * 747796405u + 2891336453u));
             float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
             float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
@@ -93,6 +108,7 @@ namespace TW.Sim.Terrain
             for (int x = 0; x < hf.Width; x++)
             {
                 float wx = x + 0.5f, wz = z + 0.5f;
+                if (p.Sea && wz > map.SeaStartZ) { hf.Set(x, z, BeachHeight(p, map.SeaLevel, map.SeaStartZ, wx, wz)); continue; }
                 float h = BaseHeight + 2.6f * (Noise(p.Seed, wx, wz, 70f) - 0.5f) + 0.7f * (Noise(p.Seed + 1u, wx, wz, 18f) - 0.5f);
                 float keep = math.min(Ramp(wz - HqDepth, 0f, 16f * sz), Ramp(L - HqDepth - wz, 0f, 16f * sz));   // HQ areas are level
                 int nx = math.min(map.NavWidth - 1, x / 2);
@@ -249,6 +265,19 @@ namespace TW.Sim.Terrain
             map.RebuildCost();
             map.RebuildCover();
             return map;
+        }
+
+        /// <summary>The coast beyond the layout: the rear's own height at the top, falling to the waterline at
+        /// ShoreAt and on down under the water. Runnels and low banks of sand cross it, strongest where it is dry.
+        /// It starts at exactly the height the rear ground has, so the beach joins the field without a step.</summary>
+        public static float BeachHeight(BattlefieldParams p, float seaLevel, float seaStart, float x, float z)
+        {
+            float t = z - seaStart;
+            float top = DugInHeight + 0.4f * Noise(p.Seed + 2u, x, z, 9f);            // the same expression the rear ground uses
+            float y = t <= ShoreAt ? math.lerp(top, seaLevel, Ramp(t, 0f, ShoreAt)) : seaLevel - (t - ShoreAt) * ShallowSlope;
+            float dry = math.saturate(1.15f - t / ShoreAt);
+            return y + (Noise(p.Seed + 31u, x, z, 7.5f) - 0.5f) * 0.34f * dry
+                     + (Noise(p.Seed + 32u, x * 0.4f, z, 2.8f) - 0.5f) * 0.11f;       // ribs of sand, running with the shore
         }
 
         /// <summary>Solid props stay off trench approaches (ladders must not be sealed), the river and its crossings,

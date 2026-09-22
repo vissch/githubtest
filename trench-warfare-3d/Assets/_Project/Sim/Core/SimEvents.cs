@@ -48,6 +48,12 @@ namespace TW.Sim
         VehicleDitched,     // a = slot, b = trench id it nosed into (-1 = climbed out)
         VehicleCrushed,     // a = slot, b = 0 wire / 1 tree / 2 man, pos
         VehicleRepaired,    // a = slot, b = VehicleModule
+        VehicleLegLost,     // a = slot, b = which leg (left legs first), pos = where it stood: a walker is down a leg
+        VehicleClawed,      // a = slot, b = victim, pos = where it caught him: a claw closed on a man or a hull
+        // ---- landings (A3): SeaLandingSystem ----
+        CraftInbound,       // a = craft index, b = team, pos = where it appeared out to sea
+        CraftBeached,       // a = craft index, b = team, pos = where it grounded
+        ShipFired,          // a = ship index, b = team, pos = where the shell is going, dir = from the ship to it
     }
 
     /// <summary>Why a vehicle stopped fighting (VehicleKnockedOut.b).</summary>

@@ -115,6 +115,11 @@ namespace TW.Presentation.Terrain
                     return colorTex.GetPixel((int)(x * Tpm), (int)(z * Tpm)).a < .42f;   // a painted puddle
                 };
             }
+            if (map.HasSea)
+            {
+                if (GetComponent<Ocean>() == null) gameObject.AddComponent<Ocean>().Host = Host;
+                if (GetComponent<LandingCraftView>() == null) gameObject.AddComponent<LandingCraftView>().Host = Host;
+            }
             var props = GetComponent<BattlefieldProps>();
             if (props == null) props = gameObject.AddComponent<BattlefieldProps>();
             props.Host = Host;
@@ -270,7 +275,8 @@ namespace TW.Presentation.Terrain
             float w = map.SizeMeters.x, l = map.SizeMeters.y;
             float outside = Mathf.Max(Mathf.Max(-x, x - w), Mathf.Max(-z, z - l));
             float edge = map.Height.Sample(Mathf.Clamp(x, 0f, w), Mathf.Clamp(z, 0f, l));
-            return Mathf.Lerp(edge, SkirtLevel, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(outside / SkirtBlend)));
+            // past the waterline the land does not level out at all: the bed takes over and goes on down (Shore)
+            return Shore.Shape(map, x, z, Mathf.Lerp(edge, SkirtLevel, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(outside / SkirtBlend))));
         }
 
         void BuildSkirt(MapData map)
@@ -303,6 +309,7 @@ namespace TW.Presentation.Terrain
                         float y = k == 0 ? Mathf.Lerp(edge, level, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(beyond / SkirtBlend))) : SkirtY(map, side, t, d);
                         float off = high ? span2(alongZ, w, l) + d : -d;
                         var v = alongZ ? new Vector3(off, y, t) : new Vector3(t, y, off);
+                        if (k == 0) v.y = Shore.Shape(map, v.x, v.z, v.y);   // the corner columns too: the coast runs on past both flanks
                         verts.Add(v); cols.Add(MudMid);   // one tone: the columns are too far apart to carry the painted patches
                     }
                 }
@@ -337,7 +344,8 @@ namespace TW.Presentation.Terrain
                 float outside = Mathf.Max(Mathf.Max(-wx, wx - w), Mathf.Max(-wz, wz - l));
                 Color c = Tone(wx, wz);
                 if (outside < 5f) c = Color.Lerp(GroundColor(map, Mathf.Clamp(wx, 0f, w - 0.01f), Mathf.Clamp(wz, 0f, l - 0.01f)), c, Band(0f, 5f, outside));
-                pixels[z * tw + x] = Color.Lerp(c, MudMid, Band(30f, 96f, outside));
+                c = Color.Lerp(c, MudMid, Band(30f, 96f, outside));
+                pixels[z * tw + x] = Coast(map, wx, wz, SkirtHeight(map, wx, wz), c);   // the beach does not stop at the map edge
             }
             texture.SetPixels32(pixels); texture.Apply(true, true);
             owned.Add(texture);
@@ -370,7 +378,16 @@ namespace TW.Presentation.Terrain
             float beyond = side < 2 ? Mathf.Max(0f, Mathf.Max(-t, t - l)) : 0f;   // past the corner the ground is already level
             float blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Max(d, beyond) / SkirtBlend));
             float drift = (12f * Mathf.Sin(d * .11f + side * 1.9f) + 5f * Mathf.Sin(d * .31f + side)) * Mathf.SmoothStep(0f, 1f, d / 8f);
-            return Mathf.Lerp(SkirtEdge(map, side, t + drift), SkirtLevel, blend);
+            float x = side < 2 ? ((side & 1) == 1 ? map.SizeMeters.x + d : -d) : t;
+            float z = side < 2 ? t : ((side & 1) == 1 ? map.SizeMeters.y + d : -d);
+            return Shore.Shape(map, x, z, Mathf.Lerp(SkirtEdge(map, side, t + drift), SkirtLevel, blend));
+        }
+
+        /// <summary>The shared ripple map (RG slope, B streaks): the river's, and the sea's.</summary>
+        public Texture2D Ripples()
+        {
+            if (ripples == null) ripples = BuildRipples();
+            return ripples;
         }
 
         void BuildWater(MapData map)
@@ -396,10 +413,11 @@ namespace TW.Presentation.Terrain
             m.SetTexture("_RippleMap", ripples);
             m.SetVector("_DepthST", new Vector4(1f / (dw * GridStep), 1f / (renderGrid.Length * GridStep), (DepthBorder + .5f) / dw, .5f / renderGrid.Length));
             float w = map.SizeMeters.x, l = map.SizeMeters.y, y = map.WaterLevel;
+            if (map.HasSea) { if (map.SeaSide == 1) l = map.SeaStartZ; }   // the sea's own sheet (Ocean) takes it from here: two sheets at one level would fight
             var mesh = new Mesh
             {
                 name = "Water",
-                vertices = new[] { new Vector3(-40f, y, 0f), new Vector3(-40f, y, l), new Vector3(w + 40f, y, l), new Vector3(w + 40f, y, 0f) },   // past the edge: the rising land beyond pinches the river out
+                vertices = new[] { new Vector3(-40f, y, map.HasSea && map.SeaSide == 0 ? map.SeaStartZ : 0f), new Vector3(-40f, y, l), new Vector3(w + 40f, y, l), new Vector3(w + 40f, y, map.HasSea && map.SeaSide == 0 ? map.SeaStartZ : 0f) },   // past the edge: the rising land beyond pinches the river out
                 normals = new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up },
                 triangles = new[] { 0, 1, 2, 0, 2, 3 },
             };
@@ -831,6 +849,27 @@ namespace TW.Presentation.Terrain
             c.a = water ? .4f * (1f - Mathf.Clamp01((wetness - .82f) / .09f)) : silt ? .5f : 1f - sheen;
             float poolDepth = flooding > 0f ? Surface.PoolDepth(wx, wz) : 0f;
             if (poolDepth > .01f) { c = Puddle; c.a = .4f * (1f - Mathf.Clamp01(poolDepth / .7f)); }   // a flooded shell hole: the river's bands by its own depth
+            return Coast(map, wx, wz, h, c);
+        }
+
+        /// <summary>The coast takes over from the mud up the beach: pale dry sand at the top, darker and glossy where
+        /// the tide wets it, ribbed by the runnels, with a line of wrack and weed along the high-water mark. The same
+        /// rule paints the ground inside the map and the horizon beyond it, or the sand would stop at the map edge.</summary>
+        static Color Coast(MapData map, float wx, float wz, float ground, Color c)
+        {
+            if (map == null || !map.HasSea) return c;
+            float onto = (wz - map.SeaStartZ) * map.SeaAway;
+            if (onto <= 0f) return c;
+            float sand = Mathf.Clamp01(onto / 7f);
+            float wet = Mathf.Clamp01((map.SeaLevel + .40f - ground) / .85f);
+            var tone = Color.Lerp(new Color(.495f, .450f, .370f), new Color(.285f, .275f, .250f), wet);
+            float rib = Mathf.PerlinNoise(wx * .33f + 5f, wz * .95f + 17f);            // ribs of sand, running with the shore
+            float grit = Mathf.PerlinNoise(wx * 2.3f, wz * 2.3f + 63f);
+            tone *= .93f + .11f * rib + .04f * grit;
+            float wrack = 1f - Mathf.Clamp01(Mathf.Abs(ground - (map.SeaLevel + .62f)) / .13f);
+            if (Mathf.PerlinNoise(wx * .6f + 91f, wz * .6f) > .42f) tone = Color.Lerp(tone, new Color(.215f, .205f, .165f), wrack * .60f);
+            c = Color.Lerp(c, tone, sand);
+            c.a = Mathf.Lerp(c.a, Mathf.Lerp(1f, .45f, wet), sand);                     // wet sand mirrors: below 1 is gloss in TW/Toon
             return c;
         }
     }

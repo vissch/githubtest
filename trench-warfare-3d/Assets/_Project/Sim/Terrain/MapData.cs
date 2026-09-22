@@ -38,6 +38,26 @@ namespace TW.Sim.Terrain
         /// DeepDepth under is Blocked (the generator only; a shell never makes ground impassable). NoWater = dry map.</summary>
         public float WaterLevel = NoWater;
         public const float NoWater = -1000f, WetDepth = 0.15f, DeepDepth = 1.0f;
+        // ---- the sea (A3 landings) -------------------------------------------------------------------------
+        /// <summary>Which rear edge the sea lies beyond: 0 = the z = 0 edge, 1 = the z = Length edge, NoSea = inland.
+        /// The map runs on past SeaStartZ into sand and shallows; the team whose rear it is lands its reinforcements
+        /// there (SeaLandingSystem) instead of them appearing at a spawn point.</summary>
+        public byte SeaSide = NoSea;
+        public const byte NoSea = 255;
+        /// <summary>Where the battle layout ends and the beach begins, in metres along Z.</summary>
+        public float SeaStartZ;
+        /// <summary>Where the water meets the sand, in metres along Z.</summary>
+        public float ShoreZ;
+        /// <summary>The surface of the sea in metres (the water table, on a map with a river).</summary>
+        public float SeaLevel;
+        public bool HasSea => SeaSide != NoSea;
+        /// <summary>The team whose rear the sea is.</summary>
+        public byte SeaTeam => (byte)(SeaSide == 0 ? 0 : 1);
+        /// <summary>+1 when the sea lies beyond increasing Z, -1 when it lies beyond decreasing Z.</summary>
+        public float SeaAway => SeaSide == 0 ? -1f : 1f;
+        /// <summary>Metres out to sea from the waterline; negative up the beach.</summary>
+        public float Offshore(float z) => (z - ShoreZ) * SeaAway;
+
         public NativeList<PropDef> Props;          // trees, stumps, wrecks, bridges (A4); mutable during a match
         public NativeArray<byte> CellCover;        // derived from Props: cover percent per nav cell
 
@@ -179,7 +199,10 @@ namespace TW.Sim.Terrain
         {
             float3 a = default, b = default;
             for (int i = 0; i < Spawns.Length; i++) { if (Spawns[i].Team == 0) a = Spawns[i].Pos; else b = Spawns[i].Pos; }
-            return new SimConfig.WorldInit { SizeMeters = SizeMeters, SpawnA = a, SpawnB = b, GoalZA = SizeMeters.y - 4f, GoalZB = 4f };
+            // team 0 advances to the far end of the LAYOUT, not of the map: past it is the enemy's beach and the sea
+            float farEnd = HasSea && SeaSide == 1 ? SeaStartZ : SizeMeters.y;
+            float nearEnd = HasSea && SeaSide == 0 ? SeaStartZ : 0f;
+            return new SimConfig.WorldInit { SizeMeters = SizeMeters, SpawnA = a, SpawnB = b, GoalZA = farEnd - 4f, GoalZB = nearEnd + 4f };
         }
 
         /// <summary>Fold the mutable parts (heightfield, layers, cost) into the tick hash. Called by the deformation system (A4).</summary>
@@ -191,6 +214,7 @@ namespace TW.Sim.Terrain
             h = SimHash.Array(CellTrenchId, h);
             h = SimHash.Array(CellCover, h);
             h = SimHash.Value(WaterLevel, h);
+            h = SimHash.Value(SeaSide, h); h = SimHash.Value(SeaStartZ, h); h = SimHash.Value(ShoreZ, h); h = SimHash.Value(SeaLevel, h);
             for (int i = 0; i < Props.Length; i++)   // field by field: the struct has padding bytes
             {
                 var p = Props[i];

@@ -40,15 +40,55 @@ namespace TW.Sim.Nav
         public float HalfLength, HalfWidth;   // footprint, metres (the tracks)
         public bool PushesTrees;
         public bool Wheeled;           // road-only effective speed (A5b data, no wheeled vehicle yet)
+        public bool Walker;            // legs, not tracks: steps over trenches and wire, climbs, cannot ditch
+        public byte Legs;              // how many it has to lose (VehicleModulesSystem)
 
-        /// <summary>Two tanks (VehicleArchetype). C2 replaces this with baked VehicleDefinition data.</summary>
-        public static VehicleProfile ForArchetype(byte archetype) => archetype == VehicleArchetype.Tusk ? Tusk : Maw;
+        /// <summary>Two tanks and two walkers (VehicleArchetype). C2 replaces this with baked VehicleDefinition data.</summary>
+        public static VehicleProfile ForArchetype(byte archetype)
+        {
+            switch (archetype)
+            {
+                case VehicleArchetype.Tusk: return Tusk;
+                case VehicleArchetype.Pincer: return Pincer;
+                case VehicleArchetype.Kettle: return Kettle;
+                case VehicleArchetype.Censer: return Censer;
+                case VehicleArchetype.Pavise: return Pavise;
+                case VehicleArchetype.Banner: return Banner;
+                case VehicleArchetype.Redoubt: return Redoubt;
+                default: return Maw;
+            }
+        }
 
         public static VehicleProfile Maw => new VehicleProfile
         { TurnRateRad = 0.42f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.05f, HalfLength = 2.55f, HalfWidth = 2.25f, PushesTrees = true };
 
         public static VehicleProfile Tusk => new VehicleProfile
         { TurnRateRad = 0.75f, TrenchCrossWidth = 2.4f, DitchChance = 0.75f, SlopeLimit = 0.6f, BogChance = 0.025f, HalfLength = 1.85f, HalfWidth = 2.25f };
+
+        // The crabs, measured off Tools/crabsplit.py's crabs.json: Pincer 3.80 x 3.36 m, Kettle 3.20 x 2.65 m. A leg
+        // finds its own footing, so mud barely holds them and a slope a tank would slide off is nothing; what stops a
+        // walker is losing legs.
+        public static VehicleProfile Pincer => new VehicleProfile
+        { TurnRateRad = 1.15f, TrenchCrossWidth = 3.6f, DitchChance = 0f, SlopeLimit = 0.95f, BogChance = 0.008f, HalfLength = 1.70f, HalfWidth = 1.90f, PushesTrees = true, Walker = true, Legs = 6 };
+
+        public static VehicleProfile Kettle => new VehicleProfile
+        { TurnRateRad = 1.35f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.90f, BogChance = 0.012f, HalfLength = 1.35f, HalfWidth = 1.60f, Walker = true, Legs = 4 };
+
+        // Censer 3.30 x 2.95 m, Pavise 3.60 x 3.55 m. The gas crab is the quickest thing on the field on its feet;
+        // the shielded one is the slowest, and plants itself to shoot.
+        public static VehicleProfile Censer => new VehicleProfile
+        { TurnRateRad = 1.45f, TrenchCrossWidth = 3.1f, DitchChance = 0f, SlopeLimit = 0.92f, BogChance = 0.010f, HalfLength = 1.50f, HalfWidth = 1.65f, Walker = true, Legs = 4 };
+
+        public static VehicleProfile Pavise => new VehicleProfile
+        { TurnRateRad = 0.95f, TrenchCrossWidth = 3.4f, DitchChance = 0f, SlopeLimit = 0.88f, BogChance = 0.014f, HalfLength = 1.78f, HalfWidth = 1.80f, PushesTrees = true, Walker = true, Legs = 4 };
+
+        // Banner 2.03 x 3.40 m on four tall legs, Redoubt 2.97 x 3.60 m on six. The blockhouse is the heaviest thing
+        // that walks and the slowest; the command walker is tall and narrow and steps over anything.
+        public static VehicleProfile Banner => new VehicleProfile
+        { TurnRateRad = 1.05f, TrenchCrossWidth = 3.5f, DitchChance = 0f, SlopeLimit = 0.94f, BogChance = 0.010f, HalfLength = 1.70f, HalfWidth = 1.05f, Walker = true, Legs = 4 };
+
+        public static VehicleProfile Redoubt => new VehicleProfile
+        { TurnRateRad = 0.80f, TrenchCrossWidth = 3.3f, DitchChance = 0f, SlopeLimit = 0.86f, BogChance = 0.018f, HalfLength = 1.80f, HalfWidth = 1.50f, PushesTrees = true, Walker = true, Legs = 6 };
 
         /// <summary>A round radius for keeping two hulls apart: the longer half plus a hand, so the corners of two
         /// hulls side by side or nose to flank do not pass through each other (the mean of length and width let the
@@ -59,6 +99,8 @@ namespace TW.Sim.Nav
     public sealed class VehicleKinematicsSystem : ISimSystem
     {
         public const float CrossSpeed = 0.45f, MudSpeed = 0.5f, CraterSpeed = 0.7f, WireSpeed = 0.8f, PivotAngle = 1.1f, PivotSpeed = 0.06f;
+        /// <summary>The same three for a walker, which is slowed far less by all of them (and not at all by wire).</summary>
+        public const float StepOverSpeed = 0.72f, WadeSpeed = 0.78f, PickSpeed = 0.88f;
         public const int DitchMin = 240, DitchMax = 600, BogMin = 80, BogMax = 260;
         public const float CrushDamage = 200f, CrushSpeed = 0.4f;
         public int Order => SimSystemOrder.VehicleKinematics;
@@ -141,7 +183,7 @@ namespace TW.Sim.Nav
                 var prof = VehicleProfile.ForArchetype(w.Archetype[i]);
                 float3 p = w.Position[i], v = w.Velocity[i];
                 float speed = SimMath.Length(v);
-                if (speed > 0.2f)
+                if (speed > 0.2f && !prof.Walker)   // a walker steps over wire: it neither slows nor breaks it
                 {
                     int opened = WireBelt.Breach(map, p, prof.HalfWidth);
                     if (opened > 0)
@@ -339,8 +381,12 @@ namespace TW.Sim.Nav
                     float align = math.abs(remaining) > PivotAngle ? PivotSpeed : math.max(0.3f, SimMath.Cos(remaining));
                     float3 heading = SimMath.DirFromYaw(yaw);
                     byte from = Layers[cell];
-                    float terrain = (from & (byte)NavLayer.Trench) != 0 ? CrossSpeed : (from & (byte)NavLayer.Mud) != 0 ? MudSpeed : (from & (byte)NavLayer.Crater) != 0 ? CraterSpeed : 1f;
-                    if ((from & (byte)NavLayer.Wire) != 0) terrain *= WireSpeed;
+                    // A walker picks its way over what a tank has to drive through: it strides a trench instead of
+                    // bellying across it, finds footing in mud and shell holes, and lifts its legs over wire.
+                    float terrain = prof.Walker
+                        ? ((from & (byte)NavLayer.Trench) != 0 ? StepOverSpeed : (from & (byte)NavLayer.Mud) != 0 ? WadeSpeed : (from & (byte)NavLayer.Crater) != 0 ? PickSpeed : 1f)
+                        : ((from & (byte)NavLayer.Trench) != 0 ? CrossSpeed : (from & (byte)NavLayer.Mud) != 0 ? MudSpeed : (from & (byte)NavLayer.Crater) != 0 ? CraterSpeed : 1f);
+                    if ((from & (byte)NavLayer.Wire) != 0 && !prof.Walker) terrain *= WireSpeed;
                     float3 v = heading * (Speed[i] * align * terrain * SlopeFactor(p, heading, prof) * SpeedFactor[i]);
                     float3 np = p + v * Dt;
                     np.x = math.clamp(np.x, 1f, Size.x - 1f);

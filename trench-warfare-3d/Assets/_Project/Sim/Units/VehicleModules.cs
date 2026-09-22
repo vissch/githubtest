@@ -40,6 +40,7 @@ namespace TW.Sim.Units
         public const int CookOffSource = 30;           // Explosion.a for a tank blowing up
         public const float BailedHp = 50f, BailedSpeed = 3f;
         public const float ObliterateShare = 0.5f;
+        public const uint StandardEvery = 5;   // ticks between two sweeps of a Banner's standard
         const int M = (int)VehicleModule.Count;
         const int Guns = TankGunnerySystem.Guns;
 
@@ -49,6 +50,7 @@ namespace TW.Sim.Units
         SimWorld world;
         TankGunnerySystem gunnery;
         BlastSystem blast;
+        GasSmokeSystem gas;
         VehicleKinematicsSystem kinematics;
 
         // ---- per slot, hashed ----
@@ -62,6 +64,9 @@ namespace TW.Sim.Units
         public NativeArray<int> Shaken;          // ticks the crew is rattled (the guns barely work)
         public NativeArray<int> Repair;          // quiet ticks toward the next repair
         public NativeArray<int> LastShooter;     // for the kill
+        /// <summary>A walker's legs that are gone: one bit each, the left side's first (VehicleProfile.Legs). A hit
+        /// that would break a track takes whole legs off instead, and the side fails when its last one goes.</summary>
+        public NativeArray<byte> LegsLost;
         public int Penetrations, Ricochets, KnockOuts, CookOffs, BailedOut;
         ulong checksum = SimHash.Offset;
         int hitSerial;                           // per tick: one random stream per resolved hit
@@ -74,6 +79,7 @@ namespace TW.Sim.Units
             kinematics = w.GetSystem<VehicleKinematicsSystem>() ?? throw new System.InvalidOperationException("VehicleModulesSystem needs VehicleKinematicsSystem registered before it");
             gunnery = w.GetSystem<TankGunnerySystem>();   // null without combat
             blast = w.GetSystem<BlastSystem>();
+            gas = w.GetSystem<GasSmokeSystem>();          // null without combat: the Censer's drum needs it
             int n = w.Config.MaxSlots;
             Gen = new NativeArray<ushort>(n, Allocator.Persistent);
             Module = new NativeArray<float>(n * M, Allocator.Persistent);
@@ -86,10 +92,19 @@ namespace TW.Sim.Units
             Shaken = new NativeArray<int>(n, Allocator.Persistent);
             Repair = new NativeArray<int>(n, Allocator.Persistent);
             LastShooter = new NativeArray<int>(n, Allocator.Persistent);
+            LegsLost = new NativeArray<byte>(n, Allocator.Persistent);
         }
 
         static bool IsTank(SimWorld w, int i)
-            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsTank(w.Archetype[i]);
+            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsArmoured(w.Archetype[i]);
+
+        /// <summary>How many of a walker's legs on one side are gone.</summary>
+        int LegsGone(int slot, bool right, int perSide)
+        {
+            int n = 0;
+            for (int k = 0; k < perSide; k++) if ((LegsLost[slot] & (1 << (right ? perSide + k : k))) != 0) n++;
+            return n;
+        }
 
         public float ModuleOf(int slot, VehicleModule m) => Module[slot * M + (int)m];
 
@@ -114,6 +129,7 @@ namespace TW.Sim.Units
             for (int m = 0; m < M; m++) Module[i * M + m] = 1f;
             Crew[i] = CrewMax[i] = spec.Crew;
             Fire[i] = 0f; State[i] = (byte)VehicleState.Active; StateTicks[i] = 0; LastHitTick[i] = w.Tick; Shaken[i] = 0; Repair[i] = 0; LastShooter[i] = -1;
+            LegsLost[i] = 0;
             kinematics.SpeedFactor[i] = 1f;
             if (gunnery != null) { gunnery.CrewFactor[i] = 1f; for (int k = 0; k < Guns; k++) gunnery.GunHealth[i * Guns + k] = 1f; }
         }
@@ -221,8 +237,26 @@ namespace TW.Sim.Units
             {
                 case VehicleModule.TrackLeft:
                 case VehicleModule.TrackRight:
+                {
+                    // A walker has legs on that side, not a track. The module is the share of them still under it, so
+                    // a hit takes whole legs off one at a time and the side only fails when the last one has gone.
+                    var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[t]);
+                    if (prof.Walker && prof.Legs > 0)
+                    {
+                        bool onRight = m == VehicleModule.TrackRight;
+                        int perSide = math.max(1, prof.Legs / 2);
+                        int want = perSide - (int)math.ceil(after * perSide - 1e-4f);
+                        for (int k = 0; k < perSide && LegsGone(t, onRight, perSide) < want; k++)
+                        {
+                            int leg = onRight ? perSide + k : k;
+                            if ((LegsLost[t] & (1 << leg)) != 0) continue;
+                            LegsLost[t] = (byte)(LegsLost[t] | (1 << leg));
+                            w.Events.Add(w.Tick, SimEventType.VehicleLegLost, t, leg, w.Position[t]);
+                        }
+                    }
                     if (broke) w.Events.Add(w.Tick, SimEventType.VehicleTrackHit, t, m == VehicleModule.TrackRight ? 1 : 0, w.Position[t]);
                     break;
+                }
                 case VehicleModule.Engine:
                     if (broke) w.Events.Add(w.Tick, SimEventType.VehicleStalled, t, 1, w.Position[t]);
                     if (rng.NextFloat() < 0.3f) StartFire(w, t, 0.25f);
@@ -305,6 +339,7 @@ namespace TW.Sim.Units
         void Tick(SimWorld w, int i)
         {
             var rng = Dice(w, 0x300000u + (uint)i);
+            var spec = TankSpec.For(w.Archetype[i]);
             if (Shaken[i] > 0) Shaken[i]--;
             if (Fire[i] > 0f)
             {
@@ -351,7 +386,36 @@ namespace TW.Sim.Units
             if (Fire[i] > 0f) f |= (uint)UnitFlags.Burning;
             if (State[i] != (byte)VehicleState.Active) f |= (uint)UnitFlags.KnockedOut;
             w.Flags[i] = f;
-            kinematics.SpeedFactor[i] = (engine < 0.5f ? 0.55f : 1f) * (Crew[i] >= 2 ? 1f : 0.6f);
+            // every leg a walker has lost slows it, whatever side it was on: it limps long before it stops
+            float lame = 1f;
+            var profile = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]);
+            if (profile.Walker && LegsLost[i] != 0) lame = math.max(0.25f, 1f - 0.16f * math.countbits((uint)LegsLost[i]));
+            kinematics.SpeedFactor[i] = (engine < 0.5f ? 0.55f : 1f) * (Crew[i] >= 2 ? 1f : 0.6f) * lame;
+            // the standard over a Banner steadies its own side: men fighting near it come out of suppression faster.
+            // Checked every StandardEvery ticks over the live slots, which is a few thousand compares for the one or
+            // two of these either side can afford.
+            if (spec.StandardRadius > 0f && State[i] == (byte)VehicleState.Active && w.Tick % StandardEvery == (uint)i % StandardEvery)
+            {
+                float r2 = spec.StandardRadius * spec.StandardRadius, steady = spec.StandardSteady * StandardEvery * w.Config.TickSeconds;
+                byte team = w.Team[i]; float3 at = w.Position[i];
+                for (int j = 0; j < w.HighWater; j++)
+                {
+                    if (!w.IsAlive(j) || w.Team[j] != team || (w.Flags[j] & (uint)UnitFlags.Vehicle) != 0) continue;
+                    if (w.Suppression[j] <= 0f) continue;
+                    float3 d = w.Position[j] - at; d.y = 0f;
+                    if (math.lengthsq(d) > r2) continue;
+                    w.Suppression[j] = math.max(0f, w.Suppression[j] - steady);
+                }
+            }
+            // the Censer lays its chlorine as it walks, out of the drum on its back: hole the drum and it stops (and
+            // the drum is its ammunition, so holing it usually ends the machine instead)
+            if (spec.GasEverySeconds > 0f && gas != null && State[i] == (byte)VehicleState.Active
+                && Module[i * M + (int)VehicleModule.Ammo] > 0f)
+            {
+                int every = math.max(1, (int)math.round(spec.GasEverySeconds / w.Config.TickSeconds));
+                if (w.Tick % (uint)every == (uint)i % (uint)every)
+                    gas.AddSource(w.Position[i], spec.GasStrength * Module[i * M + (int)VehicleModule.Ammo], every + 10, w.Team[i]);
+            }
             if (gunnery != null)
                 gunnery.CrewFactor[i] = State[i] != (byte)VehicleState.Active ? 0f : Shaken[i] > 0 ? 0.2f : Crew[i] / math.max(1f, CrewMax[i]);
         }
@@ -390,7 +454,7 @@ namespace TW.Sim.Units
             w.Events.Add(w.Tick, SimEventType.VehicleKnockedOut, t, (int)cause, w.Position[t], new float3(0f, w.Yaw[t], 0f));
             if (cause == VehicleKillCause.Structure && rng.NextFloat() < 0.5f) StartFire(w, t, 0.4f);
             StateTicks[t] = rng.NextInt(BurnOutMin, BurnOutMax + 1);
-            BailOut(w, t);
+            if (!TankSpec.For(w.Archetype[t]).Unmanned) BailOut(w, t);   // nobody gets out of a walker: there is nobody in it
             if (gunnery != null) gunnery.CrewFactor[t] = 0f;
             checksum = SimHash.Value(new int2(t, (int)cause), checksum);
         }
@@ -494,6 +558,7 @@ namespace TW.Sim.Units
             h = SimHash.Array(Shaken, n, h);
             h = SimHash.Array(Repair, n, h);
             h = SimHash.Array(LastShooter, n, h);
+            h = SimHash.Array(LegsLost, n, h);
             h = SimHash.Value(new int4(Penetrations, Ricochets, KnockOuts, CookOffs), h);
             h = SimHash.Value(BailedOut, h);
             return SimHash.Combine(h, checksum);
@@ -512,6 +577,7 @@ namespace TW.Sim.Units
             if (Shaken.IsCreated) Shaken.Dispose();
             if (Repair.IsCreated) Repair.Dispose();
             if (LastShooter.IsCreated) LastShooter.Dispose();
+            if (LegsLost.IsCreated) LegsLost.Dispose();
         }
     }
 }
