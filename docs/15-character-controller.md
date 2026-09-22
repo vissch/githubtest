@@ -269,6 +269,16 @@ retiming, limbs layered from another clip, IK-held poses, procedural cycles), so
 and they import exactly like the originals. Two of them, wading and the ladder, would still be better as captured
 motion if Mixamo has anything closer when the bake exists.
 
+Second pass after a harsh animation critique (same day): four habits were fixed in the helpers rather than per clip:
+stride scaling is asymmetric (the forward swing grows, the trailing swing shrinks, so a high step is not a hurdle),
+every hips drop bends the knees to match (feet stay on the floor), arm layers are the live arm track and not a held
+frame, reactions go in over 2 to 4 frames and out over 15. Prone Death's right arm target was out of reach (the hand
+sat inside the torso) and the bent knee stayed up: fixed, and it now lands in 0.3 s with an overshoot. Get Up drifted
+a metre forward, which under VAT would slide the man and snap him back: the root travel is stripped. Stumble is a
+3-frame trip; Mask is four phases (bag, face into the mask, straps, drop); Burning is a folded stagger; the officer's
+point raises then chops, the whistle adds the "follow me" arm. The critique's ranking of what the tactical camera sees
+most: prone death, get up, stumble, wire / wade, crawl.
+
 ## 14. Order of work
 
 1. Baker: clip table, root-motion strip per clip, mirror, cut, frame rates; bake the 131; the far-tier map;

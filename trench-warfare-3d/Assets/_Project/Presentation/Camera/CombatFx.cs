@@ -1,7 +1,8 @@
-// Phase: B1 (implemented; greybox stand-in for C4 VFX and B5 ragdolls)
-// Makes the fight readable with capsules only: every Shot event becomes a short-lived tracer, every Death leaves a
-// flattened body in the team colour, and every trench or objective capture raises a banner. Instanced draws, no
-// GameObjects per effect. Listens to SimHost.Events, so it sees exactly what the local sim produced.
+// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
+// Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
+// lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
+// leaves a body, and every trench or objective capture raises a banner. Instanced draws, no GameObjects per effect.
+// Listens to SimHost.Events, so it sees exactly what the local sim produced.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
@@ -67,6 +68,7 @@ namespace TW.Presentation.Tactical
         Mesh markQuad;
         float nextPrint, nextBreath, nextExhaust; int breathCursor;
         static readonly int WetId = Shader.PropertyToID("_TWWet");
+        static readonly int WindGlobalId = Shader.PropertyToID("_TWWind");
         struct Bird { public Vector3 Pos, Vel; public float Born, Phase; }
         readonly List<Bird> birds = new List<Bird>();
         const int MaxBirds = 80; const float BirdLife = 8f;
@@ -101,6 +103,12 @@ namespace TW.Presentation.Tactical
         }
         Material tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat;
         readonly Material[] gasMats = new Material[3];
+        FlipbookFx books;   // the drawn bursts, dust, hits and flares; without its textures the older painted meshes stand in
+        int hitsThisFrame;
+        // a burst lights what stands round it for a third of a second: four pooled point lights, the oldest reused
+        readonly Light[] burstLights = new Light[4];
+        readonly float[] burstLit = new float[4];
+        int nextLight;
         TestPanel panel;
         TW.Presentation.Units.VATRenderer units;
         string banner; float bannerUntil;
@@ -144,6 +152,8 @@ namespace TW.Presentation.Tactical
             gasMats[2] = Transparent(unlit, new Color(0.80f, 0.86f, 0.22f, 0.52f));
             panel = GetComponent<TestPanel>();
             units = FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            books = new FlipbookFx();
+            if (!books.Ready) Debug.LogWarning("CombatFx: the flipbook textures (Resources/VFX) or TW/Flipbook are missing; drawing the painted stand-ins.");
             // the fallen lie as they fell: four deaths a side, in their side's cloth
             for (int k = 0; k < 8; k++)
                 fallen[k] = TW.Presentation.Units.ProceduralSoldier.BuildFallen(k & 3, k < 4 ? new Color(0.47f, 0.40f, 0.24f) : new Color(0.34f, 0.38f, 0.40f));
@@ -296,6 +306,8 @@ namespace TW.Presentation.Tactical
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.Sparks = null;
+            books?.Dispose();
+            foreach (var l in burstLights) if (l != null) Destroy(l.gameObject);
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
@@ -328,7 +340,15 @@ namespace TW.Presentation.Tactical
                     to.y = RenderGround.Sample(Host.Local.Map, to.x, to.z) + 0.9f * scale;
                     tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
                     Vector3 direction = (to - from).normalized;
-                    if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
+                    bool drawn = books != null && books.Ready;
+                    if (e.Scalar < 0.5f && drawn)
+                    {
+                        // the flare at the muzzle lies along the shot; over-bright at night so the bloom takes it
+                        float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale;
+                        books.Add(FlipbookFx.Book.Muzzle, from + direction * (0.55f * scale), flare, 0.09f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            roll: FlipbookFx.ScreenRoll(cam, direction) + Mathf.PI, glow: SceneMood.Night ? 3.2f : 1.6f);
+                    }
+                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
                     // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
@@ -339,15 +359,20 @@ namespace TW.Presentation.Tactical
                         float angle = UnityEngine.Random.value * 6.2832f, off = UnityEngine.Random.Range(0.35f, 1.7f);
                         Vector3 hit = new Vector3(to.x + Mathf.Cos(angle) * off, 0f, to.z + Mathf.Sin(angle) * off);
                         hit.y = RenderGround.Sample(Host.Local.Map, hit.x, hit.z);
+                        bool mirror = UnityEngine.Random.value < 0.5f;
                         if (SceneHooks.IsWater != null && SceneHooks.IsWater(hit.x, hit.z))
                         {
                             SceneHooks.AddRing?.Invoke(hit.x, hit.z, 0.8f);
                             Throw(hit + Vector3.up * 0.4f, 3, 4, 3.4f, 0.05f);
+                            // a round in the water stands up a little white column
+                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.55f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f);
                         }
                         else
                         {
-                            Throw(hit, 3, 0, 3.0f, 0.06f);
+                            Throw(hit, drawn ? 2 : 3, 0, 3.0f, 0.06f);
                             if (SceneMood.Night && UnityEngine.Random.value < 0.22f) Throw(hit, 1, 3, 7f, 0.03f);
+                            // and in the mud a spurt of dust that leans away from the shooter
+                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (0.8f + UnityEngine.Random.value * 0.4f) * scale, 0.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f);
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
@@ -360,6 +385,35 @@ namespace TW.Presentation.Tactical
                             Born = Time.time, Life = 3f, Size = 1f, Kind = 5 });
                         chunks.Add(new Chunk { Pos = from + direction * 0.7f, Vel = direction * 0.25f + Vector3.up * 0.5f, Born = Time.time, Life = UnityEngine.Random.Range(1.8f, 2.6f), Size = 0.06f, Kind = 7 });
                     }
+                    break;
+                }
+                case SimEventType.Hit:
+                {
+                    // a man struck: a spike of light where the round lands and a small cloud off his coat, at chest height for
+                    // his stance. A ricochet (negative damage) is only the spike. A few a frame at most, whatever the fight.
+                    if (books == null || !books.Ready || hitsThisFrame >= 8 || e.B < 0 || e.B >= w.HighWater) break;
+                    hitsThisFrame++;
+                    var cam = Camera.main;
+                    float scale = 1f;
+                    if (units != null)
+                    {
+                        float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
+                        scale = units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
+                    }
+                    var stance = (Stance)w.StanceOf[e.B];
+                    bool vehicle = (w.Flags[e.B] & (uint)UnitFlags.Vehicle) != 0;
+                    float chest = vehicle ? 1.4f : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 0.75f : 1.05f;
+                    Vector3 p = (Vector3)w.Position[e.B];
+                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + chest * scale;
+                    Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
+                    p -= toward.normalized * (0.18f * scale);   // on the side the round came from
+                    p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
+                    if (vehicle) books.Add(FlipbookFx.Book.Star, p, 0.9f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 3f : 1.8f);
+                    else books.Add(FlipbookFx.Book.Flash, p, 0.7f * scale, 0.06f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 2.2f : 1.4f, pop: 0.5f);
+                    if (e.Scalar > 0f)
+                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 0.9f : 0.5f) * scale, 0.4f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: toward.normalized * 0.6f + Vector3.up * 0.5f, grow: 0.7f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
+                    if (vehicle && SceneMood.Night) Throw(p, 4, 3, 5f, 0.03f);   // sparks off armour
                     break;
                 }
                 case SimEventType.Death:
@@ -383,12 +437,40 @@ namespace TW.Presentation.Tactical
                 {
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
-                    if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
                     bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
-                    if (wet) Throw(p + Vector3.up * 0.4f, 26, 4, 12f, 0.13f);   // a shell in the water throws a white column, not earth
+                    bool drawn = books != null && books.Ready;
+                    if (drawn)
+                    {
+                        // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
+                        // burst running out either side, and the boiling cloud that rises off it and thins
+                        float r = Mathf.Clamp(e.Scalar, 2f, 9f);
+                        bool mirror = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 1) == 0;
+                        var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
+                        Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
+                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 2.2f, 0.14f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 5f : 2.5f, pop: 0.5f);
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * 1.1f, wet ? 1.2f : 1.5f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
+                        // the two wings are not a mirror pair: the second is born a little later and a little smaller
+                        books.Add(FlipbookFx.Book.Wings, p, r * 1.7f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
+                        books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 1.45f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
+                        if (!wet)
+                        {
+                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 1.9f, 2.0f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                velocity: Vector3.up * (r * 0.3f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: SceneMood.Night ? 2.6f : 1.6f, pop: 0.3f);
+                            // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
+                            for (int k = 0; k < 3; k++)
+                            {
+                                Vector3 off = new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.35f + k * 0.28f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r;
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.2f, 1.7f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 1.4f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.6f, pop: 0.2f);
+                            }
+                        }
+                        BurstLight(p + Vector3.up * (r * 0.4f), r);
+                    }
+                    else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
+                    if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 14 : 26, 4, 12f, 0.13f);   // a shell in the water throws a white column, not earth
                     else
                     {
-                        Throw(p, 14, 0, 9f, 0.22f);
+                        Throw(p, drawn ? 8 : 14, 0, 9f, 0.22f);
                         // a fresh hole: clods lie thrown round its rim, and the hot earth steams in the rain (seen from close by)
                         float rim = Mathf.Clamp(e.Scalar * 0.55f, 1.2f, 4.5f);
                         for (int k = 0; k < 8; k++)
@@ -421,6 +503,7 @@ namespace TW.Presentation.Tactical
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 1.5f;
                     Throw(p, 18, 1, 7f, 0.16f);   // splinters where a tree broke, scrap where a wreck settled
+                    if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, p, 2.2f, 0.7f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.8f, grow: 0.6f, alpha: 0.7f);
                     break;
                 }
                 case SimEventType.TrenchCaptured:
@@ -433,6 +516,35 @@ namespace TW.Presentation.Tactical
         }
 
         void Banner(string text, float seconds = 4f) { banner = text; bannerUntil = Time.time + seconds; }
+
+        /// <summary>The fire of a burst thrown on the ground and the men: a point light that peaks at once and is out in 0.4 s.</summary>
+        void BurstLight(Vector3 at, float radius)
+        {
+            int i = nextLight; nextLight = (nextLight + 1) % burstLights.Length;
+            if (burstLights[i] == null)
+            {
+                var go = new GameObject("Burst light " + i) { hideFlags = HideFlags.HideAndDontSave };
+                var l = go.AddComponent<Light>();
+                l.type = LightType.Point; l.shadows = LightShadows.None; l.color = new Color(1f, 0.62f, 0.26f); l.intensity = 0f;
+                burstLights[i] = l;
+            }
+            burstLights[i].transform.position = at;
+            burstLights[i].range = Mathf.Clamp(radius * 3f, 8f, 24f);
+            burstLit[i] = Time.time;
+            burstLights[i].enabled = true;
+        }
+
+        void UpdateLights(float now)
+        {
+            for (int i = 0; i < burstLights.Length; i++)
+            {
+                var l = burstLights[i]; if (l == null || !l.enabled) continue;
+                float age = now - burstLit[i];
+                if (age > 0.4f) { l.enabled = false; l.intensity = 0f; continue; }
+                float k = age < 0.06f ? age / 0.06f : 1f - (age - 0.06f) / 0.34f;
+                l.intensity = (SceneMood.Night ? 9f : 4f) * k * k;
+            }
+        }
 
         void Update()
         {
@@ -511,6 +623,9 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(puff, new RenderParams(smokeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
             DrawChunks(now, bounds);
+            books?.Draw(now, bounds);
+            UpdateLights(now);
+            hitsThisFrame = 0;
 
             // target markers (both sides see where support fire was called) and the aiming circle
             markers.RemoveAll(m => now > m.Until);

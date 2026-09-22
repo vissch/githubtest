@@ -173,6 +173,22 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   `Tools/make_missing_clips.py` holds the recipes (`python Tools/make_missing_clips.py "<download folder>"` writes
   them to `<download folder>/Made/`). Verified by importing into Unity (one clip, 340 curves each) and rendering on the
   skinned figure: `docs/reference/made-clips/`. Not in the repo: the FBX files live with the download.
+  Second pass (2026-09-22, harsh-critique loop): the forge gained asymmetric stride scaling (`scale_motion(back=,
+  axis=)`), `strip_root`, `wave`; the recipes gained `react` (fast-in / slow-out reactions), `drop_hips` (knees take
+  the drop), `high_step`. Prone Death's right arm now reaches, the bent knee goes flat, and it lands in 0.3 s; Get Up
+  no longer drifts a metre (root stripped); Stumble is a 3-frame trip; Mask is four phases; Burning is a folded
+  stagger; the officer's point raises then chops and the whistle adds the "follow me" arm. Point / whistle IK errors
+  are 8 to 11 cm (the targets sit at the arm's reach); MG carry 4 to 6 cm.
+  VFX (2026-09-22): `Shaders/Flipbook_URP.shader` + `Presentation/Camera/FlipbookFx.cs` draw hand-painted flipbooks
+  from the owner's SrRubfish / Hun0FX packs (`Resources/VFX/`, eight textures, 2.8 MB) on instanced camera cards whose
+  matrix is a packed record (position, size, frame, alpha, brightness, roll, upright, anchored, mirror). The books'
+  greys are remapped per book into the toon lit / shade bands (`_Levels`) and read per unit of alpha (the packs keep
+  black under transparent pixels). CombatFx: a shell burst is flash + earth or water column + two unequal wings + a
+  rising cloud + three drifting dark smoke cards (4 to 6.5 s) + a pooled orange point light (4, 0.4 s); a shot is a
+  muzzle flare along the shot and a dust spurt or a small water column where it lands; a Hit (the event was
+  unconsumed) is a soft flash and a puff on the shooter's side. The ink plume and puff meshes remain as the fallback
+  when the textures are missing. Captures: `docs/reference/vfx/`. Licence: the packs are Asset Store purchases; their
+  textures may ship inside the game but must not be redistributed on their own.
   Final stress capture: 3,001 alive (stress harness plus a transient peer unit), no desync, 1,291 drawn,
   1,199,339 reported unit vertices with shadows disabled by the existing guard; under the 1.5M unit budget.
   Three independent harsh scores: **29.25 -> 34 -> 44.75 /100**. This is a reusable foundation, not reference-level

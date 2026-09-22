@@ -261,14 +261,36 @@ class Clip:
             w = envelope(i / max(1, c.n - 1)) if envelope else 1.0
             for a in range(3): c.data[bone][kind][i][a] += delta[a] * w
         return c
-    def scale_motion(self, bone, factor, kind='R', name=None):
-        """Exaggerate a bone's motion about its mean (1 = unchanged)."""
+    def scale_motion(self, bone, factor, kind='R', name=None, back=None, axis=None):
+        """Exaggerate a bone's motion about its mean (1 = unchanged). `back` scales the deviation below the mean
+        (default: the same as above it), so a stride can lift the knee without throwing the trailing leg out; `axis`
+        limits it to one channel."""
         c = self.copy(name)
         if bone not in c.data or kind not in c.data[bone]: return c
         v = c.data[bone][kind]
         mean = [sum(f[a] for f in v) / len(v) for a in range(3)]
+        lo = factor if back is None else back
         for f in v:
-            for a in range(3): f[a] = mean[a] + (f[a] - mean[a]) * factor
+            for a in range(3):
+                if axis is not None and a != axis: continue
+                d = f[a] - mean[a]; f[a] = mean[a] + d * (factor if d >= 0 else lo)
+        return c
+    def strip_root(self, keep_y=True, name=None):
+        """Remove the hips' travel (the sim moves the man); the height stays unless keep_y is False."""
+        c = self.copy(name)
+        if 'Hips' not in c.data or 'T' not in c.data['Hips']: return c
+        v = c.data['Hips']['T']; first = list(v[0])
+        for f in v:
+            for a in (0, 2): f[a] = first[a]
+            if not keep_y: f[1] = first[1]
+        return c
+    def wave(self, bone, axis, amplitude, cycles, phase=0.0, kind='R', envelope=None, name=None):
+        """Add a sine of `cycles` periods over the clip to one channel (a bob, a roll, a thrash)."""
+        c = self.copy(name)
+        if bone not in c.data or kind not in c.data[bone]: return c
+        for i in range(c.n):
+            t = i / max(1, c.n - 1); w = envelope(t) if envelope else 1.0
+            c.data[bone][kind][i][axis] += amplitude * w * math.sin(2 * math.pi * cycles * i / c.n + phase)
         return c
     def set_pose(self, bone, values, kind='R', envelope=None, name=None):
         """Drive a bone toward a fixed pose (blend weight = envelope)."""
