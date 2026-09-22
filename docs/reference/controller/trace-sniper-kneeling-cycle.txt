@@ -1,0 +1,303 @@
+tick   t(s)   rung          clip              stance    speed  tgt   supp  reason
+399     19.95 Locomotion    Run               Standing    3.0    2      0 moves at 3.0 m/s: Run
+407     20.35 Trench        JumpDown          Standing    3.0    2      0 dropping into the trench at a run: lands
+408     20.40 Locomotion    CrouchRun         Crouch      2.8    2      0 moves at 2.8 m/s: CrouchRun
+437     21.85 StanceChange  StandToKneel      FireStep    0.1    2      0 stance Standing -> Crouch: down behind the parapet
+456     22.80 Idle          KneelAimedIdle    FireStep    0.1   14      0 idle: KneelAimedIdle
+463     23.15 Locomotion    StoopWalk         FireStep    0.2   14      0 moves at 0.2 m/s: StoopWalk
+464     23.20 StanceChange  StandToKneel      FireStep    0.1   14      0 stance Standing -> Crouch: down behind the parapet
+465     23.25 Fire          FireKneel         FireStep    0.1   14      0 fires at 14
+486     24.30 Action        BoltKneel         FireStep    0.0   14      0 works the bolt
+502     25.10 Idle          KneelAimedIdle    FireStep    0.0   14      0 idle: KneelAimedIdle
+533     26.65 Reaction      KneelFlinch       Crouch      0.0   -1      5 near miss, standing still: ducks
+545     27.25 Idle          KneelAimedIdle    FireStep    0.0    4     16 idle: KneelAimedIdle
+561     28.05 Reaction      KneelFlinch       FireStep    0.0    4     32 near miss, standing still: ducks
+572     28.60 Idle          KneelAimedIdle    FireStep    0.0    4     38 idle: KneelAimedIdle
+574     28.70 Idle          Shield            Crouch      0.0   -1     43 under fire: arm over the face, head down
+609     30.45 Fire          FireKneel         FireStep    0.0    4     39 fires at 4
+611     30.55 Reaction      KneelFlinch       FireStep    0.0    4     49 near miss, standing still: ducks
+622     31.10 Action        ReloadKneel       Crouch      0.0   -1     45 magazine empty: reloads
+638     31.90 Reaction      KneelFlinch       FireStep    0.0    4     49 near miss, standing still: ducks
+650     32.50 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+690     34.50 Fire          FireKneel         FireStep    0.1    4     39 fires at 4
+692     34.60 Reaction      KneelFlinch       FireStep    0.1    4     49 near miss, standing still: ducks
+704     35.20 Idle          Shield            Crouch      0.1   -1     45 under fire: arm over the face, head down
+771     38.55 Fire          FireKneel         FireStep    0.1   27     39 fires at 27
+773     38.65 Reaction      KneelFlinch       FireStep    0.1   27     49 near miss, standing still: ducks
+784     39.20 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+852     42.60 Fire          FireKneel         FireStep    0.0   13     29 fires at 13
+854     42.70 Reaction      KneelFlinch       FireStep    0.0   13     39 near miss, standing still: ducks
+866     43.30 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+933     46.65 Fire          FireKneel         FireStep    0.0   13     39 fires at 13
+935     46.75 Reaction      KneelFlinch       FireStep    0.0   13     49 near miss, standing still: ducks
+947     47.35 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+1014    50.70 Fire          FireKneel         FireStep    0.0   13     39 fires at 13
+1016    50.80 Reaction      KneelFlinch       FireStep    0.0   13     53 hit, from the front
+1027    51.35 Action        ReloadKneel       Crouch      0.0   -1     49 magazine empty: reloads
+1052    52.60 Reaction      KneelFlinch       FireStep    0.0   13     53 hit, from the front
+1063    53.15 Idle          Shield            Crouch      0.0   -1     49 under fire: arm over the face, head down
+1086    54.30 Fire          FireKneel         FireStep    0.0   13     39 fires at 13
+1088    54.40 Reaction      KneelFlinch       FireStep    0.0   13     49 near miss, standing still: ducks
+1099    54.95 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+1189    59.45 Idle          KneelAimedIdle    Crouch      0.0   -1     20 idle: KneelAimedIdle
+1196    59.80 Action        KneelAimDown      Crouch      0.0   -1     17 target lost 4 s: rifle down
+1217    60.85 Idle          KneelIdle         Crouch      0.0   -1      9 idle: KneelIdle
+1317    65.85 Idle          StoopIdle         Crouch      0.0   -1      0 idle 5 s: shifts to a squat
+1459    72.95 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+1882    94.10 Idle          StoopIdle         Crouch      0.0   -1      0 idle 21 s: shifts to a squat
+1990    99.50 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2159   107.95 Idle          FidgetRubEyes     Crouch      0.0   -1      0 idle 8 s: rubs his eyes
+2196   109.80 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2638   131.90 Idle          FidgetRubEyes     Crouch      0.0   -1      0 idle 22 s: rubs his eyes
+2646   132.30 Fire          FireKneel         FireStep    0.0    3      0 fires at 3
+2648   132.40 Reaction      KneelFlinch       FireStep    0.0    3     10 near miss, standing still: ducks
+2660   133.00 Idle          KneelAimedIdle    FireStep    0.0   19     38 idle: KneelAimedIdle
+2665   133.25 Idle          Shield            Crouch      0.0   -1     47 under fire: arm over the face, head down
+2714   135.70 Fire          FireKneel         FireStep    0.0    3     49 fires at 3
+2735   136.75 Action        BoltKneel         Crouch      0.0   -1     40 works the bolt
+2741   137.05 Reaction      KneelFlinch       FireStep    0.0    3     49 near miss, standing still: ducks
+2753   137.65 Idle          Shield            Crouch      0.0   -1     44 under fire: arm over the face, head down
+2793   139.65 Fire          FireKneel         Crouch      0.0   -1     39 fires at 29
+2807   140.35 Reaction      KneelFlinch       FireStep    0.0   28     44 near miss, standing still: ducks
+2818   140.90 Idle          Shield            Crouch      0.0   -1     40 under fire: arm over the face, head down
+2874   143.70 Fire          FireKneel         FireStep    0.0    3     39 fires at 3
+2876   143.80 Reaction      KneelFlinch       FireStep    0.0    3     49 near miss, standing still: ducks
+2887   144.35 Action        ReloadKneel       Crouch      0.0   -1     44 magazine empty: reloads
+2903   145.15 Reaction      KneelFlinch       FireStep    0.0    3     49 near miss, standing still: ducks
+2913   145.65 Idle          Shield            Crouch      0.0   -1     45 under fire: arm over the face, head down
+2955   147.75 Fire          FireKneel         FireStep    0.0    3     39 fires at 3
+2957   147.85 Reaction      KneelFlinch       FireStep    0.0    3     52 hit, from the front
+2969   148.45 Idle          Shield            Crouch      0.0   -1     48 under fire: arm over the face, head down
+3045   152.25 Fire          FireKneel         Crouch      0.0   -1     39 fires at 3
+3050   152.50 Reaction      KneelFlinch       FireStep    0.0   28     48 near miss, standing still: ducks
+3062   153.10 Idle          Shield            Crouch      0.0   -1     43 under fire: arm over the face, head down
+3126   156.30 Fire          FireKneel         Crouch      0.0   -1     39 fires at 30
+3147   157.35 Action        BoltKneel         Crouch      0.0   -1     30 works the bolt
+3163   158.15 Idle          KneelAimedIdle    Crouch      0.0   -1     24 idle: KneelAimedIdle
+3194   159.70 Fire          FireKneel         Crouch      0.0   -1     12 fires at 14
+3215   160.75 Action        BoltKneel         FireStep    0.0   27      3 works the bolt
+3231   161.55 Idle          KneelAimedIdle    FireStep    0.0   28      0 idle: KneelAimedIdle
+3262   163.10 Fire          FireKneel         Crouch      0.0   -1      0 fires at 28
+3283   164.15 Action        ReloadKneel       FireStep    0.0   19      0 magazine empty: reloads
+3330   166.50 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+3351   167.55 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+3367   168.35 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+3411   170.55 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+3427   171.35 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+3606   180.30 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+3626   181.30 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+3642   182.10 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+3674   183.70 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+3694   184.70 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+3710   185.50 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+3747   187.35 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+3773   188.65 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+3789   189.45 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+3815   190.75 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+3836   191.80 Action        ReloadKneel       FireStep    0.0   27      0 magazine empty: reloads
+3883   194.15 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+3904   195.20 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+3920   196.00 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+3951   197.55 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+3972   198.60 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+3988   199.40 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+4032   201.60 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+4048   202.40 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4086   204.30 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+4107   205.35 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+4123   206.15 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+4154   207.70 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+4175   208.75 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+4191   209.55 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+4235   211.75 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+4251   212.55 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4326   216.30 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+4347   217.35 Action        ReloadKneel       Crouch      0.0   -1      0 magazine empty: reloads
+4413   220.65 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+4429   221.45 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4529   226.45 Idle          StoopIdle         Crouch      0.0   -1      0 idle 5 s: shifts to a squat
+4566   228.30 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+4588   229.40 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+4604   230.20 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+4634   231.70 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+4655   232.75 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+4671   233.55 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+4702   235.10 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+4722   236.10 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+4746   237.30 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+4776   238.80 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+4796   239.80 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+4812   240.60 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+4844   242.20 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+4865   243.25 Action        ReloadKneel       Crouch      0.0   -1      0 magazine empty: reloads
+4931   246.55 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+4947   247.35 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+5047   252.35 Idle          FidgetRubEyes     Crouch      0.0   -1      0 idle 5 s: rubs his eyes
+5084   254.20 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+5166   258.30 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+5187   259.35 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+5203   260.15 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+5247   262.35 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+5264   263.20 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+5406   270.30 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+5426   271.30 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+5442   272.10 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+5474   273.70 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+5496   274.80 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+5512   275.60 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+5586   279.30 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+5607   280.35 Action        BoltKneel         FireStep    0.0    4      0 works the bolt
+5622   281.10 Idle          KneelAimedIdle    FireStep    0.0    4      0 idle: KneelAimedIdle
+5654   282.70 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+5675   283.75 Action        ReloadKneel       FireStep    0.0    4      0 magazine empty: reloads
+5722   286.10 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+5742   287.10 Action        BoltKneel         FireStep    0.0   19      0 works the bolt
+5758   287.90 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+5802   290.10 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+5823   291.15 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+5839   291.95 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+5870   293.50 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+5891   294.55 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+5907   295.35 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+5938   296.90 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+5959   297.95 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+5975   298.75 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+6006   300.30 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+6025   301.25 Action        ReloadKneel       FireStep    0.0   27      0 magazine empty: reloads
+6074   303.70 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+6091   304.55 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+6112   305.60 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+6142   307.10 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+6163   308.15 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+6179   308.95 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+6210   310.50 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+6231   311.55 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+6247   312.35 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+6291   314.55 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+6311   315.55 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+6327   316.35 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+6366   318.30 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+6387   319.35 Action        ReloadKneel       FireStep    0.0   27      0 magazine empty: reloads
+6434   321.70 Fire          FireKneel         FireStep    0.0   19      0 fires at 19
+6454   322.70 Action        BoltKneel         FireStep    0.0   19      0 works the bolt
+6468   323.40 Idle          KneelAimedIdle    FireStep    0.0   19      0 idle: KneelAimedIdle
+6502   325.10 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+6523   326.15 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+6539   326.95 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+6570   328.50 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+6590   329.50 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+6606   330.30 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+6651   332.55 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+6667   333.35 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+6846   342.30 Fire          FireKneel         FireStep    0.0   19      0 fires at 19
+6867   343.35 Action        BoltKneel         FireStep    0.0   19      0 works the bolt
+6883   344.15 Idle          KneelAimedIdle    FireStep    0.0   19      0 idle: KneelAimedIdle
+6914   345.70 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+6935   346.75 Action        ReloadKneel       Crouch      0.0   -1      0 magazine empty: reloads
+7001   350.05 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+7017   350.85 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+7086   354.30 Fire          FireKneel         FireStep    0.0   19      0 fires at 19
+7107   355.35 Action        BoltKneel         FireStep    0.0   19      0 works the bolt
+7124   356.20 Idle          KneelAimedIdle    FireStep    0.0   19      0 idle: KneelAimedIdle
+7154   357.70 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+7176   358.80 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+7193   359.65 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+7235   361.75 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+7252   362.60 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+7326   366.30 Fire          FireKneel         FireStep    0.0   19      0 fires at 19
+7347   367.35 Action        BoltKneel         FireStep    0.0   19      0 works the bolt
+7363   368.15 Idle          KneelAimedIdle    FireStep    0.0   19      0 idle: KneelAimedIdle
+7394   369.70 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+7415   370.75 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+7431   371.55 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+7475   373.75 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+7491   374.55 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+7566   378.30 Fire          FireKneel         FireStep    0.0   19      0 fires at 19
+7586   379.30 Action        ReloadKneel       FireStep    0.0   19      0 magazine empty: reloads
+7634   381.70 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+7655   382.75 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+7672   383.60 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+7702   385.10 Fire          FireKneel         Crouch      0.0   -1      0 fires at 19
+7723   386.15 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+7739   386.95 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+7770   388.50 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+7791   389.55 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+7808   390.40 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+7851   392.55 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+7867   393.35 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+8166   408.30 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+8189   409.45 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+8206   410.30 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+8234   411.70 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+8255   412.75 Action        ReloadKneel       FireStep    0.0   27      0 magazine empty: reloads
+8302   415.10 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+8324   416.20 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+8339   416.95 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+8383   419.15 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+8399   419.95 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+8406   420.30 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+8428   421.40 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+8444   422.20 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+8474   423.70 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+8495   424.75 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+8512   425.60 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+8592   429.60 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+8613   430.65 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+8629   431.45 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+8660   433.00 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+8681   434.05 Action        ReloadKneel       FireStep    0.0   27      0 magazine empty: reloads
+8728   436.40 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+8750   437.50 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+8765   438.25 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+8809   440.45 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+8824   441.20 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+8886   444.30 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+8907   445.35 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+8922   446.10 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+8967   448.35 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+8982   449.10 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+9126   456.30 Fire          FireKneel         FireStep    0.0    0      0 fires at 0
+9148   457.40 Action        BoltKneel         FireStep    0.0    0      0 works the bolt
+9170   458.50 Idle          KneelAimedIdle    FireStep    0.0    0      0 idle: KneelAimedIdle
+9194   459.70 Fire          FireKneel         FireStep    0.0    0      0 fires at 0
+9215   460.75 Action        BoltKneel         FireStep    0.0    0      0 works the bolt
+9231   461.55 Idle          KneelAimedIdle    FireStep    0.0    0      0 idle: KneelAimedIdle
+9262   463.10 Fire          FireKneel         FireStep    0.0    0      0 fires at 0
+9280   464.00 Action        ReloadKneel       FireStep    0.0   27      0 magazine empty: reloads
+9330   466.50 Fire          FireKneel         FireStep    0.0    0      0 fires at 0
+9349   467.45 Action        BoltKneel         FireStep    0.0    0      0 works the bolt
+9366   468.30 Idle          KneelAimedIdle    FireStep    0.0    0      0 idle: KneelAimedIdle
+9398   469.90 Fire          FireKneel         Crouch      0.0   -1      0 fires at 0
+9419   470.95 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+9435   471.75 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+9466   473.30 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+9487   474.35 Action        BoltKneel         FireStep    0.0   27      0 works the bolt
+9503   475.15 Idle          KneelAimedIdle    FireStep    0.0   27      0 idle: KneelAimedIdle
+9534   476.70 Fire          FireKneel         Crouch      0.0   -1      0 fires at 27
+9554   477.70 Action        BoltKneel         FireStep    0.0   19      0 works the bolt
+9570   478.50 Idle          KneelAimedIdle    FireStep    0.0   19      0 idle: KneelAimedIdle
+9602   480.10 Fire          FireKneel         FireStep    0.0    4      0 fires at 4
+9625   481.25 Action        ReloadKneel       FireStep    0.0    4      0 magazine empty: reloads
+9670   483.50 Fire          FireKneel         Crouch      0.0   -1      0 fires at 4
+9691   484.55 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+9707   485.35 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+9751   487.55 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 4 s: rifle down
+9767   488.35 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+
+time in each clip (s):
+  KneelIdle           149.8
+  KneelAimedIdle       96.1
+  FireKneel            71.6
+  BoltKneel            42.4
+  Shield               39.1
+  ReloadKneel          36.1
+  StoopIdle            14.4
+  KneelAimDown         13.2
+  KneelFlinch          10.4
+  FidgetRubEyes         4.1
+  CrouchRun             1.5
+  StandToKneel          1.0
+  FireRun               0.8
+  Run                   0.4
+  JumpDown              0.0
+  StoopWalk             0.0

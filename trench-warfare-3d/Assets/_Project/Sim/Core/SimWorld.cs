@@ -35,7 +35,7 @@ namespace TW.Sim
         public NativeArray<int> GoalId;        // flow-field goal group (A1); Phase 0: unused
         public NativeArray<uint> Flags;        // UnitFlags
         public NativeArray<ushort> Generation; // bumps on every spawn so stale slot references can be detected
-        public NativeArray<int> Cooldown;      // generic per-unit cooldown ticks (grenade, ability)
+        public NativeArray<int> Cooldown;      // generic per-unit ticks: MovementSystem counts the vault over a parapet in it
         public NativeArray<int> FireCooldown;  // ticks until the primary weapon may fire again (A2)
 
         // ---- per-player state ----

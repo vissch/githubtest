@@ -1,0 +1,134 @@
+tick   t(s)   rung          clip              stance    speed  tgt   supp  reason
+806     40.30 Locomotion    StoopWalk         Crouch      0.2   -1      0 moves at 0.2 m/s: StoopWalk
+844     42.20 Idle          StoopIdle         Crouch      0.1   -1      0 idle: StoopIdle
+874     43.70 Idle          KneelIdle         Crouch      0.1   -1      0 idle: KneelIdle
+935     46.75 Fire          FireKneel         FireStep    0.0    0      0 fires at 0
+956     47.80 Action        BoltKneel         FireStep    0.0   14      0 works the bolt
+970     48.50 StanceChange  KneelToStand      FireStep    0.0    3      0 stance Crouch -> Standing: up to the parapet
+997     49.85 Idle          AimedIdle         FireStep    0.0   12      0 idle: AimedIdle
+1017    50.85 Fire          FireStand         FireStep    0.0   12      0 fires at 12
+1040    52.00 Action        ReloadBolt        FireStep    0.0   19      0 works the bolt
+1056    52.80 Idle          AimedIdle         FireStep    0.0   19      0 idle: AimedIdle
+1058    52.90 Fire          FireStand         FireStep    0.0   19      0 fires at 19
+1081    54.05 Action        ReloadBolt        Crouch      0.0   -1      0 works the bolt
+1096    54.80 Idle          AimedIdle         Crouch      0.0   -1      0 idle: AimedIdle
+1112    55.60 Fire          FireStand         FireStep    0.0   12      0 fires at 12
+1136    56.80 Action        ReloadStand       Crouch      0.0   -1      0 magazine empty: reloads
+1180    59.00 StanceChange  StandToKneel      Crouch      0.0   -1      0 stance Standing -> Crouch: down behind the parapet
+1199    59.95 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+1299    64.95 Idle          KneelToStand      Crouch      0.0   -1      0 idle 5 s: rises to look over the parapet
+1324    66.20 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+1345    67.25 Action        AimDown           Crouch      0.0   -1      0 target lost 8 s: rifle down
+1375    68.75 Idle          ReadyIdle         Crouch      0.0   -1      0 idle: ReadyIdle
+1376    68.80 StanceChange  StandToKneel      Crouch      0.0   -1      0 stance Standing -> Crouch: down behind the parapet
+1395    69.75 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+1495    74.75 Idle          KneelToStand      Crouch      0.0   -1      0 idle 5 s: rises to look over the parapet
+1520    76.00 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+1565    78.25 Idle          StandToKneel      Crouch      0.0   -1      0 drops back behind the parapet
+1584    79.20 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+2964   148.20 Idle          KneelToStand      Crouch      0.0   -1      0 idle 10 s: rises to look over the parapet
+2989   149.45 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+3034   151.70 Idle          StandToKneel      Crouch      0.0   -1      0 drops back behind the parapet
+3053   152.65 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+3545   177.25 Idle          FidgetRubEyes     Crouch      0.0   -1      0 idle 25 s: rubs his eyes
+3582   179.10 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+3707   185.35 Idle          StoopIdle         Crouch      0.0   -1      0 idle 6 s: shifts to a squat
+3869   193.45 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4117   205.85 Idle          StoopIdle         Crouch      0.0   -1      0 idle 5 s: shifts to a squat
+4215   210.75 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4350   217.50 Idle          StoopIdle         Crouch      0.0   -1      0 idle 7 s: shifts to a squat
+4505   225.25 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+4838   241.90 Fire          FireKneel         FireStep    0.0   13      0 fires at 13
+4858   242.90 Action        BoltKneel         FireStep    0.0   20      0 works the bolt
+4874   243.70 StanceChange  KneelToStand      FireStep    0.0    0      0 stance Crouch -> Standing: up to the parapet
+4899   244.95 Idle          AimedIdle         FireStep    0.0   19      0 idle: AimedIdle
+4920   246.00 Fire          FireStand         FireStep    0.0   19      0 fires at 19
+4943   247.15 Action        ReloadBolt        FireStep    0.0   14      0 works the bolt
+4960   248.00 Idle          AimedIdle         FireStep    0.0    3      0 idle: AimedIdle
+4961   248.05 Fire          FireStand         FireStep    0.0    3      0 fires at 3
+4984   249.20 Action        ReloadStand       FireStep    0.0   12      0 magazine empty: reloads (2.0x)
+5002   250.10 Fire          FireStand         FireStep    0.0   21      0 fires at 21
+5025   251.25 Action        ReloadBolt        Crouch      0.0   -1      0 works the bolt
+5041   252.05 Idle          AimedIdle         Crouch      0.0   -1      0 idle: AimedIdle
+5058   252.90 StanceChange  StandToKneel      Crouch      0.0   -1      0 stance Standing -> Crouch: down behind the parapet
+5077   253.85 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+5087   254.35 Fire          FireKneel         FireStep    0.0   14      0 fires at 14
+5108   255.40 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+5124   256.20 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+5159   257.95 Fire          FireKneel         FireStep    0.0   14      0 fires at 14
+5180   259.00 Action        BoltKneel         Crouch      0.0   -1      0 works the bolt
+5196   259.80 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+5320   266.00 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 8 s: rifle down
+5336   266.80 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+5744   287.20 Idle          FidgetRubEyes     Crouch      0.0   -1      0 idle 20 s: rubs his eyes
+5781   289.05 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+6235   311.75 Idle          KneelLookAround   Crouch      0.0   -1      0 idle 23 s: looks along the trench
+6343   317.15 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+6457   322.85 Idle          StoopIdle         Crouch      0.0   -1      0 idle 6 s: shifts to a squat
+6581   329.05 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+6737   336.85 Fire          FireKneel         FireStep    0.0   27      0 fires at 27
+6758   337.90 Action        BoltKneel         FireStep    0.0   14      0 works the bolt
+6773   338.65 StanceChange  KneelToStand      FireStep    0.0   14      0 stance Crouch -> Standing: up to the parapet
+6779   338.95 Action        ReloadStand       FireStep    0.0   14      0 magazine empty: reloads (1.1x)
+6818   340.90 Idle          AimedIdle         FireStep    0.0    3      0 idle: AimedIdle
+6819   340.95 Fire          FireStand         FireStep    0.0    3      0 fires at 3
+6842   342.10 Action        ReloadBolt        FireStep    0.0    3      0 works the bolt
+6859   342.95 Idle          AimedIdle         FireStep    0.0   14      0 idle: AimedIdle
+6860   343.00 Fire          FireStand         FireStep    0.0   14      0 fires at 14
+6882   344.10 Action        ReloadBolt        FireStep    0.0   19      0 works the bolt
+6897   344.85 Idle          AimedIdle         Crouch      0.0   -1      0 idle: AimedIdle
+6901   345.05 Fire          FireStand         FireStep    0.0   26      0 fires at 26
+6924   346.20 Action        ReloadBolt        FireStep    0.0   12      0 works the bolt
+6940   347.00 Idle          AimedIdle         Crouch      0.0   -1      0 idle: AimedIdle
+6985   349.25 StanceChange  StandToKneel      Crouch      0.0   -1      0 stance Standing -> Crouch: down behind the parapet
+7004   350.20 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+7096   354.80 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 8 s: rifle down
+7112   355.60 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+7572   378.60 Idle          StoopIdle         Crouch      0.0   -1      0 idle 7 s: shifts to a squat
+7671   383.55 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+7935   396.75 Idle          KneelToStand      Crouch      0.0   -1      0 idle 13 s: rises to look over the parapet
+7960   398.00 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+8005   400.25 Idle          StandToKneel      Crouch      0.0   -1      0 drops back behind the parapet
+8023   401.15 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+8357   417.85 Idle          KneelToStand      Crouch      0.0   -1      0 idle 17 s: rises to look over the parapet
+8382   419.10 Idle          AimedIdle         Crouch      0.0   -1      0 looks over the parapet
+8427   421.35 Idle          StandToKneel      Crouch      0.0   -1      0 drops back behind the parapet
+8446   422.30 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+8741   437.05 Fire          FireKneel         FireStep    0.0   12      0 fires at 12
+8761   438.05 Action        BoltKneel         FireStep    0.0   21      0 works the bolt
+8778   438.90 StanceChange  KneelToStand      FireStep    0.0   21      0 stance Crouch -> Standing: up to the parapet
+8783   439.15 Action        ReloadStand       FireStep    0.0   21      0 magazine empty: reloads (1.1x)
+8821   441.05 Idle          AimedIdle         FireStep    0.0   26      0 idle: AimedIdle
+8823   441.15 Fire          FireStand         FireStep    0.0   26      0 fires at 26
+8846   442.30 Action        ReloadBolt        FireStep    0.0   26      0 works the bolt
+8862   443.10 Idle          AimedIdle         FireStep    0.0   21      0 idle: AimedIdle
+8864   443.20 Fire          FireStand         Crouch      0.0   -1      0 fires at 20
+8888   444.40 Action        ReloadBolt        FireStep    0.0    0      0 works the bolt
+8903   445.15 Idle          AimedIdle         FireStep    0.0   21      0 idle: AimedIdle
+8905   445.25 Fire          FireStand         FireStep    0.0   21      0 fires at 21
+8929   446.45 Action        ReloadBolt        FireStep    0.0    3      0 works the bolt
+8945   447.25 Idle          AimedIdle         Crouch      0.0   -1      0 idle: AimedIdle
+8993   449.65 StanceChange  StandToKneel      Crouch      0.0   -1      0 stance Standing -> Crouch: down behind the parapet
+9011   450.55 Idle          KneelAimedIdle    Crouch      0.0   -1      0 idle: KneelAimedIdle
+9104   455.20 Action        KneelAimDown      Crouch      0.0   -1      0 target lost 8 s: rifle down
+9120   456.00 Idle          KneelIdle         Crouch      0.0   -1      0 idle: KneelIdle
+9395   469.75 Idle          StoopIdle         Crouch      0.0   -1      0 idle 9 s: shifts to a squat
+
+time in each clip (s):
+  KneelIdle           289.4
+  StoopIdle            36.8
+  KneelAimedIdle       22.6
+  AimedIdle            18.8
+  FireStand            14.1
+  KneelToStand          9.0
+  StandToKneel          8.6
+  ReloadBolt            8.1
+  ReloadStand           7.0
+  FireKneel             6.2
+  KneelLookAround       5.3
+  BoltKneel             5.0
+  FidgetRubEyes         3.7
+  KneelAimDown          2.4
+  StoopWalk             1.9
+  AimDown               1.5
+  ReadyIdle             0.1

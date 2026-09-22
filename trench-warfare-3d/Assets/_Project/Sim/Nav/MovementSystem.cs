@@ -67,7 +67,7 @@ namespace TW.Sim.Nav
             new MoveJob
             {
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
-                GoalId = w.GoalId, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
+                GoalId = w.GoalId, Cooldown = w.Cooldown, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
                 Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
@@ -98,7 +98,7 @@ namespace TW.Sim.Nav
             public NativeArray<float> Yaw;
             public NativeArray<byte> Layer, StanceOf;
             public NativeArray<uint> Flags;
-            public NativeArray<int> GoalId;
+            public NativeArray<int> GoalId, Cooldown;
             public NativeArray<short> TrenchId;
             public NativeArray<short> ArrivedLocked, Garrisoned;
             [ReadOnly] public NativeArray<float> Speed, Suppression;
@@ -108,6 +108,7 @@ namespace TW.Sim.Nav
             public uint Tick;
             public const float DriftAmount = 0.38f;     // lateral drift as a fraction of the forward speed
             public const float DriftPeriodTicks = 320f; // one wander cycle: 16 s
+            public const int VaultTicks = 16;          // a man takes 0.8 s to get over the parapet (Cooldown counts it; the climb is drawn up the wall)
             [ReadOnly] public NativeArray<byte> Directions;
             [ReadOnly] public NativeArray<byte> Ready;
             [ReadOnly] public NativeArray<GoalKey> Goals;
@@ -220,13 +221,26 @@ namespace TW.Sim.Nav
                 int ncell = CellOf(np);
                 if (!CanEnter(isGarrisoned, garrison, onLadder, pushX, from, ncell))
                 {
+                    // the blended flow at the corner of a trench cell beside a ladder points through the wall: the cell's
+                    // own direction never does, so a blocked step takes that first (it used to oscillate against the wall
+                    // beside the ladder for good), then slides along the obstacle
+                    byte d = !isGarrisoned && goal >= 0 && Ready[goal] != 0 ? Directions[goal * CellCount + cell] : FlowField.NoDirection;
+                    float2 o = d != FlowField.NoDirection ? FlowField.Offset(d) : float2.zero;
+                    float3 v2 = new float3(o.x, 0f, o.y) * speed; float3 np2 = p + v2 * Dt; int cell2 = CellOf(np2);
                     float3 slideX = new float3(np.x, np.y, p.z), slideZ = new float3(p.x, np.y, np.z);
                     int cellX = CellOf(slideX), cellZ = CellOf(slideZ);
-                    if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
+                    if (d != FlowField.NoDirection && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cell2)) { np = np2; v = v2; ncell = cell2; }
+                    else if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
                     else if (math.abs(v.z) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, pushX, from, cellZ)) { np = slideZ; v.x = 0f; ncell = cellZ; }
                     else { np = p; v = float3.zero; ncell = cell; }
                 }
                 byte to = Layers[ncell];
+                // the parapet: the step that would take him out of the trench holds him at the edge for VaultTicks first
+                // (the climb has to be seen), then lets him over
+                bool crossing = inTrench && (to & (byte)NavLayer.Trench) == 0;
+                if (crossing && Cooldown[i] < VaultTicks) { Cooldown[i]++; np = p; v = float3.zero; ncell = cell; to = from; stance = Stance.Vault; }
+                else if (!crossing && Cooldown[i] > 0 && Cooldown[i] < VaultTicks && (to & (byte)NavLayer.Trench) != 0 && !isGarrisoned) { Cooldown[i]++; np = p; v = float3.zero; ncell = cell; to = from; stance = Stance.Vault; }   // shoved sideways mid-climb: he keeps climbing
+                else if (!crossing) Cooldown[i] = 0;
                 Position[i] = np;
                 Velocity[i] = v;
                 if (SimMath.Length(v) > 0.05f) Yaw[i] = SimMath.YawOf(v);

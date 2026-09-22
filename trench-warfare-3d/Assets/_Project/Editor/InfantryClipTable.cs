@@ -15,6 +15,7 @@ namespace TW.Editor
     public struct ClipSource
     {
         public Clip Clip; public string File; public bool Loop; public int Fps; public float CutStart, CutEnd, Rate; public bool StripYaw, KeepRoot;
+        public string Lower; public float LowerTime;   // composed: this file's upper body on the hips and legs of Lower at LowerTime (a reload on one knee)
     }
 
     public static class InfantryClipTable
@@ -26,6 +27,7 @@ namespace TW.Editor
 
         static void L(Clip c, string file, int fps = 15, float cutStart = 0f, float cutEnd = 0f, float rate = 1f) => list.Add(new ClipSource { Clip = c, File = file, Loop = true, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate });
         static void O(Clip c, string file, int fps = 15, float cutStart = 0f, float cutEnd = 0f, float rate = 1f, bool stripYaw = false) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate, StripYaw = stripYaw });
+        static void C(Clip c, string file, string lower, int fps = 12, float cutStart = 0f, float cutEnd = 0f, float rate = 1f, float lowerTime = 0f) => list.Add(new ClipSource { Clip = c, File = file, Lower = lower, LowerTime = lowerTime, Loop = false, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate, StripYaw = true });
         static void D(Clip c, string file, int fps = 12, bool keepRoot = true) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, KeepRoot = keepRoot });
 
         static void Build()
@@ -45,7 +47,9 @@ namespace TW.Editor
             O(Clip.FireStand, "Firing Rifle (1)", 24); O(Clip.FireSnap, "Firing Rifle", 30); O(Clip.FireKneel, "Fire Rifle", 24); O(Clip.FireProne, "Prone Firing Rifle", 24); L(Clip.FireMG, "Prone Firing Rifle (1)", 30);
             O(Clip.AimUp, "Rifle Down To Aim", 24, 0f, 0f, 1f, true); O(Clip.AimDown, "Rifle Aim To Down", 15, 0f, 0f, 1f, true); O(Clip.KneelAimUp, "Rifle Kneel To Aim", 24, 0f, 0f, 1f, true); O(Clip.KneelAimDown, "Rifle Aim To Kneel", 24, 0f, 0f, 1f, true);
             // actions
-            O(Clip.ReloadStand, "Reloading", 12); O(Clip.ReloadStoop, "Reload", 12); O(Clip.ReloadProne, "Prone Reloading", 10); O(Clip.ReloadBolt, "Reloading", 20, 2.3f, 3.3f, 1.25f);
+            O(Clip.ReloadStand, "Reloading", 15, 0f, 0f, 1.5f); C(Clip.ReloadStoop, "Reload", "Crouch Idle", 15, 0f, 0f, 1.5f); O(Clip.ReloadProne, "Prone Reloading", 12, 0f, 4.8f, 2f); O(Clip.ReloadBolt, "Reloading", 20, 2.3f, 3.3f, 1.25f);
+            C(Clip.ReloadKneel, "Reloading", "Rifle Kneel Idle", 15, 0f, 0f, 1.5f); C(Clip.BoltKneel, "Reloading", "Rifle Kneel Idle", 20, 2.3f, 3.3f, 1.25f);
+            C(Clip.KneelInspect, "Inspecting", "Rifle Kneel Idle", 12); C(Clip.KneelLookAround, "Rifle Idle (3)", "Rifle Kneel Idle", 12, 0f, 5.3f);   // the kneeling fidgets: standing fidgets on the kneeling legs   // reloads at 1.5x: the sim fires again 2.4 s after the shot's clip   // Mixamo has no kneeling reload: the standing one's arms on the kneeling legs
             O(Clip.Throw, "Toss Grenade", 12); O(Clip.MeleeStab, "Bayonet Stab", 15); O(Clip.MeleePunch, "Rifle Punch", 15); O(Clip.MeleeSmash, "Smash", 15); O(Clip.MeleeBlock, "Block With Rifle", 15);
             O(Clip.Sling, "Rifle Put Away", 12); O(Clip.Unsling, "Rifle Pull Out", 12);
             // reactions
@@ -54,7 +58,7 @@ namespace TW.Editor
             O(Clip.DiveRoll, "Dive Roll", 15); O(Clip.ProneRoll, "Prone Roll", 15); O(Clip.Trip, "Fall Over", 15, 0f, 0f, 1f, true); O(Clip.GetUp, "Get Up From Prone", 15, 0f, 0f, 1f, true);
             O(Clip.MaskOn, "Mask Donning", 12); L(Clip.Burning, "Burning Run", 15); O(Clip.Stumble, "Stumble Running", 15);
             // trench and stance
-            O(Clip.JumpDown, "Jumping Down", 15, 0f, 1.8f); O(Clip.ClimbOut, "Jump Up", 24); L(Clip.ClimbHold, "Jump Loop", 12); O(Clip.ClimbLand, "Jump Down", 24); L(Clip.ClimbLadder, "Ladder Climb");
+            O(Clip.JumpDown, "Jumping Down", 15, 0f, 1.8f); O(Clip.ClimbOut, "Jump Up", 24); L(Clip.ClimbHold, "Ladder Climb", 15); O(Clip.ClimbLand, "Jump Down", 24); L(Clip.ClimbLadder, "Ladder Climb");
             O(Clip.StandToKneel, "Rifle Stand To Kneel", 20); O(Clip.KneelToStand, "Rifle Kneel To Stand", 20); O(Clip.KneelToProne, "Rifle Kneel To Prone", 15, 0f, 0f, 1f, true); O(Clip.ProneToKneel, "Rifle Prone To Kneel", 15);
             O(Clip.StandToStoop, "Rifle Idle To Crouch", 15, 0f, 1.4f, 1f, true); O(Clip.StoopToStand, "Rifle Crouch Walk To Idle", 15, 1.4f, 2.93f); O(Clip.StoopToKneel, "Rifle Crouch Walk To Kneel", 15, 1.2f, 2.73f); O(Clip.KneelToStoop, "Rifle Crouch Idle To Walk", 15, 0f, 1.5f);
             O(Clip.TakeCover, "Taking Cover", 15); O(Clip.Emerge, "Emerging", 15);

@@ -291,6 +291,27 @@ fidgets, low under fire) fills the waiting. Left: rung 4's throw / melee / sling
 and tilt of section 11, archetype tables (only the MG carry, the sniper's bolt and the assault's fire-on-the-move
 differ today), the officer, and a bake at 12 fps if the 35 MB per figure proves heavy on the GTX 1050.
 
+Round 3 (2026-09-22, night): the corpse cross-fades from the clip the man was hit in (`AddFallen` carries
+PrevClip/PrevFrame); Mixamo has no kneeling reload or bolt, so `ReloadKneel`, `BoltKneel` and `ReloadStoop` are
+composed in the baker (`ClipSource.Lower`: the reload's upper body on the kneel's or the crouch's legs, the spine
+kept 75 % at the reload's world lean); reloads play at 1.5× because the sim fires again 2.4 s after the shot's clip;
+a one-shot fire plays out before a stance change or a turn can take it, a shot snaps the body yaw to the target (the
+feet come round at 6 rad/s) and a shot mid-turn lets the turn finish; a garrison man with no target faces the enemy
+side, not his last step; a moving man the sim flips between prone and upright holds his gait ten ticks, then plays
+the transition (`FlipSince`); kneeling men turn on the knee (the "kneel turn" files are stoops); a stop under 0.4 s
+in a queue keeps the gait (`StopTick`) and a man who has just walked up stands stooped 1.5 s before the knee; a
+runner does not duck at a shell (he stumbles half the time). Sim step, agreed as needed to show the climb at all:
+`MoveJob.VaultTicks` holds a man at the parapet half a second with stance Vault (the `Cooldown` array counts it),
+so the ladder scramble / push-up has time and the drawn man rises up the wall (`Lift`); the landing is cut at
+0.25 s when he runs on. The critic's round then fixed: the rifle reload rule (never reloaded: its cooldown equals the
+threshold), target bookkeeping skipped by the fire guard (fired from the knee forever), a reload cutting a rise,
+one-tick drops at a run, cut turns losing their rotation, phase-locked loops, near misses cutting fire clips,
+14 m stumble slides, a quarter of the kneel's pelvis twist leaking into composed arms. Traces:
+`docs/reference/controller/trace-sniper-kneeling-cycle.txt` (FireKneel → BoltKneel → KneelAimedIdle, ReloadKneel
+after five), `trace-assault-over-the-top-round3.txt` (ClimbLadder in the vault hold, ClimbLand, Sprint, JumpDown at
+a run into the enemy trench, then the routine), `trace-rifleman-garrison-round3.txt` (the rifleman rises to the
+parapet to fight, reloads standing, drops back, rifle down after 8 s).
+
 
 1. Baker: clip table, root-motion strip per clip, mirror, cut, frame rates; bake the 131; the far-tier map;
    tests. Nothing on screen changes yet (the old 18 rows are mapped from the new table).

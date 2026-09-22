@@ -237,6 +237,34 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   advancing men flip prone/standing per tick under fire (hold a prone↔upright gait change 10 ticks and play the
   transition); Prone moves at walking pace in the sim (owner); the sniper's cloak is skinned as a plank and the
   model carries a second rifle on its pack; the bake report prints pre-clamp death travel.
+  Round 3 (2026-09-22, night) did the first four of those and what its critic found on top: the corpse cross-fades
+  from the clip the man was hit in; `ReloadKneel`, `BoltKneel`, `ReloadStoop`, `KneelInspect` and `KneelLookAround`
+  are composed in the baker (`ClipSource.Lower`: a standing clip's upper body on the kneel's or crouch's legs, the
+  spine keeping the upper clip's world lean, the legs breathing along the lower loop); reloads play at 1.5× and
+  start once the shot's recoil is over, rate-fitted to the gap before the sim's next shot (the rifle's reload rule
+  used to wait for `FireCooldown > 40` and the rifle's cooldown is 40: no rifleman ever reloaded or worked his bolt);
+  the target bookkeeping (`LastTarget`/`TargetSince`) runs every tick, not only when rung 4 is reached (a rifleman
+  with a target fired from the knee forever); a one-shot fire, a stance change and a turn each play out before the
+  others can take the man, a shot lands a nearly finished transition and lets a turn finish; a garrison man with no
+  target faces the enemy side; a moving man the sim flips prone↔upright holds 10 ticks, then cross-fades the gait
+  above 1 m/s or plays the transition below it, locked 40 ticks; the sim now holds a man at the parapet 0.8 s with
+  stance Vault (`MoveJob.VaultTicks`, counted in the previously unused `Cooldown` array) and the controller draws him
+  rising up the wall (`AnimationController.Lift` → `FillJob`), so the ladder scramble is seen; a drop at a run starts
+  at its landing and runs on; a stop under 0.4 s in a queue keeps the gait, a man who has just walked up stands
+  stooped 1.5 s before the knee; loops start at a per-man phase (men who arrived together breathed in step); a cut
+  turn keeps what it turned; a near miss does not cut a fire clip's first half second; a runner does not duck at a
+  shell (a stumble half the time, 1.2 s at his pace). Traces: `docs/reference/controller/trace-*-round3.txt`.
+  Sim fix found by the gate (`PlaytestMapTests.EnemyLines_FallInOrder`): in the corner of the trench cell beside a
+  ladder the bilinear flow points through the wall, the step is blocked and both slides fail, so a man oscillated
+  there for good; `MoveJob` now takes the cell's own direction first on a blocked step. Latent before, exposed by the
+  vault hold's queueing. Note: the first batch test run after a job edit can run managed (not Burst) and give a
+  different outcome from the next — rerun before trusting a single failure.
+  Still open from round 3's critic: the corpse changes shape crossing `FallenNearDistance` (Mixamo death ↔ procedural
+  row); `KneelAimedIdle` is a held frame (a statue for 1.5 s between shots: needs a breathing loop matched to the
+  Fire Rifle pose); kneeling men pivot on the knee (the baked `StoopTurn*` clips are unused; the enemy side is a
+  hard-coded ±Z, wrong for a communication trench); the sniper's `Shield` may be a standing clip; a rifle running
+  death dies in place (KeepRoot off); nothing yet touches the parapet (rifle laid on it, bolt check); the composed
+  clips have not been watched in motion.
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one

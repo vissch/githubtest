@@ -428,7 +428,14 @@ namespace TW.Presentation.Tactical
                         bool controlled = anim != null && Host.UseAnimationController && e.A >= 0 && e.A < w.HighWater;
                         Clip deathClip = controlled ? anim.State[e.A].Clip : Clip.None;
                         float yaw = controlled ? anim.State[e.A].ShownYaw : e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad;
-                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0);
+                        // the clip he was hit in fades into the death (the controller's own cross-fade, carried into the fallen buffer)
+                        Clip from = controlled ? anim.State[e.A].PrevClip : Clip.None; float fromPhase = 0f, fade = 0f;
+                        if (from != Clip.None)
+                        {
+                            var prev = Clips.Table[(int)from]; float pp = prev.Seconds > 0f ? anim.State[e.A].PrevFrame / prev.Seconds : 0f;
+                            fromPhase = prev.Loop ? pp - Mathf.Floor(pp) : Mathf.Min(pp, 1f); fade = Mathf.Max(anim.State[e.A].Fade, 0.2f);
+                        }
+                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade);
                     }
                     else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Team = team, Variant = (byte)death });
                     // his helmet comes off as he goes down and rolls a step away

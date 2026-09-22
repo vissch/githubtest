@@ -183,7 +183,7 @@ namespace TW.Presentation.Units
                 Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
-                PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare,
+                PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
             DrawnInfantry = DrawnNear + DrawnFar;
@@ -231,7 +231,7 @@ namespace TW.Presentation.Units
 
         // ---- the fallen: the same figure as the living, played once through his death and held on the last frame
         // where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
-        struct FallenMan { public Vector3 Pos; public float Yaw, Born, Seconds; public byte Team, Figure; public ushort Row, FarRow; }
+        struct FallenMan { public Vector3 Pos; public float Yaw, Born, Seconds, FromT, Fade; public byte Team, Figure; public ushort Row, FarRow, FromRow; }
         readonly List<FallenMan> fallenMen = new List<FallenMan>(128);
         public int MaxFallen = 600;
         public float FallSeconds = 0.9f, FallenNearDistance = 70f;
@@ -246,14 +246,17 @@ namespace TW.Presentation.Units
         /// atlas the near tier plays the death the controller chose (clip) on his archetype's figure; the far tier and the box
         /// soldier use the procedural death the variant picks.
         /// </summary>
-        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0)
+        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f)
         {
             if (fallenMen.Count >= MaxFallen) fallenMen.RemoveAt(0);
             ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
             int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
             bool near = clipAtlas && clip != Clip.None;
             float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
-            fallenMen.Add(new FallenMan { Pos = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow });
+            // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
+            bool blend = near && fromClip != Clip.None && fade > 0.01f;
+            fallenMen.Add(new FallenMan { Pos = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow,
+                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f });
         }
 
         void DrawFallen(Camera cam, Bounds bounds, float scale)
@@ -315,7 +318,8 @@ namespace TW.Presentation.Units
         {
             float t = Mathf.Clamp01((now - f.Born) / f.Seconds);
             if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
-            return new VatInstance { Pos = f.Pos, Yaw = f.Yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale };
+            float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - (now - f.Born) / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
+            return new VatInstance { Pos = f.Pos, Yaw = f.Yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend };
         }
 
         void DrawVehicles(Bounds bounds)
@@ -345,7 +349,7 @@ namespace TW.Presentation.Units
             public float Scale;
             public bool Controlled;
             [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow;
-            [ReadOnly] public NativeArray<float> PrevPhase, Blend;
+            [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift;
             public NativeArray<VatInstance> Instances;
             public NativeArray<byte> FigureOf;
             public NativeArray<float4> Vehicles;
@@ -369,7 +373,9 @@ namespace TW.Presentation.Units
                 for (int i = 0; i < PoseCount; i++)
                 {
                     var p = Poses[i];
-                    float y = Ground.Sample(p.Pos.x, p.Pos.z, Height.Sample(p.Pos.x, p.Pos.z));
+                    float original = Height.Sample(p.Pos.x, p.Pos.z);
+                    float y = Ground.Sample(p.Pos.x, p.Pos.z, original);
+                    if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); }   // climbing: drawn up the trench wall
                     if (!Visible(new float3(p.Pos.x, y + 1f, p.Pos.z))) continue;
                     if ((p.Flags & (byte)UnitFlags.Vehicle) != 0)
                     {

@@ -233,9 +233,21 @@ namespace TW.Editor
                 for (int i = 0; i < vertexCount; i++) { p[i] = turn * ((p[i] - shift - new Vector3(0f, rig.MinY, 0f)) * rig.Scale); n[i] = turn * n[i]; }
                 frames.Add(p); frameNormals.Add(n);
             }
-            void Pose(AnimationClip clip, float time)
+            var upperBody = rig.All.Where(t => t == rig.Spine || t.IsChildOf(rig.Spine)).ToArray();
+            var upperRot = new Quaternion[upperBody.Length];
+            void Pose(AnimationClip clip, float time, AnimationClip lower = null, float lowerTime = 0f)
             {
                 rig.Reset(); clip.SampleAnimation(rig.Root, time);
+                if (lower != null)
+                {
+                    // composed: this clip from the spine up on the other clip's hips and legs; the spine keeps this clip's
+                    // world lean (on the kneel's tilted pelvis its own local bend doubled up and hunched him to his knee)
+                    for (int k = 0; k < upperBody.Length; k++) upperRot[k] = upperBody[k].localRotation;
+                    Quaternion spineWorld = rig.Spine.rotation;
+                    rig.Reset(); lower.SampleAnimation(rig.Root, lowerTime);
+                    for (int k = 0; k < upperBody.Length; k++) upperBody[k].localRotation = upperRot[k];
+                    rig.Spine.rotation = spineWorld;
+                }
                 rig.Hips.position = rig.Hips.position * rig.HipScale + new Vector3(0f, rig.MinY, 0f);
             }
 
@@ -251,6 +263,8 @@ namespace TW.Editor
                 if (sources.TryGetValue(clipId, out var src))
                 {
                     var clip = LoadClip(src.File);
+                    var lower = src.Lower != null ? LoadClip(src.Lower) : null;
+                    if (src.Lower != null && lower == null) { Debug.LogError("VATBaker: no clip in " + src.Lower + ".fbx for the legs of " + clipId); missing++; }
                     if (clip == null) { Debug.LogError("VATBaker: no clip in " + src.File + ".fbx for " + clipId); missing++; }
                     else
                     {
@@ -259,25 +273,25 @@ namespace TW.Editor
                         float played = span / rate;
                         int n = Mathf.Max(2, Mathf.RoundToInt(played * src.Fps) + (src.Loop ? 0 : 1));
                         // root: first frame's hips over the origin, travel removed as a trend; facing: first frame to +Z
-                        Pose(clip, from);
+                        Pose(clip, from, lower, src.LowerTime);
                         Vector3 first = Flat(rig.Hips.position); float yaw0 = rig.FacingYaw();
                         Quaternion hips0 = rig.Hips.rotation; Vector3 knee0 = rig.ShinL.position - rig.Hips.position;
-                        Pose(clip, from + span * 0.5f);
+                        Pose(clip, from + span * 0.5f, lower, src.LowerTime);
                         bool bound = Quaternion.Angle(hips0, rig.Hips.rotation) > 0.5f || (rig.ShinL.position - rig.Hips.position - knee0).magnitude > 0.005f * u;
                         if (!bound) { Debug.LogWarning("VATBaker: " + src.File + " does not move between its first frame and its middle: its curves may not bind to this rig"); unbound++; }
-                        Pose(clip, to);
+                        Pose(clip, to, lower, src.LowerTime);
                         Vector3 last = Flat(rig.Hips.position); float yawN = rig.FacingYaw();
                         Vector3 travel = last - first;
+                        Vector3 keep = src.KeepRoot ? travel * Mathf.Max(0f, 1f - 0.35f / rig.Scale / Mathf.Max(1e-4f, travel.magnitude)) : travel;   // a death keeps 35 cm of its fall
                         float turn = Mathf.DeltaAngle(yaw0 * Mathf.Rad2Deg, yawN * Mathf.Rad2Deg) * Mathf.Deg2Rad;
                         for (int f = 0; f < n; f++)
                         {
                             float frac = src.Loop ? f / (float)n : f / (float)(n - 1);
-                            Pose(clip, from + frac * span);
-                            Vector3 keep = src.KeepRoot ? travel * Mathf.Max(0f, 1f - 0.35f / rig.Scale / Mathf.Max(1e-4f, travel.magnitude)) : travel;   // a death keeps 35 cm of its fall
+                            Pose(clip, from + frac * span, lower, lower != null ? (src.LowerTime + frac * span) % Mathf.Max(0.1f, lower.length) : 0f);   // the legs breathe along the lower loop
                             Capture(first + keep * frac, yaw0 + (src.StripYaw ? turn * frac : 0f));
                         }
                         table[r] = new Vector2(start, src.Loop ? n : -n); seconds[r] = played;
-                        report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} travel {travel.magnitude * rig.Scale * 100f,5:0} cm turn {turn * Mathf.Rad2Deg,5:0} deg");
+                        report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} travel {(travel - keep).magnitude * rig.Scale * 100f,5:0} cm{(src.Lower != null ? " on " + src.Lower : "")} turn {turn * Mathf.Rad2Deg,5:0} deg");
                         continue;
                     }
                 }
