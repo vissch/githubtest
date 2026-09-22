@@ -8,8 +8,10 @@
 // "Your men" and "the enemy" are the mean Z of each side's living units, so the turning point moves with the fight.
 // Zooming far out lifts the view to OverviewPitch and takes the turn out; the last stretch of zooming in (below
 // CloseZoom) drops to ClosePitch and opens the lens, ending among the men. Z jumps there and back.
-// WASD/arrows or edge scroll pan and speed up while held, the wheel zooms, Q/E turn a little, right mouse drag turns
-// and tilts freely on top of all this, middle mouse drag pans, Home puts the view back.
+// Pan / turn / reset / super-zoom keys come from KeyMap (rebindable; WASD+arrows, Q/E, Home, Z by default) and are
+// ignored while a shell screen owns the input (InputFocus). Edge scroll pans, the wheel zooms, right mouse drag turns
+// and tilts freely, middle mouse drag pans; a drag or a wheel turn that starts over HUD chrome (HudBridge) is left to
+// the HUD.
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TW.Presentation;
@@ -59,6 +61,7 @@ namespace TW.Presentation.Tactical
         /// <summary>Where the view sits between the sides: 0 behind your men, 0.5 between, 1 beyond the enemy (for the HUD and tests).</summary>
         public float Along { get; private set; }
         bool freeLook;   // the right mouse button has turned the view past the Q/E limits
+        bool lookFromUi, panFromUi;   // the drag began over HUD chrome: it stays the HUD's until the button is released
         Camera cam;
 
         void Start()
@@ -105,20 +108,22 @@ namespace TW.Presentation.Tactical
 
         void LateUpdate()
         {
-            bool focused = Application.isFocused;   // an unfocused window still reports stale keys and wheel deltas
+            // an unfocused window still reports stale keys and wheel deltas; a shell screen over the field owns the input
+            bool focused = Application.isFocused && InputFocus.Gameplay;
             var kb = focused ? Keyboard.current : null;
             var mouse = focused ? Mouse.current : null;
             Vector2 pan = Vector2.zero;
+            bool keysPan = false;
             if (kb != null)
             {
-                if (kb.wKey.isPressed || kb.upArrowKey.isPressed) pan.y += 1f;
-                if (kb.sKey.isPressed || kb.downArrowKey.isPressed) pan.y -= 1f;
-                if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) pan.x += 1f;
-                if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) pan.x -= 1f;
-                if (kb.qKey.isPressed) yaw -= RotateSpeed * Time.unscaledDeltaTime;   // unscaled: the view still turns in a lightning freeze
-                if (kb.eKey.isPressed) yaw += RotateSpeed * Time.unscaledDeltaTime;
-                if (kb.homeKey.wasPressedThisFrame) { yaw = 0f; pitchOffset = 0f; freeLook = false; }
-                if (kb.zKey.wasPressedThisFrame)
+                if (KeyMap.HeldRaw(GameAction.PanUp)) { pan.y += 1f; keysPan = true; }
+                if (KeyMap.HeldRaw(GameAction.PanDown)) { pan.y -= 1f; keysPan = true; }
+                if (KeyMap.HeldRaw(GameAction.PanRight)) { pan.x += 1f; keysPan = true; }
+                if (KeyMap.HeldRaw(GameAction.PanLeft)) { pan.x -= 1f; keysPan = true; }
+                if (KeyMap.HeldRaw(GameAction.RotateLeft)) yaw -= RotateSpeed * Time.unscaledDeltaTime;   // unscaled: the view still turns in a lightning freeze
+                if (KeyMap.HeldRaw(GameAction.RotateRight)) yaw += RotateSpeed * Time.unscaledDeltaTime;
+                if (KeyMap.DownRaw(GameAction.ResetView)) { yaw = 0f; pitchOffset = 0f; freeLook = false; }
+                if (KeyMap.DownRaw(GameAction.SuperZoom))
                 {
                     if (Zoom > ZoomMin * 1.5f) { zoomBeforeSuper = Zoom; Zoom = ZoomMin; }
                     else Zoom = zoomBeforeSuper > CloseZoom ? zoomBeforeSuper : 30f;
@@ -127,21 +132,25 @@ namespace TW.Presentation.Tactical
             if (mouse != null)
             {
                 Vector2 m = mouse.position.ReadValue();
+                bool overUi = HudBridge.IsPointerOverUi(m);
                 bool inside = EdgeScroll && Application.isFocused && m.x > 0f && m.y > 0f && m.x < Screen.width - 1f && m.y < Screen.height - 1f;   // a cursor clamped to the border is outside   // no edge scroll while unfocused or with the cursor outside the view
                 if (inside)
                 {
                     if (m.x < EdgeScrollMargin) pan.x -= 1f; else if (m.x > Screen.width - EdgeScrollMargin) pan.x += 1f;
                     if (m.y < EdgeScrollMargin) pan.y -= 1f; else if (m.y > Screen.height - EdgeScrollMargin) pan.y += 1f;
                 }
+                // a drag that starts on the HUD is the HUD's until the button comes up, so a press on a card cannot swing the view
+                if (mouse.rightButton.wasPressedThisFrame) lookFromUi = overUi;
+                if (mouse.middleButton.wasPressedThisFrame) panFromUi = overUi;
                 Vector2 drag = mouse.delta.ReadValue();
-                if (mouse.rightButton.isPressed && drag.sqrMagnitude > 0f)
+                if (mouse.rightButton.isPressed && !lookFromUi && drag.sqrMagnitude > 0f)
                 {
                     yaw += drag.x * LookSpeed; pitchOffset -= drag.y * LookSpeed;
                     freeLook = true;
                 }
-                if (mouse.middleButton.isPressed) { pan.x -= drag.x * 0.12f; pan.y -= drag.y * 0.12f; }
+                if (mouse.middleButton.isPressed && !panFromUi) { pan.x -= drag.x * 0.12f; pan.y -= drag.y * 0.12f; }
                 float wheel = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(wheel) > 0.01f) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
+                if (Mathf.Abs(wheel) > 0.01f && !overUi) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
             }
             float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(ZoomMin, CloseZoom, Zoom));   // 0 tactical, 1 among the men
             // the small things of the field (grit, footprints, brass, litter) come in over a wider band and cost nothing at the standard view
@@ -149,8 +158,6 @@ namespace TW.Presentation.Tactical
             Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
             float yawLimit = Mathf.Lerp(YawLimit, CloseYawLimit, close);   // up close Q/E can turn to face the enemy
             if (freeLook) yaw = Mathf.Repeat(yaw + 180f, 360f) - 180f; else yaw = Mathf.Clamp(yaw, -yawLimit, yawLimit);
-            bool keysPan = kb != null && (kb.wKey.isPressed || kb.aKey.isPressed || kb.sKey.isPressed || kb.dKey.isPressed || kb.upArrowKey.isPressed
-                || kb.downArrowKey.isPressed || kb.leftArrowKey.isPressed || kb.rightArrowKey.isPressed);
             bool steadyPan = keysPan || (pan.sqrMagnitude > 0f && (mouse == null || !mouse.middleButton.isPressed));   // keys or edge scroll, not a drag
             panHeld = steadyPan ? panHeld + Time.unscaledDeltaTime : 0f;
             float accel = steadyPan ? Mathf.Lerp(1f, PanAccel, Mathf.SmoothStep(0f, 1f, panHeld / Mathf.Max(0.01f, PanAccelSeconds))) : 1f;

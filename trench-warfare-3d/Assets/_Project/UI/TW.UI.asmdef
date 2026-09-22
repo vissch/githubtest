@@ -10,7 +10,9 @@
     "TW.Sim.Units",
     "TW.Sim.Match",
     "TW.Data",
-    "TW.Presentation.Core"
+    "TW.Presentation.Core",
+    "TW.Sim.Nav",
+    "TW.Presentation.Camera"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

@@ -172,6 +172,7 @@ MonoBehaviour:
   ShowStats: 0
   FlowArrowRadiusCells: 12
   ViewGoal: 0
+  ForceCapsules: 0
 --- !u!114 &387420980
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -186,11 +187,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Host: {fileID: 1728060848}
   PanSpeed: 60
+  PanAccel: 3.5
+  PanAccelSeconds: 2
+  LookSpeed: 0.22
+  PitchMin: 8
+  PitchMax: 89
   EdgeScrollMargin: 12
+  EdgeScroll: 1
   ZoomMin: 6
   ZoomMax: 600
+  CloseZoom: 15
+  DetailFullZoom: 12
+  DetailGoneZoom: 28
+  ClosePitch: 13
+  CloseFov: 42
+  CloseYawLimit: 100
   Zoom: 30
   Pitch: 25
+  StandardYaw: 21
+  FlatPitch: 17
+  OverviewPitch: 62
+  OverviewFromZoom: 60
+  OverviewFullZoom: 240
+  FollowRate: 2.2
   BaseYaw: -90
   YawLimit: 15
   Fov: 25
@@ -302,7 +321,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Host: {fileID: 1728060848}
-  Step: 2
+  Look: 1
 --- !u!23 &1095638129
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -504,10 +523,20 @@ MonoBehaviour:
   StartingSilver: 300
   SilverPerSecond: 2
   TimeScale: 1
+  PlaytestMap: 1
+  GeneratedBattlefield: 1
+  BattlefieldSeed: 1917
+  BombardmentPerMinute: 8
   ScriptedPeer: 1
   PeerDeployEveryTicks: 40
+  PeerAttacks: 1
+  PeerDeploysTanks: 0
+  PeerAttackGarrison: 8
+  PeerUsesSupport: 1
+  PeerSupportReserve: 180
   StressUnits: 0
   StressAdvanceDelayTicks: 300
+  UseAnimationController: 1
 --- !u!4 &1728060849
 Transform:
   m_ObjectHideFlags: 0

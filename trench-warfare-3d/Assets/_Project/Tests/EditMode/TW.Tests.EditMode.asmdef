@@ -16,7 +16,10 @@
     "TW.Sim.Units",
     "TW.Presentation.Units",
     "TW.Presentation.Core",
-    "TW.Presentation.Camera"
+    "TW.Presentation.Camera",
+    "TW.UI",
+    "TW.Data",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"

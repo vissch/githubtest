@@ -14,7 +14,9 @@
     "TW.Sim.Nav",
     "TW.Sim.Combat",
     "TW.Sim.Units",
-    "TW.Data"
+    "TW.Data",
+    "TW.UI",
+    "TW.Presentation.Camera"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

@@ -1,0 +1,91 @@
+// Phase: B6 (implemented) — settings.json round-trips, tolerates an old or damaged file, and lands on disk atomically.
+using System.IO;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using TW.Presentation;
+
+namespace TW.Tests
+{
+    public class GameSettingsTests
+    {
+        [Test]
+        public void DefaultsRoundTripThroughJson()
+        {
+            var d = GameSettings.Defaults();
+            var back = GameSettings.FromJson(d.ToJson());
+            Assert.That(back.ToJson(), Is.EqualTo(d.ToJson()));
+            Assert.That(back.Version, Is.EqualTo(GameSettings.CurrentVersion));
+        }
+
+        [Test]
+        public void EditedValuesSurviveTheRoundTrip()
+        {
+            var s = GameSettings.Defaults();
+            s.Audio.Master = 0.25f; s.Interface.UiScale = 1.25f; s.Camera.ZoomMax = 300f; s.Video.VSync = false;
+            s.Bindings.Primary[(int)GameAction.Advance] = Key.Enter;
+            var back = GameSettings.FromJson(s.ToJson());
+            Assert.That(back.Audio.Master, Is.EqualTo(0.25f).Within(1e-5f));
+            Assert.That(back.Interface.UiScale, Is.EqualTo(1.25f).Within(1e-5f));
+            Assert.That(back.Camera.ZoomMax, Is.EqualTo(300f).Within(1e-5f));
+            Assert.That(back.Video.VSync, Is.False);
+            Assert.That(back.Bindings.Primary[(int)GameAction.Advance], Is.EqualTo(Key.Enter));
+        }
+
+        [Test]
+        public void GarbageAndEmptyJsonFallBackToDefaults()
+        {
+            Assert.That(GameSettings.FromJson("").ToJson(), Is.EqualTo(GameSettings.Defaults().ToJson()));
+            Assert.That(GameSettings.FromJson("not json {{{").ToJson(), Is.EqualTo(GameSettings.Defaults().ToJson()));
+            Assert.That(GameSettings.FromJson(null).ToJson(), Is.EqualTo(GameSettings.Defaults().ToJson()));
+        }
+
+        [Test]
+        public void AnOlderFileWithMissingSectionsIsMigrated()
+        {
+            // a version-0 file that only knew about audio, with a short bindings array
+            string old = "{\"Version\":0,\"Audio\":{\"Master\":0.5,\"Ambience\":2.0,\"Sfx\":1,\"Music\":1},\"Bindings\":{\"Primary\":[22,23],\"Secondary\":[]}}";
+            var s = GameSettings.FromJson(old);
+            Assert.That(s.Version, Is.EqualTo(GameSettings.CurrentVersion));
+            Assert.That(s.Audio.Master, Is.EqualTo(0.5f).Within(1e-5f));
+            Assert.That(s.Audio.Ambience, Is.EqualTo(1f), "out-of-range values are clamped");
+            Assert.That(s.Video, Is.Not.Null); Assert.That(s.Camera, Is.Not.Null); Assert.That(s.Interface, Is.Not.Null);
+            Assert.That(s.Bindings.Primary.Length, Is.EqualTo(KeyMap.ActionCount));
+            var d = KeyMap.Defaults();
+            for (int i = 2; i < KeyMap.ActionCount; i++)
+                Assert.That(s.Bindings.Primary[i], Is.EqualTo(d.Primary[i]), $"{(GameAction)i} should be filled from the defaults");
+        }
+
+        [Test]
+        public void StoreWritesAndReadsAFile()
+        {
+            string path = Path.Combine(Application.temporaryCachePath, "tw-settings-test", "settings.json");
+            try
+            {
+                var s = GameSettings.Defaults();
+                s.Camera.PanSpeed = 42f;
+                SettingsStore.SaveTo(s, path);
+                Assert.That(File.Exists(path));
+                Assert.That(File.Exists(path + ".tmp"), Is.False, "the temp file is swapped into place, not left behind");
+                var back = SettingsStore.LoadFrom(path);
+                Assert.That(back.Camera.PanSpeed, Is.EqualTo(42f).Within(1e-5f));
+                // a second save replaces the first
+                s.Camera.PanSpeed = 43f;
+                SettingsStore.SaveTo(s, path);
+                Assert.That(SettingsStore.LoadFrom(path).Camera.PanSpeed, Is.EqualTo(43f).Within(1e-5f));
+            }
+            finally
+            {
+                var dir = Path.GetDirectoryName(path);
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+        }
+
+        [Test]
+        public void LoadingAMissingFileGivesDefaultsWithoutThrowing()
+        {
+            var s = SettingsStore.LoadFrom(Path.Combine(Application.temporaryCachePath, "tw-settings-none", "settings.json"));
+            Assert.That(s.ToJson(), Is.EqualTo(GameSettings.Defaults().ToJson()));
+        }
+    }
+}
