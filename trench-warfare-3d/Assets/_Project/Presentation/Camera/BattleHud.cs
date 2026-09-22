@@ -17,6 +17,13 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         public TestPanel Panel;
         public const float BarHeight = 100f;
+        /// <summary>
+        /// The bottom bar's spacing, in one place. The frame's width is computed from these and the buttons are laid
+        /// out with these, so the two cannot drift: they had, by two pixels, and the roster growing from five slots
+        /// to seven turned a two-pixel overhang into a frame sized for seven cells with nine drawn into it.
+        /// </summary>
+        const float Gap = 8f, Inset = 12f, Divider = 20f;
+        const int SupportSlots = 2;
         /// <summary>Where the minimap is on screen (GUI coordinates), so map clicks under it are not taken for targets.</summary>
         public static Rect MinimapRect;
         const float MapScale = 3.2f;   // minimap pixels per nav cell
@@ -57,16 +64,26 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>
+        /// What a player needs in order to choose one, not what it is made of. Every number here was read back out of
+        /// the sim rather than remembered: the walkers step over wire without slowing or breaking it
+        /// (VehicleKinematics.cs:186), the Kettle's RangeMin really is 46 m and the Pavise's 360 m really is the
+        /// longest RangeMax any machine on the field has (TankSpec.cs). Two things I had wrong before checking, and
+        /// which the tooltips must not repeat: the Pincer's guns are sponson mounts like the Maw's, not turrets, so
+        /// they cannot reach behind it; and TankSpec.Unmanned does NOT mean uncrewed — every walker carries Crew = 2,
+        /// a crew hit still calls LoseCrew, and what Unmanned buys is only that nobody bails out when it dies
+        /// (VehicleModules.cs:457). Keep these under about 100 characters: the hint line clips rather than wraps.
+        /// </summary>
         static string VehicleTip(byte archetype)
         {
             switch (archetype)
             {
                 case VehicleArchetype.Maw: return "Maw, heavy tank: sponson guns, crosses wide trenches, crushes wire";
                 case VehicleArchetype.Tusk: return "Tusk, light tank: turret gun, quick, ditches in wide trenches";
-                case VehicleArchetype.Pincer: return "Pincer, heavy walker: twin turret guns and two crushing claws, steps over trenches";
-                case VehicleArchetype.Kettle: return "Kettle, light walker: a mortar that fires without seeing its target";
-                case VehicleArchetype.Censer: return "Censer, walker: lays a drum of chlorine as it walks; quick, thin, unarmed";
-                case VehicleArchetype.Pavise: return "Pavise, walker: a long gun behind a shield; plants itself and reaches furthest";
+                case VehicleArchetype.Pincer: return "Pincer, heavy walker: sponson guns that cannot reach behind it, claws at 3 m. Steps over wire";
+                case VehicleArchetype.Kettle: return "Kettle, mortar walker: fires without line of sight at men behind a parapet. Blind inside 46 m";
+                case VehicleArchetype.Censer: return "Censer, gas walker: no gun. Lays chlorine as it walks; the drum is its ammunition and its weak spot";
+                case VehicleArchetype.Pavise: return "Pavise, siege walker: a 360 m gun, the longest reach on the field. Halts to fire, shielded in front";
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }
@@ -266,14 +283,26 @@ namespace TW.Presentation.Tactical
             float room = Screen.width - barLeft - leftW - rightW;
             // Cells in the wooden frame: every roster slot plus the two support buttons. This was the literal 7,
             // which meant the frame stopped growing the moment the roster did.
-            const int SupportSlots = 2;
+            //
+            // The width is derived from what the loop below actually consumes rather than guessed at: a 12 px inset,
+            // then every cell at a (size + Gap) pitch, then the 20 px divider before the support pair, then the same
+            // 12 px inset on the right. Worked out by replaying this arithmetic across six window sizes, which is
+            // how the old figure was caught being two pixels short of its own contents at every one of them — the
+            // buttons had been drawing a hair outside the wood since before the roster grew.
             int cells = RosterEntry.SlotCount + SupportSlots;
-            float gaps = 8f * (cells + 1);
-            float size = Mathf.Clamp((room - gaps - 22f - 16f) / cells, 46f, BarHeight - 22f);
-            float frameW = cells * size + gaps + 22f;
+            float fixedW = Gap * cells + Inset * 2f + Divider;
+            // 16 is a guard against a degenerate (zero or inverted) rect, NOT a comfort floor. It was 46, which is
+            // the wrong kind of number to put here: a floor the room cannot afford does not make the buttons bigger,
+            // it pushes the right-hand end of the bar off the screen, and a button you cannot reach is worse than a
+            // small one. Every floor above what fits trades a readable bar for an unusable one. So the bar shrinks
+            // to fit whatever room it is given and only refuses below 16 px a cell, which no shipping window can
+            // reach: the player is a non-resizable native-resolution fullscreen one (ProjectSettings.asset), and
+            // even 800x600 with the test panel open leaves 24 px a cell at ten cells.
+            float size = Mathf.Clamp((room - fixedW) / cells, 16f, BarHeight - 22f);
+            float frameW = cells * size + fixedW;
             float fx = barLeft + leftW + Mathf.Max(0f, (room - frameW) * 0.5f);
             GUI.Box(new Rect(fx, Screen.height - BarHeight, frameW, BarHeight + 6f), GUIContent.none, wood);
-            float x = fx + 12f, y = Screen.height - BarHeight + (BarHeight - size) * 0.5f + 2f;
+            float x = fx + Inset, y = Screen.height - BarHeight + (BarHeight - size) * 0.5f + 2f;
             for (int s = 0; s < RosterEntry.SlotCount; s++)
             {
                 var e = w.Roster[s];
@@ -293,10 +322,10 @@ namespace TW.Presentation.Tactical
                     if (size >= 70f) GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), NameOf(s, e), unitName);
                     GUI.Label(new Rect(r.x, r.y, r.width - 5f, r.height - 3f), cd > 0 ? $"{cd * w.Config.TickSeconds:0}s" : $"{e.Cost}", cost);
                 }
-                x += size + 8f;
+                x += size + Gap;
             }
             GUI.DrawTexture(new Rect(x + 3f, Screen.height - BarHeight + 4f, 6f, BarHeight), stripTex);
-            x += 20f;
+            x += Divider;
             SupportSlot(ref x, y, size, barrage, "HE barrage: 12 shells in 25 m after 4 s; craters give cover", OffMapAbilityId.HeBarrage, over);
             SupportSlot(ref x, y, size, gas, "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out", OffMapAbilityId.ChlorineGas, over);
 
@@ -488,7 +517,7 @@ namespace TW.Presentation.Tactical
             DrawIcon(new Rect(r.x, r.y - 4f, r.width, r.height), icon, size * 0.2f, can);
             GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), armed ? "AIM" : "", unitName);
             GUI.Label(new Rect(r.x, r.y, r.width - 5f, r.height - 3f), cd > 0 ? $"{cd * w.Config.TickSeconds:0}s" : $"{stats.Cost}", cost);
-            x += size + 8f;
+            x += size + Gap;
         }
 
         void Order(CommandType type, int trench, int b)
