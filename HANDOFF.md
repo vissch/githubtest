@@ -305,6 +305,15 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
     pillbox and sod shelter face their opening to the fog.
 
   Details: docs/13 §"Hand placement and kind looks".
+  Critique round 1, night readability (2026-09-22 evening; critic score 44/100):
+  - **Mud glitter:** the fine wet sparkle and hard sheen fade to about a third beyond 14–34 m (Toon_URP `close`).
+    Bright cool pixels at the standard view dropped from 1.35% to 0.29%.
+  - **Lamps:** they light soaked ground (`max(albedo, .16)`), and their outer reach is 0.36 (was 0.24).
+  - **Water:** puddles mirror at most 0.35 of the sky; the river is darker and only 38% misted.
+  - **Horizon fires:** now low, flattened glows (`_Squash` .35), not round pink discs.
+  - **Rain:** streaks are thinner and fainter, and shorter (0.5).
+  Still open from that round: the cobblestone detail cells, the prop palette, lamps on the big props, the horizon
+  band, the foreground stumps, the gun and tower scale questions for the owner, and the ghost-white units (claude-10).
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one

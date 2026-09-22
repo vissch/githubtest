@@ -101,7 +101,7 @@ Shader "TW/Toon (URP)"
                 {
                     gloss = 1.0;
                     half lapNoise = frac(dot(floor(i.positionWS.xz * 0.5), float2(0.37, 0.61)));
-                    albedo = TWWaterAlbedo((1.0 - base.a / 0.4) * 0.7, i.positionWS.xz, lapNoise, half3(0.36, 0.34, 0.27), half3(0.235, 0.255, 0.215), half3(0.135, 0.165, 0.16), half3(0.70, 0.71, 0.66), 0.45, shore) * i.color.rgb;
+                    albedo = TWWaterAlbedo((1.0 - base.a / 0.4) * 0.7, i.positionWS.xz, lapNoise, half3(0.36, 0.34, 0.27), half3(0.165, 0.18, 0.15), half3(0.095, 0.115, 0.11), half3(0.44, 0.45, 0.42), 0.45, shore) * i.color.rgb;
                 }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half2 slope = 0;
@@ -147,6 +147,9 @@ Shader "TW/Toon (URP)"
                 if (gloss > 0.01)
                 {
                     float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
+                    // the fine wet sparkle is for the camera among the men: from the standard view (30 m and more) it is
+                    // toned down to a third, so lanterns, not the mud, are the brightest things on screen
+                    half close = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 14.0) / 20.0);
                     float3 n = normalize(lerp(normalize(i.normalWS), float3(0, 1, 0), _DetailBump > 0.5 || _Gloss > 0.5 ? 0.8 : 0.0));   // water lies flat whatever the ground does; a wet prop keeps its own planes
                     if (_DetailStrength > 0.0)
                     {
@@ -154,18 +157,18 @@ Shader "TW/Toon (URP)"
                         float2 uvr = i.positionWS.xz * 0.19 + float2(_Time.y * 0.021, _Time.y * 0.013);
                         half2 ripple = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uvr).gb - 0.5;
                         half still = saturate(gloss * 2.0 - 1.0);
-                        n = normalize(n + float3(lerp(slope * (0.35 + 0.45 * _TWWet.x), ripple * 0.22, still), 0).xzy);   // soaked: every clod throws its own highlight
+                        n = normalize(n + float3(lerp(slope * (0.35 + 0.45 * _TWWet.x) * lerp(0.5, 1.0, close), ripple * 0.22, still), 0).xzy);   // soaked: every clod throws its own highlight
                     }
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                     half3 sky = TWSky() * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
-                    color = lerp(color, sky, gloss * (0.22 + 0.70 * fresnel) * (1.0 - shore * 0.7));
+                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7));   // a puddle mirrors at most a third of the sky: dark water, not paper
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                     // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
                     half toLight = saturate(dot(r, mainLight.direction));
                     half mudOnly = 1.0 - saturate(gloss * 2.0 - 1.0) * 0.72;   // the sheen is the mud's; still water only mirrors
-                    color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * 0.40) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * lerp(0.26, 0.40, close)) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     if (_DetailStrength > 0.0 && _TWWet.y > 0.0)
                     {
                         // hard wet glints: a second, much finer read of the slopes tilts tiny facets into the moon, so the
@@ -173,7 +176,7 @@ Shader "TW/Toon (URP)"
                         half2 fine = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale * 4.3 + 0.17).gb - 0.5;
                         float3 facet = normalize(n + float3(fine.x, 0, fine.y) * 1.25);
                         half spark = smoothstep(0.972, 0.984, dot(reflect(-view, facet), mainLight.direction));
-                        color += spark * 1.7 * near * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                        color += spark * 1.7 * near * lerp(0.3, 1.0, close) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     }
                 }
                 if (_TWWet.z > 0.0)
@@ -183,7 +186,7 @@ Shader "TW/Toon (URP)"
                     if (open > 0.0) color += TWRainSplash(i.positionWS.xz) * open * (TWSky() * 0.9 + mainLight.color * 0.25);
                 }
                 half3 lampGlint;
-                color += albedo * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
+                color += max(albedo, 0.16) * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
                 color += lampGlint;
                 color += _Emission.rgb;
                 color = ApplyMist(color, i.positionWS);

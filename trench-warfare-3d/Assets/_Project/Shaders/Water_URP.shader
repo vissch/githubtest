@@ -17,8 +17,8 @@ Shader "TW/Water (URP)"
         _DepthST ("World XZ to depth map UV (scale xy, offset zw)", Vector) = (0.011, 0.004, 0, 0)
         _Flow ("Flow (m/s, world XZ)", Vector) = (0.35, 0.05, 0, 0)
         _Shallow ("Silty margin", Color) = (0.36, 0.34, 0.27, 1)
-        _Body ("Body", Color) = (0.235, 0.255, 0.215, 1)
-        _Deep ("Channel", Color) = (0.135, 0.165, 0.16, 1)
+        _Body ("Body", Color) = (0.17, 0.185, 0.155, 1)
+        _Deep ("Channel", Color) = (0.10, 0.12, 0.115, 1)
         _Foam ("Shore line", Color) = (0.70, 0.71, 0.66, 1)
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         _Ripple ("Ripple strength", Range(0, 1)) = 0.35
@@ -97,7 +97,7 @@ Shader "TW/Water (URP)"
                 float3 r = reflect(-view, n);
                 half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                 half3 sky = TWSky() * half3(0.93, 0.98, 1.05) * lerp(1.08, 0.58, saturate(r.y * 1.4));   // bright at the horizon, darker overhead, a little colder than the haze
-                half mirror = (0.14 + 0.62 * fresnel) * (1.0 - shore * 0.7);
+                half mirror = min(0.14 + 0.62 * fresnel, 0.34) * (1.0 - shore * 0.7);   // dark water under a night sky, not a pale sheet
                 color = lerp(color, sky, mirror);
                 half glint = smoothstep(0.988, 0.994, dot(r, mainLight.direction)) * 0.6;
                 color += glint * mainLight.color * 0.6 * mainLight.shadowAttenuation;
@@ -107,7 +107,7 @@ Shader "TW/Water (URP)"
                 half3 local = TWLocalLights(i.positionWS, n, i.positionCS, view, 1.0, lampGlint);
                 color += (albedo + 0.25) * local + lampGlint * 1.2;
 
-                color = lerp(color, ApplyMist(color, i.positionWS), 0.55);   // the sheet lies below the mist's top everywhere: full mist would paint the whole river white
+                color = lerp(color, ApplyMist(color, i.positionWS), 0.38);   // the sheet lies below the mist's top everywhere: full mist would paint the whole river white (and .55 still read as a pale sheet)
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
                 return half4(color, 1.0);

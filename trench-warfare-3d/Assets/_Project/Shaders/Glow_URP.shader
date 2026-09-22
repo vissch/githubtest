@@ -10,6 +10,7 @@ Shader "TW/Glow (URP)"
     Properties
     {
         [HDR] _Tint ("Tint", Color) = (1, 1, 1, 1)
+        _Squash ("Height against width", Float) = 1
     }
     SubShader
     {
@@ -28,6 +29,7 @@ Shader "TW/Glow (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             CBUFFER_START(UnityPerMaterial)
                 half4 _Tint;
+                float _Squash;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 corner : TEXCOORD0; float4 shape : TEXCOORD1; half4 color : COLOR; };
@@ -40,7 +42,7 @@ Shader "TW/Glow (URP)"
                 float3 right = UNITY_MATRIX_V[0].xyz, up = UNITY_MATRIX_V[1].xyz;
                 float t = _Time.y * 9.0 + v.shape.z * 40.0;
                 float flicker = 1.0 - v.shape.y * (0.5 + 0.5 * sin(t) * sin(t * 0.37 + 1.3) + 0.25 * sin(t * 2.3));
-                float3 ws = centre + (right * v.corner.x + up * v.corner.y) * v.shape.x * 0.5 * (0.9 + 0.1 * flicker);
+                float3 ws = centre + (right * v.corner.x + up * v.corner.y * _Squash) * v.shape.x * 0.5 * (0.9 + 0.1 * flicker);   // squashed: a fire's glow lies along the ground
                 o.positionCS = TransformWorldToHClip(ws);
                 o.corner = v.corner;
                 float haze = 1.0 - saturate(ComputeFogIntensity(ComputeFogFactor(o.positionCS.z)));   // 0 clear .. 1 lost in haze

@@ -10,11 +10,11 @@ Shader "TW/Rain (URP)"
 {
     Properties
     {
-        _Color ("Colour (a = strength)", Color) = (0.62, 0.72, 0.92, 0.22)
+        _Color ("Colour (a = strength)", Color) = (0.62, 0.72, 0.92, 0.12)
         _Centre ("Box centre", Vector) = (0, 0, 0, 0)
         _Size ("Box size", Vector) = (90, 46, 90, 0)
         _Fall ("Wind x, fall speed, wind z, streak length", Vector) = (3, 19, -2, 0.9)
-        _Width ("Streak width (m)", Float) = 0.014
+        _Width ("Streak width (m)", Float) = 0.017
         _Offset ("Fallen so far", Vector) = (0, 0, 0, 0)
         _Level ("Rain now 0..1", Float) = 0.6
     }

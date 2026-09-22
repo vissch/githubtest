@@ -200,13 +200,21 @@ namespace TW.Presentation.Terrain
                 flameFeet.Add(wick); flameShapes.Add(new Vector4(.42f, .80f, Hash(i, 89), 0f));
                 torches++;
             }
-            // fires on the horizon: seen through the fog bank as soft orange glows that flare and sink
+            // fires on the horizon: seen through the fog bank as low orange glows lying along the ground, half behind it, that
+            // flare and sink (a round glow up in the air read as a pink moon: critique round 1, 2026-09-22)
+            var fireCentres = new List<Vector3>(); var fireShapes = new List<Vector4>(); var fireColors = new List<Color>();
             for (int k = 0; k < 10; k++)
             {
                 float a = Hash(k, 3), b = Hash(k, 5);
-                Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 1.2f + 1.6f * b, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 1.5f + 2f * b, len + 30f + 60f * a);
-                centres.Add(p); shapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); colors.Add(new Color(1f, .42f, .13f, .30f + .2f * a));   // low and small: a glow on the ground far off, not a sun
+                Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 0f, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 0f, len + 30f + 60f * a);
+                p.y = GreyboxTerrainView.SkirtLevel + .2f * b;
+                fireCentres.Add(p); fireShapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); fireColors.Add(new Color(1f, .55f, .2f, .16f + .1f * a));
             }
+            var fireHost = new GameObject("Horizon fires") { hideFlags = HideFlags.DontSave };
+            fireHost.transform.SetParent(transform, false);
+            var fireGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
+            fireGlow.SetFloat("_Squash", .35f); owned.Add(fireGlow);
+            AddGlowMesh(fireHost, fireGlow, fireCentres.ToArray(), fireShapes.ToArray(), fireColors.ToArray());
             foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternHome.Add(l.transform.position); }
             // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
             SceneHooks.SmokeSources.Clear();

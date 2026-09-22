@@ -12,7 +12,7 @@ namespace TW.Presentation.Terrain
         [Range(0f, 1f)] public float Intensity = 1f;
         public const int MaxStreaks = 2800;
         public Vector3 Box = new Vector3(90f, 46f, 90f);
-        public float FallSpeed = 17f, StreakLength = 0.75f;
+        public float FallSpeed = 17f, StreakLength = 0.5f;
         Mesh mesh; Material material; Camera cam;
         Mesh curtainMesh; Material curtains; Texture2D curtainNoise; Vector2 drifted;
         const float CurtainCell = 70f, CurtainHeight = 55f;

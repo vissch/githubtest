@@ -28,7 +28,7 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
         half3 deep = tint * tint * tint;
         half glint = pow(saturate(dot(mirrored, l.direction)), 22.0) * l.distanceAttenuation * peak;
         highlight += lerp(tint, half3(1, 1, 1), 0.35) * (smoothstep(0.05, 0.11, glint) * 0.55 + smoothstep(0.6, 0.9, glint) * 0.6) * gloss;
-        sum += deep * smoothstep(0.02, 0.04, e) * 0.24 + tint * smoothstep(0.12, 0.20, e) * 0.38 + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44;
+        sum += deep * smoothstep(0.02, 0.04, e) * 0.36 + tint * smoothstep(0.12, 0.20, e) * 0.38 + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44;
     LIGHT_LOOP_END
 #endif
     return sum;
