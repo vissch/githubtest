@@ -116,6 +116,9 @@ Shader "TW/Toon (URP)"
                 if (_DetailStrength > 0.0)
                 {
                     float2 uv1 = i.positionWS.xz * _DetailScale;
+                    // the clods are cells of a tiling noise: bent by a slow sine field (about three cells a wave, a quarter
+                    // of a cell deep) their edges wander, so up close the mud no longer reads as laid paving (critique round 1)
+                    uv1 += 0.014 * float2(sin(uv1.y * 37.0 + sin(uv1.x * 23.0)), sin(uv1.x * 41.0 + 1.7 + sin(uv1.y * 19.0)));
                     float2 uv2 = float2(uv1.x * 0.259 - uv1.y * 0.117, uv1.x * 0.117 + uv1.y * 0.259) + 0.37;   // turned and 3.5x larger: the broad blotches
                     half3 d1 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, uv1).rgb;
                     float eyeDistance = distance(_WorldSpaceCameraPos, i.positionWS);
@@ -137,7 +140,7 @@ Shader "TW/Toon (URP)"
                     albedo *= 1.0 - 0.55 * _TWWet.x * _DetailBump * dry;   // soaked earth is darker: black mud under the moon
                     albedo *= 1.0 + tone * 2.0 * _DetailStrength * dry;
                     half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
-                    albedo *= 1.0 + smoothstep(0.035, 0.06, relief) * 0.13 - smoothstep(0.03, 0.055, -relief) * 0.20;
+                    albedo *= 1.0 + smoothstep(0.035, 0.08, relief) * 0.10 - smoothstep(0.03, 0.08, -relief) * 0.12;   // soft clod edges, not grouted cells
                 }
                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half lit = wrap;

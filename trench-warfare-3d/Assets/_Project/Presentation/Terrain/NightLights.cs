@@ -20,7 +20,7 @@ namespace TW.Presentation.Terrain
     public sealed class NightLights : MonoBehaviour
     {
         public SimHost Host;
-        public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, MaxTorches = 6, PoolSize = 8;
+        public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, MaxTorches = 6, MaxPropLamps = 12, PoolSize = 8;
         public Color Lantern = new Color(1f, 0.60f, 0.26f), Muzzle = new Color(1f, 0.74f, 0.40f), Burst = new Color(1f, 0.52f, 0.20f), Flare = new Color(0.82f, 0.90f, 1f);
         public float LanternIntensity = 6f, LanternRange = 10f;
         [Tooltip("Seconds between star shells, least and most.")]
@@ -139,6 +139,32 @@ namespace TW.Presentation.Terrain
                 lanterns.Add(l); lanternPhase.Add(i * 1.618f);
                 centres.Add(l.transform.position); shapes.Add(new Vector4(2.6f, .18f, i * .137f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .55f));
             }
+            // a lamp on a post by each observation stand and field gun, on the side the standard view sees (critique round 1:
+            // the big imported props stood unlit, grey boxes in the dark). Off the map too: the stands beyond the far edge.
+            var props = GetComponent<BattlefieldProps>();
+            int propLamps = 0;
+            if (props != null)
+                foreach (var prop in props.Editable)
+                {
+                    if (propLamps >= MaxPropLamps) break;
+                    if (prop.Module.Name != "Siege/ArmouredStand" && prop.Module.Name != "Weapons/FieldGun") continue;
+                    var m = prop.Matrix; Vector3 centre = m.GetPosition();
+                    Vector3 half = Vector3.Scale(prop.Module.Mesh.bounds.extents, m.lossyScale);
+                    var toViewer = props.PreferredFront; toViewer.y = 0f; toViewer.Normalize();
+                    var along = Vector3.Cross(Vector3.up, toViewer);
+                    Vector3 foot = centre + toViewer * (Mathf.Max(half.x, half.z) + .7f) + along * ((Hash(propLamps, 71) - .5f) * half.z);
+                    foot.y = props.Ground(foot.x, foot.z);
+                    var facing = Quaternion.LookRotation(-toViewer);
+                    Vector3 lamp = foot + Vector3.up * 1.75f;
+                    Part(PrimitiveType.Cube, foot + Vector3.up * .9f, new Vector3(.09f, 1.8f, .09f), post, facing);
+                    Part(PrimitiveType.Cube, lamp + facing * new Vector3(.18f, .02f, 0f), new Vector3(.42f, .07f, .07f), post, facing);
+                    Part(PrimitiveType.Cube, lamp + facing * new Vector3(.34f, -.22f, 0f), new Vector3(.20f, .30f, .20f), glass, facing);
+                    var l = MakeLight("Prop lamp " + propLamps, Lantern, LanternIntensity, LanternRange);
+                    l.transform.position = lamp + facing * new Vector3(.34f, -.20f, 0f);
+                    lanterns.Add(l); lanternPhase.Add(propLamps * 2.39f);
+                    centres.Add(l.transform.position); shapes.Add(new Vector4(2.6f, .18f, propLamps * .151f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .55f));
+                    propLamps++;
+                }
             // lamps in the line: on the wall of a trench cell whose neighbour toward z- is open ground, spaced along x
             int hung = 0;
             for (int z = 1; z < map.NavLength - 1 && hung < MaxTrenchLamps; z++)
