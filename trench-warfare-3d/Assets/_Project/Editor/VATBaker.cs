@@ -196,7 +196,7 @@ namespace TW.Editor
             float top = Enumerable.Range(0, skinCount).Where(i => skinBones[skinWeights[i].boneIndex0] == rig.Head).Select(i => verts[i].y).DefaultIfEmpty(verts.Max(p => p.y)).Max();
             var headPos = rig.Head.position;
             var helmet = rig.HasHelmet ? new BoxMesh { Pos = new Vector3[0], Nrm = new Vector3[0], Tris = new int[0] } : Box(new Vector3(headPos.x, top - 0.07f * u, headPos.z + 0.01f * u), new Vector3(0.31f, 0.03f, 0.34f) * u);   // the brim of a Brodie
-            var rifle = Box(new Vector3(0f, 0f, 0.20f * u), new Vector3(0.05f, 0.07f, 1.15f) * u);
+            var rifle = Box(new Vector3(0f, 0f, 0.30f * u), new Vector3(0.06f, 0.10f, 1.15f) * u);   // fat enough to read at 30 m; butt 27 cm behind the grip
             int vertexCount = skinCount + helmet.Pos.Length + rifle.Pos.Length;
 
             // the clips' hips translation is another character's: scale it to this rig's leg length
@@ -220,8 +220,13 @@ namespace TW.Editor
                 for (int i = 0; i < helmet.Pos.Length; i++) { p[skinCount + i] = head.MultiplyPoint3x4(helmet.Pos[i]); n[skinCount + i] = head.MultiplyVector(helmet.Nrm[i]).normalized; }
                 // carried in the right hand's socket; when the right hand leaves the weapon (bolt, reload, a fidget, the
                 // ladder, a throw) the left hand keeps it
-                bool rightOff = (rig.HandR.position - rig.HandL.position).magnitude > 0.48f / rig.Scale;
-                var grip = rightOff ? rig.HandL.localToWorldMatrix * rig.GripL : rig.HandR.localToWorldMatrix * rig.GripR;
+                // both hands on it: from the right hand (the grip) through the left (the forestock), whatever the rig's hand axes are
+                Vector3 span = rig.HandL.position - rig.HandR.position;
+                bool rightOff = span.magnitude > 0.48f / rig.Scale;
+                Matrix4x4 grip;
+                if (rightOff) grip = rig.HandL.localToWorldMatrix * rig.GripL;
+                else if (span.magnitude > 0.08f / rig.Scale) grip = Matrix4x4.TRS(rig.HandR.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
+                else grip = rig.HandR.localToWorldMatrix * rig.GripR;
                 int r0 = skinCount + helmet.Pos.Length;
                 for (int i = 0; i < rifle.Pos.Length; i++) { p[r0 + i] = grip.MultiplyPoint3x4(rifle.Pos[i]); n[r0 + i] = grip.MultiplyVector(rifle.Nrm[i]); }
                 var turn = Quaternion.Euler(0f, -yawFix * Mathf.Rad2Deg, 0f);

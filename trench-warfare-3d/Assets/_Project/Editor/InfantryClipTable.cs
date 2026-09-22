@@ -32,8 +32,8 @@ namespace TW.Editor
         {
             // idle
             L(Clip.Idle, "Rifle Idle"); L(Clip.AimedIdle, "Rifle Aiming Idle"); L(Clip.ReadyIdle, "Rifle Idle (2)");
-            L(Clip.KneelIdle, "Rifle Kneel Idle"); O(Clip.KneelAimedIdle, "Rifle Kneel To Aim", 15, 0.72f, 0.8f); L(Clip.ProneIdle, "Prone Idle"); L(Clip.StoopIdle, "Crouch Idle");
-            O(Clip.FidgetLookAround, "Rifle Idle (3)", 12, 0f, 5.3f); O(Clip.FidgetRubEyes, "Rifle Rubbing Eyes"); O(Clip.FidgetCheckShoe, "Check Shoe", 12); O(Clip.FidgetCollar, "Rifle Idle (4)", 12); O(Clip.FidgetInspect, "Inspecting");
+            L(Clip.KneelIdle, "Rifle Kneel Idle"); O(Clip.KneelAimedIdle, "Fire Rifle", 15, 0.95f, 1.03f); L(Clip.ProneIdle, "Prone Idle"); L(Clip.StoopIdle, "Crouch Idle");
+            O(Clip.FidgetLookAround, "Rifle Idle (3)", 12, 0f, 5.3f); O(Clip.FidgetRubEyes, "Rifle Rubbing Eyes", 15, 0f, 0f, 1f, true); O(Clip.FidgetCheckShoe, "Check Shoe", 12); O(Clip.FidgetCollar, "Rifle Idle (4)", 12); O(Clip.FidgetInspect, "Inspecting");
             // locomotion
             L(Clip.Walk, "Rifle Walk"); L(Clip.WalkAimed, "Walk With Rifle"); L(Clip.WalkWary, "Walk With Rifle (1)"); L(Clip.WalkBack, "Backwards Rifle Walk");
             L(Clip.WalkLeft, "Walk Left"); L(Clip.WalkRight, "Walk Right"); L(Clip.Run, "Rifle Run (1)", 20); L(Clip.RunBack, "Backwards Rifle Run", 20); L(Clip.Sprint, "Sprint Forward", 24);
@@ -50,13 +50,13 @@ namespace TW.Editor
             O(Clip.Sling, "Rifle Put Away", 12); O(Clip.Unsling, "Rifle Pull Out", 12);
             // reactions
             O(Clip.HitStand, "Hit Reaction (1)", 15); O(Clip.HitHeavy, "Hit Reaction", 15); O(Clip.HitWalk, "Walking Hit Reaction", 15); O(Clip.HitRun, "Hit Reaction (2)", 24); O(Clip.HitProne, "Rifle Prone Hit Reaction", 15);
-            O(Clip.KneelFlinch, "Kneel Flinch", 24); O(Clip.ProneFlinch, "Prone Flinch", 24); O(Clip.Duck, "Dodging", 15); O(Clip.Shield, "Rifle Shielding Face", 12);
-            O(Clip.DiveRoll, "Dive Roll", 15); O(Clip.ProneRoll, "Prone Roll", 15); O(Clip.Trip, "Fall Over", 15); O(Clip.GetUp, "Get Up From Prone", 15);
+            O(Clip.KneelFlinch, "Kneel Flinch", 24); O(Clip.ProneFlinch, "Prone Flinch", 24); O(Clip.Duck, "Rifle Shielding Face", 15, 0f, 0.8f, 1f, true); O(Clip.Shield, "Rifle Shielding Face", 12, 0f, 0f, 1f, true);
+            O(Clip.DiveRoll, "Dive Roll", 15); O(Clip.ProneRoll, "Prone Roll", 15); O(Clip.Trip, "Fall Over", 15, 0f, 0f, 1f, true); O(Clip.GetUp, "Get Up From Prone", 15, 0f, 0f, 1f, true);
             O(Clip.MaskOn, "Mask Donning", 12); L(Clip.Burning, "Burning Run", 15); O(Clip.Stumble, "Stumble Running", 15);
             // trench and stance
             O(Clip.JumpDown, "Jumping Down", 15, 0f, 1.8f); O(Clip.ClimbOut, "Jump Up", 24); L(Clip.ClimbHold, "Jump Loop", 12); O(Clip.ClimbLand, "Jump Down", 24); L(Clip.ClimbLadder, "Ladder Climb");
-            O(Clip.StandToKneel, "Rifle Stand To Kneel", 20); O(Clip.KneelToStand, "Rifle Kneel To Stand", 20); O(Clip.KneelToProne, "Rifle Kneel To Prone", 15); O(Clip.ProneToKneel, "Rifle Prone To Kneel", 15);
-            O(Clip.StandToStoop, "Rifle Idle To Crouch", 15, 0f, 1.4f); O(Clip.StoopToStand, "Rifle Crouch Walk To Idle", 15, 1.4f, 2.93f); O(Clip.StoopToKneel, "Rifle Crouch Walk To Kneel", 15, 1.2f, 2.73f); O(Clip.KneelToStoop, "Rifle Crouch Idle To Walk", 15, 0f, 1.5f);
+            O(Clip.StandToKneel, "Rifle Stand To Kneel", 20); O(Clip.KneelToStand, "Rifle Kneel To Stand", 20); O(Clip.KneelToProne, "Rifle Kneel To Prone", 15, 0f, 0f, 1f, true); O(Clip.ProneToKneel, "Rifle Prone To Kneel", 15);
+            O(Clip.StandToStoop, "Rifle Idle To Crouch", 15, 0f, 1.4f, 1f, true); O(Clip.StoopToStand, "Rifle Crouch Walk To Idle", 15, 1.4f, 2.93f); O(Clip.StoopToKneel, "Rifle Crouch Walk To Kneel", 15, 1.2f, 2.73f); O(Clip.KneelToStoop, "Rifle Crouch Idle To Walk", 15, 0f, 1.5f);
             O(Clip.TakeCover, "Taking Cover", 15); O(Clip.Emerge, "Emerging", 15);
             O(Clip.Turn90L, "Rifle Turn (4)", 15); O(Clip.Turn90R, "Rifle Turn (6)", 15); O(Clip.Turn180, "Rifle Turn (3)", 15);
             O(Clip.KneelTurn90L, "Crouching Turn 90 Left", 15); O(Clip.KneelTurn90R, "Crouching Turn 90 Right", 15);

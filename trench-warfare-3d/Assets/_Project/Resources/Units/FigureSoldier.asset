@@ -15,5 +15,5 @@ MonoBehaviour:
   Mesh: {fileID: 4300000, guid: bdc734cd705ad104dbef8c723dd2d39c, type: 2}
   Atlas: {fileID: 4900000, guid: 99151889e63ba344c8c9c572a5d5968e, type: 3}
   Rows: 105
-  TotalFrames: 3259
+  TotalFrames: 3246
   VertexCount: 917

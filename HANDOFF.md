@@ -227,7 +227,16 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   rifle shot, stand↔kneel damped against the sim's target flicker, the three-part climb out. Gotchas: a stale
   `Library/BurstCache` after the instance struct grew threw inside Burst jobs (delete it); the clip gallery
   (scratchpad `gal2.sh`, draws one man per clip from the atlas in the air) is how a bake is checked — it caught the
-  whole army baked facing −Z. Still open from the critique rounds: see docs/15 §14.
+  whole army baked facing −Z. Two critique rounds followed (docs/reference/controller/trace-*.txt, figures/): the
+  rifle now runs from the grip hand through the forestock hand and passes to the left hand when the right leaves it;
+  the shot is drawn before an aim-up, flinch or duck can swallow it and aims at the man the sim already cleared on a
+  kill (`shotAt`); deaths pick their clip by the smoothed speed. Still open from round 2 (worth doing next, in this
+  order): the corpse pops in with no blend from the living instance (pass PrevClip/PrevFrame to `AddFallen`); a
+  kneeling man stands to reload (no kneeling reload clip: compose one in the baker from Rifle Kneel Idle's lower
+  body); `ClimbHold` should be the ladder scramble, not Jump Loop, and a drop at a run should start at its landing;
+  advancing men flip prone/standing per tick under fire (hold a prone↔upright gait change 10 ticks and play the
+  transition); Prone moves at walking pace in the sim (owner); the sniper's cloak is skinned as a plank and the
+  model carries a second rifle on its pack; the bake report prints pre-clamp death travel.
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one
