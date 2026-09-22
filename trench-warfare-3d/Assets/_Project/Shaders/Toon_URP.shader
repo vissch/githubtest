@@ -20,6 +20,7 @@ Shader "TW/Toon (URP)"
         _BaseColor ("Color", Color) = (1,1,1,1)
         _BaseMap ("Base Map", 2D) = "white" {}
         _DetailMap ("World Detail (grey = none)", 2D) = "gray" {}
+        _Pigment ("Painted surface layer (-1 = use Base Map)", Float) = -1
         _DetailScale ("Detail tiles per metre", Float) = 0.125
         _DetailStrength ("Detail strength", Range(0,1)) = 0
         _DetailBump ("Detail relief", Range(0,1)) = 0
@@ -39,10 +40,13 @@ Shader "TW/Toon (URP)"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
         TEXTURE2D(_DetailMap); SAMPLER(sampler_DetailMap);
+        // The kit's painted surfaces as one array, set globally by BattlefieldKit (BattlefieldPigment.Sheet).
+        // An array and not an atlas because these tile across a plank and an atlas tile bleeds when it wraps.
+        TEXTURE2D_ARRAY(_PigmentSheet); SAMPLER(sampler_PigmentSheet);
         CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor, _ShadeColor, _OutlineColor, _Emission;
             float4 _BaseMap_ST;
-            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway;
+            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway, _Pigment;
         CBUFFER_END
         float4 _TWWind;   // xz: the wind (Atmosphere.WindNow, scaled), w: 1 when set
         /// Reeds, grass and scrub lean with the wind and shiver in the gusts: the bend grows with the square of the height
@@ -93,7 +97,15 @@ Shader "TW/Toon (URP)"
 
             half4 frag(Varyings i) : SV_Target
             {
-                half4 base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+                // A painted surface is one grey channel of the shared sheet; the ground and the imported sheets
+                // keep their own base map, which also carries the water depth in its alpha, so they pass -1.
+                half4 base;
+                if (_Pigment >= 0.0)
+                {
+                    half paint = SAMPLE_TEXTURE2D_ARRAY(_PigmentSheet, sampler_PigmentSheet, i.uv, _Pigment).r;
+                    base = half4(paint, paint, paint, 1.0);
+                }
+                else base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
                 half3 albedo = base.rgb * _BaseColor.rgb * i.color.rgb;
                 half gloss = max(_Gloss, 1.0 - base.a);
                 half shore = 0;

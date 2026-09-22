@@ -230,3 +230,33 @@ rects are fractions either way. Only the measurement told them apart.
 The 80 kit modules hold 80 distinct materials, one per module, which is the obvious explanation for SetPass calls
 sitting at 321 against 374 draw calls. Sharing materials needs the per-module colour, sway and gloss to move off
 the material, so it is its own piece of work with its own measurement.
+
+### ...and the painted surfaces, combined too (same day)
+
+The five procedural pigments were greyscale stored in RGB24 — three bytes to say one thing — in five separate
+textures, each costing its own binding. They are now the layers of one R8 `Texture2DArray`, set globally as
+`_PigmentSheet`, with the layer chosen per material by the `_Pigment` float (`-1` keeps the old `_BaseMap` path,
+which the ground needs because its alpha carries water depth).
+
+An array rather than an atlas: these tile across a plank or a wall, and a tile packed into the corner of an atlas
+bleeds into its neighbours the moment it wraps. That is the opposite of the imported sheets, whose UVs are clamped
+inside 0..1 and which therefore pack into cells perfectly well. Same word, "combine", two different techniques,
+and picking the wrong one for either would have looked like a bug rather than a cost.
+
+| Prop kit base maps | Start | After the env atlas | After the pigment sheet |
+|---|---|---|---|
+| Distinct textures | 11 | 6 | **1** |
+| Memory | 34.93 MB | 13.59 MB | **10.67 MB** |
+
+Eighty modules now bind one base map between them, plus one global sheet of about 0.7 MB.
+
+Because a painted surface now costs a float rather than a texture and a binding, three new ones were worth adding
+where there had been none at all: **Rust** (pitted patches with the rust running down from them) on the helmet,
+mess tin, ammunition tin, bucket, hanging tins, wire tins, grave marker and spent cases, all of which were flat
+colour; **Stone** (fracture lines with a chipped lip) on rubble; and **Sacking** (a warp and weft you can count) on
+sandbags and trench bags, which were using the smoother seamed Canvas.
+
+Still open: 80 modules hold 80 materials. Now that a painted module binds no texture of its own, the only things
+keeping those materials apart are `_BaseColor`, `_Pigment`, `_Sway`, `_Gloss` and `_OutlineWidth` — all floats and
+a colour. Moving them to a per-module property block is the obvious next experiment against the 321 SetPass calls,
+and it is an experiment, not a certainty: a property block may cost a state change of its own.

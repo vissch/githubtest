@@ -41,12 +41,21 @@ namespace TW.Presentation.Terrain
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
         readonly List<Texture2D> ownedTextures = new List<Texture2D>();
-        readonly Dictionary<BattlefieldPigment.Surface, Texture2D> pigments = new Dictionary<BattlefieldPigment.Surface, Texture2D>();
-        Texture2D Pigment(BattlefieldPigment.Surface surface)
+        Texture2DArray pigmentSheet;
+        /// <summary>
+        /// The painted surfaces are layers of one shared array rather than a texture each: the shader is told which
+        /// layer with _Pigment, and the sheet itself is global, so a module that is painted binds no texture of its
+        /// own at all. Baked on first use and kept for the life of the kit.
+        /// </summary>
+        void Paint(Module module, BattlefieldPigment.Surface surface)
         {
-            if (!pigments.TryGetValue(surface, out var texture))
-            { texture = BattlefieldPigment.Bake(surface); pigments.Add(surface, texture); ownedTextures.Add(texture); }
-            return texture;
+            if (pigmentSheet == null)
+            {
+                pigmentSheet = BattlefieldPigment.Sheet();
+                pigmentSheet.hideFlags = HideFlags.HideAndDontSave;
+                Shader.SetGlobalTexture("_PigmentSheet", pigmentSheet);
+            }
+            module.Material.SetFloat("_Pigment", (int)surface);
         }
         static Mesh Primitive(PrimitiveType type) => Resources.GetBuiltinResource<Mesh>(type + ".fbx");
 
@@ -212,7 +221,7 @@ namespace TW.Presentation.Terrain
         public Module CreateModule(string name, BattlefieldPigment.Surface pigment, Color tint, params (Mesh mesh, Vector3 pos, Vector3 euler, Vector3 scale)[] parts)
         {
             var module = Make(Combine(name, parts), tint);
-            module.Material.SetTexture("_BaseMap", Pigment(pigment)); return module;
+            Paint(module, pigment); return module;
         }
 
         public BattlefieldKit()
@@ -284,17 +293,13 @@ namespace TW.Presentation.Terrain
                 (cube, new Vector3(4.6f, 0.5f, 1.2f), new Vector3(0f, 30f, 12f), new Vector3(1.8f, 1.0f, 1.2f)),
                 (cube, new Vector3(-6.5f, 1.6f, -0.5f), new Vector3(0f, 8f, 0f), new Vector3(4.0f, 3.2f, 0.9f))), new Color(0.50f, 0.49f, 0.47f));
             BuildFieldKit(cube, bag, timber);
-            var woodPaint = Pigment(BattlefieldPigment.Surface.Timber);
-            var earthPaint = Pigment(BattlefieldPigment.Surface.Earth);
-            var concretePaint = Pigment(BattlefieldPigment.Surface.Concrete);
-            var canvasPaint = Pigment(BattlefieldPigment.Surface.Canvas);
-            var barkPaint = Pigment(BattlefieldPigment.Surface.Bark);
-            foreach (var b in new[] { planks, ladder, duckboards, dugout, supplies, knifeRest, bridge }) b.Material.SetTexture("_BaseMap", woodPaint);
-            roof.Material.SetTexture("_BaseMap", earthPaint);
-            bunker.Material.SetTexture("_BaseMap", concretePaint);
-            sandbags.Material.SetTexture("_BaseMap", canvasPaint);
-            BuildTrenchVariants(cube, sackMesh, timber, sack, woodPaint, canvasPaint);
-            foreach (var b in new[] { trunk, snag, fallen, stump, fork }) b.Material.SetTexture("_BaseMap", barkPaint);
+            foreach (var b in new[] { planks, ladder, duckboards, dugout, supplies, knifeRest, bridge }) Paint(b, BattlefieldPigment.Surface.Timber);
+            Paint(roof, BattlefieldPigment.Surface.Earth);
+            Paint(bunker, BattlefieldPigment.Surface.Concrete);
+            // sandbags are woven hessian up close, not a smooth seamed sheet: Sacking rather than Canvas
+            Paint(sandbags, BattlefieldPigment.Surface.Sacking);
+            BuildTrenchVariants(cube, sackMesh, timber, sack);
+            foreach (var b in new[] { trunk, snag, fallen, stump, fork }) Paint(b, BattlefieldPigment.Surface.Bark);
             BuildImported();
         }
 
@@ -377,7 +382,7 @@ namespace TW.Presentation.Terrain
             grass = Imported("Plants", "GrassClump", growth, false, .35f, .50f);
         }
 
-        void BuildTrenchVariants(Mesh cube, Mesh sackMesh, Color timber, Color sack, Texture2D woodPaint, Texture2D canvasPaint)
+        void BuildTrenchVariants(Mesh cube, Mesh sackMesh, Color timber, Color sack)
         {
             var worn = WornBox(.035f, .10f, 217);
             for (int variant = 0; variant < 3; variant++)
@@ -389,7 +394,7 @@ namespace TW.Presentation.Terrain
                 parts.Add((cube, new Vector3(-.91f, .96f, -.10f), new Vector3(0f, 0f, variant == 1 ? 4f : -2f), new Vector3(.18f, 2f, .20f)));
                 if (variant == 2) parts.Add((cube, new Vector3(.28f, .90f, -.13f), new Vector3(0f, 0f, -24f), new Vector3(.15f, 1.6f, .16f)));
                 TrenchWalls[variant] = Make(Combine("Weathered revetment " + variant, parts.ToArray()), timber * (variant == 2 ? .9f : 1f), false, 1.6f);
-                TrenchWalls[variant].Material.SetTexture("_BaseMap", woodPaint);
+                Paint(TrenchWalls[variant], BattlefieldPigment.Surface.Timber);
                 parts.Clear();
                 for (int bag = 0; bag < 2; bag++)
                     parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .15f, (Rand(bag, variant + 315) - .5f) * .10f),
@@ -397,14 +402,14 @@ namespace TW.Presentation.Terrain
                 if (variant != 2) parts.Add((sackMesh, new Vector3(variant == 0 ? -.04f : .30f, .44f, -.08f), new Vector3(0f, -8f, 3f), new Vector3(1.02f, .37f, .65f)));
                 if (variant == 0) parts.Add((sackMesh, new Vector3(1.0f, .43f, -.05f), new Vector3(0f, 7f, -3f), new Vector3(.95f, .35f, .63f)));
                 TrenchBags[variant] = Make(Combine("Settled parapet " + variant, parts.ToArray()), sack);
-                TrenchBags[variant].Material.SetTexture("_BaseMap", canvasPaint);
+                Paint(TrenchBags[variant], BattlefieldPigment.Surface.Sacking);
                 parts.Clear();
                 for (int board = 0; board < 5; board++)
                     parts.Add((cube, new Vector3((board - 2) * .39f, .08f + Rand(board, variant + 321) * .025f, (Rand(board, variant + 322) - .5f) * .14f),
                         new Vector3(0f, (Rand(board, variant + 323) - .5f) * 7f, 0f), new Vector3(.32f + Rand(board, variant + 324) * .045f, .10f, 1.43f + Rand(board, variant + 325) * .30f)));
                 for (int rail = -1; rail <= 1; rail += 2) parts.Add((cube, new Vector3(0f, .025f, rail * .55f), Vector3.zero, new Vector3(2f, .10f, .14f)));
                 TrenchFloors[variant] = Make(Combine("Uneven duckboards " + variant, parts.ToArray()), timber, false, .8f);
-                TrenchFloors[variant].Material.SetTexture("_BaseMap", woodPaint);
+                Paint(TrenchFloors[variant], BattlefieldPigment.Surface.Timber);
             }
         }
 
@@ -580,7 +585,13 @@ namespace TW.Presentation.Terrain
                 (tin, new Vector3(0.10f, -0.20f, 0f), new Vector3(0f, 0f, 10f), new Vector3(0.75f, 1.0f, 0.75f))), new Color(0.43f, 0.41f, 0.37f), false, 0.6f));
             wireTins.Material.SetFloat("_Sway", 3.5f);
             // steel and tin are wet and bright-edged: under the moon they are what picks a small thing out of the mud
-            foreach (var metal in new[] { helmet, messKit, ammoTin, bucket, hangingTins, wireTins, graveMarker }) metal.Material.SetFloat("_Gloss", .42f);
+            // Painted metal, and it has been out in the rain: pitted patches with the rust running down from them.
+            // These were flat colour until now because a pigment used to cost a texture and a binding; on the
+            // shared sheet it costs a float, so the small things a close camera finds finally have a surface.
+            foreach (var metal in new[] { helmet, messKit, ammoTin, bucket, hangingTins, wireTins, graveMarker })
+            { metal.Material.SetFloat("_Gloss", .42f); Paint(metal, BattlefieldPigment.Surface.Rust); }
+            Paint(stones, BattlefieldPigment.Surface.Stone);
+            Paint(shellCases, BattlefieldPigment.Surface.Rust);
         }
 
         Mesh ShelterMound()
@@ -620,6 +631,7 @@ namespace TW.Presentation.Terrain
         {
             foreach (var mesh in ownedMeshes) if (mesh != null) Object.Destroy(mesh);
             foreach (var texture in ownedTextures) if (texture != null) Object.Destroy(texture);
+            if (pigmentSheet != null) Object.Destroy(pigmentSheet);
             foreach (var module in Modules) if (module.Material != null) Object.Destroy(module.Material);
         }
     }
