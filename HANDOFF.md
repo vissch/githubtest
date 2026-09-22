@@ -265,6 +265,24 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   hard-coded ±Z, wrong for a communication trench); the sniper's `Shield` may be a standing clip; a rifle running
   death dies in place (KeepRoot off); nothing yet touches the parapet (rifle laid on it, bolt check); the composed
   clips have not been watched in motion.
+  Barrage, lightning, muzzles (owner, 2026-09-22). Camera shake on shells (`CameraShake`: a jolt plus a rumble on
+  Perlin noise, scaled by nearness and blast size, `CameraShake.Strength` to tune). The lightning "stop" was read as a
+  wanted freeze-frame (no hitch measured: worst frames 12–21 ms): `Storm.FreezeSeconds` (1 s, 0 = off) sets
+  `Time.timeScale` to 0 for the strike, single player only. Shells now throw men in the open (sim: `SimWorld.Knock`,
+  set by `BlastJob`, spent by `MoveJob` at ×0.78 a tick: about 2 m close in, under 1 m at the edge; tune with
+  `BlastSystem.KnockNear/KnockFar/KnockReach`; prone halves it, trenches, vehicles and craters exempt). Men see a
+  shell coming 7 ticks out and dive (`Clip.DiveAway`: the first 0.78 s of Dive Roll) or shield in a trench; a blast
+  death plays `Clip.DeathThrown` (Rifle Hit To Back, tipped flat in the bake by `VATBaker.Throw`) on a ballistic arc
+  (`VATRenderer.AddFallen` fly vector). Fixed on the way: blast deaths never used the blast clip (the latch skipped
+  men killed that tick). Muzzles: the atlas bakes a muzzle, barrel and chest socket per frame (`TWVAT3`), the flash
+  and tracer leave the drawn muzzle along the barrel, the tracer ends at the target's chest. The aim clips held the
+  rifle 35–41° at the ground and 70° to the man's left: the forestock hand is 0.58 m out, past the baker's one-hand
+  test, and the clips are bladed (pelvis 71° off the rifle). Aimed clips now lay the rifle through both hands, level
+  it where the clip strays (`VATBaker.Level`, two-bone IK brings the left hand back), and face by the rifle, not the
+  pelvis; the raise and lower transitions turn between the two facings. Muzzles now sit 1.17 m (standing), 0.6–0.8 m
+  (kneeling) and 0.1–0.3 m (prone) up, 0.5–1.2 m ahead, barrels within 6° of level. Not watched in motion: the
+  shake, the freeze, the thrown arc at speed; the cross-fade between a bladed fire clip and a square reload morphs the
+  legs through 70° for its length.
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one

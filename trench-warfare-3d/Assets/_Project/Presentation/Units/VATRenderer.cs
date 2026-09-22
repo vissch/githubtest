@@ -229,9 +229,50 @@ namespace TW.Presentation.Units
             DrawFallen(cam, bounds, UnitScale * grow);
         }
 
+        /// <summary>
+        /// Where the drawn man's rifle muzzle is this frame (world), the way its barrel points, and his chest: sampled from
+        /// his figure's baked sockets for the clip, phase, cross-fade and yaw the controller drew him with, at the drawn
+        /// position and scale. False for vehicles, beyond the near tier (the box soldier carries no sockets), or without
+        /// the controller; the caller then estimates.
+        /// </summary>
+        public bool Sockets(int slot, out Vector3 muzzle, out Vector3 barrel, out Vector3 chest)
+        {
+            muzzle = barrel = chest = default;
+            var anim = Host != null ? Host.Animation : null;
+            if (!clipAtlas || figures == null || anim == null || !Host.UseAnimationController || Host.Presenter == null || Host.Local == null) return false;
+            var w = Host.Local.World;
+            if (slot < 0 || slot >= w.HighWater || slot >= anim.Row.Length || (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0) return false;
+            var asset = figures[math.clamp(FigureOfArchetype(w.Archetype[slot]), 0, figures.Length - 1)].Asset;
+            if (asset.Sockets == null) return false;
+            float3 p = Host.Presenter.Drawn(slot);
+            var map = Host.Local.Map;
+            float ground = RenderGround.Sample(map, p.x, p.z), lift = anim.Lift[slot];
+            if (lift > 0f) ground = Mathf.Lerp(ground, map.Height.Sample(p.x, p.z), lift);
+            var at = new Vector3(p.x, ground, p.z);
+            var cam = Camera.main;
+            if (cam != null && far != null && (at - cam.transform.position).sqrMagnitude > LodDistance * LodDistance) return false;
+            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
+            float scale = UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
+            int row = nearRowOf[math.min((int)anim.Row[slot], nearRowOf.Length - 1)], prev = nearRowOf[math.min((int)anim.PrevRow[slot], nearRowOf.Length - 1)];
+            float t = anim.Phase[slot], pt = anim.PrevPhase[slot], blend = anim.Blend[slot];
+            Vector3 Sample(int k)
+            {
+                asset.Socket(row, t, k, out var v);
+                if (blend > 0.001f && asset.Socket(prev, pt, k, out var pv)) v = Vector3.Lerp(v, pv, blend);   // the cross-fade, as the shader blends it
+                return v;
+            }
+            var turn = Quaternion.Euler(0f, anim.Yaw[slot] * Mathf.Rad2Deg, 0f);
+            muzzle = at + turn * (Sample(VatAsset.Muzzle) * scale);
+            barrel = (turn * Sample(VatAsset.Barrel)).normalized;
+            chest = at + turn * (Sample(VatAsset.Chest) * scale);
+            return true;
+        }
+
         // ---- the fallen: the same figure as the living, played once through his death and held on the last frame
         // where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
-        struct FallenMan { public Vector3 Pos; public float Yaw, Born, Seconds, FromT, Fade; public byte Team, Figure; public ushort Row, FarRow, FromRow; }
+        struct FallenMan { public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate; public byte Team, Figure; public ushort Row, FarRow, FromRow; }
+        /// <summary>Gravity for a thrown corpse (m/s2): a little over the real thing, so the arc reads as a blow, not a float.</summary>
+        public float ThrowGravity = 14f;
         readonly List<FallenMan> fallenMen = new List<FallenMan>(128);
         public int MaxFallen = 600;
         public float FallSeconds = 0.9f, FallenNearDistance = 70f;
@@ -246,7 +287,7 @@ namespace TW.Presentation.Units
         /// atlas the near tier plays the death the controller chose (clip) on his archetype's figure; the far tier and the box
         /// soldier use the procedural death the variant picks.
         /// </summary>
-        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f)
+        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f, Vector3 fly = default)
         {
             if (fallenMen.Count >= MaxFallen) fallenMen.RemoveAt(0);
             ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
@@ -255,8 +296,33 @@ namespace TW.Presentation.Units
             float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
             // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
             bool blend = near && fromClip != Clip.None && fade > 0.01f;
-            fallenMen.Add(new FallenMan { Pos = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow,
-                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f });
+            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Team = (byte)team, Figure = (byte)figure, Row = near ? (ushort)clip : farRow, FarRow = farRow,
+                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f };
+            // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
+            // and his death clip is played so his back meets it as he lands.
+            if (fly.y > 0.05f && Host != null && Host.Local != null)
+            {
+                var size = Host.Local.Map.SizeMeters;
+                Vector3 land = pos + new Vector3(fly.x, 0f, fly.z);
+                land.x = Mathf.Clamp(land.x, 0.5f, size.x - 0.5f); land.z = Mathf.Clamp(land.z, 0.5f, size.y - 0.5f);
+                land.y = RenderGround.Sample(Host.Local.Map, land.x, land.z) - 0.02f;
+                float g = Mathf.Max(1f, ThrowGravity), top = Mathf.Max(pos.y, land.y) + fly.y;
+                float up = Mathf.Sqrt(2f * (top - pos.y) / g), down = Mathf.Sqrt(2f * (top - land.y) / g);
+                man.Pos = land; man.Up = up; man.Top = top; man.Flight = up + down;
+                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.6f, 1.8f);
+            }
+            fallenMen.Add(man);
+        }
+
+        /// <summary>Where a fallen man is drawn now: on his arc while a shell's throw lasts, then where he landed.</summary>
+        Vector3 FallenAt(in FallenMan f, float now)
+        {
+            float age = now - f.Born;
+            if (f.Flight <= 0f || age >= f.Flight) return f.Pos;
+            Vector3 at = Vector3.Lerp(f.From, f.Pos, age / f.Flight);
+            float g = Mathf.Max(1f, ThrowGravity), fromTop = age - f.Up;
+            at.y = f.Top - 0.5f * g * fromTop * fromTop;
+            return at;
         }
 
         void DrawFallen(Camera cam, Bounds bounds, float scale)
@@ -277,21 +343,22 @@ namespace TW.Presentation.Units
             for (int i = 0; i < fallenMen.Count && i < fallenInstances.Length; i++)
             {
                 var f = fallenMen[i];
+                Vector3 at = FallenAt(f, now);
                 if (cam != null)
                 {
                     bool seen = true;
-                    for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(f.Pos) > -2.5f * scale;
+                    for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(at) > -2.5f * scale;
                     if (!seen) continue;
                 }
-                bool distant = (f.Pos - eye).sqrMagnitude > nearSq;
-                if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale); }
+                bool distant = (at - eye).sqrMagnitude > nearSq;
+                if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
                 else fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i);
             }
             int near = 0;
             for (int k = 0; k < figures.Length; k++)
             {
                 int start = near;
-                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; fallenInstances[near++] = Fallen(fallenMen[i], figures[k].Asset, fallenMen[i].Row, now, scale); }
+                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; fallenInstances[near++] = Fallen(fallenMen[i], figures[k].Asset, fallenMen[i].Row, now, scale, FallenAt(fallenMen[i], now)); }
                 fallenArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
             }
             if (near + farCount == 0) return;
@@ -314,12 +381,12 @@ namespace TW.Presentation.Units
             }
         }
 
-        static VatInstance Fallen(in FallenMan f, VatAsset tier, ushort row, float now, float scale)
+        static VatInstance Fallen(in FallenMan f, VatAsset tier, ushort row, float now, float scale, Vector3 at)
         {
-            float t = Mathf.Clamp01((now - f.Born) / f.Seconds);
+            float t = Mathf.Clamp01((now - f.Born) * f.Rate / f.Seconds);
             if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
             float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - (now - f.Born) / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
-            return new VatInstance { Pos = f.Pos, Yaw = f.Yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend };
+            return new VatInstance { Pos = at, Yaw = f.Yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend };
         }
 
         void DrawVehicles(Bounds bounds)

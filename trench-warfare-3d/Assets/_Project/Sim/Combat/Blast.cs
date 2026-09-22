@@ -3,7 +3,10 @@
 // Anything that explodes queues an Impact; this system resolves the tick's impacts in one Burst job: damage falls
 // from 100 % at the centre to 25 % at the edge of the radius, a man in a trench takes 35 % unless the shell landed
 // in that trench, a man in a shell hole 60 %, prone or pinned 70 %, a vehicle 10 % (A5 replaces that with armour).
-// Suppression is added on the same falloff. Craters are handed to DeformationSystem through Craters.
+// Suppression is added on the same falloff. Craters are handed to DeformationSystem through Craters. A man in the open
+// who lives through it is thrown clear of it (Knock: KnockNear m/s close in, KnockFar at the edge of KnockReach of the
+// radius, half that lying down), which MovementSystem spends over the next second: about 2 m close in, under 1 m at
+// the edge. A man in a trench or a shell hole is not thrown.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -23,6 +26,7 @@ namespace TW.Sim.Combat
     public sealed class BlastSystem : ISimSystem
     {
         public int Order => SimSystemOrder.Blast;
+        public const float KnockNear = 9f, KnockFar = 3f, KnockReach = 0.85f, KnockMax = 12f;
 
         readonly MapData map;
         public NativeList<Impact> Pending;         // filled by abilities / indirect fire earlier in the same tick
@@ -49,7 +53,7 @@ namespace TW.Sim.Combat
             new BlastJob
             {
                 Count = w.HighWater, Impacts = Pending.AsArray(), Killed = killed,
-                Position = w.Position, Flags = w.Flags, StanceOf = w.StanceOf, Hp = w.Hp, Suppression = w.Suppression,
+                Position = w.Position, Flags = w.Flags, StanceOf = w.StanceOf, Hp = w.Hp, Suppression = w.Suppression, Knock = w.Knock,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
             }.Run();
             for (int k = 0; k < Pending.Length; k++)
@@ -73,6 +77,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> StanceOf, Layers;
             [ReadOnly] public NativeArray<short> CellTrenchId;
             public NativeArray<float> Hp, Suppression;
+            public NativeArray<float3> Knock;
             public NativeList<int> Killed;
 
             int CellOf(float3 p)
@@ -104,7 +109,19 @@ namespace TW.Sim.Combat
                         else if (StanceOf[i] == (byte)Stance.Prone || StanceOf[i] == (byte)Stance.Pinned) protection = 0.7f;
                         Hp[i] = Hp[i] - im.Damage * falloff * protection;
                         Suppression[i] = math.min(100f, Suppression[i] + im.Suppression * falloff);
-                        if (Hp[i] <= 0f) Killed.Add(i);
+                        if (Hp[i] <= 0f) { Killed.Add(i); continue; }
+                        // a man in the open who lives is thrown clear (not in a trench, a shell hole or a vehicle)
+                        bool open = (f & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.Emplacement | (uint)UnitFlags.InTrench)) == 0 && (Layers[cell] & (byte)NavLayer.Crater) == 0;
+                        float reach = im.Radius * KnockReach;
+                        if (open && dist < reach)
+                        {
+                            float speed = math.lerp(KnockNear, KnockFar, dist / reach);
+                            if (StanceOf[i] == (byte)Stance.Prone || StanceOf[i] == (byte)Stance.Pinned) speed *= 0.5f;
+                            float3 away = dist > 0.05f ? d / dist : new float3(1f, 0f, 0f);
+                            float3 thrown = Knock[i] + away * speed;
+                            float tl = SimMath.Length(thrown);
+                            Knock[i] = tl > KnockMax ? thrown * (KnockMax / tl) : thrown;
+                        }
                     }
                 }
             }

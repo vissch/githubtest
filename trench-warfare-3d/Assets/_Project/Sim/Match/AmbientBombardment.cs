@@ -43,19 +43,39 @@ namespace TW.Sim.Match
         public void Step(SimWorld w)
         {
             if (ShellsPerMinute <= 0f || bandMax <= bandMin || w.Tick < nextTick || w.WinnerTeam >= 0) return;
-            var rng = SimRandom.For(w.Config.Seed, w.Tick, SimRandom.SystemId.IndirectFire, 7777u);
+            blast.Queue(Roll(w, w.Tick, out float gapTicks));
+            Fired++;
+            nextTick = w.Tick + (uint)math.max(1f, gapTicks);
+        }
+
+        /// <summary>The shell Step fires at <paramref name="tick"/>: its impact, and the gap to the one after.</summary>
+        Impact Roll(SimWorld w, uint tick, out float gapTicks)
+        {
+            var rng = SimRandom.For(w.Config.Seed, tick, SimRandom.SystemId.IndirectFire, 7777u);
             bool stray = rng.NextFloat() < 1f / 7f;
             float z = stray ? rng.NextFloat(reachMin, reachMax) : rng.NextFloat(bandMin, bandMax);
             float x = rng.NextFloat(4f, map.SizeMeters.x - 4f);
             float crater = rng.NextFloat(2f, 4.4f);
-            blast.Queue(new Impact
+            gapTicks = w.Config.TickRate * 60f / ShellsPerMinute * rng.NextFloat(0.35f, 1.65f);
+            return new Impact
             {
                 Pos = new float3(x, 0f, z), Damage = 150f, Radius = 6f + crater, Suppression = 50f,
                 CraterRadius = crater, CraterDepth = crater * 0.36f, Source = (int)OffMapAbilityId.HeBarrage, Player = -1,
-            });
-            Fired++;
-            float gapTicks = w.Config.TickRate * 60f / ShellsPerMinute * rng.NextFloat(0.35f, 1.65f);
-            nextTick = w.Tick + (uint)math.max(1f, gapTicks);
+            };
+        }
+
+        /// <summary>
+        /// The next stray shell, read ahead without changing anything (the presentation lets the men hear it coming):
+        /// the tick it lands, where, and its radius. False when none is due.
+        /// </summary>
+        public bool Upcoming(SimWorld w, out uint tick, out float3 pos, out float radius)
+        {
+            tick = nextTick; pos = default; radius = 0f;
+            if (ShellsPerMinute <= 0f || bandMax <= bandMin || w.WinnerTeam >= 0) return false;
+            if (tick < w.Tick) tick = w.Tick;   // due now (Step fires it on the next tick it runs)
+            var im = Roll(w, tick, out _);
+            pos = im.Pos; radius = im.Radius;
+            return true;
         }
 
         public ulong Hash(ulong h)

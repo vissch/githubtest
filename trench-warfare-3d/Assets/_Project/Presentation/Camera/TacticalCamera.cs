@@ -115,8 +115,8 @@ namespace TW.Presentation.Tactical
                 if (kb.sKey.isPressed || kb.downArrowKey.isPressed) pan.y -= 1f;
                 if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) pan.x += 1f;
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) pan.x -= 1f;
-                if (kb.qKey.isPressed) yaw -= RotateSpeed * Time.deltaTime;
-                if (kb.eKey.isPressed) yaw += RotateSpeed * Time.deltaTime;
+                if (kb.qKey.isPressed) yaw -= RotateSpeed * Time.unscaledDeltaTime;   // unscaled: the view still turns in a lightning freeze
+                if (kb.eKey.isPressed) yaw += RotateSpeed * Time.unscaledDeltaTime;
                 if (kb.homeKey.wasPressedThisFrame) { yaw = 0f; pitchOffset = 0f; freeLook = false; }
                 if (kb.zKey.wasPressedThisFrame)
                 {

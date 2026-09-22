@@ -12,31 +12,54 @@ using TW.Presentation;
 namespace TW.Presentation.Tactical
 {
     /// <summary>
-    /// A shell landing near what you are looking at jolts the camera. Runs after TacticalCamera has placed the camera
-    /// for the frame (which it does from scratch every frame, so the jolt never accumulates) and decays in half a second.
+    /// A shell landing in the picture shakes the camera: a hard thump for each one (Jolt, gone in about half a second)
+    /// and, while shells keep coming, a slower rumble under it that builds with every burst and dies away over a few
+    /// seconds after the last (Rumble), so a barrage is felt as a barrage. How hard a shell shakes falls off with its
+    /// distance from the middle of the view, measured against how much ground the view shows, so it reads the same at
+    /// every zoom; bigger shells shake harder. Runs after TacticalCamera has placed the camera for the frame (from
+    /// scratch every frame, so the shake never accumulates), on unscaled time; a lightning freeze holds it still.
     /// </summary>
     [DefaultExecutionOrder(10000)]
     public sealed class CameraShake : MonoBehaviour
     {
-        static float trauma;
+        /// <summary>0 turns the shake off (a player setting), 1 as designed.</summary>
+        public static float Strength = 1f;
+        static float jolt, rumble;
         static Vector3 lookPoint;
-        /// <summary>A burst of this radius at this place; how hard it shakes falls off with its distance from the view's centre.</summary>
+        static float viewDistance = 70f;
+
+        /// <summary>A burst of this radius (m) at this place.</summary>
         public static void Add(Vector3 at, float radius)
         {
-            float d = Vector3.Distance(at, lookPoint);
-            trauma = Mathf.Min(0.8f, trauma + Mathf.Clamp01(Mathf.Max(radius, 3f) / (d * 0.45f + 5f)) * 0.55f);
+            float reach = 16f + viewDistance * 0.9f;   // about the ground the picture shows
+            float d = new Vector2(at.x - lookPoint.x, at.z - lookPoint.z).magnitude;
+            float near = 1f - Mathf.SmoothStep(0f, 1f, d / reach);
+            float a = near * Mathf.Clamp(radius / 8f, 0.35f, 1.4f);
+            jolt = Mathf.Min(1f, jolt + a * 0.75f);
+            rumble = Mathf.Min(0.75f, rumble + a * 0.2f);
         }
 
         void LateUpdate()
         {
             var t = transform;
-            lookPoint = t.position + t.forward * (t.position.y / Mathf.Max(0.15f, -t.forward.y));
-            if (trauma <= 0f) return;
-            float s = trauma * trauma, c = Time.time * 28f;
-            t.position += (t.right * (Mathf.PerlinNoise(c, 1.3f) - 0.5f) + t.up * (Mathf.PerlinNoise(2.7f, c) - 0.5f)) * (0.9f * s);
-            t.rotation *= Quaternion.Euler((Mathf.PerlinNoise(c, 5.1f) - 0.5f) * 1.2f * s, (Mathf.PerlinNoise(7.9f, c) - 0.5f) * 1.2f * s, (Mathf.PerlinNoise(c, 9.4f) - 0.5f) * 1.6f * s);
-            trauma = Mathf.Max(0f, trauma - Time.deltaTime * 1.7f);
+            viewDistance = t.position.y / Mathf.Max(0.15f, -t.forward.y);
+            lookPoint = t.position + t.forward * viewDistance;
+            if (Time.timeScale <= 0.001f || (jolt <= 0f && rumble <= 0f)) return;   // frozen by lightning: the picture holds still
+            float s = jolt * jolt * Strength, r = rumble * rumble * Strength, clock = Time.unscaledTime;
+            float fast = clock * 23f, slow = clock * 6.5f;
+            // degrees: the thump is quick and sharp, the rumble slow and heavy; a little sideways shove on top, in proportion
+            // to how far the ground is so it shows at every zoom
+            float pitch = N(fast, 1.3f) * 2.6f * s + N(slow, 4.1f) * 2.0f * r;
+            float yaw = N(fast, 2.9f) * 2.1f * s + N(slow, 6.7f) * 1.6f * r;
+            float roll = N(fast, 5.3f) * 3.0f * s + N(slow, 8.2f) * 1.8f * r;
+            t.position += (t.right * N(fast, 9.1f) + t.up * N(fast, 11.7f)) * (0.011f * viewDistance * s);
+            t.rotation *= Quaternion.Euler(pitch, yaw, roll);
+            float dt = Time.unscaledDeltaTime;
+            jolt = Mathf.Max(0f, jolt - dt * 1.7f);
+            rumble = Mathf.Max(0f, rumble - dt * 0.3f);
         }
+
+        static float N(float x, float y) => (Mathf.PerlinNoise(x, y) - 0.5f) * 2f;
     }
 
     public sealed class CombatFx : MonoBehaviour
@@ -322,7 +345,6 @@ namespace TW.Presentation.Tactical
                 case SimEventType.Shot:
                 {
                     if (tracers.Count >= 1500 || e.B < 0 || e.B >= w.Position.Length) break;
-                    Vector3 from = (Vector3)e.Pos, to = (Vector3)w.Position[e.B];
                     float scale = 1f;
                     var cam = Camera.main;
                     if (units != null)
@@ -330,21 +352,30 @@ namespace TW.Presentation.Tactical
                         float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
                         scale = units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
                     }
-                    var stance = e.A >= 0 && e.A < w.HighWater ? (Stance)w.StanceOf[e.A] : Stance.Standing;
-                    float shoulder = stance == Stance.Prone || stance == Stance.Pinned ? 0.35f : stance == Stance.Crouch ? 0.85f : 1.1f;
-                    from.y = RenderGround.Sample(Host.Local.Map, from.x, from.z) + shoulder * scale;
-                    to.y = RenderGround.Sample(Host.Local.Map, to.x, to.z) + 0.9f * scale;
+                    // the round leaves the muzzle of the rifle as it is drawn this frame (the figure's baked sockets for the clip
+                    // the controller chose) and goes into the chest of the man it was fired at; without sockets (a vehicle, the
+                    // far tier, no controller) both ends are estimated from the stance
+                    Vector3 from, barrel, to;
+                    if (units == null || !units.Sockets(e.A, out from, out barrel, out _)) EstimateMuzzle(e.A, e.B, scale, out from, out barrel);
+                    if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
                     tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
                     Vector3 direction = (to - from).normalized;
                     bool drawn = books != null && books.Ready;
+                    Vector3 carried = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Velocity(e.A, w.Config.TickSeconds) : Vector3.zero;   // a man firing on the run carries his flash
+                    carried.y = 0f;
                     if (e.Scalar < 0.5f && drawn)
                     {
-                        // the flare at the muzzle lies along the shot; over-bright at night so the bloom takes it
+                        // the flare: the root of the book's flame (the left edge of every cell) sits on the muzzle and it streams
+                        // out down the barrel; half the flares are flipped across the barrel for variety (mirror and half a turn),
+                        // never along it. Over-bright at night so the bloom takes it.
                         float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale;
-                        books.Add(FlipbookFx.Book.Muzzle, from + direction * (0.55f * scale), flare, 0.11f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            roll: FlipbookFx.ScreenRoll(cam, direction) + Mathf.PI, glow: SceneMood.Night ? 3.2f : 1.6f);
+                        float roll = FlipbookFx.ScreenRoll(cam, barrel);
+                        Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
+                        bool flip = UnityEngine.Random.value < 0.5f;
+                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.11f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: SceneMood.Night ? 3.2f : 1.6f);
                     }
-                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + direction * (0.65f * scale), Direction = direction, Born = Time.time });
+                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
                     // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
@@ -372,14 +403,14 @@ namespace TW.Presentation.Tactical
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
-                        chunks.Add(new Chunk { Pos = from + direction * (0.9f * scale), Vel = direction * 1.4f + Vector3.up * 0.35f, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
+                        chunks.Add(new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
                     if (e.Scalar < 0.5f && chunks.Count < 600 && Near(from, 34f))
                     {
-                        // up close every shot throws its case out to the right, and the barrel keeps a thread of smoke
-                        Vector3 right = Vector3.Cross(Vector3.up, direction).normalized;
-                        chunks.Add(new Chunk { Pos = from + direction * 0.25f + right * 0.08f, Vel = right * UnityEngine.Random.Range(1.5f, 2.5f) + Vector3.up * UnityEngine.Random.Range(1.6f, 2.4f) - direction * UnityEngine.Random.Range(0.1f, 0.6f),
+                        // up close every shot throws its case out of the breech to the right, and the muzzle keeps a thread of smoke
+                        Vector3 right = Vector3.Cross(Vector3.up, barrel).normalized, breech = from - barrel * (0.75f * scale);
+                        chunks.Add(new Chunk { Pos = breech + right * (0.05f * scale), Vel = right * UnityEngine.Random.Range(1.5f, 2.5f) + Vector3.up * UnityEngine.Random.Range(1.6f, 2.4f) - barrel * UnityEngine.Random.Range(0.1f, 0.6f),
                             Born = Time.time, Life = 3f, Size = 1f, Kind = 5 });
-                        chunks.Add(new Chunk { Pos = from + direction * 0.7f, Vel = direction * 0.25f + Vector3.up * 0.5f, Born = Time.time, Life = UnityEngine.Random.Range(1.8f, 2.6f), Size = 0.06f, Kind = 7 });
+                        chunks.Add(new Chunk { Pos = from + barrel * (0.05f * scale), Vel = barrel * 0.25f + Vector3.up * 0.5f, Born = Time.time, Life = UnityEngine.Random.Range(1.8f, 2.6f), Size = 0.06f, Kind = 7 });
                     }
                     break;
                 }
@@ -396,11 +427,9 @@ namespace TW.Presentation.Tactical
                         float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
                         scale = units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
                     }
-                    var stance = (Stance)w.StanceOf[e.B];
                     bool vehicle = (w.Flags[e.B] & (uint)UnitFlags.Vehicle) != 0;
-                    float chest = vehicle ? 1.4f : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 0.75f : 1.05f;
-                    Vector3 p = (Vector3)w.Position[e.B];
-                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + chest * scale;
+                    Vector3 p;
+                    if (vehicle || units == null || !units.Sockets(e.B, out _, out _, out p)) p = EstimateChest(e.B, scale);   // his chest as he is drawn
                     Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
@@ -415,7 +444,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.Death:
                 {
                     if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
-                    Vector3 p = (Vector3)e.Pos;
+                    Vector3 p = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Drawn(e.A) : (Vector3)e.Pos;   // where he was drawn, so the corpse does not hop
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;
                     byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
                     float fellYaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg;
@@ -435,7 +464,9 @@ namespace TW.Presentation.Tactical
                             var prev = Clips.Table[(int)from]; float pp = prev.Seconds > 0f ? anim.State[e.A].PrevFrame / prev.Seconds : 0f;
                             fromPhase = prev.Loop ? pp - Mathf.Floor(pp) : Mathf.Min(pp, 1f); fade = Mathf.Max(anim.State[e.A].Fade, 0.2f);
                         }
-                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade);
+                        // a shell that killed him throws him (the controller worked out how far and how high)
+                        Vector3 fly = controlled ? new Vector3(anim.State[e.A].ThrowX, anim.State[e.A].ThrowUp, anim.State[e.A].ThrowZ) : Vector3.zero;
+                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly);
                     }
                     else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Team = team, Variant = (byte)death });
                     // his helmet comes off as he goes down and rolls a step away
@@ -526,6 +557,35 @@ namespace TW.Presentation.Tactical
         }
 
         void Banner(string text, float seconds = 4f) { banner = text; bannerUntil = Time.time + seconds; }
+
+        /// <summary>
+        /// Where a man's muzzle is when his figure has no sockets to say: out in front of him at the height his (drawn)
+        /// stance holds a rifle, the barrel turned towards the man he fired at.
+        /// </summary>
+        void EstimateMuzzle(int shooter, int target, float scale, out Vector3 muzzle, out Vector3 barrel)
+        {
+            var w = Host.Local.World;
+            Vector3 at = Host.Presenter != null && shooter >= 0 ? (Vector3)Host.Presenter.Drawn(shooter) : (Vector3)w.Position[Mathf.Max(0, shooter)];
+            Vector3 aim = target >= 0 && target < w.HighWater ? (Vector3)w.Position[target] - at : Vector3.forward;
+            aim.y = 0f; barrel = aim.sqrMagnitude > 1e-4f ? aim.normalized : Vector3.forward;
+            bool vehicle = shooter >= 0 && shooter < w.HighWater && (w.Flags[shooter] & (uint)UnitFlags.Vehicle) != 0;
+            var anim = Host.Animation;
+            var stance = shooter >= 0 && shooter < w.HighWater ? (Stance)(anim != null && Host.UseAnimationController ? anim.State[shooter].Stance : w.StanceOf[shooter]) : Stance.Standing;
+            float height = vehicle ? 1.6f : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 1.0f : 1.4f;
+            muzzle = new Vector3(at.x, RenderGround.Sample(Host.Local.Map, at.x, at.z) + height * scale, at.z) + barrel * ((vehicle ? 2.4f : 0.75f) * scale);
+        }
+
+        /// <summary>A man's chest when his figure has no sockets to say, from his (drawn) stance.</summary>
+        Vector3 EstimateChest(int slot, float scale)
+        {
+            var w = Host.Local.World;
+            Vector3 at = Host.Presenter != null ? (Vector3)Host.Presenter.Drawn(slot) : (Vector3)w.Position[slot];
+            bool vehicle = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0;
+            var anim = Host.Animation;
+            var stance = (Stance)(anim != null && Host.UseAnimationController && !vehicle ? anim.State[slot].Stance : w.StanceOf[slot]);
+            float chest = vehicle ? 1.4f : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 0.8f : 1.2f;
+            return new Vector3(at.x, RenderGround.Sample(Host.Local.Map, at.x, at.z) + chest * scale, at.z);
+        }
 
         void Update()
         {

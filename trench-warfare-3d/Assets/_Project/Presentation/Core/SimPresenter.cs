@@ -24,6 +24,8 @@ namespace TW.Presentation
         /// <summary>When set, the controller's clip, phase and drawn yaw per slot replace the stance-based pick below.</summary>
         public NativeArray<ushort> RowIn; public NativeArray<float> PhaseIn, YawIn; public bool UseController;
         public int PoseCount;
+        /// <summary>The blend between the last two ticks the poses were drawn at this frame.</summary>
+        public float Alpha { get; private set; }
         int count;
         bool primed;
 
@@ -78,6 +80,7 @@ namespace TW.Presentation
         /// <summary>Interpolate for rendering. alpha in [0,1] between the previous and current tick.</summary>
         public void Interpolate(float alpha, float animTime)
         {
+            Alpha = alpha;
             if (count == 0) { PoseCount = 0; return; }
             var job = new InterpolateJob
             {
@@ -97,6 +100,12 @@ namespace TW.Presentation
             }
             PoseCount = n;
         }
+
+        /// <summary>Where a slot is drawn this frame (on the sim's ground; the renderer lays it on the drawn ground).</summary>
+        public float3 Drawn(int slot) => slot >= 0 && slot < count ? math.lerp(prevPos[slot], curPos[slot], Alpha) : float3.zero;
+
+        /// <summary>How fast a slot is moving, from the last two ticks (m/s at the given tick length).</summary>
+        public float3 Velocity(int slot, float tickSeconds) => slot >= 0 && slot < count ? (curPos[slot] - prevPos[slot]) / math.max(1e-4f, tickSeconds) : float3.zero;
 
         [BurstCompile]
         struct InterpolateJob : IJobParallelFor

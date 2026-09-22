@@ -12,6 +12,7 @@ using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using TW.Sim;
+using TW.Sim.Match;
 using TW.Sim.Terrain;
 
 namespace TW.Presentation
@@ -30,12 +31,12 @@ namespace TW.Presentation
         // actions
         ReloadStand, ReloadStoop, ReloadProne, ReloadBolt, ReloadKneel, BoltKneel, KneelInspect, KneelLookAround, Throw, MeleeStab, MeleePunch, MeleeSmash, MeleeBlock, Sling, Unsling,
         // reactions
-        HitStand, HitHeavy, HitWalk, HitRun, HitProne, KneelFlinch, ProneFlinch, Duck, Shield, DiveRoll, ProneRoll, Trip, GetUp, MaskOn, Burning, Stumble,
+        HitStand, HitHeavy, HitWalk, HitRun, HitProne, KneelFlinch, ProneFlinch, Duck, Shield, DiveRoll, ProneRoll, Trip, GetUp, MaskOn, Burning, Stumble, DiveAway,
         // trench and stance (the climb out is three parts: the push up, the hold while the sim lifts him, the landing)
         JumpDown, ClimbOut, ClimbHold, ClimbLand, ClimbLadder, StandToKneel, KneelToStand, KneelToProne, ProneToKneel, StandToStoop, StoopToStand, StoopToKneel, KneelToStoop, TakeCover, Emerge,
         Turn90L, Turn90R, Turn180, KneelTurn90L, KneelTurn90R, StoopTurn90L, StoopTurn90R, StoopTurn180,
         // deaths
-        DeathFront, DeathBack, DeathRight, DeathLeft, DeathHeadshot, DeathWalking, DeathRunning, DeathKneel, DeathSquat, DeathProne, DeathBlast,
+        DeathFront, DeathBack, DeathRight, DeathLeft, DeathHeadshot, DeathWalking, DeathRunning, DeathKneel, DeathSquat, DeathProne, DeathBlast, DeathThrown,
         Count
     }
 
@@ -82,7 +83,7 @@ namespace TW.Presentation
             t[(int)Clip.HitStand] = O(0.7f, AnimRow.Flinch1); t[(int)Clip.HitHeavy] = O(1.2f, AnimRow.Flinch2); t[(int)Clip.HitWalk] = O(0.8f, AnimRow.Flinch1); t[(int)Clip.HitRun] = O(0.6f, AnimRow.Flinch0);
             t[(int)Clip.HitProne] = O(0.8f, AnimRow.PinnedLoop, Stance.Prone); t[(int)Clip.KneelFlinch] = O(0.6f, AnimRow.Flinch1, Stance.Crouch); t[(int)Clip.ProneFlinch] = O(0.6f, AnimRow.PinnedLoop, Stance.Prone);
             t[(int)Clip.Duck] = O(0.8f, AnimRow.Flinch2); t[(int)Clip.Shield] = O(1.4f, AnimRow.Flinch2); t[(int)Clip.DiveRoll] = O(1.5f, AnimRow.Flinch2); t[(int)Clip.ProneRoll] = O(1.2f, AnimRow.PinnedLoop, Stance.Prone);
-            t[(int)Clip.Trip] = O(1.3f, AnimRow.Flinch2); t[(int)Clip.GetUp] = O(2.3f, AnimRow.CrouchWalk); t[(int)Clip.MaskOn] = O(2.6f, AnimRow.Flinch2); t[(int)Clip.Burning] = L(1.33f, AnimRow.Sprint, 2.5f); t[(int)Clip.Stumble] = O(2.3f, AnimRow.Sprint);
+            t[(int)Clip.Trip] = O(1.3f, AnimRow.Flinch2); t[(int)Clip.GetUp] = O(2.3f, AnimRow.CrouchWalk); t[(int)Clip.MaskOn] = O(2.6f, AnimRow.Flinch2); t[(int)Clip.Burning] = L(1.33f, AnimRow.Sprint, 2.5f); t[(int)Clip.Stumble] = O(2.3f, AnimRow.Sprint); t[(int)Clip.DiveAway] = O(0.7f, AnimRow.Flinch2);
             t[(int)Clip.JumpDown] = O(1.8f, AnimRow.Vault); t[(int)Clip.ClimbOut] = O(0.53f, AnimRow.Vault); t[(int)Clip.ClimbHold] = L(1f, AnimRow.Vault); t[(int)Clip.ClimbLand] = O(0.67f, AnimRow.Vault); t[(int)Clip.ClimbLadder] = L(1.2f, AnimRow.Vault, 0.8f);
             t[(int)Clip.StandToKneel] = O(0.93f, AnimRow.CrouchWalk); t[(int)Clip.KneelToStand] = O(1.23f, AnimRow.CrouchWalk); t[(int)Clip.KneelToProne] = O(1.97f, AnimRow.ProneCrawl, Stance.Prone); t[(int)Clip.ProneToKneel] = O(1.97f, AnimRow.CrouchWalk, Stance.Prone);
             t[(int)Clip.StandToStoop] = O(1.4f, AnimRow.CrouchWalk); t[(int)Clip.StoopToStand] = O(1.5f, AnimRow.CrouchWalk); t[(int)Clip.StoopToKneel] = O(1.5f, AnimRow.CrouchWalk, Stance.Crouch); t[(int)Clip.KneelToStoop] = O(1.5f, AnimRow.CrouchWalk, Stance.Crouch);
@@ -94,7 +95,7 @@ namespace TW.Presentation
             t[(int)Clip.StoopTurn90L].Turn = -1.57f; t[(int)Clip.StoopTurn90R].Turn = 1.47f; t[(int)Clip.StoopTurn180].Turn = math.PI;
             t[(int)Clip.DeathFront] = O(1.8f, AnimRow.Death0); t[(int)Clip.DeathBack] = O(1.8f, AnimRow.Death1); t[(int)Clip.DeathRight] = O(1.8f, AnimRow.Death2); t[(int)Clip.DeathLeft] = O(1.8f, AnimRow.Death3);
             t[(int)Clip.DeathHeadshot] = O(1.6f, AnimRow.Death1); t[(int)Clip.DeathWalking] = O(2f, AnimRow.Death0); t[(int)Clip.DeathRunning] = O(2.2f, AnimRow.Death0); t[(int)Clip.DeathKneel] = O(1.7f, AnimRow.Death2); t[(int)Clip.DeathSquat] = O(1.5f, AnimRow.Death2);
-            t[(int)Clip.DeathProne] = O(1.5f, AnimRow.Death3); t[(int)Clip.DeathBlast] = O(1.9f, AnimRow.Death1);
+            t[(int)Clip.DeathProne] = O(1.5f, AnimRow.Death3); t[(int)Clip.DeathBlast] = O(1.9f, AnimRow.Death1); t[(int)Clip.DeathThrown] = O(1.8f, AnimRow.Death1);
             return t;
         }
     }
@@ -118,10 +119,18 @@ namespace TW.Presentation
         public byte Routine, Routines; public uint RoutineUntil;  // the trench routine in progress (see Decide), how many he has done, when its hold ends
         public uint FlipSince, FlipLock;                // when the sim first asked a moving man to go flat or come up (held ten ticks, then a transition); the last flip (locked 40 ticks)
         public uint StopTick;                           // when his speed last dropped under the walking threshold (a shuffle in a queue keeps the gait)
+        public uint LastDive, DownUntil;                // the last dive away from a shell; lying flat after it until then
+        public bool Scramble;                           // up off the ground straight into a run: the gait fades in slowly
+        public float ThrowX, ThrowZ, ThrowUp;           // a shell killed him: how far it throws him (m, world XZ) and how high the arc goes
     }
 
     public sealed class AnimationController : System.IDisposable
     {
+        /// <summary>Seconds into DeathThrown (at rate 1) when his back meets the ground: the corpse's arc is timed to land there.</summary>
+        public const float ThrownLands = 0.9f;
+        /// <summary>How many ticks before a shell lands the men in the open hear it and throw themselves away from it.</summary>
+        public const int DiveLead = 7;
+        readonly List<float4> incoming = new List<float4>(16);   // shells landing within DiveLead ticks: x, z, radius, landing tick
         public NativeArray<AnimState> State;
         public NativeArray<ushort> Row;      // the Clip per slot (the renderer maps it to its atlas row)
         public NativeArray<float> Phase;     // 0..1 through the clip
@@ -183,6 +192,7 @@ namespace TW.Presentation
         {
             tick = w.Tick; tickSeconds = w.Config.TickSeconds; count = w.HighWater;
             Latch(w);
+            Incoming(w);
             for (int i = 0; i < count; i++)
             {
                 uint f = w.Flags[i];
@@ -206,6 +216,23 @@ namespace TW.Presentation
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             prevPos[i] = w.Position[i];
             return s;
+        }
+
+        /// <summary>The shells due in the next DiveLead ticks: the scheduled barrage rounds and the next stray shell.</summary>
+        void Incoming(SimWorld w)
+        {
+            incoming.Clear();
+            var abilities = w.GetSystem<OffMapAbilitySystem>();
+            if (abilities != null && abilities.Scheduled.IsCreated)
+                for (int k = 0; k < abilities.Scheduled.Length; k++)
+                {
+                    var p = abilities.Scheduled[k];
+                    if (p.Tick < tick || p.Tick - tick > DiveLead || !OffMapAbilitySystem.TryGetStats(p.Ability, out var stats) || stats.Shells <= 0) continue;
+                    incoming.Add(new float4(p.Pos.x, p.Pos.z, stats.ShellRadius, p.Tick));
+                }
+            var stray = w.GetSystem<AmbientBombardmentSystem>();
+            if (stray != null && stray.Upcoming(w, out uint at, out float3 pos, out float radius) && at - tick <= DiveLead)
+                incoming.Add(new float4(pos.x, pos.z, radius, at));
         }
 
         void Latch(SimWorld w)
@@ -234,7 +261,7 @@ namespace TW.Presentation
                         float reach = e.Scalar + 3f, reach2 = reach * reach;
                         for (int i = 0; i < count; i++)
                         {
-                            if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
+                            if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 && (State[i].Dead || State[i].Generation != w.Generation[i])) continue;   // the men it killed this tick are still in it
                             float3 d = w.Position[i] - e.Pos; d.y = 0f; float dd = math.lengthsq(d);
                             if (dd < reach2 && (blastRadius[i] <= 0f || dd < blastDist[i] * blastDist[i])) { blastRadius[i] = e.Scalar; blastDist[i] = math.sqrt(dd); hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
                         }
@@ -279,6 +306,24 @@ namespace TW.Presentation
             var st = (Stance)s.Stance;
             bool blast = blastRadius[i] > 0f;
             float speed = s.Speed;   // the smoothed speed: the sim kills before it moves him this tick
+            // a heavy shell inside four fifths of its radius throws him through the air, whatever his stance: he goes up
+            // facing it and comes down on his back, further and higher the closer it was (the corpse's arc: VATRenderer)
+            float closeness = blast && blastRadius[i] >= 6f ? math.saturate(1.15f - blastDist[i] / (0.8f * blastRadius[i])) : 0f;
+            s.ThrowX = s.ThrowZ = s.ThrowUp = 0f;
+            if (closeness > 0f)
+            {
+                float3 toward = hitDir[i]; toward.y = 0f; toward = math.normalizesafe(toward, new float3(0f, 0f, 1f));
+                float jitter = 0.8f + 0.4f * Hash(s.Seed, tick + 31);
+                float far = math.lerp(1.2f, 5.0f, closeness) * jitter, high = math.lerp(0.7f, 3.0f, closeness) * jitter;
+                bool flat = st == Stance.Prone || st == Stance.Pinned, dug = (w.Flags[i] & (uint)UnitFlags.InTrench) != 0 || s.PrevLayer == (byte)NavLayer.Trench;
+                if (flat) { far *= 0.5f; high *= 0.5f; }
+                if (dug) { far *= 0.25f; high *= 0.8f; }   // in a trench he goes up, not out
+                s.ThrowX = -toward.x * far; s.ThrowZ = -toward.z * far; s.ThrowUp = high;
+                Start(i, ref s, Clip.DeathThrown, Rung.Death, "killed: shell at " + blastDist[i].ToString("0.0") + " m throws him " + far.ToString("0.0") + " m, " + high.ToString("0.0") + " m up");
+                s.ShownYaw = s.BodyYaw = math.atan2(toward.x, toward.z);   // facing the burst: it throws him backwards
+                s.Dead = true;
+                return s;
+            }
             if (st == Stance.Prone || st == Stance.Pinned) clip = Clip.DeathProne;
             else if (st == Stance.Crouch || st == Stance.FireStep) clip = (s.Seed & 4) != 0 ? Clip.DeathSquat : Clip.DeathKneel;
             else if (blast) clip = Clip.DeathBlast;
@@ -373,18 +418,59 @@ namespace TW.Presentation
                 return;
             }
             if (s.Rung == Rung.Reaction && Playing(s) && hitClip && !(speed > 0.3f && cur != Clip.HitRun && Left(s) > 0.4f)) return;   // a hit the sim runs through is dropped
+            bool flatNow = s.Stance == (byte)Stance.Prone || s.DownUntil > tick;
+            if (incoming.Count > 0 && !prone && !flatNow && tick - s.LastDive > 30 && !(s.Rung == Rung.Reaction && Playing(s) && (hitClip || cur == Clip.DiveAway || cur == Clip.Trip || cur == Clip.GetUp || cur == Clip.MaskOn)) && !(s.Rung == Rung.Trench && Playing(s)))
+            {
+                // the whistle: the nearest shell due in the next DiveLead ticks whose burst will reach him
+                int near = -1; float nearD = float.MaxValue;
+                for (int k = 0; k < incoming.Count; k++)
+                {
+                    float dd = math.distance(p.xz, incoming[k].xy);
+                    if (dd < incoming[k].z + 1.5f && dd < nearD) { near = k; nearD = dd; }
+                }
+                if (near >= 0)
+                {
+                    s.LastDive = tick; s.Routine = 0;
+                    float2 away = math.normalizesafe(p.xz - incoming[near].xy, new float2(0f, 1f));
+                    if (!inTrench)
+                    {
+                        // standing or walking he turns and dives away from it (Advance swings him round fast as he springs); running,
+                        // his heading wins the next tick and he throws himself flat the way he is going, the sim carrying him on
+                        s.BodyYaw = math.atan2(away.x, away.y);
+                        Start(i, ref s, Clip.DiveAway, Rung.Reaction, "shell coming in " + nearD.ToString("0.0") + " m away: " + (speed > 1.5f ? "throws himself flat" : "dives away from it"), 1f, 0.1f);
+                        return;
+                    }
+                    if (cur != Clip.Shield) { Start(i, ref s, Clip.Shield, Rung.Reaction, "shell coming in " + nearD.ToString("0.0") + " m away: head down", 1f, 0.1f); s.Stance = (byte)Stance.Crouch; return; }
+                }
+            }
             if (blastRadius[i] > 0f && tick - s.LastBlast > 30)
             {
                 s.LastBlast = tick; s.Routine = 0;
                 float r = blastRadius[i], d = blastDist[i];
-                if (prone) Start(i, ref s, Clip.ProneRoll, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: rolls away");
-                else if (d < r * 0.6f && !inTrench && arche <= 1) Start(i, ref s, Clip.DiveRoll, Rung.Reaction, "shell at " + d.ToString("0.0") + " m inside the burst: dives");
+                float3 knock = w.Knock[i];
+                bool thrown = math.lengthsq(knock) > 0.25f;   // the sim threw him clear (BlastSystem): he goes with it
+                if (prone) Start(i, ref s, Clip.ProneRoll, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: rolls away");   // flat already: the throw rolls him
+                else if (thrown && cur == Clip.DiveAway && Playing(s)) { s.BodyYaw = math.atan2(knock.x, knock.z); }   // already diving: the blast carries him on
+                else if (thrown) { s.BodyYaw = math.atan2(knock.x, knock.z); Start(i, ref s, Clip.DiveAway, Rung.Reaction, "shell at " + d.ToString("0.0") + " m throws him clear", 1f, 0.08f); }
                 else if (d < r * 0.6f || (inTrench && d < r)) { Start(i, ref s, Clip.Shield, Rung.Reaction, "shell at " + d.ToString("0.0") + " m" + (inTrench ? " on the trench" : " inside the burst") + ": shields the face"); s.Stance = (byte)Stance.Crouch; }   // the shield ends on a knee
                 else if (speed < 0.3f) Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: " + (low ? "flinches" : "ducks"));
                 else if (speed > 1.5f && !inTrench && Hash(s.Seed, tick) < 0.5f) Start(i, ref s, Clip.Stumble, Rung.Reaction, "shell at " + d.ToString("0.0") + " m at a run: stumbles", math.clamp(speed / 3f, 1f, 2f));   // a runner keeps going (half the time with a stumble)
                 if (s.Rung == Rung.Reaction && s.ClipStart == tick) return;
             }
-            if (s.Rung == Rung.Reaction && Playing(s) && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && Left(s) > 0.4f && !s.Down)) return;   // a stumble is 1.2 s of it, then the run
+            if (s.Rung == Rung.Reaction && Playing(s) && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && cur != Clip.DiveAway && Left(s) > 0.4f && !s.Down)) return;   // a stumble is 1.2 s of it, then the run
+            if (cur == Clip.DiveAway)
+            {
+                // landed flat: he stays down a moment, unless the sim has him up and running already
+                s.Stance = (byte)Stance.Prone; s.FlipSince = 0; s.FlipLock = 0;
+                if (speed > 1f && !prone) { s.Stance = simStance == Stance.Crouch ? (byte)Stance.Crouch : (byte)Stance.Standing; s.Scramble = true; }
+                else s.DownUntil = tick + 16;
+            }
+            if (s.DownUntil > tick && speed < 1f)
+            {
+                if (s.Clip != Clip.ProneIdle) Start(i, ref s, Clip.ProneIdle, Rung.Reaction, "hugs the ground after the shell", 1f, 0.3f);
+                s.Stance = (byte)Stance.Prone;
+                return;
+            }
             if (hitKind[i] == 3 && speed < 0.3f && !prone && s.Routine != 6 && tick - s.LastDuck > (supp > 30f ? 20 : 60) && !(s.Rung == Rung.Fire && s.Frame < 0.5f))
             {
                 s.LastDuck = tick; s.LastNearMiss = tick;
@@ -532,7 +618,8 @@ namespace TW.Presentation
                 authored = Clips.Table[(int)gait].Speed;
                 float rate = authored > 0f ? math.clamp(speed / authored, 0.6f, 1.6f) : 1f;
                 if (wire && !prone && gait != Clip.WireCross) rate = math.min(rate, 0.6f);
-                Start(i, ref s, gait, Rung.Locomotion, "moves at " + speed.ToString("0.0") + " m/s: " + gait + env, rate);
+                Start(i, ref s, gait, Rung.Locomotion, "moves at " + speed.ToString("0.0") + " m/s: " + gait + env + (s.Scramble ? ", scrambling up off the ground" : ""), rate, s.Scramble ? 0.4f : 0.15f);
+                s.Scramble = false;
                 s.Stance = flat ? (byte)simStance : simStance == Stance.Crouch ? (byte)Stance.Crouch : (byte)Stance.Standing;   // the gait sets the stance, no transition needed
                 if (flat && !prone) s.Stance = (byte)Stance.Prone;
                 return;
@@ -636,7 +723,7 @@ namespace TW.Presentation
                 if (s.Rung != Rung.Turn || Clips.Table[(int)s.Clip].Loop)
                 {
                     float d = s.BodyYaw - s.ShownYaw; while (d > math.PI) d -= 2f * math.PI; while (d < -math.PI) d += 2f * math.PI;
-                    float step = math.min(math.abs(d), dt * (s.Rung == Rung.Locomotion ? 7f : s.Rung == Rung.Fire ? 6f : 3f));
+                    float step = math.min(math.abs(d), dt * (s.Clip == Clip.DiveAway ? 14f : s.Rung == Rung.Locomotion ? 7f : s.Rung == Rung.Fire ? 6f : 3f));
                     s.ShownYaw += math.sign(d) * step;
                     while (s.ShownYaw > math.PI) s.ShownYaw -= 2f * math.PI; while (s.ShownYaw < -math.PI) s.ShownYaw += 2f * math.PI;
                 }

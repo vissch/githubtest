@@ -10,6 +10,10 @@
 //     distance, played late by the speed of sound and quieter from further off.
 // Strikes come more often when the rain is heavy (Atmosphere.RainNow). All of it is one small mesh, one light, one glow
 // card and one AudioSource.
+// The freeze frame (owner, 2026-09-22): the world stops for FreezeSeconds while a strike flickers, like a photograph
+// taken by its light: Time.timeScale holds at 0 (the sim, the men, the rain and every effect stand still; the camera and
+// the storm run on unscaled time), the flicker is spread across the hold so the frozen picture stays lit, and time
+// comes back as the last flicker dies. 0 turns it off. In single player only: a lockstep peer cannot stop the sim.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Presentation;
@@ -21,6 +25,9 @@ namespace TW.Presentation.Terrain
         [Tooltip("Seconds between strikes: in a downpour, and in light rain.")]
         public Vector2 Every = new Vector2(7f, 24f);
         [Range(0f, 1f)] public float ThunderVolume = 0.8f;
+        [Tooltip("The world holds still this long while a strike flickers (seconds; 0 = off).")]
+        public float FreezeSeconds = 1f;
+        float frozenUntil = -1f, scaleBefore = 1f;
         public Color BoltLight = new Color(0.78f, 0.86f, 1f);
 
         struct Pulse { public float At, Length, Strength; }
@@ -65,11 +72,14 @@ namespace TW.Presentation.Terrain
             voice.spatialBlend = 0f; voice.playOnAwake = false;
             if (FindFirstObjectByType<AudioListener>() == null && Camera.main != null) Camera.main.gameObject.AddComponent<AudioListener>();
             thunder = new[] { MakeThunder(0, 1f, 5.5f), MakeThunder(1, .45f, 6.5f), MakeThunder(2, .08f, 7.5f) };   // near: a crack; far: all rumble
-            nextStrike = Time.time + 9f;
+            nextStrike = Time.unscaledTime + 9f;
         }
+
+        void OnDisable() { Thaw(); }
 
         void OnDestroy()
         {
+            Thaw();
             Atmosphere.StormFlash = 0f;
             if (bolt != null) Destroy(bolt);
             if (boltMaterial != null) Destroy(boltMaterial);
@@ -126,20 +136,27 @@ namespace TW.Presentation.Terrain
             Vector3 foot = ray.origin + ray.direction * reach;
             float far = Vector3.Distance(look, foot);
             foot.y = RenderGround.Map != null ? RenderGround.Sample(RenderGround.Map, Mathf.Clamp(foot.x, 0f, RenderGround.Map.SizeMeters.x - 1f), Mathf.Clamp(foot.z, 0f, RenderGround.Map.SizeMeters.y - 1f)) : 0f;
-            struckWhere = foot; struckAt = Time.time;
+            struckWhere = foot; struckAt = Time.unscaledTime;
             strikeStrength = Mathf.Lerp(1f, .6f, Mathf.InverseLerp(15f, 110f, far));
 
             pulses.Clear();
             int count = Random.Range(2, 5); float at = 0f;
+            // frozen, the flickers come a little further apart and the last one fades slowly over the rest of the hold, so the
+            // still picture stays lit and goes dark just as time comes back (a dark frozen frame reads as a stall)
+            bool freeze = FreezeSeconds > 0f;
             for (int k = 0; k < count; k++)
             {
-                pulses.Add(new Pulse { At = at, Length = Random.Range(.06f, .13f), Strength = k == 0 ? 1f : Random.Range(.35f, .85f) });
-                at += Random.Range(.07f, .16f);
+                bool last = k == count - 1;
+                float length = Random.Range(.06f, .13f);
+                if (freeze && last) length = Mathf.Max(.15f, FreezeSeconds - at);
+                pulses.Add(new Pulse { At = at, Length = length, Strength = k == 0 ? 1f : Random.Range(.35f, .85f) * (freeze && last ? .8f : 1f) });
+                at += Random.Range(.07f, .16f) * (freeze ? 1.35f : 1f);
             }
+            if (freeze) Freeze(FreezeSeconds);
             BuildBolt(foot, t.position);
 
             float distance = Vector3.Distance(t.position, foot) + 120f;   // the flash is ground to cloud; most of the sound comes from up there
-            pending.Add(new Pending { At = Time.time + distance / 343f, Volume = ThunderVolume * Mathf.Lerp(1f, .5f, Mathf.InverseLerp(150f, 380f, distance)), Clip = distance < 210f ? 0 : distance < 300f ? 1 : 2 });
+            pending.Add(new Pending { At = Time.unscaledTime + distance / 343f, Volume = ThunderVolume * Mathf.Lerp(1f, .5f, Mathf.InverseLerp(150f, 380f, distance)), Clip = distance < 210f ? 0 : distance < 300f ? 1 : 2 });
             Atmosphere.StormLightFrom = (look - (foot + Vector3.up * 70f)).normalized;
         }
 
@@ -189,15 +206,31 @@ namespace TW.Presentation.Terrain
             tris.Add(v0); tris.Add(v0 + 1); tris.Add(v0 + 2); tris.Add(v0); tris.Add(v0 + 2); tris.Add(v0 + 3);
         }
 
+        /// <summary>Stop the world for this many (unscaled) seconds; a second strike inside the hold extends it.</summary>
+        void Freeze(float seconds)
+        {
+            if (frozenUntil < 0f) scaleBefore = Time.timeScale;
+            frozenUntil = Mathf.Max(frozenUntil, Time.unscaledTime + seconds);
+            Time.timeScale = 0f;
+        }
+
+        void Thaw()
+        {
+            if (frozenUntil < 0f) return;
+            Time.timeScale = scaleBefore > 0f ? scaleBefore : 1f;
+            frozenUntil = -1f;
+        }
+
         void Update()
         {
+            if (frozenUntil >= 0f && Time.unscaledTime >= frozenUntil) Thaw();
             float rain = Mathf.Clamp01(Atmosphere.RainNow);
-            if (Time.time >= nextStrike)
+            if (Time.unscaledTime >= nextStrike)
             {
-                nextStrike = Time.time + Mathf.Lerp(Every.y, Every.x, rain) * Random.Range(.6f, 1.4f);
-                if (rain > .12f) Strike();
+                nextStrike = Time.unscaledTime + Mathf.Lerp(Every.y, Every.x, rain) * Random.Range(.6f, 1.4f);
+                if (rain > .12f && Time.timeScale > 0f) Strike();   // never while something else has the game paused
             }
-            float since = Time.time - struckAt, flash = 0f;
+            float since = Time.unscaledTime - struckAt, flash = 0f;
             for (int k = 0; k < pulses.Count; k++)
             {
                 float a = since - pulses[k].At;
@@ -212,7 +245,7 @@ namespace TW.Presentation.Terrain
 
             for (int k = pending.Count - 1; k >= 0; k--)
             {
-                if (Time.time < pending[k].At) continue;
+                if (Time.unscaledTime < pending[k].At) continue;
                 voice.PlayOneShot(thunder[pending[k].Clip], pending[k].Volume);
                 pending.RemoveAt(k);
             }

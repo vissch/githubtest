@@ -16,6 +16,10 @@ namespace TW.Editor
     {
         public Clip Clip; public string File; public bool Loop; public int Fps; public float CutStart, CutEnd, Rate; public bool StripYaw, KeepRoot;
         public string Lower; public float LowerTime;   // composed: this file's upper body on the hips and legs of Lower at LowerTime (a reload on one knee)
+        public bool Thrown;                            // blown off his feet: the whole body tipped back to flat early in the clip (VATBaker.Throw)
+        public bool Aim;                               // the rifle at the shoulder: laid through both hands, levelled where the clip strays (VATBaker.Level), and the
+                                                       // clip turned so the rifle, not the pelvis, faces +Z (he stands bladed, 70 degrees side-on, with the rifle on his target)
+        public bool RaiseAim, LowerAim;                // a raise to the aim ends facing by the rifle; a lower from it starts so (the turn spread over the clip)
     }
 
     public static class InfantryClipTable
@@ -28,6 +32,7 @@ namespace TW.Editor
         static void L(Clip c, string file, int fps = 15, float cutStart = 0f, float cutEnd = 0f, float rate = 1f) => list.Add(new ClipSource { Clip = c, File = file, Loop = true, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate });
         static void O(Clip c, string file, int fps = 15, float cutStart = 0f, float cutEnd = 0f, float rate = 1f, bool stripYaw = false) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate, StripYaw = stripYaw });
         static void C(Clip c, string file, string lower, int fps = 12, float cutStart = 0f, float cutEnd = 0f, float rate = 1f, float lowerTime = 0f) => list.Add(new ClipSource { Clip = c, File = file, Lower = lower, LowerTime = lowerTime, Loop = false, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate, StripYaw = true });
+        static void T(Clip c, string file, int fps = 15) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, Thrown = true });
         static void D(Clip c, string file, int fps = 12, bool keepRoot = true) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, KeepRoot = keepRoot });
 
         static void Build()
@@ -57,6 +62,9 @@ namespace TW.Editor
             O(Clip.KneelFlinch, "Kneel Flinch", 24); O(Clip.ProneFlinch, "Prone Flinch", 24); O(Clip.Duck, "Rifle Shielding Face", 15, 0f, 0.8f, 1f, true); O(Clip.Shield, "Rifle Shielding Face", 12, 0f, 0f, 1f, true);
             O(Clip.DiveRoll, "Dive Roll", 15); O(Clip.ProneRoll, "Prone Roll", 15); O(Clip.Trip, "Fall Over", 15, 0f, 0f, 1f, true); O(Clip.GetUp, "Get Up From Prone", 15, 0f, 0f, 1f, true);
             O(Clip.MaskOn, "Mask Donning", 12); L(Clip.Burning, "Burning Run", 15); O(Clip.Stumble, "Stumble Running", 15);
+            // away from a shell: the first third of the dive roll (the spring and the flat dive, face down, arms out), cut
+            // before he tucks into the roll; he lands prone (the controller cross-fades to ProneIdle) and the sim's knock carries him
+            O(Clip.DiveAway, "Dive Roll", 15, 0f, 0.78f, 1.1f, true);
             // trench and stance
             O(Clip.JumpDown, "Jumping Down", 15, 0f, 1.8f); O(Clip.ClimbOut, "Jump Up", 24); L(Clip.ClimbHold, "Ladder Climb", 15); O(Clip.ClimbLand, "Jump Down", 24); L(Clip.ClimbLadder, "Ladder Climb");
             O(Clip.StandToKneel, "Rifle Stand To Kneel", 20); O(Clip.KneelToStand, "Rifle Kneel To Stand", 20); O(Clip.KneelToProne, "Rifle Kneel To Prone", 15, 0f, 0f, 1f, true); O(Clip.ProneToKneel, "Rifle Prone To Kneel", 15);
@@ -69,6 +77,21 @@ namespace TW.Editor
             D(Clip.DeathFront, "Death From The Front"); D(Clip.DeathBack, "Death From The Back"); D(Clip.DeathRight, "Death From Right"); D(Clip.DeathLeft, "Rifle Death");
             D(Clip.DeathHeadshot, "Death From Front Headshot"); D(Clip.DeathWalking, "Walking To Dying", 12, false); D(Clip.DeathRunning, "Rifle Run To Dying", 12, false);
             D(Clip.DeathKneel, "Rifle Kneel Hit To Back"); D(Clip.DeathSquat, "Death Crouching Headshot Front"); D(Clip.DeathProne, "Prone Death"); D(Clip.DeathBlast, "Rifle Hit To Back", 15);
+            // thrown by a shell: knocked backwards off his feet onto his back, the body tipped flat early (the clip alone
+            // hangs upright in the air for half a second); the root stays put: VATRenderer flies the corpse on an arc timed
+            // so his back meets the ground at AnimationController.ThrownLands
+            T(Clip.DeathThrown, "Rifle Hit To Back", 15);
+            // aimed and firing: the forestock hand reaches 0.58 m ahead of the grip, past the baker's one-hand test, so the
+            // rifle took the left hand's bind grip, 35 to 41 degrees at the ground, and the flash left it by his knees
+            var aimed = new HashSet<Clip> { Clip.AimedIdle, Clip.KneelAimedIdle, Clip.FireWalk, Clip.FireRun, Clip.FireSprint, Clip.FireStoop, Clip.FireStand, Clip.FireSnap, Clip.FireKneel, Clip.FireProne, Clip.FireMG };
+            for (int i = 0; i < list.Count; i++)
+            {
+                var e = list[i];
+                e.Aim = aimed.Contains(e.Clip);
+                e.RaiseAim = e.Clip == Clip.AimUp || e.Clip == Clip.KneelAimUp;
+                e.LowerAim = e.Clip == Clip.AimDown || e.Clip == Clip.KneelAimDown;
+                list[i] = e;
+            }
         }
     }
 }

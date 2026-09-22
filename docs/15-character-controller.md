@@ -312,6 +312,18 @@ after five), `trace-assault-over-the-top-round3.txt` (ClimbLadder in the vault h
 a run into the enemy trench, then the routine), `trace-rifleman-garrison-round3.txt` (the rifleman rises to the
 parapet to fight, reloads standing, drops back, rifle down after 8 s).
 
+Round 4 (2026-09-22, owner: barrage and muzzles): rung 3 anticipates a shell 7 ticks out (a scheduled HE payload or
+the ambient `Upcoming` peek). In the open he dives away from it (`DiveAway`, the first 0.78 s of Dive Roll) and
+hugs the ground 16 ticks; a man already moving scrambles on. In a trench he shields. The sim's knockback
+(`SimWorld.Knock`) carries him. A blast death plays `DeathThrown` on a ballistic arc sized by nearness and blast
+radius. Aimed clips (`ClipSource.Aim`): the rifle lies from the right hand through the left, is levelled where the
+clip strays (two-bone IK on the left arm) and faces the target, the clip turned by the rifle and not the pelvis (the
+Mixamo aim clips stand 71° side-on). `RaiseAim`/`LowerAim` spread that turn over the raise and lower. The baked
+muzzle, barrel and chest sockets (`TWVAT3`) put the flash and tracer on the drawn rifle. Figure:
+`docs/reference/figures/aims-levelled.png`. Open: a cross-fade between a bladed fire clip and a square clip (a
+reload) morphs the legs through 70° for its length. A pose-matched turn clip, or a longer fade at that one edge,
+would hide it.
+
 
 1. Baker: clip table, root-motion strip per clip, mirror, cut, frame rates; bake the 131; the far-tier map;
    tests. Nothing on screen changes yet (the old 18 rows are mapped from the new table).

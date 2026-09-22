@@ -67,7 +67,7 @@ namespace TW.Sim.Nav
             new MoveJob
             {
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
-                GoalId = w.GoalId, Cooldown = w.Cooldown, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
+                GoalId = w.GoalId, Cooldown = w.Cooldown, Knock = w.Knock, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
                 Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
@@ -99,6 +99,7 @@ namespace TW.Sim.Nav
             public NativeArray<byte> Layer, StanceOf;
             public NativeArray<uint> Flags;
             public NativeArray<int> GoalId, Cooldown;
+            public NativeArray<float3> Knock;
             public NativeArray<short> TrenchId;
             public NativeArray<short> ArrivedLocked, Garrisoned;
             [ReadOnly] public NativeArray<float> Speed, Suppression;
@@ -108,6 +109,7 @@ namespace TW.Sim.Nav
             public uint Tick;
             public const float DriftAmount = 0.38f;     // lateral drift as a fraction of the forward speed
             public const float DriftPeriodTicks = 320f; // one wander cycle: 16 s
+            public const float KnockDecay = 0.78f;      // per tick: a throw of 9 m/s carries him about 2 m over a second
             public const int VaultTicks = 16;          // a man takes 0.8 s to get over the parapet (Cooldown counts it; the climb is drawn up the wall)
             [ReadOnly] public NativeArray<byte> Directions;
             [ReadOnly] public NativeArray<byte> Ready;
@@ -203,6 +205,10 @@ namespace TW.Sim.Nav
                 else stance = (f & (uint)UnitFlags.Exposed) != 0 ? Stance.Sprint : Stance.Standing;
                 float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
                 float3 v = isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
+                // thrown by a shell: the throw replaces his own steering until it is spent
+                float3 knock = Knock[i];
+                if (math.lengthsq(knock) > 0.09f && !isGarrisoned) { v = knock; Knock[i] = knock * KnockDecay; }
+                else if (math.lengthsq(knock) > 0f) Knock[i] = float3.zero;
                 bool onLadder = isGarrisoned && (from & (byte)NavLayer.Link) != 0;
                 if (onLadder)
                 {

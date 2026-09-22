@@ -37,6 +37,7 @@ namespace TW.Sim
         public NativeArray<ushort> Generation; // bumps on every spawn so stale slot references can be detected
         public NativeArray<int> Cooldown;      // generic per-unit ticks: MovementSystem counts the vault over a parapet in it
         public NativeArray<int> FireCooldown;  // ticks until the primary weapon may fire again (A2)
+        public NativeArray<float3> Knock;      // m/s: a shell has thrown him (BlastSystem sets it, MovementSystem spends it)
 
         // ---- per-player state ----
         public NativeArray<int> Silver;
@@ -82,6 +83,7 @@ namespace TW.Sim
             Generation = new NativeArray<ushort>(n, Allocator.Persistent);
             Cooldown = new NativeArray<int>(n, Allocator.Persistent);
             FireCooldown = new NativeArray<int>(n, Allocator.Persistent);
+            Knock = new NativeArray<float3>(n, Allocator.Persistent);
             for (int i = 0; i < n; i++) { TrenchId[i] = -1; SourceTrench[i] = -1; TargetSlot[i] = -1; GoalId[i] = -1; }
 
             int p = SimConfig.MaxPlayers;
@@ -132,7 +134,7 @@ namespace TW.Sim
             Position[slot] = pos; Velocity[slot] = float3.zero; Yaw[slot] = team == 0 ? 0f : SimMath.Pi;
             Hp[slot] = hp; MaxHp[slot] = hp; Suppression[slot] = 0f; Speed[slot] = speed;
             StanceOf[slot] = (byte)Stance.Standing; Team[slot] = team; Archetype[slot] = archetype; Layer[slot] = 1;
-            TrenchId[slot] = -1; SourceTrench[slot] = -1; TargetSlot[slot] = -1; GoalId[slot] = -1; Cooldown[slot] = 0; FireCooldown[slot] = 0;
+            TrenchId[slot] = -1; SourceTrench[slot] = -1; TargetSlot[slot] = -1; GoalId[slot] = -1; Cooldown[slot] = 0; FireCooldown[slot] = 0; Knock[slot] = float3.zero;
             Flags[slot] = (uint)UnitFlags.Alive | (vehicle ? (uint)UnitFlags.Vehicle : 0u);
             Generation[slot] = (ushort)(Generation[slot] + 1);
             AliveCount++;
@@ -316,6 +318,7 @@ namespace TW.Sim
             h = SimHash.Array(Generation, n, h);
             h = SimHash.Array(Cooldown, n, h);
             h = SimHash.Array(FireCooldown, n, h);
+            h = SimHash.Array(Knock, n, h);
             foreach (var s in systems) h = s.Hash(h);
             return h;
         }
@@ -326,7 +329,7 @@ namespace TW.Sim
             systems.Clear();
             Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose();
             Speed.Dispose(); StanceOf.Dispose(); Team.Dispose(); Archetype.Dispose(); Layer.Dispose(); TrenchId.Dispose(); SourceTrench.Dispose();
-            TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose();
+            TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose(); Knock.Dispose();
             Silver.Dispose(); SilverFraction.Dispose(); Rally.Dispose(); Roster.Dispose(); SlotCooldown.Dispose(); SlotUnlocked.Dispose();
             freeSlots.Dispose(); Events.Dispose(); TickCommands.Dispose(); sortScratch.Dispose();
         }

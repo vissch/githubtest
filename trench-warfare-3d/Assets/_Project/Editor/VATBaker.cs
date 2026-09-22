@@ -197,6 +197,7 @@ namespace TW.Editor
             var headPos = rig.Head.position;
             var helmet = rig.HasHelmet ? new BoxMesh { Pos = new Vector3[0], Nrm = new Vector3[0], Tris = new int[0] } : Box(new Vector3(headPos.x, top - 0.07f * u, headPos.z + 0.01f * u), new Vector3(0.31f, 0.03f, 0.34f) * u);   // the brim of a Brodie
             var rifle = Box(new Vector3(0f, 0f, 0.30f * u), new Vector3(0.06f, 0.10f, 1.15f) * u);   // fat enough to read at 30 m; butt 27 cm behind the grip
+            const float RifleTip = 0.30f + 0.575f;   // the muzzle: the box's far end, metres ahead of the grip
             int vertexCount = skinCount + helmet.Pos.Length + rifle.Pos.Length;
 
             // the clips' hips translation is another character's: scale it to this rig's leg length
@@ -210,7 +211,8 @@ namespace TW.Editor
             }
 
             // ---- frames -----------------------------------------------------------------------------------------
-            var frames = new List<Vector3[]>(); var frameNormals = new List<Vector3[]>();
+            var frames = new List<Vector3[]>(); var frameNormals = new List<Vector3[]>(); var frameSockets = new List<Vector3[]>();
+            bool aiming = false;   // an aimed clip: the forestock hand reaches well ahead of the grip, but both hands hold the rifle
             void Capture(Vector3 shift, float yawFix)
             {
                 Skinned(rig, verts, normals);
@@ -222,7 +224,7 @@ namespace TW.Editor
                 // ladder, a throw) the left hand keeps it
                 // both hands on it: from the right hand (the grip) through the left (the forestock), whatever the rig's hand axes are
                 Vector3 span = rig.HandL.position - rig.HandR.position;
-                bool rightOff = span.magnitude > 0.48f / rig.Scale;
+                bool rightOff = span.magnitude > 0.48f / rig.Scale && !aiming;
                 Matrix4x4 grip;
                 if (rightOff) grip = rig.HandL.localToWorldMatrix * rig.GripL;
                 else if (span.magnitude > 0.08f / rig.Scale) grip = Matrix4x4.TRS(rig.HandR.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
@@ -231,7 +233,14 @@ namespace TW.Editor
                 for (int i = 0; i < rifle.Pos.Length; i++) { p[r0 + i] = grip.MultiplyPoint3x4(rifle.Pos[i]); n[r0 + i] = grip.MultiplyVector(rifle.Nrm[i]); }
                 var turn = Quaternion.Euler(0f, -yawFix * Mathf.Rad2Deg, 0f);
                 for (int i = 0; i < vertexCount; i++) { p[i] = turn * ((p[i] - shift - new Vector3(0f, rig.MinY, 0f)) * rig.Scale); n[i] = turn * n[i]; }
-                frames.Add(p); frameNormals.Add(n);
+                // sockets, in the same space as the vertices: the rifle's muzzle (the far end of the box), the way the barrel
+                // points, and the chest (between the spine and the neck)
+                Vector3 Place(Vector3 world) => turn * ((world - shift - new Vector3(0f, rig.MinY, 0f)) * rig.Scale);
+                var sockets = new Vector3[3];
+                sockets[VatAsset.Muzzle] = Place(grip.MultiplyPoint3x4(new Vector3(0f, 0f, RifleTip * u)));
+                sockets[VatAsset.Barrel] = (turn * grip.MultiplyVector(Vector3.forward)).normalized;
+                sockets[VatAsset.Chest] = Place(Vector3.Lerp(rig.Spine.position, rig.Neck.position, 0.6f));
+                frames.Add(p); frameNormals.Add(n); frameSockets.Add(sockets);
             }
             var upperBody = rig.All.Where(t => t == rig.Spine || t.IsChildOf(rig.Spine)).ToArray();
             var upperRot = new Quaternion[upperBody.Length];
@@ -274,24 +283,42 @@ namespace TW.Editor
                         int n = Mathf.Max(2, Mathf.RoundToInt(played * src.Fps) + (src.Loop ? 0 : 1));
                         // root: first frame's hips over the origin, travel removed as a trend; facing: first frame to +Z
                         Pose(clip, from, lower, src.LowerTime);
-                        Vector3 first = Flat(rig.Hips.position); float yaw0 = rig.FacingYaw();
+                        Vector3 first = Flat(rig.Hips.position); float yaw0 = rig.FacingYaw(), rifle0 = RifleYaw(rig);
                         Quaternion hips0 = rig.Hips.rotation; Vector3 knee0 = rig.ShinL.position - rig.Hips.position;
                         Pose(clip, from + span * 0.5f, lower, src.LowerTime);
                         bool bound = Quaternion.Angle(hips0, rig.Hips.rotation) > 0.5f || (rig.ShinL.position - rig.Hips.position - knee0).magnitude > 0.005f * u;
                         if (!bound) { Debug.LogWarning("VATBaker: " + src.File + " does not move between its first frame and its middle: its curves may not bind to this rig"); unbound++; }
                         Pose(clip, to, lower, src.LowerTime);
-                        Vector3 last = Flat(rig.Hips.position); float yawN = rig.FacingYaw();
+                        Vector3 last = Flat(rig.Hips.position); float yawN = rig.FacingYaw(), rifleN = RifleYaw(rig);
                         Vector3 travel = last - first;
                         Vector3 keep = src.KeepRoot ? travel * Mathf.Max(0f, 1f - 0.35f / rig.Scale / Mathf.Max(1e-4f, travel.magnitude)) : travel;   // a death keeps 35 cm of its fall
+                        // aimed: face by the rifle (the pelvis stands 70 degrees side-on to it); a raise ends so, a lower starts so
+                        if (src.Aim || src.LowerAim) yaw0 = rifle0;
+                        if (src.RaiseAim) yawN = rifleN;
                         float turn = Mathf.DeltaAngle(yaw0 * Mathf.Rad2Deg, yawN * Mathf.Rad2Deg) * Mathf.Deg2Rad;
+                        // aimed: the rifle lies from the right hand through the left (the forestock hand is 0.58 m out, past
+                        // the one-hand test, and the left hand's own bind grip pointed it 35 to 41 degrees at the ground), and
+                        // is turned so the clip's mean pitch is just under level where it strays, keeping its kick and sway
+                        float lift = 0f;
+                        aiming = src.Aim;
+                        if (src.Aim)
+                        {
+                            float sum = 0f;
+                            for (int f = 0; f < n; f++) { float frac = src.Loop ? f / (float)n : f / (float)(n - 1); Pose(clip, from + frac * span, lower, src.LowerTime); sum += RiflePitch(rig); }
+                            float mean = sum / n;
+                            if (Mathf.Abs(mean + 2f) > 6f) lift = -2f - mean;
+                        }
                         for (int f = 0; f < n; f++)
                         {
                             float frac = src.Loop ? f / (float)n : f / (float)(n - 1);
                             Pose(clip, from + frac * span, lower, lower != null ? (src.LowerTime + frac * span) % Mathf.Max(0.1f, lower.length) : 0f);   // the legs breathe along the lower loop
+                            if (src.Thrown) Throw(rig, frac * played, yaw0);
+                            if (lift != 0f) Level(rig, lift);
                             Capture(first + keep * frac, yaw0 + (src.StripYaw ? turn * frac : 0f));
                         }
+                        aiming = false;
                         table[r] = new Vector2(start, src.Loop ? n : -n); seconds[r] = played;
-                        report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} travel {(travel - keep).magnitude * rig.Scale * 100f,5:0} cm{(src.Lower != null ? " on " + src.Lower : "")} turn {turn * Mathf.Rad2Deg,5:0} deg");
+                        report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} kept {(travel - keep).magnitude * rig.Scale * 100f,4:0} of {travel.magnitude * rig.Scale * 100f,4:0} cm travel{(src.Lower != null ? " on " + src.Lower : "")} turn {turn * Mathf.Rad2Deg,5:0} deg{(src.Aim ? $" rifle through both hands, turned {lift:+0;-0;0} deg" : "")}");
                         continue;
                     }
                 }
@@ -329,7 +356,7 @@ namespace TW.Editor
 
             // ---- atlas and assets -------------------------------------------------------------------------------
             int total = frames.Count;
-            var bytes = VatCodec.Encode(frames.ToArray(), frameNormals.ToArray(), vertexCount, table, seconds);
+            var bytes = VatCodec.Encode(frames.ToArray(), frameNormals.ToArray(), vertexCount, table, seconds, frameSockets.ToArray());
             if (!AssetDatabase.IsValidFolder("Assets/_Project/Resources")) AssetDatabase.CreateFolder("Assets/_Project", "Resources");
             if (!AssetDatabase.IsValidFolder(OutputFolder)) AssetDatabase.CreateFolder("Assets/_Project/Resources", "Units");
             AssetDatabase.DeleteAsset($"{OutputFolder}/Figure{figure}.asset"); AssetDatabase.DeleteAsset($"{OutputFolder}/Figure{figure}Mesh.asset");
@@ -365,6 +392,67 @@ namespace TW.Editor
         }
 
         // ---- posing the rig from a SoldierPose ------------------------------------------------------------------
+        /// <summary>
+        /// Blown off his feet: the whole body tips back about the hips, flat a third of the way to the ground and a little
+        /// past flat at the top of the arc, then hands back to the clip over a quarter second as his back lands (at
+        /// AnimationController.ThrownLands). The clip's own limbs play on top.
+        /// </summary>
+        static void Throw(Rig rig, float t, float facing)
+        {
+            float land = AnimationController.ThrownLands;
+            float weight = t <= land ? 1f : 1f - Mathf.Clamp01((t - land) / 0.25f);
+            if (weight <= 0f) return;
+            float pitch = t <= land ? 100f * Mathf.SmoothStep(0f, 1f, t / (0.35f * land)) - 10f * Mathf.SmoothStep(0f, 1f, (t - 0.6f * land) / (0.4f * land)) : 90f;
+            Vector3 fwd = new Vector3(Mathf.Sin(facing), 0f, Mathf.Cos(facing)), right = Vector3.Cross(Vector3.up, fwd).normalized;
+            Vector3 now = Vector3.ProjectOnPlane(rig.Neck.position - rig.Hips.position, right);
+            if (now.sqrMagnitude < 1e-8f) return;
+            float r = pitch * Mathf.Deg2Rad;
+            Vector3 want = Vector3.up * Mathf.Cos(r) - fwd * Mathf.Sin(r);   // tipped backwards, away from the way he faced
+            var turn = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(now.normalized, want), weight);
+            rig.Hips.rotation = turn * rig.Hips.rotation;   // everything hangs off the hips: the whole man turns about them
+        }
+
+        /// <summary>Where the rifle points when both hands hold it (radians about Y, 0 = +Z): the line from the right hand to the left.</summary>
+        static float RifleYaw(Rig rig)
+        {
+            Vector3 s = rig.HandL.position - rig.HandR.position;
+            return Mathf.Atan2(s.x, s.z);
+        }
+
+        /// <summary>The pitch of the rifle when both hands hold it (degrees, up positive): the line from the right hand to the left.</summary>
+        static float RiflePitch(Rig rig)
+        {
+            Vector3 s = rig.HandL.position - rig.HandR.position;
+            return Mathf.Atan2(s.y, new Vector2(s.x, s.z).magnitude) * Mathf.Rad2Deg;
+        }
+
+        /// <summary>
+        /// Turns the rifle lift degrees up (down when negative) about the right hand (the butt stays in the shoulder) and
+        /// brings the left hand back onto the forestock by two-bone IK on the left arm, the elbow kept on the side it was bent
+        /// to. The rifle box and the muzzle socket follow, because Capture lays an aimed rifle from the right hand through the left.
+        /// </summary>
+        static void Level(Rig rig, float lift)
+        {
+            Vector3 grip = rig.HandR.position, span = rig.HandL.position - grip;
+            Vector3 flat = new Vector3(span.x, 0f, span.z);
+            if (flat.sqrMagnitude < 1e-8f) return;
+            float pitch = Mathf.Atan2(span.y, flat.magnitude) + lift * Mathf.Deg2Rad;
+            Vector3 target = grip + (flat.normalized * Mathf.Cos(pitch) + Vector3.up * Mathf.Sin(pitch)) * span.magnitude;
+            Vector3 shoulder = rig.ArmL.position, elbow = rig.ForeL.position;
+            float a = (elbow - shoulder).magnitude, b = (rig.HandL.position - elbow).magnitude;
+            Vector3 reach = target - shoulder;
+            if (a < 1e-5f || b < 1e-5f || reach.sqrMagnitude < 1e-10f) return;
+            float d = Mathf.Clamp(reach.magnitude, Mathf.Abs(a - b) + 1e-4f, a + b - 1e-4f);
+            Vector3 axis = reach.normalized, bend = Vector3.ProjectOnPlane(elbow - shoulder, axis);
+            if (bend.sqrMagnitude < 1e-10f) bend = Vector3.ProjectOnPlane(Vector3.down, axis);
+            bend.Normalize();
+            float cos = Mathf.Clamp((a * a + d * d - b * b) / (2f * a * d), -1f, 1f);
+            Vector3 elbowTo = shoulder + axis * (a * cos) + bend * (a * Mathf.Sqrt(1f - cos * cos));
+            rig.ArmL.rotation = Quaternion.FromToRotation(elbow - shoulder, elbowTo - shoulder) * rig.ArmL.rotation;
+            Vector3 wristTo = shoulder + axis * d;
+            rig.ForeL.rotation = Quaternion.FromToRotation(rig.HandL.position - rig.ForeL.position, wristTo - rig.ForeL.position) * rig.ForeL.rotation;
+        }
+
         static void ApplyPose(Rig rig, ProceduralSoldier.SoldierPose p)
         {
             rig.Reset();
