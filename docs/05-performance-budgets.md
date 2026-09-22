@@ -303,3 +303,46 @@ afterwards as the regression test that keeps a fixed tick from silently un-fixin
 The general lesson, which is the same one the HUD taught from the other end: an instrument answers the question it
 was pointed at. `gc_bytes_per_frame` was pointed at "how much", answered it correctly for a day, and was read as if
 it had answered "where".
+
+### The VAT atlases: one of the two questions answered (2026-09-23)
+
+The measurement above left two things for "whoever owns `VATRenderer`". One had its answer in our own source.
+
+**Four atlases where there should be two: they were never given back.** Every atlas texture is created with
+`HideFlags.HideAndDontSave` (`VatCodec.Decode`, `ProceduralSoldier.Build`). That flag exempts an object from
+*every* cleanup Unity does on its own: leaving Play mode, unloading the scene and `Resources.UnloadUnusedAssets`
+all walk past it. Nothing in `Presentation/Units` destroyed a `Texture2D` anywhere — `VATRenderer.OnDestroy` freed
+its `GraphicsBuffer`s and `NativeArray`s and stopped there. So every `Start` decoded a fresh set and the previous
+one stayed resident until the editor was quit.
+
+One resident set is 70.2 MB, and that is the whole of the reported ~144 MB:
+
+| | | |
+|---|---|---|
+| Soldier | 917 verts × 3,398 frames, 111 rows | 35.7 MB |
+| Sniper | 887 verts × 3,398 frames, 111 rows | 34.5 MB |
+| **One set** | positions RGBA64 (8 B/texel) + normals RGBA32 (4) | **70.2 MB** |
+
+`VatAsset.Release()` now destroys them and `VATRenderer.OnDestroy` calls it. Two traps it has to avoid, both of
+which would be worse than the leak: a decoded figure **borrows** its mesh from whatever supplied the bytes, and for
+a baked figure that is the `Resources` `.asset` on disk, so destroying it would empty the file — hence
+`VatAsset.OwnsMesh`, set only by `ProceduralSoldier.Build`. And a figure whose bake is missing borrows the figure
+before it, so the same `VatAsset` sits in several slots and teardown de-duplicates by reference.
+
+**The atlases were also all named the same thing.** `VatAssetData.ToAsset` hardcoded `"InfantryVat"`, so the
+Soldier's textures and the Sniper's had identical names and a memory listing could not tell them apart. That
+ambiguity is most of why "four where there should be two" took a day to read. They are now named after the figure.
+
+**The doubling is still open, and the hypothesis recorded above is wrong.** "The signature of a readable texture
+keeping a CPU copy beside the GPU one" is refuted by the source: `VatCodec.Decode` already passes
+`makeNoLongerReadable`, at `pos.Apply(false, !keepReadable)` with `keepReadable` false. The likeliest remaining
+explanation is that it is an **editor-only** artefact — the editor keeps a copy it can re-upload after a graphics
+device reset, whatever the flag says — in which case it does not exist in a build at all. That is a guess. The
+honest next step is the one this document has been asking for since the frame-budget section: *measure a build*.
+
+`Tests/EditMode/VatAtlasMemoryTests.cs` guards the lifetime and holds one resident set to 128 MB, and prints the
+unexplained number rather than asserting on it, so an open question cannot go green.
+
+**Not yet covered by a test:** that `VATRenderer.OnDestroy` actually calls `Release`. The tests cover `Release`
+itself; deleting the call from `OnDestroy` would leave them green. That wants a PlayMode test which stands up a real
+renderer, records its atlases and destroys it — next piece of work on this.

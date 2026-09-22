@@ -4,10 +4,20 @@ references presentation/UI/net/data), and no UnityEngine usage inside Sim assemb
 import json, pathlib, re, sys
 root = pathlib.Path(__file__).parent
 errors = []
+
+def text(p):
+    """Read a source file the way Unity writes one: UTF-8, BOM or not.
+
+    pathlib's read_text() defaults to the locale encoding, which on Windows is cp1252. That decodes most of our files
+    by luck and then dies on the first one that holds a character cp1252 has no slot for — a curly quote in a string
+    literal was enough to take the whole validator down, and it took the whole team's gate with it. Files are read
+    once here and passed around rather than re-read per check, which is also why this used to read some files four
+    times over."""
+    return p.read_text(encoding='utf-8-sig')
 asm = {}
 for p in list((root / 'Assets').rglob('*.asmdef')) + [root / 'Packages/manifest.json']:  # Assets only: Library/PackageCache holds package asmdefs
     try:
-        d = json.loads(p.read_text())
+        d = json.loads(text(p))
     except Exception as e:
         errors.append(f'invalid JSON {p}: {e}'); continue
     if p.suffix == '.asmdef':
@@ -29,19 +39,23 @@ def visit(n, stack):
 for n in asm: visit(n, [])
 # UnityEngine inside Sim
 for cs in (root / 'Assets/_Project/Sim').rglob('*.cs'):
-    txt = cs.read_text()
+    txt = text(cs)
     if re.search(r'^\s*using UnityEngine', txt, re.M) or 'UnityEngine.' in txt:
         errors.append(f'{cs}: UnityEngine used inside a Sim assembly')
     if 'Mathf.' in txt or 'Time.deltaTime' in txt or 'System.Random' in txt:
         errors.append(f'{cs}: non-deterministic API in Sim assembly')
+# Every C# file under _Project, read once. The checks below all walked the tree separately and re-read each file,
+# which was four reads a file and four chances to disagree about what it said.
+sources = {cs: text(cs) for cs in (root / 'Assets/_Project').rglob('*.cs')}
+
 # every .cs carries a phase header
-for cs in (root / 'Assets/_Project').rglob('*.cs'):
-    first = cs.read_text().splitlines()[0] if cs.read_text().strip() else ''
+for cs, txt in sources.items():
+    first = txt.splitlines()[0] if txt.strip() else ''
     if not first.startswith('// Phase:'):
         errors.append(f'{cs}: missing "// Phase:" header')
 # brace balance sanity per C# file
-for cs in (root / 'Assets/_Project').rglob('*.cs'):
-    t = re.sub(r'"(?:\\.|[^"\\])*"', '""', cs.read_text())
+for cs, txt in sources.items():
+    t = re.sub(r'"(?:\\.|[^"\\])*"', '""', txt)
     t = re.sub(r'//.*', '', t)
     if t.count('{') != t.count('}'):
         errors.append(f'{cs}: unbalanced braces')
@@ -50,11 +64,11 @@ for cs in (root / 'Assets/_Project').rglob('*.cs'):
 # assembly name in a using is an easy mistake that costs whoever is sharing the tree a broken compile. A parent
 # namespace exists if anything is declared beneath it, which is why this matches on the dotted prefix too.
 declared = set()
-for cs in (root / 'Assets/_Project').rglob('*.cs'):
-    for m in re.finditer(r'^\s*namespace\s+([A-Za-z_][\w.]*)', cs.read_text(), re.M):
+for txt in sources.values():
+    for m in re.finditer(r'^\s*namespace\s+([A-Za-z_][\w.]*)', txt, re.M):
         declared.add(m.group(1))
-for cs in (root / 'Assets/_Project').rglob('*.cs'):
-    for m in re.finditer(r'^\s*using\s+(TW\.[\w.]*?)\s*;', cs.read_text(), re.M):
+for cs, txt in sources.items():
+    for m in re.finditer(r'^\s*using\s+(TW\.[\w.]*?)\s*;', txt, re.M):
         ns = m.group(1)
         if ns not in declared and not any(d.startswith(ns + '.') for d in declared):
             near = sorted(d for d in declared if d.split('.')[:2] == ns.split('.')[:2])

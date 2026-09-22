@@ -125,7 +125,8 @@ namespace TW.Presentation.Units
             mesh.bounds = new Bounds(new Vector3(0f, 0.9f, 0f), new Vector3(2.4f, 2.4f, 2.4f));
 
             VatCodec.Textures(frames, frameNormals, vertexCount, "SoldierVat", out var posTex, out var nrmTex, out var min, out var size);
-            return new VatAsset { Mesh = mesh, RowTable = table, RowSeconds = seconds, TotalFrames = total, Positions = posTex, Normals = nrmTex, PosMin = min, PosSize = size };
+            // OwnsMesh: this mesh and these textures are built here and belong to the caller, who must Release them.
+            return new VatAsset { Mesh = mesh, RowTable = table, RowSeconds = seconds, TotalFrames = total, Positions = posTex, Normals = nrmTex, PosMin = min, PosSize = size, OwnsMesh = true };
         }
 
         /// <summary>

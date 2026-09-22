@@ -52,6 +52,39 @@ namespace TW.Presentation.Units
         public bool ClipAtlas => RowTable != null && RowTable.Length >= (int)Clip.Count;
         public int Frames(int row) => Mathf.Max(1, (int)Mathf.Abs(RowTable[row].y));
         public bool Loops(int row) => RowTable[row].y > 0f;
+
+        /// <summary>
+        /// True when this asset built its own mesh and must destroy it (the box soldier). A baked figure's mesh comes
+        /// from Resources.Load, so it is the project asset on disk: destroying that empties the .asset file. The two
+        /// cases are indistinguishable from the object itself, which is the whole reason this flag exists.
+        /// </summary>
+        public bool OwnsMesh;
+
+        /// <summary>
+        /// Destroy the textures this asset created. Nothing else ever will: they carry HideFlags.HideAndDontSave, and
+        /// that flag exempts them from every cleanup Unity does on its own — leaving Play mode, unloading the scene and
+        /// Resources.UnloadUnusedAssets all walk past them. One baked figure's pair is about 35 MB (917 vertices by
+        /// 3,398 frames, positions RGBA64 at 8 bytes a texel and normals RGBA32 at 4), so a renderer that starts twice
+        /// without this leaves 70 MB behind that no later run can reclaim.
+        ///
+        /// Safe to call twice, and on an asset shared by several figures only if the caller de-duplicates first: the
+        /// renderer hands the same VatAsset to more than one figure when a bake is missing.
+        /// </summary>
+        public void Release()
+        {
+            Kill(Positions); Positions = null;
+            Kill(Normals); Normals = null;
+            if (OwnsMesh) { Kill(Mesh); Mesh = null; }
+        }
+
+        /// <summary>Destroy that works in both worlds: Object.Destroy is deferred to end of frame and does nothing at
+        /// all outside Play mode, which is exactly where the tests that guard this run.</summary>
+        internal static void Kill(UnityEngine.Object o)
+        {
+            if (o == null) return;
+            if (Application.isPlaying) UnityEngine.Object.Destroy(o);
+            else UnityEngine.Object.DestroyImmediate(o);
+        }
     }
 
     public static class VatCodec
@@ -167,6 +200,7 @@ namespace TW.Presentation.Units
                 var nrm = new Texture2D(vertexCount, total, TextureFormat.RGBA32, false, true) { name = name + "Normals", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
                 nrm.SetPixelData(n, 0); nrm.Apply(false, !keepReadable);
                 p.Dispose(); n.Dispose();
+                // OwnsMesh stays false: the mesh is the caller's, and for a baked figure it is the Resources asset itself.
                 return new VatAsset { Mesh = mesh, Positions = pos, Normals = nrm, RowTable = table, RowSeconds = seconds, PosMin = min, PosSize = size, TotalFrames = total, Sockets = sockets, SocketsPerFrame = per };
             }
         }

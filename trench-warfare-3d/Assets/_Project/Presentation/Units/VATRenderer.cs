@@ -532,13 +532,39 @@ namespace TW.Presentation.Units
             instanceBuffer?.Dispose(); instanceBuffer = null;
         }
 
+        /// <summary>
+        /// Everything Start built, given back. The GraphicsBuffers and NativeArrays were always freed here; the
+        /// textures, meshes and materials were not, and they are the large ones. Every atlas texture is created with
+        /// HideFlags.HideAndDontSave, which exempts it from leaving Play mode, from scene unload and from
+        /// Resources.UnloadUnusedAssets alike — so before this, a second Start simply decoded a second 70 MB set on
+        /// top of the first, and the editor held both until it was quit. That doubling is the whole of the ~144 MB
+        /// the VAT atlases were measured at.
+        ///
+        /// Assets are de-duplicated by reference because a figure whose bake is missing borrows the one before it
+        /// (see Start), so the same VatAsset appears in several slots and must be released once.
+        /// </summary>
         void OnDestroy()
         {
             Release();
-            if (figures != null) foreach (var f in figures) f.Rows?.Dispose();
-            far?.Rows?.Dispose(); argsBuffer?.Dispose();
+            var freed = new HashSet<VatAsset>();
+            if (figures != null) foreach (var f in figures) Give(f, freed);
+            Give(far, freed);
+            argsBuffer?.Dispose();
             fallenBuffer?.Dispose(); fallenArgs?.Dispose(); if (fallenInstances.IsCreated) fallenInstances.Dispose();
             if (nearRowOf.IsCreated) nearRowOf.Dispose(); if (farRowOf.IsCreated) farRowOf.Dispose();
+            VatAsset.Kill(tankMatA); tankMatA = null;
+            VatAsset.Kill(tankMatB); tankMatB = null;
+            VatAsset.Kill(tankMesh); tankMesh = null;
+            figures = null; far = null;
+        }
+
+        /// <summary>One figure's buffer, material and (once only) its atlas.</summary>
+        static void Give(Figure f, HashSet<VatAsset> freed)
+        {
+            if (f == null) return;
+            f.Rows?.Dispose();
+            VatAsset.Kill(f.Material);
+            if (f.Asset != null && freed.Add(f.Asset)) f.Asset.Release();
         }
     }
 }
