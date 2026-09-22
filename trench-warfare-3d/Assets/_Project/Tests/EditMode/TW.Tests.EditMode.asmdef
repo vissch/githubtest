@@ -15,7 +15,8 @@
     "TW.Net",
     "TW.Sim.Units",
     "TW.Presentation.Units",
-    "TW.Presentation.Core"
+    "TW.Presentation.Core",
+    "TW.Presentation.Camera"
   ],
   "includePlatforms": [
     "Editor"

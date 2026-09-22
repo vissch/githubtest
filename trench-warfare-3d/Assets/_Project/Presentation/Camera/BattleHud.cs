@@ -24,6 +24,42 @@ namespace TW.Presentation.Tactical
         /// </summary>
         const float Gap = 8f, Inset = 12f, Divider = 20f;
         const int SupportSlots = 2;
+
+        /// <summary>
+        /// The cell size and wooden frame width for a given amount of horizontal room. Pure, static and public
+        /// purely so the gate can reach it: OnGUI is not executed by any test, so before this existed the whole of
+        /// this file could be wrong in any way at all and still pass green. It was — the frame was two pixels
+        /// narrower than its own contents at every resolution, for longer than the roster has had seven slots.
+        ///
+        /// The frame is the sum of what the drawing loop consumes, never an independent guess at it: the left inset,
+        /// every cell at a (size + Gap) pitch, the divider before the support pair, and the matching right inset.
+        /// The floor of 16 is a guard against a degenerate or inverted rect, NOT a comfort floor — a floor the room
+        /// cannot afford does not make the buttons bigger, it pushes the right-hand end of the bar off the screen,
+        /// and a button you cannot reach is worse than a small one. The player is a non-resizable
+        /// native-resolution fullscreen one (ProjectSettings.asset), and even 800x600 with the test panel open
+        /// leaves 24 px a cell at ten cells, so 16 is unreachable in anything that ships.
+        /// </summary>
+        public static void BarMetrics(float room, out float size, out float frameW)
+        {
+            int cells = RosterEntry.SlotCount + SupportSlots;
+            float fixedW = Gap * cells + Inset * 2f + Divider;
+            size = Mathf.Clamp((room - fixedW) / cells, 16f, BarHeight - 22f);
+            frameW = cells * size + fixedW;
+        }
+
+        /// <summary>
+        /// What the drawing loop actually advances through for a given cell size — the figure BarMetrics has to
+        /// cover. This duplicates the loop's arithmetic, which is the very thing that drifted, so it is NOT the
+        /// safeguard: the safeguard is the assertion at the end of the bar, which measures the real loop. This
+        /// exists so a test can state the invariant without running OnGUI.
+        /// </summary>
+        public static float BarConsumed(float size) =>
+            Inset + (RosterEntry.SlotCount + SupportSlots) * (size + Gap) + Divider + Inset;
+
+#if UNITY_EDITOR
+        /// <summary>Once per session, not once per frame: OnGUI runs twice a frame and this is an error, not a log.</summary>
+        static bool barWarned;
+#endif
         /// <summary>Where the minimap is on screen (GUI coordinates), so map clicks under it are not taken for targets.</summary>
         public static Rect MinimapRect;
         const float MapScale = 3.2f;   // minimap pixels per nav cell
@@ -289,17 +325,7 @@ namespace TW.Presentation.Tactical
             // 12 px inset on the right. Worked out by replaying this arithmetic across six window sizes, which is
             // how the old figure was caught being two pixels short of its own contents at every one of them — the
             // buttons had been drawing a hair outside the wood since before the roster grew.
-            int cells = RosterEntry.SlotCount + SupportSlots;
-            float fixedW = Gap * cells + Inset * 2f + Divider;
-            // 16 is a guard against a degenerate (zero or inverted) rect, NOT a comfort floor. It was 46, which is
-            // the wrong kind of number to put here: a floor the room cannot afford does not make the buttons bigger,
-            // it pushes the right-hand end of the bar off the screen, and a button you cannot reach is worse than a
-            // small one. Every floor above what fits trades a readable bar for an unusable one. So the bar shrinks
-            // to fit whatever room it is given and only refuses below 16 px a cell, which no shipping window can
-            // reach: the player is a non-resizable native-resolution fullscreen one (ProjectSettings.asset), and
-            // even 800x600 with the test panel open leaves 24 px a cell at ten cells.
-            float size = Mathf.Clamp((room - fixedW) / cells, 16f, BarHeight - 22f);
-            float frameW = cells * size + fixedW;
+            BarMetrics(room, out float size, out float frameW);
             float fx = barLeft + leftW + Mathf.Max(0f, (room - frameW) * 0.5f);
             GUI.Box(new Rect(fx, Screen.height - BarHeight, frameW, BarHeight + 6f), GUIContent.none, wood);
             float x = fx + Inset, y = Screen.height - BarHeight + (BarHeight - size) * 0.5f + 2f;
@@ -328,6 +354,18 @@ namespace TW.Presentation.Tactical
             x += Divider;
             SupportSlot(ref x, y, size, barrage, "HE barrage: 12 shells in 25 m after 4 s; craters give cover", OffMapAbilityId.HeBarrage, over);
             SupportSlot(ref x, y, size, gas, "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out", OffMapAbilityId.ChlorineGas, over);
+#if UNITY_EDITOR
+            // x has now been advanced by the real loop, so this compares the frame against what was actually drawn
+            // rather than against a second copy of the arithmetic. A copy is what drifted last time. If anyone adds
+            // a cell, a divider or an inset and does not tell BarMetrics, this says so the first time the bar is
+            // drawn, which is the earliest anything in this file has ever been checked: no test executes OnGUI.
+            if (x + Inset > fx + frameW + 0.5f && !barWarned)
+            {
+                barWarned = true;
+                Debug.LogError($"BattleHud: the bar drew {x + Inset - fx:0.#} px into a {frameW:0.#} px frame. " +
+                               "BarMetrics no longer matches the loop below it — see BarConsumed.");
+            }
+#endif
 
             // pause and speed, right side
             float rx = Screen.width - 10f, ry = Screen.height - sideH * 0.5f - 18f;
