@@ -76,6 +76,14 @@ namespace TW.Presentation.Terrain
         readonly Dictionary<string, int> placedByKey = new Dictionary<string, int>(), spots = new Dictionary<string, int>();
         readonly HashSet<string> held = new HashSet<string>();
         readonly Plane[] planes = new Plane[6], editorPlanes = new Plane[6];
+        /// <summary>
+        /// One buffer, refilled for every module every frame, so the visible pages of a module go to the GPU as one
+        /// submission instead of one per 32 m page. Measured 2026-09-22: the props were spending 271 draw calls on
+        /// 1,706 instances — six instances a call — because a page is a culling unit and was being used as a batching
+        /// unit too. 1023 is the instancing limit of RenderMeshInstanced; a module with more than that submits again.
+        /// Allocated once and reused, because the frame budget bans managed allocation during play.
+        /// </summary>
+        readonly Matrix4x4[] merged = new Matrix4x4[1023];
         bool dirty = true, subscribed;
         public int VisibleInstances { get; private set; }
         public int SubmittedVertices { get; private set; }
@@ -240,21 +248,46 @@ namespace TW.Presentation.Terrain
             if (editorCam != null) GeometryUtility.CalculateFrustumPlanes(editorCam, editorPlanes);
             VisibleInstances = SubmittedVertices = DrawCalls = 0;
             Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
+            // Pages are culled one at a time, as they must be, and then merged into one submission per module: the
+            // page is the right unit to decide what the camera can see and the wrong unit to hand to the GPU.
             foreach (var b in batches.Values)
-            for (int p = 0; p < b.Counts.Count; p++)
             {
-                float reach = b.Module.MaxDistance; bool small = reach < float.PositiveInfinity;
-                var pageBounds = b.PageBounds[p]; pageBounds.Expand(16f);
-                bool seen = (!small || SceneHooks.CloseUp > 0f && b.PageBounds[p].SqrDistance(eye) <= reach * reach)   // small things: close camera only
-                    && (cam == null || GeometryUtility.TestPlanesAABB(planes, pageBounds));
-                bool editorSeen = editorCam != null && (!small || b.PageBounds[p].SqrDistance(editorCam.transform.position) <= reach * reach)
-                    && GeometryUtility.TestPlanesAABB(editorPlanes, pageBounds);
-                if (!seen && !editorSeen) continue;
                 var module = b.Module;
-                var rp = new RenderParams(module.Material) { worldBounds = pageBounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
-                Graphics.RenderMeshInstanced(rp, module.Mesh, 0, b.Pages[p], b.Counts[p]);
-                if (seen) { VisibleInstances += b.Counts[p]; SubmittedVertices += b.Counts[p] * module.Mesh.vertexCount; DrawCalls++; }
+                int held = 0; Bounds union = default; bool any = false;
+                for (int p = 0; p < b.Counts.Count; p++)
+                {
+                    float reach = module.MaxDistance; bool small = reach < float.PositiveInfinity;
+                    var pageBounds = b.PageBounds[p]; pageBounds.Expand(16f);
+                    bool seen = (!small || SceneHooks.CloseUp > 0f && b.PageBounds[p].SqrDistance(eye) <= reach * reach)   // small things: close camera only
+                        && (cam == null || GeometryUtility.TestPlanesAABB(planes, pageBounds));
+                    bool editorSeen = editorCam != null && (!small || b.PageBounds[p].SqrDistance(editorCam.transform.position) <= reach * reach)
+                        && GeometryUtility.TestPlanesAABB(editorPlanes, pageBounds);
+                    if (!seen && !editorSeen) continue;
+                    int count = b.Counts[p];
+                    if (count == 0) continue;
+                    if (seen) { VisibleInstances += count; SubmittedVertices += count * module.Mesh.vertexCount; }
+                    for (int from = 0; from < count; )
+                    {
+                        // inside the loop, not above it: a page that spills into a second submission has to widen
+                        // that one's bounds too, or everything after a full buffer is drawn with bounds of nothing
+                        if (any) union.Encapsulate(pageBounds); else { union = pageBounds; any = true; }
+                        int take = Mathf.Min(merged.Length - held, count - from);
+                        System.Array.Copy(b.Pages[p], from, merged, held, take);
+                        held += take; from += take;
+                        if (held < merged.Length) continue;
+                        Submit(module, union, held); held = 0; any = false;   // full: send it and start the next
+                    }
+                }
+                if (held > 0) Submit(module, union, held);
             }
+        }
+
+        /// <summary>One instanced submission of a module, with the bounds of every page that went into it.</summary>
+        void Submit(BattlefieldKit.Module module, Bounds bounds, int count)
+        {
+            var rp = new RenderParams(module.Material) { worldBounds = bounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
+            Graphics.RenderMeshInstanced(rp, module.Mesh, 0, merged, count);
+            DrawCalls++;
         }
     }
 }

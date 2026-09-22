@@ -139,3 +139,49 @@ had on where the frame goes, and it is a CPU-side lead, not a rendering one.
 Still true of both measurements: the editor is not a player build, and this machine is far above the GTX 1050
 target. A build measurement is the next honest step, and the absolute numbers should not be quoted as the game's
 performance until one exists. The *ratios* — men free in draw calls, garbage scaling per man — survive the caveat.
+
+## First optimisation from a measurement rather than a hunch (2026-09-22)
+
+The stress profile said the units were free in draw calls, so the 930 had to be the world. `BattlefieldProps`
+reported **271 draw calls for 1,706 instances** — six instances a call. The cause: a batch keeps its instances in
+32 m spatial *pages* so they can be frustum-culled one at a time, and `Render` was then submitting one
+`RenderMeshInstanced` **per page**. The page is the right unit to decide what the camera can see and the wrong unit
+to hand to the GPU.
+
+Pages are still culled individually; the survivors are now copied into one reused 1023-matrix buffer and submitted
+once per module (again for each further 1023, which is the instancing limit).
+
+| Measured, same scene, ~12 men | Before | After |
+|---|---|---|
+| `BattlefieldProps.DrawCalls` | 271 | **76** |
+| Draw calls, whole frame | 949 | **368** |
+| SetPass calls | 770 | **313** |
+| GPU p50 / p95 | 8.39 / 13.07 ms | **3.07 / 5.15 ms** |
+| Main thread p95 / p99 | 7.91 / 16.06 ms | **4.64 / 7.68 ms** |
+| GC per frame | 30.6 KB | 29.5 KB (unchanged, as expected) |
+
+The GPU is now inside its 13 ms budget with room to spare, and the frame is no longer dominated by submission.
+Draw calls are still over the 300 ceiling, but by 23% rather than 216%. Nothing was removed from the world to get
+this: a capture at the standard view and at the super zoom shows the same trenches, bags, duckboards, wire and
+lanterns as before.
+
+### The same change, with the army on the field
+
+| Measured, 1,996 men | Before | After |
+|---|---|---|
+| Main thread p50 / p95 / p99 | 13.76 / 44.23 / 123.28 ms | **2.52 / 16.14 / 22.60 ms** |
+| GPU p50 / p95 | 10.83 / 16.52 ms | **1.90 / 3.12 ms** |
+| SetPass | 761 | **321** |
+| Draw calls | 931 | **374** |
+| GC per frame p50 / p95 | 428 KB / 833 KB | **29.5 KB** / 429 KB |
+
+With two thousand men on the field the main thread is now inside its 3 ms budget at the median, where it was four
+times over it, and the 123 ms worst frame is down to 23 ms. The GPU costs under 2 ms. Draw calls are 23% over the
+ceiling instead of 210%.
+
+**A correction.** The previous section read 29.6 KB at ten men against 428 KB at two thousand and called it roughly
+200 bytes of garbage per man per frame. That reading does not survive this measurement. Allocation here is bimodal:
+after the change the median frame allocates 29.5 KB and the 95th percentile allocates 429 KB, so the 400 KB is a
+periodic lump on *some* frames rather than a per-man cost on every one. Submitting 271 instanced batches a frame
+instead of 76 was evidently making that lump land far more often. What causes the lump is still unknown and is the
+largest outstanding budget problem; it wants its own measurement, not another theory.
