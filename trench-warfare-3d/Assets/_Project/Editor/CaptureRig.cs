@@ -538,6 +538,65 @@ namespace TW.Editor
             return "profiling " + frames + " frames into " + path;
         }
 
+        // ---- what the textures and materials actually cost ---------------------------------------------------
+
+        /// <summary>
+        /// Every texture in memory, largest first, with what it really costs, and a count of the distinct materials
+        /// and shaders the props are drawn with. "VRAM against 256 MB of atlases" has been a zero on the scorecard
+        /// since the card was written because nobody had ever added it up. The material count is here because
+        /// SetPass calls were measured at 321 against 374 draw calls — very nearly one state change per draw — and
+        /// a material built per module would explain exactly that.
+        /// </summary>
+        public static string Textures(string path, int top = 40)
+        {
+            var all = Resources.FindObjectsOfTypeAll<Texture>();
+            var rows = new List<(long bytes, Texture t)>();
+            long total = 0;
+            foreach (var t in all)
+            {
+                long b = UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(t);
+                total += b; rows.Add((b, t));
+            }
+            rows.Sort((a, b) => b.bytes.CompareTo(a.bytes));
+
+            var mats = new HashSet<Material>(); var shaders = new HashSet<Shader>(); var mapped = new HashSet<Texture>();
+            long propBytes = 0; int modules = 0;
+            var props = Object.FindFirstObjectByType<TW.Presentation.Terrain.BattlefieldProps>();
+            if (props != null && props.Kit != null)
+                foreach (var m in props.Kit.Modules)
+                {
+                    modules++;
+                    if (m.Material == null) continue;
+                    mats.Add(m.Material);
+                    if (m.Material.shader != null) shaders.Add(m.Material.shader);
+                    var b = m.Material.HasProperty("_BaseMap") ? m.Material.GetTexture("_BaseMap") : null;
+                    if (b != null && mapped.Add(b)) propBytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(b);
+                }
+
+            var sb = new StringBuilder("{\n");
+            N(sb, "textures_total_bytes", total);
+            N(sb, "textures_counted", rows.Count);
+            N(sb, "kit_modules", modules);
+            N(sb, "kit_materials", mats.Count);
+            N(sb, "kit_shaders", shaders.Count);
+            N(sb, "kit_base_maps", mapped.Count);
+            N(sb, "kit_base_map_bytes", propBytes);
+            sb.Append("  \"largest\": [\n");
+            for (int i = 0; i < rows.Count && i < top; i++)
+            {
+                var t = rows[i].t;
+                sb.Append("    { \"name\": \"").Append(t.name.Replace('"', '\'')).Append("\", \"w\": ").Append(t.width)
+                  .Append(", \"h\": ").Append(t.height).Append(", \"mips\": ").Append(t.mipmapCount)
+                  .Append(", \"format\": \"").Append(t is Texture2D t2 ? t2.format.ToString() : t.GetType().Name)
+                  .Append("\", \"kb\": ").Append((rows[i].bytes / 1024).ToString(CultureInfo.InvariantCulture)).Append(" }")
+                  .Append(i < rows.Count - 1 && i < top - 1 ? ",\n" : "\n");
+            }
+            sb.Append("  ]\n}\n");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, sb.ToString());
+            return sb.ToString();
+        }
+
         // ---- the cost with an army on the field --------------------------------------------------------------
 
         // The first profile this project ever took was of ten men. Draw calls came back at 936 against a budget of

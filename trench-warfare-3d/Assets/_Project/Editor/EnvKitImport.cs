@@ -65,7 +65,13 @@ namespace TW.Editor
             if (!Ours(assetPath)) return;
             var t = (TextureImporter)assetImporter;
             t.textureType = TextureImporterType.Default; t.sRGBTexture = true; t.mipmapEnabled = true;
-            t.maxTextureSize = 2048; t.anisoLevel = 4; t.wrapMode = TextureWrapMode.Clamp;
+            // The packed sheet is 4096x2048 and must arrive at that size: a 2048 cap would halve it again, and the
+            // sheet is a power of two precisely so the block compressor will take it. Measured 2026-09-22: cut at
+            // 3072 wide instead, Unity either rounded it up to 4096 and resampled it, or — told to keep 3072 —
+            // gave up on compressing it at all and returned 25 MB of RGB24, worse than the six sheets it replaced.
+            bool atlas = assetPath.EndsWith("EnvAtlas.jpg", System.StringComparison.OrdinalIgnoreCase);
+            t.maxTextureSize = atlas ? 4096 : 2048;
+            t.anisoLevel = 4; t.wrapMode = TextureWrapMode.Clamp;
             t.textureCompression = TextureImporterCompression.Compressed; t.alphaSource = TextureImporterAlphaSource.None;
         }
     }

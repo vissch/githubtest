@@ -298,18 +298,41 @@ namespace TW.Presentation.Terrain
             BuildImported();
         }
 
-        readonly Dictionary<string, Texture2D> atlases = new Dictionary<string, Texture2D>();
+        /// <summary>
+        /// The six Tripo sheets, halved and packed into one 4096x2048 image by Tools/envatlas.py: a 4 x 2 grid of
+        /// 1024 cells in the order below, with the last two spare. Six 2048 sheets were about 17 MB of compressed
+        /// VRAM and six texture bindings to draw props that are mostly a metre across. Nothing in the shader had to
+        /// change — TW/Toon (URP) already transforms its UVs by _BaseMap_ST, so a set is chosen by giving the
+        /// material its cell's scale and offset, and a prop's UVs (which live inside 0..1 of its own sheet) land in
+        /// the cell. The grid is 4 wide rather than 3 because 3072 is not a power of two and the block compressor
+        /// would not take it, which cost more memory than the packing saved.
+        /// This order is the same list as SETS in envatlas.py and the two must not drift apart.
+        /// </summary>
+        static readonly string[] EnvSets = { "Fence", "Plants", "Siege", "Stones", "Weapons", "Wood" };
+        const int EnvCols = 4, EnvRows = 2;
+        Texture2D envAtlas; bool envAtlasLoaded;
 
-        /// <summary>A module drawn from an imported prop: its own mesh (Resources/Env/set/name) on the set's texture.</summary>
+        /// <summary>Unity's V runs from the bottom and the packer's Y from the top, so the first row of cells is the
+        /// upper half of the atlas.</summary>
+        static Vector2 EnvOffset(int index) => new Vector2((index % EnvCols) / (float)EnvCols, 1f - (index / EnvCols + 1) / (float)EnvRows);
+
+        /// <summary>A module drawn from an imported prop: its own mesh (Resources/Env/set/name) on the shared sheet.</summary>
         Module Imported(string set, string name, Color tint, bool shadows, float outline, float sway = 0f, float gloss = 0f)
         {
             var mesh = Resources.Load<Mesh>("Env/" + set + "/" + name);
             if (mesh == null) { Debug.LogError("BattlefieldKit: no mesh in Resources/Env/" + set + "/" + name + ".fbx"); mesh = Primitive(PrimitiveType.Cube); }
-            if (!atlases.TryGetValue(set, out var atlas)) atlases[set] = atlas = Resources.Load<Texture2D>("Env/" + set + "/" + set);
+            if (!envAtlasLoaded) { envAtlasLoaded = true; envAtlas = Resources.Load<Texture2D>("Env/EnvAtlas"); if (envAtlas == null) Debug.LogError("BattlefieldKit: no Resources/Env/EnvAtlas — run Tools/envatlas.py"); }
+            int cell = System.Array.IndexOf(EnvSets, set);
             var module = Make(mesh, tint, shadows, outline);
             module.PageSize = 64f;   // few and scattered: eight pages cover the field instead of twenty-odd draws
             module.Name = set + "/" + name;
-            if (atlas != null) module.Material.SetTexture("_BaseMap", atlas);
+            if (envAtlas != null && cell >= 0)
+            {
+                module.Material.SetTexture("_BaseMap", envAtlas);
+                module.Material.SetTextureScale("_BaseMap", new Vector2(1f / EnvCols, 1f / EnvRows));
+                module.Material.SetTextureOffset("_BaseMap", EnvOffset(cell));
+            }
+            else if (cell < 0) Debug.LogError("BattlefieldKit: set '" + set + "' is not in EnvSets, so it has no cell in the atlas");
             if (sway > 0f) module.Material.SetFloat("_Sway", sway);
             if (gloss > 0f) module.Material.SetFloat("_Gloss", gloss);
             return module;

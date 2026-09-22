@@ -185,3 +185,48 @@ after the change the median frame allocates 29.5 KB and the 95th percentile allo
 periodic lump on *some* frames rather than a per-man cost on every one. Submitting 271 instanced batches a frame
 instead of 76 was evidently making that lump land far more often. What causes the lump is still unknown and is the
 largest outstanding budget problem; it wants its own measurement, not another theory.
+
+## Texture memory, measured for the first time (2026-09-22)
+
+"VAT atlases ≤ 256 MB" has been a line in this document since it was written and had never been added up.
+`TW.Editor.CaptureRig.Textures(path)` now lists every texture in memory, largest first, with what
+`Profiler.GetRuntimeMemorySizeLong` says it costs, plus the distinct material and shader count for the prop kit.
+
+### What it found
+
+| | Bytes |
+|---|---|
+| `InfantryVatPositions`, 917x3398, RGBA64, no mips | 48.7 MB each |
+| `InfantryVatNormals`, 917x3398, RGBA32, no mips | 24.3 MB each |
+| Kit base maps, six imported sheets + five pigments | 34.9 MB |
+| `TankAtlas_LOD0`, 2048², DXT1 | 5.5 MB |
+| `Painted horizon`, 846x1404, RGBA32, 11 mips | 12.4 MB |
+
+The VAT atlases are the whole story: about 144 MB against the 256 MB budget, an order of magnitude more than
+anything else. Two things about them want investigating by whoever owns `VATRenderer`. The reported size is about
+twice what the format and dimensions imply, which is the signature of a readable texture keeping a CPU copy beside
+the GPU one; and four position atlases were resident where there should have been two, which suggests they
+accumulate across play-mode entries rather than being released.
+
+### The imported sheets, combined
+
+Six 2048² sheets were being loaded, one per Tripo set, and bound separately. `Tools/envatlas.py` now packs them
+halved into one 4096x2048 sheet as a 4 x 2 grid of 1024 cells, two of them spare. No shader change was needed:
+`TW/Toon (URP)` already transforms its UVs by `_BaseMap_ST`, so `BattlefieldKit.Imported` sets the base map once
+and picks the set with a texture scale and offset.
+
+| Kit base maps | Before | After |
+|---|---|---|
+| Distinct textures | 11 | 6 |
+| Memory | 34.93 MB | 13.59 MB |
+
+**Power of two, or it is not worth doing.** The sheet was first cut 3072 wide. Unity's default NPOT rule rounded it
+up to 4096 and resampled it; told to keep 3072, the block compressor refused it and returned 25 MB of uncompressed
+RGB24 — worse than the six sheets it replaced. All three versions looked identical on screen, because the cell
+rects are fractions either way. Only the measurement told them apart.
+
+### Still not measured
+
+The 80 kit modules hold 80 distinct materials, one per module, which is the obvious explanation for SetPass calls
+sitting at 321 against 374 draw calls. Sharing materials needs the per-module colour, sway and gloss to move off
+the material, so it is its own piece of work with its own measurement.
