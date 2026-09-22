@@ -20,7 +20,7 @@ namespace TW.Presentation.Terrain
             public void Clear() { Counts.Clear(); PageBounds.Clear(); spatialPages.Clear(); }
             public void Add(Matrix4x4 m)
             {
-                var key = new Vector2Int(Mathf.FloorToInt(m.m03 / 32f), Mathf.FloorToInt(m.m23 / 32f));
+                var key = new Vector2Int(Mathf.FloorToInt(m.m03 / Module.PageSize), Mathf.FloorToInt(m.m23 / Module.PageSize));
                 if (!spatialPages.TryGetValue(key, out int page) || Counts[page] == 1023)
                 {
                     page = Counts.Count; Counts.Add(0); PageBounds.Add(default);

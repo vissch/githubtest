@@ -9,12 +9,27 @@ namespace TW.Presentation.Terrain
         public sealed class Module
         {
             public Mesh Mesh; public Material Material; public bool Shadows;
-            /// <summary>Small things are not drawn beyond this (metres from the camera to their 32 m page), and only while the camera is close.</summary>
+            /// <summary>Small things are not drawn beyond this (metres from the camera to their page), and only while the camera is close.</summary>
             public float MaxDistance = float.PositiveInfinity;
+            /// <summary>The side of the square pages its instances are batched and culled in (BattlefieldProps): a sparse module
+            /// spread over the whole field takes a draw call per page, so it uses larger ones.</summary>
+            public float PageSize = 32f;
         }
-        public Module trunk, snag, fallen, stump, log, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
+        public Module trunk, snag, fallen, stump, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
         public Module helmet, messKit, spade, ammoTin, boots, graveMarker, leanRifle, signBoard, bucket, hangingTins, phoneWire, rag, wireTins;
+        /// <summary>
+        /// The imported sets (Resources/Env, split per prop by Tools/envsplit.py, prepared by EnvKitImport): metre scale,
+        /// ground pivot, front +Z, one graded texture per set (Tools/envgrade.py). The landmarks stand sparingly (BattlefieldComposer
+        /// .Landmarks, the site blueprints, the horizon), the wire obstacles only on wire, and the planks, sacks, grass,
+        /// rocks, stumps and cattails wherever the scatter rules put their kind, mixed in with the procedural pieces.
+        /// </summary>
+        public Module sodShelter, mgNest, armouredStand, pillbox, well,               // Siege
+            fieldGun, tankTurret, biplane, shellStack, limber, dudShell,                // Weapons
+            wallStub, rebarSlab, boulder, sandbag, gabion,                               // Stones
+            bracedPlank, crossedBoards, hatchLid, plankDoor, corrugated,                 // Wood
+            stakes, hedgehog, wireFence, wirePost, barricade,                            // Fence
+            fallenLog, stumpTall, stumpSplit, stumpMoss, poppies, cattails, grass;       // Plants
         public const float SmallReach = 55f;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
         readonly List<Module> modules = new List<Module>();
@@ -197,7 +212,7 @@ namespace TW.Presentation.Terrain
 
         public BattlefieldKit()
         {
-            var cyl = Primitive(PrimitiveType.Cylinder); var cube = Primitive(PrimitiveType.Cube);
+            var cube = Primitive(PrimitiveType.Cube);
             var bag = Blob(12, 7);
             var bark = new Color(0.45f, 0.38f, 0.31f); var charred = new Color(0.32f, 0.28f, 0.25f);
             var timber = new Color(0.49f, 0.405f, 0.31f); var sack = new Color(0.72f, 0.655f, 0.53f);
@@ -212,7 +227,7 @@ namespace TW.Presentation.Terrain
                 (Taper(0.10f, 0.03f, 1.1f, Vector2.zero), new Vector3(-0.1f, 1.7f, 0f), new Vector3(0f, 0f, 60f), Vector3.one)), charred);
             fallen = Make(Combine("FallenTop", (Taper(0.26f, 0.10f, 4.2f, Vector2.zero), new Vector3(0.6f, 0.22f, 0.3f), new Vector3(86f, 18f, 0f), Vector3.one)), bark);
             stump = Make(Combine("Stump", (Taper(0.42f, 0.32f, 0.55f, Vector2.zero, 0.25f), Vector3.zero, Vector3.zero, Vector3.one)), charred);
-            log = Make(Combine("Log", (cyl, new Vector3(0f, 0.26f, 0f), new Vector3(0f, 0f, 90f), new Vector3(0.48f, 2.0f, 0.48f))), bark);
+            // (the plain cylinder log is gone: PropKind.Log draws the imported fallen log)
             wreck = Make(Combine("Wreck",
                 (cube, new Vector3(0f, 1.0f, 0f), new Vector3(0f, 0f, 7f), new Vector3(2.0f, 1.4f, 7.4f)),
                 (cube, new Vector3(-1.45f, 0.85f, 0f), new Vector3(0f, 0f, 7f), new Vector3(0.9f, 2.0f, 7.9f)),
@@ -274,7 +289,63 @@ namespace TW.Presentation.Terrain
             bunker.Material.SetTexture("_BaseMap", concretePaint);
             sandbags.Material.SetTexture("_BaseMap", canvasPaint);
             BuildTrenchVariants(cube, sackMesh, timber, sack, woodPaint, canvasPaint);
-            foreach (var b in new[] { trunk, snag, fallen, stump, fork, log }) b.Material.SetTexture("_BaseMap", barkPaint);
+            foreach (var b in new[] { trunk, snag, fallen, stump, fork }) b.Material.SetTexture("_BaseMap", barkPaint);
+            BuildImported();
+        }
+
+        readonly Dictionary<string, Texture2D> atlases = new Dictionary<string, Texture2D>();
+
+        /// <summary>A module drawn from an imported prop: its own mesh (Resources/Env/set/name) on the set's texture.</summary>
+        Module Imported(string set, string name, Color tint, bool shadows, float outline, float sway = 0f, float gloss = 0f)
+        {
+            var mesh = Resources.Load<Mesh>("Env/" + set + "/" + name);
+            if (mesh == null) { Debug.LogError("BattlefieldKit: no mesh in Resources/Env/" + set + "/" + name + ".fbx"); mesh = Primitive(PrimitiveType.Cube); }
+            if (!atlases.TryGetValue(set, out var atlas)) atlases[set] = atlas = Resources.Load<Texture2D>("Env/" + set + "/" + set);
+            var module = Make(mesh, tint, shadows, outline);
+            module.PageSize = 64f;   // few and scattered: eight pages cover the field instead of twenty-odd draws
+            if (atlas != null) module.Material.SetTexture("_BaseMap", atlas);
+            if (sway > 0f) module.Material.SetFloat("_Sway", sway);
+            if (gloss > 0f) module.Material.SetFloat("_Gloss", gloss);
+            return module;
+        }
+
+        void BuildImported()
+        {
+            // the sets are painted lighter and brighter than the field: brought down into its narrow value range
+            var paint = new Color(.84f, .83f, .80f); var growth = new Color(.74f, .76f, .66f); var steel = new Color(.80f, .80f, .78f);
+            sodShelter = Imported("Siege", "SodShelterRuin", growth, true, 1.4f);
+            mgNest = Imported("Siege", "MGNest", paint, true, 1.3f);
+            armouredStand = Imported("Siege", "ArmouredStand", paint, true, 1.4f);
+            pillbox = Imported("Siege", "Pillbox", paint, true, 1.6f);
+            well = Imported("Siege", "Well", paint, true, 1.3f);
+            fieldGun = Imported("Weapons", "FieldGun", steel, true, 1.3f, 0f, .25f);
+            tankTurret = Imported("Weapons", "TankTurret", steel, true, 1.3f, 0f, .25f);
+            biplane = Imported("Weapons", "Biplane", paint, true, 1.3f);
+            shellStack = Imported("Weapons", "ShellStack", steel, true, 1.0f, 0f, .2f);
+            limber = Imported("Weapons", "WreckedLimber", paint, true, 1.1f);
+            dudShell = Imported("Weapons", "DudShell", steel, true, .9f, 0f, .3f);
+            wallStub = Imported("Stones", "WallStub", paint, true, 1.4f);
+            rebarSlab = Imported("Stones", "RebarSlab", paint, true, 1.0f);
+            boulder = Imported("Stones", "Boulder", paint, false, 1.0f);
+            sandbag = Imported("Stones", "Sandbag", paint, false, .8f);
+            gabion = Imported("Stones", "Gabion", paint, true, 1.0f);
+            bracedPlank = Imported("Wood", "BracedPlank", paint, false, .8f);
+            crossedBoards = Imported("Wood", "CrossedBoards", paint, true, .9f);
+            hatchLid = Small(Imported("Wood", "HatchLid", paint, false, .7f));
+            plankDoor = Imported("Wood", "PlankDoor", paint, false, .8f);
+            corrugated = Imported("Wood", "CorrugatedSheet", steel, false, .8f, 0f, .2f);
+            stakes = Imported("Fence", "Stakes", paint, false, .9f);
+            hedgehog = Imported("Fence", "TimberHedgehog", paint, false, .9f);
+            wireFence = Imported("Fence", "WireFence", paint, false, .8f);
+            wirePost = Imported("Fence", "WirePost", paint, false, .8f);
+            barricade = Imported("Fence", "StoneBarricade", paint, true, 1.1f);
+            fallenLog = Imported("Plants", "FallenLog", paint, true, 1.1f);
+            stumpTall = Imported("Plants", "SplitStumpTall", paint, true, 1.1f);
+            stumpSplit = Imported("Plants", "SplitStump", paint, true, 1.0f);
+            stumpMoss = Imported("Plants", "MossStump", growth, true, 1.0f);
+            poppies = Imported("Plants", "Poppies", new Color(.88f, .84f, .82f), false, .4f, .45f);
+            cattails = Imported("Plants", "Cattails", growth, false, .4f, .30f);
+            grass = Imported("Plants", "GrassClump", growth, false, .35f, .50f);
         }
 
         void BuildTrenchVariants(Mesh cube, Mesh sackMesh, Color timber, Color sack, Texture2D woodPaint, Texture2D canvasPaint)

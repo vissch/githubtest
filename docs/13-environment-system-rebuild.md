@@ -91,3 +91,63 @@ Invalid sites are removed; decoration does not become gameplay cover or a usable
    need less repetitive damage and more distinct construction. Two stock shelter templates are only a starting vocabulary.
 
 Changing the actual winding trench network, traversal or functional bunker interiors is outside this presentation rebuild.
+
+## Imported environment sets (2026-09-22)
+
+The owner supplied six Tripo sheets (`Downloads/env sets`; ten zips, four of them duplicates). Each sheet is one mesh
+with its props laid side by side at an angle, normalised into a 1 m square with one 4096² texture.
+`Tools/envsplit.py` (Blender 5.0, background) groups loose parts into props where their footprints overlap (the plant
+sheet stands its props in two rows, so it groups by 3D boxes). It then squares each prop to the axes and turns its
+front to Unity +Z, scales it to metres, puts the pivot at the middle of its base and exports one FBX per prop to
+`Assets/_Project/Resources/Env/<Set>/`. One stray three-triangle card in the fence sheet is dropped.
+`Tools/envgrade.py` grades each set texture to 2048 and pulls it into the field's muted range (greens hardest, poppy
+and rust reds kept): ungraded, the gabions read as orange flower pots and the moss as lime.
+`Editor/EnvKitImport.cs` sets the imports up: no materials or animation, normals recalculated at 60°, and outline
+normals in UV3 plus painted-form vertex colours, as `BattlefieldKit.Combine` gives the procedural modules.
+The Blender FBX exporter with a baked space transform always lands Blender −Y on Unity −Z, so each prop is turned
+half round before export. The first import faced every gun backwards; this was checked by where the barrel vertices lie.
+
+| Set | Prop | Size (m) | Where it goes | How often |
+|---|---|---|---|---|
+| Siege | MGNest | 1.7 × 1.9 × 2.6 | On the lip of each fire trench's enemy-facing parapet, gun out, ≥ 6 m from a ladder | 1 per fire trench |
+| Siege | Pillbox | 3.4 × 2.1 × 3.3 | Shell of the "Concrete pillbox" site blueprint | Via sites (2) |
+| Siege | SodShelterRuin | 2.4 × 2.4 × 2.4 | Shell of the "Sod-roofed shelter" site blueprint | Via sites (2) |
+| Siege | ArmouredStand | 2.3 × 2.8 × 2.1 | Each side's rear, off the supply road (an observation post) | 1 per side |
+| Siege | Well | 2.1 × 2.5 × 1.7 | Behind one line, near the map's rear edge | 1 |
+| Weapons | FieldGun | 1.4 × 1.8 × 2.7 | Each rear corner, laid toward the enemy, shells and a sack beside | 2 per side |
+| Weapons | TankTurret | 1.5 × 1.05 × 2.3 | Blown off beside a wreck (`PropKind.Wreck`), canted | 60% of wrecks |
+| Weapons | Biplane | 5.6 × 3.3 × 4.5 | Crashed nose-down just beyond the far map edge in no man's land | 1 |
+| Weapons | ShellStack | 1.2 × 1.0 × 1.1 | By the field guns and the sod shelter | Few |
+| Weapons | WreckedLimber | 1.6 × 1.3 × 1.8 | By one field gun per side | 1 per side |
+| Weapons | DudShell | 0.7 × 0.95 × 0.7 | Nose-down in shell holes (dry 30%, flooded rims 14%) | Few |
+| Stones | Gabion | 1.2 × 0.95 × 1.2 | Pairs on the parapet lip (one length in eight), at both new sites | Common along trenches |
+| Stones | Sandbag | 0.8 × 0.36 × 0.5 | Fallen by trenches (debris), at sites and MG nests | Common near trenches |
+| Stones | Boulder | 1.3 × 1.0 × 1.1 | Medium member of the gathered clumps, at 0.4–0.7 scale | Common |
+| Stones | RebarSlab, WallStub | 1.6 × 0.6 × 1.6, 2.1 × 2.3 × 1.3 | Rubble at the pillbox; stubs and slabs round the horizon ruins | Sparing |
+| Wood | BracedPlank | 1.5 × 0.44 × 0.7 | Lying in the mud everywhere (debris), bedded 10 cm | Everywhere |
+| Wood | PlankDoor, CrossedBoards | 1.4 × 1.8, 1.5 × 1.5 | Laid flat and thinned as debris away from trenches | Occasional |
+| Wood | CorrugatedSheet | 2.0 × 1.35 × 1.3 | Arch-up, half sunk, by the trenches | Occasional |
+| Wood | HatchLid | 0.85 × 0.3 × 0.8 | Small kit (close camera only), by trenches | Rare |
+| Fence | WireFence, TimberHedgehog, Stakes, WirePost | 1.3–1.6 wide, 1.3 high | Wire cells only; half the belt stays old knife rests | Every wire belt |
+| Fence | StoneBarricade | 1.7 × 0.95 × 1.1 | Round the horizon ruins | Sparing |
+| Plants | GrassClump | 1.05 × 0.55 × 1.07 | The cattail clump's blades alone: small member of every clump | Everywhere (24%) |
+| Plants | Cattails | 1.2 × 1.3 × 1.2 | The big member of 65% of the reed stands at wet margins | Wet ground only |
+| Plants | Poppies | 0.45 × 0.6 × 0.4 | Small member of clumps | 5% of small members |
+| Plants | FallenLog | 2.4 × 1.4 × 1.4 | Replaces the cylinder for `PropKind.Log` | As the sim places logs |
+| Plants | SplitStump, SplitStumpTall, MossStump | 0.7–1.0 wide, 0.85–1.5 high | Mixed with the old stump for `PropKind.Stump` (30% old); moss stump also a clump member | As the sim places stumps |
+
+Rules kept from the rebuild: nothing writes MapData, gives cover or blocks a man. The big pieces therefore keep to
+ground men do not cross in normal play: the parapet between ladders, the rear corners off the road, outside the map,
+or the site blueprints (already accepted as decoration). `Room()` rejects any footprint touching a trench, ladder,
+wire or blocked cell, water, wet ground, a slope over 0.9 m or a shell hole. Everything else goes through the existing
+hash-placed scatter rules, so a rebuild never moves it. Kept: every procedural module except the plain cylinder log.
+Replaced in part: stumps, reeds (cattails lead the stands), knife rests (half), parapet bags (one length in eight),
+tufts and stones (grass among them), loose boards (braced planks among them).
+
+Cost at the standard view (zoom 30, three framings along the field), with the imported modules against the same
+scene with them hidden: +370 instances, +125k submitted prop vertices (205k → 330–340k), +65 draws (195–212 → about
+270). The imported modules use 64 m pages (`Module.PageSize`). With 32 m pages they cost +120 draws; with 96 m pages,
++40 draws but +160k vertices from coarser culling. The largest per-instance meshes: ShellStack 763, Cattails 573,
+MossStump 517, Poppies 414, Sandbag 390, WireFence 380, GrassClump 328 vertices. GTX 1050 timing still unmeasured.
+Captures: [split props](reference/env/props-review.jpg), [grade before/after](reference/env/grade.png),
+[in game, close](reference/env/in-game-close.jpg), [crashed biplane](reference/env/biplane.png).

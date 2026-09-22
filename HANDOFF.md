@@ -283,6 +283,18 @@ project with Phase 0 implemented and a true, tested baseline (P0.5).
   (kneeling) and 0.1–0.3 m (prone) up, 0.5–1.2 m ahead, barrels within 6° of level. Not watched in motion: the
   shake, the freeze, the thrown arc at speed; the cross-fade between a bladed fire clip and a square reload morphs the
   legs through 70° for its length.
+  Imported environment sets (owner, 2026-09-22): six Tripo sheets from `Downloads/env sets` (four of the ten zips
+  were duplicates) split into 33 props (`Tools/envsplit.py`, Blender 5.0): one FBX each in
+  `Assets/_Project/Resources/Env/<Set>/`, squared, front +Z, metres, ground pivot, and one texture per set graded into
+  the field's muted range (`Tools/envgrade.py`). `EnvKitImport` gives them the outline normals and painted-form
+  colours the kit's own modules have; `BattlefieldKit.Imported` draws them on TW/Toon. Placement: landmarks sparingly
+  (MG nest on each fire trench's enemy parapet, field guns and an observation stand in each rear corner, one well,
+  a crashed biplane beyond the far edge, turrets by the wrecks, two new site blueprints: sod-roofed shelter and
+  concrete pillbox), wire obstacles only on wire cells (half the belt is still the old knife rests), and the rest
+  mixed into the old scatter rules (grass, planks, sacks, rocks, stumps, cattails, poppies, gabions on one parapet in
+  eight). The plain cylinder log is gone (the imported log replaces it); every other procedural piece stays. Nothing
+  here writes MapData or gives cover. Cost at the standard view: about +125k submitted prop vertices and +65 draws
+  (64 m pages for the imported modules). Details, table and captures: docs/13 §"Imported environment sets".
   Movement spread (sim, 2026-09-22): the flow direction is blended between the four cells round a man, each man
   carries a slow hashed lateral drift on open ground (`MoveJob.DriftAmount`, 16 s period) and `SeparationJob` adds
   a soft 1.6 m comfortable spacing between men on the surface, so an advance fans out instead of filing along one

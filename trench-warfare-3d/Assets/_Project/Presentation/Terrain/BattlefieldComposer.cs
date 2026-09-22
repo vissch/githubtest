@@ -34,7 +34,7 @@ namespace TW.Presentation.Terrain
         public void Build(MapData map, BattlefieldSurface surface, Action<BattlefieldKit.Module, Matrix4x4> emit, bool regenerateLayout = false)
         {
             this.emit = emit;
-            MapProps(map);
+            MapProps(map, surface);
             TrenchKit(map, surface);
             Debris(map, surface);
             Litter(map, surface);
@@ -53,6 +53,7 @@ namespace TW.Presentation.Terrain
                 }
                 foreach (var site in sites) EmitSite(map, surface, site);
             }
+            Landmarks(map, surface);
         }
 
         void TrenchKit(MapData map, BattlefieldSurface surface)
@@ -94,7 +95,15 @@ namespace TW.Presentation.Terrain
                 if (frontage > .26f)
                 {
                     int course = frontage > .62f ? 0 : frontage > .43f ? 1 : 2;
-                    emit(kit.TrenchBags[course], Matrix4x4.TRS(new Vector3(lip.x, upper + .025f, lip.z), rotation * Quaternion.Euler((Rand(edge.Key, 805) - .5f) * 4f, Rand(edge.Key, 75) * 6f - 3f, (Rand(edge.Key, 806) - .5f) * 3f), new Vector3(edge.DressLength / 2f, .88f + Rand(edge.Key, 807) * .20f, 1.05f)));
+                    if (Rand(edge.Key, 808) < .12f)
+                        // a length held up with gabions instead: two wicker baskets of earth on the lip
+                        for (int g = -1; g <= 1; g += 2)
+                        {
+                            var basket = lip + along * (g * edge.DressLength * .26f) + outward * .08f;
+                            emit(kit.gabion, Matrix4x4.TRS(new Vector3(basket.x, surface.VisualHeight(basket.x, basket.z) - .12f, basket.z),
+                                Quaternion.Euler((Rand(edge.Key + g, 809) - .5f) * 6f, Rand(edge.Key + g, 810) * 360f, 0f), Vector3.one * (.76f + Rand(edge.Key + g, 818) * .12f)));
+                        }
+                    else emit(kit.TrenchBags[course], Matrix4x4.TRS(new Vector3(lip.x, upper + .025f, lip.z), rotation * Quaternion.Euler((Rand(edge.Key, 805) - .5f) * 4f, Rand(edge.Key, 75) * 6f - 3f, (Rand(edge.Key, 806) - .5f) * 3f), new Vector3(edge.DressLength / 2f, .88f + Rand(edge.Key, 807) * .20f, 1.05f)));
                 }
             }
         }
@@ -214,8 +223,9 @@ namespace TW.Presentation.Terrain
             h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12;
             return (h & 0xFFFF) / 65535f;
         }
-        /// <summary>Loose litter on open ground: branches and boards everywhere, spent cases near the trenches. One
-        /// candidate per 7 m square, placed by hash so it never moves between rebuilds.</summary>
+        /// <summary>Loose litter on open ground: branches, boards and braced planks everywhere, now and then a door or a
+        /// crossed pair of boards laid flat; spent cases, fallen sacks and sheets of corrugated iron near the trenches. One
+        /// candidate per 4.5 m square, placed by hash so it never moves between rebuilds.</summary>
         void Debris(MapData map, BattlefieldSurface surface)
         {
             const float grid = 4.5f;
@@ -234,10 +244,41 @@ namespace TW.Presentation.Terrain
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire)) != 0) continue;
                 var at = surface.At(x, z);
                 if (at.Wetness > .35f || at.BankDistance < 1.2f) continue;
-                float pick = Rand(k, 64);
-                var module = at.BankDistance < 7f && pick < .45f ? kit.shellCases : pick < .72f ? kit.branches : kit.looseBoards;
-                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) + .01f, z), Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f), Vector3.one * (.85f + Rand(k, 66) * .5f)));
+                float pick = Rand(k, 64), ground = surface.VisualHeight(x, z);
+                var yaw = Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f);
+                var tilt = Quaternion.Euler((Rand(k, 67) - .5f) * 8f, 0f, (Rand(k, 68) - .5f) * 8f);   // bedded unevenly in the mud
+                float size = .85f + Rand(k, 66) * .5f;
+                if (at.BankDistance < 7f)
+                {
+                    // by the trench: spent cases, sacks fallen off the parapet, sheets of iron, boards
+                    if (pick < .30f) emit(kit.shellCases, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else if (pick < .44f) emit(kit.sandbag, Matrix4x4.TRS(new Vector3(x, ground - .04f, z), yaw * tilt, Vector3.one * (.9f + Rand(k, 66) * .25f)));
+                    else if (pick < .53f) Sheet(x, z, ground, yaw, k);
+                    else if (pick < .70f) emit(kit.branches, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else if (pick < .85f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else emit(kit.bracedPlank, Matrix4x4.TRS(new Vector3(x, ground - .10f, z), yaw * tilt, Vector3.one * (.8f + Rand(k, 66) * .3f)));
+                }
+                else
+                {
+                    // planks everywhere: broken branches and boards, braced planks, a door off some farm, a crossed pair of boards
+                    if (pick < .40f) emit(kit.branches, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else if (pick < .62f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else if (pick < .84f) emit(kit.bracedPlank, Matrix4x4.TRS(new Vector3(x, ground - .10f, z), yaw * tilt, Vector3.one * (.8f + Rand(k, 66) * .3f)));
+                    else if (pick < .93f) Flat(kit.plankDoor, x, z, ground, yaw * tilt, .78f + Rand(k, 66) * .14f, .25f);
+                    else Flat(kit.crossedBoards, x, z, ground, yaw * tilt, .75f + Rand(k, 66) * .2f, .4f);
+                }
             }
+        }
+
+        /// <summary>An upright imported piece laid on its back (its front face up), thinned to thickness of its depth.</summary>
+        void Flat(BattlefieldKit.Module module, float x, float z, float ground, Quaternion rotation, float size, float thickness)
+            => emit(module, Matrix4x4.TRS(new Vector3(x, ground + .05f, z), rotation * Quaternion.Euler(-90f, 0f, 0f), new Vector3(size, size, size * thickness)));
+
+        /// <summary>A curved sheet of corrugated iron thrown down arch-up, half sunk in the mud.</summary>
+        void Sheet(float x, float z, float ground, Quaternion yaw, int k)
+        {
+            float size = .6f + Rand(k, 69) * .18f;
+            emit(kit.corrugated, Matrix4x4.TRS(new Vector3(x, ground + 1.35f * size * .45f, z), yaw * Quaternion.Euler((Rand(k, 70) - .5f) * 12f, 0f, 180f), Vector3.one * size));
         }
 
         /// <summary>
@@ -263,7 +304,7 @@ namespace TW.Presentation.Terrain
                 if (at.Wetness > .35f || at.BankDistance < 1.1f) continue;
                 float pick = Rand(k, 134);
                 BattlefieldKit.Module module;
-                if (byTrench) module = pick < .28f ? kit.ammoTin : pick < .50f ? kit.messKit : pick < .68f ? kit.spade : pick < .84f ? kit.helmet : kit.boots;
+                if (byTrench) module = pick < .28f ? kit.ammoTin : pick < .50f ? kit.messKit : pick < .68f ? kit.spade : pick < .84f ? kit.helmet : pick < .93f ? kit.boots : kit.hatchLid;
                 else module = pick < .07f && at.Hollow < 0 ? kit.graveMarker : pick < .50f ? kit.helmet : pick < .66f ? kit.boots : pick < .82f ? kit.spade : kit.messKit;
                 float sink = module == kit.graveMarker || module == kit.spade ? .06f : .015f;
                 emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - sink, z), Quaternion.Euler(0f, Rand(k, 135) * 360f, 0f), Vector3.one * (.92f + Rand(k, 136) * .2f)));
@@ -290,9 +331,21 @@ namespace TW.Presentation.Terrain
                 float far = medium ? .9f + Rand(k, 91) * reach * .55f : (.4f + Mathf.Sqrt(Rand(k, 91)) * reach), angle = Rand(k, 92) * Mathf.PI * 2f;
                 float x = heart.x + Mathf.Cos(angle) * far, z = heart.z + Mathf.Sin(angle) * far;
                 if (!Open(map, surface, x, z)) continue;
-                var module = medium ? kit.bush : Rand(k, 93) < .78f ? kit.tuft : kit.stones;
-                float size = medium ? .8f + Rand(k, 94) * .7f : .7f + Rand(k, 94) * .9f;
-                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - .02f, z), Quaternion.Euler(0f, Rand(k, 95) * 360f, 0f), Vector3.one * size));
+                // medium: scrub, a rock, a mossy stump; small: the old dry tufts and stones with the painted grass among
+                // them everywhere, and here and there poppies
+                BattlefieldKit.Module module; float size;
+                float pick = Rand(k, 93);
+                if (medium)
+                {
+                    module = pick < .62f ? kit.bush : pick < .86f ? kit.boulder : kit.stumpMoss;
+                    size = module == kit.bush ? .8f + Rand(k, 94) * .7f : module == kit.boulder ? .38f + Rand(k, 94) * .3f : .55f + Rand(k, 94) * .3f;
+                }
+                else
+                {
+                    module = pick < .50f ? kit.tuft : pick < .74f ? kit.grass : pick < .95f ? kit.stones : kit.poppies;
+                    size = module == kit.grass ? .45f + Rand(k, 94) * .5f : module == kit.poppies ? .7f + Rand(k, 94) * .4f : .7f + Rand(k, 94) * .9f;
+                }
+                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - (module == kit.boulder ? .10f : .02f), z), Quaternion.Euler(0f, Rand(k, 95) * 360f, 0f), Vector3.one * size));
             }
         }
 
@@ -371,27 +424,51 @@ namespace TW.Presentation.Terrain
                     float x = c.x + Mathf.Cos(angle) * far, z = c.y + Mathf.Sin(angle) * far;
                     if (x < 1f || z < 1f || x > map.SizeMeters.x - 1f || z > map.SizeMeters.y - 1f) continue;
                     float size = k == 0 ? 1.25f + Rand(d, 127) * .35f : k < 3 ? .85f + Rand(d * 16 + k, 128) * .3f : .5f + Rand(d * 16 + k, 128) * .3f;
-                    emit(kit.reeds, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .04f, z), Quaternion.Euler(0f, Rand(d * 16 + k, 129) * 360f, 0f), Vector3.one * size));
+                    // most stands grow round a clump of cattails; the old reeds make up the rest of the family
+                    if (k == 0 && Rand(d, 130) < .65f) emit(kit.cattails, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .04f, z), Quaternion.Euler(0f, Rand(d * 16 + k, 129) * 360f, 0f), Vector3.one * (.75f + Rand(d, 127) * .35f)));
+                    else emit(kit.reeds, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .04f, z), Quaternion.Euler(0f, Rand(d * 16 + k, 129) * 360f, 0f), Vector3.one * size));
                     planted++;
                 }
             }
         }
 
-        void MapProps(MapData map)
+        void MapProps(MapData map, BattlefieldSurface surface)
         {
             var hf = map.Height;
             for (int i = 0; i < map.Props.Length; i++)
             {
                 var p = map.Props[i];
                 float s = p.Scale > 0f ? p.Scale : 0.85f + 0.3f * ((i * 37) % 100) / 100f;   // the generator sizes clump members: big, medium, small
-                var m = Matrix4x4.TRS(new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.05f, p.Pos.z), Quaternion.Euler(0f, p.Yaw * Mathf.Rad2Deg, 0f), new Vector3(s, s, s));
+                var at = new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.05f, p.Pos.z);
+                var yaw = Quaternion.Euler(0f, p.Yaw * Mathf.Rad2Deg, 0f);
+                var m = Matrix4x4.TRS(at, yaw, new Vector3(s, s, s));
                 switch (p.Kind)
                 {
                     case PropKind.Tree: emit(i % 3 == 0 ? kit.fork : kit.trunk, m); break;
                     case PropKind.BrokenTree: emit(kit.snag, m); emit(kit.fallen, m); break;
-                    case PropKind.Stump: emit(kit.stump, m); break;
-                    case PropKind.Log: emit(kit.log, m); break;
-                    case PropKind.Wreck: emit(kit.wreck, Matrix4x4.TRS(new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.25f, p.Pos.z), Quaternion.Euler(0f, p.Yaw * Mathf.Rad2Deg, 0f), Vector3.one)); break;
+                    case PropKind.Stump:
+                    {
+                        // the old sawn stump among the painted ones: mossed over, splintered, and now and then a tall shard
+                        float pick = Rand(i, 140);
+                        if (pick < .30f) emit(kit.stump, m);
+                        else if (pick < .58f) emit(kit.stumpMoss, Matrix4x4.TRS(at, yaw, Vector3.one * s * .95f));
+                        else if (pick < .86f) emit(kit.stumpSplit, Matrix4x4.TRS(at, yaw, Vector3.one * s * .85f));
+                        else emit(kit.stumpTall, Matrix4x4.TRS(at, yaw, Vector3.one * s * .75f));
+                        break;
+                    }
+                    case PropKind.Log: emit(kit.fallenLog, Matrix4x4.TRS(at - new Vector3(0f, .06f, 0f), yaw, Vector3.one * s * .9f)); break;
+                    case PropKind.Wreck:
+                        emit(kit.wreck, Matrix4x4.TRS(new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.25f, p.Pos.z), yaw, Vector3.one));
+                        if (Rand(i, 141) < .6f)
+                        {
+                            // its turret, blown off and lying canted a few metres to one side of the hull
+                            float side = (p.Yaw + (Rand(i, 142) < .5f ? 1f : -1f) * (1.25f + Rand(i, 143) * .5f));
+                            var lying = at + new Vector3(Mathf.Sin(side), 0f, Mathf.Cos(side)) * (3.1f + Rand(i, 144) * 1.2f);
+                            if (Open(map, surface, lying.x, lying.z))
+                                emit(kit.tankTurret, Matrix4x4.TRS(new Vector3(lying.x, surface.VisualHeight(lying.x, lying.z) - .14f, lying.z),
+                                    Quaternion.Euler((Rand(i, 145) - .5f) * 16f, Rand(i, 146) * 360f, (Rand(i, 147) - .5f) * 22f), Vector3.one * (.9f + Rand(i, 148) * .2f)));
+                        }
+                        break;
                     case PropKind.Bridge: emit(kit.bridge, Matrix4x4.TRS(new Vector3(p.Pos.x, map.WaterLevel + 0.3f, p.Pos.z), Quaternion.identity, Vector3.one)); break;
                 }
             }
@@ -417,9 +494,19 @@ namespace TW.Presentation.Terrain
                 var turn = Quaternion.Euler(down ? 62f + Rand(key, 36) * 25f : (Rand(key, 36) - .5f) * 14f, yaw, (Rand(key, 37) - .5f) * 10f);
                 float size = .85f + Rand(key, 38) * .35f;
                 var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (down ? .15f : 0f), wz);
-                emit(kit.knifeRest, Matrix4x4.TRS(at, turn, Vector3.one * size));
-                if (!down) emit(kit.wire, Matrix4x4.TRS(at, turn, Vector3.one * size));
-                if (!down && Rand(key, 39) < .20f)
+                // half the belt is still the old knife rests; the rest is the imported obstacles, most with the same
+                // four strands run through them (a fence section carries its own)
+                float kind = Rand(key, 44);
+                bool strung = !down;
+                if (down || kind < .50f) emit(kit.knifeRest, Matrix4x4.TRS(at, turn, Vector3.one * size));
+                else if (kind < .72f) { emit(kit.wireFence, Matrix4x4.TRS(at, turn, Vector3.one * size * 1.05f)); strung = false; }
+                else if (kind < .86f) emit(kit.hedgehog, Matrix4x4.TRS(at, turn * Quaternion.Euler(0f, Rand(key, 45) * 90f, 0f), Vector3.one * size));
+                else if (kind < .94f) emit(kit.stakes, Matrix4x4.TRS(at, turn * Quaternion.Euler(0f, (Rand(key, 45) - .5f) * 60f, 0f), Vector3.one * size));
+                else
+                    for (int end = -1; end <= 1; end += 2)
+                        emit(kit.wirePost, Matrix4x4.TRS(at + turn * new Vector3(end * .95f * size, -.08f, 0f), turn * Quaternion.Euler(0f, Rand(key + end, 45) * 90f, 0f), Vector3.one * size));
+                if (strung) emit(kit.wire, Matrix4x4.TRS(at, turn, Vector3.one * size));
+                if (strung && Rand(key, 39) < .20f)
                 {
                     // something has caught on the top strand: a strip of cloth, or the tins hung there to rattle (small kit)
                     var hang = at + turn * (new Vector3((Rand(key, 40) - .5f) * 1.6f, 1.05f, Rand(key, 41) < .5f ? .30f : -.30f) * size);
@@ -429,6 +516,127 @@ namespace TW.Presentation.Terrain
 
             Horizon(map);
 
+        }
+
+        /// <summary>
+        /// The imported landmarks, sparingly (owner, 2026-09-22: "some can be used sparingly like the turrets"): one MG nest
+        /// on the enemy-facing parapet of each fire trench, two field guns and an observation stand in each side's rear
+        /// corners, one well behind a line, a crashed biplane just beyond the far edge of no man's land, and duds left in
+        /// a few dry shell holes. Decoration only, like the site blueprints: none of it is cover or an obstacle, so the
+        /// big pieces keep to ground the men do not cross (the parapet between ladders, the rear corners off the road,
+        /// outside the map) and every one is dropped rather than moved when the ground under it is no longer fit.
+        /// </summary>
+        void Landmarks(MapData map, BattlefieldSurface surface)
+        {
+            float W = map.SizeMeters.x, L = map.SizeMeters.y;
+            var taken = new List<Vector3>();
+            foreach (var site in sites) taken.Add(site.Position);
+            bool Free(Vector3 p, float spacing) { foreach (var t in taken) if ((new Vector2(t.x - p.x, t.z - p.z)).sqrMagnitude < spacing * spacing) return false; return true; }
+            void Put(BattlefieldKit.Module module, Vector3 p, Quaternion rotation, float size, float sink)
+                => emit(module, Matrix4x4.TRS(new Vector3(p.x, surface.VisualHeight(p.x, p.z) - sink, p.z), rotation, Vector3.one * size));
+
+            // MG nests: on the lip of the parapet that faces the enemy, the gun out over no man's land, never by a ladder
+            var ladders = new List<Vector3>();
+            foreach (var edge in surface.Edges) if (edge.Link) ladders.Add(edge.Center);
+            var candidates = new List<BattlefieldSurface.Edge>(surface.Edges);
+            candidates.Sort((a, b) => { int order = Rand(a.Key, 850).CompareTo(Rand(b.Key, 850)); return order != 0 ? order : a.Key.CompareTo(b.Key); });
+            var nests = new int[map.Trenches.Length];
+            foreach (var edge in candidates)
+            {
+                var trench = map.Trenches[edge.Trench];
+                if (edge.Link || trench.Kind != 0 || nests[edge.Trench] > 0) continue;
+                var facing = new Vector3(Mathf.Sin(trench.FacingYaw), 0f, Mathf.Cos(trench.FacingYaw));
+                if (Vector3.Dot(edge.DressOutward, facing) < .92f || edge.DressCenter.x < 10f || edge.DressCenter.x > W - 10f) continue;
+                bool byLadder = false;
+                foreach (var ladder in ladders) if ((ladder - edge.Center).sqrMagnitude < 36f) { byLadder = true; break; }
+                if (byLadder) continue;
+                var at = edge.DressCenter + edge.DressOutward * 1.95f;   // its back on the lip, 2.6 m deep
+                var rotation = Quaternion.LookRotation(edge.DressOutward) * Quaternion.Euler(0f, (Rand(edge.Key, 851) - .5f) * 10f, 0f);
+                if (!Free(at, 9f) || !Room(map, surface, at, rotation, .95f, 1.3f)) continue;
+                nests[edge.Trench]++; taken.Add(at);
+                Put(kit.mgNest, at, rotation, 1f, .06f);
+                Put(kit.sandbag, at + rotation * new Vector3(-1.05f, 0f, 1.25f), rotation * Quaternion.Euler(0f, 70f + Rand(edge.Key, 852) * 30f, 0f), 1f, .04f);
+                Put(kit.sandbag, at + rotation * new Vector3(1.1f, 0f, 1.1f), rotation * Quaternion.Euler(0f, -80f - Rand(edge.Key, 853) * 30f, 0f), .95f, .04f);
+            }
+
+            // each side's rear: a field gun on either flank laid toward the enemy with its shells beside it, an observation
+            // stand off the supply road, and (behind one side) the well of a farm that is no longer there
+            for (int side = 0; side < 2; side++)
+            {
+                float ahead = side == 0 ? 1f : -1f, rear = side == 0 ? 0f : L;
+                var toward = Quaternion.LookRotation(new Vector3(0f, 0f, ahead));
+                for (int flank = 0; flank < 2; flank++)
+                    for (int attempt = 0; attempt < 6; attempt++)
+                    {
+                        int key = side * 64 + flank * 16 + attempt;
+                        var at = new Vector3(W * (flank == 0 ? .12f : .88f) + (Rand(key, 860) - .5f) * 8f, 0f, rear + ahead * (7f + Rand(key, 861) * 7f));
+                        var rotation = toward * Quaternion.Euler(0f, (Rand(key, 862) - .5f) * 24f, 0f);
+                        if (!Free(at, 7f) || !Room(map, surface, at, rotation, 1.0f, 1.5f)) continue;
+                        taken.Add(at);
+                        Put(kit.fieldGun, at, rotation, 1f, .05f);
+                        Put(kit.shellStack, at + rotation * new Vector3(flank == 0 ? 1.7f : -1.7f, 0f, -.9f), rotation * Quaternion.Euler(0f, 90f + (Rand(key, 863) - .5f) * 30f, 0f), .9f, .04f);
+                        Put(kit.sandbag, at + rotation * new Vector3(flank == 0 ? -1.3f : 1.3f, 0f, .9f), rotation * Quaternion.Euler(0f, Rand(key, 864) * 180f, 0f), 1f, .04f);
+                        if (flank == side) Put(kit.limber, at + rotation * new Vector3(flank == 0 ? -1.2f : 1.2f, 0f, -3.2f), Quaternion.Euler(0f, Rand(key, 865) * 360f, (Rand(key, 866) - .5f) * 10f), .95f, .08f);
+                        break;
+                    }
+                for (int attempt = 0; attempt < 6; attempt++)
+                {
+                    int key = side * 64 + 40 + attempt;
+                    var at = new Vector3(W * (side == 0 ? .30f : .70f) + (Rand(key, 867) - .5f) * 10f, 0f, rear + ahead * (6f + Rand(key, 868) * 6f));
+                    var rotation = toward * Quaternion.Euler(0f, 45f + (Rand(key, 869) - .5f) * 20f, 0f);
+                    if (!Free(at, 7f) || !Room(map, surface, at, rotation, 1.2f, 1.2f)) continue;
+                    taken.Add(at); Put(kit.armouredStand, at, rotation, 1f, .05f); break;
+                }
+                if (side == (int)(Rand(seed, 870) * 2f))
+                    for (int attempt = 0; attempt < 6; attempt++)
+                    {
+                        int key = side * 64 + 50 + attempt;
+                        var at = new Vector3(W * (.62f + Rand(key, 871) * .18f), 0f, rear + ahead * (4.5f + Rand(key, 872) * 4f));
+                        var rotation = Quaternion.Euler(0f, Rand(key, 873) * 360f, 0f);
+                        if (!Free(at, 7f) || !Room(map, surface, at, rotation, 1.1f, 1.1f)) continue;
+                        taken.Add(at); Put(kit.well, at, rotation, 1f, .08f); break;
+                    }
+            }
+
+            // a biplane that came down nose-first just beyond the far edge of no man's land (the side the standard view
+            // looks toward), where it is seen behind the fighting and never stood in
+            {
+                float x = -6.5f - Rand(seed, 874) * 5f, z = L * .5f + (Rand(seed, 875) - .5f) * L * .22f;
+                var rotation = Quaternion.Euler(0f, 90f + (Rand(seed, 876) - .5f) * 70f, 0f) * Quaternion.Euler(20f + Rand(seed, 877) * 12f, 0f, (Rand(seed, 878) - .5f) * 30f);
+                emit(kit.biplane, Matrix4x4.TRS(new Vector3(x, GreyboxTerrainView.SkirtHeight(map, x, z) - .55f, z), rotation, Vector3.one));
+            }
+
+            // duds: a shell that did not go off, nose down in the bottom of a dry hole, or in the shallows at the edge of
+            // a flooded one (the night look floods most of them), its fins out of the water
+            for (int i = 0; i < surface.Hollows.Count; i++)
+            {
+                var h = surface.Hollows[i];
+                bool flooded = h.Level > -100f;
+                if (Rand(i, 880) > (flooded ? .14f : .30f) || h.Radius < 1.2f) continue;
+                float angle = Rand(i, 881) * Mathf.PI * 2f, off = h.Radius * (flooded ? .72f + .14f * Rand(i, 882) : .3f * Rand(i, 882));
+                float x = h.Center.x + Mathf.Cos(angle) * off, z = h.Center.y + Mathf.Sin(angle) * off;
+                if (!Clear(map, x, z) || surface.At(x, z).Hollow < 0) continue;
+                emit(kit.dudShell, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .22f, z), Quaternion.Euler((Rand(i, 883) - .5f) * 30f, Rand(i, 884) * 360f, (Rand(i, 885) - .5f) * 30f), Vector3.one * (.6f + Rand(i, 886) * .2f)));
+            }
+        }
+
+        /// <summary>A rectangle (half sizes in metres, turned by rotation) of dry, fairly level, open ground in the map that no
+        /// trench, ladder, wire or blocked cell touches, and not in a shell hole at its middle.</summary>
+        bool Room(MapData map, BattlefieldSurface surface, Vector3 centre, Quaternion rotation, float halfX, float halfZ)
+        {
+            if (surface.At(centre.x, centre.z).Hollow >= 0) return false;
+            int nx = Mathf.CeilToInt(halfX * 4f), nz = Mathf.CeilToInt(halfZ * 4f);
+            float lo = float.MaxValue, hi = float.MinValue;
+            for (int iz = 0; iz <= nz; iz++)
+            for (int ix = 0; ix <= nx; ix++)
+            {
+                var p = centre + rotation * new Vector3(Mathf.Lerp(-halfX, halfX, ix / (float)nx), 0f, Mathf.Lerp(-halfZ, halfZ, iz / (float)nz));
+                if (!Clear(map, p.x, p.z)) return false;
+                float h = surface.VisualHeight(p.x, p.z);
+                if (h < map.WaterLevel + .15f || surface.At(p.x, p.z).Wetness > .45f) return false;
+                lo = Mathf.Min(lo, h); hi = Mathf.Max(hi, h);
+            }
+            return hi - lo < .9f;
         }
 
         void Horizon(MapData map)
@@ -459,7 +667,20 @@ namespace TW.Presentation.Terrain
                 bool farSide = i < 6;   // the standard view looks along -X, so most of them stand there
                 float x = farSide ? -45f - Rand(i, 6) * 120f : w + 45f + Rand(i, 6) * 90f, z = Rand(i, 7) * l;
                 float s = 1.2f + Rand(i, 8) * 1.0f;
-                emit(kit.ruin, Matrix4x4.TRS(new Vector3(x, GreyboxTerrainView.SkirtLevel - 0.25f, z), Quaternion.Euler(0f, 80f + Rand(i, 9) * 40f, 0f), new Vector3(s, s, s)));
+                var turn = Quaternion.Euler(0f, 80f + Rand(i, 9) * 40f, 0f);
+                var at = new Vector3(x, GreyboxTerrainView.SkirtLevel - 0.25f, z);
+                emit(kit.ruin, Matrix4x4.TRS(at, turn, new Vector3(s, s, s)));
+                // what else is left of the place: wall stubs either side, a slab and a low wall in the rubble
+                (Vector3 local, BattlefieldKit.Module module, float size)[] rubble =
+                {
+                    (new Vector3(-10.5f, 0f, 1.5f), kit.wallStub, 1.1f), (new Vector3(7.8f, 0f, -1.8f), kit.wallStub, .9f),
+                    (new Vector3(2.4f, 0f, 3.2f), kit.rebarSlab, 1f), (new Vector3(-4.2f, 0f, -3.4f), kit.barricade, 1.1f),
+                };
+                for (int r = 0; r < rubble.Length; r++)
+                {
+                    if (Rand(i * 8 + r, 10) < .25f) continue;
+                    emit(rubble[r].module, Matrix4x4.TRS(at + turn * (rubble[r].local * s) + new Vector3(0f, .1f, 0f), turn * Quaternion.Euler(0f, (Rand(i * 8 + r, 11) - .5f) * 50f, 0f), Vector3.one * rubble[r].size * s));
+                }
             }
         }
 

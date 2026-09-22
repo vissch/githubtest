@@ -56,6 +56,22 @@ namespace TW.Presentation.Terrain
                     new Socket("recess supplies", k.supplies, new Vector3(.8f, 0f, .4f), new Vector3(0f, 82f, 0f), new Vector3(.7f, 1.5f, .7f)),
                     new Socket("entrance bags", k.sandbags, new Vector3(-2.1f, 0f, -1.55f), new Vector3(0f, -24f, 0f), new Vector3(.9f, 1f, 1f), true),
                     new Socket("threshold boards", k.duckboards, new Vector3(.2f, 0f, -1.85f), Vector3.zero, new Vector3(.8f, 1f, .85f), true)));
+            // the imported sets (owner, 2026-09-22): a sod-roofed timber shelter half fallen in, and a concrete pillbox with
+            // its rubble. The shelter's opening is its front (+Z), turned to face the entrance side (-Z) like the others.
+            result.Add(new BattlefieldBlueprint("Sod-roofed shelter", new Vector3(0f, 0f, -1.55f),
+                new Socket("shell", k.sodShelter, Vector3.zero, new Vector3(0f, 180f, 0f), Vector3.one),
+                new Socket("left gabion", k.gabion, new Vector3(-1.75f, 0f, -1.15f), new Vector3(0f, 40f, 0f), Vector3.one * .85f, true),
+                new Socket("right gabion", k.gabion, new Vector3(1.72f, 0f, -1.3f), new Vector3(0f, -25f, 0f), Vector3.one * .78f, true),
+                new Socket("shells by the wall", k.shellStack, new Vector3(2.05f, 0f, .35f), new Vector3(0f, -82f, 0f), Vector3.one * .9f, true),
+                new Socket("dropped sack", k.sandbag, new Vector3(-1.05f, 0f, -1.95f), new Vector3(0f, 28f, 0f), Vector3.one, true),
+                new Socket("threshold boards", k.duckboards, new Vector3(0f, 0f, -1.85f), Vector3.zero, new Vector3(.75f, 1f, .8f), true)));
+            result.Add(new BattlefieldBlueprint("Concrete pillbox", new Vector3(0f, 0f, -2.0f),
+                new Socket("shell", k.pillbox, Vector3.zero, new Vector3(0f, 22f, 0f), Vector3.one),
+                new Socket("blown slab", k.rebarSlab, new Vector3(-2.35f, 0f, -.8f), new Vector3(0f, 35f, 8f), Vector3.one * .55f, true),
+                new Socket("broken slab", k.rebarSlab, new Vector3(2.25f, 0f, .95f), new Vector3(0f, -60f, -6f), Vector3.one * .45f, true),
+                new Socket("sandbag wall", k.sandbags, new Vector3(-1.85f, 0f, -1.95f), new Vector3(0f, -35f, 0f), new Vector3(.9f, 1f, 1f), true),
+                new Socket("loose sack", k.sandbag, new Vector3(1.55f, 0f, -2.05f), new Vector3(0f, 70f, 0f), Vector3.one, true),
+                new Socket("gabion", k.gabion, new Vector3(2.1f, 0f, -1.05f), new Vector3(0f, 10f, 0f), Vector3.one * .82f, true)));
             return result.ToArray();
         }
     }
