@@ -128,24 +128,66 @@ namespace TW.Tests
 
         // ---- the spread ----------------------------------------------------------------------------------------
 
+        const int W = 150;   // the playtest trench's nav width, so these are the cells the garrison really uses
+
         [Test]
-        public void AManStandsSomewhereInHisPostCell_NotOnALattice()
+        public void ThePostFieldWanders_WithoutScatteringMenOffTheirMarks()
         {
             float widest = 0f;
             var seen = new HashSet<int>();
             for (int cell = 0; cell < 4000; cell++)
             {
-                var o = TrenchPost.Offset(cell);
+                var o = TrenchPost.Offset(cell, W);
                 Assert.LessOrEqual(math.abs(o.x), TrenchPost.Jitter + 1e-4f, "never further than half a cell, or he steps into the next post");
                 Assert.LessOrEqual(math.abs(o.z), TrenchPost.Jitter + 1e-4f, "never further than half a cell, or he steps into the next post");
                 Assert.AreEqual(0f, o.y, "the offset is on the ground plane only");
                 widest = math.max(widest, math.abs(o.x));
                 seen.Add((int)(o.x * 50f) * 1000 + (int)(o.z * 50f));
             }
-            Assert.Greater(widest, TrenchPost.Jitter * 0.8f, "the offsets use the room they are given");
-            Assert.Greater(seen.Count, 1500, "the offsets are spread, not a handful of repeated values");
-            Assert.AreEqual(TrenchPost.Offset(1234), TrenchPost.Offset(1234), "the same cell always gives the same spot");
-            Assert.AreNotEqual(TrenchPost.Offset(1234), TrenchPost.Offset(1235), "neighbouring posts do not share a spot");
+            Assert.Greater(widest, TrenchPost.Jitter * 0.8f, "the field uses the room it is given");
+            Assert.Greater(seen.Count, 1000, "the line wanders across the map rather than repeating");
+            Assert.AreEqual(TrenchPost.Offset(1234, W), TrenchPost.Offset(1234, W), "the same cell always gives the same spot");
+
+            // the property the old per-cell noise got exactly backwards. Neighbours must SHARE their
+            // displacement - that is what keeps the distance between two men - while the line as a whole
+            // still leaves true, which is what stops it reading as ruled.
+            float near = math.distance(TrenchPost.Offset(1234, W), TrenchPost.Offset(1235, W));
+            float far = math.distance(TrenchPost.Offset(1234, W), TrenchPost.Offset(1274, W));
+            Assert.Less(near, 0.25f, $"neighbouring posts move together (measured 0.11 m, was 0.6+ with per-cell noise): {near:F3}");
+            Assert.Greater(far, 0.15f, $"but forty cells along, the line has wandered: {far:F3}");
+        }
+
+        /// <summary>
+        /// THE INVARIANT WHOSE ABSENCE SHIPPED A REGRESSION. SeparationJob.GarrisonSpacing is 2 m and a nav cell
+        /// is 2 m, so the bare cell lattice was exactly tuned to the separation radius: a posted garrison sat at
+        /// rest. Displacing each post by independent noise dropped the worst adjacent pair to 0.933 m - well
+        /// inside the radius, so those men shoved each other while their posts pulled them back, permanently.
+        /// Nothing measured that, and the before/after table hid it by comparing against 0.88 m, which came from
+        /// postless men rather than posted ones.
+        /// The smooth field restores most of it: 1.809 m measured over the same cells. Still under 2 m, so the
+        /// very tightest pairs in a FULL trench keep a small standing push - which is why the bound below is
+        /// 1.75 and not 2.0, and why it is written down rather than rounded up.
+        /// </summary>
+        [Test]
+        public void NoTwoPostPointsStandInsideEachOther()
+        {
+            float worst = float.MaxValue; int worstCell = -1;
+            for (int cell = 0; cell < 4000; cell++)
+            {
+                int cx = cell % W, cz = cell / W;
+                float3 a = new float3(cx * 2f, 0f, cz * 2f) + TrenchPost.Offset(cell, W);
+                foreach (int d in new[] { 1, W, W + 1, W - 1 })   // the four adjacency classes
+                {
+                    int n = cell + d, nx = n % W, nz = n / W;
+                    if (math.abs(nx - cx) > 1) continue;          // wrapped round the end of a row
+                    float3 b = new float3(nx * 2f, 0f, nz * 2f) + TrenchPost.Offset(n, W);
+                    float dist = math.distance(a, b);
+                    if (dist < worst) { worst = dist; worstCell = cell; }
+                }
+            }
+            Assert.Greater(worst, 1.75f,
+                $"cell {worstCell}: two adjacent post points are {worst:F3} m apart against a 2.00 m separation " +
+                "radius. Men posted that close push each other off their own marks and never settle.");
         }
 
         /// <summary>
@@ -192,7 +234,7 @@ namespace TW.Tests
             {
                 int cell = m.World.PostCell[i];
                 if (!m.World.IsAlive(i) || m.World.TrenchId[i] < 0 || cell < 0) continue;
-                float3 post = m.Map.NavCellCenter(cell) + TrenchPost.Offset(cell);
+                float3 post = m.Map.NavCellCenter(cell) + TrenchPost.Offset(cell, m.Map.NavWidth);
                 if (math.distance(post.xz, m.World.Position[i].xz) < 1f) at.Add(m.World.Position[i]);
             }
             Assert.Greater(at.Count, 5, "men reached the trench and settled onto posts");

@@ -134,7 +134,7 @@ namespace TW.Sim.Nav
             /// <summary>The middle of a nav cell, where a post stands.</summary>
             float3 CellCentre(int cell) => new float3((cell % NavWidth + 0.5f) * NavCell, 0f, (cell / NavWidth + 0.5f) * NavCell);
             /// <summary>His own spot in his post cell. Cell centres put a garrison on a visible 2 m lattice.</summary>
-            float3 PostPoint(int cell) => CellCentre(cell) + TrenchPost.Offset(cell);
+            float3 PostPoint(int cell) => CellCentre(cell) + TrenchPost.Offset(cell, NavWidth);
 
             int CellOf(float3 p)
             {

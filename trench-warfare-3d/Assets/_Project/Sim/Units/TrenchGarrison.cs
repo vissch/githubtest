@@ -88,7 +88,9 @@ namespace TW.Sim.Units
             // Ascending slot order throughout, so a contested post is always settled the same way on every machine.
             for (int i = 0; i < n; i++)
             {
-                if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || w.TrenchId[i] < 0) { Release(w, i); continue; }
+                // only clear a man who actually holds something: at 3,000 units this loop was making two writes
+                // per non-garrisoned slot per tick, to hashed arrays, for men who had no post to release
+                if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || w.TrenchId[i] < 0) { if (w.PostCell[i] >= 0) Release(w, i); continue; }
                 int cell = w.PostCell[i];
                 if (cell < 0) continue;
                 if ((uint)cell >= (uint)cellPost.Length || cellPost[cell] < 0 || map.CellTrenchId[cell] != w.TrenchId[i]) { Release(w, i); continue; }

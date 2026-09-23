@@ -83,11 +83,42 @@ he holds the post. And `ThinnedInSixteen` was deleting 31% of candidate posts to
 which bought irregularity with capacity the garrison could not spare; the jitter supplies it better, so thinning
 dropped to 2/16.
 
-Elbow room is now offered **by degrees** — the widely spaced posts first (`Roomiest` = 2 cells = 6 m), then the
-closer ones (4 m), then any free post at all. An empty trench spreads a garrison out, a filling one packs it down,
+Elbow room is now offered **by degrees** — the widely spaced posts first (`Roomiest` = 2 cells), then the closer
+ones, then any free post at all. Those tiers are **nominally** 6 m and 4 m and are not that in fact: the post
+displacement pulls the real floors down to about 4.9 m and 3.1 m. The nominal figures were quoted here as if they
+were guarantees; they are not, and the only number with a test behind it is the adjacent-post floor below. An empty trench spreads a garrison out, a filling one packs it down,
 a full one stands men shoulder to shoulder rather than leaving them postless. In a packed trench the mean spacing
 barely moves (1.77 → 1.90 m) and it should not: 84 men in 90 m of two-row trench are shoulder to shoulder by
 geometry, not by policy.
+
+### Correction: the displacement was measured against the wrong baseline
+
+The first version of this used independent per-cell noise, and the before/after table above credited it with an
+improvement it did not make.
+
+`SeparationJob.GarrisonSpacing` is 2 m and a nav cell is 2 m. The bare cell lattice was therefore **exactly** tuned
+to the separation radius: a fully posted garrison stood at rest, with the post pull and the separation push both at
+zero. Independent noise of ±0.55 m destroyed that invariant — computed over the real hash, the worst adjacent pair
+of post points came out **0.933 m** apart, deep inside the radius, so those men shoved each other while their posts
+pulled them back and never settled.
+
+The reported "closest pair 0.88 m → 1.58 m" looked like progress and was not. 0.88 m came from the **31 postless
+men** collapsing onto the centreline, which is a different fault fixed by a different change in the same commit
+(`ThinnedInSixteen` 5 → 2). Measured against the baseline that actually applies — the lattice's guaranteed 2.00 m —
+the displacement made the packed case worse. Every improvement in the table traces to the thinning constant.
+
+The repair keeps what the displacement was for. It is now a **smooth low-frequency field** rather than per-cell
+noise, so neighbouring posts share most of their displacement: the line wanders off true, which is what stops it
+reading as ruled, while the distance *between* neighbours is nearly preserved. Same amplitude, worst adjacent
+separation **0.933 m → 1.809 m**, held by `TrenchSpreadTests.NoTwoPostPointsStandInsideEachOther`.
+
+1.809 m is still under 2 m, so the tightest pairs in a *full* trench keep a small standing push. That is stated
+rather than rounded away, and it only arises through the `room = 0` fallback, which only runs when the trench is
+full — where men standing shoulder to shoulder is right anyway.
+
+**This is the third time in this project that a number flattered the change that produced it** (the others: a
+single-hue score climbing to 97% while winter went monochrome, and a coverage claim that was never checked against
+the file it cited). The pattern is the same each time — the baseline was chosen after the change, not before.
 
 ### The approach that was tried and thrown away
 

@@ -12,7 +12,9 @@ namespace TW.Sim
         public enum SystemId : uint
         {
             Deployment = 1, DirectFire = 2, IndirectFire = 3, Suppression = 4, Armor = 5,
-            Bog = 6, WaveAi = 7, Mission = 8, Separation = 9, Test = 1000,
+            Bog = 6, WaveAi = 7, Mission = 8, Separation = 9,
+            TrenchGarrison = 11, TrenchPost = 12,   // registered so nobody reuses them by accident
+            Test = 1000,
         }
 
         [BurstCompile]
