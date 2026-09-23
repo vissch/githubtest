@@ -237,7 +237,7 @@
 .tw-readout__value { font-size: var(--tw-size-num); color: var(--tw-alarm); -unity-font-definition: url("Fonts/DustFrontMono.asset"); -unity-font-style: bold; }
 .tw-readout__delta { font-size: var(--tw-size-micro); color: var(--tw-alarm-dim); -unity-font-definition: url("Fonts/DustFrontMono.asset"); margin-left: 4px; }
 .tw-bullet { width: 12px; height: 12px; margin-right: 10px; background-image: url("Icons/ico_bullet.png"); background-size: contain; -unity-background-image-tint-color: var(--tw-alarm); flex-shrink: 0; }
-.tw-bullet--mine { -unity-background-image-tint-color: var(--tw-team-a); }
+.tw-bullet--mine { -unity-background-image-tint-color: var(--tw-text); }   /* ours bone, theirs rust: the HUD palette, not the unit team colours */
 .tw-bullet--theirs { -unity-background-image-tint-color: var(--tw-enemy); }
 .tw-bullet--capturing { -unity-background-image-tint-color: var(--tw-accent); }
 .tw-bullet--neutral { -unity-background-image-tint-color: var(--tw-text-mute); }

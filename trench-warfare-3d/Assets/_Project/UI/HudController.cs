@@ -274,7 +274,7 @@ namespace TW.UI
 
             // the rest
             var root = doc.rootVisualElement;
-            clusters.Refresh(root.panel, Camera.main, root.resolvedStyle.width, root.resolvedStyle.height, over);
+            clusters.Refresh(root.panel, Camera.main, refs.Root.resolvedStyle.width, refs.Root.resolvedStyle.height, over);   // HUD space (HudScale)
             objectives.Refresh();
             tooltip.Update();
         }

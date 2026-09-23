@@ -58,6 +58,7 @@ namespace TW.Tests
             void Token(string name, float px) => StringAssert.Contains($"{name}: {px:0}px;", uss, $"{name} should be {px:0}px to match HudLayout");
             Token("--tw-bar-height", HudLayout.BarHeightPx);
             Token("--tw-card-size", HudLayout.CardPx);
+            Token("--tw-card-size-infantry", HudLayout.InfantryCardPx);
             Token("--tw-card-gap", HudLayout.GapPx);
             Token("--tw-bar-inset", HudLayout.InsetPx);
             Token("--tw-bar-divider", HudLayout.DividerPx);

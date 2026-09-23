@@ -108,7 +108,7 @@ namespace TW.UI
                 float z = map.NavCellCenter(map.TrenchCells[map.Trenches[t].CellStart]).z + 1f;
                 Vector3 s = unityCam.WorldToScreenPoint(new Vector3(focusX + 9f, 0f, z));
                 if (s.z <= 0f) continue;
-                Vector2 p = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(s.x, Screen.height - s.y));
+                Vector2 p = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(s.x, Screen.height - s.y)) / HudLayout.HudScale;   // panel -> HUD space
                 anchors.Add(new Vector3(p.x, p.y, t));
             }
             anchors.Sort((p, q) => q.x.CompareTo(p.x));   // the enemy is on screen-right

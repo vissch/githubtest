@@ -1,13 +1,15 @@
 // Phase: B6 (implemented) — the minimap: the ground as the nav layers colour it, both sides' men as dots, the camera's
 // frame, and click or drag to move the view. Port of BattleHud.Minimap (482-558): same colours, same cadences (ground
 // every 3 s, dots every 0.15 s, on unscaled time), same orientation (u along world Z, you left and the enemy right;
-// v along world X, X 0 at the top), same drag maths. The two textures are assigned once as background images and
+// v along world X, X 0 at the top), same drag maths. Trench lines carry their owner in the HUD palette (round 6):
+// ours bone, theirs rust, so the front line reads at a glance. The two textures are assigned once as background images and
 // updated in place, so a frame that changes nothing writes nothing.
 using UnityEngine;
 using UnityEngine.UIElements;
 using TW.Presentation;
 using TW.Presentation.Tactical;
 using TW.Sim;
+using TW.Sim.Nav;
 using TW.Sim.Terrain;
 
 namespace TW.UI
@@ -33,6 +35,9 @@ namespace TW.UI
 
         static readonly Color32 Mine = new Color32(0x59, 0xD9, 0xFF, 255);     // --tw-team-a
         static readonly Color32 Theirs = new Color32(0xE0, 0x40, 0x29, 255);   // --tw-team-b
+        static readonly Color32 TrenchOurs = new Color32(0xC8, 0xC9, 0xC6, 255);   // --tw-text
+        static readonly Color32 TrenchTheirs = new Color32(0xB5, 0x52, 0x3A, 255); // --tw-enemy
+        static readonly Color32 TrenchNone = new Color32(30, 22, 16, 255);
 
         public HudMinimap(HudRefs refs, SimHost host, TacticalCamera cam)
         {
@@ -63,9 +68,11 @@ namespace TW.UI
             var w = host.Local.World;
             var map = host.Local.Map;
             float now = Time.unscaledTime;
-            if (now >= nextGround)   // craters, cut wire and floods change it slowly
+            if (now >= nextGround)   // craters, cut wire, floods and trench owners change it slowly
             {
                 nextGround = now + 3f;
+                var fields = host.Local.Fields;
+                bool owners = fields != null && fields.Trenches.IsCreated && map.CellTrenchId.IsCreated;
                 for (int x = 0; x < th; x++)
                 for (int z = 0; z < tw; z++)
                 {
@@ -75,7 +82,7 @@ namespace TW.UI
                     if ((layer & NavLayer.Crater) != 0) c = new Color32(58, 49, 38, 255);
                     if ((layer & NavLayer.Wire) != 0) c = new Color32(120, 118, 116, 255);
                     if ((layer & NavLayer.Blocked) != 0) c = map.WaterDepthAtCell(x, z) > 0.5f ? new Color32(52, 70, 74, 255) : new Color32(40, 52, 34, 255);
-                    if ((layer & NavLayer.Trench) != 0) c = (layer & NavLayer.Link) != 0 ? new Color32(200, 170, 110, 255) : new Color32(30, 22, 16, 255);
+                    if ((layer & NavLayer.Trench) != 0) c = (layer & NavLayer.Link) != 0 ? new Color32(200, 170, 110, 255) : TrenchColour(owners ? map.CellTrenchId[map.NavIndex(x, z)] : (short)-1, fields);
                     groundPixels[(th - 1 - x) * tw + z] = c;   // texture rows run bottom-up
                 }
                 ground.SetPixels32(groundPixels); ground.Apply(false, false);
@@ -114,6 +121,13 @@ namespace TW.UI
                 refs.MinimapView.style.left = vx; refs.MinimapView.style.top = vy; refs.MinimapView.style.width = fw; refs.MinimapView.style.height = fh;
                 lastVx = vx; lastVy = vy; lastVw = fw; lastVh = fh;
             }
+        }
+
+        static Color32 TrenchColour(short id, FlowFieldManager fields)
+        {
+            if (id < 0 || id >= fields.Trenches.Length) return TrenchNone;
+            byte owner = fields.Trenches[id].OwnerTeam;
+            return owner == 0 ? TrenchOurs : owner == 1 ? TrenchTheirs : TrenchNone;
         }
 
         void OnDown(PointerDownEvent e)

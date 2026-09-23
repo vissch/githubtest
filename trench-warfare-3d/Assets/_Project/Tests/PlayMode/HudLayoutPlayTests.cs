@@ -65,7 +65,9 @@ namespace TW.Tests
             // units (ReferenceHeight / Screen.height), so the allowance is one pixel per laid-out piece, in panel units
             float px = HudLayout.ReferenceHeight / Mathf.Max(1f, Screen.height);
             float slack = (refs.Cards.Count + 4) * px;
-            Assert.That(bar.width, Is.GreaterThanOrEqualTo(HudLayout.BarWidth() - slack), $"the bar is at least what its cards consume (1 px = {px:0.##} panel units): " + diag);
+            // the bar lays out in the HUD's own space (HudLayout.HudScale): compare its layout width there, its worldBound on screen
+            Assert.That(refs.Bar.layout.width, Is.GreaterThanOrEqualTo(HudLayout.BarWidth() - slack), $"the bar is at least what its cards consume (1 px = {px:0.##} panel units): " + diag);
+            Assert.That(refs.Root.worldBound.width, Is.EqualTo(w).Within(1f), "the scaled HUD root still covers the panel");
             Assert.That(bar.width, Is.LessThanOrEqualTo(w), "the bar fits the reference width");
             Assert.That(bar.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(bar.yMax, Is.LessThanOrEqualTo(h + 0.5f));
             foreach (var c in refs.Cards) Assert.That(c.Root.worldBound.width, Is.GreaterThanOrEqualTo(70f), $"{c.Title} card is {c.Root.worldBound.width} px wide");

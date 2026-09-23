@@ -114,7 +114,41 @@ namespace TW.UI
                 r.Cards.Add(card); r.SupportCards.Add(card);
             }
             root.Query<Button>().ForEach(b => b.focusable = false);
+            ApplyScale(r);
             return r;
+        }
+
+        /// <summary>
+        /// Lay the HUD out in a space HudLayout.HudScale times smaller than the panel and scale it back up, so the whole
+        /// battle HUD draws 1.5x while the menus sharing the panel do not. Picking, worldBound and ScreenToPanel all see
+        /// the scaled result; only code that places elements from panel coordinates divides by HudScale. Where the
+        /// screen is too narrow for the bar (4:3 and narrower), the bar alone shrinks to fit, anchored bottom-centre.
+        /// </summary>
+        public static void ApplyScale(HudRefs r)
+        {
+            var hud = r.Root;
+            if (hud == null || hud.name != RootName) return;
+            float k = HudLayout.HudScale, pct = 100f / k;
+            hud.style.right = StyleKeyword.Auto; hud.style.bottom = StyleKeyword.Auto;
+            hud.style.width = Length.Percent(pct); hud.style.height = Length.Percent(pct);
+            hud.style.transformOrigin = new TransformOrigin(0, 0, 0);
+            hud.style.scale = new Scale(new Vector3(k, k, 1f));
+            if (r.Bar != null)
+            {
+                r.Bar.style.transformOrigin = new TransformOrigin(Length.Percent(50f), Length.Percent(100f), 0f);
+                hud.RegisterCallback<GeometryChangedEvent>(_ => FitBar(r));
+            }
+        }
+
+        /// <summary>The bar's shrink factor for a HUD this wide (HUD space): 1 when it fits with a margin either side.</summary>
+        public static float BarFit(float hudWidth) => Mathf.Clamp01((hudWidth - 2f * HudLayout.InsetPx) / HudLayout.BarWidth());
+
+        static void FitBar(HudRefs r)
+        {
+            float w = r.Root.resolvedStyle.width;
+            if (float.IsNaN(w) || w <= 0f) return;
+            float f = BarFit(w);
+            if (Mathf.Abs(r.Bar.resolvedStyle.scale.value.x - f) > 0.001f) r.Bar.style.scale = new Scale(new Vector3(f, f, 1f));
         }
 
         public const string SlotClass = "hud-card-slot", FirstSlotClass = "hud-card-slot--first";

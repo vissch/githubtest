@@ -3,7 +3,7 @@
 // roster's numbers (cost, hp, speed, deploy cooldown) as a label/value grid, three rank slots, and the six condition
 // faces the speaker strip uses on the battlefield. There is no upgrade rule in the sim yet, so the ranks are shown
 // locked and say so, rather than pretending to buy something. Numbers come from RosterEntry.FillDefault for both
-// sides; a unit only the enemy fields carries an ENEMY chip.
+// sides; a unit only the enemy fields shows an ENEMY chip where our units show their cost.
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
@@ -17,7 +17,7 @@ namespace TW.UI
         public const string TreePath = "Shell/Armoury";
         public static readonly string[] RequiredNames = { "armoury-screen", "infantry-grid", "machine-grid", "info-title", "info-role", "info-art", "info-body", "info-stats", "states-row", "states-note", "ranks-row", "btn-back" };
         public static readonly string[] Ranks = { "RANK I", "RANK II", "RANK III" };
-        public const string RankLocked = "NOT IN THE BATTLE RULES YET";
+        public const string RankLocked = "NOT IN RULES YET";
         public override bool HidesHud => true;
 
         readonly Dictionary<byte, RosterEntry> entries = new Dictionary<byte, RosterEntry>();
@@ -57,9 +57,10 @@ namespace TW.UI
                 var art = new VisualElement { pickingMode = PickingMode.Ignore }; art.AddToClassList("armoury-tile__art");
                 var tex = UnitArt.Full(UnitArt.NameOf(a)); if (tex != null) art.style.backgroundImage = new StyleBackground(tex);
                 var name = new Label(HudText.Name(a).ToUpperInvariant()) { pickingMode = PickingMode.Ignore }; name.AddToClassList("armoury-tile__name");
-                var cost = new Label(e.Cost.ToString()) { pickingMode = PickingMode.Ignore }; cost.AddToClassList("armoury-tile__cost");
+                bool enemy = !ours.Contains(a);
+                var cost = new Label(enemy ? "ENEMY" : e.Cost.ToString()) { pickingMode = PickingMode.Ignore };
+                cost.AddToClassList(enemy ? "armoury-tile__chip" : "armoury-tile__cost");
                 tile.Add(art); tile.Add(name); tile.Add(cost);
-                if (!ours.Contains(a)) { var chip = new Label("ENEMY") { pickingMode = PickingMode.Ignore }; chip.AddToClassList("armoury-tile__chip"); tile.Add(chip); }
                 byte pick = a; tile.clicked += () => Select(pick);
                 (e.IsVehicle ? machines : infantry)?.Add(tile);
                 tiles.Add(tile);

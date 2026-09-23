@@ -55,19 +55,20 @@
                 <ui:Label name="tooltip-cost" text="" class="tw-tooltip__cost" />
             </ui:VisualElement>
             <ui:VisualElement name="bar" class="tw-plate tw-plate--riveted hud-bar">
-                <ui:VisualElement name="group-infantry" class="hud-group">
+                <ui:VisualElement name="group-infantry" class="hud-group hud-group--infantry">
                     <ui:Label name="caption-infantry" text="INFANTRY" class="tw-caption hud-group__caption" />
-                    <ui:VisualElement name="roster-infantry" class="hud-cards" />
+                    <ui:VisualElement name="roster-infantry" class="hud-cards hud-cards--infantry" />
                 </ui:VisualElement>
                 <ui:VisualElement class="tw-divider hud-bar__divider" picking-mode="Ignore" />
-                <ui:VisualElement name="group-armour" class="hud-group">
-                    <ui:Label name="caption-armour" text="ARMOUR" class="tw-caption hud-group__caption" />
-                    <ui:VisualElement name="roster-armour" class="hud-cards" />
-                </ui:VisualElement>
-                <ui:VisualElement class="tw-divider hud-bar__divider" picking-mode="Ignore" />
-                <ui:VisualElement name="group-support" class="hud-group">
-                    <ui:Label name="caption-support" text="SUPPORT" class="tw-caption hud-group__caption" />
-                    <ui:VisualElement name="support" class="hud-cards" />
+                <ui:VisualElement name="group-stack" class="hud-group-stack">
+                    <ui:VisualElement name="group-armour" class="hud-group">
+                        <ui:Label name="caption-armour" text="ARMOUR" class="tw-caption hud-group__caption" />
+                        <ui:VisualElement name="roster-armour" class="hud-cards" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="group-support" class="hud-group hud-group--support">
+                        <ui:Label name="caption-support" text="SUPPORT" class="tw-caption hud-group__caption" />
+                        <ui:VisualElement name="support" class="hud-cards" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="hint" text="" class="tw-caption hud-hint" picking-mode="Ignore" />
