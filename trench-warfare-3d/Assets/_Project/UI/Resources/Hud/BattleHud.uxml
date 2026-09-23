@@ -66,8 +66,8 @@
                         <ui:VisualElement name="roster-armour" class="hud-cards" />
                     </ui:VisualElement>
                     <ui:VisualElement name="group-support" class="hud-group hud-group--support">
-                        <ui:VisualElement name="support" class="hud-cards" />
                         <ui:Label name="caption-support" text="SUPPORT" class="tw-caption hud-group__caption" />
+                        <ui:VisualElement name="support" class="hud-cards" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

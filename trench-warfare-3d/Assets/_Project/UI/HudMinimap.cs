@@ -33,8 +33,8 @@ namespace TW.UI
         public float WidthPx => tw * Scale;
         public float HeightPx => th * Scale;
 
-        static readonly Color32 Mine = new Color32(0x59, 0xD9, 0xFF, 255);     // --tw-team-a
-        static readonly Color32 Theirs = new Color32(0xE0, 0x40, 0x29, 255);   // --tw-team-b
+        static readonly Color32 Mine = new Color32(0xC8, 0xC9, 0xC6, 255);     // --tw-text: ours bone, as the objective bullets
+        static readonly Color32 Theirs = new Color32(0xB5, 0x52, 0x3A, 255);   // --tw-enemy: theirs rust (round 8: #E04029 was off-palette)
         static readonly Color32 TrenchOurs = new Color32(0xC8, 0xC9, 0xC6, 255);   // --tw-text
         static readonly Color32 TrenchTheirs = new Color32(0xB5, 0x52, 0x3A, 255); // --tw-enemy
         static readonly Color32 TrenchNone = new Color32(30, 22, 16, 255);

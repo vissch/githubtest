@@ -120,7 +120,7 @@
 
 /* ---- gauge: icon + digits in a recessed window ------------------------------------------------------------- */
 .tw-gauge { flex-direction: row; align-items: center; height: 36px; margin-bottom: 4px; }
-.tw-gauge__icon { width: 24px; height: 24px; margin-right: 6px; background-size: contain; -unity-background-image-tint-color: var(--tw-text-dim); }
+.tw-gauge__icon { width: 24px; height: 24px; flex-shrink: 0; margin-right: 6px; background-size: contain; -unity-background-image-tint-color: var(--tw-text-dim); }
 .tw-gauge__value { min-width: 96px; height: 30px; -unity-text-align: middle-right; padding-right: 8px; }
 .tw-gauge__sub { font-size: var(--tw-size-caption); color: var(--tw-text-dim); margin-left: 6px; min-width: 56px; -unity-text-align: middle-left; }
 .tw-gauge__sub--alarm { color: var(--tw-enemy); }

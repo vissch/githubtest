@@ -67,5 +67,32 @@ namespace TW.Tests
             Token("--tw-order-off", HudLayout.OrderOffPx);
             Token("--tw-minimap-bezel", HudLayout.MinimapBezelPx);
         }
+
+        static Texture2D Png(string rel)
+        {
+            var t = new Texture2D(2, 2);
+            Assert.That(ImageConversion.LoadImage(t, File.ReadAllBytes(Path.GetFullPath(Path.Combine(Application.dataPath, "..", SkinSpec.Root, rel)))), Is.True, rel);
+            return t;
+        }
+
+        /// <summary>
+        /// The generator draws top row first and a texture's row 0 is the bottom: until v6 every sprite came out upside
+        /// down (plates lit from below, the helmet a dropdown arrow, the padlock on its shackle) and no test noticed.
+        /// A plate's top bevel is lighter than its bottom one, and the down arrow is wide at the top (GetPixel's y is up).
+        /// </summary>
+        [Test]
+        public void SpritesAreTheRightWayUp()
+        {
+            var plate = Png("Sprites/plate_normal.png");
+            float Lum(Color c) => 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+            int x = plate.width / 2;
+            Assert.That(Lum(plate.GetPixel(x, plate.height - 3)), Is.GreaterThan(Lum(plate.GetPixel(x, 2))), "plate_normal is lit from below: the sprite is upside down");
+            var arrow = Png("Icons/ico_arrow_down.png");
+            int upper = 0, lower = 0;
+            for (int y = 0; y < arrow.height; y++) for (int ax = 0; ax < arrow.width; ax++)
+                if (arrow.GetPixel(ax, y).a > 0.5f) { if (y >= arrow.height / 2) upper++; else lower++; }
+            Assert.That(upper, Is.GreaterThan(lower), "ico_arrow_down points up: the glyph is upside down");
+            Object.DestroyImmediate(plate); Object.DestroyImmediate(arrow);
+        }
     }
 }

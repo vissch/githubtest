@@ -36,8 +36,7 @@
 /* the infantry stand as tall as the ARMOUR row over the SUPPORT row (HudLayout.StackHeightPx); caption top, cards bottom */
 .hud-group--infantry { }
 .hud-group-stack { flex-direction: column; justify-content: space-between; height: 196px; margin-left: var(--tw-card-gap); }   /* HudLayout.StackHeightPx */
-.hud-group.hud-group--support { flex-direction: row; align-items: flex-start; }
-.hud-group--support > .hud-group__caption { margin: 4px 0 0 12px; }   /* SUPPORT sits beside its two cards, not on a line of its own */
+/* SUPPORT is captioned above its row like ARMOUR (round 8: beside it saved nothing at 1x and broke the rule) */
 .hud-cards--infantry .tw-card { width: var(--tw-card-size-infantry); height: var(--tw-card-size-infantry); }
 .hud-cards--infantry .tw-card__portrait { left: 8px; top: 8px; right: 8px; bottom: 8px; }
 .hud-cards--infantry .tw-card__nameplate { height: 22px; left: 4px; right: 4px; bottom: 4px; padding-left: 24px; padding-right: 24px; font-size: 13px; }
@@ -92,7 +91,7 @@
    roster is too wide to leave room (narrow screens) HudDialogue raises it above the bar with --raised. The name is
    bone for every speaker; a hurt report says so in a red status chip, and a critical one keylines the portrait. */
 .hud-dialogue { position: absolute; left: 12px; bottom: 8px; width: 344px; min-height: 88px; flex-direction: row; align-items: center; padding: 6px 10px 6px 6px; }
-.hud-dialogue--raised { left: auto; right: 12px; bottom: 222px; }   /* no room beside the bar: over its right end, clear of the objectives (round 7); BarHeightPx + 12 */
+.hud-dialogue--raised { left: auto; right: 14px; bottom: 222px; }   /* no room beside the bar: over its right end, clear of the objectives (round 7); BarHeightPx + 12 */
 .hud-dialogue__portrait { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; -unity-background-scale-mode: scale-to-fit; background-color: var(--tw-plate-900); border-radius: var(--tw-radius); border-width: 2px; border-color: rgba(0, 0, 0, 0); }
 .hud-dialogue__body { flex-grow: 1; flex-shrink: 1; justify-content: center; }
 .hud-dialogue__head { flex-direction: row; align-items: center; margin-bottom: 2px; }

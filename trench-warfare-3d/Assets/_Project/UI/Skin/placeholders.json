@@ -1,149 +1,149 @@
 {
-    "generator": 5,
+    "generator": 6,
     "files": [
         {
             "file": "Icons/ico_arrow_down.png",
-            "sha1": "a8af9338a5ae9b3f0fe49141f336ad87113fd6b1"
+            "sha1": "e4da726e790bf53c53b77c23c6690325db95047d"
         },
         {
             "file": "Icons/ico_arrow_left.png",
-            "sha1": "0f6124d56b6d1fa7a3ec5ff8cb910937e6d2e019"
+            "sha1": "89c861f7b45b88ef47b6e4b26042c44a07e926e1"
         },
         {
             "file": "Icons/ico_arrow_right.png",
-            "sha1": "6a7dd12693c4396284dd92a68dc79a22ce902412"
+            "sha1": "4102d9d8b97bf31bcc3177e08152394e9e3ae470"
         },
         {
             "file": "Icons/ico_barrage.png",
-            "sha1": "ccd0f4d2f0e5b80308f1fa62c0545ba26350be3d"
+            "sha1": "1c29cb93f39cf20028662fad1ff39549c533fc1d"
         },
         {
             "file": "Icons/ico_bullet.png",
-            "sha1": "1d790e64d54c06928aa80b45f731851919dd20b7"
+            "sha1": "29ff0341c39d443288bbbb7ef31e7cf37d2e3ba1"
         },
         {
             "file": "Icons/ico_check.png",
-            "sha1": "3a92930cb217e7bcd4b7429f7df1ba118d2388c5"
+            "sha1": "beeeb35fb395cbab0e47308725401611bbedea63"
         },
         {
             "file": "Icons/ico_clock.png",
-            "sha1": "6a91b9468976d531a70d1372319660ebd8f2bf77"
+            "sha1": "70329792dfe5443a2cf3f37dd03a0f058fd58821"
         },
         {
             "file": "Icons/ico_close.png",
-            "sha1": "d456cc03a9259abfd595719c338146af30d67204"
+            "sha1": "6e11f39837ab938f651f425f64ea45b8d7c62a32"
         },
         {
             "file": "Icons/ico_fallback.png",
-            "sha1": "104db60edea2230a31f0512fdd01cf30feb23f78"
+            "sha1": "89098f70248a19801380aae5c1cc8aac5202ce4e"
         },
         {
             "file": "Icons/ico_fireatwill.png",
-            "sha1": "7d64b2c77dfa74b8f089ec42286749aecc670131"
+            "sha1": "2fe04c7fd0adc455847d9117143543830d6a527e"
         },
         {
             "file": "Icons/ico_gas.png",
-            "sha1": "16d428656487ab7eff53e3bb502c19716d28ddfb"
+            "sha1": "185984acceb46bf84fd3b713bb6d75e3bdcb157b"
         },
         {
             "file": "Icons/ico_holdfire.png",
-            "sha1": "9d5b865c1fcc8d2dcdfa8c802e9f6008d67e111e"
+            "sha1": "6ef7d909e879bd286d298c9b0902c3d2fb97c01f"
         },
         {
             "file": "Icons/ico_key.png",
-            "sha1": "3595d58faa7f7c90dd62d02b12bb0fc3b316fcb4"
+            "sha1": "c216e02573d1714ef18e7b743fb3eefdcc44d986"
         },
         {
             "file": "Icons/ico_lock_closed.png",
-            "sha1": "3fa4b54d91f28dcafaf89bf3a447a87127397faa"
+            "sha1": "3a6046dd75e9d79b25b292fdb42f5e144fbaea1f"
         },
         {
             "file": "Icons/ico_lock_open.png",
-            "sha1": "9a835dda3c53247663a64c8cb28ac3c6016f352a"
+            "sha1": "294b528986684d288c798077d76ea1d5111cadbe"
         },
         {
             "file": "Icons/ico_men.png",
-            "sha1": "fec305478ef8df6ece5a769bbb1e457544bbfd0a"
+            "sha1": "235b640153943b8d4de790757ff75ebecf11eede"
         },
         {
             "file": "Icons/ico_mg.png",
-            "sha1": "03cd7f7ad65e97d23aa274a726d88a8d5f36c6ae"
+            "sha1": "3635b837f95f7126cc8b1adbcef1c6fcb9ddd454"
         },
         {
             "file": "Icons/ico_missing.png",
-            "sha1": "80ccbe12fd2a2825abd0ad5da5ec4f32ad5ed7e3"
+            "sha1": "e73d83661072631e8e2aead5e9b5533082b56278"
         },
         {
             "file": "Icons/ico_overthetop.png",
-            "sha1": "aa2f97005d4b9fe99e2109e749221ad1635224b7"
+            "sha1": "5e853d87040a74cc098d534d22191473c2dc39fd"
         },
         {
             "file": "Icons/ico_pause.png",
-            "sha1": "aee2afc5dd2fddd24f9cb842573835d9007bda8e"
+            "sha1": "2a09edb3159be358f2b9574ed4ca617a46538924"
         },
         {
             "file": "Icons/ico_play.png",
-            "sha1": "09187c7e74ebef41f7de7094c9829268add08c37"
+            "sha1": "e853241f078df2bf9e1ef116f3d0cf1317484c7a"
         },
         {
             "file": "Icons/ico_rifle.png",
-            "sha1": "588b0d816e465166ae132279d58f7c6737ff11c3"
+            "sha1": "f126b3199f0665904ec02bf99657150de121b94a"
         },
         {
             "file": "Icons/ico_settings.png",
-            "sha1": "02f5db9009581e8794430e725222753f6b9bb5ed"
+            "sha1": "670891cf39ef780eb6ac5d87c80aae9f0e2116a9"
         },
         {
             "file": "Icons/ico_silver.png",
-            "sha1": "d376cff0966c29ebf4c842683e2c68a9a4b038ac"
+            "sha1": "7aa7eda0358f27bee3694ba64eae7ea6191aa760"
         },
         {
             "file": "Icons/ico_smg.png",
-            "sha1": "52df03a6cc452cc33c03b1fd6af1dae3c7400ff8"
+            "sha1": "0edbdb7d06703e4a6aab8e856707b763eeb5aff5"
         },
         {
             "file": "Icons/ico_speed.png",
-            "sha1": "60bee79971dbef01bc5655fc1f99f8d752c02bce"
+            "sha1": "ca52ffd45a7a585b4f0174aeae04a7b2f94f68bb"
         },
         {
             "file": "Portraits/ChlorineGas.png",
-            "sha1": "c9079daa811fa588efc2022928d0c9710f10e19e"
+            "sha1": "22a7b6121bc09b031bb31c791a10516720334a83"
         },
         {
             "file": "Portraits/HeBarrage.png",
-            "sha1": "1296da6121dada58cab8fbd46f374e67d06a73a1"
+            "sha1": "983cf09b8d3750a28071788eb302afecc88891b3"
         },
         {
             "file": "Sprites/badge.png",
-            "sha1": "2f89fcf928ef131dc4b909ffa2cdaba247983c30"
+            "sha1": "e466fe740de3d4a752ad9c3964b6ebf6522b9b07"
         },
         {
             "file": "Sprites/banner_ribbon.png",
-            "sha1": "09cc046848f20e5a3544eb87bc04ae79f2926a17"
+            "sha1": "1ae4c502e614923bc94fe95883501b183c9a1c9e"
         },
         {
             "file": "Sprites/bezel_round.png",
-            "sha1": "17301f69c3918668bdd2d2437552a04f37b1128a"
+            "sha1": "48613075c14fe2a02125061c17b04d2a02e8875d"
         },
         {
             "file": "Sprites/btn_accent_hover.png",
-            "sha1": "c605d2a47458d340faa24516b440536663964c9f"
+            "sha1": "dc39071dc895fa5d5e3618746a5e7ba652a3a5ff"
         },
         {
             "file": "Sprites/btn_accent_normal.png",
-            "sha1": "a71596a2b0c11ac6a861e6950229f89c37f25af6"
+            "sha1": "a7676960d0a0bbc06f587b6e669e2bfa75319a36"
         },
         {
             "file": "Sprites/btn_accent_pressed.png",
-            "sha1": "4e89815af447bd69e79edfd8425621d454d4063c"
+            "sha1": "c051564fd10f7e5000037ecb2b1ae5c8765785f8"
         },
         {
             "file": "Sprites/card_frame.png",
-            "sha1": "950472eda669559892f5583537f3a5babee49994"
+            "sha1": "e571b8e25df279b4e5bd11b731e51d3424dd8b24"
         },
         {
             "file": "Sprites/card_nameplate.png",
-            "sha1": "d4032db8f6fa3f0ab6bc0872ab5b80b0935eaf61"
+            "sha1": "e58b65f300adacb12d00a9113f79c2120906fb38"
         },
         {
             "file": "Sprites/card_rim.png",
@@ -151,103 +151,103 @@
         },
         {
             "file": "Sprites/checkbox_off.png",
-            "sha1": "70ca44d79cbacecaeea25a0c2458f99e5e60940e"
+            "sha1": "9f785ac5e287fb969c22851104bbfad7fe0f4eff"
         },
         {
             "file": "Sprites/checkbox_on.png",
-            "sha1": "1094000c3b49f9065a05c81a79ba22a044c80dea"
+            "sha1": "f539264816e3014fd8b1bebd685c5e10bbb0f667"
         },
         {
             "file": "Sprites/cooldown_mask.png",
-            "sha1": "2860743b97632a04bfabde874d2e9163a1f6b5dc"
+            "sha1": "e7a21469ce33d6397fc13b5a2b96f7c231a2bc9d"
         },
         {
             "file": "Sprites/dim_vignette.png",
-            "sha1": "1567eee508a2dd116955a6829e80cd8bec8fc4a5"
+            "sha1": "0f7f877ad92c2f166ed7768d0b424d32f5835012"
         },
         {
             "file": "Sprites/divider_h.png",
-            "sha1": "3327661f6418fd9f630f9918a82a40b6c4db987c"
+            "sha1": "fce0b8b92407ad5727b2c9f1eb9b0834f54487ba"
         },
         {
             "file": "Sprites/divider_v.png",
-            "sha1": "18d4a9d489b830114152e10eb46aac0b6e861ef3"
+            "sha1": "b26b11d5406c6620ce51b765259edec20d38a589"
         },
         {
             "file": "Sprites/gauge_window.png",
-            "sha1": "2f89fcf928ef131dc4b909ffa2cdaba247983c30"
+            "sha1": "e466fe740de3d4a752ad9c3964b6ebf6522b9b07"
         },
         {
             "file": "Sprites/grain_overlay.png",
-            "sha1": "ec992337b29843642d833abc16bec3de502e0174"
+            "sha1": "45bc36f06909d978ea833d66852c33e1f054419e"
         },
         {
             "file": "Sprites/hazard_strip.png",
-            "sha1": "e1d1b6c4ecbb45f3429d9163baacc5b2141ed62c"
+            "sha1": "76345494456ea4719b023338bd40c0878ef0246a"
         },
         {
             "file": "Sprites/keycap.png",
-            "sha1": "d2bd5630d5e587ed231e656f728aeb030005cade"
+            "sha1": "55fe282f7397b45b86cbf06f9b5c4e81115cc14d"
         },
         {
             "file": "Sprites/minimap_frame.png",
-            "sha1": "ddd47c792b00e307825ee1a46c264b2ae6b7d1ec"
+            "sha1": "43fcf5c1b51fb75ec91df571a66d4c3e46c0b40e"
         },
         {
             "file": "Sprites/order_plate_disabled.png",
-            "sha1": "6d3b31a1dc6c6881c9f6d4b65735c95446fcb35f"
+            "sha1": "1ec34ac07fbf9e675e054bef6fb5bdc15dae5fef"
         },
         {
             "file": "Sprites/order_plate_hover.png",
-            "sha1": "b1ccb93f0ca349d9a1908c0ccac52e5132845ee7"
+            "sha1": "042d59721385296610f47c03644c0e6a85ac7f32"
         },
         {
             "file": "Sprites/order_plate_normal.png",
-            "sha1": "dd29895c5369a130c8dc586ba1261a5fdf86feb9"
+            "sha1": "0bc4ea6dcf715ffc8fa161d09f3827be03eaeae1"
         },
         {
             "file": "Sprites/order_plate_pressed.png",
-            "sha1": "6f4668ea7f8a7216d8180fe0502004b0cb619e05"
+            "sha1": "96b450ee963a1861eedc79de1a7ac00dfd2771d0"
         },
         {
             "file": "Sprites/order_round_disabled.png",
-            "sha1": "8d4a19657f1a9fcefd779d1b857b343acefd363a"
+            "sha1": "21d55b74230251f70cc808abe8ab59bcdbb29a15"
         },
         {
             "file": "Sprites/order_round_hover.png",
-            "sha1": "bc94c4bd2e9d1b5ee6693e755d72650cca92a52f"
+            "sha1": "e1964b5d41787c422e6b544fbcb988171d5a75e1"
         },
         {
             "file": "Sprites/order_round_normal.png",
-            "sha1": "273dc3169ca2a255e914bf3be0a79620791b5ee2"
+            "sha1": "96ba249dc43763751a76c683faab32f02e17f0c9"
         },
         {
             "file": "Sprites/order_round_pressed.png",
-            "sha1": "0b137090b34117115cd0bbf0055a9e702fdd39f3"
+            "sha1": "a0ca61e60200e4134b8ac838b1dde97c9bcbe7d5"
         },
         {
             "file": "Sprites/panel_bg.png",
-            "sha1": "e859cdd19fcdc43865e9ef9b8b4a9878a2c9d9c6"
+            "sha1": "16b85935f1f83388c9e51fb9abc7da83d8fc8eca"
         },
         {
             "file": "Sprites/plate_disabled.png",
-            "sha1": "0a8c2e5e049a9f604ff0b920570063e13a0cc752"
+            "sha1": "6a1bd35154a2762cbbf150256b55cbf255625419"
         },
         {
             "file": "Sprites/plate_hover.png",
-            "sha1": "5d7f9a6a70dfab3567fbda27f9e60764ad98c512"
+            "sha1": "a5f7e7dfd582c4774f9731f4b1b07121728cf4f1"
         },
         {
             "file": "Sprites/plate_normal.png",
-            "sha1": "7ca14ce37ec444dfb7e089fde2994b11cca74ef3"
+            "sha1": "3f8ed0725ef61c38a5a51ae7ff2de20392029aa1"
         },
         {
             "file": "Sprites/plate_pressed.png",
-            "sha1": "122ffa92270bae1f7d114f7fb1347b3973c203b7"
+            "sha1": "bc3d68ff0dd365452f0c0307772538879be2a840"
         },
         {
             "file": "Sprites/row_plate.png",
-            "sha1": "b960c5d64f9619fdbcc654ca2212742b8e1d7caa"
+            "sha1": "7e2504063fcaaa5dfb077db32e402399502b10c8"
         },
         {
             "file": "Sprites/scroller_knob.png",
@@ -259,43 +259,43 @@
         },
         {
             "file": "Sprites/slider_fill.png",
-            "sha1": "e03f75988b4bf93dcf6ffe9fbdf5552df4f02362"
+            "sha1": "b7cde40badc8a4e1ae74ed1cf300ca45eb39f00d"
         },
         {
             "file": "Sprites/slider_knob.png",
-            "sha1": "1bbe536b7d7931a5fbe68f9860795ac580b783a8"
+            "sha1": "a5e5e755885be8ada87b4dc2a5ed7d2fc3330438"
         },
         {
             "file": "Sprites/slider_knob_hover.png",
-            "sha1": "45c5cc9652bac40bca02a52b8a8845b93a036f37"
+            "sha1": "54ac4ff36169d242fdbf00921032caccd1858b6e"
         },
         {
             "file": "Sprites/slider_track.png",
-            "sha1": "f80b0124c03a1a90bc11dd2fe76570f3d68999b8"
+            "sha1": "11ea4933403df2ca35a8095b398655fffadec73b"
         },
         {
             "file": "Sprites/stamp_defeat.png",
-            "sha1": "a2b1c7503e02a065f8e22c424e2d6f6f0f632bd0"
+            "sha1": "26e1489227e76c2db20d3c4c605721eba22ba1b7"
         },
         {
             "file": "Sprites/stamp_victory.png",
-            "sha1": "691b3cba791bc6a036330db037ed1721cb838a8c"
+            "sha1": "a8f81533ee06e57a2b62ecaa3c78bc364e5373c4"
         },
         {
             "file": "Sprites/tab_plate.png",
-            "sha1": "b960c5d64f9619fdbcc654ca2212742b8e1d7caa"
+            "sha1": "7e2504063fcaaa5dfb077db32e402399502b10c8"
         },
         {
             "file": "Sprites/tab_plate_selected.png",
-            "sha1": "bf518376431a3c820b2524368d627b1d61fcc3f2"
+            "sha1": "e94af047dd9a817b452b2cf67865481feba4d6c1"
         },
         {
             "file": "Sprites/title_plate.png",
-            "sha1": "c9dd4e8e64993e0f24656b9dca41df01ae464e37"
+            "sha1": "297c33be71627cfb0bf8a509edd90d854748df8a"
         },
         {
             "file": "Sprites/tooltip_plate.png",
-            "sha1": "820a08f47544a7845ddde96acdbf80c49e65ac59"
+            "sha1": "26929fb46ac8da1bc32619e21f4b8822b8f9e1a2"
         }
     ]
 }
