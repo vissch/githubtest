@@ -45,9 +45,17 @@ These are not scored. They are conditions of a round being allowed to land at al
 
 - **Readability never drops.** If the change makes the men, the trench lines or the orders harder to see in play, it
   is reverted, whatever it did to the other nine lines.
-- **The budget never rises.** `BattlefieldProps.DrawCalls` and `SubmittedVertices` at the STANDARD view must not go
+- **The budget never rises.** `FrameBudget.DrawCalls` and `FrameBudget.Vertices` at the STANDARD view must not go
   up. Detail added for T2 or T3 is switched by `_TWClose` / `SceneHooks.CloseUp` and costs nothing at T1. A round that
   raises the standard-view cost pays for it somewhere else in the same round or it does not land.
+
+  This condition named `BattlefieldProps.DrawCalls` when the board was opened, which was wrong in a way that would
+  have rewarded the loop for adding cost. The props are one of nine submitters, and the three that carry every
+  close-tier effect - `CombatFx`, `FlipbookFx`, `SmallLife` - counted nothing at all, so five hundred new ground
+  marks and six rats would have read as "budget held". `FrameBudget` (`Presentation/Core/RenderGround.cs`, beside
+  `SceneHooks`) counts the whole frame: every instanced and single-mesh submission in Presentation goes through it,
+  debug gizmos excluded. It reports the last COMPLETE frame, because the submitters draw from different components'
+  `Update` and `LateUpdate` and there is no point in the frame where all of them have finished.
 - **Sim untouched.** Presentation only. Nothing under `Assets/_Project/Sim` unless the owner asked for it, because it
   is hashed and it is replayed.
 - **Measured, not asserted.** Every score change names the capture it was read from. A score moved on an argument
@@ -125,3 +133,4 @@ saying so rather than inventing work.
 | Round | Time | Tier | Biome | Worst thing found | What was done | Lines | Gate | Left undone |
 |---|---|---|---|---|---|---|---|---|
 | 0 | 2026-09-24 01:09 | T1 | NightMud | - | scoreboard opened | - | n/a | first round scores T1 NightMud from a capture before changing anything |
+| 1 | 2026-09-24 01:40 | T1 | NightMud | the board's one absolute condition was measured by an instrument that could not see six of the nine things that draw, and could not see ANY of the three that carry the close-tier work: a round that added cost would have read "budget held" | `FrameBudget` written beside `SceneHooks` and all 19 Presentation draw sites routed through it (`DebugOverlay` deliberately not). Staged offline and compiled clean, four assemblies, 62 files, 0 errors | none scored | NOT GATED: an interactive editor held the project all round, so nothing was written into `Assets/` and no capture was taken | the scoring of T1 NightMud, which is what this round was for: it needs a capture and the camera was not available. `PerfBench` does not sample `FrameBudget` yet; the loop reads it from an eval |
