@@ -41,6 +41,15 @@ namespace TW.Sim.Match
         // shell on the line inland. The view draws them where the sim says they are.
         public const int Ships = 3;
         public const float ShipStandOff = 150f, ShipSpread = 110f;   // close enough that the fog leaves them a silhouette
+        /// <summary>
+        /// How far in and out of ShipStandOff a gunboat may be staggered. Named because it decides how much
+        /// WATER a map needs: the furthest a ship can lie is ShipStandOff + ShipOutMax seaward of the waterline,
+        /// and a map with less coast than that puts its fleet past its own edge. These were literals inside the
+        /// placement, so nothing could compare them against a map - and nothing did. ShipSpread is the spread
+        /// ALONG the coast and is a different quantity; reaching for it here is the obvious wrong guess.
+        /// Renaming only: the numbers, every ship position and every hash are exactly as they were.
+        /// </summary>
+        public const float ShipOutMin = -60f, ShipOutMax = 120f;
         public const int ShipEvery = 460;       // ticks between two salvos from the fleet (23 s)
         public const float ShipDamage = 300f, ShipRadius = 7.5f, ShipSuppression = 80f, ShipCrater = 2.4f;
         public const int ShipSource = 60;       // Explosion.a for a naval shell
@@ -89,7 +98,7 @@ namespace TW.Sim.Match
                 ships[k] = new float3(
                     w * 0.5f + (k - (Ships - 1) * 0.5f) * ShipSpread + rng.NextFloat(-30f, 30f),
                     map.SeaLevel,
-                    map.ShoreZ + map.SeaAway * (ShipStandOff + rng.NextFloat(-60f, 120f)));
+                    map.ShoreZ + map.SeaAway * (ShipStandOff + rng.NextFloat(ShipOutMin, ShipOutMax)));
             }
         }
 

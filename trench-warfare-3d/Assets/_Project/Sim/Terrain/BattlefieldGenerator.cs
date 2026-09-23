@@ -24,15 +24,67 @@ namespace TW.Sim.Terrain
         public float Bombardment; // ambient shells per minute on no man's land during the match; 0 = a quiet sector
         public bool Sea;          // the far side of the field is a coast: the map runs on into sand and water and
                                   // team 1's reinforcements land there (SeaLandingSystem)
+        /// <summary>
+        /// Metres of coast past the end of the layout. ZERO MEANS THE DEFAULT (BattlefieldGenerator.SeaMargin),
+        /// so every map that existed before this field keeps the geometry - and the MapData hash - it had.
+        ///
+        /// It has to be a dial rather than a constant because the landing system reaches further out than the
+        /// default coast is wide. SeaLandingSystem puts a craft at StandOff (96 m) seaward of the waterline and
+        /// a gunboat at ShipStandOff +- its spread (90 m to 270 m), while 36 m of margin leaves 17 m of water
+        /// in Z past ShoreZ. On ShelledForest every run-in and every gunboat is therefore off the map, over
+        /// clamped height and outside the nav grid. Nothing breaks, because CellOf and Height.Sample both
+        /// clamp - which is why it went unnoticed - but the approach cannot be watched, so the coast cannot
+        /// carry a level while this is fixed at 36.
+        /// </summary>
+        public float SeaMargin;
 
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
         { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f, Sea = true };
+
+        /// <summary>
+        /// THE COAST AS A BATTLEFIELD, rather than as the strip of scenery behind ShelledForest's far trench.
+        ///
+        /// 300 m of water: the first round number clearing the 270 m a gunboat can lie at, so the craft's run-in
+        /// and the ships shelling over it are on the map instead of past its edge. That is the whole reason this
+        /// preset exists - the geometry the landing already assumed but never had.
+        ///
+        /// No river: the water that matters here is the sea, and a second body of it across no man's land reads
+        /// as a second sea. Thinner wood than ShelledForest (0.2) because a shore is scrub and wind-bent stumps,
+        /// not a forest, and it must not hide the approach. Wider (120 m) so the beach has a frontage to hold.
+        ///
+        /// Who lands is not a new decision: the owner settled it when the sea was built - it lies beyond the
+        /// ENEMY line and their reinforcements ride the boats in. So this is a coastal defence seen from the
+        /// attacker's side, with the defender resupplied in plain sight under his own guns.
+        /// </summary>
+        public static BattlefieldParams Landing(uint seed) => new BattlefieldParams
+        { Seed = seed, Width = 120f, Length = 170f, Forest = 0.2f, Shelling = 0.55f, Mud = 0.35f, WaterLevel = 0.15f, River = false, Wrecks = 4, Bombardment = 6f, Sea = true, SeaMargin = 300f };
+
+        /// <summary>
+        /// THE WINTER LINE: ground that has frozen, rather than ShelledForest wearing a blizzard.
+        ///
+        /// Until this existed the snow level was the shelled wood repainted - which meant a river running across
+        /// no man's land and a water table under it, on a field whose own profile says `Flooding = 0.25` because
+        /// "what water there is has frozen". A flowing river on a frozen battlefield is the single loudest thing
+        /// wrong with the snow look, and no shader could fix it because the water was in the MAP.
+        ///
+        /// WaterLevel = NoWater does both jobs at once: it dries the water table AND suppresses the river, which
+        /// the generator gates on `p.River && p.WaterLevel > NoWater`. Mud is 0.15 rather than ShelledForest's
+        /// 0.5 because frozen ground does not churn - the half-speed mire is a thaw, not a winter. The wood is
+        /// thinner (0.25) so the snowfield reads as open ground with broken timber standing in it.
+        ///
+        /// The LOOK is not carried here. Biome lives in Presentation (GreyboxTerrainView.Field / Atmosphere), and
+        /// TW.Sim cannot see it without closing a reference cycle, so pairing this ground with Biome.Winter is a
+        /// job for the mission card rather than for the params.
+        /// </summary>
+        public static BattlefieldParams WinterLine(uint seed) => new BattlefieldParams
+        { Seed = seed, Width = 110f, Length = 240f, Forest = 0.25f, Shelling = 0.5f, Mud = 0.15f, WaterLevel = MapData.NoWater, River = false, Wrecks = 2, Bombardment = 7f, Sea = false };
 
         public byte[] Serialize()
         {
             using var ms = new MemoryStream();
             using var w = new BinaryWriter(ms);
             w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment); w.Write(Sea);
+            w.Write(SeaMargin);   // appended, like Sea before it: an older replay simply has no such field
             return ms.ToArray();
         }
 
@@ -44,6 +96,7 @@ namespace TW.Sim.Terrain
                 Seed = r.ReadUInt32(), Width = r.ReadSingle(), Length = r.ReadSingle(), Forest = r.ReadSingle(), Shelling = r.ReadSingle(),
                 Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(), Bombardment = r.ReadSingle(),
                 Sea = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
+                SeaMargin = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,   // 0 = the default
             };
         }
     }
@@ -59,14 +112,16 @@ namespace TW.Sim.Terrain
         // The coast, beyond the far end of the layout: dry sand and dunes, then the waterline, then shallows out to
         // the map edge. A craft grounds at the waterline and puts men down on the sand (SeaLandingSystem), so the dry
         // part has to be wide enough to land a company on and to hold the beach obstacles.
-        public const float SeaMargin = 36f;     // metres of coast added to the map beyond the layout
+        public const float SeaMargin = 36f;     // metres of coast added to the map beyond the layout, when the params do not say
+        /// <summary>How much coast this battlefield actually gets. Params win; zero means the default above.</summary>
+        public static float SeaMarginOf(in BattlefieldParams p) => p.SeaMargin > 0f ? p.SeaMargin : SeaMargin;
         public const float ShoreAt = 19f;       // where the water meets the sand, measured from the top of the beach
         const float ShallowSlope = 0.085f;      // how fast the bed falls away under the water
         const float SeaFallback = 0.15f;        // the water table a dry field is given when it is made a coast
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
         {
-            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMargin : 0f)), allocator);
+            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMarginOf(p) : 0f)), allocator);
             map.WaterLevel = p.WaterLevel;
             if (p.Sea)
             {

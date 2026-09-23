@@ -100,6 +100,14 @@ namespace TW.Presentation.Terrain
         public bool MoltenLiquid;
 
         /// <summary>
+        /// The standing liquid on this field has FROZEN. The third value of the one mode docs/18 argued for -
+        /// "one liquid shader with a mode, since lava, water and ice differ in ramp and flow, not in
+        /// structure" - and the half cycle 12 could not reach, having given winter's water the right colour
+        /// and left it rippling and flowing downstream.
+        /// </summary>
+        public bool FrozenLiquid;
+
+        /// <summary>
         /// The standing liquid's own colour; ALPHA IS A PULL, not a flag, and 0 leaves the water exactly as it
         /// has always been. Water_URP's _Shallow/_Body/_Deep are material properties - the night-mud river -
         /// and no biome touched them, so on the lava field the river measured (204,198,163) at saturation 0.18
@@ -271,6 +279,7 @@ namespace TW.Presentation.Terrain
             // The same lesson as SplashTint, on a far bigger surface: a near-white sheet on a near-white field
             // IS the mush this profile keeps warning about. Well below SnowColor 0.93,0.95,0.99.
             LiquidTint = new Color(0.52f, 0.60f, 0.72f, 0.75f),
+            FrozenLiquid = true,   // docs/18 W2: the shell holes are ice, not puddles
             SplashTint = new Color(0.55f, 0.63f, 0.76f),    // read AGAINST snow, not as snow: 0.78,0.85,0.94 sat at
                                                            // luma 0.84 between SnowColor 0.95 and Haze 0.69, dead in
                                                            // the middle of the band this profile warns about, and it

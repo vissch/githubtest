@@ -73,26 +73,45 @@ Shader "TW/Water (URP)"
             half4 frag(Varyings i) : SV_Target
             {
                 float2 xz = i.positionWS.xz;
-                float2 drift = _Flow.xy * _Time.y;
+                // Ice does not flow. Killing the scroll at its source stops BOTH ripple layers, which is the
+                // half cycle 12 could not reach from a colour: it gave winter the right hue and left the sheet
+                // drifting downstream. Zero on every field but winter, so nothing else changes by a bit.
+                half ice = saturate(_TWLiquidIce);
+                float2 drift = _Flow.xy * _Time.y * (1.0 - ice);
                 // two ripple layers riding the current at different speeds; the second runs a little across it
                 half4 r1 = SAMPLE_TEXTURE2D(_RippleMap, sampler_RippleMap, (xz - drift) / 6.0);
                 half4 r2 = SAMPLE_TEXTURE2D(_RippleMap, sampler_RippleMap, (xz - drift * 0.55 + float2(-drift.y, drift.x) * 0.3) / 15.0 + 0.41);
-                half2 slope = ((r1.rg - 0.5) + (r2.rg - 0.5) * 0.8) * _Ripple;
+                half2 slope = ((r1.rg - 0.5) + (r2.rg - 0.5) * 0.8) * _Ripple * (1.0 - ice);   // ice is flat: no rippled normal, so no wobbling mirror
 
                 // depth in metres, read a little off-centre so every band edge wobbles with the ripples
                 float depth = SAMPLE_TEXTURE2D(_DepthMap, sampler_DepthMap, (xz + slope * 1.1) * _DepthST.xy + _DepthST.zw).r * 2.0 - 0.4;
                 // depth bands, the shore line, lapping rings and the rings men and shells throw (TWWater.hlsl)
                 half shore;
-                half3 albedo = TWWaterAlbedo(depth, xz, r2.b, _Shallow.rgb, _Body.rgb, _Deep.rgb, _Foam.rgb, _Rings, shore);
+                // Rings are water being displaced - lapping at the shore, and the ones men and shells throw. A
+                // man does not ripple a frozen puddle. The shore LINE is separate and is left alone.
+                half3 albedo = TWWaterAlbedo(depth, xz, r2.b, _Shallow.rgb, _Body.rgb, _Deep.rgb, _Foam.rgb, _Rings * (1.0 - ice), shore);
 
                 // current streaks: long pale strokes where two drifting layers agree, none over the margin
-                half streak = smoothstep(0.63, 0.68, r1.b * 0.6 + r2.b * 0.4) * _Streaks * smoothstep(0.10, 0.30, depth);
+                half streak = smoothstep(0.63, 0.68, r1.b * 0.6 + r2.b * 0.4) * _Streaks * smoothstep(0.10, 0.30, depth) * (1.0 - ice);   // long pale strokes are a current's signature
                 albedo = lerp(albedo, albedo * 1.35 + 0.035, streak);
                 // The liquid belongs to the biome. _Shallow/_Body/_Deep are this MATERIAL's colours - the night
                 // mud river - and until now no field could change them, so the lava river came out a cream band
                 // at saturation 0.18 across a picture sitting at 0.63. Zero alpha leaves the night field exactly
                 // as it was.
                 albedo = lerp(albedo, _TWLiquid.rgb, _TWLiquid.a);
+                if (ice > 0.0)
+                {
+                    // Cracks, from the SAME Worley border the lava crust reads for its plates: a frozen sheet
+                    // and a cooling one break the same way, so this needs no new noise and no new texture.
+                    // Two octaves - plates about 3 m across, and a finer set about 1.2 m so a big pan is not
+                    // blank with the camera down among the men.
+                    half seam = 1.0 - smoothstep(0.0, 0.085, TWPlateEdge(xz * 0.32));
+                    half fine = 1.0 - smoothstep(0.0, 0.055, TWPlateEdge(xz * 0.85 + 31.7));
+                    // The crack colour is not a new global: it is this surface's own albedo taken white, the
+                    // way the current streaks above already do it, so the ice keeps the biome's colour and a
+                    // crack is simply where the sheet has gone white.
+                    albedo = lerp(albedo, min(half3(1, 1, 1), albedo * 1.9 + 0.22), saturate(seam + fine * 0.55) * ice);
+                }
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);

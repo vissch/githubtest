@@ -91,6 +91,7 @@ namespace TW.Presentation.Terrain
         static readonly int WorldTintId = Shader.PropertyToID("_TWWorldTint");
         static readonly int LampScaleId = Shader.PropertyToID("_TWLampScale");
         static readonly int LiquidId = Shader.PropertyToID("_TWLiquid"), LiquidHeatId = Shader.PropertyToID("_TWLiquidHeat");
+        static readonly int LiquidIceId = Shader.PropertyToID("_TWLiquidIce");
 
         /// <summary>
         /// Copy a battlefield's profile into the fields this component drives. This replaces ApplyNight, which
@@ -128,6 +129,9 @@ namespace TW.Presentation.Terrain
             // One fact about the field with two consumers: MoltenLiquid decides both what a shell does to the
             // surface (CombatFx) and what the surface looks like standing still (Water_URP).
             Shader.SetGlobalFloat(LiquidHeatId, p.MoltenLiquid ? Mathf.Max(0.35f, p.HeatStrength) : 0f);
+            // Molten and frozen are the same switch at its two ends, and no field is both. Pushed and cleared
+            // beside the heat so the pair cannot drift apart - that is the bug cycle 6 found in the snow colour.
+            Shader.SetGlobalFloat(LiquidIceId, p.FrozenLiquid ? 1f : 0f);
             TW.Presentation.Tactical.DebrisRenderer.Biome = p.DebrisTint;
             SceneTints.Push(new SceneTints.Set
             {
@@ -156,6 +160,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalFloat(LampScaleId, 1f);
             Shader.SetGlobalVector(LiquidId, Vector4.zero);
             Shader.SetGlobalFloat(LiquidHeatId, 0f);
+            Shader.SetGlobalFloat(LiquidIceId, 0f);
             TW.Presentation.Tactical.DebrisRenderer.Biome = new Color(1f, 1f, 1f, 0f);
             SceneTints.Reset();
             TW.Presentation.Tactical.DebrisRenderer.LavaLevel = -10000f;
