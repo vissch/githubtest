@@ -486,3 +486,28 @@ Same battle, `hash_start` 252EA3E1DA8F7314 in both columns (editor, 1,500 a side
 | Mean fps (editor) | 64.7 | 93.2 |
 
 `TrenchGarrisonSystem` is now 8.0 of the 10.3 ms left in a tick, and is next.
+
+### The garrison search that could never succeed (same day)
+
+`TrenchGarrisonSystem` gave every garrisoned man without a post a nearest-post search on every tick: `Nearest` walks
+every cell of the trench up to five times (four spacing rungs), and when that fails it does it again for the other post
+kind. With an army out most men sit in FULL trenches, so the search walked the whole trench ten times per man per tick
+to return -1. The system now keeps, per trench and post kind, a count of the free posts it lists (an upper bound, built
+after the holders are known and counted down as posts are taken) and skips `Nearest` for a kind whose count is 0.
+`Nearest` has no side effects and returns -1 whenever no post of that kind in that trench is free, so the results are
+the same by construction; the bench confirms it on the full battle (same `hash_start`, same survivors at tick 2200).
+
+Same battle, one world (editor, 1,500 a side, ticks 1800–2200):
+
+| | before | after |
+|---|---|---|
+| `TrenchGarrisonSystem` per tick | 7.98 ms | **0.15 ms** |
+| `TW.Sim.Step` per tick | 10.3 ms | **2.35 ms** (budget 3.6) |
+| Main thread p50 / p95 / p99 | 6.2 / 21.7 / 31.9 ms | **5.7 / 12.8 / 18.7 ms** |
+| Frames over 33 ms | 20 | 6 |
+| `Stress_ThreeThousandUnits_…` test runtime | 76 s | 10.4 s |
+
+From the first baseline of this pass to here, on the editor stress battle: main thread p95 38.5 → 12.8 ms, p99
+84.8 → 18.7 ms, sim per tick 21.8 (two worlds) → 2.35 ms, GC p95 461 KB → 12 KB a frame. What is left above the 3 ms
+main-thread budget is presentation (`TW.Anim.Advance` is now the largest single marker at ~1.5 ms a frame) and the
+crater frames, which are next.

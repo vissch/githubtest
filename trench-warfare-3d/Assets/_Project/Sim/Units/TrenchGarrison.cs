@@ -40,6 +40,12 @@ namespace TW.Sim.Units
         NativeArray<int> postCell;    // post index -> its nav cell
         NativeArray<byte> postKind;   // post index -> 1 firing (at the parapet), 2 reserve
         NativeArray<int> holder;      // post index -> the slot holding it, -1 free. Rebuilt every step from the world.
+        // trench * 2 + (kind - 1) -> how many of that trench's listed posts of that kind are free: an UPPER BOUND (a post
+        // listed by two trenches is only counted down in the one whose man took it). Transient, never hashed. It exists
+        // for one decision: at 0, Nearest is skipped, because it would search every cell of the trench up to five times
+        // and return -1. With an army out most garrisoned men sit in full trenches with no post, and they re-ran that
+        // search twice every tick: 16.2 of 21.8 ms of SimWorld.Step at 1,500 a side (PerfBench, 2026-09-23).
+        NativeArray<int> freeCount;
 
         public TrenchGarrisonSystem(MapData map) { this.map = map; }
 
@@ -64,6 +70,7 @@ namespace TW.Sim.Units
             holder = new NativeArray<int>(cells.Length, Allocator.Persistent);
             for (int i = 0; i < cells.Length; i++) { postCell[i] = cells[i]; postKind[i] = kinds[i]; holder[i] = -1; }
             cells.Dispose(); kinds.Dispose();
+            freeCount = new NativeArray<int>(map.Trenches.Length * 2, Allocator.Persistent);
         }
 
         /// <summary>Takes a cell as a post unless it is one already, or the thinning hash says leave this stretch empty.</summary>
@@ -99,6 +106,13 @@ namespace TW.Sim.Units
                 holder[post] = i;
             }
 
+            for (int t = 0; t < map.Trenches.Length; t++)
+            {
+                var def = map.Trenches[t];
+                freeCount[t * 2] = CountFree(def.FireStepStart, def.FireStepCount, 1);
+                freeCount[t * 2 + 1] = CountFree(def.CellStart, def.CellCount, 2);
+            }
+
             // Everyone left takes the nearest free post of the kind his own hash gives him, falling back to the other
             // kind rather than standing about with nowhere to be.
             for (int i = 0; i < n; i++)
@@ -113,10 +127,12 @@ namespace TW.Sim.Units
                 // would collide with trench t+1 slot 0 and adjacent trenches would share this decision,
                 // silently: the 6-in-10 split would stop being independent per trench and no test would say so.
                 byte wanted = SimRandom.Mix(w.Config.Seed, (uint)t, StreamId, (uint)i) % 10u < FiringInTen ? (byte)1 : (byte)2;
-                int post = Nearest(w, i, map.Trenches[t], wanted);
-                if (post < 0) post = Nearest(w, i, map.Trenches[t], wanted == 1 ? (byte)2 : (byte)1);
+                byte other = wanted == 1 ? (byte)2 : (byte)1;
+                int post = freeCount[t * 2 + wanted - 1] > 0 ? Nearest(w, i, map.Trenches[t], wanted) : -1;
+                if (post < 0 && freeCount[t * 2 + other - 1] > 0) post = Nearest(w, i, map.Trenches[t], other);
                 if (post < 0) continue;                                   // the trench is full: he holds where he stands
                 holder[post] = i;
+                freeCount[t * 2 + postKind[post] - 1]--;
                 w.PostCell[i] = postCell[post];
                 w.PostKind[i] = postKind[post];
             }
@@ -218,6 +234,20 @@ namespace TW.Sim.Units
             return post >= 0 && holder[post] >= 0;
         }
 
+        /// <summary>Free posts of this kind among a trench's listed cells, counted exactly as Search walks them.</summary>
+        int CountFree(int start, int count, byte kind)
+        {
+            int free = 0;
+            for (int k = 0; k < count; k++)
+            {
+                int cell = kind == 1 ? map.FireStepCells[start + k] : map.TrenchCells[start + k];
+                if ((uint)cell >= (uint)cellPost.Length) continue;
+                int post = cellPost[cell];
+                if (post >= 0 && postKind[post] == kind && holder[post] < 0) free++;
+            }
+            return free;
+        }
+
         static void Release(SimWorld w, int slot) { w.PostCell[slot] = -1; w.PostKind[slot] = 0; }
 
         /// <summary>Who stands where is authoritative: it decides cover, line of sight and what a man is drawn doing.</summary>
@@ -229,6 +259,7 @@ namespace TW.Sim.Units
             if (postCell.IsCreated) postCell.Dispose();
             if (postKind.IsCreated) postKind.Dispose();
             if (holder.IsCreated) holder.Dispose();
+            if (freeCount.IsCreated) freeCount.Dispose();
         }
     }
 }
