@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- One roster or support card. HudView.BindCard sets the portrait, name, cost, hotkey, badge and the state classes
+         (is-locked is-cooling is-poor is-armed is-over). The children ignore picking so the Button gets the click. -->
+    <ui:Button name="card" class="tw-card hud-card" text="">
+        <ui:VisualElement name="portrait" class="tw-card__portrait" picking-mode="Ignore" />
+        <ui:VisualElement name="cooldown" class="tw-card__cooldown" picking-mode="Ignore" />
+        <ui:VisualElement name="rim" class="tw-card__rim" picking-mode="Ignore" />
+        <ui:VisualElement name="lock" class="tw-card__lock" picking-mode="Ignore" />
+        <ui:VisualElement name="weapon" class="tw-card__weapon" picking-mode="Ignore" />
+        <ui:Label name="name" text="" class="tw-card__nameplate" picking-mode="Ignore" />
+        <ui:Label name="cost" text="" class="tw-card__cost" picking-mode="Ignore" />
+        <ui:Label name="hotkey" text="" class="tw-card__hotkey" picking-mode="Ignore" />
+        <ui:Label name="badge" text="" class="tw-card__badge" picking-mode="Ignore" />
+    </ui:Button>
+</ui:UXML>

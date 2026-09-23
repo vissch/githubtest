@@ -1,0 +1,35 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="../Skin/dustfront.uss" />
+    <Style src="Shell.uss" />
+    <ui:VisualElement name="mission-screen" class="tw-screen shell-screen">
+        <ui:VisualElement class="tw-grain" picking-mode="Ignore" />
+        <ui:VisualElement class="tw-topstrip shell-topstrip" picking-mode="Ignore">
+            <ui:Label text="SECTOR SELECT" class="tw-topstrip__label" />
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-content">
+            <ui:VisualElement class="shell-list-column">
+                <ui:Label text="SECTORS" class="tw-caption shell-section" />
+                <ui:VisualElement name="mission-list" class="tw-list" />
+            </ui:VisualElement>
+            <ui:VisualElement name="info-panel" class="tw-panel tw-info-panel shell-info-column">
+                <ui:Label name="info-title" text="" class="tw-h2 tw-header-window shell-info-header" />
+                <ui:Label name="info-subtitle" text="" class="tw-caption" />
+                <ui:VisualElement name="info-image" class="tw-info-panel__image" picking-mode="Ignore" />
+                <ui:Label name="info-body" text="" class="tw-body tw-info-panel__body" />
+                <ui:Label name="info-stats" text="" class="tw-stat shell-info-stats" />
+                <ui:Label text="DIFFICULTY" class="tw-caption" />
+                <ui:VisualElement name="difficulty-tabs" class="shell-difficulty" />
+                <ui:Label name="difficulty-blurb" text="" class="tw-body" />
+                <ui:VisualElement name="seed-row" class="shell-seed-row">
+                    <ui:Label text="SEED" class="tw-caption" />
+                    <ui:IntegerField name="seed-field" value="1917" class="tw-field" />
+                    <ui:Button name="btn-seed-random" text="RANDOM" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-bottom-row">
+            <ui:Button name="btn-back" text="BACK" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-deploy" text="DEPLOY" class="tw-btn tw-btn--wide tw-btn--primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

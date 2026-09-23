@@ -9,6 +9,9 @@ EditorBuildSettings:
     path: Assets/_Project/Scenes/Bootstrap.unity
     guid: 3738c89acd4889841ad7f55167ca6fcc
   - enabled: 1
+    path: Assets/_Project/Scenes/MainMenu.unity
+    guid: 46828267d0333214292fd31712ccb849
+  - enabled: 1
     path: Assets/_Project/Scenes/GreyboxCorridor.unity
     guid: ace08ee004b21d948bfd4bedbb257e1d
   m_configObjects: {}

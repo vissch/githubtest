@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9a5d0233551a8c48b0b88c03d3b23df, type: 3}
+  m_Name: ShellAssets
+  m_EditorClassIdentifier: 
+  Panel: {fileID: 11400000, guid: 63e771ca04e235740bc1c13966903af4, type: 2}
+  MainMenu: {fileID: 9197481963319205126, guid: ae14ebf13fa00b944958613ebb383a86, type: 3}
+  MissionSelect: {fileID: 9197481963319205126, guid: 6b54faf96f552d14fb243fa77b0e8c77, type: 3}
+  PauseMenu: {fileID: 9197481963319205126, guid: a17a65463da4a4e4c85c9ea5696cf776, type: 3}
+  Settings: {fileID: 9197481963319205126, guid: 8f48c0faa48dafd46a8bd3e0c95c78fe, type: 3}
+  Debrief: {fileID: 9197481963319205126, guid: cd3a0ed0415f17d458199f034bf61541, type: 3}
+  Backdrop: {fileID: 2800000, guid: 94ec95dd7b949bf419783472a57b9991, type: 3}
+  Catalog: {fileID: 11400000, guid: 0e9e0591ed109ff4e943cd849fb77793, type: 2}

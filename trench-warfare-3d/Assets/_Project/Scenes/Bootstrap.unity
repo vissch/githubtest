@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7bab60d77acf2cc4b83fe883f0cd0321, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  SceneName: GreyboxCorridor
+  SceneName: MainMenu
 --- !u!4 &1095638129
 Transform:
   m_ObjectHideFlags: 0

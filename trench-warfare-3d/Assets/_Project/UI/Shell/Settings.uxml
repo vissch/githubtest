@@ -1,0 +1,54 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="../Skin/dustfront.uss" />
+    <Style src="Shell.uss" />
+    <ui:VisualElement name="settings-screen" class="tw-screen tw-dim shell-screen">
+        <ui:VisualElement name="settings-plate" class="tw-panel shell-plate shell-settings">
+            <ui:Label text="SETTINGS" class="tw-h1 shell-plate__title" />
+            <ui:VisualElement name="tabs" class="shell-tabs">
+                <ui:Button name="tab-controls" text="CONTROLS" class="tw-tab" />
+                <ui:Button name="tab-video" text="VIDEO" class="tw-tab" />
+                <ui:Button name="tab-audio" text="AUDIO" class="tw-tab" />
+                <ui:Button name="tab-interface" text="INTERFACE" class="tw-tab" />
+            </ui:VisualElement>
+            <ui:VisualElement name="pages" class="shell-pages">
+                <ui:VisualElement name="page-controls" class="shell-page">
+                    <ui:Label text="KEYS   (CLICK A CAP, PRESS A KEY; ESC CANCELS)" class="tw-caption shell-section" />
+                    <ui:ScrollView name="controls-scroll" class="tw-scroll shell-controls-list">
+                        <ui:VisualElement name="controls-list" />
+                    </ui:ScrollView>
+                    <ui:Button name="btn-controls-defaults" text="DEFAULT KEYS" class="tw-btn tw-btn--small" />
+                    <ui:Label text="CAMERA" class="tw-caption shell-section" />
+                    <ui:VisualElement class="tw-row"><ui:Label text="PAN SPEED" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-pan-speed" low-value="20" high-value="200" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="EDGE SCROLL" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Toggle name="toggle-edge-scroll" class="tw-toggle" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row"><ui:Label text="CLOSEST ZOOM" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-zoom-min" low-value="2" high-value="30" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="FARTHEST ZOOM" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-zoom-max" low-value="60" high-value="2000" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row"><ui:Label text="CAMERA SHAKE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-shake" low-value="0" high-value="2" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="page-video" class="shell-page tw-hidden">
+                    <ui:VisualElement class="tw-row"><ui:Label text="RESOLUTION" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-resolution" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="DISPLAY MODE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-fullscreen" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row"><ui:Label text="VERTICAL SYNC" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Toggle name="toggle-vsync" class="tw-toggle" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="QUALITY" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-quality" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>
+                    <ui:Label text="RESOLUTION AND DISPLAY MODE APPLY IN A BUILD, NOT IN THE EDITOR." class="tw-caption shell-note" />
+                </ui:VisualElement>
+                <ui:VisualElement name="page-audio" class="shell-page tw-hidden">
+                    <ui:VisualElement class="tw-row"><ui:Label text="MASTER" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-master" low-value="0" high-value="1" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="AMBIENCE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-ambience" low-value="0" high-value="1" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row"><ui:Label text="EFFECTS" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-sfx" low-value="0" high-value="1" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="MUSIC" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-music" low-value="0" high-value="1" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:Label name="audio-note" text="EFFECTS AND MUSIC BUSES ARRIVE WITH THE AUDIO PASS (B7); MASTER AND AMBIENCE WORK TODAY." class="tw-caption shell-note" />
+                </ui:VisualElement>
+                <ui:VisualElement name="page-interface" class="shell-page tw-hidden">
+                    <ui:VisualElement class="tw-row"><ui:Label text="INTERFACE SCALE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-ui-scale" low-value="0.75" high-value="1.5" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="TOOLTIPS" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Toggle name="toggle-tooltips" class="tw-toggle" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row"><ui:Label text="ROUND RADAR" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Toggle name="toggle-round-radar" class="tw-toggle" /></ui:VisualElement></ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="shell-actions">
+                <ui:Button name="btn-defaults" text="DEFAULTS" class="tw-btn" />
+                <ui:Button name="btn-back" text="BACK" class="tw-btn" />
+                <ui:Button name="btn-apply" text="APPLY" class="tw-btn tw-btn--primary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

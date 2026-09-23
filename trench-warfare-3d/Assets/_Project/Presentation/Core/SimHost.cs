@@ -82,6 +82,7 @@ namespace TW.Presentation
 
         void Awake()
         {
+            MatchLaunch.Apply(this);   // a mission chosen in the shell writes its knobs into the fields below before the match is built
             Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
             var cfg = SimConfig.Default;
             cfg.Seed = Seed;

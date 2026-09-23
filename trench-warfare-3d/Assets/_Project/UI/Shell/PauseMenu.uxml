@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="../Skin/dustfront.uss" />
+    <Style src="Shell.uss" />
+    <ui:VisualElement name="pause-screen" class="tw-screen tw-dim shell-screen">
+        <ui:VisualElement name="pause-plate" class="tw-panel shell-plate">
+            <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
+            <ui:Label name="pause-title" text="PAUSED" class="tw-h1 shell-plate__title" />
+            <ui:Button name="btn-resume" text="RESUME" class="tw-btn tw-btn--wide tw-btn--primary" />
+            <ui:Button name="btn-settings" text="SETTINGS" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-restart" text="RESTART MISSION" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-surrender" text="SURRENDER" class="tw-btn tw-btn--wide tw-btn--danger" />
+            <ui:Button name="btn-quit-menu" text="QUIT TO MENU" class="tw-btn tw-btn--wide tw-btn--danger" />
+            <ui:VisualElement name="confirm" class="tw-plate shell-confirm tw-hidden">
+                <ui:Label name="confirm-text" text="" class="tw-caps shell-confirm__text" />
+                <ui:VisualElement class="shell-confirm__row">
+                    <ui:Button name="btn-confirm-yes" text="YES" class="tw-btn tw-btn--danger" />
+                    <ui:Button name="btn-confirm-no" text="NO" class="tw-btn" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label name="pause-hint" text="" class="tw-caption shell-hint" />
+            <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

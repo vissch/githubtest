@@ -19,7 +19,8 @@
     "TW.Presentation.Camera",
     "TW.UI",
     "TW.Data",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "TW.Editor"
   ],
   "includePlatforms": [
     "Editor"

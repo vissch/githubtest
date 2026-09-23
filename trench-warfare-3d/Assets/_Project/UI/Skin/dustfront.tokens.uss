@@ -1,0 +1,91 @@
+/* Dust Front skin: tokens. Every colour, size and spacing the interface uses, once.
+   Values are 1080p reference pixels (PanelSettings scales the panel with screen height).
+   Plates are near-black gunmetal, bevels 1 px light grey, readouts amber, danger red, power pale blue, text bone.
+   The bar geometry mirrors TW.UI.HudLayout; SkinAssetTests hold the two equal. No border-radius anywhere: the
+   cut corners live in the sprites. USS has no text-transform: caps are authored uppercase. */
+:root {
+    /* plates, dark to light */
+    --tw-plate-900: #0E0F10;
+    --tw-plate-800: #141416;
+    --tw-plate-700: #1B1D20;
+    --tw-plate-600: #23252A;
+    --tw-plate-500: #33363B;
+    --tw-plate-400: #55595D;
+    --tw-edge-dark: #0A0B0C;
+    --tw-edge-light: #6A6D70;
+
+    /* oxide and brass, the warm counterweight */
+    --tw-rust-700: #4A2A18;
+    --tw-rust-500: #7A4324;
+    --tw-rust-300: #A8683A;
+    --tw-brass: #A8863A;
+
+    /* accent: amber. readouts, active, armed, affordable */
+    --tw-accent: #E0762A;
+    --tw-accent-bright: #F2A648;
+    --tw-accent-dim: #9C5E1E;
+    --tw-accent-glow: rgba(224, 118, 42, 0.35);
+
+    /* alarm: danger, negative, defeat, control-group digits */
+    --tw-alarm: #E02B2B;
+    --tw-alarm-dim: #7E1F12;
+
+    /* power / information: pale blue */
+    --tw-power: #7FB4E0;
+
+    /* text: bone and grey, never pure white except totals */
+    --tw-text: #C8C9C6;
+    --tw-text-bright: #E8E1D2;
+    --tw-text-dim: #8E8F8B;
+    --tw-text-mute: #5E5F5B;
+    --tw-text-on-accent: #1A1208;
+    --tw-white: #FFFFFF;
+
+    /* teams (TankRenderer.cs:46) */
+    --tw-team-a: #59D9FF;
+    --tw-team-b: #E04029;
+    --tw-team-b-grey: #858F99;
+
+    /* semantic */
+    --tw-silver: #C9CDD2;
+    --tw-silver-dim: #8C9196;
+    --tw-gas: #B7C24A;
+    --tw-ok: #7FA84A;
+    --tw-dim: rgba(8, 9, 10, 0.72);
+    --tw-scrim: rgba(8, 9, 10, 0.45);
+    --tw-cooldown: rgba(8, 9, 10, 0.62);
+
+    /* type */
+    --tw-size-display: 48px;
+    --tw-size-title: 32px;
+    --tw-size-heading: 22px;
+    --tw-size-label: 16px;
+    --tw-size-body: 14px;
+    --tw-size-caption: 12px;
+    --tw-size-micro: 11px;
+    --tw-size-num-lg: 28px;
+    --tw-size-num: 18px;
+    --tw-tracking: 2px;
+
+    /* spacing */
+    --tw-space-1: 2px;
+    --tw-space-2: 4px;
+    --tw-space-3: 8px;
+    --tw-space-4: 12px;
+    --tw-space-5: 16px;
+    --tw-space-6: 24px;
+    --tw-space-7: 32px;
+    --tw-space-8: 48px;
+    --tw-border: 2px;
+
+    /* battle bar geometry (HudLayout) */
+    --tw-bar-height: 100px;
+    --tw-card-size: 72px;
+    --tw-card-gap: 8px;
+    --tw-bar-inset: 12px;
+    --tw-bar-divider: 20px;
+    --tw-order-btn: 62px;
+    --tw-order-gap: 6px;
+    --tw-order-off: 40px;
+    --tw-minimap-bezel: 24px;
+}

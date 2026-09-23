@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- One objective: a coloured bullet (mine / theirs / capturing / neutral), its name, and the capture progress. -->
+    <ui:VisualElement name="objective" class="hud-objective" picking-mode="Ignore">
+        <ui:VisualElement name="bullet" class="tw-bullet tw-bullet--neutral" picking-mode="Ignore" />
+        <ui:Label name="objective-name" text="" class="tw-caps hud-objective__name" picking-mode="Ignore" />
+        <ui:Label name="objective-progress" text="" class="tw-mono hud-objective__progress" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

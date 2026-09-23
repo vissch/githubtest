@@ -38,8 +38,15 @@ namespace TW.Presentation.Tactical
             Vector2 m = mouse.position.ReadValue();
             if (m.x < 0f || m.y < 0f || m.x > Screen.width || m.y > Screen.height) return false;
             if (Visible && m.x < Width + 20f) return false;
-            if (m.y < BattleHud.BarHeight + 4f) return false;   // the deploy bar (mouse Y counts from the bottom)
-            if (BattleHud.MinimapRect.Contains(new Vector2(m.x, Screen.height - m.y))) return false;   // a click on the minimap moves the view
+            if (HudBridge.UseToolkitHud)
+            {
+                if (HudBridge.IsPointerOverUi(m)) return false;   // the Toolkit HUD answers for its own chrome (panel.Pick)
+            }
+            else
+            {
+                if (m.y < BattleHud.BarHeight + 4f) return false;   // the deploy bar (mouse Y counts from the bottom)
+                if (BattleHud.MinimapRect.Contains(new Vector2(m.x, Screen.height - m.y))) return false;   // a click on the minimap moves the view
+            }
             var ray = cam.ScreenPointToRay(m);
             if (Mathf.Abs(ray.direction.y) < 1e-4f) return false;
             float t = (1f - ray.origin.y) / ray.direction.y;   // the greybox ground lies between 0 and 2 m
@@ -52,9 +59,14 @@ namespace TW.Presentation.Tactical
         void Update()
         {
             if (armed == OffMapAbilityId.None || Host == null || Host.Local == null) return;
+            if (!InputFocus.Gameplay) return;   // a shell screen has the input
             var mouse = Mouse.current;
             var kb = Keyboard.current;
-            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)) { armed = OffMapAbilityId.None; return; }
+            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame))
+            {
+                if (kb != null && kb.escapeKey.wasPressedThisFrame) InputFocus.ConsumeEscape();   // this Esc cancelled the aim; it does not also open the menu
+                armed = OffMapAbilityId.None; return;
+            }
             if (mouse != null && mouse.leftButton.wasPressedThisFrame && TryGroundPoint(out var p))
             {
                 Host.Issue(new SimCommand { Tick = Host.Local.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)armed, Pos = new Unity.Mathematics.float3(p.x, 0f, p.z) });
@@ -92,6 +104,7 @@ namespace TW.Presentation.Tactical
         void OnGUI()
         {
             if (Host == null || Host.Local == null) return;
+            if (InputFocus.Modal) return;   // a shell screen is up
             EnsureStyles();
             if (!Visible)
             {

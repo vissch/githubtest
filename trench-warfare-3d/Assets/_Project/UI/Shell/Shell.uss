@@ -1,0 +1,54 @@
+/* Shell layout: where the menu, mission select, pause, settings and debrief put their plates. Skin comes from
+   dustfront.uss; nothing here names a colour or a texture except the backdrop image the code assigns. */
+
+.shell-screen { position: absolute; left: 0; top: 0; right: 0; bottom: 0; align-items: center; justify-content: center; }
+.shell-backdrop { position: absolute; left: -5%; top: -5%; width: 110%; height: 110%; -unity-background-scale-mode: scale-and-crop; background-color: var(--tw-plate-900); }
+.shell-topstrip { position: absolute; left: 0; right: 0; top: 0; }
+.shell-title-block { position: absolute; top: 14%; left: 0; right: 0; align-items: center; }
+.shell-title-block .tw-caption { margin-top: 8px; }
+.shell-menu-stack { position: absolute; left: 50%; top: 42%; translate: -50% 0; flex-direction: column; align-items: stretch; width: 340px; }
+.shell-menu-stack > .tw-btn { margin-bottom: 10px; }
+.shell-bottom-row { position: absolute; left: 0; right: 0; bottom: 36px; flex-direction: row; justify-content: center; }
+.shell-bottom-row > .tw-btn { margin: 0 8px; }
+
+/* mission select */
+.shell-content { position: absolute; left: 80px; right: 80px; top: 80px; bottom: 110px; flex-direction: row; }
+.shell-list-column { width: 420px; margin-right: 24px; }
+.shell-info-column { flex-grow: 1; }
+.shell-info-header { margin-bottom: 8px; }
+.shell-info-stats { white-space: normal; margin: 8px 0; }
+.shell-difficulty { flex-direction: row; margin: 8px 0 4px 0; }
+.shell-seed-row { flex-direction: row; align-items: center; margin-top: 8px; }
+.shell-seed-row > .tw-caption { margin-right: 12px; }
+.shell-seed-row > .tw-field { width: 140px; margin-right: 8px; }
+
+/* pause, settings, debrief plates */
+.shell-plate { min-width: 480px; padding: 24px 32px 20px 32px; align-items: stretch; }
+.shell-plate__title { margin-bottom: 18px; -unity-text-align: middle-center; }
+.shell-plate > .tw-btn { margin-bottom: 8px; }
+.shell-confirm { margin-top: 12px; padding: 12px; align-items: center; }
+.shell-confirm__text { margin-bottom: 10px; -unity-text-align: middle-center; white-space: normal; }
+.shell-confirm__row { flex-direction: row; }
+.shell-confirm__row > .tw-btn { margin: 0 6px; min-width: 120px; }
+.shell-hint { margin-top: 14px; -unity-text-align: middle-center; }
+
+.shell-settings { width: 1100px; height: 760px; }
+.shell-tabs { flex-direction: row; margin-bottom: 10px; }
+.shell-pages { flex-grow: 1; }
+.shell-page { flex-grow: 1; }
+.shell-page > .tw-row { margin-bottom: 4px; }
+.shell-page .tw-slider { flex-grow: 1; }
+.shell-page .tw-dropdown { flex-grow: 1; }
+.shell-note { margin: 8px 12px; }
+.shell-actions { flex-direction: row; justify-content: flex-end; margin-top: 12px; }
+.shell-actions > .tw-btn { margin-left: 8px; min-width: 140px; }
+.shell-section { margin: 12px 12px 4px 12px; }
+.shell-controls-list { max-height: 420px; }
+
+.shell-debrief { width: 820px; }
+.shell-result { flex-direction: row; align-items: center; justify-content: center; margin-bottom: 8px; }
+.shell-result > .tw-stamp { margin-right: 20px; }
+.shell-result-sub { -unity-text-align: middle-center; margin-bottom: 14px; }
+.shell-debrief .tw-table { margin: 6px 0 14px 0; }
+.shell-debrief .tw-table__cell--head { flex-basis: 0; }
+.shell-debrief-meta { flex-direction: row; justify-content: space-between; margin-bottom: 12px; }

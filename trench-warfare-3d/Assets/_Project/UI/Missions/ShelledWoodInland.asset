@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0ea7961dc7a8d0418b22cced06288a6, type: 3}
+  m_Name: ShelledWoodInland
+  m_EditorClassIdentifier: 
+  Id: shelled-wood-inland
+  Title: SHELLED WOOD, INLAND
+  Subtitle: THE RIVER
+  Description: 'The same shattered wood a mile inland: no coast, no boats, reinforcements
+    walk up from the rear.'
+  Thumbnail: {fileID: 0}
+  GeneratedBattlefield: 1
+  PlaytestMap: 1
+  BattlefieldSeed: 1916
+  AllowSeedEdit: 1
+  Bombardment: 8
+  FrontLine: 90 x 240 M
+  MatchSeed: 12648430
+  StartingSilver: 300
+  SilverPerSecond: 2
+  Difficulties:
+  - Name: EASY
+    Blurb: A slow enemy that attacks late and fields no armour or support.
+    PeerDeployEveryTicks: 60
+    PeerAttacks: 1
+    PeerAttackGarrison: 12
+    PeerDeploysTanks: 0
+    PeerUsesSupport: 0
+    PeerSupportReserve: 400
+  - Name: NORMAL
+    Blurb: 'Today''s opponent: deploys every two seconds, attacks at eight men, shells
+      you when it can.'
+    PeerDeployEveryTicks: 40
+    PeerAttacks: 1
+    PeerAttackGarrison: 8
+    PeerDeploysTanks: 0
+    PeerUsesSupport: 1
+    PeerSupportReserve: 180
+  - Name: HARD
+    Blurb: Fast deploys, early attacks, tanks whenever it can afford them.
+    PeerDeployEveryTicks: 28
+    PeerAttacks: 1
+    PeerAttackGarrison: 6
+    PeerDeploysTanks: 1
+    PeerUsesSupport: 1
+    PeerSupportReserve: 120
+  DefaultDifficulty: 1

@@ -312,6 +312,7 @@ namespace TW.Presentation.Tactical
         void OnGUI()
         {
             if (Host == null || Host.Local == null || stripTex == null) return;
+            if (InputFocus.Modal) return;   // a shell screen is up
             EnsureStyles();
             var w = Host.Local.World;
             bool over = w.WinnerTeam >= 0;

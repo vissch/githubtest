@@ -1,0 +1,13 @@
+/* Theme for every runtime panel (PanelSettings.themeStyleSheet). The default theme gives built-in controls their
+   structure and a fallback font; the Dust Front sheet restyles them. The dropdown's popup list is a separate root
+   and only sees theme rules, so its skin lives here rather than in the components sheet. */
+@import url("unity-theme://default");
+@import url("/Assets/_Project/UI/Skin/dustfront.uss");
+
+.unity-base-dropdown__container-outer { background-color: #141416; border-width: 1px; border-color: #6A6D70; border-radius: 0; }
+.unity-base-dropdown__container-inner { background-color: #141416; border-width: 0; }
+.unity-base-dropdown__item { min-height: 30px; padding: 0 12px; color: #C8C9C6; }
+.unity-base-dropdown__item:hover { background-color: rgba(224, 118, 42, 0.35); color: #E8E1D2; }
+.unity-base-dropdown__item:checked { color: #E0762A; }
+.unity-base-dropdown__checkmark { display: none; }
+.unity-base-dropdown__label { -unity-font-style: bold; letter-spacing: 1px; }

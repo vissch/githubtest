@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- The order cluster anchored on one owned trench: [fall back][lock] gap [hold fire][over the top], the garrison
+         count beneath. TrenchOrderCluster positions the root by transform each frame; the gap is the hole the trench
+         shows through (2 x HudLayout.OrderOffPx). -->
+    <ui:VisualElement name="orders" class="hud-orders" picking-mode="Ignore">
+        <ui:VisualElement name="row" class="hud-orders__row" picking-mode="Ignore">
+            <ui:Button name="fallback" class="tw-btn tw-btn--icon hud-orders__btn" text=""><ui:VisualElement name="fallback-icon" class="tw-icon tw-ico-fallback" picking-mode="Ignore" /></ui:Button>
+            <ui:Button name="lock" class="tw-btn tw-btn--icon hud-orders__btn" text=""><ui:VisualElement name="lock-icon" class="tw-icon tw-ico-lock-open" picking-mode="Ignore" /></ui:Button>
+            <ui:VisualElement name="gap" class="hud-orders__gap" picking-mode="Ignore" />
+            <ui:Button name="holdfire" class="tw-btn tw-btn--icon hud-orders__btn" text=""><ui:VisualElement name="holdfire-icon" class="tw-icon tw-ico-fireatwill" picking-mode="Ignore" /></ui:Button>
+            <ui:Button name="advance" class="tw-btn tw-btn--icon hud-orders__btn hud-orders__btn--last" text=""><ui:VisualElement name="advance-icon" class="tw-icon tw-ico-overthetop" picking-mode="Ignore" /></ui:Button>
+        </ui:VisualElement>
+        <ui:Label name="garrison" text="" class="tw-badge hud-orders__count" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

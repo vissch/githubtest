@@ -1,0 +1,349 @@
+{
+    "generator": 2,
+    "files": [
+        {
+            "file": "Icons/ico_arrow_down.png",
+            "sha1": "a8af9338a5ae9b3f0fe49141f336ad87113fd6b1"
+        },
+        {
+            "file": "Icons/ico_arrow_left.png",
+            "sha1": "0f6124d56b6d1fa7a3ec5ff8cb910937e6d2e019"
+        },
+        {
+            "file": "Icons/ico_arrow_right.png",
+            "sha1": "6a7dd12693c4396284dd92a68dc79a22ce902412"
+        },
+        {
+            "file": "Icons/ico_barrage.png",
+            "sha1": "ccd0f4d2f0e5b80308f1fa62c0545ba26350be3d"
+        },
+        {
+            "file": "Icons/ico_bullet.png",
+            "sha1": "1d790e64d54c06928aa80b45f731851919dd20b7"
+        },
+        {
+            "file": "Icons/ico_check.png",
+            "sha1": "3a92930cb217e7bcd4b7429f7df1ba118d2388c5"
+        },
+        {
+            "file": "Icons/ico_clock.png",
+            "sha1": "6a91b9468976d531a70d1372319660ebd8f2bf77"
+        },
+        {
+            "file": "Icons/ico_close.png",
+            "sha1": "d456cc03a9259abfd595719c338146af30d67204"
+        },
+        {
+            "file": "Icons/ico_fallback.png",
+            "sha1": "104db60edea2230a31f0512fdd01cf30feb23f78"
+        },
+        {
+            "file": "Icons/ico_fireatwill.png",
+            "sha1": "7d64b2c77dfa74b8f089ec42286749aecc670131"
+        },
+        {
+            "file": "Icons/ico_gas.png",
+            "sha1": "16d428656487ab7eff53e3bb502c19716d28ddfb"
+        },
+        {
+            "file": "Icons/ico_holdfire.png",
+            "sha1": "9d5b865c1fcc8d2dcdfa8c802e9f6008d67e111e"
+        },
+        {
+            "file": "Icons/ico_key.png",
+            "sha1": "3595d58faa7f7c90dd62d02b12bb0fc3b316fcb4"
+        },
+        {
+            "file": "Icons/ico_lock_closed.png",
+            "sha1": "3fa4b54d91f28dcafaf89bf3a447a87127397faa"
+        },
+        {
+            "file": "Icons/ico_lock_open.png",
+            "sha1": "9a835dda3c53247663a64c8cb28ac3c6016f352a"
+        },
+        {
+            "file": "Icons/ico_men.png",
+            "sha1": "cfca88090b03903baf4dd0d3aaefbd2ad7fadd2b"
+        },
+        {
+            "file": "Icons/ico_mg.png",
+            "sha1": "03cd7f7ad65e97d23aa274a726d88a8d5f36c6ae"
+        },
+        {
+            "file": "Icons/ico_missing.png",
+            "sha1": "80ccbe12fd2a2825abd0ad5da5ec4f32ad5ed7e3"
+        },
+        {
+            "file": "Icons/ico_overthetop.png",
+            "sha1": "aa2f97005d4b9fe99e2109e749221ad1635224b7"
+        },
+        {
+            "file": "Icons/ico_pause.png",
+            "sha1": "aee2afc5dd2fddd24f9cb842573835d9007bda8e"
+        },
+        {
+            "file": "Icons/ico_play.png",
+            "sha1": "09187c7e74ebef41f7de7094c9829268add08c37"
+        },
+        {
+            "file": "Icons/ico_rifle.png",
+            "sha1": "588b0d816e465166ae132279d58f7c6737ff11c3"
+        },
+        {
+            "file": "Icons/ico_settings.png",
+            "sha1": "02f5db9009581e8794430e725222753f6b9bb5ed"
+        },
+        {
+            "file": "Icons/ico_silver.png",
+            "sha1": "d376cff0966c29ebf4c842683e2c68a9a4b038ac"
+        },
+        {
+            "file": "Icons/ico_smg.png",
+            "sha1": "52df03a6cc452cc33c03b1fd6af1dae3c7400ff8"
+        },
+        {
+            "file": "Icons/ico_speed.png",
+            "sha1": "60bee79971dbef01bc5655fc1f99f8d752c02bce"
+        },
+        {
+            "file": "Portraits/Assault.png",
+            "sha1": "25dd7c02871ff8c4999a23e2a822ce2f674d6323"
+        },
+        {
+            "file": "Portraits/Banner.png",
+            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
+        },
+        {
+            "file": "Portraits/Censer.png",
+            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
+        },
+        {
+            "file": "Portraits/ChlorineGas.png",
+            "sha1": "c9079daa811fa588efc2022928d0c9710f10e19e"
+        },
+        {
+            "file": "Portraits/HeBarrage.png",
+            "sha1": "1296da6121dada58cab8fbd46f374e67d06a73a1"
+        },
+        {
+            "file": "Portraits/Kettle.png",
+            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
+        },
+        {
+            "file": "Portraits/MG.png",
+            "sha1": "694ad6b7de1561c36a2f82d431d5b477a5681ff8"
+        },
+        {
+            "file": "Portraits/Maw.png",
+            "sha1": "1f9be7e827ba3f3cf1877741bff1e3981442f544"
+        },
+        {
+            "file": "Portraits/Pavise.png",
+            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
+        },
+        {
+            "file": "Portraits/Pincer.png",
+            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
+        },
+        {
+            "file": "Portraits/Redoubt.png",
+            "sha1": "25dd7c02871ff8c4999a23e2a822ce2f674d6323"
+        },
+        {
+            "file": "Portraits/Rifleman.png",
+            "sha1": "3cadace7d10350e7efa5ecaf6a7a5d72cd573a83"
+        },
+        {
+            "file": "Portraits/Sniper.png",
+            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
+        },
+        {
+            "file": "Portraits/Tusk.png",
+            "sha1": "8555198418c8b8cea4206df0a009e7bf13ae5be4"
+        },
+        {
+            "file": "Sprites/badge.png",
+            "sha1": "7c5db2c2be320b57dab199c68739fe6eefa27ec1"
+        },
+        {
+            "file": "Sprites/banner_ribbon.png",
+            "sha1": "09cc046848f20e5a3544eb87bc04ae79f2926a17"
+        },
+        {
+            "file": "Sprites/bezel_round.png",
+            "sha1": "17301f69c3918668bdd2d2437552a04f37b1128a"
+        },
+        {
+            "file": "Sprites/btn_accent_hover.png",
+            "sha1": "19d764b8f8c49939083d3bc1f0e8c93197e4d090"
+        },
+        {
+            "file": "Sprites/btn_accent_normal.png",
+            "sha1": "9aa3ac20cc3f8829761cf2e36264d8533de1964f"
+        },
+        {
+            "file": "Sprites/btn_accent_pressed.png",
+            "sha1": "c4dd0a0af0e4d588666412c48cd00eda49d206c5"
+        },
+        {
+            "file": "Sprites/card_frame.png",
+            "sha1": "4b021f6618ce1a87c1023ca47d500777e0541620"
+        },
+        {
+            "file": "Sprites/card_nameplate.png",
+            "sha1": "a1cbd0dc2216c1a5f6479cbd39fe09e2f6a85802"
+        },
+        {
+            "file": "Sprites/card_rim.png",
+            "sha1": "6310f8989ac835e1d4794f0308e64b409bfd57c3"
+        },
+        {
+            "file": "Sprites/checkbox_off.png",
+            "sha1": "43ac5b33f3892da67dc0b4c13addf0c8f06fa216"
+        },
+        {
+            "file": "Sprites/checkbox_on.png",
+            "sha1": "41050c7f1dfaf1fab25e4aca59954ff58fc8a9d2"
+        },
+        {
+            "file": "Sprites/cooldown_mask.png",
+            "sha1": "2860743b97632a04bfabde874d2e9163a1f6b5dc"
+        },
+        {
+            "file": "Sprites/dim_vignette.png",
+            "sha1": "1567eee508a2dd116955a6829e80cd8bec8fc4a5"
+        },
+        {
+            "file": "Sprites/divider_h.png",
+            "sha1": "3327661f6418fd9f630f9918a82a40b6c4db987c"
+        },
+        {
+            "file": "Sprites/divider_v.png",
+            "sha1": "18d4a9d489b830114152e10eb46aac0b6e861ef3"
+        },
+        {
+            "file": "Sprites/gauge_window.png",
+            "sha1": "7c5db2c2be320b57dab199c68739fe6eefa27ec1"
+        },
+        {
+            "file": "Sprites/grain_overlay.png",
+            "sha1": "ec992337b29843642d833abc16bec3de502e0174"
+        },
+        {
+            "file": "Sprites/hazard_strip.png",
+            "sha1": "e1d1b6c4ecbb45f3429d9163baacc5b2141ed62c"
+        },
+        {
+            "file": "Sprites/keycap.png",
+            "sha1": "8ff3df2a7c04aefec9e6f0efa3b9c0bacd10623b"
+        },
+        {
+            "file": "Sprites/minimap_frame.png",
+            "sha1": "9dc36603c2a40aa6aca3d3985b8c576fee2752db"
+        },
+        {
+            "file": "Sprites/order_plate_disabled.png",
+            "sha1": "03b098a6469ce964f38f157f2b898dd89f826c74"
+        },
+        {
+            "file": "Sprites/order_plate_hover.png",
+            "sha1": "84ac806b9636f799e1405eccc1a028684f010d4d"
+        },
+        {
+            "file": "Sprites/order_plate_normal.png",
+            "sha1": "7d0e34a09ec99c9fd6d2d38df035c8f3a47da4ed"
+        },
+        {
+            "file": "Sprites/order_plate_pressed.png",
+            "sha1": "c53551f64c7452ae5ebb661a143b54b80faabf16"
+        },
+        {
+            "file": "Sprites/order_round_disabled.png",
+            "sha1": "8d4a19657f1a9fcefd779d1b857b343acefd363a"
+        },
+        {
+            "file": "Sprites/order_round_hover.png",
+            "sha1": "bc94c4bd2e9d1b5ee6693e755d72650cca92a52f"
+        },
+        {
+            "file": "Sprites/order_round_normal.png",
+            "sha1": "273dc3169ca2a255e914bf3be0a79620791b5ee2"
+        },
+        {
+            "file": "Sprites/order_round_pressed.png",
+            "sha1": "0b137090b34117115cd0bbf0055a9e702fdd39f3"
+        },
+        {
+            "file": "Sprites/panel_bg.png",
+            "sha1": "c140f47ec672149ad8dfca15c8c640582b54a5dd"
+        },
+        {
+            "file": "Sprites/plate_disabled.png",
+            "sha1": "3356f81e6fcb043c267652115c348e57d0b77796"
+        },
+        {
+            "file": "Sprites/plate_hover.png",
+            "sha1": "54e3be9353a4d7cdf6cddb56bc03e0a1a0601780"
+        },
+        {
+            "file": "Sprites/plate_normal.png",
+            "sha1": "a5b1faf3ee27797757dae6a6e8fcf200c065efa1"
+        },
+        {
+            "file": "Sprites/plate_pressed.png",
+            "sha1": "350c8256760e7da6cb7f8484ed19e114f6b99541"
+        },
+        {
+            "file": "Sprites/row_plate.png",
+            "sha1": "9a61a8ef419e4911c57fa7493aebc7520a38a2d9"
+        },
+        {
+            "file": "Sprites/scroller_knob.png",
+            "sha1": "77a20c2fc7994c56410ac7b87ed38dd4be6f0d04"
+        },
+        {
+            "file": "Sprites/scroller_track.png",
+            "sha1": "bc4461929d8121ee287edccc45ed133c752a763b"
+        },
+        {
+            "file": "Sprites/slider_fill.png",
+            "sha1": "733529410ccd420d3c630cdbfccf9967981de797"
+        },
+        {
+            "file": "Sprites/slider_knob.png",
+            "sha1": "1bbe536b7d7931a5fbe68f9860795ac580b783a8"
+        },
+        {
+            "file": "Sprites/slider_knob_hover.png",
+            "sha1": "45c5cc9652bac40bca02a52b8a8845b93a036f37"
+        },
+        {
+            "file": "Sprites/slider_track.png",
+            "sha1": "3c2a9552889536c93b0eacb70381812090866c54"
+        },
+        {
+            "file": "Sprites/stamp_defeat.png",
+            "sha1": "a2b1c7503e02a065f8e22c424e2d6f6f0f632bd0"
+        },
+        {
+            "file": "Sprites/stamp_victory.png",
+            "sha1": "691b3cba791bc6a036330db037ed1721cb838a8c"
+        },
+        {
+            "file": "Sprites/tab_plate.png",
+            "sha1": "9a61a8ef419e4911c57fa7493aebc7520a38a2d9"
+        },
+        {
+            "file": "Sprites/tab_plate_selected.png",
+            "sha1": "b331a42486824a13afa87026a010a49141ba12f0"
+        },
+        {
+            "file": "Sprites/title_plate.png",
+            "sha1": "285e0d0eb2b6847e777ebd4e30c2ee9e0f4fb45b"
+        },
+        {
+            "file": "Sprites/tooltip_plate.png",
+            "sha1": "305e43f098058cba4d1700bc49f1bfc58ea924d7"
+        }
+    ]
+}

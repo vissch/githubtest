@@ -22,7 +22,7 @@ namespace TW.Presentation
         }
 
         /// <summary>The compiled-in default: 0 = IMGUI, 1 = Toolkit. Flipped to 1 in step A4 of the UI plan.</summary>
-        public const int DefaultToolkit = 0;
+        public const int DefaultToolkit = 1;
 
         /// <summary>
         /// Is this mouse position (bottom-left origin, as Mouse.current.position reports it) over HUD chrome? The

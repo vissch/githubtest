@@ -1,0 +1,64 @@
+/* Battle HUD layout: where each region sits and how it is laid out inside. Nothing about colour or texture lives
+   here (dustfront.uss), and the UXML carries no positions. The owner's decision keeps today's positions (silver
+   top-left, bar along the bottom, minimap top-right, orders on the trenches); the faithful Dust Front arrangement
+   (left card column, gauge cluster beside the radar, objectives top-left) is a second copy of this sheet. */
+
+.hud-root { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.hud-region { position: absolute; }
+.hud-region--topleft { left: 12px; top: 12px; flex-direction: column; align-items: flex-start; }
+.hud-region--topright { right: 14px; top: 12px; flex-direction: column; align-items: flex-end; }
+.hud-region--bottom { left: 0; right: 0; bottom: 0; height: var(--tw-bar-height); flex-direction: row; justify-content: center; align-items: flex-end; }
+
+/* gauges and objectives, top-left */
+.hud-gauges { padding: 8px 10px 4px 10px; flex-direction: column; }
+.hud-objectives { margin-top: 8px; padding: 6px 10px 8px 10px; min-width: 220px; }
+.hud-objectives__title { margin-bottom: 4px; }
+.hud-objectives__list { flex-direction: column; }
+.hud-objective { flex-direction: row; align-items: center; min-height: 22px; }
+.hud-objective__name { font-size: var(--tw-size-caption); flex-grow: 1; }
+.hud-objective__progress { font-size: var(--tw-size-caption); color: var(--tw-accent); margin-left: 8px; min-width: 40px; -unity-text-align: middle-right; }
+.hud-objectives.is-empty { display: none; }
+
+/* minimap and speed, top-right */
+.hud-bezel { padding: var(--tw-minimap-bezel); background-color: var(--tw-plate-700); }
+.hud-bezel--square { background-image: url("../../Skin/Sprites/minimap_frame.png"); -unity-slice-left: 24; -unity-slice-top: 24; -unity-slice-right: 24; -unity-slice-bottom: 24; -unity-slice-scale: 1px; }
+.hud-bezel--round { background-image: url("../../Skin/Sprites/bezel_round.png"); -unity-background-scale-mode: stretch-to-fill; -unity-slice-left: 0; -unity-slice-top: 0; -unity-slice-right: 0; -unity-slice-bottom: 0; border-radius: 50%; overflow: hidden; }
+.hud-minimap { background-color: var(--tw-plate-900); width: 100px; height: 60px; }   /* size set in code from the map */
+.hud-minimap__layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: stretch-to-fill; }
+.hud-minimap__view { position: absolute; border-width: 2px; border-color: var(--tw-white); width: 8px; height: 6px; }
+.hud-speed { margin-top: 8px; padding: 6px; flex-direction: row; }
+.hud-speed__btn { width: 40px; height: 40px; min-height: 0; padding: 0; margin-left: 4px; font-size: var(--tw-size-caption); }
+.hud-speed__btn > .tw-icon { width: 18px; height: 18px; align-self: center; }
+
+/* the bar, bottom centre */
+.hud-bar { flex-direction: row; align-items: flex-end; padding: 0 var(--tw-bar-inset) 8px var(--tw-bar-inset); height: var(--tw-bar-height); margin-bottom: 0; }
+.hud-group { flex-direction: column; align-items: flex-start; }
+.hud-group__caption { height: 14px; margin: 0 0 2px 2px; font-size: var(--tw-size-micro); }
+.hud-cards { flex-direction: row; }
+/* a gap before every card but each group's first (USS has no :first-child/:last-child; HudView marks the first) */
+.hud-cards > .hud-card-slot { flex-shrink: 0; margin-left: var(--tw-card-gap); }
+.hud-cards > .hud-card-slot.hud-card-slot--first { margin-left: 0; }
+/* a card gap then the divider, as BattleHud laid out its cells: HudLayout.BarWidth counts both */
+.hud-bar__divider { width: var(--tw-bar-divider); margin: 0 0 0 var(--tw-card-gap); height: 78px; background-color: rgba(0, 0, 0, 0); background-image: none; align-items: center; justify-content: center; }
+.hud-card { }
+.hud-tooltip { position: absolute; bottom: 110px; left: 50%; translate: -50% 0; display: none; }
+.hud-tooltip.is-visible { display: flex; }
+.hud-hint { position: absolute; bottom: 108px; left: 0; right: 0; -unity-text-align: middle-center; color: var(--tw-text-bright); display: none; }
+.hud-hint.is-visible { display: flex; }
+
+/* trench order clusters */
+.hud-orders-layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.hud-orders { position: absolute; left: 0; top: 0; flex-direction: column; align-items: center; width: 340px; }
+.hud-orders__row { flex-direction: row; align-items: center; }
+.hud-orders__btn { margin-right: var(--tw-order-gap); }
+.hud-orders__btn.hud-orders__btn--last { margin-right: 0; }   /* USS has no :last-child */
+.hud-orders__btn > .tw-icon { width: 40px; height: 40px; }
+.hud-orders__gap { width: 74px; height: var(--tw-order-btn); }
+.hud-orders__count { margin-top: 4px; }
+.hud-orders.is-hidden { display: none; }
+
+/* banner and pause plate, centre */
+.hud-banner { position: absolute; left: 0; right: 0; top: 12%; align-items: center; display: none; }
+.hud-banner.is-visible { display: flex; }
+.hud-pause-plate { position: absolute; left: 50%; translate: -50% 0; top: 12px; padding: 6px 28px; display: none; }
+.hud-pause-plate.is-visible { display: flex; }

@@ -66,15 +66,17 @@ namespace TW.Presentation.Tactical
             var kb = Keyboard.current;
             if (kb == null) return;
             uint t = Host.Local.World.Tick;
+            if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
+            if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
+            if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
+            if (kb.f4Key.wasPressedThisFrame) ForceCapsules = !ForceCapsules;
+            // the gameplay keys belong to the Toolkit HUD's KeyMap (Space is the tactical pause there) whenever it is the HUD
+            if (HudBridge.UseToolkitHud || !InputFocus.Gameplay) return;
             if (kb.digit1Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 0));
             if (kb.digit2Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 1));
             if (kb.digit3Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 2));
             if (kb.digit4Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 3));
             if (kb.digit5Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 4));
-            if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
-            if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
-            if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
-            if (kb.f4Key.wasPressedThisFrame) ForceCapsules = !ForceCapsules;
             if (kb.spaceKey.wasPressedThisFrame) IssueTrenchOrder(CommandType.TrenchAdvance, 0);
             if (kb.backspaceKey.wasPressedThisFrame) IssueTrenchOrder(CommandType.TrenchFallback, 0);
             if (kb.lKey.wasPressedThisFrame)

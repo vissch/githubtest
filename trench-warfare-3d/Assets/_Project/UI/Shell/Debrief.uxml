@@ -1,0 +1,44 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="../Skin/dustfront.uss" />
+    <Style src="Shell.uss" />
+    <ui:VisualElement name="debrief-screen" class="tw-screen tw-dim shell-screen">
+        <ui:VisualElement name="debrief-plate" class="tw-panel shell-plate shell-debrief">
+            <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
+            <ui:VisualElement class="shell-result">
+                <ui:VisualElement name="stamp" class="tw-stamp" picking-mode="Ignore" />
+                <ui:Label name="result" text="VICTORY" class="tw-display tw-header-window" />
+            </ui:VisualElement>
+            <ui:Label name="result-sub" text="" class="tw-caps shell-result-sub" />
+            <ui:VisualElement name="stats-table" class="tw-table">
+                <ui:VisualElement class="tw-table__head">
+                    <ui:Label text="" class="tw-table__cell tw-table__cell--head" />
+                    <ui:Label text="YOU" class="tw-table__cell tw-table__cell--head tw-table__cell--num" />
+                    <ui:Label text="ENEMY" class="tw-table__cell tw-table__cell--head tw-table__cell--num" />
+                </ui:VisualElement>
+                <ui:VisualElement name="row-men-lost" class="tw-table__row"><ui:Label text="MEN LOST" class="tw-table__cell" /><ui:Label name="men-lost-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="men-lost-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-vehicles-lost" class="tw-table__row tw-table__row--alt"><ui:Label text="MACHINES LOST" class="tw-table__cell" /><ui:Label name="vehicles-lost-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="vehicles-lost-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-men-fielded" class="tw-table__row"><ui:Label text="MEN FIELDED" class="tw-table__cell" /><ui:Label name="men-fielded-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="men-fielded-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-kills" class="tw-table__row tw-table__row--alt"><ui:Label text="KILLS BY RIFLE FIRE" class="tw-table__cell" /><ui:Label name="kills-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="kills-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-shots" class="tw-table__row"><ui:Label text="SHOTS FIRED" class="tw-table__cell" /><ui:Label name="shots-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="shots-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-accuracy" class="tw-table__row tw-table__row--alt"><ui:Label text="ACCURACY" class="tw-table__cell" /><ui:Label name="accuracy-you" text="0%" class="tw-table__cell tw-table__cell--num" /><ui:Label name="accuracy-enemy" text="0%" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-silver-earned" class="tw-table__row"><ui:Label text="SILVER NET" class="tw-table__cell" /><ui:Label name="silver-earned-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="silver-earned-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-silver-left" class="tw-table__row tw-table__row--alt"><ui:Label text="SILVER IN HAND" class="tw-table__cell" /><ui:Label name="silver-left-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="silver-left-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-trenches-taken" class="tw-table__row"><ui:Label text="TRENCHES TAKEN" class="tw-table__cell" /><ui:Label name="trenches-taken-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="trenches-taken-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-trenches-held" class="tw-table__row tw-table__row--alt"><ui:Label text="TRENCHES HELD" class="tw-table__cell" /><ui:Label name="trenches-held-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="trenches-held-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-objectives-held" class="tw-table__row"><ui:Label text="OBJECTIVES HELD" class="tw-table__cell" /><ui:Label name="objectives-held-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="objectives-held-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+                <ui:VisualElement name="row-abilities-fired" class="tw-table__row tw-table__row--alt"><ui:Label text="SUPPORT FIRE CALLED" class="tw-table__cell" /><ui:Label name="abilities-fired-you" text="0" class="tw-table__cell tw-table__cell--num" /><ui:Label name="abilities-fired-enemy" text="0" class="tw-table__cell tw-table__cell--num" /></ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement class="shell-debrief-meta">
+                <ui:Label name="duration" text="" class="tw-mono" />
+                <ui:Label name="seed-line" text="" class="tw-mono tw-muted" />
+            </ui:VisualElement>
+            <ui:VisualElement class="shell-actions">
+                <ui:Button name="btn-replay" text="SAVE REPLAY" class="tw-btn" />
+                <ui:Button name="btn-restart" text="RESTART" class="tw-btn" />
+                <ui:Button name="btn-view-field" text="VIEW THE FIELD" class="tw-btn" />
+                <ui:Button name="btn-continue" text="CONTINUE" class="tw-btn tw-btn--primary" />
+            </ui:VisualElement>
+            <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
