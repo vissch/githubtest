@@ -51,7 +51,20 @@ Players are compiled ahead of time and are not affected.
 
 ## Never mutate a world from an editor eval
 
-`SimHost` runs **two complete sims side by side**, `Local` and `Peer`, over `LoopbackTransport`, and compares their
+**Since 2026-09-23 (perf pass, owner decision) single player runs ONE world.** The enemy seat sends its orders
+through a `CommandSeat` (no world behind it) and its script reads the player's world; `h.Peer` and `h.PeerDriver` are
+**null** unless the determinism canary is on (`SimHost.DeterminismCanary`, `-twCanary`, or `SimHost.CanaryOverride`,
+which the PlayMode gate sets through `Tests/PlayMode/CanaryFixture.cs`). `SinglePlayerEquivalenceTests` holds one
+world, the zero-lag canary and the lossy canary hash-identical every tick. What follows describes the canary, which is
+what every session used to run:
+- Tooling that wrote "both worlds" uses **`h.WriteWorlds(m => ...)`**: it aligns, then writes to every world there is
+  (one or two), and returns false with nothing written while the canary waits on the network. `h.Peer.World...` now
+  throws a NullReferenceException in an ordinary session.
+- The canary compares every tick through a 128-tick hash ring per world (`LockstepSession`), so the "not every tick"
+  caveat below no longer applies to it.
+- An ordinary Play session detects no desync at all; the gate's PlayMode run is where a desync shows.
+
+`SimHost` used to run **two complete sims side by side**, `Local` and `Peer`, over `LoopbackTransport`, and compares their
 hashes (`SimHost.cs:112`, latched at `:114`, logged at `:115`). That is what makes a desync visible in ordinary play
 rather than only in a multiplayer session that does not exist yet.
 
@@ -89,8 +102,8 @@ aligned before its first goal write and not before the two after it, and desynce
 The rule, in full:
 
 1. Prefer a command through `h.Issue`. It needs no alignment and is what the game itself does.
-2. If you must write state directly: write to **both** worlds, **immediately after** a successful `AlignWorlds()`,
-   **before every single write**, and abort on false.
+2. If you must write state directly: `h.WriteWorlds(m => ...)` for every single write, and abort on false. (By hand:
+   write to **every** world, **immediately after** a successful `AlignWorlds()`, **before every single write**.)
 3. Anything else desyncs the session, and every measurement taken afterwards is worthless.
 
 ## The heightfield is not in the compared hash

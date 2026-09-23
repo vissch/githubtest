@@ -1,7 +1,9 @@
 // Phase: P0 (implemented)
-// Runs the match: two MatchSims (local player + a peer) stepped through LockstepDriver over LoopbackTransport
-// so every play session exercises the lockstep path. Cross-checks the two sims' hashes each tick.
-// N2 swaps the peer for a UtpTransport; A6 swaps the scripted peer for WaveAiSystem.
+// Runs the match through the lockstep path (LockstepSession): the player's world stepped by a LockstepDriver, the
+// scripted enemy's orders sent by a seat on the other end of a loopback transport. Single player runs ONE world
+// (owner, 2026-09-23); DeterminismCanary (or -twCanary, or CanaryOverride in tests) runs the old shape instead, a
+// second world for the enemy seat over a lossy loopback with every tick's hash compared, at twice the sim cost.
+// N2 swaps the loopback for a UtpTransport and a real peer; A6 swaps the scripted enemy for WaveAiSystem.
 using UnityEngine;
 using TW.Net;
 using TW.Sim;
@@ -12,7 +14,12 @@ namespace TW.Presentation
     [DefaultExecutionOrder(-100)]
     public sealed class SimHost : MonoBehaviour
     {
-        [Header("Loopback network simulation")]
+        [Header("Determinism canary (dev): a second world for the enemy seat, every tick's hash compared")]
+        [Tooltip("Run the enemy seat on a world of its own and compare hashes every tick. Twice the sim cost; the gate's PlayMode run turns it on.")]
+        public bool DeterminismCanary = false;
+        /// <summary>Tests (PlayMode gate): forces the canary on or off for every SimHost, whatever the scene says.</summary>
+        public static bool? CanaryOverride;
+        [Tooltip("Canary only: the loopback's simulated latency, jitter and loss between the two worlds.")]
         public int LatencyTicks = 2;
         public int JitterTicks = 1;
         [Range(0f, 0.5f)] public float LossChance = 0.05f;
@@ -46,29 +53,31 @@ namespace TW.Presentation
         [Tooltip("Scripted peer shells or gasses your front trench when it can afford it and you have men there.")]
         public bool PeerUsesSupport = true;
         public int PeerSupportReserve = 180;
-        int peerSupportCount;
         [Tooltip("Stress preset: both players start with enough silver to field this many riflemen each, deployed at 4 per tick.")]
         public int StressUnits = 0;
         [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
         public int StressAdvanceDelayTicks = 300;
-        int stressDeployed;
-        uint stressAdvanceTick;
-        bool stressAdvanced;
 
         public MatchSim Local { get; private set; }
+        /// <summary>The canary's second world. NULL in single player: tooling that wrote "both worlds" uses WriteWorlds.</summary>
         public MatchSim Peer { get; private set; }
         public LockstepDriver LocalDriver { get; private set; }
+        /// <summary>The canary's peer driver; null in single player.</summary>
         public LockstepDriver PeerDriver { get; private set; }
+        /// <summary>The world the enemy seat reads: its own in the canary, the player's otherwise (same state, same tick).</summary>
+        public MatchSim EnemyView => session?.EnemyView;
+        public bool CanaryActive => session != null && session.Canary;
         public SimPresenter Presenter { get; private set; }
         /// <summary>The character controller's decision layer (docs/15): what each man's body is doing, from the sim's state and events.</summary>
         public AnimationController Animation { get; private set; }
         [Tooltip("Drive the men's animation rows from the character controller instead of the stance switch.")]
         public bool UseAnimationController = true;
         public EventPump Events { get; } = new EventPump();
-        public bool Desync { get; private set; }
+        public bool Desync => session != null && session.Desync;
         public float Alpha { get; private set; }
 
-        LoopbackNetwork net;
+        LockstepSession session;
+        readonly ScriptedEnemy enemy = new ScriptedEnemy();
         float accumulator;
         float animTime;
 
@@ -92,11 +101,9 @@ namespace TW.Presentation
             cfg.Seed = Seed;
             cfg.StartingSilver = StressUnits > 0 ? StressUnits * 25 : StartingSilver;
             cfg.SilverPerSecond = SilverPerSecond;
-            Local = NewMatch(cfg);
-            Peer = NewMatch(cfg);
-            net = new LoopbackNetwork(LatencyTicks, JitterTicks, LossChance, Seed);
-            LocalDriver = new LockstepDriver(Local.World, net.A);
-            PeerDriver = new LockstepDriver(Peer.World, net.B);
+            bool canary = CanaryOverride ?? (DeterminismCanary || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twCanary") >= 0);
+            session = new LockstepSession(() => NewMatch(cfg), canary, LatencyTicks, JitterTicks, LossChance, Seed);
+            Local = session.Local; Peer = session.Peer; LocalDriver = session.LocalDriver; PeerDriver = session.PeerDriver;
             Presenter = new SimPresenter(cfg.MaxSlots);
             Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn, Presenter.YawIn);
             Presenter.Capture(Local.World);
@@ -110,20 +117,9 @@ namespace TW.Presentation
             int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
             while (accumulator >= tick && guard-- > 0)
             {
-                PerfMarkers.HostEnemyAi.Begin(); IssuePeerCommands(); PerfMarkers.HostEnemyAi.End();
-                PerfMarkers.HostStepLocal.Begin(); bool a = LocalDriver.TryStep(); PerfMarkers.HostStepLocal.End();
-                PerfMarkers.HostStepPeer.Begin(); bool b = PeerDriver.TryStep(); PerfMarkers.HostStepPeer.End();
-                if (a)
-                {
-                    PerfMarkers.PresentCapture.Begin(); Presenter.Capture(Local.World); PerfMarkers.PresentCapture.End();
-                    PerfMarkers.AnimTick.Begin(); Animation.Tick(Local.World); PerfMarkers.AnimTick.End();
-                    PerfMarkers.EventsCollect.Begin(); Events.Collect(Local.World); PerfMarkers.EventsCollect.End();
-                }
-                if (a && b && Local.World.Tick == Peer.World.Tick && Local.World.LastHash != Peer.World.LastHash && !Desync)
-                {
-                    Desync = true;
-                    Debug.LogError($"DESYNC at tick {Local.World.Tick}: local {Local.World.LastHash:X16} peer {Peer.World.LastHash:X16}");
-                }
+                SyncEnemy();
+                bool a = session.StepOnce(enemy);
+                if (a) LocalStepped();
                 if (a) accumulator -= tick; else break; // stalled: wait for frames without burning time
             }
             Alpha = Mathf.Clamp01(accumulator / tick);
@@ -141,104 +137,40 @@ namespace TW.Presentation
         /// <summary>Tooling (TankCapture): between frames the two lockstep worlds can be a tick apart, so a change made
         /// to both at once would land on different ticks and desync them. This steps the one behind until they match;
         /// false when it is waiting on the network.</summary>
-        public bool AlignWorlds()
+        public bool AlignWorlds() => session.AlignWorlds(LocalStepped);
+
+        /// <summary>Tooling: write the same change into every world the match has (one in single player, two in the
+        /// canary), aligned to the same tick first. False, with nothing written, while the canary waits on the network.
+        /// This replaces writing `h.Local.World...` and `h.Peer.World...` by hand, which throws when there is no peer.</summary>
+        public bool WriteWorlds(System.Action<MatchSim> write)
         {
-            for (int k = 0; k < 8 && Local.World.Tick != Peer.World.Tick; k++)
-            {
-                if (Local.World.Tick < Peer.World.Tick)
-                {
-                    if (!LocalDriver.TryStep()) return false;
-                    Presenter.Capture(Local.World); Animation.Tick(Local.World); Events.Collect(Local.World);
-                }
-                else if (!PeerDriver.TryStep()) return false;
-            }
-            return Local.World.Tick == Peer.World.Tick;
+            if (!AlignWorlds()) return false;
+            write(Local);
+            if (Peer != null) write(Peer);
+            return true;
         }
 
-        void IssuePeerCommands()
+        /// <summary>What the presentation does with every tick the player's world steps.</summary>
+        void LocalStepped()
         {
-            if (!ScriptedPeer) return;
-            uint t = Peer.World.Tick;
-            if (t % (uint)PeerDeployEveryTicks == 0)
-            {
-                // keep a reserve for support fire once the first squad is out; silver is the only brake on the script
-                int slot = (int)(t / (uint)PeerDeployEveryTicks) % 3;
-                int cost = Peer.World.Roster[RosterEntry.SlotCount + slot].Cost;
-                int reserve = PeerUsesSupport && Peer.World.AliveCount > 0 && t > 600 ? PeerSupportReserve : 0;
-                if (Peer.World.Silver[1] >= cost + reserve) PeerDriver.Issue(SimCommand.Deploy(t, 1, slot));
-            }
-            if (PeerDeploysTanks && t % 100 == 70)
-            {
-                var pw = Peer.World;
-                int ri = RosterEntry.SlotCount + 4;
-                if (pw.SlotCooldown[ri] == 0 && pw.Silver[1] >= pw.Roster[ri].Cost) PeerDriver.Issue(SimCommand.Deploy(t, 1, 4));
-            }
-            if (t % 100 == 20)
-            {
-                // every trench behind the front is locked so reinforcements walk through to the front line
-                short front = Peer.Fields.FrontTrench(1);
-                for (int k = 0; k < Peer.Fields.Trenches.Length; k++)
-                {
-                    var ts = Peer.Fields.Trenches[k];
-                    if (ts.OwnerTeam != 1) continue;
-                    byte want = (byte)(k != front ? 1 : 0);
-                    if (ts.Locked != want) PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchLock, A = k, B = want });
-                    if (k != front && ts.GarrisonCount > 0) PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = k });
-                }
-            }
-            if (PeerAttacks && t % 100 == 50)
-            {
-                short front = Peer.Fields.FrontTrench(1);
-                if (front >= 0 && Peer.Fields.Trenches[front].GarrisonCount >= PeerAttackGarrison)
-                    PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = front });
-            }
-            if (PeerUsesSupport && t % 200 == 150 && Peer.Abilities != null)
-            {
-                short mine = Peer.Fields.FrontTrench(0);
-                var ability = (peerSupportCount & 1) == 0 ? OffMapAbilityId.HeBarrage : OffMapAbilityId.ChlorineGas;
-                if (mine >= 0 && Peer.Fields.Trenches[mine].GarrisonCount >= 6 && Peer.Abilities.CooldownOf(1, ability) == 0
-                    && OffMapAbilitySystem.TryGetStats((int)ability, out var stats) && Peer.World.Silver[1] >= stats.Cost + 20)
-                {
-                    var pw = Peer.World;
-                    Vector3 sum = Vector3.zero; int n = 0;
-                    for (int i = 0; i < pw.HighWater; i++)
-                        if (pw.IsAlive(i) && pw.TrenchId[i] == mine) { sum += (Vector3)pw.Position[i]; n++; }
-                    if (n > 0)
-                    {
-                        sum /= n;
-                        // gas is released upwind (the map wind blows toward -Z) so the cloud rolls over the trench
-                        float dz = ability == OffMapAbilityId.ChlorineGas ? 12f : 0f;
-                        PeerDriver.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.SupportFire, A = (int)ability, Pos = new Unity.Mathematics.float3(sum.x, 0f, sum.z + dz) });
-                        peerSupportCount++;
-                    }
-                }
-            }
-            if (StressUnits > 0)
-            {
-                if (stressDeployed < StressUnits)
-                {
-                    for (int k = 0; k < 4 && stressDeployed < StressUnits; k++, stressDeployed++)
-                    {
-                        PeerDriver.Issue(SimCommand.Deploy(t, 1, 0));
-                        LocalDriver.Issue(SimCommand.Deploy(t, 0, 0));
-                    }
-                    stressAdvanceTick = t + (uint)StressAdvanceDelayTicks;
-                }
-                else if (!stressAdvanced && t >= stressAdvanceTick)
-                {
-                    stressAdvanced = true;
-                    short front0 = Local.Fields.FrontTrench(0), front1 = Peer.Fields.FrontTrench(1);
-                    if (front0 >= 0) LocalDriver.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = front0 });
-                    if (front1 >= 0) PeerDriver.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = front1 });
-                }
-            }
+            PerfMarkers.PresentCapture.Begin(); Presenter.Capture(Local.World); PerfMarkers.PresentCapture.End();
+            PerfMarkers.AnimTick.Begin(); Animation.Tick(Local.World); PerfMarkers.AnimTick.End();
+            PerfMarkers.EventsCollect.Begin(); Events.Collect(Local.World); PerfMarkers.EventsCollect.End();
+        }
+
+        /// <summary>The scripted enemy's knobs are the serialized fields above (the test panel flips them at runtime).</summary>
+        void SyncEnemy()
+        {
+            enemy.Enabled = ScriptedPeer; enemy.DeployEveryTicks = PeerDeployEveryTicks; enemy.Attacks = PeerAttacks;
+            enemy.DeploysTanks = PeerDeploysTanks; enemy.AttackGarrison = PeerAttackGarrison; enemy.UsesSupport = PeerUsesSupport;
+            enemy.SupportReserve = PeerSupportReserve; enemy.StressUnits = StressUnits; enemy.StressAdvanceDelayTicks = StressAdvanceDelayTicks;
         }
 
         /// <summary>Entry point for UI and debug input: queue a command for the local player.</summary>
         public void Issue(SimCommand c) => LocalDriver.Issue(c);
 
-        /// <summary>Test panel only: queue a command as the peer (player 1), so the greybox can stage an enemy assault.</summary>
-        public void IssuePeer(SimCommand c) => PeerDriver.Issue(c);
+        /// <summary>Test panel only: queue a command as the enemy seat (player 1), so the greybox can stage an enemy assault.</summary>
+        public void IssuePeer(SimCommand c) => session.Enemy.Issue(c);
 
         /// <summary>Reload the active scene: fresh sims, same seed.</summary>
         public void Restart() => UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.buildIndex >= 0 ? gameObject.scene.buildIndex : 0);
@@ -247,8 +179,7 @@ namespace TW.Presentation
         {
             Presenter?.Dispose();
             Animation?.Dispose();
-            Local?.Dispose();
-            Peer?.Dispose();
+            session?.Dispose();
         }
     }
 }

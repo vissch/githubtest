@@ -459,3 +459,30 @@ paid twice. Both are the next two changes. Also measured: at ~1,800 men in view 
 over `LodTiers.VertexBudget`, so **the men's shadows are already off** in this battle — GPU savings buy fidelity back.
 
 Still editor numbers. The Windows build path exists (`Editor/BuildWindows.cs`); its first measurement is next.
+
+### One world in single player (same day)
+
+Owner decision: single player stops simulating the match twice; the two-world cross-check stays as an opt-in
+**determinism canary** (`SimHost.DeterminismCanary`, `-twCanary`, on for the whole PlayMode gate). The enemy's seat
+became a `CommandSeat`, which sends player 1's orders on the loopback with no world behind it; the scripted enemy
+(`ScriptedEnemy`, out of SimHost) reads the player's world; the world skips its full-state hash when nobody compares it
+(`SimWorld.HashInterval = 0`); the tick loop lives in `LockstepSession`, which a test can drive.
+
+Two faults in the old loop surfaced on the way, both of which made the enemy's orders depend on network timing:
+the scripted peer re-ran at the same tick whenever the loopback stalled it (a second deploy; a barrage *and* gas on
+the support tick), and the stress preset timed the PLAYER's deploys by the PEER's tick. The first benchmark of the
+one-world build measured a different battle from the canary (different `hash_start`), which is how the second was
+found; `SinglePlayerEquivalenceTests` now plays one match three ways (one world, zero-lag canary, lossy canary, stress
+preset included) and holds all three hash-identical every tick.
+
+Same battle, `hash_start` 252EA3E1DA8F7314 in both columns (editor, 1,500 a side, ticks 1800–2200):
+
+| | canary (two worlds, as every session ran) | one world |
+|---|---|---|
+| `TW.Sim.Step` per tick | 21.4 ms | **10.3 ms** |
+| `TW.Host.Update` per tick | 25.7 ms | 15.9 ms |
+| Main thread p50 / p95 / p99 | 8.8 / 33.8 / 61.2 ms | **6.2 / 21.7 / 31.9 ms** |
+| Frames over 33 ms (of ~1,300) | 64+ (the cap) | 20 |
+| Mean fps (editor) | 64.7 | 93.2 |
+
+`TrenchGarrisonSystem` is now 8.0 of the 10.3 ms left in a tick, and is next.

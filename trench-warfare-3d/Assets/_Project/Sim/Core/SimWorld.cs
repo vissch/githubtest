@@ -58,6 +58,11 @@ namespace TW.Sim
         public SimEventBuffer Events;   // transient (not hashed)
         public NativeList<SimCommand> TickCommands; // sorted commands for the current tick (transient)
         public ulong LastHash;
+        /// <summary>Which ticks compute the full-state hash into LastHash: 1 every tick (the default, and what replays,
+        /// the lockstep canary and the determinism tests need), N every Nth, 0 never (LastHash stays 0). Nothing in the
+        /// sim reads the hash, so skipping it changes no state and no later hash; single player skips it because
+        /// nobody compares it there (it was 1.4 ms a tick across two worlds at 1,500 a side, 2026-09-23).</summary>
+        public int HashInterval = 1;
         public bool UsePhase0Movement = true;   // replaced by TW.Sim.Nav.MovementSystem in A1
 
         readonly List<ISimSystem> systems = new List<ISimSystem>();
@@ -186,9 +191,13 @@ namespace TW.Sim
             }
             if (UsePhase0Movement) StepPhase0Movement();
             Tick++;
-            PerfMarkers.SimHash.Begin();
-            LastHash = Hash();
-            PerfMarkers.SimHash.End();
+            if (HashInterval > 0 && Tick % (uint)HashInterval == 0)
+            {
+                PerfMarkers.SimHash.Begin();
+                LastHash = Hash();
+                PerfMarkers.SimHash.End();
+            }
+            else LastHash = 0UL;
         }
 
         void SortCommands(NativeArray<SimCommand> commands)

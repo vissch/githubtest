@@ -56,6 +56,7 @@ namespace TW.Perf
             if (string.IsNullOrEmpty(raw)) return;
             var o = BenchOptions.Parse(raw);
             SimHost.StressOverride = o.Stress;
+            if (o.Canary >= 0) SimHost.CanaryOverride = o.Canary == 1;
             BootstrapLoader.Override = MatchLaunch.BattleScene;   // a player boots straight into the battle
             var go = new GameObject("PerfBench");
             DontDestroyOnLoad(go);
@@ -354,6 +355,7 @@ namespace TW.Perf
             Atmosphere.PinnedClock = -1f;
             EventPump.ProfileSubscribers = false;
             SimHost.StressOverride = -1;
+            if (Options.Canary >= 0) SimHost.CanaryOverride = null;
             if (tactical != null) tactical.enabled = true;
             if (host != null) host.TimeScale = 1f;
             LastResultPath = path; LastExitCode = code;

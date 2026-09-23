@@ -28,6 +28,9 @@ namespace TW.Perf
         public float Zoom = 30f, Yaw = 21f, Pitch = 25f;
         /// <summary>Time every EventPump subscriber under its own marker (costs ~2 marker calls per event per subscriber).</summary>
         public bool Subscribers;
+        /// <summary>1 runs the determinism canary (two worlds, every tick hashed and compared), 0 forces one world, -1 leaves
+        /// the scene's setting: the before and after of the one-world change, on the same battle.</summary>
+        public int Canary = -1;
         public string Label = "run";
         public string Out = "perf.json";
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
@@ -59,6 +62,7 @@ namespace TW.Perf
                     case "yaw": o.Yaw = F(v, o.Yaw); break;
                     case "pitch": o.Pitch = F(v, o.Pitch); break;
                     case "subs": o.Subscribers = v == "1" || v.ToLowerInvariant() == "true"; break;
+                    case "canary": o.Canary = I(v, o.Canary); break;
                     case "label": o.Label = v; break;
                     case "out": o.Out = v; break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;

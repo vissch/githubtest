@@ -123,7 +123,7 @@ namespace TW.Presentation.Tactical
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Hide", GUILayout.Width(50))) Visible = false;
             GUILayout.EndHorizontal();
-            GUILayout.Label($"tick {w.Tick}   {w.Tick * w.Config.TickSeconds:0}s   alive {w.AliveCount}   {(Host.Desync ? "DESYNC" : "in sync")}", small);
+            GUILayout.Label($"tick {w.Tick}   {w.Tick * w.Config.TickSeconds:0}s   alive {w.AliveCount}   {(Host.Peer == null ? "one world" : Host.Desync ? "DESYNC" : "in sync")}", small);
             GUILayout.Label($"You: {w.Silver[0]} silver   Enemy: {w.Silver[1]} silver", small);
             var fire = Host.Local.Fire;
             if (fire != null) GUILayout.Label($"Kills  you {fire.Kills[0]}  enemy {fire.Kills[1]}     shots {fire.Shots[0]} / {fire.Shots[1]}", small);
@@ -218,8 +218,8 @@ namespace TW.Presentation.Tactical
             GUILayout.Label("Enemy (scripted peer)", header);
             Host.ScriptedPeer = GUILayout.Toggle(Host.ScriptedPeer, " auto-deploy a unit every " + (Host.PeerDeployEveryTicks * w.Config.TickSeconds).ToString("0") + " s");
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Enemy deploy 5")) for (int k = 0; k < 5; k++) Host.IssuePeer(SimCommand.Deploy(Host.Peer.World.Tick, 1, 0));
-            if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.Peer.World.Tick, 1, 4));
+            if (GUILayout.Button("Enemy deploy 5")) for (int k = 0; k < 5; k++) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 0));
+            if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 4));
             GUILayout.EndHorizontal();
             Host.PeerDeploysTanks = GUILayout.Toggle(Host.PeerDeploysTanks, " sends a tank whenever it can afford one");
             Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own with {Host.PeerAttackGarrison}+ men");
@@ -272,7 +272,7 @@ namespace TW.Presentation.Tactical
         {
             var c = new SimCommand { Type = type, A = trench, B = b, Player = player };
             if (player == 0) { c.Tick = Host.Local.World.Tick; Host.Issue(c); }
-            else { c.Tick = Host.Peer.World.Tick; Host.IssuePeer(c); }
+            else { c.Tick = Host.EnemyView.World.Tick; Host.IssuePeer(c); }
         }
 
         int lastTank = -1;

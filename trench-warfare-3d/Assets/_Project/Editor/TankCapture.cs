@@ -70,7 +70,7 @@ namespace TW.Editor
         {
             var h = Host; if (h == null) return "no SimHost";
             if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
-            for (int p = 0; p < SimConfig.MaxPlayers; p++) { h.Local.World.Silver[p] = amount; h.Peer.World.Silver[p] = amount; }
+            h.WriteWorlds(m => { for (int p = 0; p < SimConfig.MaxPlayers; p++) m.World.Silver[p] = amount; });   // one world, or both in the canary
             return "silver " + amount;
         }
 
@@ -89,8 +89,8 @@ namespace TW.Editor
                 archetype == VehicleArchetype.Pavise ? RosterEntry.Pavise :
                 h.Local.World.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
             int a = h.Local.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
-            int b = h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
-            if (yawDeg > -900f) { h.Local.World.Yaw[a] = yawDeg * Mathf.Deg2Rad; h.Peer.World.Yaw[b] = yawDeg * Mathf.Deg2Rad; }
+            int b = h.Peer != null ? h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle) : a;   // the canary's second world, when it runs
+            if (yawDeg > -900f) { h.Local.World.Yaw[a] = yawDeg * Mathf.Deg2Rad; if (h.Peer != null) h.Peer.World.Yaw[b] = yawDeg * Mathf.Deg2Rad; }
             return a == b ? "slot " + a : $"MISMATCH local {a} peer {b}";
         }
 
@@ -99,7 +99,7 @@ namespace TW.Editor
         {
             var h = Host; if (h == null || h.Local.Modules == null) return "no modules";
             if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
-            h.Local.Modules.Fire[slot] = fire; h.Peer.Modules.Fire[slot] = fire;
+            h.WriteWorlds(m => m.Modules.Fire[slot] = fire);
             return "fire " + fire;
         }
 

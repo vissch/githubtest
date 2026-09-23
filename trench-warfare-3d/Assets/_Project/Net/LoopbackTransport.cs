@@ -60,8 +60,15 @@ namespace TW.Net
             {
                 if (inbox[i].DeliverAtTick <= now) { into.Add(inbox[i].Frame); inbox.RemoveAt(i); }
             }
-            // keep arrival order stable for the driver (it sorts by tick/player anyway)
-            into.Sort((x, y) => x.Tick != y.Tick ? x.Tick.CompareTo(y.Tick) : x.Player.CompareTo(y.Player));
+            // keep arrival order stable for the driver (it sorts by tick/player anyway). A static comparer, and no sort
+            // for one frame: List.Sort(Comparison) wrapped the lambda in a new comparer on every call.
+            if (into.Count > 1) into.Sort(ByTickThenPlayer.Instance);
+        }
+
+        sealed class ByTickThenPlayer : IComparer<CommandFrame>
+        {
+            public static readonly ByTickThenPlayer Instance = new ByTickThenPlayer();
+            public int Compare(CommandFrame x, CommandFrame y) => x.Tick != y.Tick ? x.Tick.CompareTo(y.Tick) : x.Player.CompareTo(y.Player);
         }
 
         /// <summary>Delivery delay is counted in pump calls (driver updates), not sim ticks, so a stalled peer still receives frames.</summary>

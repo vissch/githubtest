@@ -177,7 +177,7 @@ namespace TW.Presentation.Tactical
             }
             string trenches = line.ToString();
             GUI.Label(new Rect(340, 58, Screen.width - 460, 200),
-                $"tick {w.Tick}  hash {w.LastHash:X16}  alive {w.AliveCount}  silver P0 {w.Silver[0]} P1 {w.Silver[1]}\n" +
+                $"tick {w.Tick}  hash {(Host.Peer == null ? "off (one world)" : w.LastHash.ToString("X16"))}  alive {w.AliveCount}  silver P0 {w.Silver[0]} P1 {w.Silver[1]}\n" +
                 $"stall {Host.LocalDriver.StallTicks}  desync {(Host.Desync ? "YES" : "no")}  events/frame {Host.Events.Frame.Count}  overrun {Host.Events.OverrunTotal}\n" +
                 $"goals {fields.GoalCount}  viewing {(g >= 0 ? fields.Goals[g].ToString() : "-")}   {trenches}\n" +
                 "1-5 deploy   Space >> advance   Backspace fallback   L lock   F1 flow field   F2 stats   F3 next goal   WASD pan   wheel zoom   Q/E rotate");
