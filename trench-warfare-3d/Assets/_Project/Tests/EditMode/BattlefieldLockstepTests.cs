@@ -296,6 +296,87 @@ namespace TW.Tests
         }
 
         /// <summary>
+        /// Two lockstep worlds through a DEATH, and out the other side into slot reuse.
+        ///
+        /// Every other lockstep test in this repo runs a world that only grows. None of them kills enough men for
+        /// a slot to be freed and handed out again - and slot reuse is the one place where two peers can disagree
+        /// about WHICH unit they mean rather than about a value.
+        ///
+        /// The mechanism is a stack: SimWorld.Spawn takes freeSlots[Length - 1] and pops it when the list is not
+        /// empty, extending HighWater only when it is. So the identity of the next man deployed depends on the
+        /// order deaths were retired in. Two peers that kill the same men in a different order diverge in no
+        /// single array - they diverge in who is in slot 41 - and every existing test would stay green until
+        /// those two men did something different. Generation exists because that hazard is real.
+        ///
+        /// The scenario is asserted as well as the agreement. A run that killed nobody would pass the hash
+        /// comparison perfectly and prove nothing, which is the same failure as an idle world agreeing about
+        /// nothing; so this requires men to have died AND a slot to have come back out, the latter detected by
+        /// Generation reaching 2 rather than by a count that silence would satisfy.
+        /// </summary>
+        [Test]
+        public void TwoWorldsStayInSync_ThroughDeathsAndTheReuseOfTheirSlots()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            var field = BattlefieldParams.ShelledForest(SceneSeed);
+            using var a = MatchSim.CreateBattlefield(cfg, field);
+            using var b = MatchSim.CreateBattlefield(cfg, field);
+            Assert.AreEqual(a.World.LastHash, b.World.LastHash, "the two worlds do not even start equal");
+
+            // Men standing in no man's land, which is where the ambient shells fall (AmbientBombardment aims at the
+            // band between the front lines). Both worlds are seeded identically, by the same loop, in the same order.
+            void Seed(MatchSim m, int wave)
+            {
+                for (int k = 0; k < 12; k++)
+                {
+                    float x = 14f + (k % 6) * 11f, z = 96f + (k / 6) * 9f + wave * 3f;
+                    m.World.Spawn((byte)(k & 1), 0, new float3(x, 0f, z), 100f, 1.2f, false);
+                }
+            }
+
+            var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            int peakAlive = 0;
+            try
+            {
+                for (int wave = 0; wave < 6; wave++)
+                {
+                    Seed(a, wave); Seed(b, wave);
+                    for (int t = 0; t < 500; t++)
+                    {
+                        a.Step(none); b.Step(none);
+                        peakAlive = math.max(peakAlive, a.World.AliveCount);
+                        if (a.World.LastHash == b.World.LastHash) continue;
+                        Assert.Fail($"deaths and reuse: the two lockstep worlds diverged at tick {a.World.Tick}. " +
+                                    $"First state that differs: {FirstDifference(a.World, b.World)}. " +
+                                    $"local {a.World.LastHash:X16} peer {b.World.LastHash:X16}");
+                    }
+                }
+            }
+            finally { none.Dispose(); }
+
+            SameGround(a, b, "deaths and reuse");
+
+            // the scenario, not just the agreement
+            int highestGeneration = 0, alive = 0;
+            for (int i = 0; i < a.World.HighWater; i++)
+            {
+                highestGeneration = math.max(highestGeneration, a.World.Generation[i]);
+                if ((a.World.Flags[i] & (uint)UnitFlags.Alive) != 0) alive++;
+            }
+            // One full wave alive at once, which is a structural floor (12 are seeded at a time) rather than a
+            // number fitted to what the run happened to produce. 72 men are seeded over six waves and the peak
+            // observed is about 36, which is itself the point: the shells retire men faster than the waves
+            // arrive, and that is what puts slots back on freeSlots to be handed out again.
+            Assert.GreaterOrEqual(peakAlive, 12,
+                $"only {peakAlive} men were ever alive at once out of 72 seeded, so the field was never populated");
+            Assert.Less(alive, peakAlive,
+                $"nobody died in 3000 ticks ({alive} alive against a peak of {peakAlive}), so this ran a world that " +
+                "only grows and proves exactly what the tests it was written to complement already proved");
+            Assert.GreaterOrEqual(highestGeneration, 2,
+                $"no slot was ever handed out twice (highest Generation {highestGeneration}), so freeSlots was never " +
+                "popped and the reuse path this test exists for was not exercised");
+        }
+
+        /// <summary>
         /// A SECOND battlefield seed. This replaced a greybox "control", which earned nothing: LockstepLoopbackTests
         /// already runs the greybox with two peers, commands and a lossy transport for 1000 ticks, which is strictly
         /// more. Seed 1917 was the only battlefield configuration any lockstep test had ever run, so a generator
