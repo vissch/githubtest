@@ -176,6 +176,17 @@ def wait_until_free(timeout: float = 1800, every: float = 10, root: Path | None 
         time.sleep(every)
 
 
+#: A Unity above this is doing real work; below it the process is a helper, or one that is dying and has not left
+#: the task list yet. Only ever used to LABEL the diagnostics - never to decide whether the project is free.
+BIG_MB = 200
+
+
+def likely_holder(procs: list[dict]) -> dict | None:
+    """The biggest Unity, if any is big enough to be the one holding the project. Advisory."""
+    big = [p for p in procs if p.get("mb", 0) >= BIG_MB]
+    return max(big, key=lambda p: p.get("mb", 0)) if big else None
+
+
 def describe(root: Path) -> str:
     r = probe(root)
     lines = ["%s: %s" % (r["state"].upper(), r["detail"])]
@@ -183,7 +194,19 @@ def describe(root: Path) -> str:
     if procs:
         lines.append("  Unity.exe processes (diagnostics only, not the verdict):")
         for p in sorted(procs, key=lambda x: -x.get("mb", 0)):
-            lines.append("    pid %-7s %5s MB%s" % (p.get("pid"), p.get("mb"), "  [batch run]" if p.get("batch") else ""))
+            if p.get("mb", 0) < BIG_MB:
+                what = ""
+            elif p.get("batch"):
+                what = "  [batch run - ends on its own]"
+            else:
+                what = "  [interactive editor - someone is working in it]"
+            lines.append("    pid %-7s %5s MB%s" % (p.get("pid"), p.get("mb"), what))
+        # The two mean very different waits, and it is worth saying so rather than leaving it to be inferred from
+        # the absence of a marker. A batch run is over in minutes. An interactive editor may be open for an hour,
+        # and it may be the OWNER playing the game - in which case nobody should be queueing behind it at all.
+        h = likely_holder(procs)
+        if r["state"] == HELD and h is not None and not h.get("batch"):
+            lines.append("  -> an interactive editor, not a test run: waiting may not end. Ask whose it is.")
     s = read_slot()
     if s:
         mins = max(0, int((s["until"] - time.time()) / 60))
@@ -215,6 +238,13 @@ def main(argv: list[str]) -> int:
         return 1 if st["state"] == HELD else 2
 
     if a.cmd == "wait":
+        # Say up front if the thing being waited on will not end by itself, so a script does not sit out its whole
+        # timeout in silence behind someone who is working - or behind the owner playing the game.
+        if probe(root)["state"] == HELD:
+            h = likely_holder(holders())
+            if h is not None and not h.get("batch"):
+                print("editor_lock: waiting on an INTERACTIVE editor (pid %s, %s MB), which may not end on its own."
+                      % (h.get("pid"), h.get("mb")), file=sys.stderr)
         if wait_until_free(a.timeout, a.every, root):
             print("free")
             return 0
