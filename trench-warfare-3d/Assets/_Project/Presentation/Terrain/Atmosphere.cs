@@ -19,9 +19,14 @@ namespace TW.Presentation.Terrain
     public sealed class Atmosphere : MonoBehaviour
     {
         public enum Mood { OvercastDay, Night }
-        [Tooltip("Applied in Start: Night overwrites the colour and light fields below with the night set.")]
+        [Tooltip("Legacy. Field chooses the battlefield now; this is kept so old scenes deserialize and is overwritten in Start.")]
         public Mood Look = Mood.Night;
         public static Mood Current { get; private set; }
+
+        [Tooltip("Which battlefield this is (docs/18). NightMud reproduces the old night set exactly.")]
+        public Biome Field = Biome.NightMud;
+        /// <summary>What this battlefield is made of. Read by the terrain, the weather and the effects. Never null after Start.</summary>
+        public static BiomeProfile Profile { get; private set; } = BiomeProfile.NightMud();
         [Header("Mood")]
         public Color ShadeTint = Color.white;
         public Color SkyMirror = new Color(0.60f, 0.61f, 0.60f);
@@ -80,27 +85,64 @@ namespace TW.Presentation.Terrain
         static readonly int ShadeTintId = Shader.PropertyToID("_TWShadeTint"), SkyId = Shader.PropertyToID("_TWSky"), WetId = Shader.PropertyToID("_TWWet");
         static readonly int WindId = Shader.PropertyToID("_TWWind");
         static readonly int FieldId = Shader.PropertyToID("_TWField"), FieldFogId = Shader.PropertyToID("_TWFieldFog"), FieldFogColorId = Shader.PropertyToID("_TWFieldFogColor");
+        static readonly int SnowId = Shader.PropertyToID("_TWSnow"), SnowColorId = Shader.PropertyToID("_TWSnowColor");
+        static readonly int HeatId = Shader.PropertyToID("_TWHeat"), HeatColorId = Shader.PropertyToID("_TWHeatColor");
+        static readonly int GroundLightId = Shader.PropertyToID("_TWGroundLight");
 
-        void ApplyNight()
+        /// <summary>
+        /// Copy a battlefield's profile into the fields this component drives. This replaces ApplyNight, which
+        /// assigned the same nineteen values by literal; the values for NightMud are byte-for-byte the ones it used,
+        /// so the night field is unchanged by the profile existing. Private because several of the grade fields are.
+        /// </summary>
+        void Apply(BiomeProfile p)
         {
-            Haze = new Color(0.075f, 0.105f, 0.17f);
-            Key = new Color(0.56f, 0.70f, 1.0f); KeyIntensity = 1.0f; ShadowStrength = 0.66f;
-            KeyEuler = new Vector3(30f, 122f, 0f);   // low, and coming toward the standard view: rims, long shadows, glints on the wet
-            Ambient = new Color(0.10f, 0.13f, 0.20f);
-            ShadeTint = new Color(0.20f, 0.29f, 0.56f);
-            SkyMirror = new Color(0.44f, 0.54f, 0.74f);
-            Wetness = 0.85f; WetGlint = 0.75f; Rain = 0.65f;
-            Depth = 230f;
-            Mist = new Color(0.17f, 0.23f, 0.35f); MistDensity = 0.55f;
-            Bank = new Color(0.10f, 0.14f, 0.22f);
-            exposure = 0.62f; filmic = true; contrast = 20f; saturation = 4f; vignetteAmount = 0.34f; bloom = 0.9f;
-            gradeShadows = new Vector4(0.92f, 0.98f, 1.12f, 0f); gradeMids = new Vector4(0.98f, 1.0f, 1.04f, 0f); gradeHighs = new Vector4(1.08f, 1.0f, 0.90f, 0f);
+            Haze = p.Haze;
+            Key = p.Key; KeyIntensity = p.KeyIntensity; ShadowStrength = p.ShadowStrength;
+            KeyEuler = p.KeyEuler;
+            Ambient = p.Ambient;
+            ShadeTint = p.ShadeTint;
+            SkyMirror = p.SkyMirror;
+            Wetness = p.Wetness; WetGlint = p.WetGlint; Rain = p.Rain;
+            Depth = p.Depth;
+            Mist = p.Mist; MistDensity = p.MistDensity;
+            Bank = p.Bank;
+            exposure = p.Exposure; filmic = p.Filmic; contrast = p.Contrast; saturation = p.Saturation;
+            vignetteAmount = p.Vignette; bloom = p.Bloom;
+            gradeShadows = p.GradeShadows; gradeMids = p.GradeMids; gradeHighs = p.GradeHighs;
+        }
+
+        /// <summary>The biome terms every world shader reads. Set once: none of them changes during a match.</summary>
+        void PushBiome(BiomeProfile p)
+        {
+            Shader.SetGlobalVector(SnowId, new Vector4(p.SnowCoverage, p.SnowShedBelow, p.SnowSparkle, p.SnowBreakup));
+            Shader.SetGlobalVector(SnowColorId, new Vector4(p.SnowColor.r, p.SnowColor.g, p.SnowColor.b, p.SnowColor.a));
+            Shader.SetGlobalVector(HeatId, new Vector4(p.HeatStrength, p.HeatPlates, p.HeatCrackWidth, p.MoltenLevel));
+            Shader.SetGlobalVector(HeatColorId, new Vector4(p.HeatColor.r, p.HeatColor.g, p.HeatColor.b, 1f));
+            Shader.SetGlobalVector(GroundLightId, new Vector4(p.GroundLight.r, p.GroundLight.g, p.GroundLight.b, p.GroundLight.a));
+            TW.Presentation.Tactical.DebrisRenderer.Biome = p.DebrisTint;
+        }
+
+        /// <summary>Put every biome term back to nothing, so a scene without an Atmosphere draws the plain look.</summary>
+        static void ClearBiome()
+        {
+            Shader.SetGlobalVector(SnowId, Vector4.zero);
+            Shader.SetGlobalVector(HeatId, Vector4.zero);
+            Shader.SetGlobalVector(GroundLightId, Vector4.zero);
+            TW.Presentation.Tactical.DebrisRenderer.Biome = new Color(1f, 1f, 1f, 0f);
         }
 
         void Start()
         {
-            if (Look == Mood.Night) ApplyNight();
-            Current = Look; SceneMood.Night = Look == Mood.Night;
+            var biome = BiomeProfile.For(Field);
+            Apply(biome);
+            Profile = biome;
+            PushBiome(biome);
+            // SceneMood.Night keeps the only meaning it ever had: is it dark. The lava field is dark too — lit from
+            // below by its own floor — so the twenty-odd glow and smoke branches that read this bool get the values
+            // they were tuned for rather than the daylight ones. Everything else that used to ride on "night" is a
+            // named field on the profile.
+            Look = biome.Dark ? Mood.Night : Mood.OvercastDay;
+            Current = Look; SceneMood.Night = biome.Dark;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = Haze;
@@ -163,6 +205,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
+            ClearBiome();
             if (profile != null) Destroy(profile);
         }
 

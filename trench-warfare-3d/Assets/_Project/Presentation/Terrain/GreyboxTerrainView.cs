@@ -20,8 +20,12 @@ namespace TW.Presentation.Terrain
     public sealed class GreyboxTerrainView : MonoBehaviour
     {
         public SimHost Host;
-        [Tooltip("The mood given to the Atmosphere this view adds when the scene has none of its own.")]
+        [Tooltip("Legacy, kept so old scenes deserialize. Field decides the look now.")]
         public Atmosphere.Mood Look = Atmosphere.Mood.Night;
+        [Tooltip("Which battlefield this is (docs/18). An Atmosphere already on this object wins, so a scene can override it.")]
+        public Biome Field = Biome.NightMud;
+        /// <summary>The profile this view built itself from. Resolved before anything reads it.</summary>
+        public BiomeProfile Profile { get; private set; }
         public BattlefieldSurface Surface { get; private set; }
         public const int ChunkMeters = 32;
         const float GridStep = .5f; // Presentation mesh only: simulation height and traversal remain untouched.
@@ -50,8 +54,12 @@ namespace TW.Presentation.Terrain
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             var hf = map.Height;
+            // The battlefield's profile is resolved HERE, before anything reads it: flooding below changes how the
+            // ground itself is interpreted (BattlefieldSurface), long before the Atmosphere component is added at
+            // the foot of this method. An Atmosphere already in the scene wins, so a scene can override the view.
             var mood = GetComponent<Atmosphere>();
-            flooding = (mood != null ? mood.Look : Look) == Atmosphere.Mood.Night ? .78f : 0f;   // the night look is a soaked field
+            Profile = BiomeProfile.For(mood != null ? mood.Field : Field);
+            flooding = Profile.Flooding;   // the night field is a soaked one; nothing stands in water on lava
             Surface = new BattlefieldSurface(map, flooding);
             renderGrid = new RenderGroundGrid { Width = Mathf.RoundToInt(hf.Width / GridStep) + 1, Length = Mathf.RoundToInt(hf.Length / GridStep) + 1, Step = GridStep };
             renderGrid.Heights = new Unity.Collections.NativeArray<float>(renderGrid.Width * renderGrid.Length, Unity.Collections.Allocator.Persistent);
@@ -97,10 +105,12 @@ namespace TW.Presentation.Terrain
             RenderGround.Map = map; RenderGround.Grid = renderGrid;
             if (map.WaterLevel > MapData.NoWater) BuildWater(map);
             BuildSkirt(map);
-            if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>().Look = Look;
-            if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<NightLights>() == null) gameObject.AddComponent<NightLights>().Host = Host;
-            if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Rain>() == null) gameObject.AddComponent<Rain>();
-            if (GetComponent<Atmosphere>().Look == Atmosphere.Mood.Night && GetComponent<Storm>() == null) gameObject.AddComponent<Storm>();
+            if (GetComponent<Atmosphere>() == null) gameObject.AddComponent<Atmosphere>().Field = Profile.Id;
+            // which weather stands on this field is the profile's to say, not a test against one mood: the lava
+            // field keeps its lamps and its lightning and loses the rain, and a fourth biome adds no line here.
+            if (Profile.WantsLamps && GetComponent<NightLights>() == null) gameObject.AddComponent<NightLights>().Host = Host;
+            if (Profile.WantsRain && GetComponent<Rain>() == null) gameObject.AddComponent<Rain>();
+            if (Profile.WantsStorm && GetComponent<Storm>() == null) gameObject.AddComponent<Storm>();
             if (GetComponent<SmallLife>() == null) gameObject.AddComponent<SmallLife>().Host = Host;
             if (GetComponent<QuietFog>() == null) gameObject.AddComponent<QuietFog>().Host = Host;
             if (GetComponent<FogWisps>() == null) gameObject.AddComponent<FogWisps>().Build(map);

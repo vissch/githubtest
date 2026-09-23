@@ -22,6 +22,77 @@ half3 TWShadeTint() { return _TWShadeTint.a > 0.5 ? _TWShadeTint.rgb : half3(1, 
 half3 TWSky() { return _TWSky.a > 0.5 ? _TWSky.rgb : unity_FogColor.rgb; }
 
 
+// ---------------------------------------------------------------------------------------------------------------
+// Biome. Snow lies on what faces the sky, molten ground burns between its plates, and the ground itself lights the
+// air above it. Set by Atmosphere.cs from a BiomeProfile; every one of these is zero on the night mud field, and
+// every function below returns its input unchanged in that case. The `if` on a global is a uniform branch, so the
+// base game pays nothing at all for either biome existing.
+//
+// The reason these live in the SHARED header rather than in TW/Toon: snow that lands on the terrain and the
+// sandbags but not on the men, the tanks or the thrown debris is worse than no snow, because the eye reads the
+// men as cut out of a different picture. Any shader that draws something standing on the battlefield includes
+// this file and asks the same question.
+float4 _TWSnow;        // x coverage 0..1, y the normal.y below which a surface sheds it, z sparkle, w drift break-up
+half4 _TWSnowColor;    // rgb lying snow, a the gloss it adds (fresh snow is matt; old wind-packed snow is not)
+float4 _TWHeat;        // x glow strength, y plates per metre, z crack width, w world Y of the molten level
+half4 _TWHeatColor;    // rgb what molten rock throws up out of its cracks
+half4 _TWGroundLight;  // rgb light coming UP off the ground into everything above it, a = 1 when set
+
+/// The ambient a surface sees, split into what falls from the sky and what comes back up off the ground.
+///
+/// A single flat ambient gives an unlit plane no form whatsoever. Night and mud hide that; a flat-lit snowfield
+/// will not, and it is the difference between a winter battlefield and a white page. The same split is the whole
+/// lighting model of the lava field, where the ground is the BRIGHTER half and every man is lit from beneath -
+/// which is why this is one function and not two.
+half3 TWHemisphere(half3 skyShade, float3 normalWS)
+{
+    if (_TWGroundLight.a < 0.5) return skyShade;
+    return lerp(_TWGroundLight.rgb, skyShade, saturate(normalWS.y * 0.5 + 0.5));
+}
+
+/// How much snow is lying here. Up-facing surfaces keep it, vertical faces shed it, and the line between is broken
+/// so it reads as drift rather than as a contour line drawn round every object. Free: normalWS and positionWS are
+/// already interpolated for every pixel of every surface, five times over in TW/Toon alone.
+half TWSnowAmount(float3 normalWS, float3 positionWS)
+{
+    if (_TWSnow.x <= 0.0) return 0.0;
+    half up = saturate((normalWS.y - _TWSnow.y) / max(1.0 - _TWSnow.y, 1e-3));
+    // three incommensurate waves, so the snow line wanders instead of following the geometry. Cheap on purpose:
+    // a texture read here would have to be bound by every shader that includes this header.
+    float2 q = positionWS.xz;
+    half n = sin(q.x * 0.73 + q.y * 0.41) * 0.5 + sin(q.x * 2.17 - q.y * 1.63) * 0.3 + sin(q.x * 5.31 + q.y * 4.11) * 0.2;
+    return saturate(up * (1.0 + n * _TWSnow.w) * _TWSnow.x);
+}
+
+/// Distance to the nearest border between two crust plates: 0 exactly on a crack, rising into the middle of a
+/// plate. A 3x3 Worley, because the reference shows light coming up BETWEEN plates - a noise threshold instead
+/// gives glowing dirt, which is the specific failure docs/18 warns about for L2.
+half TWPlateEdge(float2 p)
+{
+    float2 c = floor(p), f = p - c;
+    half d1 = 8.0, d2 = 8.0;
+    for (int y = -1; y <= 1; y++)
+    for (int x = -1; x <= 1; x++)
+    {
+        float2 g = float2(x, y);
+        float2 h = frac(sin(float2(dot(c + g, float2(127.1, 311.7)), dot(c + g, float2(269.5, 183.3)))) * 43758.5453);
+        half d = length(g + h - f);
+        if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
+    }
+    return d2 - d1;
+}
+
+/// What the cracks in molten ground add to a surface. Strongest on ground near the molten level and fading with
+/// height, so a sandbag two metres up glows along its foot and not along its top.
+half3 TWHeatGlow(float3 positionWS, half exposure)
+{
+    if (_TWHeat.x <= 0.0) return half3(0, 0, 0);
+    half crack = 1.0 - smoothstep(0.0, max(_TWHeat.z, 1e-3), TWPlateEdge(positionWS.xz * _TWHeat.y));
+    half high = saturate(1.0 - (positionWS.y - _TWHeat.w) * 0.55);   // the heat is in the floor, not in the air
+    return _TWHeatColor.rgb * (crack * crack * _TWHeat.x * high * exposure);
+}
+
+
 float4 _TWMist;          // x top height, y 1/depth, z start distance, w 1/range
 float4 _TWMistColor;     // rgb, a = density
 float4 _TWField;         // xz min, xz max of the fought-over ground

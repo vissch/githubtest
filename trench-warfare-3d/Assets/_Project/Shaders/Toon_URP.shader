@@ -156,10 +156,21 @@ Shader "TW/Toon (URP)"
                     half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
                     albedo *= 1.0 + smoothstep(0.035, 0.08, relief) * 0.10 - smoothstep(0.03, 0.08, -relief) * 0.12;   // soft clod edges, not grouted cells
                 }
+                // Snow lies before anything is lit, so it takes the light the surface under it would have taken and
+                // the toon bands break over it the same way. Zero on every biome but winter (uniform branch).
+                half snow = TWSnowAmount(i.normalWS, i.positionWS);
+                if (snow > 0.0)
+                {
+                    albedo = lerp(albedo, _TWSnowColor.rgb, snow);
+                    gloss = max(gloss, _TWSnowColor.a * snow);
+                }
                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half lit = wrap;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
-                half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, band);
+                // the shaded half is a hemisphere, not a flat tint: what falls from the sky above, what comes back
+                // up off the ground below. On the night field _TWGroundLight is unset and this is the old constant.
+                half3 shade = TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS));
+                half3 color = albedo * lerp(shade, mainLight.color, band);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
                 if (gloss > 0.01)
                 {
@@ -209,6 +220,9 @@ Shader "TW/Toon (URP)"
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
                 color += lampGlint;
                 color += _Emission.rgb;
+                // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
+                // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
+                color += TWHeatGlow(i.positionWS, 1.0 - snow);
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
