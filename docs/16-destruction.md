@@ -130,6 +130,145 @@ trench, a shell hole or lying down, and nobody for being under a roof. So "shelt
 true in the game today. It needs the sim to know where shelters are (the composer that places them is presentation),
 then a protection factor in BlastSystem, and it changes the replay hash.
 
+## The village houses: `Presentation/Terrain/HouseKit.cs`
+
+Owner, 2026-09-23: the building blocks were "not broken up small enough"; try the Tripo sheet of six ruined village
+houses, cut into small pieces in Blender, and put them in the centre of the map near the water on each side.
+
+- **Cut in Blender** (`Tools/housesplit.py`, headless Blender 5.0). The sheet already comes as Tripo parts. The tool
+  groups them into six houses by overlapping boxes, squares each house to the axes and scales it to metres: the
+  two-storey ones stand about 7 m. Parts under 1.4 m join the part they touch. Every part longer than 2.4 m is cut
+  along its longest axis until it fits, and each cut is capped with a face that takes its UVs from the skin it closes.
+  Slivers under 24 triangles join their nearest chunk.
+- **What it makes.** Six houses of 9 to 21 chunks each: 83 chunks, 28 to 217 triangles, about 6,000 triangles for all six.
+  Each chunk is its own FBX in `Resources/Env/Houses`, pivot at the middle of its base. PropDestruction measures a
+  hit to the pivot, so each chunk is hit on its own. `houses.json` gives each chunk's offset in its house, its bounds,
+  and stone or timber, read from the painted colour. The sheet is graded like the other sets and is the atlas's seventh
+  cell (`Tools/envatlas.py`).
+- **One matrix a house.** A chunk is drawn at `house * Translate(offset)`. The chunks are unnamed modules, so no
+  PropLayout look or hand edit jitters one out of its house.
+- **What rests on what.** `HouseKit.Solve` works it out from the bounds. A chunk whose foot is within 0.35 m of the
+  house's floor stands on the ground. Any other chunk rests on the lower chunks it overlaps and reaches within 0.25 m of.
+  A chunk with none in reach rests on the highest chunk under it. A chunk over nothing at all counts as grounded.
+- **Destruction.** Stone chunks have strength 1.4, timber chunks (beams, boards, tiles) 1.0; tanks do not flatten
+  either. A chunk that breaks does not turn into rubble on the spot as other props do (owner, 2026-09-23, "destruction
+  feel"): it comes away whole and flies as itself, its own mesh and material drawn by `PropDestruction.Fly` (one
+  `RenderMesh` a loose chunk, at most `MaxLoose` 48; past that it goes to rubble on the spot). A hit throws it away
+  from the burst and up, tumbling over the axis across the throw, with a few chips off it. It lands on the drawn
+  ground by the lowest corner of its box, bounces once, slides to rest, lies `LooseLie` 18 s and sinks over 2.5 s. At
+  its first touch it breaks up there: most of its rubble or planks, and the dust of it coming down.
+- **Storey by storey.** When a chunk goes, `Shaken` looks at everything it carried `FallDelay` 0.45 s later, a quarter
+  more for each storey up, with a jitter of a quarter of that, so a storey's beams let go one after another. A chunk
+  still standing with nothing under it (`Drop`) tips outward from the middle of its house and falls whole, the dust of
+  the mortar letting go where it was; what it carried is looked at in turn.
+- **Placed** by `BattlefieldComposer.PlaceHamlets` once per map, like the sites. The houses are shared out three to a
+  bank in a seeded order. They stand beside the road over the bridge in the middle of the map, on its far side from
+  the camera: every view of the field looks from +X, so a house on the near side hid the crossing. Each keeps 4.5 m
+  plus half its size off the bridge's line, and 1.5 m plus half its size back from the first dry metre of the bank.
+  Its front, the sheet's front (local +Z), faces the camera, turned up to 30 degrees either way; turned from it, a
+  house showed only a blank back or side. The ground test is Landmarks' `Room`, with the sim's props kept clear by a
+  metre. A house stays at the height it was built at when a crater opens under it.
+- **Grade.** The sheet is graded warmer and brighter than the other sets (saturation kept 0.66, value 1.14), to the
+  stone set's mean value: at 0.50 and 0.88 the plaster and tiles went to one dark grey at night.
+
+- **The rear's military buildings** (owner, 2026-09-23: "military buildings for in the back of the allied troops").
+  A second Tripo sheet (`Downloads/stylized+watchtower+3d+model.zip`) came as one welded object; `housesplit.py` with
+  `TW_LOOSE=1` splits it into its loose parts first, then groups and cuts it like the village: a watchtower (18 chunks),
+  a guard post (14), a command post (17) and a concrete blockhouse (16), 65 chunks at the village's scale, in
+  `Resources/Env/Military` with the atlas's eighth and last cell. `HouseKit.Load(set, ...)` loads a set; the kit's
+  `Houses` holds both sets in one array (a chunk's House indexes it) and each set has its own material pair. Placed by
+  `PlaceRear`: behind team 0's rear fire trench, from the map's back edge to four metres short of the trench (the rear
+  is some sixteen metres deep), on the far side of the supply road from the camera, fronts to the camera, three metres
+  clear of each other; trench sites keep six metres clear of any building. Concrete and heavy timber: stone chunks 2.2,
+  timber 1.4. Seen in Play (19:20): all four stand as a compound behind the allied line; a hit at the watchtower's legs
+  took twelve of its eighteen chunks and the platform tipped and fell after them.
+
+**The sim knows nothing of the houses.** They give no cover, block no one and stop no shot, like the rest of the kit.
+Making them count needs the house footprints in `MapData` (cover and `Blocked` cells, removed as chunks go), which
+changes the replay hash. That is the same owner decision as the shelters below.
+
+Cost (optimised 2026-09-23, owner: "is it viable on all buildings"). Three changes:
+- **One mesh a house, chunks masked.** `HouseKit.BuildWhole` combines a house's chunks into one mesh at load, each
+  vertex tagged with its chunk in UV1.x (the chunk FBXs import readable for it, `EnvKitImport` v3). The house is one
+  instance of that mesh; `BattlefieldProps.MaskOf` (PropDestruction: the chunks remembered as destroyed) gives each
+  visible instance a bitmask, passed in a `MaterialPropertyBlock` array, and TW/Toon's `_CHUNKMASK` variant collapses a
+  masked chunk's vertices to the origin in all four passes. The chunk modules stay as bookkeeping (`Module.Drawn`
+  false): placed, hit, hidden and remembered exactly as before, never drawn. A house chunk is always remembered, past
+  `MaxRemembered` too, or its house would draw it again. `Resources/Env/Houses/HouseMask.mat` keeps the variant in a build.
+- **One material** for every chunk and one, with the keyword, for every house.
+- **Loose chunks batched**: a flying or lying chunk is its house's whole mesh with every other chunk masked off, so all
+  the loose chunks of one house type are one instanced draw.
+
+Measured at the standard view on the village, 120 frames a state, shelling on:
+
+| houses drawn | batches | SetPass | render CPU |
+|---|---|---|---|
+| none | 314 | 223 | 3.85 ms |
+| a draw per chunk (shared material already) | 491 | 345 | 5.10 ms |
+| one mesh a house | 342 | 250 | 4.34 ms |
+
+The village went from +177 batches to +28. The cost now grows with house types, not with houses or with damage: a
+village of thirty houses from these six types draws the same. A house type holds at most 24 chunks (the mask is a
+float's whole-number range).
+
+Seen in Play (2026-09-23 18:00, seed 1917): all six houses placed, three a bank round the bridge, each whole and
+the right way up. The ambient bombardment had already brought two of them down before the test. A barrage-sized
+strike on the bell-tower house took every chunk, with rubble, planks and dust. A 0.8 m hit at one corner of another
+took that corner and the chunk it carried, and five of its nine chunks stood. With the loose chunks (18:40): a 4 m
+shell at the foot of the chimney house threw four chunks whole, tumbling, out of the dust; an upper piece left with
+nothing under it tipped and fell half a second later; the house stood with its front out and the chunks lay in the
+mud beside it among their rubble.
+
+## The rest of the kit (2026-09-23)
+
+Owner: "lets see what other items we can make destructable in the scene", then the recommended set. Every drawn prop
+that is not the sim's now has a rule. Added:
+
+| Props | Rule |
+|---|---|
+| the three stumps, the shell-torn trunk | Plank, Hp 1.3 |
+| fallen log | Plank, Hp 1.3, flattened by a tank |
+| pile of stones | Rubble, Hp 1.2, flattened |
+| boulder | Rubble, Hp 3.2 (a heavy shell close by) |
+| spent shell cases | Plate, Hp 0.4, flattened |
+| dud shell | Plate, Hp 0.5, flattened, **cooks off** |
+| helmet, mess kit, spade, ammo tin, boots, rifle, bucket, hung tins, tins on the wire, rag | Hp 0.2, flattened, **thrown whole** |
+
+**Cook-off.** A dud that is hit or run over goes up 0.35 to 0.7 s later: `SceneHooks.CookOff` (CombatFx draws a shell
+burst's flash, fire and smoke at a fraction of the size, sparks, clods, a light and a camera kick) and a `Strike` of
+2.6 m and 0.8 round it, so the next dud in reach goes in turn. Drawn only: the sim never hears of it, and no man is hurt.
+
+**Thrown whole.** What a man drops is not broken up: a burst throws it as itself, on the loose-chunk path (it flies,
+bounces once, lies 18 s, sinks), each kind in one instanced draw of its own mesh. These things are drawn only while the
+camera is close (`Module.MaxDistance`), so they are thrown only then; at the standard view one is simply gone. Loose
+places are kept back for house chunks (16 of the 48).
+
+**Sliced kit props.** The well, the wall stub, the biplane and the field gun come apart like the houses. They are cut from
+their own FBX (`Tools/housesplit.py` with `TW_LOOSE=1 TW_ONE=1 TW_KEEP=1 TW_SCALE=1`: one building however many
+parts, the prop's own pivot and facing kept) into `Resources/Env/<set>/Chunks/`, with the set's `houses.json` beside:
+
+| Prop | Set | Cut, m | Chunks | Tris (whole was) | Rule |
+|---|---|---|---|---|---|
+| Well | Siege | 0.9 | 19 | 863 (513) | stone Hp 1.2 / timber Hp 0.8, from the paint |
+| WallStub | Stones | 1.0 | 10 | 606 (218) | all stone, Hp 1.2 (its brick reads warm to the classifier) |
+| Biplane | Weapons | 1.9 | 16 | 1246 (566) | Plank, Hp 0.7 |
+| FieldGun | Weapons | 0.8 | 11 | 625 (381) | Plate, Hp 1.1 |
+
+The cut faces are what the triangles grow by. They keep their set's atlas cell, so the full atlas does not matter.
+`BattlefieldKit.Slice` links each module to its building (`Module.Sliced`, and `Drawn = false`). The module is still
+placed, named and hand-edited as itself, and `BattlefieldProps.Put` puts the building's whole mesh and its chunks at
+the prop's matrix, after the look's styling, so a scaled or turned prop comes apart at its own size. Holding or moving
+one in the editor recomposes, so its chunks follow. The sliced module has no rule of its own; its chunks do.
+`HouseKitTests.A_Sliced_Kit_Prop_Puts_Every_Vertex_Of_The_Whole_Prop_Back_Where_It_Was` holds the slicing to the
+original (a turned or mirrored export fails it).
+
+Seen in Play (2026-09-23 19:55, night, rain). On this map: 22 wall stubs, the biplane and 6 field guns are placed (the
+stubs and the biplane on the land beyond the field), plus 7 duds and 85 helmets; no well. The field gun at (79.6, 4.2)
+stands at about 4 to 6.5 times its size. A 4 m hit at its side took one of its 11 chunks and threw 9 dropped things. An
+8 m, 1.6 strike on its middle threw the barrel, the shield and the wheels whole, tumbling out of the dust, with the tins
+and helmets round it (`Captures/gun_flying.png`). A direct hit on a dud queued its cook-off, and it went up with a burst
+of smoke (`CookedOff` counted it). A 1.5 m hit at 0.7 only chips a dud (0.39 of harm), as its Hp says. No errors.
+
 ## What a shell does to the men and machines that live through it
 
 Owner, 2026-09-23: "make the explosions more impactful ... for the units". Presentation only, like everything above:

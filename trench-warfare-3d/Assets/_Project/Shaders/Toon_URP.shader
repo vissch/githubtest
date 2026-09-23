@@ -13,6 +13,8 @@
 // glint; still water takes a slow ripple from the same slopes. Mist and the fog bank round the battlefield come from
 // TWAtmosphere.hlsl (set by Atmosphere).
 // The ground switches the pass off (SetShaderPassEnabled("SRPDefaultUnlit", false)): its ink is in its texture.
+// _CHUNKMASK (the village houses only, HouseKit): a house is one mesh, each vertex tagged with its chunk in TEXCOORD1.x,
+// and a set bit in the per-instance _ChunkMask hides that chunk in every pass. Other materials never compile it in.
 Shader "TW/Toon (URP)"
 {
     Properties
@@ -49,6 +51,20 @@ Shader "TW/Toon (URP)"
             float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway, _Pigment;
         CBUFFER_END
         float4 _TWWind;   // xz: the wind (Atmosphere.WindNow, scaled), w: 1 when set
+        #if defined(_CHUNKMASK)
+        UNITY_INSTANCING_BUFFER_START(TWChunks)
+            UNITY_DEFINE_INSTANCED_PROP(float, _ChunkMask)
+        UNITY_INSTANCING_BUFFER_END(TWChunks)
+        #endif
+        /// A hidden chunk's vertices all go to the object's origin, so its triangles have no area and draw nothing.
+        float3 TWChunk(float3 positionOS, float chunk)
+        {
+        #if defined(_CHUNKMASK)
+            uint mask = (uint)UNITY_ACCESS_INSTANCED_PROP(TWChunks, _ChunkMask);
+            if ((mask >> (uint)(chunk + 0.5)) & 1u) return float3(0, 0, 0);
+        #endif
+            return positionOS;
+        }
         /// Reeds, grass and scrub lean with the wind and shiver in the gusts: the bend grows with the square of the height
         /// above the root (object space), so the foot stays planted. Same in every pass.
         float3 TWSway(float3 positionWS, float heightOS)
@@ -69,6 +85,7 @@ Shader "TW/Toon (URP)"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma shader_feature_local_vertex _ _CHUNKMASK
             #pragma multi_compile_fog
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
@@ -79,12 +96,13 @@ Shader "TW/Toon (URP)"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
 
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
                 Varyings o;
                 o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 o.positionCS = TransformWorldToHClip(o.positionWS);
@@ -249,15 +267,17 @@ Shader "TW/Toon (URP)"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma shader_feature_local_vertex _ _CHUNKMASK
             #pragma multi_compile_fog
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 chunk : TEXCOORD1; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float3 positionWS : TEXCOORD1; };
 
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
                 Varyings o;
                 o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 float3 n = dot(v.smoothOS, v.smoothOS) > 0.01 ? v.smoothOS : v.normalOS;
@@ -284,15 +304,17 @@ Shader "TW/Toon (URP)"
             #pragma vertex vertShadow
             #pragma fragment fragNull
             #pragma multi_compile_instancing
+            #pragma shader_feature_local_vertex _ _CHUNKMASK
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
             float3 _LightDirection;
             float3 _LightPosition;
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 chunk : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
             float4 vertShadow(Attributes v) : SV_POSITION
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
                 float3 ws = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
                 float3 n = TransformObjectToWorldNormal(v.normalOS);
             #if _CASTING_PUNCTUAL_LIGHT_SHADOW
@@ -321,8 +343,9 @@ Shader "TW/Toon (URP)"
             #pragma vertex vertDepth
             #pragma fragment fragDepth
             #pragma multi_compile_instancing
-            struct Attributes { float4 positionOS : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); return TransformWorldToHClip(TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y)); }
+            #pragma shader_feature_local_vertex _ _CHUNKMASK
+            struct Attributes { float4 positionOS : POSITION; float2 chunk : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x); return TransformWorldToHClip(TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y)); }
             half4 fragDepth() : SV_Target { return 0; }
             ENDHLSL
         }

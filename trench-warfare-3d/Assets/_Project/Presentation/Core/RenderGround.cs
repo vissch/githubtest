@@ -117,6 +117,9 @@ namespace TW.Presentation
         /// <summary>A flash of light at a place: colour, peak intensity, reach (m), seconds. A tank's gun or a strike on its
         /// plate lights the ground round it the way a shell does. (NightLights lends one of its pooled lights)</summary>
         public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float> Flash;
+        /// <summary>A small burst where the sim has none: a dud shell cooking off in a fire (PropDestruction). Place, radius
+        /// (m). Drawn only; the sim never hears of it. (CombatFx)</summary>
+        public static System.Action<UnityEngine.Vector3, float> CookOff;
     }
 
     public static class RenderGround

@@ -1,4 +1,4 @@
-# Packs the six Tripo environment sheets into one atlas, each halved in size.
+# Packs the Tripo environment sheets (six sets, and the village houses since 2026-09-23) into one atlas, each halved in size.
 #
 # Why: BattlefieldKit was loading Resources/Env/<Set>/<Set>.jpg for each of the six sets, six 2048x2048 sheets
 # importing to about 2.8 MB of compressed VRAM apiece — roughly 17 MB to draw props that are mostly a metre across.
@@ -21,7 +21,7 @@
 import os
 from PIL import Image
 
-SETS = ["Fence", "Plants", "Siege", "Stones", "Weapons", "Wood"]
+SETS = ["Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military"]
 CELL = 1024
 COLS, ROWS = 4, 2
 ROOT = os.path.join("Assets", "_Project", "Resources", "Env")
@@ -45,11 +45,11 @@ def main():
     atlas.save(OUT, quality=94, subsampling=0, optimize=True)
     before = sum(os.path.getsize(os.path.join(ROOT, s, s + ".jpg")) for s in SETS)
     print("\n%s  %dx%d" % (OUT, atlas.width, atlas.height))
-    print("on disk: %.1f KB for six sheets -> %.1f KB for one" % (before / 1024, os.path.getsize(OUT) / 1024))
+    print("on disk: %.1f KB for %d sheets -> %.1f KB for one" % (before / 1024, len(SETS), os.path.getsize(OUT) / 1024))
     # what actually matters is the decompressed cost, which is pixels, not the file
     print("pixels:  %.1f M -> %.1f M (%.1fx less)" % (
-        6 * 2048 * 2048 / 1e6, atlas.width * atlas.height / 1e6,
-        6 * 2048 * 2048 / float(atlas.width * atlas.height)))
+        len(SETS) * 2048 * 2048 / 1e6, atlas.width * atlas.height / 1e6,
+        len(SETS) * 2048 * 2048 / float(atlas.width * atlas.height)))
 
 
 if __name__ == "__main__":

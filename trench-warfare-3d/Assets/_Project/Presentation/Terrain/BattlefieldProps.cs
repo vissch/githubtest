@@ -17,6 +17,11 @@ namespace TW.Presentation.Terrain
         /// <summary>Asked for every instance composed: true keeps it out (PropDestruction: what a shell has knocked down stays
         /// down through every recomposition). Keyed by module and placement, never by page and slot, which change.</summary>
         public System.Func<BattlefieldKit.Module, Matrix4x4, bool> Suppress;
+        /// <summary>For a masked module (a house), the chunks of the instance at this matrix to hide, a bit each
+        /// (PropDestruction: the chunks it has knocked down). Asked for every visible instance as it is submitted.</summary>
+        public System.Func<BattlefieldKit.Module, Matrix4x4, int> MaskOf;
+        readonly float[] mergedMask = new float[1023];
+        MaterialPropertyBlock maskBlock;
 
         sealed class Batch
         {
@@ -211,7 +216,11 @@ namespace TW.Presentation.Terrain
         public void Hold(string key)
         {
             held.Add(key);
-            if (placedByKey.TryGetValue(key, out int i)) batches[placed[i].Module].Hide(placed[i].Page, placed[i].Slot);
+            if (placedByKey.TryGetValue(key, out int i))
+            {
+                batches[placed[i].Module].Hide(placed[i].Page, placed[i].Slot);
+                if (placed[i].Module.Sliced != null) dirty = true;   // its building and chunks come out at the next composition
+            }
         }
 
         /// <summary>Puts a held prop back into the draw at a matrix; with none (removed) it stays out and the next composition drops it.</summary>
@@ -223,6 +232,7 @@ namespace TW.Presentation.Terrain
             {
                 var prop = placed[i]; prop.Matrix = matrix.Value; placed[i] = prop;
                 batches[prop.Module].Set(prop.Page, prop.Slot, matrix.Value);
+                if (prop.Module.Sliced != null) dirty = true;   // its chunks follow at the next composition
             }
             else if (module != null) Put(module, key, added, matrix.Value, null);   // added by hand, or brought back after the composition dropped it
         }
@@ -240,8 +250,21 @@ namespace TW.Presentation.Terrain
             var batch = BatchOf(module);
             int page = batch.Add(matrix, out int slot);
             if (held.Contains(key)) batch.Hide(page, slot);
+            else if (module.Sliced != null) PutSliced(module.Sliced, matrix);
             placedByKey[key] = placed.Count;
             placed.Add(new Placed { Module = module, Key = key, Added = added, Matrix = matrix, Generated = generated, Page = page, Slot = slot });
+        }
+
+        /// <summary>A sliced prop where it stands: its building's whole mesh (the chunks that have gone masked off, MaskOf)
+        /// and every chunk still standing, to be found, hit and hidden. Unnamed, so they follow the prop's own matrix.</summary>
+        void PutSliced(HouseKit.House house, in Matrix4x4 matrix)
+        {
+            BatchOf(house.Whole).Add(matrix, out _);
+            foreach (var chunk in house.Chunks)
+            {
+                var at = HouseKit.Place(matrix, chunk);
+                if (Suppress == null || !Suppress(chunk.Module, at)) BatchOf(chunk.Module).Add(at, out _);
+            }
         }
 
         void Compose()
@@ -291,6 +314,7 @@ namespace TW.Presentation.Terrain
             foreach (var b in batches.Values)
             {
                 var module = b.Module;
+                if (!module.Drawn) continue;
                 int held = 0; Bounds union = default; bool any = false;
                 for (int p = 0; p < b.Counts.Count; p++)
                 {
@@ -311,6 +335,8 @@ namespace TW.Presentation.Terrain
                         if (any) union.Encapsulate(pageBounds); else { union = pageBounds; any = true; }
                         int take = Mathf.Min(merged.Length - held, count - from);
                         System.Array.Copy(b.Pages[p], from, merged, held, take);
+                        if (module.Masked)
+                            for (int k = 0; k < take; k++) mergedMask[held + k] = MaskOf != null ? MaskOf(module, merged[held + k]) : 0f;
                         held += take; from += take;
                         if (held < merged.Length) continue;
                         Submit(module, union, held); held = 0; any = false;   // full: send it and start the next
@@ -324,6 +350,13 @@ namespace TW.Presentation.Terrain
         void Submit(BattlefieldKit.Module module, Bounds bounds, int count)
         {
             var rp = new RenderParams(module.Material) { worldBounds = bounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
+            if (module.Masked)
+            {
+                // the block is copied when the draw is queued, so one block serves every masked submission
+                maskBlock ??= new MaterialPropertyBlock();
+                maskBlock.SetFloatArray("_ChunkMask", mergedMask);
+                rp.matProps = maskBlock;
+            }
             Graphics.RenderMeshInstanced(rp, module.Mesh, 0, merged, count);
             DrawCalls++;
         }

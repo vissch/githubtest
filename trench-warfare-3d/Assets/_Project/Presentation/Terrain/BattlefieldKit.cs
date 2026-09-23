@@ -19,6 +19,14 @@ namespace TW.Presentation.Terrain
             /// <summary>The kind's drawn scale (PropLayout.Look.Baseline, set by BattlefieldProps): the composer spaces the
             /// pieces round a prop and checks its footprint by it.</summary>
             public Vector3 Size = Vector3.one;
+            /// <summary>False for a module that is only bookkeeping: its instances are placed, found, hidden and remembered
+            /// like any other, but never drawn (a house chunk; its house's whole mesh draws it).</summary>
+            public bool Drawn = true;
+            /// <summary>Drawn with a per-instance chunk mask (BattlefieldProps.MaskOf), on a _CHUNKMASK material.</summary>
+            public bool Masked;
+            /// <summary>A kit prop that comes apart chunk by chunk (Resources/Env/&lt;set&gt;/Chunks): placed, named and edited as
+            /// itself, but never drawn or hit as itself; BattlefieldProps puts its building's whole mesh and chunks where it stands.</summary>
+            public HouseKit.House Sliced;
         }
         public Module trunk, snag, fallen, stump, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
@@ -35,6 +43,11 @@ namespace TW.Presentation.Terrain
             bracedPlank, crossedBoards, hatchLid, plankDoor, corrugated,                 // Wood
             stakes, hedgehog, wireFence, wirePost, barricade,                            // Fence
             fallenLog, stumpTall, stumpSplit, stumpMoss, poppies, cattails, grass;       // Plants
+        /// <summary>The village houses (HouseKit, Resources/Env/Houses): each a set of chunks drawn at one matrix, and
+        /// the chunk a module draws. The chunks are unnamed modules, so no look or hand edit moves one out of its house.</summary>
+        public HouseKit.House[] Houses = System.Array.Empty<HouseKit.House>();
+        public readonly Dictionary<Module, HouseKit.Chunk> HouseChunkOf = new Dictionary<Module, HouseKit.Chunk>();
+        public readonly Dictionary<Module, HouseKit.House> HouseOfWhole = new Dictionary<Module, HouseKit.House>();
         public const float SmallReach = 55f;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
         readonly List<Module> modules = new List<Module>();
@@ -176,6 +189,50 @@ namespace TW.Presentation.Terrain
             ownedMeshes.Add(m); return m;
         }
 
+        /// <summary>
+        /// One set of buildings: a module a chunk for the bookkeeping (placed, hit, hidden and remembered one by one, never
+        /// drawn), and one drawn module a building, its chunks masked off as they go. Unnamed, so no look's jitter pulls a
+        /// building apart. A set's chunks share one material and its buildings one more: the same atlas cell, one tint.
+        /// </summary>
+        HouseKit.House[] BuildingSet(string set, Color tint, int first)
+        {
+            Material material = null;
+            var houses = HouseKit.Load(set, chunk =>
+            {
+                var module = Imported(set, chunk, tint, true, 1.3f);
+                module.Name = null; module.PageSize = 48f; module.Drawn = false;
+                if (material == null) material = module.Material;
+                else { Discard(module.Material); module.Material = material; }
+                return module;
+            }, first);
+            if (material == null) return houses;
+            var masked = new Material(material) { hideFlags = HideFlags.HideAndDontSave, enableInstancing = true };
+            // _CHUNKMASK is a shader_feature: Resources/Env/Houses/HouseMask.mat carries it so a build keeps the variant
+            masked.EnableKeyword("_CHUNKMASK");
+            foreach (var house in houses)
+            {
+                var whole = HouseKit.BuildWhole(house);
+                if (whole == null) continue;
+                ownedMeshes.Add(whole);
+                house.Whole = Make(whole, tint, true, 1.3f);
+                Discard(house.Whole.Material);
+                house.Whole.Material = masked; house.Whole.Masked = true; house.Whole.PageSize = 48f;
+                HouseOfWhole[house.Whole] = house;
+            }
+            return houses;
+        }
+
+        /// <summary>The prop is drawn and hit as its sliced building from now on; without one (no chunks imported) it stays whole.</summary>
+        void Slice(Module prop, string name)
+        {
+            if (prop == null) return;
+            var house = System.Array.Find(Houses, h => h.Name == name && h.Whole != null);
+            if (house == null) { Debug.LogWarning("BattlefieldKit: no sliced " + name + "; it stays whole"); return; }
+            prop.Sliced = house; prop.Drawn = false;
+        }
+
+        static void Discard(Material m) { if (m == null) return; if (Application.isPlaying) Object.Destroy(m); else Object.DestroyImmediate(m); }
+
         Module Make(Mesh mesh, Color color, bool shadows = true, float outline = 1.5f)
         {
             var mat = new Material(Shader.Find("TW/Toon (URP)")) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
@@ -313,7 +370,7 @@ namespace TW.Presentation.Terrain
         /// would not take it, which cost more memory than the packing saved.
         /// This order is the same list as SETS in envatlas.py and the two must not drift apart.
         /// </summary>
-        static readonly string[] EnvSets = { "Fence", "Plants", "Siege", "Stones", "Weapons", "Wood" };
+        static readonly string[] EnvSets = { "Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military" };
         const int EnvCols = 4, EnvRows = 2;
         Texture2D envAtlas; bool envAtlasLoaded;
 
@@ -380,6 +437,13 @@ namespace TW.Presentation.Terrain
             poppies = Imported("Plants", "Poppies", new Color(.88f, .84f, .82f), false, .4f, .45f);
             cattails = Imported("Plants", "Cattails", growth, false, .4f, .30f);
             grass = Imported("Plants", "GrassClump", growth, false, .35f, .50f);
+            // the buildings, a set at a time: the village houses and the rear's military buildings (HouseKit), one array
+            // and the kit's own props that come apart the same way, each set's in its Chunks folder (Tools/housesplit.py TW_KEEP)
+            var all = new List<HouseKit.House>();
+            foreach (var set in new[] { "Houses", "Military", "Siege", "Stones", "Weapons" }) all.AddRange(BuildingSet(set, paint, all.Count));
+            Houses = all.ToArray();
+            foreach (var house in Houses) foreach (var chunk in house.Chunks) HouseChunkOf[chunk.Module] = chunk;
+            Slice(well, "Well"); Slice(wallStub, "WallStub"); Slice(biplane, "Biplane"); Slice(fieldGun, "FieldGun");
         }
 
         void BuildTrenchVariants(Mesh cube, Mesh sackMesh, Color timber, Color sack)

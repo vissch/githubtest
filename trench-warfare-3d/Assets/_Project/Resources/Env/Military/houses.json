@@ -1,0 +1,1434 @@
+{
+ "chunks": [
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_00_0",
+   "tris": 230,
+   "verts": 117,
+   "mat": "stone",
+   "offset": [
+    0.588,
+    4.363,
+    1.406
+   ],
+   "min": [
+    -0.99,
+    0.0,
+    -0.844
+   ],
+   "max": [
+    0.99,
+    1.472,
+    0.844
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_00_1",
+   "tris": 166,
+   "verts": 85,
+   "mat": "stone",
+   "offset": [
+    0.604,
+    4.335,
+    -0.282
+   ],
+   "min": [
+    -1.005,
+    0.0,
+    -0.844
+   ],
+   "max": [
+    1.005,
+    1.475,
+    0.844
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_00_2",
+   "tris": 124,
+   "verts": 64,
+   "mat": "stone",
+   "offset": [
+    -1.407,
+    4.394,
+    1.386
+   ],
+   "min": [
+    -1.005,
+    0.0,
+    -0.844
+   ],
+   "max": [
+    1.005,
+    1.458,
+    0.844
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_00_3",
+   "tris": 224,
+   "verts": 114,
+   "mat": "stone",
+   "offset": [
+    -1.395,
+    4.358,
+    -0.301
+   ],
+   "min": [
+    -0.994,
+    0.0,
+    -0.844
+   ],
+   "max": [
+    0.994,
+    1.474,
+    0.844
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_02_3",
+   "tris": 70,
+   "verts": 67,
+   "mat": "timber",
+   "offset": [
+    -1.509,
+    0.033,
+    0.678
+   ],
+   "min": [
+    -1.059,
+    0.0,
+    -1.741
+   ],
+   "max": [
+    1.059,
+    4.425,
+    1.741
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_03_0",
+   "tris": 74,
+   "verts": 54,
+   "mat": "timber",
+   "offset": [
+    0.405,
+    0.0,
+    -0.725
+   ],
+   "min": [
+    -0.988,
+    0.0,
+    -1.412
+   ],
+   "max": [
+    0.988,
+    1.595,
+    1.412
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_03_1",
+   "tris": 127,
+   "verts": 85,
+   "mat": "stone",
+   "offset": [
+    0.218,
+    1.595,
+    -1.473
+   ],
+   "min": [
+    -1.194,
+    0.0,
+    -0.946
+   ],
+   "max": [
+    1.194,
+    1.393,
+    0.946
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_03_2",
+   "tris": 90,
+   "verts": 61,
+   "mat": "stone",
+   "offset": [
+    -1.586,
+    0.014,
+    -0.787
+   ],
+   "min": [
+    -1.004,
+    0.0,
+    -1.464
+   ],
+   "max": [
+    1.004,
+    1.592,
+    1.464
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_03_3",
+   "tris": 108,
+   "verts": 74,
+   "mat": "stone",
+   "offset": [
+    -1.145,
+    1.606,
+    -1.491
+   ],
+   "min": [
+    -0.862,
+    0.0,
+    -0.887
+   ],
+   "max": [
+    0.862,
+    1.393,
+    0.887
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_04_0",
+   "tris": 60,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    0.46,
+    4.189,
+    -1.425
+   ],
+   "min": [
+    -0.821,
+    0.0,
+    -0.576
+   ],
+   "max": [
+    0.821,
+    0.515,
+    0.576
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_04_1",
+   "tris": 60,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    -1.181,
+    4.211,
+    -1.441
+   ],
+   "min": [
+    -0.821,
+    0.0,
+    -0.576
+   ],
+   "max": [
+    0.821,
+    0.517,
+    0.576
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_05_0",
+   "tris": 91,
+   "verts": 71,
+   "mat": "timber",
+   "offset": [
+    0.407,
+    1.508,
+    1.478
+   ],
+   "min": [
+    -1.133,
+    0.0,
+    -0.926
+   ],
+   "max": [
+    1.133,
+    2.924,
+    0.926
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_05_1",
+   "tris": 82,
+   "verts": 68,
+   "mat": "timber",
+   "offset": [
+    0.503,
+    1.499,
+    -0.178
+   ],
+   "min": [
+    -1.085,
+    0.0,
+    -0.866
+   ],
+   "max": [
+    1.085,
+    2.881,
+    0.866
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_06_1",
+   "tris": 112,
+   "verts": 72,
+   "mat": "stone",
+   "offset": [
+    1.878,
+    1.943,
+    0.606
+   ],
+   "min": [
+    -0.713,
+    0.0,
+    -1.421
+   ],
+   "max": [
+    0.713,
+    1.011,
+    1.421
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_07_0",
+   "tris": 57,
+   "verts": 39,
+   "mat": "timber",
+   "offset": [
+    -0.333,
+    2.931,
+    -1.314
+   ],
+   "min": [
+    -1.327,
+    0.0,
+    -0.618
+   ],
+   "max": [
+    1.327,
+    1.415,
+    0.618
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_08_0",
+   "tris": 91,
+   "verts": 60,
+   "mat": "timber",
+   "offset": [
+    0.853,
+    0.016,
+    0.863
+   ],
+   "min": [
+    -1.435,
+    0.0,
+    -1.556
+   ],
+   "max": [
+    1.435,
+    2.477,
+    1.556
+   ]
+  },
+  {
+   "house": "CommandPost",
+   "chunk": "CommandPost_10_0",
+   "tris": 140,
+   "verts": 80,
+   "mat": "stone",
+   "offset": [
+    -0.24,
+    5.716,
+    0.477
+   ],
+   "min": [
+    -0.798,
+    0.0,
+    -0.689
+   ],
+   "max": [
+    0.798,
+    0.505,
+    0.689
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_0",
+   "tris": 141,
+   "verts": 87,
+   "mat": "stone",
+   "offset": [
+    1.463,
+    1.488,
+    1.881
+   ],
+   "min": [
+    -1.401,
+    0.0,
+    -1.039
+   ],
+   "max": [
+    1.401,
+    3.47,
+    1.039
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_1",
+   "tris": 40,
+   "verts": 22,
+   "mat": "stone",
+   "offset": [
+    0.0,
+    2.967,
+    1.947
+   ],
+   "min": [
+    -0.955,
+    0.0,
+    -0.973
+   ],
+   "max": [
+    0.955,
+    1.925,
+    0.973
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_2",
+   "tris": 110,
+   "verts": 57,
+   "mat": "stone",
+   "offset": [
+    -1.909,
+    2.954,
+    1.947
+   ],
+   "min": [
+    -0.955,
+    0.0,
+    -0.973
+   ],
+   "max": [
+    0.955,
+    1.829,
+    0.973
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_3",
+   "tris": 68,
+   "verts": 36,
+   "mat": "stone",
+   "offset": [
+    1.909,
+    2.997,
+    0.002
+   ],
+   "min": [
+    -0.955,
+    0.0,
+    -0.971
+   ],
+   "max": [
+    0.955,
+    2.01,
+    0.971
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_4",
+   "tris": 145,
+   "verts": 89,
+   "mat": "stone",
+   "offset": [
+    1.463,
+    1.488,
+    -1.877
+   ],
+   "min": [
+    -1.401,
+    0.0,
+    -1.035
+   ],
+   "max": [
+    1.401,
+    3.532,
+    1.035
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_6",
+   "tris": 70,
+   "verts": 37,
+   "mat": "stone",
+   "offset": [
+    -1.909,
+    2.954,
+    0.0
+   ],
+   "min": [
+    -0.955,
+    0.0,
+    -0.973
+   ],
+   "max": [
+    0.955,
+    1.855,
+    0.973
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_7",
+   "tris": 50,
+   "verts": 27,
+   "mat": "stone",
+   "offset": [
+    0.0,
+    2.967,
+    -1.945
+   ],
+   "min": [
+    -0.955,
+    0.0,
+    -0.972
+   ],
+   "max": [
+    0.955,
+    1.987,
+    0.972
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_00_8",
+   "tris": 116,
+   "verts": 60,
+   "mat": "stone",
+   "offset": [
+    -1.909,
+    2.954,
+    -1.947
+   ],
+   "min": [
+    -0.955,
+    0.0,
+    -0.973
+   ],
+   "max": [
+    0.955,
+    1.869,
+    0.973
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_0",
+   "tris": 86,
+   "verts": 47,
+   "mat": "timber",
+   "offset": [
+    0.955,
+    0.0,
+    1.842
+   ],
+   "min": [
+    -1.786,
+    0.0,
+    -0.921
+   ],
+   "max": [
+    1.786,
+    1.606,
+    0.921
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_2",
+   "tris": 93,
+   "verts": 63,
+   "mat": "timber",
+   "offset": [
+    -1.277,
+    0.0,
+    1.802
+   ],
+   "min": [
+    -1.339,
+    0.0,
+    -0.96
+   ],
+   "max": [
+    1.339,
+    3.004,
+    0.96
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_3",
+   "tris": 58,
+   "verts": 37,
+   "mat": "timber",
+   "offset": [
+    1.847,
+    0.0,
+    0.0
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.921
+   ],
+   "max": [
+    0.893,
+    3.077,
+    0.921
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_4",
+   "tris": 64,
+   "verts": 34,
+   "mat": "timber",
+   "offset": [
+    1.847,
+    0.0,
+    -1.842
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.921
+   ],
+   "max": [
+    0.893,
+    1.606,
+    0.921
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_6",
+   "tris": 60,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    -1.724,
+    0.0,
+    -0.0
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.921
+   ],
+   "max": [
+    0.893,
+    2.976,
+    0.921
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_7",
+   "tris": 56,
+   "verts": 32,
+   "mat": "timber",
+   "offset": [
+    0.062,
+    0.0,
+    -0.921
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -1.842
+   ],
+   "max": [
+    0.893,
+    1.573,
+    1.842
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_01_8",
+   "tris": 97,
+   "verts": 65,
+   "mat": "timber",
+   "offset": [
+    -1.277,
+    0.0,
+    -1.802
+   ],
+   "min": [
+    -1.339,
+    0.0,
+    -0.96
+   ],
+   "max": [
+    1.339,
+    3.004,
+    0.96
+   ]
+  },
+  {
+   "house": "Blockhouse",
+   "chunk": "Blockhouse_03_0",
+   "tris": 150,
+   "verts": 89,
+   "mat": "stone",
+   "offset": [
+    -0.039,
+    2.967,
+    0.006
+   ],
+   "min": [
+    -1.331,
+    0.0,
+    -1.297
+   ],
+   "max": [
+    1.331,
+    2.199,
+    1.297
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_00_0",
+   "tris": 823,
+   "verts": 498,
+   "mat": "timber",
+   "offset": [
+    1.014,
+    2.92,
+    0.898
+   ],
+   "min": [
+    -0.896,
+    0.0,
+    -0.898
+   ],
+   "max": [
+    0.896,
+    2.29,
+    0.898
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_00_1",
+   "tris": 511,
+   "verts": 303,
+   "mat": "timber",
+   "offset": [
+    -0.778,
+    3.302,
+    0.898
+   ],
+   "min": [
+    -0.896,
+    0.0,
+    -0.898
+   ],
+   "max": [
+    0.896,
+    1.932,
+    0.898
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_00_2",
+   "tris": 561,
+   "verts": 338,
+   "mat": "timber",
+   "offset": [
+    0.988,
+    3.167,
+    -0.898
+   ],
+   "min": [
+    -0.887,
+    0.0,
+    -0.898
+   ],
+   "max": [
+    0.887,
+    2.044,
+    0.898
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_00_3",
+   "tris": 526,
+   "verts": 313,
+   "mat": "timber",
+   "offset": [
+    -0.786,
+    3.302,
+    -0.898
+   ],
+   "min": [
+    -0.887,
+    0.0,
+    -0.898
+   ],
+   "max": [
+    0.887,
+    1.943,
+    0.898
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_01_0",
+   "tris": 163,
+   "verts": 114,
+   "mat": "stone",
+   "offset": [
+    0.789,
+    1.696,
+    0.851
+   ],
+   "min": [
+    -0.817,
+    0.0,
+    -0.845
+   ],
+   "max": [
+    0.817,
+    1.611,
+    0.845
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_01_1",
+   "tris": 197,
+   "verts": 130,
+   "mat": "stone",
+   "offset": [
+    -0.845,
+    1.786,
+    0.851
+   ],
+   "min": [
+    -0.817,
+    0.0,
+    -0.845
+   ],
+   "max": [
+    0.817,
+    1.606,
+    0.845
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_01_2",
+   "tris": 193,
+   "verts": 128,
+   "mat": "stone",
+   "offset": [
+    0.8,
+    1.673,
+    -0.828
+   ],
+   "min": [
+    -0.806,
+    0.0,
+    -0.834
+   ],
+   "max": [
+    0.806,
+    1.637,
+    0.834
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_01_3",
+   "tris": 159,
+   "verts": 110,
+   "mat": "stone",
+   "offset": [
+    -0.811,
+    1.819,
+    -0.839
+   ],
+   "min": [
+    -0.806,
+    0.0,
+    -0.845
+   ],
+   "max": [
+    0.806,
+    1.572,
+    0.845
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_02_0",
+   "tris": 110,
+   "verts": 72,
+   "mat": "timber",
+   "offset": [
+    1.185,
+    0.0,
+    0.856
+   ],
+   "min": [
+    -0.421,
+    0.0,
+    -0.862
+   ],
+   "max": [
+    0.421,
+    1.194,
+    0.862
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_02_1",
+   "tris": 142,
+   "verts": 104,
+   "mat": "timber",
+   "offset": [
+    1.213,
+    0.0,
+    -0.292
+   ],
+   "min": [
+    -0.427,
+    0.0,
+    -1.438
+   ],
+   "max": [
+    0.427,
+    1.831,
+    1.438
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_03_1",
+   "tris": 88,
+   "verts": 56,
+   "mat": "timber",
+   "offset": [
+    -1.16,
+    0.011,
+    1.308
+   ],
+   "min": [
+    -0.75,
+    0.0,
+    -0.41
+   ],
+   "max": [
+    0.75,
+    1.109,
+    0.41
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_04_1",
+   "tris": 110,
+   "verts": 72,
+   "mat": "timber",
+   "offset": [
+    -1.454,
+    0.022,
+    -1.008
+   ],
+   "min": [
+    -0.421,
+    0.0,
+    -0.744
+   ],
+   "max": [
+    0.421,
+    1.932,
+    0.744
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_10_0",
+   "tris": 660,
+   "verts": 344,
+   "mat": "stone",
+   "offset": [
+    0.264,
+    5.368,
+    -0.0
+   ],
+   "min": [
+    -1.084,
+    0.0,
+    -0.505
+   ],
+   "max": [
+    1.084,
+    1.0,
+    0.505
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_11_0",
+   "tris": 212,
+   "verts": 119,
+   "mat": "timber",
+   "offset": [
+    1.224,
+    2.504,
+    0.006
+   ],
+   "min": [
+    -0.674,
+    0.0,
+    -0.567
+   ],
+   "max": [
+    0.674,
+    2.167,
+    0.567
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_12_0",
+   "tris": 54,
+   "verts": 48,
+   "mat": "stone",
+   "offset": [
+    -1.336,
+    0.247,
+    0.157
+   ],
+   "min": [
+    -0.359,
+    0.0,
+    -1.381
+   ],
+   "max": [
+    0.359,
+    1.662,
+    1.381
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_13_0",
+   "tris": 48,
+   "verts": 48,
+   "mat": "timber",
+   "offset": [
+    -0.275,
+    0.225,
+    -1.28
+   ],
+   "min": [
+    -1.421,
+    0.0,
+    -0.258
+   ],
+   "max": [
+    1.421,
+    1.707,
+    0.258
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_14_0",
+   "tris": 54,
+   "verts": 48,
+   "mat": "timber",
+   "offset": [
+    0.118,
+    0.213,
+    1.28
+   ],
+   "min": [
+    -1.308,
+    0.0,
+    -0.258
+   ],
+   "max": [
+    1.308,
+    1.64,
+    0.258
+   ]
+  },
+  {
+   "house": "Watchtower",
+   "chunk": "Watchtower_16_0",
+   "tris": 194,
+   "verts": 104,
+   "mat": "stone",
+   "offset": [
+    0.056,
+    4.414,
+    -0.0
+   ],
+   "min": [
+    -0.584,
+    0.0,
+    -0.573
+   ],
+   "max": [
+    0.584,
+    1.516,
+    0.573
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_0",
+   "tris": 230,
+   "verts": 157,
+   "mat": "stone",
+   "offset": [
+    0.725,
+    0.0,
+    0.689
+   ],
+   "min": [
+    -0.721,
+    0.0,
+    -0.713
+   ],
+   "max": [
+    0.721,
+    1.904,
+    0.713
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_1",
+   "tris": 306,
+   "verts": 218,
+   "mat": "stone",
+   "offset": [
+    0.185,
+    0.022,
+    -0.2
+   ],
+   "min": [
+    -1.306,
+    0.0,
+    -1.25
+   ],
+   "max": [
+    1.306,
+    1.881,
+    1.25
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_2",
+   "tris": 236,
+   "verts": 161,
+   "mat": "stone",
+   "offset": [
+    -0.74,
+    0.011,
+    0.692
+   ],
+   "min": [
+    -0.743,
+    0.0,
+    -0.712
+   ],
+   "max": [
+    0.743,
+    1.892,
+    0.712
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_3",
+   "tris": 202,
+   "verts": 139,
+   "mat": "stone",
+   "offset": [
+    -0.71,
+    0.056,
+    -0.731
+   ],
+   "min": [
+    -0.714,
+    0.0,
+    -0.712
+   ],
+   "max": [
+    0.714,
+    1.847,
+    0.712
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_4",
+   "tris": 211,
+   "verts": 146,
+   "mat": "stone",
+   "offset": [
+    0.81,
+    1.904,
+    0.88
+   ],
+   "min": [
+    -0.81,
+    0.0,
+    -0.757
+   ],
+   "max": [
+    0.81,
+    1.847,
+    0.757
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_5",
+   "tris": 135,
+   "verts": 103,
+   "mat": "stone",
+   "offset": [
+    0.813,
+    1.904,
+    -0.634
+   ],
+   "min": [
+    -0.813,
+    0.0,
+    -0.757
+   ],
+   "max": [
+    0.813,
+    1.892,
+    0.757
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_6",
+   "tris": 175,
+   "verts": 126,
+   "mat": "stone",
+   "offset": [
+    -0.813,
+    1.904,
+    0.885
+   ],
+   "min": [
+    -0.813,
+    0.0,
+    -0.753
+   ],
+   "max": [
+    0.813,
+    1.87,
+    0.753
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_00_7",
+   "tris": 110,
+   "verts": 83,
+   "mat": "stone",
+   "offset": [
+    -0.81,
+    1.904,
+    -0.622
+   ],
+   "min": [
+    -0.81,
+    0.0,
+    -0.753
+   ],
+   "max": [
+    0.81,
+    1.904,
+    0.753
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_01_0",
+   "tris": 97,
+   "verts": 60,
+   "mat": "stone",
+   "offset": [
+    0.803,
+    1.988,
+    -1.293
+   ],
+   "min": [
+    -0.803,
+    0.0,
+    -0.345
+   ],
+   "max": [
+    0.803,
+    0.64,
+    0.345
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_01_1",
+   "tris": 108,
+   "verts": 66,
+   "mat": "stone",
+   "offset": [
+    -0.803,
+    2.01,
+    -1.289
+   ],
+   "min": [
+    -0.803,
+    0.0,
+    -0.344
+   ],
+   "max": [
+    0.803,
+    0.64,
+    0.344
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_02_0",
+   "tris": 130,
+   "verts": 87,
+   "mat": "timber",
+   "offset": [
+    0.273,
+    3.335,
+    0.241
+   ],
+   "min": [
+    -1.264,
+    0.0,
+    -1.22
+   ],
+   "max": [
+    1.264,
+    1.253,
+    1.22
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_02_1",
+   "tris": 174,
+   "verts": 104,
+   "mat": "stone",
+   "offset": [
+    0.782,
+    3.667,
+    -0.752
+   ],
+   "min": [
+    -0.752,
+    0.0,
+    -0.738
+   ],
+   "max": [
+    0.752,
+    0.927,
+    0.738
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_02_2",
+   "tris": 172,
+   "verts": 110,
+   "mat": "stone",
+   "offset": [
+    -0.721,
+    3.65,
+    0.735
+   ],
+   "min": [
+    -0.751,
+    0.0,
+    -0.74
+   ],
+   "max": [
+    0.751,
+    1.089,
+    0.74
+   ]
+  },
+  {
+   "house": "GuardPost",
+   "chunk": "GuardPost_02_3",
+   "tris": 144,
+   "verts": 87,
+   "mat": "stone",
+   "offset": [
+    -0.724,
+    3.682,
+    -0.745
+   ],
+   "min": [
+    -0.754,
+    0.0,
+    -0.74
+   ],
+   "max": [
+    0.754,
+    0.911,
+    0.74
+   ]
+  }
+ ]
+}

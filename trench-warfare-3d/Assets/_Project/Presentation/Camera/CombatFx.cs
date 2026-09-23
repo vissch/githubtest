@@ -257,6 +257,7 @@ namespace TW.Presentation.Tactical
             waterMat = new Material(unlit) { enableInstancing = true, color = SceneTints.Now.Splash };
             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
             SceneHooks.Sparks = (at, count) => Throw(at, count, 3, 2.5f, 0.04f);
+            SceneHooks.CookOff = CookOff;
             var lens = Camera.main;
             if (lens != null && lens.GetComponent<CameraShake>() == null) lens.gameObject.AddComponent<CameraShake>();
             tracerCore = new Material(unlit) { enableInstancing = true, color = new Color(3.0f, 2.7f, 2.3f) };   // the streak itself: white-hot
@@ -444,6 +445,7 @@ namespace TW.Presentation.Tactical
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.Sparks = null;
+            if (SceneHooks.CookOff == (System.Action<Vector3, float>)CookOff) SceneHooks.CookOff = null;
             books?.Dispose();
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
@@ -1261,6 +1263,32 @@ namespace TW.Presentation.Tactical
                     chunks.Add(new Chunk { Pos = at, Vel = new Vector3(UnityEngine.Random.Range(-0.2f, 0.2f), 0.9f, UnityEngine.Random.Range(-0.2f, 0.2f)), Born = now, Life = UnityEngine.Random.Range(2.4f, 3.6f), Size = 0.22f, Kind = 2 });
                 }
             }
+        }
+
+        /// <summary>A shell going off where it lay (SceneHooks.CookOff): a shell burst's flash, fire and smoke at a fraction of
+        /// its size, its sparks and clods, and the kick of it. No column: it was lying on the ground, not buried by its fall.</summary>
+        void CookOff(Vector3 p, float radius)
+        {
+            if (Host == null || Host.Local == null) return;
+            p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+            float r = Mathf.Clamp(radius, 0.8f, 4f);
+            if (books != null && books.Ready)
+            {
+                Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;
+                books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.16f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow, pop: 0.5f);
+                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.5f), r * 2.4f, 1.4f, FlipbookFx.Kind.Upright,
+                    velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                for (int k = 0; k < 3; k++)
+                    books.Add(FlipbookFx.Book.Smoke, p + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r, r * UnityEngine.Random.Range(1.1f, 1.5f), UnityEngine.Random.Range(3.5f, 5f),
+                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: 0.6f, pop: 0.3f, delay: 0.3f + k * 0.15f);
+            }
+            else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = r, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
+            Throw(p + Vector3.up * 0.3f, 14, 3, 7f, 0.05f);   // sparks
+            if (debris != null && debris.Ready)
+                debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(5f + r * 2f), 6f + r, 0.14f, Mud, 30f, 0f, 1.8f, default, (uint)(p.x * 131f + p.z * 17f));
+            SceneHooks.Flash?.Invoke(p + Vector3.up * 0.8f, new Color(1f, 0.62f, 0.3f), 6f, r * 5f, 0.25f);
+            Startle(p);
+            CameraShake.Add(p, r * 1.5f);
         }
 
         void Throw(Vector3 at, int count, byte kind, float speed, float size)

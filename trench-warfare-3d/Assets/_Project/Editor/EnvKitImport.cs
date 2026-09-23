@@ -14,7 +14,7 @@ namespace TW.Editor
     {
         public const string Folder = "Assets/_Project/Resources/Env/";
 
-        public override uint GetVersion() => 2;
+        public override uint GetVersion() => 5;
 
         static bool Ours(string path) => path.Replace('\\', '/').StartsWith(Folder);
 
@@ -26,7 +26,10 @@ namespace TW.Editor
             m.importCameras = false; m.importLights = false; m.importVisibility = false; m.importBlendShapes = false;
             m.materialImportMode = ModelImporterMaterialImportMode.None;
             m.animationType = ModelImporterAnimationType.None; m.importAnimation = false;
-            m.addCollider = false; m.generateSecondaryUV = false; m.isReadable = false;
+            m.addCollider = false; m.generateSecondaryUV = false;
+            // building chunks are combined into one mesh a building at load (HouseKit.BuildWhole), which needs their data
+            var path = assetPath.Replace('\\', '/');
+            m.isReadable = path.StartsWith(Folder + "Houses/") || path.StartsWith(Folder + "Military/") || path.Contains("/Chunks/");
             m.meshCompression = ModelImporterMeshCompression.Off;
             // the sheets' own normals do not survive the split; hard where the painted forms break, soft on curved stock
             m.importNormals = ModelImporterNormals.Calculate; m.normalSmoothingAngle = 60f;

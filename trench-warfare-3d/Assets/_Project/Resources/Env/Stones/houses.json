@@ -1,0 +1,224 @@
+{
+ "chunks": [
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_0",
+   "tris": 48,
+   "verts": 26,
+   "mat": "timber",
+   "offset": [
+    0.686,
+    -0.0,
+    0.318
+   ],
+   "min": [
+    -0.343,
+    0.0,
+    -0.318
+   ],
+   "max": [
+    0.343,
+    0.767,
+    0.318
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_1",
+   "tris": 60,
+   "verts": 32,
+   "mat": "timber",
+   "offset": [
+    0.648,
+    0.0,
+    -0.318
+   ],
+   "min": [
+    -0.306,
+    0.0,
+    -0.318
+   ],
+   "max": [
+    0.306,
+    0.767,
+    0.318
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_2",
+   "tris": 36,
+   "verts": 20,
+   "mat": "timber",
+   "offset": [
+    0.0,
+    -0.0,
+    0.32
+   ],
+   "min": [
+    -0.343,
+    0.0,
+    -0.316
+   ],
+   "max": [
+    0.343,
+    0.767,
+    0.316
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_3",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    0.0,
+    -0.0,
+    -0.312
+   ],
+   "min": [
+    -0.343,
+    0.0,
+    -0.316
+   ],
+   "max": [
+    0.343,
+    0.767,
+    0.316
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_4",
+   "tris": 60,
+   "verts": 32,
+   "mat": "timber",
+   "offset": [
+    -0.686,
+    -0.0,
+    0.322
+   ],
+   "min": [
+    -0.343,
+    0.0,
+    -0.314
+   ],
+   "max": [
+    0.343,
+    0.767,
+    0.314
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_5",
+   "tris": 54,
+   "verts": 29,
+   "mat": "timber",
+   "offset": [
+    -0.612,
+    -0.0,
+    -0.306
+   ],
+   "min": [
+    -0.269,
+    0.0,
+    -0.314
+   ],
+   "max": [
+    0.269,
+    0.767,
+    0.314
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_6",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    0.443,
+    0.767,
+    0.008
+   ],
+   "min": [
+    -0.447,
+    0.0,
+    -0.367
+   ],
+   "max": [
+    0.447,
+    0.71,
+    0.367
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_7",
+   "tris": 84,
+   "verts": 44,
+   "mat": "stone",
+   "offset": [
+    0.562,
+    1.477,
+    0.002
+   ],
+   "min": [
+    -0.415,
+    0.0,
+    -0.474
+   ],
+   "max": [
+    0.415,
+    0.71,
+    0.474
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_8",
+   "tris": 68,
+   "verts": 36,
+   "mat": "stone",
+   "offset": [
+    -0.468,
+    0.767,
+    0.009
+   ],
+   "min": [
+    -0.464,
+    0.0,
+    -0.36
+   ],
+   "max": [
+    0.464,
+    0.767,
+    0.36
+   ]
+  },
+  {
+   "house": "WallStub",
+   "chunk": "Chunks/WallStub_00_9",
+   "tris": 84,
+   "verts": 44,
+   "mat": "stone",
+   "offset": [
+    -0.521,
+    1.533,
+    0.001
+   ],
+   "min": [
+    -0.463,
+    0.0,
+    -0.457
+   ],
+   "max": [
+    0.463,
+    0.767,
+    0.457
+   ]
+  }
+ ]
+}
