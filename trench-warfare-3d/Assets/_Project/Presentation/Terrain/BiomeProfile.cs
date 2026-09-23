@@ -75,7 +75,8 @@ namespace TW.Presentation.Terrain
         /// <summary>
         /// Multiplies the ground and everything standing on it. The mud palette is baked on the CPU and is the
         /// same on every biome; this is what turns it to basalt or to old packed snow without re-baking it.
-        /// Alpha 0 = unset and the world keeps its own colour exactly.
+        /// ALPHA IS A PULL toward that hue, not a flag: a multiply alone leaves brown mud brown, which showed up
+        /// in the winter captures as warm trench interiors in a field where every other pixel was one hue.
         /// </summary>
         public Color WorldTint = new Color(1f, 1f, 1f, 0f);
 
@@ -172,7 +173,7 @@ namespace TW.Presentation.Terrain
             // Hue 350, not 15: what arrives on an underside in the reference is red, not orange, and its blue
             // channel is never 0.06 - no pure orange occurs anywhere in that image.
             GroundLight = new Color(0.80f, 0.22f, 0.16f, 1.2f),
-            WorldTint = new Color(0.34f, 0.28f, 0.27f, 1f),   // mud, taken most of the way to cold basalt
+            WorldTint = new Color(0.34f, 0.28f, 0.27f, 0.45f),   // mud, taken most of the way to cold basalt
             HeatStrength = 0.85f, HeatPlates = 0.075f, HeatCrackWidth = 0.032f, MoltenLevel = 0.6f,
             // An EMISSION colour, not the reference's final pixel colour. I had pasted the measured crack body
             // (0.95, 0.38, 0.42) straight in, but that number is what the reference shows AFTER its fog, its
@@ -193,7 +194,7 @@ namespace TW.Presentation.Terrain
         /// </summary>
         public static BiomeProfile Winter() => new BiomeProfile
         {
-            Id = Biome.Winter, Name = "winter", Dark = false, GlowScale = 0.8f, LampScale = 0.34f,
+            Id = Biome.Winter, Name = "winter", Dark = false, GlowScale = 0.8f, LampScale = 0.42f,
             // Deliberately DARKER than the sky. At 0.72 the fog was brighter than what the mountains stand
             // against, so the horizon would blow out and W6 would be unbuildable.
             Haze = new Color(0.63f, 0.70f, 0.79f),
@@ -218,7 +219,7 @@ namespace TW.Presentation.Terrain
             // top-to-side range; the reference measures 1.7:1 on a sandbag and 2.26:1 on a dugout wall. The old
             // value was the direct cause of the mush I had raised Contrast to 26 to fight.
             GroundLight = new Color(0.30f, 0.34f, 0.41f, 0.9f),
-            WorldTint = new Color(0.62f, 0.67f, 0.76f, 1f),   // the earth that shows through is cold, not brown
+            WorldTint = new Color(0.62f, 0.67f, 0.76f, 0.80f),   // the earth that shows through is cold, not brown
             SnowCoverage = 1.0f, SnowShedBelow = 0.22f, SnowSparkle = 0.15f, SnowBreakup = 0.45f,
             SnowColor = new Color(0.93f, 0.95f, 0.99f, 0.10f),   // fresh snow is matt; the glare belongs on the ice
             DebrisTint = new Color(0.80f, 0.84f, 0.90f, 0f),

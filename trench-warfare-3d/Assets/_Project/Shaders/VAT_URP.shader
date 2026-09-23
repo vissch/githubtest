@@ -160,7 +160,16 @@ Shader "TW/VAT Infantry (URP)"
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
-                half3 color = albedo * 1.18 * lerp(half3(0.70, 0.72, 0.76) * lerp(half3(1, 1, 1), TWShadeTint(), 0.45), mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
+                // The battlefield reaches the men, or they read as cut out of a different picture standing in it.
+                // Snow is keyed on positionOS, NOT positionWS: at TWSnowAmount's frequencies a world-space pattern
+                // slides across a man walking at 1.5 m/s about once a second, and three thousand of them shimmering
+                // independently is far worse than no snow at all. In his own space it is painted on and stays put.
+                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0);
+                if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.7);   // a man sheds some; he is warm and he moves
+                half3 shade = TWHemisphere(half3(0.70, 0.72, 0.76) * lerp(half3(1, 1, 1), TWShadeTint(), 0.45), normalize(i.normalWS));
+                half3 color = albedo * 1.18 * lerp(shade, mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
+                // and the floor lights them from beneath: on the lava field this is most of the light they get
+                color += TWGroundBounce(normalize(i.normalWS), albedo) * 1.18;
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);

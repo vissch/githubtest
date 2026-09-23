@@ -149,7 +149,9 @@ Shader "TW/Tank (URP)"
                     gloss = soaked * 0.5;
                     albedo *= 1.0 - 0.22 * soaked;
                 }
-                half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, band);
+                // the battlefield reaches this too: the shaded half is a hemisphere, and the floor lights it from below
+                half3 color = albedo * lerp(TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS)), mainLight.color, band);
+                color += TWGroundBounce(normalize(i.normalWS), albedo);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
                 if (gloss > 0.01)

@@ -12,6 +12,7 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
 {
     half3 sum = 0;
     highlight = 0;
+    half lamp = _TWLampScale > 0.0 ? _TWLampScale : 1.0;
     float3 mirrored = reflect(-view, normalWS);
 #if defined(_ADDITIONAL_LIGHTS)
     InputData inputData = (InputData)0;
@@ -28,15 +29,16 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
         half3 deep = tint * tint * tint;
         half glint = pow(saturate(dot(mirrored, l.direction)), 22.0) * l.distanceAttenuation * peak;
         highlight += lerp(tint, half3(1, 1, 1), 0.35) * (smoothstep(0.05, 0.11, glint) * 0.55 + smoothstep(0.6, 0.9, glint) * 0.6) * gloss;
-        sum += deep * smoothstep(0.02, 0.04, e) * 0.36 + tint * smoothstep(0.12, 0.20, e) * 0.38 + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44;
+        // The three bands are scaled UNEVENLY by the biome. On snow the widest, dimmest band - the deep-coloured
+        // reach - is what turns a lantern into a salmon stain twenty metres across, because it is multiplied by an
+        // albedo three times what it was tuned against. The core is not the problem and must not be dimmed with it:
+        // on a single-hue field the lamps are the only warm things left and their job is to be precious.
+        half reach = lamp * lamp, mid = lamp, core = sqrt(lamp);
+        sum += deep * smoothstep(0.02, 0.04, e) * 0.36 * reach + tint * smoothstep(0.12, 0.20, e) * 0.38 * mid + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44 * core;
     LIGHT_LOOP_END
 #endif
-    // A lamp pool is multiplied by the albedo it falls on. Snow's albedo is about three times mud's, so the same
-    // lantern that reads as a small warm pool on a mud field spreads a large salmon stain across a snowfield -
-    // which also breaks the single-hue rule that winter's whole look rests on. One scale per biome fixes it.
-    half lamp = _TWLampScale > 0.0 ? _TWLampScale : 1.0;
     highlight *= lamp;
-    return sum * lamp;
+    return sum;
 }
 
 #endif

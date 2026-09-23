@@ -146,7 +146,9 @@ Shader "TW/Debris (URP)"
                 if (_TWWet.x > 0.0) albedo *= 1.0 - 0.22 * _TWWet.x * saturate(n.y * 0.55 + 0.5);   // wet on top, like everything in the rain
                 half wrap = dot(n, mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, wrap) * 0.5 + smoothstep(0.69, 0.74, wrap) * 0.5;
-                half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, band);
+                // the battlefield reaches this too: the shaded half is a hemisphere, and the floor lights it from below
+                half3 color = albedo * lerp(TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS)), mainLight.color, band);
+                color += TWGroundBounce(normalize(i.normalWS), albedo);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 half3 lampGlint;
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, n, i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.2 * _TWWet.x, lampGlint);

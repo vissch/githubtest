@@ -158,7 +158,7 @@ Shader "TW/Toon (URP)"
                 }
                 // Snow lies before anything is lit, so it takes the light the surface under it would have taken and
                 // the toon bands break over it the same way. Zero on every biome but winter (uniform branch).
-                albedo *= TWWorldTint();   // basalt, or old snow, or on the night field exactly 1
+                albedo = TWWorldPaint(albedo);   // basalt, or cold rock, or on the night field untouched
                 albedo *= TWHeatCrust(i.positionWS, normalize(i.normalWS), saturate(_DetailStrength * 8.0));   // black between the plates
                 half snow = TWSnowAmount(i.normalWS, i.positionWS);
                 if (snow > 0.0)

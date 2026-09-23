@@ -45,7 +45,21 @@ float _TWLampScale;    // local lights are multiplied by albedo; snow is 3x the 
 /// literals out of a 160-line static function, which is the right fix and not a cheap one. This is the cheap
 /// one, and it is honest about being a tint rather than a repaint: basalt is mud multiplied most of the way to
 /// black, old snow is mud multiplied toward cold grey. Unset on the night field, where it is exactly 1.
-half3 TWWorldTint() { return _TWWorldTint.a > 0.5 ? _TWWorldTint.rgb : half3(1, 1, 1); }
+/// The battlefield's colour over the painted mud. ALPHA IS A PULL, not a flag: rgb multiplies, and then alpha
+/// drags what is left toward the biome's own hue at the same brightness.
+///
+/// The multiply alone was not enough and the winter captures showed exactly why. Brown mud times a cold grey is
+/// still brown, so the trench interiors came out as the only warm thing in a field where every other pixel was
+/// hue 214 - and one warm patch in a single-hue image is all it takes to break it. A multiply changes value; only
+/// a pull changes hue.
+half3 TWWorldPaint(half3 albedo)
+{
+    if (_TWWorldTint.a <= 0.001) return albedo;
+    half3 c = albedo * _TWWorldTint.rgb;
+    half l = dot(c, half3(0.299, 0.587, 0.114));
+    half3 hue = _TWWorldTint.rgb / max(dot(_TWWorldTint.rgb, half3(0.299, 0.587, 0.114)), 1e-3);
+    return lerp(c, l * hue, _TWWorldTint.a);
+}
 
 /// The ambient a surface sees, split into what falls from the sky and what comes back up off the ground.
 ///
