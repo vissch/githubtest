@@ -46,10 +46,11 @@ namespace TW.UI
         public const float ClusterWidthPx = 4f * OrderBtnPx + 2f * OrderGapPx + 2f * OrderOffPx;   // 340
         public const float ClusterTopMinPx = 70f;
         public const float ClusterBottomMarginPx = 26f;
+        public const float BarBottomMarginPx = 12f;   // round 11: the bar no longer sits flush on the screen edge
 
         // the rest
-        public const float MinimapScale = 3.2f;  // minimap pixels per nav cell (BattleHud.MapScale)
-        public const float MinimapBezelPx = 8f;   // round 7: the 24 px frame spent 5% of the screen on metal
+        public const float MinimapScale = 2.5f;  // minimap pixels per nav cell; round 11: 3.2 made the corner twice the left column
+        public const float MinimapBezelPx = 14f;  // round 7 cut it from 24 to 8; round 11: 14 so the plate's rivets and lit edge show, like the gauges
         public const float TooltipDelaySeconds = 0.35f;
         public const float BannerSeconds = 3f;
 

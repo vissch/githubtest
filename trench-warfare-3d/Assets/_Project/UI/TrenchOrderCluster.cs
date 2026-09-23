@@ -124,7 +124,7 @@ namespace TW.UI
                 if (a < 0) { Hide(c); continue; }
                 float px = anchors[a].x, py = anchors[a].y;
                 if (px < half || px > panelW - half) { Hide(c); continue; }
-                float by = Mathf.Clamp(py, HudLayout.ClusterTopMinPx, panelH - HudLayout.BarHeightPx - b - HudLayout.ClusterBottomMarginPx);
+                float by = Mathf.Clamp(py, HudLayout.ClusterTopMinPx, panelH - HudLayout.BarHeightPx - HudLayout.BarBottomMarginPx - b - HudLayout.ClusterBottomMarginPx);
                 float x = px - half;
                 if (float.IsNaN(c.LastX) || Mathf.Abs(x - c.LastX) > 0.25f || Mathf.Abs(by - c.LastY) > 0.25f)
                 {
@@ -143,7 +143,11 @@ namespace TW.UI
                     c.FireIcon?.EnableInClassList("tw-ico-holdfire", held); c.FireIcon?.EnableInClassList("tw-ico-fireatwill", !held);
                     c.HoldFire.EnableInClassList("tw-btn--on", held); c.LastHeld = held;
                 }
-                if (manned != c.LastManned || !c.Shown) { c.Fallback.SetEnabled(manned); c.Advance.SetEnabled(manned); c.LastManned = manned; }
+                if (manned != c.LastManned || !c.Shown)
+                {
+                    c.Fallback.SetEnabled(manned); c.Advance.SetEnabled(manned); c.LastManned = manned;
+                    c.Root.EnableInClassList("is-empty", !manned);     // round 11: an empty trench's cluster steps back until hovered
+                }
                 if (ts.GarrisonCount != c.LastCount) { c.Garrison.text = MenText(ts.GarrisonCount); c.LastCount = ts.GarrisonCount; }
                 Show(c);
             }

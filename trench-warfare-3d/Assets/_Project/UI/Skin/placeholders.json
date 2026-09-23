@@ -1,5 +1,5 @@
 {
-    "generator": 8,
+    "generator": 9,
     "files": [
         {
             "file": "Icons/ico_arrow_down.png",
@@ -195,19 +195,19 @@
         },
         {
             "file": "Sprites/order_plate_disabled.png",
-            "sha1": "aaf57c885cc1f473bcafbb3f4e0bc42a5a25e380"
+            "sha1": "b9dfa1fc7a10c00420ae25690fd60370c44a94f2"
         },
         {
             "file": "Sprites/order_plate_hover.png",
-            "sha1": "95c71aab5cea6bb03c32aadfe3ddd8bf25e9c6a6"
+            "sha1": "04e6c1a53a8342068c86b1d17eb116b958c5a514"
         },
         {
             "file": "Sprites/order_plate_normal.png",
-            "sha1": "ea738cce28c92d179bbbc0b933dc6eca76842789"
+            "sha1": "f775adb9fb47a9ce2a8d649df280f4400aeb7bbc"
         },
         {
             "file": "Sprites/order_plate_pressed.png",
-            "sha1": "cf60489025d1148bc1ee874794ac0cea560eaebe"
+            "sha1": "d14771135947f73508c9526e4b2b51cbb8ec2be9"
         },
         {
             "file": "Sprites/order_round_disabled.png",

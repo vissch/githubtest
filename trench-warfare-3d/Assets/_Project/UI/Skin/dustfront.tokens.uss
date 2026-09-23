@@ -92,5 +92,5 @@
     --tw-order-btn: 62px;
     --tw-order-gap: 6px;
     --tw-order-off: 40px;
-    --tw-minimap-bezel: 8px;
+    --tw-minimap-bezel: 14px;
 }

@@ -78,12 +78,14 @@ namespace TW.UI
                 for (int z = 0; z < tw; z++)
                 {
                     var layer = (NavLayer)map.NavLayers[map.NavIndex(x, z)];
-                    Color32 c = new Color32(92, 76, 54, 255);
-                    if ((layer & NavLayer.Mud) != 0) c = new Color32(70, 57, 40, 255);
-                    if ((layer & NavLayer.Crater) != 0) c = new Color32(58, 49, 38, 255);
-                    if ((layer & NavLayer.Wire) != 0) c = new Color32(120, 118, 116, 255);
-                    if ((layer & NavLayer.Blocked) != 0) c = map.WaterDepthAtCell(x, z) > 0.5f ? new Color32(52, 70, 74, 255) : new Color32(40, 52, 34, 255);
-                    if ((layer & NavLayer.Trench) != 0) c = (layer & NavLayer.Link) != 0 ? new Color32(200, 170, 110, 255) : TrenchColour(owners ? map.CellTrenchId[map.NavIndex(x, z)] : (short)-1, fields);
+                    // round 11: a desaturated gunmetal ground (the warm mud was the brightest area on screen and pulled the
+                    // eye before the silver); the owned trench lines are now the brightest marks in the well
+                    Color32 c = new Color32(0x3A, 0x38, 0x33, 255);
+                    if ((layer & NavLayer.Mud) != 0) c = new Color32(0x2F, 0x2D, 0x2A, 255);
+                    if ((layer & NavLayer.Crater) != 0) c = new Color32(0x28, 0x26, 0x23, 255);
+                    if ((layer & NavLayer.Wire) != 0) c = new Color32(0x50, 0x50, 0x4E, 255);
+                    if ((layer & NavLayer.Blocked) != 0) c = map.WaterDepthAtCell(x, z) > 0.5f ? new Color32(0x24, 0x30, 0x39, 255) : new Color32(0x2F, 0x2D, 0x2A, 255);
+                    if ((layer & NavLayer.Trench) != 0) c = (layer & NavLayer.Link) != 0 ? new Color32(0x6E, 0x64, 0x50, 255) : TrenchColour(owners ? map.CellTrenchId[map.NavIndex(x, z)] : (short)-1, fields);
                     groundPixels[(th - 1 - x) * tw + z] = c;   // texture rows run bottom-up
                 }
                 ground.SetPixels32(groundPixels); ground.Apply(false, false);

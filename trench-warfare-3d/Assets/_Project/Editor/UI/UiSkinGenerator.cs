@@ -182,10 +182,11 @@ namespace TW.Editor
                 case "btn_accent_hover": PlateBody(c, e.L, Lerp(Plate600, Plate500, 0.6f), false, false); break;
                 case "btn_accent_pressed": PlateBody(c, e.L, Plate800, true, false); break;
                 case "panel_bg": PlateBody(c, e.L, Plate800, false, false, null, 3.5f); c.InnerLine(e.L - 6, Keyline, 140); break;
-                case "order_plate_normal": PlateBody(c, e.L, Plate700, false, false, null, 3f); break;
-                case "order_plate_hover": PlateBody(c, e.L, Plate600, false, false, null, 3f); c.InnerLine(e.L - 4, Accent, 100); break;
-                case "order_plate_pressed": PlateBody(c, e.L, Plate800, true, false, null, 3f); break;
-                case "order_plate_disabled": PlateBody(c, e.L, Plate800, false, true, null, 3f); break;
+                // round 11: rivets belong on container plates, never on buttons; no square inner line on hover
+                case "order_plate_normal": PlateBody(c, e.L, Plate700, false, false, null, 0f); break;
+                case "order_plate_hover": PlateBody(c, e.L, Plate600, false, false, null, 0f); break;
+                case "order_plate_pressed": PlateBody(c, e.L, Plate800, true, false, null, 0f); break;
+                case "order_plate_disabled": PlateBody(c, e.L, Plate800, false, true, null, 0f); break;
                 case "gauge_window": case "badge": Window(c, RadiusSm); break;
                 case "card_nameplate": c.Fill(0, 0, c.W, c.H, Plate900); c.HLine(0, Plate500, 0, c.W); c.RoundCorners(RadiusSm, 1f); break;
                 case "keycap": PlateBody(c, e.L, Plate500, false, false, null, 0f, RadiusMd); c.Fill(2, c.H - e.B, c.W - 4, 3, Plate900); break;

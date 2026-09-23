@@ -21,18 +21,18 @@
 
 /* minimap and speed, top-right */
 .hud-bezel { padding: var(--tw-minimap-bezel); background-color: var(--tw-plate-700); border-radius: var(--tw-radius-lg); }
-.hud-bezel--square { background-image: none; background-color: var(--tw-plate-700); border-width: 1px; border-color: #0A0B0C; border-top-color: #3A3C3F; border-left-color: #3A3C3F; border-radius: var(--tw-radius-lg); }   /* round 9: the house radius, like every other plate */
+.hud-bezel--square { background-image: url("../../Skin/Sprites/plate_normal.png"); -unity-slice-left: 16; -unity-slice-top: 16; -unity-slice-right: 16; -unity-slice-bottom: 16; -unity-slice-scale: 1px; background-color: var(--tw-plate-700); border-radius: var(--tw-radius-lg); }   /* round 11: the same riveted plate as the gauges */
 .hud-bezel--round { background-image: url("../../Skin/Sprites/bezel_round.png"); -unity-background-scale-mode: stretch-to-fill; -unity-slice-left: 0; -unity-slice-top: 0; -unity-slice-right: 0; -unity-slice-bottom: 0; border-radius: 50%; overflow: hidden; }
 .hud-minimap { background-color: var(--tw-plate-900); width: 100px; height: 60px; border-radius: var(--tw-radius-sm); overflow: hidden; }   /* size set in code from the map */
 .hud-minimap__layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: stretch-to-fill; }
-.hud-minimap__view { position: absolute; border-width: 1px; border-color: rgba(200, 201, 198, 0.8); width: 8px; height: 6px; }
+.hud-minimap__view { position: absolute; border-width: 2px; border-color: var(--tw-accent-bright); width: 8px; height: 6px; }   /* round 11: amber, 2 px, so "where am I looking" survives next to a bone trench line */
 .hud-speed { margin-top: 8px; padding: 6px 10px 6px 6px; flex-direction: row; }   /* the first button carries a 4 px margin: 10 px end fields both sides */
 .hud-speed__btn { width: 40px; height: 40px; min-height: 0; padding: 0; margin-left: 4px; font-size: var(--tw-size-caption); background-image: url("../../Skin/Sprites/row_plate.png"); -unity-slice-left: 12; -unity-slice-top: 8; -unity-slice-right: 12; -unity-slice-bottom: 8; border-radius: var(--tw-radius); }
 .hud-speed__btn.tw-btn--on { background-color: #2C2E33; border-bottom-width: 2px; border-bottom-color: var(--tw-accent); color: var(--tw-accent-bright); }
 .hud-speed__btn > .tw-icon { width: 18px; height: 18px; align-self: center; }
 
 /* the bar, bottom centre */
-.hud-bar { flex-shrink: 0; background-image: url("../../Skin/Sprites/plate_normal.png"); -unity-slice-left: 16; -unity-slice-top: 16; -unity-slice-right: 16; -unity-slice-bottom: 16; flex-direction: row; align-items: flex-end; padding: 6px var(--tw-bar-inset) 8px var(--tw-bar-inset); height: var(--tw-bar-height); margin-bottom: 0; }
+.hud-bar { flex-shrink: 0; background-image: url("../../Skin/Sprites/plate_normal.png"); -unity-slice-left: 16; -unity-slice-top: 16; -unity-slice-right: 16; -unity-slice-bottom: 16; flex-direction: row; align-items: flex-end; padding: 6px var(--tw-bar-inset) 8px var(--tw-bar-inset); height: var(--tw-bar-height); margin-bottom: 12px;   /* HudLayout.BarBottomMarginPx (round 11) */ }
 /* the infantry stand as tall as the ARMOUR row over the SUPPORT row (HudLayout.StackHeightPx); caption top, cards bottom */
 .hud-group--infantry { }
 .hud-group-stack { flex-direction: column; justify-content: space-between; height: 196px; margin-left: var(--tw-card-gap); }   /* HudLayout.StackHeightPx */
@@ -54,9 +54,9 @@
 /* a card gap then the divider, as BattleHud laid out its cells: HudLayout.BarWidth counts both */
 .hud-bar__divider { width: var(--tw-bar-divider); margin: 0 0 0 var(--tw-card-gap); height: 180px; background-color: rgba(0, 0, 0, 0); background-image: none; align-items: center; justify-content: center; }
 .hud-card { }
-.hud-tooltip { position: absolute; bottom: 220px; left: 50%; translate: -50% 0; display: none; }
+.hud-tooltip { position: absolute; bottom: 232px; left: 50%; translate: -50% 0; display: none; }
 .hud-tooltip.is-visible { display: flex; }
-.hud-hint { position: absolute; bottom: 218px; left: 0; right: 0; -unity-text-align: middle-center; color: var(--tw-text-bright); display: none; }
+.hud-hint { position: absolute; bottom: 230px; left: 0; right: 0; -unity-text-align: middle-center; color: var(--tw-text-bright); display: none; }
 .hud-hint.is-visible { display: flex; }
 
 /* trench order clusters */
@@ -68,7 +68,10 @@
 .hud-orders__btn.hud-orders__btn--last { margin-right: 0; }   /* USS has no :last-child */
 .hud-orders__btn > .tw-icon { width: 40px; height: 40px; }
 .hud-orders__gap { width: 56px; height: var(--tw-order-btn); }   /* the pairs' 2 x (4 px padding + 1 px border) come out of the gap: the cluster stays 340 px */
-.hud-orders__count { margin-top: 4px; }
+.hud-orders__count { margin-top: 0; padding: 1px 8px; font-size: 13px; color: var(--tw-accent); background-color: var(--tw-plate-900); background-image: url("../../Skin/Sprites/gauge_window.png"); -unity-slice-left: 6; -unity-slice-top: 6; -unity-slice-right: 6; -unity-slice-bottom: 6; border-radius: var(--tw-radius-sm); -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }   /* round 11: a recessed window butted to the plates, not a loose pill */
+.hud-orders.is-empty { opacity: 0.55; }
+.hud-orders.is-empty:hover { opacity: 1; }
+.hud-orders.is-empty .tw-icon { -unity-background-image-tint-color: var(--tw-text-dim); }
 .hud-orders.is-hidden { display: none; }
 /* an order that cannot be given dims as a whole button, never as a grey glyph on a normal plate (round 6) */
 /* round 9: at 40% the plate went see-through and read as a hole; the plate stays opaque, the glyph dims */
@@ -79,6 +82,12 @@
 /* the enemy count is large enough to pass at 3:1 in rust (round 6) */
 #silver-value { color: var(--tw-accent-bright); }
 .tw-card__cost { color: var(--tw-accent); }
+/* this sheet sits nearer the cards than the skin, so the states it overrides must be restated here: the round 7 amber
+   silently won over "can't afford = red" (round 11, R0.8 regression) */
+.tw-card.is-poor > .tw-card__cost { color: var(--tw-alarm); }
+.tw-card.is-cooling > .tw-card__cost { color: var(--tw-text-dim); }
+.tw-card.is-poor > .tw-card__portrait { -unity-background-image-tint-color: #5A5A5A; }
+#silver-value { font-size: 26px; min-width: 120px; }   /* round 11: the treasury is the top number on screen */
 #enemy-value { margin-top: 2px; font-size: 16px; -unity-font-style: bold; min-width: 40px; }
 
 /* banner and pause plate, centre */
@@ -92,7 +101,7 @@
    roster is too wide to leave room (narrow screens) HudDialogue raises it above the bar with --raised. The name is
    bone for every speaker; a hurt report says so in a red status chip, and a critical one keylines the portrait. */
 .hud-dialogue { position: absolute; left: 12px; bottom: 8px; width: 344px; min-height: 88px; flex-direction: row; align-items: center; padding: 12px 14px 12px 12px; }   /* 12 px clears the plate rivets */
-.hud-dialogue--raised { left: auto; right: 14px; bottom: 222px; }   /* no room beside the bar: over its right end, clear of the objectives (round 7); BarHeightPx + 12 */
+.hud-dialogue--raised { left: auto; right: 14px; bottom: 234px; }   /* no room beside the bar: over its right end, clear of the objectives (round 7); BarHeightPx + 12 */
 .hud-dialogue__frame { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; overflow: hidden; border-width: 0; }
 .hud-dialogue__portrait { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: scale-to-fit; background-position-y: bottom; }   /* the art stands on the window floor */
 .hud-dialogue__body { flex-grow: 1; flex-shrink: 1; justify-content: center; }
