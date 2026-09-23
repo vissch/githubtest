@@ -82,30 +82,53 @@ his limbs fly. The baker's change is one line per vertex, `LimbOf(boneName)`: he
 
 ## Buildings and the rest of the kit: `Presentation/Terrain/PropDestruction.cs`
 
-Every drawn prop that is not the sim's has a material class and a strength, and a burst inside its radius wears it
-down with BlastSystem's falloff (`1 - 0.75 d/R`, R = 1.15 × the blast radius, one field-gun burst = 1.0 at the
-centre): concrete and stone (bunker, ruin, pillbox, sod shelter, MG nest, stand, well, wall stub, slab, barricade) at
-2.0 take two hits; timber (dugout, roof, revetment, duckboards, ladder, crates, boards, doors, signs, stakes, posts,
-knife rests) at 0.8–1.5; bags (parapets, sacks, gabions) at 0.9–1.0; iron (field gun, limber, shell stack, sheets,
-the aeroplane) at 1.3; scrub at 0.3. At nothing the instance is hidden and its volume becomes rubble, planks, sacks or
-plates thrown away from the burst, with two dust puffs and, for stone, a camera thump.
+Every drawn prop that is not the sim's has a material class and a strength. Four things wear it down:
 
-Collapsed props are remembered by **module + position quantised to 0.25 m** (finer than the 2 m picket spacing;
-never by index), and `BattlefieldProps.Suppress` is asked for every instance it composes, so a prop stays down across
-the recompose every crater triggers, and nothing outside a blast radius can ever be hidden. The same predicate holds
-the static fallen tree-top back for 4.8 s, while the thrown crown falls and lies (it comes in as the crown sinks).
+| what | how |
+|---|---|
+| a burst (`Explosion`) | BlastSystem's falloff (`1 - 0.75 d/R`, R = 1.15 x the blast radius); power = radius / 6 m, from a grenade (0.15) to the HE barrage (1.3) |
+| a tank's AP round (`VehicleFired`, scalar 0) | a 1.3 m strike of 1.1 where the round comes down |
+| a tank's tracks | every sim tick, from the tick state: a vehicle moving faster than 0.25 m/s flattens every crushable prop within 2.4 m of its centre |
+| (small arms) | nothing yet: a shot's event carries no impact point |
+
+A hit that does not finish a prop throws chips (splinters, chips of stone, twigs) off the side facing the strike, as
+many as the harm. At nothing the prop is hidden and its volume becomes rubble, planks, sacks or plates. A crushed prop's
+pieces are pushed out low along the track, with a little dust.
+
+| class | strength | breaks into | a tank flattens it |
+|---|---|---|---|
+| **shelters**: dugout, concrete shelter, sod shelter, pillbox, MG nest, armoured stand, the earth roof | never collapse | sheds sandbags, 16 a shelter, up to 5 a hit, then only earth; concrete ones lose chips too | no |
+| stone that is not a shelter: ruin, well, wall stub, slab, barricade | 2.0 | rubble | no |
+| light timber: planks, duckboards, ladders, crates, boards, doors, signs, markers, stakes, timber hedgehogs, posts, knife rests | 0.8 | planks | yes |
+| revetment 1.2, trench floor 1.5 | | planks | no |
+| a lone sack | 0.9 | sacks | yes |
+| parapets, sandbag walls, gabions | 0.9-1.0 | sacks | no |
+| sheet iron, wire fence | 1.0 | plates | yes |
+| guns, limbers, shell stacks, a turret, the aeroplane | 1.3 | plates | no |
+| scrub, grass, reeds, poppies, branches | 0.3 | twigs | yes |
+
+Shelters are the owner's rule (2026-09-23): "the shelter should have the sandbags blown off, but otherwise stay fine,
+shelters are reducing artillery damage". The bags the imported shelter meshes carry are part of those meshes and stay
+drawn; what flies are thrown sacks off the top, and the loose bags, gabions and crates stood round a shelter are
+ordinary props and do go.
+
+Collapsed props are remembered by **module + position quantised to 0.25 m** (never by index), and
+`BattlefieldProps.Suppress` is asked for every instance it composes, so a prop stays down across the recompose every
+crater triggers, and nothing outside a strike can ever be hidden. The same predicate holds the static fallen tree-top
+back for 4.8 s, while the thrown crown falls and lies.
 
 The hooks on `BattlefieldProps`: `Within(module, centre, radius, list)`, `Hide(module, page, slot)`, and
-`Func<Module, Matrix4x4, bool> Suppress`, asked in the composer's emit callback before anything is placed.
-`GreyboxTerrainView` adds the component next to `BattlefieldProps`.
+`Func<Module, Matrix4x4, bool> Suppress`, asked in the composer's emit callback. `GreyboxTerrainView` adds the component.
 
-Seen in Play (2026-09-23 03:00): one HE barrage on a trench line, plus the AI's own fire, collapsed 369 props: 15
-parapet sections, 12 revetment lengths, 8 gabions, boards, ladders, knife rests, a door, a hatch, a sheet, fences, and
-a great deal of grass, reeds and scrub. Console clean.
+Seen in Play (2026-09-23 10:00): a barrage on a concrete shelter; it stands with its earth roof, 22 bags came off,
+221 chip hits elsewhere, 281 props down. A Maw let loose flattened 19 props along its path. Console clean. On the way:
+`BattlefieldComposer` used to re-check every site after a crater and drop one whose ground no longer fitted, so a
+shelled shelter vanished whole, bags, crates and all. A site now keeps its height instead.
 
-**Gameplay is untouched on purpose:** a bunker cell stays `NavLayer.Bunker` after its roof has gone; the sim's cover
-comes from its own props. Whether a collapsed shelter should stop giving cover (and what a trench collapse does) is an
-owner decision and a v3 hash bump; `docs/PLAN.md` already specifies "destroys bunkers (2 hits)" for the bomber run.
+**The sim does not know about shelters.** `NavLayer.Bunker` exists and nothing sets it; BlastSystem protects men in a
+trench, a shell hole or lying down, and nobody for being under a roof. So "shelters reduce artillery damage" is not
+true in the game today. It needs the sim to know where shelters are (the composer that places them is presentation),
+then a protection factor in BlastSystem, and it changes the replay hash.
 
 ## Cost
 

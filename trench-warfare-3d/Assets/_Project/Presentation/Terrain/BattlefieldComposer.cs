@@ -45,11 +45,14 @@ namespace TW.Presentation.Terrain
             { sites.Clear(); rejections.Clear(); PlaceSites(map, surface); layoutMap = map; }
             else
             {
-                // Combat updates validate existing sites; never run the global candidate search or relocate them.
+                // Combat updates never run the global candidate search or relocate a site, and never take one away: a shelter
+                // stands through a barrage (owner, 2026-09-23: "the shelter should have the sandbags blown off, but otherwise
+                // stay fine"; PropDestruction blows the bags off). A site whose ground still fits settles onto it; one whose
+                // ground a crater has torn up keeps the height it was built at rather than vanishing, as it used to.
                 for (int i = sites.Count - 1; i >= 0; i--)
                 {
                     var site = sites[i]; var at = site.Position; at.y = map.Height.Sample(at.x, at.z) - .10f;
-                    if (!Fits(map, surface, site.Blueprint, at, site.Rotation)) { sites.RemoveAt(i); continue; }
+                    if (!Fits(map, surface, site.Blueprint, at, site.Rotation)) continue;
                     sites[i] = new Site(site.Blueprint, at, site.Rotation, site.Trench, site.ApproachEnd);
                 }
                 foreach (var site in sites) EmitSite(map, surface, site);
