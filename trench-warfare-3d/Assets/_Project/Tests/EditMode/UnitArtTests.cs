@@ -68,6 +68,34 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AHurtReportCarriesAStatusChipAndOnlyCriticalKeylinesThePortrait()
+        {
+            var d = Strip(out var root);
+            var strip = root.Q("dialogue"); var status = root.Q<Label>("dialogue-status");
+            d.Say("Rifleman", "RIFLE", "Five down.", Mood.Wounded, 1f);
+            d.Tick(0.01f);
+            Assert.That(status.text, Is.EqualTo("WOUNDED"));
+            Assert.That(strip.ClassListContains("is-hurt"), Is.True); Assert.That(strip.ClassListContains("is-critical"), Is.False);
+            d.Tick(1f);
+            d.Say("Sergeant", "SERGEANT", "Hold the line.", Mood.Neutral, 1f);
+            d.Tick(0.01f);
+            Assert.That(strip.ClassListContains("is-hurt"), Is.False, "an ordinary line drops the chip");
+            d.Tick(1f);
+            d.Say("Rifleman", "RIFLE", "Fifteen down.", Mood.Critical, 1f);
+            d.Tick(0.01f);
+            Assert.That(status.text, Is.EqualTo("CRITICAL")); Assert.That(strip.ClassListContains("is-critical"), Is.True);
+        }
+
+        [Test]
+        public void TheArmouryKnowsWhichUnitsAreOurs()
+        {
+            var ours = new System.Collections.Generic.HashSet<byte>();
+            var all = ArmouryScreen.Units(null, ours);
+            Assert.That(ours.Count, Is.GreaterThan(0));
+            foreach (var a in ours) Assert.That(all, Does.Contain(a), $"our archetype {a} is missing from the armoury");
+        }
+
+        [Test]
         public void LinesQueueAndAFloodKeepsTheNewest()
         {
             var d = Strip(out _);

@@ -106,60 +106,12 @@
             "sha1": "60bee79971dbef01bc5655fc1f99f8d752c02bce"
         },
         {
-            "file": "Portraits/Assault.png",
-            "sha1": "25dd7c02871ff8c4999a23e2a822ce2f674d6323"
-        },
-        {
-            "file": "Portraits/Banner.png",
-            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
-        },
-        {
-            "file": "Portraits/Censer.png",
-            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
-        },
-        {
             "file": "Portraits/ChlorineGas.png",
             "sha1": "c9079daa811fa588efc2022928d0c9710f10e19e"
         },
         {
             "file": "Portraits/HeBarrage.png",
             "sha1": "1296da6121dada58cab8fbd46f374e67d06a73a1"
-        },
-        {
-            "file": "Portraits/Kettle.png",
-            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
-        },
-        {
-            "file": "Portraits/MG.png",
-            "sha1": "694ad6b7de1561c36a2f82d431d5b477a5681ff8"
-        },
-        {
-            "file": "Portraits/Maw.png",
-            "sha1": "1f9be7e827ba3f3cf1877741bff1e3981442f544"
-        },
-        {
-            "file": "Portraits/Pavise.png",
-            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
-        },
-        {
-            "file": "Portraits/Pincer.png",
-            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
-        },
-        {
-            "file": "Portraits/Redoubt.png",
-            "sha1": "25dd7c02871ff8c4999a23e2a822ce2f674d6323"
-        },
-        {
-            "file": "Portraits/Rifleman.png",
-            "sha1": "3cadace7d10350e7efa5ecaf6a7a5d72cd573a83"
-        },
-        {
-            "file": "Portraits/Sniper.png",
-            "sha1": "116111b313e0de50c850ade98a8a76c55f3e05f3"
-        },
-        {
-            "file": "Portraits/Tusk.png",
-            "sha1": "8555198418c8b8cea4206df0a009e7bf13ae5be4"
         },
         {
             "file": "Sprites/badge.png",

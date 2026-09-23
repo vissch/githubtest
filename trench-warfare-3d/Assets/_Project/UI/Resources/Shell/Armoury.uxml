@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <!-- The armoury: every unit as its painted cutout. Tiles on the left (built by ArmouryScreen), the chosen unit on
-         the right with its role, numbers from the roster, its condition reports (the faces the speaker strip uses on the
-         battlefield) and the rank slots the upgrade rules will fill. Loaded from Resources, so no ShellAssets field. -->
+         the right: its art, role and roster numbers, then the rank slots the upgrade rules will fill, then its condition
+         reports (the faces the speaker strip uses on the battlefield). Loaded from Resources, so no ShellAssets field. -->
     <Style src="../../Skin/dustfront.uss" />
     <Style src="../../Shell/Shell.uss" />
     <ui:VisualElement name="armoury-screen" class="tw-screen shell-screen">
@@ -11,27 +11,26 @@
         </ui:VisualElement>
         <ui:VisualElement class="shell-content">
             <ui:VisualElement class="shell-list-column armoury-list-column">
-                <ui:Label text="INFANTRY" class="tw-caption shell-section" />
+                <ui:Label text="INFANTRY" class="tw-caption shell-section armoury-section" />
                 <ui:VisualElement name="infantry-grid" class="armoury-grid" />
-                <ui:Label text="MACHINES" class="tw-caption shell-section" />
+                <ui:Label text="ARMOUR" class="tw-caption shell-section armoury-section" />
                 <ui:VisualElement name="machine-grid" class="armoury-grid" />
             </ui:VisualElement>
             <ui:VisualElement name="info-panel" class="tw-panel tw-info-panel shell-info-column armoury-info">
                 <ui:Label name="info-title" text="" class="tw-h2 tw-header-window shell-info-header" />
-                <ui:Label name="info-role" text="" class="tw-caption armoury-role" />
                 <ui:VisualElement class="armoury-hero">
                     <ui:VisualElement name="info-art" class="armoury-art" picking-mode="Ignore" />
                     <ui:VisualElement class="armoury-side">
+                        <ui:Label name="info-role" text="" class="tw-caption armoury-role" />
                         <ui:Label name="info-body" text="" class="tw-body tw-info-panel__body" />
-                        <ui:Label name="info-stats" text="" class="tw-stat shell-info-stats" />
+                        <ui:VisualElement name="info-stats" class="armoury-stats" />
+                        <ui:Label text="RANKS" class="tw-caption armoury-subhead" />
+                        <ui:VisualElement name="ranks-row" class="armoury-ranks" />
                         <ui:Label text="CONDITION REPORTS" class="tw-caption armoury-subhead" />
                         <ui:VisualElement name="states-row" class="armoury-states" />
                         <ui:Label name="states-note" text="" class="tw-caption armoury-note" />
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Label text="RANKS" class="tw-caption armoury-subhead" />
-                <ui:VisualElement name="ranks-row" class="armoury-ranks" />
-                <ui:Label name="ranks-note" text="RANKS ARE NOT IN THE BATTLE RULES YET: THESE SLOTS SHOW WHERE THEY WILL GO" class="tw-caption armoury-note" />
             </ui:VisualElement>
         </ui:VisualElement>
         <ui:VisualElement class="shell-bottom-row">

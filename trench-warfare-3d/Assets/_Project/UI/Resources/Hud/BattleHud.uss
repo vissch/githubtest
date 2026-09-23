@@ -68,10 +68,17 @@
 .hud-pause-plate.is-visible { display: flex; }
 
 /* the speaker strip, bottom-left above the roster bar (HudDialogue): portrait window, name, line */
-.hud-dialogue { position: absolute; left: 12px; bottom: 112px; width: 460px; flex-direction: row; align-items: center; padding: 10px 14px 10px 10px; }
-.hud-dialogue__portrait { width: 104px; height: 104px; flex-shrink: 0; margin-right: 12px; -unity-background-scale-mode: scale-to-fit; background-color: var(--tw-plate-900); border-radius: var(--tw-radius); }
+/* the speaker strip sits in the bottom band beside the roster, its bottom on the card bottoms (round 5); where the
+   roster is too wide to leave room (narrow screens) HudDialogue raises it above the bar with --raised. The name is
+   bone for every speaker; a hurt report says so in a red status chip, and a critical one keylines the portrait. */
+.hud-dialogue { position: absolute; left: 12px; bottom: 8px; width: 344px; min-height: 88px; flex-direction: row; align-items: center; padding: 6px 10px 6px 6px; }
+.hud-dialogue--raised { bottom: 112px; }
+.hud-dialogue__portrait { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; -unity-background-scale-mode: scale-to-fit; background-color: var(--tw-plate-900); border-radius: var(--tw-radius); border-width: 2px; border-color: rgba(0, 0, 0, 0); }
 .hud-dialogue__body { flex-grow: 1; flex-shrink: 1; }
-.hud-dialogue__name { color: var(--tw-accent-bright); font-size: var(--tw-size-caption); margin-bottom: 4px; }
-.hud-dialogue__text { white-space: normal; color: var(--tw-text); font-size: 15px; }
-.hud-dialogue.is-hurt .hud-dialogue__name { color: var(--tw-alarm); }
+.hud-dialogue__head { flex-direction: row; align-items: center; margin-bottom: 3px; }
+.hud-dialogue__name { color: var(--tw-text); font-size: var(--tw-size-caption); -unity-font-style: bold; }
+.hud-dialogue__status { display: none; margin-left: 8px; font-size: 10px; color: var(--tw-text-bright); background-color: rgba(224, 43, 43, 0.2); border-width: 1px; border-color: var(--tw-alarm); border-radius: var(--tw-radius-sm); padding: 0 4px; }
+.hud-dialogue__text { white-space: normal; color: var(--tw-text); font-size: 14px; }
+.hud-dialogue.is-hurt .hud-dialogue__status { display: flex; }
 .hud-dialogue.is-hurt .hud-dialogue__portrait { background-color: #2A1512; }
+.hud-dialogue.is-critical .hud-dialogue__portrait { border-color: var(--tw-alarm); }
