@@ -76,7 +76,9 @@ Shader "TW/VAT Infantry (URP)"
         Animated Animate(uint vertexID, uint svInstanceID, float limb)
         {
             InitIndirectDrawArgs(0);
-            VatInstance inst = _Instances[GetIndirectInstanceID(svInstanceID)];
+            // _Base: every draw after the first (the sniper figure, the far tier, the fallen of each) starts at an offset
+            // into _Instances, and on D3D SV_InstanceID does not include it (DebrisRenderer found the same, docs/16)
+            VatInstance inst = _Instances[GetIndirectInstanceID_Base(svInstanceID)];
             uint lost = (uint)(inst.pad + 0.5);
             float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
             float u = (vertexID + 0.5) / _VertexCount;
