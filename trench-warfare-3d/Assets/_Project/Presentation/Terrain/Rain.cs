@@ -52,8 +52,8 @@ namespace TW.Presentation.Terrain
             material = new Material(Shader.Find("TW/Rain (URP)")) { hideFlags = HideFlags.HideAndDontSave };
             if (AsSnow)
             {
-                FallSpeed = 2.6f; StreakLength = 0.30f;   // a dash along its fall, not a dot: a square quad reads as confetti
-                material.SetFloat("_Width", 0.042f);          // about a 7:1 dash, so it reads as falling and not as paper
+                FallSpeed = 2.6f; StreakLength = 0.13f;   // a short dash: square reads as confetti, 7:1 read as rain
+                material.SetFloat("_Width", 0.08f);           // about 1.6:1 - a flake, between a dot and a streak
                 material.SetFloat("_Flutter", 0.42f);
                 material.SetColor(ColorId, new Color(0.92f, 0.95f, 1.0f, 0.62f));
             }

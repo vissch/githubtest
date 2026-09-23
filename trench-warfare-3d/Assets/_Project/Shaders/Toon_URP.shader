@@ -226,11 +226,15 @@ Shader "TW/Toon (URP)"
                 // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
                 // _DetailStrength is set only by the terrain material, so it is what tells molten ground from a
                 // sandbag standing on it. Passing it as the exposure means props are LIT by the lava and never cracked.
-                color += TWHeatGlow(i.positionWS, normalize(i.normalWS), (1.0 - snow) * saturate(_DetailStrength * 8.0));
                 color += TWGroundBounce(normalize(i.normalWS), albedo);
+                // Molten rock is emissive, so it is seen THROUGH the haze rather than repainted by it. Added after
+                // the fog for that reason: while it was added before, ApplyMist and MixFog lerped the glow itself
+                // toward the fog colour and the distant pools came out pale pink instead of orange behind pink.
+                half3 heat = TWHeatGlow(i.positionWS, normalize(i.normalWS), (1.0 - snow) * saturate(_DetailStrength * 8.0));
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
+                color += heat;
                 return half4(color, 1.0);
             }
             ENDHLSL

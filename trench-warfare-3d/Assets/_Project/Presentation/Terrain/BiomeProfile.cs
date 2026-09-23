@@ -154,7 +154,8 @@ namespace TW.Presentation.Terrain
         /// </summary>
         public static BiomeProfile Lava() => new BiomeProfile
         {
-            Id = Biome.Lava, Name = "lava", Dark = true,
+            // On a planet lit from below, a lantern being brighter than the molten floor is backwards.
+            Id = Biome.Lava, Name = "lava", Dark = true, GlowScale = 0.55f, LampScale = 0.55f,
             Haze = new Color(0.68f, 0.24f, 0.42f),
             // a thin, high, cold key so silhouettes still separate against the fog; the floor does the lighting
             // There is not one cast shadow in the lava reference: the spikes standing in the river have no dark

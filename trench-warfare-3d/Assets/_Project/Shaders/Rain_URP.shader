@@ -60,10 +60,17 @@ Shader "TW/Rain (URP)"
                 float3 end = p + along * _Fall.w * (0.7 + 0.6 * v.random.x) * v.quad.y;
                 float3 side = normalize(cross(along, _WorldSpaceCameraPos - end));
                 float reach = distance(_WorldSpaceCameraPos, end);
-                float3 ws = end + side * v.quad.x * _Width * max(1.0, reach / 45.0);   // never thinner than a pixel's worth far off
+                // Rain never gets thinner than a pixel's worth far off. SNOW does the opposite: a flake is a real object a
+                // centimetre across, so it must shrink with distance. While it did not, a flake at 250 m was the same
+                // pixel length and the same opaque white as one at 3 m, and several hundred of them read as a scratched
+                // film print rather than as weather.
+                float wide = _Flutter > 0.0 ? _Width * saturate(14.0 / max(reach, 1.0)) : _Width * max(1.0, reach / 45.0);
+                float3 ws = end + side * v.quad.x * wide;
                 o.positionCS = TransformWorldToHClip(ws);
                 float3 face = saturate((0.5 - abs(cell - 0.5)) * 10.0);
-                o.alpha = _Color.a * face.x * face.y * face.z * saturate((reach - 3.0) / 8.0) * (1.0 - saturate((reach - 95.0) / 40.0)) * (0.55 + 0.45 * v.random.x)
+                // snow hands over to the haze at about 80 m instead of being drawn all the way out
+                float far = _Flutter > 0.0 ? 0.55 * saturate((80.0 - reach) / 40.0) : (1.0 - saturate((reach - 95.0) / 40.0));
+                o.alpha = _Color.a * face.x * face.y * face.z * saturate((reach - 3.0) / 8.0) * far * (0.55 + 0.45 * v.random.x)
                     * saturate((_Level - v.random.y * 0.9) * 7.0) * (0.6 + 0.6 * _Level);   // this streak only falls when it rains hard enough
                 return o;
             }

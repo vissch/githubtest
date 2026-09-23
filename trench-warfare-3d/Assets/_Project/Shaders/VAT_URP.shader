@@ -164,7 +164,9 @@ Shader "TW/VAT Infantry (URP)"
                 // Snow is keyed on positionOS, NOT positionWS: at TWSnowAmount's frequencies a world-space pattern
                 // slides across a man walking at 1.5 m/s about once a second, and three thousand of them shimmering
                 // independently is far worse than no snow at all. In his own space it is painted on and stays put.
-                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0);
+                // Offset per instance, or every soldier wears identical snow on the identical shoulder. The offset is
+                // CONSTANT per man, so it keeps the reason positionOS was used at all: it does not swim as he walks.
+                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.tint * 13.7 + floor(i.positionWS.xzy * 0.37) * 3.1);
                 if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.7);   // a man sheds some; he is warm and he moves
                 half3 shade = TWHemisphere(half3(0.70, 0.72, 0.76) * lerp(half3(1, 1, 1), TWShadeTint(), 0.45), normalize(i.normalWS));
                 half3 color = albedo * 1.18 * lerp(shade, mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench

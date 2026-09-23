@@ -92,10 +92,16 @@ half TWSnowAmount(float3 normalWS, float3 positionWS)
     // A definite edge that WANDERS, not an airbrushed ramp: a linear ramp in normal.y fades smoothly from white top
     // to bare side on a curved sandbag, and the reference has a step there with an overhang.
     snow = saturate((snow - 0.5) * 4.0 + 0.5);
-    // A frost floor, so nothing is ever bare. At SnowShedBelow 0.22 anything steeper than 77 degrees shows raw
-    // brown sandbag and khaki, and in the reference there is not one warm pixel on any vertical face. This also
-    // saves the wire, the bunting and the flags, whose normals point sideways.
-    return saturate(max(snow, 0.30) * _TWSnow.x);
+    // A frost floor, so nothing is ever bare: at SnowShedBelow 0.22 anything steeper than 77 degrees showed raw
+    // brown sandbag and khaki, and the reference has no warm pixel on any vertical face. It also saves the wire and
+    // the bunting, whose normals point sideways.
+    //
+    // 0.12, not the 0.30 it started at. At 0.30 every vertical face on every object was a third snow, so snow, wood
+    // and sacking all converged on one colour and the winter close-ups went monochrome over a value range of about
+    // 0.45 to 0.75, with only the ink outline carrying any form. Worth remembering that the in-hue metric happily
+    // rewarded that: it reached 97% at trench level by destroying the picture. A metric with no opposing metric
+    // will do that every time.
+    return saturate(max(snow, 0.12) * _TWSnow.x);
 }
 
 /// Smooth value noise, one octave. Used to decide where the ground is molten at all.
@@ -119,8 +125,13 @@ half TWValue(float2 p)
 /// it just makes brighter rope. Cracks still exist, but they belong at the MARGINS of the pools now.
 half TWMolten(float2 p)
 {
-    half m = TWValue(p) * 0.65 + TWValue(p * 2.3 + 17.0) * 0.35;
-    return saturate((m - 0.34) * 3.6);
+    // Three octaves, not two. With only ~31 m and ~13.6 m features - and plates at 13 m too - there was NO detail
+    // frequency below 13 m anywhere on this field, so a camera down among the men sat inside a single noise cell
+    // and saw whatever that one cell happened to roll. The trench-level captures had one crack in the whole frame.
+    // The third octave is also the only change that moves the median toward the reference's, because it adds
+    // mid-value molten area rather than brighter highs.
+    half m = TWValue(p) * 0.52 + TWValue(p * 2.3 + 17.0) * 0.30 + TWValue(p * 7.5 + 41.0) * 0.18;
+    return saturate((m - 0.385) * 3.6);
 }
 
 /// Distance to the nearest border between two crust plates: 0 exactly on a crack, rising into the middle of a
@@ -159,6 +170,7 @@ half TWPlateEdge(float2 p)
 /// others, and near-white in the middle where it is deepest.
 half3 TWHeatGlow(float3 positionWS, float3 normalWS, half exposure)
 {
+    half viewDepth = distance(_WorldSpaceCameraPos, positionWS);
     if (_TWHeat.x <= 0.0 || exposure <= 0.002) return half3(0, 0, 0);
     // Only the floor, and only the parts of it turned upward. NOT gated on absolute world height: the first attempt
     // faded the glow out above MoltenLevel, which silently deleted every crack on ground that happened to lie above
@@ -181,7 +193,9 @@ half3 TWHeatGlow(float3 positionWS, float3 normalWS, half exposure)
     half sub = saturate(w / max(wMin, 1e-5));
     w = max(w, wMin);
     half crack = 1.0 - smoothstep(0.0, w, edge);
-    half core = 1.0 - smoothstep(0.0, w * 0.34, edge);
+    // The white centreline is a close-range detail. With no distance term a 200 m crack kept a saturated
+    // white middle, and the whole 60-250 m band read as a uniform neon Voronoi net laid over the ground.
+    half core = (1.0 - smoothstep(0.0, w * 0.34, edge)) * saturate(1.0 - viewDepth / 45.0);
     // A WIDE, dim term as well as the two narrow ones. Rock cools over metres - white, yellow, orange, deep red,
     // brown - and with only crack and core the glow went from near-white to black in about two pixels.
     half warm = 1.0 - smoothstep(0.0, w * 8.0, edge);
@@ -190,7 +204,11 @@ half3 TWHeatGlow(float3 positionWS, float3 normalWS, half exposure)
               + half3(1.0, 0.86, 0.58) * (core * core * 0.85);
     // open lava: the pool itself burns, not merely its edges
     lit += lerp(_TWHeatColor.rgb * 0.95, half3(1.0, 0.82, 0.50), saturate(molten * 1.4 - 0.4)) * (pow(molten, 1.25) * 1.45);
-    return lit * (_TWHeat.x * where * exposure * sub);
+    // Emission is added after the fog so it keeps its colour, but it must still LOSE something with distance or
+    // the far half of the field glows through the haze at full strength and the whole picture bleaches. This is
+    // the honest middle: molten rock seen through haze, dimmed by it, not repainted by it.
+    half far = saturate(1.22 - viewDepth / 230.0);
+    return lit * (_TWHeat.x * where * exposure * sub * far);
 }
 
 /// How black the rock is at this point. Adding glow without taking the albedo down is the "glowing dirt" failure:
