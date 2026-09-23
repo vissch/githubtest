@@ -565,3 +565,24 @@ Development player, same battle, broken → fixed:
 
 The bench now launches the match from the main menu the way the Skirmish button does (`MatchLaunch.Start`), so the
 player is measured in the state a player is in, and it saves a screenshot of the held view during warm-up.
+
+### The crater frame, second half: the props' composition (same day)
+
+`BattlefieldComposer.Build` is now `BuildSteps`, one generator a step (`Build` runs them all, unchanged for any
+caller), and `BattlefieldProps` stages a recomposition a step a frame into a list and rebuilds its batches from it in a
+frame of its own, each step a `HeavyWork` turn. What is drawn is always a whole composition; a crater mid-way only
+re-dirties, so the next starts when this one ends and the props converge on the ground as it is. The first
+composition, and one after `Restyle`, is whole, so the field is dressed from the first frame; the hamlets and rear
+structures are still placed once, on the first layout.
+
+Checked by fingerprinting every prop instance (module, and every matrix bit for bit) on the benchmark battle held at
+tick 1802 (world hash 170A83FEB9BD6AA0): the old Compose, the new whole Compose and the new spread one all give
+**7,198 instances, 1B7C3EF7BF477CFF**.
+
+Worst props frame **27.3 → 7.0 ms**; worst frame of the window 60.6 → 45.9 ms. What remains in the crater frames is
+the terrain's hollow rescan (~11 ms, whole-map and order-dependent) and a sim tick (Blast/Deformation), now each in a
+frame of their own.
+
+**A measuring caveat learned here.** Two runs of the same build an hour apart, same battle, same draw counts
+(363 draws, 1.42 M triangles), differed by 1.3 ms of GPU and 0.4 ms of main thread: the laptop after three player
+builds, not the code (the per-system markers were unchanged). Compare runs taken back to back, or interleaved.

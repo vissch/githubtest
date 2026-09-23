@@ -44,13 +44,24 @@ namespace TW.Presentation.Terrain
 
         public void Build(MapData map, BattlefieldSurface surface, Action<BattlefieldKit.Module, Matrix4x4> emit, bool regenerateLayout = false)
         {
+            foreach (var _ in BuildSteps(map, surface, emit, regenerateLayout)) { }
+        }
+
+        /// <summary>
+        /// Build, a generator at a time: each step runs one of them and yields, so a recomposition after a crater can be
+        /// spread over frames (BattlefieldProps). The whole of it was measured at 21.5 ms in the editor on 2026-09-23,
+        /// the largest single step (Landmarks) at 6.1. Run to the end, the steps are Build exactly: the same generators in
+        /// the same order with the same state. The first layout (hamlets, rear, sites) is placed once, as in Build.
+        /// </summary>
+        public IEnumerable<bool> BuildSteps(MapData map, BattlefieldSurface surface, Action<BattlefieldKit.Module, Matrix4x4> emit, bool regenerateLayout = false)
+        {
             this.emit = emit;
-            MapProps(map, surface);
-            TrenchKit(map, surface);
-            Debris(map, surface);
-            Litter(map, surface);
-            Clumps(map, surface);
-            Margins(map, surface);
+            MapProps(map, surface); yield return true;
+            TrenchKit(map, surface); yield return true;
+            Debris(map, surface); yield return true;
+            Litter(map, surface); yield return true;
+            Clumps(map, surface); yield return true;
+            Margins(map, surface); yield return true;
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
             { sites.Clear(); rejections.Clear(); PlaceHamlets(map, surface); PlaceRear(map, surface); PlaceSites(map, surface); layoutMap = map; }
             else
@@ -75,7 +86,8 @@ namespace TW.Presentation.Terrain
                 if (house.Whole != null) emit(house.Whole, h.Matrix);   // what is drawn: the whole house, its fallen chunks masked off
                 foreach (var chunk in house.Chunks) emit(chunk.Module, HouseKit.Place(h.Matrix, chunk));   // what is hit, hidden and remembered
             }
-            Landmarks(map, surface);
+            yield return true;
+            Landmarks(map, surface); yield return true;
             backdrop.Build(map, surface, emit);   // the lines run on past the flanks, and the edges are closed off
         }
 

@@ -129,6 +129,7 @@ namespace TW.Presentation.Terrain
         {
             foreach (var module in modulesByName.Values) module.Size = Layout?.LookOf(module.Name)?.Baseline ?? Vector3.one;
             composer = new BattlefieldComposer(kit, DecorationSeed, templates, PreferredFront);
+            composing = null; composed = false;   // a new composer: the next composition is whole, from its first layout
             dirty = true;
         }
 
@@ -267,26 +268,58 @@ namespace TW.Presentation.Terrain
             }
         }
 
+        // A recomposition in progress: the composer's generators run a step a frame into a staging list
+        // (BattlefieldComposer.BuildSteps), and the batches are rebuilt from it in one go when the last has run, so what
+        // is drawn is always a whole composition. A crater that lands meanwhile only sets `dirty`: this one finishes and
+        // the next starts, so the props converge on the ground as it is, as they did when every crater recomposed at once.
+        IEnumerator<bool> composing;
+        bool composed, readyToApply;
+        readonly List<BattlefieldKit.Module> stagedModules = new List<BattlefieldKit.Module>(8192);
+        readonly List<Matrix4x4> stagedMatrices = new List<Matrix4x4>(8192);
+        System.Action<BattlefieldKit.Module, Matrix4x4> stage;
+
+        /// <summary>A whole composition at once: the first, and after Restyle.</summary>
         void Compose()
         {
+            BeginComposition();
+            while (composing.MoveNext()) { }
+            ApplyComposition();
+        }
+
+        void BeginComposition()
+        {
+            map = Host.Local.Map; surface = GetComponent<GreyboxTerrainView>().Surface;
+            stagedModules.Clear(); stagedMatrices.Clear();
+            if (stage == null) stage = (module, matrix) => { stagedModules.Add(module); stagedMatrices.Add(matrix); };
+            composing = composer.BuildSteps(map, surface, stage).GetEnumerator();
+            readyToApply = false;
+        }
+
+        /// <summary>The staged composition into the batches. The composer reads nothing of ours, so emitting after it has
+        /// run instead of while it runs places every instance exactly as before.</summary>
+        void ApplyComposition()
+        {
+            composing = null; readyToApply = false;
             foreach (var batch in batches.Values) batch.Clear();
             placed.Clear(); placedByKey.Clear(); spots.Clear();
-            map = Host.Local.Map; surface = GetComponent<GreyboxTerrainView>().Surface;
-            composer.Build(map, surface, (module, matrix) =>
-            {
-                if (Suppress != null && Suppress(module, matrix)) return;
-                if (module.Name == null) { BatchOf(module).Add(matrix, out _); return; }
-                // an imported prop: found by kind and spot, so a hand edit (PropLayout) finds it again after every crater
-                string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition());
-                spots.TryGetValue(key, out int n); spots[key] = n + 1;
-                if (n > 0) key += "#" + n;
-                var edit = Layout != null ? Layout.Find(key) : null;
-                if (edit != null && edit.Removed) return;
-                Put(module, key, false, Styled(module, matrix, key), edit);
-            });
+            for (int i = 0; i < stagedModules.Count; i++) Emit(stagedModules[i], stagedMatrices[i]);
             if (Layout != null)
                 foreach (var edit in Layout.Edits)
                     if (edit.Added && !edit.Removed && modulesByName.TryGetValue(edit.Module, out var module)) Put(module, edit.Key, true, default, edit);
+            composed = true;
+        }
+
+        void Emit(BattlefieldKit.Module module, Matrix4x4 matrix)
+        {
+            if (Suppress != null && Suppress(module, matrix)) return;
+            if (module.Name == null) { BatchOf(module).Add(matrix, out _); return; }
+            // an imported prop: found by kind and spot, so a hand edit (PropLayout) finds it again after every crater
+            string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition());
+            spots.TryGetValue(key, out int n); spots[key] = n + 1;
+            if (n > 0) key += "#" + n;
+            var edit = Layout != null ? Layout.Find(key) : null;
+            if (edit != null && edit.Removed) return;
+            Put(module, key, false, Styled(module, matrix, key), edit);
         }
 
         void Update()
@@ -294,14 +327,31 @@ namespace TW.Presentation.Terrain
             using var perf = TW.Sim.PerfMarkers.PropsUpdate.Auto();
             if (Host == null || Host.Local == null || kit == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            // a whole-map recomposition (26 ms worst frame in the editor, 2026-09-23): only once the terrain has rescanned the
-            // hollows a crater made (the composer reads them), and never in a frame another heavy job took (HeavyWork);
-            // until then it stays dirty and the props stand as they were a frame or two longer
-            if (dirty)
+            // A whole-map recomposition (28.5 ms in the editor, 2026-09-23) after a crater: a composer step a frame, then the
+            // batches rebuilt in a frame of their own, each a HeavyWork turn; started only once the terrain has rescanned the
+            // hollows the crater made (the composer reads them). The props stand as they were a few frames longer. The first
+            // composition is whole, so the field is dressed from the first frame.
+            if (composing != null)
+            {
+                if (HeavyWork.TryClaim())
+                {
+                    TW.Sim.PerfMarkers.PropsCompose.Begin();
+                    if (readyToApply) ApplyComposition();
+                    else if (!composing.MoveNext()) readyToApply = true;
+                    TW.Sim.PerfMarkers.PropsCompose.End();
+                }
+            }
+            else if (dirty)
             {
                 var terrainView = GetComponent<GreyboxTerrainView>();
                 if ((terrainView == null || !terrainView.HollowsPending) && HeavyWork.TryClaim())
-                { dirty = false; TW.Sim.PerfMarkers.PropsCompose.Begin(); Compose(); TW.Sim.PerfMarkers.PropsCompose.End(); }
+                {
+                    dirty = false;
+                    TW.Sim.PerfMarkers.PropsCompose.Begin();
+                    if (!composed) Compose();
+                    else { BeginComposition(); if (!composing.MoveNext()) readyToApply = true; }
+                    TW.Sim.PerfMarkers.PropsCompose.End();
+                }
             }
             var cam = Camera.main;
             if (cam != null) GeometryUtility.CalculateFrustumPlanes(cam, planes);

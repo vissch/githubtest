@@ -370,7 +370,9 @@ namespace TW.Perf
             SimHost.StressOverride = -1;
             if (Options.Canary >= 0) SimHost.CanaryOverride = null;
             if (tactical != null) tactical.enabled = true;
-            if (host != null) host.TimeScale = 1f;
+            // quitting: the match runs on as it was; staying (quit=0): it holds on the window's last tick, so whatever is
+            // inspected next (a fingerprint, a still) sees the state the report describes
+            if (host != null) { host.DropBacklog(); host.TimeScale = Options.Quit ? 1f : 0f; }
             LastResultPath = path; LastExitCode = code;
             Debug.Log($"[PerfBench] {why}: exit {code}, {frames} frames, report {path}");
             if (!Options.Quit) return;
