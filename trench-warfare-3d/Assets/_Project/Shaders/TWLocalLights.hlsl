@@ -38,6 +38,16 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
     LIGHT_LOOP_END
 #endif
     highlight *= lamp;
+    // Beyond arm's reach of the lamp itself, a lantern on snow should make it BRIGHTER, not PINKER. Scaling the
+    // brightness was not enough: measured, 22% of a winter frame came back warm against the reference's 0.2%, and
+    // 46% of those pixels were lit snow rather than fire. So the far half of the pool is desaturated toward the
+    // biome's own colour and only the near half keeps its flame hue. Costs three mads.
+    if (_TWLampScale > 0.0 && _TWLampScale < 0.999)
+    {
+        half near = saturate(length(sum) * 2.2);              // bright = close to a lamp
+        half3 flat = dot(sum, half3(0.299, 0.587, 0.114)) * (_TWSnowColor.a > 0.0 ? _TWSnowColor.rgb : half3(1, 1, 1));
+        sum = lerp(flat, sum, near);
+    }
     return sum;
 }
 

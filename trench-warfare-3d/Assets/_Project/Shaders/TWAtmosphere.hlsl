@@ -98,6 +98,31 @@ half TWSnowAmount(float3 normalWS, float3 positionWS)
     return saturate(max(snow, 0.30) * _TWSnow.x);
 }
 
+/// Smooth value noise, one octave. Used to decide where the ground is molten at all.
+half TWValue(float2 p)
+{
+    float2 i = floor(p), f = frac(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float4 h = frac(sin(float4(dot(i, float2(127.1, 311.7)),
+                               dot(i + float2(1, 0), float2(127.1, 311.7)),
+                               dot(i + float2(0, 1), float2(127.1, 311.7)),
+                               dot(i + float2(1, 1), float2(127.1, 311.7)))) * 43758.5453);
+    return lerp(lerp(h.x, h.y, f.x), lerp(h.z, h.w, f.x), f.y);
+}
+
+/// How molten the ground is here, 0 crust to 1 open lava. Two octaves, tens of metres across.
+///
+/// This is the thing the first three rounds did not have, and its absence was the whole problem. Measured against
+/// the reference, this field was drawing 1% hot area where the concept art has 34.6%, because it was built as cold
+/// crust with hairline seams - and the reference is the other way round: molten rock, with cold plates standing in
+/// it like islands. That is a figure-ground inversion, not a brightness setting, and turning the glow up without
+/// it just makes brighter rope. Cracks still exist, but they belong at the MARGINS of the pools now.
+half TWMolten(float2 p)
+{
+    half m = TWValue(p) * 0.65 + TWValue(p * 2.3 + 17.0) * 0.35;
+    return saturate((m - 0.34) * 3.6);
+}
+
 /// Distance to the nearest border between two crust plates: 0 exactly on a crack, rising into the middle of a
 /// plate. A 3x3 Worley, because the reference shows light coming up BETWEEN plates - a noise threshold instead
 /// gives glowing dirt, which is the specific failure docs/18 warns about for L2.
@@ -145,15 +170,27 @@ half3 TWHeatGlow(float3 positionWS, float3 normalWS, half exposure)
     // the raw cell coordinate reaches 80, so the sin-hash argument reaches ~35,000, where it decorrelates and the
     // cells start repeating at the far end of the map. Centring keeps it in a range the hash survives.
     float2 q = positionWS.xz * _TWHeat.y * float2(1.0, 0.78);   // slightly stretched; at 0.45 they became parallel ribbons
+    half molten = TWMolten(positionWS.xz * 0.032);
     half edge = TWPlateEdge(q);
-    half w = max(_TWHeat.z, 1e-3) * (0.5 + 1.0 * (sin(positionWS.x * 0.21 + positionWS.z * 0.17) * 0.5 + 0.5));
-    // Widen to at least one pixel. A 0.6 m emissive crack is sub-pixel at 200 m, and sub-pixel emissive detail under
-    // bloom is the worst artefact available: bright specks crawling along the horizon as the camera moves.
-    w = max(w, fwidth(edge) * 1.5);
+    // Cracks widen toward the pools: a plate sitting in open lava is eaten at its margins, while one far out on the
+    // cold field is barely seamed at all. The sine keeps any two neighbouring seams from matching.
+    half w = max(_TWHeat.z, 1e-3) * (0.4 + 0.9 * (sin(positionWS.x * 0.21 + positionWS.z * 0.17) * 0.5 + 0.5) + 2.6 * molten);
+    // Fade sub-pixel cracks out rather than clamping them to a pixel wide. Clamping redraws a 0.6 m crack at full
+    // brightness for ever, so the far field turned into a wireframe Voronoi diagram at 300 m.
+    half wMin = fwidth(edge) * 1.5;
+    half sub = saturate(w / max(wMin, 1e-5));
+    w = max(w, wMin);
     half crack = 1.0 - smoothstep(0.0, w, edge);
     half core = 1.0 - smoothstep(0.0, w * 0.34, edge);
-    half3 lit = _TWHeatColor.rgb * (crack * crack) + half3(1.0, 0.86, 0.58) * (core * core * 0.85);
-    return lit * (_TWHeat.x * where * exposure);
+    // A WIDE, dim term as well as the two narrow ones. Rock cools over metres - white, yellow, orange, deep red,
+    // brown - and with only crack and core the glow went from near-white to black in about two pixels.
+    half warm = 1.0 - smoothstep(0.0, w * 8.0, edge);
+    half3 lit = half3(0.30, 0.045, 0.02) * (warm * warm)
+              + _TWHeatColor.rgb * (crack * crack)
+              + half3(1.0, 0.86, 0.58) * (core * core * 0.85);
+    // open lava: the pool itself burns, not merely its edges
+    lit += lerp(_TWHeatColor.rgb * 0.95, half3(1.0, 0.82, 0.50), saturate(molten * 1.4 - 0.4)) * (pow(molten, 1.25) * 1.45);
+    return lit * (_TWHeat.x * where * exposure * sub);
 }
 
 /// How black the rock is at this point. Adding glow without taking the albedo down is the "glowing dirt" failure:
@@ -166,7 +203,12 @@ half TWHeatCrust(float3 positionWS, float3 normalWS, half exposure)
     if (where <= 0.002) return 1.0;
     float2 q = positionWS.xz * _TWHeat.y * float2(1.0, 0.78);
     half edge = TWPlateEdge(q);
-    return lerp(1.0, 0.42, saturate(edge * 2.4) * where * exposure);   // dark in the middle of a plate
+    half molten = TWMolten(positionWS.xz * 0.032);
+    // Darkest in the middle of a cold plate, and darker still where it stands in open lava - a plate reads as a
+    // plate because of what surrounds it. Over a WIDE radius, matching the cooling gradient above; the old
+    // saturate(edge * 2.4) turned over in a hand's breadth and left a flat painted region with no falloff.
+    half plate = smoothstep(0.0, max(_TWHeat.z, 1e-3) * 8.0, edge);
+    return lerp(1.0, lerp(0.38, 0.17, molten), plate * where * exposure);
 }
 
 /// Light thrown UP off the floor onto whatever stands on it: strongest low down and on faces turned toward the
