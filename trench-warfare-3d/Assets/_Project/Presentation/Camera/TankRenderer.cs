@@ -48,12 +48,17 @@ namespace TW.Presentation.Tactical
         struct Spring
         {
             public float Value, Velocity;
-            /// <summary>Critically damped toward the target at angular frequency omega.</summary>
+            /// <summary>
+            /// Critically damped toward the target at angular frequency omega, solved exactly over the step:
+            /// x(t) = (x0 + (v0 + omega x0) t) e^(-omega t). The explicit step it replaces goes unstable once omega dt
+            /// nears 2, which a long frame reaches (a hitch, an editor stall: 0.33 s at omega 10), and a blast's kick then
+            /// grew each frame until the hull was drawn kilometres up (seen in Play 2026-09-23).
+            /// </summary>
             public void Step(float target, float dt, float omega)
             {
-                float x = Value - target, k = omega * omega, c = 2f * omega;
-                float a = -k * x - c * Velocity;
-                Velocity += a * dt; Value += Velocity * dt;
+                float x = Value - target, e = Mathf.Exp(-omega * dt), j = Velocity + omega * x;
+                Value = target + (x + j * dt) * e;
+                Velocity = (Velocity - omega * j * dt) * e;
             }
         }
 
@@ -801,6 +806,7 @@ namespace TW.Presentation.Tactical
         {
             if (Host == null || Host.Local == null) return;
             float now = Time.time;
+            if (e.Type == SimEventType.Explosion) { Blasted(e); return; }
             if (e.Type == SimEventType.PropChanged)
             {
                 // a wreck prop for a tank that just died (dir.x = slot + 1): tie it to the newest unlinked hull of that slot
@@ -823,6 +829,7 @@ namespace TW.Presentation.Tactical
                     v.Pitch.Velocity += Vector3.Dot(dir, fwd) * 0.35f;
                     v.Roll.Velocity -= Vector3.Dot(dir, right) * 0.35f;
                     CameraShake.Add(muzzle, 4f);
+                    SceneHooks.Flash?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f);   // the gun lights the ground in front of it
                     if (books == null || !books.Ready) break;
                     var cam = Camera.main;
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, dir) : 0f;
@@ -858,6 +865,9 @@ namespace TW.Presentation.Tactical
                     bool holed = e.Scalar > 0f;
                     v.Pitch.Velocity += Vector3.Dot(dir, fwd) * (holed ? 0.5f : 0.25f);
                     v.Roll.Velocity -= Vector3.Dot(dir, right) * (holed ? 0.5f : 0.25f);
+                    // the strike lights the hull and the ground by it, and is felt: a round through the plate more than one off it
+                    SceneHooks.Flash?.Invoke(at, holed ? new Color(1f, 0.78f, 0.48f) : new Color(1f, 0.9f, 0.72f), holed ? 22f : 12f, holed ? 9f : 6f, 0.12f);
+                    CameraShake.Add(at, holed ? 3f : 1.5f);
                     if (books != null && books.Ready)
                     {
                         books.Add(FlipbookFx.Book.Star, at, holed ? 2.2f : 1.6f, 0.09f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3.5f : 2f);
@@ -948,6 +958,35 @@ namespace TW.Presentation.Tactical
                 case SimEventType.VehicleRepaired:
                     if (v != null && books != null && books.Ready) books.Add(FlipbookFx.Book.Star, v.Pos + Vector3.up * (v.Heave.Value + 1.2f), 0.8f, 0.2f, glow: 1.5f);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// A burst near a hull rocks it on its springs and lifts it (the sim only damages it; the push is ours): tipped away
+        /// from the burst, the near side up, harder the nearer and the bigger the shell; one right under it heaves it
+        /// straight up. The earth the burst threw comes down on the deck a moment later. Walkers ride the same springs.
+        /// </summary>
+        void Blasted(SimEvent e)
+        {
+            Vector3 at = (Vector3)e.Pos;
+            float r = Mathf.Max(1f, e.Scalar), size = Mathf.Clamp(r / 6f, 0.5f, 1.6f);
+            foreach (var v in views.Values)
+            {
+                if (v == null || v.Dead || v.Model == null) continue;
+                Vector3 off = v.Pos - at; off.y = 0f;
+                float d = off.magnitude, reach = r + 4f + v.Model.HalfLength;
+                if (d >= reach) continue;
+                float near = 1f - d / reach, push = near * near * size;
+                Vector3 away = d > 0.8f ? off / d : Vector3.zero;
+                Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);
+                v.Pitch.Velocity -= Vector3.Dot(away, fwd) * 1.3f * push;   // in front of the nose: it rocks back
+                v.Roll.Velocity += Vector3.Dot(away, right) * 1.3f * push;  // on the right: the right side comes up
+                v.Heave.Velocity += 4f * push;
+                if (books != null && books.Ready && near > 0.35f)
+                {
+                    Vector3 deck = v.Pos + Vector3.up * (v.Heave.Value + v.Model.Height);   // on the deck
+                    books.Add(FlipbookFx.Book.Puff, deck, 2.2f + 0.4f * v.Model.HalfLength, 1.4f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.3f - away * 0.6f, grow: 0.8f, alpha: 0.6f, pop: 0.4f, delay: 0.35f + 0.3f * (1f - near));
+                }
             }
         }
 

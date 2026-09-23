@@ -54,7 +54,18 @@ Shader "TW/VAT Infantry (URP)"
 
         // gone: 1 on a vertex of a limb this man has lost (the record's pad is a bit per limb id, the mesh's UV1.x the
         // limb id per vertex, VATBaker); interpolated, so a triangle across the root is cut at its middle by clip()
-        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; };
+        // grime: x the mud and soot on him (0..1), y his own seed for where the blotches of it fall (VatPad)
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float2 grime; };
+
+        // smooth value noise, 0..1: a hash at the corners of a unit cell, eased between them (the grime's splashes)
+        float VatHash(float3 c) { return frac(sin(dot(c, float3(12.9898, 78.233, 37.719))) * 43758.5453); }
+        float VatNoise(float3 p)
+        {
+            float3 c = floor(p), f = p - c; f = f * f * (3.0 - 2.0 * f);
+            float a = lerp(VatHash(c), VatHash(c + float3(1, 0, 0)), f.x), b = lerp(VatHash(c + float3(0, 1, 0)), VatHash(c + float3(1, 1, 0)), f.x);
+            float d = lerp(VatHash(c + float3(0, 0, 1)), VatHash(c + float3(1, 0, 1)), f.x), e = lerp(VatHash(c + float3(0, 1, 1)), VatHash(c + float3(1, 1, 1)), f.x);
+            return lerp(lerp(a, b, f.y), lerp(d, e, f.y), f.z);
+        }
 
         // one clip: the frame pair at t (0..1 through the row) and the blend between them
         void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
@@ -79,7 +90,8 @@ Shader "TW/VAT Infantry (URP)"
             // _Base: every draw after the first (the sniper figure, the far tier, the fallen of each) starts at an offset
             // into _Instances, and on D3D SV_InstanceID does not include it (DebrisRenderer found the same, docs/16)
             VatInstance inst = _Instances[GetIndirectInstanceID_Base(svInstanceID)];
-            uint lost = (uint)(inst.pad + 0.5);
+            uint packed = (uint)(inst.pad + 0.5);   // VatPad: limbs in bits 0-5, grime in 6-13, seed in 14-21
+            uint lost = packed & 63u;
             float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
             float u = (vertexID + 0.5) / _VertexCount;
             float3 p, n;
@@ -102,6 +114,7 @@ Shader "TW/VAT Infantry (URP)"
             o.scale = inst.scale;
             o.gone = gone;
             o.cut = lost != 0u && limb < 0.5 ? 1.0 : 0.0;   // he lost something: the inside of his body (what a cut opens onto) is a wound; the inside of a helmet or a sleeve is not
+            o.grime = float2(((packed >> 6) & 255u) / 255.0, (packed >> 14) & 255u);
             return o;
         }
         ENDHLSL
@@ -124,7 +137,7 @@ Shader "TW/VAT Infantry (URP)"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; float2 limb : TEXCOORD1; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; float2 grime : TEXCOORD8; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
@@ -136,7 +149,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.normalWS = a.normalWS;
                 o.color = v.color;
                 o.tint = a.tint;
-                o.gone = a.gone; o.cut = a.cut;
+                o.gone = a.gone; o.cut = a.cut; o.grime = a.grime;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
@@ -181,6 +194,20 @@ Shader "TW/VAT Infantry (URP)"
                 // Unset on the night field (alpha 0), where TWWorldPaint returns its argument untouched.
                 half3 mud = TWWorldPaint(half3(0.215, 0.170, 0.115)) * (1.0 - 0.3 * _TWWet.x);
                 albedo = lerp(albedo, mud, caked);
+                // the bursts near him have thrown their earth over him (AnimationController.Grime): mud splashed up from the
+                // boots in blotches, higher and thicker the more he has been through, and the grey of the smoke over the rest.
+                // The blotches sit in his own space, offset by his seed, so they stay put as he moves and differ man to man.
+                if (i.grime.x > 0.004)
+                {
+                    half g = i.grime.x;
+                    float3 q = i.positionOS * 11.0 + i.grime.y * float3(0.618, 0.382, 0.271);
+                    float blot = saturate((VatNoise(q) * 0.7 + VatNoise(q * 2.3 + 17.0) * 0.3 - 0.5) * 2.4 + 0.5);   // splashes with ragged edges (a hash per cell drew squares); stretched, since value noise bunches round a half
+                    half rise = saturate(1.0 - i.positionOS.y / lerp(0.6, 1.9, g));   // thickest at the boots, thinning up the body
+                    half cut = 1.0 - g * (0.25 + 0.65 * rise);
+                    half splash = smoothstep(cut - 0.04, cut + 0.04, blot) * (0.5 + 0.4 * rise);
+                    albedo = lerp(albedo, mud, splash);
+                    albedo *= 1.0 - 0.28 * g;
+                }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;

@@ -125,6 +125,9 @@ namespace TW.Presentation
         public uint LastDive, DownUntil;                // the last dive away from a shell; lying flat after it until then
         public bool Scramble;                           // up off the ground straight into a run: the gait fades in slowly
         public float ThrowX, ThrowZ, ThrowUp;           // a shell killed him: how far it throws him (m, world XZ) and how high the arc goes
+        public float HopHeight, HopFrame; public uint HopTick;   // a shell blew him off his feet (and he lived): how high it lifts him, where in the clip and on which tick it did
+        public uint KnockedUntil, DazedUntil;           // on his face where the blast put him until then; then on one knee, dazed, until then
+        public bool Rubbed;                             // the dazed man has rubbed his eyes once (he does not do it again after every shot)
     }
 
     public sealed class AnimationController : System.IDisposable
@@ -133,12 +136,27 @@ namespace TW.Presentation
         public const float ThrownLands = 0.9f;
         /// <summary>How many ticks before a shell lands the men in the open hear it and throw themselves away from it.</summary>
         public const int DiveLead = 7;
+        /// <summary>Seconds of the lift when a shell blows a man off his feet: the first part of his fall (Trip) is drawn in the air.</summary>
+        public const float HopSeconds = 0.5f;
+        /// <summary>m/s the men's reaction runs out through them from a burst: slow enough to read as a wave across a line,
+        /// quick enough that nobody looks late (the real pressure front is 340 m/s, which is one tick for all of them).</summary>
+        public const float WaveSpeed = 60f;
+        /// <summary>Metres past a burst's radius that men still flinch at it. The sim's reach ends at the radius.</summary>
+        public const float WaveReach = 12f;
+        /// <summary>m/s of the sim's throw (SimWorld.Knock) above which a man standing in the open is blown off his feet
+        /// instead of diving: BlastSystem throws 9 m/s at the burst and 3 m/s at 0.85 of its radius, so about the inner 60 %
+        /// (at 5 m/s, the first cut, one man in a row of six at 1.5 to 16 m went over, seen in Play).</summary>
+        public const float BlownDownKnock = 4f;
+        /// <summary>How fast a man's grime (mud and soot from the bursts near him) wears off, per second: minutes, not seconds.</summary>
+        public const float GrimeFade = 1f / 300f;
         readonly List<float4> incoming = new List<float4>(16);   // shells landing within DiveLead ticks: x, z, radius, landing tick
         public NativeArray<AnimState> State;
         public NativeArray<ushort> Row;      // the Clip per slot (the renderer maps it to its atlas row)
         public NativeArray<float> Phase;     // 0..1 through the clip
         public NativeArray<float> Yaw;       // the yaw the body is drawn at
         public NativeArray<float> Lift;      // 0..1: how far up the parapet a climbing man is drawn (the sim holds him on the floor)
+        public NativeArray<float> Hop;       // m: how far above the ground a man a shell blew off his feet is drawn this frame
+        public NativeArray<float> Grime;     // 0..1: mud and soot the bursts near him have thrown over a man (VATRenderer hands it to the shader)
         public NativeArray<ushort> PrevRow;  // the clip fading out, where it stopped, and its weight (VATRenderer reads these)
         public NativeArray<float> PrevPhase, Blend;
         readonly int maxSlots;
@@ -151,6 +169,9 @@ namespace TW.Presentation
         NativeArray<float3> hitDir;
         NativeArray<float> blastRadius; // > 0: a burst this near (distance stored in blastDist)
         NativeArray<float> blastDist;
+        // the burst's reaction still running out to him: the tick it reaches him, its radius and how far off it was
+        NativeArray<uint> waveAt;
+        NativeArray<float> waveR, waveD;
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
@@ -172,6 +193,11 @@ namespace TW.Presentation
             PrevPhase = new NativeArray<float>(maxSlots, Allocator.Persistent);
             Blend = new NativeArray<float>(maxSlots, Allocator.Persistent);
             Lift = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            Hop = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            Grime = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            waveAt = new NativeArray<uint>(maxSlots, Allocator.Persistent);
+            waveR = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            waveD = new NativeArray<float>(maxSlots, Allocator.Persistent);
             hitKind = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             hitDir = new NativeArray<float3>(maxSlots, Allocator.Persistent);
             blastRadius = new NativeArray<float>(maxSlots, Allocator.Persistent);
@@ -185,7 +211,7 @@ namespace TW.Presentation
 
         public void Dispose()
         {
-            State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
+            State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); shotAt.Dispose();
         }
 
@@ -220,6 +246,7 @@ namespace TW.Presentation
             var s = new AnimState { Clip = Clip.Idle, Rung = Rung.Idle, Rate = 1f, Generation = w.Generation[i], Seed = (uint)i * 2654435761u ^ (uint)w.Generation[i] * 40503u, IdleSince = w.Tick, ClipStart = w.Tick };
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             prevPos[i] = w.Position[i];
+            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -263,16 +290,42 @@ namespace TW.Presentation
                         break;
                     case SimEventType.Explosion:
                     {
-                        float reach = e.Scalar + 3f, reach2 = reach * reach;
+                        // Inside the ring the sim throws men in (0.85 of the radius), and for anyone it killed, the burst
+                        // is this tick's. Past it the reaction runs out through the men at WaveSpeed, so a line flinches
+                        // one man after the next instead of all on one tick, and it reaches WaveReach past the radius,
+                        // where the sim stops. Everyone within six metres of the edge wears some of the earth it threw.
+                        float r = e.Scalar, reach = r + WaveReach, reach2 = reach * reach, inner = 0.85f * r, dirty = r + 6f;
+                        float perTick = WaveSpeed * tickSeconds;
                         for (int i = 0; i < count; i++)
                         {
-                            if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 && (State[i].Dead || State[i].Generation != w.Generation[i])) continue;   // the men it killed this tick are still in it
+                            bool alive = (w.Flags[i] & (uint)UnitFlags.Alive) != 0;
+                            if (!alive && (State[i].Dead || State[i].Generation != w.Generation[i])) continue;   // the men it killed this tick are still in it
                             float3 d = w.Position[i] - e.Pos; d.y = 0f; float dd = math.lengthsq(d);
-                            if (dd < reach2 && (blastRadius[i] <= 0f || dd < blastDist[i] * blastDist[i])) { blastRadius[i] = e.Scalar; blastDist[i] = math.sqrt(dd); hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
+                            if (dd >= reach2) continue;
+                            float dist = math.sqrt(dd);
+                            if (dist < dirty) { float close = 1f - dist / dirty; Grime[i] = math.min(1f, Grime[i] + 0.5f * close * close); }
+                            if (!alive || dist < inner)
+                            {
+                                if (blastRadius[i] <= 0f || dist < blastDist[i]) { blastRadius[i] = r; blastDist[i] = dist; hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
+                            }
+                            else if (waveAt[i] == 0u || dist < waveD[i])
+                            {
+                                waveAt[i] = tick + 1u + (uint)((dist - inner) / perTick) + (Hash(State[i].Seed, tick + 71u) < 0.5f ? 0u : 1u);
+                                waveR[i] = r; waveD[i] = dist;
+                            }
                         }
                         break;
                     }
                 }
+            }
+            // the wave arriving, and the earth wearing off
+            float fade = GrimeFade * tickSeconds;
+            for (int i = 0; i < count; i++)
+            {
+                if (Grime[i] > 0f) Grime[i] = math.max(0f, Grime[i] - fade);
+                if (waveAt[i] == 0u || waveAt[i] > tick) continue;
+                if (blastRadius[i] <= 0f) { blastRadius[i] = waveR[i]; blastDist[i] = waveD[i]; }
+                waveAt[i] = 0u;
             }
             if (gas != null && gas.Active)
                 for (int i = 0; i < count; i++) if ((w.Flags[i] & (uint)UnitFlags.Alive) != 0 && gas.ConcentrationAt(w.Position[i]) > 6f) gasHere[i] = 1;
@@ -448,27 +501,73 @@ namespace TW.Presentation
                     if (cur != Clip.Shield) { Start(i, ref s, Clip.Shield, Rung.Reaction, "shell coming in " + nearD.ToString("0.0") + " m away: head down", 1f, 0.1f); s.Stance = (byte)Stance.Crouch; return; }
                 }
             }
-            if (blastRadius[i] > 0f && tick - s.LastBlast > 30)
+            if (blastRadius[i] > 0f && s.Down && s.KnockedUntil != 0u) { s.KnockedUntil = math.max(s.KnockedUntil, tick + 20u); s.LastBlast = tick; }   // already down: another burst keeps him there
+            else if (blastRadius[i] > 0f && tick - s.LastBlast > 30)
             {
                 s.LastBlast = tick; s.Routine = 0;
                 float r = blastRadius[i], d = blastDist[i];
                 float3 knock = w.Knock[i];
-                bool thrown = math.lengthsq(knock) > 0.25f;   // the sim threw him clear (BlastSystem): he goes with it
-                if (prone) Start(i, ref s, Clip.ProneRoll, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: rolls away");   // flat already: the throw rolls him
+                float kick = math.length(knock);
+                bool thrown = kick > 0.5f;   // the sim threw him clear (BlastSystem): he goes with it
+                bool upright = s.Stance != (byte)Stance.Prone && s.Stance != (byte)Stance.Pinned;   // as he is drawn: the sim may have flattened him for this very shell
+                bool edge = d > r + 3f;   // the far edge of the wave: a flinch at most
+                if (thrown && upright && !inTrench && kick > BlownDownKnock)
+                {
+                    // blown off his feet: spun to face the way it throws him, lifted, and down on his face away from it;
+                    // he lies there a moment, picks himself up, and is dazed a few seconds after
+                    // Already diving from it (he heard it coming): the dive goes on, lifted, and he stays down longer; a
+                    // fall started over the top of a dive would first stand him back up.
+                    bool diving = cur == Clip.DiveAway && Playing(s);
+                    s.BodyYaw = math.atan2(knock.x, knock.z);
+                    s.HopHeight = math.clamp(0.08f * kick, 0.35f, 1.1f) * (0.8f + 0.4f * Hash(s.Seed, tick + 3u));
+                    s.HopTick = tick; s.HopFrame = diving ? s.Frame : 0f;
+                    s.KnockedUntil = tick + 20u + (s.Seed >> 7) % 30u;
+                    s.DazedUntil = s.KnockedUntil + 40u + (s.Seed >> 11) % 60u; s.Rubbed = false;   // the dive's: he is up off the ground when it ends (the fall's is set as he gets up)
+                    if (!diving)
+                    {
+                        s.ShownYaw = s.BodyYaw; s.Down = true; s.Stance = (byte)Stance.Prone;
+                        Start(i, ref s, Clip.Trip, Rung.Reaction, "shell blows him off his feet", 1.3f, 0.05f);
+                    }
+                }
+                else if (prone) Start(i, ref s, edge ? Clip.ProneFlinch : Clip.ProneRoll, Rung.Reaction, edge ? "shell at the edge of its reach: flinches flat" : "shell close by: rolls away");   // flat already: the throw rolls him
                 else if (thrown && cur == Clip.DiveAway && Playing(s)) { s.BodyYaw = math.atan2(knock.x, knock.z); }   // already diving: the blast carries him on
-                else if (thrown) { s.BodyYaw = math.atan2(knock.x, knock.z); Start(i, ref s, Clip.DiveAway, Rung.Reaction, "shell at " + d.ToString("0.0") + " m throws him clear", 1f, 0.08f); }
-                else if (d < r * 0.6f || (inTrench && d < r)) { Start(i, ref s, Clip.Shield, Rung.Reaction, "shell at " + d.ToString("0.0") + " m" + (inTrench ? " on the trench" : " inside the burst") + ": shields the face"); s.Stance = (byte)Stance.Crouch; }   // the shield ends on a knee
+                else if (thrown)
+                {
+                    // thrown more gently: he dives with it, and it lifts him a little off the ground as he goes
+                    s.BodyYaw = math.atan2(knock.x, knock.z);
+                    s.HopHeight = math.clamp(0.07f * kick, 0.12f, 0.35f); s.HopTick = tick; s.HopFrame = 0f;
+                    Start(i, ref s, Clip.DiveAway, Rung.Reaction, "shell at " + d.ToString("0.0") + " m throws him clear", 1f, 0.08f);
+                }
+                else if (edge) { if (speed < 0.3f && (target < 0 || Hash(s.Seed, tick + 11u) < 0.4f)) Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, "shell at the edge of its reach: flinches"); }   // a man on his target mostly keeps it
+                else if (d < r * 0.6f || (inTrench && d < r))
+                {
+                    Start(i, ref s, Clip.Shield, Rung.Reaction, inTrench ? "shell on the trench: shields the face" : "shell inside the burst: shields the face"); s.Stance = (byte)Stance.Crouch;   // the shield ends on a knee
+                    if (Hash(s.Seed, tick + 5u) < 0.5f) { s.DazedUntil = tick + 30u + (s.Seed >> 9) % 40u; s.Rubbed = false; }   // half of them it leaves dazed a moment
+                }
                 else if (speed < 0.3f) Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, "shell at " + d.ToString("0.0") + " m: " + (low ? "flinches" : "ducks"));
                 else if (speed > 1.5f && !inTrench && Hash(s.Seed, tick) < 0.5f) Start(i, ref s, Clip.Stumble, Rung.Reaction, "shell at " + d.ToString("0.0") + " m at a run: stumbles", math.clamp(speed / 3f, 1f, 2f));   // a runner keeps going (half the time with a stumble)
                 if (s.Rung == Rung.Reaction && s.ClipStart == tick) return;
             }
             if (s.Rung == Rung.Reaction && Playing(s) && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && cur != Clip.DiveAway && Left(s) > 0.4f && !s.Down)) return;   // a stumble is 1.2 s of it, then the run
+            if (s.Down && s.KnockedUntil != 0u && cur == Clip.Trip)
+            {
+                // blown down: he lies on his face where he landed a moment, then picks himself up (at once, and quickly, if
+                // the sim is already moving him on); if the sim has put him flat for the fire he stays flat
+                if (tick < s.KnockedUntil && speed < 1f) return;
+                s.KnockedUntil = 0u; s.HopHeight = 0f;
+                if (prone) { s.Down = false; s.Stance = (byte)Stance.Prone; Start(i, ref s, Clip.ProneIdle, Rung.Reaction, "stays flat after the shell", 1f, 0.4f); return; }
+                float upRate = speed > 1f ? 1.8f : 1f;
+                s.DazedUntil = tick + (uint)(Clips.Table[(int)Clip.GetUp].Seconds / upRate / tickSeconds) + 40u + (s.Seed >> 11) % 60u; s.Rubbed = false;   // dazed once he is up
+                Start(i, ref s, Clip.GetUp, Rung.Reaction, speed > 1f ? "scrambles up after the shell" : "picks himself up after the shell", upRate);
+                return;
+            }
             if (cur == Clip.DiveAway)
             {
                 // landed flat: he stays down a moment, unless the sim has him up and running already
                 s.Stance = (byte)Stance.Prone; s.FlipSince = 0; s.FlipLock = 0;
                 if (speed > 1f && !prone) { s.Stance = simStance == Stance.Crouch ? (byte)Stance.Crouch : (byte)Stance.Standing; s.Scramble = true; }
-                else s.DownUntil = tick + 16;
+                else s.DownUntil = math.max(tick + 16u, s.KnockedUntil);   // a blast that caught him in the dive keeps him down longer
+                s.KnockedUntil = 0u;
             }
             if (s.DownUntil > tick && speed < 1f)
             {
@@ -546,6 +645,19 @@ namespace TW.Presentation
                 Clip reload = prone ? Clip.ReloadProne : low ? (inTrench || arche != 2 ? Clip.ReloadKneel : Clip.ReloadStoop) : Clip.ReloadStand;
                 float rate = target < 0 ? 1f : math.clamp(Clips.Table[(int)reload].Seconds / math.max(0.5f, gap), 1f, 2f);
                 Start(i, ref s, reload, Rung.Action, "magazine empty: reloads" + (rate > 1.05f ? " (" + rate.ToString("0.0") + "x)" : ""), rate); return;
+            }
+
+            // ---- dazed: a shell close by has knocked the wind out of him. Standing still, he stays on one knee a few
+            // seconds and rubs his eyes once; the stance change below brings him up when it is over.
+            if (tick < s.DazedUntil && speed < 0.15f && !prone && !s.Down)
+            {
+                if (s.Rung == Rung.Idle && cur == Clip.FidgetRubEyes && Playing(s)) return;
+                s.Stance = (byte)Stance.Crouch; s.Routine = 0;
+                if (!s.Rubbed) { s.Rubbed = true; Start(i, ref s, Clip.FidgetRubEyes, Rung.Idle, "dazed by the shell: rubs his eyes", 1f, 0.3f); return; }
+                Clip kneel = aimAt >= 0 ? Clip.KneelAimedIdle : Clip.KneelIdle;
+                if (cur != kneel) Start(i, ref s, kneel, Rung.Idle, "dazed: stays on one knee", 1f, 0.4f);
+                else s.Rung = Rung.Idle;
+                return;
             }
 
             // ---- rung 5: stance change (the animated stance lags the sim's by a transition); a moving man skips it, the
@@ -755,6 +867,15 @@ namespace TW.Presentation
                 Yaw[i] = s.ShownYaw;
                 bool climb = s.Rung == Rung.Trench && (s.Clip == Clip.ClimbOut || s.Clip == Clip.ClimbLadder || s.Clip == Clip.ClimbHold);
                 Lift[i] = climb ? math.saturate(s.Frame / 0.8f) : 0f;   // the sim holds him on the trench floor for the vault: he is drawn rising up the wall
+                // blown off his feet: a parabola over the first HopSeconds of his fall (Frame runs at Rate, so measure in clip seconds)
+                float hop = 0f;
+                if (s.HopHeight > 0f && (s.Clip == Clip.Trip || s.Clip == Clip.DiveAway) && s.ClipStart <= s.HopTick)
+                {
+                    float u = math.saturate((s.Frame - s.HopFrame) / (HopSeconds * math.max(0.1f, s.Rate)));
+                    hop = s.HopHeight * 4f * u * (1f - u);
+                    if (u >= 1f) { s.HopHeight = 0f; State[i] = s; }
+                }
+                Hop[i] = hop;
                 var prev = Clips.Table[(int)s.PrevClip];
                 PrevRow[i] = (ushort)s.PrevClip;
                 float pp = prev.Seconds > 0f ? s.PrevFrame / prev.Seconds : 0f;

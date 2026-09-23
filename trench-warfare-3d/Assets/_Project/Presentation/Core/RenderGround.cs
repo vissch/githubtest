@@ -114,6 +114,9 @@ namespace TW.Presentation
         /// from its views, which follow the events, so a slot freed by a tank and refilled by a man in the same tick
         /// reads right, where the slot's arrays would already hold the man. (TankRenderer)</summary>
         public static System.Func<int, bool> IsTankSlot;
+        /// <summary>A flash of light at a place: colour, peak intensity, reach (m), seconds. A tank's gun or a strike on its
+        /// plate lights the ground round it the way a shell does. (NightLights lends one of its pooled lights)</summary>
+        public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float> Flash;
     }
 
     public static class RenderGround

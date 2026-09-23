@@ -61,6 +61,7 @@ namespace TW.Presentation.Terrain
 
         void Start()
         {
+            SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
             for (int i = 0; i < PoolSize; i++)
             {
                 pool[i].Light = MakeLight("Flash " + i, Muzzle, 0f, 8f);
@@ -332,6 +333,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalColor(BurstColorId, Color.clear);   // nothing is burning once we are gone
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.SmokeSources.Clear();
+            SceneHooks.Flash = null;
             foreach (var o in owned) if (o != null) Destroy(o);
         }
 

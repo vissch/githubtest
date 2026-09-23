@@ -130,6 +130,51 @@ trench, a shell hole or lying down, and nobody for being under a roof. So "shelt
 true in the game today. It needs the sim to know where shelters are (the composer that places them is presentation),
 then a protection factor in BlastSystem, and it changes the replay hash.
 
+## What a shell does to the men and machines that live through it
+
+Owner, 2026-09-23: "make the explosions more impactful ... for the units". Presentation only, like everything above:
+the sim's answer to a blast is unchanged (damage, suppression, `SimWorld.Knock`), so nothing here moves the replay hash.
+
+- **Blown off his feet** (`AnimationController`, rung 3). A man upright in the open whom BlastSystem throws faster than
+  `BlownDownKnock` (4 m/s: about the inner 60 % of the burst) is spun to face the way it throws him, lifted
+  (`Hop`, up to 1.1 m over `HopSeconds` 0.5 s, drawn by `VATRenderer`'s job as a Y offset), and goes down on his face
+  away from it (`Trip`, "Fall Over", which ends face down). He lies there 1 to 2.5 s (`KnockedUntil`), then `GetUp`
+  (at 1.8x if the sim is already moving him), or stays flat if the sim has flattened him for the fire. A man already
+  diving from a shell he heard keeps his dive, lifted the same way, and stays down as long; a fall started over the
+  top of a dive stood him back up first. A man thrown more gently dives away with it, lifted a little (up to 0.35 m).
+  The daze is counted from when he is back up: counted from the fall, getting up (2.3 s) used it all.
+- **Dazed.** After a knockdown, and for half of the men who shield their face from a burst on top of them, a man
+  standing still spends 1.5 to 5 s on one knee (`DazedUntil`), rubbing his eyes once (`FidgetRubEyes`). A shot still
+  cuts through: the sim decides when he fires.
+- **The wave.** Inside 0.85 of the radius (where the sim throws men) and for everyone it killed, the burst is the
+  tick's. Past that, each man's reaction waits `(d - 0.85 r) / WaveSpeed` (60 m/s: a readable ripple, not the 340 m/s
+  pressure front that is one tick for everybody), plus a tick for half of them, and it reaches `WaveReach` (12 m) past
+  the radius, where the sim's reach stops. Past r + 3 m it is a flinch at most, and a man on a target mostly keeps it.
+- **Grime.** Every man within r + 6 m gains `0.5 (1 - d / (r + 6))^2` of mud and soot (to 1), which wears off over five
+  minutes (`GrimeFade`). It reaches `VAT_URP` in the record's spare float (`VatPad`: limbs in bits 0-5, grime 6-13, a
+  per-man seed 14-21), where it splashes mud up from the boots in blotches placed in his own space (they stay put as
+  he moves, and differ man to man), higher the dirtier he is, and greys the rest. The fallen keep what they wore.
+  The splashes are a smooth value noise, stretched: a hash per 5 cm cell drew them as squares (pixel camouflage).
+- **Hulls** (`TankRenderer.Blasted`). A burst within r + 4 m + half the hull kicks the hull's pitch and roll springs
+  away from it (the near side up, about 3 degrees) and heaves it up (about 12 cm), harder the nearer and the bigger
+  the shell; the dirt it threw comes down on the deck a third of a second later. Walkers ride the same springs. The main gun and a strike on armour
+  now light the ground through `SceneHooks.Flash` (NightLights' pooled lights, which never let a gun take a light
+  from a brighter shell), and a strike is felt through the camera.
+- **The camera** (`CameraShake`). Every kick waits for the sound (`Arrival`, 343 m/s: a shell 100 m from the lens is felt
+  0.3 s after its flash) and shoves the picture along the ground away from the burst, a critically damped spring of
+  about a fifth of a second, on top of the old thump and rumble.
+- **The hull's springs are now solved exactly** (`TankRenderer.Spring.Step`: `x(t) = (x0 + (v0 + w x0) t) e^(-w t)`).
+  The explicit step goes unstable once `w dt` nears 2, which one long frame reaches (0.33 s at w 10); a blast's kick
+  during a stall then grew every frame and a Maw was drawn 3 km up (seen in Play). The exact step only ever decays.
+
+Seen in Play (2026-09-23, 20 50 on the greybox, one unannounced 8 m shell queued into BlastSystem in both worlds, six
+men standing still at 1.5 to 16 m, all alive at 8 damage): the three nearest blown off their feet (lifted 0.27 to
+0.35 m), down 1 to 1.5 s, up, one kneeling to rub his eyes before he stood; the 6 m man thrown into a dive (0.16 m);
+the 9 m and 16 m men ducked a poll later; grime 0.28 to 0.34 near, 0.07 at 9 m, none at 16 m; desync False.
+
+Tests: `Tests/EditMode/BlastReactionTests.cs` (the knockdown through to the daze, the wave's timing and reach, grime by
+distance, the Pad packing, the kick's delay, a hull's spring through twenty long frames).
+
 ## Cost
 
 - CPU: a throw is two ground samples and a 96-byte write; a shell burst is about 30 throws. Nothing per frame per
