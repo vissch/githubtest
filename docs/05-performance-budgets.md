@@ -531,3 +531,37 @@ Worst frame on the stress battle 84.9 → 60.6 ms, p99 22.6 → 19.2 ms. Left: C
 the composer's Build 21.5 ms — Landmarks 6.1, Margins 3.6, Litter 2.3 — and ~7 ms applying 7,112 instances). It
 places against the current ground (a crater can move an MG nest), so it cannot be cached; it is to be spread over
 frames, which waits on the village work in BattlefieldComposer being committed.
+
+## The first Windows player, and what it was really measuring (2026-09-23)
+
+`TW/Build/Windows Bench` built the first Windows player (release 208 s, 185 MB; development ~2 min, 240 MB). Its
+first report agreed with the editor's sim to the bit (same `hash_start` at tick 1800), which is good news for lockstep
+from editor to player. The rest of it was measuring a broken game, and nothing in the project could have said so:
+
+- **Six shaders the game finds by name were not in the build.** `Shader.Find` only finds what a build contains: a
+  shader a shipped material uses, or one on GraphicsSettings' Always Included list. TW/Debris, TW/Sea, TW/Tank and
+  TW/TankDisc were on neither (no debris, no sea, box tanks), nor were URP Unlit and Lit (no tracers, sparks, smoke,
+  gas or bodies). `new Material(null)` threw, and CombatFx and Ocean threw again every frame: 8,500 exceptions in a
+  22 s benchmark, **256 KB and 435 allocations of garbage a frame, 91 collections** in the window. The editor finds
+  every shader in the project, so no test, capture or Play session had ever seen any of it. The four TW shaders are
+  now always included like the other thirteen; URP Unlit and Lit are kept by three materials in `Resources/ShaderKeep`
+  set up the way the code sets up its own (instanced; transparent-surface keyword), rather than always including every
+  variant of URP Lit. `ShaderInclusionTests` scans the source for `Shader.Find` names and fails on any not in a build.
+- **The main menu stayed drawn over every match.** `ShellRouter.Pop` cleared a screen's Root before removing it from the
+  panel, so no popped screen ever left it. Pressing Play in the battle scene never pushes the menu, so the editor never
+  showed it; a player boots to the menu, and after Skirmish the menu sat over the whole battle. (The fault would also
+  have left a resumed pause menu on screen.) Found by the benchmark's own screenshot (`shot=`), fixed by swapping the
+  two lines; `ShellRouterPlayTests` fails on the old order and passes on the new.
+
+Development player, same battle, broken → fixed:
+
+| | broken build | fixed |
+|---|---|---|
+| GC per frame p50 | 256 KB (435 allocations) | **1.3 KB (16 allocations)** |
+| Collections in the 22 s window | 91 | **1** |
+| Main thread p50 / p95 / p99 | 6.1 / 11.4 / 19.1 ms | **5.4 / 9.0 / 12.6 ms** |
+| GPU p50 | 4.2 ms | 4.7 ms (it now draws debris, sea, tanks and effects) |
+| Draw calls / SetPass | 309 / 213 | 330 / 236 |
+
+The bench now launches the match from the main menu the way the Skirmish button does (`MatchLaunch.Start`), so the
+player is measured in the state a player is in, and it saves a screenshot of the held view during warm-up.

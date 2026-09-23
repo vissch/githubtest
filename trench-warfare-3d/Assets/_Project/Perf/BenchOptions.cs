@@ -33,6 +33,9 @@ namespace TW.Perf
         public int Canary = -1;
         public string Label = "run";
         public string Out = "perf.json";
+        /// <summary>A PNG of the held view, taken during the warm-up (so it is not a frame of the window): proof of what
+        /// the numbers were measured on, e.g. that a player build draws what the editor does.</summary>
+        public string Shot = "";
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
         public bool Quit = true;
         public string Raw = "";
@@ -65,6 +68,7 @@ namespace TW.Perf
                     case "canary": o.Canary = I(v, o.Canary); break;
                     case "label": o.Label = v; break;
                     case "out": o.Out = v; break;
+                    case "shot": o.Shot = v; break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
                 }
             }

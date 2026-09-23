@@ -102,8 +102,8 @@ namespace TW.UI
             if (stack.Count == 0) return;
             var s = stack[stack.Count - 1];
             stack.RemoveAt(stack.Count - 1);
-            s.Unbind();
-            s.Root?.RemoveFromHierarchy();
+            s.Root?.RemoveFromHierarchy();   // before Unbind, which clears Root: the other way round no popped screen ever
+            s.Unbind();                      // left the panel, so the main menu stayed drawn over every match in a player
             Top?.OnUncovered();
             ApplyHolds();
         }

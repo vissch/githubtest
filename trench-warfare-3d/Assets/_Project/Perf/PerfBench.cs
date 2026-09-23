@@ -57,7 +57,9 @@ namespace TW.Perf
             var o = BenchOptions.Parse(raw);
             SimHost.StressOverride = o.Stress;
             if (o.Canary >= 0) SimHost.CanaryOverride = o.Canary == 1;
-            BootstrapLoader.Override = MatchLaunch.BattleScene;   // a player boots straight into the battle
+            // a player boots to the main menu as it always does, and the bench launches the match from there the way the
+            // Skirmish button does (MatchLaunch.Start): jumping straight to the battle scene left the menu shell in its
+            // menu state, drawn over the whole battle (found by the first player screenshot, 2026-09-23)
             var go = new GameObject("PerfBench");
             DontDestroyOnLoad(go);
             Running = go.AddComponent<PerfBench>();
@@ -103,9 +105,17 @@ namespace TW.Perf
         }
 
         // ------------------------------------------------------------------------------------------------ the run
+        bool launched;
+
         void WaitHost()
         {
             if (host == null) host = FindFirstObjectByType<SimHost>();
+            if (host == null && !launched && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == MatchLaunch.MenuScene)
+            {
+                launched = true;
+                MatchLaunch.Start(new MatchLaunch.Request { Title = "PerfBench" });
+                return;
+            }
             if (host == null || host.Local == null) return;
             if (++waitFrames < 3) return;   // ShellBoot applies settings.json after the scene loads; ours come after it
             if (Options.Quality >= 0 && Options.Quality < QualitySettings.names.Length) QualitySettings.SetQualityLevel(Options.Quality, true);
@@ -152,6 +162,11 @@ namespace TW.Perf
 
         void Warm()
         {
+            if (warmLeft == 10 && !string.IsNullOrEmpty(Options.Shot))
+            {
+                try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); ScreenCapture.CaptureScreenshot(Path.GetFullPath(Options.Shot)); }
+                catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
+            }
             if (--warmLeft > 0) return;
             var w = host.Local.World;
             OpenRecorders();
