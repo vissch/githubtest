@@ -24,7 +24,7 @@ namespace TW.UI
         public static float HudHeight => ReferenceHeight / HudScale;
         // the bottom bar
         public const float CardPx = 72f;         // >= 70 so the unit name still fits (HudLayoutTests)
-        public const float InfantryCardPx = 2f * CardPx;   // 3x the pre-HudScale card
+        public const float InfantryCardPx = 2f * CardPx + StackGapPx;   // as tall as ARMOUR over SUPPORT: ~3x the pre-HudScale card
         public const float StackGapPx = 6f;      // between the ARMOUR row and the SUPPORT row
         public const float GapPx = 8f;           // BattleHud.Gap
         public const float InsetPx = 12f;        // BattleHud.Inset
@@ -34,9 +34,11 @@ namespace TW.UI
         public const float BarPadTopPx = 6f, BarPadBottomPx = 8f;
         public const int SupportSlots = 2;
         public const int Dividers = 1;           // infantry | (armour over support)
-        /// <summary>The ARMOUR row over the SUPPORT row, each captioned; the infantry group stands this tall too.</summary>
-        public const float StackHeightPx = 2f * (CaptionPx + CaptionGapPx + CardPx) + StackGapPx;   // 182
-        public const float BarHeightPx = BarPadTopPx + StackHeightPx + BarPadBottomPx;             // 196
+        /// <summary>One caption line (INFANTRY, ARMOUR), then the cards: infantry beside ARMOUR over SUPPORT, whose
+        /// caption sits beside its two cards instead of taking a line of its own (round 7: one rhythm, tops and bottoms
+        /// aligned).</summary>
+        public const float StackHeightPx = CaptionPx + CaptionGapPx + InfantryCardPx;   // 166
+        public const float BarHeightPx = BarPadTopPx + StackHeightPx + BarPadBottomPx;  // 180
 
         // the order cluster anchored on a trench
         public const float OrderBtnPx = 62f;     // BattleHud b
@@ -48,7 +50,7 @@ namespace TW.UI
 
         // the rest
         public const float MinimapScale = 3.2f;  // minimap pixels per nav cell (BattleHud.MapScale)
-        public const float MinimapBezelPx = 24f;
+        public const float MinimapBezelPx = 8f;   // round 7: the 24 px frame spent 5% of the screen on metal
         public const float TooltipDelaySeconds = 0.35f;
         public const float BannerSeconds = 3f;
 

@@ -83,14 +83,14 @@
     --tw-border: 2px;
 
     /* battle bar geometry (HudLayout) */
-    --tw-bar-height: 196px;   /* HudLayout.BarHeightPx, in the HUD space (HudScale 1.5) */
+    --tw-bar-height: 180px;   /* HudLayout.BarHeightPx, in the HUD space (HudScale 1.5) */
     --tw-card-size: 72px;
-    --tw-card-size-infantry: 144px;   /* HudLayout.InfantryCardPx: 3x the pre-HudScale card */
+    --tw-card-size-infantry: 150px;   /* HudLayout.InfantryCardPx: ARMOUR over SUPPORT, ~3x the pre-HudScale card */
     --tw-card-gap: 8px;
     --tw-bar-inset: 12px;
     --tw-bar-divider: 20px;
     --tw-order-btn: 62px;
     --tw-order-gap: 6px;
     --tw-order-off: 40px;
-    --tw-minimap-bezel: 24px;
+    --tw-minimap-bezel: 8px;
 }

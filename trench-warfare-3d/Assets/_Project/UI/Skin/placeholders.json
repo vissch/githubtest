@@ -1,5 +1,5 @@
 {
-    "generator": 4,
+    "generator": 5,
     "files": [
         {
             "file": "Icons/ico_arrow_down.png",
@@ -115,7 +115,7 @@
         },
         {
             "file": "Sprites/badge.png",
-            "sha1": "352ee23bac8d0cb2f1e7d290226765d5d429634d"
+            "sha1": "2f89fcf928ef131dc4b909ffa2cdaba247983c30"
         },
         {
             "file": "Sprites/banner_ribbon.png",
@@ -175,7 +175,7 @@
         },
         {
             "file": "Sprites/gauge_window.png",
-            "sha1": "352ee23bac8d0cb2f1e7d290226765d5d429634d"
+            "sha1": "2f89fcf928ef131dc4b909ffa2cdaba247983c30"
         },
         {
             "file": "Sprites/grain_overlay.png",
@@ -227,7 +227,7 @@
         },
         {
             "file": "Sprites/panel_bg.png",
-            "sha1": "f8a17ed84c0b8295dce443e1158a6bbb87a2dc54"
+            "sha1": "e859cdd19fcdc43865e9ef9b8b4a9878a2c9d9c6"
         },
         {
             "file": "Sprites/plate_disabled.png",

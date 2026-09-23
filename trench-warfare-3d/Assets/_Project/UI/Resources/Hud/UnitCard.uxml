@@ -6,8 +6,8 @@
         <ui:VisualElement name="cooldown" class="tw-card__cooldown" picking-mode="Ignore" />
         <ui:VisualElement name="rim" class="tw-card__rim" picking-mode="Ignore" />
         <ui:VisualElement name="lock" class="tw-card__lock" picking-mode="Ignore" />
-        <ui:VisualElement name="weapon" class="tw-card__weapon" picking-mode="Ignore" />
         <ui:Label name="name" text="" class="tw-card__nameplate" picking-mode="Ignore" />
+        <ui:VisualElement name="weapon" class="tw-card__weapon" picking-mode="Ignore" />
         <ui:Label name="cost" text="" class="tw-card__cost" picking-mode="Ignore" />
         <ui:Label name="hotkey" text="" class="tw-card__hotkey" picking-mode="Ignore" />
         <ui:Label name="badge" text="" class="tw-card__badge" picking-mode="Ignore" />

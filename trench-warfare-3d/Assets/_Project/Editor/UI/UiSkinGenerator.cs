@@ -154,6 +154,7 @@ namespace TW.Editor
         // ---- palette (mirrors dustfront.tokens.uss) ---------------------------------------------------------------
         static readonly Color32 Plate900 = Hex(0x0E0F10), Plate800 = Hex(0x141416), Plate700 = Hex(0x1B1D20), Plate600 = Hex(0x23252A),
             Plate500 = Hex(0x33363B), Plate400 = Hex(0x55595D), EdgeDark = Hex(0x0A0B0C), EdgeLight = Hex(0x6A6D70),
+            WindowLip = Hex(0x3A3C3F), Keyline = Hex(0x464849),
             Rust500 = Hex(0x7A4324), Rust300 = Hex(0xA8683A), Brass = Hex(0xA8863A), Accent = Hex(0xE0762A), AccentDim = Hex(0x9C5E1E),
             Alarm = Hex(0xE02B2B), White = new Color32(255, 255, 255, 255), Clear = new Color32(0, 0, 0, 0);
 
@@ -173,7 +174,7 @@ namespace TW.Editor
                 case "btn_accent_normal": PlateBody(c, e.L, Lerp(Plate600, AccentDim, 0.55f), false, false, Brass); c.InnerLine(e.L - 4, Accent, 160); break;
                 case "btn_accent_hover": PlateBody(c, e.L, Lerp(Plate600, Accent, 0.55f), false, false, Brass); c.InnerLine(e.L - 4, Accent, 220); break;
                 case "btn_accent_pressed": PlateBody(c, e.L, Lerp(Plate800, AccentDim, 0.5f), true, false, Brass); break;
-                case "panel_bg": PlateBody(c, e.L, Plate800, false, false, null, 3.5f); c.InnerLine(e.L - 6, Rust500, 140); break;
+                case "panel_bg": PlateBody(c, e.L, Plate800, false, false, null, 3.5f); c.InnerLine(e.L - 6, Keyline, 140); break;
                 case "order_plate_normal": PlateBody(c, e.L, Plate700, false, false, null, 3f); break;
                 case "order_plate_hover": PlateBody(c, e.L, Plate600, false, false, null, 3f); c.InnerLine(e.L - 4, Accent, 100); break;
                 case "order_plate_pressed": PlateBody(c, e.L, Plate800, true, false, null, 3f); break;
@@ -250,7 +251,7 @@ namespace TW.Editor
         {
             c.GradientV(0, 0, c.W, c.H, Plate900, Lerp(Plate900, Plate800, 0.5f));
             c.HLine(0, EdgeDark, 0, c.W); c.VLine(0, EdgeDark, 0, c.H);
-            c.HLine(c.H - 1, EdgeLight, 0, c.W); c.VLine(c.W - 1, EdgeLight, 0, c.H);
+            c.HLine(c.H - 1, WindowLip, 0, c.W); c.VLine(c.W - 1, WindowLip, 0, c.H);   // round 7: quiet, or the right edge reads as a "|"
             c.HLine(1, Plate900, 1, c.W - 1); c.VLine(1, Plate900, 1, c.H - 1);
             c.RoundCorners(radius, 1f);
         }
