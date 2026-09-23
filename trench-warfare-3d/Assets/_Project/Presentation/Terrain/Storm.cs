@@ -225,6 +225,7 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.StormUpdate.Auto();
             if (frozenUntil >= 0f && Time.unscaledTime >= frozenUntil) Thaw();
             float rain = Mathf.Clamp01(Atmosphere.RainNow);
             if (Time.unscaledTime >= nextStrike)

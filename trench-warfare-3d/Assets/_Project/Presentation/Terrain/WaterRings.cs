@@ -46,6 +46,7 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.WaterRingsUpdate.Auto();
             if (Host == null || Host.Local == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; SceneHooks.IsWater = IsWater; SceneHooks.AddRing = Add; }
             if (Time.time >= nextStep && IsWater != null)

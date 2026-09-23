@@ -244,6 +244,7 @@ namespace TW.Presentation.Terrain
         // ---- drawing ------------------------------------------------------------------------------------------
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.LandingUpdate.Auto();
             if (Host == null || Host.Local == null) return;
             var landing = Host.Local.Landing;
             if (landing == null) { enabled = false; return; }

@@ -262,11 +262,9 @@ namespace TW.Perf
             Counter(ProfilerCategory.Memory, "GC Allocated In Frame", "gc_bytes", 1);
             Counter(ProfilerCategory.Memory, "GC Allocation In Frame Count", "gc_count", 1);
 
-            Marker("TW.Host.Update"); Marker("TW.Host.EnemyAi"); Marker("TW.Host.StepLocal"); Marker("TW.Host.StepPeer");
-            Marker("TW.Sim.Step"); Marker("TW.Sim.Hash");
+            foreach (var n in TW.Sim.PerfMarkers.Names) Marker(n);
             foreach (var s in host.Local.World.Systems) Marker("TW.Sim.Sys." + s.GetType().Name);
-            Marker("TW.Present.Capture"); Marker("TW.Present.Interpolate"); Marker("TW.Anim.Tick"); Marker("TW.Anim.Advance");
-            Marker("TW.Events.Collect"); Marker("TW.Events.Dispatch"); Marker("TW.Hud.Refresh");
+            Marker("TW.Hud.Refresh");
             if (Options.Subscribers) for (int k = 0; k < host.Events.SubscriberCount; k++) Marker(host.Events.SubscriberMarker(k));
 
             vat = FindFirstObjectByType<VATRenderer>(); props = FindFirstObjectByType<BattlefieldProps>();

@@ -118,6 +118,7 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.SmallLifeUpdate.Auto();
             if (Host == null || Host.Local == null) return;
             if (!built)
             {

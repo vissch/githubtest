@@ -480,10 +480,12 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.TerrainUpdate.Auto();
             if (Host == null || Host.Local == null || colorTex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            if (hollowsDirty) { Surface.RefreshHollows(); hollowsDirty = false; }
+            if (hollowsDirty) { TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End(); }
             // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
+            TW.Sim.PerfMarkers.TerrainRepaint.Begin();
             paintWatch.Restart();
             while (paintTiles.Count > 0 && paintWatch.Elapsed.TotalMilliseconds < 2.0)
             {
@@ -491,9 +493,11 @@ namespace TW.Presentation.Terrain
                 RepaintTile(tile); colorDirty = true;
             }
             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
-            if (colorDirty) { colorTex.Apply(true, false); colorDirty = false; }
+            TW.Sim.PerfMarkers.TerrainRepaint.End();
+            if (colorDirty) { TW.Sim.PerfMarkers.TerrainApply.Begin(); colorTex.Apply(true, false); colorDirty = false; TW.Sim.PerfMarkers.TerrainApply.End(); }
             // at most MaxChunkRebuilds a frame, taken round the field from where the last frame stopped: a barrage dirties
             // most of the field in one tick, and rebuilding every chunk that frame was a hitch; this spreads it over a few
+            TW.Sim.PerfMarkers.TerrainChunks.Begin();
             for (int n = 0, built = 0; n < chunks.Count && built < MaxChunkRebuilds; n++)
             {
                 int i = (chunkCursor + n) % chunks.Count;
@@ -506,6 +510,7 @@ namespace TW.Presentation.Terrain
                 c.Mesh.RecalculateBounds();
                 if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
             }
+            TW.Sim.PerfMarkers.TerrainChunks.End();
             if (depthDirty) { depthTex.SetPixelData(depthPx, 0); depthTex.Apply(false, false); depthDirty = false; }
         }
 

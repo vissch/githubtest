@@ -226,6 +226,7 @@ namespace TW.Presentation.Tactical
         // ------------------------------------------------------------------ frame
         void LateUpdate()
         {
+            using var perf = TW.Sim.PerfMarkers.TankLate.Auto();
             if (Host == null || Host.Local == null || Host.Presenter == null || !Ready) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var match = Host.Local; var w = match.World;

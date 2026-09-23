@@ -72,6 +72,7 @@ namespace TW.Presentation.Tactical
 
         void LateUpdate()
         {
+            using var perf = TW.Sim.PerfMarkers.FxShake.Auto();
             var t = transform;
             viewDistance = t.position.y / Mathf.Max(0.15f, -t.forward.y);
             lookPoint = t.position + t.forward * viewDistance;
@@ -868,6 +869,7 @@ namespace TW.Presentation.Tactical
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.FxUpdate.Auto();
             if (Host == null || Host.Local == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var size = Host.Local.Map.SizeMeters;

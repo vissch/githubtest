@@ -268,9 +268,10 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.PropsUpdate.Auto();
             if (Host == null || Host.Local == null || kit == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            if (dirty) { dirty = false; Compose(); }
+            if (dirty) { dirty = false; TW.Sim.PerfMarkers.PropsCompose.Begin(); Compose(); TW.Sim.PerfMarkers.PropsCompose.End(); }
             var cam = Camera.main;
             if (cam != null) GeometryUtility.CalculateFrustumPlanes(cam, planes);
             var editorCam = EditorCamera != null && EditorCamera != cam ? EditorCamera : null;

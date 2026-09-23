@@ -108,6 +108,7 @@ namespace TW.Presentation.Tactical
 
         void LateUpdate()
         {
+            using var perf = TW.Sim.PerfMarkers.CameraLate.Auto();
             // an unfocused window still reports stale keys and wheel deltas; a shell screen over the field owns the input
             bool focused = Application.isFocused && InputFocus.Gameplay;
             var kb = focused ? Keyboard.current : null;

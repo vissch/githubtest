@@ -222,6 +222,7 @@ namespace TW.UI
         // ---- per frame ---------------------------------------------------------------------------------------------
         void LateUpdate()
         {
+            using var perf = TW.Sim.PerfMarkers.HudLate.Auto();
             if (!flagOn)
             {
                 if (KeyMap.DownRaw(GameAction.HudToggle)) { HudBridge.UseToolkitHud = true; ApplyFlag(); }

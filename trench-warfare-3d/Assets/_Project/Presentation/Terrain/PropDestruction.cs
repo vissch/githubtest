@@ -86,6 +86,7 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.DestructionUpdate.Auto();
             if (Host == null || Host.Local == null || props.Kit == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             if (rules == null) BuildRules(props.Kit);

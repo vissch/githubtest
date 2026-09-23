@@ -405,6 +405,7 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.NightLightsUpdate.Auto();
             if (Host == null || Host.Local == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             if (!built)

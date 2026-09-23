@@ -126,6 +126,7 @@ namespace TW.Presentation.Terrain
 
         void LateUpdate()
         {
+            using var perf = TW.Sim.PerfMarkers.RainLate.Auto();
             if (material == null) return;
             if (cam == null) cam = Camera.main;
             if (cam == null) return;

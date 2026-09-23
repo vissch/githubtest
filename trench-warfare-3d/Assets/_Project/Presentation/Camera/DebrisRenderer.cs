@@ -292,6 +292,7 @@ namespace TW.Presentation.Tactical
         // ------------------------------------------------------------------ frame
         void LateUpdate()
         {
+            using var perf = TW.Sim.PerfMarkers.DebrisLate.Auto();
             if (!Ready) return;
             Shader.SetGlobalFloat(NowId, Time.time);
             Shader.SetGlobalVector(BiomeId, Biome);

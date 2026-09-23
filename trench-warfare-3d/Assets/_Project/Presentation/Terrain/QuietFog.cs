@@ -126,6 +126,7 @@ namespace TW.Presentation.Terrain
 
         void Update()
         {
+            using var perf = TW.Sim.PerfMarkers.FogUpdate.Auto();
             if (Host == null || Host.Local == null || tex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             if (Time.time >= nextScan) { nextScan = Time.time + .25f; Scan(); }

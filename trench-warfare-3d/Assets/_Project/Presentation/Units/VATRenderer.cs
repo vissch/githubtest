@@ -191,6 +191,7 @@ namespace TW.Presentation.Units
 
         void LateUpdate()   // after SimHost.Update has interpolated this frame's poses
         {
+            using var perf = TW.Sim.PerfMarkers.VatLate.Auto();
             if (figures == null || Host == null || Host.Presenter == null || Host.Local == null) return;
             var presenter = Host.Presenter;
             EnsureCapacity(presenter.Poses.Length);
