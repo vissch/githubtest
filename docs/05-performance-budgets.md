@@ -586,3 +586,31 @@ frame of their own.
 **A measuring caveat learned here.** Two runs of the same build an hour apart, same battle, same draw counts
 (363 draws, 1.42 M triangles), differed by 1.3 ms of GPU and 0.4 ms of main thread: the laptop after three player
 builds, not the code (the per-system markers were unchanged). Compare runs taken back to back, or interleaved.
+
+## The GPU, pass by pass, and the clip every man paid for (2026-09-24)
+
+The first per-pass GPU measurement (`Recorder.gpuElapsedNanoseconds` on the render samplers, 300 frames of the
+benchmark battle held still at tick 1860, standard view, night rain, editor, RTX 4070 laptop) put almost all of the
+frame in one pass: **DrawOpaqueObjects 3.5 of 4.2 ms**. The shadow map (0.09 ms: the men's shadows are off at this
+army size, `LodTiers.VertexBudget`), the ink lines (0.07), the depth copy (0.04) and the UI (0.04) are small change.
+
+The men's shader (`VAT_URP`) had a `clip()` in all four passes for a lost limb, and one more for a wound ellipsoid
+nothing sets. Only the fallen can lose a limb (`VatPad`: a living man's record packs none), but a shader that can
+discard is run before its depth test, not after, so every living man was shaded in full wherever he was drawn, hidden
+or not, and no clip ever fired. The clips are now behind `_TW_LIMBCUT` (`multi_compile_local_fragment`, so a build keeps
+both variants of these runtime-made materials), which only the fallen's material enables (`VATRenderer.Make`).
+
+| Same held frame, alternated | DrawOpaqueObjects | GPU frame |
+|---|---|---|
+| Clip on the living (as before) | 3.53, 3.57 ms | 4.16, 4.28 ms |
+| Clip on the fallen only | 2.03, 2.01, 2.01 ms | 2.69, 2.60, 2.63 ms |
+
+**-1.5 ms, -43 % of the opaque pass.** (The working tree carried another session's smaller men, `UnitScale` 1.125, in
+both columns.) Checked in the same held frame: the standard view, a close crowd and two close-ups of gibbed bodies are
+**pixel-identical** before and after (`CaptureRig.Diff`, changed 0), and turning the keyword off on the fallen puts
+the lost arm back (a 119 x 79 px change at the body): the cut is live, and it is the keyword that keeps it.
+`VatEarlyZTests` fails if a clip or discard reaches the living variant again, or the fallen stop enabling the keyword;
+the picture would not show it.
+
+When the men's shadows are on (smaller armies), their shadow pass also loses its pixel work: with no clip and no
+colour it has none left.

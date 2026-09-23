@@ -5,6 +5,7 @@
 // out (prevRow, prevT, blend = its weight) and the yaw. A row whose frame count is negative plays once and holds its
 // last frame; a positive one loops. _Lerp = 1 blends two frames (near), 0 samples the nearest frame (zoomed out).
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it.
+// Only the fallen's material carries _TW_LIMBCUT (the lost-limb and wound clips); the living draw with no clip() at all.
 // Look: the same two-step cartoon light, haze and ink outline as TW/Toon, so the men sit in the painted field.
 Shader "TW/VAT Infantry (URP)"
 {
@@ -56,6 +57,16 @@ Shader "TW/VAT Infantry (URP)"
         // limb id per vertex, VATBaker); interpolated, so a triangle across the root is cut at its middle by clip()
         // grime: x the mud and soot on him (0..1), y his own seed for where the blotches of it fall (VatPad)
         struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float2 grime; };
+
+        // Only the fallen lose limbs (a living man's record packs none: VatPad, VATRenderer), so only their material
+        // enables _TW_LIMBCUT. A shader that can discard is depth-tested after it has run, not before, so the clip that
+        // never fired on a living man still turned early-Z off for all 3,000 of them, in every pass, and gave their
+        // shadow pass pixel work to do. Without the keyword no pass of theirs can discard.
+        #if defined(_TW_LIMBCUT)
+            #define VAT_CLIP_LOST(gone) clip(0.5 - (gone))
+        #else
+            #define VAT_CLIP_LOST(gone)
+        #endif
 
         // smooth value noise, 0..1: a hash at the corners of a unit cell, eased between them (the grime's splashes)
         float VatHash(float3 c) { return frac(sin(dot(c, float3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -132,6 +143,7 @@ Shader "TW/VAT Infantry (URP)"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fog
+            #pragma multi_compile_local_fragment _ _TW_LIMBCUT
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
@@ -156,7 +168,7 @@ Shader "TW/VAT Infantry (URP)"
 
             half4 frag(Varyings i, bool front : SV_IsFrontFace) : SV_Target
             {
-                clip(0.5 - i.gone);   // a limb a shell took off (DebrisRenderer throws it)
+                VAT_CLIP_LOST(i.gone);   // a limb a shell took off (DebrisRenderer throws it)
                 // the inside of a figure, seen only through the cut where a limb was (the fallen are drawn with Cull Off):
                 // dark and wet, unlit, so the hole reads as a wound rather than as a hollow shell
                 if (!front)
@@ -167,12 +179,15 @@ Shader "TW/VAT Infantry (URP)"
                     half3 inside = i.cut > 0.5 ? half3(0.16, 0.035, 0.03) : inner;
                     return half4(MixFog(ApplyFieldFog(ApplyMist(inside, i.positionWS), i.positionWS), i.fog), 1.0);
                 }
-                // B4: ellipsoid wound clip exposes embedded gore geometry
+                // B4: ellipsoid wound clip exposes embedded gore geometry (the fallen only: nothing sets it on the living,
+                // and even an untaken clip here would cost them early-Z)
+            #if defined(_TW_LIMBCUT)
                 if (_WoundRadii.x > 0.0)
                 {
                     float3 d = (i.positionOS - _WoundCenter.xyz) / _WoundRadii.xyz;
                     clip(dot(d, d) - 1.0);
                 }
+            #endif
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
                 // webbing, pack and puttees were baked near white, so from the gameplay pitch a man read as a stack of pale
@@ -256,6 +271,7 @@ Shader "TW/VAT Infantry (URP)"
             #pragma vertex vertOutline
             #pragma fragment fragOutline
             #pragma multi_compile_fog
+            #pragma multi_compile_local_fragment _ _TW_LIMBCUT
             struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float gone : TEXCOORD1; };
             OutlineVaryings vertOutline(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
@@ -270,7 +286,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
-            half4 fragOutline(OutlineVaryings i) : SV_Target { clip(0.5 - i.gone); return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
+            half4 fragOutline(OutlineVaryings i) : SV_Target { VAT_CLIP_LOST(i.gone); return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
             ENDHLSL
         }
 
@@ -283,6 +299,7 @@ Shader "TW/VAT Infantry (URP)"
             #pragma vertex vertShadow
             #pragma fragment fragNull
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #pragma multi_compile_local_fragment _ _TW_LIMBCUT
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"   // LerpWhiteTo, which Shadows.hlsl uses
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
@@ -307,7 +324,7 @@ Shader "TW/VAT Infantry (URP)"
                 ShadowVaryings o; o.positionCS = cs; o.gone = a.gone;
                 return o;
             }
-            half4 fragNull(ShadowVaryings i) : SV_Target { clip(0.5 - i.gone); return 0; }
+            half4 fragNull(ShadowVaryings i) : SV_Target { VAT_CLIP_LOST(i.gone); return 0; }
             ENDHLSL
         }
 
@@ -320,6 +337,7 @@ Shader "TW/VAT Infantry (URP)"
             HLSLPROGRAM
             #pragma vertex vertDepth
             #pragma fragment fragDepth
+            #pragma multi_compile_local_fragment _ _TW_LIMBCUT
             struct DepthVaryings { float4 positionCS : SV_POSITION; float gone : TEXCOORD0; };
             DepthVaryings vertDepth(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
@@ -327,7 +345,7 @@ Shader "TW/VAT Infantry (URP)"
                 DepthVaryings o; o.positionCS = TransformWorldToHClip(a.positionWS); o.gone = a.gone;
                 return o;
             }
-            half4 fragDepth(DepthVaryings i) : SV_Target { clip(0.5 - i.gone); return 0; }
+            half4 fragDepth(DepthVaryings i) : SV_Target { VAT_CLIP_LOST(i.gone); return 0; }
             ENDHLSL
         }
     }

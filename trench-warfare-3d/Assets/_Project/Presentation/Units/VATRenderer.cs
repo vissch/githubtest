@@ -119,6 +119,7 @@ namespace TW.Presentation.Units
             // not the field through a hollow shell. Cull is render state, not a property block value, hence a second material.
             var fallen = new Material(m) { hideFlags = HideFlags.HideAndDontSave };
             fallen.SetFloat(CullId, (float)CullMode.Off);
+            fallen.EnableKeyword("_TW_LIMBCUT");   // and only they can have lost a limb: the living draw with no clip() (VAT_URP)
             // new Material(m) copies only what the shader declares: _PosMin/_PosSize are not in its Properties block, and
             // without them every vertex decodes to the origin (the fallen drew as a dot). Set them again.
             fallen.SetVector(PosMinId, a.PosMin); fallen.SetVector(PosSizeId, a.PosSize);
