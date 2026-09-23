@@ -80,7 +80,7 @@ his limbs fly. The baker's change is one line per vertex, `LimbOf(boneName)`: he
 `TankRenderer`'s own parented-part debris (turret, cupola, horns, tracks, legs) is unchanged and now capped at
 `MaxLoose = 160` pieces, oldest at rest first; a track slid off is never dropped (it goes back when mended).
 
-## Buildings and the rest of the kit: `Presentation/Terrain/PropDestruction.cs` (waiting on a BattlefieldProps hook)
+## Buildings and the rest of the kit: `Presentation/Terrain/PropDestruction.cs`
 
 Every drawn prop that is not the sim's has a material class and a strength, and a burst inside its radius wears it
 down with BlastSystem's falloff (`1 - 0.75 d/R`, R = 1.15 × the blast radius, one field-gun burst = 1.0 at the
@@ -93,10 +93,15 @@ plates thrown away from the burst, with two dust puffs and, for stone, a camera 
 Collapsed props are remembered by **module + position quantised to 0.25 m** (finer than the 2 m picket spacing;
 never by index), and `BattlefieldProps.Suppress` is asked for every instance it composes, so a prop stays down across
 the recompose every crater triggers, and nothing outside a blast radius can ever be hidden. The same predicate holds
-the static fallen tree-top back for 1.4 s while the crown falls.
+the static fallen tree-top back for 4.8 s, while the thrown crown falls and lies (it comes in as the crown sinks).
 
-Needs from `BattlefieldProps` (claude-68 is adding them): `Within(module, centre, radius, list)`, `Hide(module, page,
-slot)`, `Func<Module, Matrix4x4, bool> Suppress` consulted in `Put` and the anonymous emit path.
+The hooks on `BattlefieldProps`: `Within(module, centre, radius, list)`, `Hide(module, page, slot)`, and
+`Func<Module, Matrix4x4, bool> Suppress`, asked in the composer's emit callback before anything is placed.
+`GreyboxTerrainView` adds the component next to `BattlefieldProps`.
+
+Seen in Play (2026-09-23 03:00): one HE barrage on a trench line, plus the AI's own fire, collapsed 369 props: 15
+parapet sections, 12 revetment lengths, 8 gabions, boards, ladders, knife rests, a door, a hatch, a sheet, fences, and
+a great deal of grass, reeds and scrub. Console clean.
 
 **Gameplay is untouched on purpose:** a bunker cell stays `NavLayer.Bunker` after its roof has gone; the sim's cover
 comes from its own props. Whether a collapsed shelter should stop giving cover (and what a trench collapse does) is an
@@ -142,13 +147,26 @@ the 96 bytes the shader declares with a pool for every piece under half a megaby
 
 ## Open
 
-1. VATBaker: write limb ids to UV1.x (one line per vertex) and rebake (`TW/VAT/Bake Infantry`, ~1 min).
-2. BattlefieldProps hook → drop `PropDestruction.cs` in (it is written, in claude-b7's scratchpad).
-3. Craters: `GreyboxTerrainView` rebuilds every dirty 32 m chunk the same frame with no budget; a 12-shell barrage
-   can dirty most of the field at once. Cap it at a chunk or two a frame (file is in claude-68's hands today).
-4. The see-through at a limb cut (the figure is single-sided): a dark cap needs a second small mesh or `Cull Off` on
-   the fallen buffer only.
-5. Lava: a piece that lands in lava should be consumed (sink at once, glow maxed) rather than lie there. Shader-side,
-   against the one lava level the terrain and liquid surface read (claude-0a names it when the lava surface lands).
-6. Owner decisions: gore level (`DebrisRenderer.Gore` is a static, 0..1, meant for a settings toggle); whether
-   collapsed shelters lose their cover in the sim.
+Done 2026-09-23, gated and seen in Play:
+- Limbs: `VATBaker` writes the limb id to UV1.x (0 body, 1 head and helmet, 2/3 arms, 4/5 legs; both figures rebaked,
+  only the two mesh assets changed, atlases untouched at 70.2 MB). A dead man with both legs gone was filmed beside a
+  whole one: the cut is clean.
+- Stumps: the fallen are drawn with their own material, `Cull Off`, and a back face returns a dark wet red, unlit, so
+  a cut shows a wound, not the field through a hollow shell. No new draw. Trap found on the way: `new Material(m)` copies
+  only the properties the shader declares; `_PosMin`/`_PosSize` are not declared and have to be set on the copy, or
+  every vertex decodes to the origin.
+- Props: the hooks above and `PropDestruction` in.
+- Craters: `GreyboxTerrainView` rebuilds at most `MaxChunkRebuilds` (2) dirty chunks a frame, round the field from
+  where it stopped.
+- Lava: `DebrisRenderer.LavaLevel` (static, -10000 = off) is pushed as `_DebrisLava`; a piece whose rest height is at
+  or below it goes under within 1.2 s of landing and flares as it goes. claude-0a sets it from `BiomeProfile.MoltenLevel`
+  in `Atmosphere.PushBiome`, the one authority (the terrain's `_TWHeat.w`).
+- Gore: `GameSettings.Camera.Gore` (0..1) is applied to `DebrisRenderer.Gore` by `SettingsApplier.ApplyCamera`, with a
+  GORE slider under Controls.
+
+Still open:
+1. Owner decision: whether a collapsed shelter stops giving cover in the sim (a hash bump; `docs/PLAN.md` already says
+   the bomber run "destroys bunkers (2 hits)").
+2. Lava lighting: on the lava field the light comes from below (`_TWGroundLight`); debris lit only by the key may read
+   as dark cards. `TWHemisphere` is the likely fix; waiting for claude-0a's stills rather than guessing.
+3. Close-up limb stumps are small at the gameplay zoom; if a still asks for more, a dark cap mesh at the joint.

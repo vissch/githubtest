@@ -45,6 +45,9 @@ namespace TW.Presentation.Terrain
         readonly HashSet<Vector2Int> queuedTiles = new HashSet<Vector2Int>();
         readonly List<TW.Sim.SimEvent> scorchMarks = new List<TW.Sim.SimEvent>();
         bool hollowsDirty;
+        /// <summary>Terrain chunks re-read from the height field per frame after craters; the rest wait their turn.</summary>
+        public const int MaxChunkRebuilds = 2;
+        int chunkCursor;
         readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
         public int PendingPaintTiles => paintTiles.Count;
         public float LastPaintMilliseconds { get; private set; }
@@ -133,6 +136,7 @@ namespace TW.Presentation.Terrain
             var props = GetComponent<BattlefieldProps>();
             if (props == null) props = gameObject.AddComponent<BattlefieldProps>();
             props.Host = Host;
+            if (GetComponent<PropDestruction>() == null) gameObject.AddComponent<PropDestruction>();   // what a shell knocks down, breaks into debris and stays down
         }
 
         /// <summary>Vertices sit on the corners between height cells; normals come from the heightfield, not the chunk.</summary>
@@ -488,10 +492,14 @@ namespace TW.Presentation.Terrain
             }
             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
             if (colorDirty) { colorTex.Apply(true, false); colorDirty = false; }
-            for (int i = 0; i < chunks.Count; i++)
+            // at most MaxChunkRebuilds a frame, taken round the field from where the last frame stopped: a barrage dirties
+            // most of the field in one tick, and rebuilding every chunk that frame was a hitch; this spreads it over a few
+            for (int n = 0, built = 0; n < chunks.Count && built < MaxChunkRebuilds; n++)
             {
+                int i = (chunkCursor + n) % chunks.Count;
                 var c = chunks[i];
                 if (!c.Dirty) continue;
+                built++; chunkCursor = (i + 1) % chunks.Count;
                 c.Dirty = false;
                 Fill(c, Host.Local.Map.Height);
                 c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;

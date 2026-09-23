@@ -17,7 +17,7 @@ namespace TW.UI
         public static readonly string[] RequiredNames =
         {
             "settings-plate", "tabs", "tab-controls", "tab-video", "tab-audio", "tab-interface", "pages", "page-controls", "page-video", "page-audio", "page-interface",
-            "controls-list", "slider-pan-speed", "toggle-edge-scroll", "slider-zoom-min", "slider-zoom-max", "slider-shake", "btn-controls-defaults",
+            "controls-list", "slider-pan-speed", "toggle-edge-scroll", "slider-zoom-min", "slider-zoom-max", "slider-shake", "slider-gore", "btn-controls-defaults",
             "dropdown-resolution", "dropdown-fullscreen", "toggle-vsync", "dropdown-quality",
             "slider-master", "slider-ambience", "slider-sfx", "slider-music", "audio-note",
             "slider-ui-scale", "toggle-tooltips", "toggle-round-radar",
@@ -98,6 +98,7 @@ namespace TW.UI
             Slider("slider-zoom-min", draft.Camera.ZoomMin, v => draft.Camera.ZoomMin = v);
             Slider("slider-zoom-max", draft.Camera.ZoomMax, v => draft.Camera.ZoomMax = v);
             Slider("slider-shake", draft.Camera.Shake, v => draft.Camera.Shake = v);
+            Slider("slider-gore", draft.Camera.Gore, v => draft.Camera.Gore = v);
             Btn("btn-controls-defaults", () => { draft.Bindings = KeyMap.Defaults(); foreach (var kv in caps) { RefreshCap(kv.Key, false); RefreshCap(kv.Key, true); } });
         }
 

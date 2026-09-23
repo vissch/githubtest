@@ -21,6 +21,7 @@ Shader "TW/VAT Infantry (URP)"
         _OutlineWidth ("Outline width (m)", Float) = 0.028
         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull (Off for the fallen: a cut limb shows the inside)", Float) = 2
     }
     SubShader
     {
@@ -102,6 +103,7 @@ Shader "TW/VAT Infantry (URP)"
         {
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
+            Cull [_Cull]
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -132,9 +134,12 @@ Shader "TW/VAT Infantry (URP)"
                 return o;
             }
 
-            half4 frag(Varyings i) : SV_Target
+            half4 frag(Varyings i, bool front : SV_IsFrontFace) : SV_Target
             {
                 clip(0.5 - i.gone);   // a limb a shell took off (DebrisRenderer throws it)
+                // the inside of a figure, seen only through the cut where a limb was (the fallen are drawn with Cull Off):
+                // dark and wet, unlit, so the hole reads as a wound rather than as a hollow shell
+                if (!front) return half4(MixFog(ApplyFieldFog(ApplyMist(half3(0.16, 0.035, 0.03), i.positionWS), i.positionWS), i.fog), 1.0);
                 // B4: ellipsoid wound clip exposes embedded gore geometry
                 if (_WoundRadii.x > 0.0)
                 {
@@ -249,6 +254,7 @@ Shader "TW/VAT Infantry (URP)"
             Name "DepthOnly"
             Tags { "LightMode"="DepthOnly" }
             ZWrite On ColorMask R
+            Cull [_Cull]
             HLSLPROGRAM
             #pragma vertex vertDepth
             #pragma fragment fragDepth

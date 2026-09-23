@@ -67,7 +67,7 @@ namespace TW.Presentation.Units
 
         sealed class Figure
         {
-            public VatAsset Asset; public Material Material; public GraphicsBuffer Rows; public int Near, Start;
+            public VatAsset Asset; public Material Material, Fallen; public GraphicsBuffer Rows; public int Near, Start;
             public MaterialPropertyBlock Props, FallenProps;
         }
         Figure[] figures;            // the near tier(s); one box-soldier figure when nothing is baked
@@ -86,7 +86,7 @@ namespace TW.Presentation.Units
         readonly Plane[] frustum = new Plane[6];
         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
-        static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize");
+        static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize"), CullId = Shader.PropertyToID("_Cull");
         /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
         public VatAsset FigureAsset(int figure) => figures != null && figures.Length > 0 ? figures[math.clamp(figure, 0, figures.Length - 1)].Asset : null;
@@ -100,7 +100,14 @@ namespace TW.Presentation.Units
             m.SetVector(PosMinId, a.PosMin); m.SetVector(PosSizeId, a.PosSize);
             var rows = new GraphicsBuffer(GraphicsBuffer.Target.Structured, a.RowTable.Length, 8);
             rows.SetData(a.RowTable);
-            return new Figure { Asset = a, Material = m, Rows = rows, Props = new MaterialPropertyBlock(), FallenProps = new MaterialPropertyBlock() };
+            // the fallen are drawn from the same atlas with both sides: where a shell took a limb off the inside shows (dark),
+            // not the field through a hollow shell. Cull is render state, not a property block value, hence a second material.
+            var fallen = new Material(m) { hideFlags = HideFlags.HideAndDontSave };
+            fallen.SetFloat(CullId, (float)CullMode.Off);
+            // new Material(m) copies only what the shader declares: _PosMin/_PosSize are not in its Properties block, and
+            // without them every vertex decodes to the origin (the fallen drew as a dot). Set them again.
+            fallen.SetVector(PosMinId, a.PosMin); fallen.SetVector(PosSizeId, a.PosSize);
+            return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = new MaterialPropertyBlock(), FallenProps = new MaterialPropertyBlock() };
         }
 
         void Start()
@@ -122,7 +129,7 @@ namespace TW.Presentation.Units
                 figures = new Figure[baked.Count];
                 for (int k = 0; k < baked.Count; k++) figures[k] = Make(shader, baked[k]);
                 far = Make(shader, ProceduralSoldier.Build());
-                far.Material.SetFloat(LerpId, 0f);
+                far.Material.SetFloat(LerpId, 0f); far.Fallen.SetFloat(LerpId, 0f);
                 if (clipAtlas) Clips.Apply(baked[0].RowSeconds);   // the controller times its one-shots by the bake
             }
             else figures = new[] { Make(shader, ProceduralSoldier.Build()) };
@@ -215,6 +222,7 @@ namespace TW.Presentation.Units
                     var f = figures[k];
                     if (f.Near == 0) continue;
                     f.Material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
+                    f.Fallen.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
                     f.Props.SetBuffer("_Instances", instanceBuffer); f.Props.SetBuffer("_RowTable", f.Rows);
                     var rp = new RenderParams(f.Material) { worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = f.Props };
                     Graphics.RenderMeshIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
@@ -396,7 +404,7 @@ namespace TW.Presentation.Units
                 if (fallenArgsData[k].instanceCount == 0) continue;
                 var fig = figures[k];
                 fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);
-                Graphics.RenderMeshIndirect(new RenderParams(fig.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
+                Graphics.RenderMeshIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
             }
             if (farCount > 0 && far != null)
             {
@@ -563,7 +571,7 @@ namespace TW.Presentation.Units
         {
             if (f == null) return;
             f.Rows?.Dispose();
-            VatAsset.Kill(f.Material);
+            VatAsset.Kill(f.Material); VatAsset.Kill(f.Fallen);
             if (f.Asset != null && freed.Add(f.Asset)) f.Asset.Release();
         }
     }

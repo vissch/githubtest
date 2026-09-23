@@ -351,7 +351,12 @@ namespace TW.Editor
             tris.AddRange(rifle.Tris.Select(t => t + skinCount + helmet.Pos.Length));
             int idle = (int)table[(int)Clip.Idle].x;
             var mesh = new Mesh { name = "Figure" + figure + "Mesh" };
-            mesh.SetVertices(frames[idle]); mesh.SetNormals(frameNormals[idle]); mesh.SetColors(colors); mesh.SetTriangles(tris, 0);
+            // UV1.x: which limb a vertex belongs to, 0 body, 1 head (and the helmet), 2/3 left/right arm, 4/5 left/right leg.
+            // VAT_URP cuts the limbs VatInstance.Pad names; the rifle stays 0 (DebrisRenderer throws its own).
+            var limbs = new Vector2[vertexCount];
+            for (int i = 0; i < skinCount; i++) limbs[i] = new Vector2(LimbOf(bones[weights[i].boneIndex0].name), 0f);
+            for (int i = 0; i < helmet.Pos.Length; i++) limbs[skinCount + i] = new Vector2(1f, 0f);
+            mesh.SetVertices(frames[idle]); mesh.SetNormals(frameNormals[idle]); mesh.SetColors(colors); mesh.SetUVs(1, limbs); mesh.SetTriangles(tris, 0);
             mesh.bounds = new Bounds(new Vector3(0f, 0.9f, 0f), new Vector3(3f, 2.4f, 3f));
 
             // ---- atlas and assets -------------------------------------------------------------------------------
@@ -377,6 +382,16 @@ namespace TW.Editor
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
 
         /// <summary>The bones the uniform hangs on: what the team colour recolours.</summary>
+        /// <summary>Which limb a bone belongs to, for the shell that takes it off: shoulders and hips stay with the body.</summary>
+        static float LimbOf(string bone)
+        {
+            if (bone.Contains("Head")) return 1f;
+            bool left = bone.Contains("Left"), right = bone.Contains("Right");
+            if (bone.Contains("Arm") || bone.Contains("Hand")) return left ? 2f : right ? 3f : 0f;
+            if (bone.Contains("Leg") || bone.Contains("Foot") || bone.Contains("Toe")) return left ? 4f : right ? 5f : 0f;
+            return 0f;
+        }
+
         static bool Cloth(string bone)
         {
             if (bone.Contains("Head") || bone.Contains("Neck") || bone.Contains("Hand") || bone.Contains("Foot") || bone.Contains("Toe")) return false;

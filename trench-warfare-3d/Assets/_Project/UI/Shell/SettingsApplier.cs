@@ -69,6 +69,7 @@ namespace TW.UI
                 cam.Zoom = Mathf.Clamp(cam.Zoom, cam.ZoomMin, cam.ZoomMax);
             }
             CameraShake.Strength = s.Camera.Shake;
+            TW.Presentation.Tactical.DebrisRenderer.Gore = s.Camera.Gore;   // 0: no gore lumps and no limbs; the shells still throw everything else
         }
 
         public static void ApplyKeys(GameSettings s)

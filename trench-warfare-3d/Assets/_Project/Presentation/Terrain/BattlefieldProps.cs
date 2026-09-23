@@ -14,6 +14,9 @@ namespace TW.Presentation.Terrain
         public PropLayout Layout;
         /// <summary>A second camera whose view is drawn as well (the Scene view while props are edited); the counters stay the game camera's.</summary>
         public static Camera EditorCamera;
+        /// <summary>Asked for every instance composed: true keeps it out (PropDestruction: what a shell has knocked down stays
+        /// down through every recomposition). Keyed by module and placement, never by page and slot, which change.</summary>
+        public System.Func<BattlefieldKit.Module, Matrix4x4, bool> Suppress;
 
         sealed class Batch
         {
@@ -157,6 +160,31 @@ namespace TW.Presentation.Terrain
 
         public BattlefieldKit.Module ModuleNamed(string name) => name != null && modulesByName.TryGetValue(name, out var module) ? module : null;
         public void Recompose() => dirty = true;
+        /// <summary>Every drawn instance of a module whose foot is within radius of a point (xz), as (page, slot, matrix).</summary>
+        public void Within(BattlefieldKit.Module module, Vector2 centre, float radius, List<(int page, int slot, Matrix4x4 m)> into)
+        {
+            if (module == null || !batches.TryGetValue(module, out var b)) return;
+            float r2 = radius * radius;
+            for (int p = 0; p < b.Counts.Count; p++)
+            {
+                var pb = b.PageBounds[p];
+                float dx = Mathf.Max(0f, Mathf.Abs(centre.x - pb.center.x) - pb.extents.x), dz = Mathf.Max(0f, Mathf.Abs(centre.y - pb.center.z) - pb.extents.z);
+                if (dx * dx + dz * dz > r2) continue;
+                var page = b.Pages[p];
+                for (int s = 0, n = b.Counts[p]; s < n; s++)
+                {
+                    var m = page[s];
+                    if (m.m13 < -400f) continue;   // hidden: Batch.Hide sinks it 500 m
+                    float ex = m.m03 - centre.x, ez = m.m23 - centre.y;
+                    if (ex * ex + ez * ez <= r2) into.Add((p, s, m));
+                }
+            }
+        }
+        /// <summary>Takes one instance out of the draw now; Suppress keeps it out of the next composition.</summary>
+        public void Hide(BattlefieldKit.Module module, int page, int slot)
+        {
+            if (module != null && batches.TryGetValue(module, out var b) && page < b.Counts.Count && slot < b.Counts[page]) b.Hide(page, slot);
+        }
         public bool TryGetPlaced(string key, out Placed prop)
         {
             if (placedByKey.TryGetValue(key, out int i)) { prop = placed[i]; return true; }
@@ -223,6 +251,7 @@ namespace TW.Presentation.Terrain
             map = Host.Local.Map; surface = GetComponent<GreyboxTerrainView>().Surface;
             composer.Build(map, surface, (module, matrix) =>
             {
+                if (Suppress != null && Suppress(module, matrix)) return;
                 if (module.Name == null) { BatchOf(module).Add(matrix, out _); return; }
                 // an imported prop: found by kind and spot, so a hand edit (PropLayout) finds it again after every crater
                 string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition());

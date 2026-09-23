@@ -23,6 +23,7 @@
                     <ui:VisualElement class="tw-row"><ui:Label text="CLOSEST ZOOM" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-zoom-min" low-value="2" high-value="30" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
                     <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="FARTHEST ZOOM" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-zoom-max" low-value="60" high-value="2000" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
                     <ui:VisualElement class="tw-row"><ui:Label text="CAMERA SHAKE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-shake" low-value="0" high-value="2" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="GORE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Slider name="slider-gore" low-value="0" high-value="1" show-input-field="true" class="tw-slider" /></ui:VisualElement></ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="page-video" class="shell-page tw-hidden">
                     <ui:VisualElement class="tw-row"><ui:Label text="RESOLUTION" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-resolution" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>

@@ -52,7 +52,7 @@ namespace TW.Presentation
             public bool EdgeScroll = true;       // TacticalCamera.EdgeScroll (the editor forces it off)
             public float ZoomMin = 6f, ZoomMax = 600f;
             [Range(0f, 2f)] public float Shake = 1f;   // CameraShake.Strength
-            [Range(0f, 1f)] public float Gore = 1f;    // DebrisRenderer.Gore, once committed
+            [Range(0f, 1f)] public float Gore = 1f;    // DebrisRenderer.Gore: 0 = no gore lumps, no limbs
         }
 
         public static GameSettings Defaults() => new GameSettings();
@@ -75,6 +75,7 @@ namespace TW.Presentation
             Audio.Sfx = Mathf.Clamp01(Audio.Sfx); Audio.Music = Mathf.Clamp01(Audio.Music);
             Interface.UiScale = Mathf.Clamp(Interface.UiScale, 0.75f, 1.5f);
             Camera.ZoomMin = Mathf.Clamp(Camera.ZoomMin, 2f, 60f);
+            Camera.Gore = Mathf.Clamp01(Camera.Gore);
             Camera.ZoomMax = Mathf.Clamp(Camera.ZoomMax, Camera.ZoomMin + 10f, 2000f);
             Version = CurrentVersion;
         }

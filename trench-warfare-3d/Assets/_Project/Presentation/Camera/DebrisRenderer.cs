@@ -157,6 +157,10 @@ namespace TW.Presentation.Tactical
         /// glow; about 0.4 = everything smoulders, for lava). A biome sets it once; it is pushed to the shader each frame.
         /// </summary>
         public static Color Biome = new Color(1f, 1f, 1f, 0f);
+        /// <summary>World Y of a molten surface: a piece that comes to rest at or below it is swallowed (it sinks at once,
+        /// flaring) instead of lying. Set from the one authority, BiomeProfile.MoltenLevel, by Atmosphere.PushBiome;
+        /// -10000 is off. Read by the shader as _DebrisLava.</summary>
+        public static float LavaLevel = -10000f;
         /// <summary>A puff of dust at a place, this many metres wide (CombatFx lends its flipbooks; null when it is not there).</summary>
         public System.Action<Vector3, float> Dust;
         public bool Ready { get; private set; }
@@ -173,7 +177,7 @@ namespace TW.Presentation.Tactical
         GraphicsBuffer.IndirectDrawIndexedArgs[] argsData;
         Material material;
         readonly List<Mesh> owned = new List<Mesh>();
-        static readonly int NowId = Shader.PropertyToID("_DebrisNow"), BiomeId = Shader.PropertyToID("_DebrisBiome"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
+        static readonly int NowId = Shader.PropertyToID("_DebrisNow"), BiomeId = Shader.PropertyToID("_DebrisBiome"), LavaId = Shader.PropertyToID("_DebrisLava"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
         /// <summary>How much a mesh's bounds are padded (total, both sides), so the rest height is read from the true extents.</summary>
         const float BoundsPad = 0.5f;
@@ -291,6 +295,7 @@ namespace TW.Presentation.Tactical
             if (!Ready) return;
             Shader.SetGlobalFloat(NowId, Time.time);
             Shader.SetGlobalVector(BiomeId, Biome);
+            Shader.SetGlobalFloat(LavaId, LavaLevel);
             DrawCalls = 0; Alive = 0;
             for (int k = 0; k < pools.Length; k++)
             {

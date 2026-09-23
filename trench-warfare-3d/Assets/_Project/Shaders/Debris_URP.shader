@@ -33,6 +33,7 @@ Shader "TW/Debris (URP)"
         struct DebrisRecord { float3 p0; float born; float3 v0; float landT; float3 axis; float spin; float4 rot0; float4 tint; float scale; float life; float mode; float landY; };
         StructuredBuffer<DebrisRecord> _Records;
         float _DebrisNow;
+        float _DebrisLava;     // world Y of a molten surface; a piece resting at or below it is swallowed (-10000: none)
         float4 _DebrisBiome;   // set by DebrisRenderer every frame: rgb multiplies every tint, a is a floor under the ember glow (lava)
         CBUFFER_START(UnityPerMaterial)
             half4 _ShadeColor, _OutlineColor, _EmberColor;
@@ -88,7 +89,9 @@ Shader "TW/Debris (URP)"
                 p = r.p0;
                 p.y = lerp(r.p0.y, r.landY, k * k);                           // a top snapped off high drops as it goes over, and lies on the ground
             }
-            float over = saturate((t - r.life) / SINK_SECONDS);
+            // on a molten field a piece that comes down into the melt does not lie: it goes under as soon as it lands
+            bool molten = r.landY <= _DebrisLava + 0.05;
+            float over = molten ? saturate((t - r.landT) / 1.2) : saturate((t - r.life) / SINK_SECONDS);
             float scale = r.scale * (over < 1.0 ? 1.0 : 0.0);
             p.y -= over * (_Lift + SINK_DEPTH) * r.scale;
             Placed o;
@@ -96,7 +99,7 @@ Shader "TW/Debris (URP)"
             o.positionWS = p + QRotate(q, positionOS * scale);
             o.normalWS = QRotate(q, normalOS);
             o.smoothWS = QRotate(q, dot(smoothOS, smoothOS) > 0.01 ? smoothOS : normalOS);
-            o.tint = float4(r.tint.rgb * _DebrisBiome.rgb, r.tint.a);
+            o.tint = float4(r.tint.rgb * _DebrisBiome.rgb, molten ? max(r.tint.a, saturate((t - r.landT) * 3.0)) : r.tint.a);   // a swallowed piece flares as it goes
             o.age = t; o.life = r.life;
             return o;
         }
