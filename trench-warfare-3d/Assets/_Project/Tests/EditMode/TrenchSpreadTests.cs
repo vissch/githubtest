@@ -12,6 +12,7 @@ using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Nav;
 using TW.Sim.Terrain;
 using TW.Sim.Units;
 
@@ -382,6 +383,69 @@ namespace TW.Tests
             Assert.Greater(worst, 4.5f,
                 $"ShelledForest: two of {at.Count} men stand {worst:F2} m apart in a trench with room to spare "
                 + $"({def.CellCount} cells for 12 men)");
+        }
+
+        /// <summary>
+        /// THE MIDDLE OF THE RANGE, which neither of the tests above looks at. They measure the ends: twelve men
+        /// stand well apart, and forty men all find somewhere to be. Between those two the garrison fell off a
+        /// cliff, and nothing said so.
+        ///
+        /// Nearest() offered room 2 (6 m), then room 1 (4 m), then anything free. Crowded() is a Chebyshev box, so
+        /// room 2 admits every third column of a trench and room 1 every second; on ShelledForest's 45-column
+        /// front trench that is roughly 15 men and roughly 22. The next man dropped straight to room 0 and took
+        /// the cell next door. MEASURED over this trench, worst pair of post points: 6.14 m at 7 men, 3.98 m at
+        /// 19, and then 1.88 m at 29 and at every load above it - shoulder to shoulder in a trench two thirds
+        /// empty, with no step in between.
+        ///
+        /// 1.88 m is not a neutral place to stand. It is inside SeparationJob.GarrisonSpacing, so those two men
+        /// push each other off their marks while their posts pull them back - the standing shove TrenchPost was
+        /// written to remove, which its own comment permits only for a FULLY PACKED trench. This load is not a
+        /// full trench. TrenchGarrisonSystem.Elbow is the rung that was missing: the four cells a man could touch
+        /// are refused and the diagonal, at 2.83 m, is not. Measured after: 2.66 m.
+        ///
+        /// The bound is GarrisonSpacing itself rather than a figure fitted to the run, and it is deliberately not
+        /// asserted at a FULL trench, where men shoulder to shoulder is correct rather than a defect.
+        ///
+        /// It measures POST POINTS rather than where men have drifted to: the post is what this system decides,
+        /// and the drift is SeparationJob's answer to it. ALightGarrisonStandsWellApart measures the drift.
+        /// </summary>
+        [Test]
+        public void AHalfEmptyTrenchDoesNotStandTwoMenInsideEachOther_OnTheMapWeActuallyPlay()
+        {
+            using var m = OnTheRealMap();
+            var def = m.Map.Trenches[m.Fields.FrontTrench(0)];
+            Assert.Greater(SeedAlongTheFrontTrench(m, 30), 0, "the front trench has cells to stand in");
+            Run(m, 1400);
+
+            var posts = new List<float3>();
+            int garrison = 0;
+            for (int i = 0; i < m.World.HighWater; i++)
+            {
+                if (!m.World.IsAlive(i) || m.World.TrenchId[i] < 0) continue;
+                garrison++;
+                int cell = m.World.PostCell[i];
+                if (cell < 0) continue;
+                posts.Add(m.Map.NavCellCenter(cell) + TrenchPost.Offset(cell, m.Map.NavWidth));
+            }
+
+            // the load this is a claim about: a trench with most of its posts still free. If the seeding ever
+            // stops filling it this far, or the trench shrinks, the test must say so rather than pass on four men.
+            Assert.GreaterOrEqual(garrison, 24, $"only {garrison} men garrisoned: this is no longer the middle of the range");
+            Assert.AreEqual(garrison, posts.Count, "every man in a two-thirds empty trench has a post");
+            Assert.Greater(def.CellCount, posts.Count * 2,
+                $"the trench has {def.CellCount} cells for {posts.Count} men, so it still has room to spread them");
+
+            float worst = float.MaxValue; int wa = -1, wb = -1;
+            for (int a = 0; a < posts.Count; a++)
+                for (int b = a + 1; b < posts.Count; b++)
+                {
+                    float d = math.distance(posts[a].xz, posts[b].xz);
+                    if (d < worst) { worst = d; wa = a; wb = b; }
+                }
+            Assert.Greater(worst, SeparationJob.GarrisonSpacing,
+                $"posts {wa} and {wb} stand {worst:F2} m apart, inside the {SeparationJob.GarrisonSpacing:F2} m "
+                + $"separation radius, in a trench of {def.CellCount} cells holding only {posts.Count} men. Those "
+                + "two shove each other off their marks for as long as they hold the trench.");
         }
 
         [Test]

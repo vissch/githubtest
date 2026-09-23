@@ -131,6 +131,24 @@ namespace TW.Sim.Units
         public const int Roomiest = 2;
 
         /// <summary>
+        /// The rung between elbow room and none: the four cells a man could TOUCH are refused and the diagonal
+        /// is allowed. Nav cells are 2 m, so this stands neighbours 2.83 m apart instead of 2.00 m.
+        ///
+        /// It exists because the ladder had a hole in it. Room 2 admits every third column and room 1 every
+        /// second, so on ShelledForest's 45-column front trench they hold about 15 men and about 22; the next
+        /// man dropped straight to room 0 and took the cell next door. MEASURED on that trench, worst pair of
+        /// post points: 6.14 m at 7 men, 3.98 m at 19, and 1.88 m at 29 and at every load above it - shoulder
+        /// to shoulder in a trench two thirds empty, with no step in between.
+        ///
+        /// And 1.88 m is not a neutral place to stand: SeparationJob.GarrisonSpacing is 2 m, so those two men
+        /// shove each other off their marks while their posts pull them back. TrenchPost allows that for a FULL
+        /// trench, where men shoulder to shoulder is correct; nothing measured where the fallback actually
+        /// began. The diagonal clears the radius, and in a trench two to four cells deep it is a real place to
+        /// put a man: one on the fire step, the next a column along and a row back.
+        /// </summary>
+        public const int Elbow = -1;
+
+        /// <summary>
         /// The free post of this kind nearest the man, with as much elbow room as the trench can still afford: he is
         /// offered the widely spaced posts first, then the closer ones, then any free post at all. An empty trench
         /// therefore spreads a garrison out, a filling one packs it down by degrees, and a full one puts men shoulder
@@ -144,6 +162,8 @@ namespace TW.Sim.Units
                 int post = Search(w, slot, def, kind, room);
                 if (post >= 0) return post;
             }
+            int staggered = Search(w, slot, def, kind, Elbow);   // 2.83 m, still clear of the separation radius
+            if (staggered >= 0) return staggered;
             return Search(w, slot, def, kind, 0);
         }
 
@@ -164,17 +184,20 @@ namespace TW.Sim.Units
                 // order, not cell order. Both machines walk the same array, so it is stable either way; it
                 // is simply not the ordering the old comment here claimed.
                 if (d >= bestDistance) continue;
-                if (room > 0 && Crowded(cell, room)) continue;
+                if (room != 0 && Crowded(cell, room)) continue;
                 bestDistance = d; best = post;
             }
             return best;
         }
 
         /// <summary>Is any cell within <paramref name="room"/> of this one already manned? Nav cells are 2 m, so a
-        /// room of 1 keeps men 4 m apart and a room of 2 keeps them 6 m apart.</summary>
+        /// room of 1 keeps men 4 m apart and a room of 2 keeps them 6 m apart. <see cref="Elbow"/> (negative)
+        /// is the narrower rung: the four cells a man could touch are refused, the diagonal at 2.83 m is not.</summary>
         bool Crowded(int cell, int room)
         {
             int cx = cell % map.NavWidth, cz = cell / map.NavWidth;
+            if (room < 0)
+                return Manned(cx - 1, cz) || Manned(cx + 1, cz) || Manned(cx, cz - 1) || Manned(cx, cz + 1);
             for (int dz = -room; dz <= room; dz++)
                 for (int dx = -room; dx <= room; dx++)
                 {
@@ -185,6 +208,14 @@ namespace TW.Sim.Units
                     if (post >= 0 && holder[post] >= 0) return true;
                 }
             return false;
+        }
+
+        /// <summary>Is there a post on this cell, and is somebody standing on it?</summary>
+        bool Manned(int x, int z)
+        {
+            if (x < 0 || z < 0 || x >= map.NavWidth || z >= map.NavLength) return false;
+            int post = cellPost[z * map.NavWidth + x];
+            return post >= 0 && holder[post] >= 0;
         }
 
         static void Release(SimWorld w, int slot) { w.PostCell[slot] = -1; w.PostKind[slot] = 0; }
