@@ -5,7 +5,7 @@ namespace TW.Presentation
 {
     public static class AudioLevels
     {
-        public static float Master = 1f;
+        public static float Master = 0f;   // muted until the player says otherwise; SettingsApplier overwrites it
         public static float Ambience = 0.8f;
         public static float Sfx = 1f;
         public static float Music = 0.8f;

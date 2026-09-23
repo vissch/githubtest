@@ -21,8 +21,13 @@ namespace TW.Sim.Units
     {
         /// <summary>Of ten men in a trench, about this many take a post at the parapet; the rest stand back.</summary>
         public const int FiringInTen = 6;
-        /// <summary>A candidate cell is left out this often (in sixteen), so the posts are not evenly spaced.</summary>
-        public const int ThinnedInSixteen = 5;
+        /// <summary>
+        /// A candidate cell is left out this often (in sixteen), so the posts are not evenly spaced. Low, because
+        /// the irregularity now comes from TrenchPost.Offset (TW.Sim.Core) - a man stands somewhere in his cell rather than at
+        /// its centre - and deleting posts to get the same effect cost capacity the garrison could not spare:
+        /// at 5/16 a 92-man garrison found only 61 posts and a third of it had nowhere to be (measured).
+        /// </summary>
+        public const int ThinnedInSixteen = 2;
         /// <summary>Its own stream, so it never correlates with another system drawing in the same tick.</summary>
         const uint StreamId = 11;
         /// <summary>The post layout belongs to the map, not to the match, so it is drawn from a fixed stream.</summary>
@@ -110,18 +115,31 @@ namespace TW.Sim.Units
         }
 
         /// <summary>
-        /// The free post of this kind nearest the man, so a garrison fills from where the men actually are — but never
-        /// one right beside a post somebody already holds, or two men end up standing on top of each other and the
-        /// spread we went to the trouble of creating is lost again. If elbow room cannot be had (a short trench, a
-        /// crowded one) he takes the nearest free post regardless: shoulder to shoulder beats nowhere to stand.
+        /// How far apart men stand when the trench has the room, in nav cells. 2 cells = 6 m between neighbours.
+        /// A hashed stretch of the line was tried here first and thrown away: minimising the walk against the
+        /// stretch walks a man two thirds of the way to it, which on a 300 m trench is 200 m of marching, and the
+        /// garrison was still crossing the map when the shooting started. Spacing is local, so the cure is local.
+        /// </summary>
+        public const int Roomiest = 2;
+
+        /// <summary>
+        /// The free post of this kind nearest the man, with as much elbow room as the trench can still afford: he is
+        /// offered the widely spaced posts first, then the closer ones, then any free post at all. An empty trench
+        /// therefore spreads a garrison out, a filling one packs it down by degrees, and a full one puts men shoulder
+        /// to shoulder rather than leaving them with nowhere to be. Insisting on the room instead of falling back was
+        /// what left a third of a 92-man garrison postless, collapsed onto the centreline under separation alone.
         /// </summary>
         int Nearest(SimWorld w, int slot, in TrenchDef def, byte kind)
         {
-            int post = Search(w, slot, def, kind, true);
-            return post >= 0 ? post : Search(w, slot, def, kind, false);
+            for (int room = Roomiest; room > 0; room--)
+            {
+                int post = Search(w, slot, def, kind, room);
+                if (post >= 0) return post;
+            }
+            return Search(w, slot, def, kind, 0);
         }
 
-        int Search(SimWorld w, int slot, in TrenchDef def, byte kind, bool roomy)
+        int Search(SimWorld w, int slot, in TrenchDef def, byte kind, int room)
         {
             int start = kind == 1 ? def.FireStepStart : def.CellStart, count = kind == 1 ? def.FireStepCount : def.CellCount;
             int best = -1, bestDistance = int.MaxValue;
@@ -135,18 +153,19 @@ namespace TW.Sim.Units
                 int dx = cell % map.NavWidth - sx, dz = cell / map.NavWidth - sz;
                 int d = dx * dx + dz * dz;
                 if (d >= bestDistance) continue;                          // ties go to the lower cell, so it is stable
-                if (roomy && Crowded(cell)) continue;
+                if (room > 0 && Crowded(cell, room)) continue;
                 bestDistance = d; best = post;
             }
             return best;
         }
 
-        /// <summary>Is one of this cell's eight neighbours already manned? Nav cells are 2 m, so this keeps men 4 m apart.</summary>
-        bool Crowded(int cell)
+        /// <summary>Is any cell within <paramref name="room"/> of this one already manned? Nav cells are 2 m, so a
+        /// room of 1 keeps men 4 m apart and a room of 2 keeps them 6 m apart.</summary>
+        bool Crowded(int cell, int room)
         {
             int cx = cell % map.NavWidth, cz = cell / map.NavWidth;
-            for (int dz = -1; dz <= 1; dz++)
-                for (int dx = -1; dx <= 1; dx++)
+            for (int dz = -room; dz <= room; dz++)
+                for (int dx = -room; dx <= room; dx++)
                 {
                     if (dx == 0 && dz == 0) continue;
                     int x = cx + dx, z = cz + dz;

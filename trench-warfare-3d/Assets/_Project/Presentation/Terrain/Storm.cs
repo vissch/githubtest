@@ -246,7 +246,8 @@ namespace TW.Presentation.Terrain
             for (int k = pending.Count - 1; k >= 0; k--)
             {
                 if (Time.unscaledTime < pending[k].At) continue;
-                voice.PlayOneShot(thunder[pending[k].Clip], pending[k].Volume);
+                float level = Mathf.Clamp01(AudioLevels.Master) * Mathf.Clamp01(AudioLevels.Ambience);
+                if (level > 0.001f) voice.PlayOneShot(thunder[pending[k].Clip], pending[k].Volume * level);
                 pending.RemoveAt(k);
             }
         }

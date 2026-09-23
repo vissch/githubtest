@@ -31,7 +31,13 @@ namespace TW.Presentation
         [Serializable]
         public sealed class AudioSettings
         {
-            [Range(0f, 1f)] public float Master = 1f;
+            /// <summary>
+            /// Muted by default (owner, 2026-09-23). SettingsApplier sends this straight to AudioListener.volume,
+            /// so it silences everything at once. Only Master is zeroed: the three buses below keep their mix, so
+            /// a player who turns the game up in Settings > Audio gets a balanced sound rather than a flat one.
+            /// A saved settings.json wins over this, so it only affects a player who has never set a level.
+            /// </summary>
+            [Range(0f, 1f)] public float Master = 0f;
             [Range(0f, 1f)] public float Ambience = 0.8f;
             [Range(0f, 1f)] public float Sfx = 1f;
             [Range(0f, 1f)] public float Music = 0.8f;

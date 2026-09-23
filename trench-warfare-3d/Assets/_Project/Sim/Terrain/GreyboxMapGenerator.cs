@@ -10,6 +10,14 @@ namespace TW.Sim.Terrain
     {
         public const int MapId = 1;
 
+        /// <summary>
+        /// The fire step: the enemy-facing row of a trench is a ledge this far above its floor, not part of it.
+        /// Without it a man at a firing post stands on the floor 1.7 m down and his rifle is about 0.4 m BELOW
+        /// the parapet, so he aims into the earth he is meant to be shooting over (measured 2026-09-23).
+        /// 0.7 m is about the two feet a real fire step was, and leaves his head and his rifle over the lip.
+        /// </summary>
+        public const float FireStepRise = 0.7f;
+
         public static MapData Create(Allocator allocator, float width = 300f, float length = 800f)
         {
             var map = new MapData(MapId, new float2(width, length), allocator);
@@ -114,6 +122,14 @@ namespace TW.Sim.Terrain
                 // fire-step is the trench cell on the enemy-facing side
                 int fsz = team == 0 ? zc + 1 : zc;
                 map.FireStepCells.Add(map.NavIndex(x, fsz));
+                // ...and it is a STEP. The carve above took the whole trench down together, which left the firing
+                // post level with the trench floor and every man on it aiming into the parapet. Give the row back
+                // the height a fire step has: he stands on it and his head and rifle clear the lip, while the man
+                // at a reserve post on the floor behind him still does not.
+                for (int hz = fsz * 2; hz < fsz * 2 + 2; hz++)
+                    for (int hx = x * 2; hx < x * 2 + 2; hx++)
+                        if (hx >= 0 && hz >= 0 && hx < map.Height.Width && hz < map.Height.Length)
+                            map.Height.Set(hx, hz, map.Height.HeightAtCell(hx, hz) + FireStepRise);
             }
             def.CellCount = map.TrenchCells.Length - def.CellStart;
             def.FireStepCount = map.FireStepCells.Length - def.FireStepStart;

@@ -133,6 +133,8 @@ namespace TW.Sim.Nav
 
             /// <summary>The middle of a nav cell, where a post stands.</summary>
             float3 CellCentre(int cell) => new float3((cell % NavWidth + 0.5f) * NavCell, 0f, (cell / NavWidth + 0.5f) * NavCell);
+            /// <summary>His own spot in his post cell. Cell centres put a garrison on a visible 2 m lattice.</summary>
+            float3 PostPoint(int cell) => CellCentre(cell) + TrenchPost.Offset(cell);
 
             int CellOf(float3 p)
             {
@@ -217,7 +219,7 @@ namespace TW.Sim.Nav
                 float supp = Suppression[i];
                 Stance stance;
                 bool ladderPost = PostCell[i] >= 0 && (Layers[PostCell[i]] & (byte)NavLayer.Link) != 0;
-                bool atPost = PostCell[i] < 0 || ladderPost || PostCell[i] == cell || SimMath.Length(CellCentre(PostCell[i]) - p) < 0.9f;
+                bool atPost = PostCell[i] < 0 || ladderPost || PostCell[i] == cell || SimMath.Length(PostPoint(PostCell[i]) - p) < 0.9f;
                 bool toPost = isGarrisoned && PostCell[i] >= 0 && !atPost && !ladderPost;   // walking to his post: he may cross a ladder, and keeps going across it
                 if (isGarrisoned) stance = TargetSlot[i] >= 0 && PostKind[i] != PostReserve && atPost ? Stance.FireStep : Stance.Crouch;
                 else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
@@ -236,7 +238,7 @@ namespace TW.Sim.Nav
                     if (post >= 0 && (Layers[post] & (byte)NavLayer.Link) != 0) post = -1;
                     if (post >= 0 && post < CellCount)
                     {
-                        float3 want = CellCentre(post);
+                        float3 want = PostPoint(post);
                         float2 toPostDir = new float2(want.x - p.x, want.z - p.z);
                         float d = SimMath.Length(new float3(toPostDir.x, 0f, toPostDir.y));
                         // eased, so he settles onto his post instead of overshooting it and jostling the man at the next one

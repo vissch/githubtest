@@ -18,6 +18,18 @@ namespace TW.Tests
             Assert.That(back.Version, Is.EqualTo(GameSettings.CurrentVersion));
         }
 
+        /// <summary>The owner asked for a game that does not start making noise. A default is easy to lose in a
+        /// merge, and nobody notices sound that is ON when it should be off until it is in front of a player.</summary>
+        [Test]
+        public void TheGameStartsMuted()
+        {
+            var d = GameSettings.Defaults();
+            Assert.That(d.Audio.Master, Is.EqualTo(0f), "a fresh install starts silent");
+            Assert.That(d.Audio.Sfx, Is.GreaterThan(0f), "only the master is down: turning it up restores a mix");
+            Assert.That(d.Audio.Ambience, Is.GreaterThan(0f), "only the master is down: turning it up restores a mix");
+            Assert.That(GameSettings.FromJson(d.ToJson()).Audio.Master, Is.EqualTo(0f), "and it survives being saved");
+        }
+
         [Test]
         public void EditedValuesSurviveTheRoundTrip()
         {
