@@ -107,7 +107,7 @@ namespace TW.Presentation.Tactical
         /// way it sets DebrisRenderer.Biome - and it is a static for the same reason: Terrain references Camera,
         /// so CombatFx cannot read Atmosphere.Profile without closing a reference cycle.
         /// </summary>
-        public static Color SplashTint = new Color(0.62f, 0.70f, 0.82f);
+        int tintEpoch = -1;   // which SceneTints.Epoch these materials were last painted for
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
         readonly List<Body> bodies = new List<Body>(600);
@@ -126,7 +126,32 @@ namespace TW.Presentation.Tactical
         Mesh cube, capsule, sphere, plume, puff, flashMesh;
         Material flashMat;
         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
-        bool nightTinted;
+        /// <summary>
+        /// Paint every material and flipbook the biome owns. Called when SceneTints.Epoch moves, not per frame:
+        /// the old code compared waterMat.color against a static every frame, which is a native read to decide
+        /// whether to do a native write, and it only covered ONE of these.
+        /// If the books are not baked yet, tintEpoch is left behind and this runs again next frame.
+        /// </summary>
+        void ApplyTints()
+        {
+            if (books == null || !books.Ready) return;
+            var t = SceneTints.Now;
+            tintEpoch = SceneTints.Epoch;
+            if (waterMat != null) waterMat.color = t.Splash;
+            // the column is the half of a splash a player actually sees: 28 chunks of 0.18 m are sub-pixel at
+            // the standard camera, while this stands up to 11 m out of the water for a second and a half
+            books.Tint(FlipbookFx.Book.Splash, t.Splash);
+            books.Tint(FlipbookFx.Book.Column, t.Column);
+            books.Tint(FlipbookFx.Book.Wings, t.Column);
+            books.Tint(FlipbookFx.Book.Spurt, t.Dust);
+            books.Tint(FlipbookFx.Book.Puff, t.Dust);
+            books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+            if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
+            if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
+            if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
+            // the flash stays a mood question rather than a biome one: over-bright under the moon so bloom spreads it
+            if (flashMat != null) flashMat.color = SceneMood.Night ? new Color(3.2f, 2.5f, 1.3f) : new Color(1f, 0.91f, 0.65f);
+        }
 
         /// <summary>An unlit material that adds its colour to what is behind it (glow halos).</summary>
         static Material Additive(Shader unlit, Color color)
@@ -183,7 +208,7 @@ namespace TW.Presentation.Tactical
             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
-            waterMat = new Material(unlit) { enableInstancing = true, color = SplashTint };
+            waterMat = new Material(unlit) { enableInstancing = true, color = SceneTints.Now.Splash };
             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
             SceneHooks.Sparks = (at, count) => Throw(at, count, 3, 2.5f, 0.04f);
             var lens = Camera.main;
@@ -414,7 +439,7 @@ namespace TW.Presentation.Tactical
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
                         books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: SceneMood.Night ? 3.2f : 1.6f);
+                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow);
                     }
                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
@@ -479,8 +504,8 @@ namespace TW.Presentation.Tactical
                     Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
-                    if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 4f : 1.8f);
-                    else books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale, 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 3.2f : 1.4f, pop: 0.5f);
+                    if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 4f : 1.8f) * SceneTints.Now.Glow);
+                    else books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale, 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 3.2f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
                     if (e.Scalar > 0f)
                         books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
@@ -542,7 +567,7 @@ namespace TW.Presentation.Tactical
                         bool mirror = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 1) == 0;
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
-                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: SceneMood.Night ? 7f : 2.5f, pop: 0.5f);
+                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow, pop: 0.5f);
                         books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (wet ? 1.25f : 2.1f), wet ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
@@ -550,7 +575,7 @@ namespace TW.Presentation.Tactical
                         if (!wet)
                         {
                             books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
-                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: SceneMood.Night ? 3.4f : 1.6f, pop: 0.3f);
+                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             for (int k = 0; k < 7; k++)
                             {
@@ -772,13 +797,7 @@ namespace TW.Presentation.Tactical
             float now = Time.time;
             Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);
             bool night = SceneMood.Night;
-            if (night && !nightTinted)
-            {
-                // under the moon smoke is a cold dark blue, and the flash is over-bright so the bloom spreads it
-                nightTinted = true;
-                smokeMat.color = new Color(0.17f, 0.20f, 0.27f, 0.36f); smokeThin.color = new Color(0.17f, 0.20f, 0.27f, 0.20f); smokeFaint.color = new Color(0.17f, 0.20f, 0.27f, 0.07f);
-                flashMat.color = new Color(3.2f, 2.5f, 1.3f);
-            }
+            if (tintEpoch != SceneTints.Epoch) ApplyTints();
             // night: three layers a tracer. side 0 / 1 = a wide additive halo in the side's colour, side 2 = the white-hot streak.
             for (int side = 0; side < (night ? 3 : 1); side++)
             {
@@ -1245,7 +1264,6 @@ namespace TW.Presentation.Tactical
             // water thrown up by rounds, shells and boots: pale drops under gravity
             batch.Clear();
             // the biome may have loaded after this material was built, and it costs one comparison a frame
-            if (waterMat.color != SplashTint) waterMat.color = SplashTint;
             var rpW = new RenderParams(waterMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
             for (int i = 0; i < chunks.Count; i++)
             {

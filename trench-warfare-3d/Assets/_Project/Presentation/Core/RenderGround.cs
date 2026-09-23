@@ -28,6 +28,51 @@ namespace TW.Presentation
     }
 
     /// <summary>
+    /// The colours a biome lends to the effects drawn in another assembly, in ONE place with a version stamp.
+    ///
+    /// It replaces a static per colour. The first biome colour was pushed as `CombatFx.SplashTint`, and the
+    /// consumer then compared `waterMat.color` against it every frame to decide whether to write it — a managed
+    /// to native read per tinted material per frame, and a new public static for every colour after it. A biome
+    /// owns a dozen of these. Comparing an int instead costs nothing and the set arrives whole.
+    ///
+    /// Terrain writes it (Atmosphere) and Camera reads it (CombatFx), which is the same direction, and the same
+    /// file, as SceneHooks.IsWater already crosses — so no assembly reference changes.
+    /// </summary>
+    public static class SceneTints
+    {
+        public struct Set
+        {
+            /// <summary>What a shell throws out of standing liquid: the chunks AND the column above them.</summary>
+            public UnityEngine.Color Splash;
+            /// <summary>Earth thrown straight up by a shell, and the wings that spread from its foot.</summary>
+            public UnityEngine.Color Column;
+            /// <summary>Dry dust: bullet spurts and the small puffs, the most frequent effect on the field.</summary>
+            public UnityEngine.Color Dust;
+            /// <summary>Shell smoke, which lingers longest and covers the most screen of any of them.</summary>
+            public UnityEngine.Color Smoke;
+            /// <summary>Multiplies every flash and ember. A dark field wants more; a bright one blows out.</summary>
+            public float Glow;
+        }
+
+        /// <summary>No biome: the night field's own colours, which is what these effects were authored against.</summary>
+        public static readonly Set Default = new Set
+        {
+            Splash = new UnityEngine.Color(0.62f, 0.70f, 0.82f),
+            Column = new UnityEngine.Color(0.40f, 0.33f, 0.26f),
+            Dust = new UnityEngine.Color(0.86f, 0.78f, 0.64f),
+            Smoke = new UnityEngine.Color(0.34f, 0.32f, 0.29f),
+            Glow = 1f,
+        };
+
+        public static Set Now = Default;
+        /// <summary>Bumped on every push. A consumer keeps its own copy and reapplies when they differ.</summary>
+        public static int Epoch;
+
+        public static void Push(in Set s) { Now = s; Epoch++; }
+        public static void Reset() => Push(Default);
+    }
+
+    /// <summary>
     /// Small services one presentation assembly offers another (combat effects live with the camera, water and lamps
     /// with the terrain). Every member may be null or empty: callers must cope with nobody being there.
     /// </summary>

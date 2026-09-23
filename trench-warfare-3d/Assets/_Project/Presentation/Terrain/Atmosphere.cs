@@ -124,7 +124,11 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(WorldTintId, new Vector4(p.WorldTint.r, p.WorldTint.g, p.WorldTint.b, p.WorldTint.a));
             Shader.SetGlobalFloat(LampScaleId, p.LampScale);
             TW.Presentation.Tactical.DebrisRenderer.Biome = p.DebrisTint;
-            TW.Presentation.Tactical.CombatFx.SplashTint = p.SplashTint;
+            SceneTints.Push(new SceneTints.Set
+            {
+                Splash = p.SplashTint, Column = p.ColumnTint, Dust = p.DustTint, Smoke = p.SmokeTint,
+                Glow = p.GlowScale,
+            });
             // Lava eats what falls into it. Guarded on HeatStrength rather than on MoltenLevel, because MoltenLevel
             // is 0 on every other field and pushing a level of 0 would swallow every piece that came to rest on flat
             // ground. One authority: this is the same number the shader reads as _TWHeat.w.
@@ -140,7 +144,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(WorldTintId, Vector4.zero);
             Shader.SetGlobalFloat(LampScaleId, 1f);
             TW.Presentation.Tactical.DebrisRenderer.Biome = new Color(1f, 1f, 1f, 0f);
-            TW.Presentation.Tactical.CombatFx.SplashTint = new Color(0.62f, 0.70f, 0.82f);
+            SceneTints.Reset();
             TW.Presentation.Tactical.DebrisRenderer.LavaLevel = -10000f;
         }
 

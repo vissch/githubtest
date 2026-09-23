@@ -91,6 +91,15 @@ namespace TW.Presentation.Terrain
         /// <summary>What a shell throws out of standing liquid: water, or molten spatter (CombatFx.SplashTint).</summary>
         public Color SplashTint = new Color(0.62f, 0.70f, 0.82f);
 
+        /// <summary>Shell smoke. The biggest, longest-lived effect on the field: it must belong to the biome.</summary>
+        public Color SmokeTint = new Color(0.34f, 0.32f, 0.29f);
+
+        /// <summary>Earth thrown up by a shell, and the wings at its foot. Brown is only right on mud.</summary>
+        public Color ColumnTint = new Color(0.40f, 0.33f, 0.26f);
+
+        /// <summary>Dry dust: bullet spurts and puffs. The most frequent effect in the game, up to 40 a frame.</summary>
+        public Color DustTint = new Color(0.86f, 0.78f, 0.64f);
+
         /// <summary>Handed to DebrisRenderer.Biome: rgb tints every thrown piece, a is a floor under its ember glow.</summary>
         public Color DebrisTint = new Color(1f, 1f, 1f, 0f);
 
@@ -190,7 +199,10 @@ namespace TW.Presentation.Terrain
             HeatColor = new Color(1.0f, 0.42f, 0.14f, 1f),
             FlashSky = new Color(0.95f, 0.72f, 0.86f), FlashShade = new Color(1.00f, 0.82f, 0.92f),
             FlashMirror = new Color(1.00f, 0.92f, 0.97f),   // near-white against pink, never blue
-            SplashTint = new Color(1.00f, 0.46f, 0.12f),   // a shell in the melt throws spatter, not ice cubes
+            SplashTint = new Color(1.00f, 0.46f, 0.12f),
+            SmokeTint = new Color(0.28f, 0.17f, 0.20f),     // smoke over melt is dark and slightly rose, not night blue
+            ColumnTint = new Color(0.22f, 0.19f, 0.18f),    // basalt, not earth
+            DustTint = new Color(0.24f, 0.20f, 0.19f),      // ash   // a shell in the melt throws spatter, not ice cubes
             DebrisTint = new Color(0.18f, 0.15f, 0.14f, 0.45f),   // basalt that never quite cools
             Flooding = 0f,                                        // nothing stands in water on a lava field
             WantsLamps = true, WantsRain = false, WantsStorm = true,
@@ -231,7 +243,13 @@ namespace TW.Presentation.Terrain
             WorldTint = new Color(0.62f, 0.67f, 0.76f, 0.80f),   // the earth that shows through is cold, not brown
             SnowCoverage = 1.0f, SnowShedBelow = 0.22f, SnowSparkle = 0.15f, SnowBreakup = 0.45f,
             SnowColor = new Color(0.93f, 0.95f, 0.99f, 0.10f),   // fresh snow is matt; the glare belongs on the ice
-            SplashTint = new Color(0.78f, 0.85f, 0.94f),   // slush and broken ice, not summer river water
+            SplashTint = new Color(0.55f, 0.63f, 0.76f),    // read AGAINST snow, not as snow: 0.78,0.85,0.94 sat at
+                                                           // luma 0.84 between SnowColor 0.95 and Haze 0.69, dead in
+                                                           // the middle of the band this profile warns about, and it
+                                                           // vanished at 200 m. Shadowed ice separates from both.
+            SmokeTint = new Color(0.55f, 0.58f, 0.64f),
+            ColumnTint = new Color(0.62f, 0.66f, 0.72f),
+            DustTint = new Color(0.88f, 0.91f, 0.95f),   // slush and broken ice, not summer river water
             DebrisTint = new Color(0.80f, 0.84f, 0.90f, 0f),
             Flooding = 0.25f,                                      // what water there is has frozen; see docs/18 W2
             WantsLamps = true, WantsRain = false, WantsStorm = false, WantsSnowfall = true, Snowfall = 0.85f,
