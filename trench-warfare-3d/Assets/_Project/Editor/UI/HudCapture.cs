@@ -4,7 +4,13 @@
 // can render into a RenderTexture (PanelSettings.targetTexture), so this renders the main camera into one texture,
 // the HUD panel into another at the same size, composites the two on the CPU and writes a PNG. Runs in Play mode
 // from the menu or from `unity command eval` (TW.Editor.HudCapture.Shoot(path)); the file appears a frame later.
+// Beside the PNG it writes <png>.json: the capture-pixel rectangle of every named element in Probes that is laid out
+// on any document sharing the panel, measured while the panel is on the capture target, so a critic can crop and zoom
+// on exactly one component rather than guessing where it is.
 using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -16,6 +22,14 @@ namespace TW.Editor
     public static class HudCapture
     {
         public const string DefaultPath = "Captures/hud.png";
+
+        /// <summary>Elements whose rectangles go into the sidecar (the first match per name per document).</summary>
+        public static readonly string[] Probes =
+        {
+            "gauges", "gauge-silver", "gauge-men", "gauge-time", "objectives", "minimap-bezel", "speed-bar", "bar",
+            "group-infantry", "group-armour", "group-support", "card", "tooltip", "banner", "pause-plate",
+            "settings-plate", "tabs", "debrief-plate", "stats-table", "title", "menu-stack", "mission-list", "info-panel",
+        };
 
         [MenuItem("TW/UI/Capture HUD (Play)")]
         public static void Menu() => Shoot(DefaultPath);
@@ -45,6 +59,7 @@ namespace TW.Editor
                 panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
                 yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
                 yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
+                string rects = Probe(panel, w, h);
                 var camTarget = cam.targetTexture;
                 cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
                 var scene = Read(rtScene); var ui = Read(rtUi);
@@ -59,9 +74,43 @@ namespace TW.Editor
                 scene.SetPixels32(px); scene.Apply(false, false);
                 Directory.CreateDirectory(Path.GetDirectoryName(full));
                 File.WriteAllBytes(full, scene.EncodeToPNG());
+                File.WriteAllText(full + ".json", rects);
                 Debug.Log($"HudCapture: wrote {full} ({w}x{h})");
                 Destroy(scene); Destroy(ui); rtUi.Release(); rtScene.Release(); Destroy(rtUi); Destroy(rtScene);
                 Destroy(gameObject);
+            }
+
+            /// <summary>JSON {"w","h","rects":{name:[x,y,w,h]}} in capture pixels, top-left origin; the first
+            /// visible trench order cluster is added as "orders".</summary>
+            static string Probe(PanelSettings panel, int w, int h)
+            {
+                var found = new Dictionary<string, Rect>();
+                foreach (var doc in Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+                {
+                    if (doc.panelSettings != panel || doc.rootVisualElement == null || doc.rootVisualElement.panel == null) continue;
+                    var top = doc.rootVisualElement.panel.visualTree;
+                    float sx = w / Mathf.Max(1f, top.layout.width), sy = h / Mathf.Max(1f, top.layout.height);
+                    void Add(string key, VisualElement e)
+                    {
+                        if (e == null || found.ContainsKey(key) || e.resolvedStyle.display == DisplayStyle.None) return;
+                        var b = e.worldBound; if (b.width <= 0f || b.height <= 0f || float.IsNaN(b.x)) return;
+                        found[key] = new Rect(b.x * sx, b.y * sy, b.width * sx, b.height * sy);
+                    }
+                    foreach (var n in Probes) Add(n, doc.rootVisualElement.Q(n));
+                    doc.rootVisualElement.Query(className: "hud-orders").ForEach(e => { if (!e.ClassListContains("is-hidden")) Add("orders", e); });
+                }
+                var sb = new StringBuilder();
+                sb.Append("{\"w\":").Append(w).Append(",\"h\":").Append(h).Append(",\"rects\":{");
+                bool first = true;
+                foreach (var kv in found)
+                {
+                    if (!first) sb.Append(','); first = false;
+                    var r = kv.Value;
+                    sb.Append('"').Append(kv.Key).Append("\":[")
+                      .Append(r.x.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.y.ToString("0", CultureInfo.InvariantCulture)).Append(',')
+                      .Append(r.width.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.height.ToString("0", CultureInfo.InvariantCulture)).Append(']');
+                }
+                return sb.Append("}}").ToString();
             }
 
             static Texture2D Read(RenderTexture rt)

@@ -21,6 +21,7 @@ namespace TW.UI
         public byte Archetype;
         public OffMapAbilityId Ability = OffMapAbilityId.None;
         public string Title, Tip;                  // tooltip text, built once
+        public string Label;                       // the nameplate (shorter than Title on the support cards)
         public string PortraitClass;
         public int BaseCost;
         // cached state
@@ -92,7 +93,8 @@ namespace TW.UI
                 card.Title = HudText.Name(e.Archetype).ToUpperInvariant();
                 card.Tip = HudText.Tip(e.Archetype);
                 card.Hotkey.text = HudText.Hotkey(s);
-                card.Name.text = HudText.Name(e.Archetype).ToUpperInvariant();
+                card.Label = HudText.Name(e.Archetype).ToUpperInvariant();
+                card.Name.text = card.Label;
                 SetPortrait(card, HudText.PortraitName(e.Archetype));
                 SetWeaponBadge(card, e.Archetype);
                 r.Cards.Add(card);
@@ -106,7 +108,8 @@ namespace TW.UI
                 card.Title = (gas ? HudText.GasName : HudText.BarrageName).ToUpperInvariant();
                 card.Tip = gas ? HudText.GasTip : HudText.BarrageTip;
                 card.Hotkey.text = HudText.SupportHotkey(i);
-                card.Name.text = card.Title;
+                card.Label = gas ? HudText.GasCard : HudText.BarrageCard;
+                card.Name.text = card.Label;
                 SetPortrait(card, gas ? "ChlorineGas" : "HeBarrage");
                 r.Cards.Add(card); r.SupportCards.Add(card);
             }
@@ -201,7 +204,7 @@ namespace TW.UI
             changed |= Toggle(c.Root, "is-poor", poor && !armed, ref c.LastPoor);
             changed |= Toggle(c.Root, "is-over", over, ref c.LastOver);
             if (enabled != c.LastEnabled) { c.Root.SetEnabled(enabled); c.LastEnabled = enabled; changed = true; }
-            if (armed != (c.Name.text == HudText.Aim)) { c.Name.text = armed ? HudText.Aim : c.Title; changed = true; }
+            if (armed != (c.Name.text == HudText.Aim)) { c.Name.text = armed ? HudText.Aim : c.Label; changed = true; }
             int costText = cooling ? -Mathf.Max(1, Mathf.CeilToInt(cooldownTicks * tickSeconds)) : c.BaseCost;
             if (costText != c.LastCostText) { c.Cost.text = costText < 0 ? IntText.Seconds(-costText) : IntText.Get(costText); c.LastCostText = costText; changed = true; }
             int pct = cooling && cooldownTotalTicks > 0 ? Mathf.Clamp(Mathf.RoundToInt(100f * cooldownTicks / cooldownTotalTicks), 1, 100) : 0;
@@ -220,6 +223,7 @@ namespace TW.UI
             if (speedIdx != r.LastSpeedIdx || paused != r.LastPaused)
             {
                 r.SpeedValue.text = paused ? HudText.Paused : SpeedText(speedIdx);
+                r.SpeedValue.style.visibility = paused ? Visibility.Visible : Visibility.Hidden;   // the speed bar already shows 1x..8x
                 r.SpeedValue.EnableInClassList("tw-alarm", paused);
                 for (int k = 0; k < r.SpeedButtons.Length; k++) r.SpeedButtons[k]?.EnableInClassList("tw-btn--on", k == speedIdx);
                 r.PausePlate?.EnableInClassList("is-visible", paused);

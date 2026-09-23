@@ -1,5 +1,5 @@
 {
-    "generator": 2,
+    "generator": 4,
     "files": [
         {
             "file": "Icons/ico_arrow_down.png",
@@ -63,7 +63,7 @@
         },
         {
             "file": "Icons/ico_men.png",
-            "sha1": "cfca88090b03903baf4dd0d3aaefbd2ad7fadd2b"
+            "sha1": "fec305478ef8df6ece5a769bbb1e457544bbfd0a"
         },
         {
             "file": "Icons/ico_mg.png",
@@ -163,7 +163,7 @@
         },
         {
             "file": "Sprites/badge.png",
-            "sha1": "7c5db2c2be320b57dab199c68739fe6eefa27ec1"
+            "sha1": "352ee23bac8d0cb2f1e7d290226765d5d429634d"
         },
         {
             "file": "Sprites/banner_ribbon.png",
@@ -175,35 +175,35 @@
         },
         {
             "file": "Sprites/btn_accent_hover.png",
-            "sha1": "19d764b8f8c49939083d3bc1f0e8c93197e4d090"
+            "sha1": "c605d2a47458d340faa24516b440536663964c9f"
         },
         {
             "file": "Sprites/btn_accent_normal.png",
-            "sha1": "9aa3ac20cc3f8829761cf2e36264d8533de1964f"
+            "sha1": "a71596a2b0c11ac6a861e6950229f89c37f25af6"
         },
         {
             "file": "Sprites/btn_accent_pressed.png",
-            "sha1": "c4dd0a0af0e4d588666412c48cd00eda49d206c5"
+            "sha1": "4e89815af447bd69e79edfd8425621d454d4063c"
         },
         {
             "file": "Sprites/card_frame.png",
-            "sha1": "4b021f6618ce1a87c1023ca47d500777e0541620"
+            "sha1": "950472eda669559892f5583537f3a5babee49994"
         },
         {
             "file": "Sprites/card_nameplate.png",
-            "sha1": "a1cbd0dc2216c1a5f6479cbd39fe09e2f6a85802"
+            "sha1": "d4032db8f6fa3f0ab6bc0872ab5b80b0935eaf61"
         },
         {
             "file": "Sprites/card_rim.png",
-            "sha1": "6310f8989ac835e1d4794f0308e64b409bfd57c3"
+            "sha1": "3e184cde819de62491778239724c6b997a936451"
         },
         {
             "file": "Sprites/checkbox_off.png",
-            "sha1": "43ac5b33f3892da67dc0b4c13addf0c8f06fa216"
+            "sha1": "70ca44d79cbacecaeea25a0c2458f99e5e60940e"
         },
         {
             "file": "Sprites/checkbox_on.png",
-            "sha1": "41050c7f1dfaf1fab25e4aca59954ff58fc8a9d2"
+            "sha1": "1094000c3b49f9065a05c81a79ba22a044c80dea"
         },
         {
             "file": "Sprites/cooldown_mask.png",
@@ -223,7 +223,7 @@
         },
         {
             "file": "Sprites/gauge_window.png",
-            "sha1": "7c5db2c2be320b57dab199c68739fe6eefa27ec1"
+            "sha1": "352ee23bac8d0cb2f1e7d290226765d5d429634d"
         },
         {
             "file": "Sprites/grain_overlay.png",
@@ -235,27 +235,27 @@
         },
         {
             "file": "Sprites/keycap.png",
-            "sha1": "8ff3df2a7c04aefec9e6f0efa3b9c0bacd10623b"
+            "sha1": "d2bd5630d5e587ed231e656f728aeb030005cade"
         },
         {
             "file": "Sprites/minimap_frame.png",
-            "sha1": "9dc36603c2a40aa6aca3d3985b8c576fee2752db"
+            "sha1": "ddd47c792b00e307825ee1a46c264b2ae6b7d1ec"
         },
         {
             "file": "Sprites/order_plate_disabled.png",
-            "sha1": "03b098a6469ce964f38f157f2b898dd89f826c74"
+            "sha1": "6d3b31a1dc6c6881c9f6d4b65735c95446fcb35f"
         },
         {
             "file": "Sprites/order_plate_hover.png",
-            "sha1": "84ac806b9636f799e1405eccc1a028684f010d4d"
+            "sha1": "b1ccb93f0ca349d9a1908c0ccac52e5132845ee7"
         },
         {
             "file": "Sprites/order_plate_normal.png",
-            "sha1": "7d0e34a09ec99c9fd6d2d38df035c8f3a47da4ed"
+            "sha1": "dd29895c5369a130c8dc586ba1261a5fdf86feb9"
         },
         {
             "file": "Sprites/order_plate_pressed.png",
-            "sha1": "c53551f64c7452ae5ebb661a143b54b80faabf16"
+            "sha1": "6f4668ea7f8a7216d8180fe0502004b0cb619e05"
         },
         {
             "file": "Sprites/order_round_disabled.png",
@@ -275,31 +275,31 @@
         },
         {
             "file": "Sprites/panel_bg.png",
-            "sha1": "c140f47ec672149ad8dfca15c8c640582b54a5dd"
+            "sha1": "f8a17ed84c0b8295dce443e1158a6bbb87a2dc54"
         },
         {
             "file": "Sprites/plate_disabled.png",
-            "sha1": "3356f81e6fcb043c267652115c348e57d0b77796"
+            "sha1": "0a8c2e5e049a9f604ff0b920570063e13a0cc752"
         },
         {
             "file": "Sprites/plate_hover.png",
-            "sha1": "54e3be9353a4d7cdf6cddb56bc03e0a1a0601780"
+            "sha1": "5d7f9a6a70dfab3567fbda27f9e60764ad98c512"
         },
         {
             "file": "Sprites/plate_normal.png",
-            "sha1": "a5b1faf3ee27797757dae6a6e8fcf200c065efa1"
+            "sha1": "7ca14ce37ec444dfb7e089fde2994b11cca74ef3"
         },
         {
             "file": "Sprites/plate_pressed.png",
-            "sha1": "350c8256760e7da6cb7f8484ed19e114f6b99541"
+            "sha1": "122ffa92270bae1f7d114f7fb1347b3973c203b7"
         },
         {
             "file": "Sprites/row_plate.png",
-            "sha1": "9a61a8ef419e4911c57fa7493aebc7520a38a2d9"
+            "sha1": "b960c5d64f9619fdbcc654ca2212742b8e1d7caa"
         },
         {
             "file": "Sprites/scroller_knob.png",
-            "sha1": "77a20c2fc7994c56410ac7b87ed38dd4be6f0d04"
+            "sha1": "247172c4c77c0160551d4c4b7c7e39c1b339b352"
         },
         {
             "file": "Sprites/scroller_track.png",
@@ -307,7 +307,7 @@
         },
         {
             "file": "Sprites/slider_fill.png",
-            "sha1": "733529410ccd420d3c630cdbfccf9967981de797"
+            "sha1": "e03f75988b4bf93dcf6ffe9fbdf5552df4f02362"
         },
         {
             "file": "Sprites/slider_knob.png",
@@ -319,7 +319,7 @@
         },
         {
             "file": "Sprites/slider_track.png",
-            "sha1": "3c2a9552889536c93b0eacb70381812090866c54"
+            "sha1": "f80b0124c03a1a90bc11dd2fe76570f3d68999b8"
         },
         {
             "file": "Sprites/stamp_defeat.png",
@@ -331,19 +331,19 @@
         },
         {
             "file": "Sprites/tab_plate.png",
-            "sha1": "9a61a8ef419e4911c57fa7493aebc7520a38a2d9"
+            "sha1": "b960c5d64f9619fdbcc654ca2212742b8e1d7caa"
         },
         {
             "file": "Sprites/tab_plate_selected.png",
-            "sha1": "b331a42486824a13afa87026a010a49141ba12f0"
+            "sha1": "bf518376431a3c820b2524368d627b1d61fcc3f2"
         },
         {
             "file": "Sprites/title_plate.png",
-            "sha1": "285e0d0eb2b6847e777ebd4e30c2ee9e0f4fb45b"
+            "sha1": "c9dd4e8e64993e0f24656b9dca41df01ae464e37"
         },
         {
             "file": "Sprites/tooltip_plate.png",
-            "sha1": "305e43f098058cba4d1700bc49f1bfc58ea924d7"
+            "sha1": "820a08f47544a7845ddde96acdbf80c49e65ac59"
         }
     ]
 }

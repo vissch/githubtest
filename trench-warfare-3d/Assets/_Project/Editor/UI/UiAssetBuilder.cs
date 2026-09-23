@@ -1,7 +1,7 @@
 // Phase: B6 (implemented) — the assets the interface cannot run without and that no PNG can carry: the PanelSettings
 // every screen shares, and the three TextCore font assets the skin's classes name.
 // TW/UI/Create Panel Settings writes Assets/_Project/UI/Resources/UI/DustFrontPanel.asset (scale with screen size against
-// 1920x1080, matched on height, themed by DustFront.tss) and updates it in place when it exists.
+// HudLayout's reference (1600x900), matched on height, themed by DustFront.tss) and updates it in place when it exists.
 // TW/UI/Bake Skin Fonts copies the two OFL/Apache faces the Editor ships (Inter SemiBold, Roboto Mono Bold) with their
 // licences into UI/Skin/Fonts and bakes DustFrontDisplay / DustFrontLabel / DustFrontMono .asset from them. Swapping the
 // final stencil face is: drop the TTF over the placeholder name and run this again.
@@ -33,7 +33,7 @@ namespace TW.Editor
             if (fresh) ps = ScriptableObject.CreateInstance<PanelSettings>();
             ps.themeStyleSheet = theme;
             ps.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-            ps.referenceResolution = new Vector2Int(1920, 1080);
+            ps.referenceResolution = new Vector2Int((int)HudLayout.ReferenceWidthPx, (int)HudLayout.ReferenceHeight);
             ps.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
             ps.match = 1f;
             ps.clearColor = false;

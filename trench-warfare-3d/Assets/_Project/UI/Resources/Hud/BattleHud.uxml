@@ -10,12 +10,13 @@
             <ui:VisualElement name="gauges" class="tw-plate hud-gauges">
                 <ui:VisualElement name="gauge-silver" class="tw-gauge">
                     <ui:VisualElement class="tw-gauge__icon tw-ico-silver" picking-mode="Ignore" />
-                    <ui:Label name="silver-value" text="0" class="tw-window tw-digits tw-digits--lg tw-gauge__value" />
+                    <ui:Label name="silver-value" text="0" class="tw-window tw-digits tw-gauge__value" />
                     <ui:Label name="income-value" text="+0/s" class="tw-gauge__sub tw-mono" />
                 </ui:VisualElement>
                 <ui:VisualElement name="gauge-men" class="tw-gauge">
                     <ui:VisualElement class="tw-gauge__icon tw-ico-men" picking-mode="Ignore" />
                     <ui:Label name="men-value" text="0" class="tw-window tw-digits tw-gauge__value" />
+                    <ui:Label text="VS" class="hud-gauges__vs" picking-mode="Ignore" />
                     <ui:Label name="enemy-value" text="0" class="tw-gauge__sub tw-mono tw-gauge__sub--alarm" />
                 </ui:VisualElement>
                 <ui:VisualElement name="gauge-time" class="tw-gauge">

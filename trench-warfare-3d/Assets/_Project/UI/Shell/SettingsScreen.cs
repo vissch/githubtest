@@ -45,7 +45,10 @@ namespace TW.UI
             BuildAudio();
             BuildInterface();
             Btn("btn-apply", Apply);
-            Btn("btn-defaults", () => { draft = GameSettings.Defaults(); Refill(); });
+            // DEFAULTS keeps the audio levels. Otherwise a player who turned the sound up, then pressed DEFAULTS
+            // for some unrelated reason, silently lost it again — and pressing DEFAULTS is exactly what someone
+            // does when they think something is wrong.
+            Btn("btn-defaults", () => { var audio = draft.Audio; draft = GameSettings.Defaults(); draft.Audio = audio; Refill(); });
             Btn("btn-back", Back);
         }
 
@@ -189,6 +192,9 @@ namespace TW.UI
         // ---- audio, interface ---------------------------------------------------------------------------------------------
         void BuildAudio()
         {
+            // a master at zero and no readout is indistinguishable from broken audio, so say so on the panel
+            var note = Root?.Q<UnityEngine.UIElements.Label>("audio-note");
+            if (note != null && draft.Audio.Master <= 0f) note.text = "SOUND IS OFF. DRAG MASTER UP TO HEAR THE GAME.";
             Slider("slider-master", draft.Audio.Master, v => draft.Audio.Master = v);
             Slider("slider-ambience", draft.Audio.Ambience, v => draft.Audio.Ambience = v);
             Slider("slider-sfx", draft.Audio.Sfx, v => draft.Audio.Sfx = v);

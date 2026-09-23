@@ -1,8 +1,8 @@
 /* Dust Front skin: tokens. Every colour, size and spacing the interface uses, once.
    Values are 1080p reference pixels (PanelSettings scales the panel with screen height).
    Plates are near-black gunmetal, bevels 1 px light grey, readouts amber, danger red, power pale blue, text bone.
-   The bar geometry mirrors TW.UI.HudLayout; SkinAssetTests hold the two equal. No border-radius anywhere: the
-   cut corners live in the sprites. USS has no text-transform: caps are authored uppercase. */
+   The bar geometry mirrors TW.UI.HudLayout; SkinAssetTests hold the two equal. Corners are round: each
+   sprite is painted with the radius below and the component clips to the same radius (--tw-radius-*). USS has no text-transform: caps are authored uppercase. */
 :root {
     /* plates, dark to light */
     --tw-plate-900: #0E0F10;
@@ -44,6 +44,7 @@
     /* teams (TankRenderer.cs:46) */
     --tw-team-a: #59D9FF;
     --tw-team-b: #E04029;
+    --tw-enemy: #B5523A;    /* enemy ownership on the HUD (objective bullets, enemy count); red stays for danger / can't afford */
     --tw-team-b-grey: #858F99;
 
     /* semantic */
@@ -72,6 +73,9 @@
     --tw-space-2: 4px;
     --tw-space-3: 8px;
     --tw-space-4: 12px;
+    --tw-radius-lg: 12px;   /* plates, panels, buttons, cards, order buttons, minimap bezel, tooltip */
+    --tw-radius: 8px;       /* keycaps, tabs, list rows */
+    --tw-radius-sm: 5px;    /* digit windows, nameplates, badges, checkboxes, slider track */
     --tw-space-5: 16px;
     --tw-space-6: 24px;
     --tw-space-7: 32px;

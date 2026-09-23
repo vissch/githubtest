@@ -1,5 +1,5 @@
 // Phase: B6 (implemented) — paints a placeholder for every sprite in SkinSpec, and never over an artist's file.
-// TW/UI/Generate Placeholder Skin writes each missing PNG: riveted gunmetal plates with cut corners, recessed windows,
+// TW/UI/Generate Placeholder Skin writes each missing PNG: riveted gunmetal plates with rounded corners, recessed windows,
 // white glyphs with a dark contour, the masks and straps, and a "?" portrait for every unit the baker has not drawn.
 // placeholders.json beside the sprites records the hash of every file this tool wrote. A file whose hash still matches
 // is a placeholder and is repainted when the generator's version rises (or on "(force)"); one whose hash differs was
@@ -174,41 +174,41 @@ namespace TW.Editor
                 case "btn_accent_hover": PlateBody(c, e.L, Lerp(Plate600, Accent, 0.55f), false, false, Brass); c.InnerLine(e.L - 4, Accent, 220); break;
                 case "btn_accent_pressed": PlateBody(c, e.L, Lerp(Plate800, AccentDim, 0.5f), true, false, Brass); break;
                 case "panel_bg": PlateBody(c, e.L, Plate800, false, false, null, 3.5f); c.InnerLine(e.L - 6, Rust500, 140); break;
-                case "order_plate_normal": PlateBody(c, e.L, Plate700, false, false, null, 3f, 3); break;
-                case "order_plate_hover": PlateBody(c, e.L, Plate600, false, false, null, 3f, 3); c.InnerLine(e.L - 4, Accent, 100); break;
-                case "order_plate_pressed": PlateBody(c, e.L, Plate800, true, false, null, 3f, 3); break;
-                case "order_plate_disabled": PlateBody(c, e.L, Plate800, false, true, null, 3f, 3); break;
-                case "gauge_window": case "badge": Window(c, 2); break;
-                case "card_nameplate": c.Fill(0, 0, c.W, c.H, Plate900); c.HLine(0, Plate500, 0, c.W); c.CutCorners(2); break;
-                case "keycap": PlateBody(c, e.L, Plate500, false, false, null, 0f); c.Fill(2, c.H - e.B, c.W - 4, 3, Plate900); break;
-                case "row_plate": PlateBody(c, 8, Plate700, false, false, null, 0f, 3); break;
-                case "tab_plate": PlateBody(c, 8, Plate700, false, false, null, 0f, 3); break;
-                case "tab_plate_selected": PlateBody(c, 8, Plate700, false, false, null, 0f, 3); c.Fill(3, 2, c.W - 6, 2, Accent); break;
+                case "order_plate_normal": PlateBody(c, e.L, Plate700, false, false, null, 3f); break;
+                case "order_plate_hover": PlateBody(c, e.L, Plate600, false, false, null, 3f); c.InnerLine(e.L - 4, Accent, 100); break;
+                case "order_plate_pressed": PlateBody(c, e.L, Plate800, true, false, null, 3f); break;
+                case "order_plate_disabled": PlateBody(c, e.L, Plate800, false, true, null, 3f); break;
+                case "gauge_window": case "badge": Window(c, RadiusSm); break;
+                case "card_nameplate": c.Fill(0, 0, c.W, c.H, Plate900); c.HLine(0, Plate500, 0, c.W); c.RoundCorners(RadiusSm, 1f); break;
+                case "keycap": PlateBody(c, e.L, Plate500, false, false, null, 0f, RadiusMd); c.Fill(2, c.H - e.B, c.W - 4, 3, Plate900); break;
+                case "row_plate": PlateBody(c, 8, Plate700, false, false, null, 0f, RadiusMd); break;
+                case "tab_plate": PlateBody(c, 8, Plate700, false, false, null, 0f, RadiusMd); break;
+                case "tab_plate_selected": PlateBody(c, 8, Plate700, false, false, null, 0f, RadiusMd); c.Fill(3, 2, c.W - 6, 2, Accent); break;
                 case "tooltip_plate": PlateBody(c, e.L, Plate800, false, false, null, 0f); c.InnerLine(2, Rust500, 200); break;
-                case "title_plate": PlateBody(c, 24, Plate700, false, false, null, 0f, 3); c.Rivet(20, 20, 3.5f); c.Rivet(20, c.H - 21, 3.5f); c.Rivet(c.W - 21, 20, 3.5f); c.Rivet(c.W - 21, c.H - 21, 3.5f); c.Rivet(44, c.H / 2, 3.5f); c.Rivet(c.W - 45, c.H / 2, 3.5f); break;
+                case "title_plate": PlateBody(c, 24, Plate700, false, false, null, 0f); c.Rivet(20, 20, 3.5f); c.Rivet(20, c.H - 21, 3.5f); c.Rivet(c.W - 21, 20, 3.5f); c.Rivet(c.W - 21, c.H - 21, 3.5f); c.Rivet(44, c.H / 2, 3.5f); c.Rivet(c.W - 45, c.H / 2, 3.5f); break;
                 case "banner_ribbon": Banner(c); break;
                 case "hazard_strip": Hazard(c); break;
-                case "card_frame": Frame(c, e.L, 4, true); break;
+                case "card_frame": Frame(c, e.L, RadiusLg, true); break;
                 case "card_rim": Rim(c, e.L); break;
                 case "cooldown_mask": Hatch(c); break;
                 case "divider_v": Strap(c, true); break;
                 case "divider_h": Strap(c, false); break;
-                case "minimap_frame": Frame(c, e.L, 4, true, 5f); break;
+                case "minimap_frame": Frame(c, e.L, RadiusLg, true, 5f); break;
                 case "bezel_round": BezelRound(c); break;
                 case "order_round_normal": OrderRound(c, Plate700, false, false); break;
                 case "order_round_hover": OrderRound(c, Plate600, false, false); break;
                 case "order_round_pressed": OrderRound(c, Plate800, true, false); break;
                 case "order_round_disabled": OrderRound(c, Plate800, false, true); break;
-                case "slider_track": c.Fill(0, 0, c.W, c.H, Plate900); c.HLine(c.H - 1, Plate500, 0, c.W); c.HLine(0, EdgeDark, 0, c.W); c.CutCorners(2); break;
-                case "slider_fill": c.GradientV(0, 0, c.W, c.H, Lerp(Accent, White, 0.1f), AccentDim); c.HLine(0, EdgeDark, 0, c.W); c.HLine(c.H - 1, EdgeDark, 0, c.W); c.CutCorners(2); break;
+                case "slider_track": c.Fill(0, 0, c.W, c.H, Plate900); c.HLine(c.H - 1, Plate500, 0, c.W); c.HLine(0, EdgeDark, 0, c.W); c.RoundCorners(RadiusSm, 1f); break;
+                case "slider_fill": c.GradientV(0, 0, c.W, c.H, Lerp(Accent, White, 0.1f), AccentDim); c.HLine(0, EdgeDark, 0, c.W); c.HLine(c.H - 1, EdgeDark, 0, c.W); c.RoundCorners(RadiusSm, 1f); break;
                 case "slider_knob": Knob(c, false); break;
                 case "slider_knob_hover": Knob(c, true); break;
-                case "checkbox_off": PlateBody(c, 6, Plate700, false, false, null, 0f, 2); break;
-                case "checkbox_on": PlateBody(c, 6, Plate700, false, false, null, 0f, 2); c.Glyph(Sdf.Union(Sdf.Segment(6, 6, c.W - 7, c.H - 7, 1.6f), Sdf.Segment(c.W - 7, 6, 6, c.H - 7, 1.6f)), Accent, EdgeDark); break;
+                case "checkbox_off": PlateBody(c, 6, Plate700, false, false, null, 0f, RadiusSm); break;
+                case "checkbox_on": PlateBody(c, 6, Plate700, false, false, null, 0f, RadiusSm); c.Glyph(Sdf.Union(Sdf.Segment(6, 6, c.W - 7, c.H - 7, 1.6f), Sdf.Segment(c.W - 7, 6, 6, c.H - 7, 1.6f)), Accent, EdgeDark); break;
                 case "dim_vignette": Vignette(c); break;
                 case "grain_overlay": Grain(c); break;
                 case "scroller_track": c.Fill(0, 0, c.W, c.H, Plate900); c.VLine(0, Plate500, 0, c.H); break;
-                case "scroller_knob": c.Fill(0, 0, c.W, c.H, Plate500); c.VLine(0, EdgeLight, 0, c.H); c.VLine(c.W - 1, EdgeDark, 0, c.H); c.CutCorners(2); break;
+                case "scroller_knob": c.Fill(0, 0, c.W, c.H, Plate500); c.VLine(0, EdgeLight, 0, c.H); c.VLine(c.W - 1, EdgeDark, 0, c.H); c.RoundCorners(RadiusSm, 1f); break;
                 case "stamp_victory": Stamp(c, true); break;
                 case "stamp_defeat": Stamp(c, false); break;
                 default:
@@ -221,10 +221,13 @@ namespace TW.Editor
 
         static Color32 Lerp(Color32 a, Color32 b, float t) => Color32.Lerp(a, b, t);
 
-        /// <summary>The riveted plate every plate sprite starts from: cut corners, a 2 px dark edge, a 1 px bevel
+        // corner radii in sprite px, mirroring --tw-radius-lg / --tw-radius / --tw-radius-sm in dustfront.tokens.uss
+        public const int RadiusLg = 12, RadiusMd = 8, RadiusSm = 5;
+
+        /// <summary>The riveted plate every plate sprite starts from: rounded corners, a 2 px dark edge, a 1 px bevel
         /// (light top-left, dark bottom-right; inverted when pressed), a vertical gradient fill, grain only inside
         /// the border ring so the stretched centre stays flat, and a rivet in each corner inside the border.</summary>
-        static void PlateBody(Canvas c, int border, Color32 fill, bool pressed, bool disabled, Color32? rivet = null, float rivetR = 2.5f, int cut = 4)
+        static void PlateBody(Canvas c, int border, Color32 fill, bool pressed, bool disabled, Color32? rivet = null, float rivetR = 2.5f, int radius = RadiusLg)
         {
             Color32 top = Lerp(fill, White, 0.06f), bottom = Lerp(fill, EdgeDark, 0.12f);
             c.GradientV(0, 0, c.W, c.H, top, bottom);
@@ -240,21 +243,21 @@ namespace TW.Editor
                 float p = border * 0.5f;
                 c.Rivet(p, p, rivetR, rc); c.Rivet(c.W - 1 - p, p, rivetR, rc); c.Rivet(p, c.H - 1 - p, rivetR, rc); c.Rivet(c.W - 1 - p, c.H - 1 - p, rivetR, rc);
             }
-            c.CutCorners(cut);
+            c.RoundCorners(border > 0 ? Math.Min(radius, border) : radius);   // the curve must stay inside the 9-slice border
         }
 
-        static void Window(Canvas c, int cut)
+        static void Window(Canvas c, int radius)
         {
             c.GradientV(0, 0, c.W, c.H, Plate900, Lerp(Plate900, Plate800, 0.5f));
             c.HLine(0, EdgeDark, 0, c.W); c.VLine(0, EdgeDark, 0, c.H);
             c.HLine(c.H - 1, EdgeLight, 0, c.W); c.VLine(c.W - 1, EdgeLight, 0, c.H);
             c.HLine(1, Plate900, 1, c.W - 1); c.VLine(1, Plate900, 1, c.H - 1);
-            c.CutCorners(cut);
+            c.RoundCorners(radius, 1f);
         }
 
-        static void Frame(Canvas c, int border, int cut, bool rivets, float rivetR = 2.5f)
+        static void Frame(Canvas c, int border, int radius, bool rivets, float rivetR = 2.5f)
         {
-            PlateBody(c, border, Plate700, false, false, null, rivets ? rivetR : 0f, cut);
+            PlateBody(c, border, Plate700, false, false, null, rivets ? rivetR : 0f, radius);
             int inner = border - 2;
             c.Fill(inner, inner, c.W - 2 * inner, c.H - 2 * inner, EdgeDark);
             c.Fill(border, border, c.W - 2 * border, c.H - 2 * border, Clear);
@@ -262,15 +265,14 @@ namespace TW.Editor
 
         static void Rim(Canvas c, int border)
         {
-            int inner = border - 3;
-            // 2 px glow outward, fading
-            for (int i = 1; i <= 2; i++)
-            {
-                byte a = (byte)(i == 1 ? 90 : 40);
-                c.RectOutline(inner - i, inner - i, c.W - 2 * (inner - i), c.H - 2 * (inner - i), new Color32(255, 255, 255, a));
-            }
-            for (int i = 0; i < 3; i++) c.RectOutline(inner + i, inner + i, c.W - 2 * (inner + i), c.H - 2 * (inner + i), White);
-            c.CutCorners(4);
+            // a 3 px white ring on the frame's inner edge plus a fading glow, both following the card's rounded corner
+            // (the ring is tinted in USS for hover / selected / armed)
+            float inset = border - 3 + 1.5f, cx = c.W * 0.5f, cy = c.H * 0.5f;
+            float hw = cx - inset, hh = cy - inset, r = Mathf.Max(1f, RadiusLg - inset);
+            var box = Sdf.RoundBox(cx, cy, hw, hh, r);
+            c.Glyph((x, y) => Mathf.Abs(box(x, y)) - 3.5f, new Color32(255, 255, 255, 50), null);
+            c.Glyph((x, y) => Mathf.Abs(box(x, y)) - 2.5f, new Color32(255, 255, 255, 90), null);
+            c.Glyph((x, y) => Mathf.Abs(box(x, y)) - 1.5f, White, null);
         }
 
         static void Hatch(Canvas c)
@@ -410,7 +412,10 @@ namespace TW.Editor
                 case "ico_speed": g = Sdf.Union(Sdf.Triangle(cx - 24 * u, cy - 14 * u, cx - 24 * u, cy + 14 * u, cx - 2 * u, cy), Sdf.Triangle(cx + 2 * u, cy - 14 * u, cx + 2 * u, cy + 14 * u, cx + 24 * u, cy)); break;
                 case "ico_silver": g = Sdf.Union(Sdf.Hexagon(cx, cy, 22 * u), Sdf.Scale(-1f, Sdf.Hexagon(cx, cy, 15 * u))); g = Sdf.Union(Sdf.Sub(Sdf.Hexagon(cx, cy, 22 * u), Sdf.Hexagon(cx, cy, 16 * u)), Sdf.Hexagon(cx, cy, 9 * u)); break;
                 case "ico_men":
-                    g = Sdf.Union(Sdf.Sub(Sdf.Circle(cx, cy + 2 * u, 20 * u), Sdf.Box(cx, cy + 22 * u, 40 * u, 20 * u)), Sdf.Box(cx, cy + 5 * u, 26 * u, 3 * u));
+                    // a Brodie helmet side-on: a shallow dome on a wide flat brim, the crown stud on top (R0.5: the old
+                    // narrow brim read as a bowl)
+                    g = Sdf.Union(Sdf.Sub(Sdf.Circle(cx, cy + 8 * u, 17 * u), Sdf.Box(cx, cy + 8 * u + 20 * u, 40 * u, 20 * u)),
+                        Sdf.Union(Sdf.Capsule(cx - 27 * u, cy + 10 * u, cx + 27 * u, cy + 10 * u, 3.2f * u), Sdf.Circle(cx, cy - 10 * u, 3 * u)));
                     break;
                 case "ico_clock": g = Sdf.Union(Sdf.Ring(cx, cy, 22 * u, 4 * u), Sdf.Union(Sdf.Segment(cx, cy, cx, cy - 12 * u, 2.5f * u), Sdf.Segment(cx, cy, cx + 9 * u, cy + 5 * u, 2.5f * u))); break;
                 case "ico_settings": g = Gear(cx, cy, u); break;
@@ -524,15 +529,29 @@ namespace TW.Editor
                 float r = (c.r * a + d.r * da * (1f - a)) / oa, g = (c.g * a + d.g * da * (1f - a)) / oa, b = (c.b * a + d.b * da * (1f - a)) / oa;
                 Px[y * W + x] = new Color32((byte)Mathf.RoundToInt(r), (byte)Mathf.RoundToInt(g), (byte)Mathf.RoundToInt(b), (byte)Mathf.RoundToInt(oa * 255f));
             }
-            /// <summary>The house cut corner (BattleHud.Frame): alpha 0 where ex + ey &lt; n.</summary>
-            public void CutCorners(int n)
+            /// <summary>The house corner: a quarter circle of radius r in each corner, anti-aliased, with a dark edge
+            /// of edgePx following the arc so the plate's straight 2 px edge carries round the curve. The USS clips each
+            /// component to the same radius (--tw-radius-*), so the painted and the clipped corner coincide.</summary>
+            public void RoundCorners(int r, float edgePx = 2f)
             {
-                if (n <= 0) return;
+                if (r <= 0) return;
+                r = Math.Min(r, Math.Min(W, H) / 2);
                 for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
                 {
                     int ex = Math.Min(x, W - 1 - x), ey = Math.Min(y, H - 1 - y);
-                    if (ex + ey < n) Px[y * W + x] = new Color32(0, 0, 0, 0);
-                    else if (ex + ey == n) { var p = Px[y * W + x]; Px[y * W + x] = new Color32(0x0A, 0x0B, 0x0C, p.a); }
+                    if (ex >= r || ey >= r) continue;
+                    float dx = r - (ex + 0.5f), dy = r - (ey + 0.5f);
+                    float d = Mathf.Sqrt(dx * dx + dy * dy) - r;          // > 0 outside the arc
+                    int i = y * W + x;
+                    if (d >= 0.5f) { Px[i] = new Color32(0, 0, 0, 0); continue; }
+                    var p = Px[i];
+                    if (edgePx > 0f && d > -edgePx - 0.5f)
+                    {
+                        float k = Mathf.Clamp01(d + edgePx + 0.5f);          // 1 on the edge band, fading inward over 1 px
+                        p = Color32.Lerp(p, new Color32(0x0A, 0x0B, 0x0C, p.a), k);
+                    }
+                    p.a = (byte)Mathf.RoundToInt(p.a * Mathf.Clamp01(0.5f - d));
+                    Px[i] = p;
                 }
             }
             public void Rivet(float cx, float cy, float r, Color32? col = null)
@@ -589,6 +608,11 @@ namespace TW.Editor
             public static Func<float, float, float> Circle(float cx, float cy, float r) => (x, y) => Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) - r;
             public static Func<float, float, float> Ring(float cx, float cy, float r, float thick) => (x, y) => Mathf.Abs(Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) - (r - thick * 0.5f)) - thick * 0.5f;
             public static Func<float, float, float> Box(float cx, float cy, float hw, float hh) => (x, y) => { float dx = Mathf.Abs(x - cx) - hw, dy = Mathf.Abs(y - cy) - hh; return Mathf.Sqrt(Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f) + Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f)) + Mathf.Min(Mathf.Max(dx, dy), 0f); };
+            public static Func<float, float, float> RoundBox(float cx, float cy, float hw, float hh, float r) => (x, y) =>
+            {
+                float qx = Mathf.Abs(x - cx) - hw + r, qy = Mathf.Abs(y - cy) - hh + r;
+                return Mathf.Sqrt(Mathf.Max(qx, 0f) * Mathf.Max(qx, 0f) + Mathf.Max(qy, 0f) * Mathf.Max(qy, 0f)) + Mathf.Min(Mathf.Max(qx, qy), 0f) - r;
+            };
             public static Func<float, float, float> RotBox(float cx, float cy, float hw, float hh, float angle)
             {
                 float c = Mathf.Cos(-angle), s = Mathf.Sin(-angle);

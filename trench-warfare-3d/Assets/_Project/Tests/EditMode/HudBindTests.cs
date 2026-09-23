@@ -86,7 +86,8 @@ namespace TW.Tests
             float tick = SimConfig.Default.TickSeconds;
             Assert.That(c.Ability, Is.EqualTo(OffMapAbilityId.HeBarrage));
             HudView.BindSupportCard(c, silver: 1000, cooldownTicks: 0, cooldownTotalTicks: 1, armed: false, over: false, tickSeconds: tick);
-            Assert.That(c.Name.text, Is.EqualTo(c.Title));
+            Assert.That(c.Name.text, Is.EqualTo(c.Label), "the nameplate reads the short card label");
+            Assert.That(c.Label, Is.EqualTo(HudText.BarrageCard)); Assert.That(c.Title, Is.EqualTo("HE BARRAGE"), "the tooltip keeps the full name");
             HudView.BindSupportCard(c, 0, 0, 1, armed: true, over: false, tick);
             Assert.That(c.Name.text, Is.EqualTo(HudText.Aim));
             Assert.That(c.Root.ClassListContains("is-armed"));

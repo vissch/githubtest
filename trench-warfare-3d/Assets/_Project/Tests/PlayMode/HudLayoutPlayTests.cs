@@ -60,8 +60,12 @@ namespace TW.Tests
             Assert.That(w, Is.GreaterThan(0f)); Assert.That(h, Is.GreaterThan(0f));
             var bar = refs.Bar.worldBound;
             var diag = new System.Text.StringBuilder();
-            foreach (var c in refs.Cards) { var hh = c.Root.parent; diag.Append("[").Append(hh.GetType().Name).Append(" w=").Append(hh.worldBound.width).Append(" mr=").Append(hh.resolvedStyle.marginRight).Append(" cls=").Append(string.Join(",", hh.GetClasses())).Append(" par=").Append(hh.parent != null ? hh.parent.name : "-").Append("] "); }
-            Assert.That(bar.width, Is.GreaterThanOrEqualTo(HudLayout.BarWidth() - 1f), "the bar is at least what its cards consume: " + diag);
+            foreach (var c in refs.Cards) { var hh = c.Root.parent; diag.Append("[").Append(hh.GetType().Name).Append(" w=").Append(hh.worldBound.width).Append(" ml=").Append(hh.resolvedStyle.marginLeft).Append(" cls=").Append(string.Join(",", hh.GetClasses())).Append(" par=").Append(hh.parent != null ? hh.parent.name : "-").Append("] "); }
+            // every card, gap and divider snaps to whole screen pixels; at a small test window one pixel is several panel
+            // units (ReferenceHeight / Screen.height), so the allowance is one pixel per laid-out piece, in panel units
+            float px = HudLayout.ReferenceHeight / Mathf.Max(1f, Screen.height);
+            float slack = (refs.Cards.Count + 4) * px;
+            Assert.That(bar.width, Is.GreaterThanOrEqualTo(HudLayout.BarWidth() - slack), $"the bar is at least what its cards consume (1 px = {px:0.##} panel units): " + diag);
             Assert.That(bar.width, Is.LessThanOrEqualTo(w), "the bar fits the reference width");
             Assert.That(bar.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(bar.yMax, Is.LessThanOrEqualTo(h + 0.5f));
             foreach (var c in refs.Cards) Assert.That(c.Root.worldBound.width, Is.GreaterThanOrEqualTo(70f), $"{c.Title} card is {c.Root.worldBound.width} px wide");

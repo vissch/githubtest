@@ -36,7 +36,7 @@ namespace TW.UI
     {
         public const string Root = "Assets/_Project/UI/Skin/";
         /// <summary>Bump when the generator's drawing changes so recorded placeholders are repainted.</summary>
-        public const int GeneratorVersion = 2;
+        public const int GeneratorVersion = 4;
         public const int PortraitSize = 256;
 
         static SkinEntry P(string f, int w, int h, int b, string n) => new SkinEntry("Sprites/" + f, w, h, b, SkinKind.Plate, n);
@@ -48,7 +48,7 @@ namespace TW.UI
         public static readonly SkinEntry[] All =
         {
             // ---- plates: the riveted gunmetal the whole interface stands on ------------------------------------
-            P("plate_normal.png", 64, 64, 16, "base button/panel plate: cut corners, 2 px dark edge, 1 px light bevel top-left, corner rivets"),
+            P("plate_normal.png", 64, 64, 16, "base button/panel plate: 12 px rounded corners, 2 px dark edge following the curve, 1 px light bevel top-left, corner rivets"),
             P("plate_hover.png", 64, 64, 16, "plate_normal +8% value, 1 px amber inner line at 40%"),
             P("plate_pressed.png", 64, 64, 16, "plate_normal -10% value, bevel inverted"),
             P("plate_disabled.png", 64, 64, 16, "plate-800 fill, plate-400 rivets, no light bevel"),
@@ -73,7 +73,7 @@ namespace TW.UI
             P("hazard_strip.png", 64, 8, 8, 0, 8, 0, "CAUTION micro-text strap along plate edges", tiled: true),
 
             // ---- elements ----------------------------------------------------------------------------------------
-            E("card_frame.png", 80, 80, 14, "card ring, transparent centre: 10 px plate ring, 2 px dark inner edge, 4 px cut corners"),
+            E("card_frame.png", 80, 80, 14, "card ring, transparent centre: 10 px plate ring, 2 px dark inner edge, 12 px rounded corners"),
             E("card_rim.png", 80, 80, 14, "WHITE 3 px ring at the frame's inner edge + 2 px glow; tinted for selected / armed / hover"),
             E("cooldown_mask.png", 32, 32, 0, "rgba(8,9,10,.62) with a 1 px 45-degree hatch every 6 px; seamless", tiled: true),
             E("divider_v.png", 8, 64, 0, 8, 0, 8, "vertical rivet strap, rust edges", tiled: true),

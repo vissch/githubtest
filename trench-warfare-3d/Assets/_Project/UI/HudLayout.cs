@@ -9,7 +9,9 @@ namespace TW.UI
 {
     public static class HudLayout
     {
-        public const float ReferenceHeight = 1080f;
+        // The panel's reference resolution. 1600x900 rather than 1920x1080 draws the whole interface 1.2x larger on
+        // every screen (a 72 px card is 86 px tall at 1080p, Dust Front's card size); every px below is in this space.
+        public const float ReferenceHeight = 900f, ReferenceWidthPx = 1600f;
 
         // the bottom bar
         public const float BarHeightPx = 100f;   // BattleHud.BarHeight
@@ -35,7 +37,7 @@ namespace TW.UI
         public const float TooltipDelaySeconds = 0.35f;
         public const float BannerSeconds = 3f;
 
-        /// <summary>The reference-space width the panel gives a screen of this aspect (height is always 1080).</summary>
+        /// <summary>The reference-space width the panel gives a screen of this aspect (height is always ReferenceHeight).</summary>
         public static float ReferenceWidth(float screenW, float screenH) => ReferenceHeight * screenW / screenH;
 
         /// <summary>

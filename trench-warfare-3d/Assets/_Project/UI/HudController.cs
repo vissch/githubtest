@@ -134,6 +134,15 @@ namespace TW.UI
                 };
                 tooltip.Attach(b, idx == 0 ? "PAUSE" : "SPEED " + HudView.SpeedText(idx), idx == 0 ? HudText.PauseTip : HudText.SpeedTip);
             }
+            // the gauges explain their side figures (income, the enemy's count, PAUSED)
+            var root = doc.rootVisualElement;
+            foreach (var (name, heading, text) in new[] { ("gauge-silver", "SILVER", HudText.SilverGaugeTip), ("gauge-men", "MEN", HudText.MenGaugeTip), ("gauge-time", "TIME", HudText.TimeGaugeTip) })
+            {
+                var g = root.Q(name);
+                if (g == null) continue;
+                g.pickingMode = PickingMode.Position;
+                tooltip.Attach(g, heading, text);
+            }
         }
 
         string CostLine(CardRefs c)

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!21 &-3233274714925494608
+--- !u!21 &-1803333923482892285
 Material:
   serializedVersion: 8
   m_ObjectHideFlags: 0
@@ -24,7 +24,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: 201931643203296394}
+        m_Texture: {fileID: 85498820461944988}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -70,7 +70,7 @@ MonoBehaviour:
   m_Name: DustFrontMono
   m_EditorClassIdentifier: 
   m_Version: 1.1.0
-  m_Material: {fileID: -3233274714925494608}
+  m_Material: {fileID: -1803333923482892285}
   m_SourceFontFileGUID: 
   m_fontAssetCreationEditorSettings:
     sourceFontFileGUID: 
@@ -120,7 +120,7 @@ MonoBehaviour:
   m_GlyphTable: []
   m_CharacterTable: []
   m_AtlasTextures:
-  - {fileID: 201931643203296394}
+  - {fileID: 85498820461944988}
   m_AtlasTextureIndex: 0
   m_IsMultiAtlasTexturesEnabled: 0
   m_GetFontFeatures: 1
@@ -170,7 +170,7 @@ MonoBehaviour:
   m_BoldStyleSpacing: 7
   m_ItalicStyleSlant: 35
   m_TabMultiple: 10
---- !u!28 &201931643203296394
+--- !u!28 &85498820461944988
 Texture2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

@@ -11,7 +11,7 @@ namespace TW.UI
 {
     public static class SettingsApplier
     {
-        public const int ReferenceWidth = 1920, ReferenceHeight = 1080;
+        public const int ReferenceWidth = (int)HudLayout.ReferenceWidthPx, ReferenceHeight = (int)HudLayout.ReferenceHeight;
 
         public static void ApplyAll(GameSettings s, bool video)
         {
@@ -34,10 +34,20 @@ namespace TW.UI
             if (Screen.width != w || Screen.height != h || Screen.fullScreenMode != mode) Screen.SetResolution(w, h, mode);
         }
 
+        /// <summary>
+        /// Settings are scene-independent, so they are applied before any scene loads rather than by the menu
+        /// shell alone. Without this, pressing Play on a scene — how this project is actually worked in, and how
+        /// the owner plays — left AudioListener.volume at 1 and ignored the player's levels entirely.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void ApplyAudioOnLaunch() => ApplyAudio(SettingsStore.Load());
+
         public static void ApplyAudio(GameSettings s)
         {
+            // Master is the listener and ONLY the listener: it attenuates everything once, including sources that
+            // never heard of AudioLevels. Copying it into a bus as well is what made thunder scale as Master².
             AudioListener.volume = s.Audio.Master;
-            AudioLevels.Master = s.Audio.Master; AudioLevels.Ambience = s.Audio.Ambience; AudioLevels.Sfx = s.Audio.Sfx; AudioLevels.Music = s.Audio.Music;
+            AudioLevels.Ambience = s.Audio.Ambience; AudioLevels.Sfx = s.Audio.Sfx; AudioLevels.Music = s.Audio.Music;
         }
 
         /// <summary>UI scale: the panel scales with screen height against a reference; shrinking the reference grows the UI.</summary>

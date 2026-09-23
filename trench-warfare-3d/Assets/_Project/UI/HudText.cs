@@ -83,6 +83,10 @@ namespace TW.UI
         /// HudTextTests checks all three against OffMapAbilitySystem so they cannot go stale silently.</summary>
         public const string BarrageName = "HE Barrage";
         public const string GasName = "Chlorine";
+        public const string BarrageCard = "BARRAGE", GasCard = "GAS";   // what fits a card's nameplate
+        public const string SilverGaugeTip = "Silver to spend on units and support; the figure beside it is income per second";
+        public const string MenGaugeTip = "Your men on the field, and the enemy's beside VS";
+        public const string TimeGaugeTip = "Time since the battle began; PAUSED shows here while the clock is stopped";
         public const string BarrageTip = "HE barrage: 12 shells in 25 m after 4 s; craters give cover";
         public const string GasTip = "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out";
 

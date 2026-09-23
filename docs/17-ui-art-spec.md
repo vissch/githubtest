@@ -4,14 +4,14 @@ Generated from `Assets/_Project/UI/Skin/SkinSpec.cs` by `Tools/gen_artspec.py`; 
 
 ## What the skin is
 
-Dust Front's interface: near-black gunmetal plates with very subtle rivets, 1 px light-grey bevel lines, recessed darker windows for numbers, hex bolts, ribbed hoses, `CAUTION` micro-text along plate edges and a faint film grain over the whole screen. Type is condensed stencil caps; body text is bone (#C8C9C6), readouts amber (#E0762A), danger red (#E02B2B), power pale blue (#7FB4E0), totals white. The palette lives in `dustfront.tokens.uss`; the sprites below are painted in those colours. No rounded corners anywhere: the house corner is a 4 px diagonal cut, drawn into the PNG.
+Dust Front's interface: near-black gunmetal plates with very subtle rivets, 1 px light-grey bevel lines, recessed darker windows for numbers, hex bolts, ribbed hoses, `CAUTION` micro-text along plate edges and a faint film grain over the whole screen. Type is condensed stencil caps; body text is bone (#C8C9C6), readouts amber (#E0762A), danger red (#E02B2B), power pale blue (#7FB4E0), totals white. The palette lives in `dustfront.tokens.uss`; the sprites below are painted in those colours. Corners are round: 12 px on plates, panels, buttons, cards, order buttons and the minimap bezel; 8 px on keycaps, tabs and list rows; 5 px on digit windows, nameplates, badges and checkboxes. Paint the curve into the PNG with the plate's dark edge following it; the interface clips each element to the same radius (--tw-radius-* in dustfront.tokens.uss), so a different radius shows as a mismatched corner.
 
 ## Rules that let a file be swapped without a code change
 
 1. Paint to the exact size in the table. The 9-slice border (left, bottom, right, top, in px) is the part that must not stretch: rivets and bevels go inside it, the centre stays flat.
 2. Plates and elements are painted in final colour and are never tinted by the interface.
 3. Icons are WHITE glyphs on a transparent background with a 1 px near-black contour (#0A0B0C), a 4 px safe margin and strokes no thinner than 3 px at 64 px. The interface colours them (bone, amber, red, grey) by tint, so one file serves every state. Keep icons uncoloured: white body, near-black contour, grey only in the anti-aliasing; any hue shows up as a tint error in the verifier.
-4. Cut corners and all transparency live in the PNG. Alpha is straight (not premultiplied).
+4. Rounded corners and all transparency live in the PNG; keep each radius inside the sprite's 9-slice border. Alpha is straight (not premultiplied).
 5. Drop the file over the placeholder with the same name in the same folder under `Assets/_Project/UI/Skin/`. Do not touch `.meta` files: import settings and borders are applied automatically from the table.
 6. Nothing else. The generator sees the hash changed, records the file as yours, and never overwrites it. `TW/UI/Verify Skin` lists what is still a placeholder.
 
@@ -21,7 +21,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 
 | File | Size | Border L,B,R,T | Notes |
 |---|---|---|---|
-| `plate_normal.png` | 64x64 | 16,16,16,16 | base button/panel plate: cut corners, 2 px dark edge, 1 px light bevel top-left, corner rivets |
+| `plate_normal.png` | 64x64 | 16,16,16,16 | base button/panel plate: 12 px rounded corners, 2 px dark edge following the curve, 1 px light bevel top-left, corner rivets |
 | `plate_hover.png` | 64x64 | 16,16,16,16 | plate_normal +8% value, 1 px amber inner line at 40% |
 | `plate_pressed.png` | 64x64 | 16,16,16,16 | plate_normal -10% value, bevel inverted |
 | `plate_disabled.png` | 64x64 | 16,16,16,16 | plate-800 fill, plate-400 rivets, no light bevel |
@@ -49,7 +49,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 
 | File | Size | Border L,B,R,T | Notes |
 |---|---|---|---|
-| `card_frame.png` | 80x80 | 14,14,14,14 | card ring, transparent centre: 10 px plate ring, 2 px dark inner edge, 4 px cut corners |
+| `card_frame.png` | 80x80 | 14,14,14,14 | card ring, transparent centre: 10 px plate ring, 2 px dark inner edge, 12 px rounded corners |
 | `card_rim.png` | 80x80 | 14,14,14,14 | WHITE 3 px ring at the frame's inner edge + 2 px glow; tinted for selected / armed / hover |
 | `cooldown_mask.png` | 32x32 | - | rgba(8,9,10,.62) with a 1 px 45-degree hatch every 6 px; seamless (tiled along the stretch axis) |
 | `divider_v.png` | 8x64 | 0,8,0,8 | vertical rivet strap, rust edges (tiled along the stretch axis) |
