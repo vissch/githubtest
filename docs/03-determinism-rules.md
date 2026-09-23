@@ -48,3 +48,41 @@ Every sim job carries `[BurstCompile(CompileSynchronously = true, FloatMode = Fl
 freshly edited job as managed code while Burst compiles in the background, Mono evaluates float maths differently, and two
 identical runs diverge (seen 2026-09-20: `SameSeedAndCommands_ProduceIdenticalHashes` failed at tick 9 on a cold cache).
 Players are compiled ahead of time and are not affected.
+
+## Never mutate a world from an editor eval
+
+`SimHost` runs **two complete sims side by side**, `Local` and `Peer`, over `LoopbackTransport`, and compares their
+hashes every tick (`SimHost.cs:115`). That is what makes a desync visible in ordinary play rather than only in a
+multiplayer session that does not exist yet.
+
+It also means any change made to one world and not the other diverges them permanently. Calling
+`World.Spawn(...)` — or setting `Position`, `Hp`, a stance, anything — from `unity command eval` touches
+`Local` only. The peer never sees it, the latch fires once, and every observation afterwards is worthless.
+
+To put men on the field from tooling, issue a command: `h.Issue(SimCommand.Deploy(h.Local.World.Tick, team, kind))`.
+`IssuePeerCommands` mirrors it, both worlds step it, and the hashes stay equal. If you must poke at a world
+directly, expect the desync and do not report it as a finding.
+
+This cost an hour on 2026-09-23. The trap that made it expensive was the arithmetic, not the rule: a `DESYNC at
+tick 33` looks like one second of play if you assume 30 ticks a second, and a probe that ran fourteen seconds in
+therefore looks innocent. It is not one second. `SimHost.Update` takes at most `max(8, TimeScale * 2)` ticks per
+frame, and entering Play here is expensive — terrain build, prop composition, atlas bakes — so the first seconds
+run at a few frames each. **Tick number is not wall-clock time.** Read it off `Local.World.Tick`, never off a
+stopwatch.
+
+## Where the two-world check was not being made
+
+Until 2026-09-23 the lockstep coverage had a hole exactly where the game is actually played:
+
+| Test | Map | Two worlds? |
+|---|---|---|
+| `LockstepLoopbackTests` | greybox corridor | yes |
+| `BattlefieldTests.Generator_SameParamsSameMap` | generated battlefield | no — one world, built twice |
+| *(nothing)* | **generated battlefield** | **two worlds** |
+
+`GreyboxCorridor.unity` sets `GeneratedBattlefield = 1`, so every real session ran the untested combination, and
+the systems the generated map adds — ambient bombardment, crater deformation, mud, wire, the river — were never
+checked for agreement between two peers. `BattlefieldLockstepTests` closes it: two `MatchSim.CreateBattlefield`
+worlds, hashes compared every tick, idle and with both sides deploying, with the greybox as a control. On failure
+it names the first array that differs, because "Position diverged" and "the garrison's `holder` diverged" send you
+to opposite ends of the codebase.
