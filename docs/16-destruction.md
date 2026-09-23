@@ -128,6 +128,14 @@ the 96 bytes the shader declares with a pool for every piece under half a megaby
   (the old one read black at night) and a softer `_EmberColor` (the old one read as a lantern). The fixed pools have
   not yet been seen in Play (the editor was handed on for two gates); first thing next session is the row test
   (`poolcheck.sh` in claude-b7's scratchpad: one big burning piece of every kind, filmed).
+- 2026-09-23 03:00, second Play: the row test shows all ten kinds, arcing, tumbling, glowing and coming to rest;
+  console clean. It also found a hinge fault: a tree top toppled about its break 2.7 m up and stayed there, lying
+  level in mid-air. `Mode 1` now drops the pivot from `P0.y` to `LandY` (the ground at the pivot, plus a quarter of
+  the scale) as it goes over, so a snapped top swings and falls onto the ground; a slab hinged at its foot is
+  unchanged. The crown lies about 3.5 s after its fall before it sinks (it was sinking before it had landed).
+- Biome seam for claude-0a's lava and snow fields: `DebrisRenderer.Biome` (a static `Color`, default white with
+  a = 0) is pushed as the global `_DebrisBiome` every frame. rgb multiplies every piece's tint; a is a floor under the
+  ember glow, so on lava every piece smoulders. A biome sets it in one line.
 - `CombatFx` pruned nine per-frame lists with `RemoveAll` and a lambda closing over `now`: a closure and a delegate a
   call, every frame. Replaced by `Prune(list, at, static (x, at) => ...)`, an in-place compaction with a cached
   delegate; zero allocation.
@@ -140,5 +148,7 @@ the 96 bytes the shader declares with a pool for every piece under half a megaby
    can dirty most of the field at once. Cap it at a chunk or two a frame (file is in claude-68's hands today).
 4. The see-through at a limb cut (the figure is single-sided): a dark cap needs a second small mesh or `Cull Off` on
    the fallen buffer only.
-5. Owner decisions: gore level (`DebrisRenderer.Gore` is a static, 0..1, meant for a settings toggle); whether
+5. Lava: a piece that lands in lava should be consumed (sink at once, glow maxed) rather than lie there. Shader-side,
+   against the one lava level the terrain and liquid surface read (claude-0a names it when the lava surface lands).
+6. Owner decisions: gore level (`DebrisRenderer.Gore` is a static, 0..1, meant for a settings toggle); whether
    collapsed shelters lose their cover in the sim.

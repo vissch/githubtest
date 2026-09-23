@@ -33,6 +33,7 @@ Shader "TW/Debris (URP)"
         struct DebrisRecord { float3 p0; float born; float3 v0; float landT; float3 axis; float spin; float4 rot0; float4 tint; float scale; float life; float mode; float landY; };
         StructuredBuffer<DebrisRecord> _Records;
         float _DebrisNow;
+        float4 _DebrisBiome;   // set by DebrisRenderer every frame: rgb multiplies every tint, a is a floor under the ember glow (lava)
         CBUFFER_START(UnityPerMaterial)
             half4 _ShadeColor, _OutlineColor, _EmberColor;
             float _OutlineWidth, _Lift;
@@ -85,6 +86,7 @@ Shader "TW/Debris (URP)"
                 a += sin(saturate((t - r.landT) * 3.0) * 3.1416) * 0.06 * r.spin * saturate(1.0 - (t - r.landT));   // a small bounce back off the ground
                 q = QMul(QAxisAngle(r.axis, a), r.rot0);
                 p = r.p0;
+                p.y = lerp(r.p0.y, r.landY, k * k);                           // a top snapped off high drops as it goes over, and lies on the ground
             }
             float over = saturate((t - r.life) / SINK_SECONDS);
             float scale = r.scale * (over < 1.0 ? 1.0 : 0.0);
@@ -94,7 +96,7 @@ Shader "TW/Debris (URP)"
             o.positionWS = p + QRotate(q, positionOS * scale);
             o.normalWS = QRotate(q, normalOS);
             o.smoothWS = QRotate(q, dot(smoothOS, smoothOS) > 0.01 ? smoothOS : normalOS);
-            o.tint = r.tint;
+            o.tint = float4(r.tint.rgb * _DebrisBiome.rgb, r.tint.a);
             o.age = t; o.life = r.life;
             return o;
         }
@@ -147,13 +149,14 @@ Shader "TW/Debris (URP)"
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, n, i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.2 * _TWWet.x, lampGlint);
                 color += lampGlint;
                 color += albedo * TWBurstLight(i.positionWS);   // the burst that threw it lights it on the way up
-                if (i.tint.a > 0.0)
+                if (i.tint.a > 0.0 || _DebrisBiome.a > 0.0)
                 {
                     // hot metal: embers in the dark seams (a cellular pattern on the piece itself), flickering, cooling
                     // over the first half of its life and then gone
                     float3 cell = frac(i.positionOS * 7.0) - 0.5;
                     half seam = 1.0 - smoothstep(0.08, 0.20, min(min(abs(cell.x), abs(cell.y)), abs(cell.z)));
                     half heat = i.tint.a * pow(1.0 - saturate(i.age.x / max(0.5, i.age.y * 0.5)), 1.6);
+                    heat = max(heat, (half)_DebrisBiome.a);   // on a lava field everything smoulders and never quite cools
                     half flicker = 0.75 + 0.25 * sin(_DebrisNow * 9.0 + dot(i.positionOS, float3(31.0, 17.0, 23.0)));
                     color += _EmberColor.rgb * seam * heat * flicker;
                     color = lerp(color, color * half3(0.55, 0.5, 0.48), i.tint.a * 0.6);   // and the paint is scorched

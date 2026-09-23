@@ -151,6 +151,12 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         /// <summary>0 turns the dark lumps and the limbs off (a player setting), 1 as designed.</summary>
         public static float Gore = 1f;
+        /// <summary>
+        /// The battlefield's say over every piece: rgb multiplies each piece's own tint (white = as thrown; grey-white
+        /// for rock under snow, near-black for basalt), a is a floor under the ember glow (0 = only burning pieces
+        /// glow; about 0.4 = everything smoulders, for lava). A biome sets it once; it is pushed to the shader each frame.
+        /// </summary>
+        public static Color Biome = new Color(1f, 1f, 1f, 0f);
         /// <summary>A puff of dust at a place, this many metres wide (CombatFx lends its flipbooks; null when it is not there).</summary>
         public System.Action<Vector3, float> Dust;
         public bool Ready { get; private set; }
@@ -167,7 +173,7 @@ namespace TW.Presentation.Tactical
         GraphicsBuffer.IndirectDrawIndexedArgs[] argsData;
         Material material;
         readonly List<Mesh> owned = new List<Mesh>();
-        static readonly int NowId = Shader.PropertyToID("_DebrisNow"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
+        static readonly int NowId = Shader.PropertyToID("_DebrisNow"), BiomeId = Shader.PropertyToID("_DebrisBiome"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
         /// <summary>How much a mesh's bounds are padded (total, both sides), so the rest height is read from the true extents.</summary>
         const float BoundsPad = 0.5f;
@@ -263,7 +269,7 @@ namespace TW.Presentation.Tactical
             Vector3 axis = Vector3.Cross(Vector3.up, fallDirection.normalized);   // the hinge lies across the fall
             var r = new Record
             {
-                P0 = pivot, Born = Time.time, V0 = Vector3.zero, LandT = Mathf.Max(0.2f, seconds), LandY = pivot.y,
+                P0 = pivot, Born = Time.time, V0 = Vector3.zero, LandT = Mathf.Max(0.2f, seconds), LandY = Mathf.Min(pivot.y, Ground(pivot.x, pivot.z) + 0.25f * scale),
                 Axis = axis, Spin = angle, Rot0 = pose, Tint = new Vector4(tint.r, tint.g, tint.b, 0f), Scale = scale, Life = life, Mode = 1f
             };
             Put(pools[(int)piece], r);
@@ -284,6 +290,7 @@ namespace TW.Presentation.Tactical
         {
             if (!Ready) return;
             Shader.SetGlobalFloat(NowId, Time.time);
+            Shader.SetGlobalVector(BiomeId, Biome);
             DrawCalls = 0; Alive = 0;
             for (int k = 0; k < pools.Length; k++)
             {

@@ -690,7 +690,7 @@ namespace TW.Presentation.Tactical
         /// <summary>
         /// A tree the sim has worn down (PropChanged): a standing tree loses its top, which hinges off the break and falls
         /// away from the newest burst; a broken one is shattered to the stump. The sim swaps the drawn prop the same
-        /// tick (BattlefieldProps recomposes), so the falling crown lives only as long as its fall.
+        /// tick (BattlefieldProps recomposes) to a snag with no top, so the crown on the ground is the only one there.
         /// </summary>
         void TreeBreaks(SimEvent e, Vector3 foot)
         {
@@ -706,7 +706,7 @@ namespace TW.Presentation.Tactical
                 case TW.Sim.Terrain.PropKind.BrokenTree:
                 {
                     Vector3 pivot = foot + Vector3.up * (2.7f * s);   // the snag the kit leaves standing is 2.7 m
-                    debris.Topple(DebrisRenderer.Piece.Crown, pivot, Quaternion.Euler(0f, def.Yaw * Mathf.Rad2Deg, 0f), away, 1.3f, s, Bark, 1.2f);
+                    debris.Topple(DebrisRenderer.Piece.Crown, pivot, Quaternion.Euler(0f, def.Yaw * Mathf.Rad2Deg, 0f), away, 1.3f, s, Bark, 4.8f);   // falls for 1.3 s, lies a few seconds on the snag's side, then sinks
                     debris.Burst(DebrisRenderer.Piece.Shard, pivot, 10, 6f, 0.35f * s, Bark, 25f, 0f, 1.6f, away.normalized * 0.4f, e.Tick);
                     break;
                 }
