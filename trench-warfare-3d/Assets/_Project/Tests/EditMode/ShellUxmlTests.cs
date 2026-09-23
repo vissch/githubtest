@@ -13,16 +13,16 @@ namespace TW.Tests
     {
         const string Folder = "Assets/_Project/UI/Shell/";
 
-        static VisualElement Instantiate(string name)
+        static VisualElement Instantiate(string name, string folder = Folder)
         {
-            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(Folder + name + ".uxml");
-            Assert.That(tree, Is.Not.Null, $"{Folder}{name}.uxml did not load");
+            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(folder + name + ".uxml");
+            Assert.That(tree, Is.Not.Null, $"{folder}{name}.uxml did not load");
             return tree.Instantiate();
         }
 
-        static void Check(string uxml, string[] names, ShellScreen screen)
+        static void Check(string uxml, string[] names, ShellScreen screen, string folder = Folder)
         {
-            var root = Instantiate(uxml);
+            var root = Instantiate(uxml, folder);
             foreach (var n in names) Assert.That(root.Q(n), Is.Not.Null, $"{uxml}.uxml has no element named '{n}'");
             Assert.DoesNotThrow(() => { screen.Bind(root, null); screen.Unbind(); }, $"{screen.GetType().Name} must bind without a router or a panel");
             root.Query<Button>().ForEach(b => Assert.That(b.ClassListContains("tw-btn") || b.ClassListContains("tw-tab") || b.ClassListContains("tw-keycap") || b.ClassListContains("tw-list-row"), $"{uxml}: button '{b.name}' has no skin class"));
@@ -33,6 +33,7 @@ namespace TW.Tests
         [Test] public void Debrief() => Check("Debrief", DebriefScreen.RequiredNames, new DebriefScreen(new MatchReport { Winner = 0 }));
         [Test] public void MainMenu() => Check("MainMenu", MainMenuScreen.RequiredNames, new MainMenuScreen());
         [Test] public void MissionSelect() => Check("MissionSelect", MissionSelectScreen.RequiredNames, new MissionSelectScreen());
+        [Test] public void Armoury() => Check("Armoury", ArmouryScreen.RequiredNames, new ArmouryScreen(), "Assets/_Project/UI/Resources/Shell/");
 
         [Test]
         public void DebriefRowsMatchTheReport()

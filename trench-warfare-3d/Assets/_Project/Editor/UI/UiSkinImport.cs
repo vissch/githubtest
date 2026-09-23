@@ -11,15 +11,34 @@ namespace TW.Editor
 {
     public sealed class UiSkinImport : AssetPostprocessor
     {
-        public override uint GetVersion() => 1;
+        public override uint GetVersion() => 2;
 
+        public const string UnitArtRoot = "Assets/_Project/UI/Resources/UnitArt/";
         static bool Ours(string path) => path.Replace('\\', '/').StartsWith(SkinSpec.Root);
+        static bool UnitArtFile(string path) => path.Replace('\\', '/').StartsWith(UnitArtRoot);
 
         void OnPreprocessTexture()
         {
+            if (UnitArtFile(assetPath)) { ApplyUnitArt((TextureImporter)assetImporter); return; }
             if (!Ours(assetPath)) return;
             var t = (TextureImporter)assetImporter;
             Apply(t, assetPath);
+        }
+
+        /// <summary>Unit artwork (cutouts and state faces, loaded as Texture2D from Resources): straight alpha, no mips (the
+        /// UI never minifies them far), high-quality compression; every file is 256 or 512 square, so BC7 applies.</summary>
+        public static void ApplyUnitArt(TextureImporter t)
+        {
+            t.textureType = TextureImporterType.Default;
+            t.sRGBTexture = true;
+            t.alphaSource = TextureImporterAlphaSource.FromInput;
+            t.alphaIsTransparency = true;
+            t.mipmapEnabled = false;
+            t.isReadable = false;
+            t.textureCompression = TextureImporterCompression.CompressedHQ;
+            t.maxTextureSize = 1024;
+            t.wrapMode = TextureWrapMode.Clamp;
+            t.filterMode = FilterMode.Bilinear;
         }
 
         /// <summary>The rules, callable from the verifier and from tests as well as from the import.</summary>

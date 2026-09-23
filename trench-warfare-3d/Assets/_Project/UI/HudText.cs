@@ -113,5 +113,39 @@ namespace TW.UI
         public const string IncomingBanner = "INCOMING BARRAGE";
         public const string VictoryBanner = "VICTORY: enemy HQ taken";
         public const string DefeatBanner = "DEFEAT: your HQ has fallen";
+
+        // ---- the speaker strip (HudDialogue / HudCommentary) ----------------------------------------------------------
+        public const string SergeantName = "SERGEANT";
+        public const string TipDeploy = "Silver buys men. Click a card below, or press 1 to 8, and they go up the line.";
+        public const string TipPause = "Space stops the war. Orders you give while it's stopped go out the moment you let it run.";
+        public const string TrenchTaken = "That trench is ours! Get men into it before they come back.";
+        public const string TrenchLost = "They've taken one of our trenches! Fall back and hold the next.";
+        public const string WonLine = "Their line's broken. Well fought, all of you.";
+        public const string LostLine = "We're finished here. Pull back what you can.";
+        public const string MachineLost = "I'm done for... get the crew out!";
+        public const string MachineStalled = "Engine's dead! I'm a sitting duck here!";
+
+        /// <summary>What a unit shouts the first time it is sent up the line.</summary>
+        public static string Bark(byte archetype)
+        {
+            switch (PortraitName(archetype))
+            {
+                case "Rifleman": return "Rifles up! Over the parapet we go.";
+                case "Assault": return "Clear the trench! Grenades first, questions later.";
+                case "MG": return "Gun's set. Nothing crosses that wire.";
+                case "Sniper": return "Keep your heads down. I'll find their officers.";
+                case "Pincer": return "Claws out. Pincer is walking.";
+                case "Kettle": return "Kettle's on! Mortar ready to brew.";
+                case "Maw": return "MAW HUNGRY. MAW CRUSH WIRE.";
+                default: return "Moving up.";
+            }
+        }
+
+        /// <summary>A status report from a type of ours that has lost men: wounded first, critical when it is cut up.</summary>
+        public static string LossReport(byte archetype, int lost, bool critical) =>
+            critical ? $"{Name(archetype).ToUpperInvariant()}: {lost} men down. We can't hold much longer!"
+                     : $"{Name(archetype).ToUpperInvariant()}: {lost} men down. We need help up here!";
+
+        public static string LostMachine(byte archetype) => $"We've lost a {Name(archetype)}!";
     }
 }

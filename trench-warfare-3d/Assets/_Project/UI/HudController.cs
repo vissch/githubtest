@@ -32,6 +32,9 @@ namespace TW.UI
         HudMinimap minimap;
         TrenchOrderCluster clusters;
         ObjectiveTracker objectives;
+        HudDialogue dialogue;
+        HudCommentary commentary;
+        public HudDialogue Dialogue => dialogue;
         HudTooltip tooltip;
         HudHotkeys hotkeys;
         BattleHud legacy;
@@ -57,6 +60,7 @@ namespace TW.UI
         {
             if (HudBridge.PointerOverUi == PointerOverHud) HudBridge.PointerOverUi = null;
             objectives?.Dispose(); objectives = null;
+            commentary?.Dispose(); commentary = null;
             minimap?.Dispose(); minimap = null;
             built = false;   // OnEnable after this (a live reload of the sheets, a toggle) builds again from a fresh tree
             if (legacy != null && !flagOn) legacy.enabled = true;
@@ -91,6 +95,7 @@ namespace TW.UI
             {
                 // a rebuild: let go of the old pieces and start from the document's own tree, so cards are not added twice
                 objectives?.Dispose(); objectives = null;
+                commentary?.Dispose(); commentary = null;
                 minimap?.Dispose(); minimap = null;
                 if (doc.visualTreeAsset != null) { root.Clear(); doc.visualTreeAsset.CloneTree(root); }
             }
@@ -105,6 +110,8 @@ namespace TW.UI
             minimap = new HudMinimap(refs, Host, Cam);
             clusters = new TrenchOrderCluster(refs.OrdersLayer, Resources.Load<VisualTreeAsset>("Hud/TrenchOrders"), Host, Cam, tooltip, Order);
             objectives = new ObjectiveTracker(refs, Resources.Load<VisualTreeAsset>("Hud/ObjectiveRow"), Host);
+            dialogue = new HudDialogue(root);
+            commentary = new HudCommentary(Host, dialogue, SettingsStore.Current.Interface.Tooltips);   // the tips follow the tooltips setting
             hotkeys = new HudHotkeys(this);
             Wire();
             refs.MinimapBezel.EnableInClassList("hud-bezel--round", SettingsStore.Current.Interface.RoundRadar);
@@ -238,6 +245,7 @@ namespace TW.UI
 
             // gauges
             minimap.Refresh();
+            dialogue?.Tick(Time.unscaledDeltaTime);
             bool paused = Clock != null ? Clock.Paused : Host.TimeScale <= 0f;
             float speed = Clock != null ? Clock.Speed : Host.TimeScale;
             HudView.BindGauges(refs, w.Silver[0], Host.SilverPerSecond, minimap.MyMen, minimap.TheirMen, Mathf.FloorToInt(w.Tick * tickSeconds), speed, paused);

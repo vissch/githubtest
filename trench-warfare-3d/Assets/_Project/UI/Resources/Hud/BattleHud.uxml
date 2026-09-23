@@ -73,6 +73,14 @@
             <ui:Label name="hint" text="" class="tw-caption hud-hint" picking-mode="Ignore" />
         </ui:VisualElement>
 
+        <ui:VisualElement name="dialogue" class="tw-plate hud-dialogue" picking-mode="Ignore">
+            <ui:VisualElement name="dialogue-portrait" class="tw-window hud-dialogue__portrait" picking-mode="Ignore" />
+            <ui:VisualElement class="hud-dialogue__body" picking-mode="Ignore">
+                <ui:Label name="dialogue-name" text="" class="tw-caps hud-dialogue__name" picking-mode="Ignore" />
+                <ui:Label name="dialogue-text" text="" class="tw-body hud-dialogue__text" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <ui:VisualElement name="orders-layer" class="hud-orders-layer" picking-mode="Ignore" />
 
         <ui:VisualElement name="banner" class="hud-banner" picking-mode="Ignore">

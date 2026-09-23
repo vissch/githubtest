@@ -52,3 +52,26 @@
 .shell-debrief .tw-table { margin: 6px 0 14px 0; }
 .shell-debrief .tw-table__cell--head { flex-basis: 0; }
 .shell-debrief-meta { flex-direction: row; justify-content: space-between; margin-bottom: 12px; }
+
+/* the armoury (ArmouryScreen): tiles of cutouts left, the chosen unit large on the right */
+.armoury-list-column { width: 468px; }
+.armoury-grid { flex-direction: row; flex-wrap: wrap; margin: 0 8px 8px 8px; }
+.armoury-tile { width: 104px; height: 128px; margin: 0 8px 8px 0; padding: 4px; flex-direction: column; align-items: center; justify-content: flex-end; }
+.armoury-tile__art { position: absolute; left: 6px; right: 6px; top: 4px; height: 84px; -unity-background-scale-mode: scale-to-fit; }
+.armoury-tile__name { font-size: var(--tw-size-micro); color: var(--tw-text); -unity-font-style: bold; -unity-text-align: middle-center; }
+.armoury-tile__cost { font-size: var(--tw-size-micro); color: var(--tw-accent); -unity-font-definition: url("../Skin/Fonts/DustFrontMono.asset"); -unity-text-align: middle-center; }
+.armoury-info { padding: 16px 20px; }
+.armoury-role { color: var(--tw-accent); margin-bottom: 6px; }
+.armoury-hero { flex-direction: row; flex-grow: 1; }
+.armoury-art { width: 440px; height: 440px; flex-shrink: 0; margin-right: 20px; -unity-background-scale-mode: scale-to-fit; background-color: var(--tw-plate-900); border-radius: var(--tw-radius-lg); }
+.armoury-side { flex-grow: 1; flex-shrink: 1; }
+.armoury-subhead { margin: 10px 0 6px 0; color: var(--tw-text); -unity-font-style: bold; }
+.armoury-note { color: var(--tw-text-mute); white-space: normal; margin-top: 4px; }
+.armoury-states { flex-direction: row; flex-wrap: wrap; }
+.armoury-state { width: 84px; height: 96px; margin: 0 6px 6px 0; -unity-background-scale-mode: scale-to-fit; justify-content: flex-end; align-items: center; }
+.armoury-state__label { font-size: 9px; color: var(--tw-text-dim); -unity-text-align: middle-center; background-color: rgba(10, 11, 12, 0.7); padding: 0 4px; border-radius: var(--tw-radius-sm); }
+.armoury-ranks { flex-direction: row; }
+.armoury-rank { width: 200px; height: 56px; margin-right: 10px; flex-direction: row; align-items: center; padding: 0 12px; }
+.armoury-rank__lock { width: 24px; height: 24px; margin-right: 10px; -unity-background-image-tint-color: var(--tw-text-mute); }
+.armoury-rank__label { color: var(--tw-text-mute); font-size: var(--tw-size-label); }
+
