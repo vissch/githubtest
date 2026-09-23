@@ -14,17 +14,16 @@ namespace TW.UI
         // every screen (a 72 px card is 86 px tall at 1080p, Dust Front's card size); every px below is in this space.
         public const float ReferenceHeight = 900f, ReferenceWidthPx = 1600f;
 
-        // The battle HUD draws another 1.5x on top of that (owner, 2026-09-23: "the rest of the ui 1.5x"), and the
-        // infantry cards twice the other cards so they come out 3x their earlier size ("especially the icons of the
-        // soldier 3x"). The HUD root is laid out in a space HudScale times smaller than the panel and scaled back up
-        // (HudView.ApplyScale), so every HUD number below is in THAT space: 1067 x 600 at 16:9. The shell's menus share
-        // the panel and are not scaled. Three times the soldier and one and a half the rest do not fit one row at 16:9,
-        // so ARMOUR and SUPPORT stack in two rows beside the infantry, which stand as tall as both.
-        public const float HudScale = 1.5f;
+        // The battle HUD can draw larger than the menus: its root is laid out in a space HudScale times smaller than the
+        // panel and scaled back up (HudView.ApplyScale), so every HUD number below is in THAT space. The owner had it
+        // at 1.5 ("the rest of the ui 1.5x") and then took 0.5 off ("0.5 smaller everywhere", 2026-09-23), so it is 1
+        // again: HUD space is the panel's 1600 x 900. The infantry cards stay the biggest thing on the bar, 2.5x the
+        // other cards (they were 3x); ARMOUR and SUPPORT stack beside them, ARMOUR level with the infantry caption.
+        public const float HudScale = 1f;
         public static float HudHeight => ReferenceHeight / HudScale;
         // the bottom bar
         public const float CardPx = 72f;         // >= 70 so the unit name still fits (HudLayoutTests)
-        public const float InfantryCardPx = 2f * CardPx + StackGapPx;   // as tall as ARMOUR over SUPPORT: ~3x the pre-HudScale card
+        public const float InfantryCardPx = 2.5f * CardPx;   // 180: 2.5x the other cards
         public const float StackGapPx = 6f;      // between the ARMOUR row and the SUPPORT row
         public const float GapPx = 8f;           // BattleHud.Gap
         public const float InsetPx = 12f;        // BattleHud.Inset
@@ -35,10 +34,10 @@ namespace TW.UI
         public const int SupportSlots = 2;
         public const int Dividers = 1;           // infantry | (armour over support)
         /// <summary>One caption line (INFANTRY, ARMOUR), then the cards: infantry beside ARMOUR over SUPPORT, whose
-        /// caption sits beside its two cards instead of taking a line of its own (round 7: one rhythm, tops and bottoms
-        /// aligned).</summary>
-        public const float StackHeightPx = CaptionPx + CaptionGapPx + InfantryCardPx;   // 166
-        public const float BarHeightPx = BarPadTopPx + StackHeightPx + BarPadBottomPx;  // 180
+        /// caption sits beside its two cards. The stack is as tall as the infantry group: ARMOUR at its top, SUPPORT at
+        /// its bottom, so tops and bottoms align.</summary>
+        public const float StackHeightPx = CaptionPx + CaptionGapPx + InfantryCardPx;   // 196
+        public const float BarHeightPx = BarPadTopPx + StackHeightPx + BarPadBottomPx;  // 210
 
         // the order cluster anchored on a trench
         public const float OrderBtnPx = 62f;     // BattleHud b

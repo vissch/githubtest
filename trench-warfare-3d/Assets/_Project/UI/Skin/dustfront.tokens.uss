@@ -83,9 +83,9 @@
     --tw-border: 2px;
 
     /* battle bar geometry (HudLayout) */
-    --tw-bar-height: 180px;   /* HudLayout.BarHeightPx, in the HUD space (HudScale 1.5) */
+    --tw-bar-height: 210px;   /* HudLayout.BarHeightPx, in the HUD space (HudScale 1.5) */
     --tw-card-size: 72px;
-    --tw-card-size-infantry: 150px;   /* HudLayout.InfantryCardPx: ARMOUR over SUPPORT, ~3x the pre-HudScale card */
+    --tw-card-size-infantry: 180px;   /* HudLayout.InfantryCardPx: 2.5x the other cards */
     --tw-card-gap: 8px;
     --tw-bar-inset: 12px;
     --tw-bar-divider: 20px;
