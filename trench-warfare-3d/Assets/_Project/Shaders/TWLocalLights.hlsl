@@ -31,7 +31,12 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
         sum += deep * smoothstep(0.02, 0.04, e) * 0.36 + tint * smoothstep(0.12, 0.20, e) * 0.38 + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44;
     LIGHT_LOOP_END
 #endif
-    return sum;
+    // A lamp pool is multiplied by the albedo it falls on. Snow's albedo is about three times mud's, so the same
+    // lantern that reads as a small warm pool on a mud field spreads a large salmon stain across a snowfield -
+    // which also breaks the single-hue rule that winter's whole look rests on. One scale per biome fixes it.
+    half lamp = _TWLampScale > 0.0 ? _TWLampScale : 1.0;
+    highlight *= lamp;
+    return sum * lamp;
 }
 
 #endif

@@ -158,6 +158,8 @@ Shader "TW/Toon (URP)"
                 }
                 // Snow lies before anything is lit, so it takes the light the surface under it would have taken and
                 // the toon bands break over it the same way. Zero on every biome but winter (uniform branch).
+                albedo *= TWWorldTint();   // basalt, or old snow, or on the night field exactly 1
+                albedo *= TWHeatCrust(i.positionWS, normalize(i.normalWS), saturate(_DetailStrength * 8.0));   // black between the plates
                 half snow = TWSnowAmount(i.normalWS, i.positionWS);
                 if (snow > 0.0)
                 {
@@ -222,7 +224,10 @@ Shader "TW/Toon (URP)"
                 color += _Emission.rgb;
                 // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
                 // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
-                color += TWHeatGlow(i.positionWS, 1.0 - snow);
+                // _DetailStrength is set only by the terrain material, so it is what tells molten ground from a
+                // sandbag standing on it. Passing it as the exposure means props are LIT by the lava and never cracked.
+                color += TWHeatGlow(i.positionWS, normalize(i.normalWS), (1.0 - snow) * saturate(_DetailStrength * 8.0));
+                color += TWGroundBounce(normalize(i.normalWS), albedo);
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);

@@ -88,6 +88,8 @@ namespace TW.Presentation.Terrain
         static readonly int SnowId = Shader.PropertyToID("_TWSnow"), SnowColorId = Shader.PropertyToID("_TWSnowColor");
         static readonly int HeatId = Shader.PropertyToID("_TWHeat"), HeatColorId = Shader.PropertyToID("_TWHeatColor");
         static readonly int GroundLightId = Shader.PropertyToID("_TWGroundLight");
+        static readonly int WorldTintId = Shader.PropertyToID("_TWWorldTint");
+        static readonly int LampScaleId = Shader.PropertyToID("_TWLampScale");
 
         /// <summary>
         /// Copy a battlefield's profile into the fields this component drives. This replaces ApplyNight, which
@@ -119,7 +121,13 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(HeatId, new Vector4(p.HeatStrength, p.HeatPlates, p.HeatCrackWidth, p.MoltenLevel));
             Shader.SetGlobalVector(HeatColorId, new Vector4(p.HeatColor.r, p.HeatColor.g, p.HeatColor.b, 1f));
             Shader.SetGlobalVector(GroundLightId, new Vector4(p.GroundLight.r, p.GroundLight.g, p.GroundLight.b, p.GroundLight.a));
+            Shader.SetGlobalVector(WorldTintId, new Vector4(p.WorldTint.r, p.WorldTint.g, p.WorldTint.b, p.WorldTint.a));
+            Shader.SetGlobalFloat(LampScaleId, p.LampScale);
             TW.Presentation.Tactical.DebrisRenderer.Biome = p.DebrisTint;
+            // Lava eats what falls into it. Guarded on HeatStrength rather than on MoltenLevel, because MoltenLevel
+            // is 0 on every other field and pushing a level of 0 would swallow every piece that came to rest on flat
+            // ground. One authority: this is the same number the shader reads as _TWHeat.w.
+            TW.Presentation.Tactical.DebrisRenderer.LavaLevel = p.HeatStrength > 0f ? p.MoltenLevel : -10000f;
         }
 
         /// <summary>Put every biome term back to nothing, so a scene without an Atmosphere draws the plain look.</summary>
@@ -128,7 +136,10 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(SnowId, Vector4.zero);
             Shader.SetGlobalVector(HeatId, Vector4.zero);
             Shader.SetGlobalVector(GroundLightId, Vector4.zero);
+            Shader.SetGlobalVector(WorldTintId, Vector4.zero);
+            Shader.SetGlobalFloat(LampScaleId, 1f);
             TW.Presentation.Tactical.DebrisRenderer.Biome = new Color(1f, 1f, 1f, 0f);
+            TW.Presentation.Tactical.DebrisRenderer.LavaLevel = -10000f;
         }
 
         void Start()
@@ -241,11 +252,11 @@ namespace TW.Presentation.Terrain
                 Vector3 from = StormLightFrom; from.y = Mathf.Min(from.y, -.35f);   // never so low that the shadows run to the horizon
                 key.transform.rotation = flash > .02f ? Quaternion.LookRotation(from.normalized) : Quaternion.Euler(KeyEuler);
             }
-            Color sky = Color.Lerp(Haze, new Color(.40f, .48f, .66f), flash * .40f);
+            Color sky = Color.Lerp(Haze, Profile.FlashSky, flash * .40f);
             RenderSettings.fogColor = sky;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = sky;
-            shadeNow = Color.Lerp(ShadeTint, new Color(.60f, .66f, .85f), flash * .4f);
+            shadeNow = Color.Lerp(ShadeTint, Profile.FlashShade, flash * .4f);
             flashNow = flash;
             float height = Mathf.Max(1f, cam.transform.position.y);
             float pitch = Mathf.Max(0.12f, -cam.transform.forward.y);
@@ -260,7 +271,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
-            Color mirror = Color.Lerp(SkyMirror, new Color(.85f, .90f, 1f), flashNow * .55f);   // lightning shows in every puddle
+            Color mirror = Color.Lerp(SkyMirror, Profile.FlashMirror, flashNow * .55f);   // lightning shows in every puddle
             Shader.SetGlobalVector(SkyId, new Vector4(mirror.r, mirror.g, mirror.b, 1f));
             // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
             // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.

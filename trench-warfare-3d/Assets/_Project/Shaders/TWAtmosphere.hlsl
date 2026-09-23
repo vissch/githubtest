@@ -37,6 +37,15 @@ half4 _TWSnowColor;    // rgb lying snow, a the gloss it adds (fresh snow is mat
 float4 _TWHeat;        // x glow strength, y plates per metre, z crack width, w world Y of the molten level
 half4 _TWHeatColor;    // rgb what molten rock throws up out of its cracks
 half4 _TWGroundLight;  // rgb light coming UP off the ground into everything above it, a = 1 when set
+half4 _TWWorldTint;    // rgb multiplies the ground and every prop standing on it, a = 1 when set
+float _TWLampScale;    // local lights are multiplied by albedo; snow is 3x the albedo mud is, so its lamps need reining in
+
+/// The battlefield's own colour over the top of the painted mud. The ground texture is baked on the CPU from a
+/// mud palette and repainted per crater; re-baking it per biome means hoisting six private colours and a dozen
+/// literals out of a 160-line static function, which is the right fix and not a cheap one. This is the cheap
+/// one, and it is honest about being a tint rather than a repaint: basalt is mud multiplied most of the way to
+/// black, old snow is mud multiplied toward cold grey. Unset on the night field, where it is exactly 1.
+half3 TWWorldTint() { return _TWWorldTint.a > 0.5 ? _TWWorldTint.rgb : half3(1, 1, 1); }
 
 /// The ambient a surface sees, split into what falls from the sky and what comes back up off the ground.
 ///
@@ -46,7 +55,7 @@ half4 _TWGroundLight;  // rgb light coming UP off the ground into everything abo
 /// which is why this is one function and not two.
 half3 TWHemisphere(half3 skyShade, float3 normalWS)
 {
-    if (_TWGroundLight.a < 0.5) return skyShade;
+    if (_TWGroundLight.a <= 0.001) return skyShade;
     return lerp(_TWGroundLight.rgb, skyShade, saturate(normalWS.y * 0.5 + 0.5));
 }
 
@@ -57,11 +66,22 @@ half TWSnowAmount(float3 normalWS, float3 positionWS)
 {
     if (_TWSnow.x <= 0.0) return 0.0;
     half up = saturate((normalWS.y - _TWSnow.y) / max(1.0 - _TWSnow.y, 1e-3));
-    // three incommensurate waves, so the snow line wanders instead of following the geometry. Cheap on purpose:
-    // a texture read here would have to be bound by every shader that includes this header.
+    // Three waves, DOMAIN-WARPED by the lowest of them. Three fixed-frequency sines on the same axes are a plane
+    // wave: at 0.73 rad/m that is an 8.6 m period, about seventeen evenly spaced parallel stripes across the field
+    // from the standard camera. Warping the higher octaves by the lowest breaks the axis alignment, which is the
+    // difference between drift and corduroy, and costs three mads.
     float2 q = positionWS.xz;
-    half n = sin(q.x * 0.73 + q.y * 0.41) * 0.5 + sin(q.x * 2.17 - q.y * 1.63) * 0.3 + sin(q.x * 5.31 + q.y * 4.11) * 0.2;
-    return saturate(up * (1.0 + n * _TWSnow.w) * _TWSnow.x);
+    half lo = sin(q.x * 0.073 + q.y * 0.041);
+    q += lo * 4.3;
+    half n = lo * 0.5 + sin(q.x * 0.217 - q.y * 0.163) * 0.3 + sin(q.x * 0.531 + q.y * 0.411) * 0.2;
+    half snow = up * (1.0 + n * _TWSnow.w);
+    // A definite edge that WANDERS, not an airbrushed ramp: a linear ramp in normal.y fades smoothly from white top
+    // to bare side on a curved sandbag, and the reference has a step there with an overhang.
+    snow = saturate((snow - 0.5) * 4.0 + 0.5);
+    // A frost floor, so nothing is ever bare. At SnowShedBelow 0.22 anything steeper than 77 degrees shows raw
+    // brown sandbag and khaki, and in the reference there is not one warm pixel on any vertical face. This also
+    // saves the wire, the bunting and the flags, whose normals point sideways.
+    return saturate(max(snow, 0.30) * _TWSnow.x);
 }
 
 /// Distance to the nearest border between two crust plates: 0 exactly on a crack, rising into the middle of a
@@ -75,21 +95,78 @@ half TWPlateEdge(float2 p)
     for (int x = -1; x <= 1; x++)
     {
         float2 g = float2(x, y);
-        float2 h = frac(sin(float2(dot(c + g, float2(127.1, 311.7)), dot(c + g, float2(269.5, 183.3)))) * 43758.5453);
+        // Wrap the cell id into 0..256 before hashing. At 300x800 m the raw id reaches 80, so the sin argument
+        // reaches ~35,000, where a sin-hash decorrelates and the cells visibly repeat at the far end of the map.
+        // Wrapping repeats honestly every 256 cells, which at ten-metre plates is further away than the field.
+        float2 cc = c + g; cc -= floor(cc / 256.0) * 256.0;
+        float2 h = frac(sin(float2(dot(cc, float2(127.1, 311.7)), dot(cc, float2(269.5, 183.3)))) * 43758.5453);
         half d = length(g + h - f);
         if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
     }
     return d2 - d1;
 }
 
-/// What the cracks in molten ground add to a surface. Strongest on ground near the molten level and fading with
-/// height, so a sandbag two metres up glows along its foot and not along its top.
-half3 TWHeatGlow(float3 positionWS, half exposure)
+/// What the cracks in molten ground add to a surface.
+///
+/// The molten rock is in the FLOOR, and both gates below exist because the first version of this did not say so.
+/// A glow drawn from world xz alone asks the same question of every surface in that column, so the cracks climbed
+/// the sandbag lines and drew a bright band across the middle of every tree stump: the ground's cracks painted
+/// onto whatever happened to be standing in them. So it is gated twice. Only near-horizontal faces, because a
+/// vertical face is the SIDE of a rock and no light comes out of it; and only close above the molten level,
+/// falling off over about half a metre rather than two.
+///
+/// The crack itself is a width that varies, with a hotter core inside it. A constant width reads as glowing rope
+/// laid over the ground; what the reference shows is molten rock seen between plates, wide in places, pinched in
+/// others, and near-white in the middle where it is deepest.
+half3 TWHeatGlow(float3 positionWS, float3 normalWS, half exposure)
 {
-    if (_TWHeat.x <= 0.0) return half3(0, 0, 0);
-    half crack = 1.0 - smoothstep(0.0, max(_TWHeat.z, 1e-3), TWPlateEdge(positionWS.xz * _TWHeat.y));
-    half high = saturate(1.0 - (positionWS.y - _TWHeat.w) * 0.55);   // the heat is in the floor, not in the air
-    return _TWHeatColor.rgb * (crack * crack * _TWHeat.x * high * exposure);
+    if (_TWHeat.x <= 0.0 || exposure <= 0.002) return half3(0, 0, 0);
+    // Only the floor, and only the parts of it turned upward. NOT gated on absolute world height: the first attempt
+    // faded the glow out above MoltenLevel, which silently deleted every crack on ground that happened to lie above
+    // 0.6 m - which is most of a battlefield with a parapet on it. The caller says whether this is ground at all.
+    half where = saturate(normalWS.y * 2.2 - 0.5);
+    if (where <= 0.002) return half3(0, 0, 0);
+
+    // Plates stretched along the flow rather than a honeycomb, and the field CENTRED before scaling: at 300x800 m
+    // the raw cell coordinate reaches 80, so the sin-hash argument reaches ~35,000, where it decorrelates and the
+    // cells start repeating at the far end of the map. Centring keeps it in a range the hash survives.
+    float2 q = positionWS.xz * _TWHeat.y * float2(1.0, 0.78);   // slightly stretched; at 0.45 they became parallel ribbons
+    half edge = TWPlateEdge(q);
+    half w = max(_TWHeat.z, 1e-3) * (0.5 + 1.0 * (sin(positionWS.x * 0.21 + positionWS.z * 0.17) * 0.5 + 0.5));
+    // Widen to at least one pixel. A 0.6 m emissive crack is sub-pixel at 200 m, and sub-pixel emissive detail under
+    // bloom is the worst artefact available: bright specks crawling along the horizon as the camera moves.
+    w = max(w, fwidth(edge) * 1.5);
+    half crack = 1.0 - smoothstep(0.0, w, edge);
+    half core = 1.0 - smoothstep(0.0, w * 0.34, edge);
+    half3 lit = _TWHeatColor.rgb * (crack * crack) + half3(1.0, 0.86, 0.58) * (core * core * 0.85);
+    return lit * (_TWHeat.x * where * exposure);
+}
+
+/// How black the rock is at this point. Adding glow without taking the albedo down is the "glowing dirt" failure:
+/// the reference's plate interior is essentially black RIGHT BESIDE a crack, and it is that contrast, not the
+/// emission on its own, that makes the crack look hot. Returns 1 off the lava fields.
+half TWHeatCrust(float3 positionWS, float3 normalWS, half exposure)
+{
+    if (_TWHeat.x <= 0.0 || exposure <= 0.002) return 1.0;
+    half where = saturate(normalWS.y * 2.2 - 0.5);
+    if (where <= 0.002) return 1.0;
+    float2 q = positionWS.xz * _TWHeat.y * float2(1.0, 0.78);
+    half edge = TWPlateEdge(q);
+    return lerp(1.0, 0.42, saturate(edge * 2.4) * where * exposure);   // dark in the middle of a plate
+}
+
+/// Light thrown UP off the floor onto whatever stands on it: strongest low down and on faces turned toward the
+/// ground. Without it the lava field is a set of black cutouts against a bright floor, which is the one thing the
+/// reference never does - there, every stump and sandbag catches the fire along its underside and its lower edges.
+/// _TWGroundLight.a is how strong the bounce is, so the night field can have a little and the lava field a lot.
+half3 TWGroundBounce(float3 normalWS, half3 albedo)
+{
+    if (_TWGroundLight.a <= 0.001) return half3(0, 0, 0);
+    // No height term. It had one, referenced to the molten level, and it made the bounce vanish on any prop
+    // standing on high ground - the same absolute-height mistake as the cracks above. Nothing on this battlefield
+    // is more than a few metres up, so how far a surface faces the ground is the whole of the answer.
+    half down = saturate(-normalWS.y * 0.8 + 0.55);
+    return _TWGroundLight.rgb * albedo * (down * _TWGroundLight.a);
 }
 
 
