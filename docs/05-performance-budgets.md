@@ -511,3 +511,23 @@ From the first baseline of this pass to here, on the editor stress battle: main 
 84.8 → 18.7 ms, sim per tick 21.8 (two worlds) → 2.35 ms, GC p95 461 KB → 12 KB a frame. What is left above the 3 ms
 main-thread budget is presentation (`TW.Anim.Advance` is now the largest single marker at ~1.5 ms a frame) and the
 crater frames, which are next.
+
+### The crater frame, first half: the terrain (same day)
+
+With presentation markers in (one per Update/LateUpdate, sections inside the terrain), the 64–85 ms hitches read as
+three whole-map jobs landing in the frame a shell does: the terrain's chunk rebuild (27.4 ms worst frame in the
+editor), the props' Compose (25.6 ms) and the terrain's hollow rescan (11.0 ms).
+
+- **Chunks** are re-read row by row under a 2 ms budget (`GreyboxTerrainView.ChunkBudgetMs`) instead of two whole chunks a
+  frame, and uploaded when their last row is read. A vertex's normal samples the surface 0.25 m either side of it, and
+  those points are its neighbours' too, so each is sampled once: half the ground samples. Every position involved is a
+  multiple of 0.25 m, exact in float, so the values are the same floats; checked in Play over all 27 chunks, 102,663
+  vertices: 0 positions and 0 normals differ from the old per-vertex formula. Worst chunk frame **27.4 → 2.2 ms**.
+- **One heavy job a frame** (`HeavyWork.TryClaim`): the hollow rescan and the props' Compose no longer stack; a refused
+  job stays pending for the next frame. Chunks wait while the hollows are pending (they read the pools), and so does
+  Compose, which read them too and could before run on the old ones in the same frame.
+
+Worst frame on the stress battle 84.9 → 60.6 ms, p99 22.6 → 19.2 ms. Left: Compose itself (28.5 ms on the live field:
+the composer's Build 21.5 ms — Landmarks 6.1, Margins 3.6, Litter 2.3 — and ~7 ms applying 7,112 instances). It
+places against the current ground (a crater can move an MG nest), so it cannot be cached; it is to be spread over
+frames, which waits on the village work in BattlefieldComposer being committed.

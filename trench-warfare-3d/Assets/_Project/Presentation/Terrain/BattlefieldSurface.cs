@@ -180,11 +180,11 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>The drawn surface: the bed, or the flat water standing in a flooded shell hole.</summary>
-        public float VisualHeight(float x, float z)
-        {
-            float bed = Bed(x, z);
-            return bed + Mathf.Max(0f, PoolDepth(x, z, bed));
-        }
+        public float VisualHeight(float x, float z) => VisualHeight(x, z, Bed(x, z));
+
+        /// <summary>The drawn surface over a bed already sampled at this point (Bed(x, z)): the same value as
+        /// VisualHeight(x, z) without sampling the ground twice (GreyboxTerrainView's chunk rebuild).</summary>
+        public float VisualHeight(float x, float z, float bed) => bed + Mathf.Max(0f, PoolDepth(x, z, bed));
 
         /// <summary>Depth of standing water in a flooded shell hole at this point, 0 or less when there is none.</summary>
         public float PoolDepth(float x, float z) => PoolDepth(x, z, Bed(x, z));

@@ -31,7 +31,14 @@ namespace TW.Presentation.Terrain
         const float GridStep = .5f; // Presentation mesh only: simulation height and traversal remain untouched.
         const int Tpm = 8;   // 720 x 1920 on the standard map: ~7 MiB including mipmaps; no per-pixel noise shader
 
-        sealed class Chunk { public Mesh Mesh; public Vector3[] Verts; public Vector3[] Normals; public int X0, Z0, W, L; public bool Dirty; }
+        sealed class Chunk
+        {
+            public Mesh Mesh; public Vector3[] Verts; public Vector3[] Normals; public int X0, Z0, W, L; public bool Dirty;
+            /// <summary>The first row still to re-read in a rebuild spread over frames; 0 = from the start.</summary>
+            public int NextRow;
+            /// <summary>The surface 0.25 m on from the last row read, which is the next row's sample 0.25 m back.</summary>
+            public float[] RowAhead;
+        }
 
         readonly List<Chunk> chunks = new List<Chunk>();
         readonly List<Object> owned = new List<Object>();
@@ -45,9 +52,18 @@ namespace TW.Presentation.Terrain
         readonly HashSet<Vector2Int> queuedTiles = new HashSet<Vector2Int>();
         readonly List<TW.Sim.SimEvent> scorchMarks = new List<TW.Sim.SimEvent>();
         bool hollowsDirty;
-        /// <summary>Terrain chunks re-read from the height field per frame after craters; the rest wait their turn.</summary>
+        /// <summary>Terrain chunks re-read from the height field per frame after craters; the rest wait their turn.
+        /// Superseded by ChunkBudgetMs (2026-09-23): kept for callers, no longer the limit.</summary>
         public const int MaxChunkRebuilds = 2;
+        /// <summary>Milliseconds a frame spent re-reading crater-dirtied chunks, a row at a time (at least one row a frame).
+        /// Two whole chunks a frame was the 27 ms worst frame measured on 2026-09-23; the finished mesh is the same.</summary>
+        public const double ChunkBudgetMs = 2.0;
+        readonly System.Diagnostics.Stopwatch chunkWatch = new System.Diagnostics.Stopwatch();
+        float[] rowBehindAhead = new float[0];   // the samples 0.25 m either side of a row's vertices along x, shared
         int chunkCursor;
+        /// <summary>A crater's hollows are still to be rescanned: until they are, nothing that reads them (the chunks
+        /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
+        public bool HollowsPending => hollowsDirty;
         readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
         public int PendingPaintTiles => paintTiles.Count;
         public float LastPaintMilliseconds { get; private set; }
@@ -142,15 +158,34 @@ namespace TW.Presentation.Terrain
         /// <summary>Vertices sit on the corners between height cells; normals come from the heightfield, not the chunk.</summary>
         void Fill(Chunk c, TW.Sim.Terrain.Heightfield hf)
         {
-            for (int z = 0; z < c.L; z++)
+            for (int z = 0; z < c.L; z++) FillRow(c, z);
+        }
+
+        /// <summary>
+        /// One row of a chunk. A vertex's normal takes the surface 0.25 m either side of it along x and z, and those points
+        /// are its neighbours' too: x + .25 is the next vertex's x - .25, and z + .25 is the next row's z - .25. Each is
+        /// sampled once and shared, which halves the ground samples a rebuild takes (the surface is expensive to sample:
+        /// trench-lip blending, mounds, rills, pools). The values are the ones the per-vertex version computed: every
+        /// position here is a multiple of 0.25 m, exact in float, so the shared point is the same float either way.
+        /// Rows must be read in order from 0; row 0 samples its own z - .25.
+        /// </summary>
+        void FillRow(Chunk c, int z)
+        {
+            float wz = c.Z0 + z * GridStep;
+            if (rowBehindAhead.Length < c.W + 1) rowBehindAhead = new float[c.W + 1];
+            if (c.RowAhead == null || c.RowAhead.Length < c.W) c.RowAhead = new float[c.W];
+            for (int x = 0; x <= c.W; x++) rowBehindAhead[x] = Surface.VisualHeight(c.X0 + x * GridStep - .25f, wz);
             for (int x = 0; x < c.W; x++)
             {
-                float wx = c.X0 + x * GridStep, wz = c.Z0 + z * GridStep;
-                float bed = Surface.Bed(wx, wz), top = Surface.VisualHeight(wx, wz);
+                float wx = c.X0 + x * GridStep;
+                float bed = Surface.Bed(wx, wz), top = Surface.VisualHeight(wx, wz, bed);
                 c.Verts[z * c.W + x] = new Vector3(wx, top, wz);
                 // men and debris stand on the bed of a flooded hole, but never deeper than the knee
                 renderGrid.Heights[Mathf.RoundToInt(wz / GridStep) * renderGrid.Width + Mathf.RoundToInt(wx / GridStep)] = Mathf.Max(bed, top - .42f);
-                float dx = Surface.VisualHeight(wx + .25f, wz) - Surface.VisualHeight(wx - .25f, wz), dz = Surface.VisualHeight(wx, wz + .25f) - Surface.VisualHeight(wx, wz - .25f);
+                float behind = z == 0 ? Surface.VisualHeight(wx, wz - .25f) : c.RowAhead[x];
+                float ahead = Surface.VisualHeight(wx, wz + .25f);
+                c.RowAhead[x] = ahead;
+                float dx = rowBehindAhead[x + 1] - rowBehindAhead[x], dz = ahead - behind;
                 c.Normals[z * c.W + x] = new Vector3(-dx, .5f, -dz).normalized;
             }
         }
@@ -483,7 +518,15 @@ namespace TW.Presentation.Terrain
             using var perf = TW.Sim.PerfMarkers.TerrainUpdate.Auto();
             if (Host == null || Host.Local == null || colorTex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            if (hollowsDirty) { TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End(); }
+            // the hollow rescan is whole-map work: one heavy job a frame (HeavyWork), and chunks mid-rebuild start over on
+            // the new hollows, so no chunk is ever finished half on the old ones
+            bool rescanned = false;
+            if (hollowsDirty && HeavyWork.TryClaim())
+            {
+                TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End();
+                foreach (var chunk in chunks) chunk.NextRow = 0;
+                rescanned = true;
+            }
             // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
             TW.Sim.PerfMarkers.TerrainRepaint.Begin();
             paintWatch.Restart();
@@ -495,20 +538,29 @@ namespace TW.Presentation.Terrain
             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
             TW.Sim.PerfMarkers.TerrainRepaint.End();
             if (colorDirty) { TW.Sim.PerfMarkers.TerrainApply.Begin(); colorTex.Apply(true, false); colorDirty = false; TW.Sim.PerfMarkers.TerrainApply.End(); }
-            // at most MaxChunkRebuilds a frame, taken round the field from where the last frame stopped: a barrage dirties
-            // most of the field in one tick, and rebuilding every chunk that frame was a hitch; this spreads it over a few
+            // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
+            // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
+            // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
             TW.Sim.PerfMarkers.TerrainChunks.Begin();
-            for (int n = 0, built = 0; n < chunks.Count && built < MaxChunkRebuilds; n++)
+            if (!hollowsDirty && !rescanned)
             {
-                int i = (chunkCursor + n) % chunks.Count;
-                var c = chunks[i];
-                if (!c.Dirty) continue;
-                built++; chunkCursor = (i + 1) % chunks.Count;
-                c.Dirty = false;
-                Fill(c, Host.Local.Map.Height);
-                c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
-                c.Mesh.RecalculateBounds();
-                if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
+                chunkWatch.Restart();
+                int rows = 0;
+                for (int n = 0; n < chunks.Count; n++)
+                {
+                    int i = (chunkCursor + n) % chunks.Count;
+                    var c = chunks[i];
+                    if (!c.Dirty) continue;
+                    chunkCursor = i;   // stay on it until it is done
+                    while (c.NextRow < c.L && (rows == 0 || chunkWatch.Elapsed.TotalMilliseconds < ChunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
+                    if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
+                    c.Dirty = false; c.NextRow = 0;
+                    c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
+                    c.Mesh.RecalculateBounds();
+                    if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
+                    chunkCursor = (i + 1) % chunks.Count;
+                    if (chunkWatch.Elapsed.TotalMilliseconds >= ChunkBudgetMs) break;
+                }
             }
             TW.Sim.PerfMarkers.TerrainChunks.End();
             if (depthDirty) { depthTex.SetPixelData(depthPx, 0); depthTex.Apply(false, false); depthDirty = false; }
@@ -545,7 +597,7 @@ namespace TW.Presentation.Terrain
             for (int cx = Mathf.Max(0, (x0 - 1) / ChunkMeters); cx <= x1 / ChunkMeters; cx++)
             {
                 int i = cz * chunksX + cx;
-                if (i >= 0 && i < chunks.Count) chunks[i].Dirty = true;
+                if (i >= 0 && i < chunks.Count) { chunks[i].Dirty = true; chunks[i].NextRow = 0; }   // heights changed: start it over
             }
         }
 

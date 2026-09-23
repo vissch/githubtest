@@ -271,7 +271,15 @@ namespace TW.Presentation.Terrain
             using var perf = TW.Sim.PerfMarkers.PropsUpdate.Auto();
             if (Host == null || Host.Local == null || kit == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            if (dirty) { dirty = false; TW.Sim.PerfMarkers.PropsCompose.Begin(); Compose(); TW.Sim.PerfMarkers.PropsCompose.End(); }
+            // a whole-map recomposition (26 ms worst frame in the editor, 2026-09-23): only once the terrain has rescanned the
+            // hollows a crater made (the composer reads them), and never in a frame another heavy job took (HeavyWork);
+            // until then it stays dirty and the props stand as they were a frame or two longer
+            if (dirty)
+            {
+                var terrainView = GetComponent<GreyboxTerrainView>();
+                if ((terrainView == null || !terrainView.HollowsPending) && HeavyWork.TryClaim())
+                { dirty = false; TW.Sim.PerfMarkers.PropsCompose.Begin(); Compose(); TW.Sim.PerfMarkers.PropsCompose.End(); }
+            }
             var cam = Camera.main;
             if (cam != null) GeometryUtility.CalculateFrustumPlanes(cam, planes);
             var editorCam = EditorCamera != null && EditorCamera != cam ? EditorCamera : null;
