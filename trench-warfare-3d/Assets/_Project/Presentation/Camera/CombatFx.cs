@@ -101,6 +101,13 @@ namespace TW.Presentation.Tactical
         const int MaxBirds = 80; const float BirdLife = 8f;
         float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
         Material waterMat, birdMat;
+        /// <summary>
+        /// What a shell throws up out of standing liquid. Pale blue is water; on a lava field the same chunks read
+        /// as blue ice cubes bouncing out of molten rock, which is exactly how it looked. A biome sets this, the
+        /// way it sets DebrisRenderer.Biome - and it is a static for the same reason: Terrain references Camera,
+        /// so CombatFx cannot read Atmosphere.Profile without closing a reference cycle.
+        /// </summary>
+        public static Color SplashTint = new Color(0.62f, 0.70f, 0.82f);
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
         readonly List<Body> bodies = new List<Body>(600);
@@ -176,7 +183,7 @@ namespace TW.Presentation.Tactical
             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
-            waterMat = new Material(unlit) { enableInstancing = true, color = new Color(0.62f, 0.70f, 0.82f) };
+            waterMat = new Material(unlit) { enableInstancing = true, color = SplashTint };
             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
             SceneHooks.Sparks = (at, count) => Throw(at, count, 3, 2.5f, 0.04f);
             var lens = Camera.main;
@@ -1237,6 +1244,8 @@ namespace TW.Presentation.Tactical
             }
             // water thrown up by rounds, shells and boots: pale drops under gravity
             batch.Clear();
+            // the biome may have loaded after this material was built, and it costs one comparison a frame
+            if (waterMat.color != SplashTint) waterMat.color = SplashTint;
             var rpW = new RenderParams(waterMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
             for (int i = 0; i < chunks.Count; i++)
             {
