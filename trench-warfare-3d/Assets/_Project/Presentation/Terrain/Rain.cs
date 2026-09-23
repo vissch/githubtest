@@ -138,7 +138,12 @@ namespace TW.Presentation.Terrain
             material.SetVector(SizeId, Box);
             float level = AsSnow ? Snowfall : Mathf.Clamp01(Atmosphere.RainNow);
             Vector2 wind = Atmosphere.WindNow;
-            var velocity = new Vector3(wind.x, -(FallSpeed + 7f * level), wind.y);   // heavy drops fall faster
+            // Heavy rain falls faster; heavy SNOW does not - it just fills the air and goes sideways. With the
+            // rain rule a flake fell at 8.5 m/s into a 1.6 m/s breeze, a slant of ten degrees, and read as pale
+            // rain. A blizzard is the other way round: slow down, fast across.
+            var velocity = AsSnow
+                ? new Vector3(wind.x * 3.2f, -(FallSpeed + 1.2f * level), wind.y * 3.2f)
+                : new Vector3(wind.x, -(FallSpeed + 7f * level), wind.y);   // heavy drops fall faster
             fallen += velocity * Time.deltaTime;
             for (int k = 0; k < 3; k++) fallen[k] = Mathf.Repeat(fallen[k], Box[k] * 64f);   // keep the numbers small; 64 boxes is a whole number of wraps
             material.SetVector(OffsetId, fallen);

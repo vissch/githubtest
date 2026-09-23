@@ -90,7 +90,70 @@ almost entirely out of terms rather than assets. The expensive items are the sho
 
 Answers pending. Until then, everything here is built as presentation-only, with the sim untouched.
 
-## Status
+## What was built, 2026-09-23 02:40 to 07:10
 
-Specified 2026-09-23 02:40. Nothing implemented yet. This document is the brief; the implementation notes and the
-measured costs will be appended as each item lands.
+### The spine
+
+A battlefield is a `BiomeProfile` (`Presentation/Terrain/BiomeProfile.cs`): three entries, everything that differs
+between one field and another as named data. The rule it is written to keep is that **a fourth biome is a fourth
+entry and nothing else**. `Atmosphere.ApplyNight` and its nineteen hand-assigned literals are gone.
+
+`SceneMood.Night` was the trap. It is read at twenty-odd sites in `CombatFx`, `TankRenderer` and
+`AnimationController`, always as a binary, and a third biome does not break those loudly — it silently takes the
+*daylight* branch. The bool keeps the only meaning it ever had, **is it dark**, and lava answers yes: it is lit
+from below by its own floor, which is the case those glow branches were tuned for. Everything else that used to
+ride on "night" is a field.
+
+### The terms, all in the shared header, all behind uniform branches
+
+| Term | What it does | Cost |
+|---|---|---|
+| `TWSnowAmount` | Coverage by world normal, domain-warped, with a hard wandering edge and a frost floor | Free |
+| `TWHemisphere` | The shaded half split into sky-from-above and bounce-from-below | Free |
+| `TWGroundBounce` | What the floor throws up onto what stands on it | Free |
+| `TWMolten` | Two octaves; where the ground is molten at all | Cheap, terrain only |
+| `TWPlateEdge` / `TWHeatGlow` | Crust plates, seams that widen toward the pools, a three-stage cooling ramp | Cheap, terrain only |
+| `TWHeatCrust` | Albedo toward black between plates — adding glow without this is glowing dirt | Free |
+| `TWWorldPaint` | Multiply, then a **pull** toward the biome's hue | Free |
+
+`TWHemisphere` is the one worth singling out. It is a quality fix for winter's flat overcast light **and** the
+entire key light of the lava field. One function, opposite signs, one parameter.
+
+### Measured, with `scratchpad/hot.py`, on the ground half of the standard view
+
+| | Lava | Winter | Concept target |
+|---|---|---|---|
+| Hot area | **31.4%** (was 1.0%) | — | 34.6% |
+| Median value | 0.18 | 0.50 | 0.47 |
+| Warm pixels | — | **7.6%** (was 22.4%) | 0.2% |
+| Inside the biome hue | — | **90.8%**, 97.1% at trench level | ~100% |
+
+### What the captures taught that reading the code did not
+
+- **The lava field was figure-ground inverted.** Three rounds of tuning produced 1% hot area against a 34.6%
+  target. That is a different model, not a different constant: I had built cold crust with hairline seams, and the
+  reference is molten rock with cold plates standing in it. Turning the glow up against a 30× area gap produced
+  neon piping, twice.
+- **Absolute world height is the wrong instrument, twice.** Gating the glow above `MoltenLevel` deleted every
+  crack on ground above 0.6 m — most of a battlefield with a parapet. The ground bounce had the same fault.
+- **A measured colour is not an emission colour.** The reference's crack body is what it shows *after* fog, grade
+  and bloom. Pasted in as emission and pushed through Saturation +22 and Bloom 1.35 it came out magenta.
+- **A multiply cannot change hue.** Brown mud times cold grey is brown, so winter's trench interiors stayed warm.
+- **Snow that rides on the rain amount brings the rain's wetness with it**, because that number is also `_TWWet.z`.
+- **A square quad is confetti.** Snow needs a 7:1 dash along its fall.
+
+### Not built, and therefore not true to the references
+
+No embers, heat shimmer or volcano on lava. No ice: winter's shell holes still render as water. No mountains on
+the winter horizon — the skirt is flat painted ground, and this is the one item that needs real geometry. No snow
+volume (no vertex displacement), so a parapet is still a row of discrete bags with white tops rather than a
+continuous pillow. No contact shadows anywhere, which winter needs most because a bright uniform field hides
+nothing. The blizzard falls nearly vertically.
+
+### Two single-field findings outside the biomes
+
+- `m_ShadowDistance: 220` with one cascade at 2048 is ~11 cm per texel, which is why nothing in this game appears
+  to have a contact shadow. They are on; they are spread too thin to resolve a sandbag.
+- The renderer is plain Forward with `AdditionalLightsPerObjectLimit: 8`, while `NightLights` creates ~60 lights.
+  A large terrain chunk gets eight, chosen per *object*. `_FORWARD_PLUS` is already in the shader pragmas and
+  `LIGHT_LOOP_BEGIN` already handles it, so the open Forward+ decision is one asset field.
