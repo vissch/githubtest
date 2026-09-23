@@ -346,3 +346,56 @@ unexplained number rather than asserting on it, so an open question cannot go gr
 **Not yet covered by a test:** that `VATRenderer.OnDestroy` actually calls `Release`. The tests cover `Release`
 itself; deleting the call from `OnDestroy` would leave them green. That wants a PlayMode test which stands up a real
 renderer, records its atlases and destroys it — next piece of work on this.
+
+### The doubling is systematic, and it is not a readable copy (2026-09-23)
+
+The other half of the atlas question turns out not to be about the atlases at all. Three textures, measured against
+what their format and dimensions imply:
+
+| | Format arithmetic | `GetRuntimeMemorySizeLong` | Ratio |
+|---|---|---|---|
+| `InfantryVatPositions`, 917×3398, RGBA64, no mips | 23.77 MB | 48.7 MB | **2.05** |
+| `InfantryVatNormals`, 917×3398, RGBA32, no mips | 11.89 MB | 24.3 MB | **2.04** |
+| `Painted horizon`, 846×1404, RGBA32, 11 mips | 6.04 MB | 12.4 MB | **2.05** |
+
+Two different formats, two unrelated creation paths (`VatCodec.Decode` and `GreyboxTerrainView.BuildSkirt`), one
+mipped and two not — and the same constant. That rules out anything format-specific, content-specific or
+mip-related, and it means this was never a VAT problem.
+
+It also finally disposes of the hypothesis recorded above. "A readable texture keeping a CPU copy beside the GPU
+one" cannot be it: **all three already pass `makeNoLongerReadable`** — `pos.Apply(false, !keepReadable)` in
+`VatCodec.Decode` with `keepReadable` false, and `texture.Apply(…, true)` in `BuildSkirt`. Whatever the second copy
+is, asking for it to be dropped does not drop it.
+
+What is left is that the **editor** keeps a copy it can re-upload after a graphics device reset, whatever the flag
+says, in which case it does not exist in a player build; or that `GetRuntimeMemorySizeLong` counts system and video
+memory together and reports both. Either way every texture number in this document is likely **twice the shipped
+cost**, and none of them has ever been measured anywhere but the editor.
+
+**So the next piece of work on memory is a build measurement, and it is worth more than any further optimisation.**
+Until it happens, the honest reading of the table at the top of this section is "editor figures, probably 2× high".
+
+### The painted horizon: DXT5 (2026-09-23)
+
+12.4 MB for a surface that is mostly drawn beyond the fog made it the third largest texture in the game. It is now
+block compressed, 4× smaller.
+
+**Not DXT1, despite it being half the size again.** The alpha is not spare: `Coast` drives it down to 0.45 on wet
+sand, and `TW/Toon` reads `half gloss = max(_Gloss, 1.0 - base.a)` with `base.a < 0.45` meaning standing water. So
+alpha here is a continuous wetness that crosses a hard threshold, and DXT1's one bit of it would replace the whole
+beach with a single water/not-water edge. DXT5 keeps eight interpolated bits.
+
+**The grid had to be rounded first.** DXT works in 4×4 blocks and 846 is not a multiple of four, so the compressor
+would have declined it — *silently*, leaving the texture at full size while the code read as though it had worked.
+That is the same failure this document already records losing an afternoon to with the 3072-wide kit sheet, which
+came back as 25 MB of uncompressed RGB24 and looked identical on screen. The skirt now rounds up to 848 and derives
+its world mapping from the rounded size rather than assuming three texels a metre.
+
+`Tests/EditMode/PaintedHorizonCompressionTests.cs` sweeps alpha through the 0.45 threshold, compresses, and asserts
+that no texel changes side away from the crossing — the one thing that could go wrong on screen. Measured: the
+largest alpha error across the sweep is **0.002**, and no texel changes side. DXT5's alpha block is very nearly
+lossless on a smooth gradient, which is what a beach is, so the wetness gradient survives intact.
+
+The refusal is not folklore either. A 6×8 texture logs `has dimensions (6 x 8) which are not multiples of 4.
+Compress will not work.` and comes back still RGBA32 — an error in the log, nothing thrown, and the calling code
+reading as though it had saved three quarters of the memory. That is the whole case for `Round4`.

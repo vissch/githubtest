@@ -334,26 +334,49 @@ namespace TW.Presentation.Terrain
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r2 = go.AddComponent<MeshRenderer>();
             var skirtMat = Toon(Color.white);
-            int tw = Mathf.CeilToInt((w + paintedBorder * 2f) * 3f), th = Mathf.CeilToInt((l + paintedBorder * 2f) * 3f);
+            // Texels a metre for a surface that is mostly drawn beyond the fog. Three was picked by eye and never
+            // costed: at 12.4 MB this was the third largest texture in the game (docs/05). It stays at three because
+            // the inner five metres of this texture blend into the real ground at the map edge, where a coarser grid
+            // would show a seam; the saving comes from the format instead.
+            const float texelsPerMetre = 3f;
+            // Block compression works on 4x4 blocks and silently declines a texture whose sides are not a multiple of
+            // four, so the grid is rounded up and the world mapping below is derived from the ROUNDED size rather
+            // than assuming texelsPerMetre exactly. Getting that backwards would skew the paint against the mesh's UVs.
+            float spanX = w + paintedBorder * 2f, spanZ = l + paintedBorder * 2f;
+            int tw = Round4(Mathf.CeilToInt(spanX * texelsPerMetre)), th = Round4(Mathf.CeilToInt(spanZ * texelsPerMetre));
             var texture = new Texture2D(tw, th, TextureFormat.RGBA32, true) { name = "Painted horizon", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var pixels = new Color32[tw * th];
             for (int z = 0; z < th; z++)
             for (int x = 0; x < tw; x++)
             {
-                float wx = x / 3f - paintedBorder, wz = z / 3f - paintedBorder;
+                float wx = x * spanX / tw - paintedBorder, wz = z * spanZ / th - paintedBorder;
                 float outside = Mathf.Max(Mathf.Max(-wx, wx - w), Mathf.Max(-wz, wz - l));
                 Color c = Tone(wx, wz);
                 if (outside < 5f) c = Color.Lerp(GroundColor(map, Mathf.Clamp(wx, 0f, w - 0.01f), Mathf.Clamp(wz, 0f, l - 0.01f)), c, Band(0f, 5f, outside));
                 c = Color.Lerp(c, MudMid, Band(30f, 96f, outside));
                 pixels[z * tw + x] = Coast(map, wx, wz, SkirtHeight(map, wx, wz), c);   // the beach does not stop at the map edge
             }
-            texture.SetPixels32(pixels); texture.Apply(true, true);
+            // DXT5, not DXT1. The alpha here is not spare: Coast drives it down to 0.45 on wet sand, and TW/Toon reads
+            // `gloss = max(_Gloss, 1.0 - base.a)` with `base.a < 0.45` meaning standing water. DXT1 carries one bit of
+            // alpha and would turn the whole beach into a hard water/not-water edge. DXT5 keeps eight interpolated
+            // bits, and Compress picks it automatically for a texture whose format has alpha.
+            //
+            // Mips are built while the pixels are still readable, then the compressed result is uploaded and the CPU
+            // copy dropped. The cost is a one-time compression at scene load, not yet measured; the gain is four to
+            // one on 4.5 MB of base level plus its mips.
+            texture.SetPixels32(pixels);
+            texture.Apply(true, false);
+            texture.Compress(true);
+            texture.Apply(false, true);
             owned.Add(texture);
             skirtMat.SetTexture("_BaseMap", texture);
             r2.sharedMaterial = skirtMat; r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         static float span2(bool alongZ, float w, float l) => alongZ ? w : l;
+
+        /// <summary>Up to the next multiple of four, which is the block size every DXT format works in.</summary>
+        static int Round4(int n) => (n + 3) & ~3;
 
         /// <summary>The edge height a skirt column continues: the ground's own, or the bank beside a trench that runs out there.</summary>
         float SkirtEdge(MapData map, int side, float tt)
