@@ -70,7 +70,9 @@ namespace TW.Presentation.Terrain
 
             voice = gameObject.AddComponent<AudioSource>();
             voice.spatialBlend = 0f; voice.playOnAwake = false;
-            if (FindFirstObjectByType<AudioListener>() == null && Camera.main != null) Camera.main.gameObject.AddComponent<AudioListener>();
+            // deliberately NOT creating an AudioListener here. FindFirstObjectByType skips inactive objects, so a
+            // frame where the camera is inactive used to add a SECOND listener, which Unity warns about and which
+            // makes global volume non-deterministic. Listener ownership belongs to the camera, not to the weather.
             thunder = new[] { MakeThunder(0, 1f, 5.5f), MakeThunder(1, .45f, 6.5f), MakeThunder(2, .08f, 7.5f) };   // near: a crack; far: all rumble
             nextStrike = Time.unscaledTime + 9f;
         }
@@ -246,7 +248,10 @@ namespace TW.Presentation.Terrain
             for (int k = pending.Count - 1; k >= 0; k--)
             {
                 if (Time.unscaledTime < pending[k].At) continue;
-                float level = Mathf.Clamp01(AudioLevels.Master) * Mathf.Clamp01(AudioLevels.Ambience);
+                // the ambience bus only: Master is already on the listener, and applying it here too squared it.
+                // Baked at fire time rather than live, which is right for a one-shot — a 6 s thunderclap keeps the
+                // ambience level it was fired at, while Master stays live on the listener.
+                float level = AudioLevels.Ambience;
                 if (level > 0.001f) voice.PlayOneShot(thunder[pending[k].Clip], pending[k].Volume * level);
                 pending.RemoveAt(k);
             }

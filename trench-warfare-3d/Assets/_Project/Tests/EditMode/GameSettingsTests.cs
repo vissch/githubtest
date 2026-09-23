@@ -30,6 +30,39 @@ namespace TW.Tests
             Assert.That(GameSettings.FromJson(d.ToJson()).Audio.Master, Is.EqualTo(0f), "and it survives being saved");
         }
 
+        /// <summary>
+        /// The muting has to actually happen, not merely be configured. The previous version of this file asserted
+        /// the default constant and nothing else, which is why it stayed green while Master was being applied TWICE
+        /// - once on the listener and once again as a bus inside Storm, so thunder came out scaled by Master squared.
+        /// A test that only reads the number it was told to expect cannot see a mechanism fault.
+        /// </summary>
+        [Test]
+        public void ApplyingTheSettingsActuallySilencesTheGame_AndMasterIsAppliedExactlyOnce()
+        {
+            float restore = AudioListener.volume;
+            try
+            {
+                TW.UI.SettingsApplier.ApplyAudio(GameSettings.Defaults());
+                Assert.That(AudioListener.volume, Is.EqualTo(0f), "a fresh install is silent in fact, not just on paper");
+
+                var up = GameSettings.Defaults();
+                up.Audio.Master = 1f; up.Audio.Ambience = 0.5f;
+                TW.UI.SettingsApplier.ApplyAudio(up);
+                Assert.That(AudioListener.volume, Is.EqualTo(1f), "turning the master up turns the game on");
+
+                // the mechanism: master is the listener and ONLY the listener, the buses carry their own value
+                // unmultiplied. If master ever reappears as a bus, a source that reads both squares it.
+                var half = GameSettings.Defaults();
+                half.Audio.Master = 0.5f; half.Audio.Ambience = 1f;
+                TW.UI.SettingsApplier.ApplyAudio(half);
+                Assert.That(AudioListener.volume, Is.EqualTo(0.5f), "master goes to the listener unchanged");
+                Assert.That(AudioLevels.Ambience, Is.EqualTo(1f), "the ambience bus is not scaled by master as well");
+                Assert.That(AudioLevels.Sfx, Is.EqualTo(half.Audio.Sfx));
+                Assert.That(AudioLevels.Music, Is.EqualTo(half.Audio.Music));
+            }
+            finally { AudioListener.volume = restore; TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current); }
+        }
+
         [Test]
         public void EditedValuesSurviveTheRoundTrip()
         {
