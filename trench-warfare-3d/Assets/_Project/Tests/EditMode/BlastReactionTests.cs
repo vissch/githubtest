@@ -84,7 +84,7 @@ namespace TW.Tests
             Assert.IsTrue(s.Down);
             Assert.AreEqual(math.PI / 2f, s.BodyYaw, 1e-3f, "turned to face the way it throws him, so he falls away from it");
             r.A.Advance(0.2f);
-            Assert.Greater(r.A.Hop[man], 0.3f, "a quarter of a second after the burst he is in the air");
+            Assert.Greater(r.A.Hop[man], 0.2f, "a quarter of a second after the burst he is in the air (life-size metres)");
 
             bool gotUp = false, dazed = false;
             for (int t = 0; t < 240; t++)

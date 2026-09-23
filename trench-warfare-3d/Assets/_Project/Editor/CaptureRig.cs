@@ -101,6 +101,11 @@ namespace TW.Editor
             {
                 tc.Zoom = Mathf.Clamp(shot.Zoom, tc.ZoomMin, tc.ZoomMax);
                 tc.Focus = shot.Focus;
+                // what TacticalCamera.Update sets for this zoom: the close-up band (grit, footprints, litter, the effects'
+                // close sizes). The camera is off for the set and its OnDisable put both at 0, so every close still was
+                // drawn as the standard view (found 2026-09-23: CloseUp read 0 in a zoom-5 series).
+                SceneHooks.CloseUp = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.DetailFullZoom, tc.DetailGoneZoom, tc.Zoom));
+                Shader.SetGlobalFloat("_TWClose", SceneHooks.CloseUp);
                 float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.ZoomMin, tc.CloseZoom, tc.Zoom));
                 float fov = Mathf.Lerp(tc.Fov, tc.CloseFov, close);
                 cam.fieldOfView = fov; cam.nearClipPlane = 0.2f;

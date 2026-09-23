@@ -381,7 +381,7 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>A lumpy sphere: each vertex pushed in or out by up to bump of the radius, the bottom darker than the top.</summary>
-        static void Lump(List<Vector3> v, List<int> t, List<Color> c, int segments, int rings, float radius, float bump, ref DebrisRng rng, Color low, Color high, Vector3? squash = null)
+        public static void Lump(List<Vector3> v, List<int> t, List<Color> c, int segments, int rings, float radius, float bump, ref DebrisRng rng, Color low, Color high, Vector3? squash = null)
         {
             var s = squash ?? Vector3.one;
             int first = v.Count;

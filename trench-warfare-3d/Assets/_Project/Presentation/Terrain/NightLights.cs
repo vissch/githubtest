@@ -428,7 +428,7 @@ namespace TW.Presentation.Terrain
                 // the card: as wide as a third of the light's reach, over-bright at birth so the bloom takes it
                 float live = age >= 1f ? 0f : (1f - age) * (1f - age);
                 var c = pool[i].Light.color; var card = new Color(c.r, c.g, c.b, live * pool[i].Card);
-                var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age), 0f, i * .19f, .15f);
+                var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age) * Mathf.Lerp(1f, .55f, SceneHooks.CloseUp), 0f, i * .19f, .15f);   // among the men it was wider than the picture
                 for (int k = 0; k < 4; k++) { flashPos[i * 4 + k] = pool[i].Light.transform.position; flashCol[i * 4 + k] = card; flashShape[i * 4 + k] = shape; }
             }
             flashMesh.vertices = flashPos; flashMesh.colors = flashCol; flashMesh.SetUVs(1, flashShape);
@@ -453,7 +453,9 @@ namespace TW.Presentation.Terrain
             {
                 float age = (Time.time - embers[i].Born) / Mathf.Max(.1f, embers[i].Life);
                 float live = age >= 1f ? 0f : (1f - age) * (1f - age);
-                var card = new Color(1f, .33f, .07f, live * .9f); var shape = new Vector4(embers[i].Size, .7f, i * .37f, .3f);
+                // up close the hole's glow is an ember down in it, not a ball of light standing in the crater
+                float near = SceneHooks.CloseUp;
+                var card = new Color(1f, .33f, .07f, live * .9f * Mathf.Lerp(1f, .7f, near)); var shape = new Vector4(embers[i].Size * Mathf.Lerp(1f, .5f, near), .7f, i * .37f, .3f);
                 for (int k = 0; k < 4; k++) { emberPos[i * 4 + k] = embers[i].Pos; emberCol[i * 4 + k] = card; emberShape[i * 4 + k] = shape; }
             }
             emberMesh.vertices = emberPos; emberMesh.colors = emberCol; emberMesh.SetUVs(1, emberShape);

@@ -19,6 +19,7 @@ Shader "TW/Flipbook (URP)"
         _Lit ("Lit by the scene (0 additive/unlit, 1 toon lit)", Range(0, 1)) = 1
         _MaskOnly ("Use alpha only (a drawing in black)", Float) = 0
         _Erode ("Tears apart as it fades (0 fades evenly)", Range(0, 1)) = 0
+        _ShadeMood ("How much the mood tints the shade (smoke keeps more of its own grey)", Range(0, 1)) = 1
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -39,12 +40,13 @@ Shader "TW/Flipbook (URP)"
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels;
                 half4 _Tint, _Shade;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -55,6 +57,8 @@ Shader "TW/Flipbook (URP)"
                 float opacity : TEXCOORD3;
                 float2 local : TEXCOORD4;     // the card's own uv, for the erode's edge bias and the underside
                 float3 positionWS : TEXCOORD2;
+                float4 screen : TEXCOORD5;    // where it lands on the screen, for the scene depth behind it
+                float2 extra : TEXCOORD6;     // x the card's width (m), y its depth from the eye (m)
             };
             Varyings vert(Attributes v)
             {
@@ -84,6 +88,8 @@ Shader "TW/Flipbook (URP)"
                 o.tone = float4(alpha, bright, frame - floor(frame), ComputeFogFactor(o.positionCS.z));
                 o.opacity = opacity;
                 o.local = v.uv;
+                o.screen = ComputeScreenPos(o.positionCS);
+                o.extra = float2(width, -TransformWorldToView(o.positionWS).z);
                 return o;
             }
             half4 frag(Varyings i) : SV_Target
@@ -96,6 +102,10 @@ Shader "TW/Flipbook (URP)"
                 half threshold = gone * (0.45 + 0.55 * edge);
                 half torn = saturate((tex.a - threshold) / 0.45) * pow(1.0 - gone, 1.5);
                 half alpha = lerp(tex.a * i.tone.x, torn, _Erode) * i.opacity;
+                // soft where it meets the ground or a wall (the scene's depth behind it, over 0.8 m), and gone as it comes
+                // through the lens: up close a card wider than the picture was a wall of smoke for seconds
+                float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
+                alpha *= saturate((scene - i.extra.y) / 0.8) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
                 if (alpha < 0.004) discard;
                 // the packs keep black under their transparent pixels, so the small mips of a thin wisp go dark: read the
                 // drawing's value per unit of coverage
@@ -103,7 +113,7 @@ Shader "TW/Flipbook (URP)"
                 // the drawing's light and dark are the toon's two bands (each book's own range stretched to them, so a
                 // drawing done in mid greys still catches the light); an unlit book keeps its own values
                 half band = saturate((ink - _Levels.x) / max(0.01, _Levels.y - _Levels.x));
-                half3 lit = lerp(_Shade.rgb * TWShadeTint(), _MainLightColor.rgb, band);
+                half3 lit = lerp(_Shade.rgb * lerp(half3(1, 1, 1), TWShadeTint(), _ShadeMood), _MainLightColor.rgb, band);   // smoke keeps more of its own grey under a blue moon
                 half3 color = _Tint.rgb * lerp(ink.xxx, lit, _Lit) * i.tone.y;
                 if (_Erode > 0.5) color *= lerp(0.78, 1.0, smoothstep(0.0, 0.6, i.local.y));   // a cloud's underside is in its own shadow
                 // the shell's own flash lights the earth it threw up and the smoke rolling off it: the drawing's light

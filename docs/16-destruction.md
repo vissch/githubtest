@@ -137,11 +137,11 @@ the sim's answer to a blast is unchanged (damage, suppression, `SimWorld.Knock`)
 
 - **Blown off his feet** (`AnimationController`, rung 3). A man upright in the open whom BlastSystem throws faster than
   `BlownDownKnock` (4 m/s: about the inner 60 % of the burst) is spun to face the way it throws him, lifted
-  (`Hop`, up to 1.1 m over `HopSeconds` 0.5 s, drawn by `VATRenderer`'s job as a Y offset), and goes down on his face
+  (`Hop`, 0.23 to 0.73 m life-size over `HopSeconds` 0.5 s, drawn by `VATRenderer`'s job as a Y offset times his drawn scale), and goes down on his face
   away from it (`Trip`, "Fall Over", which ends face down). He lies there 1 to 2.5 s (`KnockedUntil`), then `GetUp`
   (at 1.8x if the sim is already moving him), or stays flat if the sim has flattened him for the fire. A man already
   diving from a shell he heard keeps his dive, lifted the same way, and stays down as long; a fall started over the
-  top of a dive stood him back up first. A man thrown more gently dives away with it, lifted a little (up to 0.35 m).
+  top of a dive stood him back up first. A man thrown more gently dives away with it, lifted a little (up to 0.23 m life-size).
   The daze is counted from when he is back up: counted from the fall, getting up (2.3 s) used it all.
 - **Dazed.** After a knockdown, and for half of the men who shield their face from a burst on top of them, a man
   standing still spends 1.5 to 5 s on one knee (`DazedUntil`), rubbing his eyes once (`FidgetRubEyes`). A shot still
@@ -174,6 +174,43 @@ the 9 m and 16 m men ducked a poll later; grime 0.28 to 0.34 near, 0.07 at 9 m, 
 
 Tests: `Tests/EditMode/BlastReactionTests.cs` (the knockdown through to the daze, the wave's timing and reach, grime by
 distance, the Pad packing, the kick's delay, a hull's spring through twenty long frames).
+
+### The burst seen from close by (second round, batch A)
+
+Owner, 2026-09-23: the next phase in three batches, reported one at a time; this is the first (bugs and the close-up
+view). Presentation only.
+
+- **A cook-off's fireball lasts.** `TankRenderer` added six flames to `flames` at the event, but that list is rebuilt
+  from the burning hulls every frame, so the fireball drew for one frame. A `Fireball` has its own clock and is added to
+  the flames every frame it lives: it bursts out of a point over the first 15 % of its life, rises, and shrinks away
+  after 45 %. One big tongue (1.5 s), six smaller ones, a flash card and five black smoke cards after it. Sized to the
+  hull: the numbers are drawn for a 2.5 m half-length (`DrawnForHalfLength`) and multiplied by `Model.HalfLength / 2.5`,
+  so a Maw (4.34 m since `VehicleSize.Tank`) burns 1.74 times as big. It rises from 0.7 of the hull's height.
+- **Dirt is lumps.** The dirt CombatFx throws was Unity's cube, which read as cubes from close by. It is a lump from
+  `DebrisRenderer.Lump` (now public); water drops are spheres.
+- **Smoke from close by.** `Flipbook_URP` fades a card where it meets the ground or a wall (the scene's depth behind it,
+  over 0.8 m) and as it comes through the lens (its eye depth under a quarter of its width): a card wider than the picture
+  was a wall of smoke for seconds. Among the men (`SceneHooks.CloseUp`) a burst draws 5 smoke cards, not 7, up to 30 %
+  smaller and shorter-lived. The burst's low CPU smoke balls go a pass fainter every quarter of CloseUp and are gone
+  among the men: from close by they were glass spheres with a hard rim.
+- **The flash.** The Flash card goes from 3.2 r to 1.6 r wide and its glow halves as the lens goes in; NightLights' light
+  card comes down to 55 %, and the hole's ember glow to half its size and 70 % of its strength (it was a 4 m pink ball
+  standing in the crater for up to 12 s).
+- **Night tint.** Smoke and the burst cloud take 45 % of the mood's shade tint (`Sheet.Mood`, `_ShadeMood`), not all of
+  it: at night the burst cloud was saturated blue. Smoke is a warm grey (0.50, 0.47, 0.43).
+- **Chunk smoke drifts with the wind** (`_TWWind`), not towards a fixed -Z.
+- **The knockdown hop is life-size metres** times the man's drawn scale (UnitScale times the zoom growth), so it stays in
+  proportion to him after claude-14's UnitScale 1.5 to 1.125, and still reads when the men are drawn large far out.
+- **The capture rig drew every close still as the standard view.** `CaptureRig` switches TacticalCamera off for a set,
+  and the camera's OnDisable puts `SceneHooks.CloseUp` and `_TWClose` to 0. `Pose` now sets both for the shot's zoom.
+  Any close still taken with the rig before 2026-09-23 20:40 had the close-up band (grit, footprints, litter, the
+  effects' close sizes) switched off.
+
+Seen in Play (2026-09-23, greybox, night and rain; an unannounced 8 m shell at 20 50 filmed at zoom 5 and zoom 30, and a
+Maw held, set alight and filmed through its cook-off): the flash is a white core with the clods dark against it, not a
+white-out; the smoke thins to drawn curls near the lens; the ember sits down in the hole; the burst cloud is a soft grey;
+the fireball stands white-hot out of the hull's top, taller than the machine, for about a second. Desync False, console
+clean. Shots: `shots/batchA` in claude-6f's scratchpad.
 
 ## Cost
 

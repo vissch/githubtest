@@ -168,6 +168,7 @@ namespace TW.Presentation.Tactical
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
         Mesh cube, capsule, sphere, plume, puff, flashMesh;
+        Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
         Material flashMat;
         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
         /// <summary>
@@ -261,6 +262,12 @@ namespace TW.Presentation.Tactical
             bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
             bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
             sphere = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
+            {
+                var lv = new List<Vector3>(); var lt = new List<int>(); var lc = new List<Color>(); var lrng = new DebrisRng(Vector3.one, 5u);
+                DebrisRenderer.Lump(lv, lt, lc, 5, 3, 0.5f, 0.30f, ref lrng, Color.white, Color.white, new Vector3(1f, 0.75f, 0.9f));
+                clod = new Mesh { name = "Clod", hideFlags = HideFlags.HideAndDontSave };
+                clod.SetVertices(lv); clod.SetTriangles(lt, 0); clod.RecalculateNormals(); clod.RecalculateBounds();
+            }
             dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
@@ -620,7 +627,10 @@ namespace TW.Presentation.Tactical
                         bool mirror = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 1) == 0;
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
-                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow, pop: 0.5f);
+                        // up close the flash card was wider than the picture (a white-out) and the smoke filled it for seconds:
+                        // both come down as the lens goes in (SceneHooks.CloseUp: 0 at the standard view, 1 among the men)
+                        float closeUp = SceneHooks.CloseUp;
+                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * Mathf.Lerp(3.2f, 1.6f, closeUp), 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
                         // The column, and the piece cycle 11 missed. It restored the burst, the smoke and the clods
                         // on melt and left THIS keyed on `wet`, so a shell in molten rock still threw a plume at
                         // 1.25r for 1.5 s - 60% of the size, because that is what water does to a shell. ApplyTints
@@ -640,11 +650,13 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                 velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
-                            for (int k = 0; k < 7; k++)
+                            int puffs = closeUp > 0.5f ? 5 : 7;
+                            float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
+                            for (int k = 0; k < puffs; k++)
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f), UnityEngine.Random.Range(4f, 6.5f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: 2.4f, roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                         }
                     }
@@ -1273,11 +1285,13 @@ namespace TW.Presentation.Tactical
             float dt = Time.deltaTime; int landings = 0;
             ambientChunks = 0;
             for (int i = 0; i < chunks.Count; i++) { byte k = chunks[i].Kind; if (k == 2 || k == 5 || k == 7) ambientChunks++; }
+            Vector4 wv = Shader.GetGlobalVector(WindGlobalId);   // _TWWind: the breeze at 0.034 per m/s (Atmosphere), as the drawn smoke reads it
+            Vector3 downwind = new Vector3(wv.x, 0f, wv.y) * 6f;
             for (int i = 0; i < chunks.Count; i++)
             {
                 var c = chunks[i];
-                if (c.Kind == 2) { c.Vel = Vector3.Lerp(c.Vel, new Vector3(0f, 1.2f, -0.8f), dt * 1.5f); }   // drifts up and down wind
-                else if (c.Kind == 7) { c.Vel = Vector3.Lerp(c.Vel, new Vector3(0f, 0.45f, -0.35f), dt * 1.2f); }
+                if (c.Kind == 2) { c.Vel = Vector3.Lerp(c.Vel, downwind + Vector3.up * 1.2f, dt * 1.5f); }   // drifts up and down wind
+                else if (c.Kind == 7) { c.Vel = Vector3.Lerp(c.Vel, downwind * 0.45f + Vector3.up * 0.45f, dt * 1.2f); }
                 else c.Vel += Vector3.down * 9.8f * dt;
                 c.Pos += c.Vel * dt;
                 if (c.Kind == 0 && c.Size > 0.12f && c.Vel.y < -2f && books != null && books.Ready && landings < 6)
@@ -1311,6 +1325,10 @@ namespace TW.Presentation.Tactical
                 }
                 chunks[i] = c;
             }
+            // the burst's low smoke is a ball: from the standard view it thickens the drawn cloud, from close by it was a glass
+            // sphere with a hard rim (seen in Play). With the drawn cloud there it goes a shade fainter a quarter of the way
+            // in, and is gone among the men.
+            int thin = books != null && books.Ready ? Mathf.FloorToInt(Mathf.Clamp01(SceneHooks.CloseUp) * 3.99f) : 0;
             for (int pass = 0; pass < 5; pass++)
             {
                 byte kind = (byte)Mathf.Min(pass, 2);
@@ -1321,13 +1339,13 @@ namespace TW.Presentation.Tactical
                     var c = chunks[i];
                     if (c.Kind != kind) continue;
                     float k = (now - c.Born) / c.Life;
-                    if (kind == 2 && Mathf.Min(2, Mathf.FloorToInt(k * 3f)) != pass - 2) continue;
+                    if (kind == 2 && Mathf.Min(2, Mathf.FloorToInt(k * 3f)) + thin != pass - 2) continue;
                     float s = kind == 2 ? c.Size * (1f + 2f * k) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, k))) : c.Size;
                     var rot = kind == 2 ? Quaternion.identity : Quaternion.Euler(c.Born * 997f + now * 300f, c.Born * 613f, now * 200f);
                     batch.Add(Matrix4x4.TRS(c.Pos, rot, kind == 1 ? new Vector3(s * 0.4f, s * 0.4f, s * 3f) : new Vector3(s, s, s)));
-                    if (batch.Count == 1023) Flush(kind == 2 ? puff : cube, rp);
+                    if (batch.Count == 1023) Flush(kind == 2 ? puff : kind == 0 ? clod : cube, rp);
                 }
-                if (batch.Count > 0) Flush(kind == 2 ? puff : cube, rp);
+                if (batch.Count > 0) Flush(kind == 2 ? puff : kind == 0 ? clod : cube, rp);
             }
             // water thrown up by rounds, shells and boots: pale drops under gravity
             batch.Clear();
@@ -1339,9 +1357,9 @@ namespace TW.Presentation.Tactical
                 if (c.Kind != 4) continue;
                 float s = c.Size * (1f - 0.6f * (now - c.Born) / c.Life);
                 batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.identity, new Vector3(s, s * 1.6f, s)));
-                if (batch.Count == 1023) Flush(cube, rpW);
+                if (batch.Count == 1023) Flush(sphere, rpW);
             }
-            if (batch.Count > 0) Flush(cube, rpW);
+            if (batch.Count > 0) Flush(sphere, rpW);
             // in flight: brass cases and helmets tumble; breath, muzzle threads and crater steam are a pale vapour
             for (int kind = 5; kind <= 7; kind++)
             {

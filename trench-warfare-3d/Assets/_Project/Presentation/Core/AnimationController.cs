@@ -125,7 +125,7 @@ namespace TW.Presentation
         public uint LastDive, DownUntil;                // the last dive away from a shell; lying flat after it until then
         public bool Scramble;                           // up off the ground straight into a run: the gait fades in slowly
         public float ThrowX, ThrowZ, ThrowUp;           // a shell killed him: how far it throws him (m, world XZ) and how high the arc goes
-        public float HopHeight, HopFrame; public uint HopTick;   // a shell blew him off his feet (and he lived): how high it lifts him, where in the clip and on which tick it did
+        public float HopHeight, HopFrame; public uint HopTick;   // a shell blew him off his feet (and he lived): how high it lifts him (life-size metres; drawn at his scale), where in the clip and on which tick it did
         public uint KnockedUntil, DazedUntil;           // on his face where the blast put him until then; then on one knee, dazed, until then
         public bool Rubbed;                             // the dazed man has rubbed his eyes once (he does not do it again after every shot)
     }
@@ -519,7 +519,7 @@ namespace TW.Presentation
                     // fall started over the top of a dive would first stand him back up.
                     bool diving = cur == Clip.DiveAway && Playing(s);
                     s.BodyYaw = math.atan2(knock.x, knock.z);
-                    s.HopHeight = math.clamp(0.08f * kick, 0.35f, 1.1f) * (0.8f + 0.4f * Hash(s.Seed, tick + 3u));
+                    s.HopHeight = math.clamp(0.053f * kick, 0.23f, 0.73f) * (0.8f + 0.4f * Hash(s.Seed, tick + 3u));   // 0.35-1.1 m drawn at UnitScale 1.5
                     s.HopTick = tick; s.HopFrame = diving ? s.Frame : 0f;
                     s.KnockedUntil = tick + 20u + (s.Seed >> 7) % 30u;
                     s.DazedUntil = s.KnockedUntil + 40u + (s.Seed >> 11) % 60u; s.Rubbed = false;   // the dive's: he is up off the ground when it ends (the fall's is set as he gets up)
@@ -535,7 +535,7 @@ namespace TW.Presentation
                 {
                     // thrown more gently: he dives with it, and it lifts him a little off the ground as he goes
                     s.BodyYaw = math.atan2(knock.x, knock.z);
-                    s.HopHeight = math.clamp(0.07f * kick, 0.12f, 0.35f); s.HopTick = tick; s.HopFrame = 0f;
+                    s.HopHeight = math.clamp(0.047f * kick, 0.08f, 0.23f); s.HopTick = tick; s.HopFrame = 0f;
                     Start(i, ref s, Clip.DiveAway, Rung.Reaction, "shell at " + d.ToString("0.0") + " m throws him clear", 1f, 0.08f);
                 }
                 else if (edge) { if (speed < 0.3f && (target < 0 || Hash(s.Seed, tick + 11u) < 0.4f)) Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, "shell at the edge of its reach: flinches"); }   // a man on his target mostly keeps it

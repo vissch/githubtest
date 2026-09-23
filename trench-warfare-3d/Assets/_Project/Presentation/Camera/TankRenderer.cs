@@ -122,6 +122,10 @@ namespace TW.Presentation.Tactical
         readonly List<Pop> pops = new List<Pop>();
         readonly Dictionary<Mesh, Batch> batches = new Dictionary<Mesh, Batch>();
         readonly List<Flame> flames = new List<Flame>();
+        // a cook-off's fireball: tongues that live a moment on their own clock. The flames list is rebuilt from the
+        // burning hulls every frame, so the six added at the event drew for ONE frame (seen in Play, 2026-09-23).
+        struct Fireball { public Vector3 At; public float Born, Life, Width, Height, Phase; }
+        readonly List<Fireball> fireballs = new List<Fireball>(16);
         readonly List<int> gone = new List<int>();
         Material flameMat; Mesh flameMesh;
         readonly List<Vector3> fPos = new List<Vector3>(); readonly List<Vector2> fCorner = new List<Vector2>(); readonly List<Vector4> fShape = new List<Vector4>(); readonly List<int> fTris = new List<int>();
@@ -244,7 +248,23 @@ namespace TW.Presentation.Tactical
             RunPops(now);
             Draw();
             if (books != null && books.Ready) books.Draw(now, Everywhere);
+            Fireballs(now);
             DrawFlames();
+        }
+
+        /// <summary>The fireballs alive this frame join the flames: each bursts out of a point, rises, and shrinks away.</summary>
+        void Fireballs(float now)
+        {
+            for (int i = fireballs.Count - 1; i >= 0; i--)
+            {
+                var f = fireballs[i];
+                float k = (now - f.Born) / f.Life;
+                if (k >= 1f) { fireballs[i] = fireballs[fireballs.Count - 1]; fireballs.RemoveAt(fireballs.Count - 1); continue; }
+                if (k < 0f) continue;
+                float born = 1f - Mathf.Clamp01(k / 0.15f), pop = 1f - born * born;
+                float fade = 1f - Mathf.SmoothStep(0f, 1f, (k - 0.45f) / 0.55f);
+                flames.Add(new Flame { Foot = f.At + Vector3.up * (k * f.Height * 0.33f), Width = f.Width * pop * (0.5f + 0.5f * fade), Height = f.Height * pop * fade, Phase = f.Phase });
+            }
         }
 
         void Capture(TW.Sim.Match.MatchSim match)
@@ -906,8 +926,24 @@ namespace TW.Presentation.Tactical
                     if (v != null)
                     {
                         v.CookOff = true;
-                        var at = v.Pos + Vector3.up * (v.Heave.Value + 2f);
-                        for (int k = 0; k < 6; k++) flames.Add(new Flame { Foot = at + UnityEngine.Random.insideUnitSphere * 1.5f, Width = 3.5f, Height = 6f, Phase = k });
+                        // Sized to the hull, and lit from its deck. The sizes below are drawn for a hull of 2.5 m half-length;
+                        // a bigger machine tears open bigger (a Maw, 4.34 m since VehicleSize.Tank, burns 1.74 times as big).
+                        // HalfLength already carries VehicleSize, so it is used as it is, not divided back to the sculpt.
+                        const float DrawnForHalfLength = 2.5f;
+                        float hull = Mathf.Max(0.6f, v.Model.HalfLength / DrawnForHalfLength);
+                        var at = v.Pos + Vector3.up * (v.Heave.Value + Mathf.Max(2f, 0.7f * v.Model.Height));
+                        // the fireball: one big tongue up the middle and a ring of smaller ones, each on its own clock, its own
+                        // flash, and the black smoke that boils up after it
+                        fireballs.Add(new Fireball { At = at, Born = now, Life = 1.5f, Width = 5.5f * hull, Height = 9f * hull, Phase = 0f });
+                        for (int k = 0; k < 6; k++)
+                            fireballs.Add(new Fireball { At = at + UnityEngine.Random.insideUnitSphere * (1.6f * hull), Born = now + k * 0.05f, Life = UnityEngine.Random.Range(0.9f, 1.4f), Width = 3.2f * hull, Height = 5.5f * hull, Phase = k + 1f });
+                        if (books != null && books.Ready)
+                        {
+                            books.Add(FlipbookFx.Book.Flash, at + Vector3.up * (2f * hull), 16f * hull, 0.2f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 6f : 3f, pop: 0.4f);
+                            for (int k = 0; k < 5; k++)
+                                books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * ((2f + k * 1.2f) * hull), (5f + k) * hull, UnityEngine.Random.Range(5f, 8f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: Vector3.up * (3f - k * 0.3f), grow: 2f, alpha: 0.85f, pop: 0.3f, delay: 0.3f + k * 0.2f);
+                        }
                         Scrap(at, 14, 13f, 0.35f, 1f, 60f, default, e.Tick + (uint)e.A);   // the hull's plates go up with the rounds, burning as they come down
                     }
                     break;

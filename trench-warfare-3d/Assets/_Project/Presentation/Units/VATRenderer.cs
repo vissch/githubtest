@@ -278,12 +278,12 @@ namespace TW.Presentation.Units
             var map = Host.Local.Map;
             float ground = RenderGround.Sample(map, p.x, p.z), lift = anim.Lift[slot];
             if (lift > 0f) ground = Mathf.Lerp(ground, map.Height.Sample(p.x, p.z), lift);
-            ground += anim.Hop[slot];   // a shell has him in the air
             var at = new Vector3(p.x, ground, p.z);
             var cam = Camera.main;
             if (cam != null && far != null && (at - cam.transform.position).sqrMagnitude > LodDistance * LodDistance) return false;
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
             float scale = UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
+            at.y += anim.Hop[slot] * scale;   // a shell has him in the air (life-size metres, drawn at his scale)
             int row = nearRowOf[math.min((int)anim.Row[slot], nearRowOf.Length - 1)], prev = nearRowOf[math.min((int)anim.PrevRow[slot], nearRowOf.Length - 1)];
             float t = anim.Phase[slot], pt = anim.PrevPhase[slot], blend = anim.Blend[slot];
             Vector3 Sample(int k)
@@ -501,7 +501,7 @@ namespace TW.Presentation.Units
                     var p = Poses[i];
                     float original = Height.Sample(p.Pos.x, p.Pos.z);
                     float y = Ground.Sample(p.Pos.x, p.Pos.z, original);
-                    if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); y += Hop[PoseSlot[i]]; }   // climbing: drawn up the trench wall; blown off his feet: in the air
+                    if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); y += Hop[PoseSlot[i]] * Scale; }   // climbing: drawn up the trench wall; blown off his feet: in the air
                     if (!Visible(new float3(p.Pos.x, y + 1f, p.Pos.z))) continue;
                     if ((p.Flags & (byte)UnitFlags.Vehicle) != 0)
                     {
