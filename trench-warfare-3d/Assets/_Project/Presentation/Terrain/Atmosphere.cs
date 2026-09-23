@@ -138,8 +138,14 @@ namespace TW.Presentation.Terrain
         /// <summary>Put every biome term back to nothing, so a scene without an Atmosphere draws the plain look.</summary>
         static void ClearBiome()
         {
+            // Every global PushBiome sets, and not the five of seven this used to clear. _TWSnowColor and
+            // _TWHeatColor survived a biome change, and that was safe only by accident: their guards happen to
+            // key off _TWSnow.x and _TWHeat.x, which ARE cleared. Leaving a colour behind and trusting a
+            // neighbouring field to mask it is exactly the shape of the lamp bug this cycle fixed.
             Shader.SetGlobalVector(SnowId, Vector4.zero);
+            Shader.SetGlobalVector(SnowColorId, Vector4.zero);
             Shader.SetGlobalVector(HeatId, Vector4.zero);
+            Shader.SetGlobalVector(HeatColorId, Vector4.zero);
             Shader.SetGlobalVector(GroundLightId, Vector4.zero);
             Shader.SetGlobalVector(WorldTintId, Vector4.zero);
             Shader.SetGlobalFloat(LampScaleId, 1f);

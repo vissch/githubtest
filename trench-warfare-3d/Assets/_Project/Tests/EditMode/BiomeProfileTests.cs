@@ -8,6 +8,7 @@
 // A field on that profile is a promise that a biome can change the thing it names. An unread field is a promise
 // the code does not keep, and it fails invisibly: the look stays wrong in a way that tuning the OTHER values
 // cannot fix, because the value being tuned never arrives anywhere.
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -44,6 +45,53 @@ namespace TW.Tests
             Assert.IsEmpty(dead,
                 "declared on BiomeProfile and read by nothing, so a biome cannot change what they name: "
                 + string.Join(", ", dead));
+        }
+
+        /// <summary>
+        /// Every shader global a biome PUSHES is a shader global a biome must PUT BACK.
+        ///
+        /// ClearBiome used to reset five of the seven PushBiome sets: _TWSnowColor and _TWHeatColor survived a
+        /// change of field. That was safe only by accident - their consumers happen to be guarded by _TWSnow.x and
+        /// _TWHeat.x, which are cleared - and an accident is not a design. The bug found in the same cycle was made
+        /// of exactly this: TWLocalLights asked "is _TWSnowColor set" as a stand-in for "is there snow here", and on
+        /// the lava field, which sets no snow colour and therefore carried the default WHITE one, every lantern
+        /// faded to snow at the edge of its pool.
+        ///
+        /// Read out of the source because TW.Presentation.Terrain is not in this assembly's references (see the
+        /// note on the test above), and because what is being checked is a source-level property anyway: these are
+        /// two lists of names that have to match.
+        /// </summary>
+        [Test]
+        public void EveryGlobalABiomePushesIsAGlobalABiomeClears()
+        {
+            var src = File.ReadAllText(Path.Combine(ProjectRoot, "Presentation", "Terrain", "Atmosphere.cs"));
+            var pushed = GlobalsSetIn(src, "void PushBiome(");
+            var cleared = GlobalsSetIn(src, "void ClearBiome(");
+            Assert.Greater(pushed.Count, 4, "PushBiome's Shader.SetGlobal calls were found");
+            Assert.Greater(cleared.Count, 4, "ClearBiome's Shader.SetGlobal calls were found");
+            var leaked = pushed.Where(id => !cleared.Contains(id)).ToList();
+            Assert.IsEmpty(leaked,
+                "pushed by a biome and never put back, so it survives into the next field: " + string.Join(", ", leaked));
+        }
+
+        /// <summary>The Shader.SetGlobal* argument names inside one method, found by matching its braces.</summary>
+        static List<string> GlobalsSetIn(string src, string signature)
+        {
+            int at = src.IndexOf(signature, System.StringComparison.Ordinal);
+            Assert.Greater(at, 0, signature + " is in Atmosphere.cs");
+            // The braces are written as character CODES, not as literals. The repo's own source validator counts
+            // brace characters per file to catch a truncated edit, and a matcher that contains four unpaired ones
+            // fails it - which is how this test first came back red.
+            const char Open = (char)123, Close = (char)125;
+            int open = src.IndexOf(Open, at);
+            int depth = 0, end = open;
+            for (int i = open; i < src.Length; i++)
+            {
+                if (src[i] == Open) depth++;
+                else if (src[i] == Close && --depth == 0) { end = i; break; }
+            }
+            return Regex.Matches(src.Substring(open, end - open), @"Shader\.SetGlobal\w+\s*\(\s*(\w+)")
+                .Cast<Match>().Select(m => m.Groups[1].Value).Distinct().ToList();
         }
 
         /// <summary>

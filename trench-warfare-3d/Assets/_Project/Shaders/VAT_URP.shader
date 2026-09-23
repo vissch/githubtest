@@ -170,7 +170,17 @@ Shader "TW/VAT Infantry (URP)"
                 // soaked), and a man who crawls is muddy all over
                 half ragged = frac(sin(dot(floor(i.positionOS.xz * 38.0 + i.positionOS.y * 11.0), float2(12.9898, 78.233))) * 43758.5453);
                 half caked = (1.0 - smoothstep(0.06, 0.34 + 0.16 * _TWWet.x, i.positionOS.y + (ragged - 0.5) * 0.14)) * 0.78;
-                albedo = lerp(albedo, half3(0.215, 0.170, 0.115) * (1.0 - 0.3 * _TWWet.x), caked);
+                // The mud on his boots is the FIELD's material, not his kit, so it takes the same paint the
+                // ground takes - TWWorldPaint, which until now was called in exactly ONE place in the project
+                // (Toon_URP.shader:161). The ground took it, the props took it, and so did the FALLEN, who are
+                // drawn with TW/Toon: a corpse was dragged 80% toward cold grey on the winter field while the
+                // man standing over him kept Flanders brown on his boots. Measured: a winter frame with six
+                // men in it is 7.8-9.5% warm, against 1.0-1.3% for the same field with none in it.
+                // His UNIFORM is deliberately left alone: khaki pulled 80% toward blue-grey is the mush this
+                // biome's own docstrings warn about, and what winter troops wear is a decision, not a tint.
+                // Unset on the night field (alpha 0), where TWWorldPaint returns its argument untouched.
+                half3 mud = TWWorldPaint(half3(0.215, 0.170, 0.115)) * (1.0 - 0.3 * _TWWet.x);
+                albedo = lerp(albedo, mud, caked);
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;

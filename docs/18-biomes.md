@@ -178,8 +178,8 @@ standard view with `scratchpad/hot.py`:
 2. **The median is 0.16 against 0.47.** The histogram is bimodal — near-black crust against pools that clip —
    where the reference carries its mass in the mid-tones. More brightness will not fix it; more mid-value area
    will.
-3. **Winter's remaining warm 7.6% is albedo, not lamps.** Rust-brown wire and debris at 200 m, and a tan
-   duckboard run nowhere near a light, are not going through `TWWorldPaint`. Neither is smoke, in either biome.
+3. **Winter's remaining warm is the MEN, and 7.6% was the wrong camera.** Corrected below; the wire and the
+   duckboards are real and second-order. Smoke was fixed separately (it now takes `SmokeTint`).
 4. **Ice.** Winter's shell holes still render as water: a reflective blue puddle on a snowfield.
 5. **No contact shadows.** Winter needs them most, because a bright uniform field hides nothing. Note the
    shadow-distance finding above first — it may be most of the answer and costs one field.
@@ -191,3 +191,74 @@ standard view with `scratchpad/hot.py`:
 the picture went monochrome, and I only caught it because a critique looked at the image rather than the number.
 `hot.py` reports hot area, warm fraction, in-hue fraction *and* median value together for exactly this reason,
 and a value-spread metric should join them before anyone tunes winter further.
+
+## Correction, and the measurement that forced it: 7.6% was the camera that shows the fewest men
+
+The table above reports winter's warm fraction from the standard view. Measured again with `hot.py` across the
+whole capture set (`biomeshot.sh Winter`), at one lens and one field:
+
+| Frame | What is in it | Warm |
+|---|---|---|
+| `close_ground` | super zoom, bare ground, no men | **1.31%** |
+| `far` | zoom 60 over open field | 1.02% |
+| `close_field` | super zoom, wire and craters | 4.20% |
+| `wide` | the standard view, zoom 30, ~6 men | 7.78% |
+| `mid` | zoom 16, ~6 men | **9.52%** |
+| `close_trench` | super zoom, one man at point-blank | 36.27% |
+
+**Read that last row carefully, and do not quote it.** 36% is one soldier filling the frame at a metre, which is
+a camera placement and not a statistic. It is in the table for one reason: it identifies the surface. The slab
+that fills that frame samples `(110, 109, 85)`, and a man in the `mid` frame samples `(109, 107, 86)`. They are
+the same object.
+
+The row that matters is the pair at the top and the middle. Bare ground at the super zoom is **1.31%** warm and
+open field at zoom 60 is **1.02%**; put six men in frame and it is **7.78–9.52%**. Rust wire and tan duckboards
+cannot be the explanation the list above gave, because the frames without men in them are already at the
+reference. Looking at `mid` rather than at the number settles it: the snow, the sandbags, the duckboards, the
+revetment planks, the wire and the stumps are all cold — `(114, 128, 152)` — and every soldier is olive. The men
+are not darker than the field, they are the same VALUE at a different hue, which is precisely what reads as cut
+out of another picture.
+
+### Why the men were the one thing the biome could not reach
+
+`TWWorldPaint` — the pull that turns the baked mud palette to basalt or to old snow — was called in exactly one
+place in the project, `Toon_URP.shader:161`. That covers the ground, the props, and the **fallen**, who are drawn
+with `TW/Toon` (`CombatFx.Painted`). It did not cover the living, who are drawn with `VAT_URP`. So on the winter
+field a corpse was dragged 80% toward cold grey while the man standing over him kept Flanders brown, and the same
+cloth rendered as two different hues depending on whether its owner was alive.
+
+The header that declares `_TWWorldTint` says this itself, three lines above the declaration
+(`TWAtmosphere.hlsl:30-34`): these globals live in the shared header "because snow that lands on the terrain and
+the sandbags but not on the men ... is worse than no snow, because the eye reads the men as cut out of a different
+picture". `_TWWorldTint` was the one term in that block doing the thing the comment forbids.
+
+**What was changed:** the mud caked on boots and shins now takes the same paint the ground takes. That mud is the
+field's material, not the man's kit, and it was a hard-coded night-mud brown on all three biomes.
+
+**What was deliberately not changed:** his uniform. Khaki pulled 80% toward blue-grey is the mush this file's own
+warnings are about, and what troops wear on a winter field is a design decision. **Owner's call: do winter troops
+get a greatcoat — a second baked cloth palette per biome — or does the khaki stay?** Until that is answered,
+winter's warm fraction at trench level cannot reach the reference's 0.2%, and it should not be tuned toward it by
+any other means.
+
+### A second bug, on lava: every lantern faded to snow
+
+`TWLocalLights.hlsl:48` desaturates the far half of a lamp pool toward "the biome's own colour", and the value it
+used for that was `_TWSnowColor`. That field is pushed on every biome — the night field's own default is
+`(0.90, 0.93, 0.97)` — and it only means anything where snow lies. The branch is live wherever `LampScale < 1`,
+which is winter **and lava**, and `BiomeProfile.Lava()` never assigns a snow colour. So on a planet whose entire
+design is orange light from below, every lantern's outer pool was fading toward snow white. It now asks whether
+there is snow (`_TWSnow.x`) and otherwise takes the field's own tint, normalised by its luma so it desaturates
+without darkening.
+
+Underneath it: `Atmosphere.PushBiome` sets seven shader globals and `ClearBiome` put five of them back.
+`_TWSnowColor` and `_TWHeatColor` survived a change of field, which was safe only because their consumers happen
+to be guarded by the two that *were* cleared. `EveryGlobalABiomePushesIsAGlobalABiomeClears` now holds that line.
+
+### And a limit of the cycle-5 guard, stated rather than papered over
+
+`EveryFieldOnTheProfileIsReadBySomething` would not have caught any of this. It asserts a field's name is
+mentioned somewhere else in the tree, and `WorldTint` is mentioned — in `Atmosphere`, which uploads it faithfully
+to a uniform that one shader out of twelve reads. "Declared and never mentioned" and "read here and not there"
+are different failures, and no source scan sees the second. The instrument that did see it was a capture with men
+in it, measured against a capture without.

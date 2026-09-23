@@ -45,7 +45,19 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
     if (_TWLampScale > 0.0 && _TWLampScale < 0.999)
     {
         half near = saturate(length(sum) * 2.2);              // bright = close to a lamp
-        half3 flat = dot(sum, half3(0.299, 0.587, 0.114)) * (_TWSnowColor.a > 0.0 ? _TWSnowColor.rgb : half3(1, 1, 1));
+        // WHAT the far half fades toward has to be the colour of THIS field. _TWSnowColor is not that: it is
+        // pushed on every biome (the night field's own default is 0.90,0.93,0.97) and it only MEANS anything
+        // where snow lies. This branch is live wherever LampScale < 1, which is winter and LAVA - and
+        // BiomeProfile.Lava() never assigns SnowColor, so every lantern on a planet lit from below by molten
+        // rock has been fading to snow white at the edge of its pool.
+        // Ask the question that was meant - is there snow here - and otherwise take the field's own tint,
+        // normalised by its luma so it desaturates without DARKENING: basalt is (0.34,0.28,0.27), luma 0.30,
+        // and multiplying by that directly would dim the outer pool to a third rather than grey it.
+        half3 field = _TWSnow.x > 0.0 ? _TWSnowColor.rgb
+                    : (_TWWorldTint.a > 0.0
+                        ? _TWWorldTint.rgb / max(dot(_TWWorldTint.rgb, half3(0.299, 0.587, 0.114)), 1e-3)
+                        : half3(1, 1, 1));
+        half3 flat = dot(sum, half3(0.299, 0.587, 0.114)) * field;
         sum = lerp(flat, sum, near);
     }
     return sum;
