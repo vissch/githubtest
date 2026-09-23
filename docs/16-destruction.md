@@ -167,6 +167,8 @@ Done 2026-09-23, gated and seen in Play:
 Still open:
 1. Owner decision: whether a collapsed shelter stops giving cover in the sim (a hash bump; `docs/PLAN.md` already says
    the bomber run "destroys bunkers (2 hits)").
-2. Lava lighting: on the lava field the light comes from below (`_TWGroundLight`); debris lit only by the key may read
-   as dark cards. `TWHemisphere` is the likely fix; waiting for claude-0a's stills rather than guessing.
+2. Lava, seen in Play 2026-09-23 after claude-0a's 3cff58e (debris takes `TWHemisphere` and `TWGroundBounce`): burning
+   plates and rubble read against the bright molten ground by their ink outline and ember seams, and pieces that land
+   in the melt go under within about a second, as designed. Nothing to change in the debris. Seen in the same barrage,
+   not debris: `CombatFx` still throws pale blue water splashes where a shell lands in the lava pool.
 3. Close-up limb stumps are small at the gameplay zoom; if a still asks for more, a dark cap mesh at the joint.
