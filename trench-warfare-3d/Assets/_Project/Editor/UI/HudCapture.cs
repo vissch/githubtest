@@ -53,7 +53,10 @@ namespace TW.Editor
         {
             public IEnumerator Run(PanelSettings panel, Camera cam, string full, int w, int h)
             {
-                var rtUi = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
+                // 24-bit depth brings an 8-bit stencil: UI Toolkit clips the children of a rounded, overflow-hidden element
+                // (every Button and text field in the default theme) with a stencil mask, and on a target without one the
+                // mask is drawn as a solid white shape over the control
+                var rtUi = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
                 var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
                 var oldTarget = panel.targetTexture; bool oldClear = panel.clearColor; var oldColor = panel.colorClearValue;
                 panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
