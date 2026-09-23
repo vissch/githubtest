@@ -21,7 +21,8 @@
     "TW.Presentation.Units",
     "TW.Presentation.VFX",
     "TW.Presentation.Audio",
-    "TW.UI"
+    "TW.UI",
+    "TW.Perf"
   ],
   "includePlatforms": [
     "Editor"

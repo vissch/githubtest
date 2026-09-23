@@ -1,35 +1,29 @@
 {
-  "name": "TW.Tests.PlayMode",
-  "rootNamespace": "TW.Tests",
+  "name": "TW.Perf",
+  "rootNamespace": "TW.Perf",
   "references": [
-    "UnityEngine.TestRunner",
-    "UnityEditor.TestRunner",
     "Unity.Collections",
     "Unity.Mathematics",
     "TW.Sim.Core",
-    "TW.Sim.Match",
     "TW.Sim.Terrain",
-    "TW.Net",
-    "TW.Presentation.Core",
     "TW.Sim.Nav",
     "TW.Sim.Combat",
     "TW.Sim.Units",
+    "TW.Sim.Match",
+    "TW.Net",
     "TW.Data",
-    "TW.UI",
+    "TW.Presentation.Core",
+    "TW.Presentation.Units",
     "TW.Presentation.Camera",
-    "TW.Perf"
+    "TW.Presentation.Terrain"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
-  "overrideReferences": true,
-  "precompiledReferences": [
-    "nunit.framework.dll"
-  ],
+  "overrideReferences": false,
+  "precompiledReferences": [],
   "autoReferenced": false,
-  "defineConstraints": [
-    "UNITY_INCLUDE_TESTS"
-  ],
+  "defineConstraints": [],
   "versionDefines": [],
   "noEngineReferences": false
 }

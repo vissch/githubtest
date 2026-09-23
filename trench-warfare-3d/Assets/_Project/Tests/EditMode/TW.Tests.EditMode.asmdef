@@ -20,7 +20,8 @@
     "TW.UI",
     "TW.Data",
     "Unity.InputSystem",
-    "TW.Editor"
+    "TW.Editor",
+    "TW.Perf"
   ],
   "includePlatforms": [
     "Editor"

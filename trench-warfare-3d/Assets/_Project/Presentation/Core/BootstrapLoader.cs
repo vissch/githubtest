@@ -7,6 +7,8 @@ namespace TW.Presentation
     public sealed class BootstrapLoader : MonoBehaviour
     {
         public string SceneName = "GreyboxCorridor";
-        void Start() => SceneManager.LoadScene(SceneName);
+        /// <summary>Tooling (TW.Perf.PerfBench): a scene to load instead, set before the first scene loads.</summary>
+        public static string Override;
+        void Start() => SceneManager.LoadScene(string.IsNullOrEmpty(Override) ? SceneName : Override);
     }
 }

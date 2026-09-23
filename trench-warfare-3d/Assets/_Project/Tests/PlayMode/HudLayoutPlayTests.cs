@@ -2,7 +2,8 @@
 // click mask answers yes over chrome and no over the field. Layout needs a panel, so this is PlayMode; it makes its
 // own UIDocument from the shipped PanelSettings and UXML, with no SimHost and no scene beyond the test's own.
 // Also the allocation check claude-68 asked for: binding changing values into the cards for many frames must not
-// grow the heap by more than a fixed small amount (GC.GetAllocatedBytesForCurrentThread deltas, warm-up first).
+// allocate (TW.Perf.AllocProbe counts, warm-up first; it first used GC.GetAllocatedBytesForCurrentThread, a stub that
+// reads 0 under Unity's Boehm GC, so its earlier pass proved nothing).
 using System.Collections;
 using NUnit.Framework;
 using Unity.Collections;
@@ -11,11 +12,16 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using TW.Sim;
 using TW.UI;
+using TW.Perf;
 
 namespace TW.Tests
 {
     public class HudLayoutPlayTests
     {
+        /// <summary>Allocations a frame the card binding may make. Measured 0.71 on 2026-09-23 with a counter that works,
+        /// with silver, cooldowns and men ALL changing every frame (a label string now and then); the IMGUI HUD made
+        /// 13,302 bytes a frame. A regression guard at the measured level, not a claim that it is zero.</summary>
+        const double HudBindBudget = 1;
         GameObject go;
 
         [UnitySetUp]
@@ -109,11 +115,10 @@ namespace TW.Tests
                     else HudView.BindCard(c, silver, (f + i * 17) % 200, 200, true, false, tick, f % 4);
                 }
             }
-            for (int f = 0; f < 200; f++) Frame(f);   // warm-up: caches grow once
-            long before = System.GC.GetAllocatedBytesForCurrentThread();
-            for (int f = 200; f < 500; f++) Frame(f);
-            long perFrame = (System.GC.GetAllocatedBytesForCurrentThread() - before) / 300;
-            Assert.That(perFrame, Is.LessThan(64), $"binding allocates {perFrame} bytes a frame with silver, cooldowns and men changing every frame (the IMGUI HUD: 13,302)");
+            int next = 0;
+            double perFrame = AllocProbe.PerCall(() => Frame(next++), 200, 300);   // the warm-up grows every cache once
+            TestContext.WriteLine($"binding: {perFrame:0.##} allocations a frame");
+            Assert.That(perFrame, Is.LessThanOrEqualTo(HudBindBudget), $"binding makes {perFrame:0.##} allocations a frame with silver, cooldowns and men changing every frame (the IMGUI HUD: 13,302 bytes)");
         }
     }
 }

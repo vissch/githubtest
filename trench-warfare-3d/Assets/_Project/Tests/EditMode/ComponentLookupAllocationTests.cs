@@ -26,6 +26,7 @@ using System;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
+using TW.Perf;
 
 namespace TW.Tests
 {
@@ -36,13 +37,10 @@ namespace TW.Tests
             public float CurrentZoom => 30f;
         }
 
-        static double PerCall(Action call, int warm, int reps)
-        {
-            for (int i = 0; i < warm; i++) call();
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < reps; i++) call();
-            return (GC.GetAllocatedBytesForCurrentThread() - before) / (double)reps;
-        }
+        // Allocations per call (TW.Perf.AllocProbe). This file first measured bytes with
+        // GC.GetAllocatedBytesForCurrentThread, a stub under Unity's Boehm GC that reads 0 whatever the code does, so its
+        // "all three are free" finding was void until re-measured with a counter that sees allocations (2026-09-23).
+        static double PerCall(Action call, int warm, int reps) => AllocProbe.PerCall(call, warm, reps);
 
         [Test]
         public void PerEventComponentLookupsAreFree()
@@ -57,18 +55,17 @@ namespace TW.Tests
                 double byConcrete = PerCall(() => { cam.TryGetComponent<StubZoom>(out _); }, 100, 2000);
                 double cameraMain = PerCall(() => { var c = Camera.main; }, 100, 2000);
 
-                string line = $"per call — TryGetComponent<IZoomSource> {byInterface:0.##} B, " +
-                              $"TryGetComponent<StubZoom> {byConcrete:0.##} B, Camera.main {cameraMain:0.##} B";
+                string line = $"allocations per call — TryGetComponent<IZoomSource> {byInterface:0.###}, " +
+                              $"TryGetComponent<StubZoom> {byConcrete:0.###}, Camera.main {cameraMain:0.###}";
                 TestContext.WriteLine(line);
 
-                // One byte a call, at hundreds of Shot events a tick, is the scale that started this hunt. A
-                // threshold of 1 byte is therefore not pedantry: it is the difference between free and not.
-                Assert.That(byConcrete, Is.LessThan(1.0), $"concrete TryGetComponent now allocates. {line}");
-                Assert.That(byInterface, Is.LessThan(1.0),
+                // One allocation a call, at hundreds of Shot events a tick, is the scale that started this hunt.
+                Assert.That(byConcrete, Is.EqualTo(0), $"concrete TryGetComponent allocates. {line}");
+                Assert.That(byInterface, Is.EqualTo(0),
                     "an interface-typed TryGetComponent now allocates where it used to be free. CombatFx.OnSimEvent " +
                     "calls one on every Shot and every Death event, so this is suddenly a real per-event cost and " +
                     $"the callers need the lookup hoisted out of the event handler. {line}");
-                Assert.That(cameraMain, Is.LessThan(1.0),
+                Assert.That(cameraMain, Is.EqualTo(0),
                     $"Camera.main now allocates; CombatFx.OnSimEvent reads it per event. {line}");
             }
             finally

@@ -32,6 +32,9 @@ namespace TW.Presentation
         public float BombardmentPerMinute = 8f;
         /// <summary>Set by the debug panel before a restart; survives the scene reload. Negative = use the field above.</summary>
         public static float BombardmentOverride = -1f;
+        /// <summary>Tooling (TW.Perf.PerfBench): riflemen a side for the stress preset, set before the scene loads so a
+        /// player build can run it; negative = the field below. Read once, in Awake.</summary>
+        public static int StressOverride = -1;
         public float BombardmentNow => Local != null && Local.Bombardment != null ? Local.Bombardment.ShellsPerMinute : 0f;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
@@ -83,6 +86,7 @@ namespace TW.Presentation
         void Awake()
         {
             MatchLaunch.Apply(this);   // a mission chosen in the shell writes its knobs into the fields below before the match is built
+            if (StressOverride >= 0) StressUnits = StressOverride;
             Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
             var cfg = SimConfig.Default;
             cfg.Seed = Seed;
@@ -100,15 +104,21 @@ namespace TW.Presentation
 
         void Update()
         {
+            using var update = PerfMarkers.HostUpdate.Auto();
             float tick = Local.World.Config.TickSeconds;
             accumulator += Time.deltaTime * Mathf.Max(0f, TimeScale);
             int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
             while (accumulator >= tick && guard-- > 0)
             {
-                IssuePeerCommands();
-                bool a = LocalDriver.TryStep();
-                bool b = PeerDriver.TryStep();
-                if (a) { Presenter.Capture(Local.World); Animation.Tick(Local.World); Events.Collect(Local.World); }
+                PerfMarkers.HostEnemyAi.Begin(); IssuePeerCommands(); PerfMarkers.HostEnemyAi.End();
+                PerfMarkers.HostStepLocal.Begin(); bool a = LocalDriver.TryStep(); PerfMarkers.HostStepLocal.End();
+                PerfMarkers.HostStepPeer.Begin(); bool b = PeerDriver.TryStep(); PerfMarkers.HostStepPeer.End();
+                if (a)
+                {
+                    PerfMarkers.PresentCapture.Begin(); Presenter.Capture(Local.World); PerfMarkers.PresentCapture.End();
+                    PerfMarkers.AnimTick.Begin(); Animation.Tick(Local.World); PerfMarkers.AnimTick.End();
+                    PerfMarkers.EventsCollect.Begin(); Events.Collect(Local.World); PerfMarkers.EventsCollect.End();
+                }
                 if (a && b && Local.World.Tick == Peer.World.Tick && Local.World.LastHash != Peer.World.LastHash && !Desync)
                 {
                     Desync = true;
@@ -118,11 +128,15 @@ namespace TW.Presentation
             }
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += Time.deltaTime;
-            Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale));
+            PerfMarkers.AnimAdvance.Begin(); Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale)); PerfMarkers.AnimAdvance.End();
             Presenter.UseController = UseAnimationController;
-            Presenter.Interpolate(Alpha, animTime);
+            PerfMarkers.PresentInterpolate.Begin(); Presenter.Interpolate(Alpha, animTime); PerfMarkers.PresentInterpolate.End();
             Events.Dispatch();
         }
+
+        /// <summary>Tooling (PerfBench): forget sim time the host still owes. After a fast-forward the accumulator can
+        /// hold seconds of backlog, and a measurement taken while it drains is a measurement of catch-up frames.</summary>
+        public void DropBacklog() => accumulator = 0f;
 
         /// <summary>Tooling (TankCapture): between frames the two lockstep worlds can be a tick apart, so a change made
         /// to both at once would land on different ticks and desync them. This steps the one behind until they match;

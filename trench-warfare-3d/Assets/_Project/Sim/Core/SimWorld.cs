@@ -7,6 +7,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.Profiling;
 
 namespace TW.Sim
 {
@@ -60,6 +61,7 @@ namespace TW.Sim
         public bool UsePhase0Movement = true;   // replaced by TW.Sim.Nav.MovementSystem in A1
 
         readonly List<ISimSystem> systems = new List<ISimSystem>();
+        ProfilerMarker[] systemMarkers = new ProfilerMarker[0];   // TW.Sim.Sys.<Type>, parallel to `systems`
 
         /// <summary>
         /// The registered systems in their fixed order, for tooling that needs to say WHICH system diverged rather
@@ -123,6 +125,8 @@ namespace TW.Sim
         {
             systems.Add(system);
             systems.Sort((a, b) => a.Order.CompareTo(b.Order));
+            systemMarkers = new ProfilerMarker[systems.Count];
+            for (int k = 0; k < systems.Count; k++) systemMarkers[k] = PerfMarkers.ForSystem(systems[k]);
             system.Initialize(this);
             if (system.Order == SimSystemOrder.Movement) UsePhase0Movement = false;
         }
@@ -169,14 +173,22 @@ namespace TW.Sim
         /// <summary>Advance one tick. <paramref name="commands"/> holds every peer's commands scheduled for this tick.</summary>
         public void Step(NativeArray<SimCommand> commands)
         {
+            using var step = PerfMarkers.SimStep.Auto();
             Events.Clear();
             SortCommands(commands);
             ApplyCoreCommands();
             StepEconomy();
-            foreach (var s in systems) s.Step(this);
+            for (int k = 0; k < systems.Count; k++)
+            {
+                systemMarkers[k].Begin();
+                systems[k].Step(this);
+                systemMarkers[k].End();
+            }
             if (UsePhase0Movement) StepPhase0Movement();
             Tick++;
+            PerfMarkers.SimHash.Begin();
             LastHash = Hash();
+            PerfMarkers.SimHash.End();
         }
 
         void SortCommands(NativeArray<SimCommand> commands)

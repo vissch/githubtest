@@ -15,8 +15,10 @@
 // you are fine. So this deploys until the field is populated, reports the population it actually achieved in every
 // message, and measures that.
 //
-// GC.GetAllocatedBytesForCurrentThread counts managed allocation on this thread only, cumulatively, so a
-// collection running mid-measurement cannot hide it. NativeArray and Burst allocations are native and correctly
+// Measured with TW.Perf.AllocProbe: the COUNT of managed allocations on this thread (GC.Alloc samples). The first
+// version measured bytes with GC.GetAllocatedBytesForCurrentThread, which under Unity's Boehm GC is a stub that reads
+// 0 whatever the code does, so it cleared AnimationController.Tick while that built a string for every man on every
+// tick: the ~400 KB lump itself (perf pass, 2026-09-23). NativeArray and Burst allocations are native and correctly
 // invisible here.
 using System;
 using NUnit.Framework;
@@ -24,6 +26,7 @@ using TW.Sim;
 using TW.Sim.Match;
 using TW.Net;
 using TW.Presentation;
+using TW.Perf;
 
 namespace TW.Tests
 {
@@ -33,6 +36,10 @@ namespace TW.Tests
         /// second or two; the allocation we are hunting is per tick, so it does not need the full army to show.</summary>
         const int WantMen = 300;
         const int DeployTicks = 400;
+
+        // Allocations per tick allowed on each path. Zero is the budget (docs/05); the driver pair's is the measured
+        // cost of LockstepDriver's per-tick Dictionary and ToArray pair, which the one-world change removes.
+        const double DriverBudget = 16, CaptureBudget = 0, AnimateBudget = 0, CollectBudget = 0;
 
         sealed class Rig : IDisposable
         {
@@ -83,15 +90,9 @@ namespace TW.Tests
             public void Dispose() { Local?.Dispose(); Peer?.Dispose(); }
         }
 
-        /// <summary>Bytes a block allocates, averaged over `reps`, after `warm` repetitions have grown every buffer
-        /// it will ever grow. Without the warm-up this measures one-time capacity growth and calls it a leak.</summary>
-        static double PerCall(Action step, int warm, int reps)
-        {
-            for (int i = 0; i < warm; i++) step();
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < reps; i++) step();
-            return (GC.GetAllocatedBytesForCurrentThread() - before) / (double)reps;
-        }
+        /// <summary>Allocations a block makes, averaged over `reps`, after `warm` repetitions have grown every buffer
+        /// it will ever grow. Without the warm-up this counts one-time capacity growth and calls it a leak.</summary>
+        static double PerCall(Action step, int warm, int reps) => AllocProbe.PerCall(step, warm, reps);
 
         [Test]
         public void ATickWithAnArmyOutDoesNotAllocateHundredsOfKilobytes()
@@ -106,25 +107,23 @@ namespace TW.Tests
             double collect = PerCall(() => { rig.Events.Collect(rig.Local.World); rig.Events.Frame.Clear(); }, 20, 100);
             double total = drivers + capture + animate + collect;
 
-            // Events per tick, reported because the cost this file is hunting is NOT in any of the four calls above
-            // (they measure zero) and the remaining candidate is Events.Dispatch, whose cost is the SUBSCRIBERS'.
-            // Dispatch runs inside SimHost.Update and only has anything to do on a frame that stepped a tick, which
-            // is exactly the per-tick signature the profiler saw. If a subscriber allocates per event, the bill is
-            // events-per-tick times that, so this number is the multiplier and belongs in the record.
+            // Events per tick, reported because Events.Dispatch's cost is its SUBSCRIBERS' (MonoBehaviours this rig does
+            // not build), and a subscriber that allocates per event bills events-per-tick times that. With a counter
+            // that sees allocations, the ~400 KB lump turned out to be Animation.Tick (1,518 allocations a tick with
+            // 300 men, a `why` string per man; 0 since 2026-09-23), not a subscriber.
             rig.Events.Frame.Clear();
             rig.Step();
             rig.Events.Collect(rig.Local.World);
             int eventsPerTick = rig.Events.Frame.Count;
             rig.Events.Frame.Clear();
 
-            string breakdown = $"with {men} men alive — drivers {drivers:0} B, Presenter.Capture {capture:0} B, " +
-                               $"Animation.Tick {animate:0} B, Events.Collect {collect:0} B, total {total:0} B; " +
+            string breakdown = $"allocations a tick with {men} men alive — drivers {drivers:0.#}, Presenter.Capture {capture:0.#}, " +
+                               $"Animation.Tick {animate:0.#}, Events.Collect {collect:0.#}, total {total:0.#}; " +
                                $"{eventsPerTick} events a tick" +
                                (eventsPerTick == 0
                                    ? ". NOTE: no events, so the men are deployed but not yet in contact and this run "
-                                     + "does NOT cover Events.Dispatch or its subscribers — which is where the "
-                                     + "remaining per-tick allocation is believed to be. Do not read this pass as "
-                                     + "clearing that path."
+                                     + "does NOT cover the systems that only work in contact (acquisition, fire, "
+                                     + "suppression) or Events.Dispatch's subscribers."
                                    : " reach Dispatch and its subscribers");
             TestContext.WriteLine(breakdown);
 
@@ -134,12 +133,13 @@ namespace TW.Tests
                 $"only {men} men deployed in {DeployTicks} ticks, so this measured an almost empty field and proves " +
                 "nothing about the per-tick allocation. Fix the deployment, do not relax the budget.");
 
-            // The budget is zero bytes a frame (docs/05). This asserts something far weaker — that a tick is not
-            // allocating on the order of the 400 KB lump — because a test that fails for a reason nobody will fix
-            // is a test that gets disabled. Tighten it once the cause is found and gone.
-            Assert.That(total, Is.LessThan(64 * 1024),
-                $"a sim tick allocates {total:0} bytes, which at 20 Hz is {total * 20 / 1024:0} KB a second of pure " +
-                $"garbage and is the periodic GC spike the frame budget keeps failing on. {breakdown}");
+            // The budget is zero a frame (docs/05), asserted per path so a red names the path that allocates.
+            Assert.That(animate, Is.LessThanOrEqualTo(AnimateBudget),
+                "AnimationController.Tick allocates per tick: at 20 Hz with an army out this is the periodic GC spike " +
+                $"the frame budget kept failing on (a string per man per tick was the ~400 KB lump). {breakdown}");
+            Assert.That(capture, Is.LessThanOrEqualTo(CaptureBudget), $"SimPresenter.Capture allocates per tick. {breakdown}");
+            Assert.That(collect, Is.LessThanOrEqualTo(CollectBudget), $"EventPump.Collect allocates per tick. {breakdown}");
+            Assert.That(drivers, Is.LessThanOrEqualTo(DriverBudget), $"the lockstep drivers allocate more per tick than they did. {breakdown}");
         }
 
         /// <summary>
@@ -152,9 +152,9 @@ namespace TW.Tests
             using var rig = new Rig();
             rig.Populate();
             double perTick = PerCall(() => { rig.A.TryStep(); rig.B.TryStep(); }, 60, 120);
-            TestContext.WriteLine($"LockstepDriver pair with {rig.Local.World.AliveCount} men: {perTick:0} B per tick");
-            Assert.That(perTick, Is.LessThan(4096),
-                $"stepping both drivers allocates {perTick:0} bytes a tick with {rig.Local.World.AliveCount} men out");
+            TestContext.WriteLine($"LockstepDriver pair with {rig.Local.World.AliveCount} men: {perTick:0.#} allocations per tick");
+            Assert.That(perTick, Is.LessThanOrEqualTo(DriverBudget),
+                $"stepping both drivers makes {perTick:0.#} allocations a tick with {rig.Local.World.AliveCount} men out");
         }
     }
 }

@@ -529,6 +529,22 @@ namespace TW.Editor
         /// <summary>The measurements from the last still, so a script can read them without opening the file.</summary>
         public static string LastReport() => rig != null ? rig.LastJson : "";
 
+        /// <summary>
+        /// Runs TW.Perf.PerfBench in the editor on the open GreyboxCorridor: the same fixed battle, camera, sky and
+        /// report the Windows player measures with `-twbench`, so editor and build numbers compare like for like.
+        /// Args are PerfBench's ("stress=1500 ticks=400 out=C:/.../run.json"); it enters play, runs, writes the report
+        /// and leaves play. The request crosses the domain reload as an environment variable. Poll
+        /// TW.Perf.PerfBench.LastResultPath, or the file itself.
+        /// </summary>
+        public static string Bench(string args)
+        {
+            if (EditorApplication.isPlaying) return "stop play first: SimHost reads the stress preset in Awake";
+            if (Object.FindFirstObjectByType<SimHost>() == null) return "no SimHost in the open scene: open Scenes/GreyboxCorridor.unity first";
+            System.Environment.SetEnvironmentVariable(TW.Perf.PerfBench.EnvVar, args);
+            EditorApplication.EnterPlaymode();
+            return "bench armed, entering play: " + args;
+        }
+
         // ---- the footprint half of the scorecard ------------------------------------------------------------
 
         /// <summary>

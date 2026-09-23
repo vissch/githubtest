@@ -76,11 +76,21 @@ decided at the M1.5 fun gate.
 | LINQ, boxing, `string` building in per-frame code | pre-allocated buffers |
 
 ## Profiling procedure (every milestone)
-1. Load `GreyboxCorridor` (M1) or the mission map, spawn the stress preset (`TW → Debug → Stress 2000`).
-2. Capture 600 frames with the Unity Profiler (Deep Profile off), export the `SimWorld.Step`, `SimPresenter`,
-   `EventPump` and `Render` marker averages to `docs/perf/<milestone>-<machine>.md`.
-3. Frame Debugger: count draw calls, confirm indirect batches.
-4. Memory Profiler: confirm 0 B/frame managed allocation in play.
+The procedure that used to stand here named a menu (`TW → Debug → Stress 2000`) and a marker (`SimWorld.Step`) that
+never existed. Since 2026-09-23 both halves are real (details in the last section of this file):
+1. **One benchmark, two places.** `TW.Perf.PerfBench` runs a fixed battle — the stress preset at `stress` riflemen a
+   side, fast-forwarded to `settle_ticks`, paused there while `warm` frames render, then `ticks` sim ticks at 1x from
+   the standard view held over the middle of the army, shake off, weather pinned — and writes a json report.
+   Editor: `CaptureRig.Bench("stress=1500 settle_ticks=1800 ticks=400 out=...")` with GreyboxCorridor open.
+   Player: `TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 out=..."` from
+   `TW/Build/Windows Bench` (`Editor/BuildWindows.cs`). Two reports with the same `hash_start` measured the same fight.
+2. **Markers.** `TW.Sim.Step`, `TW.Sim.Sys.<System>` (one per sim system), `TW.Sim.Hash`, `TW.Host.*`, `TW.Anim.*`,
+   `TW.Events.*` (`Sim/Core/PerfMarkers.cs`); the report divides each marker's window total by the ticks it covered
+   (`per_tick_ms`). They compile out of a release player: attribute with a development build, compare totals only
+   release to release.
+3. **Allocation.** `TW.Perf.AllocProbe` counts managed allocations exactly. Never `GC.GetAllocatedBytesForCurrentThread`:
+   under Unity's Boehm GC it reads 0 whatever the code does.
+4. Frame Debugger for draw calls and indirect batches, as before.
 
 ## First measurement (2026-09-22, commit with `Editor/CaptureRig.cs`)
 
@@ -399,3 +409,53 @@ lossless on a smooth gradient, which is what a beach is, so the wetness gradient
 The refusal is not folklore either. A 6×8 texture logs `has dimensions (6 x 8) which are not multiples of 4.
 Compress will not work.` and comes back still RGBA32 — an error in the log, nothing thrown, and the calling code
 reading as though it had saved three quarters of the memory. That is the whole case for `Round4`.
+
+## The perf pass: instruments that see, and what they saw first (2026-09-23)
+
+The owner asked for the game to run faster "without losing fidelity". Before changing anything, two instruments this
+file had been relying on turned out not to exist or not to work.
+
+**The allocation instrument was blind.** Every allocation finding above — "five suspects measured at zero", the
+per-event lookups "free", `AnimationController.Tick` cleared at 0 B — was measured with
+`GC.GetAllocatedBytesForCurrentThread()`. In this editor it reads **0 bytes for a 1 MB array**, for 10,000
+`new object()` and for 2,000 formatted strings. It is a stub under Unity's Boehm collector. The section above that
+called one callstack "not corroborated" was right to distrust it and wrong about why: the tool that "refuted" it could
+not see anything. `TW.Perf.AllocProbe` counts `GC.Alloc` samples on the calling thread instead (what
+`Is.Not.AllocatingGCMemory()` does inside); `AllocProbeSanityTests` pins it to known answers (nothing = 0, a 1 MB array
+= 1, 10,000 objects = 10,000, a formatted string ≥ 1) so it cannot silently go blind the same way.
+
+**The periodic lump, named.** Re-measured with the probe, a tick with 300 men out made **1,518 allocations, all in
+`AnimationController.Tick`**: every `Start(...)` call built its `why` string ("moves at 1.7 m/s: WalkRifle ...") for
+every man, and `Start` only reads it for the one man the trace follows. The calls now pass
+`(i == FollowSlot ? ... : null)`; the tick makes **0**. The trace for the followed man is word for word what it was.
+
+**A benchmark that measures the same battle twice.** `PerfBench` (procedure above). Editor, RTX 4070 laptop, 1,500 a
+side, ticks 1800–2200, standard view, same `hash_start` (F03581A2ADD8FFBA) in both columns:
+
+| | before | after the `why` strings |
+|---|---|---|
+| Main thread p50 / p95 / p99 | 7.7 / 38.5 / 84.8 ms | 7.4 / 34.7 / 50.9 ms |
+| GC per frame p50 / p95 | 11 KB / **461 KB** | 11 KB / **12 KB** |
+| Allocations per frame p95 | 10,609 | 244 |
+| GC collections in the window | 3 | 1 |
+| `TW.Anim.Tick` per tick | 3.51 ms | 1.15 ms |
+| GPU p50 / p95 | 3.6 / 8.4 ms | 3.8 / 6.8 ms |
+| Draw calls / SetPass | 359 / 257 | 359 / 258 |
+
+**Where the tick goes** (the first per-system numbers this project has had; both lockstep worlds, so per world is half):
+
+| per tick | ms |
+|---|---|
+| `TW.Sim.Step` (all systems, both worlds) | 21.3 |
+| of which `TrenchGarrisonSystem` | **15.7** |
+| `TargetAcquisitionSystem` | 2.1 |
+| `TW.Sim.Hash` | 1.4 |
+| `MovementSystem` | 1.3 |
+
+Two things fall out. The garrison system is three quarters of the sim: every man in a full trench with no post re-ran
+the nearest-post search (five passes a kind, two kinds, every cell of the trench) on every tick, and with an army out
+that is most of the men. And single player steps the sim twice (the loopback peer), so every one of these numbers is
+paid twice. Both are the next two changes. Also measured: at ~1,800 men in view the unit vertex count (1.65 M) is
+over `LodTiers.VertexBudget`, so **the men's shadows are already off** in this battle — GPU savings buy fidelity back.
+
+Still editor numbers. The Windows build path exists (`Editor/BuildWindows.cs`); its first measurement is next.
