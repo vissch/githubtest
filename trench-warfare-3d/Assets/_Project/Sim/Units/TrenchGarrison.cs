@@ -106,7 +106,13 @@ namespace TW.Sim.Units
                 if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || w.TrenchId[i] < 0 || w.PostCell[i] >= 0) continue;
                 short t = w.TrenchId[i];
                 if ((uint)t >= (uint)map.Trenches.Length) continue;
-                byte wanted = SimRandom.Mix(w.Config.Seed, 0u, StreamId, (uint)(t * 4096 + i)) % 10u < FiringInTen ? (byte)1 : (byte)2;
+                // The trench gets its OWN word rather than being packed into the slot. `t * 4096 + i` left
+                // 512 slots of head room: SimConfig.MaxSlots is already 3584, and its own comment says the
+                // ceiling is 3,000 units "and the rest is head room for vehicles and emplacements", so the
+                // number has been raised once and sits at 87.5% of the limit. At 4096 trench t slot 4096
+                // would collide with trench t+1 slot 0 and adjacent trenches would share this decision,
+                // silently: the 6-in-10 split would stop being independent per trench and no test would say so.
+                byte wanted = SimRandom.Mix(w.Config.Seed, (uint)t, StreamId, (uint)i) % 10u < FiringInTen ? (byte)1 : (byte)2;
                 int post = Nearest(w, i, map.Trenches[t], wanted);
                 if (post < 0) post = Nearest(w, i, map.Trenches[t], wanted == 1 ? (byte)2 : (byte)1);
                 if (post < 0) continue;                                   // the trench is full: he holds where he stands
@@ -154,7 +160,10 @@ namespace TW.Sim.Units
                 if (post < 0 || postKind[post] != kind || holder[post] >= 0) continue;
                 int dx = cell % map.NavWidth - sx, dz = cell / map.NavWidth - sz;
                 int d = dx * dx + dz * dz;
-                if (d >= bestDistance) continue;                          // ties go to the lower cell, so it is stable
+                // A tie goes to whichever candidate comes FIRST in FireStepCells/TrenchCells - generator
+                // order, not cell order. Both machines walk the same array, so it is stable either way; it
+                // is simply not the ordering the old comment here claimed.
+                if (d >= bestDistance) continue;
                 if (room > 0 && Crowded(cell, room)) continue;
                 bestDistance = d; best = post;
             }

@@ -304,6 +304,86 @@ namespace TW.Tests
             Assert.Greater(worst, 4.5f, $"two men are standing {worst:F2} m apart in a trench with room to spare");
         }
 
+        /// <summary>
+        /// ShelledForest, not the playtest bowl. Cycle 4 of the critique loop caught the fire-step tests passing
+        /// by choosing the easy map and moved them onto the map the game plays; the GARRISON tests in this same
+        /// file were left behind on CreatePlaytest, which is the half the owner actually complained about.
+        ///
+        /// The difference is not cosmetic. The playtest trench is a ruled straight line in a smooth bowl.
+        /// ShelledForest has traverses, bends, ladder cells (never posted), craters and short segments, and that
+        /// is exactly where Crowded()'s square neighbourhood and the greedy nearest-with-room assignment can
+        /// behave differently from a straight run.
+        ///
+        /// Men are seeded along the front trench's own cells rather than at hard-coded coordinates, which is what
+        /// tied the old tests to one map, and it takes the pathing out of what is being measured: this is a claim
+        /// about where the garrison ENDS UP, not about how it walks there.
+        /// </summary>
+        static MatchSim OnTheRealMap(uint seed = 0xC0FFEE)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = seed;
+            return MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917));
+        }
+
+        /// <summary>Seeds men spaced along the front trench of team 0, and returns how many it placed.</summary>
+        static int SeedAlongTheFrontTrench(MatchSim m, int count)
+        {
+            var def = m.Map.Trenches[m.Fields.FrontTrench(0)];
+            if (def.CellCount < 4) return 0;
+            int placed = 0;
+            for (int k = 0; k < count; k++)
+            {
+                int cell = m.Map.TrenchCells[def.CellStart + (int)((long)k * def.CellCount / count)];
+                m.World.Spawn(0, 0, m.Map.NavCellCenter(cell), 100f, 1.2f, false);
+                placed++;
+            }
+            return placed;
+        }
+
+        [Test]
+        public void AFullGarrisonFindsPostsForNearlyEveryone_OnTheMapWeActuallyPlay()
+        {
+            using var m = OnTheRealMap();
+            var def = m.Map.Trenches[m.Fields.FrontTrench(0)];
+            Assert.Greater(SeedAlongTheFrontTrench(m, 40), 0, "the front trench has cells to stand in");
+            Run(m, 1400);
+            int garrison = 0, posted = 0;
+            for (int i = 0; i < m.World.HighWater; i++)
+            {
+                if (!m.World.IsAlive(i) || m.World.TrenchId[i] < 0) continue;
+                garrison++;
+                if (m.World.PostCell[i] >= 0) posted++;
+            }
+            Assert.Greater(garrison, 8, "men are garrisoned in a trench on ShelledForest");
+            Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
+                $"ShelledForest: {garrison - posted} of {garrison} garrisoned men have nowhere to be and fall back "
+                + $"to separation alone (front trench has {def.CellCount} cells, {def.FireStepCount} fire steps)");
+        }
+
+        [Test]
+        public void ALightGarrisonStandsWellApart_OnTheMapWeActuallyPlay()
+        {
+            using var m = OnTheRealMap();
+            var def = m.Map.Trenches[m.Fields.FrontTrench(0)];
+            Assert.Greater(SeedAlongTheFrontTrench(m, 12), 0, "the front trench has cells to stand in");
+            Run(m, 1200);
+            var at = new List<float3>();
+            for (int i = 0; i < m.World.HighWater; i++)
+            {
+                int cell = m.World.PostCell[i];
+                if (!m.World.IsAlive(i) || m.World.TrenchId[i] < 0 || cell < 0) continue;
+                float3 post = m.Map.NavCellCenter(cell) + TrenchPost.Offset(cell, m.Map.NavWidth);
+                if (math.distance(post.xz, m.World.Position[i].xz) < 1f) at.Add(m.World.Position[i]);
+            }
+            Assert.Greater(at.Count, 5, "men reached their posts and settled on ShelledForest");
+            float worst = float.MaxValue;
+            for (int a = 0; a < at.Count; a++)
+                for (int b = a + 1; b < at.Count; b++)
+                    worst = math.min(worst, math.distance(at[a].xz, at[b].xz));
+            Assert.Greater(worst, 4.5f,
+                $"ShelledForest: two of {at.Count} men stand {worst:F2} m apart in a trench with room to spare "
+                + $"({def.CellCount} cells for 12 men)");
+        }
+
         [Test]
         public void TheSpreadIsTheSameOnEveryMachine()
         {
