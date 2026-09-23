@@ -41,8 +41,13 @@ namespace TW.Sim.Units
                 short id = (short)cmd.A;
                 switch (cmd.Type)
                 {
-                    case CommandType.TrenchAdvance: Advance(w, id, cmd.Player, 0); break;
-                    case CommandType.TrenchSelectAdvance: Advance(w, id, cmd.Player, cmd.B); break;
+                    // An order that moves nobody REPORTS that, instead of being quietly accepted. The trench existing and being
+                    // owned is not enough: it can be empty, because DefaultGoal garrisons the rear trench, so an
+                    // advance aimed at the front line routinely finds no one there. Silently succeeding at nothing
+                    // hid a whole missing battle for two review cycles (2026-09-23). It is its own event rather than
+                    // CommandRejected: the command was legal, it just found an empty trench.
+                    case CommandType.TrenchAdvance: if (Advance(w, id, cmd.Player, 0) == 0) w.Events.Add(w.Tick, SimEventType.OrderFoundNoOne, (int)cmd.Type, cmd.Player); break;
+                    case CommandType.TrenchSelectAdvance: if (Advance(w, id, cmd.Player, cmd.B) == 0) w.Events.Add(w.Tick, SimEventType.OrderFoundNoOne, (int)cmd.Type, cmd.Player); break;
                     case CommandType.TrenchFallback: Fallback(w, id, cmd.Player); break;
                     case CommandType.TrenchLock: { var s = trenches[id]; s.Locked = (byte)(cmd.B != 0 ? 1 : 0); trenches[id] = s; break; }
                     case CommandType.TrenchHoldFire: { var s = trenches[id]; s.HoldFire = (byte)(cmd.B != 0 ? 1 : 0); trenches[id] = s; break; }
@@ -60,10 +65,12 @@ namespace TW.Sim.Units
             }
         }
 
-        void Advance(SimWorld w, short trenchId, byte team, int archetypeMask)
+        /// <summary>How many men actually went over the top. Zero means the order found nobody to give.</summary>
+        int Advance(SimWorld w, short trenchId, byte team, int archetypeMask)
         {
             int goal = fields.NextGoalFrom(trenchId, team);
-            if (goal < 0) return;
+            if (goal < 0) return 0;
+            int moved = 0;
             for (int i = 0; i < w.HighWater; i++)
             {
                 uint f = w.Flags[i];
@@ -76,7 +83,9 @@ namespace TW.Sim.Units
                 w.SourceTrench[i] = trenchId;
                 w.Flags[i] = f | (uint)UnitFlags.Exposed;
                 w.Events.Add(w.Tick, SimEventType.UnitLeftTrench, i, trenchId, w.Position[i]);
+                moved++;
             }
+            return moved;
         }
 
         void Fallback(SimWorld w, short trenchId, byte team)

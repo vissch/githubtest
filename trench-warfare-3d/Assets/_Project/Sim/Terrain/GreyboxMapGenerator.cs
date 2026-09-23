@@ -119,8 +119,11 @@ namespace TW.Sim.Terrain
                         for (int hx = x * 2; hx < x * 2 + 2; hx++)
                             map.Height.Set(hx, hz, map.Height.HeightAtCell(hx, hz) - 1.8f);
                 }
-                // fire-step is the trench cell on the enemy-facing side
-                int fsz = team == 0 ? zc + 1 : zc;
+                // fire-step is the trench cell on the enemy-facing side - which at a traverse is the end of THIS
+                // column's carve, not zc. Where the line jogs backward the carve reaches further forward than zc,
+                // and pinning the step to zc left carved floor in front of it: a 0.7 m plinth in the middle of the
+                // trench, with the floor between it and the parapet, and a man posted on it standing over a hole.
+                int fsz = team == 0 ? to : from;
                 map.FireStepCells.Add(map.NavIndex(x, fsz));
                 // ...and it is a STEP. The carve above took the whole trench down together, which left the firing
                 // post level with the trench floor and every man on it aiming into the parapet. Give the row back

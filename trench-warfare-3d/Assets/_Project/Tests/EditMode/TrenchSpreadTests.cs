@@ -38,6 +38,64 @@ namespace TW.Tests
 
         // ---- the guns ------------------------------------------------------------------------------------------
 
+        /// <summary>
+        /// A man's feet are on the DRAWN ground, and a combat ray reads the same heightfield bilinearly. Both go
+        /// through Sample, so that is what these tests measure. The earlier version read HeightAtCell(x*2, z*2) -
+        /// the lower-left corner of the 2 m cell - which is a point no man occupies and nothing consumes.
+        /// </summary>
+        static float GroundAt(MapData map, int cell)
+        {
+            var c = map.NavCellCenter(cell);
+            return map.Height.Sample(c.x, c.z);
+        }
+
+        /// <summary>The first cell out of the trench on the enemy-facing side: walked for, not assumed to be 2 away.</summary>
+        static int LipOf(MapData map, in TrenchDef def, int fs)
+        {
+            int x = fs % map.NavWidth, z = fs / map.NavWidth, step = def.OwnerTeam == 0 ? 1 : -1;
+            for (int k = 1; k <= 4; k++)
+            {
+                int n = (z + step * k) * map.NavWidth + x;
+                if (n < 0 || n >= map.CellTrenchId.Length) return -1;
+                if (map.CellTrenchId[n] != def.Id) return n;
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// The claim that holds on EVERY map, because it is an identity rather than a property of flat ground:
+        /// the trench is carved FireStepDepth down and the step is raised FireStepRise back up, so the top of the
+        /// step sits (1.8 - 0.7) = 1.1 m below the ground in front of it, wherever that ground happens to be.
+        /// Run on ShelledForest, which is what the game plays and what the old tests avoided.
+        /// </summary>
+        [Test]
+        public void TheStepSitsAboutAMetreBelowTheGroundInFrontOfIt_OnTheMapWeActuallyPlay()
+        {
+            using var map = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(1917), Allocator.Persistent);
+            int checkedCells = 0;
+            float lowest = float.MaxValue, highest = float.MinValue;
+            for (int t = 0; t < map.Trenches.Length; t++)
+            {
+                var def = map.Trenches[t];
+                for (int k = 0; k < def.FireStepCount; k += 3)
+                {
+                    int fs = map.FireStepCells[def.FireStepStart + k];
+                    int lip = LipOf(map, def, fs);
+                    if (lip < 0) continue;
+                    float below = GroundAt(map, lip) - GroundAt(map, fs);
+                    lowest = math.min(lowest, below); highest = math.max(highest, below);
+                    checkedCells++;
+                }
+            }
+            Assert.Greater(checkedCells, 40, "the map has fire steps to check");
+            // craters fall in front of a trench and only ever lower the lip, so the band is one-sided at the top
+            Assert.Greater(lowest, 0.55f, $"a firing post is {lowest:F2} m below the lip: too deep to shoot over");
+            Assert.Less(highest, 1.60f, $"a firing post is {highest:F2} m below the lip: that is not a step, it is a wall");
+        }
+
+        /// <summary>The rise itself, on the one map flat enough to measure it directly: the playtest bowl, whose
+        /// neighbouring cells differ by about 0.004 m. On rolling ground the terrain noise swamps it, which is why
+        /// the test above asserts the identity instead.</summary>
         [Test]
         public void AFiringPostIsAStepAboveTheTrenchFloor()
         {
@@ -51,7 +109,6 @@ namespace TW.Tests
                 {
                     int fs = map.FireStepCells[def.FireStepStart + k];
                     int x = fs % map.NavWidth, z = fs / map.NavWidth;
-                    // the trench floor in the same column: whichever neighbour along Z is this trench and is not the step
                     int floor = -1;
                     foreach (int dz in new[] { -1, 1 })
                     {
@@ -60,7 +117,7 @@ namespace TW.Tests
                         if (map.CellTrenchId[n] == def.Id && n != fs) floor = n;
                     }
                     if (floor < 0) continue;
-                    Assert.AreEqual(GreyboxMapGenerator.FireStepRise, HeightOf(map, fs) - HeightOf(map, floor), 0.02f,
+                    Assert.AreEqual(GreyboxMapGenerator.FireStepRise, GroundAt(map, fs) - GroundAt(map, floor), 0.06f,
                         $"trench {def.Id} column {x}: the firing post must stand a fire step above the trench floor");
                     checkedCells++;
                 }
@@ -69,36 +126,39 @@ namespace TW.Tests
         }
 
         /// <summary>
-        /// The one that matters: a man at a firing post must be able to shoot over the parapet rather than into it.
-        /// His rifle sits about 1.25 m above his feet in the fire-step pose, so the ground in front of him has to be
-        /// less than that above where he stands. Before the fire step existed the lip was 1.66 m above him.
+        /// How much of a man clears the parapet. RifleAboveFeet is an ASSUMPTION, not a measurement - the real
+        /// figure is the Y of VatAsset.Muzzle on the FireFireStep row, which this assembly cannot reach. The
+        /// measured margin on ShelledForest is only 0.08-0.25 m, so an error of 0.16 m in this constant flips the
+        /// whole fire step between a fix and a no-op. The test therefore reports the margin it found rather than
+        /// merely passing, so the number is visible in the run output and can be checked against the figure.
         /// </summary>
         [Test]
         public void AManAtAFiringPostHasHisRifleOverTheParapet()
         {
-            const float RifleAboveFeet = 1.25f;
-            using var m = NewMatch();
-            var map = m.Map;
+            const float RifleAboveFeet = 1.25f;   // assumed; see the summary above
+            using var map = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(1917), Allocator.Persistent);
             int checkedCells = 0;
+            float worst = float.MaxValue;
             for (int t = 0; t < map.Trenches.Length; t++)
             {
                 var def = map.Trenches[t];
-                int toward = def.OwnerTeam == 0 ? 1 : -1;      // team 0 faces +Z, team 1 faces -Z
-                for (int k = 0; k < def.FireStepCount; k += 7)
+                for (int k = 0; k < def.FireStepCount; k += 3)
                 {
                     int fs = map.FireStepCells[def.FireStepStart + k];
-                    int x = fs % map.NavWidth, z = fs / map.NavWidth;
-                    int lip = (z + toward) * map.NavWidth + x;   // the first cell out of the trench, the parapet
-                    if (lip < 0 || lip >= map.CellTrenchId.Length || map.CellTrenchId[lip] == def.Id) continue;
-                    float over = HeightOf(map, fs) + RifleAboveFeet - HeightOf(map, lip);
-                    Assert.Greater(over, 0f,
-                        $"trench {def.Id} column {x}: his rifle is {-over:F2} m BELOW the parapet, so he is shooting into the ground");
+                    int lip = LipOf(map, def, fs);
+                    if (lip < 0) continue;
+                    worst = math.min(worst, GroundAt(map, fs) + RifleAboveFeet - GroundAt(map, lip));
                     checkedCells++;
                 }
             }
-            Assert.Greater(checkedCells, 8, "the map has parapets to check");
+            Assert.Greater(checkedCells, 40, "the map has parapets to check");
+            Assert.Greater(worst, 0f,
+                $"thinnest margin {worst:F3} m: his rifle is below the parapet, so he is shooting into the ground. " +
+                "Before the fire step existed this was about -0.6 m.");
         }
 
+        /// <summary>A man in support keeps his head down. On the FRONT line, not whichever trench happens to be
+        /// first in the list - Trenches[0] on the playtest map is the reserve line.</summary>
         [Test]
         public void AReservePostStaysDownOnTheFloor()
         {
@@ -107,20 +167,19 @@ namespace TW.Tests
             var step = new HashSet<int>();
             for (int t = 0; t < map.Trenches.Length; t++)
             {
-                var def = map.Trenches[t];
-                for (int k = 0; k < def.FireStepCount; k++) step.Add(map.FireStepCells[def.FireStepStart + k]);
+                var d = map.Trenches[t];
+                for (int k = 0; k < d.FireStepCount; k++) step.Add(map.FireStepCells[d.FireStepStart + k]);
             }
-            var front = map.Trenches[0];
+            var front = map.Trenches[m.Fields.FrontTrench(0)];
             int floors = 0;
             for (int k = 0; k < front.CellCount; k++)
             {
                 int cell = map.TrenchCells[front.CellStart + k];
                 if (step.Contains(cell)) continue;
+                int lip = LipOf(map, front, cell);
+                if (lip < 0) continue;
                 floors++;
-                int x = cell % map.NavWidth, z = cell / map.NavWidth;
-                int lip = (z + (front.OwnerTeam == 0 ? 2 : -2)) * map.NavWidth + x;
-                if (lip < 0 || lip >= map.CellTrenchId.Length || map.CellTrenchId[lip] == front.Id) continue;
-                Assert.Less(HeightOf(map, cell) + 1.25f, HeightOf(map, lip),
+                Assert.Less(GroundAt(map, cell) + 1.25f, GroundAt(map, lip),
                     "a man in support keeps his head down: the floor is not a fire step");
             }
             Assert.Greater(floors, 8, "the trench has floor as well as fire step");

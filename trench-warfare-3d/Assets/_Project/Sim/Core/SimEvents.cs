@@ -54,6 +54,10 @@ namespace TW.Sim
         CraftInbound,       // a = craft index, b = team, pos = where it appeared out to sea
         CraftBeached,       // a = craft index, b = team, pos = where it grounded
         ShipFired,          // a = ship index, b = team, pos = where the shell is going, dir = from the ship to it
+        // ---- orders (A3): TrenchOrderSystem ----
+        OrderFoundNoOne,    // a = command type, b = player: the order was VALID and moved nobody (an empty trench).
+                            // Deliberately not CommandRejected, which means the command itself was bad - a UI that
+                            // beeps at a rejection should not beep at a player who ordered an empty line forward.
     }
 
     /// <summary>Why a vehicle stopped fighting (VehicleKnockedOut.b).</summary>

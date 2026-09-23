@@ -91,6 +91,44 @@ a full one stands men shoulder to shoulder rather than leaving them postless. In
 barely moves (1.77 → 1.90 m) and it should not: 84 men in 90 m of two-row trench are shoulder to shoulder by
 geometry, not by policy.
 
+### The fire step reaches the picture, not the simulation
+
+Worth stating plainly, because the commit that built it did not: **`FireStepRise` has one consumer.** It raises
+the heightfield, the drawn ground follows, and a man is drawn standing on it — that part is real and measured
+(his rifle clears the parapet in all 180 columns of `ShelledForest(1917)`, by 0.08–0.25 m, where before the raise
+it was 0.55–0.70 m under). Nothing else reads it.
+
+`TargetAcquisition.Muzzle` returns `Height.Sample(q) + 0.3f` for **every** man with `UnitFlags.InTrench`, so the
+fire-step man and the crouching reserve man fire from the same height, and `HeightfieldRaycast.EyeHeight(FireStep)
+= 1.5f` is unreachable code. `TankGunnery` does the same. So the step changes no combat outcome at all.
+
+And the stance it serves is close to unreachable anyway: `MovementSystem` mounts a man on the step only if he
+already has a target, while `TargetAcquisition` makes an in-trench man who is *not* on the step untargetable
+beyond `BelowRimRevealRange`. Two opposed garrisons cannot see each other, so neither ever stands up. Fixing that
+is a combat-design decision — what makes a garrison expose itself — not a terrain edit, and it is not made here.
+
+One hypothesis worth recording as **disproved**: the raise cannot occlude anyone. The step's top sits
+`1.8 − 0.7 = 1.1 m` below local grade on every map by identity, so a ray that clears the parapet clears the step
+by over a metre.
+
+Also: every measurement in the table above was taken on the 150-column *playtest* trench. A `ShelledForest`
+trench is 45 columns, so it offers ~35 firing posts after thinning and links — against `FiringInTen = 6` asking
+60% of the garrison. Above roughly 58 men the map cannot supply the demand, and the surplus become reserve posts,
+which are permanently excluded from the fire step. The table should be re-measured on the map the game plays.
+
+### Why nobody was dying
+
+Three failures stacked, found while trying to write a two-world test that kills a unit:
+
+1. `FlowFieldManager.DefaultGoal` returns `RearTrench`, so on `ShelledForest` every man garrisons trench 0 or 3 —
+   **180 m apart, against a 130 m rifle.** The front trenches, whose fire steps this work built, hold nobody
+   until a player orders an advance.
+2. `TrenchAdvance` with `A = FrontTrench(team)` matched **zero units**, because those trenches were empty — and
+   the order was *silently accepted*. The ownership check passed, so no rejection was emitted. That is now an
+   `OrderFoundNoOne` event; it is deliberately not `CommandRejected`, because the command was legal.
+3. The second barrage was refused anyway: `HeBarrage.CooldownTicks` is 1200 and the salvos were 60 ticks apart.
+   `SimConfig.Default.StartingSilver` is also 120 against a cost of 150.
+
 ### Correction: the displacement was measured against the wrong baseline
 
 The first version of this used independent per-cell noise, and the before/after table above credited it with an
