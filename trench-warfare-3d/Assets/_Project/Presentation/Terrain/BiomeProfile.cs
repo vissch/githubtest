@@ -91,6 +91,14 @@ namespace TW.Presentation.Terrain
         /// <summary>What a shell throws out of standing liquid: water, or molten spatter (CombatFx.SplashTint).</summary>
         public Color SplashTint = new Color(0.62f, 0.70f, 0.82f);
 
+        /// <summary>
+        /// The standing liquid on this field is molten rock, not water. A shell in water is damped - no fire,
+        /// no dust, no clods - and a shell in melt is the loudest thing on the map. The effects cannot tell
+        /// them apart on their own: SceneHooks.IsWater is map data (water level and puddles) and no biome
+        /// touches it, so on this field it is true over the river and covers 11% of the ground.
+        /// </summary>
+        public bool MoltenLiquid;
+
         /// <summary>Shell smoke. The biggest, longest-lived effect on the field: it must belong to the biome.</summary>
         public Color SmokeTint = new Color(0.34f, 0.32f, 0.29f);
 
@@ -192,6 +200,7 @@ namespace TW.Presentation.Terrain
             GroundLight = new Color(0.80f, 0.22f, 0.16f, 1.2f),
             WorldTint = new Color(0.34f, 0.28f, 0.27f, 0.45f),   // mud, taken most of the way to cold basalt
             HeatStrength = 0.85f, HeatPlates = 0.075f, HeatCrackWidth = 0.032f, MoltenLevel = 0.6f,
+            MoltenLiquid = true,   // the river here is melt: a shell in it must not be damped like one in water
             // An EMISSION colour, not the reference's final pixel colour. I had pasted the measured crack body
             // (0.95, 0.38, 0.42) straight in, but that number is what the reference shows AFTER its fog, its
             // grade and its bloom; used as emission and then pushed through Saturation +22 and Bloom 1.35 it

@@ -558,6 +558,11 @@ namespace TW.Presentation.Tactical
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
                     bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
+                    // Water damps a shell; melt does not. IsWater is map data and knows nothing about the
+                    // biome, so on the lava field it is true over the river - 11% of the ground, measured -
+                    // and every shell that landed there lost its burst, its smoke and its debris: the
+                    // quietest impact in the game, where it should be the loudest.
+                    bool melt = wet && SceneTints.Now.MoltenLiquid;
                     bool drawn = books != null && books.Ready;
                     if (drawn)
                     {
@@ -572,7 +577,7 @@ namespace TW.Presentation.Tactical
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
-                        if (!wet)
+                        if (!wet || melt)
                         {
                             books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                 velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
@@ -587,18 +592,23 @@ namespace TW.Presentation.Tactical
                     }
                     else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
                     lastBlast = p; lastBlastAt = Time.time;
+                    // the spatter: liquid either way, and SplashTint has already made it orange on the lava field
                     if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 28 : 48, 4, 20f, 0.18f);   // a shell in the water throws a white column, not earth
-                    else
+                    else Throw(p, drawn ? 10 : 28, 0, 15f, 0.30f);
+                    // Thrown pieces: dry earth throws clods and melt throws cooling spatter (DebrisRenderer.Biome
+                    // already carries the basalt tint), but WATER throws neither. The rim and the hot crater
+                    // below stay dry-only on purpose - a ring of clods lying round a hole in a running river is
+                    // not a thing, on either liquid.
+                    if ((!wet || melt) && debris != null && debris.Ready)
                     {
-                        Throw(p, drawn ? 10 : 28, 0, 15f, 0.30f);
-                        if (debris != null && debris.Ready)
-                        {
-                            // the earth itself: clods the size of a fist to a head, thrown up and out, which lie where they land
-                            // for half a minute; and a hail of smaller ones flung high that comes down over the next seconds
-                            float r = Mathf.Clamp(e.Scalar, 2f, 9f);
-                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, default, e.Tick);
-                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, default, e.Tick + 7u);
-                        }
+                        // the earth itself: clods the size of a fist to a head, thrown up and out, which lie where they land
+                        // for half a minute; and a hail of smaller ones flung high that comes down over the next seconds
+                        float r = Mathf.Clamp(e.Scalar, 2f, 9f);
+                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, default, e.Tick);
+                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, default, e.Tick + 7u);
+                    }
+                    if (!wet)
+                    {
                         // a fresh hole: clods lie thrown round its rim, and the hot earth steams in the rain (seen from close by)
                         float rim = Mathf.Clamp(e.Scalar * 0.55f, 1.2f, 4.5f);
                         for (int k = 0; k < 12; k++)

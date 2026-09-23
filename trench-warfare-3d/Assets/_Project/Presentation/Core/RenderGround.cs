@@ -52,6 +52,17 @@ namespace TW.Presentation
             public UnityEngine.Color Smoke;
             /// <summary>Multiplies every flash and ember. A dark field wants more; a bright one blows out.</summary>
             public float Glow;
+
+            /// <summary>
+            /// The standing liquid on this field is MOLTEN, not water.
+            ///
+            /// SceneHooks.IsWater answers "is there liquid here" from the map alone - water level and painted
+            /// puddles - and no biome touches it, so on the lava field it is true over the river and reads
+            /// 11% of the battlefield. The effects then treat melt as a flooded crater and suppress the fire
+            /// and the dust, which is right for water and exactly wrong for rock. Only the biome knows which
+            /// liquid it is, so the biome says.
+            /// </summary>
+            public bool MoltenLiquid;
         }
 
         /// <summary>No biome: the night field's own colours, which is what these effects were authored against.</summary>
