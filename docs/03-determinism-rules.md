@@ -52,8 +52,15 @@ Players are compiled ahead of time and are not affected.
 ## Never mutate a world from an editor eval
 
 `SimHost` runs **two complete sims side by side**, `Local` and `Peer`, over `LoopbackTransport`, and compares their
-hashes every tick (`SimHost.cs:115`). That is what makes a desync visible in ordinary play rather than only in a
-multiplayer session that does not exist yet.
+hashes (`SimHost.cs:112`, latched at `:114`, logged at `:115`). That is what makes a desync visible in ordinary play
+rather than only in a multiplayer session that does not exist yet.
+
+Not *every* tick, though, and the difference matters. The comparison is gated on `Local.World.Tick ==
+Peer.World.Tick`. `LoopbackTransport.Send` draws an independent delivery delay per direction, so with the shipped
+latency and jitter one driver routinely steps while the other stalls; every tick spent a step apart is skipped
+permanently, not deferred. `LockstepLoopbackTests` does not have this problem because it records per-tick hashes
+into a `ReplayRecorder` and compares afterwards; `SimHost` passes no recorder. **A quiet `SimHost` is weaker
+evidence than it looks.**
 
 It also means any change made to one world and not the other diverges them permanently. Calling
 `World.Spawn(...)` — or setting `Position`, `Hp`, a stance, anything — from `unity command eval` touches
@@ -63,6 +70,51 @@ To put men on the field from tooling, issue a command: `h.Issue(SimCommand.Deplo
 `IssuePeerCommands` mirrors it, both worlds step it, and the hashes stay equal. If you must poke at a world
 directly, expect the desync and do not report it as a finding.
 
+### Writing to both worlds is not enough — they must be aligned, every time
+
+The obvious repair for the above is to make the same write to `Local` and `Peer`. That is still wrong. Between
+frames the two worlds can be a tick apart (`SimHost.Update` steps them in the same loop, but either `TryStep` can
+decline while it waits on the transport). The same write applied to two worlds on two different ticks **is** a
+divergence, constructed by hand.
+
+`SimHost.AlignWorlds()` steps whichever world is behind until the ticks match, and returns false when it cannot
+because the network is not ready. `Editor/TankCapture.cs` is the worked example: it calls `AlignWorlds` at **all
+three** of its mutation sites and refuses the operation on false — `"worlds a tick apart (waiting on the network):
+try again"`.
+
+Note *all three*. Aligning once does not stay aligned: the worlds drift apart again on the very next frame, so
+alignment is a precondition of each individual write, not a mode you enter for a session. On 2026-09-23 a session
+aligned before its first goal write and not before the two after it, and desynced at tick 5671.
+
+The rule, in full:
+
+1. Prefer a command through `h.Issue`. It needs no alignment and is what the game itself does.
+2. If you must write state directly: write to **both** worlds, **immediately after** a successful `AlignWorlds()`,
+   **before every single write**, and abort on false.
+3. Anything else desyncs the session, and every measurement taken afterwards is worthless.
+
+## The heightfield is not in the compared hash
+
+`SimWorld.Hash()` does not fold in `MapData.Hash`. `DeformationSystem.Hash` folds a checksum of crater *inputs*
+and three counters — not the heightfield it wrote. Nav-layer divergence is caught indirectly through
+`FlowField.Hash`; **height divergence is caught by nothing until a unit walks on it.**
+
+So anything that writes terrain is outside lockstep, whatever assembly it lives in. Presentation code is safe
+today only because it does not write terrain — `RenderGroundGrid.Heights` is `[ReadOnly]`, and the drawn ground is
+derived, never authoritative. That safety is a property of the current code, not of the architecture, and it is
+the kind that stops being true quietly. The obvious next feature for a walker is a footprint; a footprint is a
+dent in the ground. Pushed through a decal it is presentation. Pushed through `DeformationSystem` it is sim state
+that two worlds do not compare, and nothing in the gate would say so.
+
+If you write to the heightfield:
+
+- it is sim state, so it belongs to a system, on the fixed tick, from `(seed, tick, systemId, slot)`;
+- assert `a.Map.Hash(SimHash.Offset) == b.Map.Hash(SimHash.Offset)` in whatever two-world test covers it, as
+  `BattlefieldLockstepTests` does — comparing the map hash is cheap and does not change what the shipped tick
+  hash costs;
+- the long-term fix is to fold `MapData.Hash` into `SimWorld.Hash()` directly, which is deferred only because it
+  changes every recorded hash and invalidates stored replays. Do it at the next replay-format break.
+
 This cost an hour on 2026-09-23. The trap that made it expensive was the arithmetic, not the rule: a `DESYNC at
 tick 33` looks like one second of play if you assume 30 ticks a second, and a probe that ran fourteen seconds in
 therefore looks innocent. It is not one second. `SimHost.Update` takes at most `max(8, TimeScale * 2)` ticks per
@@ -70,19 +122,28 @@ frame, and entering Play here is expensive — terrain build, prop composition, 
 run at a few frames each. **Tick number is not wall-clock time.** Read it off `Local.World.Tick`, never off a
 stopwatch.
 
-## Where the two-world check was not being made
+## What the two-world tests do and do not reach
 
-Until 2026-09-23 the lockstep coverage had a hole exactly where the game is actually played:
+An earlier version of this section claimed nobody had ever run two lockstep worlds on the generated battlefield.
+**That was false**, and it is left corrected here rather than deleted, because the mistake is instructive: the
+counter-example was 26 lines below the test that was cited as proof, in the same file.
 
-| Test | Map | Two worlds? |
-|---|---|---|
-| `LockstepLoopbackTests` | greybox corridor | yes |
-| `BattlefieldTests.Generator_SameParamsSameMap` | generated battlefield | no — one world, built twice |
-| *(nothing)* | **generated battlefield** | **two worlds** |
+| Test | Map | Two worlds? | Kills anyone? |
+|---|---|---|---|
+| `LockstepLoopbackTests.TwoPeers_StayInSync…` | greybox corridor | yes, over a lossy transport | not asserted |
+| `LockstepLoopbackTests.Stress_ThreeThousand…` | greybox corridor | yes | no — runs `combat: false` |
+| `BattlefieldTests.TwoSims_…_ThroughABarrage` | generated battlefield | yes, 900 ticks + two HE barrages | not asserted |
+| `BattlefieldTests.Generator_SameParamsSameMap` | generated battlefield | no — one world, built twice | n/a |
+| `BattlefieldLockstepTests` | generated battlefield | yes, idle and deploying | no |
 
-`GreyboxCorridor.unity` sets `GeneratedBattlefield = 1`, so every real session ran the untested combination, and
-the systems the generated map adds — ambient bombardment, crater deformation, mud, wire, the river — were never
-checked for agreement between two peers. `BattlefieldLockstepTests` closes it: two `MatchSim.CreateBattlefield`
-worlds, hashes compared every tick, idle and with both sides deploying, with the greybox as a control. On failure
-it names the first array that differs, because "Position diverged" and "the garrison's `holder` diverged" send you
-to opposite ends of the codebase.
+The real gap is the last column. **No two-world test anywhere kills a unit.** Death drives `Despawn`, which
+returns the slot to a LIFO free list and bumps `Generation` — and slot-index reuse under a divergent kill order is
+the textbook lockstep divergence. `TrenchAdvance` is the only command that produces deaths at scale, and it is
+also the only path that puts men on the river, the fords, the bridge and the wire belt. The one test that does
+`TrenchAdvance` at scale runs `combat: false`.
+
+The second gap is quieter: **the compared value does not include the ground.** `MapData.Hash` is never folded into
+`SimWorld.Hash()`, and `DeformationSystem.Hash` folds a checksum of crater *inputs* plus three counters, not the
+heightfield it wrote. Nav-layer divergence is caught indirectly through `FlowField.Hash`; height divergence is
+caught by nothing until a unit walks on it. So the crater deformation that the generated map adds — the headline
+reason for testing that map at all — is outside the hash.

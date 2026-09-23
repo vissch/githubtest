@@ -45,7 +45,8 @@ namespace TW.Sim
         public NativeArray<int> Silver;
         public NativeArray<float> SilverFraction;
         public NativeArray<float3> Rally;
-        public NativeArray<RosterEntry> Roster;     // MaxPlayers * RosterEntry.SlotCount
+        public NativeArray<RosterEntry> Roster;     // MaxPlayers * RosterEntry.SlotCount. TRANSIENT: written once at
+                                                    // construction from the same table on every machine, never mutated.
         public NativeArray<int> SlotCooldown;       // MaxPlayers * RosterEntry.SlotCount
         public NativeArray<byte> SlotUnlocked;      // MaxPlayers * RosterEntry.SlotCount (missions lock slots)
 
@@ -59,6 +60,12 @@ namespace TW.Sim
         public bool UsePhase0Movement = true;   // replaced by TW.Sim.Nav.MovementSystem in A1
 
         readonly List<ISimSystem> systems = new List<ISimSystem>();
+
+        /// <summary>
+        /// The registered systems in their fixed order, for tooling that needs to say WHICH system diverged rather
+        /// than that one of them did. Sorted identically on every machine, so two worlds can be compared pairwise.
+        /// </summary>
+        public IReadOnlyList<ISimSystem> Systems => systems;
         NativeList<SimCommand> sortScratch;
 
         public SimWorld(SimConfig config, SimConfig.WorldInit init)
@@ -317,6 +324,7 @@ namespace TW.Sim
             h = SimHash.Array(Velocity, n, h);
             h = SimHash.Array(Yaw, n, h);
             h = SimHash.Array(Hp, n, h);
+            h = SimHash.Array(MaxHp, n, h);   // read by VehicleModules to decide obliteration: authoritative, so hashed
             h = SimHash.Array(Suppression, n, h);
             h = SimHash.Array(Speed, n, h);
             h = SimHash.Array(StanceOf, n, h);
