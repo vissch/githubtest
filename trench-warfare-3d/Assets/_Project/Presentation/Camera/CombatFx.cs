@@ -608,6 +608,9 @@ namespace TW.Presentation.Tactical
                     // and every shell that landed there lost its burst, its smoke and its debris: the
                     // quietest impact in the game, where it should be the loudest.
                     bool melt = wet && SceneTints.Now.MoltenLiquid;
+                    // Damped: the shell landed in WATER, which absorbs it. Melt does not, so every number that
+                    // exists to represent that absorption has to key on this rather than on `wet`.
+                    bool damp = wet && !melt;
                     bool drawn = books != null && books.Ready;
                     if (drawn)
                     {
@@ -618,7 +621,17 @@ namespace TW.Presentation.Tactical
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
                         books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow, pop: 0.5f);
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (wet ? 1.25f : 2.1f), wet ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                        // The column, and the piece cycle 11 missed. It restored the burst, the smoke and the clods
+                        // on melt and left THIS keyed on `wet`, so a shell in molten rock still threw a plume at
+                        // 1.25r for 1.5 s - 60% of the size, because that is what water does to a shell. ApplyTints
+                        // says twelve lines above the tint it applies that this is "the half of a splash a player
+                        // actually sees", so melt was left damped in exactly the place it shows.
+                        // The BOOK still keys on `wet`: melt is liquid and keeps a liquid's silhouette, and Splash
+                        // is the book SplashTint was authored against - Column would hand it basalt instead.
+                        // Alpha still keys on `wet` on purpose: a fully opaque plume in lava's SplashTint
+                        // (1.00, 0.46, 0.12) on a field that already reins GlowScale in to 0.55 is a brightness
+                        // guess, and this project has been burned twice by those.
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f), damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
