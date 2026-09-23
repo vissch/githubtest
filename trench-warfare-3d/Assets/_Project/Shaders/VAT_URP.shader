@@ -21,6 +21,10 @@ Shader "TW/VAT Infantry (URP)"
         _OutlineWidth ("Outline width (m)", Float) = 0.028
         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
+        // set per figure by VATRenderer from the baked asset; declared so a material copy (new Material(m)) and a shader
+        // reload during Play keep them: an undeclared value is dropped by both, and every man then decodes to a point
+        [HideInInspector] _PosMin ("VAT position min", Vector) = (0,0,0,0)
+        [HideInInspector] _PosSize ("VAT position size", Vector) = (1,1,1,0)
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull (Off for the fallen: a cut limb shows the inside)", Float) = 2
     }
     SubShader
@@ -50,7 +54,7 @@ Shader "TW/VAT Infantry (URP)"
 
         // gone: 1 on a vertex of a limb this man has lost (the record's pad is a bit per limb id, the mesh's UV1.x the
         // limb id per vertex, VATBaker); interpolated, so a triangle across the root is cut at its middle by clip()
-        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; };
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; };
 
         // one clip: the frame pair at t (0..1 through the row) and the blend between them
         void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
@@ -95,6 +99,7 @@ Shader "TW/VAT Infantry (URP)"
             o.tint = inst.tint;
             o.scale = inst.scale;
             o.gone = gone;
+            o.cut = lost != 0u && limb < 0.5 ? 1.0 : 0.0;   // he lost something: the inside of his body (what a cut opens onto) is a wound; the inside of a helmet or a sleeve is not
             return o;
         }
         ENDHLSL
@@ -117,7 +122,7 @@ Shader "TW/VAT Infantry (URP)"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; float2 limb : TEXCOORD1; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
@@ -129,7 +134,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.normalWS = a.normalWS;
                 o.color = v.color;
                 o.tint = a.tint;
-                o.gone = a.gone;
+                o.gone = a.gone; o.cut = a.cut;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
@@ -139,7 +144,14 @@ Shader "TW/VAT Infantry (URP)"
                 clip(0.5 - i.gone);   // a limb a shell took off (DebrisRenderer throws it)
                 // the inside of a figure, seen only through the cut where a limb was (the fallen are drawn with Cull Off):
                 // dark and wet, unlit, so the hole reads as a wound rather than as a hollow shell
-                if (!front) return half4(MixFog(ApplyFieldFog(ApplyMist(half3(0.16, 0.035, 0.03), i.positionWS), i.positionWS), i.fog), 1.0);
+                if (!front)
+                {
+                    // the inside of a helmet, a collar or a sleeve is open on every figure and the fallen draw both sides:
+                    // only a man who lost a limb shows a wound; anyone else shows his own cloth in shadow
+                    half3 inner = lerp(i.color.rgb, i.color.rgb * lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint), i.color.a) * 0.28;
+                    half3 inside = i.cut > 0.5 ? half3(0.16, 0.035, 0.03) : inner;
+                    return half4(MixFog(ApplyFieldFog(ApplyMist(inside, i.positionWS), i.positionWS), i.fog), 1.0);
+                }
                 // B4: ellipsoid wound clip exposes embedded gore geometry
                 if (_WoundRadii.x > 0.0)
                 {

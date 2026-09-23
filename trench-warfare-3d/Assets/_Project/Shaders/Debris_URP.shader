@@ -154,6 +154,10 @@ Shader "TW/Debris (URP)"
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, n, i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.2 * _TWWet.x, lampGlint);
                 color += lampGlint;
                 color += albedo * TWBurstLight(i.positionWS);   // the burst that threw it lights it on the way up
+                // at night a piece away from the lamps must still read against the mud it lies on: the moon catches its edge,
+                // as it catches the men's (VAT_URP). Only when a mood tints the shade; by day the rim is nothing.
+                half rim = pow(1.0 - saturate(dot(n, normalize(_WorldSpaceCameraPos - i.positionWS))), 2.4);
+                color += (albedo * 0.5 + 0.06) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.2;
                 if (i.tint.a > 0.0 || _DebrisBiome.a > 0.0)
                 {
                     // hot metal: embers in the dark seams (a cellular pattern on the piece itself), flickering, cooling

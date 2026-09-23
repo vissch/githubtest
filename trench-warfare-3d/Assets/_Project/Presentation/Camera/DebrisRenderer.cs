@@ -339,7 +339,7 @@ namespace TW.Presentation.Tactical
                     Box(v, t, c, new Vector3(0.10f, 0.08f, 1.0f), 0.55f, ref rng, new Color(0.92f, 0.92f, 0.92f), new Color(1.06f, 1.06f, 1.06f));   // tapered along its length: a splinter
                     break;
                 case Piece.Plank: Box(v, t, c, new Vector3(0.22f, 0.05f, 1.0f), 0.98f, ref rng, new Color(0.9f, 0.9f, 0.9f), new Color(1.08f, 1.08f, 1.08f)); break;
-                case Piece.Rubble: Box(v, t, c, new Vector3(1.0f, 0.75f, 0.85f), 0.85f, ref rng, new Color(0.86f, 0.86f, 0.86f), new Color(1.06f, 1.06f, 1.06f), 0.08f); break;
+                case Piece.Rubble: Lump(v, t, c, 5, 3, 0.5f, 0.30f, ref rng, new Color(0.82f, 0.82f, 0.82f), new Color(1.06f, 1.06f, 1.06f), new Vector3(1.0f, 0.72f, 0.86f)); break;   // a faceted, broken chunk; a jittered box read as a clean cube up close
                 case Piece.Sandbag: Lump(v, t, c, 8, 4, 0.5f, 0.05f, ref rng, new Color(0.85f, 0.85f, 0.85f), new Color(1.06f, 1.06f, 1.06f), new Vector3(1.0f, 0.55f, 0.65f)); break;
                 case Piece.Plate: Box(v, t, c, new Vector3(1.0f, 0.06f, 0.8f), 0.9f, ref rng, new Color(0.9f, 0.9f, 0.9f), new Color(1.0f, 1.0f, 1.0f)); break;
                 case Piece.Crown: CrownMesh(v, t, c); break;

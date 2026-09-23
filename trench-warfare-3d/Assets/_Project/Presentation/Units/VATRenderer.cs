@@ -107,7 +107,12 @@ namespace TW.Presentation.Units
             // new Material(m) copies only what the shader declares: _PosMin/_PosSize are not in its Properties block, and
             // without them every vertex decodes to the origin (the fallen drew as a dot). Set them again.
             fallen.SetVector(PosMinId, a.PosMin); fallen.SetVector(PosSizeId, a.PosSize);
-            return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = new MaterialPropertyBlock(), FallenProps = new MaterialPropertyBlock() };
+            // the range goes on the property blocks too: a shader reload during Play resets a material's values to the
+            // shader's defaults (every man then decodes to a 1 m box or a point), and a block is never touched by that
+            var props = new MaterialPropertyBlock(); var fallenProps = new MaterialPropertyBlock();
+            props.SetVector(PosMinId, a.PosMin); props.SetVector(PosSizeId, a.PosSize);
+            fallenProps.SetVector(PosMinId, a.PosMin); fallenProps.SetVector(PosSizeId, a.PosSize);
+            return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = props, FallenProps = fallenProps };
         }
 
         void Start()
