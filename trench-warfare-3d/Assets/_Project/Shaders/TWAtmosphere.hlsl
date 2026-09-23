@@ -39,6 +39,8 @@ half4 _TWHeatColor;    // rgb what molten rock throws up out of its cracks
 half4 _TWGroundLight;  // rgb light coming UP off the ground into everything above it, a = 1 when set
 half4 _TWWorldTint;    // rgb multiplies the ground and every prop standing on it, a = 1 when set
 float _TWLampScale;    // local lights are multiplied by albedo; snow is 3x the albedo mud is, so its lamps need reining in
+half4 _TWLiquid;       // rgb the biome's standing liquid, a how hard to pull the water toward it (0 = leave it alone)
+float _TWLiquidHeat;   // 0 = water. Above 0 the liquid is MOLTEN: it glows and it stops mirroring the sky
 
 /// The battlefield's own colour over the top of the painted mud. The ground texture is baked on the CPU from a
 /// mud palette and repainted per crater; re-baking it per biome means hoisting six private colours and a dozen

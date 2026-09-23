@@ -90,6 +90,7 @@ namespace TW.Presentation.Terrain
         static readonly int GroundLightId = Shader.PropertyToID("_TWGroundLight");
         static readonly int WorldTintId = Shader.PropertyToID("_TWWorldTint");
         static readonly int LampScaleId = Shader.PropertyToID("_TWLampScale");
+        static readonly int LiquidId = Shader.PropertyToID("_TWLiquid"), LiquidHeatId = Shader.PropertyToID("_TWLiquidHeat");
 
         /// <summary>
         /// Copy a battlefield's profile into the fields this component drives. This replaces ApplyNight, which
@@ -123,6 +124,10 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(GroundLightId, new Vector4(p.GroundLight.r, p.GroundLight.g, p.GroundLight.b, p.GroundLight.a));
             Shader.SetGlobalVector(WorldTintId, new Vector4(p.WorldTint.r, p.WorldTint.g, p.WorldTint.b, p.WorldTint.a));
             Shader.SetGlobalFloat(LampScaleId, p.LampScale);
+            Shader.SetGlobalVector(LiquidId, new Vector4(p.LiquidTint.r, p.LiquidTint.g, p.LiquidTint.b, p.LiquidTint.a));
+            // One fact about the field with two consumers: MoltenLiquid decides both what a shell does to the
+            // surface (CombatFx) and what the surface looks like standing still (Water_URP).
+            Shader.SetGlobalFloat(LiquidHeatId, p.MoltenLiquid ? Mathf.Max(0.35f, p.HeatStrength) : 0f);
             TW.Presentation.Tactical.DebrisRenderer.Biome = p.DebrisTint;
             SceneTints.Push(new SceneTints.Set
             {
@@ -149,6 +154,8 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(GroundLightId, Vector4.zero);
             Shader.SetGlobalVector(WorldTintId, Vector4.zero);
             Shader.SetGlobalFloat(LampScaleId, 1f);
+            Shader.SetGlobalVector(LiquidId, Vector4.zero);
+            Shader.SetGlobalFloat(LiquidHeatId, 0f);
             TW.Presentation.Tactical.DebrisRenderer.Biome = new Color(1f, 1f, 1f, 0f);
             SceneTints.Reset();
             TW.Presentation.Tactical.DebrisRenderer.LavaLevel = -10000f;

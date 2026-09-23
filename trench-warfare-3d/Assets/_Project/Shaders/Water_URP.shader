@@ -88,6 +88,11 @@ Shader "TW/Water (URP)"
                 // current streaks: long pale strokes where two drifting layers agree, none over the margin
                 half streak = smoothstep(0.63, 0.68, r1.b * 0.6 + r2.b * 0.4) * _Streaks * smoothstep(0.10, 0.30, depth);
                 albedo = lerp(albedo, albedo * 1.35 + 0.035, streak);
+                // The liquid belongs to the biome. _Shallow/_Body/_Deep are this MATERIAL's colours - the night
+                // mud river - and until now no field could change them, so the lava river came out a cream band
+                // at saturation 0.18 across a picture sitting at 0.63. Zero alpha leaves the night field exactly
+                // as it was.
+                albedo = lerp(albedo, _TWLiquid.rgb, _TWLiquid.a);
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);
@@ -97,7 +102,9 @@ Shader "TW/Water (URP)"
                 float3 r = reflect(-view, n);
                 half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                 half3 sky = TWSky() * half3(0.93, 0.98, 1.05) * lerp(1.08, 0.58, saturate(r.y * 1.4));   // bright at the horizon, darker overhead, a little colder than the haze
-                half mirror = min(0.14 + 0.62 * fresnel, 0.34) * (1.0 - shore * 0.7);   // dark water under a night sky, not a pale sheet
+                // Molten rock does not mirror the sky. Leaving this in was most of why the river read as a sheet
+                // of something rather than a flow of anything.
+                half mirror = min(0.14 + 0.62 * fresnel, 0.34) * (1.0 - shore * 0.7) * saturate(1.0 - _TWLiquidHeat);
                 color = lerp(color, sky, mirror);
                 half glint = smoothstep(0.988, 0.994, dot(r, mainLight.direction)) * 0.6;
                 color += glint * mainLight.color * 0.6 * mainLight.shadowAttenuation;
@@ -107,9 +114,24 @@ Shader "TW/Water (URP)"
                 half3 local = TWLocalLights(i.positionWS, n, i.positionCS, view, 1.0, lampGlint);
                 color += (albedo + 0.25) * local + lampGlint * 1.2;
 
+                // Melt, computed BEFORE the fog and added AFTER it - the reason the ground gives at
+                // Toon_URP.shader:230: emission is seen THROUGH haze, and lerping it toward the fog colour turns
+                // distant melt pale pink instead of orange behind pink. TWMolten is the same field the ground
+                // reads for its open pools, so the river and the pools agree about where the heat is rather than
+                // being two unrelated oranges. The distance term is TWHeatGlow's, so the far river dims the same
+                // way the far ground does instead of blooming into a band.
+                half3 melt = 0.0;
+                if (_TWLiquidHeat > 0.0)
+                {
+                    half flow = TWMolten(xz * 0.032);
+                    half hot = saturate(0.30 + 1.30 * flow + streak * 0.45);
+                    half far = saturate(1.22 - length(_WorldSpaceCameraPos - i.positionWS) / 230.0);
+                    melt = _TWHeatColor.rgb * (hot * hot) * _TWLiquidHeat * far;
+                }
                 color = lerp(color, ApplyMist(color, i.positionWS), 0.38);   // the sheet lies below the mist's top everywhere: full mist would paint the whole river white (and .55 still read as a pale sheet)
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
+                color += melt;
                 return half4(color, 1.0);
             }
             ENDHLSL

@@ -99,6 +99,15 @@ namespace TW.Presentation.Terrain
         /// </summary>
         public bool MoltenLiquid;
 
+        /// <summary>
+        /// The standing liquid's own colour; ALPHA IS A PULL, not a flag, and 0 leaves the water exactly as it
+        /// has always been. Water_URP's _Shallow/_Body/_Deep are material properties - the night-mud river -
+        /// and no biome touched them, so on the lava field the river measured (204,198,163) at saturation 0.18
+        /// against rock at 0.63: silty brown pushed through Exposure 0.70, Saturation +22 and Bloom 1.35 blows
+        /// out to cream. It was the least saturated thing in frame by a factor of three.
+        /// </summary>
+        public Color LiquidTint = new Color(0f, 0f, 0f, 0f);
+
         /// <summary>Shell smoke. The biggest, longest-lived effect on the field: it must belong to the biome.</summary>
         public Color SmokeTint = new Color(0.34f, 0.32f, 0.29f);
 
@@ -201,6 +210,13 @@ namespace TW.Presentation.Terrain
             WorldTint = new Color(0.34f, 0.28f, 0.27f, 0.45f),   // mud, taken most of the way to cold basalt
             HeatStrength = 0.85f, HeatPlates = 0.075f, HeatCrackWidth = 0.032f, MoltenLevel = 0.6f,
             MoltenLiquid = true,   // the river here is melt: a shell in it must not be damped like one in water
+            // Alpha 1, not 0.88, and the difference is measured rather than tuned: at 0.88 the 12% of the
+            // material's own colours that survive INCLUDE ITS WHITE FOAM, and once the melt emission is
+            // added on top that residue clips. Captured at the standard view: 0.88 gave a cream sea at
+            // saturation 0.21, 1.0 gives (244,81,107) at 0.67, against rock at 0.65. The depth banding is
+            // lost with it, and TWMolten's flow takes over as what varies the surface - which is the right
+            // variation for a river of melt anyway, since it is what the ground's own pools already use.
+            LiquidTint = new Color(0.20f, 0.085f, 0.07f, 1f),   // cooling crust, so the glow below reads against it
             // An EMISSION colour, not the reference's final pixel colour. I had pasted the measured crack body
             // (0.95, 0.38, 0.42) straight in, but that number is what the reference shows AFTER its fog, its
             // grade and its bloom; used as emission and then pushed through Saturation +22 and Bloom 1.35 it
@@ -252,6 +268,9 @@ namespace TW.Presentation.Terrain
             WorldTint = new Color(0.62f, 0.67f, 0.76f, 0.80f),   // the earth that shows through is cold, not brown
             SnowCoverage = 1.0f, SnowShedBelow = 0.22f, SnowSparkle = 0.15f, SnowBreakup = 0.45f,
             SnowColor = new Color(0.93f, 0.95f, 0.99f, 0.10f),   // fresh snow is matt; the glare belongs on the ice
+            // The same lesson as SplashTint, on a far bigger surface: a near-white sheet on a near-white field
+            // IS the mush this profile keeps warning about. Well below SnowColor 0.93,0.95,0.99.
+            LiquidTint = new Color(0.52f, 0.60f, 0.72f, 0.75f),
             SplashTint = new Color(0.55f, 0.63f, 0.76f),    // read AGAINST snow, not as snow: 0.78,0.85,0.94 sat at
                                                            // luma 0.84 between SnowColor 0.95 and Haze 0.69, dead in
                                                            // the middle of the band this profile warns about, and it
