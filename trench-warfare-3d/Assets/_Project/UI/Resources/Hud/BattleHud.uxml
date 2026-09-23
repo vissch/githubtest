@@ -77,7 +77,9 @@
         <ui:VisualElement name="orders-layer" class="hud-orders-layer" picking-mode="Ignore" />
 
         <ui:VisualElement name="dialogue" class="tw-plate hud-dialogue" picking-mode="Ignore">
-            <ui:VisualElement name="dialogue-portrait" class="tw-window hud-dialogue__portrait" picking-mode="Ignore" />
+            <ui:VisualElement name="dialogue-frame" class="tw-window hud-dialogue__frame" picking-mode="Ignore">
+                <ui:VisualElement name="dialogue-portrait" class="hud-dialogue__portrait" picking-mode="Ignore" />
+            </ui:VisualElement>
             <ui:VisualElement class="hud-dialogue__body" picking-mode="Ignore">
                 <ui:VisualElement class="hud-dialogue__head" picking-mode="Ignore">
                     <ui:Label name="dialogue-name" text="" class="tw-caps hud-dialogue__name" picking-mode="Ignore" />

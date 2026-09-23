@@ -1,5 +1,5 @@
 {
-    "generator": 6,
+    "generator": 7,
     "files": [
         {
             "file": "Icons/ico_arrow_down.png",
@@ -115,7 +115,7 @@
         },
         {
             "file": "Sprites/badge.png",
-            "sha1": "e466fe740de3d4a752ad9c3964b6ebf6522b9b07"
+            "sha1": "14b814eb36af1c55a41b34c246cae134d7dec134"
         },
         {
             "file": "Sprites/banner_ribbon.png",
@@ -127,19 +127,19 @@
         },
         {
             "file": "Sprites/btn_accent_hover.png",
-            "sha1": "dc39071dc895fa5d5e3618746a5e7ba652a3a5ff"
+            "sha1": "d71d4ded9f62c51936bfa15035b1060fd7dcee80"
         },
         {
             "file": "Sprites/btn_accent_normal.png",
-            "sha1": "a7676960d0a0bbc06f587b6e669e2bfa75319a36"
+            "sha1": "808e3e59bf8e3573939324a6ec7f3c490748bca1"
         },
         {
             "file": "Sprites/btn_accent_pressed.png",
-            "sha1": "c051564fd10f7e5000037ecb2b1ae5c8765785f8"
+            "sha1": "bc3d68ff0dd365452f0c0307772538879be2a840"
         },
         {
             "file": "Sprites/card_frame.png",
-            "sha1": "e571b8e25df279b4e5bd11b731e51d3424dd8b24"
+            "sha1": "19b5098842eb112b556074eba51122727c9b277c"
         },
         {
             "file": "Sprites/card_nameplate.png",
@@ -175,7 +175,7 @@
         },
         {
             "file": "Sprites/gauge_window.png",
-            "sha1": "e466fe740de3d4a752ad9c3964b6ebf6522b9b07"
+            "sha1": "14b814eb36af1c55a41b34c246cae134d7dec134"
         },
         {
             "file": "Sprites/grain_overlay.png",

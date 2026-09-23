@@ -176,9 +176,11 @@ namespace TW.Editor
                 case "plate_hover": PlateBody(c, e.L, Plate600, false, false); c.InnerLine(e.L - 4, Accent, 100); break;
                 case "plate_pressed": PlateBody(c, e.L, Plate800, true, false); break;
                 case "plate_disabled": PlateBody(c, e.L, Plate800, false, true); break;
-                case "btn_accent_normal": PlateBody(c, e.L, Lerp(Plate600, AccentDim, 0.55f), false, false, Brass); c.InnerLine(e.L - 4, Accent, 160); break;
-                case "btn_accent_hover": PlateBody(c, e.L, Lerp(Plate600, Accent, 0.55f), false, false, Brass); c.InnerLine(e.L - 4, Accent, 220); break;
-                case "btn_accent_pressed": PlateBody(c, e.L, Lerp(Plate800, AccentDim, 0.5f), true, false, Brass); break;
+                // round 9: gunmetal like every other control (the brown plate, brass rivets and square inner line read as a
+                // debug box); the USS gives the primary button its amber keyline along the real radius
+                case "btn_accent_normal": PlateBody(c, e.L, Plate600, false, false); break;
+                case "btn_accent_hover": PlateBody(c, e.L, Lerp(Plate600, Plate500, 0.6f), false, false); break;
+                case "btn_accent_pressed": PlateBody(c, e.L, Plate800, true, false); break;
                 case "panel_bg": PlateBody(c, e.L, Plate800, false, false, null, 3.5f); c.InnerLine(e.L - 6, Keyline, 140); break;
                 case "order_plate_normal": PlateBody(c, e.L, Plate700, false, false, null, 3f); break;
                 case "order_plate_hover": PlateBody(c, e.L, Plate600, false, false, null, 3f); c.InnerLine(e.L - 4, Accent, 100); break;
@@ -194,7 +196,7 @@ namespace TW.Editor
                 case "title_plate": PlateBody(c, 24, Plate700, false, false, null, 0f); c.Rivet(20, 20, 3.5f); c.Rivet(20, c.H - 21, 3.5f); c.Rivet(c.W - 21, 20, 3.5f); c.Rivet(c.W - 21, c.H - 21, 3.5f); c.Rivet(44, c.H / 2, 3.5f); c.Rivet(c.W - 45, c.H / 2, 3.5f); break;
                 case "banner_ribbon": Banner(c); break;
                 case "hazard_strip": Hazard(c); break;
-                case "card_frame": Frame(c, e.L, RadiusLg, true); break;
+                case "card_frame": Frame(c, e.L, RadiusLg, false); break;   // round 9: no rivets, they collided with the hotkey and cost windows
                 case "card_rim": Rim(c, e.L); break;
                 case "cooldown_mask": Hatch(c); break;
                 case "divider_v": Strap(c, true); break;
@@ -259,6 +261,7 @@ namespace TW.Editor
             c.HLine(c.H - 1, WindowLip, 0, c.W); c.VLine(c.W - 1, WindowLip, 0, c.H);   // round 7: quiet, or the right edge reads as a "|"
             c.HLine(1, Plate900, 1, c.W - 1); c.VLine(1, Plate900, 1, c.H - 1);
             c.RoundCorners(radius, 1f);
+            c.ArcLip(radius, WindowLip);   // round 9: carry the lip round the corners, or each edge reads as a separate "|"
         }
 
         static void Frame(Canvas c, int border, int radius, bool rivets, float rivetR = 2.5f)
@@ -558,6 +561,31 @@ namespace TW.Editor
                     }
                     p.a = (byte)Mathf.RoundToInt(p.a * Mathf.Clamp01(0.5f - d));
                     Px[i] = p;
+                }
+            }
+            /// <summary>
+            /// Recolour the rounded corners' outer ring so a recessed window's lip (bottom and right) runs round the arcs:
+            /// all lip in the bottom-right corner, blending into the dark rim towards 12 o'clock in the top-right and towards
+            /// 9 o'clock in the bottom-left, rim in the top-left. Call after RoundCorners with the same radius.
+            /// </summary>
+            public void ArcLip(int r, Color32 lip)
+            {
+                if (r <= 0) return;
+                r = Math.Min(r, Math.Min(W, H) / 2);
+                var rim = new Color32(0x0A, 0x0B, 0x0C, 255);
+                for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
+                {
+                    int ex = Math.Min(x, W - 1 - x), ey = Math.Min(y, H - 1 - y);
+                    if (ex >= r || ey >= r) continue;
+                    float dx = r - (ex + 0.5f), dy = r - (ey + 0.5f);
+                    float d = Mathf.Sqrt(dx * dx + dy * dy) - r;
+                    int i = y * W + x;
+                    if (Px[i].a == 0 || d < -1.5f) continue;   // only the outer ring
+                    bool right = x >= W / 2, bottom = y >= H / 2;
+                    float w = right && bottom ? 1f : right ? dx / (dx + dy + 1e-4f) : bottom ? dy / (dx + dy + 1e-4f) : 0f;
+                    var col = Color32.Lerp(rim, lip, w);
+                    col.a = Px[i].a;
+                    Px[i] = col;
                 }
             }
             public void Rivet(float cx, float cy, float r, Color32? col = null)

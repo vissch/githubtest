@@ -94,5 +94,19 @@ namespace TW.Tests
             Assert.That(upper, Is.GreaterThan(lower), "ico_arrow_down points up: the glyph is upside down");
             Object.DestroyImmediate(plate); Object.DestroyImmediate(arrow);
         }
+
+        /// <summary>Round 9: a recessed window's lip (light bottom and right) runs round its corner arc, so the edge reads
+        /// as one continuous lip and not as a "|" beside the digits. On the arc at 45 degrees, bottom-right is lighter than
+        /// top-left (GetPixel's y is up).</summary>
+        [Test]
+        public void TheWindowLipRunsRoundTheCorner()
+        {
+            var w = Png("Sprites/gauge_window.png");
+            float Lum(Color c) => 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+            Color br = w.GetPixel(w.width - 2, 1), tl = w.GetPixel(1, w.height - 2);
+            Assert.That(br.a, Is.GreaterThan(0.5f), "the bottom-right arc pixel is transparent: the probe missed the ring");
+            Assert.That(Lum(br), Is.GreaterThan(Lum(tl) + 0.05f), $"bottom-right arc {br} is no lighter than top-left {tl}: the lip stops short of the corner");
+            Object.DestroyImmediate(w);
+        }
     }
 }

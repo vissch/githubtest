@@ -21,12 +21,12 @@
 
 /* minimap and speed, top-right */
 .hud-bezel { padding: var(--tw-minimap-bezel); background-color: var(--tw-plate-700); border-radius: var(--tw-radius-lg); }
-.hud-bezel--square { background-image: url("../../Skin/Sprites/minimap_frame.png"); -unity-slice-left: 24; -unity-slice-top: 24; -unity-slice-right: 24; -unity-slice-bottom: 24; -unity-slice-scale: 0.34px; }   /* the 24 px sprite border drawn at the 8 px bezel */
+.hud-bezel--square { background-image: none; background-color: var(--tw-plate-700); border-width: 1px; border-color: #0A0B0C; border-top-color: #3A3C3F; border-left-color: #3A3C3F; border-radius: var(--tw-radius-lg); }   /* round 9: the house radius, like every other plate */
 .hud-bezel--round { background-image: url("../../Skin/Sprites/bezel_round.png"); -unity-background-scale-mode: stretch-to-fill; -unity-slice-left: 0; -unity-slice-top: 0; -unity-slice-right: 0; -unity-slice-bottom: 0; border-radius: 50%; overflow: hidden; }
 .hud-minimap { background-color: var(--tw-plate-900); width: 100px; height: 60px; border-radius: var(--tw-radius-sm); overflow: hidden; }   /* size set in code from the map */
 .hud-minimap__layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: stretch-to-fill; }
 .hud-minimap__view { position: absolute; border-width: 1px; border-color: rgba(200, 201, 198, 0.8); width: 8px; height: 6px; }
-.hud-speed { margin-top: 8px; padding: 6px; flex-direction: row; }
+.hud-speed { margin-top: 8px; padding: 6px 10px 6px 6px; flex-direction: row; }   /* the first button carries a 4 px margin: 10 px end fields both sides */
 .hud-speed__btn { width: 40px; height: 40px; min-height: 0; padding: 0; margin-left: 4px; font-size: var(--tw-size-caption); background-image: url("../../Skin/Sprites/row_plate.png"); -unity-slice-left: 12; -unity-slice-top: 8; -unity-slice-right: 12; -unity-slice-bottom: 8; border-radius: var(--tw-radius); }
 .hud-speed__btn.tw-btn--on { background-color: #2C2E33; border-bottom-width: 2px; border-bottom-color: var(--tw-accent); color: var(--tw-accent-bright); }
 .hud-speed__btn > .tw-icon { width: 18px; height: 18px; align-self: center; }
@@ -71,8 +71,9 @@
 .hud-orders__count { margin-top: 4px; }
 .hud-orders.is-hidden { display: none; }
 /* an order that cannot be given dims as a whole button, never as a grey glyph on a normal plate (round 6) */
-.hud-orders__btn:disabled { opacity: 0.4; }
-.hud-orders__btn:disabled > .tw-icon { -unity-background-image-tint-color: var(--tw-text-dim); }
+/* round 9: at 40% the plate went see-through and read as a hole; the plate stays opaque, the glyph dims */
+.hud-orders__btn:disabled { opacity: 1; }
+.hud-orders__btn:disabled > .tw-icon { -unity-background-image-tint-color: #6B6C69; }
 .hud-orders__btn--holdfire.tw-btn--on > .tw-icon { -unity-background-image-tint-color: var(--tw-alarm); }
 .hud-gauges__vs { margin-left: 6px; font-size: var(--tw-size-micro); color: var(--tw-text-dim); }
 /* the enemy count is large enough to pass at 3:1 in rust (round 6) */
@@ -90,14 +91,15 @@
 /* the speaker strip sits in the bottom band beside the roster, its bottom on the card bottoms (round 5); where the
    roster is too wide to leave room (narrow screens) HudDialogue raises it above the bar with --raised. The name is
    bone for every speaker; a hurt report says so in a red status chip, and a critical one keylines the portrait. */
-.hud-dialogue { position: absolute; left: 12px; bottom: 8px; width: 344px; min-height: 88px; flex-direction: row; align-items: center; padding: 6px 10px 6px 6px; }
+.hud-dialogue { position: absolute; left: 12px; bottom: 8px; width: 344px; min-height: 88px; flex-direction: row; align-items: center; padding: 12px 14px 12px 12px; }   /* 12 px clears the plate rivets */
 .hud-dialogue--raised { left: auto; right: 14px; bottom: 222px; }   /* no room beside the bar: over its right end, clear of the objectives (round 7); BarHeightPx + 12 */
-.hud-dialogue__portrait { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; -unity-background-scale-mode: scale-to-fit; background-color: var(--tw-plate-900); border-radius: var(--tw-radius); border-width: 2px; border-color: rgba(0, 0, 0, 0); }
+.hud-dialogue__frame { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; overflow: hidden; border-width: 2px; border-color: rgba(0, 0, 0, 0); }
+.hud-dialogue__portrait { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: scale-to-fit; background-position-y: bottom; }   /* the art stands on the window floor */
 .hud-dialogue__body { flex-grow: 1; flex-shrink: 1; justify-content: center; }
 .hud-dialogue__head { flex-direction: row; align-items: center; margin-bottom: 2px; }
 .hud-dialogue__name { color: var(--tw-text); font-size: var(--tw-size-caption); -unity-font-style: bold; }
-.hud-dialogue__status { display: none; margin-left: 8px; font-size: 10px; color: var(--tw-text-bright); background-color: rgba(224, 43, 43, 0.2); border-width: 1px; border-color: var(--tw-alarm); border-radius: var(--tw-radius-sm); padding: 0 4px; }
+.hud-dialogue__status { display: none; margin-left: 8px; font-size: 10px; color: var(--tw-text); background-color: rgba(224, 43, 43, 0.2); border-width: 1px; border-color: var(--tw-alarm); border-radius: var(--tw-radius-sm); padding: 0 4px; }
 .hud-dialogue__text { white-space: normal; color: var(--tw-text); font-size: 14px; margin: 0; padding: 0; -unity-paragraph-spacing: 0; }
 .hud-dialogue.is-hurt .hud-dialogue__status { display: flex; }
-.hud-dialogue.is-hurt .hud-dialogue__portrait { background-color: #2A1512; }
-.hud-dialogue.is-critical .hud-dialogue__portrait { border-color: var(--tw-alarm); }
+
+.hud-dialogue.is-critical .hud-dialogue__frame { border-color: var(--tw-alarm); }
