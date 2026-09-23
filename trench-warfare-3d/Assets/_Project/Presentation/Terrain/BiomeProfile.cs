@@ -106,6 +106,10 @@ namespace TW.Presentation.Terrain
 
         // ---- which weather and light components the field wants standing in it
         public bool WantsLamps, WantsRain, WantsStorm;
+        /// <summary>The same falling-weather system, set to snow: slower, fatter, wandering.</summary>
+        public bool WantsSnowfall;
+        /// <summary>How hard it snows, 0..1. Separate from Rain, which also means "how wet is everything".</summary>
+        public float Snowfall = 0.8f;
 
         public static BiomeProfile For(Biome b)
         {
@@ -224,7 +228,7 @@ namespace TW.Presentation.Terrain
             SnowColor = new Color(0.93f, 0.95f, 0.99f, 0.10f),   // fresh snow is matt; the glare belongs on the ice
             DebrisTint = new Color(0.80f, 0.84f, 0.90f, 0f),
             Flooding = 0.25f,                                      // what water there is has frozen; see docs/18 W2
-            WantsLamps = true, WantsRain = false, WantsStorm = false,
+            WantsLamps = true, WantsRain = false, WantsStorm = false, WantsSnowfall = true, Snowfall = 0.85f,
         };
     }
 }

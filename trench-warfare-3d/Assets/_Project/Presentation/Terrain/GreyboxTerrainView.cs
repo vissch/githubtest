@@ -112,7 +112,7 @@ namespace TW.Presentation.Terrain
             // which weather stands on this field is the profile's to say, not a test against one mood: the lava
             // field keeps its lamps and its lightning and loses the rain, and a fourth biome adds no line here.
             if (Profile.WantsLamps && GetComponent<NightLights>() == null) gameObject.AddComponent<NightLights>().Host = Host;
-            if (Profile.WantsRain && GetComponent<Rain>() == null) gameObject.AddComponent<Rain>();
+            if ((Profile.WantsRain || Profile.WantsSnowfall) && GetComponent<Rain>() == null) { var fall = gameObject.AddComponent<Rain>(); fall.AsSnow = Profile.WantsSnowfall; fall.Snowfall = Profile.Snowfall; }
             if (Profile.WantsStorm && GetComponent<Storm>() == null) gameObject.AddComponent<Storm>();
             if (GetComponent<SmallLife>() == null) gameObject.AddComponent<SmallLife>().Host = Host;
             if (GetComponent<QuietFog>() == null) gameObject.AddComponent<QuietFog>().Host = Host;

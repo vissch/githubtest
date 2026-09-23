@@ -10,6 +10,18 @@ namespace TW.Presentation.Terrain
     {
         [Tooltip("Share of MaxStreaks built; how many of them fall at a moment follows Atmosphere.RainNow.")]
         [Range(0f, 1f)] public float Intensity = 1f;
+        /// <summary>
+        /// Fall as snow instead of rain. The same mesh and the same one draw call: snow is rain that falls at a tenth
+        /// the speed, in short fat dashes rather than long thin ones, wandering as it goes. Building a second particle
+        /// system for it would have bought nothing but another buffer and another draw.
+        /// </summary>
+        public bool AsSnow;
+        /// <summary>
+        /// How hard it falls, 0..1, when this is snow. Snow cannot ride on Atmosphere.RainNow the way rain does:
+        /// that number is also _TWWet.z, which puts raindrop bursts on every upward face and a wet sheen on the mud.
+        /// A snowfield wants the weather without the wet, so the two amounts are separate.
+        /// </summary>
+        [Range(0f, 1f)] public float Snowfall = 0.8f;
         public const int MaxStreaks = 2800;
         public Vector3 Box = new Vector3(90f, 46f, 90f);
         public float FallSpeed = 17f, StreakLength = 0.5f;
@@ -38,6 +50,13 @@ namespace TW.Presentation.Terrain
             mesh.SetVertices(pos); mesh.SetUVs(0, quad); mesh.SetUVs(1, random); mesh.SetTriangles(tris, 0);
             mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 5000f);   // the streaks are placed in the shader
             material = new Material(Shader.Find("TW/Rain (URP)")) { hideFlags = HideFlags.HideAndDontSave };
+            if (AsSnow)
+            {
+                FallSpeed = 2.6f; StreakLength = 0.30f;   // a dash along its fall, not a dot: a square quad reads as confetti
+                material.SetFloat("_Width", 0.042f);          // about a 7:1 dash, so it reads as falling and not as paper
+                material.SetFloat("_Flutter", 0.42f);
+                material.SetColor(ColorId, new Color(0.92f, 0.95f, 1.0f, 0.62f));
+            }
             var go = new GameObject("Rain") { hideFlags = HideFlags.DontSave };
             go.transform.SetParent(transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
@@ -117,7 +136,7 @@ namespace TW.Presentation.Terrain
             centre.y = Mathf.Max(centre.y, Box.y * .5f - 2f);
             material.SetVector(CentreId, centre);
             material.SetVector(SizeId, Box);
-            float level = Mathf.Clamp01(Atmosphere.RainNow);
+            float level = AsSnow ? Snowfall : Mathf.Clamp01(Atmosphere.RainNow);
             Vector2 wind = Atmosphere.WindNow;
             var velocity = new Vector3(wind.x, -(FallSpeed + 7f * level), wind.y);   // heavy drops fall faster
             fallen += velocity * Time.deltaTime;

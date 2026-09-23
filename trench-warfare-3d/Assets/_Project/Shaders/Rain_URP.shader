@@ -17,6 +17,7 @@ Shader "TW/Rain (URP)"
         _Width ("Streak width (m)", Float) = 0.017
         _Offset ("Fallen so far", Vector) = (0, 0, 0, 0)
         _Level ("Rain now 0..1", Float) = 0.6
+        _Flutter ("Flutter (m): snow wanders as it falls, rain does not", Float) = 0
     }
     SubShader
     {
@@ -35,7 +36,7 @@ Shader "TW/Rain (URP)"
             CBUFFER_START(UnityPerMaterial)
                 half4 _Color;
                 float4 _Centre, _Size, _Fall, _Offset;
-                float _Width, _Level;
+                float _Width, _Level, _Flutter;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 quad : TEXCOORD0; float2 random : TEXCOORD1; };
@@ -46,6 +47,13 @@ Shader "TW/Rain (URP)"
                 Varyings o;
                 float3 velocity = float3(_Fall.x, -_Fall.y * (0.8 + 0.4 * v.random.x), _Fall.z);
                 float3 p = v.positionOS.xyz * _Size.xyz + _Offset.xyz * float3(1.0, 0.8 + 0.4 * v.random.x, 1.0);
+                // Snow wanders on its way down; rain does not. Two sines at rates set by the flake's own random, so
+                // no two flakes share a path and none of them is on a grid. Zero for rain, and free when it is.
+                if (_Flutter > 0.0)
+                {
+                    float t = _Time.y * (0.7 + 1.3 * v.random.x) + v.random.y * 6.2832;
+                    p.xz += float2(sin(t), cos(t * 0.77 + 1.3)) * _Flutter;
+                }
                 float3 cell = frac((p - _Centre.xyz) / _Size.xyz + 0.5);          // where in the box, 0..1
                 p = _Centre.xyz + (cell - 0.5) * _Size.xyz;
                 float3 along = normalize(velocity);
