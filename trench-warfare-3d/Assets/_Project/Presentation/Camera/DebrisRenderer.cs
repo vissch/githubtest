@@ -169,6 +169,8 @@ namespace TW.Presentation.Tactical
         readonly List<Mesh> owned = new List<Mesh>();
         static readonly int NowId = Shader.PropertyToID("_DebrisNow"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
+        /// <summary>How much a mesh's bounds are padded (total, both sides), so the rest height is read from the true extents.</summary>
+        const float BoundsPad = 0.5f;
 
         void Awake() { Instance = this; }
 
@@ -188,7 +190,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < (int)Piece.Count; k++)
             {
                 var mesh = Build((Piece)k);
-                pools[k] = new Pool { Mesh = mesh, Start = start, Capacity = Capacity[k], Shadows = CastsShadow[k], Lift = (Piece)k == Piece.Crown ? 0f : mesh.bounds.extents.y, Props = new MaterialPropertyBlock() };
+                pools[k] = new Pool { Mesh = mesh, Start = start, Capacity = Capacity[k], Shadows = CastsShadow[k], Lift = (Piece)k == Piece.Crown ? 0f : mesh.bounds.extents.y - BoundsPad * 0.5f, Props = new MaterialPropertyBlock() };
                 pools[k].Props.SetBuffer(RecordsId, buffer);
                 pools[k].Props.SetFloat(LiftId, pools[k].Lift);
                 start += Capacity[k];
@@ -345,7 +347,7 @@ namespace TW.Presentation.Tactical
             }
             m.RecalculateBounds();
             SmoothNormals(m);
-            m.bounds = new Bounds(m.bounds.center, m.bounds.size + Vector3.one * 0.5f);
+            m.bounds = new Bounds(m.bounds.center, m.bounds.size + Vector3.one * BoundsPad);   // room for the outline hull; Lift takes it off again
             owned.Add(m);
             return m;
         }

@@ -45,6 +45,13 @@ A record is an arc: `P0, Born, V0, LandT, LandY, Axis, Spin, Rot0, Tint (a = bur
 - Spend follows the look point: `DebrisMath.Share(CameraShake.DistanceToLook)` throws all of a burst's pieces under the
   eye, half beyond 55 m, a quarter beyond 120 m.
 - Every throw is seeded from its place and the event tick (`DebrisRng`), so a replay and a capture agree.
+- The shader reads its record with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. On D3D `SV_InstanceID`
+  starts at 0 for every command, so the pool's `startInstance` has to be added; the `_Base` helper does that (and does
+  nothing extra on Vulkan, where the id already includes it). With the plain helper every pool read the Clod pool's
+  first records, which is why on the first evening only clods ever appeared: everything else drew at the positions of
+  the oldest clods, long sunk.
+- The mesh bounds are padded 0.5 m for the outline hull; the rest height (`Lift`) takes that padding off again, or a
+  plank would come to rest 0.37 m in the air.
 - The look is TW/Toon's: two-step light, shade tint, shadows, lamps, mist, fog, ink outline; `Tint.a` makes a piece glow
   with embers that cool over the first half of its life (armour off a cooked-off tank).
 
@@ -112,6 +119,18 @@ owner decision and a v3 hash bump; `docs/PLAN.md` already specifies "destroys bu
 `Tests/EditMode/DebrisTests.cs`: the landing solve on flat and stepped ground, the arc never below its rest height,
 one bounce then rest, continuity at the landing, the look-point share, the seeded generator, and that the record is
 the 96 bytes the shader declares with a pool for every piece under half a megabyte.
+
+## Seen in Play
+
+- 2026-09-23 first Play: shell bursts throw dark clods that arc, bounce once and lie on the field (700–1,300 alive
+  after a barrage, 6–8 draws); gore lumps at blast deaths; console clean. The other nine pools were invisible: the
+  indexing fault above. Fixed the same night together with the rest-height padding, a brighter `Mud` clod tint
+  (the old one read black at night) and a softer `_EmberColor` (the old one read as a lantern). The fixed pools have
+  not yet been seen in Play (the editor was handed on for two gates); first thing next session is the row test
+  (`poolcheck.sh` in claude-b7's scratchpad: one big burning piece of every kind, filmed).
+- `CombatFx` pruned nine per-frame lists with `RemoveAll` and a lambda closing over `now`: a closure and a delegate a
+  call, every frame. Replaced by `Prune(list, at, static (x, at) => ...)`, an in-place compaction with a cached
+  delegate; zero allocation.
 
 ## Open
 

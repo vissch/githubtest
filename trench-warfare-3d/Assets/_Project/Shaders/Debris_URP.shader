@@ -17,7 +17,7 @@ Shader "TW/Debris (URP)"
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.0
-        _EmberColor ("Ember colour", Color) = (2.6, 0.9, 0.22, 1)
+        _EmberColor ("Ember colour", Color) = (1.8, 0.7, 0.2, 1)
         _Lift ("Rest height of this mesh (set per pool)", Float) = 0
     }
     SubShader
@@ -55,7 +55,8 @@ Shader "TW/Debris (URP)"
         Placed Place(float3 positionOS, float3 normalOS, float3 smoothOS, uint svInstanceID)
         {
             InitIndirectDrawArgs(0);
-            DebrisRecord r = _Records[GetIndirectInstanceID(svInstanceID)];
+            // _Base: on D3D SV_InstanceID starts at 0 for every command, so the pool's startInstance has to be added (Vulkan already includes it; the helper knows which)
+            DebrisRecord r = _Records[GetIndirectInstanceID_Base(svInstanceID)];
             float t = max(0.0, _DebrisNow - r.born);
             float3 p; float4 q;
             if (r.mode < 0.5)

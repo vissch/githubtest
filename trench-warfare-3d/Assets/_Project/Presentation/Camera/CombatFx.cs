@@ -136,13 +136,32 @@ namespace TW.Presentation.Tactical
         FlipbookFx books;   // the drawn bursts, dust, hits and flares; without its textures the older painted meshes stand in
         DebrisRenderer debris;   // what a blast breaks off: clods, splinters, a tree's crown, a man's limbs and kit (GPU-side arcs)
         Vector3 lastBlast; float lastBlastAt = -10f;   // the newest burst: what broke this tick fell away from it
-        static readonly Color Mud = new Color(0.30f, 0.26f, 0.21f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
+        static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         int hitsThisFrame;
         TestPanel panel;
         TW.Presentation.Units.VATRenderer units;
         string banner; float bannerUntil;
         bool subscribed;
+        /// <summary>
+        /// Drops the entries that are past it, in place and in order, allocating nothing. List.RemoveAll with a lambda
+        /// that closes over now costs a closure and a delegate every frame at each of nine call sites; a static lambda
+        /// is one cached delegate for the life of the process. The second argument is whatever the predicate needs
+        /// (the time now, or the birth time a live entry must be after), so the predicate never has to capture.
+        /// </summary>
+        static void Prune<T>(List<T> list, float at, System.Func<T, float, bool> dead)
+        {
+            int w = 0, n = list.Count;
+            for (int r = 0; r < n; r++)
+            {
+                var x = list[r];
+                if (dead(x, at)) continue;
+                if (w != r) list[w] = x;
+                w++;
+            }
+            if (w < n) list.RemoveRange(w, n - w);
+        }
+
 
         void Start()
         {
@@ -744,7 +763,7 @@ namespace TW.Presentation.Tactical
 
             // tracers
             float now = Time.time;
-            tracers.RemoveAll(t => now - t.Born > TracerSeconds);
+            Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);
             bool night = SceneMood.Night;
             if (night && !nightTinted)
             {
@@ -776,7 +795,7 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(cube, rpT);
             }
 
-            flashes.RemoveAll(f => now - f.Born > 0.12f);
+            Prune(flashes, now - 0.12f, static (f, cut) => f.Born < cut);
             batch.Clear();
             for (int i = 0; i < flashes.Count; i++)
             {
@@ -789,7 +808,7 @@ namespace TW.Presentation.Tactical
             var view = Camera.main;
             Vector3 facing = view != null ? -view.transform.forward : Vector3.forward; facing.y = 0f;
             var splashRotation = facing.sqrMagnitude > 0.001f ? Quaternion.LookRotation(facing) : Quaternion.identity;
-            bursts.RemoveAll(b => now - b.Born > 0.8f);
+            Prune(bursts, now - 0.8f, static (b, cut) => b.Born < cut);
             batch.Clear();
             for (int i = 0; i < bursts.Count; i++)
             {
@@ -816,7 +835,7 @@ namespace TW.Presentation.Tactical
             hitsThisFrame = 0;
 
             // target markers (both sides see where support fire was called) and the aiming circle
-            markers.RemoveAll(m => now > m.Until);
+            Prune(markers, now, static (m, at) => at > m.Until);
             for (int pass = 0; pass < 2; pass++)
             {
                 batch.Clear();
@@ -914,8 +933,8 @@ namespace TW.Presentation.Tactical
         /// <summary>What has come to rest (brass, helmets, clods) and what is pressed into the mud (boot prints, track ruts): close camera only.</summary>
         void DrawClose(float now, Bounds bounds)
         {
-            rests.RemoveAll(r => now > r.Until);
-            marks.RemoveAll(m => now - m.Born > m.Life);
+            Prune(rests, now, static (r, at) => at > r.Until);
+            Prune(marks, now, static (m, at) => at - m.Born > m.Life);
             if (SceneHooks.CloseUp <= 0f) return;
             var cam = Camera.main; if (cam == null) return;
             Vector3 eye = cam.transform.position;
@@ -1022,7 +1041,7 @@ namespace TW.Presentation.Tactical
                     chunks.Add(new Chunk { Pos = new Vector3(p.x, RenderGround.Sample(map, p.x, p.z) + 1.5f, p.z) + back * 1.7f, Vel = back * 0.8f + Vector3.up * 0.9f, Born = now, Life = UnityEngine.Random.Range(1.6f, 2.4f), Size = 0.2f, Kind = 2 });
                 }
                 // rain on the hot earth of a fresh hole
-                hotCraters.RemoveAll(h => now > h.w);
+                Prune(hotCraters, now, static (h, at) => at > h.w);
                 if (rain > 0.05f)
                     for (int k = 0; k < hotCraters.Count && chunks.Count < 560; k++)
                     {
@@ -1082,7 +1101,7 @@ namespace TW.Presentation.Tactical
 
         void DrawBirds(float now, Bounds bounds)
         {
-            birds.RemoveAll(b => now - b.Born > BirdLife);
+            Prune(birds, now - BirdLife, static (b, cut) => b.Born < cut);
             if (birds.Count == 0) return;
             float dt = Time.deltaTime;
             batch.Clear();
@@ -1156,7 +1175,7 @@ namespace TW.Presentation.Tactical
         void DrawChunks(float now, Bounds bounds)
         {
             if (smokeMat == null) smokeMat = Transparent(Shader.Find("Universal Render Pipeline/Unlit"), new Color(0.16f, 0.15f, 0.14f, 0.30f));
-            chunks.RemoveAll(c => now - c.Born > c.Life);
+            Prune(chunks, now, static (c, at) => at - c.Born > c.Life);
             float dt = Time.deltaTime; int landings = 0;
             ambientChunks = 0;
             for (int i = 0; i < chunks.Count; i++) { byte k = chunks[i].Kind; if (k == 2 || k == 5 || k == 7) ambientChunks++; }
