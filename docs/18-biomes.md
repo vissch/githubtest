@@ -157,3 +157,37 @@ nothing. The blizzard falls nearly vertically.
 - The renderer is plain Forward with `AdditionalLightsPerObjectLimit: 8`, while `NightLights` creates ~60 lights.
   A large terrain chunk gets eight, chosen per *object*. `_FORWARD_PLUS` is already in the shader pragmas and
   `LIGHT_LOOP_BEGIN` already handles it, so the open Forward+ decision is one asset field.
+
+## Where it stands at 08:20, and what to do next
+
+Eight commits, every one gated green (EditMode 191/191, PlayMode 13/13). Measured on the ground half of the
+standard view with `scratchpad/hot.py`:
+
+| | Lava | Winter | Concept |
+|---|---|---|---|
+| Hot area | 29.7% (from 1.0%) | — | 34.6% |
+| Median value | 0.16 | 0.50 | 0.47 |
+| Warm pixels | — | 7.6% (from 22.4%) | 0.2% |
+| Inside the biome hue | — | 91.0% | ~100% |
+
+### The honest remaining holes, in the order I would take them
+
+1. **Lava at trench level is still 0.9% hot.** Adding a third noise octave helped and did not close it. The
+   player spends most of their time at this camera, and standing in a trench on a lava planet you see almost no
+   lava. This is the single biggest gap between what is built and what was asked for.
+2. **The median is 0.16 against 0.47.** The histogram is bimodal — near-black crust against pools that clip —
+   where the reference carries its mass in the mid-tones. More brightness will not fix it; more mid-value area
+   will.
+3. **Winter's remaining warm 7.6% is albedo, not lamps.** Rust-brown wire and debris at 200 m, and a tan
+   duckboard run nowhere near a light, are not going through `TWWorldPaint`. Neither is smoke, in either biome.
+4. **Ice.** Winter's shell holes still render as water: a reflective blue puddle on a snowfield.
+5. **No contact shadows.** Winter needs them most, because a bright uniform field hides nothing. Note the
+   shadow-distance finding above first — it may be most of the answer and costs one field.
+6. **Mountains.** The only item on either list that needs real geometry rather than a term.
+
+### A lesson worth keeping, because it cost real time twice
+
+**A metric with no opposing metric will be gamed.** The single-hue number climbed to 97% at trench level while
+the picture went monochrome, and I only caught it because a critique looked at the image rather than the number.
+`hot.py` reports hot area, warm fraction, in-hue fraction *and* median value together for exactly this reason,
+and a value-spread metric should join them before anyone tunes winter further.
