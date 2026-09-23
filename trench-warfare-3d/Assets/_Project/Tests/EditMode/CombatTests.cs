@@ -87,6 +87,140 @@ namespace TW.Tests
             Assert.Greater(m.Fire.Kills[1], 0);
         }
 
+        // ---- the standoff between two dug-in lines -----------------------------------------------------------
+
+        /// <summary>
+        /// ShelledForest, because it is the ONLY map on which this question can be asked. Front-to-front
+        /// separation, from the generators: greybox 560 m (two trenches, Z=120 and length-120), playtest 200 m,
+        /// ShelledForest 100 m - against a 130 m rifle. On the other two the lines cannot reach each other and a
+        /// standoff would be a fact about the map rather than about stance.
+        /// </summary>
+        static MatchSim NewBattle(uint seed = 0xC0FFEE)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = seed;
+            return MatchSim.CreateBattlefield(cfg, TW.Sim.Terrain.BattlefieldParams.ShelledForest(1917));
+        }
+
+        /// <summary>
+        /// Puts a team in its FRONT line the way the game does. Deploying garrisons the REAR trench - that is
+        /// where DefaultGoal sends everyone - so the men are then ordered forward, and the trench chain runs
+        /// rear -> front for both sides. Seeding men onto front-line cells directly does NOT work: a man is
+        /// garrisoned only when the trench is his goal, so placed men simply walk back out.
+        /// </summary>
+        static void HoldTheFrontLine(MatchSim m, byte team, int count)
+        {
+            short rear = m.Fields.RearTrench(team), front = m.Fields.FrontTrench(team);
+            int want = m.Fields.Trenches[rear].GarrisonCount + count;
+            for (int k = 0; k < count; k++) Step(m, SimCommand.Deploy(m.World.Tick, team, Rifleman));
+            for (int t = 0; t < 4000 && m.Fields.Trenches[rear].GarrisonCount < want; t++) Step(m);
+            Assert.AreEqual(want, m.Fields.Trenches[rear].GarrisonCount,
+                $"setup: team {team} never formed up in its rear trench {rear}");
+
+            Step(m, new SimCommand { Player = team, Type = CommandType.TrenchAdvance, A = rear, B = 0 });
+            for (int t = 0; t < 4000 && m.Fields.Trenches[front].GarrisonCount < count; t++) Step(m);
+            Assert.Greater(m.Fields.Trenches[front].GarrisonCount, count / 2,
+                $"setup: team {team} was ordered from trench {rear} to {front} and only " +
+                $"{m.Fields.Trenches[front].GarrisonCount} of {count} arrived");
+        }
+
+        static int WithTargets(MatchSim m)
+        {
+            int n = 0;
+            for (int i = 0; i < m.World.HighWater; i++)
+                if (m.World.IsAlive(i) && m.World.TargetSlot[i] >= 0) n++;
+            return n;
+        }
+
+        static int OnTheStep(MatchSim m)
+        {
+            int n = 0;
+            for (int i = 0; i < m.World.HighWater; i++)
+                if (m.World.IsAlive(i) && m.World.StanceOf[i] == (byte)Stance.FireStep) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// Two dug-in lines 100 m apart, inside each other's rifle range, do not shoot at each other - and that is
+        /// a CIRCLE between two constants in two files that never mention one another:
+        ///
+        ///   TargetAcquisition.cs:111  an in-trench man is untargetable past BelowRimRevealRange (8 m) unless his
+        ///                             stance is FireStep;
+        ///   MovementSystem.cs:224     a garrisoned man takes FireStep only if he already has a target.
+        ///
+        /// He needs a target to stand up and has to be standing up to be one. Nothing holds either line, and each
+        /// is a plausible thing to edit alone.
+        ///
+        /// This does not say the standoff is RIGHT - that is the owner's call and it is open. It says the standoff
+        /// is what the code currently means, so that changing it has to be a decision rather than an accident.
+        ///
+        /// The range is asserted FIRST. On the greybox these two trenches are 560 m apart and this test would have
+        /// passed for a reason that has nothing to do with stance.
+        /// </summary>
+        [Test]
+        public void TwoDugInLinesDoNotEngageEachOther_BecauseNeitherCanBecomeATarget()
+        {
+            using var m = NewBattle();
+            short ta = m.Fields.FrontTrench(0), tb = m.Fields.FrontTrench(1);
+            float apart = math.abs(TrenchZ(m, ta) - TrenchZ(m, tb));
+            float rifle = CombatTables.WeaponFor(Rifleman).RangeMax;
+            Assert.Less(apart, rifle,
+                $"setup: the front lines are {apart:F0} m apart against a {rifle:F0} m rifle, so a standoff here " +
+                "would prove nothing about stance and everything about the map");
+
+            HoldTheFrontLine(m, 0, 8);
+            HoldTheFrontLine(m, 1, 8);
+            for (int t = 0; t < 400; t++) Step(m);
+
+            Assert.AreEqual(0, OnTheStep(m),
+                $"{OnTheStep(m)} men mounted the fire step with nobody in the open to shoot at: the mount " +
+                "condition at MovementSystem.cs:224 has changed and the standoff no longer holds");
+            // or this passes just as well for two lines that wiped each other out
+            Assert.Greater(m.Fields.Trenches[ta].GarrisonCount, 0, "team 0 is still holding its front line");
+            Assert.Greater(m.Fields.Trenches[tb].GarrisonCount, 0, "team 1 is still holding its front line");
+            Assert.AreEqual(0, WithTargets(m),
+                $"{WithTargets(m)} men acquired a target across {apart:F0} m of no man's land. Two dug-in lines are " +
+                "meant to be invisible to each other (TargetAcquisition.cs:111); if this fires, BelowRimRevealRange " +
+                "or the mount condition moved and trench warfare has become an open-field firefight");
+        }
+
+        /// <summary>
+        /// The other half of the same contract, and the half that makes the standoff a design rather than a
+        /// deadlock: a man in the OPEN is targetable at range whatever his stance, so the garrison that sees him
+        /// acquires him - and acquiring is exactly what puts men on the fire step. An attack is what stands a
+        /// trench up.
+        ///
+        /// If this goes red while the test above stays green, the circle has closed for real and no garrison can
+        /// engage anything, ever.
+        /// </summary>
+        [Test]
+        public void AnAssaultInTheOpenIsWhatStandsAGarrisonUp()
+        {
+            using var m = NewMatch();
+            Garrison(m, 1, 1, 8);
+            for (int t = 0; t < 200; t++) Step(m);
+            Assert.AreEqual(0, OnTheStep(m), "a garrison with nobody to shoot at keeps its head down");
+
+            SpawnAssault(m, 0, 10, TrenchZ(m, 1) - 60f, 1);
+            // Accumulated over the run, NOT sampled at the end. A target is transient state: at 60 m eight rifles
+            // kill ten men in well under 400 ticks, and once they are dead nobody has a target again - so the
+            // end-state snapshot reads exactly the same as a garrison that never woke up. The first version of
+            // this test measured that snapshot and reported "acquired by nobody" for a fight it had just won.
+            int everTargets = 0, everStep = 0;
+            for (int t = 0; t < 400; t++)
+            {
+                Step(m);
+                everTargets = math.max(everTargets, WithTargets(m));
+                everStep = math.max(everStep, OnTheStep(m));
+            }
+
+            Assert.Greater(everTargets, 0,
+                "men advancing in the open in front of a garrison were acquired by nobody, so nothing can break " +
+                "the standoff and the two constants form a real deadlock");
+            Assert.Greater(everStep, 0,
+                "somebody acquired them but nobody mounted the fire step, so MovementSystem.cs:224 no longer turns " +
+                "a target into a man at the parapet and Stance.FireStep is unreachable in play");
+        }
+
         [Test]
         public void HoldFire_KeepsTheGarrisonSilent_AndOutOfSight()
         {
