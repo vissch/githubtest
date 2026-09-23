@@ -1,5 +1,7 @@
 // Phase: B6 (implemented) — settings.json round-trips, tolerates an old or damaged file, and lands on disk atomically.
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -61,6 +63,74 @@ namespace TW.Tests
                 Assert.That(AudioLevels.Music, Is.EqualTo(half.Audio.Music));
             }
             finally { AudioListener.volume = restore; TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current); }
+        }
+
+        /// <summary>
+        /// SOMETHING has to apply the audio at launch, and that something is one attribute.
+        ///
+        /// AudioListener.volume's own default is 1 - Unity's value, not ours - so a fresh install is NOT silent by
+        /// virtue of the default in GameSettings. It is silent because SettingsApplier.ApplyAudioOnLaunch runs
+        /// before the first scene and puts the player's master on the listener. That method is private and nothing
+        /// in the project calls it by name, so removing [RuntimeInitializeOnLoadMethod] breaks no compile, no
+        /// reference and no other test here: TheGameStartsMuted would still pass on the constant, and
+        /// ApplyingTheSettingsActuallySilencesTheGame would still pass because it calls ApplyAudio by hand. The
+        /// game would ship at full volume with a green suite - which is the failure that method's own docstring
+        /// says it exists to prevent.
+        ///
+        /// So this asserts the hook exists, runs BEFORE the first scene (after it, a scene's opening sounds have
+        /// already played at Unity's default), and actually lands the player's master on the listener.
+        /// </summary>
+        [Test]
+        public void SomethingPutsTheVolumeOnTheListenerAtLaunch()
+        {
+            var hooks = typeof(TW.UI.SettingsApplier)
+                .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(m => m.GetCustomAttributes(typeof(RuntimeInitializeOnLoadMethodAttribute), false).Length > 0)
+                .ToList();
+            Assert.IsNotEmpty(hooks,
+                "nothing on SettingsApplier runs at launch, so AudioListener.volume keeps Unity's default of 1 "
+                + "and the game ships loud however muted the settings tree says it is");
+            Assert.IsTrue(
+                hooks.Any(m => ((RuntimeInitializeOnLoadMethodAttribute)m.GetCustomAttributes(
+                    typeof(RuntimeInitializeOnLoadMethodAttribute), false)[0]).loadType == RuntimeInitializeLoadType.BeforeSceneLoad),
+                "the launch hook must run BeforeSceneLoad: after it, a scene's first sounds have already played");
+
+            float restore = AudioListener.volume;
+            try
+            {
+                AudioListener.volume = 0.7734f;   // a value nothing in the project would ever choose
+                foreach (var m in hooks) m.Invoke(null, null);
+                Assert.That(AudioListener.volume, Is.EqualTo(SettingsStore.Current.Audio.Master).Within(1e-5f),
+                    "the launch hooks ran and none of them put the player's master on the listener");
+            }
+            finally { AudioListener.volume = restore; TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current); }
+        }
+
+        /// <summary>
+        /// The warning has to follow the value it describes. It was written once while the audio tab was built and
+        /// guarded by `Master <= 0`, so it could only ever be turned ON: a player who dragged master up was still
+        /// told SOUND IS OFF, and a player who dragged it down to zero was told nothing at all. That text is the
+        /// only thing distinguishing a deliberately silent game from a broken one.
+        ///
+        /// Asserted on the source rather than by driving UIElements, because building a panel needs the shell's
+        /// VisualTreeAsset and a live panel; what is actually being checked is structural - that the note is
+        /// computed in a method the slider callbacks reach, not inline in the builder.
+        /// </summary>
+        [Test]
+        public void TheSoundIsOffWarningIsRecomputedWhenTheMasterMoves()
+        {
+            var src = File.ReadAllText(Path.Combine(
+                Path.GetFullPath(Path.Combine(Application.dataPath, "_Project")), "UI", "Shell", "SettingsScreen.cs"));
+            StringAssert.Contains("void RefreshAudioNote()", src, "the note is computed in one named place");
+            // The line that BUILDS the master slider. Matching on "slider-master" alone is not enough,
+            // and this test caught itself doing it: SettingsScreen:22 is a list of element NAMES that
+            // mentions every slider id, so FirstOrDefault picked that and reported a failure that was
+            // entirely the test's own. The builder line is the one that also touches the value.
+            var master = src.Split('\n').FirstOrDefault(l => l.Contains("slider-master") && l.Contains("draft.Audio.Master"));
+            Assert.IsNotNull(master, "the master slider is still built in SettingsScreen");
+            StringAssert.Contains("SoundChanged()", master,
+                "the master slider must report its change, or the panel's own instruction - drag master up to hear "
+                + "the game - does nothing until APPLY, and the warning it prints goes stale the moment it is obeyed");
         }
 
         [Test]

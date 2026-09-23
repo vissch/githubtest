@@ -28,6 +28,10 @@ namespace TW.UI
 
         GameSettings draft;
         float appliedScale;
+        /// <summary>What the SOUND IS OFF warning replaces. Captured from the UXML in OnBind, BEFORE the first
+        /// BuildAudio, because Refill() runs BuildAudio again and would otherwise capture the warning itself.</summary>
+        string audioNote;
+        const string SoundOffNote = "SOUND IS OFF. DRAG MASTER UP TO HEAR THE GAME.";
         IDisposable listening; Button listeningCap;
         readonly List<Resolution> resolutions = new List<Resolution>();
         readonly Dictionary<GameAction, (Button primary, Button secondary)> caps = new Dictionary<GameAction, (Button, Button)>();
@@ -38,6 +42,7 @@ namespace TW.UI
         {
             draft = SettingsStore.Current.Clone();
             appliedScale = SettingsStore.Current.Interface.UiScale;
+            audioNote = Root?.Q<UnityEngine.UIElements.Label>("audio-note")?.text;
             foreach (var t in Tabs) { string tab = t; Btn("tab-" + tab, () => ShowTab(tab)); }
             ShowTab("controls");
             BuildControls();
@@ -56,6 +61,10 @@ namespace TW.UI
         {
             listening?.Dispose(); listening = null; InputFocus.Listening = false;
             if (!Mathf.Approximately(appliedScale, PreviewScale)) { var s = SettingsStore.Current.Clone(); s.Interface.UiScale = appliedScale; SettingsApplier.ApplyInterface(s); }
+            // The audio preview goes back if they left without applying. After APPLY, SettingsStore.Current IS
+            // the draft, so this is a no-op; without it a previewed volume would outlive the screen that
+            // previewed it and there would be no way to explain why the game got loud.
+            SettingsApplier.ApplyAudio(SettingsStore.Current);
         }
 
         float PreviewScale => draft != null ? draft.Interface.UiScale : appliedScale;
@@ -190,15 +199,41 @@ namespace TW.UI
         }
 
         // ---- audio, interface ---------------------------------------------------------------------------------------------
+        /// <summary>
+        /// The audio sliders apply LIVE, the way BuildInterface's UI-scale slider already does.
+        ///
+        /// They did not, and this panel is the one that tells the player "SOUND IS OFF. DRAG MASTER UP TO HEAR
+        /// THE GAME" on every fresh install. Dragging master up wrote to the draft and stopped there, so the
+        /// game stayed silent until APPLY was pressed - and when a control appears to do nothing the next move
+        /// is Escape, which is Back(), which pops without saving. The player followed the only instruction the
+        /// game gives about its own silence, heard nothing, and lost the change on the way out.
+        ///
+        /// Audio is the page where the effect IS the feedback: a volume cannot be previewed by reading a number.
+        /// The preview is taken back in OnUnbind if they leave without applying, as the UI-scale one is.
+        /// </summary>
         void BuildAudio()
         {
-            // a master at zero and no readout is indistinguishable from broken audio, so say so on the panel
+            Slider("slider-master", draft.Audio.Master, v => { draft.Audio.Master = v; SoundChanged(); });
+            Slider("slider-ambience", draft.Audio.Ambience, v => { draft.Audio.Ambience = v; SoundChanged(); });
+            Slider("slider-sfx", draft.Audio.Sfx, v => { draft.Audio.Sfx = v; SoundChanged(); });
+            Slider("slider-music", draft.Audio.Music, v => { draft.Audio.Music = v; SoundChanged(); });
+            RefreshAudioNote();
+        }
+
+        /// <summary>Put the draft's levels into the engine, and keep the warning honest about them.</summary>
+        void SoundChanged() { SettingsApplier.ApplyAudio(draft); RefreshAudioNote(); }
+
+        /// <summary>
+        /// A master at zero with no readout is indistinguishable from broken audio, so the panel says so. It is
+        /// recomputed on every change because it used to be written ONCE while the tab was built: it still read
+        /// SOUND IS OFF after the player had turned the sound on, and it never appeared at all for a player who
+        /// turned it off, since the old guard could only ever write the warning and never clear it.
+        /// </summary>
+        void RefreshAudioNote()
+        {
             var note = Root?.Q<UnityEngine.UIElements.Label>("audio-note");
-            if (note != null && draft.Audio.Master <= 0f) note.text = "SOUND IS OFF. DRAG MASTER UP TO HEAR THE GAME.";
-            Slider("slider-master", draft.Audio.Master, v => draft.Audio.Master = v);
-            Slider("slider-ambience", draft.Audio.Ambience, v => draft.Audio.Ambience = v);
-            Slider("slider-sfx", draft.Audio.Sfx, v => draft.Audio.Sfx = v);
-            Slider("slider-music", draft.Audio.Music, v => draft.Audio.Music = v);
+            if (note == null || draft == null) return;
+            note.text = draft.Audio.Master <= 0f ? SoundOffNote : (audioNote ?? string.Empty);
         }
 
         void BuildInterface()
