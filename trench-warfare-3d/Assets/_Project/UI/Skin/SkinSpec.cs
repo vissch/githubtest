@@ -36,7 +36,7 @@ namespace TW.UI
     {
         public const string Root = "Assets/_Project/UI/Skin/";
         /// <summary>Bump when the generator's drawing changes so recorded placeholders are repainted.</summary>
-        public const int GeneratorVersion = 7;
+        public const int GeneratorVersion = 8;
         public const int PortraitSize = 256;
 
         static SkinEntry P(string f, int w, int h, int b, string n) => new SkinEntry("Sprites/" + f, w, h, b, SkinKind.Plate, n);

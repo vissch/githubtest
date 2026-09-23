@@ -39,9 +39,9 @@
 /* SUPPORT is captioned above its row like ARMOUR (round 8: beside it saved nothing at 1x and broke the rule) */
 .hud-cards--infantry .tw-card { width: var(--tw-card-size-infantry); height: var(--tw-card-size-infantry); }
 .hud-cards--infantry .tw-card__portrait { left: 8px; top: 8px; right: 8px; bottom: 8px; }
-.hud-cards--infantry .tw-card__nameplate { height: 22px; left: 4px; right: 4px; bottom: 4px; padding-left: 24px; padding-right: 24px; font-size: 13px; }
-.hud-cards--infantry .tw-card__cost { height: 22px; right: 4px; top: 4px; padding: 0 6px; font-size: 15px; }
-.hud-cards--infantry .tw-card__hotkey { height: 20px; min-width: 20px; left: 4px; top: 4px; font-size: 12px; }
+.hud-cards--infantry .tw-card__nameplate { height: 22px; left: 12px; right: 12px; bottom: 4px; padding-left: 24px; padding-right: 24px; font-size: 13px; }
+.hud-cards--infantry .tw-card__cost { height: 22px; right: 18px; top: 18px; padding: 0 6px; font-size: 15px; }
+.hud-cards--infantry .tw-card__hotkey { height: 22px; min-width: 22px; left: 18px; top: 18px; font-size: 12px; }   /* inside the art window (round 10) */
 .hud-cards--infantry .tw-card__weapon { width: 18px; height: 18px; left: 10px; bottom: 6px; }   /* in the footer, off the art (the footer draws first now) */
 .hud-cards--infantry .tw-card__badge { height: 20px; min-width: 22px; right: 4px; bottom: 28px; font-size: 12px; }
 .hud-cards--infantry .tw-card__lock { left: 40px; top: 40px; right: 40px; bottom: 40px; }
@@ -72,14 +72,14 @@
 .hud-orders.is-hidden { display: none; }
 /* an order that cannot be given dims as a whole button, never as a grey glyph on a normal plate (round 6) */
 /* round 9: at 40% the plate went see-through and read as a hole; the plate stays opaque, the glyph dims */
-.hud-orders__btn:disabled { opacity: 1; }
+.hud-orders__btn:disabled { opacity: 1; -unity-background-image-tint-color: #8A8A8A; }   /* round 10: the rivets no longer outshine the dimmed glyph */
 .hud-orders__btn:disabled > .tw-icon { -unity-background-image-tint-color: #6B6C69; }
 .hud-orders__btn--holdfire.tw-btn--on > .tw-icon { -unity-background-image-tint-color: var(--tw-alarm); }
-.hud-gauges__vs { margin-left: 6px; font-size: var(--tw-size-micro); color: var(--tw-text-dim); }
+.hud-gauges__vs { margin-left: 6px; margin-top: 6px; font-size: var(--tw-size-micro); color: var(--tw-text-dim); }
 /* the enemy count is large enough to pass at 3:1 in rust (round 6) */
 #silver-value { color: var(--tw-accent-bright); }
 .tw-card__cost { color: var(--tw-accent); }
-#enemy-value { font-size: 16px; -unity-font-style: bold; min-width: 40px; }
+#enemy-value { margin-top: 2px; font-size: 16px; -unity-font-style: bold; min-width: 40px; }
 
 /* banner and pause plate, centre */
 .hud-banner { position: absolute; left: 0; right: 0; top: 12%; align-items: center; display: none; }
@@ -93,7 +93,7 @@
    bone for every speaker; a hurt report says so in a red status chip, and a critical one keylines the portrait. */
 .hud-dialogue { position: absolute; left: 12px; bottom: 8px; width: 344px; min-height: 88px; flex-direction: row; align-items: center; padding: 12px 14px 12px 12px; }   /* 12 px clears the plate rivets */
 .hud-dialogue--raised { left: auto; right: 14px; bottom: 222px; }   /* no room beside the bar: over its right end, clear of the objectives (round 7); BarHeightPx + 12 */
-.hud-dialogue__frame { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; overflow: hidden; border-width: 2px; border-color: rgba(0, 0, 0, 0); }
+.hud-dialogue__frame { width: 80px; height: 80px; flex-shrink: 0; margin-right: 10px; overflow: hidden; border-width: 0; }
 .hud-dialogue__portrait { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: scale-to-fit; background-position-y: bottom; }   /* the art stands on the window floor */
 .hud-dialogue__body { flex-grow: 1; flex-shrink: 1; justify-content: center; }
 .hud-dialogue__head { flex-direction: row; align-items: center; margin-bottom: 2px; }
@@ -102,4 +102,6 @@
 .hud-dialogue__text { white-space: normal; color: var(--tw-text); font-size: 14px; margin: 0; padding: 0; -unity-paragraph-spacing: 0; }
 .hud-dialogue.is-hurt .hud-dialogue__status { display: flex; }
 
-.hud-dialogue.is-critical .hud-dialogue__frame { border-color: var(--tw-alarm); }
+.hud-dialogue.is-critical .hud-dialogue__frame { border-width: 2px; border-color: var(--tw-alarm); }   /* the art fills the window unless critical */
+/* the minimap well: recessed like every other window (round 10), drawn over the map, never picked */
+.hud-minimap__rim { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-top-width: 2px; border-left-width: 2px; border-bottom-width: 1px; border-right-width: 1px; border-top-color: #0C0D0E; border-left-color: #0C0D0E; border-bottom-color: #3A3C3F; border-right-color: #3A3C3F; border-radius: var(--tw-radius-sm); }

@@ -44,7 +44,8 @@ namespace TW.UI
             this.refs = refs; this.host = host; this.cam = cam;
             var map = host.Local.Map;
             tw = map.NavLength; th = map.NavWidth;
-            ground = new Texture2D(tw, th, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+            // point-sampled like the dots: bilinear magnification smeared each trench line over ~12 px (round 10)
+            ground = new Texture2D(tw, th, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
             dots = new Texture2D(tw, th, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
             dotPixels = new Color32[tw * th]; groundPixels = new Color32[tw * th];
             refs.Minimap.style.width = WidthPx; refs.Minimap.style.height = HeightPx;

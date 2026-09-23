@@ -122,7 +122,7 @@
 .tw-gauge { flex-direction: row; align-items: center; height: 36px; margin-bottom: 4px; }
 .tw-gauge__icon { width: 24px; height: 24px; flex-shrink: 0; margin-right: 6px; background-size: contain; -unity-background-image-tint-color: var(--tw-text-dim); }
 .tw-gauge__value { min-width: 96px; height: 30px; -unity-text-align: middle-right; padding-right: 8px; }
-.tw-gauge__sub { font-size: var(--tw-size-caption); color: var(--tw-text-dim); margin-left: 6px; min-width: 56px; -unity-text-align: middle-left; }
+.tw-gauge__sub { font-size: var(--tw-size-caption); color: var(--tw-text-dim); margin-left: 6px; margin-top: 6px; min-width: 56px; -unity-text-align: middle-left; }
 .tw-gauge__sub--alarm { color: var(--tw-enemy); }
 .tw-gauge__sub--ok { color: var(--tw-ok); }
 
@@ -264,6 +264,6 @@
 /* ---- corners: each component clips to the radius UiSkinGenerator paints into its sprite (v3) ------------------ */
 .tw-keycap, .tw-tab, .tw-list-row { border-radius: var(--tw-radius); }
 .tw-plate, .tw-panel, .tw-btn, .tw-btn--icon, .tw-card, .tw-card__rim, .tw-tooltip, .tw-title-plate, .tw-info-panel, .tw-dropdown .unity-base-popup-field__input { border-radius: var(--tw-radius-lg); }
-.tw-window, .tw-header-window, .tw-badge, .tw-card__nameplate, .tw-card__hotkey, .tw-card__badge, .tw-card__cooldown, .tw-info-panel__image, .tw-toggle .unity-toggle__checkmark, .tw-slider .unity-base-slider__tracker, .tw-slider .unity-text-field__input { border-radius: var(--tw-radius-sm); }
+.tw-window, .tw-header-window, .tw-badge, .tw-card__nameplate, .tw-card__hotkey, .tw-card__cost, .tw-card__badge, .tw-card__cooldown, .tw-info-panel__image, .tw-toggle .unity-toggle__checkmark, .tw-slider .unity-base-slider__tracker, .tw-slider .unity-text-field__input { border-radius: var(--tw-radius-sm); }
 .tw-slider .unity-base-slider__dragger { border-radius: 12px; }
 .tw-scroll .unity-scroller--vertical .unity-base-slider__tracker, .tw-scroll .unity-scroller--vertical .unity-base-slider__dragger { border-radius: 6px; }

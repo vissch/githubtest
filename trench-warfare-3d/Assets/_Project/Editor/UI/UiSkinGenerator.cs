@@ -249,9 +249,13 @@ namespace TW.Editor
             {
                 Color32 rc = rivet ?? (disabled ? Plate400 : Plate500);
                 float p = border * 0.5f;
-                c.Rivet(p, p, rivetR, rc); c.Rivet(c.W - 1 - p, p, rivetR, rc); c.Rivet(p, c.H - 1 - p, rivetR, rc); c.Rivet(c.W - 1 - p, c.H - 1 - p, rivetR, rc);
+                // mirrored exactly: pixel x covers [x, x+1], so the mirror of a centre at p is W - p (round 10: W - 1 - p sat
+                // every right and bottom rivet a pixel further in than its twin)
+                c.Rivet(p, p, rivetR, rc); c.Rivet(c.W - p, p, rivetR, rc); c.Rivet(p, c.H - p, rivetR, rc); c.Rivet(c.W - p, c.H - p, rivetR, rc);
             }
-            c.RoundCorners(border > 0 ? Math.Min(radius, border) : radius);   // the curve must stay inside the 9-slice border
+            int rr = border > 0 ? Math.Min(radius, border) : radius;
+            c.RoundCorners(rr);   // the curve must stay inside the 9-slice border
+            c.ArcBevel(rr, hi, lo);   // round 10: the 1 px bevel follows the arcs instead of stopping where they start
         }
 
         static void Window(Canvas c, int radius)
@@ -584,6 +588,36 @@ namespace TW.Editor
                     bool right = x >= W / 2, bottom = y >= H / 2;
                     float w = right && bottom ? 1f : right ? dx / (dx + dy + 1e-4f) : bottom ? dy / (dx + dy + 1e-4f) : 0f;
                     var col = Color32.Lerp(rim, lip, w);
+                    col.a = Px[i].a;
+                    Px[i] = col;
+                }
+            }
+            /// <summary>
+            /// Carry a plate's 1 px bevel round its corner arcs, on the ring just inside RoundCorners' 2 px dark edge:
+            /// the highlight all round the top-left arc, the shade all round the bottom-right one, and across the
+            /// top-right and bottom-left arcs each fades into the face at 45 degrees (highlight towards 12 and 9 o'clock).
+            /// </summary>
+            public void ArcBevel(int r, Color32 hi, Color32 lo)
+            {
+                if (r <= 3) return;
+                r = Math.Min(r, Math.Min(W, H) / 2);
+                for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
+                {
+                    int ex = Math.Min(x, W - 1 - x), ey = Math.Min(y, H - 1 - y);
+                    if (ex >= r || ey >= r) continue;
+                    float dx = r - (ex + 0.5f), dy = r - (ey + 0.5f);
+                    float d = Mathf.Sqrt(dx * dx + dy * dy) - r;
+                    if (d < -3.5f || d >= -2.5f) continue;   // the ring one pixel inside the dark edge
+                    int i = y * W + x;
+                    if (Px[i].a == 0) continue;
+                    bool right = x >= W / 2, bottom = y >= H / 2;
+                    float up = dy / (dx + dy + 1e-4f);   // 1 at 12 or 6 o'clock, 0 at 3 or 9
+                    Color32 target; float w;
+                    if (!right && !bottom) { target = hi; w = 1f; }
+                    else if (right && bottom) { target = lo; w = 1f; }
+                    else if (right) { target = hi; w = Mathf.Clamp01((up - 0.5f) * 2f); }          // top-right: highlight near the top
+                    else { target = hi; w = Mathf.Clamp01((0.5f - up) * 2f); }                      // bottom-left: highlight near the left
+                    var col = Color32.Lerp(Px[i], target, w);
                     col.a = Px[i].a;
                     Px[i] = col;
                 }

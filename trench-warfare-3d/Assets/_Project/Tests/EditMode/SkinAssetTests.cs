@@ -95,6 +95,19 @@ namespace TW.Tests
             Object.DestroyImmediate(plate); Object.DestroyImmediate(arrow);
         }
 
+        /// <summary>Round 10: a plate's bevel runs round its corner arcs: on the ring just inside the dark edge, at 45
+        /// degrees, the top-left arc is lighter than the bottom-right one (GetPixel's y is up).</summary>
+        [Test]
+        public void PlateHighlightRunsRoundTheCorner()
+        {
+            var p = Png("Sprites/plate_normal.png");
+            float Lum(Color c) => 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+            const int k = 5;   // radius 12: the ring 3 px inside the edge crosses the diagonal about 5 px from the corner
+            Color tl = p.GetPixel(k, p.height - 1 - k), br = p.GetPixel(p.width - 1 - k, k);
+            Assert.That(Lum(tl), Is.GreaterThan(Lum(br) + 0.03f), $"top-left arc {tl} is no lighter than bottom-right {br}: the bevel stops short of the corner");
+            Object.DestroyImmediate(p);
+        }
+
         /// <summary>Round 9: a recessed window's lip (light bottom and right) runs round its corner arc, so the edge reads
         /// as one continuous lip and not as a "|" beside the digits. On the arc at 45 degrees, bottom-right is lighter than
         /// top-left (GetPixel's y is up).</summary>

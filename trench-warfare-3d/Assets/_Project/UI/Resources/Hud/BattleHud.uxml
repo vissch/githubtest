@@ -37,6 +37,7 @@
                     <ui:VisualElement name="minimap-ground" class="hud-minimap__layer" picking-mode="Ignore" />
                     <ui:VisualElement name="minimap-dots" class="hud-minimap__layer" picking-mode="Ignore" />
                     <ui:VisualElement name="minimap-view" class="hud-minimap__view" picking-mode="Ignore" />
+                    <ui:VisualElement name="minimap-rim" class="hud-minimap__rim" picking-mode="Ignore" />
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="speed-bar" class="tw-plate hud-speed">
