@@ -47,7 +47,29 @@
                 <ui:Button name="speed-4" text="4x" class="tw-btn hud-speed__btn" />
                 <ui:Button name="speed-8" text="8x" class="tw-btn hud-speed__btn" />
             </ui:VisualElement>
+            <!-- the selection (SelectionPanel): one unit's card, or a grid of tiles; hidden while nothing is selected -->
+            <ui:VisualElement name="selection" class="tw-plate hud-selection">
+                <ui:Label name="sel-header" text="" class="tw-caption hud-selection__header" />
+                <ui:VisualElement name="sel-single" class="hud-selection__single">
+                    <ui:VisualElement name="sel-frame" class="tw-window hud-selection__frame" picking-mode="Ignore">
+                        <ui:VisualElement name="sel-portrait" class="hud-selection__portrait" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-selection__info" picking-mode="Ignore">
+                        <ui:Label name="sel-name" text="" class="tw-caps hud-selection__name" />
+                        <ui:Label name="sel-side" text="" class="tw-caption hud-selection__side" />
+                        <ui:VisualElement class="hud-selection__hp-track" picking-mode="Ignore">
+                            <ui:VisualElement name="sel-hp-fill" class="hud-selection__hp-fill" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                        <ui:Label name="sel-hp" text="" class="tw-mono hud-selection__hp" />
+                        <ui:Label name="sel-stats" text="" class="tw-caption hud-selection__stats" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="sel-grid" class="hud-selection__grid" />
+            </ui:VisualElement>
         </ui:VisualElement>
+
+        <!-- the control groups (SelectionPanel): a chip per stored group, bottom-left -->
+        <ui:VisualElement name="groups" class="hud-groups" picking-mode="Ignore" />
 
         <ui:VisualElement name="region-bottom" class="hud-region hud-region--bottom" picking-mode="Ignore">
             <ui:VisualElement name="tooltip" class="tw-tooltip hud-tooltip" picking-mode="Ignore">
@@ -76,6 +98,12 @@
         </ui:VisualElement>
 
         <ui:VisualElement name="orders-layer" class="hud-orders-layer" picking-mode="Ignore" />
+
+        <!-- selecting on the field (SelectionController): the drag box and the card beside the cursor (HoverCard fills it) -->
+        <ui:VisualElement name="marquee" class="hud-marquee" picking-mode="Ignore" />
+        <ui:VisualElement name="hover-card" class="tw-window hud-hover" picking-mode="Ignore" />
+        <!-- aiming a strike: the enemy under it and ours in reach, beside the reticle (AimReadout fills it) -->
+        <ui:VisualElement name="aim-readout" class="hud-aim" picking-mode="Ignore" />
 
         <ui:VisualElement name="dialogue" class="tw-plate hud-dialogue" picking-mode="Ignore">
             <ui:VisualElement name="dialogue-frame" class="tw-window hud-dialogue__frame" picking-mode="Ignore">

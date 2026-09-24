@@ -24,10 +24,15 @@ namespace TW.UI
             if (KeyMap.DownRaw(GameAction.HudToggle)) { HudBridge.UseToolkitHud = !HudBridge.UseToolkitHud; hud.ApplyFlag(); }
             if (!InputFocus.Gameplay || !hud.Interactive) return;
             int first = LegacyOverlayActive ? 5 : 0;
-            for (int s = first; s < RosterEntry.SlotCount; s++)
-                if (KeyMap.Down((GameAction)((int)GameAction.Deploy1 + s))) hud.Deploy(s);
-            if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
-            if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
+            // with Ctrl or Shift held the digits are control-group keys (SelectionController), not deploys
+            if (!SelectionController.GroupModifierHeld())
+                for (int s = first; s < RosterEntry.SlotCount; s++)
+                    if (KeyMap.Down((GameAction)((int)GameAction.Deploy1 + s))) hud.Deploy(s);
+            if (!SelectionController.GroupModifierHeld())   // 9 and 0 are group keys too
+            {
+                if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
+                if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
+            }
             if (KeyMap.Down(GameAction.Advance)) hud.OrderFront(CommandType.TrenchAdvance);
             if (KeyMap.Down(GameAction.HoldFire)) hud.ToggleFront(CommandType.TrenchHoldFire);
             if (KeyMap.Down(GameAction.SpeedDown)) hud.Clock?.StepSpeed(-1);

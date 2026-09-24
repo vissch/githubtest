@@ -3,6 +3,9 @@
 // cluster per owned trench, anchored on the trench below the middle of the view so it follows pan and zoom, culled
 // where neighbours would overlap (the trench nearest the enemy keeps its buttons) and where it would run off the
 // screen. Clusters are pooled at build (one per trench in the map) and moved by transform, which invalidates no layout.
+// The men badge carries the garrison's morale (GarrisonStats: amber shaken, red half pinned) and answers the cursor:
+// resting on it shows the garrison's card (SelectionController reads HoveredTrench); the over-the-top tooltip counts
+// the pinned men who will stay behind.
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -24,6 +27,7 @@ namespace TW.UI
             public Label Garrison;
             public int Trench;
             public bool Shown = true, LastLocked, LastHeld, LastManned = true;
+            public GarrisonStats.Morale LastMorale;
             public int LastCount = -1;
             public float LastX = float.NaN, LastY;
         }
@@ -35,11 +39,14 @@ namespace TW.UI
         readonly List<Cluster> pool = new List<Cluster>();
         readonly List<Vector3> anchors = new List<Vector3>(8);   // x, y = panel, z = trench index
         readonly Action<CommandType, int, int> issue;
+        readonly GarrisonStats garrison;
         public bool Interactive = true;
+        /// <summary>The trench whose men badge is under the cursor, or -1.</summary>
+        public int HoveredTrench { get; private set; } = -1;
 
-        public TrenchOrderCluster(VisualElement ordersLayer, VisualTreeAsset template, SimHost host, TacticalCamera cam, HudTooltip tooltip, Action<CommandType, int, int> issue)
+        public TrenchOrderCluster(VisualElement ordersLayer, VisualTreeAsset template, SimHost host, TacticalCamera cam, HudTooltip tooltip, Action<CommandType, int, int> issue, GarrisonStats garrison = null)
         {
-            layer = ordersLayer; this.host = host; this.cam = cam; this.tooltip = tooltip; this.issue = issue;
+            layer = ordersLayer; this.host = host; this.cam = cam; this.tooltip = tooltip; this.issue = issue; this.garrison = garrison;
             int n = host.Local.Fields.Trenches.Length;
             for (int t = 0; t < n; t++) pool.Add(Make(template, t));
         }
@@ -56,6 +63,12 @@ namespace TW.UI
             c.HoldFire = c.Holder.Q<Button>("holdfire"); c.Advance = c.Holder.Q<Button>("advance");
             c.LockIcon = c.Holder.Q("lock-icon"); c.FireIcon = c.Holder.Q("holdfire-icon");
             c.Garrison = c.Holder.Q<Label>("garrison");
+            if (c.Garrison != null)
+            {
+                c.Garrison.pickingMode = PickingMode.Position;   // the cursor may rest on it for the garrison card
+                c.Garrison.RegisterCallback<PointerEnterEvent>(_ => HoveredTrench = trench);
+                c.Garrison.RegisterCallback<PointerLeaveEvent>(_ => { if (HoveredTrench == trench) HoveredTrench = -1; });
+            }
             foreach (var b in new[] { c.Fallback, c.Lock, c.HoldFire, c.Advance }) if (b != null) b.focusable = false;
             int t = trench;
             c.Fallback.clicked += () => issue(CommandType.TrenchFallback, t, 0);
@@ -65,7 +78,7 @@ namespace TW.UI
             if (tooltip != null)
             {
                 tooltip.Attach(c.Fallback, "FALL BACK", HudText.FallbackTip);
-                tooltip.Attach(c.Advance, "OVER THE TOP", HudText.AdvanceTip);
+                tooltip.Attach(c.Advance, () => "OVER THE TOP", () => AdvanceText(t));
                 tooltip.Attach(c.Lock, () => host.Local.Fields.Trenches[t].Locked != 0 ? "LOCKED" : "OPEN", () => host.Local.Fields.Trenches[t].Locked != 0 ? HudText.LockedTip : HudText.OpenTip);
                 tooltip.Attach(c.HoldFire, () => host.Local.Fields.Trenches[t].HoldFire != 0 ? "HOLDING FIRE" : "FIRING AT WILL", () => host.Local.Fields.Trenches[t].HoldFire != 0 ? HudText.HoldingTip : HudText.FiringTip);
             }
@@ -86,7 +99,20 @@ namespace TW.UI
             return holder;
         }
 
-        static void Hide(Cluster c) { if (!c.Shown) return; c.Holder.style.display = DisplayStyle.None; c.Shown = false; }
+        void Hide(Cluster c)
+        {
+            if (!c.Shown) return;
+            c.Holder.style.display = DisplayStyle.None; c.Shown = false;
+            if (HoveredTrench == c.Trench) HoveredTrench = -1;   // a hidden badge gets no PointerLeave
+        }
+
+        string AdvanceText(int t)
+        {
+            if (garrison == null || t >= garrison.Trenches) return HudText.AdvanceTip;
+            int pinned = garrison.CountOf(t, UnitState.Pinned), men = garrison.Men(t);
+            if (pinned == 0) return HudText.AdvanceTip;
+            return HudText.AdvanceTip + ". " + (pinned >= men ? "All " + men + " are pinned: nobody will go" : pinned + " of " + men + " are pinned and will stay");
+        }
         static void Show(Cluster c) { if (c.Shown) return; c.Holder.style.display = DisplayStyle.Flex; c.Shown = true; }
 
         public void HideAll() { foreach (var c in pool) Hide(c); }
@@ -96,6 +122,7 @@ namespace TW.UI
         {
             if (panel == null || unityCam == null || over || !Interactive) { HideAll(); return; }
             var fields = host.Local.Fields;
+            garrison?.Refresh(host.Local.World, fields.Trenches.Length);
             var map = host.Local.Map;
             float focusX = cam != null ? cam.Focus.x : map.SizeMeters.x * 0.5f;
             const float b = HudLayout.OrderBtnPx;
@@ -149,6 +176,13 @@ namespace TW.UI
                     c.Root.EnableInClassList("is-empty", !manned);     // round 11: an empty trench's cluster steps back until hovered
                 }
                 if (ts.GarrisonCount != c.LastCount) { c.Garrison.text = MenText(ts.GarrisonCount); c.LastCount = ts.GarrisonCount; }
+                var morale = garrison != null && t < garrison.Trenches ? garrison.MoraleOf(t) : GarrisonStats.Morale.Steady;
+                if (morale != c.LastMorale)
+                {
+                    c.Garrison.EnableInClassList("hud-orders__count--shaken", morale == GarrisonStats.Morale.Shaken);
+                    c.Garrison.EnableInClassList("hud-orders__count--pinned", morale == GarrisonStats.Morale.Pinned);
+                    c.LastMorale = morale;
+                }
                 Show(c);
             }
         }

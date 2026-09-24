@@ -35,6 +35,10 @@ namespace TW.UI
         HudDialogue dialogue;
         HudCommentary commentary;
         public HudDialogue Dialogue => dialogue;
+        SelectionController selection;
+        SelectionPanel selectionPanel;
+        /// <summary>What the player has selected on the field (inspecting and groups; the trenches keep the orders).</summary>
+        public SelectionController Selection => selection;
         HudTooltip tooltip;
         HudHotkeys hotkeys;
         BattleHud legacy;
@@ -62,6 +66,7 @@ namespace TW.UI
             objectives?.Dispose(); objectives = null;
             commentary?.Dispose(); commentary = null;
             minimap?.Dispose(); minimap = null;
+            selection?.Dispose(); selection = null; selectionPanel = null;
             built = false;   // OnEnable after this (a live reload of the sheets, a toggle) builds again from a fresh tree
             if (legacy != null && !flagOn) legacy.enabled = true;
         }
@@ -97,6 +102,7 @@ namespace TW.UI
                 objectives?.Dispose(); objectives = null;
                 commentary?.Dispose(); commentary = null;
                 minimap?.Dispose(); minimap = null;
+                selection?.Dispose(); selection = null; selectionPanel = null;
                 if (doc.visualTreeAsset != null) { root.Clear(); doc.visualTreeAsset.CloneTree(root); }
             }
             var w = Host.Local.World;
@@ -108,10 +114,13 @@ namespace TW.UI
             Clock = MatchClock.For(Host);
             tooltip = new HudTooltip(refs.Tooltip, refs.TooltipTitle, refs.TooltipBody, refs.TooltipCost);
             minimap = new HudMinimap(refs, Host, Cam);
-            clusters = new TrenchOrderCluster(refs.OrdersLayer, Resources.Load<VisualTreeAsset>("Hud/TrenchOrders"), Host, Cam, tooltip, Order);
+            var garrison = new GarrisonStats();
+            clusters = new TrenchOrderCluster(refs.OrdersLayer, Resources.Load<VisualTreeAsset>("Hud/TrenchOrders"), Host, Cam, tooltip, Order, garrison);
             objectives = new ObjectiveTracker(refs, Resources.Load<VisualTreeAsset>("Hud/ObjectiveRow"), Host);
             dialogue = new HudDialogue(root);
             commentary = new HudCommentary(Host, dialogue, SettingsStore.Current.Interface.Tooltips);   // the tips follow the tooltips setting
+            selection = new SelectionController(Host, Cam, root, () => Panel, garrison) { Trenches = clusters };
+            selectionPanel = new SelectionPanel(root, selection, Host);
             hotkeys = new HudHotkeys(this);
             Wire();
             refs.MinimapBezel.EnableInClassList("hud-bezel--round", SettingsStore.Current.Interface.RoundRadar);
@@ -247,6 +256,8 @@ namespace TW.UI
             // gauges
             minimap.Refresh();
             dialogue?.Tick(Time.unscaledDeltaTime);
+            selection?.Tick(Interactive);
+            selectionPanel?.Refresh();
             bool paused = Clock != null ? Clock.Paused : Host.TimeScale <= 0f;
             float speed = Clock != null ? Clock.Speed : Host.TimeScale;
             HudView.BindGauges(refs, w.Silver[0], Host.SilverPerSecond, minimap.MyMen, minimap.TheirMen, Mathf.FloorToInt(w.Tick * tickSeconds), speed, paused);

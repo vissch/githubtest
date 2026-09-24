@@ -114,3 +114,59 @@
 .hud-dialogue.is-critical .hud-dialogue__frame { border-width: 2px; border-color: var(--tw-alarm); }   /* the art fills the window unless critical */
 /* the minimap well: recessed like every other window (round 10), drawn over the map, never picked */
 .hud-minimap__rim { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-top-width: 2px; border-left-width: 2px; border-bottom-width: 1px; border-right-width: 1px; border-top-color: #0C0D0E; border-left-color: #0C0D0E; border-bottom-color: #3A3C3F; border-right-color: #3A3C3F; border-radius: var(--tw-radius-sm); }
+
+/* ---- selection (owner, 2026-09-23: "as sleek and great as Dust Front") ------------------------------------------
+   The drag box: a thin crimson line with the faintest wash, as Dust Front draws it (#A8142C sampled from its GIFs).
+   The hover name: small grey caps beside the cursor. The panel sits under the speed bar, right-aligned with it. */
+.hud-marquee { position: absolute; border-width: 1px; border-color: #A8142C; background-color: rgba(168, 20, 44, 0.07); }
+/* the hover card: a small dark plate beside the cursor, face left, name / state / health right */
+.hud-hover { position: absolute; flex-direction: row; align-items: center; padding: 6px 10px 6px 6px; min-width: 200px; max-width: 300px; display: none; opacity: 0; translate: -6px 0; transition-property: opacity, translate; transition-duration: 0.08s, 0.08s; transition-timing-function: ease-out-cubic, ease-out-cubic; background-color: rgba(14, 15, 16, 0.92); border-width: 1px; border-color: rgba(232, 225, 210, 0.22); }
+.hud-hover--shown { opacity: 1; translate: 0 0; }
+.hud-hover--enemy { border-color: rgba(181, 82, 58, 0.7); }
+.hud-hover__frame { width: 56px; height: 56px; flex-shrink: 0; margin-right: 10px; overflow: hidden; background-color: #0A0B0C; border-radius: var(--tw-radius-sm); }
+.hud-hover__portrait { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: scale-to-fit; background-position-y: bottom; }
+.hud-hover__count { position: absolute; right: 2px; bottom: 0; font-size: var(--tw-size-label); color: var(--tw-accent-bright); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); -unity-text-outline-width: 1px; -unity-text-outline-color: #0A0B0C; }
+.hud-hover__info { flex-grow: 1; flex-shrink: 1; }
+.hud-hover__name { font-size: var(--tw-size-caption); color: var(--tw-text-bright); -unity-font-style: bold; letter-spacing: 1px; }
+.hud-hover--enemy .hud-hover__name { color: var(--tw-enemy); }
+.hud-hover__state { font-size: var(--tw-size-micro); color: var(--tw-text-dim); letter-spacing: 1px; margin-bottom: 4px; }
+.hud-hover__state--warn { color: var(--tw-accent-bright); }
+.hud-hover__state--alarm { color: #E02B2B; }
+.hud-hover__hp-track { height: 5px; background-color: #0E0F10; border-width: 1px; border-color: #2A2C30; border-radius: 3px; overflow: hidden; margin-bottom: 2px; }
+.hud-hover__hp-fill { height: 100%; width: 100%; background-color: #D9485A; }
+.hud-hover--enemy .hud-hover__hp-fill { background-color: #E02B2B; }
+.hud-hover__hp { font-size: var(--tw-size-micro); color: var(--tw-text); -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }
+/* while aiming a strike: two lines beside the reticle; ours in reach turns alarm red */
+.hud-aim { position: absolute; display: none; padding: 3px 8px; background-color: rgba(14, 15, 16, 0.85); border-left-width: 2px; border-color: var(--tw-enemy); }
+.hud-aim__enemy { font-size: var(--tw-size-caption); color: var(--tw-text-bright); -unity-font-style: bold; letter-spacing: 1px; }
+.hud-aim__enemy--none { color: var(--tw-text-dim); }
+.hud-aim__ours { font-size: var(--tw-size-micro); color: var(--tw-text-dim); letter-spacing: 1px; }
+.hud-aim__ours--danger { color: #E02B2B; -unity-font-style: bold; font-size: var(--tw-size-caption); }
+/* a trench's men badge: amber when a third are shaken or pinned, red when half are pinned (they refuse over the top) */
+.hud-orders__count--shaken { color: var(--tw-accent-bright); border-width: 1px; border-color: var(--tw-accent-bright); }   /* the plain badge is amber too: the rim says it */
+.hud-orders__count--pinned { color: #E02B2B; border-width: 1px; border-color: #E02B2B; background-color: #2A0E0B; }
+.hud-hover__hint { font-size: var(--tw-size-micro); color: var(--tw-text-mute); margin-top: 3px; letter-spacing: 1px; }
+.hud-selection { margin-top: 8px; width: 300px; padding: 10px 12px 12px 12px; display: none; }
+.hud-selection__header { color: var(--tw-text); -unity-font-style: bold; margin-bottom: 6px; }
+.hud-selection__single { flex-direction: row; align-items: flex-start; }
+.hud-selection__frame { width: 96px; height: 96px; flex-shrink: 0; margin-right: 12px; overflow: hidden; }
+.hud-selection__portrait { position: absolute; left: 0; top: 0; right: 0; bottom: 0; -unity-background-scale-mode: scale-to-fit; background-position-y: bottom; }
+.hud-selection__info { flex-grow: 1; flex-shrink: 1; }
+.hud-selection__name { font-size: var(--tw-size-label); color: var(--tw-text-bright); -unity-font-style: bold; }
+.hud-selection__side { color: var(--tw-text-dim); margin-bottom: 8px; }
+.hud-selection__side--enemy { color: var(--tw-enemy); }
+.hud-selection__hp-track { height: 6px; background-color: #0E0F10; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.hud-selection__hp-fill { height: 100%; width: 100%; background-color: #D9485A; }
+.hud-selection__hp { font-size: var(--tw-size-caption); color: var(--tw-text); margin-bottom: 4px; }
+.hud-selection__stats { color: var(--tw-text-dim); }
+.hud-selection__grid { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+.hud-selection__tile { width: 88px; height: 88px; margin: 0 4px 4px 0; overflow: hidden; }
+.hud-selection__tile:hover { border-width: 1px; border-color: var(--tw-text-dim); }
+.hud-selection__tile-art { position: absolute; left: 2px; top: 2px; right: 2px; bottom: 8px; -unity-background-scale-mode: scale-to-fit; background-position-y: bottom; }
+.hud-selection__tile-count { position: absolute; right: 4px; top: 2px; font-size: var(--tw-size-caption); color: var(--tw-accent-bright); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }
+.hud-selection__tile-hp { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 4px; background-color: #0E0F10; border-radius: 2px; overflow: hidden; }
+.hud-selection__tile-hp-fill { height: 100%; width: 100%; background-color: #D9485A; }
+.hud-groups { position: absolute; left: 12px; bottom: 12px; width: 212px; flex-direction: row; flex-wrap: wrap-reverse; }
+.hud-group-chip { width: 38px; height: 30px; margin: 0 4px 4px 0; padding: 0 4px; flex-direction: row; align-items: center; justify-content: space-between; border-radius: var(--tw-radius); }
+.hud-group-chip__digit { font-size: var(--tw-size-label); color: var(--tw-alarm); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }
+.hud-group-chip__size { font-size: var(--tw-size-micro); color: var(--tw-text-dim); -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }

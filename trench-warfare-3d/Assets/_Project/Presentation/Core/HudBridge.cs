@@ -1,6 +1,7 @@
 // Phase: B6 (implemented) — the seam between the camera assembly and TW.UI.
 // TW.Presentation.Camera must never reference TW.UI (DebugOverlay bootstraps the IMGUI BattleHud), and TW.UI needs
-// nothing from here but two facts: which HUD is on, and whether the mouse is over interface chrome. Both live in this
+// nothing from here but three facts: which HUD is on, whether the mouse is over interface chrome, and whether the
+// selection has taken this frame's mouse wheel (Alt+wheel steps through a knot of men instead of zooming). All live in this
 // static so the camera, the click mask in TestPanel and the reticle in CombatFx can ask without knowing who answers.
 // Pattern: SceneHooks (RenderGround.cs) and IZoomSource.
 using UnityEngine;
@@ -33,5 +34,13 @@ namespace TW.Presentation
 
         /// <summary>Convenience for the polling sites: false when nothing has registered.</summary>
         public static bool IsPointerOverUi(Vector2 mouse) => PointerOverUi != null && PointerOverUi(mouse);
+
+        /// <summary>
+        /// Does the selection want the wheel right now (Alt held over a knot of units)? Asked by the camera before it
+        /// zooms; the Toolkit HUD's SelectionController registers it and clears it with the HUD. Null = never.
+        /// </summary>
+        public static System.Func<bool> WheelClaimed;
+
+        public static bool IsWheelClaimed() => WheelClaimed != null && WheelClaimed();
     }
 }

@@ -151,7 +151,7 @@ namespace TW.Presentation.Tactical
                 }
                 if (mouse.middleButton.isPressed && !panFromUi) { pan.x -= drag.x * 0.12f; pan.y -= drag.y * 0.12f; }
                 float wheel = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(wheel) > 0.01f && !overUi) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
+                if (Mathf.Abs(wheel) > 0.01f && !overUi && !HudBridge.IsWheelClaimed()) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
             }
             float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(ZoomMin, CloseZoom, Zoom));   // 0 tactical, 1 among the men
             // the small things of the field (grit, footprints, brass, litter) come in over a wider band and cost nothing at the standard view
