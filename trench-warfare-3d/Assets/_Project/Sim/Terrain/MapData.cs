@@ -74,7 +74,11 @@ namespace TW.Sim.Terrain
         /// <summary>No shell digs below this: the lowest ground the map was generated with, less BedrockBelow.
         /// Left at NoWater-deep until a generator computes it, so an unprepared map is never clamped.</summary>
         public float Bedrock = -1000f;
-        public const float BedrockBelow = 1.5f;
+        /// <summary>Owner, 2026-09-24: 6 m under the map's lowest authored ground, was 1.5 m. This is only the floor
+        /// nothing may ever break through; how deep a shell hole actually gets is CraterStamp.MaxDepth, measured from
+        /// the ground where the shell landed. At 1.5 m this map-wide floor was doing the gameplay job by accident and
+        /// it did it unevenly -- a hole on a ridge dug three times as deep as one on low ground.</summary>
+        public const float BedrockBelow = 6f;
 
         public MapData(int mapId, float2 sizeMeters, Allocator allocator)
         {

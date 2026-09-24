@@ -7,8 +7,8 @@
 // little, the trench always stands, and it always gives limited protection. Three rules follow.
 //
 //   GROWTH. A runtime stamp (ApplyDynamic) landing on an existing hole WIDENS it instead of only deepening it:
-//   R' = min(MaxRadius, sqrt(R^2 + GrowShare r^2)), and it carries only DepthShare of its own depth into the
-//   deeper middle. Twenty shells on one spot make one big hole, not twenty pits inside each other. MapData.Holes
+//   R' = min(MaxRadius, sqrt(R^2 + GrowShare r^2)), and it carries DepthShare of its own depth into the deeper
+//   middle. Twenty shells on one spot make one big hole, not twenty pits inside each other. MapData.Holes
 //   is the record; the heightfield already holds the old bowl, so a merge keeps the first centre.
 //
 //   RIMS. Spoil is thrown up in a ring outside the hole, as high as RimShare of its depth and never above MaxRim.
@@ -62,17 +62,26 @@ namespace TW.Sim.Terrain
 
         /// <summary>The widest a hole ever gets, however long it is shelled.</summary>
         public const float MaxRadius = 12f;
+        /// <summary>The deepest a hole's middle ever gets, counted from the ground as it was before the first shell.
+        /// Owner, 2026-09-24: twice as deep as before, and reached quicker. This is the cap that decides how a hole
+        /// looks, not MapData.Bedrock: bedrock is measured from the LOWEST ground on the whole map, so it let a hole
+        /// on a ridge go six metres while the same barrage on low ground stopped at two. A per-hole cap digs the same
+        /// pit wherever the shell lands; bedrock stays behind it as the floor nothing may ever break through.</summary>
+        public const float MaxDepth = 4.5f;
         /// <summary>A stamp merges into a hole whose centre is within this share of the larger of the two radii.</summary>
         public const float MergeShare = 0.75f;
-        /// <summary>How much of a merging shell's area is added to the hole, and how much of its depth.</summary>
-        public const float GrowShare = 0.6f, DepthShare = 0.6f;
+        /// <summary>How much of a merging shell's area is added to the hole, and how much of its depth. Owner,
+        /// 2026-09-24: deeper and quicker. DepthShare above 1 means a shell landing in a hole digs MORE than it
+        /// would have in open ground -- loose spoil, and the bottom of a crater is where the next one lands -- so
+        /// the floor (MapData.Bedrock, itself now twice as far down) is reached in about half the shells.</summary>
+        public const float GrowShare = 0.6f, DepthShare = 1.2f;
         /// <summary>Spoil: RimShare of the hole's depth, never more than MaxRim, over a ring RimWidth of R wide.</summary>
         public const float RimShare = 0.25f, MaxRim = 0.5f, RimWidth = 0.3f;
         /// <summary>No ground within TrenchKeep metres of a trench or a ladder ever moves; over the next
         /// TrenchGuard metres it moves progressively more.</summary>
         public const float TrenchKeep = 1f, TrenchGuard = 4f;
         /// <summary>How far under the water table a shell may ever dig (ApplyWater then fills it: slow, never blocked).</summary>
-        public const float MaxUnderWater = 0.9f;
+        public const float MaxUnderWater = 1.8f;
         /// <summary>Holes remembered for merging. Past this the oldest is forgotten; its ground stays dug.</summary>
         public const int MaxHoles = 512;
 
@@ -187,6 +196,7 @@ namespace TW.Sim.Terrain
                 r = math.min(MaxRadius, SimMath.Sqrt(q.Radius * q.Radius + GrowShare * Radius * Radius));
                 depth = Depth * DepthShare;
                 c = q.Center;                       // the ground already holds the old bowl: keep its middle
+                depth = math.min(depth, math.max(0f, MaxDepth - q.Depth));
                 q.Radius = r; q.Depth += depth; q.Hits++;
                 // throw spoil up only when the lip has moved clear of the last ring: otherwise the same ground would
                 // be raised over and over by a hole that has stopped growing
@@ -198,8 +208,9 @@ namespace TW.Sim.Terrain
                 map.Holes[hit] = q;
                 return;
             }
-            rim = math.min(MaxRim, RimShare * Depth);
-            var fresh = new HoleRecord { Center = Center, Radius = r, Depth = Depth, RimAt = r, Hits = 1 };
+            depth = math.min(Depth, MaxDepth);
+            rim = math.min(MaxRim, RimShare * depth);
+            var fresh = new HoleRecord { Center = Center, Radius = r, Depth = depth, RimAt = r, Hits = 1 };
             if (map.Holes.Length >= MaxHoles)
             {
                 for (int i = 1; i < map.Holes.Length; i++) map.Holes[i - 1] = map.Holes[i];
