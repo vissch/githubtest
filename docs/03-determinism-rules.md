@@ -108,6 +108,16 @@ The rule, in full:
 
 ## The heightfield is not in the compared hash
 
+**CLOSED 2026-09-24 (replay format v4).** `TerrainHashSystem` (order 50, steps nothing) folds `MapData.Hash` into
+`SimWorld.Hash()`, so the heightfield, the nav layers, the cover and the holes the shells have dug are compared
+state. `SimWorld` could not do it itself because `TW.Sim.Core` does not reference `TW.Sim.Terrain`; a system can.
+It costs about 105 KB of FNV-1a per hashed tick, and single player hashes nothing (`HashInterval = 0`), so only the
+canary, the lockstep tests and replay verification pay it. **The rest of this section is kept as the reasoning, and
+the rules in it still hold** — terrain writing still belongs to a system, on the tick, from a seeded stream — but
+"caught by nothing until a unit walks on it" is no longer true.
+
+Everything below was written while the gap was open.
+
 `SimWorld.Hash()` does not fold in `MapData.Hash`. `DeformationSystem.Hash` folds a checksum of crater *inputs*
 and three counters — not the heightfield it wrote. Nav-layer divergence is caught indirectly through
 `FlowField.Hash`; **height divergence is caught by nothing until a unit walks on it.**
@@ -127,6 +137,9 @@ If you write to the heightfield:
   hash costs;
 - the long-term fix is to fold `MapData.Hash` into `SimWorld.Hash()` directly, which is deferred only because it
   changes every recorded hash and invalidates stored replays. Do it at the next replay-format break.
+  **Done, 2026-09-24: `TerrainHashSystem`, replay v4.** The break was buildings, blast direction and a ground that
+  grows its own shell holes; no replay file was tracked and no test pinned a literal hash, so the whole cost of it
+  was one version constant.
 
 This cost an hour on 2026-09-23. The trap that made it expensive was the arithmetic, not the rule: a `DESYNC at
 tick 33` looks like one second of play if you assume 30 ticks a second, and a probe that ran fourteen seconds in
@@ -155,8 +168,9 @@ the textbook lockstep divergence. `TrenchAdvance` is the only command that produ
 also the only path that puts men on the river, the fords, the bridge and the wire belt. The one test that does
 `TrenchAdvance` at scale runs `combat: false`.
 
-The second gap is quieter: **the compared value does not include the ground.** `MapData.Hash` is never folded into
-`SimWorld.Hash()`, and `DeformationSystem.Hash` folds a checksum of crater *inputs* plus three counters, not the
-heightfield it wrote. Nav-layer divergence is caught indirectly through `FlowField.Hash`; height divergence is
+The second gap is quieter: **the compared value does not include the ground.** (Closed 2026-09-24 by
+`TerrainHashSystem`; the paragraph is kept because the first gap above it is still open.) `MapData.Hash` was never
+folded into `SimWorld.Hash()`, and `DeformationSystem.Hash` folds a checksum of crater *inputs* plus three counters,
+not the heightfield it wrote. Nav-layer divergence is caught indirectly through `FlowField.Hash`; height divergence is
 caught by nothing until a unit walks on it. So the crater deformation that the generated map adds — the headline
 reason for testing that map at all — is outside the hash.

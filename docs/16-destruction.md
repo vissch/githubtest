@@ -9,7 +9,7 @@ costs, and what is still open.
 **The sim decides what breaks. Presentation decides how the pieces fly. The pieces cost the CPU nothing a frame.**
 
 - What breaks is already in the deterministic sim and hashed: `BlastSystem` (damage and knock), `DeformationSystem`
-  (craters, tree → broken tree → stump, wire, wrecks), `VehicleModulesSystem` (modules, crew, fire, cook-off, legs).
+  (craters, tree â†’ broken tree â†’ stump, wire, wrecks), `VehicleModulesSystem` (modules, crew, fire, cook-off, legs).
   Nothing in this feature adds sim state or changes the replay format.
 - How a piece flies is a 96-byte record written once, on the event, into a `GraphicsBuffer`. `TW/Debris (URP)`
   integrates the flight in the vertex shader from the record and the clock. There is no per-frame CPU work per piece,
@@ -24,7 +24,7 @@ A record is an arc: `P0, Born, V0, LandT, LandY, Axis, Spin, Rot0, Tint (a = bur
   sideways speed, 0.30 of the fall), settles the piece flat as it stops, and past `Life` sinks it into the mud over 3 s
   and scales it to nothing.
 - `Mode 1` is a hinge: a tree top or a slab going over about its foot, accelerating, with a small bounce back.
-- Ten kinds of piece, one procedural mesh each (30–90 vertices, smoothed outline normal in UV3 like the kit):
+- Ten kinds of piece, one procedural mesh each (30â€“90 vertices, smoothed outline normal in UV3 like the kit):
   clod, shard, plank, rubble, sandbag, plate, crown, limb, helmet, rifle. One pool per kind, a ring each:
 
   | piece | pool | shadows |
@@ -60,11 +60,11 @@ A record is an arc: `P0, Born, V0, LandT, LandY, Axis, Spin, Rot0, Tint (a = bur
 | event | where | pieces |
 |---|---|---|
 | `Explosion` (dry) | `CombatFx` | 8 + 2.2 r clods (fist to head, lie 30 s) + 4 + r small fast ones; the old chunk cubes cut from 17 to 10 |
-| `Death` by a shell that throws him high | `CombatFx.Gibs` | 30 % of them: 1–2 limbs, 22 % the head, the helmet, 60 % the rifle, five dark lumps (`DebrisRenderer.Gore` 0 turns the lumps and limbs off) |
+| `Death` by a shell that throws him high | `CombatFx.Gibs` | 30 % of them: 1â€“2 limbs, 22 % the head, the helmet, 60 % the rifle, five dark lumps (`DebrisRenderer.Gore` 0 turns the lumps and limbs off) |
 | `VehicleCrushed` (a man, b = 2) | `CombatFx` | helmet, a limb, lumps, low and slow |
-| `PropChanged` Tree → BrokenTree | `CombatFx.TreeBreaks` | the crown hinges off the 2.7 m snag away from the newest burst (1.3 s), splinters |
-| `PropChanged` → Stump | `CombatFx.TreeBreaks` | the snag shatters: 14 charred shards, clods |
-| `PropChanged` → Log (crushed) | `CombatFx.TreeBreaks` | shards |
+| `PropChanged` Tree â†’ BrokenTree | `CombatFx.TreeBreaks` | the crown hinges off the 2.7 m snag away from the newest burst (1.3 s), splinters |
+| `PropChanged` â†’ Stump | `CombatFx.TreeBreaks` | the snag shatters: 14 charred shards, clods |
+| `PropChanged` â†’ Log (crushed) | `CombatFx.TreeBreaks` | shards |
 | `VehicleArmourHit` holed | `TankRenderer` | 3 burning plates, on top of the existing sparks and horn shear |
 | `VehicleLegLost` | `TankRenderer` | 4 plates (the leg itself is still `ThrowLeg`, the parented-part path) |
 | `VehicleCookOff` | `TankRenderer` | 14 burning plates, 60 s, on top of `Wreckify`'s turret/cupola/horns |
@@ -354,8 +354,8 @@ clean. Shots: `shots/batchA` in claude-6f's scratchpad.
 ## Cost
 
 - CPU: a throw is two ground samples and a 96-byte write; a shell burst is about 30 throws. Nothing per frame per
-  piece; per frame one `SetData` per pool that had a throw and ≤ 10 draw submissions.
-- GPU: ≤ 3,520 instances × ≤ 90 vertices ≈ 300 k vertices worst case, all pools full; typically a few thousand.
+  piece; per frame one `SetData` per pool that had a throw and â‰¤ 10 draw submissions.
+- GPU: â‰¤ 3,520 instances Ã— â‰¤ 90 vertices â‰ˆ 300 k vertices worst case, all pools full; typically a few thousand.
   Shadows only for the big kinds.
 - Memory: 330 KB of records + ten small meshes.
 - Draw calls: +10 at most (each with its outline pass), against a field already at 374 vs the < 300 ceiling
@@ -371,8 +371,8 @@ the 96 bytes the shader declares with a pool for every piece under half a megaby
 
 ## Seen in Play
 
-- 2026-09-23 first Play: shell bursts throw dark clods that arc, bounce once and lie on the field (700–1,300 alive
-  after a barrage, 6–8 draws); gore lumps at blast deaths; console clean. The other nine pools were invisible: the
+- 2026-09-23 first Play: shell bursts throw dark clods that arc, bounce once and lie on the field (700â€“1,300 alive
+  after a barrage, 6â€“8 draws); gore lumps at blast deaths; console clean. The other nine pools were invisible: the
   indexing fault above. Fixed the same night together with the rest-height padding, a brighter `Mud` clod tint
   (the old one read black at night) and a softer `_EmberColor` (the old one read as a lantern). The fixed pools have
   not yet been seen in Play (the editor was handed on for two gates); first thing next session is the row test
@@ -416,3 +416,126 @@ Still open:
    in the melt go under within about a second, as designed. Nothing to change in the debris. Seen in the same barrage,
    not debris: `CombatFx` still throws pale blue water splashes where a shell lands in the lava pool.
 3. Close-up limb stumps are small at the gameplay zoom; if a still asks for more, a dark cap mesh at the joint.
+
+## The ground remembers, except where a trench stands in it (2026-09-24)
+
+Owner, in two messages the same day. First: the fun in this game is seeing large damage on the troops and the
+environment, so make everything as destructible as possible, at every zoom, with directional explosions, an
+environment that is blown away and on some level *permanently* changed, and "the more explosions on 1 place on the
+battlefield the bigger the hole should become". Then, a correction that shapes the whole feature: "since this is a
+trench game the ground near the trench wont be able to take alot of degradation. the trench allways need to stand
+and allways give limited protection."
+
+Those two pull in opposite directions, and the resolution is a guard band rather than a compromise on either: the
+open field is *more* malleable than it was, and the five metres around a trench are untouchable.
+
+### The hole that grows (`Sim/Terrain/CraterStamp.cs`, `MapData.Holes`)
+
+A crater used to be a subtractive cosine bowl and nothing else, so twenty shells on one spot dug twenty bowls
+inside each other: deeper and deeper, never wider. Now every runtime stamp goes through `ApplyDynamic`, which looks
+for the hole it landed in (`MergeShare` 0.75 of the larger radius) and **widens** it:
+`R' = min(MaxRadius 12 m, sqrt(R^2 + GrowShare 0.6 * r^2))`, carrying `DepthShare` 0.6 of its own depth into the
+middle. A 3 m shell repeated on one spot reaches 12 m across in 26 rounds and stops there. `MapData.Holes` is the
+record (cap 512, oldest forgotten; its ground stays dug), and the merge keeps the *first* centre, because the
+heightfield already holds the old bowl.
+
+**Rims.** Spoil is thrown up in a ring `RimWidth` 0.3 of R wide outside the lip. The bound is the interesting part:
+a rim added afresh per shell would build a mountain over a three-minute barrage, so each hole carries `RimUp` and a
+stamp adds only the difference between what it has already thrown up and what its depth now deserves
+(`RimShare` 0.25 of depth, capped at `MaxRim` 0.5 m). Eighty shells on one spot raise half a metre of spoil in
+total, not forty.
+
+**Depth is bounded** by `MapData.Bedrock` (the map's lowest generated ground less 1.5 m) and by
+`WaterLevel - MaxUnderWater`, so a shell can never make ground impassable — the rule `BattlefieldTests` has
+guarded since A4.
+
+### The trench guard band
+
+`MapData.CellTrenchDist` is a byte per 1 m height cell: decimetres to the nearest trench or ladder cell, built once
+by `BuildTrenchDistance` (trenches never move). `CraterStamp.Hard()` turns it into a scale on every carve and every
+rim: **zero** within `TrenchKeep` 1 m, ramping to full over the next `TrenchGuard` 4 m. So the parapet and the metre
+behind it never move, the next four metres dig progressively less, and only past five metres is the field soft. A
+hole may still grow its *radius* into the band — its bowl is simply flat there — so a shell hole can never join a
+trench or undercut one. Nav cells are marked `Crater` only where the ground actually moved, so cover never claims a
+hole the band refused to dig.
+
+**There is no trench cave-in, by decision.** A direct hit on a bay throws sandbags, revetment planks and a scorch
+mark, which is `PropDestruction`'s business and already worked; what makes it *hurt* is `BlastRules.TrenchBayFactor`
+below. `NavLayer`, `CellTrenchId`, `TrenchCells` and the garrison's posts are untouched by a shell.
+
+`DynamicGroundTests` covers it. The test worth keeping is
+`TheGroundDigsMoreTheFurtherItIsFromATrench`: it fires a 16 m shell straight into a trench and shows the ground
+dropping 0.00, 0.34, 0.96 and 1.81 m at 1, 2, 4 and 6 m out — *rising* as the bowl's own falloff weakens, which is
+the only shape of evidence that tells a guard band apart from a shell that was simply weaker out there.
+
+**The trap this landed with, and the reason the authored field is a test.** `CellTrenchDist` is allocated in the
+`MapData` constructor, and a `NativeArray` starts at zero. Zero means "touching a trench", so during generation —
+before `BuildTrenchDistance` runs — every cell read as banded and `CraterStamp` refused to dig the whole map. The
+generated battlefield came out flat and completely unshelled. Nothing in the feature's own tests noticed, because
+they all run on the playtest map, where the band is built; `BattlefieldTests.Generator_MakesAShelledWoodWithARiver`
+caught it with "shell holes: expected greater than 200, but was 0". The array now initialises to 255, and
+`DynamicGroundTests` pins that default on a bare `MapData`.
+
+### The burst that knows which way it was going (`Sim/Combat/Blast.cs`)
+
+`Impact` carries `Dir` (the shell's flight, flattened to XZ; zero for a cook-off or a round coming straight down),
+`Shape` (`BlastShape`: shell, masonry, cook-off) and `Rubble` (metres of mound a collapse heaps up, which
+`DeformationSystem` turns into a `CraterKind.Mound` stamp that raises the ground instead of digging it). The
+`Explosion` event carries the direction in `Dir.xz` and the shape in `Dir.y`, so presentation can lean the picture
+without guessing from the weapon id. Every producer fills it: tank and walker HE from the muzzle (a Kettle's
+indirect round deliberately gets none — it comes down steeply, and its directional look is a tall thin column, not
+a lean), the gunboat from the hull to where the shell lands, the off-map battery up the field from behind its own
+line, the ambient shells alternating (the draw is taken *after* every existing roll, so not one shell moved).
+
+`BlastRules` gathers what a burst is cut down by, in one place:
+
+| What | Factor | Was |
+|---|---|---|
+| a shell in a man's own trench bay | `TrenchBayFactor` **0.7** | 1.0 — a direct hit in the bay was unprotected |
+| the same trench, past `BayMetres` 12 m | `TrenchTraverseFactor` 0.5 | 0.35 |
+| his trench, the shell out in the field | `TrenchOutsideFactor` 0.35 | 0.35 |
+| in the open, when the shell went off *inside* a trench | `FieldShadow` 0.45 | 1.0 |
+| a shell hole, or lying down | 0.6 / 0.7 | unchanged |
+| broken ground in the line (`HeightfieldRaycast`) | `TerrainShadow` 0.55 | 1.0 |
+| the far side of a directional burst | `1 + DirBias` 1.3, near side 0.7 | 1.0 both |
+| falling masonry, on a man in a trench | `MasonryTrenchFactor` 0.5, knock halved | — |
+| the floor under all of it | `MinThrough` 0.08 | — |
+
+The 0.7 is the owner's rule made arithmetic: **a trench always gives limited protection**, so even a shell in your
+own bay leaves you three tenths better off than standing in the open.
+
+Two deliberate restraints. **Suppression is leaned but not shaded**: keeping your head down is what a man does
+whether or not the parapet saved him, and the M1.5 fun gate tuned a barrage's suppressive weight against the old
+numbers — shading it here would quietly make garrisons far harder to pin, which nobody asked for. And **the terrain
+ray is bounded**: it is asked only past `ShadowFrom` 0.4 of the radius, only when there is a crater or trench cell
+at one end to cast a shadow at all, and at most `MaxRaycasts` 48 times per impact, taken in slot order so the cap
+falls the same way on every machine. `BlastSystem.LastRaycasts` exposes the count and `DirectionalBlastTests` holds
+it to the cap.
+
+### Tanks fail by degrees, like the walkers always have (`Sim/Units/VehicleModules.cs`)
+
+A walker has limped at 16 % a leg since the crabs landed, and the owner liked it. A tank's track was a switch:
+whole, or thrown and the tank stuck where it stood. Now both are curves.
+
+| Module | Health | Speed |
+|---|---|---|
+| track, each | >= `TrackFullAbove` 0.8 | 1.0 |
+| | 0.2 to 0.8 | `TrackWorstFactor` 0.35 rising to 1.0 (0.78 at the 0.6 a repair leaves) |
+| | < `TrackThrownBelow` 0.2 | 0, and `Immobilised` — it used to take reaching exactly zero |
+| both together | | the worse sets the pace, and a mismatch costs `TrackMismatch` 0.15 more: it crabs |
+| engine | >= 0.7 / 0.2-0.7 / < 0.2 | 1.0 / `EngineWorstFactor` 0.45 rising / stalled |
+| walker legs | per leg gone | `max(LegFloor 0.25, 1 - LegLoss 0.16 * legs)`, unchanged |
+
+`VehicleTrackHit` and `VehicleStalled` now fire on crossing those thresholds rather than on reaching zero, so the
+flag and the picture agree: `TankRenderer` sheds the track off the hull exactly when the sim stops calling it a
+track. `MendWorst` prefers a module that has actually failed, at the same thresholds. `TankMobilityTests` is the
+curve as a table, so a tuning pass shows up in the gate rather than in a playtest.
+
+### Replay format v4
+
+`TerrainHashSystem` (`Sim/Match/`, order 50) steps nothing and folds `MapData.Hash` into the tick hash, closing the
+gap docs/03 had recorded and deferred "to the next replay-format break". This is that break:
+`ReplayRecorder.FormatVersion` 3 -> 4. It was cheap — no replay file is tracked and no test pins a literal hash
+(every hash assertion in the suite is A-against-B), so the whole cost was one constant.
+
+Gate at this point: **EditMode 322/322**.

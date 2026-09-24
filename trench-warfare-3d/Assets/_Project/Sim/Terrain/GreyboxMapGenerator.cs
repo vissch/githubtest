@@ -45,6 +45,8 @@ namespace TW.Sim.Terrain
             map.SupplyRoad.Add(new float3(width * 0.5f, 0f, length - 60f));
             map.Wind = new float2(0f, -1f);
             map.RebuildCost();
+            map.BuildTrenchDistance();   // from here on a shell may not dig the ground a trench stands in
+            map.ComputeBedrock();
             return map;
         }
 
@@ -83,6 +85,8 @@ namespace TW.Sim.Terrain
             map.SupplyRoad.Add(new float3(width * 0.5f, 0f, length - 40f));
             map.Wind = new float2(0f, -1f);
             map.RebuildCost();
+            map.BuildTrenchDistance();   // from here on a shell may not dig the ground a trench stands in
+            map.ComputeBedrock();
             return map;
         }
 

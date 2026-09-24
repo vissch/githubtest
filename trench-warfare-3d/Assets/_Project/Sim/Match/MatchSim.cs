@@ -31,6 +31,7 @@ namespace TW.Sim.Match
         public DeformationSystem Deformation;
         public OffMapAbilitySystem Abilities;
         public AmbientBombardmentSystem Bombardment;
+        public TerrainHashSystem TerrainHash;
 
         /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
         public static MatchSim CreateGreybox(SimConfig config, bool combat = true)
@@ -56,6 +57,8 @@ namespace TW.Sim.Match
             World = new SimWorld(config, map.ToWorldInit());
             // ---- system registration (docs/04-architecture.md, "Sim system order"). Step order follows ISimSystem.Order;
             // Initialize order follows AddSystem order, so providers are added before the systems that resolve them. ----
+            TerrainHash = new TerrainHashSystem(map);
+            World.AddSystem(TerrainHash);                   // A4: steps nothing; folds the map (ground, layers, holes) into the tick hash
             Fields = new FlowFieldManager(map);
             World.AddSystem(Fields);                        // A1: goals, fields, trench state
             Orders = new TrenchOrdersSystem();

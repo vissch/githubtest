@@ -318,6 +318,10 @@ namespace TW.Sim.Terrain
             if (river) map.AddProp(new PropDef { Pos = new float3(crossingX[bridge], 0f, RiverZ(p, riverShift, crossingX[bridge])), Yaw = 0f, Kind = PropKind.Bridge });
 
             map.RebuildCost();
+            // last, after the trenches are cut and after the authored shelling above: from here on a shell may not
+            // dig the ground a trench stands in, and none may dig through the bedrock
+            map.BuildTrenchDistance();
+            map.ComputeBedrock();
             map.RebuildCover();
             return map;
         }

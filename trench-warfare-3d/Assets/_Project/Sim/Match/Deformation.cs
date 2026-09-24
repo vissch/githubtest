@@ -87,10 +87,13 @@ namespace TW.Sim.Match
             for (int i = 0; i < n; i++)
             {
                 var stamp = Queue[i];
-                if (stamp.Apply(map) > 0) navChanged = true;
+                if (stamp.ApplyDynamic(map) > 0) navChanged = true;   // merges into the hole it lands in, throws spoil up, spares the trenches
                 checksum = SimHash.Value(stamp, checksum);
                 Applied++;
-                w.Events.Add(w.Tick, SimEventType.CraterStamp, 0, 0, stamp.Center, new float3(0f, stamp.Depth, 0f), stamp.Radius);
+                // a mound (a building's rubble) is the same event with a NEGATIVE depth: the terrain view rebuilds
+                // its chunks either way, and anything that wants to tell a heap from a hole reads the sign
+                float signed = stamp.Kind == (int)CraterKind.Mound ? -stamp.Depth : stamp.Depth;
+                w.Events.Add(w.Tick, SimEventType.CraterStamp, 0, 0, stamp.Center, new float3(0f, signed, 0f), stamp.Radius);
             }
             if (n > 0)
             {

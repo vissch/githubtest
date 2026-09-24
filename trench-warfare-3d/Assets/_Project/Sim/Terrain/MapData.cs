@@ -61,6 +61,21 @@ namespace TW.Sim.Terrain
         public NativeList<PropDef> Props;          // trees, stumps, wrecks, bridges (A4); mutable during a match
         public NativeArray<byte> CellCover;        // derived from Props: cover percent per nav cell
 
+        // ---- the ground as it is dug (A4, owner 2026-09-24) -------------------------------------------------
+        /// <summary>Every shell hole in the field, so a second shell on one WIDENS it instead of only deepening it
+        /// (CraterStamp.ApplyDynamic). Authoritative: the heightfield follows it, so MapData.Hash folds it in.</summary>
+        public NativeList<HoleRecord> Holes;
+        /// <summary>Decimetres from each HEIGHT cell to the nearest trench or ladder cell, 255 = further than
+        /// TrenchDistRange. Built once by BuildTrenchDistance (trenches never move) and read by CraterStamp.Hard:
+        /// this is what keeps the ground beside a trench from being dug away. Uncreated means "no band", which is
+        /// what the generator wants while it is still laying the field out.</summary>
+        public NativeArray<byte> CellTrenchDist;
+        public const float TrenchDistRange = 8f;
+        /// <summary>No shell digs below this: the lowest ground the map was generated with, less BedrockBelow.
+        /// Left at NoWater-deep until a generator computes it, so an unprepared map is never clamped.</summary>
+        public float Bedrock = -1000f;
+        public const float BedrockBelow = 1.5f;
+
         public MapData(int mapId, float2 sizeMeters, Allocator allocator)
         {
             MapId = mapId;
@@ -73,6 +88,13 @@ namespace TW.Sim.Terrain
             CellTrenchId = new NativeArray<short>(NavWidth * NavLength, allocator);
             CellCover = new NativeArray<byte>(NavWidth * NavLength, allocator);
             Props = new NativeList<PropDef>(256, allocator);
+            Holes = new NativeList<HoleRecord>(64, allocator);
+            // 255 = "further from a trench than anything cares about". It MUST start there rather than at zero: the
+            // generator carves its own pre-shelled field before BuildTrenchDistance has run, and an all-zero array
+            // reads as "every cell is touching a trench", which made CraterStamp refuse to dig the whole map. The
+            // authored battlefield came out flat and unshelled, and only BattlefieldTests noticed.
+            CellTrenchDist = new NativeArray<byte>(Height.Width * Height.Length, allocator);
+            for (int i = 0; i < CellTrenchDist.Length; i++) CellTrenchDist[i] = 255;
             for (int i = 0; i < CellTrenchId.Length; i++) CellTrenchId[i] = -1;
             Trenches = new NativeList<TrenchDef>(16, allocator);
             TrenchCells = new NativeList<int>(1024, allocator);
@@ -195,6 +217,52 @@ namespace TW.Sim.Terrain
             }
         }
 
+        // ---- the ground as it is dug ------------------------------------------------------------------------
+        /// <summary>Measure every height cell's distance to the nearest trench or ladder cell. Call once, after the
+        /// trenches are cut and after any authored shelling: from then on CraterStamp refuses to dig the ground a
+        /// trench stands in. A min over an unordered set, so it is order-independent and identical everywhere.</summary>
+        public void BuildTrenchDistance()
+        {
+            if (!CellTrenchDist.IsCreated) return;
+            for (int i = 0; i < CellTrenchDist.Length; i++) CellTrenchDist[i] = 255;
+            StampTrenchDistance(TrenchCells);
+            StampTrenchDistance(LinkCells);
+        }
+
+        void StampTrenchDistance(NativeList<int> cells)
+        {
+            float half = NavCellSize * 0.5f;
+            for (int k = 0; k < cells.Length; k++)
+            {
+                int cell = cells[k];
+                float ox = (cell % NavWidth + 0.5f) * NavCellSize, oz = (cell / NavWidth + 0.5f) * NavCellSize;
+                int x0 = (int)math.floor((ox - half - TrenchDistRange) / HeightCellSize);
+                int x1 = (int)math.ceil((ox + half + TrenchDistRange) / HeightCellSize);
+                int z0 = (int)math.floor((oz - half - TrenchDistRange) / HeightCellSize);
+                int z1 = (int)math.ceil((oz + half + TrenchDistRange) / HeightCellSize);
+                for (int z = math.max(0, z0); z <= math.min(Height.Length - 1, z1); z++)
+                for (int x = math.max(0, x0); x <= math.min(Height.Width - 1, x1); x++)
+                {
+                    float px = (x + 0.5f) * HeightCellSize, pz = (z + 0.5f) * HeightCellSize;
+                    float dx = math.max(0f, math.abs(px - ox) - half), dz = math.max(0f, math.abs(pz - oz) - half);
+                    float d = SimMath.Sqrt(dx * dx + dz * dz);
+                    if (d > TrenchDistRange) continue;
+                    int dm = (int)math.round(d * 10f);
+                    int i = Height.Index(x, z);
+                    if (dm < CellTrenchDist[i]) CellTrenchDist[i] = (byte)dm;
+                }
+            }
+        }
+
+        /// <summary>The floor a shell may never dig through: the map's lowest ground less BedrockBelow.</summary>
+        public void ComputeBedrock()
+        {
+            if (!Height.IsCreated || Height.Cm.Length == 0) return;
+            int lo = short.MaxValue;
+            for (int i = 0; i < Height.Cm.Length; i++) if (Height.Cm[i] < lo) lo = Height.Cm[i];
+            Bedrock = lo * 0.01f - BedrockBelow;
+        }
+
         public SimConfig.WorldInit ToWorldInit()
         {
             float3 a = default, b = default;
@@ -213,6 +281,14 @@ namespace TW.Sim.Terrain
             h = SimHash.Array(NavCost, h);
             h = SimHash.Array(CellTrenchId, h);
             h = SimHash.Array(CellCover, h);
+            h = SimHash.Array(CellTrenchDist, h);
+            h = SimHash.Value(Bedrock, h);
+            for (int i = 0; i < Holes.Length; i++)   // field by field: the struct may carry padding bytes
+            {
+                var q = Holes[i];
+                h = SimHash.Value(q.Center, h); h = SimHash.Value(q.Radius, h); h = SimHash.Value(q.Depth, h);
+                h = SimHash.Value(q.RimUp, h); h = SimHash.Value(q.Hits, h);
+            }
             h = SimHash.Value(WaterLevel, h);
             h = SimHash.Value(SeaSide, h); h = SimHash.Value(SeaStartZ, h); h = SimHash.Value(ShoreZ, h); h = SimHash.Value(SeaLevel, h);
             for (int i = 0; i < Props.Length; i++)   // field by field: the struct has padding bytes
@@ -226,6 +302,7 @@ namespace TW.Sim.Terrain
         public void Dispose()
         {
             Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose(); CellCover.Dispose(); Props.Dispose();
+            Holes.Dispose(); if (CellTrenchDist.IsCreated) CellTrenchDist.Dispose();
             Trenches.Dispose(); TrenchCells.Dispose(); FireStepCells.Dispose(); LinkCells.Dispose();
             Objectives.Dispose(); ObjectiveCells.Dispose(); StaticCover.Dispose(); Spawns.Dispose();
             SupplyRoad.Dispose(); Triggers.Dispose(); Emplacements.Dispose();

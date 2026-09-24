@@ -13,7 +13,10 @@ namespace TW.Sim
     public sealed class ReplayRecorder
     {
         public const uint Magic = 0x31525754; // "TWR1"
-        public const ushort FormatVersion = 3;
+        // v4 (2026-09-24): MapData is folded into the tick hash by TerrainHashSystem -- the heightfield, the nav
+        // layers and the holes the shells have dug are compared state now, which docs/03 deferred "to the next
+        // replay-format break". Blast impacts also carry a direction and a shape.
+        public const ushort FormatVersion = 4;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -16,6 +16,10 @@ namespace TW.Sim
 
     public static class SimSystemOrder
     {
+        /// <summary>Steps nothing: it is the system that folds MapData (the heightfield, the nav layers, the holes
+        /// the shells have dug) into the tick hash, which SimWorld cannot do itself because TW.Sim.Core does not
+        /// reference TW.Sim.Terrain. First, so a diverging map is named before anything reads it.</summary>
+        public const int TerrainHash = 50;
         public const int Command = 100;
         public const int Mission = 200;
         public const int Economy = 300;
@@ -26,6 +30,9 @@ namespace TW.Sim
         public const int IndirectFire = 710;
         public const int AmbientBombardment = 715;
         public const int Blast = 720;
+        /// <summary>Buildings: what a burst broke, which storeys come down next, and the masonry that falls on the
+        /// men underneath. After Blast (it reads Resolved) and Burning, before VehicleModules.</summary>
+        public const int Building = 728;
         public const int Suppression = 800;
         public const int Stance = 810;
         public const int TrenchGarrison = 820;
