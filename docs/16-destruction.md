@@ -9,7 +9,7 @@ costs, and what is still open.
 **The sim decides what breaks. Presentation decides how the pieces fly. The pieces cost the CPU nothing a frame.**
 
 - What breaks is already in the deterministic sim and hashed: `BlastSystem` (damage and knock), `DeformationSystem`
-  (craters, tree â†’ broken tree â†’ stump, wire, wrecks), `VehicleModulesSystem` (modules, crew, fire, cook-off, legs).
+  (craters, tree → broken tree → stump, wire, wrecks), `VehicleModulesSystem` (modules, crew, fire, cook-off, legs).
   Nothing in this feature adds sim state or changes the replay format.
 - How a piece flies is a 96-byte record written once, on the event, into a `GraphicsBuffer`. `TW/Debris (URP)`
   integrates the flight in the vertex shader from the record and the clock. There is no per-frame CPU work per piece,
@@ -24,7 +24,7 @@ A record is an arc: `P0, Born, V0, LandT, LandY, Axis, Spin, Rot0, Tint (a = bur
   sideways speed, 0.30 of the fall), settles the piece flat as it stops, and past `Life` sinks it into the mud over 3 s
   and scales it to nothing.
 - `Mode 1` is a hinge: a tree top or a slab going over about its foot, accelerating, with a small bounce back.
-- Ten kinds of piece, one procedural mesh each (30â€“90 vertices, smoothed outline normal in UV3 like the kit):
+- Ten kinds of piece, one procedural mesh each (30–90 vertices, smoothed outline normal in UV3 like the kit):
   clod, shard, plank, rubble, sandbag, plate, crown, limb, helmet, rifle. One pool per kind, a ring each:
 
   | piece | pool | shadows |
@@ -60,11 +60,11 @@ A record is an arc: `P0, Born, V0, LandT, LandY, Axis, Spin, Rot0, Tint (a = bur
 | event | where | pieces |
 |---|---|---|
 | `Explosion` (dry) | `CombatFx` | 8 + 2.2 r clods (fist to head, lie 30 s) + 4 + r small fast ones; the old chunk cubes cut from 17 to 10 |
-| `Death` by a shell that throws him high | `CombatFx.Gibs` | 30 % of them: 1â€“2 limbs, 22 % the head, the helmet, 60 % the rifle, five dark lumps (`DebrisRenderer.Gore` 0 turns the lumps and limbs off) |
+| `Death` by a shell that throws him high | `CombatFx.Gibs` | 30 % of them: 1–2 limbs, 22 % the head, the helmet, 60 % the rifle, five dark lumps (`DebrisRenderer.Gore` 0 turns the lumps and limbs off) |
 | `VehicleCrushed` (a man, b = 2) | `CombatFx` | helmet, a limb, lumps, low and slow |
-| `PropChanged` Tree â†’ BrokenTree | `CombatFx.TreeBreaks` | the crown hinges off the 2.7 m snag away from the newest burst (1.3 s), splinters |
-| `PropChanged` â†’ Stump | `CombatFx.TreeBreaks` | the snag shatters: 14 charred shards, clods |
-| `PropChanged` â†’ Log (crushed) | `CombatFx.TreeBreaks` | shards |
+| `PropChanged` Tree → BrokenTree | `CombatFx.TreeBreaks` | the crown hinges off the 2.7 m snag away from the newest burst (1.3 s), splinters |
+| `PropChanged` → Stump | `CombatFx.TreeBreaks` | the snag shatters: 14 charred shards, clods |
+| `PropChanged` → Log (crushed) | `CombatFx.TreeBreaks` | shards |
 | `VehicleArmourHit` holed | `TankRenderer` | 3 burning plates, on top of the existing sparks and horn shear |
 | `VehicleLegLost` | `TankRenderer` | 4 plates (the leg itself is still `ThrowLeg`, the parented-part path) |
 | `VehicleCookOff` | `TankRenderer` | 14 burning plates, 60 s, on top of `Wreckify`'s turret/cupola/horns |
@@ -354,8 +354,8 @@ clean. Shots: `shots/batchA` in claude-6f's scratchpad.
 ## Cost
 
 - CPU: a throw is two ground samples and a 96-byte write; a shell burst is about 30 throws. Nothing per frame per
-  piece; per frame one `SetData` per pool that had a throw and â‰¤ 10 draw submissions.
-- GPU: â‰¤ 3,520 instances Ã— â‰¤ 90 vertices â‰ˆ 300 k vertices worst case, all pools full; typically a few thousand.
+  piece; per frame one `SetData` per pool that had a throw and ≤ 10 draw submissions.
+- GPU: ≤ 3,520 instances × ≤ 90 vertices ≈ 300 k vertices worst case, all pools full; typically a few thousand.
   Shadows only for the big kinds.
 - Memory: 330 KB of records + ten small meshes.
 - Draw calls: +10 at most (each with its outline pass), against a field already at 374 vs the < 300 ceiling
@@ -371,8 +371,8 @@ the 96 bytes the shader declares with a pool for every piece under half a megaby
 
 ## Seen in Play
 
-- 2026-09-23 first Play: shell bursts throw dark clods that arc, bounce once and lie on the field (700â€“1,300 alive
-  after a barrage, 6â€“8 draws); gore lumps at blast deaths; console clean. The other nine pools were invisible: the
+- 2026-09-23 first Play: shell bursts throw dark clods that arc, bounce once and lie on the field (700–1,300 alive
+  after a barrage, 6–8 draws); gore lumps at blast deaths; console clean. The other nine pools were invisible: the
   indexing fault above. Fixed the same night together with the rest-height padding, a brighter `Mud` clod tint
   (the old one read black at night) and a softer `_EmberColor` (the old one read as a lantern). The fixed pools have
   not yet been seen in Play (the editor was handed on for two gates); first thing next session is the row test
@@ -538,4 +538,4 @@ gap docs/03 had recorded and deferred "to the next replay-format break". This is
 `ReplayRecorder.FormatVersion` 3 -> 4. It was cheap — no replay file is tracked and no test pins a literal hash
 (every hash assertion in the suite is A-against-B), so the whole cost was one constant.
 
-Gate at this point: **EditMode 322/322**.
+Gate at this point: **EditMode 337/337, PlayMode 15/15** — including the three-thousand-unit lockstep stress run and the two-peer sync under latency, jitter and loss, which is what says the ground and the new blast chain are still deterministic.

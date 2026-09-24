@@ -200,15 +200,17 @@ namespace TW.Sim.Match
                 // onto the enemy of the side that holds the beach, between the lines rather than on its own men
                 float inland = map.SeaStartZ - rng.NextFloat(30f, 120f);
                 float3 at = new float3(rng.NextFloat(6f, map.SizeMeters.x - 6f), 0f, map.SeaAway > 0f ? inland : map.SizeMeters.y - inland);
+                float3 from = ships[k];
+                float3 d = at - from; d.y = 0f;
+                float len = SimMath.Length(d);
+                float3 flight = len > 1e-3f ? d / len : new float3(0f, 0f, 1f);
                 blast.Queue(new Impact
                 {
                     Pos = at, Damage = ShipDamage, Radius = ShipRadius, Suppression = ShipSuppression,
                     CraterRadius = ShipCrater, CraterDepth = ShipCrater * 0.3f, Source = ShipSource, Player = map.SeaTeam,
+                    Dir = flight,   // it came in off the sea: the inland side of the burst takes the fragments
                 });
-                float3 from = ships[k];
-                float3 d = at - from; d.y = 0f;
-                float len = SimMath.Length(d);
-                w.Events.Add(w.Tick, SimEventType.ShipFired, k, map.SeaTeam, at, len > 1e-3f ? d / len : new float3(0f, 0f, 1f));
+                w.Events.Add(w.Tick, SimEventType.ShipFired, k, map.SeaTeam, at, flight);
             }
             float dt = w.Config.TickSeconds, ground = GroundZ(), away = map.SeaAway;
             for (int i = 0; i < MaxCraft; i++)

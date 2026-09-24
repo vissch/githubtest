@@ -121,7 +121,12 @@ namespace TW.Sim.Match
                 if (p.Tick > w.Tick) { Scheduled[keep++] = p; continue; }
                 TryGetStats(p.Ability, out var stats);
                 if (stats.Shells > 0)
-                    blast.Queue(new Impact { Pos = p.Pos, Damage = stats.ShellDamage, Radius = stats.ShellRadius, Suppression = 60f, CraterRadius = 3f, CraterDepth = 1.2f, Source = p.Ability, Player = p.Player });
+                {
+                    // the battery is off the map behind its own line, so the shell arrives travelling up the field:
+                    // player 0 fires towards +Z, player 1 towards -Z
+                    float3 flight = new float3(0f, 0f, p.Player == 1 ? -1f : 1f);
+                    blast.Queue(new Impact { Pos = p.Pos, Damage = stats.ShellDamage, Radius = stats.ShellRadius, Suppression = 60f, CraterRadius = 3f, CraterDepth = 1.2f, Source = p.Ability, Player = p.Player, Dir = flight });
+                }
                 else if (stats.Concentration > 0f)
                 {
                     gas.AddSource(p.Pos, stats.Concentration, stats.PersistTicks, p.Player);

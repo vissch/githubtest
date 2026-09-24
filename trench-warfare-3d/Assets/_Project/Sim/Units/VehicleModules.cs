@@ -34,6 +34,17 @@ namespace TW.Sim.Units
     {
         public const int RepairQuietTicks = 200, RepairTicks = 400;
         public const float RepairTo = 0.6f;
+        // A tank's track used to be a switch: whole, or thrown and the tank stuck where it stood. A walker's legs
+        // have always been graded (16 % a leg, it limps long before it stops) and the owner asked for the same of
+        // armour. Above TrackFullAbove a track is sound; from there down to TrackThrownBelow the tank drags at
+        // TrackWorstFactor of its speed; below that the track is OFF and the tank is Immobilised -- which used to
+        // take reaching exactly zero. RepairTo 0.6 therefore returns a mended track to 0.78, not to full speed.
+        public const float TrackFullAbove = 0.8f, TrackThrownBelow = 0.2f, TrackWorstFactor = 0.35f;
+        /// <summary>An uneven pair costs a little more again: a tank with one torn track crabs rather than driving.</summary>
+        public const float TrackMismatch = 0.15f;
+        public const float EngineFullAbove = 0.7f, StalledBelow = 0.2f, EngineWorstFactor = 0.45f;
+        /// <summary>What a walker loses per leg gone, whatever side it was on, and the floor it limps at.</summary>
+        public const float LegLoss = 0.16f, LegFloor = 0.25f;
         public const float FireGrowth = 0.035f, FireBurn = 14f, ExtinguishChance = 0.15f, BailFire = 0.6f;
         public const int CookOffMin = 20, CookOffMax = 70, BurnOutMin = 240, BurnOutMax = 480;
         public const float CookOffDamage = 380f, CookOffRadius = 9f, CookOffSuppression = 70f, CookOffCrater = 2f;
@@ -233,6 +244,10 @@ namespace TW.Sim.Units
             Module[idx] = after;
             w.Events.Add(w.Tick, SimEventType.VehicleModuleHit, t, (int)m, w.Position[t], default, after);
             bool broke = after <= 0f && before > 0f;
+            // a track is "thrown" and an engine "stalled" at their thresholds now, not at zero, so the flag and the
+            // picture agree: TankRenderer sheds the track off the hull exactly when the sim stops calling it a track
+            bool thrownNow = before >= TrackThrownBelow && after < TrackThrownBelow;
+            bool stalledNow = before >= StalledBelow && after < StalledBelow;
             switch (m)
             {
                 case VehicleModule.TrackLeft:
@@ -254,11 +269,11 @@ namespace TW.Sim.Units
                             w.Events.Add(w.Tick, SimEventType.VehicleLegLost, t, leg, w.Position[t]);
                         }
                     }
-                    if (broke) w.Events.Add(w.Tick, SimEventType.VehicleTrackHit, t, m == VehicleModule.TrackRight ? 1 : 0, w.Position[t]);
+                    if (thrownNow) w.Events.Add(w.Tick, SimEventType.VehicleTrackHit, t, m == VehicleModule.TrackRight ? 1 : 0, w.Position[t]);
                     break;
                 }
                 case VehicleModule.Engine:
-                    if (broke) w.Events.Add(w.Tick, SimEventType.VehicleStalled, t, 1, w.Position[t]);
+                    if (stalledNow) w.Events.Add(w.Tick, SimEventType.VehicleStalled, t, 1, w.Position[t]);
                     if (rng.NextFloat() < 0.3f) StartFire(w, t, 0.25f);
                     break;
                 case VehicleModule.GunA:
@@ -380,17 +395,22 @@ namespace TW.Sim.Units
             // what the damage means for the rest of the sim
             float trackL = Module[i * M + (int)VehicleModule.TrackLeft], trackR = Module[i * M + (int)VehicleModule.TrackRight];
             float engine = Module[i * M + (int)VehicleModule.Engine];
+            var profile = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]);
             uint f = w.Flags[i] & ~((uint)UnitFlags.Immobilised | (uint)UnitFlags.Stalled | (uint)UnitFlags.Burning);
-            if (trackL <= 0f || trackR <= 0f || State[i] != (byte)VehicleState.Active) f |= (uint)UnitFlags.Immobilised;
-            if (engine <= 0f) f |= (uint)UnitFlags.Stalled;
+            // a walker's "track" is the share of its legs still under it, and a side fails at its last one; a tank's
+            // track is only OFF once it is torn past TrackThrownBelow, and it drags all the way down to there
+            bool stuck = profile.Walker
+                ? trackL <= 0f || trackR <= 0f
+                : trackL < TrackThrownBelow || trackR < TrackThrownBelow;
+            if (stuck || State[i] != (byte)VehicleState.Active) f |= (uint)UnitFlags.Immobilised;
+            if (engine < StalledBelow) f |= (uint)UnitFlags.Stalled;
             if (Fire[i] > 0f) f |= (uint)UnitFlags.Burning;
             if (State[i] != (byte)VehicleState.Active) f |= (uint)UnitFlags.KnockedOut;
             w.Flags[i] = f;
-            // every leg a walker has lost slows it, whatever side it was on: it limps long before it stops
-            float lame = 1f;
-            var profile = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]);
-            if (profile.Walker && LegsLost[i] != 0) lame = math.max(0.25f, 1f - 0.16f * math.countbits((uint)LegsLost[i]));
-            kinematics.SpeedFactor[i] = (engine < 0.5f ? 0.55f : 1f) * (Crew[i] >= 2 ? 1f : 0.6f) * lame;
+            float mobility = profile.Walker
+                ? (LegsLost[i] != 0 ? math.max(LegFloor, 1f - LegLoss * math.countbits((uint)LegsLost[i])) : 1f)
+                : TrackFactor(trackL, trackR);
+            kinematics.SpeedFactor[i] = EngineFactor(engine) * (Crew[i] >= 2 ? 1f : 0.6f) * mobility;
             // the standard over a Banner steadies its own side: men fighting near it come out of suppression faster.
             // Checked every StandardEvery ticks over the live slots, which is a few thousand compares for the one or
             // two of these either side can afford.
@@ -420,6 +440,28 @@ namespace TW.Sim.Units
                 gunnery.CrewFactor[i] = State[i] != (byte)VehicleState.Active ? 0f : Shaken[i] > 0 ? 0.2f : Crew[i] / math.max(1f, CrewMax[i]);
         }
 
+        /// <summary>What one track's health leaves of a tank's speed: whole above TrackFullAbove, dragging down to
+        /// TrackWorstFactor, and nothing once it is thrown.</summary>
+        public static float TrackHealthFactor(float m)
+            => m >= TrackFullAbove ? 1f
+             : m < TrackThrownBelow ? 0f
+             : TrackWorstFactor + (1f - TrackWorstFactor) * (m - TrackThrownBelow) / (TrackFullAbove - TrackThrownBelow);
+
+        /// <summary>Both tracks together: the worse one sets the pace, and a mismatch costs a little more on top.</summary>
+        public static float TrackFactor(float left, float right)
+        {
+            float a = TrackHealthFactor(left), b = TrackHealthFactor(right);
+            float worse = math.min(a, b), better = math.max(a, b);
+            if (worse <= 0f) return 0f;
+            return worse * (1f - TrackMismatch + TrackMismatch * worse / better);
+        }
+
+        /// <summary>What the engine leaves of it: whole above EngineFullAbove, down to EngineWorstFactor, then stalled.</summary>
+        public static float EngineFactor(float e)
+            => e >= EngineFullAbove ? 1f
+             : e < StalledBelow ? 0f
+             : EngineWorstFactor + (1f - EngineWorstFactor) * (e - StalledBelow) / (EngineFullAbove - StalledBelow);
+
         void MendWorst(SimWorld w, int i)
         {
             var worst = VehicleModule.None; float lowest = RepairTo;
@@ -428,10 +470,10 @@ namespace TW.Sim.Units
                 var m = RepairOrder(k);
                 float v = Module[i * M + (int)m];
                 if (v < lowest) { lowest = v; worst = m; }
-                if (v <= 0f) break;   // a broken one wins over a hurt one later in the list
+                if (v < TrackThrownBelow) break;   // a failed one wins over a merely hurt one later in the list
             }
             if (worst == VehicleModule.None) return;
-            bool wasStalled = worst == VehicleModule.Engine && Module[i * M + (int)worst] <= 0f;
+            bool wasStalled = worst == VehicleModule.Engine && Module[i * M + (int)worst] < StalledBelow;
             Module[i * M + (int)worst] = RepairTo;
             if (gunnery != null && (worst == VehicleModule.GunA || worst == VehicleModule.GunB)) gunnery.GunHealth[i * Guns + (worst == VehicleModule.GunB ? 1 : 0)] = RepairTo;
             w.Events.Add(w.Tick, SimEventType.VehicleRepaired, i, (int)worst, w.Position[i]);
@@ -463,7 +505,12 @@ namespace TW.Sim.Units
         void Blow(SimWorld w, int i)
         {
             if (blast != null)
-                blast.Queue(new Impact { Pos = w.Position[i], Damage = CookOffDamage, Radius = CookOffRadius, Suppression = CookOffSuppression, CraterRadius = CookOffCrater, CraterDepth = 0.35f, Source = CookOffSource, Player = -1 });
+                blast.Queue(new Impact
+                {
+                    Pos = w.Position[i], Damage = CookOffDamage, Radius = CookOffRadius, Suppression = CookOffSuppression,
+                    CraterRadius = CookOffCrater, CraterDepth = 0.35f, Source = CookOffSource, Player = -1,
+                    Shape = (int)TW.Sim.Combat.BlastShape.CookOff,   // it goes off where it stands: no flight, no lean
+                });
             w.Events.Add(w.Tick, SimEventType.VehicleCookOff, i, 0, w.Position[i], new float3(0f, w.Yaw[i], 0f), CookOffRadius);
             CookOffs++;
             checksum = SimHash.Value(new int2(i, (int)w.Tick), checksum);

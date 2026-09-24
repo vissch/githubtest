@@ -297,6 +297,10 @@ namespace TW.Sim.Combat
                             {
                                 Pos = land, Damage = g.HeDamage, Radius = g.HeRadius, Suppression = g.HeSuppression,
                                 CraterRadius = g.HeCrater, CraterDepth = g.HeCrater * 0.25f, Source = WeaponIdBase + Archetype[i], Player = Team[i],
+                                // the way the round was going: the far side of the burst takes more of it, and the
+                                // men are thrown along it. An indirect mortar round (Kettle) comes down steeply, so
+                                // its flattened direction is short and BlastRules leans it hardly at all.
+                                Dir = g.Indirect ? default : dir,
                             });
                             Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.VehicleFired, A = i, B = k, Pos = land, Dir = dir, Scalar = 1f });
                         }

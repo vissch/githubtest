@@ -57,10 +57,13 @@ namespace TW.Sim.Match
             float x = rng.NextFloat(4f, map.SizeMeters.x - 4f);
             float crater = rng.NextFloat(2f, 4.4f);
             gapTicks = w.Config.TickRate * 60f / ShellsPerMinute * rng.NextFloat(0.35f, 1.65f);
+            // which side it came from. Drawn LAST, after every roll above, so adding it moved no shell an inch.
+            float along = rng.NextFloat() < 0.5f ? -1f : 1f;
             return new Impact
             {
                 Pos = new float3(x, 0f, z), Damage = 150f, Radius = 6f + crater, Suppression = 50f,
                 CraterRadius = crater, CraterDepth = crater * 0.36f, Source = (int)OffMapAbilityId.HeBarrage, Player = -1,
+                Dir = new float3(0f, 0f, along),
             };
         }
 
