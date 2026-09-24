@@ -186,6 +186,34 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AHoleShelledTwentyTimesStillHasALipAtTheEdgeItReached()
+        {
+            // The fault this was written for: the first rim rule spent a cumulative allowance per hole, so a growing
+            // bowl buried every ring it had laid. Twenty shells in Play gave a 10.56 m crater with a rim of +0.00 m.
+            // Every existing test passed, because none of them fired more than two shells before measuring.
+            using var m = NewMatch();
+            var map = m.Map;
+            var before = Snapshot(map);
+
+            for (int i = 0; i < 20; i++) Shell(MidX, OpenZ, 3f, 1.2f).ApplyDynamic(map);
+
+            float r = map.Holes[0].Radius;
+            Assert.Greater(r, 8f, "setup: twenty 3 m shells make a wide hole");
+
+            // walk out from the middle and find the highest ground anywhere past the lip
+            float lip = 0f, lipAt = 0f;
+            for (float d = r - 1f; d < r * (1f + CraterStamp.RimWidth) + 2f; d += 0.5f)
+            {
+                int hz = (int)(OpenZ + d);
+                float up = -Drop(map, before, (int)MidX, hz);
+                if (up > lip) { lip = up; lipAt = d; }
+            }
+            Assert.Greater(lip, 0.15f, "a crater this size stands in its own spoil");
+            Assert.LessOrEqual(lip, CraterStamp.MaxRim + 0.02f, "and still no higher than MaxRim");
+            Assert.Greater(lipAt, r - 1.5f, "the lip is at the edge the hole actually reached, not where it started");
+        }
+
+        [Test]
         public void AMoundRaisesTheGroundAndCoversLikeAShellHole()
         {
             using var m = NewMatch();

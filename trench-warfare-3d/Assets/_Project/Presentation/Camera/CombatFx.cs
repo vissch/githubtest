@@ -622,6 +622,13 @@ namespace TW.Presentation.Tactical
                     // exists to represent that absorption has to key on this rather than on `wet`.
                     bool damp = wet && !melt;
                     bool drawn = books != null && books.Ready;
+                    // Which way the shell was going. The sim puts the flight direction in Dir.xz and the shape of the
+                    // thing that went off in Dir.y (0 shell, 1 falling masonry, 2 cook-off). `lean` is 0 for anything
+                    // with no flight -- a cook-off, masonry, or the Kettle's mortar coming almost straight down -- and
+                    // every use below multiplies by it, so a leanless burst draws exactly what it always drew.
+                    Vector3 flight = new Vector3(e.Dir.x, 0f, e.Dir.z);
+                    float lean = flight.magnitude;
+                    if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
                     if (drawn)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
@@ -633,7 +640,7 @@ namespace TW.Presentation.Tactical
                         // up close the flash card was wider than the picture (a white-out) and the smoke filled it for seconds:
                         // both come down as the lens goes in (SceneHooks.CloseUp: 0 at the standard view, 1 among the men)
                         float closeUp = SceneHooks.CloseUp;
-                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * Mathf.Lerp(3.2f, 1.6f, closeUp), 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
+                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f) + flight * (r * 0.25f * lean), r * Mathf.Lerp(3.2f, 1.6f, closeUp), 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
                         // The column, and the piece cycle 11 missed. It restored the burst, the smoke and the clods
                         // on melt and left THIS keyed on `wet`, so a shell in molten rock still threw a plume at
                         // 1.25r for 1.5 s - 60% of the size, because that is what water does to a shell. ApplyTints
@@ -644,20 +651,22 @@ namespace TW.Presentation.Tactical
                         // Alpha still keys on `wet` on purpose: a fully opaque plume in lava's SplashTint
                         // (1.00, 0.46, 0.12) on a field that already reins GlowScale in to 0.55 is a brightness
                         // guess, and this project has been burned twice by those.
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f), damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f), damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f,
+                            velocity: flight * (r * 0.45f * lean));
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         if (!wet || melt)
                         {
-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
-                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
                             for (int k = 0; k < puffs; k++)
                             {
-                                Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
+                                Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r
+                                             + flight * (r * lean * (0.25f + k * 0.12f));
                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                     velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
@@ -667,7 +676,7 @@ namespace TW.Presentation.Tactical
                     lastBlast = p; lastBlastAt = Time.time;
                     // the spatter: liquid either way, and SplashTint has already made it orange on the lava field
                     if (wet) Throw(p + Vector3.up * 0.4f, drawn ? 28 : 48, 4, 20f, 0.18f);   // a shell in the water throws a white column, not earth
-                    else Throw(p, drawn ? 10 : 28, 0, 15f, 0.30f);
+                    else Throw(p, drawn ? 10 : 28, 0, 15f, 0.30f, flight * (0.8f * lean));
                     // Thrown pieces: dry earth throws clods and melt throws cooling spatter (DebrisRenderer.Biome
                     // already carries the basalt tint), but WATER throws neither. The rim and the hot crater
                     // below stay dry-only on purpose - a ring of clods lying round a hole in a running river is
@@ -677,16 +686,20 @@ namespace TW.Presentation.Tactical
                         // the earth itself: clods the size of a fist to a head, thrown up and out, which lie where they land
                         // for half a minute; and a hail of smaller ones flung high that comes down over the next seconds
                         float r = Mathf.Clamp(e.Scalar, 2f, 9f);
-                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, default, e.Tick);
-                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, default, e.Tick + 7u);
+                        // the fragments carry on the way the shell was travelling: the heavy clods lean with it and the
+                        // light fast ones lean harder, which is what makes a burst read as having come FROM somewhere
+                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, flight * (0.85f * lean), e.Tick);
+                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, flight * (1.25f * lean), e.Tick + 7u);
                     }
                     if (!wet)
                     {
                         // a fresh hole: clods lie thrown round its rim, and the hot earth steams in the rain (seen from close by)
                         float rim = Mathf.Clamp(e.Scalar * 0.55f, 1.2f, 4.5f);
+                        float bearing = lean > 0f ? Mathf.Atan2(flight.z, flight.x) : 0f;
                         for (int k = 0; k < 12; k++)
                         {
                             float a = (k + UnityEngine.Random.value) * 0.785f, d = rim * UnityEngine.Random.Range(0.75f, 1.5f), s = UnityEngine.Random.Range(0.13f, 0.34f);
+                            d *= 1f + 0.8f * lean * Mathf.Cos(a - bearing);   // the ejecta is thrown on, not spread evenly
                             float cx = p.x + Mathf.Cos(a) * d, cz = p.z + Mathf.Sin(a) * d;
                             AddRest(Matrix4x4.TRS(new Vector3(cx, RenderGround.Sample(Host.Local.Map, cx, cz) + s * 0.25f, cz), Quaternion.Euler(a * 97f, a * 311f, a * 53f), new Vector3(s * 1.3f, s * 0.7f, s)), 140f, 2);
                         }
@@ -1298,7 +1311,7 @@ namespace TW.Presentation.Tactical
             CameraShake.Add(p, r * 1.5f);
         }
 
-        void Throw(Vector3 at, int count, byte kind, float speed, float size)
+        void Throw(Vector3 at, int count, byte kind, float speed, float size, Vector3 bias = default)
         {
             bool ambient = kind == 2 || kind == 5 || kind == 7;
             if (ambient && ambientChunks >= MaxAmbientChunks) return;
@@ -1306,6 +1319,7 @@ namespace TW.Presentation.Tactical
             {
                 // the cone leans up, not out, and dirt lives long enough to come down again (gravity stays at 9.8: floaty reads as cheap)
                 Vector3 dir = UnityEngine.Random.onUnitSphere; dir.y = Mathf.Abs(dir.y) * (kind == 2 ? 0.4f : 2.2f) + (kind == 2 ? 0.2f : 0.45f);
+                dir += bias;   // a directional burst throws its dirt on down the line; bias is zero for everything else
                 // every chunk lives exactly its own arc (2 vy / g, from the speed it actually got), so none is deleted at
                 // the top of its flight and none goes on sinking through the mud after it lands; smoke and sparks keep
                 // their own clocks. The spread in the cone and in the 0.5-1.2 gives the variety, so no extra jitter.

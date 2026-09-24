@@ -11,9 +11,12 @@
 //   deeper middle. Twenty shells on one spot make one big hole, not twenty pits inside each other. MapData.Holes
 //   is the record; the heightfield already holds the old bowl, so a merge keeps the first centre.
 //
-//   RIMS. Spoil is thrown up in a ring outside the hole. It is bounded PER HOLE (HoleRecord.RimUp against MaxRim),
-//   because a rim added afresh on every shell would build a mountain over a three-minute barrage: each stamp adds
-//   only the difference between what the hole has already thrown up and what its depth now deserves.
+//   RIMS. Spoil is thrown up in a ring outside the hole, as high as RimShare of its depth and never above MaxRim.
+//   The bound is on WHERE, not on how much in total: HoleRecord.RimAt remembers the radius the last ring was laid
+//   at, and a new one is thrown up only once the lip has moved a whole ring width onto untouched ground. So two
+//   rings never overlap, no cell is raised twice by one hole, and a three-minute barrage cannot build a mountain --
+//   while the rim is always at the CURRENT lip. The first attempt bounded a cumulative allowance instead, which a
+//   growing hole simply buried: twenty shells on one spot measured a 10.56 m crater with no lip at all.
 //
 //   THE GUARD BAND. Every carve and every rim is scaled by Hard(): zero within TrenchKeep of a trench or a ladder,
 //   ramping to full over the next TrenchGuard metres. The parapet and the metre behind it never drop, the next four
@@ -44,7 +47,9 @@ namespace TW.Sim.Terrain
         public float3 Center;
         public float Radius;    // as last carved
         public float Depth;     // cumulative depth carved at the middle
-        public float RimUp;     // spoil already thrown up for this hole
+        /// <summary>The radius the last rim was thrown up at. A fresh one is only laid once the lip has moved a
+        /// whole ring width beyond it, so two rings never overlap and no cell is raised twice by one hole.</summary>
+        public float RimAt;
         public int Hits;
     }
 
@@ -183,14 +188,18 @@ namespace TW.Sim.Terrain
                 depth = Depth * DepthShare;
                 c = q.Center;                       // the ground already holds the old bowl: keep its middle
                 q.Radius = r; q.Depth += depth; q.Hits++;
-                float want = math.min(MaxRim, RimShare * q.Depth);
-                rim = math.max(0f, want - q.RimUp);
-                q.RimUp = want;
+                // throw spoil up only when the lip has moved clear of the last ring: otherwise the same ground would
+                // be raised over and over by a hole that has stopped growing
+                if (q.RimAt <= 0f || r - q.RimAt >= RimWidth * q.RimAt)
+                {
+                    rim = math.min(MaxRim, RimShare * q.Depth);
+                    q.RimAt = r;
+                }
                 map.Holes[hit] = q;
                 return;
             }
             rim = math.min(MaxRim, RimShare * Depth);
-            var fresh = new HoleRecord { Center = Center, Radius = r, Depth = Depth, RimUp = rim, Hits = 1 };
+            var fresh = new HoleRecord { Center = Center, Radius = r, Depth = Depth, RimAt = r, Hits = 1 };
             if (map.Holes.Length >= MaxHoles)
             {
                 for (int i = 1; i < map.Holes.Length; i++) map.Holes[i - 1] = map.Holes[i];

@@ -287,7 +287,7 @@ namespace TW.Sim.Terrain
             {
                 var q = Holes[i];
                 h = SimHash.Value(q.Center, h); h = SimHash.Value(q.Radius, h); h = SimHash.Value(q.Depth, h);
-                h = SimHash.Value(q.RimUp, h); h = SimHash.Value(q.Hits, h);
+                h = SimHash.Value(q.RimAt, h); h = SimHash.Value(q.Hits, h);
             }
             h = SimHash.Value(WaterLevel, h);
             h = SimHash.Value(SeaSide, h); h = SimHash.Value(SeaStartZ, h); h = SimHash.Value(ShoreZ, h); h = SimHash.Value(SeaLevel, h);

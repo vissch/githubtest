@@ -538,4 +538,28 @@ gap docs/03 had recorded and deferred "to the next replay-format break". This is
 `ReplayRecorder.FormatVersion` 3 -> 4. It was cheap — no replay file is tracked and no test pins a literal hash
 (every hash assertion in the suite is A-against-B), so the whole cost was one constant.
 
-Gate at this point: **EditMode 337/337, PlayMode 15/15** — including the three-thousand-unit lockstep stress run and the two-peer sync under latency, jitter and loss, which is what says the ground and the new blast chain are still deterministic.
+### The burst leans, on screen as well as in the arithmetic
+
+The sim carried the flight direction for a commit before the picture used it, so every burst was still a circle
+while the damage behind it was not. `CombatFx`'s Explosion case now reads `Dir.xz` into a unit `flight` and a `lean`
+that is **zero for anything with no flight** — a cook-off, falling masonry, or the Kettle's mortar coming almost
+straight down. Every use multiplies by `lean`, so a leanless burst draws exactly what it always drew, which is also
+what makes the change safe to land in a file another session is holding.
+
+| What | How it leans |
+|---|---|
+| the flash | born `0.25 r` down the line of flight |
+| the column | given a velocity of `0.45 r` along it, so it tips over the way the round came in |
+| the burst cloud | born `0.35 r` ahead and thrown on at `0.5 r` |
+| the smoke | each card laid further along the line than the last (`0.25 + 0.12 k`) |
+| the clods | `DebrisRenderer.Burst`'s existing `lean`: the heavy ones at 0.85, the light fast ones at 1.25 |
+| the dirt | `Throw` gained an optional `bias` added to each chunk's cone direction |
+| the ejecta ring | `d *= 1 + 0.8 cos(a - bearing)`: thrown further on the far side than the near one |
+
+The one thing that is deliberately NOT leaned is the flash's shape. `FlipbookFx.Add` takes a single size, so a card
+cannot be stretched along the flight without a second axis; offsetting it reads as directional and elongating it
+would have meant a new parameter in a file that is not mine this week.
+
+Gate: **EditMode 338/338, PlayMode 15/15**, both run in batch mode with the editor closed — including the
+three-thousand-unit lockstep stress run and the two-peer sync under latency, jitter and loss, which is what says the
+ground, the new blast chain and the leaning picture are still deterministic.
