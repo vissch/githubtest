@@ -208,7 +208,7 @@ namespace TW.Presentation.Terrain
                             float kick = since < .45f ? Mathf.Sin((1f - since / .45f) * Mathf.PI) * 0.5f : 0f;
                             local *= Matrix4x4.TRS(new Vector3(0f, 0f, -kick), Quaternion.Euler(-4f - kick * 9f, Mathf.Sin(now * .13f + i) * 22f, 0f), Vector3.one);
                         }
-                        Graphics.RenderMesh(new RenderParams(cutterMat) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true },
+                        FrameBudget.Draw(new RenderParams(cutterMat) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true },
                             part.Mesh, 0, body * local);
                     }
                     float fired = i < shipFired.Length ? now - shipFired[i] : 99f;
@@ -217,11 +217,11 @@ namespace TW.Presentation.Terrain
                     continue;
                 }
                 var rp = new RenderParams(f.Ship ? steel : rust) { shadowCastingMode = f.Ship ? ShadowCastingMode.Off : ShadowCastingMode.On, receiveShadows = true };
-                Graphics.RenderMesh(rp, f.Ship ? steamer : hull, 0, body);
+                FrameBudget.Draw(rp, f.Ship ? steamer : hull, 0, body);
                 if (!f.Broken) continue;
                 // a wreck's ramp is down in the sand where the men went off it, or torn half off
                 var hinge = body * Matrix4x4.TRS(new Vector3(0f, Freeboard * .55f, Length * .5f - .3f), Quaternion.Euler(24f, (i % 3 - 1) * 14f, (i % 2) * 18f), Vector3.one);
-                Graphics.RenderMesh(rp, ramp, 0, hinge);
+                FrameBudget.Draw(rp, ramp, 0, hinge);
             }
         }
 
@@ -277,15 +277,15 @@ namespace TW.Presentation.Terrain
                 var rotation = Quaternion.Euler(pitch, landing.YawOf(i) * Mathf.Rad2Deg, roll);
                 var body = Matrix4x4.TRS(new Vector3(at.x, y, at.z), rotation, Vector3.one);
                 var rp = new RenderParams(steel) { shadowCastingMode = ShadowCastingMode.On, receiveShadows = true };
-                Graphics.RenderMesh(rp, hull, 0, body);
+                FrameBudget.Draw(rp, hull, 0, body);
                 rp.material = landing.TeamOf(i) == 1 ? paint : rust;
-                Graphics.RenderMesh(rp, band, 0, body);
+                FrameBudget.Draw(rp, band, 0, body);
 
                 // the ramp: shipped upright at sea, down on the sand when the men go
                 float down = landing.RampOf(i);
                 var hinge = body * Matrix4x4.TRS(new Vector3(0f, Freeboard * .55f, Length * .5f - .3f), Quaternion.Euler(Mathf.Lerp(-78f, 21f, down), 0f, 0f), Vector3.one);
                 rp.material = steel;
-                Graphics.RenderMesh(rp, ramp, 0, hinge);
+                FrameBudget.Draw(rp, ramp, 0, hinge);
 
                 if (!wake) continue;
                 // the wake, and the wash that works round a grounded hull: rings the water already knows how to draw

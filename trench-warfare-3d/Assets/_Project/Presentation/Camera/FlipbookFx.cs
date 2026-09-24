@@ -149,9 +149,9 @@ namespace TW.Presentation.Tactical
                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
                     batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
-                    if (n == batch.Length) { Graphics.RenderMeshInstanced(rp, quad, 0, batch, n); n = 0; }
+                    if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
                 }
-                if (n > 0) Graphics.RenderMeshInstanced(rp, quad, 0, batch, n);
+                if (n > 0) FrameBudget.Draw(rp, quad, 0, batch, n);
             }
         }
 
@@ -165,7 +165,7 @@ namespace TW.Presentation.Tactical
             {
                 int n = Mathf.Min(batch.Length, packed.Count - start);
                 packed.CopyTo(start, batch, 0, n);
-                Graphics.RenderMeshInstanced(rp, quad, 0, batch, n);
+                FrameBudget.Draw(rp, quad, 0, batch, n);
             }
         }
 

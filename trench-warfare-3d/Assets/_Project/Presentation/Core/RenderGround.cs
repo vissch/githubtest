@@ -122,6 +122,75 @@ namespace TW.Presentation
         public static System.Action<UnityEngine.Vector3, float> CookOff;
     }
 
+    /// <summary>
+    /// What the frame actually submitted. The scoreboard's one absolute condition is that the STANDARD view's cost
+    /// never rises - detail for the close tiers is switched by SceneHooks.CloseUp and is supposed to be free at
+    /// zoom 30 - and that condition is only as honest as the thing measuring it. BattlefieldProps counts its own
+    /// draws, but the props are one submitter of nine, and every close-tier effect (prints, brass, breath, motes,
+    /// rats, the flipbooks) lands in ones that counted nothing. A budget check that cannot see where the new work
+    /// goes reports "unchanged" and rewards adding cost.
+    ///
+    /// So every instanced and single-mesh submission in Presentation goes through Draw. DebugOverlay is
+    /// deliberately left out: its gizmos are not in the game and a debug key must not move the budget.
+    ///
+    /// The count is stamped with the frame it belongs to rather than cleared by a caller. There is no point in the
+    /// frame where every submitter has finished - they draw from different components' Update and LateUpdate - so
+    /// a Reset() from any one of them would split a frame across two readings on script execution order. The first
+    /// touch of a new frame publishes the previous one, which makes the reading order-independent, and one frame
+    /// behind.
+    /// </summary>
+    public static class FrameBudget
+    {
+        static int frame = -1, draws, lastDraws, indirect, lastIndirect;
+        static long verts, lastVerts;
+
+        static void Roll()
+        {
+            int f = UnityEngine.Time.frameCount;
+            if (f == frame) return;
+            lastDraws = draws; lastVerts = verts; lastIndirect = indirect;
+            frame = f; draws = 0; verts = 0; indirect = 0;
+        }
+
+        /// <summary>Instanced submissions and single meshes in the last COMPLETE frame. Debug gizmos excluded.</summary>
+        public static int DrawCalls { get { Roll(); return lastDraws; } }
+
+        /// <summary>Vertices submitted in the last complete frame: mesh vertex count times instances, before any
+        /// shadow pass, so it measures what was handed over rather than what the GPU then did with it.
+        ///
+        /// THIS EXCLUDES THE INDIRECT DRAWS, and that is not a rounding error - the infantry are indirect, so the
+        /// men are missing from this number. An indirect draw's instance count lives in a GraphicsBuffer the GPU
+        /// reads; the CPU never sees it, which is the whole point of the API. <see cref="IndirectDraws"/> counts
+        /// how many such submissions were made, and VATRenderer.VerticesThisFrame is where the men's vertices are
+        /// actually known. Read all three or the reading is wrong in the direction that flatters it.</summary>
+        public static long Vertices { get { Roll(); return lastVerts; } }
+
+        /// <summary>Indirect submissions in the last complete frame (the men, the debris). Included in
+        /// <see cref="DrawCalls"/>, excluded from <see cref="Vertices"/>.</summary>
+        public static int IndirectDraws { get { Roll(); return lastIndirect; } }
+
+        public static void Draw<T>(UnityEngine.RenderParams rp, UnityEngine.Mesh mesh, int submesh, T[] instanceData, int count) where T : unmanaged
+        {
+            Roll();
+            if (count > 0) { draws++; if (mesh != null) verts += (long)mesh.vertexCount * count; }
+            UnityEngine.Graphics.RenderMeshInstanced(rp, mesh, submesh, instanceData, count);
+        }
+
+        public static void DrawIndirect(UnityEngine.RenderParams rp, UnityEngine.Mesh mesh, UnityEngine.GraphicsBuffer commandBuffer, int commandCount = 1, int startCommand = 0)
+        {
+            Roll();
+            draws++; indirect++;
+            UnityEngine.Graphics.RenderMeshIndirect(rp, mesh, commandBuffer, commandCount, startCommand);
+        }
+
+        public static void Draw(UnityEngine.RenderParams rp, UnityEngine.Mesh mesh, int submesh, UnityEngine.Matrix4x4 objectToWorld)
+        {
+            Roll();
+            draws++; if (mesh != null) verts += mesh.vertexCount;
+            UnityEngine.Graphics.RenderMesh(rp, mesh, submesh, objectToWorld);
+        }
+    }
+
     public static class RenderGround
     {
         public static MapData Map;

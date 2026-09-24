@@ -213,8 +213,8 @@ namespace TW.Presentation.Terrain
             {
                 var size = Host.Local.Map.SizeMeters;
                 var rp = new RenderParams(ratMat) { worldBounds = new Bounds(new Vector3(size.x * .5f, 0f, size.y * .5f), new Vector3(size.x + 20f, 60f, size.y + 20f)), shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true };
-                Graphics.RenderMeshInstanced(rp, capsule, 0, bodies, drawn);
-                Graphics.RenderMeshInstanced(rp, cube, 0, tails, drawn);
+                FrameBudget.Draw(rp, capsule, 0, bodies, drawn);
+                FrameBudget.Draw(rp, cube, 0, tails, drawn);
             }
         }
     }

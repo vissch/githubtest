@@ -1427,7 +1427,7 @@ namespace TW.Presentation.Tactical
         void Flush(Mesh mesh, RenderParams rp)
         {
             batch.CopyTo(batchArray);
-            Graphics.RenderMeshInstanced(rp, mesh, 0, batchArray, batch.Count);
+            FrameBudget.Draw(rp, mesh, 0, batchArray, batch.Count);
             batch.Clear();
         }
 

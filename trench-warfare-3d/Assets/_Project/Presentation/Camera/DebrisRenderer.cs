@@ -320,7 +320,7 @@ namespace TW.Presentation.Tactical
                 var pool = pools[k];
                 if (pool.Count == 0) continue;
                 var rp = new RenderParams(material) { worldBounds = Everywhere, shadowCastingMode = pool.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = pool.Props };
-                Graphics.RenderMeshIndirect(rp, pool.Mesh, args, 1, k);
+                FrameBudget.DrawIndirect(rp, pool.Mesh, args, 1, k);
                 DrawCalls++;
             }
         }
