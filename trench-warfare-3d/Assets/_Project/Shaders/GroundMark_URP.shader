@@ -69,7 +69,19 @@ Shader "TW/GroundMark (URP)"
                 half fresnel = pow(1.0 - saturate(view.y), 3.0);
                 // pressed mud is matt and dark (it kills the glitter of the wet ground round it); what stands in the deepest
                 // part is water, and mirrors the sky at the low angle a close camera looks from
-                half3 color = lerp(_Color.rgb * TWShadeTint() * 3.0, TWSky() * 1.15, pooled * (0.18 + 0.82 * fresnel) * _TWWet.x);
+                // _Color is PRESSED MUD, near black, and on a white field that reads as a hole punched through the
+                // snow rather than as a footprint. Snow that has been trodden is darker and bluer than the field
+                // beside it and nowhere near black, so the mark crosses to a cool grey with the snow amount and is
+                // left exactly as it was on every other field.
+                // A TRODDEN MARK IS THE SNOW ITSELF, DARKER - not a colour laid over it. The first attempt
+                // crossed _Color toward a fixed grey and kept the x3 lift that exists to raise near-black
+                // mud, which on a pale field produced wide translucent BLUE BANDS sitting on the snow rather
+                // than prints pressed into it. Taking the biome's own snow colour and simply darkening it
+                // keeps the hue of the ground the mark is in, which is what makes it read as a depression.
+                half snowy = saturate(_TWSnow.x);
+                half3 mud = _Color.rgb * TWShadeTint() * 3.0;
+                half3 trodden = _TWSnowColor.rgb * TWShadeTint() * 0.62;
+                half3 color = lerp(lerp(mud, trodden, snowy), TWSky() * 1.15, pooled * (0.18 + 0.82 * fresnel) * _TWWet.x);
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 half alpha = shape * _Alpha * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 30.0) / 12.0));

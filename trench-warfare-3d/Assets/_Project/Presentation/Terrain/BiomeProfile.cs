@@ -148,6 +148,23 @@ namespace TW.Presentation.Terrain
         /// <summary>How hard it snows, 0..1. Separate from Rain, which also means "how wet is everything".</summary>
         public float Snowfall = 0.8f;
 
+        /// <summary>
+        /// Which look belongs to which ground. THE ONLY PLACE THIS PAIRING IS WRITTEN DOWN. It lives here rather
+        /// than beside the presets because TW.Sim cannot see Biome without closing a reference cycle, and it is a
+        /// switch rather than a table so that adding a ground without choosing its look is a compile error.
+        ///
+        /// Landing is night mud on purpose: the coast is the same war at the same hour, and it is the sea and the
+        /// sand that make it a different place, not the weather.
+        /// </summary>
+        public static Biome ForGround(TW.Presentation.Ground ground)
+        {
+            switch (ground)
+            {
+                case TW.Presentation.Ground.WinterLine: return Biome.Winter;
+                default: return Biome.NightMud;
+            }
+        }
+
         public static BiomeProfile For(Biome b)
         {
             switch (b)
@@ -252,9 +269,23 @@ namespace TW.Presentation.Terrain
             // Deliberately DARKER than the sky. At 0.72 the fog was brighter than what the mountains stand
             // against, so the horizon would blow out and W6 would be unbuildable.
             Haze = new Color(0.63f, 0.70f, 0.79f),
-            Key = new Color(0.78f, 0.86f, 1.00f), KeyIntensity = 0.50f, ShadowStrength = 0.15f,
+            // MEASURED, 2026-09-24. Every light term on this field was the SAME BLUE - key (0.78, 0.86, 1.00),
+            // ambient, shade tint, mist, haze, bank and ground bounce - so light of one hue arrived from every
+            // direction and no surface could differ in colour from any other. Over 102,480 samples of a close
+            // frame that measured as saturation p5 0.214 to p95 0.279: a range of 0.065 across the whole
+            // picture, and a luma interquartile range of 0.099. That is the mush, and it was not a contrast
+            // problem - the profile already warns, twice, against fixing it with Contrast, which a previous
+            // cycle tried at 26 and made worse.
+            //
+            // Snow reads as snow because of the SPLIT: a low sun or moon is warm against a sky that is not,
+            // and the shadows look blue precisely because the lit side does not. So the key crosses to warm
+            // and the fill goes darker and bluer, which widens hue and value together without touching the
+            // grade. Swept on a pinned camera over a frozen frame: saturation range 0.065 -> 0.175 (x2.7) and
+            // IQR/median 0.204 -> 0.236. The frame also sits about 0.10 brighter in median, which is the one
+            // thing here to judge by eye rather than by number.
+            Key = new Color(1.00f, 0.94f, 0.86f), KeyIntensity = 0.72f, ShadowStrength = 0.65f,
             KeyEuler = new Vector3(44f, 150f, 0f),
-            Ambient = new Color(0.52f, 0.60f, 0.72f),
+            Ambient = new Color(0.38f, 0.46f, 0.62f),
             ShadeTint = new Color(0.62f, 0.70f, 0.84f),
             SkyMirror = new Color(0.69f, 0.73f, 0.79f),   // measured: the sky is the LEAST blue thing in frame
             Wetness = 0.20f, WetGlint = 0.30f, Rain = 0f,

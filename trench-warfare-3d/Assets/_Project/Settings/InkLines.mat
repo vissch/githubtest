@@ -25,6 +25,7 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _CloseThreshold: 7
     - _FadeEnd: 170
     - _FadeStart: 70
     - _Sensitivity: 900

@@ -62,10 +62,25 @@ namespace TW.Editor
                 c.Id = "shelled-wood-inland"; c.Title = "SHELLED WOOD, INLAND"; c.Subtitle = "THE RIVER"; c.BattlefieldSeed = 1916;
                 c.Description = "The same shattered wood a mile inland: no coast, no boats, reinforcements walk up from the rear.";
             });
+            var w = Card("WinterLine", c =>
+            {
+                c.Id = "winter-line"; c.Title = "THE WINTER LINE"; c.Subtitle = "THE HIGH GROUND"; c.BattlefieldSeed = 1917;
+                c.Ground = TW.Presentation.Ground.WinterLine;
+                c.FrontLine = "110 x 240 M";
+                c.Description = "A long frozen position with no river and no flooded ground: what water there is has frozen hard enough to walk on, and the cold is the only thing either side agrees about.";
+            });
             var catalog = AssetDatabase.LoadAssetAtPath<MissionCatalog>(CatalogPath);
             bool fresh = catalog == null;
             if (fresh) catalog = ScriptableObject.CreateInstance<MissionCatalog>();
-            if (catalog.Cards == null || catalog.Cards.Length == 0) catalog.Cards = new[] { a, b };
+            if (catalog.Cards == null || catalog.Cards.Length == 0) catalog.Cards = new[] { a, b, w };
+            else if (System.Array.IndexOf(catalog.Cards, w) < 0)
+            {
+                // a designer's edited catalog is left alone EXCEPT that a new card is appended, or building the
+                // assets would silently leave the winter level unreachable on every machine but a fresh one
+                var grown = new MissionCard[catalog.Cards.Length + 1];
+                System.Array.Copy(catalog.Cards, grown, catalog.Cards.Length);
+                grown[catalog.Cards.Length] = w; catalog.Cards = grown; EditorUtility.SetDirty(catalog);
+            }
             if (fresh) AssetDatabase.CreateAsset(catalog, CatalogPath); else EditorUtility.SetDirty(catalog);
             return catalog;
         }

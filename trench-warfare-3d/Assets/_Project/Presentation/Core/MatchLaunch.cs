@@ -7,8 +7,34 @@ using UnityEngine;
 
 namespace TW.Presentation
 {
+    /// <summary>
+    /// Which battlefield a mission is fought on. ShelledForest is deliberately the ZERO value: every Request and
+    /// every MissionCard asset serialized before this existed reads back as the map it was already using.
+    ///
+    /// This names the GROUND only. Which look goes with it is BiomeProfile.ForGround, over in Terrain, because
+    /// TW.Sim cannot see Biome without closing a reference cycle (BattlefieldGenerator.cs:76 records why).
+    /// </summary>
+    public enum Ground
+    {
+        ShelledForest = 0,
+        WinterLine = 1,
+        Landing = 2,
+    }
+
     public static class MatchLaunch
     {
+        /// <summary>The one place a Ground becomes a battlefield. A switch rather than a table so that adding a
+        /// preset without choosing its ground is a compile error rather than a silent fall back to the wood.</summary>
+        public static TW.Sim.Terrain.BattlefieldParams Field(Ground ground, uint seed)
+        {
+            switch (ground)
+            {
+                case Ground.WinterLine: return TW.Sim.Terrain.BattlefieldParams.WinterLine(seed);
+                case Ground.Landing: return TW.Sim.Terrain.BattlefieldParams.Landing(seed);
+                default: return TW.Sim.Terrain.BattlefieldParams.ShelledForest(seed);
+            }
+        }
+
         [System.Serializable]
         public sealed class Request
         {
@@ -21,6 +47,8 @@ namespace TW.Presentation
             public bool GeneratedBattlefield = true;
             public bool PlaytestMap = true;
             public uint BattlefieldSeed = 1917;
+            /// <summary>Which ground. Zero is the shelled wood, so an old saved request is unchanged.</summary>
+            public Ground Ground = TW.Presentation.Ground.ShelledForest;
             public float Bombardment = 8f;
             public bool ScriptedPeer = true;
             public int PeerDeployEveryTicks = 40;
@@ -35,6 +63,7 @@ namespace TW.Presentation
             {
                 MatchSeed = h.Seed, StartingSilver = h.StartingSilver, SilverPerSecond = h.SilverPerSecond,
                 GeneratedBattlefield = h.GeneratedBattlefield, PlaytestMap = h.PlaytestMap, BattlefieldSeed = h.BattlefieldSeed,
+                Ground = h.Ground,
                 Bombardment = h.BombardmentPerMinute, ScriptedPeer = h.ScriptedPeer, PeerDeployEveryTicks = h.PeerDeployEveryTicks,
                 PeerAttacks = h.PeerAttacks, PeerAttackGarrison = h.PeerAttackGarrison, PeerDeploysTanks = h.PeerDeploysTanks,
                 PeerUsesSupport = h.PeerUsesSupport, PeerSupportReserve = h.PeerSupportReserve,
@@ -57,6 +86,7 @@ namespace TW.Presentation
             if (r == null || h == null) { Running = null; return; }
             h.Seed = r.MatchSeed; h.StartingSilver = r.StartingSilver; h.SilverPerSecond = r.SilverPerSecond;
             h.GeneratedBattlefield = r.GeneratedBattlefield; h.PlaytestMap = r.PlaytestMap; h.BattlefieldSeed = r.BattlefieldSeed;
+            h.Ground = r.Ground;
             h.BombardmentPerMinute = r.Bombardment;
             h.ScriptedPeer = r.ScriptedPeer; h.PeerDeployEveryTicks = Mathf.Max(1, r.PeerDeployEveryTicks);   // SimHost divides by it
             h.PeerAttacks = r.PeerAttacks; h.PeerAttackGarrison = r.PeerAttackGarrison; h.PeerDeploysTanks = r.PeerDeploysTanks;

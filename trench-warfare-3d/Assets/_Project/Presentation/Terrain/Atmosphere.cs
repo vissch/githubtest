@@ -136,7 +136,7 @@ namespace TW.Presentation.Terrain
             SceneTints.Push(new SceneTints.Set
             {
                 Splash = p.SplashTint, Column = p.ColumnTint, Dust = p.DustTint, Smoke = p.SmokeTint,
-                Glow = p.GlowScale, MoltenLiquid = p.MoltenLiquid,
+                Glow = p.GlowScale, MoltenLiquid = p.MoltenLiquid, Frozen = p.FrozenLiquid,
             });
             // Lava eats what falls into it. Guarded on HeatStrength rather than on MoltenLevel, because MoltenLevel
             // is 0 on every other field and pushing a level of 0 would swallow every piece that came to rest on flat

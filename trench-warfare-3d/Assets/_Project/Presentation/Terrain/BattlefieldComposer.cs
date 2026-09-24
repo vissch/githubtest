@@ -85,9 +85,11 @@ namespace TW.Presentation.Terrain
                 var house = kit.Houses[h.House];
                 if (house.Whole != null) emit(house.Whole, h.Matrix);   // what is drawn: the whole house, its fallen chunks masked off
                 foreach (var chunk in house.Chunks) emit(chunk.Module, HouseKit.Place(h.Matrix, chunk));   // what is hit, hidden and remembered
+                if (SceneTints.Now.Frozen && kit.icicles != null) Icicles(h);
             }
             yield return true;
             Landmarks(map, surface); yield return true;
+            if (SceneTints.Now.Frozen) { SnowGround(map, surface); yield return true; }
             backdrop.Build(map, surface, emit);   // the lines run on past the flanks, and the edges are closed off
         }
 
@@ -594,6 +596,99 @@ namespace TW.Presentation.Terrain
         /// big pieces keep to ground the men do not cross (the parapet between ladders, the rear corners off the road,
         /// outside the map) and every one is dropped rather than moved when the ground under it is no longer fit.
         /// </summary>
+        /// <summary>
+        /// The ground micro-kit, winter only: drifts, broken crust, frozen tufts and clods, on a 1.7 m grid so
+        /// the camera among the men always has something within arm's reach. None of it is submitted at the
+        /// standard view - BattlefieldProps drops a finite MaxDistance while SceneHooks.CloseUp is 0 - so the
+        /// density here is paid for only by the close lens.
+        ///
+        /// Drifts gather where wind-blown snow gathers: in the lee of a bank and in the hollows. The rest is
+        /// scattered by the same density noise the litter uses, so the two agree about where the field is busy.
+        /// </summary>
+        void SnowGround(MapData map, BattlefieldSurface surface)
+        {
+            const float grid = 1.7f;
+            int k = 0;
+            for (float gz = 3f; gz < map.SizeMeters.y - 3f; gz += grid)
+            for (float gx = 2f; gx < map.SizeMeters.x - 2f; gx += grid, k++)
+            {
+                float x = gx + Rand(k, 181) * (grid - .35f), z = gz + Rand(k, 182) * (grid - .35f);
+                var at = surface.At(x, z);
+                if (at.Wetness > .5f) continue;
+                var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
+                if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) continue;
+                float gather = Mathf.PerlinNoise(x * .085f + 17f, z * .085f + 61f);
+                float pick = Rand(k, 183);
+                // Drifts gather HARDEST in the lee of a bank and in hollows, but they do not only form there:
+                // sastrugi are cut on open exposed ground, which on this map is the whole of no man's land,
+                // and that is precisely where the field had nothing standing on it. So open ground gets them
+                // too, at about a third the rate and gathered by the same density noise the litter uses, so
+                // the drifts run in belts rather than peppering the map evenly.
+                bool lee = at.BankDistance < 4.5f || at.Hollow >= 0;
+                float driftChance = lee ? .44f : .10f + gather * gather * .26f;
+                BattlefieldKit.Module module;
+                if (pick < driftChance) module = kit.drift;
+                else if (pick < .34f + gather * .18f) module = kit.snowClod;
+                else if (pick < .47f) module = kit.iceShard;   // fewer sites, but each is a run of plates
+                else if (pick < .60f + gather * .12f) module = kit.frostTuft;
+                else continue;
+                if (module == null) continue;
+                float sink = module == kit.frostTuft ? .02f : .05f;
+                float s = .78f + Rand(k, 184) * .55f;
+                // Drifts are cut by ONE wind, so they must agree with each other about which way it blew. A smooth
+                // noise field turned into an angle gives neighbours nearly the same heading and lets it wander over
+                // the map; random yaw, which is right for litter, reads as rubble for a drift.
+                float yaw = module == kit.drift
+                    ? 26f + (Mathf.PerlinNoise(x * .022f + 5f, z * .022f + 71f) - .5f) * 54f
+                    : Rand(k, 185) * 360f;
+                if (module == kit.iceShard)
+                {
+                    // a run of broken plates along one line: crust gives way where something crossed it
+                    int pieces = 2 + (int)(Rand(k, 187) * 3f);
+                    float heading = (26f + (Mathf.PerlinNoise(x * .022f + 5f, z * .022f + 71f) - .5f) * 54f + 90f) * Mathf.Deg2Rad;
+                    float ax = Mathf.Sin(heading), az = Mathf.Cos(heading);
+                    for (int q = 0; q < pieces; q++)
+                    {
+                        float step = (q - (pieces - 1) * .5f) * (.34f + Rand(k * 8 + q, 188) * .22f);
+                        float px = x + ax * step + (Rand(k * 8 + q, 189) - .5f) * .16f;
+                        float pz = z + az * step + (Rand(k * 8 + q, 190) - .5f) * .16f;
+                        float ps = s * (.7f + Rand(k * 8 + q, 191) * .6f);
+                        emit(module, Matrix4x4.TRS(new Vector3(px, surface.VisualHeight(px, pz) - sink, pz),
+                                                   Quaternion.Euler(0f, Rand(k * 8 + q, 192) * 360f, 0f), Vector3.one * ps));
+                    }
+                    continue;
+                }
+                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - sink, z),
+                                           Quaternion.Euler(0f, yaw, 0f),
+                                           new Vector3(s, module == kit.drift ? s * (.7f + Rand(k, 186) * .6f) : s, s)));
+            }
+        }
+
+        /// <summary>
+        /// docs/18 W7, winter only: ice along a house's eaves. Hung on the four sides of the building's own
+        /// footprint rather than scattered round it, because an icicle is made by a roof and reads wrong
+        /// anywhere else. Hashed off the hamlet, so the same village freezes the same way every run, and
+        /// gapped - a run of ice does not go the whole way round a building it has dripped off.
+        /// </summary>
+        void Icicles(Hamlet h)
+        {
+            float eave = h.Radius * 0.72f;             // in from the footprint's corner radius, at the wall
+            for (int side = 0; side < 4; side++)
+            for (int run = 0; run < 3; run++)
+            {
+                int key = h.House * 64 + side * 8 + run;
+                if (Rand(key, 71) < 0.42f) continue;   // most eaves carry nothing; a few carry a long run
+                float along = (run - 1) * (eave * 0.62f) + (Rand(key, 72) - 0.5f) * 0.5f;
+                float turn = side * 90f;
+                var outward = Quaternion.Euler(0f, turn, 0f);
+                var at = h.Centre + outward * new Vector3(along, 0f, eave);
+                float high = 2.35f + Rand(key, 73) * 0.9f;   // the eave line; the houses are one and two storeys
+                emit(kit.icicles, Matrix4x4.TRS(new Vector3(at.x, h.Centre.y + high, at.z),
+                                                outward * Quaternion.Euler(0f, 0f, (Rand(key, 74) - 0.5f) * 6f),
+                                                Vector3.one * (0.75f + Rand(key, 75) * 0.5f)));
+            }
+        }
+
         void Landmarks(MapData map, BattlefieldSurface surface)
         {
             float W = map.SizeMeters.x, L = map.SizeMeters.y;

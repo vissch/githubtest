@@ -51,6 +51,13 @@ namespace TW.Presentation.Terrain
         readonly Queue<Vector2Int> paintTiles = new Queue<Vector2Int>();
         readonly HashSet<Vector2Int> queuedTiles = new HashSet<Vector2Int>();
         readonly List<TW.Sim.SimEvent> scorchMarks = new List<TW.Sim.SimEvent>();
+        /// <summary>When each scorch mark landed, in Time.time. A crater is bare earth when it lands - the blast
+        /// throws the snow off it - and fills in again over SnowFillSeconds. Wall clock, not ticks: this is a
+        /// presentation fade and nothing in the sim may depend on it.</summary>
+        readonly List<float> scorchBorn = new List<float>();
+        /// <summary>How long a shell hole takes to fill back in. Guessed, wants a look.</summary>
+        public const float SnowFillSeconds = 150f, ScorchHoldSeconds = 14f, RepaintEvery = 2.2f;
+        int scorchSweep; float nextScorchRepaint;
         bool hollowsDirty;
         /// <summary>Terrain chunks re-read from the height field per frame after craters; the rest wait their turn.
         /// Superseded by ChunkBudgetMs (2026-09-23): kept for callers, no longer the limit.</summary>
@@ -77,7 +84,17 @@ namespace TW.Presentation.Terrain
             // ground itself is interpreted (BattlefieldSurface), long before the Atmosphere component is added at
             // the foot of this method. An Atmosphere already in the scene wins, so a scene can override the view.
             var mood = GetComponent<Atmosphere>();
-            Profile = BiomeProfile.For(mood != null ? mood.Field : Field);
+            // A LAUNCHED MISSION OUTRANKS BOTH. The component and the serialized Field are what this scene was
+            // saved with; a mission is what the player just chose. A winter mission coming up in night mud
+            // because GreyboxCorridor happens to carry an Atmosphere set to NightMud would be the most
+            // confusing failure available. With no mission running - pressing Play in the scene - nothing
+            // changes and the old rule stands, which is what MatchLaunch's header promises.
+            var launched = MatchLaunch.Running;
+            var chosen = launched != null ? BiomeProfile.ForGround(launched.Ground)
+                                          : (mood != null ? mood.Field : Field);
+            // written back to both so they cannot drift apart: that is the bug cycle 6 found in the snow colour
+            if (launched != null) { Field = chosen; if (mood != null) mood.Field = chosen; }
+            Profile = BiomeProfile.For(chosen);
             flooding = Profile.Flooding;   // the night field is a soaked one; nothing stands in water on lava
             Surface = new BattlefieldSurface(map, flooding);
             renderGrid = new RenderGroundGrid { Width = Mathf.RoundToInt(hf.Width / GridStep) + 1, Length = Mathf.RoundToInt(hf.Length / GridStep) + 1, Step = GridStep };
@@ -530,6 +547,17 @@ namespace TW.Presentation.Terrain
             // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
             TW.Sim.PerfMarkers.TerrainRepaint.Begin();
             paintWatch.Restart();
+            // The fade has to reach the texture, and the texture is only repainted when something queues a tile.
+            // So one crater's tiles are re-queued every RepaintEvery seconds, oldest first: sixty-four marks come
+            // round in about the time one takes to fill, and it all goes through the budget below rather than a
+            // second one. A crater that has finished filling stops being re-queued.
+            if (scorchMarks.Count > 0 && Time.time >= nextScorchRepaint)
+            {
+                nextScorchRepaint = Time.time + RepaintEvery;
+                scorchSweep = scorchSweep % scorchMarks.Count;
+                int m = scorchSweep++;
+                if (m < scorchBorn.Count && Time.time - scorchBorn[m] < SnowFillSeconds) QueueScorchTiles(scorchMarks[m]);
+            }
             while (paintTiles.Count > 0 && paintWatch.Elapsed.TotalMilliseconds < 2.0)
             {
                 var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
@@ -585,8 +613,8 @@ namespace TW.Presentation.Terrain
             if (e.Type == TW.Sim.SimEventType.CraterStamp)
             {
                 hollowsDirty = true;
-                if (scorchMarks.Count == 64) scorchMarks.RemoveAt(0);
-                scorchMarks.Add(e);
+                if (scorchMarks.Count == 64) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
+                scorchMarks.Add(e); scorchBorn.Add(Time.time);
             }
             float r = e.Scalar + 8f; // Include the inferred rim and its pale outer shoulder.
             int x0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + r));
@@ -601,6 +629,17 @@ namespace TW.Presentation.Terrain
             }
         }
 
+        /// <summary>Queue the tiles a crater covers, so its burn is repainted at whatever it has faded to.</summary>
+        void QueueScorchTiles(TW.Sim.SimEvent mark)
+        {
+            var map = Host.Local.Map;
+            float r = mark.Scalar * 1.25f + 1f;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(mark.Pos.x + r));
+            int z0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.z - r)), z1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(mark.Pos.z + r));
+            for (int z = z0 / 2; z <= z1 / 2; z++) for (int x = x0 / 2; x <= x1 / 2; x++)
+            { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
+        }
+
         void RepaintTile(Vector2Int tile)
         {
             int x1 = Mathf.Min(colorTex.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(colorTex.height, (tile.y + 1) * 2 * Tpm);
@@ -609,12 +648,17 @@ namespace TW.Presentation.Terrain
                 float wx = (x + .5f) / Tpm, wz = (z + .5f) / Tpm;
                 Color c = GroundColor(Host.Local.Map, wx, wz);
                 float burn = 0f;
-                foreach (var mark in scorchMarks)
+                for (int m = 0; m < scorchMarks.Count; m++)
                 {
+                    var mark = scorchMarks[m];
                     float radius = mark.Scalar * 1.25f;
                     if (radius <= 0f || Mathf.Abs(wx - mark.Pos.x) > radius || Mathf.Abs(wz - mark.Pos.z) > radius) continue;
                     float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
-                    burn = Mathf.Max(burn, .45f * (1f - distance / radius));
+                    // The hole is black for ScorchHoldSeconds and then fills: the ground lightens back toward what
+                    // it was, and because the snow is keyed off the burn (Toon_URP) the snow comes back with it.
+                    float age = m < scorchBorn.Count ? Time.time - scorchBorn[m] : SnowFillSeconds;
+                    float fresh = 1f - Mathf.Clamp01((age - ScorchHoldSeconds) / Mathf.Max(1f, SnowFillSeconds - ScorchHoldSeconds));
+                    burn = Mathf.Max(burn, .45f * (1f - distance / radius) * fresh * fresh);
                 }
                 colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
             }

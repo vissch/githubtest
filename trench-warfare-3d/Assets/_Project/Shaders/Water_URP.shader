@@ -77,6 +77,11 @@ Shader "TW/Water (URP)"
                 // half cycle 12 could not reach from a colour: it gave winter the right hue and left the sheet
                 // drifting downstream. Zero on every field but winter, so nothing else changes by a bit.
                 half ice = saturate(_TWLiquidIce);
+                // metres between the taps the buckle gradient is read from, and how hard the sheet heaves
+                // along a break. IceBuckle is REASONED, NOT MEASURED: the gradient across a 0.42 m tap at
+                // domain scale 0.32 is about 0.13 in distance-field units, and 0.9 puts the perturbed normal
+                // in the range the ripple map used to supply. It wants a capture before anyone trusts it.
+                const float IceTap = 0.42, IceBuckle = 0.9;
                 float2 drift = _Flow.xy * _Time.y * (1.0 - ice);
                 // two ripple layers riding the current at different speeds; the second runs a little across it
                 half4 r1 = SAMPLE_TEXTURE2D(_RippleMap, sampler_RippleMap, (xz - drift) / 6.0);
@@ -103,14 +108,29 @@ Shader "TW/Water (URP)"
                 {
                     // Cracks, from the SAME Worley border the lava crust reads for its plates: a frozen sheet
                     // and a cooling one break the same way, so this needs no new noise and no new texture.
-                    // Two octaves - plates about 3 m across, and a finer set about 1.2 m so a big pan is not
-                    // blank with the camera down among the men.
-                    half seam = 1.0 - smoothstep(0.0, 0.085, TWPlateEdge(xz * 0.32));
-                    half fine = 1.0 - smoothstep(0.0, 0.055, TWPlateEdge(xz * 0.85 + 31.7));
+                    //
+                    // MEASURED AND WIDENED, 2026-09-24. The first version used one 0.085 smoothstep, which at
+                    // domain scale 0.32 is a feathered band about 0.4 m across on the ground, and it measured
+                    // FLATTER than the snow beside it (luma spread 0.061 against 0.161). A fracture is a line:
+                    // a pale shoulder where the sheet has shattered, and a dark water line down the centre.
+                    half c0 = TWPlateEdge(xz * 0.32);
+                    half cx = TWPlateEdge((xz + float2(IceTap, 0.0)) * 0.32);
+                    half cz = TWPlateEdge((xz + float2(0.0, IceTap)) * 0.32);
+                    half lip  = 1.0 - smoothstep(0.0, 0.030, c0);                          // the white shoulder
+                    half fine = 1.0 - smoothstep(0.0, 0.018, TWPlateEdge(xz * 0.85 + 31.7));  // the finer set, ~1.2 m
+                    half core = 1.0 - smoothstep(0.0, 0.007, c0);                          // the dark line at the break
                     // The crack colour is not a new global: it is this surface's own albedo taken white, the
                     // way the current streaks above already do it, so the ice keeps the biome's colour and a
-                    // crack is simply where the sheet has gone white.
-                    albedo = lerp(albedo, min(half3(1, 1, 1), albedo * 1.9 + 0.22), saturate(seam + fine * 0.55) * ice);
+                    // crack is simply where the sheet has gone white - and, at its centre, where it has opened.
+                    albedo = lerp(albedo, min(half3(1, 1, 1), albedo * 2.2 + 0.30), saturate(lip + fine * 0.55) * ice);
+                    albedo = lerp(albedo, albedo * 0.45, core * 0.7 * ice);
+
+                    // THE SHEET IS NOT FLAT, and that is why there was no glare to measure at all. W2 forces
+                    // slope to zero for ice, correctly - a frozen pan must not ripple - but `n` is built from
+                    // slope below, so the whole sheet had the normal (0,1,0) and the glint's very tight cone was
+                    // off everywhere under a low moon. Ice heaves where it broke, so the GRADIENT of the crack
+                    // field is the buckle, read from the two taps this already needed. No ripple map, no flow.
+                    slope += half2(c0 - cx, c0 - cz) * (IceBuckle * ice);
                 }
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
@@ -127,6 +147,12 @@ Shader "TW/Water (URP)"
                 color = lerp(color, sky, mirror);
                 half glint = smoothstep(0.988, 0.994, dot(r, mainLight.direction)) * 0.6;
                 color += glint * mainLight.color * 0.6 * mainLight.shadowAttenuation;
+                // W10, the glare. Fresh snow is deliberately matt (SnowSparkle 0.15) so that this is the one
+                // hard highlight in a winter frame. Broader than the glint above on purpose: a sheet lit at a
+                // glancing angle should read as a sheen across the whole pan, not as one hot pixel, and the
+                // buckled normal above is what gives it anything to vary over. Zero on every other field.
+                half iceGlare = pow(saturate(dot(r, mainLight.direction)), 42.0) * ice;
+                color += iceGlare * mainLight.color * 1.9 * mainLight.shadowAttenuation;
                 color += pow(saturate(dot(r, mainLight.direction)), 14.0) * _TWWet.y * 0.2 * mainLight.color * mainLight.shadowAttenuation;
                 // lanterns and muzzle flashes lie on the water as a warm pool: lit body plus a mirrored core
                 half3 lampGlint;

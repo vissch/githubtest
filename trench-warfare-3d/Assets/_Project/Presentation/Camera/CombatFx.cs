@@ -1104,7 +1104,12 @@ namespace TW.Presentation.Tactical
                     {
                         Vector3 dir = step / far, side = new Vector3(dir.z, 0f, -dir.x);
                         float yawDeg = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
-                        bool dryFooting = !tank && (flags & (uint)UnitFlags.InTrench) != 0;   // duckboards take no print
+                        // Duckboards take no print - but SNOW ON duckboards does, and a winter trench floor is packed
+                        // snow and ice rather than dry boards. Measured on the winter line: every man within the
+                        // close reach was InTrench, so this one flag was suppressing every track on the field where
+                        // tracks matter most. The mark pool, the trail stepping and the draw were all working.
+                        bool snowfield = SceneTints.Now.Frozen;
+                        bool dryFooting = !tank && !snowfield && (flags & (uint)UnitFlags.InTrench) != 0;
                         for (float d = stride; d <= far && d < stride * 4.5f; d += stride)
                         {
                             Vector3 at = trail.Last + dir * d;
@@ -1112,13 +1117,15 @@ namespace TW.Presentation.Tactical
                             if (tank)
                             {
                                 float gauge = SceneHooks.VehicleTracks != null ? SceneHooks.VehicleTracks(i).x : 0.78f;
-                                AddMark(at.x + side.x * gauge, at.z + side.z * gauge, yawDeg, new Vector2(0.62f, 0.92f), 70f, 1);
-                                AddMark(at.x - side.x * gauge, at.z - side.z * gauge, yawDeg, new Vector2(0.62f, 0.92f), 70f, 1);
+                                // Mud closes over a rut; snow does not until more snow falls on it.
+                                float rutLife = snowfield ? 240f : 70f;
+                                AddMark(at.x + side.x * gauge, at.z + side.z * gauge, yawDeg, new Vector2(0.62f, 0.92f), rutLife, 1);
+                                AddMark(at.x - side.x * gauge, at.z - side.z * gauge, yawDeg, new Vector2(0.62f, 0.92f), rutLife, 1);
                             }
                             else
                             {
                                 float foot = trail.Left ? -0.11f : 0.11f; trail.Left = !trail.Left;
-                                AddMark(at.x + side.x * foot, at.z + side.z * foot, yawDeg + (trail.Left ? 7f : -7f), new Vector2(0.15f, 0.34f), 45f, 0);
+                                AddMark(at.x + side.x * foot, at.z + side.z * foot, yawDeg + (trail.Left ? 7f : -7f), new Vector2(0.15f, 0.34f), snowfield ? 210f : 45f, 0);
                             }
                         }
                         if (tank && chunks.Count < 560)

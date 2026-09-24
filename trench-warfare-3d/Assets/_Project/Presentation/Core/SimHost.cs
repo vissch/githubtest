@@ -72,6 +72,8 @@ namespace TW.Presentation
         public AnimationController Animation { get; private set; }
         [Tooltip("Drive the men's animation rows from the character controller instead of the stance switch.")]
         public bool UseAnimationController = true;
+        [Tooltip("Which battlefield to generate. The shelled wood unless a mission says otherwise (docs/19).")]
+        public Ground Ground = TW.Presentation.Ground.ShelledForest;
         public EventPump Events { get; } = new EventPump();
         public bool Desync => session != null && session.Desync;
         public float Alpha { get; private set; }
@@ -85,7 +87,7 @@ namespace TW.Presentation
         {
             if (GeneratedBattlefield)
             {
-                var field = TW.Sim.Terrain.BattlefieldParams.ShelledForest(BattlefieldSeed);
+                var field = MatchLaunch.Field(Ground, BattlefieldSeed);
                 field.Bombardment = BombardmentOverride >= 0f ? BombardmentOverride : BombardmentPerMinute;
                 return MatchSim.CreateBattlefield(cfg, field);
             }

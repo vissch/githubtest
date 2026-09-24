@@ -63,6 +63,13 @@ namespace TW.Presentation
             /// liquid it is, so the biome says.
             /// </summary>
             public bool MoltenLiquid;
+
+            /// <summary>
+            /// This field has FROZEN. Beside MoltenLiquid for the same reason it is here rather than read from
+            /// BiomeProfile: the prop composer lives inside BattlefieldProps and cannot see Presentation.Terrain's
+            /// profile, and only the biome knows. What it decides today is whether ice hangs from the buildings.
+            /// </summary>
+            public bool Frozen;
         }
 
         /// <summary>No biome: the night field's own colours, which is what these effects were authored against.</summary>

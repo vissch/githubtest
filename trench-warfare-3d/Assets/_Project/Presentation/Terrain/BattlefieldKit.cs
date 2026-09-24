@@ -31,6 +31,11 @@ namespace TW.Presentation.Terrain
         public Module trunk, snag, fallen, stump, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
         public Module helmet, messKit, spade, ammoTin, boots, graveMarker, leanRifle, signBoard, bucket, hangingTins, phoneWire, rag, wireTins;
+        /// <summary>Winter only (docs/18 W7): a run of ice hanging from an eave. Close-tier, like the rest above.</summary>
+        public Module icicles;
+        /// <summary>Winter ground micro-kit: what stands on the snow for the camera among the men and is not
+        /// submitted at all at the standard view (BattlefieldProps culls a finite MaxDistance on CloseUp).</summary>
+        public Module drift, iceShard, frostTuft, snowClod;
         /// <summary>
         /// The imported sets (Resources/Env, split per prop by Tools/envsplit.py, prepared by EnvKitImport): metre scale,
         /// ground pivot, front +Z, one graded texture per set (Tools/envgrade.py). The landmarks stand sparingly (BattlefieldComposer
@@ -49,6 +54,9 @@ namespace TW.Presentation.Terrain
         public readonly Dictionary<Module, HouseKit.Chunk> HouseChunkOf = new Dictionary<Module, HouseKit.Chunk>();
         public readonly Dictionary<Module, HouseKit.House> HouseOfWhole = new Dictionary<Module, HouseKit.House>();
         public const float SmallReach = 55f;
+        /// <summary>The ground micro-kit's reach. Shorter than SmallReach because it is placed about four times
+        /// as densely, and because below about 20 cm a thing is a speck rather than a shape past 30 m.</summary>
+        public const float MicroReach = 30f;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
@@ -575,6 +583,7 @@ namespace TW.Presentation.Terrain
         }
 
         Module Small(Module module) { module.MaxDistance = SmallReach; return module; }
+        Module Micro(Module module) { module.MaxDistance = MicroReach; return module; }
 
         /// <summary>
         /// Things no bigger than a man's hand or boot. None casts a shadow, all are a hundred-odd vertices at most, and none
@@ -584,6 +593,57 @@ namespace TW.Presentation.Terrain
         {
             var dome = Blob(8, 5); var tin = Taper(0.07f, 0.07f, 0.10f, Vector2.zero, 0.1f);
             var steel = new Color(0.36f, 0.40f, 0.34f); var leather = new Color(0.17f, 0.14f, 0.115f); var rifleWood = new Color(0.31f, 0.23f, 0.16f);
+            // W3 and the ground micro-kit. A drift is two shallow wedges set a few degrees apart, so the crest
+            // wanders instead of being a ruled line, with a thin lip along the windward side where the pack has
+            // been cut back. Under 60 vertices and no shadow.
+            drift = Micro(Make(Combine("Snow drift",
+                (dome, new Vector3(0f, -0.13f, 0f), new Vector3(0f, 4f, 0f), new Vector3(2.90f, 0.23f, 0.70f)),
+                (dome, new Vector3(0.95f, -0.14f, 0.16f), new Vector3(0f, -13f, 0f), new Vector3(1.90f, 0.17f, 0.52f)),
+                (dome, new Vector3(-1.15f, -0.15f, -0.10f), new Vector3(0f, 11f, 0f), new Vector3(1.40f, 0.14f, 0.44f)),
+                // the crest: three short wedges end to end, each tipped a little differently, so the top is a
+                // scalloped ridge with hard edges the ink pass can find rather than a smooth swelling
+                (cube, new Vector3(-0.85f, 0.045f, -0.02f), new Vector3(0f, 7f, 15f), new Vector3(1.15f, 0.10f, 0.20f)),
+                (cube, new Vector3(0.20f, 0.060f, 0.03f), new Vector3(0f, -4f, -11f), new Vector3(1.25f, 0.11f, 0.22f)),
+                (cube, new Vector3(1.20f, 0.040f, -0.04f), new Vector3(0f, 12f, 19f), new Vector3(0.95f, 0.08f, 0.17f)),
+                // the lee scarp: where the pack has broken away, near vertical and cut back under the crest
+                (cube, new Vector3(-0.10f, -0.06f, -0.30f), new Vector3(-72f, 5f, 0f), new Vector3(2.35f, 0.18f, 0.05f))),
+                new Color(0.94f, 0.96f, 1.00f), false, 0.7f));
+            // A crust broken and tilted out of itself. Pale, and the one thing here with a hard edge.
+            iceShard = Micro(Make(Combine("Broken crust",
+                (cube, new Vector3(0f, 0.05f, 0f), new Vector3(24f, 12f, 7f), new Vector3(0.34f, 0.028f, 0.30f)),
+                (cube, new Vector3(0.19f, 0.03f, -0.13f), new Vector3(-13f, 52f, 5f), new Vector3(0.22f, 0.024f, 0.20f))),
+                new Color(0.90f, 0.95f, 1.00f), false, 0.6f));
+            iceShard.Material.SetFloat("_Gloss", 0.45f);
+            // Dead stalks: the only vertical break in a field of horizontals.
+            frostTuft = Micro(Make(Combine("Frozen tuft",
+                (Taper(0.012f, 0.002f, 0.30f, new Vector2(0.06f, 0f), 1.3f), new Vector3(0f, 0f, 0f), new Vector3(9f, 0f, 6f), Vector3.one),
+                (Taper(0.010f, 0.002f, 0.24f, new Vector2(0.09f, 0f), 1.3f), new Vector3(0.05f, 0f, 0.04f), new Vector3(14f, 70f, -11f), Vector3.one),
+                (Taper(0.011f, 0.002f, 0.34f, new Vector2(0.04f, 0f), 1.3f), new Vector3(-0.04f, 0f, 0.03f), new Vector3(-7f, 200f, 9f), Vector3.one),
+                (dome, new Vector3(0f, 0.01f, 0f), Vector3.zero, new Vector3(0.20f, 0.05f, 0.18f))),
+                new Color(0.55f, 0.52f, 0.46f), false, 0.7f));
+            // The lump of frozen earth a shell threw, snowed over.
+            snowClod = Micro(Make(Combine("Frozen clod",
+                (dome, new Vector3(0f, -0.02f, 0f), new Vector3(0f, 31f, 0f), new Vector3(0.30f, 0.20f, 0.26f))),
+                new Color(0.88f, 0.91f, 0.96f), false, 0.7f));
+            // W7. A row of seven spikes of uneven length along a thin ledge of frozen melt, leaning very slightly
+            // off the wall the way a drip freezes as it runs. Taper's point exponent is what makes it a needle
+            // rather than a cone: an icicle is concave, thickest at the eave and drawn out to nothing.
+            var iceLengths = new[] { 0.42f, 0.17f, 0.61f, 0.28f, 0.50f, 0.13f, 0.35f };
+            var iceParts = new System.Collections.Generic.List<(Mesh, Vector3, Vector3, Vector3)>
+            {
+                (cube, new Vector3(0f, 0.02f, 0f), Vector3.zero, new Vector3(1.30f, 0.045f, 0.075f)),   // the frozen run along the eave
+            };
+            for (int s = 0; s < iceLengths.Length; s++)
+            {
+                float at = -0.60f + s * 0.20f, len = iceLengths[s];
+                iceParts.Add((Taper(0.032f + len * 0.05f, 0.004f, len, new Vector2(0f, 0.05f), 3.1f),
+                              new Vector3(at, -len * 0.5f + 0.02f, 0f), new Vector3(0f, 0f, 180f), Vector3.one));
+            }
+            icicles = Small(Make(Combine("Icicles", iceParts.ToArray()), new Color(0.95f, 0.98f, 1.00f), false, 0.55f));
+            // Ice is brighter than the wall it hangs on and it is the one glossy thing on a matt winter field:
+            // fresh snow is held matt on purpose (SnowSparkle 0.15) so that the ice carries the highlight. Make
+            // sets only colour and outline, so the gloss the Toon shader already has goes on here by hand.
+            icicles.Material.SetFloat("_Gloss", 0.62f);
             helmet = Small(Make(Combine("Lost helmet",
                 (dome, new Vector3(0f, 0.06f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.29f, 0.15f, 0.31f)),
                 (dome, new Vector3(0f, 0.035f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.40f, 0.03f, 0.43f))), steel, false, 0.9f));

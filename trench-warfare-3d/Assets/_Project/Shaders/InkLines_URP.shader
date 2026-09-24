@@ -14,6 +14,10 @@ Shader "TW/Ink Lines (URP)"
         _Sensitivity ("Sensitivity", Float) = 900
         _Threshold ("Threshold", Range(0, 2)) = 0.55
         _Strength ("Strength", Range(0, 1)) = 0.7
+        // How much higher the crease threshold sits with the lens all the way in. The terrain is a 0.5 m mesh
+        // over a noisy heightfield, so every triangle edge is a real dihedral of a degree or two: invisible at
+        // the standard view where it is a couple of pixels, a wireframe among the men where it is tens.
+        _CloseThreshold ("Close-up threshold rise", Range(1, 24)) = 7
         _FadeStart ("Fade start (m)", Float) = 70
         _FadeEnd ("Fade end (m)", Float) = 170
     }
@@ -33,7 +37,7 @@ Shader "TW/Ink Lines (URP)"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
             half4 _InkColor;
-            float _Thickness, _Sensitivity, _Threshold, _Strength, _FadeStart, _FadeEnd;
+            float _Thickness, _Sensitivity, _Threshold, _Strength, _FadeStart, _FadeEnd, _CloseThreshold;
 
             half4 frag(Varyings input) : SV_Target
             {
@@ -47,7 +51,11 @@ Shader "TW/Ink Lines (URP)"
                 float bend = (abs(l + r - 2.0 * c) + abs(d + u - 2.0 * c)) / max(c, 1e-6);
                 float eye = LinearEyeDepth(c, _ZBufferParams);
                 float fade = 1.0 - saturate((eye - _FadeStart) / max(1.0, _FadeEnd - _FadeStart));
-                half ink = smoothstep(_Threshold, _Threshold * 1.6, bend * _Sensitivity) * _Strength * fade;
+                // A trench lip is a crease at any zoom; a two degree facet is not one at any zoom and only
+                // became visible because it got bigger on screen. _TWClose is 0 at the standard view, so that
+                // view is untouched to the bit, and 1 among the men (TacticalCamera publishes it).
+                float threshold = _Threshold * (1.0 + _TWClose * (_CloseThreshold - 1.0));
+                half ink = smoothstep(threshold, threshold * 1.6, bend * _Sensitivity) * _Strength * fade;
                 if (ink > 0.001 && _TWFieldFogColor.a > 0.0) ink *= saturate(1.0 - 1.15 * FieldFogAmount(ComputeWorldSpacePosition(uv, c, UNITY_MATRIX_I_VP)));
                 color.rgb = lerp(color.rgb, _InkColor.rgb, ink);
                 return color;

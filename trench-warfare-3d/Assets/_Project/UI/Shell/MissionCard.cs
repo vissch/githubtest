@@ -21,6 +21,8 @@ namespace TW.UI
         public bool GeneratedBattlefield = true;
         public bool PlaytestMap = true;           // used when GeneratedBattlefield is off
         public uint BattlefieldSeed = 1917;
+        [Tooltip("Which battlefield. The shelled wood is the zero value, so cards made before this are unchanged.")]
+        public Ground Ground = TW.Presentation.Ground.ShelledForest;
         public bool AllowSeedEdit = true;
         public float Bombardment = 8f;
         public string FrontLine = "90 x 240 M";
@@ -61,6 +63,7 @@ namespace TW.UI
                 MatchSeed = MatchSeed, StartingSilver = StartingSilver, SilverPerSecond = SilverPerSecond,
                 GeneratedBattlefield = GeneratedBattlefield, PlaytestMap = PlaytestMap,
                 BattlefieldSeed = AllowSeedEdit && seedOverride.HasValue ? seedOverride.Value : BattlefieldSeed,
+                Ground = Ground,
                 Bombardment = Bombardment, ScriptedPeer = true,
                 PeerDeployEveryTicks = Mathf.Max(1, d.PeerDeployEveryTicks), PeerAttacks = d.PeerAttacks, PeerAttackGarrison = d.PeerAttackGarrison,
                 PeerDeploysTanks = d.PeerDeploysTanks, PeerUsesSupport = d.PeerUsesSupport, PeerSupportReserve = d.PeerSupportReserve,
