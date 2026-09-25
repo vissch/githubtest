@@ -74,20 +74,22 @@ namespace TW.Editor
             return "silver " + amount;
         }
 
-        /// <summary>A unit at an exact place in both worlds. Archetype 4 / 5 are the tanks (their roster stats), else a man.</summary>
+        /// <summary>A unit at an exact place in every world, with the stats its archetype has in the roster (either
+        /// side's: each side fields different machines). The sim then moves it toward its deploy zone, so read
+        /// World.Position back before aiming a camera at it.</summary>
         public static string Spawn(int team, int archetype, float x, float z, float yawDeg = -999f)
         {
             var h = Host; if (h == null) return "no SimHost";
             if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
             bool vehicle = VehicleArchetype.IsArmoured((byte)archetype);
-            var entry =
-                archetype == VehicleArchetype.Tusk ? RosterEntry.Tusk :
-                archetype == VehicleArchetype.Maw ? RosterEntry.Maw :
-                archetype == VehicleArchetype.Pincer ? RosterEntry.Pincer :
-                archetype == VehicleArchetype.Kettle ? RosterEntry.Kettle :
-                archetype == VehicleArchetype.Censer ? RosterEntry.Censer :
-                archetype == VehicleArchetype.Pavise ? RosterEntry.Pavise :
-                h.Local.World.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
+            // Looked up in the live roster rather than a hand list. The hand list stopped at Pavise, so Banner and
+            // Redoubt came out with a rifleman's hit points on a machine's body, and every new archetype needed an
+            // edit here that nothing reminded anyone to make.
+            var roster = h.Local.World.Roster;
+            int found = -1;
+            for (int i = 0; i < roster.Length && found < 0; i++) if (roster[i].Archetype == archetype) found = i;
+            if (found < 0 && vehicle) return $"archetype {archetype} is in neither side's roster: nothing spawned";
+            var entry = found >= 0 ? roster[found] : roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
             int a = h.Local.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
             int b = h.Peer != null ? h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle) : a;   // the canary's second world, when it runs
             if (yawDeg > -900f) { h.Local.World.Yaw[a] = yawDeg * Mathf.Deg2Rad; if (h.Peer != null) h.Peer.World.Yaw[b] = yawDeg * Mathf.Deg2Rad; }
