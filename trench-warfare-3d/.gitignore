@@ -39,3 +39,12 @@ Thumbs.db
 DeterminismReport-*.txt
 test-results*.xml
 *.junit.xml
+
+# Local capture dumps, gate logs and editor backups: kept on disk, never pushed
+/[Cc]aptures/
+/Tools/flame-shots/
+/Assets/_shots/
+/Assets/_shots.meta
+/*.log
+*.before
+*.before.meta
