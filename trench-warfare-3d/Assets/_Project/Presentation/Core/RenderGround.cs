@@ -136,6 +136,15 @@ namespace TW.Presentation
         /// pad. Stamped where the leg actually is rather than guessed from the body's path. (TankRenderer fills it from
         /// WalkerGait's own footfalls; CombatFx lays the mark.)</summary>
         public static System.Action<UnityEngine.Vector3, float, UnityEngine.Vector2> FootFall;
+
+        /// <summary>Nobody is here: every service unset, every flag off. Only when no scene is live
+        /// (SceneStatics.ResetSession): on a scene load the new scene's components have already wired theirs.</summary>
+        public static void Reset()
+        {
+            CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
+            IsWater = null; AddRing = null; Sparks = null; VehicleTracks = null; VehicleGunPort = null;
+            DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; CookOff = null; FootFall = null;
+        }
     }
 
     /// <summary>
