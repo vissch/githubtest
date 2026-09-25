@@ -43,7 +43,7 @@ namespace TW.Sim.Combat
         public const float AimTolerance = 0.05f;      // rad (about 3 degrees)
         public const float MovingAccuracy = 0.5f;
         public const float ArmourPreference = 2.5f;   // a gun that can hole armour looks at tanks this much farther out than at men
-        public const int WeaponIdBase = 40;           // Explosion.a for a tank shell: 40 + archetype
+        // Explosion.a for a tank shell is SourceId.Unit(archetype); the old 40 + id ceiling is gone (see SourceId.cs)
         public int Order => SimSystemOrder.DirectFire + 5;
 
         readonly MapData map;
@@ -296,7 +296,7 @@ namespace TW.Sim.Combat
                             Impacts.Add(new Impact
                             {
                                 Pos = land, Damage = g.HeDamage, Radius = g.HeRadius, Suppression = g.HeSuppression,
-                                CraterRadius = g.HeCrater, CraterDepth = g.HeCrater * 0.25f, Source = WeaponIdBase + Archetype[i], Player = Team[i],
+                                CraterRadius = g.HeCrater, CraterDepth = g.HeCrater * 0.25f, Source = SourceId.Unit(Archetype[i]), Player = Team[i],
                                 // the way the round was going: the far side of the burst takes more of it, and the
                                 // men are thrown along it. An indirect mortar round (Kettle) comes down steeply, so
                                 // its flattened direction is short and BlastRules leans it hardly at all.

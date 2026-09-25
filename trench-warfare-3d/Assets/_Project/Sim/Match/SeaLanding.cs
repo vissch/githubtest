@@ -52,7 +52,7 @@ namespace TW.Sim.Match
         public const float ShipOutMin = -60f, ShipOutMax = 120f;
         public const int ShipEvery = 460;       // ticks between two salvos from the fleet (23 s)
         public const float ShipDamage = 300f, ShipRadius = 7.5f, ShipSuppression = 80f, ShipCrater = 2.4f;
-        public const int ShipSource = 60;       // Explosion.a for a naval shell
+        public const int ShipSource = SourceId.Ship;   // Explosion.a for a naval shell
 
         readonly MapData map;
         NativeArray<float3> ships;              // where each gunboat lies: fixed for the match, hashed with the rest

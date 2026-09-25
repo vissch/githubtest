@@ -21,7 +21,7 @@ namespace TW.Sim.Combat
     public sealed class LeapSystem : ISimSystem
     {
         public const uint CheckEvery = 10;      // a jetpack man looks for a trench to jump into every half second
-        public const int LandingSource = TankGunnerySystem.WeaponIdBase + InfantryArchetype.Jetpack;   // Explosion.a for the landing burst
+        public static readonly int LandingSource = SourceId.Unit(InfantryArchetype.Jetpack);   // Explosion.a for the landing burst
         public int Order => SimSystemOrder.Leap;
 
         readonly MapData map;

@@ -48,7 +48,7 @@ namespace TW.Sim.Units
         public const float FireGrowth = 0.035f, FireBurn = 14f, ExtinguishChance = 0.15f, BailFire = 0.6f;
         public const int CookOffMin = 20, CookOffMax = 70, BurnOutMin = 240, BurnOutMax = 480;
         public const float CookOffDamage = 380f, CookOffRadius = 9f, CookOffSuppression = 70f, CookOffCrater = 2f;
-        public const int CookOffSource = 30;           // Explosion.a for a tank blowing up
+        public const int CookOffSource = SourceId.CookOff;   // Explosion.a for a tank blowing up
         public const float BailedHp = 50f, BailedSpeed = 3f;
         public const float ObliterateShare = 0.5f;
         public const uint StandardEvery = 5;   // ticks between two sweeps of a Banner's standard
