@@ -78,6 +78,7 @@ namespace TW.Sim.Nav
                 PostCell = w.PostCell, PostKind = w.PostKind, TrenchDefs = map.Trenches.AsArray(), Team = w.Team,
                 GoalId = w.GoalId, Cooldown = w.Cooldown, Knock = w.Knock, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
                 Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick, Archetype = w.Archetype,
+                Specs = w.Units.Infantry,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
@@ -117,6 +118,7 @@ namespace TW.Sim.Nav
             [ReadOnly] public NativeArray<int> TargetSlot;
             [ReadOnly] public NativeArray<ushort> Generation;
             [ReadOnly] public NativeArray<byte> Archetype;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<float3> Push;
             public uint Tick;
             public const float DriftAmount = 0.38f;     // lateral drift as a fraction of the forward speed
@@ -212,7 +214,7 @@ namespace TW.Sim.Nav
                         byte d = Directions[goal * CellCount + cell];
                         dir = d != FlowField.NoDirection ? FlowField.Offset(d) : float2.zero;
                     }
-                    else if (!inTrench && !InfantrySpec.For(Archetype[i]).NoDrift)   // a shield bearer walks straight: he is the front of the line
+                    else if (!inTrench && !Specs[Archetype[i]].NoDrift)   // a shield bearer walks straight: he is the front of the line
                     {
                         // open ground: a slow wander to one side and back, different for every man, so the company spreads
                         uint seed = (uint)i * 2654435761u ^ (uint)Generation[i] * 40503u;

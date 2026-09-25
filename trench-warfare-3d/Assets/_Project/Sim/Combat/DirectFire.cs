@@ -64,6 +64,7 @@ namespace TW.Sim.Combat
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf, Yaw = w.Yaw,
+                Specs = w.Units.Infantry,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
@@ -101,6 +102,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<float3> Position, Velocity;
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<float> Yaw;
             [ReadOnly] public SpatialHash Spatial;
             [ReadOnly] public NativeArray<short> CellTrenchId;
@@ -126,7 +128,7 @@ namespace TW.Sim.Combat
             /// penetration roll and, when it stops, the damage the plate took, logs it and suppresses him a little.</summary>
             bool Stopped(int i, int t, in WeaponStats weapon, float3 p, float3 q, float3 dir, ref Random rng)
             {
-                var spec = InfantrySpec.For(Archetype[t]);
+                var spec = Specs[Archetype[t]];
                 if (spec.ShieldPlateMm <= 0f) return false;
                 float3 back = p - q; back.y = 0f;
                 float bearing = SimMath.Atan2(back.x, back.z);                       // sim yaw: 0 is +Z, positive to the right
@@ -185,7 +187,7 @@ namespace TW.Sim.Combat
                     var myStance = (Stance)StanceOf[i];
                     var theirStance = (Stance)StanceOf[t];
                     float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax)
-                                 * StanceRules.AccuracyMultiplier(myStance, InfantrySpec.For(Archetype[i]).Braced || VehicleArchetype.IsTank(Archetype[i]))
+                                 * StanceRules.AccuracyMultiplier(myStance, Specs[Archetype[i]].Braced || VehicleArchetype.IsTank(Archetype[i]))
                                  * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                     if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (Flags[i] & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
 

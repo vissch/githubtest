@@ -44,7 +44,7 @@ namespace TW.Sim.Units
                 if (w.Tick % SupportEvery != (uint)i % SupportEvery) continue;
                 uint f = w.Flags[i];
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
-                var spec = InfantrySpec.For(w.Archetype[i]);
+                var spec = w.Units.Infantry[w.Archetype[i]];   // the match table, not the compiled default
                 if (spec.HealPerSecond > 0f) Heal(w, i, spec, dt);
                 if (spec.RepairPerSecond > 0f) Repair(w, i, spec, dt);
             }

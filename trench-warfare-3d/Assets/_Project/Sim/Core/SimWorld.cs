@@ -75,10 +75,18 @@ namespace TW.Sim
         public IReadOnlyList<ISimSystem> Systems => systems;
         NativeList<SimCommand> sortScratch;
 
-        public SimWorld(SimConfig config, SimConfig.WorldInit init)
+        /// <summary>
+        /// The units of this match: every per-archetype spec, as a table. Two worlds in a lockstep pair must be given
+        /// the same one — the fingerprint is in the tick hash, so a mismatch is caught on the first tick rather than
+        /// looking like a physics bug later.
+        /// </summary>
+        public UnitCatalogue Units { get; private set; }
+
+        public SimWorld(SimConfig config, SimConfig.WorldInit init, UnitCatalogue units = null)
         {
             Config = config;
             Init = init;
+            Units = units ?? UnitCatalogue.Default();
             int n = config.MaxSlots;
             Position = new NativeArray<float3>(n, Allocator.Persistent);
             Velocity = new NativeArray<float3>(n, Allocator.Persistent);
@@ -334,6 +342,7 @@ namespace TW.Sim
         {
             ulong h = SimHash.Offset;
             h = SimHash.Value(Tick, h);
+            h = Units.Hash(h);   // the units of the match are state: a different table is a different battle
             h = SimHash.Value(WinnerTeam, h);
             h = SimHash.Value(HighWater, h);
             h = SimHash.Value(AliveCount, h);
@@ -373,6 +382,7 @@ namespace TW.Sim
         {
             foreach (var s in systems) s.Dispose();
             systems.Clear();
+            Units?.Dispose(); Units = null;
             Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose();
             Speed.Dispose(); StanceOf.Dispose(); Team.Dispose(); Archetype.Dispose(); Layer.Dispose(); TrenchId.Dispose(); SourceTrench.Dispose();
             PostCell.Dispose(); PostKind.Dispose();

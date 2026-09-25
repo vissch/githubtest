@@ -53,7 +53,7 @@ namespace TW.Sim.Combat
             if (n == 0) return;
             new SweepJob
             {
-                Count = n, Position = w.Position, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, Suppression = w.Suppression,
+                Count = n, Position = w.Position, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, Suppression = w.Suppression, Specs = w.Units.Infantry,
                 HeroScale = heroScale, DamageMul = DamageMul, SuppressionMul = SuppressionMul, Covered = Covered,
             }.Run();
         }
@@ -73,6 +73,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<float3> Position;
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<float> Suppression;
             [ReadOnly] public NativeArray<float> HeroScale;
             public NativeArray<float> DamageMul, SuppressionMul;
@@ -85,7 +86,7 @@ namespace TW.Sim.Combat
                 {
                     uint f = Flags[i];
                     if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
-                    var spec = InfantrySpec.For(Archetype[i]);
+                    var spec = Specs[Archetype[i]];
                     if (spec.AuraRadius <= 0f || Suppression[i] >= SuppressionRules.PinnedThreshold) continue;
                     float r2 = spec.AuraRadius * spec.AuraRadius;
                     byte team = Team[i]; float3 at = Position[i];

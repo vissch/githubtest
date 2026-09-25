@@ -55,7 +55,7 @@ namespace TW.Sim.Combat
                 if (gen[i] != w.Generation[i]) { gen[i] = w.Generation[i]; LeapCooldown[i] = 0; GraceTicks[i] = 0; InAir[i] = 0; movement.LeapTicks[i] = 0; }
                 uint f = w.Flags[i];
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
-                var spec = InfantrySpec.For(w.Archetype[i]);
+                var spec = w.Units.Infantry[w.Archetype[i]];
                 if (spec.JumpRange <= 0f) continue;
 
                 // landed last tick: the burst under him, and a moment's grace

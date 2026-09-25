@@ -51,7 +51,7 @@ namespace TW.Sim.Combat
             {
                 Grid = grid, GridW = gridW, GridL = gridL, Tick = w.Tick,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype,
-                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot,
+                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry,
                 Trenches = fields.Trenches, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
             }.Schedule(n, 32).Complete();
@@ -87,6 +87,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<float3> Position, Velocity;
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<float> Suppression;
             [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<TrenchState> Trenches;
@@ -124,7 +125,7 @@ namespace TW.Sim.Combat
                         if (j == pick || Team[j] != Team[pick]) continue;
                         uint fj = Flags[j];
                         if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.Vehicle) != 0) continue;
-                        var spec = InfantrySpec.For(Archetype[j]);
+                        var spec = Specs[Archetype[j]];
                         if (spec.ShieldPlateMm <= 0f) continue;
                         float3 g = Position[j] - tp; g.y = 0f;
                         if (math.lengthsq(g) > spec.ShieldGuardRadius * spec.ShieldGuardRadius) continue;
