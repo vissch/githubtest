@@ -93,6 +93,54 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ShotTickDefaultsToTheWarmUpStillAndParses()
+        {
+            Assert.AreEqual(-1, BenchOptions.Parse("stress=1500 shot=C:/runs/a.png").ShotTick, "no shot_tick: the paused warm-up still");
+            var o = BenchOptions.Parse("shot=C:/runs/a.png shot_tick=120 scenario=barrage");
+            Assert.AreEqual(120, o.ShotTick);
+            Assert.AreEqual("C:/runs/a.png", o.Shot, "shot_tick is not read as shot");
+            Assert.AreEqual(BenchScenario.Barrage, o.Scenario);
+        }
+
+        [Test]
+        public void ShotHudDefaultsOnAndParsesOff()
+        {
+            Assert.IsTrue(BenchOptions.Parse("shot=C:/runs/a.png shot_tick=120").ShotHud, "the HUD is in the still unless asked");
+            Assert.IsFalse(BenchOptions.Parse("shot=C:/runs/a.png shot_tick=120 shot_hud=0").ShotHud);
+            Assert.IsFalse(BenchOptions.Parse("shot_hud=false").ShotHud);
+            Assert.AreEqual(120, BenchOptions.Parse("shot_tick=120 shot_hud=0").ShotTick, "shot_hud is not read as shot_tick");
+        }
+
+        // C33: the held clock. Time.time reaches the menu at whatever the splash took; the bench walks it to one value,
+        // in steps Time.maximumDeltaTime cannot clamp, and every start must land on the SAME float Time.time, or every
+        // shader's _Time (rain, fog, water, flames) starts each run somewhere else and the still does not repeat.
+        [Test]
+        public void HeldClockLandsOnTheSameTimeFromAnyStart()
+        {
+            float landed = -1f;
+            foreach (double start in new[] { 0.0, 2.345678912, 7.1, 17.999999, 41.25, 62.9 })
+            {
+                double target = PerfBench.AlignTarget(start), now = start;
+                Assert.AreEqual(64.0, target, "start " + start);
+                int frames = 0;
+                for (float step; (step = PerfBench.AlignStep(now, target)) > 0f; frames++)
+                {
+                    Assert.LessOrEqual(step, PerfBench.AlignMaxStep, "a step Time.maximumDeltaTime (0.333 s) could clamp");
+                    now += step;   // what the engine adds: captureDeltaTime is a float
+                    Assert.Less(frames, 2000, "the walk must end");
+                }
+                Assert.AreEqual(target, now, 1e-6, "start " + start);
+                // then the held frames: Time.time (a float) must read the same on the still's frame from every start
+                double shot = now;
+                for (int k = 0; k < 900; k++) shot += PerfBench.HeldStep;
+                if (landed < 0f) landed = (float)shot;
+                Assert.AreEqual(landed, (float)shot, "start " + start + ": the still's Time.time differs");
+            }
+            Assert.AreEqual(128.0, PerfBench.AlignTarget(63.5), "less than a second short goes to the next multiple");
+            Assert.AreEqual(1f / 64f, PerfBench.HeldStep, "a power of two, so the held frames add up exactly");
+        }
+
+        [Test]
         public void EmptyStringKeepsTheDefaults()
         {
             var o = BenchOptions.Parse("");

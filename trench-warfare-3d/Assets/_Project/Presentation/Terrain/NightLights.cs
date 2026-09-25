@@ -50,6 +50,10 @@ namespace TW.Presentation.Terrain
         public bool Built => built;
         readonly List<Object> owned = new List<Object>();
         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
+        // The frame since Start, for the hashes that place guns, flares and embers (C33): Time.frameCount counts every
+        // splash and menu frame too, so a star shell went up somewhere else in each of two identical bench runs.
+        int frame0;
+        int Frame => Time.frameCount - frame0;
 
         /// <summary>Fire a star shell on the next frame instead of waiting for the timer (bench scenarios, captures of
         /// the moment). Presentation only: nothing in the sim sees a star shell.</summary>
@@ -67,6 +71,7 @@ namespace TW.Presentation.Terrain
 
         void Start()
         {
+            frame0 = Time.frameCount;
             maxLanterns = Mathf.Max(0, Knobs.Get("lights.maxLanterns", MaxLanterns));
             maxTrenchLamps = Mathf.Max(0, Knobs.Get("lights.maxTrenchLamps", MaxTrenchLamps));
             maxFires = Mathf.Max(0, Knobs.Get("lights.maxFires", MaxFires));
@@ -410,7 +415,7 @@ namespace TW.Presentation.Terrain
                     g.Light.transform.position = at - Vector3.up * 1.1f;
                     g.Light.color = new Color(1f, .34f, .10f); g.Light.range = 6f + 0.55f * r; g.Light.enabled = true;
                     g.Peak = 4f + 1f * r; g.Born = Time.time; g.Life = 2.1f;
-                    embers[nextEmber] = new Ember { Pos = at - Vector3.up * 1.25f, Born = Time.time, Life = 7f + 5f * Hash(Time.frameCount, 29), Size = Mathf.Clamp(e.Scalar * .55f, 1.6f, 4f) };
+                    embers[nextEmber] = new Ember { Pos = at - Vector3.up * 1.25f, Born = Time.time, Life = 7f + 5f * Hash(Frame, 29), Size = Mathf.Clamp(e.Scalar * .55f, 1.6f, 4f) };
                     nextEmber = (nextEmber + 1) % EmberCount;
                 }
             }
@@ -478,11 +483,11 @@ namespace TW.Presentation.Terrain
             if (Time.time >= nextGuns)
             {
                 var map = Host.Local.Map;
-                bool salvo = Hash(Time.frameCount, 41) < .35f;
-                nextGuns = Time.time + (salvo ? .18f : Mathf.Lerp(2.5f, 8f, Hash(Time.frameCount, 43)));
-                bool far = Hash(Time.frameCount, 47) < .7f;
-                Vector3 at = far ? new Vector3(-90f - 110f * Hash(Time.frameCount, 53), 1.5f, map.SizeMeters.y * Hash(Time.frameCount, 59))
-                                 : new Vector3(map.SizeMeters.x * Hash(Time.frameCount, 61), 1.5f, map.SizeMeters.y + 100f + 110f * Hash(Time.frameCount, 67));
+                bool salvo = Hash(Frame, 41) < .35f;
+                nextGuns = Time.time + (salvo ? .18f : Mathf.Lerp(2.5f, 8f, Hash(Frame, 43)));
+                bool far = Hash(Frame, 47) < .7f;
+                Vector3 at = far ? new Vector3(-90f - 110f * Hash(Frame, 53), 1.5f, map.SizeMeters.y * Hash(Frame, 59))
+                                 : new Vector3(map.SizeMeters.x * Hash(Frame, 61), 1.5f, map.SizeMeters.y + 100f + 110f * Hash(Frame, 67));
                 Flash(at, new Color(1f, .72f, .45f), .6f, 60f, .22f, .16f);
             }
             UpdateFlare();
@@ -493,12 +498,12 @@ namespace TW.Presentation.Terrain
             var map = Host.Local.Map;
             if (Time.time >= nextFlare)
             {
-                nextFlare = Time.time + Mathf.Lerp(FlareEvery.x, FlareEvery.y, Hash(Time.frameCount, 17));
+                nextFlare = Time.time + Mathf.Lerp(FlareEvery.x, FlareEvery.y, Hash(Frame, 17));
                 var cam = Camera.main;
                 // over the ground ahead of what the camera looks at, pushed toward the middle of the field
                 Vector3 look = cam != null ? cam.transform.position + cam.transform.forward * (cam.transform.position.y / Mathf.Max(.15f, -cam.transform.forward.y)) : new Vector3(map.SizeMeters.x * .5f, 0f, map.SizeMeters.y * .5f);
-                float z = Mathf.Lerp(look.z, map.SizeMeters.y * .5f, .45f) + (Hash(Time.frameCount, 19) - .5f) * 30f;
-                float x = Mathf.Clamp(look.x + (Hash(Time.frameCount, 23) - .5f) * 40f, 8f, map.SizeMeters.x - 8f);
+                float z = Mathf.Lerp(look.z, map.SizeMeters.y * .5f, .45f) + (Hash(Frame, 19) - .5f) * 30f;
+                float x = Mathf.Clamp(look.x + (Hash(Frame, 23) - .5f) * 40f, 8f, map.SizeMeters.x - 8f);
                 flareFrom = new Vector3(x, RenderGround.Sample(map, x, Mathf.Clamp(z, 0f, map.SizeMeters.y - 1f)) + 42f, z);
                 flareBorn = Time.time; flareLight.enabled = true;
             }

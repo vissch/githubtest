@@ -67,6 +67,10 @@ namespace TW.Presentation.Terrain
         public const double ChunkBudgetMs = 2.0;
         double chunkBudgetMs = ChunkBudgetMs;   // or the knob terrain.chunkBudgetMs (Start)
         readonly System.Diagnostics.Stopwatch chunkWatch = new System.Diagnostics.Stopwatch();
+        /// <summary>Tooling (PerfBench's held clock, C33): the paint and chunk budgets below are milliseconds of real time,
+        /// so how much of a crater is painted by a given frame depends on the machine. While this is set every queued tile
+        /// and row is done in the frame it is queued, so a still does not. Never set during a measured window.</summary>
+        public static bool Unmetered;
         float[] rowBehindAhead = new float[0];   // the samples 0.25 m either side of a row's vertices along x, shared
         int chunkCursor;
         /// <summary>A crater's hollows are still to be rescanned: until they are, nothing that reads them (the chunks
@@ -560,7 +564,7 @@ namespace TW.Presentation.Terrain
                 int m = scorchSweep++;
                 if (m < scorchBorn.Count && Time.time - scorchBorn[m] < SnowFillSeconds) QueueScorchTiles(scorchMarks[m]);
             }
-            while (paintTiles.Count > 0 && paintWatch.Elapsed.TotalMilliseconds < 2.0)
+            while (paintTiles.Count > 0 && (Unmetered || paintWatch.Elapsed.TotalMilliseconds < 2.0))
             {
                 var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
                 RepaintTile(tile); colorDirty = true;
@@ -582,14 +586,14 @@ namespace TW.Presentation.Terrain
                     var c = chunks[i];
                     if (!c.Dirty) continue;
                     chunkCursor = i;   // stay on it until it is done
-                    while (c.NextRow < c.L && (rows == 0 || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
+                    while (c.NextRow < c.L && (rows == 0 || Unmetered || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
                     if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
                     c.Dirty = false; c.NextRow = 0;
                     c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                     c.Mesh.RecalculateBounds();
                     if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
                     chunkCursor = (i + 1) % chunks.Count;
-                    if (chunkWatch.Elapsed.TotalMilliseconds >= chunkBudgetMs) break;
+                    if (!Unmetered && chunkWatch.Elapsed.TotalMilliseconds >= chunkBudgetMs) break;
                 }
             }
             TW.Sim.PerfMarkers.TerrainChunks.End();

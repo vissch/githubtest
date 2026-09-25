@@ -33,6 +33,10 @@ namespace TW.Presentation.Terrain
         struct Pulse { public float At, Length, Strength; }
         readonly List<Pulse> pulses = new List<Pulse>();
         float struckAt = -100f, nextStrike, strikeStrength;
+        // The storm's own unscaled clock, from 0 at Start (C33). It advances by Time.captureDeltaTime while a tool holds
+        // the clock (PerfBench's repeatable still), else by unscaledDeltaTime, so strikes, freezes and their Random
+        // draws land on the same frames in every held run. Everything here is relative to it, so play is unchanged.
+        float clock;
         Vector3 struckWhere;
         Mesh bolt; Material boltMaterial, glowMaterial; Light flashLight; GameObject glowCard;
         AudioSource voice; AudioClip[] thunder;
@@ -74,7 +78,7 @@ namespace TW.Presentation.Terrain
             // frame where the camera is inactive used to add a SECOND listener, which Unity warns about and which
             // makes global volume non-deterministic. Listener ownership belongs to the camera, not to the weather.
             thunder = new[] { MakeThunder(0, 1f, 5.5f), MakeThunder(1, .45f, 6.5f), MakeThunder(2, .08f, 7.5f) };   // near: a crack; far: all rumble
-            nextStrike = Time.unscaledTime + 9f;
+            nextStrike = clock + 9f;
         }
 
         void OnDisable() { Thaw(); }
@@ -138,7 +142,7 @@ namespace TW.Presentation.Terrain
             Vector3 foot = ray.origin + ray.direction * reach;
             float far = Vector3.Distance(look, foot);
             foot.y = RenderGround.Map != null ? RenderGround.Sample(RenderGround.Map, Mathf.Clamp(foot.x, 0f, RenderGround.Map.SizeMeters.x - 1f), Mathf.Clamp(foot.z, 0f, RenderGround.Map.SizeMeters.y - 1f)) : 0f;
-            struckWhere = foot; struckAt = Time.unscaledTime;
+            struckWhere = foot; struckAt = clock;
             strikeStrength = Mathf.Lerp(1f, .6f, Mathf.InverseLerp(15f, 110f, far));
 
             pulses.Clear();
@@ -158,7 +162,7 @@ namespace TW.Presentation.Terrain
             BuildBolt(foot, t.position);
 
             float distance = Vector3.Distance(t.position, foot) + 120f;   // the flash is ground to cloud; most of the sound comes from up there
-            pending.Add(new Pending { At = Time.unscaledTime + distance / 343f, Volume = ThunderVolume * Mathf.Lerp(1f, .5f, Mathf.InverseLerp(150f, 380f, distance)), Clip = distance < 210f ? 0 : distance < 300f ? 1 : 2 });
+            pending.Add(new Pending { At = clock + distance / 343f, Volume = ThunderVolume * Mathf.Lerp(1f, .5f, Mathf.InverseLerp(150f, 380f, distance)), Clip = distance < 210f ? 0 : distance < 300f ? 1 : 2 });
             Atmosphere.StormLightFrom = (look - (foot + Vector3.up * 70f)).normalized;
         }
 
@@ -212,7 +216,7 @@ namespace TW.Presentation.Terrain
         void Freeze(float seconds)
         {
             if (frozenUntil < 0f) scaleBefore = Time.timeScale;
-            frozenUntil = Mathf.Max(frozenUntil, Time.unscaledTime + seconds);
+            frozenUntil = Mathf.Max(frozenUntil, clock + seconds);
             Time.timeScale = 0f;
         }
 
@@ -226,14 +230,15 @@ namespace TW.Presentation.Terrain
         void Update()
         {
             using var perf = TW.Sim.PerfMarkers.StormUpdate.Auto();
-            if (frozenUntil >= 0f && Time.unscaledTime >= frozenUntil) Thaw();
+            clock += Time.captureDeltaTime > 0f ? Time.captureDeltaTime : Time.unscaledDeltaTime;
+            if (frozenUntil >= 0f && clock >= frozenUntil) Thaw();
             float rain = Mathf.Clamp01(Atmosphere.RainNow);
-            if (Time.unscaledTime >= nextStrike)
+            if (clock >= nextStrike)
             {
-                nextStrike = Time.unscaledTime + Mathf.Lerp(Every.y, Every.x, rain) * Random.Range(.6f, 1.4f);
+                nextStrike = clock + Mathf.Lerp(Every.y, Every.x, rain) * Random.Range(.6f, 1.4f);
                 if (rain > .12f && Time.timeScale > 0f) Strike();   // never while something else has the game paused
             }
-            float since = Time.unscaledTime - struckAt, flash = 0f;
+            float since = clock - struckAt, flash = 0f;
             for (int k = 0; k < pulses.Count; k++)
             {
                 float a = since - pulses[k].At;
@@ -248,7 +253,7 @@ namespace TW.Presentation.Terrain
 
             for (int k = pending.Count - 1; k >= 0; k--)
             {
-                if (Time.unscaledTime < pending[k].At) continue;
+                if (clock < pending[k].At) continue;
                 // the ambience bus only: Master is already on the listener, and applying it here too squared it.
                 // Baked at fire time rather than live, which is right for a one-shot — a 6 s thunderclap keeps the
                 // ambience level it was fired at, while Master stays live on the listener.

@@ -36,6 +36,15 @@ namespace TW.Perf
         /// <summary>A PNG of the held view, taken during the warm-up (so it is not a frame of the window): proof of what
         /// the numbers were measured on, e.g. that a player build draws what the editor does.</summary>
         public string Shot = "";
+        /// <summary>Take the `shot=` still this many sim ticks into the window instead of in the paused warm-up, so it
+        /// shows the battle (and the scenario) running. -1 (default) keeps the warm-up still. A run with shot_tick >= 0
+        /// keeps the held clock (PerfBench, C33) through its window so the still repeats: its timings are then NOT real
+        /// time, which makes it an image run, never a perf sample. Keep it below `ticks`.</summary>
+        public int ShotTick = -1;
+        /// <summary>0 hides every UI Toolkit panel (the HUD, the shell) through an image run's warm-up and window, so its still
+        /// is the battlefield alone. The HUD animates on real time and follows the owner's pointer over the background
+        /// window (C33: the only pixels that still differed between three held-clock runs). 1 (default) keeps it.</summary>
+        public bool ShotHud = true;
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
         public bool Quit = true;
         /// <summary>What happens in the measured window (docs/reference/aosa/README.md "Scenarios"), issued as sim
@@ -79,6 +88,8 @@ namespace TW.Perf
                     case "label": o.Label = v; break;
                     case "out": o.Out = v; break;
                     case "shot": o.Shot = v; break;
+                    case "shot_tick": o.ShotTick = I(v, o.ShotTick); break;
+                    case "shot_hud": o.ShotHud = !(v == "0" || v.ToLowerInvariant() == "false"); break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
                     case "scenario": o.ScenarioRaw = v; o.Scenario = ParseScenario(v); break;
                     // several knobs= tokens add up rather than the last one winning

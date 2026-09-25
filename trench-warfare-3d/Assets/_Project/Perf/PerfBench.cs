@@ -18,6 +18,16 @@
 // AOSA (2026-09-25): `scenario=` stages barrages, armour or a vfx stack in the window (BenchScenarios), issued as sim
 // commands only after hash_start; `knobs=a=1|b=2` sets TW.Presentation.Knobs before the scene loads, and the report
 // carries Knobs.ToJson() as config.knobs; window.hash_end fixes the state the window ended on (docs/reference/aosa).
+// C33 (2026-09-25): the `shot=` still repeats. Three runs of one build, same hashes, differed on 7.5-10% of the still's
+// pixels, because everything before it ran on real time: the men's idle poses (SimHost's animTime), every shader's
+// _Time (rain, fog, water, flames, wind), lantern flicker, and whichever effects the fast-forward happened to leave in
+// flight. So the lead-in now runs on a HELD clock: in the menu Time.time is walked to a fixed value (AlignClock), then
+// every frame from the match's load to the window's first is Time.captureDeltaTime = 1/64 s, UnityEngine.Random starts
+// from one seed, the terrain's millisecond budgets are off and the camera is the bench's own from the first settle
+// frame. The sim steps the same ticks on the same frames in every run, so every frame before the window is the same
+// frame. The clock is released before the window's first frame: the window runs on real time exactly as before.
+// `shot_tick=N` instead takes the still N ticks into the window and keeps the clock held through it: an image run of
+// the battle running, whose timings are not real time.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -91,7 +101,7 @@ namespace TW.Perf
         int gcCollectionsStart;
         long monoStart, monoMax;
 
-        void OnDestroy() { if (Running == this) Running = null; }
+        void OnDestroy() { ReleaseClock(); if (Running == this) Running = null; }
 
         void Update()
         {
@@ -105,10 +115,10 @@ namespace TW.Perf
             switch (stage)
             {
                 case Stage.WaitHost: WaitHost(); break;
-                case Stage.Settle: Settle(); break;
-                case Stage.Approach: Approach(); break;
-                case Stage.Warm: Pose(); Warm(); break;
-                case Stage.Window: Pose(); Sample(); break;
+                case Stage.Settle: Follow(); Settle(); break;
+                case Stage.Approach: Follow(); Approach(); break;
+                case Stage.Warm: Pose(); HideHud(); Warm(); break;
+                case Stage.Window: Pose(); HideHud(); Sample(); break;
             }
         }
 
@@ -120,11 +130,14 @@ namespace TW.Perf
             if (host == null) host = FindFirstObjectByType<SimHost>();
             if (host == null && !launched && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == MatchLaunch.MenuScene)
             {
+                if (!AlignClock()) return;   // some cheap menu frames, walking Time.time to the same value in every run
+                HoldClock();                  // before the battle loads: its first frame is already on the held clock
                 launched = true;
                 MatchLaunch.Start(new MatchLaunch.Request { Title = "PerfBench" });
                 return;
             }
             if (host == null || host.Local == null) return;
+            HoldClock();   // the editor path (no menu): the scene was already running, so this clock is held but not aligned
             if (++waitFrames < 3) return;   // ShellBoot applies settings.json after the scene loads; ours come after it
             if (Options.Quality >= 0 && Options.Quality < QualitySettings.names.Length) QualitySettings.SetQualityLevel(Options.Quality, true);
             QualitySettings.vSyncCount = Options.VSync ? 1 : 0;
@@ -133,6 +146,7 @@ namespace TW.Perf
             EventPump.ProfileSubscribers = Options.Subscribers;
             host.TimeScale = Options.FastForward;
             settleDeadline = Time.realtimeSinceStartup + 900f;
+            TakeCamera();
             stage = Stage.Settle;
             Debug.Log($"[PerfBench] settling to tick {Options.SettleTicks} at {Options.FastForward}x with {Options.Stress} a side");
         }
@@ -156,13 +170,7 @@ namespace TW.Perf
             if (w.Tick < (uint)Options.SettleTicks) return;
             host.TimeScale = 0f;   // paused on the tick: the warm-up renders a frozen battle
             host.DropBacklog();
-            tactical = FindFirstObjectByType<TacticalCamera>();
-            cam = tactical != null ? tactical.GetComponent<Camera>() : null;
-            if (cam == null) cam = Camera.main;
-            focus = ArmyCentre(w);
-            if (tactical != null) tactical.enabled = false;   // it re-places the camera every frame; the bench holds it
-            keepShake = CameraShake.Strength;
-            CameraShake.Strength = 0f;
+            focus = ArmyCentre(w);   // the window's view: the army's centre on the settle tick, as it always was
             if (Options.Weather >= 0f) Atmosphere.PinnedClock = Options.Weather;
             warmLeft = Mathf.Max(1, Options.Warm);
             stage = Stage.Warm;
@@ -170,11 +178,7 @@ namespace TW.Perf
 
         void Warm()
         {
-            if (warmLeft == 10 && !string.IsNullOrEmpty(Options.Shot))
-            {
-                try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); ScreenCapture.CaptureScreenshot(Path.GetFullPath(Options.Shot)); }
-                catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
-            }
+            if (warmLeft == 10 && Options.ShotTick < 0) Shoot("warm");
             if (--warmLeft > 0) return;
             var w = host.Local.World;
             OpenRecorders();
@@ -189,6 +193,8 @@ namespace TW.Perf
             gcCollectionsStart = GC.CollectionCount(0);
             monoStart = monoMax = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
             host.DropBacklog();
+            // the window runs on real time, as it always has; only an image run (shot_tick) keeps the clock held
+            if (Options.ShotTick < 0) ReleaseClock();
             host.TimeScale = 1f;
             stage = Stage.Window;
         }
@@ -226,6 +232,111 @@ namespace TW.Perf
             float ground = host.Local.Map.Height.Sample(focus.x, focus.y);
             var aim = new Vector3(focus.x, ground * close + 1.1f * close, focus.y);
             cam.transform.SetPositionAndRotation(aim - rot * Vector3.forward * distance, rot);
+        }
+
+        /// <summary>The camera is the bench's from the first settle frame (C33): TacticalCamera's follow and the shake run
+        /// on unscaled time, which the held clock may not hold, and what the camera sees decides which effects are
+        /// spawned and how many Random draws they take.</summary>
+        void TakeCamera()
+        {
+            tactical = FindFirstObjectByType<TacticalCamera>();
+            cam = tactical != null ? tactical.GetComponent<Camera>() : null;
+            if (cam == null) cam = Camera.main;
+            if (tactical != null) tactical.enabled = false;   // it re-places the camera every frame; the bench holds it
+            keepShake = CameraShake.Strength;
+            CameraShake.Strength = 0f;
+        }
+
+        /// <summary>The lead-in's view: the standard view over the army's centre on this frame's tick. The window's
+        /// focus is the same arithmetic on the settle tick (Approach), so the window's view is unchanged.</summary>
+        void Follow()
+        {
+            if (host == null || host.Local == null) return;
+            focus = ArmyCentre(host.Local.World);
+            Pose();
+        }
+
+        // ------------------------------------------------------------------------------------------- the held clock
+        /// <summary>Seconds a frame while the clock is held: a power of two, so Time.time adds up exactly.</summary>
+        public const float HeldStep = 1f / 64f;
+        /// <summary>Time.time is walked to a multiple of this before the match loads.</summary>
+        public const double ClockGrid = 64.0;
+        /// <summary>The largest walking step: under Time.maximumDeltaTime (0.333 s), which might clamp a longer one.</summary>
+        public const float AlignMaxStep = 0.25f;
+        const int RandomSeed = 0x7E5EED;
+        double alignTarget = -1.0;
+        int alignFrames, heldFrame0, stillFrame = -1;
+        bool clockHeld, clockAligned;
+        string stillWhere = "";
+        uint stillTick;
+        double stillTime, stillUnscaled;
+
+        /// <summary>Where Time.time is walked to: the first multiple of ClockGrid at least a second ahead of now.</summary>
+        public static double AlignTarget(double now) => ClockGrid * Math.Ceiling((now + 1.0) / ClockGrid);
+
+        /// <summary>The next frame's captureDeltaTime towards target, or 0 once the clock is there (to 0.1 ms; the last
+        /// step lands within a float's rounding of it, far below anything a frame can show).</summary>
+        public static float AlignStep(double now, double target)
+        {
+            double left = target - now;
+            return left <= 1e-4 ? 0f : (float)Math.Min(left, AlignMaxStep);
+        }
+
+        /// <summary>Menu frames only. Time.time cannot be set, and it reaches the battle at whatever the splash and the
+        /// menu took, so everything that reads it absolutely (URP's _Time in every shader, lantern flicker) started each
+        /// run somewhere else. True when it is there, or when it cannot get there (the report then says so).</summary>
+        bool AlignClock()
+        {
+            if (alignTarget < 0.0) alignTarget = AlignTarget(Time.timeAsDouble);
+            float step = AlignStep(Time.timeAsDouble, alignTarget);
+            if (step <= 0f || Time.timeScale != 1f || ++alignFrames > 2000) { clockAligned = step <= 0f; return true; }
+            Time.captureDeltaTime = step;
+            return false;
+        }
+
+        /// <summary>From here to the window every frame is HeldStep long whatever the machine does, UnityEngine.Random
+        /// starts from one seed and the terrain's millisecond budgets are off, so every frame of the lead-in is the same
+        /// in every run (the sim already was). Nothing here reaches the sim: it steps on ticks, never on frames.</summary>
+        void HoldClock()
+        {
+            if (clockHeld) return;
+            Time.captureDeltaTime = HeldStep;
+            UnityEngine.Random.InitState(RandomSeed);
+            GreyboxTerrainView.Unmetered = true;
+            heldFrame0 = Time.frameCount;
+            clockHeld = true;
+        }
+
+        /// <summary>Real time again from the next frame (the window's first, or wherever the run stopped).</summary>
+        void ReleaseClock()
+        {
+            if (!clockHeld) return;
+            Time.captureDeltaTime = 0f;
+            GreyboxTerrainView.Unmetered = false;
+            clockHeld = false;
+        }
+
+        /// <summary>`shot_hud=0` on an image run: every UI Toolkit panel's root is set to display none, each frame (a panel
+        /// rebuilt later is caught too). The HUD still runs; it is only not drawn.</summary>
+        void HideHud()
+        {
+            if (Options.ShotHud || Options.ShotTick < 0) return;
+            foreach (var doc in FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
+                if (doc.rootVisualElement != null) doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.None;
+        }
+
+        /// <summary>The `shot=` still, once, written at the end of this frame. The report's `still` block says which frame
+        /// of the held clock it was, so two runs can be checked for having shot the same frame.</summary>
+        void Shoot(string where)
+        {
+            if (string.IsNullOrEmpty(Options.Shot) || stillFrame >= 0) return;
+            try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); ScreenCapture.CaptureScreenshot(Path.GetFullPath(Options.Shot)); }
+            catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
+            stillWhere = where;
+            stillTick = host != null && host.Local != null ? host.Local.World.Tick : 0u;
+            stillFrame = Time.frameCount - heldFrame0;
+            stillTime = Time.timeAsDouble;
+            stillUnscaled = Time.unscaledTimeAsDouble;
         }
 
         // --------------------------------------------------------------------------------------------- recording
@@ -357,6 +468,7 @@ namespace TW.Perf
             long mono = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
             if (mono > monoMax) monoMax = mono;
 
+            if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
             if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }
             if (tick >= t0 + (uint)Options.Ticks) Finish(0, "ok");
         }
@@ -387,6 +499,7 @@ namespace TW.Perf
             recs.Clear();
             if (mainRec.Valid) mainRec.Dispose();
             if (gpuRec.Valid) gpuRec.Dispose();
+            ReleaseClock();
             CameraShake.Strength = keepShake;
             Atmosphere.PinnedClock = -1f;
             EventPump.ProfileSubscribers = false;
@@ -491,6 +604,15 @@ namespace TW.Perf
             Strings(sb, "writes", scenarioLog.Writes);
             Strings(sb, "presentation", scenarioLog.Presentation);
             sb.Append(" },\n");
+            // C33: two runs shot the same frame when every field here but path matches
+            sb.Append("  \"still\": { \"path\": ").Append(Q(Options.Shot)).Append(", \"at\": ").Append(Q(stillWhere))
+              .Append(", \"tick\": ").Append(stillFrame >= 0 ? stillTick.ToString(Inv) : "null")
+              .Append(", \"held_frame\": ").Append(stillFrame >= 0 ? stillFrame.ToString(Inv) : "null")
+              .Append(", \"time\": ").Append(stillFrame >= 0 ? stillTime.ToString("0.#########", Inv) : "null")
+              .Append(", \"unscaled_time\": ").Append(stillFrame >= 0 ? stillUnscaled.ToString("0.#########", Inv) : "null")
+              .Append(", \"clock_aligned\": ").Append(clockAligned ? "true" : "false")
+              .Append(", \"held_step\": ").Append(HeldStep.ToString("0.######", Inv))
+              .Append(", \"window_clock\": ").Append(Q(Options.ShotTick >= 0 ? "held" : "real")).Append(", \"hud\": ").Append(Options.ShotHud || Options.ShotTick < 0 ? "true" : "false").Append(" },\n");
             double seconds = startRealtime > 0 ? Time.realtimeSinceStartupAsDouble - startRealtime : 0;
             sb.Append("  \"window\": { \"tick_start\": ").Append(t0).Append(", \"tick_end\": ").Append(w != null ? w.Tick : 0)
               .Append(", \"hash_start\": ").Append(Q(hashStart.ToString("X16")))
@@ -529,6 +651,12 @@ namespace TW.Perf
             if (Options.Scenario == BenchScenario.None && Options.ScenarioRaw.Length > 0 && Options.ScenarioRaw.ToLowerInvariant() != "none")
                 warnings.Add("unknown scenario '" + Options.ScenarioRaw + "': ran none");
             warnings.AddRange(scenarioLog.Warnings);
+            if (Options.ShotTick >= 0)
+                warnings.Add("shot_tick: the window ran on the held clock (1/64 s a frame) so its still repeats; its timings are not real time: an image run, never a perf sample");
+            if (Options.ShotTick >= 0 && !string.IsNullOrEmpty(Options.Shot) && stillFrame < 0)
+                warnings.Add("shot_tick " + Options.ShotTick + " was never reached inside the window: no still");
+            if (!clockAligned && !Application.isEditor && !string.IsNullOrEmpty(Options.Shot))
+                warnings.Add("the clock was not aligned before the match loaded: this still may not repeat");
             if (hashEndTaken && code == 0 && hashEndTick != t0 + (uint)Options.Ticks)
                 warnings.Add("hash_end was taken at tick " + hashEndTick + ", " + (hashEndTick - (t0 + (uint)Options.Ticks)) + " past the window's last tick (a slow last frame stepped more than one tick): compare it only with a run whose hash_end_tick is the same");
             for (int i = 0; i < warnings.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(warnings[i]));
