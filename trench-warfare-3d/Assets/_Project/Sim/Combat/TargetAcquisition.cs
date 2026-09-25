@@ -154,7 +154,8 @@ namespace TW.Sim.Combat
                 {
                     short theirs = TrenchAt(Position[j]);
                     bool sameTrench = myTrench >= 0 && theirs == myTrench;
-                    if (!sameTrench && distSq > CombatTables.BelowRimRevealRange * CombatTables.BelowRimRevealRange) return false;
+                    float reveal = (Flags[i] & (uint)UnitFlags.Charging) != 0 ? CombatTables.ChargeRevealRange : CombatTables.BelowRimRevealRange;   // a charging Breaker looks down into it
+                    if (!sameTrench && distSq > reveal * reveal) return false;
                 }
                 return true;
             }

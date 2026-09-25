@@ -13,6 +13,7 @@ namespace TW.Sim.Combat
     {
         public const float TrenchCover = 0.75f;          // fire-step target shot at from outside its trench
         public const float BelowRimRevealRange = 8f;     // a garrison below the rim can only be engaged from this close
+        public const float ChargeRevealRange = 20f;      // a charging Breaker (UnitFlags.Charging) looks down into the trench from this far
         public const float CraterCover = 0.35f;          // added to the stance cover of a man standing in a shell hole
         public const float CloseAssaultRange = 8f;       // infantry this close to a vehicle attack it with bundled grenades
         public const float CloseAssaultDamage = 600f;         // structure, when the charge gets through the plate

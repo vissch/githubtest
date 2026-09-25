@@ -24,6 +24,8 @@ namespace TW.Sim.Match
         public AuraSystem Aura;
         public TW.Sim.Units.SupportSystem Support;
         public LeapSystem Leap;
+        public TW.Sim.Units.BreakerSystem Breaker;
+        public HeroSystem Hero;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
         public SeaLandingSystem Landing;
@@ -87,6 +89,8 @@ namespace TW.Sim.Match
             // A5: World.AddSystem(new TW.Sim.Combat.BurningSystem());
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
+            Hero = new HeroSystem(map);
+            World.AddSystem(Hero);                          // A3: the Victoria Cross moment, and the profile's veterans
             // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());   // stance is decided in MoveJob, which has the movement context
             Garrison = new TW.Sim.Units.TrenchGarrisonSystem(map);
             World.AddSystem(Garrison);                      // A3: a post per man inside his trench (the fire step, or back from it)
@@ -100,6 +104,8 @@ namespace TW.Sim.Match
             World.AddSystem(Leap);                          // A3: jetpack men leap into enemy trenches (steps before Movement flies them)
             Vehicles = new VehicleKinematicsSystem(map);
             World.AddSystem(Vehicles);                      // A1 / A5b: vehicles: trenches, ditching, mud, slopes, crushing
+            Breaker = new TW.Sim.Units.BreakerSystem(map);
+            World.AddSystem(Breaker);                       // A5b: the Breaker's wind-up, charge, strike and withdrawal (steps before Kinematics drives it)
             if (combat)
             {
                 Gunnery = new TankGunnerySystem(map);

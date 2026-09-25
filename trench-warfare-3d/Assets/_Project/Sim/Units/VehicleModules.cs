@@ -178,16 +178,18 @@ namespace TW.Sim.Units
             if (hit.Shooter >= 0) LastShooter[t] = hit.Shooter;
             bool turret = hit.Kind == VehicleHitKind.ArmourPiercing && spec.TurretChance > 0f && rng.NextFloat() < spec.TurretChance;
             ArmourFacing facing; bool right; bool holed; float plate;
+            var hull = spec.Hull;
+            if (spec.ChargingTopMm > 0f && (w.Flags[t] & (uint)UnitFlags.Charging) != 0) hull.TopMm = spec.ChargingTopMm;   // hatches down: the deck a bundle lands on
             if (hit.Kind == VehicleHitKind.CloseAssault)
             {
                 facing = ArmourFacing.Top; right = rng.NextFloat() < 0.5f;
-                holed = Armor.PenetratesTop(spec.Hull, hit.PenMm, out plate);
+                holed = Armor.PenetratesTop(hull, hit.PenMm, out plate);
             }
             else
             {
                 float yaw = w.Yaw[t] + (turret && gunnery != null ? gunnery.GunYaw[t * Guns] : 0f);
                 facing = Armor.FacingOf(hit.Dir, yaw, out float c, out right);
-                plate = Armor.PlateFor(turret ? spec.Turret : spec.Hull, facing);
+                plate = Armor.PlateFor(turret ? spec.Turret : hull, facing);
                 holed = c >= Armor.GlanceCos && hit.PenMm * c >= plate;
             }
             checksum = SimHash.Value(new int4(t, (int)facing, holed ? 1 : 0, turret ? 1 : 0), checksum);

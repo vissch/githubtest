@@ -123,6 +123,15 @@ namespace TW.Sim.Nav
         public NativeArray<short> CrossTrench;   // trench it is crossing (-1 none): one ditching roll per trench
         public NativeArray<int> DitchTicks;      // > 0: nosed into a trench too wide for it
         public NativeArray<int> BogTicks;        // > 0: stuck in mud
+        // ---- driven by a system rather than the flow field (2026-09-25: the Breaker's charge and withdrawal) ----
+        /// <summary>DriveFlow: the goal's flow field, as ever. DriveStraight: turn toward DriveTarget and drive at it.
+        /// DriveReverse: back toward DriveTarget along the nose axis without turning (the tracks run the other way).
+        /// Either stops within DriveArrive of the point. HaltTicks, ditching and bogging still win.</summary>
+        public NativeArray<byte> Drive;
+        public NativeArray<float3> DriveTarget;
+        public NativeArray<float> DriveSpeedMul;  // 1 normally; the Breaker charges at more and backs out at less
+        public const byte DriveFlow = 0, DriveStraight = 1, DriveReverse = 2;
+        public const float DriveArrive = 1.0f;
         public int WireCrushed, TreesPushed, MenCrushed;
         ulong checksum = SimHash.Offset;
 
@@ -145,7 +154,10 @@ namespace TW.Sim.Nav
             CrossTrench = new NativeArray<short>(n, Allocator.Persistent);
             DitchTicks = new NativeArray<int>(n, Allocator.Persistent);
             BogTicks = new NativeArray<int>(n, Allocator.Persistent);
-            for (int i = 0; i < n; i++) { SpeedFactor[i] = 1f; CrossTrench[i] = -1; }
+            Drive = new NativeArray<byte>(n, Allocator.Persistent);
+            DriveTarget = new NativeArray<float3>(n, Allocator.Persistent);
+            DriveSpeedMul = new NativeArray<float>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) { SpeedFactor[i] = 1f; CrossTrench[i] = -1; DriveSpeedMul[i] = 1f; }
             int trenches = map.Trenches.Length;
             trenchWidth = new NativeArray<float>(math.max(1, trenches), Allocator.Persistent);
             for (int t = 0; t < trenches; t++) trenchWidth[t] = map.Trenches[t].WidthMeters;
@@ -164,6 +176,7 @@ namespace TW.Sim.Nav
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
                 Speed = w.Speed, Archetype = w.Archetype, GoalId = w.GoalId, Generation = w.Generation,
                 Gen = Gen, SpeedFactor = SpeedFactor, HaltTicks = HaltTicks, CrossTrench = CrossTrench, DitchTicks = DitchTicks, BogTicks = BogTicks,
+                Drive = Drive, DriveTarget = DriveTarget, DriveSpeedMul = DriveSpeedMul,
                 Directions = fields.Direction, Ready = fields.Ready, TrenchCrossable = fields.TrenchCrossable, TrenchWidth = trenchWidth,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, Height = map.Height,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
@@ -304,6 +317,9 @@ namespace TW.Sim.Nav
             public NativeArray<float> SpeedFactor;
             public NativeArray<int> HaltTicks, DitchTicks, BogTicks;
             public NativeArray<short> CrossTrench;
+            public NativeArray<byte> Drive;
+            public NativeArray<float> DriveSpeedMul;
+            [ReadOnly] public NativeArray<float3> DriveTarget;
             [ReadOnly] public NativeArray<byte> Directions;
             [ReadOnly] public NativeArray<byte> Ready;
             [ReadOnly] public NativeArray<byte> TrenchCrossable;
@@ -348,6 +364,7 @@ namespace TW.Sim.Nav
                     if (Gen[i] != Generation[i])
                     {
                         Gen[i] = Generation[i]; SpeedFactor[i] = 1f; HaltTicks[i] = 0; CrossTrench[i] = -1; DitchTicks[i] = 0; BogTicks[i] = 0;
+                        Drive[i] = DriveFlow; DriveSpeedMul[i] = 1f;
                     }
                     bool halted = HaltTicks[i] > 0;              // a gun is being laid: the time runs out whether or not it could drive
                     if (halted) HaltTicks[i]--;
@@ -371,21 +388,38 @@ namespace TW.Sim.Nav
                     if (halted) { Velocity[i] = float3.zero; continue; }
 
                     int cell = CellOf(p);
-                    int goal = GoalId[i];
-                    if (goal < 0 || Ready[goal] == 0) { Velocity[i] = float3.zero; continue; }
-                    byte d = Directions[goal * CellCount + cell];
-                    if (d == FlowField.NoDirection) { Velocity[i] = float3.zero; continue; }
-
-                    // steer: turn toward the field direction at the profile's rate; pivot on the spot for a sharp turn
                     var prof = VehicleProfile.ForArchetype(Archetype[i]);
-                    float2 want = FlowField.Offset(d);
-                    float desiredYaw = SimMath.YawOf(new float3(want.x, 0f, want.y));
+                    byte drive = Drive[i];
+                    float2 want;
+                    if (drive == DriveFlow)
+                    {
+                        int goal = GoalId[i];
+                        if (goal < 0 || Ready[goal] == 0) { Velocity[i] = float3.zero; continue; }
+                        byte d = Directions[goal * CellCount + cell];
+                        if (d == FlowField.NoDirection) { Velocity[i] = float3.zero; continue; }
+                        want = FlowField.Offset(d);
+                    }
+                    else
+                    {
+                        // driven at a point by a system (the Breaker's charge and withdrawal): a straight line, no field
+                        float3 toward = DriveTarget[i] - p; toward.y = 0f;
+                        float len = SimMath.Length(toward);
+                        if (len < DriveArrive) { Velocity[i] = float3.zero; continue; }
+                        want = new float2(toward.x, toward.z) / len;
+                    }
                     float yaw = Yaw[i];
-                    float maxTurn = prof.TurnRateRad * Dt * math.max(0.6f, SpeedFactor[i]);
-                    yaw = SimMath.WrapAngle(yaw + math.clamp(SimMath.WrapAngle(desiredYaw - yaw), -maxTurn, maxTurn));
-                    float remaining = SimMath.WrapAngle(desiredYaw - yaw);
-                    float align = math.abs(remaining) > PivotAngle ? PivotSpeed : math.max(0.3f, SimMath.Cos(remaining));
+                    float align = 1f;
+                    if (drive != DriveReverse)
+                    {
+                        // steer: turn toward the wanted direction at the profile's rate; pivot on the spot for a sharp turn
+                        float desiredYaw = SimMath.YawOf(new float3(want.x, 0f, want.y));
+                        float maxTurn = prof.TurnRateRad * Dt * math.max(0.6f, SpeedFactor[i]);
+                        yaw = SimMath.WrapAngle(yaw + math.clamp(SimMath.WrapAngle(desiredYaw - yaw), -maxTurn, maxTurn));
+                        float remaining = SimMath.WrapAngle(desiredYaw - yaw);
+                        align = math.abs(remaining) > PivotAngle ? PivotSpeed : math.max(0.3f, SimMath.Cos(remaining));
+                    }
                     float3 heading = SimMath.DirFromYaw(yaw);
+                    if (drive == DriveReverse) heading = -heading;   // backing up: the tracks run the other way, the nose stays where it points
                     byte from = Layers[cell];
                     // A walker picks its way over what a tank has to drive through: it strides a trench instead of
                     // bellying across it, finds footing in mud and shell holes, and lifts its legs over wire.
@@ -393,7 +427,7 @@ namespace TW.Sim.Nav
                         ? ((from & (byte)NavLayer.Trench) != 0 ? StepOverSpeed : (from & (byte)NavLayer.Mud) != 0 ? WadeSpeed : (from & (byte)NavLayer.Crater) != 0 ? PickSpeed : 1f)
                         : ((from & (byte)NavLayer.Trench) != 0 ? CrossSpeed : (from & (byte)NavLayer.Mud) != 0 ? MudSpeed : (from & (byte)NavLayer.Crater) != 0 ? CraterSpeed : 1f);
                     if ((from & (byte)NavLayer.Wire) != 0 && !prof.Walker) terrain *= WireSpeed;
-                    float3 v = heading * (Speed[i] * align * terrain * SlopeFactor(p, heading, prof) * SpeedFactor[i]);
+                    float3 v = heading * (Speed[i] * align * terrain * SlopeFactor(p, heading, prof) * SpeedFactor[i] * DriveSpeedMul[i]);
                     float3 np = p + v * Dt;
                     np.x = math.clamp(np.x, 1f, Size.x - 1f);
                     np.z = math.clamp(np.z, 1f, Size.y - 1f);
@@ -461,7 +495,7 @@ namespace TW.Sim.Nav
             {
                 // a tank not under its own power does not give way (a hulk, a stalled or broken-tracked one, one nosed
                 // into a trench or stuck in mud: moving it would pull it out without its timer knowing)
-                if ((Flags[i] & (uint)(UnitFlags.KnockedOut | UnitFlags.Stalled | UnitFlags.Immobilised | UnitFlags.Bogged)) != 0 || DitchTicks[i] > 0 || BogTicks[i] > 0) return;
+                if ((Flags[i] & (uint)(UnitFlags.KnockedOut | UnitFlags.Stalled | UnitFlags.Immobilised | UnitFlags.Bogged | UnitFlags.Charging)) != 0 || DitchTicks[i] > 0 || BogTicks[i] > 0) return;   // a charging Breaker is not shoved off its line
                 float3 p = Position[i], q = p + new float3(by.x, 0f, by.y);
                 q.x = math.clamp(q.x, 1f, Size.x - 1f); q.z = math.clamp(q.z, 1f, Size.y - 1f);
                 int from = CellOf(p), to = CellOf(q);
@@ -486,6 +520,9 @@ namespace TW.Sim.Nav
             h = SimHash.Array(DitchTicks, n, h);
             h = SimHash.Array(BogTicks, n, h);
             h = SimHash.Value(new int3(WireCrushed, TreesPushed, MenCrushed), h);
+            h = SimHash.Array(Drive, n, h);
+            h = SimHash.Array(DriveTarget, n, h);
+            h = SimHash.Array(DriveSpeedMul, n, h);
             return SimHash.Combine(h, checksum);
         }
 
@@ -497,6 +534,9 @@ namespace TW.Sim.Nav
             if (CrossTrench.IsCreated) CrossTrench.Dispose();
             if (DitchTicks.IsCreated) DitchTicks.Dispose();
             if (BogTicks.IsCreated) BogTicks.Dispose();
+            if (Drive.IsCreated) Drive.Dispose();
+            if (DriveTarget.IsCreated) DriveTarget.Dispose();
+            if (DriveSpeedMul.IsCreated) DriveSpeedMul.Dispose();
             if (trenchWidth.IsCreated) trenchWidth.Dispose();
             if (events.IsCreated) events.Dispose();
             if (blocked.IsCreated) blocked.Dispose();

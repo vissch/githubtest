@@ -193,7 +193,8 @@ namespace TW.Sim.Combat
                     if ((Flags[t] & (uint)UnitFlags.InTrench) != 0)
                     {
                         bool sameTrench = (Flags[i] & (uint)UnitFlags.InTrench) != 0 && TrenchAt(p) == TrenchAt(q);
-                        cover = sameTrench ? 0f : theirStance == Stance.FireStep ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
+                        bool charging = (Flags[i] & (uint)UnitFlags.Charging) != 0;   // a Breaker in the trench: nothing between its guns and them
+                        cover = sameTrench || charging ? 0f : theirStance == Stance.FireStep ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
                     }
                     else
                     {
@@ -210,6 +211,16 @@ namespace TW.Sim.Combat
                     else if (hit)
                     {
                         float dmg = weapon.Damage * DamageMul[i] * rng.NextFloat(0.8f, 1.2f);
+                        if ((Flags[i] & (uint)UnitFlags.Charging) != 0)
+                        {
+                            // a charging Breaker's round finds the mark (the roll is drawn only for it)
+                            var ts = TankSpec.For(Archetype[i]);
+                            if (ts.CritChance > 0f && rng.NextFloat() < ts.CritChance)
+                            {
+                                dmg *= ts.CritMul;
+                                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.CriticalHit, A = i, B = t, Pos = q, Dir = dir, Scalar = dmg });
+                            }
+                        }
                         Hp[t] = Hp[t] - dmg;
                         Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Dir = dir, Scalar = dmg });
                         if (Hp[t] <= 0f) { Killed.Add(new int2(t, i)); TargetSlot[i] = -1; }
