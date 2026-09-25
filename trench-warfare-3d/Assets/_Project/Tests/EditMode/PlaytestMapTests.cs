@@ -12,7 +12,7 @@ namespace TW.Tests
 {
     public class PlaytestMapTests
     {
-        const int Rifleman = 0, Tank = 4;
+        const int Rifleman = 0, Tank = 6;   // FactionRoster.Slot: slots 6-9 are the machines on both sides
 
         static MatchSim NewMatch()
         {

@@ -16,19 +16,33 @@ namespace TW.Sim
             for (int s = 0; s < RosterEntry.SlotCount; s++) roster[playerOffset + s] = Slot(faction, s);
         }
 
-        /// <summary>The entry a faction fields in a roster slot (default when the slot is empty).</summary>
+        /// <summary>
+        /// The entry a faction fields in a roster slot (default when the slot is empty). Ten slots, six on foot and
+        /// four machines, in the HUD's card order and so in hotkey order 1..0.
+        ///
+        /// Both sides keep the rifle, the assault man and the MG: a shield bearer's plate is holed by rifle fire at
+        /// 6 mm of penetration and an MG's at 9, so a faction that fielded neither could not answer a shield line at
+        /// all. Everything above slot 2 is the faction's own — Iron fights as a line army with an officer over it, a
+        /// plate in front of it and an engineer behind its machines; Brass fights as raiders, with a sniper, a medic
+        /// and a man who leaps the parapet. Iron's Breaker rams a trench; Brass's Redoubt sits in one. Paratroopers
+        /// are not a roster slot at all: they are Brass's off-map card (AbilityMask), and the Pavise sits in Iron's
+        /// pool for the Armoury to swap in.
+        /// </summary>
         public static RosterEntry Slot(FactionId faction, int slot)
         {
+            bool iron = faction == FactionId.Iron;
             switch (slot)
             {
                 case 0: return RosterEntry.Rifleman;
                 case 1: return RosterEntry.Assault;
                 case 2: return RosterEntry.Machinegunner;
-                case 3: return RosterEntry.Sniper;
-                case 4: return faction == FactionId.Iron ? RosterEntry.Maw : RosterEntry.Tusk;
-                case 5: return faction == FactionId.Iron ? RosterEntry.Pincer : RosterEntry.Kettle;
-                case 6: return faction == FactionId.Iron ? RosterEntry.Pavise : RosterEntry.Censer;
-                case 7: return faction == FactionId.Iron ? RosterEntry.Banner : RosterEntry.Redoubt;
+                case 3: return iron ? RosterEntry.Officer : RosterEntry.Sniper;
+                case 4: return iron ? RosterEntry.Shield : RosterEntry.Medic;
+                case 5: return iron ? RosterEntry.Repair : RosterEntry.Jetpack;
+                case 6: return iron ? RosterEntry.Maw : RosterEntry.Tusk;
+                case 7: return iron ? RosterEntry.Pincer : RosterEntry.Kettle;
+                case 8: return iron ? RosterEntry.Banner : RosterEntry.Censer;
+                case 9: return iron ? RosterEntry.Breaker : RosterEntry.Redoubt;
                 default: return default;
             }
         }
@@ -40,6 +54,9 @@ namespace TW.Sim
         static readonly byte[] BrassPool = { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner, InfantryArchetype.Sniper,
                                              InfantryArchetype.Medic, InfantryArchetype.Jetpack, InfantryArchetype.Para,
                                              VehicleArchetype.Tusk, VehicleArchetype.Kettle, VehicleArchetype.Censer, VehicleArchetype.Redoubt };
+
+        /// <summary>Roster slots 0..2 are the same on both sides; everything above is the faction's own. A test holds it.</summary>
+        public const int SharedSlots = 3;
 
         public static int PoolCount(FactionId faction) => (faction == FactionId.Iron ? IronPool : BrassPool).Length;
         public static byte Pool(FactionId faction, int k) => (faction == FactionId.Iron ? IronPool : BrassPool)[k];

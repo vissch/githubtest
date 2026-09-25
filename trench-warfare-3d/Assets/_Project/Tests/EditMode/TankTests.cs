@@ -15,7 +15,7 @@ namespace TW.Tests
 {
     public class TankTests
     {
-        const int Rifleman = 0;
+        const int Rifleman = 0, Tank = 6;   // FactionRoster.Slot: slots 6-9 are the machines on both sides
 
         static MatchSim NewMatch(uint seed = 0xC0FFEE)
         {
@@ -297,9 +297,9 @@ namespace TW.Tests
                 var hashes = new List<ulong>();
                 for (uint t = 0; t < 1400; t++)
                 {
-                    if (t == 0) Step(m, SimCommand.Deploy(t, 0, 4), SimCommand.Deploy(t, 1, 4));
+                    if (t == 0) Step(m, SimCommand.Deploy(t, 0, Tank), SimCommand.Deploy(t, 1, Tank));
                     else if (t < 40 && t % 4 == 0) Step(m, SimCommand.Deploy(t, 0, Rifleman), SimCommand.Deploy(t, 1, Rifleman));
-                    else if (t == 700) Step(m, SimCommand.Deploy(t, 0, 4), SimCommand.Deploy(t, 1, 4));
+                    else if (t == 700) Step(m, SimCommand.Deploy(t, 0, Tank), SimCommand.Deploy(t, 1, Tank));
                     else Step(m);
                     hashes.Add(m.World.LastHash);
                 }

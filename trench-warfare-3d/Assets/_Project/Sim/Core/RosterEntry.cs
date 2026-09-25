@@ -11,7 +11,7 @@ namespace TW.Sim
         public int CooldownTicks;  // per-slot deploy cooldown (specials and vehicles)
         public bool IsVehicle;
 
-        public const int SlotCount = 8;
+        public const int SlotCount = 10;   // 2026-09-25 (owner decision): every unit in a default roster, hotkeys 1..0
 
         /// <summary>The roster a player deploys from. Since 2026-09-25 this is the FACTION's table (FactionRoster):
         /// player offset 0 is Iron, today's player-0 side, anything else Brass. Kept as a forwarder so every

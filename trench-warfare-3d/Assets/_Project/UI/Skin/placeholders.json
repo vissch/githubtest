@@ -106,12 +106,44 @@
             "sha1": "ca52ffd45a7a585b4f0174aeae04a7b2f94f68bb"
         },
         {
+            "file": "Portraits/Breaker.png",
+            "sha1": "4905f98766ca293a72ac4446f566e87cd784eca5"
+        },
+        {
             "file": "Portraits/ChlorineGas.png",
             "sha1": "22a7b6121bc09b031bb31c791a10516720334a83"
         },
         {
+            "file": "Portraits/Engineer.png",
+            "sha1": "680739df0656d334a9c88e7cfa07d9788faa8254"
+        },
+        {
             "file": "Portraits/HeBarrage.png",
             "sha1": "983cf09b8d3750a28071788eb302afecc88891b3"
+        },
+        {
+            "file": "Portraits/Jetpack.png",
+            "sha1": "4905f98766ca293a72ac4446f566e87cd784eca5"
+        },
+        {
+            "file": "Portraits/Medic.png",
+            "sha1": "13fbe681b4d90428dcbd78a5d375cfcaf2c7833d"
+        },
+        {
+            "file": "Portraits/Officer.png",
+            "sha1": "4905f98766ca293a72ac4446f566e87cd784eca5"
+        },
+        {
+            "file": "Portraits/Para.png",
+            "sha1": "b4d70b5cfc847d9e12416afdec125aba2988d882"
+        },
+        {
+            "file": "Portraits/ParaDrop.png",
+            "sha1": "680739df0656d334a9c88e7cfa07d9788faa8254"
+        },
+        {
+            "file": "Portraits/Shield.png",
+            "sha1": "43e56c906260a4ad6730aa5b0e2d4d3979bfd44e"
         },
         {
             "file": "Sprites/badge.png",

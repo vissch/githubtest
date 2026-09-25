@@ -23,7 +23,7 @@ namespace TW.Tests
         }
 
         [Test]
-        public void IronIsThePlayerZeroRosterOfBeforeAndBrassThePlayerOne()
+        public void EachFactionFieldsItsOwnTen()
         {
             using var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount * 2, Allocator.Temp);
             FactionRoster.Fill(roster, 0, FactionId.Iron);
@@ -31,20 +31,73 @@ namespace TW.Tests
             for (int p = 0; p < 2; p++)
             {
                 int o = p * RosterEntry.SlotCount;
-                AssertEntry(roster[o + 0], 0, 25, 100, 3.0f, 0, false, $"p{p} slot 0");
-                AssertEntry(roster[o + 1], 1, 40, 90, 4.2f, 0, false, $"p{p} slot 1");
-                AssertEntry(roster[o + 2], 2, 60, 110, 2.2f, 0, false, $"p{p} slot 2");
-                AssertEntry(roster[o + 3], 3, 90, 80, 3.0f, 200, false, $"p{p} slot 3");
+                AssertEntry(roster[o + 0], InfantryArchetype.Rifle, 25, 100, 3.0f, 0, false, $"p{p} slot 0");
+                AssertEntry(roster[o + 1], InfantryArchetype.Assault, 40, 90, 4.2f, 0, false, $"p{p} slot 1");
+                AssertEntry(roster[o + 2], InfantryArchetype.Machinegunner, 60, 110, 2.2f, 0, false, $"p{p} slot 2");
             }
-            AssertEntry(roster[4], VehicleArchetype.Maw, 350, 3600, 1.6f, 600, true, "iron tank");
-            AssertEntry(roster[5], VehicleArchetype.Pincer, 320, 2300, 2.9f, 520, true, "iron walker 1");
-            AssertEntry(roster[6], VehicleArchetype.Pavise, 360, 2100, 1.9f, 620, true, "iron walker 2");
-            AssertEntry(roster[7], VehicleArchetype.Banner, 400, 1900, 2.4f, 700, true, "iron walker 3");
+            AssertEntry(roster[3], InfantryArchetype.Officer, 120, 100, 3.0f, 400, false, "iron slot 3");
+            AssertEntry(roster[4], InfantryArchetype.Shield, 70, 140, 3.2f, 0, false, "iron slot 4");
+            AssertEntry(roster[5], InfantryArchetype.Repair, 90, 100, 2.8f, 300, false, "iron slot 5");
+            AssertEntry(roster[6], VehicleArchetype.Maw, 350, 3600, 1.6f, 600, true, "iron tank");
+            AssertEntry(roster[7], VehicleArchetype.Pincer, 320, 2300, 2.9f, 520, true, "iron walker 1");
+            AssertEntry(roster[8], VehicleArchetype.Banner, 400, 1900, 2.4f, 700, true, "iron walker 2");
+            AssertEntry(roster[9], VehicleArchetype.Breaker, 380, 2800, 2.2f, 650, true, "iron breaker");
             int b = RosterEntry.SlotCount;
-            AssertEntry(roster[b + 4], VehicleArchetype.Tusk, 260, 2000, 2.4f, 450, true, "brass tank");
-            AssertEntry(roster[b + 5], VehicleArchetype.Kettle, 270, 1600, 2.3f, 560, true, "brass walker 1");
-            AssertEntry(roster[b + 6], VehicleArchetype.Censer, 240, 1500, 2.6f, 500, true, "brass walker 2");
-            AssertEntry(roster[b + 7], VehicleArchetype.Redoubt, 330, 3200, 1.7f, 600, true, "brass walker 3");
+            AssertEntry(roster[b + 3], InfantryArchetype.Sniper, 90, 80, 3.0f, 200, false, "brass slot 3");
+            AssertEntry(roster[b + 4], InfantryArchetype.Medic, 80, 90, 3.2f, 200, false, "brass slot 4");
+            AssertEntry(roster[b + 5], InfantryArchetype.Jetpack, 110, 85, 3.6f, 300, false, "brass slot 5");
+            AssertEntry(roster[b + 6], VehicleArchetype.Tusk, 260, 2000, 2.4f, 450, true, "brass tank");
+            AssertEntry(roster[b + 7], VehicleArchetype.Kettle, 270, 1600, 2.3f, 560, true, "brass walker 1");
+            AssertEntry(roster[b + 8], VehicleArchetype.Censer, 240, 1500, 2.6f, 500, true, "brass walker 2");
+            AssertEntry(roster[b + 9], VehicleArchetype.Redoubt, 330, 3200, 1.7f, 600, true, "brass walker 3");
+        }
+
+        /// <summary>
+        /// Both sides keep the rifle, the assault man and the MG and nothing else: a shield bearer's 8 mm plate is holed
+        /// by rifle fire (6 mm of penetration) and by an MG's (9), so a faction fielding neither could not answer a
+        /// shield line at all. Above slot 2 the two tables share nothing, or the factions are a paint job.
+        /// </summary>
+        [Test]
+        public void TheFactionsShareTheirFirstThreeSlotsAndNothingElse()
+        {
+            using var iron = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            using var brass = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            FactionRoster.Fill(iron, 0, FactionId.Iron);
+            FactionRoster.Fill(brass, 0, FactionId.Brass);
+            for (int s = 0; s < FactionRoster.SharedSlots; s++)
+                Assert.AreEqual(iron[s].Archetype, brass[s].Archetype, $"slot {s} is the same on both sides");
+            for (int s = FactionRoster.SharedSlots; s < RosterEntry.SlotCount; s++)
+                for (int k = FactionRoster.SharedSlots; k < RosterEntry.SlotCount; k++)
+                    Assert.AreNotEqual(iron[s].Archetype, brass[k].Archetype,
+                        $"Iron slot {s} and Brass slot {k} field the same unit");
+            int ironArmour = 0, brassArmour = 0;
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+            {
+                if (iron[s].IsVehicle) ironArmour++;
+                if (brass[s].IsVehicle) brassArmour++;
+                Assert.Greater(iron[s].Hp, 0f, $"iron slot {s} is empty");
+                Assert.Greater(brass[s].Hp, 0f, $"brass slot {s} is empty");
+            }
+            Assert.AreEqual(4, ironArmour, "the bar's ARMOUR group");
+            Assert.AreEqual(4, brassArmour);
+        }
+
+        /// <summary>Paratroopers are nobody's roster slot: they come down on Brass's off-map card, and Iron cannot
+        /// call it. The Pavise is Iron's to swap in from the pool, not to field by default.</summary>
+        [Test]
+        public void ParatroopersAreBrassesCardAndNotASlot()
+        {
+            using var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            for (int f = 0; f < Factions.Count; f++)
+            {
+                var faction = Factions.Of((byte)f);
+                FactionRoster.Fill(roster, 0, faction);
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                    Assert.AreNotEqual(InfantryArchetype.Para, roster[s].Archetype, $"{faction} slot {s}");
+            }
+            Assert.IsTrue(FactionRoster.MayCall(FactionId.Brass, FactionRoster.ParaDropBit));
+            Assert.IsFalse(FactionRoster.MayCall(FactionId.Iron, FactionRoster.ParaDropBit));
+            Assert.IsTrue(FactionRoster.Fields(FactionId.Iron, VehicleArchetype.Pavise), "Iron's pool keeps the Pavise");
         }
 
         [Test]

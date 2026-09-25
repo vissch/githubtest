@@ -14,7 +14,7 @@ namespace TW.Tests
 {
     public class GarrisonAndOrdersTests
     {
-        const int Rifleman = 0, Tank = 4;
+        const int Rifleman = 0, Tank = 6;   // FactionRoster.Slot: slots 6-9 are the machines on both sides
 
         static MatchSim NewMatch(int silver = 100000, uint seed = 0xC0FFEE)
         {

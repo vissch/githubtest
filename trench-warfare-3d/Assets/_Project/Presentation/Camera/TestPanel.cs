@@ -219,7 +219,7 @@ namespace TW.Presentation.Tactical
             Host.ScriptedPeer = GUILayout.Toggle(Host.ScriptedPeer, " auto-deploy a unit every " + (Host.PeerDeployEveryTicks * w.Config.TickSeconds).ToString("0") + " s");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Enemy deploy 5")) for (int k = 0; k < 5; k++) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 0));
-            if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 4));
+            if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 6));   // FactionRoster.Slot: Brass's tank
             GUILayout.EndHorizontal();
             Host.PeerDeploysTanks = GUILayout.Toggle(Host.PeerDeploysTanks, " sends a tank whenever it can afford one");
             Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own with {Host.PeerAttackGarrison}+ men");
