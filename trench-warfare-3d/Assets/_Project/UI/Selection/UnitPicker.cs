@@ -25,8 +25,8 @@ namespace TW.UI
 
     public sealed class UnitPicker
     {
-        // as VATRenderer draws a man: UnitScale 1.5, growing with the zoom from 24 up to x4
-        public const float FigureScale = 1.5f, GrowFromZoom = 24f, MaxGrow = 4f;
+        // as VATRenderer draws a man (FigureMetrics is the one definition both read)
+        public const float FigureScale = FigureMetrics.UnitScale, GrowFromZoom = FigureMetrics.GrowFromZoom, MaxGrow = FigureMetrics.MaxGrow;
         public const float ManRadiusM = 0.45f, ManBodyM = 0.9f, VehicleBodyM = 1.3f, MinPickPx = 10f, ClumpPx = 18f;
 
         public readonly List<ScreenUnit> Units = new List<ScreenUnit>(1024);

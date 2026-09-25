@@ -176,6 +176,22 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ThePickerSizesMenAsTheRendererDrawsThem()
+        {
+            // The picker once kept its own 1.5 after the renderer went to 1.125, and every pick radius was a third
+            // too big. Both now read FigureMetrics; this catches a renderer default set anywhere else.
+            var go = new GameObject("vat-defaults");
+            try
+            {
+                var vat = go.AddComponent<TW.Presentation.Units.VATRenderer>();
+                Assert.That(UnitPicker.FigureScale, Is.EqualTo(vat.UnitScale), "pick radius scale vs drawn scale");
+                Assert.That(UnitPicker.GrowFromZoom, Is.EqualTo(vat.GrowFromZoom));
+                Assert.That(UnitPicker.MaxGrow, Is.EqualTo(vat.MaxGrow));
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
         public void TheMarkerHexagonIsAHexagon()
         {
             const float r = 0.4f, apothem = r * 0.8660254f;

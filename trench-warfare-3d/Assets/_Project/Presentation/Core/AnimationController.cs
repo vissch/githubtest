@@ -554,7 +554,7 @@ namespace TW.Presentation
                     // fall started over the top of a dive would first stand him back up.
                     bool diving = cur == Clip.DiveAway && Playing(s);
                     s.BodyYaw = math.atan2(knock.x, knock.z);
-                    s.HopHeight = math.clamp(0.053f * kick, 0.23f, 0.73f) * (0.8f + 0.4f * Hash(s.Seed, tick + 3u));   // 0.35-1.1 m drawn at UnitScale 1.5
+                    s.HopHeight = math.clamp(0.053f * kick, 0.23f, 0.73f) * (0.8f + 0.4f * Hash(s.Seed, tick + 3u));   // 0.26-0.82 m drawn at FigureMetrics.UnitScale 1.125
                     s.HopTick = tick; s.HopFrame = diving ? s.Frame : 0f;
                     s.KnockedUntil = tick + 20u + (s.Seed >> 7) % 30u;
                     s.DazedUntil = s.KnockedUntil + 40u + (s.Seed >> 11) % 60u; s.Rubbed = false;   // the dive's: he is up off the ground when it ends (the fall's is set as he gets up)

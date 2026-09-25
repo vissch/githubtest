@@ -62,10 +62,10 @@ namespace TW.Presentation.Units
         /// 1.5 drew him 2.67 m tall, which was taller than the 2 m SeparationJob keeps between two men in a
         /// trench - a full garrison stood inside itself. A quarter off brings him to 2.0 m, so the spacing the
         /// simulation keeps is now the spacing you see, and the machines read against him as machines.</summary>
-        public float UnitScale = 1.125f;
+        public float UnitScale = FigureMetrics.UnitScale;   // the picker reads FigureMetrics too: change it there
         [Tooltip("Men grow with the zoom so they stay readable from far out: x1 up to this zoom, then in proportion, capped at MaxGrow.")]
-        public float GrowFromZoom = 24f;
-        public float MaxGrow = 4f;
+        public float GrowFromZoom = FigureMetrics.GrowFromZoom;
+        public float MaxGrow = FigureMetrics.MaxGrow;
         public bool CastShadows = true;
         [Tooltip("Metres from the camera beyond which the far model is used (a man is under about 40 pixels tall there).")]
         public float LodDistance = 170f;
