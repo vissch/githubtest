@@ -1,6 +1,7 @@
-// Phase: C2 (implemented 2026-09-25) — which of the sim's two factions a campaign nation fields.
-// The campaign data names thirteen nations (Faction); the sim knows two rosters (FactionId). Until the nations get
-// rosters of their own, the Entente fields Iron and the Central Powers field Brass.
+// Phase: C2 (implemented 2026-09-25, widened A5c) — which sim faction a campaign nation fields.
+// The campaign data names thirteen nations (Faction); the sim knows six rosters (FactionId). Four nations now have a
+// roster of their own; the rest field the nearest ally until they get one, which is the same rule as before with more
+// places to land. Iron and Brass stay the greybox factions and are nobody nation.
 using TW.Sim;
 
 namespace TW.Data
@@ -11,13 +12,15 @@ namespace TW.Data
         {
             switch (nation)
             {
-                case Faction.German:
-                case Faction.AustroHungarian:
+                case Faction.British: return FactionId.British;
+                case Faction.German: return FactionId.German;
+                case Faction.French: return FactionId.French;
+                case Faction.AustroHungarian: return FactionId.AustroHungarian;
+                // the other Central Powers fight as the German army until their own rosters land
                 case Faction.Ottoman:
-                case Faction.Bulgarian:
-                    return FactionId.Brass;
-                default:
-                    return FactionId.Iron;
+                case Faction.Bulgarian: return FactionId.German;
+                // and the rest of the Entente as the British
+                default: return FactionId.British;
             }
         }
     }

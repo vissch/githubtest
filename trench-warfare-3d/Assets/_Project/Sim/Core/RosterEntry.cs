@@ -94,8 +94,12 @@ namespace TW.Sim
     {
         public const byte Rifle = 0, Assault = 1, Machinegunner = 2, Sniper = 3;
         public const byte Officer = 12, Shield = 13, Medic = 14, Repair = 15, Para = 16, Jetpack = 17;
-        /// <summary>TrenchOrders' roster mask is `1 << archetype` in an int: no id may reach 32.</summary>
-        public const byte Max = 31;
+        /// <summary>
+        /// The highest id any unit may take. It was 31 because TrenchOrders masked with `1 << archetype`; that order
+        /// now carries an OrderGroup mask instead, so what binds is Archetypes.Count — the length of every table an
+        /// archetype indexes.
+        /// </summary>
+        public const byte Max = Archetypes.Max;
         public static bool IsInfantry(byte archetype) => archetype <= Sniper || (archetype >= Officer && archetype <= Jetpack);
     }
 
@@ -114,7 +118,8 @@ namespace TW.Sim
         public const byte Banner = 10; // command walker: a long gun and a standard that steadies the men round it
         public const byte Redoubt = 11;// a blockhouse on six legs: no gun at all, armour and claws, and hard to stop
         public const byte Breaker = 18;// assault tank: halts, winds up, charges the trench with its claws and hull guns, backs out
-                                      // (TankGunnery.WeaponIdBase is 40 + id and SeaLanding.ShipSource is 60: no vehicle id past 19)
+                                      // Ids are no longer squeezed by the explosion source space: SourceId bands it, so a
+                                      // machine may take any byte (2026-09-25). What still binds is InfantryArchetype.Max.
         public static bool IsTank(byte archetype) => archetype == Maw || archetype == Tusk || archetype == Breaker;
         /// <summary>A RANGE check over the six crabs: a new walker must be added here explicitly.</summary>
         public static bool IsWalker(byte archetype) => archetype >= Pincer && archetype <= Redoubt;

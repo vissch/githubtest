@@ -7,6 +7,7 @@ using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Sim.Nav;
+using TW.Data;
 
 namespace TW.Tests
 {
@@ -82,6 +83,58 @@ namespace TW.Tests
             Assert.AreEqual(4, brassArmour);
         }
 
+        /// <summary>
+        /// Six factions now: the two fictional ones and the four historical armies that stand beside them. Every one
+        /// of them must field ten real units out of its own pool, or a player picks that faction and gets a bar with a
+        /// hole in it. `Factions.Of` used to be `id == 0 ? Iron : Brass`, which turned every unknown byte off the wire
+        /// into a legal-looking faction.
+        /// </summary>
+        [Test]
+        public void EverySixFactionsFieldsTenUnitsOutOfItsOwnPool()
+        {
+            Assert.AreEqual(6, Factions.Count);
+            using var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            for (int f = 0; f < Factions.Count; f++)
+            {
+                var faction = Factions.Of((byte)f);
+                Assert.AreEqual(f, (int)faction, "a faction byte decodes to its own faction");
+                Assert.IsNotEmpty(Factions.Name(faction));
+                FactionRoster.Fill(roster, 0, faction);
+                int armour = 0;
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                {
+                    var e = roster[s];
+                    Assert.Greater(e.Hp, 0f, $"{faction} slot {s} is empty");
+                    Assert.Greater(e.Cost, 0, $"{faction} slot {s} costs nothing");
+                    Assert.IsTrue(FactionRoster.Fields(faction, e.Archetype),
+                        $"{faction} fields archetype {e.Archetype} in slot {s} but it is not in the faction pool");
+                    if (e.IsVehicle) armour++;
+                }
+                Assert.GreaterOrEqual(armour, 3, $"{faction} fields too few machines");
+                Assert.LessOrEqual(armour, 4, $"{faction} fields more machines than the ARMOUR group holds");
+            }
+            Assert.AreEqual(FactionId.Iron, Factions.Of(200), "a byte past the end of the enum is Iron, not the last faction");
+        }
+
+        /// <summary>The crab machines and the jetpack are the fiction. A historical army that fielded them would read
+        /// as Iron in a different hat, which is the thing the owner decided against when they were kept side by side.</summary>
+        [Test]
+        public void TheHistoricalArmiesFieldNoWalkersAndNoJetpack()
+        {
+            using var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            foreach (var faction in new[] { FactionId.British, FactionId.German, FactionId.French, FactionId.AustroHungarian })
+            {
+                FactionRoster.Fill(roster, 0, faction);
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                {
+                    Assert.IsFalse(VehicleArchetype.IsWalker(roster[s].Archetype), $"{faction} slot {s} is a walker");
+                    Assert.AreNotEqual(InfantryArchetype.Jetpack, roster[s].Archetype, $"{faction} slot {s} is a jetpack man");
+                }
+                Assert.IsFalse(FactionRoster.MayCall(faction, FactionRoster.ParaDropBit), $"{faction} cannot drop paratroopers");
+                Assert.IsTrue(FactionRoster.MayCall(faction, FactionRoster.HeBarrageBit), $"{faction} can call a barrage");
+            }
+        }
+
         /// <summary>Paratroopers are nobody's roster slot: they come down on Brass's off-map card, and Iron cannot
         /// call it. The Pavise is Iron's to swap in from the pool, not to field by default.</summary>
         [Test]
@@ -134,7 +187,9 @@ namespace TW.Tests
                            VehicleArchetype.Censer, VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt, VehicleArchetype.Breaker };
             foreach (var a in all)
             {
-                Assert.LessOrEqual(a, InfantryArchetype.Max, $"archetype {a} would fall off TrenchOrders' 1 << archetype mask");
+                Assert.LessOrEqual(a, InfantryArchetype.Max, $"archetype {a} is past the end of every table an archetype indexes");
+                if (!VehicleArchetype.IsArmoured(a))
+                    Assert.AreNotEqual(0, OrderGroup.Of(a) & OrderGroup.All, $"archetype {a} belongs to no order group, so no advance order would reach him");
                 var e = RosterEntry.ForArchetype(a);
                 Assert.AreEqual(a, e.Archetype, $"ForArchetype({a})");
                 Assert.Greater(e.Hp, 0f, $"archetype {a} has hit points");
@@ -146,8 +201,26 @@ namespace TW.Tests
             }
             Assert.IsTrue(VehicleArchetype.IsTank(VehicleArchetype.Breaker));
             Assert.IsFalse(VehicleArchetype.IsWalker(VehicleArchetype.Breaker));
-            Assert.Less(40 + VehicleArchetype.Breaker, SeaLandingSystem.ShipSource, "the Breaker's weapon id must stay clear of the ship shell");
+            // the explosion source space is banded now, so a machine's weapon id cannot collide with the fleet's or
+            // with a hull cooking off however high the archetype ids go
+            Assert.AreNotEqual(SourceId.Unit(VehicleArchetype.Breaker), SeaLandingSystem.ShipSource);
+            Assert.Less(SourceId.Unit(255), SourceId.CookOff, "every archetype fits below the cook-off band");
+            Assert.Greater(SourceId.Unit(0), SourceId.AbilityMax, "a unit's weapon can never read as an ability");
+            Assert.AreEqual(VehicleArchetype.Breaker, SourceId.ArchetypeOf(SourceId.Unit(VehicleArchetype.Breaker)));
+            Assert.IsTrue(SourceId.IsUnit(LeapSystem.LandingSource));
             Assert.AreEqual(0, RosterEntry.SlotCount % 1);
+        }
+
+        /// <summary>A campaign nation that has a roster of its own fields it; the rest fight as the nearest ally.</summary>
+        [Test]
+        public void EachNationWithARosterOfItsOwnFieldsIt()
+        {
+            Assert.AreEqual(FactionId.British, FactionMap.ToSim(Faction.British));
+            Assert.AreEqual(FactionId.German, FactionMap.ToSim(Faction.German));
+            Assert.AreEqual(FactionId.French, FactionMap.ToSim(Faction.French));
+            Assert.AreEqual(FactionId.AustroHungarian, FactionMap.ToSim(Faction.AustroHungarian));
+            Assert.AreEqual(FactionId.German, FactionMap.ToSim(Faction.Ottoman), "the other Central Powers fight as Germany");
+            Assert.AreEqual(FactionId.British, FactionMap.ToSim(Faction.Italian), "and the rest of the Entente as Britain");
         }
 
         [Test]
