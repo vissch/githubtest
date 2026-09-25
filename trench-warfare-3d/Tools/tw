@@ -16,11 +16,21 @@
 # lands a PNG (and a .meta) inside Assets. `tw shot` always passes an absolute path outside Assets to avoid that.
 set -u
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Every call goes to THIS checkout's editor. The CLI otherwise auto-detects, and with the main clone and a worktree
+# both open it can drive the wrong editor (someone else's Play session). --project-path filters by substring.
+WPROJ="$(cygpath -w "$PROJ" 2>/dev/null || echo "$PROJ")"
+export UNITY_PROJECT_PATH="$WPROJ"
+# The unity CLI is not on PATH in a fresh shell on this machine; it lives in %LOCALAPPDATA%/unity/bin.
+command -v unity >/dev/null 2>&1 || PATH="$PATH:$(cygpath "$LOCALAPPDATA" 2>/dev/null)/unity/bin"
 U() { unity --no-banner "$@"; }   # global flags FIRST: after a `--` they are read as the command's own args
 
 up() {
   for i in $(seq 1 60); do
-    unity status --json --no-banner 2>&1 | grep -q '"state": *"ready"' && { echo "editor ready"; return 0; }
+    # "ready" in status is not enough: right after launch the editor still answers 503 (settling) to main-thread
+    # commands for a while. Ready means an eval comes back.
+    if unity status --json --no-banner --project-path "$WPROJ" 2>&1 | grep -q '"state": *"ready"'; then
+      U cmd eval --result-only -- --code "return 1;" 2>&1 | grep -q '"result": *1' && { echo "editor ready"; return 0; }
+    fi
     [ "$i" = 1 ] && { echo "no editor connected - launching..."; (unity open "$PROJ" --no-banner >/dev/null 2>&1 &) ; }
     sleep 10
   done

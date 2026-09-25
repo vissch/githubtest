@@ -86,6 +86,19 @@ if audio_asset.exists():
                       'Mute belongs in settings.json (GameSettings.Audio.Master), never in the project asset: '
                       'this silences every session and every build. Set it back to 1.')
 
+# The navigation docs (CLAUDE.md, docs/reference/) against the tree: generated tables current, cited files real,
+# every test / hook / tool / flag routed somewhere. Tools/codemap.py explains each rule and how to fix it.
+import subprocess
+cm = subprocess.run([sys.executable, str(root / 'Tools' / 'codemap.py'), '--check'], cwd=root, capture_output=True)
+cm_out = cm.stdout.decode('utf-8', 'replace').strip()
+for line in cm_out.split('\n'):
+    if line.startswith('codemap: '):
+        errors.append(line)
+    elif line.startswith('warning: '):
+        print(line)
+if cm.returncode != 0 and not any(l.startswith('codemap: ') for l in cm_out.split('\n')):
+    errors.append('Tools/codemap.py --check failed: ' + (cm_out + cm.stderr.decode('utf-8', 'replace'))[-800:])
+
 print(f'{len(asm)} assemblies, {sum(1 for _ in (root / "Assets/_Project").rglob("*.cs"))} C# files')
 if errors:
     print('\n'.join(errors)); sys.exit(1)

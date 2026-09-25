@@ -48,3 +48,6 @@ test-results*.xml
 /*.log
 *.before
 *.before.meta
+
+# python bytecode (Tools/health.py imports editor_lock)
+__pycache__/
