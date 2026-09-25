@@ -28,11 +28,10 @@ namespace TW.UI
             if (!SelectionController.GroupModifierHeld())
                 for (int s = first; s < RosterEntry.SlotCount; s++)
                     if (KeyMap.Down((GameAction)((int)GameAction.Deploy1 + s))) hud.Deploy(s);
-            if (!SelectionController.GroupModifierHeld())   // 9 and 0 are group keys too
-            {
-                if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
-                if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
-            }
+            // the support cards live on F5-F7 now that the digit row is ten deploy slots, so no group modifier applies
+            if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
+            if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
+            if (KeyMap.Down(GameAction.ArmDrop)) hud.ToggleArm(OffMapAbilityId.ParaDrop);
             if (KeyMap.Down(GameAction.Advance)) hud.OrderFront(CommandType.TrenchAdvance);
             if (KeyMap.Down(GameAction.HoldFire)) hud.ToggleFront(CommandType.TrenchHoldFire);
             if (KeyMap.Down(GameAction.SpeedDown)) hud.Clock?.StepSpeed(-1);

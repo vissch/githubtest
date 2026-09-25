@@ -41,7 +41,7 @@ namespace TW.UI
         public VisualElement Tooltip; public Label TooltipTitle, TooltipBody, TooltipCost, Hint;
         public VisualElement OrdersLayer, Banner, PausePlate; public Label BannerText;
         public readonly List<CardRefs> Cards = new List<CardRefs>(RosterEntry.SlotCount + 2);
-        public readonly List<CardRefs> SupportCards = new List<CardRefs>(2);
+        public readonly List<CardRefs> SupportCards = new List<CardRefs>(HudText.SupportCards);
         // cached values
         public int LastSilver = int.MinValue, LastMen = -1, LastEnemy = -1, LastSeconds = -1, LastSpeedIdx = -1;
         public float LastIncome = float.NaN;
@@ -62,7 +62,8 @@ namespace TW.UI
         public static readonly string[] IgnorePickingNames = { "hud-root", "region-topleft", "region-topright", "region-bottom", "orders-layer", "banner", "hint", "tooltip", "pause-plate" };
 
         /// <summary>The support abilities the bar offers, in card order; the hotkeys are "9" and "0".</summary>
-        public static readonly OffMapAbilityId[] SupportAbilities = { OffMapAbilityId.HeBarrage, OffMapAbilityId.ChlorineGas };
+        public static readonly OffMapAbilityId[] SupportAbilities =
+            { OffMapAbilityId.HeBarrage, OffMapAbilityId.ChlorineGas, OffMapAbilityId.ParaDrop };
 
         /// <summary>
         /// Query the fixed elements, instantiate one card per roster slot (infantry left, machines right) and one per
@@ -104,13 +105,12 @@ namespace TW.UI
                 var card = MakeCard(cardTemplate, r.Support);
                 card.Ability = SupportAbilities[i];
                 card.BaseCost = supportCosts != null && i < supportCosts.Length ? supportCosts[i] : 0;
-                bool gas = card.Ability == OffMapAbilityId.ChlorineGas;
-                card.Title = (gas ? HudText.GasName : HudText.BarrageName).ToUpperInvariant();
-                card.Tip = gas ? HudText.GasTip : HudText.BarrageTip;
+                card.Title = HudText.SupportName(card.Ability).ToUpperInvariant();
+                card.Tip = HudText.SupportTip(card.Ability);
                 card.Hotkey.text = HudText.SupportHotkey(i);
-                card.Label = gas ? HudText.GasCard : HudText.BarrageCard;
+                card.Label = HudText.SupportCardLabel(card.Ability);
                 card.Name.text = card.Label;
-                SetPortrait(card, gas ? "ChlorineGas" : "HeBarrage");
+                SetPortrait(card, HudText.SupportPortrait(card.Ability));
                 r.Cards.Add(card); r.SupportCards.Add(card);
             }
             root.Query<Button>().ForEach(b => b.focusable = false);

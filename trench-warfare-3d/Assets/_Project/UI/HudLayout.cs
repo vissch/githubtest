@@ -31,7 +31,7 @@ namespace TW.UI
         public const float CaptionPx = 14f;      // the INFANTRY / ARMOUR / SUPPORT caption above each group
         public const float CaptionGapPx = 2f;    // under each caption
         public const float BarPadTopPx = 6f, BarPadBottomPx = 8f;
-        public const int SupportSlots = 2;
+        public const int SupportSlots = 3;   // barrage, gas, paratroopers
         public const int Dividers = 1;           // infantry | (armour over support)
         /// <summary>One caption line (INFANTRY, ARMOUR), then the cards: infantry beside ARMOUR over SUPPORT, whose
         /// caption sits beside its two cards. The stack is as tall as the infantry group: ARMOUR at its top, SUPPORT at

@@ -163,7 +163,7 @@ namespace TW.UI
 
         string CostLine(CardRefs c)
         {
-            string key = c.IsSupport ? HudText.SupportHotkey(c.Ability == OffMapAbilityId.ChlorineGas ? 1 : 0) : HudText.Hotkey(c.Slot);
+            string key = c.IsSupport ? HudText.SupportHotkey(HudText.SupportIndex(c.Ability)) : HudText.Hotkey(c.Slot);
             return $"{c.BaseCost} SILVER   KEY {key}";
         }
 

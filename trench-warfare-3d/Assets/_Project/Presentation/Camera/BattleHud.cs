@@ -23,7 +23,7 @@ namespace TW.Presentation.Tactical
         /// to seven turned a two-pixel overhang into a frame sized for seven cells with nine drawn into it.
         /// </summary>
         const float Gap = 8f, Inset = 12f, Divider = 20f;
-        const int SupportSlots = 2;
+        const int SupportSlots = UnitLook.SupportCards;   // barrage, gas, paratroopers
 
         /// <summary>
         /// The cell size and wooden frame width for a given amount of horizontal room. Pure, static and public
@@ -57,12 +57,13 @@ namespace TW.Presentation.Tactical
             Inset + (RosterEntry.SlotCount + SupportSlots) * (size + Gap) + Divider + Inset;
 
         /// <summary>
-        /// How many unit icons the bar has. A slot past the end is clamped to the last icon rather than throwing,
-        /// which sounds safe and is worse: the Banner and the Pavise drew the same picture and the bar looked
-        /// perfectly correct while telling the player two different machines were the same one. A test holds this
-        /// at or above RosterEntry.SlotCount so the next machine added cannot inherit its neighbour's portrait.
+        /// How many unit icons the bar has: one per ARCHETYPE, ids 0..18. They used to be indexed by roster slot and
+        /// clamped to the last one, which sounds safe and is worse: the Banner and the Pavise drew the same picture and
+        /// the bar looked perfectly correct while telling the player two different machines were the same one. Now that
+        /// the factions field different slots, a slot index would draw Iron's officer for Brass's sniper. A test holds
+        /// an icon for every archetype either faction's roster hands out.
         /// </summary>
-        public const int UnitIcons = 8;
+        public const int UnitIcons = UnitLook.PortraitCount;
 
 #if UNITY_EDITOR
         /// <summary>Once per session, not once per frame: OnGUI runs twice a frame and this is an error, not a log.</summary>
@@ -81,72 +82,30 @@ namespace TW.Presentation.Tactical
         // by which slot it sits in, and the bar cannot fall out of step with the roster the way it just did: these
         // arrays were five long while RosterEntry.SlotCount had already gone to seven, which is an index out of
         // range on the first frame the bar is drawn.
-        static readonly string[] SlotNames = { "Rifle", "Assault", "MG", "Sniper" };
-        static readonly string[] SlotTips =
-        {
-            "Rifleman: cheap line infantry", "Assault: fast, short range", "MG team: holds a trench, suppresses",
-            "Sniper: long range, slow fire",
-        };
+        // The words are UnitLook's, which the Toolkit HUD reads too: while each HUD kept its own copy the two said
+        // different things about the same man, and the copies drifted the moment the roster grew. Only the pictures
+        // below are this file's own.
+        static string NameOf(int slot, in RosterEntry e) => UnitLook.Name(e.Archetype);
 
-        static string NameOf(int slot, in RosterEntry e) =>
-            slot < SlotNames.Length ? SlotNames[slot] : VehicleName(e.Archetype);
+        static string TipOf(int slot, in RosterEntry e) => UnitLook.Tip(e.Archetype);
 
-        static string TipOf(int slot, in RosterEntry e) =>
-            slot < SlotTips.Length ? SlotTips[slot] : VehicleTip(e.Archetype);
+        public static string VehicleName(byte archetype) => UnitLook.VehicleName(archetype);
 
-        public static string VehicleName(byte archetype)
-        {
-            switch (archetype)
-            {
-                case VehicleArchetype.Maw: return "Maw";
-                case VehicleArchetype.Tusk: return "Tusk";
-                case VehicleArchetype.Pincer: return "Pincer";
-                case VehicleArchetype.Kettle: return "Kettle";
-                case VehicleArchetype.Censer: return "Censer";
-                case VehicleArchetype.Pavise: return "Pavise";
-                case VehicleArchetype.Banner: return "Banner";
-                case VehicleArchetype.Redoubt: return "Redoubt";
-                default: return "Vehicle";
-            }
-        }
-
-        /// <summary>
-        /// What a player needs in order to choose one, not what it is made of. Every number here was read back out of
-        /// the sim rather than remembered: the walkers step over wire without slowing or breaking it
-        /// (VehicleKinematics.cs:186), the Kettle's RangeMin really is 46 m and the Pavise's 360 m really is the
-        /// longest RangeMax any machine on the field has (TankSpec.cs). Two things I had wrong before checking, and
-        /// which the tooltips must not repeat: the Pincer's guns are sponson mounts like the Maw's, not turrets, so
-        /// they cannot reach behind it; and TankSpec.Unmanned does NOT mean uncrewed — every walker carries Crew = 2,
-        /// a crew hit still calls LoseCrew, and what Unmanned buys is only that nobody bails out when it dies
-        /// (VehicleModules.cs:457). Keep these under about 100 characters: the hint line clips rather than wraps.
-        /// </summary>
-        public static string VehicleTip(byte archetype)
-        {
-            switch (archetype)
-            {
-                case VehicleArchetype.Maw: return "Maw, heavy tank: sponson guns, crosses wide trenches, crushes wire";
-                case VehicleArchetype.Tusk: return "Tusk, light tank: turret gun, quick, ditches in wide trenches";
-                case VehicleArchetype.Pincer: return "Pincer, heavy walker: sponson guns that cannot reach behind it, claws at 3 m. Steps over wire";
-                case VehicleArchetype.Kettle: return "Kettle, mortar walker: fires without line of sight at men behind a parapet. Blind inside 46 m";
-                case VehicleArchetype.Censer: return "Censer, gas walker: no gun. Lays chlorine as it walks; the drum is its ammunition and its weak spot";
-                case VehicleArchetype.Pavise: return "Pavise, siege walker: a 360 m gun, the longest reach on the field. Halts to fire, shielded in front";
-                case VehicleArchetype.Banner: return "Banner, command walker: a 300 m gun, and a standard that steadies your men within 26 m. Thin plate";
-                case VehicleArchetype.Redoubt: return "Redoubt, blockhouse walker: no gun. 38 mm of front plate and the heaviest claws on the field";
-                default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
-            }
-        }
+        /// <summary>UnitLook holds the words and the sim constants they quote; HudTextTests checks them there.</summary>
+        public static string VehicleTip(byte archetype) => UnitLook.VehicleTip(archetype);
 
         /// <summary>The two support buttons' text. Constants rather than literals at the call site so that the
         /// numbers in them can be checked against OffMapAbilitySystem's stats by a test: 12 shells, 25 m and a
         /// 4 s delay are WarmupTicks 80 at TickRate 20, and all three go stale silently if the ability is retuned.</summary>
-        public const string BarrageTip = "HE barrage: 12 shells in 25 m after 4 s; craters give cover";
-        public const string GasTip = "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out";
+        public const string BarrageTip = UnitLook.BarrageTip;
+        public const string GasTip = UnitLook.GasTip;
+        public const string DropTip = UnitLook.DropTip;
         static readonly Color Gold = new Color(0.88f, 0.79f, 0.58f);
         static readonly Color Pale = new Color(0.86f, 0.84f, 0.76f);
         static readonly Color Dark = new Color(0.17f, 0.17f, 0.16f);
 
         GUIStyle stone, slate, wood, green, number, cost, unitName, silver, hint, tip, speed;
-        Texture2D sideTex, stripTex, coin, lockClosed, lockOpen, lockGrey, advance, fallback, fire, fireHeld, pause, barrage, gas;
+        Texture2D sideTex, stripTex, coin, lockClosed, lockOpen, lockGrey, advance, fallback, fire, fireHeld, pause, barrage, gas, drop;
         Texture2D[] unitIcons;
         readonly System.Collections.Generic.List<Vector3> anchors = new System.Collections.Generic.List<Vector3>(8);   // x, y = screen, z = trench index
 
@@ -255,7 +214,12 @@ namespace TW.Presentation.Tactical
             gas = Icon(new Color(0.72f, 0.80f, 0.35f), new Color(0.50f, 0.60f, 0.22f),
                 "....###.....", "..#######...", ".####oo###..", "####oooo###.", "###oooooo###", "############",
                 ".##########.", "..###..###..", "............", "...#....#...", "....#..#....");
-            unitIcons = new[]
+            drop = Icon(Pale, new Color(0.55f, 0.62f, 0.40f),
+                "..#######...", ".#########..", "###########.", "..#..###..#.", "...#.###.#..", "....#####...",
+                "......#.....", ".....###....", "....#####...");
+            // one picture per ARCHETYPE: these eight were drawn for player 0's old eight, in that order
+            unitIcons = new Texture2D[UnitIcons];
+            var old8 = new[]
             {
                 Icon(Pale, Dark, "..............", "...........##.", "############..", "#####.##......", "###...........", "##............"),
                 Icon(Pale, Dark, ".......###", "......####", ".....####.", "....###...", "...##.....", "..##......", ".##.......", "##........"),
@@ -269,13 +233,38 @@ namespace TW.Presentation.Tactical
                 Icon(Pale, Dark, "###...........", "###..#########", "###o####......", "###...........", ".############.", "..#..#..#..#.."),
                 Icon(Pale, Dark, "....######....", "....##........", "....##........", "##############", "..####o#####..", "..#..#..#..#.."),
             };
+            byte[] were = { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner,
+                            InfantryArchetype.Sniper, VehicleArchetype.Maw, VehicleArchetype.Pincer,
+                            VehicleArchetype.Pavise, VehicleArchetype.Banner };
+            for (int i = 0; i < were.Length; i++) unitIcons[were[i]] = old8[i];
+            // the other faction's machines borrow the nearest silhouette until they are drawn their own: a tank reads
+            // as a tank at 46 px, and a walker as legs
+            unitIcons[VehicleArchetype.Tusk] = old8[4];
+            unitIcons[VehicleArchetype.Kettle] = old8[5];
+            unitIcons[VehicleArchetype.Censer] = old8[5];
+            unitIcons[VehicleArchetype.Redoubt] = old8[6];
+            // and the units of 2026-09-25, each one silhouette that has to read at 46 px: a raised arm, a plate held
+            // out, a cross, a spanner, a canopy, a pair of tanks on a back, and a squat hull behind a ram
+            unitIcons[InfantryArchetype.Officer] = Icon(Pale, Dark, "......##......", ".....####.....", "......##......", "...#..##..#...", "..##..##..##..", "......##......");
+            unitIcons[InfantryArchetype.Shield] = Icon(Pale, Dark, "..####....##..", ".######...##..", ".######...##..", ".######...##..", "..####....##..", "...##.....##..");
+            unitIcons[InfantryArchetype.Medic] = Icon(Pale, new Color(0.85f, 0.25f, 0.22f), "......##......", "......##......", "..##########..", "..##########..", "......##......", "......##......");
+            unitIcons[InfantryArchetype.Repair] = Icon(Pale, Dark, "..##..........", ".####.........", "..####........", "...####.......", "....####......", ".....###......");
+            unitIcons[InfantryArchetype.Para] = Icon(Pale, Dark, "..##########..", ".############.", "..#...##...#..", "...#..##..#...", "....#.##.#....", "......##......");
+            unitIcons[InfantryArchetype.Jetpack] = Icon(Pale, Dark, "....##..##....", "....##..##....", "....######....", "......##......", ".....#..#.....", "....#....#....");
+            unitIcons[VehicleArchetype.Breaker] = Icon(Pale, Dark, "..............", "..##########..", ".############.", "###o######o###", "##############", "..#..#..#..#..");
 #if UNITY_EDITOR
-            // The roster has grown twice while this array did not, and the draw clamps the index, so the overflow
-            // is silent: two different machines share one picture and the bar looks right while lying.
-            if (unitIcons.Length != UnitIcons)
-                Debug.LogError($"BattleHud: {unitIcons.Length} icons built but UnitIcons says {UnitIcons}");
+            // The roster grew twice while the array did not, and the draw clamped the index, so the overflow was
+            // silent: two machines shared one picture and the bar looked right while lying. A missing archetype says
+            // so instead, once, the first time the icons are built.
+            for (byte a = 0; a < UnitIcons; a++)
+                if (unitIcons[a] == null && (InfantryArchetype.IsInfantry(a) || RosterEntry.ForArchetype(a).IsVehicle))
+                    Debug.LogError($"BattleHud: archetype {a} ({UnitLook.Name(a)}) has no icon");
 #endif
         }
+
+        /// <summary>The picture for an archetype, or the rifleman's if an id has slipped in without one.</summary>
+        Texture2D IconFor(byte archetype) =>
+            archetype < unitIcons.Length && unitIcons[archetype] != null ? unitIcons[archetype] : unitIcons[InfantryArchetype.Rifle];
 
         void EnsureStyles()
         {
@@ -357,14 +346,14 @@ namespace TW.Presentation.Tactical
                 bool can = !over && unlocked && cd == 0 && w.Silver[0] >= e.Cost;
                 var r = new Rect(x, y, size, size);
                 GUI.enabled = can;
-                if (GUI.Button(r, new GUIContent("", unlocked ? $"{TipOf(s, e)}  ({e.Cost} silver, key {s + 1})" : "Locked"), stone))
+                if (GUI.Button(r, new GUIContent("", unlocked ? $"{TipOf(s, e)}  ({e.Cost} silver, key {UnitLook.Hotkey(s)})" : "Locked"), stone))
                     Host.Issue(SimCommand.Deploy(w.Tick, 0, s));
                 GUI.enabled = true;
                 if (!unlocked) DrawIcon(r, lockGrey, size * 0.26f);
                 else
                 {
-                    DrawIcon(new Rect(r.x, r.y - 4f, r.width, r.height), unitIcons[Mathf.Min(s, unitIcons.Length - 1)], size * 0.2f, can);
-                    GUI.Label(new Rect(r.x + 5f, r.y + 2f, 20f, 14f), $"{s + 1}", number);
+                    DrawIcon(new Rect(r.x, r.y - 4f, r.width, r.height), IconFor(e.Archetype), size * 0.2f, can);
+                    GUI.Label(new Rect(r.x + 5f, r.y + 2f, 20f, 14f), UnitLook.Hotkey(s), number);
                     if (size >= 70f) GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), NameOf(s, e), unitName);
                     GUI.Label(new Rect(r.x, r.y, r.width - 5f, r.height - 3f), cd > 0 ? $"{cd * w.Config.TickSeconds:0}s" : $"{e.Cost}", cost);
                 }
@@ -374,6 +363,7 @@ namespace TW.Presentation.Tactical
             x += Divider;
             SupportSlot(ref x, y, size, barrage, BarrageTip, OffMapAbilityId.HeBarrage, over);
             SupportSlot(ref x, y, size, gas, GasTip, OffMapAbilityId.ChlorineGas, over);
+            SupportSlot(ref x, y, size, drop, DropTip, OffMapAbilityId.ParaDrop, over);
 #if UNITY_EDITOR
             // x has now been advanced by the real loop, so this compares the frame against what was actually drawn
             // rather than against a second copy of the arithmetic. A copy is what drifted last time. If anyone adds

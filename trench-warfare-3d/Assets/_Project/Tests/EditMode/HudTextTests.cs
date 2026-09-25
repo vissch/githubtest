@@ -12,7 +12,10 @@
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using TW.Presentation;
 using TW.Presentation.Tactical;
+using TW.UI;
 using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
@@ -24,13 +27,26 @@ namespace TW.Tests
         /// <summary>Player 0's roster as the sim fills it: the archetypes the deploy bar will actually be asked to
         /// draw. Reading it from FillDefault rather than listing them here is the point — a roster that grows finds
         /// these tests, which is how the Banner and the Redoubt were caught with no name and no tooltip.</summary>
-        static byte[] DeployableArchetypes()
+        static byte[] DeployableArchetypes() => Deployable(vehicles: true);
+
+        /// <summary>Everything either faction fields, machine or man. Both rosters, because a slot means nothing across
+        /// factions: Iron's officer sits where Brass's sniper does.</summary>
+        static byte[] AllDeployableArchetypes() => Deployable(vehicles: false);
+
+        static byte[] Deployable(bool vehicles)
         {
-            var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
-            RosterEntry.FillDefault(roster, 0);
             var found = new System.Collections.Generic.List<byte>();
-            for (int s = 0; s < RosterEntry.SlotCount; s++)
-                if (roster[s].IsVehicle) found.Add(roster[s].Archetype);
+            var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            for (int f = 0; f < Factions.Count; f++)
+            {
+                FactionRoster.Fill(roster, 0, Factions.Of((byte)f));
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                {
+                    if (vehicles && !roster[s].IsVehicle) continue;
+                    if (roster[s].Hp <= 0f) continue;   // an empty slot, if a faction ever fields fewer than ten
+                    if (!found.Contains(roster[s].Archetype)) found.Add(roster[s].Archetype);
+                }
+            }
             roster.Dispose();
             return found.ToArray();
         }
@@ -65,16 +81,72 @@ namespace TW.Tests
                 Assert.That(tip.Length, Is.LessThanOrEqualTo(100),
                     $"{BattleHud.VehicleName(a)}'s tooltip is {tip.Length} characters and will be clipped: \"{tip}\"");
             }
-            foreach (string tip in new[] { BattleHud.BarrageTip, BattleHud.GasTip })
+            foreach (string tip in new[] { BattleHud.BarrageTip, BattleHud.GasTip, BattleHud.DropTip })
                 Assert.That(tip.Length, Is.LessThanOrEqualTo(100), $"support tooltip is {tip.Length} characters: \"{tip}\"");
         }
 
         [Test]
-        public void TheRosterNeverOutgrowsTheIcons()
+        public void EveryUnitEitherFactionFieldsHasWordsAndAPictureOfItsOwn()
         {
-            Assert.That(BattleHud.UnitIcons, Is.GreaterThanOrEqualTo(RosterEntry.SlotCount),
-                $"there are {BattleHud.UnitIcons} icons for {RosterEntry.SlotCount} slots, so the last slots share " +
-                "the icon of the one before and two different machines look identical on the bar");
+            var seenName = new System.Collections.Generic.Dictionary<string, byte>();
+            foreach (byte a in AllDeployableArchetypes())
+            {
+                Assert.That(HudText.Name(a), Is.Not.EqualTo("Vehicle"), $"archetype {a} has no name of its own");
+                Assert.That(HudText.Tip(a), Is.Not.EqualTo(HudText.Tip(200)), $"archetype {a} has no tooltip of its own");
+                Assert.That(HudText.Tip(a).Length, Is.LessThanOrEqualTo(100), $"archetype {a}'s tooltip is clipped");
+                Assert.That(HudText.PortraitName(a), Is.Not.Empty, $"archetype {a} has no portrait stem");
+                Assert.That(a, Is.LessThan(BattleHud.UnitIcons),
+                    $"archetype {a} is fielded but past the end of the icon table, so it draws another unit's picture");
+                // two units sharing one name would put two identical cards on the bar, which is the bug the icon
+                // table had for a year: the player is told two different men are the same man
+                Assert.That(seenName.ContainsKey(HudText.Name(a)), Is.False,
+                    $"archetypes {a} and {(seenName.TryGetValue(HudText.Name(a), out var b) ? b : (byte)0)} are both called \"{HudText.Name(a)}\"");
+                seenName[HudText.Name(a)] = a;
+            }
+        }
+
+        [Test]
+        public void ThePortraitsCoverEveryArchetypeTheIconsDo()
+        {
+            Assert.That(HudText.PortraitCount, Is.EqualTo(BattleHud.UnitIcons),
+                "the Toolkit HUD's portraits and the old bar's icons are indexed by the same archetype id");
+        }
+
+        /// <summary>Ten roster slots take the digit row, so the support cards are on F5-F7. A slot past the roster has
+        /// no key at all rather than borrowing slot 1's, which is what an unguarded modulo did.</summary>
+        [Test]
+        public void TheKeysCoverTenSlotsAndThreeSupportCards()
+        {
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+                Assert.That(HudText.Hotkey(s), Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s}");
+            Assert.That(HudText.Hotkey(RosterEntry.SlotCount), Is.Empty, "a slot the roster does not have");
+            Assert.That(HudText.Hotkey(-1), Is.Empty);
+            Assert.That(HudText.SupportHotkey(0), Is.EqualTo("F5"));
+            Assert.That(HudText.SupportHotkey(1), Is.EqualTo("F6"));
+            Assert.That(HudText.SupportHotkey(2), Is.EqualTo("F7"));
+            Assert.That(HudText.SupportHotkey(3), Is.Empty);
+            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.Deploy10], Is.EqualTo(Key.Digit0), "the tenth slot is 0");
+            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmBarrage], Is.EqualTo(Key.F5));
+            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmGas], Is.EqualTo(Key.F6));
+            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmDrop], Is.EqualTo(Key.F7));
+        }
+
+        /// <summary>Every roster slot and every support card has a key of its own: two cards on one key means one of
+        /// them cannot be reached from the keyboard, and the bar would not say so.</summary>
+        [Test]
+        public void NoTwoCardsShareAKey()
+        {
+            var b = KeyMap.Defaults();
+            var keys = new System.Collections.Generic.List<Key>();
+            for (int s = 0; s < RosterEntry.SlotCount; s++) keys.Add(b.Primary[(int)GameAction.Deploy1 + s]);
+            keys.Add(b.Primary[(int)GameAction.ArmBarrage]);
+            keys.Add(b.Primary[(int)GameAction.ArmGas]);
+            keys.Add(b.Primary[(int)GameAction.ArmDrop]);
+            foreach (var k in keys)
+            {
+                Assert.That(k, Is.Not.EqualTo(Key.None), "a card with no key");
+                Assert.That(keys.FindAll(x => x == k).Count, Is.EqualTo(1), $"{k} is bound to two cards");
+            }
         }
 
         // ---- the numbers quoted in the tooltips are the sim's numbers ----------------------------------------

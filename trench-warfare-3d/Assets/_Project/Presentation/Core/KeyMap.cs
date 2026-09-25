@@ -16,8 +16,8 @@ namespace TW.Presentation
     {
         PanUp, PanDown, PanLeft, PanRight, RotateLeft, RotateRight, ResetView, SuperZoom,
         TacticalPause, Menu,
-        Deploy1, Deploy2, Deploy3, Deploy4, Deploy5, Deploy6, Deploy7, Deploy8,
-        ArmBarrage, ArmGas,
+        Deploy1, Deploy2, Deploy3, Deploy4, Deploy5, Deploy6, Deploy7, Deploy8, Deploy9, Deploy10,
+        ArmBarrage, ArmGas, ArmDrop,
         Advance, Fallback, LockTrench, HoldFire,
         SpeedDown, SpeedUp,
         DebugFlowField, DebugStats, DebugNextGoal, DebugCapsules, DebugPanel, HudToggle,
@@ -75,8 +75,12 @@ namespace TW.Presentation
             D(GameAction.Deploy1, Key.Digit1); D(GameAction.Deploy2, Key.Digit2); D(GameAction.Deploy3, Key.Digit3);
             D(GameAction.Deploy4, Key.Digit4); D(GameAction.Deploy5, Key.Digit5); D(GameAction.Deploy6, Key.Digit6);
             D(GameAction.Deploy7, Key.Digit7); D(GameAction.Deploy8, Key.Digit8);
-            D(GameAction.ArmBarrage, Key.Digit9);
-            D(GameAction.ArmGas, Key.Digit0);
+            // ten roster slots take the whole digit row, so the support cards moved onto the free block of the
+            // function row: F1-F4 are the debug overlays, F9 the HUD toggle and F10 the debug panel
+            D(GameAction.Deploy9, Key.Digit9); D(GameAction.Deploy10, Key.Digit0);
+            D(GameAction.ArmBarrage, Key.F5);
+            D(GameAction.ArmGas, Key.F6);
+            D(GameAction.ArmDrop, Key.F7);
             D(GameAction.Advance, Key.G);
             D(GameAction.Fallback, Key.Backspace);
             D(GameAction.LockTrench, Key.L);
@@ -203,6 +207,7 @@ namespace TW.Presentation
                 case GameAction.Menu: return "MENU";
                 case GameAction.ArmBarrage: return "ARM HE BARRAGE";
                 case GameAction.ArmGas: return "ARM CHLORINE";
+                case GameAction.ArmDrop: return "ARM PARATROOPERS";
                 case GameAction.Advance: return "OVER THE TOP";
                 case GameAction.Fallback: return "FALL BACK";
                 case GameAction.LockTrench: return "LOCK TRENCH";

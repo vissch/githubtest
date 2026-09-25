@@ -67,15 +67,16 @@ namespace TW.Tests
             var card = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(CardPath);
             Assert.That(card, Is.Not.Null);
             var refs = HudView.Build(root, card, DefaultRoster(), new[] { 150, 120 });
-            Assert.That(refs.Cards.Count, Is.EqualTo(RosterEntry.SlotCount + 2));
-            Assert.That(refs.SupportCards.Count, Is.EqualTo(2));
+            Assert.That(refs.Cards.Count, Is.EqualTo(RosterEntry.SlotCount + HudText.SupportCards));
+            Assert.That(refs.SupportCards.Count, Is.EqualTo(HudText.SupportCards), "barrage, gas, paratroopers");
             int infantry = refs.RosterInfantry.childCount, armour = refs.RosterArmour.childCount;
             Assert.That(infantry + armour, Is.EqualTo(RosterEntry.SlotCount), "every roster slot is in one of the two groups");
             Assert.That(armour, Is.EqualTo(4), "the default roster fields four machines");
             for (int s = 0; s < RosterEntry.SlotCount; s++)
                 Assert.That(refs.Cards[s].Hotkey.text, Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s} hotkey badge");
-            Assert.That(refs.SupportCards[0].Hotkey.text, Is.EqualTo("9"));
-            Assert.That(refs.SupportCards[1].Hotkey.text, Is.EqualTo("0"));
+            // the digit row is ten deploy slots now, so the support cards are on the free block of the function row
+            for (int i = 0; i < HudText.SupportCards; i++)
+                Assert.That(refs.SupportCards[i].Hotkey.text, Is.EqualTo("F" + (5 + i)), $"support card {i}");
             root.Query<Button>().ForEach(b => Assert.That(b.focusable, Is.False, $"button '{b.name}' is focusable: Space would re-press it instead of pausing"));
         }
 

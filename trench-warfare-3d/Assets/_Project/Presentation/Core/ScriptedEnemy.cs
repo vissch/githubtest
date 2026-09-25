@@ -52,21 +52,61 @@ namespace TW.Presentation
             }
         }
 
+        /// <summary>
+        /// The n-th armed foot soldier in the enemy's own roster, round-robin. Slot indices are no use here: the
+        /// factions field different units in the same slots, so slots 0-2 are three riflemen for one side and, for the
+        /// other, whatever its table happens to put there. A medic has no weapon at all and an engineer fires about
+        /// once every twenty seconds, so a script deploying by index spent a third of its silver on men who cannot
+        /// shoot; paratroopers are dropped by the air card and are not deployable from a trench. -1 if it fields none.
+        /// </summary>
+        static int ArmedSlot(SimWorld pw, int n)
+        {
+            int count = 0;
+            for (int s = 0; s < RosterEntry.SlotCount; s++) if (Armed(pw, s)) count++;
+            if (count == 0) return -1;
+            int want = ((n % count) + count) % count;
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+                if (Armed(pw, s) && want-- == 0) return s;
+            return -1;
+        }
+
+        /// <summary>A foot soldier of the enemy's roster who can actually shoot back.</summary>
+        static bool Armed(SimWorld pw, int slot)
+        {
+            var e = pw.Roster[RosterEntry.SlotCount + slot];
+            if (e.IsVehicle) return false;
+            return e.Archetype != InfantryArchetype.Medic && e.Archetype != InfantryArchetype.Repair
+                && e.Archetype != InfantryArchetype.Para;
+        }
+
+        /// <summary>The enemy's first machine, whatever its faction calls it; -1 if it fields none.</summary>
+        static int MachineSlot(SimWorld pw)
+        {
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+                if (pw.Roster[RosterEntry.SlotCount + s].IsVehicle) return s;
+            return -1;
+        }
+
         void EnemyOrders(MatchSim view, ICommandSink enemy, uint t)
         {
             var pw = view.World;
             if (t % (uint)Mathf.Max(1, DeployEveryTicks) == 0)
             {
                 // keep a reserve for support fire once the first squad is out; silver is the only brake on the script
-                int slot = (int)(t / (uint)Mathf.Max(1, DeployEveryTicks)) % 3;
-                int cost = pw.Roster[RosterEntry.SlotCount + slot].Cost;
-                int reserve = UsesSupport && pw.AliveCount > 0 && t > 600 ? SupportReserve : 0;
-                if (pw.Silver[1] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, 1, slot));
+                int slot = ArmedSlot(pw, (int)(t / (uint)Mathf.Max(1, DeployEveryTicks)));
+                if (slot >= 0)
+                {
+                    int cost = pw.Roster[RosterEntry.SlotCount + slot].Cost;
+                    int reserve = UsesSupport && pw.AliveCount > 0 && t > 600 ? SupportReserve : 0;
+                    if (pw.Silver[1] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, 1, slot));
+                }
             }
             if (DeploysTanks && t % 100 == 70)
             {
-                int ri = RosterEntry.SlotCount + 4;
-                if (pw.SlotCooldown[ri] == 0 && pw.Silver[1] >= pw.Roster[ri].Cost) enemy.Issue(SimCommand.Deploy(t, 1, 4));
+                int slot = MachineSlot(pw);
+                int ri = RosterEntry.SlotCount + slot;
+                if (slot >= 0 && pw.SlotCooldown[ri] == 0 && pw.Silver[1] >= pw.Roster[ri].Cost)
+                    enemy.Issue(SimCommand.Deploy(t, 1, slot));
             }
             if (t % 100 == 20)
             {
