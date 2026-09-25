@@ -459,3 +459,56 @@ Two independent causes, and fixing only the first is not enough:
 
 Rule going forward: before believing any measured difference between rounds, check it against the noise floor
 measured by two runs of the same build. State the floor in the critique brief so findings inside it are not raised.
+
+## Working with the flipbook pack: how the sheets were actually used (2026-09-25)
+
+The owner's pack (`G:\My Drive\vfx`) is 32 sheets of hand-drawn animation, 8x4 cells, 12 fps, as
+`<colour>_<kind>_8x4_12fps_<n>f.png`. Everything below is about getting a *drawing* out of one, which is a different
+job from getting a texture out of one.
+
+**The palette is irrelevant, and this is the single most valuable fact about the pack.** `Tools/firebooks.py` throws
+colour away and keeps value plus alpha, and `TW/Flipbook`'s `_Fire` path recolours from value. So a sheet's hue says
+nothing about what it can be used for: **every sheet in the pack is a distinct fire drawing.** The flamethrower was
+originally built from three sheets, all orange, and the other twenty-nine were skipped as "the wrong colour". Reading
+them as drawings instead found exactly the animations the effect had been faking by hand - a rooted stream that opens,
+holds and breaks up (`blue_direction`), a chunky standing flame with a skirt (`blue_fire`), a fan splash off a wall
+(`green_direction`), a second stream in a different hand for the core (`purple_direction`). Books went 3 -> 11.
+
+**Value mode is per sheet, and max-channel is a trap.** The books are premultiplied (`rgb = V*A`) and the shader
+recovers `ink = luma(rgb) / max(alpha, 0.06)`. Under luma a saturated sheet collapses - pure blue's luma is 0.11, so
+the *brightest* part of the blue stream converts darker than its own mid-tones. Max-channel over-corrects the other
+way: it flattens the hue's own shading, because a saturated hue is already at max in one channel everywhere. What
+works is **lightness, `(max + min) / 510`** - how much white is mixed into the hue, which *is* the shading. Measured on
+`blue_direction`: 39% of the drawing lands in the top cel band under max against 27% for the orange reference under
+luma, i.e. blown; lightness leaves 12% and the drawing survives. Orange sheets stay on `luma`.
+
+**Per-book geometry is measured, never guessed.** `InkLow/InkHigh` and `_Bands` were originally measured on one sheet
+and shared by all of them, which is meaningless - they are facts about a particular drawing. Each book now carries its
+own, measured off its own 256 px output over `alpha > 20`: `Low/High` = the 3rd/97th percentile of `ink`; `Bands` =
+quantiles of the normalised ink (soot/fringe/body/core shares); `Ink` = the vertical extent the drawing actually
+occupies in its cell; `Fill` = the horizontal fraction; `Rise` = how fast heat falls off up the card. Two rules that
+cost a round each: **whenever Levels move, Bands must be re-measured against the new window**, and **a computed core
+cut of 1.00 means the band is switched off** (assert on it - nothing in the drawing can reach a saturated cut).
+
+**Cutting a book to dodge a bad phase is a trap; change the sheet.** A frame window (`keep`) is the right tool for a
+sheet whose head or tail is a different animation - `FireFan` keeps 8-23, `FireStand` 2-17 (it loops), `FirePool`
+16-31. It is the wrong tool for a sheet that is simply the wrong drawing. Three rounds went into cutting the cook-off
+book back (25 -> 18 -> 11 frames) to stay ahead of an expanding annulus, and each cut bought a cleaner silhouette by
+throwing away more of the beat, until a tank going up rendered 3.7x smaller and 39 luminance darker than an ambient
+campfire behind it. Replacing the sheet fixed in one move what four cuts had made worse.
+
+**Read a sheet by measuring it, not by looking at it.** What matters is usually a property across frames, not a
+picture: where the alpha starts on each frame (a rooted/directional sheet holds `left == 0` through its body frames, a
+free one drifts), frame-to-frame centroid travel (a burst stays put, a directional sheet moves), when cover peaks and
+when it breaks up (that is the valve: start / hold / stop). The selection metrics are in the 2026-09-25 entry above -
+score several at once, because each has a cheat.
+
+**Two hard mechanical gotchas.**
+- `FlipbookFx.Draw()` indexes `Sheets[]` by the `Book` enum's ordinal and sets `Ready = found == Sheets.Length`. A row
+  whose PNG is missing, or rows out of order against the enum, **silently disables every flipbook in the game** - not
+  just that book. Add the enum entry, the row and the PNG in one step, and treat `books.Ready == true` as an
+  acceptance check rather than an assumption.
+- Regenerating the books must not move the ones already signed off. `firebooks.py` MD5s the existing PNGs before and
+  after and prints `UNCHANGED <name>.png`; if that line is missing for a book nobody meant to touch, the look has
+  moved. `.meta` files are cloned from `FireBall.png.meta` (the fire convention, `maxTextureSize 1024`) with a fresh
+  32-hex GUID each.
