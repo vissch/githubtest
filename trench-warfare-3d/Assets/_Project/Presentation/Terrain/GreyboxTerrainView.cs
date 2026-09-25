@@ -88,12 +88,14 @@ namespace TW.Presentation.Terrain
         public float LastPaintMilliseconds { get; private set; }
         /// <summary>The upload cadence of the colour texture (AOSA C13). Apply(true) rebuilds the whole mip chain on the CPU
         /// and re-uploads all of it, 2.4-2.9 ms in the development player, and it ran on every frame a tile finished.
-        /// ApplyIntervalMs 0 (default) uploads on every dirty frame, as before; above 0 at most once per that many ms of real
-        /// time, and also on the frame the paint queue drains when ApplyOnDrain. MipIntervalMs 0 (default) rebuilds the mips
+        /// ApplyIntervalMs 0 uploads on every dirty frame (the old path); above 0 at most once per that many ms of real time,
+        /// and also on the frame the paint queue drains when ApplyOnDrain. Default 100 since the cycle 3 sweep: under a
+        /// barrage Apply fell from 8.0 to 0.82 ms a tick and main p50 from 9.2 to 6.8 ms (runs/3 a100 v k3d); a crater's
+        /// colour reaches the screen up to 100 ms later. MipIntervalMs 0 (default) rebuilds the mips
         /// on every upload, as before; above 0 an upload in between keeps the old mips (Apply(false)), and a drained queue
         /// always gets them rebuilt. While Unmetered (held-clock image runs) every dirty frame uploads with mips, as before.
         /// Knobs terrain.applyIntervalMs, terrain.applyOnDrain and terrain.mipIntervalMs (Start).</summary>
-        public const double ApplyIntervalMs = 0.0, MipIntervalMs = 0.0;
+        public const double ApplyIntervalMs = 100.0, MipIntervalMs = 0.0;
         public const bool ApplyOnDrain = true;
         double applyIntervalMs = ApplyIntervalMs, mipIntervalMs = MipIntervalMs;
         bool applyOnDrain = ApplyOnDrain, mipsStale;

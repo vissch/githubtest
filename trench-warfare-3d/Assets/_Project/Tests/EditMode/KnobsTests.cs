@@ -175,21 +175,21 @@ namespace TW.Tests
             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));
             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.chunkBudgetMs", (float)GreyboxTerrainView.ChunkBudgetMs));
             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.paintBudgetMs", (float)GreyboxTerrainView.PaintBudgetMs));
-            Assert.AreEqual(0.0, (double)Knobs.Get("terrain.applyIntervalMs", (float)GreyboxTerrainView.ApplyIntervalMs));
+            Assert.AreEqual(100.0, (double)Knobs.Get("terrain.applyIntervalMs", (float)GreyboxTerrainView.ApplyIntervalMs));
             Assert.AreEqual(true, Knobs.Get("terrain.applyOnDrain", GreyboxTerrainView.ApplyOnDrain));
             Assert.AreEqual(0.0, (double)Knobs.Get("terrain.mipIntervalMs", (float)GreyboxTerrainView.MipIntervalMs));
         }
 
         [Test]
-        public void TerrainApply_Defaults_UploadWithMipsOnEveryDirtyFrame()
+        public void TerrainApply_OldPathAndHeldClock_UploadWithMipsOnEveryDirtyFrame()
         {
-            // AOSA C13: at the defaults, and whenever the clock is held (Unmetered), the colour texture is uploaded with
-            // its mips on every dirty frame, as it was before the cadence knobs, whatever the time since the last upload
+            // AOSA C13: with the interval at 0 (the old path; the default is 100 since cycle 3), and whenever the clock is
+            // held (Unmetered), the colour texture is uploaded with its mips on every dirty frame, whatever the time since
             foreach (double since in new[] { 0.0, 1e-3, 16.7, 1e6, double.PositiveInfinity })
             foreach (bool drained in new[] { false, true })
             foreach (bool onDrain in new[] { false, true })
             {
-                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, GreyboxTerrainView.ApplyIntervalMs, drained, onDrain, false));
+                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, 0.0, drained, onDrain, false));
                 Assert.IsTrue(GreyboxTerrainView.MipsDue(since, GreyboxTerrainView.MipIntervalMs, drained, false));
                 Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, 100.0, drained, onDrain, true), "Unmetered uploads every dirty frame");
                 Assert.IsTrue(GreyboxTerrainView.MipsDue(since, 1000.0, drained, true), "Unmetered rebuilds the mips");
