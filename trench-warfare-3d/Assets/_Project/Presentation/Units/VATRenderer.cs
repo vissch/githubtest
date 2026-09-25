@@ -57,7 +57,12 @@ namespace TW.Presentation.Units
     public sealed class VATRenderer : MonoBehaviour
     {
         public SimHost Host;
-        public float UnitScale = 1.5f;   // a little over life size so a man reads up close
+        /// <summary>A man's drawn size, as a multiple of his 1.78 m.
+        ///
+        /// 1.5 drew him 2.67 m tall, which was taller than the 2 m SeparationJob keeps between two men in a
+        /// trench - a full garrison stood inside itself. A quarter off brings him to 2.0 m, so the spacing the
+        /// simulation keeps is now the spacing you see, and the machines read against him as machines.</summary>
+        public float UnitScale = 1.125f;
         [Tooltip("Men grow with the zoom so they stay readable from far out: x1 up to this zoom, then in proportion, capped at MaxGrow.")]
         public float GrowFromZoom = 24f;
         public float MaxGrow = 4f;
@@ -248,13 +253,13 @@ namespace TW.Presentation.Units
                     f.Fallen.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
                     f.Props.SetBuffer("_Instances", instanceBuffer); f.Props.SetBuffer("_RowTable", f.Rows);
                     var rp = new RenderParams(f.Material) { worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = f.Props };
-                    Graphics.RenderMeshIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
+                    FrameBudget.DrawIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
                 }
                 if (DrawnFar > 0 && far != null)
                 {
                     far.Props.SetBuffer("_Instances", instanceBuffer); far.Props.SetBuffer("_RowTable", far.Rows);
                     var rp = new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.Props };
-                    Graphics.RenderMeshIndirect(rp, far.Asset.Mesh, argsBuffer, 1, figures.Length);
+                    FrameBudget.DrawIndirect(rp, far.Asset.Mesh, argsBuffer, 1, figures.Length);
                 }
             }
             if (DrawnVehicles > 0) DrawVehicles(bounds);
@@ -429,12 +434,12 @@ namespace TW.Presentation.Units
                 if (fallenArgsData[k].instanceCount == 0) continue;
                 var fig = figures[k];
                 fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);
-                Graphics.RenderMeshIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
+                FrameBudget.DrawIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
             }
             if (farCount > 0 && far != null)
             {
                 far.FallenProps.SetBuffer("_Instances", fallenBuffer); far.FallenProps.SetBuffer("_RowTable", far.Rows);
-                Graphics.RenderMeshIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
+                FrameBudget.DrawIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
             }
         }
 
@@ -462,8 +467,8 @@ namespace TW.Presentation.Units
                 if (teamB) { if (b < tankBatchB.Length) tankBatchB[b++] = m; }
                 else if (a < tankBatchA.Length) tankBatchA[a++] = m;
             }
-            if (a > 0) Graphics.RenderMeshInstanced(new RenderParams(tankMatA) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchA, a);
-            if (b > 0) Graphics.RenderMeshInstanced(new RenderParams(tankMatB) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchB, b);
+            if (a > 0) FrameBudget.Draw(new RenderParams(tankMatA) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchA, a);
+            if (b > 0) FrameBudget.Draw(new RenderParams(tankMatB) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchB, b);
         }
 
         [BurstCompile]

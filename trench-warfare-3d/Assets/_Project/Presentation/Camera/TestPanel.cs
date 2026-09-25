@@ -1,4 +1,4 @@
-// Phase: B1 (implemented; the M1.5 fun-gate interface, replaced by the real HUD in U1)
+﻿// Phase: B1 (implemented; the M1.5 fun-gate interface, replaced by the real HUD in U1)
 // Mouse-driven IMGUI panel so the greybox can be played without knowing the hotkeys: deploy buttons with cost and
 // cooldown, one block per trench with >> ↩ lock hold-fire, the enemy's orders (to stage an assault against you),
 // time control, camera presets and restart. Everything goes through SimHost.Issue / IssuePeer so the lockstep path
@@ -23,6 +23,11 @@ namespace TW.Presentation.Tactical
         GUIStyle box, header, small;
         Vector2 scroll;
         OffMapAbilityId armed = OffMapAbilityId.None;   // waiting for a click on the map
+        // A5c has no flamethrower in the roster yet (RosterEntry's archetypes stop at the sniper) and no BurningSystem,
+        // so the fire has no sim to come from. These put it on the field by hand: the show side is finished and this is
+        // how it is looked at, and when the sim grows the unit the same calls move behind a Shot and a Death event.
+        enum FlameTool { None, Burst, Alight, CookOff, BigFire }
+        FlameTool flameTool = FlameTool.None;
 
         /// <summary>The ability waiting for a target click, or None. CombatFx draws the aiming circle from it.</summary>
         public OffMapAbilityId Armed => armed;
@@ -58,6 +63,7 @@ namespace TW.Presentation.Tactical
 
         void Update()
         {
+            FlameClick();
             if (armed == OffMapAbilityId.None || Host == null || Host.Local == null) return;
             if (!InputFocus.Gameplay) return;   // a shell screen has the input
             var mouse = Mouse.current;
@@ -72,6 +78,72 @@ namespace TW.Presentation.Tactical
                 Host.Issue(new SimCommand { Tick = Host.Local.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)armed, Pos = new Unity.Mathematics.float3(p.x, 0f, p.z) });
                 armed = OffMapAbilityId.None;
             }
+        }
+
+        /// <summary>The living man of a team nearest a point on the ground, or -1. Vehicles do not carry flamethrowers.</summary>
+        int NearestMan(Vector3 p, int team)
+        {
+            var w = Host.Local.World;
+            int best = -1; float near = float.MaxValue;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint f = w.Flags[i];
+                if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
+                if (team >= 0 && w.Team[i] != team) continue;
+                var q = w.Position[i];
+                float d = (q.x - p.x) * (q.x - p.x) + (q.z - p.z) * (q.z - p.z);
+                if (d < near) { near = d; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>An armed fire tool waiting for its click on the map.</summary>
+        void FlameClick()
+        {
+            if (flameTool == FlameTool.None || Host == null || Host.Local == null || !InputFocus.Gameplay) return;
+            var kb = Keyboard.current;
+            var mouse = Mouse.current;
+            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame))
+            {
+                if (kb != null && kb.escapeKey.wasPressedThisFrame) InputFocus.ConsumeEscape();
+                flameTool = FlameTool.None; return;
+            }
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame || !TryGroundPoint(out var p)) return;
+            var fire = Flamethrower.Active;
+            if (fire == null) return;
+            p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+            switch (flameTool)
+            {
+                case FlameTool.Burst:
+                {
+                    // the man of yours nearest the click turns his nozzle on it, held on for a few bursts so the
+                    // stream can actually be watched rather than glimpsed
+                    int slot = NearestMan(p, 0);
+                    if (slot >= 0) fire.BurstFrom(slot, p + Vector3.up * 0.6f, 2.4f);
+                    break;
+                }
+                case FlameTool.Alight:
+                {
+                    int slot = NearestMan(p, -1);
+                    if (slot >= 0) fire.Ignite(slot, 7f);
+                    break;
+                }
+                case FlameTool.CookOff:
+                    fire.TankCookOff(p + Vector3.up * 1.1f);
+                    break;
+                case FlameTool.BigFire:
+                    fire.Alight(p, 3.5f, 30f);
+                    break;
+            }
+            if (kb == null || !kb.leftShiftKey.isPressed) flameTool = FlameTool.None;   // shift keeps the tool for a second click
+        }
+
+        void FlameButton(string name, FlameTool tool)
+        {
+            GUI.enabled = Flamethrower.Active != null;
+            if (GUILayout.Button(flameTool == tool ? $"{name}: click the map  (shift: keep, Esc cancels)" : name))
+                flameTool = flameTool == tool ? FlameTool.None : tool;
+            GUI.enabled = true;
         }
 
         void SupportButton(string name, OffMapAbilityId id)
@@ -161,6 +233,18 @@ namespace TW.Presentation.Tactical
             SupportButton("HE barrage", OffMapAbilityId.HeBarrage);
             SupportButton("Chlorine gas", OffMapAbilityId.ChlorineGas);
             GUILayout.Label("Barrage: 12 shells in 25 m after 4 s, craters give cover. Gas drifts left with the wind, pools in trenches, drives the garrison out.", small);
+
+            // ---- fire (A5c show side, no sim behind it yet) ------------------------------------------------------
+            GUILayout.Space(8);
+            GUILayout.Label("Fire (click the button, then the map)", header);
+            FlameButton("Flame burst", FlameTool.Burst);
+            FlameButton("Set a man alight", FlameTool.Alight);
+            FlameButton("Fuel tank cook-off", FlameTool.CookOff);
+            FlameButton("Big fire", FlameTool.BigFire);
+            var ft = Flamethrower.Active;
+            GUILayout.Label(ft == null
+                ? "No CombatFx running: nothing to set on fire."
+                : $"Burst: your nearest man plays his stream on the point ({Flamethrower.Reach:0} m). Pools of fuel keep burning after it. {ft.Jets} jet(s), {ft.Fires} fire(s) alight.", small);
 
             // ---- trenches ---------------------------------------------------------------------------------------
             GUILayout.Space(8);

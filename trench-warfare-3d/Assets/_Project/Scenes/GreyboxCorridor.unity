@@ -322,6 +322,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Host: {fileID: 1728060848}
   Look: 1
+  Field: 0
 --- !u!23 &1095638129
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -516,6 +517,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d77d602187acd4143af78507f4ebf9da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  DeterminismCanary: 0
   LatencyTicks: 2
   JitterTicks: 1
   LossChance: 0.05
@@ -537,6 +539,7 @@ MonoBehaviour:
   StressUnits: 0
   StressAdvanceDelayTicks: 300
   UseAnimationController: 1
+  Ground: 0
 --- !u!4 &1728060849
 Transform:
   m_ObjectHideFlags: 0

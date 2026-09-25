@@ -302,4 +302,21 @@ half3 TWBurstLight(float3 positionWS)
     return _TWBurstColor.rgb * saturate(1.0 - distance(positionWS, _TWBurst.xyz) / max(0.01, _TWBurst.w));
 }
 
+// The biggest fire burning, carried the same way and for the same reason - but a fire is not a burst. A burst is the
+// brightest thing on the field for a quarter of a second and then gone, so its slot is won and released constantly;
+// a fire holds for as long as it burns. Sharing one slot between them would have every fire on the field flicker out
+// each time a shell went off. They are kept apart so that each can be what it is.
+float4 _TWHearth;
+half4 _TWHearthColor;
+
+half3 TWHearthLight(float3 positionWS)
+{
+    float d = distance(positionWS, _TWHearth.xyz) / max(0.01, _TWHearth.w);
+    // (1-d)^2, not 1-d^2. The gentle-near/hard-at-edge profile put the whole radius at nearly one value and then cut it
+    // off: a flat wash with a cliff round it, which is not what standing near a fire looks like and gave the fire no
+    // pool of brightness to be the peak of. This one is brightest at the source and most of it is gone by half range.
+    float x = saturate(1.0 - d);
+    return _TWHearthColor.rgb * (x * x);
+}
+
 #endif

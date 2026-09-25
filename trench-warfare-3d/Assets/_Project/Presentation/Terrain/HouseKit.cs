@@ -35,8 +35,63 @@ namespace TW.Presentation.Terrain
             public int[] RestsOn = Array.Empty<int>(), Carries = Array.Empty<int>();
         }
 
-        /// <summary>A house's chunks in one mesh, a chunk to a bit of a float's 24-bit whole-number range.</summary>
-        public const int MaxChunks = 24;
+        /// <summary>Which chunks of a house have gone, a bit a chunk.
+        ///
+        /// The mask reaches the shader as one instanced float4, and a float carries a whole number exactly only as far
+        /// as its 24-bit mantissa, so the bits sit 24 to a component: chunk i is bit (i % BitsPerWord) of word
+        /// (i / BitsPerWord). Do not pack more than 24 into a component. Nothing fails loudly if you do - the low bits
+        /// keep working and the high ones are rounded away somewhere inside the instancing buffer, which reads as
+        /// chunks of a distant house flickering back after they were knocked out.</summary>
+        public struct ChunkMask : IEquatable<ChunkMask>
+        {
+            public const int BitsPerWord = 24, Words = 4;
+            int a, b, c, d;
+
+            int Word(int i) => i < BitsPerWord ? a : i < BitsPerWord * 2 ? b : i < BitsPerWord * 3 ? c : d;
+            public bool Has(int chunk) => chunk >= 0 && chunk < MaxChunks && (Word(chunk) & (1 << (chunk % BitsPerWord))) != 0;
+
+            public void Set(int chunk)
+            {
+                if (chunk < 0 || chunk >= MaxChunks) return;
+                int bit = 1 << (chunk % BitsPerWord);
+                if (chunk < BitsPerWord) a |= bit;
+                else if (chunk < BitsPerWord * 2) b |= bit;
+                else if (chunk < BitsPerWord * 3) c |= bit;
+                else d |= bit;
+            }
+
+            public void Clear(int chunk)
+            {
+                if (chunk < 0 || chunk >= MaxChunks) return;
+                int bit = ~(1 << (chunk % BitsPerWord));
+                if (chunk < BitsPerWord) a &= bit;
+                else if (chunk < BitsPerWord * 2) b &= bit;
+                else if (chunk < BitsPerWord * 3) c &= bit;
+                else d &= bit;
+            }
+
+            /// <summary>Every one of a house's chunks set, and nothing above them. Built a word at a time rather than a
+            /// bit at a time: the loose-chunk draw asks for this once a flying chunk a frame, and a house has up to 96.</summary>
+            public static ChunkMask Filled(int count)
+            {
+                var m = default(ChunkMask);
+                m.a = Low(count); m.b = Low(count - BitsPerWord); m.c = Low(count - BitsPerWord * 2); m.d = Low(count - BitsPerWord * 3);
+                return m;
+            }
+
+            /// <summary>The bottom <paramref name="n"/> bits of a word, clamped to none and to all of it.</summary>
+            static int Low(int n) => n <= 0 ? 0 : n >= BitsPerWord ? (1 << BitsPerWord) - 1 : (1 << n) - 1;
+
+            /// <summary>As the shader takes it. Each component is a whole number below 2^24, so it survives the trip.</summary>
+            public Vector4 Packed => new Vector4(a, b, c, d);
+            public bool Any => (a | b | c | d) != 0;
+            public bool Equals(ChunkMask o) => a == o.a && b == o.b && c == o.c && d == o.d;
+            public override bool Equals(object o) => o is ChunkMask m && Equals(m);
+            public override int GetHashCode() => a ^ (b << 7) ^ (c << 15) ^ (d << 23);
+        }
+
+        /// <summary>A house's chunks in one mesh, a chunk to a bit of the instance's four-component mask.</summary>
+        public const int MaxChunks = ChunkMask.BitsPerWord * ChunkMask.Words;
 
         public sealed class House
         {
@@ -47,7 +102,7 @@ namespace TW.Presentation.Terrain
             /// <summary>The drawn module: every chunk in one mesh, chunk index in UV1.x, hidden per instance by its mask.</summary>
             public BattlefieldKit.Module Whole;
             /// <summary>Bits for every chunk the house has.</summary>
-            public int AllBits => Chunks.Length >= 31 ? ~0 : (1 << Chunks.Length) - 1;
+            public ChunkMask AllBits => ChunkMask.Filled(Chunks.Length);
             /// <summary>Everything the house draws, in its own frame.</summary>
             public Bounds Bounds;
             public Chunk[] Chunks;

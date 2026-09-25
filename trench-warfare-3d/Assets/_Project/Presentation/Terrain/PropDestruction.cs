@@ -3,7 +3,7 @@
 //   - a burst (Explosion): BlastSystem's falloff, from a grenade up to the HE barrage;
 //   - a tank's AP round where it comes down (VehicleFired, scalar 0): a small hard strike;
 //   - a tank driving over it (every sim tick, from the tick state): light things are flattened;
-//   - and nothing else yet (small arms carry no impact point in the event stream).
+//   - and sustained small-arms fire, which wears a thing down where the rounds are going (PropWear.cs).
 // A hit that does not finish a prop still shows: it throws chips and splinters in proportion to the harm. At nothing the
 // prop collapses: the instance is taken out of the draw (BattlefieldProps.Hide) and its volume is handed to
 // DebrisRenderer as rubble, planks, sacks or plates, with a cloud of dust.
@@ -35,11 +35,13 @@ namespace TW.Presentation.Terrain
 {
     [RequireComponent(typeof(BattlefieldProps))]
     [DefaultExecutionOrder(600)]
-    public sealed class PropDestruction : MonoBehaviour
+    public sealed partial class PropDestruction : MonoBehaviour
     {
         /// <summary>What a kind of prop is made of: the pieces it breaks into, how many at unit volume, how big, how strong;
-        /// whether it is a shelter (it sheds bags and stands) and whether a tank flattens it.</summary>
-        struct Rule { public DebrisRenderer.Piece Piece; public float Hp, Size, Dust; public int Pieces; public Color Tint; public bool Shelter, Crush, Tinted, Cook, Kick; }
+        /// whether it is a shelter (it sheds bags and stands) and whether a tank flattens it.
+        /// <para>Erode is how fast a stream of bullets eats it (1 = sacking, timber and scrub; concrete 0.08), and Jolt how
+        /// far a round knocks it about (1 = a helmet, 0 = anything built in place). Both are PropWear's.</para></summary>
+        struct Rule { public DebrisRenderer.Piece Piece; public float Hp, Size, Dust, Erode, Jolt; public int Pieces; public Color Tint; public bool Shelter, Crush, Tinted, Cook, Kick; }
         /// <summary>A dud that has been set off, going up when it is due.</summary>
         struct Cooking { public Vector3 At; public float Due; public uint Salt; }
         /// <summary>A house chunk whose support has gone, to be looked at when it is due.</summary>
@@ -47,8 +49,10 @@ namespace TW.Presentation.Terrain
 
         /// <summary>Positions are keyed at this grain (m). Finer than the tightest spacing on the field (wire pickets about 2 m).</summary>
         public const float Quantum = 0.25f;
-        /// <summary>Collapsed props remembered; past it nothing more is recorded (a later burst still hides the instance until the next composition).</summary>
-        public const int MaxRemembered = 2000;
+        /// <summary>Collapsed props remembered; past it nothing more is recorded (a later burst still hides the instance
+        /// until the next composition). Sustained fire breaks props far faster than shells alone, so this is sized for a
+        /// long match: a long apiece, well under a megabyte at the cap.</summary>
+        public const int MaxRemembered = 20000;
         public const float BlastReach = 1.15f;   // a prop is hit a little beyond the blast radius the men feel
         /// <summary>How long a tree's static fallen top is kept out after the break: the thrown crown falls 1.3 s and lies
         /// until 4.8 s (CombatFx.TreeBreaks), then sinks, and the static top comes in as it goes.</summary>
@@ -127,7 +131,7 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             if (props != null && props.Suppress == (System.Func<BattlefieldKit.Module, Matrix4x4, bool>)Suppress) props.Suppress = null;
-            if (props != null && props.MaskOf == (System.Func<BattlefieldKit.Module, Matrix4x4, int>)MaskOf) props.MaskOf = null;
+            if (props != null && props.MaskOf == (System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask>)MaskOf) props.MaskOf = null;
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
         }
 
@@ -147,6 +151,8 @@ namespace TW.Presentation.Terrain
             // the tracks: once per sim tick, from the tick state
             var w = Host.Local.World;
             if (w.Tick != lastCrushTick) { lastCrushTick = w.Tick; Crush(w); }
+            Wear(w);        // and what a stream of bullets has done, every WearTicks of them
+            Twitch(now);    // the things a round knocked about, settling back
         }
 
         void BuildRules(BattlefieldKit kit)
@@ -156,54 +162,54 @@ namespace TW.Presentation.Terrain
             // a sliced prop is never hit as itself: its chunks are (below)
             void Add(Rule rule, params BattlefieldKit.Module[] modules) { foreach (var m in modules) if (m != null && m.Sliced == null && !rules.ContainsKey(m)) rules[m] = rule; }
             // shelters: they stand, and shed their bags (Hp is how much a hit must do to blow a full load off)
-            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 1.0f, Size = 0.55f, Pieces = BagsPerHit, Dust = 4f, Tint = Sack, Shelter = true },
+            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 1.0f, Size = 0.55f, Pieces = BagsPerHit, Dust = 4f, Erode = 1f, Jolt = 0f, Tint = Sack, Shelter = true },
                 kit.dugout, kit.roof, kit.bunker, kit.sodShelter, kit.pillbox, kit.mgNest, kit.armouredStand);
             // concrete and stone that is not a shelter: two close field-gun bursts
-            Add(new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 2.0f, Size = 0.45f, Pieces = 14, Dust = 5f, Tint = Stone },
+            Add(new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 2.0f, Size = 0.45f, Pieces = 14, Dust = 5f, Erode = .12f, Jolt = 0f, Tint = Stone },
                 kit.ruin, kit.well, kit.wallStub, kit.rebarSlab, kit.barricade);
             // light timber: one burst near by, and a tank goes over it
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 0.8f, Size = 0.9f, Pieces = 9, Dust = 3f, Tint = Timber, Crush = true },
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 0.8f, Size = 0.9f, Pieces = 9, Dust = 3f, Erode = 1f, Jolt = .5f, Tint = Timber, Crush = true },
                 kit.planks, kit.duckboards, kit.ladder, kit.supplies, kit.looseBoards, kit.bracedPlank, kit.crossedBoards, kit.hatchLid, kit.plankDoor,
                 kit.signBoard, kit.graveMarker, kit.stakes, kit.hedgehog, kit.wirePost, kit.knifeRest);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.2f, Size = 0.9f, Pieces = 8, Dust = 3f, Tint = Timber }, kit.TrenchWalls);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.5f, Size = 0.9f, Pieces = 6, Dust = 2.5f, Tint = Timber }, kit.TrenchFloors);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.2f, Size = 0.9f, Pieces = 8, Dust = 3f, Erode = 1f, Jolt = .12f, Tint = Timber }, kit.TrenchWalls);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.5f, Size = 0.9f, Pieces = 6, Dust = 2.5f, Erode = 1f, Jolt = .1f, Tint = Timber }, kit.TrenchFloors);
             // bags: burst by a near miss; a lone sack goes under a track, a parapet or a gabion does not
-            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 0.9f, Size = 0.55f, Pieces = 8, Dust = 3.5f, Tint = Sack, Crush = true }, kit.sandbag);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 0.9f, Size = 0.55f, Pieces = 8, Dust = 3.5f, Tint = Sack }, kit.sandbags, kit.gabion);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 1.0f, Size = 0.55f, Pieces = 10, Dust = 3.5f, Tint = Sack }, kit.TrenchBags);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 0.9f, Size = 0.55f, Pieces = 8, Dust = 3.5f, Erode = 1f, Jolt = .35f, Tint = Sack, Crush = true }, kit.sandbag);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 0.9f, Size = 0.55f, Pieces = 8, Dust = 3.5f, Erode = 1f, Jolt = .08f, Tint = Sack }, kit.sandbags, kit.gabion);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 1.0f, Size = 0.55f, Pieces = 10, Dust = 3.5f, Erode = 1f, Jolt = .06f, Tint = Sack }, kit.TrenchBags);
             // iron: sheets and fencing flatten; guns, limbers, the aeroplane are shot to pieces
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.0f, Size = 0.5f, Pieces = 6, Dust = 2.5f, Tint = Metal, Crush = true }, kit.corrugated, kit.wireFence);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.3f, Size = 0.5f, Pieces = 8, Dust = 3f, Tint = Metal },
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.0f, Size = 0.5f, Pieces = 6, Dust = 2.5f, Erode = .35f, Jolt = .6f, Tint = Metal, Crush = true }, kit.corrugated, kit.wireFence);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.3f, Size = 0.5f, Pieces = 8, Dust = 3f, Erode = .3f, Jolt = .05f, Tint = Metal },
                 kit.fieldGun, kit.limber, kit.shellStack, kit.tankTurret, kit.biplane);
             // stumps, logs and the shell-torn trunk: split timber, stronger than a board; a tank rolls a log, not a stump
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.3f, Size = 0.8f, Pieces = 7, Dust = 2.5f, Tint = Timber }, kit.stumpTall, kit.stumpSplit, kit.stumpMoss, kit.fork);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.3f, Size = 0.8f, Pieces = 7, Dust = 2.5f, Tint = Timber, Crush = true }, kit.fallenLog);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.3f, Size = 0.8f, Pieces = 7, Dust = 2.5f, Erode = .55f, Jolt = .08f, Tint = Timber }, kit.stumpTall, kit.stumpSplit, kit.stumpMoss, kit.fork);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.3f, Size = 0.8f, Pieces = 7, Dust = 2.5f, Erode = .55f, Jolt = .15f, Tint = Timber, Crush = true }, kit.fallenLog);
             // stone lying about: a pile of stones scatters, a boulder takes a heavy shell close by
-            Add(new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 1.2f, Size = 0.3f, Pieces = 8, Dust = 2.5f, Tint = Stone, Crush = true }, kit.stones);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 3.2f, Size = 0.5f, Pieces = 12, Dust = 4.5f, Tint = Stone }, kit.boulder);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 1.2f, Size = 0.3f, Pieces = 8, Dust = 2.5f, Erode = .12f, Jolt = .25f, Tint = Stone, Crush = true }, kit.stones);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 3.2f, Size = 0.5f, Pieces = 12, Dust = 4.5f, Erode = .1f, Jolt = 0f, Tint = Stone }, kit.boulder);
             // brass: flattened and scattered
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 0.4f, Size = 0.18f, Pieces = 5, Dust = 1f, Tint = Metal, Crush = true }, kit.shellCases);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 0.4f, Size = 0.18f, Pieces = 5, Dust = 1f, Erode = .35f, Jolt = 1f, Tint = Metal, Crush = true }, kit.shellCases);
             // a dud: a little harm sets it off (a tank too), and it goes up (Cook)
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 0.5f, Size = 0.25f, Pieces = 5, Dust = 2f, Tint = Metal, Crush = true, Cook = true }, kit.dudShell);
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 0.5f, Size = 0.25f, Pieces = 5, Dust = 2f, Erode = .35f, Jolt = .4f, Tint = Metal, Crush = true, Cook = true }, kit.dudShell);
             // what men drop and hang up: thrown whole by a burst near by, pressed into the mud by a track
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 0.2f, Size = 0.18f, Pieces = 3, Dust = 0.8f, Tint = Metal, Crush = true, Kick = true },
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 0.2f, Size = 0.18f, Pieces = 3, Dust = 0.8f, Erode = 1f, Jolt = 1f, Tint = Metal, Crush = true, Kick = true },
                 kit.helmet, kit.messKit, kit.spade, kit.ammoTin, kit.boots, kit.leanRifle, kit.bucket, kit.hangingTins, kit.wireTins, kit.rag);
             // scrub: gone at a touch, a few twigs
-            Add(new Rule { Piece = DebrisRenderer.Piece.Shard, Hp = 0.3f, Size = 0.25f, Pieces = 4, Dust = 1.2f, Tint = Scrub, Crush = true },
+            Add(new Rule { Piece = DebrisRenderer.Piece.Shard, Hp = 0.3f, Size = 0.25f, Pieces = 4, Dust = 1.2f, Erode = 1f, Jolt = .8f, Tint = Scrub, Crush = true },
                 kit.bush, kit.tuft, kit.reeds, kit.grass, kit.poppies, kit.cattails, kit.branches);
             // the village houses, chunk by chunk: stone and plaster to rubble, beams, boards and tiles to planks; a little
             // weaker than a lone wall stub (a chunk is a piece of a wall), never flattened by a tank
-            var houseStone = new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 1.4f, Size = 0.42f, Pieces = 12, Dust = 5f, Tint = Stone, Tinted = true };
-            var houseTimber = new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.0f, Size = 0.85f, Pieces = 8, Dust = 3.5f, Tint = Timber, Tinted = true };
+            var houseStone = new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 1.4f, Size = 0.42f, Pieces = 12, Dust = 5f, Erode = .2f, Tint = Stone, Tinted = true };
+            var houseTimber = new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.0f, Size = 0.85f, Pieces = 8, Dust = 3.5f, Erode = 1f, Tint = Timber, Tinted = true };
             // the rear's military buildings are built to take it: concrete and heavy timber, half as strong again
-            var rearStone = houseStone; rearStone.Hp = 2.2f; rearStone.Pieces = 14;
-            var rearTimber = houseTimber; rearTimber.Hp = 1.4f;
+            var rearStone = houseStone; rearStone.Hp = 2.2f; rearStone.Pieces = 14; rearStone.Erode = .08f;   // poured concrete
+            var rearTimber = houseTimber; rearTimber.Hp = 1.4f; rearTimber.Erode = .9f;
             // the kit's sliced props, a chunk at a time: the well is stone and timber as painted, the wall stub all stone
             // (its brick reads warm), the biplane wood and canvas, the field gun steel
             var propStone = houseStone; propStone.Hp = 1.2f; propStone.Pieces = 10;
             var propTimber = houseTimber; propTimber.Hp = 0.8f;
-            var wing = houseTimber; wing.Hp = 0.7f; wing.Pieces = 6;
-            var gunMetal = new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.1f, Size = 0.4f, Pieces = 8, Dust = 2.5f, Tint = Metal, Tinted = true };
+            var wing = houseTimber; wing.Hp = 0.7f; wing.Pieces = 6;   // spruce and doped canvas: a burst goes straight through
+            var gunMetal = new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.1f, Size = 0.4f, Pieces = 8, Dust = 2.5f, Erode = .3f, Tint = Metal, Tinted = true };
             foreach (var house in kit.Houses)
                 foreach (var chunk in house.Chunks)
                 {
@@ -256,6 +262,10 @@ namespace TW.Presentation.Terrain
                     if (rules == null || e.Scalar < 0.3f) return;
                     Strike(new Vector3(e.Pos.x, e.Pos.y, e.Pos.z), e.Scalar * BlastReach, Mathf.Clamp(e.Scalar / 6f, 0.15f, 1.6f), e.Tick * 31u, e.Scalar >= 3f);
                     return;
+                case SimEventType.Shot:
+                    // where the rounds are going, for PropWear: the shooter's own position is no use, what is being shot at is
+                    FireAt(e);
+                    return;
                 case SimEventType.VehicleFired:
                     // an AP round (scalar 0) comes down where it went; HE arrives as its own Explosion
                     if (rules == null || e.Scalar > 0.5f) return;
@@ -278,7 +288,8 @@ namespace TW.Presentation.Terrain
                 props.Within(module, centre, reach + 1f, found);
                 for (int i = 0; i < found.Count; i++)
                 {
-                    var (page, slot, m) = found[i];
+                    var (page, slot, drawn) = found[i];
+                    var m = Home(module, page, slot, drawn);   // it may be mid-knock (PropWear): key it where it lies
                     float d = Vector2.Distance(centre, new Vector2(m.m03, m.m23));
                     if (d > reach) continue;
                     long key = Key(module, m);
@@ -289,15 +300,23 @@ namespace TW.Presentation.Terrain
                     float hp = damage.TryGetValue(key, out float left) ? left : rule.Hp;
                     hp -= harm;
                     if (hp > 0f) { damage[key] = hp; Chip(module, rule, m, origin, harm, debris, s); continue; }
-                    damage.Remove(key);
-                    Down(module, page, slot, key);
-                    if (rule.Kick) { Toss(module, rule, m, origin, power, debris, s); continue; }
-                    if (!props.Kit.HouseChunkOf.ContainsKey(module) || !Throw(module, rule, m, origin, power, harm, s))
-                        Collapse(module, rule, m, origin, power, debris, s, shake);
-                    if (rule.Cook) SetOff(m, s);
-                    Shaken(module, m, s, 0);
+                    Finish(module, rule, page, slot, key, m, origin, power, harm, debris, s, shake);
                 }
             }
+        }
+
+        /// <summary>A prop has nothing left: it is remembered, taken out of the draw, and goes the way its kind goes —
+        /// a dropped thing is thrown, a building's chunk comes away whole, anything else falls to pieces where it stood.
+        /// Shared so that a shell, an AP round, a cook-off and a stream of bullets all end a prop the same way.</summary>
+        void Finish(BattlefieldKit.Module module, Rule rule, int page, int slot, long key, in Matrix4x4 m, Vector3 origin, float power, float harm, DebrisRenderer debris, uint salt, bool shake)
+        {
+            damage.Remove(key);
+            Down(module, page, slot, key);
+            if (rule.Kick) { Toss(module, rule, m, origin, power, debris, salt); return; }
+            if (!props.Kit.HouseChunkOf.ContainsKey(module) || !Throw(module, rule, m, origin, power, harm, salt))
+                Collapse(module, rule, m, origin, power, debris, salt, shake);
+            if (rule.Cook) SetOff(m, salt);
+            Shaken(module, m, salt, 0);
         }
 
         /// <summary>The tracks: every moving vehicle flattens the light props under it. Read from the tick state.</summary>
@@ -321,7 +340,8 @@ namespace TW.Presentation.Terrain
                     props.Within(module, centre, CrushReach, found);
                     for (int i = 0; i < found.Count; i++)
                     {
-                        var (page, slot, m) = found[i];
+                        var (page, slot, drawn) = found[i];
+                        var m = Home(module, page, slot, drawn);
                         long key = Key(module, m);
                         if (destroyed.Contains(key)) continue;
                         damage.Remove(key);
@@ -336,13 +356,13 @@ namespace TW.Presentation.Terrain
 
         /// <summary>The chunks of the house drawn at this matrix that have come down: exactly the ones remembered as
         /// destroyed (a house chunk is always remembered, past MaxRemembered too, or its house would draw it again).</summary>
-        int MaskOf(BattlefieldKit.Module whole, Matrix4x4 m)
+        HouseKit.ChunkMask MaskOf(BattlefieldKit.Module whole, Matrix4x4 m)
         {
-            if (destroyed.Count == 0 || props.Kit == null || !props.Kit.HouseOfWhole.TryGetValue(whole, out var house)) return 0;
-            int mask = 0;
+            var mask = default(HouseKit.ChunkMask);
+            if (destroyed.Count == 0 || props.Kit == null || !props.Kit.HouseOfWhole.TryGetValue(whole, out var house)) return mask;
             var chunks = house.Chunks;
             for (int i = 0; i < chunks.Length; i++)
-                if (destroyed.Contains(Key(chunks[i].Module, HouseKit.Place(m, chunks[i])))) mask |= 1 << i;
+                if (destroyed.Contains(Key(chunks[i].Module, HouseKit.Place(m, chunks[i])))) mask.Set(i);
             return mask;
         }
 
@@ -649,7 +669,7 @@ namespace TW.Presentation.Terrain
         }
 
         readonly Matrix4x4[] looseMatrices = new Matrix4x4[MaxLoose];
-        readonly float[] looseMasks = new float[MaxLoose];
+        readonly Vector4[] looseMasks = new Vector4[MaxLoose];
         MaterialPropertyBlock looseBlock;
 
         /// <summary>Every loose chunk of one house type in one instanced draw: its house's whole mesh, moved so the chunk
@@ -663,19 +683,21 @@ namespace TW.Presentation.Terrain
                 var whole = houses[h].Whole;
                 if (whole == null) continue;
                 int n = 0; Bounds bounds = default;
+                var all = houses[h].AllBits;   // the same for every chunk of this house, so it is built once
                 for (int i = 0; i < loose.Count; i++)
                 {
                     var p = loose[i];
                     if (p.Chunk == null || p.Chunk.House != h) continue;
                     looseMatrices[n] = p.Matrix * Matrix4x4.Translate(-p.Chunk.Offset);
-                    looseMasks[n] = houses[h].AllBits & ~(1 << p.Chunk.Index);
+                    var only = all; only.Clear(p.Chunk.Index);   // the whole house bar the one chunk that is flying
+                    looseMasks[n] = only.Packed;
                     var b = new Bounds(p.Centre, Vector3.one * 8f);
                     if (n == 0) bounds = b; else bounds.Encapsulate(b);
                     n++;
                 }
                 if (n == 0) continue;
-                for (int i = n; i < MaxLoose; i++) looseMasks[i] = 0f;
-                looseBlock.SetFloatArray("_ChunkMask", looseMasks);
+                for (int i = n; i < MaxLoose; i++) looseMasks[i] = Vector4.zero;
+                looseBlock.SetVectorArray("_ChunkMask", looseMasks);
                 var rp = new RenderParams(whole.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = looseBlock };
                 Graphics.RenderMeshInstanced(rp, whole.Mesh, 0, looseMatrices, n);
             }

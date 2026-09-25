@@ -19,8 +19,8 @@ namespace TW.Presentation.Terrain
         public System.Func<BattlefieldKit.Module, Matrix4x4, bool> Suppress;
         /// <summary>For a masked module (a house), the chunks of the instance at this matrix to hide, a bit each
         /// (PropDestruction: the chunks it has knocked down). Asked for every visible instance as it is submitted.</summary>
-        public System.Func<BattlefieldKit.Module, Matrix4x4, int> MaskOf;
-        readonly float[] mergedMask = new float[1023];
+        public System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask> MaskOf;
+        readonly Vector4[] mergedMask = new Vector4[1023];
         MaterialPropertyBlock maskBlock;
 
         sealed class Batch
@@ -97,6 +97,9 @@ namespace TW.Presentation.Terrain
         public int SubmittedVertices { get; private set; }
         public int DrawCalls { get; private set; }
         public int CompositionCount => composer == null ? 0 : composer.Sites.Count;
+        /// <summary>Counts compositions applied. Pages and slots are renumbered by each one, so anything that remembers a
+        /// (page, slot) — PropWear's swept squares and knocked props — watches this and throws its own away when it moves.</summary>
+        public int Generation { get; private set; }
         public string PlacementReport => composer?.PlacementReport ?? string.Empty;
         public IReadOnlyList<BattlefieldComposer.Site> Sites => composer?.Sites ?? System.Array.Empty<BattlefieldComposer.Site>();
         public BattlefieldKit Kit => kit;
@@ -187,6 +190,13 @@ namespace TW.Presentation.Terrain
             }
         }
         /// <summary>Takes one instance out of the draw now; Suppress keeps it out of the next composition.</summary>
+        /// <summary>Moves one drawn instance where it stands, without touching where it was placed: PropWear knocks a
+        /// helmet about as rounds go into it. The next composition puts it back, so nothing has to be undone.</summary>
+        public void Move(BattlefieldKit.Module module, int page, int slot, Matrix4x4 m)
+        {
+            if (module != null && batches.TryGetValue(module, out var b) && page >= 0 && page < b.Counts.Count && slot >= 0 && slot < b.Counts[page]) b.Set(page, slot, m);
+        }
+
         public void Hide(BattlefieldKit.Module module, int page, int slot)
         {
             if (module != null && batches.TryGetValue(module, out var b) && page < b.Counts.Count && slot < b.Counts[page]) b.Hide(page, slot);
@@ -299,6 +309,7 @@ namespace TW.Presentation.Terrain
         /// run instead of while it runs places every instance exactly as before.</summary>
         void ApplyComposition()
         {
+            Generation++;
             composing = null; readyToApply = false;
             foreach (var batch in batches.Values) batch.Clear();
             placed.Clear(); placedByKey.Clear(); spots.Clear();
@@ -386,7 +397,7 @@ namespace TW.Presentation.Terrain
                         int take = Mathf.Min(merged.Length - held, count - from);
                         System.Array.Copy(b.Pages[p], from, merged, held, take);
                         if (module.Masked)
-                            for (int k = 0; k < take; k++) mergedMask[held + k] = MaskOf != null ? MaskOf(module, merged[held + k]) : 0f;
+                            for (int k = 0; k < take; k++) mergedMask[held + k] = MaskOf != null ? MaskOf(module, merged[held + k]).Packed : Vector4.zero;
                         held += take; from += take;
                         if (held < merged.Length) continue;
                         Submit(module, union, held); held = 0; any = false;   // full: send it and start the next
@@ -404,7 +415,7 @@ namespace TW.Presentation.Terrain
             {
                 // the block is copied when the draw is queued, so one block serves every masked submission
                 maskBlock ??= new MaterialPropertyBlock();
-                maskBlock.SetFloatArray("_ChunkMask", mergedMask);
+                maskBlock.SetVectorArray("_ChunkMask", mergedMask);
                 rp.matProps = maskBlock;
             }
             Graphics.RenderMeshInstanced(rp, module.Mesh, 0, merged, count);

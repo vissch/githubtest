@@ -1,4 +1,4 @@
-// Phase: B2 (implemented) — the warm half of the night look (owner's target, 2026-09-21: a cold blue field lit by
+﻿// Phase: B2 (implemented) — the warm half of the night look (owner's target, 2026-09-21: a cold blue field lit by
 // lanterns, muzzle flashes, shell bursts and flares). Everything here is an ordinary URP point light without shadows,
 // which TW/Toon, TW/Water and the soldier shader add in hard steps (TWLocalLights.hlsl), plus additive glow cards.
 // Lanterns: one at each composed site (dugouts, shelters, stores), at most MaxLanterns, a lamp on a post with a
@@ -38,6 +38,13 @@ namespace TW.Presentation.Terrain
         // the strongest burst alive, handed to the shaders so the drawn column and smoke are lit by their own shell
         Vector3 burstAt; float burstPeak, burstBorn, burstLife, burstRange;
         static readonly int BurstId = Shader.PropertyToID("_TWBurst"), BurstColorId = Shader.PropertyToID("_TWBurstColor");
+        // and the biggest fire burning, on its own slot. A burst wins its slot for a quarter of a second and lets it
+        // go; a fire holds for as long as it burns, so the two cannot share. Fires re-register every sixth of a second
+        // while they are alight, and the claim decays a little slower than that, so the light is steady while the fire
+        // lasts and gone shortly after it stops asking.
+        Vector3 hearthAt; float hearthPeak, hearthSeen, hearthRange; Color hearthTint = Color.white;
+        static readonly int HearthId = Shader.PropertyToID("_TWHearth"), HearthColorId = Shader.PropertyToID("_TWHearthColor");
+        const float HearthHold = 0.5f;
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
         readonly List<Vector3> lanternHome = new List<Vector3>();
@@ -62,6 +69,13 @@ namespace TW.Presentation.Terrain
         void Start()
         {
             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
+            SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
+            {
+                Flash(at, color, peak, reach, life, card);
+                // the strongest one alive also becomes the hearth, which is what lights the smoke standing over it
+                float live = hearthPeak * Mathf.Max(0f, 1f - (Time.time - hearthSeen) / HearthHold);
+                if (peak >= live) { hearthAt = at; hearthPeak = peak; hearthSeen = Time.time; hearthRange = reach * 0.55f; hearthTint = color; }
+            };
             for (int i = 0; i < PoolSize; i++)
             {
                 pool[i].Light = MakeLight("Flash " + i, Muzzle, 0f, 8f);
@@ -331,9 +345,11 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             Shader.SetGlobalColor(BurstColorId, Color.clear);   // nothing is burning once we are gone
+            Shader.SetGlobalColor(HearthColorId, Color.clear);
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.SmokeSources.Clear();
             SceneHooks.Flash = null;
+            SceneHooks.FireLight = null;
             foreach (var o in owned) if (o != null) Destroy(o);
         }
 
@@ -442,6 +458,12 @@ namespace TW.Presentation.Terrain
             // by (close/burst_b.png, 20:2x). It has to model the cloud, not replace it.
             Shader.SetGlobalColor(BurstColorId, Burst * (0.85f * burstLeft * burstLeft));
             if (burstLeft <= 0f) burstPeak = 0f;
+            // and the hearth. Kept well below the burst's strength: a fire is meant to MODEL the smoke standing in it,
+            // warm on the underside and falling away above, not to paint the whole plume orange.
+            float hearthLeft = hearthPeak > 0f ? Mathf.Max(0f, 1f - (Time.time - hearthSeen) / HearthHold) : 0f;
+            Shader.SetGlobalVector(HearthId, new Vector4(hearthAt.x, hearthAt.y, hearthAt.z, Mathf.Max(0.01f, hearthRange)));
+            Shader.SetGlobalColor(HearthColorId, hearthTint * (0.32f * hearthLeft * Mathf.Clamp01(hearthPeak / 5f)));
+            if (hearthLeft <= 0f) hearthPeak = 0f;
             for (int i = 0; i < AfterglowCount; i++)
             {
                 if (!afterglow[i].Light.enabled) continue;

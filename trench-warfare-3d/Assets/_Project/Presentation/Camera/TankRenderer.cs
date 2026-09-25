@@ -76,6 +76,10 @@ namespace TW.Presentation.Tactical
             /// are doing, and which legs are gone.</summary>
             public float Stride, Gait, Bob, Claw, ClawOpen;
             public byte LegsLost;
+            /// <summary>A walker's feet, planted on the ground and kept between frames, and the part rotations they
+            /// solve to. Null on a tank.</summary>
+            public WalkerGait Legs;
+            public Matrix4x4[] LegLocal; public bool[] LegSolved;
             public byte Archetype;
             public float Scorch, Burn, Flash, Furnace, Throttle;
             public bool Ditched, Bogged, Stalled, Dead, CookOff, Hurt;
@@ -150,9 +154,9 @@ namespace TW.Presentation.Tactical
         void Start()
         {
             if (Host == null) Host = FindFirstObjectByType<SimHost>();
-            maw = TankModel.Load("Maw", VehicleArchetype.Maw);
-            tusk = TankModel.Load("Tusk", VehicleArchetype.Tusk);
-            for (int c = 0; c < CrabNames.Length; c++) crabs[c] = TankModel.Load(CrabNames[c], (byte)(VehicleArchetype.Pincer + c), "Body");
+            maw = TankModel.Load("Maw", VehicleArchetype.Maw, "Hull", VehicleSize.Tank);
+            tusk = TankModel.Load("Tusk", VehicleArchetype.Tusk, "Hull", VehicleSize.Tank);
+            for (int c = 0; c < CrabNames.Length; c++) crabs[c] = TankModel.Load(CrabNames[c], (byte)(VehicleArchetype.Pincer + c), "Body", VehicleSize.Walker);
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null || maw == null) { Debug.LogWarning("TankRenderer: TW/Tank or the tank models are missing; the box tanks stay."); enabled = false; return; }
             for (int lod = 0; lod < 2; lod++)
@@ -303,6 +307,7 @@ namespace TW.Presentation.Tactical
         }
 
         float Ground(float x, float z) => Host != null && Host.Local != null ? RenderGround.Sample(Host.Local.Map, x, z) : 0f;
+        System.Func<float, float, float> groundFn;   // kept, so asking it per foot per frame does not allocate
 
         // ------------------------------------------------------------------ one tank, one frame
         void Animate(TW.Sim.Match.MatchSim match, View v, float dt, float now)
@@ -335,13 +340,18 @@ namespace TW.Presentation.Tactical
                 v.Gait = Mathf.Lerp(v.Gait, dead ? 0f : Mathf.Clamp01(pace / 1.4f), 1f - Mathf.Exp(-dt * 6f));
                 v.Stride += pace * dt / StrideMetres;
                 if (v.Stride >= 1f) v.Stride -= Mathf.Floor(v.Stride);
-                v.Bob = Mathf.Sin(v.Stride * Mathf.PI * 4f) * 0.05f * v.Gait;
+                v.Bob = 0f;                                     // the body's ride comes off the feet now, not a sine
                 byte lost = modules != null ? modules.LegsLost[s] : (byte)0;
                 if (lost != v.LegsLost)
                 {
                     for (int k = 0; k < 8; k++) if ((lost & (1 << k)) != 0 && (v.LegsLost & (1 << k)) == 0) ThrowLeg(v, k);
                     v.LegsLost = lost;
                 }
+                // the feet: planted on the ground and left there while the body walks over them
+                if (v.Legs == null) v.Legs = new WalkerGait();
+                if (groundFn == null) groundFn = Ground;
+                Vector3 vel = Host.TimeScale <= 0f ? Vector3.zero : (v.Pos - v.LastPos) / Mathf.Max(1e-4f, dt);
+                v.Legs.Step(v.Model, v.Pos, v.Yaw, vel, v.YawRate, lost, dead, dt, groundFn);
                 v.Claw = Mathf.Max(0f, v.Claw - dt * 1.7f);
                 v.ClawOpen = Mathf.Lerp(v.ClawOpen, v.Claw > 0.45f ? 1f : 0f, 1f - Mathf.Exp(-dt * 14f));
             }
@@ -352,11 +362,27 @@ namespace TW.Presentation.Tactical
 
             // the hull on its tracks
             float pitch, roll, heave;
-            Settle(v, fwd, right, out pitch, out roll, out heave);
+            bool legged = v.Legs != null && v.Legs.Ready;
+            if (legged)
+            {
+                // a walker is held up by its feet: it is tilted by the ground they are on, not by the ground under
+                // its middle, and it stands as high as they let it
+                pitch = v.Legs.Pitch; roll = v.Legs.Roll; heave = v.Legs.Height;
+            }
+            else Settle(v, fwd, right, out pitch, out roll, out heave);
             if (v.Ditched) { pitch -= 17f * Mathf.Deg2Rad; heave -= 1.1f; }
             if (v.Bogged) heave -= 0.25f;
             float vib = v.Stalled ? 0f : (0.006f + 0.01f * v.Throttle);
-            v.Pitch.Step(pitch, dt, 7f); v.Roll.Step(roll, dt, 7f); v.Heave.Step(heave + Mathf.Sin(now * 41f + s) * vib, dt, 10f);
+            // A WALKER'S TILT IS NOT SPRUNG. This spring was written for a hull riding on tracks, where `Settle`
+            // samples raw terrain under the chassis and the result is noisy enough to need smoothing. A walker's
+            // pitch and roll are a plane fitted through feet that are resting on ground they were placed on, and
+            // `WalkerGait.Carry` has ALREADY smoothed them at rate 9. Putting that through a second filter at
+            // omega 7 costs 0.433 s of extra lag - the pair together take 0.700 s to reach 90% of a new tilt,
+            // 0.84 m of travel at 1.2 m/s, and the second filter is 162% of the total. It is lag for nothing, and
+            // it is what makes a machine read as a box on a spring rather than a body carried on legs.
+            if (legged) { v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
+            else { v.Pitch.Step(pitch, dt, 7f); v.Roll.Step(roll, dt, 7f); }
+            v.Heave.Step(heave + Mathf.Sin(now * 41f + s) * vib, dt, 10f);
             v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
             // tracks and wheels: each at the hull's speed plus or minus the turn; stuck, they spin
@@ -436,7 +462,7 @@ namespace TW.Presentation.Tactical
             => Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-v.Pitch.Value * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-v.Roll.Value * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
-        Matrix4x4 PartLocal(View v, TankModel.Part p)
+        Matrix4x4 PartLocal(View v, TankModel.Part p, int index)
         {
             var rot = p.LocalRot;
             Vector3 pos = p.Local;
@@ -457,22 +483,14 @@ namespace TW.Presentation.Tactical
                     break;
                 }
                 // ---- the walkers ----
+                // Every part of a leg is SOLVED by WalkerGait to reach a foot standing on a real piece of ground,
+                // so there is nothing to swing here: take the answer. A leg with no solution (a machine whose split
+                // left it without a rig) keeps the pose it was modelled in rather than flailing.
                 case TankPartRole.Leg:
                 case TankPartRole.Thigh:
-                {
-                    // the leg swings fore and aft about the body's up axis and lifts about the line across it, half
-                    // the legs a half-cycle behind the other half: the alternating tripod a crab actually walks with
-                    Vector3 across = Vector3.Cross(Vector3.up, p.Outward);
-                    float phase = Phase(v, p);
-                    rot = Quaternion.AngleAxis(Mathf.Sin(phase) * 14f * v.Gait, Vector3.up)
-                        * Quaternion.AngleAxis(-Lift(v, phase), across) * rot;
-                    break;
-                }
                 case TankPartRole.Shin:
-                    rot = Quaternion.AngleAxis(Lift(v, Phase(v, p)) * 1.35f, Vector3.Cross(Vector3.up, p.Outward)) * rot;
-                    break;
                 case TankPartRole.Foot:
-                    rot = Quaternion.AngleAxis(-Lift(v, Phase(v, p)) * 0.85f, Vector3.Cross(Vector3.up, p.Outward)) * rot;
+                    if (v.LegSolved != null && index >= 0 && index < v.LegSolved.Length && v.LegSolved[index]) return v.LegLocal[index];
                     break;
                 case TankPartRole.Claw:
                 {
@@ -511,10 +529,6 @@ namespace TW.Presentation.Tactical
             return (v.Stride + group * 0.5f) * Mathf.PI * 2f;
         }
 
-        /// <summary>How far a leg is off the ground at that phase: up through the forward half of the stride, down
-        /// and planted through the back half.</summary>
-        static float Lift(View v, float phase) => Mathf.Max(0f, Mathf.Cos(phase)) * 11f * v.Gait;
-
         /// <summary>A leg the damage system has taken off: it goes the way a track does, thrown clear.</summary>
         void ThrowLeg(View v, int leg)
         {
@@ -532,10 +546,18 @@ namespace TW.Presentation.Tactical
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
             var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob, v.Pos.z), HullRotation(v), Vector3.one);
+            // the legs are solved against the body as it is actually sitting, tilt and all, so a machine standing
+            // across a slope has its downhill legs reach further rather than its feet float
+            if (v.Legs != null && v.Legs.Ready && lod.Legs != null)
+            {
+                int need = lod.Parts.Count;
+                if (v.LegLocal == null || v.LegLocal.Length < need) { v.LegLocal = new Matrix4x4[need]; v.LegSolved = new bool[need]; }
+                v.Legs.Solve(lod, root, v.LegLocal, v.LegSolved);
+            }
             for (int i = 0; i < lod.Parts.Count; i++)
             {
                 var p = lod.Parts[i];
-                world[i] = (p.Parent >= 0 ? world[p.Parent] : root) * PartLocal(v, p);
+                world[i] = (p.Parent >= 0 ? world[p.Parent] : root) * PartLocal(v, p, i);
             }
         }
 
@@ -585,6 +607,33 @@ namespace TW.Presentation.Tactical
                     books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * 0.15f, (hurt ? 1.3f : 0.8f) * (0.8f + v.Throttle * 0.5f), hurt ? 2.6f : 1.8f,
                         UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                         velocity: Vector3.up * (1.1f + v.Throttle) - fwd * 0.6f + UnityEngine.Random.insideUnitSphere * 0.2f, grow: 1.4f, roll: UnityEngine.Random.Range(-1f, 1f), alpha: hurt ? 0.85f : 0.4f);
+                }
+            }
+            // a walker kicks its dust where its feet land, not behind a track it hasn't got. One puff per footfall
+            // is what ties a machine to the ground it is walking on: without it the feet are planted correctly and
+            // still read as hovering, because nothing happens when they arrive.
+            if (v.Legs != null && v.Legs.Landed != 0 && near)
+            {
+                var layer = match.Map.LayerAt(new float3(v.Pos.x, 0f, v.Pos.z));
+                bool wet = (layer & TW.Sim.Terrain.NavLayer.Mud) != 0;
+                for (int k = 0; k < v.Legs.Feet.Length; k++)
+                {
+                    if ((v.Legs.Landed & (1 << k)) == 0) continue;
+                    Vector3 at = v.Legs.Feet[k].At;
+                    if (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z)) { SceneHooks.AddRing?.Invoke(at.x, at.z, 0.9f); continue; }
+                    // and the pad it leaves in the ground, where the leg actually put it (CombatFx keeps the marks).
+                    // No two of them are the same size or quite square to the walk: six legs stamping one identical pad
+                    // reads as a machine press rather than a thing that walked, and the trail is a row of bubbles.
+                    if (SceneHooks.FootFall != null)
+                    {
+                        var wp = TW.Sim.Nav.VehicleProfile.ForArchetype(v.Archetype);
+                        float n = Mathf.Abs(Mathf.Sin((at.x * 12.9898f + at.z * 78.233f + k * 3.7f)) * 43758.5453f) % 1f;
+                        float grow = 0.80f + 0.34f * n;
+                        SceneHooks.FootFall(at, v.Yaw * Mathf.Rad2Deg + (n - 0.5f) * 22f,
+                            new Vector2(wp.HalfWidth * 0.20f * grow, wp.HalfLength * 0.26f * grow));
+                    }
+                    if (wet) books.Add(FlipbookFx.Book.Spurt, at, 0.55f, 0.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, velocity: Vector3.up * 0.5f);
+                    else books.Add(FlipbookFx.Book.Puff, at + Vector3.up * 0.08f, 0.5f, 0.6f, FlipbookFx.Kind.None, velocity: Vector3.up * 0.25f, grow: 0.9f, alpha: 0.20f);
                 }
             }
             // dust behind the tracks, mud when it is stuck or wading
@@ -678,7 +727,7 @@ namespace TW.Presentation.Tactical
             {
                 int up = parts[c].Parent; bool under = false;
                 for (int k = up; k >= 0; k = parts[k].Parent) if (k == part) { under = true; break; }
-                if (under) d.Local[c] = PartLocal(v, parts[c]);
+                if (under) d.Local[c] = PartLocal(v, parts[c], c);
             }
             v.Off[part] = true;
             v.Pieces.Add(d); debris.Add(d);
@@ -1144,7 +1193,7 @@ namespace TW.Presentation.Tactical
             {
                 discProps.SetVectorArray(ColorId, discC);
                 var dp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
-                Graphics.RenderMeshInstanced(dp, discMesh, 0, discM, discCount);
+                FrameBudget.Draw(dp, discMesh, 0, discM, discCount);
             }
             foreach (var b in batches.Values)
             {
@@ -1154,7 +1203,7 @@ namespace TW.Presentation.Tactical
                 b.Props.SetVectorArray(TintId, b.Tint);
                 b.Props.SetVectorArray(TeamId, b.Team);
                 var rp = new RenderParams(b.Material) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = b.Props };
-                Graphics.RenderMeshInstanced(rp, b.Mesh, 0, b.M, b.Count);
+                FrameBudget.Draw(rp, b.Mesh, 0, b.M, b.Count);
                 b.Count = 0;
             }
         }
@@ -1217,7 +1266,7 @@ namespace TW.Presentation.Tactical
             if (fPos.Count == 0) return;
             flameMesh.SetVertices(fPos); flameMesh.SetUVs(0, fCorner); flameMesh.SetUVs(1, fShape); flameMesh.SetTriangles(fTris, 0);
             flameMesh.bounds = Everywhere;
-            Graphics.RenderMesh(new RenderParams(flameMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, flameMesh, 0, Matrix4x4.identity);
+            FrameBudget.Draw(new RenderParams(flameMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, flameMesh, 0, Matrix4x4.identity);
         }
 
         static float LerpAngle(float a, float b, float t) => a + Mathf.DeltaAngle(a * Mathf.Rad2Deg, b * Mathf.Rad2Deg) * Mathf.Deg2Rad * t;

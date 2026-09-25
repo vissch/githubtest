@@ -5,6 +5,13 @@
 # houses.json lists each chunk's offset in its house, its bounds about its pivot, and stone or timber (read from the
 # painted colour, TW_TEX), so BattlefieldKit places a house as one matrix and knows what rests on what.
 # TW_LOOSE=1 for a sheet that comes as one welded object (the watchtower sheet): split into loose parts first.
+# TW_FLOORS=1 cuts a building along its own storeys before anything else. A blind grid saws THROUGH a floor slab and
+# leaves chunks that straddle two storeys, and HouseKit reads what-rests-on-what from chunk bounds alone, so a
+# straddling chunk is held up by the storey below it and the roof will not come off until the ground floor does. Cutting
+# on the floor lines makes the support graph the vertical stack the building actually is, and PropDestruction's
+# Shaken/Settle cascade then takes the roof first, then the top storey, then down to the ground - which is the point.
+# The floor lines are found from the building's own geometry: horizontal face area piles up at a slab, so the peaks of
+# that histogram ARE the storeys. TW_STOREY sets the smallest gap two of them may have (metres, default 1.8).
 # TW_ONE=1 TW_KEEP=1 for one of the kit's own props (Resources/Env/<set>/<name>.fbx, already metres, ground pivot, front
 # +Z): all its parts are one building and it keeps its pivot and facing, so the sliced prop stands where the whole one did.
 # usage (owner's Tripo sheet, 2026-09-23; run in Blender 5.0):
@@ -120,9 +127,70 @@ def cut(bm, co, no):
         else: nb.free(); halves.append(None)
     return halves
 
-def split_big(bm):
+FLOORS = os.environ.get("TW_FLOORS") == "1"
+STOREY = float(os.environ.get("TW_STOREY", "1.8"))   # two floor lines closer than this are one floor
+BAND = float(os.environ.get("TW_BAND", "3.2"))       # no course of a building taller than this, floor line or not
+
+def floor_lines(bms, lo_z, hi_z):
+    """The heights a building's storeys sit at, from its own geometry: a floor, a ceiling and a roof are all a lot of
+    near-horizontal surface at one height, so the peaks of horizontal-area-by-height are the slabs. Returns heights in
+    the same units as the meshes, never within STOREY of each other nor of the top and bottom of the building."""
+    span = hi_z - lo_z
+    if span < STOREY * 2: return []
+    H = 96
+    bins = [0.0] * H
+    for b in bms:
+        for f in b.faces:
+            if abs(f.normal.z) < 0.72: continue          # only what is lying down: slabs, not walls
+            z = sum(v.co.z for v in f.verts) / len(f.verts)
+            bins[min(H - 1, max(0, int((z - lo_z) / span * H)))] += f.calc_area()
+    # a slab is a couple of bins wide once it has any pitch on it, so look at the smoothed curve
+    sm = [sum(bins[max(0, i - 1):min(H, i + 2)]) for i in range(H)]
+    peak = max(sm)
+    if peak <= 0: return []
+    want = [(sm[i], lo_z + (i + 0.5) / H * span) for i in range(1, H - 1)
+            if sm[i] >= sm[i - 1] and sm[i] >= sm[i + 1] and sm[i] > peak * 0.18]
+    want.sort(reverse=True)                              # strongest slab first, so it wins any crowding
+    out = []
+    for _, z in want:
+        if z - lo_z < STOREY or hi_z - z < STOREY: continue    # not a storey, just the floor or the roof itself
+        if any(abs(z - o) < STOREY for o in out): continue
+        out.append(z)
+    out.sort()
+    # A building whose floors the geometry does not show - an open hall, a tower, a ruin with its floors already gone -
+    # would come out as one or two tall bands, and a tall band is a single chunk of building that stands until it goes
+    # all at once. Any band still taller than BAND is divided evenly, so what comes down always comes down in courses.
+    # Real slabs are found first and kept: these only fill in where the building does not say.
+    edges = [lo_z] + out + [hi_z]
+    full = []
+    for i in range(len(edges) - 1):
+        a, b = edges[i], edges[i + 1]
+        n = max(1, int(math.ceil((b - a) / BAND)))
+        for k in range(1, n): full.append(a + (b - a) * k / n)
+        if i: full.append(a)
+    return sorted(full)
+
+def cut_at(bms, axis, at):
+    """Every piece the plane actually crosses, cut on it; the rest passed through untouched."""
+    out = []
+    for b in bms:
+        co = [v.co for v in b.verts]
+        lo = min(c[axis] for c in co); hi = max(c[axis] for c in co)
+        if not (lo + 0.12 < at < hi - 0.12): out.append(b); continue
+        no = Vector((0, 0, 0)); no[axis] = 1
+        pco = Vector((0, 0, 0)); pco[axis] = at
+        a, c = cut(b, pco, no)
+        b.free()
+        for h in (a, c):
+            if h is not None: out.append(h)
+    return out
+
+def split_big(bm, floors=()):
     """cut bm along its axes until no chunk edge exceeds CUT; returns a list of bms"""
-    out = [bm]; changed = True
+    out = [bm]
+    for z in floors:                       # the storeys first: every later cut happens inside one floor
+        out = cut_at(out, 2, z)
+    changed = True
     while changed:
         changed = False; nxt = []
         for b in out:
@@ -130,7 +198,11 @@ def split_big(bm):
             lo = Vector((min(c.x for c in co), min(c.y for c in co), min(c.z for c in co)))
             hi = Vector((max(c.x for c in co), max(c.y for c in co), max(c.z for c in co)))
             size = hi - lo
-            axis = max(range(3), key=lambda i: size[i])
+            # Once the storeys are cut, cutting across beats cutting up: a chunk that is half of one storey rests on
+            # the other half as much as on the floor below, and the two halves hold each other up. Z is weighed down
+            # so it only wins when a band really is far too tall to leave whole.
+            weigh = (size.x, size.y, size.z * 0.62) if floors else (size.x, size.y, size.z)
+            axis = max(range(3), key=lambda i: weigh[i])
             if size[axis] > CUT * 1.15:
                 n = math.ceil(size[axis] / CUT)
                 at = lo[axis] + size[axis] / n
@@ -221,9 +293,13 @@ for ci, c in enumerate(clusters):
         host["bm"].from_mesh(tmp); bpy.data.meshes.remove(tmp)
         host["lo"] = Vector((min(host["lo"][i], s["lo"][i]) for i in range(3)))
         host["hi"] = Vector((max(host["hi"][i], s["hi"][i]) for i in range(3)))
+    # the bms are already through M, so their z is metres with the building's foot at zero
+    zs = [v.co.z for p in big for v in p["bm"].verts]
+    floors = floor_lines([p["bm"] for p in big], min(zs), max(zs)) if FLOORS else []
+    if FLOORS: print("  %s: storeys at %s (of %.2f m)" % (hname, ", ".join("%.2f" % f for f in floors), size_m.z))
     chunks = []
     for pi, p in enumerate(big):
-        for k, b in enumerate(split_big(p["bm"])):
+        for k, b in enumerate(split_big(p["bm"], floors)):
             chunks.append((pi, k, b))
     # a sliver the cut left (a few triangles) joins the nearest chunk, so no chunk is a draw for nothing
     MINTRIS = int(os.environ.get("TW_MINTRIS", "24"))

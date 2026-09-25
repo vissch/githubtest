@@ -1,4 +1,4 @@
-// Phase: C1 (implemented; docs/15-character-controller.md sections 3 to 9; lives in Core so SimHost can drive it) — the decision layer of the character
+﻿// Phase: C1 (implemented; docs/15-character-controller.md sections 3 to 9; lives in Core so SimHost can drive it) — the decision layer of the character
 // controller. Every sim tick it reads each man's stance, speed, target, flags, the ground under him and the events
 // that named him, and runs the priority ladder: death, trench edge, reaction, action, stance change, turn,
 // locomotion, fire, idle. The top rung with something to say owns the body; a one-shot keeps it until it ends unless
@@ -128,6 +128,7 @@ namespace TW.Presentation
         public float HopHeight, HopFrame; public uint HopTick;   // a shell blew him off his feet (and he lived): how high it lifts him (life-size metres; drawn at his scale), where in the clip and on which tick it did
         public uint KnockedUntil, DazedUntil;           // on his face where the blast put him until then; then on one knee, dazed, until then
         public bool Rubbed;                             // the dazed man has rubbed his eyes once (he does not do it again after every shot)
+        public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
     }
 
     public sealed class AnimationController : System.IDisposable
@@ -360,6 +361,27 @@ namespace TW.Presentation
         }
         float3 lastPos; byte lastStance; float lastSpeed; int lastTarget; float lastSupp;
 
+        /// <summary>
+        /// He has caught fire and will run until it goes out. Clip.Burning has been in the atlas since C1 with nothing
+        /// to play it: the sim's BurningSystem is a Phase A5 stub, so for now the show side sets a man alight (the
+        /// flamethrower's stream, a fuel tank going up) and this is where that becomes an animation. When the sim
+        /// grows UnitFlags.Burning, Decide reads the flag instead and this stays as the manual way in.
+        /// </summary>
+        public void SetAlight(int slot, float seconds)
+        {
+            if (!State.IsCreated || slot < 0 || slot >= State.Length) return;
+            var s = State[slot];
+            uint until = tick + (uint)math.max(1f, seconds / tickSeconds);
+            if (until > s.AlightUntil) { s.AlightUntil = until; State[slot] = s; }
+        }
+
+        /// <summary>The fire on him is out (he was doused, or he is dead and the corpse stops running).</summary>
+        public void Douse(int slot)
+        {
+            if (!State.IsCreated || slot < 0 || slot >= State.Length) return;
+            var s = State[slot]; s.AlightUntil = 0u; State[slot] = s;
+        }
+
         AnimState Die(int i, AnimState s, SimWorld w)
         {
             // stance first, then gait, then the direction the impulse came from against the body
@@ -435,6 +457,16 @@ namespace TW.Presentation
             int aimAt = target >= 0 ? target : shotThisTick[i] != 0 ? shotAt[i] : -1;
             if (aimAt >= 0 && aimAt < count) { float3 d = w.Position[aimAt] - p; s.AimYaw = math.atan2(d.x, d.z); }
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
+
+            // on fire. A man alight does not take cover, does not flinch at a near miss and does not keep his place in a
+            // trench routine: he breaks and runs until he drops, which is the whole reason the clip exists. It is
+            // decided here, above every reaction, because every one of them would otherwise interrupt him.
+            if (s.AlightUntil > tick)
+            {
+                s.Stance = (byte)Stance.Standing; s.WantStance = (byte)Stance.Standing; s.Routine = 0; s.Aimed = false;
+                Start(i, ref s, Clip.Burning, Rung.Reaction, "on fire: runs", 1f, 0.2f);
+                return;
+            }
 
             // the stance the situation implies (Wanted): the sim's, damped against its target flicker and held by a routine
             byte want = (byte)simStance;

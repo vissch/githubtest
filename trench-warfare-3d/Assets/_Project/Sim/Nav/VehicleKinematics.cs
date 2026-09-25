@@ -30,6 +30,21 @@ using TW.Sim.Terrain;
 
 namespace TW.Sim.Nav
 {
+    /// <summary>How much larger than the sculpt a machine is built.
+    ///
+    /// Tools/crabsplit.py bakes each walker to about 3.3 m across and 2.6 m tall, and Tools/tanksplit.py the
+    /// tanks to about 5 m by 4.5 m. Against a soldier drawn 2 m tall that made a walker man-height: the
+    /// machines were never large, whatever the roster called them. These carry them to something that towers
+    /// - a Pincer 9.5 m across with its belly above a man's head - and they are the only place the size is
+    /// written, so presentation and simulation cannot drift apart. A walker grows more than a tank because a
+    /// tank was already the size of a tank.
+    ///
+    /// A rebake must NOT fold these into crabsplit's own scale as well, or the machines come out squared.</summary>
+    public static class VehicleSize
+    {
+        public const float Walker = 2.5f, Tank = 1.7f;
+    }
+
     public struct VehicleProfile
     {
         public float TurnRateRad;      // rad/s
@@ -60,35 +75,35 @@ namespace TW.Sim.Nav
         }
 
         public static VehicleProfile Maw => new VehicleProfile
-        { TurnRateRad = 0.42f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.05f, HalfLength = 2.55f, HalfWidth = 2.25f, PushesTrees = true };
+        { TurnRateRad = 0.42f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.05f, HalfLength = 2.55f * VehicleSize.Tank, HalfWidth = 2.25f * VehicleSize.Tank, PushesTrees = true };
 
         public static VehicleProfile Tusk => new VehicleProfile
-        { TurnRateRad = 0.75f, TrenchCrossWidth = 2.4f, DitchChance = 0.75f, SlopeLimit = 0.6f, BogChance = 0.025f, HalfLength = 1.85f, HalfWidth = 2.25f };
+        { TurnRateRad = 0.75f, TrenchCrossWidth = 2.4f, DitchChance = 0.75f, SlopeLimit = 0.6f, BogChance = 0.025f, HalfLength = 1.85f * VehicleSize.Tank, HalfWidth = 2.25f * VehicleSize.Tank };
 
         // The crabs, measured off Tools/crabsplit.py's crabs.json: Pincer 3.80 x 3.36 m, Kettle 3.20 x 2.65 m. A leg
         // finds its own footing, so mud barely holds them and a slope a tank would slide off is nothing; what stops a
         // walker is losing legs.
         public static VehicleProfile Pincer => new VehicleProfile
-        { TurnRateRad = 1.15f, TrenchCrossWidth = 3.6f, DitchChance = 0f, SlopeLimit = 0.95f, BogChance = 0.008f, HalfLength = 1.70f, HalfWidth = 1.90f, PushesTrees = true, Walker = true, Legs = 6 };
+        { TurnRateRad = 1.15f, TrenchCrossWidth = 3.6f, DitchChance = 0f, SlopeLimit = 0.95f, BogChance = 0.008f, HalfLength = 1.70f * VehicleSize.Walker, HalfWidth = 1.90f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
 
         public static VehicleProfile Kettle => new VehicleProfile
-        { TurnRateRad = 1.35f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.90f, BogChance = 0.012f, HalfLength = 1.35f, HalfWidth = 1.60f, Walker = true, Legs = 4 };
+        { TurnRateRad = 1.35f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.90f, BogChance = 0.012f, HalfLength = 1.35f * VehicleSize.Walker, HalfWidth = 1.60f * VehicleSize.Walker, Walker = true, Legs = 4 };
 
         // Censer 3.30 x 2.95 m, Pavise 3.60 x 3.55 m. The gas crab is the quickest thing on the field on its feet;
         // the shielded one is the slowest, and plants itself to shoot.
         public static VehicleProfile Censer => new VehicleProfile
-        { TurnRateRad = 1.45f, TrenchCrossWidth = 3.1f, DitchChance = 0f, SlopeLimit = 0.92f, BogChance = 0.010f, HalfLength = 1.50f, HalfWidth = 1.65f, Walker = true, Legs = 4 };
+        { TurnRateRad = 1.45f, TrenchCrossWidth = 3.1f, DitchChance = 0f, SlopeLimit = 0.92f, BogChance = 0.010f, HalfLength = 1.50f * VehicleSize.Walker, HalfWidth = 1.65f * VehicleSize.Walker, Walker = true, Legs = 4 };
 
         public static VehicleProfile Pavise => new VehicleProfile
-        { TurnRateRad = 0.95f, TrenchCrossWidth = 3.4f, DitchChance = 0f, SlopeLimit = 0.88f, BogChance = 0.014f, HalfLength = 1.78f, HalfWidth = 1.80f, PushesTrees = true, Walker = true, Legs = 4 };
+        { TurnRateRad = 0.95f, TrenchCrossWidth = 3.4f, DitchChance = 0f, SlopeLimit = 0.88f, BogChance = 0.014f, HalfLength = 1.78f * VehicleSize.Walker, HalfWidth = 1.80f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 4 };
 
         // Banner 2.03 x 3.40 m on four tall legs, Redoubt 2.97 x 3.60 m on six. The blockhouse is the heaviest thing
         // that walks and the slowest; the command walker is tall and narrow and steps over anything.
         public static VehicleProfile Banner => new VehicleProfile
-        { TurnRateRad = 1.05f, TrenchCrossWidth = 3.5f, DitchChance = 0f, SlopeLimit = 0.94f, BogChance = 0.010f, HalfLength = 1.70f, HalfWidth = 1.05f, Walker = true, Legs = 4 };
+        { TurnRateRad = 1.05f, TrenchCrossWidth = 3.5f, DitchChance = 0f, SlopeLimit = 0.94f, BogChance = 0.010f, HalfLength = 1.70f * VehicleSize.Walker, HalfWidth = 1.05f * VehicleSize.Walker, Walker = true, Legs = 4 };
 
         public static VehicleProfile Redoubt => new VehicleProfile
-        { TurnRateRad = 0.80f, TrenchCrossWidth = 3.3f, DitchChance = 0f, SlopeLimit = 0.86f, BogChance = 0.018f, HalfLength = 1.80f, HalfWidth = 1.50f, PushesTrees = true, Walker = true, Legs = 6 };
+        { TurnRateRad = 0.80f, TrenchCrossWidth = 3.3f, DitchChance = 0f, SlopeLimit = 0.86f, BogChance = 0.018f, HalfLength = 1.80f * VehicleSize.Walker, HalfWidth = 1.50f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
 
         /// <summary>A round radius for keeping two hulls apart: the longer half plus a hand, so the corners of two
         /// hulls side by side or nose to flank do not pass through each other (the mean of length and width let the

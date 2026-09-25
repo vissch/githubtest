@@ -27,6 +27,17 @@ Shader "TW/Toon (URP)"
         _DetailStrength ("Detail strength", Range(0,1)) = 0
         _DetailBump ("Detail relief", Range(0,1)) = 0
         _Gloss ("Gloss (1 = standing water)", Range(0,1)) = 0
+        // How much of the ground's own relief survives under lying snow. 0 is what this did before: one flat
+        // colour that threw away everything the close-up grit branch had just computed.
+        _SnowRelief ("Relief kept under snow", Range(0,2)) = 1.6
+        // A blast site holds no snow until it has filled in. The threshold is a VALUE no natural ground reaches:
+        // GreyboxTerrainView burns a crater toward (.10, .09, .08) and the darkest honest mud texel is near 0.30.
+        _SnowBareLuma ("Burn darker than this holds no snow", Range(0,0.5)) = 0.06
+        // SWEPT, and 0.17 was badly wrong. The guess assumed the darkest honest ground texel was near 0.30,
+        // but albedo here has already been multiplied by crustRelief, which drives clod shadows well below
+        // 0.10. Measured share of the near ground stripped of snow: 58.5% at both 0.17 and 0.10 - more than
+        // half the field - against 22.4% with the feature off entirely and 25.8% at 0.06. The threshold has
+        // to sit BELOW the natural minimum, not below a guess at it.
         _ShadeColor ("Shade tint", Color) = (0.57, 0.60, 0.64, 1)
         [HDR] _Emission ("Emission (lamp glass, embers)", Color) = (0, 0, 0, 0)
         _Sway ("Sway in the wind (reeds, grass, scrub)", Range(0,1)) = 0
@@ -48,20 +59,26 @@ Shader "TW/Toon (URP)"
         CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor, _ShadeColor, _OutlineColor, _Emission;
             float4 _BaseMap_ST;
-            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway, _Pigment;
+            float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway, _Pigment, _SnowRelief, _SnowBareLuma;
         CBUFFER_END
         float4 _TWWind;   // xz: the wind (Atmosphere.WindNow, scaled), w: 1 when set
         #if defined(_CHUNKMASK)
         UNITY_INSTANCING_BUFFER_START(TWChunks)
-            UNITY_DEFINE_INSTANCED_PROP(float, _ChunkMask)
+            UNITY_DEFINE_INSTANCED_PROP(float4, _ChunkMask)
         UNITY_INSTANCING_BUFFER_END(TWChunks)
         #endif
         /// A hidden chunk's vertices all go to the object's origin, so its triangles have no area and draw nothing.
+        /// The mask is four words of 24 bits rather than one, because a float holds a whole number exactly only that
+        /// far: chunk i is bit (i % 24) of word (i / 24). The word is picked by compare rather than by indexing the
+        /// vector, which on some targets spills it to memory for a dynamic index.
         float3 TWChunk(float3 positionOS, float chunk)
         {
         #if defined(_CHUNKMASK)
-            uint mask = (uint)UNITY_ACCESS_INSTANCED_PROP(TWChunks, _ChunkMask);
-            if ((mask >> (uint)(chunk + 0.5)) & 1u) return float3(0, 0, 0);
+            float4 packed = UNITY_ACCESS_INSTANCED_PROP(TWChunks, _ChunkMask);
+            uint i = (uint)(chunk + 0.5);
+            uint word = i / 24u;
+            uint mask = (uint)(word == 0u ? packed.x : word == 1u ? packed.y : word == 2u ? packed.z : packed.w);
+            if ((mask >> (i % 24u)) & 1u) return float3(0, 0, 0);
         #endif
             return positionOS;
         }
@@ -136,6 +153,11 @@ Shader "TW/Toon (URP)"
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half2 slope = 0;
                 half near = 1;
+                // How much the crust's own grain brightens or darkens this pixel. It is hoisted out of the
+                // detail block because the MOLTEN GLOW needs it too: the glow is added after lighting and the
+                // grain multiplies albedo, so without this the hottest ground is mathematically the flattest.
+                // Zero on anything with no detail map - props, sandbags, men - so only the terrain changes.
+                half crustRelief = 0;
                 if (_DetailBump < 0.5 && _Gloss < 0.5 && _TWWet.x > 0.0)
                 {
                     // everything standing in the rain is wet: bags, timber, trunks, wrecks. Wettest on top.
@@ -170,7 +192,8 @@ Shader "TW/Toon (URP)"
                     gloss = max(gloss, _TWWet.x * _DetailBump * (0.30 + 0.25 * saturate(0.5 - d1.r * 1.0 + 0.3)));   // soaked ground: every surface with relief shines a little, the dark crevices most
                     half dry = 1.0 - saturate(gloss * 2.0 - 1.0);   // only standing water is smooth
                     albedo *= 1.0 - 0.55 * _TWWet.x * _DetailBump * dry;   // soaked earth is darker: black mud under the moon
-                    albedo *= 1.0 + tone * 2.0 * (_DetailStrength * (1.0 + 1.75 * closeDetail)) * dry;   // 0.20 out at the standard view, about 0.55 among the men
+                    crustRelief = tone * 2.0 * (_DetailStrength * (1.0 + 1.75 * closeDetail)) * dry;   // 0.20 out at the standard view, about 0.55 among the men
+                    albedo *= 1.0 + crustRelief;
                     half relief = dot(slope, mainLight.direction.xz) * _DetailBump * dry;
                     albedo *= 1.0 + smoothstep(0.035, 0.08, relief) * 0.10 - smoothstep(0.03, 0.08, -relief) * 0.12;   // soft clod edges, not grouted cells
                 }
@@ -179,9 +202,23 @@ Shader "TW/Toon (URP)"
                 albedo = TWWorldPaint(albedo);   // basalt, or cold rock, or on the night field untouched
                 albedo *= TWHeatCrust(i.positionWS, normalize(i.normalWS), saturate(_DetailStrength * 8.0));   // black between the plates
                 half snow = TWSnowAmount(i.normalWS, i.positionWS);
+                // A CRATER IS BARE EARTH WHEN IT LANDS. The blast throws the snow off and burns what is under it,
+                // and the ground texture already carries that as a burn far darker than any natural texel - so the
+                // snow reads the albedo it has already computed rather than needing a second map or a per-pixel
+                // loop over crater positions. The fill comes free: GreyboxTerrainView fades the burn and repaints
+                // it, the ground lightens, and the snow returns with it. One number, both halves.
+                if (snow > 0.0 && _SnowBareLuma > 0.0)
+                    snow *= saturate(dot(albedo, half3(0.299, 0.587, 0.114)) / _SnowBareLuma);
                 if (snow > 0.0)
                 {
-                    albedo = lerp(albedo, _TWSnowColor.rgb, snow);
+                    // SNOW KEEPS THE GROUND IT LIES ON. A flat lerp here replaced everything the close-up grit
+                    // branch computed - crustRelief is about 0.55 among the men - with one constant, which is
+                    // why the winter ground read as a featureless plane at zoom 8 while the same code made mud
+                    // break into pebbles and cracks. Snow lying on a rutted, cratered field is not flat; a
+                    // covering softens what is under it, so the relief is scaled rather than dropped. Same
+                    // argument the comment above makes for light, applied to form.
+                    half3 lying = _TWSnowColor.rgb * max(0.0, 1.0 + crustRelief * _SnowRelief);
+                    albedo = lerp(albedo, lying, snow);
                     gloss = max(gloss, _TWSnowColor.a * snow);
                 }
                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
@@ -249,6 +286,16 @@ Shader "TW/Toon (URP)"
                 // the fog for that reason: while it was added before, ApplyMist and MixFog lerped the glow itself
                 // toward the fog colour and the distant pools came out pale pink instead of orange behind pink.
                 half3 heat = TWHeatGlow(i.positionWS, normalize(i.normalWS), (1.0 - snow) * saturate(_DetailStrength * 8.0));
+                // The glow takes the crust's relief, for the reason crustRelief is declared where it is. The
+                // grain multiplies ALBEDO and this is ADDED, so the final pixel is albedo*light*(1+relief) + heat:
+                // as heat grows the relief becomes a vanishing fraction of it, and the nearest, brightest, most
+                // looked-at ground on the field comes out an airbrush. MEASURED on the lava capture, relative
+                // adjacent-pixel texture: 0.0222 in the hot foreground against 0.0347 in the mid-field trough -
+                // 36% LESS grain in the band where the detail map runs at full strength. No amount of tuning
+                // _DetailStrength could reach it; it was on the wrong side of a plus sign.
+                // Same factor as the albedo takes, so there is no second number to keep in step, and clamped so
+                // that relief can never drive an emission negative.
+                heat *= max(0.0, 1.0 + crustRelief);
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);

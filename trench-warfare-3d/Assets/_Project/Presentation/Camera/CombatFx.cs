@@ -1,4 +1,4 @@
-// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
+﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
 // leaves a body, and every trench or objective capture raises a banner. Instanced draws, no GameObjects per effect.
@@ -125,17 +125,26 @@ namespace TW.Presentation.Tactical
         struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water, 5 brass, 6 helmet, 7 vapour
         // ---- what only a close camera sees (SceneHooks.CloseUp): nothing below is made or drawn at the standard view
         struct Rest { public Matrix4x4 At; public float Until; public byte Kind; }      // things come to rest: 0 brass, 1 helmet, 2 clod
-        struct Mark { public Matrix4x4 At; public float Born, Life; public byte Kind; }  // pressed into the mud: 0 boot print, 1 track rut
+        struct Mark { public Matrix4x4 At; public float Born, Life; public byte Kind; }  // pressed into the mud: 0 boot print, 1 track rut, 2 walker's foot
         struct Trail { public Vector3 Last; public bool Left; public float Seen; }
         readonly List<Rest> rests = new List<Rest>(256);
         readonly List<Mark> marks = new List<Mark>(512);
         readonly Dictionary<int, Trail> trails = new Dictionary<int, Trail>(128);
         readonly List<Vector4> hotCraters = new List<Vector4>(16);   // xyz, w = cools at
         readonly List<int> trailSweep = new List<int>(64);
-        const int MaxRests = 320, MaxMarks = 520;
+        const int MaxRests = 320, MaxMarks = 900;   // machine marks lie for minutes and are laid out to MachineMarkReach, so the field holds more of them than when only boots printed
         const float CloseReach = 42f;
+        /// <summary>How far out a machine's marks are laid and drawn. A boot print is invisible past CloseReach and is not
+        /// made past it; a tank's ruts and a walker's footfalls are metres across and belong on the ground at the standard
+        /// view, where the game is actually played, so they run to the edge of what the camera holds.</summary>
+        const float MachineMarkReach = 130f;
         readonly Mesh[] fallen = new Mesh[8];
-        readonly Material[] markMats = new Material[6];
+        /// <summary>One a shape (boot, rut, walker's foot). The fade used to be three materials a shape, which meant the
+        /// mark list was walked nine times a frame and the alpha stepped in three visible jumps; the fade now rides in
+        /// each instance's object Y scale (a flat quad has no other use for it), so one sweep fills three buckets and
+        /// the mark thins out continuously.</summary>
+        readonly Material[] markMats = new Material[3];
+        readonly List<Matrix4x4>[] markBatch = { new List<Matrix4x4>(256), new List<Matrix4x4>(256), new List<Matrix4x4>(256) };
         Material fallenMat, brassMat, helmetMat, vapourMat;
         Mesh markQuad;
         float nextPrint, nextBreath, nextExhaust; int breathCursor;
@@ -161,6 +170,10 @@ namespace TW.Presentation.Tactical
         readonly List<Marker> markers = new List<Marker>(8);
         readonly List<Chunk> chunks = new List<Chunk>(768);
         readonly List<Matrix4x4> gasCards = new List<Matrix4x4>(2048);
+        // the flamethrower's fire (Flamethrower.cs): jets, pools of burning fuel, men alight, big things burning.
+        // Held here because it spends CombatFx's books and CombatFx already has the presenter and the ground.
+        readonly Flamethrower flames = new Flamethrower();
+        System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
         Material dirtMat, woodMat, smokeMat;
         Material smokeThin, smokeFaint;
         const int MaxChunks = 940;
@@ -258,6 +271,8 @@ namespace TW.Presentation.Tactical
             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
             SceneHooks.Sparks = (at, count) => Throw(at, count, 3, 2.5f, 0.04f);
             SceneHooks.CookOff = CookOff;
+            // a walker's real footfalls, from the gait that solves its legs; the guess below is only for one nothing draws
+            SceneHooks.FootFall = (at, yawDeg, pad) => AddMark(at.x, at.z, yawDeg, pad, SceneTints.Now.Frozen ? 300f : 110f, 2);
             var lens = Camera.main;
             if (lens != null && lens.GetComponent<CameraShake>() == null) lens.gameObject.AddComponent<CameraShake>();
             tracerCore = new Material(unlit) { enableInstancing = true, color = new Color(3.0f, 2.7f, 2.3f) };   // the streak itself: white-hot
@@ -287,6 +302,62 @@ namespace TW.Presentation.Tactical
             panel = GetComponent<TestPanel>();
             units = FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
             books = new FlipbookFx();
+            // Where a man is DRAWN standing, which is not where the sim has him: the presenter's y is the sim's zero.
+            // This is VATRenderer's own recipe for his feet, and it has to stay VATRenderer's, or fire hung on a man
+            // parts company with him exactly when it is most visible - Lift has him climbing a parapet, Hop has him in
+            // the air off a shell, and in both the mud under him is not where he is.
+            drawnAt = slot =>
+            {
+                if (Host == null || Host.Presenter == null || Host.Local == null || slot < 0) return Vector3.zero;
+                Vector3 p = (Vector3)Host.Presenter.Drawn(slot);
+                var map = Host.Local.Map;
+                float y = RenderGround.Sample(map, p.x, p.z);
+                var anim = Host.Animation;
+                if (anim != null && anim.Lift.IsCreated && slot < anim.Lift.Length)
+                {
+                    float lift = anim.Lift[slot];
+                    if (lift > 0f) y = Mathf.Lerp(y, map.Height.Sample(p.x, p.z), lift);   // up the bank with him
+                    y += anim.Hop[slot] * FigureScale();                                   // and off the ground with him
+                }
+                p.y = y;
+                return p;
+            };
+            groundAt = (x, z) => Host != null && Host.Local != null ? RenderGround.Sample(Host.Local.Map, x, z) : 0f;
+            // the nozzle is the rifle's muzzle socket: the flamethrower is carried where the rifle is carried, so the
+            // stream leaves the figure's own weapon through whatever clip the controller has him in
+            flames.Nozzle = slot =>
+            {
+                if (units != null && units.Sockets(slot, out var at, out var barrel, out _)) return (at, barrel);
+                if (Host == null || Host.Local == null || slot < 0) return (Vector3.zero, Vector3.forward);
+                EstimateMuzzle(slot, -1, 1f, out var m, out var b);
+                return (m, b);
+            };
+            flames.Alighted = (slot, seconds) =>
+            {
+                var anim = Host != null ? Host.Animation : null;
+                if (anim == null) return;
+                if (seconds > 0f) anim.SetAlight(slot, seconds); else anim.Douse(slot);
+            };
+            // who is standing in the fire. Flamethrower knows where its flame is and nothing about the field, so it
+            // hands the point over and this answers. Alight only - fire does not kill anyone here; the sim does that,
+            // and a man the sim has already killed is left out of it.
+            flames.Catch = (at, radius, seconds) =>
+            {
+                if (Host == null || Host.Local == null) return;
+                var w = Host.Local.World;
+                float r2 = radius * radius;
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    uint fl = w.Flags[i];
+                    if ((fl & (uint)UnitFlags.Alive) == 0 || (fl & (uint)UnitFlags.Vehicle) != 0) continue;
+                    var q = w.Position[i];
+                    float dx = q.x - at.x, dz = q.z - at.z;
+                    if (dx * dx + dz * dz > r2) continue;
+                    if (SceneHooks.IsWater != null && SceneHooks.IsWater(q.x, q.z)) continue;   // he is standing in water: it does not take
+                    flames.Ignite(i, seconds);
+                }
+            };
+            Flamethrower.Active = flames;
             if (!books.Ready) Debug.LogWarning("CombatFx: the flipbook textures (Resources/VFX) or TW/Flipbook are missing; drawing the painted stand-ins.");
             // the pieces: one renderer on this object, lent the flipbooks for the dust a landing piece or a falling wall raises
             debris = GetComponent<DebrisRenderer>();
@@ -302,10 +373,20 @@ namespace TW.Presentation.Tactical
             vapourMat = Transparent(unlit, new Color(0.74f, 0.80f, 0.90f, 0.13f));
             var markShader = Shader.Find("TW/GroundMark (URP)");
             if (markShader != null)
-                for (int k = 0; k < 6; k++)
+                for (int k = 0; k < markMats.Length; k++)
                 {
                     markMats[k] = new Material(markShader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
-                    markMats[k].SetFloat("_Shape", k / 3); markMats[k].SetFloat("_Alpha", (k % 3) == 0 ? 0.88f : (k % 3) == 1 ? 0.58f : 0.26f);
+                    markMats[k].SetFloat("_Shape", k); markMats[k].SetFloat("_Alpha", 0.88f);
+                    // a boot print is a close-camera thing and goes within a few tens of metres; what a machine leaves is
+                    // metres across, and is still on the ground at the view the game is played at
+                    bool small = k == 0;
+                    markMats[k].SetFloat("_FadeFrom", small ? 30f : MachineMarkReach - 26f);
+                    markMats[k].SetFloat("_FadeOver", small ? 12f : 26f);
+                    // and how far out the fine detail is worth computing. A boot is 34 cm long, so its cleats are gone
+                    // by the time a man is twenty metres off; a rut or a pad is metres across and holds its own further.
+                    // The shader narrows both again on its own once a pattern's period approaches a pixel.
+                    markMats[k].SetFloat("_DetailFrom", small ? 8f : 15f);
+                    markMats[k].SetFloat("_DetailOver", small ? 10f : 22f);
                 }
             markQuad = new Mesh { name = "Ground mark", hideFlags = HideFlags.HideAndDontSave };
             markQuad.SetVertices(new List<Vector3> { new Vector3(-.5f, 0f, -.5f), new Vector3(-.5f, 0f, .5f), new Vector3(.5f, 0f, .5f), new Vector3(.5f, 0f, -.5f) });
@@ -340,9 +421,20 @@ namespace TW.Presentation.Tactical
 
         void AddMark(float x, float z, float yawDegrees, Vector2 size, float life, byte kind)
         {
-            if (marks.Count >= MaxMarks) marks.RemoveAt(0);
             Vector3 at = new Vector3(x, RenderGround.Sample(Host.Local.Map, x, z) + 0.025f, z);
-            marks.Add(new Mark { At = Matrix4x4.TRS(at, Lie(x, z, yawDegrees, 0.2f), new Vector3(size.x, 1f, size.y)), Born = Time.time, Life = life, Kind = kind });
+            var mark = new Mark { At = Matrix4x4.TRS(at, Lie(x, z, yawDegrees, 0.2f), new Vector3(size.x, 1f, size.y)), Born = Time.time, Life = life, Kind = kind };
+            if (marks.Count < MaxMarks) { marks.Add(mark); return; }
+            // Full. RemoveAt(0) shifted seventy kilobytes of matrices for every print laid, and on a snowfield - where
+            // marks live for minutes and the pool sits at its ceiling - that is the whole time. Overwrite the one
+            // nearest gone instead: no shift, and a mark on its way out is a better thing to lose than the oldest,
+            // which on this field may be a rut with four minutes left while a boot print beside it has two seconds.
+            int worst = 0; float gone = -1f, now = Time.time;
+            for (int i = 0; i < marks.Count; i++)
+            {
+                float k = (now - marks[i].Born) / marks[i].Life;
+                if (k > gone) { gone = k; worst = i; }
+            }
+            marks[worst] = mark;
         }
 
         static Material Painted(Color color, float outline)
@@ -446,6 +538,9 @@ namespace TW.Presentation.Tactical
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.Sparks = null;
             if (SceneHooks.CookOff == (System.Action<Vector3, float>)CookOff) SceneHooks.CookOff = null;
+            if (Flamethrower.Active == flames) Flamethrower.Active = null;
+            flames.Clear();
+            SceneHooks.FootFall = null;
             books?.Dispose();
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
@@ -954,6 +1049,7 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(puff, new RenderParams(smokeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
             DrawChunks(now, bounds);
+            flames.Update(now, view, books, drawnAt, groundAt);
             books?.Draw(now, bounds);
             hitsThisFrame = 0;
 
@@ -1058,10 +1154,10 @@ namespace TW.Presentation.Tactical
         {
             Prune(rests, now, static (r, at) => at > r.Until);
             Prune(marks, now, static (m, at) => at - m.Born > m.Life);
-            if (SceneHooks.CloseUp <= 0f) return;
             var cam = Camera.main; if (cam == null) return;
             Vector3 eye = cam.transform.position;
-            for (int kind = 0; kind < 3; kind++)
+            bool close = SceneHooks.CloseUp > 0f;
+            for (int kind = 0; close && kind < 3; kind++)
             {
                 batch.Clear();
                 var rp = new RenderParams(kind == 0 ? brassMat : kind == 1 ? helmetMat : dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = true };
@@ -1075,27 +1171,40 @@ namespace TW.Presentation.Tactical
                 if (batch.Count > 0) Flush(kind == 1 ? sphere : cube, rp);
             }
             if (markMats[0] == null) return;
-            for (int pass = 0; pass < 6; pass++)
+            // One pass over the marks, sorted into a bucket a shape as it goes, instead of nine passes each throwing
+            // away eight marks in nine. MaxMarks is below the 1023 an instanced draw takes, so no bucket can overflow
+            // mid-sweep and none of this needs to flush early.
+            for (int k = 0; k < markBatch.Length; k++) markBatch[k].Clear();
+            float bootReach = CloseReach * CloseReach, machineReach = MachineMarkReach * MachineMarkReach;
+            for (int i = 0; i < marks.Count; i++)
             {
-                batch.Clear();
-                var rp = new RenderParams(markMats[pass]) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
-                for (int i = 0; i < marks.Count; i++)
-                {
-                    var m = marks[i]; if (m.Kind != pass / 3) continue;
-                    float k = (now - m.Born) / m.Life;
-                    if ((k < 0.5f ? 0 : k < 0.8f ? 1 : 2) != pass % 3) continue;
-                    float dx = m.At.m03 - eye.x, dz = m.At.m23 - eye.z; if (dx * dx + dz * dz > CloseReach * CloseReach) continue;
-                    batch.Add(m.At);
-                    if (batch.Count == 1023) Flush(markQuad, rp);
-                }
-                if (batch.Count > 0) Flush(markQuad, rp);
+                var m = marks[i];
+                if (m.Kind == 0 && !close) continue;   // boot prints only once the camera is in among the men
+                float dx = m.At.m03 - eye.x, dz = m.At.m23 - eye.z;
+                if (dx * dx + dz * dz > (m.Kind == 0 ? bootReach : machineReach)) continue;
+                // the mark's age travels to the shader in its object Y scale: the quad is flat, so scaling Y moves no
+                // vertex, and the shader reads the Y axis's length back out whatever tilt the ground put on it. It
+                // holds most of its strength, then goes - which is what the three stages were approximating.
+                // The three stages this replaces held 0.88 for half the life, then 0.58, then 0.26. A square falls off
+                // too slowly against that - a mark at 80% of its life comes out half again as strong as it used to be,
+                // and a field of hundreds of them never looks like it clears. age^1.5 sits on the old curve, and this
+                // polynomial sits on age^1.5 to within a percent without a sqrt, which at a mark a matrix is worth it.
+                float age = (now - m.Born) / m.Life;
+                float left = 1f - 0.82f * (0.35f * age + 0.65f * age * age);
+                var at = m.At; at.m01 *= left; at.m11 *= left; at.m21 *= left;
+                markBatch[m.Kind].Add(at);
             }
+            for (int k = 0; k < markBatch.Length; k++)
+                if (markBatch[k].Count > 0)
+                    Flush(markQuad, markBatch[k], new RenderParams(markMats[k]) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
         }
 
         /// <summary>Boot prints behind walking men, ruts and flung mud behind tanks, breath in the cold, steam off fresh craters.</summary>
         void CloseLife(float now, Camera cam)
         {
-            if (SceneHooks.CloseUp <= 0f) { if (trails.Count > 0) trails.Clear(); return; }
+            // A machine's marks are made whatever the zoom: they are the size of the machine, and a field the tanks have
+            // crossed should show it at the standard view. Only the small things below wait for the camera to come in.
+            bool close = SceneHooks.CloseUp > 0f;
             var w = Host.Local.World; var map = Host.Local.Map;
             Vector3 eye = cam.transform.position;
             float rain = Shader.GetGlobalVector(WetId).z;
@@ -1106,12 +1215,22 @@ namespace TW.Presentation.Tactical
                 {
                     uint flags = w.Flags[i];
                     if ((flags & (uint)UnitFlags.Alive) == 0) continue;
-                    var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z; if (dx * dx + dz * dz > CloseReach * CloseReach) continue;
                     bool tank = (flags & (uint)UnitFlags.Vehicle) != 0;
+                    if (!tank && !close) continue;   // boot prints are a close-camera thing; a machine's marks are not
+                    var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z;
+                    float reach = tank ? MachineMarkReach : CloseReach;
+                    if (dx * dx + dz * dz > reach * reach) continue;
                     Vector3 here = new Vector3(p.x, 0f, p.z);
                     if (!trails.TryGetValue(i, out var trail)) { trails[i] = new Trail { Last = here, Seen = now }; continue; }
                     trail.Seen = now;
-                    Vector3 step = here - trail.Last; float far = step.magnitude, stride = tank ? 0.85f : 0.72f;
+                    var profile = tank ? TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]) : default;
+                    bool walker = tank && profile.Walker;
+                    bool drawnWalker = walker && SceneHooks.TanksDrawn && (SceneHooks.IsTankSlot == null || SceneHooks.IsTankSlot(i));
+                    // a walker's stride is its own length, not a tank's shuffle: far fewer marks over the same ground, and
+                    // six legs step shorter and more often than four of the same reach (Pincer and Redoubt against Kettle)
+                    Vector3 step = here - trail.Last;
+                    float far = step.magnitude;
+                    float stride = walker ? Mathf.Max(1.5f, profile.HalfLength * (profile.Legs >= 6 ? 0.62f : 0.85f)) : tank ? 0.85f : 0.72f;
                     if (far > 6f) { trail.Last = here; trails[i] = trail; continue; }   // the slot was reused by another man
                     if (far >= stride)
                     {
@@ -1127,7 +1246,27 @@ namespace TW.Presentation.Tactical
                         {
                             Vector3 at = trail.Last + dir * d;
                             if (dryFooting || (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z))) continue;
-                            if (tank)
+                            if (tank && walker && drawnWalker)
+                            {
+                                // TankRenderer is putting this one's legs on the ground and stamping each real footfall
+                                // (SceneHooks.FootFall). Guessing a second set from the body's path would double them.
+                            }
+                            else if (tank && walker)
+                            {
+                                // A machine on legs leaves no rut at all: it puts its whole weight through one pad at a
+                                // time, so the ground carries a line of deep prints to either side of its path, further
+                                // apart and further between than anything else on the field. Alternating left and right is
+                                // the gait as seen from above; TankRenderer's WalkerGait knows the true footfalls, but it
+                                // is another session's file, so the stride is stepped here instead.
+                                float out_ = profile.HalfWidth * 0.78f;   // the feet fall wide, outside the hull
+                                float footSide = trail.Left ? -out_ : out_; trail.Left = !trail.Left;
+                                // the pad is a fraction of the machine, not a slab the width of it: a Pincer is 9.5 m
+                                // across and puts about a metre of foot on the ground
+                                var pad = new Vector2(profile.HalfWidth * 0.22f, profile.HalfLength * 0.28f);
+                                AddMark(at.x + side.x * footSide, at.z + side.z * footSide, yawDeg + (trail.Left ? 5f : -5f),
+                                    pad, snowfield ? 300f : 110f, 2);
+                            }
+                            else if (tank)
                             {
                                 float gauge = SceneHooks.VehicleTracks != null ? SceneHooks.VehicleTracks(i).x : 0.78f;
                                 // Mud closes over a rut; snow does not until more snow falls on it.
@@ -1159,6 +1298,10 @@ namespace TW.Presentation.Tactical
                     for (int k = 0; k < trailSweep.Count; k++) trails.Remove(trailSweep[k]);
                 }
             }
+            // everything past here is a close-camera thing and always was: exhaust, steam off a fresh hole, breath on a
+            // cold night. Only the marks above were lifted out of the close band, because a machine's are the size of a
+            // machine; the rest must not start costing the standard view anything.
+            if (!close) return;
             if (now >= nextExhaust)
             {
                 nextExhaust = now + 0.3f;
@@ -1443,6 +1586,14 @@ namespace TW.Presentation.Tactical
                 if (batch.Count == 1023) Flush(cube, rpS);
             }
             if (batch.Count > 0) Flush(cube, rpS);
+        }
+
+        /// <summary>Draw a batch that is not the shared one (the marks keep a list a shape, so one sweep can fill them all).</summary>
+        void Flush(Mesh mesh, List<Matrix4x4> from, RenderParams rp)
+        {
+            from.CopyTo(batchArray);
+            FrameBudget.Draw(rp, mesh, 0, batchArray, from.Count);
+            from.Clear();
         }
 
         void Flush(Mesh mesh, RenderParams rp)

@@ -9,7 +9,11 @@
 # It is 4 x 2 and not 3 x 2 because 3072 is not a power of two: measured 2026-09-22, Unity's default NPOT rule
 # rounded a 3072-wide sheet up to 4096 and resampled it, and forcing it to keep 3072 instead cost the block
 # compressor entirely — it came back as uncompressed RGB24 at 25 MB, worse than the six sheets it replaced.
-# A power-of-two sheet compresses to DXT1 at about 11 MB and leaves two cells spare for a seventh set. The shader needs no change at all: TW/Toon (URP) already
+# The grid was 4 x 2 and the note here claimed two spare cells, but by the time Ruins arrived (2026-09-24) all eight
+# were taken. It is now 4 x 4 — 4096x4096, still a power of two — which is about 11 MB in DXT1 against 5.5, and leaves
+# seven cells spare. The cheaper-looking move, keeping 4096x2048 and halving the cells to 512, was not taken: it would
+# have cost EVERY set half its resolution to house one new one, and these are looked at from a metre away.
+# The shader needs no change at all: TW/Toon (URP) already
 # transforms its UVs by _BaseMap_ST, so a set is selected by giving its material the cell's scale and offset.
 # Prop UVs live inside 0..1 of their own sheet, so scale (1/3, 1/2) and the cell's offset put them in the right cell.
 #
@@ -21,9 +25,9 @@
 import os
 from PIL import Image
 
-SETS = ["Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military"]
+SETS = ["Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military", "Ruins"]
 CELL = 1024
-COLS, ROWS = 4, 2
+COLS, ROWS = 4, 4
 ROOT = os.path.join("Assets", "_Project", "Resources", "Env")
 OUT = os.path.join(ROOT, "EnvAtlas.jpg")   # JPEG like the sheets it replaces: Unity recompresses to DXT anyway,
                                            # and a lossless copy would put 7 MB in the repo to buy nothing on the GPU
@@ -41,7 +45,7 @@ def main():
         col, row = i % COLS, i // COLS
         # LANCZOS rather than a box filter: these sheets are painted, and their edges matter more than their noise
         atlas.paste(sheet.resize((CELL, CELL), Image.LANCZOS), (col * CELL, row * CELL))
-        print("%-8s -> cell (%d,%d)  uv offset (%.4f, %.4f)" % (name, col, row, col / COLS, 0.5 - row * 0.5))
+        print("%-8s -> cell (%d,%d)  uv offset (%.4f, %.4f)" % (name, col, row, col / COLS, 1.0 - (row + 1) / ROWS))
     atlas.save(OUT, quality=94, subsampling=0, optimize=True)
     before = sum(os.path.getsize(os.path.join(ROOT, s, s + ".jpg")) for s in SETS)
     print("\n%s  %dx%d" % (OUT, atlas.width, atlas.height))

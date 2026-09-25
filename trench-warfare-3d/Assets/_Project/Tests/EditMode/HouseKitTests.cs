@@ -14,6 +14,36 @@ namespace TW.Tests
         }
 
         [Test]
+        public void A_Mask_Holds_Every_Chunk_A_House_May_Have_And_Each_Word_Survives_A_Float()
+        {
+            // The mask reaches the shader as a float4 and a float carries a whole number exactly only to 24 bits, so
+            // the bits sit 24 to a component. This is the test that fails first if anyone widens a word: the high
+            // chunks come back wrong, and in the game that reads as a distant house growing its roof back.
+            Assert.AreEqual(96, HouseKit.MaxChunks, "four words of 24");
+            var all = HouseKit.ChunkMask.Filled(HouseKit.MaxChunks);
+            for (int i = 0; i < HouseKit.MaxChunks; i++) Assert.IsTrue(all.Has(i), "chunk " + i + " is in a full mask");
+            var packed = all.Packed;
+            foreach (var w in new[] { packed.x, packed.y, packed.z, packed.w })
+            {
+                Assert.AreEqual((1 << HouseKit.ChunkMask.BitsPerWord) - 1, (int)w, "a full word");
+                Assert.AreEqual(w, (float)(int)w, "the word is a whole number a float keeps exactly");
+                Assert.That(w, Is.LessThan(16777216f), "inside a float's 24-bit whole-number range");
+            }
+
+            // one chunk out of a full house, which is how a loose chunk is drawn
+            var but = HouseKit.ChunkMask.Filled(HouseKit.MaxChunks);
+            but.Clear(95);
+            Assert.IsFalse(but.Has(95)); Assert.IsTrue(but.Has(94)); Assert.IsTrue(but.Has(0));
+            Assert.AreNotEqual(all, but, "clearing the top chunk changes the mask the shader is given");
+
+            // and a mask only ever says what it was told: no neighbour is set by setting one
+            var one = default(HouseKit.ChunkMask);
+            one.Set(72);
+            Assert.IsTrue(one.Has(72));
+            for (int i = 0; i < HouseKit.MaxChunks; i++) if (i != 72) Assert.IsFalse(one.Has(i), "only chunk 72, not " + i);
+        }
+
+        [Test]
         public void A_Wall_On_A_Wall_Rests_On_It_And_The_Roof_On_The_Wall_That_Reaches_It()
         {
             // two ground walls, an upper wall on the left one, a roof across both
@@ -46,6 +76,57 @@ namespace TW.Tests
             HouseKit.Solve(house);
             CollectionAssert.AreEqual(new[] { 1 }, house.Chunks[2].RestsOn);
             Assert.IsTrue(house.Chunks[3].Grounded, "a piece over nothing stands, rather than falling for no reason");
+        }
+
+        [Test]
+        public void A_Ruin_Is_Cut_Into_Courses_So_It_Comes_Down_From_The_Top()
+        {
+            // The whole point of cutting the ruins on their own floor lines (Tools/housesplit.py, TW_FLOORS=1). A blind
+            // grid leaves chunks straddling two storeys, and HouseKit reads support from bounds alone, so a straddling
+            // chunk is held by the storey below and the roof cannot come off until the ground floor does. What this
+            // checks is the shape of the support graph, because that is what PropDestruction's Shaken/Settle cascade
+            // walks: knock out a course and everything above it is orphaned and follows, a course at a time.
+            var houses = HouseKit.Load("Ruins", _ => null, 0);
+            Assert.AreEqual(4, houses.Length, "the ruined-building sheet has four buildings");
+            foreach (var house in houses)
+            {
+                Assert.LessOrEqual(house.Chunks.Length, HouseKit.MaxChunks, house.Name + " fits a mask");
+                Assert.Greater(house.Chunks.Length, 24, house.Name + " is cut past what the old 24-bit mask allowed");
+                Assert.Greater(house.Bounds.size.y, 8f, house.Name + " is a building, not a hut");
+                Assert.Less(house.Bounds.size.y, 12f, house.Name + " is a building, not a tower block");
+
+                // how many courses deep the support chain runs: the longest path up from the ground
+                var depth = new int[house.Chunks.Length];
+                for (int pass = 0; pass < house.Chunks.Length; pass++)
+                    for (int i = 0; i < house.Chunks.Length; i++)
+                    {
+                        if (house.Chunks[i].Grounded) { depth[i] = 0; continue; }
+                        int d = 0;
+                        foreach (int below in house.Chunks[i].RestsOn) d = Mathf.Max(d, depth[below] + 1);
+                        depth[i] = d;
+                    }
+                int courses = 0, top = 0;
+                for (int i = 0; i < depth.Length; i++)
+                    if (depth[i] > courses) { courses = depth[i]; top = i; }
+
+                Assert.GreaterOrEqual(courses + 1, 3, house.Name + " stands in at least three courses, so it can lose its top without losing its feet");
+                // and the tallest chain really is the top of the building, not some stack off to one side
+                Assert.Greater(house.Chunks[top].Local.min.y, house.Bounds.size.y * 0.45f,
+                    house.Name + ": the deepest chain ends high up, which is what makes the roof go first");
+
+                // nothing is held up by something level with it or above it, or a fall would never reach the ground
+                foreach (var chunk in house.Chunks)
+                {
+                    if (!chunk.Grounded) Assert.Greater(chunk.RestsOn.Length, 0, chunk.Index + " in " + house.Name + " rests on something");
+                    foreach (int below in chunk.RestsOn)
+                        Assert.Less(house.Chunks[below].Local.min.y, chunk.Local.min.y, house.Name + ": a chunk rests only on lower ones, so a fall always ends");
+                }
+
+                // the ground course carries the building: knocking it out has to orphan everything above it
+                bool anyGround = false;
+                foreach (var chunk in house.Chunks) anyGround |= chunk.Grounded;
+                Assert.IsTrue(anyGround, house.Name + " touches the ground");
+            }
         }
 
         [Test]
@@ -106,8 +187,15 @@ namespace TW.Tests
                 Assert.AreEqual(verts, smooth.Count, "the outline's smoothed normals come through the combine");
                 // the chunks sit at their offsets: the whole mesh spans the house
                 Assert.That(Vector3.Distance(whole.bounds.center, house.Bounds.center), Is.LessThan(0.05f), house.Name + " is put together where its chunks say");
-                int seen = 0; foreach (var id in ids) seen |= 1 << Mathf.RoundToInt(id.x);
-                Assert.AreEqual(house.AllBits, seen, house.Name + ": every chunk has vertices, and no id is out of range");
+                // ChunkMask.Set ignores an id it has no bit for, so the range is checked here rather than left to it
+                var seen = default(HouseKit.ChunkMask);
+                foreach (var id in ids)
+                {
+                    int c = Mathf.RoundToInt(id.x);
+                    Assert.That(c, Is.InRange(0, house.Chunks.Length - 1), house.Name + ": chunk id " + c + " is one of its " + house.Chunks.Length);
+                    seen.Set(c);
+                }
+                Assert.AreEqual(house.AllBits, seen, house.Name + ": every chunk has vertices");
                 Object.DestroyImmediate(whole);
             }
         }

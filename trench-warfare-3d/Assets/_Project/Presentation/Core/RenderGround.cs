@@ -1,4 +1,4 @@
-// Phase: B2 (presentation ground shared by terrain, unit placement and combat effects)
+﻿// Phase: B2 (presentation ground shared by terrain, unit placement and combat effects)
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim.Terrain;
@@ -124,9 +124,18 @@ namespace TW.Presentation
         /// <summary>A flash of light at a place: colour, peak intensity, reach (m), seconds. A tank's gun or a strike on its
         /// plate lights the ground round it the way a shell does. (NightLights lends one of its pooled lights)</summary>
         public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float> Flash;
+        /// <summary>The same, for a thing that BURNS rather than flashes: the last argument is how bright the glow
+        /// card over the light is. Flash leaves it at the muzzle-flash default of 2.6, which is a white disc that
+        /// does not care how dim the light under it was set - a fire needs a fraction of that or it erases the
+        /// drawing it is supposed to be lighting. (NightLights lends the same pooled light.)</summary>
+        public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float, float> FireLight;
         /// <summary>A small burst where the sim has none: a dud shell cooking off in a fire (PropDestruction). Place, radius
         /// (m). Drawn only; the sim never hears of it. (CombatFx)</summary>
         public static System.Action<UnityEngine.Vector3, float> CookOff;
+        /// <summary>A walking machine has just put a foot down: where it landed, the yaw it landed at, and the size of the
+        /// pad. Stamped where the leg actually is rather than guessed from the body's path. (TankRenderer fills it from
+        /// WalkerGait's own footfalls; CombatFx lays the mark.)</summary>
+        public static System.Action<UnityEngine.Vector3, float, UnityEngine.Vector2> FootFall;
     }
 
     /// <summary>

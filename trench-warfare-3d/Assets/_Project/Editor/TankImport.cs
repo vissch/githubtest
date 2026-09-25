@@ -34,7 +34,13 @@ namespace TW.Editor
             m.importCameras = false; m.importLights = false; m.importVisibility = false; m.importBlendShapes = false;
             m.materialImportMode = ModelImporterMaterialImportMode.None;
             m.animationType = ModelImporterAnimationType.None; m.importAnimation = false;
-            m.addCollider = false; m.generateSecondaryUV = false; m.isReadable = false;
+            m.addCollider = false; m.generateSecondaryUV = false;
+            // Readable, because TankModel builds these machines larger than the sculpt by copying each mesh
+            // and moving its vertices, and a mesh without this has none to move. It costs a CPU copy of
+            // 14,000 vertices across all seven machines, which is nothing, and without it the failure is
+            // silent: .vertices returns an empty array, writing it back throws nothing, and what you get is
+            // a full-sized body standing on legs spaced for a machine two and a half times bigger.
+            m.isReadable = true;
             m.meshCompression = ModelImporterMeshCompression.Off;
             m.optimizeMeshVertices = true; m.optimizeMeshPolygons = true; m.weldVertices = true;
             m.importNormals = ModelImporterNormals.Calculate; m.normalSmoothingAngle = 55f;

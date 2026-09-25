@@ -42,6 +42,27 @@ MonoBehaviour:
     Position: {x: 39.722267, y: -0.35334456, z: 38.995296}
     Rotation: {x: -0.27715933, y: 0.8613393, z: -0.13041656, w: 0.40530086}
     Scale: {x: 1.7828212, y: 1.7828218, z: 1.7828209}
+  - Key: Siege/ArmouredStand@-734,1396
+    Module: Siege/ArmouredStand
+    Added: 0
+    Removed: 0
+    Position: {x: -15.49, y: -5.1524916, z: 13.98}
+    Rotation: {x: -0, y: 0.3217059, z: -0, w: 0.94683963}
+    Scale: {x: 5.434693, y: 5.2450986, z: 5.434693}
+  - Key: Siege/ArmouredStand@6513,395
+    Module: Siege/ArmouredStand
+    Added: 0
+    Removed: 0
+    Position: {x: -7.0347857, y: -3.461693, z: 9.541675}
+    Rotation: {x: -0.058025446, y: 0.25894266, z: 0.001953783, w: 0.9641462}
+    Scale: {x: 3.6156673, y: 3.489531, z: 3.615667}
+  - Key: Plants/FallenLog@2437,1935
+    Module: Plants/FallenLog
+    Added: 0
+    Removed: 0
+    Position: {x: 0.93, y: -0.6477058, z: 6}
+    Rotation: {x: 0.36692643, y: 0.9059946, z: -0.07922125, w: -0.19560874}
+    Scale: {x: 2.3450112, y: 2.3450115, z: 2.3450112}
   Looks:
   - Module: Siege/ArmouredStand
     Size: 1

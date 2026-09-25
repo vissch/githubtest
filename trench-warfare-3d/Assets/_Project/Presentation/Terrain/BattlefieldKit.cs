@@ -378,13 +378,15 @@ namespace TW.Presentation.Terrain
         /// would not take it, which cost more memory than the packing saved.
         /// This order is the same list as SETS in envatlas.py and the two must not drift apart.
         /// </summary>
-        static readonly string[] EnvSets = { "Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military" };
-        const int EnvCols = 4, EnvRows = 2;
+        /// <summary>Public only so a test can hold it against the atlas and against envatlas.py: the grid was 4 x 2 with
+        /// a comment claiming spare cells, and by the time Ruins arrived all eight were taken with nothing checking.</summary>
+        public static readonly string[] EnvSets = { "Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military", "Ruins" };
+        public const int EnvCols = 4, EnvRows = 4;
         Texture2D envAtlas; bool envAtlasLoaded;
 
         /// <summary>Unity's V runs from the bottom and the packer's Y from the top, so the first row of cells is the
         /// upper half of the atlas.</summary>
-        static Vector2 EnvOffset(int index) => new Vector2((index % EnvCols) / (float)EnvCols, 1f - (index / EnvCols + 1) / (float)EnvRows);
+        public static Vector2 EnvOffset(int index) => new Vector2((index % EnvCols) / (float)EnvCols, 1f - (index / EnvCols + 1) / (float)EnvRows);
 
         /// <summary>A module drawn from an imported prop: its own mesh (Resources/Env/set/name) on the shared sheet.</summary>
         Module Imported(string set, string name, Color tint, bool shadows, float outline, float sway = 0f, float gloss = 0f)
@@ -448,7 +450,7 @@ namespace TW.Presentation.Terrain
             // the buildings, a set at a time: the village houses and the rear's military buildings (HouseKit), one array
             // and the kit's own props that come apart the same way, each set's in its Chunks folder (Tools/housesplit.py TW_KEEP)
             var all = new List<HouseKit.House>();
-            foreach (var set in new[] { "Houses", "Military", "Siege", "Stones", "Weapons" }) all.AddRange(BuildingSet(set, paint, all.Count));
+            foreach (var set in new[] { "Houses", "Military", "Siege", "Stones", "Weapons", "Ruins" }) all.AddRange(BuildingSet(set, paint, all.Count));
             Houses = all.ToArray();
             foreach (var house in Houses) foreach (var chunk in house.Chunks) HouseChunkOf[chunk.Module] = chunk;
             Slice(well, "Well"); Slice(wallStub, "WallStub"); Slice(biplane, "Biplane"); Slice(fieldGun, "FieldGun");

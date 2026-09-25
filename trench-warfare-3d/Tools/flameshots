@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# The flamethrower's four reference shots, captured deterministically.   usage: Tools/flameshots <prefix>
+#
+# Restarts the play session first. A recompile while the editor is playing triggers a domain reload that nulls
+# SimHost.Local, and the session then throws NullReferenceException every frame - the errors look like a code fault and
+# are only a stale Play session, so every capture run after an edit has to begin here.
+#
+# Each shot pauses and steps an exact number of frames rather than sleeping, because wall-clock waits land on a
+# different cel every run and a phase difference then reads as a regression.
+set -u
+P="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; T="$P/Tools/tw"; PRE="${1:-shot}"
+# Refuse to shoot against code that did not compile. Unity keeps running the LAST GOOD assemblies when a compile
+# fails, so play mode still works, the shots still come out, and they are silently of the previous build - a whole
+# critique round was nearly spent on captures that did not contain the change being reviewed.
+if "$T" run console_status | grep -q '"compilationFailed": true'; then
+  echo "COMPILE FAILED - not capturing. Fix it first:" >&2
+  grep -a -o 'Assets[^)]*): error CS[0-9]*: [^"]*' "$LOCALAPPDATA/Unity/Editor/Editor.log" 2>/dev/null | tail -5 >&2
+  exit 1
+fi
+"$T" run editor_stop >/dev/null 2>&1; sleep 8
+"$T" run clear_console >/dev/null 2>&1
+"$T" run open_scene -- --path "Assets/_Project/Scenes/GreyboxCorridor.unity" >/dev/null 2>&1
+"$T" run editor_play >/dev/null 2>&1; sleep 30
+"$T" pause false >/dev/null 2>&1
+"$T" eval 'return "fx="+(TW.Presentation.Tactical.Flamethrower.Active!=null);'
+
+# shared preamble: the flamethrower, the height map, and a screen-right aim (a stream pointed at the eye has no
+# length to draw along and falls back to the round-card chain, which is not what these shots are for)
+PRE_CS='var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
+var fx=TW.Presentation.Tactical.Flamethrower.Active; fx.Clear();
+var cf=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>(); var map=cf.Host.Local.Map;
+var r=cam.transform.right; r.y=0f; r=r.normalized;'
+
+# PAUSE FIRST, then fire, then step. Each CLI call is a second or two of wall clock, and the editor is only actually
+# paused while it is inside one - so firing a three-second burst and then stepping toward it let the burst run itself
+# out in the gaps between calls, and the capture landed on the dying tail. Paused before the effect is even created,
+# nothing moves except the frames this script asks for.
+one() {
+  "$T" pause true >/dev/null 2>&1
+  "$T" eval "$PRE_CS $2" >/dev/null 2>&1
+  "$T" stepto "$3" >/dev/null 2>&1
+  "$T" shot "${PRE}_$1" >/dev/null 2>&1
+  echo "  ${PRE}_$1"
+}
+
+one jet 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 17f, 0f);
+var p=new UnityEngine.Vector3(100f,0f,104f); p.y=TW.Presentation.RenderGround.Sample(map,p.x,p.z);
+var n=p-r*5.5f+UnityEngine.Vector3.up*1.6f; fx.Burst(-1,n,r,n,3.0f); return 0;' 1.5
+
+one cook 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 17f, 0f);
+var p=new UnityEngine.Vector3(100f,0f,104f); p.y=TW.Presentation.RenderGround.Sample(map,p.x,p.z);
+fx.TankCookOff(p); return 0;' 1.0
+
+one stand 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 14f, 0f);
+var p=new UnityEngine.Vector3(100f,0f,104f); p.y=TW.Presentation.RenderGround.Sample(map,p.x,p.z);
+fx.Alight(p-r*4.5f,1.4f,8f); fx.Alight(p+r*4.5f,3.4f,8f); return 0;' 1.8
+
+# The bank shot picks its own spot each run, because a hand-picked one went stale: the first version simply took the
+# strongest rise anywhere on the map and that was the RIVERBANK at the map edge, so the jet fired out over water with
+# a bunker filling half the frame and no stream in shot at all. What this wants is a parapet - flat ground where the
+# man stands, rising sharply seven metres along his aim - and it has to be inland and out of the water table.
+one wall 'UnityEngine.Vector3 best=UnityEngine.Vector3.zero; float bestScore=-99f;
+for(float x=70f;x<=180f;x+=2f) for(float z=70f;z<=180f;z+=2f){
+  float y0=TW.Presentation.RenderGround.Sample(map,x,z);
+  if(y0<1.2f) continue;                       // low ground is the water table
+  float flat=0f;
+  for(float d=-2f;d<=2f;d+=1f){ var q=new UnityEngine.Vector3(x,0,z)+r*d;
+    flat=UnityEngine.Mathf.Max(flat, UnityEngine.Mathf.Abs(TW.Presentation.RenderGround.Sample(map,q.x,q.z)-y0)); }
+  var e=new UnityEngine.Vector3(x,0,z)+r*7f;
+  float score=(TW.Presentation.RenderGround.Sample(map,e.x,e.z)-y0)-flat*1.5f;
+  if(score>bestScore){bestScore=score; best=new UnityEngine.Vector3(x,y0,z);}
+}
+var mid=best+r*3.5f;
+tc.FrameFrom(new UnityEngine.Vector2(mid.x,mid.z), 13f, 0f);
+var n=best+UnityEngine.Vector3.up*1.7f; fx.Burst(-1,n,r,n,3.0f); return 0;' 1.5
+"$T" pause false >/dev/null 2>&1

@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Drive the running Unity Editor without the MCP bridge.
+#
+# The MCP server ("unity-editor-mcp") is only a wrapper around the `unity` CLI, which talks to the Editor over a local
+# port the com.unity.pipeline package opens. When the MCP server drops out of a session - or its processes are left
+# orphaned, which is what five stray `unity mcp` processes and a dead port 7800 actually mean - the CLI still works and
+# every tool is still reachable. Nothing here needs the MCP server.
+#
+#   tw up                    make sure an Editor is running with this project and is 'ready' (launches and waits if not)
+#   tw run <cmd> [args...]   any pipeline command (see `unity cmd` with no arguments for the list)
+#   tw eval '<c# code>'      evaluate C# in the Editor; use `return x;` to get a value back
+#   tw build                 recompile, wait, and report compile failures and console errors
+#   tw shot <name> [w] [h]   capture the game view to Tools/flame-shots/<name>.png
+#
+# NOTE on captures: capture_game_view's save_path resolves relative to the project's Assets folder, so a bare name
+# lands a PNG (and a .meta) inside Assets. `tw shot` always passes an absolute path outside Assets to avoid that.
+set -u
+PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+U() { unity --no-banner "$@"; }   # global flags FIRST: after a `--` they are read as the command's own args
+
+up() {
+  for i in $(seq 1 60); do
+    unity status --json --no-banner 2>&1 | grep -q '"state": *"ready"' && { echo "editor ready"; return 0; }
+    [ "$i" = 1 ] && { echo "no editor connected - launching..."; (unity open "$PROJ" --no-banner >/dev/null 2>&1 &) ; }
+    sleep 10
+  done
+  echo "editor did not come up" >&2; return 1
+}
+
+case "${1:-}" in
+  up)   up ;;
+  run)  shift; c="$1"; shift; U cmd "$c" --result-only "$@" ;;   # --result-only must precede the `--`
+  eval) shift; U cmd eval --result-only -- --code "$1" ;;
+  build)
+    U cmd recompile --result-only >/dev/null
+    for i in $(seq 1 40); do
+      sleep 5
+      s=$(U cmd recompile_status --result-only 2>&1)
+      echo "$s" | grep -qE '"status": *"(completed|up_to_date|idle)"' && break
+    done
+    U cmd console_status --result-only | grep -E 'compilationFailed|consoleErrors|consoleWarnings'
+    U cmd console --result-only -- --level Error --tail 20 | grep -E '"message"' | head -20
+    ;;
+  pause)  U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = ${2:-true}; return UnityEditor.EditorApplication.isPaused;" ;;
+  stepto)
+    # Step until GAME TIME has advanced by N seconds, not until N frames have passed. A paused editor steps one real
+    # frame at a time and a frame under load is worth several times one at idle, so a fixed frame count lands anywhere:
+    # two of nine jet captures came out as 300px stubs because the three-second burst had already ENDED by the time the
+    # frames ran out, and nothing in the harness noticed. Game time is what the effect's own clock runs on, so that is
+    # what the capture has to be pinned to.
+    want="${2:-1.4}"
+    t0=$(U cmd eval --result-only -- --code "return UnityEngine.Time.time;" | grep -o '"result": [0-9.]*' | grep -o '[0-9.]*$')
+    UNITY_STEP_T0="$t0"
+    for i in $(seq 1 60); do
+      U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = true; for(int k=0;k<6;k++) UnityEditor.EditorApplication.Step(); return 0;" >/dev/null
+      t=$(U cmd eval --result-only -- --code "return UnityEngine.Time.time;" | grep -o '"result": [0-9.]*' | grep -o '[0-9.]*$')
+      done=$(awk -v a="$t" -v b="$UNITY_STEP_T0" -v w="$want" 'BEGIN{print (a-b>=w)?1:0}')
+      [ "$done" = "1" ] && { awk -v a="$t" -v b="$UNITY_STEP_T0" 'BEGIN{printf "advanced %.2fs
+", a-b}'; exit 0; }
+    done
+    echo "stepto: never reached +${want}s" >&2; exit 1
+    ;;
+  step)
+    # Deterministic capture. Wall-clock sleeps put every shot at a different point in the book, so two captures of the
+    # "same" moment showed different frames and a difference read as a regression that was only phase. Pause, then step
+    # an exact number of frames, then capture: the same number always gives the same cel.
+    n="${2:-12}"
+    U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = true; for(int i=0;i<$n;i++) UnityEditor.EditorApplication.Step(); return $n;"
+    ;;
+  shot)
+    # capture_game_view resolves save_path UNDER Assets/ whatever you pass it, absolute paths included, and Unity then
+    # imports the PNG and writes a .meta beside it. So capture to a scratch path inside Assets, then move the PNG out
+    # to Tools/flame-shots and delete the .meta - otherwise every screenshot becomes a tracked project asset.
+    name="${2:?usage: tw shot <name> [width] [height]}"
+    U cmd capture_game_view --result-only -- --save_path "_shots/$name.png" --width "${3:-1600}" --height "${4:-900}" >/dev/null
+    mkdir -p "$PROJ/Tools/flame-shots"
+    if [ -f "$PROJ/Assets/_shots/$name.png" ]; then
+      mv -f "$PROJ/Assets/_shots/$name.png" "$PROJ/Tools/flame-shots/$name.png"
+      rm -f "$PROJ/Assets/_shots/$name.png.meta"
+      echo "$PROJ/Tools/flame-shots/$name.png"
+    else
+      echo "capture failed - nothing at Assets/_shots/$name.png" >&2; exit 1
+    fi
+    ;;
+  *) sed -n '2,20p' "${BASH_SOURCE[0]}" ;;
+esac

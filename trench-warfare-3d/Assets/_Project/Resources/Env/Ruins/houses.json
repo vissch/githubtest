@@ -1,0 +1,4844 @@
+{
+ "chunks": [
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_1",
+   "tris": 112,
+   "verts": 94,
+   "mat": "stone",
+   "offset": [
+    3.426,
+    0.179,
+    -1.095
+   ],
+   "min": [
+    -0.88,
+    0.0,
+    -1.571
+   ],
+   "max": [
+    0.88,
+    2.367,
+    1.571
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_3",
+   "tris": 53,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    1.512,
+    0.181,
+    2.337
+   ],
+   "min": [
+    -0.753,
+    0.0,
+    -0.934
+   ],
+   "max": [
+    0.753,
+    2.336,
+    0.934
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_5",
+   "tris": 60,
+   "verts": 56,
+   "mat": "stone",
+   "offset": [
+    -0.748,
+    0.08,
+    2.398
+   ],
+   "min": [
+    -1.506,
+    0.0,
+    -0.995
+   ],
+   "max": [
+    1.506,
+    2.437,
+    0.995
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_6",
+   "tris": 94,
+   "verts": 72,
+   "mat": "timber",
+   "offset": [
+    1.981,
+    0.187,
+    0.408
+   ],
+   "min": [
+    -0.809,
+    0.0,
+    -0.995
+   ],
+   "max": [
+    0.809,
+    2.329,
+    0.995
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_7",
+   "tris": 78,
+   "verts": 74,
+   "mat": "stone",
+   "offset": [
+    1.243,
+    0.051,
+    -1.545
+   ],
+   "min": [
+    -1.547,
+    0.0,
+    -1.033
+   ],
+   "max": [
+    1.547,
+    2.466,
+    1.033
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_11",
+   "tris": 71,
+   "verts": 49,
+   "mat": "stone",
+   "offset": [
+    -1.042,
+    0.0,
+    -1.4
+   ],
+   "min": [
+    -0.738,
+    0.0,
+    -0.888
+   ],
+   "max": [
+    0.738,
+    2.517,
+    0.888
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_12",
+   "tris": 138,
+   "verts": 88,
+   "mat": "timber",
+   "offset": [
+    3.249,
+    2.517,
+    2.453
+   ],
+   "min": [
+    -1.069,
+    0.0,
+    -0.971
+   ],
+   "max": [
+    1.069,
+    1.767,
+    0.971
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_13",
+   "tris": 155,
+   "verts": 91,
+   "mat": "timber",
+   "offset": [
+    3.099,
+    2.359,
+    0.832
+   ],
+   "min": [
+    -1.153,
+    0.0,
+    -1.291
+   ],
+   "max": [
+    1.153,
+    1.924,
+    1.291
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_14",
+   "tris": 128,
+   "verts": 66,
+   "mat": "stone",
+   "offset": [
+    2.905,
+    2.517,
+    -1.43
+   ],
+   "min": [
+    -0.724,
+    0.0,
+    -0.971
+   ],
+   "max": [
+    0.724,
+    1.767,
+    0.971
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_15",
+   "tris": 154,
+   "verts": 79,
+   "mat": "stone",
+   "offset": [
+    1.112,
+    2.517,
+    2.272
+   ],
+   "min": [
+    -1.069,
+    0.0,
+    -0.895
+   ],
+   "max": [
+    1.069,
+    1.767,
+    0.895
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_16",
+   "tris": 90,
+   "verts": 47,
+   "mat": "stone",
+   "offset": [
+    -1.026,
+    2.517,
+    2.307
+   ],
+   "min": [
+    -1.069,
+    0.0,
+    -0.931
+   ],
+   "max": [
+    1.069,
+    1.767,
+    0.931
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_17",
+   "tris": 118,
+   "verts": 69,
+   "mat": "stone",
+   "offset": [
+    0.866,
+    2.517,
+    0.445
+   ],
+   "min": [
+    -1.314,
+    0.0,
+    -0.957
+   ],
+   "max": [
+    1.314,
+    1.767,
+    0.957
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_18",
+   "tris": 149,
+   "verts": 80,
+   "mat": "stone",
+   "offset": [
+    1.121,
+    2.517,
+    -1.499
+   ],
+   "min": [
+    -1.06,
+    0.0,
+    -1.014
+   ],
+   "max": [
+    1.06,
+    1.767,
+    1.014
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_19",
+   "tris": 72,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    -0.999,
+    2.517,
+    0.494
+   ],
+   "min": [
+    -1.06,
+    0.0,
+    -0.883
+   ],
+   "max": [
+    1.06,
+    1.767,
+    0.883
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_20",
+   "tris": 144,
+   "verts": 74,
+   "mat": "stone",
+   "offset": [
+    -0.892,
+    2.517,
+    -1.273
+   ],
+   "min": [
+    -0.953,
+    0.0,
+    -0.883
+   ],
+   "max": [
+    0.953,
+    1.767,
+    0.883
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_21",
+   "tris": 112,
+   "verts": 58,
+   "mat": "timber",
+   "offset": [
+    2.018,
+    4.284,
+    2.203
+   ],
+   "min": [
+    -0.294,
+    0.0,
+    -0.916
+   ],
+   "max": [
+    0.294,
+    1.767,
+    0.916
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_22",
+   "tris": 92,
+   "verts": 48,
+   "mat": "timber",
+   "offset": [
+    2.337,
+    4.284,
+    0.372
+   ],
+   "min": [
+    -0.613,
+    0.0,
+    -0.916
+   ],
+   "max": [
+    0.613,
+    1.767,
+    0.916
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_23",
+   "tris": 190,
+   "verts": 97,
+   "mat": "timber",
+   "offset": [
+    2.677,
+    4.284,
+    -1.46
+   ],
+   "min": [
+    -0.953,
+    0.0,
+    -0.916
+   ],
+   "max": [
+    0.953,
+    1.767,
+    0.916
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_24",
+   "tris": 76,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    0.771,
+    4.284,
+    2.293
+   ],
+   "min": [
+    -0.953,
+    0.0,
+    -0.881
+   ],
+   "max": [
+    0.953,
+    1.767,
+    0.881
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_25",
+   "tris": 66,
+   "verts": 35,
+   "mat": "stone",
+   "offset": [
+    -1.134,
+    4.284,
+    2.322
+   ],
+   "min": [
+    -0.953,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.953,
+    1.767,
+    0.91
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_26",
+   "tris": 54,
+   "verts": 29,
+   "mat": "stone",
+   "offset": [
+    0.779,
+    4.284,
+    0.501
+   ],
+   "min": [
+    -0.945,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.945,
+    1.767,
+    0.91
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_27",
+   "tris": 104,
+   "verts": 54,
+   "mat": "stone",
+   "offset": [
+    0.779,
+    4.284,
+    -1.32
+   ],
+   "min": [
+    -0.945,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.945,
+    1.767,
+    0.91
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_28",
+   "tris": 54,
+   "verts": 29,
+   "mat": "stone",
+   "offset": [
+    -1.112,
+    4.284,
+    0.566
+   ],
+   "min": [
+    -0.945,
+    0.0,
+    -0.845
+   ],
+   "max": [
+    0.945,
+    1.767,
+    0.845
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_29",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    -1.012,
+    4.284,
+    -1.124
+   ],
+   "min": [
+    -0.846,
+    0.0,
+    -0.845
+   ],
+   "max": [
+    0.846,
+    1.767,
+    0.845
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_30",
+   "tris": 122,
+   "verts": 66,
+   "mat": "stone",
+   "offset": [
+    1.985,
+    6.051,
+    2.361
+   ],
+   "min": [
+    -0.365,
+    0.0,
+    -0.938
+   ],
+   "max": [
+    0.365,
+    2.115,
+    0.938
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_31",
+   "tris": 169,
+   "verts": 84,
+   "mat": "timber",
+   "offset": [
+    2.22,
+    6.051,
+    0.485
+   ],
+   "min": [
+    -0.6,
+    0.0,
+    -0.938
+   ],
+   "max": [
+    0.6,
+    1.98,
+    0.938
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_32",
+   "tris": 264,
+   "verts": 143,
+   "mat": "timber",
+   "offset": [
+    2.278,
+    6.051,
+    -1.122
+   ],
+   "min": [
+    -1.282,
+    0.0,
+    -1.206
+   ],
+   "max": [
+    1.282,
+    1.972,
+    1.206
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_33",
+   "tris": 92,
+   "verts": 48,
+   "mat": "stone",
+   "offset": [
+    0.65,
+    6.051,
+    2.428
+   ],
+   "min": [
+    -0.97,
+    0.0,
+    -0.933
+   ],
+   "max": [
+    0.97,
+    2.115,
+    0.933
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_34",
+   "tris": 64,
+   "verts": 34,
+   "mat": "stone",
+   "offset": [
+    -1.29,
+    6.051,
+    2.459
+   ],
+   "min": [
+    -0.97,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.97,
+    2.115,
+    0.965
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_35",
+   "tris": 160,
+   "verts": 82,
+   "mat": "stone",
+   "offset": [
+    0.68,
+    6.051,
+    0.53
+   ],
+   "min": [
+    -0.94,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.94,
+    2.115,
+    0.965
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_36",
+   "tris": 64,
+   "verts": 34,
+   "mat": "stone",
+   "offset": [
+    -1.199,
+    6.051,
+    0.53
+   ],
+   "min": [
+    -0.94,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.94,
+    2.115,
+    0.965
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_37",
+   "tris": 244,
+   "verts": 139,
+   "mat": "stone",
+   "offset": [
+    0.682,
+    6.051,
+    -1.382
+   ],
+   "min": [
+    -0.938,
+    0.0,
+    -0.947
+   ],
+   "max": [
+    0.938,
+    2.115,
+    0.947
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_38",
+   "tris": 158,
+   "verts": 94,
+   "mat": "stone",
+   "offset": [
+    -1.194,
+    6.051,
+    -1.4
+   ],
+   "min": [
+    -0.938,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.938,
+    2.115,
+    0.965
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_39",
+   "tris": 73,
+   "verts": 42,
+   "mat": "stone",
+   "offset": [
+    0.846,
+    8.166,
+    2.101
+   ],
+   "min": [
+    -0.819,
+    0.0,
+    -0.871
+   ],
+   "max": [
+    0.819,
+    1.042,
+    0.871
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_40",
+   "tris": 94,
+   "verts": 65,
+   "mat": "stone",
+   "offset": [
+    -1.048,
+    7.359,
+    1.912
+   ],
+   "min": [
+    -1.077,
+    0.0,
+    -1.298
+   ],
+   "max": [
+    1.077,
+    2.0,
+    1.298
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_41",
+   "tris": 152,
+   "verts": 85,
+   "mat": "stone",
+   "offset": [
+    0.833,
+    8.166,
+    0.418
+   ],
+   "min": [
+    -0.814,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.814,
+    1.094,
+    0.91
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_42",
+   "tris": 48,
+   "verts": 39,
+   "mat": "stone",
+   "offset": [
+    -0.795,
+    8.166,
+    0.539
+   ],
+   "min": [
+    -0.814,
+    0.0,
+    -0.924
+   ],
+   "max": [
+    0.814,
+    1.053,
+    0.924
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_43",
+   "tris": 114,
+   "verts": 59,
+   "mat": "stone",
+   "offset": [
+    0.834,
+    8.166,
+    -1.242
+   ],
+   "min": [
+    -0.813,
+    0.0,
+    -0.857
+   ],
+   "max": [
+    0.813,
+    0.837,
+    0.857
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_00_44",
+   "tris": 66,
+   "verts": 46,
+   "mat": "stone",
+   "offset": [
+    -0.792,
+    8.166,
+    -0.685
+   ],
+   "min": [
+    -0.813,
+    0.0,
+    -1.299
+   ],
+   "max": [
+    0.813,
+    1.17,
+    1.299
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_01_0",
+   "tris": 52,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    -0.107,
+    4.422,
+    -2.489
+   ],
+   "min": [
+    -0.333,
+    0.0,
+    -0.681
+   ],
+   "max": [
+    0.333,
+    1.629,
+    0.681
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_01_1",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    -0.136,
+    6.051,
+    -2.844
+   ],
+   "min": [
+    -0.374,
+    0.0,
+    -0.428
+   ],
+   "max": [
+    0.374,
+    2.115,
+    0.428
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_01_2",
+   "tris": 44,
+   "verts": 24,
+   "mat": "stone",
+   "offset": [
+    -0.153,
+    8.166,
+    -2.935
+   ],
+   "min": [
+    -0.453,
+    0.0,
+    -0.488
+   ],
+   "max": [
+    0.453,
+    2.1,
+    0.488
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_06_0",
+   "tris": 48,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    3.799,
+    0.516,
+    2.371
+   ],
+   "min": [
+    -0.673,
+    0.0,
+    -0.907
+   ],
+   "max": [
+    0.673,
+    2.001,
+    0.907
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_07_0",
+   "tris": 70,
+   "verts": 52,
+   "mat": "stone",
+   "offset": [
+    -1.809,
+    0.036,
+    0.445
+   ],
+   "min": [
+    -1.361,
+    0.0,
+    -0.957
+   ],
+   "max": [
+    1.361,
+    2.995,
+    0.957
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_07_1",
+   "tris": 128,
+   "verts": 66,
+   "mat": "stone",
+   "offset": [
+    -3.821,
+    2.406,
+    0.477
+   ],
+   "min": [
+    -0.651,
+    0.0,
+    -0.368
+   ],
+   "max": [
+    0.651,
+    1.878,
+    0.368
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_07_3",
+   "tris": 176,
+   "verts": 96,
+   "mat": "stone",
+   "offset": [
+    -3.726,
+    4.284,
+    -0.141
+   ],
+   "min": [
+    -0.684,
+    0.0,
+    -0.844
+   ],
+   "max": [
+    0.684,
+    1.767,
+    0.844
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_07_4",
+   "tris": 58,
+   "verts": 47,
+   "mat": "stone",
+   "offset": [
+    -2.734,
+    5.578,
+    -0.375
+   ],
+   "min": [
+    -1.06,
+    0.0,
+    -0.409
+   ],
+   "max": [
+    1.06,
+    0.625,
+    0.409
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_08_1",
+   "tris": 56,
+   "verts": 30,
+   "mat": "timber",
+   "offset": [
+    0.682,
+    4.284,
+    -2.38
+   ],
+   "min": [
+    -0.233,
+    0.0,
+    -0.235
+   ],
+   "max": [
+    0.233,
+    1.767,
+    0.235
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_08_2",
+   "tris": 69,
+   "verts": 38,
+   "mat": "timber",
+   "offset": [
+    0.684,
+    6.051,
+    -2.296
+   ],
+   "min": [
+    -0.233,
+    0.0,
+    -0.334
+   ],
+   "max": [
+    0.233,
+    0.84,
+    0.334
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_14_1",
+   "tris": 44,
+   "verts": 45,
+   "mat": "timber",
+   "offset": [
+    3.376,
+    2.391,
+    0.084
+   ],
+   "min": [
+    -0.877,
+    0.0,
+    -1.138
+   ],
+   "max": [
+    0.877,
+    1.893,
+    1.138
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_16_1",
+   "tris": 56,
+   "verts": 49,
+   "mat": "stone",
+   "offset": [
+    3.406,
+    3.328,
+    0.03
+   ],
+   "min": [
+    -0.9,
+    0.0,
+    -1.199
+   ],
+   "max": [
+    0.9,
+    2.723,
+    1.199
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_17_1",
+   "tris": 86,
+   "verts": 50,
+   "mat": "timber",
+   "offset": [
+    3.285,
+    0.203,
+    3.096
+   ],
+   "min": [
+    -0.715,
+    0.0,
+    -0.222
+   ],
+   "max": [
+    0.715,
+    2.984,
+    0.222
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_18_2",
+   "tris": 64,
+   "verts": 55,
+   "mat": "timber",
+   "offset": [
+    3.02,
+    5.719,
+    1.334
+   ],
+   "min": [
+    -1.119,
+    0.0,
+    -0.781
+   ],
+   "max": [
+    1.119,
+    1.078,
+    0.781
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_18_3",
+   "tris": 53,
+   "verts": 47,
+   "mat": "timber",
+   "offset": [
+    3.329,
+    5.719,
+    -0.217
+   ],
+   "min": [
+    -0.8,
+    0.0,
+    -0.792
+   ],
+   "max": [
+    0.8,
+    1.063,
+    0.792
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_19_1",
+   "tris": 44,
+   "verts": 35,
+   "mat": "stone",
+   "offset": [
+    0.292,
+    8.166,
+    -1.354
+   ],
+   "min": [
+    -0.725,
+    0.0,
+    -0.861
+   ],
+   "max": [
+    0.725,
+    1.131,
+    0.861
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_19_2",
+   "tris": 46,
+   "verts": 28,
+   "mat": "stone",
+   "offset": [
+    -1.209,
+    7.312,
+    -1.698
+   ],
+   "min": [
+    -0.775,
+    0.0,
+    -0.205
+   ],
+   "max": [
+    0.775,
+    1.774,
+    0.205
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_24_1",
+   "tris": 88,
+   "verts": 69,
+   "mat": "timber",
+   "offset": [
+    3.133,
+    2.517,
+    1.3
+   ],
+   "min": [
+    -1.186,
+    0.0,
+    -0.823
+   ],
+   "max": [
+    1.186,
+    3.534,
+    0.823
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_25_1",
+   "tris": 102,
+   "verts": 69,
+   "mat": "stone",
+   "offset": [
+    1.145,
+    7.578,
+    2.359
+   ],
+   "min": [
+    -1.117,
+    0.0,
+    -0.751
+   ],
+   "max": [
+    1.117,
+    1.688,
+    0.751
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_26_0",
+   "tris": 76,
+   "verts": 52,
+   "mat": "timber",
+   "offset": [
+    -0.312,
+    8.891,
+    -1.218
+   ],
+   "min": [
+    -0.549,
+    0.0,
+    -0.472
+   ],
+   "max": [
+    0.549,
+    1.344,
+    0.472
+   ]
+  },
+  {
+   "house": "Boilerhouse",
+   "chunk": "Chunks/Boilerhouse_27_0",
+   "tris": 76,
+   "verts": 52,
+   "mat": "stone",
+   "offset": [
+    -0.111,
+    8.922,
+    2.392
+   ],
+   "min": [
+    -0.537,
+    0.0,
+    -0.466
+   ],
+   "max": [
+    0.537,
+    1.359,
+    0.466
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_0",
+   "tris": 95,
+   "verts": 60,
+   "mat": "timber",
+   "offset": [
+    3.614,
+    0.016,
+    1.396
+   ],
+   "min": [
+    -0.913,
+    0.0,
+    -0.987
+   ],
+   "max": [
+    0.913,
+    2.478,
+    0.987
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_2",
+   "tris": 96,
+   "verts": 82,
+   "mat": "stone",
+   "offset": [
+    2.338,
+    0.0,
+    -2.437
+   ],
+   "min": [
+    -1.464,
+    0.0,
+    -1.101
+   ],
+   "max": [
+    1.464,
+    2.494,
+    1.101
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_3",
+   "tris": 59,
+   "verts": 61,
+   "mat": "stone",
+   "offset": [
+    1.855,
+    0.016,
+    1.787
+   ],
+   "min": [
+    -0.981,
+    0.0,
+    -1.067
+   ],
+   "max": [
+    0.981,
+    2.478,
+    1.067
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_8",
+   "tris": 42,
+   "verts": 33,
+   "mat": "stone",
+   "offset": [
+    -3.022,
+    0.016,
+    2.868
+   ],
+   "min": [
+    -0.779,
+    0.0,
+    -0.84
+   ],
+   "max": [
+    0.779,
+    2.478,
+    0.84
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_9",
+   "tris": 55,
+   "verts": 72,
+   "mat": "stone",
+   "offset": [
+    -0.357,
+    0.016,
+    2.028
+   ],
+   "min": [
+    -1.644,
+    0.0,
+    -1.68
+   ],
+   "max": [
+    1.644,
+    2.478,
+    1.68
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_15",
+   "tris": 97,
+   "verts": 115,
+   "mat": "stone",
+   "offset": [
+    -1.104,
+    -0.0,
+    -1.336
+   ],
+   "min": [
+    -1.978,
+    0.0,
+    -2.372
+   ],
+   "max": [
+    1.978,
+    2.494,
+    2.372
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_17",
+   "tris": 91,
+   "verts": 78,
+   "mat": "stone",
+   "offset": [
+    -3.693,
+    0.016,
+    -0.892
+   ],
+   "min": [
+    -0.913,
+    0.0,
+    -1.365
+   ],
+   "max": [
+    0.913,
+    2.478,
+    1.365
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_18",
+   "tris": 169,
+   "verts": 124,
+   "mat": "stone",
+   "offset": [
+    3.008,
+    2.494,
+    1.185
+   ],
+   "min": [
+    -1.19,
+    0.0,
+    -0.936
+   ],
+   "max": [
+    1.19,
+    2.022,
+    0.936
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_19",
+   "tris": 84,
+   "verts": 87,
+   "mat": "stone",
+   "offset": [
+    2.088,
+    2.391,
+    -0.42
+   ],
+   "min": [
+    -2.109,
+    0.0,
+    -1.14
+   ],
+   "max": [
+    2.109,
+    2.597,
+    1.14
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_20",
+   "tris": 105,
+   "verts": 74,
+   "mat": "stone",
+   "offset": [
+    3.156,
+    2.494,
+    -2.424
+   ],
+   "min": [
+    -1.059,
+    0.0,
+    -0.891
+   ],
+   "max": [
+    1.059,
+    2.37,
+    0.891
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_21",
+   "tris": 92,
+   "verts": 95,
+   "mat": "stone",
+   "offset": [
+    1.038,
+    2.494,
+    1.455
+   ],
+   "min": [
+    -1.059,
+    0.0,
+    -0.938
+   ],
+   "max": [
+    1.059,
+    2.494,
+    0.938
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_23",
+   "tris": 115,
+   "verts": 108,
+   "mat": "stone",
+   "offset": [
+    1.038,
+    2.494,
+    -2.295
+   ],
+   "min": [
+    -1.059,
+    0.0,
+    -0.938
+   ],
+   "max": [
+    1.059,
+    2.494,
+    0.938
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_24",
+   "tris": 89,
+   "verts": 80,
+   "mat": "stone",
+   "offset": [
+    -1.08,
+    2.494,
+    2.03
+   ],
+   "min": [
+    -1.059,
+    0.0,
+    -0.993
+   ],
+   "max": [
+    1.059,
+    2.494,
+    0.993
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_25",
+   "tris": 126,
+   "verts": 90,
+   "mat": "stone",
+   "offset": [
+    -3.198,
+    2.494,
+    2.011
+   ],
+   "min": [
+    -1.059,
+    0.0,
+    -0.974
+   ],
+   "max": [
+    1.059,
+    2.494,
+    0.974
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_27",
+   "tris": 154,
+   "verts": 140,
+   "mat": "stone",
+   "offset": [
+    -1.076,
+    2.494,
+    -2.067
+   ],
+   "min": [
+    -1.055,
+    0.0,
+    -1.116
+   ],
+   "max": [
+    1.055,
+    2.584,
+    1.116
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_28",
+   "tris": 78,
+   "verts": 76,
+   "mat": "stone",
+   "offset": [
+    -3.084,
+    2.25,
+    0.281
+   ],
+   "min": [
+    -0.953,
+    0.0,
+    -1.1
+   ],
+   "max": [
+    0.953,
+    2.737,
+    1.1
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_00_29",
+   "tris": 117,
+   "verts": 90,
+   "mat": "stone",
+   "offset": [
+    -3.186,
+    2.494,
+    -1.748
+   ],
+   "min": [
+    -1.055,
+    0.0,
+    -0.928
+   ],
+   "max": [
+    1.055,
+    2.494,
+    0.928
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_5",
+   "tris": 77,
+   "verts": 64,
+   "mat": "timber",
+   "offset": [
+    2.802,
+    5.643,
+    -2.132
+   ],
+   "min": [
+    -0.927,
+    0.0,
+    -0.827
+   ],
+   "max": [
+    0.927,
+    1.571,
+    0.827
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_8",
+   "tris": 68,
+   "verts": 68,
+   "mat": "stone",
+   "offset": [
+    0.859,
+    4.987,
+    -1.88
+   ],
+   "min": [
+    -1.016,
+    0.0,
+    -0.786
+   ],
+   "max": [
+    1.016,
+    2.227,
+    0.786
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_10",
+   "tris": 45,
+   "verts": 41,
+   "mat": "stone",
+   "offset": [
+    -2.833,
+    5.531,
+    1.801
+   ],
+   "min": [
+    -0.892,
+    0.0,
+    -0.817
+   ],
+   "max": [
+    0.892,
+    1.684,
+    0.817
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_12",
+   "tris": 101,
+   "verts": 79,
+   "mat": "stone",
+   "offset": [
+    -1.201,
+    5.565,
+    -1.497
+   ],
+   "min": [
+    -1.044,
+    0.0,
+    -0.788
+   ],
+   "max": [
+    1.044,
+    2.688,
+    0.788
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_14",
+   "tris": 77,
+   "verts": 67,
+   "mat": "stone",
+   "offset": [
+    -3.203,
+    4.987,
+    -1.183
+   ],
+   "min": [
+    -1.016,
+    0.0,
+    -0.722
+   ],
+   "max": [
+    1.016,
+    2.227,
+    0.722
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_15",
+   "tris": 102,
+   "verts": 77,
+   "mat": "stone",
+   "offset": [
+    2.695,
+    7.215,
+    0.415
+   ],
+   "min": [
+    -0.993,
+    0.0,
+    -1.117
+   ],
+   "max": [
+    0.993,
+    1.785,
+    1.117
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_16",
+   "tris": 90,
+   "verts": 67,
+   "mat": "stone",
+   "offset": [
+    2.607,
+    7.215,
+    -1.781
+   ],
+   "min": [
+    -0.897,
+    0.0,
+    -1.08
+   ],
+   "max": [
+    0.897,
+    1.66,
+    1.08
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_17",
+   "tris": 66,
+   "verts": 55,
+   "mat": "stone",
+   "offset": [
+    0.721,
+    7.215,
+    0.701
+   ],
+   "min": [
+    -0.989,
+    0.0,
+    -1.098
+   ],
+   "max": [
+    0.989,
+    1.004,
+    1.098
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_18",
+   "tris": 67,
+   "verts": 60,
+   "mat": "stone",
+   "offset": [
+    0.951,
+    7.215,
+    -1.566
+   ],
+   "min": [
+    -1.218,
+    0.0,
+    -1.169
+   ],
+   "max": [
+    1.218,
+    1.2,
+    1.169
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_21",
+   "tris": 39,
+   "verts": 45,
+   "mat": "stone",
+   "offset": [
+    -1.256,
+    7.853,
+    0.052
+   ],
+   "min": [
+    -0.989,
+    0.0,
+    -0.761
+   ],
+   "max": [
+    0.989,
+    1.022,
+    0.761
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_01_24",
+   "tris": 78,
+   "verts": 77,
+   "mat": "stone",
+   "offset": [
+    -3.061,
+    7.109,
+    -0.582
+   ],
+   "min": [
+    -1.161,
+    0.0,
+    -1.394
+   ],
+   "max": [
+    1.161,
+    1.47,
+    1.394
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_03_0",
+   "tris": 85,
+   "verts": 74,
+   "mat": "timber",
+   "offset": [
+    2.182,
+    4.219,
+    -1.626
+   ],
+   "min": [
+    -1.272,
+    0.0,
+    -1.482
+   ],
+   "max": [
+    1.272,
+    1.516,
+    1.482
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_03_1",
+   "tris": 79,
+   "verts": 85,
+   "mat": "stone",
+   "offset": [
+    0.507,
+    4.438,
+    -1.669
+   ],
+   "min": [
+    -1.515,
+    0.0,
+    -1.562
+   ],
+   "max": [
+    1.515,
+    1.297,
+    1.562
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_03_3",
+   "tris": 57,
+   "verts": 50,
+   "mat": "timber",
+   "offset": [
+    -3.116,
+    4.219,
+    -0.609
+   ],
+   "min": [
+    -0.939,
+    0.0,
+    -1.493
+   ],
+   "max": [
+    0.939,
+    0.812,
+    1.493
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_04_0",
+   "tris": 63,
+   "verts": 68,
+   "mat": "timber",
+   "offset": [
+    1.544,
+    4.438,
+    0.885
+   ],
+   "min": [
+    -1.284,
+    0.0,
+    -1.297
+   ],
+   "max": [
+    1.284,
+    1.25,
+    1.297
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_04_8",
+   "tris": 42,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    -0.314,
+    4.438,
+    1.207
+   ],
+   "min": [
+    -1.304,
+    0.0,
+    -1.335
+   ],
+   "max": [
+    1.304,
+    0.633,
+    1.335
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_06_0",
+   "tris": 55,
+   "verts": 50,
+   "mat": "stone",
+   "offset": [
+    -1.314,
+    7.156,
+    1.183
+   ],
+   "min": [
+    -1.046,
+    0.0,
+    -1.053
+   ],
+   "max": [
+    1.046,
+    1.422,
+    1.053
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_08_0",
+   "tris": 160,
+   "verts": 98,
+   "mat": "stone",
+   "offset": [
+    -1.921,
+    0.016,
+    2.736
+   ],
+   "min": [
+    -1.237,
+    0.0,
+    -0.709
+   ],
+   "max": [
+    1.237,
+    2.478,
+    0.709
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_08_1",
+   "tris": 90,
+   "verts": 56,
+   "mat": "stone",
+   "offset": [
+    -2.106,
+    2.494,
+    1.862
+   ],
+   "min": [
+    -1.154,
+    0.0,
+    -1.389
+   ],
+   "max": [
+    1.154,
+    1.366,
+    1.389
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_11_0",
+   "tris": 72,
+   "verts": 64,
+   "mat": "stone",
+   "offset": [
+    -3.396,
+    -0.0,
+    0.922
+   ],
+   "min": [
+    -0.861,
+    0.0,
+    -1.105
+   ],
+   "max": [
+    0.861,
+    2.494,
+    1.105
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_13_0",
+   "tris": 66,
+   "verts": 48,
+   "mat": "stone",
+   "offset": [
+    -1.755,
+    3.484,
+    2.767
+   ],
+   "min": [
+    -0.334,
+    0.0,
+    -0.683
+   ],
+   "max": [
+    0.334,
+    1.641,
+    0.683
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_14_1",
+   "tris": 44,
+   "verts": 41,
+   "mat": "stone",
+   "offset": [
+    1.763,
+    3.484,
+    -2.975
+   ],
+   "min": [
+    -0.332,
+    0.0,
+    -0.655
+   ],
+   "max": [
+    0.332,
+    1.641,
+    0.655
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_15_0",
+   "tris": 62,
+   "verts": 44,
+   "mat": "stone",
+   "offset": [
+    2.903,
+    3.484,
+    1.961
+   ],
+   "min": [
+    -0.39,
+    0.0,
+    -0.731
+   ],
+   "max": [
+    0.39,
+    1.641,
+    0.731
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_16_1",
+   "tris": 49,
+   "verts": 44,
+   "mat": "stone",
+   "offset": [
+    1.713,
+    3.484,
+    2.075
+   ],
+   "min": [
+    -0.375,
+    0.0,
+    -0.622
+   ],
+   "max": [
+    0.375,
+    1.625,
+    0.622
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_18_0",
+   "tris": 64,
+   "verts": 59,
+   "mat": "stone",
+   "offset": [
+    3.477,
+    0.0,
+    -0.618
+   ],
+   "min": [
+    -0.776,
+    0.0,
+    -1.028
+   ],
+   "max": [
+    0.776,
+    2.494,
+    1.028
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_19_0",
+   "tris": 38,
+   "verts": 28,
+   "mat": "stone",
+   "offset": [
+    -2.932,
+    3.484,
+    -2.166
+   ],
+   "min": [
+    -0.351,
+    0.0,
+    -0.716
+   ],
+   "max": [
+    0.351,
+    1.531,
+    0.716
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_21_1",
+   "tris": 48,
+   "verts": 43,
+   "mat": "stone",
+   "offset": [
+    2.81,
+    4.987,
+    -0.638
+   ],
+   "min": [
+    -0.936,
+    0.0,
+    -0.774
+   ],
+   "max": [
+    0.936,
+    1.581,
+    0.774
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_22_0",
+   "tris": 101,
+   "verts": 94,
+   "mat": "timber",
+   "offset": [
+    2.946,
+    4.219,
+    0.743
+   ],
+   "min": [
+    -1.071,
+    0.0,
+    -1.08
+   ],
+   "max": [
+    1.071,
+    2.996,
+    1.08
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_23_0",
+   "tris": 100,
+   "verts": 105,
+   "mat": "timber",
+   "offset": [
+    -1.613,
+    4.438,
+    -1.216
+   ],
+   "min": [
+    -1.313,
+    0.0,
+    -1.406
+   ],
+   "max": [
+    1.313,
+    1.219,
+    1.406
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_24_0",
+   "tris": 62,
+   "verts": 72,
+   "mat": "timber",
+   "offset": [
+    0.859,
+    4.987,
+    0.476
+   ],
+   "min": [
+    -1.016,
+    0.0,
+    -1.571
+   ],
+   "max": [
+    1.016,
+    2.325,
+    1.571
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_28_0",
+   "tris": 75,
+   "verts": 42,
+   "mat": "stone",
+   "offset": [
+    2.397,
+    7.984,
+    -1.707
+   ],
+   "min": [
+    -0.395,
+    0.0,
+    -0.384
+   ],
+   "max": [
+    0.395,
+    1.312,
+    0.384
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_30_0",
+   "tris": 70,
+   "verts": 84,
+   "mat": "timber",
+   "offset": [
+    -1.133,
+    4.906,
+    1.767
+   ],
+   "min": [
+    -0.977,
+    0.0,
+    -1.109
+   ],
+   "max": [
+    0.977,
+    2.309,
+    1.109
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_34_0",
+   "tris": 48,
+   "verts": 49,
+   "mat": "stone",
+   "offset": [
+    -2.887,
+    6.297,
+    1.573
+   ],
+   "min": [
+    -0.873,
+    0.0,
+    -0.761
+   ],
+   "max": [
+    0.873,
+    2.206,
+    0.761
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_40_0",
+   "tris": 83,
+   "verts": 66,
+   "mat": "timber",
+   "offset": [
+    -2.173,
+    4.219,
+    1.503
+   ],
+   "min": [
+    -1.324,
+    0.0,
+    -1.327
+   ],
+   "max": [
+    1.324,
+    1.391,
+    1.327
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_51_1",
+   "tris": 46,
+   "verts": 44,
+   "mat": "stone",
+   "offset": [
+    0.609,
+    3.484,
+    2.344
+   ],
+   "min": [
+    -0.402,
+    0.0,
+    -0.663
+   ],
+   "max": [
+    0.402,
+    1.641,
+    0.663
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_52_0",
+   "tris": 51,
+   "verts": 45,
+   "mat": "stone",
+   "offset": [
+    4.082,
+    3.75,
+    -0.929
+   ],
+   "min": [
+    -0.568,
+    0.0,
+    -0.569
+   ],
+   "max": [
+    0.568,
+    1.359,
+    0.569
+   ]
+  },
+  {
+   "house": "Townhouse",
+   "chunk": "Chunks/Townhouse_54_0",
+   "tris": 93,
+   "verts": 101,
+   "mat": "stone",
+   "offset": [
+    -3.597,
+    3.75,
+    0.372
+   ],
+   "min": [
+    -1.053,
+    0.0,
+    -0.832
+   ],
+   "max": [
+    1.053,
+    3.465,
+    0.832
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_0",
+   "tris": 156,
+   "verts": 103,
+   "mat": "stone",
+   "offset": [
+    1.134,
+    0.08,
+    2.799
+   ],
+   "min": [
+    -1.922,
+    0.0,
+    -0.869
+   ],
+   "max": [
+    1.922,
+    3.676,
+    0.869
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_2",
+   "tris": 82,
+   "verts": 63,
+   "mat": "stone",
+   "offset": [
+    -1.725,
+    0.0,
+    2.896
+   ],
+   "min": [
+    -0.956,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.956,
+    2.387,
+    0.965
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_3",
+   "tris": 50,
+   "verts": 39,
+   "mat": "stone",
+   "offset": [
+    2.603,
+    0.125,
+    0.965
+   ],
+   "min": [
+    -0.408,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.408,
+    2.262,
+    0.965
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_4",
+   "tris": 40,
+   "verts": 39,
+   "mat": "timber",
+   "offset": [
+    2.516,
+    0.078,
+    -0.965
+   ],
+   "min": [
+    -0.178,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.178,
+    2.309,
+    0.965
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_5",
+   "tris": 130,
+   "verts": 99,
+   "mat": "timber",
+   "offset": [
+    1.88,
+    0.0,
+    -2.896
+   ],
+   "min": [
+    -0.918,
+    0.0,
+    -0.965
+   ],
+   "max": [
+    0.918,
+    2.387,
+    0.965
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_6",
+   "tris": 59,
+   "verts": 55,
+   "mat": "stone",
+   "offset": [
+    -2.497,
+    0.0,
+    1.272
+   ],
+   "min": [
+    -0.327,
+    0.0,
+    -1.228
+   ],
+   "max": [
+    0.327,
+    2.387,
+    1.228
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_7",
+   "tris": 88,
+   "verts": 75,
+   "mat": "stone",
+   "offset": [
+    -0.255,
+    0.0,
+    -3.399
+   ],
+   "min": [
+    -1.613,
+    0.0,
+    -0.38
+   ],
+   "max": [
+    1.613,
+    2.387,
+    0.38
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_8",
+   "tris": 58,
+   "verts": 55,
+   "mat": "stone",
+   "offset": [
+    -2.628,
+    0.0,
+    -0.981
+   ],
+   "min": [
+    -0.337,
+    0.0,
+    -1.025
+   ],
+   "max": [
+    0.337,
+    2.387,
+    1.025
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_9",
+   "tris": 135,
+   "verts": 103,
+   "mat": "stone",
+   "offset": [
+    -2.111,
+    0.0,
+    -2.688
+   ],
+   "min": [
+    -1.025,
+    0.0,
+    -0.911
+   ],
+   "max": [
+    1.025,
+    2.387,
+    0.911
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_10",
+   "tris": 118,
+   "verts": 81,
+   "mat": "stone",
+   "offset": [
+    2.034,
+    2.387,
+    2.763
+   ],
+   "min": [
+    -0.941,
+    0.0,
+    -0.839
+   ],
+   "max": [
+    0.941,
+    2.387,
+    0.839
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_12",
+   "tris": 76,
+   "verts": 62,
+   "mat": "stone",
+   "offset": [
+    -1.729,
+    2.387,
+    2.877
+   ],
+   "min": [
+    -0.941,
+    0.0,
+    -0.953
+   ],
+   "max": [
+    0.941,
+    2.387,
+    0.953
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_13",
+   "tris": 60,
+   "verts": 50,
+   "mat": "timber",
+   "offset": [
+    2.555,
+    2.387,
+    0.971
+   ],
+   "min": [
+    -0.194,
+    0.0,
+    -0.953
+   ],
+   "max": [
+    0.194,
+    2.387,
+    0.953
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_14",
+   "tris": 131,
+   "verts": 116,
+   "mat": "timber",
+   "offset": [
+    1.844,
+    2.387,
+    -1.044
+   ],
+   "min": [
+    -0.889,
+    0.0,
+    -2.108
+   ],
+   "max": [
+    0.889,
+    2.387,
+    2.108
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_15",
+   "tris": 153,
+   "verts": 120,
+   "mat": "stone",
+   "offset": [
+    1.763,
+    2.387,
+    -2.84
+   ],
+   "min": [
+    -0.97,
+    0.0,
+    -0.953
+   ],
+   "max": [
+    0.97,
+    2.387,
+    0.953
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_19",
+   "tris": 104,
+   "verts": 89,
+   "mat": "stone",
+   "offset": [
+    -2.142,
+    2.387,
+    -2.665
+   ],
+   "min": [
+    -0.978,
+    0.0,
+    -0.909
+   ],
+   "max": [
+    0.978,
+    2.387,
+    0.909
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_20",
+   "tris": 102,
+   "verts": 80,
+   "mat": "stone",
+   "offset": [
+    2.015,
+    4.773,
+    2.417
+   ],
+   "min": [
+    -0.937,
+    0.0,
+    -0.5
+   ],
+   "max": [
+    0.937,
+    1.821,
+    0.5
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_21",
+   "tris": 70,
+   "verts": 58,
+   "mat": "timber",
+   "offset": [
+    0.141,
+    4.818,
+    2.851
+   ],
+   "min": [
+    -0.937,
+    0.0,
+    -0.934
+   ],
+   "max": [
+    0.937,
+    2.717,
+    0.934
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_22",
+   "tris": 114,
+   "verts": 94,
+   "mat": "stone",
+   "offset": [
+    -1.388,
+    4.009,
+    1.917
+   ],
+   "min": [
+    -1.282,
+    0.0,
+    -1.882
+   ],
+   "max": [
+    1.282,
+    2.819,
+    1.882
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_23",
+   "tris": 115,
+   "verts": 122,
+   "mat": "timber",
+   "offset": [
+    0.906,
+    3.908,
+    0.956
+   ],
+   "min": [
+    -1.837,
+    0.0,
+    -1.988
+   ],
+   "max": [
+    1.837,
+    3.094,
+    1.988
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_25",
+   "tris": 72,
+   "verts": 62,
+   "mat": "stone",
+   "offset": [
+    1.654,
+    4.773,
+    -2.594
+   ],
+   "min": [
+    -0.855,
+    0.0,
+    -0.902
+   ],
+   "max": [
+    0.855,
+    1.426,
+    0.902
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_28",
+   "tris": 49,
+   "verts": 60,
+   "mat": "timber",
+   "offset": [
+    1.263,
+    4.773,
+    -0.867
+   ],
+   "min": [
+    -1.477,
+    0.0,
+    -0.979
+   ],
+   "max": [
+    1.477,
+    2.15,
+    0.979
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_29",
+   "tris": 83,
+   "verts": 67,
+   "mat": "stone",
+   "offset": [
+    -0.174,
+    4.773,
+    -2.787
+   ],
+   "min": [
+    -0.972,
+    0.0,
+    -0.941
+   ],
+   "max": [
+    0.972,
+    2.762,
+    0.941
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_31",
+   "tris": 133,
+   "verts": 122,
+   "mat": "stone",
+   "offset": [
+    -1.768,
+    2.387,
+    -1.218
+   ],
+   "min": [
+    -1.323,
+    0.0,
+    -2.349
+   ],
+   "max": [
+    1.323,
+    4.41,
+    2.349
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_32",
+   "tris": 62,
+   "verts": 33,
+   "mat": "timber",
+   "offset": [
+    0.225,
+    7.535,
+    3.113
+   ],
+   "min": [
+    -0.733,
+    0.0,
+    -0.725
+   ],
+   "max": [
+    0.733,
+    1.028,
+    0.725
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_33",
+   "tris": 62,
+   "verts": 33,
+   "mat": "stone",
+   "offset": [
+    -0.132,
+    7.535,
+    -2.882
+   ],
+   "min": [
+    -0.791,
+    0.0,
+    -0.823
+   ],
+   "max": [
+    0.791,
+    1.381,
+    0.823
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_00_34",
+   "tris": 78,
+   "verts": 41,
+   "mat": "stone",
+   "offset": [
+    -0.105,
+    8.916,
+    -2.898
+   ],
+   "min": [
+    -0.495,
+    0.0,
+    -0.545
+   ],
+   "max": [
+    0.495,
+    1.381,
+    0.545
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_01_6",
+   "tris": 40,
+   "verts": 47,
+   "mat": "timber",
+   "offset": [
+    -0.104,
+    2.387,
+    -2.346
+   ],
+   "min": [
+    -1.06,
+    0.0,
+    -1.314
+   ],
+   "max": [
+    1.06,
+    2.387,
+    1.314
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_04_2",
+   "tris": 60,
+   "verts": 48,
+   "mat": "stone",
+   "offset": [
+    3.446,
+    2.387,
+    0.437
+   ],
+   "min": [
+    -0.575,
+    0.0,
+    -0.739
+   ],
+   "max": [
+    0.575,
+    1.317,
+    0.739
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_05_0",
+   "tris": 42,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    0.285,
+    6.109,
+    -1.41
+   ],
+   "min": [
+    -1.025,
+    0.0,
+    -0.81
+   ],
+   "max": [
+    1.025,
+    1.426,
+    0.81
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_05_1",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    1.049,
+    7.535,
+    -1.127
+   ],
+   "min": [
+    -0.429,
+    0.0,
+    -0.405
+   ],
+   "max": [
+    0.429,
+    0.746,
+    0.405
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_06_0",
+   "tris": 81,
+   "verts": 59,
+   "mat": "stone",
+   "offset": [
+    2.958,
+    3.479,
+    1.913
+   ],
+   "min": [
+    -1.073,
+    0.0,
+    -0.74
+   ],
+   "max": [
+    1.073,
+    0.568,
+    0.74
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_07_0",
+   "tris": 124,
+   "verts": 66,
+   "mat": "stone",
+   "offset": [
+    1.891,
+    4.984,
+    3.326
+   ],
+   "min": [
+    -0.295,
+    0.0,
+    -0.535
+   ],
+   "max": [
+    0.295,
+    1.984,
+    0.535
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_08_0",
+   "tris": 80,
+   "verts": 52,
+   "mat": "stone",
+   "offset": [
+    -3.076,
+    2.387,
+    0.993
+   ],
+   "min": [
+    -0.956,
+    0.0,
+    -0.931
+   ],
+   "max": [
+    0.956,
+    2.387,
+    0.931
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_09_0",
+   "tris": 54,
+   "verts": 36,
+   "mat": "stone",
+   "offset": [
+    2.786,
+    0.156,
+    2.375
+   ],
+   "min": [
+    -0.859,
+    0.0,
+    -0.944
+   ],
+   "max": [
+    0.859,
+    1.297,
+    0.944
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_10_0",
+   "tris": 44,
+   "verts": 36,
+   "mat": "timber",
+   "offset": [
+    3.138,
+    1.703,
+    -0.635
+   ],
+   "min": [
+    -0.895,
+    0.0,
+    -0.681
+   ],
+   "max": [
+    0.895,
+    0.683,
+    0.681
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_11_0",
+   "tris": 100,
+   "verts": 56,
+   "mat": "stone",
+   "offset": [
+    3.424,
+    3.562,
+    2.66
+   ],
+   "min": [
+    -0.345,
+    0.0,
+    -0.479
+   ],
+   "max": [
+    0.345,
+    1.211,
+    0.479
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_11_1",
+   "tris": 64,
+   "verts": 34,
+   "mat": "stone",
+   "offset": [
+    3.607,
+    4.773,
+    2.78
+   ],
+   "min": [
+    -0.354,
+    0.0,
+    -0.433
+   ],
+   "max": [
+    0.354,
+    0.508,
+    0.433
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_12_0",
+   "tris": 112,
+   "verts": 60,
+   "mat": "stone",
+   "offset": [
+    2.031,
+    3.188,
+    3.212
+   ],
+   "min": [
+    -0.186,
+    0.0,
+    -0.527
+   ],
+   "max": [
+    0.186,
+    1.484,
+    0.527
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_13_0",
+   "tris": 64,
+   "verts": 36,
+   "mat": "stone",
+   "offset": [
+    -3.158,
+    0.375,
+    1.078
+   ],
+   "min": [
+    -0.619,
+    0.0,
+    -0.29
+   ],
+   "max": [
+    0.619,
+    1.328,
+    0.29
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_15_0",
+   "tris": 62,
+   "verts": 50,
+   "mat": "stone",
+   "offset": [
+    -0.07,
+    6.742,
+    1.02
+   ],
+   "min": [
+    -0.568,
+    0.0,
+    -1.62
+   ],
+   "max": [
+    0.568,
+    0.793,
+    1.62
+   ]
+  },
+  {
+   "house": "Guildhall",
+   "chunk": "Chunks/Guildhall_15_1",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    -0.135,
+    7.535,
+    1.204
+   ],
+   "min": [
+    -0.413,
+    0.0,
+    -0.381
+   ],
+   "max": [
+    0.413,
+    0.934,
+    0.381
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_0",
+   "tris": 64,
+   "verts": 46,
+   "mat": "stone",
+   "offset": [
+    2.643,
+    0.0,
+    1.868
+   ],
+   "min": [
+    -0.724,
+    0.0,
+    -0.994
+   ],
+   "max": [
+    0.724,
+    2.274,
+    0.994
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_3",
+   "tris": 68,
+   "verts": 52,
+   "mat": "timber",
+   "offset": [
+    1.139,
+    0.0,
+    2.631
+   ],
+   "min": [
+    -0.78,
+    0.0,
+    -0.839
+   ],
+   "max": [
+    0.78,
+    2.274,
+    0.839
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_4",
+   "tris": 66,
+   "verts": 51,
+   "mat": "stone",
+   "offset": [
+    -0.422,
+    0.0,
+    2.693
+   ],
+   "min": [
+    -0.78,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.78,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_5",
+   "tris": 63,
+   "verts": 44,
+   "mat": "timber",
+   "offset": [
+    -1.982,
+    0.0,
+    2.533
+   ],
+   "min": [
+    -0.78,
+    0.0,
+    -0.741
+   ],
+   "max": [
+    0.78,
+    2.274,
+    0.741
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_8",
+   "tris": 57,
+   "verts": 46,
+   "mat": "stone",
+   "offset": [
+    1.696,
+    -0.0,
+    -2.29
+   ],
+   "min": [
+    -1.608,
+    0.0,
+    -1.177
+   ],
+   "max": [
+    1.608,
+    2.274,
+    1.177
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_10",
+   "tris": 39,
+   "verts": 31,
+   "mat": "timber",
+   "offset": [
+    -2.659,
+    -0.0,
+    0.891
+   ],
+   "min": [
+    -0.916,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.916,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_14",
+   "tris": 60,
+   "verts": 51,
+   "mat": "stone",
+   "offset": [
+    -1.377,
+    -0.0,
+    -2.713
+   ],
+   "min": [
+    -1.464,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    1.464,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_15",
+   "tris": 170,
+   "verts": 87,
+   "mat": "stone",
+   "offset": [
+    2.212,
+    2.274,
+    2.491
+   ],
+   "min": [
+    -0.991,
+    0.0,
+    -0.681
+   ],
+   "max": [
+    0.991,
+    2.274,
+    0.681
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_16",
+   "tris": 200,
+   "verts": 102,
+   "mat": "stone",
+   "offset": [
+    0.231,
+    2.274,
+    2.71
+   ],
+   "min": [
+    -0.991,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.991,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_17",
+   "tris": 106,
+   "verts": 55,
+   "mat": "stone",
+   "offset": [
+    -1.751,
+    2.274,
+    2.61
+   ],
+   "min": [
+    -0.991,
+    0.0,
+    -0.8
+   ],
+   "max": [
+    0.991,
+    2.274,
+    0.8
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_18",
+   "tris": 134,
+   "verts": 69,
+   "mat": "stone",
+   "offset": [
+    2.829,
+    2.274,
+    0.994
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.816
+   ],
+   "max": [
+    0.893,
+    2.274,
+    0.816
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_19",
+   "tris": 72,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    2.826,
+    2.274,
+    -0.637
+   ],
+   "min": [
+    -0.89,
+    0.0,
+    -0.816
+   ],
+   "max": [
+    0.89,
+    2.274,
+    0.816
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_20",
+   "tris": 54,
+   "verts": 29,
+   "mat": "stone",
+   "offset": [
+    2.478,
+    2.274,
+    -2.268
+   ],
+   "min": [
+    -0.542,
+    0.0,
+    -0.816
+   ],
+   "max": [
+    0.542,
+    2.274,
+    0.816
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_21",
+   "tris": 92,
+   "verts": 58,
+   "mat": "stone",
+   "offset": [
+    1.012,
+    2.274,
+    0.909
+   ],
+   "min": [
+    -0.924,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.924,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_22",
+   "tris": 66,
+   "verts": 42,
+   "mat": "stone",
+   "offset": [
+    -0.797,
+    2.274,
+    0.9
+   ],
+   "min": [
+    -0.947,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.947,
+    2.274,
+    0.91
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_23",
+   "tris": 88,
+   "verts": 50,
+   "mat": "stone",
+   "offset": [
+    -2.529,
+    2.274,
+    1.019
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -1.011
+   ],
+   "max": [
+    0.893,
+    2.274,
+    1.011
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_24",
+   "tris": 44,
+   "verts": 29,
+   "mat": "stone",
+   "offset": [
+    1.012,
+    2.274,
+    -0.838
+   ],
+   "min": [
+    -0.924,
+    0.0,
+    -0.876
+   ],
+   "max": [
+    0.924,
+    2.274,
+    0.876
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_25",
+   "tris": 60,
+   "verts": 32,
+   "mat": "stone",
+   "offset": [
+    1.045,
+    2.274,
+    -2.522
+   ],
+   "min": [
+    -0.891,
+    0.0,
+    -0.844
+   ],
+   "max": [
+    0.891,
+    2.274,
+    0.844
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_26",
+   "tris": 56,
+   "verts": 36,
+   "mat": "stone",
+   "offset": [
+    -0.763,
+    2.274,
+    -0.902
+   ],
+   "min": [
+    -0.917,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.917,
+    2.274,
+    0.91
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_27",
+   "tris": 72,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    -2.519,
+    2.274,
+    -0.892
+   ],
+   "min": [
+    -0.891,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.891,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_28",
+   "tris": 68,
+   "verts": 36,
+   "mat": "stone",
+   "offset": [
+    -0.561,
+    2.274,
+    -2.693
+   ],
+   "min": [
+    -0.715,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.715,
+    2.274,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_29",
+   "tris": 54,
+   "verts": 29,
+   "mat": "stone",
+   "offset": [
+    -1.991,
+    2.274,
+    -2.576
+   ],
+   "min": [
+    -0.715,
+    0.0,
+    -0.784
+   ],
+   "max": [
+    0.715,
+    2.274,
+    0.784
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_30",
+   "tris": 59,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    2.093,
+    4.549,
+    1.928
+   ],
+   "min": [
+    -1.113,
+    0.0,
+    -1.106
+   ],
+   "max": [
+    1.113,
+    0.92,
+    1.106
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_31",
+   "tris": 70,
+   "verts": 46,
+   "mat": "stone",
+   "offset": [
+    0.232,
+    4.549,
+    2.218
+   ],
+   "min": [
+    -0.991,
+    0.0,
+    -1.396
+   ],
+   "max": [
+    0.991,
+    0.92,
+    1.396
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_32",
+   "tris": 63,
+   "verts": 39,
+   "mat": "stone",
+   "offset": [
+    -1.71,
+    4.549,
+    2.118
+   ],
+   "min": [
+    -1.032,
+    0.0,
+    -1.296
+   ],
+   "max": [
+    1.032,
+    0.912,
+    1.296
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_33",
+   "tris": 56,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    2.83,
+    4.549,
+    0.996
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.816
+   ],
+   "max": [
+    0.893,
+    0.108,
+    0.816
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_34",
+   "tris": 58,
+   "verts": 38,
+   "mat": "stone",
+   "offset": [
+    2.4,
+    4.549,
+    -0.316
+   ],
+   "min": [
+    -1.317,
+    0.0,
+    -1.138
+   ],
+   "max": [
+    1.317,
+    0.883,
+    1.138
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_36",
+   "tris": 50,
+   "verts": 27,
+   "mat": "stone",
+   "offset": [
+    1.043,
+    4.549,
+    0.911
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.893,
+    0.092,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_37",
+   "tris": 60,
+   "verts": 32,
+   "mat": "stone",
+   "offset": [
+    -0.743,
+    4.549,
+    0.911
+   ],
+   "min": [
+    -0.893,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.893,
+    0.092,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_38",
+   "tris": 90,
+   "verts": 62,
+   "mat": "stone",
+   "offset": [
+    -2.089,
+    4.549,
+    0.312
+   ],
+   "min": [
+    -1.333,
+    0.0,
+    -1.5
+   ],
+   "max": [
+    1.333,
+    2.421,
+    1.5
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_39",
+   "tris": 84,
+   "verts": 52,
+   "mat": "stone",
+   "offset": [
+    0.59,
+    4.549,
+    -0.429
+   ],
+   "min": [
+    -1.346,
+    0.0,
+    -1.251
+   ],
+   "max": [
+    1.346,
+    0.467,
+    1.251
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_40",
+   "tris": 60,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    0.653,
+    4.549,
+    -2.2
+   ],
+   "min": [
+    -1.283,
+    0.0,
+    -1.169
+   ],
+   "max": [
+    1.283,
+    0.838,
+    1.169
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_41",
+   "tris": 76,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    -0.736,
+    4.549,
+    -0.891
+   ],
+   "min": [
+    -0.891,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.891,
+    0.092,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_42",
+   "tris": 48,
+   "verts": 26,
+   "mat": "stone",
+   "offset": [
+    -2.518,
+    4.549,
+    -0.891
+   ],
+   "min": [
+    -0.891,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.891,
+    0.092,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_43",
+   "tris": 61,
+   "verts": 39,
+   "mat": "stone",
+   "offset": [
+    -0.561,
+    4.549,
+    -2.692
+   ],
+   "min": [
+    -0.715,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.715,
+    0.826,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_00_44",
+   "tris": 54,
+   "verts": 40,
+   "mat": "stone",
+   "offset": [
+    -1.668,
+    4.549,
+    -2.196
+   ],
+   "min": [
+    -1.038,
+    0.0,
+    -1.165
+   ],
+   "max": [
+    1.038,
+    0.842,
+    1.165
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_02_4",
+   "tris": 63,
+   "verts": 43,
+   "mat": "stone",
+   "offset": [
+    2.052,
+    4.549,
+    -1.991
+   ],
+   "min": [
+    -0.969,
+    0.0,
+    -1.095
+   ],
+   "max": [
+    0.969,
+    2.421,
+    1.095
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_03_0",
+   "tris": 97,
+   "verts": 63,
+   "mat": "stone",
+   "offset": [
+    3.249,
+    0.0,
+    -0.004
+   ],
+   "min": [
+    -1.33,
+    0.0,
+    -1.109
+   ],
+   "max": [
+    1.33,
+    2.274,
+    1.109
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_03_1",
+   "tris": 70,
+   "verts": 37,
+   "mat": "stone",
+   "offset": [
+    4.165,
+    2.274,
+    0.666
+   ],
+   "min": [
+    -0.504,
+    0.0,
+    -0.525
+   ],
+   "max": [
+    0.504,
+    2.274,
+    0.525
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_03_2",
+   "tris": 44,
+   "verts": 24,
+   "mat": "stone",
+   "offset": [
+    4.172,
+    4.549,
+    0.663
+   ],
+   "min": [
+    -0.511,
+    0.0,
+    -0.543
+   ],
+   "max": [
+    0.511,
+    1.108,
+    0.543
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_04_0",
+   "tris": 137,
+   "verts": 82,
+   "mat": "timber",
+   "offset": [
+    -2.955,
+    -0.0,
+    -0.391
+   ],
+   "min": [
+    -1.275,
+    0.0,
+    -1.42
+   ],
+   "max": [
+    1.275,
+    2.274,
+    1.42
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_04_1",
+   "tris": 162,
+   "verts": 83,
+   "mat": "timber",
+   "offset": [
+    -3.994,
+    2.274,
+    0.715
+   ],
+   "min": [
+    -0.689,
+    0.0,
+    -0.518
+   ],
+   "max": [
+    0.689,
+    2.148,
+    0.518
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_05_1",
+   "tris": 63,
+   "verts": 53,
+   "mat": "timber",
+   "offset": [
+    -1.727,
+    4.625,
+    1.421
+   ],
+   "min": [
+    -1.021,
+    0.0,
+    -1.203
+   ],
+   "max": [
+    1.021,
+    2.345,
+    1.203
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_05_2",
+   "tris": 85,
+   "verts": 53,
+   "mat": "timber",
+   "offset": [
+    -1.644,
+    6.97,
+    1.72
+   ],
+   "min": [
+    -0.946,
+    0.0,
+    -0.901
+   ],
+   "max": [
+    0.946,
+    1.249,
+    0.901
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_06_0",
+   "tris": 78,
+   "verts": 43,
+   "mat": "stone",
+   "offset": [
+    -1.793,
+    8.156,
+    0.019
+   ],
+   "min": [
+    -0.728,
+    0.0,
+    -0.921
+   ],
+   "max": [
+    0.728,
+    1.234,
+    0.921
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_06_1",
+   "tris": 102,
+   "verts": 53,
+   "mat": "stone",
+   "offset": [
+    -1.285,
+    8.078,
+    -1.823
+   ],
+   "min": [
+    -1.094,
+    0.0,
+    -0.921
+   ],
+   "max": [
+    1.094,
+    1.297,
+    0.921
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_07_1",
+   "tris": 86,
+   "verts": 51,
+   "mat": "timber",
+   "offset": [
+    -2.54,
+    6.97,
+    -0.12
+   ],
+   "min": [
+    -0.278,
+    0.0,
+    -0.939
+   ],
+   "max": [
+    0.278,
+    1.28,
+    0.939
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_09_1",
+   "tris": 70,
+   "verts": 42,
+   "mat": "timber",
+   "offset": [
+    0.077,
+    6.97,
+    2.559
+   ],
+   "min": [
+    -1.116,
+    0.0,
+    -0.324
+   ],
+   "max": [
+    1.116,
+    1.249,
+    0.324
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_12_1",
+   "tris": 70,
+   "verts": 42,
+   "mat": "stone",
+   "offset": [
+    2.107,
+    6.97,
+    -1.964
+   ],
+   "min": [
+    -0.913,
+    0.0,
+    -0.91
+   ],
+   "max": [
+    0.913,
+    1.14,
+    0.91
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_15_0",
+   "tris": 75,
+   "verts": 42,
+   "mat": "stone",
+   "offset": [
+    4.009,
+    -0.0,
+    -1.926
+   ],
+   "min": [
+    -0.548,
+    0.0,
+    -0.539
+   ],
+   "max": [
+    0.548,
+    2.274,
+    0.539
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_15_1",
+   "tris": 88,
+   "verts": 49,
+   "mat": "stone",
+   "offset": [
+    3.537,
+    2.274,
+    -1.637
+   ],
+   "min": [
+    -0.892,
+    0.0,
+    -0.724
+   ],
+   "max": [
+    0.892,
+    1.148,
+    0.724
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_17_0",
+   "tris": 35,
+   "verts": 24,
+   "mat": "stone",
+   "offset": [
+    2.686,
+    4.625,
+    0.716
+   ],
+   "min": [
+    -0.348,
+    0.0,
+    -0.781
+   ],
+   "max": [
+    0.348,
+    2.345,
+    0.781
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_17_2",
+   "tris": 82,
+   "verts": 55,
+   "mat": "stone",
+   "offset": [
+    2.747,
+    6.97,
+    -0.705
+   ],
+   "min": [
+    -0.509,
+    0.0,
+    -1.47
+   ],
+   "max": [
+    0.509,
+    1.093,
+    1.47
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_18_1",
+   "tris": 50,
+   "verts": 38,
+   "mat": "timber",
+   "offset": [
+    -1.842,
+    4.625,
+    -1.547
+   ],
+   "min": [
+    -0.816,
+    0.0,
+    -1.259
+   ],
+   "max": [
+    0.816,
+    2.345,
+    1.259
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_18_2",
+   "tris": 58,
+   "verts": 32,
+   "mat": "stone",
+   "offset": [
+    -1.416,
+    6.97,
+    -2.019
+   ],
+   "min": [
+    -1.147,
+    0.0,
+    -0.961
+   ],
+   "max": [
+    1.147,
+    1.218,
+    0.961
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_19_2",
+   "tris": 54,
+   "verts": 33,
+   "mat": "timber",
+   "offset": [
+    -2.106,
+    6.97,
+    -1.555
+   ],
+   "min": [
+    -0.372,
+    0.0,
+    -0.601
+   ],
+   "max": [
+    0.372,
+    1.249,
+    0.601
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_20_1",
+   "tris": 46,
+   "verts": 37,
+   "mat": "stone",
+   "offset": [
+    2.686,
+    4.625,
+    -0.617
+   ],
+   "min": [
+    -0.495,
+    0.0,
+    -1.48
+   ],
+   "max": [
+    0.495,
+    2.345,
+    1.48
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_20_2",
+   "tris": 48,
+   "verts": 31,
+   "mat": "stone",
+   "offset": [
+    2.414,
+    6.97,
+    1.212
+   ],
+   "min": [
+    -0.42,
+    0.0,
+    -0.606
+   ],
+   "max": [
+    0.42,
+    1.14,
+    0.606
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_21_0",
+   "tris": 40,
+   "verts": 30,
+   "mat": "stone",
+   "offset": [
+    1.856,
+    4.625,
+    1.903
+   ],
+   "min": [
+    -0.791,
+    0.0,
+    -0.738
+   ],
+   "max": [
+    0.791,
+    2.345,
+    0.738
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_21_1",
+   "tris": 80,
+   "verts": 50,
+   "mat": "stone",
+   "offset": [
+    1.79,
+    6.97,
+    1.742
+   ],
+   "min": [
+    -1.163,
+    0.0,
+    -0.977
+   ],
+   "max": [
+    1.163,
+    1.249,
+    0.977
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_22_0",
+   "tris": 43,
+   "verts": 35,
+   "mat": "timber",
+   "offset": [
+    0.314,
+    4.625,
+    2.372
+   ],
+   "min": [
+    -1.021,
+    0.0,
+    -0.56
+   ],
+   "max": [
+    1.021,
+    2.345,
+    0.56
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_26_0",
+   "tris": 60,
+   "verts": 46,
+   "mat": "stone",
+   "offset": [
+    0.632,
+    4.625,
+    -2.576
+   ],
+   "min": [
+    -1.654,
+    0.0,
+    -0.565
+   ],
+   "max": [
+    1.654,
+    2.345,
+    0.565
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_26_1",
+   "tris": 72,
+   "verts": 46,
+   "mat": "stone",
+   "offset": [
+    0.288,
+    6.97,
+    -2.858
+   ],
+   "min": [
+    -1.064,
+    0.0,
+    -0.334
+   ],
+   "max": [
+    1.064,
+    1.14,
+    0.334
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_28_0",
+   "tris": 170,
+   "verts": 97,
+   "mat": "timber",
+   "offset": [
+    -3.32,
+    0.297,
+    1.73
+   ],
+   "min": [
+    -0.827,
+    0.0,
+    -0.902
+   ],
+   "max": [
+    0.827,
+    1.344,
+    0.902
+   ]
+  },
+  {
+   "house": "Gasholder",
+   "chunk": "Chunks/Gasholder_30_0",
+   "tris": 140,
+   "verts": 62,
+   "mat": "timber",
+   "offset": [
+    -3.64,
+    1.016,
+    3.046
+   ],
+   "min": [
+    -0.223,
+    0.0,
+    -0.568
+   ],
+   "max": [
+    0.223,
+    1.188,
+    0.568
+   ]
+  }
+ ]
+}
