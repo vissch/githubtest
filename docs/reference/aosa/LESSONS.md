@@ -100,6 +100,23 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About changes
 
+- **The bench view could not show C49's effect: the evidence was blind again.** The fake crowd shadow darkens open
+  ground under men. In the stress preset every man stands packed in the rear trench, where the men cover the ground
+  themselves, and the zoom-16 view frames an empty no-man's land. Knob on against off changed 0.002% and 0% of
+  pixels, which read at first like a broken map. One extreme-knob run (strength 1, radius 1.5, stretch 3) changed
+  4.6%, in the upper right: the map worked, and the view had nothing for it to act on. A sparse battle (stress=150)
+  then showed why the design missed. The men stand on duckboards, which are painted kit and not the ground material
+  the shade was gated to, so the fake could not have shown in any battle. This is the second time, after "no bench
+  still ever showed a shot", so it is a rule candidate for the retrospective. Before judging an image card, show
+  the effect at an extreme knob value in the evidence view. If it does not show there, change the view, not the
+  verdict. And before writing a card for "under the men", check what they actually stand on. (C49, a0017; runs
+  4/n49z, s49z, x49z, q0c, q1c)
+- **A per-system cost read from code as "grows with the square of the crowd" was flat per man.** S04's diagnosis
+  put 60-70% of Sim.Step on the crush, because TargetAcquisition walks everyone within 130 m. Spreading the army
+  cut Sim.Step 39%, but per living man it did not move (0.82 against 0.87 µs a tick per 1,000). The 130 m search
+  sees the same men at 2 m or at 10 m spacing, and the spread battle had fewer men alive. Normalise a sim cost by
+  the men alive before crediting a scenario change with it. (S04d, a0018; runs 4/sp1, dv0)
+
 - **A cause inferred from code, with no render, was wrong. The patch's own knob disproved it in one player run.**
   The C42 author reasoned that the muzzle flare was hidden by depth and the soft edge, and built a fix that pulls
   it toward the eye. On held-clock stills, pull 1.2 against 0 was bit-identical, and so were scale 6, a 4096-card

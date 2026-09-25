@@ -1,4 +1,172 @@
 {
+ "stress.spread": {
+  "development": {
+   "n": 3,
+   "points": {
+    "draw_calls.p95": [
+     [
+      1.0,
+      288.0
+     ],
+     [
+      1.0,
+      292.0
+     ],
+     [
+      1.0,
+      293.0
+     ]
+    ],
+    "frame_budget_vertices.p95": [
+     [
+      1.0,
+      411126.0
+     ],
+     [
+      1.0,
+      412064.0
+     ],
+     [
+      1.0,
+      413738.0
+     ]
+    ],
+    "gpu_ms.p95": [
+     [
+      1.0,
+      2.1268
+     ],
+     [
+      1.0,
+      2.1494
+     ],
+     [
+      1.0,
+      2.1524
+     ]
+    ],
+    "main_ms.p95": [
+     [
+      1.0,
+      9.4824
+     ],
+     [
+      1.0,
+      9.6068
+     ],
+     [
+      1.0,
+      10.3301
+     ]
+    ],
+    "vat_vertices.p50": [
+     [
+      1.0,
+      1023372.0
+     ],
+     [
+      1.0,
+      1054550.0
+     ],
+     [
+      1.0,
+      1076558.0
+     ]
+    ]
+   },
+   "sensitivity": {
+    "draw_calls.p95": null,
+    "frame_budget_vertices.p95": null,
+    "gpu_ms.p95": null,
+    "main_ms.p95": null,
+    "vat_vertices.p50": null
+   }
+  }
+ },
+ "vat.crowdShadow": {
+  "development": {
+   "n": 3,
+   "points": {
+    "draw_calls.p95": [
+     [
+      1.0,
+      343.0
+     ],
+     [
+      1.0,
+      343.0
+     ],
+     [
+      1.0,
+      350.0
+     ]
+    ],
+    "frame_budget_vertices.p95": [
+     [
+      1.0,
+      528273.0
+     ],
+     [
+      1.0,
+      528529.0
+     ],
+     [
+      1.0,
+      530260.0
+     ]
+    ],
+    "gpu_ms.p95": [
+     [
+      1.0,
+      3.1683
+     ],
+     [
+      1.0,
+      3.1744
+     ],
+     [
+      1.0,
+      3.1764
+     ]
+    ],
+    "main_ms.p95": [
+     [
+      1.0,
+      10.2827
+     ],
+     [
+      1.0,
+      10.696
+     ],
+     [
+      1.0,
+      11.68
+     ]
+    ],
+    "vat_vertices.p50": [
+     [
+      1.0,
+      1598331.0
+     ],
+     [
+      1.0,
+      1601082.0
+     ],
+     [
+      1.0,
+      1608418.0
+     ]
+    ]
+   },
+   "sensitivity": {
+    "draw_calls.p95": null,
+    "frame_budget_vertices.p95": null,
+    "gpu_ms.p95": null,
+    "main_ms.p95": null,
+    "vat_vertices.p50": null
+   }
+  }
+ },
  "vat.lodDistance": {
   "release": {
    "n": 2,

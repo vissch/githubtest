@@ -98,4 +98,24 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
 
 ## Answered
 
-(none yet)
+- **A08 (2026-09-25): option (b).** The worktree gets an untracked `Assets/_AosaLocal/PipelineServerOff.asset`
+  (AutoStart off). It is never committed and never merged. `land.ps1` refuses to start an editor without it, and
+  it warns if the server starts anyway. Editor gates resume.
+- **S04 (2026-09-25): the loop's recommendation.** Keep the 3,000 ceiling, with no game rule yet. First change
+  only the stress scenario so it spreads each army across its trenches (patch author, runs/4/S04d.patch), with a
+  switch to the old preset, measured old against new in one build. Rule (b), the off-map reserve, stays the
+  proposal if a game rule is wanted later.
+  **Measured, cycle 4 (a0018, e6bd10c):** the switch is `knobs=stress.spread=1`, default off (bit-identical).
+  Spread cut `TW.Sim.Step` from 1.59 to 0.98 ms a tick, but only because the army in the open is shot down
+  (alive 2,185/1,681 -> 1,342/890). Per living man the sim costs the same packed or spread: 0.82 against 0.87 µs a
+  tick per 1,000 men, and TargetAcquisition 0.39 against 0.38. The "grows with the square of a crowd" reading above
+  is disproved: the 130 m search sees the same men whether they stand 2 m apart or 10. Men walking in the open cost
+  the presentation twice as much a man (Anim.Advance 2.3 -> 4.8 µs). **So an overfilled trench is not something to
+  save on.** Variants (a) to (c) save only by having fewer men. The benchmark keeps the old preset.
+- **A07 (2026-09-25): no real shadows at night.** The owner asked whether they look good. A 2x crop of the most
+  changed patch (runs/3/A07_shadows_compare.png) shows only slightly darker ground under the trench, and 1.4% of
+  pixels change. Revisit in daylight (C51) beside C49's zero-cost fake shadow.
+  **C49, cycle 4 (a0017): the ground-only fake is invisible and was reverted.** It costs +0.09 ms of CPU, no draw
+  and no GPU. But the men stand on duckboards (painted kit, not the ground) or so tightly packed that they cover
+  their own shade, so 0.002% of pixels change at T1. C49b retries it with the shade on the trench kit as well.
+
