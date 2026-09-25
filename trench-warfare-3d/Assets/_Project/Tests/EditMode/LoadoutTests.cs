@@ -133,6 +133,7 @@ namespace TW.Tests
             using var m = MatchSim.CreateGreybox(cfg);
 
             Assert.AreEqual(0, m.World.Roster[0].Cost, "nothing defines it yet, so the slot is empty");
+            Assert.AreEqual(0, m.World.SlotUnlocked[0], "and an empty slot is LOCKED: a cost of nothing passes the silver check");
 
             UnitDefinitions.Apply(m.World, new[] { new UnitDef
             {
@@ -145,8 +146,45 @@ namespace TW.Tests
             Assert.AreEqual(Spare, m.World.Roster[0].Archetype, "the chosen slot names it");
             Assert.AreEqual(175, m.World.Roster[0].Cost, "and it costs what the definition says, not nothing");
             Assert.AreEqual(130f, m.World.Roster[0].Hp, "and it can take what the definition says");
+            Assert.AreEqual(1, m.World.SlotUnlocked[0], "and the slot opens, because a definition gave it real numbers");
         }
 
+
+        /// <summary>
+        /// A slot naming a unit nothing defines would otherwise hold a zeroed line, and Deploy checks the lock, the
+        /// cooldown and the silver - a cost of nothing always passes the silver check. So it is locked, and would
+        /// otherwise field a free man with no hit points.
+        /// </summary>
+        [Test]
+        public void ASlotNamingNobodyCannotBeDeployed()
+        {
+            var cfg = Config();
+            cfg.LoadoutA = Ten(InfantryArchetype.Rifle, 40);   // 40 is inside the tables and nothing occupies it
+            using var m = MatchSim.CreateGreybox(cfg);
+
+            Assert.AreEqual(1, m.World.SlotUnlocked[0], "slot 0 is a rifleman and open");
+            Assert.AreEqual(0, m.World.SlotUnlocked[1], "slot 1 is nobody and shut");
+
+            int before = m.World.AliveCount;
+            var cmds = new NativeArray<SimCommand>(1, Allocator.Temp);
+            cmds[0] = SimCommand.Deploy(m.World.Tick, 0, 1);
+            m.Step(cmds);
+            cmds.Dispose();
+            Assert.AreEqual(before, m.World.AliveCount, "nothing came out of the shut slot");
+            Assert.AreEqual(cfg.StartingSilver, m.World.Silver[0], "and it cost nothing because it never happened");
+        }
+
+        /// <summary>
+        /// The ten travel in a FixedList32Bytes, which holds a fixed number of bytes. If the roster ever grows past
+        /// that, a loadout would be silently truncated on the way into the config rather than failing.
+        /// </summary>
+        [Test]
+        public void TheChosenTenFitInWhatCarriesThem()
+        {
+            var l = new FixedList32Bytes<byte>();
+            Assert.LessOrEqual(RosterEntry.SlotCount, l.Capacity,
+                $"RosterEntry.SlotCount is {RosterEntry.SlotCount} and a FixedList32Bytes holds {l.Capacity}: a bigger roster needs a bigger list");
+        }
         // ---- the replay header ----------------------------------------------------------------------------------
         [Test]
         public void TheReplayHeaderCarriesTheChosenTen()

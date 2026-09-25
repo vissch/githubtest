@@ -94,6 +94,9 @@ namespace TW.Sim
         /// as a definition arrives with its real cost and hit points instead of a zeroed line. That is also why
         /// UnitDefinitions.Apply calls this again: the definitions are written after the world is built, and the slots
         /// would otherwise hold whatever the compiled switch said when the constructor ran.
+        ///
+        /// It owns SlotUnlocked as well: a slot naming a unit nothing defines is locked, because a zeroed roster line
+        /// costs nothing and a cost of nothing always passes Deploy's silver check.
         /// </summary>
         public void FillRosters()
         {
@@ -103,8 +106,15 @@ namespace TW.Sim
                 var faction = Config.FactionOf(i);
                 for (int s = 0; s < RosterEntry.SlotCount; s++)
                 {
+                    int ri = i * RosterEntry.SlotCount + s;
                     byte a = s < chosen.Length ? chosen[s] : FactionRoster.Slot(faction, s).Archetype;
-                    Roster[i * RosterEntry.SlotCount + s] = a < Archetypes.Count ? Units.Roster[a] : default;
+                    var e = a < Archetypes.Count ? Units.Roster[a] : default;
+                    Roster[ri] = e;
+                    // A slot naming a unit nothing defines is locked rather than left deployable. Deploy rejects on the
+                    // lock, the cooldown and the silver, and a cost of nothing always passes the silver check, so the
+                    // alternative is a free man with no hit points. It opens again if a definition gives the id real
+                    // numbers, because UnitDefinitions.Apply calls this a second time.
+                    SlotUnlocked[ri] = (byte)(e.Hp > 0f ? 1 : 0);
                 }
             }
         }
@@ -150,7 +160,9 @@ namespace TW.Sim
             {
                 Silver[i] = config.StartingSilver;
                 Rally[i] = i == 0 ? init.SpawnA : init.SpawnB;
-                for (int s = 0; s < RosterEntry.SlotCount; s++) SlotUnlocked[i * RosterEntry.SlotCount + s] = 1;
+                // SlotUnlocked is FillRosters' to set (a defined slot open, an undefined one locked), called just below.
+                // A mission that wants a slot shut does it after the world is built, which was always the only moment
+                // that could work: this loop unlocked all ten unconditionally.
             }
 
             FillRosters();

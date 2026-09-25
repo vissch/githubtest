@@ -196,7 +196,13 @@ namespace TW.Tests
                 Assert.AreEqual(ChassisKind.IsArmoured(e.Chassis), e.IsVehicle, $"archetype {a} vehicle flag agrees with what it stands on");
                 var w = CombatTables.WeaponFor(a);
                 var spec = InfantrySpec.For(a);
-                Assert.IsTrue(w.RangeMax > 0f || spec.HealPerSecond > 0f, $"archetype {a} either shoots or heals");
+                // A walker's guns are TankGunnerySystem's, not DirectFire's, so "has a small-arms range" was never the
+                // right question for a machine. This used to pass for all six crabs only because WeaponFor's default is
+                // the RIFLEMAN'S rifle and they had no entries, which is the bug the entries removed.
+                var machine = ChassisKind.IsArmoured(e.Chassis) ? TankSpec.For(a) : default;
+                bool fights = w.RangeMax > 0f || machine.GunCount > 0 || machine.ClawDamage > 0f || machine.GasStrength > 0f;
+                Assert.IsTrue(fights || spec.HealPerSecond > 0f || spec.RepairPerSecond > 0f,
+                    $"archetype {a} neither fights, heals nor mends, so it has no reason to be on the field");
                 Assert.IsTrue(FactionRoster.Fields(FactionId.Iron, a) || FactionRoster.Fields(FactionId.Brass, a), $"some faction fields archetype {a}");
             }
             Assert.AreEqual(ChassisKind.Tracked, RosterEntry.Breaker.Chassis, "the Breaker runs on tracks");

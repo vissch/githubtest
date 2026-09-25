@@ -50,6 +50,17 @@ namespace TW.Sim.Combat
                     return new WeaponStats { Id = 16, Damage = 30f, RangeMax = 100f, RoundsPerSecond = 0.8f, Accuracy = 0.5f, SuppressionPerShot = 10f, PenetrationMm = 6f };
                 case InfantryArchetype.Jetpack:   // a machine pistol for the trench he lands in
                     return new WeaponStats { Id = 17, Damage = 22f, RangeMax = 40f, RoundsPerSecond = 3f, Accuracy = 0.45f, SuppressionPerShot = 7f, PenetrationMm = 4f };
+                // The six crabs carry NO small arms: every gun a walker has is TankGunnerySystem's (sponson guns, the
+                // Kettle's mortar, the Pavise's and Banner's long guns), and the Redoubt has none at all. Without these
+                // cases they fell through to the rifleman below and fired a phantom rifle at 130 m on top of their own
+                // guns, because TargetAcquisition reads a shooter's range out of this table for vehicles too.
+                case VehicleArchetype.Pincer:
+                case VehicleArchetype.Kettle:
+                case VehicleArchetype.Censer:
+                case VehicleArchetype.Pavise:
+                case VehicleArchetype.Banner:
+                case VehicleArchetype.Redoubt:
+                    return new WeaponStats { Id = archetype };   // RangeMax 0: acquires nothing, fires nothing
                 case VehicleArchetype.Breaker:    // hull machine guns either side of the ram
                     return new WeaponStats { Id = 18, Damage = 26f, RangeMax = 110f, RoundsPerSecond = 6f, Accuracy = 0.32f, SuppressionPerShot = 10f, PenetrationMm = 9f };
                 default: // rifleman (and the repair engineer, who carries one)

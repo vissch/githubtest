@@ -74,9 +74,15 @@ namespace TW.Tests
             using var m = NewMatch();
             for (int a = 0; a < Archetypes.Count; a++)
             {
-                Assert.AreEqual(RosterEntry.ForArchetype((byte)a).Cost, m.World.Units.Roster[a].Cost, $"archetype {a} cost");
-                Assert.AreEqual(CombatTables.WeaponFor((byte)a).Damage, m.Catalogue.Weapon[a].Damage, $"archetype {a} damage");
-                Assert.AreEqual(TankSpec.For((byte)a).Crew, m.Catalogue.Tank[a].Crew, $"archetype {a} crew");
+                var entry = RosterEntry.ForArchetype((byte)a);
+                Assert.AreEqual(entry.Cost, m.World.Units.Roster[a].Cost, $"archetype {a} cost");
+                // Both combat switches end in a silent default - WeaponFor in the rifleman's rifle, TankSpec.For in the
+                // MAW - so comparing every id against them asserted that an id nobody occupies is armed and that a
+                // RIFLEMAN HAS SIX CREW. The catalogue gives a weapon only to a unit and a hull only to a machine.
+                float wantDamage = entry.Hp > 0f ? CombatTables.WeaponFor((byte)a).Damage : 0f;
+                int wantCrew = ChassisKind.IsArmoured(entry.Chassis) ? TankSpec.For((byte)a).Crew : 0;
+                Assert.AreEqual(wantDamage, m.Catalogue.Weapon[a].Damage, $"archetype {a} damage");
+                Assert.AreEqual(wantCrew, m.Catalogue.Tank[a].Crew, $"archetype {a} crew");
                 Assert.AreEqual(VehicleProfile.ForArchetype((byte)a).TurnRateRad, m.Vehicles.Profiles[a].TurnRateRad, $"archetype {a} turn rate");
                 Assert.AreEqual(OrderGroup.Of((byte)a), m.World.Units.Infantry[a].Group, $"archetype {a} order group");
             }
