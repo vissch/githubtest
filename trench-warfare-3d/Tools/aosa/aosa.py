@@ -338,6 +338,32 @@ def run_player_quietly(cmd, timeout):
     return p.returncode
 
 
+def cmd_stilldiff(a):
+    """Pairwise changed-pixel fraction between stills; the worst pair decides. Needs Pillow (present on this machine)."""
+    from PIL import Image, ImageChops
+    paths = [Path(x) for x in a.pngs]
+    if len(paths) == 1 and not paths[0].suffix:
+        label = a.pngs[0]
+        for d in sorted((docs() / "runs").glob("*"), key=lambda p: (not p.name.isdigit(), int(p.name) if p.name.isdigit() else 0), reverse=True):
+            hits = sorted(d.glob(label + "-*.png"))
+            if hits:
+                paths = hits
+                break
+    if len(paths) < 2:
+        die("need at least two stills")
+    imgs = [Image.open(p).convert("RGB") for p in paths]
+    worst = 0.0
+    for i in range(len(imgs)):
+        for j in range(i + 1, len(imgs)):
+            d = ImageChops.difference(imgs[i], imgs[j]).point(lambda v: 255 if v > a.threshold else 0).convert("L")
+            hist = d.histogram()
+            changed = sum(hist[1:]) / float(d.width * d.height)
+            worst = max(worst, changed)
+            print("%-40s %-40s changed %.5f  bbox %s" % (paths[i].name, paths[j].name, changed, d.getbbox()))
+    print("worst pair: %.5f (%s)" % (worst, "repeatable" if worst < 0.001 else "NOT repeatable"))
+    return 0 if worst < 0.001 else 1
+
+
 def cmd_status(a):
     _, head = git("rev-parse", "--short", "HEAD")
     print("AOSA status %s  HEAD %s  cycle %d" % (utcnow().strftime("%Y-%m-%dT%H:%MZ"), head or "?", current_cycle()))
@@ -470,7 +496,10 @@ def band_for(metric, build, a_vals, b_vals, priors):
         return pb["band"], "priors (n=%d)" % pb["n"]
     if len(a_vals) >= 3 and len(b_vals) >= 3:
         devs = [x - statistics.median(a_vals) for x in a_vals] + [x - statistics.median(b_vals) for x in b_vals]
-        return 3 * statistics.median([abs(d) for d in devs]), "3*MAD of repeats"
+        # 3*MAD alone is 13x too tight on a bimodal metric (cycle 1: gpu p95 3.83/5.68/5.64 -> MAD band 0.14); with
+        # few repeats the band is never smaller than the widest spread either side showed.
+        spread = max(max(v) - min(v) for v in (a_vals, b_vals))
+        return max(3 * statistics.median([abs(d) for d in devs]), spread), "max(3*MAD, spread) of repeats"
     spread = max(max(v) - min(v) for v in (a_vals, b_vals))
     return spread, "min-max spread" if max(len(a_vals), len(b_vals)) > 1 else "none (1 sample each)"
 
@@ -480,6 +509,8 @@ def verdict(A, B, target="main_ms.p95", higher_better=None, priors=None):
     for grp in (A, B):
         if not grp:
             return {"verdict": "refused", "why": "no reports"}
+    if any((r.get("still") or {}).get("window_clock") == "held" for r in A + B):
+        return {"verdict": "refused", "why": "an image run (shot_tick, held window clock) is not a perf sample"}
     builds = {r["run"].get("build") for r in A + B}
     gpus = {(r.get("machine") or {}).get("gpu") for r in A + B}
     if len(builds) > 1:
@@ -590,6 +621,10 @@ def bench_string(spec, label, out, shot):
     pairs = list(STD_BENCH) + ([("quality", "5")] if spec["mode"] == "player" else []) + [("canary", "0")]
     if spec.get("scenario"):
         pairs.append(("scenario", spec["scenario"]))
+    if spec.get("shot_tick"):
+        pairs.append(("shot_tick", str(spec["shot_tick"])))   # an IMAGE run: held clock in the window, never a perf sample
+        if spec.get("no_hud"):
+            pairs.append(("shot_hud", "0"))   # the battlefield alone: the HUD runs on real time and the owner's pointer
     if spec.get("knobs"):
         pairs.append(("knobs", "|".join(k.strip() for k in spec["knobs"].split(",") if k.strip())))
     for tok in (spec.get("extra") or "").split():
@@ -667,7 +702,7 @@ def cmd_bench(a):
     cyc = a.cycle if a.cycle is not None else current_cycle()
     cyc_dir = docs() / "runs" / str(cyc)
     mode = "editor" if a.editor else "player"
-    spec = {"label": a.label, "cycle": cyc, "mode": mode, "dev": a.dev, "scenario": a.scenario, "knobs": a.knobs,
+    spec = {"label": a.label, "cycle": cyc, "mode": mode, "dev": a.dev, "scenario": a.scenario, "knobs": a.knobs, "shot_tick": a.shot_tick, "no_hud": getattr(a, "no_hud", False),
             "extra": a.extra, "build_dir": str(Path(a.build_dir) if a.build_dir else builds_dir() / ("WinBenchDev" if a.dev else "WinBench"))}
     other = None
     if a.against:
@@ -796,6 +831,8 @@ def all_reports():
         if p.parent.name == "seed":
             continue  # historical reports from different code: never repeats of each other, never a noise band
         r = load_json(p)
+        if isinstance(r, dict) and ((r.get("still") or {}).get("window_clock") == "held"):
+            continue  # an image run (shot_tick): its window ran on a held clock, so its timings are not a measurement
         if isinstance(r, dict) and r.get("schema") == "tw-perf/1":
             r["_path"], r["_group"] = str(p), (p.parent.name, re.sub(r"[-_]\d+$", "", p.stem))
             out.append(r)
@@ -833,16 +870,22 @@ def cmd_learn(a):
             vals = [v for v in (get_metric(r, m) for r in g) if v is not None]
             if len(vals) >= 2:
                 med = statistics.median(vals)
-                d = devs.setdefault(m, {}).setdefault(build, {"devs": [], "groups": set()})
+                d = devs.setdefault(m, {}).setdefault(build, {"devs": [], "groups": set(), "spread": 0.0})
                 d["devs"] += [abs(v - med) for v in vals]
+                d["spread"] = max(d["spread"], max(vals) - min(vals))
                 d["groups"].add("/".join(key))
-    bands = {m: {b: {"band": rnd(3 * statistics.median(d["devs"])), "n": len(d["devs"]), "groups": sorted(d["groups"])}
+    # Until 10 samples exist the band is never tighter than the widest spread any group showed: 3*MAD of 3 repeats
+    # of a bimodal metric was 13x too small in cycle 1 and made same-frame runs read as regressions.
+    bands = {m: {b: {"band": rnd(3 * statistics.median(d["devs"]) if len(d["devs"]) >= 10
+                                 else max(3 * statistics.median(d["devs"]), d["spread"])),
+                     "n": len(d["devs"]), "groups": sorted(d["groups"])}
                  for b, d in bd.items()} for m, bd in devs.items()}
     priors = {"global": GLOBAL_PRIOR, "n_attempts": len(att),
               "classes": {c: stats(g) for c, g in by_class.items() if c},
               "files": {f: stats(g) for f, g in by_file.items()}, "bands": bands,
               "band_grouping": "runs/<cycle>/<stem>-N.json grouped by (cycle dir, stem); same build and hash_start; "
-                               ">= 2 members; band = 3 * median |value - group median| pooled per metric and build"}
+                               ">= 2 members; band = 3 * median |value - group median| pooled per metric and build, and below 10 samples never "
+                               "tighter than the widest group spread"}
     # Knob sensitivities from reports that set exactly one knob.
     knobs = {}
     for r in all_reports():
@@ -1119,6 +1162,10 @@ def main(argv=None):
     g.add_argument("--editor", action="store_true")
     b.add_argument("--dev", action="store_true", help="use the development player (WinBenchDev)")
     b.add_argument("--scenario")
+    b.add_argument("--shot-tick", type=int, default=None, dest="shot_tick",
+                   help="take the still N ticks into the window on a held clock: an image run, excluded from perf judging")
+    b.add_argument("--no-hud", action="store_true", dest="no_hud",
+                   help="with --shot-tick: hide the HUD so the still is the battlefield alone (the repeatable image, C33)")
     b.add_argument("--knobs", help="k=v,k2=v2")
     b.add_argument("--repeats", type=int)
     b.add_argument("--against", help="interleave with a prior label's recorded args: A1 B1 A2 B2 ...")
@@ -1152,6 +1199,9 @@ def main(argv=None):
     r.add_argument("--timeout", type=int, default=600)
     r.add_argument("--dry-run", action="store_true")
     sub.add_parser("retro")
+    sd = sub.add_parser("stilldiff", help="pairwise pixel diff of bench stills (README rule 5 on player stills, C33)")
+    sd.add_argument("pngs", nargs="+", help="two or more PNGs, or one label (its repeats' stills in the newest cycle)")
+    sd.add_argument("--threshold", type=int, default=8, help="a pixel counts as changed when a channel moves more than this")
     lg = sub.add_parser("ledger")
     lg.add_argument("op", choices=["add"])
     lg.add_argument("--mode", required=True, choices=["P", "E", "B"])
@@ -1164,7 +1214,7 @@ def main(argv=None):
     lg.add_argument("--cycle", type=int)
     a = ap.parse_args(argv)
     fn = {"status": cmd_status, "bench": cmd_bench, "compare": cmd_compare, "attempt": cmd_attempt, "learn": cmd_learn,
-          "pick": cmd_pick, "age": cmd_age, "budget": cmd_budget, "refimg": cmd_refimg, "retro": cmd_retro,
+          "pick": cmd_pick, "age": cmd_age, "budget": cmd_budget, "refimg": cmd_refimg, "retro": cmd_retro, "stilldiff": cmd_stilldiff,
           "ledger": cmd_ledger}[a.cmd]
     if a.cmd == "status":
         try:

@@ -1,0 +1,2936 @@
+{
+ "band_grouping": "runs/<cycle>/<stem>-N.json grouped by (cycle dir, stem); same build and hash_start; >= 2 members; band = 3 * median |value - group median| pooled per metric and build, and below 10 samples never tighter than the widest group spread",
+ "bands": {
+  "TW.Anim.Advance.p50": {
+   "development": {
+    "band": 0.266325,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Anim.Advance.p95": {
+   "development": {
+    "band": 0.6141,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Anim.Tick.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Anim.Tick.p95": {
+   "development": {
+    "band": 0.62445,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Atmosphere.Late.p50": {
+   "development": {
+    "band": 0.001875,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Atmosphere.Late.p95": {
+   "development": {
+    "band": 0.01605,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Camera.Late.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Camera.Late.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Debris.Late.p50": {
+   "development": {
+    "band": 0.00315,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Debris.Late.p95": {
+   "development": {
+    "band": 0.026925,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Destruction.Update.p50": {
+   "development": {
+    "band": 0.002625,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Destruction.Update.p95": {
+   "development": {
+    "band": 0.023325,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Events.Collect.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Events.Collect.p95": {
+   "development": {
+    "band": 0.000975,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Events.Dispatch.p50": {
+   "development": {
+    "band": 7.5e-05,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Events.Dispatch.p95": {
+   "development": {
+    "band": 0.129,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Fog.Update.p50": {
+   "development": {
+    "band": 0.0081,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Fog.Update.p95": {
+   "development": {
+    "band": 0.227775,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Fx.Shake.p50": {
+   "development": {
+    "band": 0.00105,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Fx.Shake.p95": {
+   "development": {
+    "band": 0.001875,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Fx.Update.p50": {
+   "development": {
+    "band": 0.10935,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Fx.Update.p95": {
+   "development": {
+    "band": 0.49155,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.EnemyAi.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.EnemyAi.p95": {
+   "development": {
+    "band": 0.0003,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.StepLocal.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.StepLocal.p95": {
+   "development": {
+    "band": 1.323075,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.StepPeer.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.StepPeer.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.Update.p50": {
+   "development": {
+    "band": 0.327675,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Host.Update.p95": {
+   "development": {
+    "band": 1.94295,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Hud.Late.p50": {
+   "development": {
+    "band": 0.38565,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Hud.Late.p95": {
+   "development": {
+    "band": 0.714525,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Hud.Refresh.p50": {
+   "development": {
+    "band": 0.3852,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Hud.Refresh.p95": {
+   "development": {
+    "band": 0.714,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Landing.Update.p50": {
+   "development": {
+    "band": 0.006375,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Landing.Update.p95": {
+   "development": {
+    "band": 0.0381,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.NightLights.Update.p50": {
+   "development": {
+    "band": 0.0111,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.NightLights.Update.p95": {
+   "development": {
+    "band": 0.088125,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Present.Capture.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Present.Capture.p95": {
+   "development": {
+    "band": 0.0114,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Present.Interpolate.p50": {
+   "development": {
+    "band": 0.030075,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Present.Interpolate.p95": {
+   "development": {
+    "band": 0.155625,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Props.Compose.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Props.Compose.p95": {
+   "development": {
+    "band": 0.9747,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Props.Update.p50": {
+   "development": {
+    "band": 0.12795,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Props.Update.p95": {
+   "development": {
+    "band": 1.56615,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Rain.Late.p50": {
+   "development": {
+    "band": 0.0012,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Rain.Late.p95": {
+   "development": {
+    "band": 0.0072,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Hash.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Hash.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Step.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Step.p95": {
+   "development": {
+    "band": 1.281825,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.AmbientBombardmentSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.AmbientBombardmentSystem.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.BlastSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.BlastSystem.p95": {
+   "development": {
+    "band": 0.0003,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.DeformationSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.DeformationSystem.p95": {
+   "development": {
+    "band": 0.00075,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.DirectFireSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.DirectFireSystem.p95": {
+   "development": {
+    "band": 0.02865,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.FlowFieldManager.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.FlowFieldManager.p95": {
+   "development": {
+    "band": 0.00015,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.GasSmokeSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.GasSmokeSystem.p95": {
+   "development": {
+    "band": 0.0003,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.MovementSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.MovementSystem.p95": {
+   "development": {
+    "band": 0.573675,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.OffMapAbilitySystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.OffMapAbilitySystem.p95": {
+   "development": {
+    "band": 0.00045,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.SeaLandingSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.SeaLandingSystem.p95": {
+   "development": {
+    "band": 0.000975,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.SectorControlSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.SectorControlSystem.p95": {
+   "development": {
+    "band": 0.02835,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.SuppressionSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.SuppressionSystem.p95": {
+   "development": {
+    "band": 0.071925,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TankGunnerySystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TankGunnerySystem.p95": {
+   "development": {
+    "band": 0.00435,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TargetAcquisitionSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TargetAcquisitionSystem.p95": {
+   "development": {
+    "band": 0.591525,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TrenchGarrisonSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TrenchGarrisonSystem.p95": {
+   "development": {
+    "band": 0.04035,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TrenchOrdersSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.TrenchOrdersSystem.p95": {
+   "development": {
+    "band": 0.00555,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.VehicleKinematicsSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.VehicleKinematicsSystem.p95": {
+   "development": {
+    "band": 0.0003,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.VehicleModulesSystem.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Sim.Sys.VehicleModulesSystem.p95": {
+   "development": {
+    "band": 0.0102,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.SmallLife.Update.p50": {
+   "development": {
+    "band": 0.00015,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.SmallLife.Update.p95": {
+   "development": {
+    "band": 0.00105,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Storm.Update.p50": {
+   "development": {
+    "band": 0.001425,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Storm.Update.p95": {
+   "development": {
+    "band": 0.00915,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Tank.Late.p50": {
+   "development": {
+    "band": 0.00495,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Tank.Late.p95": {
+   "development": {
+    "band": 0.017775,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Apply.p50": {
+   "development": {
+    "band": 0.54435,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Apply.p95": {
+   "development": {
+    "band": 0.804,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Chunks.p50": {
+   "development": {
+    "band": 0.00075,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Chunks.p95": {
+   "development": {
+    "band": 0.0729,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Hollows.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Hollows.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Repaint.p50": {
+   "development": {
+    "band": 0.012225,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Repaint.p95": {
+   "development": {
+    "band": 0.0783,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Update.p50": {
+   "development": {
+    "band": 0.69795,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.Terrain.Update.p95": {
+   "development": {
+    "band": 1.369125,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.VAT.Late.p50": {
+   "development": {
+    "band": 0.097725,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.VAT.Late.p95": {
+   "development": {
+    "band": 0.275175,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.WaterRings.Update.p50": {
+   "development": {
+    "band": 0.0003,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "TW.WaterRings.Update.p95": {
+   "development": {
+    "band": 0.002925,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "alive.p50": {
+   "development": {
+    "band": 15.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 21.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "alive.p95": {
+   "development": {
+    "band": 3.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 12.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "batches.p50": {
+   "development": {
+    "band": 6.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "batches.p95": {
+   "development": {
+    "band": 3.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "cpu_frame_ms.p50": {
+   "development": {
+    "band": 2.4,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1.155,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "cpu_frame_ms.p95": {
+   "development": {
+    "band": 7.205025,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 3.3339,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "debris_alive.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "debris_alive.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "debris_draw_calls.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "debris_draw_calls.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "draw_calls.p50": {
+   "development": {
+    "band": 1.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "draw_calls.p95": {
+   "development": {
+    "band": 4.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 3.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "dt_ms.p50": {
+   "development": {
+    "band": 2.44545,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1.1598,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "dt_ms.p95": {
+   "development": {
+    "band": 6.86505,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 3.3453,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "frame_budget_draws.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "frame_budget_draws.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "frame_budget_indirect.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "frame_budget_indirect.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "frame_budget_vertices.p50": {
+   "development": {
+    "band": 7216.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1716.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "frame_budget_vertices.p95": {
+   "development": {
+    "band": 5841.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 4092.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "gc_bytes.p50": {
+   "development": {
+    "band": 217.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "gc_bytes.p95": {
+   "development": {
+    "band": 1008.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "gc_count.p50": {
+   "development": {
+    "band": 3.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "gc_count.p95": {
+   "development": {
+    "band": 1.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   }
+  },
+  "gpu_ms.p50": {
+   "development": {
+    "band": 1.3593,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.1596,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "gpu_ms.p95": {
+   "development": {
+    "band": 0.06675,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.129,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "main_ms.p50": {
+   "development": {
+    "band": 2.379825,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1.1247,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "main_ms.p95": {
+   "development": {
+    "band": 7.2528,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 3.3255,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "main_ms_idle_frames.p50": {
+   "development": {
+    "band": 1.798425,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.9789,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "main_ms_idle_frames.p95": {
+   "development": {
+    "band": 7.717125,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 2.7228,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "main_ms_tick_frames.p50": {
+   "development": {
+    "band": 5.35815,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1.0209,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "main_ms_tick_frames.p95": {
+   "development": {
+    "band": 12.867675,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 3.2604,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "props_draw_calls.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "props_draw_calls.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "props_vertices.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "props_vertices.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "render_ms.p50": {
+   "development": {
+    "band": 0.35085,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.1926,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "render_ms.p95": {
+   "development": {
+    "band": 2.15745,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.2238,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "setpass.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "setpass.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "terrain_paint_ms.p50": {
+   "development": {
+    "band": 0.00885,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0003,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "terrain_paint_ms.p95": {
+   "development": {
+    "band": 0.074475,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.105,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "ticks_per_frame.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "ticks_per_frame.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "triangles.p50": {
+   "development": {
+    "band": 26318.25,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1308.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "triangles.p95": {
+   "development": {
+    "band": 11934.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 6552.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_drawn.p50": {
+   "development": {
+    "band": 7.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 18.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_drawn.p95": {
+   "development": {
+    "band": 0.75,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_near.p50": {
+   "development": {
+    "band": 7.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 18.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_near.p95": {
+   "development": {
+    "band": 0.75,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_shadows_on.p50": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_shadows_on.p95": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_vertices.p50": {
+   "development": {
+    "band": 6877.5,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 16506.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vat_vertices.p95": {
+   "development": {
+    "band": 687.75,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vertices.p50": {
+   "development": {
+    "band": 11517.75,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 1143.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "vertices.p95": {
+   "development": {
+    "band": 6150.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 4065.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "window.alive_end": {
+   "development": {
+    "band": 0.0,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 0.0,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  },
+  "window.fps_mean": {
+   "development": {
+    "band": 24.848475,
+    "groups": [
+     "1/d2",
+     "1/d2b",
+     "1/k1d",
+     "1/k2d"
+    ],
+    "n": 14
+   },
+   "release": {
+    "band": 23.0982,
+    "groups": [
+     "0/base",
+     "1/b0",
+     "1/b1",
+     "1/b2",
+     "1/c31",
+     "1/c33",
+     "1/k1r"
+    ],
+    "n": 21
+   }
+  }
+ },
+ "classes": {
+  "batch": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.969935,
+   "n": 2,
+   "n_calibration": 0,
+   "n_judged": 2
+  },
+  "budget-sweep": {
+   "calibration": 1.35,
+   "hit_rate": null,
+   "median_cost_cycles": 1.0,
+   "median_gain": null,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 0
+  },
+  "cache": {
+   "calibration": 0.729929,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 4.529765,
+   "n": 4,
+   "n_calibration": 2,
+   "n_judged": 4
+  },
+  "cap": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 1.518072,
+   "n": 3,
+   "n_calibration": 0,
+   "n_judged": 3
+  },
+  "instrument": {
+   "calibration": 1.00404,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.236667,
+   "n": 8,
+   "n_calibration": 2,
+   "n_judged": 3
+  },
+  "juice": {
+   "calibration": null,
+   "hit_rate": 0.5,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.011,
+   "n": 3,
+   "n_calibration": 0,
+   "n_judged": 2
+  },
+  "shader": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.119231,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  }
+ },
+ "files": {
+  "(blender harness)": {
+   "calibration": null,
+   "hit_rate": null,
+   "median_cost_cycles": 1.0,
+   "median_gain": null,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 0
+  },
+  "Editor/BuildWindows.cs": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 3.886414,
+   "n": 2,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Perf/BenchOptions.cs": {
+   "calibration": 1.008081,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.0998,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Perf/PerfBench.cs": {
+   "calibration": 1.008081,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.0998,
+   "n": 2,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Camera/TankModel.cs": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.011,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Presentation/Camera/TankRenderer.cs": {
+   "calibration": 1.0,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.236667,
+   "n": 2,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Camera/WalkerGait.cs": {
+   "calibration": null,
+   "hit_rate": 0.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": null,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Presentation/Core/AnimationController.cs": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 6.851196,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Presentation/Core/SimHost.cs": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 4.033333,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Presentation/Terrain/BattlefieldProps.cs": {
+   "calibration": 1.0,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 1.222892,
+   "n": 3,
+   "n_calibration": 1,
+   "n_judged": 3
+  },
+  "Presentation/Terrain/BattlefieldSurface.cs": {
+   "calibration": 0.687692,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 89.4,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Terrain/GreyboxTerrainView.cs": {
+   "calibration": 0.890123,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.749,
+   "n": 3,
+   "n_calibration": 2,
+   "n_judged": 3
+  },
+  "Presentation/Terrain/NightLights.cs": {
+   "calibration": 1.008081,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.0998,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Terrain/PropDestruction.cs": {
+   "calibration": 1.0,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.236667,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Terrain/ScorchTilePainter.cs": {
+   "calibration": 0.772165,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.749,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Terrain/Storm.cs": {
+   "calibration": 1.008081,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.0998,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Presentation/Units/VATRenderer.cs": {
+   "calibration": 1.0,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.236667,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  },
+  "Shaders/VAT_URP.shader": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.119231,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Sim/Units/TrenchGarrison.cs": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 2.208333,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "Tools/envatlas.py": {
+   "calibration": null,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.083203,
+   "n": 1,
+   "n_calibration": 0,
+   "n_judged": 1
+  },
+  "UI/Selection/SelectionMarkers.cs": {
+   "calibration": 1.0,
+   "hit_rate": 1.0,
+   "median_cost_cycles": 1.0,
+   "median_gain": 0.236667,
+   "n": 1,
+   "n_calibration": 1,
+   "n_judged": 1
+  }
+ },
+ "global": {
+  "cost": 1.0,
+  "hit_rate": 0.3
+ },
+ "n_attempts": 22
+}

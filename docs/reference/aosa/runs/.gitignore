@@ -1,0 +1,4 @@
+# Stills and player logs stay on the machine that ran them (a cycle writes ~50 MB of PNG). The JSON reports,
+# args and patches are the record; a still that matters to a card is named in the ledger by run label.
+*.png
+*.log

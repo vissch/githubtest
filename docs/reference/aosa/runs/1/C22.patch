@@ -1,0 +1,304 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index a3391a9..05f89ff 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -116,6 +116,9 @@ namespace TW.Presentation.Tactical
+         public SimHost Host;
+         public float TracerSeconds = 0.12f;
+         public int MaxBodies = 600;
++        // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
++        // firing line ripples instead of strobing at the sim's 20 Hz. 0 = every shot on the frame its tick arrives.
++        float shotStagger = ShotStagger.DefaultSpread;
+ 
+         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
+         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
+@@ -251,6 +254,7 @@ namespace TW.Presentation.Tactical
+             CloseReach = Knobs.Get("fx.closeReach", CloseReach);
+             MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
+             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
++            shotStagger = ShotStagger.ReadSpread();
+         }
+ 
+         void Start()
+@@ -490,7 +494,9 @@ namespace TW.Presentation.Tactical
+                     Vector3 from, barrel, to;
+                     if (units == null || !units.Sockets(e.A, out from, out barrel, out _)) EstimateMuzzle(e.A, e.B, scale, out from, out barrel);
+                     if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
+-                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
++                    // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
++                    float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
++                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
+                     Vector3 direction = (to - from).normalized;
+                     bool drawn = books != null && books.Ready;
+                     Vector3 carried = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Velocity(e.A, w.Config.TickSeconds) : Vector3.zero;   // a man firing on the run carries his flash
+@@ -505,9 +511,9 @@ namespace TW.Presentation.Tactical
+                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
+                         bool flip = UnityEngine.Random.value < 0.5f;
+                         books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+-                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow);
++                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
+                     }
+-                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time });
++                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
+                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
+                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
+                     // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
+@@ -526,14 +532,14 @@ namespace TW.Presentation.Tactical
+                             SceneHooks.AddRing?.Invoke(hit.x, hit.z, 0.8f);
+                             Throw(hit + Vector3.up * 0.4f, 7, 4, 6f, 0.07f);
+                             // a round in the water stands up a little white column
+-                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f);
++                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f, delay: delay);
+                         }
+                         else
+                         {
+                             Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f);
+                             if (SceneMood.Night && UnityEngine.Random.value < 0.35f) Throw(hit, 3, 3, 11f, 0.035f);
+                             // and in the mud a spurt of dust that leans away from the shooter
+-                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f);
++                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
+                         }
+                     }
+                     if (e.Scalar < 0.5f && chunks.Count < 420)
+@@ -902,6 +908,7 @@ namespace TW.Presentation.Tactical
+             for (int i = 0; i < tracers.Count; i++)
+             {
+                 var t = tracers[i];
++                if (now < t.Born) continue;   // not shown yet: its place in the tick (ShotStagger) is still to come
+                 if (night && side < 2 && (t.Team & 1) != side) continue;
+                 Vector3 d = t.To - t.From;
+                 float len = d.magnitude;
+@@ -921,7 +928,8 @@ namespace TW.Presentation.Tactical
+             batch.Clear();
+             for (int i = 0; i < flashes.Count; i++)
+             {
+-                var f = flashes[i]; float s = Mathf.Lerp(0.80f, 0.22f, (now - f.Born) / 0.065f);
++                var f = flashes[i]; if (now < f.Born) continue;
++                float s = Mathf.Lerp(0.80f, 0.22f, (now - f.Born) / 0.065f);
+                 batch.Add(Matrix4x4.TRS(f.Pos, f.Direction.sqrMagnitude > 0.01f ? Quaternion.LookRotation(f.Direction) : Quaternion.identity, new Vector3(s, s, s * 1.6f)));
+             }
+             if (batch.Count > 0) Flush(flashMesh, new RenderParams(flashMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs
+new file mode 100644
+index 0000000..700907f
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs
+@@ -0,0 +1,44 @@
++// Phase: C22 (AOSA, juice J03) - when inside its sim tick each rifle shot is SHOWN.
++// The sim fires a whole tick's shots at once, every 50 ms, and they reach the presentation in one frame: every tracer,
++// flare and muzzle light of the tick was born on that frame, so a firing line strobed at 20 Hz. Each shot is now shown
++// a little late, by a fraction of one tick that its shooter and its tick pick, so a line's fire runs along it as a
++// flicker. Presentation only: nothing here is read by the sim, and the hash has no state, so a held-clock still repeats.
++// CombatFx (the tracer, the flare, the spurt) and NightLights (the muzzle light) ask the same question and agree.
++namespace TW.Presentation
++{
++    public static class ShotStagger
++    {
++        /// <summary>The knob: how much of one sim tick the shots of a tick are spread over. 1 = the whole tick,
++        /// 0 = every shot at the start of its tick (the look before C22).</summary>
++        public const string Knob = "fx.shotStagger";
++        public const float DefaultSpread = 1f;
++
++        /// <summary>The knob's value, read once by each reader (Awake/Start), never below 0.</summary>
++        public static float ReadSpread()
++        {
++            float v = Knobs.Get(Knob, DefaultSpread);
++            return v > 0f ? v : 0f;
++        }
++
++        /// <summary>Where in its tick this shooter's shot of this tick falls: [0, 1). A hash of the tick says where the
++        /// tick's first slot falls, and each next slot is a golden-ratio step on from it (a Weyl sequence), so the
++        /// neighbours of a firing line never share a moment and any run of slots covers the tick evenly: 40 neighbours
++        /// put at most 14 on one held frame of three. A pure function: the same shooter and tick always agree.</summary>
++        public static float Fraction(int shooter, uint tick)
++        {
++            uint h = unchecked(tick * 0x85EBCA77u + 0x632BE5ABu);
++            h ^= h >> 16; h = unchecked(h * 0x7FEB352Du);
++            h ^= h >> 15; h = unchecked(h * 0x846CA68Bu);
++            h ^= h >> 16;
++            uint phase = unchecked(h + (uint)shooter * 0x9E3779B9u);   // 2^32 / golden ratio: the step between slots
++            return (phase >> 8) * (1f / 16777216f);   // the top 24 bits: exact in a float, and never 1
++        }
++
++        /// <summary>Seconds after the event arrives that this shot is shown: [0, spread x tickSeconds).</summary>
++        public static float Delay(int shooter, uint tick, float tickSeconds, float spread)
++        {
++            if (spread <= 0f || tickSeconds <= 0f) return 0f;
++            return Fraction(shooter, tick) * spread * tickSeconds;
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs.meta b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs.meta
+new file mode 100644
+index 0000000..d0e9395
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: e72b75cab23a480c8874e29a13d52200
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs
+index f3aa892..d16b675 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs
+@@ -50,6 +50,7 @@ namespace TW.Presentation.Terrain
+         public bool Built => built;
+         readonly List<Object> owned = new List<Object>();
+         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
++        float shotStagger = ShotStagger.DefaultSpread;   // knob fx.shotStagger (Start): a shot's light comes on with its flare (CombatFx)
+         // The frame since Start, for the hashes that place guns, flares and embers (C33): Time.frameCount counts every
+         // splash and menu frame too, so a star shell went up somewhere else in each of two identical bench runs.
+         int frame0;
+@@ -78,6 +79,7 @@ namespace TW.Presentation.Terrain
+             maxTorches = Mathf.Max(0, Knobs.Get("lights.maxTorches", MaxTorches));
+             maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
+             poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
++            shotStagger = ShotStagger.ReadSpread();
+             if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
+             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
+             for (int i = 0; i < poolSize; i++)
+@@ -362,20 +364,20 @@ namespace TW.Presentation.Terrain
+         /// Now the dimmest slot goes first, and nothing takes a slot from a light still burning brighter than itself:
+         /// a burst holds its light for as long as it was given, and the shot that cannot have one simply goes unlit.
+         /// </summary>
+-        void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f)
++        void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f, float delay = 0f)
+         {
+             int slot = -1; float dimmest = float.MaxValue;
+             for (int i = 0; i < poolSize; i++)
+             {
+-                float left = pool[i].Light.enabled ? Mathf.Max(0f, 1f - (Time.time - pool[i].Born) / pool[i].Life) : 0f;
++                float left = pool[i].Light.enabled ? Mathf.Clamp01(1f - (Time.time - pool[i].Born) / pool[i].Life) : 0f;   // a light still to come counts at its peak
+                 float live = pool[i].Peak * left * left;   // the same curve Update draws it with
+                 if (live >= dimmest) continue;
+                 dimmest = live; slot = i;
+             }
+             if (slot < 0 || dimmest > peak) return;   // every light out there is brighter than this one: it stays dark
+             ref var p = ref pool[slot];
+-            p.Light.transform.position = at; p.Light.color = color; p.Light.range = range; p.Light.intensity = peak; p.Light.enabled = true;
+-            p.Born = Time.time; p.Life = life; p.Peak = peak; p.Card = card;
++            p.Light.transform.position = at; p.Light.color = color; p.Light.range = range; p.Light.intensity = delay > 0f ? 0f : peak; p.Light.enabled = true;
++            p.Born = Time.time + delay; p.Life = life; p.Peak = peak; p.Card = card;
+         }
+ 
+         void OnSimEvent(SimEvent e)
+@@ -389,7 +391,8 @@ namespace TW.Presentation.Terrain
+                 if (toCam.sqrMagnitude > 150f * 150f || Vector3.Dot(toCam, cam.transform.forward) < 0f) return;
+                 at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.2f;
+                 lastShot = Time.time;
+-                Flash(at, Muzzle, 13f, 10f, .09f);
++                // on with its flare: the same place in the tick CombatFx shows this shot at (ShotStagger)
++                Flash(at, Muzzle, 13f, 10f, .09f, 2.6f, ShotStagger.Delay(e.A, e.Tick, Host.Local.World.Config.TickSeconds, shotStagger));
+             }
+             else if (e.Type == SimEventType.Explosion)
+             {
+@@ -442,10 +445,12 @@ namespace TW.Presentation.Terrain
+             for (int i = 0; i < poolSize; i++)
+             {
+                 float age = pool[i].Light.enabled ? (Time.time - pool[i].Born) / pool[i].Life : 1f;
++                bool waiting = age < 0f;   // a staggered shot's light, still dark until its flare (ShotStagger)
+                 if (age >= 1f) pool[i].Light.enabled = false;
+-                else pool[i].Light.intensity = pool[i].Peak * (1f - age) * (1f - age);
++                else pool[i].Light.intensity = waiting ? 0f : pool[i].Peak * (1f - age) * (1f - age);
+                 // the card: as wide as a third of the light's reach, over-bright at birth so the bloom takes it
+-                float live = age >= 1f ? 0f : (1f - age) * (1f - age);
++                float live = age >= 1f || waiting ? 0f : (1f - age) * (1f - age);
++                if (waiting) age = 0f;
+                 var c = pool[i].Light.color; var card = new Color(c.r, c.g, c.b, live * pool[i].Card);
+                 var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age) * Mathf.Lerp(1f, .55f, SceneHooks.CloseUp), 0f, i * .19f, .15f);   // among the men it was wider than the picture
+                 for (int k = 0; k < 4; k++) { flashPos[i * 4 + k] = pool[i].Light.transform.position; flashCol[i * 4 + k] = card; flashShape[i * 4 + k] = shape; }
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotStaggerTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotStaggerTests.cs
+new file mode 100644
+index 0000000..e174677
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotStaggerTests.cs
+@@ -0,0 +1,80 @@
++// Phase: C22 (AOSA, juice J03) - the stagger that spreads a tick's rifle shots across the tick. Pure logic, no scene:
++// it stays inside the tick, it repeats, the knob at 0 is the old look, and on the held clock (1/64 s a frame, the
++// bench's shot_tick stills) no frame shows more than half of a tick's shots, where before one frame showed all of them.
++using NUnit.Framework;
++using TW.Presentation;
++
++namespace TW.Tests
++{
++    public class ShotStaggerTests
++    {
++        const float Tick = 0.05f;          // SimConfig: 20 Hz
++        const float HeldStep = 1f / 64f;   // the held clock of a shot_tick run (C33)
++
++        [SetUp] public void SetUp() => Knobs.Clear();
++        [TearDown] public void TearDown() => Knobs.Clear();
++
++        [Test]
++        public void EveryDelayFallsInsideItsTick_AndRepeats()
++        {
++            for (uint tick = 0; tick < 400; tick++)
++                for (int shooter = 0; shooter < 300; shooter += 7)
++                {
++                    float f = ShotStagger.Fraction(shooter, tick);
++                    Assert.That(f, Is.GreaterThanOrEqualTo(0f).And.LessThan(1f));
++                    Assert.AreEqual(f, ShotStagger.Fraction(shooter, tick), "the same shooter and tick must give the same place");
++                    float d = ShotStagger.Delay(shooter, tick, Tick, 1f);
++                    Assert.That(d, Is.GreaterThanOrEqualTo(0f).And.LessThan(Tick));
++                }
++        }
++
++        [Test]
++        public void SpreadZero_IsTheOldLook()
++        {
++            for (int shooter = 0; shooter < 50; shooter++)
++                Assert.AreEqual(0f, ShotStagger.Delay(shooter, 123u, Tick, 0f));
++            Assert.AreEqual(1f, ShotStagger.ReadSpread(), "nothing set: the whole tick");
++            Knobs.Set(ShotStagger.Knob, "0");
++            Assert.AreEqual(0f, ShotStagger.ReadSpread());
++            Knobs.Set(ShotStagger.Knob, "-2");
++            Assert.AreEqual(0f, ShotStagger.ReadSpread(), "never below 0");
++        }
++
++        [Test]
++        public void NoHeldFrameShowsMoreThanHalfOfATicksShots()
++        {
++            // a volley: a firing line's slots are neighbours, and the same men fire again tick after tick. Each shot is
++            // first drawn on the first held frame at or after its birth; a tick arrives on a frame, so frame k covers
++            // delays in ((k-1) step, k step]. Before C22 every shot of a tick was drawn on frame 0.
++            foreach (int men in new[] { 8, 40, 100 })
++            {
++                float sum = 0f;
++                for (uint tick = 1800; tick < 2200; tick++)
++                {
++                    var perFrame = new int[8];
++                    for (int k = 0; k < men; k++)
++                    {
++                        int shooter = 1200 + k;
++                        float d = ShotStagger.Delay(shooter, tick, Tick, 1f);
++                        perFrame[(int)System.Math.Ceiling(d / HeldStep)]++;
++                        sum += ShotStagger.Fraction(shooter, tick);
++                    }
++                    for (int f = 0; f < perFrame.Length; f++)
++                        Assert.That(perFrame[f], Is.LessThanOrEqualTo(men / 2), men + " men, tick " + tick + ": held frame " + f + " showed more than half of the tick's shots");
++                }
++                Assert.That(sum / (men * 400f), Is.InRange(0.45f, 0.55f), men + " men: the shots are not spread evenly over the tick");
++            }
++        }
++
++        [Test]
++        public void NeighboursInALineDoNotMoveTogether()
++        {
++            // the ripple needs neighbours at different places in the tick: count adjacent pairs within a twentieth of it
++            int close = 0, pairs = 0;
++            for (uint tick = 0; tick < 200; tick++)
++                for (int s = 0; s < 60; s++, pairs++)
++                    if (System.Math.Abs(ShotStagger.Fraction(s, tick) - ShotStagger.Fraction(s + 1, tick)) < 0.05f) close++;
++            Assert.That(close / (float)pairs, Is.LessThan(0.05f), "neighbours share a place in the tick (independent hashes would give 0.0975)");
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotStaggerTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotStaggerTests.cs.meta
+new file mode 100644
+index 0000000..3c56542
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotStaggerTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 6255d8a037b448a78ebf0a86726350df
+\ No newline at end of file

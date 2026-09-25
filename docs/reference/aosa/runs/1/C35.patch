@@ -1,0 +1,432 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
+index c5ee2ee..27f69f3 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
+@@ -73,12 +73,21 @@ namespace TW.Presentation.Terrain
+         /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
+         public bool HollowsPending => hollowsDirty;
+         readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
+-        public int PendingPaintTiles => paintTiles.Count;
++        /// <summary>Milliseconds a frame spent repainting crater tiles, checked after every row of a tile (at least one
++        /// row a frame). It was checked only between whole tiles, and a 16 x 16 tile is 256 GroundColor calls: against
++        /// this 2 ms the development player measured a 3.0 ms median under a barrage (AOSA C35).</summary>
++        public const double PaintBudgetMs = 2.0;
++        double paintBudgetMs = PaintBudgetMs;   // or the knob terrain.paintBudgetMs (Start)
++        readonly ScorchTilePainter painter = new ScorchTilePainter();
++        System.Func<float, float, Color> groundAt;
++        public int PendingPaintTiles => paintTiles.Count + (painter.Busy ? 1 : 0);
+         public float LastPaintMilliseconds { get; private set; }
+ 
+         void Start()
+         {
+             chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
++            paintBudgetMs = Knobs.Get("terrain.paintBudgetMs", (float)PaintBudgetMs);
++            groundAt = (wx, wz) => GroundColor(Host.Local.Map, wx, wz);
+             if (Host == null || Host.Local == null) return;
+             var map = Host.Local.Map;
+             var hf = map.Height;
+@@ -560,10 +569,19 @@ namespace TW.Presentation.Terrain
+                 int m = scorchSweep++;
+                 if (m < scorchBorn.Count && Time.time - scorchBorn[m] < SnowFillSeconds) QueueScorchTiles(scorchMarks[m]);
+             }
+-            while (paintTiles.Count > 0 && paintWatch.Elapsed.TotalMilliseconds < 2.0)
++            // A row at a time, so the budget binds at a row rather than at a whole tile. A tile is written to the
++            // texture only when its last row is done, so the texture never shows half of one.
++            int paintRows = 0;
++            while (paintRows == 0 || paintWatch.Elapsed.TotalMilliseconds < paintBudgetMs)
+             {
+-                var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
+-                RepaintTile(tile); colorDirty = true;
++                if (!painter.Busy)
++                {
++                    if (paintTiles.Count == 0) break;
++                    var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
++                    if (!BeginTile(tile)) continue;
++                }
++                paintRows++;
++                if (painter.PaintRow(groundAt)) { painter.Write(colorTex); colorDirty = true; }
+             }
+             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
+             TW.Sim.PerfMarkers.TerrainRepaint.End();
+@@ -642,28 +660,12 @@ namespace TW.Presentation.Terrain
+             { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
+         }
+ 
+-        void RepaintTile(Vector2Int tile)
++        /// <summary>Start repainting one 2 m tile (16 x 16 texels, fewer at the far edges): its ground colour and the
++        /// scorch of every crater that reaches it (ScorchTilePainter). False if the tile holds no texels.</summary>
++        bool BeginTile(Vector2Int tile)
+         {
+             int x1 = Mathf.Min(colorTex.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(colorTex.height, (tile.y + 1) * 2 * Tpm);
+-            for (int z = tile.y * 2 * Tpm; z < z1; z++) for (int x = tile.x * 2 * Tpm; x < x1; x++)
+-            {
+-                float wx = (x + .5f) / Tpm, wz = (z + .5f) / Tpm;
+-                Color c = GroundColor(Host.Local.Map, wx, wz);
+-                float burn = 0f;
+-                for (int m = 0; m < scorchMarks.Count; m++)
+-                {
+-                    var mark = scorchMarks[m];
+-                    float radius = mark.Scalar * 1.25f;
+-                    if (radius <= 0f || Mathf.Abs(wx - mark.Pos.x) > radius || Mathf.Abs(wz - mark.Pos.z) > radius) continue;
+-                    float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
+-                    // The hole is black for ScorchHoldSeconds and then fills: the ground lightens back toward what
+-                    // it was, and because the snow is keyed off the burn (Toon_URP) the snow comes back with it.
+-                    float age = m < scorchBorn.Count ? Time.time - scorchBorn[m] : SnowFillSeconds;
+-                    float fresh = 1f - Mathf.Clamp01((age - ScorchHoldSeconds) / Mathf.Max(1f, SnowFillSeconds - ScorchHoldSeconds));
+-                    burn = Mathf.Max(burn, .45f * (1f - distance / radius) * fresh * fresh);
+-                }
+-                colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
+-            }
++            return painter.Begin(tile.x * 2 * Tpm, tile.y * 2 * Tpm, x1, z1, Tpm, scorchMarks, scorchBorn, Time.time);
+         }
+ 
+         Texture2D BuildColorTexture(MapData map)
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs
+new file mode 100644
+index 0000000..f963de0
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs
+@@ -0,0 +1,114 @@
++// Phase: B2 (perf, AOSA C35 2026-09-25) - repaints one tile of the ground's colour texture: the ground colour, then
++// the scorch of every crater that reaches it, faded by the crater's age.
++// This replaced a loop that tested every scorch mark against every texel and wrote each texel with SetPixel. It
++// works the same maths out in the same order, so every texel comes out bit for bit as before (ScorchTilePainterTests
++// keeps the old loop as its oracle). Three things differ:
++// - Only the marks that can reach the tile are tested. A mark more than its radius plus 1 m away from every texel
++//   centre in the tile is dropped once per tile; the per-texel test is unchanged. The burn is a max, so the marks
++//   dropped could only ever have added zero.
++// - A mark's fade depends only on its age, so it is worked out once per tile rather than once per texel. The time is
++//   read when the tile starts; the old loop read Time.time per texel, which is the same number within a frame.
++// - The texels go into a buffer, a row at a time, and the finished tile is written with one SetPixels32. The caller
++//   can stop between rows and carry on next frame, so a frame's time budget binds at a row, not at a whole tile. A
++//   tile half done is never written, so the texture never shows a half-painted tile.
++// Color to byte is Unorm8 below, which is the rounding SetPixel applies on an RGBA32 texture.
++using System;
++using System.Collections.Generic;
++using UnityEngine;
++
++namespace TW.Presentation.Terrain
++{
++    public sealed class ScorchTilePainter
++    {
++        /// <summary>The colour a fresh shell hole burns the ground toward.</summary>
++        public static readonly Color Burnt = new Color(.10f, .09f, .08f);
++
++        struct Mark { public float X, Z, Radius, Fresh; }
++
++        readonly List<Mark> near = new List<Mark>();
++        readonly Dictionary<int, Color32[]> buffers = new Dictionary<int, Color32[]>();
++        Color32[] buffer;
++        int x0, z0, w, h, tpm, nextRow;
++
++        /// <summary>A tile has been started and not yet written.</summary>
++        public bool Busy { get; private set; }
++
++        /// <summary>
++        /// Start the texel block [x0, x1) x [z0, z1) at tpm texels a metre. marks and born are the view's scorch marks
++        /// and the Time.time each landed; now is the time the whole tile is painted at. False, and nothing started, for
++        /// an empty block.
++        /// </summary>
++        public bool Begin(int x0, int z0, int x1, int z1, int tpm, List<TW.Sim.SimEvent> marks, List<float> born, float now)
++        {
++            Busy = false;
++            if (x1 <= x0 || z1 <= z0) return false;
++            this.x0 = x0; this.z0 = z0; w = x1 - x0; h = z1 - z0; this.tpm = tpm; nextRow = 0;
++            if (!buffers.TryGetValue(w * h, out buffer)) { buffer = new Color32[w * h]; buffers.Add(w * h, buffer); }   // SetPixels32 wants the exact size
++            // the texel centres this tile covers, in metres, as the per-texel loop computes them
++            float wxMin = (x0 + .5f) / tpm, wxMax = (x1 - 1 + .5f) / tpm, wzMin = (z0 + .5f) / tpm, wzMax = (z1 - 1 + .5f) / tpm;
++            near.Clear();
++            for (int m = 0; m < marks.Count; m++)
++            {
++                var mark = marks[m];
++                float radius = mark.Scalar * 1.25f;
++                if (radius <= 0f) continue;   // the per-texel test skips it for every texel
++                // a metre of slack: this only drops marks that cannot pass the exact test below for any texel
++                if (mark.Pos.x + radius < wxMin - 1f || mark.Pos.x - radius > wxMax + 1f || mark.Pos.z + radius < wzMin - 1f || mark.Pos.z - radius > wzMax + 1f) continue;
++                // The hole is black for ScorchHoldSeconds and then fills: the ground lightens back toward what it was,
++                // and because the snow is keyed off the burn (Toon_URP) the snow comes back with it.
++                float age = m < born.Count ? now - born[m] : GreyboxTerrainView.SnowFillSeconds;
++                float fresh = 1f - Mathf.Clamp01((age - GreyboxTerrainView.ScorchHoldSeconds) / Mathf.Max(1f, GreyboxTerrainView.SnowFillSeconds - GreyboxTerrainView.ScorchHoldSeconds));
++                near.Add(new Mark { X = mark.Pos.x, Z = mark.Pos.z, Radius = radius, Fresh = fresh });
++            }
++            Busy = true;
++            return true;
++        }
++
++        /// <summary>Paint the next row of the tile into the buffer. True when that was the last row: call Write.</summary>
++        public bool PaintRow(Func<float, float, Color> ground)
++        {
++            int z = z0 + nextRow, row = nextRow * w;
++            float wz = (z + .5f) / tpm;
++            for (int i = 0; i < w; i++)
++            {
++                int x = x0 + i;
++                float wx = (x + .5f) / tpm;
++                Color c = ground(wx, wz);
++                float burn = 0f;
++                for (int k = 0; k < near.Count; k++)
++                {
++                    var mark = near[k];
++                    if (Mathf.Abs(wx - mark.X) > mark.Radius || Mathf.Abs(wz - mark.Z) > mark.Radius) continue;
++                    float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.X, mark.Z));
++                    burn = Mathf.Max(burn, .45f * (1f - distance / mark.Radius) * mark.Fresh * mark.Fresh);   // this order, as before
++                }
++                buffer[row + i] = Texel(Color.Lerp(c, Burnt, burn));
++            }
++            return ++nextRow >= h;
++        }
++
++        /// <summary>Write the finished tile to mip 0 of the texture. The caller still owns Apply.</summary>
++        public void Write(Texture2D tex)
++        {
++            tex.SetPixels32(x0, z0, w, h, buffer);
++            Busy = false;
++        }
++
++        /// <summary>One texel as SetPixel(Color) stores it on an RGBA32 texture.</summary>
++        public static Color32 Texel(Color c) => new Color32(Unorm8(c.r), Unorm8(c.g), Unorm8(c.b), Unorm8(c.a));
++
++        /// <summary>
++        /// A 0..1 float to a byte the way Unity's native colour conversion does it: clamp, times 255, add a half and
++        /// truncate (a half rounds up). Not the managed Color32 cast, which uses Mathf.Round and takes a half to even:
++        /// the two differ only where the product lands exactly on k + 0.5. ScorchTilePainterTests checks this against
++        /// SetPixel on every byte's rounding edge.
++        /// </summary>
++        public static byte Unorm8(float f)
++        {
++            f = f > 0f ? f : 0f;
++            f = f < 1f ? f : 1f;
++            float scaled = f * 255f;
++            return (byte)(int)(scaled + .5f);
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs.meta b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs.meta
+new file mode 100644
+index 0000000..05b6e5a
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/ScorchTilePainter.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 69864eb396ee49b19fd7696e4b44ba4c
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 0b6138a..0847ca9 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -174,6 +174,7 @@ namespace TW.Tests
+             Assert.AreEqual(12, Knobs.Get("lights.maxPropLamps", NightLights.MaxPropLamps));
+             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));
+             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.chunkBudgetMs", (float)GreyboxTerrainView.ChunkBudgetMs));
++            Assert.AreEqual(2.0, (double)Knobs.Get("terrain.paintBudgetMs", (float)GreyboxTerrainView.PaintBudgetMs));
+         }
+     }
+ }
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ScorchTilePainterTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ScorchTilePainterTests.cs
+new file mode 100644
+index 0000000..691101b
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ScorchTilePainterTests.cs
+@@ -0,0 +1,193 @@
++// Phase: B2 (perf, AOSA C35 2026-09-25) - the crater tile repaint through ScorchTilePainter (marks bucketed per tile,
++// a row at a time into a Color32 buffer, one SetPixels32) writes exactly the texels the old per-texel SetPixel loop
++// wrote. The old loop is kept below as the oracle, with the ground colour and the clock passed in. A second test pins
++// the Color to byte rule against SetPixel itself on every byte's rounding edge.
++using System;
++using System.Collections.Generic;
++using System.Text;
++using NUnit.Framework;
++using Unity.Mathematics;
++using UnityEngine;
++using TW.Presentation.Terrain;
++
++namespace TW.Tests
++{
++    public class ScorchTilePainterTests
++    {
++        const int Tpm = 8;   // GreyboxTerrainView's texels a metre; a tile is 2 m
++
++        /// <summary>A ground colour with a spread in it: runs a little past 0 and 1, lands on byte half-points, and
++        /// has alpha below 1 in places.</summary>
++        static Color Ground(float wx, float wz)
++        {
++            float r = wx * .23f - .1f;
++            float g = Mathf.PerlinNoise(wx * 1.7f + 3f, wz * 1.3f);
++            int k = ((int)(wx * 16f) * 7 + (int)(wz * 16f) * 13) & 255;
++            float b = (k + .5f) / 255f;
++            float a = wz < 3f ? .4f * wx / 5f : 1f - .1f * wz / 6f;
++            return new Color(r, g, b, a);
++        }
++
++        /// <summary>The old GreyboxTerrainView.RepaintTile, as it was at 19a88a0, with GroundColor and Time.time
++        /// passed in. Do not tidy it: it is the reference.</summary>
++        static void OldRepaintTile(Texture2D colorTex, Vector2Int tile, List<TW.Sim.SimEvent> scorchMarks, List<float> scorchBorn, float time)
++        {
++            const float SnowFillSeconds = GreyboxTerrainView.SnowFillSeconds, ScorchHoldSeconds = GreyboxTerrainView.ScorchHoldSeconds;
++            int x1 = Mathf.Min(colorTex.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(colorTex.height, (tile.y + 1) * 2 * Tpm);
++            for (int z = tile.y * 2 * Tpm; z < z1; z++) for (int x = tile.x * 2 * Tpm; x < x1; x++)
++            {
++                float wx = (x + .5f) / Tpm, wz = (z + .5f) / Tpm;
++                Color c = Ground(wx, wz);
++                float burn = 0f;
++                for (int m = 0; m < scorchMarks.Count; m++)
++                {
++                    var mark = scorchMarks[m];
++                    float radius = mark.Scalar * 1.25f;
++                    if (radius <= 0f || Mathf.Abs(wx - mark.Pos.x) > radius || Mathf.Abs(wz - mark.Pos.z) > radius) continue;
++                    float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
++                    float age = m < scorchBorn.Count ? time - scorchBorn[m] : SnowFillSeconds;
++                    float fresh = 1f - Mathf.Clamp01((age - ScorchHoldSeconds) / Mathf.Max(1f, SnowFillSeconds - ScorchHoldSeconds));
++                    burn = Mathf.Max(burn, .45f * (1f - distance / radius) * fresh * fresh);
++                }
++                colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
++            }
++        }
++
++        static TW.Sim.SimEvent Mark(float x, float z, float scalar) =>
++            new TW.Sim.SimEvent { Type = TW.Sim.SimEventType.CraterStamp, Pos = new float3(x, 0f, z), Scalar = scalar };
++
++        /// <summary>No texel of Ground has alpha 0, so a texel still holding this was never painted.</summary>
++        static readonly Color32 Start = new Color32(0, 255, 0, 0);
++
++        static bool Same(Color32 a, Color32 b) => a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
++
++        /// <summary>The colour texture as GreyboxTerrainView builds it, small, every texel the same start value.</summary>
++        static Texture2D NewColorTexture(int w, int h)
++        {
++            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
++            var fill = new Color32[w * h];
++            for (int i = 0; i < fill.Length; i++) fill[i] = Start;
++            tex.SetPixels32(fill);
++            return tex;
++        }
++
++        [Test]
++        public void Tiles_WithOverlappingScorch_AreTheOldLoopsTexels()
++        {
++            // 40 x 48 texels = 5 m x 6 m: the third column of tiles is cut to 8 texels, and tile x 3 lies wholly outside
++            var marks = new List<TW.Sim.SimEvent>
++            {
++                Mark(2.0f, 2.5f, 1.6f),           // radius 2, over most of the texture
++                Mark(3.1f, 3.0f, 1.0f),           // overlaps the first: the burn is the larger of the two
++                Mark(1.03125f, 4.46875f, 2.4f),
++                Mark(4.6f, 1.2f, .8f),            // radius 1, reaches into the cut column
++                Mark(2.5625f, 1.0625f, .8f),      // on a texel centre: the texels at exactly one radius
++                Mark(0f, 0f, 0f),                 // no radius: never burns
++                Mark(3f, 3f, -2f),                // a negative radius: never burns
++                Mark(-.9f, 2f, 1f),               // outside the texture, reaching in
++                Mark(40f, 40f, 3f),               // far away: dropped by the bucket, and burned nothing before either
++            };
++            const float now = 200f;
++            // one fewer than the marks: the last takes the old loop's "no birth time" branch
++            var born = new List<float> { 199.5f, 170f, 120f, 199f, 100f, 150f, 190f, 60f };
++
++            var oracle = NewColorTexture(40, 48);
++            var fresh = NewColorTexture(40, 48);
++            var painter = new ScorchTilePainter();
++            try
++            {
++                for (int tz = 0; tz <= 3; tz++)
++                for (int tx = 0; tx <= 3; tx++)
++                {
++                    var tile = new Vector2Int(tx, tz);
++                    OldRepaintTile(oracle, tile, marks, born, now);
++                    int x1 = Mathf.Min(fresh.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(fresh.height, (tile.y + 1) * 2 * Tpm);
++                    bool started = painter.Begin(tile.x * 2 * Tpm, tile.y * 2 * Tpm, x1, z1, Tpm, marks, born, now);
++                    Assert.AreEqual(tx < 3 && tz < 3, started, $"tile {tile}: an empty tile starts nothing");
++                    if (!started) { Assert.IsFalse(painter.Busy); continue; }
++                    int rows = 0;
++                    while (!painter.PaintRow(Ground)) { rows++; Assert.IsTrue(painter.Busy); }
++                    Assert.AreEqual(z1 - tile.y * 2 * Tpm - 1, rows, $"tile {tile}: one row per call");
++                    painter.Write(fresh);
++                    Assert.IsFalse(painter.Busy);
++                }
++                AssertSameTexels(oracle, fresh, "tile repaint");
++                // the scene has to have burned something, or the comparison proves little
++                var px = fresh.GetPixels32(); int changed = 0, burnt = 0;
++                var plain = new Color32[px.Length];
++                for (int z = 0; z < 48; z++) for (int x = 0; x < 40; x++) plain[z * 40 + x] = ScorchTilePainter.Texel(Ground((x + .5f) / Tpm, (z + .5f) / Tpm));
++                for (int i = 0; i < px.Length; i++) { if (!Same(px[i], Start)) changed++; if (!Same(px[i], plain[i])) burnt++; }
++                Assert.AreEqual(40 * 48, changed, "every texel was repainted");
++                Assert.Greater(burnt, 200, "the marks burned a good share of the texels");
++            }
++            finally
++            {
++                UnityEngine.Object.DestroyImmediate(oracle);
++                UnityEngine.Object.DestroyImmediate(fresh);
++            }
++        }
++
++        [Test]
++        public void Texel_RoundsAsSetPixelDoes_OnEveryBytesEdge()
++        {
++            // Row d (0..48) holds, for every byte k, each channel's k + 0.5 half-point (worked out four ways) moved by
++            // d - 24 float ulps; the last rows hold values out of range and the edges near 0 and 1.
++            const int w = 256, ulps = 24, h = 2 * ulps + 1 + 3;
++            var values = new Color[w * h];
++            for (int d = -ulps; d <= ulps; d++)
++            for (int k = 0; k < w; k++)
++                values[(d + ulps) * w + k] = new Color(Nudge((k + .5f) / 255f, d), Nudge((2 * k + 1) / 510f, d), Nudge(k / 255f + .5f / 255f, d), Nudge((k + .5f) * (1f / 255f), d));
++            for (int k = 0; k < w; k++)
++            {
++                values[(h - 3) * w + k] = new Color(-(k + 1) * .01f, 1f + (k + 1) * .01f, k % 2 == 0 ? 1e6f : -1e6f, k / 255f);
++                values[(h - 2) * w + k] = new Color(Nudge(.5f / 255f, k - 128), Nudge(254.5f / 255f, k - 128), Nudge(1f, -k), k == 0 ? -0f : Nudge(0f, k));
++                values[(h - 1) * w + k] = new Color(Nudge(1.5f / 255f, k - 128), Nudge(127.5f / 255f, k - 128), Nudge(128.5f / 255f, k - 128), Nudge(.5f, k - 128));
++            }
++            var oracle = new Texture2D(w, h, TextureFormat.RGBA32, true);
++            var fresh = new Texture2D(w, h, TextureFormat.RGBA32, true);
++            try
++            {
++                var texels = new Color32[w * h];
++                for (int y = 0; y < h; y++)
++                for (int x = 0; x < w; x++)
++                {
++                    oracle.SetPixel(x, y, values[y * w + x]);
++                    texels[y * w + x] = ScorchTilePainter.Texel(values[y * w + x]);
++                }
++                fresh.SetPixels32(0, 0, w, h, texels);
++                var want = oracle.GetPixels32(); var got = fresh.GetPixels32();
++                var report = new StringBuilder(); int bad = 0;
++                for (int i = 0; i < want.Length; i++)
++                    for (int ch = 0; ch < 4; ch++)
++                    {
++                        if (want[i][ch] == got[i][ch]) continue;
++                        if (++bad > 12) continue;
++                        float f = values[i][ch];
++                        report.AppendLine($"texel {i % w},{i / w} ch {ch}: {f:R} (bits {BitConverter.SingleToInt32Bits(f):X8}, x255 = {f * 255f:R}) SetPixel {want[i][ch]}, Unorm8 {got[i][ch]}, Mathf.Round {(byte)Mathf.Round(Mathf.Clamp01(f) * 255f)}");
++                    }
++                Assert.AreEqual(0, bad, "Unorm8 is not SetPixel's rounding on RGBA32 (if SetPixel matches the Mathf.Round column, it takes a half to even):\n" + report);
++            }
++            finally
++            {
++                UnityEngine.Object.DestroyImmediate(oracle);
++                UnityEngine.Object.DestroyImmediate(fresh);
++            }
++        }
++
++        /// <summary>f moved by d float ulps (f and the result both finite and non-negative).</summary>
++        static float Nudge(float f, int d) => BitConverter.Int32BitsToSingle(Math.Max(0, BitConverter.SingleToInt32Bits(f) + d));
++
++        static void AssertSameTexels(Texture2D want, Texture2D got, string what)
++        {
++            Assert.AreEqual(want.width, got.width); Assert.AreEqual(want.height, got.height);
++            var a = want.GetPixels32(); var b = got.GetPixels32();
++            var report = new StringBuilder(); int bad = 0;
++            for (int i = 0; i < a.Length; i++)
++            {
++                if (Same(a[i], b[i])) continue;
++                if (++bad <= 12) report.AppendLine($"texel {i % want.width},{i / want.width}: old {a[i]}, new {b[i]}");
++            }
++            Assert.AreEqual(0, bad, $"{what}: {bad} texels differ from the old SetPixel loop\n{report}");
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ScorchTilePainterTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ScorchTilePainterTests.cs.meta
+new file mode 100644
+index 0000000..3302d24
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ScorchTilePainterTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: d866be0af8f440ba82b047030ca81d45
+\ No newline at end of file

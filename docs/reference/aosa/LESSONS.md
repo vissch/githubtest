@@ -29,6 +29,15 @@ of their section. When the same lesson appears twice, the retrospective turns it
 - **A single-instance `RenderMeshInstanced` ignores instanced properties.** Test with 4 or more instances before
   concluding a per-instance property is broken. (agent-memory)
 
+- **One loaded run can veto a clear win under the spread band.** C34 won every interleaved pair: Hollows max
+  11-18 ms against 22-52 ms, with no overlap. One baseline run on a busy machine (d2-4: main p50 15.0, Hollows max
+  52) stretched `max(3*MAD, spread)` to 30 ms, and rule 3 failed. Adding runs cannot fix it, because the spread keeps
+  the outlier. Two things follow. Predict a card on a sum or a p99, not on `max`, which is one frame's extreme.
+  And if this happens a second time, the retrospective should propose voiding a pair whose main_ms p50 is off
+  its label's median by more than the band (a load detector), just as rule 1 voids a run read at the wrong tick.
+  (C34, cycle 1; runs 1/k1d-1..4, d2-1..4)
+- **A slow frame can read hash_end past its tick.** d2-3 read it at tick 2206, not 2200, and `compare` voided the
+  set until a rerun. Card C41. (cycle 1)
 - **On this machine the release player's main-thread p95 is noise-bound.** The band from 3 runs is 4.2 ms, while GPU
   p95 is 0.14 ms. Other sessions' editors share the CPU. Judge main-thread cards on the development build's
   per-marker `per_tick_ms` and on p50, never on release p95 alone. Judge GPU cards on release p95. (cycle 0,
@@ -38,9 +47,11 @@ of their section. When the same lesson appears twice, the retrospective turns it
 - **The seeded reports are not repeats of each other.** `learn` excludes `runs/seed/` from the noise bands. It
   once grouped two unrelated player runs as one. (cycle 0)
 
-- **Player `shot=` stills are not repeatable.** Across 3 identical runs, 7.5-10% of pixels differed (max delta 238):
-  presentation animates on real time during warm-up. Until C33 lands, never use a player still for a pixel diff.
-  Use it only for the critic, and for the check that the run drew the battle. (cycle 0)
+- **The held clock made the battlefield repeat, and the HUD did not.** After C33's held clock, three runs shot the
+  same held frame at the same `time`, and every differing pixel (3%) was HUD. The HUD animates on real time, and it
+  follows the owner's pointer over the background player window: one run showed the MG card hovered. A pixel diff
+  uses `--shot-tick N --no-hud`. The critic may still get the HUD still. (C33, cycle 1; the cycle 0 stills differed
+  on 7.5-10% before the clock was held)
 
 ## About searching and attributing
 
@@ -72,6 +83,22 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About changes
 
+- **Mono runs float arithmetic at double precision unless the code narrows it.** C35's `Unorm8` had SetPixel's
+  formula, `(int)(v*255 + .5)`, and still differed on 515 edge texels: 0.503921568 x 255 is 128.5 in float and
+  128.4999... in double. An explicit `(float)` cast on each step fixed it. The oracle test, which runs the old
+  SetPixel loop beside the new code, caught this. The author's fallback guess, Mathf.Round, would also have been
+  wrong, because SetPixel takes a half up and Mathf.Round takes it to even. A byte-exact port needs an oracle
+  test against the engine, not a formula. (C35, cycle 1)
+
+- **A marker name is not a diagnosis.** C34 blamed `TW.Terrain.Hollows` on its overlap loop, but a Mono port of the
+  code showed the loop cost 0.3 ms. 70% of the time was drainage, which ran under the same marker. Before a
+  patch, time the parts inside the marker. The port on Unity's own `mono-bdwgc.exe` ran without the editor. (C34,
+  cycle 1)
+- **A card seeded from memory can be stale.** C21 said the cook-off flames draw for one frame, but commit 1ede261
+  had already fixed that. Re-check a seeded card's premise in code before a patch author starts on it. (a0006)
+- **No bench still ever showed a shot.** `shot=` was taken while the battle was paused, before the window opened.
+  An instrument can be blind to exactly the thing a card is about. Check that the evidence CAN contain the effect
+  before scoring it. (juice director, cycle 1)
 - **A lower number in one place can be a trade.** The toe fix improved every slide, and Pincer's belly clearance went
   from +0.33 to -0.15 m. Log a trade as a trade. (s011)
 - **A constant tuned against one machine sinks another.** LEAN 0.30 was fine for four walkers and sank Banner

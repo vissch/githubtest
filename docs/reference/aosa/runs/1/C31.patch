@@ -1,0 +1,215 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs
+index aece5e9..4c16eee 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs
+@@ -1152,7 +1152,7 @@ namespace TW.Presentation.Tactical
+             {
+                 discProps.SetVectorArray(ColorId, discC);
+                 var dp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
+-                Graphics.RenderMeshInstanced(dp, discMesh, 0, discM, discCount);
++                FrameBudget.Draw(dp, discMesh, 0, discM, discCount);
+             }
+             foreach (var b in batches.Values)
+             {
+@@ -1162,7 +1162,7 @@ namespace TW.Presentation.Tactical
+                 b.Props.SetVectorArray(TintId, b.Tint);
+                 b.Props.SetVectorArray(TeamId, b.Team);
+                 var rp = new RenderParams(b.Material) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = b.Props };
+-                Graphics.RenderMeshInstanced(rp, b.Mesh, 0, b.M, b.Count);
++                FrameBudget.Draw(rp, b.Mesh, 0, b.M, b.Count);
+                 b.Count = 0;
+             }
+         }
+@@ -1225,7 +1225,7 @@ namespace TW.Presentation.Tactical
+             if (fPos.Count == 0) return;
+             flameMesh.SetVertices(fPos); flameMesh.SetUVs(0, fCorner); flameMesh.SetUVs(1, fShape); flameMesh.SetTriangles(fTris, 0);
+             flameMesh.bounds = Everywhere;
+-            Graphics.RenderMesh(new RenderParams(flameMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, flameMesh, 0, Matrix4x4.identity);
++            FrameBudget.Draw(new RenderParams(flameMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, flameMesh, 0, Matrix4x4.identity);
+         }
+ 
+         static float LerpAngle(float a, float b, float t) => a + Mathf.DeltaAngle(a * Mathf.Rad2Deg, b * Mathf.Rad2Deg) * Mathf.Deg2Rad * t;
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs
+index 25d0ecd..dbf9d87 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs
+@@ -407,7 +407,7 @@ namespace TW.Presentation.Terrain
+                 maskBlock.SetFloatArray("_ChunkMask", mergedMask);
+                 rp.matProps = maskBlock;
+             }
+-            Graphics.RenderMeshInstanced(rp, module.Mesh, 0, merged, count);
++            FrameBudget.Draw(rp, module.Mesh, 0, merged, count);
+             DrawCalls++;
+         }
+     }
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs
+index f6b6481..a696099 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs
+@@ -687,7 +687,7 @@ namespace TW.Presentation.Terrain
+                 for (int i = n; i < maxLoose; i++) looseMasks[i] = 0f;
+                 looseBlock.SetFloatArray("_ChunkMask", looseMasks);
+                 var rp = new RenderParams(whole.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = looseBlock };
+-                Graphics.RenderMeshInstanced(rp, whole.Mesh, 0, looseMatrices, n);
++                FrameBudget.Draw(rp, whole.Mesh, 0, looseMatrices, n);
+             }
+             // what men dropped, thrown whole: each kind in one draw of its own mesh
+             looseKinds.Clear();
+@@ -704,7 +704,7 @@ namespace TW.Presentation.Terrain
+                     n++;
+                 }
+                 var rp = new RenderParams(module.Material) { worldBounds = bounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
+-                Graphics.RenderMeshInstanced(rp, module.Mesh, 0, looseMatrices, n);
++                FrameBudget.Draw(rp, module.Mesh, 0, looseMatrices, n);
+             }
+         }
+         readonly List<BattlefieldKit.Module> looseKinds = new List<BattlefieldKit.Module>(8);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+index b378952..4b1b0af 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+@@ -266,13 +266,13 @@ namespace TW.Presentation.Units
+                     f.Fallen.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f);
+                     f.Props.SetBuffer("_Instances", instanceBuffer); f.Props.SetBuffer("_RowTable", f.Rows);
+                     var rp = new RenderParams(f.Material) { worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = f.Props };
+-                    Graphics.RenderMeshIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
++                    FrameBudget.DrawIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);
+                 }
+                 if (DrawnFar > 0 && far != null)
+                 {
+                     far.Props.SetBuffer("_Instances", instanceBuffer); far.Props.SetBuffer("_RowTable", far.Rows);
+                     var rp = new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.Props };
+-                    Graphics.RenderMeshIndirect(rp, far.Asset.Mesh, argsBuffer, 1, figures.Length);
++                    FrameBudget.DrawIndirect(rp, far.Asset.Mesh, argsBuffer, 1, figures.Length);
+                 }
+             }
+             if (DrawnVehicles > 0) DrawVehicles(bounds);
+@@ -447,12 +447,12 @@ namespace TW.Presentation.Units
+                 if (fallenArgsData[k].instanceCount == 0) continue;
+                 var fig = figures[k];
+                 fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);
+-                Graphics.RenderMeshIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
++                FrameBudget.DrawIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
+             }
+             if (farCount > 0 && far != null)
+             {
+                 far.FallenProps.SetBuffer("_Instances", fallenBuffer); far.FallenProps.SetBuffer("_RowTable", far.Rows);
+-                Graphics.RenderMeshIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
++                FrameBudget.DrawIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
+             }
+         }
+ 
+@@ -480,8 +480,8 @@ namespace TW.Presentation.Units
+                 if (teamB) { if (b < tankBatchB.Length) tankBatchB[b++] = m; }
+                 else if (a < tankBatchA.Length) tankBatchA[a++] = m;
+             }
+-            if (a > 0) Graphics.RenderMeshInstanced(new RenderParams(tankMatA) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchA, a);
+-            if (b > 0) Graphics.RenderMeshInstanced(new RenderParams(tankMatB) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchB, b);
++            if (a > 0) FrameBudget.Draw(new RenderParams(tankMatA) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchA, a);
++            if (b > 0) FrameBudget.Draw(new RenderParams(tankMatB) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On }, tankMesh, 0, tankBatchB, b);
+         }
+ 
+         [BurstCompile]
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/FrameBudgetCoverageTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FrameBudgetCoverageTests.cs
+new file mode 100644
+index 0000000..29ab95a
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FrameBudgetCoverageTests.cs
+@@ -0,0 +1,75 @@
++// Phase: tooling (AOSA C31, 2026-09-25) - FrameBudget sees every gameplay draw. TW.Presentation.FrameBudget counts
++// the frame's submissions only because every submitter goes through it. The first version of the counter could not see
++// six of nine submitters, and on this branch four more (VATRenderer, TankRenderer, BattlefieldProps, PropDestruction)
++// plus SelectionMarkers still called Graphics.* directly: frame_budget_draws read 41 against Unity's 331. A counter that
++// misses a submitter rewards adding cost there, and nothing in the picture shows it. So this test reads the source:
++// outside RenderGround.cs (FrameBudget itself) and DebugOverlay.cs (debug gizmos, deliberately uncounted), no file in
++// Presentation or UI may call a Graphics draw API or a CommandBuffer draw directly.
++using System.Collections.Generic;
++using System.IO;
++using System.Text.RegularExpressions;
++using NUnit.Framework;
++
++namespace TW.Tests
++{
++    public class FrameBudgetCoverageTests
++    {
++        static readonly string[] Roots = { "Assets/_Project/Presentation", "Assets/_Project/UI" };
++        static readonly string[] Allowed = { "RenderGround.cs", "DebugOverlay.cs" };
++
++        // Graphics.RenderMesh*, RenderPrimitives*, DrawMesh*, DrawProcedural*, DrawTexture...; a CommandBuffer's
++        // DrawMesh*, DrawProcedural*, DrawRenderer*, DrawMultipleMeshes; and the using-static that would hide either.
++        static readonly Regex DrawApi = new Regex(
++            @"\bGraphics\s*\.\s*(?:Render|Draw)\w*\s*\(" +
++            @"|\.\s*(?:DrawMesh|DrawProcedural|DrawRenderer|DrawMultipleMeshes)\w*\s*\(" +
++            @"|using\s+static\s+UnityEngine\.Graphics\b");
++
++        /// <summary>The source with comments blanked, newlines kept so a match's line number is still right.</summary>
++        static string Code(string path)
++        {
++            string src = File.ReadAllText(path);
++            src = Regex.Replace(src, @"/\*.*?\*/", m => Regex.Replace(m.Value, @"[^\n]", " "), RegexOptions.Singleline);
++            return Regex.Replace(src, @"//[^\n]*", "");
++        }
++
++        static int LineOf(string s, int index)
++        {
++            int line = 1;
++            for (int i = 0; i < index; i++) if (s[i] == '\n') line++;
++            return line;
++        }
++
++        [Test]
++        public void EveryDrawGoesThroughFrameBudget()
++        {
++            var direct = new List<string>();
++            int scanned = 0;
++            foreach (string root in Roots)
++            {
++                Assert.That(Directory.Exists(root), Is.True, root + " is missing: the test would pass by reading nothing");
++                foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
++                {
++                    if (System.Array.IndexOf(Allowed, Path.GetFileName(path)) >= 0) continue;
++                    scanned++;
++                    string code = Code(path);
++                    foreach (Match m in DrawApi.Matches(code))
++                        direct.Add(path.Replace(System.IO.Path.DirectorySeparatorChar, '/') + ":" + LineOf(code, m.Index) + "  " + m.Value.Trim());
++                }
++            }
++            Assert.That(scanned, Is.GreaterThan(20), "the scan found almost no source; the roots moved");
++            Assert.That(direct, Is.Empty,
++                "these submit draws that FrameBudget cannot see, so frame_budget_draws and rule 7 are blind to them. " +
++                "Call FrameBudget.Draw / DrawIndirect with the same arguments (add an overload to FrameBudget if the " +
++                "signature is missing):\n" + string.Join("\n", direct));
++        }
++
++        [Test]
++        public void ThePatternSeesFrameBudgetsOwnCalls()
++        {
++            // proves the regex still matches the real calls, so an empty result above means clean, not blind
++            string code = Code("Assets/_Project/Presentation/Core/RenderGround.cs");
++            Assert.That(DrawApi.Matches(code).Count, Is.GreaterThanOrEqualTo(3),
++                "FrameBudget's own RenderMeshInstanced / RenderMeshIndirect / RenderMesh calls no longer match the pattern");
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/FrameBudgetCoverageTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FrameBudgetCoverageTests.cs.meta
+new file mode 100644
+index 0000000..531bdf5
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FrameBudgetCoverageTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 8d0ace6c9b414fbc9eff7b36d632767e
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs b/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs
+index 80bbe0b..9d9974d 100644
+--- a/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs
++++ b/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs
+@@ -98,7 +98,7 @@ namespace TW.UI
+             if (batch.Count == 0) return;
+             if (array.Length < batch.Count) array = new Matrix4x4[Mathf.NextPowerOfTwo(batch.Count)];
+             batch.CopyTo(array);
+-            Graphics.RenderMeshInstanced(new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, mesh, 0, array, batch.Count);
++            TW.Presentation.FrameBudget.Draw(new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, mesh, 0, array, batch.Count);
+         }
+ 
+         /// <summary>A unit quad centred on the origin: on the ground (XZ) or facing +Z (the bar, rotated to the camera).</summary>

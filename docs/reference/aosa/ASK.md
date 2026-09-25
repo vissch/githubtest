@@ -32,7 +32,11 @@ SIM lane, or a re-split of the model.
 
 Each proposal is sent to the SIM lane as a seam request and is never edited here.
 
-- (none yet: the diagnoser adds one when a `per_tick_ms` `TW.Sim.Sys.*` marker is the top cost in a bench)
+- **S01 (cycle 1). `TargetAcquisitionSystem` runs 0.80 ms per tick against a 0.40 ms line.** It is the largest sim
+  system at 45% of `TW.Sim.Step`'s 1.79 ms (dev player, runs/1/devbase-1). Check that the one-third slot stagger and
+  the 8-candidate cap actually hold. Sim.Step itself is inside its 3.6 ms ceiling.
+- **S02 (cycle 1). `FlowFieldManager` peaks at 3.07 ms on its worst barrage tick, against its 0.60 ms time-sliced
+  line.** Craters trigger recomputes (runs/1/devbarrage-1). It is not a hitch carrier on its own.
 
 ## Answered
 

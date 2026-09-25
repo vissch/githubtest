@@ -88,6 +88,11 @@ A change lands only if every rule holds. The rule number goes into the revert re
    `RequestScriptReload` in a live editor. Anything under `Perf/`, `Presentation/Core/`, or touching the lockstep
    loop needs the full gate with the canary on. Exit 6 is not a pass.
 9. **Predicted first.** An attempt without a predicted metric and delta written BEFORE the measurement is void.
+10. **Instrument cards (class `instrument`) are judged differently from perf cards.** Rules 1, 2 and 4 hold as
+    usual. Rule 3 is replaced: `main_ms`, `gpu_ms`, `draw_calls` and `setpass` must stay within their bands, and the
+    card's own metric must land within 2x of its prediction. An instrument usually moves the counter it fixes, so
+    a rise there is not a regression. Every card after it re-baselines that counter. (a0007: C31 raised
+    `frame_budget_draws` 41 -> 111 on purpose, and `compare` read it as a rule 3 failure.)
 
 Commit one change per commit on `lane/show/aosa`. The message carries the A/B table and the run labels, and ends with
 the attribution line. Never push to the plan branch, and never merge lane to lane.
@@ -186,6 +191,7 @@ any other card, with rule 6 (readability) as a hard condition on every moment.
 | `python Tools/aosa/aosa.py status` | editor lock, build freshness, budget left, WIP; exit 0 always |
 | `aosa.py bench <label> [--player/--editor] [--scenario S] [--knobs k=v,...] [--repeats N] [--against <label>]` | runs benches, interleaving A/B when `--against` is given; writes `runs/` |
 | `aosa.py compare <A> <B> [--metric M]` | the cmp.py table plus the verdict for rules 1-4 |
+| `aosa.py bench <label> --player --shot-tick N --no-hud --repeats 3` then `aosa.py stilldiff <label>` | an image run: the still is taken N ticks into the window on the held clock, with the HUD hidden, and the worst pair's changed fraction must stay below 0.001 for rule 5's "same image". Image runs are never perf samples, and `compare` refuses them |
 | `aosa.py attempt add <json>` / `aosa.py learn` / `aosa.py pick` / `aosa.py age` | the learning record |
 | `aosa.py budget` / `aosa.py refimg ...` | image spend |
 | `aosa.py retro` | the 10-cycle summary the retrospective starts from |

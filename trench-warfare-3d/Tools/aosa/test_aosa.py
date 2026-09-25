@@ -95,7 +95,7 @@ class AosaTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(v["verdict"], "pass")
         self.assertTrue(v["target"]["improved"])
-        self.assertEqual(v["target"]["band_source"], "3*MAD of repeats")
+        self.assertEqual(v["target"]["band_source"], "max(3*MAD, spread) of repeats")
         self.assertAlmostEqual(v["target"]["delta"], 7.0 - 8.02, places=6)
         code, out = self.run_cli("compare", "cand", "base")
         self.assertIn("VERDICT: PASS", out)
