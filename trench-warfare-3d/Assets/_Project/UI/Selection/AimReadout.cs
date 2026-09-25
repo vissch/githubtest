@@ -3,7 +3,8 @@
 // the circle and red ones under ours in reach, so shelling your own line is a choice you see, not a surprise. The reach
 // for ours is the circle plus one shell's blast (HE shells land anywhere in the circle and burst ShellRadius wide);
 // gas has no radius in the sim (it drifts), so its reticle is used for the enemy and twice that for ours.
-// Counts come from the drawn positions (UnitPicker's frame), the same place the player sees the men.
+// Counts come from the drawn positions (UnitPicker's frame), the same place the player sees the men. Ours in reach are
+// named by type (owner, 2026-09-24): "3 OF OURS IN REACH: 2 MG, 1 RIFLE", so you know what you would be shelling.
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,7 +19,9 @@ namespace TW.UI
         readonly VisualElement box;
         readonly Label enemyLine, oursLine;
         public readonly List<ScreenUnit> EnemyIn = new List<ScreenUnit>(64), OursIn = new List<ScreenUnit>(64);
-        int shownEnemy = -1, shownOurs = -1;
+        int shownEnemy = -1, shownOursKey = int.MinValue;
+        readonly int[] oursByType = new int[256];
+        public const int BreakdownTypes = 3;
         static readonly string[] Cache = new string[1024];
 
         public AimReadout(VisualElement root)
@@ -65,11 +68,17 @@ namespace TW.UI
                 enemyLine.text = Text(0, shownEnemy);
                 enemyLine.EnableInClassList("hud-aim__enemy--none", shownEnemy == 0);
             }
-            if (OursIn.Count != shownOurs)
+            // ours by type; the line is rebuilt only when the counts change
+            System.Array.Clear(oursByType, 0, oursByType.Length);
+            int key = 17;
+            foreach (var u in OursIn) oursByType[u.Archetype]++;
+            for (int a = 0; a < oursByType.Length; a++) if (oursByType[a] != 0) key = key * 31 + a * 1000 + oursByType[a];
+            key = key * 31 + OursIn.Count;
+            if (key != shownOursKey)
             {
-                shownOurs = OursIn.Count;
-                oursLine.text = Text(1, shownOurs);
-                oursLine.EnableInClassList("hud-aim__ours--danger", shownOurs > 0);
+                shownOursKey = key;
+                oursLine.text = OursIn.Count == 0 ? Text(1, 0) : Text(1, OursIn.Count) + ": " + Breakdown(oursByType, BreakdownTypes);
+                oursLine.EnableInClassList("hud-aim__ours--danger", OursIn.Count > 0);
             }
             box.style.left = cursor.x + OffsetX; box.style.top = cursor.y + OffsetY;
             if (box.style.display != DisplayStyle.Flex) box.style.display = DisplayStyle.Flex;
@@ -79,6 +88,34 @@ namespace TW.UI
         {
             EnemyIn.Clear(); OursIn.Clear();
             if (box != null && box.style.display != DisplayStyle.None) box.style.display = DisplayStyle.None;
+        }
+
+        /// <summary>
+        /// "2 MG, 1 RIFLE": counts per archetype (index = archetype), most first, the lower archetype on a tie, at most
+        /// maxTypes named and the rest as "+N MORE".
+        /// </summary>
+        public static string Breakdown(int[] countsByArchetype, int maxTypes)
+        {
+            var sb = new System.Text.StringBuilder();
+            var used = new bool[countsByArchetype.Length];
+            int named = 0, rest = 0;
+            while (true)
+            {
+                int best = -1;
+                for (int a = 0; a < countsByArchetype.Length; a++)
+                    if (!used[a] && countsByArchetype[a] > 0 && (best < 0 || countsByArchetype[a] > countsByArchetype[best])) best = a;
+                if (best < 0) break;
+                used[best] = true;
+                if (named < maxTypes)
+                {
+                    if (sb.Length > 0) sb.Append(", ");
+                    sb.Append(countsByArchetype[best]).Append(' ').Append(HudText.Name((byte)best).ToUpperInvariant());
+                    named++;
+                }
+                else rest += countsByArchetype[best];
+            }
+            if (rest > 0) sb.Append(" +").Append(rest).Append(" MORE");
+            return sb.ToString();
         }
 
         /// <summary>"UNDER IT: 14 ENEMY" / "3 OF OURS IN REACH", cached per count (no string per frame).</summary>

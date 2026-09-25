@@ -43,7 +43,7 @@ namespace TW.UI
         HudHotkeys hotkeys;
         BattleHud legacy;
         bool built, visible = true, flagOn;
-        int pickFrame = -1; bool pickHit;
+        int pickFrame = -1; bool pickHit; Vector2 pickAt;   // one pick per frame and point (callers ask about the mouse, captures about their own cursor)
         float nextLegacyCheck;
         static readonly ProfilerMarkerScope refreshMarker = new ProfilerMarkerScope("TW.Hud.Refresh");
 
@@ -81,6 +81,7 @@ namespace TW.UI
             if (flagOn) HudBridge.PointerOverUi = PointerOverHud;
             else if (HudBridge.PointerOverUi == PointerOverHud) HudBridge.PointerOverUi = null;
             if (legacy != null) legacy.enabled = !flagOn;
+            if (!flagOn) selection?.Release();
             if (!flagOn && Panel != null) BattleHud.MinimapRect = default;
         }
 
@@ -120,6 +121,7 @@ namespace TW.UI
             dialogue = new HudDialogue(root);
             commentary = new HudCommentary(Host, dialogue, SettingsStore.Current.Interface.Tooltips);   // the tips follow the tooltips setting
             selection = new SelectionController(Host, Cam, root, () => Panel, garrison) { Trenches = clusters };
+            clusters.Selection = selection;
             selectionPanel = new SelectionPanel(root, selection, Host);
             hotkeys = new HudHotkeys(this);
             Wire();
@@ -193,10 +195,19 @@ namespace TW.UI
             Host.Issue(new SimCommand { Tick = Host.Local.World.Tick, Player = 0, Type = type, A = trench, B = b });
         }
 
-        /// <summary>An order to the player's front trench (the hotkeys' target, as DebugOverlay's Space and Backspace).</summary>
+        /// <summary>
+        /// G / Backspace: the trench the selection is scoped to (a trench's categories picked from its chips), else the
+        /// front trench. Over the top sends only the selected categories when they are not all of the trench's.
+        /// </summary>
         public void OrderFront(CommandType type)
         {
             if (Host?.Local == null) return;
+            if (selection != null && selection.ScopedTrench(out int scoped, out _))
+            {
+                int mask = type == CommandType.TrenchAdvance ? selection.AdvanceMask(scoped) : 0;
+                if (mask != 0) Order(CommandType.TrenchSelectAdvance, scoped, mask); else Order(type, scoped, 0);
+                return;
+            }
             short t = Host.Local.Fields.FrontTrench(0);
             if (t >= 0) Order(type, t, 0);
         }
@@ -204,7 +215,7 @@ namespace TW.UI
         public void ToggleFront(CommandType type)
         {
             if (Host?.Local == null) return;
-            short t = Host.Local.Fields.FrontTrench(0);
+            int t = selection != null && selection.ScopedTrench(out int scoped, out _) ? scoped : Host.Local.Fields.FrontTrench(0);   // F / L: the selected men's trench first
             if (t < 0) return;
             var ts = Host.Local.Fields.Trenches[t];
             int b = type == CommandType.TrenchLock ? (ts.Locked != 0 ? 0 : 1) : type == CommandType.TrenchHoldFire ? (ts.HoldFire != 0 ? 0 : 1) : 0;
@@ -215,8 +226,8 @@ namespace TW.UI
         /// <summary>Is this mouse position (bottom-left origin) over HUD chrome? Once per frame; layout layers ignore picking.</summary>
         bool PointerOverHud(Vector2 mouse)
         {
-            if (Time.frameCount == pickFrame) return pickHit;
-            pickFrame = Time.frameCount;
+            if (Time.frameCount == pickFrame && mouse == pickAt) return pickHit;
+            pickFrame = Time.frameCount; pickAt = mouse;
             pickHit = false;
             if (!flagOn || !visible || doc == null) return false;
             var root = doc.rootVisualElement;

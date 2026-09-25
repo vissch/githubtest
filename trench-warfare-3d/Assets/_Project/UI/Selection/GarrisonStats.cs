@@ -1,6 +1,7 @@
 // Phase: B6 (implemented) — who is in each of our trenches and in what state, for the trench's order buttons: the
 // garrison badge turns amber when a third of the men are shaken or pinned and red when half are pinned (pinned men
 // refuse over the top, StanceRules.PinnedSuppression), and hovering the badge shows the garrison's card (HoverCard).
+// Per troop category too (infantry archetypes), for the trench's category chips: how many, how many pinned, mean HP.
 // One pass over the units four times a second; flat arrays, nothing allocated after the first pass.
 using UnityEngine;
 using TW.Sim;
@@ -10,13 +11,13 @@ namespace TW.UI
     public sealed class GarrisonStats
     {
         public const float RefreshSeconds = 0.25f;
-        const int Archetypes = 256;
+        public const int Archetypes = 256;
 
         public enum Morale : byte { Steady, Shaken, Pinned }
 
         int trenches = -1;
-        int[] men, states, typeCounts, common, types;
-        float[] hpSum;
+        int[] men, states, typeCounts, typePinned, common, types;
+        float[] hpSum, typeHp;
         float next;
 
         public int Trenches => trenches;
@@ -25,6 +26,14 @@ namespace TW.UI
         public float MeanHp(int t) => men[t] > 0 ? hpSum[t] / men[t] : 0f;
         public byte Commonest(int t) => (byte)common[t];
         public int Types(int t) => types[t];
+        /// <summary>Infantry of this archetype in trench t (vehicles are not counted per type: they never advance by type).</summary>
+        public int TypeCount(int t, int archetype) => t >= 0 && t < trenches ? typeCounts[t * Archetypes + archetype] : 0;
+        public int TypePinned(int t, int archetype) => t >= 0 && t < trenches ? typePinned[t * Archetypes + archetype] : 0;
+        public float TypeMeanHp(int t, int archetype)
+        {
+            int n = TypeCount(t, archetype);
+            return n > 0 ? typeHp[t * Archetypes + archetype] / n : 0f;
+        }
 
         /// <summary>The badge's colour: pinned when half are pinned, shaken when a third are pinned or suppressed.</summary>
         public Morale MoraleOf(int t) => Grade(men[t], CountOf(t, UnitState.Pinned), CountOf(t, UnitState.Suppressed));
@@ -50,18 +59,25 @@ namespace TW.UI
                 trenches = trenchCount;
                 men = new int[trenches]; hpSum = new float[trenches]; common = new int[trenches]; types = new int[trenches];
                 states = new int[trenches * UnitStatus.StateCount]; typeCounts = new int[trenches * Archetypes];
+                typePinned = new int[trenches * Archetypes]; typeHp = new float[trenches * Archetypes];
             }
             System.Array.Clear(men, 0, men.Length); System.Array.Clear(hpSum, 0, hpSum.Length);
             System.Array.Clear(states, 0, states.Length); System.Array.Clear(typeCounts, 0, typeCounts.Length);
+            System.Array.Clear(typePinned, 0, typePinned.Length); System.Array.Clear(typeHp, 0, typeHp.Length);
             for (int i = 0; i < w.HighWater; i++)
             {
                 if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || (w.Team[i] & 1) != 0) continue;
                 int t = w.TrenchId[i];
                 if (t < 0 || t >= trenches) continue;
                 men[t]++;
-                hpSum[t] += Mathf.Clamp01(w.Hp[i] / Mathf.Max(1f, w.MaxHp[i]));
-                states[t * UnitStatus.StateCount + (int)UnitStatus.Of(w, i)]++;
-                typeCounts[t * Archetypes + w.Archetype[i]]++;
+                float hp = Mathf.Clamp01(w.Hp[i] / Mathf.Max(1f, w.MaxHp[i]));
+                var st = UnitStatus.Of(w, i);
+                hpSum[t] += hp;
+                states[t * UnitStatus.StateCount + (int)st]++;
+                if ((w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
+                int k = t * Archetypes + w.Archetype[i];
+                typeCounts[k]++; typeHp[k] += hp;
+                if (st == UnitState.Pinned) typePinned[k]++;
             }
             for (int t = 0; t < trenches; t++)
             {

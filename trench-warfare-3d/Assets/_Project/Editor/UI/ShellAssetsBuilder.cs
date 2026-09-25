@@ -21,13 +21,15 @@ namespace TW.Editor
         const string ShellAssetPath = "Assets/_Project/UI/Resources/ShellAssets.asset";
         const string CatalogPath = MissionsFolder + "/MissionCatalog.asset";
         const string BackdropPath = ShellFolder + "/backdrop_menu.png";
+        /// <summary>The owner's key art (2026-09-25), the main menu's backdrop when present; the generated plate stands in without it.</summary>
+        const string KeyArtPath = ShellFolder + "/keyart_menu.jpg";
         const string ScenesDir = "Assets/_Project/Scenes";
 
         [MenuItem("TW/UI/Build Shell Assets")]
         public static ShellAssets Build()
         {
             Folder("Assets/_Project/UI/Resources"); Folder(MissionsFolder);
-            var backdrop = EnsureBackdrop();
+            var backdrop = KeyArt() ?? EnsureBackdrop();
             var catalog = EnsureCatalog();
             var assets = AssetDatabase.LoadAssetAtPath<ShellAssets>(ShellAssetPath);
             bool fresh = assets == null;
@@ -122,6 +124,24 @@ namespace TW.Editor
                 if (imp != null) { imp.textureType = TextureImporterType.Default; imp.mipmapEnabled = false; imp.textureCompression = TextureImporterCompression.Compressed; imp.maxTextureSize = 1024; imp.SaveAndReimport(); }
             }
             return AssetDatabase.LoadAssetAtPath<Texture2D>(BackdropPath);
+        }
+
+        /// <summary>For batch runs (-executeMethod needs a void): build the shell assets.</summary>
+        public static void BuildBatch() => Build();
+
+        /// <summary>The key art, imported for a full-screen backdrop: sRGB, no mips, up to 2048 px, high-quality compression.</summary>
+        static Texture2D KeyArt()
+        {
+            if (AssetImporter.GetAtPath(KeyArtPath) is TextureImporter imp)
+            {
+                if (imp.mipmapEnabled || imp.maxTextureSize != 2048 || imp.textureCompression != TextureImporterCompression.CompressedHQ || imp.npotScale != TextureImporterNPOTScale.None)
+                {
+                    imp.textureType = TextureImporterType.Default; imp.mipmapEnabled = false; imp.maxTextureSize = 2048;
+                    imp.npotScale = TextureImporterNPOTScale.None; imp.textureCompression = TextureImporterCompression.CompressedHQ;
+                    imp.wrapMode = TextureWrapMode.Clamp; imp.SaveAndReimport();
+                }
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(KeyArtPath);
         }
 
         static void Folder(string assetFolder)

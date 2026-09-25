@@ -2,6 +2,7 @@
     <Style src="../Skin/dustfront.uss" />
     <Style src="Shell.uss" />
     <ui:VisualElement name="pause-screen" class="tw-screen tw-dim shell-screen">
+        <ui:VisualElement class="tw-logo shell-plate-logo" picking-mode="Ignore" />
         <ui:VisualElement name="pause-plate" class="tw-panel shell-plate">
             <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
             <ui:Label name="pause-title" text="PAUSED" class="tw-h1 shell-plate__title" />

@@ -5,6 +5,10 @@
     <Style src="../../Skin/dustfront.uss" />
     <Style src="BattleHud.uss" />
     <ui:VisualElement name="hud-root" class="tw-hud hud-root" picking-mode="Ignore">
+        <!-- selection brackets and health bars on the field (SelectionMarkers): first, so every panel draws over them -->
+        <ui:VisualElement name="markers-layer" class="hud-markers-layer" picking-mode="Ignore" />
+        <!-- the trenches' order buttons: under every panel, so a trench's buttons never cover the selection or the bar -->
+        <ui:VisualElement name="orders-layer" class="hud-orders-layer" picking-mode="Ignore" />
 
         <ui:VisualElement name="region-topleft" class="hud-region hud-region--topleft" picking-mode="Ignore">
             <ui:VisualElement name="gauges" class="tw-plate hud-gauges">
@@ -96,8 +100,6 @@
             </ui:VisualElement>
             <ui:Label name="hint" text="" class="tw-caption hud-hint" picking-mode="Ignore" />
         </ui:VisualElement>
-
-        <ui:VisualElement name="orders-layer" class="hud-orders-layer" picking-mode="Ignore" />
 
         <!-- selecting on the field (SelectionController): the drag box and the card beside the cursor (HoverCard fills it) -->
         <ui:VisualElement name="marquee" class="hud-marquee" picking-mode="Ignore" />

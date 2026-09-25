@@ -98,9 +98,10 @@ namespace TW.Tests
         public void TheOrderClusterAndObjectiveRowTemplatesHaveTheirParts()
         {
             var orders = Instantiate(OrdersPath);
-            foreach (var n in new[] { "orders", "fallback", "lock", "holdfire", "advance", "gap", "garrison", "lock-icon", "holdfire-icon" })
+            // round 16 (owner): the hold-fire button gave its place to the trench's troop-category chips; F holds fire
+            foreach (var n in new[] { "orders", "fallback", "lock", "categories", "advance", "gap", "garrison", "lock-icon", "holdfire-tag" })
                 Assert.That(orders.Q(n), Is.Not.Null, $"TrenchOrders.uxml has no '{n}'");
-            foreach (var n in new[] { "fallback", "lock", "holdfire", "advance" })
+            foreach (var n in new[] { "fallback", "lock", "advance" })
                 Assert.That(orders.Q<Button>(n), Is.Not.Null, $"'{n}' must be a Button");
             var row = Instantiate(RowPath);
             foreach (var n in new[] { "objective", "bullet", "objective-name", "objective-progress" })

@@ -119,6 +119,14 @@
    The drag box: a thin crimson line with the faintest wash, as Dust Front draws it (#A8142C sampled from its GIFs).
    The hover name: small grey caps beside the cursor. The panel sits under the speed bar, right-aligned with it. */
 .hud-marquee { position: absolute; border-width: 1px; border-color: #A8142C; background-color: rgba(168, 20, 44, 0.07); }
+/* marks on the field (SelectionMarkers): each .hud-mark sits on a unit's feet (transform), the hexagon centred on
+   them and scaled to the footprint, the bar lifted over the head. Sizes here are the unscaled boxes the code scales. */
+.hud-markers-layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; }
+.hud-mark { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.hud-mark__hex { position: absolute; left: -32px; top: -32px; width: 64px; height: 64px; -unity-background-scale-mode: stretch-to-fill; }
+.hud-mark__bar { position: absolute; left: 0; top: 0; width: 30px; height: 6px; background-color: rgba(10, 11, 12, 0.9); border-width: 1px; border-color: #050506; border-radius: 2px; overflow: hidden; }
+.hud-mark__fill { height: 100%; width: 100%; background-color: #D9485A; border-radius: 1px; }
+.hud-mark__fill--enemy { background-color: #E02B2B; }
 /* the hover card: a small dark plate beside the cursor, face left, name / state / health right */
 .hud-hover { position: absolute; flex-direction: row; align-items: center; padding: 6px 10px 6px 6px; min-width: 200px; max-width: 300px; display: none; opacity: 0; translate: -6px 0; transition-property: opacity, translate; transition-duration: 0.08s, 0.08s; transition-timing-function: ease-out-cubic, ease-out-cubic; background-color: rgba(14, 15, 16, 0.92); border-width: 1px; border-color: rgba(232, 225, 210, 0.22); }
 .hud-hover--shown { opacity: 1; translate: 0 0; }
@@ -143,6 +151,32 @@
 .hud-aim__ours { font-size: var(--tw-size-micro); color: var(--tw-text-dim); letter-spacing: 1px; }
 .hud-aim__ours--danger { color: #E02B2B; -unity-font-style: bold; font-size: var(--tw-size-caption); }
 /* a trench's men badge: amber when a third are shaken or pinned, red when half are pinned (they refuse over the top) */
+/* the trench's troop categories (owner, 2026-09-24: they replace the hold-fire button): one chip per infantry type,
+   the face filling a recessed window, the count bottom-right; a red pip when some are pinned; a bright rim when that
+   category of this trench is selected. The over-the-top button wears an amber rim while it would send only them. */
+.hud-orders__cats { flex-direction: row; align-items: center; }
+.hud-orders__row { align-self: flex-start; }   /* the chips grow the right pair: anchor the row on its left so the gap stays over the trench */
+.hud-selection__orders { margin-top: 8px; padding-top: 6px; border-top-width: 1px; border-color: #2A2C30; font-size: var(--tw-size-micro); color: var(--tw-accent-bright); letter-spacing: 1px; -unity-font-style: bold; white-space: normal; }
+.hud-selection__orders--warn { color: #E02B2B; }
+/* a skull where a man dies (DeathMarks): centred on him by transform, the count beside it when deaths merge */
+.hud-skull { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.hud-skull__icon { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; -unity-background-scale-mode: stretch-to-fill; }
+.hud-skull__count { position: absolute; left: 14px; top: -12px; font-size: var(--tw-size-caption); color: var(--tw-text-bright); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); -unity-text-outline-width: 1px; -unity-text-outline-color: #0A0B0C; }
+.hud-skull--ours .hud-skull__count { color: #E02B2B; }
+.hud-cat-chip { width: 44px; height: var(--tw-order-btn); margin-right: var(--tw-order-gap); overflow: hidden; background-color: #0A0B0C; border-width: 1px; border-color: #3A3D42; border-radius: var(--tw-radius-sm); }
+.hud-cat-chip:hover { border-color: var(--tw-text-dim); }
+.hud-cat-chip__face { position: absolute; left: 0; top: 2px; right: 0; bottom: 0; -unity-background-scale-mode: scale-and-crop; background-position-y: top; }
+.hud-cat-chip__count { position: absolute; right: 2px; bottom: 0; font-size: var(--tw-size-caption); color: var(--tw-text-bright); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); -unity-text-outline-width: 1px; -unity-text-outline-color: #0A0B0C; }
+.hud-cat-chip__pip { position: absolute; left: 3px; top: 3px; width: 7px; height: 7px; border-radius: 4px; background-color: #E02B2B; display: none; }
+.hud-cat-chip--pinned .hud-cat-chip__pip { display: flex; }
+.hud-cat-chip--pinned .hud-cat-chip__count { color: #E02B2B; }
+.hud-cat-chip--selected { border-width: 2px; border-color: var(--tw-text-bright); }
+.hud-orders__btn--partial { border-width: 2px; border-color: var(--tw-accent-bright); }
+.hud-orders__count-row { flex-direction: row; align-items: center; }
+/* hold fire, beside the men badge: dim while firing at will, alarm red while holding; click (or F) switches it */
+.hud-orders__holdtag { width: 22px; height: 22px; margin-left: 4px; -unity-background-image-tint-color: var(--tw-text-mute); }
+.hud-orders__holdtag:hover { -unity-background-image-tint-color: var(--tw-text); }
+.hud-orders__holdtag--on { -unity-background-image-tint-color: var(--tw-alarm); }
 .hud-orders__count--shaken { color: var(--tw-accent-bright); border-width: 1px; border-color: var(--tw-accent-bright); }   /* the plain badge is amber too: the rim says it */
 .hud-orders__count--pinned { color: #E02B2B; border-width: 1px; border-color: #E02B2B; background-color: #2A0E0B; }
 .hud-hover__hint { font-size: var(--tw-size-micro); color: var(--tw-text-mute); margin-top: 3px; letter-spacing: 1px; }
@@ -170,3 +204,12 @@
 .hud-group-chip { width: 38px; height: 30px; margin: 0 4px 4px 0; padding: 0 4px; flex-direction: row; align-items: center; justify-content: space-between; border-radius: var(--tw-radius); }
 .hud-group-chip__digit { font-size: var(--tw-size-label); color: var(--tw-alarm); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }
 .hud-group-chip__size { font-size: var(--tw-size-micro); color: var(--tw-text-dim); -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); }
+/* a group in trouble (GroupAlerts): a pip top-right and the rim; HIT flashes (code toggles --flash), LOST greys out */
+.hud-group-chip__pip { position: absolute; right: 3px; top: 3px; width: 6px; height: 6px; border-radius: 3px; display: none; }
+.hud-group-chip--pinned { border-width: 1px; border-color: var(--tw-accent-bright); }
+.hud-group-chip--pinned .hud-group-chip__pip { display: flex; background-color: var(--tw-accent-bright); }
+.hud-group-chip--hit { border-width: 1px; border-color: #7E1F12; }
+.hud-group-chip--hit .hud-group-chip__pip { display: flex; background-color: #E02B2B; }
+.hud-group-chip--flash { border-color: #E02B2B; background-color: rgba(224, 43, 43, 0.35); }
+.hud-group-chip--lost { opacity: 0.45; }
+.hud-group-chip--lost .hud-group-chip__digit { color: var(--tw-text-mute); }

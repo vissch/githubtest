@@ -18,5 +18,5 @@ MonoBehaviour:
   PauseMenu: {fileID: 9197481963319205126, guid: a17a65463da4a4e4c85c9ea5696cf776, type: 3}
   Settings: {fileID: 9197481963319205126, guid: 8f48c0faa48dafd46a8bd3e0c95c78fe, type: 3}
   Debrief: {fileID: 9197481963319205126, guid: cd3a0ed0415f17d458199f034bf61541, type: 3}
-  Backdrop: {fileID: 2800000, guid: 94ec95dd7b949bf419783472a57b9991, type: 3}
+  Backdrop: {fileID: 2800000, guid: 20430771357623d489a5428d3e3e7630, type: 3}
   Catalog: {fileID: 11400000, guid: 0e9e0591ed109ff4e943cd849fb77793, type: 2}
