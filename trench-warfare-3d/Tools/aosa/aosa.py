@@ -345,7 +345,7 @@ def cmd_stilldiff(a):
     if len(paths) == 1 and not paths[0].suffix:
         label = a.pngs[0]
         for d in sorted((docs() / "runs").glob("*"), key=lambda p: (not p.name.isdigit(), int(p.name) if p.name.isdigit() else 0), reverse=True):
-            hits = sorted(d.glob(label + "-*.png"))
+            hits = sorted(p for p in d.glob(label + "-*.png") if re.fullmatch(re.escape(label) + r"-\d+\.png", p.name))  # not .fN frames
             if hits:
                 paths = hits
                 break
@@ -623,6 +623,8 @@ def bench_string(spec, label, out, shot):
         pairs.append(("scenario", spec["scenario"]))
     if spec.get("shot_tick"):
         pairs.append(("shot_tick", str(spec["shot_tick"])))   # an IMAGE run: held clock in the window, never a perf sample
+        if (spec.get("shot_frames") or 1) > 1:
+            pairs.append(("shot_frames", str(spec["shot_frames"])))   # <label>-N.png then <label>-N.f1.png ...
         if spec.get("no_hud"):
             pairs.append(("shot_hud", "0"))   # the battlefield alone: the HUD runs on real time and the owner's pointer
     if spec.get("knobs"):
@@ -702,7 +704,7 @@ def cmd_bench(a):
     cyc = a.cycle if a.cycle is not None else current_cycle()
     cyc_dir = docs() / "runs" / str(cyc)
     mode = "editor" if a.editor else "player"
-    spec = {"label": a.label, "cycle": cyc, "mode": mode, "dev": a.dev, "scenario": a.scenario, "knobs": a.knobs, "shot_tick": a.shot_tick, "no_hud": getattr(a, "no_hud", False),
+    spec = {"label": a.label, "cycle": cyc, "mode": mode, "dev": a.dev, "scenario": a.scenario, "knobs": a.knobs, "shot_tick": a.shot_tick, "no_hud": getattr(a, "no_hud", False), "shot_frames": getattr(a, "shot_frames", 1),
             "extra": a.extra, "build_dir": str(Path(a.build_dir) if a.build_dir else builds_dir() / ("WinBenchDev" if a.dev else "WinBench"))}
     other = None
     if a.against:
@@ -1164,6 +1166,8 @@ def main(argv=None):
     b.add_argument("--scenario")
     b.add_argument("--shot-tick", type=int, default=None, dest="shot_tick",
                    help="take the still N ticks into the window on a held clock: an image run, excluded from perf judging")
+    b.add_argument("--shot-frames", type=int, default=1, dest="shot_frames",
+                   help="with --shot-tick: N consecutive held frames (a motion), <label>-N.png then .f1.png ...")
     b.add_argument("--no-hud", action="store_true", dest="no_hud",
                    help="with --shot-tick: hide the HUD so the still is the battlefield alone (the repeatable image, C33)")
     b.add_argument("--knobs", help="k=v,k2=v2")

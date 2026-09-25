@@ -111,6 +111,15 @@ namespace TW.Tests
             Assert.AreEqual(120, BenchOptions.Parse("shot_tick=120 shot_hud=0").ShotTick, "shot_hud is not read as shot_tick");
         }
 
+        [Test]
+        public void ShotFramesDefaultsToOneStillAndNeverBelowOne()
+        {
+            Assert.AreEqual(1, BenchOptions.Parse("shot=C:/runs/a.png shot_tick=120").ShotFrames);
+            Assert.AreEqual(8, BenchOptions.Parse("shot_tick=120 shot_frames=8").ShotFrames);
+            Assert.AreEqual(1, BenchOptions.Parse("shot_frames=0").ShotFrames, "0 frames would be no still at all");
+            Assert.AreEqual(120, BenchOptions.Parse("shot_tick=120 shot_frames=8").ShotTick, "shot_frames is not read as shot_tick");
+        }
+
         // C33: the held clock. Time.time reaches the menu at whatever the splash took; the bench walks it to one value,
         // in steps Time.maximumDeltaTime cannot clamp, and every start must land on the SAME float Time.time, or every
         // shader's _Time (rain, fog, water, flames) starts each run somewhere else and the still does not repeat.

@@ -265,7 +265,7 @@ namespace TW.Perf
         public const float AlignMaxStep = 0.25f;
         const int RandomSeed = 0x7E5EED;
         double alignTarget = -1.0;
-        int alignFrames, heldFrame0, stillFrame = -1;
+        int alignFrames, heldFrame0, stillFrame = -1, framesShot, lastShotFrame = -1;
         bool clockHeld, clockAligned;
         string stillWhere = "";
         uint stillTick;
@@ -316,6 +316,13 @@ namespace TW.Perf
             clockHeld = false;
         }
 
+        void Capture(string path)
+        {
+            try { ScreenCapture.CaptureScreenshot(path); }
+            catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
+            framesShot++; lastShotFrame = Time.frameCount;
+        }
+
         /// <summary>`shot_hud=0` on an image run: every UI Toolkit panel's root is set to display none, each frame (a panel
         /// rebuilt later is caught too). The HUD still runs; it is only not drawn.</summary>
         void HideHud()
@@ -329,9 +336,18 @@ namespace TW.Perf
         /// of the held clock it was, so two runs can be checked for having shot the same frame.</summary>
         void Shoot(string where)
         {
-            if (string.IsNullOrEmpty(Options.Shot) || stillFrame >= 0) return;
-            try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); ScreenCapture.CaptureScreenshot(Path.GetFullPath(Options.Shot)); }
-            catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
+            if (string.IsNullOrEmpty(Options.Shot)) return;
+            if (stillFrame >= 0)
+            {
+                // shot_frames: one more held frame per call after the still, until there are ShotFrames of them
+                if (framesShot >= Options.ShotFrames || Time.frameCount == lastShotFrame) return;
+                string full = Path.GetFullPath(Options.Shot);
+                Capture(Path.Combine(Path.GetDirectoryName(full), Path.GetFileNameWithoutExtension(full) + ".f" + framesShot + ".png"));
+                return;
+            }
+            try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); }
+            catch (Exception e) { warnings.Add("screenshot folder: " + e.Message); }
+            Capture(Path.GetFullPath(Options.Shot));
             stillWhere = where;
             stillTick = host != null && host.Local != null ? host.Local.World.Tick : 0u;
             stillFrame = Time.frameCount - heldFrame0;
@@ -612,7 +628,7 @@ namespace TW.Perf
               .Append(", \"unscaled_time\": ").Append(stillFrame >= 0 ? stillUnscaled.ToString("0.#########", Inv) : "null")
               .Append(", \"clock_aligned\": ").Append(clockAligned ? "true" : "false")
               .Append(", \"held_step\": ").Append(HeldStep.ToString("0.######", Inv))
-              .Append(", \"window_clock\": ").Append(Q(Options.ShotTick >= 0 ? "held" : "real")).Append(", \"hud\": ").Append(Options.ShotHud || Options.ShotTick < 0 ? "true" : "false").Append(" },\n");
+              .Append(", \"window_clock\": ").Append(Q(Options.ShotTick >= 0 ? "held" : "real")).Append(", \"frames\": ").Append(framesShot.ToString(Inv)).Append(", \"hud\": ").Append(Options.ShotHud || Options.ShotTick < 0 ? "true" : "false").Append(" },\n");
             double seconds = startRealtime > 0 ? Time.realtimeSinceStartupAsDouble - startRealtime : 0;
             sb.Append("  \"window\": { \"tick_start\": ").Append(t0).Append(", \"tick_end\": ").Append(w != null ? w.Tick : 0)
               .Append(", \"hash_start\": ").Append(Q(hashStart.ToString("X16")))

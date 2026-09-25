@@ -45,6 +45,9 @@ namespace TW.Perf
         /// is the battlefield alone. The HUD animates on real time and follows the owner's pointer over the background
         /// window (C33: the only pixels that still differed between three held-clock runs). 1 (default) keeps it.</summary>
         public bool ShotHud = true;
+        /// <summary>How many consecutive held frames an image run takes from `shot_tick` on: the first is `shot`, the rest
+        /// `<shot>.f1.png`, `.f2.png`... A motion (a volley's ripple, a flash's hold) needs frames, not one still. Default 1.</summary>
+        public int ShotFrames = 1;
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
         public bool Quit = true;
         /// <summary>What happens in the measured window (docs/reference/aosa/README.md "Scenarios"), issued as sim
@@ -90,6 +93,7 @@ namespace TW.Perf
                     case "shot": o.Shot = v; break;
                     case "shot_tick": o.ShotTick = I(v, o.ShotTick); break;
                     case "shot_hud": o.ShotHud = !(v == "0" || v.ToLowerInvariant() == "false"); break;
+                    case "shot_frames": o.ShotFrames = Math.Max(1, I(v, o.ShotFrames)); break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
                     case "scenario": o.ScenarioRaw = v; o.Scenario = ParseScenario(v); break;
                     // several knobs= tokens add up rather than the last one winning
