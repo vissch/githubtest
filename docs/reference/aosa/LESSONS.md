@@ -105,6 +105,12 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About changes
 
+- **Third time: the J01 barrage stills were shot after the last shell.** The barrage is called at the window's open,
+  warms up 80 ticks and drops its shells over 120, so every burst falls in ticks ~82-200. The evidence tick was 300.
+  Two blind critics then reported "no flash, no earth column", and card C54 was written for a missing effect that
+  draws fine at tick 140. With "no still showed a shot" and C49, this lesson has now come up three times. The
+  retrospective must make it a rule: an image card names the tick range its event occupies, taken from the code
+  (warm-up, spread, lifetime), and its evidence is shot inside that range. (C54, a0022; runs 6/b54a, b54b, b54c)
 - **The bench view could not show C49's effect: the evidence was blind again.** The fake crowd shadow darkens open
   ground under men. In the stress preset every man stands packed in the rear trench, where the men cover the ground
   themselves, and the zoom-16 view frames an empty no-man's land. Knob on against off changed 0.002% and 0% of
