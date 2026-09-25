@@ -9,7 +9,10 @@
 //  - units under a >> order are running: they only engage within 60 m;
 //  - small arms cannot hurt vehicles; infantry within 8 m close-assault them with grenades (a charge on the armour);
 //  - a knocked-out vehicle (UnitFlags.KnockedOut) is no target and fires nothing. A tank's main guns choose their own
-//    targets (TankGunnerySystem); what is found here is for its machine guns.
+//    targets (TankGunnerySystem); what is found here is for its machine guns;
+//  - a shield bearer (InfantrySpec.ShieldPlateMm) standing between a shooter and the man he picked, within
+//    ShieldGuardRadius of that man and inside a 15-degree cone on the bearing, takes the shot instead (2026-09-25).
+//    DirectFire then rolls the round against his plate.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -96,6 +99,44 @@ namespace TW.Sim.Combat
                 int cx = math.clamp((int)(p.x / MapData.NavCellSize), 0, NavWidth - 1);
                 int cz = math.clamp((int)(p.z / MapData.NavCellSize), 0, NavLength - 1);
                 return CellTrenchId[cz * NavWidth + cx];
+            }
+
+            /// <summary>The shield bearer standing between the shooter and his pick, if there is one: the nearest man of
+            /// the pick's side with a plate, within the guard radius of the pick, nearer the shooter, inside a 15-degree
+            /// cone on the bearing (ties to the lower slot). Otherwise the pick itself.</summary>
+            int Shielded(int i, int pick, float3 p, short myTrench, float rangeSq)
+            {
+                float3 tp = Position[pick];
+                float3 toT = tp - p; toT.y = 0f;
+                float lenT = SimMath.Length(toT);
+                if (lenT <= 1e-3f) return pick;
+                float3 dirT = toT / lenT;
+                int best = -1; float bestLen = float.MaxValue;
+                int tcx = math.clamp((int)(tp.x / GridCell), 0, GridW - 1), tcz = math.clamp((int)(tp.z / GridCell), 0, GridL - 1);
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int cx = tcx + dx, cz = tcz + dz;
+                    if (cx < 0 || cz < 0 || cx >= GridW || cz >= GridL) continue;
+                    if (!Grid.TryGetFirstValue(cz * GridW + cx, out int j, out var it)) continue;
+                    do
+                    {
+                        if (j == pick || Team[j] != Team[pick]) continue;
+                        uint fj = Flags[j];
+                        if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.Vehicle) != 0) continue;
+                        var spec = InfantrySpec.For(Archetype[j]);
+                        if (spec.ShieldPlateMm <= 0f) continue;
+                        float3 g = Position[j] - tp; g.y = 0f;
+                        if (math.lengthsq(g) > spec.ShieldGuardRadius * spec.ShieldGuardRadius) continue;
+                        float3 toJ = Position[j] - p; toJ.y = 0f;
+                        float lenJ = SimMath.Length(toJ);
+                        if (lenJ >= lenT || lenJ <= 1e-3f) continue;
+                        if (math.dot(toJ / lenJ, dirT) < 0.966f) continue;
+                        if (lenJ < bestLen || (lenJ == bestLen && j < best)) { best = j; bestLen = lenJ; }
+                    } while (Grid.TryGetNextValue(out j, ref it));
+                }
+                if (best >= 0 && Engageable(i, best, p, myTrench, rangeSq, out _)) return best;
+                return pick;
             }
 
             bool Engageable(int i, int j, float3 p, short myTrench, float rangeSq, out float distSq)
@@ -194,6 +235,7 @@ namespace TW.Sim.Combat
                 if (b0 >= 0 && Sees(i, b0, myTrench)) pick = b0;
                 else if (b1 >= 0 && Sees(i, b1, myTrench)) pick = b1;
                 else if (b2 >= 0 && Sees(i, b2, myTrench)) pick = b2;
+                if (pick >= 0 && (Flags[pick] & (uint)UnitFlags.Vehicle) == 0) pick = Shielded(i, pick, p, myTrench, rangeSq);
                 TargetSlot[i] = pick;
             }
         }

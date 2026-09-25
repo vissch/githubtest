@@ -21,6 +21,8 @@ namespace TW.Sim.Match
         public VehicleModulesSystem Modules;
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
+        public AuraSystem Aura;
+        public TW.Sim.Units.SupportSystem Support;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
         public SeaLandingSystem Landing;
@@ -70,6 +72,8 @@ namespace TW.Sim.Match
             {
                 Acquisition = new TargetAcquisitionSystem(map);
                 World.AddSystem(Acquisition);               // A2: who shoots at whom
+                Aura = new AuraSystem();
+                World.AddSystem(Aura);                      // A3: the officer's men hit harder, keep their nerve, do not stay pinned
                 Fire = new DirectFireSystem(map);
                 World.AddSystem(Fire);                      // A2: shots, damage, near-miss suppression, deaths
             }
@@ -100,6 +104,8 @@ namespace TW.Sim.Match
             }
             Modules = new VehicleModulesSystem(map);
             World.AddSystem(Modules);                       // A5b: armour, modules, crew, fire, bail-out, cook-off, wrecks
+            Support = new TW.Sim.Units.SupportSystem();
+            World.AddSystem(Support);                       // A3: medics patch the wounded, engineers mend the machines
             Sectors = new SectorControlSystem(map);
             World.AddSystem(Sectors);                       // A3 core: objectives, trench ownership, HQ = match end
             Abilities = new OffMapAbilitySystem();
