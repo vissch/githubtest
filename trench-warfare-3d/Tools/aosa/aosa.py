@@ -287,6 +287,57 @@ def editor_state():
     return pr["state"] == "free", text, slot
 
 
+# ---- quiet player launch ----------------------------------------------------------------------------------------------
+# Owner rule (2026-09-25): the loop runs in the background and must never interrupt the owner's work. The player is
+# started without taking focus (SW_SHOWNOACTIVATE), at below-normal CPU priority, and its window is pushed to the
+# bottom of the z-order as soon as it appears, so it renders (DWM composites a covered window; a MINIMISED one may
+# stop presenting, which would void the GPU numbers) without covering anything. Every report therefore carries the
+# "window lost focus" warning by design; the player runs in background (runInBackground) and still measures.
+
+def _push_to_bottom(pid):
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        HWND_BOTTOM, SWP_NOSIZE, SWP_NOMOVE, SWP_NOACTIVATE = 1, 0x1, 0x2, 0x10
+        found = []
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def each(hwnd, _):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value == pid and user32.IsWindowVisible(hwnd):
+                found.append(hwnd)
+            return True
+
+        user32.EnumWindows(each, 0)
+        for hwnd in found:
+            user32.SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE)
+        return len(found)
+    except Exception:
+        return 0
+
+
+def run_player_quietly(cmd, timeout):
+    """Run the bench player without stealing focus or CPU from the owner. Returns the exit code or "timeout"."""
+    kw = {}
+    if os.name == "nt":
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 4                      # SW_SHOWNOACTIVATE: shown, never focused
+        kw = {"startupinfo": si, "creationflags": 0x00004000}   # BELOW_NORMAL_PRIORITY_CLASS
+    p = subprocess.Popen(cmd, **kw)
+    t0, pushed = time.time(), 0
+    while p.poll() is None:
+        if time.time() - t0 > timeout:
+            p.kill()
+            return "timeout"
+        if os.name == "nt" and time.time() - t0 < 30:
+            pushed = max(pushed, _push_to_bottom(p.pid))   # the window appears a few seconds in; keep it under
+        time.sleep(0.5)
+    return p.returncode
+
+
 def cmd_status(a):
     _, head = git("rev-parse", "--short", "HEAD")
     print("AOSA status %s  HEAD %s  cycle %d" % (utcnow().strftime("%Y-%m-%dT%H:%MZ"), head or "?", current_cycle()))
@@ -581,10 +632,7 @@ def run_one(spec, label, cyc_dir, dry):
             print("%s: no player at %s" % (label, exe))
             return False
         t0 = time.time()
-        try:
-            rc = subprocess.run(cmd, timeout=1200).returncode
-        except subprocess.TimeoutExpired:
-            rc = "timeout"
+        rc = run_player_quietly(cmd, 1200)
         print("%s: player exit %s after %d s" % (label, rc, time.time() - t0))
     else:
         idle = [unity_exe(), "command", "--timeout", "10", "eval",
@@ -745,6 +793,8 @@ def stats(group):
 def all_reports():
     out = []
     for p in sorted((docs() / "runs").glob("*/*.json")):
+        if p.parent.name == "seed":
+            continue  # historical reports from different code: never repeats of each other, never a noise band
         r = load_json(p)
         if isinstance(r, dict) and r.get("schema") == "tw-perf/1":
             r["_path"], r["_group"] = str(p), (p.parent.name, re.sub(r"[-_]\d+$", "", p.stem))

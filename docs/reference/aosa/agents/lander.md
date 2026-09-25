@@ -8,6 +8,8 @@ for THIS tree's project. If it does not, the loop's own editor is still busy: re
 an error. Never claim the shared `editor_lock.py` slot. That slot queues the main clone's editor, which you never
 open.
 
+**Background only (owner rule).** Every Unity process you start is `-batchmode`, at below-normal priority, and shows no window. Never open an interactive editor. Captures come from the player bench's `shot=`.
+
 **Where the editor is.** The Unity project the loop measures is the `lane/show/aosa` worktree. It needs its own
 editor with its own `Library/`, opened on
 `C:\Users\thomas.visscher_magi\Documents\GitHub\githubtest-aosa\trench-warfare-3d`. The first open costs a full

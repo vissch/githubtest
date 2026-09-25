@@ -29,6 +29,19 @@ of their section. When the same lesson appears twice, the retrospective turns it
 - **A single-instance `RenderMeshInstanced` ignores instanced properties.** Test with 4 or more instances before
   concluding a per-instance property is broken. (agent-memory)
 
+- **On this machine the release player's main-thread p95 is noise-bound.** The band from 3 runs is 4.2 ms, while GPU
+  p95 is 0.14 ms. Other sessions' editors share the CPU. Judge main-thread cards on the development build's
+  per-marker `per_tick_ms` and on p50, never on release p95 alone. Judge GPU cards on release p95. (cycle 0,
+  runs 0/base-1..3)
+- **The release player cannot see GC.** `GC Allocated In Frame` is unavailable in a release player, so `gc_bytes`
+  is absent. Measure allocation cards on the development build. (cycle 0)
+- **The seeded reports are not repeats of each other.** `learn` excludes `runs/seed/` from the noise bands. It
+  once grouped two unrelated player runs as one. (cycle 0)
+
+- **Player `shot=` stills are not repeatable.** Across 3 identical runs, 7.5-10% of pixels differed (max delta 238):
+  presentation animates on real time during warm-up. Until C33 lands, never use a player still for a pixel diff.
+  Use it only for the critic, and for the check that the run drew the battle. (cycle 0)
+
 ## About searching and attributing
 
 - **Grep the DECLARATION, not a guessed usage.** `Stance[` missed `StanceOf`, and a class may live in a file with

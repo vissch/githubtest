@@ -195,6 +195,14 @@ any other card, with rule 6 (readability) as a hard condition on every moment.
 
 ## Standing constraints
 
+- **Owner rule (2026-09-25): run everything in the background, and never interrupt the owner's work.**
+  - The bench player starts unfocused (`SW_SHOWNOACTIVATE`) at below-normal priority and is pushed behind every
+    other window. `aosa.py` does this, so never launch the player by hand.
+  - Builds, tests and editor work run only as `-batchmode` processes at below-normal priority. They show no window.
+  - The loop never opens a visible editor. Mode E therefore means batch-mode editor work (gate, build,
+    `-executeMethod`), not an interactive editor.
+  - Captures come from the player (`shot=`), not from `CaptureRig` in a visible editor.
+  - Every bench report carries "the window lost focus". That is by design and is not a fault.
 - The loop opens only its own editor, on this tree. It never opens the main clone's project and never claims the
   shared slot. Never refresh or recompile while
   `EditorApplication.isPlaying` is true under someone else's session.
