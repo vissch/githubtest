@@ -14,7 +14,7 @@ namespace TW.Tests
 {
     public class GarrisonAndOrdersTests
     {
-        const int Rifleman = 0, Tank = 6;   // FactionRoster.Slot: slots 6-9 are the machines on both sides
+        const int Rifleman = 0, Officer = 3, Tank = 6;   // FactionRoster.Slot: 3 is Iron's officer, 6-9 the machines
 
         static MatchSim NewMatch(int silver = 100000, uint seed = 0xC0FFEE)
         {
@@ -155,18 +155,26 @@ namespace TW.Tests
             Assert.AreEqual(0, m.Fields.Trenches[0].Locked);
         }
 
+        /// <summary>
+        /// The order names a GROUP, not a list of archetype ids (the mask used to be `1 << archetype`, which is what
+        /// held every unit id under 32). "Send the line over" leaves the officer in the trench; "send the support" sends him.
+        /// </summary>
         [Test]
-        public void SelectAdvance_MovesOnlyMaskedClasses()
+        public void SelectAdvance_MovesOnlyTheGroupsNamed()
         {
             using var m = NewMatch();
             Deploy(m, 0, Rifleman, 6);
-            Deploy(m, 0, 1, 6);   // assault
-            Run(m, 1100);
+            Deploy(m, 0, Officer, 1);   // Iron's slot 3: a Support man, not Line
+            Run(m, 1400);
             var w = m.World;
-            Assert.AreEqual(12, Count(w, i => w.TrenchId[i] == 0));
-            Step(m, Order(0, CommandType.TrenchSelectAdvance, 0, 1 << 1));
-            Assert.AreEqual(6, Count(w, i => w.TrenchId[i] == 0 && w.Archetype[i] == Rifleman), "riflemen stay");
-            Assert.AreEqual(6, Count(w, i => w.TrenchId[i] < 0 && w.Archetype[i] == 1), "assault troops go");
+            Assert.AreEqual(7, Count(w, i => w.TrenchId[i] == 0), "setup: all seven garrison the rear trench");
+
+            Step(m, Order(0, CommandType.TrenchSelectAdvance, 0, OrderGroup.Line));
+            Assert.AreEqual(6, Count(w, i => w.TrenchId[i] < 0 && w.Archetype[i] == InfantryArchetype.Rifle), "the line went over");
+            Assert.AreEqual(1, Count(w, i => w.TrenchId[i] == 0 && w.Archetype[i] == InfantryArchetype.Officer), "the officer stayed");
+
+            Step(m, Order(0, CommandType.TrenchSelectAdvance, 0, OrderGroup.Support));
+            Assert.AreEqual(0, Count(w, i => w.TrenchId[i] == 0), "and then the officer went too");
         }
 
         [Test]

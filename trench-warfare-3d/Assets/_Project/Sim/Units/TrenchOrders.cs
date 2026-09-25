@@ -66,7 +66,7 @@ namespace TW.Sim.Units
         }
 
         /// <summary>How many men actually went over the top. Zero means the order found nobody to give.</summary>
-        int Advance(SimWorld w, short trenchId, byte team, int archetypeMask)
+        int Advance(SimWorld w, short trenchId, byte team, int groupMask)
         {
             int goal = fields.NextGoalFrom(trenchId, team);
             if (goal < 0) return 0;
@@ -76,7 +76,7 @@ namespace TW.Sim.Units
                 uint f = w.Flags[i];
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
                 if (w.Team[i] != team || w.TrenchId[i] != trenchId) continue;
-                if (archetypeMask != 0 && (archetypeMask & (1 << w.Archetype[i])) == 0) continue;
+                if (groupMask != 0 && (groupMask & OrderGroup.Of(w.Archetype[i])) == 0) continue;   // OrderGroup, never the id
                 if (w.Suppression[i] >= StanceRules.PinnedSuppression) continue;   // pinned men refuse to go over the top
                 w.GoalId[i] = goal;
                 w.TrenchId[i] = -1;
