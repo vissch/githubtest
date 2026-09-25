@@ -116,6 +116,12 @@ namespace TW.Sim.Nav
         FlowFieldManager fields;
         MovementSystem movement;
 
+        // ---- per archetype, hashed: the machines of this match ----
+        /// <summary>How each archetype drives: turn rate, trench crossing, slope, bog, footprint. A table rather than a
+        /// switch compiled into the job, so the bake can fill it. Read here, by VehicleModules, by the gunnery and by
+        /// the presentation picker.</summary>
+        public NativeArray<VehicleProfile> Profiles;
+
         // ---- per slot, hashed ----
         public NativeArray<ushort> Gen;          // Generation this slot's state belongs to
         public NativeArray<float> SpeedFactor;   // VehicleModulesSystem: a damaged engine, a lone driver (1 = sound)
@@ -147,6 +153,11 @@ namespace TW.Sim.Nav
             this.world = world;
             fields = world.GetSystem<FlowFieldManager>() ?? throw new InvalidOperationException("VehicleKinematicsSystem needs FlowFieldManager registered before it");
             movement = world.GetSystem<MovementSystem>() ?? throw new InvalidOperationException("VehicleKinematicsSystem needs MovementSystem registered before it");
+            // How each machine drives, as a table indexed by archetype rather than a switch compiled into the job.
+            // Filled from the ForArchetype defaults today and from the bake later; hashed, because a machine that turns
+            // faster on one player's copy is a different battle and the tick hash should say so at once.
+            Profiles = new NativeArray<VehicleProfile>(Archetypes.Count, Allocator.Persistent);
+            for (int a = 0; a < Archetypes.Count; a++) Profiles[a] = VehicleProfile.ForArchetype((byte)a);
             int n = world.Config.MaxSlots;
             Gen = new NativeArray<ushort>(n, Allocator.Persistent);
             SpeedFactor = new NativeArray<float>(n, Allocator.Persistent);
@@ -172,7 +183,7 @@ namespace TW.Sim.Nav
             events.Clear(); blocked.Clear();
             new VehicleJob
             {
-                Vehicles = movement.Vehicles.AsArray(),
+                Vehicles = movement.Vehicles.AsArray(), Profiles = Profiles,
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
                 Speed = w.Speed, Archetype = w.Archetype, GoalId = w.GoalId, Generation = w.Generation,
                 Gen = Gen, SpeedFactor = SpeedFactor, HaltTicks = HaltTicks, CrossTrench = CrossTrench, DitchTicks = DitchTicks, BogTicks = BogTicks,
@@ -199,7 +210,7 @@ namespace TW.Sim.Nav
                 int i = list[k];
                 uint f = w.Flags[i];
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.KnockedOut) != 0) continue;
-                var prof = VehicleProfile.ForArchetype(w.Archetype[i]);
+                var prof = Profiles[w.Archetype[i]];
                 float3 p = w.Position[i], v = w.Velocity[i];
                 float speed = SimMath.Length(v);
                 if (speed > 0.2f && !prof.Walker)   // a walker steps over wire: it neither slows nor breaks it
@@ -221,7 +232,7 @@ namespace TW.Sim.Nav
             {
                 int i = blocked[b].x, cell = blocked[b].y;
                 if ((w.Flags[i] & (uint)UnitFlags.KnockedOut) != 0) continue;
-                bool heavy = VehicleProfile.ForArchetype(w.Archetype[i]).PushesTrees;
+                bool heavy = Profiles[w.Archetype[i]].PushesTrees;
                 for (int p = 0; p < map.Props.Length; p++)
                     if (map.Props[p].Cell == cell && Fells(map.Props[p].Kind, heavy)) { navChanged |= Fell(w, i, p); break; }
             }
@@ -305,6 +316,7 @@ namespace TW.Sim.Nav
         struct VehicleJob : IJob
         {
             [ReadOnly] public NativeArray<int> Vehicles;
+            [ReadOnly] public NativeArray<VehicleProfile> Profiles;   // the match table, by archetype
             public NativeArray<float3> Position, Velocity;
             public NativeArray<float> Yaw;
             public NativeArray<byte> Layer, StanceOf;
@@ -388,7 +400,7 @@ namespace TW.Sim.Nav
                     if (halted) { Velocity[i] = float3.zero; continue; }
 
                     int cell = CellOf(p);
-                    var prof = VehicleProfile.ForArchetype(Archetype[i]);
+                    var prof = Profiles[Archetype[i]];
                     byte drive = Drive[i];
                     float2 want;
                     if (drive == DriveFlow)
@@ -482,7 +494,7 @@ namespace TW.Sim.Nav
                     int i = Vehicles[a], j = Vehicles[b];
                     float2 d = Position[j].xz - Position[i].xz;
                     float dist = SimMath.Length(d);
-                    float min = VehicleProfile.ForArchetype(Archetype[i]).Radius + VehicleProfile.ForArchetype(Archetype[j]).Radius;
+                    float min = Profiles[Archetype[i]].Radius + Profiles[Archetype[j]].Radius;
                     if (dist >= min) continue;
                     float2 dir = dist > 1e-3f ? d / dist : new float2(1f, 0f);
                     float push = math.min(0.15f, (min - dist) * 0.5f);
@@ -512,6 +524,7 @@ namespace TW.Sim.Nav
 
         public ulong Hash(ulong h)
         {
+            h = SimHash.Array(Profiles, h);   // the machines of this match: a different table is a different battle
             int n = math.min(Gen.Length, world.HighWater);
             h = SimHash.Array(Gen, n, h);
             h = SimHash.Array(SpeedFactor, n, h);
@@ -528,6 +541,7 @@ namespace TW.Sim.Nav
 
         public void Dispose()
         {
+            if (Profiles.IsCreated) Profiles.Dispose();
             if (Gen.IsCreated) Gen.Dispose();
             if (SpeedFactor.IsCreated) SpeedFactor.Dispose();
             if (HaltTicks.IsCreated) HaltTicks.Dispose();

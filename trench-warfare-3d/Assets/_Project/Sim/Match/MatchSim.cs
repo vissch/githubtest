@@ -36,6 +36,7 @@ namespace TW.Sim.Match
         public DeformationSystem Deformation;
         public OffMapAbilitySystem Abilities;
         public AmbientBombardmentSystem Bombardment;
+        public TW.Sim.Combat.CombatCatalogueSystem Catalogue;
         public TerrainHashSystem TerrainHash;
 
         /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
@@ -62,6 +63,8 @@ namespace TW.Sim.Match
             World = new SimWorld(config, map.ToWorldInit());
             // ---- system registration (docs/04-architecture.md, "Sim system order"). Step order follows ISimSystem.Order;
             // Initialize order follows AddSystem order, so providers are added before the systems that resolve them. ----
+            Catalogue = new TW.Sim.Combat.CombatCatalogueSystem();
+            World.AddSystem(Catalogue);                     // A5c: steps nothing; the weapon and hull tables of this match, and their fingerprint
             TerrainHash = new TerrainHashSystem(map);
             World.AddSystem(TerrainHash);                   // A4: steps nothing; folds the map (ground, layers, holes) into the tick hash
             Fields = new FlowFieldManager(map);

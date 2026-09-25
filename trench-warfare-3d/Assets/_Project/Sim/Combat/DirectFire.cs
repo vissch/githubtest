@@ -38,8 +38,11 @@ namespace TW.Sim.Combat
 
         public DirectFireSystem(MapData map) { this.map = map; }
 
+        CombatCatalogueSystem catalogue;
+
         public void Initialize(SimWorld world)
         {
+            catalogue = world.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs CombatCatalogueSystem registered before it");
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
@@ -64,7 +67,7 @@ namespace TW.Sim.Combat
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf, Yaw = w.Yaw,
-                Specs = w.Units.Infantry,
+                Specs = w.Units.Infantry, Weapons = catalogue.Weapon, Tanks = catalogue.Tank,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
@@ -103,6 +106,8 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
+            [ReadOnly] public NativeArray<WeaponStats> Weapons;
+            [ReadOnly] public NativeArray<TankSpec> Tanks;
             [ReadOnly] public NativeArray<float> Yaw;
             [ReadOnly] public SpatialHash Spatial;
             [ReadOnly] public NativeArray<short> CellTrenchId;
@@ -178,7 +183,7 @@ namespace TW.Sim.Combat
                             VehicleHits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.CloseAssault, PenMm = CombatTables.CloseAssaultPenMm, Damage = CombatTables.CloseAssaultDamage, Pos = q, Dir = along });
                         continue;
                     }
-                    var weapon = CombatTables.WeaponFor(Archetype[i]);
+                    var weapon = Weapons[Archetype[i]];
                     FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                     float3 d = q - p; d.y = 0f;
                     float dist = SimMath.Length(d);
@@ -216,7 +221,7 @@ namespace TW.Sim.Combat
                         if ((Flags[i] & (uint)UnitFlags.Charging) != 0)
                         {
                             // a charging Breaker's round finds the mark (the roll is drawn only for it)
-                            var ts = TankSpec.For(Archetype[i]);
+                            var ts = Tanks[Archetype[i]];
                             if (ts.CritChance > 0f && rng.NextFloat() < ts.CritChance)
                             {
                                 dmg *= ts.CritMul;

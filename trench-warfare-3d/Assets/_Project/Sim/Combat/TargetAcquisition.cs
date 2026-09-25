@@ -34,8 +34,11 @@ namespace TW.Sim.Combat
 
         public TargetAcquisitionSystem(MapData map) { this.map = map; }
 
+        CombatCatalogueSystem catalogue;
+
         public void Initialize(SimWorld world)
         {
+            catalogue = world.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("TargetAcquisitionSystem needs CombatCatalogueSystem registered before it");
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("TargetAcquisitionSystem needs FlowFieldManager registered before it");
             gridW = (int)math.ceil(map.SizeMeters.x / GridCell);
             gridL = (int)math.ceil(map.SizeMeters.y / GridCell);
@@ -51,7 +54,7 @@ namespace TW.Sim.Combat
             {
                 Grid = grid, GridW = gridW, GridL = gridL, Tick = w.Tick,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype,
-                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry,
+                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry, Weapons = catalogue.Weapon,
                 Trenches = fields.Trenches, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
             }.Schedule(n, 32).Complete();
@@ -88,6 +91,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
+            [ReadOnly] public NativeArray<WeaponStats> Weapons;
             [ReadOnly] public NativeArray<float> Suppression;
             [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<TrenchState> Trenches;
@@ -204,7 +208,7 @@ namespace TW.Sim.Combat
                 if (silent) { TargetSlot[i] = -1; return; }
 
                 float3 p = Position[i];
-                var weapon = CombatTables.WeaponFor(Archetype[i]);
+                var weapon = Weapons[Archetype[i]];
                 float range = weapon.RangeMax;
                 if ((f & (uint)UnitFlags.Exposed) != 0 && (f & (uint)UnitFlags.Vehicle) == 0) range = math.min(range, CombatTables.AdvanceFireRange);
                 float rangeSq = range * range;

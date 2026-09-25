@@ -59,6 +59,7 @@ namespace TW.Sim.Units
 
         readonly Terrain.MapData map;
         SimWorld world;
+        CombatCatalogueSystem catalogue;
         TankGunnerySystem gunnery;
         BlastSystem blast;
         GasSmokeSystem gas;
@@ -88,6 +89,7 @@ namespace TW.Sim.Units
         {
             world = w;
             kinematics = w.GetSystem<VehicleKinematicsSystem>() ?? throw new System.InvalidOperationException("VehicleModulesSystem needs VehicleKinematicsSystem registered before it");
+            catalogue = w.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("VehicleModulesSystem needs CombatCatalogueSystem registered before it");
             gunnery = w.GetSystem<TankGunnerySystem>();   // null without combat
             blast = w.GetSystem<BlastSystem>();
             gas = w.GetSystem<GasSmokeSystem>();          // null without combat: the Censer's drum needs it
@@ -123,7 +125,7 @@ namespace TW.Sim.Units
         /// by how it died (a burnt-out hull is half a hull, a cooked-off one is scrap).</summary>
         public float QualityOf(SimWorld w, int slot)
         {
-            var spec = TankSpec.For(w.Archetype[slot]);
+            var spec = catalogue.Tank[w.Archetype[slot]];
             float sum = Module[slot * M + (int)VehicleModule.TrackLeft] + Module[slot * M + (int)VehicleModule.TrackRight] + Module[slot * M + (int)VehicleModule.Engine];
             int n = 3;
             if (spec.GunCount > 0) { sum += Module[slot * M + (int)VehicleModule.GunA]; n++; }
@@ -162,7 +164,7 @@ namespace TW.Sim.Units
 
         void Init(SimWorld w, int i)
         {
-            var spec = TankSpec.For(w.Archetype[i]);
+            var spec = catalogue.Tank[w.Archetype[i]];
             Gen[i] = w.Generation[i];
             for (int m = 0; m < M; m++) Module[i * M + m] = 1f;
             Crew[i] = CrewMax[i] = spec.Crew;
@@ -180,7 +182,7 @@ namespace TW.Sim.Units
             int t = hit.Target;
             if (!IsTank(w, t)) return;
             var rng = Dice(w, (uint)hitSerial++);
-            var spec = TankSpec.For(w.Archetype[t]);
+            var spec = catalogue.Tank[w.Archetype[t]];
             LastHitTick[t] = w.Tick; Repair[t] = 0;
             if (hit.Shooter >= 0) LastShooter[t] = hit.Shooter;
             bool turret = hit.Kind == VehicleHitKind.ArmourPiercing && spec.TurretChance > 0f && rng.NextFloat() < spec.TurretChance;
@@ -343,7 +345,7 @@ namespace TW.Sim.Units
                 float3 d = w.Position[i] - im.Pos; d.y = 0f;
                 float dist = SimMath.Length(d), reach = im.Radius + prof.HalfWidth;
                 if (dist >= reach) continue;
-                var spec = TankSpec.For(w.Archetype[i]);
+                var spec = catalogue.Tank[w.Archetype[i]];
                 var rng = Dice(w, 0x1000000u + (uint)(k & 0xFFF) * 4096u + (uint)i);   // above every other stream here (slots < 4096)
                 LastHitTick[i] = w.Tick; Repair[i] = 0;
                 bool direct = dist < prof.HalfWidth + 0.6f;
@@ -383,7 +385,7 @@ namespace TW.Sim.Units
         void Tick(SimWorld w, int i)
         {
             var rng = Dice(w, 0x300000u + (uint)i);
-            var spec = TankSpec.For(w.Archetype[i]);
+            var spec = catalogue.Tank[w.Archetype[i]];
             if (Shaken[i] > 0) Shaken[i]--;
             if (Fire[i] > 0f)
             {
@@ -528,7 +530,7 @@ namespace TW.Sim.Units
             w.Events.Add(w.Tick, SimEventType.VehicleKnockedOut, t, (int)cause, w.Position[t], new float3(0f, w.Yaw[t], 0f));
             if (cause == VehicleKillCause.Structure && rng.NextFloat() < 0.5f) StartFire(w, t, 0.4f);
             StateTicks[t] = rng.NextInt(BurnOutMin, BurnOutMax + 1);
-            if (!TankSpec.For(w.Archetype[t]).Unmanned) BailOut(w, t);   // nobody gets out of a walker: there is nobody in it
+            if (!catalogue.Tank[w.Archetype[t]].Unmanned) BailOut(w, t);   // nobody gets out of a walker: there is nobody in it
             if (gunnery != null) gunnery.CrewFactor[t] = 0f;
             checksum = SimHash.Value(new int2(t, (int)cause), checksum);
         }

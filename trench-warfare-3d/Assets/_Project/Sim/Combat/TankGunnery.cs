@@ -71,9 +71,12 @@ namespace TW.Sim.Combat
 
         public TankGunnerySystem(MapData map) { this.map = map; }
 
+        CombatCatalogueSystem catalogue;
+
         public void Initialize(SimWorld w)
         {
             world = w;
+            catalogue = w.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("TankGunnerySystem needs CombatCatalogueSystem registered before it");
             int n = w.Config.MaxSlots;
             GunYaw = new NativeArray<float>(n * Guns, Allocator.Persistent);
             Reload = new NativeArray<int>(n * Guns, Allocator.Persistent);
@@ -106,7 +109,7 @@ namespace TW.Sim.Combat
                 ClawCooldown = ClawCooldown, Clawed = clawed,
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
-                Hits = PendingHits, Events = events, Impacts = impacts,
+                Hits = PendingHits, Events = events, Impacts = impacts, Tanks = catalogue.Tank,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
@@ -116,7 +119,7 @@ namespace TW.Sim.Combat
             {
                 int j = clawed[c].x, i = clawed[c].y;
                 if (!w.IsAlive(j)) continue;
-                w.Hp[j] = w.Hp[j] - TankSpec.For(w.Archetype[i]).ClawDamage;
+                w.Hp[j] = w.Hp[j] - catalogue.Tank[w.Archetype[i]].ClawDamage;
                 w.Events.Add(w.Tick, SimEventType.VehicleClawed, i, j, w.Position[j]);
                 if (w.Hp[j] <= 0f) w.Despawn(j, i, SimMath.DirFromYaw(w.Yaw[i]) * 0.5f);
             }
@@ -134,6 +137,7 @@ namespace TW.Sim.Combat
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct GunneryJob : IJob
         {
+            [ReadOnly] public NativeArray<TankSpec> Tanks;   // the match table, by archetype (CombatCatalogueSystem)
             public int Count, NavWidth, NavLength;
             public uint Tick, Seed;
             public float Dt;
@@ -219,7 +223,7 @@ namespace TW.Sim.Combat
                 {
                     uint f = Flags[i];
                     if ((f & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) || !VehicleArchetype.IsArmoured(Archetype[i])) continue;
-                    var spec = TankSpec.For(Archetype[i]);
+                    var spec = Tanks[Archetype[i]];
                     if (Gen[i] != Generation[i])
                     {
                         Gen[i] = Generation[i]; CrewFactor[i] = 1f;

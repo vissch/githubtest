@@ -42,8 +42,12 @@ namespace TW.Sim.Units
 
         public BreakerSystem(MapData map) { this.map = map; }
 
+        TW.Sim.Combat.CombatCatalogueSystem catalogue;
+
+
         public void Initialize(SimWorld world)
         {
+            catalogue = world.GetSystem<TW.Sim.Combat.CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("BreakerSystem needs CombatCatalogueSystem registered before it");
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("BreakerSystem needs FlowFieldManager");
             movement = world.GetSystem<MovementSystem>() ?? throw new System.InvalidOperationException("BreakerSystem needs MovementSystem registered before it");
             kinematics = world.GetSystem<VehicleKinematicsSystem>() ?? throw new System.InvalidOperationException("BreakerSystem needs VehicleKinematicsSystem registered before it");
@@ -64,7 +68,7 @@ namespace TW.Sim.Units
             for (int k = 0; k < list.Length; k++)
             {
                 int i = list[k];
-                var spec = TankSpec.For(w.Archetype[i]);
+                var spec = catalogue.Tank[w.Archetype[i]];
                 if (spec.BreakerRange <= 0f) continue;
                 if (gen[i] != w.Generation[i]) { gen[i] = w.Generation[i]; Phase[i] = 0; PhaseTicks[i] = 0; TargetCell[i] = -1; TargetTrench[i] = -1; Still[i] = 0; }
                 uint f = w.Flags[i];
