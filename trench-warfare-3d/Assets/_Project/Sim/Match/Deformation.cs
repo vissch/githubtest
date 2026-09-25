@@ -9,14 +9,30 @@
 // - wire: a cratering blast clears the wire inside its crater (WireBreached).
 // Flow fields are marked stale whenever a nav cell changed. The map's mutable arrays are covered by MapData.Version,
 // which FlowFieldManager hashes; this system hashes its queue and a running checksum of what it has applied.
+// Wreck provenance (2026-09-25, for the salvage report and, later, the auctions): every wreck it leaves is also a
+// WreckRecord — whose machine it was, which side's, how it died, what is left of it (VehicleModulesSystem.QualityOf,
+// read here in the same tick as VehicleDestroyed while the slot's modules are still true) and which prop it became.
+// The list is hashed; the debrief reads it at the end and asks SectorControlSystem.ObjectiveAt who holds the ground.
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim.Combat;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
+using TW.Sim.Units;
 
 namespace TW.Sim.Match
 {
+    /// <summary>A vehicle that became a wreck. Every field is 4 bytes wide, so it hashes without padding.</summary>
+    public struct WreckRecord
+    {
+        public int Slot;          // the slot it died in (re-used since: Generation tells the lives apart)
+        public int Generation;
+        public int Archetype, Team, Cause, Killer, PropIndex;
+        public float Quality;     // 0..1, VehicleModulesSystem.QualityOf at the moment it died
+        public float3 Pos;
+        public uint Tick;
+    }
+
     public sealed class DeformationSystem : ISimSystem
     {
         public const int MaxStampsPerTick = 4;
@@ -25,6 +41,8 @@ namespace TW.Sim.Match
         FlowFieldManager fields;
         BlastSystem blast;
         public NativeList<CraterStamp> Queue;
+        public NativeList<WreckRecord> Wrecks;
+        VehicleModulesSystem modules;
         public int Applied, PropsChanged, WireOpened;
         ulong checksum = SimHash.Offset;
 
@@ -54,12 +72,14 @@ namespace TW.Sim.Match
         {
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("DeformationSystem needs FlowFieldManager registered before it");
             blast = world.GetSystem<BlastSystem>();
+            Wrecks = new NativeList<WreckRecord>(16, Allocator.Persistent);
             Queue = new NativeList<CraterStamp>(64, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
         {
             bool navChanged = false;
+            if (modules == null) modules = w.GetSystem<VehicleModulesSystem>();   // registered after this system: resolve on the first tick
             if (blast != null)
             {
                 for (int i = 0; i < blast.Craters.Length; i++) Queue.Add(blast.Craters[i]);
@@ -81,6 +101,20 @@ namespace TW.Sim.Match
                 checksum = SimHash.Value(at, checksum);
                 PropsChanged++; navChanged = true;
                 w.Events.Add(w.Tick, SimEventType.PropChanged, index, (int)PropKind.Wreck, at, new float3(e.A + 1, 0f, 0f));
+                if (Wrecks.IsCreated)
+                {
+                    int slot = e.A;
+                    byte cause = modules != null && modules.KillCause.IsCreated && slot < modules.KillCause.Length ? modules.KillCause[slot] : (byte)VehicleKillCause.Structure;
+                    float quality = modules != null ? modules.QualityOf(w, slot) : 0.5f;
+                    var rec = new WreckRecord
+                    {
+                        Slot = slot, Generation = w.Generation[slot], Archetype = w.Archetype[slot], Team = w.Team[slot],
+                        Cause = cause == VehicleModulesSystem.Alive ? (int)VehicleKillCause.Structure : cause, Killer = e.B, PropIndex = index,
+                        Quality = quality, Pos = at, Tick = w.Tick,
+                    };
+                    Wrecks.Add(rec);
+                    w.Events.Add(w.Tick, SimEventType.WreckRecorded, Wrecks.Length - 1, index, at, new float3(rec.Archetype, rec.Team, rec.Cause), quality);
+                }
             }
 
             int n = Queue.Length < MaxStampsPerTick ? Queue.Length : MaxStampsPerTick;
@@ -137,6 +171,7 @@ namespace TW.Sim.Match
 
         public ulong Hash(ulong h)
         {
+            if (Wrecks.IsCreated) { h = SimHash.Value(Wrecks.Length, h); for (int i = 0; i < Wrecks.Length; i++) h = SimHash.Value(Wrecks[i], h); }
             h = SimHash.Value(Applied, h);
             h = SimHash.Value(PropsChanged, h);
             h = SimHash.Value(WireOpened, h);
@@ -145,6 +180,6 @@ namespace TW.Sim.Match
             return h;
         }
 
-        public void Dispose() { if (Queue.IsCreated) Queue.Dispose(); }
+        public void Dispose() { if (Queue.IsCreated) Queue.Dispose(); if (Wrecks.IsCreated) Wrecks.Dispose(); }
     }
 }

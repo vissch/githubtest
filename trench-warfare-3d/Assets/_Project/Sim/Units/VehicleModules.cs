@@ -105,12 +105,18 @@ namespace TW.Sim.Units
             LastShooter = new NativeArray<int>(n, Allocator.Persistent);
             LegsLost = new NativeArray<byte>(n, Allocator.Persistent);
             KillCause = new NativeArray<byte>(n, Allocator.Persistent);
-            for (int i = 0; i < n; i++) KillCause[i] = Alive;
+            Fate = new NativeArray<byte>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) { KillCause[i] = Alive; Fate[i] = Alive; }
         }
 
         /// <summary>Why each vehicle stopped fighting (VehicleKillCause), or Alive. Kept until the slot is re-used so
         /// the wreck record (DeformationSystem, the same tick as VehicleDestroyed) can read it.</summary>
         public NativeArray<byte> KillCause;
+
+        /// <summary>What became of the hull after the blow that stopped it (VehicleKillCause), or Alive if nothing more:
+        /// a shelled hull that then burned through or cooked off is worth what is left of it, not what stopped it. The
+        /// record keeps the blow (KillCause); the salvage cut follows the fate.</summary>
+        public NativeArray<byte> Fate;
         public const byte Alive = 255;
 
         /// <summary>What is left of a machine as salvage, 0..1: the mean of its running gear, engine and guns, cut
@@ -122,7 +128,8 @@ namespace TW.Sim.Units
             int n = 3;
             if (spec.GunCount > 0) { sum += Module[slot * M + (int)VehicleModule.GunA]; n++; }
             if (spec.GunCount > 1) { sum += Module[slot * M + (int)VehicleModule.GunB]; n++; }
-            float cause = KillCause[slot] == (byte)VehicleKillCause.Fire ? 0.5f : KillCause[slot] == (byte)VehicleKillCause.Ammunition ? 0.15f : 0.85f;
+            byte end = Fate[slot] != Alive ? Fate[slot] : KillCause[slot];
+            float cause = end == (byte)VehicleKillCause.Fire ? 0.5f : end == (byte)VehicleKillCause.Ammunition ? 0.15f : 0.85f;
             return math.saturate(sum / n * cause);
         }
 
@@ -160,7 +167,7 @@ namespace TW.Sim.Units
             for (int m = 0; m < M; m++) Module[i * M + m] = 1f;
             Crew[i] = CrewMax[i] = spec.Crew;
             Fire[i] = 0f; State[i] = (byte)VehicleState.Active; StateTicks[i] = 0; LastHitTick[i] = w.Tick; Shaken[i] = 0; Repair[i] = 0; LastShooter[i] = -1;
-            LegsLost[i] = 0; KillCause[i] = Alive;
+            LegsLost[i] = 0; KillCause[i] = Alive; Fate[i] = Alive;
             kinematics.SpeedFactor[i] = 1f;
             if (gunnery != null) { gunnery.CrewFactor[i] = 1f; for (int k = 0; k < Guns; k++) gunnery.GunHealth[i * Guns + k] = 1f; }
         }
@@ -392,6 +399,7 @@ namespace TW.Sim.Units
                     Fire[i] = math.min(1f, Fire[i] + growth);
                     w.Hp[i] = w.Hp[i] - FireBurn * Fire[i] * w.Config.TickSeconds;
                     if (State[i] == (byte)VehicleState.Active && Fire[i] >= BailFire) KnockOut(w, i, VehicleKillCause.Fire, ref rng);
+                    else if (Fire[i] >= BailFire && Fate[i] == Alive) Fate[i] = (byte)VehicleKillCause.Fire;   // a hulk burning through: half a hull
                     if (Fire[i] >= 1f && State[i] != (byte)VehicleState.CookingOff) CookOff(w, i, rng.NextInt(CookOffMin, CookOffMax + 1), ref rng);
                 }
             }
@@ -546,6 +554,7 @@ namespace TW.Sim.Units
         {
             Crew[t] = 0;
             KnockOut(w, t, VehicleKillCause.Ammunition, ref rng);
+            Fate[t] = (byte)VehicleKillCause.Ammunition;
             State[t] = (byte)VehicleState.CookingOff;
             StateTicks[t] = 0;
             Blow(w, t);
@@ -555,6 +564,7 @@ namespace TW.Sim.Units
         {
             if (State[t] == (byte)VehicleState.CookingOff) return;
             KnockOut(w, t, VehicleKillCause.Ammunition, ref rng);
+            Fate[t] = (byte)VehicleKillCause.Ammunition;   // the rounds went up: scrap, whatever blow had stopped it first
             State[t] = (byte)VehicleState.CookingOff;
             StateTicks[t] = fuse;
             Fire[t] = math.max(Fire[t], 0.8f);
@@ -635,6 +645,7 @@ namespace TW.Sim.Units
             h = SimHash.Array(LastShooter, n, h);
             h = SimHash.Array(LegsLost, n, h);
             h = SimHash.Array(KillCause, n, h);
+            h = SimHash.Array(Fate, n, h);
             h = SimHash.Value(new int4(Penetrations, Ricochets, KnockOuts, CookOffs), h);
             h = SimHash.Value(BailedOut, h);
             return SimHash.Combine(h, checksum);
@@ -655,6 +666,7 @@ namespace TW.Sim.Units
             if (LastShooter.IsCreated) LastShooter.Dispose();
             if (LegsLost.IsCreated) LegsLost.Dispose();
             if (KillCause.IsCreated) KillCause.Dispose();
+            if (Fate.IsCreated) Fate.Dispose();
         }
     }
 }

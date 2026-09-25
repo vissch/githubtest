@@ -21,6 +21,9 @@ namespace TW.Sim.Match
         readonly MapData map;
         FlowFieldManager fields;
         NativeArray<short> cellObjective;   // nav cell -> objective index, -1 none (derived from the map)
+
+        /// <summary>The objective index a nav cell lies in, -1 for none (the salvage report asks whose ground a wreck lies on).</summary>
+        public short ObjectiveAt(int navCell) => cellObjective.IsCreated && navCell >= 0 && navCell < cellObjective.Length ? cellObjective[navCell] : (short)-1;
         NativeArray<int> counts;            // objective * 2 + team, rebuilt every tick
 
         public SectorControlSystem(MapData map) { this.map = map; }
