@@ -65,5 +65,40 @@ namespace TW.Tests
             Assert.That(unlitT.enableInstancing && unlitO.enableInstancing && litO.enableInstancing, "the code draws these instanced");
             Assert.That(unlitT.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"), "CombatFx's glow, smoke and gas are transparent URP Unlit");
         }
+
+        /// <summary>AOSA C48 (2026-09-25): Always Included keeps a shader, not its instanced variants. With instancing
+        /// stripping at "Strip Unused", a build keeps INSTANCING_ON only for a shader some shipped material uses with
+        /// instancing on. TW/Flipbook, TW/GroundMark, TW/Tank and TW/TankDisc are only ever made in code, so no player had
+        /// their instanced variants: every flipbook card (muzzle flares, shell bursts, smoke, gas, dust) read a zero
+        /// alpha from the plain object matrix and drew nothing, while the editor, which compiles variants on demand,
+        /// drew them all. Every Always Included shader that compiles for instancing needs an instancing keeper.</summary>
+        [Test]
+        public void EveryAlwaysIncludedInstancedShaderHasAnInstancingKeeper()
+        {
+            var kept = new HashSet<string>();
+            foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets" }))
+            {
+                string p = AssetDatabase.GUIDToAssetPath(guid);
+                if (!p.Contains("/Resources/")) continue;
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(p);
+                if (mat != null && mat.shader != null && mat.enableInstancing) kept.Add(mat.shader.name);
+            }
+            var gs = AssetDatabase.LoadAssetAtPath<GraphicsSettings>("ProjectSettings/GraphicsSettings.asset");
+            var always = new SerializedObject(gs).FindProperty("m_AlwaysIncludedShaders");
+            var missing = new List<string>();
+            int instanced = 0;
+            for (int i = 0; i < always.arraySize; i++)
+            {
+                if (!(always.GetArrayElementAtIndex(i).objectReferenceValue is Shader s)) continue;
+                string path = AssetDatabase.GetAssetPath(s);
+                if (string.IsNullOrEmpty(path) || !path.StartsWith("Assets/") || !path.EndsWith(".shader")) continue;
+                if (!File.ReadAllText(path).Contains("multi_compile_instancing")) continue;
+                instanced++;
+                if (!kept.Contains(s.name)) missing.Add(s.name);
+            }
+            Assert.That(instanced, Is.GreaterThan(0), "no Always Included project shader compiles for instancing: the scan is broken");
+            Assert.That(missing, Is.Empty, "Always Included but no Resources material keeps its instanced variants (add one to " +
+                "Resources/ShaderKeep with GPU instancing on), so a player draws it with a zero object matrix");
+        }
     }
 }
