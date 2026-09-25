@@ -65,6 +65,7 @@ namespace TW.Presentation.Terrain
         /// <summary>Milliseconds a frame spent re-reading crater-dirtied chunks, a row at a time (at least one row a frame).
         /// Two whole chunks a frame was the 27 ms worst frame measured on 2026-09-23; the finished mesh is the same.</summary>
         public const double ChunkBudgetMs = 2.0;
+        double chunkBudgetMs = ChunkBudgetMs;   // or the knob terrain.chunkBudgetMs (Start)
         readonly System.Diagnostics.Stopwatch chunkWatch = new System.Diagnostics.Stopwatch();
         float[] rowBehindAhead = new float[0];   // the samples 0.25 m either side of a row's vertices along x, shared
         int chunkCursor;
@@ -77,6 +78,7 @@ namespace TW.Presentation.Terrain
 
         void Start()
         {
+            chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             var hf = map.Height;
@@ -580,14 +582,14 @@ namespace TW.Presentation.Terrain
                     var c = chunks[i];
                     if (!c.Dirty) continue;
                     chunkCursor = i;   // stay on it until it is done
-                    while (c.NextRow < c.L && (rows == 0 || chunkWatch.Elapsed.TotalMilliseconds < ChunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
+                    while (c.NextRow < c.L && (rows == 0 || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
                     if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
                     c.Dirty = false; c.NextRow = 0;
                     c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                     c.Mesh.RecalculateBounds();
                     if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
                     chunkCursor = (i + 1) % chunks.Count;
-                    if (chunkWatch.Elapsed.TotalMilliseconds >= ChunkBudgetMs) break;
+                    if (chunkWatch.Elapsed.TotalMilliseconds >= chunkBudgetMs) break;
                 }
             }
             TW.Sim.PerfMarkers.TerrainChunks.End();

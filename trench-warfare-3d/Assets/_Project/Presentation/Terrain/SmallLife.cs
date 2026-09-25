@@ -18,11 +18,19 @@ namespace TW.Presentation.Terrain
         public SimHost Host;
         public const int MaxRats = 6, MaxMotes = 900;
         public float RatReach = 26f;
+        int maxRats = MaxRats, maxMotes = MaxMotes;   // or the knobs life.maxRats / life.maxMotes (Awake)
 
         struct Rat { public Vector3 Pos, Goal; public float Speed, Wait, Fear; public int Hops; public bool Out; }
-        readonly Rat[] rats = new Rat[MaxRats];
+        Rat[] rats = new Rat[MaxRats];   // sized again in Awake (life.maxRats)
         readonly List<Vector3> floors = new List<Vector3>();
-        readonly Matrix4x4[] bodies = new Matrix4x4[MaxRats], tails = new Matrix4x4[MaxRats];
+        Matrix4x4[] bodies = new Matrix4x4[MaxRats], tails = new Matrix4x4[MaxRats];
+
+        void Awake()
+        {
+            maxRats = Mathf.Clamp(Knobs.Get("life.maxRats", MaxRats), 0, 1023);   // one instanced draw's worth at most
+            maxMotes = Mathf.Max(0, Knobs.Get("life.maxMotes", MaxMotes));
+            if (maxRats != MaxRats) { rats = new Rat[maxRats]; bodies = new Matrix4x4[maxRats]; tails = new Matrix4x4[maxRats]; }
+        }
         Mesh motes, capsule, cube;
         Material moteMat, ratMat;
         MeshRenderer moteRenderer;
@@ -44,7 +52,7 @@ namespace TW.Presentation.Terrain
         void OnSimEvent(SimEvent e)
         {
             if (e.Type != SimEventType.Explosion) return;
-            for (int i = 0; i < MaxRats; i++)
+            for (int i = 0; i < maxRats; i++)
                 if (rats[i].Out && (rats[i].Pos - (Vector3)e.Pos).sqrMagnitude < 30f * 30f) rats[i].Fear = 2.5f;
         }
 
@@ -66,7 +74,7 @@ namespace TW.Presentation.Terrain
             var pos = new List<Vector3>(); var corner = new List<Vector2>(); var what = new List<Vector4>(); var tris = new List<int>();
             void Mote(Vector3 anchor, float kind, float phase, float size, float reach)
             {
-                if (pos.Count / 4 >= MaxMotes) return;
+                if (pos.Count / 4 >= maxMotes) return;
                 int v = pos.Count;
                 for (int k = 0; k < 4; k++) { pos.Add(anchor); corner.Add(new Vector2(k == 0 || k == 3 ? -1f : 1f, k < 2 ? -1f : 1f)); what.Add(new Vector4(kind, phase, size, reach)); }
                 tris.Add(v); tris.Add(v + 1); tris.Add(v + 2); tris.Add(v); tris.Add(v + 2); tris.Add(v + 3);
@@ -131,7 +139,7 @@ namespace TW.Presentation.Terrain
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             bool close = SceneHooks.CloseUp > 0f;
             if (moteRenderer != null && moteRenderer.enabled != close) moteRenderer.enabled = close;
-            if (!close || ratMat == null || floors.Count == 0) { for (int i = 0; i < MaxRats; i++) rats[i].Out = false; return; }
+            if (!close || ratMat == null || floors.Count == 0) { for (int i = 0; i < maxRats; i++) rats[i].Out = false; return; }
             var cam = Camera.main; if (cam == null) return;
             Vector3 eye = cam.transform.position; float dt = Time.deltaTime, now = Time.time;
 
@@ -140,7 +148,7 @@ namespace TW.Presentation.Terrain
             {
                 nextScan = now + 0.25f;
                 var w = Host.Local.World;
-                for (int r = 0; r < MaxRats; r++)
+                for (int r = 0; r < maxRats; r++)
                 {
                     if (!rats[r].Out) continue;
                     for (int i = 0; i < w.HighWater; i++)
@@ -153,7 +161,7 @@ namespace TW.Presentation.Terrain
             }
 
             int drawn = 0;
-            for (int r = 0; r < MaxRats; r++)
+            for (int r = 0; r < maxRats; r++)
             {
                 var rat = rats[r];
                 if (!rat.Out)

@@ -1,4 +1,4 @@
-// Phase: tooling (perf pass, 2026-09-23) — one benchmark for the editor and the Windows player.
+// Phase: tooling (perf pass, 2026-09-23) - one benchmark for the editor and the Windows player.
 // Every performance number this project had was taken in the editor, on a laptop far above the target, with a
 // stress run whose battle, camera and sky differed from one run to the next. This measures one fixed battle the
 // same way in both places:
@@ -15,6 +15,9 @@
 //          survives the domain reload on entering play).
 // Markers compile out of a release player, so a release run reports frame totals and a development build attributes
 // them; never compare numbers across the two.
+// AOSA (2026-09-25): `scenario=` stages barrages, armour or a vfx stack in the window (BenchScenarios), issued as sim
+// commands only after hash_start; `knobs=a=1|b=2` sets TW.Presentation.Knobs before the scene loads, and the report
+// carries Knobs.ToJson() as config.knobs; window.hash_end fixes the state the window ended on (docs/reference/aosa).
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -55,6 +58,8 @@ namespace TW.Perf
             }
             if (string.IsNullOrEmpty(raw)) return;
             var o = BenchOptions.Parse(raw);
+            // presentation knobs before the scene loads, so every Awake/Start that reads one sees the bench's value
+            if (!string.IsNullOrEmpty(o.Knobs)) Knobs.Parse(o.Knobs);
             SimHost.StressOverride = o.Stress;
             if (o.Canary >= 0) SimHost.CanaryOverride = o.Canary == 1;
             // a player boots to the main menu as it always does, and the bench launches the match from there the way the
@@ -76,7 +81,10 @@ namespace TW.Perf
         int waitFrames, warmLeft, alivePeak;
         float settleDeadline, keepShake = 1f;
         uint lastTick, t0;
-        ulong hashStart;
+        ulong hashStart, hashEnd;
+        uint hashEndTick;
+        bool hashEndTaken;
+        readonly BenchScenarios.Log scenarioLog = new BenchScenarios.Log();
         int aliveStart;
         double startRealtime;
         bool prevTicked, allFocused = true;
@@ -173,6 +181,10 @@ namespace TW.Perf
             t0 = w.Tick; lastTick = t0;
             hashStart = w.Hash();
             aliveStart = w.AliveCount;
+            // the scenario, after hash_start and before the match resumes: nothing it does can reach the battle the
+            // window opened on, and its orders land on the same tick in every run (its few allocations happen before
+            // the GC and mono baselines below)
+            if (Options.Scenario != BenchScenario.None) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
             startRealtime = Time.realtimeSinceStartupAsDouble;
             gcCollectionsStart = GC.CollectionCount(0);
             monoStart = monoMax = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
@@ -236,6 +248,7 @@ namespace TW.Perf
         readonly FrameTiming[] timing = new FrameTiming[1];
         Series dt, cpu, main, render, gpu, mainTick, mainIdle, ticksPerFrame;
         Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive;
+        Series budgetDraws, budgetVerts, budgetIndirect;
         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
         int hitches, frames;
@@ -288,6 +301,8 @@ namespace TW.Perf
             vatDrawn = New("vat_drawn"); vatNear = New("vat_near"); vatVerts = New("vat_vertices"); vatShadows = New("vat_shadows_on");
             propDraws = New("props_draw_calls"); propVerts = New("props_vertices"); debrisAlive = New("debris_alive"); debrisDraws = New("debris_draw_calls");
             paintMs = New("terrain_paint_ms"); alive = New("alive");
+            // RenderGround's own count of what our code submitted, the last complete frame (acceptance rules 3 and 7)
+            budgetDraws = New("frame_budget_draws"); budgetVerts = New("frame_budget_vertices"); budgetIndirect = New("frame_budget_indirect");
 #if UNITY_EDITOR
             if (UnityEditor.SceneView.sceneViews.Count > 0)
                 warnings.Add(UnityEditor.SceneView.sceneViews.Count + " Scene view(s) open: every Graphics.RenderMesh* call also draws into them, so editor GPU and draw numbers are inflated");
@@ -338,6 +353,7 @@ namespace TW.Perf
             if (debris != null) { debrisAlive.Add(debris.Alive); debrisDraws.Add(debris.DrawCalls); }
             if (terrain != null) paintMs.Add(terrain.LastPaintMilliseconds);
             alive.Add(w.AliveCount);
+            budgetDraws.Add(FrameBudget.DrawCalls); budgetVerts.Add(FrameBudget.Vertices); budgetIndirect.Add(FrameBudget.IndirectDraws);
             long mono = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
             if (mono > monoMax) monoMax = mono;
 
@@ -351,6 +367,13 @@ namespace TW.Perf
             if (stage == Stage.Done) return;
             var endStage = stage;
             stage = Stage.Done;
+            // hash_end: the same full-state hash as hash_start (SimWorld.Hash on the player's world; the one-world build
+            // has HashInterval 0, so LastHash is not it), on the tick the window closed
+            if (endStage == Stage.Window && host != null && host.Local != null)
+            {
+                var we = host.Local.World;
+                hashEnd = we.Hash(); hashEndTick = we.Tick; hashEndTaken = true;
+            }
             string path = "";
             try
             {
@@ -401,6 +424,25 @@ namespace TW.Perf
               .Append(", \"sum\": ").Append(N(sum)).Append(", \"n\": ").Append(v.Length).Append(" }").Append(last ? "\n" : ",\n");
         }
 
+        /// <summary>Appends `, "key": ["a", "b"]` to an open object.</summary>
+        static void Strings(StringBuilder sb, string key, List<string> items)
+        {
+            sb.Append(", ").Append(Q(key)).Append(": [");
+            for (int i = 0; i < items.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(items[i]));
+            sb.Append("]");
+        }
+
+        /// <summary>Knobs.ToJson() as it stands when the report is written, so `read` holds every knob the game read.</summary>
+        string KnobsJson()
+        {
+            try
+            {
+                string j = Knobs.ToJson();
+                return string.IsNullOrWhiteSpace(j) ? "null" : j.Trim();
+            }
+            catch (Exception e) { warnings.Add("Knobs.ToJson failed: " + e.Message); return "null"; }
+        }
+
         string Report(int code, string why, Stage endStage)
         {
             var sb = new StringBuilder(16384);
@@ -434,7 +476,8 @@ namespace TW.Perf
               .Append(", \"vsync\": ").Append(QualitySettings.vSyncCount).Append(", \"target_fps\": ").Append(Application.targetFrameRate)
               .Append(", \"screen\": [").Append(Screen.width).Append(", ").Append(Screen.height).Append("], \"fullscreen\": ").Append(Q(Screen.fullScreenMode.ToString()))
               .Append(", \"backend\": ").Append(Q(backend)).Append(", \"gc_incremental\": ").Append(UnityEngine.Scripting.GarbageCollector.isIncremental ? "true" : "false")
-              .Append(", \"frame_timing_stats\": ").Append(FrameTimingManager.IsFeatureEnabled() ? "true" : "false").Append(" },\n");
+              .Append(", \"frame_timing_stats\": ").Append(FrameTimingManager.IsFeatureEnabled() ? "true" : "false")
+              .Append(", \"knobs_arg\": ").Append(Q(Options.Knobs)).Append(", \"knobs\": ").Append(KnobsJson()).Append(" },\n");
             sb.Append("  \"scenario\": { \"scene\": ").Append(Q(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
               .Append(", \"stress_per_side\": ").Append(Options.Stress)
               .Append(", \"seed\": ").Append(host != null ? host.Seed : 0).Append(", \"battlefield_seed\": ").Append(host != null ? host.BattlefieldSeed : 0)
@@ -442,10 +485,18 @@ namespace TW.Perf
               .Append(", \"bombardment_per_min\": ").Append(N(host != null ? host.BombardmentNow : 0))
               .Append(", \"canary\": ").Append(host != null && host.Peer != null ? "true" : "false")
               .Append(", \"view\": { \"focus\": [").Append(N(focus.x)).Append(", ").Append(N(focus.y)).Append("], \"zoom\": ").Append(N(Options.Zoom))
-              .Append(", \"yaw\": ").Append(N(Options.Yaw)).Append(", \"pitch\": ").Append(N(Options.Pitch)).Append(" }, \"weather_clock\": ").Append(N(Options.Weather)).Append(" },\n");
+              .Append(", \"yaw\": ").Append(N(Options.Yaw)).Append(", \"pitch\": ").Append(N(Options.Pitch)).Append(" }, \"weather_clock\": ").Append(N(Options.Weather))
+              .Append(", \"name\": ").Append(Q(BenchOptions.ScenarioName(Options.Scenario))).Append(", \"requested\": ").Append(Q(Options.ScenarioRaw));
+            Strings(sb, "commands", scenarioLog.Commands);
+            Strings(sb, "writes", scenarioLog.Writes);
+            Strings(sb, "presentation", scenarioLog.Presentation);
+            sb.Append(" },\n");
             double seconds = startRealtime > 0 ? Time.realtimeSinceStartupAsDouble - startRealtime : 0;
             sb.Append("  \"window\": { \"tick_start\": ").Append(t0).Append(", \"tick_end\": ").Append(w != null ? w.Tick : 0)
-              .Append(", \"hash_start\": ").Append(Q(hashStart.ToString("X16"))).Append(", \"alive_peak_before\": ").Append(alivePeak)
+              .Append(", \"hash_start\": ").Append(Q(hashStart.ToString("X16")))
+              .Append(", \"hash_end\": ").Append(hashEndTaken ? Q(hashEnd.ToString("X16")) : "null")
+              .Append(", \"hash_end_tick\": ").Append(hashEndTaken ? hashEndTick.ToString(Inv) : "null")
+              .Append(", \"alive_peak_before\": ").Append(alivePeak)
               .Append(", \"alive_start\": ").Append(aliveStart).Append(", \"alive_end\": ").Append(w != null ? w.AliveCount : 0)
               .Append(", \"frames\": ").Append(frames).Append(", \"seconds\": ").Append(N(seconds))
               .Append(", \"fps_mean\": ").Append(N(seconds > 0 ? frames / seconds : 0))
@@ -475,6 +526,11 @@ namespace TW.Perf
             sb.Append("],\n  \"warnings\": [");
             if (!allFocused) warnings.Add("the window lost focus during the run");
             if (aliveStart >= alivePeak && alivePeak > 0) warnings.Add("nobody had died before the window: the armies may not be in contact yet");
+            if (Options.Scenario == BenchScenario.None && Options.ScenarioRaw.Length > 0 && Options.ScenarioRaw.ToLowerInvariant() != "none")
+                warnings.Add("unknown scenario '" + Options.ScenarioRaw + "': ran none");
+            warnings.AddRange(scenarioLog.Warnings);
+            if (hashEndTaken && code == 0 && hashEndTick != t0 + (uint)Options.Ticks)
+                warnings.Add("hash_end was taken at tick " + hashEndTick + ", " + (hashEndTick - (t0 + (uint)Options.Ticks)) + " past the window's last tick (a slow last frame stepped more than one tick): compare it only with a run whose hash_end_tick is the same");
             for (int i = 0; i < warnings.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(warnings[i]));
             sb.Append("]\n}\n");
             return sb.ToString();

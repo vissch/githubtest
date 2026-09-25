@@ -53,6 +53,7 @@ namespace TW.Presentation.Tactical
         };
 
         public const int MaxCards = 1536;
+        readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
         readonly List<Card> cards = new List<Card>(512);
         readonly Material[] mats = new Material[(int)Book.Count];
         readonly float[] aspect = new float[(int)Book.Count];
@@ -63,6 +64,7 @@ namespace TW.Presentation.Tactical
 
         public FlipbookFx()
         {
+            maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
             var shader = Shader.Find("TW/Flipbook (URP)");
             if (shader == null) return;
             int found = 0;
@@ -115,7 +117,7 @@ namespace TW.Presentation.Tactical
         public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f)
         {
             if (!Ready) return;
-            if (cards.Count >= MaxCards) cards.RemoveAt(0);
+            if (cards.Count >= maxCards) cards.RemoveAt(0);
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
             cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Book = book, Kind = kind });
         }

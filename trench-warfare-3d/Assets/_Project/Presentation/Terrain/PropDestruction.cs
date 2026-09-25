@@ -116,6 +116,16 @@ namespace TW.Presentation.Terrain
 
         static readonly Color Stone = new Color(0.50f, 0.48f, 0.44f), Timber = new Color(0.44f, 0.36f, 0.26f), Sack = new Color(0.56f, 0.51f, 0.39f), Metal = new Color(0.36f, 0.37f, 0.34f), Scrub = new Color(0.42f, 0.38f, 0.26f), Earth = new Color(0.38f, 0.33f, 0.27f);
 
+        int maxLoose = MaxLoose, maxFalling = MaxFalling;   // or the knobs props.maxLoose / props.maxFalling (Awake)
+
+        void Awake()
+        {
+            // at most one instanced draw's worth; at least room for the chunks KeptForChunks holds back for
+            maxLoose = Mathf.Clamp(Knobs.Get("props.maxLoose", MaxLoose), KeptForChunks + 1, 1023);
+            maxFalling = Knobs.Get("props.maxFalling", MaxFalling);
+            if (maxLoose != MaxLoose) { looseMatrices = new Matrix4x4[maxLoose]; looseMasks = new float[maxLoose]; }
+        }
+
         void Start()
         {
             props = GetComponent<BattlefieldProps>();
@@ -442,7 +452,7 @@ namespace TW.Presentation.Terrain
             if (kit == null || !kit.HouseChunkOf.TryGetValue(module, out var chunk) || chunk.Carries.Length == 0) return;
             var house = HouseKit.HouseOf(m, chunk);
             var chunks = kit.Houses[chunk.House].Chunks;
-            for (int i = 0; i < chunk.Carries.Length && falling.Count < MaxFalling; i++)
+            for (int i = 0; i < chunk.Carries.Length && falling.Count < maxFalling; i++)
             {
                 int j = chunk.Carries[i];
                 // a storey at a time, and not all of a storey in the same instant: a beam lets go, then the next
@@ -514,7 +524,7 @@ namespace TW.Presentation.Terrain
         {
             bool seen = module.MaxDistance == float.PositiveInfinity || SceneHooks.CloseUp > 0f;
             if (!seen) return;
-            if (loose.Count >= MaxLoose - KeptForChunks) { Collapse(module, rule, m, origin, power, debris, salt, false); return; }
+            if (loose.Count >= maxLoose - KeptForChunks) { Collapse(module, rule, m, origin, power, debris, salt, false); return; }
             var piece = Begin(module, rule, m, salt);
             Vector3 away = piece.Centre - origin; away.y = 0f;
             away = away.sqrMagnitude > 1e-3f ? away.normalized : new Vector3(Hash01(salt) - 0.5f, 0f, Hash01(salt + 1u) - 0.5f).normalized;
@@ -531,7 +541,7 @@ namespace TW.Presentation.Terrain
         /// axis across the throw, harder the more the hit had left over. A few chips come off it as it goes.</summary>
         bool Throw(BattlefieldKit.Module module, Rule rule, in Matrix4x4 m, Vector3 origin, float power, float harm, uint salt)
         {
-            if (loose.Count >= MaxLoose) return false;
+            if (loose.Count >= maxLoose) return false;
             var piece = Begin(module, rule, m, salt);
             Vector3 away = piece.Centre - origin; away.y = 0f;
             away = away.sqrMagnitude > 1e-3f ? away.normalized : new Vector3(Hash01(salt) - 0.5f, 0f, Hash01(salt + 1u) - 0.5f).normalized;
@@ -555,7 +565,7 @@ namespace TW.Presentation.Terrain
         /// <summary>A house chunk with nothing left under it: it tips outward from the middle of its house and drops.</summary>
         bool Drop(BattlefieldKit.Module module, Rule rule, in Matrix4x4 m, Vector3 outward, uint salt)
         {
-            if (loose.Count >= MaxLoose) return false;
+            if (loose.Count >= maxLoose) return false;
             var piece = Begin(module, rule, m, salt);
             outward.y = 0f;
             outward = outward.sqrMagnitude > 1e-3f ? outward.normalized : new Vector3(Hash01(salt) - 0.5f, 0f, Hash01(salt + 1u) - 0.5f).normalized;
@@ -648,8 +658,8 @@ namespace TW.Presentation.Terrain
             DrawLoose();
         }
 
-        readonly Matrix4x4[] looseMatrices = new Matrix4x4[MaxLoose];
-        readonly float[] looseMasks = new float[MaxLoose];
+        Matrix4x4[] looseMatrices = new Matrix4x4[MaxLoose];   // sized again in Awake (props.maxLoose)
+        float[] looseMasks = new float[MaxLoose];
         MaterialPropertyBlock looseBlock;
 
         /// <summary>Every loose chunk of one house type in one instanced draw: its house's whole mesh, moved so the chunk
@@ -674,7 +684,7 @@ namespace TW.Presentation.Terrain
                     n++;
                 }
                 if (n == 0) continue;
-                for (int i = n; i < MaxLoose; i++) looseMasks[i] = 0f;
+                for (int i = n; i < maxLoose; i++) looseMasks[i] = 0f;
                 looseBlock.SetFloatArray("_ChunkMask", looseMasks);
                 var rp = new RenderParams(whole.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = looseBlock };
                 Graphics.RenderMeshInstanced(rp, whole.Mesh, 0, looseMatrices, n);

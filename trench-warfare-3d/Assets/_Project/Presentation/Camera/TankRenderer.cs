@@ -147,6 +147,13 @@ namespace TW.Presentation.Tactical
 
         public bool Ready => maw != null && mats[0] != null;
 
+        void Awake()
+        {
+            // knobs (Knobs): MaxWrecks only where its knob is set, so an inspector value still holds
+            MaxWrecks = Knobs.Get("tank.maxWrecks", MaxWrecks);
+            maxLoose = Knobs.Get("tank.maxLoose", MaxLoose);
+        }
+
         void Start()
         {
             if (Host == null) Host = FindFirstObjectByType<SimHost>();
@@ -688,9 +695,10 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Loose parts on the field at once; past it the oldest piece at rest is taken away (a track slid off is kept: it goes back when mended).</summary>
         public const int MaxLoose = 160;
+        int maxLoose = MaxLoose;   // or the knob tank.maxLoose (Awake)
         void TrimDebris()
         {
-            while (debris.Count > MaxLoose)
+            while (debris.Count > maxLoose)
             {
                 int victim = -1;
                 for (int k = 0; k < debris.Count; k++) if (debris[k].Resting && !debris[k].Thrown) { victim = k; break; }

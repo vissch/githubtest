@@ -132,8 +132,9 @@ namespace TW.Presentation.Tactical
         readonly Dictionary<int, Trail> trails = new Dictionary<int, Trail>(128);
         readonly List<Vector4> hotCraters = new List<Vector4>(16);   // xyz, w = cools at
         readonly List<int> trailSweep = new List<int>(64);
-        const int MaxRests = 320, MaxMarks = 520;
-        const float CloseReach = 42f;
+        const int MaxRests = 320;
+        int MaxMarks = 520;          // knob fx.maxMarks (Awake)
+        float CloseReach = 42f;      // knob fx.closeReach (Awake)
         readonly Mesh[] fallen = new Mesh[8];
         readonly Material[] markMats = new Material[6];
         Material fallenMat, brassMat, helmetMat, vapourMat;
@@ -163,8 +164,8 @@ namespace TW.Presentation.Tactical
         readonly List<Matrix4x4> gasCards = new List<Matrix4x4>(2048);
         Material dirtMat, woodMat, smokeMat;
         Material smokeThin, smokeFaint;
-        const int MaxChunks = 940;
-        const int MaxAmbientChunks = 300;   // kinds 2, 5, 7: rifle smoke, breath, exhaust, crater steam
+        int MaxChunks = 940;                // knob fx.maxChunks (Awake)
+        int MaxAmbientChunks = 300;         // knob fx.maxAmbientChunks (Awake); kinds 2, 5, 7: rifle smoke, breath, exhaust, crater steam
         int ambientChunks;                  // counted in DrawChunks, so Throw never has to scan the pool
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -240,6 +241,17 @@ namespace TW.Presentation.Tactical
             if (w < n) list.RemoveRange(w, n - w);
         }
 
+
+        void Awake()
+        {
+            // knobs (Knobs): the pools and the close reach; the public fields only where a knob is set
+            MaxMarks = Knobs.Get("fx.maxMarks", MaxMarks);
+            MaxChunks = Knobs.Get("fx.maxChunks", MaxChunks);
+            MaxAmbientChunks = Knobs.Get("fx.maxAmbientChunks", MaxAmbientChunks);
+            CloseReach = Knobs.Get("fx.closeReach", CloseReach);
+            MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
+            TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
+        }
 
         void Start()
         {

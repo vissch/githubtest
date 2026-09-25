@@ -1,4 +1,4 @@
-// Phase: tooling (perf pass, 2026-09-23) — what one benchmark run measures, parsed from "key=value key=value".
+// Phase: tooling (perf pass, 2026-09-23) - what one benchmark run measures, parsed from "key=value key=value".
 // The same string drives the Windows player (`TrenchWarfare.exe -twbench "stress=1500 ticks=400 out=run.json"`) and
 // the editor (CaptureRig.Bench("stress=1500 ...")), so a number from each is a measurement of the same battle.
 using System;
@@ -38,6 +38,16 @@ namespace TW.Perf
         public string Shot = "";
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
         public bool Quit = true;
+        /// <summary>What happens in the measured window (docs/reference/aosa/README.md "Scenarios"), issued as sim
+        /// commands once hash_start is taken: None is the stress battle alone.</summary>
+        public BenchScenario Scenario = BenchScenario.None;
+        /// <summary>What `scenario=` said, verbatim ("" when absent). An unknown value runs None and is kept here, so the
+        /// report can say what was asked for.</summary>
+        public string ScenarioRaw = "";
+        /// <summary>The raw `knobs=` value, '|' between pairs (`knobs=vat.lodDistance=90|fx.maxMarks=400`), because the
+        /// bench string itself splits on space, comma and semicolon. PerfBench hands it to TW.Presentation.Knobs.Parse
+        /// before the scene loads. "" when absent.</summary>
+        public string Knobs = "";
         public string Raw = "";
 
         public static BenchOptions Parse(string raw)
@@ -70,12 +80,33 @@ namespace TW.Perf
                     case "out": o.Out = v; break;
                     case "shot": o.Shot = v; break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
+                    case "scenario": o.ScenarioRaw = v; o.Scenario = ParseScenario(v); break;
+                    // several knobs= tokens add up rather than the last one winning
+                    case "knobs": o.Knobs = string.IsNullOrEmpty(o.Knobs) ? v : o.Knobs + "|" + v; break;
                 }
             }
             return o;
         }
 
+        /// <summary>The scenario a `scenario=` value names; anything unknown is None.</summary>
+        public static BenchScenario ParseScenario(string v)
+        {
+            switch ((v ?? "").Trim().ToLowerInvariant())
+            {
+                case "barrage": return BenchScenario.Barrage;
+                case "armour": case "armor": return BenchScenario.Armour;
+                case "vfx": return BenchScenario.Vfx;
+                default: return BenchScenario.None;
+            }
+        }
+
+        /// <summary>The name the report writes: "none", "barrage", "armour", "vfx".</summary>
+        public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : "none";
+
         static int I(string v, int d) => int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int x) ? x : d;
         static float F(string v, float d) => float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float x) ? x : d;
     }
+
+    /// <summary>What the measured window stages on top of the stress battle (PerfBench, BenchScenarios).</summary>
+    public enum BenchScenario { None = 0, Barrage = 1, Armour = 2, Vfx = 3 }
 }

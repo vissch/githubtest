@@ -29,7 +29,9 @@ namespace TW.Presentation.Terrain
         public Vector2 FlareEvery = new Vector2(22f, 40f);
 
         struct Pooled { public Light Light; public float Born, Life, Peak, Card; }
-        readonly Pooled[] pool = new Pooled[PoolSize];
+        Pooled[] pool = new Pooled[PoolSize];   // sized again in Start (lights.poolSize)
+        // the limits above, or the knobs lights.* (read at the top of Start)
+        int maxLanterns = MaxLanterns, maxTrenchLamps = MaxTrenchLamps, maxFires = MaxFires, maxTorches = MaxTorches, maxPropLamps = MaxPropLamps, poolSize = PoolSize;
         // the hole a shell leaves keeps its heat: a low red light on the rim for a couple of seconds after the flash
         // is gone. Its own three lights, not the flash pool's, or the next shot would take the slot back at once.
         const int AfterglowCount = 3;
@@ -48,6 +50,10 @@ namespace TW.Presentation.Terrain
         public bool Built => built;
         readonly List<Object> owned = new List<Object>();
         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
+
+        /// <summary>Fire a star shell on the next frame instead of waiting for the timer (bench scenarios, captures of
+        /// the moment). Presentation only: nothing in the sim sees a star shell.</summary>
+        public void FireStarShell() { nextFlare = 0f; }
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
         Material glow, flareGlow;
@@ -56,13 +62,20 @@ namespace TW.Presentation.Terrain
         readonly Ember[] embers = new Ember[EmberCount]; int nextEmber;
         Mesh emberMesh; readonly Vector3[] emberPos = new Vector3[EmberCount * 4]; readonly Color[] emberCol = new Color[EmberCount * 4]; readonly List<Vector4> emberShape = new List<Vector4>(EmberCount * 4);
         float nextDrip, nextGuns;
-        Mesh flashMesh; readonly Vector3[] flashPos = new Vector3[PoolSize * 4]; readonly Color[] flashCol = new Color[PoolSize * 4]; readonly List<Vector4> flashShape = new List<Vector4>(PoolSize * 4);
+        Mesh flashMesh; Vector3[] flashPos = new Vector3[PoolSize * 4]; Color[] flashCol = new Color[PoolSize * 4]; readonly List<Vector4> flashShape = new List<Vector4>(PoolSize * 4);
         const float FlareLife = 16f;
 
         void Start()
         {
+            maxLanterns = Mathf.Max(0, Knobs.Get("lights.maxLanterns", MaxLanterns));
+            maxTrenchLamps = Mathf.Max(0, Knobs.Get("lights.maxTrenchLamps", MaxTrenchLamps));
+            maxFires = Mathf.Max(0, Knobs.Get("lights.maxFires", MaxFires));
+            maxTorches = Mathf.Max(0, Knobs.Get("lights.maxTorches", MaxTorches));
+            maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
+            poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
+            if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
-            for (int i = 0; i < PoolSize; i++)
+            for (int i = 0; i < poolSize; i++)
             {
                 pool[i].Light = MakeLight("Flash " + i, Muzzle, 0f, 8f);
                 pool[i].Light.enabled = false;
@@ -83,11 +96,11 @@ namespace TW.Presentation.Terrain
             // one small mesh holds a card per pooled light; its vertices are rewritten each frame (32 of them)
             var host = new GameObject("Flash glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
-            var centres = new Vector3[PoolSize]; var shapes = new Vector4[PoolSize]; var colors = new Color[PoolSize];
-            for (int i = 0; i < PoolSize; i++) shapes[i] = new Vector4(1f, 0f, i * .19f, .15f);
+            var centres = new Vector3[poolSize]; var shapes = new Vector4[poolSize]; var colors = new Color[poolSize];
+            for (int i = 0; i < poolSize; i++) shapes[i] = new Vector4(1f, 0f, i * .19f, .15f);
             AddGlowMesh(host, glow, centres, shapes, colors);
             flashMesh = host.GetComponent<MeshFilter>().sharedMesh; flashMesh.MarkDynamic();
-            for (int i = 0; i < PoolSize * 4; i++) flashShape.Add(new Vector4(1f, 0f, (i / 4) * .19f, .15f));
+            for (int i = 0; i < poolSize * 4; i++) flashShape.Add(new Vector4(1f, 0f, (i / 4) * .19f, .15f));
             // embers: what a shell leaves glowing in its hole for a few seconds. Cards only, no lights.
             var emberHost = new GameObject("Ember glows") { hideFlags = HideFlags.DontSave };
             emberHost.transform.SetParent(transform, false);
@@ -140,8 +153,8 @@ namespace TW.Presentation.Terrain
             var centres = new List<Vector3>(); var shapes = new List<Vector4>(); var colors = new List<Color>();
             var flameFeet = new List<Vector3>(); var flameShapes = new List<Vector4>();
             float w = map.SizeMeters.x, len = map.SizeMeters.y;
-            int step = Mathf.Max(1, Mathf.CeilToInt(sites.Count / (float)MaxLanterns));
-            for (int i = 0; i < sites.Count && lanterns.Count < MaxLanterns; i += step)
+            int step = Mathf.Max(1, Mathf.CeilToInt(sites.Count / (float)maxLanterns));
+            for (int i = 0; i < sites.Count && lanterns.Count < maxLanterns; i += step)
             {
                 var site = sites[i];
                 Vector3 side = site.Rotation * new Vector3(1.5f, 0f, .9f);
@@ -162,7 +175,7 @@ namespace TW.Presentation.Terrain
             if (props != null)
                 foreach (var prop in props.Editable)
                 {
-                    if (propLamps >= MaxPropLamps) break;
+                    if (propLamps >= maxPropLamps) break;
                     if (prop.Module.Name != "Siege/ArmouredStand" && prop.Module.Name != "Weapons/FieldGun") continue;
                     var m = prop.Matrix; Vector3 centre = m.GetPosition();
                     Vector3 half = Vector3.Scale(prop.Module.Mesh.bounds.extents, m.lossyScale);
@@ -183,8 +196,8 @@ namespace TW.Presentation.Terrain
                 }
             // lamps in the line: on the wall of a trench cell whose neighbour toward z- is open ground, spaced along x
             int hung = 0;
-            for (int z = 1; z < map.NavLength - 1 && hung < MaxTrenchLamps; z++)
-            for (int x = 3; x < map.NavWidth - 3 && hung < MaxTrenchLamps; x++)
+            for (int z = 1; z < map.NavLength - 1 && hung < maxTrenchLamps; z++)
+            for (int x = 3; x < map.NavWidth - 3 && hung < maxTrenchLamps; x++)
             {
                 bool trench = ((NavLayer)map.NavLayers[map.NavIndex(x, z)] & NavLayer.Trench) != 0, wall = ((NavLayer)map.NavLayers[map.NavIndex(x, z - 1)] & (NavLayer.Trench | NavLayer.Link)) == 0;
                 if (!trench || !wall || (x + (z / 7) * 5) % 15 != 4 || Hash(x, z) < .2f) continue;
@@ -208,7 +221,7 @@ namespace TW.Presentation.Terrain
             }
             // shattered trees still burning out in the open
             int fires = 0;
-            for (int i = 0; i < map.Props.Length && fires < MaxFires; i++)
+            for (int i = 0; i < map.Props.Length && fires < maxFires; i++)
             {
                 var prop = map.Props[i];
                 if (prop.Kind != PropKind.BrokenTree && prop.Kind != PropKind.Stump) continue;
@@ -224,7 +237,7 @@ namespace TW.Presentation.Terrain
             }
             // torches on a stake where a path reaches a dugout
             int torches = 0;
-            for (int i = 0; i < sites.Count && torches < MaxTorches; i++)
+            for (int i = 0; i < sites.Count && torches < maxTorches; i++)
             {
                 var site = sites[i];
                 Vector3 at = site.ApproachEnd;
@@ -347,7 +360,7 @@ namespace TW.Presentation.Terrain
         void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f)
         {
             int slot = -1; float dimmest = float.MaxValue;
-            for (int i = 0; i < PoolSize; i++)
+            for (int i = 0; i < poolSize; i++)
             {
                 float left = pool[i].Light.enabled ? Mathf.Max(0f, 1f - (Time.time - pool[i].Born) / pool[i].Life) : 0f;
                 float live = pool[i].Peak * left * left;   // the same curve Update draws it with
@@ -421,7 +434,7 @@ namespace TW.Presentation.Terrain
                 lanterns[i].transform.position = lanternHome[i] + new Vector3(Mathf.Sin(t * .31f) * rock, 0f, Mathf.Cos(t * .23f + 1.7f) * rock);
                 lanterns[i].intensity = lanternBase[i] * (.86f + .10f * Mathf.Sin(t) * Mathf.Sin(t * .43f) + .04f * Mathf.Sin(t * 3.1f));
             }
-            for (int i = 0; i < PoolSize; i++)
+            for (int i = 0; i < poolSize; i++)
             {
                 float age = pool[i].Light.enabled ? (Time.time - pool[i].Born) / pool[i].Life : 1f;
                 if (age >= 1f) pool[i].Light.enabled = false;

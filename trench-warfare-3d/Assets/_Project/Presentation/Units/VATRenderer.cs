@@ -52,6 +52,11 @@ namespace TW.Presentation.Units
         public const int VertexBudget = 1500000;
         /// <summary>Metres around a man that still count as on screen (his body, his shadow).</summary>
         public const float CullRadius = 3f;
+
+        // the knob-backed values (Knobs vat.*): the constants above unless a knob is set. Read once, by VATRenderer.Awake.
+        public static float ReadBlendZoom() => Knobs.Get("vat.blendZoom", BlendZoom);
+        public static int ReadVertexBudget() => Knobs.Get("vat.vertexBudget", VertexBudget);
+        public static float ReadCullRadius() => Knobs.Get("vat.cullRadius", CullRadius);
     }
 
     public sealed class VATRenderer : MonoBehaviour
@@ -129,6 +134,19 @@ namespace TW.Presentation.Units
             props.SetVector(PosMinId, a.PosMin); props.SetVector(PosSizeId, a.PosSize);
             fallenProps.SetVector(PosMinId, a.PosMin); fallenProps.SetVector(PosSizeId, a.PosSize);
             return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = props, FallenProps = fallenProps };
+        }
+
+        float blendZoom = LodTiers.BlendZoom, cullRadius = LodTiers.CullRadius;
+        int vertexBudget = LodTiers.VertexBudget;
+
+        void Awake()
+        {
+            // knobs (Knobs): the tiers, and the public fields only where a knob is set, so inspector values still hold
+            blendZoom = LodTiers.ReadBlendZoom(); vertexBudget = LodTiers.ReadVertexBudget(); cullRadius = LodTiers.ReadCullRadius();
+            LodDistance = Knobs.Get("vat.lodDistance", LodDistance);
+            MaxGrow = Knobs.Get("vat.maxGrow", MaxGrow);
+            CastShadows = Knobs.Get("vat.castShadows", CastShadows);
+            MaxFallen = Mathf.Max(1, Knobs.Get("vat.maxFallen", MaxFallen));
         }
 
         void Start()
@@ -210,7 +228,7 @@ namespace TW.Presentation.Units
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, PoseSlot = presenter.PoseSlot, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Ground = ReferenceEquals(RenderGround.Map, Host.Local.Map) ? RenderGround.Grid : default,
-                Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = LodTiers.CullRadius * UnitScale,
+                Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = cullRadius * UnitScale,
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
@@ -238,14 +256,14 @@ namespace TW.Presentation.Units
                 long farVerts = far != null ? (long)DrawnFar * far.Asset.Mesh.vertexCount : 0;
                 if (far != null) args[figures.Length] = Args(far.Asset.Mesh, DrawnFar, farStart);
                 argsBuffer.SetData(args);
-                ShadowsThisFrame = CastShadows && nearVerts * 2 + farVerts <= LodTiers.VertexBudget;   // only the near tier casts
+                ShadowsThisFrame = CastShadows && nearVerts * 2 + farVerts <= vertexBudget;   // only the near tier casts
                 VerticesThisFrame = nearVerts * (ShadowsThisFrame ? 2 : 1) + farVerts;
                 for (int k = 0; k < figures.Length; k++)
                 {
                     var f = figures[k];
                     if (f.Near == 0) continue;
-                    f.Material.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
-                    f.Fallen.SetFloat(LerpId, zoom > LodTiers.BlendZoom ? 0f : 1f);
+                    f.Material.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f);
+                    f.Fallen.SetFloat(LerpId, zoom > blendZoom ? 0f : 1f);
                     f.Props.SetBuffer("_Instances", instanceBuffer); f.Props.SetBuffer("_RowTable", f.Rows);
                     var rp = new RenderParams(f.Material) { worldBounds = bounds, shadowCastingMode = ShadowsThisFrame ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = f.Props };
                     Graphics.RenderMeshIndirect(rp, f.Asset.Mesh, argsBuffer, 1, k);

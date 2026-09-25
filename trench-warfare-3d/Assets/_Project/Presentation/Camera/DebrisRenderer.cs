@@ -86,7 +86,11 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The share of a burst's pieces worth throwing this far from the middle of the picture: all of them under
         /// the eye, a quarter across the field. Counts are scaled by it so the pools are spent where they are seen.</summary>
-        public static float Share(float distanceToLook) => distanceToLook < 55f ? 1f : distanceToLook < 120f ? 0.5f : 0.25f;
+        public static float Share(float distanceToLook) => Share(distanceToLook, ShareNear, ShareFar);
+        /// <summary>The metres from the middle of the picture where the share drops to a half, and to a quarter
+        /// (DebrisRenderer reads them through the knobs debris.shareNear and debris.shareFar).</summary>
+        public const float ShareNear = 55f, ShareFar = 120f;
+        public static float Share(float distanceToLook, float near, float far) => distanceToLook < near ? 1f : distanceToLook < far ? 0.5f : 0.25f;
     }
 
     /// <summary>A small deterministic generator seeded from a place, so a burst's pieces fly the same way in a replay.</summary>
@@ -171,6 +175,9 @@ namespace TW.Presentation.Tactical
         static readonly bool[] CastsShadow = { false, false, true, true, true, true, true, false, false, false };
         /// <summary>The pool for a kind of piece: past it the oldest is overwritten. Sums to about 3,500 records (330 KB) for the field.</summary>
         public static int CapacityOf(Piece piece) => Capacity[(int)piece];
+        /// <summary>The pool as built with the knob debris.capacityScale (1 = CapacityOf, exactly).</summary>
+        public static int CapacityOf(Piece piece, float scale) => Mathf.Max(1, Mathf.RoundToInt(Capacity[(int)piece] * scale));
+        float shareNear = DebrisMath.ShareNear, shareFar = DebrisMath.ShareFar;   // knobs debris.shareNear/shareFar (Awake)
         readonly Pool[] pools = new Pool[(int)Piece.Count];
         NativeArray<Record> records;
         GraphicsBuffer buffer, args;
@@ -182,7 +189,12 @@ namespace TW.Presentation.Tactical
         /// <summary>How much a mesh's bounds are padded (total, both sides), so the rest height is read from the true extents.</summary>
         const float BoundsPad = 0.5f;
 
-        void Awake() { Instance = this; }
+        void Awake()
+        {
+            Instance = this;
+            shareNear = Knobs.Get("debris.shareNear", DebrisMath.ShareNear);
+            shareFar = Knobs.Get("debris.shareFar", DebrisMath.ShareFar);
+        }
 
         void Start()
         {
@@ -191,7 +203,9 @@ namespace TW.Presentation.Tactical
             if (shader == null) { Debug.LogWarning("DebrisRenderer: TW/Debris is missing; nothing breaks off."); enabled = false; return; }
             material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave, name = "Debris" };
             int total = 0;
-            for (int k = 0; k < (int)Piece.Count; k++) total += Capacity[k];
+            float capacityScale = Knobs.Get("debris.capacityScale", 1f);   // every pool, scaled (knob; 1 = as designed)
+            var capacity = new int[(int)Piece.Count];
+            for (int k = 0; k < (int)Piece.Count; k++) total += capacity[k] = CapacityOf((Piece)k, capacityScale);
             records = new NativeArray<Record>(total, Allocator.Persistent);
             buffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, total, RecordBytes);
             args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, (int)Piece.Count, GraphicsBuffer.IndirectDrawIndexedArgs.size);
@@ -200,10 +214,10 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < (int)Piece.Count; k++)
             {
                 var mesh = Build((Piece)k);
-                pools[k] = new Pool { Mesh = mesh, Start = start, Capacity = Capacity[k], Shadows = CastsShadow[k], Lift = (Piece)k == Piece.Crown ? 0f : mesh.bounds.extents.y - BoundsPad * 0.5f, Props = new MaterialPropertyBlock() };
+                pools[k] = new Pool { Mesh = mesh, Start = start, Capacity = capacity[k], Shadows = CastsShadow[k], Lift = (Piece)k == Piece.Crown ? 0f : mesh.bounds.extents.y - BoundsPad * 0.5f, Props = new MaterialPropertyBlock() };
                 pools[k].Props.SetBuffer(RecordsId, buffer);
                 pools[k].Props.SetFloat(LiftId, pools[k].Lift);
-                start += Capacity[k];
+                start += capacity[k];
             }
             material.SetBuffer(RecordsId, buffer);
             Ready = true;
@@ -249,7 +263,7 @@ namespace TW.Presentation.Tactical
         public void Burst(Piece piece, Vector3 at, int count, float speed, float scale, Color tint, float life = 20f, float burn = 0f, float up = 1.6f, Vector3 lean = default, uint salt = 0)
         {
             if (!Ready || count <= 0) return;
-            count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at)));
+            count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at), shareNear, shareFar));
             var rng = new DebrisRng(at, salt + (uint)piece * 17u);
             for (int k = 0; k < count; k++)
             {
