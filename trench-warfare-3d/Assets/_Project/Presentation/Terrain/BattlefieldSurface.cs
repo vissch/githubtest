@@ -38,6 +38,9 @@ namespace TW.Presentation.Terrain
         // the water round them. Presentation only: the sim's heights are never touched.
         float[] drained;      // per height cell: 0 .. 1, how much of a watercourse runs through it
         float[] moundAt;      // per height cell: the mound the drawn ground adds there (it never changes)
+        // BuildDrainage's scratch, kept so a rescan after every salvo allocates nothing
+        float[] flowGround, flowWater;
+        int[] flowTo, flowPending, flowStack;
 
         public BattlefieldSurface(MapData map, float flooding = 0f)
         {
@@ -272,13 +275,33 @@ namespace TW.Presentation.Terrain
                 for (int x = 0; x < width; x++) moundAt[z * width + x] = Mound(x + .5f, z + .5f) * MoundWeight(x + .5f, z + .5f, map.Height.HeightAtCell(x, z));
             }
             drained ??= new float[n];
-            var ground = new float[n]; var order = new int[n]; var water = new float[n];
-            for (int i = 0; i < n; i++) { ground[i] = map.Height.HeightAtCell(i % width, i / width) + moundAt[i]; order[i] = i; water[i] = 1f; }
-            var keys = (float[])ground.Clone();
-            System.Array.Sort(keys, order);   // lowest first; walk it from the top down
-            for (int k = n - 1; k >= 0; k--)
+            if (flowGround == null) { flowGround = new float[n]; flowWater = new float[n]; flowTo = new int[n]; flowPending = new int[n]; flowStack = new int[n]; }
+            for (int i = 0; i < n; i++) flowGround[i] = map.Height.HeightAtCell(i % width, i / width) + moundAt[i];
+            Accumulate(flowGround, width, length, flowWater, flowTo, flowPending, flowStack);
+            for (int i = 0; i < n; i++)
             {
-                int i = order[k], x = i % width, z = i / width, to = -1; float drop = 0f;
+                if (flowWater[i] <= 6f) { drained[i] = 0f; continue; }   // below a rill whether dug or not: skip the nav read
+                int x = i % width, z = i / width;
+                int cell = map.NavIndex(Mathf.Min((int)((x + .5f) / MapData.NavCellSize), map.NavWidth - 1), Mathf.Min((int)((z + .5f) / MapData.NavCellSize), map.NavLength - 1));
+                bool dug = ((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0;
+                drained[i] = dug ? 0f : Watercourse(flowWater[i]);
+            }
+        }
+
+        /// <summary>D8 flow accumulation. Rain falls on every cell and runs to its steepest strictly lower neighbour;
+        /// water[i] ends as 1 + the water of every cell that runs into i, the number of cells upstream of it. This is
+        /// what the old walk from the highest cell down (Array.Sort of the whole map, then each cell in that order)
+        /// computed, without the sort: the receiver of a cell depends on the ground only, so it is found in index
+        /// order, and a cell passes its water on once every donor has (Kahn's order). The sums are whole numbers
+        /// below 2^24, exact in float in any order, so every value is the same float the sorted walk gave
+        /// (DrainageTests). The scratch arrays are the caller's, each width * length long.</summary>
+        public static void Accumulate(float[] ground, int width, int length, float[] water, int[] receiver, int[] pending, int[] stack)
+        {
+            int n = width * length;
+            for (int i = 0; i < n; i++) { water[i] = 1f; pending[i] = 0; }
+            for (int i = 0; i < n; i++)
+            {
+                int x = i % width, z = i / width, to = -1; float drop = 0f;
                 for (int dz = -1; dz <= 1; dz++)
                 for (int dx = -1; dx <= 1; dx++)
                 {
@@ -287,16 +310,28 @@ namespace TW.Presentation.Terrain
                     float fall = (ground[i] - ground[zz * width + xx]) / (dx != 0 && dz != 0 ? 1.414f : 1f);
                     if (fall > drop) { drop = fall; to = zz * width + xx; }
                 }
-                if (to >= 0) water[to] += water[i];
+                receiver[i] = to;
+                if (to >= 0) pending[to]++;
             }
-            for (int i = 0; i < n; i++)
+            int top = 0;
+            for (int i = 0; i < n; i++) if (pending[i] == 0) stack[top++] = i;
+            while (top > 0)
             {
-                int x = i % width, z = i / width;
-                int cell = map.NavIndex(Mathf.Min((int)((x + .5f) / MapData.NavCellSize), map.NavWidth - 1), Mathf.Min((int)((z + .5f) / MapData.NavCellSize), map.NavLength - 1));
-                bool dug = ((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0;
-                // half a dozen square metres of catchment starts a rill, ninety make a gully
-                drained[i] = dug ? 0f : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Mathf.Log(6f), Mathf.Log(90f), Mathf.Log(water[i])));
+                int i = stack[--top], to = receiver[i];
+                if (to < 0) continue;
+                water[to] += water[i];
+                if (--pending[to] == 0) stack[top++] = to;
             }
+        }
+
+        /// <summary>How much of a watercourse a catchment of `water` cells makes, 0 .. 1: half a dozen square metres
+        /// of catchment starts a rill, ninety make a gully. Whole-number catchments of 6 or less give exactly 0 and of
+        /// 90 or more exactly 1, so those skip the logarithms (DrainageTests).</summary>
+        public static float Watercourse(float water)
+        {
+            if (water <= 6f) return 0f;
+            if (water >= 90f) return 1f;
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Mathf.Log(6f), Mathf.Log(90f), Mathf.Log(water)));
         }
 
         public void RefreshHollows()
