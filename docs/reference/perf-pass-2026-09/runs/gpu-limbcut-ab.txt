@@ -1,0 +1,50 @@
+== new (no clip) #1: gpu frame 2.687 ms over 300 frames
+  UniversalRenderPipeline.RenderSingleCameraInternal: Main Camera: 2.298 ms
+  ExecuteRenderGraph: 2.298 ms
+  DrawOpaqueObjects: 2.025 ms
+  Draw Main Light Shadowmap: 0.085 ms
+  MainLightShadow: 0.085 ms
+  Ink Lines: 0.068 ms
+  DrawScreenSpaceUI: 0.044 ms
+  CopyDepth: 0.041 ms
+  BlitFinalToBackBuffer: 0.022 ms
+== old (living clip) #2: gpu frame 4.163 ms over 300 frames
+  UniversalRenderPipeline.RenderSingleCameraInternal: Main Camera: 3.806 ms
+  ExecuteRenderGraph: 3.806 ms
+  DrawOpaqueObjects: 3.532 ms
+  Draw Main Light Shadowmap: 0.085 ms
+  MainLightShadow: 0.085 ms
+  Ink Lines: 0.068 ms
+  DrawScreenSpaceUI: 0.044 ms
+  CopyDepth: 0.041 ms
+  BlitFinalToBackBuffer: 0.022 ms
+== new (no clip) #3: gpu frame 2.602 ms over 300 frames
+  UniversalRenderPipeline.RenderSingleCameraInternal: Main Camera: 2.280 ms
+  ExecuteRenderGraph: 2.280 ms
+  DrawOpaqueObjects: 2.006 ms
+  Draw Main Light Shadowmap: 0.085 ms
+  MainLightShadow: 0.085 ms
+  Ink Lines: 0.068 ms
+  DrawScreenSpaceUI: 0.044 ms
+  CopyDepth: 0.041 ms
+  BlitFinalToBackBuffer: 0.022 ms
+== old (living clip) #4: gpu frame 4.283 ms over 300 frames
+  UniversalRenderPipeline.RenderSingleCameraInternal: Main Camera: 3.841 ms
+  ExecuteRenderGraph: 3.841 ms
+  DrawOpaqueObjects: 3.567 ms
+  Draw Main Light Shadowmap: 0.085 ms
+  MainLightShadow: 0.085 ms
+  Ink Lines: 0.068 ms
+  DrawScreenSpaceUI: 0.044 ms
+  CopyDepth: 0.041 ms
+  BlitFinalToBackBuffer: 0.022 ms
+== new (no clip) #5: gpu frame 2.626 ms over 300 frames
+  UniversalRenderPipeline.RenderSingleCameraInternal: Main Camera: 2.281 ms
+  ExecuteRenderGraph: 2.281 ms
+  DrawOpaqueObjects: 2.008 ms
+  Draw Main Light Shadowmap: 0.085 ms
+  MainLightShadow: 0.085 ms
+  Ink Lines: 0.068 ms
+  DrawScreenSpaceUI: 0.044 ms
+  CopyDepth: 0.041 ms
+  BlitFinalToBackBuffer: 0.022 ms

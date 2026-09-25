@@ -1,0 +1,28 @@
+* text=auto
+
+# Unity YAML: textual merges of these produce files that open but are subtly wrong.
+# Refuse the merge instead and let whoever owns the lane redo the change.
+*.unity       -merge -text
+*.prefab      -merge -text
+*.asset       -merge -text
+*.mat         -merge -text
+*.controller  -merge -text
+*.anim        -merge -text
+*.physicMaterial -merge -text
+*.meta        -merge -text
+
+# Binary art
+*.fbx  binary
+*.png  binary
+*.tga  binary
+*.psd  binary
+*.wav  binary
+*.ogg  binary
+*.dll  binary
+
+# Scripts keep LF so the two machines do not churn line endings
+*.cs   text eol=lf
+*.py   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.ps1  text eol=crlf

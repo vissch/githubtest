@@ -269,6 +269,80 @@ stands at about 4 to 6.5 times its size. A 4 m hit at its side took one of its 1
 and helmets round it (`Captures/gun_flying.png`). A direct hit on a dud queued its cook-off, and it went up with a burst
 of smoke (`CookedOff` counted it). A 1.5 m hit at 0.7 only chips a dud (0.39 of harm), as its Hp says. No errors.
 
+## Worn away by gunfire (2026-09-24)
+
+Owner: items under constant fire "would gradually lose some of their destructive blocks and little by little turn into
+rubble. if the firing stops the degradation stops too", and small things should "jump as they get hit in their general
+direction". Owner's calls: **everything** wears, at its material's rate; about **4-6 s of one machine gun** for a
+sandbag stack or a timber wall section; visual now, with the seam left clean for cover to follow.
+
+`Presentation/Terrain/PropWear.cs`, a partial of `PropDestruction`.
+
+**Where the fire is.** The sim has no fire map and no ballistic miss point — a miss is one probability roll. But
+`DirectFire` raises exactly one `Shot` per round, carrying the shooter's position, a flattened bearing and the target's
+slot, so `w.Position[e.B]` gives the ground being shot at for two array reads. Each round drops a count and a bearing
+into a **4 m grid**; a pass every **4 sim ticks** (5 Hz, off the tick so it is frame-rate independent and a replay wears
+the same walls) spends what has gathered. Squares over the per-pass budget keep their rounds for next time, so nothing
+fired is lost, only deferred — and because the counts are consumed, **wear stops the instant fire does**.
+
+Cost never tracks the rate of fire: there are 1,500-3,000 shot events a second in a real battle, and a full `Strike`
+costs a spatial query **per rule** (~270 of them). Finding what stands in a square costs one such sweep, and is then
+**cached per square** and dropped when `BattlefieldProps.Generation` changes — sustained fire is on the same ground by
+definition, so the sweep is paid once and reused.
+
+**The rates.** `WearPerRound = 0.03` at `Erode = 1`, against a machine gun's 7 rounds a second:
+
+| What | Hp | Erode | One machine gun |
+|---|---|---|---|
+| sandbag stack, parapet | 0.9 | 1.0 | 4.5 s |
+| timber revetment | 1.2 | 1.0 | 5.7 s |
+| a dropped helmet | 0.2 | 1.0 | under 1 s |
+| corrugated sheet | 1.0 | 0.35 | 16 s |
+| village wall chunk (brick, plaster) | 1.4 | 0.2 | 33 s |
+| boulder | 3.2 | 0.1 | 2 min |
+| blockhouse chunk (poured concrete) | 2.2 | 0.08 | 2.5 min |
+
+A lone rifleman (0.5 rounds/s) needs a solid minute on the same sacks, which is why a machine gun is the thing that
+strips a parapet — nothing in the wear knows what fired, it is purely volume.
+
+**Shelters are not exempt** (owner, explicitly). They cannot use `ShedBags` as it stands: it blows a whole sack off for
+any hit above `harm > 0.2` and nothing at all below, and a pass of fire is about 0.04 — a shelter would take literally
+nothing. So a shelter gathers wear in its own pool and sheds **one sack each time it crosses `WearPerBag`**, about a
+minute of one gun for all sixteen. Only when they are gone does the shell itself start to go, at concrete's rate: about
+four minutes of unbroken fire in total. This extends the standing shelter rule, which was written about *artillery* — a
+shell still never collapses a shelter, only a stream of bullets, and only after the sacks.
+
+**Keeping non-lethal hits visible without flooding the debris.** `Chip` throws a burst *and* a dust puff for every hit
+(count clamped to `[1, 12]`), and `DebrisRenderer`'s pools are ring buffers — too many pieces would not overflow, they
+would quietly evict a shell's own debris and leave bursts looking thin. So wear has its own `Spall`: **one** piece off
+the face the fire is coming from, **dust decoupled** and emitted only once a prop has lost ~15% of itself since the
+last puff. The per-pass piece budget is spent **round-robin**, so a dozen things being shot at all spit chips rather
+than three spitting and nine sitting there looking bulletproof. At 8 a pass that is 40 a second, about a sixth of the
+smallest pool it touches.
+
+**The flinch.** A round knocks light things — helmets, tins, brass, a loose board, a corrugated sheet — the way the fire
+is going, and they settle back over a quarter second. *Knocked, not thrown*: unlike `Toss`, the prop keeps its place in
+the field and stays destructible, because a bullet must not launch a helmet out of the battle. Only the drawn instance
+moves, through the new `BattlefieldProps.Move`. Building chunks have `Jolt = 0` — a wall is built in place.
+
+**The trap worth remembering.** A prop *is* its position rounded to `Quantum` (0.25 m), and `props.Within` returns the
+**drawn** matrix. A prop being knocked about is therefore found at a different key and silently forgets everything done
+to it. Bounding the knock does **not** fix this: any offset at all can cross a rounding boundary. Everything that turns
+a found instance into a `Key` goes through `PropWear.Home(...)` first — `Strike` and `Crush` included.
+
+**`MaxRemembered` raised 2000 -> 20000.** Past the cap a destroyed prop stops being remembered and comes back at the
+next recomposition. Shelling alone breaks ~4 props/s, so that was about eight minutes into a match *before* wear
+existed; wear makes it far sooner.
+
+**Tests:** `Tests/EditMode/PropWearTests.cs` locks the calibration against the sim's real rates of fire
+(`CombatTables`), so tuning either end shows up: the 4-6 s window, rifleman vs machine gun, that everything erodes but
+concrete takes a committed gunner, that shelters strip before they open, that stray fire never pays for a sweep, and
+that a second of wear takes only a small share of the debris pools.
+
+Seen in Play: **not yet** — the editor was being restarted repeatedly by another session's bench runs when this landed.
+Outstanding: watch a parapet strip under a gun, confirm the knocks read, confirm a dugout sheds bag by bag, and profile
+a pass.
+
 ## What a shell does to the men and machines that live through it
 
 Owner, 2026-09-23: "make the explosions more impactful ... for the units". Presentation only, like everything above:
@@ -416,6 +490,92 @@ Still open:
    in the melt go under within about a second, as designed. Nothing to change in the debris. Seen in the same barrage,
    not debris: `CombatFx` still throws pale blue water splashes where a shell lands in the lava pool.
 3. Close-up limb stumps are small at the gameplay zoom; if a still asks for more, a dark cap mesh at the joint.
+## Buildings that come down a course at a time (2026-09-24)
+
+The owner's second Tripo sheet — four ruined buildings: Boilerhouse, Townhouse, Guildhall, Gasholder —
+is cut by `Tools/housesplit.py` with `TW_FLOORS=1`, and the point of that flag is the *order* things
+fall in, not the cut itself.
+
+**Why a blind grid was wrong.** `split_big` cut along whichever axis was longest until no chunk edge
+exceeded `CUT`. That saws straight through a floor slab, leaving chunks that straddle two storeys.
+`HouseKit.Solve` reads what-rests-on-what from chunk bounds alone, so a straddling chunk is held up by
+the storey below it — and a roof held by the ground floor cannot come off until the ground floor does.
+The building then stands intact until it collapses all at once.
+
+**How the storeys are found.** From the building's own geometry, not from a guess: a floor, a ceiling
+and a roof are all a lot of near-horizontal surface at one height, so the peaks of horizontal-face-area
+against height *are* the slabs. Those become the first cuts. Any band still taller than `TW_BAND`
+(3.2 m) is then divided evenly, so a building whose floors the geometry does not show — an open hall, a
+tower, a ruin whose floors have already gone — still comes down in courses instead of in one piece.
+Within a band the cutter is biased away from cutting upward (Z size weighed by 0.62), because two halves
+of one storey hold each other up as much as the floor below holds either.
+
+Nothing in `PropDestruction` changed. `Shaken` → `falling` → `Settle` already drops whatever a broken
+chunk was carrying, with per-chunk jitter so a storey does not let go in one instant, and recurses. It
+only ever needed a support graph shaped like the building. Townhouse now stands 11 courses deep: 10
+chunks on the ground, thinning to 1 at the top.
+
+| building | chunks | height | courses |
+|---|---|---|---|
+| Boilerhouse | 60 | 10.3 m | ≥3 |
+| Townhouse | 54 | 9.3 m | 11 |
+| Guildhall | 41 | 10.3 m | ≥3 |
+| Gasholder | 65 | 9.4 m | ≥3 |
+
+### The mask had to get wider first
+
+`HouseKit.MaxChunks` was 24 — a chunk to a bit of a float's 24-bit mantissa — which on a 9 m building is
+about 3 m a chunk. It is now 96: `HouseKit.ChunkMask`, four words of 24 bits, carried to the shader as
+one instanced `float4`. `TWChunk` picks its word by compare rather than by indexing the vector, which on
+some targets spills it to memory for a dynamic index.
+
+**The trap:** do not pack more than 24 bits into a component. Nothing fails loudly — the low bits keep
+working and the high ones are rounded away inside the instancing buffer, which reads in game as chunks
+of a distant house quietly coming back after they were knocked out.
+`HouseKitTests.A_Mask_Holds_Every_Chunk_A_House_May_Have_And_Each_Word_Survives_A_Float` is the guard.
+
+**A second trap, for anyone verifying this by hand:** a `Graphics.RenderMeshInstanced` submission of a
+*single* instance does not apply instanced properties at all. A probe that drew one masked building came
+back with the building whole and the mask apparently ignored — not a bug in the mask; draw four and it
+works.
+
+### Seen in Play
+
+Four Townhouses in one instanced draw, each with a different number of courses masked off, render whole
+→ roof and cupola gone → upper storey gone → ground course only. The third mask word is in use at 54
+chunks, so chunks 48–53 are addressed — bits the old 24-bit mask could not reach.
+
+**Not done:** nothing places them. `BattlefieldComposer` picks `Set == "Houses"` for the village and
+`Set == "Military"` for the rear landmarks; `Set == "Ruins"` is built into the kit and drawn by nothing.
+That is a map-design call.
+
+### Reviewed 2026-09-24
+
+Three things came out of reading the above back.
+
+**The atlas regrid was unverified.** Moving the grid from 4×2 to 4×4 changes the cell of *every* set,
+not just the new one, and no test looks at a texture. Checked by cropping each cell out of the built
+atlas and diffing it against that set's own sheet: worst mismatch 1.07 of 255 — JPEG round-trip only,
+where a set landing in the wrong cell reads 30–60. `EnvAtlasTests` now guards the class of bug that
+made this necessary: the grid running out of cells, and `BattlefieldKit.EnvRows` drifting from
+`envatlas.py`'s `ROWS`. Neither failed loudly before.
+
+**The mark fade was untested.** Every mark laid in the earlier checks was age zero, so the age channel
+was never actually exercised — and it is the whole point of collapsing nine materials into three.
+Measured top-down with a row of ruts backdated across a full lifetime: darkening 39.6 / 40.5 / 28.8 /
+19.0 / 14.5 % at ages 0.0…0.8, monotonic. Worth noting this rides in the *instance matrix*, not in an
+instanced property, so unlike `_ChunkMask` it works at any instance count.
+
+**`AllBits` was rebuilt per flying chunk per frame.** `ChunkMask.Filled` looped up to 96 times setting
+one bit at a time, and `DrawLoose` called it once per loose chunk although it is the same for every
+chunk of a house. It now builds a word at a time, and is hoisted out of the loop.
+
+**And a claim that was wrong.** This file briefly carried a note that collapsing the mark draw from nine
+passes to one bucketed sweep had made it *slower* — 0.041 ms against 0.037 at 900 marks. That benchmark
+was written against a draft that still called `Mathf.Sqrt` once per mark; the shipped version replaced it
+with a polynomial sitting on `age^1.5`, and the benchmark was never re-run. Measured properly, both
+orders, 4000 iterations: **0.032 ms against the nine-pass version's 0.044 — 1.37× faster.** The sqrt was
+the entire cost. Benchmark what shipped, not the draft the benchmark was written against.
 
 ## The ground remembers, except where a trench stands in it (2026-09-24)
 
@@ -439,11 +599,20 @@ middle. A 3 m shell repeated on one spot reaches 12 m across in 26 rounds and st
 record (cap 512, oldest forgotten; its ground stays dug), and the merge keeps the *first* centre, because the
 heightfield already holds the old bowl.
 
-**Rims.** Spoil is thrown up in a ring `RimWidth` 0.3 of R wide outside the lip. The bound is the interesting part:
-a rim added afresh per shell would build a mountain over a three-minute barrage, so each hole carries `RimUp` and a
-stamp adds only the difference between what it has already thrown up and what its depth now deserves
-(`RimShare` 0.25 of depth, capped at `MaxRim` 0.5 m). Eighty shells on one spot raise half a metre of spoil in
-total, not forty.
+**Rims.** Spoil is thrown up in a ring `RimWidth` 0.3 of R wide outside the lip, as high as `RimShare` 0.25 of the
+hole's depth and never above `MaxRim` 0.5 m. **The bound is on WHERE, not on how much in total**, and the first
+attempt got that wrong in a way no unit test could see. It gave each hole a cumulative allowance (`RimUp`) and
+added only the difference between what the hole had already thrown up and what its depth deserved. That does bound
+the spoil — and a hole that GROWS then buries every ring it ever laid, because each new bowl is wider than the last
+ring. Twenty shells on one spot in Play gave a 10.56 m crater with a measured rim of **+0.00 m**. Every test passed,
+because none of them fired more than two shells before measuring.
+
+`HoleRecord.RimAt` now records the radius the last ring was laid at, and a fresh one goes up only once the lip has
+moved a whole ring width onto untouched ground. Rings therefore never overlap, so no cell is raised twice by one
+hole and `MaxRim` is still an absolute ceiling — but the rim is always at the *current* lip and grows with the
+hole's depth. The same twenty shells now measure **+0.47 m at 12.5 m out**, around a hole 10.56 m across.
+`AHoleShelledTwentyTimesStillHasALipAtTheEdgeItReached` is the test that would have caught it: it fires until the
+hole stops growing and looks for the lip at the radius the hole actually reached.
 
 **Depth is bounded** by `MapData.Bedrock` (the map's lowest generated ground less 1.5 m) and by
 `WaterLevel - MaxUnderWater`, so a shell can never make ground impassable — the rule `BattlefieldTests` has
