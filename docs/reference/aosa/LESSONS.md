@@ -40,6 +40,11 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About editor contention
 
+- **A player build rewrites URP's shader-prefilter fields.** It touches `TW-URP.asset`,
+  `UniversalRenderPipelineGlobalSettings.asset` and `ProjectSettings/GraphicsSettings.asset`. That is build churn,
+  not a change. Revert all three with `git checkout --` after every build and never commit them. (cycle 0 build)
+- **Seed a new tree's `Library/` from an idle clone of the same Unity version.** Robocopy took 34 s for 1.8 GB, and
+  the gate then ran in 4 minutes. Never copy from a Library whose editor is open. (cycle 0 build)
 - **`occ.py` on one assembly compiles against the main clone's OLD dlls for everything else.** A new symbol in a
   dependency then reads as "does not exist". Use `occ.py --changed`, or name every changed assembly in dependency
   order. (cycle 0 build)
