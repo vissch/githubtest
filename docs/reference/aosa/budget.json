@@ -1,0 +1,9 @@
+{
+ "daily_cap_usd": 3.0,
+ "shares": {
+  "juice": 0.6667,
+  "tier": 0.3333
+ },
+ "price_fallback_usd": 0.35,
+ "entries": []
+}
