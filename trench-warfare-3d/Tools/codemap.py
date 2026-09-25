@@ -400,6 +400,7 @@ def write_all():
 
 PATH_TOKEN = re.compile(r'^[\w.\-/]+\.(cs|py|md|shader|hlsl|uss|uxml|tss|asmdef|ps1|unity|asset|json|sh|txt|csv|png|jpg|'
                         r'jpeg|bytes|fbx|xml|yml)(:\d+(?:-\d+)?)?$|^[\w.\-]+(/[\w.\-]+)+/$')
+TOOL_WORD = re.compile(r'^Tools/[\w.\-]+$')
 SEARCH_BASES = [REPO, ROOT, PROJ, REPO / 'docs', REF]
 SKIP_DIRS = {'.git', 'Library', 'Temp', 'Logs', 'obj', 'github-test1', 'UserSettings', 'Builds', 'Captures'}
 _index = None
@@ -433,7 +434,20 @@ def check_citations(errors):
         if not doc.exists():
             continue
         text = outside_blocks(read(doc))
+        fenced = False
         for ln, line in enumerate(text.split('\n'), 1):
+            # Commands: a script run in a code block or in a multi-word `python Tools/x.py args` must exist, or a
+            # renamed tool leaves every recipe that runs it silently wrong. Only Tools/<name>: deeper paths are outputs.
+            if line.lstrip().startswith('```'):
+                fenced = not fenced
+                continue
+            words = line.split() if fenced else [w for t in re.findall(r'`([^`\n]+)`', line) if ' ' in t.strip()
+                                                 for w in t.split()]
+            for w in words:
+                w = w.strip('`\'",;:()')
+                w = w[2:] if w.startswith('./') else w
+                if TOOL_WORD.match(w) and w not in ALLOW_MISSING and not resolve(w):
+                    errors.append(f'{rel(doc, REPO)}:{ln}: runs `{w}`, which does not exist')
             for tok in re.findall(r'`([^`\n]+)`', line):
                 tok = tok.strip()
                 if tok in ALLOW_MISSING or '..' in tok or any(c in tok for c in '<>*{}~\\% $') or not PATH_TOKEN.match(tok):
