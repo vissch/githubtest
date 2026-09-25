@@ -160,6 +160,41 @@ namespace TW.Tests
         }
 
         [Test]
+        public void SmokeKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldSmoke()
+        {
+            // AOSA C52: the default thins a barrage's smoke at the standard view; fx.smokeSoft=0,fx.smokeAlpha=1 is the old look
+            Assert.AreEqual("fx.smokeSoft", FlipbookFx.SoftKnob);
+            Assert.AreEqual("fx.smokeAlpha", FlipbookFx.AlphaKnob);
+            Assert.AreEqual(FlipbookFx.DefaultSoft, FlipbookFx.ReadSoft());
+            Assert.AreEqual(FlipbookFx.DefaultAlpha, FlipbookFx.ReadAlpha());
+            Assert.AreEqual("0.3", Knobs.Read["fx.smokeSoft"]);
+            Assert.AreEqual("0.85", Knobs.Read["fx.smokeAlpha"]);
+            Assert.Greater(FlipbookFx.DefaultSoft, FlipbookFx.OldSoft, "the default is the new look");
+            Assert.Less(FlipbookFx.DefaultAlpha, FlipbookFx.OldAlpha, "the default is the new look");
+            Assert.Less(FlipbookFx.SmokeOpacity(0.65f, FlipbookFx.ReadAlpha(), 0f), 0.65f, "thinner at the standard view");
+            Assert.AreEqual(0.65f, FlipbookFx.SmokeOpacity(0.65f, FlipbookFx.ReadAlpha(), 1f), 1e-6f, "the recipe's own among the men");
+
+            // the old values: the recipe's opacity exactly (the float the old code passed), at every zoom
+            Knobs.Set(FlipbookFx.SoftKnob, "0");
+            Knobs.Set(FlipbookFx.AlphaKnob, "1");
+            Assert.AreEqual(0f, FlipbookFx.ReadSoft());
+            Assert.AreEqual(1f, FlipbookFx.ReadAlpha());
+            foreach (float close in new[] { 0f, 0.25f, 0.5f, 0.999f, 1f })
+            {
+                Assert.IsTrue(FlipbookFx.SmokeOpacity(0.65f, FlipbookFx.ReadAlpha(), close) == 0.65f, "shell smoke, closeUp " + close);
+                Assert.IsTrue(FlipbookFx.SmokeOpacity(0.6f, FlipbookFx.ReadAlpha(), close) == 0.6f, "cook-off smoke, closeUp " + close);
+            }
+
+            // out of range: softness never below 0 (the shader skips it), opacity kept in [0, 1]
+            Knobs.Set(FlipbookFx.SoftKnob, "-2");
+            Knobs.Set(FlipbookFx.AlphaKnob, "3");
+            Assert.AreEqual(0f, FlipbookFx.ReadSoft());
+            Assert.AreEqual(1f, FlipbookFx.ReadAlpha());
+            Knobs.Set(FlipbookFx.AlphaKnob, "-1");
+            Assert.AreEqual(0f, FlipbookFx.ReadAlpha());
+        }
+
+        [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
             Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));

@@ -119,6 +119,9 @@ namespace TW.Presentation.Tactical
         // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
         // firing line ripples instead of strobing at the sim's 20 Hz. 0 = every shot on the frame its tick arrives.
         float shotStagger = ShotStagger.DefaultSpread;
+        // knob fx.smokeAlpha (Awake, AOSA C52): a shell's smoke puffs are born this much thinner at the standard view, so the
+        // men under a barrage stay countable (FlipbookFx.SmokeOpacity). 1 = the old look.
+        float smokeAlpha = FlipbookFx.DefaultAlpha;
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
@@ -255,6 +258,7 @@ namespace TW.Presentation.Tactical
             MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
             shotStagger = ShotStagger.ReadSpread();
+            smokeAlpha = FlipbookFx.ReadAlpha();
         }
 
         void Start()
@@ -677,7 +681,7 @@ namespace TW.Presentation.Tactical
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                         }
                     }
@@ -1307,7 +1311,7 @@ namespace TW.Presentation.Tactical
                     velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
                 for (int k = 0; k < 3; k++)
                     books.Add(FlipbookFx.Book.Smoke, p + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r, r * UnityEngine.Random.Range(1.1f, 1.5f), UnityEngine.Random.Range(3.5f, 5f),
-                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: 0.6f, pop: 0.3f, delay: 0.3f + k * 0.15f);
+                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: FlipbookFx.SmokeOpacity(0.6f, smokeAlpha, SceneHooks.CloseUp), pop: 0.3f, delay: 0.3f + k * 0.15f);
             }
             else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = r, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
             Throw(p + Vector3.up * 0.3f, 14, 3, 7f, 0.05f);   // sparks

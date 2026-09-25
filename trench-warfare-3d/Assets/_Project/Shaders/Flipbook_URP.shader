@@ -20,6 +20,7 @@ Shader "TW/Flipbook (URP)"
         _MaskOnly ("Use alpha only (a drawing in black)", Float) = 0
         _Erode ("Tears apart as it fades (0 fades evenly)", Range(0, 1)) = 0
         _ShadeMood ("How much the mood tints the shade (smoke keeps more of its own grey)", Range(0, 1)) = 1
+        _Soft ("A cloud as deep as it is wide: fades in front of a surface over this x its width (0 = off)", Float) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -46,7 +47,7 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels;
                 half4 _Tint, _Shade;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Soft;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -106,6 +107,12 @@ Shader "TW/Flipbook (URP)"
                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
                 float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
                 alpha *= saturate((scene - i.extra.y) / 0.8) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
+                // AOSA C52 (fx.smokeSoft, the smoke and the burst's cloud only): a cloud is as deep as it is wide, so it
+                // thins in front of whatever it stands among over a share of its own width. Its base, where the men are,
+                // lets them through; the smoke aloft, far in front of the ground, stays dark. The standard view only
+                // (_TWClose 0); at 0 the line is skipped and the old image is drawn bit for bit.
+                float soft = _Soft * (1.0 - _TWClose);
+                if (soft > 0.0) alpha *= saturate((scene - i.extra.y) / (soft * i.extra.x + 0.01));
                 if (alpha < 0.004) discard;
                 // the packs keep black under their transparent pixels, so the small mips of a thin wisp go dark: read the
                 // drawing's value per unit of coverage
