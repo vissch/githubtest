@@ -174,6 +174,7 @@ namespace TW.Tests
             Assert.AreEqual(12, Knobs.Get("lights.maxPropLamps", NightLights.MaxPropLamps));
             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));
             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.chunkBudgetMs", (float)GreyboxTerrainView.ChunkBudgetMs));
+            Assert.AreEqual(2.0, (double)Knobs.Get("terrain.paintBudgetMs", (float)GreyboxTerrainView.PaintBudgetMs));
         }
     }
 }

@@ -77,12 +77,21 @@ namespace TW.Presentation.Terrain
         /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
         public bool HollowsPending => hollowsDirty;
         readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
-        public int PendingPaintTiles => paintTiles.Count;
+        /// <summary>Milliseconds a frame spent repainting crater tiles, checked after every row of a tile (at least one
+        /// row a frame). It was checked only between whole tiles, and a 16 x 16 tile is 256 GroundColor calls: against
+        /// this 2 ms the development player measured a 3.0 ms median under a barrage (AOSA C35).</summary>
+        public const double PaintBudgetMs = 2.0;
+        double paintBudgetMs = PaintBudgetMs;   // or the knob terrain.paintBudgetMs (Start)
+        readonly ScorchTilePainter painter = new ScorchTilePainter();
+        System.Func<float, float, Color> groundAt;
+        public int PendingPaintTiles => paintTiles.Count + (painter.Busy ? 1 : 0);
         public float LastPaintMilliseconds { get; private set; }
 
         void Start()
         {
             chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
+            paintBudgetMs = Knobs.Get("terrain.paintBudgetMs", (float)PaintBudgetMs);
+            groundAt = (wx, wz) => GroundColor(Host.Local.Map, wx, wz);
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             var hf = map.Height;
@@ -564,10 +573,19 @@ namespace TW.Presentation.Terrain
                 int m = scorchSweep++;
                 if (m < scorchBorn.Count && Time.time - scorchBorn[m] < SnowFillSeconds) QueueScorchTiles(scorchMarks[m]);
             }
-            while (paintTiles.Count > 0 && (Unmetered || paintWatch.Elapsed.TotalMilliseconds < 2.0))
+            // A row at a time, so the budget binds at a row rather than at a whole tile. A tile is written to the
+            // texture only when its last row is done, so the texture never shows half of one.
+            int paintRows = 0;
+            while (paintRows == 0 || Unmetered || paintWatch.Elapsed.TotalMilliseconds < paintBudgetMs)
             {
-                var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
-                RepaintTile(tile); colorDirty = true;
+                if (!painter.Busy)
+                {
+                    if (paintTiles.Count == 0) break;
+                    var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
+                    if (!BeginTile(tile)) continue;
+                }
+                paintRows++;
+                if (painter.PaintRow(groundAt)) { painter.Write(colorTex); colorDirty = true; }
             }
             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
             TW.Sim.PerfMarkers.TerrainRepaint.End();
@@ -646,28 +664,12 @@ namespace TW.Presentation.Terrain
             { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
         }
 
-        void RepaintTile(Vector2Int tile)
+        /// <summary>Start repainting one 2 m tile (16 x 16 texels, fewer at the far edges): its ground colour and the
+        /// scorch of every crater that reaches it (ScorchTilePainter). False if the tile holds no texels.</summary>
+        bool BeginTile(Vector2Int tile)
         {
             int x1 = Mathf.Min(colorTex.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(colorTex.height, (tile.y + 1) * 2 * Tpm);
-            for (int z = tile.y * 2 * Tpm; z < z1; z++) for (int x = tile.x * 2 * Tpm; x < x1; x++)
-            {
-                float wx = (x + .5f) / Tpm, wz = (z + .5f) / Tpm;
-                Color c = GroundColor(Host.Local.Map, wx, wz);
-                float burn = 0f;
-                for (int m = 0; m < scorchMarks.Count; m++)
-                {
-                    var mark = scorchMarks[m];
-                    float radius = mark.Scalar * 1.25f;
-                    if (radius <= 0f || Mathf.Abs(wx - mark.Pos.x) > radius || Mathf.Abs(wz - mark.Pos.z) > radius) continue;
-                    float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
-                    // The hole is black for ScorchHoldSeconds and then fills: the ground lightens back toward what
-                    // it was, and because the snow is keyed off the burn (Toon_URP) the snow comes back with it.
-                    float age = m < scorchBorn.Count ? Time.time - scorchBorn[m] : SnowFillSeconds;
-                    float fresh = 1f - Mathf.Clamp01((age - ScorchHoldSeconds) / Mathf.Max(1f, SnowFillSeconds - ScorchHoldSeconds));
-                    burn = Mathf.Max(burn, .45f * (1f - distance / radius) * fresh * fresh);
-                }
-                colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
-            }
+            return painter.Begin(tile.x * 2 * Tpm, tile.y * 2 * Tpm, x1, z1, Tpm, scorchMarks, scorchBorn, Time.time);
         }
 
         Texture2D BuildColorTexture(MapData map)
