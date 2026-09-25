@@ -105,6 +105,7 @@ namespace TW.Presentation.Tactical
         {
             if (Host == null || Host.Local == null) return;
             if (InputFocus.Modal) return;   // a shell screen is up
+            if (!CombatFx.ShowOverlays) return;   // an image run with shot_hud=0: the button is HUD too (AOSA C60)
             EnsureStyles();
             if (!Visible)
             {
