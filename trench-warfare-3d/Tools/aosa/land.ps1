@@ -15,6 +15,10 @@ Set-Location $proj
 $churn = @('Assets/UniversalRenderPipelineGlobalSettings.asset', 'Assets/_Project/Settings/TW-URP.asset', 'ProjectSettings/GraphicsSettings.asset')
 function Unchurn { git checkout -- $churn 2>$null; if (-not (git ls-files Assets/Resources)) { Remove-Item -Recurse -Force Assets/Resources, Assets/Resources.meta -ErrorAction SilentlyContinue } }  # + the perf-test package's run files
 
+# Owner decision A08 (2026-09-25): this worktree's editors never start the com.unity.pipeline server, so other sessions'
+# MCP calls cannot land in them. The switch is an untracked, never-committed asset; no asset, no editor.
+if (-not (Test-Path 'Assets/_AosaLocal/PipelineServerOff.asset')) { Say "FAILED: Assets/_AosaLocal/PipelineServerOff.asset missing (A08); no editor started"; exit 9 }
+
 python validate.py *> "$env:TEMP\aosa-validate.txt"; $v = $LASTEXITCODE; Say "validate exit $v"
 if ($v -ne 0) { Say "FAILED validate"; exit $v }
 
@@ -43,6 +47,7 @@ function Run-Tests($mode, $xmlPath, $extra) {
 Remove-Item "$env:TEMP\aosa-edit.xml", "$env:TEMP\aosa-play.xml" -ErrorAction SilentlyContinue   # never read a stale report
 # -logFile: without it a batch editor writes %LOCALAPPDATA%\Unity\Editor\Editor.log, the owner's own editor's log (cycle 3)
 $e = Run-Tests 'EditMode' "$env:TEMP\aosa-edit.xml" @('--', '-logFile', "$env:TEMP\aosa-editmode-editor.log")
+if (Select-String -Path "$env:TEMP\aosa-editmode-editor.log" -Pattern 'Pipeline Server started' -Quiet -ErrorAction SilentlyContinue) { Say "WARNING: the pipeline server started despite A08's switch" }
 if ($e -ne 0) { Say "FAILED EditMode"; Unchurn; exit $e }
 
 if (-not $EditOnly) {
