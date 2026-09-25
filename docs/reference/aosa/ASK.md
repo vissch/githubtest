@@ -62,7 +62,8 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
 
 - **S01 (cycle 1). `TargetAcquisitionSystem` runs 0.80 ms per tick against a 0.40 ms line.** It is the largest sim
   system at 45% of `TW.Sim.Step`'s 1.79 ms (dev player, runs/1/devbase-1). Check that the one-third slot stagger and
-  the 8-candidate cap actually hold. Sim.Step itself is inside its 3.6 ms ceiling.
+  the 8-candidate cap actually hold. (Cycle 4: there is no candidate cap. It keeps the 3 nearest but walks
+  everyone within 130 m, so the cost grows with the square of a crowd; see S04.) Sim.Step itself is inside its 3.6 ms ceiling.
 - **S02 (cycle 1). `FlowFieldManager` peaks at 3.07 ms on its worst barrage tick, against its 0.60 ms time-sliced
   line.** Craters trigger recomputes (runs/1/devbarrage-1). It is not a hitch carrier on its own.
 - **S03 (cycle 3). `LockstepLoopbackTests.Stress_ThreeThousandUnits_AdvanceAcrossCorridor_StayInSync` runs about
@@ -71,6 +72,29 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
   gate runs (cycles 2 and 3), on SHOW-only changes the test cannot execute. Proposal: yield a frame every N ticks,
   or `LogAssert.Expect` that one message. `land.ps1` meanwhile accepts it, with a note in its log, when it is the
   only failure twice in a row.
+- **S04 (cycle 4, from the owner's question: cap an army at its trenches' capacity?).** This was measured by running the
+  whole sim headless on Unity's Mono. The counts at tick ~1800 match the player's still: P0 alive 1,462 against
+  1,471, and the "1415 MEN" label.
+  - **The crush.** At 1,500 a side, 1,409 of P0's men stand in its rear trench, which has 79 posts, and 1,330 of
+    them have no post. On average each has 37.9 men within 2 m, about 3.8 per m2. A side's trenches hold 154 or 157
+    posts in all.
+  - **What it costs.** It is 60-70% of `TW.Sim.Step`: TargetAcquisition walks every unit within 130 m with no
+    candidate cap, so its cost grows with the square of a crowd. It also costs about 1 M VAT vertices.
+  - **Normal matches never reach it.** The economy buys 60-90 men a side in 15 minutes (docs/08), and docs/12 calls
+    3,000 alive "a crowded rear-trench stress scene, not a normal match".
+  - **Variants, SIM-lane, all behind a SimConfig switch that is off for tests and the ceiling bench:**
+    - (a) Refuse a deploy when the trenches are full. Sim -1.6 ms a tick, VAT 0.26 M, and the men's shadows come
+      back. The 3,000 ceiling becomes unreachable.
+    - (b) Hold the overflow as an off-map reserve counter that walks on as posts free up. Sim -1.1 to -1.3 ms a
+      tick, about -1 M vertices, and the shadows come back. It is a new rule, and the HUD needs a reserve counter.
+    - (c) A lower stress or default cap, for example 750 a side. Sim -1.0 ms a tick, but the shadows stay off, and
+      it overrides the owner's 3,000 decision.
+  - **Recommendation:** keep the 3,000 ceiling. If a rule is wanted, (b). The first step does not touch the game:
+    the stress preset (ScriptedEnemy, SHOW lane) sends P0's rear garrison forward as well, so the bench measures a
+    battle, not a crush. That needs a new baseline.
+  - **The ceiling test.** LockstepLoopbackTests asserts 3,000 alive and must opt out of any cap, so S03's frame
+    yield is still needed.
+  - Runs: scratchpad trenchcap/ (s_base, s_cut1, s_cap154/308/750).
 
 ## Answered
 
