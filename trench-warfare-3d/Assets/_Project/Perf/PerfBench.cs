@@ -3,6 +3,8 @@
 // stress run whose battle, camera and sky differed from one run to the next. This measures one fixed battle the
 // same way in both places:
 //   1. SimHost's stress preset deploys `stress` riflemen a side (SimHost.StressOverride, read in Awake).
+//      S04: `knobs=stress.spread=1` makes the player's army fill the posts of each of its trenches and send the rest
+//      over the top; the default is the preset as it was, the whole army in the rear trench (hash_start differs).
 //   2. The match fast-forwards to `settle_ticks`, then PAUSES there while `warm` frames render, so late shader
 //      variants, Burst and pools are warm and the window always opens on the same tick: a deterministic sim means
 //      two runs then measure the same fight (hash_start in the report proves it).
