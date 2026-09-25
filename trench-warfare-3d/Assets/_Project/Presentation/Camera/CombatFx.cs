@@ -126,6 +126,10 @@ namespace TW.Presentation.Tactical
         // glow, as multipliers. 1 (default) = the look as it is; an extreme value is the discriminating test that a part is
         // drawn at all at the standard view (the C42 lesson), before anyone tunes it.
         float columnScale = 1f, burstGlow = 1f;
+        // knobs fx.smokeNight and fx.smokeNightSize (Awake, AOSA C59): on a moonlit field the burst's cloud and its smoke are
+        // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
+        // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
+        float smokeNight = FlipbookFx.DefaultNight, smokeNightSize = FlipbookFx.DefaultNightSize;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -207,6 +211,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Spurt, t.Dust);
             books.Tint(FlipbookFx.Book.Puff, t.Dust);
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight);   // AOSA C59: after the biome's smoke tint
             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
@@ -269,6 +274,8 @@ namespace TW.Presentation.Tactical
             smokeAlpha = FlipbookFx.ReadAlpha();
             columnScale = Mathf.Max(0f, Knobs.Get("fx.columnScale", 1f));
             burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
+            smokeNight = FlipbookFx.ReadNight();
+            smokeNightSize = FlipbookFx.ReadNightSize();
         }
 
         void Start()
@@ -682,7 +689,9 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         if (!wet || melt)
                         {
-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                            // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
+                            float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
+                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                 velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
@@ -690,7 +699,7 @@ namespace TW.Presentation.Tactical
                             for (int k = 0; k < puffs; k++)
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink * night, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                     velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                         }

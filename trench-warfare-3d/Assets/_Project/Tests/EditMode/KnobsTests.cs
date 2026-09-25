@@ -195,6 +195,66 @@ namespace TW.Tests
         }
 
         [Test]
+        public void NightSmokeKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldSmoke()
+        {
+            // AOSA C59: the default draws a moonlit field's burst cloud and smoke dark warm grey and 40% narrower at the
+            // standard view; fx.smokeNight=0,fx.smokeNightSize=1 is the old look
+            Assert.AreEqual("fx.smokeNight", FlipbookFx.NightKnob);
+            Assert.AreEqual("fx.smokeNightSize", FlipbookFx.NightSizeKnob);
+            Assert.AreEqual(FlipbookFx.DefaultNight, FlipbookFx.ReadNight());
+            Assert.AreEqual(FlipbookFx.DefaultNightSize, FlipbookFx.ReadNightSize());
+            Assert.AreEqual("0.15", Knobs.Read["fx.smokeNight"]);
+            Assert.AreEqual("0.6", Knobs.Read["fx.smokeNightSize"]);
+            Assert.Greater(FlipbookFx.DefaultNight, FlipbookFx.OldNight, "the default is the new look");
+            Assert.Less(FlipbookFx.DefaultNightSize, FlipbookFx.OldNightSize, "the default is the new look");
+            Assert.GreaterOrEqual(FlipbookFx.NightLit, 0.5f, "the shader draws _Lit < 0.5 as an additive book");
+
+            // the new tint: warm (red over green over blue), a valid colour, and at the default darker than the ground
+            // under the moon (night key 0.56, 0.70, 1.0 on mud; the old Burst cloud measured 0.33, 0.40, 0.58 on screen)
+            var tint = FlipbookFx.NightTint(FlipbookFx.DefaultNight);
+            Assert.Greater(tint.r, tint.g); Assert.Greater(tint.g, tint.b);
+            Assert.LessOrEqual(tint.r, 1f);
+            float mid = Mathf.Lerp(0.43f, FlipbookFx.NightShade, FlipbookFx.NightLit);   // the drawings' middle ink, mixed as the shader does
+            Assert.AreEqual(FlipbookFx.DefaultNight, (0.299f * tint.r + 0.587f * tint.g + 0.114f * tint.b) * mid, 1e-4f, "the knob is the drawn value");
+            Assert.Less(tint.r * mid, 0.2f, "#2E2A28-#3A342F before fog and grade");
+
+            // the moon: only a dark field not lit from a molten floor (the lava field keeps its rose smoke, day is untouched)
+            Assert.IsTrue(FlipbookFx.MoonLit(true, false));
+            Assert.IsFalse(FlipbookFx.MoonLit(true, true));
+            Assert.IsFalse(FlipbookFx.MoonLit(false, false));
+            Assert.IsFalse(FlipbookFx.MoonLit(false, true));
+
+            // the size: the knob at the standard view on a moonlit field, 1 among the men and on every other field
+            Assert.AreEqual(FlipbookFx.DefaultNightSize, FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), 0f, true));
+            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), 1f, true) == 1f, "full size among the men");
+            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), 0f, false) == 1f, "day and lava keep their size");
+
+            // the old values: nothing painted, and a width factor of exactly 1 at every zoom (the float the old code passed)
+            Knobs.Set(FlipbookFx.NightKnob, "0");
+            Knobs.Set(FlipbookFx.NightSizeKnob, "1");
+            Assert.AreEqual(0f, FlipbookFx.ReadNight());
+            Assert.AreEqual(1f, FlipbookFx.ReadNightSize());
+            foreach (float close in new[] { 0f, 0.25f, 0.5f, 0.999f, 1f })
+            foreach (bool moon in new[] { false, true })
+            {
+                float n = FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), close, moon);
+                Assert.IsTrue(n == 1f, "closeUp " + close + ", moonlit " + moon);
+                foreach (float r in new[] { 2f, 3.7f, 9f })
+                    Assert.IsTrue(r * 2.6f * n == r * 2.6f, "burst width, r " + r);
+            }
+
+            // out of range: the value kept in [0, 1], the size in [0.05, 4]
+            Knobs.Set(FlipbookFx.NightKnob, "-1");
+            Knobs.Set(FlipbookFx.NightSizeKnob, "0");
+            Assert.AreEqual(0f, FlipbookFx.ReadNight());
+            Assert.AreEqual(0.05f, FlipbookFx.ReadNightSize());
+            Knobs.Set(FlipbookFx.NightKnob, "3");
+            Knobs.Set(FlipbookFx.NightSizeKnob, "9");
+            Assert.AreEqual(1f, FlipbookFx.ReadNight());
+            Assert.AreEqual(4f, FlipbookFx.ReadNightSize());
+        }
+
+        [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
             Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));

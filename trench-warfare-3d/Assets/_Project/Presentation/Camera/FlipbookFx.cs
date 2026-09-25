@@ -76,6 +76,67 @@ namespace TW.Presentation.Tactical
         /// <summary>The opacity a shell's smoke puff is born with: the recipe's own, times the knob at the standard view
         /// (closeUp 0), and the recipe's own among the men (closeUp 1). With the knob at 1 it is the recipe's exactly.</summary>
         public static float SmokeOpacity(float recipe, float knob, float closeUp) => recipe * Mathf.Lerp(knob, 1f, closeUp);
+
+        // AOSA C59 (juice J01 at night): under the moon the burst's cloud and the smoke it leaves read as pale periwinkle
+        // cotton, lighter than the ground, and buried the trench lines (critic, runs 6/v6c-1: smoke 3, readability 2). The
+        // blue is the moon itself: the shader lights a drawing's light band with _MainLightColor (Flipbook_URP.shader:123),
+        // and the night key is (0.56, 0.70, 1.0), so the neutral Burst tint came out (0.33, 0.40, 0.58) on screen. Two
+        // knobs, read once in CombatFx.Awake, and only on a moonlit field (SceneMood.Night and not a molten one: the lava
+        // field is dark but lit from its floor, and keeps its own rose smoke):
+        //   fx.smokeNight      the value (luma, 0-1) the Burst and Smoke books are drawn at, in a dark warm grey that
+        //                      ignores the moon: every ink value goes to the shade band (_Levels), the shade is a plain
+        //                      grey with no mood in it, and the drawing keeps 40% of its own values for form. The burst's
+        //                      own flash still lights it (glow, TWBurstLight). 0 = the old moonlit look (nothing is set).
+        //   fx.smokeNightSize  the width of a shell's Burst cloud and its smoke puffs at the standard view (back to 1 as the
+        //                      lens goes in among the men). 1 = the old size.
+        // Both at their old values (fx.smokeNight=0,fx.smokeNightSize=1) draw the image before C59 bit for bit.
+        public const string NightKnob = "fx.smokeNight", NightSizeKnob = "fx.smokeNightSize";
+        public const float DefaultNight = 0.15f, DefaultNightSize = 0.6f;   // critic: #2E2A28-#3A342F, darker than the ground; radius about -40%
+        public const float OldNight = 0f, OldNightSize = 1f;
+        public static readonly Color NightHue = new Color(1f, 0.89f, 0.78f);   // warm grey: #3A342F is (1, 0.90, 0.81), biased warm against the blue mist
+        public const float NightShade = 0.5f, NightLit = 0.6f;   // shade grey and the share of it (the rest is the drawing's ink); NightLit stays >= 0.5, the shader's alpha-blended branch
+        const float NightMidInk = 0.43f;   // the drawings' middle ink (Burst median 0.38, Puff 0.48, measured from the pixels at alpha > 0.3)
+
+        /// <summary>fx.smokeNight, in [0, 1] (0 = the old moonlit look).</summary>
+        public static float ReadNight() => Mathf.Clamp01(Knobs.Get(NightKnob, DefaultNight));
+
+        /// <summary>fx.smokeNightSize, in [0.05, 4] (1 = the old size).</summary>
+        public static float ReadNightSize() => Mathf.Clamp(Knobs.Get(NightSizeKnob, DefaultNightSize), 0.05f, 4f);
+
+        /// <summary>A field the moon lights: dark, and not lit from a molten floor.</summary>
+        public static bool MoonLit(bool night, bool molten) => night && !molten;
+
+        /// <summary>The tint that draws a night cloud at this value (luma at the drawings' middle ink), before fog and grade.</summary>
+        public static Color NightTint(float value)
+        {
+            float luma = 0.299f * NightHue.r + 0.587f * NightHue.g + 0.114f * NightHue.b;
+            float k = value / (luma * Mathf.Lerp(NightMidInk, NightShade, NightLit));
+            return new Color(NightHue.r * k, NightHue.g * k, NightHue.b * k, 1f);
+        }
+
+        /// <summary>The width factor of a shell's cloud and smoke: the knob at the standard view on a moonlit field, 1
+        /// among the men and on any other field. With the knob at 1 it is 1 exactly.</summary>
+        public static float NightScale(float knob, float closeUp, bool moonLit) => moonLit ? Mathf.Lerp(knob, 1f, closeUp) : 1f;
+
+        /// <summary>AOSA C59: paint the Burst and Smoke books as dark warm grey that the moon does not light (see NightKnob).
+        /// Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets nothing.</summary>
+        public void NightSmoke(float value)
+        {
+            if (value <= 0f) return;
+            var tint = NightTint(value);
+            PaintNight(mats[(int)Book.Burst], tint);
+            PaintNight(mats[(int)Book.Smoke], tint);
+        }
+
+        static void PaintNight(Material m, Color tint)
+        {
+            if (m == null) return;
+            m.SetColor("_Tint", tint);
+            m.SetVector("_Levels", new Vector4(2f, 3f, 0f, 0f));   // no ink reaches the light band, so _MainLightColor (the moon) is never used
+            m.SetColor("_Shade", new Color(NightShade, NightShade, NightShade));
+            m.SetFloat("_ShadeMood", 0f);   // and no night-blue shade tint either
+            m.SetFloat("_Lit", NightLit);
+        }
         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
         readonly List<Card> cards = new List<Card>(512);
         readonly Material[] mats = new Material[(int)Book.Count];
