@@ -1,0 +1,298 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
+index 996b191..67b0096 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
+@@ -88,12 +88,14 @@ namespace TW.Presentation.Terrain
+         public float LastPaintMilliseconds { get; private set; }
+         /// <summary>The upload cadence of the colour texture (AOSA C13). Apply(true) rebuilds the whole mip chain on the CPU
+         /// and re-uploads all of it, 2.4-2.9 ms in the development player, and it ran on every frame a tile finished.
+-        /// ApplyIntervalMs 0 (default) uploads on every dirty frame, as before; above 0 at most once per that many ms of real
+-        /// time, and also on the frame the paint queue drains when ApplyOnDrain. MipIntervalMs 0 (default) rebuilds the mips
++        /// ApplyIntervalMs 0 uploads on every dirty frame (the old path); above 0 at most once per that many ms of real time,
++        /// and also on the frame the paint queue drains when ApplyOnDrain. Default 100 since the cycle 3 sweep: under a
++        /// barrage Apply fell from 8.0 to 0.82 ms a tick and main p50 from 9.2 to 6.8 ms (runs/3 a100 v k3d); a crater's
++        /// colour reaches the screen up to 100 ms later. MipIntervalMs 0 (default) rebuilds the mips
+         /// on every upload, as before; above 0 an upload in between keeps the old mips (Apply(false)), and a drained queue
+         /// always gets them rebuilt. While Unmetered (held-clock image runs) every dirty frame uploads with mips, as before.
+         /// Knobs terrain.applyIntervalMs, terrain.applyOnDrain and terrain.mipIntervalMs (Start).</summary>
+-        public const double ApplyIntervalMs = 0.0, MipIntervalMs = 0.0;
++        public const double ApplyIntervalMs = 100.0, MipIntervalMs = 0.0;
+         public const bool ApplyOnDrain = true;
+         double applyIntervalMs = ApplyIntervalMs, mipIntervalMs = MipIntervalMs;
+         bool applyOnDrain = ApplyOnDrain, mipsStale;
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepFlipbook.mat b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepFlipbook.mat
+new file mode 100644
+index 0000000..7057fa9
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepFlipbook.mat
+@@ -0,0 +1,30 @@
++%YAML 1.1
++%TAG !u! tag:unity3d.com,2011:
++--- !u!21 &2100000
++Material:
++  serializedVersion: 8
++  m_ObjectHideFlags: 0
++  m_CorrespondingSourceObject: {fileID: 0}
++  m_PrefabInstance: {fileID: 0}
++  m_PrefabAsset: {fileID: 0}
++  m_Name: KeepFlipbook
++  m_Shader: {fileID: 4800000, guid: 142fb71187b159d4b85213bb3a17da1d, type: 3}
++  m_Parent: {fileID: 0}
++  m_ModifiedSerializedProperties: 0
++  m_ValidKeywords: []
++  m_InvalidKeywords: []
++  m_LightmapFlags: 4
++  m_EnableInstancingVariants: 1
++  m_DoubleSidedGI: 0
++  m_CustomRenderQueue: -1
++  stringTagMap: {}
++  disabledShaderPasses: []
++  m_LockedProperties: 
++  m_SavedProperties:
++    serializedVersion: 3
++    m_TexEnvs: []
++    m_Ints: []
++    m_Floats: []
++    m_Colors: []
++  m_BuildTextureStacks: []
++  m_AllowLocking: 1
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepFlipbook.mat.meta b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepFlipbook.mat.meta
+new file mode 100644
+index 0000000..2d8987e
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepFlipbook.mat.meta
+@@ -0,0 +1,8 @@
++fileFormatVersion: 2
++guid: 9f37965fc75f45a0ba228f72d01f7685
++NativeFormatImporter:
++  externalObjects: {}
++  mainObjectFileID: 2100000
++  userData: 
++  assetBundleName: 
++  assetBundleVariant: 
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepGroundMark.mat b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepGroundMark.mat
+new file mode 100644
+index 0000000..56d7f14
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepGroundMark.mat
+@@ -0,0 +1,30 @@
++%YAML 1.1
++%TAG !u! tag:unity3d.com,2011:
++--- !u!21 &2100000
++Material:
++  serializedVersion: 8
++  m_ObjectHideFlags: 0
++  m_CorrespondingSourceObject: {fileID: 0}
++  m_PrefabInstance: {fileID: 0}
++  m_PrefabAsset: {fileID: 0}
++  m_Name: KeepGroundMark
++  m_Shader: {fileID: 4800000, guid: 6bb213d6ee49f174ca86c52cdaccffa4, type: 3}
++  m_Parent: {fileID: 0}
++  m_ModifiedSerializedProperties: 0
++  m_ValidKeywords: []
++  m_InvalidKeywords: []
++  m_LightmapFlags: 4
++  m_EnableInstancingVariants: 1
++  m_DoubleSidedGI: 0
++  m_CustomRenderQueue: -1
++  stringTagMap: {}
++  disabledShaderPasses: []
++  m_LockedProperties: 
++  m_SavedProperties:
++    serializedVersion: 3
++    m_TexEnvs: []
++    m_Ints: []
++    m_Floats: []
++    m_Colors: []
++  m_BuildTextureStacks: []
++  m_AllowLocking: 1
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepGroundMark.mat.meta b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepGroundMark.mat.meta
+new file mode 100644
+index 0000000..630f253
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepGroundMark.mat.meta
+@@ -0,0 +1,8 @@
++fileFormatVersion: 2
++guid: 9fe21f1ee24b4b50a15695a3498edd74
++NativeFormatImporter:
++  externalObjects: {}
++  mainObjectFileID: 2100000
++  userData: 
++  assetBundleName: 
++  assetBundleVariant: 
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTank.mat b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTank.mat
+new file mode 100644
+index 0000000..2d57d33
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTank.mat
+@@ -0,0 +1,30 @@
++%YAML 1.1
++%TAG !u! tag:unity3d.com,2011:
++--- !u!21 &2100000
++Material:
++  serializedVersion: 8
++  m_ObjectHideFlags: 0
++  m_CorrespondingSourceObject: {fileID: 0}
++  m_PrefabInstance: {fileID: 0}
++  m_PrefabAsset: {fileID: 0}
++  m_Name: KeepTank
++  m_Shader: {fileID: 4800000, guid: 138851bc4837e2046a20a96054a64b32, type: 3}
++  m_Parent: {fileID: 0}
++  m_ModifiedSerializedProperties: 0
++  m_ValidKeywords: []
++  m_InvalidKeywords: []
++  m_LightmapFlags: 4
++  m_EnableInstancingVariants: 1
++  m_DoubleSidedGI: 0
++  m_CustomRenderQueue: -1
++  stringTagMap: {}
++  disabledShaderPasses: []
++  m_LockedProperties: 
++  m_SavedProperties:
++    serializedVersion: 3
++    m_TexEnvs: []
++    m_Ints: []
++    m_Floats: []
++    m_Colors: []
++  m_BuildTextureStacks: []
++  m_AllowLocking: 1
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTank.mat.meta b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTank.mat.meta
+new file mode 100644
+index 0000000..17c63e8
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTank.mat.meta
+@@ -0,0 +1,8 @@
++fileFormatVersion: 2
++guid: 8275be7e99404888ac21478ea8c05dbb
++NativeFormatImporter:
++  externalObjects: {}
++  mainObjectFileID: 2100000
++  userData: 
++  assetBundleName: 
++  assetBundleVariant: 
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTankDisc.mat b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTankDisc.mat
+new file mode 100644
+index 0000000..806e0b7
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTankDisc.mat
+@@ -0,0 +1,30 @@
++%YAML 1.1
++%TAG !u! tag:unity3d.com,2011:
++--- !u!21 &2100000
++Material:
++  serializedVersion: 8
++  m_ObjectHideFlags: 0
++  m_CorrespondingSourceObject: {fileID: 0}
++  m_PrefabInstance: {fileID: 0}
++  m_PrefabAsset: {fileID: 0}
++  m_Name: KeepTankDisc
++  m_Shader: {fileID: 4800000, guid: 686eeba6b0cbe52438012149d17c6b6a, type: 3}
++  m_Parent: {fileID: 0}
++  m_ModifiedSerializedProperties: 0
++  m_ValidKeywords: []
++  m_InvalidKeywords: []
++  m_LightmapFlags: 4
++  m_EnableInstancingVariants: 1
++  m_DoubleSidedGI: 0
++  m_CustomRenderQueue: -1
++  stringTagMap: {}
++  disabledShaderPasses: []
++  m_LockedProperties: 
++  m_SavedProperties:
++    serializedVersion: 3
++    m_TexEnvs: []
++    m_Ints: []
++    m_Floats: []
++    m_Colors: []
++  m_BuildTextureStacks: []
++  m_AllowLocking: 1
+diff --git a/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTankDisc.mat.meta b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTankDisc.mat.meta
+new file mode 100644
+index 0000000..97ba616
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Resources/ShaderKeep/KeepTankDisc.mat.meta
+@@ -0,0 +1,8 @@
++fileFormatVersion: 2
++guid: f902de05f3554415b0b0be737a009cb8
++NativeFormatImporter:
++  externalObjects: {}
++  mainObjectFileID: 2100000
++  userData: 
++  assetBundleName: 
++  assetBundleVariant: 
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 7c932c6..5528722 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -175,21 +175,21 @@ namespace TW.Tests
+             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));
+             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.chunkBudgetMs", (float)GreyboxTerrainView.ChunkBudgetMs));
+             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.paintBudgetMs", (float)GreyboxTerrainView.PaintBudgetMs));
+-            Assert.AreEqual(0.0, (double)Knobs.Get("terrain.applyIntervalMs", (float)GreyboxTerrainView.ApplyIntervalMs));
++            Assert.AreEqual(100.0, (double)Knobs.Get("terrain.applyIntervalMs", (float)GreyboxTerrainView.ApplyIntervalMs));
+             Assert.AreEqual(true, Knobs.Get("terrain.applyOnDrain", GreyboxTerrainView.ApplyOnDrain));
+             Assert.AreEqual(0.0, (double)Knobs.Get("terrain.mipIntervalMs", (float)GreyboxTerrainView.MipIntervalMs));
+         }
+ 
+         [Test]
+-        public void TerrainApply_Defaults_UploadWithMipsOnEveryDirtyFrame()
++        public void TerrainApply_OldPathAndHeldClock_UploadWithMipsOnEveryDirtyFrame()
+         {
+-            // AOSA C13: at the defaults, and whenever the clock is held (Unmetered), the colour texture is uploaded with
+-            // its mips on every dirty frame, as it was before the cadence knobs, whatever the time since the last upload
++            // AOSA C13: with the interval at 0 (the old path; the default is 100 since cycle 3), and whenever the clock is
++            // held (Unmetered), the colour texture is uploaded with its mips on every dirty frame, whatever the time since
+             foreach (double since in new[] { 0.0, 1e-3, 16.7, 1e6, double.PositiveInfinity })
+             foreach (bool drained in new[] { false, true })
+             foreach (bool onDrain in new[] { false, true })
+             {
+-                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, GreyboxTerrainView.ApplyIntervalMs, drained, onDrain, false));
++                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, 0.0, drained, onDrain, false));
+                 Assert.IsTrue(GreyboxTerrainView.MipsDue(since, GreyboxTerrainView.MipIntervalMs, drained, false));
+                 Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, 100.0, drained, onDrain, true), "Unmetered uploads every dirty frame");
+                 Assert.IsTrue(GreyboxTerrainView.MipsDue(since, 1000.0, drained, true), "Unmetered rebuilds the mips");
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShaderInclusionTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShaderInclusionTests.cs
+index a10d108..e6dc646 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShaderInclusionTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShaderInclusionTests.cs
+@@ -65,5 +65,40 @@ namespace TW.Tests
+             Assert.That(unlitT.enableInstancing && unlitO.enableInstancing && litO.enableInstancing, "the code draws these instanced");
+             Assert.That(unlitT.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"), "CombatFx's glow, smoke and gas are transparent URP Unlit");
+         }
++
++        /// <summary>AOSA C48 (2026-09-25): Always Included keeps a shader, not its instanced variants. With instancing
++        /// stripping at "Strip Unused", a build keeps INSTANCING_ON only for a shader some shipped material uses with
++        /// instancing on. TW/Flipbook, TW/GroundMark, TW/Tank and TW/TankDisc are only ever made in code, so no player had
++        /// their instanced variants: every flipbook card (muzzle flares, shell bursts, smoke, gas, dust) read a zero
++        /// alpha from the plain object matrix and drew nothing, while the editor, which compiles variants on demand,
++        /// drew them all. Every Always Included shader that compiles for instancing needs an instancing keeper.</summary>
++        [Test]
++        public void EveryAlwaysIncludedInstancedShaderHasAnInstancingKeeper()
++        {
++            var kept = new HashSet<string>();
++            foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets" }))
++            {
++                string p = AssetDatabase.GUIDToAssetPath(guid);
++                if (!p.Contains("/Resources/")) continue;
++                var mat = AssetDatabase.LoadAssetAtPath<Material>(p);
++                if (mat != null && mat.shader != null && mat.enableInstancing) kept.Add(mat.shader.name);
++            }
++            var gs = AssetDatabase.LoadAssetAtPath<GraphicsSettings>("ProjectSettings/GraphicsSettings.asset");
++            var always = new SerializedObject(gs).FindProperty("m_AlwaysIncludedShaders");
++            var missing = new List<string>();
++            int instanced = 0;
++            for (int i = 0; i < always.arraySize; i++)
++            {
++                if (!(always.GetArrayElementAtIndex(i).objectReferenceValue is Shader s)) continue;
++                string path = AssetDatabase.GetAssetPath(s);
++                if (string.IsNullOrEmpty(path) || !path.StartsWith("Assets/") || !path.EndsWith(".shader")) continue;
++                if (!File.ReadAllText(path).Contains("multi_compile_instancing")) continue;
++                instanced++;
++                if (!kept.Contains(s.name)) missing.Add(s.name);
++            }
++            Assert.That(instanced, Is.GreaterThan(0), "no Always Included project shader compiles for instancing: the scan is broken");
++            Assert.That(missing, Is.Empty, "Always Included but no Resources material keeps its instanced variants (add one to " +
++                "Resources/ShaderKeep with GPU instancing on), so a player draws it with a zero object matrix");
++        }
+     }
+ }

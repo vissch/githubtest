@@ -68,6 +68,11 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About editor contention
 
+- **A batch editor is still an editor to everything else on the machine.** Without `-logFile`, `unity test`
+  editors write the shared default `Editor.log`. Every editor also starts the pipeline server that MCP clients
+  talk to, and a `capture_game_view` meant for someone else failed inside the loop's headless test editor. "Run in
+  the background" has to include those shared channels, not only windows and priority. (cycle 3, A08)
+
 - **A player build rewrites URP's shader-prefilter fields.** It touches `TW-URP.asset`,
   `UniversalRenderPipelineGlobalSettings.asset` and `ProjectSettings/GraphicsSettings.asset`. That is build churn,
   not a change. Revert all three with `git checkout --` after every build and never commit them. (cycle 0 build)
@@ -82,6 +87,10 @@ of their section. When the same lesson appears twice, the retrospective turns it
   `LockstepLoopbackTests.Stress_ThreeThousandUnits...` holds the main thread for more than 5 s. The `unity test` CLI's
   `/api/exec` request times out and logs an error, and the test fails on that unexpected log. The gate that day took
   6.5 min for EditMode, not 1 min. Rerun once. Only a second red is a finding. (C22, cycle 2)
+  It came back in cycle 3 (C40+C13), this time alongside `MatchClockTests` logging "No graphic device is available to
+  initialize the view" under `-nographics`. Two occurrences made it a rule (README self-learning 7): `land.ps1`
+  reruns PlayMode once, but only when every failure matches one of those two environment signatures, and it says
+  so in its log. Any other failure stops the land as before.
 - **A `;` or a pipe swallows a failed claim.** Use `editor_lock.py claim ... || exit 1` inside the landing script
   itself. (agent-memory)
 - **Statics survive leaving Play, so an EditMode red in a live editor may be false.** Call `RequestScriptReload`
@@ -90,6 +99,13 @@ of their section. When the same lesson appears twice, the retrospective turns it
   (agent-memory)
 
 ## About changes
+
+- **A cause inferred from code, with no render, was wrong. The patch's own knob disproved it in one player run.**
+  The C42 author reasoned that the muzzle flare was hidden by depth and the soft edge, and built a fix that pulls
+  it toward the eye. On held-clock stills, pull 1.2 against 0 was bit-identical, and so were scale 6, a 4096-card
+  pool and a 200 m reach: the flare is not drawn at all. The author had named the discriminating test. The lander
+  runs that test before any critic or perf A/B, and a patch whose cause is inferred must ship with one.
+  (C42, cycle 3)
 
 - **Mono runs float arithmetic at double precision unless the code narrows it.** C35's `Unorm8` had SetPixel's
   formula, `(int)(v*255 + .5)`, and still differed on 515 edge texels: 0.503921568 x 255 is 128.5 in float and

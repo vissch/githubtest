@@ -1,0 +1,287 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 9a84ae7..5df3032 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -1,4 +1,5 @@
+-// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
++// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins;
++// C42 AOSA: the rifle flare drawn nearer the eye so it survives the crowd at T1, and the streak grows out of the muzzle)
+ // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
+ // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
+ // leaves a body, and every trench or objective capture raises a banner. Instanced draws, no GameObjects per effect.
+@@ -119,6 +120,14 @@ namespace TW.Presentation.Tactical
+         // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
+         // firing line ripples instead of strobing at the sim's 20 Hz. 0 = every shot on the frame its tick arrives.
+         float shotStagger = ShotStagger.DefaultSpread;
++        // C42 (AOSA, juice J03), knobs read in Awake: the rifle flare at the standard view. The card sat at the muzzle's
++        // own depth, among men drawn at 1.875x and on the parapet, so the depth test and the card's 0.8 m soft edge
++        // (Flipbook_URP) left nothing of it at T1. Now it is drawn flarePull x the men's scale nearer the eye on the same
++        // line of sight (same size on screen), flareScale of its old width, for flareSeconds, white-hot for flareHot of
++        // that; and a tracer's streak grows out of the muzzle instead of being born full length ahead of it.
++        // The old look: fx.flareScale=1, fx.flareSeconds=0.18, fx.flareHot=0.15, fx.flarePull=0, fx.tracerFromMuzzle=0.
++        float flareScale = 0.55f, flareSeconds = 0.05f, flareHot = 0.5f, flarePull = 1.2f;
++        bool tracerFromMuzzle = true;
+ 
+         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
+         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
+@@ -255,6 +264,11 @@ namespace TW.Presentation.Tactical
+             MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
+             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
+             shotStagger = ShotStagger.ReadSpread();
++            flareScale = Mathf.Max(0.01f, Knobs.Get("fx.flareScale", flareScale));
++            flareSeconds = Mathf.Max(0.02f, Knobs.Get("fx.flareSeconds", flareSeconds));
++            flareHot = Mathf.Clamp(Knobs.Get("fx.flareHot", flareHot), 0.01f, 1f);
++            flarePull = Mathf.Max(0f, Knobs.Get("fx.flarePull", flarePull));
++            tracerFromMuzzle = Knobs.Get("fx.tracerFromMuzzle", tracerFromMuzzle);
+         }
+ 
+         void Start()
+@@ -505,13 +519,21 @@ namespace TW.Presentation.Tactical
+                     {
+                         // the flare: the root of the book's flame (the left edge of every cell) sits on the muzzle and it streams
+                         // out down the barrel; half the flares are flipped across the barrel for variety (mirror and half a turn),
+-                        // never along it. Over-bright at night so the bloom takes it.
+-                        float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale;
++                        // never along it. Over-bright at night so the bloom takes it (for flareHot of its life, C42).
++                        float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale * flareScale;
+                         float roll = FlipbookFx.ScreenRoll(cam, barrel);
+                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
+                         bool flip = UnityEngine.Random.value < 0.5f;
+-                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+-                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
++                        Vector3 at = from + along * (flare * 0.44f), drift = carried;
++                        if (flarePull > 0f && cam != null)
++                        {
++                            // C42: the same card on screen, drawn nearer the eye, so the men round the muzzle and the parapet
++                            // under it neither hide it nor fade it; it still roots where the streak starts
++                            float keep = TowardEye(cam.transform.position, ref at, flarePull * scale);
++                            flare *= keep; drift *= keep;
++                        }
++                        books.Add(FlipbookFx.Book.Muzzle, at, flare, flareSeconds, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
++                            velocity: drift, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay, hot: flareHot);
+                     }
+                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
+                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
+@@ -887,6 +909,30 @@ namespace TW.Presentation.Tactical
+             return new Vector3(at.x, RenderGround.Sample(Host.Local.Map, at.x, at.z) + chest * scale, at.z);
+         }
+ 
++        /// <summary>The shortest streak a round just out of the muzzle draws (m), so its first frame is never nothing.</summary>
++        public const float StreakStub = 0.6f;
++
++        /// <summary>C42: where along its flight (metres from the muzzle) a tracer's streak runs at k of its life, when it
++        /// leaves the muzzle: the head goes from the muzzle to the target and the streak trails it, never behind the
++        /// muzzle, so the tail sits on the muzzle until the head is a streak's length out.</summary>
++        public static void StreakSpan(float len, float streak, float k, out float tail, out float head)
++        {
++            head = Mathf.Max(Mathf.Clamp01(k) * len, Mathf.Min(StreakStub, len));
++            tail = Mathf.Max(0f, head - streak);
++        }
++
++        /// <summary>C42: a camera-facing card's centre moved pull metres nearer the eye along its own line of sight (never
++        /// more than half the way); returns the factor its size and motion take so it covers the same pixels as before.</summary>
++        public static float TowardEye(Vector3 eye, ref Vector3 at, float pull)
++        {
++            Vector3 d = at - eye;
++            float dist = d.magnitude;
++            if (pull <= 0f || dist < 1e-3f) return 1f;
++            float keep = Mathf.Max(0.5f, 1f - pull / dist);
++            at = eye + d * keep;
++            return keep;
++        }
++
+         void Update()
+         {
+             using var perf = TW.Sim.PerfMarkers.FxUpdate.Auto();
+@@ -915,10 +961,19 @@ namespace TW.Presentation.Tactical
+                 if (len < 0.1f) continue;
+                 // a streak that travels from muzzle to target over the tracer's life
+                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
+-                float streak = Mathf.Min(len, night ? 10f : 6f);
+-                Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float streak = Mathf.Min(len, night ? 10f : 6f), drawn = streak;
++                Vector3 mid;
++                if (tracerFromMuzzle)
++                {
++                    // C42: the round leaves the muzzle, so on its first frame the streak starts at the flare; it was born
++                    // full length and already sliding, so a held frame caught its tail 50-120 px ahead of the parapet
++                    StreakSpan(len, streak, k, out float tail, out float head);
++                    drawn = head - tail;
++                    mid = t.From + d * ((tail + head) * 0.5f / len);
++                }
++                else mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+                 float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
+-                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
++                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? drawn * 0.8f : drawn * 1.15f)));
+                 if (batch.Count == 1023) Flush(cube, rpT);
+             }
+             if (batch.Count > 0) Flush(cube, rpT);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index 3e9e3e2..ab8b731 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -30,7 +30,7 @@ namespace TW.Presentation.Tactical
+         struct Card
+         {
+             public Vector3 Pos, Vel;
+-            public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop;
++            public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop, Hot;
+             public Book Book; public Kind Kind;
+         }
+ 
+@@ -111,15 +111,16 @@ namespace TW.Presentation.Tactical
+         /// A card of a book at a place: width in metres (height follows the drawing unless given), how long it plays, how it
+         /// moves and swells while it does, its roll about the view axis, how bright it starts (glow > 1 is self-lit: the
+         /// first moments of a burst, or anything additive; it settles to 1 over the first sixth of the life), and pop: the
+-        /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
++        /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size); hot: the fraction of
++        /// the life the glow takes to settle (C42: a rifle flare stays white-hot for half its short life). Every card fades
+         /// out over its last third.
+         /// </summary>
+-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f)
++        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float hot = 0.15f)
+         {
+             if (!Ready) return;
+             if (cards.Count >= maxCards) cards.RemoveAt(0);
+             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
+-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Book = book, Kind = kind });
++            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Hot = Mathf.Max(0.01f, hot), Book = book, Kind = kind });
+         }
+ 
+         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
+@@ -149,7 +150,7 @@ namespace TW.Presentation.Tactical
+                     if (Sheets[b].RampIn > 0f) fade *= Mathf.Clamp01((now - c.Born) / Sheets[b].RampIn);
+                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
+                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
+-                    float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
++                    float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / c.Hot));   // the fire is out in the first sixth (hot 0.15)
+                     batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
+                 }
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs
+index 44f265e..7c62b1d 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs
+@@ -51,6 +51,10 @@ namespace TW.Presentation.Terrain
+         readonly List<Object> owned = new List<Object>();
+         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
+         float shotStagger = ShotStagger.DefaultSpread;   // knob fx.shotStagger (Start): a shot's light comes on with its flare (CombatFx)
++        // knobs lights.shotRange / lights.shotPeak / lights.shotCard (Start), C42: a rifle shot lights a small pool round the
++        // man who fired (about 1.5 m, ~40 px at the standard view, a faint warm lift) instead of the 9 m pulse a 10 m, 13
++        // light with a 2.6 card threw across a whole trench section. The old values are 10, 13 and 2.6.
++        float shotRange = 2.4f, shotPeak = 0.3f, shotCard = 0.1f;
+         // The frame since Start, for the hashes that place guns, flares and embers (C33): Time.frameCount counts every
+         // splash and menu frame too, so a star shell went up somewhere else in each of two identical bench runs.
+         int frame0;
+@@ -80,6 +84,9 @@ namespace TW.Presentation.Terrain
+             maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
+             poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
+             shotStagger = ShotStagger.ReadSpread();
++            shotRange = Mathf.Max(0.1f, Knobs.Get("lights.shotRange", shotRange));
++            shotPeak = Mathf.Max(0f, Knobs.Get("lights.shotPeak", shotPeak));
++            shotCard = Mathf.Max(0f, Knobs.Get("lights.shotCard", shotCard));
+             if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
+             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
+             for (int i = 0; i < poolSize; i++)
+@@ -392,7 +399,7 @@ namespace TW.Presentation.Terrain
+                 at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.2f;
+                 lastShot = Time.time;
+                 // on with its flare: the same place in the tick CombatFx shows this shot at (ShotStagger)
+-                Flash(at, Muzzle, 13f, 10f, .09f, 2.6f, ShotStagger.Delay(e.A, e.Tick, Host.Local.World.Config.TickSeconds, shotStagger));
++                Flash(at, Muzzle, shotPeak, shotRange, .09f, shotCard, ShotStagger.Delay(e.A, e.Tick, Host.Local.World.Config.TickSeconds, shotStagger));
+             }
+             else if (e.Type == SimEventType.Explosion)
+             {
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/FlareAnchorTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FlareAnchorTests.cs
+new file mode 100644
+index 0000000..3f7ee8c
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FlareAnchorTests.cs
+@@ -0,0 +1,78 @@
++// Phase: C42 (AOSA, juice J03) - the rifle flare and the streak at the standard view. Pure logic, no scene: a streak
++// that leaves the muzzle keeps its tail on the muzzle on the first held frame where the old one had already slid metres
++// ahead of it, it ends where the old one ended, and the flare moved toward the eye stays on its line of sight (so it
++// covers the same pixels) and only pull metres nearer. With fx.flarePull 0 the card does not move at all.
++using NUnit.Framework;
++using UnityEngine;
++using TW.Presentation.Tactical;
++
++namespace TW.Tests
++{
++    public class FlareAnchorTests
++    {
++        const float TracerSeconds = 0.12f;   // CombatFx.TracerSeconds
++        const float Streak = 10f;            // the night streak (CombatFx.Update)
++        const float HeldStep = 1f / 64f;     // the held clock of a shot_tick run (C33)
++
++        [Test]
++        public void TheStreakGrowsOutOfTheMuzzle_AndEndsWhereTheOldOneEnded()
++        {
++            foreach (float len in new[] { 5f, 12f, 40f, 80f, 110f })
++            {
++                float streak = Mathf.Min(len, Streak);
++                for (int i = 0; i <= 100; i++)
++                {
++                    float k = i / 100f;
++                    CombatFx.StreakSpan(len, streak, k, out float tail, out float head);
++                    Assert.That(tail, Is.GreaterThanOrEqualTo(0f), "never behind the muzzle");
++                    Assert.That(head, Is.LessThanOrEqualTo(len + 1e-4f), "never past the man shot at");
++                    Assert.That(head - tail, Is.LessThanOrEqualTo(streak + 1e-4f).And.GreaterThan(0f));
++                    if (head <= streak) Assert.AreEqual(0f, tail, "the tail sits on the muzzle until the head is a streak out");
++                }
++                CombatFx.StreakSpan(len, streak, 1f, out float t1, out float h1);
++                Assert.AreEqual(len, h1, 1e-4f, "the head reaches the man at the end of the life");
++                Assert.AreEqual(len - streak, t1, 1e-4f, "and the streak ends where the old one ended");
++            }
++        }
++
++        [Test]
++        public void OnTheFirstHeldFrame_TheTailIsAtTheMuzzle_WhereTheOldOneWasMetresAhead()
++        {
++            // a shot is first drawn on the first held frame at or after its birth: its age there is anywhere in one step
++            foreach (float len in new[] { 40f, 80f, 110f })
++            {
++                float oldSum = 0f, newSum = 0f; int n = 64;
++                for (int i = 0; i < n; i++)
++                {
++                    float k = (i + 0.5f) / n * HeldStep / TracerSeconds;
++                    oldSum += k * (len - Streak);   // the old streak: born full length, its tail at k (len - streak)
++                    CombatFx.StreakSpan(len, Streak, k, out float tail, out _);
++                    newSum += tail;
++                }
++                Assert.That(oldSum / n, Is.GreaterThan(1.5f), len + " m: the old tail was not ahead of the muzzle");
++                Assert.That(newSum / n, Is.LessThan(0.25f * oldSum / n), len + " m: the new tail is not at the muzzle");
++            }
++        }
++
++        [Test]
++        public void TheFlareMovesTowardTheEye_OnItsLineOfSight()
++        {
++            var eye = new Vector3(10f, 33f, -70f);
++            var muzzle = new Vector3(12f, 1.9f, 4f);
++            float dist = Vector3.Distance(eye, muzzle);
++            var at = muzzle;
++            float keep = CombatFx.TowardEye(eye, ref at, 2.25f);
++            Assert.AreEqual(dist - 2.25f, Vector3.Distance(eye, at), 1e-3f, "pull metres nearer");
++            Assert.AreEqual((dist - 2.25f) / dist, keep, 1e-5f, "the size factor that keeps it the same on screen");
++            Assert.AreEqual(0f, Vector3.Cross((at - eye).normalized, (muzzle - eye).normalized).magnitude, 1e-5f, "on the same line of sight");
++
++            var near = new Vector3(10f, 30f, -66f);
++            float half = CombatFx.TowardEye(eye, ref near, 50f);
++            Assert.AreEqual(0.5f, half, 1e-6f, "never more than half the way to the eye");
++
++            var still = muzzle;
++            Assert.AreEqual(1f, CombatFx.TowardEye(eye, ref still, 0f), "pull 0: the old path");
++            Assert.AreEqual(muzzle, still);
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/FlareAnchorTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FlareAnchorTests.cs.meta
+new file mode 100644
+index 0000000..b7c7162
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/FlareAnchorTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 773d9b449f094864a16943fdc91f43ff
+\ No newline at end of file

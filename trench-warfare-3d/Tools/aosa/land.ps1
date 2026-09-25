@@ -18,15 +18,35 @@ function Unchurn { git checkout -- $churn 2>$null; if (-not (git ls-files Assets
 python validate.py *> "$env:TEMP\aosa-validate.txt"; $v = $LASTEXITCODE; Say "validate exit $v"
 if ($v -ne 0) { Say "FAILED validate"; exit $v }
 
-& $cli test . --mode EditMode --timeout 900 --output "$env:TEMP\aosa-edit.xml" *> "$env:TEMP\aosa-edit.txt"; $e = $LASTEXITCODE
-$sum = Select-String -Path "$env:TEMP\aosa-edit.xml" -Pattern '<test-run[^>]*' -ErrorAction SilentlyContinue | Select-Object -First 1
-Say "EditMode exit $e $(if ($sum) { ($sum.Matches[0].Value -replace '.*?(total="\d+").*?(passed="\d+").*?(failed="\d+").*', '$1 $2 $3') })"
+# One test run of a mode. The only failures ever excused are the environment's, never the game's (LESSONS, cycles 2
+# and 3): the CLI's own /api/exec request timing out while a long test holds the main thread, or -nographics refusing a
+# view. They arrive as "Unhandled log message", which Unity checks after the test body, so the test's own assertions
+# passed (a failed assertion would be the message instead). Such a run is repeated once; twice in a row it is accepted
+# with a note naming the tests. Any other failure fails the land.
+function Run-Tests($mode, $xmlPath, $extra) {
+    foreach ($try in 1, 2) {
+        & $cli test . --mode $mode --timeout 900 --output $xmlPath @extra *> "$xmlPath.txt"; $rc = $LASTEXITCODE
+        $sum = Select-String -Path $xmlPath -Pattern '<test-run[^>]*' -ErrorAction SilentlyContinue | Select-Object -First 1
+        Say "$mode exit $rc $(if ($sum) { ($sum.Matches[0].Value -replace '.*?(total="\d+").*?(passed="\d+").*?(failed="\d+").*', '$1 $2 $3') })"
+        if ($rc -eq 0) { return 0 }
+        $xml = Get-Content $xmlPath -Raw -ErrorAction SilentlyContinue
+        $fails = @([regex]::Matches("$xml", '<test-case [^>]*result="Failed".*?</test-case>', 'Singleline'))
+        $envFails = @($fails | Where-Object { $_.Value -match 'Unhandled log message: .\[Error\] (Failed to handle /api/exec request|No graphic device is available)' })
+        if ($fails.Count -eq 0 -or $envFails.Count -ne $fails.Count) { return $rc }
+        if ($try -eq 1) { Say "${mode}: all $($fails.Count) failure(s) are environment signatures; rerunning once"; continue }
+        $names = ($envFails | ForEach-Object { if ($_.Value -match 'fullname="([^"]+)"') { $Matches[1] } }) -join ', '
+        Say "$mode ENV-ONLY twice, assertions passed, accepted with a note: $names"
+        return 0
+    }
+}
+
+Remove-Item "$env:TEMP\aosa-edit.xml", "$env:TEMP\aosa-play.xml" -ErrorAction SilentlyContinue   # never read a stale report
+# -logFile: without it a batch editor writes %LOCALAPPDATA%\Unity\Editor\Editor.log, the owner's own editor's log (cycle 3)
+$e = Run-Tests 'EditMode' "$env:TEMP\aosa-edit.xml" @('--', '-logFile', "$env:TEMP\aosa-editmode-editor.log")
 if ($e -ne 0) { Say "FAILED EditMode"; Unchurn; exit $e }
 
 if (-not $EditOnly) {
-    & $cli test . --mode PlayMode --timeout 900 --output "$env:TEMP\aosa-play.xml" -- -nographics *> "$env:TEMP\aosa-play.txt"; $p = $LASTEXITCODE
-    $sum = Select-String -Path "$env:TEMP\aosa-play.xml" -Pattern '<test-run[^>]*' -ErrorAction SilentlyContinue | Select-Object -First 1
-    Say "PlayMode exit $p $(if ($sum) { ($sum.Matches[0].Value -replace '.*?(total="\d+").*?(passed="\d+").*?(failed="\d+").*', '$1 $2 $3') })"
+    $p = Run-Tests 'PlayMode' "$env:TEMP\aosa-play.xml" @('--', '-nographics', '-logFile', "$env:TEMP\aosa-playmode-editor.log")
     if ($p -ne 0) { Say "FAILED PlayMode"; Unchurn; exit $p }
 }
 

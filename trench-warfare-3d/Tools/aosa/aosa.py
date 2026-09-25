@@ -493,6 +493,12 @@ def cmp_table(runs):
 def band_for(metric, build, a_vals, b_vals, priors):
     pb = ((priors or {}).get("bands") or {}).get(canon(metric), {}).get(build)
     if pb and pb.get("n", 0) >= 3 and pb.get("band") is not None:
+        # Never tighter than the spread these very repeats show (cycle 3: dev-barrage gpu_ms.p95 got a 0.067 ms band
+        # from 14 priors while each group spread ~1.2 ms, and "regressed"; the same flaw as cycle 1's bimodal gpu).
+        if len(a_vals) >= 2 and len(b_vals) >= 2:
+            spread = max(max(v) - min(v) for v in (a_vals, b_vals))
+            if spread > pb["band"]:
+                return spread, "spread of these repeats (priors n=%d gave %.4g)" % (pb["n"], pb["band"])
         return pb["band"], "priors (n=%d)" % pb["n"]
     if len(a_vals) >= 3 and len(b_vals) >= 3:
         devs = [x - statistics.median(a_vals) for x in a_vals] + [x - statistics.median(b_vals) for x in b_vals]

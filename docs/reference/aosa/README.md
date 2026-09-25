@@ -73,7 +73,9 @@ A change lands only if every rule holds. The rule number goes into the revert re
    also be equal. The SHOW lane cannot change the sim, and `hash_end` proves it did not.
 2. **Noise band.** Run at least 3 repeats, interleaved A B A B A B. A delta counts only when it exceeds the band for
    that metric in `priors.json` (per metric, per build type). With fewer than 3 prior samples, use the spread of this
-   run's repeats.
+   run's repeats. A band is never tighter than the widest spread either side of this run shows. This was added in
+   cycle 3, after the second time a 3·MAD band read as a regression on a bimodal metric: gpu p95 in cycle 1, then
+   dev-barrage gpu and vertices at C40, where 14 priors gave a 0.067 ms band against a 1.2 ms spread.
 3. **Perf.** The target metric improves by more than the band. No other of `main_ms`, `gpu_ms`, `draw_calls`,
    `setpass`, `gc_bytes`, `frame_budget_draws`, `frame_budget_vertices` at p95 rises by more than its band.
 4. **Fidelity floor.** `alive_end`, `vat_vertices` and `vat_shadows_on` do not fall. A perf change may not win by
