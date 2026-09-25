@@ -27,9 +27,20 @@ namespace TW.Sim
         public byte FactionA, FactionB;
         /// <summary>Hero pity each side starts the match with, 0..1 (HeroSystem; the profile's residue from the last one).</summary>
         public float HeroPity0, HeroPity1;
+        // ---- 2026-09-25 (replay v6): the ten each side chose at the briefing (owner decision) ----
+        /// <summary>
+        /// The archetypes filling a side's ten slots this battle, in slot order. EMPTY means the faction's default ten
+        /// (FactionRoster), which is what every mission and every test that does not choose gets. Fewer than ten falls
+        /// back to the faction's slot for the rest, so a loadout may name only what it changes.
+        ///
+        /// It lives in the config because it must be part of what both machines agree on before the first tick: a side
+        /// deploying a different unit from slot 3 than its peer thinks it deployed is a desync, not a mistake.
+        /// </summary>
+        public Unity.Collections.FixedList32Bytes<byte> LoadoutA, LoadoutB;
 
         public float TickSeconds => 1f / TickRate;
         public FactionId FactionOf(int player) => Factions.Of(player == 0 ? FactionA : FactionB);
+        public Unity.Collections.FixedList32Bytes<byte> LoadoutOf(int player) => player == 0 ? LoadoutA : LoadoutB;
 
         public static SimConfig Default => new SimConfig
         {

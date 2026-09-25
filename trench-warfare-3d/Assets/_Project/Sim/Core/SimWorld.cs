@@ -86,6 +86,29 @@ namespace TW.Sim
         /// past the table, which is the only honest answer for a unit nothing defined.</summary>
         public byte ChassisOf(byte archetype) => archetype < Archetypes.Count ? Units.Roster[archetype].Chassis : ChassisKind.Foot;
 
+        /// <summary>
+        /// Fill every player's ten deployable slots: the archetypes they chose at the briefing (SimConfig.Loadout*),
+        /// falling back to their faction's default ten for any slot they did not name.
+        ///
+        /// It reads the archetype table (Units.Roster) rather than RosterEntry.ForArchetype, so a unit that exists only
+        /// as a definition arrives with its real cost and hit points instead of a zeroed line. That is also why
+        /// UnitDefinitions.Apply calls this again: the definitions are written after the world is built, and the slots
+        /// would otherwise hold whatever the compiled switch said when the constructor ran.
+        /// </summary>
+        public void FillRosters()
+        {
+            for (int i = 0; i < SimConfig.MaxPlayers; i++)
+            {
+                var chosen = Config.LoadoutOf(i);
+                var faction = Config.FactionOf(i);
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                {
+                    byte a = s < chosen.Length ? chosen[s] : FactionRoster.Slot(faction, s).Archetype;
+                    Roster[i * RosterEntry.SlotCount + s] = a < Archetypes.Count ? Units.Roster[a] : default;
+                }
+            }
+        }
+
         public SimWorld(SimConfig config, SimConfig.WorldInit init, UnitCatalogue units = null)
         {
             Config = config;
@@ -127,9 +150,10 @@ namespace TW.Sim
             {
                 Silver[i] = config.StartingSilver;
                 Rally[i] = i == 0 ? init.SpawnA : init.SpawnB;
-                FactionRoster.Fill(Roster, i * RosterEntry.SlotCount, config.FactionOf(i));
                 for (int s = 0; s < RosterEntry.SlotCount; s++) SlotUnlocked[i * RosterEntry.SlotCount + s] = 1;
             }
+
+            FillRosters();
 
             freeSlots = new NativeList<int>(n, Allocator.Persistent);
             Events = new SimEventBuffer(config.EventCapacity, Allocator.Persistent);
@@ -350,6 +374,10 @@ namespace TW.Sim
             h = SimHash.Value(WinnerTeam, h);
             h = SimHash.Value(HighWater, h);
             h = SimHash.Value(AliveCount, h);
+            // the ten each side may deploy: authoritative state, and since 2026-09-25 a per-battle CHOICE rather
+            // than a constant of the faction, so two machines handed different loadouts must disagree here at
+            // tick 0 instead of drifting apart when the first odd slot is deployed
+            h = SimHash.Array(Roster, h);
             h = SimHash.Array(Silver, h);
             h = SimHash.Array(SilverFraction, h);
             h = SimHash.Array(Rally, h);

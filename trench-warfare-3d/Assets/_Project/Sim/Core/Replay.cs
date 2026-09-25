@@ -16,9 +16,12 @@ namespace TW.Sim
         // v4 (2026-09-24): MapData is folded into the tick hash by TerrainHashSystem -- the heightfield, the nav
         // layers and the holes the shells have dug are compared state now, which docs/03 deferred "to the next
         // replay-format break". Blast impacts also carry a direction and a shape.
+        // v6 (2026-09-25): SimConfig carries the ten archetypes each side chose at the briefing (Loadout*), so a
+        // replay of a battle fought with a chosen loadout cannot be read back as one fought with the faction's
+        // default ten. Written as a count and that many bytes per side.
         // v5 (2026-09-25): SimConfig carries FactionA/FactionB and HeroPity0/1 (factions, the hero system), so the
         // header layout changed; new archetype ids, events and flags came with it (docs/02 change log).
-        public const ushort FormatVersion = 5;
+        public const ushort FormatVersion = 6;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
@@ -46,6 +49,7 @@ namespace TW.Sim
             w.Write(Config.TickRate); w.Write(Config.InputDelayTicks); w.Write(Config.MaxSlots); w.Write(Config.Seed);
             w.Write(Config.SilverPerSecond); w.Write(Config.StartingSilver); w.Write(Config.EventCapacity);
             w.Write(Config.FactionA); w.Write(Config.FactionB); w.Write(Config.HeroPity0); w.Write(Config.HeroPity1);
+            WriteLoadout(w, Config.LoadoutA); WriteLoadout(w, Config.LoadoutB);
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
             w.Write(MapId);
             w.Write(MapHash); w.Write(DataHash);
@@ -65,6 +69,12 @@ namespace TW.Sim
         }
 
         static void WriteF3(BinaryWriter w, float3 v) { w.Write(v.x); w.Write(v.y); w.Write(v.z); }
+
+        static void WriteLoadout(BinaryWriter w, in Unity.Collections.FixedList32Bytes<byte> l)
+        {
+            w.Write((byte)l.Length);
+            for (int i = 0; i < l.Length; i++) w.Write(l[i]);
+        }
     }
 
     public sealed class ReplayPlayer
@@ -94,6 +104,7 @@ namespace TW.Sim
                 SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
                 FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
             };
+            p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
             float3 size = ReadF3(r);
             p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };
             p.MapId = r.ReadInt32();
@@ -124,6 +135,14 @@ namespace TW.Sim
                 if (world.LastHash != Hashes[t]) return t;
             }
             return -1;
+        }
+
+        static Unity.Collections.FixedList32Bytes<byte> ReadLoadout(BinaryReader r)
+        {
+            var l = new Unity.Collections.FixedList32Bytes<byte>();
+            int n = r.ReadByte();
+            for (int i = 0; i < n; i++) l.Add(r.ReadByte());
+            return l;
         }
 
         static float3 ReadF3(BinaryReader r) => new float3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());

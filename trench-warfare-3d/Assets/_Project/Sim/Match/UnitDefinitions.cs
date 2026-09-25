@@ -64,6 +64,9 @@ namespace TW.Sim.Match
             }
             world.Units.Seal();
             combat?.Seal();
+            // the slots were filled from the table as it stood when the world was built; a definition may have just
+            // changed what one of the chosen archetypes costs or how much it can take
+            world.FillRosters();
         }
     }
 }
