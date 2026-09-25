@@ -122,6 +122,14 @@ namespace TW.Presentation.Tactical
         // knob fx.smokeAlpha (Awake, AOSA C52): a shell's smoke puffs are born this much thinner at the standard view, so the
         // men under a barrage stay countable (FlipbookFx.SmokeOpacity). 1 = the old look.
         float smokeAlpha = FlipbookFx.DefaultAlpha;
+        // knobs fx.columnScale and fx.burstGlow (Awake, AOSA C57/C58): the drawn burst's earth column size and its cloud's
+        // glow, as multipliers. 1 (default) = the look as it is; an extreme value is the discriminating test that a part is
+        // drawn at all at the standard view (the C42 lesson), before anyone tunes it.
+        float columnScale = 1f, burstGlow = 1f;
+        /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+        /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+        /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+        public static bool ShowOverlays = true;
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
@@ -259,6 +267,8 @@ namespace TW.Presentation.Tactical
             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
             shotStagger = ShotStagger.ReadSpread();
             smokeAlpha = FlipbookFx.ReadAlpha();
+            columnScale = Mathf.Max(0f, Knobs.Get("fx.columnScale", 1f));
+            burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
         }
 
         void Start()
@@ -666,14 +676,14 @@ namespace TW.Presentation.Tactical
                         // Alpha still keys on `wet` on purpose: a fully opaque plume in lava's SplashTint
                         // (1.00, 0.46, 0.12) on a field that already reins GlowScale in to 0.55 is a brightness
                         // guess, and this project has been burned twice by those.
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f), damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         if (!wet || melt)
                         {
                             books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
-                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
@@ -970,14 +980,14 @@ namespace TW.Presentation.Tactical
 
             // target markers (both sides see where support fire was called) and the aiming circle
             Prune(markers, now, static (m, at) => at > m.Until);
-            for (int pass = 0; pass < 2; pass++)
+            for (int pass = 0; pass < 2 && ShowOverlays; pass++)
             {
                 batch.Clear();
                 for (int i = 0; i < markers.Count; i++)
                     if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(new Vector3(markers[i].Pos.x, RenderGround.Sample(Host.Local.Map, markers[i].Pos.x, markers[i].Pos.z) + 0.4f, markers[i].Pos.z), Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));   // on the ground where it was called, not at sea level
                 if (batch.Count > 0) Flush(sphere, new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
             }
-            if (panel != null && panel.Armed != OffMapAbilityId.None && panel.TryGroundPoint(out var aim) && OffMapAbilitySystem.TryGetStats((int)panel.Armed, out var aimStats))
+            if (ShowOverlays && panel != null && panel.Armed != OffMapAbilityId.None && panel.TryGroundPoint(out var aim) && OffMapAbilitySystem.TryGetStats((int)panel.Armed, out var aimStats))
             {
                 float r = aimStats.Radius > 0f ? aimStats.Radius : 8f;
                 aim.y = RenderGround.Sample(Host.Local.Map, aim.x, aim.z) + 0.2f;
@@ -1308,7 +1318,7 @@ namespace TW.Presentation.Tactical
                 Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;
                 books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.16f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow, pop: 0.5f);
                 books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.5f), r * 2.4f, 1.4f, FlipbookFx.Kind.Upright,
-                    velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                    velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                 for (int k = 0; k < 3; k++)
                     books.Add(FlipbookFx.Book.Smoke, p + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r, r * UnityEngine.Random.Range(1.1f, 1.5f), UnityEngine.Random.Range(3.5f, 5f),
                         (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: FlipbookFx.SmokeOpacity(0.6f, smokeAlpha, SceneHooks.CloseUp), pop: 0.3f, delay: 0.3f + k * 0.15f);
@@ -1464,7 +1474,7 @@ namespace TW.Presentation.Tactical
 
         void OnGUI()
         {
-            if (banner == null || Time.time > bannerUntil) return;
+            if (!ShowOverlays || banner == null || Time.time > bannerUntil) return;
             var style = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             var rect = new Rect(0, Screen.height * 0.12f, Screen.width, 50);
             style.normal.textColor = Color.black; GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), banner, style);

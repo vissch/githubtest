@@ -345,10 +345,12 @@ namespace TW.Perf
         }
 
         /// <summary>`shot_hud=0` on an image run: every UI Toolkit panel's root is set to display none, each frame (a panel
-        /// rebuilt later is caught too). The HUD still runs; it is only not drawn.</summary>
+        /// rebuilt later is caught too), and CombatFx's world-space overlays (strike target discs, aiming circle, banner) are
+        /// not drawn. The HUD still runs; it is only not drawn.</summary>
         void HideHud()
         {
             if (Options.ShotHud || Options.ShotTick < 0) return;
+            TW.Presentation.Tactical.CombatFx.ShowOverlays = false;   // the strike discs and the banner are HUD too, drawn in the world (C56)
             foreach (var doc in FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
                 if (doc.rootVisualElement != null) doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.None;
         }
