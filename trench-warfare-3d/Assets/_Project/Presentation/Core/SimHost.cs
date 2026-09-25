@@ -26,6 +26,13 @@ namespace TW.Presentation
 
         [Header("Match")]
         public uint Seed = 0xC0FFEE;
+        // ---- 2026-09-25: who is fighting, and with which ten ----
+        /// <summary>FactionId of each side. SimConfig has carried these since replay v5 and no launch path set them,
+        /// so every battle was Iron against Brass whatever the mission said.</summary>
+        public byte FactionA = (byte)FactionId.Iron, FactionB = (byte)FactionId.Brass;
+        /// <summary>The archetypes filling each side's ten slots, chosen at the briefing. Empty (the normal case, and
+        /// what the inspector shows) means the faction's default ten.</summary>
+        public byte[] LoadoutA, LoadoutB;
         public int StartingSilver = 300;
         public float SilverPerSecond = 2f;
         [Tooltip("Sim time multiplier for testing: 0 pauses, 1 is real time. Both sims step together, so it never affects determinism.")]
@@ -83,6 +90,19 @@ namespace TW.Presentation
         float accumulator;
         float animTime;
 
+        /// <summary>
+        /// A chosen ten as the sim takes it: at most ten ids, and nothing past the end of the tables an archetype
+        /// indexes. A bad id is dropped rather than clamped, because clamping would silently field a different unit.
+        /// </summary>
+        public static Unity.Collections.FixedList32Bytes<byte> Loadout(byte[] chosen)
+        {
+            var l = new Unity.Collections.FixedList32Bytes<byte>();
+            if (chosen == null) return l;
+            for (int i = 0; i < chosen.Length && l.Length < RosterEntry.SlotCount; i++)
+                if (chosen[i] < Archetypes.Count) l.Add(chosen[i]);
+            return l;
+        }
+
         MatchSim NewMatch(SimConfig cfg)
         {
             if (GeneratedBattlefield)
@@ -103,6 +123,8 @@ namespace TW.Presentation
             cfg.Seed = Seed;
             cfg.StartingSilver = StressUnits > 0 ? StressUnits * 25 : StartingSilver;
             cfg.SilverPerSecond = SilverPerSecond;
+            cfg.FactionA = FactionA; cfg.FactionB = FactionB;
+            cfg.LoadoutA = Loadout(LoadoutA); cfg.LoadoutB = Loadout(LoadoutB);
             bool canary = CanaryOverride ?? (DeterminismCanary || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twCanary") >= 0);
             session = new LockstepSession(() => NewMatch(cfg), canary, LatencyTicks, JitterTicks, LossChance, Seed);
             Local = session.Local; Peer = session.Peer; LocalDriver = session.LocalDriver; PeerDriver = session.PeerDriver;

@@ -42,6 +42,10 @@ namespace TW.Presentation
             public string Title = "";
             public string Difficulty = "";
             public uint MatchSeed = 0xC0FFEE;
+            // ---- 2026-09-25: who is fighting, and with which ten (the briefing writes these; phase 2) ----
+            public byte FactionA = (byte)TW.Sim.FactionId.Iron, FactionB = (byte)TW.Sim.FactionId.Brass;
+            /// <summary>The ten each side brings, or null/empty for its faction's default ten.</summary>
+            public byte[] LoadoutA, LoadoutB;
             public int StartingSilver = 300;
             public float SilverPerSecond = 2f;
             public bool GeneratedBattlefield = true;
@@ -62,6 +66,7 @@ namespace TW.Presentation
             public static Request From(SimHost h) => new Request
             {
                 MatchSeed = h.Seed, StartingSilver = h.StartingSilver, SilverPerSecond = h.SilverPerSecond,
+                FactionA = h.FactionA, FactionB = h.FactionB, LoadoutA = h.LoadoutA, LoadoutB = h.LoadoutB,
                 GeneratedBattlefield = h.GeneratedBattlefield, PlaytestMap = h.PlaytestMap, BattlefieldSeed = h.BattlefieldSeed,
                 Ground = h.Ground,
                 Bombardment = h.BombardmentPerMinute, ScriptedPeer = h.ScriptedPeer, PeerDeployEveryTicks = h.PeerDeployEveryTicks,
@@ -85,6 +90,7 @@ namespace TW.Presentation
             var r = Current;
             if (r == null || h == null) { Running = null; return; }
             h.Seed = r.MatchSeed; h.StartingSilver = r.StartingSilver; h.SilverPerSecond = r.SilverPerSecond;
+            h.FactionA = r.FactionA; h.FactionB = r.FactionB; h.LoadoutA = r.LoadoutA; h.LoadoutB = r.LoadoutB;
             h.GeneratedBattlefield = r.GeneratedBattlefield; h.PlaytestMap = r.PlaytestMap; h.BattlefieldSeed = r.BattlefieldSeed;
             h.Ground = r.Ground;
             h.BombardmentPerMinute = r.Bombardment;
