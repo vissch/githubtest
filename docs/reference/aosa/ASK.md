@@ -118,4 +118,10 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
   **C49, cycle 4 (a0017): the ground-only fake is invisible and was reverted.** It costs +0.09 ms of CPU, no draw
   and no GPU. But the men stand on duckboards (painted kit, not the ground) or so tightly packed that they cover
   their own shade, so 0.002% of pixels change at T1. C49b retries it with the shade on the trench kit as well.
+  **Daylight, cycle 5 (C51 `ground=WinterLine`; a0019, a0020):** real shadows by day change 7.6% of the frame when
+  men stand in the open (runs 5/dspN against dsp0). The men shade each other and the snow, and the crowd gains
+  depth. They are already on whenever near vertices × 2 + far fit the 1.5 M budget, which the spread army does and
+  any normal-sized battle will. So the day look needs no change. C49b (the fake shade on the duckboards) still
+  reaches only 0.4% at best and is parked. Nothing to decide unless you want shadows in the 3,000-man stress scene
+  by day, which would cost 2x VAT vertices (A07's +0.3 ms GPU p95).
 

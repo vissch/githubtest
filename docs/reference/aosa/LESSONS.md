@@ -78,6 +78,11 @@ of their section. When the same lesson appears twice, the retrospective turns it
   not a change. Revert all three with `git checkout --` after every build and never commit them. (cycle 0 build)
 - **Seed a new tree's `Library/` from an idle clone of the same Unity version.** Robocopy took 34 s for 1.8 GB, and
   the gate then ran in 4 minutes. Never copy from a Library whose editor is open. (cycle 0 build)
+- **Two `occ.py` runs at once corrupted each other.** Every tree wrote its dlls to one `%TEMP%/tw-occ`. With two
+  patch authors compiling in parallel, one run failed on "being used by another process" and then reported
+  phantom missing members, read from the other tree's dlls. `occ.py` now writes to `tw-occ-<hash of the tree>`.
+  Parallel authors need per-tree scratch for everything they write. (cycle 5)
+- **Git Bash rewrites a Windows tool's `/FLAG` into a path.** `robocopy A B /MIR` from bash became `C:/Program Files/Git/MIR`, and robocopy returned 16. The build snapshot was silently missing for cycle 5. Set `MSYS_NO_PATHCONV=1` for any Windows tool called from bash, and check its return code (robocopy: below 8 is ok). (cycle 5)
 - **`occ.py` on one assembly compiles against the main clone's OLD dlls for everything else.** A new symbol in a
   dependency then reads as "does not exist". Use `occ.py --changed`, or name every changed assembly in dependency
   order. (cycle 0 build)
