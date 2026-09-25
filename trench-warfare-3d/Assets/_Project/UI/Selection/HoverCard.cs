@@ -23,6 +23,8 @@ namespace TW.UI
         readonly int[] stateCounts = new int[UnitStatus.StateCount];
         readonly Dictionary<byte, int> typeCounts = new Dictionary<byte, int>();
         string[] garrisonTitles = new string[0];
+        int catTitleKey; string catTitle;
+        static readonly System.Func<int, bool, string> CategoryHint = (n, ours) => "CLICK: SELECT   SHIFT: ADD   TWICE: GO THERE";
         static readonly System.Func<int, bool, string> KnotHint = (n, ours) => ours ? "CLICK: ALL " + n + "   ALT: PICK ONE" : "CLICK: INSPECT ALL " + n + "   ALT: ONE";
         static readonly System.Func<int, bool, string> PinnedHint = (n, ours) => "PINNED MEN WILL NOT GO OVER THE TOP";
         static readonly System.Func<int, bool, string> ReadyHint = (n, ours) => "READY TO GO OVER THE TOP";
@@ -77,7 +79,7 @@ namespace TW.UI
             if (card == null || w == null || clump.Count == 0) { Hide(); return; }
             var lead = units[clump[0]];
             if (!Rested(((long)lead.Slot << 16) | lead.Gen, clump.Count)) return;
-            if (clump.Count == 1) ShowOne(w, lead, knotSize > 1 ? pick * 1000 + knotSize : 1); else ShowMany(w, units, clump);
+            if (clump.Count == 1) ShowOne(w, lead, knotSize > 1 ? (pick + 1) * 1000 + knotSize : 1); else ShowMany(w, units, clump);
             Reveal(!lead.Ours, cursor, hudSize);
         }
 
@@ -92,6 +94,28 @@ namespace TW.UI
             string title = garrisonTitles[t] ??= "TRENCH " + (t + 1) + "  ·  GARRISON";
             Summarise(g.Commonest(t), g.Types(t), g.Men(t), g.MeanHp(t), true, -1000 - t, title,
                       pinned ? -20 : -21, pinned ? PinnedHint : ReadyHint);
+            Reveal(false, cursor, hudSize);
+        }
+
+        /// <summary>One troop category of trench t (the cursor is on its chip in the trench's order cluster).</summary>
+        public void ShowCategory(SimWorld w, int t, int archetype, Vector2 cursor, Vector2 hudSize)
+        {
+            if (card == null || w == null || t < 0 || archetype < 0) { Hide(); return; }
+            System.Array.Clear(stateCounts, 0, stateCounts.Length);
+            int n = 0; float sum = 0f;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint f = w.Flags[i];
+                if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0 || (w.Team[i] & 1) != 0) continue;
+                if (w.TrenchId[i] != t || w.Archetype[i] != archetype) continue;
+                n++; sum += Mathf.Clamp01(w.Hp[i] / Mathf.Max(1f, w.MaxHp[i]));
+                stateCounts[(int)UnitStatus.Of(w, i)]++;
+            }
+            if (n == 0) { Hide(); return; }
+            if (!Rested(-100000 - t * 256 - archetype, n)) return;
+            int titleKey = -3000 - t * 256 - archetype;
+            if (titleKey != catTitleKey) { catTitleKey = titleKey; catTitle = HudText.Name((byte)archetype).ToUpperInvariant() + "  ·  TRENCH " + (t + 1); }
+            Summarise((byte)archetype, 1, n, sum / n, true, titleKey, catTitle, -30, CategoryHint);
             Reveal(false, cursor, hudSize);
         }
 
@@ -200,7 +224,7 @@ namespace TW.UI
         {
             if (n == shownCount) return;
             shownCount = n;
-            count.text = n >= 1000 ? (n / 1000 + 1) + "/" + (n % 1000) : n > 1 ? "×" + n : "";
+            count.text = n >= 1000 ? (n / 1000) + "/" + (n % 1000) : n > 1 ? "×" + n : "";
             count.style.display = n != 1 ? DisplayStyle.Flex : DisplayStyle.None;
             shownTypes = -1;   // the name line depends on the count too
         }

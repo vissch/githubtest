@@ -5,7 +5,9 @@
 //   alone, Shift+click to drop it;
 // - many: one tile per type with the count and the type's mean HP, because a hundred riflemen as a hundred tiles says
 //   nothing; click to keep only that type, Shift+click to drop it.
-// And the control groups as small chips bottom-left (digit and size), click to recall, a second click to centre.
+// And the control groups as small chips bottom-left (digit and size), click to recall, a second click to centre. A chip
+// carries its group's alert (GroupAlerts): flashing red when the group is being cut down, amber when half of it is
+// pinned, grey when it is gone; a click on an alerting chip recalls the group and goes there at once.
 // Redrawn when the selection changes; the HP figures refresh a few times a second.
 using System.Collections.Generic;
 using UnityEngine;
@@ -24,7 +26,13 @@ namespace TW.UI
         readonly SimHost host;
         readonly VisualElement panel, single, grid, portrait, hpFill, groups;
         readonly Label name, side, hp, stats, header;
-        int drawnVersion = -1, drawnGroupsHash = -1; float nextHp;
+        readonly Label ordersLine;   // "G: MG, ASSAULT OF TRENCH 2 GO OVER THE TOP (5)" when the selection is a trench's categories
+        int shownOrdersKey = int.MinValue;
+        int drawnVersion = -1; float nextHp;
+        public const float FlashHz = 2.5f;
+        public readonly GroupAlerts Alerts = new GroupAlerts();
+        sealed class Chip { public Button Root; public Label Size; public int Shown = -1; public GroupAlerts.Alert Alert; public bool Visible, Flash; }
+        readonly Chip[] chips = new Chip[SelectionModel.GroupCount];
         readonly List<(VisualElement fill, UnitHandle h)> tileBars = new List<(VisualElement, UnitHandle)>();
         readonly List<(VisualElement fill, byte archetype)> typeBars = new List<(VisualElement, byte)>();
 
@@ -35,7 +43,13 @@ namespace TW.UI
             portrait = root?.Q("sel-portrait"); hpFill = root?.Q("sel-hp-fill"); groups = root?.Q("groups");
             name = root?.Q<Label>("sel-name"); side = root?.Q<Label>("sel-side"); hp = root?.Q<Label>("sel-hp");
             stats = root?.Q<Label>("sel-stats"); header = root?.Q<Label>("sel-header");
-            if (panel != null) panel.style.display = DisplayStyle.None;
+            if (panel != null)
+            {
+                panel.style.display = DisplayStyle.None;
+                ordersLine = new Label { pickingMode = PickingMode.Ignore }; ordersLine.AddToClassList("hud-selection__orders");
+                ordersLine.style.display = DisplayStyle.None;
+                panel.Add(ordersLine);
+            }
             if (groups != null) groups.style.display = DisplayStyle.None;
         }
 
@@ -46,7 +60,7 @@ namespace TW.UI
             var w = World; if (w == null || panel == null) return;
             var m = sel.Model;
             if (m.Version != drawnVersion) { drawnVersion = m.Version; Rebuild(w); nextHp = 0f; }
-            if (Time.unscaledTime >= nextHp) { nextHp = Time.unscaledTime + RefreshSeconds; RefreshHp(w); }
+            if (Time.unscaledTime >= nextHp) { nextHp = Time.unscaledTime + RefreshSeconds; RefreshHp(w); RefreshOrders(); }
             RefreshGroups();
         }
 
@@ -149,32 +163,92 @@ namespace TW.UI
             }
         }
 
+        /// <summary>When every selected man garrisons one trench, what G would do: who goes, whole categories, pinned stay.</summary>
+        void RefreshOrders()
+        {
+            if (ordersLine == null) return;
+            var g = sel.Garrison;
+            bool scoped = sel.ScopedTrench(out int t, out int raw) && g != null && t < g.Trenches;
+            int eff = scoped ? TrenchScope.Effective(raw, TrenchScope.Present(g, t)) : 0;
+            int go = 0, stay = 0;
+            if (scoped)
+                for (int a = 0; a <= TrenchScope.MaxMaskArchetype; a++)
+                    if ((raw & (1 << a)) != 0 || eff == 0 && g.TypeCount(t, a) > 0) { go += g.TypeCount(t, a) - g.TypePinned(t, a); stay += g.TypePinned(t, a); }
+            int key = scoped ? ((t * 31 + eff) * 1000 + go) * 1000 + stay : -1;
+            if (key == shownOrdersKey) return;
+            shownOrdersKey = key;
+            ordersLine.style.display = scoped ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!scoped) return;
+            var who = new System.Text.StringBuilder();
+            if (eff == 0) who.Append("ALL OF TRENCH ").Append(t + 1);
+            else
+            {
+                for (int a = 0; a <= TrenchScope.MaxMaskArchetype; a++)
+                    if ((eff & (1 << a)) != 0 && g.TypeCount(t, a) > 0) { if (who.Length > 0) who.Append(", "); who.Append(HudText.Name((byte)a).ToUpperInvariant()); }
+                who.Append(" OF TRENCH ").Append(t + 1);
+            }
+            ordersLine.text = KeyMap.Display(KeyMap.Primary(GameAction.Advance)) + ": " + who + " GO OVER THE TOP (" + go + ")" + (stay > 0 ? "  ·  " + stay + " PINNED STAY" : "");
+            ordersLine.EnableInClassList("hud-selection__orders--warn", stay > 0);
+        }
+
         // ---- the control-group chips ----------------------------------------------------------------------------
         void RefreshGroups()
         {
             if (groups == null) return;
-            var m = sel.Model;
-            int hash = 17;
-            for (int g = 0; g < SelectionModel.GroupCount; g++) hash = hash * 31 + m.GroupSize(g);
-            if (hash == drawnGroupsHash) return;
-            drawnGroupsHash = hash;
-            groups.Clear();
+            var w = World; var m = sel.Model;
+            float now = Time.unscaledTime;
+            bool flashOn = Mathf.Repeat(now * FlashHz, 1f) < 0.5f;
             bool any = false;
             for (int g = 0; g < SelectionModel.GroupCount; g++)
             {
-                int n = m.GroupSize(g);
-                if (n == 0) continue;
+                int n = m.GroupSize(g), pinned = 0;
+                if (w != null)
+                {
+                    var members = m.Group(g);   // indexed: a foreach over the interface would allocate every frame
+                    for (int i = 0; i < members.Count; i++) if (UnitStatus.Of(w, members[i].Slot) == UnitState.Pinned) pinned++;
+                }
+                Alerts.Observe(g, m.GroupStamp(g), n, pinned, now);
+                var alert = Alerts.Of(g, now);
+                bool visible = n > 0 || alert == GroupAlerts.Alert.Lost;
+                var c = chips[g] ??= MakeChip(g);
+                if (visible != c.Visible) { c.Visible = visible; c.Root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None; }
+                if (!visible) continue;
                 any = true;
-                int group = g;
-                var chip = new Button(() => sel.RecallGroup(group)) { focusable = false };
-                chip.AddToClassList("tw-btn"); chip.AddToClassList("hud-group-chip");
-                var digit = new Label(SelectionModel.KeyDigit(g).ToString()) { pickingMode = PickingMode.Ignore }; digit.AddToClassList("hud-group-chip__digit");
-                var size = new Label(n.ToString()) { pickingMode = PickingMode.Ignore }; size.AddToClassList("hud-group-chip__size");
-                chip.Add(digit); chip.Add(size);
-                chip.tooltip = $"GROUP {SelectionModel.KeyDigit(g)}: SHIFT+{SelectionModel.KeyDigit(g)} TO SELECT, TWICE TO GO THERE";
-                groups.Add(chip);
+                if (n != c.Shown) { c.Shown = n; c.Size.text = n.ToString(); }
+                if (alert != c.Alert)
+                {
+                    c.Alert = alert;
+                    c.Root.EnableInClassList("hud-group-chip--pinned", alert == GroupAlerts.Alert.Pinned);
+                    c.Root.EnableInClassList("hud-group-chip--hit", alert == GroupAlerts.Alert.Hit);
+                    c.Root.EnableInClassList("hud-group-chip--lost", alert == GroupAlerts.Alert.Lost);
+                }
+                bool flash = alert == GroupAlerts.Alert.Hit && flashOn;
+                if (flash != c.Flash) { c.Flash = flash; c.Root.EnableInClassList("hud-group-chip--flash", flash); }
             }
-            groups.style.display = any ? DisplayStyle.Flex : DisplayStyle.None;
+            bool show = any;
+            if (groups.style.display != (show ? DisplayStyle.Flex : DisplayStyle.None)) groups.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        Chip MakeChip(int g)
+        {
+            var c = new Chip();
+            c.Root = new Button(() => Click(g)) { focusable = false };
+            c.Root.AddToClassList("tw-btn"); c.Root.AddToClassList("hud-group-chip");
+            var digit = new Label(SelectionModel.KeyDigit(g).ToString()) { pickingMode = PickingMode.Ignore }; digit.AddToClassList("hud-group-chip__digit");
+            c.Size = new Label { pickingMode = PickingMode.Ignore }; c.Size.AddToClassList("hud-group-chip__size");
+            var pip = new VisualElement { pickingMode = PickingMode.Ignore }; pip.AddToClassList("hud-group-chip__pip");
+            c.Root.Add(digit); c.Root.Add(c.Size); c.Root.Add(pip);
+            c.Root.style.display = DisplayStyle.None;
+            groups.Add(c.Root);   // in group order, so the digits read 1..9, 0 whichever are showing
+            return c;
+        }
+
+        void Click(int g)
+        {
+            var alert = Alerts.Of(g, Time.unscaledTime);
+            if (alert == GroupAlerts.Alert.Lost) return;           // nobody to go to
+            sel.RecallGroup(g);
+            if (alert != GroupAlerts.Alert.None) sel.FocusSelection();   // in trouble: take me there now
         }
     }
 }
