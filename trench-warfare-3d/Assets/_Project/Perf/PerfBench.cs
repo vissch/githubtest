@@ -30,6 +30,10 @@
 // frame. The clock is released before the window's first frame: the window runs on real time exactly as before.
 // `shot_tick=N` instead takes the still N ticks into the window and keeps the clock held through it: an image run of
 // the battle running, whose timings are not real time.
+// C51 (2026-09-25): `ground=WinterLine` (or `winter`) launches the stress battle on another battlefield, the way a
+// mission card does (MatchLaunch.Request.Ground): its map (MatchLaunch.Field) and its look (BiomeProfile.ForGround),
+// so a shadow, fog or colour card can be judged in daylight. Absent, the request is exactly the one it always was
+// (ShelledForest, night). An unknown name stops the run with exit 2 before the match loads; it never falls back.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -53,7 +57,8 @@ namespace TW.Perf
         public BenchOptions Options = new BenchOptions();
         /// <summary>The run in progress, or null.</summary>
         public static PerfBench Running { get; private set; }
-        /// <summary>Where the last report went and how it ended (0 ok, 3 settle timed out, 4 desync, 5 write failed).</summary>
+        /// <summary>Where the last report went and how it ended (0 ok, 2 bad bench option, 3 settle timed out, 4 desync,
+        /// 5 write failed).</summary>
         public static string LastResultPath = "";
         public static int LastExitCode = -1;
 
@@ -82,6 +87,7 @@ namespace TW.Perf
             Running = go.AddComponent<PerfBench>();
             Running.Options = o;
             Debug.Log("[PerfBench] armed: " + raw);
+            if (o.GroundUnknown) Debug.LogError("[PerfBench] " + UnknownGroundWhy(o));   // the run stops on its first frame (WaitHost)
         }
 
         enum Stage { WaitHost, Settle, Approach, Warm, Window, Done }
@@ -127,18 +133,31 @@ namespace TW.Perf
         // ------------------------------------------------------------------------------------------------ the run
         bool launched;
 
+        static string UnknownGroundWhy(BenchOptions o) =>
+            "unknown ground '" + o.GroundRaw + "': valid are " + BenchOptions.GroundNames() + "; nothing was run";
+
         void WaitHost()
         {
+            // C51: a ground that names no battlefield is refused before anything loads, never run as the wood
+            if (Options.GroundUnknown) { Finish(2, UnknownGroundWhy(Options)); return; }
             if (host == null) host = FindFirstObjectByType<SimHost>();
             if (host == null && !launched && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == MatchLaunch.MenuScene)
             {
                 if (!AlignClock()) return;   // some cheap menu frames, walking Time.time to the same value in every run
                 HoldClock();                  // before the battle loads: its first frame is already on the held clock
                 launched = true;
-                MatchLaunch.Start(new MatchLaunch.Request { Title = "PerfBench" });
+                MatchLaunch.Start(new MatchLaunch.Request { Title = "PerfBench", Ground = Options.Ground });   // C51: ShelledForest unless ground= said
                 return;
             }
             if (host == null || host.Local == null) return;
+            // C51: the editor path builds whatever its scene says and never sees the request, so a ground= it did not
+            // get is an error, not a mislabelled report (checked only when ground= was given: the default is unchanged)
+            if (Options.GroundRaw.Length > 0 && (host.Ground != Options.Ground || !host.GeneratedBattlefield))
+            {
+                Finish(2, "ground=" + Options.GroundRaw + " asked for " + Options.Ground + ", but the match was built on " +
+                          (host.GeneratedBattlefield ? host.Ground.ToString() : "the playtest map") + " (ground= needs the player's menu launch)");
+                return;
+            }
             HoldClock();   // the editor path (no menu): the scene was already running, so this clock is held but not aligned
             if (++waitFrames < 3) return;   // ShellBoot applies settings.json after the scene loads; ours come after it
             if (Options.Quality >= 0 && Options.Quality < QualitySettings.names.Length) QualitySettings.SetQualityLevel(Options.Quality, true);
@@ -608,7 +627,15 @@ namespace TW.Perf
               .Append(", \"screen\": [").Append(Screen.width).Append(", ").Append(Screen.height).Append("], \"fullscreen\": ").Append(Q(Screen.fullScreenMode.ToString()))
               .Append(", \"backend\": ").Append(Q(backend)).Append(", \"gc_incremental\": ").Append(UnityEngine.Scripting.GarbageCollector.isIncremental ? "true" : "false")
               .Append(", \"frame_timing_stats\": ").Append(FrameTimingManager.IsFeatureEnabled() ? "true" : "false")
-              .Append(", \"knobs_arg\": ").Append(Q(Options.Knobs)).Append(", \"knobs\": ").Append(KnobsJson()).Append(" },\n");
+              .Append(", \"knobs_arg\": ").Append(Q(Options.Knobs)).Append(", \"knobs\": ").Append(KnobsJson());
+            // C51: the battlefield this ran on, the look it got and its map size (another ground is another map)
+            var size = host != null && host.Local != null ? (Vector2)host.Local.Map.SizeMeters : Vector2.zero;
+            string biome = host != null ? Atmosphere.Profile.Name : "";
+            sb.Append(", \"ground\": ").Append(Q(Options.GroundUnknown ? "unknown" : host != null ? host.Ground.ToString() : Options.Ground.ToString()))
+              .Append(", \"ground_arg\": ").Append(Q(Options.GroundRaw))
+              .Append(", \"biome\": ").Append(Q(biome))
+              .Append(", \"night\": ").Append(SceneMood.Night ? "true" : "false")
+              .Append(", \"map_m\": [").Append(N(size.x)).Append(", ").Append(N(size.y)).Append("] },\n");
             sb.Append("  \"scenario\": { \"scene\": ").Append(Q(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name))
               .Append(", \"stress_per_side\": ").Append(Options.Stress)
               .Append(", \"seed\": ").Append(host != null ? host.Seed : 0).Append(", \"battlefield_seed\": ").Append(host != null ? host.BattlefieldSeed : 0)
@@ -669,6 +696,9 @@ namespace TW.Perf
             if (Options.Scenario == BenchScenario.None && Options.ScenarioRaw.Length > 0 && Options.ScenarioRaw.ToLowerInvariant() != "none")
                 warnings.Add("unknown scenario '" + Options.ScenarioRaw + "': ran none");
             warnings.AddRange(scenarioLog.Warnings);
+            if (!Options.GroundUnknown && Options.Ground != Ground.ShelledForest)
+                warnings.Add("ground " + Options.Ground + ": another map (" + N(size.x) + " x " + N(size.y) + " m) and look (" + biome +
+                             "), so hash_start is not the night bench's: compare only with runs on the same ground");
             if (Options.ShotTick >= 0)
                 warnings.Add("shot_tick: the window ran on the held clock (1/64 s a frame) so its still repeats; its timings are not real time: an image run, never a perf sample");
             if (Options.ShotTick >= 0 && !string.IsNullOrEmpty(Options.Shot) && stillFrame < 0)

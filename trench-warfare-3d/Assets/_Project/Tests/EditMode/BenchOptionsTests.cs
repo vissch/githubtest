@@ -3,6 +3,7 @@
 // something other than what the report says; the keys that were there before must still mean what they meant.
 using NUnit.Framework;
 using TW.Perf;
+using TW.Presentation;
 
 namespace TW.Tests
 {
@@ -147,6 +148,62 @@ namespace TW.Tests
             }
             Assert.AreEqual(128.0, PerfBench.AlignTarget(63.5), "less than a second short goes to the next multiple");
             Assert.AreEqual(1f / 64f, PerfBench.HeldStep, "a power of two, so the held frames add up exactly");
+        }
+
+        // C51: ground= picks the battlefield (and so its look). Absent, it is the night wood the bench always ran; an
+        // unknown name is refused, never run as the wood under another label.
+        [Test]
+        public void NoGroundIsTheNightWood()
+        {
+            var o = BenchOptions.Parse("stress=1500 ticks=400 scenario=barrage");
+            Assert.AreEqual(Ground.ShelledForest, o.Ground);
+            Assert.AreEqual("", o.GroundRaw);
+            Assert.IsFalse(o.GroundUnknown);
+            Assert.AreEqual(Ground.ShelledForest, new BenchOptions().Ground, "the zero value, as MatchLaunch.Request's");
+            Assert.AreEqual(new MatchLaunch.Request().Ground, o.Ground, "the bench's request is the one it always launched");
+        }
+
+        [Test]
+        public void GroundParsesByNameAnyCaseAndByShortName()
+        {
+            var o = BenchOptions.Parse("stress=1500 ground=WinterLine shot_tick=100");
+            Assert.AreEqual(Ground.WinterLine, o.Ground);
+            Assert.AreEqual("WinterLine", o.GroundRaw);
+            Assert.IsFalse(o.GroundUnknown);
+            Assert.AreEqual(100, o.ShotTick, "and the rest of the string still parses");
+            Assert.AreEqual(Ground.WinterLine, BenchOptions.Parse("ground=winter").Ground);
+            Assert.AreEqual(Ground.WinterLine, BenchOptions.Parse("ground=WINTERLINE").Ground, "case does not matter");
+            Assert.AreEqual(Ground.Landing, BenchOptions.Parse("ground=landing").Ground);
+            Assert.AreEqual(Ground.ShelledForest, BenchOptions.Parse("ground=forest").Ground);
+            var f = BenchOptions.Parse("ground=ShelledForest");
+            Assert.AreEqual(Ground.ShelledForest, f.Ground);
+            Assert.IsFalse(f.GroundUnknown, "naming the default is not an error");
+            foreach (Ground g in System.Enum.GetValues(typeof(Ground)))
+                Assert.AreEqual(g, BenchOptions.Parse("ground=" + g).Ground, "every Ground by its own name: " + g);
+        }
+
+        [Test]
+        public void UnknownGroundIsRefusedNotRunAsTheWood()
+        {
+            var o = BenchOptions.Parse("ground=desert stress=900");
+            Assert.IsTrue(o.GroundUnknown, "PerfBench refuses the run (exit 2)");
+            Assert.AreEqual("desert", o.GroundRaw, "the error says what was asked for");
+            Assert.AreEqual(900, o.Stress, "and the rest of the string still parses");
+            Assert.IsTrue(BenchOptions.Parse("ground=").GroundUnknown, "an empty ground is not the default");
+            Assert.IsTrue(BenchOptions.Parse("ground=1").GroundUnknown, "a number is not a name");
+            Assert.IsTrue(BenchOptions.Parse("ground=day").GroundUnknown, "a time of day is not a ground");
+            StringAssert.Contains("WinterLine", BenchOptions.GroundNames(), "the error lists the valid names");
+        }
+
+        [Test]
+        public void OnlyTheWinterLineIsADayField()
+        {
+            // what makes C51 worth having: BiomeProfile.ForGround is the one place a ground gets its look
+            foreach (Ground g in System.Enum.GetValues(typeof(Ground)))
+            {
+                bool day = !TW.Presentation.Terrain.BiomeProfile.For(TW.Presentation.Terrain.BiomeProfile.ForGround(g)).Dark;
+                Assert.AreEqual(g == Ground.WinterLine, day, g + (day ? " is day" : " is night"));
+            }
         }
 
         [Test]

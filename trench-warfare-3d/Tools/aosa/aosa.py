@@ -698,8 +698,15 @@ def run_one(spec, label, cyc_dir, dry):
             time.sleep(5)
     if out.exists():
         rep = load_json(out, {})
-        print("%s: report written, main_ms.p95 %s, hash_start %s" % (label, get_metric(rep, "main_ms.p95"),
-                                                                     (rep.get("window") or {}).get("hash_start")))
+        cfg = rep.get("config") or {}
+        print("%s: report written, main_ms.p95 %s, hash_start %s, ground %s (%s)" % (
+            label, get_metric(rep, "main_ms.p95"), (rep.get("window") or {}).get("hash_start"),
+            cfg.get("ground", "ShelledForest"), "night" if cfg.get("night", True) else "day"))
+        run = rep.get("run") or {}
+        if run.get("exit") not in (None, 0):
+            # C51: a refused option (exit 2, e.g. an unknown ground=), a timeout or a desync is not a sample
+            print("%s: BENCH FAILED, exit %s: %s" % (label, run.get("exit"), run.get("why")))
+            return False
         return True
     tail = log.read_text(errors="replace").splitlines()[-20:] if log.exists() else []
     print("%s: NO REPORT%s" % (label, "; log tail:\n  " + "\n  ".join(tail) if tail else ""))

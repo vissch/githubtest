@@ -3,6 +3,7 @@
 // the editor (CaptureRig.Bench("stress=1500 ...")), so a number from each is a measurement of the same battle.
 using System;
 using System.Globalization;
+using TW.Presentation;
 
 namespace TW.Perf
 {
@@ -60,6 +61,16 @@ namespace TW.Perf
         /// bench string itself splits on space, comma and semicolon. PerfBench hands it to TW.Presentation.Knobs.Parse
         /// before the scene loads. "" when absent.</summary>
         public string Knobs = "";
+        /// <summary>C51: which battlefield the bench launches (MatchLaunch.Request.Ground, so its map AND its look:
+        /// BiomeProfile.ForGround). ShelledForest, the night wood, is the zero value and the bench as it always was.
+        /// WinterLine is the only day field. Any other ground is another MAP (MatchLaunch.Field), so hash_start is
+        /// not the night bench's.</summary>
+        public Ground Ground = Ground.ShelledForest;
+        /// <summary>What `ground=` said, verbatim ("" when absent).</summary>
+        public string GroundRaw = "";
+        /// <summary>`ground=` named no Ground. PerfBench then refuses to run (exit 2) rather than bench the wood under
+        /// another name: unlike scenario=, an unknown ground never falls back.</summary>
+        public bool GroundUnknown;
         public string Raw = "";
 
         public static BenchOptions Parse(string raw)
@@ -98,6 +109,11 @@ namespace TW.Perf
                     case "scenario": o.ScenarioRaw = v; o.Scenario = ParseScenario(v); break;
                     // several knobs= tokens add up rather than the last one winning
                     case "knobs": o.Knobs = string.IsNullOrEmpty(o.Knobs) ? v : o.Knobs + "|" + v; break;
+                    case "ground":
+                        o.GroundRaw = v;
+                        o.GroundUnknown = !TryParseGround(v, out o.Ground);
+                        if (o.GroundUnknown) o.Ground = Ground.ShelledForest;
+                        break;
                 }
             }
             return o;
@@ -117,6 +133,25 @@ namespace TW.Perf
 
         /// <summary>The name the report writes: "none", "barrage", "armour", "vfx".</summary>
         public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : "none";
+
+        /// <summary>A Ground by its enum name, any case (`WinterLine`, `winterline`), or by a short name: `forest`, `winter`.
+        /// Numbers are refused, so `ground=1` cannot quietly mean a map. False for anything else.</summary>
+        public static bool TryParseGround(string v, out Ground g)
+        {
+            g = Ground.ShelledForest;
+            string s = (v ?? "").Trim();
+            switch (s.ToLowerInvariant())
+            {
+                case "forest": g = Ground.ShelledForest; return true;
+                case "winter": g = Ground.WinterLine; return true;
+            }
+            foreach (Ground x in Enum.GetValues(typeof(Ground)))
+                if (string.Equals(s, x.ToString(), StringComparison.OrdinalIgnoreCase)) { g = x; return true; }
+            return false;
+        }
+
+        /// <summary>The valid `ground=` values, for the error line: every Ground's name, then the short names.</summary>
+        public static string GroundNames() => string.Join(", ", Enum.GetNames(typeof(Ground))) + " (or forest, winter)";
 
         static int I(string v, int d) => int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int x) ? x : d;
         static float F(string v, float d) => float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float x) ? x : d;
