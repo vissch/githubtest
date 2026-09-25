@@ -38,9 +38,23 @@ namespace TW.Sim
         /// <summary>Delivered by air (the paratrooper): never a roster slot, always an off-map drop.</summary>
         public bool DropCapable;
 
+        /// <summary>
+        /// Which OrderGroup mask bit this man answers to, so "send the line over" reaches him or does not. It lives in
+        /// the spec rather than in a switch of its own because the spec is already the table a new unit is written
+        /// into, and an order that silently reaches nobody is the failure this replaced.
+        /// </summary>
+        public int Group;
+
         public const float Deg = SimMath.Pi / 180f;
 
         public static InfantrySpec For(byte archetype)
+        {
+            var s = Base(archetype);
+            s.Group = OrderGroup.Of(archetype);
+            return s;
+        }
+
+        static InfantrySpec Base(byte archetype)
         {
             switch (archetype)
             {

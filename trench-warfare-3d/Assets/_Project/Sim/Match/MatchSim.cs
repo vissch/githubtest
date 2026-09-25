@@ -123,6 +123,9 @@ namespace TW.Sim.Match
             Abilities = new OffMapAbilitySystem(map);
             World.AddSystem(Abilities);                     // A5 core: HE barrage, chlorine gas
             // A6: World.AddSystem(new WaveAiSystem());
+            // last, with every table allocated: the units defined in one place are written over the compiled defaults
+            // and the fingerprints re-sealed, so both machines agree on what a unit is before the first tick
+            UnitDefinitions.Apply(World);
         }
 
         public void Step(NativeArray<SimCommand> commands) => World.Step(commands);

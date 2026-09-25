@@ -76,7 +76,7 @@ namespace TW.Sim.Units
                 uint f = w.Flags[i];
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
                 if (w.Team[i] != team || w.TrenchId[i] != trenchId) continue;
-                if (groupMask != 0 && (groupMask & OrderGroup.Of(w.Archetype[i])) == 0) continue;   // OrderGroup, never the id
+                if (groupMask != 0 && (groupMask & w.Units.Infantry[w.Archetype[i]].Group) == 0) continue;   // his group, never his id
                 if (w.Suppression[i] >= StanceRules.PinnedSuppression) continue;   // pinned men refuse to go over the top
                 w.GoalId[i] = goal;
                 w.TrenchId[i] = -1;
