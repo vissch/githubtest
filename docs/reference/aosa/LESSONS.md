@@ -36,6 +36,10 @@ of their section. When the same lesson appears twice, the retrospective turns it
   And if this happens a second time, the retrospective should propose voiding a pair whose main_ms p50 is off
   its label's median by more than the band (a load detector), just as rule 1 voids a run read at the wrong tick.
   (C34, cycle 1; runs 1/k1d-1..4, d2-1..4)
+- **The held clock repeats the image exactly, and the draw counts only to about 0.25%.** Two held-clock runs of
+  one build and one knob set gave bit-identical stills, but their draw sums differed by 955 of 395k (runs 2/v1-1,
+  v1-2). Held-clock p50/p95/max of setpass and draws do line up. So judge count cards there, and give their sums
+  a 0.3% band. (cycle 2)
 - **A slow frame can read hash_end past its tick.** d2-3 read it at tick 2206, not 2200, and `compare` voided the
   set until a rerun. Card C41. (cycle 1)
 - **On this machine the release player's main-thread p95 is noise-bound.** The band from 3 runs is 4.2 ms, while GPU
@@ -74,6 +78,10 @@ of their section. When the same lesson appears twice, the retrospective turns it
   order. (cycle 0 build)
 - **The editor was unavailable for 46 of the rig loop's 51 cycles.** A loop that needs the editor for every step
   stalls. Mode P (player plus offline compile) must always have work. (docs/20 closing)
+- **On a loaded machine the PlayMode stress test can fail on the CLI's own request, not on the code.**
+  `LockstepLoopbackTests.Stress_ThreeThousandUnits...` holds the main thread for more than 5 s. The `unity test` CLI's
+  `/api/exec` request times out and logs an error, and the test fails on that unexpected log. The gate that day took
+  6.5 min for EditMode, not 1 min. Rerun once. Only a second red is a finding. (C22, cycle 2)
 - **A `;` or a pipe swallows a failed claim.** Use `editor_lock.py claim ... || exit 1` inside the landing script
   itself. (agent-memory)
 - **Statics survive leaving Play, so an EditMode red in a live editor may be false.** Call `RequestScriptReload`
