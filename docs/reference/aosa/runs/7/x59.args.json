@@ -1,0 +1,13 @@
+{
+ "build_dir": "C:\\Users\\thomas.visscher_magi\\Documents\\GitHub\\githubtest-aosa\\trench-warfare-3d\\Builds\\WinBench",
+ "cycle": 7,
+ "dev": false,
+ "extra": "",
+ "knobs": "fx.smokeNight=1",
+ "label": "x59",
+ "mode": "player",
+ "no_hud": true,
+ "scenario": "barrage",
+ "shot_frames": 16,
+ "shot_tick": 140
+}

@@ -1,0 +1,195 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index e4f8625..ac17cfd 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -126,6 +126,10 @@ namespace TW.Presentation.Tactical
+         // glow, as multipliers. 1 (default) = the look as it is; an extreme value is the discriminating test that a part is
+         // drawn at all at the standard view (the C42 lesson), before anyone tunes it.
+         float columnScale = 1f, burstGlow = 1f;
++        // knobs fx.smokeNight and fx.smokeNightSize (Awake, AOSA C59): on a moonlit field the burst's cloud and its smoke are
++        // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
++        // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
++        float smokeNight = FlipbookFx.DefaultNight, smokeNightSize = FlipbookFx.DefaultNightSize;
+         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+@@ -207,6 +211,7 @@ namespace TW.Presentation.Tactical
+             books.Tint(FlipbookFx.Book.Spurt, t.Dust);
+             books.Tint(FlipbookFx.Book.Puff, t.Dust);
+             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
++            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight);   // AOSA C59: after the biome's smoke tint
+             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
+             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
+             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
+@@ -269,6 +274,8 @@ namespace TW.Presentation.Tactical
+             smokeAlpha = FlipbookFx.ReadAlpha();
+             columnScale = Mathf.Max(0f, Knobs.Get("fx.columnScale", 1f));
+             burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
++            smokeNight = FlipbookFx.ReadNight();
++            smokeNightSize = FlipbookFx.ReadNightSize();
+         }
+ 
+         void Start()
+@@ -682,7 +689,9 @@ namespace TW.Presentation.Tactical
+                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
+                         if (!wet || melt)
+                         {
+-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
++                            // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
++                            float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
++                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                 velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
+                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
+                             int puffs = closeUp > 0.5f ? 5 : 7;
+@@ -690,7 +699,7 @@ namespace TW.Presentation.Tactical
+                             for (int k = 0; k < puffs; k++)
+                             {
+                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
+-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
++                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink * night, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                     velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
+                             }
+                         }
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index 99b9971..2fca071 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -76,6 +76,67 @@ namespace TW.Presentation.Tactical
+         /// <summary>The opacity a shell's smoke puff is born with: the recipe's own, times the knob at the standard view
+         /// (closeUp 0), and the recipe's own among the men (closeUp 1). With the knob at 1 it is the recipe's exactly.</summary>
+         public static float SmokeOpacity(float recipe, float knob, float closeUp) => recipe * Mathf.Lerp(knob, 1f, closeUp);
++
++        // AOSA C59 (juice J01 at night): under the moon the burst's cloud and the smoke it leaves read as pale periwinkle
++        // cotton, lighter than the ground, and buried the trench lines (critic, runs 6/v6c-1: smoke 3, readability 2). The
++        // blue is the moon itself: the shader lights a drawing's light band with _MainLightColor (Flipbook_URP.shader:123),
++        // and the night key is (0.56, 0.70, 1.0), so the neutral Burst tint came out (0.33, 0.40, 0.58) on screen. Two
++        // knobs, read once in CombatFx.Awake, and only on a moonlit field (SceneMood.Night and not a molten one: the lava
++        // field is dark but lit from its floor, and keeps its own rose smoke):
++        //   fx.smokeNight      the value (luma, 0-1) the Burst and Smoke books are drawn at, in a dark warm grey that
++        //                      ignores the moon: every ink value goes to the shade band (_Levels), the shade is a plain
++        //                      grey with no mood in it, and the drawing keeps 40% of its own values for form. The burst's
++        //                      own flash still lights it (glow, TWBurstLight). 0 = the old moonlit look (nothing is set).
++        //   fx.smokeNightSize  the width of a shell's Burst cloud and its smoke puffs at the standard view (back to 1 as the
++        //                      lens goes in among the men). 1 = the old size.
++        // Both at their old values (fx.smokeNight=0,fx.smokeNightSize=1) draw the image before C59 bit for bit.
++        public const string NightKnob = "fx.smokeNight", NightSizeKnob = "fx.smokeNightSize";
++        public const float DefaultNight = 0.15f, DefaultNightSize = 0.6f;   // critic: #2E2A28-#3A342F, darker than the ground; radius about -40%
++        public const float OldNight = 0f, OldNightSize = 1f;
++        public static readonly Color NightHue = new Color(1f, 0.89f, 0.78f);   // warm grey: #3A342F is (1, 0.90, 0.81), biased warm against the blue mist
++        public const float NightShade = 0.5f, NightLit = 0.6f;   // shade grey and the share of it (the rest is the drawing's ink); NightLit stays >= 0.5, the shader's alpha-blended branch
++        const float NightMidInk = 0.43f;   // the drawings' middle ink (Burst median 0.38, Puff 0.48, measured from the pixels at alpha > 0.3)
++
++        /// <summary>fx.smokeNight, in [0, 1] (0 = the old moonlit look).</summary>
++        public static float ReadNight() => Mathf.Clamp01(Knobs.Get(NightKnob, DefaultNight));
++
++        /// <summary>fx.smokeNightSize, in [0.05, 4] (1 = the old size).</summary>
++        public static float ReadNightSize() => Mathf.Clamp(Knobs.Get(NightSizeKnob, DefaultNightSize), 0.05f, 4f);
++
++        /// <summary>A field the moon lights: dark, and not lit from a molten floor.</summary>
++        public static bool MoonLit(bool night, bool molten) => night && !molten;
++
++        /// <summary>The tint that draws a night cloud at this value (luma at the drawings' middle ink), before fog and grade.</summary>
++        public static Color NightTint(float value)
++        {
++            float luma = 0.299f * NightHue.r + 0.587f * NightHue.g + 0.114f * NightHue.b;
++            float k = value / (luma * Mathf.Lerp(NightMidInk, NightShade, NightLit));
++            return new Color(NightHue.r * k, NightHue.g * k, NightHue.b * k, 1f);
++        }
++
++        /// <summary>The width factor of a shell's cloud and smoke: the knob at the standard view on a moonlit field, 1
++        /// among the men and on any other field. With the knob at 1 it is 1 exactly.</summary>
++        public static float NightScale(float knob, float closeUp, bool moonLit) => moonLit ? Mathf.Lerp(knob, 1f, closeUp) : 1f;
++
++        /// <summary>AOSA C59: paint the Burst and Smoke books as dark warm grey that the moon does not light (see NightKnob).
++        /// Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets nothing.</summary>
++        public void NightSmoke(float value)
++        {
++            if (value <= 0f) return;
++            var tint = NightTint(value);
++            PaintNight(mats[(int)Book.Burst], tint);
++            PaintNight(mats[(int)Book.Smoke], tint);
++        }
++
++        static void PaintNight(Material m, Color tint)
++        {
++            if (m == null) return;
++            m.SetColor("_Tint", tint);
++            m.SetVector("_Levels", new Vector4(2f, 3f, 0f, 0f));   // no ink reaches the light band, so _MainLightColor (the moon) is never used
++            m.SetColor("_Shade", new Color(NightShade, NightShade, NightShade));
++            m.SetFloat("_ShadeMood", 0f);   // and no night-blue shade tint either
++            m.SetFloat("_Lit", NightLit);
++        }
+         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
+         readonly List<Card> cards = new List<Card>(512);
+         readonly Material[] mats = new Material[(int)Book.Count];
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index fb3658b..7075602 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -194,6 +194,66 @@ namespace TW.Tests
+             Assert.AreEqual(0f, FlipbookFx.ReadAlpha());
+         }
+ 
++        [Test]
++        public void NightSmokeKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldSmoke()
++        {
++            // AOSA C59: the default draws a moonlit field's burst cloud and smoke dark warm grey and 40% narrower at the
++            // standard view; fx.smokeNight=0,fx.smokeNightSize=1 is the old look
++            Assert.AreEqual("fx.smokeNight", FlipbookFx.NightKnob);
++            Assert.AreEqual("fx.smokeNightSize", FlipbookFx.NightSizeKnob);
++            Assert.AreEqual(FlipbookFx.DefaultNight, FlipbookFx.ReadNight());
++            Assert.AreEqual(FlipbookFx.DefaultNightSize, FlipbookFx.ReadNightSize());
++            Assert.AreEqual("0.15", Knobs.Read["fx.smokeNight"]);
++            Assert.AreEqual("0.6", Knobs.Read["fx.smokeNightSize"]);
++            Assert.Greater(FlipbookFx.DefaultNight, FlipbookFx.OldNight, "the default is the new look");
++            Assert.Less(FlipbookFx.DefaultNightSize, FlipbookFx.OldNightSize, "the default is the new look");
++            Assert.GreaterOrEqual(FlipbookFx.NightLit, 0.5f, "the shader draws _Lit < 0.5 as an additive book");
++
++            // the new tint: warm (red over green over blue), a valid colour, and at the default darker than the ground
++            // under the moon (night key 0.56, 0.70, 1.0 on mud; the old Burst cloud measured 0.33, 0.40, 0.58 on screen)
++            var tint = FlipbookFx.NightTint(FlipbookFx.DefaultNight);
++            Assert.Greater(tint.r, tint.g); Assert.Greater(tint.g, tint.b);
++            Assert.LessOrEqual(tint.r, 1f);
++            float mid = Mathf.Lerp(0.43f, FlipbookFx.NightShade, FlipbookFx.NightLit);   // the drawings' middle ink, mixed as the shader does
++            Assert.AreEqual(FlipbookFx.DefaultNight, (0.299f * tint.r + 0.587f * tint.g + 0.114f * tint.b) * mid, 1e-4f, "the knob is the drawn value");
++            Assert.Less(tint.r * mid, 0.2f, "#2E2A28-#3A342F before fog and grade");
++
++            // the moon: only a dark field not lit from a molten floor (the lava field keeps its rose smoke, day is untouched)
++            Assert.IsTrue(FlipbookFx.MoonLit(true, false));
++            Assert.IsFalse(FlipbookFx.MoonLit(true, true));
++            Assert.IsFalse(FlipbookFx.MoonLit(false, false));
++            Assert.IsFalse(FlipbookFx.MoonLit(false, true));
++
++            // the size: the knob at the standard view on a moonlit field, 1 among the men and on every other field
++            Assert.AreEqual(FlipbookFx.DefaultNightSize, FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), 0f, true));
++            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), 1f, true) == 1f, "full size among the men");
++            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), 0f, false) == 1f, "day and lava keep their size");
++
++            // the old values: nothing painted, and a width factor of exactly 1 at every zoom (the float the old code passed)
++            Knobs.Set(FlipbookFx.NightKnob, "0");
++            Knobs.Set(FlipbookFx.NightSizeKnob, "1");
++            Assert.AreEqual(0f, FlipbookFx.ReadNight());
++            Assert.AreEqual(1f, FlipbookFx.ReadNightSize());
++            foreach (float close in new[] { 0f, 0.25f, 0.5f, 0.999f, 1f })
++            foreach (bool moon in new[] { false, true })
++            {
++                float n = FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), close, moon);
++                Assert.IsTrue(n == 1f, "closeUp " + close + ", moonlit " + moon);
++                foreach (float r in new[] { 2f, 3.7f, 9f })
++                    Assert.IsTrue(r * 2.6f * n == r * 2.6f, "burst width, r " + r);
++            }
++
++            // out of range: the value kept in [0, 1], the size in [0.05, 4]
++            Knobs.Set(FlipbookFx.NightKnob, "-1");
++            Knobs.Set(FlipbookFx.NightSizeKnob, "0");
++            Assert.AreEqual(0f, FlipbookFx.ReadNight());
++            Assert.AreEqual(0.05f, FlipbookFx.ReadNightSize());
++            Knobs.Set(FlipbookFx.NightKnob, "3");
++            Knobs.Set(FlipbookFx.NightSizeKnob, "9");
++            Assert.AreEqual(1f, FlipbookFx.ReadNight());
++            Assert.AreEqual(4f, FlipbookFx.ReadNightSize());
++        }
++
+         [Test]
+         public void Terrain_NothingSet_IsTheOldConstants()
+         {
