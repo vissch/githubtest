@@ -1,5 +1,9 @@
 # Trench Warfare 1917 → 3D: Phased Project Plan (exhaustive)
 
+> **2026-09-25:** the original plan. Catalogs (units, abilities, missions) are still authoritative. Milestones and
+> architecture are superseded by `docs/11-plan-review.md`, and the folder and assembly tree in §12 by
+> `docs/reference/code-map.md`.
+
 > **Superseded in part on 2026-09-20 — read [11-plan-review.md](11-plan-review.md) first.** Entities/Entities Graphics
 > are out (§2.2 below is stale), the sim is float-only with no fixed-point fallback (§2.3), the replay header is v2 (§3),
 > milestones are re-cut with a P0.5 baseline step and an M1.5 fun gate, and Online moves after Mission 3 (§11).

@@ -1,69 +1,92 @@
 # Trench Warfare 3D — working agreement
 
 Unity 6000.0.50f1, Windows x64 only. The Unity project is `trench-warfare-3d/`, not the repo root.
-Plan of record: `docs/11-plan-review.md`. It wins over `docs/PLAN.md` and docs 00–10 where they conflict.
 
-Before you touch an area for the first time, skim `docs/reference/agent-memory.md`. It is where the sessions
-record what cost them time — gotchas, measurements and dead ends, most of them things that silently did the
-wrong thing rather than failing. Append to it, dated, when you learn something that would have saved an hour.
+## Start here
+Read three files, in order: this one, `docs/reference/tasks.md` (task → files → tests → how to see it), then
+`docs/reference/workflow.md` (run, test, see, commit). Open anything else only when the list below sends you there.
 
-## Two agents, two lanes
+| You need | Open |
+|---|---|
+| which file to change, which test guards it | `docs/reference/tasks.md` |
+| a command: open the editor, eval, compile, one test, the gate, a screenshot, a build | `docs/reference/workflow.md` |
+| what the owner decided, and what is still waiting on them | `docs/reference/decisions.md` |
+| a switch, arg or prefs key | `docs/reference/feature-flags.md` |
+| importing, splitting, baking art; any `Tools/` script | `docs/reference/pipelines.md` |
+| assemblies, folders, sim system order | `docs/reference/code-map.md` |
+| notes other sessions left for you | `docs/reference/inbox.md` |
+| design of a system (why it is built this way) | `docs/README.md` (index of docs 00-20) |
+| known risks and the refactor backlog | `docs/reference/maintainability-audit-2026-09.md` |
 
-Two Claude agents work this repo in tandem, one per machine. **Work out your lane from the current branch
-before you edit anything**; if the branch is not `lane/sim/*` or `lane/show/*`, stop and ask which lane you are.
+## Land checks
+```bash
+cd trench-warfare-3d && python Tools/health.py
+```
+It reports the editor lock, free memory, your editor, `validate.py` and your lane. Then read `inbox.md`.
+`python Tools/codemap.py` regenerates the doc tables; `validate.py` fails when a doc no longer matches the code.
 
-The lane boundary is the assembly graph, and it is one-way: `TW.Sim.*` references nothing outside `TW.Sim.*`,
-while Presentation, UI, Data, Net and Perf all reference Sim. So SHOW can never desync the lockstep sim.
+## In flight (as of 2026-09-25)
+Other checkouts on this machine and what they hold. Update this block when you start or finish something shared.
+- `githubtest` (main clone, integration branch): the owner's editor; another session's uncommitted flamethrower work.
+- `githubtest-sim` (`lane/show/units-meta`): unit meta work; uncommitted `SlotCount` 8 → 10 (see `inbox.md`).
+- `githubtest-aosa` (`lane/show/aosa`) and `aosa-c1-*`: the AOSA optimisation loop, with its own contract in
+  docs/reference/aosa/ on that branch.
+- `githubtest-maint` (`lane/show/maint-2026-09`): these navigation docs and the maintainability pass.
+
+## Lanes
+Work out your lane from the current branch before you edit anything. If the branch is not `lane/sim/*` or
+`lane/show/*`, stop and ask which lane you are. The boundary is the assembly graph and it is one-way: `TW.Sim.*`
+references nothing outside `TW.Sim.*`; everything else references Sim. So SHOW can never desync the lockstep sim.
 
 | | **SIM lane** (`lane/sim/*`) | **SHOW lane** (`lane/show/*`) |
 |---|---|---|
-| Owns | `Assets/_Project/Sim/**`, `Net/**`, `Data/**`, `Tests/**` sim cases | `Presentation/**`, `UI/**`, `Editor/**`, `Perf/**`, `Resources/**`, `Art/**` |
-| Docs | 01–11, `02-contracts.md`, `03-determinism-rules.md` | 12–20 (art direction, environment, biomes, rig) |
-| Gate | `EditMode` + `PlayMode` + determinism/replay/hash tests | `EditMode` + a Play-in-editor look at the thing changed |
-| Must not touch | anything in the SHOW column | anything in the SIM column, ever |
+| Owns | `Assets/_Project/Sim/**`, `Net/**`, `Data/**`, the sim tests | `Presentation/**`, `UI/**`, `Editor/**`, `Perf/**`, `Resources/**`, `Art/**`, `Shaders/**`, `Settings/**`, `Scenes/**`, their tests |
+| Gate | EditMode + PlayMode + determinism/replay/hash tests | EditMode + a Play-in-editor look at the thing changed |
+| Never touches | anything SHOW owns | anything SIM owns |
 
-`TW.Data` is SIM's (it bakes tables into sim arrays). SHOW consumes it read-only.
-`TW.Editor` is SHOW's (importers, bakers, scene builders) — but it references every assembly, so a SIM rename
-can break it. That is the SIM lane's problem to fix in the same commit.
+`TW.Editor` is SHOW's but references every assembly, so a SIM rename that breaks it is fixed in the SIM commit.
+A test belongs to the lane of the code it tests (`tasks.md` rows say which). `Tools/**` and `gate.ps1` are shared:
+change them in a commit of their own. A task that spans lanes is split: the SIM part lands first.
+Docs in `docs/reference/` belong to whoever changes the code they describe; `validate.py` keeps them honest.
 
-## The seam
+## The seam: do not touch without a seam commit
+1. **`SimWorld` fields and `SimWorld.Hash()`.** SIM lane only. `Hash()` is an ordered chain: append at the end,
+   never insert, bump `ReplayRecorder.FormatVersion` and log it in `docs/02-contracts.md`. Two branches that each
+   append a line merge cleanly and hash differently, so rerun determinism and replay tests after every rebase.
+2. **`RosterEntry.SlotCount`**, archetype ids, `SimConfig`, asmdef reference lists, `ProjectSettings/`,
+   `Packages/manifest.json` + `packages-lock.json`.
+3. **`docs/02-contracts.md`**, and the determinism rules in `docs/03-determinism-rules.md`.
+4. **Shared presentation contracts:** the float4 house chunk mask in `Toon_URP.shader`, the env atlas grid
+   (`BattlefieldKit` ↔ `Tools/envatlas.py`), `VehicleSize` (baked into meshes).
 
-Three things are shared and are the only real collision risk:
-
-1. **`SimWorld` fields and `SimWorld.Hash()`.** Only the SIM lane edits either. `Hash()` is an ordered chain —
-   two branches appending a line each merge textually clean and then produce different hashes, silently
-   invalidating every stored replay. **Append at the end of the existing block, never insert**, and re-run the
-   determinism and replay tests after *every* merge or rebase, not just before the commit.
-2. **`SimConfig`, asmdef reference lists, `ProjectSettings/`, `Packages/manifest.json` + `packages-lock.json`.**
-3. **`docs/02-contracts.md`.**
-
-When a SIM change alters a surface SHOW reads — a `SimWorld` array, an enum, a table layout, an archetype id —
-push that as **its own commit, alone, first**, say so, and let the SHOW agent rebase before it continues.
-Never bundle a seam change into a feature commit.
+A change to a surface the other lane reads goes in **its own commit, alone, first**. Say so, and let the other lane
+rebase before it continues. Never bundle a seam change into a feature commit.
 
 ## Integration
-
-- Both lanes branch off `claude/trench-warfare-2d-3d-plan-idt7lf` and rebase onto it. Never merge lane to lane.
-- Push small and often — a few commits, not a session's worth. The other lane is rebasing onto you.
-- `git pull --rebase` before every push. On a conflict in a file outside your lane, you rebased over someone
-  else's work: take theirs, do not resolve by hand.
-- Never edit a file the other lane owns "just to unblock yourself". Ask for a seam commit instead.
+- Lanes branch off `claude/trench-warfare-2d-3d-plan-idt7lf` and rebase onto it. Never merge lane to lane.
+- A branch without this file was cut before 2026-09-24: `git pull --rebase` onto the integration branch first.
+- Push small and often; `git pull --rebase` before every push. A conflict in a file outside your lane means you
+  rebased over someone else's work: take theirs.
+- Never edit a file the other lane owns "just to unblock yourself". Ask for a seam commit.
 
 ## Gate before every commit
-
-```powershell
-./gate.ps1              # validate.py + EditMode + PlayMode
-./gate.ps1 -EditOnly    # SHOW lane, iterating
+```bash
+# from the repo root
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # validate + EditMode + PlayMode
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # SHOW lane, iterating
 ```
-Exit 8 = a test failed, fix it. Exit 6 = no verdict at all (compile error or licence), which is not a pass.
-`validate.py` alone is **not** the gate — see `docs/11-plan-review.md` §2.7.
+Needs this checkout's editor closed. Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, not a
+pass), 3 project held. `validate.py` alone is not the gate. Details and false reds: `workflow.md`, section 5.
+
+## Asking and remembering
+- **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into
+  `decisions.md` in the same turn.
+- **A note for another session:** `inbox.md`. Cross-session messages expire unread.
+- **`docs/reference/agent-memory.md`** is a short dated log of incidents that cost time, capped at 150 lines. A
+  fact, procedure or decision goes to its reference page instead.
 
 ## Unity specifics
-
-- Two clones on two machines, each with its own `Library/`. Never put the project on a synced folder, never
-  open two editors on one path.
-- Commit `.meta` files with their assets, and `packages-lock.json` with `manifest.json`.
-- Package changes go through the `unity-package-management` skill's Client API script, never by hand-editing
-  `manifest.json`.
-- Fresh clone setup: `unity run . -- -nographics -executeMethod TW.Editor.BootstrapSceneBuilder.SetupAll`
-- `unity.exe` is at `%LOCALAPPDATA%\unity\bin\unity.exe` and is not on PATH in existing shells.
+- One editor per checkout; never put the project on a synced folder. Commit `.meta` files with their assets.
+- Packages change only through the `unity-package-management` skill's Client API script, never by hand.
+- Fresh clone: `unity run . -- -nographics -executeMethod TW.Editor.BootstrapSceneBuilder.SetupAll` (in `trench-warfare-3d/`).
+- `unity.exe` is at `%LOCALAPPDATA%\unity\bin\unity.exe`. `Tools/tw` finds it and pins every call to this checkout.

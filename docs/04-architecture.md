@@ -31,21 +31,11 @@ Netcode for Entities is prediction-based and unsuited to thousands of units.
 Nav layer bits: `Surface`, `Trench`, `Link` (ladder/ramp/parapet vault), `Blocked`, `Wire`, `Mud`, `Crater`,
 `Bunker`. Tug-of-war axis is +Z; player A deploys at Z=0, player B at Z=800.
 
-## Sim system order (fixed, per tick)
-1. `CommandSystem` – validate + apply this tick's commands (deploy, orders, abilities)
-2. `MissionRunner` – evaluate triggers, spawn waves, emit `MissionTriggerFired`
-3. `EconomySystem` – silver income, deployment queue, logistics spawn
-4. `FlowFieldManager` – recompute dirty fields (time-sliced)
-5. `SpatialHashSystem` – rebuild hash
-6. `TargetAcquisition` – staggered scan (1/3 of slots per tick)
-7. `DirectFireSystem`, `IndirectFireSystem`, `BlastSystem`
-8. `SuppressionSystem`, `StanceSystem`, `TrenchGarrisonSystem`
-9. `GasSmokeSystem` – diffuse + damage
-10. `DeformationSystem` – apply queued crater stamps, update cost field
-11. `SeparationJob`, `MovementJob`, `VehicleKinematics`
-12. `SectorControlSystem` – capture timers, win/lose
-13. `DeathSystem` – free slots, emit `Death`
-14. `SimHash` – hash state for this tick
+## Sim system order
+The order is fixed per tick and lives in code: `ISimSystem.Order` values from `SimSystemOrder`
+(`Sim/Core/ISimSystem.cs`), registered in `Sim/Match/MatchSim.cs`. The table, with which systems are live and
+which are stubs, is generated into `docs/reference/code-map.md` by `Tools/codemap.py`. (The list that stood here
+until 2026-09-25 named four systems that were never built and missed six that were.)
 
 ## Lockstep flow
 ```

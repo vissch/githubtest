@@ -1,5 +1,9 @@
 # 15. Character controller: how a man moves, fights and reacts
 
+> **2026-09-25:** built. The ladder is `Presentation/Core/AnimationController.cs`, the clip table
+> `Editor/InfantryClipTable.cs`, the bake `Editor/VATBaker.cs` (2026-09-22 onward). Where this says "nothing is built
+> yet", read it as the design the code followed.
+
 Design of record for infantry animation, written against the owner's Mixamo download of 2026-09-22 (205 clips,
 measured in `docs/reference/animation-clips.md`). Nothing here is built yet. It replaces the eighteen-row
 `AnimRow` scheme of B3 with a clip table, a per-man controller and a VAT atlas that can play clips once, cross-fade
