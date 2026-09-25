@@ -16,6 +16,8 @@ namespace TW.Sim.Match
     {
         None = 0, HeBarrage = 1, CreepingBarrage = 2, ChlorineGas = 3, MustardGas = 4, BomberRun = 5,
         SmokeScreen = 6, MortarSalvo = 7, ReconFlight = 8, ReinforcementSurge = 9,
+        /// <summary>Eight paratroopers on a point after a short flight (2026-09-25; a Brass faction ability).</summary>
+        ParaDrop = 10,
     }
 
     public struct AbilityStats
@@ -42,7 +44,7 @@ namespace TW.Sim.Match
 
     public sealed class OffMapAbilitySystem : ISimSystem
     {
-        public const int AbilitySlots = 10;   // indexed by OffMapAbilityId
+        public const int AbilitySlots = 12;   // indexed by OffMapAbilityId (ParaDrop = 10 made it twelve)
         public int Order => SimSystemOrder.Command + 30;
 
         public NativeArray<int> Cooldown;               // player * AbilitySlots + ability id, ticks left

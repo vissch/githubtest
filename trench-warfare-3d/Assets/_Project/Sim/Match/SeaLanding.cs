@@ -63,6 +63,7 @@ namespace TW.Sim.Match
         NativeArray<float> yaw, lane;
         NativeArray<byte> cargoArch, cargoVehicle;
         NativeArray<float> cargoHp, cargoSpeed;
+        NativeArray<byte> cargoSlot, cargoRank;   // which roster slot paid for him and the veteran rank he carries (UnitDeployed)
         SimWorld world;
 
         public SeaLandingSystem(MapData map)
@@ -80,6 +81,8 @@ namespace TW.Sim.Match
             cargoVehicle = new NativeArray<byte>(MaxCraft * Berths, Allocator.Persistent);
             cargoHp = new NativeArray<float>(MaxCraft * Berths, Allocator.Persistent);
             cargoSpeed = new NativeArray<float>(MaxCraft * Berths, Allocator.Persistent);
+            cargoSlot = new NativeArray<byte>(MaxCraft * Berths, Allocator.Persistent);
+            cargoRank = new NativeArray<byte>(MaxCraft * Berths, Allocator.Persistent);
         }
 
         public int Order => SimSystemOrder.Economy + 20;   // after the commands that filled the holds, before anything moves
@@ -131,7 +134,7 @@ namespace TW.Sim.Match
         public float RampZ() => map.ShoreZ - map.SeaAway * RampReach;
 
         // ---- taking men aboard --------------------------------------------------------------------------------
-        public bool Embark(SimWorld w, byte player, RosterEntry entry)
+        public bool Embark(SimWorld w, byte player, int rosterSlot, int veteranRank, RosterEntry entry)
         {
             if (!map.HasSea || player != map.SeaTeam) return false;
             int craft = -1;
@@ -149,6 +152,7 @@ namespace TW.Sim.Match
             int berth = craft * Berths + aboard[craft];
             cargoArch[berth] = entry.Archetype; cargoHp[berth] = entry.Hp; cargoSpeed[berth] = entry.Speed;
             cargoVehicle[berth] = (byte)(entry.IsVehicle ? 1 : 0);
+            cargoSlot[berth] = (byte)rosterSlot; cargoRank[berth] = (byte)veteranRank;
             aboard[craft] = (byte)(aboard[craft] + 1);
             return true;
         }
@@ -280,6 +284,7 @@ namespace TW.Sim.Match
                 RampZ() - map.SeaAway * (vehicle ? 2.5f : rng.NextFloat(0f, 2.2f)));
             int slot = w.Spawn(team[craft], cargoArch[berth], w.ClampToMap(at), cargoHp[berth], cargoSpeed[berth], vehicle);
             if (slot < 0) return false;                                        // the field is full: the rest stay aboard and go back out
+            w.Events.Add(w.Tick, SimEventType.UnitDeployed, slot, cargoSlot[berth], w.Position[slot], new float3(cargoRank[berth], team[craft], 0f));
             cargoHp[berth] = 0f;
             aboard[craft] = (byte)(left - 1);
             return left > 1;
@@ -293,6 +298,7 @@ namespace TW.Sim.Match
             h = SimHash.Array(cargoArch, h); h = SimHash.Array(cargoVehicle, h);
             h = SimHash.Array(cargoHp, h); h = SimHash.Array(cargoSpeed, h);
             if (ships.IsCreated) h = SimHash.Array(ships, h);
+            h = SimHash.Array(cargoSlot, h); h = SimHash.Array(cargoRank, h);
             return h;
         }
 
@@ -310,6 +316,8 @@ namespace TW.Sim.Match
             if (cargoVehicle.IsCreated) cargoVehicle.Dispose();
             if (cargoHp.IsCreated) cargoHp.Dispose();
             if (cargoSpeed.IsCreated) cargoSpeed.Dispose();
+            if (cargoSlot.IsCreated) cargoSlot.Dispose();
+            if (cargoRank.IsCreated) cargoRank.Dispose();
             if (ships.IsCreated) ships.Dispose();
         }
     }

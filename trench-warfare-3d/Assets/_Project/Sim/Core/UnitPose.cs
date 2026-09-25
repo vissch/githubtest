@@ -4,7 +4,9 @@ using Unity.Mathematics;
 
 namespace TW.Sim
 {
-    public enum Stance : byte { Standing = 0, Crouch = 1, FireStep = 2, Prone = 3, Sprint = 4, Pinned = 5, Vault = 6, Dead = 7 }
+    public enum Stance : byte { Standing = 0, Crouch = 1, FireStep = 2, Prone = 3, Sprint = 4, Pinned = 5, Vault = 6, Dead = 7,
+        /// <summary>In the air on a jetpack leap (LeapSystem): a straight line to an enemy trench, nothing can be done to him.</summary>
+        Leap = 8 }
 
     [System.Flags]
     public enum UnitFlags : uint
@@ -22,6 +24,11 @@ namespace TW.Sim
         Burning = 1 << 9,
         Bogged = 1 << 10,
         KnockedOut = 1 << 11,   // a vehicle whose crew is dead or gone: it burns until it is despawned into a wreck prop (only then does it block a cell and give cover; tanks already cannot push past it)
+        // ---- 2026-09-25. Bits 8 and up never reach UnitPose.Flags (the low byte); presentation reads SimWorld.Flags by name ----
+        Airborne = 1 << 12,     // mid-leap (LeapSystem): not a target, not suppressed, not pushed
+        Charging = 1 << 13,     // a Breaker between wind-up and withdrawal (BreakerSystem): sees below the rim, crits, a thicker deck
+        Hero = 1 << 14,         // his moment (HeroSystem): the named man leading the section over the top
+        Veteran = 1 << 15,      // a named man from the profile (HeroSystem): a rank, a little more of everything
     }
 
     public struct UnitPose

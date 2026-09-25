@@ -16,7 +16,9 @@ namespace TW.Sim
         // v4 (2026-09-24): MapData is folded into the tick hash by TerrainHashSystem -- the heightfield, the nav
         // layers and the holes the shells have dug are compared state now, which docs/03 deferred "to the next
         // replay-format break". Blast impacts also carry a direction and a shape.
-        public const ushort FormatVersion = 4;
+        // v5 (2026-09-25): SimConfig carries FactionA/FactionB and HeroPity0/1 (factions, the hero system), so the
+        // header layout changed; new archetype ids, events and flags came with it (docs/02 change log).
+        public const ushort FormatVersion = 5;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
@@ -43,6 +45,7 @@ namespace TW.Sim
             w.Write(FormatVersion);
             w.Write(Config.TickRate); w.Write(Config.InputDelayTicks); w.Write(Config.MaxSlots); w.Write(Config.Seed);
             w.Write(Config.SilverPerSecond); w.Write(Config.StartingSilver); w.Write(Config.EventCapacity);
+            w.Write(Config.FactionA); w.Write(Config.FactionB); w.Write(Config.HeroPity0); w.Write(Config.HeroPity1);
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
             w.Write(MapId);
             w.Write(MapHash); w.Write(DataHash);
@@ -89,6 +92,7 @@ namespace TW.Sim
             {
                 TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
                 SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
+                FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
             };
             float3 size = ReadF3(r);
             p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };

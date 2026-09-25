@@ -55,9 +55,15 @@ namespace TW.Sim.Nav
                 case VehicleArchetype.Pavise: return Pavise;
                 case VehicleArchetype.Banner: return Banner;
                 case VehicleArchetype.Redoubt: return Redoubt;
+                case VehicleArchetype.Breaker: return Breaker;
                 default: return Maw;
             }
         }
+
+        /// <summary>The Breaker (2026-09-25): a squat assault tank, shorter than the Maw, that bridges a full-width
+        /// trench and never ditches (it is built to go in and come out).</summary>
+        public static VehicleProfile Breaker => new VehicleProfile
+        { TurnRateRad = 0.6f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.04f, HalfLength = 2.2f, HalfWidth = 1.9f, PushesTrees = true };   // grows with the tanks when VehicleSize lands
 
         public static VehicleProfile Maw => new VehicleProfile
         { TurnRateRad = 0.42f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.05f, HalfLength = 2.55f, HalfWidth = 2.25f, PushesTrees = true };

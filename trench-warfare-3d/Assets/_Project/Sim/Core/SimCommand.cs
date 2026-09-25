@@ -7,7 +7,8 @@ namespace TW.Sim
     public enum CommandType : byte
     {
         None = 0,
-        /// <summary>a = roster slot (0..4). Spends silver, spawns at the player's spawn point.</summary>
+        /// <summary>a = roster slot, b = veteran rank 0..3 (a named man from the profile; 0 = nobody). Spends silver,
+        /// spawns at the player's spawn point (or aboard a landing craft) and emits UnitDeployed.</summary>
         DeployUnit = 1,
         /// <summary>a = trench id. All garrisoned units vault and sprint to the next forward trench (">>").</summary>
         TrenchAdvance = 2,
@@ -40,8 +41,8 @@ namespace TW.Sim
         public int B;
         public float3 Pos;
 
-        public static SimCommand Deploy(uint tick, byte player, int rosterSlot)
-            => new SimCommand { Tick = tick, Player = player, Type = CommandType.DeployUnit, A = rosterSlot };
+        public static SimCommand Deploy(uint tick, byte player, int rosterSlot, int veteranRank = 0)
+            => new SimCommand { Tick = tick, Player = player, Type = CommandType.DeployUnit, A = rosterSlot, B = veteranRank };
 
         public static SimCommand Rally(uint tick, byte player, float3 pos)
             => new SimCommand { Tick = tick, Player = player, Type = CommandType.SetRally, Pos = pos };

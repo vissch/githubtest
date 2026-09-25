@@ -58,6 +58,23 @@ namespace TW.Sim
         OrderFoundNoOne,    // a = command type, b = player: the order was VALID and moved nobody (an empty trench).
                             // Deliberately not CommandRejected, which means the command itself was bad - a UI that
                             // beeps at a rejection should not beep at a player who ordered an empty line forward.
+        // ---- 2026-09-25: factions, the new units, heroes. Appended in this order; never insert above. ----
+        // Where a slot may be reused before presentation reads the frame, the TEAM rides in dir.y.
+        UnitDeployed,       // a = slot, b = roster slot, dir.x = veteran rank, dir.y = player: a PAID deploy landed (SimWorld.Deploy or the sea lift; a bailed-out crew is UnitSpawned only)
+        UnitHealed,         // a = medic, b = patient, pos, scalar = hp restored this sweep (SupportSystem)
+        VehicleHullMended,  // a = vehicle, b = engineer, pos, scalar = hull restored this sweep (SupportSystem)
+        ShieldBlocked,      // a = shield bearer, b = shooter, pos, dir = the round's direction, scalar = damage the plate took (DirectFire)
+        DropInbound,        // a = player, b = men, pos = the drop point, scalar = seconds to landing (OffMapAbilitySystem)
+        DropLanded,         // a = slot, b = player, pos: one paratrooper on the ground
+        LeapStarted,        // a = slot, b = trench id, pos = where he lands, dir = where he left from, scalar = seconds in the air (LeapSystem)
+        BreakerPhase,       // a = slot, b = phase (0 approach, 1 wind-up, 2 charge, 3 strike, 4 withdraw), pos = the trench cell it is after (BreakerSystem)
+        CriticalHit,        // a = shooter, b = target, pos, scalar = damage: a charging Breaker's round found the mark
+        HeroMoment,         // a = slot, b = hero id (1-based, per match), dir.x = generation, dir.y = team, scalar = desperation (negative: pity forced it)
+        HeroFeat,           // a = slot, b = hero id, dir.y = team, scalar = kills as a hero so far
+        HeroSurvived,       // a = slot, b = hero id, dir.y = team, scalar = kills: his window closed and he is standing
+        HeroFallen,         // a = slot, b = hero id, dir.y = team, scalar = kills: he died in it
+        VeteranDeployed,    // a = slot, b = rank 1..3, dir.x = roster slot, dir.y = team
+        WreckRecorded,      // a = wreck record index, b = prop index, pos, scalar = quality 0..1 (DeformationSystem)
     }
 
     /// <summary>Why a vehicle stopped fighting (VehicleKnockedOut.b).</summary>

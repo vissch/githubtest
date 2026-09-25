@@ -104,6 +104,26 @@ namespace TW.Sim.Units
             Repair = new NativeArray<int>(n, Allocator.Persistent);
             LastShooter = new NativeArray<int>(n, Allocator.Persistent);
             LegsLost = new NativeArray<byte>(n, Allocator.Persistent);
+            KillCause = new NativeArray<byte>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) KillCause[i] = Alive;
+        }
+
+        /// <summary>Why each vehicle stopped fighting (VehicleKillCause), or Alive. Kept until the slot is re-used so
+        /// the wreck record (DeformationSystem, the same tick as VehicleDestroyed) can read it.</summary>
+        public NativeArray<byte> KillCause;
+        public const byte Alive = 255;
+
+        /// <summary>What is left of a machine as salvage, 0..1: the mean of its running gear, engine and guns, cut
+        /// by how it died (a burnt-out hull is half a hull, a cooked-off one is scrap).</summary>
+        public float QualityOf(SimWorld w, int slot)
+        {
+            var spec = TankSpec.For(w.Archetype[slot]);
+            float sum = Module[slot * M + (int)VehicleModule.TrackLeft] + Module[slot * M + (int)VehicleModule.TrackRight] + Module[slot * M + (int)VehicleModule.Engine];
+            int n = 3;
+            if (spec.GunCount > 0) { sum += Module[slot * M + (int)VehicleModule.GunA]; n++; }
+            if (spec.GunCount > 1) { sum += Module[slot * M + (int)VehicleModule.GunB]; n++; }
+            float cause = KillCause[slot] == (byte)VehicleKillCause.Fire ? 0.5f : KillCause[slot] == (byte)VehicleKillCause.Ammunition ? 0.15f : 0.85f;
+            return math.saturate(sum / n * cause);
         }
 
         static bool IsTank(SimWorld w, int i)
@@ -140,7 +160,7 @@ namespace TW.Sim.Units
             for (int m = 0; m < M; m++) Module[i * M + m] = 1f;
             Crew[i] = CrewMax[i] = spec.Crew;
             Fire[i] = 0f; State[i] = (byte)VehicleState.Active; StateTicks[i] = 0; LastHitTick[i] = w.Tick; Shaken[i] = 0; Repair[i] = 0; LastShooter[i] = -1;
-            LegsLost[i] = 0;
+            LegsLost[i] = 0; KillCause[i] = Alive;
             kinematics.SpeedFactor[i] = 1f;
             if (gunnery != null) { gunnery.CrewFactor[i] = 1f; for (int k = 0; k < Guns; k++) gunnery.GunHealth[i * Guns + k] = 1f; }
         }
@@ -462,7 +482,8 @@ namespace TW.Sim.Units
              : e < StalledBelow ? 0f
              : EngineWorstFactor + (1f - EngineWorstFactor) * (e - StalledBelow) / (EngineFullAbove - StalledBelow);
 
-        void MendWorst(SimWorld w, int i)
+        /// <summary>The crew's repair, also done by a repair engineer standing by (SupportSystem).</summary>
+        internal void MendWorst(SimWorld w, int i)
         {
             var worst = VehicleModule.None; float lowest = RepairTo;
             for (int k = 0; k < 5; k++)
@@ -490,6 +511,7 @@ namespace TW.Sim.Units
         {
             if (State[t] != (byte)VehicleState.Active) return;
             State[t] = (byte)VehicleState.KnockedOut;
+            KillCause[t] = (byte)cause;
             KnockOuts++;
             w.Flags[t] = w.Flags[t] | (uint)UnitFlags.KnockedOut | (uint)UnitFlags.Immobilised;
             w.TargetSlot[t] = -1;
@@ -606,6 +628,7 @@ namespace TW.Sim.Units
             h = SimHash.Array(Repair, n, h);
             h = SimHash.Array(LastShooter, n, h);
             h = SimHash.Array(LegsLost, n, h);
+            h = SimHash.Array(KillCause, n, h);
             h = SimHash.Value(new int4(Penetrations, Ricochets, KnockOuts, CookOffs), h);
             h = SimHash.Value(BailedOut, h);
             return SimHash.Combine(h, checksum);
@@ -625,6 +648,7 @@ namespace TW.Sim.Units
             if (Repair.IsCreated) Repair.Dispose();
             if (LastShooter.IsCreated) LastShooter.Dispose();
             if (LegsLost.IsCreated) LegsLost.Dispose();
+            if (KillCause.IsCreated) KillCause.Dispose();
         }
     }
 }

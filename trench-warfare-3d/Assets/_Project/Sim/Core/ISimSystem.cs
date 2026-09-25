@@ -26,6 +26,8 @@ namespace TW.Sim
         public const int FlowField = 400;
         public const int SpatialHash = 500;
         public const int TargetAcquisition = 600;
+        /// <summary>Officer auras: the damage and suppression multipliers DirectFire reads, rewritten every tick.</summary>
+        public const int Aura = 650;
         public const int DirectFire = 700;
         public const int IndirectFire = 710;
         public const int AmbientBombardment = 715;
@@ -33,13 +35,22 @@ namespace TW.Sim
         /// <summary>Buildings: what a burst broke, which storeys come down next, and the masonry that falls on the
         /// men underneath. After Blast (it reads Resolved) and Burning, before VehicleModules.</summary>
         public const int Building = 728;
+        /// <summary>Medics and repair engineers: after VehicleModules has written the modules, before Suppression.</summary>
+        public const int Support = 735;
         public const int Suppression = 800;
+        /// <summary>Heroes: after Suppression decayed, before Stance/Garrison read it. Not 810: Stance holds that and
+        /// AddSystem's List.Sort is unstable, so two systems at one order step in an order nobody chose.</summary>
+        public const int Hero = 805;
         public const int Stance = 810;
         public const int TrenchGarrison = 820;
         public const int GasSmoke = 900;
         public const int Deformation = 1000;
         public const int Separation = 1100;
+        /// <summary>Jetpack leaps: decided before Movement moves him along the line it sets.</summary>
+        public const int Leap = 1105;
         public const int Movement = 1110;
+        /// <summary>The Breaker's phases: after Movement listed the vehicles, before Kinematics drives them.</summary>
+        public const int Breaker = 1115;
         public const int VehicleKinematics = 1120;
         public const int SectorControl = 1200;
         public const int Death = 1300;

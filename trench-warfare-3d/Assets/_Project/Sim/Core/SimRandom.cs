@@ -14,6 +14,7 @@ namespace TW.Sim
             Deployment = 1, DirectFire = 2, IndirectFire = 3, Suppression = 4, Armor = 5,
             Bog = 6, WaveAi = 7, Mission = 8, Separation = 9,
             TrenchGarrison = 11, TrenchPost = 12,   // registered so nobody reuses them by accident
+            Hero = 13, AirDrop = 14, Leap = 15, Breaker = 16, Support = 17,   // 2026-09-25
             Test = 1000,
         }
 

@@ -115,7 +115,7 @@ namespace TW.Sim
             {
                 Silver[i] = config.StartingSilver;
                 Rally[i] = i == 0 ? init.SpawnA : init.SpawnB;
-                RosterEntry.FillDefault(Roster, i * RosterEntry.SlotCount);
+                FactionRoster.Fill(Roster, i * RosterEntry.SlotCount, config.FactionOf(i));
                 for (int s = 0; s < RosterEntry.SlotCount; s++) SlotUnlocked[i * RosterEntry.SlotCount + s] = 1;
             }
 
@@ -241,7 +241,8 @@ namespace TW.Sim
             if (SlotUnlocked[ri] == 0 || SlotCooldown[ri] > 0 || Silver[c.Player] < entry.Cost) { Reject(c); return; }
             // a shore behind this player's line: his reinforcements are paid for now and come off a boat in a few
             // seconds (SeaLandingSystem). A lift with no berth left refuses, and he walks up from the rear as before.
-            if (SeaLift != null && SeaLift.Embark(this, c.Player, entry))
+            int rank = math.clamp(c.B, 0, 3);   // a named veteran from the profile rides in the command (HeroSystem reads UnitDeployed)
+            if (SeaLift != null && SeaLift.Embark(this, c.Player, c.A, rank, entry))
             { Silver[c.Player] -= entry.Cost; SlotCooldown[ri] = entry.CooldownTicks; return; }
             // one stream per deploy: several deploys by one player in one tick must not share a spawn point
             if (deployTick != Tick) { deployTick = Tick; System.Array.Clear(deploysThisTick, 0, deploysThisTick.Length); }
@@ -251,6 +252,7 @@ namespace TW.Sim
             spawn.z += rng.NextFloat(-2f, 2f);
             int slot = Spawn(c.Player, entry.Archetype, ClampToMap(spawn), entry.Hp, entry.Speed, entry.IsVehicle);
             if (slot < 0) { Reject(c); return; }
+            Events.Add(Tick, SimEventType.UnitDeployed, slot, c.A, Position[slot], new float3(rank, c.Player, 0f));
             Silver[c.Player] -= entry.Cost;
             SlotCooldown[ri] = entry.CooldownTicks;
         }

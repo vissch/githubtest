@@ -22,8 +22,14 @@ namespace TW.Sim
         public int StartingSilver;
         /// <summary>Capacity of the per-tick event ring buffer.</summary>
         public int EventCapacity;
+        // ---- 2026-09-25 (replay v5): factions and the hero pity each side brings to the match ----
+        /// <summary>FactionId of player 0 and player 1: their rosters and the support they may call (FactionRoster).</summary>
+        public byte FactionA, FactionB;
+        /// <summary>Hero pity each side starts the match with, 0..1 (HeroSystem; the profile's residue from the last one).</summary>
+        public float HeroPity0, HeroPity1;
 
         public float TickSeconds => 1f / TickRate;
+        public FactionId FactionOf(int player) => Factions.Of(player == 0 ? FactionA : FactionB);
 
         public static SimConfig Default => new SimConfig
         {
@@ -34,6 +40,8 @@ namespace TW.Sim
             SilverPerSecond = 1f,
             StartingSilver = 120,
             EventCapacity = 8192,
+            FactionA = (byte)FactionId.Iron,
+            FactionB = (byte)FactionId.Brass,
         };
 
         /// <summary>Corridor and spawn description handed to the sim by the map (see TW.Sim.Terrain.MapData).</summary>
