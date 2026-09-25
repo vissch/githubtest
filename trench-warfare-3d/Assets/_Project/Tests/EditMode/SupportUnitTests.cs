@@ -64,19 +64,28 @@ namespace TW.Tests
             int medic = Still(m, 0, InfantryArchetype.Medic, 60f, 30f);
             int near = Still(m, 0, InfantryArchetype.Medic, 63f, 30f);
             int far = Still(m, 0, InfantryArchetype.Medic, 90f, 30f);
-            int enemy = Still(m, 1, InfantryArchetype.Medic, 57f, 30f);
             int tank = Still(m, 0, VehicleArchetype.Tusk, 60f, 40f);
             float full = RosterEntry.Medic.Hp;
-            m.World.Hp[near] = 20f; m.World.Hp[far] = 20f; m.World.Hp[enemy] = 20f; m.World.Hp[tank] = 900f;
+            m.World.Hp[near] = 20f; m.World.Hp[far] = 20f; m.World.Hp[tank] = 900f;
             var log = Run(m, 40);   // 2 s: 50 hp
             Assert.That(m.World.Hp[near], Is.EqualTo(70f).Within(1f), "25 a second, one patient");
             Assert.Greater(Count(log, SimEventType.UnitHealed, medic, near), 5);
             log.AddRange(Run(m, 60));
             Assert.AreEqual(full, m.World.Hp[near], "never past full");
             Assert.AreEqual(20f, m.World.Hp[far], "thirty metres off is out of reach");
-            Assert.AreEqual(20f, m.World.Hp[enemy], "not the other side");
             Assert.AreEqual(900f, m.World.Hp[tank], "a medic does nothing for a machine");
             Assert.AreEqual(0, Count(log, SimEventType.UnitHealed, medic, far));
+        }
+
+        [Test]
+        public void AMedicDoesNotPatchTheOtherSide()
+        {
+            using var m = NewMatch();   // two medics and nobody armed: nothing shoots the enemy before the assertion
+            Still(m, 0, InfantryArchetype.Medic, 60f, 30f);
+            int enemy = Still(m, 1, InfantryArchetype.Medic, 63f, 30f);
+            m.World.Hp[enemy] = 20f;
+            Run(m, 60);
+            Assert.AreEqual(20f, m.World.Hp[enemy], "not the other side");
         }
 
         [Test]
