@@ -26,7 +26,7 @@ Shader "TW/Flipbook (URP)"
         _Contour ("Fire contour: where the silhouette starts (x), how wide the line is (y), how dark (z)", Vector) = (0.10, 0.26, 0.85, 0)
         _Bands ("Fire: where soot becomes fringe (x), fringe body (y), body core (z), edge softness (w)", Vector) = (0.12, 0.40, 0.86, 0.75)
         _Rise ("Heat falloff up the card", Float) = 0
-        _Hot ("Fire: what the rolloff compresses toward (1 = never brighter than white)", Float) = 2.4
+        _Hot ("Fire: what the rolloff compresses toward (1 = never brighter than white)", Float) = 6.0
         _Erode ("Tears apart as it fades (0 fades evenly)", Range(0, 1)) = 0
         _ShadeMood ("How much the mood tints the shade (smoke keeps more of its own grey)", Range(0, 1)) = 1
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
@@ -196,7 +196,18 @@ Shader "TW/Flipbook (URP)"
                     // its authored highlight, which is where a great many of the it-reads-as-brown complaints came
                     // from - and it could never cross the bloom threshold, so fire never glowed.
                     //
-                    // 2.4. It was briefly cut to 2.0 on a report of red-channel clipping at 2.4; re-measured, the
+                    // 6.0, arrived at by measuring what the compressor was actually protecting: NOTHING. Across four
+                    // fires the all-channel clip count was 0.000% - not low, zero - while the top one percent of every
+                    // one of them sat at the exact channel ratio of _Core (1 : 0.87 : 0.72). So the core band was
+                    // firing correctly everywhere and then being compressed down to a tan mid-tone before it reached
+                    // the screen: at 2.4 the rolloff throws away 31.5% of the authored core, and the heart of every
+                    // fire in the game - the one place a cel artist puts undiluted white - was arriving at RGB
+                    // (191,166,138). Cardboard. This recovers about 85% of the headroom that exists.
+                    //
+                    // It is still a compressor and it still has to be: what it protects against is two cels summing
+                    // past the ceiling into a flat white slab with no shape in it. The number to watch is the
+                    // all-channel clip fraction - under about half a percent of the fire's area is a hot heart,
+                    // above it is a slab. It was briefly cut to 2.0 on a report of red-channel clipping at 2.4; re-measured, the
                     // clipping was not there - zero clipped pixels in three of four fires and one pixel in the fourth
                     // - and the cut simply deleted every pixel over 200 from the cook-off. There was headroom and it
                     // was spent going down. The number to watch is the count of pixels at R >= 250: while that stays

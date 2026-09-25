@@ -44,12 +44,17 @@ BOOKS = {
     "FireColumn": ("orange_ground_explosion_8x4_12fps_30f.png",    "luma", False, None),
     "FireBurst":  ("orange_center_explode_8x4_12fps_32f.png",      "luma", False, None),
     "FireJet":    ("blue_direction_explosion_8x4_12fps_29f.png",   "light",  True,  None),      # the stream: start f0-11, hold f11-18, stop f19-28
-    "FireBlast":  ("orange_electric_explosion_8x4_12fps_27f.png",  "luma", False, (2, 18)),
-    # ...cut at 18, not 25. Measured, this sheet's tail is not fire, it is an expanding ANNULUS: the interior hole runs
-    # 10% of the silhouette at pack frame 12, 33% at 19, 44% at 21 and 67% at 23 - by the end two thirds of the drawing
-    # is a clean void. Under the old value ceiling those cels sat below the warm threshold and passed as a faint ghost
-    # ring; the moment fire was allowed to be bright they came forward as opaque orange loops with drawn oval holes in
-    # them, sitting exactly where the tank should be going up. No other sheet in the pack does this.
+    # The cook-off. This was orange_electric_explosion, and it was the wrong sheet from the beginning: measured over
+    # its whole book its interior holes reach 40% of the filled silhouette, with one hole alone at 21.6%, so its tail is
+    # an expanding ring rather than a fireball. Two rounds were spent cutting further and further into it (25, then 18,
+    # then 11 frames) to stay ahead of the annulus, and each cut bought a cleaner silhouette by throwing away more of
+    # the beat - until a tank going up rendered smaller and dimmer than a campfire burning behind it. purple_explosion
+    # needs no cut at all. But hole area alone does NOT choose a fireball: purple_explosion scores a perfect 0.0% and
+    # is a thin swooping ARC - an arc encloses nothing, so it cannot have a hole - and in game it drew a giant orange
+    # comma standing over the wreck. Solidity, area against the bounding box, is the measure that separates them: 0.31
+    # for that arc against 0.48 here and 0.55 for the annulus sheet. This one is the best of the pack on both at once,
+    # 1.1% holes and 0.48 solid, with 0.81 filled through its own centroid. The whole book is usable.
+    "FireBlast":  ("purple_fire_explosion_8x4_12fps_32f.png",      "light",  False, None),
     "FireFan":    ("green_direction_explosion_8x4_12fps_32f.png",  "light",  True,  (8, 23)),   # the splash where the jet lands
     "FireStand":  ("blue_fire_explosion_8x4_12fps_32f.png",        "light",  False, (2, 17)),   # a standing flame with a skirt (loops)
     "FirePool":   ("blood_ground_1_8x4_12fps_32f.png",             "light",  False, (16, 31)),  # a puddle with a blob rising off it
@@ -70,7 +75,7 @@ BOOKS = {
     # fuel is. It is an explosion sheet and it is used here for one card only.
     "FireHead":   ("orange_explosion_8x4_12fps_26f.png",            "luma",   False, (4, 22)),
 }
-FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 27, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26}
+FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26}
 # FireBall's band split, measured in round 2: the shader's default _Bands and the levels its Sheet row uses
 FIREBALL_BANDS = (0.12, 0.40, 0.86)
 FIREBALL_LEVELS = (0.16, 0.86)

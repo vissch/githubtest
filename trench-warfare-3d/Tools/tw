@@ -42,6 +42,34 @@ case "${1:-}" in
     U cmd console --result-only -- --level Error --tail 20 | grep -E '"message"' | head -20
     ;;
   pause)  U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = ${2:-true}; return UnityEditor.EditorApplication.isPaused;" ;;
+  stepabs)
+    # Step until GAME TIME REACHES an absolute value, rather than until it has advanced by one. `stepto` pins the
+    # sample to a fixed delay after the effect is created, which is not enough: the effect's own animation runs on
+    # Perlin noise and Mathf.Repeat sampled at absolute Time.time, so creating the same burst at t=18.3 one run and
+    # t=21.7 the next gives two different pictures of the "same" moment. Measured across two runs of the identical
+    # seeded script, the standing pyre's hot-core area came out 12.18% and 1.43% - a ninefold spread with no code
+    # change between them, which is larger than most of the differences the critique loop was being asked to judge.
+    # Anchoring creation AND sampling to absolute game times makes the phases repeat.
+    # Coarse-seek in real time, then fine-step. Frame-stepping a paused editor advances about a tenth of a second of
+    # game time per round trip, so walking twenty seconds that way is several hundred calls; letting it RUN to just
+    # short of the mark and stepping the last stretch costs one sleep and a handful of calls, and lands inside 0.1 s.
+    want="${2:-34}"
+    t=$(U cmd eval --result-only -- --code "return UnityEngine.Time.time;" | grep -o '"result": [0-9.]*' | grep -o '[0-9.]*$')
+    gap=$(awk -v a="$t" -v w="$want" 'BEGIN{printf "%.2f", w-a-0.4}')
+    if awk -v g="$gap" 'BEGIN{exit !(g>0)}'; then
+      U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = false; return 0;" >/dev/null
+      sleep "$gap"
+      U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = true; return 0;" >/dev/null
+    fi
+    for i in $(seq 1 90); do
+      t=$(U cmd eval --result-only -- --code "return UnityEngine.Time.time;" | grep -o '"result": [0-9.]*' | grep -o '[0-9.]*$')
+      done=$(awk -v a="$t" -v w="$want" 'BEGIN{print (a>=w)?1:0}')
+      [ "$done" = "1" ] && { awk -v a="$t" 'BEGIN{printf "at %.2fs\n", a}'; exit 0; }
+      U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = true; for(int k=0;k<3;k++) UnityEditor.EditorApplication.Step(); return 0;" >/dev/null
+    done
+    echo "stepabs: never reached ${want}s" >&2; exit 1
+    ;;
+
   stepto)
     # Step until GAME TIME has advanced by N seconds, not until N frames have passed. A paused editor steps one real
     # frame at a time and a frame under load is worth several times one at idle, so a fixed frame count lands anywhere:

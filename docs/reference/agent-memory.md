@@ -344,3 +344,118 @@ commit: `python validate.py` + `unity test . --mode EditMode/PlayMode`.
   (2) WHENEVER Levels move, the Bands must be re-measured against the new window. Narrowing FireStand's High from 0.83
   to 0.62 to brighten it made it 20 luminance DARKER, because the re-measured core cut landed at exactly 1.00 -
   saturated - so nothing in the drawing could ever reach the core band. A core cut at 1.00 means the band is off.
+- 2026-09-25 CHOOSING A SHEET OUT OF THE PACK: hole area alone does not describe a shape. Picking a cook-off fireball
+  on "fewest interior holes" selected `purple_explosion`, which scores a perfect 0.0% and is a thin swooping ARC - an
+  arc encloses nothing, so it cannot have a hole - and it drew a giant orange comma standing over the wreck. SOLIDITY
+  (alpha area / bounding-box area) is what separates a mass from a swoosh: 0.31 for that arc, 0.48 for
+  `purple_fire_explosion` (now FireBlast), 0.55 for the annulus sheet it replaced. Useful measures, all cheap, all on
+  the pack PNGs directly: holes as a share of the FILLED silhouette (annulus/lace), solidity (mass vs arc), fill
+  through the alpha centroid (a curl has a hole on its middle, fatal on a jet's leading card), frame-to-frame centroid
+  drift (a burst stays put, a directional sheet travels), left-edge run over the body frames (rooted vs free), and the
+  straightest 120 px contour window - every hand-drawn contour in this pack wobbles at RMS >= 4 px, so anything under
+  ~2 px is a stretched card, not a drawing. Score candidates on several at once; any single metric has a cheat.
+
+## Post-processing was never running (2026-09-25)
+
+`trench-warfare-3d/Assets/_Project/Settings/TW-Renderer.asset` had `postProcessData: {fileID: 0}`. URP skips the
+**entire** post-processing pass when that reference is null, so `Atmosphere.cs`'s whole grade - Neutral tonemapping,
+bloom, vignette, film grain, the shadows/midtones/highlights split, exposure - had never rendered a pixel. The volume
+stack resolved correctly the whole time, which is what made it invisible: querying `VolumeManager.instance.stack`
+returns the authored values whether or not anything consumes them.
+
+How it was proved rather than inferred: pause on one frame, set the live volume to bloom `threshold 0 / intensity 6`
+and `postExposure 0.62 -> 3.0` (about +2.4 stops), **step one frame to force a repaint**, recapture. Scene mean
+luminance moved 43.95 -> 43.91. Nothing. The first attempt at this A/B produced byte-identical PNGs, because a paused
+game view does not repaint at all - without the step the "before" and "after" are the same buffer, which looks like a
+conclusive negative and is actually no measurement.
+
+Fixed by assigning `Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset` to that field
+(via `SerializedObject`, so the renderer rebuilds). Effect on the fire, same four shots:
+
+| shot | meanL | top1% R | hot core L>=200 | wash/strict |
+|---|---|---|---|---|
+| jet   | 106.7 -> 123.2 | 242 -> 253 | 1.66% -> 5.75%  | 0.41 -> 0.22 |
+| cook  | 117.8 -> 132.5 | 246 -> 254 | 6.17% -> 5.48%  | 0.55 -> 0.30 |
+| stand | 101.6 -> 125.0 | 251 -> 254 | 1.49% -> 10.73% | 0.90 -> 0.30 |
+
+Scene mean luminance FELL (48.0 -> 42.4) while the fire rose, so contrast against the night improved twice over. This
+also retired a standing critique note - "the big pyre has no heat, top1% R 214, 0% hot core" - which was never a
+prefab or `_Hot` problem but the missing tonemap. Blast radius: this changes every pixel in the game, and it crushes
+some prop shadows to near-black (lum 3.5) that the ungraded buffer had kept readable.
+
+## The wall shot had no wall (2026-09-25)
+
+The bank capture forced the aim to camera-right and then searched the heightfield for ground that happened to rise
+along that one direction. GreyboxCorridor's terrain spans **-1.55 to 3.34 m** and the steepest rise over 7 m anywhere
+in it is **3.08 m**: there is no parapet in the heightfield to find. The trench, sandbags and props are instanced
+cards - the scene contains exactly **one** Renderer, the terrain - so they cannot be searched for by geometry either.
+The scan settled for a 1.43-score slope, the stream flew over open ground, and a capture came back containing **no
+fire at all** while still measuring cleanly. A whole critique round was then spent diagnosing the lighting of an
+empty field as a defect in the effect.
+
+Fix: score site AND direction over 24 angles (flat across the aim, monotonically rising along it), then turn the
+**camera** to suit with `FrameFrom(focus, zoom, yawDeg)`. Because `FrameFrom` assigns yaw outright rather than easing
+to it, one correction converges: frame at yaw 0, step one frame, read `cam.transform.right`, set
+yaw = `DeltaAngle(rightAngle, wantAngle)`. Measured residual 0.1 degrees. Score 1.43 -> 2.61; fire in frame
+6,638 -> 98,401 px.
+
+Guard added, `Tools/flamecheck.py`: every capture is checked against a warm-pixel floor (15,000) and `flameshots`
+prints `!! <name> CONTAINS NO FIRE` rather than letting the shot reach a review.
+
+## Two critique metrics that were measuring the drawing, not a defect (2026-09-25)
+
+- **Interior hole fraction** failed the cook-off at 9.5% and the pyre at 8.4%. Splitting each hole by its own chroma
+  showed they are drawn dark-maroon interior shading, not see-through gaps. See-through fraction (hole median
+  `R-B < 10`) is 0.00% on jet, pyre and wall and 1.12% on the cook-off. Use the see-through variant.
+- **Min straightest-120px-contour RMS** is too brittle on small fires (the wall's main mass has only 6 valid
+  windows). The statistic that separates cleanly is the **card-edge fraction**: the share of contour arc-length
+  covered by any 120 px window within 2.0 px RMS of its PCA line. Stretched cards measure 9.5-25.6%; every
+  hand-drawn fire measures 0.0%.
+
+## 2026-09-25 AOSA cycle 1 (lane/show/aosa, worktree githubtest-aosa)
+
+- **Player stills repeat bit for bit only on a held clock with the HUD hidden.** PerfBench `shot_tick=N shot_hud=0`
+  (C33, 2c4f3f3). With the clock held but the HUD on, 3% of pixels still differed, all of it HUD: it animates on
+  real time and shows hover for the owner's pointer over the background player window.
+- **Mono runs float arithmetic at double precision unless each step is cast `(float)`.** A port of SetPixel's
+  `(int)(v*255+.5)` differed on 515 edge texels until it narrowed. Only a test against the old SetPixel loop
+  caught it (C35).
+- **Per-frame percentiles of count metrics (setpass, draws) shift when frame times change**, because the number of
+  frames each phase gets changes. Compare them on held-clock runs, where both builds draw the same frames (C34:
+  +1 setpass p95 in real time, identical on the held clock).
+- **`max(3*MAD, spread)` over 3 repeats lets one loaded run veto a clear win.** Other sessions share this CPU. Predict
+  cards on sums or p99, not max (C34).
+- **Git Bash cannot run a .ps1 under this machine's execution policy.** Use `powershell -NoProfile -ExecutionPolicy
+  Bypass -File ...`.
+
+## The capture noise floor was larger than the thing being tuned (2026-09-25)
+
+Round 21's headline finding was "the standing pyre regressed badly this round - revert the change". There was no
+change: `git diff` showed the round touched only the jet's licks and the jet's core thickness, and nothing in
+`StepPyre` or the `Stand` path at all. The whole finding was capture noise.
+
+Measured: two runs of the byte-identical capture script, on identical code.
+
+| | run 1 | run 2 |
+|---|---|---|
+| stand area | 60,368 | 51,330 |
+| stand hot core (L>=200) | **12.18%** | **1.43%** |
+| stand top1% R | 245 | 229 |
+| jet area | 92,255 | 100,789 |
+| cook area | 48,548 | 55,258 |
+
+A ninefold spread in the pyre's hot-core fraction with nothing changed. Most differences the critique loop had been
+judging were smaller than this, so an unknown share of earlier rounds was spent chasing phase.
+
+Two independent causes, and fixing only the first is not enough:
+
+1. **Unseeded RNG.** `Flamethrower.cs` makes 79 `Random` draws (tongue placement, card sizes, frame phases,
+   handedness) and the rig never seeded them. `PRE_CS` now begins `UnityEngine.Random.InitState(20250925);`.
+2. **Unanchored absolute game time - the bigger one.** The effect animates on `Mathf.PerlinNoise(seed, now * k)` and
+   `Mathf.Repeat(now * 12f, n)`, both sampled at *absolute* `Time.time`. `stepto` only pins the delay AFTER creation,
+   so a burst born at t=18.3 one run and t=21.7 the next shows two different pictures of the "same" moment, seeded or
+   not. Added `tw stepabs <T>` (step until `Time.time >= T`) and `flameshots` now anchors each beat's BIRTH to a fixed
+   absolute time as well as its sample delay: jet 22 s, cook 32 s, stand 42 s, wall 52 s.
+
+Rule going forward: before believing any measured difference between rounds, check it against the noise floor
+measured by two runs of the same build. State the floor in the critique brief so findings inside it are not raised.

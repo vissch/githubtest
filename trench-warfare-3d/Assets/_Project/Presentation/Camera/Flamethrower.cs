@@ -293,7 +293,10 @@ namespace TW.Presentation.Tactical
             // staggered copies of a small burst were only ever an impression of one. It fills nine tenths of its cell,
             // so unlike the tongues it needs no Cell multiplier, and it is entered at its own frame 0 because
             // firebooks.py already cut the streak of the shell arriving off the front of it.
-            books.Add(FlipbookFx.Book.Blast, at + new Vector3(-0.95f, 1.15f, -0.35f), 7.2f, 2.35f,
+                        // Twenty-eight frames, so the card lives long enough to play them. Chasing the old sheet's annulus down to
+            // ten frames left a tank going up rendering nearly four times smaller and forty luminance darker than an
+            // ambient campfire burning behind it in the same shot - the event was over before the eye arrived.
+            books.Add(FlipbookFx.Book.Blast, at + new Vector3(-0.95f, 1.15f, -0.35f), 7.2f, 2.33f,
                       velocity: Vector3.up * 0.9f, grow: 0.35f, glow: glow, pop: 0.15f, roll: Lean());
             // ONE card. There was a second, mirrored and a couple of frames behind, to give the ball a far side, and
             // with the annulus cels cut there is nothing left for it to do but double the silhouette: the two copies
@@ -403,6 +406,22 @@ namespace TW.Presentation.Tactical
         /// drop in metres was invisible, because the chord already climbs the picture (the man is near the camera and
         /// firing away up-slope) by far more than the sag ever took away.
         /// </summary>
+        /// <summary>
+        /// Hold a card within twice its own drawing's aspect. A sheet drawn 1:1.67 rendered at 15:1 is not that
+        /// drawing stretched, it is a ruled almond - measured, one mouth-end card came out with a 374 px edge sitting
+        /// 4.4 px RMS off a straight line, which is a thing no brush makes and the eye finds instantly. Stretch is the
+        /// cheapest way to get a long thin shape and the fastest way to lose the hand-drawn read.
+        /// </summary>
+        static void Shapely(FlipbookFx.Book b, ref float w, ref float h)
+        {
+            FlipbookFx.Geometry(b, out float lo, out float hi, out float fill);
+            float drawn = fill / Mathf.Max(0.05f, hi - lo);          // the sheet's own width:height
+            float most = drawn * 1.6f, least = drawn * 0.45f;   // 2.2 still let a contour's wobble scale below a pixel
+            float a = w / Mathf.Max(0.01f, h);
+            if (a > most) h = w / most;
+            else if (a < least) w = h * least;
+        }
+
         static Vector3 Arc(Camera cam, float u, float len, Vector3 along)
         {
             Vector3 down = cam != null
@@ -551,8 +570,20 @@ namespace TW.Presentation.Tactical
                         // was really a hole. Short links still, but never so short that two of them do not meet.
                         float segLen = step * Mathf.Lerp(2.35f, head ? 2.35f : 2.75f, u);   // still pinching at 1.95: measured 72% coverage lost in one bin
                         float cw = segLen / fill * (head ? 0.85f : 1f);
-                        float thick = Mathf.Lerp(0.95f, 3.4f, u * u * 1.15f) * breath * (head ? 0.85f : 1f);   // a fine tip at the nozzle, not a constant bore
+                                                // A fine tip, not a hairline: at 0.95 the first quarter of the stream measured under nine
+                        // pixels thick over 240 of length, which reads as a thrown spear rather than as fuel under
+                        // pressure. Fine is a proportion to the head, not an absolute thinness.
+                        // LINEAR, not quadratic. Squaring the ramp dumped all of the growth into the far half, so
+                        // with the terminus stacked on top of it the head measured seven and a half times the mouth -
+                        // a tadpole. Fuel does widen downrange, but it widens all the way along.
+                        // The MOUTH is what sets the head/mouth ratio, and raising the core's floor last round did nothing for it
+                        // (measured 62 -> 60 px) because the silhouette at the nozzle is drawn by the ENVELOPE, not by
+                        // the core hiding inside it. Widening the envelope's root and easing off its head is the only
+                        // thing that moves the ratio: it had gone 4.36 -> 4.68 -> 5.26 against a 2.0-3.0 target while
+                        // three separate attempts aimed at the core.
+                        float thick = Mathf.Lerp(3.5f, 3.7f, Mathf.Min(1f, u * 1.05f)) * breath * (head ? 0.85f : 1f);
                         float ch = thick / Mathf.Max(0.05f, hi - lo);       // the drawing fills only part of its cell
+                        Shapely(head ? FlipbookFx.Book.Head : FlipbookFx.Book.Jet, ref cw, ref ch);
                         // the arc: fuel leaves flat and the far end rises as it slows
                         // A SAG, not a ramp. Rising steadily over its whole run is what helium does; thickened petrol
                         // leaves the nozzle flat and fast, loses the argument with gravity through the middle of its
@@ -613,7 +644,13 @@ namespace TW.Presentation.Tactical
                                   // 1.41 the wrong way. A pressurised stream is dim at the mouth and peaks a third of
                                   // the way out, where combustion finishes.
                                   height: ch, alpha: (head ? 1f : 0.88f - 0.06f * u) * valve * drawnWeight,
-                                  glow: glow * Mathf.Lerp(0.55f, 1.25f, Mathf.Min(1f, u * 2.2f)),
+                                  // This ramp was meant to make the stream dim at the mouth and brightest a third of the way out, and measured
+                                  // on the render it does the opposite: mean luminance peaks in bin 3 near the nozzle at 160
+                                  // and falls to 79-104 at the head, with the hot-core median sitting at 36% along. The
+                                  // reason is the u * 2.2: it saturates at u = 0.45, so the whole downstream half is served
+                                  // one flat value while the cards out there are thinner and more transparent than the ones
+                                  // at the mouth. Ramping the whole length instead of the first half lets the head win.
+                                  glow: glow * Mathf.Lerp(0.55f, 1.45f, Mathf.Min(1f, u * 1.15f)),
                                   velocity: j.ManVel,
                                   // Reversed, and this was a real bug rather than a matter of degree. Staggering by i
                                   // put the TIP on frame-11.6, clamped to zero - the very first cel of the book, where
@@ -639,19 +676,30 @@ namespace TW.Presentation.Tactical
                     {
                         float lu = 0.72f + i * 0.13f;
                         float wob = (Mathf.PerlinNoise(j.Seed + i * 4.3f, now * 4f) - 0.5f);
+                        // These were the ONE emitter in the jet that never went through Shapely, and they were the
+                        // last thing in the shot still reading as stretched cards: at the old spread a lick could be
+                        // 6.5 m wide against 1.7 m tall - a 3.8:1 card of a 1:1.4 drawing - rolled up to 54 degrees
+                        // off the stream. Two of them landing on opposite wobbles drew a pair of matched horns
+                        // sweeping out of the head, 1.6x the stream's own thickness above it, and the jet read as a
+                        // crab claw. Measured, 9.5% of the fire's contour lay within 2 px RMS of a straight line
+                        // over 120 px while every other fire in the build measured 0.0%, and the straightest window
+                        // in the frame - 0.69 px - was that arm's lower edge.
+                        //
+                        // So: the same aspect discipline as everything else, half the roll, and the handedness comes
+                        // off the seed rather than off i, because alternating parity is exactly what builds a
+                        // symmetric pair out of neighbours.
+                        float lw = Mathf.Lerp(2.6f, 0.8f, (lu - 0.72f) / 0.26f) * (0.6f + Mathf.Abs(wob) * 0.9f);
+                        float lh = Mathf.Lerp(1.7f, 0.55f, (lu - 0.72f) / 0.26f);
+                        Shapely(FlipbookFx.Book.Core, ref lw, ref lh);
+                        bool lmir = ((Mathf.FloorToInt(j.Seed * 13f + i * 7.3f) & 1) == 0);
                         books.Add(FlipbookFx.Book.Core,
                                   mouth + along * (len * lu)
-                                        + Vector3.up * (len * 0.03f + wob * 2.6f + 0.9f)   // some of them ABOVE the head
+                                        + Vector3.up * (len * 0.03f + wob * 1.4f + 0.5f)   // some of them ABOVE the head
                                         + side * (wob * 1.8f),
-                                  // BRIGHTER than the envelope and wildly different in size. Darker and lower-chroma
-                                  // than the fire they came off, all the same size, strung along one height, they read
-                                  // as thrown clods of mud - which is worse than nothing, because the eye has to work
-                                  // out what they are before deciding they do not matter. Fire that has torn loose is
-                                  // the THINNEST fire there is, and thin fire is the brightest, not the dullest.
-                                  Mathf.Lerp(2.6f, 0.8f, (lu - 0.72f) / 0.26f) * (0.6f + Mathf.Abs(wob) * 1.9f),
+                                  lw,
                                   RootEvery * 1.15f,
-                                  (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                  roll: roll + wob * 1.9f, height: Mathf.Lerp(1.7f, 0.55f, (lu - 0.72f) / 0.26f),
+                                  lmir ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                  roll: roll + wob * 0.9f, height: lh,
                                   alpha: valve * drawnWeight, glow: glow * 1.35f,
                                   velocity: j.ManVel + Vector3.up * 0.7f,
                                   startFrame: 8f + Mathf.Repeat(now * 12f + i * 3f, 10f));
@@ -666,7 +714,7 @@ namespace TW.Presentation.Tactical
                     // wants. Being a different glyph also ends the complaint that would not die however much the links
                     // were jittered and mirrored: one drawing repeated five times along a run is a printed pattern, and
                     // no amount of turning it fixes that. Two drawings interleaved is turbulence.
-                    const int CoreLinks = 6;
+                    const int CoreLinks = 9;   // shorter links, so the mouth one is not long enough to hit the clamp
                     float cStep = len / (CoreLinks - 0.35f);
                     for (int i = 0; i < CoreLinks; i++)
                     {
@@ -676,7 +724,13 @@ namespace TW.Presentation.Tactical
                         // silhouette returned the cold background colour unchanged, which means the body was a wash
                         // rather than paint. The core is the only opaque thing in the jet, so it is the core that has
                         // to be wide enough to fill what the envelope leaves open.
-                        float cThick = Mathf.Lerp(1.15f, 2.7f, u) * breath;
+                        // The core owns the mouth silhouette - it is the only opaque thing in the jet - so raising the
+                        // ENVELOPE's floor and not this one left the near links pinned flat against the aspect clamp,
+                        // and a card pinned at the clamp has a boundary measurably straighter than any brush in the
+                        // build: 1.8 px RMS over 120, against 5-22 px for every hand-drawn contour beside it.
+                        float cThick = Mathf.Lerp(2.60f, 3.40f, u) * breath;   // 1.70 still left a 41 px nozzle bin against a 306 px
+                                                                              // head - measured 4.4:1, a tadpole. The mouth of a
+                                                                              // pressurised jet is the one place the fuel is dense.
                         FlipbookFx.Geometry(FlipbookFx.Book.Core, out float cLo, out float cHi, out float cFill);
                         // The envelope stopped stamping when it got a second drawing, and the repeat simply moved into
                         // the core: its signature is a cream crescent hook, it is the brightest value in the picture,
@@ -685,13 +739,15 @@ namespace TW.Presentation.Tactical
                         // glyph, so the glyph itself has to be flipped and resized down the run.
                         bool cFlip = (i & 1) == 0;
                         float cVary = 1f + (Mathf.PerlinNoise(j.Seed + i * 7.1f, 3.5f) - 0.5f) * 0.30f;
+                        float cW = cSeg / cFill * cVary, cH = cThick * cVary / Mathf.Max(0.05f, cHi - cLo);
+                        Shapely(FlipbookFx.Book.Core, ref cW, ref cH);
                         books.Add(FlipbookFx.Book.Core,
                                   mouth + along * (cStep * (i + 0.5f)) + Arc(cam, u, len, along),
-                                  cSeg / cFill * cVary, RootEvery * 1.15f,
+                                  cW, RootEvery * 1.15f,
                                   cFlip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: (cFlip ? roll + Mathf.PI : roll)
                                       + (Mathf.PerlinNoise(j.Seed + i * 3.7f, 2.5f) - 0.5f) * 0.40f,
-                                  height: cThick * cVary / Mathf.Max(0.05f, cHi - cLo),
+                                  height: cH,
                                   alpha: valve * drawnWeight, glow: glow, velocity: j.ManVel,
                                   startFrame: Mathf.Max(3f, 16f - (CoreLinks - 1 - i) * 2.2f));
                     }
@@ -718,7 +774,7 @@ namespace TW.Presentation.Tactical
                         // landed was never seen at all - the clamp to the rise frames was correct and invisible.
                         Vector3 toEye = cam != null ? (cam.transform.position - far).normalized : Vector3.zero;
                         books.Add(FlipbookFx.Book.Bloom, new Vector3(far.x, bY, far.z) + toEye * 0.9f,
-                                  Mathf.Lerp(2.2f, 3.4f, valve), RootEvery * 1.15f,
+                                  Mathf.Lerp(1.9f, 2.8f, valve), RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   height: bH, alpha: valve * drawnWeight, glow: glow,
                                   startFrame: 1f + Mathf.Repeat(now * 12f, 7f));

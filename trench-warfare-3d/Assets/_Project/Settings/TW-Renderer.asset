@@ -48,7 +48,7 @@ MonoBehaviour:
   - {fileID: -1011912064656085678}
   m_RendererFeatureMap: 52ed3daa56f7f4f1
   m_UseNativeRenderPass: 0
-  postProcessData: {fileID: 0}
+  postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 2
   m_OpaqueLayerMask:
     serializedVersion: 2

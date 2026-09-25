@@ -26,7 +26,13 @@ fi
 
 # shared preamble: the flamethrower, the height map, and a screen-right aim (a stream pointed at the eye has no
 # length to draw along and falls back to the round-card chain, which is not what these shots are for)
-PRE_CS='var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
+# Seed the RNG before every shot. Flamethrower.cs makes 79 Random draws - tongue placement, card sizes, frame
+# phases, handedness - and the rig never seeded any of them, so two runs of the identical script produced
+# genuinely different pictures: the standing pyre measured 64,874 warm pixels one run and 41,448 the next, a 36%
+# swing with no code change between them. Every round-to-round comparison before this carried that noise, and a
+# regression smaller than it could not have been seen.
+PRE_CS='UnityEngine.Random.InitState(20250925);
+var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
 var fx=TW.Presentation.Tactical.Flamethrower.Active; fx.Clear();
 var cf=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>(); var map=cf.Host.Local.Map;
 var r=cam.transform.right; r.y=0f; r=r.normalized;'
@@ -35,42 +41,94 @@ var r=cam.transform.right; r.y=0f; r=r.normalized;'
 # paused while it is inside one - so firing a three-second burst and then stepping toward it let the burst run itself
 # out in the gaps between calls, and the capture landed on the dying tail. Paused before the effect is even created,
 # nothing moves except the frames this script asks for.
+# BIRTH is anchored too, not just the delay. $4 is the absolute game time the effect is created at and $3 the
+# delay after it; both runs of a shot therefore sample the same absolute clock, which is what the Perlin and
+# Mathf.Repeat phases inside the effect are actually keyed on.
 one() {
   "$T" pause true >/dev/null 2>&1
+  "$T" stepabs "$4" >/dev/null 2>&1
   "$T" eval "$PRE_CS $2" >/dev/null 2>&1
   "$T" stepto "$3" >/dev/null 2>&1
   "$T" shot "${PRE}_$1" >/dev/null 2>&1
-  echo "  ${PRE}_$1"
+  check "${PRE}_$1"
+}
+
+# A capture that contains no fire is worse than no capture, because it measures cleanly and the numbers mean
+# nothing. A whole critique round went on a wall shot whose rig had framed a slope the stream never reached: 6,638
+# warm pixels where the same beat now makes 98,401, and the review that came back described the lighting of an
+# empty field as a defect in the effect.
+check() {
+  if python "$P/Tools/flamecheck.py" "$P/Tools/flame-shots/$1.png" 2>/dev/null; then :; else
+    echo "  !! $1 CONTAINS NO FIRE - do not critique this capture" >&2; fi
 }
 
 one jet 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 17f, 0f);
 var p=new UnityEngine.Vector3(100f,0f,104f); p.y=TW.Presentation.RenderGround.Sample(map,p.x,p.z);
-var n=p-r*5.5f+UnityEngine.Vector3.up*1.6f; fx.Burst(-1,n,r,n,3.0f); return 0;' 1.5
+var n=p-r*5.5f+UnityEngine.Vector3.up*1.6f; fx.Burst(-1,n,r,n,3.0f); return 0;' 1.5 34
 
 one cook 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 17f, 0f);
 var p=new UnityEngine.Vector3(100f,0f,104f); p.y=TW.Presentation.RenderGround.Sample(map,p.x,p.z);
-fx.TankCookOff(p); return 0;' 1.0
+fx.TankCookOff(p); return 0;' 1.0 44
 
 one stand 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 14f, 0f);
 var p=new UnityEngine.Vector3(100f,0f,104f); p.y=TW.Presentation.RenderGround.Sample(map,p.x,p.z);
-fx.Alight(p-r*4.5f,1.4f,8f); fx.Alight(p+r*4.5f,3.4f,8f); return 0;' 1.8
+fx.Alight(p-r*4.5f,1.4f,8f); fx.Alight(p+r*4.5f,3.4f,8f); return 0;' 1.8 54
 
-# The bank shot picks its own spot each run, because a hand-picked one went stale: the first version simply took the
-# strongest rise anywhere on the map and that was the RIVERBANK at the map edge, so the jet fired out over water with
-# a bunker filling half the frame and no stream in shot at all. What this wants is a parapet - flat ground where the
-# man stands, rising sharply seven metres along his aim - and it has to be inland and out of the water table.
-one wall 'UnityEngine.Vector3 best=UnityEngine.Vector3.zero; float bestScore=-99f;
+# THE BANK SHOT. Rebuilt, because the old rig could not have worked: it forced the aim to camera-right and then
+# searched for ground that happened to rise along that one direction. GreyboxCorridor has no parapet in its
+# heightfield to find - the whole map spans -1.55 to 3.34 m and the steepest rise over seven metres anywhere in it
+# is 3.08 m - so the search settled for a 1.4-score slope, the stream flew over open ground, and the capture came
+# back with no fire in it at all. The trench and its sandbags are instanced cards, not colliders or renderers (the
+# scene has exactly ONE Renderer in it, the terrain), so they cannot be searched for either.
+#
+# So: pick the best site AND the best direction out of twenty-four, then turn the CAMERA to suit, rather than
+# turning the terrain search to suit the camera. Scored 2.61 against the old 1.43, and the yaw solve lands within
+# 0.1 degrees in a single correction because FrameFrom sets yaw outright instead of easing to it.
+val() { grep -o '"result": "[^"]*"' | sed 's/.*: "//;s/"$//'; }
+
+SCAN=$("$T" eval '
+var cf=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>(); var map=cf.Host.Local.Map;
+float best=-99f; UnityEngine.Vector3 bp=UnityEngine.Vector3.zero, bd=UnityEngine.Vector3.forward;
 for(float x=70f;x<=180f;x+=2f) for(float z=70f;z<=180f;z+=2f){
   float y0=TW.Presentation.RenderGround.Sample(map,x,z);
-  if(y0<1.2f) continue;                       // low ground is the water table
-  float flat=0f;
-  for(float d=-2f;d<=2f;d+=1f){ var q=new UnityEngine.Vector3(x,0,z)+r*d;
-    flat=UnityEngine.Mathf.Max(flat, UnityEngine.Mathf.Abs(TW.Presentation.RenderGround.Sample(map,q.x,q.z)-y0)); }
-  var e=new UnityEngine.Vector3(x,0,z)+r*7f;
-  float score=(TW.Presentation.RenderGround.Sample(map,e.x,e.z)-y0)-flat*1.5f;
-  if(score>bestScore){bestScore=score; best=new UnityEngine.Vector3(x,y0,z);}
-}
-var mid=best+r*3.5f;
-tc.FrameFrom(new UnityEngine.Vector2(mid.x,mid.z), 13f, 0f);
-var n=best+UnityEngine.Vector3.up*1.7f; fx.Burst(-1,n,r,n,3.0f); return 0;' 1.5
+  if(y0<0.2f) continue;                                  // keep the man out of the water table
+  for(int a=0;a<24;a++){
+    float th=a*UnityEngine.Mathf.PI/12f; var d=new UnityEngine.Vector3(UnityEngine.Mathf.Cos(th),0,UnityEngine.Mathf.Sin(th));
+    var sd=UnityEngine.Vector3.Cross(UnityEngine.Vector3.up,d); float flat=0f;
+    for(float t=-2f;t<=2f;t+=1f){ var q=new UnityEngine.Vector3(x,0,z)+sd*t;
+      flat=UnityEngine.Mathf.Max(flat,UnityEngine.Mathf.Abs(TW.Presentation.RenderGround.Sample(map,q.x,q.z)-y0)); }
+    float rise=0f, mono=1f, prev=y0;                     // rising, and rising the whole way, not a bump then a dip
+    for(float t=1f;t<=8f;t+=1f){ var q=new UnityEngine.Vector3(x,0,z)+d*t;
+      float y=TW.Presentation.RenderGround.Sample(map,q.x,q.z);
+      if(y<prev-0.05f) mono=0.4f; prev=y; rise=y-y0; }
+    float score=rise*mono-flat*1.2f;
+    if(score>best){best=score; bp=new UnityEngine.Vector3(x,y0,z); bd=d;}
+  }}
+return bp.x.ToString("F2")+" "+bp.y.ToString("F3")+" "+bp.z.ToString("F2")+" "+bd.x.ToString("F5")+" "+bd.z.ToString("F5");' | val)
+set -- $SCAN; WX=$1; WY=$2; WZ=$3; DX=$4; DZ=$5
+echo "  bank site ($WX, $WY, $WZ) aim ($DX, $DZ)"
+
+"$T" pause true >/dev/null 2>&1
+"$T" stepabs 64 >/dev/null 2>&1
+# frame at yaw 0 first, read where screen-right actually points, then correct once
+"$T" eval "var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
+var mid=new UnityEngine.Vector3(${WX}f,0f,${WZ}f)+new UnityEngine.Vector3(${DX}f,0f,${DZ}f)*3.5f;
+tc.FrameFrom(new UnityEngine.Vector2(mid.x,mid.z),13f,0f); return 0;" >/dev/null 2>&1
+"$T" step 1 >/dev/null 2>&1
+YAW=$("$T" eval "var cam=UnityEngine.Camera.main; var r=cam.transform.right; r.y=0f; r=r.normalized;
+var d=new UnityEngine.Vector3(${DX}f,0f,${DZ}f);
+return UnityEngine.Mathf.DeltaAngle(UnityEngine.Mathf.Atan2(r.x,r.z)*UnityEngine.Mathf.Rad2Deg,
+                                    UnityEngine.Mathf.Atan2(d.x,d.z)*UnityEngine.Mathf.Rad2Deg).ToString(\"F2\");" | val)
+"$T" eval "UnityEngine.Random.InitState(20250925);
+var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
+var d=new UnityEngine.Vector3(${DX}f,0f,${DZ}f);
+var mid=new UnityEngine.Vector3(${WX}f,0f,${WZ}f)+d*3.5f;
+tc.FrameFrom(new UnityEngine.Vector2(mid.x,mid.z),13f,${YAW}f);
+var fx=TW.Presentation.Tactical.Flamethrower.Active; fx.Clear();
+var n=new UnityEngine.Vector3(${WX}f,${WY}f,${WZ}f)+UnityEngine.Vector3.up*1.7f;
+fx.Burst(-1,n,d,n,3.0f); return 0;" >/dev/null 2>&1
+"$T" stepto 1.5 >/dev/null 2>&1
+"$T" shot "${PRE}_wall" >/dev/null 2>&1
+check "${PRE}_wall"
+
 "$T" pause false >/dev/null 2>&1
