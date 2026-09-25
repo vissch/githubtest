@@ -86,11 +86,35 @@ namespace TW.Presentation.Terrain
         System.Func<float, float, Color> groundAt;
         public int PendingPaintTiles => paintTiles.Count + (painter.Busy ? 1 : 0);
         public float LastPaintMilliseconds { get; private set; }
+        /// <summary>The upload cadence of the colour texture (AOSA C13). Apply(true) rebuilds the whole mip chain on the CPU
+        /// and re-uploads all of it, 2.4-2.9 ms in the development player, and it ran on every frame a tile finished.
+        /// ApplyIntervalMs 0 (default) uploads on every dirty frame, as before; above 0 at most once per that many ms of real
+        /// time, and also on the frame the paint queue drains when ApplyOnDrain. MipIntervalMs 0 (default) rebuilds the mips
+        /// on every upload, as before; above 0 an upload in between keeps the old mips (Apply(false)), and a drained queue
+        /// always gets them rebuilt. While Unmetered (held-clock image runs) every dirty frame uploads with mips, as before.
+        /// Knobs terrain.applyIntervalMs, terrain.applyOnDrain and terrain.mipIntervalMs (Start).</summary>
+        public const double ApplyIntervalMs = 0.0, MipIntervalMs = 0.0;
+        public const bool ApplyOnDrain = true;
+        double applyIntervalMs = ApplyIntervalMs, mipIntervalMs = MipIntervalMs;
+        bool applyOnDrain = ApplyOnDrain, mipsStale;
+        double lastApplyAt = double.NegativeInfinity, lastMipsAt = double.NegativeInfinity;   // realtimeSinceStartup, s
+
+        /// <summary>A dirty colour texture is uploaded this frame. Always at the default interval (0) and while unmetered.</summary>
+        public static bool ApplyDue(double sinceApplyMs, double intervalMs, bool drained, bool onDrain, bool unmetered) =>
+            unmetered || intervalMs <= 0.0 || sinceApplyMs >= intervalMs || (drained && onDrain);
+
+        /// <summary>That upload rebuilds the mip chain. Always at the default interval (0), while unmetered, and once the
+        /// paint queue has drained, so the mips are never left stale after the painting stops.</summary>
+        public static bool MipsDue(double sinceMipsMs, double intervalMs, bool drained, bool unmetered) =>
+            unmetered || intervalMs <= 0.0 || sinceMipsMs >= intervalMs || drained;
 
         void Start()
         {
             chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
             paintBudgetMs = Knobs.Get("terrain.paintBudgetMs", (float)PaintBudgetMs);
+            applyIntervalMs = Knobs.Get("terrain.applyIntervalMs", (float)ApplyIntervalMs);
+            applyOnDrain = Knobs.Get("terrain.applyOnDrain", ApplyOnDrain);
+            mipIntervalMs = Knobs.Get("terrain.mipIntervalMs", (float)MipIntervalMs);
             groundAt = (wx, wz) => GroundColor(Host.Local.Map, wx, wz);
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
@@ -589,7 +613,7 @@ namespace TW.Presentation.Terrain
             }
             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
             TW.Sim.PerfMarkers.TerrainRepaint.End();
-            if (colorDirty) { TW.Sim.PerfMarkers.TerrainApply.Begin(); colorTex.Apply(true, false); colorDirty = false; TW.Sim.PerfMarkers.TerrainApply.End(); }
+            if (colorDirty || mipsStale) ApplyColor();
             // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
             // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
             // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
@@ -662,6 +686,23 @@ namespace TW.Presentation.Terrain
             int z0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.z - r)), z1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(mark.Pos.z + r));
             for (int z = z0 / 2; z <= z1 / 2; z++) for (int x = x0 / 2; x <= x1 / 2; x++)
             { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
+        }
+
+        /// <summary>Upload the colour texture if it is due (ApplyIntervalMs). At the knobs' defaults this is exactly the old
+        /// line: Apply(true, false) on every frame a tile finished. Drained = nothing queued and no tile half painted.</summary>
+        void ApplyColor()
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+            bool drained = paintTiles.Count == 0 && !painter.Busy;
+            bool mips = MipsDue((now - lastMipsAt) * 1000.0, mipIntervalMs, drained, Unmetered);
+            // only stale mips left to fix (no new texels): that waits for the mips to be due
+            if (!(colorDirty ? ApplyDue((now - lastApplyAt) * 1000.0, applyIntervalMs, drained, applyOnDrain, Unmetered) : mips)) return;
+            TW.Sim.PerfMarkers.TerrainApply.Begin();
+            colorTex.Apply(mips, false);
+            TW.Sim.PerfMarkers.TerrainApply.End();
+            colorDirty = false; mipsStale = !mips;
+            lastApplyAt = now;
+            if (mips) lastMipsAt = now;
         }
 
         /// <summary>Start repainting one 2 m tile (16 x 16 texels, fewer at the far edges): its ground colour and the

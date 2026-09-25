@@ -175,6 +175,35 @@ namespace TW.Tests
             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));
             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.chunkBudgetMs", (float)GreyboxTerrainView.ChunkBudgetMs));
             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.paintBudgetMs", (float)GreyboxTerrainView.PaintBudgetMs));
+            Assert.AreEqual(0.0, (double)Knobs.Get("terrain.applyIntervalMs", (float)GreyboxTerrainView.ApplyIntervalMs));
+            Assert.AreEqual(true, Knobs.Get("terrain.applyOnDrain", GreyboxTerrainView.ApplyOnDrain));
+            Assert.AreEqual(0.0, (double)Knobs.Get("terrain.mipIntervalMs", (float)GreyboxTerrainView.MipIntervalMs));
+        }
+
+        [Test]
+        public void TerrainApply_Defaults_UploadWithMipsOnEveryDirtyFrame()
+        {
+            // AOSA C13: at the defaults, and whenever the clock is held (Unmetered), the colour texture is uploaded with
+            // its mips on every dirty frame, as it was before the cadence knobs, whatever the time since the last upload
+            foreach (double since in new[] { 0.0, 1e-3, 16.7, 1e6, double.PositiveInfinity })
+            foreach (bool drained in new[] { false, true })
+            foreach (bool onDrain in new[] { false, true })
+            {
+                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, GreyboxTerrainView.ApplyIntervalMs, drained, onDrain, false));
+                Assert.IsTrue(GreyboxTerrainView.MipsDue(since, GreyboxTerrainView.MipIntervalMs, drained, false));
+                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, 100.0, drained, onDrain, true), "Unmetered uploads every dirty frame");
+                Assert.IsTrue(GreyboxTerrainView.MipsDue(since, 1000.0, drained, true), "Unmetered rebuilds the mips");
+            }
+            // with an interval: not before it, at it, and on a drained queue only when applyOnDrain
+            Assert.IsFalse(GreyboxTerrainView.ApplyDue(99.9, 100.0, false, true, false));
+            Assert.IsTrue(GreyboxTerrainView.ApplyDue(100.0, 100.0, false, true, false));
+            Assert.IsTrue(GreyboxTerrainView.ApplyDue(0.0, 100.0, true, true, false));
+            Assert.IsFalse(GreyboxTerrainView.ApplyDue(0.0, 100.0, true, false, false));
+            Assert.IsTrue(GreyboxTerrainView.ApplyDue(double.PositiveInfinity, 100.0, false, false, false), "the first upload is never held back");
+            // mips: skipped between rebuilds, always rebuilt once the queue has drained
+            Assert.IsFalse(GreyboxTerrainView.MipsDue(10.0, 1000.0, false, false));
+            Assert.IsTrue(GreyboxTerrainView.MipsDue(1000.0, 1000.0, false, false));
+            Assert.IsTrue(GreyboxTerrainView.MipsDue(10.0, 1000.0, true, false));
         }
     }
 }
