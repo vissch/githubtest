@@ -23,7 +23,10 @@ UNITY = pathlib.Path(os.environ.get("TW_UNITY", r"C:/Program Files/Unity/Hub/Edi
 MAIN_LIB = pathlib.Path(os.environ.get(
     "TW_LIB", r"C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest/trench-warfare-3d/Library/ScriptAssemblies"))
 PKG_CACHE = MAIN_LIB.parent / "PackageCache"
-OUT = pathlib.Path(tempfile.gettempdir()) / "tw-occ"
+# one output folder per tree: two authors compiling in two worktrees at once shared "tw-occ", and each read the
+# other's half-written dlls (cycle 5: "being used by another process", then phantom missing members)
+import hashlib
+OUT = pathlib.Path(tempfile.gettempdir()) / ("tw-occ-" + hashlib.sha1(str(HERE.parent).lower().encode()).hexdigest()[:8])
 
 DEFINES = ["UNITY_EDITOR", "UNITY_EDITOR_WIN", "UNITY_STANDALONE", "UNITY_STANDALONE_WIN", "ENABLE_PROFILER",
            "UNITY_6000_0", "UNITY_6000_0_OR_NEWER", "UNITY_2023_1_OR_NEWER", "UNITY_2022_3_OR_NEWER",
