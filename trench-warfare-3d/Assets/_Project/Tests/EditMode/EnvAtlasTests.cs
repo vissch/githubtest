@@ -1,4 +1,6 @@
 // Phase: B5 — the one thing that can go wrong with the shared environment atlas and leave no trace.
+using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Terrain;
@@ -42,6 +44,33 @@ namespace TW.Tests
                 Assert.That(uv.x, Is.InRange(0f, 1f - 1f / BattlefieldKit.EnvCols + 1e-4f), BattlefieldKit.EnvSets[i] + " sits inside the sheet across");
                 Assert.That(uv.y, Is.InRange(0f, 1f - 1f / BattlefieldKit.EnvRows + 1e-4f), BattlefieldKit.EnvSets[i] + " sits inside the sheet up");
             }
+        }
+
+        /// <summary>
+        /// The test above catches a grid that drifted; it cannot catch the ORDER of the sets drifting, because a
+        /// reordered list still fits the same grid. A set added in the middle of one list and at the end of the other
+        /// shifts every set after it one cell along, and each samples its neighbour's texture. So the packer's own
+        /// lists are read and compared, name for name.
+        /// </summary>
+        [Test]
+        public void The_Packer_And_The_Kit_List_The_Same_Sets_In_The_Same_Order()
+        {
+            string script = Path.Combine(Application.dataPath, "..", "Tools", "envatlas.py");
+            Assert.IsTrue(File.Exists(script), "Tools/envatlas.py is missing");
+            string src = File.ReadAllText(script);
+
+            var sets = Regex.Match(src, @"^SETS\s*=\s*\[(?<list>[^\]]*)\]", RegexOptions.Multiline);
+            Assert.IsTrue(sets.Success, "no `SETS = [...]` line in Tools/envatlas.py");
+            var names = Regex.Matches(sets.Groups["list"].Value, "\"([^\"]+)\"");
+            var packer = new string[names.Count];
+            for (int i = 0; i < names.Count; i++) packer[i] = names[i].Groups[1].Value;
+            Assert.That(BattlefieldKit.EnvSets, Is.EqualTo(packer),
+                "BattlefieldKit.EnvSets and SETS in Tools/envatlas.py must list the same sets in the same order");
+
+            var grid = Regex.Match(src, @"^COLS,\s*ROWS\s*=\s*(\d+),\s*(\d+)", RegexOptions.Multiline);
+            Assert.IsTrue(grid.Success, "no `COLS, ROWS = a, b` line in Tools/envatlas.py");
+            Assert.AreEqual(BattlefieldKit.EnvCols, int.Parse(grid.Groups[1].Value), "EnvCols vs the packer's COLS");
+            Assert.AreEqual(BattlefieldKit.EnvRows, int.Parse(grid.Groups[2].Value), "EnvRows vs the packer's ROWS");
         }
     }
 }
