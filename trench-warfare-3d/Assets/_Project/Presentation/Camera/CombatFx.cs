@@ -116,6 +116,9 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         public float TracerSeconds = 0.12f;
         public int MaxBodies = 600;
+        // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
+        // firing line ripples instead of strobing at the sim's 20 Hz. 0 = every shot on the frame its tick arrives.
+        float shotStagger = ShotStagger.DefaultSpread;
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
@@ -251,6 +254,7 @@ namespace TW.Presentation.Tactical
             CloseReach = Knobs.Get("fx.closeReach", CloseReach);
             MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
+            shotStagger = ShotStagger.ReadSpread();
         }
 
         void Start()
@@ -490,7 +494,9 @@ namespace TW.Presentation.Tactical
                     Vector3 from, barrel, to;
                     if (units == null || !units.Sockets(e.A, out from, out barrel, out _)) EstimateMuzzle(e.A, e.B, scale, out from, out barrel);
                     if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
-                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
+                    // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
+                    float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
+                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
                     Vector3 direction = (to - from).normalized;
                     bool drawn = books != null && books.Ready;
                     Vector3 carried = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Velocity(e.A, w.Config.TickSeconds) : Vector3.zero;   // a man firing on the run carries his flash
@@ -505,9 +511,9 @@ namespace TW.Presentation.Tactical
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
                         books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow);
+                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
                     }
-                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time });
+                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
                     // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
@@ -526,14 +532,14 @@ namespace TW.Presentation.Tactical
                             SceneHooks.AddRing?.Invoke(hit.x, hit.z, 0.8f);
                             Throw(hit + Vector3.up * 0.4f, 7, 4, 6f, 0.07f);
                             // a round in the water stands up a little white column
-                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f);
+                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f, delay: delay);
                         }
                         else
                         {
                             Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f);
                             if (SceneMood.Night && UnityEngine.Random.value < 0.35f) Throw(hit, 3, 3, 11f, 0.035f);
                             // and in the mud a spurt of dust that leans away from the shooter
-                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f);
+                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
@@ -902,6 +908,7 @@ namespace TW.Presentation.Tactical
             for (int i = 0; i < tracers.Count; i++)
             {
                 var t = tracers[i];
+                if (now < t.Born) continue;   // not shown yet: its place in the tick (ShotStagger) is still to come
                 if (night && side < 2 && (t.Team & 1) != side) continue;
                 Vector3 d = t.To - t.From;
                 float len = d.magnitude;
@@ -921,7 +928,8 @@ namespace TW.Presentation.Tactical
             batch.Clear();
             for (int i = 0; i < flashes.Count; i++)
             {
-                var f = flashes[i]; float s = Mathf.Lerp(0.80f, 0.22f, (now - f.Born) / 0.065f);
+                var f = flashes[i]; if (now < f.Born) continue;
+                float s = Mathf.Lerp(0.80f, 0.22f, (now - f.Born) / 0.065f);
                 batch.Add(Matrix4x4.TRS(f.Pos, f.Direction.sqrMagnitude > 0.01f ? Quaternion.LookRotation(f.Direction) : Quaternion.identity, new Vector3(s, s, s * 1.6f)));
             }
             if (batch.Count > 0) Flush(flashMesh, new RenderParams(flashMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });

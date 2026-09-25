@@ -50,6 +50,7 @@ namespace TW.Presentation.Terrain
         public bool Built => built;
         readonly List<Object> owned = new List<Object>();
         int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
+        float shotStagger = ShotStagger.DefaultSpread;   // knob fx.shotStagger (Start): a shot's light comes on with its flare (CombatFx)
         // The frame since Start, for the hashes that place guns, flares and embers (C33): Time.frameCount counts every
         // splash and menu frame too, so a star shell went up somewhere else in each of two identical bench runs.
         int frame0;
@@ -78,6 +79,7 @@ namespace TW.Presentation.Terrain
             maxTorches = Mathf.Max(0, Knobs.Get("lights.maxTorches", MaxTorches));
             maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
             poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
+            shotStagger = ShotStagger.ReadSpread();
             if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
             for (int i = 0; i < poolSize; i++)
@@ -362,20 +364,20 @@ namespace TW.Presentation.Terrain
         /// Now the dimmest slot goes first, and nothing takes a slot from a light still burning brighter than itself:
         /// a burst holds its light for as long as it was given, and the shot that cannot have one simply goes unlit.
         /// </summary>
-        void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f)
+        void Flash(Vector3 at, Color color, float peak, float range, float life, float card = 2.6f, float delay = 0f)
         {
             int slot = -1; float dimmest = float.MaxValue;
             for (int i = 0; i < poolSize; i++)
             {
-                float left = pool[i].Light.enabled ? Mathf.Max(0f, 1f - (Time.time - pool[i].Born) / pool[i].Life) : 0f;
+                float left = pool[i].Light.enabled ? Mathf.Clamp01(1f - (Time.time - pool[i].Born) / pool[i].Life) : 0f;   // a light still to come counts at its peak
                 float live = pool[i].Peak * left * left;   // the same curve Update draws it with
                 if (live >= dimmest) continue;
                 dimmest = live; slot = i;
             }
             if (slot < 0 || dimmest > peak) return;   // every light out there is brighter than this one: it stays dark
             ref var p = ref pool[slot];
-            p.Light.transform.position = at; p.Light.color = color; p.Light.range = range; p.Light.intensity = peak; p.Light.enabled = true;
-            p.Born = Time.time; p.Life = life; p.Peak = peak; p.Card = card;
+            p.Light.transform.position = at; p.Light.color = color; p.Light.range = range; p.Light.intensity = delay > 0f ? 0f : peak; p.Light.enabled = true;
+            p.Born = Time.time + delay; p.Life = life; p.Peak = peak; p.Card = card;
         }
 
         void OnSimEvent(SimEvent e)
@@ -389,7 +391,8 @@ namespace TW.Presentation.Terrain
                 if (toCam.sqrMagnitude > 150f * 150f || Vector3.Dot(toCam, cam.transform.forward) < 0f) return;
                 at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.2f;
                 lastShot = Time.time;
-                Flash(at, Muzzle, 13f, 10f, .09f);
+                // on with its flare: the same place in the tick CombatFx shows this shot at (ShotStagger)
+                Flash(at, Muzzle, 13f, 10f, .09f, 2.6f, ShotStagger.Delay(e.A, e.Tick, Host.Local.World.Config.TickSeconds, shotStagger));
             }
             else if (e.Type == SimEventType.Explosion)
             {
@@ -442,10 +445,12 @@ namespace TW.Presentation.Terrain
             for (int i = 0; i < poolSize; i++)
             {
                 float age = pool[i].Light.enabled ? (Time.time - pool[i].Born) / pool[i].Life : 1f;
+                bool waiting = age < 0f;   // a staggered shot's light, still dark until its flare (ShotStagger)
                 if (age >= 1f) pool[i].Light.enabled = false;
-                else pool[i].Light.intensity = pool[i].Peak * (1f - age) * (1f - age);
+                else pool[i].Light.intensity = waiting ? 0f : pool[i].Peak * (1f - age) * (1f - age);
                 // the card: as wide as a third of the light's reach, over-bright at birth so the bloom takes it
-                float live = age >= 1f ? 0f : (1f - age) * (1f - age);
+                float live = age >= 1f || waiting ? 0f : (1f - age) * (1f - age);
+                if (waiting) age = 0f;
                 var c = pool[i].Light.color; var card = new Color(c.r, c.g, c.b, live * pool[i].Card);
                 var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age) * Mathf.Lerp(1f, .55f, SceneHooks.CloseUp), 0f, i * .19f, .15f);   // among the men it was wider than the picture
                 for (int k = 0; k < 4; k++) { flashPos[i * 4 + k] = pool[i].Light.transform.position; flashCol[i * 4 + k] = card; flashShape[i * 4 + k] = shape; }
