@@ -144,6 +144,7 @@ namespace TW.Sim.Combat
                 distSq = 0f;
                 uint fj = Flags[j];
                 if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.KnockedOut) != 0 || Team[j] == Team[i]) return false;
+                if ((fj & (uint)UnitFlags.Airborne) != 0) return false;   // a jetpack man in the air, or just down (LeapSystem)
                 float3 d = Position[j] - p; d.y = 0f;
                 distSq = math.lengthsq(d);
                 if (distSq > rangeSq) return false;

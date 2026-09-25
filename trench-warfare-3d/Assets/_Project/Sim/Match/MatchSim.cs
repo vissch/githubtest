@@ -23,6 +23,7 @@ namespace TW.Sim.Match
         public DirectFireSystem Fire;
         public AuraSystem Aura;
         public TW.Sim.Units.SupportSystem Support;
+        public LeapSystem Leap;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
         public SeaLandingSystem Landing;
@@ -95,6 +96,8 @@ namespace TW.Sim.Match
             World.AddSystem(Deformation);                   // A4 core: crater stamps
             Movement = new MovementSystem(map);
             World.AddSystem(Movement);                      // A1: infantry
+            Leap = new LeapSystem(map);
+            World.AddSystem(Leap);                          // A3: jetpack men leap into enemy trenches (steps before Movement flies them)
             Vehicles = new VehicleKinematicsSystem(map);
             World.AddSystem(Vehicles);                      // A1 / A5b: vehicles: trenches, ditching, mud, slopes, crushing
             if (combat)
@@ -108,7 +111,7 @@ namespace TW.Sim.Match
             World.AddSystem(Support);                       // A3: medics patch the wounded, engineers mend the machines
             Sectors = new SectorControlSystem(map);
             World.AddSystem(Sectors);                       // A3 core: objectives, trench ownership, HQ = match end
-            Abilities = new OffMapAbilitySystem();
+            Abilities = new OffMapAbilitySystem(map);
             World.AddSystem(Abilities);                     // A5 core: HE barrage, chlorine gas
             // A6: World.AddSystem(new WaveAiSystem());
         }

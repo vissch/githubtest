@@ -581,7 +581,11 @@ namespace TW.Sim.Units
         /// <summary>Somewhere a man can stand and walk off from: pos when its nav cell is open surface, else the nearest
         /// point of the nearest open surface cell within three (not a trench, link, bunker or blocked cell: a man there
         /// would have no flow-field direction, or be in a trench without garrisoning it). Ties go to the lower cell.</summary>
-        float3 OpenGround(float3 pos)
+        float3 OpenGround(float3 pos) => OpenGround(map, pos);
+
+        /// <summary>The same for anyone putting a man on the ground (a paratrooper, a sea landing): static, so the
+        /// off-map abilities can use it without a modules system.</summary>
+        public static float3 OpenGround(Terrain.MapData map, float3 pos)
         {
             if (map == null) return pos;
             const Terrain.NavLayer closed = Terrain.NavLayer.Trench | Terrain.NavLayer.Link | Terrain.NavLayer.Bunker | Terrain.NavLayer.Blocked;

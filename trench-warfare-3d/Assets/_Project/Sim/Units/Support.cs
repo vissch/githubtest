@@ -56,6 +56,7 @@ namespace TW.Sim.Units
             byte team = w.Team[i]; float3 at = w.Position[i];
             for (int j = 0; j < w.HighWater; j++)
             {
+                if (j == i) continue;   // he does not patch himself
                 uint fj = w.Flags[j];
                 if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.Vehicle) != 0 || w.Team[j] != team) continue;
                 if (w.Hp[j] >= w.MaxHp[j]) continue;
