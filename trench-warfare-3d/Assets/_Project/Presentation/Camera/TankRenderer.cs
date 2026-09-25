@@ -1152,7 +1152,7 @@ namespace TW.Presentation.Tactical
             {
                 discProps.SetVectorArray(ColorId, discC);
                 var dp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
-                Graphics.RenderMeshInstanced(dp, discMesh, 0, discM, discCount);
+                FrameBudget.Draw(dp, discMesh, 0, discM, discCount);
             }
             foreach (var b in batches.Values)
             {
@@ -1162,7 +1162,7 @@ namespace TW.Presentation.Tactical
                 b.Props.SetVectorArray(TintId, b.Tint);
                 b.Props.SetVectorArray(TeamId, b.Team);
                 var rp = new RenderParams(b.Material) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = b.Props };
-                Graphics.RenderMeshInstanced(rp, b.Mesh, 0, b.M, b.Count);
+                FrameBudget.Draw(rp, b.Mesh, 0, b.M, b.Count);
                 b.Count = 0;
             }
         }
@@ -1225,7 +1225,7 @@ namespace TW.Presentation.Tactical
             if (fPos.Count == 0) return;
             flameMesh.SetVertices(fPos); flameMesh.SetUVs(0, fCorner); flameMesh.SetUVs(1, fShape); flameMesh.SetTriangles(fTris, 0);
             flameMesh.bounds = Everywhere;
-            Graphics.RenderMesh(new RenderParams(flameMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, flameMesh, 0, Matrix4x4.identity);
+            FrameBudget.Draw(new RenderParams(flameMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, flameMesh, 0, Matrix4x4.identity);
         }
 
         static float LerpAngle(float a, float b, float t) => a + Mathf.DeltaAngle(a * Mathf.Rad2Deg, b * Mathf.Rad2Deg) * Mathf.Deg2Rad * t;

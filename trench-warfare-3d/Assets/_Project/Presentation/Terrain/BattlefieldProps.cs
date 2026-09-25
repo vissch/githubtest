@@ -407,7 +407,7 @@ namespace TW.Presentation.Terrain
                 maskBlock.SetFloatArray("_ChunkMask", mergedMask);
                 rp.matProps = maskBlock;
             }
-            Graphics.RenderMeshInstanced(rp, module.Mesh, 0, merged, count);
+            FrameBudget.Draw(rp, module.Mesh, 0, merged, count);
             DrawCalls++;
         }
     }

@@ -98,7 +98,7 @@ namespace TW.UI
             if (batch.Count == 0) return;
             if (array.Length < batch.Count) array = new Matrix4x4[Mathf.NextPowerOfTwo(batch.Count)];
             batch.CopyTo(array);
-            Graphics.RenderMeshInstanced(new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, mesh, 0, array, batch.Count);
+            TW.Presentation.FrameBudget.Draw(new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, mesh, 0, array, batch.Count);
         }
 
         /// <summary>A unit quad centred on the origin: on the ground (XZ) or facing +Z (the bar, rotated to the camera).</summary>
