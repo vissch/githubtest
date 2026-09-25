@@ -42,6 +42,7 @@ namespace TW.UI
             Units.Clear();
             if (w == null || p == null || map == null || cam == null) return;
             float grow = Grow(zoom), man = FigureScale * grow;
+            var kin = w.GetSystem<TW.Sim.Nav.VehicleKinematicsSystem>();
             float pxPerRad = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
             Vector3 camPos = cam.transform.position, fwd = cam.transform.forward;
             for (int i = 0; i < w.HighWater; i++)
@@ -55,7 +56,7 @@ namespace TW.UI
                 Vector3 body;
                 if (vehicle)
                 {
-                    var prof = VehicleProfile.ForArchetype(w.Archetype[i]);
+                    var prof = kin != null && kin.Profiles.IsCreated ? kin.Profiles[w.Archetype[i]] : VehicleProfile.ForArchetype(w.Archetype[i]);
                     radiusM = Mathf.Max(prof.HalfLength, prof.HalfWidth) * 0.8f;
                     size = Mathf.Max(prof.HalfLength, prof.HalfWidth) * 2.3f;
                     body = new Vector3(d.x, ground + VehicleBodyM, d.z);

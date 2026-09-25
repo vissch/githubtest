@@ -67,7 +67,7 @@ namespace TW.Sim.Combat
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf, Yaw = w.Yaw,
-                Specs = w.Units.Infantry, Weapons = catalogue.Weapon, Tanks = catalogue.Tank,
+                Specs = w.Units.Infantry, Roster = w.Units.Roster, Weapons = catalogue.Weapon, Tanks = catalogue.Tank,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
@@ -106,6 +106,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
+            [ReadOnly] public NativeArray<RosterEntry> Roster;   // the same table: cost, hit points, and the chassis
             [ReadOnly] public NativeArray<WeaponStats> Weapons;
             [ReadOnly] public NativeArray<TankSpec> Tanks;
             [ReadOnly] public NativeArray<float> Yaw;
@@ -192,7 +193,7 @@ namespace TW.Sim.Combat
                     var myStance = (Stance)StanceOf[i];
                     var theirStance = (Stance)StanceOf[t];
                     float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax)
-                                 * StanceRules.AccuracyMultiplier(myStance, Specs[Archetype[i]].Braced || VehicleArchetype.IsTank(Archetype[i]))
+                                 * StanceRules.AccuracyMultiplier(myStance, Specs[Archetype[i]].Braced || ChassisKind.IsTank(Roster[Archetype[i]].Chassis))
                                  * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                     if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (Flags[i] & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
 

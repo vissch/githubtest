@@ -571,7 +571,7 @@ namespace TW.Presentation.Tactical
                 {
                     // a tank leaves a wreck (TankRenderer), not a body. Its Death comes just before its VehicleDestroyed, while
                     // the tank view still has the slot; the archetype would be a later tenant's if the slot was refilled
-                    if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : VehicleArchetype.IsTank(w.Archetype[e.A]))) break;
+                    if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[e.A])))) break;
                     if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
                     Vector3 p = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Drawn(e.A) : (Vector3)e.Pos;   // where he was drawn, so the corpse does not hop
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;

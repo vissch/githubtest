@@ -25,6 +25,7 @@ namespace TW.Sim.Units
         public NativeArray<int> MendTimer;     // per vehicle slot: ticks of an engineer's attention toward the next mend
         NativeArray<ushort> gen;
         VehicleModulesSystem modules;
+        TW.Sim.Nav.VehicleKinematicsSystem kinematics;   // for the drive profiles: an engineer reaches round the hull of THIS match
 
         public void Initialize(SimWorld world)
         {
@@ -32,6 +33,7 @@ namespace TW.Sim.Units
             MendTimer = new NativeArray<int>(n, Allocator.Persistent);
             gen = new NativeArray<ushort>(n, Allocator.Persistent);
             modules = world.GetSystem<VehicleModulesSystem>();
+            kinematics = world.GetSystem<TW.Sim.Nav.VehicleKinematicsSystem>();
         }
 
         public void Step(SimWorld w)
@@ -77,8 +79,8 @@ namespace TW.Sim.Units
             {
                 uint fv = w.Flags[v];
                 if ((fv & (uint)UnitFlags.Alive) == 0 || (fv & (uint)UnitFlags.Vehicle) == 0 || w.Team[v] != team) continue;
-                if ((fv & (uint)UnitFlags.KnockedOut) != 0 || !VehicleArchetype.IsArmoured(w.Archetype[v])) continue;
-                float reach = spec.RepairRadius + VehicleProfile.ForArchetype(w.Archetype[v]).HalfLength;
+                if ((fv & (uint)UnitFlags.KnockedOut) != 0 || !ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[v]))) continue;
+                float reach = spec.RepairRadius + kinematics.Profiles[w.Archetype[v]].HalfLength;
                 float3 d = w.Position[v] - at; d.y = 0f;
                 if (math.lengthsq(d) > reach * reach) continue;
                 float before = w.Hp[v];

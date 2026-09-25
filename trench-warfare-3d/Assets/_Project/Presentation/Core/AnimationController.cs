@@ -228,7 +228,7 @@ namespace TW.Presentation
                 var s = State[i];
                 if (s.Generation != w.Generation[i]) { s = Fresh(i, w); }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
-                if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && VehicleArchetype.IsTank(w.Archetype[i])))
+                if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]))))
                 { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {

@@ -82,6 +82,10 @@ namespace TW.Sim
         /// </summary>
         public UnitCatalogue Units { get; private set; }
 
+        /// <summary>What kind of machine an archetype is, from the table of THIS match (ChassisKind). Foot for an id
+        /// past the table, which is the only honest answer for a unit nothing defined.</summary>
+        public byte ChassisOf(byte archetype) => archetype < Archetypes.Count ? Units.Roster[archetype].Chassis : ChassisKind.Foot;
+
         public SimWorld(SimConfig config, SimConfig.WorldInit init, UnitCatalogue units = null)
         {
             Config = config;

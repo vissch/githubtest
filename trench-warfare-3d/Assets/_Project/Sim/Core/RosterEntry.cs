@@ -11,6 +11,12 @@ namespace TW.Sim
         public int CooldownTicks;  // per-slot deploy cooldown (specials and vehicles)
         public bool IsVehicle;
 
+        /// <summary>
+        /// What it stands on (ChassisKind): a man, tracks, legs or wheels. Read from this table rather than asked of
+        /// the id, because the id ranges ran out and a range check called every new machine a tank.
+        /// </summary>
+        public byte Chassis;
+
         public const int SlotCount = 10;   // 2026-09-25 (owner decision): every unit in a default roster, hotkeys 1..0
 
         /// <summary>The roster a player deploys from. Since 2026-09-25 this is the FACTION's table (FactionRoster):
@@ -66,7 +72,7 @@ namespace TW.Sim
         /// <summary>Leaps into an enemy trench from thirty metres out.</summary>
         public static RosterEntry Jetpack => new RosterEntry { Archetype = InfantryArchetype.Jetpack, Cost = 110, Hp = 85, Speed = 3.6f, CooldownTicks = 300 };
         /// <summary>The assault tank: halts short of a trench, winds up, charges it, and backs out to do it again.</summary>
-        public static RosterEntry Breaker => new RosterEntry { Archetype = VehicleArchetype.Breaker, Cost = 380, Hp = 2800, Speed = 2.2f, CooldownTicks = 650, IsVehicle = true };
+        public static RosterEntry Breaker => new RosterEntry { Archetype = VehicleArchetype.Breaker, Cost = 380, Hp = 2800, Speed = 2.2f, CooldownTicks = 650, IsVehicle = true, Chassis = ChassisKind.Tracked };
 
         /// <summary>Phase 0 placeholder roster: rifleman, assault, machinegunner, special (sniper), tank, walker.
         /// Player 0's tank is the Maw (heavy, sponson guns, the Mark IV of the roster), player 1's the Tusk (light,
@@ -76,20 +82,21 @@ namespace TW.Sim
         /// structure; armour, modules, legs and crew decide most fights (A5b).</summary>
         /// (That description is now FactionRoster.Slot; the Iron and Brass tables reproduce it.)
 
-        public static RosterEntry Maw => new RosterEntry { Archetype = VehicleArchetype.Maw, Cost = 350, Hp = 3600, Speed = 1.6f, CooldownTicks = 600, IsVehicle = true };
-        public static RosterEntry Tusk => new RosterEntry { Archetype = VehicleArchetype.Tusk, Cost = 260, Hp = 2000, Speed = 2.4f, CooldownTicks = 450, IsVehicle = true };
+        public static RosterEntry Maw => new RosterEntry { Archetype = VehicleArchetype.Maw, Cost = 350, Hp = 3600, Speed = 1.6f, CooldownTicks = 600, IsVehicle = true, Chassis = ChassisKind.Tracked };
+        public static RosterEntry Tusk => new RosterEntry { Archetype = VehicleArchetype.Tusk, Cost = 260, Hp = 2000, Speed = 2.4f, CooldownTicks = 450, IsVehicle = true, Chassis = ChassisKind.Tracked };
         // the walkers scuttle: faster than either tank, and they do not care what the ground is like
-        public static RosterEntry Pincer => new RosterEntry { Archetype = VehicleArchetype.Pincer, Cost = 320, Hp = 2300, Speed = 2.9f, CooldownTicks = 520, IsVehicle = true };
-        public static RosterEntry Kettle => new RosterEntry { Archetype = VehicleArchetype.Kettle, Cost = 270, Hp = 1600, Speed = 2.3f, CooldownTicks = 560, IsVehicle = true };
-        public static RosterEntry Pavise => new RosterEntry { Archetype = VehicleArchetype.Pavise, Cost = 360, Hp = 2100, Speed = 1.9f, CooldownTicks = 620, IsVehicle = true };
-        public static RosterEntry Censer => new RosterEntry { Archetype = VehicleArchetype.Censer, Cost = 240, Hp = 1500, Speed = 2.6f, CooldownTicks = 500, IsVehicle = true };
-        public static RosterEntry Banner => new RosterEntry { Archetype = VehicleArchetype.Banner, Cost = 400, Hp = 1900, Speed = 2.4f, CooldownTicks = 700, IsVehicle = true };
-        public static RosterEntry Redoubt => new RosterEntry { Archetype = VehicleArchetype.Redoubt, Cost = 330, Hp = 3200, Speed = 1.7f, CooldownTicks = 600, IsVehicle = true };
+        public static RosterEntry Pincer => new RosterEntry { Archetype = VehicleArchetype.Pincer, Cost = 320, Hp = 2300, Speed = 2.9f, CooldownTicks = 520, IsVehicle = true, Chassis = ChassisKind.Legged };
+        public static RosterEntry Kettle => new RosterEntry { Archetype = VehicleArchetype.Kettle, Cost = 270, Hp = 1600, Speed = 2.3f, CooldownTicks = 560, IsVehicle = true, Chassis = ChassisKind.Legged };
+        public static RosterEntry Pavise => new RosterEntry { Archetype = VehicleArchetype.Pavise, Cost = 360, Hp = 2100, Speed = 1.9f, CooldownTicks = 620, IsVehicle = true, Chassis = ChassisKind.Legged };
+        public static RosterEntry Censer => new RosterEntry { Archetype = VehicleArchetype.Censer, Cost = 240, Hp = 1500, Speed = 2.6f, CooldownTicks = 500, IsVehicle = true, Chassis = ChassisKind.Legged };
+        public static RosterEntry Banner => new RosterEntry { Archetype = VehicleArchetype.Banner, Cost = 400, Hp = 1900, Speed = 2.4f, CooldownTicks = 700, IsVehicle = true, Chassis = ChassisKind.Legged };
+        public static RosterEntry Redoubt => new RosterEntry { Archetype = VehicleArchetype.Redoubt, Cost = 330, Hp = 3200, Speed = 1.7f, CooldownTicks = 600, IsVehicle = true, Chassis = ChassisKind.Legged };
     }
 
     /// <summary>Archetype ids of the infantry. An id is a byte the whole sim switches on, so these are the names;
     /// what an id can do is InfantrySpec.For(id) and what it shoots is CombatTables.WeaponFor(id). 4..11 are the
-    /// vehicles (VehicleArchetype); the 2026-09-25 units start at 12 because IsWalker is a RANGE check over 6..11.</summary>
+    /// vehicles (VehicleArchetype); the 2026-09-25 units start at 12 for no reason but history, since the walker
+    /// range check that used to require it is gone (RosterEntry.Chassis).</summary>
     public static class InfantryArchetype
     {
         public const byte Rifle = 0, Assault = 1, Machinegunner = 2, Sniper = 3;
@@ -120,10 +127,12 @@ namespace TW.Sim
         public const byte Breaker = 18;// assault tank: halts, winds up, charges the trench with its claws and hull guns, backs out
                                       // Ids are no longer squeezed by the explosion source space: SourceId bands it, so a
                                       // machine may take any byte (2026-09-25). What still binds is InfantryArchetype.Max.
-        public static bool IsTank(byte archetype) => archetype == Maw || archetype == Tusk || archetype == Breaker;
-        /// <summary>A RANGE check over the six crabs: a new walker must be added here explicitly.</summary>
-        public static bool IsWalker(byte archetype) => archetype >= Pincer && archetype <= Redoubt;
-        /// <summary>Anything with armour, guns and modules: what VehicleModulesSystem and TankGunnerySystem run for.</summary>
-        public static bool IsArmoured(byte archetype) => IsTank(archetype) || IsWalker(archetype);
+        /// <summary>
+        /// What kind of machine each SHIPPED id is. This is the seed of RosterEntry.Chassis and nothing else: the
+        /// three predicates that used to live here (IsTank, IsWalker, IsArmoured, the last a range check over 6..11)
+        /// are gone, because an id alone cannot answer the question once units come from definitions. Ask the match
+        /// table: w.ChassisOf(archetype), or Roster[Archetype[i]].Chassis inside a job.
+        /// </summary>
+        public static byte ShippedChassis(byte archetype) => RosterEntry.ForArchetype(archetype).Chassis;
     }
 }

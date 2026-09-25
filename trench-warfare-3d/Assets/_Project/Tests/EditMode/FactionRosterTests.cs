@@ -127,7 +127,7 @@ namespace TW.Tests
                 FactionRoster.Fill(roster, 0, faction);
                 for (int s = 0; s < RosterEntry.SlotCount; s++)
                 {
-                    Assert.IsFalse(VehicleArchetype.IsWalker(roster[s].Archetype), $"{faction} slot {s} is a walker");
+                    Assert.AreNotEqual(ChassisKind.Legged, roster[s].Chassis, $"{faction} slot {s} is a walker");
                     Assert.AreNotEqual(InfantryArchetype.Jetpack, roster[s].Archetype, $"{faction} slot {s} is a jetpack man");
                 }
                 Assert.IsFalse(FactionRoster.MayCall(faction, FactionRoster.ParaDropBit), $"{faction} cannot drop paratroopers");
@@ -188,19 +188,18 @@ namespace TW.Tests
             foreach (var a in all)
             {
                 Assert.LessOrEqual(a, InfantryArchetype.Max, $"archetype {a} is past the end of every table an archetype indexes");
-                if (!VehicleArchetype.IsArmoured(a))
+                if (!ChassisKind.IsArmoured(RosterEntry.ForArchetype(a).Chassis))
                     Assert.AreNotEqual(0, OrderGroup.Of(a) & OrderGroup.All, $"archetype {a} belongs to no order group, so no advance order would reach him");
                 var e = RosterEntry.ForArchetype(a);
                 Assert.AreEqual(a, e.Archetype, $"ForArchetype({a})");
                 Assert.Greater(e.Hp, 0f, $"archetype {a} has hit points");
-                Assert.AreEqual(VehicleArchetype.IsArmoured(a), e.IsVehicle, $"archetype {a} vehicle flag agrees with IsArmoured");
+                Assert.AreEqual(ChassisKind.IsArmoured(e.Chassis), e.IsVehicle, $"archetype {a} vehicle flag agrees with what it stands on");
                 var w = CombatTables.WeaponFor(a);
                 var spec = InfantrySpec.For(a);
                 Assert.IsTrue(w.RangeMax > 0f || spec.HealPerSecond > 0f, $"archetype {a} either shoots or heals");
                 Assert.IsTrue(FactionRoster.Fields(FactionId.Iron, a) || FactionRoster.Fields(FactionId.Brass, a), $"some faction fields archetype {a}");
             }
-            Assert.IsTrue(VehicleArchetype.IsTank(VehicleArchetype.Breaker));
-            Assert.IsFalse(VehicleArchetype.IsWalker(VehicleArchetype.Breaker));
+            Assert.AreEqual(ChassisKind.Tracked, RosterEntry.Breaker.Chassis, "the Breaker runs on tracks");
             // the explosion source space is banded now, so a machine's weapon id cannot collide with the fleet's or
             // with a hull cooking off however high the archetype ids go
             Assert.AreNotEqual(SourceId.Unit(VehicleArchetype.Breaker), SeaLandingSystem.ShipSource);

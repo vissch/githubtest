@@ -113,6 +113,15 @@ namespace TW.Presentation.Tactical
         readonly TankModel[] crabs = new TankModel[6];
         readonly Material[,] crabMats = new Material[6, 2];
         static readonly string[] CrabNames = { "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt" };
+        static readonly byte[] CrabArchetypes =
+        {
+            VehicleArchetype.Pincer, VehicleArchetype.Kettle, VehicleArchetype.Censer,
+            VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt,
+        };
+        /// <summary>Which row of crabs/crabMats draws an archetype, or -1. It used to be `archetype - Pincer`, which
+        /// made the six walkers a contiguous band of ids nothing could be added to; a new machine puts its id in
+        /// CrabArchetypes beside its model name and needs no id at all next to the others.</summary>
+        readonly sbyte[] crabRow = new sbyte[Archetypes.Count];
         public const float StrideMetres = 1.15f;   // how far a walker travels per full leg cycle
         readonly Material[] mats = new Material[2];
         FlipbookFx books;
@@ -152,7 +161,12 @@ namespace TW.Presentation.Tactical
             if (Host == null) Host = FindFirstObjectByType<SimHost>();
             maw = TankModel.Load("Maw", VehicleArchetype.Maw);
             tusk = TankModel.Load("Tusk", VehicleArchetype.Tusk);
-            for (int c = 0; c < CrabNames.Length; c++) crabs[c] = TankModel.Load(CrabNames[c], (byte)(VehicleArchetype.Pincer + c), "Body");
+            for (int a = 0; a < crabRow.Length; a++) crabRow[a] = -1;
+            for (int c = 0; c < CrabNames.Length; c++)
+            {
+                crabs[c] = TankModel.Load(CrabNames[c], CrabArchetypes[c], "Body");
+                crabRow[CrabArchetypes[c]] = (sbyte)c;
+            }
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null || maw == null) { Debug.LogWarning("TankRenderer: TW/Tank or the tank models are missing; the box tanks stay."); enabled = false; return; }
             for (int lod = 0; lod < 2; lod++)
@@ -204,24 +218,37 @@ namespace TW.Presentation.Tactical
             if (flameMesh != null) Destroy(flameMesh);
         }
 
+        /// <summary>The hull and the drive profile of THIS match, not the compiled defaults: a definition or a bake
+        /// may have changed either, and a renderer drawing the wrong gun count is how that goes unnoticed.</summary>
+        TankSpec Machine(SimWorld w, byte archetype)
+        {
+            var cat = Host != null && Host.Local != null ? Host.Local.Catalogue : null;
+            return cat != null && cat.Tank.IsCreated ? cat.Tank[archetype] : TankSpec.For(archetype);
+        }
+
+        TW.Sim.Nav.VehicleProfile Drive(byte archetype)
+        {
+            var k = Host != null && Host.Local != null ? Host.Local.Vehicles : null;
+            return k != null && k.Profiles.IsCreated ? k.Profiles[archetype] : TW.Sim.Nav.VehicleProfile.ForArchetype(archetype);
+        }
+
         TankModel ModelFor(SimWorld w, int slot) => w == null || slot < 0 || slot >= w.HighWater ? null : ModelFor(w.Archetype[slot]);
         TankModel ModelFor(byte archetype)
         {
-            if (VehicleArchetype.IsWalker(archetype))
-            {
-                var c = crabs[archetype - VehicleArchetype.Pincer];
-                if (c != null) return c;
-            }
+            int row = archetype < crabRow.Length ? crabRow[archetype] : -1;
+            if (row >= 0 && crabs[row] != null) return crabs[row];
             return archetype == VehicleArchetype.Tusk && tusk != null ? tusk : maw;
         }
 
         /// <summary>The material a machine is drawn in: the tanks share an atlas, each crab has its own.</summary>
         Material MaterialFor(byte archetype, int lod)
-            => VehicleArchetype.IsWalker(archetype) && crabMats[archetype - VehicleArchetype.Pincer, lod] != null
-                ? crabMats[archetype - VehicleArchetype.Pincer, lod] : mats[lod];
+        {
+            int row = archetype < crabRow.Length ? crabRow[archetype] : -1;
+            return row >= 0 && crabMats[row, lod] != null ? crabMats[row, lod] : mats[lod];
+        }
 
         static bool IsTank(SimWorld w, int i)
-            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsArmoured(w.Archetype[i]);
+            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]));
 
         // ------------------------------------------------------------------ frame
         void LateUpdate()
@@ -298,7 +325,8 @@ namespace TW.Presentation.Tactical
             v.World = new Matrix4x4[model.Lods[0].Parts.Count];
             v.Heave.Value = Ground(v.Pos.x, v.Pos.z);
             v.Cupola = v.CupolaWant = 0f;
-            for (int k = 0; k < 2; k++) v.GunYaw[k] = k < TankSpec.For(w.Archetype[slot]).GunCount ? TankSpec.For(w.Archetype[slot]).Gun(k).RestYaw : 0f;
+            var fresh = Machine(w, w.Archetype[slot]);
+            for (int k = 0; k < 2; k++) v.GunYaw[k] = k < fresh.GunCount ? fresh.Gun(k).RestYaw : 0f;
             return v;
         }
 
@@ -368,7 +396,7 @@ namespace TW.Presentation.Tactical
             v.WheelL += vl * dt / m.WheelRadius; v.WheelR += vr * dt / m.WheelRadius;
 
             // guns: traverse as the sim lays them, elevate to the target, recoil
-            var spec = TankSpec.For(w.Archetype[s]);
+            var spec = Machine(w, w.Archetype[s]);
             for (int k = 0; k < spec.GunCount; k++)
             {
                 v.GunYaw[k] = LerpAngle(prevGun[s * 2 + k], curGun[s * 2 + k], Host.Alpha);
@@ -1086,9 +1114,10 @@ namespace TW.Presentation.Tactical
             // a walker has no tracks to measure, so its ring comes from its own footprint (VehicleProfile) instead of
             // the model's default gauge, which is a tank's and swallows a crab
             float halfW = m.HalfGauge, halfL = m.HalfLength;
-            if (VehicleArchetype.IsWalker(v.Archetype))
+            var vw = Host != null && Host.Local != null ? Host.Local.World : null;
+            if (vw != null && ChassisKind.IsWalker(vw.ChassisOf(v.Archetype)))
             {
-                var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(v.Archetype);
+                var prof = Drive(v.Archetype);
                 halfW = prof.HalfWidth * 0.72f; halfL = prof.HalfLength * 0.72f;
             }
             float w = (halfW + 0.9f) * 2f / 0.72f, l = (halfL + 0.8f) * 2f / 0.72f;   // the ring sits at 0.72 of the quad

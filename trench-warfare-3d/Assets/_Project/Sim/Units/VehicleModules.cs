@@ -136,7 +136,7 @@ namespace TW.Sim.Units
         }
 
         static bool IsTank(SimWorld w, int i)
-            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsArmoured(w.Archetype[i]);
+            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]));
 
         /// <summary>How many of a walker's legs on one side are gone.</summary>
         int LegsGone(int slot, bool right, int perSide)
@@ -286,7 +286,7 @@ namespace TW.Sim.Units
                 {
                     // A walker has legs on that side, not a track. The module is the share of them still under it, so
                     // a hit takes whole legs off one at a time and the side only fails when the last one has gone.
-                    var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[t]);
+                    var prof = kinematics.Profiles[w.Archetype[t]];
                     if (prof.Walker && prof.Legs > 0)
                     {
                         bool onRight = m == VehicleModule.TrackRight;
@@ -341,7 +341,7 @@ namespace TW.Sim.Units
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!IsTank(w, i)) continue;
-                var prof = VehicleProfile.ForArchetype(w.Archetype[i]);
+                var prof = kinematics.Profiles[w.Archetype[i]];
                 float3 d = w.Position[i] - im.Pos; d.y = 0f;
                 float dist = SimMath.Length(d), reach = im.Radius + prof.HalfWidth;
                 if (dist >= reach) continue;
@@ -427,7 +427,7 @@ namespace TW.Sim.Units
             // what the damage means for the rest of the sim
             float trackL = Module[i * M + (int)VehicleModule.TrackLeft], trackR = Module[i * M + (int)VehicleModule.TrackRight];
             float engine = Module[i * M + (int)VehicleModule.Engine];
-            var profile = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]);
+            var profile = kinematics.Profiles[w.Archetype[i]];
             uint f = w.Flags[i] & ~((uint)UnitFlags.Immobilised | (uint)UnitFlags.Stalled | (uint)UnitFlags.Burning);
             // a walker's "track" is the share of its legs still under it, and a side fails at its last one; a tank's
             // track is only OFF once it is torn past TrackThrownBelow, and it drags all the way down to there
@@ -578,7 +578,7 @@ namespace TW.Sim.Units
             int n = Crew[t];
             Crew[t] = 0;
             if (n == 0) return;
-            var prof = VehicleProfile.ForArchetype(w.Archetype[t]);
+            var prof = kinematics.Profiles[w.Archetype[t]];
             float yaw = w.Yaw[t];
             float3 back = -SimMath.DirFromYaw(yaw), side = new float3(-back.z, 0f, back.x);
             int got = 0;

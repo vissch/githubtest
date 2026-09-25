@@ -74,20 +74,17 @@ namespace TW.Editor
             return "silver " + amount;
         }
 
-        /// <summary>A unit at an exact place in both worlds. Archetype 4 / 5 are the tanks (their roster stats), else a man.</summary>
+        /// <summary>A unit at an exact place in both worlds, with the stats the match table gives its archetype.</summary>
         public static string Spawn(int team, int archetype, float x, float z, float yawDeg = -999f)
         {
             var h = Host; if (h == null) return "no SimHost";
             if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
-            bool vehicle = VehicleArchetype.IsArmoured((byte)archetype);
-            var entry =
-                archetype == VehicleArchetype.Tusk ? RosterEntry.Tusk :
-                archetype == VehicleArchetype.Maw ? RosterEntry.Maw :
-                archetype == VehicleArchetype.Pincer ? RosterEntry.Pincer :
-                archetype == VehicleArchetype.Kettle ? RosterEntry.Kettle :
-                archetype == VehicleArchetype.Censer ? RosterEntry.Censer :
-                archetype == VehicleArchetype.Pavise ? RosterEntry.Pavise :
-                h.Local.World.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
+            // The table of THIS match, not a chain of ternaries: the chain listed six machines and stopped, so a Banner,
+            // a Redoubt or a Breaker spawned here got a rifleman's hit points and nothing said so.
+            var world = h.Local.World;
+            bool vehicle = ChassisKind.IsArmoured(world.ChassisOf((byte)archetype));
+            var entry = archetype >= 0 && archetype < Archetypes.Count ? world.Units.Roster[archetype] : default;
+            if (entry.Hp <= 0f) entry = world.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
             int a = h.Local.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
             int b = h.Peer != null ? h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle) : a;   // the canary's second world, when it runs
             if (yawDeg > -900f) { h.Local.World.Yaw[a] = yawDeg * Mathf.Deg2Rad; if (h.Peer != null) h.Peer.World.Yaw[b] = yawDeg * Mathf.Deg2Rad; }

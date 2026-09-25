@@ -164,7 +164,7 @@ namespace TW.Tests
             Run(m, 500);
             int tanks = 0;
             for (int i = 0; i < m.World.HighWater; i++)
-                if (m.World.IsAlive(i) && VehicleArchetype.IsTank(m.World.Archetype[i])) tanks++;
+                if (m.World.IsAlive(i) && ChassisKind.IsTank(m.World.ChassisOf(m.World.Archetype[i]))) tanks++;
             Assert.AreEqual(1, tanks, "a tank comes ashore off its own boat");
         }
     }
