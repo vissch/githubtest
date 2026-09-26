@@ -125,6 +125,7 @@ namespace TW.Presentation.Terrain
             S("kit/ammoTin", ScaleAxis.Length, 0.14f, 0.24f);
             S("kit/messKit", ScaleAxis.Height, 0.10f, 0.22f);
             S("kit/bucket", ScaleAxis.Height, 0.10f, 0.22f);
+            S("kit/lantern", ScaleAxis.Height, 0.60f, 0.90f, "a lamp on a post: chest to head high");
             S("kit/hangingTins", ScaleAxis.Height, 0.10f, 0.22f);
             S("kit/wireTins", ScaleAxis.Height, 0.10f, 0.22f);
             S("kit/spade", ScaleAxis.Height, 0.25f, 0.40f, "an entrenching tool");
@@ -159,7 +160,7 @@ namespace TW.Presentation.Terrain
             // ---- organic: free ----------------------------------------------------------------------------------------
             foreach (var p in new[] { "Plants/FallenLog", "Plants/SplitStumpTall", "Plants/SplitStump", "Plants/MossStump", "Plants/Poppies", "Plants/Cattails", "Plants/GrassClump",
                                       "Stones/Boulder", "Stones/RebarSlab" }) O(p);
-            foreach (var k in new[] { "trunk", "snag", "fallen", "stump", "fork", "branches", "bush", "tuft", "stones", "reeds", "icicles", "drift", "iceShard", "frostTuft", "snowClod" }) O("kit/" + k);
+            foreach (var k in new[] { "trunk", "snag", "fallen", "stump", "fork", "branches", "bush", "tuft", "stones", "reeds", "icicles", "drift", "iceShard", "frostTuft", "snowClod", "grassMicro", "poppiesMicro" }) O("kit/" + k);
             // ---- machines: reported only -----------------------------------------------------------------------------
             M("Weapons/TankTurret", "a turret off a wreck"); M("Weapons/Biplane"); M("kit/wreck", "a wrecked hull: 7.4 m at scale 1");
             foreach (var v in new[] { "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt" }) M("vehicle/" + v, "VehicleSize is the owner's");

@@ -270,3 +270,36 @@ SplitStump and FallenLog become multipliers (Size 1.4 / 1.5, ranges 30 %) so the
 sizes return; the hand edits of those kinds were rescaled with them. Before/after captures of the rear edge, the fog
 side and the MG nest wait for an editor session.
 
+
+## Rule-based scatter (2026-09-26, docs/21 phase 2)
+
+The grass, the flowers and the camp's small kit are no longer thrown from the gatherings and the litter grid: a
+scatter step (`BattlefieldComposer.Scatter.cs`) runs after the structural steps and lays them by rules over five
+fields on the nav grid (`ScatterField.cs`, 2 m cells):
+
+- **Traffic**: 1 in a trench or on a ladder, falling away from the ladders over 8 m, 0.7 along a straight corridor
+  from each ladder of one side's front trench to the nearest ladder of the other's (within 40 m across), 0.8 on
+  the supply road and at the trench foot, 0.5 in the cart-rut band 3.9-7.6 m from a bank. It is the proxy for where
+  men walk; the sim's flow fields are not read.
+- **Vertical**: what stands up within 3 m (trees, snags, stumps, wrecks, wire, house walls, a shelter's shell),
+  `sum (1 - d/3)^2 * min(1, height/1.5)`.
+- **Patch**: three octaves of the generator's value noise (18, 7, 3 m) salted by the decoration seed, a smoothstep
+  over 0.48-0.62 (about a third of the field), thicker on a rise.
+- **Wet**: the surface's wetness. **Open**: 0 in a trench, on a ladder, on a blocked or wire cell, in a shell hole,
+  on the bank, in the water, at the edge, inside a house or shelter footprint.
+
+The layers (`ScatterLayers.cs`): grass density is `Patch (1 + 1.5 Vertical) (1 - Traffic) Open (1 - 0.6 Wet)` and
+zero past Traffic 0.6, five tufts a cell at full density (`grassMicro`, a five-blade Micro module drawn only by the
+close lens), an imported clump for about a third of the grassed cells, poppies (`poppiesMicro`) only in a cell that
+has grass and is dense enough, six per hundred tufts. Winter grows frost tufts instead, half as many, no flowers;
+the coast's sand band grows grass at 0.4 and no flowers. The camp keeps to the trenches (tins, mess kits, spades,
+helmets, boots, hatch lids at the wall foot, crates, a lantern on a post one cell in 25, wall debris), the dugouts
+(a crate and a few tins inside every site footprint) and the rear bands behind each side's rear trench (crates one
+in 40 m2, shell stacks one in 200 m2, a lantern by each rear building). `Litter` now places only the grave markers,
+and `Gather` only stones among its small shapes.
+
+Caps: 12,000 tufts, 1,500 clumps, 700 poppies, 900 pieces of trench interior, 60 lanterns, taken in cell order so
+the same field is cut the same way. The placements are computed once a map and re-emitted every pass; a placement a
+shell hole has opened under is left out. Not yet: the per-instance tint (`_INSTTINT`), the lit lanterns sharing the
+scatter's posts (NightLights hangs its own), the wire-gap routing of the corridors, and the before/after captures
+at zoom 8 and 30 with the draw and vertex counts; an editor session does those.

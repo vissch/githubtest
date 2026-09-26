@@ -187,8 +187,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `PropWear.Home` first, or it forgets its damage.
 
 ### Battlefield props and composition
-- **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement), `Presentation/Terrain/BattlefieldKit.cs`
-  (modules, env atlas cells) + `Presentation/Terrain/BattlefieldKit.Keys.cs` (module keys and scale rules),
+- **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement: the steps, the sites, the map's props; one
+  class in six files), `Presentation/Terrain/BattlefieldComposer.Trench.cs` (the lining),
+  `Presentation/Terrain/BattlefieldComposer.Ground.cs` (debris, graves, gatherings, margins, the winter ground),
+  `Presentation/Terrain/BattlefieldComposer.Landmarks.cs` (landmarks, horizon),
+  `Presentation/Terrain/BattlefieldComposer.Buildings.cs` (village, rear), `Presentation/Terrain/BattlefieldComposer.Scatter.cs`
+  (the scatter step: builds the rules' input from the map and the layout, emits the placements),
+  `Presentation/Terrain/BattlefieldKit.cs` (modules, env atlas cells) + `Presentation/Terrain/BattlefieldKit.Keys.cs`
+  (module keys and scale rules),
   `Presentation/Terrain/BattlefieldProps.cs` (instanced pages, `Generation`, `Enforce`),
   `Presentation/Terrain/BattlefieldBlueprint.cs`, `Presentation/Terrain/PropLayout.cs` (`Style`) + `Resources/Layouts/`
   (owner's hand edits), `Editor/EnvPropEditor.cs`, `Editor/EnvKitImport.cs`.
@@ -196,12 +202,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   bounds), `Presentation/Terrain/AssetScaleReport.cs` (measures the composed field), `Editor/AssetScaleAudit.cs`
   (writes the report: menu TW/Audit/Asset Scale or `-executeMethod TW.Editor.AssetScaleAudit.Run`), `Tools/looks.py`
   (rescales the looks in the layout asset).
+- **Scatter (docs/21 phase 2):** `Presentation/Terrain/ScatterField.cs` (`ScatterInput`: cells, banks, what stands up,
+  footprints, ladders, roads, season, coast, rear bands; `ScatterField`: Traffic, Vertical, Patch, Wet, Open) and
+  `Presentation/Terrain/ScatterLayers.cs` (grass, accents, flowers, frost, the camp's kit in trenches, dugouts and the
+  rear; the caps). Design: `docs/13-environment-system-rebuild.md`, "Rule-based scatter".
 - **Hooks:** reads `DrawnWreck`.
-- **Tests:** EnvAtlasTests, AssetScaleTests.
+- **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests.
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
   gaps between placed structures. The scale clamp lives in `BattlefieldProps.Emit` and `Placement`, not in
   `Styled` (which returns early without a look, and hand edits never pass through it); a building is reported,
-  never clamped, because its chunks are placed by their own matrices.
+  never clamped, because its chunks are placed by their own matrices. A new public `Module` field on the kit needs a
+  row in `AssetScaleTable` (AssetScaleTests keys every field). The scatter's placements are computed once a map and
+  re-emitted every pass: put nothing in `ScatterLayers.Place` that reads the surface (a crater), that filter is the
+  emit loop's in `BattlefieldComposer.Scatter.cs`.
 
 ### Terrain view, weather, night, biomes
 - **Files:** `Presentation/Terrain/GreyboxTerrainView.cs` (ground mesh, adds most environment components),
@@ -339,6 +352,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
 | `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
 | `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |
+| `ScatterRulesTests` | EditMode | 7 | Kind, ScatterKind, ScatterInput, ScatterLayers, ScatterField, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
 | `ShellUxmlTests` | EditMode | 9 | MatchLaunch, DebriefScreen, ShellAssets, SimHost, ArmouryScreen, Difficulty |

@@ -39,6 +39,8 @@ namespace TW.Presentation.Terrain
         /// <summary>Winter ground micro-kit: what stands on the snow for the camera among the men and is not
         /// submitted at all at the standard view (BattlefieldProps culls a finite MaxDistance on CloseUp).</summary>
         public Module drift, iceShard, frostTuft, snowClod;
+        /// <summary>The scatter's own (docs/21 phase 2): live grass and poppies by the thousand (Micro: the close lens only), and a lantern on a post for the trenches and the rear.</summary>
+        public Module grassMicro, poppiesMicro, lantern;
         /// <summary>
         /// The imported sets (Resources/Env, split per prop by Tools/envsplit.py, prepared by EnvKitImport): metre scale,
         /// ground pivot, front +Z, one graded texture per set (Tools/envgrade.py). The landmarks stand sparingly (BattlefieldComposer
@@ -598,6 +600,34 @@ namespace TW.Presentation.Terrain
         {
             var dome = Blob(8, 5); var tin = Taper(0.07f, 0.07f, 0.10f, Vector2.zero, 0.1f);
             var steel = new Color(0.36f, 0.40f, 0.34f); var leather = new Color(0.17f, 0.14f, 0.115f); var rifleWood = new Color(0.31f, 0.23f, 0.16f);
+            // docs/21 phase 2: the live grass the scatter rules lay by the thousand. Five blades, under 90 vertices, no
+            // shadow, Micro reach: nothing of it is drawn at the standard view. Greener than the dead tuft beside it.
+            grassMicro = Micro(Make(Combine("Grass tuft",
+                (Taper(0.014f, 0.002f, 0.34f, new Vector2(0.05f, 0f), 1.2f), Vector3.zero, new Vector3(8f, 0f, 5f), Vector3.one),
+                (Taper(0.012f, 0.002f, 0.28f, new Vector2(-0.07f, 0.03f), 1.2f), new Vector3(0.06f, 0f, 0.03f), new Vector3(12f, 60f, -9f), Vector3.one),
+                (Taper(0.013f, 0.002f, 0.40f, new Vector2(0.02f, -0.08f), 1.2f), new Vector3(-0.05f, 0f, 0.04f), new Vector3(-8f, 130f, 10f), Vector3.one),
+                (Taper(0.012f, 0.002f, 0.25f, new Vector2(0.08f, 0.06f), 1.2f), new Vector3(0.01f, 0f, -0.06f), new Vector3(10f, 210f, -7f), Vector3.one),
+                (Taper(0.011f, 0.002f, 0.31f, new Vector2(-0.04f, -0.05f), 1.2f), new Vector3(-0.06f, 0f, -0.04f), new Vector3(-11f, 290f, 8f), Vector3.one)),
+                new Color(0.46f, 0.52f, 0.28f), false, 0.35f));
+            grassMicro.Material.SetFloat("_Sway", .5f);
+            // and the poppies among it: three stems with a head each, a child layer of the grass
+            poppiesMicro = Micro(Make(Combine("Poppies",
+                (Taper(0.008f, 0.004f, 0.38f, new Vector2(0.03f, 0f), 1f), Vector3.zero, new Vector3(6f, 0f, 4f), Vector3.one),
+                (dome, new Vector3(0.02f, 0.38f, 0f), Vector3.zero, new Vector3(0.09f, 0.05f, 0.09f)),
+                (Taper(0.008f, 0.004f, 0.30f, new Vector2(-0.04f, 0.02f), 1f), new Vector3(0.10f, 0f, 0.06f), new Vector3(10f, 80f, -6f), Vector3.one),
+                (dome, new Vector3(0.08f, 0.30f, 0.07f), Vector3.zero, new Vector3(0.08f, 0.045f, 0.08f)),
+                (Taper(0.008f, 0.004f, 0.34f, new Vector2(0.02f, -0.05f), 1f), new Vector3(-0.09f, 0f, -0.05f), new Vector3(-8f, 200f, 9f), Vector3.one),
+                (dome, new Vector3(-0.08f, 0.34f, -0.06f), Vector3.zero, new Vector3(0.085f, 0.05f, 0.085f))),
+                new Color(0.66f, 0.16f, 0.12f), false, 0.4f));
+            poppiesMicro.Material.SetFloat("_Sway", .4f);
+            // a lantern on a post, unlit: the camp's, in the trenches and by the rear buildings (NightLights hangs its own lit ones)
+            lantern = Small(Make(Combine("Trench lantern",
+                (cube, new Vector3(0f, 0.75f, 0f), Vector3.zero, new Vector3(0.05f, 1.5f, 0.05f)),      // the post
+                (cube, new Vector3(0f, 0.02f, 0f), Vector3.zero, new Vector3(0.22f, 0.04f, 0.22f)),     // its foot
+                (cube, new Vector3(0.14f, 1.44f, 0f), Vector3.zero, new Vector3(0.30f, 0.04f, 0.04f)),  // the arm
+                (cube, new Vector3(0.24f, 1.28f, 0f), Vector3.zero, new Vector3(0.14f, 0.22f, 0.14f)),  // the lamp
+                (cube, new Vector3(0.24f, 1.41f, 0f), Vector3.zero, new Vector3(0.18f, 0.03f, 0.18f))), // its cap
+                new Color(0.22f, 0.20f, 0.17f), false, 0.8f));
             // W3 and the ground micro-kit. A drift is two shallow wedges set a few degrees apart, so the crest
             // wanders instead of being a ruled line, with a thin lip along the windward side where the pack has
             // been cut back. Under 60 vertices and no shadow.
