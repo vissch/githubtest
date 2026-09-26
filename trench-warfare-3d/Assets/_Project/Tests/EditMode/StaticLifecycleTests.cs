@@ -29,7 +29,7 @@ namespace TW.Tests
             ["BattleHud"] = "legacy IMGUI HUD layout (MinimapRect, a warning latch); retired in the audit backlog",
             ["BattlefieldProps"] = "EditorCamera: the prop editor's camera, set and cleared by EnvPropEditor",
             ["BootstrapLoader"] = "Override: which scene Bootstrap loads, set by tools before they load it",
-            ["DebrisRenderer"] = "Gore is a setting; Biome and LavaLevel are set by each biome; Instance is the live renderer",
+            ["DebrisRenderer"] = "Gore is a setting and ZoomShare the camera's share of every burst, set by CombatFx each frame; Biome and LavaLevel are set by each biome; Instance is the live renderer",
             ["EventPump"] = "ProfileSubscribers: a profiling switch",
             ["Flamethrower"] = "Active: the live instance, replaced when the next CombatFx starts",
             ["FrameBudget"] = "frame-stamped counters that roll over by themselves",

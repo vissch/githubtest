@@ -46,7 +46,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Presentation.Audio` | `Presentation/Audio/` | `TW.Presentation.Audio` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
 | `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net | 17 |
 | `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data | 22 |
-| `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core | 36 |
+| `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core | 37 |
 | `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 5 |
 | `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
 | `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav | 15 |
@@ -55,11 +55,11 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Sim.Nav` | `Sim/Nav/` | `TW.Sim.Nav` | Sim.Core, Sim.Terrain | 6 |
 | `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core | 10 |
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat | 7 |
-| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, UI, Data, Editor, Perf | 62 |
+| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, UI, Data, Editor, Perf | 63 |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 38 |
 
-19 assemblies, 286 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+19 assemblies, 288 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -74,11 +74,11 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Editor/UI/` | Editor tools for the UI skin: placeholder painter, importer, verifier, HUD capture. | 6 |
 | `Net/` | Lockstep driver, loopback transport, command seat; UTP/hash exchange/snapshot are stubs (SIM lane). | 8 |
 | `Perf/` | PerfBench (editor + player benchmark), AllocProbe, bench options. | 3 |
-| `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). | 82 |
+| `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). | 83 |
 | `Presentation/Audio/` | Stub: event audio router (B7). No audio assets exist yet. | 1 |
 | `Presentation/Camera/` | NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical. | 17 |
 | `Presentation/Core/` | SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, MatchClock, KeyMap, settings, HudBridge. | 22 |
-| `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. | 36 |
+| `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. | 37 |
 | `Presentation/Units/` | VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback. | 5 |
 | `Presentation/VFX/` | Stub assembly (B5 router). Real effects live in Presentation/Camera. | 1 |
 | `Resources/` | Everything loaded by name at runtime (Resources.Load). Moving a file here breaks a string somewhere. |  |
@@ -98,8 +98,8 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Sim/Nav/` | Flow fields, movement, separation, spatial hash, vehicle kinematics (VehicleSize lives here). | 6 |
 | `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. | 10 |
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. | 7 |
-| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 68 |
-| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 62 |
+| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 69 |
+| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 63 |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. | 6 |
 | `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. | 38 |
 | `UI/Missions/` | Mission card assets for the mission select. |  |

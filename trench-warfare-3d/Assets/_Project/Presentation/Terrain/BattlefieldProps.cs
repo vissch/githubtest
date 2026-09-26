@@ -17,6 +17,9 @@ namespace TW.Presentation.Terrain
         /// <summary>Asked for every instance composed: true keeps it out (PropDestruction: what a shell has knocked down stays
         /// down through every recomposition). Keyed by module and placement, never by page and slot, which change.</summary>
         public System.Func<BattlefieldKit.Module, Matrix4x4, bool> Suppress;
+        /// <summary>Asked for every instance composed, after Suppress: another module to draw at the same matrix instead
+        /// (PropDestruction puts a damaged lining panel's broken twin where the panel stood), or null for the module itself.</summary>
+        public System.Func<BattlefieldKit.Module, Matrix4x4, BattlefieldKit.Module> Replace;
         /// <summary>For a masked module (a house), the chunks of the instance at this matrix to hide, a bit each
         /// (PropDestruction: the chunks it has knocked down). Asked for every visible instance as it is submitted.</summary>
         public System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask> MaskOf;
@@ -208,6 +211,12 @@ namespace TW.Presentation.Terrain
         {
             if (module != null && batches.TryGetValue(module, out var b) && page < b.Counts.Count && slot < b.Counts[page]) b.Hide(page, slot);
         }
+        /// <summary>Adds one drawn instance now, outside a composition (PropDestruction puts a damaged twin where a lining
+        /// panel stood). The next composition places it again through Replace, so nothing has to be undone.</summary>
+        public void AddInstance(BattlefieldKit.Module module, Matrix4x4 m)
+        {
+            if (module != null) BatchOf(module).Add(m, out _);
+        }
         public bool TryGetPlaced(string key, out Placed prop)
         {
             if (placedByKey.TryGetValue(key, out int i)) { prop = placed[i]; return true; }
@@ -333,6 +342,7 @@ namespace TW.Presentation.Terrain
         void Emit(BattlefieldKit.Module module, Matrix4x4 matrix)
         {
             if (Suppress != null && Suppress(module, matrix)) return;
+            if (Replace != null) { var other = Replace(module, matrix); if (other != null) module = other; }
             if (module.Name == null) { BatchOf(module).Add(Enforce(module, matrix), out _); return; }
             // an imported prop: found by kind and spot, so a hand edit (PropLayout) finds it again after every crater
             string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition());

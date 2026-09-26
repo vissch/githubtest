@@ -165,3 +165,9 @@ The arithmetic kills it: minimising `D² + AnchorPull·(A−D)²` walks a man tw
 which on a 300 m trench is 200 m of marching. The garrison was still crossing the map when the shooting started,
 and two existing tests caught it (`AManAtTheParapetMansTheFireStep`, `Garrison_SpreadsAlongItsTrench`). Spacing is
 a local problem; the cure has to be local. Recorded in the comment on `Roomiest` so nobody re-tries it.
+
+## Trench sections: intact -> damaged -> gone (2026-09-26)
+
+The dressing of every edge (TrenchKit: a revetment, a parapet course, duckboards) is now a section that breaks in
+two steps and has a broken twin drawn in its place: `docs/16-destruction.md`, "The lining breaks in two steps". The
+trench itself still never caves in (owner's rule): only its lining goes.

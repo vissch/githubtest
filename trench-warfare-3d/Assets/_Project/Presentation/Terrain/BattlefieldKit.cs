@@ -63,6 +63,8 @@ namespace TW.Presentation.Terrain
         /// as densely, and because below about 20 cm a thing is a speck rather than a shape past 30 m.</summary>
         public const float MicroReach = 30f;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
+        /// <summary>The same three kinds broken (docs/21 phase 3): drawn at the intact piece's matrix once its section is damaged (PropDestruction).</summary>
+        public readonly Module[] TrenchWallsDamaged = new Module[3], TrenchBagsDamaged = new Module[3], TrenchFloorsDamaged = new Module[3];
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
@@ -474,6 +476,15 @@ namespace TW.Presentation.Terrain
                 if (variant == 2) parts.Add((cube, new Vector3(.28f, .90f, -.13f), new Vector3(0f, 0f, -24f), new Vector3(.15f, 1.6f, .16f)));
                 TrenchWalls[variant] = Make(Combine("Weathered revetment " + variant, parts.ToArray()), timber * (variant == 2 ? .9f : 1f), false, 1.6f);
                 Paint(TrenchWalls[variant], BattlefieldPigment.Surface.Timber);
+                // the same wall broken (docs/21 phase 3, TrenchSectionRules): the lower row whole, the upper row shorter and
+                // tilted back, the post splintered short, one splinter left standing. The same 2 m footprint, lower.
+                parts.Clear();
+                parts.Add((cube, new Vector3((Rand(0, variant + 302) - .5f) * .10f, .30f, 0f), new Vector3(0f, 0f, (Rand(0, variant + 303) - .5f) * 4f), new Vector3(2.14f, .46f + Rand(0, variant + 304) * .07f, .10f)));
+                parts.Add((worn, new Vector3((Rand(1, variant + 302) - .5f) * .10f + .12f, .82f, .06f), new Vector3(-12f, 0f, 3f + (Rand(1, variant + 303) - .5f) * 6f), new Vector3(1.7f, .44f, .10f)));
+                parts.Add((cube, new Vector3(-.91f, .55f, -.10f), new Vector3(0f, 0f, variant == 1 ? 9f : -6f), new Vector3(.18f, 1.1f, .20f)));
+                parts.Add((cube, new Vector3(.62f, .95f, -.04f), new Vector3(0f, 0f, -38f), new Vector3(.12f, .55f, .12f)));
+                TrenchWallsDamaged[variant] = Make(Combine("Broken revetment " + variant, parts.ToArray()), timber * .85f, false, 1.6f);
+                Paint(TrenchWallsDamaged[variant], BattlefieldPigment.Surface.Timber);
                 parts.Clear();
                 for (int bag = 0; bag < 2; bag++)
                     parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .15f, (Rand(bag, variant + 315) - .5f) * .10f),
@@ -482,6 +493,14 @@ namespace TW.Presentation.Terrain
                 if (variant == 0) parts.Add((sackMesh, new Vector3(1.0f, .43f, -.05f), new Vector3(0f, 7f, -3f), new Vector3(.95f, .35f, .63f)));
                 TrenchBags[variant] = Make(Combine("Settled parapet " + variant, parts.ToArray()), sack);
                 Paint(TrenchBags[variant], BattlefieldPigment.Surface.Sacking);
+                // the same course burst: the lower sacks only, sagged and turned, one rolled outward off the lip
+                parts.Clear();
+                for (int bag = 0; bag < 2; bag++)
+                    parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .15f, (Rand(bag, variant + 315) - .5f) * .10f),
+                        new Vector3((Rand(bag, variant + 318) - .5f) * 10f, (Rand(bag, variant + 316) - .5f) * 28f, (Rand(bag, variant + 317) - .5f) * 14f), new Vector3(1.06f, .33f, .73f)));
+                parts.Add((sackMesh, new Vector3(.35f, .10f, .52f), new Vector3(0f, 40f, 12f), new Vector3(.95f, .30f, .60f)));
+                TrenchBagsDamaged[variant] = Make(Combine("Burst parapet " + variant, parts.ToArray()), sack);
+                Paint(TrenchBagsDamaged[variant], BattlefieldPigment.Surface.Sacking);
                 parts.Clear();
                 for (int board = 0; board < 5; board++)
                     parts.Add((cube, new Vector3((board - 2) * .39f, .08f + Rand(board, variant + 321) * .025f, (Rand(board, variant + 322) - .5f) * .14f),
@@ -489,6 +508,15 @@ namespace TW.Presentation.Terrain
                 for (int rail = -1; rail <= 1; rail += 2) parts.Add((cube, new Vector3(0f, .025f, rail * .55f), Vector3.zero, new Vector3(2f, .10f, .14f)));
                 TrenchFloors[variant] = Make(Combine("Uneven duckboards " + variant, parts.ToArray()), timber, false, .8f);
                 Paint(TrenchFloors[variant], BattlefieldPigment.Surface.Timber);
+                // the same boards broken: three of the five left, one of them snapped short and turned, on the same rails
+                parts.Clear();
+                foreach (int board in new[] { 0, 2, 4 })
+                    parts.Add((cube, new Vector3((board - 2) * .39f, .08f + Rand(board, variant + 321) * .025f, (Rand(board, variant + 322) - .5f) * .14f),
+                        new Vector3(0f, (Rand(board, variant + 323) - .5f) * 7f, 0f), new Vector3(.32f + Rand(board, variant + 324) * .045f, .10f, 1.43f + Rand(board, variant + 325) * .30f)));
+                parts.Add((cube, new Vector3(-.39f, .09f, -.42f), new Vector3(0f, 22f + (Rand(1, variant + 323) - .5f) * 7f, 0f), new Vector3(.32f, .10f, .62f)));
+                for (int rail = -1; rail <= 1; rail += 2) parts.Add((cube, new Vector3(0f, .025f, rail * .55f), Vector3.zero, new Vector3(2f, .10f, .14f)));
+                TrenchFloorsDamaged[variant] = Make(Combine("Broken duckboards " + variant, parts.ToArray()), timber, false, .8f);
+                Paint(TrenchFloorsDamaged[variant], BattlefieldPigment.Surface.Timber);
             }
         }
 

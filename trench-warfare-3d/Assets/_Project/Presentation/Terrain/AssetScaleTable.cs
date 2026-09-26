@@ -105,6 +105,9 @@ namespace TW.Presentation.Terrain
             S("kit/sandbags", ScaleAxis.Height, 0.25f, 0.45f, "the procedural parapet sack");
             S("kit/TrenchBags", ScaleAxis.Height, 0.25f, 0.45f, "a parapet course");
             B("kit/TrenchWalls", ScaleAxis.Height, 0.50f, 1.40f, "a revetment: waist to head high");
+            B("kit/TrenchWallsDamaged", ScaleAxis.Height, 0.25f, 1.40f, "a broken revetment, drawn at its whole twin's matrix", enforce: false);
+            S("kit/TrenchBagsDamaged", ScaleAxis.Height, 0.08f, 0.45f, "a burst course: the lower sacks");
+            S("kit/TrenchFloorsDamaged", ScaleAxis.Length, 0.90f, 1.10f, "broken duckboards on their rails");
             B("kit/planks", ScaleAxis.Height, 0.50f, 1.40f, "never placed");
             S("kit/TrenchFloors", ScaleAxis.Length, 0.90f, 1.10f, "duckboards for a 2 m cell");
             S("kit/duckboards", ScaleAxis.Length, 0.90f, 1.10f);

@@ -179,13 +179,17 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the PNG together, and check `books.Ready`.
 
 ### Debris and destruction of props and houses
-- **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers),
-  `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
-  `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`). Design: `docs/16-destruction.md`.
+- **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
+  `ZoomShare`), `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
+  `Presentation/Terrain/TrenchSection.cs` (`TrenchSectionRules`: a lining section intact -> damaged -> gone, heavy
+  ordnance, the pieces' life), `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`).
+  Design: `docs/16-destruction.md` ("The lining breaks in two steps").
 - **Hooks:** `PropDestruction` calls `CookOff`.
-- **Tests:** DebrisTests, PropWearTests, HouseKitTests.
+- **Tests:** DebrisTests, PropWearTests, HouseKitTests, TrenchSectionTests.
 - **Trap:** a prop is identified by its position rounded to 0.25 m. Convert a drawn instance to a key through
-  `PropWear.Home` first, or it forgets its damage.
+  `PropWear.Home` first, or it forgets its damage. A lining panel and its broken twin share the panel's key
+  (`KeyOf`): key a twin by itself and it becomes a second, undamaged thing. The twin is put where the panel stood by
+  `BattlefieldProps.AddInstance` and kept there by `Replace`; the composer keeps emitting the whole panel.
 
 ### Battlefield props and composition
 - **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement: the steps, the sites, the map's props; one
@@ -362,12 +366,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `SinglePlayerEquivalenceTests` | EditMode | 1 | LockstepSession, MatchSim, ScriptedEnemy, SimCommand, SimConfig |
 | `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |
 | `SmokeScreenTests` | EditMode | 5 | SmokeLos, OffMapAbilityId, OffMapAbilitySystem, SimEventType, SimCommand, CombatTables |
-| `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, Pending, AudioLevels |
+| `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, CombatFx, Pending |
 | `StrafeRunTests` | EditMode | 5 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
 | `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
 | `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
+| `TrenchSectionTests` | EditMode | 5 | SectionState, TrenchSectionRules, BattlefieldKit, Module, DebrisMath |
 | `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, MapData, BattlefieldGenerator, SeparationJob |
 | `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
 | `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |

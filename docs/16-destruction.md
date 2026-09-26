@@ -732,3 +732,28 @@ would have meant a new parameter in a file that is not mine this week.
 Gate: **EditMode 338/338, PlayMode 15/15**, both run in batch mode with the editor closed — including the
 three-thousand-unit lockstep stress run and the two-peer sync under latency, jitter and loss, which is what says the
 ground, the new blast chain and the leaning picture are still deterministic.
+
+## The lining breaks in two steps (2026-09-26, docs/21 phase 3)
+
+A section of the trench lining is one instanced 2 m piece: a revetment panel, a parapet course, a length of
+duckboards (TrenchKit emits at most one of each per trench edge). It goes intact -> damaged -> gone
+(`Presentation/Terrain/TrenchSection.cs`, pure): damaged at half its strength, gone at nothing; heavy ordnance (a
+burst of 6 m or more, or the AP round's harm) inside the inner half of its reach shatters it outright, whatever its
+state. Smaller hits and `PropWear` wear it down through the same two steps (the machine gun's six seconds on a
+revetment pass damaged at three).
+
+Every lining kind has a broken twin on the same footprint (`BattlefieldKit.TrenchWallsDamaged`, `TrenchBagsDamaged`,
+`TrenchFloorsDamaged`: the lower row whole and the upper tilted with the post splintered; the lower sacks sagged
+with one rolled off the lip; three of five boards, one snapped). When a section is damaged, `PropDestruction` hides
+the panel, adds the twin at the same matrix (`BattlefieldProps.AddInstance`) and throws what the section lost (a few
+shards and a board, a couple of sacks, the earth behind, a third of the dust; `Break`, at most
+`MaxSectionPiecesPerStrike` pieces a strike); the whole panel and the twin share one key, one hp and one memory
+(`KeyOf`: a twin's rule names its whole panel), so a later hit on the twin finishes the same section and `Suppress`
+keeps both out. Recomposition keeps emitting the whole panel; `BattlefieldProps.Replace` answers with the twin for a
+damaged key, so the broken lining survives every crater's rebuild. The lining's pieces lie `LiningLife` 12 s and sink
+in `DebrisMath.SinkSeconds` 3: a bay is clear of its fragments fifteen seconds after the shell.
+
+`DebrisRenderer.ZoomShare` (set by `CombatFx` each frame: 1 among the men, 0.6 at the standard view, 0.3 beyond
+zoom 60) scales every burst's count, so a barrage seen from far out throws pixels, not thousands of pieces. Not yet:
+`FrameBudget` coverage of the props' draws, and the three-minute-barrage bench with the before/after counts (an
+editor session).

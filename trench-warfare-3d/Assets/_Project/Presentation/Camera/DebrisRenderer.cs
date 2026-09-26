@@ -151,6 +151,9 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         /// <summary>0 turns the dark lumps and the limbs off (a player setting), 1 as designed.</summary>
         public static float Gore = 1f;
+        /// <summary>How much of every burst is thrown at the current zoom (docs/21 phase 3): all of it up close, 0.6 at the
+        /// standard view, 0.3 beyond zoom 60, where a fragment is a pixel. CombatFx sets it each frame.</summary>
+        public static float ZoomShare = 1f;
         /// <summary>
         /// The battlefield's say over every piece: rgb multiplies each piece's own tint (white = as thrown; grey-white
         /// for rock under snow, near-black for basalt), a is a floor under the ember glow (0 = only burning pieces
@@ -248,6 +251,7 @@ namespace TW.Presentation.Tactical
         /// </summary>
         public void Burst(Piece piece, Vector3 at, int count, float speed, float scale, Color tint, float life = 20f, float burn = 0f, float up = 1.6f, Vector3 lean = default, uint salt = 0)
         {
+            if (ZoomShare < 0.999f) count = Mathf.Max(1, Mathf.RoundToInt(count * Mathf.Clamp01(ZoomShare)));
             if (!Ready || count <= 0) return;
             count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at)));
             var rng = new DebrisRng(at, salt + (uint)piece * 17u);

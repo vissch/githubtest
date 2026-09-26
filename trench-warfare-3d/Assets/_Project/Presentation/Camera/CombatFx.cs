@@ -656,6 +656,11 @@ namespace TW.Presentation.Tactical
             var size = Host.Local.Map.SizeMeters;
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
 
+            // how much of every debris burst is worth throwing at this zoom (docs/21 phase 3): all of it among the men,
+            // less at the standard view, little from far out
+            var mainCam = Camera.main;
+            float zoomNow = mainCam != null && mainCam.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
+            DebrisRenderer.ZoomShare = SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f;
             // tracers
             float now = Time.time;
             Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);

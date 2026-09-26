@@ -223,7 +223,7 @@ namespace TW.Presentation.Terrain
             {
                 var it = list[(here.Cursor + n) % list.Count];
                 if (!rules.TryGetValue(it.Module, out var rule) || rule.Erode <= 0f) continue;
-                long key = Key(it.Module, it.M);
+                long key = KeyOf(it.Module, rule, it.M);
                 if (destroyed.Contains(key)) continue;
                 uint s = salt + (uint)(n * 13);
                 // where the fire is coming from, so chips come off the right face and a thing is knocked the right way
@@ -235,15 +235,38 @@ namespace TW.Presentation.Terrain
 
                 float harm = rounds * WearPerRound * rule.Erode;
                 float hp = damage.TryGetValue(key, out float rest) ? rest : rule.Hp;
-                hp -= harm;
-                if (hp <= 0f)
+                if (rule.Damaged != null || rule.Intact != null)
                 {
-                    Unjolt(it);
-                    Finish(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, debris, s, false);
-                    Worn++;
-                    continue;
+                    // a section of the lining under fire: the same two steps a shell takes it through, never at once
+                    var was = damaged.Contains(key) ? SectionState.Damaged : SectionState.Intact;
+                    var state = TrenchSectionRules.Apply(ref hp, rule.Hp, harm, false, was);
+                    if (state == SectionState.Gone)
+                    {
+                        Unjolt(it);
+                        Finish(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, debris, s, false);
+                        Worn++;
+                        continue;
+                    }
+                    if (state == SectionState.Damaged && was == SectionState.Intact)
+                    {
+                        sectionPieces = 0;
+                        Section(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, hp, was, state, debris, s, false);
+                        continue;
+                    }
+                    damage[key] = hp;
                 }
-                damage[key] = hp;
+                else
+                {
+                    hp -= harm;
+                    if (hp <= 0f)
+                    {
+                        Unjolt(it);
+                        Finish(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, debris, s, false);
+                        Worn++;
+                        continue;
+                    }
+                    damage[key] = hp;
+                }
                 if (!piece) continue;
                 given++;
                 sinceDust.TryGetValue(key, out float since); since += harm;
