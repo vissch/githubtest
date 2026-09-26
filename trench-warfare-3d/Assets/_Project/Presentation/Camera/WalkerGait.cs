@@ -293,7 +293,8 @@ namespace TW.Presentation.Tactical
                     var rig = rigs[i];
                     float drift = Drift(rig, body, pos, i);
                     float span = MaxSpan(rig);
-                    float now = Vector3.Distance(Feet[i].Anchor, HipAt(rig, pos, yaw));
+                    Vector3 hipNow = HipAt(rig, pos, yaw);
+                    float now = Vector3.Distance(Feet[i].Anchor, hipNow);
                     float stretched = span > 1e-4f ? now / span : 0f;
                     // A leg must leave the ground before it runs out, not once it has. It is off the ground for a
                     // whole swing, and the body keeps walking the entire time — Kettle at 2.6 m/s travels 0.39 m
@@ -302,11 +303,28 @@ namespace TW.Presentation.Tactical
                     // put down, and that is the distance it has plus the ground the body will cover meanwhile.
                     // with a little in hand, because the swing itself is not the only delay: the leg may also be
                     // held a frame or two waiting for a neighbour to come down
-                    bool runningOut = now + pace * swingTime >= span * (StepSafety - 0.05f);
+                    // ...and that distance is NOT this one plus the ground covered: the two are not collinear.
+                    // `now` is mostly the vertical drop (0.866 of the span at stance against 0.218 of flat offset),
+                    // so scalar-adding a planar advance over-predicts by about 0.124 of the span at 2 m/s — enough
+                    // that this was permanently true above 0.16 m/s, which made both gates below unreachable and
+                    // left TriggerShare, ExtendAt, DesperateShare, Frantic and the Beside tripod as dead code.
+                    // Advance the hip and measure, so the prediction knows which way the foot lies: a leg that has
+                    // just landed AHEAD of the hip no longer claims to be running out, while one genuinely trailing
+                    // still steps at once.
+                    // The advance is PLANAR, matching `pace` (which is the xz magnitude of `vel`): a machine dropping
+                    // or climbing must not have that counted as ground covered.
+                    Vector3 advance = new Vector3(vel.x, 0f, vel.z) * swingTime;
+                    bool runningOut = (Feet[i].Anchor - (hipNow + advance)).magnitude
+                                      >= span * (StepSafety - 0.05f);
                     if (drift < span * TriggerShare && stretched < ExtendAt && !runningOut) continue;
                     // a leg that has waited too long, or is nearly out of length, goes now whatever its neighbours
                     // are doing: being held back by one neighbour after another is what let the body sink
-                    if (drift < span * DesperateShare && stretched < Frantic && !runningOut && Beside(i)) continue;
+                    //
+                    // `runningOut` is NOT one of those reasons. It is a reach-safety prediction and it was letting a
+                    // leg override the support-topology rule below: with it here, Pincer lifted two ADJACENT legs on
+                    // one side on 54.9% of frames, because `runningOut` held on 97% of its ticks and simply bypassed
+                    // `Beside`. A leg that is genuinely out of length still goes, via `stretched >= Frantic`.
+                    if (drift < span * DesperateShare && stretched < Frantic && Beside(i)) continue;
 
                     Vector3 home = Home(rig, body, pos, i);
                     // lead the step: out to where this foot will want to be by the time it lands, including the
@@ -448,9 +466,15 @@ namespace TW.Presentation.Tactical
             float arc = reach * (rigid ? ArcShare * 0.55f : ArcShare);
             float basis = Mathf.Min(from.y, to.y);
             float high = Mathf.Max(from.y, to.y);
-            for (int k = 1; k <= 3; k++)
+            // Sample every quarter metre, not at three fixed fractions. The ground function is a 0.5 m lattice and
+            // a step is up to a machine's whole span, so three samples left gaps of 0.75-0.90 m — wide enough for a
+            // parapet crest or a crater's ejecta ring to fall entirely between two of them, whereupon the arc is
+            // never raised and the foot swings through it. A quarter metre is half the lattice, so nothing the
+            // ground can represent is stepped over. This runs once per step (see the call at Step), not per tick.
+            int steps = Mathf.Clamp(Mathf.CeilToInt(Vector3.Distance(from, to) / 0.25f), 4, 24);
+            for (int k = 1; k < steps; k++)
             {
-                float t = k * 0.25f;
+                float t = (float)k / steps;
                 Vector3 at = Vector3.Lerp(from, to, t);
                 high = Mathf.Max(high, ground(at.x, at.z));
             }
@@ -465,26 +489,46 @@ namespace TW.Presentation.Tactical
                    System.Func<float, float, float> ground, float yawRate, float pace)
         {
             Vector3 fwd = body * Vector3.forward, right = body * Vector3.right;
-            float sumY = 0f, sumF = 0f, sumR = 0f; int n = 0;
+            // Only the HEIGHT is taken from the planted feet. The tilt is fitted separately, and over a wider set of
+            // points, further down.
+            float sumY = 0f; int n = 0;
             for (int i = 0; i < rigs.Length; i++)
             {
                 if (rigs[i] == null || Feet[i].Lost || Feet[i].Swing >= 0f) continue;
-                Vector3 d = Feet[i].Anchor - pos;
-                sumY += Feet[i].Anchor.y; sumF += Vector3.Dot(d, fwd); sumR += Vector3.Dot(d, right); n++;
+                sumY += Feet[i].Anchor.y; n++;
             }
             if (n == 0) return;
-            float meanY = sumY / n, meanF = sumF / n, meanR = sumR / n;
+            float meanY = sumY / n;
+
+            // The TILT is fitted through more points than the ride height is. A planted foot is ground the machine
+            // stands on; a swinging foot's TARGET is ground it is about to stand on, already chosen and already on
+            // the surface. Without the targets a four-legged walker, which keeps exactly two feet down, never had
+            // three points and so never fitted a plane at all: Censer, Kettle, Pavise, Banner and Redoubt all held
+            // 0.00 degrees on a 6.84 degree grade against Pincer's exact 6.84.
+            //
+            // Targets feed the TILT ONLY. `meanY` above also sets the ride height, and a target lies ahead of the
+            // body — uphill on a climb — so folding them into that would lift the hull as well as turn it.
+            float tf = 0f, tr = 0f, ty = 0f; int tn = 0;
+            for (int i = 0; i < rigs.Length; i++)
+            {
+                if (rigs[i] == null || Feet[i].Lost) continue;
+                Vector3 at = Feet[i].Swing >= 0f ? Feet[i].Target : Feet[i].Anchor;
+                Vector3 d = at - pos;
+                tf += Vector3.Dot(d, fwd); tr += Vector3.Dot(d, right); ty += at.y; tn++;
+            }
+            float tMeanF = tn > 0 ? tf / tn : 0f, tMeanR = tn > 0 ? tr / tn : 0f, tMeanY = tn > 0 ? ty / tn : 0f;
 
             float sff = 0f, srr = 0f, sfr = 0f, sfy = 0f, sry = 0f;
             for (int i = 0; i < rigs.Length; i++)
             {
-                if (rigs[i] == null || Feet[i].Lost || Feet[i].Swing >= 0f) continue;
-                Vector3 d = Feet[i].Anchor - pos;
-                float f = Vector3.Dot(d, fwd) - meanF, r = Vector3.Dot(d, right) - meanR, y = Feet[i].Anchor.y - meanY;
+                if (rigs[i] == null || Feet[i].Lost) continue;
+                Vector3 at = Feet[i].Swing >= 0f ? Feet[i].Target : Feet[i].Anchor;
+                Vector3 d = at - pos;
+                float f = Vector3.Dot(d, fwd) - tMeanF, r = Vector3.Dot(d, right) - tMeanR, y = at.y - tMeanY;
                 sff += f * f; srr += r * r; sfr += f * r; sfy += f * y; sry += r * y;
             }
             float det = sff * srr - sfr * sfr;
-            if (n >= 3 && Mathf.Abs(det) > 1e-4f)
+            if (tn >= 3 && Mathf.Abs(det) > 1e-4f)
             {
                 float a = (sfy * srr - sry * sfr) / det;    // d(height) / d(forward)
                 float b = (sry * sff - sfy * sfr) / det;    // d(height) / d(right)
@@ -530,8 +574,27 @@ namespace TW.Presentation.Tactical
             // a quarter above the body's middle swings a good part of a foot when the machine leans, and reaches
             // worked out against hips placed by yaw alone are wrong by exactly that much.
             float k2 = 1f - Mathf.Exp(-dt * 9f);
-            Pitch = Mathf.Lerp(Pitch, Mathf.Clamp(wantPitch, -0.42f, 0.42f), k2);
-            Roll = Mathf.Lerp(Roll, Mathf.Clamp(wantRoll, -0.38f, 0.38f), k2);
+            // ...and no further than the legs can follow it. A pitch of theta swings a hip |Hip.z| metres from the
+            // body's middle through roughly |Hip.z| * theta, and a leg has only the slack between where it stands and
+            // its reach cap — about 7.7% of its span, the same on every machine. Banner's rear hips sit 2.56 m behind
+            // a 2.352 m leg, the worst lever on the field by a factor of two, so it can afford about 4 degrees where
+            // Pincer affords 11. Letting it attempt the whole ground angle is what put 9.74% of its legs outside the
+            // stretch band when the fit above was first tried on its own.
+            float capP = 0.42f, capR = 0.38f, standNow = Stand(rigs);
+            for (int i = 0; i < rigs.Length; i++)
+            {
+                var cr = rigs[i];
+                if (cr == null || Feet[i].Lost) continue;
+                float cspan = MaxSpan(cr);
+                if (cspan <= 1e-4f) continue;
+                float cdrop = standNow + cr.Hip.y, chf = i < homeFlat.Length ? homeFlat[i] : 0f;
+                float slack = cspan * StepSafety - Mathf.Sqrt(chf * chf + cdrop * cdrop);
+                if (slack <= 0f) continue;                     // already at its limit: the clamps below still hold
+                capP = Mathf.Min(capP, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Hip.z)));
+                capR = Mathf.Min(capR, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Hip.x)));
+            }
+            Pitch = Mathf.Lerp(Pitch, Mathf.Clamp(wantPitch, -capP, capP), k2);
+            Roll = Mathf.Lerp(Roll, Mathf.Clamp(wantRoll, -capR, capR), k2);
 
             float height = meanY + Stand(rigs);
             // and now the two bounds against the feet as they actually lie, with the hips where the lean has
