@@ -328,9 +328,11 @@ namespace TW.Sim.Units
                     continue;
                 }
                 checksum = SimHash.Value(new int3(i, k, direct ? 1 : 0), checksum);
-                if (direct && im.Shape == (int)BlastShape.Mine)
+                if (im.Shape == (int)BlastShape.Mine && (direct || prof.Covers(w.Yaw[i], w.Position[i], im.Pos)))
                 {
-                    // a mine goes off under the tracks, not on the top plate (docs/21 SIM-D): the nearer track takes it
+                    // a mine goes off under the tracks, not on the top plate (docs/21 SIM-D): the nearer track takes it.
+                    // "Under" is the footprint the trigger used (VehicleProfile.Covers): a mine 4 m under a long hull's
+                    // bow is outside the disc `direct` draws and is still under the hull
                     bool rightTrack = SimMath.Sin(w.Yaw[i]) * -d.z + SimMath.Cos(w.Yaw[i]) * d.x < 0f;
                     float dmg = im.Damage * MineHullShare;
                     w.Hp[i] = w.Hp[i] - dmg;

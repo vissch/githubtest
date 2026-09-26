@@ -226,8 +226,9 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> Team, Archetype;
             public NativeList<int> Triggered;   // (mine, victim) pairs
 
-            /// <summary>Wider than any hull's half width (VehicleProfile), so a box test can throw a slot out before the arithmetic.</summary>
-            const float WidestHull = 5f;
+            /// <summary>Past any hull's corner (VehicleProfile.Reach: a Pincer's is 6.4 m) and a tripwire's reach beyond it,
+            /// so the box test throws a slot out only when no test after it could hit.</summary>
+            const float WidestHull = 7f;
 
             public void Execute()
             {
@@ -250,13 +251,10 @@ namespace TW.Sim.Combat
                         bool hit;
                         if (vehicle && !trip)
                         {
-                            // the hull's rectangle in its own yaw (forward = (sin, 0, cos)), not a disc round its centre:
-                            // a mine under the bow goes off before the hull has driven over it, one beside the hull never does
-                            var prof = VehicleProfile.ForArchetype(Archetype[i]);
-                            float3 q = mine.Pos - p; q.y = 0f;
-                            float s = SimMath.Sin(Yaw[i]), c = SimMath.Cos(Yaw[i]);
-                            float lx = q.x * c - q.z * s, lz = q.x * s + q.z * c;
-                            hit = math.abs(lx) <= prof.HalfWidth && math.abs(lz) <= prof.HalfLength;
+                            // the hull's footprint in its own yaw, not a disc round its centre: a mine under the bow goes off
+                            // before the hull has driven over it, one beside the hull never does (VehicleProfile.Covers, the
+                            // same test VehicleModules asks when the burst reaches the hull)
+                            hit = VehicleProfile.ForArchetype(Archetype[i]).Covers(Yaw[i], p, mine.Pos);
                         }
                         else if (trip)
                         {

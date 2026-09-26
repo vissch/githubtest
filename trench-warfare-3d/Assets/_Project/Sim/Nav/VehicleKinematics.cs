@@ -58,6 +58,20 @@ namespace TW.Sim.Nav
         public bool Walker;            // legs, not tracks: steps over trenches and wire, climbs, cannot ditch
         public byte Legs;              // how many it has to lose (VehicleModulesSystem)
 
+        /// <summary>Is a world point under this hull's footprint: the rectangle HalfLength x HalfWidth in the hull's yaw
+        /// (forward = (sin yaw, 0, cos yaw)). The one test for "under the hull": MineSystem's trigger and a mine's burst on
+        /// the hull (VehicleModulesSystem) agree because both ask this.</summary>
+        public bool Covers(float yaw, float3 centre, float3 point)
+        {
+            float3 q = point - centre;
+            float s = SimMath.Sin(yaw), c = SimMath.Cos(yaw);
+            float lx = q.x * c - q.z * s, lz = q.x * s + q.z * c;
+            return math.abs(lx) <= HalfWidth && math.abs(lz) <= HalfLength;
+        }
+
+        /// <summary>The farthest the footprint reaches from the centre: a corner.</summary>
+        public float Reach => SimMath.Length(new float3(HalfLength, 0f, HalfWidth));
+
         /// <summary>Two tanks and two walkers (VehicleArchetype). C2 replaces this with baked VehicleDefinition data.</summary>
         public static VehicleProfile ForArchetype(byte archetype)
         {

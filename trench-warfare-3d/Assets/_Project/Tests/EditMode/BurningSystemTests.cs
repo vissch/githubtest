@@ -174,7 +174,7 @@ namespace TW.Tests
             using var r = new Rig();
             int man = r.Man(new float3(150f, 0f, 240f), 5f);
             r.M.Burning.Ignite(r.W, man, 5f);
-            r.Step(2);
+            r.Step((int)math.ceil(5f / (BurningSystem.BurnDps * r.W.Config.TickSeconds)) + 1);   // 0.6 hp a tick at 20 Hz: nine ticks for 5 hp, one more to be sure
             Assert.IsFalse(r.W.IsAlive(man));
             int next = r.Man(new float3(150f, 0f, 260f));
             Assert.AreEqual(man, next, "the slot is reused (last in, first out)");

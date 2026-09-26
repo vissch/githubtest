@@ -296,7 +296,7 @@ namespace TW.Sim.Combat
             }
         }
 
-        public ulong Hash(ulong h) => h;   // Pending and Craters are empty between ticks; Hp and Suppression live in SimWorld
+        public ulong Hash(ulong h) => h;   // Pending (a mine's burst waits here for the next Step), Resolved and Craters are functions of hashed state: not hashed themselves
 
         public void Dispose()
         {
