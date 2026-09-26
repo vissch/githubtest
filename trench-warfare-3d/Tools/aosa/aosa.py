@@ -454,6 +454,15 @@ def load_reports(spec):
     return out
 
 
+def short_marker(name):
+    """An engine marker's name in 24 characters: the player-loop phase is dropped when the rest names it
+    (PreLateUpdate.ScriptRunBehaviourLateUpdate -> ScriptRunLateUpdate)."""
+    head, _, rest = name.partition(".")
+    if rest and head in ("Update", "PreUpdate", "PreLateUpdate", "PostLateUpdate", "FixedUpdate", "EarlyUpdate", "Initialization"):
+        name = rest
+    return name.replace("ScriptRunBehaviour", "ScriptRun").replace("OnGfxThread", "(gfx)")[:24]
+
+
 def cmp_table(runs):
     """The cmp.py table, ported (cmp.py runs at import time, so it cannot be imported)."""
     lines = []
@@ -487,6 +496,34 @@ def cmp_table(runs):
     for k in keys:
         if max(t.get(k, 0) for t in ticks) >= 0.05:
             row("  " + k.replace("TW.Sim.Sys.", "Sys."), lambda r, k=k: "%.3f" % r["per_tick_ms"].get(k, float("nan")))
+    series = [r.get("series") or {} for r in runs]
+
+    def by_mean(prefix):
+        return sorted({k for s in series for k in s if k.startswith(prefix)},
+                      key=lambda k: (-max((s.get(k) or {}).get("mean", 0) or 0 for s in series), k))
+
+    def p50_mean_p95(r, k):
+        s = r["series"][k]
+        return "%.3f/%.3f/%.3f" % (s["p50"], s["mean"], s["p95"])
+    # C66: the HUD's parts a frame (per_tick_ms above has them a tick); C69: the engine's own markers, as cmp.py reads them
+    for title, prefix in (("HUD parts per frame, ms p50/mean/p95:", "TW.Hud."), ("engine markers per frame, ms p50/mean/p95:", "script:")):
+        keys = by_mean(prefix)
+        if keys:
+            lines.append(title)
+            for k in keys[:25]:
+                row("  " + short_marker(k[len(prefix):]), lambda r, k=k: p50_mean_p95(r, k))
+    # C64: which TW marker was the largest in each hitch (hitches carried / median share of the hitch ms)
+    carriers = [{c.get("marker"): c for c in ((r.get("window") or {}).get("hitch_carriers") or [])} for r in runs]
+    names = sorted({m for c in carriers for m in c}, key=lambda m: (-max(c.get(m, {}).get("hitches", 0) for c in carriers), m))
+    if any("hitch_records" in (r.get("window") or {}) for r in runs):
+        row("hitches with a carrier", lambda r: "%d of %d" % (sum(1 for h in r["window"]["hitch_records"] if h.get("marker")),
+                                                            len(r["window"]["hitch_records"])))
+    if names:
+        lines.append("hitch carriers (hitches as largest, median share):")
+        for m in names[:15]:
+            row("  " + m[:24], lambda r, m=m: "%d @ %.2f" % (
+                {c["marker"]: c for c in r["window"]["hitch_carriers"]}[m]["hitches"],
+                {c["marker"]: c for c in r["window"]["hitch_carriers"]}[m]["median_share"]))
     return lines
 
 

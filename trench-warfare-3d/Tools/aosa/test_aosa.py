@@ -101,6 +101,35 @@ class AosaTest(unittest.TestCase):
         self.assertIn("VERDICT: PASS", out)
         self.assertIn("hash_start", out)
 
+    def test_compare_shows_hud_parts_engine_markers_and_hitch_carriers(self):
+        # C64, C66, C69: the new data reaches the compare table; a report without it (the release player, older runs)
+        # prints exactly the sections it printed before
+        self.ab()
+        code, out = self.run_cli("compare", "cand", "base")
+        for absent in ("HUD parts", "engine markers", "hitch carriers", "hitches with a carrier"):
+            self.assertNotIn(absent, out)
+        s = lambda v: {"p50": v, "p95": v * 2, "p99": v * 3, "mean": v * 1.1, "max": v * 4, "sum": v * 100, "n": 100}
+        for p in (self.docs / "runs" / "3").glob("cand-*.json"):
+            r = json.loads(p.read_text())
+            r["series"].update({"TW.Hud.Cards": s(0.6), "script:PreLateUpdate.ScriptRunBehaviourLateUpdate": s(4.0),
+                                "script:GC.Collect": None})
+            r["window"]["hitch_records"] = [
+                {"frame": 611, "tick": 1886, "ms": 36.1, "marker": "TW.Terrain.Update", "marker_ms": 20.0, "gc_bytes": 512},
+                {"frame": 705, "tick": 1910, "ms": 35.4, "marker": None, "marker_ms": None, "gc_bytes": None}]
+            r["window"]["hitch_carriers"] = [{"marker": "TW.Terrain.Update", "hitches": 1, "median_share": 0.554}]
+            p.write_text(json.dumps(r))
+        code, out = self.run_cli("compare", "cand", "base")
+        self.assertIn("VERDICT: PASS", out)
+        self.assertIn("HUD parts per frame", out)
+        self.assertIn("0.600/0.660/1.200", out)
+        self.assertIn("engine markers per frame", out)
+        self.assertIn("ScriptRunLateUpdate", out)
+        self.assertIn("GC.Collect", out)   # a null series still gets its row, as '-'
+        self.assertIn("1 of 2", out)
+        self.assertIn("1 @ 0.55", out)
+        self.assertEqual(aosa.short_marker("Gfx.WaitForPresentOnGfxThread"), "Gfx.WaitForPresent(gfx)")
+        self.assertEqual(aosa.short_marker("FixedUpdate.PhysicsFixedUpdate"), "PhysicsFixedUpdate")
+
     def test_compare_rule1_different_battle(self):
         self.ab(a_kw={"hs": "BBBB"})
         v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])

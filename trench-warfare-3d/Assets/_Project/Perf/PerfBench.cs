@@ -34,12 +34,23 @@
 // mission card does (MatchLaunch.Request.Ground): its map (MatchLaunch.Field) and its look (BiomeProfile.ForGround),
 // so a shadow, fog or colour card can be judged in daylight. Absent, the request is exactly the one it always was
 // (ShelledForest, night). An unknown name stops the run with exit 2 before the match loads; it never falls back.
+// C64 (2026-09-26): each hitch also keeps the frame's largest TW marker (name and ms, HitchAttribution.Largest over the
+// recorders' values for the same frame the hitch's dt measured) and the frame's gc_bytes: window.hitch_records, with
+// window.hitch_carriers per marker (hitches it was the largest in, median share of the hitch ms). hitches_over_33ms is
+// unchanged. A release player has no markers and no gc_bytes: its records say null.
+// C66 (2026-09-26): HudController.Refresh's parts carry their own TW.Hud.<Part> markers (HudParts below), recorded
+// beside TW.Hud.Refresh, so they land in series and per_tick_ms.
+// C69 (2026-09-26): the engine's own markers (EngineMarkers below: the script run, physics, the UI Toolkit panel update
+// and repaint, GC.Collect, the wait for present) are series `script:<name>`, per frame, as cmp.py reads them. A name
+// whose recorder is not valid goes to unavailable; one that is valid but was not registered yet when the recorders
+// opened is listed in script_markers.unregistered_at_open, because its zeros may mean "never ran" or "no such marker".
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
 using Unity.Profiling;
+using Unity.Profiling.LowLevel.Unsafe;
 using UnityEngine;
 using TW.Presentation;
 using TW.Presentation.Tactical;
@@ -401,8 +412,38 @@ namespace TW.Perf
         Series budgetDraws, budgetVerts, budgetIndirect;
         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
+        // C64: per hitch, the largest TW marker's name and ms (null and NaN without one) and the frame's gc_bytes (NaN
+        // where the counter is unavailable: a release player)
+        readonly string[] hitchMarker = new string[64]; readonly double[] hitchMarkerMs = new double[64], hitchGc = new double[64];
+        double[] recNow = new double[0]; bool[] recIsMarker = new bool[0];   // sized once in OpenRecorders: no allocation in the window
+        Rec gcRec;
+        readonly List<string> scriptRecorded = new List<string>(), scriptUnregistered = new List<string>();
         int hitches, frames;
         ProfilerRecorder mainRec, gpuRec;
+
+        /// <summary>C66: HudController.Refresh's parts, each wrapped in its own marker inside TW.Hud.Refresh (the names
+        /// are HudController's; TW.Perf does not reference TW.UI, so they are repeated here).</summary>
+        public static readonly string[] HudParts =
+        {
+            "TW.Hud.Hotkeys", "TW.Hud.LegacyInterim", "TW.Hud.Minimap", "TW.Hud.Dialogue", "TW.Hud.Selection",
+            "TW.Hud.BindGauges", "TW.Hud.Cards", "TW.Hud.Clusters", "TW.Hud.Objectives", "TW.Hud.Tooltip",
+        };
+
+        /// <summary>C69: the engine's own markers, recorded as `script:<name>` series. The names are the ones Unity 6000.0's
+        /// development player carries (read from its UnityPlayer.dll and UnityEngine.UIElementsModule.dll); the last two
+        /// are UI Toolkit's managed markers inside the panel update, for C68, and may not resolve.</summary>
+        static void EngineMarkers(Action<ProfilerCategory, string> add)
+        {
+            add(ProfilerCategory.Scripts, "Update.ScriptRunBehaviourUpdate");
+            add(ProfilerCategory.Scripts, "PreLateUpdate.ScriptRunBehaviourLateUpdate");
+            add(ProfilerCategory.Physics, "FixedUpdate.PhysicsFixedUpdate");
+            add(ProfilerCategory.Gui, "PreLateUpdate.UIElementsUpdatePanels");
+            add(ProfilerCategory.Gui, "PostLateUpdate.UIElementsRepaintPanels");
+            add(ProfilerCategory.Memory, "GC.Collect");
+            add(ProfilerCategory.Render, "Gfx.WaitForPresentOnGfxThread");
+            add(ProfilerCategory.Gui, "Panel.Layout");
+            add(ProfilerCategory.Gui, "RenderChain.Process");
+        }
 
         Series New(string key)
         {
@@ -411,11 +452,39 @@ namespace TW.Perf
             return s;
         }
 
-        void Counter(ProfilerCategory category, string name, string key, double scale)
+        Rec Counter(ProfilerCategory category, string name, string key, double scale)
+        {
+            var r = ProfilerRecorder.StartNew(category, name);
+            if (!r.Valid) { r.Dispose(); unavailable.Add(name); return null; }
+            var rec = new Rec(New(key), r, scale, false);
+            recs.Add(rec);
+            return rec;
+        }
+
+        /// <summary>C69: an engine marker as series `script:<name>` (ns to ms). Not a TW marker: it is kept out of
+        /// per_tick_ms and out of the hitch pick, since the script-run markers hold every TW marker under them.</summary>
+        void EngineMarker(ProfilerCategory category, string name)
         {
             var r = ProfilerRecorder.StartNew(category, name);
             if (!r.Valid) { r.Dispose(); unavailable.Add(name); return; }
-            recs.Add(new Rec(New(key), r, scale, false));
+            recs.Add(new Rec(New("script:" + name), r, 1e-6, false));
+            scriptRecorded.Add(name);
+        }
+
+        /// <summary>Which recorded engine names the profiler had not registered when the recorders opened. Runs once,
+        /// before the window's GC baselines, and only when an engine recorder is valid (never on a release player).</summary>
+        void CheckRegistered()
+        {
+            if (scriptRecorded.Count == 0) return;
+            try
+            {
+                var handles = new List<ProfilerRecorderHandle>();
+                ProfilerRecorderHandle.GetAvailable(handles);
+                var known = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var h in handles) known.Add(ProfilerRecorderHandle.GetDescription(h).Name ?? "");
+                foreach (var n in scriptRecorded) if (!known.Contains(n)) scriptUnregistered.Add(n);
+            }
+            catch (Exception e) { warnings.Add("could not list the profiler's markers: " + e.Message); }
         }
 
         void Marker(string name)
@@ -437,13 +506,18 @@ namespace TW.Perf
             Counter(ProfilerCategory.Render, "Batches Count", "batches", 1);
             Counter(ProfilerCategory.Render, "Triangles Count", "triangles", 1);
             Counter(ProfilerCategory.Render, "Vertices Count", "vertices", 1);
-            Counter(ProfilerCategory.Memory, "GC Allocated In Frame", "gc_bytes", 1);
+            gcRec = Counter(ProfilerCategory.Memory, "GC Allocated In Frame", "gc_bytes", 1);
             Counter(ProfilerCategory.Memory, "GC Allocation In Frame Count", "gc_count", 1);
 
             foreach (var n in TW.Sim.PerfMarkers.Names) Marker(n);
             foreach (var s in host.Local.World.Systems) Marker("TW.Sim.Sys." + s.GetType().Name);
             Marker("TW.Hud.Refresh");
+            foreach (var n in HudParts) Marker(n);   // C66
             if (Options.Subscribers) for (int k = 0; k < host.Events.SubscriberCount; k++) Marker(host.Events.SubscriberMarker(k));
+            EngineMarkers(EngineMarker);   // C69
+            CheckRegistered();
+            recNow = new double[recs.Count]; recIsMarker = new bool[recs.Count];
+            for (int k = 0; k < recs.Count; k++) recIsMarker[k] = recs[k].Marker;
 
             vat = FindFirstObjectByType<VATRenderer>(); props = FindFirstObjectByType<BattlefieldProps>();
             debris = FindFirstObjectByType<DebrisRenderer>();
@@ -471,7 +545,7 @@ namespace TW.Perf
             double frameDt = Time.unscaledDeltaTime * 1000.0;
             dt.Add(frameDt);
             ticksPerFrame.Add(stepped);
-            if (frameDt > 33.34 && hitches < hitchMs.Length) { hitchFrame[hitches] = frames; hitchTick[hitches] = tick; hitchMs[hitches] = frameDt; hitches++; }
+            bool hitch = frameDt > 33.34 && hitches < hitchMs.Length;
 
             double mainMs = -1, gpuMs = -1;
             FrameTimingManager.CaptureFrameTimings();
@@ -495,7 +569,19 @@ namespace TW.Perf
             for (int k = 0; k < recs.Count; k++)
             {
                 var r = recs[k];
-                if (r.R.Valid) r.S.Add(r.R.LastValue * r.Scale);
+                double v = r.R.Valid ? r.R.LastValue * r.Scale : 0.0;
+                if (r.R.Valid) r.S.Add(v);
+                if (hitch && k < recNow.Length) recNow[k] = v;
+            }
+            if (hitch)
+            {
+                // the recorders hold the frame before this one, the same frame unscaledDeltaTime measured (C64)
+                hitchFrame[hitches] = frames; hitchTick[hitches] = tick; hitchMs[hitches] = frameDt;
+                int top = HitchAttribution.Largest(recNow, recIsMarker, Math.Min(recNow.Length, recs.Count));
+                hitchMarker[hitches] = top >= 0 ? recs[top].S.Key : null;
+                hitchMarkerMs[hitches] = top >= 0 ? recNow[top] : double.NaN;
+                hitchGc[hitches] = gcRec != null && gcRec.R.Valid ? gcRec.R.LastValue : double.NaN;
+                hitches++;
             }
 
             if (vat != null) { vatDrawn.Add(vat.DrawnInfantry); vatNear.Add(vat.DrawnNear); vatVerts.Add(vat.VerticesThisFrame); vatShadows.Add(vat.ShadowsThisFrame ? 1 : 0); }
@@ -674,6 +760,18 @@ namespace TW.Perf
               .Append(", \"mono_used_mb\": [").Append(N(monoStart / 1048576.0)).Append(", ").Append(N(monoMax / 1048576.0)).Append("]")
               .Append(", \"hitches_over_33ms\": [");
             for (int i = 0; i < hitches; i++) sb.Append(i > 0 ? ", " : "").Append("[").Append(hitchFrame[i]).Append(", ").Append(hitchTick[i]).Append(", ").Append(N(hitchMs[i])).Append("]");
+            sb.Append("]");
+            // C64: the same hitches with their carrier; null where a release player has no marker or no gc_bytes
+            sb.Append(", \"hitch_records\": [");
+            for (int i = 0; i < hitches; i++)
+                sb.Append(i > 0 ? ", " : "").Append("{ \"frame\": ").Append(hitchFrame[i]).Append(", \"tick\": ").Append(hitchTick[i])
+                  .Append(", \"ms\": ").Append(N(hitchMs[i])).Append(", \"marker\": ").Append(hitchMarker[i] != null ? Q(hitchMarker[i]) : "null")
+                  .Append(", \"marker_ms\": ").Append(N(hitchMarkerMs[i])).Append(", \"gc_bytes\": ").Append(N(hitchGc[i])).Append(" }");
+            sb.Append("], \"hitch_carriers\": [");
+            var carriers = HitchAttribution.Summarise(hitchMarker, hitchMarkerMs, hitchMs, hitches);
+            for (int i = 0; i < carriers.Count; i++)
+                sb.Append(i > 0 ? ", " : "").Append("{ \"marker\": ").Append(Q(carriers[i].Marker)).Append(", \"hitches\": ").Append(carriers[i].Hitches)
+                  .Append(", \"median_share\": ").Append(N(carriers[i].MedianShare)).Append(" }");
             sb.Append("] },\n");
             sb.Append("  \"series\": {\n");
             for (int i = 0; i < series.Count; i++) Stats(sb, series[i], i == series.Count - 1);
@@ -690,6 +788,12 @@ namespace TW.Perf
                 first = false;
             }
             sb.Append(first ? "},\n" : "\n  },\n");
+            // C69: the engine markers recorded as script:<name>, and those not yet registered when the recorders opened
+            sb.Append("  \"script_markers\": { \"recorded\": [");
+            for (int i = 0; i < scriptRecorded.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(scriptRecorded[i]));
+            sb.Append("], \"unregistered_at_open\": [");
+            for (int i = 0; i < scriptUnregistered.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(scriptUnregistered[i]));
+            sb.Append("] },\n");
             sb.Append("  \"unavailable\": [");
             for (int i = 0; i < unavailable.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(unavailable[i]));
             sb.Append("],\n  \"warnings\": [");
