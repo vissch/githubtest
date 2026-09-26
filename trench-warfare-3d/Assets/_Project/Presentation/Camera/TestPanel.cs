@@ -32,7 +32,15 @@ namespace TW.Presentation.Tactical
         /// <summary>The ability waiting for its target, or None. CombatFx draws the aim from Aim.Shape; SelectionController counts under it.</summary>
         public OffMapAbilityId Armed => aim.Armed;
         public AbilityAim Aim => aim;
-        public void Arm(OffMapAbilityId id) { if (id == OffMapAbilityId.None) aim.Cancel(); else aim.Arm(id); }
+        /// <summary>Arm an ability, or None to cancel. What the match did not field (the launch request's mask for our seat,
+        /// 0 = everything) cannot be armed here either: the debug panel is no back door round the Home Front's unlocks.</summary>
+        public void Arm(OffMapAbilityId id)
+        {
+            if (id == OffMapAbilityId.None) { aim.Cancel(); return; }
+            uint mask = MatchLaunch.Current != null ? MatchLaunch.Current.AbilityMaskA : 0u;
+            if (mask != 0 && (mask & (1u << (int)id)) == 0) return;
+            aim.Arm(id);
+        }
 
         /// <summary>Where the mouse points on the ground plane, if it is over the map and not over this panel.</summary>
         public bool TryGroundPoint(out Vector3 point)
