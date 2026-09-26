@@ -93,6 +93,7 @@ PURPOSE = {
     'Tests/EditMode': 'EditMode tests (references every assembly incl. TW.Editor).',
     'Tests/PlayMode': 'PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router.',
     'UI': 'UI Toolkit: the battle HUD (HudController/HudView) and its parts.',
+    'UI/Campaign': 'Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings).',
     'UI/Missions': 'Mission card assets for the mission select.',
     'UI/Resources': 'UXML/USS/PanelSettings loaded by name (Hud/, Shell/, UI/).',
     'UI/Selection': 'Unit selection: picker, model, markers, hover card, selection panel.',
