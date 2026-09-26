@@ -91,6 +91,75 @@ namespace TW.Tests.Playground
         }
 
         [Test]
+        public void Every_Vehicle_Track_Is_Closed_So_A_Thrown_Track_Shows_No_Hole()
+        {
+            // Tripo modelled only the outside of the skirts: tipped over, the open back showed the ink pass as a black slab.
+            // Every open loop longer than an eighth of the track (a hole you could see into) must be capped.
+            foreach (var v in Lib().Vehicles)
+                for (int k = 0; k < v.Lods.Length; k++)
+                    foreach (var side in new[] { "Track_L", "Track_R" })
+                    {
+                        var mesh = FindDeep(v.Lods[k].transform, side).GetComponent<MeshFilter>().sharedMesh;
+                        var verts = mesh.vertices; var tris = mesh.triangles;
+                        // weld by position (UV seams split vertices), then find the edges used by one triangle only
+                        var id = new Dictionary<Vector3Int, int>(); var map = new int[verts.Length];
+                        for (int i = 0; i < verts.Length; i++)
+                        {
+                            var key = new Vector3Int(Mathf.RoundToInt(verts[i].x * 1000), Mathf.RoundToInt(verts[i].y * 1000), Mathf.RoundToInt(verts[i].z * 1000));
+                            if (!id.TryGetValue(key, out map[i])) { map[i] = id.Count; id[key] = map[i]; }
+                        }
+                        var pos = new Vector3[id.Count]; for (int i = 0; i < verts.Length; i++) pos[map[i]] = verts[i];
+                        var count = new Dictionary<(int, int), int>();
+                        for (int i = 0; i < tris.Length; i += 3)
+                            for (int e = 0; e < 3; e++)
+                            {
+                                int a = map[tris[i + e]], b = map[tris[i + (e + 1) % 3]]; var key = a < b ? (a, b) : (b, a);
+                                count.TryGetValue(key, out int n); count[key] = n + 1;
+                            }
+                        var open = count.Where(kv => kv.Value == 1).Select(kv => kv.Key).ToList();
+                        // join open edges into loops and measure each
+                        var adj = new Dictionary<int, List<int>>();
+                        foreach (var (a, b) in open) { if (!adj.ContainsKey(a)) adj[a] = new List<int>(); if (!adj.ContainsKey(b)) adj[b] = new List<int>(); adj[a].Add(b); adj[b].Add(a); }
+                        var seen = new HashSet<int>(); float length = mesh.bounds.size.z, worst = 0f;
+                        foreach (var start in adj.Keys)
+                        {
+                            if (seen.Contains(start)) continue;
+                            float per = 0f; bool cycle = true; var stack = new Stack<int>(); stack.Push(start); seen.Add(start);
+                            while (stack.Count > 0) { int x = stack.Pop(); if (adj[x].Count < 2) cycle = false; foreach (int y in adj[x]) { per += (pos[x] - pos[y]).magnitude * 0.5f; if (seen.Add(y)) stack.Push(y); } }
+                            // a hole has open edges all the way round; a lone open edge is a T-junction seam (one long
+                            // triangle edge meeting several small ones along the same line): hairline, not a hole
+                            if (cycle) worst = Mathf.Max(worst, per);
+                        }
+                        Assert.That(worst, Is.LessThan(0.125f * length), $"{v.Name} LOD{k} {side}: an open loop {worst:0.0} m round (track {length:0.0} m long)");
+                    }
+        }
+
+        [Test]
+        public void No_Track_Face_Is_Painted_With_The_Soot_Texel()
+        {
+            // the caps that close a track's open back are textured from the track itself; any that kept the soot texel
+            // rendered pitch black when the track was thrown (critic r6). Share of track surface on near-black texels:
+            foreach (var v in Lib().Vehicles)
+                for (int k = 0; k < v.Lods.Length; k++)
+                {
+                    var tex = new Texture2D(2, 2); tex.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(v.Atlas[k])));
+                    foreach (var side in new[] { "Track_L", "Track_R" })
+                    {
+                        var m = FindDeep(v.Lods[k].transform, side).GetComponent<MeshFilter>().sharedMesh;
+                        var vs = m.vertices; var uv = m.uv; var tr = m.triangles; double dark = 0, all = 0;
+                        for (int i = 0; i < tr.Length; i += 3)
+                        {
+                            float area = Vector3.Cross(vs[tr[i + 1]] - vs[tr[i]], vs[tr[i + 2]] - vs[tr[i]]).magnitude;
+                            var c = tex.GetPixelBilinear((uv[tr[i]].x + uv[tr[i + 1]].x + uv[tr[i + 2]].x) / 3f, (uv[tr[i]].y + uv[tr[i + 1]].y + uv[tr[i + 2]].y) / 3f);
+                            all += area; if (c.grayscale < 0.035f) dark += area;
+                        }
+                        Assert.That(dark / all, Is.LessThan(0.03), $"{v.Name} LOD{k} {side}: {dark / all:P1} of its surface on near-black texels");
+                    }
+                    Object.DestroyImmediate(tex);
+                }
+        }
+
+        [Test]
         public void Every_Vehicle_Faces_Forward()
         {
             foreach (var v in Lib().Vehicles)
@@ -228,6 +297,19 @@ namespace TW.Tests.Playground
                         Assert.That(u.Skel.Bones[0].position.y, Is.InRange(0.3f * hip, 1.25f * hip), $"{name} @{t}: hips at {u.Skel.Bones[0].position.y:0.00}");
                         Assert.That(u.Skel.Bones[5].position.y, Is.GreaterThan(u.Skel.Bones[0].position.y), $"{name} @{t}: head below the hips");
                     }
+                }
+                // the rifle measure reads the pose: with the body push off, a crouch walk puts the barrel in the torso; with
+                // it on, never (critic r5: a number that never changes proves nothing)
+                int crouch = l.ClipIndex("Rifle Crouch Walk");
+                if (crouch >= 0)
+                {
+                    float worst = 0f, kept = 0f;
+                    u.KeepRifleClear = false;
+                    foreach (float t in new[] { 0.1f, 0.4f, 0.7f, 1.0f }) { u.PoseAt(crouch, t); worst = Mathf.Max(worst, u.RifleInside); }
+                    u.KeepRifleClear = true;
+                    foreach (float t in new[] { 0.1f, 0.4f, 0.7f, 1.0f }) { u.PoseAt(crouch, t); kept = Mathf.Max(kept, u.RifleInside); }
+                    Assert.That(worst, Is.GreaterThan(0.1f), "with the push off, the crouch walk should put the rifle in the body (positive control)");
+                    Assert.That(kept, Is.LessThanOrEqualTo(0.25f), "with the push on, the rifle stays out of the body");
                 }
                 // and a walk actually moves the legs
                 int walk = l.ClipIndex("Walk With Rifle");

@@ -81,6 +81,11 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **`main`** is at afc6fe8, far behind the integration branch, and is what a fresh clone checks out. Fast-forward it,
   or make the integration branch the default?
 - **Repo hygiene** from the maintainability audit: Git LFS for FBX and `.bytes`, removing `github-test1/`, whether CI builds Windows.
+- **Keep Tripo's own lower LODs, or derive them?** (asset playground, docs/22) The owner's LOD2 frog and LOD1 tank are
+  separate Tripo sculpts; at their switch distance the frog's LOD1->LOD2 silhouette overlap is 0.856 (worst of four
+  sides) and the tank's LOD0->LOD1 is 0.909. Deriving the frog's LOD2 by decimating LOD1 measures 0.937
+  (`frogrig.py TW_LOD2_FROM_LOD1=1`), but replaces the owner's art. Default kept: the owner's LODs.
+- **The frog's far LOD size:** 300 tris / 168 vertices ships (pop overlap 0.85); 219 tris was 0.82, 380 tris 0.87.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

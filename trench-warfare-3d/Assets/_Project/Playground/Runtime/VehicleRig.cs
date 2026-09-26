@@ -53,6 +53,9 @@ namespace TW.Playground
         public float GroundY;
         public bool Traverse;
         public float FireLevel { get; private set; }
+        /// <summary>-1 none; 0 or 1: the battle's side colours (TankRenderer.TeamA/B). The game paints a tank's horns in it;
+        /// this one has none, so its lamps and antenna wear it, and side 1 gets the field-grey tint over the olive.</summary>
+        public int Team = -1;
         public string LastEvent = "";
         public int TrisDrawn { get; private set; }
         public float Radius { get; private set; } = 4f;
@@ -523,8 +526,10 @@ namespace TW.Playground
             foreach (var p in Parts)
             {
                 mpb.SetVector("_Damage", new Vector4(p.Scorch, p.Ember * 0.8f, p.Flash, 0f));
-                mpb.SetVector("_Tint", new Vector4(1f, 1f, 1f, 0f));
-                mpb.SetVector("_Team", Vector4.zero);
+                mpb.SetVector("_Tint", Team == 1 ? new Vector4(0.62f, 0.64f, 0.62f, 0.55f) : new Vector4(1f, 1f, 1f, 0f));
+                bool wears = Team >= 0 && (p.Name.StartsWith("Lamp") || p.Name == "Antenna");
+                var c = Team == 1 ? TankRenderer.TeamB : TankRenderer.TeamA;
+                mpb.SetVector("_Team", wears ? new Vector4(c.r, c.g, c.b, State >= Stage.KnockedOut ? 0.5f : 1f) : Vector4.zero);
                 p.R.SetPropertyBlock(mpb);
             }
         }

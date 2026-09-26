@@ -95,6 +95,31 @@ namespace TW.Playground
             Fx.Night = true;
         }
 
+        Material groundMat; Texture2D gridTex, mudTex;
+        /// <summary>grid: the range (a metre grid, to judge sizes); mud: the battle's night mud, dark and warm, no grid (to
+        /// judge whether a figure reads against what it will stand on).</summary>
+        void SetGround(string kind)
+        {
+            if (groundMat == null) return;
+            if (kind == "mud")
+            {
+                if (mudTex == null)
+                {
+                    const int N = 256; mudTex = new Texture2D(N, N, TextureFormat.RGB24, true) { name = "PlaygroundMud", wrapMode = TextureWrapMode.Repeat };
+                    var px = new Color32[N * N];
+                    for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+                    {
+                        float n = Mathf.PerlinNoise(x * 0.05f, y * 0.05f) * 0.6f + Mathf.PerlinNoise(x * 0.23f + 7f, y * 0.23f) * 0.4f;
+                        float v = 0.26f + 0.12f * n;
+                        px[y * N + x] = new Color(v * 1.08f, v * 0.92f, v * 0.74f);
+                    }
+                    mudTex.SetPixels32(px); mudTex.Apply(true);
+                }
+                groundMat.SetTexture("_BaseMap", mudTex); groundMat.mainTexture = mudTex;
+            }
+            else { groundMat.SetTexture("_BaseMap", gridTex); groundMat.mainTexture = gridTex; }
+        }
+
         void BuildGround()
         {
             // 800 m square, a texture with a line every metre and a stronger one every ten, tiled every ten metres
@@ -137,6 +162,7 @@ namespace TW.Playground
             var m = new Material(Shader.Find("TW/Toon (URP)") ?? Shader.Find("Universal Render Pipeline/Lit")) { name = "PlaygroundGround" };
             m.SetTexture("_BaseMap", tex); m.mainTexture = tex;
             r.sharedMaterial = m; r.receiveShadows = true; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            groundMat = m; gridTex = tex;
         }
 
         // ------------------------------------------------------------------------------------------------ stage
@@ -208,8 +234,8 @@ namespace TW.Playground
                 case "mixed":
                     SpawnVehicle(new Vector3(0f, 0f, 0f), 205f, forcedLod, 1);
                     // twelve men 3 m apart, 6 m clear of the hull, so every one of them can be seen against it
-                    for (int i = 0; i < 12; i++) SpawnUnit(new Vector3(-8f + (i % 6) * 3f, 0f, -10f - (i / 6) * 3f), 20f, forcedLod, i * 0.21f);
-                    Cam.Preset("standard", new Vector3(-2f, 1.5f, -3f)); Cam.Distance = 45f; Cam.Yaw = 200f; break;
+                    for (int i = 0; i < 12; i++) SpawnUnit(new Vector3(-6f + (i % 6) * 3f, 0f, 9f + (i / 6) * 4f), 20f, forcedLod, i * 0.21f);   // between the hull and the camera
+                    Cam.Preset("standard", new Vector3(-1f, 1.5f, 3f)); Cam.Distance = 55f; Cam.Yaw = 200f; break;
             }
         }
 
@@ -302,6 +328,15 @@ namespace TW.Playground
                 case "panel": ShowPanel = F(a, 1, 1f) > 0.5f; break;
                 case "lodpop": popPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/lodpop.json"); break;
                 case "labels": Labels = F(a, 1, 1f) > 0.5f; break;
+                case "ground": SetGround(a.Length > 1 ? a[1] : "grid"); break;
+                case "team":
+                    {
+                        // "team 0", "team 1", "team -1" for everyone; "team split": vehicles side 1, figures side 0
+                        bool split = a.Length > 1 && a[1] == "split"; int t = split ? 0 : (int)F(a, 1, -1);
+                        foreach (var v in Vehicles) v.Team = split ? 1 : t;
+                        foreach (var u in Units) u.Team = t;
+                        break;
+                    }
                 case "shot": shotPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/playground.png"); shotW = (int)F(a, 2, 1600); shotH = (int)F(a, 3, 900); break;
                 default: return "unknown command " + c;
             }
@@ -378,16 +413,24 @@ namespace TW.Playground
             void Measure(string what, GameObject root, Vector3 centre, float radius, float[] cuts, int lods, System.Action<int> force)
             {
                 for (int k = 0; k < lods - 1; k++)
+                foreach (float side in new[] { 200f, 290f, 20f, 110f })
                 {
                     float fov = 25f, share = cuts[k];
                     float d = 2f * radius / (share * 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
                     // the switch happens at distance d; at the battle lens the thing is a handful of pixels there, too few to
                     // compare shapes. Same place (same perspective), a lens narrowed until it fills half the frame.
                     cam.fieldOfView = 2f * Mathf.Atan(2f * radius / d) * Mathf.Rad2Deg;
-                    var dir = Quaternion.Euler(25f, 200f, 0f) * Vector3.forward;
+                    var dir = Quaternion.Euler(25f, side, 0f) * Vector3.forward;
                     cam.transform.SetPositionAndRotation(centre - dir * d, Quaternion.LookRotation(dir));
                     const int W = 480, H = 480;
                     force(k); var a = Grab(cam, W, H); var sa = Silhouette(cam, root, W, H);
+                    // the floor: the same LOD from one degree round (what a turn of the camera alone changes)
+                    var rot0 = cam.transform.rotation; var pos0 = cam.transform.position;
+                    cam.transform.RotateAround(centre, Vector3.up, 1f); var a2 = Grab(cam, W, H);
+                    cam.transform.SetPositionAndRotation(pos0, rot0);
+                    double fl = 0; int nfl = 0;
+                    for (int i = 0; i < a.Length; i++) if (sa[i]) { fl += (Mathf.Abs(a[i].r - a2[i].r) + Mathf.Abs(a[i].g - a2[i].g) + Mathf.Abs(a[i].b - a2[i].b)) / 3.0; nfl++; }
+                    double floorCol = nfl > 0 ? fl / nfl : 0.0;
                     force(k + 1); var b = Grab(cam, W, H); var sbm = Silhouette(cam, root, W, H);
                     int inter = 0, uni = 0; double dc = 0; int nd = 0;
                     var strip = new Texture2D(W * 2, H, TextureFormat.RGB24, false);
@@ -398,10 +441,11 @@ namespace TW.Playground
                         if (ma || mb) { uni++; dc += (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b)) / 3.0; nd++; }
                     }
                     strip.SetPixels32(0, 0, W, H, a); strip.SetPixels32(W, 0, W, H, b); strip.Apply();
-                    File.WriteAllBytes($"{stem}_{what}_{k}to{k + 1}.png", strip.EncodeToPNG()); Destroy(strip);
+                    File.WriteAllBytes($"{stem}_{what}_{k}to{k + 1}_{side:0}.png", strip.EncodeToPNG()); Destroy(strip);
                     if (!first) sb.Append(','); first = false;
-                    sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"from\":{1},\"to\":{2},\"dist\":{3:0.0},\"share\":{4:0.000},\"iou\":{5:0.000},\"dcol\":{6:0.0},\"pixels\":{7}}}",
-                        what, k, k + 1, d, share, uni > 0 ? (float)inter / uni : 1f, nd > 0 ? dc / nd : 0.0, uni);
+                    double dcol = nd > 0 ? dc / nd : 0.0;
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"from\":{1},\"to\":{2},\"side\":{8:0},\"dist\":{3:0.0},\"share\":{4:0.000},\"iou\":{5:0.000},\"dcol\":{6:0.0},\"dcol_floor\":{9:0.0},\"dcol_ratio\":{10:0.00},\"pixels\":{7}}}",
+                        what, k, k + 1, d, share, uni > 0 ? (float)inter / uni : 1f, dcol, uni, side, floorCol, floorCol > 0.01 ? dcol / floorCol : 0.0);
                 }
             }
             foreach (var v in Vehicles)
@@ -454,16 +498,40 @@ namespace TW.Playground
             RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllBytes(path, tex.EncodeToPNG());
-            LastJson = Report(tex);
+            LastJson = Report(tex, Units.Count > 0 ? FigureGap(c, w, h, tex) : null);
             File.WriteAllText(Path.ChangeExtension(path, ".json"), LastJson);
             Destroy(tex);
             LastShot = path;
         }
 
         /// <summary>What the frame holds, as numbers: brightness, and the state of everything on the stage.</summary>
-        public string Report(Texture2D tex = null)
+        /// <summary>Mean brightness of the figures as drawn, of a ring of what is right round them, and the gap: whether a man
+        /// reads against the ground by his colour or only by his ink line.</summary>
+        string FigureGap(Camera c, int w, int h, Texture2D frame)
+        {
+            var mask = new bool[w * h];
+            foreach (var u in Units) { var m = Silhouette(c, u.gameObject, w, h); for (int i = 0; i < m.Length; i++) mask[i] |= m[i]; }
+            var px = frame.GetPixels32(); double fig = 0, ring = 0; int nf = 0, nr = 0; const int R = 4;
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x; float l = (0.2126f * px[i].r + 0.7152f * px[i].g + 0.0722f * px[i].b);
+                if (mask[i]) { fig += l; nf++; continue; }
+                bool near = false;
+                for (int dy = -R; dy <= R && !near; dy += 2) for (int dx = -R; dx <= R && !near; dx += 2)
+                {
+                    int xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+                    if (mask[yy * w + xx]) near = true;
+                }
+                if (near) { ring += l; nr++; }
+            }
+            if (nf == 0 || nr == 0) return null;
+            return string.Format(CultureInfo.InvariantCulture, "\"figure_luma\":{0:0.0},\"ground_luma\":{1:0.0},\"figure_gap\":{2:0.0},\"figure_px\":{3},", fig / nf, ring / nr, fig / nf - ring / nr, nf);
+        }
+
+        public string Report(Texture2D tex = null, string extra = null)
         {
             var sb = new StringBuilder("{");
+            if (extra != null) sb.Append(extra);
             if (tex != null)
             {
                 var px = tex.GetPixels32(); var lum = new float[px.Length]; double sum = 0; int blown = 0;
@@ -485,7 +553,7 @@ namespace TW.Playground
             for (int i = 0; i < Buildings.Count; i++)
             {
                 var b = Buildings[i]; if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"name\":\"{0}\",\"standing\":{1},\"chunks\":{2}}}", b.name, b.Standing, b.Pieces.Count);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"name\":\"{0}\",\"standing\":{1},\"chunks\":{2},\"floating\":{3}}}", b.name, b.Standing, b.Pieces.Count, b.Floating);
             }
             sb.Append("],\"units\":[");
             for (int i = 0; i < Units.Count; i++)
@@ -494,7 +562,7 @@ namespace TW.Playground
                 float dist = Camera.main != null ? Vector3.Distance(Camera.main.transform.position, u.Centre) : 0f;
                 var su = Camera.main != null ? Camera.main.WorldToViewportPoint(u.Centre + Vector3.up * u.Height * 0.7f * u.transform.lossyScale.y) : Vector3.zero;
                 u.Drift(out var hand, out var foot);
-                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"verts\":{1},\"bones\":{2},\"dist\":{3:0.0},\"clip\":\"{4}\",\"dead\":{5},\"sx\":{6:0.000},\"sy\":{7:0.000},\"hand\":[{8:0.000},{9:0.000},{10:0.000}],\"foot\":[{11:0.000},{12:0.000},{13:0.000}],\"rifleInside\":{14:0.00}}}", u.Lod, u.VertsDrawn, u.BonesPerLod[u.Lod], dist, u.Clip >= 0 ? Library.Clips[u.Clip].Name : "", u.Dead ? "true" : "false", su.x, su.y, hand.x, hand.y, hand.z, foot.x, foot.y, foot.z, u.RifleInside);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"verts\":{1},\"bones\":{2},\"dist\":{3:0.0},\"clip\":\"{4}\",\"dead\":{5},\"sx\":{6:0.000},\"sy\":{7:0.000},\"hand\":[{8:0.000},{9:0.000},{10:0.000}],\"foot\":[{11:0.000},{12:0.000},{13:0.000}],\"rifleInside\":{14:0.00},\"rifleDir\":[{15:0.000},{16:0.000},{17:0.000}]}}", u.Lod, u.VertsDrawn, u.BonesPerLod[u.Lod], dist, u.Clip >= 0 ? Library.Clips[u.Clip].Name : "", u.Dead ? "true" : "false", su.x, su.y, hand.x, hand.y, hand.z, foot.x, foot.y, foot.z, u.RifleInside, u.RifleDir.x, u.RifleDir.y, u.RifleDir.z);
             }
             sb.Append("]}");
             return sb.ToString();
