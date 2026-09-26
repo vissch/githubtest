@@ -255,6 +255,68 @@ namespace TW.Tests
         }
 
         [Test]
+        public void NightEarthKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldColumn()
+        {
+            // AOSA C57: the default draws a moonlit field's earth column opaque dark brown and smaller at the standard view;
+            // fx.columnEarth=0,fx.columnEarthSize=1 is the old look
+            Assert.AreEqual("fx.columnEarth", FlipbookFx.EarthKnob);
+            Assert.AreEqual("fx.columnEarthSize", FlipbookFx.EarthSizeKnob);
+            Assert.AreEqual(FlipbookFx.DefaultEarth, FlipbookFx.ReadEarth());
+            Assert.AreEqual(FlipbookFx.DefaultEarthSize, FlipbookFx.ReadEarthSize());
+            Assert.AreEqual("0.22", Knobs.Read["fx.columnEarth"]);
+            Assert.AreEqual("0.38", Knobs.Read["fx.columnEarthSize"]);
+            Assert.Greater(FlipbookFx.DefaultEarth, FlipbookFx.OldEarth, "the default is the new look");
+            Assert.Less(FlipbookFx.DefaultEarthSize, FlipbookFx.OldEarthSize, "the default is the new look");
+
+            // the new tint: #3B2A1E's brown (red over green over blue, blue about half of red), a valid colour, and the knob
+            // is the value drawn at the drawing's middle ink, mixed as the shader mixes it (NightLit of the shade grey)
+            var tint = FlipbookFx.EarthTint(FlipbookFx.DefaultEarth);
+            Assert.Greater(tint.r, tint.g); Assert.Greater(tint.g, tint.b);
+            Assert.AreEqual(0.508f, tint.b / tint.r, 1e-3f, "#3B2A1E: blue 30 over red 59");
+            Assert.AreEqual(0.712f, tint.g / tint.r, 1e-3f, "#3B2A1E: green 42 over red 59");
+            Assert.LessOrEqual(tint.r, 1f);
+            float mid = Mathf.Lerp(0.61f, FlipbookFx.NightShade, FlipbookFx.NightLit);
+            Assert.AreEqual(FlipbookFx.DefaultEarth, (0.299f * tint.r + 0.587f * tint.g + 0.114f * tint.b) * mid, 1e-4f, "the knob is the drawn value");
+            Assert.AreEqual(0f, FlipbookFx.EarthTint(0f).r, "value 0 is black (and NightEarth paints nothing at 0)");
+
+            // the size: the knob at the standard view on a moonlit field, 1 among the men and on every other field
+            Assert.AreEqual(FlipbookFx.DefaultEarthSize, FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 0f, true));
+            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 1f, true) == 1f, "full size among the men");
+            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 0f, false) == 1f, "day and lava keep their size");
+            // r 8 (a barrage shell) at the standard view: the drawing (62% x 79% of its card, aspect 512/754) is 3-5 m wide
+            // and 7-10 m tall while it rises (swell 1 -> 1.175 at mid-life)
+            float card = 8f * 2.1f * FlipbookFx.DefaultEarthSize, aspect = 512f / 754f;
+            Assert.That(card * 0.62f * 1.1f, Is.InRange(3f, 5f));
+            Assert.That(card / aspect * 0.79f * 1.1f, Is.InRange(7f, 10f));
+
+            // the old values: nothing painted, and a width factor of exactly 1 at every zoom (the float the old code passed,
+            // with fx.columnScale on top as before)
+            Knobs.Set(FlipbookFx.EarthKnob, "0");
+            Knobs.Set(FlipbookFx.EarthSizeKnob, "1");
+            Assert.AreEqual(0f, FlipbookFx.ReadEarth());
+            Assert.AreEqual(1f, FlipbookFx.ReadEarthSize());
+            foreach (float close in new[] { 0f, 0.25f, 0.5f, 0.999f, 1f })
+            foreach (bool moon in new[] { false, true })
+            {
+                float n = FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), close, moon);
+                Assert.IsTrue(n == 1f, "closeUp " + close + ", moonlit " + moon);
+                foreach (float r in new[] { 2f, 3.7f, 8f, 9f })
+                foreach (float scale in new[] { 1f, 3f, 0.5f })
+                    Assert.IsTrue(r * 2.1f * scale * n == r * 2.1f * scale, "column width, r " + r + ", fx.columnScale " + scale);
+            }
+
+            // out of range: the value kept in [0, 1], the size in [0.05, 4]
+            Knobs.Set(FlipbookFx.EarthKnob, "-1");
+            Knobs.Set(FlipbookFx.EarthSizeKnob, "0");
+            Assert.AreEqual(0f, FlipbookFx.ReadEarth());
+            Assert.AreEqual(0.05f, FlipbookFx.ReadEarthSize());
+            Knobs.Set(FlipbookFx.EarthKnob, "3");
+            Knobs.Set(FlipbookFx.EarthSizeKnob, "9");
+            Assert.AreEqual(1f, FlipbookFx.ReadEarth());
+            Assert.AreEqual(4f, FlipbookFx.ReadEarthSize());
+        }
+
+        [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
             Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));

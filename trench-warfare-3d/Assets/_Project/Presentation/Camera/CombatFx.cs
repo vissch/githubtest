@@ -130,6 +130,10 @@ namespace TW.Presentation.Tactical
         // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
         // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
         float smokeNight = FlipbookFx.DefaultNight, smokeNightSize = FlipbookFx.DefaultNightSize;
+        // knobs fx.columnEarth and fx.columnEarthSize (Awake, AOSA C57): on a moonlit field a shell's earth column is drawn
+        // opaque dark brown that the moon does not light (FlipbookFx.NightEarth, from ApplyTints), and this much smaller at
+        // the standard view, on top of fx.columnScale. 0 and 1 = the old look.
+        float columnEarth = FlipbookFx.DefaultEarth, columnEarthSize = FlipbookFx.DefaultEarthSize;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -212,6 +216,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Puff, t.Dust);
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight);   // AOSA C59: after the biome's smoke tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
@@ -276,6 +281,8 @@ namespace TW.Presentation.Tactical
             burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
             smokeNight = FlipbookFx.ReadNight();
             smokeNightSize = FlipbookFx.ReadNightSize();
+            columnEarth = FlipbookFx.ReadEarth();
+            columnEarthSize = FlipbookFx.ReadEarthSize();
         }
 
         void Start()
@@ -683,7 +690,9 @@ namespace TW.Presentation.Tactical
                         // Alpha still keys on `wet` on purpose: a fully opaque plume in lava's SplashTint
                         // (1.00, 0.46, 0.12) on a field that already reins GlowScale in to 0.55 is a brightness
                         // guess, and this project has been burned twice by those.
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                        // AOSA C57: the dry column smaller at the standard view on a moonlit field (1 exactly with fx.columnEarthSize=1)
+                        float earth = wet ? 1f : FlipbookFx.NightScale(columnEarthSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);

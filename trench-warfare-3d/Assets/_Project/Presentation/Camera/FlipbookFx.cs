@@ -137,6 +137,59 @@ namespace TW.Presentation.Tactical
             m.SetFloat("_ShadeMood", 0f);   // and no night-blue shade tint either
             m.SetFloat("_Lit", NightLit);
         }
+
+        // AOSA C57 (juice J01, the earth column at night): the column read as a see-through dark smear, a shadow (critic,
+        // runs 7/d59: column 4). Three things, all from the code and the drawing, and the first measured on screen:
+        //   the moon  the Column book is toon-lit like the Burst was before C59, so its brown (SceneTints.Column 0.40, 0.33,
+        //             0.26) goes out as the night key's blue in the light band (0.56, 0.70, 1.0) and as near-black navy in the
+        //             shade band (_Shade x the night shade tint 0.20, 0.29, 0.56). On screen it measured (40, 43, 48): blue over
+        //             red from a red-over-blue tint, a little darker than the moonlit ground, which is how a shadow looks
+        //             (runs 6/col3 against 6/v6c, the pixels the column's size changed, frames 0-15).
+        //   the fade  the book is not Erode, so from 65% of its 1.8 s every column fades EVENLY, and the drawing's own alpha
+        //             falls from frame 9 (median 0.93 -> 0.15): for its last 0.6 s each column is a uniformly half-clear card.
+        //   the size  a barrage shell is r 8 (OffMapAbilities ShellRadius), so the column is drawn about 10 m wide and 20-26 m
+        //             tall at the standard view (the drawing fills 62% x 79% of its 16.8 x 24.7 m card, then grows 35%).
+        // Two knobs, read once in CombatFx.Awake, and only on a moonlit field (as C59: the cause is the moon; the day and
+        // the lava field are untouched):
+        //   fx.columnEarth      the value (luma, 0-1) the earth is drawn at, in #3B2A1E's dark brown that ignores the moon
+        //                       (every ink value in the shade band, a plain grey shade, 40% of the drawing's own values kept
+        //                       for its clods), and torn like the smoke (Erode: at full life the alpha edge is 2.2x harder,
+        //                       and at the end it breaks up from its edges into the smoke instead of fading evenly). The
+        //                       burst's own light (TWBurstLight) still lights its foot orange. 0 = the old look (nothing set).
+        //   fx.columnEarthSize  the column's width and height at the standard view (back to 1 as the lens goes in among the
+        //                       men). 1 = the old size.
+        // Both at their old values (fx.columnEarth=0,fx.columnEarthSize=1) draw the image before C57 bit for bit.
+        public const string EarthKnob = "fx.columnEarth", EarthSizeKnob = "fx.columnEarthSize";
+        public const float DefaultEarth = 0.22f, DefaultEarthSize = 0.38f;   // critic: #3B2A1E; about 3-4 m wide and 8-10 m tall at T1 (r 8: about 4.4 x 8.2 m as it rises, 5.3 x 10 m at the end)
+        public const float OldEarth = 0f, OldEarthSize = 1f;
+        public static readonly Color EarthHue = new Color(1f, 0.712f, 0.508f);   // #3B2A1E is (59, 42, 30) = (1, 0.712, 0.508)
+        const float EarthMidInk = 0.61f;   // the Column drawing's middle ink (median 0.58-0.63 over frames 0-14, pixels at alpha > 0.3)
+
+        /// <summary>fx.columnEarth, in [0, 1] (0 = the old moonlit look).</summary>
+        public static float ReadEarth() => Mathf.Clamp01(Knobs.Get(EarthKnob, DefaultEarth));
+
+        /// <summary>fx.columnEarthSize, in [0.05, 4] (1 = the old size).</summary>
+        public static float ReadEarthSize() => Mathf.Clamp(Knobs.Get(EarthSizeKnob, DefaultEarthSize), 0.05f, 4f);
+
+        /// <summary>The tint that draws the night column at this value (luma at the drawing's middle ink), before fog and grade.</summary>
+        public static Color EarthTint(float value)
+        {
+            float luma = 0.299f * EarthHue.r + 0.587f * EarthHue.g + 0.114f * EarthHue.b;
+            float k = value / (luma * Mathf.Lerp(EarthMidInk, NightShade, NightLit));
+            return new Color(EarthHue.r * k, EarthHue.g * k, EarthHue.b * k, 1f);
+        }
+
+        /// <summary>AOSA C57: paint the Column book as opaque dark-brown earth that the moon does not light, torn at its end
+        /// (see EarthKnob). Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets
+        /// nothing. The Splash book (a shell in water) and the Wings are not touched.</summary>
+        public void NightEarth(float value)
+        {
+            if (value <= 0f) return;
+            var m = mats[(int)Book.Column];
+            if (m == null) return;
+            PaintNight(m, EarthTint(value));
+            m.SetFloat("_Erode", 1f);
+        }
         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
         readonly List<Card> cards = new List<Card>(512);
         readonly Material[] mats = new Material[(int)Book.Count];
