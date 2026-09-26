@@ -64,10 +64,18 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **Tests:** CombatTests, HeightfieldRaycastTests.
 
 ### Shells, barrages, gas, fire
-- **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`), `Sim/Match/OffMapAbilities.cs`,
-  `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs`, `Sim/Combat/Burning.cs` (`BurningSystem`: men and
-  ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`), `Sim/Match/Deformation.cs`.
-- **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests.
+- **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),
+  `Sim/Match/OffMapAbilities.cs` (HE disc / line / box, creeping barrage, chlorine point / creeping, smoke screen,
+  strafe run; `ScheduledPayload`, `PayloadKind`), `Sim/Core/AbilityArgs.cs` (heading, pattern, length in
+  `SimCommand.B`), `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs` (the gas field and the smoke
+  field), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
+  `Sim/Combat/Burning.cs` (`BurningSystem`: men and ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`),
+  `Sim/Match/Deformation.cs`.
+- **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests, AbilityArgsTests, StrafeRunTests,
+  BarragePatternTests, SmokeScreenTests.
+- **Trap:** a line starts at `pos` and runs along the heading (0 = +Z, 90 = +X) for the length; `B = 0` is the plain
+  ability at its own length, so every older caller still works. Add a pattern only to `AbilityStats.Patterns`, or the
+  command is rejected as one the ability does not offer.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
 
 ### Vehicles in the sim: tanks and walkers
@@ -274,7 +282,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- gen:tests -->
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
+| `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
+| `BarragePatternTests` | EditMode | 7 | OffMapAbilityId, SimEventType, OffMapAbilitySystem, SimEvent, AbilityPattern, SimCommand |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
@@ -288,7 +298,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
 | `DeathEventContractTests` | EditMode | 5 | DeathCause, SimEvent, SimEventType, Impact, MatchSim, AmbientBombardmentSystem |
 | `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
-| `DeterminismReplayTests` | EditMode | 3 | SimCommand, MatchSim, SimConfig, ReplayRecorder, GreyboxMapGenerator, Record |
+| `DeterminismReplayTests` | EditMode | 3 | SimCommand, OffMapAbilityId, MatchSim, SimConfig, AbilityPattern, ReplayRecorder |
 | `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |
 | `DynamicGroundTests` | EditMode | 11 | NavLayer, CraterStamp, Snapshot, MapData, MatchSim, CraterKind |
 | `EnvAtlasTests` | EditMode | 2 | BattlefieldKit |
@@ -316,7 +326,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `SimHashTests` | EditMode | 3 | SimHash, SimRandom, SimMath, SystemId |
 | `SinglePlayerEquivalenceTests` | EditMode | 1 | LockstepSession, MatchSim, ScriptedEnemy, SimCommand, SimConfig |
 | `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |
+| `SmokeScreenTests` | EditMode | 5 | SmokeLos, OffMapAbilityId, OffMapAbilitySystem, SimEventType, SimCommand, CombatTables |
 | `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, Pending, AudioLevels |
+| `StrafeRunTests` | EditMode | 5 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
 | `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |

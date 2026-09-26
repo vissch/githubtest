@@ -23,13 +23,14 @@ namespace TW.Sim
         UnitLeftTrench,     // a = slot, b = trench id
         TrenchCaptured,     // a = trench id, b = team
         ObjectiveCaptured,  // a = objective id, b = team
-        GasCloudSpawned,    // a = agent id, pos, dir = wind, scalar = concentration
-        SmokeSpawned,       // pos, dir = line direction, scalar = length
+        GasCloudSpawned,    // a = ability id, b = player, pos = the source, dir = the creeping heading (zero for a point), scalar = concentration
+        SmokeSpawned,       // a = ability id, b = player, pos = one source of the screen, dir = the line's heading, scalar = concentration
         VehicleTrackHit,    // a = slot, b = side (0 left, 1 right)
         VehicleStalled,     // a = slot, b = 1 the engine died / 0 it runs again
         VehicleDestroyed,   // a = slot, b = killer, dir.y = hull yaw (SimWorld.Despawn)
         WireBreached,       // pos, scalar = width
-        AbilityFired,       // a = ability id, b = player, pos
+        AbilityFired,       // a = ability id, b = player, pos = the target or where a line starts, dir = heading x length (zero for a
+                            //   point), scalar = an area's radius or a line's corridor half width
         WaveStarted,        // a = wave index, b = unit count
         MissionTriggerFired,// a = trigger id
         CellBurning,        // pos, scalar = seconds

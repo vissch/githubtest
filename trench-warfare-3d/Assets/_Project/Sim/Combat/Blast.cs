@@ -22,6 +22,10 @@
 //   fragments carry on. The man is thrown along the same lean. A mortar coming almost straight down, a cook-off and
 //   falling masonry have no direction and are unchanged.
 //
+//   WHOSE MEN ARE BEHIND IT (docs/21 phase 5). A creeping barrage walks ahead of the men who follow it, and the
+//   battery knows where they are: an Impact with SafeBehind > 0 leaves the firing player's own men within that
+//   many metres behind it (against Dir) untouched. A friend beside or ahead of the burst is as dead as anyone.
+//
 // Nothing may cut a burst to nothing: MinThrough is the floor, so a shell on top of a dugout still hurts.
 // SUPPRESSION IS DELIBERATELY NOT SHADED, only leaned. Keeping your head down is what a man does whether or not the
 // parapet saved him, and the M1.5 fun gate tuned a barrage's suppressive weight against the old numbers; shading it
@@ -53,6 +57,9 @@ namespace TW.Sim.Combat
         /// <summary>Metres of rubble this burst heaps up where it lands (falling masonry). Zero for a shell, which
         /// digs a hole instead.</summary>
         public float Rubble;
+        /// <summary>The firing player's own men within this many metres behind the burst (against Dir) take nothing
+        /// from it: a creeping barrage's lift walks ahead of them. Zero (every other burst) spares nobody.</summary>
+        public float SafeBehind;
         public int Source;   // ability or weapon id, for the Explosion event
         public int Player;   // who fired it (-1 none); friendly fire is on
         public int Shape;    // BlastShape; 0 = Shell, so every existing call site is unchanged
@@ -128,7 +135,7 @@ namespace TW.Sim.Combat
             {
                 Count = w.HighWater, Impacts = Pending.AsArray(), Killed = killed, KilledKnock = killedKnock, Counters = counters,
                 Position = w.Position, Flags = w.Flags, StanceOf = w.StanceOf, Hp = w.Hp, Suppression = w.Suppression, Knock = w.Knock,
-                Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
+                Team = w.Team, Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
             }.Run();
             for (int k = 0; k < Pending.Length; k++)
@@ -161,7 +168,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<Impact> Impacts;
             [ReadOnly] public NativeArray<float3> Position;
             [ReadOnly] public NativeArray<uint> Flags;
-            [ReadOnly] public NativeArray<byte> StanceOf, Layers;
+            [ReadOnly] public NativeArray<byte> StanceOf, Layers, Team;
             [ReadOnly] public NativeArray<short> CellTrenchId;
             [ReadOnly] public Heightfield Height;
             public NativeArray<float> Hp, Suppression;
@@ -202,6 +209,12 @@ namespace TW.Sim.Combat
                         float falloff = 1f - 0.75f * (dist / im.Radius);
                         int cell = CellOf(Position[i]);
                         if ((f & (uint)UnitFlags.Vehicle) != 0) continue;   // armour: VehicleModulesSystem
+                        // ---- whose men are behind it: the lift's own, following it, are spared ------------
+                        if (im.SafeBehind > 0f && directional && im.Player >= 0 && Team[i] == (byte)im.Player)
+                        {
+                            float behind = -math.dot(lean, d);
+                            if (behind > 0f && behind <= im.SafeBehind) continue;
+                        }
 
                         // ---- where he is standing ------------------------------------------------------------
                         float protection = 1f;

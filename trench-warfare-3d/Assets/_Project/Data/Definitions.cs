@@ -90,13 +90,17 @@ namespace TW.Data
         public float Radius = 25f, Length = 0f;
         public int Shells = 12; public float ShellDamage = 150f, ShellRadius = 8f; public int SpreadTicks = 120;
         public float Concentration = 0f; public int PersistTicks = 0;
+        public float HalfWidth = 0f, ShellSuppression = 60f, CraterRadius = 3f, StepMetres = 0f, SafeBehind = 0f;
+        public int Steps = 0, StepTicks = 0, Patterns = 1;
         public bool BreachesWire, CollapsesTrench, DestroysBunker;
 
         public AbilityStats ToStats() => new AbilityStats
         {
             Id = Id, Cost = Cost, CooldownTicks = CooldownTicks, WarmupTicks = WarmupTicks, Target = Target, Radius = Radius, Length = Length,
-            Shells = Shells, ShellDamage = ShellDamage, ShellRadius = ShellRadius, SpreadTicks = SpreadTicks, Concentration = Concentration,
-            PersistTicks = PersistTicks, BreachesWire = BreachesWire, CollapsesTrench = CollapsesTrench, DestroysBunker = DestroysBunker,
+            HalfWidth = HalfWidth, Shells = Shells, ShellDamage = ShellDamage, ShellRadius = ShellRadius, ShellSuppression = ShellSuppression,
+            CraterRadius = CraterRadius, SpreadTicks = SpreadTicks, Concentration = Concentration, PersistTicks = PersistTicks,
+            Steps = Steps, StepTicks = StepTicks, StepMetres = StepMetres, SafeBehind = SafeBehind, Patterns = Patterns,
+            BreachesWire = BreachesWire, CollapsesTrench = CollapsesTrench, DestroysBunker = DestroysBunker,
         };
     }
 
