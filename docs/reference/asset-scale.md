@@ -12,3 +12,38 @@ every module against the soldier (1 SU = `FigureMetrics.HeightM`, 2.0 m): class,
 instances, drawn size, standard-view ratio, how many the clamp touched, verdict. The first run waits for a machine
 with enough free memory to open an editor (2026-09-26: under 1 GB free); `AssetScaleTests` checks the looks and
 the hand edits without it. Design: `docs/21-overhaul-2026-09.md` phase 1, `docs/13-environment-system-rebuild.md`.
+
+## Interim: the procedural kit as built, computed by hand (2026-09-26, critique rounds 2-3)
+
+Until the audit runs, every `kit/*` row that enforces was computed from its builder in `BattlefieldKit.cs` at the
+scale the kit builds it (the gate test `AssetScaleTests.The_Kit_Pieces_Stand_In_Bounds_As_Built` judges the same
+thing on the real meshes and is the verdict that counts). 1 SU = 2.0 m; the axis is the row's.
+
+| Module | As built | Row | Holds |
+|---|---|---|---|
+| kit/helmet (shrunk 2026-09-26: brim 0.43 → 0.31 m) | 0.155 SU | 0.13-0.18 | yes |
+| kit/boots (a pair laid out) | 0.26 | 0.20-0.30 | yes (row widened) |
+| kit/ammoTin (with its spilled rounds) | 0.29 | 0.22-0.32 | yes (row widened) |
+| kit/messKit (height) | 0.05 | 0.04-0.08 | yes (row corrected: was 0.10-0.22, drawn double) |
+| kit/hangingTins | 0.21 | 0.10-0.26 | yes (row widened) |
+| kit/supplies (the braced crate) | 0.525 | 0.30-0.55 | yes (row widened) |
+| kit/shellCases (three cases, a group) | 0.455 | 0.35-0.55 | yes (row corrected) |
+| kit/bucket | 0.15 | 0.10-0.22 | yes |
+| kit/wireTins | 0.12 | 0.10-0.22 | yes |
+| kit/lantern | 0.75 | 0.60-0.90 | yes |
+| kit/spade | 0.36 | 0.25-0.40 | yes |
+| kit/leanRifle | 0.62 | 0.50-0.70 | yes |
+| kit/graveMarker | 0.64 | 0.50-0.70 | yes |
+| kit/signBoard | 0.70 | 0.60-0.85 | yes |
+| kit/looseBoards | 0.95 | 0.40-1.10 | yes |
+| kit/knifeRest | 0.60 | 0.50-0.85 | yes |
+| kit/ladder | 1.05 | 1.00-1.40 | yes, near the floor |
+| kit/duckboards | 1.00 | 0.90-1.10 | yes |
+| kit/sandbags | 0.32 | 0.25-0.45 | yes |
+| kit/dugout | 1.05 | 1.00-1.80 | yes, near the floor |
+| kit/bunker | 1.30 | 1.00-1.80 | yes |
+| kit/roof (the mound, skirt to crest) | 1.69 | 1.00-1.80 | yes |
+| kit/TrenchWalls, TrenchBags, TrenchFloors (+ damaged) | per axis by TrenchKit | report only | not clamped |
+
+Hand arithmetic can be wrong where a rotation or a `WornBox` bevel adds a few centimetres: the first gate run
+replaces this table with the measured one.
