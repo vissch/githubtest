@@ -116,8 +116,13 @@ namespace TW.Presentation.Terrain
             return input;
         }
 
+        /// <summary>Where the scattered lanterns stand (world, at the ground), refreshed each pass: NightLights hangs its
+        /// trench lamps on them first, so a lit lamp in the line is always a drawn lantern.</summary>
+        public readonly List<Vector3> LanternPoints = new List<Vector3>();
+
         void Scatter(MapData map, BattlefieldSurface surface)
         {
+            LanternPoints.Clear();
             if (!ReferenceEquals(scatterMap, map))
             {
                 var input = BuildScatterInput(map, surface);
@@ -134,7 +139,9 @@ namespace TW.Presentation.Terrain
                 if (surface.At(s.X, s.Z).Hollow >= 0) continue;   // a shell hole since: the grass and the kit went with the earth
                 var module = ModuleOf(s, out float sink, out float size);
                 if (module == null) continue;
-                emit(module, Matrix4x4.TRS(new Vector3(s.X, surface.VisualHeight(s.X, s.Z) - sink, s.Z), Quaternion.Euler(0f, s.Yaw, 0f), Vector3.one * (s.Scale * size)));
+                var at = new Vector3(s.X, surface.VisualHeight(s.X, s.Z) - sink, s.Z);
+                if (s.Kind == ScatterKind.Lantern) LanternPoints.Add(at);
+                emit(module, Matrix4x4.TRS(at, Quaternion.Euler(0f, s.Yaw, 0f), Vector3.one * (s.Scale * size)));
             }
         }
 

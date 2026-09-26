@@ -105,6 +105,8 @@ namespace TW.Presentation.Terrain
         public int Generation { get; private set; }
         public string PlacementReport => composer?.PlacementReport ?? string.Empty;
         public IReadOnlyList<BattlefieldComposer.Site> Sites => composer?.Sites ?? System.Array.Empty<BattlefieldComposer.Site>();
+        /// <summary>The scattered lanterns' feet (docs/21 phase 2): NightLights lights those first.</summary>
+        public IReadOnlyList<Vector3> LanternPoints => composer != null ? composer.LanternPoints : (IReadOnlyList<Vector3>)System.Array.Empty<Vector3>();
         public BattlefieldKit Kit => kit;
         /// <summary>Every imported prop placed this composition, hand edits applied.</summary>
         public IReadOnlyList<Placed> Editable => placed;

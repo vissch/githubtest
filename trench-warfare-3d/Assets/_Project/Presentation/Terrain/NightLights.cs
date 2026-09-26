@@ -25,6 +25,8 @@ namespace TW.Presentation.Terrain
         public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, MaxTorches = 6, MaxPropLamps = 12, PoolSize = 8;
         public Color Lantern = new Color(1f, 0.60f, 0.26f), Muzzle = new Color(1f, 0.74f, 0.40f), Burst = new Color(1f, 0.52f, 0.20f), Flare = new Color(0.82f, 0.90f, 1f);
         public float LanternIntensity = 6f, LanternRange = 10f;
+        /// <summary>A lamp hung on a scattered lantern sits at its glass; two lit lamps keep this far apart.</summary>
+        public const float LanternGlassHeight = 1.25f, LampSpacing = 18f;
         [Tooltip("Seconds between star shells, least and most.")]
         public Vector2 FlareEvery = new Vector2(22f, 40f);
 
@@ -143,7 +145,7 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>Lamps at the composed sites, and fires far off beyond the two ends and the far side.</summary>
-        void Build(IReadOnlyList<BattlefieldComposer.Site> sites)
+        void Build(IReadOnlyList<BattlefieldComposer.Site> sites, IReadOnlyList<Vector3> lanternPoints = null)
         {
             var map = Host.Local.Map;
             var post = new Material(Shader.Find("TW/Toon (URP)")) { hideFlags = HideFlags.HideAndDontSave };
@@ -195,8 +197,25 @@ namespace TW.Presentation.Terrain
                     centres.Add(l.transform.position); shapes.Add(new Vector4(2.6f, .18f, propLamps * .151f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .55f));
                     propLamps++;
                 }
-            // lamps in the line: on the wall of a trench cell whose neighbour toward z- is open ground, spaced along x
+            // lamps in the line, first on the lanterns the scatter drew there (docs/21 phase 2: a lit lamp is a drawn
+            // lantern), at least eighteen metres from any light already hung; the wall scan below fills what is left
             int hung = 0;
+            if (lanternPoints != null)
+                for (int i = 0; i < lanternPoints.Count && hung < MaxTrenchLamps; i++)
+                {
+                    var p = lanternPoints[i];
+                    bool near = false;
+                    for (int j = 0; j < centres.Count; j++)
+                        if ((centres[j].x - p.x) * (centres[j].x - p.x) + (centres[j].z - p.z) * (centres[j].z - p.z) < LampSpacing * LampSpacing) { near = true; break; }
+                    if (near) continue;
+                    Vector3 at = p + Vector3.up * LanternGlassHeight;
+                    var l = MakeLight("Trench lamp " + hung, Lantern, LanternIntensity * .8f, 8.5f);
+                    l.transform.position = at;
+                    lanterns.Add(l); lanternPhase.Add(p.x * 2.3f + p.z);
+                    centres.Add(at); shapes.Add(new Vector4(2.0f, .18f, i * .091f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .5f));
+                    hung++;
+                }
+            // then on the wall of a trench cell whose neighbour toward z- is open ground, spaced along x
             for (int z = 1; z < map.NavLength - 1 && hung < MaxTrenchLamps; z++)
             for (int x = 3; x < map.NavWidth - 3 && hung < MaxTrenchLamps; x++)
             {
@@ -427,7 +446,7 @@ namespace TW.Presentation.Terrain
             if (!built)
             {
                 var props = GetComponent<BattlefieldProps>();
-                if (props != null && props.Sites.Count > 0) { Build(props.Sites); built = true; }
+                if (props != null && props.Sites.Count > 0) { Build(props.Sites, props.LanternPoints); built = true; }
             }
             for (int i = 0; i < lanterns.Count; i++)
             {
