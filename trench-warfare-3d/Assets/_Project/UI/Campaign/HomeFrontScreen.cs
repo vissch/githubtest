@@ -79,6 +79,8 @@ namespace TW.UI
             view = null;
         }
 
+        /// <summary>The tab is the choice: the profile's faction is saved at once (Save honours the test switch), so
+        /// the map, the staging screen and the next session open on it.</summary>
         public void SetFaction(byte f)
         {
             if (f >= FactionNames.Length || f == Faction) return;

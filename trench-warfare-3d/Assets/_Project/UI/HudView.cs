@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Presentation;
 
 namespace TW.UI
 {
@@ -71,7 +72,14 @@ namespace TW.UI
         /// Query the fixed elements, instantiate one card per roster slot (infantry left, machines right) and one per
         /// support ability, and turn keyboard focus off on every button so Space stays the tactical pause.
         /// </summary>
-        public static HudRefs Build(VisualElement root, VisualTreeAsset cardTemplate, RosterEntry[] roster, int[] supportCosts)
+        /// <summary>Whether the match fields an ability: bit (int)id of the launch request's mask for our seat. A mask of
+        /// zero (a skirmish, a test) fields every card; a campaign's mask is what the Home Front unlocked and the
+        /// staging screen picked.</summary>
+        public static bool Offered(uint abilityMask, OffMapAbilityId id) => abilityMask == 0 || (abilityMask & (1u << (int)id)) != 0;
+        /// <summary>The mask of the match in flight for our seat (MatchLaunch.Current), 0 when none.</summary>
+        public static uint CurrentMask => MatchLaunch.Current != null ? MatchLaunch.Current.AbilityMaskA : 0u;
+
+        public static HudRefs Build(VisualElement root, VisualTreeAsset cardTemplate, RosterEntry[] roster, int[] supportCosts, uint abilityMask = 0)
         {
             var r = new HudRefs { Root = root.name == RootName ? root : root.Q(RootName) ?? root };
             r.SilverValue = root.Q<Label>("silver-value"); r.IncomeValue = root.Q<Label>("income-value");
@@ -104,6 +112,7 @@ namespace TW.UI
             }
             for (int i = 0; i < SupportAbilities.Length; i++)
             {
+                if (!Offered(abilityMask, SupportAbilities[i])) continue;   // not fielded this match: no card (and HudController.ToggleArm refuses the key)
                 var card = MakeCard(cardTemplate, r.Support);
                 card.Ability = SupportAbilities[i];
                 card.BaseCost = supportCosts != null && i < supportCosts.Length ? supportCosts[i] : 0;

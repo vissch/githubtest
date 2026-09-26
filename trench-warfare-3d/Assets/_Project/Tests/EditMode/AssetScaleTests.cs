@@ -118,5 +118,31 @@ namespace TW.Tests
             }
             finally { kit.Dispose(); }
         }
+
+        /// <summary>The cheap half of the audit, in the gate: every procedural piece with a bounded row that enforces
+        /// must stand in its bounds at the scale the kit builds it, or the clamp rescales it silently in every scene.
+        /// Builds the kit once (as TrenchSectionTests does); the composed field stays Explicit below.</summary>
+        [Test]
+        public void The_Kit_Pieces_Stand_In_Bounds_As_Built()
+        {
+            var kit = new BattlefieldKit();
+            try
+            {
+                kit.ResolveKeysAndRules();
+                var failed = new List<string>(); int judged = 0;
+                foreach (var kv in kit.KeyOf)
+                {
+                    var m = kv.Key; string key = kv.Value;
+                    if (!key.StartsWith("kit/") || m.Mesh == null || !m.Rule.Bounded || !m.Rule.Enforce) continue;
+                    float su = AssetScaleTable.SoldierUnits(m.Rule, m.Mesh.bounds.size, Vector3.one);
+                    judged++;
+                    TestContext.WriteLine(key + ": " + su.ToString("0.00") + " SU (" + m.Rule.MinSU + "-" + m.Rule.MaxSU + ")");
+                    if (!m.Rule.Holds(su)) failed.Add(key + " is " + su.ToString("0.00") + " SU as built, bounds " + m.Rule.MinSU + "-" + m.Rule.MaxSU);
+                }
+                Assert.Greater(judged, 10, "the kit has bounded pieces");
+                Assert.IsEmpty(failed, "a bounded kit piece built outside its own bounds is rescaled by the clamp in every scene; fix the mesh or the row: " + string.Join("; ", failed));
+            }
+            finally { kit.Dispose(); }
+        }
     }
 }

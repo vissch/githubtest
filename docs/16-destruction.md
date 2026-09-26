@@ -332,7 +332,9 @@ a found instance into a `Key` goes through `PropWear.Home(...)` first — `Strik
 
 **`MaxRemembered` raised 2000 -> 20000.** Past the cap a destroyed prop stops being remembered and comes back at the
 next recomposition. Shelling alone breaks ~4 props/s, so that was about eight minutes into a match *before* wear
-existed; wear makes it far sooner.
+existed; wear makes it far sooner. The `damaged` set shares the cap: past it a section still swaps to its twin now,
+but the next recomposition forgets the swap and draws the panel whole while `damage[key]` keeps its hit points, so
+the next hit takes it from "whole" straight to gone. A state choice, not a bug: the cap bounds the memory.
 
 **Tests:** `Tests/EditMode/PropWearTests.cs` locks the calibration against the sim's real rates of fire
 (`CombatTables`), so tuning either end shows up: the 4-6 s window, rifleman vs machine gun, that everything erodes but

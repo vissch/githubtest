@@ -44,6 +44,8 @@ namespace TW.UI
             return new MatchLaunch.Request
             {
                 MissionId = missionId, Title = Title, Difficulty = d.Name,
+                // the same mission rolls the same dice every attempt (the seed is the mission's): a mission is a fixed
+                // challenge, so the second try is the same fight fought better, not a different draw
                 MatchSeed = 0xC0FFEEu ^ Seed, StartingSilver = StartingSilver, SilverPerSecond = SilverPerSecond,
                 GeneratedBattlefield = true, PlaytestMap = false, BattlefieldSeed = Seed, Ground = Ground,
                 Bombardment = Bombardment, ScriptedPeer = true,

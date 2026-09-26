@@ -289,7 +289,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
   plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
-  (docs/21 B1); today only the depot's silver and income go into the launch request. The debrief pays a
+  (docs/21 B1); today only the depot's silver and income go into the launch request, and the HUD fields only the
+  cards the request's `AbilityMaskA` allows (`HudView.Offered`: cards and keys; the sim itself does not refuse a
+  masked ability yet). The debrief pays a
   campaign win through `ProfileStore.Current`: a test that binds it sets `ProfileStore.Persist = false` and
   `ProfileStore.Use(profile)` first, or it writes the player's profile.json.
 
@@ -347,7 +349,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `AbilityAimTests` | EditMode | 10 | OffMapAbilityId, AbilityAim, CombatFx, AimReadout, ScreenUnit, HudView |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
-| `AssetScaleTests` | EditMode | 6 | AssetScaleTable, PropLayout, Module, BattlefieldKit, ScaleAxis, ScaleClass |
+| `AssetScaleTests` | EditMode | 7 | AssetScaleTable, Rule, PropLayout, BattlefieldKit, Module, ScaleAxis |
 | `BarragePatternTests` | EditMode | 7 | OffMapAbilityId, SimEventType, OffMapAbilitySystem, SimEvent, AbilityPattern, SimCommand |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
@@ -381,7 +383,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HeightfieldRaycastTests` | EditMode | 4 | HeightfieldRaycast, Sample, Look, Stance, Heightfield, BattlefieldGenerator |
 | `HomeFrontDioramaTests` | EditMode | 6 | HomeFrontStages, MetaServices, Chunk, HouseKit, House, MetaBoot |
 | `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
-| `HudBindTests` | EditMode | 10 | HudText, HudView, VehicleArchetype, RosterEntry, IntText, TankSpec |
+| `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
 | `HudLayoutTests` | EditMode | 5 | BattleHud, RosterEntry |
 | `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud |
 | `HudTextTests` | EditMode | 11 | BattleHud, VehicleArchetype, TankSpec, RosterEntry, OffMapAbilityId, OffMapAbilitySystem |

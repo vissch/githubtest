@@ -27,12 +27,12 @@ namespace TW.Tests
             na.Dispose(); return r;
         }
 
-        static HudRefs BuildBare(RosterEntry[] roster)
+        static HudRefs BuildBare(RosterEntry[] roster, uint abilityMask = 0)
         {
             // no UXML: HudView.Build queries what it can and falls back to code-built cards, so this runs without assets
             var root = new VisualElement { name = HudView.RootName };
             foreach (var n in HudView.RequiredNames) if (n != HudView.RootName) root.Add(n.EndsWith("-value") || n.StartsWith("tooltip") || n == "hint" || n == "banner-text" || n.StartsWith("caption") ? new Label { name = n } : n.StartsWith("speed-") && n != "speed-value" && n != "speed-bar" ? (VisualElement)new Button { name = n } : new VisualElement { name = n });
-            return HudView.Build(root, null, roster, new[] { 150, 120 });
+            return HudView.Build(root, null, roster, new[] { 150, 120 }, abilityMask);
         }
 
         [Test]
@@ -195,6 +195,20 @@ namespace TW.Tests
             Assert.That(IntText.Clock(0), Is.EqualTo("00:00"));
             Assert.That(IntText.Clock(3599), Is.EqualTo("59:59"));
             Assert.That(IntText.Clock(7261), Is.EqualTo("121:01"));
+        }
+
+        [Test]
+        public void TheBarFieldsOnlyWhatTheMatchUnlocked()
+        {
+            Assert.IsTrue(HudView.Offered(0u, OffMapAbilityId.Beam), "no mask: every card (a skirmish)");
+            uint two = (1u << (int)OffMapAbilityId.HeBarrage) | (1u << (int)OffMapAbilityId.ChlorineGas);
+            Assert.IsTrue(HudView.Offered(two, OffMapAbilityId.HeBarrage)); Assert.IsFalse(HudView.Offered(two, OffMapAbilityId.Beam));
+            var roster = Roster(0);
+            Assert.AreEqual(HudView.SupportAbilities.Length, BuildBare(roster).SupportCards.Count, "a skirmish fields every support card");
+            var some = BuildBare(roster, two);
+            Assert.AreEqual(2, some.SupportCards.Count, "a campaign bar shows what the Home Front unlocked");
+            Assert.AreEqual(OffMapAbilityId.ChlorineGas, some.SupportCards[1].Ability);
+            Assert.AreEqual(HudText.SupportHotkey(1), some.SupportCards[1].Hotkey.text, "the card keeps its own key, not the next free one");
         }
     }
 }
