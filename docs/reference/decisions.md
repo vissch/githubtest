@@ -69,6 +69,11 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Not scaled with the giant machines:** trench cross width, slope limit, turn rates, speeds, `MaxGrow`. Balance, not geometry.
 - **Forward+** renderer: the perf pass was to switch and let the owner judge the night look. Not recorded as done.
 - **Repo hygiene** from the maintainability audit: Git LFS for FBX and `.bytes`, removing `github-test1/`, whether CI builds Windows.
+- **Keep Tripo's own lower LODs, or derive them?** (asset playground, docs/22) The owner's LOD2 frog and LOD1 tank are
+  separate Tripo sculpts; at their switch distance the frog's LOD1->LOD2 silhouette overlap is 0.856 (worst of four
+  sides) and the tank's LOD0->LOD1 is 0.909. Deriving the frog's LOD2 by decimating LOD1 measures 0.937
+  (`frogrig.py TW_LOD2_FROM_LOD1=1`), but replaces the owner's art. Default kept: the owner's LODs.
+- **The frog's far LOD size:** 300 tris / 168 vertices ships (pop overlap 0.85); 219 tris was 0.82, 380 tris 0.87.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

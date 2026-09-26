@@ -80,6 +80,9 @@ namespace TW.Playground
         public float Height = 1.78f;
         public float Scorch, Ember, BurnUntil;
         public bool Dead;
+        /// <summary>-1 none; 0 or 1: a light wash of the side's colour over the whole figure (the playground has no uniform
+        /// mask; the game's VAT figures recolour only the cloth).</summary>
+        public int Team = -1;
         public PlaygroundFx Fx;
         public ClipDeck Deck;
         public int VertsDrawn { get; private set; }
@@ -194,8 +197,11 @@ namespace TW.Playground
             float s = transform.lossyScale.y * gunScale;
             var span = hl.position - hr.position;
             Matrix4x4 grip;
-            if (span.magnitude > 0.48f * s) grip = hl.localToWorldMatrix * gripL;                                   // the right hand is off it
-            else if (span.magnitude > 0.08f * s) grip = Matrix4x4.TRS(hr.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
+            // the right hand is off it (a bolt, a reload, a throw) - but never while aiming: VATBaker's rule is
+            // "span > 0.48 && !aiming", and a firing frog's hands are 0.70 apart (the rifle hung from the left hand, 18 deg down)
+            bool aimingClip = Clip >= 0 && Deck != null && (Deck.Library.Clips[Clip].Name.StartsWith("Fir") || Deck.Library.Clips[Clip].Name.Contains("Aim"));
+            if (span.magnitude > 0.48f * s && !aimingClip) grip = hl.localToWorldMatrix * gripL;
+            else if (span.magnitude > 0.08f * s) grip = Matrix4x4.TRS(hr.position, Quaternion.LookRotation(AimFromSource(span), Vector3.up), Vector3.one);
             else grip = hr.localToWorldMatrix * gripR;
             rifle.SetPositionAndRotation(grip.GetColumn(3), grip.rotation);
             // held at hand height, the 1.3 m rifle's butt or muzzle went through the floor: pitch it up about the grip
@@ -205,10 +211,13 @@ namespace TW.Playground
                 rifle.rotation = Quaternion.AngleAxis(-6f * Mathf.Sign(Vector3.Dot(rifle.forward, Vector3.down) + 1e-4f), rifle.right) * rifle.rotation;
             // and out of the body: if much of it is inside the torso, point it forward and down from the grip; failing that
             // carry it across the chest, in front
-            if (InsideBody() > 0.25f)
+            if (KeepRifleClear && InsideBody() > 0.25f)
             {
                 var f = Skel.Forward; f.y = 0f; f.Normalize();
-                rifle.rotation = Quaternion.LookRotation((f - Vector3.up * 0.35f).normalized, Vector3.up);
+                // aiming, straight ahead (the barrel through the belly was pushed forward-DOWN, 18 degrees into the ground,
+                // for every firing pose); otherwise forward and down, carried
+                bool aiming = Clip >= 0 && Deck != null && (Deck.Library.Clips[Clip].Name.StartsWith("Fir") || Deck.Library.Clips[Clip].Name.Contains("Aim"));
+                rifle.rotation = Quaternion.LookRotation((f - Vector3.up * (aiming ? 0.03f : 0.35f)).normalized, Vector3.up);
                 if (InsideBody() > 0.25f || LowestRifleCorner() < ground)
                 {
                     var chest = Vector3.Lerp(Skel.Bones[0].position, Skel.Bones[4].position, 0.6f) + f * 0.28f * transform.lossyScale.y * gunScale;
@@ -219,24 +228,59 @@ namespace TW.Playground
             RifleInside = InsideBody();
         }
 
-        /// <summary>Share of the rifle's length inside the torso (a capsule from the hips to the neck).</summary>
+        /// <summary>The rifle's pointing direction in the figure's own frame (the same at every LOD by construction: it hangs
+        /// on the bones, not on a mesh).</summary>
+        public Vector3 RifleDir => rifle != null ? transform.InverseTransformDirection(rifle.forward) : Vector3.zero;
+
+        /// <summary>Share of the rifle's barrel side inside the torso (a capsule from the hips to the neck).</summary>
         public float RifleInside { get; private set; }
         float InsideBody()
         {
             if (rifle == null) return 0f;
             var a = Skel.Bones[0].position; var b = Skel.Bones[4].position;
             float r = 0.30f * transform.lossyScale.y * gunScale, inside = 0f; int counted = 0;
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 24; i++)
             {
-                // the three points nearest the grip are in the hand, and the hand is at the hip: only the rest counts
-                float along = 0.30f - 0.575f + 1.15f * i / 8f;
-                if (Mathf.Abs(along) < 0.2f) continue;
+                // the grip and the stock behind it are in the hand and under the arm: only the barrel side counts
+                float along = 0.30f - 0.575f + 1.15f * i / 23f;
+                if (along < 0.15f) continue;
                 counted++;
                 var p = rifle.TransformPoint(new Vector3(0f, 0f, along * gunScale));
                 var ab = b - a; float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude);
                 if ((a + ab * t - p).magnitude < r) inside += 1f;
             }
             return counted > 0 ? inside / counted : 0f;
+        }
+
+        /// <summary>The clip's own right-to-left-hand direction, read off the rig it was authored on and turned into this
+        /// figure's frame (the source is posed at this figure's clip time: Deck.Pose ran just before). Falls back to the
+        /// figure's own hands.</summary>
+        Vector3 AimFromSource(Vector3 ownSpan)
+        {
+            var src = Deck != null ? Deck.Source : null;
+            if (src == null || src.Bones[9] == null || src.Bones[13] == null) return ownSpan.normalized;
+            var span = src.Bones[9].position - src.Bones[13].position;
+            if (span.sqrMagnitude < 1e-8f) return ownSpan.normalized;
+            var local = Quaternion.Inverse(src.Root.rotation * src.Frame) * span.normalized;
+            // aiming, the barrel is level: the hands are not (the forestock hand is under the barrel line, so right hand to
+            // left hand points ~18 degrees down, and every shot's puff sat at knee height, critic r5). Keep a quarter of it.
+            if (Clip >= 0 && Deck != null)
+            {
+                string n = Deck.Library.Clips[Clip].Name;
+                if (n.StartsWith("Fir") || n.Contains("Aim")) { local.y *= 0.25f; local.Normalize(); }
+            }
+            return (transform.rotation * Skel.Frame) * local;
+        }
+
+        /// <summary>Keep the rifle out of the body (the tests switch it off to prove RifleInside can read above zero).</summary>
+        public bool KeepRifleClear = true;
+
+        /// <summary>Pose this figure at a clip's time and seat its rifle, now (tests; the frame does it in LateUpdate).</summary>
+        public void PoseAt(int clip, float time)
+        {
+            Clip = clip; ClipTime = time;
+            Deck.Pose(this, clip, time, 1f, null);
+            HoldRifle();
         }
 
         float LowestRifleCorner()
@@ -376,12 +420,12 @@ namespace TW.Playground
                 {
                     nextFlame = Time.time + Random.Range(0.14f, 0.22f);
                     float s = transform.lossyScale.y;
-                    var body = Skel.Bones[2] != null ? Skel.Bones[2].position : transform.position;
+                    var body = Skel.Bones[4] != null ? Skel.Bones[4].position : transform.position;   // under the NECK: a lean carries the chest ahead of the spine
                     var toCam = Camera.main != null ? Camera.main.transform.position - body : Vector3.back; toCam.y = 0f;
                     var foot = new Vector3(body.x, transform.position.y, body.z) + toCam.normalized * 0.35f * s;
                     Fx.Flame(foot, 1.1f * s, Height * 1.3f * s, Random.Range(0.5f, 0.7f), 0.95f);
-                    if (Skel.Bones[5] != null && Random.value < 0.5f)
-                        Fx.Flame(Skel.Bones[5].position - Vector3.up * 0.25f * s + toCam.normalized * 0.2f * s, 0.55f * s, 0.8f * s, Random.Range(0.35f, 0.5f), 0.9f);
+                    if (Skel.Bones[5] != null)
+                        Fx.Flame(Skel.Bones[5].position - Vector3.up * 0.35f * s + toCam.normalized * 0.25f * s, 0.6f * s, 0.9f * s, Random.Range(0.35f, 0.5f), 0.95f);
                 }
             }
             else if (afterBurn >= 0)
@@ -398,7 +442,8 @@ namespace TW.Playground
             else SetLod(Picker.Pick(LodPicker.ScreenShare(Camera.main, Centre, 0.5f * Height * transform.lossyScale.y)));
             mpb.SetVector("_Damage", new Vector4(Scorch, Ember * 0.7f, 0f, 0f));
             mpb.SetVector("_Tint", new Vector4(1f, 1f, 1f, 0f));
-            mpb.SetVector("_Team", Vector4.zero);
+            var tc = Team == 1 ? TW.Presentation.Tactical.TankRenderer.TeamB : TW.Presentation.Tactical.TankRenderer.TeamA;
+            mpb.SetVector("_Team", Team >= 0 ? new Vector4(tc.r, tc.g, tc.b, Dead ? 0.05f : 0.16f) : Vector4.zero);
             Lods[Lod].SetPropertyBlock(mpb);
         }
     }

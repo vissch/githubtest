@@ -92,8 +92,8 @@
   },
   {
    "lod": 3,
-   "verts": 125,
-   "tris": 219,
+   "verts": 168,
+   "tris": 300,
    "bones": [
     "mixamorig:Head",
     "mixamorig:Hips",
