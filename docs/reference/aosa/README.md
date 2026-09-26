@@ -98,7 +98,9 @@ A change lands only if every rule holds. The rule number goes into the revert re
    stills. An "indistinguishable" change needs the critic to score the after sheet no lower on any line it can see. A
    "juice" change needs the critic's moment score to rise and the moment's readability check to pass.
 6. **Readability never drops.** If the critic says the men, trench lines or orders read worse, the change is reverted
-   whatever else it did.
+   whatever else it did. It is judged before the commit, blind, against the *current default*, not only between
+   candidates of a sweep: a sweep that picks the best-reading candidate can still pick one that reads worse than what
+   is there (C98, a0032: the sweep's pick scored 6.0 -> 5.3 on the men, reverted).
 7. **T1 budget never rises.** `FrameBudget` draws and vertices at T1 must not rise unless the same commit pays for it.
 8. **Gate.** Presentation-only changes need `gate.ps1 -EditOnly`, or `run_tests` EditMode after
    `RequestScriptReload` in a live editor. Anything under `Perf/`, `Presentation/Core/`, or touching the lockstep

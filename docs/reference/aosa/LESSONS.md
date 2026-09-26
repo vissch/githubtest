@@ -113,6 +113,12 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About changes
 
+- **A sweep's winner is not a pass.** The cycle 8 column sweep asked a blind critic which of four sizes read best as a
+  column, and 0.7 won. Nobody asked whether 0.7 read worse than the 0.38 already there. After landing, a blind pair
+  test against the old default scored the column +2.6 as earth and the men near the burst 6.0 -> 5.3 (lower in 5 of 7
+  pairs, never higher): the bigger column covers the trenches. Reverted. Rule 6 now says readability is judged blind
+  against the current default before the commit. (a0032, cycle 9)
+
 - **Third time: the J01 barrage stills were shot after the last shell.** The barrage is called at the window's open,
   warms up 80 ticks and drops its shells over 120, so every burst falls in ticks ~82-200. The evidence tick was 300.
   Two blind critics then reported "no flash, no earth column", and card C54 was written for a missing effect that
