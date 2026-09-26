@@ -230,6 +230,38 @@ namespace TW.Presentation.Terrain
                 }
             }
             into.Add(b);
+            // the first pass probed belts along the straight line on from each waypoint, but the path painted bends
+            // from a waypoint to the next: a belt beside the line that lies under a bend was not seen. Probe the painted
+            // segments themselves, a waypoint a pass, a few passes at most
+            for (int pass = 0; pass < RefinePasses; pass++) if (!Refine(input, into)) break;
+        }
+
+        /// <summary>How many times the painted path is re-probed for belts under its bends.</summary>
+        public const int RefinePasses = 4;
+
+        /// <summary>One belt found on a painted segment's own cells, with no waypoint of its own, gets one at its gap. True when
+        /// something was inserted.</summary>
+        static bool Refine(ScatterInput input, List<Vector2Int> into)
+        {
+            for (int k = 0; k + 1 < into.Count; k++)
+            {
+                Vector2Int p = into[k], q = into[k + 1];
+                int step = q.y > p.y ? 1 : -1, rows = Mathf.Abs(q.y - p.y);
+                int beltFrom = -1;
+                for (int n = 1; n < rows; n++)
+                {
+                    int z = p.y + n * step;
+                    bool wire = RowHasWire(input, z, LineX(p, q, z));
+                    if (wire && beltFrom < 0) beltFrom = z;
+                    if (!wire && beltFrom >= 0)
+                    {
+                        int beltTo = z - step, mid = (beltFrom + beltTo) / 2;
+                        into.Insert(k + 1, new Vector2Int(Gap(input, beltFrom, beltTo, LineX(p, q, mid)), mid));
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /// <summary>The corridor's half width in cells: the cells either side of the line that count as "on the line".</summary>

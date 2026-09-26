@@ -61,6 +61,8 @@ namespace TW.Presentation
             /// fire (a bit per OffMapAbilityId; 0 = the faction's default). The sim's upgrade seam reads them when it
             /// lands (B1); until then Apply leaves them for the HUD.</summary>
             public byte FactionA = 0, FactionB = 1;
+            /// <summary>Seat A is the local player by fiat: the HUD's cards, the incoming markers and the mine marks all read
+            /// seat 0; B is the scripted peer today, so AbilityMaskB is built and unread until a second human sits in B.</summary>
             public uint AbilityMaskA, AbilityMaskB;
 
             /// <summary>The scene's SimHost as it is, so a request can start from what the scene already says.</summary>

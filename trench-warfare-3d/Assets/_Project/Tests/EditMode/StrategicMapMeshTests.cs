@@ -131,7 +131,17 @@ namespace TW.Tests
             int on = grid.Index(mid.x, mid.y);
             Assert.That(MapFog.ToPolyline(front, mid.x, mid.y), Is.LessThan(0.6f));
             Assert.That(known[on], Is.LessThanOrEqualTo(charted[on] * (1f - MapFog.FrontShare) + 1e-3f), "on the front line the fog is thinned by the front's share");
-            Assert.AreEqual(charted[land], known[land], 1e-4f, "far from it, untouched");
+            // "far from the front" by construction: the plate's centre is river-line, a node ON the front line
+            int far = -1;
+            for (int j = 0; j < grid.H && far < 0; j++)
+                for (int i = 0; i < grid.W && far < 0; i++)
+                {
+                    float x = grid.X(i), z = grid.Z(j);
+                    bool landHere = ContinentMesh.HeightAt(h, ContinentMesh.Width, ContinentMesh.Length, x / (ContinentMesh.Width * ContinentMesh.Cell), z / (ContinentMesh.Length * ContinentMesh.Cell)) > 0f;
+                    if (landHere && MapFog.ToPolyline(front, x, z) > MapFog.FrontBand + MapFog.FrontSoft + 1f) far = j * grid.W + i;
+                }
+            Assert.GreaterOrEqual(far, 0, "some land lies well away from the front");
+            Assert.AreEqual(charted[far], known[far], 1e-4f, "far from it, untouched");
         }
     }
 }

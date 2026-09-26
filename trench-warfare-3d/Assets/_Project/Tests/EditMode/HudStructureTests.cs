@@ -61,21 +61,21 @@ namespace TW.Tests
         }
 
         [Test]
-        public void BuildMakesOneCardPerSlotPlusTwoSupportAndNoFocusableButton()
+        public void BuildMakesOneCardPerSlotAndPerSupportAbilityAndNoFocusableButton()
         {
             var root = Instantiate(HudPath);
             var card = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(CardPath);
             Assert.That(card, Is.Not.Null);
             var refs = HudView.Build(root, card, DefaultRoster(), new[] { 150, 120 });
-            Assert.That(refs.Cards.Count, Is.EqualTo(RosterEntry.SlotCount + 2));
-            Assert.That(refs.SupportCards.Count, Is.EqualTo(2));
+            Assert.That(refs.Cards.Count, Is.EqualTo(RosterEntry.SlotCount + HudView.SupportAbilities.Length), "one card a slot and one a support ability (six since docs/21 phase 5)");
+            Assert.That(refs.SupportCards.Count, Is.EqualTo(HudView.SupportAbilities.Length));
             int infantry = refs.RosterInfantry.childCount, armour = refs.RosterArmour.childCount;
             Assert.That(infantry + armour, Is.EqualTo(RosterEntry.SlotCount), "every roster slot is in one of the two groups");
             Assert.That(armour, Is.EqualTo(4), "the default roster fields four machines");
             for (int s = 0; s < RosterEntry.SlotCount; s++)
                 Assert.That(refs.Cards[s].Hotkey.text, Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s} hotkey badge");
-            Assert.That(refs.SupportCards[0].Hotkey.text, Is.EqualTo("9"));
-            Assert.That(refs.SupportCards[1].Hotkey.text, Is.EqualTo("0"));
+            for (int i = 0; i < refs.SupportCards.Count; i++)
+                Assert.That(refs.SupportCards[i].Hotkey.text, Is.EqualTo(HudText.SupportHotkey(i)), $"support card {i} carries its bound key");
             root.Query<Button>().ForEach(b => Assert.That(b.focusable, Is.False, $"button '{b.name}' is focusable: Space would re-press it instead of pausing"));
         }
 

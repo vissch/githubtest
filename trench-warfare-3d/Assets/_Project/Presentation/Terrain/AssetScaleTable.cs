@@ -124,7 +124,7 @@ namespace TW.Presentation.Terrain
             S("Wood/CorrugatedSheet", ScaleAxis.Length, 0.50f, 1.10f);
             S("kit/supplies", ScaleAxis.Length, 0.30f, 0.55f, "an ammunition crate two men lift: the braced box is 1.05 m long");
             S("kit/looseBoards", ScaleAxis.Length, 0.40f, 1.10f);
-            S("kit/shellCases", ScaleAxis.Length, 0.35f, 0.55f, "three spent cases lying together: the group is a metre across");
+            S("kit/shellCases", ScaleAxis.Length, 0.28f, 0.45f, "three spent cases lying together: the group is two thirds of a metre across");
             S("kit/helmet", ScaleAxis.Length, 0.13f, 0.18f, "a helmet fits a head");
             S("kit/boots", ScaleAxis.Length, 0.20f, 0.30f, "a pair laid out, one on its side: half a metre across");
             S("kit/ammoTin", ScaleAxis.Length, 0.22f, 0.32f, "an open tin with its rounds spilled beside it");
@@ -133,7 +133,7 @@ namespace TW.Presentation.Terrain
             S("kit/lantern", ScaleAxis.Height, 0.60f, 0.90f, "a lamp on a post: chest to head high");
             S("kit/hangingTins", ScaleAxis.Height, 0.10f, 0.26f, "tins on a nail, the strip below them");
             S("kit/wireTins", ScaleAxis.Height, 0.10f, 0.22f);
-            S("kit/spade", ScaleAxis.Height, 0.25f, 0.40f, "an entrenching tool");
+            S("kit/spade", ScaleAxis.Height, 0.25f, 0.45f, "an entrenching tool (built 0.80 m tall: the row leaves it room)");
             S("kit/leanRifle", ScaleAxis.Height, 0.50f, 0.70f, "a rifle is as long as a man's leg and a half");
             S("kit/graveMarker", ScaleAxis.Height, 0.50f, 0.70f);
             S("kit/signBoard", ScaleAxis.Height, 0.60f, 0.85f);

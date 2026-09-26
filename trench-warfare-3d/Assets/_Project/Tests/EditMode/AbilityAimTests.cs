@@ -218,9 +218,10 @@ namespace TW.Tests
         }
 
         [Test]
-        public void TheSimClockIsZeroWithoutAMatch()
+        public void TheSimClockIsTheWallClockWithoutAMatch()
         {
-            Assert.AreEqual(0f, SimClock.Seconds(null)); Assert.AreEqual(0f, SimClock.Of(null, 20u));
+            Assert.AreEqual(Time.time, SimClock.Seconds(null), 1e-3f, "no match: a fire lit by a hook still burns out on the wall clock");
+            Assert.AreEqual(20u * SimConfig.Default.TickSeconds, SimClock.Of(null, 20u), 1e-5f, "no match: the default tick rate");
         }
     }
 }

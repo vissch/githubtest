@@ -23,7 +23,7 @@ namespace TW.Presentation.Tactical
         /// to seven turned a two-pixel overhang into a frame sized for seven cells with nine drawn into it.
         /// </summary>
         const float Gap = 8f, Inset = 12f, Divider = 20f;
-        const int SupportSlots = 2;
+        const int SupportSlots = 2;   // the IMGUI fallback bar (F9) keeps the two base abilities; the four newer ones have cards only in the Toolkit HUD (HudView.SupportAbilities)
 
         /// <summary>
         /// The cell size and wooden frame width for a given amount of horizontal room. Pure, static and public

@@ -104,6 +104,14 @@ namespace TW.Tests
             ScatterField.Route(two, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
             Assert.AreEqual(4, way.Count);
             Assert.AreEqual(new Vector2Int(9, 8), way[1]); Assert.AreEqual(new Vector2Int(9, 14), way[2], "the second gap is straight ahead of the first");
+            // a short belt beside the line, under the bend to the first gap: the second pass finds it on the painted segment
+            var under = Field();
+            under.WireRow(11, 9); under.WireRow(12, 9);
+            for (int x = 9; x < 14; x++) under.Nav[under.Index(x, 8)] |= (byte)NavLayer.Wire;
+            ScatterField.Route(under, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
+            Assert.AreEqual(4, way.Count, "the bend to the gap at (9, 11) crosses the short belt at row 8: a waypoint of its own");
+            Assert.AreEqual(new Vector2Int(8, 8), way[1], "through the clear column beside the short belt, not its wire");
+            Assert.AreEqual(new Vector2Int(9, 11), way[2]);
         }
 
         [Test]

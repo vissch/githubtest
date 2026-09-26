@@ -392,7 +392,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
 | `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
 | `HudLayoutTests` | EditMode | 6 | HudLayout, BattleHud, HudView, RosterEntry |
-| `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud |
+| `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud, HudText |
 | `HudTextTests` | EditMode | 11 | BattleHud, VehicleArchetype, TankSpec, RosterEntry, OffMapAbilityId, OffMapAbilitySystem |
 | `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |
 | `LandingTests` | EditMode | 8 | SimCommand, MatchSim, Sample, LandingState, BattlefieldGenerator, BattlefieldParams |
@@ -400,7 +400,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
 | `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
 | `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |
-| `ScatterRulesTests` | EditMode | 8 | Kind, ScatterKind, ScatterInput, ScatterField, ScatterLayers, NavLayer |
+| `ScatterRulesTests` | EditMode | 8 | Kind, ScatterKind, ScatterField, ScatterInput, ScatterLayers, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
 | `ShellUxmlTests` | EditMode | 15 | DebriefScreen, MatchLaunch, MatchReport, CampaignProfile, CampaignSession, ProfileStore |
@@ -410,7 +410,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `SmokeScreenTests` | EditMode | 5 | SmokeLos, OffMapAbilityId, OffMapAbilitySystem, SimEventType, SimCommand, CombatTables |
 | `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, MatchLaunch, CombatFx |
 | `StrafeRunTests` | EditMode | 5 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
-| `StrategicMapMeshTests` | EditMode | 7 | ContinentMesh, MapFog, StrategicMapView, CampaignGraph, Sheet, Cell |
+| `StrategicMapMeshTests` | EditMode | 7 | ContinentMesh, MapFog, StrategicMapView, CampaignGraph, Cell, Sheet |
 | `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
