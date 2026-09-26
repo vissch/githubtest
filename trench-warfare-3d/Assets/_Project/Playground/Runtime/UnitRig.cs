@@ -83,6 +83,9 @@ namespace TW.Playground
         /// <summary>-1 none; 0 or 1: a light wash of the side's colour over the whole figure (the playground has no uniform
         /// mask; the game's VAT figures recolour only the cloth).</summary>
         public int Team = -1;
+        public Color[] LodTints { get; private set; }
+        /// <summary>Switch the per-LOD colour match on or off (to measure what it does).</summary>
+        public void UseLodTints(bool on) { if (LodTints != null) for (int k = 0; k < mats.Length && k < LodTints.Length; k++) mats[k].SetColor("_BaseColor", on ? LodTints[k] : Color.white); }
         public PlaygroundFx Fx;
         public ClipDeck Deck;
         public int VertsDrawn { get; private set; }
@@ -148,6 +151,16 @@ namespace TW.Playground
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                 u.BonesPerLod[k] = BonesUsed(r);
             }
+            // each LOD's colour matched to LOD0's (LodTint)
+            var means = new Color[u.Lods.Length];
+            for (int k = 0; k < u.Lods.Length; k++)
+            {
+                bool painted = u.Lods[k].sharedMesh != null && u.Lods[k].sharedMesh.uv.Length == 0;
+                var atlas = painted || e.Atlas == null || e.Atlas.Length == 0 ? null : e.Atlas[Mathf.Min(k, e.Atlas.Length - 1)];
+                means[k] = LodTint.MeanColour(new[] { u.Lods[k].sharedMesh }, atlas);
+            }
+            u.LodTints = new Color[u.Lods.Length];
+            for (int k = 0; k < u.Lods.Length; k++) { u.LodTints[k] = LodTint.Match(means[0], means[k]); u.mats[k].SetColor("_BaseColor", u.LodTints[k]); }
             u.mpb = new MaterialPropertyBlock();
             u.MakeRifle();
             u.SetLod(0);
@@ -440,6 +453,8 @@ namespace TW.Playground
             }
             if (ForcedLod >= 0) SetLod(ForcedLod);
             else SetLod(Picker.Pick(LodPicker.ScreenShare(Camera.main, Centre, 0.5f * Height * transform.lossyScale.y)));
+            // the game's figures show their side on the cloth (VAT recolour); here a small ring stands in for it (a proposal)
+            if (Fx != null && Team >= 0 && Fx.UnitRings) { float r = 0.3f * Height / 1.78f; Fx.Ring(transform.position, transform.eulerAngles.y, r, r, 0.12f, 0.12f, Team, Dead); }
             mpb.SetVector("_Damage", new Vector4(Scorch, Ember * 0.7f, 0f, 0f));
             mpb.SetVector("_Tint", new Vector4(1f, 1f, 1f, 0f));
             var tc = Team == 1 ? TW.Presentation.Tactical.TankRenderer.TeamB : TW.Presentation.Tactical.TankRenderer.TeamA;

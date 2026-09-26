@@ -31,11 +31,50 @@ namespace TW.Playground
             Debris = gameObject.AddComponent<DebrisRenderer>();
         }
 
-        void OnDestroy() { Books?.Dispose(); }
+        void OnDestroy() { Books?.Dispose(); if (discMat != null) Destroy(discMat); if (discMesh != null) Destroy(discMesh); }
+
+        // ------------------------------------------------------------------ side rings (TankRenderer's disc, same shader)
+        /// <summary>Rings under figures too (a playground proposal: the game's figures show their side on their cloth).</summary>
+        public bool UnitRings;   // off: measured, they add a third to the side's colour but cost the figure a quarter of its contrast (r15)
+        Material discMat; Mesh discMesh; MaterialPropertyBlock discProps;
+        readonly List<Matrix4x4> discM = new List<Matrix4x4>(); readonly List<Vector4> discC = new List<Vector4>();
+
+        /// <summary>Queue a contact blob and a ring in the side's colour: footprint centre, yaw, half width and length.</summary>
+        public void Ring(Vector3 at, float yaw, float halfW, float halfL, float padW, float padL, int team, bool dead)
+        {
+            if (team < 0) return;
+            float w = (halfW + padW) * 2f / 0.72f, l = (halfL + padL) * 2f / 0.72f;   // TankRenderer: the ring sits at 0.72 of the quad
+            discM.Add(Matrix4x4.TRS(at + Vector3.up * 0.12f, Quaternion.Euler(0f, yaw, 0f), new Vector3(w, 1f, l)));
+            var c = team == 1 ? TankRenderer.TeamB : TankRenderer.TeamA;
+            discC.Add(new Vector4(c.r, c.g, c.b, dead ? 0f : 1f));
+        }
+
+        void DrawRings()
+        {
+            if (discM.Count == 0) return;
+            if (discMat == null)
+            {
+                var shader = Shader.Find("TW/TankDisc (URP)"); if (shader == null) { discM.Clear(); discC.Clear(); return; }
+                discMat = new Material(shader) { enableInstancing = true, name = "Playground disc" };
+                discProps = new MaterialPropertyBlock();
+                discMesh = new Mesh { name = "Playground disc" };
+                discMesh.SetVertices(new[] { new Vector3(-0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f) });
+                discMesh.SetUVs(0, new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) });
+                discMesh.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0);
+                discMesh.bounds = new Bounds(Vector3.zero, new Vector3(1f, 0.1f, 1f));
+            }
+            // a single instanced draw ignores per-instance properties (project memory): pad to two with an empty one
+            if (discM.Count == 1) { discM.Add(Matrix4x4.Scale(Vector3.zero)); discC.Add(Vector4.zero); }
+            discProps.SetVectorArray("_Color", discC);
+            var rp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
+            Graphics.RenderMeshInstanced(rp, discMesh, 0, discM);
+            discM.Clear(); discC.Clear();
+        }
 
         void LateUpdate()
         {
             Books?.Draw(Time.time, Everywhere);
+            DrawRings();
             float now = Time.time;
             for (int i = lamps.Count - 1; i >= 0; i--)
             {
