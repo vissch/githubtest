@@ -1,0 +1,310 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+index 7a8a662..242fcc9 100644
+--- a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
++++ b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+@@ -40,6 +40,8 @@
+ // unchanged. A release player has no markers and no gc_bytes: its records say null.
+ // C66 (2026-09-26): HudController.Refresh's parts carry their own TW.Hud.<Part> markers (HudParts below), recorded
+ // beside TW.Hud.Refresh, so they land in series and per_tick_ms.
++// C67 (2026-09-26): TW.Hud.Selection's parts (SelectionParts below: SelectionController.Tick's prune, picker build, index,
++// input, field markers, and the selection panel) are recorded the same way.
+ // C69 (2026-09-26): the engine's own markers (EngineMarkers below: the script run, physics, the UI Toolkit panel update
+ // and repaint, GC.Collect, the wait for present) are series `script:<name>`, per frame, as cmp.py reads them. A name
+ // whose recorder is not valid goes to unavailable; one that is valid but was not registered yet when the recorders
+@@ -429,6 +431,13 @@ namespace TW.Perf
+             "TW.Hud.BindGauges", "TW.Hud.Cards", "TW.Hud.Clusters", "TW.Hud.Objectives", "TW.Hud.Tooltip",
+         };
+ 
++        /// <summary>C67: TW.Hud.Selection's parts, nested inside it (SelectionController's and HudController's names,
++        /// repeated here for the same reason as HudParts).</summary>
++        public static readonly string[] SelectionParts =
++        {
++            "TW.Hud.Sel.Prune", "TW.Hud.Sel.Build", "TW.Hud.Sel.Index", "TW.Hud.Sel.Input", "TW.Hud.Sel.Markers", "TW.Hud.Sel.Panel",
++        };
++
+         /// <summary>C69: the engine's own markers, recorded as `script:<name>` series. The names are the ones Unity 6000.0's
+         /// development player carries (read from its UnityPlayer.dll and UnityEngine.UIElementsModule.dll); the last two
+         /// are UI Toolkit's managed markers inside the panel update, for C68, and may not resolve.</summary>
+@@ -513,6 +522,7 @@ namespace TW.Perf
+             foreach (var s in host.Local.World.Systems) Marker("TW.Sim.Sys." + s.GetType().Name);
+             Marker("TW.Hud.Refresh");
+             foreach (var n in HudParts) Marker(n);   // C66
++            foreach (var n in SelectionParts) Marker(n);   // C67
+             if (Options.Subscribers) for (int k = 0; k < host.Events.SubscriberCount; k++) Marker(host.Events.SubscriberMarker(k));
+             EngineMarkers(EngineMarker);   // C69
+             CheckRegistered();
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SelectionTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SelectionTests.cs
+index a433150..3bb6821 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SelectionTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SelectionTests.cs
+@@ -184,5 +184,45 @@ namespace TW.Tests
+             Assert.That(SelectionMarkers.HexSdf(0f, 0f, r), Is.LessThan(0f), "the centre is inside");
+             Assert.That(SelectionMarkers.HexSdf(0f, r, r), Is.GreaterThan(0f), "above the flat top is outside");
+         }
++
++        [Test]
++        public void ProjectMatchesTheEngine()
++        {
++            // AOSA C67: the picker's one-matrix projection (knob hud.selectionFast) against Camera.WorldToScreenPoint, the
++            // call it replaces, on a T1-like camera (fov 25, pitched down) over a 1920x1080 target, for points on and off
++            // the screen. Screen positions feed only the hit tests, whose smallest circle is MinPickPx (10 px) across.
++            var go = new GameObject("c67-cam");
++            var rt = new RenderTexture(1920, 1080, 0);
++            try
++            {
++                var cam = go.AddComponent<Camera>();
++                cam.targetTexture = rt; cam.fieldOfView = 25f; cam.nearClipPlane = 0.3f; cam.farClipPlane = 2000f;
++                go.transform.SetPositionAndRotation(new Vector3(137.25f, 58.5f, -41.75f), Quaternion.Euler(25f, 21f, 0f));
++                Assert.That(cam.pixelRect.width, Is.EqualTo(1920f), "the target pins the pixel rect");
++                Matrix4x4 toClip = cam.projectionMatrix * cam.worldToCameraMatrix;
++                Rect view = cam.pixelRect;
++                Vector3 camPos = go.transform.position, fwd = go.transform.forward;
++                int n = 0; float worst = 0f;
++                for (float x = -60f; x <= 360f; x += 7.3f)
++                for (float z = -30f; z <= 420f; z += 9.1f)
++                for (float y = -2f; y <= 6f; y += 2.7f)
++                {
++                    var p = new Vector3(x, y, z);
++                    if (Vector3.Dot(p - camPos, fwd) <= cam.nearClipPlane) continue;   // as UnitPicker.Build skips them
++                    Vector3 e = cam.WorldToScreenPoint(p);
++                    Assert.That(UnitPicker.Project(toClip, view, p, out var s), Is.True);
++                    worst = Mathf.Max(worst, Mathf.Abs(s.x - e.x), Mathf.Abs(s.y - e.y));
++                    n++;
++                }
++                Assert.That(n, Is.GreaterThan(1000), "the grid covers the view and beyond it");
++                Assert.That(worst, Is.LessThan(0.01f), "float rounding only: a thousandth of the smallest pick circle");
++                Assert.That(UnitPicker.Project(toClip, view, camPos - fwd * 5f, out _), Is.False, "behind the eye: the engine is asked");
++            }
++            finally
++            {
++                Object.DestroyImmediate(go);
++                Object.DestroyImmediate(rt);
++            }
++        }
+     }
+ }
+diff --git a/trench-warfare-3d/Assets/_Project/UI/HudController.cs b/trench-warfare-3d/Assets/_Project/UI/HudController.cs
+index 2570fea..c97e645 100644
+--- a/trench-warfare-3d/Assets/_Project/UI/HudController.cs
++++ b/trench-warfare-3d/Assets/_Project/UI/HudController.cs
+@@ -8,6 +8,8 @@
+ // AOSA C66 (2026-09-26): each part of Refresh has its own TW.Hud.<Part> marker inside TW.Hud.Refresh, so the bench can
+ // say which part holds its 1.4 ms a frame (PerfBench.HudParts records the same names). Markers only: the calls, their
+ // order and their arguments are exactly as before.
++// AOSA C67 (2026-09-26): the selection panel's Refresh has its own TW.Hud.Sel.Panel marker inside TW.Hud.Selection, beside
++// SelectionController.Tick's TW.Hud.Sel.<Part> markers.
+ using Unity.Profiling;
+ using UnityEngine;
+ using UnityEngine.InputSystem;
+@@ -61,6 +63,7 @@ namespace TW.UI
+         static readonly ProfilerMarker clustersMarker = new ProfilerMarker("TW.Hud.Clusters");
+         static readonly ProfilerMarker objectivesMarker = new ProfilerMarker("TW.Hud.Objectives");
+         static readonly ProfilerMarker tooltipMarker = new ProfilerMarker("TW.Hud.Tooltip");
++        static readonly ProfilerMarker selPanelMarker = new ProfilerMarker("TW.Hud.Sel.Panel");   // C67
+ 
+         void OnEnable()
+         {
+@@ -274,7 +277,7 @@ namespace TW.UI
+             using (selectionMarker.Auto())
+             {
+                 selection?.Tick(Interactive);
+-                selectionPanel?.Refresh();
++                using (selPanelMarker.Auto()) selectionPanel?.Refresh();
+             }
+             using (gaugesMarker.Auto())
+             {
+diff --git a/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs b/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs
+index c048e09..9aa5732 100644
+--- a/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs
++++ b/trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs
+@@ -10,7 +10,12 @@
+ // Two more places show the same card and counts, where orders are given: a trench's men badge (its garrison, and who
+ // is pinned and will not go over the top) and a strike being aimed (AimReadout: the enemy under it, ours in reach).
+ // Ignores the mouse over HUD chrome, while a support ability is being aimed, and when the field does not own the input.
++// AOSA C67 (2026-09-26): Tick's parts carry TW.Hud.Sel.<Part> markers inside TW.Hud.Selection (PerfBench.SelectionParts
++// records the same names). Knob hud.selectionFast (read once, here in the constructor; 1 is the default, 0 the exact old
++// path) turns on the cheaper projection in UnitPicker.Build and skips filling the handle-to-unit index while nothing is
++// selected: the index is read only for the selected handles, so with none it is never read.
+ using System.Collections.Generic;
++using Unity.Profiling;
+ using UnityEngine;
+ using UnityEngine.InputSystem;
+ using UnityEngine.UIElements;
+@@ -45,6 +50,16 @@ namespace TW.UI
+         readonly List<ScreenUnit> hoverNow = new List<ScreenUnit>();
+         readonly List<ScreenUnit> selectedNow = new List<ScreenUnit>();
+         readonly Dictionary<UnitHandle, int> index = new Dictionary<UnitHandle, int>();
++        /// <summary>C67: the knob that turns on the fast picker build and the lazy index (default on).</summary>
++        public const string FastKnob = "hud.selectionFast";
++        public const bool FastDefault = true;
++        readonly bool fast;
++        // C67: the parts of Tick, in the order they run (the names are repeated in PerfBench.SelectionParts)
++        static readonly ProfilerMarker pruneMarker = new ProfilerMarker("TW.Hud.Sel.Prune");
++        static readonly ProfilerMarker buildMarker = new ProfilerMarker("TW.Hud.Sel.Build");
++        static readonly ProfilerMarker indexMarker = new ProfilerMarker("TW.Hud.Sel.Index");
++        static readonly ProfilerMarker inputMarker = new ProfilerMarker("TW.Hud.Sel.Input");
++        static readonly ProfilerMarker drawMarker = new ProfilerMarker("TW.Hud.Sel.Markers");
+ 
+         bool pressing, dragging; Vector2 pressAt;
+         float lastClickTime = -10f; UnitHandle lastClicked;
+@@ -59,6 +74,8 @@ namespace TW.UI
+         public SelectionController(SimHost host, TacticalCamera cam, VisualElement root, System.Func<TestPanel> panel, GarrisonStats garrison = null)
+         {
+             this.host = host; this.cam = cam; this.panel = panel; Garrison = garrison ?? new GarrisonStats();
++            fast = TW.Presentation.Knobs.Get(FastKnob, FastDefault);
++            Picker.FastProject = fast;
+             aimReadout = new AimReadout(root);
+             marquee = root?.Q("marquee"); hoverCard = new HoverCard(root);
+             if (marquee != null) marquee.style.display = DisplayStyle.None;
+@@ -87,33 +104,48 @@ namespace TW.UI
+         {
+             var w = World; var unity = Camera.main;
+             if (w == null || unity == null || host.Presenter == null) return;
+-            Model.Prune(Alive);
+-            Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f);
+-            index.Clear();
+-            for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i;
+-
+-            var mouse = Mouse.current; var kb = Keyboard.current;
+-            var p = panel?.Invoke();
+-            var armed = p != null ? p.Armed : OffMapAbilityId.None;
+-            bool fieldOwnsInput = interactive && InputFocus.Gameplay && armed == OffMapAbilityId.None;
+-            if (mouse != null && kb != null && fieldOwnsInput) HandleMouse(mouse, kb);
+-            else { CancelDrag(); ClearHover(); }
+-            // aiming a strike: who is under it, beside the reticle and on the field
+-            if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
++            using (pruneMarker.Auto()) Model.Prune(Alive);
++            using (buildMarker.Auto()) Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f);
++            using (indexMarker.Auto())
+             {
+-                aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
+-                markers.DrawTargets(aimReadout.EnemyIn, aimReadout.OursIn);
++                index.Clear();
++                if (!fast) FillIndex();   // C67: the fast path fills it below, after the input, and only for a selection
++            }
++
++            using (inputMarker.Auto())
++            {
++                var mouse = Mouse.current; var kb = Keyboard.current;
++                var p = panel?.Invoke();
++                var armed = p != null ? p.Armed : OffMapAbilityId.None;
++                bool fieldOwnsInput = interactive && InputFocus.Gameplay && armed == OffMapAbilityId.None;
++                if (mouse != null && kb != null && fieldOwnsInput) HandleMouse(mouse, kb);
++                else { CancelDrag(); ClearHover(); }
++                // aiming a strike: who is under it, beside the reticle and on the field
++                if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
++                {
++                    aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
++                    markers.DrawTargets(aimReadout.EnemyIn, aimReadout.OursIn);
++                }
++                else aimReadout.Hide();
++                if (kb != null && fieldOwnsInput) HandleKeys(kb);
++            }
++
++            using (drawMarker.Auto())
++            {
++                // C67: the index is read only here, for the selected handles, and Picker.Units has not changed since
++                // the build, so filling it after this frame's clicks and group keys gives the same lookups; with
++                // nothing selected it is never read and not filled
++                if (fast && Model.Count > 0) FillIndex();
++                selectedNow.Clear();
++                foreach (var h in Model.Items) if (index.TryGetValue(h, out int k)) selectedNow.Add(Picker.Units[k]);
++                hoverNow.Clear();
++                foreach (int i in hoverClump) if (!Model.Contains(Picker.Units[i].Handle)) hoverNow.Add(Picker.Units[i]);
++                markers.Draw(selectedNow, hoverNow, HpFraction, unity);
+             }
+-            else aimReadout.Hide();
+-            if (kb != null && fieldOwnsInput) HandleKeys(kb);
+-
+-            selectedNow.Clear();
+-            foreach (var h in Model.Items) if (index.TryGetValue(h, out int k)) selectedNow.Add(Picker.Units[k]);
+-            hoverNow.Clear();
+-            foreach (int i in hoverClump) if (!Model.Contains(Picker.Units[i].Handle)) hoverNow.Add(Picker.Units[i]);
+-            markers.Draw(selectedNow, hoverNow, HpFraction, unity);
+         }
+ 
++        void FillIndex() { for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i; }
++
+         float HpFraction(ScreenUnit u)
+         {
+             var w = World;
+diff --git a/trench-warfare-3d/Assets/_Project/UI/Selection/UnitPicker.cs b/trench-warfare-3d/Assets/_Project/UI/Selection/UnitPicker.cs
+index 3c68923..3e4d545 100644
+--- a/trench-warfare-3d/Assets/_Project/UI/Selection/UnitPicker.cs
++++ b/trench-warfare-3d/Assets/_Project/UI/Selection/UnitPicker.cs
+@@ -3,6 +3,11 @@
+ // position, laid on the drawn ground, at the height of its body), with a pick radius from its drawn size: men grow
+ // with the zoom exactly as VATRenderer draws them, vehicles by their footprint. The hit tests are static functions
+ // over plain structs, so the rules are tested without a camera.
++// AOSA C67 (2026-09-26): with knob hud.selectionFast on (the default), Build reads the near plane once and projects with
++// the camera's world-to-clip matrix taken once per frame (Project, the engine's own CameraProject arithmetic) instead
++// of one Camera.WorldToScreenPoint call per man, which rebuilt that matrix and the viewport rect 3,000 times a frame.
++// Screen positions only feed the hit tests (nothing is drawn from them); they agree with the engine's to float
++// rounding (SelectionTests.ProjectMatchesTheEngine). hud.selectionFast=0 is the exact old loop.
+ using System.Collections.Generic;
+ using UnityEngine;
+ using TW.Presentation;
+@@ -31,6 +36,9 @@ namespace TW.UI
+ 
+         public readonly List<ScreenUnit> Units = new List<ScreenUnit>(1024);
+         public int BuiltFrame { get; private set; } = -1;
++        /// <summary>C67: knob hud.selectionFast (read once by SelectionController): project with one matrix per frame.
++        /// False is the old loop, one WorldToScreenPoint and one nearClipPlane read per unit.</summary>
++        public bool FastProject;
+ 
+         public static float Grow(float zoom) => Mathf.Clamp(zoom / GrowFromZoom, 1f, MaxGrow);
+ 
+@@ -44,6 +52,10 @@ namespace TW.UI
+             float grow = Grow(zoom), man = FigureScale * grow;
+             float pxPerRad = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
+             Vector3 camPos = cam.transform.position, fwd = cam.transform.forward;
++            bool fast = FastProject;
++            float near = fast ? cam.nearClipPlane : 0f;
++            Matrix4x4 toClip = fast ? cam.projectionMatrix * cam.worldToCameraMatrix : default;   // the engine's GetWorldToClipMatrix
++            Rect view = fast ? cam.pixelRect : default;
+             for (int i = 0; i < w.HighWater; i++)
+             {
+                 uint f = w.Flags[i];
+@@ -67,17 +79,39 @@ namespace TW.UI
+                     body = new Vector3(d.x, ground + ManBodyM * man, d.z);
+                 }
+                 float depth = Vector3.Dot(body - camPos, fwd);
+-                if (depth <= cam.nearClipPlane) continue;
+-                Vector3 s = cam.WorldToScreenPoint(body);
++                if (depth <= (fast ? near : cam.nearClipPlane)) continue;
++                Vector2 screen;
++                if (!fast || !Project(toClip, view, body, out screen))
++                {
++                    Vector3 s = cam.WorldToScreenPoint(body);
++                    screen = new Vector2(s.x, s.y);
++                }
+                 Units.Add(new ScreenUnit
+                 {
+-                    Slot = i, Gen = w.Generation[i], Screen = new Vector2(s.x, s.y), Depth = depth,
++                    Slot = i, Gen = w.Generation[i], Screen = screen, Depth = depth,
+                     RadiusPx = Mathf.Max(MinPickPx, radiusM * pxPerRad / depth),
+                     World = body, Size = size, Archetype = w.Archetype[i], Ours = (w.Team[i] & 1) == 0, Vehicle = vehicle,
+                 });
+             }
+         }
+ 
++        /// <summary>
++        /// C67: a world point to screen px (bottom-left origin) as Camera.WorldToScreenPoint does it for a mono camera:
++        /// clip = worldToClip x (p, 1), divided by w, then mapped into the camera's pixel rect. False where w is not
++        /// clearly positive (on or behind the eye plane), where the caller asks the engine instead.
++        /// </summary>
++        public static bool Project(in Matrix4x4 worldToClip, Rect pixelRect, Vector3 p, out Vector2 screen)
++        {
++            ref readonly Matrix4x4 m = ref worldToClip;
++            float cw = m.m30 * p.x + m.m31 * p.y + m.m32 * p.z + m.m33;
++            if (!(cw > 1e-7f)) { screen = default; return false; }
++            float inv = 1f / cw;
++            float cx = (m.m00 * p.x + m.m01 * p.y + m.m02 * p.z + m.m03) * inv;
++            float cy = (m.m10 * p.x + m.m11 * p.y + m.m12 * p.z + m.m13) * inv;
++            screen = new Vector2(pixelRect.x + (1f + cx) * pixelRect.width * 0.5f, pixelRect.y + (1f + cy) * pixelRect.height * 0.5f);
++            return true;
++        }
++
+         /// <summary>
+         /// The unit under the cursor, or -1: of those whose pick circle holds the point, the one the cursor is most
+         /// centrally on (distance over radius), the nearer to the camera on a tie, so a man standing in front wins.
