@@ -103,6 +103,13 @@ of their section. When the same lesson appears twice, the retrospective turns it
 - **`EditorApplication.update = null` kills every session's eval bridge.** Remove only your own delegate.
   (agent-memory)
 
+## About running the loop
+
+- **The loop followed the most interesting card and stopped grooming.** For cycles 4-7 each cycle chased the newest
+  critic finding (smoke, overlays, shadows). By cycle 8, `pick` listed 20 cards past the split threshold (idle 4-8)
+  that no one had split, although README says idle 3 means split. The rule exists so that work which stands still
+  gets decided. Start every cycle with `pick`, and split whatever it marks SPLIT before starting new work. (cycle 8)
+
 ## About changes
 
 - **Third time: the J01 barrage stills were shot after the last shell.** The barrage is called at the window's open,
