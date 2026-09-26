@@ -95,5 +95,41 @@ namespace TW.Tests
             Assert.AreEqual(inForce.Audio.Music, AudioLevels.Music, 1e-5f, "the music bus was not applied at launch");
         }
 
+
+        /// <summary>The staging screen's request (a campaign mission with the Home Front's silver and income on top) reaches
+        /// the sim the same way: what the profile bought is what the match starts with (docs/21 M6; the unit tiers and the
+        /// ability mask wait for the B1 seam). Built the way HomeFrontScreen and StagingScreen build it, on the cheap greybox.</summary>
+        [UnityTest]
+        public IEnumerator ACampaignRequestsSilverAndIncomeReachTheWorld()
+        {
+            var profile = new CampaignProfile { Faction = FactionBuildings.Iron, Gold = 500 };
+            var depot = FactionBuildings.Find(FactionBuildings.Iron, "supply-depot");
+            Assert.IsNotNull(depot, "the Iron side has a supply depot");
+            Assert.IsTrue(FactionBuildings.Expand(profile, depot), "stage 1: the depot sells its first tiers");
+            int silverLine = -1, incomeLine = -1;
+            for (int i = 0; i < depot.Lines.Length; i++) { if (depot.Lines[i].Kind == LineKind.StartingSilver) silverLine = i; if (depot.Lines[i].Kind == LineKind.Income) incomeLine = i; }
+            Assert.IsTrue(silverLine >= 0 && incomeLine >= 0, "the depot sells starting silver and income");
+            Assert.IsTrue(FactionBuildings.Buy(profile, depot, silverLine), "WAR CHEST tier 1");
+            Assert.IsTrue(FactionBuildings.Buy(profile, depot, incomeLine), "SUPPLY TRAINS tier 1");
+
+            var node = CampaignGraph.Nodes[0]; var mission = node.Missions[0];
+            var request = mission.Build(CampaignGraph.MissionId(node, 0), 1);
+            FactionBuildings.ApplyTo(request, profile, FactionBuildings.Iron);
+            request.GeneratedBattlefield = false; request.PlaytestMap = false;   // the seam under test is the silver, not the field
+            int expectSilver = mission.StartingSilver + FactionBuildings.SilverPerTier;
+            float expectIncome = mission.SilverPerSecond + FactionBuildings.IncomePerTier;
+            Assert.AreEqual(expectSilver, request.StartingSilver, "a tier of WAR CHEST on the mission's silver");
+            Assert.AreEqual(expectIncome, request.SilverPerSecond, 1e-5f, "a tier of SUPPLY TRAINS on the mission's income");
+
+            MatchLaunch.Current = request;
+            go = new GameObject("launch-test-3"); go.SetActive(false);
+            var host = go.AddComponent<SimHost>();
+            go.SetActive(true);
+            yield return null;
+            Assert.That(host.Local, Is.Not.Null);
+            Assert.That(host.Local.World.Config.StartingSilver, Is.EqualTo(expectSilver), "the Home Front's silver is the match's");
+            Assert.That(host.Local.World.Silver[0], Is.EqualTo(expectSilver));
+            Assert.That(host.Local.World.Config.SilverPerSecond, Is.EqualTo(expectIncome).Within(1e-5f), "and its income");
+        }
     }
 }

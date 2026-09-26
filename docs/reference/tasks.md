@@ -427,6 +427,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HudLayoutPlayTests` | PlayMode | 3 | HudBootstrap, HudView, RosterEntry, HudLayout, AllocProbe, BattleHud |
 | `LockstepLoopbackTests` | PlayMode | 3 | SimCommand, LockstepDriver, MatchSim, ReplayRecorder, LoopbackNetwork, SimConfig |
 | `MatchClockTests` | PlayMode | 5 | MatchClock, Hold, SimHost |
-| `MatchLaunchPlayTests` | PlayMode | 3 | MatchLaunch, AudioLevels, SimHost, HudBootstrap, SettingsStore, ShellBoot |
+| `MatchLaunchPlayTests` | PlayMode | 4 | FactionBuildings, MatchLaunch, SimHost, AudioLevels, CampaignGraph, HudBootstrap |
 | `ShellRouterPlayTests` | PlayMode | 1 | ShellBoot, ShellAssets, ShellRouter |
 <!-- /gen:tests -->
