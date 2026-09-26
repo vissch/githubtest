@@ -39,6 +39,7 @@ Owner is the lane that edits a document. Older documents carry a banner where a 
 | [18 Biomes](18-biomes.md) | SHOW | Lava and winter biomes |
 | [19 Coast and snow](19-coast-and-snow.md) | both | Inventory of the coastal and snow levels |
 | [20 Rig scoreboard](20-rig-scoreboard.md) | SHOW | Walker rig critique log, cycle by cycle (long; search it) |
+| [21 Overhaul 2026-09](21-overhaul-2026-09.md) | both | The six-phase overhaul: scale audit, scatter, trench lining, deaths, abilities, home front + campaign |
 | [PLAN](PLAN.md) | both | The original plan. Catalogs still authoritative; architecture and milestones superseded by 11 |
 
 ## Reference material

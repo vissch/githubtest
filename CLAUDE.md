@@ -32,6 +32,7 @@ Other checkouts on this machine and what they hold. Update this block when you s
 - `githubtest-aosa` (`lane/show/aosa`) and `aosa-c1-*`: the AOSA optimisation loop, with its own contract in
   docs/reference/aosa/ on that branch.
 - `githubtest-maint` (`lane/show/maint-2026-09`): these navigation docs and the maintainability pass.
+- `githubtest-overhaul` (`lane/show/overhaul`, SIM seams on `lane/sim/overhaul`): the six-phase overhaul, `docs/21-overhaul-2026-09.md`.
 
 ## Lanes
 Work out your lane from the current branch before you edit anything. If the branch is not `lane/sim/*` or

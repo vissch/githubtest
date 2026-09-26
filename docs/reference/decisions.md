@@ -27,6 +27,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-22 | Imported props drawn 2-3x their imported size. Bunkers, field guns and observation stands only at each side's back edge or on the far (-X, fog) side, openings toward the fog. |
 | 2026-09-23 | **Machines are gigantic and infantry 25% shorter.** `VehicleSize` Walker 2.5, Tank 1.7 (`Sim/Nav/VehicleKinematics.cs`); `VATRenderer.UnitScale` 1.125. |
 | 2026-09-23 | **Winter troops keep khaki.** No greatcoat, no second palette. Warm pixels on the men in winter are intended; do not tune them away. |
+| 2026-09-26 | **Man-made props are true to the soldier; machines stay giant.** Doors, crates, lanterns, guns, carts, houses and sandbags get strict bounds against the drawn man (`FigureMetrics`, 2.0 m at close zoom; the readability grow is a men-only exception). Walkers and tanks keep `VehicleSize` as a stylised exception. Rocks, debris, mounds, stumps and logs vary freely. Supersedes the 2026-09-22 "2-3x" rule for man-made props. (Overhaul directive, AskUserQuestion.) |
 
 ## Levels
 | Date | Decision |
@@ -44,6 +45,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-24 | Walkers limp as they lose legs; tank tracks degrade by degrees. |
 | 2026-09-24 | Shelters are not exempt from small-arms wear: bags go first (~1 min of one MG), then the shell at concrete's rate. |
 | 2026-09-24 | House chunk mask widened to 96 chunks (`HouseKit.MaxChunks`), so ruins come down a course at a time. |
+| 2026-09-26 | **Death physics are VAT launched bodies, not physics ragdolls.** The blast throw arc scales with how many men died nearby, bodies tumble in flight and pile on earlier bodies; presentation only, seeded so replays agree. (Overhaul directive, AskUserQuestion.) |
+| 2026-09-26 | **Mines and tripwires are laid by a sapper unit during the match**, not in a preparation phase: a new `InfantryArchetype.Sapper` in both faction pools (after `lane/show/units-meta` lands its ten slots), walking out on a `UnitAbility` command. (Overhaul directive, AskUserQuestion.) |
 
 ## Interface
 | Date | Decision |
@@ -58,6 +61,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-23 | Single player runs **one** sim world. The two-world check is an opt-in determinism canary (`feature-flags.md`). |
 | 2026-09-23 | Performance fidelity bar: a change that keeps the image lands freely; one that should be "indistinguishable" needs before/after captures and a critic. Measure in the editor **and** a Windows player build. |
 | 2026-09-25 | Navigation docs live in the repo (`CLAUDE.md` → `docs/reference/`), checked by `Tools/codemap.py`. |
+| 2026-09-26 | **The six-phase overhaul (scale audit, contextual scatter, modular trench, death animations, commander abilities, home front + campaign) is done by one session on both lanes:** SIM seams on `lane/sim/overhaul` first, alone and gated; SHOW work on `lane/show/overhaul`; worktree `githubtest-overhaul`. Plan of record: `docs/21-overhaul-2026-09.md`. (AskUserQuestion.) |
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
@@ -79,3 +83,4 @@ summarised in the docs named; the files themselves are not readable from another
 | check-the-current-unity-generic-leaf.md | Performance pass | `docs/05-performance-budgets.md` |
 | it-seems-that-the-harmonic-cosmos.md | Destruction v2 | `docs/16-destruction.md` |
 | for-the-trench-warfare-lovely-cerf.md | Explosions batches A-C | `docs/16-destruction.md`, the open item above |
+| pasted-content-id-f06f-system-directive-dazzling-clover.md | The six-phase overhaul (2026-09-26) | `docs/21-overhaul-2026-09.md`, this page |

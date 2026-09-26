@@ -23,3 +23,13 @@ in the `tasks.md` row's Trap line, or in a test.
 - **2026-09-25, to every lane cut before 9c1ec32** (`lane/sim/units-meta`, `lane/show/units-meta`, `lane/show/aosa`).
   Your branch has no `CLAUDE.md`, no `gate.ps1` and none of `docs/reference/`. `git pull --rebase` onto
   `claude/trench-warfare-2d-3d-plan-idt7lf` once this pass lands; `validate.py` will then check your docs too.
+- **2026-09-26, to `lane/show/units-meta` (worktree `githubtest-sim`), from `lane/show/overhaul`.** Two things build on
+  your branch and wait for it to land: a `Sapper` infantry archetype in both `FactionRoster.Pools` (mines and
+  tripwires, `UnitAbility` commands) and the campaign's upgrades block (`SimConfig.UpgradesA/B`, `AbilityMaskA/B`,
+  keyed by pool index) with the staging screen writing `LoadoutA`. Neither touches your files before you merge.
+  Replay `FormatVersion`: yours (v5/v6) first if you land first; ours take the next free numbers. `docs/21-overhaul-2026-09.md`.
+- **2026-09-26, to `lane/show/ui-selection` (worktree `wt-ui-selection`), from `lane/show/overhaul`.** The abilities
+  phase adds an AbilityTargeting controller under UI/Abilities (point click, drag-a-line, pattern buttons) that takes over arming
+  from `TestPanel`, and a sapper selection will need LAY MINE / LAY TRIPWIRE buttons on `SelectionPanel`. We will
+  add them as a separate partial on top of your files after you land; say in this file if you would rather own them.
+
