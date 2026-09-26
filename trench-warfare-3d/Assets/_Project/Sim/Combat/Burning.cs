@@ -10,6 +10,12 @@
 // (every man inside its radius, every nav cell inside it), from the beam (docs/21 phase 5) and from Ignite() /
 // IgniteCell() called by another sim system; presentation never calls into here.
 //
+// The flag and the timer are set together and only together (Ignite, the catch in the job). A dead man's timer goes
+// out the tick the job sees him dead, with one UnitAlight (b = 0) whatever killed him. A man who dies AFTER this
+// system stepped (gas at 900, a track at 1120) and whose slot Spawn hands on before it steps again arrives with a
+// timer and no flag (Spawn clears the flags): that timer is a dead man's and goes out silently, so a recruit never
+// inherits the fire.
+//
 // Nothing here is random. Both arrays are authoritative and hashed; the per-cell lookup the job uses is rebuilt from
 // Cells every tick and is not.
 using Unity.Burst;
@@ -77,7 +83,7 @@ namespace TW.Sim.Combat
             fled = new NativeList<int>(64, Allocator.Persistent);
         }
 
-        public bool IsAlight(SimWorld w, int slot) => w.IsAlive(slot) && AlightUntil[slot] > w.Tick;
+        public bool IsAlight(SimWorld w, int slot) => w.IsAlive(slot) && AlightUntil[slot] > w.Tick && (w.Flags[slot] & (uint)UnitFlags.Burning) != 0;
 
         /// <summary>Set a man alight for <paramref name="seconds"/> (capped at MaxBurnSeconds from now; a man already
         /// burning keeps the longer of the two). Vehicles have their own fire (VehicleModulesSystem) and are ignored.</summary>
@@ -196,7 +202,7 @@ namespace TW.Sim.Combat
 
         bool AnyAlight(SimWorld w)
         {
-            for (int i = 0; i < w.HighWater; i++) if (AlightUntil[i] > w.Tick && w.IsAlive(i)) return true;
+            for (int i = 0; i < w.HighWater; i++) if (AlightUntil[i] > w.Tick && w.IsAlive(i) && (w.Flags[i] & (uint)UnitFlags.Burning) != 0) return true;
             return false;
         }
 
@@ -239,8 +245,9 @@ namespace TW.Sim.Combat
                     bool alive = (f & (uint)UnitFlags.Alive) != 0 && Hp[i] > 0f;
                     if (!alive || (f & (uint)UnitFlags.Vehicle) != 0)
                     {
-                        // a dead man's fire is out, so a reused slot never inherits it
-                        if ((f & (uint)UnitFlags.Vehicle) == 0) AlightUntil[i] = 0;
+                        // a dead man's fire is out, so a reused slot never inherits it; said once (UnitAlight b = 0)
+                        // whatever killed him, so the picture douses his slot
+                        if ((f & (uint)UnitFlags.Vehicle) == 0 && AlightUntil[i] != 0) { AlightUntil[i] = 0; Expired.Add(i); }
                         continue;
                     }
                     bool alight = AlightUntil[i] > Tick;
@@ -258,7 +265,14 @@ namespace TW.Sim.Combat
                         Caught.Add(i);
                         alight = true;
                     }
-                    else if ((f & (uint)UnitFlags.Burning) == 0) Flags[i] = f | (uint)UnitFlags.Burning;
+                    else if ((f & (uint)UnitFlags.Burning) == 0)
+                    {
+                        // a timer without the flag is a dead man's: he died after this system stepped (gas, a track)
+                        // and Spawn handed his slot on before it stepped again, clearing his flags. Only Ignite and
+                        // the catch above set the two together, so this man was never alight: out, silently
+                        AlightUntil[i] = 0;
+                        continue;
+                    }
 
                     Hp[i] = Hp[i] - BurnDps * Dt;
                     Suppression[i] = math.min(100f, Suppression[i] + SuppressionPerSecond * Dt);

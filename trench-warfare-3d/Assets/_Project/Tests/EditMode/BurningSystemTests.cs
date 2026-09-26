@@ -217,5 +217,39 @@ namespace TW.Tests
             var x = Run(); var y = Run();
             for (int t = 0; t < x.Length; t++) Assert.AreEqual(x[t], y[t], $"hash diverged at tick {t}");
         }
+
+        [Test]
+        public void AManAlightWhoDiesOfSomethingElseLeavesNoFireForTheNextManInHisSlot()
+        {
+            using var r = new Rig();
+            var at = new float3(150f, 0f, 240f);
+            int man = r.Man(at);
+            r.M.Burning.Ignite(r.W, man, 8f);
+            r.Step();
+            Assert.IsTrue(r.Burning(man));
+            // gassed after this system stepped: the slot is freed with the timer still running, and handed on
+            r.W.Despawn(man, (int)DeathCause.Gas);
+            int recruit = r.Man(at);
+            Assert.AreEqual(man, recruit, "the freed slot is the one the recruit gets");
+            r.Step();
+            Assert.IsFalse(r.Burning(recruit), "the recruit is not alight");
+            Assert.AreEqual(0u, r.M.Burning.AlightUntil[recruit], "the dead man's timer is gone");
+            Assert.AreEqual(1000f, r.W.Hp[recruit], 1e-3f, "and he lost nothing to it");
+            Assert.AreEqual(0, r.Count(SimEventType.UnitAlight, recruit, 1), "nobody said he caught");
+            Assert.IsFalse(r.M.Burning.IsAlight(r.W, recruit));
+        }
+
+        [Test]
+        public void AManAlightWhoIsKilledIsSaidToBeOut()
+        {
+            using var r = new Rig();
+            int man = r.Man(new float3(150f, 0f, 240f));
+            r.M.Burning.Ignite(r.W, man, 8f);
+            r.Step();
+            r.W.Despawn(man, 3);   // shot dead by slot 3 between this system's steps
+            r.Step();
+            Assert.AreEqual(1, r.Count(SimEventType.UnitAlight, man, 0), "one UnitAlight (b = 0) for the corpse: the picture douses his slot");
+            Assert.AreEqual(0u, r.M.Burning.AlightUntil[man]);
+        }
     }
 }

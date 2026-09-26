@@ -1,6 +1,6 @@
 // Phase: A5 (implemented; docs/21 phase 5) — how much thick cloud lies on a line of sight.
 // Samples the 4 m field grid every 2 m along the segment (the midpoint of each step) and adds up the metres that
-// fall in a cell above Thick, at most MaxSteps steps (128 m; past that a screen has done its work). It is the one
+// fall in a cell above Thick, at most MaxSteps steps (128 m; longer than any weapon reaches). It is the one
 // answer TargetAcquisition (blind past SmokeBlindMetres) and DirectFire (accuracy per metre) ask of the smoke, and
 // GasSmokeSystem.MetresThrough asks it of either field. Pure, Burst-compiled, deterministic: fixed steps, no rays.
 using Unity.Burst;
@@ -16,7 +16,9 @@ namespace TW.Sim.Combat
         /// <summary>A cell above this concentration is thick: it counts against sight and aim.</summary>
         public const float Thick = 10f;
         public const float Step = 2f;
-        public const int MaxSteps = 64;
+        /// <summary>256 m at 2 m steps: past the longest weapon range (CombatTables: 230 m), so a screen anywhere between a
+        /// shooter and his target is counted.</summary>
+        public const int MaxSteps = 128;
 
         /// <summary>Metres of the segment a-b (XZ) that lie in thick cells of a field-grid of width x length cells.</summary>
         public static float MetresThrough(NativeArray<float> grid, int width, int length, float3 a, float3 b)
