@@ -172,7 +172,7 @@ namespace TW.Sim.Match
                 var size = w.Init.SizeMeters;
                 bool inside = cmd.Pos.x >= 0f && cmd.Pos.z >= 0f && cmd.Pos.x <= size.x && cmd.Pos.z <= size.y;
                 if (!inside || !stats.Offers(pattern) || Cooldown[slot] > 0 || w.Silver[cmd.Player] < stats.Cost) { w.Reject(cmd); continue; }
-                if (stats.Id == OffMapAbilityId.Beam && (beam == null || beam.ActiveFor(cmd.Player) >= BeamSystem.MaxPerPlayer)) { w.Reject(cmd); continue; }   // two sweeps a player
+                if (stats.Id == OffMapAbilityId.Beam && (beam == null || beam.ActiveFor(cmd.Player) >= BeamSystem.MaxPerPlayer)) { w.Reject(cmd); continue; }   // the safety cap (BeamSystem.MaxPerPlayer): the cooldown rejects a second sweep first
 
                 w.Silver[cmd.Player] -= stats.Cost;
                 Cooldown[slot] = stats.CooldownTicks;

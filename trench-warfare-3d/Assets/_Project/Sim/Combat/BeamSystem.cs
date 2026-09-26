@@ -7,8 +7,9 @@
 // off the structure (VehicleModulesSystem knocks it out and emits the wreck the same tick) and a VehicleArmourHit
 // (b = -1, scalar > 0) each tick for the sparks. Every ScorchEvery ticks the head queues a Beam-shaped Impact that
 // BlastSystem resolves without touching men (they are this system's), so Deformation wears the trees and the wire
-// under it and the Explosion event (dir.y = BlastShape.Beam) is the picture's scorch cue. At most MaxPerPlayer beams
-// run per player. Beams is hashed; the lists the job fills are cleared every tick.
+// under it and the Explosion event (dir.y = BlastShape.Beam) is the picture's scorch cue. MaxPerPlayer is a safety
+// cap on the sweeps in flight per player: the cooldown (3600) outlasts a sweep (200), so a second command meets the
+// cooldown first and no player reaches the cap. Beams is hashed; the lists the job fills are cleared every tick.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;

@@ -1,6 +1,7 @@
 // Phase: P0 (implemented) — the core determinism guarantee: same seed + same commands → identical hash sequence.
 // The script also fires every line ability (docs/21 phase 5: a strafe, a smoke screen, a line barrage, creeping
-// gas) early enough for their payloads and the smoke field to be in the hash the replay verifies.
+// gas, and the beam, which lights what it crosses) early enough for their payloads, the smoke field, the sweep and
+// the burning to be in the hash the replay verifies.
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -20,6 +21,7 @@ namespace TW.Tests
             if (t == 46) return new[] { Support(t, 1, OffMapAbilityId.SmokeScreen, 0, 0, 40, 150f, 400f) };
             if (t == 51) return new[] { Support(t, 0, OffMapAbilityId.HeBarrage, 0, AbilityPattern.Line, 60, 150f, 500f) };
             if (t == 56) return new[] { Support(t, 1, OffMapAbilityId.ChlorineGas, 180, AbilityPattern.Creeping, 64, 150f, 300f) };
+            if (t == 61) return new[] { Support(t, 0, OffMapAbilityId.Beam, 45, 0, 60, 120f, 350f) };
             if (t % 5 == 0) return new[] { SimCommand.Deploy(t, 0, (int)(t / 5) % 5), SimCommand.Deploy(t, 1, (int)(t / 5 + 2) % 5) };
             if (t % 37 == 0) return new[] { SimCommand.Rally(t, 0, new float3(100f + t, 0f, 50f)) };
             return System.Array.Empty<SimCommand>();
