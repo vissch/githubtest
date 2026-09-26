@@ -105,7 +105,7 @@ namespace TW.Presentation
         /// <summary>Drop the request and go back to the menu.</summary>
         public static void QuitToMenu()
         {
-            Current = null; Running = null;
+            Current = null; Running = null; CampaignSession.Clear();
             SceneStatics.Reset();
             UnityEngine.SceneManagement.SceneManager.LoadScene(MenuScene);
         }
