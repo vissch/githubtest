@@ -62,6 +62,9 @@ namespace TW.Sim
                             // beeps at a rejection should not beep at a player who ordered an empty line forward.
         // ---- fire (A5): BurningSystem ----
         UnitAlight,         // a = slot, b = 1 caught fire / 0 it went out, pos, scalar = seconds it will burn (b = 1)
+        MinePlaced,         // a = mine index, b = player, pos, dir = a tripwire's heading x length (zero for a mine), scalar = MineKind
+        MineTriggered,      // a = mine index, b = victim slot, pos = where it went off, dir = the victim's heading, scalar = MineKind
+        MineCleared,        // a = mine index, b = the burst's player, pos, dir, scalar = MineKind: a crater set it cooking; its burst follows
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing
