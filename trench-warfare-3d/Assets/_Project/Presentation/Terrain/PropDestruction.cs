@@ -791,7 +791,7 @@ namespace TW.Presentation.Terrain
                 for (int i = n; i < MaxLoose; i++) looseMasks[i] = Vector4.zero;
                 looseBlock.SetVectorArray("_ChunkMask", looseMasks);
                 var rp = new RenderParams(whole.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = looseBlock };
-                Graphics.RenderMeshInstanced(rp, whole.Mesh, 0, looseMatrices, n);
+                FrameBudget.Draw(rp, whole.Mesh, 0, looseMatrices, n);
             }
             // what men dropped, thrown whole: each kind in one draw of its own mesh
             looseKinds.Clear();
@@ -808,7 +808,7 @@ namespace TW.Presentation.Terrain
                     n++;
                 }
                 var rp = new RenderParams(module.Material) { worldBounds = bounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
-                Graphics.RenderMeshInstanced(rp, module.Mesh, 0, looseMatrices, n);
+                FrameBudget.Draw(rp, module.Mesh, 0, looseMatrices, n);
             }
         }
         readonly List<BattlefieldKit.Module> looseKinds = new List<BattlefieldKit.Module>(8);

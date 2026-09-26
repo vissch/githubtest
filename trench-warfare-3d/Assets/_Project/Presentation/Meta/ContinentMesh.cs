@@ -113,6 +113,41 @@ namespace TW.Presentation.Meta
             return MetaMeshes.Box(new Vector3(w * Cell + margin * 2f, 0.3f, l * Cell + margin * 2f), new Vector3(w * Cell * 0.5f, -0.17f, l * Cell * 0.5f), "ContinentSea");
         }
 
+        /// <summary>The fog sheet: a grid draped <paramref name="lift"/> above the land (and at the lift over the sea),
+        /// reaching <paramref name="margin"/> past the land on every side, uv 0..1 across that span so a MapFog grid
+        /// over the same rectangle lands on it texel for texel.</summary>
+        public static Mesh FogSheet(float[] h, float lift, float margin, float step = 2f, int w = Width, int l = Length, string name = "ContinentFog")
+        {
+            float spanX = w * Cell + 2f * margin, spanZ = l * Cell + 2f * margin;
+            int nx = Mathf.Max(1, Mathf.CeilToInt(spanX / step)), nz = Mathf.Max(1, Mathf.CeilToInt(spanZ / step));
+            var v = new Vector3[(nx + 1) * (nz + 1)]; var n = new Vector3[v.Length]; var uv = new Vector2[v.Length];
+            for (int j = 0; j <= nz; j++)
+                for (int i = 0; i <= nx; i++)
+                {
+                    float x = -margin + spanX * i / nx, z = -margin + spanZ * j / nz;
+                    bool overLand = x >= 0f && z >= 0f && x <= w * Cell && z <= l * Cell;
+                    float raw = overLand ? HeightAt(h, w, l, x / (w * Cell), z / (l * Cell)) : -1f;
+                    int k = j * (nx + 1) + i;
+                    v[k] = new Vector3(x, Mathf.Max(0f, raw) * Relief + lift, z);
+                    n[k] = Vector3.up;
+                    uv[k] = new Vector2((float)i / nx, (float)j / nz);
+                }
+            var tris = new int[nx * nz * 6];
+            int t = 0;
+            for (int j = 0; j < nz; j++)
+                for (int i = 0; i < nx; i++)
+                {
+                    int a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+                    tris[t++] = a; tris[t++] = c; tris[t++] = d;
+                    tris[t++] = a; tris[t++] = d; tris[t++] = b;
+                }
+            var mesh = new Mesh { name = name, hideFlags = HideFlags.HideAndDontSave };
+            if (v.Length > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.vertices = v; mesh.normals = n; mesh.uv = uv; mesh.triangles = tris;
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         /// <summary>Where a map position (0..1, 0..1) stands in the world: on the land, or at sea level over water.</summary>
         public static Vector3 WorldOf(float[] h, Vector2 mapPos, int w = Width, int l = Length)
         {

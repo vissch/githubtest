@@ -754,6 +754,7 @@ damaged key, so the broken lining survives every crater's rebuild. The lining's 
 in `DebrisMath.SinkSeconds` 3: a bay is clear of its fragments fifteen seconds after the shell.
 
 `DebrisRenderer.ZoomShare` (set by `CombatFx` each frame: 1 among the men, 0.6 at the standard view, 0.3 beyond
-zoom 60) scales every burst's count, so a barrage seen from far out throws pixels, not thousands of pieces. Not yet:
-`FrameBudget` coverage of the props' draws, and the three-minute-barrage bench with the before/after counts (an
+zoom 60) scales every burst's count, so a barrage seen from far out throws pixels, not thousands of pieces.
+`BattlefieldProps.Submit` and the loose pieces' draws go through `FrameBudget.Draw` like every other submission, so
+the counts it reports include the lining. Not yet: the three-minute-barrage bench with the before/after counts (an
 editor session).

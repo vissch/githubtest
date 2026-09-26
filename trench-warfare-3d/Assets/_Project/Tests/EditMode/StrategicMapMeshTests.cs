@@ -1,6 +1,7 @@
 // Phase: B6 / docs/21 phase 6 (implemented) — the strategic map's continent: the same seed builds the same heights,
 // every country node of the campaign graph stands on land while the corners are sea, the land mesh has its three
 // bands and stays under the 16-bit index limit, and a map position lands where the pins expect it. No scene.
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Meta;
@@ -63,6 +64,51 @@ namespace TW.Tests
             Assert.That(p.y, Is.GreaterThan(0f));
             var sea = ContinentMesh.WorldOf(h, new Vector2(0f, 0f));
             Assert.That(sea.y, Is.Zero, "over the sea a pin stands at sea level");
+        }
+
+        [Test]
+        public void The_Fog_Sheet_Drapes_Over_The_Land_And_Reaches_Over_The_Sea()
+        {
+            var h = ContinentMesh.Heights(ContinentMesh.Seed);
+            var mesh = ContinentMesh.FogSheet(h, MapFog.Sheet, StrategicMapView.FogMargin);
+            try
+            {
+                var b = mesh.bounds;
+                Assert.That(b.min.x, Is.EqualTo(-StrategicMapView.FogMargin).Within(1e-3f));
+                Assert.That(b.max.x, Is.EqualTo(ContinentMesh.Width * ContinentMesh.Cell + StrategicMapView.FogMargin).Within(1e-3f));
+                Assert.That(b.min.z, Is.EqualTo(-StrategicMapView.FogMargin).Within(1e-3f));
+                Assert.That(b.min.y, Is.EqualTo(MapFog.Sheet).Within(1e-3f), "over the sea the sheet lies at its lift");
+                Assert.That(b.max.y, Is.GreaterThan(ContinentMesh.Highland * ContinentMesh.Relief + MapFog.Sheet), "over the high ground it rises with the land");
+                Assert.That(mesh.vertexCount, Is.LessThanOrEqualTo(65535));
+                float minU = 1f, maxU = 0f, minV = 1f, maxV = 0f;
+                foreach (var t in mesh.uv) { minU = Mathf.Min(minU, t.x); maxU = Mathf.Max(maxU, t.x); minV = Mathf.Min(minV, t.y); maxV = Mathf.Max(maxV, t.y); }
+                Assert.That(minU, Is.Zero); Assert.That(maxU, Is.EqualTo(1f)); Assert.That(minV, Is.Zero); Assert.That(maxV, Is.EqualTo(1f));
+            }
+            finally { Object.DestroyImmediate(mesh); }
+        }
+
+        [Test]
+        public void The_Fog_Opens_Over_The_Reachable_Nodes_And_Stays_Over_The_Rest()
+        {
+            var h = ContinentMesh.Heights(ContinentMesh.Seed);
+            var grid = StrategicMapView.FogGrid;
+            var lowlands = ContinentMesh.WorldOf(h, CampaignGraph.Find("lowlands").MapPos);
+            var citadel = ContinentMesh.WorldOf(h, CampaignGraph.Find("the-citadel").MapPos);
+            Assert.That(Vector2.Distance(new Vector2(lowlands.x, lowlands.z), new Vector2(citadel.x, citadel.z)), Is.GreaterThan(MapFog.HoleRadius + MapFog.HoleSoft), "the finale is out of the first hole's reach");
+
+            var a = MapFog.Alpha(grid, new List<Vector2> { new Vector2(lowlands.x, lowlands.z) }, ContinentMesh.Seed);
+            Assert.That(a.Length, Is.EqualTo(grid.Count));
+            Assert.That(a[grid.Index(lowlands.x, lowlands.z)], Is.LessThan(0.01f), "clear over the reachable node");
+            Assert.That(a[grid.Index(citadel.x, citadel.z)], Is.GreaterThan(MapFog.Density * (1f - MapFog.NoiseDepth) - 1e-4f), "fogged over the locked one");
+            float max = 0f; foreach (var v in a) max = Mathf.Max(max, v);
+            Assert.That(max, Is.LessThanOrEqualTo(MapFog.Density + 1e-4f), "never denser than the density");
+            float edge = a[grid.Index(lowlands.x + MapFog.HoleRadius + MapFog.HoleSoft * 0.5f, lowlands.z)];
+            Assert.That(edge, Is.GreaterThan(0.05f).And.LessThan(MapFog.Density), "the hole has a soft edge");
+
+            var none = MapFog.Alpha(grid, new List<Vector2>(), ContinentMesh.Seed);
+            float min = 1f; foreach (var v in none) min = Mathf.Min(min, v);
+            Assert.That(min, Is.GreaterThanOrEqualTo(MapFog.Density * (1f - MapFog.NoiseDepth) - 1e-4f), "with nothing reachable the whole map is fogged");
+            Assert.That(MapFog.Clear(0f), Is.EqualTo(1f)); Assert.That(MapFog.Clear(MapFog.HoleRadius + MapFog.HoleSoft), Is.Zero);
         }
     }
 }

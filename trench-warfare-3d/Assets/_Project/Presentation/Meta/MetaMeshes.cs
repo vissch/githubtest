@@ -18,6 +18,26 @@ namespace TW.Presentation.Meta
             return m;
         }
 
+        /// <summary>An unlit, alpha-blended material on URP's own Unlit shader (kept in player builds by
+        /// Resources/ShaderKeep/KeepUnlitTransparent, the way CombatFx makes its smoke), or null when that shader is
+        /// not there: the caller then draws nothing.</summary>
+        public static Material Transparent(Color color)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) return null;
+            var m = new Material(shader) { hideFlags = HideFlags.HideAndDontSave, color = color };
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 0f);
+            m.SetFloat("_ZWrite", 0f);
+            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            return m;
+        }
+
         sealed class Builder
         {
             public readonly List<Vector3> V = new List<Vector3>(), N = new List<Vector3>(), S = new List<Vector3>();

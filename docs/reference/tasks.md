@@ -281,7 +281,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Core/MetaViews.cs` (the seam to the 3D views: `IHomeFrontView`, `IStrategicMapView`,
   `MetaServices`), `Presentation/Meta/` (its own assembly, `TW.Presentation.Meta`: `HomeFrontDiorama.cs` and
   `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask), `StrategicMapView.cs` and
-  `ContinentMesh.cs` (the generated continent, pins, the front line), `MetaCamera.cs` (orbit / map),
+  `ContinentMesh.cs` (the generated continent, pins, the front line, the fog sheet), `MapFog.cs` (the fog mask:
+  clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map),
   `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
 - **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests, HomeFrontDioramaTests,
   StrategicMapMeshTests.
@@ -399,7 +400,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `SmokeScreenTests` | EditMode | 5 | SmokeLos, OffMapAbilityId, OffMapAbilitySystem, SimEventType, SimCommand, CombatTables |
 | `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, MatchLaunch, CombatFx |
 | `StrafeRunTests` | EditMode | 5 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
-| `StrategicMapMeshTests` | EditMode | 4 | ContinentMesh, CampaignGraph |
+| `StrategicMapMeshTests` | EditMode | 6 | ContinentMesh, MapFog, StrategicMapView, CampaignGraph, Sheet, Cell |
 | `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |

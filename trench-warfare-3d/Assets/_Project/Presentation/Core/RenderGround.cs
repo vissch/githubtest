@@ -203,6 +203,14 @@ namespace TW.Presentation
             UnityEngine.Graphics.RenderMeshInstanced(rp, mesh, submesh, instanceData, count);
         }
 
+        public static void Draw<T>(UnityEngine.RenderParams rp, UnityEngine.Mesh mesh, int submesh, System.Collections.Generic.List<T> instanceData) where T : unmanaged
+        {
+            Roll();
+            int count = instanceData.Count;
+            if (count > 0) { draws++; if (mesh != null) verts += (long)mesh.vertexCount * count; }
+            UnityEngine.Graphics.RenderMeshInstanced(rp, mesh, submesh, instanceData);
+        }
+
         public static void DrawIndirect(UnityEngine.RenderParams rp, UnityEngine.Mesh mesh, UnityEngine.GraphicsBuffer commandBuffer, int commandCount = 1, int startCommand = 0)
         {
             Roll();

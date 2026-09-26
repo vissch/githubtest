@@ -145,9 +145,9 @@ namespace TW.Presentation.Meta
         void Draw(float now)
         {
             var rp = new RenderParams(plateMat) { worldBounds = Everything, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true };
-            Graphics.RenderMesh(rp, plate, 0, Matrix4x4.identity);
+            FrameBudget.Draw(rp, plate, 0, Matrix4x4.identity);
             rp.material = roadMat; rp.shadowCastingMode = ShadowCastingMode.Off;
-            Graphics.RenderMesh(rp, road, 0, Matrix4x4.Translate(new Vector3(0f, 0.02f, 0f)));
+            FrameBudget.Draw(rp, road, 0, Matrix4x4.Translate(new Vector3(0f, 0.02f, 0f)));
 
             chimneyMatrices.Clear(); chimneyTops.Clear();
             for (int i = 0; i < placed.Count; i++)
@@ -158,7 +158,7 @@ namespace TW.Presentation.Meta
                     one[0] = p.Matrix; oneMask[0] = p.Mask.Packed;
                     block.SetVectorArray("_ChunkMask", oneMask);
                     var hp = new RenderParams(mat) { worldBounds = Everything, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = block };
-                    Graphics.RenderMeshInstanced(hp, p.Whole, 0, one, 1);
+                    FrameBudget.Draw(hp, p.Whole, 0, one, 1);
                 }
                 int chimneys = p.View.Chimneys;
                 if (chimneys > 0)
@@ -177,13 +177,13 @@ namespace TW.Presentation.Meta
                 if (hover || picked)
                 {
                     rp.material = picked ? pickedMat : hoverMat;
-                    Graphics.RenderMesh(rp, ring, 0, Matrix4x4.TRS(p.Foot + Vector3.up * 0.04f, Quaternion.identity, new Vector3(p.Extent, 1f, p.Extent)));
+                    FrameBudget.Draw(rp, ring, 0, Matrix4x4.TRS(p.Foot + Vector3.up * 0.04f, Quaternion.identity, new Vector3(p.Extent, 1f, p.Extent)));
                 }
             }
             if (chimneyMatrices.Count > 0)
             {
                 var cp = new RenderParams(chimneyMat) { worldBounds = Everything, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true };
-                Graphics.RenderMeshInstanced(cp, chimney, 0, chimneyMatrices);
+                FrameBudget.Draw(cp, chimney, 0, chimneyMatrices);
                 if (smoke != null && now >= nextPuff)
                 {
                     nextPuff = now + PuffEvery;
