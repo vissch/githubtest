@@ -106,13 +106,53 @@ namespace TW.Presentation.Tactical
         /// <summary>A field the moon lights: dark, and not lit from a molten floor.</summary>
         public static bool MoonLit(bool night, bool molten) => night && !molten;
 
-        /// <summary>The tint that draws a night cloud at this value (luma at the drawings' middle ink), before fog and grade.</summary>
-        public static Color NightTint(float value)
+        /// <summary>The tint that draws a night cloud at this value (luma at the drawings' middle ink), before fog and grade,
+        /// in C59's warm grey (fx.smokeNightWarm at its old value 1).</summary>
+        public static Color NightTint(float value) => NightTint(value, OldNightWarm);
+
+        /// <summary>The same at a warmth: 1 is C59's warm grey exactly, 0 a neutral grey (AOSA C61, fx.smokeNightWarm).</summary>
+        public static Color NightTint(float value, float warm)
         {
-            float luma = 0.299f * NightHue.r + 0.587f * NightHue.g + 0.114f * NightHue.b;
+            Color hue = NightHueAt(warm);
+            float luma = 0.299f * hue.r + 0.587f * hue.g + 0.114f * hue.b;
             float k = value / (luma * Mathf.Lerp(NightMidInk, NightShade, NightLit));
-            return new Color(NightHue.r * k, NightHue.g * k, NightHue.b * k, 1f);
+            return new Color(hue.r * k, hue.g * k, hue.b * k, 1f);
         }
+
+        // AOSA C61 (juice J01, the night smoke after C59): the critic (runs 7/d59: smoke 6, readability 7) read the new smoke
+        // as tan brown haze, soft-edged and even, not heavy black smoke, and the helmets blurred in the haze band at
+        // (150-450, 580-900). Measured on d59-1.f12: the unlit smoke is already about 16% value (#292522), but where a burst
+        // is alight it is tan (80, 54, 39)-(91, 66, 47): the burst's orange light (TWBurstLight) is ADDED to a near-black
+        // warm cloud, so it dominates it. Three knobs, read once where the smoke is made:
+        //   fx.smokeNightWarm  the night smoke's warmth: 1 = C59's warm grey (1, 0.89, 0.78) exactly, 0 = neutral grey; the
+        //                      value (fx.smokeNight) is kept. Moonlit field only, with fx.smokeNight above 0.
+        //   fx.smokeNightFire  the share of the burst's own light the night smoke takes (the shader's _BurstLit). 1 = the
+        //                      old look (the shader skips the line). Moonlit field only, with fx.smokeNight above 0. The
+        //                      column keeps all of it: its foot lit orange is the point of C57.
+        //   fx.smokeHard       a toon-cut silhouette on the burst's cloud and the smoke (the Deep books, as fx.smokeSoft), at
+        //                      the standard view: the drawing's edge stepped at half its alpha instead of the soft falloff,
+        //                      so the cloud tears at hard edges. Every field (the soft edge is not a night thing). 0 = the
+        //                      old look (the shader skips the line).
+        // fx.smokeSoft (C52) already thins a cloud in front of any surface over 0.3 x its width in depth, but that is 0.7-3.3 m
+        // above the surface at the standard view's 25 degrees, depending on the card's size, and it goes to 0 at the surface
+        // rather than capping at 40%: it is the lever for the ground band, and a sweep of it (0.3, 0.5, 0.7) comes before
+        // any new code there. All three at their old values (fx.smokeNightWarm=1,fx.smokeNightFire=1,fx.smokeHard=0) draw
+        // the image before C61 bit for bit.
+        public const string NightWarmKnob = "fx.smokeNightWarm", NightFireKnob = "fx.smokeNightFire", HardKnob = "fx.smokeHard";
+        public const float DefaultNightWarm = 0.35f, DefaultNightFire = 0.35f, DefaultHard = 1f;   // critic: charcoal-umber, not tan; hard-cut toon edges
+        public const float OldNightWarm = 1f, OldNightFire = 1f, OldHard = 0f;
+
+        /// <summary>fx.smokeNightWarm, in [0, 1] (1 = C59's warm grey).</summary>
+        public static float ReadNightWarm() => Mathf.Clamp01(Knobs.Get(NightWarmKnob, DefaultNightWarm));
+
+        /// <summary>fx.smokeNightFire, in [0, 1] (1 = the old look).</summary>
+        public static float ReadNightFire() => Mathf.Clamp01(Knobs.Get(NightFireKnob, DefaultNightFire));
+
+        /// <summary>fx.smokeHard, in [0, 1] (0 = the old look).</summary>
+        public static float ReadHard() => Mathf.Clamp01(Knobs.Get(HardKnob, DefaultHard));
+
+        /// <summary>The night smoke's hue at a warmth: C59's NightHue itself at 1 (the same floats), white at 0.</summary>
+        public static Color NightHueAt(float warm) => warm >= 1f ? NightHue : Color.Lerp(Color.white, NightHue, warm);
 
         /// <summary>The width factor of a shell's cloud and smoke: the knob at the standard view on a moonlit field, 1
         /// among the men and on any other field. With the knob at 1 it is 1 exactly.</summary>
@@ -120,12 +160,17 @@ namespace TW.Presentation.Tactical
 
         /// <summary>AOSA C59: paint the Burst and Smoke books as dark warm grey that the moon does not light (see NightKnob).
         /// Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets nothing.</summary>
-        public void NightSmoke(float value)
+        public void NightSmoke(float value) => NightSmoke(value, OldNightWarm, OldNightFire);
+
+        /// <summary>The same at a warmth and a share of the burst's light (AOSA C61: fx.smokeNightWarm, fx.smokeNightFire).</summary>
+        public void NightSmoke(float value, float warm, float fire)
         {
             if (value <= 0f) return;
-            var tint = NightTint(value);
+            var tint = NightTint(value, warm);
             PaintNight(mats[(int)Book.Burst], tint);
             PaintNight(mats[(int)Book.Smoke], tint);
+            if (mats[(int)Book.Burst] != null) mats[(int)Book.Burst].SetFloat("_BurstLit", fire);
+            if (mats[(int)Book.Smoke] != null) mats[(int)Book.Smoke].SetFloat("_BurstLit", fire);
         }
 
         static void PaintNight(Material m, Color tint)
@@ -203,6 +248,7 @@ namespace TW.Presentation.Tactical
         {
             maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
             float soft = ReadSoft();   // C52: the deep clouds' softness (the shader takes it back to 0 as the lens goes in)
+            float hard = ReadHard();   // C61: the deep clouds' toon-cut edge (the same)
             var shader = Shader.Find("TW/Flipbook (URP)");
             if (shader == null) return;
             int found = 0;
@@ -222,6 +268,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
                 m.SetFloat("_ShadeMood", s.Mood > 0f ? s.Mood : 1f);
                 m.SetFloat("_Soft", s.Deep ? soft : 0f);
+                m.SetFloat("_Hard", s.Deep ? hard : 0f);
                 m.SetFloat("_SrcBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.SrcAlpha));
                 m.SetFloat("_DstBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
                 m.renderQueue = s.Additive ? 3020 : 3010;

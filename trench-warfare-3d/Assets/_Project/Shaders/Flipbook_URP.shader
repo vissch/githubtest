@@ -21,6 +21,8 @@ Shader "TW/Flipbook (URP)"
         _Erode ("Tears apart as it fades (0 fades evenly)", Range(0, 1)) = 0
         _ShadeMood ("How much the mood tints the shade (smoke keeps more of its own grey)", Range(0, 1)) = 1
         _Soft ("A cloud as deep as it is wide: fades in front of a surface over this x its width (0 = off)", Float) = 0
+        _Hard ("Toon-cut silhouette: the drawing's edge stepped at half its alpha (0 = its own soft edge)", Range(0, 1)) = 0
+        _BurstLit ("How much of the burst's own light it takes (1 = all)", Range(0, 1)) = 1
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -47,7 +49,7 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels;
                 half4 _Tint, _Shade;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Soft;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Soft, _Hard, _BurstLit;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -103,6 +105,19 @@ Shader "TW/Flipbook (URP)"
                 half threshold = gone * (0.45 + 0.55 * edge);
                 half torn = saturate((tex.a - threshold) / 0.45) * pow(1.0 - gone, 1.5);
                 half alpha = lerp(tex.a * i.tone.x, torn, _Erode) * i.opacity;
+                // AOSA C61 (fx.smokeHard, the smoke and the burst's cloud only): a toon cut instead of the drawing's soft
+                // alpha falloff. The silhouette (torn as above when the book erodes) is stepped at half, about a pixel wide,
+                // and the cloud inside it keeps its fade and opacity, so it thins as a whole and tears at hard edges. The
+                // standard view only (_TWClose 0); at 0 the line is skipped and the old image is drawn bit for bit. The
+                // gradient is taken outside the branch: a gradient inside flow control does not compile on every target.
+                half shape = _Erode > 0.5 ? saturate((tex.a - threshold) / 0.45) : tex.a;
+                half shapeStep = max(fwidth(shape), 0.001);
+                half hard = _Hard * (1.0 - _TWClose);
+                if (hard > 0.0)
+                {
+                    half body = _Erode > 0.5 ? pow(1.0 - gone, 1.5) : i.tone.x;
+                    alpha = lerp(alpha, saturate((shape - 0.5) / shapeStep + 0.5) * body * i.opacity, hard);
+                }
                 // soft where it meets the ground or a wall (the scene's depth behind it, over 0.8 m), and gone as it comes
                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
                 float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
@@ -125,7 +140,12 @@ Shader "TW/Flipbook (URP)"
                 if (_Erode > 0.5) color *= lerp(0.78, 1.0, smoothstep(0.0, 0.6, i.local.y));   // a cloud's underside is in its own shadow
                 // the shell's own flash lights the earth it threw up and the smoke rolling off it: the drawing's light
                 // parts catch it most, its dark parts least, so the column is modelled by its own burst and not flooded
-                color += lerp(ink, 1.0, 0.3) * TWBurstLight(i.positionWS) * _Lit;
+                // AOSA C61 (fx.smokeNightFire, the night smoke only): dark smoke under an orange burst light turned tan
+                // (the light is added, and the smoke under it is near black); below 1 it takes only this share. At 1 the
+                // line is skipped and the old image is drawn bit for bit.
+                half3 fire = TWBurstLight(i.positionWS);
+                if (_BurstLit < 1.0) fire *= _BurstLit;
+                color += lerp(ink, 1.0, 0.3) * fire * _Lit;
                 half fog = ComputeFogIntensity(i.tone.w);
                 if (_Lit < 0.5)
                 {

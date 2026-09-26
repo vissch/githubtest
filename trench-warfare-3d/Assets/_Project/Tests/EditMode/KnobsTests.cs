@@ -317,6 +317,72 @@ namespace TW.Tests
         }
 
         [Test]
+        public void NightSmokeWeightKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawC59sSmoke()
+        {
+            // AOSA C61: the default draws the night smoke charcoal-umber rather than tan, lit less by the burst, with hard-cut
+            // edges; fx.smokeNightWarm=1,fx.smokeNightFire=1,fx.smokeHard=0 is C59's look
+            Assert.AreEqual("fx.smokeNightWarm", FlipbookFx.NightWarmKnob);
+            Assert.AreEqual("fx.smokeNightFire", FlipbookFx.NightFireKnob);
+            Assert.AreEqual("fx.smokeHard", FlipbookFx.HardKnob);
+            Assert.AreEqual(FlipbookFx.DefaultNightWarm, FlipbookFx.ReadNightWarm());
+            Assert.AreEqual(FlipbookFx.DefaultNightFire, FlipbookFx.ReadNightFire());
+            Assert.AreEqual(FlipbookFx.DefaultHard, FlipbookFx.ReadHard());
+            Assert.AreEqual("0.35", Knobs.Read["fx.smokeNightWarm"]);
+            Assert.AreEqual("0.35", Knobs.Read["fx.smokeNightFire"]);
+            Assert.AreEqual("1", Knobs.Read["fx.smokeHard"]);
+            Assert.Less(FlipbookFx.DefaultNightWarm, FlipbookFx.OldNightWarm, "the default is the new look");
+            Assert.Less(FlipbookFx.DefaultNightFire, FlipbookFx.OldNightFire, "the default is the new look");
+            Assert.Greater(FlipbookFx.DefaultHard, FlipbookFx.OldHard, "the default is the new look");
+
+            // the new tint: still a little warm (charcoal-umber, red over green over blue), less warm than C59's, and at the
+            // same drawn value (fx.smokeNight is the value; the warmth only turns the hue)
+            float mid = Mathf.Lerp(0.43f, FlipbookFx.NightShade, FlipbookFx.NightLit);
+            var c59 = FlipbookFx.NightTint(FlipbookFx.DefaultNight);
+            var now = FlipbookFx.NightTint(FlipbookFx.DefaultNight, FlipbookFx.ReadNightWarm());
+            Assert.Greater(now.r, now.g); Assert.Greater(now.g, now.b);
+            Assert.Greater(now.b / now.r, c59.b / c59.r, "less warm than C59");
+            Assert.AreEqual(FlipbookFx.DefaultNight, (0.299f * now.r + 0.587f * now.g + 0.114f * now.b) * mid, 1e-4f, "the same value");
+            var grey = FlipbookFx.NightTint(FlipbookFx.DefaultNight, 0f);
+            Assert.AreEqual(grey.r, grey.g, 1e-6f); Assert.AreEqual(grey.g, grey.b, 1e-6f);
+
+            // the old values: C59's hue and tint to the bit (the floats the C59 code computed), the burst's light whole and no cut
+            Knobs.Set(FlipbookFx.NightWarmKnob, "1");
+            Knobs.Set(FlipbookFx.NightFireKnob, "1");
+            Knobs.Set(FlipbookFx.HardKnob, "0");
+            Assert.AreEqual(1f, FlipbookFx.ReadNightWarm());
+            Assert.AreEqual(1f, FlipbookFx.ReadNightFire());
+            Assert.AreEqual(0f, FlipbookFx.ReadHard());
+            var hue = FlipbookFx.NightHue;
+            var hueAt = FlipbookFx.NightHueAt(FlipbookFx.ReadNightWarm());
+            Assert.IsTrue(hueAt.r == hue.r && hueAt.g == hue.g && hueAt.b == hue.b, "C59's hue, to the bit");   // Color == is approximate
+            foreach (float value in new[] { 0.05f, 0.15f, 0.3f, 1f })
+            {
+                // C59's NightTint, written out
+                float luma = 0.299f * hue.r + 0.587f * hue.g + 0.114f * hue.b;
+                float k = value / (luma * Mathf.Lerp(0.43f, FlipbookFx.NightShade, FlipbookFx.NightLit));
+                var old = new Color(hue.r * k, hue.g * k, hue.b * k, 1f);
+                var at = FlipbookFx.NightTint(value, FlipbookFx.ReadNightWarm());
+                Assert.IsTrue(at.r == old.r && at.g == old.g && at.b == old.b && at.a == old.a, "value " + value);
+                var one = FlipbookFx.NightTint(value);
+                Assert.IsTrue(one.r == at.r && one.g == at.g && one.b == at.b, "the one-argument NightTint is C59's");
+            }
+
+            // out of range: all three kept in [0, 1]
+            Knobs.Set(FlipbookFx.NightWarmKnob, "-1");
+            Knobs.Set(FlipbookFx.NightFireKnob, "-1");
+            Knobs.Set(FlipbookFx.HardKnob, "-1");
+            Assert.AreEqual(0f, FlipbookFx.ReadNightWarm());
+            Assert.AreEqual(0f, FlipbookFx.ReadNightFire());
+            Assert.AreEqual(0f, FlipbookFx.ReadHard());
+            Knobs.Set(FlipbookFx.NightWarmKnob, "3");
+            Knobs.Set(FlipbookFx.NightFireKnob, "3");
+            Knobs.Set(FlipbookFx.HardKnob, "3");
+            Assert.AreEqual(1f, FlipbookFx.ReadNightWarm());
+            Assert.AreEqual(1f, FlipbookFx.ReadNightFire());
+            Assert.AreEqual(1f, FlipbookFx.ReadHard());
+        }
+
+        [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
             Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));

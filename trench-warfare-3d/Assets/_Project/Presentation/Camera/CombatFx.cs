@@ -134,6 +134,9 @@ namespace TW.Presentation.Tactical
         // opaque dark brown that the moon does not light (FlipbookFx.NightEarth, from ApplyTints), and this much smaller at
         // the standard view, on top of fx.columnScale. 0 and 1 = the old look.
         float columnEarth = FlipbookFx.DefaultEarth, columnEarthSize = FlipbookFx.DefaultEarthSize;
+        // knobs fx.smokeNightWarm and fx.smokeNightFire (Awake, AOSA C61): the night smoke's warmth and the share of a burst's
+        // light it takes (FlipbookFx.NightSmoke). 1 and 1 = C59's look. (fx.smokeHard is read by FlipbookFx itself.)
+        float smokeNightWarm = FlipbookFx.DefaultNightWarm, smokeNightFire = FlipbookFx.DefaultNightFire;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -215,7 +218,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Spurt, t.Dust);
             books.Tint(FlipbookFx.Book.Puff, t.Dust);
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
-            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight);   // AOSA C59: after the biome's smoke tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
@@ -283,6 +286,8 @@ namespace TW.Presentation.Tactical
             smokeNightSize = FlipbookFx.ReadNightSize();
             columnEarth = FlipbookFx.ReadEarth();
             columnEarthSize = FlipbookFx.ReadEarthSize();
+            smokeNightWarm = FlipbookFx.ReadNightWarm();
+            smokeNightFire = FlipbookFx.ReadNightFire();
         }
 
         void Start()
