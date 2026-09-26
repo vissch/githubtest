@@ -263,8 +263,8 @@ namespace TW.Tests
             Assert.AreEqual("fx.columnEarthSize", FlipbookFx.EarthSizeKnob);
             Assert.AreEqual(FlipbookFx.DefaultEarth, FlipbookFx.ReadEarth());
             Assert.AreEqual(FlipbookFx.DefaultEarthSize, FlipbookFx.ReadEarthSize());
-            Assert.AreEqual("0.12", Knobs.Read["fx.columnEarth"]);
-            Assert.AreEqual("0.7", Knobs.Read["fx.columnEarthSize"]);
+            Assert.AreEqual("0.22", Knobs.Read["fx.columnEarth"]);
+            Assert.AreEqual("0.38", Knobs.Read["fx.columnEarthSize"]);
             Assert.Greater(FlipbookFx.DefaultEarth, FlipbookFx.OldEarth, "the default is the new look");
             Assert.Less(FlipbookFx.DefaultEarthSize, FlipbookFx.OldEarthSize, "the default is the new look");
 
@@ -283,12 +283,11 @@ namespace TW.Tests
             Assert.AreEqual(FlipbookFx.DefaultEarthSize, FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 0f, true));
             Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 1f, true) == 1f, "full size among the men");
             Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 0f, false) == 1f, "day and lava keep their size");
-            // r 8 (a barrage shell) at the standard view: the drawing (62% x 79% of its card, aspect 512/754) is 7-9 m wide
-            // and 14-16 m tall while it rises (swell 1 -> 1.175 at mid-life); the blind critic sweep of cycle 8 chose 0.7
-            // over 0.38 (4 m by 8 m: thin arcs, too small to read at T1), still under the old 11 m by 22 m
+            // r 8 (a barrage shell) at the standard view: the drawing (62% x 79% of its card, aspect 512/754) is 3-5 m wide
+            // and 7-10 m tall while it rises (swell 1 -> 1.175 at mid-life)
             float card = 8f * 2.1f * FlipbookFx.DefaultEarthSize, aspect = 512f / 754f;
-            Assert.That(card * 0.62f * 1.1f, Is.InRange(7f, 9f));
-            Assert.That(card / aspect * 0.79f * 1.1f, Is.InRange(14f, 16f));
+            Assert.That(card * 0.62f * 1.1f, Is.InRange(3f, 5f));
+            Assert.That(card / aspect * 0.79f * 1.1f, Is.InRange(7f, 10f));
 
             // the old values: nothing painted, and a width factor of exactly 1 at every zoom (the float the old code passed,
             // with fx.columnScale on top as before)
