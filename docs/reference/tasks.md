@@ -344,7 +344,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- gen:tests -->
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
-| `AbilityAimTests` | EditMode | 8 | OffMapAbilityId, AbilityAim, ScreenUnit, HudView, Line, AbilityPattern |
+| `AbilityAimTests` | EditMode | 10 | OffMapAbilityId, AbilityAim, CombatFx, AimReadout, ScreenUnit, HudView |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
 | `AssetScaleTests` | EditMode | 6 | AssetScaleTable, PropLayout, Module, BattlefieldKit, ScaleAxis, ScaleClass |
@@ -354,7 +354,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `BeamTests` | EditMode | 8 | Sweep, SimEventType, OffMapAbilityId, SimCommand, Kind, BeamSystem |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
-| `BurningSystemTests` | EditMode | 9 | SimEventType, BurningSystem, Impact, MatchSim, UnitFlags, AmbientBombardmentSystem |
+| `BurningSystemTests` | EditMode | 11 | SimEventType, BurningSystem, DeathCause, Impact, MatchSim, UnitFlags |
 | `CampaignGraphTests` | EditMode | 8 | CampaignGraph, NodeState, CampaignProfile, Difficulty, Ground, CampaignDifficulty |
 | `CampaignProfileTests` | EditMode | 5 | CampaignProfile, ProfileStore, Faction, Sample, Building, BuildingState |
 | `CoastTests` | EditMode | 6 | BattlefieldGenerator, BattlefieldParams, SeaLandingSystem, Sample, MapData |
@@ -364,7 +364,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `ComponentLookupAllocationTests` | EditMode | 1 | IZoomSource, CombatFx, AllocProbe, Shot |
 | `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
 | `DeathEventContractTests` | EditMode | 5 | DeathCause, SimEvent, SimEventType, Impact, MatchSim, AmbientBombardmentSystem |
-| `DeathVarietyTests` | EditMode | 8 | Clip, VatPad, VATRenderer, DeathCause, DeathKind, AnimationController |
+| `DeathVarietyTests` | EditMode | 9 | Clip, VatPad, VATRenderer, DeathCause, DeathKind, AnimationController |
 | `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
 | `DeterminismReplayTests` | EditMode | 3 | SimCommand, OffMapAbilityId, MatchSim, SimConfig, AbilityPattern, ReplayRecorder |
 | `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |
@@ -405,7 +405,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
 | `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
-| `TrenchSectionTests` | EditMode | 5 | SectionState, TrenchSectionRules, BattlefieldKit, Module, DebrisMath |
+| `TrenchSectionTests` | EditMode | 6 | SectionState, TrenchSectionRules, BattlefieldKit, AssetScaleTable, Module, DebrisMath |
 | `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, MapData, BattlefieldGenerator, SeparationJob |
 | `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
 | `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |

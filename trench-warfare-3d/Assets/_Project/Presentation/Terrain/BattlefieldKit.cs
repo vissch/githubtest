@@ -47,7 +47,7 @@ namespace TW.Presentation.Terrain
         /// .Landmarks, the site blueprints, the horizon), the wire obstacles only on wire, and the planks, sacks, grass,
         /// rocks, stumps and cattails wherever the scatter rules put their kind, mixed in with the procedural pieces.
         /// </summary>
-        public Module sodShelter, mgNest, armouredStand, pillbox, well,               // Siege
+        [Imported] public Module sodShelter, mgNest, armouredStand, pillbox, well,    // Siege
             fieldGun, tankTurret, biplane, shellStack, limber, dudShell,                // Weapons
             wallStub, rebarSlab, boulder, sandbag, gabion,                               // Stones
             bracedPlank, crossedBoards, hatchLid, plankDoor, corrugated,                 // Wood

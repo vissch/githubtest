@@ -86,5 +86,25 @@ namespace TW.Tests
                 }
             Assert.AreEqual(18, n, "three variants of three kinds, intact and broken");
         }
+
+        [Test]
+        public void The_Lining_Is_Sized_By_The_Composer_Not_The_Clamp()
+        {
+            // TrenchKit scales a panel per axis (x = the edge's length, y = the bay's height); one uniform clamp would
+            // stretch a shallow bay's panel past its edge, so the lining rows report and never enforce
+            foreach (var key in new[] { "kit/TrenchWalls", "kit/TrenchBags", "kit/TrenchFloors", "kit/TrenchWallsDamaged", "kit/TrenchBagsDamaged", "kit/TrenchFloorsDamaged" })
+            {
+                Assert.IsTrue(AssetScaleTable.TryGet(key, out var rule), key + " has a row");
+                Assert.IsFalse(rule.Enforce, key + " is reported, not clamped");
+            }
+            kit.ResolveKeysAndRules();
+            foreach (var h in new[] { 0.55f, 0.9f, 1.3f })
+                for (int k = 0; k < 3; k++)
+                {
+                    var scale = new Vector3(1.0f, h, 1f);
+                    foreach (var m in new[] { kit.TrenchWalls[k], kit.TrenchBags[k], kit.TrenchFloors[k] })
+                        Assert.AreEqual(scale, AssetScaleTable.Clamp(m.Rule, m.Mesh.bounds.size, scale), kit.KeyOf[m] + " " + k + " at height " + h + " keeps the composer's scale");
+                }
+        }
     }
 }

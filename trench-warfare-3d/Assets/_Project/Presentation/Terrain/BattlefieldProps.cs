@@ -218,7 +218,7 @@ namespace TW.Presentation.Terrain
         /// panel stood). The next composition places it again through Replace, so nothing has to be undone.</summary>
         public void AddInstance(BattlefieldKit.Module module, Matrix4x4 m)
         {
-            if (module != null) BatchOf(module).Add(m, out _);
+            if (module != null) BatchOf(module).Add(Enforce(module, m), out _);   // the clamp Emit applies, so a twin put in now and the one Replace puts in later agree
         }
         public bool TryGetPlaced(string key, out Placed prop)
         {

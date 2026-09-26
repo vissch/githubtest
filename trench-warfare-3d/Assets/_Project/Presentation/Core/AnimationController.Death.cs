@@ -46,6 +46,10 @@ namespace TW.Presentation
 
         // this tick's Death events, per slot
         NativeArray<byte> died;          // 1: a Death event for the slot this tick
+        NativeArray<byte> clawed;        // 1: a VehicleClawed named the slot this tick
+        NativeArray<float2> crushSpots;  // where the tracks went over a man this tick (VehicleCrushed b = 2), x/z
+        int crushSpotCount;
+        public const int CrushSpots = 32; public const float CrushReach = 3f;
         NativeArray<int> deathB;         // the event's b: the killer's slot, or a DeathCause below zero
         NativeArray<uint> deathTick;     // the event's tick (the sim's, one behind the controller's on the host)
         NativeArray<float3> deathDir;    // dir: a blast's knock (y = 1), a shot's line
@@ -60,6 +64,8 @@ namespace TW.Presentation
         void AllocateDeaths(int maxSlots)
         {
             died = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            clawed = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            crushSpots = new NativeArray<float2>(CrushSpots, Allocator.Persistent);
             deathB = new NativeArray<int>(maxSlots, Allocator.Persistent);
             deathTick = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             deathDir = new NativeArray<float3>(maxSlots, Allocator.Persistent);
@@ -72,13 +78,29 @@ namespace TW.Presentation
 
         void DisposeDeaths()
         {
-            died.Dispose(); deathB.Dispose(); deathTick.Dispose(); deathDir.Dispose(); deathSpeed.Dispose(); Char.Dispose(); recent.Dispose(); ring.Dispose();
+            died.Dispose(); clawed.Dispose(); crushSpots.Dispose(); deathB.Dispose(); deathTick.Dispose(); deathDir.Dispose(); deathSpeed.Dispose(); Char.Dispose(); recent.Dispose(); ring.Dispose();
         }
 
         void LatchDeath(in SimEvent e)
         {
             if (e.A < 0 || e.A >= count) return;
             died[e.A] = 1; deathB[e.A] = e.B; deathTick[e.A] = e.Tick; deathDir[e.A] = e.Dir; deathSpeed[e.A] = e.Scalar;
+        }
+
+        void LatchCrush(float3 at)
+        {
+            if (crushSpotCount < CrushSpots) crushSpots[crushSpotCount++] = new float2(at.x, at.z);
+        }
+
+        /// <summary>A track went over a man within CrushReach of here this tick.</summary>
+        bool CrushedNear(float3 p)
+        {
+            for (int k = 0; k < crushSpotCount; k++)
+            {
+                float dx = crushSpots[k].x - p.x, dz = crushSpots[k].y - p.z;
+                if (dx * dx + dz * dz <= CrushReach * CrushReach) return true;
+            }
+            return false;
         }
 
         /// <summary>The record of the death of the man who was in the slot on that tick (the Death event's), while the
@@ -152,7 +174,9 @@ namespace TW.Presentation
             bool burning = b == (int)DeathCause.Burning || s.AlightUntil > tick;
             bool beam = b == (int)DeathCause.Beam;
             bool gassed = b == (int)DeathCause.Gas;
-            bool crushed = b >= 0 && b < w.HighWater && (w.Flags[b] & (uint)UnitFlags.Vehicle) != 0;   // a track or a claw: the killer is the vehicle
+            // a track or a claw: the killer is the vehicle AND the sim said so this tick (VehicleClawed names him,
+            // VehicleCrushed b = 2 gives the spot), because a vehicle's machine gun kills with the same b
+            bool crushed = b >= 0 && b < w.HighWater && (w.Flags[b] & (uint)UnitFlags.Vehicle) != 0 && (clawed[i] != 0 || CrushedNear(p));
             float speed = s.Speed;   // the smoothed speed: the sim kills before it moves him this tick
             s.ThrowX = s.ThrowZ = s.ThrowUp = 0f;
             byte chr = Char[i]; var cause = DeathKind.Shot;

@@ -105,7 +105,7 @@ Shader "TW/VAT Infantry (URP)"
             uint lost = packed & 63u;
             // tint: the team in the low bit; above it, for a fallen man in the air, the pitch he tumbles at in 32nds of a turn
             float team = fmod(inst.tint, 2.0);
-            float pitch = floor(inst.tint * 0.5) * 0.19634954;
+            float pitch = floor(inst.tint * 0.5) * (6.28318530 / 32.0);   // 2 pi / VATRenderer.PitchSteps: change both together
             float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
             float u = (vertexID + 0.5) / _VertexCount;
             float3 p, n;

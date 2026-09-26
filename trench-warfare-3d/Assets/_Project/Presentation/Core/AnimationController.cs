@@ -274,7 +274,8 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
             {
@@ -295,6 +296,12 @@ namespace TW.Presentation
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
+                        break;
+                    case SimEventType.VehicleClawed:
+                        if (e.B >= 0 && e.B < count) clawed[e.B] = 1;   // a claw closed on him: Die reads it beside the Death
+                        break;
+                    case SimEventType.VehicleCrushed:
+                        if (e.B == 2) LatchCrush(e.Pos);   // b = 2: a man went under the tracks at pos (the event does not name his slot)
                         break;
                     case SimEventType.Explosion:
                     {

@@ -27,7 +27,7 @@ namespace TW.Presentation.Tactical
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
-        struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
+        struct Marker { public Vector3 Pos, Dir; public float Length, Radius, Until; public bool Mine; }   // Dir, Length: a line ability's corridor (Length 0: a disc)
         static readonly int WetId = Shader.PropertyToID("_TWWet");
         static readonly int WindGlobalId = Shader.PropertyToID("_TWWind");
         float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
@@ -613,7 +613,11 @@ namespace TW.Presentation.Tactical
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.15f;
                     float radius = e.Scalar > 0f ? e.Scalar : 8f;
-                    markers.Add(new Marker { Pos = p, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
+                    // a line ability's dir is its heading times its length and its scalar the corridor's half width
+                    // (docs/02): the marker is the whole corridor, not a spot at its start
+                    var corridor = new Vector3(e.Dir.x, 0f, e.Dir.z); float corridorLength = corridor.magnitude;
+                    bool line = corridorLength > 1e-3f;
+                    markers.Add(new Marker { Pos = p, Dir = line ? corridor / corridorLength : Vector3.zero, Length = line ? corridorLength : 0f, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
                     OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs)
                     string what = AbilityWord(e.A);
                     Banner(e.B == 0 ? $"Your {what} is on its way" : $"INCOMING {what.ToUpper()}: fall back or keep below the rim", 3f);
@@ -661,8 +665,8 @@ namespace TW.Presentation.Tactical
 
             // how much of every debris burst is worth throwing at this zoom (docs/21 phase 3): all of it among the men,
             // less at the standard view, little from far out
-            var mainCam = Camera.main;
-            float zoomNow = mainCam != null && mainCam.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
+            var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
+            float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
             DebrisRenderer.ZoomShare = SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f;
             // tracers
             float now = Time.time;
@@ -702,7 +706,6 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(flashMesh, new RenderParams(flashMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
             // Earth rises sharply, then collapses. The silhouette faces the view but stays vertical and rooted.
-            var view = Camera.main;
             Vector3 facing = view != null ? -view.transform.forward : Vector3.forward; facing.y = 0f;
             var splashRotation = facing.sqrMagnitude > 0.001f ? Quaternion.LookRotation(facing) : Quaternion.identity;
             Prune(bursts, now - 0.8f, static (b, cut) => b.Born < cut);
@@ -737,10 +740,27 @@ namespace TW.Presentation.Tactical
             Prune(markers, now, static (m, at) => at > m.Until);
             for (int pass = 0; pass < 2; pass++)
             {
+                var rpMark = new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                // a point ability: a disc on the ground where it was called (not at sea level)
                 batch.Clear();
                 for (int i = 0; i < markers.Count; i++)
-                    if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(new Vector3(markers[i].Pos.x, RenderGround.Sample(Host.Local.Map, markers[i].Pos.x, markers[i].Pos.z) + 0.4f, markers[i].Pos.z), Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));   // on the ground where it was called, not at sea level
-                if (batch.Count > 0) Flush(sphere, new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+                {
+                    var m = markers[i];
+                    if (m.Mine != (pass == 0) || m.Length > 0f) continue;
+                    batch.Add(Matrix4x4.TRS(new Vector3(m.Pos.x, RenderGround.Sample(Host.Local.Map, m.Pos.x, m.Pos.z) + 0.4f, m.Pos.z), Quaternion.identity, new Vector3(m.Radius * 2f, 0.05f, m.Radius * 2f)));
+                }
+                if (batch.Count > 0) Flush(sphere, rpMark);
+                // a line ability: the whole corridor, as wide as the payload scatters
+                batch.Clear();
+                for (int i = 0; i < markers.Count; i++)
+                {
+                    var m = markers[i];
+                    if (m.Mine != (pass == 0) || m.Length <= 0f) continue;
+                    var mid = m.Pos + m.Dir * (m.Length * 0.5f);
+                    mid.y = RenderGround.Sample(Host.Local.Map, mid.x, mid.z) + 0.4f;
+                    batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(m.Dir), new Vector3(m.Radius * 2f, 0.05f, m.Length)));
+                }
+                if (batch.Count > 0) Flush(cube, rpMark);
             }
             DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
             TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep

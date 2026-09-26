@@ -5,6 +5,7 @@
 // both sides but the machine slots are not (player 0 fields the Maw, player 1 the Tusk), and a bar indexed by slot
 // draws player 0's pictures for player 1. Dormant while multiplayer is deferred; cheaper never to have than to fix.
 using TW.Sim;
+using TW.Presentation;
 
 namespace TW.UI
 {
@@ -40,7 +41,10 @@ namespace TW.UI
 
         /// <summary>The key printed in a card's badge: roster slots 0..7 are "1".."8"; support 0 and 1 are "9" and "0".</summary>
         public static string Hotkey(int slot) => slot < 8 ? ((slot + 1) % 10).ToString() : "";
-        public static string SupportHotkey(int index) => index == 0 ? "9" : index == 1 ? "0" : index == 2 ? "C" : index == 3 ? "M" : index == 4 ? "V" : index == 5 ? "B" : "";
+        static readonly GameAction[] SupportActions = { GameAction.ArmBarrage, GameAction.ArmGas, GameAction.ArmCreeping, GameAction.ArmSmoke, GameAction.ArmStrafe, GameAction.ArmBeam };
+        /// <summary>The key on a support card, in HudView.SupportAbilities order: whatever KeyMap binds the arm action to
+        /// now, so a rebinding shows on the card.</summary>
+        public static string SupportHotkey(int index) => index >= 0 && index < SupportActions.Length ? KeyMap.Display(KeyMap.Primary(SupportActions[index])) : "";
 
         public static string VehicleName(byte archetype)
         {

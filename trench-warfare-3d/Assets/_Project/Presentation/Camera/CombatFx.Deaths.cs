@@ -65,10 +65,10 @@ namespace TW.Presentation.Tactical
                 int gib = e.B == (int)DeathCause.Blast && e.Scalar > 0f && fly.y > 0.6f ? Gibs(e.A, p, yaw, team, fly, density) : 0;
                 float grime = controlled ? rec.Grime : anim != null && e.A >= 0 && e.A < anim.Grime.Length ? anim.Grime[e.A] : 0f;   // he goes down in the mud he wore
                 int chr = controlled ? rec.Char : burning ? 3 : 0;
+                flames.Douse(e.A);   // whatever killed him, the torch on his slot goes out with him: the next tenant is not alight
                 if (burning)
                 {
-                    // the torch on him goes out with him; the fuel he carried burns on under the body, and he smoulders
-                    flames.Douse(e.A);
+                    // the fuel he carried burns on under the body, and he smoulders
                     flames.Spill(p, 1.2f, 6f);
                     AddSmoulder(p);
                 }
@@ -76,19 +76,29 @@ namespace TW.Presentation.Tactical
             }
             else
             {
-                if (burning) { flames.Douse(e.A); AddSmoulder(p); }
+                flames.Douse(e.A);
+                if (burning) AddSmoulder(p);
                 bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
             }
             // his helmet comes off as he goes down and rolls a step away
             if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
-                chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + UnityEngine.Random.Range(-70f, 70f), 0f) * Vector3.forward * UnityEngine.Random.Range(1.2f, 2.4f) + Vector3.up * 1.6f,
+                chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + Mathf.Lerp(-70f, 70f, Hash01(p.x, p.z, 1)), 0f) * Vector3.forward * Mathf.Lerp(1.2f, 2.4f, Hash01(p.x, p.z, 2)) + Vector3.up * 1.6f,
                     Born = Time.time, Life = 4f, Size = 1f, Kind = 6 });
+        }
+
+        /// <summary>The cosmetic dice: a hash of a position and a salt in 0..1, so two peers throw the same helmet and
+        /// the same wisps (decisions.md: presentation only, seeded so replays agree).</summary>
+        static float Hash01(float x, float z, int salt)
+        {
+            uint h = (uint)Mathf.FloorToInt(x * 37f) * 73856093u ^ (uint)Mathf.FloorToInt(z * 37f) * 19349663u ^ (uint)salt * 83492791u;
+            h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+            return (h & 0xFFFFFF) / 16777216f;
         }
 
         void AddSmoulder(Vector3 at)
         {
             if (smoulders.Count >= MaxSmoulders) smoulders.RemoveAt(0);
-            smoulders.Add(new Smoulder { At = at, Until = Time.time + SmoulderSeconds, Next = Time.time + 0.2f, Seed = UnityEngine.Random.value });
+            smoulders.Add(new Smoulder { At = at, Until = Time.time + SmoulderSeconds, Next = Time.time + 0.2f, Seed = Hash01(at.x, at.z, 3) });
         }
 
         /// <summary>A thin thread of smoke off every charred body for a while after it fell.</summary>

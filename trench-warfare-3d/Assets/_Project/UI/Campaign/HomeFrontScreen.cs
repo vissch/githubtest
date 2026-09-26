@@ -50,7 +50,7 @@ namespace TW.UI
             }
             Btn("btn-expand", Expand);
             Btn("btn-back", () => Router?.Pop());
-            Btn("btn-front", () => Router?.Push(new StrategicMapScreen(given)));
+            Btn("btn-front", () => SwapTo(() => new StrategicMapScreen(given)));
             mine = m => ShellPick.Over(Root, m);
             HudBridge.PointerOverUi = mine;
             BuildList();

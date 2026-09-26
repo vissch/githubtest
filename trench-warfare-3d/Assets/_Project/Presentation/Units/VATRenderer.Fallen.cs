@@ -35,6 +35,7 @@ namespace TW.Presentation.Units
         /// <summary>The heap: each man already dead on a 2 m cell lifts the next this much (life-size, at UnitScale), up to three.</summary>
         public const float PileStep = 0.28f, PileNudge = 0.4f; public const int PileMax = 3;
         /// <summary>The tumble's pitch steps a turn (VAT_URP decodes the same), and how long a flight is before he turns once and twice.</summary>
+        /// <summary>Whole turns are drawn in this many pitch steps; VAT_URP.shader decodes a step as 2 pi / 32: change both together.</summary>
         public const int PitchSteps = 32; public const float OneFlipFlight = 0.9f, TwoFlipsFlight = 1.4f;
         public int FallenCount => fallenMen.Count;
         GraphicsBuffer fallenBuffer, fallenArgs;

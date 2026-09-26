@@ -74,7 +74,7 @@ namespace TW.UI
             Root.Q<Button>("btn-deploy")?.SetEnabled(CampaignGraph.CanFight(node, index, profile));
         }
 
-        protected override void OnUnbind() { if (thumb != null) { Object.Destroy(thumb); thumb = null; } }
+        protected override void OnUnbind() { if (thumb != null) { Discard(thumb); thumb = null; } }
 
         public void SetDifficulty(int d)
         {

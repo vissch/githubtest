@@ -31,6 +31,22 @@ namespace TW.UI
         public virtual void OnCovered() { }
         public virtual void OnUncovered() { }
 
+        /// <summary>Destroy a Unity object a screen made (a thumbnail): Destroy in play, DestroyImmediate in the
+        /// editor's EditMode tests, where Destroy logs an error.</summary>
+        protected static void Discard(UnityEngine.Object o)
+        {
+            if (o == null) return;
+            if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(o); else UnityEngine.Object.DestroyImmediate(o);
+        }
+
+        /// <summary>Go to a screen that links back here (the Home Front and the map): when it is already right under
+        /// this one, pop back to it instead of stacking another copy.</summary>
+        protected void SwapTo<T>(System.Func<T> make) where T : ShellScreen
+        {
+            if (Router == null) return;
+            if (Router.Under is T) Router.Pop(); else Router.Push(make());
+        }
+
         protected Button Btn(string name, System.Action onClick)
         {
             var b = Root.Q<Button>(name);

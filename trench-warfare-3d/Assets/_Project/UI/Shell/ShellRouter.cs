@@ -30,6 +30,8 @@ namespace TW.UI
         public bool InMatch => Host != null;
         public int Depth => stack.Count;
         public ShellScreen Top => stack.Count > 0 ? stack[stack.Count - 1] : null;
+        /// <summary>The screen under the top one, or null.</summary>
+        public ShellScreen Under => stack.Count > 1 ? stack[stack.Count - 2] : null;
 
         UIDocument doc;
         VisualElement root;

@@ -95,7 +95,7 @@ namespace TW.Presentation.Terrain
         static Dictionary<string, ScaleRule> Build()
         {
             var t = new Dictionary<string, ScaleRule>();
-            void S(string key, ScaleAxis axis, float min, float max, string note = "") => t[key] = new ScaleRule(ScaleClass.Strict, axis, min, max, note);
+            void S(string key, ScaleAxis axis, float min, float max, string note = "", bool enforce = true) => t[key] = new ScaleRule(ScaleClass.Strict, axis, min, max, note, enforce);
             void B(string key, ScaleAxis axis, float min, float max, string note = "", bool enforce = true) => t[key] = new ScaleRule(ScaleClass.Structure, axis, min, max, note, enforce);
             void O(string key, string note = "") => t[key] = new ScaleRule(ScaleClass.Organic, ScaleAxis.Height, 0.1f, 3.0f, note);
             void M(string key, string note = "") => t[key] = new ScaleRule(ScaleClass.Machine, ScaleAxis.Length, 0f, float.PositiveInfinity, note);
@@ -103,13 +103,15 @@ namespace TW.Presentation.Terrain
             // ---- the trench lining and its kit --------------------------------------------------------------------
             S("Stones/Sandbag", ScaleAxis.Length, 0.30f, 0.55f, "a filled sack: 0.6-1.1 m long");
             S("kit/sandbags", ScaleAxis.Height, 0.25f, 0.45f, "the procedural parapet sack");
-            S("kit/TrenchBags", ScaleAxis.Height, 0.25f, 0.45f, "a parapet course");
-            B("kit/TrenchWalls", ScaleAxis.Height, 0.50f, 1.40f, "a revetment: waist to head high");
+            // the lining is scaled per axis by TrenchKit (x = the edge's length, y = the bay's height): one uniform clamp
+            // would stretch a shallow bay's panel past its edge, so these rows report and never enforce
+            S("kit/TrenchBags", ScaleAxis.Height, 0.25f, 0.45f, "a parapet course (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
+            B("kit/TrenchWalls", ScaleAxis.Height, 0.50f, 1.40f, "a revetment: waist to head high (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
             B("kit/TrenchWallsDamaged", ScaleAxis.Height, 0.25f, 1.40f, "a broken revetment, drawn at its whole twin's matrix", enforce: false);
-            S("kit/TrenchBagsDamaged", ScaleAxis.Height, 0.08f, 0.45f, "a burst course: the lower sacks");
-            S("kit/TrenchFloorsDamaged", ScaleAxis.Length, 0.90f, 1.10f, "broken duckboards on their rails");
+            S("kit/TrenchBagsDamaged", ScaleAxis.Height, 0.08f, 0.45f, "a burst course: the lower sacks (drawn at its whole twin's matrix)", enforce: false);
+            S("kit/TrenchFloorsDamaged", ScaleAxis.Length, 0.90f, 1.10f, "broken duckboards on their rails (drawn at its whole twin's matrix)", enforce: false);
             B("kit/planks", ScaleAxis.Height, 0.50f, 1.40f, "never placed");
-            S("kit/TrenchFloors", ScaleAxis.Length, 0.90f, 1.10f, "duckboards for a 2 m cell");
+            S("kit/TrenchFloors", ScaleAxis.Length, 0.90f, 1.10f, "duckboards for a 2 m cell (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
             S("kit/duckboards", ScaleAxis.Length, 0.90f, 1.10f);
             S("kit/ladder", ScaleAxis.Height, 1.00f, 1.40f, "a trench ladder reaches the parapet");
             S("kit/knifeRest", ScaleAxis.Height, 0.50f, 0.85f);

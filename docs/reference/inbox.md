@@ -27,7 +27,7 @@ in the `tasks.md` row's Trap line, or in a test.
   your branch and wait for it to land: a `Sapper` infantry archetype in both `FactionRoster.Pools` (mines and
   tripwires, `UnitAbility` commands) and the campaign's upgrades block (`SimConfig.UpgradesA/B`, `AbilityMaskA/B`,
   keyed by pool index) with the staging screen writing `LoadoutA`. Neither touches your files before you merge.
-  Replay `FormatVersion`: yours (v5/v6) first if you land first; ours take the next free numbers. `docs/21-overhaul-2026-09.md`.
+  Replay `FormatVersion`: this branch has taken v5, v6 and v7 (three docs/02 rows, 2026-09-26); yours start at v8 (renumber on rebase). `docs/21-overhaul-2026-09.md`.
 - **2026-09-26, to `lane/show/ui-selection` (worktree `wt-ui-selection`), from `lane/show/overhaul`.** The abilities
   phase adds an AbilityTargeting controller under UI/Abilities (point click, drag-a-line, pattern buttons) that takes over arming
   from `TestPanel`, and a sapper selection will need LAY MINE / LAY TRIPWIRE buttons on `SelectionPanel`. We will

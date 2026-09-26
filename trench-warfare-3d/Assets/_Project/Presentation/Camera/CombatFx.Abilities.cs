@@ -6,7 +6,9 @@
 // that gathers over the start during the charge, then a tall additive column at the head as it walks the corridor,
 // a flash card every few frames, a low shake; the scorch under it (the sim's Explosion with dir.y = BlastShape.Beam)
 // is a dark puff and sparks. The smoke screen: the sim's smoke field drawn as pale cards over each thick cell, the
-// way the gas is drawn. Creeping gas needs nothing new: a GasCloudSpawned per step.
+// way the gas is drawn. Creeping gas needs nothing new: a GasCloudSpawned per step. The aircraft and the beam are
+// timed by the sim's clock (the tick and the fraction of the next, SimNow), not the wall clock: their payloads land
+// on ticks, so paused or at any speed the picture holds with the bursts.
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -20,14 +22,29 @@ namespace TW.Presentation.Tactical
 {
     public sealed partial class CombatFx
     {
-        struct Flyover { public Vector3 Start, Dir; public float Length, Fired, Warm; }
-        struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1; }
+        struct Flyover { public Vector3 Start, Dir; public float Length, Fired, Warm; }        // Fired, Warm: sim seconds
+        struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1; }     // T0, T1: sim seconds
         readonly List<Flyover> flyovers = new List<Flyover>(4);
         readonly List<Sweep> sweeps = new List<Sweep>(4);
         readonly List<Matrix4x4> smokeCards = new List<Matrix4x4>(2048);
         public const float PlaneSpeed = 40f, PlaneRunIn = 200f, PlaneRunOut = 120f, PlaneHigh = 45f, PlaneLow = 25f;
         public const float BeamChargeSeconds = 4f, BeamFlashEvery = 0.08f, ScorchShakeEvery = 0.3f;
         float nextBeamFlash, nextScorchShake;
+
+        /// <summary>The sim's clock in seconds (the tick plus the fraction of the next one the host has accumulated):
+        /// what the aircraft and the beam are timed by, so a paused or slowed match holds them with the bursts.</summary>
+        float SimNow => Host != null && Host.Local != null ? (Host.Local.World.Tick + Host.Alpha) * Host.Local.World.Config.TickSeconds : 0f;
+
+        /// <summary>Metres along the corridor the aircraft is at a sim time: negative on the run-in, past the length on the
+        /// run-out, zero over the corridor's start as the warm-up ends.</summary>
+        public static float PlaneAlong(float simNow, float firedSeconds, float warmSeconds) => (simNow - firedSeconds - warmSeconds) * PlaneSpeed;
+        /// <summary>The aircraft's height over the ground at a point of its run: high on the run-in, low along the corridor, climbing away.</summary>
+        public static float PlaneAltitude(float along, float length)
+            => along < 0f ? Mathf.Lerp(PlaneHigh, PlaneLow, Mathf.InverseLerp(-PlaneRunIn, 0f, along))
+             : along > length ? Mathf.Lerp(PlaneLow, PlaneHigh, Mathf.InverseLerp(length, length + PlaneRunOut, along)) : PlaneLow;
+        /// <summary>How far along its corridor a sweep is at a sim time: 0 as the warm-up ends, 1 as the sweep ends, the
+        /// fraction BeamSystem.HeadOf walks tick by tick.</summary>
+        public static float SweepFraction(float simNow, float t0, float t1) => Mathf.Clamp01((simNow - t0) / Mathf.Max(0.01f, t1 - t0));
 
         /// <summary>What the banner calls a support ability.</summary>
         static string AbilityWord(int id)
@@ -48,7 +65,7 @@ namespace TW.Presentation.Tactical
         void OnAbilityFired(SimEvent e)
         {
             if (Host == null || Host.Local == null || !OffMapAbilitySystem.TryGetStats(e.A, out var stats)) return;
-            float now = Time.time, tick = Host.Local.World.Config.TickSeconds;
+            float tick = Host.Local.World.Config.TickSeconds, fired = e.Tick * tick;   // sim seconds: the payloads land on ticks
             var dir = new Vector3(e.Dir.x, 0f, e.Dir.z);
             float length = dir.magnitude;
             if (length < 1e-3f) return;
@@ -57,24 +74,23 @@ namespace TW.Presentation.Tactical
             if (e.A == (int)OffMapAbilityId.StrafeRun)
             {
                 if (flyovers.Count >= 4) flyovers.RemoveAt(0);
-                flyovers.Add(new Flyover { Start = start, Dir = dir, Length = length, Fired = now, Warm = stats.WarmupTicks * tick });
+                flyovers.Add(new Flyover { Start = start, Dir = dir, Length = length, Fired = fired, Warm = stats.WarmupTicks * tick });
             }
             else if (e.A == (int)OffMapAbilityId.Beam)
             {
                 if (sweeps.Count >= 4) sweeps.RemoveAt(0);
-                sweeps.Add(new Sweep { Start = start, Dir = dir, Length = length, HalfWidth = Mathf.Max(0.5f, stats.HalfWidth), T0 = now + stats.WarmupTicks * tick, T1 = now + (stats.WarmupTicks + stats.SpreadTicks) * tick });
+                sweeps.Add(new Sweep { Start = start, Dir = dir, Length = length, HalfWidth = Mathf.Max(0.5f, stats.HalfWidth), T0 = fired + stats.WarmupTicks * tick, T1 = fired + (stats.WarmupTicks + stats.SpreadTicks) * tick });
             }
         }
 
         /// <summary>Where the aircraft of a run is now: 200 m out and high as the ability fires, over the corridor's
         /// start as the warm-up ends, low along the corridor, climbing away past its end.</summary>
-        bool PlaneAt(in Flyover f, float now, out Vector3 at, out Quaternion rot)
+        bool PlaneAt(in Flyover f, float simNow, float now, out Vector3 at, out Quaternion rot)
         {
-            float along = (now - f.Fired - f.Warm) * PlaneSpeed;
+            float along = PlaneAlong(simNow, f.Fired, f.Warm);
             at = default; rot = Quaternion.identity;
             if (along < -PlaneRunIn || along > f.Length + PlaneRunOut) return false;
-            float alt = along < 0f ? Mathf.Lerp(PlaneHigh, PlaneLow, Mathf.InverseLerp(-PlaneRunIn, 0f, along))
-                      : along > f.Length ? Mathf.Lerp(PlaneLow, PlaneHigh, Mathf.InverseLerp(f.Length, f.Length + PlaneRunOut, along)) : PlaneLow;
+            float alt = PlaneAltitude(along, f.Length);
             var over = f.Start + f.Dir * Mathf.Clamp(along, 0f, f.Length);
             at = f.Start + f.Dir * along;
             at.y = RenderGround.Sample(Host.Local.Map, over.x, over.z) + alt;
@@ -85,7 +101,8 @@ namespace TW.Presentation.Tactical
 
         bool TryPlane(float now, out Vector3 at, out Quaternion rot)
         {
-            for (int i = flyovers.Count - 1; i >= 0; i--) if (PlaneAt(flyovers[i], now, out at, out rot)) return true;
+            float simNow = SimNow;
+            for (int i = flyovers.Count - 1; i >= 0; i--) if (PlaneAt(flyovers[i], simNow, now, out at, out rot)) return true;
             at = default; rot = Quaternion.identity; return false;
         }
 
@@ -93,14 +110,15 @@ namespace TW.Presentation.Tactical
         {
             if (flyovers.Count == 0) return;
             var kit = SceneHooks.Biplane?.Invoke();
+            float simNow = SimNow;
             for (int i = flyovers.Count - 1; i >= 0; i--)
             {
                 var f = flyovers[i];
-                float along = (now - f.Fired - f.Warm) * PlaneSpeed;
+                float along = PlaneAlong(simNow, f.Fired, f.Warm);
                 if (along > f.Length + PlaneRunOut) { flyovers.RemoveAt(i); continue; }
-                if (!PlaneAt(f, now, out var at, out var rot)) continue;
+                if (!PlaneAt(f, simNow, now, out var at, out var rot)) continue;
                 if (kit.HasValue && kit.Value.mesh != null && kit.Value.material != null)
-                    Graphics.RenderMesh(new RenderParams(kit.Value.material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = false }, kit.Value.mesh, 0, Matrix4x4.TRS(at, rot, kit.Value.scale));
+                    FrameBudget.Draw(new RenderParams(kit.Value.material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = false }, kit.Value.mesh, 0, Matrix4x4.TRS(at, rot, kit.Value.scale));
                 else
                 {
                     // no kit in the scene (a bare greybox): a box the size of the aircraft, so the pass still reads
@@ -115,15 +133,17 @@ namespace TW.Presentation.Tactical
         {
             if (sweeps.Count == 0) return;
             var map = Host.Local.Map;
+            float simNow = SimNow;
+            bool running = Host.TimeScale > 0f;   // paused: the column stands where it is, the cards and the shake wait
             for (int i = sweeps.Count - 1; i >= 0; i--)
             {
                 var s = sweeps[i];
-                if (now > s.T1 + 0.5f) { sweeps.RemoveAt(i); continue; }
+                if (simNow > s.T1 + 0.5f) { sweeps.RemoveAt(i); continue; }
                 float groundY = RenderGround.Sample(map, s.Start.x, s.Start.z);
-                if (now < s.T0)
+                if (simNow < s.T0)
                 {
                     // the charge: a glow gathering over the start of the corridor, brighter and larger as it comes
-                    float u = Mathf.InverseLerp(s.T0 - BeamChargeSeconds, s.T0, now);
+                    float u = Mathf.InverseLerp(s.T0 - BeamChargeSeconds, s.T0, simNow);
                     var glow = sparkMat != null ? sparkMat : aimMat;
                     if (glow == null) continue;
                     batch.Clear();
@@ -131,7 +151,7 @@ namespace TW.Presentation.Tactical
                     Flush(sphere, new RenderParams(glow) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
                     continue;
                 }
-                float t = Mathf.Clamp01((now - s.T0) / Mathf.Max(0.01f, s.T1 - s.T0));
+                float t = SweepFraction(simNow, s.T0, s.T1);
                 var head = s.Start + s.Dir * (s.Length * t);
                 head.y = RenderGround.Sample(map, head.x, head.z);
                 var column = flashMat != null ? flashMat : sparkMat != null ? sparkMat : aimMat;
@@ -145,12 +165,12 @@ namespace TW.Presentation.Tactical
                     batch.Add(Matrix4x4.TRS(head + Vector3.up * 0.8f, Quaternion.identity, Vector3.one * (s.HalfWidth * 2.4f)));
                     Flush(sphere, new RenderParams(column) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
                 }
-                if (now >= nextBeamFlash && books != null && books.Ready)
+                if (running && now >= nextBeamFlash && books != null && books.Ready)
                 {
                     nextBeamFlash = now + BeamFlashEvery;
                     books.Add(FlipbookFx.Book.Flash, head + Vector3.up * 1.2f, s.HalfWidth * 3f, 0.12f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 3f : 1.6f);
                 }
-                if (now >= nextScorchShake) { nextScorchShake = now + ScorchShakeEvery; CameraShake.Add(head, 0.25f); }
+                if (running && now >= nextScorchShake) { nextScorchShake = now + ScorchShakeEvery; CameraShake.Add(head, 0.25f); }
             }
         }
 
@@ -175,7 +195,7 @@ namespace TW.Presentation.Tactical
                     for (int g = -1; g <= 1; g += 2)
                         tracers.Add(new Tracer { From = at + rot * new Vector3(g * 0.9f, -0.3f, 1.5f), To = p, Born = now, Hit = true, Team = (byte)(e.B & 1) });
                 for (int k = 0; k < 3; k++)
-                    books.Add(FlipbookFx.Book.Spurt, p + new Vector3(UnityEngine.Random.Range(-1.2f, 1.2f), 0.1f, UnityEngine.Random.Range(-1.2f, 1.2f)), 1.3f, 0.45f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 2.5f, grow: 0.4f);
+                    books.Add(FlipbookFx.Book.Spurt, p + new Vector3(Mathf.Lerp(-1.2f, 1.2f, Hash01(p.x, p.z, 10 + k)), 0.1f, Mathf.Lerp(-1.2f, 1.2f, Hash01(p.x, p.z, 20 + k))), 1.3f, 0.45f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 2.5f, grow: 0.4f);
                 books.Add(FlipbookFx.Book.Puff, p + Vector3.up * 0.4f, 2.2f, 0.9f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.9f, grow: 0.6f, alpha: 0.7f);
                 return true;
             }

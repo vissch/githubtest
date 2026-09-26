@@ -140,7 +140,8 @@ namespace TW.Tests
             r.Tick();
             uint at = r.W.Tick;
             r.W.Despawn(gassed, (int)DeathCause.Gas);
-            r.W.Despawn(crushed, tank, new float3(0f, 0f, -1f));   // the killer is the vehicle: a track went over him
+            r.W.Events.Add(r.W.Tick, SimEventType.VehicleCrushed, tank, 2, r.W.Position[crushed]);   // the sim says a track went over him...
+            r.W.Despawn(crushed, tank, new float3(0f, 0f, -1f));   // ...and the killer is the vehicle
             r.Tick();
             Assert.AreEqual(Clip.DeathKneel, r.A.State[gassed].Clip, "choking: down on his knees");
             Assert.AreEqual(Clip.DeathBlast, r.A.State[crushed].Clip, "under a track: flat and hard");
@@ -213,6 +214,21 @@ namespace TW.Tests
             Assert.AreEqual(0, VATRenderer.PitchStepOf(0.75f, 1.5f, 2, 0), "and round once at the half");
             Assert.AreEqual(31, VATRenderer.PitchStepOf(3f, 1.2f, 1, -1), "down on a heap: one step off level");
             Assert.AreEqual(1, VATRenderer.PitchStepOf(3f, 0f, 0, 1));
+        }
+
+        [Test]
+        public void AVehiclesMachineGunKillIsNotACrush()
+        {
+            using var r = new Rig();
+            int shot = r.Man(Here);
+            int tank = r.Tank(Here + new float3(30f, 0f, 0f));
+            r.Tick();
+            uint at = r.W.Tick;
+            r.W.Despawn(shot, tank, new float3(-1f, 0f, 0f));   // the killer is the vehicle, but nothing says a track or a claw
+            r.Tick();
+            Assert.IsTrue(r.A.TryDeath(shot, at, out var rec));
+            Assert.AreEqual((byte)DeathKind.Shot, rec.Cause, "a Maw's machine gun kills with the same b as its tracks: without VehicleCrushed or VehicleClawed it is a shot");
+            Assert.AreNotEqual(Clip.DeathBlast, rec.Clip);
         }
     }
 }

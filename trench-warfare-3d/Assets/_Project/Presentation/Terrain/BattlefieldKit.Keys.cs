@@ -9,6 +9,11 @@ namespace TW.Presentation.Terrain
 {
     public sealed partial class BattlefieldKit
     {
+        /// <summary>Marks the Module fields BuildImported fills from Resources/Env: keyed by their asset name
+        /// ("Weapons/FieldGun"), never "kit/&lt;field&gt;", so FieldKeys leaves them out.</summary>
+        [System.AttributeUsage(System.AttributeTargets.Field)]
+        public sealed class ImportedAttribute : System.Attribute { }
+
         /// <summary>Module → the key AssetScaleTable knows it by. Filled by ResolveKeysAndRules.</summary>
         public readonly Dictionary<Module, string> KeyOf = new Dictionary<Module, string>();
 
@@ -16,7 +21,7 @@ namespace TW.Presentation.Terrain
         public static IEnumerable<string> FieldKeys()
         {
             foreach (var f in typeof(BattlefieldKit).GetFields(BindingFlags.Public | BindingFlags.Instance))
-                if (f.FieldType == typeof(Module) || f.FieldType == typeof(Module[])) yield return "kit/" + f.Name;
+                if ((f.FieldType == typeof(Module) || f.FieldType == typeof(Module[])) && f.GetCustomAttribute<ImportedAttribute>() == null) yield return "kit/" + f.Name;
         }
 
         /// <summary>Names every module and gives it its scale rule. Called once by BattlefieldProps after the kit is

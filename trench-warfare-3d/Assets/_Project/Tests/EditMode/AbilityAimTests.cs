@@ -6,7 +6,9 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using Unity.Mathematics;
 using TW.Sim;
+using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Presentation;
 using TW.Presentation.Tactical;
@@ -150,6 +152,33 @@ namespace TW.Tests
             }
             var seen = new HashSet<string>();
             for (int i = 0; i < HudView.SupportAbilities.Length; i++) Assert.IsTrue(seen.Add(HudText.SupportHotkey(i)), "two cards share a key");
+        }
+
+        [Test]
+        public void ASmokeScreenMarksNoFriendBeyondItsCorridor()
+        {
+            Assert.IsTrue(AimReadout.Radii(OffMapAbilityId.SmokeScreen, out float hit, out float reach));
+            Assert.AreEqual(hit, reach, 1e-4f, "smoke hurts nobody: ours are in reach only inside the corridor");
+            Assert.IsTrue(AimReadout.Radii(OffMapAbilityId.StrafeRun, out hit, out reach));
+            Assert.Greater(reach, hit, "a strafe's rounds reach past its corridor");
+        }
+
+        [Test]
+        public void TheAircraftAndTheBeamKeepSimTime()
+        {
+            const float dt = 0.05f; float fired = 40 * dt, warm = 100 * dt;
+            Assert.AreEqual(-CombatFx.PlaneRunIn, CombatFx.PlaneAlong(fired + warm - CombatFx.PlaneRunIn / CombatFx.PlaneSpeed, fired, warm), 1e-3f, "the run-in begins two hundred metres out");
+            Assert.AreEqual(0f, CombatFx.PlaneAlong(fired + warm, fired, warm), 1e-4f, "over the corridor's start as the warm-up ends");
+            Assert.AreEqual(CombatFx.PlaneHigh, CombatFx.PlaneAltitude(-CombatFx.PlaneRunIn, 80f), 1e-4f);
+            Assert.AreEqual(CombatFx.PlaneLow, CombatFx.PlaneAltitude(20f, 80f), 1e-4f);
+            Assert.AreEqual(CombatFx.PlaneAlong(fired + warm + 1f, fired, warm), CombatFx.PlaneAlong(fired + warm + 1f, fired, warm), "the same sim time is the same place: a paused match holds it");
+            var beam = new ActiveBeam { Start = new float3(10f, 0f, 20f), Dir = new float3(0f, 0f, 1f), Length = 60f, StartTick = 140, EndTick = 260 };
+            for (uint tick = 140; tick <= 270; tick += 10)
+            {
+                float t = CombatFx.SweepFraction(tick * dt, 140 * dt, 260 * dt);
+                var sim = BeamSystem.HeadOf(beam, tick);
+                Assert.AreEqual(sim.z, beam.Start.z + beam.Length * t, 1e-3f, "tick " + tick + ": the column stands where the sim's head is");
+            }
         }
     }
 }

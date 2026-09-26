@@ -48,8 +48,12 @@ namespace TW.Tests
         public void Every_Kit_Piece_And_Imported_Prop_Has_A_Rule()
         {
             var missing = new List<string>();
-            foreach (var key in BattlefieldKit.FieldKeys())
-                if (key != "kit/Houses" && !AssetScaleTable.TryGet(key, out _)) missing.Add(key);
+            var fieldKeys = new List<string>(BattlefieldKit.FieldKeys());
+            foreach (var key in fieldKeys)
+                if (!AssetScaleTable.TryGet(key, out _)) missing.Add(key);
+            // the imported props are keyed by asset name, never by their field: FieldKeys leaves them out ([Imported])
+            foreach (var imported in new[] { "kit/fieldGun", "kit/sandbag", "kit/grass", "kit/biplane" })
+                Assert.IsFalse(fieldKeys.Contains(imported), imported + " is an imported prop, keyed as Set/Prop");
             // the imported props are named in BattlefieldKit.BuildImported: Imported("Set", "Prop", ...)
             string src = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Presentation", "Terrain", "BattlefieldKit.cs"));
             foreach (Match m in Regex.Matches(src, "Imported\\(\"(\\w+)\", \"(\\w+)\""))

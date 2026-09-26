@@ -34,7 +34,7 @@ namespace TW.UI
         {
             profile = given ?? ProfileStore.Current;
             Btn("btn-back", () => Router?.Pop());
-            Btn("btn-home", () => Router?.Push(new HomeFrontScreen(given)));
+            Btn("btn-home", () => SwapTo(() => new HomeFrontScreen(given)));
             Btn("btn-select", () => { if (Selected != null && CanFightSelected) Router?.Push(new StagingScreen(given, Selected, Mission)); });
             mine = m => ShellPick.Over(Root, m);
             HudBridge.PointerOverUi = mine;

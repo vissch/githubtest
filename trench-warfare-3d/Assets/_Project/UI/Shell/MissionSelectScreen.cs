@@ -46,7 +46,7 @@ namespace TW.UI
             else Root.Q<Button>("btn-deploy")?.SetEnabled(false);
         }
 
-        protected override void OnUnbind() { if (thumb != null) { Object.Destroy(thumb); thumb = null; } }
+        protected override void OnUnbind() { if (thumb != null) { Discard(thumb); thumb = null; } }
 
         void Select(MissionCard c)
         {
@@ -91,7 +91,7 @@ namespace TW.UI
             var img = Root.Q("info-image");
             if (img == null || card == null) return;
             if (card.Thumbnail != null) { img.style.backgroundImage = new StyleBackground(card.Thumbnail); return; }
-            if (thumb != null) { Object.Destroy(thumb); thumb = null; }
+            if (thumb != null) { Discard(thumb); thumb = null; }
             thumb = card.GeneratedBattlefield ? MapThumbnail.Render(seed) : null;
             img.style.backgroundImage = thumb != null ? new StyleBackground(thumb) : new StyleBackground(StyleKeyword.None);
         }

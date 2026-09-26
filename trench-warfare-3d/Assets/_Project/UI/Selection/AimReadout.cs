@@ -39,7 +39,8 @@ namespace TW.UI
         {
             hit = reach = 0f;
             if (!OffMapAbilitySystem.TryGetStats((int)id, out var s)) return false;
-            if (s.Target == AbilityTargetMode.Line || s.Target == AbilityTargetMode.Heading) { hit = s.HalfWidth; reach = s.HalfWidth + Mathf.Max(s.ShellRadius, GasReticleM); }
+            bool harmless = id == OffMapAbilityId.SmokeScreen;   // no burst, no gas: nothing of ours is in reach past the corridor
+            if (s.Target == AbilityTargetMode.Line || s.Target == AbilityTargetMode.Heading) { hit = s.HalfWidth; reach = harmless ? s.HalfWidth : s.HalfWidth + Mathf.Max(s.ShellRadius, GasReticleM); }
             else if (s.Radius > 0f) { hit = s.Radius; reach = s.Radius + s.ShellRadius; }
             else { hit = GasReticleM; reach = GasReticleM * GasReachFactor; }
             return true;
