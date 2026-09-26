@@ -50,6 +50,20 @@ This file is the contract. A fresh session with no memory runs a cycle from this
 4. **Fan out in ONE message** (Agent tool, parallel). The agents are the diagnoser, the critic, the juice director and
    one patch author per picked card. Only the lander writes to `Assets/` or talks to the editor, and there is only
    ever one lander.
+   **Each agent closes its own card (owner, 2026-09-26).** An author agent does not hand a patch back and stop. It owns
+   its card to the end:
+   - It writes the patch in its own worktree and compiles it offline.
+   - Once the lander's build of it exists, it verifies its own work in the player: the old-look knob values are
+     bit-identical to the named baseline stills; its discriminating knob visibly changes the image where its cause
+     says; and, for an image card, a separate blind critic (never itself) compares new against old on frames inside
+     the event's own time window.
+   - It writes the result: an `attempts.jsonl` line (`aosa.py attempt add`) and its card's status in `BACKLOG.md`,
+     with any follow-up cards.
+   - It removes its worktree (`git worktree remove --force`), leaving no pool open. `git worktree list` shows no
+     `aosa-*` entry after a cycle.
+
+   The lander keeps what must stay serial: the gate and builds (one Unity at a time) and perf A/Bs. Two players
+   benching at once load the machine and void rule 2's band. It commits what the verifying agent passed.
 5. **Judge** each attempt with the acceptance rules below. Commit it or revert it.
 6. **Record.** Write one `attempts.jsonl` line per attempt, run `aosa.py learn` and `aosa.py age`, add the ledger row,
    and add to `LESSONS.md` if anything was disproved.

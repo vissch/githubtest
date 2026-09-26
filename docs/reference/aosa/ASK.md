@@ -96,6 +96,11 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
     yield is still needed.
   - Runs: scratchpad trenchcap/ (s_base, s_cut1, s_cap154/308/750).
 
+- **S05 (cycle 8, SIM lane, small): fill `Explosion.Dir` from the shell's travel.** It is always zero today
+  (Sim `Blast.cs:63`), so a burst's earth column cannot lean along the shell's path, which J01's look asks for
+  (card C100). Only the presentation would read it, and the sim stays deterministic either way. Without it, the
+  column stands straight (C57, 8f1349f).
+
 ## Answered
 
 - **A08 (2026-09-25): option (b).** The worktree gets an untracked `Assets/_AosaLocal/PipelineServerOff.asset`
