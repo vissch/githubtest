@@ -1286,6 +1286,14 @@ def storage_plan():
     return plan
 
 
+def builds_unknown():
+    """Anything in Builds/ that is neither a live player nor a kind@label snapshot (never deleted, only reported)."""
+    bd = builds_dir()
+    if not bd.exists():
+        return []
+    return [p for p in bd.iterdir() if not re.fullmatch(r"WinBench(Dev)?(@.+)?", p.name)]
+
+
 def storage_summary():
     bd, runs = builds_dir(), docs() / "runs"
     snaps = [p for p in bd.glob("WinBench*@*") if p.is_dir()] if bd.exists() else []
@@ -1293,8 +1301,12 @@ def storage_summary():
     frames = [f for f in runs.rglob("*.png") if re.search(r"\.f\d+\.png$", f.name)] if runs.exists() else []
     r = tree_bytes(runs) if runs.exists() else 0
     free = sum(x[1] for x in storage_plan())
-    return "builds %s (%d snapshots), runs %s (sequence frames %s), prune would free %s" % (
+    s = "builds %s (%d snapshots), runs %s (sequence frames %s), prune would free %s" % (
         gb(b), len(snaps), gb(r), gb(sum(f.stat().st_size for f in frames)), gb(free))
+    unknown = builds_unknown()
+    if unknown:
+        s += "; NOT OURS OR BROKEN in Builds/: " + ", ".join("%s (%s)" % (p.name, gb(tree_bytes(p) if p.is_dir() else p.stat().st_size)) for p in unknown)
+    return s
 
 
 def cmd_prune(a):
