@@ -73,10 +73,10 @@ namespace TW.Playground
         public float Time01, ClipTime, Speed = 1f;
         public int ForcedLod = -1;
         public int Lod { get; private set; } = -1;
-        // screen-height shares for a 2 m figure at the battle's 25 degree lens: LOD0 only up close (under ~22 m), LOD1 the
-        // standard view's figure (to ~100 m, the full 1,200-1,500 vertex budget), LOD2 the far figure (to ~225 m),
-        // LOD3 beyond
-        public LodPicker Picker = new LodPicker(0.20f, 0.045f, 0.02f);
+        // screen-height shares for a 2 m figure at the battle's 25 degree lens: LOD0 only up close (under ~22 m), LOD1 to
+        // ~63 m, LOD2 (892 vertices, 16 bones) at the standard view's 78 m and out to ~167 m, LOD3 beyond (critic r1:
+        // LOD1's 1,924 imported vertices are over the 1,200-1,500 budget for a crowd at the standard view)
+        public LodPicker Picker = new LodPicker(0.20f, 0.08f, 0.03f);
         public float Height = 1.78f;
         public float Scorch, Ember, BurnUntil;
         public bool Dead;
@@ -86,9 +86,14 @@ namespace TW.Playground
         public int[] BonesPerLod { get; private set; }
 
         Quaternion[] fadeFrom; float fadeStart = -1f, fadeLen = 0.2f;
+        // the rifle, exactly as VATBaker gives the baked men one: a 0.06 x 0.10 x 1.15 m box, 0.30 m of it ahead of the
+        // grip; from the right hand through the left while both hold it, else in whichever hand still does, by a grip
+        // taken in the bind pose (forward, a little across toward the left hand, a little up)
+        Transform rifle; Matrix4x4 gripR, gripL; float gunScale = 1f;
+        static Material rifleMat; static Mesh cube;
         MaterialPropertyBlock mpb;
         Material[] mats;
-        float nextFlame, nextSmoke;
+        float nextFlame, nextSmoke, nextShot;
         int afterBurn = -1;
 
         public static UnitRig Build(PlaygroundLibrary.UnitEntry e, ClipDeck deck, PlaygroundFx fx, Transform parent, Vector3 at, float yaw, float scale)
@@ -129,7 +134,8 @@ namespace TW.Playground
             {
                 var m = new Material(shader) { name = e.Name + "_LOD" + k, enableInstancing = true };
                 var tex = e.Atlas != null && e.Atlas.Length > 0 ? e.Atlas[Mathf.Min(k, e.Atlas.Length - 1)] : null;
-                if (tex != null) m.SetTexture("_BaseMap", tex);
+                bool painted = u.Lods[k].sharedMesh != null && u.Lods[k].sharedMesh.uv.Length == 0;   // colour in its vertices
+                m.SetTexture("_BaseMap", painted ? Texture2D.whiteTexture : tex);
                 m.SetFloat("_OutlineWidth", 1.6f);
                 u.mats[k] = m;
                 var r = u.Lods[k];
@@ -140,6 +146,7 @@ namespace TW.Playground
                 u.BonesPerLod[k] = BonesUsed(r);
             }
             u.mpb = new MaterialPropertyBlock();
+            u.MakeRifle();
             u.SetLod(0);
             return u;
         }
@@ -155,6 +162,148 @@ namespace TW.Playground
             foreach (var w in r.sharedMesh.GetAllBoneWeights()) if (w.weight > 0.001f) used.Add(w.boneIndex);
             return used.Count;
         }
+
+        void MakeRifle()
+        {
+            var hr = Skel.Bones[13]; var hl = Skel.Bones[9];
+            if (hr == null || hl == null) return;
+            gunScale = Height / 1.78f;   // the baker's u: the figure's height over the 1.78 m man the numbers are for
+            var fwd = Skel.Forward; var across = (hl.position - hr.position).normalized;
+            var dir = (fwd * 0.62f + across * 0.38f + Vector3.up * 0.08f).normalized;
+            var look = Quaternion.LookRotation(dir, Vector3.up);
+            gripR = hr.worldToLocalMatrix * Matrix4x4.TRS(hr.position, look, Vector3.one);
+            gripL = hl.worldToLocalMatrix * Matrix4x4.TRS(hl.position, look, Vector3.one) * Matrix4x4.Translate(new Vector3(0f, 0f, -0.35f * gunScale * transform.lossyScale.y));
+            if (cube == null) { var tmp = GameObject.CreatePrimitive(PrimitiveType.Cube); cube = tmp.GetComponent<MeshFilter>().sharedMesh; VehicleRig.Kill(tmp); }
+            if (rifleMat == null)
+            {
+                rifleMat = new Material(Shader.Find("TW/Toon (URP)")) { name = "PG_Rifle", enableInstancing = true };
+                rifleMat.SetColor("_BaseColor", new Color(0.30f, 0.23f, 0.16f)); rifleMat.SetFloat("_OutlineWidth", 1.2f);
+            }
+            rifle = new GameObject("Rifle").transform; rifle.SetParent(transform, false);
+            var box = new GameObject("Box"); box.transform.SetParent(rifle, false);
+            box.transform.localPosition = new Vector3(0f, 0f, 0.30f * gunScale);
+            box.transform.localScale = new Vector3(0.06f, 0.10f, 1.15f) * gunScale;
+            box.AddComponent<MeshFilter>().sharedMesh = cube;
+            var r = box.AddComponent<MeshRenderer>(); r.sharedMaterial = rifleMat;
+        }
+
+        void HoldRifle()
+        {
+            if (rifle == null) return;
+            var hr = Skel.Bones[13]; var hl = Skel.Bones[9];
+            float s = transform.lossyScale.y * gunScale;
+            var span = hl.position - hr.position;
+            Matrix4x4 grip;
+            if (span.magnitude > 0.48f * s) grip = hl.localToWorldMatrix * gripL;                                   // the right hand is off it
+            else if (span.magnitude > 0.08f * s) grip = Matrix4x4.TRS(hr.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
+            else grip = hr.localToWorldMatrix * gripR;
+            rifle.SetPositionAndRotation(grip.GetColumn(3), grip.rotation);
+            // held at hand height, the 1.3 m rifle's butt or muzzle went through the floor: pitch it up about the grip
+            // until its lowest corner clears the ground
+            float ground = transform.position.y + 0.05f * transform.lossyScale.y;
+            for (int k = 0; k < 14 && LowestRifleCorner() < ground; k++)
+                rifle.rotation = Quaternion.AngleAxis(-6f * Mathf.Sign(Vector3.Dot(rifle.forward, Vector3.down) + 1e-4f), rifle.right) * rifle.rotation;
+            // and out of the body: if much of it is inside the torso, point it forward and down from the grip; failing that
+            // carry it across the chest, in front
+            if (InsideBody() > 0.25f)
+            {
+                var f = Skel.Forward; f.y = 0f; f.Normalize();
+                rifle.rotation = Quaternion.LookRotation((f - Vector3.up * 0.35f).normalized, Vector3.up);
+                if (InsideBody() > 0.25f || LowestRifleCorner() < ground)
+                {
+                    var chest = Vector3.Lerp(Skel.Bones[0].position, Skel.Bones[4].position, 0.6f) + f * 0.28f * transform.lossyScale.y * gunScale;
+                    var across = Vector3.Cross(Vector3.up, f);
+                    rifle.SetPositionAndRotation(chest - across * 0.25f * transform.lossyScale.y * gunScale, Quaternion.LookRotation((across + Vector3.up * 0.35f).normalized, Vector3.up));
+                }
+            }
+            RifleInside = InsideBody();
+        }
+
+        /// <summary>Share of the rifle's length inside the torso (a capsule from the hips to the neck).</summary>
+        public float RifleInside { get; private set; }
+        float InsideBody()
+        {
+            if (rifle == null) return 0f;
+            var a = Skel.Bones[0].position; var b = Skel.Bones[4].position;
+            float r = 0.30f * transform.lossyScale.y * gunScale, inside = 0f; int counted = 0;
+            for (int i = 0; i < 9; i++)
+            {
+                // the three points nearest the grip are in the hand, and the hand is at the hip: only the rest counts
+                float along = 0.30f - 0.575f + 1.15f * i / 8f;
+                if (Mathf.Abs(along) < 0.2f) continue;
+                counted++;
+                var p = rifle.TransformPoint(new Vector3(0f, 0f, along * gunScale));
+                var ab = b - a; float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude);
+                if ((a + ab * t - p).magnitude < r) inside += 1f;
+            }
+            return counted > 0 ? inside / counted : 0f;
+        }
+
+        float LowestRifleCorner()
+        {
+            float lo = float.MaxValue;
+            for (int k = 0; k < 8; k++)
+            {
+                var c = new Vector3((k & 1) == 0 ? -0.03f : 0.03f, (k & 2) == 0 ? -0.05f : 0.05f, 0.30f + ((k & 4) == 0 ? -0.575f : 0.575f)) * gunScale;
+                lo = Mathf.Min(lo, rifle.TransformPoint(c).y);
+            }
+            return lo;
+        }
+
+        // a dead man lets go of it: it falls on the Tumble a vehicle's parts use, in the figure's frame
+        Tumble dropped; bool dropping;
+        void DropRifle()
+        {
+            if (rifle == null || dropping) return;
+            dropping = true;
+            var local = transform.InverseTransformPoint(rifle.position);
+            var rot = Quaternion.Inverse(transform.rotation) * rifle.rotation;
+            dropped = new Tumble { Pos = local, Rot = rot, Vel = new Vector3(Random.Range(-0.6f, 0.6f), 0.5f, Random.Range(-0.6f, 0.6f)), Spin = Random.onUnitSphere * 3f, Nudge = new Vector3(1f, 0f, 0.3f) };
+        }
+
+        void FallRifle(float dt)
+        {
+            var box = new Bounds(new Vector3(0f, 0f, 0.30f * gunScale), new Vector3(0.06f, 0.10f, 1.15f) * gunScale);
+            dropped.Step(box, transform.lossyScale.y, Mathf.Min(dt, 0.05f));
+            rifle.position = transform.TransformPoint(dropped.Pos); rifle.rotation = transform.rotation * dropped.Rot;
+        }
+
+        static readonly Dictionary<Mesh, (int[] hand, int[] foot)> dominant = new Dictionary<Mesh, (int[], int[])>();
+        Mesh baked;
+        public bool Drift(out Vector3 hand, out Vector3 foot)
+        {
+            hand = foot = Vector3.zero;
+            var r = Lods[Lod]; var m = r.sharedMesh; if (m == null) return false;
+            if (!dominant.TryGetValue(m, out var d))
+            {
+                var bpv = m.GetBonesPerVertex(); var w = m.GetAllBoneWeights();
+                var hs = new List<int>(); var fs = new List<int>(); int at = 0;
+                for (int i = 0; i < bpv.Length; i++)
+                {
+                    int best = -1; float bw = 0f;
+                    for (int j = 0; j < bpv[i]; j++) if (w[at + j].weight > bw) { bw = w[at + j].weight; best = w[at + j].boneIndex; }
+                    at += bpv[i];
+                    if (best < 0) continue;
+                    string n = r.bones[best].name;
+                    if (n.EndsWith("RightHand") || n.EndsWith("RightForeArm")) hs.Add(i);
+                    if (n.EndsWith("LeftFoot") || n.EndsWith("LeftLeg")) fs.Add(i);
+                }
+                d = (hs.ToArray(), fs.ToArray()); dominant[m] = d;
+            }
+            if (baked == null) baked = new Mesh();
+            r.BakeMesh(baked, true);
+            var v = baked.vertices; var rest = m.vertices;
+            var toRoot = transform.worldToLocalMatrix * r.transform.localToWorldMatrix;
+            // how far the skin has carried them from where they stand in the bind pose: a DISPLACEMENT, so a coarse LOD
+            // whose hand vertices simply sit elsewhere on the hand (fewer of them, spread differently) does not read as
+            // drift; only bending differently does
+            Vector3 Moved(int[] idx) { var s = Vector3.zero; foreach (int i in idx) s += toRoot.MultiplyPoint3x4(v[i]) - toRoot.MultiplyPoint3x4(rest[i]); return idx.Length > 0 ? s / idx.Length : Vector3.zero; }
+            hand = Moved(d.hand) * transform.lossyScale.y; foot = Moved(d.foot) * transform.lossyScale.y;
+            return true;
+        }
+
+        /// <summary>Draw this LOD for one render (LOD-pop measurement): the renderers only, not the picker's state.</summary>
+        public void SetLodSilently(int lod) { for (int k = 0; k < Lods.Length; k++) Lods[k].enabled = k == lod; Lods[lod].SetPropertyBlock(mpb); }
 
         public void SetLod(int lod)
         {
@@ -183,6 +332,7 @@ namespace TW.Playground
         {
             if (Dead) return;
             Dead = true; Play(deathClip, 0.12f);
+            DropRifle();
         }
 
         /// <summary>Set alight: runs burning, then drops, charred.</summary>
@@ -195,8 +345,12 @@ namespace TW.Playground
 
         public void Revive(int idle)
         {
-            Dead = false; Scorch = Ember = 0f; BurnUntil = 0f; afterBurn = -1; Play(idle, 0.2f);
+            Dead = false; Scorch = Ember = 0f; BurnUntil = 0f; afterBurn = -1; dropping = false; Play(idle, 0.2f, Phase);
         }
+
+        /// <summary>Where in its clips this figure is, against the others: kept through a change of clip so a squad does not
+        /// march in lockstep.</summary>
+        public float Phase;
 
         void LateUpdate()
         {
@@ -208,6 +362,12 @@ namespace TW.Playground
                 if (w >= 1f) fadeStart = -1f;
                 Deck.Pose(this, Clip, ClipTime, w, fadeFrom);
             }
+            if (dropping) FallRifle(dt); else HoldRifle();
+            if (!Dead && rifle != null && Fx != null && Clip >= 0 && Deck.Library.Clips[Clip].Name.StartsWith("Fir") && Time.time >= nextShot)
+            {
+                nextShot = Time.time + Random.Range(0.7f, 1.1f);
+                Fx.RifleShot(rifle.TransformPoint(new Vector3(0f, 0f, 0.875f * gunScale)), rifle.forward);
+            }
             // fire on a man: the standing flame wraps him, soot takes him, and when it is over he drops
             if (BurnUntil > Time.time)
             {
@@ -216,14 +376,19 @@ namespace TW.Playground
                 {
                     nextFlame = Time.time + Random.Range(0.14f, 0.22f);
                     float s = transform.lossyScale.y;
-                    Fx.Flame(transform.position, 1.1f * s, Height * 1.3f * s, Random.Range(0.5f, 0.7f), 0.95f);
+                    var body = Skel.Bones[2] != null ? Skel.Bones[2].position : transform.position;
+                    var toCam = Camera.main != null ? Camera.main.transform.position - body : Vector3.back; toCam.y = 0f;
+                    var foot = new Vector3(body.x, transform.position.y, body.z) + toCam.normalized * 0.35f * s;
+                    Fx.Flame(foot, 1.1f * s, Height * 1.3f * s, Random.Range(0.5f, 0.7f), 0.95f);
+                    if (Skel.Bones[5] != null && Random.value < 0.5f)
+                        Fx.Flame(Skel.Bones[5].position - Vector3.up * 0.25f * s + toCam.normalized * 0.2f * s, 0.55f * s, 0.8f * s, Random.Range(0.35f, 0.5f), 0.9f);
                 }
             }
             else if (afterBurn >= 0)
             {
                 Scorch = 1f; Kill(afterBurn); afterBurn = -1;
             }
-            else Ember = Mathf.Max(0f, Ember - dt * 0.08f);
+            else Ember = Mathf.Max(0f, Ember - dt * (Dead ? 0.35f : 0.08f));
             if (Dead && Ember > 0.05f && Fx != null && Time.time >= nextSmoke)
             {
                 nextSmoke = Time.time + 0.6f;

@@ -61,6 +61,13 @@ namespace TW.Playground
             return l;
         }
 
+        /// <summary>Every painted card alive (fire, smoke, bursts): gone. A new scene must not inherit the last one's smoke.</summary>
+        public void ClearCards()
+        {
+            Books?.Dispose();
+            Books = new FlipbookFx();
+        }
+
         /// <summary>Everything thrown so far off the ground: the debris pools are rebuilt empty.</summary>
         public void ClearDebris()
         {
@@ -129,6 +136,15 @@ namespace TW.Playground
                 Books.Add(Book.Smoke, at + Vector3.up * ((2f + k * 1.2f) * size), (5f + k) * size, Random.Range(5f, 8f), (k & 1) == 0 ? Kind.Mirror : Kind.None,
                           velocity: Vector3.up * (3f - k * 0.3f), grow: 2f, alpha: 0.85f, pop: 0.3f, delay: 0.3f + k * 0.2f);
             Lamp(at + Vector3.up * 2f * size, new Color(1f, 0.62f, 0.3f), 30f * Glow, 28f * size, 0.9f);
+        }
+
+        /// <summary>A rifle's shot: one small flash and one small puff, no light (the tank's Muzzle on 200 riflemen would be
+        /// 2,000 cards and 200 lights).</summary>
+        public void RifleShot(Vector3 at, Vector3 dir)
+        {
+            if (Books == null) return;
+            Books.Add(Book.Muzzle, at + dir * 0.25f, 0.6f, 0.05f, roll: FlipbookFx.ScreenRoll(Camera.main, dir), glow: 2.5f * Glow);
+            Books.Add(Book.Smoke, at + dir * 0.3f, 0.35f, 1f, Random.value < 0.5f ? Kind.Mirror : Kind.None, velocity: dir * 0.6f + Vector3.up * 0.3f, grow: 1.4f, alpha: 0.45f);
         }
 
         public void Muzzle(Vector3 at, Vector3 dir, float size)

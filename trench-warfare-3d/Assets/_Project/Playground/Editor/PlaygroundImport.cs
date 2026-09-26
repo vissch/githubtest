@@ -15,7 +15,7 @@ namespace TW.Playground.Editor
     public sealed class PlaygroundImport : AssetPostprocessor
     {
         public const string Art = "Assets/_Project/Playground/Art/";
-        public override uint GetVersion() => 1;
+        public override uint GetVersion() => 3;
         static bool Tank(string p) => p.Replace('\\', '/').StartsWith(Art + "Tanks/");
         static bool Unit(string p) => p.Replace('\\', '/').StartsWith(Art + "Units/");
 
@@ -30,7 +30,9 @@ namespace TW.Playground.Editor
             m.isReadable = true;
             m.meshCompression = ModelImporterMeshCompression.Off;
             m.optimizeMeshVertices = true; m.optimizeMeshPolygons = true; m.weldVertices = true;
-            m.importNormals = ModelImporterNormals.Calculate; m.normalSmoothingAngle = 55f;
+            // a figure's LODs carry LOD0's smooth normals from frogrig.py: import them, or a coarse LOD re-derives hard
+            // edges at 55 degrees, reads as crumpled foil and triples its vertices; a vehicle keeps the hard 55 degree edges
+            m.importNormals = Unit(assetPath) ? ModelImporterNormals.Import : ModelImporterNormals.Calculate; m.normalSmoothingAngle = 55f;
             m.importTangents = ModelImporterTangents.None;
             if (Tank(assetPath)) { m.animationType = ModelImporterAnimationType.None; m.importAnimation = false; }
             else
@@ -52,10 +54,13 @@ namespace TW.Playground.Editor
                 var verts = mesh.vertices; var normals = mesh.normals;
                 var b = mesh.bounds;
                 var form = new List<Color>(verts.Length);
+                // a mesh that brings its own colours (a figure's far LOD: frogrig.py bakes the atlas into them and drops
+                // the UVs) keeps them, with the form laid over; everything else gets the form alone
+                var own = unit && mesh.uv.Length == 0 ? mesh.colors : null;
                 for (int i = 0; i < verts.Length; i++)
                 {
                     float f = Mathf.Lerp(.86f, 1.03f, Mathf.InverseLerp(b.min.y, b.max.y, verts[i].y));
-                    form.Add(new Color(f, f, f, 1f));
+                    form.Add(own != null && own.Length == verts.Length ? new Color(own[i].r * f, own[i].g * f, own[i].b * f, 1f) : new Color(f, f, f, 1f));
                 }
                 mesh.SetColors(form);
                 mesh.SetUVs(2, new List<Vector4>(new Vector4[verts.Length]));

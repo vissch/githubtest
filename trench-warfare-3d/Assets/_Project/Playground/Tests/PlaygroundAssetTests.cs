@@ -142,6 +142,16 @@ namespace TW.Tests.Playground
                 Assert.That(rigs[2].PoseSignature(), Is.EqualTo(rigs[0].PoseSignature()), "LOD2 copy ended in another pose than LOD0");
                 foreach (var p in rigs[0].Parts.Where(p => p.Loose))
                     Assert.That(p.T.position.y, Is.GreaterThan(-0.5f), p.Name + " fell through the ground");
+                // and every piece ends lying down: its centre no higher than half its middle dimension (turned about its
+                // pivot, a gun or an antenna balanced on its tip 4 m tall for good; critic round 2)
+                for (int f = 0; f < 900; f++) rigs[0].Advance(1f / 60f);
+                foreach (var p in rigs[0].Parts.Where(p => p.Loose))
+                {
+                    var e = p.Box.size * rigs[0].Size; var dims = new[] { e.x, e.y, e.z }.OrderBy(x => x).ToArray();
+                    float centre = (p.Fly.Pos + p.Fly.Rot * p.Box.center).y * rigs[0].Size;
+                    Assert.That(new Vector2(p.Fly.Pos.x, p.Fly.Pos.z).magnitude * rigs[0].Size, Is.LessThan(30f), $"{p.Name} ran away (a topple rolled a stack 140 m once)");
+                    Assert.That(centre, Is.LessThanOrEqualTo(0.5f * dims[1] + 0.2f), $"{p.Name} ended standing on end: centre {centre:0.00} m up, dims {dims[0]:0.0}/{dims[1]:0.0}/{dims[2]:0.0}");
+                }
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }
