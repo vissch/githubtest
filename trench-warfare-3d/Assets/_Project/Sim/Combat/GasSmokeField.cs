@@ -1,11 +1,15 @@
-// Phase: A5 (implemented core: the gas field; smoke shares the grid code and lands with the smoke abilities)
+// Phase: A5 (implemented core: the gas field, and the smoke field the smoke screen lays)
 // — depends on: MapData (4 m field grid, wind, Trench / Crater sinks), FlowFieldManager (where a gassed garrison runs to).
-// One float concentration grid at 4 m. Per tick: sources hold their cells at strength, the field is advected
-// by the map wind (semi-Lagrangian), diffused (5-point) and decayed. Gas is heavier than air: a man standing in a
-// Trench or Crater cell breathes twice the cell's concentration. Damage is 6 per second per 10 concentration and
-// ignores cover and armour (vehicles are exempt until crews exist, masks take 60 % off); it also suppresses.
-// A garrison breathing 8 or more abandons its trench and runs for its own HQ; "fall back" on that trench brings it
-// back once the cloud has passed. The field is only simulated and hashed while something is in it.
+// Two float concentration grids at 4 m, one for gas and one for smoke, stepped by the same job. Per tick: sources
+// hold their cells at strength, the field is advected by the map wind (semi-Lagrangian), diffused (5-point) and
+// decayed. Gas is heavier than air: a man standing in a Trench or Crater cell breathes twice the cell's
+// concentration. Damage is 6 per second per 10 concentration and ignores cover and armour (vehicles are exempt
+// until crews exist, masks take 60 % off); it also suppresses. A garrison breathing 8 or more abandons its trench
+// and runs for its own HQ; "fall back" on that trench brings it back once the cloud has passed.
+// Smoke hurts nobody: it spreads faster and thins sooner, and what it does is stand between men. SmokeLos counts
+// the metres of thick smoke (above SmokeLos.Thick) on a line: TargetAcquisition loses a target past
+// CombatTables.SmokeBlindMetres of it, DirectFire loses accuracy per metre and a man inside it is harder to keep
+// down. Each field is only simulated and hashed while something is in it.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -30,13 +34,19 @@ namespace TW.Sim.Combat
         public const float Diffusion = 0.04f;        // fraction exchanged with each neighbour per tick
         public const float DecayPerTick = 0.004f;    // ~9 s half-life once the source stops
         public const float SuppressionPerSecond = 20f;
+        /// <summary>Smoke is lighter than chlorine and nothing holds it down: it spreads faster and thins sooner.</summary>
+        public const float SmokeDiffusion = 0.06f, SmokeDecayPerTick = 0.006f;
 
         public int Order => SimSystemOrder.GasSmoke;
         public NativeArray<float> Gas;
+        public NativeArray<float> Smoke;
         public int Width, Length;
         public NativeList<GasSource> Sources;
+        public NativeList<GasSource> SmokeSources;
         /// <summary>True while any cell holds gas; presentation skips drawing and the sim skips the field otherwise.</summary>
         public bool Active { get; private set; }
+        /// <summary>True while any cell holds smoke. The same rule: no smoke, no field, nothing hashed.</summary>
+        public bool SmokeActive { get; private set; }
 
         readonly MapData map;
         FlowFieldManager fields;
@@ -52,8 +62,10 @@ namespace TW.Sim.Combat
             Width = (int)math.ceil(map.SizeMeters.x / MapData.FieldCellSize);
             Length = (int)math.ceil(map.SizeMeters.y / MapData.FieldCellSize);
             Gas = new NativeArray<float>(Width * Length, Allocator.Persistent);
+            Smoke = new NativeArray<float>(Width * Length, Allocator.Persistent);
             scratch = new NativeArray<float>(Width * Length, Allocator.Persistent);
             Sources = new NativeList<GasSource>(8, Allocator.Persistent);
+            SmokeSources = new NativeList<GasSource>(8, Allocator.Persistent);
             killed = new NativeList<int>(64, Allocator.Persistent);
             fled = new NativeList<int>(64, Allocator.Persistent);
             peak = new NativeArray<float>(1, Allocator.Persistent);
@@ -73,27 +85,35 @@ namespace TW.Sim.Combat
             Active = true;
         }
 
+        /// <summary>Light a smoke pot at a world position: the cell is held at <paramref name="strength"/> for the duration.</summary>
+        public void AddSmokeSource(float3 pos, float strength, int ticks, int player)
+        {
+            SmokeSources.Add(new GasSource { Cell = CellOf(pos), Strength = strength, TicksLeft = ticks, Player = player });
+            SmokeActive = true;
+        }
+
         public float ConcentrationAt(float3 p) => Gas.IsCreated ? Gas[CellOf(p)] : 0f;
+        public float SmokeAt(float3 p) => Smoke.IsCreated ? Smoke[CellOf(p)] : 0f;
+
+        /// <summary>Metres of thick cloud (smoke, or gas) on the segment a-b; 0 while that field is down.</summary>
+        public float MetresThrough(float3 a, float3 b, bool smoke)
+            => smoke ? (SmokeActive ? SmokeLos.MetresThrough(Smoke, Width, Length, a, b) : 0f)
+                     : (Active ? SmokeLos.MetresThrough(Gas, Width, Length, a, b) : 0f);
 
         public void Step(SimWorld w)
         {
+            float2 shift = map.Wind * w.Config.TickSeconds / MapData.FieldCellSize;
+            if (SmokeActive)
+            {
+                new FieldJob { Field = Smoke, Scratch = scratch, Sources = SmokeSources, Peak = peak, Width = Width, Length = Length, Shift = shift, Spread = SmokeDiffusion, Fade = SmokeDecayPerTick }.Run();
+                Expire(SmokeSources);
+                if (peak[0] < 0.05f && SmokeSources.Length == 0) { Clear(Smoke); SmokeActive = false; }
+            }
+
             if (!Active) return;
-            new FieldJob
-            {
-                Gas = Gas, Scratch = scratch, Sources = Sources, Peak = peak, Width = Width, Length = Length,
-                Shift = map.Wind * w.Config.TickSeconds / MapData.FieldCellSize,
-            }.Run();
-            for (int s = Sources.Length - 1; s >= 0; s--)
-            {
-                var src = Sources[s];
-                if (--src.TicksLeft <= 0) Sources.RemoveAt(s); else Sources[s] = src;   // RemoveAt keeps the order
-            }
-            if (peak[0] < 0.05f && Sources.Length == 0)
-            {
-                for (int i = 0; i < Gas.Length; i++) Gas[i] = 0f;
-                Active = false;
-                return;
-            }
+            new FieldJob { Field = Gas, Scratch = scratch, Sources = Sources, Peak = peak, Width = Width, Length = Length, Shift = shift, Spread = Diffusion, Fade = DecayPerTick }.Run();
+            Expire(Sources);
+            if (peak[0] < 0.05f && Sources.Length == 0) { Clear(Gas); Active = false; return; }
 
             killed.Clear(); fled.Clear();
             new BreatheJob
@@ -113,25 +133,41 @@ namespace TW.Sim.Combat
                 w.Flags[i] |= (uint)UnitFlags.Exposed;
                 w.Events.Add(w.Tick, SimEventType.UnitLeftTrench, i, trench, w.Position[i]);
             }
-            for (int k = 0; k < killed.Length; k++) w.Despawn(killed[k], -1);
+            for (int k = 0; k < killed.Length; k++) w.Despawn(killed[k], (int)DeathCause.Gas);
+        }
+
+        static void Expire(NativeList<GasSource> sources)
+        {
+            for (int s = sources.Length - 1; s >= 0; s--)
+            {
+                var src = sources[s];
+                if (--src.TicksLeft <= 0) sources.RemoveAt(s); else sources[s] = src;   // RemoveAt keeps the order
+            }
+        }
+
+        static void Clear(NativeArray<float> field)
+        {
+            for (int i = 0; i < field.Length; i++) field[i] = 0f;
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct FieldJob : IJob
         {
-            public NativeArray<float> Gas, Scratch, Peak;
+            public NativeArray<float> Field, Scratch, Peak;
             [ReadOnly] public NativeList<GasSource> Sources;
             public int Width, Length;
             public float2 Shift;   // wind per tick, in cells
+            public float Spread;   // fraction exchanged with each neighbour per tick
+            public float Fade;     // fraction lost per tick
 
-            float At(int x, int z) => x < 0 || z < 0 || x >= Width || z >= Length ? 0f : Gas[z * Width + x];
+            float At(int x, int z) => x < 0 || z < 0 || x >= Width || z >= Length ? 0f : Field[z * Width + x];
 
             public void Execute()
             {
                 for (int s = 0; s < Sources.Length; s++)
                 {
                     var src = Sources[s];
-                    Gas[src.Cell] = math.max(Gas[src.Cell], src.Strength);
+                    Field[src.Cell] = math.max(Field[src.Cell], src.Strength);
                 }
                 // advect: sample upwind (bilinear), then diffuse and decay into Scratch
                 for (int z = 0; z < Length; z++)
@@ -151,9 +187,9 @@ namespace TW.Sim.Combat
                     float c = Scratch[i];
                     float l = x > 0 ? Scratch[i - 1] : c, r = x < Width - 1 ? Scratch[i + 1] : c;
                     float d = z > 0 ? Scratch[i - Width] : c, u = z < Length - 1 ? Scratch[i + Width] : c;
-                    float v = (c + Diffusion * (l + r + d + u - 4f * c)) * (1f - DecayPerTick);
+                    float v = (c + Spread * (l + r + d + u - 4f * c)) * (1f - Fade);
                     if (v < 0.01f) v = 0f;
-                    Gas[i] = v;
+                    Field[i] = v;
                     peak = math.max(peak, v);
                 }
                 Peak[0] = peak;
@@ -195,21 +231,28 @@ namespace TW.Sim.Combat
             }
         }
 
-        public float ConcentrationAlong(float3 a, float3 b, bool smoke) => 0f;   // smoke attenuation lands with the smoke abilities
-
         public ulong Hash(ulong h)
         {
-            if (!Active) return h;
-            h = SimHash.Array(Gas, h);
-            for (int s = 0; s < Sources.Length; s++) h = SimHash.Value(Sources[s], h);
+            if (Active)
+            {
+                h = SimHash.Array(Gas, h);
+                for (int s = 0; s < Sources.Length; s++) h = SimHash.Value(Sources[s], h);
+            }
+            if (SmokeActive)
+            {
+                h = SimHash.Array(Smoke, h);
+                for (int s = 0; s < SmokeSources.Length; s++) h = SimHash.Value(SmokeSources[s], h);
+            }
             return h;
         }
 
         public void Dispose()
         {
             if (Gas.IsCreated) Gas.Dispose();
+            if (Smoke.IsCreated) Smoke.Dispose();
             if (scratch.IsCreated) scratch.Dispose();
             if (Sources.IsCreated) Sources.Dispose();
+            if (SmokeSources.IsCreated) SmokeSources.Dispose();
             if (killed.IsCreated) killed.Dispose();
             if (fled.IsCreated) fled.Dispose();
             if (peak.IsCreated) peak.Dispose();

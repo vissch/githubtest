@@ -22,6 +22,10 @@
 //   fragments carry on. The man is thrown along the same lean. A mortar coming almost straight down, a cook-off and
 //   falling masonry have no direction and are unchanged.
 //
+//   WHOSE MEN ARE BEHIND IT (docs/21 phase 5). A creeping barrage walks ahead of the men who follow it, and the
+//   battery knows where they are: an Impact with SafeBehind > 0 leaves the firing player's own men within that
+//   many metres behind it (against Dir) untouched. A friend beside or ahead of the burst is as dead as anyone.
+//
 // Nothing may cut a burst to nothing: MinThrough is the floor, so a shell on top of a dugout still hurts.
 // SUPPRESSION IS DELIBERATELY NOT SHADED, only leaned. Keeping your head down is what a man does whether or not the
 // parapet saved him, and the M1.5 fun gate tuned a barrage's suppressive weight against the old numbers; shading it
@@ -39,8 +43,9 @@ namespace TW.Sim.Combat
 {
     /// <summary>What kind of thing went off. A shell is directional and can hole a tank's top plate; masonry is a
     /// building coming down on the men underneath it, which no roof protects against and which cannot penetrate
-    /// armour; a cook-off is the rounds in a hull going up.</summary>
-    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2 }
+    /// armour; a cook-off is the rounds in a hull going up. An incendiary bursts like a shell and then BurningSystem,
+    /// which reads Resolved right after this, sets the men and the ground inside its radius alight.</summary>
+    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3 }
 
     public struct Impact
     {
@@ -52,6 +57,9 @@ namespace TW.Sim.Combat
         /// <summary>Metres of rubble this burst heaps up where it lands (falling masonry). Zero for a shell, which
         /// digs a hole instead.</summary>
         public float Rubble;
+        /// <summary>The firing player's own men within this many metres behind the burst (against Dir) take nothing
+        /// from it: a creeping barrage's lift walks ahead of them. Zero (every other burst) spares nobody.</summary>
+        public float SafeBehind;
         public int Source;   // ability or weapon id, for the Explosion event
         public int Player;   // who fired it (-1 none); friendly fire is on
         public int Shape;    // BlastShape; 0 = Shell, so every existing call site is unchanged
@@ -97,6 +105,7 @@ namespace TW.Sim.Combat
         public NativeList<CraterStamp> Craters;    // drained by DeformationSystem later in the same tick
         public NativeList<Impact> Resolved;        // this tick's impacts, for what they do to props and wire; drained the same way
         NativeList<int> killed;
+        NativeList<float4> killedKnock;            // xz = the way each dead man was thrown, w = how hard (m/s); parallel to killed
         NativeArray<int> counters;                 // [0] terrain rays asked this tick, [1] of which came back blocked
 
         public BlastSystem(MapData map) { this.map = map; }
@@ -111,6 +120,7 @@ namespace TW.Sim.Combat
             Craters = new NativeList<CraterStamp>(32, Allocator.Persistent);
             Resolved = new NativeList<Impact>(32, Allocator.Persistent);
             killed = new NativeList<int>(64, Allocator.Persistent);
+            killedKnock = new NativeList<float4>(64, Allocator.Persistent);
             counters = new NativeArray<int>(2, Allocator.Persistent);
         }
 
@@ -119,13 +129,13 @@ namespace TW.Sim.Combat
         public void Step(SimWorld w)
         {
             if (Pending.Length == 0) return;
-            killed.Clear();
+            killed.Clear(); killedKnock.Clear();
             counters[0] = 0; counters[1] = 0;
             new BlastJob
             {
-                Count = w.HighWater, Impacts = Pending.AsArray(), Killed = killed, Counters = counters,
+                Count = w.HighWater, Impacts = Pending.AsArray(), Killed = killed, KilledKnock = killedKnock, Counters = counters,
                 Position = w.Position, Flags = w.Flags, StanceOf = w.StanceOf, Hp = w.Hp, Suppression = w.Suppression, Knock = w.Knock,
-                Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
+                Team = w.Team, Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
             }.Run();
             for (int k = 0; k < Pending.Length; k++)
@@ -141,7 +151,13 @@ namespace TW.Sim.Combat
                 if (im.Rubble > 0f)
                     Craters.Add(new CraterStamp { Center = im.Pos, Radius = im.Radius, Depth = im.Rubble, Kind = (int)CraterKind.Mound });
             }
-            for (int k = 0; k < killed.Length; k++) w.Despawn(killed[k], -1, new float3(0f, 1f, 0f));
+            // a dead man is thrown the way a live one would have been: the Death event carries it (dir.y = 1 says a
+            // blast did it, xz the way, scalar how hard) so the picture can launch him without guessing
+            for (int k = 0; k < killed.Length; k++)
+            {
+                float4 kn = killedKnock[k];
+                w.Despawn(killed[k], (int)DeathCause.Blast, new float3(kn.x, 1f, kn.z), kn.w);
+            }
             Pending.Clear();
         }
 
@@ -152,12 +168,13 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<Impact> Impacts;
             [ReadOnly] public NativeArray<float3> Position;
             [ReadOnly] public NativeArray<uint> Flags;
-            [ReadOnly] public NativeArray<byte> StanceOf, Layers;
+            [ReadOnly] public NativeArray<byte> StanceOf, Layers, Team;
             [ReadOnly] public NativeArray<short> CellTrenchId;
             [ReadOnly] public Heightfield Height;
             public NativeArray<float> Hp, Suppression;
             public NativeArray<float3> Knock;
             public NativeList<int> Killed;
+            public NativeList<float4> KilledKnock;
             public NativeArray<int> Counters;
 
             int CellOf(float3 p)
@@ -192,6 +209,12 @@ namespace TW.Sim.Combat
                         float falloff = 1f - 0.75f * (dist / im.Radius);
                         int cell = CellOf(Position[i]);
                         if ((f & (uint)UnitFlags.Vehicle) != 0) continue;   // armour: VehicleModulesSystem
+                        // ---- whose men are behind it: the lift's own, following it, are spared ------------
+                        if (im.SafeBehind > 0f && directional && im.Player >= 0 && Team[i] == (byte)im.Player)
+                        {
+                            float behind = -math.dot(lean, d);
+                            if (behind > 0f && behind <= im.SafeBehind) continue;
+                        }
 
                         // ---- where he is standing ------------------------------------------------------------
                         float protection = 1f;
@@ -236,7 +259,18 @@ namespace TW.Sim.Combat
                         Hp[i] = Hp[i] - im.Damage * falloff * through * bias;
                         // suppression is leaned but NOT shaded: see the header
                         Suppression[i] = math.min(100f, Suppression[i] + im.Suppression * falloff * bias);
-                        if (Hp[i] <= 0f) { Killed.Add(i); continue; }
+                        if (Hp[i] <= 0f)
+                        {
+                            // the dead are thrown from wherever they stood (a bay, a hole, lying down): the sim no
+                            // longer moves them, so this is only a record of how hard the burst hit, for the picture
+                            float dead = math.lerp(KnockNear * 1.5f, KnockFar, math.min(1f, dist / math.max(0.05f, im.Radius))) * bias;
+                            if (masonry) dead *= BlastRules.MasonryKnock;
+                            float3 deadAway = dist > 0.05f ? d / dist : new float3(1f, 0f, 0f);
+                            if (directional) { deadAway = deadAway + lean * 0.6f; deadAway /= math.max(1e-3f, SimMath.Length(deadAway)); }
+                            Killed.Add(i);
+                            KilledKnock.Add(new float4(deadAway.x, 0f, deadAway.z, math.min(KnockMax * 1.5f, dead)));
+                            continue;
+                        }
 
                         // a man in the open who lives is thrown clear (not in a trench, a shell hole or a vehicle)
                         bool open = (f & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.Emplacement | (uint)UnitFlags.InTrench)) == 0 && (Layers[cell] & (byte)NavLayer.Crater) == 0;
@@ -266,6 +300,7 @@ namespace TW.Sim.Combat
             if (Craters.IsCreated) Craters.Dispose();
             if (Resolved.IsCreated) Resolved.Dispose();
             if (killed.IsCreated) killed.Dispose();
+            if (killedKnock.IsCreated) killedKnock.Dispose();
             if (counters.IsCreated) counters.Dispose();
         }
     }

@@ -14,6 +14,7 @@ namespace TW.Sim
             Deployment = 1, DirectFire = 2, IndirectFire = 3, Suppression = 4, Armor = 5,
             Bog = 6, WaveAi = 7, Mission = 8, Separation = 9,
             TrenchGarrison = 11, TrenchPost = 12,   // registered so nobody reuses them by accident
+            Abilities = 13, Mines = 14, Beam = 15, Burning = 16,   // the overhaul's systems (docs/21); registered ahead of use
             Test = 1000,
         }
 
