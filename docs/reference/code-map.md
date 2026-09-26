@@ -44,7 +44,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Net` | `Net/` | `TW.Net` | Sim.Core | 8 |
 | `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain | 3 |
 | `TW.Playground.Editor` | `Playground/Editor/` | `TW.Playground.Editor` | Playground, Presentation.Terrain | 2 |
-| `TW.Playground` | `Playground/Runtime/` | `TW.Playground` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Net, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain | 10 |
+| `TW.Playground` | `Playground/Runtime/` | `TW.Playground` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Net, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain | 11 |
 | `TW.Tests.Playground` | `Playground/Tests/` | `TW.Tests.Playground` | Playground, Playground.Editor | 1 |
 | `TW.Presentation.Audio` | `Presentation/Audio/` | `TW.Presentation.Audio` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
 | `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net | 16 |
@@ -62,7 +62,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 38 |
 
-22 assemblies, 272 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+22 assemblies, 273 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -77,10 +77,10 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Editor/UI/` | Editor tools for the UI skin: placeholder painter, importer, verifier, HUD capture. | 6 |
 | `Net/` | Lockstep driver, loopback transport, command seat; UTP/hash exchange/snapshot are stubs (SIM lane). | 8 |
 | `Perf/` | PerfBench (editor + player benchmark), AllocProbe, bench options. | 3 |
-| `Playground/` | The asset playground: new units, vehicles and buildings tried at every LOD before they go into the battle. | 13 |
+| `Playground/` | The asset playground: new units, vehicles and buildings tried at every LOD before they go into the battle. | 14 |
 | `Playground/Art/` | Art on trial, not yet in Resources: tank3split vehicles (Tanks/), frogrig figures (Units/). |  |
 | `Playground/Editor/` | PlaygroundImport (import rules for Playground/Art) and PlaygroundSetup (TW/Playground/Build). | 2 |
-| `Playground/Runtime/` | PlaygroundHost (scene, panel, commands, captures), VehicleRig, UnitRig, Retarget, PlaygroundFx. | 10 |
+| `Playground/Runtime/` | PlaygroundHost (scene, panel, commands, captures), VehicleRig, UnitRig, Retarget, PlaygroundFx. | 11 |
 | `Playground/Tests/` | EditMode checks of the playground art: parts per LOD, rigs per LOD, the LOD-identical breakup. | 1 |
 | `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). | 69 |
 | `Presentation/Audio/` | Stub: event audio router (B7). No audio assets exist yet. | 1 |

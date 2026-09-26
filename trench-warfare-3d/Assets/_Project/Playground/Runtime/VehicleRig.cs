@@ -44,9 +44,9 @@ namespace TW.Playground
         public int ForcedLod = -1;
         public int Lod { get; private set; } = -1;
         public int LodCount { get; private set; }
-        // screen-height shares of the bounding sphere: LOD0 (7.8k tris, over the 3-5k vehicle budget) for close-ups
-        // only, LOD1 at the standard view, LOD2 when the view is pulled right out
-        public LodPicker Picker = new LodPicker(0.50f, 0.15f);
+        // screen-height shares of the bounding sphere (8 m for this tank at 1.7x): LOD0 (7.8k tris, over the 3-5k vehicle
+        // budget) for close-ups only (under ~45 m), LOD1 at the standard view's 78 m, LOD2 beyond ~145 m
+        public LodPicker Picker = new LodPicker(0.70f, 0.22f);
         public float Size = 1f;
         public int Seed = 1;
         public float CookDelay = 7f;                    // < 0: never cooks off, burns out to a wreck
@@ -268,23 +268,27 @@ namespace TW.Playground
                 var ground = new Vector3(world.x, GroundY, world.z);
                 Fx?.Burst(ground, 1.4f * Mathf.Sqrt(Size));
                 LastEvent = $"HE {damage:0} at {new Vector2(at.x, at.z).magnitude * Size:0.0} m";
+                float nearest = float.MaxValue;
                 foreach (var p in Parts)
                 {
                     if (p.Loose) continue;
                     float d = DistanceTo(p, at);
                     if (d > reach) continue;
-                    Hurt(p, damage * (1f - d / reach), at, 7f);
+                    nearest = Mathf.Min(nearest, d);
+                    Hurt(p, damage * (1f - d / reach), at, 7f, false);
                 }
+                if (nearest < reach) HurtHull(damage * (1f - nearest / reach));
                 Fx?.Debris?.Burst(DebrisRenderer.Piece.Clod, ground, 10, 7f, 0.35f, new Color(0.35f, 0.29f, 0.22f), 12f, 0f, 1.6f, default, (uint)Seed);
             }
         }
 
         /// <summary>from: where the harm came from, in the vehicle's frame. throwSpeed: m/s.</summary>
-        void Hurt(Part p, float damage, Vector3 from, float throwSpeed)
+        void Hurt(Part p, float damage, Vector3 from, float throwSpeed, bool countsOnHull = true)
         {
             p.Flash = 1f;
+            p.Scorch = Mathf.Min(1f, p.Scorch + 0.3f * Mathf.Clamp01(damage / 30f));
             p.Hp -= damage;
-            Hp -= damage * (p.Tier >= 3 || p.Name == "Hull" ? 1f : 0.5f);
+            if (countsOnHull) Hp -= damage * (p.Tier >= 3 || p.Name == "Hull" ? 1f : 0.5f);
             if (p.Hp <= 0f && !p.Loose && p.Tier >= 1 && p.Tier <= 2)
             {
                 var c = LocalCentre(p);
@@ -292,13 +296,27 @@ namespace TW.Playground
                 if (away.sqrMagnitude < 1e-4f) away = c; away.y = 0f;
                 away = away.sqrMagnitude > 1e-4f ? away.normalized : Vector3.right;
                 bool track = p.Name.StartsWith("Track");
-                // a track does not fly: it is knocked off its wheels and falls over sideways; everything else is thrown
-                var v = track ? away * R(1.2f, 2f) + Vector3.up * R(1.5f, 2.5f)
-                              : away * throwSpeed * R(0.6f, 1.1f) + Vector3.up * throwSpeed * R(0.5f, 0.9f);
-                var spin = track ? Vector3.Cross(Vector3.up, away) * R(1.2f, 2f) : RSphere() * R(3f, 9f);
+                // a track does not fly: it is knocked off its wheels and falls over OUTWARD, away from the hull whatever
+                // side the round came from (it used to be pushed along the round and ended inside the hull)
+                float side = Mathf.Sign(c.x == 0f ? 1f : c.x);
+                // anything knocked off flies out from the hull's middle, never through it (the stack, on the right, was
+                // thrown by a burst on the right through the hull to land 10 m out on the left)
+                var outward = new Vector3(c.x, 0f, c.z); outward = outward.sqrMagnitude > 1e-4f ? outward.normalized : away;
+                var v = track ? new Vector3(side * R(2f, 2.8f), 2f, 0f)
+                              : outward * throwSpeed * R(0.6f, 1.1f) + Vector3.up * throwSpeed * R(0.5f, 0.9f);
+                var spin = track ? Vector3.forward * (-side * 4f) : RSphere() * R(3f, 9f);
                 Detach(p, v, spin);
+                // a track leaves already leaning out 25 degrees: it topples off its wheels rather than sliding
+                if (track) { p.Fly.Rot = Quaternion.AngleAxis(-side * 25f, Vector3.forward) * p.Fly.Rot; p.T.localRotation = p.Fly.Rot; }
                 if (track && State < Stage.Immobilised) { State = Stage.Immobilised; LastEvent += " - immobilised"; }
             }
+            Stages();
+        }
+
+        void HurtHull(float damage) { Hp -= damage; Stages(); }
+
+        void Stages()
+        {
             if (Hp <= 0.5f * MaxHp && State == Stage.Intact) State = Stage.Damaged;
             if (Hp <= 0f && State < Stage.KnockedOut) KnockOut();
             if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff) CookOff();
@@ -343,13 +361,16 @@ namespace TW.Playground
                 float s = Mathf.Sqrt(Size);
                 Vector3 v; Vector3 spin;
                 if (p.Name == "Turret") { v = Vector3.up * R(11f, 14f) * s + out_ * R(0.5f, 1.5f); spin = RSphere() * R(2f, 5f); }
-                else if (p.Tier == 4) { v = out_ * R(5f, 8f) * s + Vector3.up * R(4f, 7f) * s; spin = Vector3.Cross(Vector3.up, out_) * R(4f, 8f); }
+                else if (p.Tier == 4) { v = out_ * R(2.5f, 4f) * s + Vector3.up * R(4f, 7f) * s; spin = Vector3.Cross(Vector3.up, out_) * R(4f, 8f); }
                 else if (p.Name == "Gun") { v = Vector3.forward * R(3f, 5f) * s + Vector3.up * R(5f, 7f) * s; spin = Vector3.right * R(3f, 6f); }
                 else if (p.Name.StartsWith("Track")) continue;   // the running gear stays on the ground it was on
-                else { v = out_ * R(4f, 9f) * s + Vector3.up * R(5f, 9f) * s; spin = RSphere() * R(4f, 10f); }
+                else { v = out_ * R(2f, 4.5f) * s + Vector3.up * R(5f, 9f) * s; spin = RSphere() * R(4f, 10f); }
                 Detach(p, v, spin);
                 p.BurnUntil = Time.time + R(8f, 20f);
             }
+            // what was already lying beside the hull goes up with it (the thrown track stayed clean and blue)
+            foreach (var p in Parts)
+                if (p.Loose && Vector3.Distance(p.Fly.Pos, deck) * Size < 4f * Size) { p.BurnUntil = Mathf.Max(p.BurnUntil, Time.time + R(8f, 16f)); p.Scorch = Mathf.Max(p.Scorch, 0.5f); }
             Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 14, 13f, 0.35f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.6f, default, (uint)(Seed * 7919));
             LastEvent = "COOKED OFF";
         }
@@ -373,6 +394,7 @@ namespace TW.Playground
                 p.Hp = p.MaxHp; p.Fly = default; p.Scorch = p.Ember = p.Flash = p.Recoil = p.Droop = 0f; p.BurnUntil = 0f;
             }
             Hp = MaxHp; State = Stage.Intact; FireLevel = 0f; cookAt = -1f; rng = new System.Random(Seed); LastEvent = "repaired";
+            Fx?.ClearCards();
             if (fireLight != null) { Destroy(fireLight.gameObject); fireLight = null; }
         }
 
@@ -402,7 +424,7 @@ namespace TW.Playground
         {
             if (cookAt > 0f && Time.time >= cookAt) CookOff();
             if (State == Stage.KnockedOut) FireLevel = Mathf.Min(0.75f, FireLevel + dt / 3f);
-            else if (State == Stage.CookedOff) FireLevel = Mathf.Max(0.3f, 1f - (Time.time - cookedAt) / 70f);   // burns down to a smoulder
+            else if (State == Stage.CookedOff) FireLevel = 0.3f + 0.7f * Mathf.Exp(-(Time.time - cookedAt) / 8f);   // flares, then burns down to a smoulder
             if (Traverse && State < Stage.KnockedOut)
             {
                 if (Mathf.Abs(Mathf.DeltaAngle(turretYaw, turretTarget)) < 1f) turretTarget = R(-70f, 70f);
@@ -475,8 +497,17 @@ namespace TW.Playground
             foreach (var p in Parts)
             {
                 bool burning = p.Loose ? now < p.BurnUntil : FireLevel > 0.05f;
-                if (burning) p.Scorch = Mathf.Min(1f, p.Scorch + dt * (State == Stage.CookedOff ? 0.6f : 0.05f));
-                p.Ember = p.Loose ? (now < p.BurnUntil ? 1f : Mathf.Max(0f, p.Ember - dt * 0.05f)) : FireLevel;
+                if (burning) p.Scorch = Mathf.Min(1f, p.Scorch + dt * (State == Stage.CookedOff ? 0.6f : p.Loose ? 0.3f : 0.18f));
+                // until the cook-off the fire is on the deck: a part glows by how near it is to it (the whole knocked-out hull
+                // glowed lava orange end to end); after it everything that stayed on is in the fire
+                float byFire = 1f;
+                if (!p.Loose && State < Stage.CookedOff)
+                {
+                    var mid = LocalCentre(p); float dmin = float.MaxValue;
+                    for (int k = 0; k < 3; k++) dmin = Mathf.Min(dmin, Vector3.Distance(mid, SocketLocal("Socket_Fire" + k)));
+                    byFire = Mathf.Clamp01(1f - (dmin * Size - 1f) / 2f);
+                }
+                p.Ember = p.Loose ? (now < p.BurnUntil ? 1f : Mathf.Max(0f, p.Ember - dt * 0.05f)) : FireLevel * byFire;
                 if (p.Loose && now < p.BurnUntil && now >= p.NextFlame && near && p.Mass >= 0.5f)
                 {
                     p.NextFlame = now + V(0.25f, 0.45f);

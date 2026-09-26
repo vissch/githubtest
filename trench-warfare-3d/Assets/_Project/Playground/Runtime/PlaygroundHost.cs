@@ -37,6 +37,9 @@ namespace TW.Playground
         public ClipDeck Deck { get; private set; }
         public readonly List<VehicleRig> Vehicles = new List<VehicleRig>();
         public readonly List<UnitRig> Units = new List<UnitRig>();
+        public readonly List<BuildingRig> Buildings = new List<BuildingRig>();
+        public string BuildingSet = "Ruins";
+        int buildingIndex, shellCount;
         public string Mode { get; private set; } = "";
         public string LastShot = "", LastJson = "", Status = "";
 
@@ -141,8 +144,9 @@ namespace TW.Playground
         {
             foreach (var v in Vehicles) if (v != null) Destroy(v.gameObject);
             foreach (var u in Units) if (u != null) Destroy(u.gameObject);
-            Vehicles.Clear(); Units.Clear(); script.Clear(); scriptStart = -1f;
-            Fx.ClearLamps(); Fx.ClearDebris();
+            foreach (var b in Buildings) if (b != null) Destroy(b.gameObject);
+            Vehicles.Clear(); Units.Clear(); Buildings.Clear(); script.Clear(); scriptStart = -1f;
+            Fx.ClearLamps(); Fx.ClearDebris(); Fx.ClearCards();
         }
 
         VehicleRig SpawnVehicle(Vector3 at, float yaw, int lod, int seed)
@@ -158,7 +162,7 @@ namespace TW.Playground
         {
             if (Library.Units.Length == 0) return null;
             var u = UnitRig.Build(Library.Units[unitIndex % Library.Units.Length], Deck, Fx, stage, at, yaw, UnitScale);
-            u.ForcedLod = lod;
+            u.ForcedLod = lod; u.Phase = phase;
             if (clip >= 0) u.Play(clip, 0f, phase);
             Units.Add(u);
             return u;
@@ -174,8 +178,8 @@ namespace TW.Playground
                     SpawnVehicle(Vector3.zero, 205f, forcedLod, 1);
                     Cam.Preset("default", new Vector3(0f, 2.5f, 0f)); Cam.Distance = 24f; Cam.Yaw = 0f; Cam.Pitch = 18f; break;
                 case "vehicle.compare":
-                    for (int k = 0; k < 3; k++) SpawnVehicle(new Vector3((k - 1) * 15f, 0f, 0f), 205f, k, 1);
-                    Cam.Preset("default", new Vector3(0f, 2.5f, 0f)); Cam.Distance = 50f; Cam.Yaw = 0f; Cam.Pitch = 18f; break;
+                    for (int k = 0; k < 3; k++) SpawnVehicle(new Vector3((k - 1) * 30f, 0f, 0f), 205f, k, 1);
+                    Cam.Preset("default", new Vector3(0f, 2.5f, 0f)); Cam.Distance = 66f; Cam.Yaw = 0f; Cam.Pitch = 18f; Cam.Fov = 42f; break;
                 case "unit":
                     SpawnUnit(Vector3.zero, 20f, forcedLod);
                     Cam.Preset("close", new Vector3(0f, 1.1f, 0f)); Cam.Distance = 5.5f; Cam.Yaw = 180f; break;
@@ -187,13 +191,24 @@ namespace TW.Playground
                     {
                         // a file of men walking away from the standard view's camera, from 8 m out to 300 m
                         float[] d = { 8, 14, 22, 32, 45, 60, 80, 105, 135, 170, 210, 255, 300 };
-                        for (int i = 0; i < d.Length; i++) SpawnUnit(new Vector3((i % 2 == 0 ? -1.2f : 1.2f), 0f, d[i]), 200f, forcedLod, i * 0.37f);
+                        for (int i = 0; i < d.Length; i++) SpawnUnit(new Vector3((i % 2 == 0 ? -1f : 1f) * (1.2f + 0.06f * d[i]), 0f, d[i]), 200f, forcedLod, i * 0.37f);
                         Cam.Focus = new Vector3(0f, 1f, 0f); Cam.Fov = 25f; Cam.Pitch = 14f; Cam.Yaw = 0f; Cam.Distance = 10f;
+                        break;
+                    }
+                case "building":
+                    {
+                        var kit = BuildingRig.Kit(BuildingSet);
+                        if (kit.Length == 0) break;
+                        var b = BuildingRig.Build(BuildingSet, kit[buildingIndex % kit.Length].Name, Fx, stage, Vector3.zero, 200f, 1);
+                        if (b != null) Buildings.Add(b);
+                        shellCount = 0;
+                        Cam.Preset("default", new Vector3(0f, b != null ? b.Radius * 0.45f : 3f, 0f)); Cam.Yaw = 0f; Cam.Pitch = 16f; Cam.Distance = b != null ? b.Radius * 4.5f : 40f;
                         break;
                     }
                 case "mixed":
                     SpawnVehicle(new Vector3(0f, 0f, 0f), 205f, forcedLod, 1);
-                    for (int i = 0; i < 12; i++) SpawnUnit(new Vector3(-9f + (i % 6) * 1.6f, 0f, -6f - (i / 6) * 2.2f), 20f, forcedLod, i * 0.21f);
+                    // twelve men 3 m apart, 6 m clear of the hull, so every one of them can be seen against it
+                    for (int i = 0; i < 12; i++) SpawnUnit(new Vector3(-8f + (i % 6) * 3f, 0f, -10f - (i / 6) * 3f), 20f, forcedLod, i * 0.21f);
                     Cam.Preset("standard", new Vector3(-2f, 1.5f, -3f)); Cam.Distance = 45f; Cam.Yaw = 200f; break;
             }
         }
@@ -221,7 +236,25 @@ namespace TW.Playground
             string c = a[0].ToLowerInvariant();
             switch (c)
             {
-                case "vehicle": case "vehicle.compare": case "unit": case "unit.compare": case "unit.squad": case "mixed": Scene(c); break;
+                case "vehicle": case "vehicle.compare": case "unit": case "unit.compare": case "unit.squad": case "mixed": case "building": Scene(c); break;
+                case "set": BuildingSet = a.Length > 1 ? a[1] : "Ruins"; buildingIndex = 0; Scene("building"); break;
+                case "house":
+                    {
+                        var kit = BuildingRig.Kit(BuildingSet);
+                        int k = a.Length > 1 ? System.Array.FindIndex(kit, x => x.Name == a[1]) : -1;
+                        buildingIndex = k >= 0 ? k : buildingIndex + 1; Scene("building"); break;
+                    }
+                case "shell":
+                    foreach (var bld in Buildings)
+                    {
+                        // a burst walking round the building, on its walls, at a height a shell would hit: deterministic
+                        float ang = shellCount * 2.39996f, r = bld.Radius * 0.55f;
+                        var at = a.Length >= 4 ? new Vector3(F(a, 1, 0), F(a, 2, 1), F(a, 3, 0)) : new Vector3(Mathf.Cos(ang) * r, 1f + (shellCount % 3) * 1.2f, Mathf.Sin(ang) * r);
+                        bld.ShellLocal(at, F(a, 4, 70f));
+                    }
+                    shellCount++;
+                    break;
+                case "rebuild": foreach (var bld in Buildings) bld.Rebuild(); shellCount = 0; break;
                 case "lod":
                     forcedLod = (int)F(a, 1, -1);
                     if (Mode != "vehicle.compare" && Mode != "unit.compare") { foreach (var v in Vehicles) v.ForcedLod = forcedLod; foreach (var u in Units) u.ForcedLod = forcedLod; }
@@ -237,7 +270,7 @@ namespace TW.Playground
                     foreach (var v in Vehicles)
                     {
                         float side = a.Length > 1 && a[1] == "left" ? -1f : 1f;
-                        v.HitLocal(new Vector3(side * 4.2f, 0f, 0f), Vector3.down, F(a, 2, 35f), VehicleRig.HitKind.HE);
+                        v.HitLocal(new Vector3(side * 2.6f, 0f, 0f), Vector3.down, F(a, 2, 35f), VehicleRig.HitKind.HE);
                     }
                     break;
                 case "ko": foreach (var v in Vehicles) v.KnockOut(); break;
@@ -250,11 +283,12 @@ namespace TW.Playground
                 case "clip":
                     {
                         int k = Library.ClipIndex(line.Substring(line.IndexOf(' ') + 1).Trim());
-                        if (k >= 0) { clip = k; foreach (var u in Units) if (!u.Dead) u.Play(k); }
+                        if (k >= 0) { clip = k; foreach (var u in Units) if (!u.Dead) u.Play(k, 0.2f, u.Phase); }
                         else return "no clip " + line;
                         break;
                     }
                 case "speed": foreach (var u in Units) u.Speed = F(a, 1, 1f); break;
+                case "face": foreach (var u in Units) u.transform.rotation = Quaternion.Euler(0f, F(a, 1, 0f), 0f); break;
                 case "kill": foreach (var u in Units) u.Kill(DeathClip(u)); break;
                 case "ignite": foreach (var u in Units) u.Ignite(Library.ClipIndex("Burning Run"), DeathClip(u)); break;
                 case "revive": foreach (var u in Units) u.Revive(clip); break;
@@ -266,6 +300,7 @@ namespace TW.Playground
                 case "timescale": Time.timeScale = F(a, 1, 1f); break;
                 case "biome": if (System.Enum.TryParse<Biome>(a.Length > 1 ? a[1] : "NightMud", true, out var b)) SetBiome(b); break;
                 case "panel": ShowPanel = F(a, 1, 1f) > 0.5f; break;
+                case "lodpop": popPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/lodpop.json"); break;
                 case "labels": Labels = F(a, 1, 1f) > 0.5f; break;
                 case "shot": shotPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/playground.png"); shotW = (int)F(a, 2, 1600); shotH = (int)F(a, 3, 900); break;
                 default: return "unknown command " + c;
@@ -319,6 +354,92 @@ namespace TW.Playground
                 string path = shotPath; shotPath = null;
                 Capture(path, shotW, shotH);
             }
+            if (popPath != null)
+            {
+                string path = popPath; popPath = null;
+                File.WriteAllText(path, LodPop(Path.ChangeExtension(path, null)));
+            }
+        }
+
+        // ------------------------------------------------------------------------------------------------ LOD pops
+        string popPath;
+
+        /// <summary>At every LOD boundary of every vehicle and figure on the stage: the camera put exactly where the switch
+        /// happens (the battle's 25 degree lens), the thing drawn at the LOD before and the LOD after, and what changes on
+        /// screen: the silhouette's overlap (IoU of the two masks against an empty frame) and the mean colour shift inside
+        /// them. 1.0 / 0 is a switch nobody can see. Measured magnified (the lens narrowed to fill half the frame from the
+        /// switch distance), so "share" says how big it really is there. Writes a strip PNG per boundary beside the JSON.</summary>
+        string LodPop(string stem)
+        {
+            var cam = Camera.main; var sb = new StringBuilder("{\"pops\":[");
+            var was = (cam.transform.position, cam.transform.rotation, cam.fieldOfView);
+            Cam.enabled = false;
+            bool first = true;
+            void Measure(string what, GameObject root, Vector3 centre, float radius, float[] cuts, int lods, System.Action<int> force)
+            {
+                for (int k = 0; k < lods - 1; k++)
+                {
+                    float fov = 25f, share = cuts[k];
+                    float d = 2f * radius / (share * 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad));
+                    // the switch happens at distance d; at the battle lens the thing is a handful of pixels there, too few to
+                    // compare shapes. Same place (same perspective), a lens narrowed until it fills half the frame.
+                    cam.fieldOfView = 2f * Mathf.Atan(2f * radius / d) * Mathf.Rad2Deg;
+                    var dir = Quaternion.Euler(25f, 200f, 0f) * Vector3.forward;
+                    cam.transform.SetPositionAndRotation(centre - dir * d, Quaternion.LookRotation(dir));
+                    const int W = 480, H = 480;
+                    force(k); var a = Grab(cam, W, H); var sa = Silhouette(cam, root, W, H);
+                    force(k + 1); var b = Grab(cam, W, H); var sbm = Silhouette(cam, root, W, H);
+                    int inter = 0, uni = 0; double dc = 0; int nd = 0;
+                    var strip = new Texture2D(W * 2, H, TextureFormat.RGB24, false);
+                    for (int i = 0; i < a.Length; i++)
+                    {
+                        bool ma = sa[i], mb = sbm[i];
+                        if (ma && mb) inter++;
+                        if (ma || mb) { uni++; dc += (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b)) / 3.0; nd++; }
+                    }
+                    strip.SetPixels32(0, 0, W, H, a); strip.SetPixels32(W, 0, W, H, b); strip.Apply();
+                    File.WriteAllBytes($"{stem}_{what}_{k}to{k + 1}.png", strip.EncodeToPNG()); Destroy(strip);
+                    if (!first) sb.Append(','); first = false;
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"from\":{1},\"to\":{2},\"dist\":{3:0.0},\"share\":{4:0.000},\"iou\":{5:0.000},\"dcol\":{6:0.0},\"pixels\":{7}}}",
+                        what, k, k + 1, d, share, uni > 0 ? (float)inter / uni : 1f, nd > 0 ? dc / nd : 0.0, uni);
+                }
+            }
+            foreach (var v in Vehicles)
+                Measure(v.name, v.gameObject, v.Centre, v.Radius, v.Picker.Cuts, v.LodCount, k => { foreach (var p in v.Parts) p.R.enabled = k >= -1; if (k >= 0) v.SetLod(k); });
+            foreach (var u in Units)
+                Measure(u.name, u.gameObject, u.Centre, 0.5f * u.Height * u.transform.lossyScale.y, u.Picker.Cuts, u.Lods.Length, k => { for (int j = 0; j < u.Lods.Length; j++) u.Lods[j].enabled = j == k; if (k >= 0) u.SetLodSilently(k); });
+            cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
+            Cam.enabled = true;
+            foreach (var v in Vehicles) foreach (var p in v.Parts) p.R.enabled = true;
+            return sb.Append("]}").ToString();
+        }
+
+        /// <summary>Where the thing covers the frame: it alone (its layer), on black, without fog or the grade (film grain and
+        /// a night fog both hide a dark figure's edge from a comparison against an empty frame).</summary>
+        static bool[] Silhouette(Camera c, GameObject root, int w, int h)
+        {
+            const int layer = 31;
+            var ts = root.GetComponentsInChildren<Transform>(true); var was = new int[ts.Length];
+            for (int i = 0; i < ts.Length; i++) { was[i] = ts[i].gameObject.layer; ts[i].gameObject.layer = layer; }
+            var urp = c.GetComponent<UniversalAdditionalCameraData>();
+            var mask = c.cullingMask; var flags = c.clearFlags; var bg = c.backgroundColor; bool post = urp != null && urp.renderPostProcessing; bool fog = RenderSettings.fog;
+            c.cullingMask = 1 << layer; c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = Color.black; if (urp != null) urp.renderPostProcessing = false; RenderSettings.fog = false;
+            var px = Grab(c, w, h);
+            c.cullingMask = mask; c.clearFlags = flags; c.backgroundColor = bg; if (urp != null) urp.renderPostProcessing = post; RenderSettings.fog = fog;
+            for (int i = 0; i < ts.Length; i++) ts[i].gameObject.layer = was[i];
+            var m = new bool[px.Length];
+            for (int i = 0; i < px.Length; i++) m[i] = px[i].r + px[i].g + px[i].b > 6;
+            return m;
+        }
+
+        static Color32[] Grab(Camera c, int w, int h)
+        {
+            var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+            var before = c.targetTexture; c.targetTexture = rt; c.Render(); c.targetTexture = before;
+            var was = RenderTexture.active; RenderTexture.active = rt;
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false); tex.ReadPixels(new Rect(0, 0, w, h), 0, 0); tex.Apply();
+            RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+            var px = tex.GetPixels32(); Destroy(tex); return px;
         }
 
         void Capture(string path, int w, int h)
@@ -357,7 +478,14 @@ namespace TW.Playground
                 var v = Vehicles[i]; if (i > 0) sb.Append(',');
                 int loose = 0; foreach (var p in v.Parts) if (p.Loose) loose++;
                 var sv = Camera.main != null ? Camera.main.WorldToViewportPoint(v.Centre + Vector3.up * v.Radius * 0.8f) : Vector3.zero;
-                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"tris\":{1},\"stage\":\"{2}\",\"hp\":{3:0},\"fire\":{4:0.00},\"loose\":{5},\"sx\":{7:0.000},\"sy\":{8:0.000},\"pose\":\"{6}\"}}", v.Lod, v.TrisDrawn, v.State, v.Hp, v.FireLevel, loose, v.PoseSignature(), sv.x, sv.y);
+                int moving = 0; foreach (var p in v.Parts) if (p.Loose && !p.Fly.Resting) moving++;
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"tris\":{1},\"stage\":\"{2}\",\"hp\":{3:0},\"fire\":{4:0.00},\"loose\":{5},\"moving\":{9},\"sx\":{7:0.000},\"sy\":{8:0.000},\"pose\":\"{6}\"}}", v.Lod, v.TrisDrawn, v.State, v.Hp, v.FireLevel, loose, v.PoseSignature(), sv.x, sv.y, moving);
+            }
+            sb.Append("],\"buildings\":[");
+            for (int i = 0; i < Buildings.Count; i++)
+            {
+                var b = Buildings[i]; if (i > 0) sb.Append(',');
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"name\":\"{0}\",\"standing\":{1},\"chunks\":{2}}}", b.name, b.Standing, b.Pieces.Count);
             }
             sb.Append("],\"units\":[");
             for (int i = 0; i < Units.Count; i++)
@@ -365,7 +493,8 @@ namespace TW.Playground
                 var u = Units[i]; if (i > 0) sb.Append(',');
                 float dist = Camera.main != null ? Vector3.Distance(Camera.main.transform.position, u.Centre) : 0f;
                 var su = Camera.main != null ? Camera.main.WorldToViewportPoint(u.Centre + Vector3.up * u.Height * 0.7f * u.transform.lossyScale.y) : Vector3.zero;
-                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"verts\":{1},\"bones\":{2},\"dist\":{3:0.0},\"clip\":\"{4}\",\"dead\":{5},\"sx\":{6:0.000},\"sy\":{7:0.000}}}", u.Lod, u.VertsDrawn, u.BonesPerLod[u.Lod], dist, u.Clip >= 0 ? Library.Clips[u.Clip].Name : "", u.Dead ? "true" : "false", su.x, su.y);
+                u.Drift(out var hand, out var foot);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"verts\":{1},\"bones\":{2},\"dist\":{3:0.0},\"clip\":\"{4}\",\"dead\":{5},\"sx\":{6:0.000},\"sy\":{7:0.000},\"hand\":[{8:0.000},{9:0.000},{10:0.000}],\"foot\":[{11:0.000},{12:0.000},{13:0.000}],\"rifleInside\":{14:0.00}}}", u.Lod, u.VertsDrawn, u.BonesPerLod[u.Lod], dist, u.Clip >= 0 ? Library.Clips[u.Clip].Name : "", u.Dead ? "true" : "false", su.x, su.y, hand.x, hand.y, hand.z, foot.x, foot.y, foot.z, u.RifleInside);
             }
             sb.Append("]}");
             return sb.ToString();
@@ -382,9 +511,9 @@ namespace TW.Playground
             GUI.Box(area, GUIContent.none);
             GUILayout.BeginArea(new Rect(area.x + 8, area.y + 6, area.width - 16, area.height - 12));
             GUILayout.Label("<b>PLAYGROUND</b>  F1 panel · Space freeze · H hit · G fire · click = AP", Rich());
-            tab = GUILayout.Toolbar(tab, new[] { "Vehicle", "Unit", "Look" });
+            tab = GUILayout.Toolbar(tab, new[] { "Vehicle", "Unit", "Building", "Look" });
             GUILayout.Space(4);
-            if (tab == 0) VehiclePanel(); else if (tab == 1) UnitPanel(); else LookPanel();
+            if (tab == 0) VehiclePanel(); else if (tab == 1) UnitPanel(); else if (tab == 2) BuildingPanel(); else LookPanel();
             GUILayout.FlexibleSpace();
             GUILayout.Label(Info(), Rich());
             GUILayout.EndArea();
@@ -418,7 +547,7 @@ namespace TW.Playground
         void Row(params (string label, string cmd)[] b)
         {
             GUILayout.BeginHorizontal();
-            foreach (var (l, c) in b) if (GUILayout.Button(l)) Queue(c);
+            foreach (var (l, c) in b) if (GUILayout.Button(l)) foreach (var part in c.Split(';')) if (part.Trim().Length > 0) Queue(part.Trim());
             GUILayout.EndHorizontal();
         }
 
@@ -469,6 +598,17 @@ namespace TW.Playground
             GUILayout.EndScrollView();
         }
 
+        Vector2 houseScroll;
+        void BuildingPanel()
+        {
+            Row(("Ruins", "set Ruins"), ("Houses", "set Houses"), ("Military", "set Military"));
+            Row(("Shell it", "shell"), ("Shell x5", "shell; shell; shell; shell; shell"), ("Rebuild", "rebuild"));
+            GUILayout.Label("Building in " + BuildingSet);
+            houseScroll = GUILayout.BeginScrollView(houseScroll, GUILayout.Height(180));
+            foreach (var h in BuildingRig.Kit(BuildingSet)) if (GUILayout.Button($"{h.Name}  ({h.Chunks.Length} chunks)")) Queue("house " + h.Name);
+            GUILayout.EndScrollView();
+        }
+
         void LookPanel()
         {
             Row(("Night mud", "biome NightMud"), ("Winter", "biome Winter"), ("Lava", "biome Lava"));
@@ -482,6 +622,7 @@ namespace TW.Playground
             sb.AppendFormat(CultureInfo.InvariantCulture, "<b>{0:0}</b> fps · {1} cards · t×{2:0.##}\n", fpsAvg, Fx.CardsAlive, Time.timeScale);
             foreach (var v in Vehicles)
                 sb.AppendFormat("<b>{0}</b> LOD{1} {2} tris · {3} · hp {4:0} · fire {5:0.0}\n   {6}\n", v.name, v.Lod, v.TrisDrawn, v.State, v.Hp, v.FireLevel, v.LastEvent);
+            foreach (var b in Buildings) sb.AppendFormat("<b>{0}</b> {1}/{2} chunks standing\n   {3}\n", b.name, b.Standing, b.Pieces.Count, b.LastEvent);
             int shown = 0;
             foreach (var u in Units)
             {
