@@ -334,7 +334,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Chunks, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
-| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, NightLights, TankRenderer |
+| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
 | `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer |
 | `AimPreview` | TestPanel | CombatFx.Abilities |

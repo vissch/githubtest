@@ -56,7 +56,9 @@ namespace TW.Presentation.Tactical
             if (books != null && books.Ready)
                 for (int k = 0; k < 3; k++)
                     books.Add(FlipbookFx.Book.Spurt, p + new Vector3(Mathf.Lerp(-0.6f, 0.6f, Hash01(p.x, p.z, 30 + k)), 0.1f, Mathf.Lerp(-0.6f, 0.6f, Hash01(p.x, p.z, 40 + k))), 1.1f, 0.4f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 3f, grow: 0.5f);
-            Throw(p + Vector3.up * 0.3f, 6, 2, 3f, 1.6f);
+            // dirt (kind 0) thrown from the fuse, or a spray (kind 4) over water: the Chunk kinds of CombatFx.Chunks.cs
+            bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
+            if (wet) Throw(p + Vector3.up * 0.4f, 10, 4, 8f, 0.10f); else Throw(p, 8, 0, 7f, 0.12f);
             CameraShake.Add(p, 0.5f);
         }
 
