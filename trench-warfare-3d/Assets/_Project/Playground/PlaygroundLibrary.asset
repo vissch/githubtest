@@ -1,0 +1,448 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0be427aea91cc05469e6711c9b18aa2c, type: 3}
+  m_Name: PlaygroundLibrary
+  m_EditorClassIdentifier: 
+  Vehicles:
+  - Name: Brute
+    Manifest: {fileID: 4900000, guid: 54f4a6a254e84b44ca94f1dd8392f8cc, type: 3}
+    Lods:
+    - {fileID: 919132149155446097, guid: c0e4aaadb5a022f40816b9f268005a86, type: 3}
+    - {fileID: 919132149155446097, guid: 9cd47133f8df9b940ab069a4fe3d326d, type: 3}
+    - {fileID: 919132149155446097, guid: f33042dac10899f44be4e9f0a3a5fc68, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 63dabdf66f891c04dbe56ee6e268aed5, type: 3}
+    - {fileID: 2800000, guid: be125ff6e0258954788fc1d7741ac5fd, type: 3}
+    - {fileID: 2800000, guid: 9dae998be7b9900498845e708d9eb598, type: 3}
+  Units:
+  - Name: Frog
+    Model: {fileID: 919132149155446097, guid: 1ffbac77dbd202e4388704cb14017201, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 4f587624cb930724b95addbb73538af0, type: 3}
+    - {fileID: 2800000, guid: 61d61208699ea8a43837a3f9df350afc, type: 3}
+    - {fileID: 2800000, guid: 2dd50700847a50444ac19da27a2c1a29, type: 3}
+    Rig: {fileID: 4900000, guid: cccd383573a2e664aa455668aa014764, type: 3}
+  Clips:
+  - Name: Backwards Rifle Run
+    Clip: {fileID: -203655887218126122, guid: 8e92ab5d32f2cca42954295d1be036b8, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Backwards Rifle Walk
+    Clip: {fileID: -203655887218126122, guid: 03b8fb0a5390da84e8e9c056d2c10a23, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Bayonet Stab
+    Clip: {fileID: -203655887218126122, guid: fb3a5c913495dc345a3734642471393d, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Block With Rifle
+    Clip: {fileID: -203655887218126122, guid: d0a879747ca288844a5dfd068d489e57, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Burning Run
+    Clip: {fileID: -203655887218126122, guid: 956a7090bace55149917edf1953f56b0, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Check Shoe
+    Clip: {fileID: -203655887218126122, guid: 8d5ff4fb376e50a49a8d00e1fa33eb55, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Crouch Idle
+    Clip: {fileID: -203655887218126122, guid: e637612a8fa81e34bb80e7f73399f086, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Crouched Run (1)
+    Clip: {fileID: -203655887218126122, guid: 792d1ff728f9f604d8491a9869a95997, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Crouching Turn 90 Left
+    Clip: {fileID: -203655887218126122, guid: 44421ee600609ff499842089bb022bd3, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Crouching Turn 90 Right
+    Clip: {fileID: -203655887218126122, guid: 0f85b77984959894b9e56c7ba6e1a0d1, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Death Crouching Headshot Front
+    Clip: {fileID: -203655887218126122, guid: 85501b37890457645a262b6f7140aad2, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Death From Front Headshot
+    Clip: {fileID: -203655887218126122, guid: 71f83361488edb74fb54a7ed4dde071f, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Death From Right
+    Clip: {fileID: -203655887218126122, guid: e9218b1829e55e049abdd85c6cbcb06e, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Death From The Back
+    Clip: {fileID: -203655887218126122, guid: 2ee9532e8cd461949b82c63a21319111, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Death From The Front
+    Clip: {fileID: -203655887218126122, guid: 5e2b49065868b1b4cbe65cc79ff1172d, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Dive Roll
+    Clip: {fileID: -203655887218126122, guid: b405ac9e3bc790b4e8efd2ee2fa5eeac, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Dodging
+    Clip: {fileID: -203655887218126122, guid: ca706d91c4c3e4f4096d7b601df8daa3, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Emerging
+    Clip: {fileID: -203655887218126122, guid: a50f4085b176d2747b1a4b2687d76056, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Fall Over
+    Clip: {fileID: -203655887218126122, guid: 9a5fe131248c4ef44b00f4a192836dd6, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Fire Rifle
+    Clip: {fileID: -203655887218126122, guid: b41a16bb9e0cd6141b03a3825e10b8b9, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Firing Rifle
+    Clip: {fileID: -203655887218126122, guid: 1583f67c8bb321440b969a1d3ec30280, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Firing Rifle (1)
+    Clip: {fileID: -203655887218126122, guid: 08e0ce57b3861814fa7b130a77d48285, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Firing Rifle (2)
+    Clip: {fileID: -203655887218126122, guid: 59be44e2519431e4aba093d343daccd9, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Firing Rifle (3)
+    Clip: {fileID: -203655887218126122, guid: b7a9afca747fc6d42a7663876777ff49, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Firing Rifle (4)
+    Clip: {fileID: -203655887218126122, guid: 3a377a3e75188804ca322fa4509397c2, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Firing Rifle (5)
+    Clip: {fileID: -203655887218126122, guid: f70bef67b5cbad645a459e14b7dab7a5, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Get Up From Prone
+    Clip: {fileID: -203655887218126122, guid: 21410f06d07cfa349a18ac5149dd2af8, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Hit Reaction
+    Clip: {fileID: -203655887218126122, guid: b70e3ee511969d24295e05430ec9e4fd, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Hit Reaction (1)
+    Clip: {fileID: -203655887218126122, guid: e08e23cab8791cc4e8e370f8e7ca25d4, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Hit Reaction (2)
+    Clip: {fileID: -203655887218126122, guid: e5ab097acfe30e44eb20743e8831cecd, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Idle Crouching Aiming
+    Clip: {fileID: -203655887218126122, guid: ea7ded2a637c1db49be9ff96da3556aa, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Inspecting
+    Clip: {fileID: -203655887218126122, guid: b625a3c241eb8274894cdb1931f55bc7, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Jump Down
+    Clip: {fileID: -203655887218126122, guid: bf26e8cc986010844884f4aca41c9b73, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Jump Loop
+    Clip: {fileID: -203655887218126122, guid: c1a278da5ea481b4e9fe89fd2d2120b1, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Jump Up
+    Clip: {fileID: -203655887218126122, guid: e3fd4c76ff3012944ac882163bf4ed44, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Jumping Down
+    Clip: {fileID: -203655887218126122, guid: a0295ad43416ac34aa52c6b07fa453d9, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Kneel Flinch
+    Clip: {fileID: -203655887218126122, guid: 5c2f36b1734c2dd44bbb1174593e8eec, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Ladder Climb
+    Clip: {fileID: -203655887218126122, guid: 730aa51beaff6f04ca376b8407eb7b1c, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: MG Carry Walk
+    Clip: {fileID: -203655887218126122, guid: 2ef5225e22f4f44448ea8e1ed553cd1d, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Mask Donning
+    Clip: {fileID: -203655887218126122, guid: b6ee9d9c39a0d024f811ff9d63bc5bac, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Moving Backward In Prone Position
+    Clip: {fileID: -203655887218126122, guid: d8487b9885ce73545b1bbf1ac622e2f5, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Prone Crawl Forward
+    Clip: {fileID: -203655887218126122, guid: 1837fc70cff08d241b4f83845ad62075, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Prone Death
+    Clip: {fileID: -203655887218126122, guid: 72c47ed4cb97ded4fbd93298cc19cb1e, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Prone Firing Rifle
+    Clip: {fileID: -203655887218126122, guid: 70a6fde8017a9014d917a2e808714e84, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Prone Firing Rifle (1)
+    Clip: {fileID: -203655887218126122, guid: 6c9165b1d057ce6429949fc1d817cf70, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Prone Flinch
+    Clip: {fileID: -203655887218126122, guid: 121fa73c0fba7124f8433565a88b427b, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Prone Idle
+    Clip: {fileID: -203655887218126122, guid: 85976c8285dda424598d22cb2f50edba, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Prone Reloading
+    Clip: {fileID: -203655887218126122, guid: 2d4fa77be6455ee4ab4b378b203f53dd, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Prone Roll
+    Clip: {fileID: -203655887218126122, guid: 74dc3b1d3a49ab847886334ec8a5080d, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Reload
+    Clip: {fileID: -203655887218126122, guid: 04749d1fc56b43645b92cfca2a06206e, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Reloading
+    Clip: {fileID: -203655887218126122, guid: 6e363f23c8ba67246923ca659587fa9a, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Aim To Down
+    Clip: {fileID: -203655887218126122, guid: 22306b6ecd80f74489b685462bd5f06b, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Aim To Kneel
+    Clip: {fileID: -203655887218126122, guid: 1fb08077125578343888b175debc56fb, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Aiming Idle
+    Clip: {fileID: -203655887218126122, guid: d695b3d84d524464e820359bc45001e8, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Crouch Idle To Walk
+    Clip: {fileID: -203655887218126122, guid: 3f9bfd0a40dcade4cbc4ce5c58c0390a, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Crouch Turn
+    Clip: {fileID: -203655887218126122, guid: 3e79c26b7423a5846ac268f5c85de116, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Crouch Turn (1)
+    Clip: {fileID: -203655887218126122, guid: 5abc371237f44354e925ff27c4107c78, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Crouch Turn (7)
+    Clip: {fileID: -203655887218126122, guid: 93e0c29889beb584ca85b5054af3a118, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Crouch Walk
+    Clip: {fileID: -203655887218126122, guid: e981cc530fb29714788696f66aba6fbf, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Crouch Walk To Idle
+    Clip: {fileID: -203655887218126122, guid: f45035f3ed35dba4ea358059ff5c75db, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Crouch Walk To Kneel
+    Clip: {fileID: -203655887218126122, guid: fb61a5ffbbcaaad458ee9b359b910527, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Death
+    Clip: {fileID: -203655887218126122, guid: b01506fa9765691409169cf63828384a, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Rifle Down To Aim
+    Clip: {fileID: -203655887218126122, guid: d20c95758cd94bd49a16cd0aacd4012e, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Hit To Back
+    Clip: {fileID: -203655887218126122, guid: f7adbf7905db63d44bcb05ea699066d5, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Idle
+    Clip: {fileID: -203655887218126122, guid: 26937f0dc31d7214f9d46b559fbf7e06, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Idle (2)
+    Clip: {fileID: -203655887218126122, guid: 74a7274e25010834c9bb5e25bcfdb8e7, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Idle (3)
+    Clip: {fileID: -203655887218126122, guid: 351c976fe15b1cc49b13c64aab8f4bb2, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Idle (4)
+    Clip: {fileID: -203655887218126122, guid: db6d729530caea4499080ba0785a0411, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Idle To Crouch
+    Clip: {fileID: -203655887218126122, guid: af100e6a6c2dc3e4b9886e677bdcdd1a, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Kneel Hit To Back
+    Clip: {fileID: -203655887218126122, guid: e5d25701aee5c4242ba1da94f551f656, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Kneel Idle
+    Clip: {fileID: -203655887218126122, guid: 081c73406b5c489438254875024e6e43, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Kneel To Aim
+    Clip: {fileID: -203655887218126122, guid: 80d95feaaea412e439ac49964fa7b9f4, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Kneel To Prone
+    Clip: {fileID: -203655887218126122, guid: 9f691004fca775445aa125d05159c549, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Kneel To Stand
+    Clip: {fileID: -203655887218126122, guid: 9380aff7cac7de04b855ffc2f7aec229, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Prone Hit Reaction
+    Clip: {fileID: -203655887218126122, guid: 5c21d62653dc37a4799792bf56197b63, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Prone To Kneel
+    Clip: {fileID: -203655887218126122, guid: d86cee181325ec74a962837b82fef689, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Pull Out
+    Clip: {fileID: -203655887218126122, guid: e703181b76d9a564493068da9efea5fe, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Punch
+    Clip: {fileID: -203655887218126122, guid: 0a19b8e78aa698b45af56502283a5c0e, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Put Away
+    Clip: {fileID: -203655887218126122, guid: c61e686a3b7808f42b0d1cbc9737419f, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Rubbing Eyes
+    Clip: {fileID: -203655887218126122, guid: f0e4923ade5aa4443971fb4f765de350, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Run (1)
+    Clip: {fileID: -203655887218126122, guid: 4590af01847e02d4bb55b611dd7408e9, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Rifle Run To Dying
+    Clip: {fileID: -203655887218126122, guid: 38e852847ce227f419727349e8f39321, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Rifle Shielding Face
+    Clip: {fileID: -203655887218126122, guid: 906f6dfdc73877d469748fb9262b7fa7, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Side Step
+    Clip: {fileID: -203655887218126122, guid: 085c63371f098534baafce319246d08f, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Stand To Kneel
+    Clip: {fileID: -203655887218126122, guid: db1e368daa183b74480d47af5e80e9e5, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Turn (3)
+    Clip: {fileID: -203655887218126122, guid: 8ca4557161f6c984d9a05baa441472a3, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Turn (4)
+    Clip: {fileID: -203655887218126122, guid: d99647736a818434081a117db4d9e4ad, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Turn (6)
+    Clip: {fileID: -203655887218126122, guid: 1a911ec892c128a4b963b96bae1d5b6d, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Rifle Walk
+    Clip: {fileID: -203655887218126122, guid: 746d69ab0b9923642b5f04d31ead17b0, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Smash
+    Clip: {fileID: -203655887218126122, guid: d3e4a32b14e582e48a73615134cb0b8f, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Sprint Forward
+    Clip: {fileID: -203655887218126122, guid: a4f8b2963b655674b8e2a6ce65a41abf, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Stumble Running
+    Clip: {fileID: -203655887218126122, guid: acb56b45fff03f04381b1367451513e5, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Taking Cover
+    Clip: {fileID: -203655887218126122, guid: aa65279ddc314f941a580b65e9702226, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Toss Grenade
+    Clip: {fileID: -203655887218126122, guid: 2c7a9251bb65c8d4e9c80ae7b5c473fe, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Wade Forward
+    Clip: {fileID: -203655887218126122, guid: 6c6c0769be54fd542be1bf83295169de, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walk Crouching Forward
+    Clip: {fileID: -203655887218126122, guid: 2e92ce8124029344bac6f05e5a6926bb, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walk Left
+    Clip: {fileID: -203655887218126122, guid: ac4ccfcb9924e7443840d186d9b37715, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walk Right
+    Clip: {fileID: -203655887218126122, guid: d456203024c2d41469dacbdd086df2e4, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walk With Rifle
+    Clip: {fileID: -203655887218126122, guid: 24e52b847d636fc4eaa1b0090c70d719, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walk With Rifle (1)
+    Clip: {fileID: -203655887218126122, guid: 1d9fd83211623fd4d96b959ece1ce210, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walking Hit Reaction
+    Clip: {fileID: -203655887218126122, guid: 6dd13c89943c0094db7575d7e3f288c2, type: 3}
+    Loop: 1
+    Death: 0
+  - Name: Walking To Dying
+    Clip: {fileID: -203655887218126122, guid: 42b4841698cc4b94c9dc6cb3c93af35c, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Wire Crossing
+    Clip: {fileID: -203655887218126122, guid: a44f98d5942b12943a963cad17712f0b, type: 3}
+    Loop: 0
+    Death: 0
+  ClipSource: {fileID: 919132149155446097, guid: 6fa1f6846c8de8940a9c0d3912f97026, type: 3}
+  ReferenceClip: Rifle Idle

@@ -1,0 +1,323 @@
+{
+ "source": "Tools/frogrig.py",
+ "height_m": 1.78,
+ "scale": 2.5193089149965444,
+ "lods": [
+  {
+   "lod": 0,
+   "verts": 2467,
+   "tris": 4575,
+   "bones": [
+    "mixamorig:Head",
+    "mixamorig:Hips",
+    "mixamorig:LeftArm",
+    "mixamorig:LeftFoot",
+    "mixamorig:LeftForeArm",
+    "mixamorig:LeftHand",
+    "mixamorig:LeftLeg",
+    "mixamorig:LeftShoulder",
+    "mixamorig:LeftToeBase",
+    "mixamorig:LeftUpLeg",
+    "mixamorig:Neck",
+    "mixamorig:RightArm",
+    "mixamorig:RightFoot",
+    "mixamorig:RightForeArm",
+    "mixamorig:RightHand",
+    "mixamorig:RightLeg",
+    "mixamorig:RightShoulder",
+    "mixamorig:RightToeBase",
+    "mixamorig:RightUpLeg",
+    "mixamorig:Spine",
+    "mixamorig:Spine1",
+    "mixamorig:Spine2"
+   ],
+   "max_per_vertex": 4,
+   "texture": "Frog_LOD0_Base.jpg"
+  },
+  {
+   "lod": 1,
+   "verts": 1407,
+   "tris": 2673,
+   "bones": [
+    "mixamorig:Head",
+    "mixamorig:Hips",
+    "mixamorig:LeftArm",
+    "mixamorig:LeftFoot",
+    "mixamorig:LeftForeArm",
+    "mixamorig:LeftHand",
+    "mixamorig:LeftLeg",
+    "mixamorig:LeftShoulder",
+    "mixamorig:LeftToeBase",
+    "mixamorig:LeftUpLeg",
+    "mixamorig:Neck",
+    "mixamorig:RightArm",
+    "mixamorig:RightFoot",
+    "mixamorig:RightForeArm",
+    "mixamorig:RightHand",
+    "mixamorig:RightLeg",
+    "mixamorig:RightShoulder",
+    "mixamorig:RightToeBase",
+    "mixamorig:RightUpLeg",
+    "mixamorig:Spine",
+    "mixamorig:Spine1",
+    "mixamorig:Spine2"
+   ],
+   "max_per_vertex": 4,
+   "texture": "Frog_LOD1_Base.jpg"
+  },
+  {
+   "lod": 2,
+   "verts": 563,
+   "tris": 1084,
+   "bones": [
+    "mixamorig:Head",
+    "mixamorig:Hips",
+    "mixamorig:LeftArm",
+    "mixamorig:LeftFoot",
+    "mixamorig:LeftForeArm",
+    "mixamorig:LeftHand",
+    "mixamorig:LeftLeg",
+    "mixamorig:LeftUpLeg",
+    "mixamorig:RightArm",
+    "mixamorig:RightFoot",
+    "mixamorig:RightForeArm",
+    "mixamorig:RightHand",
+    "mixamorig:RightLeg",
+    "mixamorig:RightUpLeg",
+    "mixamorig:Spine",
+    "mixamorig:Spine2"
+   ],
+   "max_per_vertex": 2,
+   "texture": "Frog_LOD2_Base.jpg"
+  },
+  {
+   "lod": 3,
+   "verts": 125,
+   "tris": 219,
+   "bones": [
+    "mixamorig:Head",
+    "mixamorig:Hips",
+    "mixamorig:LeftArm",
+    "mixamorig:LeftForeArm",
+    "mixamorig:LeftLeg",
+    "mixamorig:LeftUpLeg",
+    "mixamorig:RightArm",
+    "mixamorig:RightForeArm",
+    "mixamorig:RightLeg",
+    "mixamorig:RightUpLeg",
+    "mixamorig:Spine2"
+   ],
+   "max_per_vertex": 2,
+   "texture": "Frog_LOD2_Base.jpg"
+  }
+ ],
+ "skeleton": [
+  {
+   "name": "mixamorig:Hips",
+   "parent": null,
+   "head": [
+    0.0,
+    0.0126,
+    0.592
+   ]
+  },
+  {
+   "name": "mixamorig:Spine",
+   "parent": "mixamorig:Hips",
+   "head": [
+    0.0,
+    0.0126,
+    0.7306
+   ]
+  },
+  {
+   "name": "mixamorig:Spine1",
+   "parent": "mixamorig:Spine",
+   "head": [
+    0.0,
+    0.0126,
+    0.8818
+   ]
+  },
+  {
+   "name": "mixamorig:Spine2",
+   "parent": "mixamorig:Spine1",
+   "head": [
+    0.0,
+    0.0126,
+    1.0329
+   ]
+  },
+  {
+   "name": "mixamorig:Neck",
+   "parent": "mixamorig:Spine2",
+   "head": [
+    0.0,
+    0.0126,
+    1.2345
+   ]
+  },
+  {
+   "name": "mixamorig:Head",
+   "parent": "mixamorig:Neck",
+   "head": [
+    0.0,
+    0.0,
+    1.3226
+   ]
+  },
+  {
+   "name": "mixamorig:HeadTop_End",
+   "parent": "mixamorig:Head",
+   "head": [
+    0.0,
+    0.0,
+    1.6627
+   ]
+  },
+  {
+   "name": "mixamorig:LeftShoulder",
+   "parent": "mixamorig:Spine2",
+   "head": [
+    0.1134,
+    0.0126,
+    1.1463
+   ]
+  },
+  {
+   "name": "mixamorig:LeftArm",
+   "parent": "mixamorig:LeftShoulder",
+   "head": [
+    0.3653,
+    0.0252,
+    1.1085
+   ]
+  },
+  {
+   "name": "mixamorig:LeftForeArm",
+   "parent": "mixamorig:LeftArm",
+   "head": [
+    0.718,
+    0.0453,
+    1.0959
+   ]
+  },
+  {
+   "name": "mixamorig:LeftHand",
+   "parent": "mixamorig:LeftForeArm",
+   "head": [
+    1.0203,
+    0.0126,
+    1.0883
+   ]
+  },
+  {
+   "name": "mixamorig:LeftUpLeg",
+   "parent": "mixamorig:Hips",
+   "head": [
+    0.1965,
+    0.0252,
+    0.5417
+   ]
+  },
+  {
+   "name": "mixamorig:LeftLeg",
+   "parent": "mixamorig:LeftUpLeg",
+   "head": [
+    0.2167,
+    0.0,
+    0.3023
+   ]
+  },
+  {
+   "name": "mixamorig:LeftFoot",
+   "parent": "mixamorig:LeftLeg",
+   "head": [
+    0.2217,
+    0.063,
+    0.1209
+   ]
+  },
+  {
+   "name": "mixamorig:LeftToeBase",
+   "parent": "mixamorig:LeftFoot",
+   "head": [
+    0.2393,
+    -0.1512,
+    0.0378
+   ]
+  },
+  {
+   "name": "mixamorig:RightShoulder",
+   "parent": "mixamorig:Spine2",
+   "head": [
+    -0.1134,
+    0.0126,
+    1.1463
+   ]
+  },
+  {
+   "name": "mixamorig:RightArm",
+   "parent": "mixamorig:RightShoulder",
+   "head": [
+    -0.3653,
+    0.0252,
+    1.1085
+   ]
+  },
+  {
+   "name": "mixamorig:RightForeArm",
+   "parent": "mixamorig:RightArm",
+   "head": [
+    -0.718,
+    0.0453,
+    1.0959
+   ]
+  },
+  {
+   "name": "mixamorig:RightHand",
+   "parent": "mixamorig:RightForeArm",
+   "head": [
+    -1.0203,
+    0.0126,
+    1.0883
+   ]
+  },
+  {
+   "name": "mixamorig:RightUpLeg",
+   "parent": "mixamorig:Hips",
+   "head": [
+    -0.1965,
+    0.0252,
+    0.5417
+   ]
+  },
+  {
+   "name": "mixamorig:RightLeg",
+   "parent": "mixamorig:RightUpLeg",
+   "head": [
+    -0.2167,
+    0.0,
+    0.3023
+   ]
+  },
+  {
+   "name": "mixamorig:RightFoot",
+   "parent": "mixamorig:RightLeg",
+   "head": [
+    -0.2217,
+    0.063,
+    0.1209
+   ]
+  },
+  {
+   "name": "mixamorig:RightToeBase",
+   "parent": "mixamorig:RightFoot",
+   "head": [
+    -0.2393,
+    -0.1512,
+    0.0378
+   ]
+  }
+ ]
+}
