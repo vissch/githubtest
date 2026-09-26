@@ -275,5 +275,20 @@ namespace TW.Tests
             r.Step();
             Assert.GreaterOrEqual(hp - r.W.Hp[hull], MineSystem.MineDamage * TW.Sim.Units.VehicleModulesSystem.MineHullShare - 1e-3f, "and the hull takes the mine's share, not a near miss's five points");
         }
+
+        [Test]
+        public void TheTriggersBoxAndTheBurstsGateHoldForEveryHull()
+        {
+            // two margins the code once held by arithmetic nobody asserted (critique round 5): the trigger's box pad against
+            // every hull's corner plus a tripwire's reach, and the burst's gate against the corner a covered mine can lie at
+            for (byte a = 4; a <= 11; a++)
+            {
+                var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(a);
+                Assert.LessOrEqual(prof.Reach + MineSystem.TripwireReach, MineSystem.WidestHull, "archetype " + a + ": the box pad covers its corner and a tripwire's reach");
+                Assert.LessOrEqual(prof.Reach, MineSystem.MineRadius + System.Math.Max(prof.HalfWidth, prof.Reach), "archetype " + a + ": the burst's gate reaches its corner");
+                Assert.IsTrue(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f), TW.Sim.Units.VehicleModulesSystem.MineHullMargin), "archetype " + a + ": the burst's margin reaches half a metre past the flank");
+                Assert.IsFalse(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f)), "archetype " + a + ": the trigger's footprint does not");
+            }
+        }
     }
 }

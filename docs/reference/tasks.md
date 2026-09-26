@@ -396,7 +396,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HudTextTests` | EditMode | 11 | BattleHud, VehicleArchetype, TankSpec, RosterEntry, OffMapAbilityId, OffMapAbilitySystem |
 | `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |
 | `LandingTests` | EditMode | 8 | SimCommand, MatchSim, Sample, LandingState, BattlefieldGenerator, BattlefieldParams |
-| `MineTests` | EditMode | 13 | MineKind, MineSystem, SimEventType, Mine, MineState, MapData |
+| `MineTests` | EditMode | 14 | MineKind, MineSystem, SimEventType, Mine, MineState, MapData |
 | `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
 | `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
 | `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |

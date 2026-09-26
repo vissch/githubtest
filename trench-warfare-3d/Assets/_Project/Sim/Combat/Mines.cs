@@ -58,6 +58,9 @@ namespace TW.Sim.Combat
         public const int MaxMines = 256;
         /// <summary>Impact.Source of a mine's burst: SourceBase + the kind.</summary>
         public const int SourceBase = 70;
+        /// <summary>The trigger job's box pad: past any hull's corner (VehicleProfile.Reach, a Pincer's 6.4 m) plus a tripwire's
+        /// reach, so the box throws a slot out only when no test after it could hit. MineTests holds it against every profile.</summary>
+        public const float WidestHull = 7f;
 
         readonly MapData map;
         BlastSystem blast;
@@ -226,9 +229,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> Team, Archetype;
             public NativeList<int> Triggered;   // (mine, victim) pairs
 
-            /// <summary>Past any hull's corner (VehicleProfile.Reach: a Pincer's is 6.4 m) and a tripwire's reach beyond it,
-            /// so the box test throws a slot out only when no test after it could hit.</summary>
-            const float WidestHull = 7f;
+            const float WidestHull = MineSystem.WidestHull;
 
             public void Execute()
             {
