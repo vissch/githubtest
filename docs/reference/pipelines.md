@@ -33,6 +33,14 @@ Traps, all silent:
 - **Import settings.** `Editor/TankImport.cs` and `Editor/EnvKitImport.cs` set import rules by folder. Vehicle and
   chunk meshes must stay Read/Write enabled; setting it by hand does not stick, the postprocessor resets it.
 
+## Asset playground (docs/22)
+
+| Script | Does | Usage |
+|---|---|---|
+| `playground/pg.sh` | Drives the playground in this checkout's editor (in Play in `Playground.unity`): queue commands, take stills with a JSON report | `bash Tools/playground/pg.sh do "vehicle.compare; seq"`, `... shot NAME [W H]`, `... report` |
+| `playground/round.sh` | The critic loop's fixed shot list: vehicle LODs through a destruction, figures at four LODs, a squad to 300 m, the mixed scene on grid and mud, a shelled building, the LOD-pop measurements | `bash Tools/playground/round.sh r1` (stills in `Captures/playground/`) |
+| `playground/sheet.py` | Contact sheets of a round, each still labelled from its JSON (LOD, cost, stage), and a stats table | `python Tools/playground/sheet.py r1` |
+
 ## Environment textures and atlas
 
 | Script | Does | Usage |
