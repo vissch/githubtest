@@ -1,0 +1,19 @@
+{
+    "name": "TW.Playground.Editor",
+    "rootNamespace": "TW.Playground.Editor",
+    "references": [
+        "TW.Playground",
+        "TW.Presentation.Terrain"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
