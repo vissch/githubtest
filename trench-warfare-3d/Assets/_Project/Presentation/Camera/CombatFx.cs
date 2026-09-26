@@ -28,6 +28,7 @@ namespace TW.Presentation.Tactical
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
         struct Marker { public Vector3 Pos, Dir; public float Length, Radius, Until; public bool Mine; }   // Dir, Length: a line ability's corridor (Length 0: a disc)
+        const float MarkerSegment = 6f;   // a corridor marker is drawn in pieces this long, each on its own ground sample
         static readonly int WetId = Shader.PropertyToID("_TWWet");
         static readonly int WindGlobalId = Shader.PropertyToID("_TWWind");
         float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
@@ -754,9 +755,15 @@ namespace TW.Presentation.Tactical
                 {
                     var m = markers[i];
                     if (m.Mine != (pass == 0) || m.Length <= 0f) continue;
-                    var mid = m.Pos + m.Dir * (m.Length * 0.5f);
-                    mid.y = RenderGround.Sample(Host.Local.Map, mid.x, mid.z) + 0.4f;
-                    batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(m.Dir), new Vector3(m.Radius * 2f, 0.05f, m.Length)));
+                    // in pieces, each on its own ground sample, so a long corridor follows a ridge instead of floating over it
+                    var rot = Quaternion.LookRotation(m.Dir);
+                    for (float s = 0f; s < m.Length; s += MarkerSegment)
+                    {
+                        float len = Mathf.Min(MarkerSegment, m.Length - s);
+                        var mid = m.Pos + m.Dir * (s + len * 0.5f);
+                        mid.y = RenderGround.Sample(Host.Local.Map, mid.x, mid.z) + 0.4f;
+                        batch.Add(Matrix4x4.TRS(mid, rot, new Vector3(m.Radius * 2f, 0.05f, len)));
+                    }
                 }
                 if (batch.Count > 0) Flush(cube, rpMark);
             }

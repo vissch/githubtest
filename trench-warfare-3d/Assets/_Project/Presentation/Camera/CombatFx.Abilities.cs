@@ -88,7 +88,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Where the aircraft of a run is now: 200 m out and high as the ability fires, over the corridor's
         /// start as the warm-up ends, low along the corridor, climbing away past its end.</summary>
-        bool PlaneAt(in Flyover f, float simNow, float now, out Vector3 at, out Quaternion rot)
+        bool PlaneAt(in Flyover f, float simNow, out Vector3 at, out Quaternion rot)
         {
             float along = PlaneAlong(simNow, f.Fired, f.Warm);
             at = default; rot = Quaternion.identity;
@@ -97,7 +97,7 @@ namespace TW.Presentation.Tactical
             var over = f.Start + f.Dir * Mathf.Clamp(along, 0f, f.Length);
             at = f.Start + f.Dir * along;
             at.y = RenderGround.Sample(Host.Local.Map, over.x, over.z) + alt;
-            float bank = Mathf.Sin(now * 1.7f) * 4f;
+            float bank = Mathf.Sin(simNow * 1.7f) * 4f;   // sim time too: paused, the wings hold
             rot = Quaternion.LookRotation(f.Dir) * Quaternion.Euler(along < 0f ? 6f : along > f.Length ? -8f : 0f, 0f, bank);
             return true;
         }
@@ -105,7 +105,7 @@ namespace TW.Presentation.Tactical
         bool TryPlane(float now, out Vector3 at, out Quaternion rot)
         {
             float simNow = SimNow;
-            for (int i = flyovers.Count - 1; i >= 0; i--) if (PlaneAt(flyovers[i], simNow, now, out at, out rot)) return true;
+            for (int i = flyovers.Count - 1; i >= 0; i--) if (PlaneAt(flyovers[i], simNow, out at, out rot)) return true;
             at = default; rot = Quaternion.identity; return false;
         }
 
@@ -119,7 +119,7 @@ namespace TW.Presentation.Tactical
                 var f = flyovers[i];
                 float along = PlaneAlong(simNow, f.Fired, f.Warm);
                 if (along > f.Length + PlaneRunOut) { flyovers.RemoveAt(i); continue; }
-                if (!PlaneAt(f, simNow, now, out var at, out var rot)) continue;
+                if (!PlaneAt(f, simNow, out var at, out var rot)) continue;
                 if (kit.HasValue && kit.Value.mesh != null && kit.Value.material != null)
                     FrameBudget.Draw(new RenderParams(kit.Value.material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = false }, kit.Value.mesh, 0, Matrix4x4.TRS(at, rot, kit.Value.scale));
                 else

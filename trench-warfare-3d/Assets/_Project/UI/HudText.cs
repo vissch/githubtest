@@ -44,7 +44,9 @@ namespace TW.UI
         static readonly GameAction[] SupportActions = { GameAction.ArmBarrage, GameAction.ArmGas, GameAction.ArmCreeping, GameAction.ArmSmoke, GameAction.ArmStrafe, GameAction.ArmBeam };
         /// <summary>The key on a support card, in HudView.SupportAbilities order: whatever KeyMap binds the arm action to
         /// now, so a rebinding shows on the card.</summary>
-        public static string SupportHotkey(int index) => index >= 0 && index < SupportActions.Length ? KeyMap.Display(KeyMap.Primary(SupportActions[index])) : "";
+        public static string SupportHotkey(int index) => index >= 0 && index < SupportActions.Length ? Badge(KeyMap.Display(KeyMap.Primary(SupportActions[index]))) : "";
+        /// <summary>An unbound action's badge: a dash, so the card still reads and two unbound cards do not share an empty key.</summary>
+        static string Badge(string key) => string.IsNullOrEmpty(key) ? "—" : key;
 
         public static string VehicleName(byte archetype)
         {

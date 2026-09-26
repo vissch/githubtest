@@ -19,6 +19,11 @@ namespace TW.Presentation.Meta
         public const float TexelsPerMetre = 2f;
         /// <summary>The wisps: this share of the density waves with the continent's noise.</summary>
         public const float NoiseDepth = 0.25f;
+        /// <summary>Over the sea the fog is this share of its density: the water is charted, only the land is unknown.</summary>
+        public const float SeaShare = 0.45f;
+        /// <summary>Along the front line the fog thins to this share within FrontBand metres (soft over FrontSoft more):
+        /// the front is known to both sides, so the map reads as a map from the first day.</summary>
+        public const float FrontShare = 0.5f, FrontBand = 4f, FrontSoft = 3f;
         const uint NoiseSalt = 0xF06u;
 
         /// <summary>The texel grid over a world rectangle: row-major from the -x/-z corner, texel centres sampled.</summary>
@@ -51,11 +56,14 @@ namespace TW.Presentation.Meta
         /// the soft edge, smooth between.</summary>
         public static float Clear(float d) => 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((d - HoleRadius) / HoleSoft));
 
-        /// <summary>The fog alpha per texel of the grid for holes at these world XZ positions. Allocates: called when
-        /// a state changes, not per frame.</summary>
-        public static float[] Alpha(Grid grid, IReadOnlyList<Vector2> holes, uint seed)
+        /// <summary>The fog alpha per texel of the grid for holes at these world XZ positions; with the continent's raw
+        /// <paramref name="heights"/> the sea is thinner, and with the <paramref name="front"/> line's world XZ points a
+        /// band along it shows through. Allocates: called when a state changes, not per frame.</summary>
+        public static float[] Alpha(Grid grid, IReadOnlyList<Vector2> holes, uint seed, float[] heights = null, IReadOnlyList<Vector2> front = null)
         {
             var a = new float[grid.Count];
+            float landW = ContinentMesh.Width * ContinentMesh.Cell, landL = ContinentMesh.Length * ContinentMesh.Cell;
+            bool frontKnown = front != null && front.Count >= 2;
             for (int j = 0; j < grid.H; j++)
             {
                 float z = grid.Z(j);
@@ -69,10 +77,29 @@ namespace TW.Presentation.Meta
                         if (c > clear) clear = c;
                     }
                     float wisp = 1f - NoiseDepth + NoiseDepth * ContinentMesh.Fbm(x, z, seed ^ NoiseSalt);
-                    a[j * grid.W + i] = Density * wisp * (1f - clear);
+                    float alpha = Density * wisp * (1f - clear);
+                    if (heights != null && ContinentMesh.HeightAt(heights, ContinentMesh.Width, ContinentMesh.Length, x / landW, z / landL) < 0f) alpha *= SeaShare;
+                    if (frontKnown) alpha *= 1f - FrontShare * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((ToPolyline(front, x, z) - FrontBand) / FrontSoft)));
+                    a[j * grid.W + i] = alpha;
                 }
             }
             return a;
+        }
+
+        /// <summary>Metres from a point to the nearest segment of a polyline.</summary>
+        public static float ToPolyline(IReadOnlyList<Vector2> line, float x, float z)
+        {
+            float best = float.MaxValue;
+            var p = new Vector2(x, z);
+            for (int k = 0; k + 1 < line.Count; k++)
+            {
+                Vector2 a = line[k], b = line[k + 1], ab = b - a;
+                float l2 = ab.sqrMagnitude;
+                float t = l2 > 1e-6f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / l2) : 0f;
+                float d = (a + ab * t - p).magnitude;
+                if (d < best) best = d;
+            }
+            return best;
         }
     }
 }

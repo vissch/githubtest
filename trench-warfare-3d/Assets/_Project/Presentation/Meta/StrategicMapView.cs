@@ -2,7 +2,8 @@
 // with a pin per country node tinted by its state (locked plate, available amber, current power-blue and pulsing,
 // complete bone), a dashed front-line ribbon through the nodes in order, a ring under the hovered pin, and the fog
 // of the unexplored map (MapFog): a sheet draped over the land that opens round every node the player can reach,
-// rebaked when a state changes; a locked pin is a stub under the haze. Built at runtime in the menu scene, no asset.
+// thinner over the charted sea and along the known front, rebaked when a state changes; a locked pin is a stub
+// under the haze. Built at runtime in the menu scene, no asset.
 // Picking is a ray against a sphere collider per pin while the pointer is not over the UI; Focus eases the map
 // camera onto a node. Talks to the screen through IStrategicMapView. Every draw goes through FrameBudget.
 using System;
@@ -38,6 +39,7 @@ namespace TW.Presentation.Meta
         Material seaMat, ribbonMat, ringMat, fogMat; readonly Material[] bandMats = new Material[3]; readonly Material[] stateMats = new Material[4];
         Texture2D fogTex; Color32[] fogPixels; bool fogDirty;
         readonly List<Vector2> holes = new List<Vector2>();
+        readonly List<Vector2> frontLine = new List<Vector2>();   // the front's world XZ, for the fog's band along it
         readonly List<Pin> pins = new List<Pin>();
         Light key; Color savedKeyColor; float savedKeyIntensity; bool keyHeld;
         bool shown;
@@ -86,8 +88,9 @@ namespace TW.Presentation.Meta
             if (pins.Count > 0) centre /= pins.Count; else centre = new Vector3(ContinentMesh.Width * 0.5f, 0f, ContinentMesh.Length * 0.5f);
             if (ribbon != null) { Destroy(ribbon); ribbon = null; }
             var points = new List<Vector3>();
+            this.frontLine.Clear();
             if (frontLine != null)
-                foreach (var id in frontLine) { var p = Find(id); if (p != null) points.Add(p.Pos); }
+                foreach (var id in frontLine) { var p = Find(id); if (p != null) { points.Add(p.Pos); this.frontLine.Add(new Vector2(p.Pos.x, p.Pos.z)); } }
             if (points.Count >= 2) ribbon = MetaMeshes.Ribbon(points, RibbonWidth, 0.18f, RibbonDash, "FrontLine");
             fogDirty = true;
             TakeLight();
@@ -177,7 +180,7 @@ namespace TW.Presentation.Meta
             }
             holes.Clear();
             for (int i = 0; i < pins.Count; i++) if (pins[i].View.State != NodeState.Locked) holes.Add(new Vector2(pins[i].Pos.x, pins[i].Pos.z));
-            var alpha = MapFog.Alpha(grid, holes, ContinentMesh.Seed);
+            var alpha = MapFog.Alpha(grid, holes, ContinentMesh.Seed, heights, frontLine);   // thinner over the sea, a band along the front
             for (int i = 0; i < alpha.Length; i++) fogPixels[i] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(alpha[i]) * 255f));
             fogTex.SetPixels32(fogPixels);
             fogTex.Apply(false, false);

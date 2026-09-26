@@ -171,7 +171,7 @@ namespace TW.Tests
             Assert.AreEqual(0f, CombatFx.PlaneAlong(fired + warm, fired, warm), 1e-4f, "over the corridor's start as the warm-up ends");
             Assert.AreEqual(CombatFx.PlaneHigh, CombatFx.PlaneAltitude(-CombatFx.PlaneRunIn, 80f), 1e-4f);
             Assert.AreEqual(CombatFx.PlaneLow, CombatFx.PlaneAltitude(20f, 80f), 1e-4f);
-            Assert.AreEqual(CombatFx.PlaneAlong(fired + warm + 1f, fired, warm), CombatFx.PlaneAlong(fired + warm + 1f, fired, warm), "the same sim time is the same place: a paused match holds it");
+            Assert.AreEqual(CombatFx.PlaneSpeed * 0.5f, CombatFx.PlaneAlong(fired + warm + 0.5f, fired, warm) - CombatFx.PlaneAlong(fired + warm, fired, warm), 1e-3f, "it moves with sim time alone: half a second of sim is twenty metres, whatever the wall clock did");
             var beam = new ActiveBeam { Start = new float3(10f, 0f, 20f), Dir = new float3(0f, 0f, 1f), Length = 60f, StartTick = 140, EndTick = 260 };
             for (uint tick = 140; tick <= 270; tick += 10)
             {

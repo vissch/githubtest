@@ -88,6 +88,22 @@ namespace TW.Tests
             // no wire at all: straight
             ScatterField.Route(Field(), new Vector2Int(6, 4), new Vector2Int(18, 19), way);
             Assert.AreEqual(2, way.Count);
+            // wire beside the line but not on it is no belt of this corridor: straight
+            var beside = Field();
+            for (int x = 15; x < 24; x++) beside.Nav[beside.Index(x, 11)] |= (byte)NavLayer.Wire;
+            ScatterField.Route(beside, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
+            Assert.AreEqual(2, way.Count, "a belt that ends nine cells off the corridor is not crossed");
+            // a breach two rows deep on the corridor's own rows is a gap like any other, and the nearest one wins
+            var breached = Field();
+            breached.WireRow(11, 7, 2); breached.WireRow(12, 7, 2);
+            ScatterField.Route(breached, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
+            Assert.AreEqual(new Vector2Int(7, 11), way[1], "through the hole a cell off the line");
+            // two belts: the second is searched along the line from the first waypoint, so the path never bends back
+            var two = Field();
+            two.WireRow(8, 9); two.WireRow(14, 9);
+            ScatterField.Route(two, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
+            Assert.AreEqual(4, way.Count);
+            Assert.AreEqual(new Vector2Int(9, 8), way[1]); Assert.AreEqual(new Vector2Int(9, 14), way[2], "the second gap is straight ahead of the first");
         }
 
         [Test]

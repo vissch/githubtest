@@ -50,17 +50,17 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core | 37 |
 | `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 5 |
 | `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
-| `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav | 15 |
+| `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav | 16 |
 | `TW.Sim.Core` | `Sim/Core/` | `TW.Sim` | (none) | 16 |
 | `TW.Sim.Match` | `Sim/Match/` | `TW.Sim.Match` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units | 10 |
 | `TW.Sim.Nav` | `Sim/Nav/` | `TW.Sim.Nav` | Sim.Core, Sim.Terrain | 6 |
 | `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core | 10 |
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat | 7 |
-| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf | 69 |
+| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf | 70 |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 44 |
 
-20 assemblies, 315 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+20 assemblies, 317 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -93,15 +93,15 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Scenes/` | Bootstrap (entry), MainMenu, GreyboxCorridor (the dev battle scene: open this one to Play). |  |
 | `Settings/` | URP pipeline and renderer assets (TW-URP, TW-Renderer). |  |
 | `Shaders/` | All TW/* shaders and the shared .hlsl includes. |  |
-| `Sim/` | Deterministic lockstep simulation. References nothing outside TW.Sim.* (SIM lane). | 64 |
-| `Sim/Combat/` | Target acquisition, direct fire, blast, suppression, gas, tank gunnery, armour. | 15 |
+| `Sim/` | Deterministic lockstep simulation. References nothing outside TW.Sim.* (SIM lane). | 65 |
+| `Sim/Combat/` | Target acquisition, direct fire, blast, suppression, gas, tank gunnery, armour. | 16 |
 | `Sim/Core/` | SimWorld (state + hash), commands, events, config, RNG, math, roster, system order. | 16 |
 | `Sim/Match/` | MatchSim (system registration), sector control, off-map abilities, bombardment, deformation, sea landing. | 10 |
 | `Sim/Nav/` | Flow fields, movement, separation, spatial hash, vehicle kinematics (VehicleSize lives here). | 6 |
 | `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. | 10 |
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. | 7 |
-| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 75 |
-| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 69 |
+| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 76 |
+| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 70 |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. | 6 |
 | `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. | 44 |
 | `UI/Campaign/` | Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings). | 6 |
@@ -146,6 +146,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 1000 | `DeformationSystem` | `Deformation` | `Sim/Match/Deformation.cs` | registered |
 | 1110 | `MovementSystem` | `Movement` | `Sim/Nav/MovementSystem.cs` | registered |
 | 1120 | `VehicleKinematicsSystem` | `VehicleKinematics` | `Sim/Nav/VehicleKinematics.cs` | registered |
+| 1130 | `MineSystem` | `VehicleKinematics + 10` | `Sim/Combat/Mines.cs` | registered |
 | 1200 | `SectorControlSystem` | `SectorControl` | `Sim/Match/SectorControl.cs` | registered |
 
 Step order follows `Order`; `Initialize` order follows the `AddSystem` calls in `Sim/Match/MatchSim.cs`. Order constants no system uses: `SpatialHash` (500), `Building` (728), `Separation` (1100), `Death` (1300).

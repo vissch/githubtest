@@ -110,5 +110,28 @@ namespace TW.Tests
             Assert.That(min, Is.GreaterThanOrEqualTo(MapFog.Density * (1f - MapFog.NoiseDepth) - 1e-4f), "with nothing reachable the whole map is fogged");
             Assert.That(MapFog.Clear(0f), Is.EqualTo(1f)); Assert.That(MapFog.Clear(MapFog.HoleRadius + MapFog.HoleSoft), Is.Zero);
         }
+
+        [Test]
+        public void The_Fog_Is_Thinner_Over_The_Sea_And_Along_The_Front()
+        {
+            var h = ContinentMesh.Heights(ContinentMesh.Seed);
+            var grid = StrategicMapView.FogGrid;
+            var none = new List<Vector2>();
+            var plain = MapFog.Alpha(grid, none, ContinentMesh.Seed);
+            var charted = MapFog.Alpha(grid, none, ContinentMesh.Seed, h);
+            int sea = grid.Index(-10f, -10f), land = grid.Index(ContinentMesh.Width * 0.5f, ContinentMesh.Length * 0.5f);
+            Assert.That(ContinentMesh.HeightAt(h, ContinentMesh.Width, ContinentMesh.Length, 0f, 0f), Is.LessThan(0f), "the corner is sea");
+            Assert.AreEqual(plain[sea] * MapFog.SeaShare, charted[sea], 1e-4f, "over the sea the fog is the charted share");
+            Assert.AreEqual(plain[land], charted[land], 1e-4f, "over the high ground it is what it was");
+            var front = new List<Vector2>();
+            foreach (var id in CampaignGraph.FrontLine) { var n = CampaignGraph.Find(id); var w = ContinentMesh.WorldOf(h, n.MapPos); front.Add(new Vector2(w.x, w.z)); }
+            Assert.GreaterOrEqual(front.Count, 2);
+            var known = MapFog.Alpha(grid, none, ContinentMesh.Seed, h, front);
+            var mid = (front[0] + front[1]) * 0.5f;
+            int on = grid.Index(mid.x, mid.y);
+            Assert.That(MapFog.ToPolyline(front, mid.x, mid.y), Is.LessThan(0.6f));
+            Assert.That(known[on], Is.LessThanOrEqualTo(charted[on] * (1f - MapFog.FrontShare) + 1e-3f), "on the front line the fog is thinned by the front's share");
+            Assert.AreEqual(charted[land], known[land], 1e-4f, "far from it, untouched");
+        }
     }
 }

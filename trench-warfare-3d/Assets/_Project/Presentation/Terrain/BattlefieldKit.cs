@@ -707,9 +707,10 @@ namespace TW.Presentation.Terrain
             // fresh snow is held matt on purpose (SnowSparkle 0.15) so that the ice carries the highlight. Make
             // sets only colour and outline, so the gloss the Toon shader already has goes on here by hand.
             icicles.Material.SetFloat("_Gloss", 0.62f);
+            // a helmet fits a head: a 0.31 m brim (docs/21 phase 1: 0.13-0.18 SU), not the 0.43 m of the 2.67 m man's day
             helmet = Small(Make(Combine("Lost helmet",
-                (dome, new Vector3(0f, 0.06f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.29f, 0.15f, 0.31f)),
-                (dome, new Vector3(0f, 0.035f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.40f, 0.03f, 0.43f))), steel, false, 0.9f));
+                (dome, new Vector3(0f, 0.045f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.21f, 0.11f, 0.22f)),
+                (dome, new Vector3(0f, 0.025f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.29f, 0.03f, 0.31f))), steel, false, 0.9f));
             messKit = Small(Make(Combine("Mess tin and bottle",
                 (tin, new Vector3(0f, 0f, 0f), Vector3.zero, new Vector3(1.2f, 1f, 0.8f)),
                 (tin, new Vector3(0.22f, 0.05f, 0.10f), new Vector3(90f, 35f, 0f), new Vector3(0.7f, 1.1f, 0.7f)),
@@ -731,8 +732,8 @@ namespace TW.Presentation.Terrain
             graveMarker = Small(Make(Combine("Rifle and helmet",
                 (cube, new Vector3(0f, 0.55f, 0f), new Vector3(4f, 0f, -5f), new Vector3(0.045f, 1.10f, 0.06f)),
                 (cube, new Vector3(0.035f, 0.98f, 0.03f), new Vector3(4f, 0f, -5f), new Vector3(0.055f, 0.36f, 0.12f)),
-                (dome, new Vector3(0.05f, 1.20f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.29f, 0.15f, 0.31f)),
-                (dome, new Vector3(0.05f, 1.175f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.40f, 0.03f, 0.43f))), new Color(0.29f, 0.27f, 0.21f), false, 0.9f));
+                (dome, new Vector3(0.05f, 1.20f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.21f, 0.11f, 0.22f)),
+                (dome, new Vector3(0.05f, 1.185f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.29f, 0.03f, 0.31f))), new Color(0.29f, 0.27f, 0.21f), false, 0.9f));
             // a trench is lived in: rifles stood against the wall, a board that points the way, a bucket, tins on a nail, the telephone wire
             leanRifle = Small(Make(Combine("Rifle stood against the wall",
                 (cube, new Vector3(0f, 0.62f, 0f), Vector3.zero, new Vector3(0.04f, 1.22f, 0.055f)),

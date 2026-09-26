@@ -235,7 +235,7 @@ namespace TW.Perf
         readonly List<string> unavailable = new List<string>(), warnings = new List<string>();
         readonly FrameTiming[] timing = new FrameTiming[1];
         Series dt, cpu, main, render, gpu, mainTick, mainIdle, ticksPerFrame;
-        Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive;
+        Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive, frameDraws, frameVerts, frameIndirect;
         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
         int hitches, frames;
@@ -287,6 +287,7 @@ namespace TW.Perf
             terrain = FindFirstObjectByType<GreyboxTerrainView>();
             vatDrawn = New("vat_drawn"); vatNear = New("vat_near"); vatVerts = New("vat_vertices"); vatShadows = New("vat_shadows_on");
             propDraws = New("props_draw_calls"); propVerts = New("props_vertices"); debrisAlive = New("debris_alive"); debrisDraws = New("debris_draw_calls");
+            frameDraws = New("frame_draw_calls"); frameVerts = New("frame_vertices"); frameIndirect = New("frame_indirect_draws");   // FrameBudget: every submission in Presentation, the lining included
             paintMs = New("terrain_paint_ms"); alive = New("alive");
 #if UNITY_EDITOR
             if (UnityEditor.SceneView.sceneViews.Count > 0)
@@ -335,6 +336,7 @@ namespace TW.Perf
 
             if (vat != null) { vatDrawn.Add(vat.DrawnInfantry); vatNear.Add(vat.DrawnNear); vatVerts.Add(vat.VerticesThisFrame); vatShadows.Add(vat.ShadowsThisFrame ? 1 : 0); }
             if (props != null) { propDraws.Add(props.DrawCalls); propVerts.Add(props.SubmittedVertices); }
+            frameDraws.Add(FrameBudget.DrawCalls); frameVerts.Add(FrameBudget.Vertices); frameIndirect.Add(FrameBudget.IndirectDraws);
             if (debris != null) { debrisAlive.Add(debris.Alive); debrisDraws.Add(debris.DrawCalls); }
             if (terrain != null) paintMs.Add(terrain.LastPaintMilliseconds);
             alive.Add(w.AliveCount);

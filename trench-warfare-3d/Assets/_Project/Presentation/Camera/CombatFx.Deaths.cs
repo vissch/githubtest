@@ -70,24 +70,25 @@ namespace TW.Presentation.Tactical
                 {
                     // the fuel he carried burns on under the body, and he smoulders
                     flames.Spill(p, 1.2f, 6f);
-                    AddSmoulder(p);
+                    AddSmoulder(p, e.Pos);
                 }
                 units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly, gib, grime, density, chr);
             }
             else
             {
                 flames.Douse(e.A);
-                if (burning) AddSmoulder(p);
+                if (burning) AddSmoulder(p, e.Pos);
                 bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
             }
             // his helmet comes off as he goes down and rolls a step away
             if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
-                chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + Mathf.Lerp(-70f, 70f, Hash01(p.x, p.z, 1)), 0f) * Vector3.forward * Mathf.Lerp(1.2f, 2.4f, Hash01(p.x, p.z, 2)) + Vector3.up * 1.6f,
+                chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + Mathf.Lerp(-70f, 70f, Hash01(e.Pos.x, e.Pos.z, 1)), 0f) * Vector3.forward * Mathf.Lerp(1.2f, 2.4f, Hash01(e.Pos.x, e.Pos.z, 2)) + Vector3.up * 1.6f,
                     Born = Time.time, Life = 4f, Size = 1f, Kind = 6 });
         }
 
-        /// <summary>The cosmetic dice: a hash of a position and a salt in 0..1, so two peers throw the same helmet and
-        /// the same wisps (decisions.md: presentation only, seeded so replays agree).</summary>
+        /// <summary>The cosmetic dice: a hash of the SIM's position (the event's, never the drawn one, which is the frame's
+        /// interpolation) and a salt in 0..1, so two peers throw the same helmet and the same wisps (decisions.md:
+        /// presentation only, seeded so replays agree).</summary>
         static float Hash01(float x, float z, int salt)
         {
             uint h = (uint)Mathf.FloorToInt(x * 37f) * 73856093u ^ (uint)Mathf.FloorToInt(z * 37f) * 19349663u ^ (uint)salt * 83492791u;
@@ -95,10 +96,10 @@ namespace TW.Presentation.Tactical
             return (h & 0xFFFFFF) / 16777216f;
         }
 
-        void AddSmoulder(Vector3 at)
+        void AddSmoulder(Vector3 at, Vector3 seedAt)
         {
             if (smoulders.Count >= MaxSmoulders) smoulders.RemoveAt(0);
-            smoulders.Add(new Smoulder { At = at, Until = Time.time + SmoulderSeconds, Next = Time.time + 0.2f, Seed = Hash01(at.x, at.z, 3) });
+            smoulders.Add(new Smoulder { At = at, Until = Time.time + SmoulderSeconds, Next = Time.time + 0.2f, Seed = Hash01(seedAt.x, seedAt.z, 3) });
         }
 
         /// <summary>A thin thread of smoke off every charred body for a while after it fell.</summary>

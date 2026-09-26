@@ -205,35 +205,42 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>The corridor's way from ladder <paramref name="a"/> to ladder <paramref name="b"/>: a waypoint in every
-        /// belt of wire between them, at the gap nearest the straight line (within GapSearchCells), or on the line where
-        /// there is no gap (the men cut the wire there). A belt is a run of rows with wire near the line.</summary>
+        /// belt of wire it would cross, at the gap nearest the line (within GapSearchCells), or on the line where there
+        /// is no gap (the men cut the wire there). A belt is a run of rows with wire on the corridor's own cells (its
+        /// half width either side of the line); each belt is looked for along the line from the last waypoint, so the
+        /// path bends once to a gap and goes on from there, never back across the wire.</summary>
         public static void Route(ScatterInput input, Vector2Int a, Vector2Int b, List<Vector2Int> into)
         {
             into.Clear(); into.Add(a);
             int step = b.y > a.y ? 1 : -1, rows = Mathf.Abs(b.y - a.y);
             int beltFrom = -1;
+            var from = a;
             for (int n = 1; n <= rows; n++)
             {
                 int z = a.y + n * step;
                 bool last = n == rows;
-                bool wire = !last && RowHasWire(input, z, LineX(a, b, z));
+                bool wire = !last && RowHasWire(input, z, LineX(from, b, z));
                 if (wire && beltFrom < 0) beltFrom = z;
                 if (!wire && beltFrom >= 0)
                 {
-                    int beltTo = z - step, mid = (beltFrom + beltTo) / 2, lineX = LineX(a, b, mid);
-                    into.Add(new Vector2Int(Gap(input, beltFrom, beltTo, lineX), mid));
+                    int beltTo = z - step, mid = (beltFrom + beltTo) / 2, lineX = LineX(from, b, mid);
+                    var way = new Vector2Int(Gap(input, beltFrom, beltTo, lineX), mid);
+                    into.Add(way); from = way;
                     beltFrom = -1;
                 }
             }
             into.Add(b);
         }
 
+        /// <summary>The corridor's half width in cells: the cells either side of the line that count as "on the line".</summary>
+        public static readonly int BeltProbeCells = Mathf.CeilToInt(CorridorHalf / ScatterInput.Cell);
+
         static int LineX(Vector2Int a, Vector2Int b, int z) => b.y == a.y ? a.x : Mathf.RoundToInt(Mathf.Lerp(a.x, b.x, (z - a.y) / (float)(b.y - a.y)));
 
         static bool RowHasWire(ScatterInput input, int z, int aroundX)
         {
             if (z < 0 || z >= input.L) return false;
-            int x0 = Mathf.Max(0, aroundX - GapSearchCells), x1 = Mathf.Min(input.W - 1, aroundX + GapSearchCells);
+            int x0 = Mathf.Max(0, aroundX - BeltProbeCells), x1 = Mathf.Min(input.W - 1, aroundX + BeltProbeCells);
             for (int x = x0; x <= x1; x++) if (input.Is(input.Index(x, z), NavLayer.Wire)) return true;
             return false;
         }

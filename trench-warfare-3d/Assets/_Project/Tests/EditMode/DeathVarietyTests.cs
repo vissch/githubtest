@@ -241,5 +241,12 @@ namespace TW.Tests
             Assert.LessOrEqual(CombatFx.SmoulderSeconds, shortestLie, "the smoke stops before the body is gone");
             Assert.LessOrEqual(VATRenderer.EmberSeconds, shortestLie, "the embers die before the body is gone");
         }
+
+        [Test]
+        public void TheShaderDecodesThePitchStepTheRendererEncodes()
+        {
+            string shader = System.IO.File.ReadAllText(System.IO.Path.Combine(UnityEngine.Application.dataPath, "_Project", "Shaders", "VAT_URP.shader"));
+            Assert.IsTrue(shader.Contains("/ " + VATRenderer.PitchSteps + ".0)"), "VAT_URP.shader decodes a pitch step as 2 pi / " + VATRenderer.PitchSteps + ": the two literals must agree");
+        }
     }
 }
