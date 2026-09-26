@@ -105,6 +105,8 @@ namespace TW.Presentation
         public static System.Action<float, float, float> AddRing;
         /// <summary>Throw some sparks from a point. (CombatFx)</summary>
         public static System.Action<UnityEngine.Vector3, int> Sparks;
+        /// <summary>The kit's biplane, for the strafe's flyover: its mesh, material and drawn scale. (BattlefieldProps fills it, CombatFx draws.)</summary>
+        public static System.Func<(UnityEngine.Mesh mesh, UnityEngine.Material material, UnityEngine.Vector3 scale)> Biplane;
         /// <summary>Places that smoke or steam gently: dugout chimneys, fires in the rain. (NightLights fills it, CombatFx draws.)</summary>
         public static readonly System.Collections.Generic.List<UnityEngine.Vector3> SmokeSources = new System.Collections.Generic.List<UnityEngine.Vector3>();
         /// <summary>The tanks are drawn from their parts, with their own exhaust, sparks and wrecks: the box vehicle and the
@@ -142,7 +144,7 @@ namespace TW.Presentation
         public static void Reset()
         {
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
-            IsWater = null; AddRing = null; Sparks = null; VehicleTracks = null; VehicleGunPort = null;
+            IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; CookOff = null; FootFall = null;
         }
     }

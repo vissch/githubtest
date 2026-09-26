@@ -21,6 +21,8 @@ namespace TW.Presentation
         Advance, Fallback, LockTrench, HoldFire,
         SpeedDown, SpeedUp,
         DebugFlowField, DebugStats, DebugNextGoal, DebugCapsules, DebugPanel, HudToggle,
+        // docs/21 phase 5: the four line abilities (appended, so saved bindings keep their places)
+        ArmCreeping, ArmSmoke, ArmStrafe, ArmBeam,
     }
 
     public static class KeyMap
@@ -89,6 +91,10 @@ namespace TW.Presentation
             D(GameAction.DebugCapsules, Key.F4);
             D(GameAction.DebugPanel, Key.F10);
             D(GameAction.HudToggle, Key.F9);
+            D(GameAction.ArmCreeping, Key.C);
+            D(GameAction.ArmSmoke, Key.M);
+            D(GameAction.ArmStrafe, Key.V);
+            D(GameAction.ArmBeam, Key.B);
             return b;
         }
 
@@ -203,6 +209,10 @@ namespace TW.Presentation
                 case GameAction.Menu: return "MENU";
                 case GameAction.ArmBarrage: return "ARM HE BARRAGE";
                 case GameAction.ArmGas: return "ARM CHLORINE";
+                case GameAction.ArmCreeping: return "ARM CREEPING BARRAGE";
+                case GameAction.ArmSmoke: return "ARM SMOKE SCREEN";
+                case GameAction.ArmStrafe: return "ARM STRAFE RUN";
+                case GameAction.ArmBeam: return "ARM BEAM";
                 case GameAction.Advance: return "OVER THE TOP";
                 case GameAction.Fallback: return "FALL BACK";
                 case GameAction.LockTrench: return "LOCK TRENCH";

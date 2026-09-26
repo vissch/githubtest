@@ -122,6 +122,7 @@ namespace TW.Presentation.Terrain
             kit = new BattlefieldKit();
             kit.ResolveKeysAndRules();   // every module named for the scale table and carrying its rule (docs/21 phase 1)
             groundFn = Ground;
+            SceneHooks.Biplane = () => kit.biplane != null ? (kit.biplane.Mesh, kit.biplane.Material, kit.biplane.Size) : (null, null, Vector3.one);   // the strafe's aircraft (CombatFx.Abilities.cs)
             foreach (var module in kit.Modules)
             {
                 batches.Add(module, new Batch { Module = module });

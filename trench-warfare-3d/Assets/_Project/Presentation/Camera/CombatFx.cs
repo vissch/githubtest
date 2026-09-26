@@ -7,7 +7,8 @@
 // the tracer/body/burst pools; CombatFx.Ground.cs what only a close camera sees (marks, rests, trails, breath);
 // CombatFx.Chunks.cs thrown chunks and cook-offs; CombatFx.Ambient.cs birds and ambient smoke; CombatFx.Bodies.cs
 // gibs, tree breaks and where a man's muzzle and chest are drawn; CombatFx.Deaths.cs what a Death leaves (the body
-// from the controller's record, the gibs, a burning man's pool and smoulder). CameraShake is in its own file.
+// from the controller's record, the gibs, a burning man's pool and smoulder); CombatFx.Abilities.cs the aim, the
+// strafe's aircraft and tracers, the beam's charge and sweep, the smoke screen. CameraShake is in its own file.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
@@ -506,6 +507,7 @@ namespace TW.Presentation.Tactical
                 {
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+                    if (LightBurst(e, p, Time.time)) break;   // a strafe's rounds, a beam's scorch: not a shell (CombatFx.Abilities.cs)
                     bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
                     // Water damps a shell; melt does not. IsWater is map data and knows nothing about the
                     // biome, so on the lava field it is true over the river - 11% of the ground, measured -
@@ -612,7 +614,8 @@ namespace TW.Presentation.Tactical
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.15f;
                     float radius = e.Scalar > 0f ? e.Scalar : 8f;
                     markers.Add(new Marker { Pos = p, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
-                    string what = e.A == (int)OffMapAbilityId.ChlorineGas ? "gas" : "barrage";
+                    OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs)
+                    string what = AbilityWord(e.A);
                     Banner(e.B == 0 ? $"Your {what} is on its way" : $"INCOMING {what.ToUpper()}: fall back or keep below the rim", 3f);
                     break;
                 }
@@ -739,14 +742,8 @@ namespace TW.Presentation.Tactical
                     if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(new Vector3(markers[i].Pos.x, RenderGround.Sample(Host.Local.Map, markers[i].Pos.x, markers[i].Pos.z) + 0.4f, markers[i].Pos.z), Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));   // on the ground where it was called, not at sea level
                 if (batch.Count > 0) Flush(sphere, new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
             }
-            if (panel != null && panel.Armed != OffMapAbilityId.None && panel.TryGroundPoint(out var aim) && OffMapAbilitySystem.TryGetStats((int)panel.Armed, out var aimStats))
-            {
-                float r = aimStats.Radius > 0f ? aimStats.Radius : 8f;
-                aim.y = RenderGround.Sample(Host.Local.Map, aim.x, aim.z) + 0.2f;
-                batch.Clear();
-                batch.Add(Matrix4x4.TRS(aim, Quaternion.identity, new Vector3(r * 2f, 0.05f, r * 2f)));
-                Flush(sphere, new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
-            }
+            DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
+            TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep
 
             // gas: drawn clouds that boil slowly over each 4 m field cell (the old translucent blocks stand in without the books)
             var gas = Host.Local.Gas;
@@ -796,6 +793,8 @@ namespace TW.Presentation.Tactical
                     if (batch.Count > 0) Flush(cube, rpG);
                 }
             }
+
+            DrawSmokeScreen(gas, now, bounds);   // the smoke field as pale cards (CombatFx.Abilities.cs)
 
             // the fallen: a still figure in one of four deaths, lying on the slope where he fell
             float grow = 1f;

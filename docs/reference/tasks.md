@@ -148,14 +148,17 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/CombatFx.cs` (event dispatch `OnSimEvent`, tracers, bodies, bursts, materials),
   `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
   man's pool and smoulder; `UnitAlight` lights and douses the drawn torch),
+  `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
+  beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Camera/AbilityAim.cs` (the aim
+  state machine: point, or press-drag-release with patterns and snapping; `TestPanel` drives it),
   `Presentation/Camera/CombatFx.Chunks.cs` (thrown dirt, splinters, smoke balls, cook-offs),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
 - **Hooks:** sets `Sparks`, `CookOff`, `FootFall`; reads `IsWater`, `AddRing`, `Flash`, `SmokeSources`, `IsTankSlot`,
-  `VehicleTracks`, `VehicleGunPort`, `CloseUp`.
-- **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests.
+  `VehicleTracks`, `VehicleGunPort`, `CloseUp`, `Biplane`.
+- **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim).
 - **Trap:** effects drawn only up close sit behind `if (!close) return;` in `CombatFx.Ground.cs` `CloseLife`. Keep
   that guard in front of anything close-only, or the standard view pays for it.
 
@@ -211,7 +214,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   footprints, ladders, roads, season, coast, rear bands; `ScatterField`: Traffic, Vertical, Patch, Wet, Open) and
   `Presentation/Terrain/ScatterLayers.cs` (grass, accents, flowers, frost, the camp's kit in trenches, dugouts and the
   rear; the caps). Design: `docs/13-environment-system-rebuild.md`, "Rule-based scatter".
-- **Hooks:** reads `DrawnWreck`.
+- **Hooks:** reads `DrawnWreck`; sets `Biplane` (the kit's aircraft for the strafe's flyover).
 - **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests.
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
   gaps between placed structures. The scale clamp lives in `BattlefieldProps.Emit` and `Placement`, not in
@@ -301,7 +304,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Chunks, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
-| `Sparks` | CombatFx | Flamethrower, NightLights, TankRenderer |
+| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
 | `VehicleTracks` | TankRenderer | CombatFx.Ground |
@@ -317,13 +320,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- gen:tests -->
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
+| `AbilityAimTests` | EditMode | 8 | OffMapAbilityId, AbilityAim, ScreenUnit, HudView, Line, AbilityPattern |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
 | `AssetScaleTests` | EditMode | 6 | AssetScaleTable, PropLayout, Module, BattlefieldKit, ScaleAxis, ScaleClass |
 | `BarragePatternTests` | EditMode | 7 | OffMapAbilityId, SimEventType, OffMapAbilitySystem, SimEvent, AbilityPattern, SimCommand |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
-| `BeamTests` | EditMode | 8 | SimEventType, OffMapAbilityId, SimCommand, Kind, BeamSystem, MatchSim |
+| `BeamTests` | EditMode | 8 | Sweep, SimEventType, OffMapAbilityId, SimCommand, Kind, BeamSystem |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
 | `BurningSystemTests` | EditMode | 9 | SimEventType, BurningSystem, Impact, MatchSim, UnitFlags, AmbientBombardmentSystem |

@@ -282,7 +282,7 @@ namespace TW.UI
                     HudView.BindSupportCard(c, silver, cd, total, armed == c.Ability, over, tickSeconds);
                 }
             }
-            HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHint : null);
+            HudView.ShowHint(refs, armed != OffMapAbilityId.None ? (Panel != null && Panel.Aim.IsLine ? HudText.AimLineHint : HudText.AimHint) : null);
 
             // the rest
             var root = doc.rootVisualElement;

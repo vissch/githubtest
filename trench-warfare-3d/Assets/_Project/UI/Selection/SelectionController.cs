@@ -101,7 +101,9 @@ namespace TW.UI
             // aiming a strike: who is under it, beside the reticle and on the field
             if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
             {
-                aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
+                // a line ability is counted along its corridor (AbilityAim.Shape), a point ability round the reticle
+                if (p.Aim.Shape(aim, 0, out var shape) && shape.Line) aimReadout.ShowLine(Picker.Units, armed, shape, ToHud(mouse.position.ReadValue()));
+                else aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
                 markers.DrawTargets(aimReadout.EnemyIn, aimReadout.OursIn);
             }
             else aimReadout.Hide();

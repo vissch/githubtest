@@ -22,16 +22,17 @@ namespace TW.Presentation.Tactical
         const float Width = 300f;
         GUIStyle box, header, small;
         Vector2 scroll;
-        OffMapAbilityId armed = OffMapAbilityId.None;   // waiting for a click on the map
+        readonly AbilityAim aim = new AbilityAim();     // the ability waiting for its target: a click, or a press-drag-release (docs/21 phase 5)
         // A5c has no flamethrower in the roster yet (RosterEntry's archetypes stop at the sniper) and no BurningSystem,
         // so the fire has no sim to come from. These put it on the field by hand: the show side is finished and this is
         // how it is looked at, and when the sim grows the unit the same calls move behind a Shot and a Death event.
         enum FlameTool { None, Burst, Alight, CookOff, BigFire }
         FlameTool flameTool = FlameTool.None;
 
-        /// <summary>The ability waiting for a target click, or None. CombatFx draws the aiming circle from it.</summary>
-        public OffMapAbilityId Armed => armed;
-        public void Arm(OffMapAbilityId id) => armed = id;
+        /// <summary>The ability waiting for its target, or None. CombatFx draws the aim from Aim.Shape; SelectionController counts under it.</summary>
+        public OffMapAbilityId Armed => aim.Armed;
+        public AbilityAim Aim => aim;
+        public void Arm(OffMapAbilityId id) { if (id == OffMapAbilityId.None) aim.Cancel(); else aim.Arm(id); }
 
         /// <summary>Where the mouse points on the ground plane, if it is over the map and not over this panel.</summary>
         public bool TryGroundPoint(out Vector3 point)
@@ -64,19 +65,28 @@ namespace TW.Presentation.Tactical
         void Update()
         {
             FlameClick();
-            if (armed == OffMapAbilityId.None || Host == null || Host.Local == null) return;
+            if (aim.Armed == OffMapAbilityId.None || Host == null || Host.Local == null) return;
             if (!InputFocus.Gameplay) return;   // a shell screen has the input
             var mouse = Mouse.current;
             var kb = Keyboard.current;
             if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame))
             {
                 if (kb != null && kb.escapeKey.wasPressedThisFrame) InputFocus.ConsumeEscape();   // this Esc cancelled the aim; it does not also open the menu
-                armed = OffMapAbilityId.None; return;
+                aim.Cancel(); return;
             }
+            // a point ability fires on the click; a line ability (a corridor) is press-drag-release, Tab cycles its
+            // patterns and Shift snaps the heading (AbilityAim)
+            if (kb != null && kb.tabKey.wasPressedThisFrame) aim.CyclePattern();
+            aim.Snap = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+            uint tick = Host.Local.World.Tick;
             if (mouse != null && mouse.leftButton.wasPressedThisFrame && TryGroundPoint(out var p))
             {
-                Host.Issue(new SimCommand { Tick = Host.Local.World.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)armed, Pos = new Unity.Mathematics.float3(p.x, 0f, p.z) });
-                armed = OffMapAbilityId.None;
+                if (aim.Press(p, tick, 0, out var fired)) Host.Issue(fired);
+            }
+            else if (aim.Dragging && mouse != null)
+            {
+                if (TryGroundPoint(out var q)) aim.Drag(q);
+                if (mouse.leftButton.wasReleasedThisFrame && aim.Release(aim.Current, tick, 0, out var line)) Host.Issue(line);
             }
         }
 
@@ -153,9 +163,10 @@ namespace TW.Presentation.Tactical
             if (abilities == null || !OffMapAbilitySystem.TryGetStats((int)id, out var stats)) return;
             int cd = abilities.CooldownOf(0, id);
             bool can = cd == 0 && w.Silver[0] >= stats.Cost && w.WinnerTeam < 0;
-            GUI.enabled = can || armed == id;
-            string label = armed == id ? $"{name}: click the map  (Esc cancels)" : $"{name}   {stats.Cost}s" + (cd > 0 ? $"   ({cd * w.Config.TickSeconds:0}s)" : "");
-            if (GUILayout.Button(label)) armed = armed == id ? OffMapAbilityId.None : id;
+            bool armedNow = aim.Armed == id;
+            GUI.enabled = can || armedNow;
+            string label = armedNow ? (aim.IsLine ? $"{name}: press, drag, release  (Tab pattern, Esc cancels)" : $"{name}: click the map  (Esc cancels)") : $"{name}   {stats.Cost}s" + (cd > 0 ? $"   ({cd * w.Config.TickSeconds:0}s)" : "");
+            if (GUILayout.Button(label)) Arm(armedNow ? OffMapAbilityId.None : id);
             GUI.enabled = true;
         }
 
