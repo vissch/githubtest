@@ -122,7 +122,7 @@ namespace TW.Presentation.Tactical
 
         struct Jet { public float NextCatch; public int Slot; public Vector3 Nozzle, Offset, Aim, ManVel, WasAt; public float Started, Until, NextPuff, NextLight, NextSpill, NextRoot, Seed; public bool Rides; }
         struct Pool { public Vector3 At; public float Born, Life, Size, Next, NextLight, NextCatch, Seed; public bool Stood; }
-        struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; }
+        struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; public float BornSim, LifeSim; }   // BornSim, LifeSim: sim seconds, what the torch expires by
         struct Pyre { public Vector3 At; public float Born, Life, Size, Next, NextLight, Seed; public bool Stood; }
 
         readonly List<Jet> jets = new List<Jet>(MaxJets);
@@ -239,15 +239,25 @@ namespace TW.Presentation.Tactical
             pools.Add(new Pool { At = at, Born = Time.time, Life = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
         }
 
-        /// <summary>A man is alight and will run until he drops (the controller has him on Clip.Burning).</summary>
+        /// <summary>The sim's clock in seconds (CombatFx sets it every frame from the tick and the fraction of the next):
+        /// a torch expires by it, so a paused or slowed match holds the fire on a man as long as the sim burns him.
+        /// The flicker and the trail keep the wall clock.</summary>
+        public float SimNow { get; set; }
+
+        /// <summary>A man is alight and will run until he drops (the controller has him on Clip.Burning). Seconds are the
+        /// sim's (UnitAlight's scalar): the torch goes out when the sim says so, or by this timer on the sim's clock
+        /// for a torch the debug panel lit without a sim behind it.</summary>
         public void Ignite(int slot, float seconds)
         {
             for (int i = 0; i < torches.Count; i++)
-                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); torches[i] = t; return; }
+                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); t.LifeSim = Mathf.Max(t.LifeSim, SimNow + seconds - t.BornSim); torches[i] = t; return; }
             if (torches.Count >= MaxTorches) torches.RemoveAt(0);
-            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, Next = 0f, Seed = Random.value * 10f });
+            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Next = 0f, Seed = Random.value * 10f });
             Alighted?.Invoke(slot, seconds);
         }
+
+        /// <summary>Is a torch out at a sim time: pure, so a test can hold the clock.</summary>
+        public static bool TorchOut(float simNow, float bornSim, float lifeSim) => simNow - bornSim > lifeSim;
 
         /// <summary>He is dead or the fire is out: stop drawing him alight (the corpse keeps a pool under it).</summary>
         public void Douse(int slot)
@@ -370,7 +380,7 @@ namespace TW.Presentation.Tactical
             for (int i = torches.Count - 1; i >= 0; i--)
             {
                 var t = torches[i];
-                if (now - t.Born > t.Life) { Alighted?.Invoke(t.Slot, 0f); torches.RemoveAt(i); continue; }
+                if (TorchOut(SimNow, t.BornSim, t.LifeSim)) { Alighted?.Invoke(t.Slot, 0f); torches.RemoveAt(i); continue; }   // sim time: paused, he burns on
                 StepTorch(ref t, now, books, drawn, ground, glowNight * tint);
                 torches[i] = t;
             }
@@ -999,7 +1009,7 @@ namespace TW.Presentation.Tactical
             // as the mud under him: a man climbing a parapet or thrown up by a shell is drawn off the ground, and
             // grounding his fire here would leave it behind in the dirt at the one moment anyone is watching him.
             Vector3 at = drawn(t.Slot);
-            float k = (now - t.Born) / t.Life;
+            float k = t.LifeSim > 0f ? Mathf.Clamp01((SimNow - t.BornSim) / t.LifeSim) : 1f;   // how far through his fire he is: the sim's clock, as the expiry
             // he leaves a trail of burning fuel behind him wherever he runs, which is most of what makes this read
             if (now >= t.Next)
             {

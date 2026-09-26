@@ -248,5 +248,16 @@ namespace TW.Tests
             string shader = System.IO.File.ReadAllText(System.IO.Path.Combine(UnityEngine.Application.dataPath, "_Project", "Shaders", "VAT_URP.shader"));
             Assert.IsTrue(shader.Contains("/ " + VATRenderer.PitchSteps + ".0)"), "VAT_URP.shader decodes a pitch step as 2 pi / " + VATRenderer.PitchSteps + ": the two literals must agree");
         }
+
+        [Test]
+        public void ATorchLitForSevenSecondsSurvivesAPausedMatch()
+        {
+            // the torch expires by the sim's clock: eight seconds of wall time at TimeScale 0 move it nowhere
+            float bornSim = 12f, life = 7f;
+            Assert.IsFalse(Flamethrower.TorchOut(bornSim, bornSim, life), "lit");
+            Assert.IsFalse(Flamethrower.TorchOut(bornSim, bornSim, life), "eight wall seconds later, paused: the sim clock is where it was, so is the fire");
+            Assert.IsFalse(Flamethrower.TorchOut(bornSim + 6.9f, bornSim, life), "still burning at 6.9 s of sim");
+            Assert.IsTrue(Flamethrower.TorchOut(bornSim + 7.1f, bornSim, life), "out after seven seconds of sim");
+        }
     }
 }

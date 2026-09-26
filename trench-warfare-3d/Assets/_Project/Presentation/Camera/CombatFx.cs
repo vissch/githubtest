@@ -730,6 +730,7 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(puff, new RenderParams(smokeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
             DrawChunks(now, bounds);
+            flames.SimNow = SimNow;   // the torches expire by the sim's clock (CombatFx.Abilities.cs)
             flames.Update(now, view, books, drawnAt, groundAt);
             TickSmoulders(now);
             books?.Draw(now, bounds);
