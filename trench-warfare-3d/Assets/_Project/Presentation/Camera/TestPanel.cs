@@ -38,7 +38,7 @@ namespace TW.Presentation.Tactical
         {
             if (id == OffMapAbilityId.None) { aim.Cancel(); return; }
             uint mask = MatchLaunch.Current != null ? MatchLaunch.Current.AbilityMaskA : 0u;
-            if (mask != 0 && (mask & (1u << (int)id)) == 0) return;
+            if (!MatchLaunch.Request.Offered(mask, (int)id)) return;
             aim.Arm(id);
         }
 

@@ -62,7 +62,7 @@ namespace TW.UI
         };
         public static readonly string[] IgnorePickingNames = { "hud-root", "region-topleft", "region-topright", "region-bottom", "orders-layer", "banner", "hint", "tooltip", "pause-plate" };
 
-        /// <summary>The support abilities the bar offers, in card order; the hotkeys are "9" and "0".</summary>
+        /// <summary>The support abilities the bar offers, in card order; the hotkeys are KeyMap's (9 0 C M V B by default, HudText.SupportHotkey).</summary>
         public static readonly OffMapAbilityId[] SupportAbilities =
         {
             OffMapAbilityId.HeBarrage, OffMapAbilityId.ChlorineGas, OffMapAbilityId.CreepingBarrage, OffMapAbilityId.SmokeScreen, OffMapAbilityId.StrafeRun, OffMapAbilityId.Beam,
@@ -75,7 +75,7 @@ namespace TW.UI
         /// <summary>Whether the match fields an ability: bit (int)id of the launch request's mask for our seat. A mask of
         /// zero (a skirmish, a test) fields every card; a campaign's mask is what the Home Front unlocked and the
         /// staging screen picked.</summary>
-        public static bool Offered(uint abilityMask, OffMapAbilityId id) => abilityMask == 0 || (abilityMask & (1u << (int)id)) != 0;
+        public static bool Offered(uint abilityMask, OffMapAbilityId id) => MatchLaunch.Request.Offered(abilityMask, (int)id);
         /// <summary>The mask of the match in flight for our seat (MatchLaunch.Current), 0 when none.</summary>
         public static uint CurrentMask => MatchLaunch.Current != null ? MatchLaunch.Current.AbilityMaskA : 0u;
 

@@ -64,6 +64,9 @@ namespace TW.Presentation
             /// <summary>Seat A is the local player by fiat: the HUD's cards, the incoming markers and the mine marks all read
             /// seat 0; B is the scripted peer today, so AbilityMaskB is built and unread until a second human sits in B.</summary>
             public uint AbilityMaskA, AbilityMaskB;
+            /// <summary>Does a mask field an ability: bit (int)id, or everything when the mask is 0 (a skirmish, a test). The one
+            /// copy: the HUD's cards and keys, the debug panel and (B1, later) the sim ask this.</summary>
+            public static bool Offered(uint mask, int ability) => mask == 0 || (mask & (1u << ability)) != 0;
 
             /// <summary>The scene's SimHost as it is, so a request can start from what the scene already says.</summary>
             public static Request From(SimHost h) => new Request

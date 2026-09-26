@@ -240,18 +240,22 @@ namespace TW.Presentation.Terrain
         public const int RefinePasses = 4;
 
         /// <summary>One belt found on a painted segment's own cells, with no waypoint of its own, gets one at its gap. True when
-        /// something was inserted.</summary>
+        /// something was inserted. The ladders are the first and last points; every point between is a waypoint in a
+        /// belt's gap, so the wire rows touching a waypoint are that belt's (its tail after the waypoint, its head before
+        /// the next) and are not a belt of this segment.</summary>
         static bool Refine(ScatterInput input, List<Vector2Int> into)
         {
             for (int k = 0; k + 1 < into.Count; k++)
             {
                 Vector2Int p = into[k], q = into[k + 1];
+                bool leaving = k > 0;   // p is a waypoint: the rows right after it are the tail of its own belt
                 int step = q.y > p.y ? 1 : -1, rows = Mathf.Abs(q.y - p.y);
                 int beltFrom = -1;
                 for (int n = 1; n < rows; n++)
                 {
                     int z = p.y + n * step;
                     bool wire = RowHasWire(input, z, LineX(p, q, z));
+                    if (leaving) { if (wire) continue; leaving = false; }
                     if (wire && beltFrom < 0) beltFrom = z;
                     if (!wire && beltFrom >= 0)
                     {
@@ -260,6 +264,7 @@ namespace TW.Presentation.Terrain
                         return true;
                     }
                 }
+                // a run still open at q's doorstep is the head of the belt q's gap crosses: not a new belt
             }
             return false;
         }
