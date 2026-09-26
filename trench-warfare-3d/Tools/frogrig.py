@@ -16,11 +16,12 @@
 # Joints are measured off LOD0 in the model frame (front -Y, left +X, feet on z = 0, height ~0.707) and scaled with it.
 #
 # usage: blender -b --factory-startup -P frogrig.py -- <lod0.fbx> <lod1.fbx> <lod2.fbx> <out.fbx> <renderdir>
-#   textures beside each fbx as <stem>_tex0_0.jpg; the out dir also gets Frog_LOD<k>_Base.jpg and frogrig.json
+#   textures beside each fbx as <stem>_tex0_0.jpg; the out dir also gets <NAME>_LOD<k>_Base.jpg and frogrig.json
 import bpy, bmesh, sys, os, math, json, shutil
 from mathutils import Vector, Matrix
 argv = sys.argv[sys.argv.index("--") + 1:]
 SRC, OUT, RENDERDIR = argv[0:3], argv[3], argv[4]
+NAME = os.path.splitext(os.path.basename(OUT))[0]   # the playground folder and file name: Art/Units/<NAME>/<NAME>.fbx
 os.makedirs(os.path.dirname(OUT), exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 HEIGHT = float(os.environ.get("TW_HEIGHT", "1.78"))       # metres: VATBaker normalises its men to 1.78 m
 LOD3_TRIS = int(os.environ.get("TW_LOD3_TRIS", "300"))   # measured, see docs/22: 219 -> pop IoU 0.82, 300 -> 0.85, 380 -> 0.87
@@ -236,6 +237,58 @@ lods = []
 stems = []
 for k, f in enumerate(SRC):
     o, stem = load(f, "Frog_LOD%d" % k); lods.append(o); stems.append(stem)
+# TW_DERIVE=1 (an option for the owner, off by default): LOD1 and LOD2 are LOD0 decimated to Tripo's LOD1 and LOD2
+# triangle counts, on LOD0's atlas, instead of Tripo's own sculpts. Each Tripo LOD bakes its own texture, so the same
+# spot is a different colour at every level: measured 2026-09-26 the colour change inside the silhouette at each switch
+# is ~20/255, four times what a one-degree turn of the camera does, and a per-LOD tint removes only its mean (~5/255).
+# TW_DERIVE=1 derives LOD1 only, =12 both. Measured 2026-09-26 (docs/22): LOD1 from LOD0 takes the 0->1 pop from IoU
+# 0.919 to 0.968 and the block colour shift from 11.1 to 5.0; LOD2 from LOD0 (24% of its triangles) breaks the cap and
+# is worse at 1->2 (0.837 against 0.855), so Tripo's LOD2 stays.
+if os.environ.get("TW_DERIVE", "") in ("1", "12"):
+    tris0 = sum(len(p.vertices) - 2 for p in lods[0].data.polygons)
+    for k in ((1, 2) if os.environ["TW_DERIVE"] == "12" else (1,)):
+        tris_own = sum(len(p.vertices) - 2 for p in lods[k].data.polygons)
+        dk = lods[0].copy(); dk.data = lods[0].data.copy(); bpy.context.scene.collection.objects.link(dk)
+        bpy.data.objects.remove(lods[k]); dk.name = "Frog_LOD%d" % k; dk.data.name = "Frog_LOD%d" % k
+        select_only([dk], dk)
+        md = dk.modifiers.new("dec", 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = min(1.0, tris_own / tris0)
+        md.use_symmetry = True; md.symmetry_axis = 'X'; md.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier=md.name)
+        lods[k] = dk; stems[k] = stems[0]
+        print("LOD%d: made from LOD0, %d tris (Tripo's LOD%d had %d)" % (k, sum(len(p.vertices) - 2 for p in dk.data.polygons), k, tris_own))
+# TW_REBAKE=1 (an option for the owner, off by default): keep Tripo's LOD1 and LOD2 shapes but paint them from LOD0 -
+# LOD0's colour baked (Cycles, selected-to-active) onto each lower LOD's own UVs - so the same spot is the same colour
+# at every level. TW_DERIVE decimating LOD0 instead broke the head at LOD2's count (24% of LOD0's triangles).
+def rebake(src, dst, path):
+    h = max(src.dimensions)
+    old = [n for n in dst.active_material.node_tree.nodes if n.type == 'TEX_IMAGE'][0]
+    w, hh = old.image.size
+    # texels the bake misses take the LOD's own texture afterwards: where the two shapes part further than the ray
+    # reaches (inside the cap, under a plate) a miss would otherwise stay black
+    img = bpy.data.images.new(dst.name + "_rebake", w, hh, alpha=False); img.generated_color = (1.0, 0.0, 1.0, 1.0)
+    nodes = dst.active_material.node_tree.nodes
+    tn = nodes.new("ShaderNodeTexImage"); tn.image = img
+    for n in nodes: n.select = False
+    tn.select = True; nodes.active = tn
+    scn = bpy.context.scene; scn.render.engine = 'CYCLES'; scn.cycles.samples = 1; scn.cycles.device = 'CPU'
+    select_only([src, dst], dst)
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_selected_to_active=True, cage_extrusion=0.02 * h,
+                        max_ray_distance=0.12 * h, margin=8)
+    import numpy as np
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(-1, 4); own = np.array(old.image.pixels[:], dtype=np.float32).reshape(-1, 4)
+    # a ray that finds nothing writes black (measured: the magenta never survives), so a texel is a miss where the bake
+    # is black and the LOD's own texture is not
+    miss = ((px[:, 0] > 0.98) & (px[:, 1] < 0.02) & (px[:, 2] > 0.98)) | ((px[:, :3].sum(1) < 0.02) & (own[:, :3].sum(1) > 0.08))
+    px[miss] = own[miss]; img.pixels[:] = px.ravel()
+    print("%s: %.1f%% of texels missed by the bake, kept from its own texture" % (dst.name, 100.0 * miss.mean()))
+    img.filepath_raw = path; img.file_format = 'JPEG'; img.save()
+    old.image = img; nodes.remove(tn)
+
+if os.environ.get("TW_REBAKE") == "1":
+    for k in (1, 2):
+        stem = os.path.join(os.path.dirname(OUT), "rebake_LOD%d" % k)
+        rebake(lods[0], lods[k], stem + "_tex0_0.jpg"); stems[k] = stem
+        print("LOD%d: repainted from LOD0 (%s)" % (k, stem + "_tex0_0.jpg"))
 # TW_LOD2_FROM_LOD1=1 (an option for the owner, off by default): LOD2 is LOD1 decimated to LOD2's triangle count, on
 # LOD1's atlas, instead of Tripo's own LOD2 sculpt - which is a different model (a plated shoulder, a broader back) and
 # pops at the LOD1->LOD2 switch (worst side 0.857, critic r5). The owner's art stays the default.
@@ -439,13 +492,13 @@ bpy.ops.export_scene.fbx(filepath=OUT, use_selection=True, object_types={'ARMATU
                          embed_textures=False, use_tspace=False, colors_type='LINEAR')
 d = os.path.dirname(OUT)
 for k, stem in enumerate(stems):
-    shutil.copyfile(stem + "_tex0_0.jpg", os.path.join(d, "Frog_LOD%d_Base.jpg" % k)) if k < 3 else None
+    shutil.copyfile(stem + "_tex0_0.jpg", os.path.join(d, "%s_LOD%d_Base.jpg" % (NAME, k))) if k < 3 else None
 info = {"source": "Tools/frogrig.py", "height_m": HEIGHT, "scale": SC, "lods": []}
 for k, o in enumerate(lods):
     W = weights_of(o)
     info["lods"].append({"lod": k, "verts": len(o.data.vertices), "tris": sum(len(p.vertices) - 2 for p in o.data.polygons),
                          "bones": sorted({n for w in W for n in w}), "max_per_vertex": max(len(w) for w in W),
-                         "texture": "Frog_LOD%d_Base.jpg" % min(k, 2)})
+                         "texture": "%s_LOD%d_Base.jpg" % (NAME, min(k, 2))})
 info["skeleton"] = [{"name": n, "parent": p, "head": [round(x * SC, 4) for x in hd]} for n, p, hd, tl in BONES]
 json.dump(info, open(os.path.join(d, "frogrig.json"), "w"), indent=1)
 print("DONE", [(l["lod"], l["verts"], l["tris"], len(l["bones"]), l["max_per_vertex"]) for l in info["lods"]])

@@ -17,7 +17,7 @@ $P shot ${T}_v4_cookoff
 sleep 12
 $P shot ${T}_v5_aftermath
 # ---- one vehicle: close, standard view, far
-$P do "vehicle; cam close"; $P do "cam 0 2.2 0 0 12 13 42"; sleep 2
+$P do "vehicle; cam close"; $P do "cam 0 3.4 0 0 12 15 42"; sleep 2
 $P shot ${T}_v6_close
 $P do "cam 0 1.5 0 20 25 75 25"; sleep 1.5
 $P shot ${T}_v7_standard
@@ -50,6 +50,7 @@ $P do "cam -2 1.5 -3 200 25 75 25"; sleep 1
 $P shot ${T}_m2_mixed_standard
 $P do "ground mud; team split"; sleep 0.5
 $P shot ${T}_m3_mud_standard
+$P do "sidehue $OUT/${T}_m3_sidehue.json"; sleep 1
 $P do "ground grid; team -1"
 # ---- a building from the game's kit, shelled until it comes down
 $P do "set Ruins"; sleep 2
@@ -60,6 +61,10 @@ $P do "shell; shell; shell; shell; shell"; sleep 6
 $P shot ${T}_b3_shelled8
 $P do "cam 0 3 0 20 25 75 25"; sleep 1
 $P shot ${T}_b4_standard
+$P do "cutsdebug 1; set Ruins; shell; shell; shell"; sleep 3
+$P do "cam 0 3 0 20 25 30 42"; sleep 1
+$P shot ${T}_b5_cutfaces
+$P do "cutsdebug 0"
 # ---- LOD pops: each boundary, both sides of it, at the switch distance
 $P do "vehicle; lod -1"; sleep 1.5
 $P do "lodpop $OUT/${T}_pop_vehicle.json"; sleep 2
