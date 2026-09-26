@@ -154,7 +154,7 @@ namespace TW.Presentation.Terrain
             B("Siege/Well", ScaleAxis.Height, 1.00f, 1.80f);
             B("kit/dugout", ScaleAxis.Height, 1.00f, 1.80f); B("kit/bunker", ScaleAxis.Height, 1.00f, 1.80f); B("kit/roof", ScaleAxis.Height, 1.00f, 1.80f);
             B("Stones/WallStub", ScaleAxis.Height, 0.80f, 1.40f);
-            O("kit/ruin", "the horizon's ruins are scaled by Horizon(); a follow-up in docs/21");
+            O("kit/ruin", "the horizon's ruins are scaled by Horizon() to 5-9 m (docs/21 phase 1)");
             M("kit/bridge", "sized to the river");
             // ---- buildings: reported, never clamped (their chunks are placed by their own matrices) -------------------
             foreach (var h in new[] { "House0", "House1", "House2", "House3", "House4", "House5" }) B("house/" + h, ScaleAxis.Height, 2.00f, 4.00f, "a village house: one to two storeys", enforce: false);

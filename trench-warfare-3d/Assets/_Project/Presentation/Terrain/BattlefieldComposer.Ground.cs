@@ -51,7 +51,7 @@ namespace TW.Presentation.Terrain
                     if (pick < .40f) emit(kit.branches, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
                     else if (pick < .62f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
                     else if (pick < .84f) emit(kit.bracedPlank, Matrix4x4.TRS(new Vector3(x, ground - .10f, z), yaw * tilt, Vector3.one * (.8f + Rand(k, 66) * .3f)));
-                    else if (pick < .93f) Flat(kit.plankDoor, x, z, ground, yaw * tilt, .78f + Rand(k, 66) * .14f, .25f);
+                    else if (pick < .93f) Flat(kit.plankDoor, x, z, ground, yaw * tilt, 1f + Rand(k, 66) * .1f, .25f);   // a door a man walks through (AssetScaleTable: 0.85-1.15 SU)
                     else Flat(kit.crossedBoards, x, z, ground, yaw * tilt, .75f + Rand(k, 66) * .2f, .4f);
                 }
             }

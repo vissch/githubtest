@@ -150,7 +150,7 @@ namespace TW.Presentation.Terrain
             {
                 bool farSide = i < 6;   // the standard view looks along -X, so most of them stand there
                 float x = farSide ? -45f - Rand(i, 6) * 120f : w + 45f + Rand(i, 6) * 90f, z = Rand(i, 7) * l;
-                float s = 1.2f + Rand(i, 8) * 1.0f;
+                float s = 1.5f + Rand(i, 8) * 1.1f;   // 5-9 m: a ruin two to four soldiers tall on the skyline (docs/21 phase 1)
                 var turn = Quaternion.Euler(0f, 80f + Rand(i, 9) * 40f, 0f);
                 float stands = GreyboxTerrainView.SkirtHeight(map, x, z);
                 if (Shore.UnderWater(map, x, z, stands)) continue;   // and no village stands in it
