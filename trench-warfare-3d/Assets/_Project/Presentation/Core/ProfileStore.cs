@@ -15,6 +15,8 @@ namespace TW.Presentation
         static CampaignProfile current;
         /// <summary>The profile in force, loaded on first use.</summary>
         public static CampaignProfile Current => current ??= LoadFrom(DefaultPath);
+        /// <summary>Save writes the file. Tests turn it off so a bound screen never touches the player's profile.</summary>
+        public static bool Persist = true;
 
         public static CampaignProfile Load() => current = LoadFrom(DefaultPath);
 
@@ -28,7 +30,7 @@ namespace TW.Presentation
             return new CampaignProfile();
         }
 
-        public static void Save(CampaignProfile p) { current = p; SaveTo(p, DefaultPath); }
+        public static void Save(CampaignProfile p) { current = p; if (Persist) SaveTo(p, DefaultPath); }
 
         public static void SaveTo(CampaignProfile p, string path)
         {

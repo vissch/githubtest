@@ -1,0 +1,38 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- Staging (docs/21 phase 6): the mission on the left (its picture, text, numbers and the difficulty), the
+         battalion on the right (the roster's slots as cutouts with their bought tiers, the support abilities to take),
+         DEPLOY at the bottom. Built by StagingScreen; loaded from Resources. -->
+    <Style src="../../Skin/dustfront.uss" />
+    <Style src="../../Shell/Shell.uss" />
+    <ui:VisualElement name="staging-screen" class="tw-screen shell-screen">
+        <ui:VisualElement class="tw-grain" picking-mode="Ignore" />
+        <ui:VisualElement class="tw-topstrip shell-topstrip" picking-mode="Ignore">
+            <ui:Label text="STAGING" class="tw-topstrip__label" />
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-content">
+            <ui:VisualElement class="tw-panel tw-info-panel shell-list-column campaign-mission-column">
+                <ui:Label name="mission-title" text="" class="tw-h2 tw-header-window shell-info-header" />
+                <ui:Label name="mission-subtitle" text="" class="tw-caption" />
+                <ui:VisualElement name="info-image" class="tw-info-panel__image" picking-mode="Ignore" />
+                <ui:Label name="info-body" text="" class="tw-body tw-info-panel__body" />
+                <ui:Label name="info-stats" text="" class="tw-stat shell-info-stats" />
+                <ui:Label text="DIFFICULTY" class="tw-caption" />
+                <ui:VisualElement name="difficulty-tabs" class="shell-difficulty" />
+                <ui:Label name="difficulty-blurb" text="" class="tw-body" />
+            </ui:VisualElement>
+            <ui:VisualElement class="tw-panel tw-info-panel shell-info-column">
+                <ui:Label text="BATTALION" class="tw-caption shell-section" />
+                <ui:VisualElement name="slot-row" class="campaign-slots" />
+                <ui:Label name="unit-info" text="" class="tw-body campaign-note" />
+                <ui:Label text="SUPPORT" class="tw-caption shell-section" />
+                <ui:VisualElement name="ability-row" class="campaign-abilities" />
+                <ui:Label name="ability-note" text="" class="tw-caption campaign-note" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-bottom-row">
+            <ui:Button name="btn-back" text="BACK" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-homefront" text="HOME FRONT" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-deploy" text="DEPLOY" class="tw-btn tw-btn--wide tw-btn--primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

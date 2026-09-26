@@ -31,6 +31,10 @@
             <ui:VisualElement class="shell-debrief-meta">
                 <ui:Label name="duration" text="" class="tw-mono" />
                 <ui:Label name="seed-line" text="" class="tw-mono tw-muted" />
+                <ui:VisualElement name="gold-row" class="shell-debrief-gold tw-hidden" picking-mode="Ignore">
+                    <ui:Label name="gold-earned" text="" class="tw-mono tw-accent" />
+                    <ui:Label name="gold-total" text="" class="tw-mono tw-muted" />
+                </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement class="shell-actions">
                 <ui:Button name="btn-replay" text="SAVE REPLAY" class="tw-btn" />

@@ -293,6 +293,19 @@ namespace TW.UI
             return true;
         }
 
+        /// <summary>The tier bought for a unit's track across the faction's buildings (the highest).</summary>
+        public static int UnitTier(CampaignProfile p, byte faction, byte archetype, UnitTrack track)
+        {
+            int best = 0;
+            foreach (var b in Of(faction))
+                for (int i = 0; i < b.Lines.Length; i++)
+                {
+                    var l = b.Lines[i];
+                    if (l.Kind == LineKind.UnitTrack && l.Archetype == archetype && l.Track == track) best = Mathf.Max(best, p.TierOf(faction, b.Id, i));
+                }
+            return best;
+        }
+
         /// <summary>The tier of a global row across the faction's buildings (the highest bought).</summary>
         public static int GlobalTier(CampaignProfile p, byte faction, LineKind kind)
         {

@@ -57,6 +57,11 @@ namespace TW.Presentation
             public bool PeerDeploysTanks = false;
             public bool PeerUsesSupport = true;
             public int PeerSupportReserve = 180;
+            /// <summary>Campaign (docs/21 phase 6): which faction each side fields and which support abilities each may
+            /// fire (a bit per OffMapAbilityId; 0 = the faction's default). The sim's upgrade seam reads them when it
+            /// lands (B1); until then Apply leaves them for the HUD.</summary>
+            public byte FactionA = 0, FactionB = 1;
+            public uint AbilityMaskA, AbilityMaskB;
 
             /// <summary>The scene's SimHost as it is, so a request can start from what the scene already says.</summary>
             public static Request From(SimHost h) => new Request

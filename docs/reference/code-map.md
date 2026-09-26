@@ -58,9 +58,9 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat | 7 |
 | `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf | 69 |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
-| `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 40 |
+| `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 44 |
 
-20 assemblies, 309 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+20 assemblies, 313 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -103,8 +103,8 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 75 |
 | `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 69 |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. | 6 |
-| `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. | 40 |
-| `UI/Campaign/` | Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings). | 2 |
+| `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. | 44 |
+| `UI/Campaign/` | Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings). | 6 |
 | `UI/Missions/` | Mission card assets for the mission select. |  |
 | `UI/Resources/` | UXML/USS/PanelSettings loaded by name (Hud/, Shell/, UI/). |  |
 | `UI/Selection/` | Unit selection: picker, model, markers, hover card, selection panel. | 10 |

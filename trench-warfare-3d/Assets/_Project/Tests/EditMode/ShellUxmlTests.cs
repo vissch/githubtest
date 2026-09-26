@@ -35,6 +35,117 @@ namespace TW.Tests
         [Test] public void MissionSelect() => Check("MissionSelect", MissionSelectScreen.RequiredNames, new MissionSelectScreen());
         [Test] public void Armoury() => Check("Armoury", ArmouryScreen.RequiredNames, new ArmouryScreen(), "Assets/_Project/UI/Resources/Shell/");
 
+        // the campaign screens (docs/21 phase 6) take a profile of their own so nothing reaches the player's profile.json
+        [Test] public void HomeFront() => Check("HomeFront", HomeFrontScreen.RequiredNames, new HomeFrontScreen(new CampaignProfile()), "Assets/_Project/UI/Resources/Shell/");
+        [Test] public void StrategicMap() => Check("StrategicMap", StrategicMapScreen.RequiredNames, new StrategicMapScreen(new CampaignProfile()), "Assets/_Project/UI/Resources/Shell/");
+        [Test] public void Staging() => Check("Staging", StagingScreen.RequiredNames, new StagingScreen(new CampaignProfile(), "lowlands", 0), "Assets/_Project/UI/Resources/Shell/");
+
+        [Test]
+        public void TheHomeFrontSellsWhatTheTableSays()
+        {
+            var profile = new CampaignProfile { Gold = 100 };
+            var root = Instantiate("HomeFront", "Assets/_Project/UI/Resources/Shell/");
+            var screen = new HomeFrontScreen(profile);
+            screen.Bind(root, null);
+            try
+            {
+                Assert.That(screen.Selected, Is.EqualTo(FactionBuildings.IronBuildings[0].Id));
+                Assert.That(root.Q<Label>("gold-value").text, Is.EqualTo("100"));
+                Assert.That(root.Q<Button>("btn-expand").enabledSelf, Is.True);
+                Assert.That(root.Q<Button>("btn-buy-0").enabledSelf, Is.False, "nothing sells at the ground floor");
+                screen.Expand();
+                Assert.That(profile.StageOf(0, screen.Selected), Is.EqualTo(1));
+                Assert.That(root.Q<Label>("gold-value").text, Is.EqualTo("60"));
+                Assert.That(root.Q<Button>("btn-buy-0").enabledSelf, Is.True);
+                screen.SetFaction(1);
+                Assert.That(screen.Selected, Is.EqualTo(FactionBuildings.BrassBuildings[0].Id));
+                Assert.That(profile.Faction, Is.EqualTo(1));
+            }
+            finally { screen.Unbind(); }
+        }
+
+        [Test]
+        public void TheMapOpensOnTheLowlandsAndStagingBuildsTheRequest()
+        {
+            var profile = new CampaignProfile();
+            var root = Instantiate("StrategicMap", "Assets/_Project/UI/Resources/Shell/");
+            var map = new StrategicMapScreen(profile);
+            map.Bind(root, null);
+            try
+            {
+                Assert.That(map.Selected, Is.EqualTo("lowlands"));
+                Assert.That(map.Mission, Is.Zero);
+                Assert.That(root.Q<Button>("btn-select").enabledSelf, Is.True);
+                map.Select("the-citadel");
+                Assert.That(root.Q<Button>("btn-select").enabledSelf, Is.False, "a locked country cannot be fought");
+                Assert.That(root.Q<Label>("info-progress").text, Does.Contain("NEEDS"));
+            }
+            finally { map.Unbind(); }
+
+            profile.SetStage(0, "supply-depot", 1);
+            var depot = FactionBuildings.Find(0, "supply-depot");
+            profile.SetTier(0, depot.Id, 0, 1);   // WAR CHEST tier 1
+            var staging = new StagingScreen(profile, "lowlands", 0);
+            staging.Bind(Instantiate("Staging", "Assets/_Project/UI/Resources/Shell/"), null);
+            try
+            {
+                staging.SetDifficulty(2);
+                staging.Toggle(TW.Sim.Match.OffMapAbilityId.HeBarrage);
+                var r = staging.BuildRequest();
+                Assert.That(r.MissionId, Is.EqualTo("lowlands/0"));
+                Assert.That(r.Difficulty, Is.EqualTo("HARD"));
+                Assert.That(r.StartingSilver, Is.EqualTo(300 + FactionBuildings.SilverPerTier));
+                Assert.That(r.FactionA, Is.Zero); Assert.That(r.FactionB, Is.EqualTo(1));
+                Assert.That(r.AbilityMaskA, Is.EqualTo(1u << (int)TW.Sim.Match.OffMapAbilityId.HeBarrage));
+                Assert.That(staging.Picks, Is.EqualTo(r.AbilityMaskA));
+            }
+            finally { staging.Unbind(); }
+        }
+
+        [Test]
+        public void ADebriefPaysCampaignGoldOnce()
+        {
+            var profile = new CampaignProfile { Gold = 10 };
+            bool persist = ProfileStore.Persist;
+            ProfileStore.Persist = false; ProfileStore.Use(profile);
+            try
+            {
+                CampaignSession.Begin("lowlands", 0, 0);
+                var root = Instantiate("Debrief");
+                var screen = new DebriefScreen(new MatchReport { Winner = 0 });
+                screen.Bind(root, null);
+                Assert.That(profile.Gold, Is.EqualTo(10 + CampaignGraph.RewardFirst));
+                Assert.That(profile.IsComplete("lowlands", 0), Is.True);
+                Assert.That(profile.LastNode, Is.EqualTo("lowlands"));
+                Assert.That(root.Q<Label>("gold-earned").text, Does.Contain("+" + CampaignGraph.RewardFirst));
+                Assert.That(root.Q<Button>("btn-continue").text, Is.EqualTo(DebriefScreen.ToTheMap));
+                Assert.That(root.Q("gold-row").ClassListContains("tw-hidden"), Is.False);
+                screen.Unbind();
+
+                var again = new DebriefScreen(new MatchReport { Winner = 0 }); again.Bind(Instantiate("Debrief"), null); again.Unbind();
+                Assert.That(profile.Gold, Is.EqualTo(10 + CampaignGraph.RewardFirst), "a re-bind (RESTART, VIEW FIELD) pays nothing more");
+
+                CampaignSession.Begin("lowlands", 0, 0);
+                var replay = new DebriefScreen(new MatchReport { Winner = 0 }); var replayRoot = Instantiate("Debrief"); replay.Bind(replayRoot, null);
+                Assert.That(profile.Gold, Is.EqualTo(10 + CampaignGraph.RewardFirst), "a mission already won pays nothing");
+                Assert.That(replayRoot.Q<Label>("gold-earned").text, Is.EqualTo(DebriefScreen.NoGoldAgain));
+                replay.Unbind();
+
+                CampaignSession.Begin("lowlands", 1, 0);
+                var lost = new DebriefScreen(new MatchReport { Winner = 1 }); var lostRoot = Instantiate("Debrief"); lost.Bind(lostRoot, null);
+                Assert.That(profile.IsComplete("lowlands", 1), Is.False, "a defeat records nothing");
+                Assert.That(lostRoot.Q<Label>("gold-earned").text, Is.EqualTo(DebriefScreen.NoGoldForADefeat));
+                lost.Unbind();
+
+                CampaignSession.Clear();
+                var skirmish = new DebriefScreen(new MatchReport { Winner = 0 }); var skRoot = Instantiate("Debrief"); skirmish.Bind(skRoot, null);
+                Assert.That(skRoot.Q("gold-row").ClassListContains("tw-hidden"), Is.True, "a skirmish shows no gold row");
+                Assert.That(skRoot.Q<Button>("btn-continue").text, Is.EqualTo("CONTINUE"));
+                skirmish.Unbind();
+            }
+            finally { CampaignSession.Clear(); CampaignSession.ResumeMap = false; ProfileStore.Use(null); ProfileStore.Persist = persist; }
+        }
+
         [Test]
         public void DebriefRowsMatchTheReport()
         {

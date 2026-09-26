@@ -270,7 +270,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** ShellUxmlTests, ShellRouterPlayTests, GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests.
 
 ### Campaign shell
-- **Files:** `UI/Campaign/CampaignGraph.cs` (the country nodes, their missions in order, prerequisites and gold: a
+- **Files:** `UI/Campaign/HomeFrontScreen.cs`, `UI/Campaign/StrategicMapScreen.cs`, `UI/Campaign/StagingScreen.cs`
+  (the three campaign screens; their UXML is hand-written under `UI/Resources/Shell/`, loaded by name like the
+  Armoury), `UI/Campaign/ShellPick.cs` (is the mouse over a plate, for the 3D views' picking),
+  `UI/Campaign/CampaignGraph.cs` (the country nodes, their missions in order, prerequisites and gold: a
   code table, no asset), `UI/Campaign/FactionBuildings.cs` (the Home Front's buildings, their stages and upgrade
   lines per faction, priced and capped against the profile), `Presentation/Core/CampaignProfile.cs` +
   `ProfileStore.cs` (profile.json beside settings.json, versioned, written through a .tmp swap),
@@ -285,7 +288,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
   plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
-  (docs/21 B1); today only the depot's silver and income go into the launch request.
+  (docs/21 B1); today only the depot's silver and income go into the launch request. The debrief pays a
+  campaign win through `ProfileStore.Current`: a test that binds it sets `ProfileStore.Persist = false` and
+  `ProfileStore.Use(profile)` first, or it writes the player's profile.json.
 
 ### UI skin
 - **Files:** `UI/Skin/SkinSpec.cs` (the sprite table), `Editor/UI/UiSkinGenerator.cs`, `Editor/UI/UiSkinImport.cs`,
@@ -387,7 +392,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `ScatterRulesTests` | EditMode | 7 | Kind, ScatterKind, ScatterInput, ScatterLayers, ScatterField, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
-| `ShellUxmlTests` | EditMode | 9 | MatchLaunch, DebriefScreen, ShellAssets, SimHost, ArmouryScreen, Difficulty |
+| `ShellUxmlTests` | EditMode | 15 | DebriefScreen, MatchLaunch, MatchReport, CampaignProfile, CampaignSession, ProfileStore |
 | `SimHashTests` | EditMode | 3 | SimHash, SimRandom, SimMath, SystemId |
 | `SinglePlayerEquivalenceTests` | EditMode | 1 | LockstepSession, MatchSim, ScriptedEnemy, SimCommand, SimConfig |
 | `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |

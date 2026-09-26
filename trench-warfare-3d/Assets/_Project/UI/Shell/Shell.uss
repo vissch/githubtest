@@ -91,3 +91,32 @@
 .armoury-state { width: 80px; flex-direction: column; align-items: center; }
 .armoury-state__face { width: 80px; height: 80px; -unity-background-scale-mode: scale-to-fit; }
 .armoury-state__label { margin-top: 4px; font-size: var(--tw-size-micro); color: var(--tw-text-dim); -unity-text-align: middle-center; letter-spacing: 1px; }
+
+/* campaign (docs/21 phase 6): the two 3D-backed screens are clear so the diorama and the map show through */
+.shell-screen--clear { background-color: rgba(0, 0, 0, 0); }
+.campaign-gold { position: absolute; right: 80px; top: 22px; flex-direction: row; align-items: center; }
+.campaign-gold__label { margin-right: 10px; }
+.campaign-gold__value { font-size: 22px; }
+.campaign-content { position: absolute; left: 80px; right: 80px; top: 80px; bottom: 110px; flex-direction: row; justify-content: space-between; }
+.campaign-side { width: 400px; }
+.campaign-info { width: 480px; flex-grow: 0; }
+.campaign-mission-column { width: 520px; }
+.campaign-tabs { flex-direction: row; margin-bottom: 10px; }
+.campaign-stage { margin: 6px 0; white-space: normal; }
+.campaign-line { flex-direction: row; align-items: center; margin: 4px 0; }
+.campaign-line__name { flex-grow: 1; }
+.campaign-line__why { width: 150px; -unity-text-align: middle-right; margin-right: 8px; }
+.campaign-pips { flex-direction: row; margin: 0 10px; }
+.campaign-pip { width: 10px; height: 10px; margin: 0 2px; border-radius: 5px; background-color: #3a3631; border-width: 1px; border-color: #6a6458; }
+.campaign-pip--on { background-color: #f0b040; border-color: #f0b040; }
+.campaign-chip { margin-left: 10px; }
+.campaign-mission { flex-direction: row; justify-content: space-between; }
+.campaign-note { white-space: normal; margin-top: 6px; }
+.campaign-slots { flex-direction: row; flex-wrap: wrap; }
+.campaign-slot { width: 96px; height: 124px; margin: 4px; flex-direction: column; align-items: center; }
+.campaign-slot__art { width: 88px; height: 72px; -unity-background-scale-mode: scale-to-fit; }
+.campaign-slot__name { font-size: 10px; -unity-text-align: middle-center; white-space: normal; }
+.campaign-slot__tier { font-size: 10px; -unity-text-align: middle-center; }
+.campaign-abilities { flex-direction: row; flex-wrap: wrap; margin: 6px 0; }
+.campaign-ability { margin: 4px; }
+.shell-debrief-gold { flex-direction: row; justify-content: space-between; margin-top: 4px; }

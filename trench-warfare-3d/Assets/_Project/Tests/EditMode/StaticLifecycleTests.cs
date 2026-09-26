@@ -42,7 +42,7 @@ namespace TW.Tests
             ["InputFocus"] = "cleared by SceneStatics.Reset on every scene load",
             ["KeyMap"] = "Current: the player's bindings from settings.json",
             ["MatchLaunch"] = "Current/Running: the mission request carried across a scene load, by design",
-            ["ProfileStore"] = "Current: the loaded profile.json, kept across scene loads like SettingsStore",
+            ["ProfileStore"] = "Current: the loaded profile.json, kept across scene loads like SettingsStore; Persist is a test switch the tests set and restore",
             ["RenderGround"] = "the drawn ground, replaced when the next terrain view builds; tests pass their maps explicitly",
             ["SceneMood"] = "Night: set by Atmosphere at the start of each scene",
             ["SceneTints"] = "the biome's tints and their epoch: set by Atmosphere at the start of each scene",
