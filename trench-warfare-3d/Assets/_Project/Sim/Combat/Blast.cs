@@ -44,8 +44,10 @@ namespace TW.Sim.Combat
     /// <summary>What kind of thing went off. A shell is directional and can hole a tank's top plate; masonry is a
     /// building coming down on the men underneath it, which no roof protects against and which cannot penetrate
     /// armour; a cook-off is the rounds in a hull going up. An incendiary bursts like a shell and then BurningSystem,
-    /// which reads Resolved right after this, sets the men and the ground inside its radius alight.</summary>
-    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3 }
+    /// which reads Resolved right after this, sets the men and the ground inside its radius alight. A beam's scorch
+    /// (BeamSystem) is for the trees, the wire and the picture: the men in a beam are the beam's own, so BlastJob
+    /// leaves them alone and VehicleModules leaves the hulls alone.</summary>
+    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3, Beam = 4 }
 
     public struct Impact
     {
@@ -198,6 +200,7 @@ namespace TW.Sim.Combat
                     if (directional) lean /= leanLen;
                     bool burstBroke = (Layers[burstCell] & (byte)(NavLayer.Crater | NavLayer.Trench)) != 0;
                     int rays = 0;
+                    if (im.Shape == (int)BlastShape.Beam) continue;   // the scorch under a beam: not for the men (BeamSystem has them)
 
                     for (int i = 0; i < Count; i++)
                     {

@@ -307,6 +307,7 @@ namespace TW.Sim.Units
         // ------------------------------------------------------------------ bursts
         void Burst(SimWorld w, Impact im, int k)
         {
+            if (im.Shape == (int)BlastShape.Beam) return;   // the beam takes its own toll off the hull (BeamSystem)
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!IsTank(w, i)) continue;

@@ -13,6 +13,8 @@
 //   Smoke screen: five sources of 30 along a 40 m line for 30 s, in GasSmokeSystem's smoke field; SmokeLos then
 //     cuts sight and aim through it.
 //   Strafe run: 32 bursts of 60 in 5 m along an 80 m corridor over 2 s, no crater (the aircraft is presentation).
+//   Beam: after 4 s a sweep of 6 s up a 60 m corridor 2 m either side (BeamSystem: 300 dps on men, 1200 on hulls,
+//     it sets men alight and scorches the ground); at most two running a player.
 // The enemy script uses the same path.
 using Unity.Collections;
 using Unity.Mathematics;
@@ -28,7 +30,7 @@ namespace TW.Sim.Match
         SmokeScreen = 6, MortarSalvo = 7, ReconFlight = 8, ReinforcementSurge = 9,
         /// <summary>A line of machine-gun bursts from one low pass (docs/21 phase 5).</summary>
         StrafeRun = 10,
-        /// <summary>Reserved for SIM-C (docs/21): the sweeping beam. TryGetStats says no until it lands.</summary>
+        /// <summary>The sweeping beam (docs/21 phase 5): a line of fire that walks its corridor (BeamSystem).</summary>
         Beam = 11,
     }
 
@@ -72,13 +74,13 @@ namespace TW.Sim.Match
         public int Ability;
         public int Player;
         public float3 Pos;
-        /// <summary>A shell's flight direction, a source's line heading (unit XZ); zero for a point.</summary>
+        /// <summary>A shell's flight direction, a source's line heading (unit XZ); zero for a point; a beam's heading times its length.</summary>
         public float3 Dir;
-        /// <summary>A shell's burst radius; a source's concentration.</summary>
+        /// <summary>A shell's burst radius; a source's concentration; a beam's half width.</summary>
         public float Radius;
         /// <summary>PayloadKind.</summary>
         public int Kind;
-        /// <summary>A source: how many ticks it holds its cell. A shell: 0.</summary>
+        /// <summary>A source: how many ticks it holds its cell. A beam: the ticks of its sweep. A shell: 0.</summary>
         public int Ticks;
     }
 
@@ -96,6 +98,7 @@ namespace TW.Sim.Match
         public NativeList<ScheduledPayload> Scheduled;
         BlastSystem blast;
         GasSmokeSystem gas;
+        BeamSystem beam;   // registered after this system's providers; null in a world without one (the Beam is then refused)
 
         /// <summary>Placeholder stats until C2 bakes TW.Data.AbilityDefinition; the numbers are the ones in docs/07.</summary>
         public static bool TryGetStats(int ability, out AbilityStats s)
@@ -125,6 +128,11 @@ namespace TW.Sim.Match
                     s = new AbilityStats { Id = OffMapAbilityId.StrafeRun, Cost = 180, CooldownTicks = 1800, WarmupTicks = 100, Target = AbilityTargetMode.Line,
                                            Length = 80f, HalfWidth = 3f, Shells = 32, ShellDamage = 60f, ShellRadius = 5f, ShellSuppression = 35f, CraterRadius = 0f, SpreadTicks = 40 };
                     return true;
+                case OffMapAbilityId.Beam:
+                    // SpreadTicks is the sweep: the head walks Length in that many ticks (BeamSystem)
+                    s = new AbilityStats { Id = OffMapAbilityId.Beam, Cost = 300, CooldownTicks = 3600, WarmupTicks = 80, Target = AbilityTargetMode.Heading,
+                                           Length = 60f, HalfWidth = 2f, SpreadTicks = 120 };
+                    return true;
                 default:
                     s = default;
                     return false;
@@ -143,6 +151,7 @@ namespace TW.Sim.Match
         {
             blast = world.GetSystem<BlastSystem>() ?? throw new System.InvalidOperationException("OffMapAbilitySystem needs BlastSystem registered before it");
             gas = world.GetSystem<GasSmokeSystem>() ?? throw new System.InvalidOperationException("OffMapAbilitySystem needs GasSmokeSystem registered before it");
+            beam = world.GetSystem<BeamSystem>();
             Cooldown = new NativeArray<int>(SimConfig.MaxPlayers * AbilitySlots, Allocator.Persistent);
             Scheduled = new NativeList<ScheduledPayload>(64, Allocator.Persistent);
         }
@@ -163,6 +172,7 @@ namespace TW.Sim.Match
                 var size = w.Init.SizeMeters;
                 bool inside = cmd.Pos.x >= 0f && cmd.Pos.z >= 0f && cmd.Pos.x <= size.x && cmd.Pos.z <= size.y;
                 if (!inside || !stats.Offers(pattern) || Cooldown[slot] > 0 || w.Silver[cmd.Player] < stats.Cost) { w.Reject(cmd); continue; }
+                if (stats.Id == OffMapAbilityId.Beam && (beam == null || beam.ActiveFor(cmd.Player) >= BeamSystem.MaxPerPlayer)) { w.Reject(cmd); continue; }   // two sweeps a player
 
                 w.Silver[cmd.Player] -= stats.Cost;
                 Cooldown[slot] = stats.CooldownTicks;
@@ -249,6 +259,9 @@ namespace TW.Sim.Match
                         Add(w, stats, player, warm + (uint)(k * stats.SpreadTicks / stats.Shells), p, dir, stats.ShellRadius);
                     }
                     break;
+                case OffMapAbilityId.Beam:
+                    Add(w, stats, player, warm, start, dir * len, stats.HalfWidth, PayloadKind.BeamStart, stats.SpreadTicks);
+                    break;
             }
         }
 
@@ -279,6 +292,13 @@ namespace TW.Sim.Match
                         gas.AddSmokeSource(p.Pos, p.Radius, p.Ticks, p.Player);
                         w.Events.Add(w.Tick, SimEventType.SmokeSpawned, p.Ability, p.Player, p.Pos, p.Dir, p.Radius);
                         break;
+                    case PayloadKind.BeamStart:
+                    {
+                        // the picture times the sweep from the AbilityFired tick and the stats; the sim starts it here
+                        float len = SimMath.Length(p.Dir);
+                        if (beam != null && len > 1e-3f) beam.Start(w, p.Pos, p.Dir / len, len, p.Radius, p.Ticks, p.Player, p.Ability);
+                        break;
+                    }
                 }
             }
             Scheduled.Length = keep;
