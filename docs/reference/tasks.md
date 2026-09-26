@@ -70,9 +70,10 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   `SimCommand.B`), `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs` (the gas field and the smoke
   field), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
   `Sim/Combat/Burning.cs` (`BurningSystem`: men and ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`),
-  `Sim/Match/Deformation.cs`.
+  `Sim/Combat/BeamSystem.cs` (`BeamSystem`: the sweeping beam, started by the Beam ability; men, hulls, fire, the
+  scorch of `BlastShape.Beam`), `Sim/Match/Deformation.cs`.
 - **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests, AbilityArgsTests, StrafeRunTests,
-  BarragePatternTests, SmokeScreenTests.
+  BarragePatternTests, SmokeScreenTests, BeamTests.
 - **Trap:** a line starts at `pos` and runs along the heading (0 = +Z, 90 = +X) for the length; `B = 0` is the plain
   ability at its own length, so every older caller still works. Add a pattern only to `AbilityStats.Patterns`, or the
   command is rejected as one the ability does not offer.
@@ -318,6 +319,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `BarragePatternTests` | EditMode | 7 | OffMapAbilityId, SimEventType, OffMapAbilitySystem, SimEvent, AbilityPattern, SimCommand |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
+| `BeamTests` | EditMode | 8 | SimEventType, OffMapAbilityId, SimCommand, Kind, BeamSystem, MatchSim |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
 | `BurningSystemTests` | EditMode | 9 | SimEventType, BurningSystem, Impact, MatchSim, UnitFlags, AmbientBombardmentSystem |

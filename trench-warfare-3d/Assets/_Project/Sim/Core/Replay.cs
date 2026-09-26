@@ -21,7 +21,9 @@ namespace TW.Sim
         // v6 (2026-09-26): SupportFire.b carries AbilityArgs (heading, pattern, length); ScheduledPayload gains Dir,
         // Radius, Kind and Ticks (hashed); GasSmokeSystem's smoke field and its sources join the hash while a screen
         // is up; the HE scatter draws from SimRandom.SystemId.Abilities; Impact gains SafeBehind. Layout unchanged.
-        public const ushort FormatVersion = 6;
+        // v7 (2026-09-26): BeamSystem is registered (its running sweeps join the hash); OffMapAbilityId.Beam = 11 is a
+        // real ability whose BeamStart payload carries heading x length in Dir; BlastShape.Beam = 4. Layout unchanged.
+        public const ushort FormatVersion = 7;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

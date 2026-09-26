@@ -30,6 +30,9 @@ namespace TW.Sim
         public const int IndirectFire = 710;
         public const int AmbientBombardment = 715;
         public const int Blast = 720;
+        /// <summary>The sweeping beam (docs/21): after Blast, before Burning, so the men it lights burn the same tick;
+        /// the scorch it queues under its head is resolved by the next tick's Blast.</summary>
+        public const int Beam = 723;
         /// <summary>Buildings: what a burst broke, which storeys come down next, and the masonry that falls on the
         /// men underneath. After Blast (it reads Resolved) and Burning, before VehicleModules.</summary>
         public const int Building = 728;
