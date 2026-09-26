@@ -105,7 +105,7 @@ namespace TW.Sim.Combat
         readonly MapData map;
         public NativeList<Impact> Pending;         // filled by abilities / indirect fire earlier in the same tick
         public NativeList<CraterStamp> Craters;    // drained by DeformationSystem later in the same tick
-        public NativeList<Impact> Resolved;        // this tick's impacts, for what they do to props and wire; drained the same way
+        public NativeList<Impact> Resolved;        // this tick's impacts, for every system after this one in the tick (Burning, VehicleModules, Deformation, Mines); cleared here at the top of the next Step, nowhere else
         NativeList<int> killed;
         NativeList<float4> killedKnock;            // xz = the way each dead man was thrown, w = how hard (m/s); parallel to killed
         NativeArray<int> counters;                 // [0] terrain rays asked this tick, [1] of which came back blocked
@@ -130,6 +130,7 @@ namespace TW.Sim.Combat
 
         public void Step(SimWorld w)
         {
+            Resolved.Clear();   // last tick's are gone; this tick's stay readable until the next Step (docs/21 SIM-D: Mines at 1130 reads them after Deformation at 1000)
             if (Pending.Length == 0) return;
             killed.Clear(); killedKnock.Clear();
             counters[0] = 0; counters[1] = 0;

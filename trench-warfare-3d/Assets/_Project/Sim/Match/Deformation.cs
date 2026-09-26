@@ -64,8 +64,7 @@ namespace TW.Sim.Match
             {
                 for (int i = 0; i < blast.Craters.Length; i++) Queue.Add(blast.Craters[i]);
                 blast.Craters.Clear();
-                for (int i = 0; i < blast.Resolved.Length; i++) navChanged |= Shake(w, blast.Resolved[i]);
-                blast.Resolved.Clear();
+                for (int i = 0; i < blast.Resolved.Length; i++) navChanged |= Shake(w, blast.Resolved[i]);   // read, not drained: BlastSystem clears its own list at its next Step
             }
             // wrecks: this tick's vehicle deaths (events are appended in sim order, so this is deterministic). The
             // PropChanged carries the dead slot + 1 in dir.x, so the view can tie the hull it draws to this prop.

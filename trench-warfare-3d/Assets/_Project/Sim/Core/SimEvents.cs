@@ -63,7 +63,7 @@ namespace TW.Sim
         // ---- fire (A5): BurningSystem ----
         UnitAlight,         // a = slot, b = 1 caught fire / 0 it went out (a corpse's fire too: a b = 0 may name a slot with no live man), pos, scalar = seconds it will burn (b = 1)
         MinePlaced,         // a = mine index, b = player, pos, dir = a tripwire's heading x length (zero for a mine), scalar = MineKind
-        MineTriggered,      // a = mine index, b = victim slot, pos = where it went off, dir = the victim's heading, scalar = MineKind
+        MineTriggered,      // a = mine index, b = victim slot, pos = where it went off, dir = the victim's velocity direction (zero if he stood still), scalar = MineKind
         MineCleared,        // a = mine index, b = the burst's player, pos, dir, scalar = MineKind: a crater set it cooking; its burst follows
     }
 
