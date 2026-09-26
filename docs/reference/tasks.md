@@ -384,7 +384,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HomeFrontDioramaTests` | EditMode | 6 | HomeFrontStages, MetaServices, Chunk, HouseKit, House, MetaBoot |
 | `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
 | `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
-| `HudLayoutTests` | EditMode | 5 | BattleHud, RosterEntry |
+| `HudLayoutTests` | EditMode | 6 | HudLayout, BattleHud, HudView, RosterEntry |
 | `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud |
 | `HudTextTests` | EditMode | 11 | BattleHud, VehicleArchetype, TankSpec, RosterEntry, OffMapAbilityId, OffMapAbilitySystem |
 | `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |

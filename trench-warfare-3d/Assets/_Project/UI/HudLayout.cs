@@ -31,7 +31,9 @@ namespace TW.UI
         public const float CaptionPx = 14f;      // the INFANTRY / ARMOUR / SUPPORT caption above each group
         public const float CaptionGapPx = 2f;    // under each caption
         public const float BarPadTopPx = 6f, BarPadBottomPx = 8f;
-        public const int SupportSlots = 2;
+        /// <summary>The support row is every card HudView offers (six since docs/21 phase 5): the width model and the
+        /// shrink factor (HudView.BarFit) must count what the bar really draws, or the row runs off a narrow window.</summary>
+        public static int SupportSlots => HudView.SupportAbilities.Length;
         public const int Dividers = 1;           // infantry | (armour over support)
         /// <summary>One caption line (INFANTRY, ARMOUR), then the cards: infantry beside ARMOUR over SUPPORT, whose
         /// caption sits beside its two cards. The stack is as tall as the infantry group: ARMOUR at its top, SUPPORT at
@@ -67,7 +69,7 @@ namespace TW.UI
         public static float BarWidth(int infantry, int armour, int support) =>
             InsetPx * 2f + Row(infantry, InfantryCardPx) + GapPx + DividerPx + GapPx + UnityEngine.Mathf.Max(Row(armour, CardPx), Row(support, CardPx));
 
-        /// <summary>The default bar: our side's default roster split into infantry and armour, plus the support pair.</summary>
+        /// <summary>The default bar: our side's default roster split into infantry and armour, plus the support row.</summary>
         public static float BarWidth()
         {
             var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
