@@ -1,0 +1,23 @@
+{
+  "name": "TW.Presentation.Meta",
+  "rootNamespace": "TW.Presentation.Meta",
+  "references": [
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "Unity.InputSystem",
+    "TW.Sim.Core",
+    "TW.Sim.Terrain",
+    "TW.Presentation.Core",
+    "TW.Presentation.Camera",
+    "TW.Presentation.Terrain"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

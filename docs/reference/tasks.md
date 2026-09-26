@@ -276,8 +276,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `ProfileStore.cs` (profile.json beside settings.json, versioned, written through a .tmp swap),
   `Presentation/Core/CampaignSession.cs` (the mission in flight across the scene load),
   `Presentation/Core/MetaViews.cs` (the seam to the 3D views: `IHomeFrontView`, `IStrategicMapView`,
-  `MetaServices`).
-- **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests.
+  `MetaServices`), `Presentation/Meta/` (its own assembly, `TW.Presentation.Meta`: `HomeFrontDiorama.cs` and
+  `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask), `StrategicMapView.cs` and
+  `ContinentMesh.cs` (the generated continent, pins, the front line), `MetaCamera.cs` (orbit / map),
+  `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
+- **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests, HomeFrontDioramaTests,
+  StrategicMapMeshTests.
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
   plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
@@ -369,6 +373,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `GarrisonTests` | EditMode | 5 | MatchSim, SimMath, Stance, SimCommand, SimConfig |
 | `HashIntervalTests` | EditMode | 2 | SimCommand, MatchSim, SimConfig, LockstepDriver, LoopbackNetwork, ReplayRecorder |
 | `HeightfieldRaycastTests` | EditMode | 4 | HeightfieldRaycast, Sample, Look, Stance, Heightfield, BattlefieldGenerator |
+| `HomeFrontDioramaTests` | EditMode | 6 | HomeFrontStages, MetaServices, Chunk, HouseKit, House, MetaBoot |
 | `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
 | `HudBindTests` | EditMode | 10 | HudText, HudView, VehicleArchetype, RosterEntry, IntText, TankSpec |
 | `HudLayoutTests` | EditMode | 5 | BattleHud, RosterEntry |
@@ -389,6 +394,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `SmokeScreenTests` | EditMode | 5 | SmokeLos, OffMapAbilityId, OffMapAbilitySystem, SimEventType, SimCommand, CombatTables |
 | `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, MatchLaunch, CombatFx |
 | `StrafeRunTests` | EditMode | 5 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
+| `StrategicMapMeshTests` | EditMode | 4 | ContinentMesh, CampaignGraph |
 | `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |

@@ -200,7 +200,14 @@ namespace TW.Tests
             views = FactionBuildings.Views(p, FactionBuildings.Brass);
             int found = 0;
             foreach (var v in views)
-                if (v.Id == "tusk-yard") { found++; Assert.That(v.Stage, Is.EqualTo(2)); Assert.That(v.Set, Is.EqualTo("Houses")); Assert.That(v.Model, Is.EqualTo("House4")); }
+                if (v.Id == "tusk-yard")
+                {
+                    found++;
+                    Assert.That(v.Stage, Is.EqualTo(2)); Assert.That(v.Set, Is.EqualTo("Houses")); Assert.That(v.Model, Is.EqualTo("House4"));
+                    Assert.That(v.ShownHeight, Is.EqualTo(FactionBuildings.StageHeights[2]), "the view carries the stage's height");
+                    var b = FactionBuildings.Find(FactionBuildings.Brass, "tusk-yard");
+                    Assert.That(v.Chimneys, Is.EqualTo(b.Stages[2].Chimneys)); Assert.That(v.Lamps, Is.EqualTo(b.Stages[2].Lamps));
+                }
             Assert.That(found, Is.EqualTo(1));
             foreach (var v in FactionBuildings.Views(p, FactionBuildings.Iron)) Assert.That(v.Stage, Is.Zero, "Iron's city is untouched");
         }

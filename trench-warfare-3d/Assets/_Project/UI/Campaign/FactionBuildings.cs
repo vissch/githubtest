@@ -324,11 +324,18 @@ namespace TW.UI
             r.SilverPerSecond += IncomeBonus(p, faction);
         }
 
+        /// <summary>A building as the diorama draws it at its current stage.</summary>
+        public static BuildingView View(CampaignProfile p, Building b)
+        {
+            int stage = Mathf.Clamp(p.StageOf(b.Faction, b.Id), 0, b.Stages.Length - 1);
+            var s = b.Stages[stage];
+            return new BuildingView { Id = b.Id, Name = b.Name, Set = b.Set, Model = b.Model, Stage = stage, Place = b.Place, Yaw = b.Yaw, ShownHeight = s.ShownHeight, Chimneys = s.Chimneys, Lamps = s.Lamps };
+        }
+
         public static List<BuildingView> Views(CampaignProfile p, byte faction)
         {
             var list = new List<BuildingView>();
-            foreach (var b in Of(faction))
-                list.Add(new BuildingView { Id = b.Id, Name = b.Name, Set = b.Set, Model = b.Model, Stage = p.StageOf(faction, b.Id), Place = b.Place, Yaw = b.Yaw });
+            foreach (var b in Of(faction)) list.Add(View(p, b));
             return list;
         }
     }

@@ -20,19 +20,23 @@ namespace TW.Presentation
         public int Done, Total;  // missions
     }
 
-    /// <summary>A Home Front building as the diorama draws it: which model of which set, where, and how far built.</summary>
+    /// <summary>A Home Front building as the diorama draws it: which model of which set, where, and how far built
+    /// (the stage's share of the model's height, its chimneys and lamps: the table in TW.UI decides, the view draws).</summary>
     public struct BuildingView
     {
         public string Id, Name, Set, Model;
         public int Stage;        // 0..3
         public Vector3 Place;
         public float Yaw;
+        public float ShownHeight; // 0..1 of the model's height
+        public int Chimneys, Lamps;
     }
 
     public interface IHomeFrontView
     {
         void Show(byte faction, IReadOnlyList<BuildingView> buildings);
-        void SetStage(string id, int stage, bool animate);
+        /// <summary>The building's new stage, as a view carrying the id; animate raises it over a moment.</summary>
+        void SetStage(BuildingView view, bool animate);
         void Highlight(string id);
         void Hide();
         event Action<string> Picked;
