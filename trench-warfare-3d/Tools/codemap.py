@@ -111,6 +111,8 @@ FLAG_EFFECT = {
     'tw.rig.stress': 'SessionState (this editor session only): CaptureRig stress request carried across a domain reload.',
     'tw.rig.stress.restore': 'SessionState: the StressUnits value CaptureRig puts back afterwards.',
     'TW.EnvProps.Edit': 'EditorPrefs bool: hand placement of props in the Scene view during Play (EnvPropEditor). Default on.',
+    'TW_AUDIT_OUT': 'Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. '
+                    'Default docs/reference/asset-scale.md.',
 }
 
 # Code-level switches worth knowing. Each must still be declared where it says, or --check fails.
