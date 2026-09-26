@@ -23,7 +23,7 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 SRC, OUT, RENDERDIR = argv[0:3], argv[3], argv[4]
 os.makedirs(os.path.dirname(OUT), exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 HEIGHT = float(os.environ.get("TW_HEIGHT", "1.78"))       # metres: VATBaker normalises its men to 1.78 m
-LOD3_TRIS = int(os.environ.get("TW_LOD3_TRIS", "220"))
+LOD3_TRIS = int(os.environ.get("TW_LOD3_TRIS", "300"))   # measured, see docs/22: 219 -> pop IoU 0.82, 300 -> 0.85, 380 -> 0.87
 
 # ------------------------------------------------------------------------------------------------ the skeleton
 # (name, parent, head, tail) in the model frame. L = +X.
@@ -236,14 +236,37 @@ lods = []
 stems = []
 for k, f in enumerate(SRC):
     o, stem = load(f, "Frog_LOD%d" % k); lods.append(o); stems.append(stem)
+# TW_LOD2_FROM_LOD1=1 (an option for the owner, off by default): LOD2 is LOD1 decimated to LOD2's triangle count, on
+# LOD1's atlas, instead of Tripo's own LOD2 sculpt - which is a different model (a plated shoulder, a broader back) and
+# pops at the LOD1->LOD2 switch (worst side 0.857, critic r5). The owner's art stays the default.
+if os.environ.get("TW_LOD2_FROM_LOD1") == "1":
+    tris_own = sum(len(p.vertices) - 2 for p in lods[2].data.polygons)
+    d2 = lods[1].copy(); d2.data = lods[1].data.copy(); bpy.context.scene.collection.objects.link(d2)
+    bpy.data.objects.remove(lods[2]); d2.name = "Frog_LOD2"; d2.data.name = "Frog_LOD2"
+    tris1 = sum(len(p.vertices) - 2 for p in d2.data.polygons)
+    select_only([d2], d2)
+    md = d2.modifiers.new("dec2", 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = min(1.0, tris_own / tris1)
+    md.use_symmetry = True; md.symmetry_axis = 'X'; md.use_collapse_triangulate = True
+    bpy.ops.object.modifier_apply(modifier=md.name)
+    lods[2] = d2; stems[2] = stems[1]
+    print("LOD2: made from LOD1, %d tris (Tripo's LOD2 had %d)" % (sum(len(p.vertices) - 2 for p in d2.data.polygons), tris_own))
 # LOD3: LOD2 decimated
 src2 = lods[2]
 lod3 = src2.copy(); lod3.data = src2.data.copy(); lod3.name = "Frog_LOD3"; lod3.data.name = "Frog_LOD3"
 bpy.context.scene.collection.objects.link(lod3)
 tris2 = sum(len(p.vertices) - 2 for p in src2.data.polygons)
 select_only([lod3], lod3)
+# TW_LOD3_KEEP > 0 weights the decimation to keep the cap's flat top and the gap between the legs (critic r4's idea).
+# Measured 2026-09-26 it makes the LOD2->LOD3 pop WORSE (worst side 0.77 against 0.85 at 300 tris): the triangles it
+# keeps there are taken from the shoulders and arms. Off by default; kept so the next figure can be tried with it.
+keep = lod3.vertex_groups.new(name="keep")   # inert while the factor is 0
+for v in lod3.data.vertices:
+    x, z = abs(v.co.x), v.co.z
+    w = 1.0 if z > 0.60 else (1.0 if (z < 0.17 and x < 0.075) else (0.6 if z < 0.06 else 0.0))
+    if w > 0: keep.add([v.index], w, 'REPLACE')
 m = lod3.modifiers.new("dec", 'DECIMATE'); m.decimate_type = 'COLLAPSE'; m.ratio = min(1.0, LOD3_TRIS / tris2)
 m.use_symmetry = True; m.symmetry_axis = 'X'; m.use_collapse_triangulate = True
+m.vertex_group = "keep"; m.invert_vertex_group = True; m.vertex_group_factor = float(os.environ.get("TW_LOD3_KEEP", "0"))
 bpy.ops.object.modifier_apply(modifier=m.name)
 lods.append(lod3); stems.append(stems[2])
 # scale to HEIGHT, feet on the ground, centred over x = 0 (y left as modelled: the joints are measured in it)
@@ -335,10 +358,11 @@ if os.environ.get("TW_LOD3_TEXTURED") != "1":
     for poly in me3.polygons:
         uvs = [uvl[li].uv for li in poly.loop_indices]
         cu = sum(u.x for u in uvs) / len(uvs); cv = sum(u.y for u in uvs) / len(uvs)
-        # the centre and three points halfway to the corners: the face's own paint, not its island's rim
-        pts = [(cu, cv)] + [((cu + u.x) / 2, (cv + u.y) / 2) for u in uvs[:3]]
-        cs = [sample(u, v) for u, v in pts]
-        c = [sum(x[k] for x in cs) / len(cs) for k in range(3)]
+        # nine points over the face (the centre, and toward each corner at two depths) and the MEDIAN of them: the face's
+        # own paint, not a stray texel of its island's rim (a mean gave LOD3's shoulder a pale lilac block, critic r5)
+        pts = [(cu, cv)] + [(cu + (u.x - cu) * f, cv + (u.y - cv) * f) for u in uvs[:4] for f in (0.35, 0.7)]
+        cs = [sample(u, v) for u, v in pts[:9]]
+        c = [sorted(x[k] for x in cs)[len(cs) // 2] for k in range(3)]
         a_ = poly.area
         for vi in poly.vertices:
             a = acc[vi]; a[0] += c[0] * a_; a[1] += c[1] * a_; a[2] += c[2] * a_; a[3] += a_

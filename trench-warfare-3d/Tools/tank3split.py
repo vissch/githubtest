@@ -378,6 +378,130 @@ for k in (1, 2):
             bmesh.ops.transform(lods[k][0][n], matrix=Matrix.Translation(d), verts=lods[k][0][n].verts)
             snapped.append({"lod": k, "part": n, "moved": round(d.length * SCALE, 3)})
             print("LOD%d: snapped %s onto LOD0 (%.2f m)" % (k, n, d.length * SCALE))
+# A track's face toward the hull was never meant to be seen, and Tripo painted it dark: thrown off, it showed a black
+# slab (critic r3/r4). Each of those faces takes the texture of the outer side opposite it, mirrored across the track.
+def mirror_inner(bm, side):
+    bm.faces.ensure_lookup_table()
+    lo, hi = bounds(bm); cx = (lo.x + hi.x) / 2
+    inward = -1.0 if side == "L" else 1.0          # Track_L is at +X: its inner faces point -X
+    uvl = bm.loops.layers.uv.active
+    outer = [f for f in bm.faces if f.normal.x * inward < -0.6]
+    inner = [f for f in bm.faces if f.normal.x * inward > 0.6]
+    if not outer or not inner: return 0
+    ob = bmesh.new(); vmap = {}; made = []
+    for f in outer:
+        vs = []
+        for v in f.verts:
+            if v not in vmap: vmap[v] = ob.verts.new(v.co)
+            vs.append(vmap[v])
+        try: ob.faces.new(vs); made.append(f)
+        except ValueError: pass
+    ob.faces.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(ob)
+    src = {i: f for i, f in enumerate(made)}
+    n = 0
+    for f in inner:
+        for l in f.loops:
+            p = l.vert.co.copy(); p.x = 2 * cx - p.x
+            hit = tree.find_nearest(p)
+            if hit[0] is None or hit[2] is None or hit[2] not in src: continue
+            of = src[hit[2]]
+            # barycentric on the outer face's first triangle fan: nearest corner-weighted UV
+            ds = [max(1e-6, (c.vert.co - hit[0]).length) for c in of.loops]
+            ws = [1.0 / d for d in ds]; sw = sum(ws)
+            u = sum(c[uvl].uv.x * w for c, w in zip(of.loops, ws)) / sw
+            v = sum(c[uvl].uv.y * w for c, w in zip(of.loops, ws)) / sw
+            l[uvl].uv = (u, v); n += 1
+    ob.free()
+    return n
+def close_big_holes(bm, min_perimeter, uv):
+    """Fan-fill every open loop longer than min_perimeter (model units). Tripo modelled only the outside of the tracks'
+    skirts: thrown and tipped, the open back showed the ink outline's back faces as a black slab (critic r3-r5; the
+    re-texture of the hull-facing faces could not help, there was no face there)."""
+    uvl = bm.loops.layers.uv.active; made = 0
+    blo, bhi = bounds(bm); mid = (blo + bhi) / 2
+    # Blender's own filler first, on every open loop long enough to see into (grouped by shared vertices); the fan below
+    # takes what it leaves (a loop through one vertex twice lost a fan triangle and left a sliver open)
+    bnd = [e for e in bm.edges if e.is_boundary]
+    par = {e: e for e in bnd}
+    def find(e):
+        while par[e] is not e: par[e] = par[par[e]]; e = par[e]
+        return e
+    byv = {}
+    for e in bnd:
+        for v in e.verts: byv.setdefault(v, []).append(e)
+    for es in byv.values():
+        for e in es[1:]:
+            a, b = find(es[0]), find(e)
+            if a is not b: par[a] = b
+    groups = {}
+    for e in bnd: groups.setdefault(find(e), []).append(e)
+    before = set(bm.faces)
+    for es in groups.values():
+        if sum(e.calc_length() for e in es) >= min_perimeter:
+            bmesh.ops.holes_fill(bm, edges=es, sides=0)
+    filled = [f for f in bm.faces if f not in before]
+    if filled: bmesh.ops.triangulate(bm, faces=filled)
+    filled = [f for f in bm.faces if f not in before]
+    for f in filled:
+        f.normal_update()
+        if f.normal.dot(f.calc_center_median() - mid) < 0: f.normal_flip()
+        for l in f.loops: l[uvl].uv = uv
+    made += len(filled)
+    bnd = [e for e in bm.edges if e.is_boundary]
+    byv = {}
+    for e in bnd:
+        for v in e.verts: byv.setdefault(v, []).append(e)
+    left = set(bnd)
+    while left:
+        e0 = left.pop(); loop = [e0.verts[0], e0.verts[1]]; used = {e0}
+        while True:
+            nxt = [e for e in byv.get(loop[-1], []) if e in left and e not in used]
+            if not nxt: break
+            e = nxt[0]; used.add(e); left.discard(e)
+            v = e.other_vert(loop[-1])
+            if v is loop[0]: break
+            loop.append(v)
+        per = sum((loop[i].co - loop[(i + 1) % len(loop)].co).length for i in range(len(loop)))
+        if len(loop) < 3 or per < min_perimeter: continue
+        c = sum((v.co for v in loop), Vector()) / len(loop)
+        vc = bm.verts.new(c); new = []
+        for i in range(len(loop)):
+            try: new.append(bm.faces.new((loop[i], loop[(i + 1) % len(loop)], vc)))
+            except ValueError: pass
+        for f in new:
+            f.normal_update()
+            if f.normal.dot(f.calc_center_median() - mid) < 0: f.normal_flip()
+            for l in f.loops: l[uvl].uv = uv
+        made += len(new)
+    return made
+
+def texture_caps(bm, caps, original):
+    """Every cap corner takes the UV of the nearest point of the track's own surface as it was before capping: a cap is
+    painted like the rim it closes, not with the soot texel (the caps that did not face the hull - the open underside of
+    the tread loop - kept that texel and rendered pitch black, critic r6)."""
+    tree = BVHTree.FromBMesh(original)
+    original.faces.ensure_lookup_table()
+    ouv = original.loops.layers.uv.active; uvl = bm.loops.layers.uv.active
+    for f in caps:
+        for l in f.loops:
+            hit = tree.find_nearest(l.vert.co)
+            if hit[0] is None or hit[2] is None: continue
+            of = original.faces[hit[2]]
+            ds = [max(1e-6, (c.vert.co - hit[0]).length) for c in of.loops]; ws = [1.0 / d for d in ds]; sw = sum(ws)
+            l[uvl].uv = (sum(c[ouv].uv.x * w for c, w in zip(of.loops, ws)) / sw, sum(c[ouv].uv.y * w for c, w in zip(of.loops, ws)) / sw)
+
+for k in range(3):
+    for side in ("L", "R"):
+        bm = lods[k][0]["Track_" + side]
+        before_caps = bm.copy(); faces_before = set(bm.faces)
+        lo, hi = bounds(bm)
+        # repeated: where two open loops touch at a vertex, one pass walks and fills one of them and leaves the other
+        made, step = 0, 1
+        while step and made < 400:
+            step = close_big_holes(bm, 0.12 * (hi.y - lo.y), lods[k][4]); made += step
+        texture_caps(bm, [f for f in bm.faces if f not in faces_before], before_caps); before_caps.free()
+        print("LOD%d Track_%s: %d faces closing its open back; %d inner corners re-textured from the outer side" % (k, side, made, mirror_inner(bm, side)))
 piv, sock = pivots_and_sockets(lods[0][0])
 manifest = {"source": "Tools/tank3split.py", "name": NAME, "scale": SCALE, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped}
 for n in ALL_PARTS:
