@@ -3,10 +3,11 @@
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
 // leaves a body, and every trench or objective capture raises a banner. Instanced draws, no GameObjects per effect.
 // Listens to SimHost.Events, so it sees exactly what the local sim produced.
-// One class in five files (2026-09-25): this one holds the event dispatch (OnSimEvent), Update, the materials and
+// One class in six files (2026-09-25): this one holds the event dispatch (OnSimEvent), Update, the materials and
 // the tracer/body/burst pools; CombatFx.Ground.cs what only a close camera sees (marks, rests, trails, breath);
 // CombatFx.Chunks.cs thrown chunks and cook-offs; CombatFx.Ambient.cs birds and ambient smoke; CombatFx.Bodies.cs
-// gibs, tree breaks and where a man's muzzle and chest are drawn. CameraShake is in its own file.
+// gibs, tree breaks and where a man's muzzle and chest are drawn; CombatFx.Deaths.cs what a Death leaves (the body
+// from the controller's record, the gibs, a burning man's pool and smoulder). CameraShake is in its own file.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
@@ -496,46 +497,11 @@ namespace TW.Presentation.Tactical
                     break;
                 }
                 case SimEventType.Death:
-                {
-                    // a tank leaves a wreck (TankRenderer), not a body. Its Death comes just before its VehicleDestroyed, while
-                    // the tank view still has the slot; the archetype would be a later tenant's if the slot was refilled
-                    if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : VehicleArchetype.IsTank(w.Archetype[e.A]))) break;
-                    if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
-                    Vector3 p = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Drawn(e.A) : (Vector3)e.Pos;   // where he was drawn, so the corpse does not hop
-                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;
-                    byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
-                    float fellYaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg;
-                    int death = (Mathf.FloorToInt(p.x * 13f) ^ Mathf.FloorToInt(p.z * 29f)) & 3;
-                    // he goes down as the figure he was (VATRenderer plays the death and holds it); without it, a still box figure
-                    if (units != null && units.Ready)
-                    {
-                        // the controller chose the death for his stance, gait and the side the shot came from; it is drawn where he fell
-                        var anim = Host != null ? Host.Animation : null;
-                        bool controlled = anim != null && Host.UseAnimationController && e.A >= 0 && e.A < w.HighWater;
-                        Clip deathClip = controlled ? anim.State[e.A].Clip : Clip.None;
-                        float yaw = controlled ? anim.State[e.A].ShownYaw : e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad;
-                        // the clip he was hit in fades into the death (the controller's own cross-fade, carried into the fallen buffer)
-                        Clip from = controlled ? anim.State[e.A].PrevClip : Clip.None; float fromPhase = 0f, fade = 0f;
-                        if (from != Clip.None)
-                        {
-                            var prev = Clips.Table[(int)from]; float pp = prev.Seconds > 0f ? anim.State[e.A].PrevFrame / prev.Seconds : 0f;
-                            fromPhase = prev.Loop ? pp - Mathf.Floor(pp) : Mathf.Min(pp, 1f); fade = Mathf.Max(anim.State[e.A].Fade, 0.2f);
-                        }
-                        // a shell that killed him throws him (the controller worked out how far and how high)
-                        Vector3 fly = controlled ? new Vector3(anim.State[e.A].ThrowX, anim.State[e.A].ThrowUp, anim.State[e.A].ThrowZ) : Vector3.zero;
-                        // a shell close enough to throw him high takes him apart: the figure loses the limbs (a bit each, read by
-                        // the VAT shader), and they fly off with his helmet and rifle
-                        int gib = e.B < 0 && e.Dir.y > 0.5f && fly.y > 0.6f ? Gibs(e.A, p, yaw, team, fly) : 0;
-                        float grime = anim != null && e.A >= 0 && e.A < anim.Grime.Length ? anim.Grime[e.A] : 0f;   // he goes down in the mud he wore
-                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly, gib, grime);
-                    }
-                    else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
-                    // his helmet comes off as he goes down and rolls a step away
-                    if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
-                        chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + UnityEngine.Random.Range(-70f, 70f), 0f) * Vector3.forward * UnityEngine.Random.Range(1.2f, 2.4f) + Vector3.up * 1.6f,
-                            Born = Time.time, Life = 4f, Size = 1f, Kind = 6 });
+                    OnDeath(e);   // CombatFx.Deaths.cs: the body, by the controller's record of the death
                     break;
-                }
+                case SimEventType.UnitAlight:
+                    OnAlight(e);  // the sim's BurningSystem lit or doused him
+                    break;
                 case SimEventType.Explosion:
                 {
                     Vector3 p = (Vector3)e.Pos;
@@ -755,6 +721,7 @@ namespace TW.Presentation.Tactical
 
             DrawChunks(now, bounds);
             flames.Update(now, view, books, drawnAt, groundAt);
+            TickSmoulders(now);
             books?.Draw(now, bounds);
             hitsThisFrame = 0;
 

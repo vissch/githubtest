@@ -198,13 +198,32 @@ MG, whose belt change waits for the sim). Throw and melee simply do not happen u
 
 ## 9. Death
 
-`Death` event carries the killer and an impulse direction. Choice, in order: the man's animated stance (prone →
-`Rifle Prone Hit Reaction` held on its last frame, the set has no prone death; kneeling → the two kneel deaths;
-squat → `Death Crouching Headshot Front`), then his gait (walking → `Walking To Dying` x2, running → `Rifle Run To
-Dying`), then the direction of the impulse against his body yaw (front / back / right; left is right mirrored),
-with the headshot variants on a 20% roll and `Rifle Hit To Back` when the killer was an explosion. The clip plays
-once through `VATRenderer`'s fallen path (already built for held poses), no cross-fade, and the man stays where the
-sim left him. Deaths beyond 120 m skip straight to the last frame.
+The `Death` event says what killed him (`b`: the killer's slot, or a `DeathCause` below zero: blast, gas, burning,
+beam) and, for a blast, which way and how hard it threw him (`dir`, `scalar`); `AnimationController.Death.cs`
+latches it per slot and `Die` reads it. The ladder, in order (2026-09-26, docs/21 phase 4):
+
+1. **Alight, or a beam:** he was running in flames and drops mid-stride, charred (`Char` 3: `VatPad` bits 22-23,
+   blackened with embers in `VAT_URP`; the embers go out after 4 s, the body smoulders 8 s and lies 14 s, shrinking
+   as the mud takes it). `DeathBurning` (the run slowed into a fold) comes with the next bake; `DeathRunning` stands in.
+2. **Gas:** to his knees (`DeathKneel`; `DeathProne` when flat). `DeathGas` with the bake.
+3. **Under a track or a claw** (the killer is a vehicle): flat and hard (`DeathBlast`). `DeathCrushed` with the bake.
+4. **Thrown:** a blast close enough (the latched burst inside four fifths of its radius, or the sim's knock at up to
+   12 m/s) sends him up `DeathThrown` along the sim's knock, further and higher the harder it was, and by the heap:
+   every man already down within 4 m in the last 12 ticks adds 35 % (up to five), capped at 14 m out and 9 m up. In
+   flight he turns end over end (once past 0.9 s, twice past 1.4 s in a heap), whole turns, so he lands as the clip
+   leaves him. A shell that throws him high takes limbs off (more in a heap).
+5. **Stance:** prone `DeathProne`; crouch or fire step `DeathKneel` / `DeathSquat`.
+6. **Blast, not thrown:** `DeathBlast`.
+7. **Gait:** running `DeathRunning`, walking `DeathWalking` (`DeathWalking2` with the bake).
+8. **Standing, shot:** by the side it came from (`DeathFront` / `Back` / `Right` / `Left`), one in five a headshot;
+   and never the same death as a man within 6 m in the last 20 ticks (the second candidate is taken).
+
+Every death is written to a 256-entry ring (`DeathRecord`: clip, yaw, throw, grime, char, density, cause) that
+`CombatFx.Deaths.cs` reads by slot and the event's tick (`TryDeath`). Events are dispatched once per render frame
+after every tick of the frame ran, so `State[slot]` may already be another man's: the record is the dead man's.
+Men who die on one 2 m cell pile up (`VATRenderer.Fallen.cs`: each lifts the next 0.28 m, nudges him 0.4 m and
+tilts him a 32nd of a turn). The clip plays once through the fallen path, cross-faded from the clip he was hit in,
+and the man stays where the sim left him.
 
 ## 10. Archetypes: who uses what
 

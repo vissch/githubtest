@@ -131,7 +131,9 @@ namespace TW.Presentation
         public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
     }
 
-    public sealed class AnimationController : System.IDisposable
+    /// <summary>One class in two files: this one is the ladder, the latch and the render-frame advance;
+    /// AnimationController.Death.cs how a man dies and the records of it (docs/21 phase 4).</summary>
+    public sealed partial class AnimationController : System.IDisposable
     {
         /// <summary>Seconds into DeathThrown (at rate 1) when his back meets the ground: the corpse's arc is timed to land there.</summary>
         public const float ThrownLands = 0.9f;
@@ -208,12 +210,14 @@ namespace TW.Presentation
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
+            AllocateDeaths(maxSlots);
         }
 
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); shotAt.Dispose();
+            DisposeDeaths();
         }
 
         // ------------------------------------------------------------------------------------------------------ tick
@@ -247,7 +251,7 @@ namespace TW.Presentation
             var s = new AnimState { Clip = Clip.Idle, Rung = Rung.Idle, Rate = 1f, Generation = w.Generation[i], Seed = (uint)i * 2654435761u ^ (uint)w.Generation[i] * 40503u, IdleSince = w.Tick, ClipStart = w.Tick };
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             prevPos[i] = w.Position[i];
-            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -270,7 +274,7 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; }
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
             {
@@ -288,6 +292,9 @@ namespace TW.Presentation
                         break;
                     case SimEventType.UnitLeftTrench:
                         if (e.A >= 0 && e.A < count) leftTrench[e.A] = 1;
+                        break;
+                    case SimEventType.Death:
+                        LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
                         break;
                     case SimEventType.Explosion:
                     {
@@ -382,46 +389,6 @@ namespace TW.Presentation
             var s = State[slot]; s.AlightUntil = 0u; State[slot] = s;
         }
 
-        AnimState Die(int i, AnimState s, SimWorld w)
-        {
-            // stance first, then gait, then the direction the impulse came from against the body
-            Clip clip;
-            var st = (Stance)s.Stance;
-            bool blast = blastRadius[i] > 0f;
-            float speed = s.Speed;   // the smoothed speed: the sim kills before it moves him this tick
-            // a heavy shell inside four fifths of its radius throws him through the air, whatever his stance: he goes up
-            // facing it and comes down on his back, further and higher the closer it was (the corpse's arc: VATRenderer)
-            float closeness = blast && blastRadius[i] >= 4f ? math.saturate(1.15f - blastDist[i] / (0.8f * blastRadius[i])) : 0f;
-            s.ThrowX = s.ThrowZ = s.ThrowUp = 0f;
-            if (closeness > 0f)
-            {
-                float3 toward = hitDir[i]; toward.y = 0f; toward = math.normalizesafe(toward, new float3(0f, 0f, 1f));
-                float jitter = 0.8f + 0.4f * Hash(s.Seed, tick + 31);
-                float far = math.lerp(1.8f, 7.5f, closeness) * jitter, high = math.lerp(1.4f, 6.0f, closeness) * jitter;
-                bool flat = st == Stance.Prone || st == Stance.Pinned, dug = (w.Flags[i] & (uint)UnitFlags.InTrench) != 0 || s.PrevLayer == (byte)NavLayer.Trench;
-                if (flat) { far *= 0.5f; high *= 0.5f; }
-                if (dug) { far *= 0.25f; high *= 0.8f; }   // in a trench he goes up, not out
-                s.ThrowX = -toward.x * far; s.ThrowZ = -toward.z * far; s.ThrowUp = high;
-                Start(i, ref s, Clip.DeathThrown, Rung.Death, (i == FollowSlot ? "killed: shell at " + blastDist[i].ToString("0.0") + " m throws him " + far.ToString("0.0") + " m, " + high.ToString("0.0") + " m up" : null));
-                s.ShownYaw = s.BodyYaw = math.atan2(toward.x, toward.z);   // facing the burst: it throws him backwards
-                s.Dead = true;
-                return s;
-            }
-            if (st == Stance.Prone || st == Stance.Pinned) clip = Clip.DeathProne;
-            else if (st == Stance.Crouch || st == Stance.FireStep) clip = (s.Seed & 4) != 0 ? Clip.DeathSquat : Clip.DeathKneel;
-            else if (blast) clip = Clip.DeathBlast;
-            else if (speed > 2.2f) clip = Clip.DeathRunning;
-            else if (speed > 0.3f) clip = Clip.DeathWalking;
-            else
-            {
-                float rel = Relative(hitDir[i], s.BodyYaw);
-                clip = (s.Seed % 5) == 0 ? Clip.DeathHeadshot : math.abs(rel) < 0.79f ? Clip.DeathBack : math.abs(rel) > 2.36f ? Clip.DeathFront : rel > 0f ? Clip.DeathRight : Clip.DeathLeft;
-            }
-            Start(i, ref s, clip, Rung.Death, (i == FollowSlot ? "killed: " + (blast ? "blast" : "shot") + ", " + st + (speed > 0.3f ? ", moving" : "") : null));
-            s.Dead = true;
-            return s;
-        }
-
         /// <summary>The angle (rad, -pi..pi) between a world direction and the body's facing; 0 = the direction the body faces.</summary>
         static float Relative(float3 dir, float bodyYaw)
         {
@@ -464,6 +431,7 @@ namespace TW.Presentation
             if (s.AlightUntil > tick)
             {
                 s.Stance = (byte)Stance.Standing; s.WantStance = (byte)Stance.Standing; s.Routine = 0; s.Aimed = false;
+                if (Char[i] < 1) Char[i] = 1;   // singed from now on, whether or not he lives (VatPad)
                 Start(i, ref s, Clip.Burning, Rung.Reaction, "on fire: runs", 1f, 0.2f);
                 return;
             }

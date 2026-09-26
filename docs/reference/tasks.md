@@ -111,19 +111,27 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ## Presentation (SHOW lane)
 
 ### Infantry rendering (VAT)
-- **Files:** `Presentation/Units/VATRenderer.cs` (`UnitScale`, LOD tiers), `Presentation/Units/VatCodec.cs`,
+- **Files:** `Presentation/Units/VATRenderer.cs` (`UnitScale`, LOD tiers, the living), `Presentation/Units/VATRenderer.Fallen.cs`
+  (the dead: the throw arc, the tumble, the heap per 2 m cell, the charred), `Presentation/Units/VatCodec.cs`,
   `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs` (far tier and fallback),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
 - **Hooks:** reads `TanksDrawn`.
-- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests.
+- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch).
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
-  with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`.
+  with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is the team in its low bit and
+  a fallen man's tumble pitch above it (`team + 2 * step`, 32 steps a turn): the shader decodes `fmod(tint, 2)`, so
+  never read `Tint` as the team on the C# side. `VatPad` packs limbs, grime, seed and char into 24 bits: nothing more fits.
 
 ### Animation (which clip a man plays)
 - **Files:** `Presentation/Core/AnimationController.cs` (the per-man priority ladder, run every tick by SimHost),
-  clip names in `Editor/InfantryClipTable.cs`. Design: `docs/15-character-controller.md`.
-- **Tests:** BlastReactionTests (knockdown and daze), TickAllocationTests (no per-tick allocation).
+  `Presentation/Core/AnimationController.Death.cs` (how a man dies: the Death event's cause and knock, density in the
+  heap, the death ring `TryDeath` the effects read, `Char`), clip names in `Editor/InfantryClipTable.cs`.
+  Design: `docs/15-character-controller.md` (section 9 is the death ladder).
+- **Tests:** BlastReactionTests (knockdown and daze), DeathVarietyTests (the death ladder and its records),
+  TickAllocationTests (no per-tick allocation).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions.
+- **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
+  dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
 ### Tanks and walkers drawn
 - **Files:** `Presentation/Camera/TankRenderer.cs`, `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
@@ -137,6 +145,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Combat effects: tracers, bursts, smoke, camera shake
 - **Files:** `Presentation/Camera/CombatFx.cs` (event dispatch `OnSimEvent`, tracers, bodies, bursts, materials),
+  `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
+  man's pool and smoulder; `UnitAlight` lights and douses the drawn torch),
   `Presentation/Camera/CombatFx.Chunks.cs` (thrown dirt, splinters, smoke balls, cook-offs),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
@@ -279,7 +289,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `VehicleTracks` | TankRenderer | CombatFx.Ground |
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
-| `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Ground |
+| `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx.Chunks, TankRenderer |
 | `FireLight` | NightLights | Flamethrower |
 | `CookOff` | CombatFx | PropDestruction |
@@ -305,6 +315,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `ComponentLookupAllocationTests` | EditMode | 1 | IZoomSource, CombatFx, AllocProbe, Shot |
 | `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
 | `DeathEventContractTests` | EditMode | 5 | DeathCause, SimEvent, SimEventType, Impact, MatchSim, AmbientBombardmentSystem |
+| `DeathVarietyTests` | EditMode | 8 | Clip, VatPad, VATRenderer, DeathCause, DeathKind, AnimationController |
 | `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
 | `DeterminismReplayTests` | EditMode | 3 | SimCommand, OffMapAbilityId, MatchSim, SimConfig, AbilityPattern, ReplayRecorder |
 | `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |

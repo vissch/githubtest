@@ -26,22 +26,26 @@ using TW.Presentation;
 
 namespace TW.Presentation.Units
 {
-    /// <summary>Pad: the limbs a dead man has lost and the grime on him, packed by VatPad.</summary>
+    /// <summary>Pad: the limbs a dead man has lost, the grime on him and how burned he is, packed by VatPad. Tint: the
+    /// team (0 / 1), and for a fallen man in the air his tumble pitch in steps of a 32nd of a turn above it (Tint = team
+    /// + 2 * step; VAT_URP decodes it, VATRenderer.Fallen writes it).</summary>
     public struct VatInstance { public float3 Pos; public float Yaw, AnimRow, AnimT, Tint, Scale, PrevRow, PrevT, Blend, Pad; }
 
     /// <summary>
     /// What a record's Pad carries: bits 0-5 the limbs a dead man has lost (a bit per limb id, AddFallen's gib; none on a
     /// living man), bits 6-13 his grime, 0-255 (the mud and soot of the bursts near him, AnimationController.Grime), bits
-    /// 14-21 a seed of his own, so the blotches of it land differently on each man. A float holds every integer to 2^24
-    /// exactly, so VAT_URP reads them back as they went in.
+    /// 14-21 a seed of his own, so the blotches of it land differently on each man, bits 22-23 how burned he is (0 not,
+    /// 1 singed and alive, 2 charred, 3 charred and still glowing; AnimationController.Char). A float holds every integer
+    /// to 2^24 exactly, so VAT_URP reads them back as they went in.
     /// </summary>
     public static class VatPad
     {
         public const int LimbBits = 63;
-        public static float Pack(int lost, float grime, int seed = 0) => (lost & LimbBits) | (math.clamp((int)math.round(grime * 255f), 0, 255) << 6) | ((seed & 255) << 14);
+        public static float Pack(int lost, float grime, int seed = 0, int chr = 0) => (lost & LimbBits) | (math.clamp((int)math.round(grime * 255f), 0, 255) << 6) | ((seed & 255) << 14) | ((chr & 3) << 22);
         public static int Lost(float pad) => (int)(pad + 0.5f) & LimbBits;
         public static float Grime(float pad) => (((int)(pad + 0.5f)) >> 6 & 255) / 255f;
         public static int Seed(float pad) => ((int)(pad + 0.5f)) >> 14 & 255;
+        public static int Char(float pad) => ((int)(pad + 0.5f)) >> 22 & 3;
     }
 
     public static class LodTiers
@@ -54,7 +58,8 @@ namespace TW.Presentation.Units
         public const float CullRadius = 3f;
     }
 
-    public sealed class VATRenderer : MonoBehaviour
+    /// <summary>One class in two files: this one the living (and the placeholder tanks), VATRenderer.Fallen.cs the dead.</summary>
+    public sealed partial class VATRenderer : MonoBehaviour
     {
         public SimHost Host;
         /// <summary>A man's drawn size, as a multiple of his 1.78 m.
@@ -103,6 +108,7 @@ namespace TW.Presentation.Units
         NativeArray<float4> planes;
         NativeArray<ushort> nearRowOf, farRowOf;   // Clip -> row in the near / far atlas
         NativeArray<float> spare;                   // stands in for the controller's arrays when there is no controller
+        NativeArray<byte> spareBytes;
         readonly Plane[] frustum = new Plane[6];
         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
@@ -187,6 +193,7 @@ namespace TW.Presentation.Units
             counts = new NativeArray<int>(3, Allocator.Persistent);
             planes = new NativeArray<float4>(6, Allocator.Persistent);
             spare = new NativeArray<float>(1, Allocator.Persistent);
+            spareBytes = new NativeArray<byte>(1, Allocator.Persistent);
             instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 48);
         }
 
@@ -219,7 +226,7 @@ namespace TW.Presentation.Units
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
-                Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare,
+                Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes,
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
             DrawnInfantry = DrawnNear + DrawnFar;
@@ -306,154 +313,6 @@ namespace TW.Presentation.Units
             return true;
         }
 
-        // ---- the fallen: the same figure as the living, played once through his death and held on the last frame
-        // where he fell. Their own small buffer (near model up close, box model beyond), no shadows.
-        struct FallenMan { public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate, Spin, Lies, Grime; public byte Team, Figure, Gib; public ushort Row, FarRow, FromRow; }
-        static float Hash01(Vector3 v) { float h = Mathf.Sin(v.x * 12.9898f + v.z * 78.233f) * 43758.5453f; return h - Mathf.Floor(h); }
-        /// <summary>Gravity for a thrown corpse (m/s2): a little over the real thing, so the arc reads as a blow, not a float.</summary>
-        public float ThrowGravity = 14f;
-        readonly List<FallenMan> fallenMen = new List<FallenMan>(128);
-        public int MaxFallen = 600;
-        public float FallenSeconds = 30f;      // a body lies this long, the last SinkSeconds of it sinking into the mud
-        public const float SinkSeconds = 2.5f, SinkDepth = 1.1f;
-        public float FallSeconds = 0.9f, FallenNearDistance = 70f;
-        public int FallenCount => fallenMen.Count;
-        GraphicsBuffer fallenBuffer, fallenArgs;
-        NativeArray<VatInstance> fallenInstances;
-        GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
-        readonly List<int>[] fallenByFigure = new List<int>[8];
-
-        /// <summary>
-        /// A man died here: he goes down facing yaw (radians) and stays. The oldest is taken away past MaxFallen. With the clip
-        /// atlas the near tier plays the death the controller chose (clip) on his archetype's figure; the far tier and the box
-        /// soldier use the procedural death the variant picks. gib: the limbs a shell took off him, a bit each (1 head,
-        /// 2 left arm, 3 right arm, 4 left leg, 5 right leg), carried to the shader in the record's spare float; the mesh
-        /// must carry a limb id per vertex (VATBaker writes it to UV1.x) for the cut to show. grime: the mud and soot he wore
-        /// (AnimationController.Grime), so a man does not come clean as he dies.
-        /// </summary>
-        public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f, Vector3 fly = default, int gib = 0, float grime = 0f)
-        {
-            if (fallenMen.Count >= MaxFallen) fallenMen.RemoveAt(0);
-            ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
-            int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
-            bool near = clipAtlas && clip != Clip.None;
-            float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
-            // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
-            bool blend = near && fromClip != Clip.None && fade > 0.01f;
-            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = FallenSeconds * (0.7f + 0.6f * Hash01(pos)), Team = (byte)team, Figure = (byte)figure, Gib = (byte)(gib & 0xFF), Grime = grime, Row = near ? (ushort)clip : farRow, FarRow = farRow,
-                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f };
-            // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
-            // and his death clip is played so his back meets it as he lands.
-            if (fly.y > 0.05f && Host != null && Host.Local != null)
-            {
-                var size = Host.Local.Map.SizeMeters;
-                Vector3 land = pos + new Vector3(fly.x, 0f, fly.z);
-                land.x = Mathf.Clamp(land.x, 0.5f, size.x - 0.5f); land.z = Mathf.Clamp(land.z, 0.5f, size.y - 0.5f);
-                land.y = RenderGround.Sample(Host.Local.Map, land.x, land.z) - 0.02f;
-                float g = Mathf.Max(1f, ThrowGravity), top = Mathf.Max(pos.y, land.y) + fly.y;
-                float up = Mathf.Sqrt(2f * (top - pos.y) / g), down = Mathf.Sqrt(2f * (top - land.y) / g);
-                man.Pos = land; man.Up = up; man.Top = top; man.Flight = up + down;
-                // a high arc lasts longer, but under about 0.8x he tumbles in slow motion over a battlefield at full speed:
-                // below that he lands a moment early and holds the pose
-                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.8f, 1.8f);
-                man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f)));   // he goes over as he flies
-            }
-            fallenMen.Add(man);
-        }
-
-        /// <summary>Where a fallen man is drawn now: on his arc while a shell's throw lasts, then where he landed, and at
-        /// the end of his time sinking into the mud (the drawn ground hides him: no fading, nothing for the shader to do).</summary>
-        Vector3 FallenAt(in FallenMan f, float now)
-        {
-            float age = now - f.Born;
-            float lies = f.Lies > 0.01f ? f.Lies : FallenSeconds;
-            float sunk = FallenSeconds > 0f ? Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds) * SinkDepth : 0f;
-            if (f.Flight <= 0f || age >= f.Flight) return sunk > 0f ? f.Pos - new Vector3(0f, sunk, 0f) : f.Pos;
-            Vector3 at = Vector3.Lerp(f.From, f.Pos, age / f.Flight);
-            float g = Mathf.Max(1f, ThrowGravity), fromTop = age - f.Up;
-            at.y = f.Top - 0.5f * g * fromTop * fromTop;
-            return at;
-        }
-
-        void DrawFallen(Camera cam, Bounds bounds, float scale)
-        {
-            if (fallenMen.Count == 0 || figures == null) return;
-            if (!fallenInstances.IsCreated)
-            {
-                fallenInstances = new NativeArray<VatInstance>(MaxFallen, Allocator.Persistent);
-                fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 48);
-                fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
-                fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
-                for (int k = 0; k < fallenByFigure.Length; k++) fallenByFigure[k] = new List<int>(64);
-            }
-            // the mud takes them: a body lies FallenSeconds, then it is gone (they are in the order they fell, so the front of the list goes first)
-            if (FallenSeconds > 0f)
-            {
-                // each man lies his own 0.7-1.3 of the time, so a barrage's dead do not all go under together
-                float now0 = Time.time;
-                for (int i = fallenMen.Count - 1; i >= 0; i--)
-                {
-                    var f = fallenMen[i];
-                    if (now0 - f.Born > (f.Lies > 0.01f ? f.Lies : FallenSeconds)) fallenMen.RemoveAt(i);
-                }
-                if (fallenMen.Count == 0) return;
-            }
-            for (int k = 0; k < figures.Length; k++) fallenByFigure[k].Clear();
-            int farCount = 0, last = fallenInstances.Length - 1;
-            Vector3 eye = cam != null ? cam.transform.position : Vector3.zero;
-            float now = Time.time, nearSq = far != null && cam != null ? FallenNearDistance * FallenNearDistance : float.MaxValue;
-            for (int i = 0; i < fallenMen.Count && i < fallenInstances.Length; i++)
-            {
-                var f = fallenMen[i];
-                Vector3 at = FallenAt(f, now);
-                if (cam != null)
-                {
-                    bool seen = true;
-                    for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(at) > -2.5f * scale;
-                    if (!seen) continue;
-                }
-                bool distant = (at - eye).sqrMagnitude > nearSq;
-                if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
-                else fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i);
-            }
-            int near = 0;
-            for (int k = 0; k < figures.Length; k++)
-            {
-                int start = near;
-                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; fallenInstances[near++] = Fallen(fallenMen[i], figures[k].Asset, fallenMen[i].Row, now, scale, FallenAt(fallenMen[i], now)); }
-                fallenArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
-            }
-            if (near + farCount == 0) return;
-            int farStart = fallenInstances.Length - farCount;
-            if (near > 0) fallenBuffer.SetData(fallenInstances, 0, 0, near);
-            if (farCount > 0) fallenBuffer.SetData(fallenInstances, farStart, farStart, farCount);
-            if (far != null) fallenArgsData[figures.Length] = Args(far.Asset.Mesh, farCount, farStart);
-            fallenArgs.SetData(fallenArgsData);
-            for (int k = 0; k < figures.Length; k++)
-            {
-                if (fallenArgsData[k].instanceCount == 0) continue;
-                var fig = figures[k];
-                fig.FallenProps.SetBuffer("_Instances", fallenBuffer); fig.FallenProps.SetBuffer("_RowTable", fig.Rows);
-                FrameBudget.DrawIndirect(new RenderParams(fig.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = fig.FallenProps }, fig.Asset.Mesh, fallenArgs, 1, k);
-            }
-            if (farCount > 0 && far != null)
-            {
-                far.FallenProps.SetBuffer("_Instances", fallenBuffer); far.FallenProps.SetBuffer("_RowTable", far.Rows);
-                FrameBudget.DrawIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
-            }
-        }
-
-        static VatInstance Fallen(in FallenMan f, VatAsset tier, ushort row, float now, float scale, Vector3 at)
-        {
-            float t = Mathf.Clamp01((now - f.Born) * f.Rate / f.Seconds);
-            if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
-            float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - (now - f.Born) / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
-            // thrown: he turns as he goes through the air and comes to rest the way he landed
-            float yaw = f.Yaw;
-            if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(now - f.Born, f.Flight);
-            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = f.Team, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend, Pad = VatPad.Pack(f.Gib, f.Grime, (int)(Hash01(f.From) * 255f)) };
-        }
-
         void DrawVehicles(Bounds bounds)
         {
             if (SceneHooks.TanksDrawn) return;   // TankRenderer draws them from their parts
@@ -483,6 +342,7 @@ namespace TW.Presentation.Units
             public bool Controlled;
             [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow;
             [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime;
+            [ReadOnly] public NativeArray<byte> Char;
             public NativeArray<VatInstance> Instances;
             public NativeArray<byte> FigureOf;
             public NativeArray<float4> Vehicles;
@@ -518,18 +378,18 @@ namespace TW.Presentation.Units
                     }
                     bool distant = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;
                     var map = distant ? FarRowOf : NearRowOf;
-                    int row = p.AnimRow, prevRow = row, seed = 0; float prevT = 0f, blend = 0f, grime = 0f;
+                    int row = p.AnimRow, prevRow = row, seed = 0, chr = 0; float prevT = 0f, blend = 0f, grime = 0f;
                     if (Controlled)
                     {
                         int slot = PoseSlot[i];
-                        grime = Grime[slot]; seed = slot * 37;
+                        grime = Grime[slot]; seed = slot * 37; chr = Char[slot];
                         row = map[math.min(row, map.Length - 1)];
                         prevRow = map[math.min(PrevRow[slot], map.Length - 1)]; prevT = PrevPhase[slot]; blend = Blend[slot];
                     }
                     var inst = new VatInstance
                     {
                         Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = row, AnimT = p.AnimT, Tint = p.Team, Scale = Scale,
-                        PrevRow = prevRow, PrevT = prevT, Blend = blend, Pad = VatPad.Pack(0, grime, seed),
+                        PrevRow = prevRow, PrevT = prevT, Blend = blend, Pad = VatPad.Pack(0, grime, seed, chr),
                     };
                     if (distant) Instances[last - far++] = inst;
                     else { FigureOf[n] = (byte)math.min(Figures - 1, FigureOfArchetype(p.Archetype)); Instances[n++] = inst; }
@@ -568,6 +428,7 @@ namespace TW.Presentation.Units
             if (counts.IsCreated) counts.Dispose();
             if (planes.IsCreated) planes.Dispose();
             if (spare.IsCreated) spare.Dispose();
+            if (spareBytes.IsCreated) spareBytes.Dispose();
             instanceBuffer?.Dispose(); instanceBuffer = null;
         }
 
@@ -589,7 +450,7 @@ namespace TW.Presentation.Units
             if (figures != null) foreach (var f in figures) Give(f, freed);
             Give(far, freed);
             argsBuffer?.Dispose();
-            fallenBuffer?.Dispose(); fallenArgs?.Dispose(); if (fallenInstances.IsCreated) fallenInstances.Dispose();
+            ReleaseFallen();
             if (nearRowOf.IsCreated) nearRowOf.Dispose(); if (farRowOf.IsCreated) farRowOf.Dispose();
             VatAsset.Kill(tankMatA); tankMatA = null;
             VatAsset.Kill(tankMatB); tankMatB = null;

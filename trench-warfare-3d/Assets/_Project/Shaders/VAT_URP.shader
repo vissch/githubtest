@@ -55,8 +55,8 @@ Shader "TW/VAT Infantry (URP)"
 
         // gone: 1 on a vertex of a limb this man has lost (the record's pad is a bit per limb id, the mesh's UV1.x the
         // limb id per vertex, VATBaker); interpolated, so a triangle across the root is cut at its middle by clip()
-        // grime: x the mud and soot on him (0..1), y his own seed for where the blotches of it fall (VatPad)
-        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float2 grime; };
+        // grime: x the mud and soot on him (0..1), y his own seed for where the blotches of it fall, z how burned he is, 0..3 (VatPad)
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float3 grime; };
 
         // Only the fallen lose limbs (a living man's record packs none: VatPad, VATRenderer), so only their material
         // enables _TW_LIMBCUT. A shader that can discard is depth-tested after it has run, not before, so the clip that
@@ -101,8 +101,11 @@ Shader "TW/VAT Infantry (URP)"
             // _Base: every draw after the first (the sniper figure, the far tier, the fallen of each) starts at an offset
             // into _Instances, and on D3D SV_InstanceID does not include it (DebrisRenderer found the same, docs/16)
             VatInstance inst = _Instances[GetIndirectInstanceID_Base(svInstanceID)];
-            uint packed = (uint)(inst.pad + 0.5);   // VatPad: limbs in bits 0-5, grime in 6-13, seed in 14-21
+            uint packed = (uint)(inst.pad + 0.5);   // VatPad: limbs in bits 0-5, grime in 6-13, seed in 14-21, char in 22-23
             uint lost = packed & 63u;
+            // tint: the team in the low bit; above it, for a fallen man in the air, the pitch he tumbles at in 32nds of a turn
+            float team = fmod(inst.tint, 2.0);
+            float pitch = floor(inst.tint * 0.5) * 0.19634954;
             float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
             float u = (vertexID + 0.5) / _VertexCount;
             float3 p, n;
@@ -118,14 +121,22 @@ Shader "TW/VAT Infantry (URP)"
             float s = sin(inst.yaw), c = cos(inst.yaw);   // yaw turns +Z towards +X, as Quaternion.Euler(0, yaw, 0)
             Animated o;
             o.positionOS = p;
+            if (pitch != 0.0)
+            {
+                // end over end about his middle, so he stays on his arc (VATRenderer.Fallen); level again when he lands
+                float sp = sin(pitch), cp = cos(pitch);
+                float3 q = p - float3(0.0, 0.9, 0.0);
+                p = float3(q.x, q.y * cp - q.z * sp, q.y * sp + q.z * cp) + float3(0.0, 0.9, 0.0);
+                n = float3(n.x, n.y * cp - n.z * sp, n.y * sp + n.z * cp);
+            }
             p *= inst.scale;
             o.positionWS = inst.pos + float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
             o.normalWS = normalize(float3(n.x * c + n.z * s, n.y, -n.x * s + n.z * c));
-            o.tint = inst.tint;
+            o.tint = team;
             o.scale = inst.scale;
             o.gone = gone;
             o.cut = lost != 0u && limb < 0.5 ? 1.0 : 0.0;   // he lost something: the inside of his body (what a cut opens onto) is a wound; the inside of a helmet or a sleeve is not
-            o.grime = float2(((packed >> 6) & 255u) / 255.0, (packed >> 14) & 255u);
+            o.grime = float3(((packed >> 6) & 255u) / 255.0, (packed >> 14) & 255u, (packed >> 22) & 3u);
             return o;
         }
         ENDHLSL
@@ -149,7 +160,7 @@ Shader "TW/VAT Infantry (URP)"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; float2 limb : TEXCOORD1; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; float2 grime : TEXCOORD8; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; float3 grime : TEXCOORD8; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
@@ -222,6 +233,24 @@ Shader "TW/VAT Infantry (URP)"
                     half splash = smoothstep(cut - 0.04, cut + 0.04, blot) * (0.5 + 0.4 * rise);
                     albedo = lerp(albedo, mud, splash);
                     albedo *= 1.0 - 0.28 * g;
+                }
+                // burned (AnimationController.Char, VatPad bits 22-23): 1 a man who was alight and lives, singed in
+                // blotches; 2 a charred corpse; 3 the same with the embers still in him, glowing in the cracks
+                if (i.grime.z > 0.5)
+                {
+                    float3 cq = i.positionOS * 9.0 + i.grime.y * float3(0.271, 0.618, 0.382);
+                    half cblot = saturate((VatNoise(cq) * 0.6 + VatNoise(cq * 2.7 + 5.0) * 0.4 - 0.5) * 2.2 + 0.5);
+                    half3 charred = half3(0.06, 0.05, 0.045);
+                    if (i.grime.z < 1.5) albedo = lerp(albedo, charred, 0.35 * cblot);
+                    else
+                    {
+                        albedo = lerp(albedo, charred, 0.85) * (0.6 + 0.4 * cblot);
+                        if (i.grime.z > 2.5)
+                        {
+                            half embers = smoothstep(0.55, 0.8, VatNoise(cq * 3.1 + 23.0)) * (0.55 + 0.45 * sin(_Time.y * 5.0 + i.grime.y));
+                            albedo += half3(1.0, 0.35, 0.08) * embers * 0.9;
+                        }
+                    }
                 }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
