@@ -170,6 +170,33 @@ def rigid_accessories(o, W, body_min):
         n += 1
     return n
 
+ARM = ("Shoulder", "Arm", "ForeArm", "Hand")
+def gate(o, W):
+    """What may move a vertex, read off where it stands in the T-pose (model units, x = out along the arms): far out
+    on an arm only that side's arm bones; on the torso never a forearm or a hand. A transfer onto a coarse LOD otherwise
+    hands an armpit vertex the chest's weights, or a flank vertex the forearm's (critic round 1: LOD3's arm flapped from
+    shoulder to hip, and folded to the head in the rifle pose)."""
+    n = 0
+    for i, v in enumerate(o.data.vertices):
+        x, z = v.co.x / SC, v.co.z / SC
+        side = "Left" if x > 0 else "Right"
+        ax = abs(x)
+        if ax > 0.20 and z > 0.33:
+            ok = lambda b: any(b == "mixamorig:" + side + a for a in ARM)
+        elif ax < 0.13:
+            ok = lambda b: not any(b in ("mixamorig:" + sd + "ForeArm", "mixamorig:" + sd + "Hand") for sd in ("Left", "Right"))
+        else:
+            continue
+        w = {b: x_ for b, x_ in W[i].items() if ok(b)}
+        if len(w) != len(W[i]):
+            n += 1
+            sm = sum(w.values())
+            if sm > 1e-6: W[i] = {b: x_ / sm for b, x_ in w.items()}
+            else:
+                g = {b: x_ for b, x_ in geometric(v.co, [bw for bw in bones_ws if ok(bw[0])]).items()}
+                W[i] = g if g else W[i]
+    return n
+
 def tunic(o, W, legs_island):
     """The tunic over the thighs leans on the hips, so a swinging leg does not tear it (big LOD2 triangles show it)."""
     lo, hi = 0.155 * SC, 0.30 * SC; n = 0
@@ -250,22 +277,33 @@ isl0 = vert_islands(lods[0])
 legs = min(isl0[:3], key=lambda g: min(lods[0].data.vertices[i].co.z for i in g))
 nacc = rigid_accessories(lods[0], W0, 300)
 ntun = tunic(lods[0], W0, legs)
+ngate = gate(lods[0], W0)
 W0 = clean(W0, lods[0].data.vertices, lambda n: n, 4)
 write_weights(lods[0], W0)
-print("LOD0: %d verts, heat missed %d (geometric fallback), %d accessory islands made rigid, %d tunic verts eased" % (len(W0), missing, nacc, ntun))
+print("LOD0: %d verts, heat missed %d (geometric fallback), %d accessory islands made rigid, %d tunic verts eased, %d gated" % (len(W0), missing, nacc, ntun, ngate))
 # LOD1..3: transfer from LOD0's surface
 for k in (1, 2, 3):
     o = lods[k]
     for g in list(o.vertex_groups): o.vertex_groups.remove(g)
     for n in DEFORM: o.vertex_groups.new(name=n)
     select_only([o], o)
-    dt = o.modifiers.new("dt", 'DATA_TRANSFER'); dt.object = lods[0]
+    # LOD3 is LOD2 decimated: its nearest surface is LOD2's, not LOD0's (LOD0's nearest face to a coarse armpit vertex
+    # can be the flank). LOD2 is done by now.
+    dt = o.modifiers.new("dt", 'DATA_TRANSFER'); dt.object = lods[2] if k == 3 else lods[0]
     dt.use_vert_data = True; dt.data_types_verts = {'VGROUP_WEIGHTS'}
     dt.vert_mapping = 'POLYINTERP_NEAREST'; dt.layers_vgroup_select_src = 'ALL'; dt.layers_vgroup_select_dst = 'NAME'
     bpy.ops.object.modifier_apply(modifier=dt.name)
+    # smooth shading carried from LOD0: a coarse LOD with the importer's 55 degree split reads as crumpled foil and
+    # triples its vertex count (critic round 1)
+    for poly in o.data.polygons: poly.use_smooth = True
+    dn = o.modifiers.new("dn", 'DATA_TRANSFER'); dn.object = lods[0]
+    dn.use_loop_data = True; dn.data_types_loops = {'CUSTOM_NORMAL'}; dn.loop_mapping = 'POLYINTERP_NEAREST'
+    try: bpy.ops.object.modifier_apply(modifier=dn.name)
+    except Exception as ex: print("LOD%d: normal transfer failed: %s" % (k, ex)); o.modifiers.remove(dn)
     fold, kmax = RIGS[k]
     W = weights_of(o)
-    nacc = rigid_accessories(o, W, max(60, len(o.data.vertices) // 6))
+    nacc = rigid_accessories(o, W, max(60, len(o.data.vertices) // 6) if k < 3 else max(12, len(o.data.vertices) // 10))
+    ngate = gate(o, W)
     if k == 3 and os.environ.get("TW_LOD3_RIGID") == "1":   # tried 2026-09-26: gaps and shards when bent; kept as an option
         W, nseam = rigid_split(o, clean(W, o.data.vertices, fold, 4))
         print("LOD3: split %d seam edges into rigid segments" % nseam)
@@ -276,7 +314,42 @@ for k in (1, 2, 3):
             g = geometric(v.co, bones_ws); W[i] = clean([g], [v], fold, kmax)[0]; empty += 1
     write_weights(o, W)
     used = sorted({n for w in W for n in w})
-    print("LOD%d: %d verts, %d tris, %d bones used, %d per vertex, %d refilled" % (k, len(W), sum(len(p.vertices) - 2 for p in o.data.polygons), len(used), kmax, empty))
+    print("LOD%d: %d verts, %d tris, %d bones used, %d per vertex, %d refilled, %d gated, %d rigid islands" % (k, len(W), sum(len(p.vertices) - 2 for p in o.data.polygons), len(used), kmax, empty, ngate, nacc))
+# LOD3 is drawn from ~170 m, where a figure is some twenty pixels tall: its colour goes into the vertices and its UVs
+# go, because Tripo's atlas is cut into so many islands that every UV seam splits a vertex (Unity imported the 121
+# positions of LOD3 as 298 vertices, every split a UV seam, none a normal).
+if os.environ.get("TW_LOD3_TEXTURED") != "1":
+    o3 = lods[3]; me3 = o3.data
+    img = None
+    for n in o3.material_slots[0].material.node_tree.nodes:
+        if n.type == 'TEX_IMAGE' and n.image: img = n.image
+    w_, h_ = img.size
+    import array
+    px = array.array('f', [0.0]) * (w_ * h_ * 4); img.pixels.foreach_get(px)
+    def sample(u, v):
+        x = min(w_ - 1, max(0, int((u % 1.0) * w_))); y = min(h_ - 1, max(0, int((v % 1.0) * h_)))
+        i = (y * w_ + x) * 4
+        return (px[i], px[i + 1], px[i + 2])
+    uvl = me3.uv_layers.active.data
+    acc = [[0.0, 0.0, 0.0, 0.0] for _ in me3.vertices]
+    for poly in me3.polygons:
+        uvs = [uvl[li].uv for li in poly.loop_indices]
+        cu = sum(u.x for u in uvs) / len(uvs); cv = sum(u.y for u in uvs) / len(uvs)
+        # the centre and three points halfway to the corners: the face's own paint, not its island's rim
+        pts = [(cu, cv)] + [((cu + u.x) / 2, (cv + u.y) / 2) for u in uvs[:3]]
+        cs = [sample(u, v) for u, v in pts]
+        c = [sum(x[k] for x in cs) / len(cs) for k in range(3)]
+        a_ = poly.area
+        for vi in poly.vertices:
+            a = acc[vi]; a[0] += c[0] * a_; a[1] += c[1] * a_; a[2] += c[2] * a_; a[3] += a_
+    col = me3.color_attributes.new("Col", 'FLOAT_COLOR', 'POINT')
+    for vi, a in enumerate(acc):
+        # stored as sampled: Unity hands FBX vertex colours to the shader untouched, and converting them to linear here
+        # drew LOD3 visibly darker and more saturated than LOD2 beside it (r3)
+        n = max(1e-9, a[3]); col.data[vi].color = (a[0] / n, a[1] / n, a[2] / n, 1.0)
+    while me3.uv_layers: me3.uv_layers.remove(me3.uv_layers[0])
+    print("LOD3: colour baked into %d vertices, UVs removed" % len(me3.vertices))
+
 # parent all to the armature with a modifier
 for o in lods:
     o.parent = arm
@@ -313,10 +386,14 @@ def pose(name):
         for s in ("Left", "Right"):
             world_rot(s + "UpLeg", 'X', 70); world_rot(s + "Leg", 'X', -100); world_rot(s + "Foot", 'X', 30)
         world_rot("Spine1", 'X', 25); world_rot("Head", 'X', -20)
+    if name == "rifle":
+        world_rot("RightArm", 'Z', 60); world_rot("RightForeArm", 'Z', 110)
+        world_rot("LeftArm", 'Z', -70); world_rot("LeftForeArm", 'Z', -60)
+        world_rot("RightArm", 'Y', -25); world_rot("LeftArm", 'Y', 25)
     if name == "aim":
         world_rot("LeftArm", 'Z', 50); world_rot("RightArm", 'Z', -40); world_rot("RightForeArm", 'Z', -60)
         world_rot("LeftForeArm", 'Z', 30); world_rot("Head", 'Z', 25); world_rot("Spine1", 'Z', 20)
-for tag in ("rest", "armsdown", "walk", "crouch", "aim"):
+for tag in ("rest", "armsdown", "walk", "crouch", "aim", "rifle"):
     pose(tag)
     for k, o in enumerate(lods):
         for j, x in enumerate(lods): x.hide_render = (j != k)
@@ -333,9 +410,9 @@ pose("rest")
 select_only([arm] + lods, arm)
 bpy.ops.export_scene.fbx(filepath=OUT, use_selection=True, object_types={'ARMATURE', 'MESH'}, apply_unit_scale=True,
                          apply_scale_options='FBX_SCALE_ALL', bake_space_transform=False, axis_forward='-Z', axis_up='Y',
-                         mesh_smooth_type='FACE', use_mesh_modifiers=False, add_leaf_bones=False, primary_bone_axis='Y',
+                         mesh_smooth_type='OFF', use_mesh_modifiers=False, add_leaf_bones=False, primary_bone_axis='Y',
                          secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=False, path_mode='STRIP',
-                         embed_textures=False, use_tspace=False)
+                         embed_textures=False, use_tspace=False, colors_type='LINEAR')
 d = os.path.dirname(OUT)
 for k, stem in enumerate(stems):
     shutil.copyfile(stem + "_tex0_0.jpg", os.path.join(d, "Frog_LOD%d_Base.jpg" % k)) if k < 3 else None
