@@ -91,8 +91,10 @@ namespace TW.Sim.Combat
         {
             if (!w.IsAlive(slot) || (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0) return;
             uint until = w.Tick + (uint)math.max(1, (int)math.ceil(math.min(seconds, MaxBurnSeconds) / w.Config.TickSeconds));
-            bool fresh = AlightUntil[slot] <= w.Tick;
-            if (until > AlightUntil[slot]) AlightUntil[slot] = until;
+            // no fire, or a dead man's timer the job has not cleared yet (he died after it stepped and Spawn handed
+            // his slot on with clean flags): either way this man was not alight, and the timer is his own now
+            bool fresh = AlightUntil[slot] <= w.Tick || (w.Flags[slot] & (uint)UnitFlags.Burning) == 0;
+            if (fresh || until > AlightUntil[slot]) AlightUntil[slot] = until;
             w.Flags[slot] |= (uint)UnitFlags.Burning;
             Active = true;
             if (fresh)
@@ -247,7 +249,11 @@ namespace TW.Sim.Combat
                     {
                         // a dead man's fire is out, so a reused slot never inherits it; said once (UnitAlight b = 0)
                         // whatever killed him, so the picture douses his slot
-                        if ((f & (uint)UnitFlags.Vehicle) == 0 && AlightUntil[i] != 0) { AlightUntil[i] = 0; Expired.Add(i); }
+                        if (AlightUntil[i] != 0)
+                        {
+                            AlightUntil[i] = 0;
+                            if ((f & (uint)UnitFlags.Vehicle) == 0) Expired.Add(i);   // a vehicle in a dead torch's slot only drops the timer: its fire is its own
+                        }
                         continue;
                     }
                     bool alight = AlightUntil[i] > Tick;

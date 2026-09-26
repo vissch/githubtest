@@ -294,7 +294,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `BeamTests` | EditMode | 8 | SimEventType, OffMapAbilityId, SimCommand, Kind, BeamSystem, MatchSim |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
-| `BurningSystemTests` | EditMode | 11 | SimEventType, BurningSystem, DeathCause, Impact, MatchSim, UnitFlags |
+| `BurningSystemTests` | EditMode | 12 | SimEventType, BurningSystem, DeathCause, Impact, MatchSim, UnitFlags |
 | `CoastTests` | EditMode | 6 | BattlefieldGenerator, BattlefieldParams, SeaLandingSystem, Sample, MapData |
 | `CombatTests` | EditMode | 9 | MatchSim, SimCommand, SimEventType, Stance, CommandType, GoalKey |
 | `CommandSeatTests` | EditMode | 1 | CommandSeat, LockstepDriver, LoopbackNetwork, MatchSim, SimCommand, SimConfig |
