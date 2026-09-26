@@ -28,6 +28,8 @@ namespace TW.Presentation.Tactical
         readonly List<Flyover> flyovers = new List<Flyover>(4);
         readonly List<Sweep> sweeps = new List<Sweep>(4);
         readonly List<Matrix4x4> smokeCards = new List<Matrix4x4>(2048);
+        readonly List<int> thickSmokeCells = new List<int>(512);   // the field's thick cells, found once a tick (the field only changes per tick)
+        uint thickSmokeTick = uint.MaxValue;
         public const float PlaneSpeed = 40f, PlaneRunIn = 200f, PlaneRunOut = 120f, PlaneHigh = 45f, PlaneLow = 25f;
         public const float BeamChargeSeconds = 4f, BeamFlashEvery = 0.08f, ScorchShakeEvery = 0.3f;
         float nextBeamFlash, nextScorchShake;
@@ -213,11 +215,18 @@ namespace TW.Presentation.Tactical
             if (gas == null || !gas.SmokeActive || books == null || !books.Ready) return;
             float cs = MapData.FieldCellSize;
             var map = Host.Local.Map;
-            smokeCards.Clear();
-            for (int z = 0; z < gas.Length; z++)
-            for (int x = 0; x < gas.Width; x++)
+            // the whole grid is scanned once a sim tick, not once a frame: the field cannot change between ticks
+            uint tick = Host.Local.World.Tick;
+            if (tick != thickSmokeTick)
             {
-                float c = gas.Smoke[z * gas.Width + x];
+                thickSmokeTick = tick; thickSmokeCells.Clear();
+                for (int i = 0, n = gas.Width * gas.Length; i < n; i++) if (gas.Smoke[i] >= 1.5f) thickSmokeCells.Add(i);
+            }
+            smokeCards.Clear();
+            for (int k = 0; k < thickSmokeCells.Count; k++)
+            {
+                int cell = thickSmokeCells[k], x = cell % gas.Width, z = cell / gas.Width;
+                float c = gas.Smoke[cell];
                 if (c < 1.5f) continue;
                 uint h = (uint)(x * 83492791 ^ z * 29349663);
                 float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f, h3 = ((h >> 20) & 1023) / 1023f;
