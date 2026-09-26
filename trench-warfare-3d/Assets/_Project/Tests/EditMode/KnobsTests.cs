@@ -405,6 +405,28 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ShadowDistanceKnob_NothingSet_IsTheAssetsValue_AndASetValueIsRead()
+        {
+            // AOSA C79: render.shadowDistance falls back to the pipeline asset's own value, so nothing set writes nothing.
+            // The asset is only read here (SerializedObject), never written, so the test leaves TW-URP.asset clean.
+            Assert.AreEqual("render.shadowDistance", Atmosphere.ShadowDistanceKnob);
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<ScriptableObject>("Assets/_Project/Settings/TW-URP.asset");
+            Assert.IsNotNull(asset, "TW-URP.asset");
+            var prop = new UnityEditor.SerializedObject(asset).FindProperty("m_ShadowDistance");
+            Assert.IsNotNull(prop, "m_ShadowDistance");
+            Assert.AreEqual(Atmosphere.AssetShadowDistance, prop.floatValue, "the asset still holds the old 220 m");
+            Assert.AreEqual(220f, Atmosphere.ReadShadowDistance(Atmosphere.AssetShadowDistance));
+            Assert.AreEqual("220", Knobs.Read["render.shadowDistance"]);
+            Assert.AreEqual(0, Knobs.Overrides.Count);
+            Knobs.Set(Atmosphere.ShadowDistanceKnob, "160");
+            Assert.AreEqual(160f, Atmosphere.ReadShadowDistance(Atmosphere.AssetShadowDistance));
+            Knobs.Set(Atmosphere.ShadowDistanceKnob, "40");
+            Assert.AreEqual(40f, Atmosphere.ReadShadowDistance(Atmosphere.AssetShadowDistance));
+            Knobs.Set(Atmosphere.ShadowDistanceKnob, "-5");
+            Assert.AreEqual(0f, Atmosphere.ReadShadowDistance(Atmosphere.AssetShadowDistance), "never below 0");
+        }
+
+        [Test]
         public void TerrainApply_OldPathAndHeldClock_UploadWithMipsOnEveryDirtyFrame()
         {
             // AOSA C13: with the interval at 0 (the old path; the default is 100 since cycle 3), and whenever the clock is
