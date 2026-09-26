@@ -16,7 +16,9 @@ namespace TW.UI
 {
     public sealed class AimReadout
     {
-        public const float GasReticleM = 8f, GasReachFactor = 2f, OffsetX = 26f, OffsetY = -10f;
+        /// <summary>The disc a point ability draws when its stats give no radius and the reticle the readout counts in
+        /// are one radius: AbilityAim owns it.</summary>
+        public const float GasReticleM = AbilityAim.PointFallbackRadius, GasReachFactor = 2f, OffsetX = 26f, OffsetY = -10f;
 
         readonly VisualElement box;
         readonly Label enemyLine, oursLine;

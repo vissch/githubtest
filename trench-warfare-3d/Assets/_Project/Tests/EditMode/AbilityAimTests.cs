@@ -180,5 +180,15 @@ namespace TW.Tests
                 Assert.AreEqual(sim.z, beam.Start.z + beam.Length * t, 1e-3f, "tick " + tick + ": the column stands where the sim's head is");
             }
         }
+
+        [Test]
+        public void TheAircraftsRunInFitsInsideTheStrafesWarmUp()
+        {
+            // 200 m at 40 m/s is 5 s: the aircraft is in the sky from the moment the ability fires and over the
+            // corridor's start as the first burst lands; if either number moves, this says so
+            Assert.IsTrue(OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.StrafeRun, out var s));
+            Assert.LessOrEqual(CombatFx.PlaneRunIn / CombatFx.PlaneSpeed, s.WarmupTicks * SimConfig.Default.TickSeconds + 1e-3f, "the run-in is no longer than the warm-up");
+            Assert.AreEqual(AbilityAim.PointFallbackRadius, AimReadout.GasReticleM, "one reticle radius for the aim and the readout");
+        }
     }
 }

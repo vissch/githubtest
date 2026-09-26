@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Presentation;
+using TW.Presentation.Tactical;
 using TW.Presentation.Units;
 
 namespace TW.Tests
@@ -229,6 +230,16 @@ namespace TW.Tests
             Assert.IsTrue(r.A.TryDeath(shot, at, out var rec));
             Assert.AreEqual((byte)DeathKind.Shot, rec.Cause, "a Maw's machine gun kills with the same b as its tracks: without VehicleCrushed or VehicleClawed it is a shot");
             Assert.AreNotEqual(Clip.DeathBlast, rec.Clip);
+        }
+
+        [Test]
+        public void ACharredBodyOutlastsItsSmokeAndItsEmbers()
+        {
+            // the smoulder (CombatFx) and the embers (VATRenderer) are timed in two files: the shortest charred lie
+            // (0.85 x CharredLies) must outlast both, or a corpse would vanish under its own smoke
+            float shortestLie = VATRenderer.CharredLies * 0.85f;
+            Assert.LessOrEqual(CombatFx.SmoulderSeconds, shortestLie, "the smoke stops before the body is gone");
+            Assert.LessOrEqual(VATRenderer.EmberSeconds, shortestLie, "the embers die before the body is gone");
         }
     }
 }
