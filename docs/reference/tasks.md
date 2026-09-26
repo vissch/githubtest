@@ -168,13 +168,20 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Battlefield props and composition
 - **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement), `Presentation/Terrain/BattlefieldKit.cs`
-  (modules, env atlas cells), `Presentation/Terrain/BattlefieldProps.cs` (instanced pages, `Generation`),
-  `Presentation/Terrain/BattlefieldBlueprint.cs`, `Presentation/Terrain/PropLayout.cs` + `Resources/Layouts/`
+  (modules, env atlas cells) + `Presentation/Terrain/BattlefieldKit.Keys.cs` (module keys and scale rules),
+  `Presentation/Terrain/BattlefieldProps.cs` (instanced pages, `Generation`, `Enforce`),
+  `Presentation/Terrain/BattlefieldBlueprint.cs`, `Presentation/Terrain/PropLayout.cs` (`Style`) + `Resources/Layouts/`
   (owner's hand edits), `Editor/EnvPropEditor.cs`, `Editor/EnvKitImport.cs`.
+- **Scale (docs/21 phase 1):** `Presentation/Terrain/AssetScaleTable.cs` (the soldier unit and every module's class and
+  bounds), `Presentation/Terrain/AssetScaleReport.cs` (measures the composed field), `Editor/AssetScaleAudit.cs`
+  (writes the report: menu TW/Audit/Asset Scale or `-executeMethod TW.Editor.AssetScaleAudit.Run`), `Tools/looks.py`
+  (rescales the looks in the layout asset).
 - **Hooks:** reads `DrawnWreck`.
-- **Tests:** EnvAtlasTests.
+- **Tests:** EnvAtlasTests, AssetScaleTests.
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
-  gaps between placed structures.
+  gaps between placed structures. The scale clamp lives in `BattlefieldProps.Emit` and `Placement`, not in
+  `Styled` (which returns early without a look, and hand edits never pass through it); a building is reported,
+  never clamped, because its chunks are placed by their own matrices.
 
 ### Terrain view, weather, night, biomes
 - **Files:** `Presentation/Terrain/GreyboxTerrainView.cs` (ground mesh, adds most environment components),
@@ -273,6 +280,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
+| `AssetScaleTests` | EditMode | 6 | AssetScaleTable, PropLayout, Module, BattlefieldKit, ScaleAxis, ScaleClass |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |

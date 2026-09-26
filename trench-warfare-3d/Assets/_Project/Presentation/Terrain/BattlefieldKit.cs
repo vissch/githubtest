@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace TW.Presentation.Terrain
 {
-    public sealed class BattlefieldKit : System.IDisposable
+    public sealed partial class BattlefieldKit : System.IDisposable
     {
         public sealed class Module
         {
@@ -27,6 +27,9 @@ namespace TW.Presentation.Terrain
             /// <summary>A kit prop that comes apart chunk by chunk (Resources/Env/&lt;set&gt;/Chunks): placed, named and edited as
             /// itself, but never drawn or hit as itself; BattlefieldProps puts its building's whole mesh and chunks where it stands.</summary>
             public HouseKit.House Sliced;
+            /// <summary>What class of thing it is and how big it may be drawn against the soldier (AssetScaleTable), set
+            /// by ResolveKeysAndRules; default(ScaleRule) for a module nobody has classed (a chunk).</summary>
+            public ScaleRule Rule;
         }
         public Module trunk, snag, fallen, stump, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
@@ -753,12 +756,15 @@ namespace TW.Presentation.Terrain
             return (h & 0xFFFF) / 65535f;
         }
 
+        // Destroy logs an error outside Play (an EditMode test that builds the kit: the audit), so it branches as Discard does
+        static void DiscardObject(Object o) { if (o == null) return; if (Application.isPlaying) Object.Destroy(o); else Object.DestroyImmediate(o); }
+
         public void Dispose()
         {
-            foreach (var mesh in ownedMeshes) if (mesh != null) Object.Destroy(mesh);
-            foreach (var texture in ownedTextures) if (texture != null) Object.Destroy(texture);
-            if (pigmentSheet != null) Object.Destroy(pigmentSheet);
-            foreach (var module in Modules) if (module.Material != null) Object.Destroy(module.Material);
+            foreach (var mesh in ownedMeshes) DiscardObject(mesh);
+            foreach (var texture in ownedTextures) DiscardObject(texture);
+            DiscardObject(pigmentSheet);
+            foreach (var module in Modules) DiscardObject(module.Material);
         }
     }
 }

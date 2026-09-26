@@ -117,6 +117,8 @@ namespace TW.Presentation.Terrain
         void Start()
         {
             kit = new BattlefieldKit();
+            kit.ResolveKeysAndRules();   // every module named for the scale table and carrying its rule (docs/21 phase 1)
+            groundFn = Ground;
             foreach (var module in kit.Modules)
             {
                 batches.Add(module, new Batch { Module = module });
@@ -130,32 +132,37 @@ namespace TW.Presentation.Terrain
         /// its size, and the blueprints bake it into their footprints. Call after a look changes.</summary>
         public void Restyle()
         {
-            foreach (var module in modulesByName.Values) module.Size = Layout?.LookOf(module.Name)?.Baseline ?? Vector3.one;
+            // the size the composer spaces by is the look's baseline, brought into the kind's bounds the way every drawn
+            // instance will be (Enforce), so spacing, blueprint footprints and Room() agree with what is drawn
+            foreach (var module in modulesByName.Values)
+            {
+                var baseline = Layout?.LookOf(module.Name)?.Baseline ?? Vector3.one;
+                module.Size = module.Mesh != null ? AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, baseline) : baseline;
+            }
             composer = new BattlefieldComposer(kit, DecorationSeed, templates, PreferredFront);
             composing = null; composed = false;   // a new composer: the next composition is whole, from its first layout
             dirty = true;
         }
 
-        /// <summary>A generated prop drawn in its kind's look (PropLayout.Look): the baseline scale, turn, lean and sink, each
+        System.Func<float, float, float> groundFn;
+
+        /// <summary>A generated prop drawn in its kind's look (PropLayout.Style): the baseline scale, turn, lean and sink, each
         /// strayed from by the look's range, hashed on the prop's key so the battlefield looks the same every time.</summary>
         Matrix4x4 Styled(BattlefieldKit.Module module, Matrix4x4 m, string key)
         {
             var look = Layout != null ? Layout.LookOf(module.Name) : null;
-            if (look == null) return m;
-            uint h = 2166136261u;
-            foreach (char c in key) h = (h ^ c) * 16777619u;
-            float Spread(uint salt) { uint x = (h ^ salt * 0x9E3779B1u) * 0x85EBCA77u; x ^= x >> 13; x *= 0xC2B2AE3Du; x ^= x >> 16; return (x & 0xFFFFFF) / (float)0x800000 - 1f; }   // -1..1
-            Vector3 position = m.GetPosition(), scale = m.lossyScale; var rotation = m.rotation;
-            if (look.Scale != Vector3.zero) scale = look.Scale;
-            scale *= look.Size * (1f + look.ScaleRange * Spread(1));
-            if (look.Yaw != 0f || look.YawRange > 0f) rotation *= Quaternion.Euler(0f, look.Yaw + look.YawRange * Spread(2), 0f);
-            if (look.Lean != Vector2.zero)
-            {
-                float amount = 1f + look.LeanRange * Spread(3);
-                rotation *= Quaternion.Euler(look.Lean.x * amount * Mathf.Sign(Spread(4)), 0f, look.Lean.y * amount * Mathf.Sign(Spread(5)));
-            }
-            if (look.Sink >= 0f) position.y = Ground(position.x, position.z) - look.Sink * scale.y / Mathf.Max(.01f, look.Baseline.y);
-            return Matrix4x4.TRS(position, rotation, scale);
+            return look == null ? m : PropLayout.Style(look, m, key, groundFn);
+        }
+
+        /// <summary>The scale rule applied (docs/21 phase 1): a Strict thing drawn outside its bounds against the soldier is
+        /// pulled back by one uniform factor, whatever the look, the composer or a hand edit said. Here rather than in
+        /// Styled, which returns early for a module with no look, and because hand edits never pass through Styled.</summary>
+        Matrix4x4 Enforce(BattlefieldKit.Module module, in Matrix4x4 m)
+        {
+            if (!module.Rule.Enforce || module.Mesh == null) return m;
+            var scale = m.lossyScale;
+            var clamped = AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, scale);
+            return clamped == scale ? m : Matrix4x4.TRS(m.GetPosition(), m.rotation, clamped);
         }
         void OnSimEvent(TW.Sim.SimEvent e)
         {
@@ -219,7 +226,10 @@ namespace TW.Presentation.Terrain
         public Matrix4x4 Placement(PropLayout.Edit edit)
         {
             var p = edit.Position;
-            return Matrix4x4.TRS(new Vector3(p.x, Ground(p.x, p.z) + p.y, p.z), edit.Rotation, edit.Scale * SizeOf(edit.Module));
+            var scale = edit.Scale * SizeOf(edit.Module);
+            // a hand edit is clamped like anything else: the owner's placements keep their spot and turn, not a 15 m gun
+            if (modulesByName.TryGetValue(edit.Module, out var module) && module.Mesh != null) scale = AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, scale);
+            return Matrix4x4.TRS(new Vector3(p.x, Ground(p.x, p.z) + p.y, p.z), edit.Rotation, scale);
         }
         float SizeOf(string module) => Layout != null ? Layout.SizeOf(module) : 1f;
 
@@ -323,14 +333,14 @@ namespace TW.Presentation.Terrain
         void Emit(BattlefieldKit.Module module, Matrix4x4 matrix)
         {
             if (Suppress != null && Suppress(module, matrix)) return;
-            if (module.Name == null) { BatchOf(module).Add(matrix, out _); return; }
+            if (module.Name == null) { BatchOf(module).Add(Enforce(module, matrix), out _); return; }
             // an imported prop: found by kind and spot, so a hand edit (PropLayout) finds it again after every crater
             string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition());
             spots.TryGetValue(key, out int n); spots[key] = n + 1;
             if (n > 0) key += "#" + n;
             var edit = Layout != null ? Layout.Find(key) : null;
             if (edit != null && edit.Removed) return;
-            Put(module, key, false, Styled(module, matrix, key), edit);
+            Put(module, key, false, Enforce(module, Styled(module, matrix, key)), edit);
         }
 
         void Update()

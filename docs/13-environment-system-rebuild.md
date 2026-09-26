@@ -248,3 +248,25 @@ for at once and goes aboard, the craft runs in from 96 m at 7 m/s, grounds short
 puts men on the sand three ticks apart. All of it is hashed, because where a craft is decides where men appear. A
 full lift refuses and that unit spawns at the rear as before, so the boats can never block a player. An empty craft
 comes in with stores every 55 s, because a sea with nothing moving on it reads as a painted backdrop.
+
+## The soldier unit and the scale audit (2026-09-26, docs/21 phase 1)
+
+The soldier is the unit: 1 SU is `FigureMetrics.HeightM`, the 1.78 m bake at `UnitScale` (2.0 m). The readability
+grow that draws him 2.5 m at the standard view is a men-only exception, like the giant machines (`VehicleSize`);
+props do not grow. Every module the kit draws has a row in `AssetScaleTable` (`Presentation/Terrain/AssetScaleTable.cs`):
+Strict things men made to a size (doors, crates, helmets, guns, sandbags, kit) are bounded and clamped at emit time
+(`BattlefieldProps.Enforce`, one uniform factor so a look's proportions survive; hand edits too, in `Placement`);
+Structure rows (shelters, stands, buildings) are bounded and reported, and clamped only when the row says so;
+Organic rows (rocks, stumps, logs, plants) vary freely and only warn; Machine rows (vehicles, wrecks) are reported
+against the man and never touched. `AssetScaleReport.Measure` composes the real field with no scene and judges every
+module by its placed instances; `AssetScaleTests` reads the looks and the hand edits; `Editor/AssetScaleAudit.cs`
+writes the full table (menu TW/Audit/Asset Scale, or `-executeMethod TW.Editor.AssetScaleAudit.Run`).
+
+The looks in the table below were learned on 2026-09-22 when a man was drawn 2.67 m and never rescaled after the
+25 % cut; `Tools/looks.py --apply` rewrote them on 2026-09-26 (derivations in docs/21): Sandbag 2.99 -> 1.20 (a 0.96 m
+sack beside the 1.04 m parapet sack), FieldGun 3.50 x 2.83 x 5.58 -> 1.10 x 0.89 x 1.75 (1.6 m tall, 4.7 m long, the
+owner's proportion kept), ArmouredStand -> 1.41 (3.8 m), SodShelterRuin -> 1.30 (3.1 m), MGNest -> 0.85 (1.6 m),
+SplitStump and FallenLog become multipliers (Size 1.4 / 1.5, ranges 30 %) so the generator's big / medium / small
+sizes return; the hand edits of those kinds were rescaled with them. Before/after captures of the rear edge, the fog
+side and the MG nest wait for an editor session.
+

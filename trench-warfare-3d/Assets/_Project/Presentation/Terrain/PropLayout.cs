@@ -104,6 +104,29 @@ namespace TW.Presentation.Terrain
 
         public float SizeOf(string module) => LookOf(module)?.Size ?? 1f;
 
+        /// <summary>A generated prop drawn in its kind's look: the baseline scale, turn, lean and sink, each strayed from by
+        /// the look's range, hashed on the prop's key so the battlefield looks the same every time. <paramref name="ground"/>
+        /// is the drawn ground at (x, z), for the sink. This is what BattlefieldProps applies, and what the scale audit
+        /// (AssetScaleReport) applies to measure the field as it is drawn.</summary>
+        public static Matrix4x4 Style(Look look, in Matrix4x4 m, string key, System.Func<float, float, float> ground)
+        {
+            if (look == null) return m;
+            uint h = 2166136261u;
+            foreach (char c in key) h = (h ^ c) * 16777619u;
+            float Spread(uint salt) { uint x = (h ^ salt * 0x9E3779B1u) * 0x85EBCA77u; x ^= x >> 13; x *= 0xC2B2AE3Du; x ^= x >> 16; return (x & 0xFFFFFF) / (float)0x800000 - 1f; }   // -1..1
+            Vector3 position = m.GetPosition(), scale = m.lossyScale; var rotation = m.rotation;
+            if (look.Scale != Vector3.zero) scale = look.Scale;
+            scale *= look.Size * (1f + look.ScaleRange * Spread(1));
+            if (look.Yaw != 0f || look.YawRange > 0f) rotation *= Quaternion.Euler(0f, look.Yaw + look.YawRange * Spread(2), 0f);
+            if (look.Lean != Vector2.zero)
+            {
+                float amount = 1f + look.LeanRange * Spread(3);
+                rotation *= Quaternion.Euler(look.Lean.x * amount * Mathf.Sign(Spread(4)), 0f, look.Lean.y * amount * Mathf.Sign(Spread(5)));
+            }
+            if (look.Sink >= 0f && ground != null) position.y = ground(position.x, position.z) - look.Sink * scale.y / Mathf.Max(.01f, look.Baseline.y);
+            return Matrix4x4.TRS(position, rotation, scale);
+        }
+
         public void SetSize(string module, float size) => GetLook(module).Size = size;
     }
 }

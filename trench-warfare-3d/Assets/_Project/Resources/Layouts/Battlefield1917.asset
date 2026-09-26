@@ -34,67 +34,67 @@ MonoBehaviour:
     Removed: 0
     Position: {x: 28.737806, y: -0.061069608, z: 47.911194}
     Rotation: {x: -0, y: -0.8344322, z: -0, w: 0.5511106}
-    Scale: {x: 2.7899528, y: 2.789953, z: 2.7899528}
+    Scale: {x: 1, y: 1, z: 1}
   - Key: Plants/FallenLog@3926,3843
     Module: Plants/FallenLog
     Added: 0
     Removed: 0
     Position: {x: 39.722267, y: -0.35334456, z: 38.995296}
     Rotation: {x: -0.27715933, y: 0.8613393, z: -0.13041656, w: 0.40530086}
-    Scale: {x: 1.7828212, y: 1.7828218, z: 1.7828209}
+    Scale: {x: 1, y: 1, z: 1}
   - Key: Siege/ArmouredStand@-734,1396
     Module: Siege/ArmouredStand
     Added: 0
     Removed: 0
     Position: {x: -15.49, y: -5.1524916, z: 13.98}
     Rotation: {x: -0, y: 0.3217059, z: -0, w: 0.94683963}
-    Scale: {x: 5.434693, y: 5.2450986, z: 5.434693}
+    Scale: {x: 2.83159, y: 2.73118, z: 2.83159}
   - Key: Siege/ArmouredStand@6513,395
     Module: Siege/ArmouredStand
     Added: 0
     Removed: 0
     Position: {x: -7.0347857, y: -3.461693, z: 9.541675}
     Rotation: {x: -0.058025446, y: 0.25894266, z: 0.001953783, w: 0.9641462}
-    Scale: {x: 3.6156673, y: 3.489531, z: 3.615667}
+    Scale: {x: 1.88384, y: 1.81704, z: 1.88384}
   - Key: Plants/FallenLog@2437,1935
     Module: Plants/FallenLog
     Added: 0
     Removed: 0
     Position: {x: 0.93, y: -0.6477058, z: 6}
     Rotation: {x: 0.36692643, y: 0.9059946, z: -0.07922125, w: -0.19560874}
-    Scale: {x: 2.3450112, y: 2.3450115, z: 2.3450112}
+    Scale: {x: 1.31534, y: 1.31534, z: 1.31534}
   Looks:
   - Module: Siege/ArmouredStand
     Size: 1
-    Scale: {x: 2.7062218, y: 2.6118126, z: 2.7062218}
-    ScaleRange: 0.18
+    Scale: {x: 1.41, y: 1.36, z: 1.41}
+    ScaleRange: 0.1
     Yaw: 0
     YawRange: 12
     Lean: {x: 0, y: 0}
     LeanRange: 0
-    Sink: 1.9985597
+    Sink: 1
   - Module: Weapons/FieldGun
     Size: 1
-    Scale: {x: 3.4969416, y: 2.8272429, z: 5.5806394}
-    ScaleRange: 0.18
+    Scale: {x: 1.1, y: 0.89, z: 1.75}
+    ScaleRange: 0.1
     Yaw: 0
     YawRange: 6
     Lean: {x: 0, y: 0}
     LeanRange: 0
-    Sink: 0.5947832
+    Sink: 0.19
   - Module: Siege/SodShelterRuin
     Size: 1
-    Scale: {x: 2.9746404, y: 2.9746404, z: 2.9746404}
-    ScaleRange: 0.1
+    Scale: {x: 1.3, y: 1.3, z: 1.3}
+    ScaleRange: 0.08
     Yaw: 0
     YawRange: 10
     Lean: {x: 0, y: 0}
     LeanRange: 0
-    Sink: 0.25062856
+    Sink: 0.11
   - Module: Stones/Gabion
     Size: 1
     Scale: {x: 0, y: 0, z: 0}
-    ScaleRange: 0
+    ScaleRange: 0.15
     Yaw: 0
     YawRange: 0
     Lean: {x: 27.59853, y: 0}
@@ -102,38 +102,38 @@ MonoBehaviour:
     Sink: -1
   - Module: Stones/Sandbag
     Size: 1
-    Scale: {x: 2.9917002, y: 2.9917, z: 2.9917002}
-    ScaleRange: 0.1
+    Scale: {x: 1.2, y: 1.2, z: 1.2}
+    ScaleRange: 0.15
     Yaw: 0
     YawRange: 0
     Lean: {x: 0, y: 0}
     LeanRange: 0
-    Sink: 0.33121628
+    Sink: 0.13
   - Module: Plants/SplitStump
-    Size: 1
-    Scale: {x: 2.7899528, y: 2.7899528, z: 2.7899528}
-    ScaleRange: 0.1
+    Size: 1.4
+    Scale: {x: 0, y: 0, z: 0}
+    ScaleRange: 0.3
     Yaw: 0
-    YawRange: 0
-    Lean: {x: 0, y: 0}
-    LeanRange: 0
+    YawRange: 180
+    Lean: {x: 5, y: 5}
+    LeanRange: 1
     Sink: 0.0610696
   - Module: Plants/FallenLog
-    Size: 1
-    Scale: {x: 1.7828212, y: 1.7828218, z: 1.7828209}
-    ScaleRange: 0.1
+    Size: 1.5
+    Scale: {x: 0, y: 0, z: 0}
+    ScaleRange: 0.3
     Yaw: 0
     YawRange: 0
     Lean: {x: 0, y: 35.67398}
     LeanRange: 0.25
-    Sink: 0.35334456
+    Sink: 0.3
   - Module: Siege/MGNest
     Size: 1
-    Scale: {x: 2.1758492, y: 2.1758492, z: 2.1758492}
+    Scale: {x: 0.85, y: 0.85, z: 0.85}
     ScaleRange: 0.1
     Yaw: 0
     YawRange: 6
     Lean: {x: 0, y: 0}
     LeanRange: 0
-    Sink: 0.4358344
+    Sink: 0.17
   NextId: 4

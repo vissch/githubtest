@@ -37,6 +37,7 @@ Traps, all silent:
 |---|---|---|
 | `envgrade.py` | Grades the Tripo set textures into the field's muted range | `python Tools/envgrade.py "<folder with the unzipped sets>"` |
 | `envatlas.py` | Packs every set's texture into `Resources/Env/EnvAtlas.jpg` (4x4 grid of 1024 px cells) | `python Tools/envatlas.py` |
+| `looks.py` | Rescales the prop looks in `Resources/Layouts/Battlefield1917.asset` to the soldier (docs/21 phase 1) and the hand edits with them | `python Tools/looks.py --check` prints, `--apply` writes |
 
 `envatlas.py`'s `SETS`, `COLS`, `ROWS` must equal `BattlefieldKit.EnvSets`, `EnvCols`, `EnvRows` in
 `Presentation/Terrain/BattlefieldKit.cs`. EnvAtlasTests checks both the grid and the set order. A new set appends to

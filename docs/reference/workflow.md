@@ -250,6 +250,7 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
 - Count allocations with `TW.Perf.AllocProbe`. `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity.
 
 **Batch without an editor:** `Unity.exe -batchmode -quit -projectPath <checkout>/trench-warfare-3d -executeMethod <Class.Method> -logFile <file>`
+(for instance `-executeMethod TW.Editor.AssetScaleAudit.Run`, which writes the asset scale audit to `docs/reference/asset-scale.md`)
 runs any static editor method with the editor closed (the Hub install is `C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe`).
 In Git Bash, `taskkill /PID` gets its slashes mangled: use `taskkill //PID <n> //F`, and only on a process you started.
 
