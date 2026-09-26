@@ -10,7 +10,8 @@
 //   Open     0 where nothing may be placed (a trench, a ladder, a blocked or wire cell, a shell hole, the bank, the
 //            water, the edge, a footprint), else 1.
 // Every hash here is salted by the seed, so the same field grows the same grass on every machine and another seed
-// grows another field. Nothing here reads the sim's flow fields: the corridors are the proxy for where men walk.
+// grows another field. Nothing here reads the sim's flow fields: the corridors are the proxy for where men walk;
+// they bend through the gaps in the wire belts (Route), as the men do.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim.Terrain;
@@ -81,6 +82,14 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>Mark a row of cells as a trench (with ladders where <paramref name="links"/> says), for a test.</summary>
+        /// <summary>A belt of wire across row <paramref name="z"/> with one gap of <paramref name="gapWidth"/> cells at
+        /// <paramref name="gapX"/> (a hand-built field for the tests).</summary>
+        public void WireRow(int z, int gapX, int gapWidth = 1)
+        {
+            for (int x = 0; x < W; x++)
+                if (x < gapX || x >= gapX + gapWidth) Nav[Index(x, z)] |= (byte)NavLayer.Wire;
+        }
+
         public void TrenchRow(int z, int[] links, bool sideA)
         {
             for (int x = 0; x < W; x++) { Nav[Index(x, z)] = (byte)NavLayer.Trench; TrenchDist[Index(x, z)] = 0f; }
@@ -109,6 +118,8 @@ namespace TW.Presentation.Terrain
         public const float LadderReach = 8f, CorridorHalf = 3f, CorridorTraffic = 0.7f, RoadHalf = 2.5f, RoadTraffic = 0.8f;
         public const float TrenchFoot = 2f, TrenchFootTraffic = 0.8f, RutFrom = 3.9f, RutTo = 7.6f, RutTraffic = 0.5f;
         public const float CorridorMaxAcross = 40f, VerticalReach = 3f, VerticalFullHeight = 1.5f;
+        /// <summary>How far either side of its straight line a corridor looks for a gap in a wire belt (cells).</summary>
+        public const int GapSearchCells = 20;
         public const float BankClear = 1.3f, EdgeClear = 1f;
         public const uint PatchSalt = 0x5CA77E12u;
 
@@ -165,7 +176,9 @@ namespace TW.Presentation.Terrain
             }
             for (int i = 0; i < dist.Length; i++)
                 if (dist[i] < LadderReach) Traffic[i] = Mathf.Max(Traffic[i], 1f - dist[i] / LadderReach);
-            // the corridors: from each ladder of one side's front to the nearest ladder of the other's, straight
+            // the corridors: from each ladder of one side's front to the nearest ladder of the other's, through the
+            // gaps in the wire belts between them (Route), straight where there is no wire
+            var way = new List<Vector2Int>(6);
             foreach (var a in input.LinksA)
             {
                 float bestD = float.MaxValue; Vector2Int best = default; bool found = false;
@@ -177,7 +190,9 @@ namespace TW.Presentation.Terrain
                     if (d < bestD) { bestD = d; best = b; found = true; }
                 }
                 if (!found) continue;
-                Band(input, ScatterInput.CentreX(a.x), ScatterInput.CentreZ(a.y), ScatterInput.CentreX(best.x), ScatterInput.CentreZ(best.y), CorridorHalf, CorridorTraffic, true);
+                Route(input, a, best, way);
+                for (int k = 0; k + 1 < way.Count; k++)
+                    Band(input, ScatterInput.CentreX(way[k].x), ScatterInput.CentreZ(way[k].y), ScatterInput.CentreX(way[k + 1].x), ScatterInput.CentreZ(way[k + 1].y), CorridorHalf, CorridorTraffic, true);
             }
             foreach (var r in input.Roads) Band(input, r.X0, r.Z0, r.X1, r.Z1, RoadHalf, RoadTraffic, false);
             // the trench foot and the cart-rut band beside the bank
@@ -187,6 +202,56 @@ namespace TW.Presentation.Terrain
                 float bank = input.BankDistance[i];
                 if (bank >= RutFrom && bank <= RutTo) Traffic[i] = Mathf.Max(Traffic[i], RutTraffic);
             }
+        }
+
+        /// <summary>The corridor's way from ladder <paramref name="a"/> to ladder <paramref name="b"/>: a waypoint in every
+        /// belt of wire between them, at the gap nearest the straight line (within GapSearchCells), or on the line where
+        /// there is no gap (the men cut the wire there). A belt is a run of rows with wire near the line.</summary>
+        public static void Route(ScatterInput input, Vector2Int a, Vector2Int b, List<Vector2Int> into)
+        {
+            into.Clear(); into.Add(a);
+            int step = b.y > a.y ? 1 : -1, rows = Mathf.Abs(b.y - a.y);
+            int beltFrom = -1;
+            for (int n = 1; n <= rows; n++)
+            {
+                int z = a.y + n * step;
+                bool last = n == rows;
+                bool wire = !last && RowHasWire(input, z, LineX(a, b, z));
+                if (wire && beltFrom < 0) beltFrom = z;
+                if (!wire && beltFrom >= 0)
+                {
+                    int beltTo = z - step, mid = (beltFrom + beltTo) / 2, lineX = LineX(a, b, mid);
+                    into.Add(new Vector2Int(Gap(input, beltFrom, beltTo, lineX), mid));
+                    beltFrom = -1;
+                }
+            }
+            into.Add(b);
+        }
+
+        static int LineX(Vector2Int a, Vector2Int b, int z) => b.y == a.y ? a.x : Mathf.RoundToInt(Mathf.Lerp(a.x, b.x, (z - a.y) / (float)(b.y - a.y)));
+
+        static bool RowHasWire(ScatterInput input, int z, int aroundX)
+        {
+            if (z < 0 || z >= input.L) return false;
+            int x0 = Mathf.Max(0, aroundX - GapSearchCells), x1 = Mathf.Min(input.W - 1, aroundX + GapSearchCells);
+            for (int x = x0; x <= x1; x++) if (input.Is(input.Index(x, z), NavLayer.Wire)) return true;
+            return false;
+        }
+
+        /// <summary>The column nearest <paramref name="lineX"/> that is clear of wire on every row of the belt, or lineX.</summary>
+        static int Gap(ScatterInput input, int z0, int z1, int lineX)
+        {
+            int lo = Mathf.Min(z0, z1), hi = Mathf.Max(z0, z1);
+            for (int off = 0; off <= GapSearchCells; off++)
+                for (int side = 0; side < (off == 0 ? 1 : 2); side++)
+                {
+                    int x = lineX + (side == 0 ? off : -off);
+                    if (x < 0 || x >= input.W) continue;
+                    bool clear = true;
+                    for (int z = lo; z <= hi && clear; z++) if (input.Is(input.Index(x, z), NavLayer.Wire)) clear = false;
+                    if (clear) return x;
+                }
+            return lineX;
         }
 
         /// <summary>Traffic along a segment, full at its middle line and (with <paramref name="fade"/>) falling to 0 at its half width.</summary>

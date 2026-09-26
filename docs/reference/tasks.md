@@ -389,7 +389,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
 | `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
 | `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |
-| `ScatterRulesTests` | EditMode | 7 | Kind, ScatterKind, ScatterInput, ScatterLayers, ScatterField, NavLayer |
+| `ScatterRulesTests` | EditMode | 8 | Kind, ScatterKind, ScatterInput, ScatterLayers, ScatterField, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
 | `ShellUxmlTests` | EditMode | 15 | DebriefScreen, MatchLaunch, MatchReport, CampaignProfile, CampaignSession, ProfileStore |

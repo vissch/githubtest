@@ -302,5 +302,6 @@ Caps: 12,000 tufts, 1,500 clumps, 700 poppies, 900 pieces of trench interior, 60
 the same field is cut the same way. The placements are computed once a map and re-emitted every pass; a placement a
 shell hole has opened under is left out. NightLights hangs its trench lamps on the scattered lanterns first
 (`BattlefieldProps.LanternPoints`, eighteen metres apart), so a lit lamp in the line is a drawn lantern; the wall
-scan fills what is left. Not yet: the per-instance tint (`_INSTTINT`), the wire-gap routing of the corridors, and the before/after captures
+scan fills what is left. A corridor bends through the nearest gap of every wire belt between its two ladders
+(`ScatterField.Route`), or crosses where the men will cut it. Not yet: the per-instance tint (`_INSTTINT`) and the before/after captures
 at zoom 8 and 30 with the draw and vertex counts; an editor session does those.

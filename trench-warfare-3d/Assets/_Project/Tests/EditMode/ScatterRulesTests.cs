@@ -68,6 +68,29 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheCorridorBendsThroughTheWireGap()
+        {
+            var input = Field();
+            input.WireRow(11, 9); input.WireRow(12, 9);   // a two-row belt across the field, one gap at x = 9
+            var way = new List<Vector2Int>();
+            ScatterField.Route(input, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
+            Assert.AreEqual(3, way.Count, "ladder, the gap, ladder");
+            Assert.AreEqual(new Vector2Int(9, 11), way[1], "the waypoint sits in the gap, in the belt's middle row");
+            var field = Grown(input);
+            Assert.Greater(field.Traffic[input.Index(9, 11)], ScatterLayers.TrafficBare, "the men file through the gap");
+            Assert.Less(field.Traffic[input.Index(6, 11)], 0.2f, "and not through the wire on the straight line");
+            Assert.Greater(field.Traffic[input.Index(9, 12)], 0.4f, "and on through the belt's second row");
+            // no gap within reach: the corridor crosses the wire where the straight line does
+            var cut = Field();
+            cut.WireRow(12, 200);
+            ScatterField.Route(cut, new Vector2Int(6, 4), new Vector2Int(6, 19), way);
+            Assert.AreEqual(new Vector2Int(6, 12), way[1]);
+            // no wire at all: straight
+            ScatterField.Route(Field(), new Vector2Int(6, 4), new Vector2Int(18, 19), way);
+            Assert.AreEqual(2, way.Count);
+        }
+
+        [Test]
         public void GrassGathersAgainstAPost()
         {
             var input = ScatterInput.Blank(N, N, 7);
