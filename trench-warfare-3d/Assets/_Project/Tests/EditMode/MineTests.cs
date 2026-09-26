@@ -31,6 +31,7 @@ namespace TW.Tests
             }
             public int Man(float3 at, byte team = 1, float hp = 100f) => W.Spawn(team, 0, at, hp, 0f, false);
             public int Tank(float3 at, byte team = 1) => W.Spawn(team, 4, at, 5000f, 0f, true);
+            public int Walker(float3 at, byte archetype, byte team = 1) => W.Spawn(team, archetype, at, 5000f, 0f, true);
             public void Step(int ticks = 1)
             {
                 for (int t = 0; t < ticks; t++)
@@ -60,7 +61,7 @@ namespace TW.Tests
         public void AnEnemySetsAMineOffAndTheOwnSideNeverDoes()
         {
             using var r = new Rig();
-            Assume.That(r.Mines.Lies(Open), "the test spot is open ground");
+            Assert.IsTrue(r.Mines.Lies(Open), "the test spot is open ground");
             int mine = r.Mines.Place(r.W, Open, float3.zero, 0f, 0, MineKind.Mine);
             Assert.GreaterOrEqual(mine, 0);
             Assert.AreEqual(1, r.Count(SimEventType.MinePlaced, mine, 0), "MinePlaced (a = index, b = player)");
@@ -223,7 +224,7 @@ namespace TW.Tests
             if (cell < 0) Assert.Ignore("the playtest map has no trench cell");
             var inTrench = new float3((cell % map.NavWidth + 0.5f) * MapData.NavCellSize, 0f, (cell / map.NavWidth + 0.5f) * MapData.NavCellSize);
             var from = inTrench - new float3(0f, 0f, 6f);
-            Assume.That(r.Mines.Lies(from) && r.Mines.Lies(from + new float3(0f, 0f, 12f)), "both ends of the wire stand on open ground either side of the trench");
+            Assert.IsTrue(r.Mines.Lies(from) && r.Mines.Lies(from + new float3(0f, 0f, 12f)), "both ends of the wire stand on open ground either side of the trench");
             Assert.AreEqual(-1, r.Mines.Place(r.W, from, new float3(0f, 0f, 1f), 12f, 0, MineKind.Tripwire), "refused: the wire would run across the trench");
             Assert.IsFalse(r.Mines.LiesAlong(from, new float3(0f, 0f, 1f), 12f));
         }
@@ -233,7 +234,7 @@ namespace TW.Tests
         {
             using var r = new Rig();
             var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(4);
-            Assume.That(prof.HalfLength * 0.95f > prof.HalfWidth, "the Maw is longer than it is wide, so the bow reaches past a disc of its half width");
+            Assert.IsTrue(prof.HalfLength * 0.95f > prof.HalfWidth, "the Maw is longer than it is wide, so the bow reaches past a disc of its half width");
             int ahead = r.Mines.Place(r.W, Open, float3.zero, 0f, 0, MineKind.Mine);
             var beside = Open + new float3(0f, 0f, 60f);
             int aside = r.Mines.Place(r.W, beside, float3.zero, 0f, 0, MineKind.Mine);
@@ -256,6 +257,23 @@ namespace TW.Tests
                 if (System.IO.File.ReadAllText(file).Contains("Resolved.Clear(")) clearers.Add(System.IO.Path.GetFileName(file));
             Assert.AreEqual(1, clearers.Count, "one owner: " + string.Join(", ", clearers));
             Assert.AreEqual("Blast.cs", clearers[0]);
+        }
+
+        [Test]
+        public void AMineUnderALongHullsBowIsTakenOnTheHullNotAsANearMiss()
+        {
+            using var r = new Rig();
+            const byte banner = 10;   // VehicleArchetype.Banner: a walker longer than it is wide
+            var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(banner);
+            Assert.IsTrue(prof.HalfLength > prof.HalfWidth + 0.6f, "the Banner's bow reaches past the disc a burst calls direct");
+            int mine = r.Mines.Place(r.W, Open, float3.zero, 0f, 0, MineKind.Mine);
+            r.Step(MineSystem.ArmTicks + 1);
+            int hull = r.Walker(Open + new float3(0f, 0f, prof.HalfLength - 0.25f), banner, team: 1);   // team 1 faces -z: the mine is 4 m under its bow
+            float hp = r.W.Hp[hull];
+            r.Step();
+            Assert.AreEqual(1, r.Count(SimEventType.MineTriggered, mine, hull), "under the bow, outside the old disc: it goes off");
+            r.Step();
+            Assert.GreaterOrEqual(hp - r.W.Hp[hull], MineSystem.MineDamage * TW.Sim.Units.VehicleModulesSystem.MineHullShare - 1e-3f, "and the hull takes the mine's share, not a near miss's five points");
         }
     }
 }
