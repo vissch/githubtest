@@ -71,9 +71,12 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   field), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
   `Sim/Combat/Burning.cs` (`BurningSystem`: men and ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`),
   `Sim/Combat/BeamSystem.cs` (`BeamSystem`: the sweeping beam, started by the Beam ability; men, hulls, fire, the
-  scorch of `BlastShape.Beam`), `Sim/Match/Deformation.cs`.
+  scorch of `BlastShape.Beam`), `Sim/Combat/Mines.cs` (`MineSystem`: mines and tripwires, `BlastShape.Mine`, laid by
+  a system call until the sapper lands; a crater cooks them off), `Sim/Match/Deformation.cs`.
 - **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests, AbilityArgsTests, StrafeRunTests,
-  BarragePatternTests, SmokeScreenTests, BeamTests.
+  BarragePatternTests, SmokeScreenTests, BeamTests, MineTests.
+- **Trap:** `MineSystem.Place` is a system call: no command lays a mine until the sapper (docs/21 SIM-D, units-meta),
+  so the replay script fires none and `MineTests` carries the determinism check for the system.
 - **Trap:** a line starts at `pos` and runs along the heading (0 = +Z, 90 = +X) for the length; `B = 0` is the plain
   ability at its own length, so every older caller still works. Add a pattern only to `AbilityStats.Patterns`, or the
   command is rejected as one the ability does not offer.
