@@ -3,10 +3,11 @@
 // Depends on: BlastSystem (Queue: a mine's burst; Resolved: a shell that digs sets off the mines in its crater),
 // MapData (where a mine may lie), VehicleProfile (how wide a hull is).
 //
-// A MINE lies at a point; a TRIPWIRE is a line up to MaxTripwireMetres. Place() is a system call today (the sapper's
-// UnitAbility will call it, docs/21 SIM-D): the mine arms in ArmTicks and then waits. An enemy man within
-// TriggerRadius of a mine, or within TripwireReach of a tripwire's line, or an enemy hull within its half width, sets
-// it off (slot order, the first man wins): a MineTriggered event and an Impact of BlastShape.Mine that BlastSystem
+// A MINE lies at a point; a TRIPWIRE is a line up to MaxTripwireMetres, open ground along its whole length. Place()
+// is a system call today (the sapper's UnitAbility will call it, docs/21 SIM-D): the mine arms in ArmTicks and then
+// waits. An enemy man within TriggerRadius of a mine, or within TripwireReach of a tripwire's line, or an enemy hull
+// whose rectangle (half length by half width, in its yaw) covers a mine, sets it off (slot order, the first wins): a
+// MineTriggered event (dir = the victim's velocity direction, zero if he stood still) and an Impact of BlastShape.Mine that BlastSystem
 // resolves next tick, which men take as any burst and a hull takes on the nearer track (VehicleModulesSystem). The
 // layer's own side never triggers it; the burst spares nobody (friendly fire is on, as for every burst). A burst that
 // digs a crater cooks off the mines within ClearReachFactor x its crater radius: MineCleared now, their own bursts a
@@ -47,6 +48,8 @@ namespace TW.Sim.Combat
         public const float TripwireReach = 0.6f;
         public const float MaxTripwireMetres = 12f, MinTripwireMetres = 1f;
         public const float MineDamage = 260f, MineRadius = 4f, MineSuppression = 50f, MineCrater = 1.5f;
+        /// <summary>The hole's depth as a share of its radius: a cook-off's (VehicleModules), a small, real bowl.</summary>
+        public const float MineCraterDepthShare = 0.35f;
         public const float TripwireDamage = 90f, TripwireRadius = 4.5f, TripwireSuppression = 40f;
         /// <summary>A burst that digs a crater cooks off the mines within this many crater radii.</summary>
         public const float ClearReachFactor = 1.5f;
@@ -91,6 +94,14 @@ namespace TW.Sim.Combat
             return (layers & (byte)(NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Bunker)) == 0;
         }
 
+        /// <summary>Every nav cell a tripwire crosses must be open ground: it may not run across a trench (half a cell a step).</summary>
+        public bool LiesAlong(float3 from, float3 dir, float length)
+        {
+            int steps = math.max(1, (int)math.ceil(length / (MapData.NavCellSize * 0.5f)));
+            for (int s = 0; s <= steps; s++) if (!Lies(from + dir * (length * s / steps))) return false;
+            return true;
+        }
+
         /// <summary>Lay a mine at <paramref name="pos"/>, or a tripwire from it along <paramref name="dir"/> for
         /// <paramref name="length"/> metres (clamped to MinTripwireMetres..MaxTripwireMetres). The index, or -1 when it
         /// may not lie there or the field is full. Arms in ArmTicks. Emits MinePlaced (a = index, b = player, pos, dir =
@@ -104,7 +115,7 @@ namespace TW.Sim.Combat
                 float dl = SimMath.Length(d);
                 if (dl < 1e-3f) return -1;
                 d /= dl; length = math.clamp(length, MinTripwireMetres, MaxTripwireMetres);
-                if (!Lies(pos) || !Lies(pos + d * length)) return -1;
+                if (!LiesAlong(pos, d, length)) return -1;
             }
             else { d = float3.zero; length = 0f; if (!Lies(pos)) return -1; }
 
@@ -166,7 +177,7 @@ namespace TW.Sim.Combat
             new TriggerJob
             {
                 Count = w.HighWater, Mines = Mines.AsArray(),
-                Position = w.Position, Flags = w.Flags, Hp = w.Hp, Team = w.Team, Archetype = w.Archetype,
+                Position = w.Position, Flags = w.Flags, Hp = w.Hp, Team = w.Team, Archetype = w.Archetype, Yaw = w.Yaw,
                 Triggered = triggered,
             }.Run();
             for (int k = 0; k < triggered.Length; k += 2)
@@ -199,7 +210,7 @@ namespace TW.Sim.Combat
             {
                 Pos = at, Dir = dir,
                 Damage = trip ? TripwireDamage : MineDamage, Radius = trip ? TripwireRadius : MineRadius,
-                Suppression = trip ? TripwireSuppression : MineSuppression, CraterRadius = trip ? 0f : MineCrater,
+                Suppression = trip ? TripwireSuppression : MineSuppression, CraterRadius = trip ? 0f : MineCrater, CraterDepth = trip ? 0f : MineCrater * MineCraterDepthShare,
                 Source = SourceBase + mine.Kind, Player = mine.Player, Shape = (int)BlastShape.Mine,
             });
         }
@@ -211,9 +222,12 @@ namespace TW.Sim.Combat
             public NativeArray<Mine> Mines;
             [ReadOnly] public NativeArray<float3> Position;
             [ReadOnly] public NativeArray<uint> Flags;
-            [ReadOnly] public NativeArray<float> Hp;
+            [ReadOnly] public NativeArray<float> Hp, Yaw;
             [ReadOnly] public NativeArray<byte> Team, Archetype;
             public NativeList<int> Triggered;   // (mine, victim) pairs
+
+            /// <summary>Wider than any hull's half width (VehicleProfile), so a box test can throw a slot out before the arithmetic.</summary>
+            const float WidestHull = 5f;
 
             public void Execute()
             {
@@ -223,17 +237,38 @@ namespace TW.Sim.Combat
                     if (mine.State != (int)MineState.Armed) continue;
                     bool trip = mine.Kind == (int)MineKind.Tripwire;
                     float3 end = mine.Pos + mine.Dir * mine.Length;
+                    float minX = math.min(mine.Pos.x, end.x) - WidestHull, maxX = math.max(mine.Pos.x, end.x) + WidestHull;
+                    float minZ = math.min(mine.Pos.z, end.z) - WidestHull, maxZ = math.max(mine.Pos.z, end.z) + WidestHull;
                     for (int i = 0; i < Count; i++)
                     {
                         uint f = Flags[i];
                         if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f || Team[i] == mine.Player) continue;
+                        float3 p = Position[i];
+                        if (p.x < minX || p.x > maxX || p.z < minZ || p.z > maxZ) continue;   // the cheap box first: most men are nowhere near
                         bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
                         if (vehicle && (f & (uint)UnitFlags.KnockedOut) != 0) continue;
-                        float hull = vehicle ? VehicleProfile.ForArchetype(Archetype[i]).HalfWidth : 0f;
-                        float d, reach;
-                        if (trip) { d = ToSegment(Position[i], mine.Pos, end); reach = TripwireReach + hull; }
-                        else { float3 q = Position[i] - mine.Pos; q.y = 0f; d = SimMath.Length(q); reach = vehicle ? hull : TriggerRadius; }
-                        if (d > reach) continue;
+                        bool hit;
+                        if (vehicle && !trip)
+                        {
+                            // the hull's rectangle in its own yaw (forward = (sin, 0, cos)), not a disc round its centre:
+                            // a mine under the bow goes off before the hull has driven over it, one beside the hull never does
+                            var prof = VehicleProfile.ForArchetype(Archetype[i]);
+                            float3 q = mine.Pos - p; q.y = 0f;
+                            float s = SimMath.Sin(Yaw[i]), c = SimMath.Cos(Yaw[i]);
+                            float lx = q.x * c - q.z * s, lz = q.x * s + q.z * c;
+                            hit = math.abs(lx) <= prof.HalfWidth && math.abs(lz) <= prof.HalfLength;
+                        }
+                        else if (trip)
+                        {
+                            float hull = vehicle ? VehicleProfile.ForArchetype(Archetype[i]).HalfWidth : 0f;
+                            hit = ToSegment(p, mine.Pos, end) <= TripwireReach + hull;
+                        }
+                        else
+                        {
+                            float3 q = p - mine.Pos; q.y = 0f;
+                            hit = math.abs(q.x) <= TriggerRadius && math.abs(q.z) <= TriggerRadius && SimMath.Length(q) <= TriggerRadius;
+                        }
+                        if (!hit) continue;
                         mine.State = (int)MineState.Spent; Mines[m] = mine;
                         Triggered.Add(m); Triggered.Add(i);
                         break;   // one mine, one victim: the first in slot order

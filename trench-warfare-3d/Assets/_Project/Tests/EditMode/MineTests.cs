@@ -195,5 +195,67 @@ namespace TW.Tests
             for (int t = 0; t < a.Length; t++) Assert.AreEqual(a[t], b[t], "tick " + t + ": the same mine, the same hash");
             Assert.AreNotEqual(a[0], none[0], "a mine lying there is in the hash from the first tick");
         }
+
+        [Test]
+        public void AMinesOwnBurstCooksOffItsNeighbour()
+        {
+            using var r = new Rig();
+            int first = r.Mines.Place(r.W, Open, float3.zero, 0f, 0, MineKind.Mine);
+            int second = r.Mines.Place(r.W, Open + new float3(2f, 0f, 0f), float3.zero, 0f, 0, MineKind.Mine);
+            r.Step(MineSystem.ArmTicks + 1);
+            r.Man(Open, team: 1);
+            r.Step();
+            Assert.AreEqual((int)MineState.Spent, r.Mines.Mines[first].State, "the first goes off under him");
+            r.Step();
+            Assert.AreEqual(1, r.Count(SimEventType.MineCleared, second), "its crater, dug by the next tick's Blast, cooks off the neighbour two metres away");
+            Assert.AreEqual((int)MineState.Cooking, r.Mines.Mines[second].State);
+            r.Step(MineSystem.CookMinTicks + 1);
+            Assert.AreEqual((int)MineState.Spent, r.Mines.Mines[second].State, "and it goes off on its own");
+        }
+
+        [Test]
+        public void ATripwireMayNotCrossATrench()
+        {
+            using var r = new Rig();
+            var map = r.M.Map;
+            int cell = -1;
+            for (int i = 0; i < map.NavLayers.Length && cell < 0; i++) if ((map.NavLayers[i] & (byte)NavLayer.Trench) != 0) cell = i;
+            if (cell < 0) Assert.Ignore("the playtest map has no trench cell");
+            var inTrench = new float3((cell % map.NavWidth + 0.5f) * MapData.NavCellSize, 0f, (cell / map.NavWidth + 0.5f) * MapData.NavCellSize);
+            var from = inTrench - new float3(0f, 0f, 6f);
+            Assume.That(r.Mines.Lies(from) && r.Mines.Lies(from + new float3(0f, 0f, 12f)), "both ends of the wire stand on open ground either side of the trench");
+            Assert.AreEqual(-1, r.Mines.Place(r.W, from, new float3(0f, 0f, 1f), 12f, 0, MineKind.Tripwire), "refused: the wire would run across the trench");
+            Assert.IsFalse(r.Mines.LiesAlong(from, new float3(0f, 0f, 1f), 12f));
+        }
+
+        [Test]
+        public void AMineAheadOfAHullGoesOffBeforeTheBowPassesItAndOneBesideItNever()
+        {
+            using var r = new Rig();
+            var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(4);
+            Assume.That(prof.HalfLength * 0.95f > prof.HalfWidth, "the Maw is longer than it is wide, so the bow reaches past a disc of its half width");
+            int ahead = r.Mines.Place(r.W, Open, float3.zero, 0f, 0, MineKind.Mine);
+            var beside = Open + new float3(0f, 0f, 60f);
+            int aside = r.Mines.Place(r.W, beside, float3.zero, 0f, 0, MineKind.Mine);
+            r.Step(MineSystem.ArmTicks + 1);
+            int bow = r.Tank(Open + new float3(0f, 0f, prof.HalfLength * 0.95f), team: 1);      // team 1 faces -z: the mine is under its bow
+            int flank = r.Tank(beside + new float3(prof.HalfWidth * 1.1f, 0f, 0f), team: 1);    // a mine just outside the hull's side
+            r.Step();
+            Assert.AreEqual(1, r.Count(SimEventType.MineTriggered, ahead, bow), "under the bow: it goes off before the hull is over it");
+            Assert.AreEqual(0, r.Count(SimEventType.MineTriggered, aside), "beside the hull: nothing");
+            Assert.AreEqual((int)MineState.Armed, r.Mines.Mines[aside].State);
+        }
+
+        [Test]
+        public void OnlyTheBlastSystemClearsItsResolvedList()
+        {
+            // the list is filled at 720 and read at 725, 730, 1000 and 1130: whoever drained it (Deformation once did) starved the readers after it
+            string simDir = System.IO.Path.Combine(UnityEngine.Application.dataPath, "_Project", "Sim");
+            var clearers = new System.Collections.Generic.List<string>();
+            foreach (var file in System.IO.Directory.GetFiles(simDir, "*.cs", System.IO.SearchOption.AllDirectories))
+                if (System.IO.File.ReadAllText(file).Contains("Resolved.Clear(")) clearers.Add(System.IO.Path.GetFileName(file));
+            Assert.AreEqual(1, clearers.Count, "one owner: " + string.Join(", ", clearers));
+            Assert.AreEqual("Blast.cs", clearers[0]);
+        }
     }
 }
