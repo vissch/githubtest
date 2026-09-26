@@ -205,7 +205,7 @@ namespace TW.Presentation.Tactical
         //                       men). 1 = the old size.
         // Both at their old values (fx.columnEarth=0,fx.columnEarthSize=1) draw the image before C57 bit for bit.
         public const string EarthKnob = "fx.columnEarth", EarthSizeKnob = "fx.columnEarthSize";
-        public const float DefaultEarth = 0.22f, DefaultEarthSize = 0.38f;   // critic: #3B2A1E; about 3-4 m wide and 8-10 m tall at T1 (r 8: about 4.4 x 8.2 m as it rises, 5.3 x 10 m at the end)
+        public const float DefaultEarth = 0.12f, DefaultEarthSize = 0.7f;   // blind critic sweep, cycle 8 (runs 8/cs07, cs10, cs10d, cs07d): 0.38 was too small to read at T1 (thin arcs); 0.7 keeps the men countable, 0.12 reads as earth
         public const float OldEarth = 0f, OldEarthSize = 1f;
         public static readonly Color EarthHue = new Color(1f, 0.712f, 0.508f);   // #3B2A1E is (59, 42, 30) = (1, 0.712, 0.508)
         const float EarthMidInk = 0.61f;   // the Column drawing's middle ink (median 0.58-0.63 over frames 0-14, pixels at alpha > 0.3)
