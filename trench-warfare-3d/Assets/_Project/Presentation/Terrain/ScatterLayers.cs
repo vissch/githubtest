@@ -33,6 +33,13 @@ namespace TW.Presentation.Terrain
         public const float KitPerCell = 0.35f, CratePerCell = 0.04f, LanternPerCell = 0.04f, DebrisPerCell = 0.08f;
         public const float RearCratePerCell = 0.1f, RearStackPerCell = 0.02f;
         public const int CampKitVariants = 6;   // ammo tin, mess kit, spade, helmet, boots, hatch lid
+        /// <summary>The camp's size jitter: a tin is a tin, so within the Strict rows of AssetScaleTable (a test holds
+        /// both ends inside them; the clamp then touches nothing the scatter lays).</summary>
+        public const float CampKitScaleMin = 0.92f, CampKitScaleRange = 0.2f;
+        /// <summary>Wall debris: loose boards may be small, spent cases lie near their built size (their row).</summary>
+        public const float BoardsScaleMin = 0.7f, CasesScaleMin = 0.9f, DebrisScaleRange = 0.3f;
+        /// <summary>A crate's size jitter: inside its row (a test holds both ends).</summary>
+        public const float CrateScaleMin = 0.9f, CrateScaleRange = 0.1f;
 
         /// <summary>0..1 from a cell, a salt and the seed (the generator's own mixing).</summary>
         public static float Hash(uint seed, int cell, int salt)
@@ -94,12 +101,12 @@ namespace TW.Presentation.Terrain
                         float side = Hash(seed, cell, 25) < 0.5f ? -0.7f : 0.7f;
                         bool alongX = Hash(seed, cell, 26) < 0.5f;
                         interior++;
-                        into.Add(new ScatterInstance { Kind = ScatterKind.CampKit, Variant = (byte)(Hash(seed, cell, 27) * (CampKitVariants - 0.001f)), X = cx + (alongX ? side : (Hash(seed, cell, 28) - 0.5f) * 0.8f), Z = cz + (alongX ? (Hash(seed, cell, 28) - 0.5f) * 0.8f : side), Yaw = Hash(seed, cell, 29) * 360f, Scale = 0.92f + 0.2f * Hash(seed, cell, 30) });
+                        into.Add(new ScatterInstance { Kind = ScatterKind.CampKit, Variant = (byte)(Hash(seed, cell, 27) * (CampKitVariants - 0.001f)), X = cx + (alongX ? side : (Hash(seed, cell, 28) - 0.5f) * 0.8f), Z = cz + (alongX ? (Hash(seed, cell, 28) - 0.5f) * 0.8f : side), Yaw = Hash(seed, cell, 29) * 360f, Scale = CampKitScaleMin + CampKitScaleRange * Hash(seed, cell, 30) });
                     }
                     if (interior < MaxInterior && Hash(seed, cell, 22) < CratePerCell)
                     {
                         interior++;
-                        into.Add(new ScatterInstance { Kind = ScatterKind.Crate, X = cx + (Hash(seed, cell, 31) - 0.5f) * 0.6f, Z = cz + (Hash(seed, cell, 32) - 0.5f) * 0.6f, Yaw = Hash(seed, cell, 33) * 360f, Scale = 0.9f + 0.1f * Hash(seed, cell, 34) });
+                        into.Add(new ScatterInstance { Kind = ScatterKind.Crate, X = cx + (Hash(seed, cell, 31) - 0.5f) * 0.6f, Z = cz + (Hash(seed, cell, 32) - 0.5f) * 0.6f, Yaw = Hash(seed, cell, 33) * 360f, Scale = CrateScaleMin + CrateScaleRange * Hash(seed, cell, 34) });
                     }
                     if (lanterns < MaxLanterns && Hash(seed, cell, 23) < LanternPerCell)
                     {
@@ -109,14 +116,14 @@ namespace TW.Presentation.Terrain
                     if (interior < MaxInterior && Hash(seed, cell, 24) < DebrisPerCell)
                     {
                         interior++;
-                        into.Add(new ScatterInstance { Kind = ScatterKind.WallDebris, Variant = (byte)(Hash(seed, cell, 38) < 0.6f ? 0 : 1), X = cx + (Hash(seed, cell, 39) - 0.5f) * 0.8f, Z = cz + (Hash(seed, cell, 40) - 0.5f) * 0.8f, Yaw = Hash(seed, cell, 41) * 360f, Scale = 0.7f + 0.3f * Hash(seed, cell, 42) });
+                        into.Add(new ScatterInstance { Kind = ScatterKind.WallDebris, Variant = (byte)(Hash(seed, cell, 38) < 0.6f ? 0 : 1), X = cx + (Hash(seed, cell, 39) - 0.5f) * 0.8f, Z = cz + (Hash(seed, cell, 40) - 0.5f) * 0.8f, Yaw = Hash(seed, cell, 41) * 360f, Scale = (Hash(seed, cell, 38) < 0.6f ? BoardsScaleMin : CasesScaleMin) + DebrisScaleRange * Hash(seed, cell, 42) });
                     }
                 }
                 // ---- the rear band --------------------------------------------------------------------------
                 else if (input.InRear(cz) && field.Open[cell] > 0f)
                 {
                     if (Hash(seed, cell, 51) < RearCratePerCell)
-                        into.Add(new ScatterInstance { Kind = ScatterKind.Crate, X = cx + (Hash(seed, cell, 52) - 0.5f) * 1.2f, Z = cz + (Hash(seed, cell, 53) - 0.5f) * 1.2f, Yaw = Hash(seed, cell, 54) * 360f, Scale = 0.9f + 0.1f * Hash(seed, cell, 55) });
+                        into.Add(new ScatterInstance { Kind = ScatterKind.Crate, X = cx + (Hash(seed, cell, 52) - 0.5f) * 1.2f, Z = cz + (Hash(seed, cell, 53) - 0.5f) * 1.2f, Yaw = Hash(seed, cell, 54) * 360f, Scale = CrateScaleMin + CrateScaleRange * Hash(seed, cell, 55) });
                     if (Hash(seed, cell, 56) < RearStackPerCell)
                         into.Add(new ScatterInstance { Kind = ScatterKind.ShellStack, X = cx + (Hash(seed, cell, 57) - 0.5f) * 0.8f, Z = cz + (Hash(seed, cell, 58) - 0.5f) * 0.8f, Yaw = Hash(seed, cell, 59) * 360f, Scale = 0.9f + 0.2f * Hash(seed, cell, 60) });
                 }

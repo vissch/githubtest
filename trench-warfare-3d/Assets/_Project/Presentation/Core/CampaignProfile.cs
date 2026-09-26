@@ -92,9 +92,13 @@ namespace TW.Presentation
 
         public string ToJson() => JsonUtility.ToJson(this, true);
 
+        /// <summary>A profile from its JSON: the constructor's defaults first, the file over them (JsonUtility.FromJson may
+        /// skip a plain class's field initialisers, so an empty or hand-edited file that lacks Gold would open a campaign
+        /// with none), then Migrate. A malformed file throws; ProfileStore.LoadFrom catches it and starts fresh.</summary>
         public static CampaignProfile FromJson(string json)
         {
-            var p = JsonUtility.FromJson<CampaignProfile>(json) ?? new CampaignProfile();
+            var p = new CampaignProfile();
+            if (!string.IsNullOrWhiteSpace(json)) JsonUtility.FromJsonOverwrite(json, p);
             p.Migrate();
             return p;
         }

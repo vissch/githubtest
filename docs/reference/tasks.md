@@ -356,7 +356,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `AbilityAimTests` | EditMode | 14 | OffMapAbilityId, CombatFx, AbilityAim, AimReadout, Line, ScreenUnit |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
-| `AssetScaleTests` | EditMode | 7 | AssetScaleTable, Rule, PropLayout, BattlefieldKit, Module, ScaleAxis |
+| `AssetScaleTests` | EditMode | 8 | AssetScaleTable, Rule, ScatterLayers, BattlefieldKit, PropLayout, Module |
 | `BarragePatternTests` | EditMode | 7 | OffMapAbilityId, SimEventType, OffMapAbilitySystem, SimEvent, AbilityPattern, SimCommand |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
@@ -424,7 +424,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `WinterLevelTests` | EditMode | 6 | Ground, Biome, BiomeProfile, BattlefieldGenerator, BattlefieldParams, MatchLaunch |
 | `WinterMapTests` | EditMode | 7 | BattlefieldParams, BattlefieldGenerator, MapData |
 | `CanaryFixture` | PlayMode | 0 | SimHost |
-| `HudLayoutPlayTests` | PlayMode | 3 | HudBootstrap, HudView, RosterEntry, HudLayout, AllocProbe, BattleHud |
+| `HudLayoutPlayTests` | PlayMode | 3 | HudView, HudBootstrap, RosterEntry, HudLayout, AllocProbe, BattleHud |
 | `LockstepLoopbackTests` | PlayMode | 3 | SimCommand, LockstepDriver, MatchSim, ReplayRecorder, LoopbackNetwork, SimConfig |
 | `MatchClockTests` | PlayMode | 5 | MatchClock, Hold, SimHost |
 | `MatchLaunchPlayTests` | PlayMode | 4 | FactionBuildings, MatchLaunch, SimHost, AudioLevels, CampaignGraph, HudBootstrap |

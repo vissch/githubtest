@@ -15,8 +15,9 @@ namespace TW.Presentation
         static CampaignProfile current;
         /// <summary>The profile in force, loaded on first use.</summary>
         public static CampaignProfile Current => current ??= LoadFrom(DefaultPath);
-        /// <summary>Save writes the file. Tests turn it off so a bound screen never touches the player's profile.</summary>
-        public static bool Persist = true;
+        /// <summary>Save writes the file. Off by default in the editor outside play (EditMode tests), so a fixture that forgets
+        /// to substitute a profile cannot write the developer's; tests may set it either way.</summary>
+        public static bool Persist = !(Application.isEditor && !Application.isPlaying);
 
         public static CampaignProfile Load() => current = LoadFrom(DefaultPath);
 

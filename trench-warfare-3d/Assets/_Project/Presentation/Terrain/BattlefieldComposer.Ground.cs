@@ -10,6 +10,8 @@ namespace TW.Presentation.Terrain
 {
     public sealed partial class BattlefieldComposer
     {
+        /// <summary>The debris step's size jitter for its loose things (cases, branches): a test holds the spent cases' both ends inside their Strict row.</summary>
+        public const float DebrisSizeMin = .85f, DebrisSizeRange = .5f;
         /// <summary>Loose litter on open ground: branches, boards and braced planks everywhere, now and then a door or a
         /// crossed pair of boards laid flat; spent cases, fallen sacks and sheets of corrugated iron near the trenches. One
         /// candidate per 4.5 m square, placed by hash so it never moves between rebuilds.</summary>
@@ -34,7 +36,7 @@ namespace TW.Presentation.Terrain
                 float pick = Rand(k, 64), ground = surface.VisualHeight(x, z);
                 var yaw = Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f);
                 var tilt = Quaternion.Euler((Rand(k, 67) - .5f) * 8f, 0f, (Rand(k, 68) - .5f) * 8f);   // bedded unevenly in the mud
-                float size = .85f + Rand(k, 66) * .5f;
+                float size = DebrisSizeMin + Rand(k, 66) * DebrisSizeRange;
                 if (at.BankDistance < 7f)
                 {
                     // by the trench: spent cases, sacks fallen off the parapet, sheets of iron, boards

@@ -22,16 +22,16 @@ thing on the real meshes and is the verdict that counts). 1 SU = 2.0 m; the axis
 | Module | As built | Row | Holds |
 |---|---|---|---|
 | kit/helmet (shrunk 2026-09-26: brim 0.43 → 0.31 m) | 0.147 SU | 0.13-0.18 | yes |
-| kit/boots (a pair laid out) | 0.27 | 0.20-0.30 | yes (row widened) |
-| kit/ammoTin (with its spilled rounds) | 0.31 | 0.22-0.32 | yes (row widened) |
+| kit/boots (a pair laid out) | 0.27 | 0.20-0.32 | yes (row widened; the camp's jitter 0.92-1.12 fits) |
+| kit/ammoTin (with its spilled rounds) | 0.31 | 0.22-0.35 | yes (row widened; the camp's jitter fits) |
 | kit/messKit (height) | 0.05 | 0.04-0.08 | yes (row corrected: was 0.10-0.22, drawn double) |
 | kit/hangingTins | 0.21 | 0.10-0.26 | yes (row widened) |
 | kit/supplies (the braced crate) | 0.525 | 0.30-0.55 | yes (row widened) |
-| kit/shellCases (three cases, a group) | 0.32 | 0.28-0.45 | yes (row corrected twice: the first hand pass composed the rotations in the wrong order) |
+| kit/shellCases (three cases, a group) | 0.32 | 0.26-0.45 | yes (row corrected twice: the first hand pass composed the rotations in the wrong order; the debris step's 0.85-1.35 fits) |
 | kit/bucket | 0.15 | 0.10-0.22 | yes |
 | kit/wireTins | 0.12 | 0.10-0.22 | yes |
 | kit/lantern | 0.75 | 0.60-0.90 | yes |
-| kit/spade | 0.40 | 0.25-0.45 | yes (row raised: it stood 2 mm under the old ceiling) |
+| kit/spade | 0.40 | 0.25-0.48 | yes (row raised; the camp's jitter fits) |
 | kit/leanRifle | 0.62 | 0.50-0.70 | yes |
 | kit/graveMarker | 0.64 | 0.50-0.70 | yes |
 | kit/signBoard | 0.70 | 0.60-0.85 | yes |

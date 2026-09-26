@@ -144,5 +144,32 @@ namespace TW.Tests
             }
             finally { kit.Dispose(); }
         }
+
+        /// <summary>The scatter's camp jitter and the debris step's size jitter never leave the Strict rows: a clamp that
+        /// fired on what the composer itself laid would quantise a third of the tins to one size (critique round 5).</summary>
+        [Test]
+        public void The_Composers_Jitter_Stays_Inside_The_Rows()
+        {
+            var kit = new BattlefieldKit();
+            try
+            {
+                kit.ResolveKeysAndRules();
+                var failed = new List<string>();
+                void Check(BattlefieldKit.Module m, float scale, string where)
+                {
+                    if (m == null || m.Mesh == null || !m.Rule.Bounded || !m.Rule.Enforce) return;
+                    float su = AssetScaleTable.SoldierUnits(m.Rule, m.Mesh.bounds.size, Vector3.one * scale);
+                    if (!m.Rule.Holds(su)) failed.Add(kit.KeyOf[m] + " at x" + scale.ToString("0.00") + " (" + where + ") is " + su.ToString("0.00") + " SU, bounds " + m.Rule.MinSU + "-" + m.Rule.MaxSU);
+                }
+                foreach (var m in new[] { kit.ammoTin, kit.messKit, kit.spade, kit.helmet, kit.boots })
+                    foreach (var s in new[] { ScatterLayers.CampKitScaleMin, ScatterLayers.CampKitScaleMin + ScatterLayers.CampKitScaleRange }) Check(m, s, "the camp");
+                foreach (var s in new[] { BattlefieldComposer.DebrisSizeMin, BattlefieldComposer.DebrisSizeMin + BattlefieldComposer.DebrisSizeRange }) Check(kit.shellCases, s, "the debris step");
+                foreach (var s in new[] { ScatterLayers.CasesScaleMin, ScatterLayers.CasesScaleMin + ScatterLayers.DebrisScaleRange }) Check(kit.shellCases, s, "wall debris");
+                foreach (var s in new[] { ScatterLayers.BoardsScaleMin, ScatterLayers.BoardsScaleMin + ScatterLayers.DebrisScaleRange }) Check(kit.looseBoards, s, "wall debris");
+                foreach (var s in new[] { ScatterLayers.CrateScaleMin, ScatterLayers.CrateScaleMin + ScatterLayers.CrateScaleRange }) Check(kit.supplies, s, "the camp's crates");
+                Assert.IsEmpty(failed, "the composer lays a piece the clamp then rescales: widen the row or narrow the jitter: " + string.Join("; ", failed));
+            }
+            finally { kit.Dispose(); }
+        }
     }
 }

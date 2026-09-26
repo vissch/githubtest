@@ -201,14 +201,15 @@ namespace TW.Tests
         public void TheBarFieldsOnlyWhatTheMatchUnlocked()
         {
             Assert.IsTrue(HudView.Offered(0u, OffMapAbilityId.Beam), "no mask: every card (a skirmish)");
-            uint two = (1u << (int)OffMapAbilityId.HeBarrage) | (1u << (int)OffMapAbilityId.ChlorineGas);
+            uint two = (1u << (int)OffMapAbilityId.HeBarrage) | (1u << (int)OffMapAbilityId.CreepingBarrage);   // the third ability, so a card at position 1 is ability index 2
             Assert.IsTrue(HudView.Offered(two, OffMapAbilityId.HeBarrage)); Assert.IsFalse(HudView.Offered(two, OffMapAbilityId.Beam));
             var roster = Roster(0);
             Assert.AreEqual(HudView.SupportAbilities.Length, BuildBare(roster).SupportCards.Count, "a skirmish fields every support card");
             var some = BuildBare(roster, two);
             Assert.AreEqual(2, some.SupportCards.Count, "a campaign bar shows what the Home Front unlocked");
-            Assert.AreEqual(OffMapAbilityId.ChlorineGas, some.SupportCards[1].Ability);
-            Assert.AreEqual(HudText.SupportHotkey(1), some.SupportCards[1].Hotkey.text, "the card keeps its own key, not the next free one");
+            Assert.AreEqual(OffMapAbilityId.CreepingBarrage, some.SupportCards[1].Ability);
+            Assert.AreEqual(HudText.SupportHotkey(2), some.SupportCards[1].Hotkey.text, "the card keeps its own key (C), not the next free one (0)");
+            Assert.AreNotEqual(HudText.SupportHotkey(1), some.SupportCards[1].Hotkey.text);
         }
     }
 }

@@ -264,7 +264,14 @@ namespace TW.Presentation.Terrain
                         return true;
                     }
                 }
-                // a run still open at q's doorstep is the head of the belt q's gap crosses: not a new belt
+                // a run still open at q's doorstep is the head of the belt q's gap crosses: not a new belt, unless q is
+                // the far ladder, which crosses no belt: then the run is a belt hugging the trench, and gets its waypoint
+                if (beltFrom >= 0 && k + 2 == into.Count)
+                {
+                    int beltTo = q.y - step, mid = (beltFrom + beltTo) / 2;
+                    into.Insert(k + 1, new Vector2Int(Gap(input, beltFrom, beltTo, LineX(p, q, mid)), mid));
+                    return true;
+                }
             }
             return false;
         }

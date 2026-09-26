@@ -21,7 +21,7 @@ namespace TW.Tests
         /// <summary>Allocations a frame the card binding may make. Measured 0.71 on 2026-09-23 with a counter that works,
         /// with silver, cooldowns and men ALL changing every frame (a label string now and then); the IMGUI HUD made
         /// 13,302 bytes a frame. A regression guard at the measured level, not a claim that it is zero.</summary>
-        const double HudBindBudget = 1;
+        const double HudBindBudgetPerCard = 0.1;   // 0.71 a frame measured on ten cards (0.071 a card) with room; fourteen cards since docs/21 phase 5
         GameObject go;
 
         [UnitySetUp]
@@ -51,7 +51,9 @@ namespace TW.Tests
             go = new GameObject("hud-test");
             doc = go.AddComponent<UIDocument>();
             doc.panelSettings = panel; doc.visualTreeAsset = tree;
-            return HudView.Build(doc.rootVisualElement, Resources.Load<VisualTreeAsset>("Hud/UnitCard"), DefaultRoster(), new[] { 150, 120 });
+            var costs = new[] { 150, 120, 250, 60, 180, 300 };   // one a support card, in HudView.SupportAbilities order (docs/07), so the poor state can fire on every card
+            Assert.That(costs.Length, Is.EqualTo(HudView.SupportAbilities.Length), "a cost for every support card");
+            return HudView.Build(doc.rootVisualElement, Resources.Load<VisualTreeAsset>("Hud/UnitCard"), DefaultRoster(), costs);
         }
 
         [UnityTest]
@@ -76,7 +78,10 @@ namespace TW.Tests
             Assert.That(refs.Root.worldBound.width, Is.EqualTo(w).Within(1f), "the scaled HUD root still covers the panel");
             Assert.That(bar.width, Is.LessThanOrEqualTo(w), "the bar fits the reference width");
             Assert.That(bar.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(bar.yMax, Is.LessThanOrEqualTo(h + 0.5f));
-            foreach (var c in refs.Cards) Assert.That(c.Root.worldBound.width, Is.GreaterThanOrEqualTo(70f), $"{c.Title} card is {c.Root.worldBound.width} px wide");
+            // the floor is the card's own 72 less what the bar had to shrink by (HudView.BarFit: six support cards make the bar
+            // 1,276 wide, so a window under 1.41:1 scales it), never less than the unit name needs unscaled
+            float fit = HudView.BarFit(refs.Root.resolvedStyle.width);
+            foreach (var c in refs.Cards) Assert.That(c.Root.worldBound.width, Is.GreaterThanOrEqualTo(70f * fit - 0.5f), $"{c.Title} card is {c.Root.worldBound.width} px wide with the bar fitted by {fit:0.00}");
             var mm = refs.MinimapBezel.worldBound;
             Assert.That(mm.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(mm.y, Is.GreaterThanOrEqualTo(0f));
         }
@@ -118,7 +123,7 @@ namespace TW.Tests
             int next = 0;
             double perFrame = AllocProbe.PerCall(() => Frame(next++), 200, 300);   // the warm-up grows every cache once
             TestContext.WriteLine($"binding: {perFrame:0.##} allocations a frame");
-            Assert.That(perFrame, Is.LessThanOrEqualTo(HudBindBudget), $"binding makes {perFrame:0.##} allocations a frame with silver, cooldowns and men changing every frame (the IMGUI HUD: 13,302 bytes)");
+            Assert.That(perFrame, Is.LessThanOrEqualTo(HudBindBudgetPerCard * refs.Cards.Count), $"binding makes {perFrame:0.##} allocations a frame for {refs.Cards.Count} cards with silver, cooldowns and men changing every frame (the IMGUI HUD: 13,302 bytes)");
         }
     }
 }
