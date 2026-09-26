@@ -149,7 +149,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
   man's pool and smoulder; `UnitAlight` lights and douses the drawn torch),
   `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
-  beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Camera/AbilityAim.cs` (the aim
+  beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets
+  so the effects draw it without knowing the panel), `Presentation/Camera/AbilityAim.cs` (the aim
   state machine: point, or press-drag-release with patterns and snapping; `TestPanel` drives it),
   `Presentation/Camera/CombatFx.Chunks.cs` (thrown dirt, splinters, smoke balls, cook-offs),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
@@ -331,6 +332,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
 | `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer |
+| `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
 | `VehicleTracks` | TankRenderer | CombatFx.Ground |
@@ -346,7 +348,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- gen:tests -->
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
-| `AbilityAimTests` | EditMode | 11 | OffMapAbilityId, AbilityAim, CombatFx, AimReadout, ScreenUnit, HudView |
+| `AbilityAimTests` | EditMode | 12 | OffMapAbilityId, AbilityAim, CombatFx, AimReadout, Line, ScreenUnit |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
 | `AssetScaleTests` | EditMode | 7 | AssetScaleTable, Rule, PropLayout, BattlefieldKit, Module, ScaleAxis |

@@ -171,6 +171,15 @@ namespace TW.Presentation.Tactical
         }
 
 
+        /// <summary>The aim, for the effects (SceneHooks.AimPreview): the shape under the cursor while an ability is armed.</summary>
+        bool TryAimShape(out AimShape shape)
+        {
+            shape = default;
+            return aim.Armed != OffMapAbilityId.None && TryGroundPoint(out var cursor) && aim.Shape(cursor, 0, out shape);
+        }
+        void OnEnable() { SceneHooks.AimPreview = TryAimShape; }
+        void OnDisable() { if (SceneHooks.AimPreview == (TryAimShape)TryAimShape) SceneHooks.AimPreview = null; }
+
         void Start()
         {
             if (Cam == null) Cam = GetComponent<TacticalCamera>();

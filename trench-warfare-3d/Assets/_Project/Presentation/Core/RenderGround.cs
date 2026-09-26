@@ -107,6 +107,9 @@ namespace TW.Presentation
         public static System.Action<UnityEngine.Vector3, int> Sparks;
         /// <summary>The kit's biplane, for the strafe's flyover: its mesh, material and drawn scale. (BattlefieldProps fills it, CombatFx draws.)</summary>
         public static System.Func<(UnityEngine.Mesh mesh, UnityEngine.Material material, UnityEngine.Vector3 scale)> Biplane;
+        /// <summary>What the player is aiming now, for the effects to draw (the disc or the corridor): false when nothing is
+        /// armed or the cursor is off the map. (The aim's owner sets it: TestPanel today; CombatFx.Abilities draws.)</summary>
+        public static TW.Presentation.Tactical.TryAimShape AimPreview;
         /// <summary>Places that smoke or steam gently: dugout chimneys, fires in the rain. (NightLights fills it, CombatFx draws.)</summary>
         public static readonly System.Collections.Generic.List<UnityEngine.Vector3> SmokeSources = new System.Collections.Generic.List<UnityEngine.Vector3>();
         /// <summary>The tanks are drawn from their parts, with their own exhaust, sparks and wrecks: the box vehicle and the
@@ -145,7 +148,7 @@ namespace TW.Presentation
         {
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
             IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
-            DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; CookOff = null; FootFall = null;
+            DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; CookOff = null; FootFall = null; AimPreview = null;
         }
     }
 

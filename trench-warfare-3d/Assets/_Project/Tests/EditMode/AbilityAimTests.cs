@@ -190,5 +190,14 @@ namespace TW.Tests
             Assert.LessOrEqual(CombatFx.PlaneRunIn / CombatFx.PlaneSpeed, s.WarmupTicks * SimConfig.Default.TickSeconds + 1e-3f, "the run-in is no longer than the warm-up");
             Assert.AreEqual(AbilityAim.PointFallbackRadius, AimReadout.GasReticleM, "one reticle radius for the aim and the readout");
         }
+
+        [Test]
+        public void TheAimPreviewHookIsClearedWithTheOtherHooks()
+        {
+            SceneHooks.AimPreview = (out AimShape s) => { s = new AimShape { Line = true, Length = 40f }; return true; };
+            Assert.IsTrue(SceneHooks.AimPreview(out var shape)); Assert.AreEqual(40f, shape.Length);
+            SceneHooks.Reset();
+            Assert.IsNull(SceneHooks.AimPreview, "a scene load forgets whoever owned the aim");
+        }
     }
 }

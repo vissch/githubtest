@@ -3,7 +3,8 @@
 // the creeping barrage, the HE line and box, creeping gas) is press-drag-release: the press is where the line starts,
 // the drag its heading and length (Shift snaps the heading to 15 degrees; a drag under MinDrag fires the ability's
 // own length straight up the player's field), Tab cycles the patterns the ability offers. What the player is aiming
-// is a Shape the effects draw (CombatFx.Abilities.cs) and the readout counts under (AimReadout). No input in here:
+// is a Shape (AimShape, Presentation/Core) the effects draw through SceneHooks.AimPreview (CombatFx.Abilities.cs) and
+// the readout counts under (AimReadout). No input in here:
 // TestPanel feeds it the mouse and the keys, the tests feed it points.
 using UnityEngine;
 using Unity.Mathematics;
@@ -12,16 +13,6 @@ using TW.Sim.Match;
 
 namespace TW.Presentation.Tactical
 {
-    /// <summary>What is being aimed: a disc round a point, or a corridor from Start along Dir.</summary>
-    public struct AimShape
-    {
-        public bool Line;
-        public Vector3 Start, Dir;
-        public float Length, HalfWidth, Radius, StepMetres;
-        public int Pattern;
-        public Vector3 End => Start + Dir * Length;
-    }
-
     public sealed class AbilityAim
     {
         /// <summary>A drag shorter than this is a click: the line runs its own length straight up the field.</summary>

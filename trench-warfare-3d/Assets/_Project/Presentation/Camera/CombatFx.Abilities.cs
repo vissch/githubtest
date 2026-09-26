@@ -1,6 +1,7 @@
 // Phase: C4 / docs/21 phase 5 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared
 // pools): what the line abilities look like. The aim: the disc or the corridor the player is dragging (AbilityAim's
-// Shape), with a tick at every lift of a stepping pattern. The strafe: an aircraft's run-in from 200 m out, timed to
+// Shape, through SceneHooks.AimPreview: the effects do not know who owns the aim), with a tick at every lift of a
+// stepping pattern. The strafe: an aircraft's run-in from 200 m out, timed to
 // cross the corridor's start as the warm-up ends (the kit's biplane through SceneHooks.Biplane, a box without it),
 // and two tracers from its guns to every burst, which is drawn light (dust, not a shell's column). The beam: a glow
 // that gathers over the start during the charge, then a tall additive column at the head as it walks the corridor,
@@ -236,7 +237,8 @@ namespace TW.Presentation.Tactical
         /// from the start along the heading, an arrowhead at its end, a tick at every lift of a stepping pattern.</summary>
         void DrawAim(Bounds bounds)
         {
-            if (panel == null || panel.Armed == OffMapAbilityId.None || aimMat == null || !panel.TryGroundPoint(out var cursor) || !panel.Aim.Shape(cursor, 0, out var shape)) return;
+            var preview = SceneHooks.AimPreview;   // whoever owns the aim (TestPanel today) says what is aimed; nobody: nothing to draw
+            if (aimMat == null || preview == null || !preview(out var shape)) return;
             var map = Host.Local.Map;
             var rp = new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off };
             batch.Clear();

@@ -97,7 +97,6 @@ namespace TW.Presentation.Tactical
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         int hitsThisFrame;
-        TestPanel panel;
         TW.Presentation.Units.VATRenderer units;
         string banner; float bannerUntil;
         bool subscribed;
@@ -166,7 +165,6 @@ namespace TW.Presentation.Tactical
             gasMats[0] = Transparent(unlit, new Color(0.78f, 0.85f, 0.25f, 0.18f));
             gasMats[1] = Transparent(unlit, new Color(0.78f, 0.85f, 0.25f, 0.34f));
             gasMats[2] = Transparent(unlit, new Color(0.80f, 0.86f, 0.22f, 0.52f));
-            panel = GetComponent<TestPanel>();
             units = FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
             books = new FlipbookFx();
             // Where a man is DRAWN standing, which is not where the sim has him: the presenter's y is the sim's zero.
