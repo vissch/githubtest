@@ -8,6 +8,8 @@
 // AOSA C66 (2026-09-26): each part of Refresh has its own TW.Hud.<Part> marker inside TW.Hud.Refresh, so the bench can
 // say which part holds its 1.4 ms a frame (PerfBench.HudParts records the same names). Markers only: the calls, their
 // order and their arguments are exactly as before.
+// AOSA C67 (2026-09-26): the selection panel's Refresh has its own TW.Hud.Sel.Panel marker inside TW.Hud.Selection, beside
+// SelectionController.Tick's TW.Hud.Sel.<Part> markers.
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -61,6 +63,7 @@ namespace TW.UI
         static readonly ProfilerMarker clustersMarker = new ProfilerMarker("TW.Hud.Clusters");
         static readonly ProfilerMarker objectivesMarker = new ProfilerMarker("TW.Hud.Objectives");
         static readonly ProfilerMarker tooltipMarker = new ProfilerMarker("TW.Hud.Tooltip");
+        static readonly ProfilerMarker selPanelMarker = new ProfilerMarker("TW.Hud.Sel.Panel");   // C67
 
         void OnEnable()
         {
@@ -274,7 +277,7 @@ namespace TW.UI
             using (selectionMarker.Auto())
             {
                 selection?.Tick(Interactive);
-                selectionPanel?.Refresh();
+                using (selPanelMarker.Auto()) selectionPanel?.Refresh();
             }
             using (gaugesMarker.Auto())
             {

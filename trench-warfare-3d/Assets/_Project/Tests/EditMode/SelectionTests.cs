@@ -184,5 +184,57 @@ namespace TW.Tests
             Assert.That(SelectionMarkers.HexSdf(0f, 0f, r), Is.LessThan(0f), "the centre is inside");
             Assert.That(SelectionMarkers.HexSdf(0f, r, r), Is.GreaterThan(0f), "above the flat top is outside");
         }
+
+        [Test]
+        public void ProjectMatchesTheEngine()
+        {
+            // AOSA C67: the picker's one-matrix projection (knob hud.selectionFast) against Camera.WorldToScreenPoint, the
+            // call it replaces, on a T1-like camera (fov 25, pitched down) over a 1920x1080 target, for points on and off
+            // the screen. Screen positions feed only the hit tests, whose smallest circle is MinPickPx (10 px) across.
+            var go = new GameObject("c67-cam");
+            var rt = new RenderTexture(1920, 1080, 0);
+            try
+            {
+                var cam = go.AddComponent<Camera>();
+                cam.targetTexture = rt; cam.fieldOfView = 25f; cam.nearClipPlane = 0.3f; cam.farClipPlane = 2000f;
+                go.transform.SetPositionAndRotation(new Vector3(137.25f, 58.5f, -41.75f), Quaternion.Euler(25f, 21f, 0f));
+                Assert.That(cam.pixelRect.width, Is.EqualTo(1920f), "the target pins the pixel rect");
+                Matrix4x4 toClip = cam.projectionMatrix * cam.worldToCameraMatrix;
+                Rect view = cam.pixelRect;
+                Vector3 camPos = go.transform.position, fwd = go.transform.forward;
+                // near the view (within a screen of its edges, where a cursor can reach a pick circle) the two must agree
+                // to float rounding; far off it (points just past the near plane land millions of px out, where one float
+                // step is a fraction of a px) they must agree to float rounding of the value itself
+                int n = 0, nNear = 0; float worst = 0f, worstRel = 0f; Vector3 worstAt = default, worstRelAt = default;
+                for (float x = -60f; x <= 360f; x += 7.3f)
+                for (float z = -30f; z <= 420f; z += 9.1f)
+                for (float y = -2f; y <= 6f; y += 2.7f)
+                {
+                    var p = new Vector3(x, y, z);
+                    if (Vector3.Dot(p - camPos, fwd) <= cam.nearClipPlane) continue;   // as UnitPicker.Build skips them
+                    Vector3 e = cam.WorldToScreenPoint(p);
+                    Assert.That(UnitPicker.Project(toClip, view, p, out var s), Is.True);
+                    float d = Mathf.Max(Mathf.Abs(s.x - e.x), Mathf.Abs(s.y - e.y));
+                    bool near = e.x > -view.width && e.x < 2f * view.width && e.y > -view.height && e.y < 2f * view.height;
+                    if (near) { nNear++; if (d > worst) { worst = d; worstAt = p; } }
+                    else
+                    {
+                        float rel = d / Mathf.Max(Mathf.Abs(e.x), Mathf.Abs(e.y));
+                        if (rel > worstRel) { worstRel = rel; worstRelAt = p; }
+                    }
+                    n++;
+                }
+                Assert.That(n, Is.GreaterThan(1000), "the grid covers the view and beyond it");
+                Assert.That(nNear, Is.GreaterThan(300), "and many points near the view");
+                Assert.That(worst, Is.LessThan(0.01f), "near the view, float rounding only: a thousandth of the smallest pick circle; worst at " + worstAt);
+                Assert.That(worstRel, Is.LessThan(1e-5f), "far off the view, float rounding of the value; worst at " + worstRelAt);
+                Assert.That(UnitPicker.Project(toClip, view, camPos - fwd * 5f, out _), Is.False, "behind the eye: the engine is asked");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(rt);
+            }
+        }
     }
 }

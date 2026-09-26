@@ -40,6 +40,8 @@
 // unchanged. A release player has no markers and no gc_bytes: its records say null.
 // C66 (2026-09-26): HudController.Refresh's parts carry their own TW.Hud.<Part> markers (HudParts below), recorded
 // beside TW.Hud.Refresh, so they land in series and per_tick_ms.
+// C67 (2026-09-26): TW.Hud.Selection's parts (SelectionParts below: SelectionController.Tick's prune, picker build, index,
+// input, field markers, and the selection panel) are recorded the same way.
 // C69 (2026-09-26): the engine's own markers (EngineMarkers below: the script run, physics, the UI Toolkit panel update
 // and repaint, GC.Collect, the wait for present) are series `script:<name>`, per frame, as cmp.py reads them. A name
 // whose recorder is not valid goes to unavailable; one that is valid but was not registered yet when the recorders
@@ -429,6 +431,13 @@ namespace TW.Perf
             "TW.Hud.BindGauges", "TW.Hud.Cards", "TW.Hud.Clusters", "TW.Hud.Objectives", "TW.Hud.Tooltip",
         };
 
+        /// <summary>C67: TW.Hud.Selection's parts, nested inside it (SelectionController's and HudController's names,
+        /// repeated here for the same reason as HudParts).</summary>
+        public static readonly string[] SelectionParts =
+        {
+            "TW.Hud.Sel.Prune", "TW.Hud.Sel.Build", "TW.Hud.Sel.Index", "TW.Hud.Sel.Input", "TW.Hud.Sel.Markers", "TW.Hud.Sel.Panel",
+        };
+
         /// <summary>C69: the engine's own markers, recorded as `script:<name>` series. The names are the ones Unity 6000.0's
         /// development player carries (read from its UnityPlayer.dll and UnityEngine.UIElementsModule.dll); the last two
         /// are UI Toolkit's managed markers inside the panel update, for C68, and may not resolve.</summary>
@@ -513,6 +522,7 @@ namespace TW.Perf
             foreach (var s in host.Local.World.Systems) Marker("TW.Sim.Sys." + s.GetType().Name);
             Marker("TW.Hud.Refresh");
             foreach (var n in HudParts) Marker(n);   // C66
+            foreach (var n in SelectionParts) Marker(n);   // C67
             if (Options.Subscribers) for (int k = 0; k < host.Events.SubscriberCount; k++) Marker(host.Events.SubscriberMarker(k));
             EngineMarkers(EngineMarker);   // C69
             CheckRegistered();
