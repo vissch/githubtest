@@ -47,7 +47,7 @@ namespace TW.Sim.Combat
     /// which reads Resolved right after this, sets the men and the ground inside its radius alight. A beam's scorch
     /// (BeamSystem) is for the trees, the wire and the picture: the men in a beam are the beam's own, so BlastJob
     /// leaves them alone and VehicleModules leaves the hulls alone.</summary>
-    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3, Beam = 4 }
+    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3, Beam = 4, Mine = 5 }
 
     public struct Impact
     {

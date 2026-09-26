@@ -27,6 +27,14 @@ namespace TW.Tests
             return System.Array.Empty<SimCommand>();
         }
 
+        static bool beamFired;
+        static bool Fired(MatchSim m, int ability)
+        {
+            var ev = m.World.Events.Events;
+            for (int i = 0; i < ev.Length; i++) if (ev[i].Type == SimEventType.AbilityFired && ev[i].A == ability) return true;
+            return false;
+        }
+
         static ulong[] Run(int ticks, ReplayRecorder recorder = null)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 4000;
@@ -36,6 +44,7 @@ namespace TW.Tests
             {
                 using var cmds = new NativeArray<SimCommand>(ScriptedCommands(t), Allocator.Temp);
                 match.Step(cmds);
+                if (t == 61) beamFired |= Fired(match, (int)OffMapAbilityId.Beam);   // the script's beam was accepted, not silently rejected
                 hashes[t] = match.World.LastHash;
                 recorder?.Record(cmds, match.World.LastHash);
             }
@@ -45,8 +54,10 @@ namespace TW.Tests
         [Test]
         public void SameSeedAndCommands_ProduceIdenticalHashes()
         {
+            beamFired = false;
             var a = Run(300);
             var b = Run(300);
+            Assert.IsTrue(beamFired, "the beam at t = 61 fired: the sweep and the burning are in the verified hash");
             for (int i = 0; i < a.Length; i++) Assert.AreEqual(a[i], b[i], $"hash diverged at tick {i}");
             Assert.AreNotEqual(a[0], a[299], "state should change over time");
         }

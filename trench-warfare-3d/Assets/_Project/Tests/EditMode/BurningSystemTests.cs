@@ -251,5 +251,25 @@ namespace TW.Tests
             Assert.AreEqual(1, r.Count(SimEventType.UnitAlight, man, 0), "one UnitAlight (b = 0) for the corpse: the picture douses his slot");
             Assert.AreEqual(0u, r.M.Burning.AlightUntil[man]);
         }
+
+        [Test]
+        public void ARecruitLitBeforeTheSystemStepsGetsHisOwnFireNotTheDeadMans()
+        {
+            using var r = new Rig();
+            var at = new float3(150f, 0f, 240f);
+            int man = r.Man(at);
+            r.M.Burning.Ignite(r.W, man, 8f);
+            r.Step();
+            r.W.Despawn(man, (int)DeathCause.Gas);   // after this system stepped: the timer is still running on the slot
+            int recruit = r.Man(at);
+            Assert.AreEqual(man, recruit, "the freed slot is the one the recruit gets");
+            uint before = r.W.Tick;
+            r.M.Burning.Ignite(r.W, recruit, 2f);   // a beam or an incendiary lights him before the job runs
+            Assert.AreEqual(1, r.Count(SimEventType.UnitAlight, recruit, 1), "his own UnitAlight (b = 1)");
+            uint twoSeconds = (uint)math.ceil(2f / r.W.Config.TickSeconds);
+            Assert.AreEqual(before + twoSeconds, r.M.Burning.AlightUntil[recruit], "his own two seconds, not the dead man's eight");
+            r.Step();
+            Assert.IsTrue(r.Burning(recruit));
+        }
     }
 }

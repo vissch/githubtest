@@ -23,7 +23,7 @@ namespace TW.Sim
         // is up; the HE scatter draws from SimRandom.SystemId.Abilities; Impact gains SafeBehind. Layout unchanged.
         // v7 (2026-09-26): BeamSystem is registered (its running sweeps join the hash); OffMapAbilityId.Beam = 11 is a
         // real ability whose BeamStart payload carries heading x length in Dir; BlastShape.Beam = 4. Layout unchanged.
-        public const ushort FormatVersion = 7;
+        public const ushort FormatVersion = 8;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

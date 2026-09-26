@@ -56,6 +56,8 @@ namespace TW.Sim.Units
         const int Guns = TankGunnerySystem.Guns;
 
         public int Order => SimSystemOrder.Blast + 10;
+        /// <summary>A mine under a hull (docs/21 SIM-D): this much track damage, and this share of its damage off the structure.</summary>
+        public const float MineTrackDamage = 0.6f, MineHullShare = 0.15f;
 
         readonly Terrain.MapData map;
         SimWorld world;
@@ -326,6 +328,17 @@ namespace TW.Sim.Units
                     continue;
                 }
                 checksum = SimHash.Value(new int3(i, k, direct ? 1 : 0), checksum);
+                if (direct && im.Shape == (int)BlastShape.Mine)
+                {
+                    // a mine goes off under the tracks, not on the top plate (docs/21 SIM-D): the nearer track takes it
+                    bool rightTrack = SimMath.Sin(w.Yaw[i]) * -d.z + SimMath.Cos(w.Yaw[i]) * d.x < 0f;
+                    float dmg = im.Damage * MineHullShare;
+                    w.Hp[i] = w.Hp[i] - dmg;
+                    w.Events.Add(w.Tick, SimEventType.Hit, -1, i, w.Position[i], down, dmg);
+                    DamageModule(w, i, spec, rightTrack ? VehicleModule.TrackRight : VehicleModule.TrackLeft, MineTrackDamage, ref rng);
+                    Shaken[i] = math.max(Shaken[i], 50);
+                    continue;
+                }
                 if (direct)
                 {
                     bool holed = Armor.PenetratesTop(spec.Hull, im.Damage * 0.1f, out float plate);

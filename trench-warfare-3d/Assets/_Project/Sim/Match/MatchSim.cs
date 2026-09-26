@@ -33,6 +33,7 @@ namespace TW.Sim.Match
         public AmbientBombardmentSystem Bombardment;
         public BurningSystem Burning;
         public BeamSystem Beam;
+        public MineSystem Mines;
         public TerrainHashSystem TerrainHash;
 
         /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
@@ -85,6 +86,8 @@ namespace TW.Sim.Match
             World.AddSystem(Burning);                       // A5: men and ground set alight by an incendiary burst (reads Blast.Resolved)
             Beam = new BeamSystem(map);
             World.AddSystem(Beam);                          // A5 / docs/21 SIM-C: the sweeping beam (steps before Burning, registered after it)
+            Mines = new MineSystem(map);
+            World.AddSystem(Mines);                         // A5 / docs/21 SIM-D: mines and tripwires (steps after VehicleKinematics; its bursts resolve next tick)
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
             // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());   // stance is decided in MoveJob, which has the movement context
