@@ -69,6 +69,7 @@ PURPOSE = {
                            'DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical.',
     'Presentation/Core': 'SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, '
                          'MatchClock, KeyMap, settings, HudBridge.',
+    'Presentation/Meta': 'The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera.',
     'Presentation/Terrain': 'Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea.',
     'Presentation/Units': 'VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback.',
     'Presentation/VFX': 'Stub assembly (B5 router). Real effects live in Presentation/Camera.',
