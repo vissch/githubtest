@@ -329,6 +329,13 @@ namespace TW.Playground
                 case "lodpop": popPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/lodpop.json"); break;
                 case "labels": Labels = F(a, 1, 1f) > 0.5f; break;
                 case "ground": SetGround(a.Length > 1 ? a[1] : "grid"); break;
+                case "sidehue": huePath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/sidehue.json"); hueStep = 0; break;
+                case "lodtint": foreach (var v in Vehicles) v.UseLodTints(F(a, 1, 1f) > 0.5f); foreach (var u in Units) u.UseLodTints(F(a, 1, 1f) > 0.5f); break;
+                case "model":   // "model u 1": which of the library's figures (v: vehicles) the scenes build
+                    if (a.Length > 2 && a[1] == "v") vehicleIndex = (int)F(a, 2, 0); else if (a.Length > 2) unitIndex = (int)F(a, 2, 0);
+                    Queue(Mode); break;
+                case "unitrings": Fx.UnitRings = F(a, 1, 1f) > 0.5f; break;
+                case "cutsdebug": BuildingRig.DebugCuts = F(a, 1, 1f) > 0.5f; BuildingRig.ForgetCuts(); if (Mode == "building") Scene("building"); break;
                 case "team":
                     {
                         // "team 0", "team 1", "team -1" for everyone; "team split": vehicles side 1, figures side 0
@@ -346,7 +353,7 @@ namespace TW.Playground
         int DeathClip(UnitRig u)
         {
             string[] deaths = { "Rifle Death", "Death From The Front", "Death From Right", "Death From The Back" };
-            int i = Mathf.Abs(u.GetInstanceID()) % deaths.Length;
+            int i = Mathf.Max(0, Units.IndexOf(u)) % deaths.Length;   // by place in the list, not the instance id: the same every run
             int k = Library.ClipIndex(deaths[i]);
             return k >= 0 ? k : Library.ClipIndex("Death");
         }
@@ -394,6 +401,7 @@ namespace TW.Playground
                 string path = popPath; popPath = null;
                 File.WriteAllText(path, LodPop(Path.ChangeExtension(path, null)));
             }
+            if (huePath != null) SideSignalStep();
         }
 
         // ------------------------------------------------------------------------------------------------ LOD pops
@@ -431,21 +439,29 @@ namespace TW.Playground
                     double fl = 0; int nfl = 0;
                     for (int i = 0; i < a.Length; i++) if (sa[i]) { fl += (Mathf.Abs(a[i].r - a2[i].r) + Mathf.Abs(a[i].g - a2[i].g) + Mathf.Abs(a[i].b - a2[i].b)) / 3.0; nfl++; }
                     double floorCol = nfl > 0 ? fl / nfl : 0.0;
+                    double floorBlock = BlockShift(a, a2, sa, sa, W, H);
                     force(k + 1); var b = Grab(cam, W, H); var sbm = Silhouette(cam, root, W, H);
-                    int inter = 0, uni = 0; double dc = 0; int nd = 0;
+                    int inter = 0, uni = 0; double dc = 0, di = 0; int nd = 0;
+                    // dcol (over the union) mixes a colour change with a shape change; dcol_inside is only where both LODs
+                    // cover, and dmean is the change of the mean colour, the part a per-LOD tint can remove (LodTint)
+                    double ar = 0, ag = 0, ab = 0, br = 0, bg = 0, bb = 0; int na = 0, nb = 0;
                     var strip = new Texture2D(W * 2, H, TextureFormat.RGB24, false);
                     for (int i = 0; i < a.Length; i++)
                     {
                         bool ma = sa[i], mb = sbm[i];
-                        if (ma && mb) inter++;
+                        if (ma && mb) { inter++; di += (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b)) / 3.0; }
+                        if (ma) { ar += a[i].r; ag += a[i].g; ab += a[i].b; na++; }
+                        if (mb) { br += b[i].r; bg += b[i].g; bb += b[i].b; nb++; }
                         if (ma || mb) { uni++; dc += (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b)) / 3.0; nd++; }
                     }
                     strip.SetPixels32(0, 0, W, H, a); strip.SetPixels32(W, 0, W, H, b); strip.Apply();
                     File.WriteAllBytes($"{stem}_{what}_{k}to{k + 1}_{side:0}.png", strip.EncodeToPNG()); Destroy(strip);
                     if (!first) sb.Append(','); first = false;
-                    double dcol = nd > 0 ? dc / nd : 0.0;
-                    sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"from\":{1},\"to\":{2},\"side\":{8:0},\"dist\":{3:0.0},\"share\":{4:0.000},\"iou\":{5:0.000},\"dcol\":{6:0.0},\"dcol_floor\":{9:0.0},\"dcol_ratio\":{10:0.00},\"pixels\":{7}}}",
-                        what, k, k + 1, d, share, uni > 0 ? (float)inter / uni : 1f, dcol, uni, side, floorCol, floorCol > 0.01 ? dcol / floorCol : 0.0);
+                    double dcol = nd > 0 ? dc / nd : 0.0, dcolIn = inter > 0 ? di / inter : 0.0;
+                    double dblock = BlockShift(a, b, sa, sbm, W, H);
+                    double dmean = na > 0 && nb > 0 ? (System.Math.Abs(ar / na - br / nb) + System.Math.Abs(ag / na - bg / nb) + System.Math.Abs(ab / na - bb / nb)) / 3.0 : 0.0;
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"from\":{1},\"to\":{2},\"side\":{8:0},\"dist\":{3:0.0},\"share\":{4:0.000},\"iou\":{5:0.000},\"dcol\":{6:0.0},\"dcol_floor\":{9:0.0},\"dcol_ratio\":{10:0.00},\"dcol_inside\":{11:0.0},\"dmean\":{12:0.0},\"dblock\":{13:0.0},\"dblock_floor\":{14:0.0},\"pixels\":{7}}}",
+                        what, k, k + 1, d, share, uni > 0 ? (float)inter / uni : 1f, dcol, uni, side, floorCol, floorCol > 0.01 ? dcol / floorCol : 0.0, dcolIn, dmean, dblock, floorBlock);
                 }
             }
             foreach (var v in Vehicles)
@@ -456,6 +472,29 @@ namespace TW.Playground
             Cam.enabled = true;
             foreach (var v in Vehicles) foreach (var p in v.Parts) p.R.enabled = true;
             return sb.Append("]}").ToString();
+        }
+
+        /// <summary>The colour change a player sees as a colour change, not as a line moving: both frames averaged over
+        /// 12-pixel blocks (a 480-pixel frame of a thing filling half of it: a block is ~1/20 of the thing), compared over
+        /// the blocks both LODs cover entirely. Per-pixel differences are dominated by the ink lines and the shading moving
+        /// with the shape (r15: re-painting the lower LODs from LOD0 took the per-pixel shift only from 20 to 18).</summary>
+        static double BlockShift(Color32[] a, Color32[] b, bool[] ma, bool[] mb, int w, int h)
+        {
+            const int B = 12; double sum = 0; int n = 0;
+            for (int by = 0; by + B <= h; by += B)
+                for (int bx = 0; bx + B <= w; bx += B)
+                {
+                    double ar = 0, ag = 0, ab = 0, br = 0, bg = 0, bb = 0; bool full = true;
+                    for (int y = by; y < by + B && full; y++)
+                        for (int x = bx; x < bx + B; x++)
+                        {
+                            int i = y * w + x; if (!ma[i] || !mb[i]) { full = false; break; }
+                            ar += a[i].r; ag += a[i].g; ab += a[i].b; br += b[i].r; bg += b[i].g; bb += b[i].b;
+                        }
+                    if (!full) continue;
+                    sum += (System.Math.Abs(ar - br) + System.Math.Abs(ag - bg) + System.Math.Abs(ab - bb)) / (3.0 * B * B); n++;
+                }
+            return n > 0 ? sum / n : 0.0;
         }
 
         /// <summary>Where the thing covers the frame: it alone (its layer), on black, without fog or the grade (film grain and
@@ -504,7 +543,6 @@ namespace TW.Playground
             LastShot = path;
         }
 
-        /// <summary>What the frame holds, as numbers: brightness, and the state of everything on the stage.</summary>
         /// <summary>Mean brightness of the figures as drawn, of a ring of what is right round them, and the gap: whether a man
         /// reads against the ground by his colour or only by his ink line.</summary>
         string FigureGap(Camera c, int w, int h, Texture2D frame)
@@ -528,6 +566,94 @@ namespace TW.Playground
             return string.Format(CultureInfo.InvariantCulture, "\"figure_luma\":{0:0.0},\"ground_luma\":{1:0.0},\"figure_gap\":{2:0.0},\"figure_px\":{3},", fig / nf, ring / nr, fig / nf - ring / nr, nf);
         }
 
+        // ------------------------------------------------------------------------------------------------ side colours
+        string huePath; int hueStep; Color32[][] hueFrames; bool[][] hueMasks; int[] hueV, hueU; float hueScale;
+
+        /// <summary>Whether the two sides read apart by colour, measured as what each side's colouring ADDS to the frame.
+        /// With time frozen the same frame is drawn three times: only side 0 coloured, only side 1, neither. A side's
+        /// signal is its frame minus the plain one, summed on the opponent-colour plane over its own vehicles and figures
+        /// (silhouettes grown by ~2% of the frame so its rings count); its angle is the side's hue, its length per pixel the
+        /// strength, and the gap is the angle between the two sides. One side at a time, because a tank's ring reaches into
+        /// a squad beside it and would count as the squad's colour. A frame between each change, because the rings are
+        /// queued before this runs. The first version read the raw frame's hue and said 5 degrees for a red ring and a cyan
+        /// one: the night grade turns everything blue, and against blue ground every model reads orange (critic r7: "the
+        /// two sides can't be told apart at the standard view").</summary>
+        void SideSignalStep()
+        {
+            var c = Camera.main; const int w = 1600, h = 900;
+            void Only(int side)   // colour just this side (-1: neither)
+            {
+                for (int i = 0; i < Vehicles.Count && i < hueV.Length; i++) Vehicles[i].Team = hueV[i] == side ? side : -1;
+                for (int i = 0; i < Units.Count && i < hueU.Length; i++) Units[i].Team = hueU[i] == side ? side : -1;
+            }
+            switch (hueStep)
+            {
+                case 0:
+                    hueScale = Time.timeScale; Time.timeScale = 0f;
+                    hueMasks = new bool[2][]; hueFrames = new Color32[3][];
+                    for (int side = 0; side < 2; side++)
+                    {
+                        var mask = new bool[w * h];
+                        foreach (var v in Vehicles) if (v.Team == side) Or(mask, Silhouette(c, v.gameObject, w, h));
+                        foreach (var u in Units) if (u.Team == side) Or(mask, Silhouette(c, u.gameObject, w, h));
+                        hueMasks[side] = Grow(mask, w, h, Mathf.Max(4, w / 50));
+                    }
+                    hueV = new int[Vehicles.Count]; hueU = new int[Units.Count];
+                    for (int i = 0; i < Vehicles.Count; i++) hueV[i] = Vehicles[i].Team;
+                    for (int i = 0; i < Units.Count; i++) hueU[i] = Units[i].Team;
+                    Only(0); hueStep = 1; return;
+                case 1: hueFrames[0] = Grab(c, w, h); Only(1); hueStep = 2; return;
+                case 2: hueFrames[1] = Grab(c, w, h); Only(-1); hueStep = 3; return;
+            }
+            var off = Grab(c, w, h);
+            for (int i = 0; i < Vehicles.Count && i < hueV.Length; i++) Vehicles[i].Team = hueV[i];
+            for (int i = 0; i < Units.Count && i < hueU.Length; i++) Units[i].Team = hueU[i];
+            Time.timeScale = hueScale;
+            var hue = new float[2]; var strength = new float[2]; var mean = new Vector2[2]; var n = new int[2];
+            for (int side = 0; side < 2; side++)
+            {
+                double a = 0, b = 0; var on = hueFrames[side];
+                for (int i = 0; i < off.Length; i++)
+                {
+                    if (!hueMasks[side][i]) continue;
+                    double r = on[i].r - off[i].r, g = on[i].g - off[i].g, bl = on[i].b - off[i].b;
+                    a += r - 0.5 * (g + bl); b += 0.8660254 * (g - bl); n[side]++;   // opponent plane: red at 0, green 120, blue 240
+                }
+                hue[side] = Mathf.Repeat(Mathf.Atan2((float)b, (float)a) * Mathf.Rad2Deg, 360f);
+                mean[side] = n[side] > 0 ? new Vector2((float)(a / n[side] / 255.0), (float)(b / n[side] / 255.0)) : Vector2.zero;
+                strength[side] = mean[side].magnitude;
+            }
+            float gap = n[0] > 0 && n[1] > 0 ? Mathf.Abs(Mathf.DeltaAngle(hue[0], hue[1])) : -1f;
+            File.WriteAllText(huePath, string.Format(CultureInfo.InvariantCulture,
+                "{{\"side_hue\":[{0:0},{1:0}],\"side_strength\":[{2:0.0000},{3:0.0000}],\"side_pixels\":[{4},{5}],\"side_hue_gap\":{6:0},\"side_split\":{7:0.0000}}}",
+                hue[0], hue[1], strength[0], strength[1], n[0], n[1], gap, (mean[0] - mean[1]).magnitude));
+            huePath = null; hueFrames = null; hueMasks = null; hueStep = 0;
+        }
+
+        static void Or(bool[] into, bool[] m) { for (int i = 0; i < into.Length; i++) into[i] |= m[i]; }
+
+        /// <summary>A mask grown by r pixels (a square, in two passes).</summary>
+        static bool[] Grow(bool[] m, int w, int h, int r)
+        {
+            var row = new bool[m.Length]; var o = new bool[m.Length];
+            for (int y = 0; y < h; y++)
+            {
+                int last = -100000;
+                for (int x = 0; x < w; x++) { if (m[y * w + x]) last = x; if (x - last <= r) row[y * w + x] = true; }
+                last = 100000;
+                for (int x = w - 1; x >= 0; x--) { if (m[y * w + x]) last = x; if (last - x <= r) row[y * w + x] = true; }
+            }
+            for (int x = 0; x < w; x++)
+            {
+                int last = -100000;
+                for (int y = 0; y < h; y++) { if (row[y * w + x]) last = y; if (y - last <= r) o[y * w + x] = true; }
+                last = 100000;
+                for (int y = h - 1; y >= 0; y--) { if (row[y * w + x]) last = y; if (last - y <= r) o[y * w + x] = true; }
+            }
+            return o;
+        }
+
+        /// <summary>What the frame holds, as numbers: brightness, and the state of everything on the stage.</summary>
         public string Report(Texture2D tex = null, string extra = null)
         {
             var sb = new StringBuilder("{");

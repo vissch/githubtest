@@ -15,7 +15,7 @@ namespace TW.Playground.Editor
     public sealed class PlaygroundImport : AssetPostprocessor
     {
         public const string Art = "Assets/_Project/Playground/Art/";
-        public override uint GetVersion() => 3;
+        public override uint GetVersion() => 4;
         static bool Tank(string p) => p.Replace('\\', '/').StartsWith(Art + "Tanks/");
         static bool Unit(string p) => p.Replace('\\', '/').StartsWith(Art + "Units/");
 
@@ -85,6 +85,7 @@ namespace TW.Playground.Editor
             t.textureType = TextureImporterType.Default; t.sRGBTexture = true; t.mipmapEnabled = true;
             t.maxTextureSize = 1024; t.anisoLevel = 4; t.wrapMode = TextureWrapMode.Clamp;
             t.textureCompression = TextureImporterCompression.Compressed; t.alphaSource = TextureImporterAlphaSource.None;
+            t.isReadable = true;   // LodTint reads each LOD's atlas to match its colour to LOD0's
         }
     }
 }

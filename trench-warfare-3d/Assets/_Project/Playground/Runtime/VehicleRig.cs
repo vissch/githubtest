@@ -56,9 +56,13 @@ namespace TW.Playground
         /// <summary>-1 none; 0 or 1: the battle's side colours (TankRenderer.TeamA/B). The game paints a tank's horns in it;
         /// this one has none, so its lamps and antenna wear it, and side 1 gets the field-grey tint over the olive.</summary>
         public int Team = -1;
+        public Color[] LodTints { get; private set; }
+        /// <summary>Switch the per-LOD colour match on or off (to measure what it does).</summary>
+        public void UseLodTints(bool on) { if (LodTints != null) for (int k = 0; k < mats.Length && k < LodTints.Length; k++) mats[k].SetColor("_BaseColor", on ? LodTints[k] : Color.white); }
         public string LastEvent = "";
         public int TrisDrawn { get; private set; }
         public float Radius { get; private set; } = 4f;
+        Bounds footprint = new Bounds(Vector3.zero, Vector3.one);   // every part at build, in the vehicle's frame: where its ring goes
 
         readonly Dictionary<string, (int part, Vector3 local)> sockets = new Dictionary<string, (int, Vector3)>();
         Material[] mats;
@@ -135,10 +139,22 @@ namespace TW.Playground
                 var b = new Bounds(Vector3.zero, Vector3.zero);
                 foreach (var p in rig.Parts) { var c = p.T.localPosition + p.Box.center; b.Encapsulate(new Bounds(c, p.Box.size)); }
                 rig.Radius = b.extents.magnitude * size;
+                rig.footprint = b;
             }
             // facing check: a gun's barrel runs forward (+Z) of its trunnion
             var gun = rig.Find("Gun");
             if (gun != null && gun.Box.center.z < 0f) Debug.LogWarning($"VehicleRig {e.Name}: the Gun mesh lies BEHIND its pivot - the parts are turned 180 degrees");
+            // each LOD's colour matched to LOD0's (LodTint) - measured, then left OFF for vehicles: on the Brute it moved
+            // the rendered mean colour at 1->2 from 0.7 to 3.8 (/255; the mesh mean counts the undersides and track caps
+            // the camera never sees). `lodtint 1` puts it on. The figure keeps it (UnitRig: 4.8 -> 4.1).
+            var means = new Color[e.Lods.Length];
+            for (int k = 0; k < e.Lods.Length; k++)
+            {
+                var ms = new List<Mesh>(); foreach (var p in rig.Parts) ms.Add(p.Lods[Mathf.Min(k, p.Lods.Length - 1)]);
+                means[k] = LodTint.MeanColour(ms, e.Atlas != null && e.Atlas.Length > 0 ? e.Atlas[Mathf.Min(k, e.Atlas.Length - 1)] : null);
+            }
+            rig.LodTints = new Color[e.Lods.Length];
+            for (int k = 0; k < e.Lods.Length; k++) rig.LodTints[k] = LodTint.Match(means[0], means[k]);
             rig.SetLod(e.Lods.Length - 1);
             rig.SetLod(0);
             return rig;
@@ -407,6 +423,13 @@ namespace TW.Playground
             Advance(Time.deltaTime);
             PickLod();
             Push();
+            if (Fx != null && Team >= 0)
+            {
+                // round the whole intact vehicle (TankRenderer measures the track gauge and pads 0.9 m; the full width
+                // and a 0.6 m pad come out the same size), staying where the hull stood when the parts fly
+                var mid = transform.TransformPoint(footprint.center); var e = Vector3.Scale(footprint.extents, transform.lossyScale);
+                Fx.Ring(new Vector3(mid.x, GroundY, mid.z), transform.eulerAngles.y, e.x, e.z, 0.6f, 0.6f, Team, State >= Stage.KnockedOut);
+            }
         }
 
         /// <summary>One frame of everything that moves: the fixed-step flight of loose parts, the stage timers, fire, the

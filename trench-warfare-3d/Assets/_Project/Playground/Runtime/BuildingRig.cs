@@ -80,9 +80,12 @@ namespace TW.Playground
                 var go = new GameObject(c.Module.Name);
                 go.transform.SetParent(root.transform, false);
                 go.transform.localPosition = c.Offset;
-                var mesh = CutFaces(c.Module.Mesh);
+                // outward: from the building's middle to this chunk, level - the side its masonry faces
+                var outward = c.Offset + (c.Module.Mesh != null ? c.Module.Mesh.bounds.center : Vector3.zero) - h.Bounds.center; outward.y = 0f;
+                var mesh = CutFaces(c.Module.Mesh, outward.sqrMagnitude > 1e-4f ? outward.normalized : Vector3.zero);
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
-                var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = mat;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterials = mesh != null && mesh.subMeshCount > 1 ? new[] { mat, DebugMaterial() } : new[] { mat };
                 // the ground floor carries the rest and is built heaviest: three times as strong, and only a burst close to it
                 // breaks it (critic r2: eight shells razed a 12 m tower to nothing, no ruin left standing)
                 float hp = (c.Timber ? 30f : 60f) * (c.Grounded ? 3f : 1f);
@@ -97,14 +100,23 @@ namespace TW.Playground
         float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
 
         static readonly Dictionary<Mesh, Mesh> recut = new Dictionary<Mesh, Mesh>();
+        /// <summary>Paint the re-projected cut faces magenta, to see which faces the prototype found (critic r7).</summary>
+        public static bool DebugCuts;
+        public static void ForgetCuts() { recut.Clear(); CutFacesFound = 0; }
+        static Material debugMat;
+        static Material DebugMaterial()
+        {
+            if (debugMat == null) { debugMat = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { name = "PG_cutfaces_debug" }; debugMat.SetColor("_BaseColor", new Color(1f, 0f, 1f, 1f)); }
+            return debugMat;
+        }
         public static int CutFacesFound { get; private set; }
 
         /// <summary>A prototype of the fix Tools/housesplit.py needs (its fix_fill_uvs gives each corner of a cut face the UV of
         /// whichever wall loop it finds first, so a cut face stretches one strip of the atlas across itself and reads as flat
         /// brown card, 6-20x flatter than the walls: critic r5/r6). A cut face lies flat on the chunk's bounding box (the
         /// cuts are axis-aligned). Each is given its own corners, projected flat onto that plane at the chunk's own texel
-        /// density, placed on the chunk's largest wall face's UVs (the building's masonry), and darkened: broken stone.</summary>
-        static Mesh CutFaces(Mesh src)
+        /// density, placed inside the chunk's largest outward wall triangle's UVs (the building's masonry), and a little darker: broken stone.</summary>
+        static Mesh CutFaces(Mesh src, Vector3 outward)
         {
             if (src == null || !src.isReadable) return src;
             if (recut.TryGetValue(src, out var done)) return done;
@@ -131,12 +143,23 @@ namespace TW.Playground
                 if (cutAxis[t / 3] >= 0) continue;
                 var e1 = uv[tris[t + 1]] - uv[tris[t]]; var e2 = uv[tris[t + 2]] - uv[tris[t]];
                 uvArea += Mathf.Abs(e1.x * e2.y - e1.y * e2.x) * 0.5f; wArea += wa;
-                if (wa > wallArea) { wallArea = wa; wall = t; }
+                // the wall to borrow from faces out of the building: the kit paints its insides brown, and a cut face
+                // textured from an inside wall came out brown (critic r7, seen with cutsdebug)
+                var fn = Vector3.Cross(p1 - p0, p2 - p0).normalized;
+                float score = outward == Vector3.zero || Vector3.Dot(fn, outward) > 0.3f ? wa : wa * 0.01f;
+                if (score > wallArea) { wallArea = score; wall = t; }
             }
             int found = 0; foreach (int ax in cutAxis) if (ax >= 0) found++;
             if (found == 0 || wall < 0 || wArea <= 0) { recut[src] = src; return src; }
             float uvPerMetre = Mathf.Sqrt((float)(uvArea / wArea));
-            var anchor = (uv[tris[wall]] + uv[tris[wall + 1]] + uv[tris[wall + 2]]) / 3f;
+            // anchored at the wall triangle's incentre and kept inside its incircle: spread at the wall's density from the
+            // centroid, the cut faces ran off the masonry island into the atlas's dark gutter and read as brown card
+            // (critic r7; the cutsdebug view showed the faces were found, the brown was the gutter)
+            Vector2 A = uv[tris[wall]], Bv = uv[tris[wall + 1]], C = uv[tris[wall + 2]];
+            float la = (Bv - C).magnitude, lb = (A - C).magnitude, lc = (A - Bv).magnitude, per = la + lb + lc;
+            var anchor = per > 1e-6f ? (la * A + lb * Bv + lc * C) / per : (A + Bv + C) / 3f;
+            float inradius = per > 1e-6f ? Mathf.Abs((Bv.x - A.x) * (C.y - A.y) - (C.x - A.x) * (Bv.y - A.y)) / per : 0f;
+            float spread = Mathf.Min(uvPerMetre * 0.5f, 0.9f * inradius / Mathf.Max(0.01f, 0.5f * b.size.magnitude));
             for (int t = 0; t < tris.Count; t += 3)
             {
                 int ax = cutAxis[t / 3]; if (ax < 0) continue;
@@ -144,13 +167,22 @@ namespace TW.Playground
                 for (int k = 0; k < 3; k++)
                 {
                     int i = tris[t + k]; var p = v[i];
-                    v.Add(p); n.Add(n[i]); col.Add(new Color(0.62f, 0.60f, 0.58f, 1f));
-                    uv.Add(anchor + new Vector2(p[a1] - b.center[a1], p[a2] - b.center[a2]) * uvPerMetre * 0.5f);
+                    v.Add(p); n.Add(n[i]); col.Add(new Color(0.85f, 0.84f, 0.82f, 1f));
+                    uv.Add(anchor + new Vector2(p[a1] - b.center[a1], p[a2] - b.center[a2]) * spread);
                     tris[t + k] = v.Count - 1;
                 }
             }
             var m = new Mesh { name = src.name + " (cut faces)", indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16 };
-            m.SetVertices(v); m.SetNormals(n); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tris, 0); m.RecalculateBounds();
+            m.SetVertices(v); m.SetNormals(n); m.SetUVs(0, uv); m.SetColors(col);
+            if (DebugCuts)
+            {
+                // the re-projected faces as a second submesh, drawn flat magenta (a vertex colour vanishes under a dark texel)
+                var keep = new List<int>(); var cuts = new List<int>();
+                for (int t = 0; t < tris.Count; t += 3) (cutAxis[t / 3] >= 0 ? cuts : keep).AddRange(new[] { tris[t], tris[t + 1], tris[t + 2] });
+                m.subMeshCount = 2; m.SetTriangles(keep, 0); m.SetTriangles(cuts, 1);
+            }
+            else m.SetTriangles(tris, 0);
+            m.RecalculateBounds();
             recut[src] = m; CutFacesFound += found;
             return m;
         }
