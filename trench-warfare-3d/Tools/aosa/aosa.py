@@ -13,6 +13,8 @@ Commands (run from trench-warfare-3d/, e.g. `python Tools/aosa/aosa.py status`):
   refimg PNG --for juice|tier --prompt-file P [--n 2] [--dry-run]   reference images from fal (budget-gated)
   retro                       the 10-cycle summary the retrospective starts from
   ledger add --mode P|E|B --cards ... --summary "..."              append a LEDGER.md row
+  snapshot [--label L]        copy the live players to Builds/<kind>@<L> (default: the sha they were built from), verified
+  prune [--apply]             storage retention: old snapshots and old cycles' sequence frames (dry run by default)
 
 Environment: AOSA_DOCS (docs dir, default <repo>/docs/reference/aosa), TW_BUILDS (player builds dir, default the
 main clone's trench-warfare-3d/Builds), TW_PROJECT (the Unity project the editor has open, default the main clone's
@@ -369,6 +371,10 @@ def cmd_status(a):
     print("AOSA status %s  HEAD %s  cycle %d" % (utcnow().strftime("%Y-%m-%dT%H:%MZ"), head or "?", current_cycle()))
     free, etext, _ = editor_state()
     print("editor : " + etext)
+    try:
+        print("storage: " + storage_summary())
+    except Exception as e:
+        print("storage: ? (%s)" % e)
     try:
         procs = load_module("editor_lock", TOOLS / "editor_lock.py").holders()
         big = [p for p in procs if (p.get("mb") or 0) >= 300]
@@ -1203,6 +1209,123 @@ def cmd_ledger(a):
 
 # ---- main -----------------------------------------------------------------------------------------------------------
 
+# ---- storage ---------------------------------------------------------------------------------------------------------
+# Everything the loop writes under Builds/ and runs/ is git-ignored, so nothing but this code ever removes it. Cycle 8
+# found 2.9 GB of build snapshots (14 copies, most never read again) and 1.6 GB of held-clock sequence frames, and four
+# "snapshots" that a bash -> PowerShell -> robocopy one-liner had quietly never made (an empty $b and an escaped quote).
+# So: copies are made here, in Python, and checked; retention is a rule, not a habit.
+KEEP_SNAPSHOTS = 2        # per kind (WinBench, WinBenchDev), besides the live build and any a recent run points at
+KEEP_FRAME_CYCLES = 2     # the cycles whose .fN.png sequence frames stay: the current one and the one before
+
+
+def tree_bytes(p):
+    n = 0
+    for root, _, files in os.walk(p):
+        for f in files:
+            try:
+                n += os.path.getsize(os.path.join(root, f))
+            except OSError:
+                pass
+    return n
+
+
+def tree_files(p):
+    return sum(len(files) for _, _, files in os.walk(p))
+
+
+def gb(n):
+    return "%.2f GB" % (n / 1e9)
+
+
+def cmd_snapshot(a):
+    """Copy the live release and development players to <kind>@<label>, and check each copy file for file."""
+    import shutil
+    # default: the commit the live player was built from (BuildWindows writes it), not HEAD, which may have moved on
+    label = a.label or str(load_json(builds_dir() / "WinBench" / "build-info.json", {}).get("git_sha") or "")[:7]         or (git("rev-parse", "--short", "HEAD")[1] or "").strip()
+    if not label or not re.fullmatch(r"[A-Za-z0-9_.+-]+", label):
+        die("snapshot: label %r is not a plain name" % label)
+    rc = 0
+    for kind in ("WinBench", "WinBenchDev"):
+        src, dst = builds_dir() / kind, builds_dir() / ("%s@%s" % (kind, label))
+        if not (src / "TrenchWarfare.exe").exists():
+            print("%s: no player at %s, nothing to copy" % (kind, src)); rc = 1; continue
+        if dst.exists():
+            print("%s: %s already exists, left as it is" % (kind, dst.name)); continue
+        shutil.copytree(src, dst)
+        ok = tree_files(src) == tree_files(dst) and tree_bytes(src) == tree_bytes(dst)
+        print("%s -> %s: %s, %s" % (kind, dst.name, gb(tree_bytes(dst)), "verified" if ok else "COPY DIFFERS"))
+        rc |= 0 if ok else 1
+    return rc
+
+
+def storage_plan():
+    """What prune would delete, as (path, bytes, reason), and what it keeps."""
+    cyc = current_cycle()
+    runs = docs() / "runs"
+    recent = [d for d in runs.iterdir() if d.is_dir() and d.name.isdigit() and int(d.name) > cyc - KEEP_FRAME_CYCLES] if runs.exists() else []
+    used = set()   # snapshot dirs a recent run's args point at
+    for d in recent:
+        for f in d.glob("*.args.json"):
+            used.add(Path(load_json(f, {}).get("build_dir") or "").name)
+    plan = []
+    bd = builds_dir()
+    for kind in ("WinBench", "WinBenchDev"):
+        snaps = sorted((p for p in bd.glob(kind + "@*") if p.is_dir()), key=lambda p: p.stat().st_mtime, reverse=True)
+        for i, s in enumerate(snaps):
+            if i < KEEP_SNAPSHOTS:
+                continue
+            if s.name in used:
+                continue
+            plan.append((s, tree_bytes(s), "snapshot older than the newest %d, no run in the last %d cycles uses it" % (KEEP_SNAPSHOTS, KEEP_FRAME_CYCLES)))
+    if runs.exists():
+        for d in runs.iterdir():
+            if d.is_dir() and d.name.isdigit() and int(d.name) <= cyc - KEEP_FRAME_CYCLES:
+                for f in d.glob("*.f*.png"):
+                    if re.search(r"\.f\d+\.png$", f.name):
+                        plan.append((f, f.stat().st_size, "sequence frame of cycle %s" % d.name))
+    return plan
+
+
+def storage_summary():
+    bd, runs = builds_dir(), docs() / "runs"
+    snaps = [p for p in bd.glob("WinBench*@*") if p.is_dir()] if bd.exists() else []
+    b = tree_bytes(bd) if bd.exists() else 0
+    frames = [f for f in runs.rglob("*.png") if re.search(r"\.f\d+\.png$", f.name)] if runs.exists() else []
+    r = tree_bytes(runs) if runs.exists() else 0
+    free = sum(x[1] for x in storage_plan())
+    return "builds %s (%d snapshots), runs %s (sequence frames %s), prune would free %s" % (
+        gb(b), len(snaps), gb(r), gb(sum(f.stat().st_size for f in frames)), gb(free))
+
+
+def cmd_prune(a):
+    """Apply the retention rule. Prints the plan; deletes only with --apply."""
+    import shutil
+    plan = storage_plan()
+    snaps = [x for x in plan if x[0].is_dir()]
+    frames = [x for x in plan if not x[0].is_dir()]
+    for p, n, why in snaps:
+        print("%s  %-32s %s" % ("delete" if a.apply else "would delete", p.name, gb(n)))
+    if frames:
+        by = {}
+        for p, n, _ in frames:
+            k = p.parent.name; c, s = by.get(k, (0, 0)); by[k] = (c + 1, s + n)
+        for k in sorted(by, key=int):
+            print("%s  runs/%s: %d sequence frames, %s" % ("delete" if a.apply else "would delete", k, by[k][0], gb(by[k][1])))
+    total = sum(x[1] for x in plan)
+    if not a.apply:
+        print("prune: %d items, %s; rerun with --apply to delete (keeps the live builds, the newest %d snapshots of each kind, "
+              "any snapshot a run of the last %d cycles uses, every main still, and the last %d cycles' frames)"
+              % (len(plan), gb(total), KEEP_SNAPSHOTS, KEEP_FRAME_CYCLES, KEEP_FRAME_CYCLES))
+        return 0
+    for p, _, _ in plan:
+        try:
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
+        except OSError as e:
+            print("could not delete %s: %s" % (p, e))
+    print("prune: deleted %d items, %s" % (len(plan), gb(total)))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="aosa.py", description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1256,6 +1379,10 @@ def main(argv=None):
     sd = sub.add_parser("stilldiff", help="pairwise pixel diff of bench stills (README rule 5 on player stills, C33)")
     sd.add_argument("pngs", nargs="+", help="two or more PNGs, or one label (its repeats' stills in the newest cycle)")
     sd.add_argument("--threshold", type=int, default=8, help="a pixel counts as changed when a channel moves more than this")
+    sn = sub.add_parser("snapshot", help="copy the live players to <kind>@<label> and verify the copies")
+    sn.add_argument("--label", help="default: the live player's build-info git_sha (short)")
+    pr = sub.add_parser("prune", help="apply the storage retention rule (dry run unless --apply)")
+    pr.add_argument("--apply", action="store_true")
     lg = sub.add_parser("ledger")
     lg.add_argument("op", choices=["add"])
     lg.add_argument("--mode", required=True, choices=["P", "E", "B"])
@@ -1269,7 +1396,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"status": cmd_status, "bench": cmd_bench, "compare": cmd_compare, "attempt": cmd_attempt, "learn": cmd_learn,
           "pick": cmd_pick, "age": cmd_age, "budget": cmd_budget, "refimg": cmd_refimg, "retro": cmd_retro, "stilldiff": cmd_stilldiff,
-          "ledger": cmd_ledger}[a.cmd]
+          "ledger": cmd_ledger, "snapshot": cmd_snapshot, "prune": cmd_prune}[a.cmd]
     if a.cmd == "status":
         try:
             return cmd_status(a)

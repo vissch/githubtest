@@ -215,6 +215,16 @@ any other card, with rule 6 (readability) as a hard condition on every moment.
 | `Tools/aosa/bench.sh`, `player_bench.sh`, `cmp.py` | the perf pass's drivers, kept here so the branch carries them |
 | `AgentScripts/aosa_*.cs` | eval snippets for the editor (`unity command eval_file <abs path>`) |
 
+## Storage
+
+Builds/ and runs/*.png are git-ignored, so only `aosa.py` removes them. `land.ps1` runs `aosa.py snapshot`
+before each build, which copies the live players to `Builds/<kind>@<sha they were built from>` and checks the copy
+file for file. After a landing it runs `aosa.py prune --apply`. The rule keeps the live builds, the newest 2
+snapshots of each kind, any snapshot a run of the last 2 cycles points at, every main still (they are baselines),
+and the last 2 cycles' held-clock sequence frames (`*.fN.png`). It deletes everything else. `aosa.py status`
+prints the storage line. Never copy builds with shell one-liners: in cycle 8 a bash -> PowerShell -> robocopy
+line reported success four times and copied nothing.
+
 ## Standing constraints
 
 - **Owner rule (2026-09-25): run everything in the background, and never interrupt the owner's work.**

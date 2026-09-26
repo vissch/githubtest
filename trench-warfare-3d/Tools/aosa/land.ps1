@@ -56,6 +56,9 @@ if (-not $EditOnly) {
 }
 
 if (-not $NoBuild) {
+    # keep the players about to be replaced, so an A/B against the last landed build stays possible (aosa.py: a checked
+    # Python copy; the bash -> PowerShell -> robocopy one-liners this replaces silently copied nothing, cycle 8)
+    python Tools/aosa/aosa.py snapshot | Out-File $Log -Append -Encoding utf8
     foreach ($dev in @($false, $true)) {
         $ba = @('-batchmode', '-quit', '-projectPath', "`"$proj`"", '-executeMethod', 'TW.Editor.BuildWindows.CommandLine', '-logFile', "`"$env:TEMP\aosa-build-$(if ($dev) {'dev'} else {'rel'}).log`"")
         if ($dev) { $ba += '-twdev' }
@@ -66,5 +69,6 @@ if (-not $NoBuild) {
     }
 }
 Unchurn          # URP rewrites its prefilter fields on every build: churn, never a change
+if (-not $NoBuild) { python Tools/aosa/aosa.py prune --apply | Out-File $Log -Append -Encoding utf8 }   # storage retention (README "Storage")
 Say "LANDED OK"
 exit 0
