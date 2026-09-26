@@ -44,7 +44,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Net` | `Net/` | `TW.Net` | Sim.Core | 8 |
 | `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain | 3 |
 | `TW.Presentation.Audio` | `Presentation/Audio/` | `TW.Presentation.Audio` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
-| `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net | 19 |
+| `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net | 20 |
 | `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation`, `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data | 27 |
 | `TW.Presentation.Meta` | `Presentation/Meta/` | `TW.Presentation.Meta` | Sim.Core, Sim.Terrain, Presentation.Core, Presentation.Camera, Presentation.Terrain | 8 |
 | `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core | 37 |
@@ -60,7 +60,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 44 |
 
-20 assemblies, 317 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+20 assemblies, 318 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -75,9 +75,9 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Editor/UI/` | Editor tools for the UI skin: placeholder painter, importer, verifier, HUD capture. | 6 |
 | `Net/` | Lockstep driver, loopback transport, command seat; UTP/hash exchange/snapshot are stubs (SIM lane). | 8 |
 | `Perf/` | PerfBench (editor + player benchmark), AllocProbe, bench options. | 3 |
-| `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). | 98 |
+| `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). | 99 |
 | `Presentation/Audio/` | Stub: event audio router (B7). No audio assets exist yet. | 1 |
-| `Presentation/Camera/` | NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical. | 19 |
+| `Presentation/Camera/` | NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical. | 20 |
 | `Presentation/Core/` | SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, MatchClock, KeyMap, settings, HudBridge. | 27 |
 | `Presentation/Meta/` | The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera. | 8 |
 | `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. | 37 |

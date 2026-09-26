@@ -502,6 +502,15 @@ namespace TW.Presentation.Tactical
                 case SimEventType.UnitAlight:
                     OnAlight(e);  // the sim's BurningSystem lit or doused him
                     break;
+                case SimEventType.MinePlaced:
+                    OnMinePlaced(e);   // CombatFx.Mines.cs: our own marked on the ground
+                    break;
+                case SimEventType.MineTriggered:
+                    OnMineGone(e, true);    // the fuse's flash; the burst is the next tick's Explosion
+                    break;
+                case SimEventType.MineCleared:
+                    OnMineGone(e, false);   // a crater took it: the mark goes
+                    break;
                 case SimEventType.Explosion:
                 {
                     Vector3 p = (Vector3)e.Pos;
@@ -768,6 +777,7 @@ namespace TW.Presentation.Tactical
                 }
                 if (batch.Count > 0) Flush(cube, rpMark);
             }
+            DrawMineMarks(bounds);         // our mines and tripwires on the ground (CombatFx.Mines.cs)
             DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
             TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep
 

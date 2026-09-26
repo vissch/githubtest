@@ -199,5 +199,22 @@ namespace TW.Tests
             SceneHooks.Reset();
             Assert.IsNull(SceneHooks.AimPreview, "a scene load forgets whoever owned the aim");
         }
+
+        [Test]
+        public void OurMinesAreMarkedUntilTheyGoOffAndTheEnemysNever()
+        {
+            var marks = new CombatFx.MineMarks();
+            marks.Placed(0, 0, new Vector3(10f, 0f, 20f), Vector3.zero, 0);
+            marks.Placed(1, 0, new Vector3(30f, 0f, 20f), new Vector3(10f, 0f, 0f), 1);
+            marks.Placed(2, 1, new Vector3(50f, 0f, 20f), Vector3.zero, 0);
+            Assert.AreEqual(2, marks.Marks.Count, "ours are marked, the enemy's is not");
+            Assert.AreEqual(10f, marks.Marks[1].Length, 1e-4f, "a tripwire's mark runs its length");
+            Assert.AreEqual(Vector3.right, marks.Marks[1].Dir);
+            marks.Gone(0);
+            Assert.AreEqual(1, marks.Marks.Count, "triggered or cleared: the mark goes");
+            marks.Placed(1, 0, new Vector3(31f, 0f, 20f), Vector3.zero, 0);
+            Assert.AreEqual(1, marks.Marks.Count, "a reused index replaces the old mark");
+            Assert.AreEqual(0f, marks.Marks[0].Length);
+        }
     }
 }

@@ -149,7 +149,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Combat effects: tracers, bursts, smoke, camera shake
 - **Files:** `Presentation/Camera/CombatFx.cs` (event dispatch `OnSimEvent`, tracers, bodies, bursts, materials),
-  `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
+  `Presentation/Camera/CombatFx.Mines.cs` (our mines and tripwires marked on the ground until they go off or a
+  crater cooks them; a trigger's flash; the burst is the Explosion's), `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
   man's pool and smoulder; `UnitAlight` lights and douses the drawn torch),
   `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
   beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets
@@ -351,7 +352,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- gen:tests -->
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
-| `AbilityAimTests` | EditMode | 12 | OffMapAbilityId, CombatFx, AbilityAim, AimReadout, Line, ScreenUnit |
+| `AbilityAimTests` | EditMode | 13 | OffMapAbilityId, CombatFx, AbilityAim, AimReadout, Line, ScreenUnit |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
 | `AssetScaleTests` | EditMode | 7 | AssetScaleTable, Rule, PropLayout, BattlefieldKit, Module, ScaleAxis |
