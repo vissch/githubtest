@@ -55,11 +55,11 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Sim.Nav` | `Sim/Nav/` | `TW.Sim.Nav` | Sim.Core, Sim.Terrain | 6 |
 | `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core | 10 |
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat | 7 |
-| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, UI, Data, Editor, Perf | 52 |
+| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, UI, Data, Editor, Perf | 54 |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 38 |
 
-19 assemblies, 259 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+19 assemblies, 261 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -98,8 +98,8 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Sim/Nav/` | Flow fields, movement, separation, spatial hash, vehicle kinematics (VehicleSize lives here). | 6 |
 | `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. | 10 |
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. | 7 |
-| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 58 |
-| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 52 |
+| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 60 |
+| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 54 |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. | 6 |
 | `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. | 38 |
 | `UI/Missions/` | Mission card assets for the mission select. |  |
@@ -133,7 +133,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 710 | `IndirectFireSystem` | `IndirectFire` | `Sim/Combat/IndirectFire.cs` | stub: commented out in MatchSim |
 | 715 | `AmbientBombardmentSystem` | `AmbientBombardment` | `Sim/Match/AmbientBombardment.cs` | registered |
 | 720 | `BlastSystem` | `Blast` | `Sim/Combat/Blast.cs` | registered |
-| 725 | `BurningSystem` | `Blast + 5` | `Sim/Combat/Burning.cs` | stub: commented out in MatchSim |
+| 725 | `BurningSystem` | `Blast + 5` | `Sim/Combat/Burning.cs` | registered |
 | 730 | `VehicleModulesSystem` | `Blast + 10` | `Sim/Units/VehicleModules.cs` | registered |
 | 800 | `SuppressionSystem` | `Suppression` | `Sim/Combat/Suppression.cs` | registered |
 | 810 | `StanceSystem` | `Stance` | `Sim/Units/StanceSystem.cs` | stub: commented out in MatchSim |

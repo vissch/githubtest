@@ -113,7 +113,7 @@ namespace TW.Sim.Combat
                 w.Flags[i] |= (uint)UnitFlags.Exposed;
                 w.Events.Add(w.Tick, SimEventType.UnitLeftTrench, i, trench, w.Position[i]);
             }
-            for (int k = 0; k < killed.Length; k++) w.Despawn(killed[k], -1);
+            for (int k = 0; k < killed.Length; k++) w.Despawn(killed[k], (int)DeathCause.Gas);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]

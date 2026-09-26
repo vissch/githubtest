@@ -16,7 +16,9 @@ namespace TW.Sim
         // v4 (2026-09-24): MapData is folded into the tick hash by TerrainHashSystem -- the heightfield, the nav
         // layers and the holes the shells have dug are compared state now, which docs/03 deferred "to the next
         // replay-format break". Blast impacts also carry a direction and a shape.
-        public const ushort FormatVersion = 4;
+        // v5 (2026-09-26): BurningSystem is registered (its per-slot fire and burning cells join the hash), a blast's
+        // dead carry their knock in the Death event, and Impact has an Incendiary shape. Header layout unchanged.
+        public const ushort FormatVersion = 5;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

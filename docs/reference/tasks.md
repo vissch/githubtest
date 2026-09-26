@@ -30,7 +30,8 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **Files:** `Sim/Core/SimWorld.cs` (all per-slot arrays, `Hash()`), `Sim/Core/SimCommand.cs`, `Sim/Core/SimEvents.cs`,
   `Sim/Core/SimConfig.cs`, `Sim/Core/Replay.cs` (`FormatVersion`), `Sim/Match/MatchSim.cs` (system registration),
   `Sim/Core/ISimSystem.cs` (order constants). System order table: `code-map.md`.
-- **Tests:** SimHashTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests.
+- **Tests:** SimHashTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+  (what `Death.b`, `dir` and `scalar` mean).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
   `FormatVersion`. Contracts in `docs/02-contracts.md`, rules in `docs/03-determinism-rules.md`.
 
@@ -62,10 +63,11 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   `Sim/Combat/CombatTables.cs` (placeholder weapon data), `Sim/Combat/HeightfieldRaycast.cs` (line of sight).
 - **Tests:** CombatTests, HeightfieldRaycastTests.
 
-### Shells, barrages, gas
-- **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5), `Sim/Match/OffMapAbilities.cs`,
-  `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs`, `Sim/Match/Deformation.cs`.
-- **Tests:** SupportAbilityTests, DirectionalBlastTests.
+### Shells, barrages, gas, fire
+- **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`), `Sim/Match/OffMapAbilities.cs`,
+  `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs`, `Sim/Combat/Burning.cs` (`BurningSystem`: men and
+  ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`), `Sim/Match/Deformation.cs`.
+- **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
 
 ### Vehicles in the sim: tanks and walkers
@@ -277,12 +279,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
 | `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
+| `BurningSystemTests` | EditMode | 9 | SimEventType, BurningSystem, Impact, MatchSim, UnitFlags, AmbientBombardmentSystem |
 | `CoastTests` | EditMode | 6 | BattlefieldGenerator, BattlefieldParams, SeaLandingSystem, Sample, MapData |
 | `CombatTests` | EditMode | 9 | MatchSim, SimCommand, SimEventType, Stance, CommandType, GoalKey |
 | `CommandSeatTests` | EditMode | 1 | CommandSeat, LockstepDriver, LoopbackNetwork, MatchSim, SimCommand, SimConfig |
 | `CommandValidationTests` | EditMode | 5 | SimCommand, MatchSim, SimConfig, SimEventType, SimWorld |
 | `ComponentLookupAllocationTests` | EditMode | 1 | IZoomSource, CombatFx, AllocProbe, Shot |
 | `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
+| `DeathEventContractTests` | EditMode | 5 | DeathCause, SimEvent, SimEventType, Impact, MatchSim, AmbientBombardmentSystem |
 | `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
 | `DeterminismReplayTests` | EditMode | 3 | SimCommand, MatchSim, SimConfig, ReplayRecorder, GreyboxMapGenerator, Record |
 | `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |
