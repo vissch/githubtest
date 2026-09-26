@@ -216,5 +216,11 @@ namespace TW.Tests
             Assert.AreEqual(1, marks.Marks.Count, "a reused index replaces the old mark");
             Assert.AreEqual(0f, marks.Marks[0].Length);
         }
+
+        [Test]
+        public void TheSimClockIsZeroWithoutAMatch()
+        {
+            Assert.AreEqual(0f, SimClock.Seconds(null)); Assert.AreEqual(0f, SimClock.Of(null, 20u));
+        }
     }
 }

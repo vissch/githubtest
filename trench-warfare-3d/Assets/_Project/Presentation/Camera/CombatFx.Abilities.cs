@@ -34,9 +34,9 @@ namespace TW.Presentation.Tactical
         public const float BeamChargeSeconds = 4f, BeamFlashEvery = 0.08f, ScorchShakeEvery = 0.3f;
         float nextBeamFlash, nextScorchShake;
 
-        /// <summary>The sim's clock in seconds (the tick plus the fraction of the next one the host has accumulated):
-        /// what the aircraft and the beam are timed by, so a paused or slowed match holds them with the bursts.</summary>
-        float SimNow => Host != null && Host.Local != null ? (Host.Local.World.Tick + Host.Alpha) * Host.Local.World.Config.TickSeconds : 0f;
+        /// <summary>The sim's clock in seconds (SimClock): what the aircraft, the beam and the fires are timed by, so a
+        /// paused or slowed match holds them with the bursts.</summary>
+        float SimNow => SimClock.Seconds(Host);
 
         /// <summary>Metres along the corridor the aircraft is at a sim time: negative on the run-in, past the length on the
         /// run-out, zero over the corridor's start as the warm-up ends.</summary>
