@@ -76,6 +76,7 @@ namespace TW.Presentation.Tactical
         /// Off, they sit anywhere and the guns traverse through them: the Pincer's two turrets sweep most of its deck,
         /// so this decides between 3 seats and ~12 there. An owner's call; the lab flips it (RiderLab.ClearOfGuns).</summary>
         public static bool ClearOfGuns = true;
+        static RiderSeats() => SceneStatics.Register(nameof(RiderSeats), () => ClearOfGuns = true);   // the lab's flip ends with Play
 
         /// <summary>A traversing gun in the body frame: the turret part that turns it, the turret's axis, how far the
         /// barrel reaches and how low it hangs, and where it points at rest (Bearing0, radians from the nose, positive to
