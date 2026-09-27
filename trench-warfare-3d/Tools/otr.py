@@ -79,12 +79,20 @@ def main(argv):
     # a failed occ.py leaves the last good dlls in place, and a run on them reports on code that is not the tree's
     # (twice in loop tick 8, 2026-09-27): the newest compiled dll must be at least as new as the newest source, since a
     # successful occ rebuilds the assembly that holds it
-    sources = [p for p in (tested / "Assets" / "_Project").rglob("*.cs")]
-    dlls = list(occ.OUT.glob("TW.*.dll"))
-    if sources and dlls:
-        newest_src = max(sources, key=lambda p: p.stat().st_mtime)
-        if newest_src.stat().st_mtime > max(p.stat().st_mtime for p in dlls) + 1:
-            print(f"otr: the compiled dlls are older than {newest_src.relative_to(tested)}: run occ.py (all assemblies) and fix its errors first; not a verdict")
+    # per assembly: each TW dll against its own sources (a newest-source-vs-newest-dll check passed a fresh test dll over
+    # stale Sim dlls when occ.py was run with only some assemblies: critic r6, 2026-09-27)
+    table = occ.asmdefs()
+    dirs = [path.parent for path, _ in table.values()]
+    for name, (path, _) in table.items():
+        built = occ.OUT / (name + ".dll")   # not 'dll': that names the test assembly the run loads below
+        if not name.startswith("TW.") or not built.exists():
+            continue
+        srcs = occ.sources(path, dirs)
+        if not srcs:
+            continue
+        newest_src = max(srcs, key=lambda p: p.stat().st_mtime)
+        if newest_src.stat().st_mtime > built.stat().st_mtime + 1:
+            print(f"otr: {name}.dll is older than {newest_src.relative_to(tested)}: run occ.py with every assembly and fix its errors first; not a verdict")
             return 2
     if not dll.exists():
         print(f"otr: {dll} not built: run occ.py with TW.Tests.EditMode first"); return 2
