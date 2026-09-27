@@ -47,6 +47,12 @@ Traps, all silent:
 - **Import settings.** `Editor/TankImport.cs` and `Editor/EnvKitImport.cs` set import rules by folder. Vehicle and
   chunk meshes must stay Read/Write enabled; setting it by hand does not stick, the postprocessor resets it.
 
+## Battle lineup
+
+| Script | Does | Usage |
+|---|---|---|
+| `battlelineup.py` | Blender: the battle FBXs as TankRenderer builds them (the exporter's node turn undone as `Editor/TankImport.cs` does), the Maw at 1.7x, the Pincer at 2.5x, the named machines at 1x and a 1.8 m man in a lineup; and each named machine's LOD0->LOD1 pop from four sides (worst silhouette IoU, block colour), `pop.json` | `blender -b --factory-startup -P Tools/battlelineup.py -- <outdir> Skimmer Salvo`; `TW_ENGINE=workbench` when memory is short. First run 2026-09-28 stopped for want of memory after the lineup (Blender's malloc failing with 0.5-0.9 GB of commit free): not yet run to the end |
+
 ## Unit portraits
 
 | Script | Does | Usage |
