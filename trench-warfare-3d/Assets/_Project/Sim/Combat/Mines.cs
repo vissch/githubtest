@@ -218,8 +218,9 @@ namespace TW.Sim.Combat
             });
         }
 
+        /// <summary>Which armed mines go off this tick, and on whom: public so MineTests can hold it to the brute-force rule.</summary>
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
-        struct TriggerJob : IJob
+        public struct TriggerJob : IJob
         {
             public int Count;
             public NativeArray<Mine> Mines;
@@ -231,51 +232,82 @@ namespace TW.Sim.Combat
 
             const float WidestHull = MineSystem.WidestHull;
 
+            /// <summary>The grid the mines are bucketed into (metres): a man is tested only against the mines of his cell.</summary>
+            public const float Cell = 8f;
+
+            static int Key(int cx, int cz) => (cx & 0xFFFF) | (cz << 16);
+
+            // Each armed mine goes into every cell its box (its line and the widest hull round it) touches; each live man is
+            // then tested against his cell's mines only, and a mine keeps the first man in slot order who sets it off, then
+            // they go off in mine order: exactly the brute-force rule (every mine against every slot, the first slot wins),
+            // which cost mines x slots a tick, about 770k at 256 mines and 3,000 men (critic r4/r7). MineTests holds the two
+            // equal over random fields.
             public void Execute()
             {
-                for (int m = 0; m < Mines.Length; m++)
+                int n = Mines.Length;
+                if (n == 0) return;
+                var first = new NativeArray<int>(n, Allocator.Temp);
+                var cells = new NativeParallelMultiHashMap<int, int>(n * 4, Allocator.Temp);
+                int armed = 0;
+                for (int m = 0; m < n; m++)
                 {
+                    first[m] = -1;
                     var mine = Mines[m];
                     if (mine.State != (int)MineState.Armed) continue;
-                    bool trip = mine.Kind == (int)MineKind.Tripwire;
+                    armed++;
                     float3 end = mine.Pos + mine.Dir * mine.Length;
-                    float minX = math.min(mine.Pos.x, end.x) - WidestHull, maxX = math.max(mine.Pos.x, end.x) + WidestHull;
-                    float minZ = math.min(mine.Pos.z, end.z) - WidestHull, maxZ = math.max(mine.Pos.z, end.z) + WidestHull;
+                    int x0 = (int)math.floor((math.min(mine.Pos.x, end.x) - WidestHull) / Cell), x1 = (int)math.floor((math.max(mine.Pos.x, end.x) + WidestHull) / Cell);
+                    int z0 = (int)math.floor((math.min(mine.Pos.z, end.z) - WidestHull) / Cell), z1 = (int)math.floor((math.max(mine.Pos.z, end.z) + WidestHull) / Cell);
+                    for (int cz = z0; cz <= z1; cz++) for (int cx = x0; cx <= x1; cx++) cells.Add(Key(cx, cz), m);
+                }
+                if (armed > 0)
                     for (int i = 0; i < Count; i++)
                     {
                         uint f = Flags[i];
-                        if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f || Team[i] == mine.Player) continue;
+                        if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
                         float3 p = Position[i];
-                        if (p.x < minX || p.x > maxX || p.z < minZ || p.z > maxZ) continue;   // the cheap box first: most men are nowhere near
-                        bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
-                        if (vehicle && (f & (uint)UnitFlags.KnockedOut) != 0) continue;
-                        bool hit;
-                        if (vehicle && !trip)
+                        int key = Key((int)math.floor(p.x / Cell), (int)math.floor(p.z / Cell));
+                        if (!cells.TryGetFirstValue(key, out int m, out var it)) continue;
+                        do
                         {
-                            // the hull's footprint in its own yaw, not a disc round its centre: a mine under the bow goes off
-                            // before the hull has driven over it, one beside the hull never does (VehicleProfile.Covers, the
-                            // same test VehicleModules asks when the burst reaches the hull)
-                            hit = VehicleProfile.ForArchetype(Archetype[i]).Covers(Yaw[i], p, mine.Pos);
-                        }
-                        else if (trip)
-                        {
-                            float hull = vehicle ? VehicleProfile.ForArchetype(Archetype[i]).HalfWidth : 0f;
-                            hit = ToSegment(p, mine.Pos, end) <= TripwireReach + hull;
-                        }
-                        else
-                        {
-                            float3 q = p - mine.Pos; q.y = 0f;
-                            hit = math.abs(q.x) <= TriggerRadius && math.abs(q.z) <= TriggerRadius && SimMath.Length(q) <= TriggerRadius;
-                        }
-                        if (!hit) continue;
-                        mine.State = (int)MineState.Spent; Mines[m] = mine;
-                        Triggered.Add(m); Triggered.Add(i);
-                        break;   // one mine, one victim: the first in slot order
+                            if (first[m] >= 0) continue;   // a lower slot already set it off
+                            if (Hits(Mines[m], i, f, p)) first[m] = i;
+                        } while (cells.TryGetNextValue(out m, ref it));
                     }
+                for (int m = 0; m < n; m++)
+                {
+                    if (first[m] < 0) continue;
+                    var mine = Mines[m]; mine.State = (int)MineState.Spent; Mines[m] = mine;
+                    Triggered.Add(m); Triggered.Add(first[m]);
                 }
+                cells.Dispose(); first.Dispose();
             }
 
-            static float ToSegment(float3 p, float3 a, float3 b)
+            /// <summary>Does the man in slot i set this mine off (the rule the brute force applied to every pair).</summary>
+            bool Hits(in Mine mine, int i, uint f, float3 p)
+            {
+                if (Team[i] == mine.Player) return false;
+                bool trip = mine.Kind == (int)MineKind.Tripwire;
+                float3 end = mine.Pos + mine.Dir * mine.Length;
+                float minX = math.min(mine.Pos.x, end.x) - WidestHull, maxX = math.max(mine.Pos.x, end.x) + WidestHull;
+                float minZ = math.min(mine.Pos.z, end.z) - WidestHull, maxZ = math.max(mine.Pos.z, end.z) + WidestHull;
+                if (p.x < minX || p.x > maxX || p.z < minZ || p.z > maxZ) return false;
+                bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
+                if (vehicle && (f & (uint)UnitFlags.KnockedOut) != 0) return false;
+                if (vehicle && !trip)
+                    // the hull's footprint in its own yaw, not a disc round its centre (VehicleProfile.Covers, the same test
+                    // VehicleModules asks when the burst reaches the hull)
+                    return VehicleProfile.ForArchetype(Archetype[i]).Covers(Yaw[i], p, mine.Pos);
+                if (trip)
+                {
+                    float hull = vehicle ? VehicleProfile.ForArchetype(Archetype[i]).HalfWidth : 0f;
+                    return ToSegment(p, mine.Pos, end) <= TripwireReach + hull;
+                }
+                float3 q = p - mine.Pos; q.y = 0f;
+                return math.abs(q.x) <= TriggerRadius && math.abs(q.z) <= TriggerRadius && SimMath.Length(q) <= TriggerRadius;
+            }
+
+            public static float ToSegment(float3 p, float3 a, float3 b)
             {
                 float3 ab = b - a, ap = p - a; ab.y = 0f; ap.y = 0f;
                 float l2 = math.dot(ab, ab);
