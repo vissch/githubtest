@@ -24,17 +24,16 @@ tests → how to see it); do not read it through. Open anything else only when t
 cd trench-warfare-3d && python Tools/health.py
 ```
 It reports the editor lock, memory, your editor, `validate.py`, your lane, and the notes in `docs/inbox/` for you.
-`python Tools/codemap.py` regenerates the doc tables. `validate.py` fails on a stale table, a cited path or tool
-that does not exist, an undocumented flag or folder, and a test, hook or production file no row names. It does not
-read prose: a sentence can still be wrong, so trust the code over the docs when they disagree, and fix the doc.
+`validate.py` fails when a generated table (`python Tools/codemap.py` redoes them), cited path, tool, flag, folder,
+test, hook or production file is out of step with the docs. It cannot read prose: when a sentence and the code
+disagree, trust the code and fix the sentence.
 
 ## Who else is working
 ```bash
 cd trench-warfare-3d && python Tools/health.py --lanes
 ```
 Every checkout on this machine: its branch, last commit, drift from the integration branch, uncommitted files, and
-the files it would conflict on with yours (a trial merge in memory). Nothing to keep up to date by hand. A conflict
-it shows is one to raise early: a note in `docs/inbox/`, or ask the owner which lane lands first.
+the files it would conflict on with yours (a trial merge in memory). A conflict it shows is one to raise early: a note in `docs/inbox/`, or ask the owner which lane lands first.
 
 ## Lanes
 Work out your lane from the current branch before you edit anything: `lane/sim/*` or `lane/show/*`. Any other
@@ -84,15 +83,16 @@ rebase before it continues. Never bundle a seam change into a feature commit.
 powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # before every commit: validate + EditMode
 powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # before landing, and after any sim change
 ```
-Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no tests ran), 3 project held, 1 unity.exe
-missing. SIM changes also need the determinism, replay and hash tests green (they are in EditMode). SHOW changes
-also need a look in Play at what changed. Details and false reds: `workflow.md`, section 5.
+Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no tests ran), 5 validate.py failed
+(printed), 3 project held, 1 unity.exe missing. SIM changes also need the determinism, replay and hash tests green
+(EditMode). SHOW changes also need a look in Play at what changed. False reds: `workflow.md`, section 5.
 
 ## Asking and remembering
 - **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into
   `decisions.md` in the same turn.
-- **A note for another session:** a new file `docs/inbox/<date>-<to>-<topic>.md`, one note per file, so notes never
-  conflict. The receiver deletes it when done. Cross-session messages expire unread; the inbox does not.
+- **A note for another session:** a new file `docs/inbox/<date>-<to>-<topic>.md`, one note per file and one file
+  per recipient lane (`<to>` is the lane with `-` for `/`, or `all`), so notes never conflict. The receiver
+  deletes it when done. Cross-session messages expire unread; the inbox does not.
 - **`docs/reference/agent-memory.md`** is a short dated log of incidents that cost time, capped at 150 lines. A
   fact, procedure or decision goes to its reference page instead.
 

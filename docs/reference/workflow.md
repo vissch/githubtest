@@ -19,7 +19,8 @@ inbox    7 notes, 1 for you
          FOR YOU docs/inbox/2026-09-27-all-rebase-onto-maintenance-pass.md
 ```
 - `lock held` with an editor that is not yours: do not gate, do not write into `Assets/` (a save recompiles their
-  editor and kills their Play session). `lock FREE`: nobody has this checkout.
+  editor and kills their Play session). `lock free`: nobody has this checkout. `lock unknown`: the probe failed;
+  treat it as held.
 - `lane NONE`: stop and work out your lane (`CLAUDE.md`).
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
   (`Tools/codemap.py` explains each rule). After changing `codemap.py`, `port_split.py` or `health.py`, run
@@ -139,8 +140,7 @@ Verified 2026-09-25, about 5 s:
   "Results": [ { "FullName": "TW.Tests.EnvAtlasTests.Every_Set_Has_A_Cell_...", "Status": "Passed", ... } ],
 ```
 `--filter` takes a full name: a class (`TW.Tests.CombatTests`) runs all its tests, a method
-(`TW.Tests.CombatTests.Garrison_ShootsAnAssaultInTheOpen_AndWinsTheExchange`) runs one. The class form is
-verified above. PlayMode in the editor: add `--async_tests true`. The in-editor runner has hung the pipeline after about four
+(`TW.Tests.CombatTests.Garrison_ShootsAnAssaultInTheOpen_AndWinsTheExchange`) runs one. PlayMode in the editor: add `--async_tests true`. The in-editor runner has hung the pipeline after about four
 full runs (2026-09-24). Use it for one class at a time; run everything through the gate.
 
 **The gate** (before every commit). It needs this checkout's editor closed. PowerShell refuses unsigned scripts on
@@ -154,20 +154,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly  # val
 | 0 | green |
 | 8 | a test failed; the gate prints each failed test and its message |
 | 6 | no verdict: compile error, licence, or a suite that ran no tests. Not a pass |
+| 5 | validate.py failed; its lines are printed (`codemap:` lines are docs that no longer match the code) |
 | 3 | the checkout is held by an editor or another batch run |
-| other | validate.py failed (its lines are printed) |
+| 1 | unity.exe is missing |
+| other | unity's own exit code |
 
 Each suite prints one line of what ran, and keeps its results beside `test-results.xml` (verified 2026-09-27):
 ```
 EditMode : 343 run, 343 passed, 0 failed, 0 skipped (test-results-EditMode.xml)
 ```
-Full EditMode is 343 tests and takes a few minutes; PlayMode is 15. Read `test-results-EditMode.xml` for EditMode
-details after a full gate: `test-results.xml` then holds only PlayMode.
+EditMode takes a few minutes. After a full gate `test-results.xml` holds only PlayMode.
 
 ### False reds
-- **After Play in the same editor:** statics survive leaving Play (`CameraShake`'s look point is the known one).
-  `RequestScriptReload` and rerun before believing it. A red that survives a fresh domain with identical numbers
-  is real.
+- **After Play in the same editor:** statics not reset by `SceneStatics` (the `Explained` list in
+  StaticLifecycleTests) survive leaving Play. `RequestScriptReload` and rerun; a red that survives that is real.
 - **External pipeline noise** in a batch run: `Unhandled log message: '[Error] WriteToProjectRoot failed: Sharing
   violation on path ...\.unity-pipeline-port'` or `'[Error] Failed to handle /api/exec request: Main thread
   operation timed out'`. Another session's CLI or the MCP server reached the batch run's pipeline port, and the
@@ -197,8 +197,9 @@ Tools/tw eval 'return TW.Editor.CaptureRig.Shot("C:/abs/Captures/marks.png", X, 
 ```
 **Did it get brighter?** The canonical number is `luma_mean` (and `luma_p95`) in the JSON beside each CaptureRig
 still. Take the "before" on the old code first (commit or stash your change, capture, re-apply), use the same pose
-and `CaptureRig.Hold()` for both, and capture the unchanged build twice to know the noise. `shotstats.py` gives the
-same numbers for any PNG and compares two of them.
+and `CaptureRig.Hold()` for both, and capture the unchanged build twice to know the noise. `shotstats.py` measures
+any PNG and compares two of them, but on its own scale (0-255, Rec.601 luma, blown at 250 and up), not CaptureRig's
+(0-1, Rec.709, blown above 0.90). Never compare a number from one with a number from the other.
 It returns `queued ...`; the PNG and a `.json` beside it land a few frames later. Verified 2026-09-25; the JSON holds
 `luma_mean`, `luma_p95`, `blown_frac`, `men_in_frame`, `contrast_median`, `rain`, `drawn_infantry` and the camera pose.
 `contrast_median` (and `contrast_p10`) answer "can you still see the men": each man's brightness against the ground
@@ -306,7 +307,8 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
 - Benchmark in the player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`.
   Same options in the editor: `TW.Editor.CaptureRig.Bench("... out=<abs path>.json")` with GreyboxCorridor open.
   Two reports with the same `hash_start` measured the same battle. Look at the `shot=` image before trusting numbers.
-- Any new `Shader.Find("TW/...")` must be Always Included or it is missing from the player; ShaderInclusionTests guards it.
+- Any new `Shader.Find("TW/...")` must be in Always Included Shaders or used by a material under
+  `Resources/ShaderKeep/`, or it is missing from the player; ShaderInclusionTests guards it.
 - Count allocations with `TW.Perf.AllocProbe`. `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity.
 
 **Batch without an editor:** `Unity.exe -batchmode -quit -projectPath <checkout>/trench-warfare-3d -executeMethod <Class.Method> -logFile <file>`

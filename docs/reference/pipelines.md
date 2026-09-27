@@ -76,9 +76,9 @@ How the owner's pack is read (32 sheets, 8x4 cells, 12 fps, named `<colour>_<kin
   computed core cut of 1.00 means the band is switched off.
 - **Choosing a sheet:** score several measures at once (holes as a share of the filled silhouette, solidity =
   alpha area / box area, centroid drift across frames, whether the left edge stays rooted). Each alone can be cheated.
-- **Regenerating must not move signed-off books.** The script hashes existing PNGs and prints `UNCHANGED <name>.png`;
-  a missing line for a book nobody meant to touch means its look moved. New `.meta` files are cloned from
-  `FireBall.png.meta` with a fresh GUID.
+- **Regenerating must not move signed-off books.** The script hashes FireBall, FireColumn and FireBurst only, and
+  prints `UNCHANGED <name>.png` or `*** CHANGED *** <name>.png` for each. The other books are not checked: compare
+  them yourself (`git diff --stat` on the PNGs). It writes no `.meta`; Unity makes one when it imports a new PNG.
 - A capture of the result goes through `Tools/flameshots` and `Tools/flamecheck.py` (`workflow.md`, section 6).
 
 ## UI art spec

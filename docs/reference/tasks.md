@@ -3,8 +3,8 @@
 Read this second, after `CLAUDE.md`. Find the area your task touches, open the files it names, run the tests it
 names, and look at the result the way "See it" says. Paths are under `trench-warfare-3d/Assets/_Project/`, except
 `Tools/...` (under `trench-warfare-3d/`) and `docs/...` (repo root). A test class lives in the file of the same name
-in `Tests/EditMode/` or `Tests/PlayMode/` (the Mode column below says which). The two tables at the bottom are generated from the code by `Tools/codemap.py`:
-which component sets and reads each `SceneHooks` member, and which production types each test class touches.
+in `Tests/EditMode/` or `Tests/PlayMode/`. Two lists at the bottom are generated from the code by `Tools/codemap.py`:
+which component sets and reads each `SceneHooks` member, and every test class by mode.
 
 A row that says **Tests: none** means nothing will go red if you break it. Look at it in Play.
 
@@ -17,8 +17,8 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   walker (archetypes 6-11) and shoot it top-down, recipe in `workflow.md` section 6.
 - **"Add a new unit type."** Adding a unit type, below: a checklist across sim, HUD, art and the capture tool,
   and the slot count is a seam change.
-- **"An EditMode test fails."** Find the test class in the generated table at the bottom to see which code it
-  exercises, then its area row. Before believing a red from an editor that has been in Play, read
+- **"An EditMode test fails."** Search this page for the test class name: the row that names it under **Tests**
+  is its area, and that row's files are the code it guards. Before believing a red from an editor that has been in Play, read
   `workflow.md`, "False reds". A real red in the other lane's code is theirs to fix: write a note in `docs/inbox/`
   with the test name and the failure message, and do not patch their files.
 - **"The game looks wrong after my change."** `workflow.md`, "See the game": capture with `CaptureRig`, then
@@ -348,7 +348,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Windows build
 - **Files:** `Editor/BuildWindows.cs`, `Resources/ShaderKeep/`.
-- **Tests:** ShaderInclusionTests (every `Shader.Find("TW/...")` must be Always Included or it breaks the player).
+- **Tests:** ShaderInclusionTests (every `Shader.Find("TW/...")` must be in Always Included Shaders or used by a
+  material under `Resources/ShaderKeep/`, or it breaks the player).
 
 ## Generated indexes (do not edit: `python Tools/codemap.py`)
 
