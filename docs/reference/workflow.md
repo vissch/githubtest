@@ -23,11 +23,11 @@ inbox    7 notes, 1 for you
   treat it as held.
 - `lane NONE`: stop and work out your lane (`CLAUDE.md`).
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
-  (`Tools/codemap.py` explains each rule). After changing `codemap.py`, `port_split.py` or `health.py`, run
+  (`Tools/codemap.py` explains each rule). After changing any tool under `Tools/`, run
   `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted
-  files, big files, `SceneHooks` references, explained statics, last gate counts) and, with a history file, prints
-  every metric that got worse since the last run. Run it before and after a clean-up to show it helped.
+  files, big files, `SceneHooks` references, explained statics, last gate counts). With a history file it prints
+  every metric worse than the last clean run, on every run until fixed; `--accept` records a deliberate one.
 - Then read the notes `health.py` marks as yours (`docs/inbox/`).
 
 ## 2. The machine you share
@@ -105,13 +105,13 @@ Verified 2026-09-25. Clean:
     "compilationFailed": false,
     "consoleErrors": 0,
 ```
-With an error (a probe file, since removed):
+With an error:
 ```
     "compilationFailed": true,
     "consoleErrors": 1,
       "message": "Assets\\_Project\\Presentation\\Core\\ZzProbe.cs(2,76): error CS0029: Cannot implicitly convert type 'string' to 'int'",
 ```
-A `Failed to handle /api/exec request` line during a build is `tw build` polling while the editor compiles, and is
+A `Failed to handle /api/exec request` line during a build is `tw build` polling while the editor compiles:
 harmless. Unity keeps running the last good assemblies after a failed compile, so Play and captures still work and
 silently show the old code. Check `compilationFailed` before believing anything you see.
 
@@ -152,8 +152,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly  # val
 | Exit | Meaning |
 |---|---|
 | 0 | green |
-| 8 | a test failed; the gate prints each failed test and its message |
-| 6 | no verdict: compile error, licence, or a suite that ran no tests. Not a pass |
+| 8 | a test failed (the xml decides, even if unity exited 0); each failed test is printed with its message |
+| 6 | no verdict: compile error, licence, or a suite in which no test ran or none passed. Not a pass |
 | 5 | validate.py failed; its lines are printed (`codemap:` lines are docs that no longer match the code) |
 | 3 | the checkout is held by an editor or another batch run |
 | 1 | unity.exe is missing |
@@ -172,7 +172,7 @@ EditMode takes a few minutes. After a full gate `test-results.xml` holds only Pl
   violation on path ...\.unity-pipeline-port'` or `'[Error] Failed to handle /api/exec request: Main thread
   operation timed out'`. Another session's CLI or the MCP server reached the batch run's pipeline port, and the
   logged error failed whichever test was running (a different one each run, seen twice on 2026-09-25). The gate
-  reruns the failed tests once when every failure is one of these; a real failure is never retried.
+  reruns the failed tests once when every failure is one of these and none is an assertion.
 - **First run after a Burst job edit** can run managed code and differ from the next run. Every sim job has
   `CompileSynchronously = true`; keep it on new jobs. Rerun before trusting a single determinism failure.
 - **Stale `Library/BurstCache`** after a job struct changes: NullReference or IndexOutOfRange inside Burst jobs.
