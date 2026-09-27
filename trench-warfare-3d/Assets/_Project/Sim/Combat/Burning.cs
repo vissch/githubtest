@@ -297,7 +297,7 @@ namespace TW.Sim.Combat
 
         public ulong Hash(ulong h)
         {
-            h = SimHash.Array(AlightUntil, highWater, h);
+            h = SimHash.Array(AlightUntil, AlightUntil.Length, h);   // every slot: a crewman spawned after this system's step still counts (critic r4)
             for (int k = 0; k < Cells.Length; k++) h = SimHash.Value(Cells[k], h);
             return h;
         }

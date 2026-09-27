@@ -22,6 +22,7 @@ namespace TW.Tests
             if (t == 51) return new[] { Support(t, 0, OffMapAbilityId.HeBarrage, 0, AbilityPattern.Line, 60, 150f, 500f) };
             if (t == 56) return new[] { Support(t, 1, OffMapAbilityId.ChlorineGas, 180, AbilityPattern.Creeping, 64, 150f, 300f) };
             if (t == 61) return new[] { Support(t, 0, OffMapAbilityId.Beam, 45, 0, 60, 120f, 350f) };
+            if (t == 66) return new[] { Support(t, 1, OffMapAbilityId.CreepingBarrage, 180, 0, 60, 150f, 450f) };
             if (t % 5 == 0) return new[] { SimCommand.Deploy(t, 0, (int)(t / 5) % 5), SimCommand.Deploy(t, 1, (int)(t / 5 + 2) % 5) };
             if (t % 37 == 0) return new[] { SimCommand.Rally(t, 0, new float3(100f + t, 0f, 50f)) };
             return System.Array.Empty<SimCommand>();
@@ -35,6 +36,24 @@ namespace TW.Tests
             return false;
         }
 
+        static bool minesLaid;
+
+        /// <summary>The seams no command reaches yet (docs/21: one replay case per seam): mines and a tripwire (the sapper
+        /// that lays them waits for units-meta) and burning ground, by system call, the same in both runs. Only the
+        /// two-run comparison does this; a serialized replay re-simulates commands alone.</summary>
+        static void Seams(MatchSim match, uint t)
+        {
+            var w = match.World;
+            if (t == 30)
+            {
+                var mines = w.GetSystem<TW.Sim.Combat.MineSystem>();
+                int a = mines.Place(w, new float3(100f, 0f, 300f), float3.zero, 0f, 1, TW.Sim.Combat.MineKind.Mine);
+                int b = mines.Place(w, new float3(110f, 0f, 320f), new float3(1f, 0f, 0f), 6f, 1, TW.Sim.Combat.MineKind.Tripwire);
+                minesLaid |= a >= 0 && b >= 0;
+            }
+            if (t == 35) w.GetSystem<TW.Sim.Combat.BurningSystem>().IgniteCell(w, new float3(90f, 0f, 280f), 8f, 0);
+        }
+
         static ulong[] Run(int ticks, ReplayRecorder recorder = null)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 4000;
@@ -42,6 +61,7 @@ namespace TW.Tests
             var hashes = new ulong[ticks];
             for (uint t = 0; t < ticks; t++)
             {
+                if (recorder == null) Seams(match, t);
                 using var cmds = new NativeArray<SimCommand>(ScriptedCommands(t), Allocator.Temp);
                 match.Step(cmds);
                 if (t == 61) beamFired |= Fired(match, (int)OffMapAbilityId.Beam);   // the script's beam was accepted, not silently rejected
@@ -54,10 +74,11 @@ namespace TW.Tests
         [Test]
         public void SameSeedAndCommands_ProduceIdenticalHashes()
         {
-            beamFired = false;
+            beamFired = false; minesLaid = false;
             var a = Run(300);
             var b = Run(300);
             Assert.IsTrue(beamFired, "the beam at t = 61 fired: the sweep and the burning are in the verified hash");
+            Assert.IsTrue(minesLaid, "the mine and the tripwire were laid: the mine field is in the verified hash");
             for (int i = 0; i < a.Length; i++) Assert.AreEqual(a[i], b[i], $"hash diverged at tick {i}");
             Assert.AreNotEqual(a[0], a[299], "state should change over time");
         }

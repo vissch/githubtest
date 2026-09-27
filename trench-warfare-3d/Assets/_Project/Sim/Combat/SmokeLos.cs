@@ -1,6 +1,6 @@
 // Phase: A5 (implemented; docs/21 phase 5) — how much thick cloud lies on a line of sight.
 // Samples the 4 m field grid every 2 m along the segment (the midpoint of each step) and adds up the metres that
-// fall in a cell above Thick, at most MaxSteps steps (128 m; longer than any weapon reaches). It is the one
+// fall in a cell above Thick, at most MaxSteps steps (256 m; longer than any weapon reaches). It is the one
 // answer TargetAcquisition (blind past SmokeBlindMetres) and DirectFire (accuracy per metre) ask of the smoke, and
 // GasSmokeSystem.MetresThrough asks it of either field. Pure, Burst-compiled, deterministic: fixed steps, no rays.
 using Unity.Burst;

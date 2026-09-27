@@ -23,6 +23,9 @@ namespace TW.Sim
         // is up; the HE scatter draws from SimRandom.SystemId.Abilities; Impact gains SafeBehind. Layout unchanged.
         // v7 (2026-09-26): BeamSystem is registered (its running sweeps join the hash); OffMapAbilityId.Beam = 11 is a
         // real ability whose BeamStart payload carries heading x length in Dir; BlastShape.Beam = 4. Layout unchanged.
+        // v8 (2026-09-26): MineSystem is registered (mines and tripwires join the hash, order 1130); BlastShape.Mine = 5.
+        // Before v8 landed anywhere (2026-09-27): BlastShape.Strafe = 6 (a strafe's rounds throw nobody) and the ability dice
+        // are salted by ability id as well as player and round, and BurningSystem hashes every slot's timer. Layout unchanged.
         public const ushort FormatVersion = 8;
         public SimConfig Config;
         public SimConfig.WorldInit Init;

@@ -189,8 +189,10 @@ namespace TW.Sim.Match
             Deliver(w);
         }
 
-        static Unity.Mathematics.Random Dice(SimWorld w, int player, int k)
-            => SimRandom.For(w.Config.Seed, w.Tick, SimRandom.SystemId.Abilities, (uint)(player * 256 + k));
+        /// <summary>One die per round of one call: the ability, the player and the round index all salt it, so a barrage and
+        /// a strafe called on the same tick do not scatter alike (the salt was player * 256 + k, critic r4 2026-09-27).</summary>
+        static Unity.Mathematics.Random Dice(SimWorld w, OffMapAbilityId id, int player, int k)
+            => SimRandom.For(w.Config.Seed, w.Tick, SimRandom.SystemId.Abilities, ((uint)id << 16) | ((uint)player << 12) | (uint)k);
 
         void Add(SimWorld w, in AbilityStats stats, int player, uint tick, float3 pos, float3 dir, float radius, PayloadKind kind = PayloadKind.Shell, int ticks = 0)
             => Scheduled.Add(new ScheduledPayload { Tick = tick, Ability = (int)stats.Id, Player = player, Pos = w.ClampToMap(pos), Dir = dir, Radius = radius, Kind = (int)kind, Ticks = ticks });
@@ -208,7 +210,7 @@ namespace TW.Sim.Match
                 case OffMapAbilityId.HeBarrage:
                     for (int k = 0; k < stats.Shells; k++)
                     {
-                        var rng = Dice(w, player, k);
+                        var rng = Dice(w, stats.Id, player, k);
                         float3 p;
                         if (pattern == AbilityPattern.Disc)
                         {
@@ -231,7 +233,7 @@ namespace TW.Sim.Match
                     for (int s = 0; s < lifts; s++)
                     for (int j = 0; j < LiftShells; j++)
                     {
-                        var rng = Dice(w, player, s * LiftShells + j);
+                        var rng = Dice(w, stats.Id, player, s * LiftShells + j);
                         float3 p = start + dir * (s * stats.StepMetres + rng.NextFloat(-LiftAlongScatter, LiftAlongScatter)) + right * rng.NextFloat(-halfWidth, halfWidth);
                         Add(w, stats, player, warm + (uint)(s * stats.StepTicks), p, dir, stats.ShellRadius);
                     }
@@ -254,7 +256,7 @@ namespace TW.Sim.Match
                 case OffMapAbilityId.StrafeRun:
                     for (int k = 0; k < stats.Shells; k++)
                     {
-                        var rng = Dice(w, player, k);
+                        var rng = Dice(w, stats.Id, player, k);
                         float3 p = start + dir * ((k + 0.5f) * len / stats.Shells) + right * rng.NextFloat(-StrafeScatter, StrafeScatter);
                         Add(w, stats, player, warm + (uint)(k * stats.SpreadTicks / stats.Shells), p, dir, stats.ShellRadius);
                     }
@@ -282,6 +284,7 @@ namespace TW.Sim.Match
                             Pos = p.Pos, Dir = p.Dir, Damage = stats.ShellDamage, Radius = p.Radius, Suppression = stats.ShellSuppression,
                             CraterRadius = stats.CraterRadius, CraterDepth = stats.CraterRadius > 0f ? 1.2f : 0f,
                             Source = p.Ability, Player = p.Player, SafeBehind = stats.SafeBehind,
+                            Shape = p.Ability == (int)OffMapAbilityId.StrafeRun ? (int)BlastShape.Strafe : (int)BlastShape.Shell,
                         });
                         break;
                     case PayloadKind.GasSource:
