@@ -28,10 +28,12 @@ namespace TW.Presentation.Terrain
             public float X, Z, HalfX, HalfZ, Yaw; public bool Dugout;
             public bool Contains(float x, float z, float margin = 0f)
             {
-                // world = R(yaw) local, with x' = x c - z s and z' = x s + z c; so local = R(-yaw) world
+                // Unity's yaw (Quaternion.Euler(0, yaw, 0), what the site's rotation gives): world x' = x c + z s,
+                // z' = -x s + z c, so local = the inverse (x c - z s, x s + z c). The opposite hand mirrored every footprint
+                // off a right angle until 2026-09-27 (critic r3: grass in a dugout's floor, crates in the earth)
                 float a = Yaw * Mathf.Deg2Rad, s = Mathf.Sin(a), c = Mathf.Cos(a);
                 float dx = x - X, dz = z - Z;
-                float lx = dx * c + dz * s, lz = -dx * s + dz * c;
+                float lx = dx * c - dz * s, lz = dx * s + dz * c;
                 return Mathf.Abs(lx) <= HalfX + margin && Mathf.Abs(lz) <= HalfZ + margin;
             }
         }

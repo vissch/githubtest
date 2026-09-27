@@ -39,6 +39,32 @@ namespace TW.Tests
 
         static int CellOf(ScatterInput input, in ScatterInstance s) => input.Index(Mathf.Clamp((int)(s.X / ScatterInput.Cell), 0, input.W - 1), Mathf.Clamp((int)(s.Z / ScatterInput.Cell), 0, input.L - 1));
 
+        /// <summary>A site's footprint turns the way Unity turns the site (Quaternion.Euler(0, yaw, 0)): the scatter's mask
+        /// and the dugout's stocking used the opposite hand, which mirrored a turned dugout (critic r3, 2026-09-27). Checked
+        /// against Unity's own rotation, not the same arithmetic.</summary>
+        [Test]
+        public void A_Turned_Footprint_Is_Where_Unity_Turns_The_Site()
+        {
+            var f = new ScatterInput.Footprint { X = 20f, Z = 30f, HalfX = 4f, HalfZ = 1f, Yaw = 30f, Dugout = true };
+            var turn = Quaternion.Euler(0f, f.Yaw, 0f);
+            var end = new Vector3(f.X, 0f, f.Z) + turn * new Vector3(3.6f, 0f, 0.6f);
+            Assert.IsTrue(f.Contains(end.x, end.z), "the far corner of the long side, turned by Unity, is inside");
+            var mirrored = new Vector3(f.X, 0f, f.Z) + Quaternion.Euler(0f, -f.Yaw, 0f) * new Vector3(3.6f, 0f, 0.6f);
+            Assert.IsFalse(f.Contains(mirrored.x, mirrored.z), "the mirrored corner is not");
+            var input = ScatterInput.Blank(N, N, 1917);   // no trenches: every crate and kit laid is the dugout's
+            input.Occupied.Add(f);
+            var into = Laid(input, Grown(input));
+            int stock = 0;
+            foreach (var s in into)
+                if (s.Kind == ScatterKind.Crate || s.Kind == ScatterKind.CampKit)
+                {
+                    var local = Quaternion.Inverse(turn) * new Vector3(s.X - f.X, 0f, s.Z - f.Z);
+                    if (Mathf.Abs(local.x) <= f.HalfX && Mathf.Abs(local.z) <= f.HalfZ) stock++;
+                    else Assert.Fail("a dugout item at " + s.X + "," + s.Z + " lies outside the turned dugout (local " + local + ")");
+                }
+            Assert.GreaterOrEqual(stock, 2, "the dugout is stocked");
+        }
+
         [Test]
         public void NoGrassOnATrenchFloorALadderOrABeatenPath()
         {

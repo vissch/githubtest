@@ -54,7 +54,9 @@ namespace TW.Presentation.Terrain
         {
             float traffic = f.Traffic[cell];
             if (traffic > TrafficBare) return 0f;
-            return f.Patch[cell] * (1f + 1.5f * f.Vertical[cell]) * (1f - traffic) * f.Open[cell] * (1f - 0.6f * f.Wet[cell]);
+            // Vertical capped at 1: every wire cell counts as a post, so beside a belt it summed past 10 and a cell wanted 20+
+            // tufts (whose seed offsets then ran into the flowers'); capped, a cell wants at most ~13 (critic r3, 2026-09-27)
+            return f.Patch[cell] * (1f + 1.5f * Mathf.Min(1f, f.Vertical[cell])) * (1f - traffic) * f.Open[cell] * (1f - 0.6f * f.Wet[cell]);
         }
 
         public static void Place(ScatterInput input, ScatterField field, List<ScatterInstance> into)
@@ -138,7 +140,7 @@ namespace TW.Presentation.Terrain
                 for (int k = 0; k < items; k++)
                 {
                     float lx = (Hash(seed, -1 - i, 62 + k * 3) - 0.5f) * 1.2f * f.HalfX, lz = (Hash(seed, -1 - i, 63 + k * 3) - 0.5f) * 1.2f * f.HalfZ;
-                    float wx = f.X + lx * c - lz * s, wz = f.Z + lx * s + lz * c;
+                    float wx = f.X + lx * c + lz * s, wz = f.Z - lx * s + lz * c;   // Unity's yaw, as Footprint.Contains inverts it
                     bool crate = k == 0 || Hash(seed, -1 - i, 64 + k * 3) < 0.3f;
                     into.Add(new ScatterInstance { Kind = crate ? ScatterKind.Crate : ScatterKind.CampKit, Variant = (byte)(Hash(seed, -1 - i, 65 + k * 3) * (CampKitVariants - 0.001f)), X = wx, Z = wz, Yaw = f.Yaw + (Hash(seed, -1 - i, 66 + k * 3) - 0.5f) * 40f, Scale = crate ? 0.95f : 1f });
                 }

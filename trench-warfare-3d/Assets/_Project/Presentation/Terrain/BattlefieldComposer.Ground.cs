@@ -258,7 +258,8 @@ namespace TW.Presentation.Terrain
                 if (pick < driftChance) module = kit.drift;
                 else if (pick < .34f + gather * .18f) module = kit.snowClod;
                 else if (pick < .47f) module = kit.iceShard;   // fewer sites, but each is a run of plates
-                else if (pick < .60f + gather * .12f) module = kit.frostTuft;
+                // no frost tufts here: the Scatter step lays them under its rules (traffic, caps, DecorationSeed); laid here
+                // too they doubled, ignored the caps and grew on the corridors and the road (critic r3, 2026-09-27)
                 else continue;
                 if (module == null) continue;
                 float sink = module == kit.frostTuft ? .02f : .05f;
