@@ -1,0 +1,10 @@
+{
+  "desktop": {
+    "hosts": ["DESKTOP-NLJRH7R"],
+    "caps": ["unity", "gpu", "comfy", "blender", "gate", "bench", "build"]
+  },
+  "laptop": {
+    "hosts": [],
+    "caps": ["ideas", "review", "offline-checks", "lowend-bench"]
+  }
+}

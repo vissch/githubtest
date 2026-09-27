@@ -108,3 +108,13 @@ Placeholder sprites are painted by `Editor/UI/UiSkinGenerator.cs`, which never o
 `trench-warfare-3d/AgentScripts/` holds `EnvironmentAudit.cs` and `VisualCapture.cs`. Unity does not compile them.
 They are bodies for `tw eval` / `eval_file`, kept for reference. `VisualCapture` is the old capture path; use
 `CaptureRig` instead (`workflow.md`).
+
+## Two-station agent pipeline
+
+Work split between the laptop and the desktop, one stage at a time per item, with staleness worked out from the
+repo. The board, the states and the commands are in `docs/reference/stations.md`.
+
+| Script | Does | Usage |
+|---|---|---|
+| `pipeline/pipeline.py` | Job board and stage states (DONE, RECHECK, STALE, IN_PROGRESS, READY, BLOCKED) from `tw3d-board` | `python Tools/pipeline/pipeline.py status` |
+| `pipeline/test_pipeline.py` | Its tests, on throwaway git repos | `python Tools/pipeline/test_pipeline.py` |
