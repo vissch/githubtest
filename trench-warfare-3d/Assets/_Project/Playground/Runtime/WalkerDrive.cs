@@ -44,6 +44,11 @@ namespace TW.Playground
         public WalkerGait Gait => gait;                 // read by tests and the gait probe
         TankModel model;
         Vector3 startPos; Quaternion startRot; bool started;
+        // where each foot stood when it died: WalkerGait skids a collapsing walker's feet outward (right for its rigid crab
+        // legs, and ours are given to it as one piece), and the Croaker's slid 4.5 m into the splits (r39). Jointed legs
+        // fold instead: the feet stay put and the knees go down.
+        Vector3[] deadFeet;
+        Vector3 FootAt(int s) => deadFeet != null ? deadFeet[s] : gait.Feet[s].At;
         VehicleRig.Part hull, turret;
         readonly VehicleRig.Part[] thigh = new VehicleRig.Part[2], shin = new VehicleRig.Part[2], foot = new VehicleRig.Part[2], claw = new VehicleRig.Part[2], jaw = new VehicleRig.Part[2];
         Vector3 hullPivot;
@@ -109,6 +114,8 @@ namespace TW.Playground
             if (free && !InPlace) transform.SetPositionAndRotation(startPos + startRot * WalkPos, startRot * face);
             byte lost = 0;
             for (int s = 0; s < 2; s++) if (thigh[s].Loose || shin[s].Loose || foot[s].Loose) lost |= (byte)(1 << s);
+            if (dead && deadFeet == null && gait.Feet.Length >= 2) deadFeet = new[] { gait.Feet[0].At, gait.Feet[1].At };
+            if (!dead) deadFeet = null;
             if (dt > 0f) gait.Step(model, GaitPos, WalkYaw, vel / GaitScale, yawRate, lost, dead, dt, Ground);
             if (v < 0.05f && !dead && lost == 0) Settle(face);
             Pose(face);
@@ -148,8 +155,20 @@ namespace TW.Playground
                 float k = Mathf.Sin(gait.Feet[s].Swing * Mathf.PI);
                 lift = Mathf.Max(lift, k); lean += (s == 0 ? -1f : 1f) * k;   // left foot up: lean onto the right
             }
-            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (gait.Feet[s].At - GaitPos)).z / size;
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (FootAt(s) - GaitPos)).z / size;
             dy += Rise * lift;
+            // no lower than the legs can fold with their feet where they are (the collapsing Croaker's feet slid 4.5 m
+            // forward into the splits as the body sank below what the legs could reach, r39)
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++)
+            {
+                if (thigh[s].Loose || shin[s].Loose) continue;
+                Vector3 toeAt = inv * (FootAt(s) - GaitPos) / size;
+                Vector3 ankleAt = toeAt + (ankle0[s] - toe0[s]);
+                float fold = Mathf.Abs(l1[s] - l2[s]) + 0.25f * Mathf.Min(l1[s], l2[s]);
+                var flat = new Vector2(hip0[s].x - ankleAt.x, hip0[s].z - ankleAt.z);
+                float need = ankleAt.y + Mathf.Sqrt(Mathf.Max(0f, fold * fold - flat.sqrMagnitude)) - hip0[s].y;
+                dy = Mathf.Max(dy, need);
+            }
             var tilt = Quaternion.AngleAxis(-gait.Pitch * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-gait.Roll * Mathf.Rad2Deg + Sway * lean, Vector3.forward)
                      * Quaternion.AngleAxis(Mathf.Clamp(stride, -1.5f, 1.5f) * HipTurn, Vector3.up);
             hull.T.localPosition = hullPivot + new Vector3(0f, dy, 0f);
@@ -161,7 +180,7 @@ namespace TW.Playground
                 if (thigh[s].Loose || gait.Feet.Length <= s) continue;
                 var f = gait.Feet[s];
                 // the foot's toe in the rig's frame; a swinging foot tips its toe down a little
-                Vector3 toe = inv * (f.At - GaitPos) / size;
+                Vector3 toe = inv * (FootAt(s) - GaitPos) / size;
                 float swing = f.Swing >= 0f ? Mathf.Sin(f.Swing * Mathf.PI) : 0f;
                 var footRot = Quaternion.Euler(18f * swing, 0f, 0f);
                 Vector3 ankle = toe + footRot * (ankle0[s] - toe0[s]);

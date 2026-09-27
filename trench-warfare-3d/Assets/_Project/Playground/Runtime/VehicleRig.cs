@@ -372,6 +372,9 @@ namespace TW.Playground
         public void Detach(Part p, Vector3 velocity, Vector3 spin)
         {
             if (p.Loose || p.Name == "Hull") return;
+            // a part riding a part that has already come off goes with it, not on its own (the hovercraft's fan flew out
+            // of its thrown ring and landed 5.9 m from it, loop 2 r39)
+            for (int up = p.Parent; up >= 0; up = Parts[up].Parent) if (Parts[up].Loose) return;
             LocalPose(p, out var pos, out var rot);
             p.Loose = true;
             // every throw at the machine's own strength, not only the cook-off's (a gunship's wing knocked off in the air
@@ -430,7 +433,9 @@ namespace TW.Playground
                 if (Vector3.Distance(p.Fly.Pos, deck) < 12f) p.BurnUntil = Mathf.Max(p.BurnUntil, Time.time + R(8f, 16f));
             }
             // (10 chips at 9 m/s: 14 at 13 m/s landed as square tiles out to ~16 m, loop 2 r38)
-            Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 10, 9f, 0.35f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.6f, default, (uint)(Seed * 7919));
+            // mixed and smaller, thrown lower: one kind at one size read as a scatter of identical floor tiles (r38, r39)
+            Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 5, 8f, 0.26f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.0f, default, (uint)(Seed * 7919));
+            Fx?.Debris?.Burst(DebrisRenderer.Piece.Rubble, deckWorld, 4, 7f, 0.16f * Size, new Color(0.22f, 0.21f, 0.19f), 60f, 1f, 1.0f, default, (uint)(Seed * 7919 + 17));
             LastEvent = "COOKED OFF";
         }
 
@@ -541,7 +546,9 @@ namespace TW.Playground
             sagAngle = Mathf.Lerp(sagAngle, lost == null ? 0f : lost.Name.StartsWith("Track_") ? 6f : 4f, k);
             if (lost == null || kept.Count == 0 || sagAngle < 0.01f)
             {
-                hull.T.localPosition = hull.RestLocal; hull.T.localRotation = hull.RestRot; return;
+                hull.T.localPosition = hull.RestLocal; hull.T.localRotation = hull.RestRot;
+                foreach (var p in kept) p.T.localPosition = p.RestLocal;
+                return;
             }
             Vector3 Contact(Part p) => p.RestLocal + new Vector3(p.Box.center.x, p.Box.min.y, p.Box.center.z);
             Vector3 a, b;
@@ -566,6 +573,13 @@ namespace TW.Playground
             // the hull's own pivot (the origin of this frame) carried round the axis
             hull.T.localPosition = hull.RestLocal + (a + turn * (-a));
             hull.T.localRotation = turn * hull.RestRot;
+            // and what the tip lifted off the ground hangs back down to it on its axle (0.3 m at most): the diagonal wheel
+            // stood 0.21 m in the air (r39)
+            foreach (var p in kept)
+            {
+                var c = Contact(p); float lift = (a + turn * (c - a)).y - c.y;
+                p.T.localPosition = p.RestLocal + Quaternion.Inverse(turn) * Vector3.down * Mathf.Clamp(lift, 0f, 0.3f / Size);
+            }
         }
 
         void Pose(float dt)
