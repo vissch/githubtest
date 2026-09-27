@@ -76,6 +76,16 @@ def main(argv):
     print(f"otr: testing {tested} (dlls in {occ.OUT})")
     if tested != pathlib.Path.cwd().resolve():
         print(f"otr: WARNING: run from {pathlib.Path.cwd()}, which is not the checkout under test ({tested}); cd into it")
+    # a failed occ.py leaves the last good dlls in place, and a run on them reports on code that is not the tree's
+    # (twice in loop tick 8, 2026-09-27): the newest compiled dll must be at least as new as the newest source, since a
+    # successful occ rebuilds the assembly that holds it
+    sources = [p for p in (tested / "Assets" / "_Project").rglob("*.cs")]
+    dlls = list(occ.OUT.glob("TW.*.dll"))
+    if sources and dlls:
+        newest_src = max(sources, key=lambda p: p.stat().st_mtime)
+        if newest_src.stat().st_mtime > max(p.stat().st_mtime for p in dlls) + 1:
+            print(f"otr: the compiled dlls are older than {newest_src.relative_to(tested)}: run occ.py (all assemblies) and fix its errors first; not a verdict")
+            return 2
     if not dll.exists():
         print(f"otr: {dll} not built: run occ.py with TW.Tests.EditMode first"); return 2
     exe = build_runner()
