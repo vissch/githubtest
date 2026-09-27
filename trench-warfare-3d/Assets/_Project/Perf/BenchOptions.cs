@@ -26,6 +26,9 @@ namespace TW.Perf
         public float Weather = 120f;
         /// <summary>The camera, held for the whole window: the standard view by default (docs: owner, 2026-09-21).</summary>
         public float Zoom = 30f, Yaw = 21f, Pitch = 25f;
+        /// <summary>Where the held camera looks (map metres, x and z); NaN, the default, is the armies' centre. For a still of
+        /// one place (a trench bay, a hamlet) beside the numbers: `fx=12 fz=40 zoom=10 shot=bay.png`.</summary>
+        public float FocusX = float.NaN, FocusZ = float.NaN;
         /// <summary>Time every EventPump subscriber under its own marker (costs ~2 marker calls per event per subscriber).</summary>
         public bool Subscribers;
         /// <summary>1 runs the determinism canary (two worlds, every tick hashed and compared), 0 forces one world, -1 leaves
@@ -64,6 +67,8 @@ namespace TW.Perf
                     case "zoom": o.Zoom = F(v, o.Zoom); break;
                     case "yaw": o.Yaw = F(v, o.Yaw); break;
                     case "pitch": o.Pitch = F(v, o.Pitch); break;
+                    case "fx": o.FocusX = F(v, o.FocusX); break;
+                    case "fz": o.FocusZ = F(v, o.FocusZ); break;
                     case "subs": o.Subscribers = v == "1" || v.ToLowerInvariant() == "true"; break;
                     case "canary": o.Canary = I(v, o.Canary); break;
                     case "label": o.Label = v; break;

@@ -151,7 +151,7 @@ namespace TW.Perf
             tactical = FindFirstObjectByType<TacticalCamera>();
             cam = tactical != null ? tactical.GetComponent<Camera>() : null;
             if (cam == null) cam = Camera.main;
-            focus = ArmyCentre(w);
+            focus = float.IsNaN(Options.FocusX) || float.IsNaN(Options.FocusZ) ? ArmyCentre(w) : new Vector2(Options.FocusX, Options.FocusZ);
             if (tactical != null) tactical.enabled = false;   // it re-places the camera every frame; the bench holds it
             keepShake = CameraShake.Strength;
             CameraShake.Strength = 0f;

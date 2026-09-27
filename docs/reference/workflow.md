@@ -250,6 +250,8 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
   `UNITY_PROJECT_PATH=... unity command --detach eval "return TW.Editor.BuildWindows.Build(true);"`, or the menu
   **TW/Build/Windows Bench**. (`BuildWindows.Queue` relies on `delayCall`, which never fires in a background editor.) Output: `Builds/WinBench[Dev]/TrenchWarfare.exe`.
 - Benchmark in the player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`.
+  `fx=<x> fz=<z> zoom=<z>` holds the camera on one place instead of the armies' centre, for a still of a trench bay or a
+  hamlet (`-screen-fullscreen 0 -screen-width 1280 -screen-height 720` before `-twbench` keeps the player in a window).
   Same options in the editor: `TW.Editor.CaptureRig.Bench("... out=<abs path>.json")` with GreyboxCorridor open.
   Two reports with the same `hash_start` measured the same battle. Look at the `shot=` image before trusting numbers.
 - Any new `Shader.Find("TW/...")` must be Always Included or it is missing from the player; ShaderInclusionTests guards it.
