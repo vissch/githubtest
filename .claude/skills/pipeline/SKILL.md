@@ -30,6 +30,22 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 | `retry <job>` / `cancel <job>` | retry: claim it again (a new attempt). cancel: `$P release` if this station holds it, and `$R stop <run>` for its run |
 | feedback on a stage | restate the remark in one sentence, name the earliest stage it affects, then `$P feedback <item> <stage> "<their words, verbatim>" --check "<a measurable check>"` after they confirm the wording |
 
+## Role skills (load the one a stage's `role` names)
+
+| Role | Skill | Station |
+|---|---|---|
+| balance-simulator | `tw-balance-sim` | laptop (data, ideas), desktop (sweeps) |
+| env-simulator | `tw-env-sim` | desktop |
+| character-simulator | `tw-character-sim` | desktop |
+| vehicle-simulator | `tw-vehicle-sim` | desktop |
+| destruction-vfx-simulator | `tw-destruction-vfx`, and `tw-vfx-sheets` for new sheets | desktop |
+| optimizer | `tw-optimizer` | desktop (counters), laptop (low-end bench) |
+| bug-catcher | `tw-bug-catcher` | desktop |
+| hard-critic, `/improve-loop` | `tw-critic` | either |
+| master | `tw-master` | review either; gate and land on the desktop |
+
+Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
+
 ## The work loop (one job)
 
 1. `$P next` on this station. Nothing: say so and stop.
