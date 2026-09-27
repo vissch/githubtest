@@ -102,6 +102,8 @@ def scores(with_selftest):
         if m:
             s['selftest_cases'] = int(m.group(2))
             s['selftest_failed'] = int(m.group(2)) - int(m.group(1))
+        else:   # it crashed before its summary: unmeasured, which compare() counts as a regression
+            s['selftest_cases'] = s['selftest_failed'] = -1
     s['head'] = run(['git', 'rev-parse', '--short', 'HEAD'], cwd=REPO)[1].strip()
     s['time'] = time.strftime('%Y-%m-%d %H:%M')
     return s

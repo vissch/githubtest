@@ -237,6 +237,45 @@ def land_cases(tmp: pathlib.Path):
     case('land.py refuses a SHOW lane carrying SIM files unless --carry-sim names the decision',
          code == 1 and 'SIM' in out and code2 == 0 and 'would run' in out2, out + out2)
 
+    # a move out of Sim/ is still SIM work: with rename detection the diff lists only the new path
+    g('reset', '-q', '--hard', f'origin/{integ}')
+    g('push', '-q', '-f', 'origin', 'HEAD:refs/heads/lane/show/t'); g('fetch', '-q')
+    sim.mkdir(parents=True, exist_ok=True); (sim / 'Moved.cs').write_text('class Moved { int a, b, c; }\n')
+    g('add', '.'); g('commit', '-qm', 'sim file'); g('push', '-q', 'origin', f'HEAD:{integ}'); g('fetch', '-q')
+    (proj / 'Assets/_Project/Presentation').mkdir(parents=True, exist_ok=True)
+    g('mv', 'trench-warfare-3d/Assets/_Project/Sim/Moved.cs', 'trench-warfare-3d/Assets/_Project/Presentation/Moved.cs')
+    g('commit', '-qm', 'move it out of Sim')
+    marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
+    code, out = land('--dry-run')
+    case('land.py sees a file a SHOW lane moved out of Sim/ (renames do not hide the old path)',
+         code == 1 and 'SIM' in out, out)
+
+    # a docs file a test reads is code: a docs-only lane that edits it needs the gate
+    g('reset', '-q', '--hard', f'origin/{integ}')
+    tests = proj / 'Assets/_Project/Tests'
+    tests.mkdir(parents=True, exist_ok=True)
+    (tests / 'SpecTests.cs').write_text('class SpecTests { string p = "spec.md"; }\n')
+    (work / 'docs/spec.md').write_text('spec\n')
+    g('add', '.'); g('commit', '-qm', 'a test reads docs/spec.md'); g('push', '-q', 'origin', f'HEAD:{integ}'); g('fetch', '-q')
+    (work / 'docs/spec.md').write_text('spec changed\n'); g('commit', '-qam', 'docs only, but a test reads it')
+    code, out = land('--dry-run')
+    case('land.py gates a docs change to a file a test reads', code == 1 and 'gate' in out, out)
+
+    # someone pushed to origin's copy of the lane: the lease must not overwrite it
+    g('reset', '-q', '--hard', f'origin/{integ}')
+    g('push', '-q', '-f', 'origin', 'HEAD:refs/heads/lane/show/t'); g('fetch', '-q')
+    other = tmp / 'land-other'
+    run(['git', 'clone', '-q', '-b', 'lane/show/t', str(origin), str(other)], tmp)
+    (other / 'docs/theirs.md').write_text('theirs\n')
+    run(['git', '-c', 'user.name=o', '-c', 'user.email=o@o', 'add', '.'], other)
+    run(['git', '-c', 'user.name=o', '-c', 'user.email=o@o', 'commit', '-qm', 'theirs'], other)
+    run(['git', 'push', '-q', 'origin', 'lane/show/t'], other)
+    (work / 'docs/mine.md').write_text('mine\n'); g('add', '.'); g('commit', '-qm', 'mine')
+    code, out = land()
+    theirs_kept = 'theirs' in run(['git', 'log', '--format=%s', 'origin/lane/show/t'], work)[1]
+    case('land.py refuses when someone pushed to origin\'s copy of the lane, and their commit survives',
+         code == 1 and theirs_kept, out)
+
     g('checkout', '-q', integ); g('reset', '-q', '--hard', f'origin/{integ}')
     (work / 'docs/b.md').write_text('b\n'); g('add', '.'); g('commit', '-qm', 'someone else lands'); g('push', '-q', 'origin', integ)
     g('checkout', '-q', 'lane/show/t')

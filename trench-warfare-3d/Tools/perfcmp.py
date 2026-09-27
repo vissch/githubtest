@@ -10,7 +10,15 @@ release player); never compare across run.build.
 """
 import json, sys
 
-runs = [json.load(open(p)) for p in sys.argv[1:]]
+force = '--force' in sys.argv
+runs = [json.load(open(p)) for p in sys.argv[1:] if p != '--force']
+for key, get in (('hash_start', lambda r: r['window'].get('hash_start')), ('run.build', lambda r: r['run'].get('build'))):
+    seen = sorted({str(get(r)) for r in runs})
+    if len(seen) > 1:
+        print(f'WARNING: the reports differ in {key} ({", ".join(seen)}): not the same battle or not the same kind of '
+              f'build, so their numbers do not compare. --force prints the table anyway.')
+        if not force:
+            sys.exit(1)
 labels = [r['run']['label'] for r in runs]
 print('%-26s' % '', *['%24s' % l[:24] for l in labels])
 def row(name, get):
@@ -27,6 +35,8 @@ row('gc collections', lambda r: r['window']['gc_collections'])
 row('hitches >33ms (cap 64)', lambda r: len(r['window']['hitches_over_33ms']))
 for k in ['cpu_frame_ms', 'main_ms', 'main_ms_tick_frames', 'main_ms_idle_frames', 'render_ms', 'gpu_ms', 'draw_calls', 'setpass', 'gc_bytes', 'gc_count', 'vat_vertices', 'vat_shadows_on']:
     row(k + ' p50/p95/p99', lambda r, k=k: '%s/%s/%s' % tuple(('%.4g' % r['series'][k][q]) for q in ('p50', 'p95', 'p99')))
+for r in runs:
+    r.setdefault('per_tick_ms', {})   # a release report has no markers
 keys = sorted({k for r in runs for k in r['per_tick_ms']}, key=lambda k: -max(r['per_tick_ms'].get(k, 0) for r in runs))
 print('per tick ms (all worlds):')
 for k in keys:
