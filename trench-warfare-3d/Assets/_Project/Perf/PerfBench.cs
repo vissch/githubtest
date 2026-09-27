@@ -162,7 +162,7 @@ namespace TW.Perf
 
         void Warm()
         {
-            if (warmLeft == 10 && !string.IsNullOrEmpty(Options.Shot))
+            if (warmLeft == Mathf.Min(10, Mathf.Max(1, Options.Warm)) && !string.IsNullOrEmpty(Options.Shot))   // warm below 10 still shoots
             {
                 try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); ScreenCapture.CaptureScreenshot(Path.GetFullPath(Options.Shot)); }
                 catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
@@ -481,6 +481,7 @@ namespace TW.Perf
             bool fx = !float.IsNaN(Options.FocusX), fz = !float.IsNaN(Options.FocusZ);
             if (fx && fz) warnings.Add("custom focus (fx/fz): not the standard view, do not compare with standard runs");
             else if (fx || fz) warnings.Add("only one of fx/fz was given: the view fell back to the armies' centre");
+            if (Options.Unknown.Count > 0) warnings.Add("unknown bench option(s) ignored: " + string.Join(", ", Options.Unknown));
             for (int i = 0; i < warnings.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(warnings[i]));
             sb.Append("]\n}\n");
             return sb.ToString();

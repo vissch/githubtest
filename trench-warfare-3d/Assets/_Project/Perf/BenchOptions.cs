@@ -42,6 +42,8 @@ namespace TW.Perf
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
         public bool Quit = true;
         public string Raw = "";
+        /// <summary>Keys the parser did not know ("tick=800" for ticks): PerfBench warns, so a typo cannot run 400 silently.</summary>
+        public System.Collections.Generic.List<string> Unknown = new System.Collections.Generic.List<string>();
 
         public static BenchOptions Parse(string raw)
         {
@@ -75,6 +77,7 @@ namespace TW.Perf
                     case "out": o.Out = v; break;
                     case "shot": o.Shot = v; break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
+                    default: o.Unknown.Add(k); break;
                 }
             }
             return o;
