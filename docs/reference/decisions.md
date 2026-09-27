@@ -72,8 +72,11 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Repo hygiene** from the maintainability audit: Git LFS for FBX and `.bytes`, removing `github-test1/`, whether CI builds Windows.
 - **The house kits' tan in a night ruin** (asset playground): a shelled Boilerhouse's chunks show its tan plaster
   (atlas 82/68/57), which reads as dark brown crates under the night light. Palette/source art; the cut faces
-  themselves are fixed in the playground's prototype and wait for the same fix in `housesplit.py`.
-- **The frog's far LOD size:** 300 tris / 168 vertices ships (pop overlap 0.85); 219 tris was 0.82, 380 tris 0.87.
+  themselves are fixed in the playground's prototype and, since 2026-09-27, in `housesplit.py`; the game's committed
+  chunks were cut before it and are not regenerated (most sets' split settings are unrecorded; re-cutting changes
+  every building). Owner: re-cut the sets, or leave them.
+- **The frog's far LOD size:** 300 tris ships (pop overlap 0.855 with the shoulders kept); 380 tris 0.865, 460 0.868
+  (measured 2026-09-27 on the derived LODs; the source level and the rig made no difference).
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

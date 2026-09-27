@@ -74,7 +74,7 @@ namespace TW.Playground
         public int ForcedLod = -1;
         public int Lod { get; private set; } = -1;
         // screen-height shares for a 2 m figure at the battle's 25 degree lens: LOD0 only up close (under ~22 m), LOD1 to
-        // ~63 m, LOD2 (892 vertices, 16 bones) at the standard view's 78 m and out to ~167 m, LOD3 beyond (critic r1:
+        // ~63 m, LOD2 (963 vertices, 18 bones) at the standard view's 78 m and out to ~167 m, LOD3 beyond (critic r1:
         // LOD1's 1,924 imported vertices are over the 1,200-1,500 budget for a crowd at the standard view)
         public LodPicker Picker = new LodPicker(0.20f, 0.08f, 0.03f);
         public float Height = 1.78f;
@@ -183,7 +183,18 @@ namespace TW.Playground
 
         /// <summary>How many bones actually move this LOD (weights above zero), not how many the FBX lists: every LOD of
         /// one armature lists all of them.</summary>
-        static readonly Dictionary<Mesh, Mesh> clothed = new Dictionary<Mesh, Mesh>();
+        static readonly Dictionary<Mesh, (double sig, Mesh copy)> clothed = new Dictionary<Mesh, (double, Mesh)>();
+
+        /// <summary>What is in a mesh, as one number: its positions and its skin. A reimported FBX keeps its Mesh objects and
+        /// changes what is in them, and two builds of one figure often have the same counts (a rig sweep measured one
+        /// build's skin eight times over while the counts matched).</summary>
+        static double Signature(Mesh m)
+        {
+            double s = m.vertexCount * 7919.0 + m.GetIndexCount(0);
+            var v = m.vertices; for (int i = 0; i < v.Length; i++) s += v[i].x * 1.3 + v[i].y * 3.7 + v[i].z * 7.1 * ((i % 13) + 1);
+            var w = m.GetAllBoneWeights(); for (int i = 0; i < w.Length; i++) s += w[i].weight * (w[i].boneIndex + 1) * ((i % 17) + 1);
+            return s;
+        }
 
         /// <summary>The uniform, as a mask in vertex alpha: blue cloth (hue 190-250 degrees, saturation over 0.35, not near
         /// black), read from the atlas under each vertex, or from the vertex colour on a far LOD painted in its vertices.
@@ -192,7 +203,9 @@ namespace TW.Playground
         static Mesh ClothMasked(Mesh src, Texture2D atlas)
         {
             if (src == null || !src.isReadable) return src;
-            if (clothed.TryGetValue(src, out var done)) return done;
+            // a copy made from a reimported mesh's old contents is stale
+            double sig = Signature(src);
+            if (clothed.TryGetValue(src, out var done) && done.copy != null && done.sig == sig) return done.copy;
             var m = Object.Instantiate(src); m.name = src.name + " (cloth)";
             var uv = m.uv; var col = m.colors; int n = m.vertexCount;
             if (col.Length != n) { col = new Color[n]; for (int i = 0; i < n; i++) col[i] = Color.white; }
@@ -206,7 +219,7 @@ namespace TW.Playground
                 col[i].a = blue ? 1f : 0f; if (blue) cloth++;
             }
             m.colors = col;
-            clothed[src] = m;
+            clothed[src] = (sig, m);
             ClothShare = (float)cloth / Mathf.Max(1, n);
             return m;
         }

@@ -25,7 +25,7 @@ tank ("Brute") and frog infantryman, each delivered at three polygon levels.
 | ...in the same place | Small fittings Tripo placed differently per LOD (the antenna stood 0.8 m further back at LOD1/2) are snapped onto LOD0's centre; the moves are logged in `tank3.json` (`snapped`). | `Every_Vehicle_Part_Sits_In_The_Same_Place_At_Every_LOD` |
 | It falls apart the same way at every LOD | One transform per part; the LOD swaps its mesh and atlas. Flight (`Runtime/Tumble.cs`) runs in the vehicle's own frame on the LOD0 box and a seeded stream, so no mesh and no world position enter the arithmetic. | `Three_Copies_At_Three_LODs_Fall_Apart_Identically` (pose signatures equal to the centimetre); the "LODs side by side" view |
 | The frog's rig works on every LOD | `Tools/frogrig.py`: one Mixamo-named skeleton; LOD0 skinned by bone heat (geometric fallback, accessories ride rigidly, tunic leans on the hips); LOD1-3 weights TRANSFERRED from LOD0's surface, so a point bends alike at every LOD | `Every_Unit_LOD_Is_Skinned_To_One_Skeleton...`, the four-frog view |
-| Simpler rigs on simpler LODs | LOD0/1 22 bones x4, LOD2 16 x2 (spine1, neck, shoulders, toes folded in), LOD3 11 x2 on a 300-tri mesh decimated from LOD2, its weights transferred from LOD2 (its parent mesh), gated anatomically (far out on an arm only that side's arm bones; never a forearm or hand on the torso) | same test; `hand`/`foot` in each capture's JSON: how far the skin carries them from the bind pose, per LOD |
+| Simpler rigs on simpler LODs | LOD0/1 22 bones x4, LOD2 18 x2 (spine1, neck, toes folded in), LOD3 13 x2 on a 300-tri mesh decimated from LOD2, its weights transferred from LOD2 (its parent mesh), gated anatomically (far out on an arm only that side's arm bones; never a forearm or hand on the torso) | same test; `hand`/`foot` in each capture's JSON: how far the skin carries them from the bind pose, per LOD |
 | A cheap far LOD | LOD3 has no UVs: the atlas is baked into its vertex colours (face-centre samples). Tripo's atlas is cut into so many islands that every UV seam splits a vertex: 121 positions imported as 298 vertices, none split by normals. Now 121. LOD1-3 carry LOD0's smooth normals (imported, not recalculated at 55 degrees) | the four-frog view |
 | The game's clips play on it | `Runtime/Retarget.cs` samples the game's own Generic Mixamo clips on `Art/Characters/Soldier.fbx` (what VATBaker samples) and carries each bone's change from a canonical T-pose onto the frog's. No clip is copied or reimported. | `The_Games_Clips_Leave_The_Figure_Standing_On_Its_Feet` |
 
@@ -54,7 +54,21 @@ an isolated silhouette pass (the object's layer only, black, no fog, no grade) g
 
 The frog's LOD3 size was chosen by sweep: 219 tris 0.823, 300 tris 0.850, 380 tris 0.870 (ships 300: 168 vertices,
 under the far budget). Weighting the decimation to keep the cap and the gap between the legs made it WORSE (0.769):
-the triangles come off the shoulders. `TW_LOD3_KEEP` keeps the option for the next figure.
+the triangles come off the shoulders. `TW_LOD3_KEEP` keeps the option for the next figure. Re-swept 2026-09-27 on
+the derived LODs: decimated from LOD2, LOD1 or LOD0 made no difference (0.850 / 0.848 / 0.840 at 300 tris), nor did
+the rig (2 or 4 weights, hands kept or folded: 0.862-0.865 at 380). The count does: 380 tris 0.865, 460 0.868.
+
+The simpler rigs kept the shoulders from 2026-09-27 (LOD2 18 bones, LOD3 13, still 2 per vertex). A shoulder carries
+the whole arm, and folded into the upper arm it moved the arm's outline at every switch below LOD1. The frog's 1->2
+switch went from IoU 0.945 to 0.958 and block colour 8.8 to 6.7, 2->3 from 0.849 to 0.853 (round r21, the tank
+unchanged). Folding nothing at LOD2 gave 2->3 0.874 but left LOD2 22 bones and LOD3 17: no simpler rig left.
+More LOD2 triangles instead (1,500 or 2,000) moved the pop down to 2->3.
+
+A trap for any mesh sweep: a reimported FBX keeps its Mesh objects and changes what is in them, and the playground
+keeps one cloth-masked copy per source mesh. Keyed on the Mesh alone, a sweep measured the first build over and over;
+keyed on the counts, it measured whichever build first had those counts (most rig variants have the same counts). The
+cache is now keyed on the contents (`UnitRig.Signature`: positions and skin). Rebuild the same settings twice and check
+the numbers repeat before believing a sweep.
 
 The colour side of a pop is split three ways, each with a floor (the same LOD turned one degree): `dcol_inside` (per
 pixel, where both LODs cover), `dmean` (the change of the mean colour: all a tint can remove) and `dblock` (12-pixel
@@ -85,6 +99,8 @@ measured on the frog (0->1 and 1->2, block shift and worst-side IoU):
 | LOD0 -> LOD1 | 0.909 / 8.6 -> **0.967 / 3.1** | 0.918 / 13.4 -> **0.986 / 3.2** |
 | LOD1 -> LOD2 | 0.923 / 4.4 -> **0.932 / 2.8** | 0.857 / 15.4 -> **0.944 / 9.1** |
 | LOD2 -> LOD3 | - | 0.850 / 6.6 -> 0.848 / 5.4 |
+
+Round r21 (the frog's lower rigs keep the shoulders, below): frog 1->2 **0.958 / 6.7**, 2->3 **0.853 / 3.3**.
 
 Two things had to be fixed for it. The derived frog LOD2 at first skinned to 8 bones and its head sank with the arms:
 `rigid_accessories` decides "body" by a vertex count, and at a quarter of LOD0's vertices the torso, legs and head fell
@@ -142,7 +158,7 @@ game's.
 
 ## LOD distances (screen-height share of the bounding sphere)
 - Figure: LOD0 above 0.20 (under ~22 m at the 25 degree battle lens), LOD1 above 0.08 (~63 m), LOD2 above 0.03 (the
-  standard view's 78 m out to ~167 m: 892 imported vertices, 16 bones; LOD1's 1,924 are over the 1,200-1,500 budget
+  standard view's 78 m out to ~167 m: 963 imported vertices, 18 bones; LOD1's 1,924 are over the 1,200-1,500 budget
   for a crowd), LOD3 beyond.
 - Vehicle: LOD0 above 0.70 (close-ups under ~45 m; 7.8k tris is over the 3-5k vehicle budget), LOD1 above 0.22 (the
   standard view's 78 m), LOD2 beyond ~145 m. The picker walks one level at a time with a 10 % margin at each cut (a
@@ -164,7 +180,13 @@ game's.
   from the wall's centroid into the atlas's dark gutter. `cutsdebug 1` draws the found faces flat magenta (a magenta
   vertex colour vanished under the dark texels). They are now anchored at the incentre of the largest OUTWARD wall
   triangle and kept inside its incircle: the atlas under the cut faces averages 65/56/56 against the walls' 65/53/51.
-  The fix belongs in `housesplit.py`. What still reads as brown crates in a heap is NOT a texture fault: the texels
+  The same fix is now in `housesplit.py` (`project_fill_uvs`, 2026-09-27; `TW_OLDCAPS=1` keeps the old way): each cap
+  is projected flat on its own cut plane at half the chunk's texel density, anchored in the largest outward, masonry-lit
+  (luma 0.2 and up) wall triangle, and earlier caps are tagged so a later cut never borrows from one. Cut from the kit's
+  `Stones/WallStub` at `TW_CUT=1.2` the caps went from 3.15x the walls' texel density (one atlas strip squeezed across,
+  red-brown streaks) to 0.52x (plain stone in the chunk's own colour). The chunks in `Resources/Env/*/Chunks` were cut
+  before and are NOT regenerated: most sets' split settings are unrecorded (pipelines.md), and re-cutting changes every
+  building in the game, so that is the owner's call (decisions.md, Open). What still reads as brown crates in a heap is NOT a texture fault: the texels
   under those faces are the Boilerhouse's own tan plaster (82/68/57, textured), and tan reads dark brown under the night
   light. A palette question for the house sets (decisions.md, Open).
 - A lone corner slab (0.44 x 1.43 x 3 m) kept standing as a ruin anchor read as a post on end. Corners must now be
