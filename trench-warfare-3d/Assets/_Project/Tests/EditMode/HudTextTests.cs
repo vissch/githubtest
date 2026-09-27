@@ -200,16 +200,16 @@ namespace TW.Tests
         /// <summary>Ten roster slots take the digit row, so the support cards are on F5-F7. A slot past the roster has
         /// no key at all rather than borrowing slot 1's, which is what an unguarded modulo did.</summary>
         [Test]
-        public void TheKeysCoverTenSlotsAndThreeSupportCards()
+        public void TheKeysCoverTenSlotsAndSevenSupportCards()
         {
             for (int s = 0; s < RosterEntry.SlotCount; s++)
                 Assert.That(HudText.Hotkey(s), Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s}");
             Assert.That(HudText.Hotkey(RosterEntry.SlotCount), Is.Empty, "a slot the roster does not have");
             Assert.That(HudText.Hotkey(-1), Is.Empty);
-            Assert.That(HudText.SupportHotkey(0), Is.EqualTo("F5"));
-            Assert.That(HudText.SupportHotkey(1), Is.EqualTo("F6"));
-            Assert.That(HudText.SupportHotkey(2), Is.EqualTo("F7"));
-            Assert.That(HudText.SupportHotkey(3), Is.Empty);
+            // HE, gas and the drop on the function row; the overhaul's four line abilities on letters
+            string[] support = { "F5", "F6", "F7", "C", "M", "V", "B" };
+            for (int i = 0; i < support.Length; i++) Assert.That(HudText.SupportHotkey(i), Is.EqualTo(support[i]), $"support card {i}");
+            Assert.That(HudText.SupportHotkey(support.Length), Is.Empty, "a card the bar does not have");
             Assert.That(KeyMap.Defaults().Primary[(int)GameAction.Deploy10], Is.EqualTo(Key.Digit0), "the tenth slot is 0");
             Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmBarrage], Is.EqualTo(Key.F5));
             Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmGas], Is.EqualTo(Key.F6));

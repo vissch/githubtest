@@ -16,7 +16,7 @@ editor   none connected for this checkout (Tools/tw up opens one)
 validate OK
 branch   lane/show/maint-2026-09  lane show  ahead 0 behind 0 of origin/claude/trench-warfare-2d-3d-plan-idt7lf  0 uncommitted
 inbox    7 notes, 1 for you
-         FOR YOU docs/inbox/2026-09-27-all-rebase-onto-maintenance-pass.md
+         FOR YOU docs/inbox/2026-09-27-all-lanes-landed.md
 ```
 - `lock held` with an editor that is not yours: do not gate, do not write into `Assets/` (a save recompiles their
   editor and kills their Play session). `lock free`: nobody has this checkout. `lock unknown`: the probe failed;

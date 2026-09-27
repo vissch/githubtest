@@ -39,5 +39,29 @@ namespace TW.Tests
             Assert.AreEqual(System.Math.Atan2(1, 2), SimMath.Atan2(1f, 2f), 1e-4);
             Assert.AreEqual(System.Math.Atan2(-3, -0.5), SimMath.Atan2(-3f, -0.5f), 1e-4);
         }
+
+        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 9 has
+        /// them in the greybox match. Two SIM lanes that each add a system merge without a conflict into a chain
+        /// neither of them ran, and a determinism rerun then compares the merged build with itself and passes (the
+        /// overhaul and units-meta, 2026-09-27). This fails instead: a change to the chain is a format change, so it
+        /// bumps ReplayRecorder.FormatVersion and pins the new chain here in the same commit.</summary>
+        const string ChainV9 =
+            "40 CombatCatalogueSystem;50 TerrainHashSystem;110 TrenchOrdersSystem;130 OffMapAbilitySystem;" +
+            "400 FlowFieldManager;600 TargetAcquisitionSystem;650 AuraSystem;700 DirectFireSystem;" +
+            "705 TankGunnerySystem;715 AmbientBombardmentSystem;720 BlastSystem;723 BeamSystem;" +
+            "725 BurningSystem;730 VehicleModulesSystem;735 SupportSystem;800 SuppressionSystem;" +
+            "805 HeroSystem;820 TrenchGarrisonSystem;900 GasSmokeSystem;1000 DeformationSystem;" +
+            "1105 LeapSystem;1110 MovementSystem;1115 BreakerSystem;1120 VehicleKinematicsSystem;" +
+            "1130 MineSystem;1200 SectorControlSystem;";
+
+        [Test]
+        public void TheHashChainIsTheOneItsFormatVersionNames()
+        {
+            using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
+            var chain = new System.Text.StringBuilder();
+            foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
+            Assert.AreEqual(9, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(ChainV9, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
+        }
     }
 }
