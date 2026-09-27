@@ -95,7 +95,7 @@ namespace TW.Playground
             Fx.Night = true;
         }
 
-        Material groundMat; Texture2D gridTex, mudTex;
+        Material groundMat; Texture2D gridTex, mudTex, mudDetail;
         /// <summary>grid: the range (a metre grid, to judge sizes); mud: the battle's night mud, dark and warm, no grid (to
         /// judge whether a figure reads against what it will stand on).</summary>
         void SetGround(string kind)
@@ -110,14 +110,22 @@ namespace TW.Playground
                     for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
                     {
                         float n = Mathf.PerlinNoise(x * 0.05f, y * 0.05f) * 0.6f + Mathf.PerlinNoise(x * 0.23f + 7f, y * 0.23f) * 0.4f;
-                        float v = 0.26f + 0.12f * n;
-                        px[y * N + x] = new Color(v * 1.08f, v * 0.92f, v * 0.74f);
+                        float v = 0.85f + 0.3f * n;   // around the battle's MudMid (GreyboxTerrainView: 0.325, 0.285, 0.24)
+                        px[y * N + x] = new Color(0.325f * v, 0.285f * v, 0.24f * v);
                     }
                     mudTex.SetPixels32(px); mudTex.Apply(true);
                 }
                 groundMat.SetTexture("_BaseMap", mudTex); groundMat.mainTexture = mudTex;
+                // the battle's own close-up mud grain and relief (GreyboxTerrainView.BuildMudDetail), at its settings
+                var build = typeof(TW.Presentation.Terrain.GreyboxTerrainView).GetMethod("BuildMudDetail", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+                if (build != null && groundMat.HasProperty("_DetailMap"))
+                {
+                    if (mudDetail == null) mudDetail = build.Invoke(null, null) as Texture2D;
+                    groundMat.SetTexture("_DetailMap", mudDetail); groundMat.SetFloat("_DetailScale", 1f / 12f);
+                    groundMat.SetFloat("_DetailStrength", 0.20f); groundMat.SetFloat("_DetailBump", 1f);
+                }
             }
-            else { groundMat.SetTexture("_BaseMap", gridTex); groundMat.mainTexture = gridTex; }
+            else { groundMat.SetTexture("_BaseMap", gridTex); groundMat.mainTexture = gridTex; if (groundMat.HasProperty("_DetailStrength")) groundMat.SetFloat("_DetailStrength", 0f); }
         }
 
         void BuildGround()
@@ -634,10 +642,65 @@ namespace TW.Playground
 
         /// <summary>Mean brightness of the figures as drawn, of a ring of what is right round them, and the gap: whether a man
         /// reads against the ground by his colour or only by his ink line.</summary>
+        /// <summary>The battle's own readability number (Editor/CaptureRig): each man's centre (a disc a tenth of his drawn
+        /// height) against the median of a ring of ground round him (0.62 to 1.0 of his height), |man - ground| / (ground +
+        /// 0.02), the median over the men at least 6 px tall. The playground's own figure_gap said a lift at range helped;
+        /// in the battle scene the same lift made the men LESS distinct (0.160 -> 0.125): at night they read as dark
+        /// shapes on lighter mud. Reported so the two benches speak the same language.</summary>
+        string Contrast(Camera c, int w, int h, Texture2D frame)
+        {
+            var px = frame.GetPixels32(); var lum = new float[px.Length];
+            for (int i = 0; i < px.Length; i++) lum[i] = (0.2126f * px[i].r + 0.7152f * px[i].g + 0.0722f * px[i].b) / 255f;
+            var all = new List<float>(); var far = new List<float>();
+            foreach (var u in Units)
+            {
+                var foot = c.WorldToScreenPoint(u.transform.position); var head = c.WorldToScreenPoint(u.transform.position + Vector3.up * u.Height * u.transform.lossyScale.y);
+                if (foot.z <= 0f) continue;
+                float sx = w / (float)c.pixelWidth, sy = h / (float)c.pixelHeight;
+                float tall = Mathf.Abs(head.y - foot.y) * sy; if (tall < 6f) continue;
+                var mid = c.WorldToScreenPoint(u.Centre); int cx = Mathf.RoundToInt(mid.x * sx), cy = Mathf.RoundToInt(mid.y * sy);
+                int rMan = Mathf.Max(2, Mathf.RoundToInt(tall * 0.10f)), rIn = Mathf.RoundToInt(tall * 0.62f), rOut = Mathf.RoundToInt(tall * 1.00f);
+                if (cx < rOut || cy < rOut || cx >= w - rOut || cy >= h - rOut) continue;
+                double sm = 0; int nm = 0; var ring = new List<float>();
+                for (int y = cy - rOut; y <= cy + rOut; y++)
+                    for (int x = cx - rOut; x <= cx + rOut; x++)
+                    {
+                        int d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+                        if (d2 <= rMan * rMan) { sm += lum[y * w + x]; nm++; }
+                        else if (d2 >= rIn * rIn && d2 <= rOut * rOut) ring.Add(lum[y * w + x]);
+                    }
+                if (nm == 0 || ring.Count == 0) continue;
+                ring.Sort(); float bg = ring[ring.Count / 2];
+                float k = Mathf.Abs((float)(sm / nm) - bg) / (bg + 0.02f);
+                all.Add(k); if ((u.transform.position - c.transform.position).magnitude > 60f) far.Add(k);
+            }
+            float Med(List<float> l) { if (l.Count == 0) return -1f; l.Sort(); return l[l.Count / 2]; }
+            return string.Format(CultureInfo.InvariantCulture, "\"contrast_median\":{0:0.000},\"contrast_median_far\":{1:0.000},\"contrast_men\":{2},", Med(all), Med(far), all.Count);
+        }
+
         string FigureGap(Camera c, int w, int h, Texture2D frame)
         {
-            var mask = new bool[w * h];
-            foreach (var u in Units) { var m = Silhouette(c, u.gameObject, w, h); for (int i = 0; i < m.Length; i++) mask[i] |= m[i]; }
+            var near = Gap(c, w, h, frame, u => true);
+            if (near == null) return null;
+            near = Contrast(c, w, h, frame) + near;
+            // the men past 60 m alone: at range a figure is a few pixels, and the near ones dominate the pixel count
+            var far = GapOf(c, w, h, frame, u => (u.transform.position - c.transform.position).magnitude > 60f);
+            return near + (far != null ? string.Format(CultureInfo.InvariantCulture, "\"figure_gap_far\":{0:0.0},\"figure_px_far\":{1},", far.Value.gap, far.Value.px) : "");
+        }
+
+        struct GapResult { public float fig, ground, gap; public int px; }
+
+        string Gap(Camera c, int w, int h, Texture2D frame, System.Func<UnitRig, bool> which)
+        {
+            var r = GapOf(c, w, h, frame, which); if (r == null) return null;
+            return string.Format(CultureInfo.InvariantCulture, "\"figure_luma\":{0:0.0},\"ground_luma\":{1:0.0},\"figure_gap\":{2:0.0},\"figure_px\":{3},", r.Value.fig, r.Value.ground, r.Value.gap, r.Value.px);
+        }
+
+        GapResult? GapOf(Camera c, int w, int h, Texture2D frame, System.Func<UnitRig, bool> which)
+        {
+            var mask = new bool[w * h]; bool any = false;
+            foreach (var u in Units) { if (!which(u)) continue; any = true; var m = Silhouette(c, u.gameObject, w, h); for (int i = 0; i < m.Length; i++) mask[i] |= m[i]; }
+            if (!any) return null;
             var px = frame.GetPixels32(); double fig = 0, ring = 0; int nf = 0, nr = 0; const int R = 4;
             for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
             {
@@ -652,7 +715,7 @@ namespace TW.Playground
                 if (near) { ring += l; nr++; }
             }
             if (nf == 0 || nr == 0) return null;
-            return string.Format(CultureInfo.InvariantCulture, "\"figure_luma\":{0:0.0},\"ground_luma\":{1:0.0},\"figure_gap\":{2:0.0},\"figure_px\":{3},", fig / nf, ring / nr, fig / nf - ring / nr, nf);
+            return new GapResult { fig = (float)(fig / nf), ground = (float)(ring / nr), gap = (float)(fig / nf - ring / nr), px = nf };
         }
 
         // ------------------------------------------------------------------------------------------------ side colours
