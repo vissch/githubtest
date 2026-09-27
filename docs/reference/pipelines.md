@@ -2,7 +2,8 @@
 
 How art gets from the owner's source files into `trench-warfare-3d/Assets/_Project/Resources/`. Every script lives in
 `trench-warfare-3d/Tools/` and is run from `trench-warfare-3d/`. The editor-driving tools (`tw`, `flameshots`,
-`editor_lock.py`, `health.py`, `shotstats.py`, `codemap.py`, `selftest.py`, `port_split.py`) are in `workflow.md`.
+`editor_lock.py`, `health.py`, `shotstats.py`, `perfcmp.py`, `codemap.py`, `selftest.py`, `port_split.py`) are in
+`workflow.md`.
 
 **The source files are not in the repo.** They sit in the owner's Downloads on the workstation, or on their Google
 Drive. A pipeline that needs one says so. If it is missing, ask the owner. Do not guess a substitute.

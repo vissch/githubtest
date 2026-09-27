@@ -1,4 +1,12 @@
-"""Compare tw-perf/1 reports side by side. Usage: python cmp.py A.json B.json [C.json ...]"""
+"""Compare PerfBench reports (tw-perf/1) side by side, rows for frame series, per-system tick cost and scripts.
+
+    python Tools/perfcmp.py before.json after.json [more.json ...]
+
+Only reports with the same hash_start measured the same battle. Noise, measured on two runs of one build and one
+fight (perf-pass-2026-09/runs/compose-editor*.json): p50 within about 1%, p95 about 7%, p99, hitch counts and single
+systems' per-tick ms up to about 25%. Run each side twice before calling a difference real. per_tick_ms exists only
+in the editor or a Development build (markers compile out of a release player); never compare across run.build.
+"""
 import json, sys
 
 runs = [json.load(open(p)) for p in sys.argv[1:]]

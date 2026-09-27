@@ -138,7 +138,7 @@ ALLOW_MISSING = {
     'settings.json', 'editor-slot.json', 'Captures/', 'Builds/', 'Tools/flame-shots/', 'test-results.xml',
     'test-results-EditMode.xml', 'test-results-PlayMode.xml',
     'Library/', 'Temp/', 'Temp/UnityLockfile', 'Library/BurstCache', 'Library/ScriptAssemblies', 'Assets/_shots/',
-    'Editor.log', 'Tools/aosa',
+    'Editor.log', 'Tools/aosa', 'Builds/WinBench/', 'Builds/WinBenchDev/', 'build-info.json',
 }
 
 # ---- helpers ----------------------------------------------------------------------------------------------------
