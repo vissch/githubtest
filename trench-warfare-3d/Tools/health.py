@@ -184,6 +184,8 @@ def main():
     print(msg)
     if lane:
         def foreign(f):
+            if f.startswith('trench-warfare-3d/Assets/_Project/Tests/'):
+                return False  # a test is in the lane of the code it tests, which its folder cannot tell
             return f.startswith('trench-warfare-3d/Assets/_Project/') and f.startswith(SIM_PATHS) != (lane == 'sim')
         outside = sorted({f for f in dirty + committed.split('\n') if f.strip() and foreign(f)})
         for f in outside[:12]:

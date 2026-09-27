@@ -121,22 +121,29 @@ def main():
 
     old = pathlib.Path(a.file)
     here = old.parent
+    keep = None  # which side of the conflicted file to build on: --ours or --theirs
     if a.rebase:
         # Mid-rebase HEAD is the upstream you are rebasing onto (it has the split) and REBASE_HEAD is your commit being
         # replayed. So keep HEAD's version of the file (in a rebase that is --ours) and carry your commit's edits.
-        git('checkout', '--ours', '--', old.name, cwd=here)
+        keep = '--ours'
         a.base, a.rev = 'REBASE_HEAD~1', 'REBASE_HEAD'
     elif a.merge:
         # Whichever side has the split keeps its version of the file; the other side's edits are carried across.
         split_here = any(n.startswith(old.stem + '.') and n.endswith(old.suffix) and n != old.name
                          for n in git('ls-tree', '--name-only', 'HEAD', './', cwd=here).split())
         base = git('merge-base', 'HEAD', 'MERGE_HEAD', cwd=here).strip()
-        git('checkout', '--ours' if split_here else '--theirs', '--', old.name, cwd=here)
+        keep = '--ours' if split_here else '--theirs'
         a.base, a.rev = base, 'MERGE_HEAD' if split_here else 'HEAD'
         print(f'the split is on {"your side (HEAD)" if split_here else "the side you are merging in"}; '
               f'carrying the edits of {a.rev} since {base[:8]}')
     elif not a.rev:
         ap.error('--from needs --to')
+    kept = None
+    if keep and a.dry_run:
+        # A dry run leaves the conflicted file alone and reads the side it would keep from the index (2 ours, 3 theirs).
+        kept = git('show', f':{2 if keep == "--ours" else 3}:./{old.name}', cwd=here).lstrip('\ufeff')
+    elif keep:
+        git('checkout', keep, '--', old.name, cwd=here)
     targets = [old] if old.exists() else []
     targets += sorted(p for p in old.parent.glob(old.stem + '.*' + old.suffix) if p != old)
     targets += [pathlib.Path(p) for p in a.into]
@@ -150,6 +157,8 @@ def main():
         return
 
     raw = {t: t.read_bytes().decode('utf-8-sig') for t in targets}
+    if kept is not None:
+        raw[old] = kept
     bom = {t: t.read_bytes().startswith(b'\xef\xbb\xbf') for t in targets}
     nl = {t: '\r\n' if '\r\n' in raw[t] else '\n' for t in targets}
     text = {t: raw[t].replace('\r\n', '\n').split('\n') for t in targets}

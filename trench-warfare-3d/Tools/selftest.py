@@ -141,6 +141,11 @@ def port_split_cases(tmp: pathlib.Path):
     g('commit', '-qam', 'lane edit')
     code, out = g('rebase', 'main')
     stopped = code != 0
+    conflicted = (r / 'A/Big.cs').read_bytes()
+    code, dry = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--rebase', '--dry-run'], r)
+    case('port_split --dry-run says where edits go and leaves every file as it was',
+         stopped and 'applied' in dry and (r / 'A/Big.cs').read_bytes() == conflicted
+         and 'int move9 = 99;' not in (r / 'A/Big.Moved.cs').read_text(), dry)
     code, out2 = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--rebase'], r)
     moved_now = (r / 'A/Big.Moved.cs').read_text()
     g('add', '-A')

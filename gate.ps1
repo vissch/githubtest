@@ -3,8 +3,8 @@
 #   ./gate.ps1 -EditOnly   validate + EditMode (SHOW lane, iterating)
 #
 # Exit codes: 0 green; 8 a test failed; 6 no verdict (compile error, licence); 3 the project is held by an editor
-# or another batch run (close it, or run the tests inside it: workflow.md); 1 unity.exe is missing; any other code is
-# validate.py's (it runs first) or unity's own.
+# or another batch run (close it, or run the tests inside it: workflow.md); 5 validate.py failed (its lines are
+# printed); 1 unity.exe is missing; any other code is unity's own.
 #
 # Failures are printed with their message, so you do not need to open test-results.xml.
 #
@@ -85,7 +85,7 @@ try {
 
     Write-Host "`n== validate.py ==" -ForegroundColor Cyan
     python validate.py
-    if ($LASTEXITCODE -ne 0) { Write-Host "validate.py failed ($LASTEXITCODE)" -ForegroundColor Red; exit $LASTEXITCODE }
+    if ($LASTEXITCODE -ne 0) { Write-Host "validate.py failed (exit 5): fix the lines above" -ForegroundColor Red; exit 5 }
 
     Write-Host "`n== EditMode ==" -ForegroundColor Cyan
     $edit = Run-Tests 'EditMode' @()
