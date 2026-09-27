@@ -129,6 +129,9 @@ def main(argv):
             bad = True
             after = current
     print("otr: " + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
+    if sum(tally.values()) == 0:
+        print("otr: no test ran (the filter matched nothing, or the runner died before its first class): not a pass")
+        return 1
     return 1 if bad else 0
 
 
