@@ -54,6 +54,46 @@ namespace TW.Tests
             Assert.Greater(TrenchSectionRules.LiningLife, 5f, "but they do lie a while");
         }
 
+        /// <summary>The wiring, not just the rules (critic r3 #8): one strike through the real PropDestruction on a fresh
+        /// revetment leaves it Damaged with one broken twin drawn in its place; a recomposition keeps the twin (Replace);
+        /// the next strike finishes the section, twin and all (Suppress keeps both out). Until 2026-09-27 the strike that
+        /// drew the twin hit it again under the shared key and the section went straight to Gone: this test failed then.</summary>
+        [Test]
+        public void One_Strike_Leaves_A_Section_Damaged_And_The_Next_Finishes_It()
+        {
+            var go = new GameObject("lining test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var destruction = go.AddComponent<PropDestruction>();
+                destruction.AttachForTests(props);
+                var wall = kit.TrenchWalls[0]; var twin = kit.TrenchWallsDamaged[0];
+                var m = Matrix4x4.TRS(new Vector3(10f, 0f, 10f), Quaternion.identity, Vector3.one);
+                props.AddInstance(wall, m);
+                // harm 0.6 at 1 m from a 3 m reach, power 0.8: half the revetment's 1.2 hp, not heavy ordnance
+                destruction.StrikeForTests(new Vector3(11f, 0f, 10f), 3f, 0.8f);
+                Assert.AreEqual(1, destruction.SectionsDamaged, "the section is damaged, not gone");
+                Assert.AreEqual(1, Drawn(props, twin), "one broken twin stands where the panel stood");
+                Assert.AreEqual(0, Drawn(props, wall), "the whole panel is hidden");
+                Assert.AreSame(twin, props.Replace(wall, m), "a recomposition draws the twin in the panel's place");
+                Assert.IsFalse(props.Suppress(wall, m), "and does not drop it");
+                destruction.StrikeForTests(new Vector3(11f, 0f, 10f), 3f, 0.8f);
+                Assert.AreEqual(0, Drawn(props, twin), "the second strike brings the twin down");
+                Assert.AreEqual(0, destruction.SectionsDamaged, "a gone section is not counted as damaged");
+                Assert.IsTrue(props.Suppress(wall, m), "and the section stays out of every recomposition");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        static int Drawn(BattlefieldProps props, BattlefieldKit.Module module)
+        {
+            var found = new System.Collections.Generic.List<(int page, int slot, Matrix4x4 m)>();
+            props.Within(module, new Vector2(10f, 10f), 5f, found);
+            int shown = 0; foreach (var f in found) if (f.m.lossyScale.y > 1e-3f) shown++;
+            return shown;
+        }
+
         static void SameFootprint(BattlefieldKit.Module intact, BattlefieldKit.Module twin, string what, float zTolerance = 0.10f, float rolledOut = 0f)
         {
             Assert.IsNotNull(twin, what + " has no damaged twin");

@@ -108,6 +108,9 @@ namespace TW.Presentation.Terrain
         /// <summary>The scattered lanterns' feet (docs/21 phase 2): NightLights lights those first.</summary>
         public IReadOnlyList<Vector3> LanternPoints => composer != null ? composer.LanternPoints : (IReadOnlyList<Vector3>)System.Array.Empty<Vector3>();
         public BattlefieldKit Kit => kit;
+        /// <summary>Tests only (TrenchSectionTests): props that draw from a kit built by the test, with no scene, no map and
+        /// no composition; instances come in through AddInstance.</summary>
+        public void AttachKitForTests(BattlefieldKit testKit) { kit = testKit; }
         /// <summary>Every imported prop placed this composition, hand edits applied.</summary>
         public IReadOnlyList<Placed> Editable => placed;
 

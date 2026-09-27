@@ -151,6 +151,18 @@ namespace TW.Presentation.Terrain
             props.Replace = Replace;
         }
 
+        /// <summary>Tests only (TrenchSectionTests): the props to act on, hooked up as Start does, and the rules built,
+        /// so a strike can be driven through the real Strike / Section / Finish / Replace / Suppress with no scene.</summary>
+        public void AttachForTests(BattlefieldProps testProps)
+        {
+            props = testProps;
+            props.Suppress = Suppress; props.MaskOf = MaskOf; props.Replace = Replace;
+            BuildRules(props.Kit);
+        }
+
+        /// <summary>Tests only: a strike at a point, as an Explosion of this reach and power would make.</summary>
+        public void StrikeForTests(Vector3 at, float reach, float power) => Strike(at, reach, power, 1u, false);
+
         void OnDestroy()
         {
             if (props != null && props.Suppress == (System.Func<BattlefieldKit.Module, Matrix4x4, bool>)Suppress) props.Suppress = null;

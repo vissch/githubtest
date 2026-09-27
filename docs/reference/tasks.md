@@ -415,7 +415,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
 | `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
-| `TrenchSectionTests` | EditMode | 6 | TrenchSectionRules, SectionState, BattlefieldKit, AssetScaleTable, DebrisMath, Module |
+| `TrenchSectionTests` | EditMode | 7 | TrenchSectionRules, SectionState, BattlefieldKit, Module, AssetScaleTable, BattlefieldProps |
 | `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, MapData, BattlefieldGenerator, SeparationJob |
 | `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
 | `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |
