@@ -14,6 +14,8 @@ namespace TW.Presentation.Tactical
         Hull, Track, Wheel, Turret, Gun, Hatch, Sponson, Cupola, Horn, Exhaust, Other,
         // the walkers (Tools/crabsplit.py): a leg in one piece, or a leg in three, and what a crab carries
         Leg, Thigh, Shin, Foot, Claw, Jaw, Shield, Drum, Reactor,
+        // the Skimmer's (Tools/mechsplit.py TW_KIND=hover): the blades astern, which spin about the hull's length
+        Fan,
     }
 
     public sealed class TankModel
@@ -135,6 +137,11 @@ namespace TW.Presentation.Tactical
                 // written for a tank and is used to place fire and smoke on the hull.
                 if (tl < 0 || tr < 0) { model.HalfGauge = hull.extents.x; model.HalfLength = hull.extents.z; }
             }
+            // A machine that rolls on wheels and has no treads (the Salvo's front tyres): turn them at the speed their
+            // own size gives, not the tank's 0.36 m, which spun a 1 m tyre three times too fast.
+            if (tl < 0 && tr < 0)
+                for (int i = 0; i < parts.Count; i++)
+                    if (parts[i].Role == TankPartRole.Wheel && parts[i].Mesh != null) { model.WheelRadius = Mathf.Max(0.05f, parts[i].Mesh.bounds.extents.y); break; }
             for (int lod = 0; lod < 2; lod++) if (model.Lods[lod] != null && (lod == 0 || model.Lods[1] != model.Lods[0])) NumberLegs(model, model.Lods[lod]);
             for (int lod = 0; lod < 2; lod++) if (model.Lods[lod] != null && (lod == 0 || model.Lods[1] != model.Lods[0])) BuildRigs(model, model.Lods[lod], lod == 0);
             for (int lod = 0; lod < 2; lod++)
@@ -399,6 +406,7 @@ namespace TW.Presentation.Tactical
             if (name == "Shield") return TankPartRole.Shield;
             if (name == "Drum") return TankPartRole.Drum;
             if (name == "Reactor") return TankPartRole.Reactor;
+            if (name == "Fan") return TankPartRole.Fan;
             if (name == "Mortar") return TankPartRole.Gun;          // the piece that is aimed IS the weapon on a Kettle
             if (name.StartsWith("Turret")) return TankPartRole.Turret;
             if (name.StartsWith("Gun")) return TankPartRole.Gun;

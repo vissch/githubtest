@@ -357,7 +357,7 @@ namespace TW.Presentation.Tactical
 
         // a Shield is posed apart from the body in play (the Pavise's swings), so men seated on its rim at rest hung in the
         // air beside it (critic r9): it is an obstacle, never a seat
-        static bool Seatable(TankPartRole r) => r != TankPartRole.Turret && r != TankPartRole.Reactor && r != TankPartRole.Hatch && r != TankPartRole.Cupola && r != TankPartRole.Horn && r != TankPartRole.Exhaust && r != TankPartRole.Shield;
+        static bool Seatable(TankPartRole r) => r != TankPartRole.Turret && r != TankPartRole.Reactor && r != TankPartRole.Hatch && r != TankPartRole.Cupola && r != TankPartRole.Horn && r != TankPartRole.Exhaust && r != TankPartRole.Shield && r != TankPartRole.Fan;
 
         static bool Under(TankModel.Lod lod, int i, int ancestor)
         {

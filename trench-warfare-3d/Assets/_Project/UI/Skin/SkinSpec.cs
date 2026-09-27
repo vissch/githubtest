@@ -135,7 +135,7 @@ namespace TW.UI
         public static readonly string[] PortraitNames =
         {
             "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt",
-            "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker",
+            "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker", "Skimmer", "Salvo",
             "HeBarrage", "ChlorineGas", "ParaDrop",
         };
 

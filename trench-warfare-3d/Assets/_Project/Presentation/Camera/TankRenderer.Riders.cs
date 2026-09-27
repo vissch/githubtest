@@ -216,12 +216,12 @@ namespace TW.Presentation.Tactical
         public bool Resize(int archetype, float factor)
         {
             int c = archetype - VehicleArchetype.Pincer;
-            if (c < 0 || c >= CrabNames.Length || factor <= 0.05f) return false;
-            var model = TankModel.Load(CrabNames[c], (byte)archetype, "Body", VehicleSize.Walker * factor);
+            if (c < 0 || c >= WalkerRows || factor <= 0.05f) return false;
+            var model = TankModel.Load(Machines[c].Name, (byte)archetype, "Body", VehicleSize.Walker * factor);
             if (model == null) return false;
             WalkerSizeFactor[c] = factor;
-            var old = crabs[c];
-            crabs[c] = model;
+            var old = models[c];
+            models[c] = model;
             if (old != null) seatsOf.Remove(old);
             int seats = SeatsFor(model).Seats.Count;
             foreach (var v in views.Values)

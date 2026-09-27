@@ -82,6 +82,8 @@ namespace TW.Presentation.Tactical
             public Matrix4x4[] LegLocal; public bool[] LegSolved;
             public byte Archetype;
             public float Scorch, Burn, Flash, Furnace, Throttle;
+            /// <summary>A fan's angle (radians) and how fast it is turning: it winds up and down, never jumps.</summary>
+            public float Fan, FanRate;
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
@@ -112,20 +114,30 @@ namespace TW.Presentation.Tactical
         struct Flame { public Vector3 Foot; public float Width, Height, Phase; }
 
         TankModel maw, tusk;
-        /// <summary>The owner's four crab walkers (Tools/crabsplit.py), by archetype. Each has its own atlas, where
-        /// the two tanks share one, so a crab's material is per machine and per LOD.</summary>
-        readonly TankModel[] crabs = new TankModel[6];
-        readonly Material[,] crabMats = new Material[6, 2];
-        static readonly string[] CrabNames = { "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt" };
-        static readonly byte[] CrabArchetypes =
+        /// <summary>
+        /// Every machine drawn in an atlas of its own (Resources/Vehicles/&lt;Name&gt;Atlas.jpg, at both LODs), where the
+        /// Maw and the Tusk share TankAtlas_LOD0/1: one row each, its model name, its archetype, the root part
+        /// TankModel walks from, and how much larger than its FBX it is drawn. A new machine is one row here.
+        /// The six crab walkers (Tools/crabsplit.py) are the first WalkerRows rows, in archetype order from the Pincer,
+        /// which Riders' Resize and WalkerSizeFactor index by; they are drawn at VehicleSize.Walker. The machines split
+        /// by Tools/mechsplit.py TW_BATTLE=1 (2026-09-28) are written in metres at the size they are meant to be, so
+        /// they are drawn at 1.
+        /// </summary>
+        static readonly (string Name, byte Archetype, string Root, float Scale)[] Machines =
         {
-            VehicleArchetype.Pincer, VehicleArchetype.Kettle, VehicleArchetype.Censer,
-            VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt,
+            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker),
+            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker),
+            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker),
+            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f),   // 7 m across its pods
+            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f),       // 8 m long
         };
-        /// <summary>Which row of crabs/crabMats draws an archetype, or -1. It used to be `archetype - Pincer`, which
-        /// made the six walkers a contiguous band of ids nothing could be added to; a new machine puts its id in
-        /// CrabArchetypes beside its model name and needs no id at all next to the others.</summary>
-        readonly sbyte[] crabRow = new sbyte[Archetypes.Count];
+        const int WalkerRows = 6;
+        /// <summary>The model and the two LOD materials of each Machines row.</summary>
+        readonly TankModel[] models = new TankModel[Machines.Length];
+        readonly Material[,] modelMats = new Material[Machines.Length, 2];
+        /// <summary>Which Machines row draws an archetype, or -1 (the Maw's and Tusk's shared atlas). It used to be
+        /// `archetype - Pincer`, which made the walkers a contiguous band of ids nothing could be added to.</summary>
+        readonly sbyte[] modelRow = new sbyte[Archetypes.Count];
         public const float StrideMetres = 1.15f;   // how far a walker travels per full leg cycle
         readonly Material[] mats = new Material[2];
         FlipbookFx books;
@@ -172,11 +184,11 @@ namespace TW.Presentation.Tactical
             if (Host == null) Host = FindFirstObjectByType<SimHost>();
             maw = TankModel.Load("Maw", VehicleArchetype.Maw, "Hull", VehicleSize.Tank);
             tusk = TankModel.Load("Tusk", VehicleArchetype.Tusk, "Hull", VehicleSize.Tank);
-            for (int a = 0; a < crabRow.Length; a++) crabRow[a] = -1;
-            for (int c = 0; c < CrabNames.Length; c++)
+            for (int a = 0; a < modelRow.Length; a++) modelRow[a] = -1;
+            for (int c = 0; c < Machines.Length; c++)
             {
-                crabs[c] = TankModel.Load(CrabNames[c], CrabArchetypes[c], "Body", VehicleSize.Walker);
-                crabRow[CrabArchetypes[c]] = (sbyte)c;
+                models[c] = TankModel.Load(Machines[c].Name, Machines[c].Archetype, Machines[c].Root, Machines[c].Scale);
+                modelRow[Machines[c].Archetype] = (sbyte)c;
             }
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null || maw == null) { Debug.LogWarning("TankRenderer: TW/Tank or the tank models are missing; the box tanks stay."); enabled = false; return; }
@@ -187,15 +199,15 @@ namespace TW.Presentation.Tactical
                 if (atlas != null) mats[lod].SetTexture("_BaseMap", atlas);
                 mats[lod].SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
             }
-            for (int c = 0; c < CrabNames.Length; c++)
+            for (int c = 0; c < Machines.Length; c++)
             {
-                var atlas = Resources.Load<Texture2D>("Vehicles/" + CrabNames[c] + "Atlas");
+                var atlas = Resources.Load<Texture2D>("Vehicles/" + Machines[c].Name + "Atlas");
                 for (int lod = 0; lod < 2; lod++)
                 {
-                    var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = CrabNames[c] + " LOD" + lod };
+                    var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = Machines[c].Name + " LOD" + lod };
                     if (atlas != null) m.SetTexture("_BaseMap", atlas);
                     m.SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
-                    crabMats[c, lod] = m;
+                    modelMats[c, lod] = m;
                 }
             }
             books = new FlipbookFx();
@@ -246,16 +258,16 @@ namespace TW.Presentation.Tactical
         TankModel ModelFor(SimWorld w, int slot) => w == null || slot < 0 || slot >= w.HighWater ? null : ModelFor(w.Archetype[slot]);
         TankModel ModelFor(byte archetype)
         {
-            int row = archetype < crabRow.Length ? crabRow[archetype] : -1;
-            if (row >= 0 && crabs[row] != null) return crabs[row];
+            int row = archetype < modelRow.Length ? modelRow[archetype] : -1;
+            if (row >= 0 && models[row] != null) return models[row];
             return archetype == VehicleArchetype.Tusk && tusk != null ? tusk : maw;
         }
 
-        /// <summary>The material a machine is drawn in: the tanks share an atlas, each crab has its own.</summary>
+        /// <summary>The material a machine is drawn in: the tanks share an atlas, every other machine has its own.</summary>
         Material MaterialFor(byte archetype, int lod)
         {
-            int row = archetype < crabRow.Length ? crabRow[archetype] : -1;
-            return row >= 0 && crabMats[row, lod] != null ? crabMats[row, lod] : mats[lod];
+            int row = archetype < modelRow.Length ? modelRow[archetype] : -1;
+            return row >= 0 && modelMats[row, lod] != null ? modelMats[row, lod] : mats[lod];
         }
 
         static bool IsTank(SimWorld w, int i)
@@ -448,6 +460,22 @@ namespace TW.Presentation.Tactical
                 v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * 2.6f);
             }
 
+            // A machine whose only weapon is small arms (the Skimmer's machine gun) has no TankGun to lay its turret, so
+            // TankGunnery never turns it: point it at what the small-arms systems are shooting at (SimWorld.TargetSlot),
+            // so the tracers leave a barrel that faces their mark, and back to the front when there is nothing.
+            if (spec.GunCount == 0 && m.Lods[0].Find("Turret") >= 0 && match.Catalogue != null && match.Catalogue.Weapon.IsCreated
+                && match.Catalogue.Weapon[w.Archetype[s]].RangeMax > 0f)
+            {
+                int t = w.TargetSlot[s];
+                float want = 0f;
+                if (t >= 0 && t < w.HighWater && w.IsAlive(t))
+                    want = Mathf.Atan2(w.Position[t].x - v.Pos.x, w.Position[t].z - v.Pos.z) - v.Yaw;
+                v.GunYaw[0] = Mathf.MoveTowardsAngle(v.GunYaw[0] * Mathf.Rad2Deg, want * Mathf.Rad2Deg, dt * 120f) * Mathf.Deg2Rad;
+            }
+            // a fan runs up with the engine and winds down when it stops or the machine is done for
+            v.FanRate = Mathf.MoveTowards(v.FanRate, v.Stalled ? 0f : 9f + 25f * v.Throttle, dt * 8f);
+            v.Fan = Mathf.Repeat(v.Fan + v.FanRate * dt, Mathf.PI * 2f);
+
             // the commander: looks round, or at what the guns are after; out of the hatch when it is all over
             if (now >= v.NextLook)
             {
@@ -549,6 +577,7 @@ namespace TW.Presentation.Tactical
                 case TankPartRole.Hatch: rot *= Quaternion.AngleAxis(-105f * Mathf.SmoothStep(0f, 1f, v.Hatch), Vector3.right); break;
                 case TankPartRole.Cupola: rot *= Quaternion.AngleAxis(v.Cupola, Vector3.up); break;
                 case TankPartRole.Wheel: rot *= Quaternion.AngleAxis((p.Side < 0 ? v.WheelL : v.WheelR) * Mathf.Rad2Deg, Vector3.right); break;
+                case TankPartRole.Fan: rot *= Quaternion.AngleAxis(v.Fan * Mathf.Rad2Deg, Vector3.forward); break;   // about the hull's length
             }
             return Matrix4x4.TRS(pos, rot, Vector3.one);
         }

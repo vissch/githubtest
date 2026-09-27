@@ -258,6 +258,8 @@
 .tw-portrait-Pavise { background-image: url("Portraits/Pavise.png"); }
 .tw-portrait-Banner { background-image: url("Portraits/Banner.png"); }
 .tw-portrait-Redoubt { background-image: url("Portraits/Redoubt.png"); }
+.tw-portrait-Skimmer { background-image: url("Portraits/Skimmer.png"); }
+.tw-portrait-Salvo { background-image: url("Portraits/Salvo.png"); }
 .tw-portrait-HeBarrage { background-image: url("Portraits/HeBarrage.png"); }
 .tw-portrait-ChlorineGas { background-image: url("Portraits/ChlorineGas.png"); }
 

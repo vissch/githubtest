@@ -188,12 +188,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
    whether a unit is a tank reads `ChassisKind` through `SimWorld.ChassisOf`, or `RosterEntry.ForArchetype(a).Chassis`
    where no world is at hand.
 3. HUD: name, tooltip and portrait in `Presentation/Core/UnitLook.cs` (both HUDs read it; `UI/HudText.cs`
-   forwards), the portrait stem in `UI/Skin/SkinSpec.cs` (`PortraitNames`), the pictures in `UI/Skin/Portraits/`
-   and `UI/Resources/UnitArt/`. HudTextTests, HudBindTests and UnitArtTests fail until every archetype has them.
+   forwards; `PortraitCount` past the new id), the portrait stem in `UI/Skin/SkinSpec.cs` (`PortraitNames`, then
+   `Tools/gen_artspec.py`), the pictures in `UI/Skin/Portraits/` and `UI/Resources/UnitArt/` (a machine's can be cut
+   from its render: `Tools/portraitcut.py`), the `.tw-portrait-<Name>` class in `UI/Skin/dustfront.components.uss`,
+   and an icon in the IMGUI `BattleHud`. HudTextTests, HudBindTests and UnitArtTests fail until every archetype has them.
 4. Art: infantry needs a figure in `Editor/VATBaker.cs` and a bake. Vehicles need a `Resources/Vehicles/<Name>/`
-   folder (`pipelines.md`) that `Presentation/Camera/TankModel.cs` loads; a walker also needs its id and model name
-   in `TankRenderer`'s `CrabArchetypes` and `CrabNames`. Its legs are solved by `Presentation/Camera/WalkerGait.cs`
-   from the model, so check it stands and walks (GaitTests).
+   folder and a `<Name>Atlas.jpg` beside it (`pipelines.md`; `Tools/mechsplit.py TW_BATTLE=1` writes both from a
+   playground split) that `Presentation/Camera/TankModel.cs` loads, and one row in `TankRenderer`'s `Machines` table
+   (name, archetype, root part, draw scale); a walker's row goes among the first `WalkerRows`. A walker's legs are
+   solved by `Presentation/Camera/WalkerGait.cs` from the model, so check it stands and walks (GaitTests). A machine
+   defined only in `UnitDefinitions` is unknown to `RosterEntry.ForArchetype`: code with no world at hand that asks
+   it (the IMGUI icon check, `RiderLab`) sees an empty id. Otr cannot load an FBX hierarchy: tests that load a model
+   (GaitTests, DefinedMachineModelTests) report ENGINE offline and run in the gate.
 5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` reads the same `UnitLook` names; its icon array is
    `UnitLook.PortraitCount` long. No test runs OnGUI, so check it in Play with F9.
 6. Tests to run: FactionRosterTests, UnitDefinitionTests, CrabTests or TankTests, GaitTests, HudTextTests,
@@ -227,13 +233,16 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
 ### Tanks and walkers drawn
-- **Files:** `Presentation/Camera/TankRenderer.cs`, `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
+- **Files:** `Presentation/Camera/TankRenderer.cs` (`Machines`: every machine with an atlas of its own, the walkers and
+  since 2026-09-28 the Skimmer and the Salvo, `Resources/Vehicles/Skimmer`, `/Salvo`; a turret on a machine armed only
+  with small arms follows `SimWorld.TargetSlot`; a part called Fan spins), `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
   `Presentation/Camera/WalkerGait.cs` (planted feet), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
   import rules `Editor/TankImport.cs`. Infantry riding the machines (a prototype, presentation only):
   `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
   `Presentation/Units/VATRenderer.Extras.cs` (the riders drawn; a seated man is hidden from the normal pass),
   `Editor/RiderLab.cs` (the seat sheet and captures).
-- **Tests:** GaitTests (plus the sim tests above), RiderSeatTests. WalkerStills (`Tests/Stills`) captures the walkers
+- **Tests:** GaitTests (plus the sim tests above), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
+  models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
   for the rig scoreboard in `docs/20-rig-scoreboard.md`.
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
@@ -570,7 +579,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->

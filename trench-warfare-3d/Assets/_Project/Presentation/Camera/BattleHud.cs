@@ -258,6 +258,9 @@ namespace TW.Presentation.Tactical
             unitIcons[InfantryArchetype.Para] = Icon(Pale, Dark, "..##########..", ".############.", "..#...##...#..", "...#..##..#...", "....#.##.#....", "......##......");
             unitIcons[InfantryArchetype.Jetpack] = Icon(Pale, Dark, "....##..##....", "....##..##....", "....######....", "......##......", ".....#..#.....", "....#....#....");
             unitIcons[VehicleArchetype.Breaker] = Icon(Pale, Dark, "..............", "..##########..", ".############.", "###o######o###", "##############", "..#..#..#..#..");
+            // the sandbox's two (2026-09-28): a gun on a hull with a fan behind it on four pods, and a box of tubes on a truck
+            unitIcons[VehicleArchetype.Skimmer] = Icon(Pale, Dark, "..........###.", ".####....#...#", "..##...#.#.#.#", ".#########...#", "###########.#.", "##.##..##.##..");
+            unitIcons[VehicleArchetype.Salvo] = Icon(Pale, Dark, "..#########...", "o.#########...", "o.#########...", "......##......", "##.#########..", "#o#..o.o.o.o..");
 #if UNITY_EDITOR
             // The roster grew twice while the array did not, and the draw clamped the index, so the overflow was
             // silent: two machines shared one picture and the bar looked right while lying. A missing archetype says

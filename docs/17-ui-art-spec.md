@@ -4,14 +4,14 @@ Generated from `Assets/_Project/UI/Skin/SkinSpec.cs` by `Tools/gen_artspec.py`; 
 
 ## What the skin is
 
-Dust Front's interface: near-black gunmetal plates with very subtle rivets, 1 px light-grey bevel lines, recessed darker windows for numbers, hex bolts, ribbed hoses, `CAUTION` micro-text along plate edges and a faint film grain over the whole screen. Type is condensed stencil caps; body text is bone (#C8C9C6), readouts amber (#E0762A), danger red (#E02B2B), power pale blue (#7FB4E0), totals white. The palette lives in `dustfront.tokens.uss`; the sprites below are painted in those colours. Corners are round: 12 px on plates, panels, buttons, cards, order buttons and the minimap bezel; 8 px on keycaps, tabs and list rows; 5 px on digit windows, nameplates, badges and checkboxes. Paint the curve into the PNG with the plate's dark edge following it; the interface clips each element to the same radius (--tw-radius-* in dustfront.tokens.uss), so a different radius shows as a mismatched corner.
+Dust Front's interface: near-black gunmetal plates with very subtle rivets, 1 px light-grey bevel lines, recessed darker windows for numbers, hex bolts, ribbed hoses, `CAUTION` micro-text along plate edges and a faint film grain over the whole screen. Type is condensed stencil caps; body text is bone (#C8C9C6), readouts amber (#E0762A), danger red (#E02B2B), power pale blue (#7FB4E0), totals white. The palette lives in `dustfront.tokens.uss`; the sprites below are painted in those colours. No rounded corners anywhere: the house corner is a 4 px diagonal cut, drawn into the PNG.
 
 ## Rules that let a file be swapped without a code change
 
 1. Paint to the exact size in the table. The 9-slice border (left, bottom, right, top, in px) is the part that must not stretch: rivets and bevels go inside it, the centre stays flat.
 2. Plates and elements are painted in final colour and are never tinted by the interface.
 3. Icons are WHITE glyphs on a transparent background with a 1 px near-black contour (#0A0B0C), a 4 px safe margin and strokes no thinner than 3 px at 64 px. The interface colours them (bone, amber, red, grey) by tint, so one file serves every state. Keep icons uncoloured: white body, near-black contour, grey only in the anti-aliasing; any hue shows up as a tint error in the verifier.
-4. Rounded corners and all transparency live in the PNG; keep each radius inside the sprite's 9-slice border. Alpha is straight (not premultiplied).
+4. Cut corners and all transparency live in the PNG. Alpha is straight (not premultiplied).
 5. Drop the file over the placeholder with the same name in the same folder under `Assets/_Project/UI/Skin/`. Do not touch `.meta` files: import settings and borders are applied automatically from the table.
 6. Nothing else. The generator sees the hash changed, records the file as yours, and never overwrites it. `TW/UI/Verify Skin` lists what is still a placeholder.
 
@@ -104,9 +104,9 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 | `ico_smg.png` | 32x32 | - | weapon badge for the Assault card |
 | `ico_mg.png` | 32x32 | - | weapon badge for the MG card |
 
-## Portraits (22 files, `Assets/_Project/UI/Skin/Portraits/`)
+## Portraits (24 files, `Assets/_Project/UI/Skin/Portraits/`)
 
-256x256 RGBA PNG, transparent background, no frame (the card draws its own). One per unit archetype plus the three support emblems, keyed by what the unit IS, never by its slot — a slot means nothing across factions, since Iron's officer sits where Brass's sniper does:
+256x256 RGBA PNG, transparent background, no frame (the card draws its own). One per unit archetype plus the two support emblems, keyed by what the unit IS, never by its slot:
 
 - `Rifleman.png`
 - `Assault.png`
@@ -127,14 +127,14 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Para.png`
 - `Jetpack.png`
 - `Breaker.png`
+- `Skimmer.png`
+- `Salvo.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`
 - `Cutter.png` is reserved: the model exists but no archetype fields it yet.
 
-Framing, so the set reads as one: machine turned 55 degrees so its nose points to the viewer's front-right (the enemy is screen-right everywhere in the HUD); camera 18 degrees above horizontal with a long lens (22 degree vertical field); the model fills 86% of the frame's larger extent, centred on its bounds. Infantry: a bust from mid-chest, body turned 30 degrees, face toward frame right; the Rifleman, Assault and MG share one figure and differ by a small weapon badge the card adds. Light: warm key upper-left-front, cool rim from behind-right, dim cool fill from below-front. No ground, no shadow disc, no team colour (the card's rim carries the team). Support emblems are painted, not rendered: a shell over a crater burst (HeBarrage), a drum with a drifting cloud (ChlorineGas), a canopy over a falling man (ParaDrop), in plate colours with an amber, gas-green or pale-khaki accent.
-
-The six units of 2026-09-25 are busts on the infantry figure and read by one held thing each, so they are told apart at 72 px: the Officer bare-headed with a raised arm and a cane, the Shield bearer behind a plate held out at arm's length, the Medic with a white brassard and a satchel, the Engineer with a spanner and a rolled sleeve, the Para in a jump smock with the harness still on, the Jetpack man with two tanks over his shoulders. The Breaker is a machine and takes the machine framing: a squat hull behind a ram, stacks over the engine deck.
+Framing, so the set reads as one: machine turned 55 degrees so its nose points to the viewer's front-right (the enemy is screen-right everywhere in the HUD); camera 18 degrees above horizontal with a long lens (22 degree vertical field); the model fills 86% of the frame's larger extent, centred on its bounds. Infantry: a bust from mid-chest, body turned 30 degrees, face toward frame right; the Rifleman, Assault and MG share one figure and differ by a small weapon badge the card adds. Light: warm key upper-left-front, cool rim from behind-right, dim cool fill from below-front. No ground, no shadow disc, no team colour (the card's rim carries the team). Support emblems are painted, not rendered: a shell over a crater burst (HeBarrage), a drum with a drifting cloud (ChlorineGas), in plate colours with an amber or gas-green accent.
 
 `TW/UI/Bake Unit Portraits` renders placeholders from the game's own models with exactly this framing; a painted portrait replaces one by taking its file name.
 

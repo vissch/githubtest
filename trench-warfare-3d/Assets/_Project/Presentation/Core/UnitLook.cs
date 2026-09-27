@@ -39,12 +39,12 @@ namespace TW.Presentation
             archetype < InfantryPortraits.Length ? InfantryPortraits[archetype] : FootName(archetype) ?? VehicleName(archetype);
 
         /// <summary>
-        /// How many unit portraits the skin has: archetypes 0..18 — four line infantry, two tanks, six walkers, the six
-        /// units of 2026-09-25 that go up the line on foot, and the Breaker. Held at or above every archetype either
-        /// faction's roster hands out, so a new machine cannot inherit its neighbour's picture the way the IMGUI icon
-        /// array once let two walkers share one.
+        /// How many unit portraits the skin has: archetypes 0..20 — four line infantry, two tanks, six walkers, the six
+        /// units of 2026-09-25 that go up the line on foot, the Breaker, and the Skimmer and the Salvo (2026-09-28,
+        /// fielded only from the Unit Sandbox). Held at or above every archetype either faction's roster hands out, so a
+        /// new machine cannot inherit its neighbour's picture the way the IMGUI icon array once let two walkers share one.
         /// </summary>
-        public const int PortraitCount = 19;
+        public const int PortraitCount = 21;
 
         /// <summary>The six units of 2026-09-25 that go up the line on foot; null for anything else, so machines fall through.</summary>
         static string FootName(byte archetype)
@@ -94,6 +94,8 @@ namespace TW.Presentation
                 case VehicleArchetype.Banner: return "Banner";
                 case VehicleArchetype.Redoubt: return "Redoubt";
                 case VehicleArchetype.Breaker: return "Breaker";
+                case VehicleArchetype.Skimmer: return "Skimmer";
+                case VehicleArchetype.Salvo: return "Salvo";
                 default: return "Vehicle";
             }
         }
@@ -120,6 +122,8 @@ namespace TW.Presentation
                 case VehicleArchetype.Banner: return "Banner, command walker: a 300 m gun, and a standard that steadies your men within 26 m. Thin plate";
                 case VehicleArchetype.Redoubt: return "Redoubt, blockhouse walker: no gun. 38 mm of front plate and the heaviest claws on the field";
                 case VehicleArchetype.Breaker: return "Breaker, assault tank: winds up, charges a trench at 2.5x and strikes. Thin deck once it runs";
+                case VehicleArchetype.Skimmer: return "Skimmer, hovercraft: the fastest machine, a 130 m machine gun. Rides over mud and trenches. 8 mm";
+                case VehicleArchetype.Salvo: return "Salvo, rocket half-track: rockets out of sight to 380 m, a 7 m burst. Blind inside 60 m, 16 s to reload";
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }
@@ -143,6 +147,8 @@ namespace TW.Presentation
                 case "Kettle": return "Kettle's on! Mortar ready to brew.";
                 case "Maw": return "MAW HUNGRY. MAW CRUSH WIRE.";
                 case "Breaker": return "BREAKER WINDING UP. CLEAR THE PARAPET.";
+                case "Skimmer": return "Skimmer's up on the cushion. Mind the spray.";
+                case "Salvo": return "Tubes loaded. Give us a grid and stand clear.";
                 default: return "Moving up.";
             }
         }
