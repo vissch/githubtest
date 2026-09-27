@@ -260,6 +260,37 @@ namespace TW.Tests.Playground
         }
 
         [Test]
+        public void The_Village_House5_Comes_Down_Chunk_By_Chunk_With_Nothing_Left_Floating()
+        {
+            // pipeline slice A (docs/reference/stations.md): the smallest village house, 9 chunks in houses.json.
+            // The same shelling as the ruin, then a heavier second pass: each pass must bring more down, and nothing
+            // may be left standing on air or resting on end after either
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var b = BuildingRig.Build("Houses", "House5", null, parent, Vector3.zero, 0f, 11);
+                Assert.That(b, Is.Not.Null, "the Houses set has House5");
+                Assert.That(b.Pieces.Count, Is.EqualTo(9), "House5's chunks, as houses.json lists them");
+                int before = b.Standing;
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    for (int k = 0; k < 8; k++)
+                    {
+                        float ang = k * 2.39996f, r = b.Radius * 0.55f;
+                        b.ShellLocal(new Vector3(Mathf.Cos(ang) * r, 1f + (k % 3) * 1.2f, Mathf.Sin(ang) * r), 70f * (pass + 1));
+                        for (int f = 0; f < 45; f++) b.Advance(1f / 60f);
+                    }
+                    for (int f = 0; f < 1200; f++) b.Advance(1f / 60f);
+                    Assert.That(b.Standing, Is.LessThan(before), $"shelling pass {pass + 1} brings more of the house down");
+                    Assert.That(b.Floating, Is.EqualTo(0), $"pass {pass + 1}: standing chunks with nothing under them");
+                    Assert.That(b.OnEnd, Is.EqualTo(0), $"pass {pass + 1}: loose pieces resting on a small face");
+                    before = b.Standing;
+                }
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
         public void Every_Unit_LOD_Is_Skinned_To_One_Skeleton_And_Simpler_LODs_To_Fewer_Bones()
         {
             foreach (var u in Lib().Units)
