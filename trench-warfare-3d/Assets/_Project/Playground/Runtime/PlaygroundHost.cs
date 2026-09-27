@@ -314,6 +314,8 @@ namespace TW.Playground
                 case "traverse": foreach (var v in Vehicles) v.Traverse = !v.Traverse; break;
                 case "cookdelay": cookDelay = F(a, 1, 7f); foreach (var v in Vehicles) v.CookDelay = cookDelay; break;
                 case "size": VehicleSize = F(a, 1, 1.7f); Scene(Mode); break;
+                case "fly": foreach (var v in Vehicles) if (v.Flyer != null) { v.Flyer.Speed = F(a, 1, 8f); if (a.Length > 2) v.Flyer.Altitude = F(a, 2, 14f); } break;   // "fly 8 [14]": m/s round a circle [altitude, m]
+                case "walk": foreach (var v in Vehicles) if (v.Walker != null) { v.Walker.Speed = F(a, 1, 2f); v.Walker.InPlace = F(a, 2, 0f) > 0.5f; } break;   // "walk 2 [1]": a walker's pace, m/s [on the spot]
                 case "clip":
                     {
                         int k = Library.ClipIndex(line.Substring(line.IndexOf(' ') + 1).Trim());

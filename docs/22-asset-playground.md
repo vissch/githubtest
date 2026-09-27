@@ -118,6 +118,41 @@ matched to the seen LOD it is 23.0, and 22.6 in r19's m3 (u9's file of men: -4.5
 block shift 3.9 (4.6); the frog's 2->3 block shift 5.2 (6.5). The frog's 0->1 and 1->2 shifts stay side-dependent
 (3-8): shading on a different sculpt, which no single tint removes - derived LOD1 is the fix there.
 
+## The second batch: an ambulance, a walker and a flyer (2026-09-27)
+Three more machines, each a Tripo model at two or three levels of detail, all in the vehicle bay (`Playground/Art/Tanks/`)
+so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the same at every LOD:
+
+| Machine | Source | Tool | LODs (tris) | Pop 0->1 / 1->2 (worst-side IoU / block colour) |
+|---|---|---|---|---|
+| **Mercy**, a field ambulance | `ambulance jeep` 6,236 + `green toy jeep` 880 (the same design; the two `green toy jeep` zips are identical) | `jeepsplit.py` | 7,023 / 2,551 / 1,214 | 0.979 / 4.2, 0.907 / 8.1 |
+| **Croaker**, a two-legged frog mech | `steampunk+frog+robot` 9,738, `mecha frog` 3,702, `mech+robot` 1,008 | `mechsplit.py` | 9,738 / 3,687 / 1,010 | 0.968 / 2.1, 0.900 / 0.9 |
+| **Hopper**, a frog gunship on two ducted engines | `green+tank (1)` 5,903, `green+cartoon+tank` 3,297, `green+tank` 993 (`green+tank (2)` bundles the three) | `mechsplit.py` `TW_KIND=flyer` | 5,903 / 3,288 / 985 | 0.990 / 2.2, 0.967 / 1.9 |
+
+(The Brute measured 0.967 / 2.9 and 0.932 / 1.8 in the same session.)
+
+- **LOD2, derive or Tripo's:** measured, not assumed. The mech's LOD2 derived from LOD0 switches at 0.900; Tripo's own
+  1,008-triangle model at 0.791 (a different sculpt). The ambulance is the other way: LOD0 decimated to 13-20 % of its
+  triangles tore into spikes and holes at every budget tried (965 to 1,742 triangles: the roofs and the box's thin panels
+  collapse first), so its LOD2 is Tripo's clean 880-triangle retopology, split by the same rules. What Tripo welded into
+  that body (the rear doors, the back fittings) is carved out of the box each part fills at LOD0, and its open-backed
+  tyres are closed. Its 8.1 block colour at 1->2 is the other texture bake, as with the first frog.
+- **Cut outlines are filled, not fanned:** a fan round the centre of a concave cut outline overhangs it, and the overhang
+  showed on the outside of the cab and box as black wedges. Only outlines the cut made are filled; a window a plane cuts
+  through stays open.
+- **The walker** (`Runtime/WalkerDrive.cs`) runs on the battle's own `WalkerGait`, fed a leg rig built from the manifest's
+  pivots: where the feet go, how high the body rides and how it tilts. The legs are NOT solved by `WalkerGait.Solve`: it
+  puts a knee on the side that raises it (a crab's leg, up and out), and a biped's knee has to go forward, as this one was
+  modelled. The gait is given each leg as one piece from hip to toe as modelled, so the machine stands as sculpted; taken
+  at full stretch it stood the frog up straight-legged. Two legs means one foot up at a time (the gait's own rule). A
+  leg shot off is reported to the gait as lost and it limps. `walk 2.5` walks it round a circle; `walk 2.5 1` on the
+  spot, to look at. **For the battle:** `WalkerGait.Solve` needs a knee-forward option before a biped can go in.
+- **The flyer** (`Runtime/FlyerDrive.cs`) keeps the rig on the ground and lifts only the Hull, in the rig's own frame, so
+  a part shot off in the air starts its flight where it was and falls to the ground. It hovers at 14 m with a bob and a
+  sway; `fly 8` circles it banked into the turn. Knocked out, it falls nose down and turning and lands on its skids,
+  where it burns and cooks off like the tank. The sim has no flying unit yet: that is the owner's call.
+- Scales: the mech 5.8 m tall and the gunship 8 m long at `size 1`, the ambulance 4.6 m long. The battle draws walkers
+  2.5x and tanks 1.7x (`VehicleSize`); how big these should be beside them is the owner's call too.
+
 ## Readability
 `ground mud` swaps the metre grid for a dark warm mud; `team 0|1|split` puts the battle's side colours on (the tank's
 lamps and antenna, where the game paints a tank's horns, and field-grey over the olive for side 1; a light wash on a

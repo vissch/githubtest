@@ -90,6 +90,10 @@ namespace TW.Tests.Playground
             }
         }
 
+        /// <summary>What a vehicle runs on: its tracks, or its wheels (the ambulance). Thrown, each shows every side.</summary>
+        static IEnumerable<string> RunningGear(PlaygroundLibrary.VehicleEntry v) =>
+            VehicleManifest.Parse(v.Manifest).partList.Select(p => p.name).Where(n => n.StartsWith("Track_") || n.StartsWith("Wheel_"));
+
         [Test]
         public void Every_Vehicle_Track_Is_Closed_So_A_Thrown_Track_Shows_No_Hole()
         {
@@ -97,7 +101,7 @@ namespace TW.Tests.Playground
             // Every open loop longer than an eighth of the track (a hole you could see into) must be capped.
             foreach (var v in Lib().Vehicles)
                 for (int k = 0; k < v.Lods.Length; k++)
-                    foreach (var side in new[] { "Track_L", "Track_R" })
+                    foreach (var side in RunningGear(v))
                     {
                         var mesh = FindDeep(v.Lods[k].transform, side).GetComponent<MeshFilter>().sharedMesh;
                         var verts = mesh.vertices; var tris = mesh.triangles;
@@ -143,7 +147,7 @@ namespace TW.Tests.Playground
                 for (int k = 0; k < v.Lods.Length; k++)
                 {
                     var tex = new Texture2D(2, 2); tex.LoadImage(System.IO.File.ReadAllBytes(AssetDatabase.GetAssetPath(v.Atlas[k])));
-                    foreach (var side in new[] { "Track_L", "Track_R" })
+                    foreach (var side in RunningGear(v))
                     {
                         var m = FindDeep(v.Lods[k].transform, side).GetComponent<MeshFilter>().sharedMesh;
                         var vs = m.vertices; var uv = m.uv; var tr = m.triangles; double dark = 0, all = 0;
@@ -349,6 +353,62 @@ namespace TW.Tests.Playground
                 }
             }
             finally { deck?.Destroy(); Object.DestroyImmediate(parent.gameObject); }
+        }
+    
+        static float Lowest(Transform t, Mesh m)
+        {
+            float low = float.MaxValue; var w = t.localToWorldMatrix;
+            foreach (var v in m.vertices) low = Mathf.Min(low, w.MultiplyPoint3x4(v).y);
+            return low;
+        }
+
+        [Test]
+        public void A_Walker_Walks_With_Its_Feet_On_The_Ground()
+        {
+            // WalkerDrive: the game's WalkerGait places the feet, the playground bends the knees forward. Walking for five
+            // seconds, no foot may sink into the ground and one must always be standing on it, and the body stays up.
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).walker);
+            if (e == null) Assert.Ignore("no walker in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0);
+                r.Walker.Speed = 2.5f;
+                float worstSink = 0f, worstLift = 0f, lowHull = float.MaxValue;
+                for (int f = 0; f < 300; f++)
+                {
+                    r.Advance(1f / 60f);
+                    if (f < 30) continue;
+                    float l = Lowest(r.Find("Foot_L").T, r.Find("Foot_L").Lods[0]), rr = Lowest(r.Find("Foot_R").T, r.Find("Foot_R").Lods[0]);
+                    worstSink = Mathf.Min(worstSink, Mathf.Min(l, rr));
+                    worstLift = Mathf.Max(worstLift, Mathf.Min(l, rr));
+                    lowHull = Mathf.Min(lowHull, r.Find("Hull").T.position.y);
+                }
+                Assert.That(worstSink, Is.GreaterThan(-0.25f), "a foot sank into the ground");
+                Assert.That(worstLift, Is.LessThan(0.35f), "both feet were off the ground at once");
+                Assert.That(lowHull, Is.GreaterThan(1f), "the body sat down while walking");
+                Assert.That(r.Walker.WalkPos.magnitude, Is.GreaterThan(8f), "it did not walk anywhere");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void A_Flyer_Hovers_And_Falls_When_Knocked_Out()
+        {
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).flyer);
+            if (e == null) Assert.Ignore("no flyer in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.4f, 3); r.CookDelay = -1f;
+                for (int f = 0; f < 60; f++) r.Advance(1f / 60f);
+                Assert.That(r.Find("Hull").T.position.y, Is.GreaterThan(10f), "it is not flying");
+                r.KnockOut();
+                for (int f = 0; f < 360; f++) r.Advance(1f / 60f);
+                var hull = r.Find("Hull");
+                Assert.That(Lowest(hull.T, hull.Lods[0]), Is.LessThan(0.6f).And.GreaterThan(-1.5f), "knocked out, it came down onto the ground");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
         }
     }
 }

@@ -23,6 +23,36 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 63dabdf66f891c04dbe56ee6e268aed5, type: 3}
     - {fileID: 2800000, guid: be125ff6e0258954788fc1d7741ac5fd, type: 3}
     - {fileID: 2800000, guid: 9dae998be7b9900498845e708d9eb598, type: 3}
+  - Name: Croaker
+    Manifest: {fileID: 4900000, guid: 02a76c4871053464591e964f009ee2ea, type: 3}
+    Lods:
+    - {fileID: 919132149155446097, guid: 0e49487ab49628c44ba1afe06aabea7c, type: 3}
+    - {fileID: 919132149155446097, guid: e0643250b88c43c40972405e6bb07949, type: 3}
+    - {fileID: 919132149155446097, guid: a6caa08671a30ec40a57a8243ad3d13b, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 05c5f55e684b30e41845983ae78c499e, type: 3}
+    - {fileID: 2800000, guid: fd856a72bab417d4cbd9c2f2ec47709a, type: 3}
+    - {fileID: 2800000, guid: 20cff6e18a839a046ba7e41ae323ce09, type: 3}
+  - Name: Hopper
+    Manifest: {fileID: 4900000, guid: b2b55970043119541824220650326736, type: 3}
+    Lods:
+    - {fileID: 919132149155446097, guid: 3787b264b9fe361449adcb8941366e31, type: 3}
+    - {fileID: 919132149155446097, guid: 8016b435b6fe9f3489bacfd9b56d8b67, type: 3}
+    - {fileID: 919132149155446097, guid: de21f77282d8e72459b1e5dfb07b65a7, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 8955fd8d02569504287788bcde21b634, type: 3}
+    - {fileID: 2800000, guid: 7a08f5d4897541949b5818b9b21dac11, type: 3}
+    - {fileID: 2800000, guid: 5308359c3625ae243a7e160338294d70, type: 3}
+  - Name: Mercy
+    Manifest: {fileID: 4900000, guid: 2d1da6c335d734f4cb7ff6bd0970f0a6, type: 3}
+    Lods:
+    - {fileID: 919132149155446097, guid: 14266c98309d0a449968e344dec6d9b3, type: 3}
+    - {fileID: 919132149155446097, guid: d62f8e8e47be18340a31020f0911e58f, type: 3}
+    - {fileID: 919132149155446097, guid: c47fccc08600f5b48aff035d5c8d71be, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 5d3e79a555f09eb46994683d2dd9ec2c, type: 3}
+    - {fileID: 2800000, guid: 28c1bc298f75e7a41af001cb94f72448, type: 3}
+    - {fileID: 2800000, guid: 997c7a12b6556fa44a5386672f9c080d, type: 3}
   Units:
   - Name: Frog
     Model: {fileID: 919132149155446097, guid: 1ffbac77dbd202e4388704cb14017201, type: 3}
