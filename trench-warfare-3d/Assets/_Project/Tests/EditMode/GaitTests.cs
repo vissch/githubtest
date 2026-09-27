@@ -6,6 +6,7 @@
 // artist modelled actually reaches the foot the gait chose, that something is always holding the machine up, that a
 // step goes OVER a parapet rather than through it, and that a machine losing legs leans into the hole they left.
 // None of it is in the simulation — this is all presentation — so none of it can be checked by a hash.
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Sim;
@@ -142,6 +143,83 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>How deep the worst swinging foot goes INTO a wall while it is horizontally over it, and
+        /// whether any step was ever asked to clear it. The two are different questions and this used to conflate
+        /// them: the old assertion read `Feet[i].Arc >= wall + Clearance * 0.9`, which is the height the gait
+        /// REQUESTED, not the height the foot reached. `Arc` is spent through `Mathf.Sin(t * PI)` and is then
+        /// clamped against what the leg can fold to, so a satisfied request proves nothing about the foot. That
+        /// test would have passed if `ArcFor` returned `float.MaxValue`, and it passed both before and after the
+        /// sampling fix it was cited as evidence for.</summary>
+        static (float worst, bool asked) ParapetDip(TankModel m, float wall)
+        {
+            System.Func<float, float, float> parapet = (x, z) => z > 24f && z < 25.2f ? wall : 0f;
+            float worst = 0f;
+            bool asked = false;
+            Walk(m, parapet, 2.0f, 8f, each: (g, pos, yaw) =>
+            {
+                for (int i = 0; i < g.Feet.Length; i++)
+                {
+                    if (g.Feet[i].Swing < 0f) continue;
+                    bool crosses = (g.Feet[i].Anchor.z < 24f) != (g.Feet[i].Target.z < 24f);
+                    if (crosses && g.Feet[i].Arc >= wall + WalkerGait.Clearance * 0.9f) asked = true;
+                    // only while the foot is actually over the sacking
+                    if (g.Feet[i].At.z <= 24f || g.Feet[i].At.z >= 25.2f) continue;
+                    worst = Mathf.Max(worst, wall - g.Feet[i].At.y);
+                }
+            });
+            return (worst, asked);
+        }
+
+        /// <summary>The regression test this board went 33 cycles without.
+        ///
+        /// The body's tilt is fitted as a least-squares plane through the feet, and the fit needed three planted feet.
+        /// A four-legged walker keeps exactly two down, so on FIVE of the six machines the fit never ran once and the
+        /// hull was drawn dead level on every slope it stood on — for as long as anyone has been looking. Cycle A9
+        /// measured Pincer at an exact 6.84 degrees on a 6.84 degree grade, scored the line 7, and nobody checked the
+        /// other five until cycle A34.
+        ///
+        /// The floor here is deliberately NOT the per-machine cap computed from rig data. Asserting that would be
+        /// circular — it is the same closed form the shipped code evaluates, so it would agree with any value the
+        /// code produced, including zero if the cap went to zero. Three degrees is an independent floor: it is far
+        /// below every machine's honest answer (Banner, the worst lever on the field, manages 4.03) and far above the
+        /// 0.00 the bug produced.</summary>
+        [Test]
+        public void EveryWalkerLeansToASlopeItIsStandingOn()
+        {
+            const float grade = 0.12f;
+            float trueDeg = Mathf.Atan(grade) * Mathf.Rad2Deg;      // 6.84
+            System.Func<float, float, float> hill = (x, z) => z * grade;
+            var names = new[] { "Pincer", "Censer", "Kettle", "Pavise", "Banner", "Redoubt" };
+            var kinds = new byte[] { VehicleArchetype.Pincer, VehicleArchetype.Censer, VehicleArchetype.Kettle,
+                                     VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt };
+            var flat = new List<string>();
+            var over = new List<string>();
+
+            for (int k = 0; k < kinds.Length; k++)
+            {
+                var m = Load(names[k], kinds[k]);
+                var g = Walk(m, hill, 1.3f, 6f);
+                float deg = g.Pitch * Mathf.Rad2Deg;
+                if (deg < 3f) flat.Add($"{names[k]} {deg:0.00} deg");
+                // nose-up on a climb, and never beyond the ground it is standing on by more than a degree
+                if (deg > trueDeg + 1f) over.Add($"{names[k]} {deg:0.00} deg against a {trueDeg:0.00} deg slope");
+            }
+
+            Assert.That(flat, Is.Empty, $"drawn level on a {trueDeg:0.00} degree slope: {string.Join(", ", flat)}");
+            Assert.That(over, Is.Empty, $"leaning further than the ground: {string.Join(", ", over)}");
+        }
+
+        [Test]
+        public void AFootDoesNotPassThroughAParapetItStepsOver()
+        {
+            // the parapet the battlefield actually builds: sandbags stand 0.58-0.70 m proud of the lip
+            var m = Load("Pincer", VehicleArchetype.Pincer);
+            var (worst, asked) = ParapetDip(m, 0.70f);
+            Assert.IsTrue(asked, "no step over a 0.70 m parapet was even asked to clear it");
+            Assert.LessOrEqual(worst, 0.05f,
+                $"a swinging foot cut {worst:0.000} m into a 0.70 m parapet while passing over it");
+        }
+
         [Test]
         public void AStepGoesOverAParapetRatherThanThroughIt()
         {
@@ -149,19 +227,12 @@ namespace TW.Tests
             var m = Load("Pincer", VehicleArchetype.Pincer);
             float wall = 0f;
             for (int i = 0; i < m.Lods[0].Legs.Length; i++) if (m.Lods[0].Legs[i] != null) { wall = m.Lods[0].Legs[i].Reach * 0.66f; break; }
-            System.Func<float, float, float> parapet = (x, z) => z > 24f && z < 25.2f ? wall : 0f;
 
-            bool cleared = false;
-            Walk(m, parapet, 2.0f, 8f, each: (g, pos, yaw) =>
-            {
-                for (int i = 0; i < g.Feet.Length; i++)
-                {
-                    if (g.Feet[i].Swing < 0f) continue;
-                    bool crosses = (g.Feet[i].Anchor.z < 24f) != (g.Feet[i].Target.z < 24f);
-                    if (crosses && g.Feet[i].Arc >= wall + WalkerGait.Clearance * 0.9f) cleared = true;
-                }
-            });
-            Assert.IsTrue(cleared, "no step over the parapet was raised to clear it");
+            var (worst, asked) = ParapetDip(m, wall);
+            Assert.IsTrue(asked, "no step over the parapet was raised to clear it");
+            Assert.LessOrEqual(worst, 0.05f,
+                $"a swinging foot cut {worst:0.000} m into a {wall:0.000} m wall while passing over it. "
+                + "The step was requested high enough; the foot did not get there.");
         }
 
         // ------------------------------------------------------------------ the leg reaches the foot
