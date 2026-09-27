@@ -26,7 +26,23 @@
 # (the blades and hub, which spin), Engine, Turret > Gun. The manifest says "hover" (Runtime/FlyerDrive.cs, low).
 # TW_TURN: degrees to turn the LOD0 model about Z first, so its front is -Y like the others.
 #
+# TW_KIND=halftrack: a half-track rocket truck (2026-09-28: Downloads/military+vehicle+3d+model = 7,863 tris, its front
+# already -Y; (1) = 2,971 and rocket+launcher+vehicle+3d+model = 1,450, the same design turned 90 degrees, read for their
+# triangle counts only): Hull (chassis, cab, the tracks and the two clawed legs braced at the tail), Wheel_L/R (the front
+# tyres, which roll: pivot on the axle), Turret (the rocket box on its turntable, everything standing above the yoke)
+# > Gun (the bundle of tubes, pitched at its breech). Tripo's texture is not called *basecolor* here: the image wired to
+# the material's Base Color is used.
+#
+# TW_BATTLE=1: write the BATTLE's form instead of the playground's (2026-09-28): the parts nested (each under its parent,
+# the Hull under the file's root, as Presentation/Camera/TankModel.cs walks them), the sockets as empties under their
+# parts, and two LODs, as TankRenderer draws: <Name>_LOD0 (LOD0) and <Name>_LOD1 (the far LOD, derived to the LOD2
+# budget). The base colour goes to <outdir>/../<Name>Atlas.jpg (Resources/Vehicles/<Name>Atlas), the manifest to
+# <renderdir>/<Name>_battle.json, since Resources ships whatever sits in it, and a portrait render to
+# <renderdir>/<Name>_portrait.png (the HUD's pictures are cut from it: Tools/portraitcut.py).
+# TW_PIECE_TRIS: at a derived LOD, a part keeps at least this many triangles per loose piece (default 0: off).
+#
 # usage: blender -b --factory-startup -P mechsplit.py -- <name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>
+#   the battle's copy: TW_BATTLE=1 ... -- <Name> <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/<Name> <renderdir>
 import bpy, bmesh, sys, os, math, json, random, glob, shutil
 import numpy as np
 from mathutils import Vector, Matrix
@@ -37,7 +53,8 @@ FBX = argv[1:-2]
 os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 KIND = os.environ.get("TW_KIND", "walker")
 # metres per model unit: the mech stands 0.883 units, 5.8 m; the gunship is 1 unit long, 8 m
-SCALE = float(os.environ.get("TW_SCALE", {"flyer": "8.0", "hover": "7.0"}.get(KIND, "6.6")))
+SCALE = float(os.environ.get("TW_SCALE", {"flyer": "8.0", "hover": "7.0", "halftrack": "8.0"}.get(KIND, "6.6")))
+BATTLE = os.environ.get("TW_BATTLE", "") == "1"
 
 PARTS = ["Hull", "Turret", "Gun", "Claw_L", "Claw_R", "Jaw_L", "Jaw_R", "Thigh_L", "Thigh_R", "Shin_L", "Shin_R", "Foot_L", "Foot_R"]
 # destruction (VehicleRig): tier 1 fittings, 2 limbs, 3 the turret and gun, 9 the hull; mass shares
@@ -83,7 +100,8 @@ if KIND == "hover":
     # the pods before the fan: a script's hit on "the first tier-2 part" takes a pod, not the fan the machine is known by
     PARTS = ["Hull", "Turret", "Gun", "Engine", "Pod_FL", "Pod_FR", "Pod_RL", "Pod_RR", "FanRing", "Fan"]
     BREAK = {"Gun": dict(tier=3, mass=0.4), "Turret": dict(tier=3, mass=1.0), "Engine": dict(tier=3, mass=1.4),
-             "FanRing": dict(tier=2, mass=1.0), "Fan": dict(tier=3, mass=0.5),   # (tier 1 made it the first thing any script hit took) "Hull": dict(tier=9, mass=8.0),
+             # the fan: tier 1 made it the first thing any script hit took
+             "FanRing": dict(tier=2, mass=1.0), "Fan": dict(tier=3, mass=0.5), "Hull": dict(tier=9, mass=8.0),
              **{"Pod_" + k: dict(tier=2, mass=0.7) for k in ("FL", "FR", "RL", "RR")}}
     PARENT = {"Turret": "Hull", "Gun": "Turret", "Engine": "Hull", "FanRing": "Hull", "Fan": "FanRing",
               **{"Pod_" + k: "Hull" for k in ("FL", "FR", "RL", "RR")}}
@@ -96,6 +114,31 @@ if KIND == "hover":
         if ax > 0.22 and c.z < 0.26: return "Pod_" + ("F" if c.y < 0 else "R") + ("L" if c.x > 0 else "R")
         return "Hull"
 
+if KIND == "halftrack":
+    PARTS = ["Hull", "Turret", "Gun", "Wheel_L", "Wheel_R"]
+    BREAK = {"Wheel_L": dict(tier=1, mass=0.5), "Wheel_R": dict(tier=1, mass=0.5), "Gun": dict(tier=3, mass=0.8),
+             "Turret": dict(tier=3, mass=2.0), "Hull": dict(tier=9, mass=10.0)}
+    PARENT = {"Turret": "Hull", "Gun": "Turret", "Wheel_L": "Hull", "Wheel_R": "Hull"}
+    TYRES = {}   # side -> (lo, hi) of that front tyre, set in split() from the largest low piece forward on that side
+    def part_of(c, lo, hi):
+        ax = abs(c.x)
+        for s, (tlo, thi) in TYRES.items():   # the tyre and everything inside its box (hub, rim, bolts); not the mudguard
+            if all(lo[k] >= tlo[k] - 0.01 and hi[k] <= thi[k] + 0.01 for k in range(3)): return "Wheel_" + s
+        if c.z > 0.55 and c.y < -0.1 and ax < 0.14 and hi.y - lo.y > 0.08: return "Gun"         # a tube, long along y
+        if c.z > 0.44 and lo.z > 0.38 and not (ax > 0.12 and c.y < -0.2): return "Turret"      # above the yoke; not the stack
+        return "Hull"
+
+def base_colour(stem, obj):
+    """The base colour image: Tripo's *_basecolor / tripo_rgb file, or else whatever the material wires to Base Color."""
+    found = glob.glob(stem + ".fbm/*basecolor*") + glob.glob(stem + ".fbm/tripo_rgb*")
+    if found: return found[0]
+    for m in obj.data.materials:
+        if m and m.node_tree:
+            for l in m.node_tree.links:
+                if l.to_socket.name == "Base Color" and l.from_node.type == 'TEX_IMAGE':
+                    return bpy.path.abspath(l.from_node.image.filepath)
+    raise RuntimeError("%s: no base colour texture" % stem)
+
 def load(fbx):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=fbx)
@@ -103,8 +146,7 @@ def load(fbx):
     for o in bpy.context.selected_objects: o.select_set(False)
     obj.select_set(True); bpy.context.view_layer.objects.active = obj
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-    stem = os.path.splitext(fbx)[0]
-    base = (glob.glob(stem + ".fbm/*basecolor*") + glob.glob(stem + ".fbm/tripo_rgb*"))[0]
+    base = base_colour(os.path.splitext(fbx)[0], obj)
     img = bpy.data.images.load(base)
     mat = bpy.data.materials.new("atlas"); mat.use_nodes = True
     t = mat.node_tree.nodes.new("ShaderNodeTexImage"); t.image = img
@@ -152,11 +194,20 @@ def split(fbx):
     bmesh.ops.transform(bm, matrix=Matrix.Scale(1.0 / size, 4) @ Matrix.Translation(-Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))), verts=bm.verts)
     bm.faces.ensure_lookup_table()
     groups = {n: [] for n in PARTS}
+    pieces = []
     for fs in islands(bm):
         a = sum(bm.faces[i].calc_area() for i in fs)
         c = sum((bm.faces[i].calc_center_median() * bm.faces[i].calc_area() for i in fs), Vector()) / max(a, 1e-12)
         vs = {v for i in fs for v in bm.faces[i].verts}
         ilo = Vector([min(v.co[k] for v in vs) for k in range(3)]); ihi = Vector([max(v.co[k] for v in vs) for k in range(3)])
+        pieces.append((fs, c, ilo, ihi))
+    if KIND == "halftrack":
+        TYRES.clear()
+        for s, sign in (("L", 1), ("R", -1)):
+            low = [p for p in pieces if p[1].x * sign > 0.1 and p[1].y < -0.2 and p[1].z < 0.2]
+            best = max(low, key=lambda p: len(p[0]))
+            TYRES[s] = (best[2], best[3])
+    for fs, c, ilo, ihi in pieces:
         groups[part_of(c, ilo, ihi)].append(fs)
     out = {}
     for n in PARTS:
@@ -225,9 +276,31 @@ def hover_pivots_and_sockets(P):
     lo, hi = bounds(P["Engine"]); sock["Socket_Exhaust0"] = ("Engine", Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, hi.z)))
     return piv, sock
 
+def halftrack_pivots_and_sockets(P):
+    piv = {"Hull": Vector((0, 0, 0))}
+    # the turntable: the middle of the rocket box's lowest band (the yoke it turns on), at its foot
+    lo, hi = bounds(P["Turret"]); band = [v.co for v in P["Turret"].verts if v.co.z <= lo.z + 0.04]
+    piv["Turret"] = Vector((sum(v.x for v in band) / len(band), sum(v.y for v in band) / len(band), lo.z))
+    lo, hi = bounds(P["Gun"]); piv["Gun"] = Vector(((lo.x + hi.x) / 2, hi.y, (lo.z + hi.z) / 2))   # the breech
+    for s in "LR":
+        lo, hi = bounds(P["Wheel_" + s]); piv["Wheel_" + s] = (lo + hi) / 2                     # the axle
+    sock = {}
+    lo, hi = bounds(P["Gun"]); sock["Socket_Muzzle"] = ("Gun", Vector(((lo.x + hi.x) / 2, lo.y, (lo.z + hi.z) / 2)))
+    lo, hi = bounds(P["Hull"])
+    for i, (x, f) in enumerate(((0.0, 0.8), (0.1, 0.55), (-0.1, 0.55))):
+        sock["Socket_Fire%d" % i] = ("Hull", Vector((x, (lo.y + hi.y) / 2, lo.z + f * (hi.z - lo.z))))
+    sock["Socket_Deck"] = ("Hull", Vector((0, (lo.y + hi.y) / 2, hi.z)))
+    # the exhaust: the top of the stack beside the cab, the highest point of the hull's front half
+    stack = max((v.co for v in P["Hull"].verts if v.co.y < -0.1), key=lambda co: co.z)
+    sock["Socket_Exhaust0"] = ("Hull", Vector(stack))
+    for s, sign in (("L", 1), ("R", -1)):   # dust off the back of each track
+        sock["Socket_Dust_" + s] = ("Hull", Vector((sign * 0.8 * hi.x, 0.3, 0.03)))
+    return piv, sock
+
 def pivots_and_sockets(P):
     if KIND == "flyer": return flyer_pivots_and_sockets(P)
     if KIND == "hover": return hover_pivots_and_sockets(P)
+    if KIND == "halftrack": return halftrack_pivots_and_sockets(P)
     piv = {}
     lo, hi = bounds(P["Hull"]); piv["Hull"] = Vector((0, (lo.y + hi.y) / 2, lo.z))
     lo, hi = bounds(P["Turret"]); piv["Turret"] = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
@@ -263,6 +336,25 @@ def make(lod, P, piv, sock, mat):
         o = bpy.data.objects.new(n, me); bpy.context.scene.collection.objects.link(o); objs[n] = o
     root = bpy.data.objects.new("%s_LOD%d" % (NAME, lod), None); bpy.context.scene.collection.objects.link(root)
     for n, o in objs.items(): o.parent = root; o.location = (TURN @ piv[n]) * SCALE
+    return root, objs
+
+def make_battle(lod, P, piv, sock, mat):
+    """The battle's form (crabsplit.py's): each part under its parent, the Hull under the root, sockets as empties."""
+    objs = {}
+    for n in PARTS:
+        b = P[n].copy()
+        bmesh.ops.transform(b, matrix=TURN @ Matrix.Scale(SCALE, 4) @ Matrix.Translation(-piv[n]), verts=b.verts)
+        me = bpy.data.meshes.new("%s_LOD%d_%s" % (NAME, lod, n)); b.to_mesh(me); b.free(); me.materials.append(mat)
+        o = bpy.data.objects.new(n, me); bpy.context.scene.collection.objects.link(o); objs[n] = o
+    root = bpy.data.objects.new("%s_LOD%d" % (NAME, lod), None); bpy.context.scene.collection.objects.link(root)
+    for n in PARTS:   # PARTS lists every parent before its children
+        par = PARENT.get(n)
+        objs[n].parent = objs[par] if par else root
+        objs[n].location = (TURN @ (piv[n] - (piv[par] if par else Vector()))) * SCALE
+    for sname, (owner, pos) in sock.items():
+        e = bpy.data.objects.new(sname, None); bpy.context.scene.collection.objects.link(e)
+        e.empty_display_size = 0.15; e.parent = objs[owner]; e.location = (TURN @ (pos - piv[owner])) * SCALE
+        objs[sname] = e
     return root, objs
 
 def export(root, path):
@@ -303,6 +395,35 @@ def render(tag, objs, colour, exploded=0.0):
     bpy.ops.render.render(write_still=True)
     for o, l in saved.items(): o.location = l
 
+def portrait(objs, path):
+    """The HUD's picture of the machine: LOD0 lit and textured, front-left three-quarters from above, on a transparent
+    film (1024 px; cut to the portrait sizes outside Blender). Rendered here, where the parts stand where they belong."""
+    scn = bpy.context.scene
+    meshes = [o for o in objs.values() if o.type == 'MESH']
+    for o in scn.objects:
+        if o.type == 'MESH': o.hide_render = o not in meshes
+    engines = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
+    was = scn.render.engine, scn.render.resolution_x, scn.render.resolution_y, scn.render.film_transparent
+    scn.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in engines else 'BLENDER_EEVEE_NEXT'
+    scn.render.film_transparent = True; scn.render.resolution_x = scn.render.resolution_y = 1024
+    scn.view_settings.view_transform = 'Standard'
+    if not scn.world:
+        scn.world = bpy.data.worlds.new("w"); scn.world.use_nodes = True
+        bg = scn.world.node_tree.nodes["Background"]; bg.inputs["Color"].default_value = (0.55, 0.55, 0.6, 1); bg.inputs["Strength"].default_value = 0.9
+    if "sun" not in bpy.data.objects:
+        sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", 'SUN')); scn.collection.objects.link(sun)
+        sun.data.energy = 3.5; sun.rotation_euler = (math.radians(50), 0, math.radians(215))
+    bpy.context.view_layer.update()
+    pts = [o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
+    lo = Vector([min(q[k] for q in pts) for k in range(3)]); hi = Vector([max(q[k] for q in pts) for k in range(3)])
+    mid = (lo + hi) / 2; size = max(hi - lo)
+    cam = scn.camera; d = Vector((-0.75, 1.0, 0.6)).normalized()   # Blender +Y is the front after the turn
+    cam.location = mid + d * size * 4; cam.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler()
+    cam.data.ortho_scale = size * 1.25; cam.data.clip_end = size * 20
+    scn.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    scn.render.engine, scn.render.resolution_x, scn.render.resolution_y, scn.render.film_transparent = was
+
 # ------------------------------------------------------------------------------------------------------------ main
 bpy.ops.wm.read_factory_settings(use_empty=True)
 P0, mat0, base0 = split(FBX[0])
@@ -323,6 +444,9 @@ for k in (1, 2):
     P = {}
     for n in PARTS:
         have = tris_of(P0[n]); want = max(int(have * ratio), min(have, floor))
+        # TW_PIECE_TRIS: a part of many small loose pieces keeps this many triangles a piece (the Salvo's sixteen rocket
+        # tubes, 22 each, went to spikes at 4); 0 (the default) derives as before
+        want = max(want, min(have, len(islands(P0[n])) * int(os.environ.get("TW_PIECE_TRIS", "0"))))
         P[n] = decimated(P0[n], want / max(1, have))
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
@@ -335,6 +459,26 @@ manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walke
             "socketList": [{"name": s, "part": o, "pos": unity((p - piv[o]) * SCALE)} for s, (o, p) in sock.items()]}
 manifest["parts"] = {p["name"]: {k: v for k, v in p.items() if k != "name"} for p in manifest["partList"]}
 manifest["sockets"] = {x["name"]: {"part": x["part"], "pos": x["pos"]} for x in manifest["socketList"]}
+if BATTLE:
+    # TankRenderer draws two levels: LOD0 near, and past 170 m the far one, which is the playground's LOD2 budget
+    manifest["battle"] = True; manifest["lods"] = []
+    for lod, P, mat in ((0, lods[0], mats[0]), (1, lods[2], mats[2])):
+        root, objs = make_battle(lod, P, piv, sock, mat)
+        tag = "%s_LOD%d" % (NAME, lod)
+        render(tag + "_tex", objs, 'TEXTURE'); render(tag + "_parts", objs, 'OBJECT')
+        if lod == 0: portrait(objs, os.path.join(RENDERDIR, NAME + "_portrait.png"))
+        export(root, os.path.join(OUTDIR, tag + ".fbx"))
+        # facing: from its breech the barrel runs to Blender +Y, which the export puts at Unity +Z (the axis trap)
+        ys = [v.co.y for v in objs["Gun"].data.vertices]
+        for n, o in objs.items(): o.name = "%d|%s" % (lod, n)
+        t = sum(tris_of(b) for b in P.values())
+        manifest["lods"].append({"lod": lod, "tris": t, "parts": {n: tris_of(P[n]) for n in PARTS}})
+        print("EXPORT BATTLE LOD%d: %d tris; the barrel reaches %.2f m ahead of its breech, %.2f m behind" % (lod, t, max(ys), -min(ys)))
+    shutil.copyfile(bases[0], os.path.join(os.path.dirname(os.path.normpath(OUTDIR)), NAME + "Atlas.jpg"))
+    manifest["lodList"] = manifest["lods"]
+    json.dump(manifest, open(os.path.join(RENDERDIR, NAME + "_battle.json"), "w"), indent=1)
+    print("DONE")
+    sys.exit(0)
 for lod, P in enumerate(lods):
     root, objs = make(lod, P, piv, sock, mats[lod])
     tag = "%s_LOD%d" % (NAME, lod)

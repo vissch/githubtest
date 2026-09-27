@@ -25,7 +25,18 @@ All four run headless in Blender 5.0: `"C:\Program Files\Blender Foundation\Blen
 | `tank3split.py` | a three-LOD Tripo tank (`Downloads\tank+3d+model.zip` = LOD0, `(1)` = LOD1, `(2)` = LOD2, 2026-09-26) | `Playground/Art/Tanks/<Name>/<Name>_LOD0..2.fbx`, a base-colour jpg per LOD, `tank3.json` | `-- <Name> <lod0.fbx> <lod1.fbx> <lod2.fbx> <outdir> <renderdir>`; `TW_SCALE` metres per model unit (6.6). The SAME named parts at every LOD: loose islands go whole to the region holding most of their area, the hull body is cut by fixed planes (turret ring, casemate plates) and the cuts capped with soot. Fails if a part is empty at any LOD. |
 | `frogrig.py` | a three-LOD Tripo figure in T-pose (`Downloads\frog+warrior+3d+model (1).zip` = LOD0, `frog+knight` = LOD1, `frog+warrior` = LOD2) | `Playground/Art/Units/<Name>/<Name>.fbx` (one armature, four skinned LODs), a base-colour jpg per LOD, `frogrig.json` | `-- <lod0.fbx> <lod1.fbx> <lod2.fbx> <out.fbx> <renderdir>`; `TW_HEIGHT` (1.78 m), `TW_LOD3_TRIS` (220). Mixamo bone names; LOD0 bone heat + geometric fallback; accessories ride rigidly; LOD1-3 weights TRANSFERRED from LOD0; LOD2 18 bones x2, LOD3 (decimated LOD2) 13 bones x2. Writes pose renders to check every LOD bends alike. |
 | `jeepsplit.py` | a Tripo wheeled vehicle and, optionally, Tripo's lower model of it (`Downloads\ambulance jeep 3d model.zip` 6,236 tris + `green toy jeep 3d model.zip` 880, 2026-09-27) | `Playground/Art/Tanks/<Name>/` like `tank3split.py` (Mercy) | `-- <Name> <lod0.fbx> [<lower.fbx>] <outdir> <renderdir>`; `TW_SCALE` (4.6), `TW_LOD2=tripo|derive` (tripo when a lower model is given), `TW_LOD2_TRIS`, `TW_SYM`. Wheels, lamps, stack, rear doors and fittings by region; the welded body cut into chassis, bonnet lid, cab and the box's two sides, each cut outline filled (not a fan). LOD1 derived from LOD0; LOD2 Tripo's own split by the same rules (a part it welded into its body is carved from the box that part fills at LOD0), because LOD0 decimated to 13-20 % tore into spikes. |
-| `mechsplit.py` | a Tripo two-legged walker at up to three LODs (`Downloads\steampunk+frog+robot` 9,738 tris, `mecha frog` 3,702, `mech+robot` 1,008, 2026-09-27) | `Playground/Art/Tanks/<Name>/` like `tank3split.py`, with `"walker": true` and the parts' parents (Croaker) | `-- <Name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>`; `TW_SCALE` (6.6), `TW_LOD2=derive|tripo`. Loose pieces sorted into Hull, Turret > Gun, Claw > Jaw, Thigh > Shin > Foot by where their centres sit; pivots at hip, knee, ankle, shoulder, wrist; LOD1/2 derived part by part to Tripo's counts. The playground walks it (`Runtime/WalkerDrive.cs`). `TW_KIND=hover` a hovercraft (Hull, Pods, FanRing > Fan, Engine, Turret > Gun; Skimmer); `TW_TURN` degrees to turn LOD0 first; `TW_LOD2_TRIS` overrides Tripo's LOD2 count (the Croaker is built with 1450). |
+| `mechsplit.py` | a Tripo two-legged walker at up to three LODs (`Downloads\steampunk+frog+robot` 9,738 tris, `mecha frog` 3,702, `mech+robot` 1,008, 2026-09-27) | `Playground/Art/Tanks/<Name>/` like `tank3split.py`, with `"walker": true` and the parts' parents (Croaker) | `-- <Name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>`; `TW_SCALE` (6.6), `TW_LOD2=derive|tripo`. Loose pieces sorted into Hull, Turret > Gun, Claw > Jaw, Thigh > Shin > Foot by where their centres sit; pivots at hip, knee, ankle, shoulder, wrist; LOD1/2 derived part by part to Tripo's counts. The playground walks it (`Runtime/WalkerDrive.cs`). `TW_KIND=hover` a hovercraft (Hull, Pods, FanRing > Fan, Engine, Turret > Gun; Skimmer); `TW_KIND=halftrack` a half-track rocket truck (Hull, Wheel_L/R, Turret > Gun: the tubes; Salvo, 2026-09-28); `TW_TURN` degrees to turn LOD0 first; `TW_LOD2_TRIS` overrides Tripo's LOD2 count (the Croaker is built with 1450); `TW_PIECE_TRIS` a floor of triangles per loose piece at a derived LOD (0, off). **`TW_BATTLE=1`** writes the battle's form instead: `Resources/Vehicles/<Name>/<Name>_LOD0,1.fbx` (parts nested under the Hull, sockets as empties; LOD1 is the far LOD at the LOD2 budget), `Resources/Vehicles/<Name>Atlas.jpg`, and into the render dir `<Name>_battle.json` and `<Name>_portrait.png`. |
+
+The battle's copies, as run 2026-09-28 (the sources unzipped to short paths first, each FBX renamed m.fbx with its m.fbm folder beside it):
+
+| Machine | Sources | Command (from `trench-warfare-3d/`, the Blender line as above) | Tris LOD0 / LOD1 |
+|---|---|---|---|
+| Skimmer | `C:\tw\s0` = `military tank 3d model.zip`, `s1` = `(2)`, `s2` = `(1)` | `TW_KIND=hover TW_TURN=90 TW_LOD2_TRIS=1400 TW_BATTLE=1 ... -- Skimmer C:/tw/s0/m.fbx C:/tw/s1/m.fbx C:/tw/s2/m.fbx Assets/_Project/Resources/Vehicles/Skimmer <renderdir>` (`TW_SCALE` 7.0, the default) | 7,098 / 1,391 |
+| Salvo | `C:\tw\z4` = `military+vehicle+3d+model.zip`, `z5` = `military+vehicle+3d+model (1).zip`, `z6` = `rocket+launcher+vehicle+3d+model.zip` | `TW_KIND=halftrack TW_BATTLE=1 TW_PIECE_TRIS=12 ... -- Salvo C:/tw/z4/m.fbx C:/tw/z5/m.fbx C:/tw/z6/m.fbx Assets/_Project/Resources/Vehicles/Salvo <renderdir>` (`TW_SCALE` 8.0, the default) | 7,863 / 1,830 |
+
+Then `python Tools/portraitcut.py <renderdir>/<Name>_portrait.png <Name>` cuts the HUD's two pictures from the render.
+Re-importing one of these FBXs into Blender shows the nested parts out of place: that is the exporter's node turn
+that `Editor/TankImport.cs` puts right in Unity (the Tusk's files look the same), not a fault in the file.
 
 Traps, all silent:
 - **Axis.** Blender's FBX export with `bake_space_transform` maps Blender -Y to Unity -Z whatever `axis_forward`
@@ -35,6 +46,12 @@ Traps, all silent:
 - **Re-slicing a kit prop** needs `TW_KEEP=1`, or it comes out turned 180°.
 - **Import settings.** `Editor/TankImport.cs` and `Editor/EnvKitImport.cs` set import rules by folder. Vehicle and
   chunk meshes must stay Read/Write enabled; setting it by hand does not stick, the postprocessor resets it.
+
+## Unit portraits
+
+| Script | Does | Usage |
+|---|---|---|
+| `portraitcut.py` | Cuts a machine's portrait render (`mechsplit.py TW_BATTLE=1`) into `UI/Resources/UnitArt/<Name>.png` (512 px) and `UI/Skin/Portraits/<Name>.png` (256 px): cropped, centred, an ink outline | `python Tools/portraitcut.py <render.png> <Name>` |
 
 ## Asset playground (docs/22)
 
