@@ -379,11 +379,36 @@ def flags_block():
 
 # ---- generate / check -------------------------------------------------------------------------------------------
 
+# ---- editor entry points (what `Tools/tw eval` can call) ----------------------------------------------------------
+
+EVAL_METHOD = re.compile(r'((?:[ \t]*///[^\n]*\n)*)[ \t]*public static string (\w+)\(([^)]*)\)')
+
+
+def eval_api_block() -> str:
+    """Every `public static string` method under Editor/: by convention the entry points meant for `tw eval`
+    (they return what the call prints). Generated so a new capture or spawn helper is findable the day it lands."""
+    rows = []
+    for f in sorted(cs_files(PROJ / 'Editor')):
+        src = read(f)
+        cls = re.search(r'\b(?:class|struct)\s+(\w+)', src)
+        for m in EVAL_METHOD.finditer(src):
+            doc = ' '.join(re.sub(r'^\s*///\s?', '', l) for l in m.group(1).split('\n') if l.strip())
+            doc = re.sub(r'<see cref="([^"]+)"\s*/>|<paramref name="(\w+)"\s*/>', lambda x: x.group(1) or x.group(2), doc)
+            doc = re.sub(r'<[^>]+>', '', doc).strip()
+            first = re.split(r'(?<=\.)\s', doc, 1)[0] if doc else '(no summary: read the method)'
+            if len(first) > 150:
+                first = first[:150].rsplit(' ', 1)[0].rstrip(',;:') + ' ...'
+            params = ', '.join(p.strip().split('=')[0].split()[-1] for p in m.group(3).split(',') if p.strip())
+            rows.append((f'`TW.Editor.{cls.group(1) if cls else "?"}.{m.group(2)}({params})`', rel(f), first))
+    return table(['Call', 'File', 'What it does'], rows)
+
+
 def generated():
     return {
         CODE_MAP: {'assemblies': assemblies(), 'folders': folders_block(), 'sim-order': sim_order()},
         FLAGS: {'flags': flags_block()},
         TASKS: {'hooks': hooks_block(), 'tests': tests_block()},
+        WORKFLOW: {'eval-api': eval_api_block()},
     }
 
 
