@@ -1,0 +1,304 @@
+# Blender (background): split a Tripo two-legged walker (2026-09-27: Downloads/steampunk+frog+robot = 9,738 tris,
+# mecha frog = 3,702, mech+robot = 1,008: one frog mech at three levels of detail) into the rigid parts a walker is
+# animated with. The output is tank3split.py's (Playground/Art/Tanks/<Name>/, flat parts on their pivots and a
+# tank3.json with each part's parent), so the playground's VehicleRig breaks, burns and cooks it off like the tanks, the
+# same at every LOD; the playground's walker (Runtime/WalkerDrive.cs) poses the parts with the game's WalkerGait:
+#   Hull (the root, crabsplit's Body; pelvis, torso, face, backpack), Turret (the dome on its head) > Gun (the twin barrels),
+#   Claw_L/R (shoulder, upper arm, forearm: swings at the shoulder) > Jaw_L/R (the hand: at the wrist),
+#   Thigh_L/R (at the hip) > Shin_L/R (at the knee) > Foot_L/R (at the ankle).
+# Pivots are the object origins; sockets are empties (Socket_Muzzle, Socket_Toe_L/R, Socket_Eye, Socket_Fire,
+# Socket_Exhaust). Every part turns 180 degrees about Z before export (see crabsplit.py), so front -Y faces Unity +Z.
+#
+# Tripo made this one of loose pieces (150 at LOD0), left and right mirror images, so nothing is cut: each piece goes
+# whole to a part by where its centre sits (model frame: front -Y, left +X, ground z = 0, the widest side 1 unit).
+#
+# LODs: LOD1 and LOD2 are LOD0 decimated part by part (the owner's call 2026-09-27), on LOD0's atlas, to Tripo's lower
+# models' triangle counts (TW_LOD2=tripo splits Tripo's own lowest model by the same rules instead).
+#
+# TW_KIND=flyer: the same for a flying machine (2026-09-27: Downloads/green+tank+3d+model (1) = 5,903 tris, green+cartoon+
+# tank = 3,297, green+tank = 993: a frog gunship on two ducted engines): Hull (body, eyes, belly), Wing_L/R (the stub wing)
+# > Engine_L/R (the pod, its gun through its nose), Tail (stabiliser and fins), Skid_L/R, Turret (the block on top and its
+# exhaust pipes). The
+# manifest says "flyer" and the playground flies it (Runtime/FlyerDrive.cs).
+#
+# usage: blender -b --factory-startup -P mechsplit.py -- <name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>
+import bpy, bmesh, sys, os, math, json, random, glob, shutil
+import numpy as np
+from mathutils import Vector, Matrix
+
+argv = sys.argv[sys.argv.index("--") + 1:]
+NAME, OUTDIR, RENDERDIR = argv[0], argv[-2], argv[-1]
+FBX = argv[1:-2]
+os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
+KIND = os.environ.get("TW_KIND", "walker")
+# metres per model unit: the mech stands 0.883 units, 5.8 m; the gunship is 1 unit long, 8 m
+SCALE = float(os.environ.get("TW_SCALE", "8.0" if KIND == "flyer" else "6.6"))
+
+PARTS = ["Hull", "Turret", "Gun", "Claw_L", "Claw_R", "Jaw_L", "Jaw_R", "Thigh_L", "Thigh_R", "Shin_L", "Shin_R", "Foot_L", "Foot_R"]
+# destruction (VehicleRig): tier 1 fittings, 2 limbs, 3 the turret and gun, 9 the hull; mass shares
+BREAK = {"Jaw_L": dict(tier=1, mass=0.4), "Jaw_R": dict(tier=1, mass=0.4), "Claw_L": dict(tier=2, mass=1.6), "Claw_R": dict(tier=2, mass=1.6),
+         "Foot_L": dict(tier=2, mass=0.8), "Foot_R": dict(tier=2, mass=0.8), "Shin_L": dict(tier=2, mass=1.2), "Shin_R": dict(tier=2, mass=1.2),
+         "Thigh_L": dict(tier=2, mass=1.6), "Thigh_R": dict(tier=2, mass=1.6), "Turret": dict(tier=3, mass=2.0), "Gun": dict(tier=3, mass=1.0),
+         "Hull": dict(tier=9, mass=12.0)}
+PARENT = {"Turret": "Hull", "Gun": "Turret", "Claw_L": "Hull", "Claw_R": "Hull", "Jaw_L": "Claw_L", "Jaw_R": "Claw_R",
+          "Thigh_L": "Hull", "Thigh_R": "Hull", "Shin_L": "Thigh_L", "Shin_R": "Thigh_R", "Foot_L": "Shin_L", "Foot_R": "Shin_R"}
+
+def part_of(c, lo, hi):
+    """Which part a loose piece belongs to, from its area-weighted centre c and its bounds."""
+    s = "L" if c.x > 0 else "R"; ax = abs(c.x)
+    if ax < 0.16 and c.z > 0.745: return "Gun" if c.y < -0.15 else "Turret"
+    if ax >= 0.20 and c.z > 0.26:
+        return ("Jaw_" + s) if (ax > 0.33 and c.z < 0.44 and c.y < -0.08) else ("Claw_" + s)
+    if 0.07 <= ax <= 0.31 and c.z < 0.48 and not (ax < 0.14 and c.z > 0.34):
+        if c.z < 0.075: return "Foot_" + s
+        if c.z < 0.26: return "Shin_" + s
+        return "Thigh_" + s
+    return "Hull"
+
+if KIND == "flyer":
+    PARTS = ["Hull", "Turret", "Wing_L", "Wing_R", "Engine_L", "Engine_R", "Tail", "Skid_L", "Skid_R"]
+    BREAK = {"Skid_L": dict(tier=1, mass=0.4), "Skid_R": dict(tier=1, mass=0.4), "Tail": dict(tier=2, mass=1.0),
+             "Engine_L": dict(tier=2, mass=1.6), "Engine_R": dict(tier=2, mass=1.6), "Wing_L": dict(tier=2, mass=0.8),
+             "Wing_R": dict(tier=2, mass=0.8), "Turret": dict(tier=3, mass=1.2), "Hull": dict(tier=9, mass=8.0)}
+    PARENT = {"Turret": "Hull", "Wing_L": "Hull", "Wing_R": "Hull", "Engine_L": "Wing_L", "Engine_R": "Wing_R",
+              "Tail": "Hull", "Skid_L": "Hull", "Skid_R": "Hull"}
+    def part_of(c, lo, hi):
+        s = "L" if c.x > 0 else "R"; ax = abs(c.x)
+        if c.z < 0.22 and ax > 0.13: return "Skid_" + s
+        if c.y > 0.26 and c.z > 0.40: return "Tail"
+        if ax < 0.16 and c.z > 0.34 and -0.40 < c.y < -0.03: return "Turret"
+        if ax >= 0.14 and 0.20 <= c.z < 0.36 and c.y > -0.25: return "Wing_" + s
+        if ax >= 0.17 and c.z >= 0.36: return "Engine_" + s
+        return "Hull"
+
+def load(fbx):
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=fbx)
+    obj = [o for o in bpy.data.objects if o not in before and o.type == 'MESH'][0]
+    for o in bpy.context.selected_objects: o.select_set(False)
+    obj.select_set(True); bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    stem = os.path.splitext(fbx)[0]
+    base = (glob.glob(stem + ".fbm/*basecolor*") + glob.glob(stem + ".fbm/tripo_rgb*"))[0]
+    img = bpy.data.images.load(base)
+    mat = bpy.data.materials.new("atlas"); mat.use_nodes = True
+    t = mat.node_tree.nodes.new("ShaderNodeTexImage"); t.image = img
+    mat.node_tree.links.new(t.outputs["Color"], mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    obj.data.materials.clear(); obj.data.materials.append(mat)
+    return obj, mat, base
+
+def islands(bm):
+    bm.verts.ensure_lookup_table(); bm.faces.ensure_lookup_table()
+    par = list(range(len(bm.verts)))
+    def find(a):
+        while par[a] != a: par[a] = par[par[a]]; a = par[a]
+        return a
+    for e in bm.edges:
+        a, b = find(e.verts[0].index), find(e.verts[1].index)
+        if a != b: par[a] = b
+    g = {}
+    for f in bm.faces: g.setdefault(find(f.verts[0].index), []).append(f.index)
+    return list(g.values())
+
+def bounds(bm):
+    co = [v.co for v in bm.verts]
+    return (Vector((min(c.x for c in co), min(c.y for c in co), min(c.z for c in co))),
+            Vector((max(c.x for c in co), max(c.y for c in co), max(c.z for c in co))))
+
+def take(bm, keep):
+    out = bm.copy(); out.faces.ensure_lookup_table()
+    bmesh.ops.delete(out, geom=[f for f in out.faces if f.index not in keep], context='FACES')
+    bmesh.ops.delete(out, geom=[v for v in out.verts if not v.link_faces], context='VERTS')
+    return out
+
+def join(bms):
+    out = bmesh.new(); me = bpy.data.meshes.new("tmp")
+    for b in bms: b.to_mesh(me); out.from_mesh(me)
+    bpy.data.meshes.remove(me)
+    return out
+
+def split(fbx):
+    obj, mat, base = load(fbx)
+    bm = bmesh.new(); bm.from_mesh(obj.data)
+    # the model frame: centred on x and y, feet on z = 0, the widest side 1 unit
+    lo, hi = bounds(bm); size = max(hi - lo)
+    bmesh.ops.transform(bm, matrix=Matrix.Scale(1.0 / size, 4) @ Matrix.Translation(-Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))), verts=bm.verts)
+    bm.faces.ensure_lookup_table()
+    groups = {n: [] for n in PARTS}
+    for fs in islands(bm):
+        a = sum(bm.faces[i].calc_area() for i in fs)
+        c = sum((bm.faces[i].calc_center_median() * bm.faces[i].calc_area() for i in fs), Vector()) / max(a, 1e-12)
+        groups[part_of(c, None, None)].append(fs)
+    out = {}
+    for n in PARTS:
+        assert groups[n], "%s: part %s is EMPTY" % (os.path.basename(fbx), n)
+        out[n] = join([take(bm, set(fs)) for fs in groups[n]])
+    print("%s: pieces by part %s" % (os.path.basename(fbx), {n: len(groups[n]) for n in PARTS}))
+    return out, mat, base
+
+def tris_of(bm): return sum(len(f.verts) - 2 for f in bm.faces)
+def decimated(bm, ratio):
+    me = bpy.data.meshes.new("dec"); bm.to_mesh(me)
+    o = bpy.data.objects.new("dec", me); bpy.context.scene.collection.objects.link(o)
+    for x in bpy.context.selected_objects: x.select_set(False)
+    o.select_set(True); bpy.context.view_layer.objects.active = o
+    md = o.modifiers.new("dec", 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = max(0.02, min(1.0, ratio))
+    md.use_collapse_triangulate = True
+    bpy.ops.object.modifier_apply(modifier=md.name)
+    out = bmesh.new(); out.from_mesh(o.data)
+    bpy.data.objects.remove(o); bpy.data.meshes.remove(me)
+    return out
+
+def top_centre(bm, share=0.12):
+    """The middle of a part's top: where it hangs from the part above (a hip, a knee, an ankle, a wrist)."""
+    lo, hi = bounds(bm); cut = hi.z - share * (hi.z - lo.z)
+    vs = [v.co for v in bm.verts if v.co.z >= cut]
+    return Vector((sum(v.x for v in vs) / len(vs), sum(v.y for v in vs) / len(vs), cut))
+
+def flyer_pivots_and_sockets(P):
+    piv = {}
+    lo, hi = bounds(P["Hull"]); piv["Hull"] = Vector((0, 0, 0))
+    lo, hi = bounds(P["Turret"]); piv["Turret"] = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+    lo, hi = bounds(P["Tail"]); piv["Tail"] = Vector(((lo.x + hi.x) / 2, lo.y, (lo.z + hi.z) / 2))
+    for s in "LR":
+        lo, hi = bounds(P["Wing_" + s]); piv["Wing_" + s] = Vector((lo.x if s == "L" else hi.x, (lo.y + hi.y) / 2, (lo.z + hi.z) / 2))
+        lo, hi = bounds(P["Engine_" + s]); piv["Engine_" + s] = (lo + hi) / 2
+        piv["Skid_" + s] = top_centre(P["Skid_" + s])
+    sock = {}
+    # the guns run through the engine pods' noses
+    for s in "LR":
+        lo, hi = bounds(P["Engine_" + s]); sock["Socket_Muzzle_" + s] = ("Engine_" + s, Vector(((lo.x + hi.x) / 2, lo.y, (lo.z + hi.z) / 2)))
+    sock["Socket_Muzzle"] = sock["Socket_Muzzle_L"]
+    lo, hi = bounds(P["Hull"])
+    for i, (x, f) in enumerate(((0.0, 0.9), (0.08, 0.6), (-0.08, 0.6))):
+        sock["Socket_Fire%d" % i] = ("Hull", Vector((x, (lo.y + hi.y) / 2, lo.z + f * (hi.z - lo.z))))
+    sock["Socket_Deck"] = ("Hull", Vector((0, (lo.y + hi.y) / 2, lo.z + 0.8 * (hi.z - lo.z))))
+    for s in "LR":
+        lo, hi = bounds(P["Engine_" + s]); sock["Socket_Exhaust" + ("0" if s == "L" else "1")] = ("Engine_" + s, Vector(((lo.x + hi.x) / 2, hi.y, (lo.z + hi.z) / 2)))
+    return piv, sock
+
+def pivots_and_sockets(P):
+    if KIND == "flyer": return flyer_pivots_and_sockets(P)
+    piv = {}
+    lo, hi = bounds(P["Hull"]); piv["Hull"] = Vector((0, (lo.y + hi.y) / 2, lo.z))
+    lo, hi = bounds(P["Turret"]); piv["Turret"] = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+    lo, hi = bounds(P["Gun"]); piv["Gun"] = Vector(((lo.x + hi.x) / 2, hi.y, (lo.z + hi.z) / 2))
+    for s in "LR":
+        for n in ("Thigh_", "Shin_", "Foot_", "Jaw_"): piv[n + s] = top_centre(P[n + s])
+        # the shoulder: the arm's inner top, where the pad meets the body
+        lo, hi = bounds(P["Claw_" + s])
+        piv["Claw_" + s] = Vector((lo.x if s == "L" else hi.x, (lo.y + hi.y) / 2, hi.z - 0.25 * (hi.z - lo.z)))
+    sock = {}
+    lo, hi = bounds(P["Gun"]); sock["Socket_Muzzle"] = ("Gun", Vector(((lo.x + hi.x) / 2, lo.y, (lo.z + hi.z) / 2)))
+    for s in "LR":
+        lo, hi = bounds(P["Foot_" + s]); sock["Socket_Toe_" + s] = ("Foot_" + s, Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z)))
+    lo, hi = bounds(P["Hull"])
+    for i, (x, f) in enumerate(((0.0, 0.85), (0.08, 0.55), (-0.08, 0.55))):
+        sock["Socket_Fire%d" % i] = ("Hull", Vector((x, (lo.y + hi.y) / 2, lo.z + f * (hi.z - lo.z))))
+    sock["Socket_Deck"] = ("Hull", Vector((0, (lo.y + hi.y) / 2, lo.z + 0.7 * (hi.z - lo.z))))
+    sock["Socket_Exhaust0"] = ("Hull", Vector((0, hi.y, lo.z + 0.8 * (hi.z - lo.z))))
+    sock["Socket_Eye"] = ("Hull", Vector((0, lo.y, lo.z + 0.6 * (hi.z - lo.z))))
+    sock["Socket_Fire"] = ("Hull", Vector((0, (lo.y + hi.y) / 2, hi.z)))
+    sock["Socket_Exhaust"] = ("Hull", Vector((0, hi.y, lo.z + 0.8 * (hi.z - lo.z))))
+    return piv, sock
+
+TURN = Matrix.Rotation(math.pi, 4, 'Z')
+def unity(v): return [round(-v.x, 5), round(v.z, 5), round(-v.y, 5)]
+
+def make(lod, P, piv, sock, mat):
+    objs = {}
+    for n in PARTS:
+        b = P[n].copy()
+        bmesh.ops.transform(b, matrix=TURN @ Matrix.Scale(SCALE, 4) @ Matrix.Translation(-piv[n]), verts=b.verts)
+        me = bpy.data.meshes.new("%s_LOD%d_%s" % (NAME, lod, n)); b.to_mesh(me); b.free(); me.materials.append(mat)
+        o = bpy.data.objects.new(n, me); bpy.context.scene.collection.objects.link(o); objs[n] = o
+    root = bpy.data.objects.new("%s_LOD%d" % (NAME, lod), None); bpy.context.scene.collection.objects.link(root)
+    for n, o in objs.items(): o.parent = root; o.location = (TURN @ piv[n]) * SCALE
+    return root, objs
+
+def export(root, path):
+    for o in bpy.context.selected_objects: o.select_set(False)
+    def walk(o):
+        o.select_set(True)
+        for c in o.children: walk(c)
+    walk(root)
+    bpy.context.view_layer.objects.active = root
+    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'MESH', 'EMPTY'}, apply_unit_scale=True,
+                             apply_scale_options='FBX_SCALE_ALL', bake_space_transform=True, axis_forward='-Z', axis_up='Y',
+                             mesh_smooth_type='OFF', use_mesh_modifiers=False, add_leaf_bones=False, path_mode='STRIP',
+                             embed_textures=False, use_custom_props=False, use_tspace=False)
+
+def render(tag, objs, colour, exploded=0.0):
+    scn = bpy.context.scene
+    scn.render.engine = 'BLENDER_WORKBENCH'; scn.display.shading.light = 'STUDIO'; scn.display.shading.show_cavity = True
+    scn.render.resolution_x = 520; scn.render.resolution_y = 560
+    if not scn.camera:
+        cd = bpy.data.cameras.new("cam"); cd.type = 'ORTHO'
+        cam = bpy.data.objects.new("cam", cd); scn.collection.objects.link(cam); scn.camera = cam
+    cam = scn.camera
+    meshes = [o for o in objs.values() if o.type == 'MESH']
+    for o in scn.objects:
+        if o.type == 'MESH': o.hide_render = o not in meshes
+    saved = {o: o.location.copy() for o in meshes}
+    if exploded:
+        for o in meshes:
+            d = o.location - Vector((0, 0, SCALE * 0.4)); o.location = o.location + d * exploded
+    bpy.context.view_layer.update()
+    rnd = random.Random(5)
+    for o in meshes: o.color = (rnd.random() * .8 + .2, rnd.random() * .8 + .2, rnd.random() * .8 + .2, 1)
+    scn.display.shading.color_type = colour
+    mid = Vector((0, 0, SCALE * 0.45)); d = Vector((-0.8, 1.1, 0.5)).normalized()   # front-left, Blender +Y is the front after the turn
+    cam.location = mid + d * 40; cam.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler()
+    cam.data.ortho_scale = SCALE * 1.25 * (1 + exploded * 0.6); cam.data.clip_end = 100
+    scn.render.filepath = os.path.join(RENDERDIR, tag + ".png")
+    bpy.ops.render.render(write_still=True)
+    for o, l in saved.items(): o.location = l
+
+# ------------------------------------------------------------------------------------------------------------ main
+bpy.ops.wm.read_factory_settings(use_empty=True)
+P0, mat0, base0 = split(FBX[0])
+t0 = sum(tris_of(b) for b in P0.values())
+lower = []
+for f in FBX[1:]:
+    o, _, _ = load(f); lower.append(sum(len(p.vertices) - 2 for p in o.data.polygons)); bpy.data.objects.remove(o)
+budget = {1: lower[0] if len(lower) > 0 else int(t0 * 0.38), 2: lower[1] if len(lower) > 1 else int(t0 * 0.12)}
+LOD2_FROM = os.environ.get("TW_LOD2", "derive")
+lods = [P0]; mats = [mat0]; bases = [base0]
+for k in (1, 2):
+    if k == 2 and LOD2_FROM == "tripo" and len(FBX) > 2:
+        P, m, b = split(FBX[2]); lods.append(P); mats.append(m); bases.append(b)
+        print("LOD2: Tripo's own, %d tris" % sum(tris_of(x) for x in P.values())); continue
+    ratio = budget[k] / t0; floor = 64 if k == 1 else 32
+    P = {}
+    for n in PARTS:
+        have = tris_of(P0[n]); want = max(int(have * ratio), min(have, floor))
+        P[n] = decimated(P0[n], want / max(1, have))
+    lods.append(P); mats.append(mat0); bases.append(base0)
+    print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
+piv, sock = pivots_and_sockets(P0)
+manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND == "flyer", "lods": [], "snapped": [],
+            "derived": [k for k in (1, 2) if not (k == 2 and LOD2_FROM == "tripo")],
+            "partList": [dict(name=n, parent=PARENT.get(n, ""), pivot=unity(piv[n] * SCALE), **BREAK[n]) for n in PARTS],
+            "socketList": [{"name": s, "part": o, "pos": unity((p - piv[o]) * SCALE)} for s, (o, p) in sock.items()]}
+manifest["parts"] = {p["name"]: {k: v for k, v in p.items() if k != "name"} for p in manifest["partList"]}
+manifest["sockets"] = {x["name"]: {"part": x["part"], "pos": x["pos"]} for x in manifest["socketList"]}
+for lod, P in enumerate(lods):
+    root, objs = make(lod, P, piv, sock, mats[lod])
+    tag = "%s_LOD%d" % (NAME, lod)
+    render(tag + "_tex", objs, 'TEXTURE'); render(tag + "_parts", objs, 'OBJECT', exploded=0.35)
+    for n in PARTS: objs[n].name = n
+    export(root, os.path.join(OUTDIR, tag + ".fbx"))
+    for n in PARTS: objs[n].name = "%d|%s" % (lod, n)
+    shutil.copyfile(bases[lod], os.path.join(OUTDIR, tag + "_Base.jpg"))
+    t = sum(tris_of(b) for b in P.values())
+    entry = {"lod": lod, "verts": 0, "tris": t, "parts": []}
+    for n in PARTS:
+        lo, hi = bounds(P[n]); me = objs[n].data
+        entry["parts"].append({"name": n, "verts": len(me.vertices), "tris": sum(len(p.vertices) - 2 for p in me.polygons),
+                               "min": unity(lo * SCALE), "max": unity(hi * SCALE)})
+        entry["verts"] += len(me.vertices)
+    manifest["lods"].append(entry)
+    print("EXPORT LOD%d: %d tris" % (lod, t))
+manifest["lodList"] = manifest["lods"]
+json.dump(manifest, open(os.path.join(OUTDIR, "tank3.json"), "w"), indent=1)
+print("DONE")
