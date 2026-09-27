@@ -40,6 +40,8 @@ namespace TW.UI
         public override void OnEscape() { }   // the root screen stays
 
         static Texture2D shadeTex, footTex;
+        // painted once per Play session: ??= does not see a texture Unity destroyed when the last session ended
+        static MainMenuScreen() => TW.Presentation.SceneStatics.Register(nameof(MainMenuScreen), () => { shadeTex = null; footTex = null; });
 
         /// <summary>
         /// A black ramp: alpha `strongest` at the dark end falling (smoothstep) to 0 at `reach` of the way across; along x

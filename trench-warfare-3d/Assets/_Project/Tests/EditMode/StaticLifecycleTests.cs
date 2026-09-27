@@ -30,6 +30,7 @@ namespace TW.Tests
             ["BattleHud"] = "legacy IMGUI HUD layout (MinimapRect, a warning latch); retired in the audit backlog",
             ["BattlefieldProps"] = "EditorCamera: the prop editor's camera, set and cleared by EnvPropEditor",
             ["AssetScaleTable"] = "rules: built once from the table in its code, never written after",
+            ["GameLogo"] = "caches: the logo layout read from Resources, and its textures, re-loaded when Unity has destroyed one",
             ["BootstrapLoader"] = "Override: which scene Bootstrap loads, set by tools before they load it",
             ["CampaignSession"] = "the campaign mission in flight, carried across the scene load like MatchLaunch.Current; MatchLaunch.QuitToMenu clears it",
             ["DebrisRenderer"] = "Gore is a setting and ZoomShare the camera's share of every burst, set by CombatFx each frame; Biome and LavaLevel are set by each biome; Instance is the live renderer",
