@@ -400,7 +400,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
 | `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
 | `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |
-| `ScatterRulesTests` | EditMode | 8 | Kind, ScatterKind, ScatterField, ScatterInput, ScatterLayers, NavLayer |
+| `ScatterRulesTests` | EditMode | 9 | Kind, ScatterKind, ScatterInput, ScatterField, ScatterLayers, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
 | `ShellUxmlTests` | EditMode | 16 | DebriefScreen, CampaignSession, MatchLaunch, CampaignProfile, MatchReport, StrategicMapScreen |
@@ -415,7 +415,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
 | `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
-| `TrenchSectionTests` | EditMode | 6 | SectionState, TrenchSectionRules, BattlefieldKit, AssetScaleTable, Module, DebrisMath |
+| `TrenchSectionTests` | EditMode | 6 | TrenchSectionRules, SectionState, BattlefieldKit, AssetScaleTable, DebrisMath, Module |
 | `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, MapData, BattlefieldGenerator, SeparationJob |
 | `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
 | `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |

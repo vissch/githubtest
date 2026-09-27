@@ -73,6 +73,7 @@ namespace TW.Perf
         TacticalCamera tactical;
         Camera cam;
         Vector2 focus;
+        float zoomUsed = float.NaN;   // the camera's zoom after its own clamp (Options.Zoom is what was asked)
         int waitFrames, warmLeft, alivePeak;
         float settleDeadline, keepShake = 1f;
         uint lastTick, t0;
@@ -202,6 +203,7 @@ namespace TW.Perf
             if (tactical == null || cam == null || host == null || host.Local == null) return;
             var tc = tactical;
             tc.Zoom = Mathf.Clamp(Options.Zoom, tc.ZoomMin, tc.ZoomMax);
+            zoomUsed = tc.Zoom;
             tc.Focus = focus;
             SceneHooks.CloseUp = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.DetailFullZoom, tc.DetailGoneZoom, tc.Zoom));
             Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
@@ -443,7 +445,7 @@ namespace TW.Perf
               .Append(", \"generated\": ").Append(host != null && host.GeneratedBattlefield ? "true" : "false")
               .Append(", \"bombardment_per_min\": ").Append(N(host != null ? host.BombardmentNow : 0))
               .Append(", \"canary\": ").Append(host != null && host.Peer != null ? "true" : "false")
-              .Append(", \"view\": { \"focus\": [").Append(N(focus.x)).Append(", ").Append(N(focus.y)).Append("], \"zoom\": ").Append(N(Options.Zoom))
+              .Append(", \"view\": { \"focus\": [").Append(N(focus.x)).Append(", ").Append(N(focus.y)).Append("], \"zoom\": ").Append(N(Options.Zoom)).Append(", \"zoom_used\": ").Append(N(zoomUsed))
               .Append(", \"yaw\": ").Append(N(Options.Yaw)).Append(", \"pitch\": ").Append(N(Options.Pitch)).Append(" }, \"weather_clock\": ").Append(N(Options.Weather)).Append(" },\n");
             double seconds = startRealtime > 0 ? Time.realtimeSinceStartupAsDouble - startRealtime : 0;
             sb.Append("  \"window\": { \"tick_start\": ").Append(t0).Append(", \"tick_end\": ").Append(w != null ? w.Tick : 0)
@@ -481,6 +483,7 @@ namespace TW.Perf
             bool fx = !float.IsNaN(Options.FocusX), fz = !float.IsNaN(Options.FocusZ);
             if (fx && fz) warnings.Add("custom focus (fx/fz): not the standard view, do not compare with standard runs");
             else if (fx || fz) warnings.Add("only one of fx/fz was given: the view fell back to the armies' centre");
+            if (!float.IsNaN(zoomUsed) && Mathf.Abs(zoomUsed - Options.Zoom) > 1e-3f) warnings.Add("zoom " + Options.Zoom + " was clamped to " + zoomUsed + " by the camera");
             if (Options.Unknown.Count > 0) warnings.Add("unknown bench option(s) ignored: " + string.Join(", ", Options.Unknown));
             for (int i = 0; i < warnings.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(warnings[i]));
             sb.Append("]\n}\n");

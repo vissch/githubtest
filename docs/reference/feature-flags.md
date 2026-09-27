@@ -39,7 +39,7 @@ Code and inspector switches (static fields or `SimHost` inspector fields):
 | `StressUnits` | `Presentation/Core/SimHost.cs:57` | Inspector: deploy N per side and send both over the top. |
 | `DeterminismCanary` | `Presentation/Core/SimHost.cs:19` | Inspector: same as -twCanary. |
 | `Strength` | `Presentation/Camera/CameraShake.cs:25` | CameraShake.Strength: 0 turns shake off (settings screen writes it). |
-| `Gore` | `Presentation/Camera/DebrisRenderer.cs:153` | Gore slider, 0..1 (settings screen writes it). |
+| `Gore` | `Presentation/Camera/DebrisRenderer.cs:157` | Gore slider, 0..1 (settings screen writes it). |
 | `ProfileSubscribers` | `Presentation/Core/EventPump.cs:18` | Profiler marker per event subscriber (perf work only). |
 | `Disabled` | `UI/HudBootstrap.cs:17` | HudBootstrap.Disabled: tests set it so no HUD is added to their scenes. |
 | `Disabled` | `UI/Shell/ShellBoot.cs:14` | ShellBoot.Disabled: tests set it so no menu shell is added. |

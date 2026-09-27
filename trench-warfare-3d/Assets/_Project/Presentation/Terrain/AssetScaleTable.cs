@@ -134,7 +134,7 @@ namespace TW.Presentation.Terrain
             S("kit/duckboards", ScaleAxis.Length, 0.70f, 1.10f, "a walkway section, 1.4-2.2 m across (sized per axis by the composer: ramp boards 1.6 m, dugout thresholds 1.5 m; a uniform clamp would stretch them: reported, not clamped)", enforce: false);
             S("kit/ladder", ScaleAxis.Height, 1.00f, 1.40f, "a trench ladder reaches the parapet");
             S("kit/knifeRest", ScaleAxis.Height, 0.50f, 0.85f);
-            O("kit/wire", "a wire belt follows the map");
+            S("kit/wire", ScaleAxis.Height, 0.35f, 0.70f, "a concertina coil, 0.7-1.4 m (the belt follows the map: reported, not clamped; it was Organic, so even a 6 m coil only warned)", enforce: false);
             // ---- doors, boards, sheets, crates and small kit --------------------------------------------------------
             S("Wood/PlankDoor", ScaleAxis.Height, 0.85f, 1.15f, "a door a man walks through");
             S("Wood/HatchLid", ScaleAxis.Length, 0.35f, 0.50f);
