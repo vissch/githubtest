@@ -54,7 +54,7 @@ namespace TW.Presentation.Units
         public const float CullRadius = 3f;
     }
 
-    public sealed class VATRenderer : MonoBehaviour
+    public sealed partial class VATRenderer : MonoBehaviour
     {
         public SimHost Host;
         /// <summary>A man's drawn size, as a multiple of his 1.78 m.
@@ -209,6 +209,7 @@ namespace TW.Presentation.Units
             }
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
             float grow = Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
+            CurrentGrow = grow;
             var anim = Host.Animation;
             bool controlled = Host.UseAnimationController && anim != null;
             new FillJob
@@ -220,6 +221,7 @@ namespace TW.Presentation.Units
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
                 Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare,
+                Hidden = HiddenMask(Host.Local.World.Config.MaxSlots),
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
             DrawnInfantry = DrawnNear + DrawnFar;
@@ -483,6 +485,7 @@ namespace TW.Presentation.Units
             public bool Controlled;
             [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow;
             [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime;
+            [ReadOnly] public NativeArray<byte> Hidden;
             public NativeArray<VatInstance> Instances;
             public NativeArray<byte> FigureOf;
             public NativeArray<float4> Vehicles;
@@ -506,6 +509,8 @@ namespace TW.Presentation.Units
                 for (int i = 0; i < PoseCount; i++)
                 {
                     var p = Poses[i];
+                    int hs = PoseSlot[i];
+                    if (hs >= 0 && hs < Hidden.Length && Hidden[hs] != 0) continue;   // drawn elsewhere (VATRenderer.Extras: a rider)
                     float original = Height.Sample(p.Pos.x, p.Pos.z);
                     float y = Ground.Sample(p.Pos.x, p.Pos.z, original);
                     if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); y += Hop[PoseSlot[i]] * Scale; }   // climbing: drawn up the trench wall; blown off his feet: in the air
@@ -590,6 +595,8 @@ namespace TW.Presentation.Units
             Give(far, freed);
             argsBuffer?.Dispose();
             fallenBuffer?.Dispose(); fallenArgs?.Dispose(); if (fallenInstances.IsCreated) fallenInstances.Dispose();
+            ReleaseExtras();
+            if (hidden.IsCreated) hidden.Dispose();
             if (nearRowOf.IsCreated) nearRowOf.Dispose(); if (farRowOf.IsCreated) farRowOf.Dispose();
             VatAsset.Kill(tankMatA); tankMatA = null;
             VatAsset.Kill(tankMatB); tankMatB = null;

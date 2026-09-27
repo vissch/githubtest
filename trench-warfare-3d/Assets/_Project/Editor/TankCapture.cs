@@ -87,6 +87,8 @@ namespace TW.Editor
                 archetype == VehicleArchetype.Kettle ? RosterEntry.Kettle :
                 archetype == VehicleArchetype.Censer ? RosterEntry.Censer :
                 archetype == VehicleArchetype.Pavise ? RosterEntry.Pavise :
+                archetype == VehicleArchetype.Banner ? RosterEntry.Banner :
+                archetype == VehicleArchetype.Redoubt ? RosterEntry.Redoubt :
                 h.Local.World.Roster[team * RosterEntry.SlotCount + Mathf.Clamp(archetype, 0, 3)];
             int a = h.Local.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle);
             int b = h.Peer != null ? h.Peer.World.Spawn((byte)team, (byte)archetype, new Unity.Mathematics.float3(x, 0f, z), entry.Hp, entry.Speed, vehicle) : a;   // the canary's second world, when it runs

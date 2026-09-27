@@ -117,7 +117,7 @@ namespace TW.Presentation.Tactical
         public float TracerSeconds = 0.12f;
         public int MaxBodies = 600;
 
-        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
+        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width; }
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
@@ -164,6 +164,12 @@ namespace TW.Presentation.Tactical
         int tintEpoch = -1;   // which SceneTints.Epoch these materials were last painted for
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
+
+        /// <summary>A round drawn like a sim shot's, for fire the sim does not know about (a rider on a walker).</summary>
+        public void AddTracer(Vector3 from, Vector3 to, byte team, float width = 1f)
+        {
+            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = team, Width = width });
+        }
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
         readonly List<Flash> flashes = new List<Flash>(256);
@@ -1006,7 +1012,7 @@ namespace TW.Presentation.Tactical
                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
                 float streak = Mathf.Min(len, night ? 10f : 6f);
                 Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
-                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
+                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp) * (t.Width > 0f ? t.Width : 1f);   // sized for the standard view; among the men a round is a thin line
                 batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
