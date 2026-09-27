@@ -1,0 +1,13 @@
+{
+ "build_dir": "C:\\Users\\thomas.visscher_magi\\Documents\\GitHub\\githubtest-aosa\\trench-warfare-3d\\Builds\\WinBench",
+ "cycle": 9,
+ "dev": false,
+ "extra": "",
+ "knobs": "fx.tracerInSmoke=1,fx.tracerShape=0,fx.tracerHaloDepth=0,fx.tracerGlow=1.8",
+ "label": "g3",
+ "mode": "player",
+ "no_hud": true,
+ "scenario": "barrage",
+ "shot_frames": 64,
+ "shot_tick": 140
+}

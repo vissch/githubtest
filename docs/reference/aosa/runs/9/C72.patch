@@ -1,0 +1,600 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+index 242fcc9..c3c062b 100644
+--- a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
++++ b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+@@ -46,6 +46,10 @@
+ // and repaint, GC.Collect, the wait for present) are series `script:<name>`, per frame, as cmp.py reads them. A name
+ // whose recorder is not valid goes to unavailable; one that is valid but was not registered yet when the recorders
+ // opened is listed in script_markers.unregistered_at_open, because its zeros may mean "never ran" or "no such marker".
++// C72 (2026-09-27): an image run logs every shot CombatFx shows (ShotLog) from a few ticks before the still to the last
++// held frame, and the report sorts them by the Time.time of each captured frame: shot_log (every tracer first drawn on a
++// held frame: its frame, tick, side, firing line and screen start/end px), shot_log_inflight (the tracers already drawn
++// at frame 0) and shot_log_meta. A run without shot_tick never starts the log: CombatFx pays one static bool a shot.
+ using System;
+ using System.Collections.Generic;
+ using System.Globalization;
+@@ -122,7 +126,7 @@ namespace TW.Perf
+         int gcCollectionsStart;
+         long monoStart, monoMax;
+ 
+-        void OnDestroy() { ReleaseClock(); if (Running == this) Running = null; }
++        void OnDestroy() { ReleaseClock(); if (heldFrameTimes != null) ShotLog.Clear(); if (Running == this) Running = null; }
+ 
+         void Update()
+         {
+@@ -223,6 +227,13 @@ namespace TW.Perf
+             // window opened on, and its orders land on the same tick in every run (its few allocations happen before
+             // the GC and mono baselines below)
+             if (Options.Scenario != BenchScenario.None) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
++            // C72: an image run logs its shots (allocated here, before the GC baselines; never in a perf run)
++            if (Options.ShotTick >= 0 && !string.IsNullOrEmpty(Options.Shot))
++            {
++                heldFrameTimes = new float[Math.Max(1, Options.ShotFrames)];
++                long from = (long)t0 + Options.ShotTick - ShotLogLeadTicks;
++                ShotLog.Begin(ShotLogCapacity, (uint)Math.Max((long)t0, from));
++            }
+             startRealtime = Time.realtimeSinceStartupAsDouble;
+             gcCollectionsStart = GC.CollectionCount(0);
+             monoStart = monoMax = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+@@ -352,6 +363,7 @@ namespace TW.Perf
+ 
+         void Capture(string path)
+         {
++            if (heldFrameTimes != null && stage == Stage.Window && framesShot < heldFrameTimes.Length) heldFrameTimes[framesShot] = Time.time;   // C72
+             try { ScreenCapture.CaptureScreenshot(path); }
+             catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
+             framesShot++; lastShotFrame = Time.frameCount;
+@@ -604,6 +616,7 @@ namespace TW.Perf
+             if (mono > monoMax) monoMax = mono;
+ 
+             if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
++            if (ShotLog.On && heldFrameTimes != null && framesShot >= heldFrameTimes.Length) ShotLog.Stop();   // C72: the last held frame is shot
+             if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }
+             if (tick >= t0 + (uint)Options.Ticks) Finish(0, "ok");
+         }
+@@ -621,6 +634,7 @@ namespace TW.Perf
+                 var we = host.Local.World;
+                 hashEnd = we.Hash(); hashEndTick = we.Tick; hashEndTaken = true;
+             }
++            ShotLog.Stop();   // C72
+             string path = "";
+             try
+             {
+@@ -630,6 +644,7 @@ namespace TW.Perf
+                 File.WriteAllText(path, Report(code, why, endStage));
+             }
+             catch (Exception e) { Debug.LogError("[PerfBench] could not write the report: " + e.Message); code = 5; }
++            if (heldFrameTimes != null) { ShotLog.Clear(); heldFrameTimes = null; }
+             foreach (var r in recs) r.R.Dispose();
+             recs.Clear();
+             if (mainRec.Valid) mainRec.Dispose();
+@@ -691,6 +706,101 @@ namespace TW.Perf
+             catch (Exception e) { warnings.Add("Knobs.ToJson failed: " + e.Message); return "null"; }
+         }
+ 
++        // ------------------------------------------------------------------------------------------ C72: the shots
++        /// <summary>Ticks before the still whose shots are kept: covers a tracer's life (0.12 s) and its stagger (a tick)
++        /// with room to spare, so every tracer drawn at frame 0 is in the log.</summary>
++        const int ShotLogLeadTicks = 10;
++        const int ShotLogCapacity = 1 << 15;
++        float[] heldFrameTimes;
++
++        /// <summary>shot_log_meta, shot_log and shot_log_inflight. Each shot's held frame comes from its Born against the
++        /// captured frames' Time.time (ShotLog.BirthFrame); its line from the map's trench cell under the shooter and his
++        /// place along that trench (ShotLog.Line); its px from the bench's camera, which holds one pose all window.</summary>
++        void ShotLogJson(StringBuilder sb)
++        {
++            int frames = Math.Min(framesShot, heldFrameTimes.Length);
++            var map = host != null && host.Local != null ? host.Local.Map : null;
++            // a trench cell's index along its trench (MapData.TrenchCells is ordered along each trench)
++            var along = new Dictionary<long, int>();
++            if (map != null && map.Trenches.IsCreated && map.TrenchCells.IsCreated)
++                for (int t = 0; t < map.Trenches.Length; t++)
++                {
++                    var def = map.Trenches[t];
++                    for (int j = 0; j < def.CellCount && def.CellStart + j < map.TrenchCells.Length; j++)
++                    {
++                        long key = ((long)def.Id << 32) | (uint)map.TrenchCells[def.CellStart + j];
++                        if (!along.ContainsKey(key)) along.Add(key, j);
++                    }
++                }
++            float life = 0f;
++            int after = 0, nBirths = 0, nInflight = 0;
++            var ticks = new SortedDictionary<uint, int[]>();   // tick -> [before frame 0, on a held frame, after the last]
++            var births = new StringBuilder(); var inflight = new StringBuilder();
++            float sw = cam != null ? cam.pixelWidth : Screen.width, sh = cam != null ? cam.pixelHeight : Screen.height;
++            for (int i = 0; i < ShotLog.Count; i++)
++            {
++                var e = ShotLog.Get(i);
++                life = e.Life;
++                int f = ShotLog.BirthFrame(e.Born, heldFrameTimes, frames, HeldStep, e.Life);
++                if (!ticks.TryGetValue(e.Tick, out var c)) { c = new int[3]; ticks.Add(e.Tick, c); }
++                c[f >= 0 ? 1 : f == ShotLog.After ? 2 : 0]++;
++                if (f == ShotLog.After) { after++; continue; }
++                if (f == ShotLog.Gone) continue;
++                int trench = -1, at = -1;
++                if (map != null)
++                {
++                    var cell = map.NavCellOf(new Unity.Mathematics.float3(e.X, 0f, e.Z));
++                    int index = map.NavIndex(cell.x, cell.y);
++                    trench = index >= 0 && index < map.CellTrenchId.Length ? map.CellTrenchId[index] : -1;
++                    if (trench >= 0 && !along.TryGetValue(((long)trench << 32) | (uint)index, out at)) at = -1;
++                }
++                var target = f >= 0 ? births : inflight;
++                if (f >= 0) nBirths++; else nInflight++;
++                target.Append(target.Length > 0 ? ",\n    " : "\n    ").Append("{ \"f\": ").Append(f >= 0 ? f.ToString(Inv) : "null")
++                  .Append(", \"tick\": ").Append(e.Tick).Append(", \"team\": ").Append(e.Team).Append(", \"slot\": ").Append(e.Shooter)
++                  .Append(", \"line\": ").Append(Q(ShotLog.Line(e.Team, trench, at, e.X, e.Z)))
++                  .Append(", \"trench\": ").Append(trench).Append(", \"along\": ").Append(at).Append(", \"garrison\": ").Append(e.Garrison)
++                  .Append(", \"x\": ").Append(N(e.X)).Append(", \"z\": ").Append(N(e.Z));
++                bool on = Px(target, "s", e.From, sw, sh);
++                Px(target, "e", e.To, sw, sh);
++                target.Append(", \"on\": ").Append(on ? "true" : "false")
++                  .Append(", \"born\": ").Append(e.Born.ToString("0.#########", Inv)).Append(", \"arrived\": ").Append(e.Arrived.ToString("0.#########", Inv))
++                  .Append(", \"drawn\": ").Append((e.To - e.From).magnitude >= 0.1f ? "true" : "false").Append(" }");
++            }
++            sb.Append("  \"shot_log_meta\": { \"frames\": ").Append(frames).Append(", \"held_step\": ").Append(HeldStep.ToString("0.######", Inv))
++              .Append(", \"tracer_seconds\": ").Append(N(life)).Append(", \"from_tick\": ").Append(ShotLog.FromTick)
++              .Append(", \"logged\": ").Append(ShotLog.Count).Append(", \"dropped\": ").Append(ShotLog.Dropped)
++              .Append(", \"births\": ").Append(nBirths).Append(", \"inflight\": ").Append(nInflight).Append(", \"after\": ").Append(after)
++              .Append(", \"section_cells\": ").Append(ShotLog.SectionCells).Append(", \"open_grid_m\": ").Append(N(ShotLog.OpenGridMetres))
++              .Append(", \"screen\": [").Append(N(sw)).Append(", ").Append(N(sh)).Append("], \"px_origin\": \"top-left\"")
++              .Append(", \"frame_times\": [");
++            for (int k = 0; k < frames; k++) sb.Append(k > 0 ? ", " : "").Append(heldFrameTimes[k].ToString("0.#########", Inv));
++            // per tick: its shots first drawn before frame 0, on a held frame, after the last; a tick with only the middle
++            // count lies whole inside the held frames
++            sb.Append("], \"ticks\": [");
++            bool firstTick = true;
++            foreach (var kv in ticks)
++            {
++                sb.Append(firstTick ? "" : ", ").Append("[").Append(kv.Key).Append(", ").Append(kv.Value[0]).Append(", ").Append(kv.Value[1]).Append(", ").Append(kv.Value[2]).Append("]");
++                firstTick = false;
++            }
++            sb.Append("] },\n");
++            sb.Append("  \"shot_log\": [").Append(births).Append(births.Length > 0 ? "\n  ],\n" : "],\n");
++            sb.Append("  \"shot_log_inflight\": [").Append(inflight).Append(inflight.Length > 0 ? "\n  ],\n" : "],\n");
++        }
++
++        /// <summary>Appends `, "<k>x": px, "<k>y": px` from the top-left, as in the still's PNG (null behind the camera or
++        /// without one). True when the point is on the screen.</summary>
++        bool Px(StringBuilder sb, string k, Vector3 world, float width, float height)
++        {
++            if (cam == null) { sb.Append(", \"").Append(k).Append("x\": null, \"").Append(k).Append("y\": null"); return false; }
++            var p = cam.WorldToScreenPoint(world);
++            bool front = p.z > 0f;
++            sb.Append(", \"").Append(k).Append("x\": ").Append(front ? p.x.ToString("0.#", Inv) : "null")
++              .Append(", \"").Append(k).Append("y\": ").Append(front ? (height - p.y).ToString("0.#", Inv) : "null");
++            return front && p.x >= 0f && p.x < width && p.y >= 0f && p.y < height;
++        }
++
+         string Report(int code, string why, Stage endStage)
+         {
+             var sb = new StringBuilder(16384);
+@@ -783,6 +893,7 @@ namespace TW.Perf
+                 sb.Append(i > 0 ? ", " : "").Append("{ \"marker\": ").Append(Q(carriers[i].Marker)).Append(", \"hitches\": ").Append(carriers[i].Hitches)
+                   .Append(", \"median_share\": ").Append(N(carriers[i].MedianShare)).Append(" }");
+             sb.Append("] },\n");
++            if (heldFrameTimes != null) ShotLogJson(sb);   // C72: image runs only
+             sb.Append("  \"series\": {\n");
+             for (int i = 0; i < series.Count; i++) Stats(sb, series[i], i == series.Count - 1);
+             sb.Append("  },\n");
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 6d34ac6..941e3ca 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -530,6 +530,17 @@ namespace TW.Presentation.Tactical
+                     // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
+                     float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
+                     tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
++                    // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
++                    if (ShotLog.On)
++                    {
++                        bool known = e.A >= 0 && e.A < w.Position.Length;
++                        ShotLog.Add(new ShotLog.Entry
++                        {
++                            Born = Time.time + delay, Arrived = Time.time, Life = TracerSeconds, Tick = e.Tick, Shooter = e.A,
++                            Team = known ? w.Team[e.A] : (byte)0, Garrison = known ? w.TrenchId[e.A] : (short)-1,
++                            X = known ? w.Position[e.A].x : from.x, Z = known ? w.Position[e.A].z : from.z, From = from, To = to,
++                        });
++                    }
+                     Vector3 direction = (to - from).normalized;
+                     bool drawn = books != null && books.Ready;
+                     Vector3 carried = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Velocity(e.A, w.Config.TickSeconds) : Vector3.zero;   // a man firing on the run carries his flash
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs
+new file mode 100644
+index 0000000..24b9e9d
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs
+@@ -0,0 +1,99 @@
++// Phase: C72 (AOSA, juice J03) - the per-shot log of an image run.
++// A blind critic counting tracer births off 32 held frames could only say "medium-low": bundles of parallel tracers,
++// volleys and trunks hide which streak is new. The presentation already knows every shot exactly: CombatFx gives each
++// tracer its birth time (the event's frame plus ShotStagger's delay), and the held clock gives every captured frame its
++// time. So in an image run (PerfBench, shot_tick) CombatFx writes each shot it shows here, and the report sorts them
++// into the held frame each was first drawn on, with the shooter's side, trench line and screen start.
++// Zero cost otherwise: CombatFx reads On (a static bool) once a shot, and nothing is allocated until Begin, which only
++// an image run calls. Read-only: nothing here is read by the sim or by any drawing, and it draws no random numbers.
++using UnityEngine;
++
++namespace TW.Presentation
++{
++    public static class ShotLog
++    {
++        /// <summary>One shot as CombatFx showed it. Born and Arrived are Time.time values (the tracer's own Born, and the
++        /// frame its event arrived on); X/Z the shooter's sim position; Garrison his TrenchId (-1 none).</summary>
++        public struct Entry
++        {
++            public float Born, Arrived, Life;
++            public uint Tick;
++            public int Shooter;
++            public byte Team;
++            public short Garrison;
++            public float X, Z;
++            public Vector3 From, To;
++        }
++
++        /// <summary>True only while an image run is logging. The one thing CombatFx reads per shot otherwise.</summary>
++        public static bool On;
++        /// <summary>Shots of earlier ticks are not kept (whole ticks, so a kept tick has all its shots).</summary>
++        public static uint FromTick;
++        static Entry[] entries;
++        public static int Count { get; private set; }
++        /// <summary>Shots not kept because the buffer was full (the report says so).</summary>
++        public static int Dropped { get; private set; }
++
++        /// <summary>Allocates the buffer and starts logging. PerfBench calls it in image runs only.</summary>
++        public static void Begin(int capacity, uint fromTick)
++        {
++            entries = new Entry[Mathf.Max(1, capacity)];
++            Count = 0; Dropped = 0; FromTick = fromTick;
++            On = true;
++        }
++
++        public static void Stop() => On = false;
++
++        /// <summary>Stops and lets the buffer go.</summary>
++        public static void Clear() { On = false; entries = null; Count = 0; Dropped = 0; FromTick = 0; }
++
++        public static void Add(in Entry e)
++        {
++            if (!On || entries == null || e.Tick < FromTick) return;
++            if (Count >= entries.Length) { Dropped++; return; }
++            entries[Count++] = e;
++        }
++
++        public static Entry Get(int i) => entries[i];
++
++        // ------------------------------------------------------------------------------ pure: where a shot falls
++        /// <summary>BirthFrame: first drawn before frame 0 and pruned by then.</summary>
++        public const int Gone = -1;
++        /// <summary>BirthFrame: first drawn before frame 0 and still drawn on it (a tracer in flight at frame 0).</summary>
++        public const int InFlight = -2;
++        /// <summary>BirthFrame: first drawn after the last held frame.</summary>
++        public const int After = -3;
++
++        /// <summary>The held frame (0..frames-1) a tracer born at `born` is first drawn on, or Gone, InFlight or After.
++        /// CombatFx draws a tracer on a frame when `now >= Born` and keeps it while `Born >= now - life` (its Prune), and
++        /// its Update runs after SimHost dispatched the frame's events, so a shot shown with no delay is drawn on the frame
++        /// its event arrives. frameTimes are the Time.time of each captured frame; the frame before frame 0 is heldStep
++        /// earlier (the held clock).</summary>
++        public static int BirthFrame(float born, float[] frameTimes, int frames, float heldStep, float life)
++        {
++            if (frameTimes == null || frames <= 0) return After;
++            if (born > frameTimes[frames - 1]) return After;
++            int k = 0;
++            while (k < frames && frameTimes[k] < born) k++;
++            if (k > 0) return k;
++            float first = frameTimes[0];
++            if (born > (float)(first - heldStep)) return 0;
++            return born >= (float)(first - life) ? InFlight : Gone;
++        }
++
++        // ------------------------------------------------------------------------------ pure: which line fired it
++        /// <summary>Cells of MapData.TrenchCells (ordered along the trench, 2 m nav cells) to a line section.</summary>
++        public const int SectionCells = 15;
++        /// <summary>Metres of the grid that sorts shooters standing outside any trench.</summary>
++        public const float OpenGridMetres = 20f;
++
++        /// <summary>The firing line a shot belongs to: side, the trench the shooter stands in and the section of it
++        /// (along = his cell's index in that trench's TrenchCells), or, out of any trench, a cell of a coarse grid.
++        /// "0:t3.2" is team 0, trench 3, section 2; "1:o2.11" is team 1 in the open, grid cell (2, 11).</summary>
++        public static string Line(byte team, int trench, int along, float x, float z)
++        {
++            if (trench >= 0 && along >= 0) return team + ":t" + trench + "." + (along / SectionCells);
++            return team + ":o" + Mathf.FloorToInt(x / OpenGridMetres) + "." + Mathf.FloorToInt(z / OpenGridMetres);
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs.meta b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs.meta
+new file mode 100644
+index 0000000..0261a7c
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Core/ShotLog.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 4504ffb0cec44582afa915cc3216a90f
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotLogTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotLogTests.cs
+new file mode 100644
+index 0000000..f1ce252
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotLogTests.cs
+@@ -0,0 +1,85 @@
++// Phase: C72 (AOSA) - the per-shot log of an image run. Pure logic, no scene: which held frame a tracer is first drawn
++// on (CombatFx's own draw and prune tests, on the held clock), which firing line a shooter belongs to, and that the log
++// keeps nothing unless an image run started it.
++using NUnit.Framework;
++using TW.Presentation;
++
++namespace TW.Tests
++{
++    public class ShotLogTests
++    {
++        const float Step = 1f / 64f;    // PerfBench.HeldStep
++        const float Life = 0.12f;       // CombatFx.TracerSeconds
++
++        [TearDown] public void TearDown() => ShotLog.Clear();
++
++        static float[] Frames(float first, int n)
++        {
++            var t = new float[n];
++            for (int k = 0; k < n; k++) t[k] = first + k * Step;
++            return t;
++        }
++
++        [Test]
++        public void BirthFrame_IsTheFirstFrameThatDrawsIt()
++        {
++            var t = Frames(128f, 32);
++            Assert.AreEqual(0, ShotLog.BirthFrame(t[0], t, 32, Step, Life), "born on frame 0's time: drawn on frame 0");
++            Assert.AreEqual(0, ShotLog.BirthFrame(t[0] - Step * 0.5f, t, 32, Step, Life), "born between the frame before and frame 0");
++            Assert.AreEqual(5, ShotLog.BirthFrame(t[5], t, 32, Step, Life));
++            Assert.AreEqual(5, ShotLog.BirthFrame(t[4] + 0.001f, t, 32, Step, Life), "after frame 4's time: frame 4 skips it (now < Born)");
++            Assert.AreEqual(31, ShotLog.BirthFrame(t[31], t, 32, Step, Life));
++            Assert.AreEqual(ShotLog.After, ShotLog.BirthFrame(t[31] + 0.001f, t, 32, Step, Life));
++        }
++
++        [Test]
++        public void BirthFrame_BeforeFrameZero_IsInFlightWhileCombatFxKeepsIt()
++        {
++            var t = Frames(128f, 8);
++            Assert.AreEqual(ShotLog.InFlight, ShotLog.BirthFrame(t[0] - Step, t, 8, Step, Life), "drawn on the frame before: in flight");
++            Assert.AreEqual(ShotLog.InFlight, ShotLog.BirthFrame(t[0] - Life, t, 8, Step, Life), "Prune keeps Born == now - life");
++            Assert.AreEqual(ShotLog.Gone, ShotLog.BirthFrame(t[0] - Life - 0.001f, t, 8, Step, Life));
++        }
++
++        [Test]
++        public void BirthFrame_OneFrameRun()
++        {
++            var t = Frames(64f, 1);
++            Assert.AreEqual(0, ShotLog.BirthFrame(64f, t, 1, Step, Life));
++            Assert.AreEqual(ShotLog.After, ShotLog.BirthFrame(64.01f, t, 1, Step, Life));
++            Assert.AreEqual(ShotLog.After, ShotLog.BirthFrame(64f, null, 0, Step, Life));
++        }
++
++        [Test]
++        public void Line_IsTrenchSectionOrOpenGrid()
++        {
++            Assert.AreEqual("0:t3.0", ShotLog.Line(0, 3, 0, 10f, 10f));
++            Assert.AreEqual("0:t3.0", ShotLog.Line(0, 3, ShotLog.SectionCells - 1, 10f, 10f));
++            Assert.AreEqual("0:t3.1", ShotLog.Line(0, 3, ShotLog.SectionCells, 99f, 99f), "the section follows the trench, not the position");
++            Assert.AreEqual("1:t0.2", ShotLog.Line(1, 0, ShotLog.SectionCells * 2 + 3, 0f, 0f));
++            Assert.AreEqual("1:o2.11", ShotLog.Line(1, -1, -1, 45f, 225f));
++            Assert.AreEqual("0:o0.5", ShotLog.Line(0, 4, -1, 19.9f, 100f), "a trench cell the trench does not list falls back to the grid");
++            Assert.AreEqual(ShotLog.Line(1, 2, 17, 5f, 6f), ShotLog.Line(1, 2, 17, 5f, 6f));
++        }
++
++        [Test]
++        public void Log_KeepsNothingUntilBegun_AndWholeTicksFromItsFirst()
++        {
++            var e = new ShotLog.Entry { Tick = 100 };
++            ShotLog.Add(e);
++            Assert.AreEqual(0, ShotLog.Count, "off: nothing is kept");
++            ShotLog.Begin(2, 100);
++            ShotLog.Add(new ShotLog.Entry { Tick = 99 });
++            Assert.AreEqual(0, ShotLog.Count, "a tick before FromTick is not kept");
++            ShotLog.Add(e); ShotLog.Add(e); ShotLog.Add(e);
++            Assert.AreEqual(2, ShotLog.Count);
++            Assert.AreEqual(1, ShotLog.Dropped, "a full buffer counts what it could not keep");
++            ShotLog.Stop();
++            ShotLog.Add(e);
++            Assert.AreEqual(2, ShotLog.Count, "stopped: nothing more is kept");
++            ShotLog.Clear();
++            Assert.IsFalse(ShotLog.On);
++            Assert.AreEqual(0, ShotLog.Count);
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotLogTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotLogTests.cs.meta
+new file mode 100644
+index 0000000..37b5303
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/ShotLogTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: e53f47e0849c474285fdea1b681cf665
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Tools/aosa/aosa.py b/trench-warfare-3d/Tools/aosa/aosa.py
+index 2124a20..c601d15 100644
+--- a/trench-warfare-3d/Tools/aosa/aosa.py
++++ b/trench-warfare-3d/Tools/aosa/aosa.py
+@@ -15,6 +15,7 @@ Commands (run from trench-warfare-3d/, e.g. `python Tools/aosa/aosa.py status`):
+   ledger add --mode P|E|B --cards ... --summary "..."              append a LEDGER.md row
+   snapshot [--label L]        copy the live players to Builds/<kind>@<L> (default: the sha they were built from), verified
+   prune [--apply]             storage retention: old snapshots and old cycles' sequence frames (dry run by default)
++  shots LABEL [--table]       an image run's shot_log (C72): per firing line births and single-frame shares, per tick
+ 
+ Environment: AOSA_DOCS (docs dir, default <repo>/docs/reference/aosa), TW_BUILDS (player builds dir, default the
+ main clone's trench-warfare-3d/Builds), TW_PROJECT (the Unity project the editor has open, default the main clone's
+@@ -1338,6 +1339,149 @@ def cmd_prune(a):
+     return 0
+ 
+ 
++def _seen(s, w, h):
++    """True when the tracer's segment (start px -> end px) crosses the screen; both ends must be in front of the lens."""
++    x0, y0, x1, y1 = s.get("sx"), s.get("sy"), s.get("ex"), s.get("ey")
++    if None in (x0, y0, x1, y1):
++        return False
++    t0, t1, dx, dy = 0.0, 1.0, x1 - x0, y1 - y0
++    for p, q in ((-dx, x0), (dx, w - x0), (-dy, y0), (dy, h - y0)):   # Liang-Barsky against [0,w] x [0,h]
++        if p == 0:
++            if q < 0:
++                return False
++        else:
++            r = q / p
++            if p < 0:
++                t0 = max(t0, r)
++            else:
++                t1 = min(t1, r)
++            if t0 > t1:
++                return False
++    return True
++
++
++_NULL_SHARE = {}
++
++
++def _null_share(n, frames_per_tick=3.2, trials=4000):
++    """The median largest one-frame share of n shots placed uniformly at random in one tick (what C63's per-shot hash
++    would give), the frame grid at a random phase: the chance level a line's per-tick share is judged against."""
++    if n not in _NULL_SHARE:
++        import random
++        rng = random.Random(72)
++        out = []
++        for _ in range(trials):
++            ph = rng.random()
++            cnt = {}
++            for _ in range(n):
++                f = int(ph + rng.random() * frames_per_tick)
++                cnt[f] = cnt.get(f, 0) + 1
++            out.append(max(cnt.values()) / float(n))
++        _NULL_SHARE[n] = statistics.median(out)
++    return _NULL_SHARE[n]
++
++
++def cmd_shots(a):
++    """C72: read an image run's shot_log. Per firing line: births on the held frames, the largest single-frame share
++    (C62), and per whole tick the largest share of the line's births of that tick on one frame (C63's question)."""
++    reps = load_reports(a.label)
++    if not reps:
++        die("no report for %s" % a.label)
++    rc = 0
++    for r in reps:
++        meta, log, fly = r.get("shot_log_meta"), r.get("shot_log"), r.get("shot_log_inflight") or []
++        print("== %s" % r["_path"])
++        if meta is None or log is None:
++            print("   no shot_log (not an image run, or built before C72)")
++            rc = 1
++            continue
++        w, h = (meta.get("screen") or [1920, 1080])[:2]
++        frames = meta.get("frames", 0)
++        complete = {t[0] for t in meta.get("ticks", []) if t[1] == 0 and t[3] == 0 and t[2] > 0}
++
++        def line(s):
++            if a.section and s.get("trench", -1) >= 0 and s.get("along", -1) >= 0:
++                return "%d:t%d.%d" % (s["team"], s["trench"], s["along"] // a.section)
++            return s["line"]
++
++        keep = (lambda s: True) if a.all else (lambda s: _seen(s, w, h))
++        births = [s for s in log if keep(s)]
++        flying = [s for s in fly if keep(s)]
++        print("   %d held frames, tracer %.3f s; logged %d (dropped %d), births %d (%s: %d), in flight at frame 0 %d (%s: %d); "
++              "%d whole ticks inside the frames"
++              % (frames, meta.get("tracer_seconds") or 0, meta.get("logged", 0), meta.get("dropped", 0), len(log),
++                 "all" if a.all else "crossing the screen", len(births), len(fly), "all" if a.all else "crossing the screen",
++                 len(flying), len(complete)))
++        if meta.get("dropped"):
++            print("   WARNING: the log was full; counts are low")
++            rc = 1
++        by = {}
++        for s in births:
++            by.setdefault(line(s), []).append(s)
++        inflight_by = {}
++        for s in flying:
++            inflight_by[line(s)] = inflight_by.get(line(s), 0) + 1
++        print("   %-10s %6s %6s %9s %7s %11s   %-24s %s" % ("line", "births", "f1+", "max/frame", "share", "share f1+", "start px x (min-max)", "y (min-max)"))
++        rows = []
++        for ln, ss in by.items():
++            per = {}
++            for s in ss:
++                per[s["f"]] = per.get(s["f"], 0) + 1
++            top_f, top = max(per.items(), key=lambda kv: (kv[1], -kv[0]))
++            later = {f: n for f, n in per.items() if f >= 1}   # frames 1.. only, as the blind critic counted (C71)
++            n1 = sum(later.values())
++            top1 = max(later.values()) if later else 0
++            xs = [s["sx"] for s in ss if s.get("sx") is not None]
++            ys = [s["sy"] for s in ss if s.get("sy") is not None]
++            rows.append((ln, len(ss), n1, top, top_f, top / float(len(ss)), top1 / float(n1) if n1 else 0.0,
++                         "%5.0f-%5.0f" % (min(xs), max(xs)) if xs else "-", "%5.0f-%5.0f" % (min(ys), max(ys)) if ys else "-"))
++        for ln, n, n1, top, top_f, share, share1, xr, yr in sorted(rows, key=lambda t: -t[1]):
++            print("   %-10s %6d %6d %5d @f%-3d %6.2f %11.2f   %-24s %s%s" % (ln, n, n1, top, top_f, share, share1, xr, yr,
++                  "   (+%d in flight at f0)" % inflight_by[ln] if inflight_by.get(ln) else ""))
++        # per whole tick: the share of a line's births of that tick drawn first on one frame
++        print("   per whole tick (a line's tick with >= %d births): largest share of its births on one frame" % a.min)
++        worst_all, over = 0.0, []
++        for ln, ss in sorted(by.items()):
++            ticks = {}
++            for s in ss:
++                if s["tick"] in complete:
++                    ticks.setdefault(s["tick"], []).append(s["f"])
++            shares = []
++            for t, fs in sorted(ticks.items()):
++                if len(fs) < a.min:
++                    continue
++                top = max(fs.count(f) for f in set(fs))
++                shares.append((top / float(len(fs)), t, top, len(fs)))
++            if not shares:
++                continue
++            worst = max(shares)
++            worst_all = max(worst_all, worst[0])
++            n_over = sum(1 for x in shares if x[0] > 0.5)
++            if n_over:
++                over.append(ln)
++            print("   %-10s %3d ticks  max %.2f (tick %d: %d of %d)  median %.2f (uniform-random chance %.2f)  ticks over 0.5: %d"
++                  % (ln, len(shares), worst[0], worst[1], worst[2], worst[3], statistics.median(x[0] for x in shares),
++                     statistics.median(_null_share(x[3]) for x in shares), n_over))
++        # the whole tick, every line together (what the strobe was: every shot of a tick on one frame)
++        whole = {}
++        for s in births:
++            if s["tick"] in complete:
++                whole.setdefault(s["tick"], []).append(s["f"])
++        for t, fs in sorted(whole.items()):
++            top = max(fs.count(f) for f in set(fs))
++            print("   tick %d, all lines: %d births over frames %s, largest one-frame share %.2f"
++                  % (t, len(fs), sorted(set(fs)), top / float(len(fs))))
++        print("   verdict: largest per-tick one-frame share of a line %.2f; lines with a tick over 0.5: %s"
++              % (worst_all, ", ".join(over) if over else "none"))
++        if a.table:
++            names = [t[0] for t in sorted(rows, key=lambda t: -t[1])]
++            print("   births per frame (frame 0 counts births, not what is visible):")
++            print("   frame " + " ".join("%9s" % n for n in names))
++            for f in range(frames):
++                print("   %5d " % f + " ".join("%9d" % sum(1 for s in by[n] if s["f"] == f) for n in names))
++    return rc
++
++
+ def main(argv=None):
+     ap = argparse.ArgumentParser(prog="aosa.py", description=__doc__.split("\n")[0])
+     sub = ap.add_subparsers(dest="cmd", required=True)
+@@ -1395,6 +1539,12 @@ def main(argv=None):
+     sn.add_argument("--label", help="default: the live player's build-info git_sha (short)")
+     pr = sub.add_parser("prune", help="apply the storage retention rule (dry run unless --apply)")
+     pr.add_argument("--apply", action="store_true")
++    sh = sub.add_parser("shots", help="an image run's shot_log (C72): per-line births and one-frame shares, per tick")
++    sh.add_argument("label", help="label, file or glob of image-run reports")
++    sh.add_argument("--all", action="store_true", help="every logged shot, not only tracers crossing the screen")
++    sh.add_argument("--min", type=int, default=4, help="a line's tick needs this many births to get a per-tick share")
++    sh.add_argument("--section", type=int, default=0, help="re-bin trench sections to this many cells (default: the log's)")
++    sh.add_argument("--table", action="store_true", help="births per frame per line, like the blind critic's table")
+     lg = sub.add_parser("ledger")
+     lg.add_argument("op", choices=["add"])
+     lg.add_argument("--mode", required=True, choices=["P", "E", "B"])
+@@ -1408,7 +1558,7 @@ def main(argv=None):
+     a = ap.parse_args(argv)
+     fn = {"status": cmd_status, "bench": cmd_bench, "compare": cmd_compare, "attempt": cmd_attempt, "learn": cmd_learn,
+           "pick": cmd_pick, "age": cmd_age, "budget": cmd_budget, "refimg": cmd_refimg, "retro": cmd_retro, "stilldiff": cmd_stilldiff,
+-          "ledger": cmd_ledger, "snapshot": cmd_snapshot, "prune": cmd_prune}[a.cmd]
++          "ledger": cmd_ledger, "snapshot": cmd_snapshot, "prune": cmd_prune, "shots": cmd_shots}[a.cmd]
+     if a.cmd == "status":
+         try:
+             return cmd_status(a)

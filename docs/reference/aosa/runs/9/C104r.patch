@@ -1,0 +1,210 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index c11e0a3..0354832 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -202,6 +202,7 @@ namespace TW.Presentation.Tactical
+         Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
+         Material flashMat;
+         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
++        bool tracerInSmoke;   // knob fx.tracerInSmoke (Start, AOSA C104): see TracerLook
+         /// <summary>
+         /// Paint every material and flipbook the biome owns. Called when SceneTints.Epoch moves, not per frame:
+         /// the old code compared waterMat.color against a static every frame, which is a native read to decide
+@@ -308,6 +309,15 @@ namespace TW.Presentation.Tactical
+             // night (SceneMood): each side's fire is its own colour, over-bright so the bloom takes it
+             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
+             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
++            // knob fx.tracerInSmoke (AOSA C104, TracerLook): the halos drawn before the smoke and writing depth, so a cloud
++            // in front of a round covers it; and the night streak's shorter, narrower, hot-headed shape. 0 = the old look.
++            tracerInSmoke = TracerLook.On(TracerLook.Read());
++            if (tracerInSmoke)
++                foreach (var halo in new[] { tracerNightA, tracerNightB })
++                {
++                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true));
++                    halo.renderQueue = TracerLook.HaloQueue(true);
++                }
+             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
+             waterMat = new Material(unlit) { enableInstancing = true, color = SceneTints.Now.Splash };
+             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
+@@ -986,12 +996,9 @@ namespace TW.Presentation.Tactical
+                 Vector3 d = t.To - t.From;
+                 float len = d.magnitude;
+                 if (len < 0.1f) continue;
+-                // a streak that travels from muzzle to target over the tracer's life
++                // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
+                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
+-                float streak = Mathf.Min(len, night ? 10f : 6f);
+-                Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+-                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
+-                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
++                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerInSmoke));
+                 if (batch.Count == 1023) Flush(cube, rpT);
+             }
+             if (batch.Count > 0) Flush(cube, rpT);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+new file mode 100644
+index 0000000..8b4ece1
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+@@ -0,0 +1,68 @@
++// Phase: C104 (AOSA, juice J03/J01) - where a tracer is drawn among the smoke, and its shape.
++// A blind critic (runs 9/c101 frames) read the night tracers as a sticker layer: the side's halo is additive at queue
++// 3100, after the smoke books (3010, FlipbookFx), so a green ribbon lay at full strength over the densest cloud and
++// flattened the depth; and at 0.24 m wide and 11.5 m long the halo read as a laser, not a round. C53 asked for tracers
++// drawn inside the smoke. One knob, read once where CombatFx makes the tracer materials:
++//   fx.tracerInSmoke  1 = the halos are drawn at queue 3005, before the smoke, and write depth: a cloud in front of a
++//                     tracer composites over it (dense smoke hides it, thin smoke dims it) and a cloud behind it is
++//                     rejected by the halo's depth, so a round in clear air is untouched. The white-hot core is opaque
++//                     (queue 2000) and was already under the smoke. And the night streak is shorter (7 m, not 10), its
++//                     halo narrower (0.15 m, not 0.24) and only on the streak's front half, a hot coloured head on a
++//                     white tail instead of a neon ribbon the length of the shot. The core keeps its width (J03's 2-3 px)
++//                     and colour (white by design, runs 9/c73.md); the halo keeps its side's colour (whose fire).
++//                     The day tracer is opaque and already inside the smoke: it is not changed.
++//                     0 = the old look bit for bit (the default until a blind 2-way passes).
++// Same materials, same instances: no draw is added.
++using UnityEngine;
++
++namespace TW.Presentation.Tactical
++{
++    public static class TracerLook
++    {
++        public const string Knob = "fx.tracerInSmoke";
++        public const float DefaultInSmoke = 0f, OldInSmoke = 0f;
++
++        /// <summary>fx.tracerInSmoke, clamped to 0-1; read once (CombatFx.Start). Above 0.5 is the new order and shape.</summary>
++        public static float Read() => Mathf.Clamp01(Knobs.Get(Knob, DefaultInSmoke));
++        public static bool On(float inSmoke) => inSmoke > 0.5f;
++
++        /// <summary>The night halo's queue: after every transparent (the old look), or just before the smoke books (3010).</summary>
++        public const int OldHaloQueue = 3100, InSmokeHaloQueue = 3005;
++        public static int HaloQueue(bool inSmoke) => inSmoke ? InSmokeHaloQueue : OldHaloQueue;
++        /// <summary>The night halo's _ZWrite: off (the old look), or on, so a cloud behind the round is not drawn over it.</summary>
++        public static float HaloZWrite(bool inSmoke) => inSmoke ? 1f : 0f;
++
++        // the new night shape (the old numbers stay written out in Matrix below)
++        public const float NightStreak = 7f;        // m, the old 10
++        public const float NightHalo = 0.15f;       // m wide, the old 0.24
++        public const float NightHaloLength = 0.5f;  // x the streak: the front half (the old 1.15, centred on the core)
++        public const float NightHaloLead = 0.05f;   // x the streak: how far the head's glow runs ahead of the core's tip
++
++        /// <summary>
++        /// One layer of one tracer: side 0 / 1 the night halo in its side's colour, 2 the night's white-hot core, and any
++        /// side by day the one streak. d = to - from and len = |d| (at least 0.1), k = its age over its life (0-1),
++        /// closeUp = SceneHooks.CloseUp. With inSmoke false this is the code before C104 expression for expression.
++        /// </summary>
++        public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, bool inSmoke)
++        {
++            if (!inSmoke || !night)
++            {
++                float streak = Mathf.Min(len, night ? 10f : 6f);
++                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, closeUp);   // sized for the standard view; among the men a round is a thin line
++                return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
++            }
++            {
++                float streak = Mathf.Min(len, NightStreak);
++                Vector3 along = d.normalized;
++                Vector3 mid = from + along * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float thick = (side == 2 ? 0.075f : NightHalo) * Mathf.Lerp(1f, 0.30f, closeUp);
++                if (side == 2) return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, streak * 0.8f));
++                // the head: the halo's front sits a little ahead of the core's tip (the core is 0.8 x the streak, centred)
++                float halo = streak * NightHaloLength;
++                Vector3 head = mid + along * (streak * (0.4f + NightHaloLead) - halo * 0.5f);
++                return Matrix4x4.TRS(head, Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
++            }
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs.meta b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs.meta
+new file mode 100644
+index 0000000..f95200b
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 4265776d17594e2d85670d2a023171ac
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index aeff28e..6bdc3d2 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -494,6 +494,79 @@ namespace TW.Tests
+             Assert.AreEqual(1f, FlipbookFx.ReadColumnSoil());
+         }
+ 
++        [Test]
++        public void TracerInSmokeKnob_DefaultIsTheOldLook_AndOnDrawsTheHalosUnderTheSmokeAsAHotHead()
++        {
++            // AOSA C104: 0 (the default until a blind 2-way passes) is the old look: the halo materials as Additive() made
++            // them (queue 3100, no depth write) and every tracer matrix the code before C104 drew, written out here
++            Assert.AreEqual("fx.tracerInSmoke", TracerLook.Knob);
++            Assert.AreEqual(TracerLook.OldInSmoke, TracerLook.DefaultInSmoke, "the default is the old look");
++            Assert.AreEqual(0f, TracerLook.Read());
++            Assert.AreEqual("0", Knobs.Read["fx.tracerInSmoke"]);
++            bool on = TracerLook.On(TracerLook.Read());
++            Assert.IsFalse(on);
++            Assert.AreEqual(3100, TracerLook.HaloQueue(on));
++            Assert.AreEqual(0f, TracerLook.HaloZWrite(on));
++
++            var from = new Vector3(12f, 1.3f, 40f);
++            foreach (var to in new[] { new Vector3(80f, 1.1f, 95f), new Vector3(15f, 1.2f, 44f), new Vector3(12.05f, 1.3f, 40.06f) })
++            foreach (float k in new[] { 0f, 0.37f, 1f })
++            foreach (float close in new[] { 0f, 0.6f, 1f })
++            foreach (bool night in new[] { false, true })
++            for (int side = 0; side < (night ? 3 : 1); side++)
++            {
++                Vector3 d = to - from; float len = d.magnitude;
++                float streak = Mathf.Min(len, night ? 10f : 6f);
++                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, close);
++                var old = Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
++                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, false).Equals(old), "off: night " + night + ", side " + side + ", k " + k + ", len " + len);
++                // on: the day streak and the night's white core keep their width; the day streak does not move at all
++                var at = TracerLook.Matrix(from, d, len, k, night, side, close, true);
++                if (!night) Assert.IsTrue(at.Equals(old), "the day tracer is not changed");
++                else if (side == 2) Assert.AreEqual(thick, at.lossyScale.x, 1e-6f, "the core keeps J03's width");
++            }
++
++            // on: the halos are drawn before the smoke books (queue 3010) and write depth
++            Knobs.Set(TracerLook.Knob, "1");
++            on = TracerLook.On(TracerLook.Read());
++            Assert.IsTrue(on);
++            Assert.Less(TracerLook.HaloQueue(on), 3010, "the halos before the smoke, so a cloud in front covers them");
++            Assert.Greater(TracerLook.HaloQueue(on), 2500, "still a transparent: after the opaque men and ground");
++            Assert.AreEqual(1f, TracerLook.HaloZWrite(on));
++
++            // on, a long night shot: shorter, and the halo narrower, shorter than the core and at its head, ahead of the tip
++            {
++                var to = new Vector3(80f, 1.1f, 95f);
++                Vector3 d = to - from, along = d.normalized; float len = d.magnitude;
++                foreach (float k in new[] { 0f, 0.5f, 1f })
++                {
++                    var core = TracerLook.Matrix(from, d, len, k, true, 2, 0f, true);
++                    var halo = TracerLook.Matrix(from, d, len, k, true, 0, 0f, true);
++                    var oldCore = TracerLook.Matrix(from, d, len, k, true, 2, 0f, false);
++                    var oldHalo = TracerLook.Matrix(from, d, len, k, true, 0, 0f, false);
++                    Assert.Less(core.lossyScale.z, oldCore.lossyScale.z, "a shorter streak");
++                    Assert.Less(halo.lossyScale.x, oldHalo.lossyScale.x * 0.7f, "a narrower halo");
++                    Assert.Less(halo.lossyScale.z, core.lossyScale.z, "the halo is only the head");
++                    Vector3 c = core.GetColumn(3), h = halo.GetColumn(3);
++                    float coreTip = Vector3.Dot(c - from, along) + core.lossyScale.z * 0.5f;
++                    float haloTip = Vector3.Dot(h - from, along) + halo.lossyScale.z * 0.5f;
++                    float haloTail = Vector3.Dot(h - from, along) - halo.lossyScale.z * 0.5f;
++                    Assert.Greater(haloTip, coreTip, "the head glows a little ahead of the core");
++                    float coreTail = coreTip - core.lossyScale.z;
++                    Assert.Greater(haloTail, coreTail + 0.3f * core.lossyScale.z, "at the core's front, not along it");
++                    Assert.LessOrEqual(haloTip, len + 1e-3f, "never past the target");
++                    Assert.GreaterOrEqual(haloTail, -1e-3f, "never behind the muzzle");
++                }
++            }
++
++            // out of range: kept in [0, 1]
++            Knobs.Set(TracerLook.Knob, "-1");
++            Assert.AreEqual(0f, TracerLook.Read());
++            Knobs.Set(TracerLook.Knob, "3");
++            Assert.AreEqual(1f, TracerLook.Read());
++        }
++
+         [Test]
+         public void Terrain_NothingSet_IsTheOldConstants()
+         {

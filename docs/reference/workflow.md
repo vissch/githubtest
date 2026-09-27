@@ -266,8 +266,8 @@ so two captures of "the same moment" can differ more than the change you are jud
 measured on 2026-09-25). Seed `UnityEngine.Random.InitState(...)`, and use `Tools/tw stepabs <seconds>` to create
 the effect and to sample it at fixed absolute game times. Before believing a difference between two rounds,
 capture the same build twice and treat anything inside that spread as noise. `python Tools/flamecheck.py <png>`
-refuses a fire capture with no fire in it. On `lane/show/aosa` (until "AOSA C33: repeatable player stills" lands), PerfBench's `shot_tick=N shot_hud=0` gives stills
-that repeat bit for bit (the HUD animates on real time).
+refuses a fire capture with no fire in it. PerfBench's `shot_tick=N shot_hud=0` gives stills that repeat bit for
+bit: the clock is held and the HUD, which animates on real time, is hidden.
 
 A paused game view does not repaint. After changing anything, step one frame before capturing.
 

@@ -9,6 +9,16 @@
 // The stress preset orders BOTH sides, and each side's orders are timed by that side's own world: the player's by the
 // player's tick, the enemy's by the enemy view's. Keyed to the enemy's tick (as it was), the player's deploys landed
 // wherever the player's world happened to be when the peer's tick came round, which under latency is network timing.
+// S04 (AOSA, 2026-09-25): the stress preset spreads the player's army. Every deploy walks to the rear trench and stops
+// there, and the preset's one `>>` went to the front trench, which was empty, so at 1,500 a side 1,409 men stood in a
+// rear trench with 79 posts, ~38 of them within 2 m of each man: the benchmark measured a crush, not a battle. Now each
+// trench of the player's that is full (a man in it has gone a garrison step without a post) is LOCKED, so later men
+// pass on: the rear trench fills its posts, then the front one, then the rest go over the top at the enemy (measured
+// on the Mono port at 1,500 a side, tick 1,800: 85 in the rear trench, 74 in the front one, 790 in the open, 11.7 men
+// within 2 m of each instead of 37.6). Only sim commands, through the player's seat, as a player would give them. The
+// enemy side needs none of it: EnemyOrders already locks its rear trench and sends its front over every 100 ticks.
+// StressSpread = false (the default; knob stress.spread=1 turns spreading on) is the preset as it was, so old and new
+// measure in one build.
 // A6 replaces this with WaveAiSystem.
 using UnityEngine;
 using TW.Net;
@@ -29,8 +39,20 @@ namespace TW.Presentation
         /// <summary>Stress preset: riflemen a side, deployed 4 a tick by BOTH players; 0 = off.</summary>
         public int StressUnits;
         public int StressAdvanceDelayTicks = 300;
+        /// <summary>Stress preset (S04): lock each of the player's trenches once it is full, so the army fills the posts of
+        /// every trench and the overflow goes over the top, instead of all of it standing in the rear trench. false
+        /// (default) = the preset as it was: the benchmark baselines stay comparable, and spread wipes the enemy out
+        /// mid-window at 1,500 a side (knob stress.spread=1 turns it on).</summary>
+        public bool StressSpread = false;
 
-        struct Stress { public int Deployed; public uint AdvanceTick; public bool Advanced; public uint LastTick; }
+        struct Stress
+        {
+            public int Deployed; public uint AdvanceTick; public bool Advanced; public uint LastTick;
+            /// <summary>Spread: trenches (bit per id) this preset has locked; each is locked once.</summary>
+            public ulong LockSent;
+            /// <summary>Spread: per slot, 1 + the trench he stood in without a post at the last check, else 0.</summary>
+            public short[] Postless;
+        }
         int supportCount;
         Stress playerStress = new Stress { LastTick = uint.MaxValue }, enemyStress = new Stress { LastTick = uint.MaxValue };
         uint lastTick = uint.MaxValue;
@@ -126,6 +148,40 @@ namespace TW.Presentation
                 s.Advanced = true;
                 short front = world.Fields.FrontTrench(side);
                 if (front >= 0) seat.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = front });
+            }
+            // the enemy's trenches are EnemyOrders' (it unlocks its front every 100 ticks), so only the player's spread
+            if (StressSpread && side == 0) Spread(ref s, world, seat, side);
+        }
+
+        /// <summary>S04: lock every trench of `side` that is full, once. A trench is full when one of its own men has stood
+        /// in it without a post across a whole check: TrenchGarrisonSystem hands the free posts out every tick, before
+        /// movement, so a man who garrisoned on the last step has no post YET, and only a full trench leaves him without
+        /// one on the next. A locked trench passes arrivals on to the next trench in the chain (MovementSystem), and past
+        /// the front one that is the enemy's line. Reads the side's own world at its own tick, like the rest of the preset.</summary>
+        void Spread(ref Stress s, MatchSim world, ICommandSink seat, byte side)
+        {
+            var w = world.World;
+            var trenches = world.Fields.Trenches;
+            int n = Mathf.Min(trenches.Length, 64);
+            if (s.Postless == null || s.Postless.Length < w.HighWater) s.Postless = new short[w.TrenchId.Length];
+            ulong full = 0;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                short k = w.TrenchId[i];
+                bool postless = k >= 0 && k < n && w.PostKind[i] == 0 && w.Team[i] == side && (w.Flags[i] & (uint)UnitFlags.Alive) != 0;
+                short was = s.Postless[i];
+                s.Postless[i] = postless ? (short)(k + 1) : (short)0;
+                if (postless && was == k + 1) full |= 1ul << k;
+            }
+            if (full == 0) return;
+            for (int k = 0; k < n; k++)
+            {
+                ulong bit = 1ul << k;
+                if ((full & bit) == 0 || (s.LockSent & bit) != 0) continue;
+                var ts = trenches[k];
+                if (ts.OwnerTeam != side || ts.Locked != 0) continue;
+                s.LockSent |= bit;
+                seat.Issue(new SimCommand { Type = CommandType.TrenchLock, A = k, B = 1 });
             }
         }
     }

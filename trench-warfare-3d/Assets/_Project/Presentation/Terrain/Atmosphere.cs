@@ -93,6 +93,20 @@ namespace TW.Presentation.Terrain
         static readonly int LiquidId = Shader.PropertyToID("_TWLiquid"), LiquidHeatId = Shader.PropertyToID("_TWLiquidHeat");
         static readonly int LiquidIceId = Shader.PropertyToID("_TWLiquidIce");
 
+        // AOSA C79: the key light's shadow distance, as a knob. TW-URP.asset holds 220 m (m_ShadowDistance) and nothing
+        // fits it at run time; at T1 the top of the frame meets the ground ~150-170 m out, so the far part of the shadow
+        // map covers ground out of view.
+        //   render.shadowDistance  metres of shadow from the camera. Its fallback is the pipeline asset's own value, so
+        //                          with nothing set the asset is never written and the image is the old one bit for bit.
+        // Written in Start, only when it differs from the asset, and put back in OnDestroy: in the editor a pipeline asset
+        // changed in play mode keeps the change after play (and a later save would write it into TW-URP.asset).
+        public const string ShadowDistanceKnob = "render.shadowDistance";
+        public const float AssetShadowDistance = 220f;   // TW-URP.asset m_ShadowDistance today (KnobsTests holds them equal)
+        float shadowDistanceWas = -1f;                   // the asset's value while this component has it overridden, else -1
+
+        /// <summary>render.shadowDistance, at least 0; the pipeline asset's value when nothing is set.</summary>
+        public static float ReadShadowDistance(float asset) => Mathf.Max(0f, Knobs.Get(ShadowDistanceKnob, asset));
+
         /// <summary>
         /// Copy a battlefield's profile into the fields this component drives. This replaces ApplyNight, which
         /// assigned the same nineteen values by literal; the values for NightMud are byte-for-byte the ones it used,
@@ -190,6 +204,12 @@ namespace TW.Presentation.Terrain
                 l.transform.rotation = Quaternion.Euler(KeyEuler);
                 key = l;
             }
+            var pipe = UniversalRenderPipeline.asset;
+            if (pipe != null)
+            {
+                float was = pipe.shadowDistance, want = ReadShadowDistance(was);
+                if (want != was) { shadowDistanceWas = was; pipe.shadowDistance = want; }
+            }
             if (Grade) BuildGrade();
         }
 
@@ -241,6 +261,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
             ClearBiome();
+            if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
             if (profile != null) Destroy(profile);
         }
 

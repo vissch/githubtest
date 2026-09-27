@@ -1,0 +1,249 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+index ba707fb..0ae3f29 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+@@ -69,9 +69,40 @@ namespace TW.Presentation.Units
+         public const float Separation = 0f;
+         public static float ReadSeparation() => Mathf.Clamp01(Knobs.Get(SeparationKnob, Separation));
+ 
++        /// <summary>
++        /// AOSA C105s: the three parts of vat.separation settable apart, no rebuild (measured: the moon lift raised the men
++        /// onto the mud's value, men-vs-mud -49% at night, while the outline and jitter lifted helmet separation +30%).
++        /// vat.sepOutline, vat.sepJitter, vat.sepLift (0-1 each): unset, each follows vat.separation, so vat.separation 1
++        /// alone is C105 exactly and vat.separation=1,vat.sepLift=0 is outline and jitter without the lift.
++        /// vat.sepJitterDark (0-1, unset 0): 0 the symmetric +-16% of C105, 1 each man's value only darker, -32%..0.
++        /// ReadSeparationParts: x outline, y jitter, z lift, w jitter dark (VAT_URP's _SepParts).
++        /// </summary>
++        public const string SepOutlineKnob = "vat.sepOutline", SepJitterKnob = "vat.sepJitter", SepLiftKnob = "vat.sepLift", SepJitterDarkKnob = "vat.sepJitterDark";
++        public static Vector4 ReadSeparationParts()
++        {
++            float s = ReadSeparation();
++            return new Vector4(Mathf.Clamp01(Knobs.Get(SepOutlineKnob, s)), Mathf.Clamp01(Knobs.Get(SepJitterKnob, s)),
++                Mathf.Clamp01(Knobs.Get(SepLiftKnob, s)), Mathf.Clamp01(Knobs.Get(SepJitterDarkKnob, 0f)));
++        }
++
++        /// <summary>VAT_URP's _Separation, the gate of every part: the largest of outline, jitter and lift (jitter dark alone
++        /// changes nothing). 0 = nothing is set on the materials and the image is the look before C105.</summary>
++        public static float SeparationGate(Vector4 parts) => Mathf.Max(parts.x, Mathf.Max(parts.y, parts.z));
++
++        /// <summary>VAT_URP's jitter, in C# for the tests: the factor on a man's albedo from his hash h (0..1). At dark 0
++        /// the C105 1 + 0.16 x jitter x (2h - 1); at dark 1 1 - 0.32 x jitter x h (never above 1).</summary>
++        public static float JitterFactor(float h, float jitter, float dark)
++        {
++            if (jitter <= 0f) return 1f;
++            float s = h * 2f - 1f;
++            if (dark > 0f) s = Mathf.Lerp(s, -2f * h, dark);
++            return 1f + 0.16f * jitter * s;
++        }
++
+         /// <summary>VAT_URP's outline pass, in C# for the tests: how the ink's world width grows with the man's view depth w
+         /// (metres). At separation 0 the old clamp(w / 25, 1, 6), which holds the line at a constant screen width past 25 m
+-        /// while the man shrinks; above 0 that growth is raised to 1 - 0.6 x separation.</summary>
++        /// while the man shrinks; above 0 that growth is raised to 1 - 0.6 x separation. The shader passes the outline part,
++        /// _SepParts.x.</summary>
+         public static float OutlineGrow(float w, float separation)
+         {
+             float grow = Mathf.Clamp(w / 25f, 1f, 6f);
+@@ -127,7 +158,7 @@ namespace TW.Presentation.Units
+         readonly Plane[] frustum = new Plane[6];
+         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
+         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
+-        static readonly int SeparationId = Shader.PropertyToID("_Separation");
++        static readonly int SeparationId = Shader.PropertyToID("_Separation"), SepPartsId = Shader.PropertyToID("_SepParts");
+         static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize"), CullId = Shader.PropertyToID("_Cull");
+         /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
+         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
+@@ -159,20 +190,23 @@ namespace TW.Presentation.Units
+         }
+ 
+         // on the materials and on the property blocks, as _PosMin is: a shader reload during Play resets a material's values
+-        static void ApplySeparation(Figure f, float s)
++        static void ApplySeparation(Figure f, float s, Vector4 parts)
+         {
+             f.Material.SetFloat(SeparationId, s); f.Fallen.SetFloat(SeparationId, s);
+             f.Props.SetFloat(SeparationId, s); f.FallenProps.SetFloat(SeparationId, s);
++            f.Material.SetVector(SepPartsId, parts); f.Fallen.SetVector(SepPartsId, parts);
++            f.Props.SetVector(SepPartsId, parts); f.FallenProps.SetVector(SepPartsId, parts);
+         }
+ 
+         float blendZoom = LodTiers.BlendZoom, cullRadius = LodTiers.CullRadius, separation = LodTiers.Separation;
++        Vector4 separationParts;
+         int vertexBudget = LodTiers.VertexBudget;
+ 
+         void Awake()
+         {
+             // knobs (Knobs): the tiers, and the public fields only where a knob is set, so inspector values still hold
+             blendZoom = LodTiers.ReadBlendZoom(); vertexBudget = LodTiers.ReadVertexBudget(); cullRadius = LodTiers.ReadCullRadius();
+-            separation = LodTiers.ReadSeparation();
++            separationParts = LodTiers.ReadSeparationParts(); separation = LodTiers.SeparationGate(separationParts);
+             LodDistance = Knobs.Get("vat.lodDistance", LodDistance);
+             MaxGrow = Knobs.Get("vat.maxGrow", MaxGrow);
+             CastShadows = Knobs.Get("vat.castShadows", CastShadows);
+@@ -204,8 +238,8 @@ namespace TW.Presentation.Units
+             else figures = new[] { Make(shader, ProceduralSoldier.Build()) };
+             if (separation > 0f)   // at 0 nothing is set: the shader's default is 0 and the image is the old one bit for bit
+             {
+-                foreach (var f in figures) ApplySeparation(f, separation);
+-                if (far != null) ApplySeparation(far, separation);
++                foreach (var f in figures) ApplySeparation(f, separation, separationParts);
++                if (far != null) ApplySeparation(far, separation, separationParts);
+             }
+             argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+             args = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
+diff --git a/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader b/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader
+index 2fb6d8b..a89a986 100644
+--- a/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader
++++ b/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader
+@@ -12,6 +12,10 @@
+ // ~2.7 px x scale past 25 m while the men shrank, so at the standard view it covered 36-41% of the crowd's pixels and
+ // every body between two helmets. At 1: the outline's growth with distance is flattened (pow 0.4), each man's cloth
+ // takes a value of his own (+-16%, from his seed), and the moon lifts the shaded side off the trench floor.
++// _SepParts (AOSA C105s; set with _Separation, never alone): x outline, y jitter, z lift (each 0-1, knobs vat.sepOutline,
++// vat.sepJitter, vat.sepLift; unset they follow vat.separation), w jitter toward dark only (vat.sepJitterDark: 0 the
++// symmetric +-16%, 1 a value in -32%..0, so no man is lifted toward the mud's value). _Separation is then the largest
++// part; each part also sits behind its own `> 0.0`, so a part at 0 is exactly the look without it.
+ Shader "TW/VAT Infantry (URP)"
+ {
+     Properties
+@@ -26,6 +30,7 @@ Shader "TW/VAT Infantry (URP)"
+         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
+         _OutlineWidth ("Outline width (m)", Float) = 0.028
+         [HideInInspector] _Separation ("Crowd separation (vat.separation, 0 = off)", Range(0,1)) = 0
++        [HideInInspector] _SepParts ("Separation parts (outline, jitter, lift, jitter dark)", Vector) = (0,0,0,0)
+         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
+         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
+         // set per figure by VATRenderer from the baked asset; declared so a material copy (new Material(m)) and a shader
+@@ -57,6 +62,7 @@ Shader "TW/VAT Infantry (URP)"
+             float4 _WoundCenter, _WoundRadii;
+             float4 _OutlineColor; float _OutlineWidth;
+             float _Separation;
++            float4 _SepParts;
+         CBUFFER_END
+         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
+ 
+@@ -85,6 +91,14 @@ Shader "TW/VAT Infantry (URP)"
+             return lerp(lerp(a, b, f.y), lerp(d, e, f.y), f.z);
+         }
+ 
++        // C105s: a man's own value offset from his hash h (0..1), before the 0.16 x jitter scale: -1..1 as C105 had it at
++        // dark 0, -2..0 (so -32%..0) at dark 1 (LodTiers.JitterFactor mirrors it)
++        float SepJitter(float h, float dark)
++        {
++            float s = h * 2.0 - 1.0;
++            return dark > 0.0 ? lerp(s, -2.0 * h, dark) : s;
++        }
++
+         // one clip: the frame pair at t (0..1 through the row) and the blend between them
+         void SampleClip(float u, float rowIndex, float t, out float3 p, out float3 n)
+         {
+@@ -232,7 +246,8 @@ Shader "TW/VAT Infantry (URP)"
+                 }
+                 // C105: a value of his own, so two neighbours in a packed trench are two tones, not one carpet (his seed is
+                 // constant per man, VatPad bits 14-21, so it never flickers as he moves)
+-                if (_Separation > 0.0) albedo *= 1.0 + 0.16 * _Separation * (VatHash(float3(i.grime.y, 0.37, 0.71)) * 2.0 - 1.0);
++                // (C105s: its own part _SepParts.y, and with _SepParts.w only darker)
++                if (_Separation > 0.0 && _SepParts.y > 0.0) albedo *= 1.0 + 0.16 * _SepParts.y * SepJitter(VatHash(float3(i.grime.y, 0.37, 0.71)), _SepParts.w);
+                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
+                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
+                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
+@@ -251,7 +266,8 @@ Shader "TW/VAT Infantry (URP)"
+                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
+                 // C105: at night the moon lifts the whole man a step off the trench floor (an even lift in his own colour, so it
+                 // counts most on his shaded side; keyed on the same mood test as the rim below: nothing without a tinted shade)
+-                if (_Separation > 0.0) color += albedo * mainLight.color * (0.30 * _Separation * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))));
++                // (C105s: its own part _SepParts.z; measured, this lift is what raised the men onto the mud's value)
++                if (_Separation > 0.0 && _SepParts.z > 0.0) color += albedo * mainLight.color * (0.30 * _SepParts.z * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))));
+                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
+                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
+                 color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
+@@ -297,7 +313,7 @@ Shader "TW/VAT Infantry (URP)"
+                 // C105: at _Separation 1 that growth is flattened to pow 0.4 (x0.51 at the standard view's 78 m, x0.38 at 125 m),
+                 // so the ink round a far man no longer swallows the bodies between the helmets; up to 25 m nothing changes
+                 float grow = clamp(w / 25.0, 1.0, 6.0);
+-                if (_Separation > 0.0) grow = pow(grow, 1.0 - 0.6 * _Separation);
++                if (_Separation > 0.0 && _SepParts.x > 0.0) grow = pow(grow, 1.0 - 0.6 * _SepParts.x);   // C105s: its own part
+                 float width = _OutlineWidth * a.scale * grow;
+                 o.positionCS = TransformWorldToHClip(a.positionWS + a.normalWS * width);
+                 o.fog = ComputeFogFactor(o.positionCS.z);
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs
+index 75d363c..40a1373 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs
+@@ -71,5 +71,77 @@ namespace TW.Tests
+             string cs = File.ReadAllText(RendererPath);
+             Assert.That(cs, Does.Contain("if (separation > 0f)"), "at 0 the renderer sets nothing");
+         }
++
++        // C105s: the three parts settable apart (the lift lowered men-vs-mud 49% at night; the outline and jitter raised
++        // helmet separation 30%)
++        [Test]
++        public void SeparationParts_UnsetFollowSeparation_EachSettableApart()
++        {
++            Assert.AreEqual(Vector4.zero, LodTiers.ReadSeparationParts(), "nothing set: every part off");
++            Assert.AreEqual(0f, LodTiers.SeparationGate(LodTiers.ReadSeparationParts()), "nothing set: the renderer sets nothing");
++
++            Knobs.Set("vat.separation", "1");
++            Assert.AreEqual(new Vector4(1f, 1f, 1f, 0f), LodTiers.ReadSeparationParts(), "vat.separation alone is C105 exactly");
++            Assert.AreEqual(1f, LodTiers.SeparationGate(LodTiers.ReadSeparationParts()));
++
++            Knobs.Set("vat.sepLift", "0");
++            Assert.AreEqual(new Vector4(1f, 1f, 0f, 0f), LodTiers.ReadSeparationParts(), "outline and jitter, no lift");
++            Assert.AreEqual(1f, LodTiers.SeparationGate(LodTiers.ReadSeparationParts()));
++
++            Knobs.Set("vat.sepOutline", "0.5"); Knobs.Set("vat.sepJitter", "2"); Knobs.Set("vat.sepJitterDark", "1");
++            Assert.AreEqual(new Vector4(0.5f, 1f, 0f, 1f), LodTiers.ReadSeparationParts(), "each its own, clamped to 0-1");
++
++            Knobs.Clear();
++            Knobs.Set("vat.separation", "0.4");
++            Assert.AreEqual(new Vector4(0.4f, 0.4f, 0.4f, 0f), LodTiers.ReadSeparationParts());
++            Knobs.Clear();
++            Knobs.Set("vat.sepJitter", "0.7");
++            Assert.AreEqual(new Vector4(0f, 0.7f, 0f, 0f), LodTiers.ReadSeparationParts(), "a part on its own, vat.separation unset");
++            Assert.AreEqual(0.7f, LodTiers.SeparationGate(LodTiers.ReadSeparationParts()));
++            Knobs.Clear();
++            Knobs.Set("vat.sepJitterDark", "1");
++            Assert.AreEqual(0f, LodTiers.SeparationGate(LodTiers.ReadSeparationParts()), "jitter dark alone changes nothing");
++        }
++
++        [Test]
++        public void JitterFactor_SymmetricAsC105_DarkOnlyNeverLifts()
++        {
++            for (int k = 0; k <= 20; k++)
++            {
++                float h = k / 20f;
++                Assert.AreEqual(1f, LodTiers.JitterFactor(h, 0f, 0f), "jitter off: untouched");
++                Assert.That(LodTiers.JitterFactor(h, 1f, 0f), Is.EqualTo(1f + 0.16f * 1f * (h * 2f - 1f)).Within(1e-6f), "dark 0: C105's +-16%, written out");
++                float dark = LodTiers.JitterFactor(h, 1f, 1f);
++                Assert.That(dark, Is.EqualTo(1f - 0.32f * h).Within(1e-6f), "dark 1: -32%..0");
++                Assert.That(dark, Is.LessThanOrEqualTo(1f), "dark 1 never lifts a man toward the mud");
++                Assert.That(LodTiers.JitterFactor(h, 1f, 0.5f), Is.LessThanOrEqualTo(Mathf.Max(1f, LodTiers.JitterFactor(h, 1f, 0f)) + 1e-6f));
++            }
++            Assert.That(LodTiers.JitterFactor(0f, 1f, 0f), Is.EqualTo(0.84f).Within(1e-6f));
++            Assert.That(LodTiers.JitterFactor(1f, 1f, 0f), Is.EqualTo(1.16f).Within(1e-6f));
++            Assert.That(LodTiers.JitterFactor(1f, 1f, 1f), Is.EqualTo(0.68f).Within(1e-6f));
++            Assert.That(LodTiers.JitterFactor(1f, 0.5f, 1f), Is.EqualTo(0.84f).Within(1e-6f), "the jitter part scales the range");
++        }
++
++        [Test]
++        public void Shader_EachPartBehindItsOwnTest_AndTheRendererSetsThePartsWithTheGate()
++        {
++            string src = Regex.Replace(File.ReadAllText(ShaderPath), @"//[^\n]*", "");
++            int uses = 0;
++            foreach (Match m in Regex.Matches(src, @"^[^\n]*\b_SepParts\b[^\n]*$", RegexOptions.Multiline))
++            {
++                string line = m.Value.Trim();
++                if (line.StartsWith("[HideInInspector] _SepParts") || line == "float4 _SepParts;") continue;
++                uses++;
++                Assert.That(line, Does.StartWith("if (_Separation > 0.0 && _SepParts."), "a part used outside the gate: " + line);
++            }
++            Assert.AreEqual(3, uses, "outline, jitter (with jitter dark) and lift");
++            Assert.That(src, Does.Contain("grow = pow(grow, 1.0 - 0.6 * _SepParts.x)"));
++            Assert.That(src, Does.Contain("0.16 * _SepParts.y * SepJitter("));
++            Assert.That(src, Does.Contain("0.30 * _SepParts.z * saturate("));
++
++            string cs = File.ReadAllText(RendererPath);
++            Assert.That(cs, Does.Contain("separation = LodTiers.SeparationGate(separationParts)"));
++            Assert.That(cs, Does.Contain("SetVector(SepPartsId, parts)"), "the parts go wherever the gate goes, only when it is on");
++        }
+     }
+ }

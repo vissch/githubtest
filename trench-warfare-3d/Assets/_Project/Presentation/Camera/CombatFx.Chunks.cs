@@ -13,8 +13,8 @@ namespace TW.Presentation.Tactical
     {
         struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water, 5 brass, 6 helmet, 7 vapour
         readonly List<Chunk> chunks = new List<Chunk>(768);
-        const int MaxChunks = 940;
-        const int MaxAmbientChunks = 300;   // kinds 2, 5, 7: rifle smoke, breath, exhaust, crater steam
+        int MaxChunks = 940;                // knob fx.maxChunks (Awake)
+        int MaxAmbientChunks = 300;         // knob fx.maxAmbientChunks (Awake); kinds 2, 5, 7: rifle smoke, breath, exhaust, crater steam
         int ambientChunks;                  // counted in DrawChunks, so Throw never has to scan the pool
         /// <summary>A shell going off where it lay (SceneHooks.CookOff): a shell burst's flash, fire and smoke at a fraction of
         /// its size, its sparks and clods, and the kick of it. No column: it was lying on the ground, not buried by its fall.</summary>
@@ -28,10 +28,10 @@ namespace TW.Presentation.Tactical
                 Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;
                 books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f), r * 3.2f, 0.16f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow, pop: 0.5f);
                 books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.5f), r * 2.4f, 1.4f, FlipbookFx.Kind.Upright,
-                    velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                    velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                 for (int k = 0; k < 3; k++)
                     books.Add(FlipbookFx.Book.Smoke, p + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r, r * UnityEngine.Random.Range(1.1f, 1.5f), UnityEngine.Random.Range(3.5f, 5f),
-                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: 0.6f, pop: 0.3f, delay: 0.3f + k * 0.15f);
+                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: FlipbookFx.SmokeOpacity(0.6f, smokeAlpha, SceneHooks.CloseUp), pop: 0.3f, delay: 0.3f + k * 0.15f);
             }
             else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = r, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
             Throw(p + Vector3.up * 0.3f, 14, 3, 7f, 0.05f);   // sparks
@@ -40,6 +40,35 @@ namespace TW.Presentation.Tactical
             SceneHooks.Flash?.Invoke(p + Vector3.up * 0.8f, new Color(1f, 0.62f, 0.3f), 6f, r * 5f, 0.25f);
             Startle(p);
             CameraShake.Add(p, r * 1.5f);
+        }
+
+        /// <summary>AOSA C103: the ground distance to the nearest living man behind a column at p (away from the eye) within
+        /// halfWidth of its line and reach of it, float.MaxValue if none; and the eye's slope down to p. A man in front of
+        /// the column is not covered by it (it is drawn behind him: the card tests depth), so only the men behind count.</summary>
+        float MenBehind(Vector3 p, float halfWidth, float reach, out float tanPitch)
+        {
+            tanPitch = 0.466f;   // the standard view's 25 degrees, if there is no eye
+            float best = float.MaxValue;
+            var cam = Camera.main;
+            if (cam == null || Host == null || Host.Local == null) return best;
+            Vector3 eye = cam.transform.position;
+            float fx = p.x - eye.x, fz = p.z - eye.z, flat = Mathf.Sqrt(fx * fx + fz * fz);
+            if (flat < 0.1f) return best;
+            tanPitch = (eye.y - p.y) / flat;
+            fx /= flat; fz /= flat;   // the flat view direction; its right is (fz, -fx)
+            var w = Host.Local.World;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint flags = w.Flags[i];
+                if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
+                var q = w.Position[i];
+                float dx = q.x - p.x, dz = q.z - p.z;
+                float d = dx * fx + dz * fz;
+                if (d < 0f || d > reach || d >= best) continue;
+                if (Mathf.Abs(dx * fz - dz * fx) > halfWidth) continue;
+                best = d;
+            }
+            return best;
         }
 
         /// <summary>Throw debris: dirt and splinters fly and fall, smoke rises, swells and thins.</summary>

@@ -35,7 +35,7 @@ namespace TW.Presentation.Terrain
 
         void Start()
         {
-            int count = Mathf.RoundToInt(MaxStreaks * Mathf.Clamp01(Intensity));
+            int count = Mathf.RoundToInt(Mathf.Max(0, Knobs.Get("rain.maxStreaks", MaxStreaks)) * Mathf.Clamp01(Intensity));   // knob rain.maxStreaks
             if (count == 0) { enabled = false; return; }
             var pos = new List<Vector3>(count * 4); var quad = new List<Vector2>(count * 4); var random = new List<Vector2>(count * 4); var tris = new List<int>(count * 6);
             for (int i = 0; i < count; i++)

@@ -21,8 +21,9 @@ namespace TW.Presentation.Tactical
         readonly Dictionary<int, Trail> trails = new Dictionary<int, Trail>(128);
         readonly List<Vector4> hotCraters = new List<Vector4>(16);   // xyz, w = cools at
         readonly List<int> trailSweep = new List<int>(64);
-        const int MaxRests = 320, MaxMarks = 900;   // machine marks lie for minutes and are laid out to MachineMarkReach, so the field holds more of them than when only boots printed
-        const float CloseReach = 42f;
+        const int MaxRests = 320;
+        int MaxMarks = 900;          // knob fx.maxMarks (Awake); machine marks lie for minutes and are laid out to MachineMarkReach, so the field holds more of them than when only boots printed
+        float CloseReach = 42f;      // knob fx.closeReach (Awake)
         /// <summary>How far out a machine's marks are laid and drawn. A boot print is invisible past CloseReach and is not
         /// made past it; a tank's ruts and a walker's footfalls are metres across and belong on the ground at the standard
         /// view, where the game is actually played, so they run to the edge of what the camera holds.</summary>

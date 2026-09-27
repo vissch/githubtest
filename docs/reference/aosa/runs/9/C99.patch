@@ -1,0 +1,29 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index 482de20..1a149bf 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -64,7 +64,10 @@ namespace TW.Presentation.Tactical
+         //   fx.smokeAlpha  multiplies the opacity a shell's smoke puff is born with. 1 = the old look.
+         // Both at their old values (fx.smokeSoft=0,fx.smokeAlpha=1) draw the image before C52 bit for bit.
+         public const string SoftKnob = "fx.smokeSoft", AlphaKnob = "fx.smokeAlpha";
+-        public const float DefaultSoft = 0.3f, DefaultAlpha = 0.85f;   // blind critic, cycle 5 (runs 5/w1): the one balance of six where the barrage stays heavy and the trench countable
++        // DefaultSoft was 0.3 (blind critic, cycle 5, runs 5/w1: the one balance of six where the barrage stays heavy and the
++        // trench countable); AOSA C99 doubled it after a blind pair test against 0.3 (runs 9/c99-critic.md: men near the burst
++        // 4.67 -> 5.17, weight 6.83 -> 6.33, at rule 6's 0.5 limit). fx.smokeSoft=0.3 draws C52's default, 0 the look before C52.
++        public const float DefaultSoft = 0.6f, DefaultAlpha = 0.85f;   // DefaultAlpha: blind critic, cycle 5 (runs 5/w1)
+         public const float OldSoft = 0f, OldAlpha = 1f;
+ 
+         /// <summary>fx.smokeSoft, never below 0 (0 = the old look).</summary>
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 220efed..ac4dd85 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -167,7 +167,7 @@ namespace TW.Tests
+             Assert.AreEqual("fx.smokeAlpha", FlipbookFx.AlphaKnob);
+             Assert.AreEqual(FlipbookFx.DefaultSoft, FlipbookFx.ReadSoft());
+             Assert.AreEqual(FlipbookFx.DefaultAlpha, FlipbookFx.ReadAlpha());
+-            Assert.AreEqual("0.3", Knobs.Read["fx.smokeSoft"]);
++            Assert.AreEqual("0.6", Knobs.Read["fx.smokeSoft"]);   // AOSA C99: 0.3 -> 0.6
+             Assert.AreEqual("0.85", Knobs.Read["fx.smokeAlpha"]);
+             Assert.Greater(FlipbookFx.DefaultSoft, FlipbookFx.OldSoft, "the default is the new look");
+             Assert.Less(FlipbookFx.DefaultAlpha, FlipbookFx.OldAlpha, "the default is the new look");

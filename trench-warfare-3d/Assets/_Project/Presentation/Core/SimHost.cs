@@ -57,6 +57,10 @@ namespace TW.Presentation
         public int StressUnits = 0;
         [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
         public int StressAdvanceDelayTicks = 300;
+        /// <summary>Knob (S04): 1 = the stress preset spreads the player's army over its trenches; 0 (default) = the preset
+        /// as it was, every man in the rear trench. Read once, in Awake, and only when the stress preset is on.</summary>
+        public const string StressSpreadKnob = "stress.spread";
+        bool stressSpread = false;
 
         public MatchSim Local { get; private set; }
         /// <summary>The canary's second world. NULL in single player: tooling that wrote "both worlds" uses WriteWorlds.</summary>
@@ -98,6 +102,7 @@ namespace TW.Presentation
         {
             MatchLaunch.Apply(this);   // a mission chosen in the shell writes its knobs into the fields below before the match is built
             if (StressOverride >= 0) StressUnits = StressOverride;
+            if (StressUnits > 0) stressSpread = Knobs.Get(StressSpreadKnob, false);
             Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
             var cfg = SimConfig.Default;
             cfg.Seed = Seed;
@@ -166,6 +171,7 @@ namespace TW.Presentation
             enemy.Enabled = ScriptedPeer; enemy.DeployEveryTicks = PeerDeployEveryTicks; enemy.Attacks = PeerAttacks;
             enemy.DeploysTanks = PeerDeploysTanks; enemy.AttackGarrison = PeerAttackGarrison; enemy.UsesSupport = PeerUsesSupport;
             enemy.SupportReserve = PeerSupportReserve; enemy.StressUnits = StressUnits; enemy.StressAdvanceDelayTicks = StressAdvanceDelayTicks;
+            enemy.StressSpread = stressSpread;
         }
 
         /// <summary>Entry point for UI and debug input: queue a command for the local player.</summary>

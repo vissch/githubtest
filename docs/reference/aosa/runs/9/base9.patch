@@ -1,0 +1,775 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 941e3ca..77c7fc9 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -124,8 +124,9 @@ namespace TW.Presentation.Tactical
+         float smokeAlpha = FlipbookFx.DefaultAlpha;
+         // knobs fx.columnScale and fx.burstGlow (Awake, AOSA C57/C58): the drawn burst's earth column size and its cloud's
+         // glow, as multipliers. 1 (default) = the look as it is; an extreme value is the discriminating test that a part is
+-        // drawn at all at the standard view (the C42 lesson), before anyone tunes it.
+-        float columnScale = 1f, burstGlow = 1f;
++        // drawn at all at the standard view (the C42 lesson), before anyone tunes it. burstGlow is read by
++        // FlipbookFx.ReadBurstGlow (the cycle 9 candidate 0.5 failed with the set on weight, a0050).
++        float columnScale = 1f, burstGlow = FlipbookFx.DefaultBurstGlow;
+         // knobs fx.smokeNight and fx.smokeNightSize (Awake, AOSA C59): on a moonlit field the burst's cloud and its smoke are
+         // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
+         // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
+@@ -137,6 +138,10 @@ namespace TW.Presentation.Tactical
+         // knobs fx.smokeNightWarm and fx.smokeNightFire (Awake, AOSA C61): the night smoke's warmth and the share of a burst's
+         // light it takes (FlipbookFx.NightSmoke). 1 and 1 = C59's look. (fx.smokeHard is read by FlipbookFx itself.)
+         float smokeNightWarm = FlipbookFx.DefaultNightWarm, smokeNightFire = FlipbookFx.DefaultNightFire;
++        // knob fx.columnSoil (Awake, AOSA C103): on a moonlit field a dry shell's column is a dark soil heave that rises fast
++        // and falls back (FlipbookFx.SoilShape, painted by FlipbookFx.SoilEarth), kept low over men behind it (SoilCap),
++        // and it throws fewer, bigger, varied clods (DebrisRenderer.Heave). 0 = the old look.
++        float columnSoil = FlipbookFx.DefaultColumnSoil;
+         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+@@ -198,6 +203,8 @@ namespace TW.Presentation.Tactical
+         Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
+         Material flashMat;
+         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
++        bool tracerInSmoke;   // knob fx.tracerInSmoke (Start, AOSA C104): see TracerLook
++        float tracerShape;    // knob fx.tracerShape (Start, AOSA C104s): unset 0, or 1 when fx.tracerInSmoke is set on (TracerLook.ReadShape)
+         /// <summary>
+         /// Paint every material and flipbook the biome owns. Called when SceneTints.Epoch moves, not per frame:
+         /// the old code compared waterMat.color against a static every frame, which is a native read to decide
+@@ -220,6 +227,7 @@ namespace TW.Presentation.Tactical
+             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
+             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
++            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.SoilEarth(columnSoil, columnEarth);   // AOSA C103: over C57's paint (soil 0 sets nothing)
+             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
+             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
+             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
+@@ -281,13 +289,14 @@ namespace TW.Presentation.Tactical
+             shotStagger = ShotStagger.ReadSpread();
+             smokeAlpha = FlipbookFx.ReadAlpha();
+             columnScale = Mathf.Max(0f, Knobs.Get("fx.columnScale", 1f));
+-            burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
++            burstGlow = FlipbookFx.ReadBurstGlow();
+             smokeNight = FlipbookFx.ReadNight();
+             smokeNightSize = FlipbookFx.ReadNightSize();
+             columnEarth = FlipbookFx.ReadEarth();
+             columnEarthSize = FlipbookFx.ReadEarthSize();
+             smokeNightWarm = FlipbookFx.ReadNightWarm();
+             smokeNightFire = FlipbookFx.ReadNightFire();
++            columnSoil = FlipbookFx.ReadColumnSoil();
+         }
+ 
+         void Start()
+@@ -302,6 +311,17 @@ namespace TW.Presentation.Tactical
+             // night (SceneMood): each side's fire is its own colour, over-bright so the bloom takes it
+             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
+             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
++            // knob fx.tracerInSmoke (AOSA C104, TracerLook): the halos drawn before the smoke and writing depth, so a cloud
++            // in front of a round covers it; and (fx.tracerShape) the night streak's shorter, narrower, hot-headed shape.
++            // 0 (the default) = the old look; fx.tracerInSmoke=1,fx.tracerShape=0 = the order with the old shape.
++            tracerInSmoke = TracerLook.On(TracerLook.Read());
++            tracerShape = TracerLook.ReadShape(tracerInSmoke);
++            if (tracerInSmoke)
++                foreach (var halo in new[] { tracerNightA, tracerNightB })
++                {
++                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true));
++                    halo.renderQueue = TracerLook.HaloQueue(true);
++                }
+             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
+             waterMat = new Material(unlit) { enableInstancing = true, color = SceneTints.Now.Splash };
+             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
+@@ -708,6 +728,19 @@ namespace TW.Presentation.Tactical
+                         // guess, and this project has been burned twice by those.
+                         // AOSA C57: the dry column smaller at the standard view on a moonlit field (1 exactly with fx.columnEarthSize=1)
+                         float earth = wet ? 1f : FlipbookFx.NightScale(columnEarthSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
++                        // AOSA C103: a dry column on a moonlit field is the soil heave at fx.columnSoil (0: the old column exactly)
++                        float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
++                        float columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth;
++                        if (soil > 0f)
++                        {
++                            // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
++                            // the drawing fills about 60% of its card, and a man is about 0.8 m across
++                            float reach = books.CardHeight(FlipbookFx.Book.Column, columnWidth) * FlipbookFx.SoilPeak;
++                            float behind = MenBehind(p, columnWidth * FlipbookFx.SoilWidth * 1.08f * 0.3f + 0.4f, reach * 3f, out float tanPitch);
++                            books.Add(FlipbookFx.Book.Column, p, columnWidth, Mathf.Lerp(1.8f, FlipbookFx.SoilLife, soil), ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: 1f, pop: 0.15f,
++                                soil: soil, soilCap: FlipbookFx.SoilCap(behind, tanPitch, reach));
++                        }
++                        else
+                         books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
+                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
+@@ -743,8 +776,14 @@ namespace TW.Presentation.Tactical
+                         // the earth itself: clods the size of a fist to a head, thrown up and out, which lie where they land
+                         // for half a minute; and a hail of smaller ones flung high that comes down over the next seconds
+                         float r = Mathf.Clamp(e.Scalar, 2f, 9f);
++                        // AOSA C103: under the soil column, fewer, bigger, varied clods that go up with it and fall back round it
++                        if (!wet && columnSoil > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
++                            debris.Heave(p + Vector3.up * 0.4f, Mathf.RoundToInt(10f + r), 8f + r * 0.6f, Mathf.Lerp(0.16f + r * 0.02f, 0.3f + r * 0.02f, columnSoil), DebrisMath.SoilSpread, DebrisMath.SoilClump, Mud, FlipbookFx.SoilClodLife, e.Tick);
++                        else
++                        {
+                         debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, default, e.Tick);
+                         debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, default, e.Tick + 7u);
++                        }
+                     }
+                     if (!wet)
+                     {
+@@ -961,12 +1000,9 @@ namespace TW.Presentation.Tactical
+                 Vector3 d = t.To - t.From;
+                 float len = d.magnitude;
+                 if (len < 0.1f) continue;
+-                // a streak that travels from muzzle to target over the tracer's life
++                // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
+                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
+-                float streak = Mathf.Min(len, night ? 10f : 6f);
+-                Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+-                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
+-                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
++                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape));
+                 if (batch.Count == 1023) Flush(cube, rpT);
+             }
+             if (batch.Count > 0) Flush(cube, rpT);
+@@ -1366,6 +1402,35 @@ namespace TW.Presentation.Tactical
+             CameraShake.Add(p, r * 1.5f);
+         }
+ 
++        /// <summary>AOSA C103: the ground distance to the nearest living man behind a column at p (away from the eye) within
++        /// halfWidth of its line and reach of it, float.MaxValue if none; and the eye's slope down to p. A man in front of
++        /// the column is not covered by it (it is drawn behind him: the card tests depth), so only the men behind count.</summary>
++        float MenBehind(Vector3 p, float halfWidth, float reach, out float tanPitch)
++        {
++            tanPitch = 0.466f;   // the standard view's 25 degrees, if there is no eye
++            float best = float.MaxValue;
++            var cam = Camera.main;
++            if (cam == null || Host == null || Host.Local == null) return best;
++            Vector3 eye = cam.transform.position;
++            float fx = p.x - eye.x, fz = p.z - eye.z, flat = Mathf.Sqrt(fx * fx + fz * fz);
++            if (flat < 0.1f) return best;
++            tanPitch = (eye.y - p.y) / flat;
++            fx /= flat; fz /= flat;   // the flat view direction; its right is (fz, -fx)
++            var w = Host.Local.World;
++            for (int i = 0; i < w.HighWater; i++)
++            {
++                uint flags = w.Flags[i];
++                if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
++                var q = w.Position[i];
++                float dx = q.x - p.x, dz = q.z - p.z;
++                float d = dx * fx + dz * fz;
++                if (d < 0f || d > reach || d >= best) continue;
++                if (Mathf.Abs(dx * fz - dz * fx) > halfWidth) continue;
++                best = d;
++            }
++            return best;
++        }
++
+         void Throw(Vector3 at, int count, byte kind, float speed, float size)
+         {
+             bool ambient = kind == 2 || kind == 5 || kind == 7;
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs
+index dacaa6d..caa9ff6 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.cs
+@@ -91,6 +91,14 @@ namespace TW.Presentation.Tactical
+         /// (DebrisRenderer reads them through the knobs debris.shareNear and debris.shareFar).</summary>
+         public const float ShareNear = 55f, ShareFar = 120f;
+         public static float Share(float distanceToLook, float near, float far) => distanceToLook < near ? 1f : distanceToLook < far ? 0.5f : 0.25f;
++
++        /// <summary>AOSA C103 (fx.columnSoil): a soil heave's clods span this ratio of sizes (smallest to largest), and this
++        /// share of them is thrown as a clump of three that flies together.</summary>
++        public const float SoilSpread = 4f, SoilClump = 0.35f;
++
++        /// <summary>A heave clod's size from a uniform u in [0, 1): scale / sqrt(spread) to scale x sqrt(spread), the small
++        /// ones commoner (u squared), so a few big lumps stand out of a spray of small ones.</summary>
++        public static float SoilSize(float u, float scale, float spread) => scale * Mathf.Pow(Mathf.Max(1f, spread), u * u - 0.5f);
+     }
+ 
+     /// <summary>A small deterministic generator seeded from a place, so a burst's pieces fly the same way in a replay.</summary>
+@@ -274,6 +282,32 @@ namespace TW.Presentation.Tactical
+             }
+         }
+ 
++        /// <summary>
++        /// AOSA C103 (fx.columnSoil): the earth a shell heaves up, as clods. A steep cone (it goes up with the column and
++        /// comes down round it), each at 0.6-1.1 of the speed, sized by DebrisMath.SoilSize over spread, each a shade of
++        /// the tint from dark to a little light, and a clump share thrown as three that fly together (two smaller lumps
++        /// beside it at nearly its speed). The count is scaled by how near the burst is to the middle of the picture, as
++        /// Burst. Clods only: the Clod pool, which a burst already draws, so no draw is added.
++        /// </summary>
++        public void Heave(Vector3 at, int count, float speed, float scale, float spread, float clump, Color tint, float life, uint salt = 0)
++        {
++            if (!Ready || count <= 0) return;
++            count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at), shareNear, shareFar));
++            var rng = new DebrisRng(at, salt * 3u + 0x5011u);
++            for (int k = 0; k < count; k++)
++            {
++                Vector3 dir = rng.OnSphere(); dir.y = Mathf.Abs(dir.y) * 2.6f + 0.7f;
++                Vector3 vel = dir.normalized * (speed * rng.Range(0.6f, 1.1f));
++                float size = DebrisMath.SoilSize(rng.Next(), scale, spread);
++                float shade = rng.Range(0.62f, 1.05f);
++                var c = new Color(tint.r * shade, tint.g * shade, tint.b * shade, tint.a);
++                Throw(Piece.Clod, at, vel, size, c, ref rng, life * rng.Range(0.6f, 1.4f));
++                if (rng.Next() >= clump) continue;
++                for (int j = 0; j < 2; j++)
++                    Throw(Piece.Clod, at + rng.OnSphere() * (size * 0.45f), vel * rng.Range(0.93f, 1.05f) + rng.OnSphere() * 0.5f, size * rng.Range(0.4f, 0.65f), c, ref rng, life * rng.Range(0.6f, 1.4f));
++            }
++        }
++
+         /// <summary>
+         /// A piece that falls over rather than flying: hinged at pivot (the mesh's foot), standing in pose, going over
+         /// about the horizontal axis to the side of fallDirection until it lies at angle radians (about 1.5 for the
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index c048419..bafcd1a 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -31,6 +31,7 @@ namespace TW.Presentation.Tactical
+         {
+             public Vector3 Pos, Vel;
+             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop;
++            public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
+             public Book Book; public Kind Kind;
+         }
+ 
+@@ -64,12 +65,24 @@ namespace TW.Presentation.Tactical
+         //   fx.smokeAlpha  multiplies the opacity a shell's smoke puff is born with. 1 = the old look.
+         // Both at their old values (fx.smokeSoft=0,fx.smokeAlpha=1) draw the image before C52 bit for bit.
+         public const string SoftKnob = "fx.smokeSoft", AlphaKnob = "fx.smokeAlpha";
++        // Cycle 9: fx.smokeSoft=0.6 with fx.burstGlow=0.5 (runs 9/c99s, b1; c99-critic.md, batch9-critic.md) passed alone,
++        // but the cycle 9 candidate set (smokeSoft 0.6, burstGlow 0.5, tracerInSmoke 1 with tracerShape 0) failed
++        // together on weight (a0050, runs 9/d9k-critic.md: -1.0, lower in 8 of 8), so the defaults stay as they were.
+         public const float DefaultSoft = 0.3f, DefaultAlpha = 0.85f;   // blind critic, cycle 5 (runs 5/w1): the one balance of six where the barrage stays heavy and the trench countable
+         public const float OldSoft = 0f, OldAlpha = 1f;
+ 
+         /// <summary>fx.smokeSoft, never below 0 (0 = the old look).</summary>
+         public static float ReadSoft() { float v = Knobs.Get(SoftKnob, DefaultSoft); return v > 0f ? v : 0f; }
+ 
++        // AOSA C58/C99: fx.burstGlow multiplies the glow of a shell's burst cloud (CombatFx). 1 = the old look and the
++        // default. The cycle 9 candidate 0.5 (runs 9/b1, with fx.smokeSoft=0.6) passed alone but failed with the rest of
++        // the cycle 9 set on weight (a0050, runs 9/d9k-critic.md); fx.burstGlow=0.5 still draws it.
++        public const string BurstGlowKnob = "fx.burstGlow";
++        public const float DefaultBurstGlow = 1f, OldBurstGlow = 1f;
++
++        /// <summary>fx.burstGlow, never below 0 (1 = the old look).</summary>
++        public static float ReadBurstGlow() => Mathf.Max(0f, Knobs.Get(BurstGlowKnob, DefaultBurstGlow));
++
+         /// <summary>fx.smokeAlpha, in [0, 1] (1 = the old look).</summary>
+         public static float ReadAlpha() => Mathf.Clamp01(Knobs.Get(AlphaKnob, DefaultAlpha));
+ 
+@@ -254,6 +267,93 @@ namespace TW.Presentation.Tactical
+             PaintNight(m, EarthTint(value));
+             m.SetFloat("_Erode", 1f);
+         }
++
++        // AOSA C103 (juice J01, split from C53: the column's size and dark core): two blind critics (runs 9/c102-critic.md,
++        // 8/c98-critic.md) read the column as thin translucent orange-brown arcs, "water spray, sparkler, flame", and the
++        // clods as uniform small dark pebbles. Three causes, from the code and the drawing:
++        //   the timing  the Column book plays its 16 frames evenly over 1.8 s, so the dense column (frames 1-5) is up for
++        //               0.1-0.6 s and the split arcs (frames 6-15, 10-25% cover) fill the other 1.2 s the critic sees.
++        //   the light   _BurstLit is 1 on the Column (C61 left it whole), so the shell's orange light is ADDED to a dark
++        //               brown and the column reads as flame (measured on c102h f50: (190, 110, 50) where lit).
++        //   the clods   two DebrisRenderer bursts of 0.19-0.48 m and 0.05-0.14 m lumps, one tint, lying 30 s.
++        // One knob, fx.columnSoil in [0, 1], on a moonlit field only (as C57: the day column is the size-1 book, unjudged):
++        //   the column  a soil heave (SoilShape): it rises in SoilRise s (frames 0.5 -> 3.2, the dense ones with two lumps
++        //               at the top, so wider at the top and ragged), holds the dense frames to SoilHold s, then collapses
++        //               back into the ground over the rest of its SoilLife (height x 1.06 -> 0.4, falling faster as it
++        //               goes, the frames running on to 7.6 while fx.columnEarth's erode tears it). Drawn SoilWidth as wide
++        //               and SoilHeight as tall as the book's own card: an opaque column no bigger than today's, dense for
++        //               1 s instead of sparse arcs for 1.8 s (the drawn cover over time is the same, 0.23 against 0.23).
++        //   over men    rule 6 (C98: a bigger column lowered the men 6.0 -> 5.3; C102: an opaque one over men, 3 -> 2): the
++        //               card is drawn behind a man in front of it (depth), but it covers the ground behind it out to its
++        //               height over the eye's slope. CombatFx finds the nearest man behind it inside its width and caps
++        //               its height so its top stops at his feet (SoilCap), down to SoilLow: a low heave, never a veil.
++        //   its paint   dark umber at value SoilValue (EarthTint, the C57 paint), taking SoilFire of the burst's light.
++        //   the clods   DebrisRenderer.Heave: fewer, bigger, varied (a 4x size span, most small; a third thrown as clumps
++        //               of three), a darker-to-lighter spread of the mud, on real arcs that go up with the column and come
++        //               down round it, lying SoilClodLife s instead of 30.
++        // Between 0 and 1 the paint and the timing blend (the clods are the heave at any value above 0). No book, material,
++        // mesh or pool is added: the Column book and the Clod pool already draw. 0 = the old look: nothing is painted,
++        // no card has Soil, and CombatFx throws the old clods (the code before C103, bit for bit).
++        public const string ColumnSoilKnob = "fx.columnSoil";
++        public const float DefaultColumnSoil = 0f, OldColumnSoil = 0f;   // off until a blind 2-way against the default passes (rule 6)
++        public const float SoilValue = 0.08f, SoilFire = 0.3f;           // critic: core ~0.08, dark umber #2A1E14-#4A3526, not flame-lit
++        public const float SoilLife = 1.4f, SoilRise = 0.25f, SoilHold = 0.65f;   // critic: rises in 0.2-0.3 s, then falls back
++        public const float SoilWidth = 0.9f, SoilHeight = 1.0f;          // rule 6: the footprint no wider or taller than today's column
++        public const float SoilClodLife = 1.5f;                          // short-lived on the ground (was 30 s)
++        public const float SoilLow = 0.3f;                               // the lowest the column is capped to over men (SoilCap)
++        public const float SoilPeak = 1.06f * SoilHeight;                // the heave's tallest, of the card's own height (SoilShape at SoilHold)
++
++        /// <summary>fx.columnSoil, in [0, 1] (0 = the old look).</summary>
++        public static float ReadColumnSoil() => Mathf.Clamp01(Knobs.Get(ColumnSoilKnob, DefaultColumnSoil));
++
++        /// <summary>The soil heave's frame, width and height factors (of the card's own) t seconds into a column of this
++        /// life: rise in SoilRise, hold to SoilHold, collapse over the rest.</summary>
++        public static void SoilShape(float t, float life, out float frame, out float wide, out float tall)
++        {
++            if (t < SoilRise)
++            {
++                float u = Mathf.Clamp01(t / SoilRise), e = 1f - (1f - u) * (1f - u) * (1f - u);   // out of the ground fast, easing at the top
++                frame = Mathf.Lerp(0.5f, 3.2f, e); wide = Mathf.Lerp(0.55f, 1f, e); tall = Mathf.Lerp(0.15f, 1f, e);
++            }
++            else if (t < SoilHold)
++            {
++                float u = (t - SoilRise) / (SoilHold - SoilRise);
++                frame = Mathf.Lerp(3.2f, 4.4f, u); wide = Mathf.Lerp(1f, 1.08f, u); tall = Mathf.Lerp(1f, 1.06f, u);
++            }
++            else
++            {
++                float u = Mathf.Clamp01((t - SoilHold) / Mathf.Max(0.05f, life - SoilHold));
++                frame = Mathf.Lerp(4.4f, 7.6f, u); wide = Mathf.Lerp(1.08f, 1.25f, u); tall = Mathf.Lerp(1.06f, 0.4f, u * u);   // falls back, faster as it goes
++            }
++            wide *= SoilWidth; tall *= SoilHeight;
++        }
++
++        /// <summary>The height cap of a soil column over men (rule 6: C98's and C102's columns hid the men they stood over).
++        /// The column stands on the impact and faces the eye, so it covers the ground behind it (away from the eye) out to
++        /// its height over the tangent of the eye's pitch. behind is the ground distance to the nearest man behind it inside
++        /// its width, tanPitch the eye's slope down to the impact, peak the column's full drawn height (m). The cap keeps the
++        /// column's top at that man's feet, never below SoilLow of its height (a low heave still reads as earth); 1 with no
++        /// man behind it.</summary>
++        public static float SoilCap(float behind, float tanPitch, float peak)
++            => peak <= 0f ? 1f : Mathf.Clamp(behind * Mathf.Max(0f, tanPitch) / peak, SoilLow, 1f);
++
++        /// <summary>The height a card of this book is drawn at for a width, when no height is given (the drawing's aspect).</summary>
++        public float CardHeight(Book book, float width) => width / Mathf.Max(0.05f, aspect[(int)book]);
++
++        /// <summary>The value the soil column is painted at: SoilValue at 1, blended from fx.columnEarth's below it.</summary>
++        public static float SoilPaintValue(float soil, float earth) => earth > 0f ? Mathf.Lerp(earth, SoilValue, soil) : SoilValue;
++
++        /// <summary>AOSA C103: paint the Column book as the soil heave's dark umber (see ColumnSoilKnob). Called after
++        /// NightEarth, on a moonlit field only; soil 0 sets nothing.</summary>
++        public void SoilEarth(float soil, float earth)
++        {
++            if (soil <= 0f) return;
++            var m = mats[(int)Book.Column];
++            if (m == null) return;
++            PaintNight(m, EarthTint(SoilPaintValue(soil, earth)));
++            m.SetFloat("_Erode", 1f);
++            m.SetFloat("_BurstLit", Mathf.Lerp(1f, SoilFire, soil));
++        }
+         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
+         readonly List<Card> cards = new List<Card>(512);
+         readonly Material[] mats = new Material[(int)Book.Count];
+@@ -320,12 +420,12 @@ namespace TW.Presentation.Tactical
+         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
+         /// out over its last third.
+         /// </summary>
+-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f)
++        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f)
+         {
+             if (!Ready) return;
+             if (cards.Count >= maxCards) cards.RemoveAt(0);
+             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
+-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Book = book, Kind = kind });
++            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Book = book, Kind = kind });
+         }
+ 
+         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
+@@ -356,7 +456,13 @@ namespace TW.Presentation.Tactical
+                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
+                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
+                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
+-                    batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
++                    if (c.Soil > 0f)
++                    {
++                        // AOSA C103: the soil heave's own timing and shape, blended by the knob (see ColumnSoilKnob)
++                        SoilShape(now - c.Born, c.Life, out float soilFrame, out float wide, out float tall);
++                        batch[n++] = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
++                    }
++                    else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
+                 }
+                 if (n > 0) FrameBudget.Draw(rp, quad, 0, batch, n);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+new file mode 100644
+index 0000000..fede98d
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+@@ -0,0 +1,109 @@
++// Phase: C104 (AOSA, juice J03/J01) - where a tracer is drawn among the smoke, and its shape.
++// A blind critic (runs 9/c101 frames) read the night tracers as a sticker layer: the side's halo is additive at queue
++// 3100, after the smoke books (3010, FlipbookFx), so a green ribbon lay at full strength over the densest cloud and
++// flattened the depth; and at 0.24 m wide and 11.5 m long the halo read as a laser, not a round. C53 asked for tracers
++// drawn inside the smoke. One knob, read once where CombatFx makes the tracer materials:
++//   fx.tracerInSmoke  1 = the halos are drawn at queue 3005, before the smoke, and write depth: a cloud in front of a
++//                     tracer composites over it (dense smoke hides it, thin smoke dims it) and a cloud behind it is
++//                     rejected by the halo's depth, so a round in clear air is untouched. The white-hot core is opaque
++//                     (queue 2000) and was already under the smoke. And the night streak is shorter (7 m, not 10), its
++//                     halo narrower (0.15 m, not 0.24) and only on the streak's front half, a hot coloured head on a
++//                     white tail instead of a neon ribbon the length of the shot. The core keeps its width (J03's 2-3 px)
++//                     and colour (white by design, runs 9/c73.md); the halo keeps its side's colour (whose fire).
++//                     The day tracer is opaque and already inside the smoke: it is not changed.
++//                     0 = the old look bit for bit (the order and the shape), and the default.
++//   fx.tracerShape    (AOSA C104s) the shape half on its own, 0-1: 0 = the old night streak and halo, 1 = C104's, and
++//                     between them a lerp of every shape number (streak length, halo width, halo length, where the halo
++//                     sits). Unset, it is 0 (DefaultShape), except when fx.tracerInSmoke is itself set and on: then it is
++//                     1, so the run label `fx.tracerInSmoke=1` alone still means C104's order and slim shape bit for bit
++//                     (runs 9/s3, b3), and fx.tracerInSmoke=1,fx.tracerShape=0 is the new order with the old wide halos
++//                     (runs 9/t1). Neither set is the old look.
++// Cycle 9: t1 (runs 9/t1, c104s-critic.md: tracers +2.17, weight -0.33, men never lower) passed alone, but the cycle 9
++// candidate set (smokeSoft 0.6, burstGlow 0.5, tracerInSmoke 1 with tracerShape 0) failed together on weight (a0050,
++// runs 9/d9k-critic.md: -1.0, lower in 8 of 8), so the default stays the old look.
++// Same materials, same instances: no draw is added.
++using UnityEngine;
++
++namespace TW.Presentation.Tactical
++{
++    public static class TracerLook
++    {
++        public const string Knob = "fx.tracerInSmoke";
++        public const float DefaultInSmoke = 0f, OldInSmoke = 0f;   // cycle 9: t1 passed alone, failed with the set on weight (a0050)
++
++        /// <summary>fx.tracerInSmoke, clamped to 0-1; read once (CombatFx.Start). Above 0.5 is the new order and shape.</summary>
++        public static float Read() => Mathf.Clamp01(Knobs.Get(Knob, DefaultInSmoke));
++        public static bool On(float inSmoke) => inSmoke > 0.5f;
++
++        public const string ShapeKnob = "fx.tracerShape";
++        public const float DefaultShape = 0f, OldShape = 0f;   // the old wide halo (with the order on, runs 9/t1's look)
++
++        /// <summary>fx.tracerShape, clamped to 0-1 (read once, CombatFx.Start). Unset it is DefaultShape (0), or 1 when the
++        /// order is on and fx.tracerInSmoke was itself set (C104's `fx.tracerInSmoke=1` run label keeps its meaning).</summary>
++        public static float ReadShape(bool inSmoke)
++        {
++            float unset = inSmoke && Knobs.Overrides.ContainsKey(Knob) ? 1f : DefaultShape;
++            return Mathf.Clamp01(Knobs.Get(ShapeKnob, unset));
++        }
++
++        /// <summary>The night halo's queue: after every transparent (the old look), or just before the smoke books (3010).</summary>
++        public const int OldHaloQueue = 3100, InSmokeHaloQueue = 3005;
++        public static int HaloQueue(bool inSmoke) => inSmoke ? InSmokeHaloQueue : OldHaloQueue;
++        /// <summary>The night halo's _ZWrite: off (the old look), or on, so a cloud behind the round is not drawn over it.</summary>
++        public static float HaloZWrite(bool inSmoke) => inSmoke ? 1f : 0f;
++
++        // the new night shape (the old numbers stay written out in Matrix below)
++        public const float NightStreak = 7f;        // m, the old 10
++        public const float NightHalo = 0.15f;       // m wide, the old 0.24
++        public const float NightHaloLength = 0.5f;  // x the streak: the front half (the old 1.15, centred on the core)
++        public const float NightHaloLead = 0.05f;   // x the streak: how far the head's glow runs ahead of the core's tip
++
++        /// <summary>
++        /// One layer of one tracer: side 0 / 1 the night halo in its side's colour, 2 the night's white-hot core, and any
++        /// side by day the one streak. d = to - from and len = |d| (at least 0.1), k = its age over its life (0-1),
++        /// closeUp = SceneHooks.CloseUp. With inSmoke false this is the code before C104 expression for expression.
++        /// </summary>
++        public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, bool inSmoke)
++            => Matrix(from, d, len, k, night, side, closeUp, inSmoke ? 1f : 0f);
++
++        /// <summary>
++        /// As above with the night shape as a 0-1 blend (fx.tracerShape): 0 is the old code and 1 C104's, each bit for bit
++        /// (their own branches); between them the streak, the halo's width and length and its tip's lead are lerped.
++        /// </summary>
++        public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, float shape)
++        {
++            if (shape <= 0f || !night)
++            {
++                float streak = Mathf.Min(len, night ? 10f : 6f);
++                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, closeUp);   // sized for the standard view; among the men a round is a thin line
++                return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
++            }
++            if (shape < 1f) return Blend(from, d, len, k, side, closeUp, shape);
++            {
++                float streak = Mathf.Min(len, NightStreak);
++                Vector3 along = d.normalized;
++                Vector3 mid = from + along * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float thick = (side == 2 ? 0.075f : NightHalo) * Mathf.Lerp(1f, 0.30f, closeUp);
++                if (side == 2) return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, streak * 0.8f));
++                // the head: the halo's front sits a little ahead of the core's tip (the core is 0.8 x the streak, centred)
++                float halo = streak * NightHaloLength;
++                Vector3 head = mid + along * (streak * (0.4f + NightHaloLead) - halo * 0.5f);
++                return Matrix4x4.TRS(head, Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
++            }
++        }
++
++        static Matrix4x4 Blend(Vector3 from, Vector3 d, float len, float k, int side, float closeUp, float s)
++        {
++            float streak = Mathf.Min(len, Mathf.Lerp(10f, NightStreak, s));
++            Vector3 along = d.normalized;
++            Vector3 mid = from + along * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++            float thick = (side == 2 ? 0.075f : Mathf.Lerp(0.24f, NightHalo, s)) * Mathf.Lerp(1f, 0.30f, closeUp);
++            if (side == 2) return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, streak * 0.8f));
++            // the old halo is centred (its tip 0.575 x the streak ahead of mid), C104's tip is 0.4 + lead ahead: lerp both
++            float halo = streak * Mathf.Lerp(1.15f, NightHaloLength, s);
++            float tip = streak * Mathf.Lerp(0.575f, 0.4f + NightHaloLead, s);
++            return Matrix4x4.TRS(mid + along * (tip - halo * 0.5f), Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs.meta b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs.meta
+new file mode 100644
+index 0000000..f95200b
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 4265776d17594e2d85670d2a023171ac
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index d7ee789..bc64d51 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -167,7 +167,7 @@ namespace TW.Tests
+             Assert.AreEqual("fx.smokeAlpha", FlipbookFx.AlphaKnob);
+             Assert.AreEqual(FlipbookFx.DefaultSoft, FlipbookFx.ReadSoft());
+             Assert.AreEqual(FlipbookFx.DefaultAlpha, FlipbookFx.ReadAlpha());
+-            Assert.AreEqual("0.3", Knobs.Read["fx.smokeSoft"]);
++            Assert.AreEqual("0.3", Knobs.Read["fx.smokeSoft"]);   // the cycle 9 candidate 0.6 failed with the set on weight (a0050)
+             Assert.AreEqual("0.85", Knobs.Read["fx.smokeAlpha"]);
+             Assert.Greater(FlipbookFx.DefaultSoft, FlipbookFx.OldSoft, "the default is the new look");
+             Assert.Less(FlipbookFx.DefaultAlpha, FlipbookFx.OldAlpha, "the default is the new look");
+@@ -185,6 +185,10 @@ namespace TW.Tests
+                 Assert.IsTrue(FlipbookFx.SmokeOpacity(0.6f, FlipbookFx.ReadAlpha(), close) == 0.6f, "cook-off smoke, closeUp " + close);
+             }
+ 
++            // the cycle 9 candidate (runs 9/c99s, b1) is still reachable: fx.smokeSoft=0.6
++            Knobs.Set(FlipbookFx.SoftKnob, "0.6");
++            Assert.IsTrue(FlipbookFx.ReadSoft() == 0.6f);
++
+             // out of range: softness never below 0 (the shader skips it), opacity kept in [0, 1]
+             Knobs.Set(FlipbookFx.SoftKnob, "-2");
+             Knobs.Set(FlipbookFx.AlphaKnob, "3");
+@@ -194,6 +198,27 @@ namespace TW.Tests
+             Assert.AreEqual(0f, FlipbookFx.ReadAlpha());
+         }
+ 
++        [Test]
++        public void BurstGlowKnob_DefaultIsTheOldGlow_AndHalfIsTheCycle9Candidate()
++        {
++            // AOSA C58/C99: the default is the old glow, 1, the float the old code used (the cycle 9 candidate 0.5 passed
++            // alone but failed with the set on weight, a0050); fx.burstGlow=0.5 still draws runs 9/b1's glow
++            Assert.AreEqual("fx.burstGlow", FlipbookFx.BurstGlowKnob);
++            Assert.AreEqual(FlipbookFx.OldBurstGlow, FlipbookFx.DefaultBurstGlow, "the default is the old look");
++            Assert.AreEqual(1f, FlipbookFx.OldBurstGlow, "the old glow multiplier, the float the old code used");
++            Assert.IsTrue(FlipbookFx.ReadBurstGlow() == 1f);
++            Assert.AreEqual("1", Knobs.Read["fx.burstGlow"]);
++
++            // the cycle 9 candidate
++            Knobs.Set(FlipbookFx.BurstGlowKnob, "0.5");
++            Assert.IsTrue(FlipbookFx.ReadBurstGlow() == 0.5f);
++            // out of range: never below 0
++            Knobs.Set(FlipbookFx.BurstGlowKnob, "-2");
++            Assert.AreEqual(0f, FlipbookFx.ReadBurstGlow());
++            Knobs.Set(FlipbookFx.BurstGlowKnob, "3");
++            Assert.AreEqual(3f, FlipbookFx.ReadBurstGlow());
++        }
++
+         [Test]
+         public void NightSmokeKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldSmoke()
+         {
+@@ -423,6 +448,221 @@ namespace TW.Tests
+             Assert.AreEqual(1f, FlipbookFx.ReadColumnHard());
+         }
+ 
++        [Test]
++        public void ColumnSoilKnob_DefaultIsTheOldLook_AndTheHeaveRisesFastFallsBackAndStaysLowOverMen()
++        {
++            // AOSA C103: fx.columnSoil, the soil heave; 0 (the default until a blind 2-way passes) is the old look
++            Assert.AreEqual("fx.columnSoil", FlipbookFx.ColumnSoilKnob);
++            Assert.AreEqual(FlipbookFx.OldColumnSoil, FlipbookFx.DefaultColumnSoil, "the default is the old look");
++            Assert.AreEqual(0f, FlipbookFx.ReadColumnSoil());
++            Assert.AreEqual("0", Knobs.Read["fx.columnSoil"]);
++
++            // the paint: dark umber at SoilValue, darker than C57's column, the same hue; below 1 it blends from fx.columnEarth
++            Assert.AreEqual(0.08f, FlipbookFx.SoilValue);
++            Assert.Less(FlipbookFx.SoilValue, FlipbookFx.DefaultEarth, "darker than C57's column");
++            Assert.AreEqual(FlipbookFx.SoilValue, FlipbookFx.SoilPaintValue(1f, FlipbookFx.DefaultEarth));
++            Assert.AreEqual(FlipbookFx.DefaultEarth, FlipbookFx.SoilPaintValue(0f, FlipbookFx.DefaultEarth));
++            Assert.AreEqual(FlipbookFx.SoilValue, FlipbookFx.SoilPaintValue(0.5f, 0f), "no C57 paint: the soil's own value");
++            var soil = FlipbookFx.EarthTint(FlipbookFx.SoilValue);
++            Assert.Greater(soil.r, soil.g); Assert.Greater(soil.g, soil.b);
++            Assert.AreEqual(FlipbookFx.SoilValue, (0.299f * soil.r + 0.587f * soil.g + 0.114f * soil.b) * Mathf.Lerp(0.61f, FlipbookFx.NightShade, FlipbookFx.NightLit), 1e-4f);
++            Assert.Less(FlipbookFx.SoilFire, 1f, "it takes less of the burst's light than the old column (1)");
++
++            // the shape: out of the ground in SoilRise (0.2-0.3 s) to its full height, on the dense frames (1-5, before the
++            // drawing splits into arcs), held, then falling back to 40% of its height by the end of its (shorter) life
++            Assert.That(FlipbookFx.SoilRise, Is.InRange(0.2f, 0.3f));
++            Assert.Less(FlipbookFx.SoilLife, 1.8f, "shorter than the old column");
++            FlipbookFx.SoilShape(0f, FlipbookFx.SoilLife, out float f0, out float w0, out float h0);
++            Assert.AreEqual(0.15f * FlipbookFx.SoilHeight, h0, 1e-5f);
++            float last = h0;
++            for (float t = 0.025f; t <= FlipbookFx.SoilRise; t += 0.025f)
++            {
++                FlipbookFx.SoilShape(t, FlipbookFx.SoilLife, out float f, out float w, out float h);
++                Assert.GreaterOrEqual(h, last, "rises at " + t); last = h;
++                Assert.That(f, Is.InRange(0.5f, 3.2f + 1e-4f));
++            }
++            FlipbookFx.SoilShape(FlipbookFx.SoilRise, FlipbookFx.SoilLife, out float fr, out float wr, out float hr);
++            Assert.AreEqual(FlipbookFx.SoilHeight, hr, 1e-4f, "full height at SoilRise");
++            Assert.AreEqual(3.2f, fr, 1e-4f, "on the dense frames");
++            FlipbookFx.SoilShape(FlipbookFx.SoilHold - 1e-4f, FlipbookFx.SoilLife, out float fh, out float wh, out float hh);
++            Assert.AreEqual(FlipbookFx.SoilPeak, hh, 1e-3f, "SoilPeak is its tallest");
++            Assert.Less(fh, 5f, "still dense at the end of the hold");
++            FlipbookFx.SoilShape(FlipbookFx.SoilLife, FlipbookFx.SoilLife, out float fe, out float we, out float he);
++            Assert.AreEqual(0.4f * FlipbookFx.SoilHeight, he, 1e-4f, "fallen back");
++            Assert.LessOrEqual(fe, 7.6f + 1e-4f);
++            for (float t = 0f; t <= FlipbookFx.SoilLife; t += 0.05f)
++            {
++                FlipbookFx.SoilShape(t, FlipbookFx.SoilLife, out float f, out float w, out float h);
++                Assert.LessOrEqual(w, 1.25f * FlipbookFx.SoilWidth + 1e-4f, "never wider than today's column grows (1.35)");
++                Assert.LessOrEqual(h, FlipbookFx.SoilPeak + 1e-4f);
++            }
++
++            // the cap over men: no man behind, full height; a man at its foot, SoilLow; in between, the top at his feet
++            Assert.AreEqual(1f, FlipbookFx.SoilCap(float.MaxValue, 0.466f, 9f));
++            Assert.AreEqual(FlipbookFx.SoilLow, FlipbookFx.SoilCap(0f, 0.466f, 9f));
++            Assert.AreEqual(1f, FlipbookFx.SoilCap(30f, 0.466f, 9f));
++            Assert.AreEqual(12f * 0.466f / 9f, FlipbookFx.SoilCap(12f, 0.466f, 9f), 1e-5f);
++            Assert.AreEqual(1f, FlipbookFx.SoilCap(3f, 0.466f, 0f), "no height, no cap");
++
++            // the clods: a 4x size span round the scale, the small ones commoner
++            Assert.AreEqual(4f, DebrisMath.SoilSpread);
++            Assert.AreEqual(0.5f * 0.4f, DebrisMath.SoilSize(0f, 0.4f, DebrisMath.SoilSpread), 1e-5f);
++            Assert.AreEqual(2f * 0.4f, DebrisMath.SoilSize(1f, 0.4f, DebrisMath.SoilSpread), 1e-4f);
++            Assert.Less(DebrisMath.SoilSize(0.5f, 0.4f, DebrisMath.SoilSpread), 0.4f, "the median clod is under the scale");
++            Assert.AreEqual(0.4f, DebrisMath.SoilSize(0.9f, 0.4f, 1f), 1e-6f, "spread 1: one size");
++            Assert.That(DebrisMath.SoilClump, Is.InRange(0f, 1f));
++
++            // out of range: kept in [0, 1]
++            Knobs.Set(FlipbookFx.ColumnSoilKnob, "-1");
++            Assert.AreEqual(0f, FlipbookFx.ReadColumnSoil());
++            Knobs.Set(FlipbookFx.ColumnSoilKnob, "3");
++            Assert.AreEqual(1f, FlipbookFx.ReadColumnSoil());
++        }
++
++        [Test]
++        public void TracerInSmokeKnob_DefaultIsTheOldLook_AndOnDrawsTheHalosUnderTheSmokeAsAHotHead()
++        {
++            // AOSA C104: 0, the default, is the old look (the cycle 9 candidate, order on with shape 0, passed alone but
++            // failed with the set on weight, a0050): the halo materials as Additive() made them (queue 3100, no depth
++            // write), the old shape, and every tracer matrix the code before C104 drew, written out here
++            Assert.AreEqual("fx.tracerInSmoke", TracerLook.Knob);
++            Assert.AreEqual(TracerLook.OldInSmoke, TracerLook.DefaultInSmoke, "the default is the old look");
++            Assert.AreEqual(0f, TracerLook.Read());
++            Assert.AreEqual("0", Knobs.Read["fx.tracerInSmoke"]);
++            bool on = TracerLook.On(TracerLook.Read());
++            Assert.IsFalse(on);
++            Assert.AreEqual(3100, TracerLook.HaloQueue(on));
++            Assert.AreEqual(0f, TracerLook.HaloZWrite(on));
++            Assert.AreEqual(0f, TracerLook.ReadShape(on), "the old shape");
++            // fx.tracerInSmoke=0 set explicitly is the same old look
++            Knobs.Set(TracerLook.Knob, "0");
++            Assert.IsFalse(TracerLook.On(TracerLook.Read()));
++            Assert.AreEqual(0f, TracerLook.ReadShape(false), "the old shape");
++
++            var from = new Vector3(12f, 1.3f, 40f);
++            foreach (var to in new[] { new Vector3(80f, 1.1f, 95f), new Vector3(15f, 1.2f, 44f), new Vector3(12.05f, 1.3f, 40.06f) })
++            foreach (float k in new[] { 0f, 0.37f, 1f })
++            foreach (float close in new[] { 0f, 0.6f, 1f })
++            foreach (bool night in new[] { false, true })
++            for (int side = 0; side < (night ? 3 : 1); side++)
++            {
++                Vector3 d = to - from; float len = d.magnitude;
++                float streak = Mathf.Min(len, night ? 10f : 6f);
++                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, close);
++                var old = Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
++                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, false).Equals(old), "off: night " + night + ", side " + side + ", k " + k + ", len " + len);
++                // on: the day streak and the night's white core keep their width; the day streak does not move at all
++                var at = TracerLook.Matrix(from, d, len, k, night, side, close, true);
++                if (!night) Assert.IsTrue(at.Equals(old), "the day tracer is not changed");
++                else if (side == 2) Assert.AreEqual(thick, at.lossyScale.x, 1e-6f, "the core keeps J03's width");
++            }
++
++            // on: the halos are drawn before the smoke books (queue 3010) and write depth
++            Knobs.Set(TracerLook.Knob, "1");
++            on = TracerLook.On(TracerLook.Read());
++            Assert.IsTrue(on);
++            Assert.Less(TracerLook.HaloQueue(on), 3010, "the halos before the smoke, so a cloud in front covers them");
++            Assert.Greater(TracerLook.HaloQueue(on), 2500, "still a transparent: after the opaque men and ground");
++            Assert.AreEqual(1f, TracerLook.HaloZWrite(on));
++
++            // on, a long night shot: shorter, and the halo narrower, shorter than the core and at its head, ahead of the tip
++            {
++                var to = new Vector3(80f, 1.1f, 95f);
++                Vector3 d = to - from, along = d.normalized; float len = d.magnitude;
++                foreach (float k in new[] { 0f, 0.5f, 1f })
++                {
++                    var core = TracerLook.Matrix(from, d, len, k, true, 2, 0f, true);
++                    var halo = TracerLook.Matrix(from, d, len, k, true, 0, 0f, true);
++                    var oldCore = TracerLook.Matrix(from, d, len, k, true, 2, 0f, false);
++                    var oldHalo = TracerLook.Matrix(from, d, len, k, true, 0, 0f, false);
++                    Assert.Less(core.lossyScale.z, oldCore.lossyScale.z, "a shorter streak");
++                    Assert.Less(halo.lossyScale.x, oldHalo.lossyScale.x * 0.7f, "a narrower halo");
++                    Assert.Less(halo.lossyScale.z, core.lossyScale.z, "the halo is only the head");
++                    Vector3 c = core.GetColumn(3), h = halo.GetColumn(3);
++                    float coreTip = Vector3.Dot(c - from, along) + core.lossyScale.z * 0.5f;
++                    float haloTip = Vector3.Dot(h - from, along) + halo.lossyScale.z * 0.5f;
++                    float haloTail = Vector3.Dot(h - from, along) - halo.lossyScale.z * 0.5f;
++                    Assert.Greater(haloTip, coreTip, "the head glows a little ahead of the core");
++                    float coreTail = coreTip - core.lossyScale.z;
++                    Assert.Greater(haloTail, coreTail + 0.3f * core.lossyScale.z, "at the core's front, not along it");
++                    Assert.LessOrEqual(haloTip, len + 1e-3f, "never past the target");
++                    Assert.GreaterOrEqual(haloTail, -1e-3f, "never behind the muzzle");
++                }
++            }
++
++            // out of range: kept in [0, 1]
++            Knobs.Set(TracerLook.Knob, "-1");
++            Assert.AreEqual(0f, TracerLook.Read());
++            Knobs.Set(TracerLook.Knob, "3");
++            Assert.AreEqual(1f, TracerLook.Read());
++        }
++
++        [Test]
++        public void TracerShapeKnob_UnsetIsZeroUnlessInSmokeIsSetOn_EndsAreBitForBit_AndItBlendsOnItsOwn()
++        {
++            // AOSA C104s: fx.tracerShape splits C104's shape from its order. Unset it is 0, the old wide halos, so neither
++            // knob set is the old look; but when fx.tracerInSmoke is itself set on it is 1, so the run label
++            // fx.tracerInSmoke=1 alone (runs 9/s3, b3) is C104's order and slim shape bit for bit, and
++            // fx.tracerInSmoke=1,fx.tracerShape=0 (runs 9/t1, the cycle 9 candidate) is the order with the old halos
++            Assert.AreEqual("fx.tracerShape", TracerLook.ShapeKnob);
++            Assert.AreEqual(0f, TracerLook.DefaultShape);
++            Assert.AreEqual(TracerLook.OldShape, TracerLook.DefaultShape, "the default is the old shape");
++            Assert.AreEqual(0f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "nothing set: the old look");
++            Assert.AreEqual(0f, TracerLook.ReadShape(true), "unset, and fx.tracerInSmoke not set: 0");
++            Assert.AreEqual(0f, TracerLook.ReadShape(false));
++            Knobs.Clear();
++            Knobs.Set(TracerLook.Knob, "1");
++            Assert.IsTrue(TracerLook.On(TracerLook.Read()));
++            Assert.AreEqual(1f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "fx.tracerInSmoke=1 alone: C104's shape");
++            Knobs.Set(TracerLook.Knob, "0");
++            Assert.AreEqual(0f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "fx.tracerInSmoke=0: the old shape");
++            Knobs.Set(TracerLook.Knob, "1");
++            Knobs.Set(TracerLook.ShapeKnob, "0");
++            Assert.IsTrue(TracerLook.On(TracerLook.Read()), "t1: the order on");
++            Assert.AreEqual(0f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "t1: order on, the old wide halos");
++            Knobs.Set(TracerLook.ShapeKnob, "0.5");
++            Assert.AreEqual(0.5f, TracerLook.ReadShape(false));
++            Knobs.Set(TracerLook.ShapeKnob, "-2");
++            Assert.AreEqual(0f, TracerLook.ReadShape(true));
++            Knobs.Set(TracerLook.ShapeKnob, "4");
++            Assert.AreEqual(1f, TracerLook.ReadShape(false));
++
++            var from = new Vector3(12f, 1.3f, 40f);
++            foreach (var to in new[] { new Vector3(80f, 1.1f, 95f), new Vector3(15f, 1.2f, 44f), new Vector3(12.05f, 1.3f, 40.06f) })
++            foreach (float k in new[] { 0f, 0.37f, 1f })
++            foreach (float close in new[] { 0f, 0.6f, 1f })
++            foreach (bool night in new[] { false, true })
++            for (int side = 0; side < (night ? 3 : 1); side++)
++            {
++                Vector3 d = to - from; float len = d.magnitude;
++                var oldM = TracerLook.Matrix(from, d, len, k, night, side, close, false);
++                var newM = TracerLook.Matrix(from, d, len, k, night, side, close, true);
++                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, 0f).Equals(oldM), "shape 0 is the old look");
++                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, 1f).Equals(newM), "shape 1 is C104's");
++                // the blend is continuous at both ends and lies between them
++                AssertNear(oldM, TracerLook.Matrix(from, d, len, k, night, side, close, 1e-4f), "near 0");
++                AssertNear(newM, TracerLook.Matrix(from, d, len, k, night, side, close, 1f - 1e-4f), "near 1");
++                var half = TracerLook.Matrix(from, d, len, k, night, side, close, 0.5f);
++                if (!night) { Assert.IsTrue(half.Equals(oldM), "the day tracer is not changed"); continue; }
++                float lo = Mathf.Min(oldM.lossyScale.x, newM.lossyScale.x), hi = Mathf.Max(oldM.lossyScale.x, newM.lossyScale.x);
++                Assert.That(half.lossyScale.x, Is.InRange(lo - 1e-5f, hi + 1e-5f), "width between");
++                lo = Mathf.Min(oldM.lossyScale.z, newM.lossyScale.z); hi = Mathf.Max(oldM.lossyScale.z, newM.lossyScale.z);
++                Assert.That(half.lossyScale.z, Is.InRange(lo - 1e-4f, hi + 1e-4f), "length between");
++            }
++            // a long night shot at 0.5: the halo is halfway wide, 0.195 m (0.24 -> 0.15)
++            {
++                Vector3 d = new Vector3(80f, 1.1f, 95f) - from;
++                Assert.AreEqual(0.195f, TracerLook.Matrix(from, d, d.magnitude, 0.5f, true, 0, 0f, 0.5f).lossyScale.x, 1e-5f);
++                Assert.AreEqual(8.5f * 0.8f, TracerLook.Matrix(from, d, d.magnitude, 0.5f, true, 2, 0f, 0.5f).lossyScale.z, 1e-4f, "the streak halfway, 8.5 m");
++            }
++        }
++
++        static void AssertNear(Matrix4x4 a, Matrix4x4 b, string what)
++        {
++            for (int i = 0; i < 16; i++) Assert.AreEqual(a[i], b[i], 2e-3f, what + " [" + i + "]");
++        }
++
+         [Test]
+         public void Terrain_NothingSet_IsTheOldConstants()
+         {

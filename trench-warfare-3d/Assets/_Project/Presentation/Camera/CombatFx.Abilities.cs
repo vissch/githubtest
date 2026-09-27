@@ -247,7 +247,7 @@ namespace TW.Presentation.Tactical
         void DrawAim(Bounds bounds)
         {
             var preview = SceneHooks.AimPreview;   // whoever owns the aim (TestPanel today) says what is aimed; nobody: nothing to draw
-            if (aimMat == null || preview == null || !preview(out var shape)) return;
+            if (!ShowOverlays || aimMat == null || preview == null || !preview(out var shape)) return;   // image runs hide it (AOSA C56)
             var map = Host.Local.Map;
             var rp = new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off };
             batch.Clear();

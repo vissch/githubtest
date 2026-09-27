@@ -38,6 +38,13 @@ namespace TW.Presentation.Terrain
         // the water round them. Presentation only: the sim's heights are never touched.
         float[] drained;      // per height cell: 0 .. 1, how much of a watercourse runs through it
         float[] moundAt;      // per height cell: the mound the drawn ground adds there (it never changes)
+        // BuildDrainage's scratch, kept so a rescan after every salvo allocates nothing
+        float[] flowGround, flowWater;
+        int[] flowTo, flowPending, flowStack;
+        // RefreshHollows' copy of the heights (the centimetres HeightAtCell reads), the heights the drainage last ran
+        // on, and per row the span of cells whose height has changed since: the drainage re-derives only those (C40)
+        short[] heightCm, drainedCm;
+        int[] rowLo, rowHi;
 
         public BattlefieldSurface(MapData map, float flooding = 0f)
         {
@@ -272,46 +279,127 @@ namespace TW.Presentation.Terrain
                 for (int x = 0; x < width; x++) moundAt[z * width + x] = Mound(x + .5f, z + .5f) * MoundWeight(x + .5f, z + .5f, map.Height.HeightAtCell(x, z));
             }
             drained ??= new float[n];
-            var ground = new float[n]; var order = new int[n]; var water = new float[n];
-            for (int i = 0; i < n; i++) { ground[i] = map.Height.HeightAtCell(i % width, i / width) + moundAt[i]; order[i] = i; water[i] = 1f; }
-            var keys = (float[])ground.Clone();
-            System.Array.Sort(keys, order);   // lowest first; walk it from the top down
-            for (int k = n - 1; k >= 0; k--)
+            if (flowGround == null) { flowGround = new float[n]; flowWater = new float[n]; flowTo = new int[n]; flowPending = new int[n]; flowStack = new int[n]; rowLo = new int[length]; rowHi = new int[length]; }
+            // A cell's ground (height + mound) changes only where its height did, and its receiver only where its own
+            // or a neighbour's ground did. So both are re-derived there alone, against the heights the last drainage
+            // ran on; the first time (or after ForgetRescan) every cell is new. The same statements on the same inputs
+            // give the same floats and the same receivers as re-deriving the whole map (HollowRescanTests). The water
+            // itself still runs over the whole map: one crater can send a catchment elsewhere.
+            bool whole = drainedCm == null;
+            if (whole) drainedCm = new short[n];
+            for (int z = 0; z < length; z++)
             {
-                int i = order[k], x = i % width, z = i / width, to = -1; float drop = 0f;
-                for (int dz = -1; dz <= 1; dz++)
-                for (int dx = -1; dx <= 1; dx++)
+                int lo = 0, hi = -1;
+                for (int x = 0, i = z * width; x < width; x++, i++)
                 {
-                    if (dx == 0 && dz == 0) continue;
-                    int xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= width || zz >= length) continue;
-                    float fall = (ground[i] - ground[zz * width + xx]) / (dx != 0 && dz != 0 ? 1.414f : 1f);
-                    if (fall > drop) { drop = fall; to = zz * width + xx; }
+                    if (!whole && heightCm[i] == drainedCm[i]) continue;
+                    drainedCm[i] = heightCm[i];
+                    flowGround[i] = map.Height.HeightAtCell(i % width, i / width) + moundAt[i];
+                    if (hi < 0) lo = x;
+                    hi = x;
                 }
-                if (to >= 0) water[to] += water[i];
+                rowLo[z] = lo; rowHi[z] = hi;
             }
+            for (int z = 0; z < length; z++)
+            {
+                int lo = width, hi = -1;
+                for (int zz = Mathf.Max(0, z - 1); zz <= Mathf.Min(length - 1, z + 1); zz++)
+                    if (rowHi[zz] >= 0) { lo = Mathf.Min(lo, rowLo[zz] - 1); hi = Mathf.Max(hi, rowHi[zz] + 1); }
+                for (int x = Mathf.Max(0, lo); x <= Mathf.Min(width - 1, hi); x++) flowTo[z * width + x] = Receiver(flowGround, width, length, z * width + x);
+            }
+            Run(n, flowWater, flowTo, flowPending, flowStack);
             for (int i = 0; i < n; i++)
             {
+                if (flowWater[i] <= 6f) { drained[i] = 0f; continue; }   // below a rill whether dug or not: skip the nav read
                 int x = i % width, z = i / width;
                 int cell = map.NavIndex(Mathf.Min((int)((x + .5f) / MapData.NavCellSize), map.NavWidth - 1), Mathf.Min((int)((z + .5f) / MapData.NavCellSize), map.NavLength - 1));
                 bool dug = ((NavLayer)map.NavLayers[cell] & (NavLayer.Trench | NavLayer.Link)) != 0;
-                // half a dozen square metres of catchment starts a rill, ninety make a gully
-                drained[i] = dug ? 0f : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Mathf.Log(6f), Mathf.Log(90f), Mathf.Log(water[i])));
+                drained[i] = dug ? 0f : Watercourse(flowWater[i]);
             }
         }
+
+        /// <summary>D8 flow accumulation. Rain falls on every cell and runs to its steepest strictly lower neighbour;
+        /// water[i] ends as 1 + the water of every cell that runs into i, the number of cells upstream of it. This is
+        /// what the old walk from the highest cell down (Array.Sort of the whole map, then each cell in that order)
+        /// computed, without the sort: the receiver of a cell depends on the ground only, so it is found in index
+        /// order, and a cell passes its water on once every donor has (Kahn's order). The sums are whole numbers
+        /// below 2^24, exact in float in any order, so every value is the same float the sorted walk gave
+        /// (DrainageTests). The scratch arrays are the caller's, each width * length long.</summary>
+        public static void Accumulate(float[] ground, int width, int length, float[] water, int[] receiver, int[] pending, int[] stack)
+        {
+            int n = width * length;
+            for (int i = 0; i < n; i++) receiver[i] = Receiver(ground, width, length, i);
+            Run(n, water, receiver, pending, stack);
+        }
+
+        /// <summary>Where the rain on cell i runs: its steepest strictly lower neighbour, or -1 when none is lower. It
+        /// reads the ground of i and its eight neighbours only.</summary>
+        public static int Receiver(float[] ground, int width, int length, int i)
+        {
+            int x = i % width, z = i / width, to = -1; float drop = 0f;
+            for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dz == 0) continue;
+                int xx = x + dx, zz = z + dz; if (xx < 0 || zz < 0 || xx >= width || zz >= length) continue;
+                float fall = (ground[i] - ground[zz * width + xx]) / (dx != 0 && dz != 0 ? 1.414f : 1f);
+                if (fall > drop) { drop = fall; to = zz * width + xx; }
+            }
+            return to;
+        }
+
+        /// <summary>Accumulate's second half: rain on every cell, passed down the receivers in Kahn's order.</summary>
+        static void Run(int n, float[] water, int[] receiver, int[] pending, int[] stack)
+        {
+            for (int i = 0; i < n; i++) { water[i] = 1f; pending[i] = 0; }
+            for (int i = 0; i < n; i++) if (receiver[i] >= 0) pending[receiver[i]]++;
+            int top = 0;
+            for (int i = 0; i < n; i++) if (pending[i] == 0) stack[top++] = i;
+            while (top > 0)
+            {
+                int i = stack[--top], to = receiver[i];
+                if (to < 0) continue;
+                water[to] += water[i];
+                if (--pending[to] == 0) stack[top++] = to;
+            }
+        }
+
+        /// <summary>How much of a watercourse a catchment of `water` cells makes, 0 .. 1: half a dozen square metres
+        /// of catchment starts a rill, ninety make a gully. Whole-number catchments of 6 or less give exactly 0 and of
+        /// 90 or more exactly 1, so those skip the logarithms (DrainageTests).</summary>
+        public static float Watercourse(float water)
+        {
+            if (water <= 6f) return 0f;
+            if (water >= 90f) return 1f;
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(Mathf.Log(6f), Mathf.Log(90f), Mathf.Log(water)));
+        }
+
+        /// <summary>Tests (HollowRescanTests): forget the heights the last drainage ran on, so the next rescan
+        /// re-derives every cell's ground and receiver as the first one did.</summary>
+        public void ForgetRescan() => drainedCm = null;
+
+        /// <summary>How much of a watercourse the drainage found in height cell (x, z), 0 .. 1, before Rill's wander.</summary>
+        public float DrainedAt(int x, int z) => drained == null ? 0f : drained[z * width + x];
 
         public void RefreshHollows()
         {
             Hollows.Clear(); for (int i = 0; i < nearHollow.Length; i++) nearHollow[i] = -1;
             var hf = map.Height;
+            heightCm ??= new short[width * length];
+            hf.Cm.CopyTo(heightCm);
+            var cm = heightCm;
             for (int z = 3; z < length - 3; z++)
             for (int x = 3; x < width - 3; x++)
             {
+                // A hollow's floor is a strict minimum: every neighbour at least half a centimetre above it. Heights are
+                // whole centimetres, so that is every neighbour's centimetres above its own (the float test it was is
+                // off by under 1e-4 m anywhere a short reaches, against a 0.005 m margin). Almost no cell passes, so this
+                // goes before BankDistance; both are pure, so the same cells pass both (HollowRescanTests).
+                int c = z * width + x; short floor = cm[c];
+                if (cm[c - width - 1] <= floor || cm[c - width] <= floor || cm[c - width + 1] <= floor || cm[c - 1] <= floor
+                    || cm[c + 1] <= floor || cm[c + width - 1] <= floor || cm[c + width] <= floor || cm[c + width + 1] <= floor) continue;
                 float wx = x + .5f, wz = z + .5f, h = hf.HeightAtCell(x, z);
                 if (BankDistance(wx, wz) < 4f) continue;
-                bool minimum = true;
-                for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++)
-                    if ((dx != 0 || dz != 0) && hf.HeightAtCell(x + dx, z + dz) < h + .005f) minimum = false;
-                if (!minimum) continue;
                 float ring = (hf.Sample(wx - 5f, wz) + hf.Sample(wx + 5f, wz) + hf.Sample(wx, wz - 5f) + hf.Sample(wx, wz + 5f)) * .25f;
                 float depth = ring - h; if (depth < .42f) continue;
                 bool overlap = false;
@@ -328,8 +416,11 @@ namespace TW.Presentation.Terrain
                 uint hash = (uint)x * 0x9E3779B1u ^ (uint)z * 0x85EBCA77u; hash ^= hash >> 15; hash *= 0x2C1B3C6Du; hash ^= hash >> 12;
                 float roll = (hash & 0xFFFF) / 65535f, fill = .40f + .28f * ((hash >> 16) & 0xFF) / 255f;
                 Hollows.Add(new Hollow { Center = new Vector2(wx, wz), Radius = radius, Depth = depth, Level = roll < Flooding ? h + depth * fill : -1000f });
-                for (int zz = Mathf.Max(0, z - 8); zz <= Mathf.Min(length - 1, z + 8); zz++)
-                for (int xx = Mathf.Max(0, x - 8); xx <= Mathf.Min(width - 1, x + 8); xx++)
+                // a cell more than radius + 1.5 m off along one axis is more than that away, so it is skipped below: the
+                // pool's own square (7 .. 15 cells a side) is all the stamp visits, not 17 x 17
+                int reach = (int)(radius + 1.5f);
+                for (int zz = Mathf.Max(0, z - reach); zz <= Mathf.Min(length - 1, z + reach); zz++)
+                for (int xx = Mathf.Max(0, x - reach); xx <= Mathf.Min(width - 1, x + reach); xx++)
                 {
                     int i = zz * width + xx;
                     float distance = Vector2.Distance(new Vector2(xx + .5f, zz + .5f), new Vector2(wx, wz));

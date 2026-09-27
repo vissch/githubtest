@@ -1,0 +1,10 @@
+{
+ "build_dir": "C:\\Users\\thomas.visscher_magi\\Documents\\GitHub\\githubtest-aosa\\trench-warfare-3d\\Builds\\WinBenchDev@143f90d",
+ "cycle": 2,
+ "dev": true,
+ "extra": "",
+ "knobs": null,
+ "label": "d3",
+ "mode": "player",
+ "scenario": "barrage"
+}

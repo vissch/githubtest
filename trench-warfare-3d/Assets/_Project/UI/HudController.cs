@@ -5,6 +5,12 @@
 // arms a barrage on a card is never also the click that fires it, and it steps down for the old IMGUI HUD when
 // HudBridge.UseToolkitHud is off (F9 flips it during the flag window).
 // Runs after TacticalCamera and CameraShake (order 11000) so the trench order clusters land on the shaken frame.
+// AOSA C66 (2026-09-26): each part of Refresh has its own TW.Hud.<Part> marker inside TW.Hud.Refresh, so the bench can
+// say which part holds its 1.4 ms a frame (PerfBench.HudParts records the same names). Markers only: the calls, their
+// order and their arguments are exactly as before.
+// AOSA C67 (2026-09-26): the selection panel's Refresh has its own TW.Hud.Sel.Panel marker inside TW.Hud.Selection, beside
+// SelectionController.Tick's TW.Hud.Sel.<Part> markers.
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -46,6 +52,18 @@ namespace TW.UI
         int pickFrame = -1; bool pickHit; Vector2 pickAt;   // one pick per frame and point (callers ask about the mouse, captures about their own cursor)
         float nextLegacyCheck;
         static readonly ProfilerMarkerScope refreshMarker = new ProfilerMarkerScope("TW.Hud.Refresh");
+        // C66: the parts of Refresh, in the order they run (the names are repeated in PerfBench.HudParts)
+        static readonly ProfilerMarker hotkeysMarker = new ProfilerMarker("TW.Hud.Hotkeys");
+        static readonly ProfilerMarker legacyMarker = new ProfilerMarker("TW.Hud.LegacyInterim");
+        static readonly ProfilerMarker minimapMarker = new ProfilerMarker("TW.Hud.Minimap");
+        static readonly ProfilerMarker dialogueMarker = new ProfilerMarker("TW.Hud.Dialogue");
+        static readonly ProfilerMarker selectionMarker = new ProfilerMarker("TW.Hud.Selection");
+        static readonly ProfilerMarker gaugesMarker = new ProfilerMarker("TW.Hud.BindGauges");
+        static readonly ProfilerMarker cardsMarker = new ProfilerMarker("TW.Hud.Cards");
+        static readonly ProfilerMarker clustersMarker = new ProfilerMarker("TW.Hud.Clusters");
+        static readonly ProfilerMarker objectivesMarker = new ProfilerMarker("TW.Hud.Objectives");
+        static readonly ProfilerMarker tooltipMarker = new ProfilerMarker("TW.Hud.Tooltip");
+        static readonly ProfilerMarker selPanelMarker = new ProfilerMarker("TW.Hud.Sel.Panel");   // C67
 
         void OnEnable()
         {
@@ -262,45 +280,57 @@ namespace TW.UI
             var w = Host.Local.World;
             bool over = w.WinnerTeam >= 0;
             float tickSeconds = w.Config.TickSeconds;
-            hotkeys.Update();
-            LegacyInterim();
+            using (hotkeysMarker.Auto()) hotkeys.Update();
+            using (legacyMarker.Auto()) LegacyInterim();
 
             // gauges
-            minimap.Refresh();
-            dialogue?.Tick(Time.unscaledDeltaTime);
-            selection?.Tick(Interactive);
-            selectionPanel?.Refresh();
-            bool paused = Clock != null ? Clock.Paused : Host.TimeScale <= 0f;
-            float speed = Clock != null ? Clock.Speed : Host.TimeScale;
-            HudView.BindGauges(refs, w.Silver[0], Host.SilverPerSecond, minimap.MyMen, minimap.TheirMen, Mathf.FloorToInt(w.Tick * tickSeconds), speed, paused);
-
-            // cards
-            int silver = w.Silver[0];
-            var abilities = Host.Local.Abilities;
-            var armed = Panel != null ? Panel.Armed : OffMapAbilityId.None;
-            for (int i = 0; i < refs.Cards.Count; i++)
+            using (minimapMarker.Auto()) minimap.Refresh();
+            using (dialogueMarker.Auto()) dialogue?.Tick(Time.unscaledDeltaTime);
+            using (selectionMarker.Auto())
             {
-                var c = refs.Cards[i];
-                if (!c.IsSupport)
-                {
-                    int s = c.Slot;
-                    var e = w.Roster[s];
-                    HudView.BindCard(c, silver, w.SlotCooldown[s], Mathf.Max(1, e.CooldownTicks), w.SlotUnlocked[s] != 0, over, tickSeconds, 0);
-                }
-                else
-                {
-                    int cd = abilities != null ? abilities.CooldownOf(0, c.Ability) : 0;
-                    int total = OffMapAbilitySystem.TryGetStats((int)c.Ability, out var st) ? Mathf.Max(1, st.CooldownTicks) : 1;
-                    HudView.BindSupportCard(c, silver, cd, total, armed == c.Ability, over, tickSeconds);
-                }
+                selection?.Tick(Interactive);
+                using (selPanelMarker.Auto()) selectionPanel?.Refresh();
             }
-            HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHintFor(Panel != null && Panel.Aim.IsLine, OffMapAbilitySystem.TryGetStats((int)armed, out var armedStats) && (armedStats.Patterns & ~1) != 0) : null);   // a pattern past the default disc to cycle to
+            using (gaugesMarker.Auto())
+            {
+                bool paused = Clock != null ? Clock.Paused : Host.TimeScale <= 0f;
+                float speed = Clock != null ? Clock.Speed : Host.TimeScale;
+                HudView.BindGauges(refs, w.Silver[0], Host.SilverPerSecond, minimap.MyMen, minimap.TheirMen, Mathf.FloorToInt(w.Tick * tickSeconds), speed, paused);
+            }
+
+            // cards (the aim hint is theirs)
+            using (cardsMarker.Auto())
+            {
+                int silver = w.Silver[0];
+                var abilities = Host.Local.Abilities;
+                var armed = Panel != null ? Panel.Armed : OffMapAbilityId.None;
+                for (int i = 0; i < refs.Cards.Count; i++)
+                {
+                    var c = refs.Cards[i];
+                    if (!c.IsSupport)
+                    {
+                        int s = c.Slot;
+                        var e = w.Roster[s];
+                        HudView.BindCard(c, silver, w.SlotCooldown[s], Mathf.Max(1, e.CooldownTicks), w.SlotUnlocked[s] != 0, over, tickSeconds, 0);
+                    }
+                    else
+                    {
+                        int cd = abilities != null ? abilities.CooldownOf(0, c.Ability) : 0;
+                        int total = OffMapAbilitySystem.TryGetStats((int)c.Ability, out var st) ? Mathf.Max(1, st.CooldownTicks) : 1;
+                        HudView.BindSupportCard(c, silver, cd, total, armed == c.Ability, over, tickSeconds);
+                    }
+                }
+                HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHintFor(Panel != null && Panel.Aim.IsLine, OffMapAbilitySystem.TryGetStats((int)armed, out var armedStats) && (armedStats.Patterns & ~1) != 0) : null);
+            }
 
             // the rest
-            var root = doc.rootVisualElement;
-            clusters.Refresh(root.panel, Camera.main, refs.Root.resolvedStyle.width, refs.Root.resolvedStyle.height, over);   // HUD space (HudScale)
-            objectives.Refresh();
-            tooltip.Update();
+            using (clustersMarker.Auto())
+            {
+                var root = doc.rootVisualElement;
+                clusters.Refresh(root.panel, Camera.main, refs.Root.resolvedStyle.width, refs.Root.resolvedStyle.height, over);   // HUD space (HudScale)
+            }
+            using (objectivesMarker.Auto()) objectives.Refresh();
+            using (tooltipMarker.Auto()) tooltip.Update();
         }
 
         /// <summary>

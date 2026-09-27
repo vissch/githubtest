@@ -22,6 +22,44 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         public float TracerSeconds = 0.12f;
         public int MaxBodies = 600;
+        // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
+        // firing line ripples instead of strobing at the sim's 20 Hz. 0 = every shot on the frame its tick arrives.
+        float shotStagger = ShotStagger.DefaultSpread;
+        // knob fx.smokeAlpha (Awake, AOSA C52): a shell's smoke puffs are born this much thinner at the standard view, so the
+        // men under a barrage stay countable (FlipbookFx.SmokeOpacity). 1 = the old look.
+        float smokeAlpha = FlipbookFx.DefaultAlpha;
+        // knobs fx.columnScale and fx.burstGlow (Awake, AOSA C57/C58): the drawn burst's earth column size and its cloud's
+        // glow, as multipliers. 1 (default) = the look as it is; an extreme value is the discriminating test that a part is
+        // drawn at all at the standard view (the C42 lesson), before anyone tunes it. burstGlow is read by
+        // FlipbookFx.ReadBurstGlow (the cycle 9 candidate 0.5 failed with the set on weight, a0050).
+        float columnScale = 1f, burstGlow = FlipbookFx.DefaultBurstGlow;
+        // knobs fx.smokeNight and fx.smokeNightSize (Awake, AOSA C59): on a moonlit field the burst's cloud and its smoke are
+        // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
+        // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
+        float smokeNight = FlipbookFx.DefaultNight, smokeNightSize = FlipbookFx.DefaultNightSize;
+        // knobs fx.columnEarth and fx.columnEarthSize (Awake, AOSA C57): on a moonlit field a shell's earth column is drawn
+        // opaque dark brown that the moon does not light (FlipbookFx.NightEarth, from ApplyTints), and this much smaller at
+        // the standard view, on top of fx.columnScale. 0 and 1 = the old look.
+        float columnEarth = FlipbookFx.DefaultEarth, columnEarthSize = FlipbookFx.DefaultEarthSize;
+        // knobs fx.smokeNightWarm and fx.smokeNightFire (Awake, AOSA C61): the night smoke's warmth and the share of a burst's
+        // light it takes (FlipbookFx.NightSmoke). 1 and 1 = C59's look. (fx.smokeHard is read by FlipbookFx itself.)
+        float smokeNightWarm = FlipbookFx.DefaultNightWarm, smokeNightFire = FlipbookFx.DefaultNightFire;
+        // knob fx.columnSoil (Awake, AOSA C103): on a moonlit field a dry shell's column is a dark soil heave that rises fast
+        // and falls back (FlipbookFx.SoilShape, painted by FlipbookFx.SoilEarth), kept low over men behind it (SoilCap),
+        // and it throws fewer, bigger, varied clods (DebrisRenderer.Heave). 0 = the old look.
+        float columnSoil = FlipbookFx.DefaultColumnSoil;
+        // knobs fx.columnBurstLit and fx.columnCap (Awake, AOSA C108): C103's light and cap on the old column, on a moonlit
+        // field (FlipbookFx.ColumnBurstLit, from ApplyTints; FlipbookFx.ColumnCapScale where the column is thrown). 1 and 0 = the old look (cap default 1, cycle 10).
+        float columnBurstLit = FlipbookFx.DefaultColumnBurstLit, columnCap = FlipbookFx.DefaultColumnCap;
+        // knob fx.columnPlay (Awake, AOSA C109): the part of the Column book the old dry column plays on a moonlit field
+        // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = the old card; default 0.4 (cycle 10).
+        float columnPlay = FlipbookFx.DefaultColumnPlay;
+        /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+        /// aiming shape and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+        /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+        public static bool ShowOverlays = true;
+        // an image run turns the overlays off; a Play session after it in the same editor must see them again
+        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => ShowOverlays = true);
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }   // Hit: written by the strafe run (CombatFx.Abilities)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
@@ -53,6 +91,8 @@ namespace TW.Presentation.Tactical
         Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
         Material flashMat;
         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
+        bool tracerInSmoke;   // knob fx.tracerInSmoke (Start, AOSA C104): see TracerLook
+        float tracerShape;    // knob fx.tracerShape (Start, AOSA C104s): unset 0, or 1 when fx.tracerInSmoke is set on (TracerLook.ReadShape)
         /// <summary>
         /// Paint every material and flipbook the biome owns. Called when SceneTints.Epoch moves, not per frame:
         /// the old code compared waterMat.color against a static every frame, which is a native read to decide
@@ -73,6 +113,10 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Spurt, t.Dust);
             books.Tint(FlipbookFx.Book.Puff, t.Dust);
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.ColumnBurstLit(columnBurstLit);   // AOSA C108: before C103's (1 sets nothing)
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.SoilEarth(columnSoil, columnEarth);   // AOSA C103: over C57's paint (soil 0 sets nothing)
             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
@@ -120,6 +164,31 @@ namespace TW.Presentation.Tactical
         }
 
 
+        void Awake()
+        {
+            // knobs (Knobs): the pools and the close reach; the public fields only where a knob is set
+            MaxMarks = Knobs.Get("fx.maxMarks", MaxMarks);
+            MaxChunks = Knobs.Get("fx.maxChunks", MaxChunks);
+            MaxAmbientChunks = Knobs.Get("fx.maxAmbientChunks", MaxAmbientChunks);
+            CloseReach = Knobs.Get("fx.closeReach", CloseReach);
+            MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
+            TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
+            shotStagger = ShotStagger.ReadSpread();
+            smokeAlpha = FlipbookFx.ReadAlpha();
+            columnScale = Mathf.Max(0f, Knobs.Get("fx.columnScale", 1f));
+            burstGlow = FlipbookFx.ReadBurstGlow();
+            smokeNight = FlipbookFx.ReadNight();
+            smokeNightSize = FlipbookFx.ReadNightSize();
+            columnEarth = FlipbookFx.ReadEarth();
+            columnEarthSize = FlipbookFx.ReadEarthSize();
+            smokeNightWarm = FlipbookFx.ReadNightWarm();
+            smokeNightFire = FlipbookFx.ReadNightFire();
+            columnSoil = FlipbookFx.ReadColumnSoil();
+            columnBurstLit = FlipbookFx.ReadColumnBurstLit();
+            columnCap = FlipbookFx.ReadColumnCap();
+            columnPlay = FlipbookFx.ReadColumnPlay();
+        }
+
         void Start()
         {
             cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
@@ -132,6 +201,23 @@ namespace TW.Presentation.Tactical
             // night (SceneMood): each side's fire is its own colour, over-bright so the bloom takes it
             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
+            // knob fx.tracerInSmoke (AOSA C104, TracerLook): the halos drawn before the smoke and writing depth, so a cloud
+            // in front of a round covers it; and (fx.tracerShape) the night streak's shorter, narrower, hot-headed shape.
+            // 0 (the default) = the old look; fx.tracerInSmoke=1,fx.tracerShape=0 = the order with the old shape.
+            tracerInSmoke = TracerLook.On(TracerLook.Read());
+            tracerShape = TracerLook.ReadShape(tracerInSmoke);
+            // AOSA C107 (TracerLook): fx.tracerGlow, the halo's colour gain (1 = the colour untouched), and
+            // fx.tracerHaloDepth, whether the in-smoke halo writes depth (1, C104) or not (0: it no longer cuts the cloud
+            // and the bursts behind it out). Neither set is today's look bit for bit.
+            float tracerGlow = TracerLook.ReadGlow();
+            if (tracerGlow != 1f)
+                foreach (var halo in new[] { tracerNightA, tracerNightB }) halo.color = TracerLook.HaloColor(halo.color, tracerGlow);
+            if (tracerInSmoke)
+                foreach (var halo in new[] { tracerNightA, tracerNightB })
+                {
+                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true, TracerLook.ReadDepth()));
+                    halo.renderQueue = TracerLook.HaloQueue(true);
+                }
             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
             waterMat = new Material(unlit) { enableInstancing = true, color = SceneTints.Now.Splash };
             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
@@ -405,7 +491,20 @@ namespace TW.Presentation.Tactical
                     Vector3 from, barrel, to;
                     if (units == null || !units.Sockets(e.A, out from, out barrel, out _)) EstimateMuzzle(e.A, e.B, scale, out from, out barrel);
                     if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
-                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
+                    // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
+                    float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
+                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
+                    // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
+                    if (ShotLog.On)
+                    {
+                        bool known = e.A >= 0 && e.A < w.Position.Length;
+                        ShotLog.Add(new ShotLog.Entry
+                        {
+                            Born = Time.time + delay, Arrived = Time.time, Life = TracerSeconds, Tick = e.Tick, Shooter = e.A,
+                            Team = known ? w.Team[e.A] : (byte)0, Garrison = known ? w.TrenchId[e.A] : (short)-1,
+                            X = known ? w.Position[e.A].x : from.x, Z = known ? w.Position[e.A].z : from.z, From = from, To = to,
+                        });
+                    }
                     Vector3 direction = (to - from).normalized;
                     bool drawn = books != null && books.Ready;
                     Vector3 carried = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Velocity(e.A, w.Config.TickSeconds) : Vector3.zero;   // a man firing on the run carries his flash
@@ -420,9 +519,9 @@ namespace TW.Presentation.Tactical
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
                         books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow);
+                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
                     }
-                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time });
+                    else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
                     // under the chunk budget so a big firefight never starves the shell bursts of theirs.
                     // the round that misses lands somewhere: a spurt of dirt beside the man shot at, a splash and a ring if he
@@ -441,14 +540,14 @@ namespace TW.Presentation.Tactical
                             SceneHooks.AddRing?.Invoke(hit.x, hit.z, 0.8f);
                             Throw(hit + Vector3.up * 0.4f, 7, 4, 6f, 0.07f);
                             // a round in the water stands up a little white column
-                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f);
+                            if (drawn) books.Add(FlipbookFx.Book.Splash, hit, 0.9f * scale, 0.55f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f, delay: delay);
                         }
                         else
                         {
                             Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f);
                             if (SceneMood.Night && UnityEngine.Random.value < 0.35f) Throw(hit, 3, 3, 11f, 0.035f);
                             // and in the mud a spurt of dust that leans away from the shooter
-                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f);
+                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
@@ -553,15 +652,43 @@ namespace TW.Presentation.Tactical
                         // Alpha still keys on `wet` on purpose: a fully opaque plume in lava's SplashTint
                         // (1.00, 0.46, 0.12) on a field that already reins GlowScale in to 0.55 is a brightness
                         // guess, and this project has been burned twice by those.
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f), damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f,
-                            velocity: flight * (r * 0.45f * lean));
+                        // AOSA C57: the dry column smaller at the standard view on a moonlit field (1 exactly with fx.columnEarthSize=1)
+                        float earth = wet ? 1f : FlipbookFx.NightScale(columnEarthSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
+                        // AOSA C103: a dry column on a moonlit field is the soil heave at fx.columnSoil (0: the old column exactly)
+                        float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
+                        float columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth;
+                        // AOSA C109: a dry column on a moonlit field stops before its book's late arcs at fx.columnPlay (1: cut 0, the old card exactly)
+                        float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;
+                        Vector3 columnLean = flight * (r * 0.45f * lean);   // the column leans the way the shell was going
+                        if (soil > 0f)
+                        {
+                            // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
+                            // the drawing fills about 60% of its card, and a man is about 0.8 m across
+                            float reach = books.CardHeight(FlipbookFx.Book.Column, columnWidth) * FlipbookFx.SoilPeak;
+                            float behind = MenBehind(p, columnWidth * FlipbookFx.SoilWidth * 1.08f * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                            books.Add(FlipbookFx.Book.Column, p, columnWidth, Mathf.Lerp(1.8f, FlipbookFx.SoilLife, soil), ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: 1f, pop: 0.15f,
+                                velocity: columnLean, soil: soil, soilCap: FlipbookFx.SoilCap(behind, tanPitch, reach));
+                        }
+                        else if (!wet && columnCap > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
+                        {
+                            // AOSA C108: the old column, its card capped over men behind it as C103's heave (FlipbookFx.ColumnCapScale)
+                            float tall = books.CardHeight(FlipbookFx.Book.Column, columnWidth), reach = tall * (1f + FlipbookFx.ColumnGrow);
+                            float behind = MenBehind(p, columnWidth * (1f + FlipbookFx.ColumnGrow) * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                            books.Add(FlipbookFx.Book.Column, p, columnWidth, 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: FlipbookFx.ColumnGrow, alpha: 1f, pop: 0.15f,
+                                velocity: columnLean, height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
+                        }
+                        else
+                            books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f,
+                                velocity: columnLean, cut: cut);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         if (!wet || melt)
                         {
-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
-                                velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                            // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
+                            float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
+                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
@@ -569,8 +696,8 @@ namespace TW.Presentation.Tactical
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r
                                              + flight * (r * lean * (0.25f + k * 0.12f));
-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink * night, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                         }
                     }
@@ -590,8 +717,14 @@ namespace TW.Presentation.Tactical
                         float r = Mathf.Clamp(e.Scalar, 2f, 9f);
                         // the fragments carry on the way the shell was travelling: the heavy clods lean with it and the
                         // light fast ones lean harder, which is what makes a burst read as having come FROM somewhere
-                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, flight * (0.85f * lean), e.Tick);
-                        debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, flight * (1.25f * lean), e.Tick + 7u);
+                        // AOSA C103: under the soil column, fewer, bigger, varied clods that go up with it and fall back round it
+                        if (!wet && columnSoil > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
+                            debris.Heave(p + Vector3.up * 0.4f, Mathf.RoundToInt(10f + r), 8f + r * 0.6f, Mathf.Lerp(0.16f + r * 0.02f, 0.3f + r * 0.02f, columnSoil), DebrisMath.SoilSpread, DebrisMath.SoilClump, Mud, FlipbookFx.SoilClodLife, e.Tick);
+                        else
+                        {
+                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, flight * (0.85f * lean), e.Tick);
+                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, flight * (1.25f * lean), e.Tick + 7u);
+                        }
                     }
                     if (!wet)
                     {
@@ -669,7 +802,7 @@ namespace TW.Presentation.Tactical
         }
         void OnGUI()
         {
-            if (HudBridge.UseToolkitHud || banner == null || Time.time > bannerUntil) return;
+            if (!ShowOverlays || HudBridge.UseToolkitHud || banner == null || Time.time > bannerUntil) return;
             var style = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             var rect = new Rect(0, Screen.height * 0.12f, Screen.width, 50);
             style.normal.textColor = Color.black; GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), banner, style);
@@ -702,16 +835,14 @@ namespace TW.Presentation.Tactical
             for (int i = 0; i < tracers.Count; i++)
             {
                 var t = tracers[i];
+                if (now < t.Born) continue;   // not shown yet: its place in the tick (ShotStagger) is still to come
                 if (night && side < 2 && (t.Team & 1) != side) continue;
                 Vector3 d = t.To - t.From;
                 float len = d.magnitude;
                 if (len < 0.1f) continue;
-                // a streak that travels from muzzle to target over the tracer's life
+                // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
-                float streak = Mathf.Min(len, night ? 10f : 6f);
-                Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
-                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
-                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
+                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape));
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);
@@ -721,7 +852,8 @@ namespace TW.Presentation.Tactical
             batch.Clear();
             for (int i = 0; i < flashes.Count; i++)
             {
-                var f = flashes[i]; float s = Mathf.Lerp(0.80f, 0.22f, (now - f.Born) / 0.065f);
+                var f = flashes[i]; if (now < f.Born) continue;
+                float s = Mathf.Lerp(0.80f, 0.22f, (now - f.Born) / 0.065f);
                 batch.Add(Matrix4x4.TRS(f.Pos, f.Direction.sqrMagnitude > 0.01f ? Quaternion.LookRotation(f.Direction) : Quaternion.identity, new Vector3(s, s, s * 1.6f)));
             }
             if (batch.Count > 0) Flush(flashMesh, new RenderParams(flashMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
@@ -760,7 +892,7 @@ namespace TW.Presentation.Tactical
 
             // target markers (both sides see where support fire was called) and the aiming circle
             Prune(markers, now, static (m, at) => at > m.Until);
-            for (int pass = 0; pass < 2; pass++)
+            for (int pass = 0; pass < 2 && ShowOverlays; pass++)
             {
                 var rpMark = new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
                 // a point ability: a disc on the ground where it was called (not at sea level)

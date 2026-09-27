@@ -44,12 +44,14 @@ namespace TW.Presentation.Tactical
         {
             public Vector3 Pos, Vel;
             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop, Start;
+            public float Cut;         // AOSA C109 (fx.columnPlay): the part of its life (and so of its book) it plays before it is gone (0 = all)
+            public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
             public Book Book; public Kind Kind;
         }
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -67,15 +69,16 @@ namespace TW.Presentation.Tactical
         // whole book over the card's life. The two go together: a drawing held for its frame and then cut away from is
         // what makes hand-drawn animation read as drawn, and a book stretched to fit a card plays at whatever rate the
         // card happened to want. A book with no Fps keeps the old behaviour and spends itself over the life exactly.   // Play: the part of the book used (0 = all); Lit: 0 = own values (default: additive 0, else 1); RampIn: seconds to fade in; Mood: how much the mood tints the shade (0 = default 1)
+        // Deep: a cloud as deep as it is wide (fx.smokeSoft)
         static readonly Sheet[] Sheets =
         {
-            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.50f, 0.53f, 0.58f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f },   // a cloud born of fire: the full night tint turned it saturated blue
+            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.50f, 0.53f, 0.58f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f, Deep = true },   // a cloud born of fire: the full night tint turned it saturated blue
             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.30f, High = 0.95f },
             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.60f, 0.66f, 0.76f), Low = 0.28f, High = 0.85f },
             new Sheet { Name = "Wings",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Play = 0.75f, Tint = new Color(0.74f, 0.65f, 0.52f), Low = 0.15f, High = 0.42f },
             new Sheet { Name = "Spurt",  Cols = 2, Rows = 5, Frames = 10, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.50f, High = 0.80f },
             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.86f, 0.80f, 0.66f), Low = 0.20f, High = 0.50f },
-            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Erode = true, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.10f, High = 0.60f, Play = 0.6f, Lit = 0.6f, RampIn = 0.3f, Mood = 0.45f },   // smoke: warm grey, and only half the moon's blue in its shade (it read as blue cotton at night)
+            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Erode = true, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.10f, High = 0.60f, Play = 0.6f, Lit = 0.6f, RampIn = 0.3f, Mood = 0.45f, Deep = true },   // smoke: warm grey, and only half the moon's blue in its shade (it read as blue cotton at night)
             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.15f, High = 0.60f, Lit = 0.75f },
             new Sheet { Name = "Muzzle", Cols = 3, Rows = 4, Frames = 12, Additive = true, Tint = new Color(1.0f, 0.78f, 0.42f), Low = 0f, High = 1f },
             new Sheet { Name = "Star",   Cols = 1, Rows = 1, Frames = 1,  Additive = true, MaskOnly = true, Tint = new Color(1.0f, 0.88f, 0.62f), Low = 0f, High = 1f },
@@ -139,6 +142,387 @@ namespace TW.Presentation.Tactical
         }
 
         public const int MaxCards = 1536;
+
+        // AOSA C52 (juice J01): the smoke of a barrage hid the men it fell among. At the standard view a shell leaves 7
+        // puffs 9-13 m wide that grow to 30-43 m and hold near-opaque for 4-6 s, and a barrage is 12 shells, so the trench
+        // it fell on was under dozens of stacked cards. Two knobs, read once where the smoke is made, bring the men back
+        // through it at the standard view (both go back to the old look as the lens goes in among the men):
+        //   fx.smokeSoft   a burst's cloud and its smoke are as deep as they are wide: a card fades out in front of any
+        //                  surface (the ground, a man) over this fraction of its own width, so the cloud's base, where the
+        //                  men are, is thin and the smoke aloft stays dark. 0 = the old look (only the 0.8 m soft edge).
+        //   fx.smokeAlpha  multiplies the opacity a shell's smoke puff is born with. 1 = the old look.
+        // Both at their old values (fx.smokeSoft=0,fx.smokeAlpha=1) draw the image before C52 bit for bit.
+        public const string SoftKnob = "fx.smokeSoft", AlphaKnob = "fx.smokeAlpha";
+        // Cycle 9: fx.smokeSoft=0.6 with fx.burstGlow=0.5 (runs 9/c99s, b1; c99-critic.md, batch9-critic.md) passed alone,
+        // but the cycle 9 candidate set (smokeSoft 0.6, burstGlow 0.5, tracerInSmoke 1 with tracerShape 0) failed
+        // together on weight (a0050, runs 9/d9k-critic.md: -1.0, lower in 8 of 8), so the defaults stay as they were.
+        public const float DefaultSoft = 0.3f, DefaultAlpha = 0.85f;   // blind critic, cycle 5 (runs 5/w1): the one balance of six where the barrage stays heavy and the trench countable
+        public const float OldSoft = 0f, OldAlpha = 1f;
+
+        /// <summary>fx.smokeSoft, never below 0 (0 = the old look).</summary>
+        public static float ReadSoft() { float v = Knobs.Get(SoftKnob, DefaultSoft); return v > 0f ? v : 0f; }
+
+        // AOSA C58/C99: fx.burstGlow multiplies the glow of a shell's burst cloud (CombatFx). 1 = the old look and the
+        // default. The cycle 9 candidate 0.5 (runs 9/b1, with fx.smokeSoft=0.6) passed alone but failed with the rest of
+        // the cycle 9 set on weight (a0050, runs 9/d9k-critic.md); fx.burstGlow=0.5 still draws it.
+        public const string BurstGlowKnob = "fx.burstGlow";
+        public const float DefaultBurstGlow = 1f, OldBurstGlow = 1f;
+
+        /// <summary>fx.burstGlow, never below 0 (1 = the old look).</summary>
+        public static float ReadBurstGlow() => Mathf.Max(0f, Knobs.Get(BurstGlowKnob, DefaultBurstGlow));
+
+        /// <summary>fx.smokeAlpha, in [0, 1] (1 = the old look).</summary>
+        public static float ReadAlpha() => Mathf.Clamp01(Knobs.Get(AlphaKnob, DefaultAlpha));
+
+        /// <summary>The opacity a shell's smoke puff is born with: the recipe's own, times the knob at the standard view
+        /// (closeUp 0), and the recipe's own among the men (closeUp 1). With the knob at 1 it is the recipe's exactly.</summary>
+        public static float SmokeOpacity(float recipe, float knob, float closeUp) => recipe * Mathf.Lerp(knob, 1f, closeUp);
+
+        // AOSA C59 (juice J01 at night): under the moon the burst's cloud and the smoke it leaves read as pale periwinkle
+        // cotton, lighter than the ground, and buried the trench lines (critic, runs 6/v6c-1: smoke 3, readability 2). The
+        // blue is the moon itself: the shader lights a drawing's light band with _MainLightColor (Flipbook_URP.shader:123),
+        // and the night key is (0.56, 0.70, 1.0), so the neutral Burst tint came out (0.33, 0.40, 0.58) on screen. Two
+        // knobs, read once in CombatFx.Awake, and only on a moonlit field (SceneMood.Night and not a molten one: the lava
+        // field is dark but lit from its floor, and keeps its own rose smoke):
+        //   fx.smokeNight      the value (luma, 0-1) the Burst and Smoke books are drawn at, in a dark warm grey that
+        //                      ignores the moon: every ink value goes to the shade band (_Levels), the shade is a plain
+        //                      grey with no mood in it, and the drawing keeps 40% of its own values for form. The burst's
+        //                      own flash still lights it (glow, TWBurstLight). 0 = the old moonlit look (nothing is set).
+        //   fx.smokeNightSize  the width of a shell's Burst cloud and its smoke puffs at the standard view (back to 1 as the
+        //                      lens goes in among the men). 1 = the old size.
+        // Both at their old values (fx.smokeNight=0,fx.smokeNightSize=1) draw the image before C59 bit for bit.
+        public const string NightKnob = "fx.smokeNight", NightSizeKnob = "fx.smokeNightSize";
+        public const float DefaultNight = 0.15f, DefaultNightSize = 0.6f;   // critic: #2E2A28-#3A342F, darker than the ground; radius about -40%
+        public const float OldNight = 0f, OldNightSize = 1f;
+        public static readonly Color NightHue = new Color(1f, 0.89f, 0.78f);   // warm grey: #3A342F is (1, 0.90, 0.81), biased warm against the blue mist
+        public const float NightShade = 0.5f, NightLit = 0.6f;   // shade grey and the share of it (the rest is the drawing's ink); NightLit stays >= 0.5, the shader's alpha-blended branch
+        const float NightMidInk = 0.43f;   // the drawings' middle ink (Burst median 0.38, Puff 0.48, measured from the pixels at alpha > 0.3)
+
+        /// <summary>fx.smokeNight, in [0, 1] (0 = the old moonlit look).</summary>
+        public static float ReadNight() => Mathf.Clamp01(Knobs.Get(NightKnob, DefaultNight));
+
+        /// <summary>fx.smokeNightSize, in [0.05, 4] (1 = the old size).</summary>
+        public static float ReadNightSize() => Mathf.Clamp(Knobs.Get(NightSizeKnob, DefaultNightSize), 0.05f, 4f);
+
+        /// <summary>A field the moon lights: dark, and not lit from a molten floor.</summary>
+        public static bool MoonLit(bool night, bool molten) => night && !molten;
+
+        /// <summary>The tint that draws a night cloud at this value (luma at the drawings' middle ink), before fog and grade,
+        /// in C59's warm grey (fx.smokeNightWarm at its old value 1).</summary>
+        public static Color NightTint(float value) => NightTint(value, OldNightWarm);
+
+        /// <summary>The same at a warmth: 1 is C59's warm grey exactly, 0 a neutral grey (AOSA C61, fx.smokeNightWarm).</summary>
+        public static Color NightTint(float value, float warm)
+        {
+            Color hue = NightHueAt(warm);
+            float luma = 0.299f * hue.r + 0.587f * hue.g + 0.114f * hue.b;
+            float k = value / (luma * Mathf.Lerp(NightMidInk, NightShade, NightLit));
+            return new Color(hue.r * k, hue.g * k, hue.b * k, 1f);
+        }
+
+        // AOSA C61 (juice J01, the night smoke after C59): the critic (runs 7/d59: smoke 6, readability 7) read the new smoke
+        // as tan brown haze, soft-edged and even, not heavy black smoke, and the helmets blurred in the haze band at
+        // (150-450, 580-900). Measured on d59-1.f12: the unlit smoke is already about 16% value (#292522), but where a burst
+        // is alight it is tan (80, 54, 39)-(91, 66, 47): the burst's orange light (TWBurstLight) is ADDED to a near-black
+        // warm cloud, so it dominates it. Three knobs, read once where the smoke is made:
+        //   fx.smokeNightWarm  the night smoke's warmth: 1 = C59's warm grey (1, 0.89, 0.78) exactly, 0 = neutral grey; the
+        //                      value (fx.smokeNight) is kept. Moonlit field only, with fx.smokeNight above 0.
+        //   fx.smokeNightFire  the share of the burst's own light the night smoke takes (the shader's _BurstLit). 1 = the
+        //                      old look (the shader skips the line). Moonlit field only, with fx.smokeNight above 0. The
+        //                      column keeps all of it: its foot lit orange is the point of C57.
+        //   fx.smokeHard       a toon-cut silhouette on the burst's cloud and the smoke (the Deep books, as fx.smokeSoft), at
+        //                      the standard view: the drawing's edge stepped at half its alpha instead of the soft falloff,
+        //                      so the cloud tears at hard edges. Every field (the soft edge is not a night thing). 0 = the
+        //                      old look (the shader skips the line).
+        // fx.smokeSoft (C52) already thins a cloud in front of any surface over 0.3 x its width in depth, but that is 0.7-3.3 m
+        // above the surface at the standard view's 25 degrees, depending on the card's size, and it goes to 0 at the surface
+        // rather than capping at 40%: it is the lever for the ground band, and a sweep of it (0.3, 0.5, 0.7) comes before
+        // any new code there. All three at their old values (fx.smokeNightWarm=1,fx.smokeNightFire=1,fx.smokeHard=0) draw
+        // the image before C61 bit for bit.
+        public const string NightWarmKnob = "fx.smokeNightWarm", NightFireKnob = "fx.smokeNightFire", HardKnob = "fx.smokeHard";
+        public const float DefaultNightWarm = 0.35f, DefaultNightFire = 0.35f, DefaultHard = 1f;   // critic: charcoal-umber, not tan; hard-cut toon edges
+        public const float OldNightWarm = 1f, OldNightFire = 1f, OldHard = 0f;
+
+        /// <summary>fx.smokeNightWarm, in [0, 1] (1 = C59's warm grey).</summary>
+        public static float ReadNightWarm() => Mathf.Clamp01(Knobs.Get(NightWarmKnob, DefaultNightWarm));
+
+        /// <summary>fx.smokeNightFire, in [0, 1] (1 = the old look).</summary>
+        public static float ReadNightFire() => Mathf.Clamp01(Knobs.Get(NightFireKnob, DefaultNightFire));
+
+        /// <summary>fx.smokeHard, in [0, 1] (0 = the old look).</summary>
+        public static float ReadHard() => Mathf.Clamp01(Knobs.Get(HardKnob, DefaultHard));
+
+        // AOSA C102 (juice J01, split from C53: the smallest change): the earth column reads as a smooth translucent sheet,
+        // flame-lit early and curling into lobes late, which veils the men (runs 8/c98-critic.md). C53 asks for toon-stepped
+        // edges instead of a soft falloff. One knob, read once where the books are made:
+        //   fx.columnHard  fx.smokeHard's toon-cut silhouette (the shader's _Hard, stepped at half the drawing's alpha, torn
+        //                  as the book erodes, back to the soft edge as the lens goes in) on the Column book only: not the
+        //                  Splash, which draws the same sheet in water, and not the Deep books, which keep fx.smokeHard. Each
+        //                  book has its own material, so no draw or material is added. 0 = the old look (the Column book
+        //                  got _Hard 0 before C102, and the shader skips the line at 0).
+        public const string ColumnHardKnob = "fx.columnHard";
+        public const float DefaultColumnHard = 0f, OldColumnHard = 0f;   // off until a blind 2-way against the default passes (rule 6)
+
+        /// <summary>fx.columnHard, in [0, 1] (0 = the old look).</summary>
+        public static float ReadColumnHard() => Mathf.Clamp01(Knobs.Get(ColumnHardKnob, DefaultColumnHard));
+
+        /// <summary>The _Hard a book's material is made with: fx.smokeHard on the Deep books (the burst's cloud and the smoke),
+        /// fx.columnHard on the Column book, 0 on every other book. With columnHard 0 it is the value before C102 exactly.</summary>
+        public static float BookHard(Book book, float smokeHard, float columnHard)
+            => Sheets[(int)book].Deep ? smokeHard : book == Book.Column ? columnHard : 0f;
+
+        /// <summary>The night smoke's hue at a warmth: C59's NightHue itself at 1 (the same floats), white at 0.</summary>
+        public static Color NightHueAt(float warm) => warm >= 1f ? NightHue : Color.Lerp(Color.white, NightHue, warm);
+
+        /// <summary>The width factor of a shell's cloud and smoke: the knob at the standard view on a moonlit field, 1
+        /// among the men and on any other field. With the knob at 1 it is 1 exactly.</summary>
+        public static float NightScale(float knob, float closeUp, bool moonLit) => moonLit ? Mathf.Lerp(knob, 1f, closeUp) : 1f;
+
+        /// <summary>AOSA C59: paint the Burst and Smoke books as dark warm grey that the moon does not light (see NightKnob).
+        /// Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets nothing.</summary>
+        public void NightSmoke(float value) => NightSmoke(value, OldNightWarm, OldNightFire);
+
+        /// <summary>The same at a warmth and a share of the burst's light (AOSA C61: fx.smokeNightWarm, fx.smokeNightFire).</summary>
+        public void NightSmoke(float value, float warm, float fire)
+        {
+            if (value <= 0f) return;
+            var tint = NightTint(value, warm);
+            PaintNight(mats[(int)Book.Burst], tint);
+            PaintNight(mats[(int)Book.Smoke], tint);
+            if (mats[(int)Book.Burst] != null) mats[(int)Book.Burst].SetFloat("_BurstLit", fire);
+            if (mats[(int)Book.Smoke] != null) mats[(int)Book.Smoke].SetFloat("_BurstLit", fire);
+        }
+
+        static void PaintNight(Material m, Color tint)
+        {
+            if (m == null) return;
+            m.SetColor("_Tint", tint);
+            m.SetVector("_Levels", new Vector4(2f, 3f, 0f, 0f));   // no ink reaches the light band, so _MainLightColor (the moon) is never used
+            m.SetColor("_Shade", new Color(NightShade, NightShade, NightShade));
+            m.SetFloat("_ShadeMood", 0f);   // and no night-blue shade tint either
+            m.SetFloat("_Lit", NightLit);
+        }
+
+        // AOSA C57 (juice J01, the earth column at night): the column read as a see-through dark smear, a shadow (critic,
+        // runs 7/d59: column 4). Three things, all from the code and the drawing, and the first measured on screen:
+        //   the moon  the Column book is toon-lit like the Burst was before C59, so its brown (SceneTints.Column 0.40, 0.33,
+        //             0.26) goes out as the night key's blue in the light band (0.56, 0.70, 1.0) and as near-black navy in the
+        //             shade band (_Shade x the night shade tint 0.20, 0.29, 0.56). On screen it measured (40, 43, 48): blue over
+        //             red from a red-over-blue tint, a little darker than the moonlit ground, which is how a shadow looks
+        //             (runs 6/col3 against 6/v6c, the pixels the column's size changed, frames 0-15).
+        //   the fade  the book is not Erode, so from 65% of its 1.8 s every column fades EVENLY, and the drawing's own alpha
+        //             falls from frame 9 (median 0.93 -> 0.15): for its last 0.6 s each column is a uniformly half-clear card.
+        //   the size  a barrage shell is r 8 (OffMapAbilities ShellRadius), so the column is drawn about 10 m wide and 20-26 m
+        //             tall at the standard view (the drawing fills 62% x 79% of its 16.8 x 24.7 m card, then grows 35%).
+        // Two knobs, read once in CombatFx.Awake, and only on a moonlit field (as C59: the cause is the moon; the day and
+        // the lava field are untouched):
+        //   fx.columnEarth      the value (luma, 0-1) the earth is drawn at, in #3B2A1E's dark brown that ignores the moon
+        //                       (every ink value in the shade band, a plain grey shade, 40% of the drawing's own values kept
+        //                       for its clods), and torn like the smoke (Erode: at full life the alpha edge is 2.2x harder,
+        //                       and at the end it breaks up from its edges into the smoke instead of fading evenly). The
+        //                       burst's own light (TWBurstLight) still lights its foot orange. 0 = the old look (nothing set).
+        //   fx.columnEarthSize  the column's width and height at the standard view (back to 1 as the lens goes in among the
+        //                       men). 1 = the old size.
+        // Both at their old values (fx.columnEarth=0,fx.columnEarthSize=1) draw the image before C57 bit for bit.
+        public const string EarthKnob = "fx.columnEarth", EarthSizeKnob = "fx.columnEarthSize";
+        public const float DefaultEarth = 0.22f, DefaultEarthSize = 0.38f;   // critic: #3B2A1E; about 3-4 m wide and 8-10 m tall at T1 (r 8: about 4.4 x 8.2 m as it rises, 5.3 x 10 m at the end)
+        public const float OldEarth = 0f, OldEarthSize = 1f;
+        public static readonly Color EarthHue = new Color(1f, 0.712f, 0.508f);   // #3B2A1E is (59, 42, 30) = (1, 0.712, 0.508)
+        const float EarthMidInk = 0.61f;   // the Column drawing's middle ink (median 0.58-0.63 over frames 0-14, pixels at alpha > 0.3)
+
+        /// <summary>fx.columnEarth, in [0, 1] (0 = the old moonlit look).</summary>
+        public static float ReadEarth() => Mathf.Clamp01(Knobs.Get(EarthKnob, DefaultEarth));
+
+        /// <summary>fx.columnEarthSize, in [0.05, 4] (1 = the old size).</summary>
+        public static float ReadEarthSize() => Mathf.Clamp(Knobs.Get(EarthSizeKnob, DefaultEarthSize), 0.05f, 4f);
+
+        /// <summary>The tint that draws the night column at this value (luma at the drawing's middle ink), before fog and grade.</summary>
+        public static Color EarthTint(float value)
+        {
+            float luma = 0.299f * EarthHue.r + 0.587f * EarthHue.g + 0.114f * EarthHue.b;
+            float k = value / (luma * Mathf.Lerp(EarthMidInk, NightShade, NightLit));
+            return new Color(EarthHue.r * k, EarthHue.g * k, EarthHue.b * k, 1f);
+        }
+
+        /// <summary>AOSA C57: paint the Column book as opaque dark-brown earth that the moon does not light, torn at its end
+        /// (see EarthKnob). Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets
+        /// nothing. The Splash book (a shell in water) and the Wings are not touched.</summary>
+        public void NightEarth(float value)
+        {
+            if (value <= 0f) return;
+            var m = mats[(int)Book.Column];
+            if (m == null) return;
+            PaintNight(m, EarthTint(value));
+            m.SetFloat("_Erode", 1f);
+        }
+
+        // AOSA C103 (juice J01, split from C53: the column's size and dark core): two blind critics (runs 9/c102-critic.md,
+        // 8/c98-critic.md) read the column as thin translucent orange-brown arcs, "water spray, sparkler, flame", and the
+        // clods as uniform small dark pebbles. Three causes, from the code and the drawing:
+        //   the timing  the Column book plays its 16 frames evenly over 1.8 s, so the dense column (frames 1-5) is up for
+        //               0.1-0.6 s and the split arcs (frames 6-15, 10-25% cover) fill the other 1.2 s the critic sees.
+        //   the light   _BurstLit is 1 on the Column (C61 left it whole), so the shell's orange light is ADDED to a dark
+        //               brown and the column reads as flame (measured on c102h f50: (190, 110, 50) where lit).
+        //   the clods   two DebrisRenderer bursts of 0.19-0.48 m and 0.05-0.14 m lumps, one tint, lying 30 s.
+        // One knob, fx.columnSoil in [0, 1], on a moonlit field only (as C57: the day column is the size-1 book, unjudged):
+        //   the column  a soil heave (SoilShape): it rises in SoilRise s (frames 0.5 -> 3.2, the dense ones with two lumps
+        //               at the top, so wider at the top and ragged), holds the dense frames to SoilHold s, then collapses
+        //               back into the ground over the rest of its SoilLife (height x 1.06 -> 0.4, falling faster as it
+        //               goes, the frames running on to 7.6 while fx.columnEarth's erode tears it). Drawn SoilWidth as wide
+        //               and SoilHeight as tall as the book's own card: an opaque column no bigger than today's, dense for
+        //               1 s instead of sparse arcs for 1.8 s (the drawn cover over time is the same, 0.23 against 0.23).
+        //   over men    rule 6 (C98: a bigger column lowered the men 6.0 -> 5.3; C102: an opaque one over men, 3 -> 2): the
+        //               card is drawn behind a man in front of it (depth), but it covers the ground behind it out to its
+        //               height over the eye's slope. CombatFx finds the nearest man behind it inside its width and caps
+        //               its height so its top stops at his feet (SoilCap), down to SoilLow: a low heave, never a veil.
+        //   its paint   dark umber at value SoilValue (EarthTint, the C57 paint), taking SoilFire of the burst's light.
+        //   the clods   DebrisRenderer.Heave: fewer, bigger, varied (a 4x size span, most small; a third thrown as clumps
+        //               of three), a darker-to-lighter spread of the mud, on real arcs that go up with the column and come
+        //               down round it, lying SoilClodLife s instead of 30.
+        // Between 0 and 1 the paint and the timing blend (the clods are the heave at any value above 0). No book, material,
+        // mesh or pool is added: the Column book and the Clod pool already draw. 0 = the old look: nothing is painted,
+        // no card has Soil, and CombatFx throws the old clods (the code before C103, bit for bit).
+        public const string ColumnSoilKnob = "fx.columnSoil";
+        public const float DefaultColumnSoil = 0f, OldColumnSoil = 0f;   // off until a blind 2-way against the default passes (rule 6)
+        public const float SoilValue = 0.08f, SoilFire = 0.3f;           // critic: core ~0.08, dark umber #2A1E14-#4A3526, not flame-lit
+        public const float SoilLife = 1.4f, SoilRise = 0.25f, SoilHold = 0.65f;   // critic: rises in 0.2-0.3 s, then falls back
+        public const float SoilWidth = 0.9f, SoilHeight = 1.0f;          // rule 6: the footprint no wider or taller than today's column
+        public const float SoilClodLife = 1.5f;                          // short-lived on the ground (was 30 s)
+        public const float SoilLow = 0.3f;                               // the lowest the column is capped to over men (SoilCap)
+        public const float SoilPeak = 1.06f * SoilHeight;                // the heave's tallest, of the card's own height (SoilShape at SoilHold)
+
+        /// <summary>fx.columnSoil, in [0, 1] (0 = the old look).</summary>
+        public static float ReadColumnSoil() => Mathf.Clamp01(Knobs.Get(ColumnSoilKnob, DefaultColumnSoil));
+
+        /// <summary>The soil heave's frame, width and height factors (of the card's own) t seconds into a column of this
+        /// life: rise in SoilRise, hold to SoilHold, collapse over the rest.</summary>
+        public static void SoilShape(float t, float life, out float frame, out float wide, out float tall)
+        {
+            if (t < SoilRise)
+            {
+                float u = Mathf.Clamp01(t / SoilRise), e = 1f - (1f - u) * (1f - u) * (1f - u);   // out of the ground fast, easing at the top
+                frame = Mathf.Lerp(0.5f, 3.2f, e); wide = Mathf.Lerp(0.55f, 1f, e); tall = Mathf.Lerp(0.15f, 1f, e);
+            }
+            else if (t < SoilHold)
+            {
+                float u = (t - SoilRise) / (SoilHold - SoilRise);
+                frame = Mathf.Lerp(3.2f, 4.4f, u); wide = Mathf.Lerp(1f, 1.08f, u); tall = Mathf.Lerp(1f, 1.06f, u);
+            }
+            else
+            {
+                float u = Mathf.Clamp01((t - SoilHold) / Mathf.Max(0.05f, life - SoilHold));
+                frame = Mathf.Lerp(4.4f, 7.6f, u); wide = Mathf.Lerp(1.08f, 1.25f, u); tall = Mathf.Lerp(1.06f, 0.4f, u * u);   // falls back, faster as it goes
+            }
+            wide *= SoilWidth; tall *= SoilHeight;
+        }
+
+        /// <summary>The height cap of a soil column over men (rule 6: C98's and C102's columns hid the men they stood over).
+        /// The column stands on the impact and faces the eye, so it covers the ground behind it (away from the eye) out to
+        /// its height over the tangent of the eye's pitch. behind is the ground distance to the nearest man behind it inside
+        /// its width, tanPitch the eye's slope down to the impact, peak the column's full drawn height (m). The cap keeps the
+        /// column's top at that man's feet, never below SoilLow of its height (a low heave still reads as earth); 1 with no
+        /// man behind it.</summary>
+        public static float SoilCap(float behind, float tanPitch, float peak)
+            => peak <= 0f ? 1f : Mathf.Clamp(behind * Mathf.Max(0f, tanPitch) / peak, SoilLow, 1f);
+
+        /// <summary>The height a card of this book is drawn at for a width, when no height is given (the drawing's aspect).</summary>
+        public float CardHeight(Book book, float width) => width / Mathf.Max(0.05f, aspect[(int)book]);
+
+        /// <summary>The value the soil column is painted at: SoilValue at 1, blended from fx.columnEarth's below it.</summary>
+        public static float SoilPaintValue(float soil, float earth) => earth > 0f ? Mathf.Lerp(earth, SoilValue, soil) : SoilValue;
+
+        /// <summary>AOSA C103: paint the Column book as the soil heave's dark umber (see ColumnSoilKnob). Called after
+        /// NightEarth, on a moonlit field only; soil 0 sets nothing.</summary>
+        public void SoilEarth(float soil, float earth)
+        {
+            if (soil <= 0f) return;
+            var m = mats[(int)Book.Column];
+            if (m == null) return;
+            PaintNight(m, EarthTint(SoilPaintValue(soil, earth)));
+            m.SetFloat("_Erode", 1f);
+            m.SetFloat("_BurstLit", Mathf.Lerp(1f, SoilFire, soil));
+        }
+
+        // AOSA C108 (juice J01, split from C103: the smallest change): at night the column still reads as see-through orange
+        // arcs, "flame or spray, never soil", partly over men (runs 9/batch9-critic.md). From the code: NightEarth paints it
+        // #3B2A1E at value 0.22 but leaves _BurstLit 1, so the shader ADDS lerp(ink, 1, 0.3) x TWBurstLight x _Lit (0.6) to
+        // that dark brown: the burst's orange outweighs the earth wherever it reaches, and on the thin late arcs (low
+        // alpha, light ink) orange is all there is. C103 fixed it (columns over men 3 up / 7 equal / 0 down) but only inside
+        // its whole redesign, which left the earth score flat. Its two parts as knobs of their own, on the old column,
+        // on a moonlit field only (as C57; the day column and the Splash are untouched), read once in CombatFx.Awake:
+        //   fx.columnBurstLit  the Column book's share of the burst's light (its _BurstLit). 1 = today (nothing is set, the
+        //                      shader skips the line); C103 used SoilFire 0.3. fx.columnSoil above 0 sets its own share.
+        //   fx.columnCap       how far the old column is capped over men behind it (C103's SoilCap, its top at the nearest
+        //                      man's feet, never below SoilLow): the card's height x lerp(1, cap, knob). 0 = the old height (the old
+        //                      Add, no search for men). With fx.columnSoil above 0 the heave's own cap applies instead.
+        // No book, material, mesh or draw is added: the Column book's own material and card.
+        public const string ColumnBurstLitKnob = "fx.columnBurstLit", ColumnCapKnob = "fx.columnCap";
+        public const float DefaultColumnBurstLit = 1f, OldColumnBurstLit = 1f;   // off until a blind 2-way against the default passes (rule 6)
+        public const float DefaultColumnCap = 1f;   // blind critic, cycle 10 (runs 10/p4c, c108.md, a0054): arc px -70%, earth +1.67 (6 of 6), men +0.17 never lower, weight -0.17
+        public const float OldColumnCap = 0f;   // fx.columnPlay=1,fx.columnCap=0 is the old look
+        public const float ColumnGrow = 0.35f;   // the old column's grow (CombatFx): its card ends 1.35x as tall as it is born
+
+        /// <summary>fx.columnBurstLit, in [0, 1] (1 = today).</summary>
+        public static float ReadColumnBurstLit() => Mathf.Clamp01(Knobs.Get(ColumnBurstLitKnob, DefaultColumnBurstLit));
+
+        /// <summary>fx.columnCap, in [0, 1] (0 = the old height).</summary>
+        public static float ReadColumnCap() => Mathf.Clamp01(Knobs.Get(ColumnCapKnob, DefaultColumnCap));
+
+        /// <summary>The height factor of the old column's card: 1 at knob 0 (exactly), C103's cap at knob 1.</summary>
+        public static float ColumnCapScale(float knob, float cap) => knob <= 0f ? 1f : Mathf.Lerp(1f, cap, knob);
+
+        /// <summary>AOSA C108: the Column book's share of the burst's light (see ColumnBurstLitKnob). Called after
+        /// NightEarth and before SoilEarth, on a moonlit field only; 1 sets nothing.</summary>
+        public void ColumnBurstLit(float share)
+        {
+            if (share >= 1f) return;
+            var m = mats[(int)Book.Column];
+            if (m == null) return;
+            m.SetFloat("_BurstLit", Mathf.Clamp01(share));
+        }
+
+        // AOSA C109 (juice J01, from C108's finding, runs 10/c108.md): the orange arcs a blind critic reads as flame or spray
+        // at night, partly over men, are the Column book's own late drawing (frames 6-15, the column split into thin arcs),
+        // in C57's night-earth paint, drawn 0.7-1.8 s into the old column's 1.8 s life. How the book plays (Draw): a card's
+        // frame is k x Frames x Sheet.Play (k = its age over its life), so a Sheet's Play slows the whole book to end at that
+        // frame; it neither stops early nor fades sooner. Every card fades over its last 35% of life and is gone at its life.
+        // So a Sheet Play would stretch the heave (frames 0-5) over the whole 1.8 s. Instead this cuts the card: its frames,
+        // swell, pop and glow run on the old 1.8 s clock exactly (the heave as today), but it is gone at Cut x its life, and
+        // it fades (and, eroding, tears) over the last PlayFade of that shortened life, to 0 at the cut: no pop.
+        //   fx.columnPlay   the part of the Column book the old dry column plays on a moonlit field (as C57), in
+        //                   [MinColumnPlay, 1]. 1 = the old card (no card is cut, the old fade line runs). 0.4: gone at 0.72 s at
+        //                   frame 6.4, the arcs' first frame (6) at fade 0.085. With fx.columnSoil above 0 the heave's own
+        //                   timing applies (no cut); with fx.columnCap the capped column is cut the same. Splash is never cut.
+        // No book, material, mesh or draw is added: the same card, gone sooner.
+        public const string ColumnPlayKnob = "fx.columnPlay";
+        public const float DefaultColumnPlay = 0.4f;   // blind critic, cycle 10 (runs 10/p4c, c108.md, a0054): arc px -70%, earth +1.67 (6 of 6), men +0.17 never lower, weight -0.17
+        public const float OldColumnPlay = 1f;   // fx.columnPlay=1,fx.columnCap=0 is the old look
+        public const float MinColumnPlay = 0.1f;
+        public const float PlayFade = 0.35f;   // the cut card fades over this part of its shortened life (every card's own last 35%)
+
+        /// <summary>fx.columnPlay, in [MinColumnPlay, 1] (1 = the old card).</summary>
+        public static float ReadColumnPlay() => Mathf.Clamp(Knobs.Get(ColumnPlayKnob, DefaultColumnPlay), MinColumnPlay, 1f);
+
+        /// <summary>The Cut a column card is added with at this knob: 0 (no cut, today exactly) at 1 or above.</summary>
+        public static float ColumnPlayCut(float play) => play >= 1f ? 0f : Mathf.Clamp(play, MinColumnPlay, 1f);
+
+        /// <summary>A card's age (seconds) at which it is gone: its life, or Cut x its life when it is cut.</summary>
+        public static float CardEnd(float life, float cut) => cut > 0f ? life * cut : life;
+
+        /// <summary>The fade of a cut card at k (its age over its FULL life): 1 until the last PlayFade of its shortened
+        /// life (cut x life), then smoothly to 0 at the cut.</summary>
+        public static float CutFade(float k, float cut)
+        {
+            float u = Mathf.Clamp01(k / Mathf.Max(0.0001f, cut));
+            return 1f - Mathf.SmoothStep(0f, 1f, (u - (1f - PlayFade)) / PlayFade);
+        }
+
+        /// <summary>The Cut the card at this index holds, for the tests.</summary>
+        public float CardCut(int index) => cards[index].Cut;
+
+        /// <summary>The _BurstLit the Column book's material holds (1 when the book did not load), for the tests.</summary>
+        public float ColumnBurstLitNow => mats[(int)Book.Column] != null ? mats[(int)Book.Column].GetFloat("_BurstLit") : 1f;
+        readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
         readonly List<Card> cards = new List<Card>(512);
         readonly Material[] mats = new Material[(int)Book.Count];
         readonly float[] aspect = new float[(int)Book.Count];
@@ -149,6 +533,10 @@ namespace TW.Presentation.Tactical
 
         public FlipbookFx()
         {
+            maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
+            float soft = ReadSoft();   // C52: the deep clouds' softness (the shader takes it back to 0 as the lens goes in)
+            float hard = ReadHard();   // C61: the deep clouds' toon-cut edge (the same)
+            float columnHard = ReadColumnHard();   // C102: the same cut on the earth column
             var shader = Shader.Find("TW/Flipbook (URP)");
             if (shader == null) return;
             int found = 0;
@@ -170,6 +558,8 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
                 m.SetFloat("_ShadeMood", s.Mood > 0f ? s.Mood : 1f);
+                m.SetFloat("_Soft", s.Deep ? soft : 0f);
+                m.SetFloat("_Hard", BookHard((Book)k, hard, columnHard));
                 // fire is premultiplied over (One, OneMinusSrcAlpha), additive books add, everything else is straight alpha
                 m.SetFloat("_SrcBlend", (float)(s.Additive || s.Fire ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.SrcAlpha));
                 m.SetFloat("_DstBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
@@ -202,12 +592,12 @@ namespace TW.Presentation.Tactical
         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
         /// out over its last third.
         /// </summary>
-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float startFrame = 0f)
+        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float startFrame = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f)
         {
             if (!Ready) return;
-            if (cards.Count >= MaxCards) cards.RemoveAt(0);
+            if (cards.Count >= maxCards) cards.RemoveAt(0);
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Book = book, Kind = kind });
+            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind });
         }
 
         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
@@ -218,7 +608,7 @@ namespace TW.Presentation.Tactical
             for (int i = cards.Count - 1; i >= 0; i--)
             {
                 var c = cards[i];
-                if (now - c.Born > c.Life) { cards.RemoveAt(i); continue; }
+                if (now - c.Born > (c.Cut > 0f ? CardEnd(c.Life, c.Cut) : c.Life)) { cards.RemoveAt(i); continue; }   // AOSA C109: a cut card goes at its cut
                 if (now < c.Born) continue;   // not born yet
                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
             }
@@ -233,7 +623,7 @@ namespace TW.Presentation.Tactical
                     float k = Mathf.Clamp01((now - c.Born) / c.Life);
                     float swell = 1f + c.Grow * k;
                     if (c.Pop > 0f) { float u = 1f - Mathf.Clamp01(k / 0.2f); swell *= Mathf.Lerp(1f, c.Pop, u * u * u); }   // bursts out of a point, eased
-                    float fade = 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
+                    float fade = c.Cut > 0f ? CutFade(k, c.Cut) : 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);   // AOSA C109: a cut card fades to 0 at its cut
                     if (Sheets[b].RampIn > 0f) fade *= Mathf.Clamp01((now - c.Born) / Sheets[b].RampIn);
                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
                     float fps = Sheets[b].Fps;
@@ -242,7 +632,13 @@ namespace TW.Presentation.Tactical
                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f)
                                 : Sheets[b].Cycle ? Mathf.Repeat(run, span) : Mathf.Min(run, span);
                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
-                    batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                    if (c.Soil > 0f)
+                    {
+                        // AOSA C103: the soil heave's own timing and shape, blended by the knob (see ColumnSoilKnob)
+                        SoilShape(now - c.Born, c.Life, out float soilFrame, out float wide, out float tall);
+                        batch[n++] = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
+                    }
+                    else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
                 }
                 if (n > 0) FrameBudget.Draw(rp, quad, 0, batch, n);

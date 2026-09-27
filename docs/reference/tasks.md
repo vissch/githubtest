@@ -60,7 +60,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
   (`StressSide` deploys both armies at their spawn points), `Perf/BenchOptions.cs` (`stress=`),
   `Editor/CaptureRig.cs` (`Bench`, and `Stress`: a rough 2,000-man footprint check).
-- **Tests:** SinglePlayerEquivalenceTests (runs the preset with 60 men a side), BattlefieldLockstepTests.
+- **Tests:** SinglePlayerEquivalenceTests (runs the preset with 60 men a side), BattlefieldLockstepTests,
+  StressPresetTests (the player's army spread over its trenches).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
@@ -235,7 +236,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `CombatFx.cs` also draws the called-strike target markers, and `CombatFx.Abilities.cs` the ability aim, from
   `SceneHooks.AimPreview` (whoever owns the aim sets it; `TestPanel` today). The IMGUI banner (`Banner`, `OnGUI`)
   draws only when the legacy HUD is on (F9).
-- **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim).
+- **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
+  ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests.
+- **The AOSA look knobs** (`fx.*`, read in `Awake`/`Start` from `Presentation/Core/Knobs.cs`): the night column, soil
+  heave and smoke in the shell-burst handler (`fx.columnSoil`, `fx.columnCap`, `fx.columnPlay`, `fx.smokeNight*`), when a
+  tick's rifle shots are shown (`Presentation/Core/ShotStagger.cs`, `fx.shotStagger`), and where a tracer is drawn among
+  the smoke (`Presentation/Camera/TracerLook.cs`). Every knob's default is the look as it was; the AOSA loop's record of
+  what each one did is `docs/reference/aosa/`.
 - **Trap:** effects drawn only up close sit behind `if (!close) return;` in `CombatFx.Ground.cs` `CloseLife`. Keep
   that guard in front of anything close-only, or the standard view pays for it.
 
@@ -320,7 +327,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
   shaders `Toon_URP`, `Water_URP`, `TWAtmosphere.hlsl`, `TWLocalLights.hlsl`, `TWWater.hlsl`.
-- **Tests:** BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests.
+- **Tests:** BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
+  repaints only its own tile of the ground colour, `Presentation/Terrain/ScorchTilePainter.cs`), HollowRescanTests and
+  DrainageTests (crater hollows and rill drainage, presentation only).
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
 - **Trap:** `SimHost.Ground` picks the terrain but not the look. For a winter test set the biome look too
@@ -481,15 +490,20 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Performance and allocations
 - **Files:** `Perf/PerfBench.cs`, `Perf/BenchOptions.cs` (every bench option is parsed in `Parse`: the list of
-  keys), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
-  `Presentation/Core/RenderGround.cs`. Budgets and past runs: `docs/05-performance-budgets.md`.
-- **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests. None
-  covers `FrameBudget`'s counts or `BenchOptions.Parse`. An unknown option is listed in the report's `warnings`
-  (`BenchOptions.Unknown`), not refused, so read the warnings before trusting a run.
+  keys), `Perf/BenchScenarios.cs` (`scenario=`: what the window stages on top of the stress battle),
+  `Perf/HitchAttribution.cs` (which TW marker carried a hitch), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`,
+  `FrameBudget` in `Presentation/Core/RenderGround.cs`, `Presentation/Core/Knobs.cs` (run-time knobs: `knobs=`,
+  `-twknob`, `TW_KNOBS`; a report lists every knob it read), `Presentation/Core/ShotLog.cs` (the per-shot log of an image
+  run). Budgets and past runs: `docs/05-performance-budgets.md`; the AOSA loop's runs: `docs/reference/aosa/`.
+- **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests,
+  BenchOptionsTests, FrameBudgetCoverageTests (every gameplay draw goes through `FrameBudget`), HitchAttributionTests,
+  KnobsTests, ShotLogTests. An unknown option is listed in the report's `warnings` (`BenchOptions.Unknown`), not
+  refused, so read the warnings before trusting a run.
+- **Trap:** the report carries the frame budget twice, as `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws`
+  (the overhaul's names) and `frame_budget_*` (the AOSA loop's); both read `FrameBudget` on the same frame.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
-- **Trap:** `FrameBudget` does not see every draw: `BattlefieldProps`, `PropDestruction` and `SelectionMarkers` call
-  `Graphics.RenderMeshInstanced` directly (until "Every gameplay draw goes through FrameBudget" lands), and `PerfBench` reports the props'
-  own `DrawCalls` rather than reading `FrameBudget`. A bench `shot=` still includes the HUD and IMGUI overlays.
+- **Trap:** a bench `shot=` includes the HUD. `shot_tick=N shot_hud=0` hides it (and `CombatFx`'s world overlays,
+  `CombatFx.ShowOverlays`) and holds the clock so the still repeats; such a run's timings are not real time.
 
 ### Windows build
 - **Files:** `Editor/BuildWindows.cs`, `Resources/ShaderKeep/`.
@@ -521,6 +535,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BiomeProfileTests, BlastReactionTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FlowFieldManagerTests, FlowFieldTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, MineTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ScatterRulesTests, SceneStaticsTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, KnobsTests, LandingTests, MineTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 <!-- /gen:tests -->

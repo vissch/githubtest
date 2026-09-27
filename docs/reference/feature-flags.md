@@ -25,12 +25,14 @@ inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 | `-twbench` | command-line arg | `Perf/PerfBench.cs` | Player/editor arg: run PerfBench with "key=value ..." options and quit. Options: `Perf/BenchOptions.cs` `Parse`; recipes: workflow.md, section 7. |
 | `-twCanary` | command-line arg | `Presentation/Core/SimHost.cs` | Player/editor arg: run the second (peer) sim world as a determinism canary. Off in single player. |
 | `-twdev` | command-line arg | `Editor/BuildWindows.cs` | Arg to the batch Windows build: make a Development build. |
+| `-twknob` | command-line arg | `Presentation/Core/Knobs.cs` | Player/editor arg, repeatable: -twknob name=value sets a run-time knob (`Presentation/Core/Knobs.cs`); wins over TW_KNOBS. |
 | `TW.EnvProps.Edit` | EditorPrefs | `Editor/EnvPropEditor.cs` | EditorPrefs bool: hand placement of props in the Scene view during Play (EnvPropEditor). Default on. |
 | `tw.hud.toolkit` | PlayerPrefs | `Presentation/Core/HudBridge.cs` | PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. Default 1. A machine where someone pressed F9 shows the other HUD. |
 | `tw.rig.stress` | SessionState | `Editor/CaptureRig.cs` | SessionState (this editor session only): CaptureRig stress request carried across a domain reload. |
 | `tw.rig.stress.restore` | SessionState | `Editor/CaptureRig.cs` | SessionState: the StressUnits value CaptureRig puts back afterwards. |
 | `TW_AUDIT_OUT` | environment variable | `Editor/AssetScaleAudit.cs` | Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. Default docs/reference/asset-scale.md. |
 | `TW_BENCH` | environment variable | `Perf/PerfBench.cs` | Environment variable, same as -twbench. Also fires in editor Play if set, so unset it after use. |
+| `TW_KNOBS` | environment variable | `Presentation/Core/Knobs.cs` | Environment variable: run-time knobs, "a=1,b=2" (also \| or ; between entries; `Presentation/Core/Knobs.cs`); a bench report lists every knob it read. |
 
 Code and inspector switches (static fields or `SimHost` inspector fields):
 

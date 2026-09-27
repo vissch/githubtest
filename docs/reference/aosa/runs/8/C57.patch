@@ -1,0 +1,180 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index ac17cfd..85dc5fb 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -130,6 +130,10 @@ namespace TW.Presentation.Tactical
+         // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
+         // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
+         float smokeNight = FlipbookFx.DefaultNight, smokeNightSize = FlipbookFx.DefaultNightSize;
++        // knobs fx.columnEarth and fx.columnEarthSize (Awake, AOSA C57): on a moonlit field a shell's earth column is drawn
++        // opaque dark brown that the moon does not light (FlipbookFx.NightEarth, from ApplyTints), and this much smaller at
++        // the standard view, on top of fx.columnScale. 0 and 1 = the old look.
++        float columnEarth = FlipbookFx.DefaultEarth, columnEarthSize = FlipbookFx.DefaultEarthSize;
+         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+@@ -212,6 +216,7 @@ namespace TW.Presentation.Tactical
+             books.Tint(FlipbookFx.Book.Puff, t.Dust);
+             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight);   // AOSA C59: after the biome's smoke tint
++            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
+             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
+             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
+             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
+@@ -276,6 +281,8 @@ namespace TW.Presentation.Tactical
+             burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
+             smokeNight = FlipbookFx.ReadNight();
+             smokeNightSize = FlipbookFx.ReadNightSize();
++            columnEarth = FlipbookFx.ReadEarth();
++            columnEarthSize = FlipbookFx.ReadEarthSize();
+         }
+ 
+         void Start()
+@@ -683,7 +690,9 @@ namespace TW.Presentation.Tactical
+                         // Alpha still keys on `wet` on purpose: a fully opaque plume in lava's SplashTint
+                         // (1.00, 0.46, 0.12) on a field that already reins GlowScale in to 0.55 is a brightness
+                         // guess, and this project has been burned twice by those.
+-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
++                        // AOSA C57: the dry column smaller at the standard view on a moonlit field (1 exactly with fx.columnEarthSize=1)
++                        float earth = wet ? 1f : FlipbookFx.NightScale(columnEarthSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
++                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
+                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
+                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index 2fca071..188cdbc 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -137,6 +137,59 @@ namespace TW.Presentation.Tactical
+             m.SetFloat("_ShadeMood", 0f);   // and no night-blue shade tint either
+             m.SetFloat("_Lit", NightLit);
+         }
++
++        // AOSA C57 (juice J01, the earth column at night): the column read as a see-through dark smear, a shadow (critic,
++        // runs 7/d59: column 4). Three things, all from the code and the drawing, and the first measured on screen:
++        //   the moon  the Column book is toon-lit like the Burst was before C59, so its brown (SceneTints.Column 0.40, 0.33,
++        //             0.26) goes out as the night key's blue in the light band (0.56, 0.70, 1.0) and as near-black navy in the
++        //             shade band (_Shade x the night shade tint 0.20, 0.29, 0.56). On screen it measured (40, 43, 48): blue over
++        //             red from a red-over-blue tint, a little darker than the moonlit ground, which is how a shadow looks
++        //             (runs 6/col3 against 6/v6c, the pixels the column's size changed, frames 0-15).
++        //   the fade  the book is not Erode, so from 65% of its 1.8 s every column fades EVENLY, and the drawing's own alpha
++        //             falls from frame 9 (median 0.93 -> 0.15): for its last 0.6 s each column is a uniformly half-clear card.
++        //   the size  a barrage shell is r 8 (OffMapAbilities ShellRadius), so the column is drawn about 10 m wide and 20-26 m
++        //             tall at the standard view (the drawing fills 62% x 79% of its 16.8 x 24.7 m card, then grows 35%).
++        // Two knobs, read once in CombatFx.Awake, and only on a moonlit field (as C59: the cause is the moon; the day and
++        // the lava field are untouched):
++        //   fx.columnEarth      the value (luma, 0-1) the earth is drawn at, in #3B2A1E's dark brown that ignores the moon
++        //                       (every ink value in the shade band, a plain grey shade, 40% of the drawing's own values kept
++        //                       for its clods), and torn like the smoke (Erode: at full life the alpha edge is 2.2x harder,
++        //                       and at the end it breaks up from its edges into the smoke instead of fading evenly). The
++        //                       burst's own light (TWBurstLight) still lights its foot orange. 0 = the old look (nothing set).
++        //   fx.columnEarthSize  the column's width and height at the standard view (back to 1 as the lens goes in among the
++        //                       men). 1 = the old size.
++        // Both at their old values (fx.columnEarth=0,fx.columnEarthSize=1) draw the image before C57 bit for bit.
++        public const string EarthKnob = "fx.columnEarth", EarthSizeKnob = "fx.columnEarthSize";
++        public const float DefaultEarth = 0.22f, DefaultEarthSize = 0.38f;   // critic: #3B2A1E; about 3-4 m wide and 8-10 m tall at T1 (r 8: about 4.4 x 8.2 m as it rises, 5.3 x 10 m at the end)
++        public const float OldEarth = 0f, OldEarthSize = 1f;
++        public static readonly Color EarthHue = new Color(1f, 0.712f, 0.508f);   // #3B2A1E is (59, 42, 30) = (1, 0.712, 0.508)
++        const float EarthMidInk = 0.61f;   // the Column drawing's middle ink (median 0.58-0.63 over frames 0-14, pixels at alpha > 0.3)
++
++        /// <summary>fx.columnEarth, in [0, 1] (0 = the old moonlit look).</summary>
++        public static float ReadEarth() => Mathf.Clamp01(Knobs.Get(EarthKnob, DefaultEarth));
++
++        /// <summary>fx.columnEarthSize, in [0.05, 4] (1 = the old size).</summary>
++        public static float ReadEarthSize() => Mathf.Clamp(Knobs.Get(EarthSizeKnob, DefaultEarthSize), 0.05f, 4f);
++
++        /// <summary>The tint that draws the night column at this value (luma at the drawing's middle ink), before fog and grade.</summary>
++        public static Color EarthTint(float value)
++        {
++            float luma = 0.299f * EarthHue.r + 0.587f * EarthHue.g + 0.114f * EarthHue.b;
++            float k = value / (luma * Mathf.Lerp(EarthMidInk, NightShade, NightLit));
++            return new Color(EarthHue.r * k, EarthHue.g * k, EarthHue.b * k, 1f);
++        }
++
++        /// <summary>AOSA C57: paint the Column book as opaque dark-brown earth that the moon does not light, torn at its end
++        /// (see EarthKnob). Called after the biome's tints (CombatFx.ApplyTints), and only on a moonlit field; value 0 sets
++        /// nothing. The Splash book (a shell in water) and the Wings are not touched.</summary>
++        public void NightEarth(float value)
++        {
++            if (value <= 0f) return;
++            var m = mats[(int)Book.Column];
++            if (m == null) return;
++            PaintNight(m, EarthTint(value));
++            m.SetFloat("_Erode", 1f);
++        }
+         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
+         readonly List<Card> cards = new List<Card>(512);
+         readonly Material[] mats = new Material[(int)Book.Count];
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 7075602..0f4a7df 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -254,6 +254,68 @@ namespace TW.Tests
+             Assert.AreEqual(4f, FlipbookFx.ReadNightSize());
+         }
+ 
++        [Test]
++        public void NightEarthKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldColumn()
++        {
++            // AOSA C57: the default draws a moonlit field's earth column opaque dark brown and smaller at the standard view;
++            // fx.columnEarth=0,fx.columnEarthSize=1 is the old look
++            Assert.AreEqual("fx.columnEarth", FlipbookFx.EarthKnob);
++            Assert.AreEqual("fx.columnEarthSize", FlipbookFx.EarthSizeKnob);
++            Assert.AreEqual(FlipbookFx.DefaultEarth, FlipbookFx.ReadEarth());
++            Assert.AreEqual(FlipbookFx.DefaultEarthSize, FlipbookFx.ReadEarthSize());
++            Assert.AreEqual("0.22", Knobs.Read["fx.columnEarth"]);
++            Assert.AreEqual("0.38", Knobs.Read["fx.columnEarthSize"]);
++            Assert.Greater(FlipbookFx.DefaultEarth, FlipbookFx.OldEarth, "the default is the new look");
++            Assert.Less(FlipbookFx.DefaultEarthSize, FlipbookFx.OldEarthSize, "the default is the new look");
++
++            // the new tint: #3B2A1E's brown (red over green over blue, blue about half of red), a valid colour, and the knob
++            // is the value drawn at the drawing's middle ink, mixed as the shader mixes it (NightLit of the shade grey)
++            var tint = FlipbookFx.EarthTint(FlipbookFx.DefaultEarth);
++            Assert.Greater(tint.r, tint.g); Assert.Greater(tint.g, tint.b);
++            Assert.AreEqual(0.508f, tint.b / tint.r, 1e-3f, "#3B2A1E: blue 30 over red 59");
++            Assert.AreEqual(0.712f, tint.g / tint.r, 1e-3f, "#3B2A1E: green 42 over red 59");
++            Assert.LessOrEqual(tint.r, 1f);
++            float mid = Mathf.Lerp(0.61f, FlipbookFx.NightShade, FlipbookFx.NightLit);
++            Assert.AreEqual(FlipbookFx.DefaultEarth, (0.299f * tint.r + 0.587f * tint.g + 0.114f * tint.b) * mid, 1e-4f, "the knob is the drawn value");
++            Assert.AreEqual(0f, FlipbookFx.EarthTint(0f).r, "value 0 is black (and NightEarth paints nothing at 0)");
++
++            // the size: the knob at the standard view on a moonlit field, 1 among the men and on every other field
++            Assert.AreEqual(FlipbookFx.DefaultEarthSize, FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 0f, true));
++            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 1f, true) == 1f, "full size among the men");
++            Assert.IsTrue(FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), 0f, false) == 1f, "day and lava keep their size");
++            // r 8 (a barrage shell) at the standard view: the drawing (62% x 79% of its card, aspect 512/754) is 3-5 m wide
++            // and 7-10 m tall while it rises (swell 1 -> 1.175 at mid-life)
++            float card = 8f * 2.1f * FlipbookFx.DefaultEarthSize, aspect = 512f / 754f;
++            Assert.That(card * 0.62f * 1.1f, Is.InRange(3f, 5f));
++            Assert.That(card / aspect * 0.79f * 1.1f, Is.InRange(7f, 10f));
++
++            // the old values: nothing painted, and a width factor of exactly 1 at every zoom (the float the old code passed,
++            // with fx.columnScale on top as before)
++            Knobs.Set(FlipbookFx.EarthKnob, "0");
++            Knobs.Set(FlipbookFx.EarthSizeKnob, "1");
++            Assert.AreEqual(0f, FlipbookFx.ReadEarth());
++            Assert.AreEqual(1f, FlipbookFx.ReadEarthSize());
++            foreach (float close in new[] { 0f, 0.25f, 0.5f, 0.999f, 1f })
++            foreach (bool moon in new[] { false, true })
++            {
++                float n = FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), close, moon);
++                Assert.IsTrue(n == 1f, "closeUp " + close + ", moonlit " + moon);
++                foreach (float r in new[] { 2f, 3.7f, 8f, 9f })
++                foreach (float scale in new[] { 1f, 3f, 0.5f })
++                    Assert.IsTrue(r * 2.1f * scale * n == r * 2.1f * scale, "column width, r " + r + ", fx.columnScale " + scale);
++            }
++
++            // out of range: the value kept in [0, 1], the size in [0.05, 4]
++            Knobs.Set(FlipbookFx.EarthKnob, "-1");
++            Knobs.Set(FlipbookFx.EarthSizeKnob, "0");
++            Assert.AreEqual(0f, FlipbookFx.ReadEarth());
++            Assert.AreEqual(0.05f, FlipbookFx.ReadEarthSize());
++            Knobs.Set(FlipbookFx.EarthKnob, "3");
++            Knobs.Set(FlipbookFx.EarthSizeKnob, "9");
++            Assert.AreEqual(1f, FlipbookFx.ReadEarth());
++            Assert.AreEqual(4f, FlipbookFx.ReadEarthSize());
++        }
++
+         [Test]
+         public void Terrain_NothingSet_IsTheOldConstants()
+         {

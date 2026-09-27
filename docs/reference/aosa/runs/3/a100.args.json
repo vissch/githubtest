@@ -1,0 +1,13 @@
+{
+ "build_dir": "C:\\Users\\thomas.visscher_magi\\Documents\\GitHub\\githubtest-aosa\\trench-warfare-3d\\Builds\\WinBenchDev",
+ "cycle": 3,
+ "dev": true,
+ "extra": "",
+ "knobs": "fx.flareScale=1,fx.flareSeconds=0.18,fx.flareHot=0.15,fx.flarePull=0,fx.tracerFromMuzzle=0,lights.shotRange=10,lights.shotPeak=13,lights.shotCard=2.6,terrain.applyIntervalMs=100",
+ "label": "a100",
+ "mode": "player",
+ "no_hud": false,
+ "scenario": "barrage",
+ "shot_frames": 1,
+ "shot_tick": null
+}

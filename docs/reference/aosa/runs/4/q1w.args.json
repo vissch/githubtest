@@ -1,0 +1,13 @@
+{
+ "build_dir": "C:\\Users\\thomas.visscher_magi\\Documents\\GitHub\\githubtest-aosa\\trench-warfare-3d\\Builds\\WinBench",
+ "cycle": 4,
+ "dev": false,
+ "extra": "stress=150",
+ "knobs": "vat.crowdShadow=1",
+ "label": "q1w",
+ "mode": "player",
+ "no_hud": true,
+ "scenario": null,
+ "shot_frames": 1,
+ "shot_tick": 100
+}

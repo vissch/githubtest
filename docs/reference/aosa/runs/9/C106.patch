@@ -1,0 +1,431 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 0354832..372bb6c 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -141,6 +141,10 @@ namespace TW.Presentation.Tactical
+         // and falls back (FlipbookFx.SoilShape, painted by FlipbookFx.SoilEarth), kept low over men behind it (SoilCap),
+         // and it throws fewer, bigger, varied clods (DebrisRenderer.Heave). 0 = the old look.
+         float columnSoil = FlipbookFx.DefaultColumnSoil;
++        // knob fx.smokeShear (Awake, AOSA C106): a shell's cloud and smoke drift and shear down the breeze, and where men
++        // stand under them they are born thinner and fade sooner (FlipbookFx.ShearAlpha, ShearFadeStart; SmokeOverMen).
++        // The drift, lean and value are FlipbookFx's own. 0 = the old look.
++        float smokeShear = FlipbookFx.DefaultShear;
+         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
+         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
+         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
+@@ -295,6 +299,7 @@ namespace TW.Presentation.Tactical
+             smokeNightWarm = FlipbookFx.ReadNightWarm();
+             smokeNightFire = FlipbookFx.ReadNightFire();
+             columnSoil = FlipbookFx.ReadColumnSoil();
++            smokeShear = FlipbookFx.ReadShear();
+         }
+ 
+         void Start()
+@@ -745,8 +750,10 @@ namespace TW.Presentation.Tactical
+                         {
+                             // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
+                             float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
++                            // AOSA C106: over men the cloud and its smoke are born thinner and fade sooner (0 with fx.smokeShear 0: no scan)
++                            float thin = smokeShear > 0f && SmokeOverMen(p, r) ? smokeShear * (1f - Mathf.Clamp01(closeUp)) : 0f;
+                             books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+-                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
++                                velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), alpha: FlipbookFx.ShearAlpha(1f, thin), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f, thin: thin);
+                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
+                             int puffs = closeUp > 0.5f ? 5 : 7;
+                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
+@@ -754,7 +761,7 @@ namespace TW.Presentation.Tactical
+                             {
+                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
+                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink * night, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
++                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.ShearAlpha(FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), thin), pop: 0.3f, delay: 0.5f + k * 0.15f, thin: thin);
+                             }
+                         }
+                     }
+@@ -1427,6 +1434,34 @@ namespace TW.Presentation.Tactical
+             return best;
+         }
+ 
++        /// <summary>AOSA C106 (fx.smokeShear): is any man under a shell's smoke? The cloud stands over the impact and faces
++        /// the eye, so it covers the ground from a radius in front of it to SmokeReach radii behind it (away from the eye),
++        /// SmokeHalfWidth radii either side. One scan of the live men per shell, and only with the knob on.</summary>
++        bool SmokeOverMen(Vector3 p, float r)
++        {
++            var cam = Camera.main;
++            if (cam == null || Host == null || Host.Local == null) return false;
++            Vector3 eye = cam.transform.position;
++            float fx = p.x - eye.x, fz = p.z - eye.z, flat = Mathf.Sqrt(fx * fx + fz * fz);
++            if (flat < 0.1f) return false;
++            fx /= flat; fz /= flat;
++            float half = r * SmokeHalfWidth, near = -r, far = r * SmokeReach;
++            var w = Host.Local.World;
++            for (int i = 0; i < w.HighWater; i++)
++            {
++                uint flags = w.Flags[i];
++                if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
++                var q = w.Position[i];
++                float dx = q.x - p.x, dz = q.z - p.z;
++                float d = dx * fx + dz * fz;
++                if (d < near || d > far) continue;
++                if (Mathf.Abs(dx * fz - dz * fx) > half) continue;
++                return true;
++            }
++            return false;
++        }
++        const float SmokeHalfWidth = 1.2f, SmokeReach = 4f;   // C106: the smoke's footprint in shell radii (a puff is r 1.1-1.6 wide at size 1, growing 2.4x, 0.6x at night)
++
+         void Throw(Vector3 at, int count, byte kind, float speed, float size)
+         {
+             bool ambient = kind == 2 || kind == 5 || kind == 7;
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index 760a73f..47eaac6 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -31,6 +31,7 @@ namespace TW.Presentation.Tactical
+         {
+             public Vector3 Pos, Vel;
+             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop;
++            public float Thin;        // AOSA C106 (fx.smokeShear): how far this cloud thins sooner because it hangs over men (ShearFadeStart, ShearAlpha)
+             public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
+             public Book Book; public Kind Kind;
+         }
+@@ -342,6 +343,86 @@ namespace TW.Presentation.Tactical
+             m.SetFloat("_Erode", 1f);
+             m.SetFloat("_BurstLit", Mathf.Lerp(1f, SoilFire, soil));
+         }
++        // AOSA C106 (juice J01, the smoke's life): a blind critic (runs 9/c101-critic.md) read the barrage smoke as soft,
++        // even, opaque cauliflower blobs with flat interiors, one dark chocolate brown that no fire lights, that neither
++        // tear nor drift and break up into clean crescents and rings, and the smoke over the upper-left trench thickened
++        // from 0.4 s on and buried it (readability 4/10). From the code and the drawings:
++        //   the drift   every card's velocity decays to nothing in about 2 s (Draw: Vel lerps to 0 at 0.6/s), and the
++        //               smoke's wind share is _TWWind x 3.5 (about 0.2 m/s), so nothing drifts or leans with the breeze.
++        //   the rings   the Puff drawing hollows into a crescent from frame 4 (Smoke plays to 5.4), the Burst into a ring
++        //               from frame 7 (it plays to 11.2): what the critic called crescents and rings is the drawing itself.
++        //   the value   on a moonlit field NightSmoke puts every ink value in the shade band (_Levels 2, 3), so the only
++        //               value left is 40% of the drawing's own ink and a 0.78 underside: a flat brown.
++        // One knob, fx.smokeShear in [0, 1], on the Deep books (the burst's cloud and the smoke), at the standard view (back
++        // to the old look as the lens goes in, as fx.smokeSoft):
++        //   the wind    each card drifts down the breeze (Atmosphere's _TWWind, in m/s) at ShearDrift x its speed for its
++        //               whole life (never decays), and over ShearTau s it leans down wind by up to ShearLean rad on screen
++        //               and stretches ShearStretch wider and as much flatter (area kept): a streak along the wind.
++        //   the frames  the book is played only to its dense frames (Burst 6.4, Smoke 3.8, the timing scaled, not held),
++        //               so it thins by the erode and the fade, torn from its edges, never by the drawing's own hollowing.
++        //   the value   the shader's _Shear: the dense heart ShearCore darker, the top ShearTop lighter, and the side
++        //               nearest the burst takes the burst's full light (not only fx.smokeNightFire's share).
++        //   over men    CombatFx looks once per shell for men under its smoke; if there are, the cloud and its puffs are
++        //               born ShearThinAlpha thinner and start to fade at ShearThinFade of their life instead of 0.65.
++        // No book, material, mesh or draw is added (the Deep books' own materials take _Shear). 0 = the old look: nothing
++        // is set on a material, no card has Thin, and Draw skips every line of it (the image before C106 bit for bit).
++        public const string ShearKnob = "fx.smokeShear";
++        public const float DefaultShear = 0f, OldShear = 0f;   // off until a blind 2-way against the default passes (rule 6)
++        public const float ShearDrift = 1.5f;       // the drift, times the breeze's speed (m/s): about 2.5 m/s on the night's dry breeze
++        public const float ShearTau = 1.2f;         // s: the lean and the stretch are 57% in at 1 s, 92% at 3 s
++        public const float ShearLean = 0.45f;       // rad (26 degrees) of lean down wind on the screen, at full
++        public const float ShearStretch = 0.8f;     // width x (1 + this), height / (1 + this), at full
++        public const float ShearSide = 0.35f;       // the least share of the lean when the wind blows along the view
++        public const float ShearThinAlpha = 0.35f;  // a cloud over men is born this much thinner
++        public const float ShearThinFade = 0.3f;    // and starts to fade at this share of its life (0.65 elsewhere)
++        public const float ShearCore = 0.4f, ShearTop = 0.5f, ShearFire = 0.8f;   // the shader's value terms (Flipbook_URP.shader, written there as numbers)
++        public const float WindPerMs = 0.034f;      // _TWWind's scale (Atmosphere): the breeze at 0.034 per m/s
++        public const float ShearWindMax = 4f;       // m/s: a squall's 9 m/s would slide the smoke across the field, so the drift reads at most this
++
++        /// <summary>fx.smokeShear, in [0, 1] (0 = the old look).</summary>
++        public static float ReadShear() => Mathf.Clamp01(Knobs.Get(ShearKnob, DefaultShear));
++
++        /// <summary>The last frame a Deep book plays to under fx.smokeShear at 1: its dense frames, before the drawing hollows.</summary>
++        public static float ShearFrameCap(Book book) => book == Book.Burst ? 6.4f : book == Book.Smoke ? 3.8f : 0f;
++
++        /// <summary>The frame a Deep card shows under the shear: its own, scaled so the book ends on ShearFrameCap at 1
++        /// (the frames left out are the drawing's hollowing into a ring). Any other book, or shear 0: the frame itself.</summary>
++        public static float ShearFrame(Book book, float frame, float shear)
++        {
++            var s = Sheets[(int)book];
++            if (shear <= 0f || !s.Deep) return frame;
++            float played = s.Frames * (s.Play > 0f ? s.Play : 1f);
++            return frame * Mathf.Lerp(1f, Mathf.Min(1f, ShearFrameCap(book) / played), shear);
++        }
++
++        /// <summary>The wind's share of the lean on the screen: the wind's direction over the eye's right, never less than
++        /// ShearSide either way (a breeze along the view still shears the cloud), 0 with no wind.</summary>
++        public static float ShearSideOf(Vector2 wind, Vector3 camRight)
++        {
++            float m = wind.magnitude;
++            if (m < 1e-5f) return 0f;
++            float x = (wind.x * camRight.x + wind.y * camRight.z) / m;
++            return (x < 0f ? -1f : 1f) * Mathf.Max(Mathf.Abs(x), ShearSide);
++        }
++
++        /// <summary>A Deep card's shape age seconds into its life under the shear: the roll added (down wind on the screen;
++        /// an upright card's right is the eye's left, so it turns the other way), and its width and height factors (area
++        /// kept). With shear 0 it is 0, 1, 1.</summary>
++        public static void ShearShape(float age, float shear, float side, bool upright, out float roll, out float wide, out float tall)
++        {
++            float e = shear * (1f - Mathf.Exp(-Mathf.Max(0f, age) / ShearTau));
++            roll = (upright ? 1f : -1f) * side * ShearLean * e;
++            wide = 1f + ShearStretch * e; tall = 1f / wide;
++        }
++
++        /// <summary>The share of its life at which a card starts to fade: 0.65, or sooner over men (thin 1: ShearThinFade).</summary>
++        public static float ShearFadeStart(float thin) => Mathf.Lerp(0.65f, ShearThinFade, Mathf.Clamp01(thin));
++
++        /// <summary>The opacity a cloud over men is born with under the shear: the recipe's, ShearThinAlpha thinner at thin 1.</summary>
++        public static float ShearAlpha(float alpha, float thin) => thin > 0f ? alpha * (1f - ShearThinAlpha * Mathf.Clamp01(thin)) : alpha;
++
++        readonly float shear;    // fx.smokeShear (read in the constructor)
++        static readonly int WindId = Shader.PropertyToID("_TWWind");
+         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
+         readonly List<Card> cards = new List<Card>(512);
+         readonly Material[] mats = new Material[(int)Book.Count];
+@@ -357,6 +438,7 @@ namespace TW.Presentation.Tactical
+             float soft = ReadSoft();   // C52: the deep clouds' softness (the shader takes it back to 0 as the lens goes in)
+             float hard = ReadHard();   // C61: the deep clouds' toon-cut edge (the same)
+             float columnHard = ReadColumnHard();   // C102: the same cut on the earth column
++            shear = ReadShear();   // C106: the deep clouds' wind, frames and value
+             var shader = Shader.Find("TW/Flipbook (URP)");
+             if (shader == null) return;
+             int found = 0;
+@@ -377,6 +459,7 @@ namespace TW.Presentation.Tactical
+                 m.SetFloat("_ShadeMood", s.Mood > 0f ? s.Mood : 1f);
+                 m.SetFloat("_Soft", s.Deep ? soft : 0f);
+                 m.SetFloat("_Hard", BookHard((Book)k, hard, columnHard));
++                if (s.Deep && shear > 0f) m.SetFloat("_Shear", shear);   // C106: at 0 nothing is set (the shader's default 0 skips the line)
+                 m.SetFloat("_SrcBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.SrcAlpha));
+                 m.SetFloat("_DstBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
+                 m.renderQueue = s.Additive ? 3020 : 3010;
+@@ -408,12 +491,12 @@ namespace TW.Presentation.Tactical
+         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
+         /// out over its last third.
+         /// </summary>
+-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f)
++        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f, float thin = 0f)
+         {
+             if (!Ready) return;
+             if (cards.Count >= maxCards) cards.RemoveAt(0);
+             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
+-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Book = book, Kind = kind });
++            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Thin = thin, Book = book, Kind = kind });
+         }
+ 
+         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
+@@ -428,9 +511,20 @@ namespace TW.Presentation.Tactical
+                 if (now < c.Born) continue;   // not born yet
+                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
+             }
++            // C106 (fx.smokeShear): the breeze in m/s and its side on the screen, once a frame, only with the knob on
++            float shearNow = 0f, side = 0f; Vector3 windMs = Vector3.zero;
++            if (shear > 0f)
++            {
++                shearNow = shear * (1f - Mathf.Clamp01(SceneHooks.CloseUp));
++                Vector4 w = Shader.GetGlobalVector(WindId);
++                windMs = Vector3.ClampMagnitude(new Vector3(w.x, 0f, w.y) / WindPerMs, ShearWindMax);
++                var cam = Camera.main;
++                side = cam != null ? ShearSideOf(new Vector2(windMs.x, windMs.z), cam.transform.right) : ShearSide;
++            }
+             for (int b = 0; b < (int)Book.Count; b++)
+             {
+                 var mat = mats[b]; if (mat == null) continue;
++                bool sheared = shearNow > 0f && Sheets[b].Deep;
+                 int frames = Sheets[b].Frames, n = 0;
+                 var rp = new RenderParams(mat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
+                 for (int i = 0; i < cards.Count; i++)
+@@ -439,7 +533,9 @@ namespace TW.Presentation.Tactical
+                     float k = Mathf.Clamp01((now - c.Born) / c.Life);
+                     float swell = 1f + c.Grow * k;
+                     if (c.Pop > 0f) { float u = 1f - Mathf.Clamp01(k / 0.2f); swell *= Mathf.Lerp(1f, c.Pop, u * u * u); }   // bursts out of a point, eased
+-                    float fade = 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
++                    float fade;
++                    if (c.Thin > 0f) { float f0 = ShearFadeStart(c.Thin); fade = 1f - Mathf.SmoothStep(0f, 1f, (k - f0) / (1f - f0)); }   // C106: over men it thins sooner
++                    else fade = 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
+                     if (Sheets[b].RampIn > 0f) fade *= Mathf.Clamp01((now - c.Born) / Sheets[b].RampIn);
+                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
+                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
+@@ -450,6 +546,13 @@ namespace TW.Presentation.Tactical
+                         SoilShape(now - c.Born, c.Life, out float soilFrame, out float wide, out float tall);
+                         batch[n++] = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
+                     }
++                    else if (sheared)
++                    {
++                        // AOSA C106: down the breeze for its whole life, leaning and stretched along it, on its dense frames
++                        float age = now - c.Born;
++                        ShearShape(age, shearNow, side, (c.Kind & Kind.Upright) != 0, out float lean, out float wide, out float tall);
++                        batch[n++] = Pack(c.Pos + windMs * (ShearDrift * shearNow * age), c.Width * swell * wide, c.Height * swell * tall, ShearFrame((Book)b, frame, shearNow), fade, bright, c.Roll + lean, c.Kind, c.Alpha);
++                    }
+                     else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
+                 }
+diff --git a/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader b/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader
+index 9659cb3..0a10579 100644
+--- a/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader
++++ b/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader
+@@ -23,6 +23,7 @@ Shader "TW/Flipbook (URP)"
+         _Soft ("A cloud as deep as it is wide: fades in front of a surface over this x its width (0 = off)", Float) = 0
+         _Hard ("Toon-cut silhouette: the drawing's edge stepped at half its alpha (0 = its own soft edge)", Range(0, 1)) = 0
+         _BurstLit ("How much of the burst's own light it takes (1 = all)", Range(0, 1)) = 1
++        _Shear ("Value inside a cloud: dark heart, lit top, lit toward the burst (0 = off)", Range(0, 1)) = 0
+         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
+         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
+     }
+@@ -49,7 +50,7 @@ Shader "TW/Flipbook (URP)"
+             CBUFFER_START(UnityPerMaterial)
+                 float4 _Grid, _Levels;
+                 half4 _Tint, _Shade;
+-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Soft, _Hard, _BurstLit;
++                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Soft, _Hard, _BurstLit, _Shear;
+             CBUFFER_END
+             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+             struct Varyings
+@@ -146,6 +147,18 @@ Shader "TW/Flipbook (URP)"
+                 half3 fire = TWBurstLight(i.positionWS);
+                 if (_BurstLit < 1.0) fire *= _BurstLit;
+                 color += lerp(ink, 1.0, 0.3) * fire * _Lit;
++                // AOSA C106 (fx.smokeShear, the smoke and the burst's cloud only): a value inside the cloud. Its dense heart
++                // (opaque, near the card's middle) goes darker, its top lighter, and the part of it nearest the burst takes
++                // the burst's full light, not only _BurstLit's share (FlipbookFx.ShearCore, ShearTop, ShearFire). The
++                // standard view only (_TWClose 0); at 0 the line is skipped and the old image is drawn bit for bit.
++                half shear = _Shear * (1.0 - _TWClose);
++                if (shear > 0.0)
++                {
++                    half heart = smoothstep(0.6, 1.0, shape) * (1.0 - edge);
++                    half top = smoothstep(0.35, 1.0, i.local.y);
++                    color *= 1.0 + shear * (0.5 * top - 0.4 * heart);
++                    color += (shear * 0.8 * (1.0 - heart) * _Lit) * TWBurstLight(i.positionWS);
++                }
+                 half fog = ComputeFogIntensity(i.tone.w);
+                 if (_Lit < 0.5)
+                 {
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SmokeShearTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SmokeShearTests.cs
+new file mode 100644
+index 0000000..6aeff6c
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SmokeShearTests.cs
+@@ -0,0 +1,122 @@
++// Phase: tooling (AOSA loop, C106) - fx.smokeShear: the barrage smoke drifts and shears down the breeze, plays only its
++// dense frames (no hollow rings), has a value inside it, and thins sooner over men. At 0 every number is the old one.
++using NUnit.Framework;
++using UnityEngine;
++using TW.Presentation;
++using TW.Presentation.Tactical;
++
++namespace TW.Tests
++{
++    public class SmokeShearTests
++    {
++        [SetUp] public void SetUp() => Knobs.Clear();
++        [TearDown] public void TearDown() => Knobs.Clear();
++
++        [Test]
++        public void Knob_DefaultsOff_AndClamps()
++        {
++            Assert.AreEqual("fx.smokeShear", FlipbookFx.ShearKnob);
++            Assert.AreEqual(0f, FlipbookFx.OldShear);
++            Assert.AreEqual(FlipbookFx.OldShear, FlipbookFx.DefaultShear, "off until a blind 2-way passes (rule 6)");
++            Assert.AreEqual(0f, FlipbookFx.ReadShear());
++            Knobs.Set(FlipbookFx.ShearKnob, "1");
++            Assert.AreEqual(1f, FlipbookFx.ReadShear());
++            Knobs.Set(FlipbookFx.ShearKnob, "-2");
++            Assert.AreEqual(0f, FlipbookFx.ReadShear());
++            Knobs.Set(FlipbookFx.ShearKnob, "3");
++            Assert.AreEqual(1f, FlipbookFx.ReadShear());
++        }
++
++        [Test]
++        public void Off_EveryNumberIsTheOldOne()
++        {
++            // the frame, the shape, the fade and the opacity with the knob at 0 (and a card with no Thin) are the old ones exactly
++            for (int b = 0; b < (int)FlipbookFx.Book.Count; b++)
++                foreach (float f in new[] { 0f, 1.37f, 5.4f, 11.2f })
++                    Assert.IsTrue(FlipbookFx.ShearFrame((FlipbookFx.Book)b, f, 0f) == f, (FlipbookFx.Book)b + " frame " + f);
++            foreach (float age in new[] { 0f, 0.5f, 3f, 10f })
++            foreach (bool upright in new[] { false, true })
++            {
++                FlipbookFx.ShearShape(age, 0f, 1f, upright, out float roll, out float wide, out float tall);
++                Assert.IsTrue(roll == 0f && wide == 1f && tall == 1f, "age " + age);
++            }
++            Assert.IsTrue(FlipbookFx.ShearFadeStart(0f) == 0.65f, "the old fade starts at 0.65 of the life");
++            foreach (float a in new[] { 1f, 0.65f, 0.5525f })
++                Assert.IsTrue(FlipbookFx.ShearAlpha(a, 0f) == a, "opacity " + a);
++        }
++
++        [Test]
++        public void Frames_OnlyTheDenseOnes_OnTheDeepBooks()
++        {
++            // the Burst hollows into a ring from frame 7 and plays to 11.2; the Smoke (Puff) into a crescent from 4, to 5.4
++            Assert.AreEqual(6.4f, FlipbookFx.ShearFrame(FlipbookFx.Book.Burst, 16f * 0.7f, 1f), 1e-4f);
++            Assert.AreEqual(3.8f, FlipbookFx.ShearFrame(FlipbookFx.Book.Smoke, 9f * 0.6f, 1f), 1e-4f);
++            Assert.Less(FlipbookFx.ShearFrameCap(FlipbookFx.Book.Burst), 7f);
++            Assert.Less(FlipbookFx.ShearFrameCap(FlipbookFx.Book.Smoke), 4f);
++            // scaled, not held: the timing still runs to the end
++            Assert.Less(FlipbookFx.ShearFrame(FlipbookFx.Book.Smoke, 2f, 1f), FlipbookFx.ShearFrame(FlipbookFx.Book.Smoke, 4f, 1f));
++            // half the knob: half way between
++            float half = FlipbookFx.ShearFrame(FlipbookFx.Book.Burst, 11.2f, 0.5f);
++            Assert.AreEqual((11.2f + 6.4f) * 0.5f, half, 1e-3f);
++            // no other book is touched
++            foreach (var book in new[] { FlipbookFx.Book.Column, FlipbookFx.Book.Splash, FlipbookFx.Book.Wings, FlipbookFx.Book.Puff, FlipbookFx.Book.Gas, FlipbookFx.Book.Flash })
++                Assert.IsTrue(FlipbookFx.ShearFrame(book, 5f, 1f) == 5f, book.ToString());
++        }
++
++        [Test]
++        public void Shape_LeansDownWind_AndStretches_KeepingItsArea()
++        {
++            // at 1 s: 57% in; at 3 s: 92%; never past the full lean and stretch
++            FlipbookFx.ShearShape(1f, 1f, 1f, false, out float roll1, out float wide1, out float tall1);
++            FlipbookFx.ShearShape(3f, 1f, 1f, false, out float roll3, out float wide3, out float tall3);
++            FlipbookFx.ShearShape(100f, 1f, 1f, false, out float rollMax, out float wideMax, out _);
++            Assert.AreEqual(1f - Mathf.Exp(-1f / FlipbookFx.ShearTau), (wide1 - 1f) / FlipbookFx.ShearStretch, 1e-4f);
++            Assert.Greater(wide3, wide1); Assert.Less(tall3, tall1);
++            Assert.AreEqual(1f, wide1 * tall1, 1e-5f, "the area is kept: a streak, not a bigger cloud over the men");
++            Assert.AreEqual(1f + FlipbookFx.ShearStretch, wideMax, 1e-3f);
++            Assert.AreEqual(-FlipbookFx.ShearLean, rollMax, 1e-3f);
++            // a wind to the eye's right turns a flat card's top right (a negative roll), an upright card's the other way
++            // (its right is the eye's left)
++            Assert.Less(roll1, 0f); Assert.Less(roll3, roll1);
++            FlipbookFx.ShearShape(1f, 1f, 1f, true, out float rollUp, out _, out _);
++            Assert.AreEqual(-roll1, rollUp, 1e-6f);
++            FlipbookFx.ShearShape(1f, 1f, -1f, false, out float rollLeft, out _, out _);
++            Assert.AreEqual(-roll1, rollLeft, 1e-6f);
++        }
++
++        [Test]
++        public void Side_FollowsTheWindOnTheScreen_NeverBelowTheFloor()
++        {
++            Vector3 right = Vector3.right;
++            Assert.AreEqual(1f, FlipbookFx.ShearSideOf(new Vector2(3f, 0f), right), 1e-5f);
++            Assert.AreEqual(-1f, FlipbookFx.ShearSideOf(new Vector2(-3f, 0f), right), 1e-5f);
++            // along the view: still sheared, by the floor, to the side it leans
++            Assert.AreEqual(FlipbookFx.ShearSide, FlipbookFx.ShearSideOf(new Vector2(0.01f, 5f), right), 1e-5f);
++            Assert.AreEqual(-FlipbookFx.ShearSide, FlipbookFx.ShearSideOf(new Vector2(-0.01f, 5f), right), 1e-5f);
++            Assert.AreEqual(0f, FlipbookFx.ShearSideOf(Vector2.zero, right));
++            // the night's dry breeze (1.6, 0.7) seen with the eye's right along +x
++            Assert.AreEqual(1.6f / new Vector2(1.6f, 0.7f).magnitude, FlipbookFx.ShearSideOf(new Vector2(1.6f, 0.7f), right), 1e-5f);
++        }
++
++        [Test]
++        public void OverMen_ThinnerAndSooner_Elsewhere_Untouched()
++        {
++            Assert.AreEqual(FlipbookFx.ShearThinFade, FlipbookFx.ShearFadeStart(1f), 1e-6f);
++            Assert.Less(FlipbookFx.ShearFadeStart(1f), 0.65f);
++            Assert.Less(FlipbookFx.ShearFadeStart(1f), FlipbookFx.ShearFadeStart(0.5f));
++            Assert.AreEqual(0.65f * (1f - FlipbookFx.ShearThinAlpha), FlipbookFx.ShearAlpha(0.65f, 1f), 1e-6f);
++            Assert.Less(FlipbookFx.ShearAlpha(1f, 1f), FlipbookFx.ShearAlpha(1f, 0.5f));
++            // never more opaque than the recipe (rule 6: the men never lose to the change)
++            foreach (float t in new[] { 0f, 0.25f, 1f, 2f })
++                Assert.LessOrEqual(FlipbookFx.ShearAlpha(0.8f, t), 0.8f);
++        }
++
++        [Test]
++        public void Drift_IsTheBreezeInMetresASecond()
++        {
++            // _TWWind carries the breeze at 0.034 per m/s (Atmosphere); the drift reads it back in m/s
++            Assert.AreEqual(0.034f, FlipbookFx.WindPerMs);
++            Assert.Greater(FlipbookFx.ShearDrift, 1f, "faster than the breeze's old 3.5 x 0.034 share (about 0.2 m/s)");
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SmokeShearTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SmokeShearTests.cs.meta
+new file mode 100644
+index 0000000..1871694
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SmokeShearTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: ff8b48ea8ffb440e83914bd49c96335e

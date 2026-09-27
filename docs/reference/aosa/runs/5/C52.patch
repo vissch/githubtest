@@ -1,0 +1,190 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 05f89ff..294a86c 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -119,6 +119,9 @@ namespace TW.Presentation.Tactical
+         // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
+         // firing line ripples instead of strobing at the sim's 20 Hz. 0 = every shot on the frame its tick arrives.
+         float shotStagger = ShotStagger.DefaultSpread;
++        // knob fx.smokeAlpha (Awake, AOSA C52): a shell's smoke puffs are born this much thinner at the standard view, so the
++        // men under a barrage stay countable (FlipbookFx.SmokeOpacity). 1 = the old look.
++        float smokeAlpha = FlipbookFx.DefaultAlpha;
+ 
+         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
+         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
+@@ -255,6 +258,7 @@ namespace TW.Presentation.Tactical
+             MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
+             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
+             shotStagger = ShotStagger.ReadSpread();
++            smokeAlpha = FlipbookFx.ReadAlpha();
+         }
+ 
+         void Start()
+@@ -677,7 +681,7 @@ namespace TW.Presentation.Tactical
+                             {
+                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r;
+                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
++                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
+                             }
+                         }
+                     }
+@@ -1307,7 +1311,7 @@ namespace TW.Presentation.Tactical
+                     velocity: Vector3.up * (r * 0.5f) + drift, grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow, pop: 0.3f);
+                 for (int k = 0; k < 3; k++)
+                     books.Add(FlipbookFx.Book.Smoke, p + new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, UnityEngine.Random.Range(-0.4f, 0.4f)) * r, r * UnityEngine.Random.Range(1.1f, 1.5f), UnityEngine.Random.Range(3.5f, 5f),
+-                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: 0.6f, pop: 0.3f, delay: 0.3f + k * 0.15f);
++                        (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: drift * 1.6f + Vector3.up * 0.4f, grow: 2.2f, alpha: FlipbookFx.SmokeOpacity(0.6f, smokeAlpha, SceneHooks.CloseUp), pop: 0.3f, delay: 0.3f + k * 0.15f);
+             }
+             else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = r, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
+             Throw(p + Vector3.up * 0.3f, 14, 3, 7f, 0.05f);   // sparks
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index ed0b8c3..01160fe 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -36,16 +36,16 @@ namespace TW.Presentation.Tactical
+ 
+         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
+         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
+-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood; }   // Play: the part of the book used (0 = all); Lit: 0 = own values (default: additive 0, else 1); RampIn: seconds to fade in; Mood: how much the mood tints the shade (0 = default 1)
++        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood; public bool Deep; }   // Play: the part of the book used (0 = all); Lit: 0 = own values (default: additive 0, else 1); RampIn: seconds to fade in; Mood: how much the mood tints the shade (0 = default 1); Deep: a cloud as deep as it is wide (fx.smokeSoft)
+         static readonly Sheet[] Sheets =
+         {
+-            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.50f, 0.53f, 0.58f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f },   // a cloud born of fire: the full night tint turned it saturated blue
++            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.50f, 0.53f, 0.58f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f, Deep = true },   // a cloud born of fire: the full night tint turned it saturated blue
+             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.30f, High = 0.95f },
+             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.60f, 0.66f, 0.76f), Low = 0.28f, High = 0.85f },
+             new Sheet { Name = "Wings",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Play = 0.75f, Tint = new Color(0.74f, 0.65f, 0.52f), Low = 0.15f, High = 0.42f },
+             new Sheet { Name = "Spurt",  Cols = 2, Rows = 5, Frames = 10, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.50f, High = 0.80f },
+             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.86f, 0.80f, 0.66f), Low = 0.20f, High = 0.50f },
+-            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Erode = true, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.10f, High = 0.60f, Play = 0.6f, Lit = 0.6f, RampIn = 0.3f, Mood = 0.45f },   // smoke: warm grey, and only half the moon's blue in its shade (it read as blue cotton at night)
++            new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Erode = true, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.10f, High = 0.60f, Play = 0.6f, Lit = 0.6f, RampIn = 0.3f, Mood = 0.45f, Deep = true },   // smoke: warm grey, and only half the moon's blue in its shade (it read as blue cotton at night)
+             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.15f, High = 0.60f, Lit = 0.75f },
+             new Sheet { Name = "Muzzle", Cols = 3, Rows = 4, Frames = 12, Additive = true, Tint = new Color(1.0f, 0.78f, 0.42f), Low = 0f, High = 1f },
+             new Sheet { Name = "Star",   Cols = 1, Rows = 1, Frames = 1,  Additive = true, MaskOnly = true, Tint = new Color(1.0f, 0.88f, 0.62f), Low = 0f, High = 1f },
+@@ -53,6 +53,29 @@ namespace TW.Presentation.Tactical
+         };
+ 
+         public const int MaxCards = 1536;
++
++        // AOSA C52 (juice J01): the smoke of a barrage hid the men it fell among. At the standard view a shell leaves 7
++        // puffs 9-13 m wide that grow to 30-43 m and hold near-opaque for 4-6 s, and a barrage is 12 shells, so the trench
++        // it fell on was under dozens of stacked cards. Two knobs, read once where the smoke is made, bring the men back
++        // through it at the standard view (both go back to the old look as the lens goes in among the men):
++        //   fx.smokeSoft   a burst's cloud and its smoke are as deep as they are wide: a card fades out in front of any
++        //                  surface (the ground, a man) over this fraction of its own width, so the cloud's base, where the
++        //                  men are, is thin and the smoke aloft stays dark. 0 = the old look (only the 0.8 m soft edge).
++        //   fx.smokeAlpha  multiplies the opacity a shell's smoke puff is born with. 1 = the old look.
++        // Both at their old values (fx.smokeSoft=0,fx.smokeAlpha=1) draw the image before C52 bit for bit.
++        public const string SoftKnob = "fx.smokeSoft", AlphaKnob = "fx.smokeAlpha";
++        public const float DefaultSoft = 0.6f, DefaultAlpha = 0.55f;
++        public const float OldSoft = 0f, OldAlpha = 1f;
++
++        /// <summary>fx.smokeSoft, never below 0 (0 = the old look).</summary>
++        public static float ReadSoft() { float v = Knobs.Get(SoftKnob, DefaultSoft); return v > 0f ? v : 0f; }
++
++        /// <summary>fx.smokeAlpha, in [0, 1] (1 = the old look).</summary>
++        public static float ReadAlpha() => Mathf.Clamp01(Knobs.Get(AlphaKnob, DefaultAlpha));
++
++        /// <summary>The opacity a shell's smoke puff is born with: the recipe's own, times the knob at the standard view
++        /// (closeUp 0), and the recipe's own among the men (closeUp 1). With the knob at 1 it is the recipe's exactly.</summary>
++        public static float SmokeOpacity(float recipe, float knob, float closeUp) => recipe * Mathf.Lerp(knob, 1f, closeUp);
+         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
+         readonly List<Card> cards = new List<Card>(512);
+         readonly Material[] mats = new Material[(int)Book.Count];
+@@ -65,6 +88,7 @@ namespace TW.Presentation.Tactical
+         public FlipbookFx()
+         {
+             maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
++            float soft = ReadSoft();   // C52: the deep clouds' softness (the shader takes it back to 0 as the lens goes in)
+             var shader = Shader.Find("TW/Flipbook (URP)");
+             if (shader == null) return;
+             int found = 0;
+@@ -83,6 +107,7 @@ namespace TW.Presentation.Tactical
+                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
+                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
+                 m.SetFloat("_ShadeMood", s.Mood > 0f ? s.Mood : 1f);
++                m.SetFloat("_Soft", s.Deep ? soft : 0f);
+                 m.SetFloat("_SrcBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.SrcAlpha));
+                 m.SetFloat("_DstBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
+                 m.renderQueue = s.Additive ? 3020 : 3010;
+diff --git a/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader b/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader
+index c63d060..c81437b 100644
+--- a/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader
++++ b/trench-warfare-3d/Assets/_Project/Shaders/Flipbook_URP.shader
+@@ -20,6 +20,7 @@ Shader "TW/Flipbook (URP)"
+         _MaskOnly ("Use alpha only (a drawing in black)", Float) = 0
+         _Erode ("Tears apart as it fades (0 fades evenly)", Range(0, 1)) = 0
+         _ShadeMood ("How much the mood tints the shade (smoke keeps more of its own grey)", Range(0, 1)) = 1
++        _Soft ("A cloud as deep as it is wide: fades in front of a surface over this x its width (0 = off)", Float) = 0
+         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
+         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
+     }
+@@ -46,7 +47,7 @@ Shader "TW/Flipbook (URP)"
+             CBUFFER_START(UnityPerMaterial)
+                 float4 _Grid, _Levels;
+                 half4 _Tint, _Shade;
+-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood;
++                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Soft;
+             CBUFFER_END
+             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+             struct Varyings
+@@ -106,6 +107,12 @@ Shader "TW/Flipbook (URP)"
+                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
+                 float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
+                 alpha *= saturate((scene - i.extra.y) / 0.8) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
++                // AOSA C52 (fx.smokeSoft, the smoke and the burst's cloud only): a cloud is as deep as it is wide, so it
++                // thins in front of whatever it stands among over a share of its own width. Its base, where the men are,
++                // lets them through; the smoke aloft, far in front of the ground, stays dark. The standard view only
++                // (_TWClose 0); at 0 the line is skipped and the old image is drawn bit for bit.
++                float soft = _Soft * (1.0 - _TWClose);
++                if (soft > 0.0) alpha *= saturate((scene - i.extra.y) / (soft * i.extra.x + 0.01));
+                 if (alpha < 0.004) discard;
+                 // the packs keep black under their transparent pixels, so the small mips of a thin wisp go dark: read the
+                 // drawing's value per unit of coverage
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 5528722..18100b2 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -159,6 +159,41 @@ namespace TW.Tests
+             Assert.AreEqual(160, Knobs.Get("tank.maxLoose", TankRenderer.MaxLoose));
+         }
+ 
++        [Test]
++        public void SmokeKnobs_DefaultIsTheNewLook_AndTheOldValuesDrawTheOldSmoke()
++        {
++            // AOSA C52: the default thins a barrage's smoke at the standard view; fx.smokeSoft=0,fx.smokeAlpha=1 is the old look
++            Assert.AreEqual("fx.smokeSoft", FlipbookFx.SoftKnob);
++            Assert.AreEqual("fx.smokeAlpha", FlipbookFx.AlphaKnob);
++            Assert.AreEqual(FlipbookFx.DefaultSoft, FlipbookFx.ReadSoft());
++            Assert.AreEqual(FlipbookFx.DefaultAlpha, FlipbookFx.ReadAlpha());
++            Assert.AreEqual("0.6", Knobs.Read["fx.smokeSoft"]);
++            Assert.AreEqual("0.55", Knobs.Read["fx.smokeAlpha"]);
++            Assert.Greater(FlipbookFx.DefaultSoft, FlipbookFx.OldSoft, "the default is the new look");
++            Assert.Less(FlipbookFx.DefaultAlpha, FlipbookFx.OldAlpha, "the default is the new look");
++            Assert.Less(FlipbookFx.SmokeOpacity(0.65f, FlipbookFx.ReadAlpha(), 0f), 0.65f, "thinner at the standard view");
++            Assert.AreEqual(0.65f, FlipbookFx.SmokeOpacity(0.65f, FlipbookFx.ReadAlpha(), 1f), 1e-6f, "the recipe's own among the men");
++
++            // the old values: the recipe's opacity exactly (the float the old code passed), at every zoom
++            Knobs.Set(FlipbookFx.SoftKnob, "0");
++            Knobs.Set(FlipbookFx.AlphaKnob, "1");
++            Assert.AreEqual(0f, FlipbookFx.ReadSoft());
++            Assert.AreEqual(1f, FlipbookFx.ReadAlpha());
++            foreach (float close in new[] { 0f, 0.25f, 0.5f, 0.999f, 1f })
++            {
++                Assert.IsTrue(FlipbookFx.SmokeOpacity(0.65f, FlipbookFx.ReadAlpha(), close) == 0.65f, "shell smoke, closeUp " + close);
++                Assert.IsTrue(FlipbookFx.SmokeOpacity(0.6f, FlipbookFx.ReadAlpha(), close) == 0.6f, "cook-off smoke, closeUp " + close);
++            }
++
++            // out of range: softness never below 0 (the shader skips it), opacity kept in [0, 1]
++            Knobs.Set(FlipbookFx.SoftKnob, "-2");
++            Knobs.Set(FlipbookFx.AlphaKnob, "3");
++            Assert.AreEqual(0f, FlipbookFx.ReadSoft());
++            Assert.AreEqual(1f, FlipbookFx.ReadAlpha());
++            Knobs.Set(FlipbookFx.AlphaKnob, "-1");
++            Assert.AreEqual(0f, FlipbookFx.ReadAlpha());
++        }
++
+         [Test]
+         public void Terrain_NothingSet_IsTheOldConstants()
+         {

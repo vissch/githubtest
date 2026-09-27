@@ -65,18 +65,59 @@ namespace TW.Presentation.Terrain
         /// <summary>Milliseconds a frame spent re-reading crater-dirtied chunks, a row at a time (at least one row a frame).
         /// Two whole chunks a frame was the 27 ms worst frame measured on 2026-09-23; the finished mesh is the same.</summary>
         public const double ChunkBudgetMs = 2.0;
+        double chunkBudgetMs = ChunkBudgetMs;   // or the knob terrain.chunkBudgetMs (Start)
         readonly System.Diagnostics.Stopwatch chunkWatch = new System.Diagnostics.Stopwatch();
+        /// <summary>Tooling (PerfBench's held clock, C33): the paint and chunk budgets below are milliseconds of real time,
+        /// so how much of a crater is painted by a given frame depends on the machine. While this is set every queued tile
+        /// and row is done in the frame it is queued, so a still does not. Never set during a measured window.</summary>
+        public static bool Unmetered;
         float[] rowBehindAhead = new float[0];   // the samples 0.25 m either side of a row's vertices along x, shared
         int chunkCursor;
         /// <summary>A crater's hollows are still to be rescanned: until they are, nothing that reads them (the chunks
         /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
         public bool HollowsPending => hollowsDirty;
         readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
-        public int PendingPaintTiles => paintTiles.Count;
+        /// <summary>Milliseconds a frame spent repainting crater tiles, checked after every row of a tile (at least one
+        /// row a frame). It was checked only between whole tiles, and a 16 x 16 tile is 256 GroundColor calls: against
+        /// this 2 ms the development player measured a 3.0 ms median under a barrage (AOSA C35).</summary>
+        public const double PaintBudgetMs = 2.0;
+        double paintBudgetMs = PaintBudgetMs;   // or the knob terrain.paintBudgetMs (Start)
+        readonly ScorchTilePainter painter = new ScorchTilePainter();
+        System.Func<float, float, Color> groundAt;
+        public int PendingPaintTiles => paintTiles.Count + (painter.Busy ? 1 : 0);
         public float LastPaintMilliseconds { get; private set; }
+        /// <summary>The upload cadence of the colour texture (AOSA C13). Apply(true) rebuilds the whole mip chain on the CPU
+        /// and re-uploads all of it, 2.4-2.9 ms in the development player, and it ran on every frame a tile finished.
+        /// ApplyIntervalMs 0 uploads on every dirty frame (the old path); above 0 at most once per that many ms of real time,
+        /// and also on the frame the paint queue drains when ApplyOnDrain. Default 100 since the cycle 3 sweep: under a
+        /// barrage Apply fell from 8.0 to 0.82 ms a tick and main p50 from 9.2 to 6.8 ms (runs/3 a100 v k3d); a crater's
+        /// colour reaches the screen up to 100 ms later. MipIntervalMs 0 (default) rebuilds the mips
+        /// on every upload, as before; above 0 an upload in between keeps the old mips (Apply(false)), and a drained queue
+        /// always gets them rebuilt. While Unmetered (held-clock image runs) every dirty frame uploads with mips, as before.
+        /// Knobs terrain.applyIntervalMs, terrain.applyOnDrain and terrain.mipIntervalMs (Start).</summary>
+        public const double ApplyIntervalMs = 100.0, MipIntervalMs = 0.0;
+        public const bool ApplyOnDrain = true;
+        double applyIntervalMs = ApplyIntervalMs, mipIntervalMs = MipIntervalMs;
+        bool applyOnDrain = ApplyOnDrain, mipsStale;
+        double lastApplyAt = double.NegativeInfinity, lastMipsAt = double.NegativeInfinity;   // realtimeSinceStartup, s
+
+        /// <summary>A dirty colour texture is uploaded this frame. Always at the default interval (0) and while unmetered.</summary>
+        public static bool ApplyDue(double sinceApplyMs, double intervalMs, bool drained, bool onDrain, bool unmetered) =>
+            unmetered || intervalMs <= 0.0 || sinceApplyMs >= intervalMs || (drained && onDrain);
+
+        /// <summary>That upload rebuilds the mip chain. Always at the default interval (0), while unmetered, and once the
+        /// paint queue has drained, so the mips are never left stale after the painting stops.</summary>
+        public static bool MipsDue(double sinceMipsMs, double intervalMs, bool drained, bool unmetered) =>
+            unmetered || intervalMs <= 0.0 || sinceMipsMs >= intervalMs || drained;
 
         void Start()
         {
+            chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
+            paintBudgetMs = Knobs.Get("terrain.paintBudgetMs", (float)PaintBudgetMs);
+            applyIntervalMs = Knobs.Get("terrain.applyIntervalMs", (float)ApplyIntervalMs);
+            applyOnDrain = Knobs.Get("terrain.applyOnDrain", ApplyOnDrain);
+            mipIntervalMs = Knobs.Get("terrain.mipIntervalMs", (float)MipIntervalMs);
+            groundAt = (wx, wz) => GroundColor(Host.Local.Map, wx, wz);
             if (Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             var hf = map.Height;
@@ -558,14 +599,23 @@ namespace TW.Presentation.Terrain
                 int m = scorchSweep++;
                 if (m < scorchBorn.Count && Time.time - scorchBorn[m] < SnowFillSeconds) QueueScorchTiles(scorchMarks[m]);
             }
-            while (paintTiles.Count > 0 && paintWatch.Elapsed.TotalMilliseconds < 2.0)
+            // A row at a time, so the budget binds at a row rather than at a whole tile. A tile is written to the
+            // texture only when its last row is done, so the texture never shows half of one.
+            int paintRows = 0;
+            while (paintRows == 0 || Unmetered || paintWatch.Elapsed.TotalMilliseconds < paintBudgetMs)
             {
-                var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
-                RepaintTile(tile); colorDirty = true;
+                if (!painter.Busy)
+                {
+                    if (paintTiles.Count == 0) break;
+                    var tile = paintTiles.Dequeue(); queuedTiles.Remove(tile);
+                    if (!BeginTile(tile)) continue;
+                }
+                paintRows++;
+                if (painter.PaintRow(groundAt)) { painter.Write(colorTex); colorDirty = true; }
             }
             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
             TW.Sim.PerfMarkers.TerrainRepaint.End();
-            if (colorDirty) { TW.Sim.PerfMarkers.TerrainApply.Begin(); colorTex.Apply(true, false); colorDirty = false; TW.Sim.PerfMarkers.TerrainApply.End(); }
+            if (colorDirty || mipsStale) ApplyColor();
             // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
             // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
             // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
@@ -580,14 +630,14 @@ namespace TW.Presentation.Terrain
                     var c = chunks[i];
                     if (!c.Dirty) continue;
                     chunkCursor = i;   // stay on it until it is done
-                    while (c.NextRow < c.L && (rows == 0 || chunkWatch.Elapsed.TotalMilliseconds < ChunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
+                    while (c.NextRow < c.L && (rows == 0 || Unmetered || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
                     if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
                     c.Dirty = false; c.NextRow = 0;
                     c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                     c.Mesh.RecalculateBounds();
                     if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
                     chunkCursor = (i + 1) % chunks.Count;
-                    if (chunkWatch.Elapsed.TotalMilliseconds >= ChunkBudgetMs) break;
+                    if (!Unmetered && chunkWatch.Elapsed.TotalMilliseconds >= chunkBudgetMs) break;
                 }
             }
             TW.Sim.PerfMarkers.TerrainChunks.End();
@@ -640,28 +690,29 @@ namespace TW.Presentation.Terrain
             { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
         }
 
-        void RepaintTile(Vector2Int tile)
+        /// <summary>Upload the colour texture if it is due (ApplyIntervalMs). At the knobs' defaults this is exactly the old
+        /// line: Apply(true, false) on every frame a tile finished. Drained = nothing queued and no tile half painted.</summary>
+        void ApplyColor()
+        {
+            double now = Time.realtimeSinceStartupAsDouble;
+            bool drained = paintTiles.Count == 0 && !painter.Busy;
+            bool mips = MipsDue((now - lastMipsAt) * 1000.0, mipIntervalMs, drained, Unmetered);
+            // only stale mips left to fix (no new texels): that waits for the mips to be due
+            if (!(colorDirty ? ApplyDue((now - lastApplyAt) * 1000.0, applyIntervalMs, drained, applyOnDrain, Unmetered) : mips)) return;
+            TW.Sim.PerfMarkers.TerrainApply.Begin();
+            colorTex.Apply(mips, false);
+            TW.Sim.PerfMarkers.TerrainApply.End();
+            colorDirty = false; mipsStale = !mips;
+            lastApplyAt = now;
+            if (mips) lastMipsAt = now;
+        }
+
+        /// <summary>Start repainting one 2 m tile (16 x 16 texels, fewer at the far edges): its ground colour and the
+        /// scorch of every crater that reaches it (ScorchTilePainter). False if the tile holds no texels.</summary>
+        bool BeginTile(Vector2Int tile)
         {
             int x1 = Mathf.Min(colorTex.width, (tile.x + 1) * 2 * Tpm), z1 = Mathf.Min(colorTex.height, (tile.y + 1) * 2 * Tpm);
-            for (int z = tile.y * 2 * Tpm; z < z1; z++) for (int x = tile.x * 2 * Tpm; x < x1; x++)
-            {
-                float wx = (x + .5f) / Tpm, wz = (z + .5f) / Tpm;
-                Color c = GroundColor(Host.Local.Map, wx, wz);
-                float burn = 0f;
-                for (int m = 0; m < scorchMarks.Count; m++)
-                {
-                    var mark = scorchMarks[m];
-                    float radius = mark.Scalar * 1.25f;
-                    if (radius <= 0f || Mathf.Abs(wx - mark.Pos.x) > radius || Mathf.Abs(wz - mark.Pos.z) > radius) continue;
-                    float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.Pos.x, mark.Pos.z));
-                    // The hole is black for ScorchHoldSeconds and then fills: the ground lightens back toward what
-                    // it was, and because the snow is keyed off the burn (Toon_URP) the snow comes back with it.
-                    float age = m < scorchBorn.Count ? Time.time - scorchBorn[m] : SnowFillSeconds;
-                    float fresh = 1f - Mathf.Clamp01((age - ScorchHoldSeconds) / Mathf.Max(1f, SnowFillSeconds - ScorchHoldSeconds));
-                    burn = Mathf.Max(burn, .45f * (1f - distance / radius) * fresh * fresh);
-                }
-                colorTex.SetPixel(x, z, Color.Lerp(c, new Color(.10f, .09f, .08f), burn));
-            }
+            return painter.Begin(tile.x * 2 * Tpm, tile.y * 2 * Tpm, x1, z1, Tpm, scorchMarks, scorchBorn, Time.time);
         }
 
         Texture2D BuildColorTexture(MapData map)

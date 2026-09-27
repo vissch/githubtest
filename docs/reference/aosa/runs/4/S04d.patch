@@ -1,0 +1,224 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+index e9ffe49..c92a5e5 100644
+--- a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
++++ b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+@@ -3,6 +3,8 @@
+ // stress run whose battle, camera and sky differed from one run to the next. This measures one fixed battle the
+ // same way in both places:
+ //   1. SimHost's stress preset deploys `stress` riflemen a side (SimHost.StressOverride, read in Awake).
++//      S04: the player's army fills the posts of each of its trenches and the rest go over the top; the old preset,
++//      the whole army in the rear trench, is `knobs=stress.spread=0` (hash_start differs between the two).
+ //   2. The match fast-forwards to `settle_ticks`, then PAUSES there while `warm` frames render, so late shader
+ //      variants, Burst and pools are warm and the window always opens on the same tick: a deterministic sim means
+ //      two runs then measure the same fight (hash_start in the report proves it).
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs b/trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs
+index 5f83dcd..c5f46ce 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs
+@@ -9,6 +9,15 @@
+ // The stress preset orders BOTH sides, and each side's orders are timed by that side's own world: the player's by the
+ // player's tick, the enemy's by the enemy view's. Keyed to the enemy's tick (as it was), the player's deploys landed
+ // wherever the player's world happened to be when the peer's tick came round, which under latency is network timing.
++// S04 (AOSA, 2026-09-25): the stress preset spreads the player's army. Every deploy walks to the rear trench and stops
++// there, and the preset's one `>>` went to the front trench, which was empty, so at 1,500 a side 1,409 men stood in a
++// rear trench with 79 posts, ~38 of them within 2 m of each man: the benchmark measured a crush, not a battle. Now each
++// trench of the player's that is full (a man in it has gone a garrison step without a post) is LOCKED, so later men
++// pass on: the rear trench fills its posts, then the front one, then the rest go over the top at the enemy (measured
++// on the Mono port at 1,500 a side, tick 1,800: 85 in the rear trench, 74 in the front one, 790 in the open, 11.7 men
++// within 2 m of each instead of 37.6). Only sim commands, through the player's seat, as a player would give them. The
++// enemy side needs none of it: EnemyOrders already locks its rear trench and sends its front over every 100 ticks.
++// StressSpread = false (knob stress.spread=0) is the preset as it was, for measuring old against new in one build.
+ // A6 replaces this with WaveAiSystem.
+ using UnityEngine;
+ using TW.Net;
+@@ -29,8 +38,19 @@ namespace TW.Presentation
+         /// <summary>Stress preset: riflemen a side, deployed 4 a tick by BOTH players; 0 = off.</summary>
+         public int StressUnits;
+         public int StressAdvanceDelayTicks = 300;
++        /// <summary>Stress preset (S04): lock each of the player's trenches once it is full, so the army fills the posts of
++        /// every trench and the overflow goes over the top, instead of all of it standing in the rear trench. false = the
++        /// preset before S04 (knob stress.spread=0).</summary>
++        public bool StressSpread = true;
+ 
+-        struct Stress { public int Deployed; public uint AdvanceTick; public bool Advanced; public uint LastTick; }
++        struct Stress
++        {
++            public int Deployed; public uint AdvanceTick; public bool Advanced; public uint LastTick;
++            /// <summary>Spread: trenches (bit per id) this preset has locked; each is locked once.</summary>
++            public ulong LockSent;
++            /// <summary>Spread: per slot, 1 + the trench he stood in without a post at the last check, else 0.</summary>
++            public short[] Postless;
++        }
+         int supportCount;
+         Stress playerStress = new Stress { LastTick = uint.MaxValue }, enemyStress = new Stress { LastTick = uint.MaxValue };
+         uint lastTick = uint.MaxValue;
+@@ -127,6 +147,40 @@ namespace TW.Presentation
+                 short front = world.Fields.FrontTrench(side);
+                 if (front >= 0) seat.Issue(new SimCommand { Type = CommandType.TrenchAdvance, A = front });
+             }
++            // the enemy's trenches are EnemyOrders' (it unlocks its front every 100 ticks), so only the player's spread
++            if (StressSpread && side == 0) Spread(ref s, world, seat, side);
++        }
++
++        /// <summary>S04: lock every trench of `side` that is full, once. A trench is full when one of its own men has stood
++        /// in it without a post across a whole check: TrenchGarrisonSystem hands the free posts out every tick, before
++        /// movement, so a man who garrisoned on the last step has no post YET, and only a full trench leaves him without
++        /// one on the next. A locked trench passes arrivals on to the next trench in the chain (MovementSystem), and past
++        /// the front one that is the enemy's line. Reads the side's own world at its own tick, like the rest of the preset.</summary>
++        void Spread(ref Stress s, MatchSim world, ICommandSink seat, byte side)
++        {
++            var w = world.World;
++            var trenches = world.Fields.Trenches;
++            int n = Mathf.Min(trenches.Length, 64);
++            if (s.Postless == null || s.Postless.Length < w.HighWater) s.Postless = new short[w.TrenchId.Length];
++            ulong full = 0;
++            for (int i = 0; i < w.HighWater; i++)
++            {
++                short k = w.TrenchId[i];
++                bool postless = k >= 0 && k < n && w.PostKind[i] == 0 && w.Team[i] == side && (w.Flags[i] & (uint)UnitFlags.Alive) != 0;
++                short was = s.Postless[i];
++                s.Postless[i] = postless ? (short)(k + 1) : (short)0;
++                if (postless && was == k + 1) full |= 1ul << k;
++            }
++            if (full == 0) return;
++            for (int k = 0; k < n; k++)
++            {
++                ulong bit = 1ul << k;
++                if ((full & bit) == 0 || (s.LockSent & bit) != 0) continue;
++                var ts = trenches[k];
++                if (ts.OwnerTeam != side || ts.Locked != 0) continue;
++                s.LockSent |= bit;
++                seat.Issue(new SimCommand { Type = CommandType.TrenchLock, A = k, B = 1 });
++            }
+         }
+     }
+ }
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs b/trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs
+index 925f3ca..c0ad168 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs
+@@ -57,6 +57,10 @@ namespace TW.Presentation
+         public int StressUnits = 0;
+         [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
+         public int StressAdvanceDelayTicks = 300;
++        /// <summary>Knob (S04): 1 (default) = the stress preset spreads the player's army over its trenches; 0 = the preset
++        /// before S04, every man in the rear trench. Read once, in Awake, and only when the stress preset is on.</summary>
++        public const string StressSpreadKnob = "stress.spread";
++        bool stressSpread = true;
+ 
+         public MatchSim Local { get; private set; }
+         /// <summary>The canary's second world. NULL in single player: tooling that wrote "both worlds" uses WriteWorlds.</summary>
+@@ -98,6 +102,7 @@ namespace TW.Presentation
+         {
+             MatchLaunch.Apply(this);   // a mission chosen in the shell writes its knobs into the fields below before the match is built
+             if (StressOverride >= 0) StressUnits = StressOverride;
++            if (StressUnits > 0) stressSpread = Knobs.Get(StressSpreadKnob, true);
+             Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
+             var cfg = SimConfig.Default;
+             cfg.Seed = Seed;
+@@ -166,6 +171,7 @@ namespace TW.Presentation
+             enemy.Enabled = ScriptedPeer; enemy.DeployEveryTicks = PeerDeployEveryTicks; enemy.Attacks = PeerAttacks;
+             enemy.DeploysTanks = PeerDeploysTanks; enemy.AttackGarrison = PeerAttackGarrison; enemy.UsesSupport = PeerUsesSupport;
+             enemy.SupportReserve = PeerSupportReserve; enemy.StressUnits = StressUnits; enemy.StressAdvanceDelayTicks = StressAdvanceDelayTicks;
++            enemy.StressSpread = stressSpread;
+         }
+ 
+         /// <summary>Entry point for UI and debug input: queue a command for the local player.</summary>
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/StressPresetTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/StressPresetTests.cs
+new file mode 100644
+index 0000000..4061a46
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/StressPresetTests.cs
+@@ -0,0 +1,83 @@
++// Phase: S04 (AOSA, 2026-09-25) - the stress preset spreads the player's army over its trenches instead of standing it
++// all in the rear one. On the bench's battlefield (ShelledForest 1917) the rear trench has 79 posts; at 1,500 a side the
++// old preset stood 1,409 men in it, 1,330 of them with no post. The spread preset locks a trench once it is full, so
++// the rear one fills its posts, the front one fills next, and the rest go on. These run the preset as SimHost does
++// (LockstepSession + ScriptedEnemy) at 200 a side, which already overflows both of the player's trenches, and hold:
++// the spread preset leaves no crowd in the rear trench and mans the front one; StressSpread = false is still the old
++// preset (the crowd, an empty front trench), so old and new can be measured in one build; and the locks, which are
++// orders read from the player's own world, play the same match in single player and in the canary under latency.
++using NUnit.Framework;
++using TW.Presentation;
++using TW.Sim;
++using TW.Sim.Match;
++using TW.Sim.Terrain;
++
++namespace TW.Tests
++{
++    public class StressPresetTests
++    {
++        const int PerSide = 200, Ticks = 900;
++
++        struct Outcome
++        {
++            public int RearGarrison, RearPostless, FrontGarrison, Alive;
++            public bool RearLocked, FrontLocked, Desync;
++            public ulong Hash;
++        }
++
++        static Outcome Play(bool spread, bool canary)
++        {
++            var cfg = SimConfig.Default;
++            cfg.StartingSilver = PerSide * 25;   // SimHost's stress silver
++            using var session = new LockstepSession(() => MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u)),
++                                                    canary, canary ? 2 : 0, canary ? 1 : 0, canary ? 0.05f : 0f, cfg.Seed);
++            var ai = new ScriptedEnemy { StressUnits = PerSide, StressSpread = spread };
++            int guard = Ticks * 40;
++            while (session.Local.World.Tick < Ticks && guard-- > 0) session.StepOnce(ai);
++            Assert.That(guard > 0, $"lockstep stalled (spread {spread}, canary {canary})");
++
++            var m = session.Local;
++            var w = m.World;
++            short rear = m.Fields.RearTrench(0), front = m.Fields.FrontTrench(0);
++            Assert.That(rear >= 0 && front >= 0 && rear != front, "the player should own a rear and a front trench at this tick");
++            var o = new Outcome { RearLocked = m.Fields.Trenches[rear].Locked != 0, FrontLocked = m.Fields.Trenches[front].Locked != 0,
++                                  Desync = session.Desync, Hash = w.Hash(), Alive = w.AliveCount };
++            for (int i = 0; i < w.HighWater; i++)
++            {
++                if (!w.IsAlive(i) || w.Team[i] != 0) continue;
++                if (w.TrenchId[i] == rear) { o.RearGarrison++; if (w.PostKind[i] == 0) o.RearPostless++; }
++                else if (w.TrenchId[i] == front) o.FrontGarrison++;
++            }
++            return o;
++        }
++
++        [Test]
++        public void Spread_FillsTheRearTrenchsPosts_ThenTheFrontTrench()
++        {
++            var o = Play(spread: true, canary: false);
++            TestContext.WriteLine($"spread: rear {o.RearGarrison} ({o.RearPostless} without a post, locked {o.RearLocked}), front {o.FrontGarrison} (locked {o.FrontLocked}), alive {o.Alive}");
++            Assert.That(o.RearLocked, "the rear trench filled and should have been locked, so later men pass on");
++            Assert.That(o.RearPostless <= 16, $"{o.RearPostless} men stand in the rear trench without a post: the crowd is back");
++            Assert.That(o.FrontGarrison >= 40, $"only {o.FrontGarrison} men hold the front trench: the overflow never reached it");
++        }
++
++        [Test]
++        public void SpreadOff_IsThePresetBeforeS04()
++        {
++            var o = Play(spread: false, canary: false);
++            TestContext.WriteLine($"old: rear {o.RearGarrison} ({o.RearPostless} without a post, locked {o.RearLocked}), front {o.FrontGarrison}, alive {o.Alive}");
++            Assert.That(!o.RearLocked && !o.FrontLocked, "the old preset locks nothing");
++            Assert.That(o.RearPostless >= 60, $"the old preset stands the whole army in the rear trench; only {o.RearPostless} there have no post");
++            Assert.That(o.FrontGarrison == 0, $"the old preset never mans the front trench, and {o.FrontGarrison} men hold it");
++        }
++
++        [Test]
++        public void Spread_PlaysTheSameMatch_InSinglePlayerAndTheCanaryUnderLatency()
++        {
++            var one = Play(spread: true, canary: false);
++            var lossy = Play(spread: true, canary: true);
++            Assert.That(!lossy.Desync, "the canary desynced against itself");
++            Assert.AreEqual(one.Hash, lossy.Hash, "the spread preset's orders depend on the network: single player and the canary disagree");
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/StressPresetTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/StressPresetTests.cs.meta
+new file mode 100644
+index 0000000..aef535a
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/StressPresetTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: b9d96dfbf72443b3ab9a44d6dec63342
+\ No newline at end of file

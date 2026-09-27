@@ -1,0 +1,573 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Units/CrowdShade.cs b/trench-warfare-3d/Assets/_Project/Presentation/Units/CrowdShade.cs
+new file mode 100644
+index 0000000..9148217
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Units/CrowdShade.cs
+@@ -0,0 +1,280 @@
++// Phase: C2 (AOSA C49, 2026-09-25) - the men's fake shadow: a small map of the ground under the crowd, splatted on the
++// CPU and read by the ground's own shader, instead of a second pass over the men.
++// Real shadows on the men (VATRenderer casts when near vertices x 2 + far fit vat.vertexBudget) double the VAT
++// vertices at 1,500 a side and cost about 0.3 ms of GPU (AOSA A07). This costs no draw and no vertex. Every man drawn
++// this frame stamps a soft footprint into an R8 map of the battlefield (0.5 m a texel: 182 x 482 = 86 KB on the
++// standard 90 x 240 m map). The footprint is an ellipse stretched away from the key light, with the man standing in
++// its uplight end, and it grows with the drawn man (VATRenderer's zoom growth). TW/Toon multiplies the ground's albedo
++// by 1 - vat.crowdShadowStrength x that map, so it reads as contact shade and ambient occlusion, not as a projected
++// shadow. Two men side by side add up, to full strength at most.
++// Cadence: re-splatted and uploaded vat.crowdShadowUpdateHz times a second of real time (0 = every frame). A man walks
++// about 1.5 m/s, so at 15 Hz his footprint trails him by 0.1 m at most, a fifth of a texel. While the clock is held
++// (PerfBench's image runs set Time.captureDeltaTime) it runs every frame, so a still repeats. The splat is a Burst job
++// on a worker, scheduled as soon as VATRenderer's fill has written the frame's records and completed at the end of the
++// same LateUpdate, so the main thread pays for the schedule and the 86 KB upload, and the frame shows its own men.
++// Off (knob vat.crowdShadow 0, the default) this class is never built: _TWCrowdShade stays 0, the shader's branch is
++// never taken, and the ground draws exactly as before.
++// The map's outer ring of texels is never written. The painted skirt beyond the map edge uses the ground's material,
++// and the clamped sampler repeats that ring out to the horizon.
++using Unity.Burst;
++using Unity.Collections;
++using Unity.Jobs;
++using Unity.Mathematics;
++using Unity.Profiling;
++using UnityEngine;
++
++namespace TW.Presentation.Units
++{
++    public sealed class CrowdShade : System.IDisposable
++    {
++        /// <summary>Metres a texel on a map up to MaxTexels; a larger map gets coarser texels, never a larger upload.</summary>
++        public const float CellMeters = 0.5f;
++        public const int MaxTexels = 131072;
++        /// <summary>Sub-texel positions a footprint is stamped at, each way: a man moves in 1/Phases-texel steps (0.125 m).</summary>
++        public const int Phases = 4;
++        /// <summary>The defaults of the knobs vat.crowdShadowStrength, vat.crowdShadowRadius (metres, for a life-size man),
++        /// vat.crowdShadowStretch (1 = a round blob centred on him) and vat.crowdShadowUpdateHz.</summary>
++        public const float Strength = 0.45f, Radius = 0.4f, Stretch = 1.5f, UpdateHz = 15f;
++        /// <summary>How much of the full shade one man's footprint reaches at its centre: a lone man is lighter than a crowd.</summary>
++        public const float PerMan = 0.7f;
++
++        static readonly int MapId = Shader.PropertyToID("_TWCrowdShadeMap"), StId = Shader.PropertyToID("_TWCrowdShadeST"), StrengthId = Shader.PropertyToID("_TWCrowdShade");
++        static readonly ProfilerMarker Marker = new ProfilerMarker("TW.Vat.CrowdShade");
++
++        /// <summary>The knob vat.crowdShadow: 1 builds the map, 0 (default) leaves the ground exactly as before.</summary>
++        public static bool ReadEnabled() => Knobs.Get("vat.crowdShadow", false);
++
++        public readonly int W, H;
++        public readonly float Cell;
++        public readonly float2 Size;
++        readonly float strength, radius, stretch, updateHz;
++        Texture2D tex;
++        NativeArray<byte> texels, stamps;
++        NativeArray<int2> spans, rows;
++        JobHandle pending;
++        bool scheduled;
++        int k;
++        float stampScale = float.NaN;
++        float2 stampDown = new float2(float.NaN, float.NaN);
++        double lastUpdate = double.NegativeInfinity;
++        bool uploadedEmpty, live;
++        Light key;
++        int keySearch;
++
++        /// <summary>Uploads so far (tests, stats).</summary>
++        public int Uploads { get; private set; }
++        public int UploadBytes => W * H;
++
++        /// <summary>The texel size and map dimensions for a battlefield: one ring of empty texels round the map.</summary>
++        public static void GridFor(float2 size, out float cell, out int w, out int h)
++        {
++            cell = math.max(CellMeters, math.sqrt(math.max(1f, size.x * size.y) / MaxTexels) * 1.05f);
++            w = (int)math.ceil(size.x / cell) + 2;
++            h = (int)math.ceil(size.y / cell) + 2;
++        }
++
++        /// <summary>World xz to map uv: uv = xz * st.xy + st.zw. Texel i's centre is at (i - 0.5) x cell.</summary>
++        public static Vector4 UvTransform(float cell, int w, int h) => new Vector4(1f / (cell * w), 1f / (cell * h), 1f / w, 1f / h);
++
++        public CrowdShade(float2 size)
++        {
++            strength = math.clamp(Knobs.Get("vat.crowdShadowStrength", Strength), 0f, 1f);
++            radius = math.clamp(Knobs.Get("vat.crowdShadowRadius", Radius), 0.05f, 1.5f);
++            stretch = math.clamp(Knobs.Get("vat.crowdShadowStretch", Stretch), 1f, 3f);
++            updateHz = math.max(0f, Knobs.Get("vat.crowdShadowUpdateHz", UpdateHz));
++            Size = size;
++            GridFor(size, out Cell, out W, out H);
++            texels = new NativeArray<byte>(W * H, Allocator.Persistent);
++            tex = new Texture2D(W, H, TextureFormat.R8, false, true) { name = "Crowd shade", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
++            Shader.SetGlobalTexture(MapId, tex);
++            Shader.SetGlobalVector(StId, UvTransform(Cell, W, H));
++            Shader.SetGlobalFloat(StrengthId, 0f);   // until the first upload
++        }
++
++        public bool Fits(float2 size) => size.x == Size.x && size.y == Size.y;
++
++        /// <summary>
++        /// Starts a re-splat when one is due. men: VATRenderer's records, the near tier in [0, near), the far tier in the
++        /// last far slots; the job only reads them, and End must run before anything writes them again. scale: the drawn
++        /// scale of a man this frame (UnitScale x zoom growth).
++        /// </summary>
++        public void Begin(NativeArray<VatInstance> men, int near, int far, float scale)
++        {
++            using var perf = Marker.Auto();
++            End();
++            bool held = Time.captureDeltaTime > 0f;   // PerfBench's held clock: every frame, so a still repeats
++            double now = Time.realtimeSinceStartupAsDouble;
++            if (!held && updateHz > 0f && now - lastUpdate < 1.0 / updateHz) return;
++            lastUpdate = now;
++            if (near + far == 0 && uploadedEmpty) return;   // nothing drawn, and the map already says so
++            float2 down = Downlight();
++            if (!stamps.IsCreated || scale != stampScale || math.any(down != stampDown))
++            {
++                k = BuildStamps(radius * scale, stretch, down, Cell, ref stamps, ref spans, ref rows);
++                stampScale = scale; stampDown = down;
++            }
++            pending = new SplatJob { Men = men, NearCount = near, FarCount = far, Stamps = stamps, Spans = spans, Rows = rows, K = k, W = W, H = H, InvCell = 1f / Cell, Texels = texels }.Schedule();
++            scheduled = true;
++            uploadedEmpty = near + far == 0;
++        }
++
++        /// <summary>Waits for the splat Begin started, if any, and uploads it: the same frame, before it renders.</summary>
++        public void End()
++        {
++            if (!scheduled) return;
++            using var perf = Marker.Auto();
++            pending.Complete();
++            scheduled = false;
++            tex.SetPixelData(texels, 0);
++            tex.Apply(false, false);
++            Uploads++;
++            if (!live) { Shader.SetGlobalFloat(StrengthId, strength); live = true; }
++        }
++
++        /// <summary>The way a shadow falls on the ground, unit length in xz; zero when there is no key light or it is overhead.
++        /// Atmosphere turns every directional light the same way, so any one of them will do.</summary>
++        float2 Downlight()
++        {
++            var sun = RenderSettings.sun;
++            if (sun == null || sun.type != LightType.Directional)
++            {
++                if (key == null && keySearch++ % 60 == 0)
++                    foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
++                        if (l.type == LightType.Directional) { key = l; break; }
++                sun = key;
++            }
++            if (sun == null) return float2.zero;
++            Vector3 f = sun.transform.forward;
++            return Quantize(new float2(f.x, f.z));
++        }
++
++        /// <summary>The direction to within about half a degree, so a light that barely moves does not rebuild the stamps.</summary>
++        public static float2 Quantize(float2 d)
++        {
++            float len = math.length(d);
++            if (len < 0.05f) return float2.zero;
++            float a = math.round(math.atan2(d.y, d.x) * (720f / (2f * math.PI))) * (2f * math.PI / 720f);
++            return new float2(math.cos(a), math.sin(a));
++        }
++
++        /// <summary>
++        /// How dark one man makes the ground at d (metres from his feet, xz), 0..1. An ellipse radius x stretch long and
++        /// radius wide along downlight, its centre pushed downlight by (stretch - 1) x radius so he stands inside its
++        /// uplight end, falling off smoothly to exactly 0 at its rim. downlight zero: a round blob centred on him.
++        /// </summary>
++        public static float Footprint(float2 d, float radius, float stretch, float2 downlight)
++        {
++            if (math.lengthsq(downlight) < 1e-6f) { downlight = new float2(1f, 0f); stretch = 1f; }
++            float2 c = d - downlight * ((stretch - 1f) * radius);
++            float u = math.dot(c, downlight) / (radius * stretch), v = (c.x * downlight.y - c.y * downlight.x) / radius;
++            float q = u * u + v * v;
++            if (q >= 1f) return 0f;
++            float t = 1f - q;
++            return t * t;
++        }
++
++        /// <summary>Metres from a man's feet to the far rim of his footprint.</summary>
++        public static float Reach(float radius, float stretch, float2 downlight) =>
++            math.lengthsq(downlight) < 1e-6f ? radius : radius * (2f * stretch - 1f);
++
++        /// <summary>
++        /// The footprint baked for each of Phases x Phases sub-texel positions: stamps[(phase * side + dz + k) * side + dx + k]
++        /// is the byte a man adds to the texel dx, dz from his own, phase = pz * Phases + px, side = 2k + 1. spans[phase * side
++        /// + dz + k] holds the first and last dx + k of that row that is not 0 (x greater than y: the row is empty), and
++        /// rows[phase] the first and last dz with anything in it, so the splat never walks an empty row. Returns k.
++        /// </summary>
++        public static int BuildStamps(float radius, float stretch, float2 downlight, float cell, ref NativeArray<byte> stamps, ref NativeArray<int2> spans, ref NativeArray<int2> rows)
++        {
++            int k = (int)math.ceil(Reach(radius, stretch, downlight) / cell) + 1, side = 2 * k + 1;
++            int need = Phases * Phases * side * side;
++            if (!stamps.IsCreated || stamps.Length != need)
++            {
++                if (stamps.IsCreated) stamps.Dispose();
++                if (spans.IsCreated) spans.Dispose();
++                stamps = new NativeArray<byte>(need, Allocator.Persistent);
++                spans = new NativeArray<int2>(Phases * Phases * side, Allocator.Persistent);
++            }
++            if (!rows.IsCreated) rows = new NativeArray<int2>(Phases * Phases, Allocator.Persistent);
++            for (int pz = 0; pz < Phases; pz++)
++            for (int px = 0; px < Phases; px++)
++            {
++                int phase = pz * Phases + px;
++                var used = new int2(k + 1, -k - 1);
++                float ox = (px + 0.5f) / Phases, oz = (pz + 0.5f) / Phases;   // where in his texel the man stands
++                for (int dz = -k; dz <= k; dz++)
++                {
++                    int first = side, last = -1, row = (phase * side + dz + k) * side;
++                    for (int dx = -k; dx <= k; dx++)
++                    {
++                        float wgt = Footprint(new float2((dx - ox) * cell, (dz - oz) * cell), radius, stretch, downlight);
++                        byte b = (byte)math.min(255, (int)(wgt * PerMan * 255f + 0.5f));
++                        stamps[row + dx + k] = b;
++                        if (b != 0) { if (first == side) first = dx + k; last = dx + k; }
++                    }
++                    spans[phase * side + dz + k] = new int2(first, last);
++                    if (last >= 0) { used.x = math.min(used.x, dz); used.y = dz; }
++                }
++                rows[phase] = used;
++            }
++            return k;
++        }
++
++        /// <summary>Clears the map and stamps every drawn man into it. Pure: no Unity object is touched.</summary>
++        [BurstCompile]
++        public struct SplatJob : IJob
++        {
++            [ReadOnly] public NativeArray<VatInstance> Men;
++            public int NearCount, FarCount;
++            [ReadOnly] public NativeArray<byte> Stamps;
++            [ReadOnly] public NativeArray<int2> Spans, Rows;
++            public int K, W, H;
++            public float InvCell;
++            public NativeArray<byte> Texels;
++
++            public void Execute()
++            {
++                for (int i = 0; i < Texels.Length; i++) Texels[i] = 0;
++                for (int i = 0; i < NearCount; i++) Splat(Men[i].Pos);
++                for (int i = Men.Length - FarCount; i < Men.Length; i++) Splat(Men[i].Pos);
++            }
++
++            void Splat(float3 p)
++            {
++                // texel i's centre is at (i - 0.5) x cell, so a man at x stands (x / cell + 0.5) texels in
++                float fx = p.x * InvCell + 0.5f, fz = p.z * InvCell + 0.5f;
++                if (!(fx >= 0f && fz >= 0f && fx < W + K && fz < H + K)) return;   // off the map (or NaN)
++                int bx = (int)fx, bz = (int)fz;
++                int px = math.min(Phases - 1, (int)((fx - bx) * Phases)), pz = math.min(Phases - 1, (int)((fz - bz) * Phases));
++                int side = 2 * K + 1, phase = pz * Phases + px;
++                int lo = 1 - bx + K, hi = W - 2 - bx + K;   // the outer ring stays empty
++                int2 used = Rows[phase];
++                for (int dz = used.x; dz <= used.y; dz++)
++                {
++                    int z = bz + dz;
++                    if (z < 1 || z > H - 2) continue;
++                    int2 span = Spans[phase * side + dz + K];
++                    int x0 = math.max(span.x, lo), x1 = math.min(span.y, hi);
++                    int dst = z * W + bx - K, src = (phase * side + dz + K) * side;
++                    for (int j = x0; j <= x1; j++)
++                    {
++                        int v = Texels[dst + j] + Stamps[src + j];
++                        Texels[dst + j] = (byte)math.min(v, 255);
++                    }
++                }
++            }
++        }
++
++        public void Dispose()
++        {
++            pending.Complete();
++            scheduled = false;
++            Shader.SetGlobalFloat(StrengthId, 0f);
++            live = false;
++            if (tex != null) { if (Application.isPlaying) Object.Destroy(tex); else Object.DestroyImmediate(tex); tex = null; }
++            if (texels.IsCreated) texels.Dispose();
++            if (stamps.IsCreated) stamps.Dispose();
++            if (spans.IsCreated) spans.Dispose();
++            if (rows.IsCreated) rows.Dispose();
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Units/CrowdShade.cs.meta b/trench-warfare-3d/Assets/_Project/Presentation/Units/CrowdShade.cs.meta
+new file mode 100644
+index 0000000..861bd01
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Units/CrowdShade.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: cc8198fb973849f3a98336773c137080
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+index 4b1b0af..27980a6 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+@@ -138,6 +138,10 @@ namespace TW.Presentation.Units
+ 
+         float blendZoom = LodTiers.BlendZoom, cullRadius = LodTiers.CullRadius;
+         int vertexBudget = LodTiers.VertexBudget;
++        /// <summary>The men's fake shadow on the ground (CrowdShade, AOSA C49): built only while the knob vat.crowdShadow is on.</summary>
++        bool crowdOn;
++        CrowdShade crowdShade;
++        public CrowdShade CrowdShadow => crowdShade;
+ 
+         void Awake()
+         {
+@@ -147,6 +151,7 @@ namespace TW.Presentation.Units
+             MaxGrow = Knobs.Get("vat.maxGrow", MaxGrow);
+             CastShadows = Knobs.Get("vat.castShadows", CastShadows);
+             MaxFallen = Mathf.Max(1, Knobs.Get("vat.maxFallen", MaxFallen));
++            crowdOn = CrowdShade.ReadEnabled();
+         }
+ 
+         void Start()
+@@ -213,6 +218,7 @@ namespace TW.Presentation.Units
+             using var perf = TW.Sim.PerfMarkers.VatLate.Auto();
+             if (figures == null || Host == null || Host.Presenter == null || Host.Local == null) return;
+             var presenter = Host.Presenter;
++            crowdShade?.End();   // normally already done by last frame's end; never let a splat outlive the records it reads
+             EnsureCapacity(presenter.Poses.Length);
+             var cam = Camera.main;
+             if (cam != null)
+@@ -237,6 +243,7 @@ namespace TW.Presentation.Units
+             DrawnNear = counts[0]; DrawnFar = counts[2];
+             DrawnInfantry = DrawnNear + DrawnFar;
+             DrawnVehicles = counts[1];
++            if (crowdOn) BeginCrowdShade(UnitScale * grow);
+ 
+             var size = Host.Local.Map.SizeMeters;
+             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
+@@ -277,6 +284,16 @@ namespace TW.Presentation.Units
+             }
+             if (DrawnVehicles > 0) DrawVehicles(bounds);
+             DrawFallen(cam, bounds, UnitScale * grow);
++            crowdShade?.End();   // uploaded before this frame renders, and before the next fill rewrites the records
++        }
++
++        /// <summary>The ground's shade under this frame's drawn men, from the records the fill just wrote (read only).</summary>
++        void BeginCrowdShade(float scale)
++        {
++            var size = Host.Local.Map.SizeMeters;
++            if (crowdShade != null && !crowdShade.Fits(size)) { crowdShade.Dispose(); crowdShade = null; }
++            if (crowdShade == null) crowdShade = new CrowdShade(size);
++            crowdShade.Begin(instances, DrawnNear, DrawnFar, scale);   // a worker splats while the draws below are set up
+         }
+ 
+         /// <summary>
+@@ -597,6 +614,7 @@ namespace TW.Presentation.Units
+         /// </summary>
+         void OnDestroy()
+         {
++            crowdShade?.Dispose(); crowdShade = null;   // first: its job may still be reading the records Release frees
+             Release();
+             var freed = new HashSet<VatAsset>();
+             if (figures != null) foreach (var f in figures) Give(f, freed);
+diff --git a/trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader b/trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader
+index 0fe9a26..3c6fd09 100644
+--- a/trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader
++++ b/trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader
+@@ -15,6 +15,8 @@
+ // The ground switches the pass off (SetShaderPassEnabled("SRPDefaultUnlit", false)): its ink is in its texture.
+ // _CHUNKMASK (the village houses only, HouseKit): a house is one mesh, each vertex tagged with its chunk in TEXCOORD1.x,
+ // and a set bit in the per-instance _ChunkMask hides that chunk in every pass. Other materials never compile it in.
++// Crowd shade (the ground only, AOSA C49): a global R8 map of the men's footprints (CrowdShade) darkens the albedo by
++// _TWCrowdShade. Unset, it is 0 and the branch is never taken: no keyword, no variant.
+ Shader "TW/Toon (URP)"
+ {
+     Properties
+@@ -45,12 +47,17 @@ Shader "TW/Toon (URP)"
+         // The kit's painted surfaces as one array, set globally by BattlefieldKit (BattlefieldPigment.Sheet).
+         // An array and not an atlas because these tile across a plank and an atlas tile bleeds when it wraps.
+         TEXTURE2D_ARRAY(_PigmentSheet); SAMPLER(sampler_PigmentSheet);
++        // The men's contact shade (CrowdShade, set globally while the knob vat.crowdShadow is on): R is how much of the
++        // crowd's footprints covers the ground there. _TWCrowdShade is its strength, 0 (unset) = off.
++        TEXTURE2D(_TWCrowdShadeMap); SAMPLER(sampler_TWCrowdShadeMap);
+         CBUFFER_START(UnityPerMaterial)
+             half4 _BaseColor, _ShadeColor, _OutlineColor, _Emission;
+             float4 _BaseMap_ST;
+             float _DetailScale, _DetailStrength, _DetailBump, _OutlineWidth, _Gloss, _Sway, _Pigment;
+         CBUFFER_END
+         float4 _TWWind;   // xz: the wind (Atmosphere.WindNow, scaled), w: 1 when set
++        float4 _TWCrowdShadeST;   // world xz -> crowd shade uv: xz * ST.xy + ST.zw
++        float _TWCrowdShade;
+         #if defined(_CHUNKMASK)
+         UNITY_INSTANCING_BUFFER_START(TWChunks)
+             UNITY_DEFINE_INSTANCED_PROP(float, _ChunkMask)
+@@ -184,6 +191,9 @@ Shader "TW/Toon (URP)"
+                     albedo = lerp(albedo, _TWSnowColor.rgb, snow);
+                     gloss = max(gloss, _TWSnowColor.a * snow);
+                 }
++                // the men's contact shade: the ground only (_DetailStrength is the terrain's), and never while it is off
++                if (_TWCrowdShade > 0.0 && _DetailStrength > 0.0)
++                    albedo *= 1.0 - _TWCrowdShade * SAMPLE_TEXTURE2D(_TWCrowdShadeMap, sampler_TWCrowdShadeMap, i.positionWS.xz * _TWCrowdShadeST.xy + _TWCrowdShadeST.zw).r;
+                 half wrap = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
+                 half lit = wrap;
+                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;   // broad lit top planes, readable cool side planes
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/CrowdShadeTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/CrowdShadeTests.cs
+new file mode 100644
+index 0000000..fc9b89c
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/CrowdShadeTests.cs
+@@ -0,0 +1,158 @@
++// Phase: C2 (AOSA C49, 2026-09-25) - the men's fake shadow map (CrowdShade) is pure arithmetic until the upload: a man
++// darkens the texel he stands on and nothing beyond his footprint's reach, the footprint leans away from the light,
++// crowds add up to full and no further, the map's outer ring stays empty for the skirt, and with no men (or the knob
++// off, the default) nothing is written at all.
++using NUnit.Framework;
++using Unity.Collections;
++using Unity.Mathematics;
++using TW.Presentation;
++using TW.Presentation.Units;
++
++namespace TW.Tests
++{
++    public class CrowdShadeTests
++    {
++        const float Cell = CrowdShade.CellMeters;
++        const int W = 40, H = 30;
++
++        NativeArray<byte> stamps, texels;
++        NativeArray<int2> spans, rows;
++
++        [SetUp] public void SetUp() { Knobs.Clear(); texels = new NativeArray<byte>(W * H, Allocator.Persistent); }
++
++        [TearDown]
++        public void TearDown()
++        {
++            Knobs.Clear();
++            if (texels.IsCreated) texels.Dispose();
++            if (stamps.IsCreated) stamps.Dispose();
++            if (spans.IsCreated) spans.Dispose();
++            if (rows.IsCreated) rows.Dispose();
++        }
++
++        /// <summary>Near men from the front of the array, far men from its back, as VATRenderer's fill lays them out.</summary>
++        void Splat(float radius, float stretch, float2 down, float3[] near, float3[] far = null)
++        {
++            far = far ?? new float3[0];
++            int k = CrowdShade.BuildStamps(radius, stretch, down, Cell, ref stamps, ref spans, ref rows);
++            var men = new NativeArray<VatInstance>(near.Length + far.Length + 5, Allocator.Temp);
++            for (int i = 0; i < men.Length; i++) men[i] = new VatInstance { Pos = new float3(-999f, 0f, -999f) };   // the unused middle must never be read
++            for (int i = 0; i < near.Length; i++) men[i] = new VatInstance { Pos = near[i] };
++            for (int i = 0; i < far.Length; i++) men[men.Length - far.Length + i] = new VatInstance { Pos = far[i] };
++            // the unused middle holds men on the map too: if the job read them, texels would show it
++            for (int i = near.Length; i < men.Length - far.Length; i++) men[i] = new VatInstance { Pos = new float3(10.25f, 0f, 2.25f) };
++            new CrowdShade.SplatJob { Men = men, NearCount = near.Length, FarCount = far.Length, Stamps = stamps, Spans = spans, Rows = rows, K = k, W = W, H = H, InvCell = 1f / Cell, Texels = texels }.Execute();
++            men.Dispose();
++        }
++
++        byte At(int x, int z) => texels[z * W + x];
++        static float2 Centre(int x, int z) => new float2((x - 0.5f) * Cell, (z - 0.5f) * Cell);
++
++        [Test]
++        public void StandardMap_IsHalfMetreTexels_UnderHundredKilobytes()
++        {
++            CrowdShade.GridFor(new float2(90f, 240f), out float cell, out int w, out int h);
++            Assert.AreEqual(0.5f, cell);
++            Assert.AreEqual(182, w); Assert.AreEqual(482, h);
++            Assert.Less(w * h, 100 * 1024);
++            CrowdShade.GridFor(new float2(1000f, 1000f), out cell, out w, out h);
++            Assert.LessOrEqual(w * h, CrowdShade.MaxTexels * 1.02f, "a big map gets coarser texels, not a bigger upload");
++            var st = CrowdShade.UvTransform(0.5f, 182, 482);
++            // texel 41's centre, (41 - 0.5) x 0.5 = 20.25 m, samples at uv (41 + 0.5) / 182
++            Assert.AreEqual((41 + 0.5f) / 182f, 20.25f * st.x + st.z, 1e-6f);
++        }
++
++        [Test]
++        public void OneMan_DarkensHisTexel_AndNothingBeyondHisReach()
++        {
++            const float radius = 0.6f;
++            var man = new float3(10.25f, 0f, 7.25f);   // the centre of texel (21, 15)
++            Splat(radius, 1f, float2.zero, new[] { man });
++            byte peak = At(21, 15);
++            Assert.Greater(peak, (byte)150, "under his feet the shade is near PerMan");
++            for (int z = 0; z < H; z++)
++            for (int x = 0; x < W; x++)
++            {
++                float d = math.distance(Centre(x, z), man.xz);
++                if (d > radius + Cell * 0.25f) Assert.AreEqual(0, At(x, z), $"texel {x},{z} is {d} m away");
++                else Assert.LessOrEqual(At(x, z), peak);
++            }
++            Assert.Greater(At(22, 15), 0); Assert.Greater(At(21, 16), 0);
++        }
++
++        [Test]
++        public void Stamp_MatchesTheFootprint_AtTheQuantisedPosition()
++        {
++            const float radius = 0.9f, stretch = 1.6f;
++            var down = CrowdShade.Quantize(new float2(0.6f, -0.8f));
++            var man = new float3(7.30f, 0f, 6.10f);
++            Splat(radius, stretch, down, new[] { man });
++            // he is stamped as if he stood at the centre of his quarter of the texel
++            float fx = man.x / Cell + 0.5f, fz = man.z / Cell + 0.5f;
++            int bx = (int)fx, bz = (int)fz;
++            float qx = bx + ((int)((fx - bx) * 4) + 0.5f) / 4f, qz = bz + ((int)((fz - bz) * 4) + 0.5f) / 4f;
++            for (int z = bz - 3; z <= bz + 3; z++)
++            for (int x = bx - 3; x <= bx + 3; x++)
++            {
++                float f = CrowdShade.Footprint(new float2((x - qx) * Cell, (z - qz) * Cell), radius, stretch, down);
++                Assert.AreEqual((double)(int)(f * CrowdShade.PerMan * 255f + 0.5f), (double)At(x, z), 1.0, $"texel {x},{z}");   // 1: Mono may round a half the other way
++            }
++        }
++
++        [Test]
++        public void Footprint_LeansAwayFromTheLight()
++        {
++            var down = new float2(1f, 0f);
++            Assert.Greater(CrowdShade.Footprint(new float2(0.8f, 0f), 0.5f, 1.8f, down), 0f, "downlight, past the radius, still shaded");
++            Assert.AreEqual(0f, CrowdShade.Footprint(new float2(-0.8f, 0f), 0.5f, 1.8f, down), "uplight, past the radius, not");
++            Assert.AreEqual(0f, CrowdShade.Footprint(new float2(0f, 0.51f), 0.5f, 1.8f, down), "across the light it is only radius wide");
++            Assert.AreEqual(0f, CrowdShade.Footprint(new float2(0.5f * (2f * 1.8f - 1f) + 0.01f, 0f), 0.5f, 1.8f, down), "zero past Reach");
++            Assert.AreEqual(0.5f * (2f * 1.8f - 1f), CrowdShade.Reach(0.5f, 1.8f, down), 1e-6f);
++
++            var man = new float3(10.25f, 0f, 7.25f);
++            Splat(0.6f, 1.8f, down, new[] { man });
++            Assert.Greater(At(23, 15), At(19, 15), "a metre downlight is darker than a metre uplight");
++        }
++
++        [Test]
++        public void Crowd_AddsUp_AndSaturates()
++        {
++            var man = new float3(10.25f, 0f, 7.25f);
++            Splat(0.6f, 1f, float2.zero, new[] { man });
++            int one = At(21, 15);
++            Splat(0.6f, 1f, float2.zero, new[] { man, man });
++            Assert.AreEqual(math.min(255, one * 2), At(21, 15));
++            Splat(0.6f, 1f, float2.zero, new[] { man, man, man, man });
++            Assert.AreEqual(255, At(21, 15));
++        }
++
++        [Test]
++        public void FarTier_IsStamped_TheUnusedMiddleIsNot()
++        {
++            var farMan = new float3(15.25f, 0f, 10.25f);   // texel (31, 21)
++            Splat(0.6f, 1f, float2.zero, new float3[0], new[] { farMan });
++            Assert.Greater(At(31, 21), 0);
++            Assert.AreEqual(0, At(21, 5), "the slots between the tiers hold a man at texel (21, 5), never read");
++        }
++
++        [Test]
++        public void EdgeRing_StaysEmpty_OffMapMenIgnored()
++        {
++            Splat(0.8f, 1f, float2.zero, new[] { new float3(0.05f, 0f, 0.05f), new float3(W * Cell - 0.6f, 0f, H * Cell - 0.6f), new float3(-40f, 0f, 3f), new float3(float.NaN, 0f, 3f), new float3(1e9f, 0f, 1e9f) });
++            for (int x = 0; x < W; x++) { Assert.AreEqual(0, At(x, 0)); Assert.AreEqual(0, At(x, H - 1)); }
++            for (int z = 0; z < H; z++) { Assert.AreEqual(0, At(0, z)); Assert.AreEqual(0, At(W - 1, z)); }
++            Assert.Greater(At(1, 1), 0, "the corner man still shades the first texel inside the ring");
++        }
++
++        [Test]
++        public void NoMen_ClearsTheMap_AndTheKnobIsOffByDefault()
++        {
++            for (int i = 0; i < texels.Length; i++) texels[i] = 77;
++            Splat(0.6f, 1.5f, new float2(0f, 1f), new float3[0]);
++            for (int i = 0; i < texels.Length; i++) Assert.AreEqual(0, texels[i]);
++            Assert.IsFalse(CrowdShade.ReadEnabled(), "off unless vat.crowdShadow is set");
++            Knobs.Parse("vat.crowdShadow=1");
++            Assert.IsTrue(CrowdShade.ReadEnabled());
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/CrowdShadeTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/CrowdShadeTests.cs.meta
+new file mode 100644
+index 0000000..3cb39a3
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/CrowdShadeTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: ba797a083f374882addc0407e276dff2
+\ No newline at end of file

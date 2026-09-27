@@ -1,0 +1,113 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
+index f913295..996b191 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs
+@@ -86,11 +86,35 @@ namespace TW.Presentation.Terrain
+         System.Func<float, float, Color> groundAt;
+         public int PendingPaintTiles => paintTiles.Count + (painter.Busy ? 1 : 0);
+         public float LastPaintMilliseconds { get; private set; }
++        /// <summary>The upload cadence of the colour texture (AOSA C13). Apply(true) rebuilds the whole mip chain on the CPU
++        /// and re-uploads all of it, 2.4-2.9 ms in the development player, and it ran on every frame a tile finished.
++        /// ApplyIntervalMs 0 (default) uploads on every dirty frame, as before; above 0 at most once per that many ms of real
++        /// time, and also on the frame the paint queue drains when ApplyOnDrain. MipIntervalMs 0 (default) rebuilds the mips
++        /// on every upload, as before; above 0 an upload in between keeps the old mips (Apply(false)), and a drained queue
++        /// always gets them rebuilt. While Unmetered (held-clock image runs) every dirty frame uploads with mips, as before.
++        /// Knobs terrain.applyIntervalMs, terrain.applyOnDrain and terrain.mipIntervalMs (Start).</summary>
++        public const double ApplyIntervalMs = 0.0, MipIntervalMs = 0.0;
++        public const bool ApplyOnDrain = true;
++        double applyIntervalMs = ApplyIntervalMs, mipIntervalMs = MipIntervalMs;
++        bool applyOnDrain = ApplyOnDrain, mipsStale;
++        double lastApplyAt = double.NegativeInfinity, lastMipsAt = double.NegativeInfinity;   // realtimeSinceStartup, s
++
++        /// <summary>A dirty colour texture is uploaded this frame. Always at the default interval (0) and while unmetered.</summary>
++        public static bool ApplyDue(double sinceApplyMs, double intervalMs, bool drained, bool onDrain, bool unmetered) =>
++            unmetered || intervalMs <= 0.0 || sinceApplyMs >= intervalMs || (drained && onDrain);
++
++        /// <summary>That upload rebuilds the mip chain. Always at the default interval (0), while unmetered, and once the
++        /// paint queue has drained, so the mips are never left stale after the painting stops.</summary>
++        public static bool MipsDue(double sinceMipsMs, double intervalMs, bool drained, bool unmetered) =>
++            unmetered || intervalMs <= 0.0 || sinceMipsMs >= intervalMs || drained;
+ 
+         void Start()
+         {
+             chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
+             paintBudgetMs = Knobs.Get("terrain.paintBudgetMs", (float)PaintBudgetMs);
++            applyIntervalMs = Knobs.Get("terrain.applyIntervalMs", (float)ApplyIntervalMs);
++            applyOnDrain = Knobs.Get("terrain.applyOnDrain", ApplyOnDrain);
++            mipIntervalMs = Knobs.Get("terrain.mipIntervalMs", (float)MipIntervalMs);
+             groundAt = (wx, wz) => GroundColor(Host.Local.Map, wx, wz);
+             if (Host == null || Host.Local == null) return;
+             var map = Host.Local.Map;
+@@ -589,7 +613,7 @@ namespace TW.Presentation.Terrain
+             }
+             LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
+             TW.Sim.PerfMarkers.TerrainRepaint.End();
+-            if (colorDirty) { TW.Sim.PerfMarkers.TerrainApply.Begin(); colorTex.Apply(true, false); colorDirty = false; TW.Sim.PerfMarkers.TerrainApply.End(); }
++            if (colorDirty || mipsStale) ApplyColor();
+             // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
+             // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
+             // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
+@@ -664,6 +688,23 @@ namespace TW.Presentation.Terrain
+             { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
+         }
+ 
++        /// <summary>Upload the colour texture if it is due (ApplyIntervalMs). At the knobs' defaults this is exactly the old
++        /// line: Apply(true, false) on every frame a tile finished. Drained = nothing queued and no tile half painted.</summary>
++        void ApplyColor()
++        {
++            double now = Time.realtimeSinceStartupAsDouble;
++            bool drained = paintTiles.Count == 0 && !painter.Busy;
++            bool mips = MipsDue((now - lastMipsAt) * 1000.0, mipIntervalMs, drained, Unmetered);
++            // only stale mips left to fix (no new texels): that waits for the mips to be due
++            if (!(colorDirty ? ApplyDue((now - lastApplyAt) * 1000.0, applyIntervalMs, drained, applyOnDrain, Unmetered) : mips)) return;
++            TW.Sim.PerfMarkers.TerrainApply.Begin();
++            colorTex.Apply(mips, false);
++            TW.Sim.PerfMarkers.TerrainApply.End();
++            colorDirty = false; mipsStale = !mips;
++            lastApplyAt = now;
++            if (mips) lastMipsAt = now;
++        }
++
+         /// <summary>Start repainting one 2 m tile (16 x 16 texels, fewer at the far edges): its ground colour and the
+         /// scorch of every crater that reaches it (ScorchTilePainter). False if the tile holds no texels.</summary>
+         bool BeginTile(Vector2Int tile)
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 0847ca9..7c932c6 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -175,6 +175,35 @@ namespace TW.Tests
+             Assert.AreEqual(8, Knobs.Get("lights.poolSize", NightLights.PoolSize));
+             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.chunkBudgetMs", (float)GreyboxTerrainView.ChunkBudgetMs));
+             Assert.AreEqual(2.0, (double)Knobs.Get("terrain.paintBudgetMs", (float)GreyboxTerrainView.PaintBudgetMs));
++            Assert.AreEqual(0.0, (double)Knobs.Get("terrain.applyIntervalMs", (float)GreyboxTerrainView.ApplyIntervalMs));
++            Assert.AreEqual(true, Knobs.Get("terrain.applyOnDrain", GreyboxTerrainView.ApplyOnDrain));
++            Assert.AreEqual(0.0, (double)Knobs.Get("terrain.mipIntervalMs", (float)GreyboxTerrainView.MipIntervalMs));
++        }
++
++        [Test]
++        public void TerrainApply_Defaults_UploadWithMipsOnEveryDirtyFrame()
++        {
++            // AOSA C13: at the defaults, and whenever the clock is held (Unmetered), the colour texture is uploaded with
++            // its mips on every dirty frame, as it was before the cadence knobs, whatever the time since the last upload
++            foreach (double since in new[] { 0.0, 1e-3, 16.7, 1e6, double.PositiveInfinity })
++            foreach (bool drained in new[] { false, true })
++            foreach (bool onDrain in new[] { false, true })
++            {
++                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, GreyboxTerrainView.ApplyIntervalMs, drained, onDrain, false));
++                Assert.IsTrue(GreyboxTerrainView.MipsDue(since, GreyboxTerrainView.MipIntervalMs, drained, false));
++                Assert.IsTrue(GreyboxTerrainView.ApplyDue(since, 100.0, drained, onDrain, true), "Unmetered uploads every dirty frame");
++                Assert.IsTrue(GreyboxTerrainView.MipsDue(since, 1000.0, drained, true), "Unmetered rebuilds the mips");
++            }
++            // with an interval: not before it, at it, and on a drained queue only when applyOnDrain
++            Assert.IsFalse(GreyboxTerrainView.ApplyDue(99.9, 100.0, false, true, false));
++            Assert.IsTrue(GreyboxTerrainView.ApplyDue(100.0, 100.0, false, true, false));
++            Assert.IsTrue(GreyboxTerrainView.ApplyDue(0.0, 100.0, true, true, false));
++            Assert.IsFalse(GreyboxTerrainView.ApplyDue(0.0, 100.0, true, false, false));
++            Assert.IsTrue(GreyboxTerrainView.ApplyDue(double.PositiveInfinity, 100.0, false, false, false), "the first upload is never held back");
++            // mips: skipped between rebuilds, always rebuilt once the queue has drained
++            Assert.IsFalse(GreyboxTerrainView.MipsDue(10.0, 1000.0, false, false));
++            Assert.IsTrue(GreyboxTerrainView.MipsDue(1000.0, 1000.0, false, false));
++            Assert.IsTrue(GreyboxTerrainView.MipsDue(10.0, 1000.0, true, false));
+         }
+     }
+ }

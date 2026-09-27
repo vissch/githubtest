@@ -10,7 +10,12 @@
 // Two more places show the same card and counts, where orders are given: a trench's men badge (its garrison, and who
 // is pinned and will not go over the top) and a strike being aimed (AimReadout: the enemy under it, ours in reach).
 // Ignores the mouse over HUD chrome, while a support ability is being aimed, and when the field does not own the input.
+// AOSA C67 (2026-09-26): Tick's parts carry TW.Hud.Sel.<Part> markers inside TW.Hud.Selection (PerfBench.SelectionParts
+// records the same names). Knob hud.selectionFast (read once, here in the constructor; 1 is the default, 0 the exact old
+// path) turns on the cheaper projection in UnitPicker.Build and skips filling the handle-to-unit index while nothing is
+// selected: the index is read only for the selected handles, so with none it is never read.
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -62,10 +67,23 @@ namespace TW.UI
         /// <summary>This frame's selected units as the screen sees them (the panel reads positions and types here).</summary>
         public IReadOnlyList<ScreenUnit> SelectedNow => selectedNow;
 
+        /// <summary>C67: the knob that turns on the fast picker build and the lazy index (default on).</summary>
+        public const string FastKnob = "hud.selectionFast";
+        public const bool FastDefault = true;
+        readonly bool fast;
+        // C67: the parts of Tick, in the order they run (the names are repeated in PerfBench.SelectionParts)
+        static readonly ProfilerMarker pruneMarker = new ProfilerMarker("TW.Hud.Sel.Prune");
+        static readonly ProfilerMarker buildMarker = new ProfilerMarker("TW.Hud.Sel.Build");
+        static readonly ProfilerMarker indexMarker = new ProfilerMarker("TW.Hud.Sel.Index");
+        static readonly ProfilerMarker inputMarker = new ProfilerMarker("TW.Hud.Sel.Input");
+        static readonly ProfilerMarker drawMarker = new ProfilerMarker("TW.Hud.Sel.Markers");
+
         public SelectionController(SimHost host, TacticalCamera cam, VisualElement root, System.Func<TestPanel> panel, GarrisonStats garrison = null)
         {
             this.host = host; this.cam = cam; this.panel = panel; Garrison = garrison ?? new GarrisonStats();
             alive = Alive;
+            fast = TW.Presentation.Knobs.Get(FastKnob, FastDefault);
+            Picker.FastProject = fast;
             aimReadout = new AimReadout(root);
             markers = new SelectionMarkers(root, ToHud);
             deathMarks = new DeathMarks(root, host, ToHud);
@@ -96,11 +114,15 @@ namespace TW.UI
         {
             var w = World; var unity = Camera.main;
             if (w == null || unity == null || host.Presenter == null) return;
-            Model.Prune(alive);
-            Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f);
-            index.Clear();
-            for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i;
+            using (pruneMarker.Auto()) Model.Prune(alive);
+            using (buildMarker.Auto()) Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f);
+            using (indexMarker.Auto())
+            {
+                index.Clear();
+                if (!fast) FillIndex();   // C67: the fast path fills it below, after the input, and only for a selection
+            }
 
+            var inputScope = inputMarker.Auto();
             var mouse = Mouse.current; var kb = Keyboard.current;
             var p = panel?.Invoke();
             var armed = p != null ? p.Armed : OffMapAbilityId.None;
@@ -119,7 +141,13 @@ namespace TW.UI
             }
             else aimReadout.Hide();
             if (kb != null && fieldOwnsInput) HandleKeys(kb);
+            inputScope.Dispose();
 
+            using var drawScope = drawMarker.Auto();
+            // C67: the index is read only here, for the selected handles, and Picker.Units has not changed since
+            // the build, so filling it after this frame's clicks and group keys gives the same lookups; with
+            // nothing selected it is never read and not filled
+            if (fast && Model.Count > 0) FillIndex();
             selectedNow.Clear();
             var items = Model.Items;
             for (int i = 0; i < items.Count; i++) if (index.TryGetValue(items[i], out int k)) selectedNow.Add(Picker.Units[k]);
@@ -137,6 +165,8 @@ namespace TW.UI
             markers.End();
             deathMarks?.Tick(unity, interactive);
         }
+
+        void FillIndex() { for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i; }
 
         /// <summary>
         /// Hovering a trench's over the top: amber brackets under the men it would send and red under the pinned who

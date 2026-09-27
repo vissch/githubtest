@@ -1,0 +1,614 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Perf/HitchAttribution.cs b/trench-warfare-3d/Assets/_Project/Perf/HitchAttribution.cs
+new file mode 100644
+index 0000000..4e81204
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Perf/HitchAttribution.cs
+@@ -0,0 +1,84 @@
++// Phase: tooling (AOSA C64, 2026-09-26) - which TW marker carried a hitch. PerfBench kept only the frame, tick and ms of
++// each frame over 33 ms, so runs/8 ta0-1's 19 hitches had no carrier. On a hitch frame PerfBench hands this the frame's
++// marker values (the recorders' LastValue, the same frame unscaledDeltaTime measured) and keeps the largest; the report
++// then says, per marker, in how many hitches it was the largest and what median share of the hitch's ms it held.
++// TW markers nest (TW.Host.Update holds TW.Sim.Step, TW.Hud.Late holds TW.Hud.Refresh), so the largest is always an
++// outermost one: this names the top-level carrier, not the line of code inside it.
++// Pure logic, no Unity calls: HitchAttributionTests pins it.
++using System;
++using System.Collections.Generic;
++
++namespace TW.Perf
++{
++    public static class HitchAttribution
++    {
++        /// <summary>The index of the largest of the first n values whose eligible flag is set, or -1 when none is above 0
++        /// (a release player, whose markers compile out, reads 0 everywhere). NaN and infinities never win; a tie goes to
++        /// the lower index, so the pick does not depend on anything but the values. Allocation-free: it runs in the
++        /// window, on hitch frames.</summary>
++        public static int Largest(double[] values, bool[] eligible, int n)
++        {
++            if (values == null || eligible == null) return -1;
++            n = Math.Min(n, Math.Min(values.Length, eligible.Length));
++            int best = -1;
++            double bestV = 0.0;
++            for (int i = 0; i < n; i++)
++            {
++                if (!eligible[i]) continue;
++                double v = values[i];
++                if (double.IsNaN(v) || double.IsInfinity(v) || v <= bestV) continue;
++                best = i; bestV = v;
++            }
++            return best;
++        }
++
++        public readonly struct Carrier
++        {
++            public readonly string Marker;
++            /// <summary>Hitches in which this marker was the largest.</summary>
++            public readonly int Hitches;
++            /// <summary>The median, over those hitches, of the marker's ms over the hitch's ms (0..1, or above 1 if a
++            /// marker's frame and the hitch's frame were measured a little differently).</summary>
++            public readonly double MedianShare;
++            public Carrier(string marker, int hitches, double medianShare) { Marker = marker; Hitches = hitches; MedianShare = medianShare; }
++        }
++
++        /// <summary>Per carrier: how many of the first n hitches it was the largest marker in, and its median share of
++        /// their ms. Hitches with no marker (null or empty name) or no positive hitch ms are left out. Ordered by hitches
++        /// (most first), then median share (largest first), then name (ordinal), so two runs list them the same way.</summary>
++        public static List<Carrier> Summarise(string[] marker, double[] markerMs, double[] hitchMs, int n)
++        {
++            var shares = new Dictionary<string, List<double>>(StringComparer.Ordinal);
++            if (marker != null && markerMs != null && hitchMs != null)
++            {
++                n = Math.Min(n, Math.Min(marker.Length, Math.Min(markerMs.Length, hitchMs.Length)));
++                for (int i = 0; i < n; i++)
++                {
++                    if (string.IsNullOrEmpty(marker[i]) || !(hitchMs[i] > 0.0) || double.IsNaN(markerMs[i])) continue;
++                    if (!shares.TryGetValue(marker[i], out var list)) shares[marker[i]] = list = new List<double>();
++                    list.Add(markerMs[i] / hitchMs[i]);
++                }
++            }
++            var result = new List<Carrier>(shares.Count);
++            foreach (var kv in shares) result.Add(new Carrier(kv.Key, kv.Value.Count, Median(kv.Value)));
++            result.Sort((a, b) =>
++            {
++                int c = b.Hitches.CompareTo(a.Hitches);
++                if (c != 0) return c;
++                c = b.MedianShare.CompareTo(a.MedianShare);
++                return c != 0 ? c : string.CompareOrdinal(a.Marker, b.Marker);
++            });
++            return result;
++        }
++
++        /// <summary>The middle value, or the mean of the two middle values; NaN for none.</summary>
++        public static double Median(List<double> v)
++        {
++            if (v == null || v.Count == 0) return double.NaN;
++            var s = new List<double>(v);
++            s.Sort();
++            int m = s.Count / 2;
++            return s.Count % 2 == 1 ? s[m] : (s[m - 1] + s[m]) * 0.5;
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Perf/HitchAttribution.cs.meta b/trench-warfare-3d/Assets/_Project/Perf/HitchAttribution.cs.meta
+new file mode 100644
+index 0000000..1592214
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Perf/HitchAttribution.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 6f9e1bb42de249039b7f662a13635b4b
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+index 1bb3237..7a8a662 100644
+--- a/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
++++ b/trench-warfare-3d/Assets/_Project/Perf/PerfBench.cs
+@@ -34,12 +34,23 @@
+ // mission card does (MatchLaunch.Request.Ground): its map (MatchLaunch.Field) and its look (BiomeProfile.ForGround),
+ // so a shadow, fog or colour card can be judged in daylight. Absent, the request is exactly the one it always was
+ // (ShelledForest, night). An unknown name stops the run with exit 2 before the match loads; it never falls back.
++// C64 (2026-09-26): each hitch also keeps the frame's largest TW marker (name and ms, HitchAttribution.Largest over the
++// recorders' values for the same frame the hitch's dt measured) and the frame's gc_bytes: window.hitch_records, with
++// window.hitch_carriers per marker (hitches it was the largest in, median share of the hitch ms). hitches_over_33ms is
++// unchanged. A release player has no markers and no gc_bytes: its records say null.
++// C66 (2026-09-26): HudController.Refresh's parts carry their own TW.Hud.<Part> markers (HudParts below), recorded
++// beside TW.Hud.Refresh, so they land in series and per_tick_ms.
++// C69 (2026-09-26): the engine's own markers (EngineMarkers below: the script run, physics, the UI Toolkit panel update
++// and repaint, GC.Collect, the wait for present) are series `script:<name>`, per frame, as cmp.py reads them. A name
++// whose recorder is not valid goes to unavailable; one that is valid but was not registered yet when the recorders
++// opened is listed in script_markers.unregistered_at_open, because its zeros may mean "never ran" or "no such marker".
+ using System;
+ using System.Collections.Generic;
+ using System.Globalization;
+ using System.IO;
+ using System.Text;
+ using Unity.Profiling;
++using Unity.Profiling.LowLevel.Unsafe;
+ using UnityEngine;
+ using TW.Presentation;
+ using TW.Presentation.Tactical;
+@@ -401,9 +412,39 @@ namespace TW.Perf
+         Series budgetDraws, budgetVerts, budgetIndirect;
+         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
+         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
++        // C64: per hitch, the largest TW marker's name and ms (null and NaN without one) and the frame's gc_bytes (NaN
++        // where the counter is unavailable: a release player)
++        readonly string[] hitchMarker = new string[64]; readonly double[] hitchMarkerMs = new double[64], hitchGc = new double[64];
++        double[] recNow = new double[0]; bool[] recIsMarker = new bool[0];   // sized once in OpenRecorders: no allocation in the window
++        Rec gcRec;
++        readonly List<string> scriptRecorded = new List<string>(), scriptUnregistered = new List<string>();
+         int hitches, frames;
+         ProfilerRecorder mainRec, gpuRec;
+ 
++        /// <summary>C66: HudController.Refresh's parts, each wrapped in its own marker inside TW.Hud.Refresh (the names
++        /// are HudController's; TW.Perf does not reference TW.UI, so they are repeated here).</summary>
++        public static readonly string[] HudParts =
++        {
++            "TW.Hud.Hotkeys", "TW.Hud.LegacyInterim", "TW.Hud.Minimap", "TW.Hud.Dialogue", "TW.Hud.Selection",
++            "TW.Hud.BindGauges", "TW.Hud.Cards", "TW.Hud.Clusters", "TW.Hud.Objectives", "TW.Hud.Tooltip",
++        };
++
++        /// <summary>C69: the engine's own markers, recorded as `script:<name>` series. The names are the ones Unity 6000.0's
++        /// development player carries (read from its UnityPlayer.dll and UnityEngine.UIElementsModule.dll); the last two
++        /// are UI Toolkit's managed markers inside the panel update, for C68, and may not resolve.</summary>
++        static void EngineMarkers(Action<ProfilerCategory, string> add)
++        {
++            add(ProfilerCategory.Scripts, "Update.ScriptRunBehaviourUpdate");
++            add(ProfilerCategory.Scripts, "PreLateUpdate.ScriptRunBehaviourLateUpdate");
++            add(ProfilerCategory.Physics, "FixedUpdate.PhysicsFixedUpdate");
++            add(ProfilerCategory.Gui, "PreLateUpdate.UIElementsUpdatePanels");
++            add(ProfilerCategory.Gui, "PostLateUpdate.UIElementsRepaintPanels");
++            add(ProfilerCategory.Memory, "GC.Collect");
++            add(ProfilerCategory.Render, "Gfx.WaitForPresentOnGfxThread");
++            add(ProfilerCategory.Gui, "Panel.Layout");
++            add(ProfilerCategory.Gui, "RenderChain.Process");
++        }
++
+         Series New(string key)
+         {
+             var s = new Series(key, Mathf.Clamp(Options.Ticks * 50, 2000, 200000));
+@@ -411,11 +452,39 @@ namespace TW.Perf
+             return s;
+         }
+ 
+-        void Counter(ProfilerCategory category, string name, string key, double scale)
++        Rec Counter(ProfilerCategory category, string name, string key, double scale)
++        {
++            var r = ProfilerRecorder.StartNew(category, name);
++            if (!r.Valid) { r.Dispose(); unavailable.Add(name); return null; }
++            var rec = new Rec(New(key), r, scale, false);
++            recs.Add(rec);
++            return rec;
++        }
++
++        /// <summary>C69: an engine marker as series `script:<name>` (ns to ms). Not a TW marker: it is kept out of
++        /// per_tick_ms and out of the hitch pick, since the script-run markers hold every TW marker under them.</summary>
++        void EngineMarker(ProfilerCategory category, string name)
+         {
+             var r = ProfilerRecorder.StartNew(category, name);
+             if (!r.Valid) { r.Dispose(); unavailable.Add(name); return; }
+-            recs.Add(new Rec(New(key), r, scale, false));
++            recs.Add(new Rec(New("script:" + name), r, 1e-6, false));
++            scriptRecorded.Add(name);
++        }
++
++        /// <summary>Which recorded engine names the profiler had not registered when the recorders opened. Runs once,
++        /// before the window's GC baselines, and only when an engine recorder is valid (never on a release player).</summary>
++        void CheckRegistered()
++        {
++            if (scriptRecorded.Count == 0) return;
++            try
++            {
++                var handles = new List<ProfilerRecorderHandle>();
++                ProfilerRecorderHandle.GetAvailable(handles);
++                var known = new HashSet<string>(StringComparer.Ordinal);
++                foreach (var h in handles) known.Add(ProfilerRecorderHandle.GetDescription(h).Name ?? "");
++                foreach (var n in scriptRecorded) if (!known.Contains(n)) scriptUnregistered.Add(n);
++            }
++            catch (Exception e) { warnings.Add("could not list the profiler's markers: " + e.Message); }
+         }
+ 
+         void Marker(string name)
+@@ -437,13 +506,18 @@ namespace TW.Perf
+             Counter(ProfilerCategory.Render, "Batches Count", "batches", 1);
+             Counter(ProfilerCategory.Render, "Triangles Count", "triangles", 1);
+             Counter(ProfilerCategory.Render, "Vertices Count", "vertices", 1);
+-            Counter(ProfilerCategory.Memory, "GC Allocated In Frame", "gc_bytes", 1);
++            gcRec = Counter(ProfilerCategory.Memory, "GC Allocated In Frame", "gc_bytes", 1);
+             Counter(ProfilerCategory.Memory, "GC Allocation In Frame Count", "gc_count", 1);
+ 
+             foreach (var n in TW.Sim.PerfMarkers.Names) Marker(n);
+             foreach (var s in host.Local.World.Systems) Marker("TW.Sim.Sys." + s.GetType().Name);
+             Marker("TW.Hud.Refresh");
++            foreach (var n in HudParts) Marker(n);   // C66
+             if (Options.Subscribers) for (int k = 0; k < host.Events.SubscriberCount; k++) Marker(host.Events.SubscriberMarker(k));
++            EngineMarkers(EngineMarker);   // C69
++            CheckRegistered();
++            recNow = new double[recs.Count]; recIsMarker = new bool[recs.Count];
++            for (int k = 0; k < recs.Count; k++) recIsMarker[k] = recs[k].Marker;
+ 
+             vat = FindFirstObjectByType<VATRenderer>(); props = FindFirstObjectByType<BattlefieldProps>();
+             debris = FindFirstObjectByType<DebrisRenderer>();
+@@ -471,7 +545,7 @@ namespace TW.Perf
+             double frameDt = Time.unscaledDeltaTime * 1000.0;
+             dt.Add(frameDt);
+             ticksPerFrame.Add(stepped);
+-            if (frameDt > 33.34 && hitches < hitchMs.Length) { hitchFrame[hitches] = frames; hitchTick[hitches] = tick; hitchMs[hitches] = frameDt; hitches++; }
++            bool hitch = frameDt > 33.34 && hitches < hitchMs.Length;
+ 
+             double mainMs = -1, gpuMs = -1;
+             FrameTimingManager.CaptureFrameTimings();
+@@ -495,7 +569,19 @@ namespace TW.Perf
+             for (int k = 0; k < recs.Count; k++)
+             {
+                 var r = recs[k];
+-                if (r.R.Valid) r.S.Add(r.R.LastValue * r.Scale);
++                double v = r.R.Valid ? r.R.LastValue * r.Scale : 0.0;
++                if (r.R.Valid) r.S.Add(v);
++                if (hitch && k < recNow.Length) recNow[k] = v;
++            }
++            if (hitch)
++            {
++                // the recorders hold the frame before this one, the same frame unscaledDeltaTime measured (C64)
++                hitchFrame[hitches] = frames; hitchTick[hitches] = tick; hitchMs[hitches] = frameDt;
++                int top = HitchAttribution.Largest(recNow, recIsMarker, Math.Min(recNow.Length, recs.Count));
++                hitchMarker[hitches] = top >= 0 ? recs[top].S.Key : null;
++                hitchMarkerMs[hitches] = top >= 0 ? recNow[top] : double.NaN;
++                hitchGc[hitches] = gcRec != null && gcRec.R.Valid ? gcRec.R.LastValue : double.NaN;
++                hitches++;
+             }
+ 
+             if (vat != null) { vatDrawn.Add(vat.DrawnInfantry); vatNear.Add(vat.DrawnNear); vatVerts.Add(vat.VerticesThisFrame); vatShadows.Add(vat.ShadowsThisFrame ? 1 : 0); }
+@@ -674,6 +760,18 @@ namespace TW.Perf
+               .Append(", \"mono_used_mb\": [").Append(N(monoStart / 1048576.0)).Append(", ").Append(N(monoMax / 1048576.0)).Append("]")
+               .Append(", \"hitches_over_33ms\": [");
+             for (int i = 0; i < hitches; i++) sb.Append(i > 0 ? ", " : "").Append("[").Append(hitchFrame[i]).Append(", ").Append(hitchTick[i]).Append(", ").Append(N(hitchMs[i])).Append("]");
++            sb.Append("]");
++            // C64: the same hitches with their carrier; null where a release player has no marker or no gc_bytes
++            sb.Append(", \"hitch_records\": [");
++            for (int i = 0; i < hitches; i++)
++                sb.Append(i > 0 ? ", " : "").Append("{ \"frame\": ").Append(hitchFrame[i]).Append(", \"tick\": ").Append(hitchTick[i])
++                  .Append(", \"ms\": ").Append(N(hitchMs[i])).Append(", \"marker\": ").Append(hitchMarker[i] != null ? Q(hitchMarker[i]) : "null")
++                  .Append(", \"marker_ms\": ").Append(N(hitchMarkerMs[i])).Append(", \"gc_bytes\": ").Append(N(hitchGc[i])).Append(" }");
++            sb.Append("], \"hitch_carriers\": [");
++            var carriers = HitchAttribution.Summarise(hitchMarker, hitchMarkerMs, hitchMs, hitches);
++            for (int i = 0; i < carriers.Count; i++)
++                sb.Append(i > 0 ? ", " : "").Append("{ \"marker\": ").Append(Q(carriers[i].Marker)).Append(", \"hitches\": ").Append(carriers[i].Hitches)
++                  .Append(", \"median_share\": ").Append(N(carriers[i].MedianShare)).Append(" }");
+             sb.Append("] },\n");
+             sb.Append("  \"series\": {\n");
+             for (int i = 0; i < series.Count; i++) Stats(sb, series[i], i == series.Count - 1);
+@@ -690,6 +788,12 @@ namespace TW.Perf
+                 first = false;
+             }
+             sb.Append(first ? "},\n" : "\n  },\n");
++            // C69: the engine markers recorded as script:<name>, and those not yet registered when the recorders opened
++            sb.Append("  \"script_markers\": { \"recorded\": [");
++            for (int i = 0; i < scriptRecorded.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(scriptRecorded[i]));
++            sb.Append("], \"unregistered_at_open\": [");
++            for (int i = 0; i < scriptUnregistered.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(scriptUnregistered[i]));
++            sb.Append("] },\n");
+             sb.Append("  \"unavailable\": [");
+             for (int i = 0; i < unavailable.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(unavailable[i]));
+             sb.Append("],\n  \"warnings\": [");
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/HitchAttributionTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/HitchAttributionTests.cs
+new file mode 100644
+index 0000000..6601827
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/HitchAttributionTests.cs
+@@ -0,0 +1,92 @@
++// Phase: tooling (AOSA C64, 2026-09-26) - the hitch carrier pick. A card is written from "marker X was the largest in
++// most hitches", so the pick must name the largest TW marker only, never a counter, never a NaN, the same way in every
++// run, and name nobody at all on a release player, whose markers read 0.
++using System.Collections.Generic;
++using NUnit.Framework;
++using TW.Perf;
++
++namespace TW.Tests
++{
++    public class HitchAttributionTests
++    {
++        [Test]
++        public void LargestPicksTheLargestEligibleValue()
++        {
++            var v = new[] { 3.0, 12.5, 40000.0, 7.0 };
++            var markers = new[] { true, true, false, true };   // 40000 is a counter (gc_bytes), not a marker
++            Assert.AreEqual(1, HitchAttribution.Largest(v, markers, v.Length));
++        }
++
++        [Test]
++        public void LargestIgnoresNaNAndInfinity()
++        {
++            var v = new[] { double.NaN, 2.0, double.PositiveInfinity, 1.0 };
++            Assert.AreEqual(1, HitchAttribution.Largest(v, new[] { true, true, true, true }, v.Length));
++        }
++
++        [Test]
++        public void LargestTieGoesToTheLowerIndex()
++        {
++            var v = new[] { 1.0, 5.0, 5.0 };
++            Assert.AreEqual(1, HitchAttribution.Largest(v, new[] { true, true, true }, v.Length));
++        }
++
++        [Test]
++        public void LargestIsNoneWhenEveryMarkerReadsZero()
++        {
++            // a release player: the recorders are invalid or read 0, and the hitch has no carrier rather than a wrong one
++            var v = new[] { 0.0, 0.0, 0.0 };
++            Assert.AreEqual(-1, HitchAttribution.Largest(v, new[] { true, true, true }, v.Length));
++            Assert.AreEqual(-1, HitchAttribution.Largest(new double[0], new bool[0], 0));
++            Assert.AreEqual(-1, HitchAttribution.Largest(null, null, 3));
++        }
++
++        [Test]
++        public void LargestReadsOnlyTheFirstN()
++        {
++            var v = new[] { 1.0, 2.0, 9.0 };
++            Assert.AreEqual(1, HitchAttribution.Largest(v, new[] { true, true, true }, 2));
++            Assert.AreEqual(2, HitchAttribution.Largest(v, new[] { true, true, true }, 99), "n past the arrays is clamped");
++        }
++
++        [Test]
++        public void SummariseCountsAndTakesTheMedianShare()
++        {
++            var marker = new[] { "TW.Terrain.Update", "TW.Host.Update", "TW.Terrain.Update", null, "TW.Terrain.Update" };
++            var ms = new[] { 20.0, 10.0, 10.0, 0.0, 30.0 };
++            var hitch = new[] { 40.0, 50.0, 40.0, 35.0, 40.0 };
++            List<HitchAttribution.Carrier> c = HitchAttribution.Summarise(marker, ms, hitch, marker.Length);
++            Assert.AreEqual(2, c.Count, "the hitch with no carrier is left out");
++            Assert.AreEqual("TW.Terrain.Update", c[0].Marker);
++            Assert.AreEqual(3, c[0].Hitches);
++            Assert.AreEqual(0.5, c[0].MedianShare, 1e-12, "shares 0.5, 0.25, 0.75");
++            Assert.AreEqual("TW.Host.Update", c[1].Marker);
++            Assert.AreEqual(1, c[1].Hitches);
++            Assert.AreEqual(0.2, c[1].MedianShare, 1e-12);
++        }
++
++        [Test]
++        public void SummariseOrdersByCountThenShareThenName()
++        {
++            var marker = new[] { "b", "a", "c", "c" };
++            var ms = new[] { 10.0, 10.0, 5.0, 5.0 };
++            var hitch = new[] { 40.0, 40.0, 40.0, 40.0 };
++            var c = HitchAttribution.Summarise(marker, ms, hitch, marker.Length);
++            Assert.AreEqual(new[] { "c", "a", "b" }, new[] { c[0].Marker, c[1].Marker, c[2].Marker });
++        }
++
++        [Test]
++        public void SummariseOfNothingIsEmpty()
++        {
++            Assert.AreEqual(0, HitchAttribution.Summarise(new string[0], new double[0], new double[0], 0).Count);
++            Assert.AreEqual(0, HitchAttribution.Summarise(null, null, null, 5).Count);
++        }
++
++        [Test]
++        public void MedianOfEvenCountIsTheMeanOfTheMiddleTwo()
++        {
++            Assert.AreEqual(2.5, HitchAttribution.Median(new List<double> { 4, 1, 3, 2 }), 1e-12);
++            Assert.IsTrue(double.IsNaN(HitchAttribution.Median(new List<double>())));
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/HitchAttributionTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/HitchAttributionTests.cs.meta
+new file mode 100644
+index 0000000..e050190
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/HitchAttributionTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 05b99546c52a469cbfc0d9221d35cec0
+\ No newline at end of file
+diff --git a/trench-warfare-3d/Assets/_Project/UI/HudController.cs b/trench-warfare-3d/Assets/_Project/UI/HudController.cs
+index 3a2d529..2570fea 100644
+--- a/trench-warfare-3d/Assets/_Project/UI/HudController.cs
++++ b/trench-warfare-3d/Assets/_Project/UI/HudController.cs
+@@ -5,6 +5,10 @@
+ // arms a barrage on a card is never also the click that fires it, and it steps down for the old IMGUI HUD when
+ // HudBridge.UseToolkitHud is off (F9 flips it during the flag window).
+ // Runs after TacticalCamera and CameraShake (order 11000) so the trench order clusters land on the shaken frame.
++// AOSA C66 (2026-09-26): each part of Refresh has its own TW.Hud.<Part> marker inside TW.Hud.Refresh, so the bench can
++// say which part holds its 1.4 ms a frame (PerfBench.HudParts records the same names). Markers only: the calls, their
++// order and their arguments are exactly as before.
++using Unity.Profiling;
+ using UnityEngine;
+ using UnityEngine.InputSystem;
+ using UnityEngine.UIElements;
+@@ -46,6 +50,17 @@ namespace TW.UI
+         int pickFrame = -1; bool pickHit;
+         float nextLegacyCheck;
+         static readonly ProfilerMarkerScope refreshMarker = new ProfilerMarkerScope("TW.Hud.Refresh");
++        // C66: the parts of Refresh, in the order they run (the names are repeated in PerfBench.HudParts)
++        static readonly ProfilerMarker hotkeysMarker = new ProfilerMarker("TW.Hud.Hotkeys");
++        static readonly ProfilerMarker legacyMarker = new ProfilerMarker("TW.Hud.LegacyInterim");
++        static readonly ProfilerMarker minimapMarker = new ProfilerMarker("TW.Hud.Minimap");
++        static readonly ProfilerMarker dialogueMarker = new ProfilerMarker("TW.Hud.Dialogue");
++        static readonly ProfilerMarker selectionMarker = new ProfilerMarker("TW.Hud.Selection");
++        static readonly ProfilerMarker gaugesMarker = new ProfilerMarker("TW.Hud.BindGauges");
++        static readonly ProfilerMarker cardsMarker = new ProfilerMarker("TW.Hud.Cards");
++        static readonly ProfilerMarker clustersMarker = new ProfilerMarker("TW.Hud.Clusters");
++        static readonly ProfilerMarker objectivesMarker = new ProfilerMarker("TW.Hud.Objectives");
++        static readonly ProfilerMarker tooltipMarker = new ProfilerMarker("TW.Hud.Tooltip");
+ 
+         void OnEnable()
+         {
+@@ -250,45 +265,57 @@ namespace TW.UI
+             var w = Host.Local.World;
+             bool over = w.WinnerTeam >= 0;
+             float tickSeconds = w.Config.TickSeconds;
+-            hotkeys.Update();
+-            LegacyInterim();
++            using (hotkeysMarker.Auto()) hotkeys.Update();
++            using (legacyMarker.Auto()) LegacyInterim();
+ 
+             // gauges
+-            minimap.Refresh();
+-            dialogue?.Tick(Time.unscaledDeltaTime);
+-            selection?.Tick(Interactive);
+-            selectionPanel?.Refresh();
+-            bool paused = Clock != null ? Clock.Paused : Host.TimeScale <= 0f;
+-            float speed = Clock != null ? Clock.Speed : Host.TimeScale;
+-            HudView.BindGauges(refs, w.Silver[0], Host.SilverPerSecond, minimap.MyMen, minimap.TheirMen, Mathf.FloorToInt(w.Tick * tickSeconds), speed, paused);
++            using (minimapMarker.Auto()) minimap.Refresh();
++            using (dialogueMarker.Auto()) dialogue?.Tick(Time.unscaledDeltaTime);
++            using (selectionMarker.Auto())
++            {
++                selection?.Tick(Interactive);
++                selectionPanel?.Refresh();
++            }
++            using (gaugesMarker.Auto())
++            {
++                bool paused = Clock != null ? Clock.Paused : Host.TimeScale <= 0f;
++                float speed = Clock != null ? Clock.Speed : Host.TimeScale;
++                HudView.BindGauges(refs, w.Silver[0], Host.SilverPerSecond, minimap.MyMen, minimap.TheirMen, Mathf.FloorToInt(w.Tick * tickSeconds), speed, paused);
++            }
+ 
+-            // cards
+-            int silver = w.Silver[0];
+-            var abilities = Host.Local.Abilities;
+-            var armed = Panel != null ? Panel.Armed : OffMapAbilityId.None;
+-            for (int i = 0; i < refs.Cards.Count; i++)
++            // cards (the aim hint is theirs)
++            using (cardsMarker.Auto())
+             {
+-                var c = refs.Cards[i];
+-                if (!c.IsSupport)
++                int silver = w.Silver[0];
++                var abilities = Host.Local.Abilities;
++                var armed = Panel != null ? Panel.Armed : OffMapAbilityId.None;
++                for (int i = 0; i < refs.Cards.Count; i++)
+                 {
+-                    int s = c.Slot;
+-                    var e = w.Roster[s];
+-                    HudView.BindCard(c, silver, w.SlotCooldown[s], Mathf.Max(1, e.CooldownTicks), w.SlotUnlocked[s] != 0, over, tickSeconds, 0);
+-                }
+-                else
+-                {
+-                    int cd = abilities != null ? abilities.CooldownOf(0, c.Ability) : 0;
+-                    int total = OffMapAbilitySystem.TryGetStats((int)c.Ability, out var st) ? Mathf.Max(1, st.CooldownTicks) : 1;
+-                    HudView.BindSupportCard(c, silver, cd, total, armed == c.Ability, over, tickSeconds);
++                    var c = refs.Cards[i];
++                    if (!c.IsSupport)
++                    {
++                        int s = c.Slot;
++                        var e = w.Roster[s];
++                        HudView.BindCard(c, silver, w.SlotCooldown[s], Mathf.Max(1, e.CooldownTicks), w.SlotUnlocked[s] != 0, over, tickSeconds, 0);
++                    }
++                    else
++                    {
++                        int cd = abilities != null ? abilities.CooldownOf(0, c.Ability) : 0;
++                        int total = OffMapAbilitySystem.TryGetStats((int)c.Ability, out var st) ? Mathf.Max(1, st.CooldownTicks) : 1;
++                        HudView.BindSupportCard(c, silver, cd, total, armed == c.Ability, over, tickSeconds);
++                    }
+                 }
++                HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHint : null);
+             }
+-            HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHint : null);
+ 
+             // the rest
+-            var root = doc.rootVisualElement;
+-            clusters.Refresh(root.panel, Camera.main, refs.Root.resolvedStyle.width, refs.Root.resolvedStyle.height, over);   // HUD space (HudScale)
+-            objectives.Refresh();
+-            tooltip.Update();
++            using (clustersMarker.Auto())
++            {
++                var root = doc.rootVisualElement;
++                clusters.Refresh(root.panel, Camera.main, refs.Root.resolvedStyle.width, refs.Root.resolvedStyle.height, over);   // HUD space (HudScale)
++            }
++            using (objectivesMarker.Auto()) objectives.Refresh();
++            using (tooltipMarker.Auto()) tooltip.Update();
+         }
+ 
+         /// <summary>
+diff --git a/trench-warfare-3d/Tools/aosa/aosa.py b/trench-warfare-3d/Tools/aosa/aosa.py
+index 6e0be84..63e192b 100644
+--- a/trench-warfare-3d/Tools/aosa/aosa.py
++++ b/trench-warfare-3d/Tools/aosa/aosa.py
+@@ -454,6 +454,15 @@ def load_reports(spec):
+     return out
+ 
+ 
++def short_marker(name):
++    """An engine marker's name in 24 characters: the player-loop phase is dropped when the rest names it
++    (PreLateUpdate.ScriptRunBehaviourLateUpdate -> ScriptRunLateUpdate)."""
++    head, _, rest = name.partition(".")
++    if rest and head in ("Update", "PreUpdate", "PreLateUpdate", "PostLateUpdate", "FixedUpdate", "EarlyUpdate", "Initialization"):
++        name = rest
++    return name.replace("ScriptRunBehaviour", "ScriptRun").replace("OnGfxThread", "(gfx)")[:24]
++
++
+ def cmp_table(runs):
+     """The cmp.py table, ported (cmp.py runs at import time, so it cannot be imported)."""
+     lines = []
+@@ -487,6 +496,34 @@ def cmp_table(runs):
+     for k in keys:
+         if max(t.get(k, 0) for t in ticks) >= 0.05:
+             row("  " + k.replace("TW.Sim.Sys.", "Sys."), lambda r, k=k: "%.3f" % r["per_tick_ms"].get(k, float("nan")))
++    series = [r.get("series") or {} for r in runs]
++
++    def by_mean(prefix):
++        return sorted({k for s in series for k in s if k.startswith(prefix)},
++                      key=lambda k: (-max((s.get(k) or {}).get("mean", 0) or 0 for s in series), k))
++
++    def p50_mean_p95(r, k):
++        s = r["series"][k]
++        return "%.3f/%.3f/%.3f" % (s["p50"], s["mean"], s["p95"])
++    # C66: the HUD's parts a frame (per_tick_ms above has them a tick); C69: the engine's own markers, as cmp.py reads them
++    for title, prefix in (("HUD parts per frame, ms p50/mean/p95:", "TW.Hud."), ("engine markers per frame, ms p50/mean/p95:", "script:")):
++        keys = by_mean(prefix)
++        if keys:
++            lines.append(title)
++            for k in keys[:25]:
++                row("  " + short_marker(k[len(prefix):]), lambda r, k=k: p50_mean_p95(r, k))
++    # C64: which TW marker was the largest in each hitch (hitches carried / median share of the hitch ms)
++    carriers = [{c.get("marker"): c for c in ((r.get("window") or {}).get("hitch_carriers") or [])} for r in runs]
++    names = sorted({m for c in carriers for m in c}, key=lambda m: (-max(c.get(m, {}).get("hitches", 0) for c in carriers), m))
++    if any("hitch_records" in (r.get("window") or {}) for r in runs):
++        row("hitches with a carrier", lambda r: "%d of %d" % (sum(1 for h in r["window"]["hitch_records"] if h.get("marker")),
++                                                            len(r["window"]["hitch_records"])))
++    if names:
++        lines.append("hitch carriers (hitches as largest, median share):")
++        for m in names[:15]:
++            row("  " + m[:24], lambda r, m=m: "%d @ %.2f" % (
++                {c["marker"]: c for c in r["window"]["hitch_carriers"]}[m]["hitches"],
++                {c["marker"]: c for c in r["window"]["hitch_carriers"]}[m]["median_share"]))
+     return lines
+ 
+ 
+diff --git a/trench-warfare-3d/Tools/aosa/test_aosa.py b/trench-warfare-3d/Tools/aosa/test_aosa.py
+index 0cda6e6..6d3f667 100644
+--- a/trench-warfare-3d/Tools/aosa/test_aosa.py
++++ b/trench-warfare-3d/Tools/aosa/test_aosa.py
+@@ -101,6 +101,35 @@ class AosaTest(unittest.TestCase):
+         self.assertIn("VERDICT: PASS", out)
+         self.assertIn("hash_start", out)
+ 
++    def test_compare_shows_hud_parts_engine_markers_and_hitch_carriers(self):
++        # C64, C66, C69: the new data reaches the compare table; a report without it (the release player, older runs)
++        # prints exactly the sections it printed before
++        self.ab()
++        code, out = self.run_cli("compare", "cand", "base")
++        for absent in ("HUD parts", "engine markers", "hitch carriers", "hitches with a carrier"):
++            self.assertNotIn(absent, out)
++        s = lambda v: {"p50": v, "p95": v * 2, "p99": v * 3, "mean": v * 1.1, "max": v * 4, "sum": v * 100, "n": 100}
++        for p in (self.docs / "runs" / "3").glob("cand-*.json"):
++            r = json.loads(p.read_text())
++            r["series"].update({"TW.Hud.Cards": s(0.6), "script:PreLateUpdate.ScriptRunBehaviourLateUpdate": s(4.0),
++                                "script:GC.Collect": None})
++            r["window"]["hitch_records"] = [
++                {"frame": 611, "tick": 1886, "ms": 36.1, "marker": "TW.Terrain.Update", "marker_ms": 20.0, "gc_bytes": 512},
++                {"frame": 705, "tick": 1910, "ms": 35.4, "marker": None, "marker_ms": None, "gc_bytes": None}]
++            r["window"]["hitch_carriers"] = [{"marker": "TW.Terrain.Update", "hitches": 1, "median_share": 0.554}]
++            p.write_text(json.dumps(r))
++        code, out = self.run_cli("compare", "cand", "base")
++        self.assertIn("VERDICT: PASS", out)
++        self.assertIn("HUD parts per frame", out)
++        self.assertIn("0.600/0.660/1.200", out)
++        self.assertIn("engine markers per frame", out)
++        self.assertIn("ScriptRunLateUpdate", out)
++        self.assertIn("GC.Collect", out)   # a null series still gets its row, as '-'
++        self.assertIn("1 of 2", out)
++        self.assertIn("1 @ 0.55", out)
++        self.assertEqual(aosa.short_marker("Gfx.WaitForPresentOnGfxThread"), "Gfx.WaitForPresent(gfx)")
++        self.assertEqual(aosa.short_marker("FixedUpdate.PhysicsFixedUpdate"), "PhysicsFixedUpdate")
++
+     def test_compare_rule1_different_battle(self):
+         self.ab(a_kw={"hs": "BBBB"})
+         v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
