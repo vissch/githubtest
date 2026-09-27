@@ -44,6 +44,7 @@ namespace TW.Tests
         public void TheHomeFrontSellsWhatTheTableSays()
         {
             var profile = new CampaignProfile { Gold = 100 };
+            CampaignSession.Clear();   // no building left selected by an earlier test
             var root = Instantiate("HomeFront", "Assets/_Project/UI/Resources/Shell/");
             var screen = new HomeFrontScreen(profile);
             screen.Bind(root, null);
@@ -68,6 +69,7 @@ namespace TW.Tests
         public void TheMapOpensOnTheLowlandsAndStagingBuildsTheRequest()
         {
             var profile = new CampaignProfile();
+            CampaignSession.Clear();   // no node left selected by an earlier test
             var root = Instantiate("StrategicMap", "Assets/_Project/UI/Resources/Shell/");
             var map = new StrategicMapScreen(profile);
             map.Bind(root, null);
@@ -100,6 +102,37 @@ namespace TW.Tests
                 Assert.That(staging.Picks, Is.EqualTo(r.AbilityMaskA));
             }
             finally { staging.Unbind(); }
+        }
+
+        [Test]
+        public void A_Swap_Between_The_Map_And_The_Home_Front_Keeps_What_Was_Selected()
+        {
+            // Main -> Home Front -> map -> (pop) Home Front -> TO THE FRONT pushes a fresh map: it opens on the node the
+            // player left, and a fresh Home Front on the building (critique round 2, left open until round 6)
+            const string Shell = "Assets/_Project/UI/Resources/Shell/";
+            var profile = new CampaignProfile();
+            CampaignSession.Clear();
+            try
+            {
+                var map = new StrategicMapScreen(profile); map.Bind(Instantiate("StrategicMap", Shell), null);
+                map.Select("river-line"); map.Unbind();
+                var again = new StrategicMapScreen(profile); again.Bind(Instantiate("StrategicMap", Shell), null);
+                Assert.That(again.Selected, Is.EqualTo("river-line"), "a fresh map opens where the last one was left");
+                again.Unbind();
+
+                string third = FactionBuildings.IronBuildings[2].Id;
+                var home = new HomeFrontScreen(profile); home.Bind(Instantiate("HomeFront", Shell), null);
+                home.Select(third); home.Unbind();
+                var home2 = new HomeFrontScreen(profile); home2.Bind(Instantiate("HomeFront", Shell), null);
+                Assert.That(home2.Selected, Is.EqualTo(third), "a fresh Home Front opens on the building left");
+                home2.Unbind();
+
+                CampaignSession.Clear();   // leaving a match: the map opens on the campaign's opening again
+                var fresh = new StrategicMapScreen(profile); fresh.Bind(Instantiate("StrategicMap", Shell), null);
+                Assert.That(fresh.Selected, Is.EqualTo("lowlands"));
+                fresh.Unbind();
+            }
+            finally { CampaignSession.Clear(); }
         }
 
         [Test]

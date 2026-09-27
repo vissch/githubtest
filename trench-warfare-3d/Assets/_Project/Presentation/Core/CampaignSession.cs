@@ -16,6 +16,10 @@ namespace TW.Presentation
         /// <summary>The debrief's CONTINUE asked for the map: the main menu pushes it when it binds after the scene
         /// load. Survives Clear (which runs on the way to the menu) and is consumed by the menu.</summary>
         public static bool ResumeMap;
+        /// <summary>The node the map last selected and the building the Home Front last selected, so a new copy of either
+        /// screen (TO THE FRONT / HOME FRONT swap between them, which pushes a fresh screen when the other is not right
+        /// under it) opens where the player left it. Cleared with the mission (leaving a match opens on the last node).</summary>
+        public static string MapNode, HomeBuilding;
 
         public static bool Active => !string.IsNullOrEmpty(NodeId) && MissionIndex >= 0;
 
@@ -24,6 +28,6 @@ namespace TW.Presentation
             NodeId = nodeId ?? ""; MissionIndex = missionIndex; Faction = faction; Awarded = false; LastAward = 0;
         }
 
-        public static void Clear() { NodeId = ""; MissionIndex = -1; Faction = 0; Awarded = false; LastAward = 0; }
+        public static void Clear() { NodeId = ""; MissionIndex = -1; Faction = 0; Awarded = false; LastAward = 0; MapNode = null; HomeBuilding = null; }
     }
 }

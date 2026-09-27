@@ -38,7 +38,7 @@ namespace TW.UI
             Btn("btn-select", () => { if (Selected != null && CanFightSelected) Router?.Push(new StagingScreen(given, Selected, Mission)); });
             mine = m => ShellPick.Over(Root, m);
             HudBridge.PointerOverUi = mine;
-            Selected = null;
+            Selected = CampaignGraph.Find(CampaignSession.MapNode) != null ? CampaignSession.MapNode : null;   // where the player left the map (a swap), else the opening
             BuildList();
             Attach3D();
         }
@@ -109,7 +109,7 @@ namespace TW.UI
         {
             var n = CampaignGraph.Find(id);
             if (n == null) return;
-            Selected = id;
+            Selected = id; CampaignSession.MapNode = id;
             Mission = CampaignGraph.NextMission(n, profile);
             foreach (var r in rows) r.EnableInClassList("tw-list-row--selected", r.name == "row-" + id);
             if (view != null)

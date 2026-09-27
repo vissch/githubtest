@@ -53,6 +53,7 @@ namespace TW.UI
             Btn("btn-front", () => SwapTo(() => new StrategicMapScreen(given)));
             mine = m => ShellPick.Over(Root, m);
             HudBridge.PointerOverUi = mine;
+            Selected = CampaignSession.HomeBuilding;   // where the player left the Home Front (BuildList falls back to the first of the faction's)
             BuildList();
             Attach3D();
         }
@@ -116,7 +117,7 @@ namespace TW.UI
         {
             var b = FactionBuildings.Find(Faction, id);
             if (b == null) return;
-            Selected = id;
+            Selected = id; CampaignSession.HomeBuilding = id;
             view?.Highlight(id);
             foreach (var r in rows) r.EnableInClassList("tw-list-row--selected", r.name == "row-" + id);
             RefreshInfo(b);

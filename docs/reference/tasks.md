@@ -403,7 +403,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `ScatterRulesTests` | EditMode | 8 | Kind, ScatterKind, ScatterField, ScatterInput, ScatterLayers, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
-| `ShellUxmlTests` | EditMode | 15 | DebriefScreen, MatchLaunch, MatchReport, CampaignProfile, CampaignSession, ProfileStore |
+| `ShellUxmlTests` | EditMode | 16 | DebriefScreen, CampaignSession, MatchLaunch, CampaignProfile, MatchReport, StrategicMapScreen |
 | `SimHashTests` | EditMode | 3 | SimHash, SimRandom, SimMath, SystemId |
 | `SinglePlayerEquivalenceTests` | EditMode | 1 | LockstepSession, MatchSim, ScriptedEnemy, SimCommand, SimConfig |
 | `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |
