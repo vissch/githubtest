@@ -45,7 +45,10 @@ by this pass (see `CLAUDE.md`); the code half is a backlog, in order, at the bot
   test `55aba9c`, statics and CombatFx split `2c08268`; docs and shared tools follow.
 - **Verified (2026-09-27):** full `gate.ps1` green on this branch: validate, EditMode 343/343 (including the five
   new tests), PlayMode 15/15. All 19 assemblies also compile offline, and a metadata scan of the built dlls finds
-  exactly the 26 static-holding types `StaticLifecycleTests` accounts for. Not done: the Play look in GreyboxCorridor.
+  exactly the 26 static-holding types `StaticLifecycleTests` accounts for. Play in GreyboxCorridor (2026-09-27):
+  with a staged firefight every CombatFx part did live work (ground marks 79, rests 96 to 216, chunks cycling, the bird
+  flock scattering), the console held only pipeline-timeout noise, and after stopping Play the hooks were null and the
+  camera look point back at the origin; BlastReactionTests then passed 6/6 in that same editor, the case that used to fail.
 
 ## Checked and found not to be problems
 - **`Roster` is not in `SimWorld.Hash()`.** Deliberate: it is written once from the same table on every machine and
