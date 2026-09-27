@@ -365,7 +365,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
 | `BurningSystemTests` | EditMode | 12 | SimEventType, BurningSystem, DeathCause, Impact, MatchSim, UnitFlags |
 | `CampaignGraphTests` | EditMode | 8 | CampaignGraph, NodeState, CampaignProfile, Difficulty, Ground, CampaignDifficulty |
-| `CampaignProfileTests` | EditMode | 6 | CampaignProfile, ProfileStore, Faction, Sample, Building, BuildingState |
+| `CampaignProfileTests` | EditMode | 7 | ProfileStore, CampaignProfile, Faction, Sample, Building, BuildingState |
 | `CoastTests` | EditMode | 6 | BattlefieldGenerator, BattlefieldParams, SeaLandingSystem, Sample, MapData |
 | `CombatTests` | EditMode | 9 | MatchSim, SimCommand, SimEventType, Stance, CommandType, GoalKey |
 | `CommandSeatTests` | EditMode | 1 | CommandSeat, LockstepDriver, LoopbackNetwork, MatchSim, SimCommand, SimConfig |
@@ -383,17 +383,17 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `FlowFieldManagerTests` | EditMode | 4 | GoalKey, FlowField, MatchSim, NavLayer, SimCommand, NavMode |
 | `FlowFieldTests` | EditMode | 2 | FlowField, NavLayer, GreyboxMapGenerator, Kind, MapData, ObjectiveKind |
 | `GaitTests` | EditMode | 12 | WalkerGait, VehicleArchetype, TankModel, Body, Foot, Rest |
-| `GameSettingsTests` | EditMode | 10 | GameSettings, SettingsStore, SettingsApplier, Bindings, AudioLevels, GameAction |
+| `GameSettingsTests` | EditMode | 11 | GameSettings, Bindings, SettingsStore, SettingsApplier, GameAction, AudioLevels |
 | `GarrisonAndOrdersTests` | EditMode | 9 | CommandType, SimCommand, NavLayer, MatchSim, UnitFlags, SimEventType |
 | `GarrisonTests` | EditMode | 5 | MatchSim, SimMath, Stance, SimCommand, SimConfig |
 | `HashIntervalTests` | EditMode | 2 | SimCommand, MatchSim, SimConfig, LockstepDriver, LoopbackNetwork, ReplayRecorder |
 | `HeightfieldRaycastTests` | EditMode | 4 | HeightfieldRaycast, Sample, Look, Stance, Heightfield, BattlefieldGenerator |
-| `HomeFrontDioramaTests` | EditMode | 6 | HomeFrontStages, MetaServices, Chunk, HouseKit, House, MetaBoot |
+| `HomeFrontDioramaTests` | EditMode | 7 | HomeFrontStages, HouseKit, MetaServices, Chunk, House, FactionBuildings |
 | `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
 | `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
 | `HudLayoutTests` | EditMode | 6 | HudLayout, BattleHud, HudView, RosterEntry |
 | `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud, HudText |
-| `HudTextTests` | EditMode | 14 | BannerRules, BattleHud, VehicleArchetype, SimEventType, HudText, TankSpec |
+| `HudTextTests` | EditMode | 15 | BannerRules, BattleHud, VehicleArchetype, HudText, SimEventType, TankSpec |
 | `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |
 | `LandingTests` | EditMode | 8 | SimCommand, MatchSim, Sample, LandingState, BattlefieldGenerator, BattlefieldParams |
 | `MineTests` | EditMode | 14 | MineSystem, MineKind, SimEventType, Mine, MineState, MapData |
@@ -403,7 +403,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `ScatterRulesTests` | EditMode | 9 | Kind, ScatterKind, ScatterInput, ScatterField, ScatterLayers, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
-| `ShellUxmlTests` | EditMode | 16 | DebriefScreen, CampaignSession, MatchLaunch, CampaignProfile, MatchReport, StrategicMapScreen |
+| `ShellUxmlTests` | EditMode | 16 | DebriefScreen, CampaignSession, FactionBuildings, MatchLaunch, CampaignProfile, MatchReport |
 | `SimHashTests` | EditMode | 3 | SimHash, SimRandom, SimMath, SystemId |
 | `SinglePlayerEquivalenceTests` | EditMode | 1 | LockstepSession, MatchSim, ScriptedEnemy, SimCommand, SimConfig |
 | `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |
