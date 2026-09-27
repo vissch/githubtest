@@ -1,0 +1,2 @@
+# Tests that FAIL under otr only because the engine is absent. One per line: <Class.Method> <why>.
+GameSettingsTests.AnOlderFileWithMissingSectionsIsMigrated GameSettings.FromJson catches JsonUtility's missing native call and returns defaults (Master 0)
