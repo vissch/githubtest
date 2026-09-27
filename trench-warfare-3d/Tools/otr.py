@@ -1,21 +1,33 @@
-"""Offline test run (otr): run the EditMode tests that need no engine, outside Unity, on the dlls occ.py built.
+"""Offline test run (otr): run the EditMode suite outside Unity, on the dlls occ.py built, with a stand-in engine.
 
-Why: the gate needs an editor and ~4 GB free; on a loaded machine nothing runs for days. Most presentation logic
-(scatter fields, the campaign graph, HUD arithmetic, aim shapes, meshes built in plain C#) is managed code: this
-loads the test dll occ.py compiled into Unity's own Mono and runs every [Test] / [TestCase] / [Values] /
-[ValueSource] with its [OneTimeSetUp] / [SetUp] / [TearDown]. A test that reaches native engine code (NativeArray,
-jobs, JsonUtility, Resources, Mesh, Debug.Log...) cannot run here and is reported ENGINE, not failed: every sim test
-is ENGINE. So otr is a first filter, never a gate verdict: green here says nothing about ENGINE tests.
+Why: the gate needs an editor and ~4 GB free; on a loaded machine nothing runs for days. otr loads the test dll into
+Unity's own Mono (mono-bdwgc) and registers managed stand-ins for the native engine calls the code uses
+(Tools/otr/*.cs), so most of the suite runs as it would in the editor:
+  Engine.cs    NativeArray/NativeList memory, safety handles (a use after Dispose still throws), IJob/IJobParallelFor
+               run synchronously in schedule order, Burst SharedStatic, Debug.Log (an unexpected error fails the test
+               as under Unity's runner), Time, Application (persistentDataPath is a throwaway folder), Mathf.PerlinNoise
+               (a reimplementation: compare Perlin-dependent numbers with a tolerance)
+  Json.cs      JsonUtility by Unity's field rules
+  Objects.cs   Unity object lifetimes and Mesh (channels, sub-meshes, bounds, normals, CombineMeshes, built-in cube/
+               quad/plane exact, cylinder/sphere/capsule by size only); Destroy in edit mode logs Unity's error
+  MathCalls.cs Quaternion / Matrix4x4 / Vector3 native maths
+  Render.cs    Resources.Load: TextAssets, ScriptableObject .assets (Yaml.cs), FBX meshes (Fbx.cs, checked against the
+               424 chunk bounds Unity wrote to houses.json: worst 0.5 mm), images as placeholder textures; Shader.Find;
+               materials and textures created, every other rendering call an inert stub
+What still reports ENGINE: UI Toolkit layout, GameObjects/components, physics, audio, prefabs, UXML, profiler
+recorders. What otr cannot see: Burst codegen, the job system's threads and race detection, GPU work, pixels. A
+green otr is a strong first filter; the gate stays the verdict.
 
-Usage (after occ.py built the assemblies you changed and TW.Tests.EditMode):
-  python Tools/otr.py                     # every EditMode test class
-  python Tools/otr.py ScatterRules Campaign   # only classes whose name contains one of these
-  python Tools/otr.py -v                  # also list PASS and ENGINE lines
-Verdicts: PASS, FAIL (an assertion), ERROR (any other exception from managed code: look), TIMEOUT (60 s), IGNORE,
-ENGINE (native code reached), RUNNER (needs NUnit's own runner: TestContext), SKIP-UNITYTEST / SKIP-EXPLICIT, and
-KNOWN: a FAIL listed in Tools/otr/known.txt with its reason (code that CATCHES a native failure, e.g. a store falling back to
-defaults when JsonUtility is missing, fails here for the engine's absence; Unity's Mono raises no first-chance event
-to tell). Add a line there only after reading the assertion. Exit 1 when anything else FAILs, ERRORs or times out.
+Usage (after occ.py built every assembly, TW.Tests.EditMode included):
+  python Tools/otr.py                        # every EditMode test class
+  python Tools/otr.py ScatterRules MineTests # only classes whose name contains one of these
+  python Tools/otr.py -v                     # also list PASS and ENGINE lines
+Env: TW_OTR_ENGINE=0 (no stand-ins), TW_OTR_LOG=1 (echo logs), TW_OTR_TRACE=1 (jobs), TW_OTR_STACK=1 (full stacks),
+TW_OTR_BUILD=<dir> (build the runner elsewhere, for a second run beside one in flight).
+Verdicts: PASS, FAIL (an assertion), ERROR (any other exception: look), LOGERR (logged an error it did not expect),
+TIMEOUT (300 s), IGNORE, ENGINE (reached a native call with no stand-in), RUNNER (needs NUnit's own runner), CRASH (the
+process died in that class; the rest ran in a new one), KNOWN (a FAIL listed in Tools/otr/known.txt with its reason:
+read the assertion before adding one), SKIP-UNITYTEST / SKIP-EXPLICIT. Exit 1 on FAIL, ERROR, LOGERR, TIMEOUT or CRASH.
 """
 import os, pathlib, subprocess, sys, glob
 
@@ -27,7 +39,9 @@ except ImportError:
     print("otr: needs Tools/aosa/occ.py (lane/show/aosa) beside it, and its compiled dlls"); sys.exit(2)
 
 RUNNER_SRC = HERE.parent / "otr" / "Runner.cs"
-MONO = occ.UNITY / "Data/MonoBleedingEdge/bin/mono.exe"
+ENGINE_SRC = HERE.parent / "otr" / "Engine.cs"
+EXTRA_SRC = [HERE.parent / "otr" / "Json.cs", HERE.parent / "otr" / "Objects.cs", HERE.parent / "otr" / "MathCalls.cs", HERE.parent / "otr" / "Render.cs", HERE.parent / "otr" / "Yaml.cs", HERE.parent / "otr" / "Fbx.cs"]
+MONO = occ.UNITY / "Data/MonoBleedingEdge/bin/mono-bdwgc.exe"   # the Boehm runtime Unity uses: Engine.cs registers its calls in mono-2.0-bdwgc.dll
 API = occ.UNITY / "Data/MonoBleedingEdge/lib/mono/4.7.1-api"
 NOISE = ("cant resolve internal call", "Your mono runtime and class libraries", "The out of sync library",
          "When you update one from git", "the other too.", "Do not report this as a bug", "you probably have a broken",
@@ -35,13 +49,13 @@ NOISE = ("cant resolve internal call", "Your mono runtime and class libraries", 
 
 
 def build_runner():
-    exe = occ.OUT / "otr" / "Runner.exe"
-    if exe.exists() and exe.stat().st_mtime >= RUNNER_SRC.stat().st_mtime:
+    exe = pathlib.Path(os.environ.get("TW_OTR_BUILD", str(occ.OUT / "otr"))) / "Runner.exe"   # TW_OTR_BUILD: a second run beside one in flight
+    if exe.exists() and exe.stat().st_mtime >= max(s.stat().st_mtime for s in [RUNNER_SRC, ENGINE_SRC, *EXTRA_SRC]):
         return exe
     exe.parent.mkdir(parents=True, exist_ok=True)
     cmd = [str(occ.UNITY / "Data/NetCoreRuntime/dotnet.exe"), str(occ.UNITY / "Data/DotNetSdkRoslyn/csc.dll"),
-           "-noconfig", "-nostdlib", "-nologo", "-langversion:9", f"-out:{exe}",
-           f"-r:{API / 'mscorlib.dll'}", f"-r:{API / 'System.dll'}", f"-r:{API / 'System.Core.dll'}", str(RUNNER_SRC)]
+           "-noconfig", "-nostdlib", "-nologo", "-unsafe", "-langversion:9", f"-out:{exe}",
+           f"-r:{API / 'mscorlib.dll'}", f"-r:{API / 'System.dll'}", f"-r:{API / 'System.Core.dll'}", str(RUNNER_SRC), str(ENGINE_SRC), *map(str, EXTRA_SRC)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout + r.stderr); sys.exit(2)
@@ -56,6 +70,10 @@ def main(argv):
         print(f"otr: {dll} not built: run occ.py with TW.Tests.EditMode first"); return 2
     exe = build_runner()
     nunit_dirs = [str(pathlib.Path(p).parent) for p in occ.nunit()]
+    # precompiled package plugins (Unity.Burst.Unsafe, Collections' ILSupport, ...): what Unity loads beside ScriptAssemblies
+    nunit_dirs += [str(pathlib.Path(p)) for p in glob.glob(str(occ.PKG_CACHE / "com.unity.burst@*"))]
+    nunit_dirs += [str(pathlib.Path(p).parent) for p in glob.glob(str(occ.PKG_CACHE / "*/**/*.dll"), recursive=True)
+                   if "Editor" not in p and "CodeGen" not in p and "Tests" not in p]
     env = dict(os.environ)
     env["TW_RUN_DIRS"] = ";".join([str(occ.OUT), str(occ.MAIN_LIB), str(occ.UNITY / "Data/Managed/UnityEngine"),
                                    str(occ.UNITY / "Data/Managed"), *nunit_dirs,
@@ -72,27 +90,43 @@ def main(argv):
     bad = False
     tally = {}
     for f in runs:
-        r = subprocess.run([str(MONO), str(exe), str(dll), f], cwd=str(occ.PROJ), env=env, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace")
-        for line in (r.stdout + r.stderr).splitlines():
-            if not line.strip() or line.startswith(NOISE):
-                continue
-            if line.startswith("---- "):
-                for kv in line[5:].split():
-                    k, v = kv.split("="); tally[k] = tally.get(k, 0) + int(v)
-                continue
-            verdict = line.split("  ", 1)[0]
-            name = line.split("  ")[1] if "  " in line else ""
-            if verdict == "FAIL" and name in known:
-                verdict = "KNOWN"; line = f"KNOWN  {name}  ({known[name]})"
-                tally["KNOWN"] = tally.get("KNOWN", 0) + 1
-            if verdict in ("FAIL", "ERROR", "TIMEOUT"):
-                bad = True
-            if verbose or verdict not in ("PASS", "ENGINE"):
-                print(line)
-    if tally.get("KNOWN"):
-        tally["FAIL"] = tally.get("FAIL", 0) - tally["KNOWN"]
-        if tally["FAIL"] <= 0: tally.pop("FAIL")
+        after = ""
+        while True:
+            r = subprocess.run([str(MONO), str(exe), str(dll), f, after], cwd=str(occ.PROJ), env=env, capture_output=True,
+                               text=True, encoding="utf-8", errors="replace")
+            current, done = "", False
+            for line in (r.stdout + r.stderr).splitlines():
+                if not line.strip() or line.startswith(NOISE):
+                    continue
+                if line.startswith("#CLASS "):
+                    current = line[7:].strip(); continue
+                if line.startswith("#DONE"):
+                    done = True; continue
+                if line.startswith("#CRASH"):
+                    print(line); continue
+                if line.startswith("---- "):
+                    continue   # counted line by line below, so a crashed process loses nothing
+                if line.startswith(("Unhandled Exception", "[ERROR] FATAL", "  at ", "   --- End", "System.")):
+                    continue
+                verdict = line.split("  ", 1)[0]
+                if verdict not in ("PASS", "FAIL", "ERROR", "TIMEOUT", "IGNORE", "ENGINE", "RUNNER", "LOGERR", "SKIP-UNITYTEST", "SKIP-EXPLICIT"):
+                    if verbose: print(line)
+                    continue
+                name = line.split("  ")[1] if "  " in line else ""
+                if verdict == "FAIL" and name in known:
+                    verdict = "KNOWN"; line = f"KNOWN  {name}  ({known[name]})"
+                tally[verdict] = tally.get(verdict, 0) + 1
+                if verdict in ("FAIL", "ERROR", "TIMEOUT", "LOGERR"):
+                    bad = True
+                if verbose or verdict not in ("PASS", "ENGINE"):
+                    print(line)
+            if done or not current:
+                break
+            # the process died inside a class: record it and carry on after it
+            print(f"CRASH  {current}  (the process died in this class; the classes after it run in a new process)")
+            tally["CRASH"] = tally.get("CRASH", 0) + 1
+            bad = True
+            after = current
     print("otr: " + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
     return 1 if bad else 0
 

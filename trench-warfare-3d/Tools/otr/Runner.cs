@@ -14,6 +14,8 @@ static class Runner
     static int Main(string[] args)
     {
         string dll = args[0]; string filter = args.Length > 1 ? args[1] : "";
+        string startAfter = args.Length > 2 ? args[2] : "";   // resume after a class that took the process down
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => { Console.WriteLine("#CRASH " + e.ExceptionObject.GetType().Name + ": " + (e.ExceptionObject as Exception)?.Message); Console.Out.Flush(); };
         dirs = Environment.GetEnvironmentVariable("TW_RUN_DIRS").Split(';');
         AppDomain.CurrentDomain.AssemblyResolve += (s, e) =>
         {
@@ -21,6 +23,11 @@ static class Runner
             foreach (var d in dirs) { var p = Path.Combine(d, name); if (File.Exists(p)) return Assembly.LoadFrom(p); }
             return null;
         };
+        if (Environment.GetEnvironmentVariable("TW_OTR_ENGINE") != "0")
+        {
+            try { FakeEngine.Verbose = Environment.GetEnvironmentVariable("TW_OTR_LOG") == "1"; FakeEngine.Install(Environment.CurrentDirectory); }
+            catch (Exception e) { Console.WriteLine("ENGINE-INSTALL-FAILED " + e.GetType().Name + ": " + e.Message); }
+        }
         var asm = Assembly.LoadFrom(dll);
         Type[] types;
         try { types = asm.GetTypes(); }
@@ -30,13 +37,16 @@ static class Runner
             foreach (var le in e.LoaderExceptions.Take(5)) Console.WriteLine("LOADER " + le.Message);
         }
         var counts = new Dictionary<string, int>();
+        bool started = startAfter == "";
         foreach (var t in types.OrderBy(t => t.FullName))
         {
             if (t.IsAbstract && !t.IsSealed) continue;
-            if (filter != "" && !t.Name.Contains(filter)) continue;
+            if (!started) { if (t.FullName == startAfter) started = true; continue; }
+            if (filter != "" && !(t.Name.Contains(filter) || (filter.Contains(".") && (t.Name + ".").StartsWith(filter.Split('.')[0] + ".")))) continue;
             var methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
             var tests = methods.Where(m => Has(m, "TestAttribute") || Has(m, "TestCaseAttribute") || Has(m, "UnityTestAttribute")).ToList();
             if (tests.Count == 0) continue;
+            Console.WriteLine("#CLASS " + t.FullName); Console.Out.Flush();
             object inst = null;
             string fixtureError = null;
             try { if (!(t.IsAbstract && t.IsSealed)) inst = Activator.CreateInstance(t, true); } catch (Exception e) { fixtureError = Describe(e); }
@@ -55,13 +65,17 @@ static class Runner
                         string err = null;
                         var th = new Thread(() =>
                         {
+                            FakeEngine.Logged.Clear();
+                            NUnitContext(t, m);
                             err = RunAll(methods, "SetUpAttribute", inst);
                             if (err == null) { try { m.Invoke(m.IsStatic ? null : inst, argset); } catch (Exception e) { err = Describe(e); } }
                             string td = RunAll(methods, "TearDownAttribute", inst);
                             if (err == null && td != null) err = "teardown: " + td;
-                        }, 256 * 1024 * 1024);
+                            // Unity's runner fails a test that logs an error, an assert or an exception it did not expect
+                            if (err == null && FakeEngine.Logged.Count > 0) err = "LoggedError: " + string.Join(" | ", FakeEngine.Logged.Take(3));
+                        }, 16 * 1024 * 1024);
                         th.Start();
-                        if (!th.Join(60000)) { try { th.Abort(); } catch { } verdict = "TIMEOUT"; }
+                        if (!th.Join(300000)) { try { th.Abort(); } catch { } verdict = "TIMEOUT"; }
                         else if (err == null) verdict = "PASS";
                         else { verdict = Classify(err); detail = err; }
                     }
@@ -72,7 +86,28 @@ static class Runner
             RunAll(methods, "OneTimeTearDownAttribute", inst);
         }
         Console.WriteLine("---- " + string.Join("  ", counts.OrderBy(k => k.Key).Select(k => k.Key + "=" + k.Value)));
+        Console.WriteLine("#DONE");
         return 0;
+    }
+
+    /// <summary>NUnit's execution context for the current test, as its own runner sets up, so TestContext.WriteLine and
+    /// TestContext.CurrentContext work; what a test writes is echoed when TW_OTR_LOG=1.</summary>
+    static void NUnitContext(Type fixture, MethodInfo method)
+    {
+        try
+        {
+            var nunit = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "nunit.framework");
+            if (nunit == null) return;
+            var ctxT = nunit.GetType("NUnit.Framework.Internal.TestExecutionContext");
+            var ctx = Activator.CreateInstance(ctxT);
+            var mw = Activator.CreateInstance(nunit.GetType("NUnit.Framework.Internal.MethodWrapper"), fixture, method);
+            var test = Activator.CreateInstance(nunit.GetType("NUnit.Framework.Internal.TestMethod"), mw);
+            ctxT.GetProperty("CurrentTest").SetValue(ctx, test, null);
+            var result = test.GetType().GetMethod("MakeTestResult").Invoke(test, null);
+            ctxT.GetProperty("CurrentResult").SetValue(ctx, result, null);
+            ctxT.GetMethod("EstablishExecutionEnvironment").Invoke(ctx, null);
+        }
+        catch (Exception e) { if (Environment.GetEnvironmentVariable("TW_OTR_LOG") == "1") Console.WriteLine("  [nunit context] " + e.GetType().Name + ": " + e.Message); }
     }
 
     static bool Has(MemberInfo m, string attr) => m.GetCustomAttributes(true).Any(a => a.GetType().Name == attr);
@@ -155,13 +190,15 @@ static class Runner
         var st = (e.StackTrace ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
         string frame = st.Count > 0 ? st[0] : "";
         string ours = st.FirstOrDefault(l => l.Contains(" TW.")) ?? "";
-        return e.GetType().Name + ": " + e.Message.Replace("\n", " ").Replace("\r", "") + " @ " + frame + (ours != "" && ours != frame ? " | ours " + ours : "");
+        string full = Environment.GetEnvironmentVariable("TW_OTR_STACK") == "1" ? " || " + string.Join(" <- ", st.Take(12)) : "";
+        return e.GetType().Name + ": " + e.Message.Replace("\n", " ").Replace("\r", "") + " @ " + frame + (ours != "" && ours != frame ? " | ours " + ours : "") + full;
     }
 
     static string Classify(string err)
     {
         if (err.Contains("@ at NUnit.Framework.TestContext")) return "RUNNER";   // TestContext exists only under NUnit's own runner
         if (err.StartsWith("AssertionException") || err.StartsWith("MultipleAssertException")) return "FAIL";
+        if (err.StartsWith("LoggedError")) return "LOGERR";
         if (err.StartsWith("IgnoreException") || err.StartsWith("InconclusiveException")) return "IGNORE";
         if (err.StartsWith("SuccessException")) return "PASS";
         if (err.Contains("ECall") || err.Contains("SecurityException") || err.StartsWith("MissingMethodException")) return "ENGINE";

@@ -107,11 +107,11 @@ No editor of your own? Tools/aosa/occ.py (on `lane/show/aosa` until it merges) c
 Roslyn. It resolves unchanged assemblies from the main clone's `Library/ScriptAssemblies`, so name every assembly
 you changed, in dependency order, or it compiles against yesterday's dlls. It cannot check shaders, USS or scenes.
 
-Then Tools/otr.py runs the EditMode tests that need no engine on those dlls, in Unity's own Mono, no editor
-(`python Tools/otr.py [ClassNameFilter ...] [-v]`). About a third of the suite runs (scatter fields, campaign
-graph, HUD arithmetic, aim shapes, plain-C# meshes); a test that reaches native code (NativeArray and jobs, so every
-sim test; JsonUtility, Resources, Mesh, Debug.Log) is reported ENGINE, not failed. A first filter, never a gate
-verdict. A FAIL caused only by the engine's absence goes in `Tools/otr/known.txt` with its reason.
+Then Tools/otr.py runs the EditMode suite on those dlls in Unity's own Mono with a stand-in engine (Tools/otr/*.cs:
+native memory and jobs, JsonUtility, meshes and FBX import, maths, text assets and .asset files), no editor, no RAM
+(`python Tools/otr.py [ClassNameFilter ...] [-v]`). Nearly all of the sim and presentation suite runs; UI Toolkit
+layout, GameObjects, physics and audio still report ENGINE. A strong first filter, never the gate's verdict (no Burst,
+no job threads, no pixels). A FAIL caused only by the stand-in goes in `Tools/otr/known.txt` with its reason.
 
 ## 5. Tests
 
