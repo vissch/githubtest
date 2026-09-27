@@ -96,15 +96,24 @@ namespace TW.UI
 
         void OnEvent(SimEvent ev)
         {
+            if (BannerFor(ev, out var text, out float seconds, out var cls, out int rank)) Banner(text, seconds, cls, rank);
+        }
+
+        /// <summary>The banner a sim event raises, if any: its text, how long it stays, its style class and its rank
+        /// (BannerRules). Player 0 is the local side, as everywhere until peer play lands. Pure, so HudTextTests drives it.</summary>
+        public static bool BannerFor(in SimEvent ev, out string text, out float seconds, out string cls, out int rank)
+        {
+            bool mine = ev.Type == SimEventType.MatchEnded ? ev.A == 0 : ev.B == 0;
+            rank = BannerRules.Rank(ev.Type, mine);
             switch (ev.Type)
             {
-                // player 0 is the local side (as everywhere until peer play lands); BannerRules decides what may cover what
-                case SimEventType.TrenchCaptured: Banner(HudText.CapturedBanner(ev.A, ev.B == 0), HudLayout.BannerSeconds, ev.B == 0 ? "tw-banner--victory" : "tw-banner--defeat", BannerRules.Rank(ev.Type, ev.B == 0)); break;
-                case SimEventType.AbilityFired:
-                    Banner(HudText.AbilityBanner((OffMapAbilityId)ev.A, ev.B == 0), ev.B == 0 ? HudLayout.BannerSeconds : 4f, ev.B == 0 ? null : "tw-banner--defeat", BannerRules.Rank(ev.Type, ev.B == 0));
-                    break;
-                case SimEventType.MatchEnded: Banner(ev.A == 0 ? HudText.VictoryBanner : HudText.DefeatBanner, 3600f, ev.A == 0 ? "tw-banner--victory" : "tw-banner--defeat", BannerRules.MatchEnd); break;
+                case SimEventType.TrenchCaptured: text = HudText.CapturedBanner(ev.A, mine); seconds = HudLayout.BannerSeconds; break;
+                case SimEventType.AbilityFired: text = HudText.AbilityBanner((OffMapAbilityId)ev.A, mine); seconds = mine ? HudLayout.BannerSeconds : 4f; break;
+                case SimEventType.MatchEnded: text = mine ? HudText.VictoryBanner : HudText.DefeatBanner; seconds = 3600f; break;
+                default: text = null; seconds = 0f; cls = null; return false;
             }
+            cls = mine ? (ev.Type == SimEventType.AbilityFired ? null : "tw-banner--victory") : "tw-banner--defeat";
+            return true;
         }
 
         int bannerRank;

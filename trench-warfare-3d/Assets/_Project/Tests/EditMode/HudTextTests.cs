@@ -73,6 +73,26 @@ namespace TW.Tests
             Assert.AreNotEqual(TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, true), TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, false), "yours and theirs read differently");
         }
 
+        /// <summary>What ObjectiveTracker.OnEvent shows for each event (it calls BannerFor and nothing else): every support
+        /// ability fired by either side raises its banner, not only the enemy's barrages as before 2026-09-27.</summary>
+        [Test]
+        public void TheHudRaisesABannerForEveryAbilityTrenchAndTheEnd()
+        {
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+                foreach (int player in new[] { 0, 1 })
+                {
+                    Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.AbilityFired, A = (int)id, B = player }, out var text, out _, out var cls, out int rank), id + " by player " + player);
+                    Assert.AreEqual(TW.UI.HudText.AbilityBanner(id, player == 0), text);
+                    Assert.AreEqual(player == 0 ? null : "tw-banner--defeat", cls, "the enemy's is a warning");
+                    Assert.AreEqual(TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, player == 0), rank);
+                }
+            Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.TrenchCaptured, A = 2, B = 1 }, out var lost, out _, out var lostCls, out _));
+            Assert.AreEqual("Trench 2 lost", lost); Assert.AreEqual("tw-banner--defeat", lostCls);
+            Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.MatchEnded, A = 0 }, out var won, out float stays, out _, out int endRank));
+            Assert.AreEqual(TW.UI.HudText.VictoryBanner, won); Assert.GreaterOrEqual(stays, 600f, "the end stays up"); Assert.AreEqual(TW.Presentation.BannerRules.MatchEnd, endRank);
+            Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
+        }
+
         /// <summary>Both HUDs' banners go through BannerRules (ObjectiveTracker, CombatFx.OnGUI): a stream of ability
         /// banners must not wipe a trench changing hands or the match's end off the plate, and a finished banner gives way.</summary>
         [Test]
