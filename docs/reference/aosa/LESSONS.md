@@ -107,12 +107,32 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About running the loop
 
+- **A subagent's background child reports to the orchestrator, not to the subagent.** In cycle 9 three agents
+  launched their blind critic with the Agent tool in the background and then waited for a notification that went to
+  the orchestrator instead, so each stalled until the orchestrator relayed the result by hand. Brief every agent
+  that runs a critic (or any child it must read) to launch it with `run_in_background: false`. (a0039, a0040,
+  a0046-a0048: runs 9/c101-critic.md, c99-critic.md, batch9-critic.md hold the relayed scores; cycle 9)
+
 - **The loop followed the most interesting card and stopped grooming.** For cycles 4-7 each cycle chased the newest
   critic finding (smoke, overlays, shadows). By cycle 8, `pick` listed 20 cards past the split threshold (idle 4-8)
   that no one had split, although README says idle 3 means split. The rule exists so that work which stands still
   gets decided. Start every cycle with `pick`, and split whatever it marks SPLIT before starting new work. (cycle 8)
 
 ## About changes
+
+- **Parts that pass alone can fail together.** The C99 pair (fx.smokeSoft 0.6 + fx.burstGlow 0.5) passed blind
+  alone (a0046: weight +0.17, men +0.17, 0 down), and C104's order with the old shape passed alone (a0044: weight
+  -0.33, men 0, tracers +2.17). The default set of both lost barrage weight -1.00, lower in 8 of 8 pairs (a0050,
+  runs 9/d9k-critic.md), and nothing landed. Rule 6's blind check is on the exact set that will ship, against the
+  current default, never on its parts. (a0044, a0046, a0050, cycle 9)
+
+- **A critic and a measurement can disagree; for a shared-look change, measure first.** C105's moon lift and
+  outline thinning raised the blind men score on the left trench 3.00 -> 4.67 (a0042), but the measured men-vs-mud
+  separation d' halved, 0.290 -> 0.147: the critic saw men separate from each other and missed them sinking into
+  the mud. The split put it on the outline thinning (a0045), and the dark-jitter variant held the mud contrast but
+  merged the men, 4.33 -> 3.33 in 7 of 7 pairs (a0049). For a shader change to a look every man shares, measure
+  figure/ground (man vs ground and man vs man) in the real bench frames before the critic, and treat a fall in
+  either as a rule 6 failure. (a0042, a0045, a0049, cycle 9)
 
 - **A sweep's winner is not a pass.** The cycle 8 column sweep asked a blind critic which of four sizes read best as a
   column, and 0.7 won. Nobody asked whether 0.7 read worse than the 0.38 already there. After landing, a blind pair

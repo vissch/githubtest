@@ -1,0 +1,229 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+index 4b1b0af..ba707fb 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs
+@@ -57,6 +57,27 @@ namespace TW.Presentation.Units
+         public static float ReadBlendZoom() => Knobs.Get("vat.blendZoom", BlendZoom);
+         public static int ReadVertexBudget() => Knobs.Get("vat.vertexBudget", VertexBudget);
+         public static float ReadCullRadius() => Knobs.Get("vat.cullRadius", CullRadius);
++
++        /// <summary>
++        /// AOSA C105, knob vat.separation (0-1): men countable in a packed night trench. VAT_URP's _Separation: the ink
++        /// outline's growth with distance flattened (OutlineGrow), a value of his own on each man (+-16%) and a moon lift on
++        /// the shaded side at night. 0, the default until a blind 2-way passes, is the look before it bit for bit: the
++        /// material value is then never set and every use in the shader sits behind `_Separation > 0`. Same draws, same
++        /// vertices at any value.
++        /// </summary>
++        public const string SeparationKnob = "vat.separation";
++        public const float Separation = 0f;
++        public static float ReadSeparation() => Mathf.Clamp01(Knobs.Get(SeparationKnob, Separation));
++
++        /// <summary>VAT_URP's outline pass, in C# for the tests: how the ink's world width grows with the man's view depth w
++        /// (metres). At separation 0 the old clamp(w / 25, 1, 6), which holds the line at a constant screen width past 25 m
++        /// while the man shrinks; above 0 that growth is raised to 1 - 0.6 x separation.</summary>
++        public static float OutlineGrow(float w, float separation)
++        {
++            float grow = Mathf.Clamp(w / 25f, 1f, 6f);
++            if (separation > 0f) grow = Mathf.Pow(grow, 1f - 0.6f * separation);
++            return grow;
++        }
+     }
+ 
+     public sealed class VATRenderer : MonoBehaviour
+@@ -106,6 +127,7 @@ namespace TW.Presentation.Units
+         readonly Plane[] frustum = new Plane[6];
+         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
+         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
++        static readonly int SeparationId = Shader.PropertyToID("_Separation");
+         static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize"), CullId = Shader.PropertyToID("_Cull");
+         /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
+         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
+@@ -136,13 +158,21 @@ namespace TW.Presentation.Units
+             return new Figure { Asset = a, Material = m, Fallen = fallen, Rows = rows, Props = props, FallenProps = fallenProps };
+         }
+ 
+-        float blendZoom = LodTiers.BlendZoom, cullRadius = LodTiers.CullRadius;
++        // on the materials and on the property blocks, as _PosMin is: a shader reload during Play resets a material's values
++        static void ApplySeparation(Figure f, float s)
++        {
++            f.Material.SetFloat(SeparationId, s); f.Fallen.SetFloat(SeparationId, s);
++            f.Props.SetFloat(SeparationId, s); f.FallenProps.SetFloat(SeparationId, s);
++        }
++
++        float blendZoom = LodTiers.BlendZoom, cullRadius = LodTiers.CullRadius, separation = LodTiers.Separation;
+         int vertexBudget = LodTiers.VertexBudget;
+ 
+         void Awake()
+         {
+             // knobs (Knobs): the tiers, and the public fields only where a knob is set, so inspector values still hold
+             blendZoom = LodTiers.ReadBlendZoom(); vertexBudget = LodTiers.ReadVertexBudget(); cullRadius = LodTiers.ReadCullRadius();
++            separation = LodTiers.ReadSeparation();
+             LodDistance = Knobs.Get("vat.lodDistance", LodDistance);
+             MaxGrow = Knobs.Get("vat.maxGrow", MaxGrow);
+             CastShadows = Knobs.Get("vat.castShadows", CastShadows);
+@@ -172,6 +202,11 @@ namespace TW.Presentation.Units
+                 if (clipAtlas) Clips.Apply(baked[0].RowSeconds);   // the controller times its one-shots by the bake
+             }
+             else figures = new[] { Make(shader, ProceduralSoldier.Build()) };
++            if (separation > 0f)   // at 0 nothing is set: the shader's default is 0 and the image is the old one bit for bit
++            {
++                foreach (var f in figures) ApplySeparation(f, separation);
++                if (far != null) ApplySeparation(far, separation);
++            }
+             argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
+             args = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
+             // the controller hands every man a Clip; each tier turns it into a row of its own atlas
+diff --git a/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader b/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader
+index ad8404f..2fb6d8b 100644
+--- a/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader
++++ b/trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader
+@@ -7,6 +7,11 @@
+ // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it.
+ // Only the fallen's material carries _TW_LIMBCUT (the lost-limb and wound clips); the living draw with no clip() at all.
+ // Look: the same two-step cartoon light, haze and ink outline as TW/Toon, so the men sit in the painted field.
++// _Separation (knob vat.separation, AOSA C105; 0 = the look before it, bit for bit: every use sits behind
++// `if (_Separation > 0.0)`): a packed night trench read as a carpet of helmets, because the ink hull kept a constant
++// ~2.7 px x scale past 25 m while the men shrank, so at the standard view it covered 36-41% of the crowd's pixels and
++// every body between two helmets. At 1: the outline's growth with distance is flattened (pow 0.4), each man's cloth
++// takes a value of his own (+-16%, from his seed), and the moon lifts the shaded side off the trench floor.
+ Shader "TW/VAT Infantry (URP)"
+ {
+     Properties
+@@ -20,6 +25,7 @@ Shader "TW/VAT Infantry (URP)"
+         _TeamColorB ("Team 1 cloth", Color) = (0.25, 0.29, 0.32, 1)
+         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
+         _OutlineWidth ("Outline width (m)", Float) = 0.028
++        [HideInInspector] _Separation ("Crowd separation (vat.separation, 0 = off)", Range(0,1)) = 0
+         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
+         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
+         // set per figure by VATRenderer from the baked asset; declared so a material copy (new Material(m)) and a shader
+@@ -50,6 +56,7 @@ Shader "TW/VAT Infantry (URP)"
+             float4 _TeamColorA, _TeamColorB;
+             float4 _WoundCenter, _WoundRadii;
+             float4 _OutlineColor; float _OutlineWidth;
++            float _Separation;
+         CBUFFER_END
+         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
+ 
+@@ -223,6 +230,9 @@ Shader "TW/VAT Infantry (URP)"
+                     albedo = lerp(albedo, mud, splash);
+                     albedo *= 1.0 - 0.28 * g;
+                 }
++                // C105: a value of his own, so two neighbours in a packed trench are two tones, not one carpet (his seed is
++                // constant per man, VatPad bits 14-21, so it never flickers as he moves)
++                if (_Separation > 0.0) albedo *= 1.0 + 0.16 * _Separation * (VatHash(float3(i.grime.y, 0.37, 0.71)) * 2.0 - 1.0);
+                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
+                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
+                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
+@@ -239,6 +249,9 @@ Shader "TW/VAT Infantry (URP)"
+                 // and the floor lights them from beneath: on the lava field this is most of the light they get
+                 color += TWGroundBounce(normalize(i.normalWS), albedo) * 1.18;
+                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
++                // C105: at night the moon lifts the whole man a step off the trench floor (an even lift in his own colour, so it
++                // counts most on his shaded side; keyed on the same mood test as the rim below: nothing without a tinted shade)
++                if (_Separation > 0.0) color += albedo * mainLight.color * (0.30 * _Separation * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))));
+                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
+                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
+                 color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
+@@ -281,7 +294,11 @@ Shader "TW/VAT Infantry (URP)"
+                 float w = TransformWorldToHClip(a.positionWS).w;
+                 // the line is extruded in world space, so it follows how big the man is drawn as well as how far off he is
+                 // (the back rank of a standard frame is 149 m out and used to lose its outline entirely)
+-                float width = _OutlineWidth * a.scale * clamp(w / 25.0, 1.0, 6.0);
++                // C105: at _Separation 1 that growth is flattened to pow 0.4 (x0.51 at the standard view's 78 m, x0.38 at 125 m),
++                // so the ink round a far man no longer swallows the bodies between the helmets; up to 25 m nothing changes
++                float grow = clamp(w / 25.0, 1.0, 6.0);
++                if (_Separation > 0.0) grow = pow(grow, 1.0 - 0.6 * _Separation);
++                float width = _OutlineWidth * a.scale * grow;
+                 o.positionCS = TransformWorldToHClip(a.positionWS + a.normalWS * width);
+                 o.fog = ComputeFogFactor(o.positionCS.z);
+                 return o;
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs
+new file mode 100644
+index 0000000..75d363c
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs
+@@ -0,0 +1,75 @@
++// Phase: AOSA C105 - vat.separation: men countable in a packed night trench (runs 9: left-trench readability 4/10, three
++// blind critics: "a solid carpet of helmets"). Measured on b0-1 frames: the ink hull (33,25,20) was 36-41% of the
++// crowd's pixels and each far man a 12 px helmet in it. 0 is the old look bit for bit, and that is what these guard:
++// the knob's default, the outline's growth written out as it was, and every shader use of _Separation behind its test.
++using System.IO;
++using System.Text.RegularExpressions;
++using NUnit.Framework;
++using UnityEngine;
++using TW.Presentation;
++using TW.Presentation.Units;
++
++namespace TW.Tests
++{
++    public class SeparationTests
++    {
++        const string ShaderPath = "Assets/_Project/Shaders/VAT_URP.shader";
++        const string RendererPath = "Assets/_Project/Presentation/Units/VATRenderer.cs";
++
++        [SetUp] public void SetUp() => Knobs.Clear();
++        [TearDown] public void TearDown() => Knobs.Clear();
++
++        [Test]
++        public void SeparationKnob_DefaultsToOff_ReadsAndClamps()
++        {
++            Assert.AreEqual("vat.separation", LodTiers.SeparationKnob);
++            Assert.AreEqual(0f, LodTiers.Separation);
++            Assert.AreEqual(0f, LodTiers.ReadSeparation(), "unset, the knob is off");
++            Knobs.Set("vat.separation", "1");
++            Assert.AreEqual(1f, LodTiers.ReadSeparation());
++            Knobs.Set("vat.separation", "0.5");
++            Assert.AreEqual(0.5f, LodTiers.ReadSeparation());
++            Knobs.Set("vat.separation", "3");
++            Assert.AreEqual(1f, LodTiers.ReadSeparation(), "clamped to 0-1");
++            Knobs.Set("vat.separation", "-1");
++            Assert.AreEqual(0f, LodTiers.ReadSeparation());
++        }
++
++        [Test]
++        public void OutlineGrow_OffIsTheOldClamp_OnThinsTheFarLineOnly()
++        {
++            // the old outline pass: _OutlineWidth * scale * clamp(w / 25, 1, 6), written out
++            foreach (float w in new[] { 3f, 25f, 40f, 78f, 125f, 149f, 300f })
++                Assert.AreEqual(Mathf.Clamp(w / 25f, 1f, 6f), LodTiers.OutlineGrow(w, 0f), "off: exactly the old growth at " + w + " m");
++            // on: nothing changes up to 25 m (the close-up ink), and past it the line is thinner, the more the further
++            Assert.AreEqual(1f, LodTiers.OutlineGrow(10f, 1f));
++            Assert.AreEqual(1f, LodTiers.OutlineGrow(25f, 1f));
++            float std = LodTiers.OutlineGrow(78f, 1f) / LodTiers.OutlineGrow(78f, 0f);
++            float back = LodTiers.OutlineGrow(125f, 1f) / LodTiers.OutlineGrow(125f, 0f);
++            Assert.That(std, Is.EqualTo(0.505f).Within(0.01f), "the standard view's focus, 78 m: about half the old line");
++            Assert.That(back, Is.EqualTo(0.38f).Within(0.01f), "the far trench, 125 m");
++            Assert.That(LodTiers.OutlineGrow(150f, 1f), Is.GreaterThan(2f), "the back rank keeps a line (it once lost it entirely)");
++            Assert.That(LodTiers.OutlineGrow(78f, 0.5f), Is.GreaterThan(LodTiers.OutlineGrow(78f, 1f)).And.LessThan(LodTiers.OutlineGrow(78f, 0f)));
++        }
++
++        [Test]
++        public void Shader_EveryUseOfSeparationIsBehindItsTest_AndTheRendererSetsItOnlyWhenOn()
++        {
++            string src = Regex.Replace(File.ReadAllText(ShaderPath), @"//[^\n]*", "");
++            // declared once in Properties, once in the per-material buffer; every other line that reads it starts with its test
++            int uses = 0;
++            foreach (Match m in Regex.Matches(src, @"^[^\n]*\b_Separation\b[^\n]*$", RegexOptions.Multiline))
++            {
++                string line = m.Value.Trim();
++                if (line.StartsWith("[HideInInspector] _Separation") || line == "float _Separation;") continue;
++                uses++;
++                Assert.That(line, Does.StartWith("if (_Separation > 0.0)"), "a use of _Separation outside its test changes the old look: " + line);
++            }
++            Assert.AreEqual(3, uses, "the outline's growth, the man's own value and the moon lift");
++            Assert.That(src, Does.Contain("float width = _OutlineWidth * a.scale * grow;"));
++
++            string cs = File.ReadAllText(RendererPath);
++            Assert.That(cs, Does.Contain("if (separation > 0f)"), "at 0 the renderer sets nothing");
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs.meta
+new file mode 100644
+index 0000000..55d766d
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/SeparationTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: f8423fd7233a49969abab4b27a859444

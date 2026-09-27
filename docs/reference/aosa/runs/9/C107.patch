@@ -1,0 +1,180 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 77c7fc9..b150790 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -316,10 +316,16 @@ namespace TW.Presentation.Tactical
+             // 0 (the default) = the old look; fx.tracerInSmoke=1,fx.tracerShape=0 = the order with the old shape.
+             tracerInSmoke = TracerLook.On(TracerLook.Read());
+             tracerShape = TracerLook.ReadShape(tracerInSmoke);
++            // AOSA C107 (TracerLook): fx.tracerGlow, the halo's colour gain (1 = the colour untouched), and
++            // fx.tracerHaloDepth, whether the in-smoke halo writes depth (1, C104) or not (0: it no longer cuts the cloud
++            // and the bursts behind it out). Neither set is today's look bit for bit.
++            float tracerGlow = TracerLook.ReadGlow();
++            if (tracerGlow != 1f)
++                foreach (var halo in new[] { tracerNightA, tracerNightB }) halo.color = TracerLook.HaloColor(halo.color, tracerGlow);
+             if (tracerInSmoke)
+                 foreach (var halo in new[] { tracerNightA, tracerNightB })
+                 {
+-                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true));
++                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true, TracerLook.ReadDepth()));
+                     halo.renderQueue = TracerLook.HaloQueue(true);
+                 }
+             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+index fede98d..5285335 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+@@ -21,6 +21,20 @@
+ // Cycle 9: t1 (runs 9/t1, c104s-critic.md: tracers +2.17, weight -0.33, men never lower) passed alone, but the cycle 9
+ // candidate set (smokeSoft 0.6, burstGlow 0.5, tracerInSmoke 1 with tracerShape 0) failed together on weight (a0050,
+ // runs 9/d9k-critic.md: -1.0, lower in 8 of 8), so the default stays the old look.
++// C107 (AOSA, weight back under the smoke). Why t1 loses mass, from the code: with the order on, the halo is an additive
++// cube that writes depth (_ZWrite 1) at queue 3005, and every transparent after it tests against that depth (the smoke
++// and burst books at 3010 / 3020 are ZTest LEqual, ZWrite Off, flat cards). So (a) a card in front of the round
++// alpha-blends over the halo and dense smoke takes it to nothing (halo x (1 - alpha)), and (b) a card, flare or burst
++// glow behind the round is rejected in the halo's whole 0.24 m x 11.5 m footprint: the halo no longer adds to the lit
++// cloud, it replaces it with a dim 0.36 / 0.50 colour, a slot cut out of the fire. Neither can be fixed by the halo's
++// blend alone (anything drawn before the smoke is scaled by 1 - alpha) without a second draw. Two knobs, read once in
++// CombatFx.Start:
++//   fx.tracerGlow       the night halo's colour gain, 0-4 (1 = today, bit for bit: the colour is not touched). Above 1
++//                       a round in clear air adds more light and, past about 2.4 (green) / 1.7 (red), crosses the bloom
++//                       threshold (0.85, Atmosphere); under thin smoke it keeps more of itself (gain x (1 - alpha)).
++//   fx.tracerHaloDepth  with fx.tracerInSmoke on, 1 = the halo writes depth (C104, the default) and 0 = it does not:
++//                       it stays before the smoke (a cloud still dims it) but no longer cuts the cloud and the bursts
++//                       behind it, so it adds to them again. Off, it does nothing (the old halo never wrote depth).
+ // Same materials, same instances: no draw is added.
+ using UnityEngine;
+ 
+@@ -52,6 +66,22 @@ namespace TW.Presentation.Tactical
+         /// <summary>The night halo's _ZWrite: off (the old look), or on, so a cloud behind the round is not drawn over it.</summary>
+         public static float HaloZWrite(bool inSmoke) => inSmoke ? 1f : 0f;
+ 
++        public const string GlowKnob = "fx.tracerGlow";
++        public const float DefaultGlow = 1f, OldGlow = 1f, MaxGlow = 4f;
++
++        /// <summary>fx.tracerGlow, clamped to 0-4 (read once, CombatFx.Start): the night halo's colour gain.</summary>
++        public static float ReadGlow() => Mathf.Clamp(Knobs.Get(GlowKnob, DefaultGlow), 0f, MaxGlow);
++        /// <summary>The halo's colour times the gain; at exactly 1 the colour itself, untouched (bit for bit).</summary>
++        public static Color HaloColor(Color c, float glow) => glow == 1f ? c : new Color(c.r * glow, c.g * glow, c.b * glow, c.a);
++
++        public const string DepthKnob = "fx.tracerHaloDepth";
++        public const float DefaultDepth = 1f;   // C104's depth write: fx.tracerInSmoke=1 alone keeps its meaning
++
++        /// <summary>fx.tracerHaloDepth, clamped to 0-1 (read once, CombatFx.Start). Above 0.5 the in-smoke halo writes depth.</summary>
++        public static float ReadDepth() => Mathf.Clamp01(Knobs.Get(DepthKnob, DefaultDepth));
++        /// <summary>The night halo's _ZWrite with fx.tracerHaloDepth: on only with the order on and the depth knob above 0.5.</summary>
++        public static float HaloZWrite(bool inSmoke, float depth) => inSmoke && depth > 0.5f ? 1f : 0f;
++
+         // the new night shape (the old numbers stay written out in Matrix below)
+         public const float NightStreak = 7f;        // m, the old 10
+         public const float NightHalo = 0.15f;       // m wide, the old 0.24
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/TracerGlowTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/TracerGlowTests.cs
+new file mode 100644
+index 0000000..323dc2b
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/TracerGlowTests.cs
+@@ -0,0 +1,95 @@
++// Phase: C107 (AOSA) - the night halo's weight under the smoke: fx.tracerGlow (its colour gain) and fx.tracerHaloDepth
++// (whether the in-smoke halo writes depth and so cuts the cloud behind it out). Neither set is today's look bit for bit.
++using NUnit.Framework;
++using UnityEngine;
++using TW.Presentation;
++using TW.Presentation.Tactical;
++
++namespace TW.Tests
++{
++    public class TracerGlowTests
++    {
++        [SetUp] public void SetUp() => Knobs.Clear();
++        [TearDown] public void TearDown() => Knobs.Clear();
++
++        // the halo colours CombatFx.Start makes, written out
++        static readonly Color HaloA = new Color(0.06f, 0.36f, 0.12f), HaloB = new Color(0.50f, 0.07f, 0.05f);
++
++        [Test]
++        public void Unset_TheGainIsOne_AndTheColourIsUntouched()
++        {
++            Assert.AreEqual("fx.tracerGlow", TracerLook.GlowKnob);
++            Assert.AreEqual(TracerLook.OldGlow, TracerLook.DefaultGlow);
++            Assert.AreEqual(1f, TracerLook.ReadGlow());
++            Assert.AreEqual("1", Knobs.Read["fx.tracerGlow"]);
++            foreach (var c in new[] { HaloA, HaloB })
++            {
++                var at = TracerLook.HaloColor(c, TracerLook.ReadGlow());
++                Assert.IsTrue(at.r == c.r && at.g == c.g && at.b == c.b && at.a == c.a, "gain 1 is the colour bit for bit");
++            }
++            Knobs.Set(TracerLook.GlowKnob, "1");
++            Assert.AreEqual(1f, TracerLook.ReadGlow(), "set to 1 is the same");
++        }
++
++        [Test]
++        public void Unset_TheInSmokeHaloStillWritesDepth_AndTheOldOrderNever()
++        {
++            Assert.AreEqual("fx.tracerHaloDepth", TracerLook.DepthKnob);
++            Assert.AreEqual(1f, TracerLook.ReadDepth());
++            Assert.AreEqual("1", Knobs.Read["fx.tracerHaloDepth"]);
++            // C104's two-argument answer is the one-argument one for both orders
++            foreach (bool on in new[] { false, true })
++                Assert.AreEqual(TracerLook.HaloZWrite(on), TracerLook.HaloZWrite(on, TracerLook.ReadDepth()), "order " + on);
++            Assert.AreEqual(0f, TracerLook.HaloZWrite(false, 1f));
++            Assert.AreEqual(1f, TracerLook.HaloZWrite(true, 1f));
++        }
++
++        [Test]
++        public void DepthOff_TheInSmokeHaloNoLongerWritesDepth_ButKeepsItsQueue()
++        {
++            Knobs.Set(TracerLook.DepthKnob, "0");
++            float depth = TracerLook.ReadDepth();
++            Assert.AreEqual(0f, TracerLook.HaloZWrite(true, depth), "no longer cuts the smoke and bursts behind it");
++            Assert.AreEqual(0f, TracerLook.HaloZWrite(false, depth), "the old order never wrote depth");
++            Assert.Less(TracerLook.HaloQueue(true), 3010, "still before the smoke books: a cloud in front still dims it");
++            Knobs.Set(TracerLook.DepthKnob, "5");
++            Assert.AreEqual(1f, TracerLook.ReadDepth(), "kept in [0, 1]");
++            Knobs.Set(TracerLook.DepthKnob, "-2");
++            Assert.AreEqual(0f, TracerLook.ReadDepth());
++        }
++
++        [Test]
++        public void Gain_ScalesTheColourKeepsItsHueAndAlpha_AndIsClamped()
++        {
++            Knobs.Set(TracerLook.GlowKnob, "2.5");
++            float g = TracerLook.ReadGlow();
++            Assert.AreEqual(2.5f, g);
++            foreach (var c in new[] { HaloA, HaloB })
++            {
++                var at = TracerLook.HaloColor(c, g);
++                Assert.AreEqual(c.r * 2.5f, at.r, 1e-6f); Assert.AreEqual(c.g * 2.5f, at.g, 1e-6f); Assert.AreEqual(c.b * 2.5f, at.b, 1e-6f);
++                Assert.AreEqual(c.a, at.a, "alpha is not the gain's (the halo is One One additive)");
++                Assert.Greater(Mathf.Max(at.r, at.g, at.b), 0.85f, "2.5 takes both sides over the bloom threshold (Atmosphere, 0.85)");
++            }
++            Assert.Less(Mathf.Max(HaloA.r, HaloA.g, HaloA.b), 0.85f, "today neither halo blooms on its own");
++            Assert.Less(Mathf.Max(HaloB.r, HaloB.g, HaloB.b), 0.85f);
++            Knobs.Set(TracerLook.GlowKnob, "9");
++            Assert.AreEqual(TracerLook.MaxGlow, TracerLook.ReadGlow());
++            Knobs.Set(TracerLook.GlowKnob, "-1");
++            Assert.AreEqual(0f, TracerLook.ReadGlow());
++        }
++
++        [Test]
++        public void TheKnobsDoNotTouchTheShape()
++        {
++            // the gain and the depth write are material state only: every tracer matrix is the same with them set
++            var from = new Vector3(12f, 1.3f, 40f); var to = new Vector3(80f, 1.1f, 95f);
++            Vector3 d = to - from; float len = d.magnitude;
++            var before = new Matrix4x4[3];
++            for (int side = 0; side < 3; side++) before[side] = TracerLook.Matrix(from, d, len, 0.4f, true, side, 0f, 0f);
++            Knobs.Set(TracerLook.GlowKnob, "2"); Knobs.Set(TracerLook.DepthKnob, "0");
++            TracerLook.ReadGlow(); TracerLook.ReadDepth();
++            for (int side = 0; side < 3; side++) Assert.IsTrue(TracerLook.Matrix(from, d, len, 0.4f, true, side, 0f, 0f).Equals(before[side]), "side " + side);
++        }
++    }
++}
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/TracerGlowTests.cs.meta b/trench-warfare-3d/Assets/_Project/Tests/EditMode/TracerGlowTests.cs.meta
+new file mode 100644
+index 0000000..96aa26e
+--- /dev/null
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/TracerGlowTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: e2a2dfc2626b46adb88c29165a11d134
+\ No newline at end of file

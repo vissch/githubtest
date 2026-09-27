@@ -1,0 +1,162 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+index 372bb6c..aa88000 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs
+@@ -207,6 +207,7 @@ namespace TW.Presentation.Tactical
+         Material flashMat;
+         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
+         bool tracerInSmoke;   // knob fx.tracerInSmoke (Start, AOSA C104): see TracerLook
++        float tracerShape;    // knob fx.tracerShape (Start, AOSA C104s): unset it follows tracerInSmoke (0 or 1)
+         /// <summary>
+         /// Paint every material and flipbook the biome owns. Called when SceneTints.Epoch moves, not per frame:
+         /// the old code compared waterMat.color against a static every frame, which is a native read to decide
+@@ -317,6 +318,7 @@ namespace TW.Presentation.Tactical
+             // knob fx.tracerInSmoke (AOSA C104, TracerLook): the halos drawn before the smoke and writing depth, so a cloud
+             // in front of a round covers it; and the night streak's shorter, narrower, hot-headed shape. 0 = the old look.
+             tracerInSmoke = TracerLook.On(TracerLook.Read());
++            tracerShape = TracerLook.ReadShape(tracerInSmoke);
+             if (tracerInSmoke)
+                 foreach (var halo in new[] { tracerNightA, tracerNightB })
+                 {
+@@ -1005,7 +1007,7 @@ namespace TW.Presentation.Tactical
+                 if (len < 0.1f) continue;
+                 // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
+                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
+-                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerInSmoke));
++                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape));
+                 if (batch.Count == 1023) Flush(cube, rpT);
+             }
+             if (batch.Count > 0) Flush(cube, rpT);
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+index 8b4ece1..e5a6784 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/TracerLook.cs
+@@ -12,6 +12,10 @@
+ //                     and colour (white by design, runs 9/c73.md); the halo keeps its side's colour (whose fire).
+ //                     The day tracer is opaque and already inside the smoke: it is not changed.
+ //                     0 = the old look bit for bit (the default until a blind 2-way passes).
++//   fx.tracerShape    (AOSA C104s) the shape half on its own, 0-1: 0 = the old night streak and halo, 1 = C104's, and
++//                     between them a lerp of every shape number (streak length, halo width, halo length, where the halo
++//                     sits). Unset, it follows fx.tracerInSmoke (0 or 1), so the default and C104's `1` are unchanged
++//                     bit for bit; fx.tracerInSmoke=1,fx.tracerShape=0 is the new order with the old wide halos.
+ // Same materials, same instances: no draw is added.
+ using UnityEngine;
+ 
+@@ -26,6 +30,10 @@ namespace TW.Presentation.Tactical
+         public static float Read() => Mathf.Clamp01(Knobs.Get(Knob, DefaultInSmoke));
+         public static bool On(float inSmoke) => inSmoke > 0.5f;
+ 
++        public const string ShapeKnob = "fx.tracerShape";
++        /// <summary>fx.tracerShape, clamped to 0-1; unset it is 1 when the order is on and 0 when off (read once, CombatFx.Start).</summary>
++        public static float ReadShape(bool inSmoke) => Mathf.Clamp01(Knobs.Get(ShapeKnob, inSmoke ? 1f : 0f));
++
+         /// <summary>The night halo's queue: after every transparent (the old look), or just before the smoke books (3010).</summary>
+         public const int OldHaloQueue = 3100, InSmokeHaloQueue = 3005;
+         public static int HaloQueue(bool inSmoke) => inSmoke ? InSmokeHaloQueue : OldHaloQueue;
+@@ -44,14 +52,22 @@ namespace TW.Presentation.Tactical
+         /// closeUp = SceneHooks.CloseUp. With inSmoke false this is the code before C104 expression for expression.
+         /// </summary>
+         public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, bool inSmoke)
++            => Matrix(from, d, len, k, night, side, closeUp, inSmoke ? 1f : 0f);
++
++        /// <summary>
++        /// As above with the night shape as a 0-1 blend (fx.tracerShape): 0 is the old code and 1 C104's, each bit for bit
++        /// (their own branches); between them the streak, the halo's width and length and its tip's lead are lerped.
++        /// </summary>
++        public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, float shape)
+         {
+-            if (!inSmoke || !night)
++            if (shape <= 0f || !night)
+             {
+                 float streak = Mathf.Min(len, night ? 10f : 6f);
+                 Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+                 float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, closeUp);   // sized for the standard view; among the men a round is a thin line
+                 return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
+             }
++            if (shape < 1f) return Blend(from, d, len, k, side, closeUp, shape);
+             {
+                 float streak = Mathf.Min(len, NightStreak);
+                 Vector3 along = d.normalized;
+@@ -64,5 +80,18 @@ namespace TW.Presentation.Tactical
+                 return Matrix4x4.TRS(head, Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
+             }
+         }
++
++        static Matrix4x4 Blend(Vector3 from, Vector3 d, float len, float k, int side, float closeUp, float s)
++        {
++            float streak = Mathf.Min(len, Mathf.Lerp(10f, NightStreak, s));
++            Vector3 along = d.normalized;
++            Vector3 mid = from + along * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
++            float thick = (side == 2 ? 0.075f : Mathf.Lerp(0.24f, NightHalo, s)) * Mathf.Lerp(1f, 0.30f, closeUp);
++            if (side == 2) return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, streak * 0.8f));
++            // the old halo is centred (its tip 0.575 x the streak ahead of mid), C104's tip is 0.4 + lead ahead: lerp both
++            float halo = streak * Mathf.Lerp(1.15f, NightHaloLength, s);
++            float tip = streak * Mathf.Lerp(0.575f, 0.4f + NightHaloLead, s);
++            return Matrix4x4.TRS(mid + along * (tip - halo * 0.5f), Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
++        }
+     }
+ }
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index 6bdc3d2..5baf9e6 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -567,6 +567,59 @@ namespace TW.Tests
+             Assert.AreEqual(1f, TracerLook.Read());
+         }
+ 
++        [Test]
++        public void TracerShapeKnob_UnsetFollowsInSmoke_EndsAreBitForBit_AndItBlendsOnItsOwn()
++        {
++            // AOSA C104s: fx.tracerShape splits C104's shape from its order. Unset it follows fx.tracerInSmoke (0 or 1),
++            // so neither knob set and fx.tracerInSmoke=1 alone are unchanged bit for bit
++            Assert.AreEqual("fx.tracerShape", TracerLook.ShapeKnob);
++            Assert.AreEqual(0f, TracerLook.ReadShape(false));
++            Knobs.Clear();
++            Assert.AreEqual(1f, TracerLook.ReadShape(true));
++            Knobs.Set(TracerLook.ShapeKnob, "0");
++            Assert.AreEqual(0f, TracerLook.ReadShape(true), "order on, the old wide halos");
++            Knobs.Set(TracerLook.ShapeKnob, "0.5");
++            Assert.AreEqual(0.5f, TracerLook.ReadShape(false));
++            Knobs.Set(TracerLook.ShapeKnob, "-2");
++            Assert.AreEqual(0f, TracerLook.ReadShape(true));
++            Knobs.Set(TracerLook.ShapeKnob, "4");
++            Assert.AreEqual(1f, TracerLook.ReadShape(false));
++
++            var from = new Vector3(12f, 1.3f, 40f);
++            foreach (var to in new[] { new Vector3(80f, 1.1f, 95f), new Vector3(15f, 1.2f, 44f), new Vector3(12.05f, 1.3f, 40.06f) })
++            foreach (float k in new[] { 0f, 0.37f, 1f })
++            foreach (float close in new[] { 0f, 0.6f, 1f })
++            foreach (bool night in new[] { false, true })
++            for (int side = 0; side < (night ? 3 : 1); side++)
++            {
++                Vector3 d = to - from; float len = d.magnitude;
++                var oldM = TracerLook.Matrix(from, d, len, k, night, side, close, false);
++                var newM = TracerLook.Matrix(from, d, len, k, night, side, close, true);
++                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, 0f).Equals(oldM), "shape 0 is the old look");
++                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, 1f).Equals(newM), "shape 1 is C104's");
++                // the blend is continuous at both ends and lies between them
++                AssertNear(oldM, TracerLook.Matrix(from, d, len, k, night, side, close, 1e-4f), "near 0");
++                AssertNear(newM, TracerLook.Matrix(from, d, len, k, night, side, close, 1f - 1e-4f), "near 1");
++                var half = TracerLook.Matrix(from, d, len, k, night, side, close, 0.5f);
++                if (!night) { Assert.IsTrue(half.Equals(oldM), "the day tracer is not changed"); continue; }
++                float lo = Mathf.Min(oldM.lossyScale.x, newM.lossyScale.x), hi = Mathf.Max(oldM.lossyScale.x, newM.lossyScale.x);
++                Assert.That(half.lossyScale.x, Is.InRange(lo - 1e-5f, hi + 1e-5f), "width between");
++                lo = Mathf.Min(oldM.lossyScale.z, newM.lossyScale.z); hi = Mathf.Max(oldM.lossyScale.z, newM.lossyScale.z);
++                Assert.That(half.lossyScale.z, Is.InRange(lo - 1e-4f, hi + 1e-4f), "length between");
++            }
++            // a long night shot at 0.5: the halo is halfway wide, 0.195 m (0.24 -> 0.15)
++            {
++                Vector3 d = new Vector3(80f, 1.1f, 95f) - from;
++                Assert.AreEqual(0.195f, TracerLook.Matrix(from, d, d.magnitude, 0.5f, true, 0, 0f, 0.5f).lossyScale.x, 1e-5f);
++                Assert.AreEqual(8.5f * 0.8f, TracerLook.Matrix(from, d, d.magnitude, 0.5f, true, 2, 0f, 0.5f).lossyScale.z, 1e-4f, "the streak halfway, 8.5 m");
++            }
++        }
++
++        static void AssertNear(Matrix4x4 a, Matrix4x4 b, string what)
++        {
++            for (int i = 0; i < 16; i++) Assert.AreEqual(a[i], b[i], 2e-3f, what + " [" + i + "]");
++        }
++
+         [Test]
+         public void Terrain_NothingSet_IsTheOldConstants()
+         {
