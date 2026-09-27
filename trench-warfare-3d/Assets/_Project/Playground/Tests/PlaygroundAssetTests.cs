@@ -440,5 +440,35 @@ namespace TW.Tests.Playground
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }
+    
+        [Test]
+        public void Every_Machine_Keeps_Its_Thrown_Parts_Near()
+        {
+            // a cook-off's pieces land within 30 m on every machine in the bay (the gunship's engine landed 29 m off, r35).
+            // The tank's lying-down rule does NOT yet hold on every machine: run on all five it found the hovercraft's
+            // turret resting balanced on an edge and the tank's antenna tilted 2 cm over the limit (seed 5); a stricter
+            // rest rule (a face within 25 degrees of flat) left the tank's own turret and a plate tilted. Open in docs/22.
+            var bad = new List<string>();
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                foreach (var e in Lib().Vehicles)
+                {
+                    var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.7f, 5);
+                    r.CookOff();
+                    for (int f = 0; f < 900; f++) r.Advance(1f / 60f);
+                    foreach (var p in r.Parts.Where(p => p.Loose))
+                    {
+                        var d = p.Box.size * r.Size; var dims = new[] { d.x, d.y, d.z }.OrderBy(x => x).ToArray();
+                        float centre = (p.Fly.Pos + p.Fly.Rot * p.Box.center).y * r.Size;
+                        float far = new Vector2(p.Fly.Pos.x, p.Fly.Pos.z).magnitude * r.Size;
+                        if (far > 30f) bad.Add($"{e.Name} {p.Name} {far:0} m away");
+                    }
+                    Object.DestroyImmediate(r.gameObject);
+                }
+                Assert.That(bad, Is.Empty, string.Join("; ", bad));
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
     }
 }

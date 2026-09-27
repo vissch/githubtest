@@ -176,8 +176,11 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
   A flyer that loses a wing or engine comes down, banks 15-30 degrees in a turn, crashes nose-in onto the side it lost,
   and burns before it cooks off (overkill cooks off only after half the cook-off delay). The tank's turret base disc
   (a piece standing on the deck) goes with the turret; it floated once the plates were thrown.
-- **Open after loop 2:** thrown limbs can come to rest standing on end (the tank's "lies down" rule is tested on the tank
-  only); nothing links a flyer's ground ring to the aircraft 14 m up; the Mercy's LOD1->2 colour (7.2 in the round) and
+- **Open after loop 2:** the tank's "every piece ends lying down" rule, run on all five machines, finds the hovercraft's
+  turret resting balanced on an edge (a near-cube always has a broad face nearest down) and the tank's antenna tilted
+  2 cm past the limit; requiring the resting face within 25 degrees of flat left the tank's own turret and a plate tilted
+  (the topple push is capped at three), so it was not kept. The Croaker's thrown arm no longer stands as a post (the
+  broad-face share 0.6 -> 0.7); nothing links a flyer's ground ring to the aircraft 14 m up; the Mercy's LOD1->2 colour (7.2 in the round) and
   the Croaker's 1->2 overlap (0.899) are the weakest pops; the palettes (Skimmer, Croaker at night) and the ruin's flat
   brown faces are owner questions.
 - **Measuring on this bench, lessons:** m3's contrast flips 0.24/0.44 frame to frame on one build, so the round takes nine
