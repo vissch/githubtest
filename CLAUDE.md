@@ -32,8 +32,9 @@ disagree, trust the code and fix the sentence.
 ```bash
 cd trench-warfare-3d && python Tools/health.py --lanes
 ```
-Every checkout on this machine: its branch, last commit, drift from the integration branch, uncommitted files, and
-the files it would conflict on with yours (a trial merge in memory). A conflict it shows is one to raise early: a note in `docs/inbox/`, or ask the owner which lane lands first.
+Every checkout on this machine: branch, last commit, drift from integration, uncommitted files, and the files it
+would conflict on with yours (a trial merge). Raise a conflict early: a note in `docs/inbox/`, or ask the owner
+which lane lands first.
 
 ## Lanes
 Work out your lane from the current branch before you edit anything: `lane/sim/*` or `lane/show/*`. Any other
@@ -77,8 +78,8 @@ rebase before it continues. Never bundle a seam change into a feature commit.
   that exact commit, then `python Tools/land.py`. It refuses a tree no green gate tested, a SHOW lane carrying SIM
   files, and a lane someone landed ahead of, and pushes both branches atomically. Refused: rebase, gate, land.
 - **An owner decision** does not wait for its lane: commit it alone (only `decisions.md`), cherry-pick it onto a
-  branch cut from origin's integration branch, and land that.
-- Push your lane small and often. Never edit a file the other lane owns "just to unblock yourself".
+  new `lane/show/decision-<date>` cut from origin's integration branch, `python Tools/land.py` there, delete it.
+- Push your lane small and often.
 
 ## Gate
 ```bash
@@ -95,7 +96,7 @@ Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no test
   `decisions.md` in the same turn. **Nobody to ask** (a loop, a cron, no reply): add it to the open questions with
   the options and the default you take, go on only with work it does not decide, and do not land on it.
 - **A note for another session:** a new file `docs/inbox/<date>-<to>-<topic>.md`, one note per file and one file
-  per recipient lane (`<to>` is the lane with `-` for `/`, or `all`), so notes never conflict. The receiver
+  per recipient lane (`<to>` is the lane without `lane/`, `-` for `/`: `show-aosa`; or `all`), so notes never conflict. The receiver
   deletes it when done. Cross-session messages expire unread; the inbox does not.
 - **`docs/reference/agent-memory.md`** is a short dated log of incidents that cost time, capped at 150 lines. A
   fact, procedure or decision goes to its reference page instead.

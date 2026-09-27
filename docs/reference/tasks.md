@@ -204,7 +204,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   (until "Pools of fuel and pyres burn out by the sim's clock" lands). The torch drawn on a burning man is
   `Flamethrower` `torches`, also wall-clock; only his animation's `AlightUntil` runs on sim ticks. The `Death` case in
   `CombatFx.cs` does not call `flames.Douse`, so a dead man's torch burns on and the slot's next tenant can be drawn
-  alight (until "Critique round 2: the fixes on the show lane" lands).
+  alight (until "Critique round 1: the fixes on the show lane" lands).
 - **Tests:** none.
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it.
@@ -219,8 +219,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **How harm works:** `PropDestruction.Strike` applies each explosion to the props in reach, per `Rule` (hp,
   pieces, dust; built in `BuildRules`, one per kit list such as `kit.TrenchWalls`). A prop with hp left is only
   chipped (`Chip`: flying bits, no change of look); at zero it is `Finish`ed (`Collapse`/removed, debris thrown).
-  There is no damaged-but-standing state. Budgets: `MaxLoose`, `MaxRemembered`, `PropWear.SpallBudget`, and the
-  `DebrisRenderer` rings.
+  A shelter (`Rule.Shelter`: dugouts, bunkers, MG nests) is never finished: `ShedBags` throws sandbags off it. There
+  is no damaged-but-standing state. Budgets: `MaxLoose`, `MaxRemembered`, `PropDestruction.SpallBudget` (declared in
+  `PropWear.cs`, a part of the same class), and the `DebrisRenderer` rings.
 - **Tests:** DebrisTests, PropWearTests, HouseKitTests.
 - **Trap:** a prop is identified by its position rounded to 0.25 m. Convert a drawn instance to a key through
   `PropWear.Home` first, or it forgets its damage.

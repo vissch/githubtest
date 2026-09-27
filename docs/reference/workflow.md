@@ -307,7 +307,8 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
   `UNITY_PROJECT_PATH=... unity command --detach eval "return TW.Editor.BuildWindows.Build(false);"` (release, to
   `Builds/WinBench/`) or `Build(true)` (Development, to `Builds/WinBenchDev/`); the menu is **TW/Build/Windows Bench
   [(Development)]**. (`BuildWindows.Queue` relies on `delayCall`, which never fires in a background editor.) Each
-  build writes `build-info.json` beside the exe (commit, dirty flag, dev flag); the report copies it into `build_info`.
+  build writes `build-info.json` beside the exe (`git_sha`, `dirty_files`, `development`); the report copies it into
+  `build_info`.
 - **Release or Development.** Profiler markers compile out of a release player, so a release report has frame totals
   and an empty `per_tick_ms`. To see which system costs what, bench the Development build or the editor. Never
   compare numbers across the two (`run.build` in the report says which).
@@ -316,15 +317,16 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
   out=<abs path>.json")` with GreyboxCorridor open. Two reports with the same `hash_start` measured the same battle.
   Look at the `shot=` image before trusting numbers. Pass `quality=` always: the default (-1) takes whatever the
   machine's `settings.json` says.
-- **Compare two reports:** `python Tools/perfcmp.py before.json after.json`. Noise on one build and one fight (two
-  archived runs, 2026-09-23): p50 within about 1%, p95 about 7%, p99, hitch counts and one system's per-tick ms up to
-  about 25%. Run each side twice; judge p50 and `per_tick_ms`, not one p99.
+- **Compare two reports:** `python Tools/perfcmp.py before.json after.json`. Noise on two editor runs of one fight
+  (2026-09-23): p50 within about 1%, p95 up to about 12%, p99 and one system's per-tick ms up to about 25%, hitches 2
+  vs 5. Run each side twice; trust p50; believe a per-system change only past about 30% and in both runs.
 - **Before and after across commits** (a regression that came in on the integration branch):
-  `git worktree add ../tw-<sha> <sha>`, check `python Tools/health.py` for headroom (the first import of a new
-  checkout takes minutes and several GB), build it closed:
+  from the repo root (outside this checkout) `git worktree add ../tw-<sha> <sha>`, check `python Tools/health.py`
+  for headroom (the first import of a new checkout takes minutes and several GB), build it closed:
   `Unity.exe -batchmode -quit -projectPath ../tw-<sha>/trench-warfare-3d -executeMethod TW.Editor.BuildWindows.CommandLine [-twdev] -logFile <file>`,
-  bench both exes with the same options, and check `build_info.commit` in each report. For looks, open an editor on
-  that worktree and use `CaptureRig` (section 6). `git worktree remove ../tw-<sha>` when done.
+  bench both exes with the same options, and check `build_info.git_sha` (and `dirty_files` 0) in each report. A
+  commit older than 96f4366 has no `BuildWindows`: copy `Editor/BuildWindows.cs` and `Perf/` into the worktree first.
+  For looks, open an editor on that worktree and use `CaptureRig` (section 6). `git worktree remove ../tw-<sha>`.
 - Any new `Shader.Find("TW/...")` must be in Always Included Shaders or used by a material under
   `Resources/ShaderKeep/`, or it is missing from the player; ShaderInclusionTests guards it.
 - Count allocations with `TW.Perf.AllocProbe`. `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity.
@@ -359,10 +361,13 @@ apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --contin
   section 5 the test reds that are not bugs.
 - **A sim bug you can see in Play.** Live matches are not recorded: a recorder needs a hash every tick
   (`LockstepDriver` refuses one otherwise) and single player turns hashing off for speed. Reproduce it in an EditMode
-  test instead, built the way the game builds it: `SimHost`'s `NewMatch` makes the world from `MatchLaunch.Field(Ground,
-  BattlefieldSeed)` with bombardment on and the mission's overrides (`MatchLaunch.Apply`), and the enemy is
-  `ScriptedEnemy` (SHOW code) giving orders every tick. SinglePlayerEquivalenceTests drives exactly that:
-  `LockstepSession` plus `session.StepOnce(ai)`. A player's order lands on the tick of the next frame sent, so the
+  test instead, built the way the game builds it. `SimHost`'s private `NewMatch` makes
+  `MatchSim.CreateBattlefield(cfg, MatchLaunch.Field(Ground, BattlefieldSeed))` with `field.Bombardment` from
+  `BombardmentOverride` or `BombardmentPerMinute` when `GeneratedBattlefield` is set, else `CreatePlaytest` or
+  `CreateGreybox`; a mission first writes its values into those fields (`MatchLaunch.Apply` in `Awake`). In a test,
+  call `MatchSim.CreateBattlefield` with the match's values yourself. The enemy is `ScriptedEnemy` (SHOW code);
+  SinglePlayerEquivalenceTests shows the loop that drives it (`LockstepSession` plus `session.StepOnce(ai)`), on the
+  Playtest map without bombardment. A player's order lands on the tick of the next frame sent, so the
   frame rate moves it; if the bug depends on timing, sweep the tick you issue the order on by a few ticks either
   side. DeterminismReplayTests shows recording and replaying. `TW.Editor.TankCapture.Spawn` and
   `SimHost.WriteWorlds` set a scene up in Play when you first need to see it.
