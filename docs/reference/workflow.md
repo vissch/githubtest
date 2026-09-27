@@ -302,11 +302,27 @@ today is listed today. Read the method's own comment for its arguments.
 
 Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
 - Build from an open editor, in the form the perf pass used (pin the project first, as in section 2):
-  `UNITY_PROJECT_PATH=... unity command --detach eval "return TW.Editor.BuildWindows.Build(true);"`, or the menu
-  **TW/Build/Windows Bench**. (`BuildWindows.Queue` relies on `delayCall`, which never fires in a background editor.) Output: `Builds/WinBench[Dev]/TrenchWarfare.exe`.
-- Benchmark in the player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`.
-  Same options in the editor: `TW.Editor.CaptureRig.Bench("... out=<abs path>.json")` with GreyboxCorridor open.
-  Two reports with the same `hash_start` measured the same battle. Look at the `shot=` image before trusting numbers.
+  `UNITY_PROJECT_PATH=... unity command --detach eval "return TW.Editor.BuildWindows.Build(false);"` (release, to
+  `Builds/WinBench/`) or `Build(true)` (Development, to `Builds/WinBenchDev/`); the menu is **TW/Build/Windows Bench
+  [(Development)]**. (`BuildWindows.Queue` relies on `delayCall`, which never fires in a background editor.) Each
+  build writes `build-info.json` beside the exe (commit, dirty flag, dev flag); the report copies it into `build_info`.
+- **Release or Development.** Profiler markers compile out of a release player, so a release report has frame totals
+  and an empty `per_tick_ms`. To see which system costs what, bench the Development build or the editor. Never
+  compare numbers across the two (`run.build` in the report says which).
+- Benchmark in the player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`
+  (`Builds/WinBenchDev/` for the Development one). Same options in the editor: `TW.Editor.CaptureRig.Bench("...
+  out=<abs path>.json")` with GreyboxCorridor open. Two reports with the same `hash_start` measured the same battle.
+  Look at the `shot=` image before trusting numbers. Pass `quality=` always: the default (-1) takes whatever the
+  machine's `settings.json` says.
+- **Compare two reports:** `python Tools/perfcmp.py before.json after.json`. Noise on one build and one fight (two
+  archived runs, 2026-09-23): p50 within about 1%, p95 about 7%, p99, hitch counts and one system's per-tick ms up to
+  about 25%. Run each side twice; judge p50 and `per_tick_ms`, not one p99.
+- **Before and after across commits** (a regression that came in on the integration branch):
+  `git worktree add ../tw-<sha> <sha>`, check `python Tools/health.py` for headroom (the first import of a new
+  checkout takes minutes and several GB), build it closed:
+  `Unity.exe -batchmode -quit -projectPath ../tw-<sha>/trench-warfare-3d -executeMethod TW.Editor.BuildWindows.CommandLine [-twdev] -logFile <file>`,
+  bench both exes with the same options, and check `build_info.commit` in each report. For looks, open an editor on
+  that worktree and use `CaptureRig` (section 6). `git worktree remove ../tw-<sha>` when done.
 - Any new `Shader.Find("TW/...")` must be in Always Included Shaders or used by a material under
   `Resources/ShaderKeep/`, or it is missing from the player; ShaderInclusionTests guards it.
 - Count allocations with `TW.Perf.AllocProbe`. `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity.
@@ -346,15 +362,38 @@ goes to `CombatFx.cs.port.rej` for you, and a `CHECK` line marks a hunk applied 
   section 5 the test reds that are not bugs.
 - **A sim bug you can see in Play.** Live matches are not recorded: a recorder needs a hash every tick
   (`LockstepDriver` refuses one otherwise) and single player turns hashing off for speed. Reproduce it in an EditMode
-  test instead: build the match from its seed and map, step it with the same commands, assert. `DeterminismReplayTests`
-  shows the pattern, including recording and replaying. `TW.Editor.TankCapture.Spawn` and `SimHost.WriteWorlds` set a
-  scene up in Play when you first need to see it.
+  test instead, built the way the game builds it: `SimHost`'s `NewMatch` makes the world from `MatchLaunch.Field(Ground,
+  BattlefieldSeed)` with bombardment on and the mission's overrides (`MatchLaunch.Apply`), and the enemy is
+  `ScriptedEnemy` (SHOW code) giving orders every tick. SinglePlayerEquivalenceTests drives exactly that:
+  `LockstepSession` plus `session.StepOnce(ai)`. A player's order lands on the tick of the next frame sent, so the
+  frame rate moves it; if the bug depends on timing, sweep the tick you issue the order on by a few ticks either
+  side. DeterminismReplayTests shows recording and replaying. `TW.Editor.TankCapture.Spawn` and
+  `SimHost.WriteWorlds` set a scene up in Play when you first need to see it.
+- **Is it the sim or the drawing?** Read the sim's state for the unit with `tw eval` in Play
+  (`h.Local.World`, the eval pattern in section 6): position, `TrenchId` (-1 = not garrisoned), `PostCell` and `PostKind` (1 firing step, 2
+  reserve), `StanceOf`, `Layer` (Surface or Trench). If the sim has him posted in a trench and he is drawn standing
+  on the parapet, the fault is SHOW (`SimPresenter`, `AnimationController`, the ground height from
+  `RenderGround.Sample`). If the sim has him on the surface, it is SIM: a test and a note in `docs/inbox/`.
+  `DebugOverlay` keys: F1 flow-field arrows (`Debug.DrawRay`: Scene view or Gizmos on only), F2 stats and per-trench
+  garrison counts, F3 next flow goal, F4 plain capsules instead of the figures.
+- **Only in the player.** Its log and `settings.json` are in
+  `%USERPROFILE%\AppData\LocalLow\DefaultCompany\trench-warfare-3d\` (`Player.log`; `settings.json` is the same
+  file editor Play reads, so a quality or zoom setting follows you into the editor). The player always runs Burst and
+  usually a different frame rate, which changes which tick an order lands on. `tw eval` cannot reach a player:
+  reproduce in the editor with `Application.targetFrameRate` set to the player's rate, or in a test.
 - **A desync.** The canary runs a second world beside yours and compares hashes every `HashInterval` ticks;
   `LockstepSession` records the first tick they differ. `SimWorld.Hash()` is one chain over every array, so it says
   when, not what: to find which array, hash them one by one in both worlds at that tick (no tool does this yet).
   Rules that prevent most desyncs: `docs/03-determinism-rules.md`.
-- **Slower than before.** Run the bench (section 7) on both builds with the same options and compare the reports;
-  `Sim/Core/PerfMarkers.cs` names the profiler markers, `FrameBudget` counts draws (not all of them: `tasks.md`,
-  Performance), and `TW.Editor.CaptureRig.Profile(path, frames)` samples frame cost in the editor.
+- **Slower than before.** Run the bench (section 7) on both builds with the same options, twice each, and compare
+  with `python Tools/perfcmp.py`; section 7 gives the noise and the recipe for an older commit. `per_tick_ms` names
+  the system (Development build or editor only; `Sim/Core/PerfMarkers.cs` lists the markers). `FrameBudget` counts
+  draws (not all of them: `tasks.md`, Performance). `CaptureRig.Stress` and `CaptureRig.Profile` are rough footprint
+  checks: no fixed tick, no hash, not the same fight twice. Do not A/B with them.
 - **Looks different than before.** Capture the same pose on both builds and compare with `python Tools/shotstats.py
-  after.png before.png`; capture the unchanged build twice first to know the noise (section 6).
+  after.png before.png`; capture the unchanged build twice first to know the noise (section 6). An older commit:
+  section 7, "Before and after across commits". Brightness and grade come from the `BiomeProfile` preset
+  (`Exposure`, `Contrast`, `Bloom`), which `Atmosphere` turns into a Volume built at runtime (there is no Volume asset
+  to diff), then `Shaders/Toon_URP.shader` and the URP asset in `Settings/`. Start with
+  `git log -p --since=<when> -- Assets/_Project/Presentation/Terrain/BiomeProfile.cs Assets/_Project/Presentation/Terrain/Atmosphere.cs Assets/_Project/Shaders Assets/_Project/Settings`.
+  There is no dusk look: the biomes are NightMud, Lava and Winter (`BiomeProfile.Biome`).

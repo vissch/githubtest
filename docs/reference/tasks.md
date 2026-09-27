@@ -52,9 +52,11 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
   (`StressSide` deploys both armies at their spawn points), `Perf/BenchOptions.cs` (`stress=`),
-  `Editor/CaptureRig.cs` (`Stress`: the documented 2,000-man run).
+  `Editor/CaptureRig.cs` (`Bench`, and `Stress`: a rough 2,000-man footprint check).
 - **Tests:** SinglePlayerEquivalenceTests (runs the preset with 60 men a side), BattlefieldLockstepTests.
-- **See it:** `TW.Editor.CaptureRig.Stress(1000, "C:/abs/stress.json")`, or `-twbench "stress=1000 ..."` in a build.
+- **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
+  quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
+  `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
 
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),

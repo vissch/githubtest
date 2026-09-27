@@ -18,7 +18,7 @@ Target: **60 fps (16.6 ms) at 1920×1080** on a GTX 1050 / Intel Iris Xe with a 
 | Deformation + cost update | 0.20 ms | amortised, ≤ 4 stamps per tick |
 | Separation + movement | 0.60 ms | parallel job, 9-bucket neighbour query |
 | Sector control, death, hash | 0.30 ms | xxHash64 over ~1.5 MB |
-| **Total** | **≤ 3.6 ms** | hard ceiling 4 ms; measured with the Unity Profiler `SimWorld.Step` marker |
+| **Total** | **≤ 3.6 ms** | hard ceiling 4 ms; measured with the Unity Profiler `TW.Sim.Step` marker |
 
 ## CPU budget per render frame
 | Item | Budget |
