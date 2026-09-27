@@ -58,6 +58,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-23 | Single player runs **one** sim world. The two-world check is an opt-in determinism canary (`feature-flags.md`). |
 | 2026-09-23 | Performance fidelity bar: a change that keeps the image lands freely; one that should be "indistinguishable" needs before/after captures and a critic. Measure in the editor **and** a Windows player build. |
 | 2026-09-25 | Navigation docs live in the repo (`CLAUDE.md` → `docs/reference/`), checked by `Tools/codemap.py`. |
+| 2026-09-27 | **SIM landing order: the overhaul first.** `lane/sim/overhaul` and `lane/show/overhaul` land together (`land.py --carry-sim`, under the 2026-09-26 "one session on both lanes" decision); `lane/sim/units-meta` and `lane/show/units-meta` rebase onto it afterwards and renumber the ability id 10 clash (ParaDrop vs StrafeRun). Merging waits until every session has pushed. |
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
@@ -68,13 +69,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Explosions batches B and C** (sky flash, shock ring, per-weapon recipes; scar layer, smouldering craters, haze). Batch A shipped; B and C wait for a go.
 - **Not scaled with the giant machines:** trench cross width, slope limit, turn rates, speeds, `MaxGrow`. Balance, not geometry.
 - **Forward+** renderer: the perf pass was to switch and let the owner judge the night look. Not recorded as done.
-- **Which SIM lane lands first: `lane/sim/units-meta` or `lane/sim/overhaul`?** Both rewrite the same systems
-  (`DirectFire`, `TargetAcquisition`, `Replay`, `SimEvents`, `SimRandom`, `OffMapAbilities`; 41 and 25 `Sim/` files
-  since they parted, 2026-09-27). Whichever lands second re-does its changes on top and re-proves determinism and
-  replay. Nothing in the code decides this; the owner does. Landing `lane/show/overhaul` decides it too: it merged
-  `lane/sim/overhaul` into itself ten times under its own 2026-09-26 decision "one session on both lanes", which is
-  recorded only on that branch. `Tools/land.py` refuses to land a SHOW lane carrying SIM files unless `--carry-sim`
-  names the decision, so the choice comes back here.
 - **Record live matches for debugging?** A recorder needs a hash every tick, which single player turns off for
   speed. Options: pay for per-tick hashing, or a commands-only replay format (a seam change). Audit R9.
 - **A CI check for the docs and tools** (`validate.py`, `Tools/selftest.py`, Python only), required before a lane
