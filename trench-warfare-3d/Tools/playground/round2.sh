@@ -13,9 +13,10 @@ for spec in "1:croaker" "2:hopper" "3:mercy" "4:skimmer"; do
   $P do "vehicle.compare"; sleep 3
   $P do "cam 0 5 0 20 18 80 35"; sleep 1
   $P shot ${T}_${n}_1_compare
-  $P do "seq"; sleep 2.9
+  # (2.3 s: after the first two hits, before the HE; at 2.9 s a machine already knocked out was shot as "hits", r37)
+  $P do "seq"; sleep 2.3
   $P shot ${T}_${n}_2_hits
-  sleep 2.6
+  sleep 3.2
   $P shot ${T}_${n}_3_burning
   sleep 6.0
   $P shot ${T}_${n}_4_cookoff

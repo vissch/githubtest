@@ -541,7 +541,8 @@ for k in ((1, 2) if DERIVE == "12" else (1,) if DERIVE == "1" else ()):
     derived.append(k)
     print("LOD%d: derived from LOD0, %d tris (Tripo's had %d)" % (k, sum(tris_of(b) for b in P.values()), tripo))
 piv, sock = pivots_and_sockets(lods[0][0])
-manifest = {"source": "Tools/tank3split.py", "name": NAME, "scale": SCALE, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped, "derived": derived}
+# fling 0.8: at the full speeds a lamp landed 20.6 m off, further than anything the other machines throw (loop 2 r37)
+manifest = {"source": "Tools/tank3split.py", "name": NAME, "scale": SCALE, "fling": 0.8, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped, "derived": derived}
 for n in ALL_PARTS:
     manifest["parts"][n] = {"parent": PARENT.get(n), "pivot": unity(piv[n] * SCALE), **BREAK[n]}
 for s, (owner, p) in sock.items():
