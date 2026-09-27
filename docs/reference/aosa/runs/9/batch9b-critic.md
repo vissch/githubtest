@@ -133,3 +133,38 @@ What the critics named:
   change pending: reject. Thinning the clouds also exposes the column arcs, which read as stickers (C102/C103
   ground).
 - **n56 as a pair: FAILS.** Weight -1.67 (0/6 up) and smoke -1.00. Its men gain (+1.67 / +1.00) is C105's alone.
+
+## Follow-up C105s: the knob split (m-runs)
+
+Runs 9/m0 (default; bit-identical to n0 and n0d: 0 of the pixels differ at f0 and f40), m1 (vat.separation=1,
+vat.sepLift=0: outlines and symmetric jitter, no lift), m2 (as m1, plus vat.sepJitterDark=1: jitter darker only),
+m3 (vat.sepOutline=1: outline thinning only). Day runs m0d, m2d and m3d. Same frames and regions as above. The men
+mask is batch9b's n0/n5 mask, fixed for every variant so the numbers compare (m3's own diff covers only the outline
+pixels). The blob threshold is Otsu on the default's men, as above. The table gives the mean d' (men vs the mud ring
+around them), then blobs at the fixed T / blobs at each image's own Otsu / crowd-edge gradient.
+
+| | night LT | night TR | day LT | day TR |
+|---|---|---|---|---|
+| default | 0.254, 197/197, 43.8 | 0.327, 69/69, 67.2 | 1.280, 718/718, 251 | 1.196, 227/227, 208 |
+| n5 (C105) | 0.148 (-42%), 382/255, 56.6 | 0.146 (-55%), 102/88, 74.4 | 0.910 (-29%), 892/932, 197 | 0.759 (-37%), 216/258, 143 |
+| m1 (no lift) | 0.069 (-73%), 277/249, 49.7 | 0.227 (-31%), 82/70, 69.8 | n/a | n/a |
+| m2 (no lift, dark jitter) | 0.250 (-2%), 202/236, 44.1 | 0.319 (-2%), 64/60, 65.3 | 1.095 (-14%), 906/906, 191 | 0.895 (-25%), 237/265, 139 |
+| m3 (outline only) | 0.063 (-75%), 271/246, 49.5 | 0.234 (-28%), 82/70, 69.6 | 1.025 (-20%), 895/899, 193 | 0.843 (-30%), 224/248, 140 |
+
+Findings:
+- **The lift was not the main cause.** m3, with the outline thinning alone, loses as much men-vs-mud as m1. The thin
+  ink removes the dark rim that kept the crowd's mean below the mud. The lift even helped the left trench a little
+  (n5 0.148 against m1 0.069).
+- **m2's darker jitter pays the loss back at night** (d' -2% and -2%, abs dL* 2.59 -> 2.44 and 5.50 -> 5.36). Its
+  separation gain is small, though: blobs at the fixed T go 197 -> 202 (LT) and 69 -> 64 (TR), and the crowd edge is
+  flat.
+- **By day every variant loses separation.** m2d is -14% and -25%, with the crowd edge -24% and -33%, because all
+  of them thin the outline that carries the men against the snow.
+
+**Blind critic: not run.** Every variant's measured separation falls: m1 and m3 by 28-75% at night, and m2 by 2% at
+night and 14-25% at day. By the rule (skip the ones that fall), none goes to the critic.
+
+**Decision: no variant passes, and no default is proposed.** C105 stays at default 0, pending reject. Next, and
+untested: the jitter alone with the outline left as it is (vat.sepJitter=1, vat.sepJitterDark=1, vat.sepOutline=0,
+vat.sepLift=0). m2 shows that the dark jitter holds men-vs-mud at night. Keeping the outline would keep the day's
+contrast, and whether the jitter alone separates the helmets has to be measured.
