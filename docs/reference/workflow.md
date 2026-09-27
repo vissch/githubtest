@@ -20,7 +20,8 @@ branch   lane/show/maint-2026-09  lane show  ahead 0 behind 0 of claude/trench-w
   editor and kills their Play session). `lock FREE`: nobody has this checkout.
 - `lane NONE`: stop and work out your lane (`CLAUDE.md`).
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
-  (`Tools/codemap.py` explains each rule).
+  (`Tools/codemap.py` explains each rule). After changing `codemap.py`, `port_split.py` or `health.py`, run
+  `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
 - Then read `docs/reference/inbox.md` for notes addressed to you.
 
 ## 2. The machine you share
