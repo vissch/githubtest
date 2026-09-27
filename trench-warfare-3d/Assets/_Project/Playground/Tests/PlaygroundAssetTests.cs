@@ -375,7 +375,9 @@ namespace TW.Tests.Playground
             var parent = new GameObject("test stage").transform;
             try
             {
-                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0);
+                // built away from the origin: a walker once walked from the world's origin wherever it was built (loop 2 r33)
+                var spawn = new Vector3(200f, 0f, 0f);
+                var r = VehicleRig.Build(e, null, parent, spawn, 0f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0);
                 r.Walker.Speed = 2.5f;
                 float worstSink = 0f, worstLift = 0f, lowHull = float.MaxValue;
                 for (int f = 0; f < 300; f++)
@@ -391,6 +393,8 @@ namespace TW.Tests.Playground
                 Assert.That(worstLift, Is.LessThan(0.35f), "both feet were off the ground at once");
                 Assert.That(lowHull, Is.GreaterThan(1f), "the body sat down while walking");
                 Assert.That(r.Walker.WalkPos.magnitude, Is.GreaterThan(8f), "it did not walk anywhere");
+                var h = r.Find("Hull").T.position;
+                Assert.That(new Vector2(h.x - spawn.x, h.z - spawn.z).magnitude, Is.LessThan(2f * r.Walker.Radius + 5f), "it walked somewhere other than where it was built");
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }

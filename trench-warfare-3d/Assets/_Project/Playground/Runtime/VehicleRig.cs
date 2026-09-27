@@ -552,6 +552,10 @@ namespace TW.Playground
                     nextFlame = now + Mathf.Lerp(0.34f, 0.12f, FireLevel);
                     string[] feet = State == Stage.CookedOff ? new[] { "Socket_Fire0", "Socket_Fire1", "Socket_Fire2", "Socket_Deck" } : new[] { "Socket_Fire0", "Socket_Fire1" };
                     var foot = Socket(feet[Random.Range(0, feet.Length)]);
+                    // after the cook-off the plates the fire sockets were cast onto are gone: the flames stand on what is
+                    // left of the hull, not in the air where the plates were (loop 2 r33, v5)
+                    var hullPart = Find("Hull");
+                    if (State == Stage.CookedOff && hullPart != null) foot.y = Mathf.Min(foot.y, hullPart.T.TransformPoint(new Vector3(0f, hullPart.Box.max.y, 0f)).y);
                     float big = State == Stage.CookedOff ? 1.5f : 1f;
                     Fx.Flame(foot, V(1.2f, 1.9f) * Size * big * FireLevel, V(2.2f, 3.4f) * Size * big * Mathf.Sqrt(FireLevel), V(0.6f, 0.9f));
                 }
