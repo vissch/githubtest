@@ -383,6 +383,47 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ColumnHardKnob_DefaultIsTheOldLook_AndSetsTheCutOnTheColumnBookOnly()
+        {
+            // AOSA C102: fx.smokeHard's toon cut on the earth column; 0 (the default until a blind 2-way passes) is the old look
+            Assert.AreEqual("fx.columnHard", FlipbookFx.ColumnHardKnob);
+            Assert.AreEqual(FlipbookFx.OldColumnHard, FlipbookFx.DefaultColumnHard, "the default is the old look");
+            Assert.AreEqual(0f, FlipbookFx.ReadColumnHard());
+            Assert.AreEqual("0", Knobs.Read["fx.columnHard"]);
+
+            // the old values: every book is made with the _Hard the code before C102 gave it (s.Deep ? smokeHard : 0),
+            // written out: the burst's cloud and the smoke take fx.smokeHard, every other book (the Column among them) 0
+            foreach (float smoke in new[] { 0f, 0.5f, 1f })
+            for (int b = 0; b < (int)FlipbookFx.Book.Count; b++)
+            {
+                var book = (FlipbookFx.Book)b;
+                bool deep = book == FlipbookFx.Book.Burst || book == FlipbookFx.Book.Smoke;
+                float old = deep ? smoke : 0f;
+                Assert.IsTrue(FlipbookFx.BookHard(book, smoke, FlipbookFx.ReadColumnHard()) == old, book + ", fx.smokeHard " + smoke);
+            }
+
+            // on: the Column book alone takes the cut; the Splash (the same drawing in water) and the Deep books do not move
+            Knobs.Set(FlipbookFx.ColumnHardKnob, "1");
+            Assert.AreEqual(1f, FlipbookFx.ReadColumnHard());
+            foreach (float smoke in new[] { 0f, 1f })
+            for (int b = 0; b < (int)FlipbookFx.Book.Count; b++)
+            {
+                var book = (FlipbookFx.Book)b;
+                float at = FlipbookFx.BookHard(book, smoke, FlipbookFx.ReadColumnHard());
+                float off = FlipbookFx.BookHard(book, smoke, 0f);
+                if (book == FlipbookFx.Book.Column) Assert.AreEqual(1f, at, "the column is cut");
+                else Assert.IsTrue(at == off, book + " is not touched, fx.smokeHard " + smoke);
+            }
+            Assert.AreEqual(0f, FlipbookFx.BookHard(FlipbookFx.Book.Splash, 1f, 1f), "the Splash keeps its soft edge");
+
+            // out of range: kept in [0, 1]
+            Knobs.Set(FlipbookFx.ColumnHardKnob, "-1");
+            Assert.AreEqual(0f, FlipbookFx.ReadColumnHard());
+            Knobs.Set(FlipbookFx.ColumnHardKnob, "3");
+            Assert.AreEqual(1f, FlipbookFx.ReadColumnHard());
+        }
+
+        [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
             Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));

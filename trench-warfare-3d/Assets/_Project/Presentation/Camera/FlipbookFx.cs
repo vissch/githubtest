@@ -151,6 +151,25 @@ namespace TW.Presentation.Tactical
         /// <summary>fx.smokeHard, in [0, 1] (0 = the old look).</summary>
         public static float ReadHard() => Mathf.Clamp01(Knobs.Get(HardKnob, DefaultHard));
 
+        // AOSA C102 (juice J01, split from C53: the smallest change): the earth column reads as a smooth translucent sheet,
+        // flame-lit early and curling into lobes late, which veils the men (runs 8/c98-critic.md). C53 asks for toon-stepped
+        // edges instead of a soft falloff. One knob, read once where the books are made:
+        //   fx.columnHard  fx.smokeHard's toon-cut silhouette (the shader's _Hard, stepped at half the drawing's alpha, torn
+        //                  as the book erodes, back to the soft edge as the lens goes in) on the Column book only: not the
+        //                  Splash, which draws the same sheet in water, and not the Deep books, which keep fx.smokeHard. Each
+        //                  book has its own material, so no draw or material is added. 0 = the old look (the Column book
+        //                  got _Hard 0 before C102, and the shader skips the line at 0).
+        public const string ColumnHardKnob = "fx.columnHard";
+        public const float DefaultColumnHard = 0f, OldColumnHard = 0f;   // off until a blind 2-way against the default passes (rule 6)
+
+        /// <summary>fx.columnHard, in [0, 1] (0 = the old look).</summary>
+        public static float ReadColumnHard() => Mathf.Clamp01(Knobs.Get(ColumnHardKnob, DefaultColumnHard));
+
+        /// <summary>The _Hard a book's material is made with: fx.smokeHard on the Deep books (the burst's cloud and the smoke),
+        /// fx.columnHard on the Column book, 0 on every other book. With columnHard 0 it is the value before C102 exactly.</summary>
+        public static float BookHard(Book book, float smokeHard, float columnHard)
+            => Sheets[(int)book].Deep ? smokeHard : book == Book.Column ? columnHard : 0f;
+
         /// <summary>The night smoke's hue at a warmth: C59's NightHue itself at 1 (the same floats), white at 0.</summary>
         public static Color NightHueAt(float warm) => warm >= 1f ? NightHue : Color.Lerp(Color.white, NightHue, warm);
 
@@ -249,6 +268,7 @@ namespace TW.Presentation.Tactical
             maxCards = Mathf.Max(1, Knobs.Get("flipbook.maxCards", MaxCards));
             float soft = ReadSoft();   // C52: the deep clouds' softness (the shader takes it back to 0 as the lens goes in)
             float hard = ReadHard();   // C61: the deep clouds' toon-cut edge (the same)
+            float columnHard = ReadColumnHard();   // C102: the same cut on the earth column
             var shader = Shader.Find("TW/Flipbook (URP)");
             if (shader == null) return;
             int found = 0;
@@ -268,7 +288,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
                 m.SetFloat("_ShadeMood", s.Mood > 0f ? s.Mood : 1f);
                 m.SetFloat("_Soft", s.Deep ? soft : 0f);
-                m.SetFloat("_Hard", s.Deep ? hard : 0f);
+                m.SetFloat("_Hard", BookHard((Book)k, hard, columnHard));
                 m.SetFloat("_SrcBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.SrcAlpha));
                 m.SetFloat("_DstBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
                 m.renderQueue = s.Additive ? 3020 : 3010;
