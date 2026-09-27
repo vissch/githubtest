@@ -9,7 +9,7 @@ Read three files, in order: this one, `docs/reference/tasks.md` (task → files 
 | You need | Open |
 |---|---|
 | which file to change, which test guards it | `docs/reference/tasks.md` |
-| a command: open the editor, eval, compile, one test, the gate, a screenshot, a build | `docs/reference/workflow.md` |
+| a command: open the editor, eval, compile, one test, the gate, a screenshot, a build; every `tw eval` helper | `docs/reference/workflow.md` (section 6 lists the helpers) |
 | what the owner decided, and what is still waiting on them | `docs/reference/decisions.md` |
 | a switch, arg or prefs key | `docs/reference/feature-flags.md` |
 | importing, splitting, baking art; any `Tools/` script | `docs/reference/pipelines.md` |
@@ -93,3 +93,4 @@ pass), 3 project held. `validate.py` alone is not the gate. Details and false re
 - Packages change only through the `unity-package-management` skill's Client API script, never by hand.
 - Fresh clone: `unity run . -- -nographics -executeMethod TW.Editor.BootstrapSceneBuilder.SetupAll` (in `trench-warfare-3d/`).
 - `unity.exe` is at `%LOCALAPPDATA%\unity\bin\unity.exe`. `Tools/tw` finds it and pins every call to this checkout.
+- `github-test1/` at the repo root is an unrelated Unity project: leave it out of searches (`--glob "!github-test1"`).

@@ -3,7 +3,8 @@
 Every switch that changes what the game or the editor does without a code change: command-line arguments,
 PlayerPrefs / EditorPrefs / SessionState keys, environment variables, and the static or inspector fields tools set.
 The tables are generated from the code by `Tools/codemap.py`; the "Effect" text lives in that script's `FLAG_EFFECT`
-and `STATIC_SWITCHES`. A new switch fails `validate.py` until it is described there.
+and `STATIC_SWITCHES`. A new command-line flag, pref or environment variable fails `validate.py` until it is
+described here. A new static switch does not: add it to `STATIC_SWITCHES` in `Tools/codemap.py` yourself.
 
 **Two that surprise people:**
 - `tw.hud.toolkit` is stored in the Windows registry per machine. If someone pressed F9, that machine shows the old

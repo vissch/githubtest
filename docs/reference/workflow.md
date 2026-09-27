@@ -247,10 +247,45 @@ so two captures of "the same moment" can differ more than the change you are jud
 measured on 2026-09-25). Seed `UnityEngine.Random.InitState(...)`, and use `Tools/tw stepabs <seconds>` to create
 the effect and to sample it at fixed absolute game times. Before believing a difference between two rounds,
 capture the same build twice and treat anything inside that spread as noise. `python Tools/flamecheck.py <png>`
-refuses a fire capture with no fire in it. In a player build, PerfBench's `shot_tick=N shot_hud=0` gives stills
+refuses a fire capture with no fire in it. On `lane/show/aosa` (not merged), PerfBench's `shot_tick=N shot_hud=0` gives stills
 that repeat bit for bit (the HUD animates on real time).
 
 A paused game view does not repaint. After changing anything, step one frame before capturing.
+
+**Every editor entry point.** Each `public static string` method under `Editor/` is meant for `Tools/tw eval` and
+returns what the call prints. This table is generated from the code (`python Tools/codemap.py`), so a helper added
+today is listed today. Read the method's own comment for its arguments.
+
+<!-- gen:eval-api -->
+| Call | File | What it does |
+|---|---|---|
+| `TW.Editor.BuildWindows.Queue(development)` | Editor/BuildWindows.cs | Schedules a build for the next editor tick and returns at once, so a `unity command eval` does not hold the command server for the minutes a first ... |
+| `TW.Editor.BuildWindows.Build(development)` | Editor/BuildWindows.cs | (no summary: read the method) |
+| `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h)` | Editor/CaptureRig.cs | Queue one still. |
+| `TW.Editor.CaptureRig.Pending()` | Editor/CaptureRig.cs | How many shots are still to be taken; 0 means the set is finished and the camera is back. |
+| `TW.Editor.CaptureRig.ShotCrowd(path, zoom, yaw, pitch, w, h, cell)` | Editor/CaptureRig.cs | A still of the thickest knot of men, so a capture contains soldiers without anyone guessing at coordinates. |
+| `TW.Editor.CaptureRig.Series(dir, stem, x, z, zoom, yaw, pitch, count, everyFrames, w, h)` | Editor/CaptureRig.cs | A run of stills from one pose, `everyFrames` apart, so a thing that only exists over time — a shell's smoke column climbing and leaning off, a body ... |
+| `TW.Editor.CaptureRig.Sheet(dir, stem, outPath, cols, cellW)` | Editor/CaptureRig.cs | Tiles a series into one image, because eight PNGs opened one after another is not a sequence you can see. |
+| `TW.Editor.CaptureRig.Hold(weatherClock)` | Editor/CaptureRig.cs | Stops the clock and pins the weather. |
+| `TW.Editor.CaptureRig.Release()` | Editor/CaptureRig.cs | Lets the world run again and gives the weather back its own clock. |
+| `TW.Editor.CaptureRig.Diff(pathA, pathB, outPath)` | Editor/CaptureRig.cs | Compares two stills pixel for pixel and says what moved. |
+| `TW.Editor.CaptureRig.LastReport()` | Editor/CaptureRig.cs | The measurements from the last still, so a script can read them without opening the file. |
+| `TW.Editor.CaptureRig.Bench(args)` | Editor/CaptureRig.cs | Runs TW.Perf.PerfBench in the editor on the open GreyboxCorridor: the same fixed battle, camera, sky and report the Windows player measures with ... |
+| `TW.Editor.CaptureRig.Profile(path, frames)` | Editor/CaptureRig.cs | Samples the frame cost over `frames` frames and writes it as json. |
+| `TW.Editor.CaptureRig.Pigments(path, cell)` | Editor/CaptureRig.cs | Lays every painted surface out side by side as one PNG, each tiled 2x2 so the repeat is visible. |
+| `TW.Editor.CaptureRig.Textures(path, top)` | Editor/CaptureRig.cs | Every texture in memory, largest first, with what it really costs, and a count of the distinct materials and shaders the props are drawn with. |
+| `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
+| `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
+| `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
+| `TW.Editor.TankCapture.Shot(path, w, h)` | Editor/TankCapture.cs | (no summary: read the method) |
+| `TW.Editor.TankCapture.Follow(slot, zoom, yaw)` | Editor/TankCapture.cs | (no summary: read the method) |
+| `TW.Editor.TankCapture.Silver(amount)` | Editor/TankCapture.cs | (no summary: read the method) |
+| `TW.Editor.TankCapture.Spawn(team, archetype, x, z, yawDeg)` | Editor/TankCapture.cs | A unit at an exact place in every world, with the stats its archetype has in the roster (either side's: each side fields different machines). |
+| `TW.Editor.TankCapture.Ignite(slot, fire)` | Editor/TankCapture.cs | Set something burning in both worlds (to watch a fire, a bail-out and a cook-off). |
+| `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
+| `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
+| `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
+<!-- /gen:eval-api -->
 
 ## 7. Windows build and benchmark
 

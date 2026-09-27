@@ -68,6 +68,12 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **Tests:** SupportAbilityTests, DirectionalBlastTests.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
 
+### Fire in the sim
+- **Files:** vehicles burn: `Sim/Units/VehicleModules.cs` (`Fire`, `StartFire`, `UnitFlags.Burning`, the
+  `VehicleOnFire` event). Men and ground cells do not burn yet: `Sim/Combat/Burning.cs` is a stub that throws and is
+  not registered (`code-map.md`, sim system order). Registering it is a hash and replay change (a seam commit).
+- **Tests:** TankMobilityTests (vehicle fire). None for infantry fire.
+
 ### Vehicles in the sim: tanks and walkers
 - **Files:** `Sim/Core/RosterEntry.cs` (`VehicleArchetype`, default roster, `SlotCount`), `Sim/Combat/TankSpec.cs`,
   `Sim/Combat/Armor.cs`, `Sim/Combat/TankGunnery.cs`, `Sim/Units/VehicleModules.cs` (legs, tracks, crew, fire,
@@ -124,6 +130,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
 - **Trap:** vehicle meshes must import Read/Write enabled or scaling silently does nothing.
+- **Already there, check before adding:** `WalkerGait` `Carry` sets the body's height, pitch and roll from the
+  planted feet, and `Step` leads each step by the walker's velocity; `TankRenderer` applies them to the hull.
 
 ### Combat effects: tracers, bursts, smoke, camera shake
 - **Files:** `Presentation/Camera/CombatFx.cs` (event dispatch `OnSimEvent`, tracers, bodies, bursts, materials),
@@ -132,6 +140,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
+  `CombatFx.cs` also draws the gameplay overlays: called-strike target markers, the ability aiming circle (in
+  `Update`, from `TestPanel.Armed`) and the IMGUI banner (`Banner`, `OnGUI`).
 - **Hooks:** sets `Sparks`, `CookOff`, `FootFall`; reads `IsWater`, `AddRing`, `Flash`, `SmokeSources`, `IsTankSlot`,
   `VehicleTracks`, `VehicleGunPort`, `CloseUp`.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests.
@@ -147,8 +157,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
 
 ### Flamethrower
-- **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only: the sim has no fire yet),
-  `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`.
+- **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only: men do not burn in the sim, see "Fire in
+  the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Its clock is `now = Time.time` in
+  `CombatFx.cs` `Update`, passed to `flames.Update`: wall-clock, so it runs on while the sim is paused. A
+  burning man's state runs on sim ticks instead (`AnimationController.SetAlight`, `AlightUntil`).
 - **Hooks:** calls `FireLight`, `Sparks`.
 - **Tests:** none.
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
@@ -177,8 +189,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   gaps between placed structures.
 
 ### Terrain view, weather, night, biomes
-- **Files:** `Presentation/Terrain/GreyboxTerrainView.cs` (ground mesh, adds most environment components),
-  `Presentation/Terrain/BattlefieldSurface.cs`, `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs`,
+- **Files:** `Presentation/Terrain/GreyboxTerrainView.cs` (ground mesh, adds most environment components; owns the
+  crater colour texture `colorTex` and uploads it in `Update` whenever a crater painted it),
+  `Presentation/Terrain/BattlefieldSurface.cs` (surface kinds; `RefreshHollows` finds where water pools in craters,
+  about 11 ms, whole-map and order-dependent, marker `TW.Terrain.Hollows`, run under `HeavyWork`; no test covers it),
+  `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs`,
   `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs`, `Presentation/Terrain/QuietFog.cs`,
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
@@ -189,7 +204,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
 - **Trap:** `SimHost.Ground` picks the terrain but not the look. For a winter test set the biome look too
-  (`feature-flags.md`).
+  (`feature-flags.md`). `BiomeProfile.ForGround` pairs them: `WinterLine` is the only daylight look (overcast snow);
+  every other ground is night.
+
+### Render pipeline and quality settings
+- **Files:** `Settings/TW-URP.asset` is the pipeline in effect at every quality level (shadow distance 220 m,
+  cascades), with `Settings/TW-Renderer.asset`. `ProjectSettings/QualitySettings.asset` also lists shadow
+  distances (15 to 150): URP ignores them. `Editor/BootstrapSceneBuilder.cs` rebuilds the pipeline asset with its
+  own copy of 220. No runtime code sets pipeline values today; a runtime knob belongs in `Atmosphere.cs`, which owns
+  the per-scene look.
+- **Trap:** changing a pipeline asset's value from code in the editor writes the asset to disk. Restore it, or
+  change a copy.
+- **Tests:** none.
 
 ### Camera
 - **Files:** `Presentation/Camera/TacticalCamera.cs` (standard view: fov 25, pitch 25, zoom 30; `FrameFrom`),
@@ -202,23 +228,40 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Battle HUD (UI Toolkit, the live one)
 - **Files:** `UI/HudController.cs`, `UI/HudView.cs`, `UI/HudText.cs` (every word), `UI/HudLayout.cs`,
   `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/HudBootstrap.cs`, `UI/Resources/Hud/BattleHud.uxml`.
-- **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests, UnitArtTests.
+- **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
+  UnitArtTests. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD.
+- **Trap:** the support cards are `HudView.SupportAbilities`, but `HudLayout.SupportSlots` and `BattleHud` each keep
+  their own `SupportSlots = 2`. Adding a support ability means changing all three.
 
 ### Legacy IMGUI HUD and debug panel
 - **Files:** `Presentation/Camera/BattleHud.cs` (F9 switches to it), `Presentation/Camera/TestPanel.cs`,
   `Presentation/Camera/DebugOverlay.cs`.
 - **Tests:** HudLayoutTests, HudTextTests test its static helpers only. No test runs OnGUI.
 
+### Support fire: arming, aiming, calling it in
+- **Files:** arming an ability is checked in three places that must agree: `TestPanel.Arm` / `Armed` (the debug
+  panel, and the one the aiming circle reads), `UI/HudController.cs` `ToggleArm`, legacy `BattleHud.SupportSlot`.
+  The range readout is `UI/Selection/AimReadout.cs` (`Radii`: hit and reach), the cursor `UI/Selection/SelectCursor.cs`,
+  the circle and target markers `Presentation/Camera/CombatFx.cs` `Update`. Sim side (SIM lane):
+  `Sim/Match/OffMapAbilities.cs` (`TryGetStats`: which abilities exist and their radius).
+- **Tests:** SelectionTests (AimReadout), SupportAbilityTests (sim).
+- **Trap:** the drawn circle uses the ability's radius, or 8 m when it has none; `AimReadout` has its own 8 m
+  (`GasReticleM`). Change both, or make one read the other.
+- **See it:** in Play, arm with the HUD card or keys 9 and 0, then `TW.Editor.HudCapture.Shoot(path)`.
+
 ### Selection
 - **Files:** `UI/Selection/SelectionController.cs`, `UI/Selection/SelectionModel.cs`, `UI/Selection/UnitPicker.cs`
-  (pick radius), `UI/Selection/SelectionMarkers.cs`, `UI/Selection/HoverCard.cs`, `UI/Selection/SelectionPanel.cs`.
+  (pick radius), `UI/Selection/SelectionMarkers.cs`, `UI/Selection/HoverCard.cs`, `UI/Selection/SelectionPanel.cs`,
+  `UI/Selection/UnitStatus.cs`, `UI/Selection/GarrisonStats.cs`; aiming support fire is its own row above.
 - **Tests:** SelectionTests.
 
 ### Menus, settings, keys, match launch
 - **Files:** `UI/Shell/ShellRouter.cs`, the `UI/Shell/` screens, `UI/Shell/SettingsApplier.cs`,
   `Presentation/Core/GameSettings.cs`, `Presentation/Core/SettingsStore.cs`, `Presentation/Core/KeyMap.cs`,
-  `Presentation/Core/MatchLaunch.cs`, `Presentation/Core/MatchClock.cs` (owns `SimHost.TimeScale`).
+  `Presentation/Core/MatchLaunch.cs` (the `Request` a mission starts from; `UI/Shell/MissionCard.cs` `ToRequest` is
+  the one place the game builds one), `Presentation/Core/MatchClock.cs` (owns `SimHost.TimeScale`). Factions and
+  unlocks are data in `Data/Definitions.cs` (SIM lane), not yet read at runtime.
 - **Tests:** ShellUxmlTests, ShellRouterPlayTests, GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests.
 
 ### UI skin
@@ -239,7 +282,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** never clear `SceneHooks` from `SceneStatics.Reset`: it runs after the new scene has wired its hooks.
 
 ### Performance and allocations
-- **Files:** `Perf/PerfBench.cs`, `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
+- **Files:** `Perf/PerfBench.cs`, `Perf/BenchOptions.cs` (every bench option is parsed in `Parse`: the list of
+  keys), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
   `Presentation/Core/RenderGround.cs`. Budgets and past runs: `docs/05-performance-budgets.md`.
 - **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
@@ -317,7 +361,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
 | `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
-| `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, MapData, BattlefieldGenerator, SeparationJob |
+| `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, BattlefieldGenerator, MapData, SeparationJob |
 | `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
 | `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |
 | `VatAtlasMemoryTests` | EditMode | 5 | Figure, VATRenderer, VatAsset, VatAssetData, VatCodec, ProceduralSoldier |
