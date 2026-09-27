@@ -15,6 +15,8 @@ namespace TW.Playground
 
         public string name;
         public float scale;
+        public bool walker;                 // Tools/mechsplit.py: legs to walk on (WalkerDrive)
+        public bool flyer;                  // Tools/mechsplit.py TW_KIND=flyer: flies (FlyerDrive)
         public PartDef[] partList;
         public SocketDef[] socketList;
         public LodDef[] lodList;

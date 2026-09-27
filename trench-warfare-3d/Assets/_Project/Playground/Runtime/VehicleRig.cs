@@ -42,6 +42,8 @@ namespace TW.Playground
         public Stage State { get; private set; }
         public float Hp = 100f, MaxHp = 100f;
         public int ForcedLod = -1;
+        public WalkerDrive Walker;                      // a machine on legs (tank3.json "walker"): walks it after the pose
+        public FlyerDrive Flyer;                        // a flying machine (tank3.json "flyer"): flies its hull after the pose
         public int Lod { get; private set; } = -1;
         public int LodCount { get; private set; }
         // screen-height shares of the bounding sphere (8 m for this tank at 1.7x): LOD0 (7.8k tris, over the 3-5k vehicle
@@ -160,6 +162,8 @@ namespace TW.Playground
             if (LodTint.Fitted.TryGetValue(e.Name, out var fit) && fit.Length == e.Lods.Length) rig.ApplyLodTints(fit);
             rig.SetLod(e.Lods.Length - 1);
             rig.SetLod(0);
+            if (rig.Manifest.walker) rig.Walker = root.AddComponent<WalkerDrive>().Init(rig);
+            if (rig.Manifest.flyer) rig.Flyer = root.AddComponent<FlyerDrive>().Init(rig);
             return rig;
         }
 
@@ -447,6 +451,8 @@ namespace TW.Playground
                 Burn(dt);
             }
             Pose(dt);
+            if (Walker != null) Walker.Drive(dt);
+            if (Flyer != null) Flyer.Drive(dt);
         }
 
         void Timers(float dt)
