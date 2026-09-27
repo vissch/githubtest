@@ -257,8 +257,9 @@ namespace TW.Playground
         {
             foreach (var v in Vehicles) v.Repair();
             script.Clear(); scriptStart = Time.time;
-            script.Add((0.3f, "ap Plate_LF 30"));
-            script.Add((1.4f, "ap Track_L 45"));
+            // aimed at the tank's plate and track; anything else takes them on a fitting and on its running gear or a limb
+            script.Add((0.3f, "ap Plate_LF 30 1"));
+            script.Add((1.4f, "ap Track_L 45 2"));
             script.Add((2.6f, "he right 38"));
             script.Add((3.8f, "ap Hull 50"));
         }
@@ -297,14 +298,20 @@ namespace TW.Playground
                 case "ap":
                     foreach (var v in Vehicles)
                     {
-                        v.HitPart(v.Find(a.Length > 1 ? a[1] : "Hull") ?? v.Find("Hull"), F(a, 2, 30f));
+                        // "ap <part> <damage> [tier]": a machine without that part takes it on its first part of the tier
+                        var part = v.Find(a.Length > 1 ? a[1] : "Hull") ?? (a.Length > 3 ? v.FirstOfTier((int)F(a, 3, 0f)) : null);
+                        v.HitPart(part ?? v.Find("Hull"), F(a, 2, 30f));
                     }
                     break;
                 case "he":
                     foreach (var v in Vehicles)
                     {
                         float side = a.Length > 1 && a[1] == "left" ? -1f : 1f;
-                        v.HitLocal(new Vector3(side * 2.6f, 0f, 0f), Vector3.down, F(a, 2, 35f), VehicleRig.HitKind.HE);
+                        // a flyer is burst beside it where it flies (an air burst): on the ground 14 m under it, the shell
+                        // missed and the gunship was never knocked out (loop 2 r31)
+                        var hull = v.Flyer != null ? v.Find("Hull") : null;
+                        var at = hull != null && !hull.Loose ? hull.T.localPosition : Vector3.zero;
+                        v.HitLocal(at + new Vector3(side * 2.6f, 0f, 0f), Vector3.down, F(a, 2, 35f), VehicleRig.HitKind.HE);
                     }
                     break;
                 case "ko": foreach (var v in Vehicles) v.KnockOut(); break;
@@ -329,6 +336,14 @@ namespace TW.Playground
                 case "ignite": foreach (var u in Units) u.Ignite(Library.ClipIndex("Burning Run"), DeathClip(u)); break;
                 case "revive": foreach (var u in Units) u.Revive(clip); break;
                 case "cam":
+                    follow = null;
+                    // "cam follow yaw pitch distance fov": keep the first vehicle's hull in the middle (a flyer circling)
+                    if (a.Length >= 2 && a[1] == "follow")
+                    {
+                        var h = Vehicles.Count > 0 ? Vehicles[0].Find("Hull") : null; follow = h != null ? h.T : null;
+                        if (a.Length >= 6) { Cam.Yaw = F(a, 2, 0); Cam.Pitch = F(a, 3, 20); Cam.Distance = F(a, 4, 20); Cam.Fov = F(a, 5, 35); }
+                        break;
+                    }
                     if (a.Length >= 8) { Cam.Focus = new Vector3(F(a, 1, 0), F(a, 2, 0), F(a, 3, 0)); Cam.Yaw = F(a, 4, 0); Cam.Pitch = F(a, 5, 20); Cam.Distance = F(a, 6, 20); Cam.Fov = F(a, 7, 35); }
                     else Cam.Preset(a.Length > 1 ? a[1] : "default", Cam.Focus);
                     break;
@@ -371,8 +386,11 @@ namespace TW.Playground
         }
 
         // ------------------------------------------------------------------------------------------------ frame
+        Transform follow;
+
         void Update()
         {
+            if (follow != null) Cam.Focus = follow.position;
             lock (queue) while (queue.Count > 0) Status = Do(queue.Dequeue());
             if (scriptStart >= 0f)
             {

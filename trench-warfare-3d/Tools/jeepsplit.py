@@ -138,6 +138,10 @@ def cap(bm, planes, uv, eps=1e-4):
     """Close every open loop a cut left, with a fan round its centre, painted the soot texel."""
     bnd = [e for e in bm.edges if e.is_boundary]
     cut = {e for e in bnd if all(on_planes(v, planes, eps) for v in e.verts)}
+    # which single plane each cut edge lies on: an outline is a cut only if it runs along ONE plane. One that turns the
+    # corner onto another (the x = 0 split running into the rear doors' opening) filled the doorway with a black and
+    # white triangle (critic loop 2 r30)
+    on_one = [{e for e in cut if all(on_planes(v, [pl], eps) for v in e.verts)} for pl in planes]
     if not cut: return 0
     byv = {}
     for e in bnd:
@@ -153,7 +157,7 @@ def cap(bm, planes, uv, eps=1e-4):
             if v is loop[0]: break
             loop.append(v)
         # only an outline the cut made: one that runs mostly along a window or a door the model already had stays open
-        if len(loop) < 3 or sum(1 for e in used if e in cut) < 0.9 * len(used): continue
+        if len(loop) < 3 or max(sum(1 for e in used if e in one) for one in on_one) < 0.9 * len(used): continue
         # a proper fill of the outline: a fan round its centre overhangs a concave outline, and the overhang showed as a
         # black wedge on the outside of the cab and box
         try: made = bmesh.ops.triangle_fill(bm, use_beauty=True, use_dissolve=False, edges=list(used))["geom"]

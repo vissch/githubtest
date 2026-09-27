@@ -53,6 +53,9 @@ $P do "cam -2 1.5 -3 200 25 75 25"; sleep 1
 $P shot ${T}_m2_mixed_standard
 $P do "ground mud; team split"; sleep 0.5
 $P shot ${T}_m3_mud_standard
+# the contrast reading flips between two values frame to frame (0.24 / 0.44 on an unchanged scene, loop 2): four more
+# frames, and score.py takes the median of the five
+for k in 1 2 3 4; do sleep 0.7; $P shot ${T}_m3c_$k > /dev/null; done
 $P do "sidehue $OUT/${T}_m3_sidehue.json"; sleep 1
 $P do "ground grid; team -1"
 # ---- a building from the game's kit, shelled until it comes down
