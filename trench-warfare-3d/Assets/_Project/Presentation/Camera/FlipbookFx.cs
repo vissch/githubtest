@@ -366,18 +366,19 @@ namespace TW.Presentation.Tactical
         //   fx.columnBurstLit  the Column book's share of the burst's light (its _BurstLit). 1 = today (nothing is set, the
         //                      shader skips the line); C103 used SoilFire 0.3. fx.columnSoil above 0 sets its own share.
         //   fx.columnCap       how far the old column is capped over men behind it (C103's SoilCap, its top at the nearest
-        //                      man's feet, never below SoilLow): the card's height x lerp(1, cap, knob). 0 = today (the old
+        //                      man's feet, never below SoilLow): the card's height x lerp(1, cap, knob). 0 = the old height (the old
         //                      Add, no search for men). With fx.columnSoil above 0 the heave's own cap applies instead.
         // No book, material, mesh or draw is added: the Column book's own material and card.
         public const string ColumnBurstLitKnob = "fx.columnBurstLit", ColumnCapKnob = "fx.columnCap";
         public const float DefaultColumnBurstLit = 1f, OldColumnBurstLit = 1f;   // off until a blind 2-way against the default passes (rule 6)
-        public const float DefaultColumnCap = 0f, OldColumnCap = 0f;
+        public const float DefaultColumnCap = 1f;   // blind critic, cycle 10 (runs 10/p4c, c108.md, a0054): arc px -70%, earth +1.67 (6 of 6), men +0.17 never lower, weight -0.17
+        public const float OldColumnCap = 0f;   // fx.columnPlay=1,fx.columnCap=0 is the old look
         public const float ColumnGrow = 0.35f;   // the old column's grow (CombatFx): its card ends 1.35x as tall as it is born
 
         /// <summary>fx.columnBurstLit, in [0, 1] (1 = today).</summary>
         public static float ReadColumnBurstLit() => Mathf.Clamp01(Knobs.Get(ColumnBurstLitKnob, DefaultColumnBurstLit));
 
-        /// <summary>fx.columnCap, in [0, 1] (0 = today).</summary>
+        /// <summary>fx.columnCap, in [0, 1] (0 = the old height).</summary>
         public static float ReadColumnCap() => Mathf.Clamp01(Knobs.Get(ColumnCapKnob, DefaultColumnCap));
 
         /// <summary>The height factor of the old column's card: 1 at knob 0 (exactly), C103's cap at knob 1.</summary>
@@ -402,16 +403,17 @@ namespace TW.Presentation.Tactical
         // swell, pop and glow run on the old 1.8 s clock exactly (the heave as today), but it is gone at Cut x its life, and
         // it fades (and, eroding, tears) over the last PlayFade of that shortened life, to 0 at the cut: no pop.
         //   fx.columnPlay   the part of the Column book the old dry column plays on a moonlit field (as C57), in
-        //                   [MinColumnPlay, 1]. 1 = today (no card is cut, the old fade line runs). 0.4: gone at 0.72 s at
+        //                   [MinColumnPlay, 1]. 1 = the old card (no card is cut, the old fade line runs). 0.4: gone at 0.72 s at
         //                   frame 6.4, the arcs' first frame (6) at fade 0.085. With fx.columnSoil above 0 the heave's own
         //                   timing applies (no cut); with fx.columnCap the capped column is cut the same. Splash is never cut.
         // No book, material, mesh or draw is added: the same card, gone sooner.
         public const string ColumnPlayKnob = "fx.columnPlay";
-        public const float DefaultColumnPlay = 1f, OldColumnPlay = 1f;   // off until a blind 2-way against the default passes (rule 6)
+        public const float DefaultColumnPlay = 0.4f;   // blind critic, cycle 10 (runs 10/p4c, c108.md, a0054): arc px -70%, earth +1.67 (6 of 6), men +0.17 never lower, weight -0.17
+        public const float OldColumnPlay = 1f;   // fx.columnPlay=1,fx.columnCap=0 is the old look
         public const float MinColumnPlay = 0.1f;
         public const float PlayFade = 0.35f;   // the cut card fades over this part of its shortened life (every card's own last 35%)
 
-        /// <summary>fx.columnPlay, in [MinColumnPlay, 1] (1 = today).</summary>
+        /// <summary>fx.columnPlay, in [MinColumnPlay, 1] (1 = the old card).</summary>
         public static float ReadColumnPlay() => Mathf.Clamp(Knobs.Get(ColumnPlayKnob, DefaultColumnPlay), MinColumnPlay, 1f);
 
         /// <summary>The Cut a column card is added with at this knob: 0 (no cut, today exactly) at 1 or above.</summary>

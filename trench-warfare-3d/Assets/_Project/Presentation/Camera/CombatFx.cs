@@ -143,10 +143,10 @@ namespace TW.Presentation.Tactical
         // and it throws fewer, bigger, varied clods (DebrisRenderer.Heave). 0 = the old look.
         float columnSoil = FlipbookFx.DefaultColumnSoil;
         // knobs fx.columnBurstLit and fx.columnCap (Awake, AOSA C108): C103's light and cap on the old column, on a moonlit
-        // field (FlipbookFx.ColumnBurstLit, from ApplyTints; FlipbookFx.ColumnCapScale where the column is thrown). 1 and 0 = today.
+        // field (FlipbookFx.ColumnBurstLit, from ApplyTints; FlipbookFx.ColumnCapScale where the column is thrown). 1 and 0 = the old look (cap default 1, cycle 10).
         float columnBurstLit = FlipbookFx.DefaultColumnBurstLit, columnCap = FlipbookFx.DefaultColumnCap;
         // knob fx.columnPlay (Awake, AOSA C109): the part of the Column book the old dry column plays on a moonlit field
-        // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = today.
+        // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = the old card; default 0.4 (cycle 10).
         float columnPlay = FlipbookFx.DefaultColumnPlay;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);

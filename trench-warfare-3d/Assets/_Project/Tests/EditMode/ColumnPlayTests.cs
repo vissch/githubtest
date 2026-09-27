@@ -1,6 +1,6 @@
 // Phase: AOSA C109 (juice J01, from C108's finding) - fx.columnPlay: the part of the Column book the old dry column
-// plays on a moonlit field before it fades out, so it stops before the book's late arcs (frames 6-15). At its default
-// (1) no card is cut and the old fade and removal lines run.
+// plays on a moonlit field before it fades out, so it stops before the book's late arcs (frames 6-15). Its default is
+// 0.4 since cycle 10; at 1 (the old value) no card is cut and the old fade and removal lines run.
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
@@ -21,12 +21,19 @@ namespace TW.Tests
         static float OldFade(float k) => 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
 
         [Test]
-        public void Knob_DefaultIsToday_AndReadsAreClamped()
+        public void Knob_DefaultIsTheNewLook_AndReadsAreClamped()
         {
             Assert.AreEqual("fx.columnPlay", FlipbookFx.ColumnPlayKnob);
-            Assert.AreEqual(FlipbookFx.OldColumnPlay, FlipbookFx.DefaultColumnPlay, "the default is today's column");
+            Assert.AreEqual(0.4f, FlipbookFx.DefaultColumnPlay, "the default is the cut column (cycle 10)");
+            Assert.AreEqual(1f, FlipbookFx.OldColumnPlay, "the old column stays reachable");
+            Assert.AreEqual(0.4f, FlipbookFx.ReadColumnPlay(), 1e-6f);
+            Assert.AreEqual("0.4", Knobs.Read["fx.columnPlay"]);
+            Assert.AreEqual(0.4f, FlipbookFx.ColumnPlayCut(FlipbookFx.ReadColumnPlay()), 1e-6f, "the default cuts the card");
+
+            // the old value still reads as the old card: no cut
+            Knobs.Set(FlipbookFx.ColumnPlayKnob, "1");
             Assert.AreEqual(1f, FlipbookFx.ReadColumnPlay());
-            Assert.AreEqual("1", Knobs.Read["fx.columnPlay"]);
+            Assert.IsTrue(FlipbookFx.ColumnPlayCut(FlipbookFx.ReadColumnPlay()) == 0f, "fx.columnPlay=1: no cut, the old card bit for bit");
 
             Knobs.Set(FlipbookFx.ColumnPlayKnob, "0.4");
             Assert.AreEqual(0.4f, FlipbookFx.ReadColumnPlay(), 1e-6f);
@@ -40,7 +47,7 @@ namespace TW.Tests
         public void Cut_IsZeroExactlyAtOne()
         {
             Assert.IsTrue(FlipbookFx.ColumnPlayCut(1f) == 0f, "knob 1: no cut, the old card bit for bit");
-            Assert.IsTrue(FlipbookFx.ColumnPlayCut(FlipbookFx.DefaultColumnPlay) == 0f);
+            Assert.IsTrue(FlipbookFx.ColumnPlayCut(FlipbookFx.OldColumnPlay) == 0f);
             Assert.IsTrue(FlipbookFx.ColumnPlayCut(2f) == 0f);
             Assert.AreEqual(0.4f, FlipbookFx.ColumnPlayCut(0.4f), 1e-6f);
             Assert.AreEqual(FlipbookFx.MinColumnPlay, FlipbookFx.ColumnPlayCut(0f), 1e-6f);

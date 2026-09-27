@@ -1,5 +1,6 @@
 // Phase: AOSA C108 (juice J01, split from C103) - the night column's share of the burst's light (fx.columnBurstLit) and
-// its height cap over men (fx.columnCap), each on its own. At their defaults (1 and 0) nothing is set and the old Add runs.
+// its height cap over men (fx.columnCap), each on its own. At 1 and 0 nothing is set and the old Add runs; fx.columnCap
+// defaults to 1 since cycle 10 (fx.columnCap=0 is the old height).
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
@@ -20,11 +21,12 @@ namespace TW.Tests
             Assert.AreEqual("fx.columnBurstLit", FlipbookFx.ColumnBurstLitKnob);
             Assert.AreEqual("fx.columnCap", FlipbookFx.ColumnCapKnob);
             Assert.AreEqual(FlipbookFx.OldColumnBurstLit, FlipbookFx.DefaultColumnBurstLit, "the default is today's light");
-            Assert.AreEqual(FlipbookFx.OldColumnCap, FlipbookFx.DefaultColumnCap, "the default is today's height");
+            Assert.AreEqual(1f, FlipbookFx.DefaultColumnCap, "the default is C103's cap (cycle 10)");
+            Assert.AreEqual(0f, FlipbookFx.OldColumnCap, "the old height stays reachable");
             Assert.AreEqual(1f, FlipbookFx.ReadColumnBurstLit());
-            Assert.AreEqual(0f, FlipbookFx.ReadColumnCap());
+            Assert.AreEqual(1f, FlipbookFx.ReadColumnCap());
             Assert.AreEqual("1", Knobs.Read["fx.columnBurstLit"]);
-            Assert.AreEqual("0", Knobs.Read["fx.columnCap"]);
+            Assert.AreEqual("1", Knobs.Read["fx.columnCap"]);
 
             Knobs.Set(FlipbookFx.ColumnBurstLitKnob, "0.3");
             Knobs.Set(FlipbookFx.ColumnCapKnob, "0.5");
@@ -34,6 +36,10 @@ namespace TW.Tests
             Knobs.Set(FlipbookFx.ColumnCapKnob, "3");
             Assert.AreEqual(0f, FlipbookFx.ReadColumnBurstLit());
             Assert.AreEqual(1f, FlipbookFx.ReadColumnCap());
+            // the old value still reads as the old height: knob 0, a scale of exactly 1
+            Knobs.Set(FlipbookFx.ColumnCapKnob, "0");
+            Assert.IsTrue(FlipbookFx.ReadColumnCap() == 0f);
+            Assert.IsTrue(FlipbookFx.ColumnCapScale(FlipbookFx.ReadColumnCap(), FlipbookFx.SoilLow) == 1f, "fx.columnCap=0: the old height, bit for bit");
         }
 
         [Test]
