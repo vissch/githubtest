@@ -36,8 +36,8 @@
   },
   {
    "lod": 1,
-   "verts": 1407,
-   "tris": 2673,
+   "verts": 1504,
+   "tris": 2670,
    "bones": [
     "mixamorig:Head",
     "mixamorig:Hips",
@@ -67,7 +67,7 @@
   },
   {
    "lod": 2,
-   "verts": 563,
+   "verts": 676,
    "tris": 1084,
    "bones": [
     "mixamorig:Head",
@@ -92,8 +92,8 @@
   },
   {
    "lod": 3,
-   "verts": 168,
-   "tris": 300,
+   "verts": 236,
+   "tris": 299,
    "bones": [
     "mixamorig:Head",
     "mixamorig:Hips",

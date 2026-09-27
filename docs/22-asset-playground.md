@@ -77,8 +77,21 @@ measured on the frog (0->1 and 1->2, block shift and worst-side IoU):
 | LOD1 and LOD2 decimated from LOD0 (`TW_DERIVE=12`) | 5.0, 0.968 | 11.3, 0.837 (the cap breaks) |
 | **LOD1 decimated from LOD0, Tripo's LOD2 (`TW_DERIVE=1`)** | **5.0, 0.968** | 13.6, **0.876** |
 
-`TW_DERIVE=1` is the best on every shape number and halves the first colour pop; it replaces the owner's LOD1 art, so it
-is the owner's call (decisions.md, Open).
+**Decided 2026-09-27 (the owner): both models' LOD1 and LOD2 are now derived from LOD0** (`TW_DERIVE`, default 12 in
+`frogrig.py` and `tank3split.py`; 0 keeps Tripo's own). Round r20 against r19:
+
+| Switch | Tank IoU / block colour | Frog IoU / block colour |
+|---|---|---|
+| LOD0 -> LOD1 | 0.909 / 8.6 -> **0.967 / 3.1** | 0.918 / 13.4 -> **0.986 / 3.2** |
+| LOD1 -> LOD2 | 0.923 / 4.4 -> **0.932 / 2.8** | 0.857 / 15.4 -> **0.944 / 9.1** |
+| LOD2 -> LOD3 | - | 0.850 / 6.6 -> 0.848 / 5.4 |
+
+Two things had to be fixed for it. The derived frog LOD2 at first skinned to 8 bones and its head sank with the arms:
+`rigid_accessories` decides "body" by a vertex count, and at a quarter of LOD0's vertices the torso, legs and head fell
+under it and rode the nearest arm. A derived LOD now keeps the weights transferred from LOD0 (its islands are LOD0's,
+already made rigid there), and the line scales with the mesh. And the tank's thin antenna, collapsed to Tripo's
+handful of LOD2 triangles, folded into a lump 0.3 m off its place: a small part keeps at least 64 triangles (the tank's
+LOD2 is 1,307 triangles against Tripo's 1,170). Both LOD2s step down from the derived LOD1, not straight from LOD0.
 
 The per-LOD tint that goes on is fitted on the render, not estimated from the mesh (the mesh estimate counts undersides
 the camera never sees and overshot on both models). `lodfit` draws each LOD alone from the four lodpop sides, compares
@@ -114,6 +127,18 @@ vertex alpha at build (blue cloth read from each LOD's atlas, LOD3 from its vert
 `_TeamByAlpha` is 1 (default 0: the game's tanks and landing craft are untouched). `team split` puts half the squad on
 each side. m3 (r19): the figures alone read 155 and 18 degrees, 137 apart, and the side colour RAISES their contrast
 (`figure_gap` 18.0 without sides, 23.0 with; the drop to 14.4 in r18 was the LOD tint's reference, not the cloth).
+
+**What the playground's readability numbers are worth, measured against the battle** (2026-09-27). With the owner's
+leave to change the shared look, a moonlit lift, a rim in the side's colour at range and a cut through the field fog
+were added to the unit shaders: in the playground they took a file of frogs 150-300 m out from -4.4 to +12.4 (the
+`figure_gap_far` number). In the battle scene (`CaptureRig`, GreyboxCorridor, 8 men at zoom 60) the same change made
+the men LESS distinct: contrast 0.160 without, 0.125 with the rim, 0.067 at double strength; the fog cut alone was
+neutral (0.157). At night the battle's men read as dark shapes on lighter mud, and lifting them spends that. All of it
+was reverted. The playground now reports the battle's own number beside its own (`contrast_median`, and `_far` past
+60 m: each man's centre against the median of a ground ring sized to him), and `ground mud` is the battle's mud colour
+with its own detail map. On it, at the standard view (r20 m3), the frogs score 0.37, about twice the battle's own men;
+the low file of men (u9) looks along the ground into the haze and scores ~0.03 on any ground - a stress view, not the
+game's.
 
 ## LOD distances (screen-height share of the bounding sphere)
 - Figure: LOD0 above 0.20 (under ~22 m at the 25 degree battle lens), LOD1 above 0.08 (~63 m), LOD2 above 0.03 (the
