@@ -39,6 +39,31 @@ namespace TW.Tests
 
         static int CellOf(ScatterInput input, in ScatterInstance s) => input.Index(Mathf.Clamp((int)(s.X / ScatterInput.Cell), 0, input.W - 1), Mathf.Clamp((int)(s.Z / ScatterInput.Cell), 0, input.L - 1));
 
+        /// <summary>A cap thins the whole field evenly: the near and far thirds of a field whose grass wants more than the cap
+        /// get about the same (a running count in row order took it all from the near rows and left the far ones bare:
+        /// critic r3 #10); the rear band keeps under its cap.</summary>
+        [Test]
+        public void A_Cap_Thins_The_Whole_Field_Evenly()
+        {
+            var input = ScatterInput.Blank(120, 240, 1917);   // 240 x 480 m of open ground: far more grass than MaxGrass
+            var field = Grown(input);
+            var want = ScatterLayers.Walk(input, field, null, default);
+            Assert.Greater(want.Grass, ScatterLayers.MaxGrass * 2, "the field wants more than the cap (else the test proves nothing)");
+            var laid = Laid(input, field);
+            int near = 0, far = 0, total = 0;
+            foreach (var s in laid)
+            {
+                if (s.Kind != ScatterKind.Grass) continue;
+                total++;
+                if (s.Z < input.L * ScatterInput.Cell / 3f) near++; else if (s.Z > input.L * ScatterInput.Cell * 2f / 3f) far++;
+            }
+            Assert.LessOrEqual(total, ScatterLayers.MaxGrass);
+            Assert.Greater(far, 0, "the far rows have grass");
+            Assert.Less(Mathf.Abs(near - far), 0.15f * Mathf.Max(near, far), $"near {near} and far {far} thirds within 15 %");
+            int rear = 0; foreach (var s in laid) if (s.Kind == ScatterKind.ShellStack) rear++;
+            Assert.LessOrEqual(rear, ScatterLayers.MaxRear);
+        }
+
         /// <summary>A site's footprint turns the way Unity turns the site (Quaternion.Euler(0, yaw, 0)): the scatter's mask
         /// and the dugout's stocking used the opposite hand, which mirrored a turned dugout (critic r3, 2026-09-27). Checked
         /// against Unity's own rotation, not the same arithmetic.</summary>
