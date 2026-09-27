@@ -33,6 +33,8 @@ inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 | `TW_AUDIT_OUT` | environment variable | `Editor/AssetScaleAudit.cs` | Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. Default docs/reference/asset-scale.md. |
 | `TW_BENCH` | environment variable | `Perf/PerfBench.cs` | Environment variable, same as -twbench. Also fires in editor Play if set, so unset it after use. |
 | `TW_KNOBS` | environment variable | `Presentation/Core/Knobs.cs` | Environment variable: run-time knobs, "a=1,b=2" (also \| or ; between entries; `Presentation/Core/Knobs.cs`); a bench report lists every knob it read. |
+| `TW_SEATSHEET_OUT` | environment variable | `Editor/RiderLab.cs` | Environment variable: where the RiderLab batch seat sheet (the seats of every crab) writes its images. |
+| `TW_SEATSHEET_SCALES` | environment variable | `Editor/RiderLab.cs` | Environment variable: the walker sizes the RiderLab batch seat sheet draws, comma separated (default 1,1.5). |
 
 Code and inspector switches (static fields or `SimHost` inspector fields):
 

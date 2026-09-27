@@ -204,8 +204,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Tanks and walkers drawn
 - **Files:** `Presentation/Camera/TankRenderer.cs`, `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
   `Presentation/Camera/WalkerGait.cs` (planted feet), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
-  import rules `Editor/TankImport.cs`.
-- **Tests:** GaitTests (plus the sim tests above).
+  import rules `Editor/TankImport.cs`. Infantry riding the machines (a prototype, presentation only):
+  `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
+  `Presentation/Units/VATRenderer.Extras.cs` (the riders drawn; a seated man is hidden from the normal pass),
+  `Editor/RiderLab.cs` (the seat sheet and captures).
+- **Tests:** GaitTests (plus the sim tests above), RiderSeatTests. WalkerStills (`Tests/Stills`) captures the walkers
+  for the rig scoreboard in `docs/20-rig-scoreboard.md`.
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
 - **Trap:** vehicle meshes must import Read/Write enabled or scaling silently does nothing.
@@ -528,13 +532,14 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
-| `Flash` | NightLights | CombatFx.Chunks, TankRenderer |
+| `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders |
 | `FireLight` | NightLights | Flamethrower |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, KnobsTests, LandingTests, MineTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, KnobsTests, LandingTests, MineTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
+- **Stills:** WalkerStills
 <!-- /gen:tests -->

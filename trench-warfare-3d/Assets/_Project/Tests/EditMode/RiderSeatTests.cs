@@ -1,4 +1,4 @@
-// Riders prototype: the seats RiderSeats reads off each walker's shell, and each seat's way up. Asserts what matters
+// Phase: riders prototype (2026-09-27) — the seats RiderSeats reads off each walker's shell, and each seat's way up. Asserts what matters
 // on screen: a man sits ON the deck (not in the flanks or the air), two men never overlap, every seat has a way up
 // that leaves the body, a man is never seated under a traversing barrel when the gun rule is on, and a bigger crab
 // seats at least as many men.

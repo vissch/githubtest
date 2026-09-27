@@ -61,9 +61,10 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat |
 | `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf |
+| `TW.Tests.Stills` | `Tests/Stills/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Sim.Nav, Sim.Units, Net, Data, UI, Presentation.Core, Presentation.Camera, Presentation.Terrain, Editor |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
-23 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+24 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -111,6 +112,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. |
 | `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. |
+| `Tests/Stills/` | Walker stills (WalkerStills, its own assembly): held-frame captures of the walkers that docs/20 scores. |
 | `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. |
 | `UI/Campaign/` | Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings). |
 | `UI/Missions/` | Mission card assets for the mission select. |

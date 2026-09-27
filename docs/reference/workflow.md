@@ -281,10 +281,10 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.AssetScaleAudit.Write(path)` | Editor/AssetScaleAudit.cs | (no summary: read the method) |
 | `TW.Editor.BuildWindows.Queue(development)` | Editor/BuildWindows.cs | Schedules a build for the next editor tick and returns at once, so a `unity command eval` does not hold the command server for the minutes a first ... |
 | `TW.Editor.BuildWindows.Build(development)` | Editor/BuildWindows.cs | (no summary: read the method) |
-| `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h)` | Editor/CaptureRig.cs | Queue one still. |
+| `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY)` | Editor/CaptureRig.cs | Queue one still. |
 | `TW.Editor.CaptureRig.Pending()` | Editor/CaptureRig.cs | How many shots are still to be taken; 0 means the set is finished and the camera is back. |
 | `TW.Editor.CaptureRig.ShotCrowd(path, zoom, yaw, pitch, w, h, cell)` | Editor/CaptureRig.cs | A still of the thickest knot of men, so a capture contains soldiers without anyone guessing at coordinates. |
-| `TW.Editor.CaptureRig.Series(dir, stem, x, z, zoom, yaw, pitch, count, everyFrames, w, h)` | Editor/CaptureRig.cs | A run of stills from one pose, `everyFrames` apart, so a thing that only exists over time — a shell's smoke column climbing and leaning off, a body ... |
+| `TW.Editor.CaptureRig.Series(dir, stem, x, z, zoom, yaw, pitch, count, everyFrames, w, h, aimY)` | Editor/CaptureRig.cs | A run of stills from one pose, `everyFrames` apart, so a thing that only exists over time — a shell's smoke column climbing and leaning off, a body ... |
 | `TW.Editor.CaptureRig.Sheet(dir, stem, outPath, cols, cellW)` | Editor/CaptureRig.cs | Tiles a series into one image, because eight PNGs opened one after another is not a sequence you can see. |
 | `TW.Editor.CaptureRig.Hold(weatherClock)` | Editor/CaptureRig.cs | Stops the clock and pins the weather. |
 | `TW.Editor.CaptureRig.Release()` | Editor/CaptureRig.cs | Lets the world run again and gives the weather back its own clock. |
@@ -297,6 +297,28 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Setup(archetype, riders, x, z, team, yawDeg, climb)` | Editor/RiderLab.cs | A walker of `archetype` (6 Pincer .. |
+| `TW.Editor.RiderLab.Climbers(slot, n)` | Editor/RiderLab.cs | `n` riflemen of the machine's team spawn 12-15 m behind it, held, and run in and climb aboard (for a machine that is already standing: spawn it ... |
+| `TW.Editor.RiderLab.BoardMen(slot, men)` | Editor/RiderLab.cs | Real men take these riders' places: board from where they stand. |
+| `TW.Editor.RiderLab.Board(slot, count)` | Editor/RiderLab.cs | Riders appear seated at once (no climb, no sim men behind them). |
+| `TW.Editor.RiderLab.Dismount(slot, count)` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Unboard(slot, count)` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Drive(slot, dz)` | Editor/RiderLab.cs | Walk the machine `dz` metres along its own column (a cell goal), releasing the hold. |
+| `TW.Editor.RiderLab.Stop(slot)` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Kill(slot)` | Editor/RiderLab.cs | Destroy the machine (its riders are thrown off). |
+| `TW.Editor.RiderLab.Enemies(slot, count, ahead, bearingDeg)` | Editor/RiderLab.cs | Enemy riflemen ahead of the machine, held still, so its guns and its riders have a target. |
+| `TW.Editor.RiderLab.ClearEnemies(slot, radius)` | Editor/RiderLab.cs | Remove every living enemy of that machine within `radius` metres (so its guns turn to a new group). |
+| `TW.Editor.RiderLab.Size(archetype, factor)` | Editor/RiderLab.cs | Draw one crab kind at `factor` times its shipped size (VehicleSize.Walker * factor). |
+| `TW.Editor.RiderLab.ClearOfGuns(on)` | Editor/RiderLab.cs | Riders kept out from under the guns' sweep (true) or seated anywhere (false). |
+| `TW.Editor.RiderLab.Fire(on)` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Freeze(on)` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Panel(on)` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Camera(slot, zoom, yaw, pitch)` | Editor/RiderLab.cs | Frame the camera on a slot: zoom, yaw, pitch (the follow keeps it framed while it walks). |
+| `TW.Editor.RiderLab.Film(dir, seconds, fps, w, h)` | Editor/RiderLab.cs | Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower). |
+| `TW.Editor.RiderLab.VolleyShot(path, shots)` | Editor/RiderLab.cs | Save a still to `path` the frame `shots` more rider shots have been fired (a volley caught as it lands). |
+| `TW.Editor.RiderLab.FilmStatus()` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.Status()` | Editor/RiderLab.cs | (no summary: read the method) |
+| `TW.Editor.RiderLab.SeatSheet(name, archetype, scale, path, w, h)` | Editor/RiderLab.cs | One picture of a crab at `scale` (a multiple of the sculpt) with a kneeling-man stand-in on every seat, from three-quarter above on the left and ... |
 | `TW.Editor.SimProbe.Unit(slot)` | Editor/SimProbe.cs | One unit, sim then picture: what it is, where the sim has it and its trench post, where it is drawn over which ground height, and what it is ... |
 | `TW.Editor.SimProbe.Match()` | Editor/SimProbe.cs | The match being played: seed, battlefield seed and ground, bombardment, stress, tick and mission, the values a test needs to rebuild it. |
 | `TW.Editor.SimProbe.Arrays(peer)` | Editor/SimProbe.cs | A hash per world array, so the canary's two worlds can be compared array by array at the desync tick: pause, then diff Arrays() with Arrays(true). |
