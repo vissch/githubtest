@@ -165,6 +165,15 @@ namespace TW.Playground
                       grow: 2.2f, roll: Random.Range(-0.7f, 0.7f), alpha: alpha, pop: 0.2f);
         }
 
+        /// <summary>A hovercraft's ground effect: a low puff of spray and mud blown out from under a pod, short-lived.</summary>
+        public void Spray(Vector3 at, Vector3 outward, float width, float alpha)
+        {
+            if (Books == null) return;
+            Books.Add(Book.Smoke, at, width, Random.Range(0.9f, 1.4f), Random.value < 0.5f ? Kind.Mirror : Kind.None,
+                      velocity: outward * Random.Range(1.5f, 3f) + Vector3.up * Random.Range(0.3f, 0.9f), grow: 2.4f,
+                      roll: Random.Range(-0.7f, 0.7f), alpha: alpha, pop: 0.15f);
+        }
+
         /// <summary>The ammunition going up: one Blast drawing, the flash, and the black smoke that boils up after it.</summary>
         public void CookOff(Vector3 at, float size)
         {

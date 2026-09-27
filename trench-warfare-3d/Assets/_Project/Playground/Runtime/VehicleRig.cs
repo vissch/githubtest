@@ -186,7 +186,21 @@ namespace TW.Playground
             return transform.position + Vector3.up * 2f * Size;
         }
 
-        public Vector3 Centre => transform.TransformPoint(new Vector3(0f, 0.35f * Radius / Size, 0f));
+        /// <summary>The middle of the machine in the world. A walker's or a flyer's is its hull's, wherever that has walked or
+        /// flown to (the rig's root stays where it was built: a report put the circling gunship in the frame's corner while
+        /// it was in the middle, loop 2 r32; and its LOD was picked by the ground under it).</summary>
+        public Vector3 Centre
+        {
+            get
+            {
+                if (Walker != null || Flyer != null)
+                {
+                    var h = Find("Hull");
+                    if (h != null && !h.Loose) return h.T.TransformPoint(h.Box.center);
+                }
+                return transform.TransformPoint(new Vector3(0f, 0.35f * Radius / Size, 0f));
+            }
+        }
 
         /// <summary>A part's pose in the vehicle's frame, from local values only (pivots, the part's own local turn, a loose
         /// part's flight): never from a world matrix, so copies anywhere in the world agree to the bit.</summary>
@@ -364,6 +378,8 @@ namespace TW.Playground
             p.T.SetParent(loose, false);
             p.T.localPosition = pos; p.T.localRotation = rot;
             if (FireLevel > 0.2f) p.BurnUntil = Time.time + R(6f, 14f);
+            // what a hit tore off carries the hit's scorch (clean parts in a burnt-out wreck drew the eye first, loop 2 r32)
+            p.Scorch = Mathf.Max(p.Scorch, 0.35f);
             Fx?.Spark(p.T.TransformPoint(p.Box.center), transform.TransformDirection(velocity.normalized), 0.8f);
         }
 
@@ -398,11 +414,17 @@ namespace TW.Playground
                 else if (p.Name.StartsWith("Track")) continue;   // the running gear stays on the ground it was on
                 else { v = out_ * R(2f, 4.5f) * s + Vector3.up * R(5f, 9f) * s; spin = RSphere() * R(4f, 10f); }
                 Detach(p, v, spin);
-                p.BurnUntil = Time.time + R(8f, 20f);
+                p.BurnUntil = Time.time + R(8f, 20f); p.Scorch = Mathf.Max(p.Scorch, 0.5f);
             }
-            // what was already lying beside the hull goes up with it (the thrown track stayed clean and blue)
+            // what was already lying about goes up with it: near the hull it catches, and everything already off is blackened
+            // by the blast (the thrown track stayed clean and blue; loop 2 r32: claws, pods and shrouds shed earlier and
+            // lying 10-15 units off stayed clean in every wreck)
             foreach (var p in Parts)
-                if (p.Loose && Vector3.Distance(p.Fly.Pos, deck) * Size < 4f * Size) { p.BurnUntil = Mathf.Max(p.BurnUntil, Time.time + R(8f, 16f)); p.Scorch = Mathf.Max(p.Scorch, 0.5f); }
+            {
+                if (!p.Loose) continue;
+                p.Scorch = Mathf.Max(p.Scorch, 0.7f);
+                if (Vector3.Distance(p.Fly.Pos, deck) < 12f) p.BurnUntil = Mathf.Max(p.BurnUntil, Time.time + R(8f, 16f));
+            }
             Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 14, 13f, 0.35f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.6f, default, (uint)(Seed * 7919));
             LastEvent = "COOKED OFF";
         }

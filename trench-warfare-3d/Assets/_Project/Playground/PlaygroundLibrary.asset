@@ -53,6 +53,16 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 5d3e79a555f09eb46994683d2dd9ec2c, type: 3}
     - {fileID: 2800000, guid: 28c1bc298f75e7a41af001cb94f72448, type: 3}
     - {fileID: 2800000, guid: 997c7a12b6556fa44a5386672f9c080d, type: 3}
+  - Name: Skimmer
+    Manifest: {fileID: 4900000, guid: fd0662cbfedabee48a516323fe0089f5, type: 3}
+    Lods:
+    - {fileID: 919132149155446097, guid: 4aeae3b0272f3fa45a2535be23ac0ec7, type: 3}
+    - {fileID: 919132149155446097, guid: 2c0111226d4cf1d4d9ee68ba8f11c650, type: 3}
+    - {fileID: 919132149155446097, guid: 98e455a4b04696b49b3f54c95369a848, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 5ac2aa9b1f2a9b943819fe34295da95d, type: 3}
+    - {fileID: 2800000, guid: ab3dec441675e2d46bf3e23d430b436c, type: 3}
+    - {fileID: 2800000, guid: f53737cfc5405734d80df7278d70297f, type: 3}
   Units:
   - Name: Frog
     Model: {fileID: 919132149155446097, guid: 1ffbac77dbd202e4388704cb14017201, type: 3}

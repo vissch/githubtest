@@ -339,6 +339,34 @@ def render(tag, objs, colour, exploded=0.0):
     bpy.ops.render.render(write_still=True)
     for o, l in saved.items(): o.location = l
 
+def rebake(src_parts, src_mat, dst_parts, dst_img, path):
+    def obj_of(parts, mat, name):
+        me = bpy.data.meshes.new(name); join(list(parts.values())).to_mesh(me); me.materials.append(mat)
+        o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o); return o
+    src = obj_of(src_parts, src_mat, "bake_src")
+    w, h = dst_img.size
+    img = bpy.data.images.new("rebake", w, h, alpha=False); img.generated_color = (1.0, 0.0, 1.0, 1.0)
+    mat = bpy.data.materials.new("rebake_mat"); mat.use_nodes = True
+    tn = mat.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img
+    mat.node_tree.nodes.active = tn
+    dst = obj_of(dst_parts, mat, "bake_dst")
+    scn = bpy.context.scene; scn.render.engine = 'CYCLES'; scn.cycles.samples = 1; scn.cycles.device = 'CPU'
+    for x in bpy.context.selected_objects: x.select_set(False)
+    src.select_set(True); dst.select_set(True); bpy.context.view_layer.objects.active = dst
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_selected_to_active=True, cage_extrusion=0.02,
+                        max_ray_distance=0.08, margin=8)
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(-1, 4); own = np.array(dst_img.pixels[:], dtype=np.float32).reshape(-1, 4)
+    miss = ((px[:, 0] > 0.98) & (px[:, 1] < 0.02) & (px[:, 2] > 0.98)) | ((px[:, :3].sum(1) < 0.02) & (own[:, :3].sum(1) > 0.08))
+    px[miss] = own[miss]; img.pixels[:] = px.ravel()
+    print("LOD2 rebaked from LOD0: %.1f%% of texels missed, kept from its own paint" % (100.0 * miss.mean()))
+    img.filepath_raw = path; img.file_format = 'JPEG'; img.save()
+    out = bpy.data.materials.new("LOD2_rebaked"); out.use_nodes = True
+    t = out.node_tree.nodes.new("ShaderNodeTexImage"); t.image = img
+    out.node_tree.links.new(t.outputs["Color"], out.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    for o in (src, dst): bpy.data.objects.remove(o)
+    scn.render.engine = 'BLENDER_WORKBENCH'
+    return path, out
+
 # ------------------------------------------------------------------------------------------------------------ main
 bpy.ops.wm.read_factory_settings(use_empty=True)
 P0, img0, mat0, base0, uv0 = split(FBX[0])
@@ -371,6 +399,11 @@ if LOD2_FROM == "tripo":
         if d.length > 0.02:
             bmesh.ops.transform(P2[n], matrix=Matrix.Translation(d), verts=P2[n].verts)
             snapped.append({"lod": 2, "part": n, "moved": round(d.length * SCALE, 3)})
+    # TW_REBAKE (default 1): Tripo's low mesh painted with LOD0's colours (a Cycles bake onto its own UVs), so the switch
+    # keeps the clean shape and loses the other texture bake: with Tripo's own paint 1->2 block colour was 11.0, the
+    # worst on the board (loop 2 r32). Texels the bake misses keep the low model's own paint.
+    if os.environ.get("TW_REBAKE", "1") == "1":
+        base2, mat2 = rebake(P0, mat0, P2, img2, os.path.join(OUTDIR, "rebake_LOD2.jpg"))
     lods.append(P2); mats.append(mat2); bases.append(base2); uvs.append(uv2); epss.append(1e-4)
     print("LOD2: Tripo's own, %d tris; snapped %s" % (sum(tris_of(b) for b in P2.values()), snapped))
 # a wheel thrown off shows its back: Tripo's lower jeep modelled only the outside of each tyre, and the hole round the

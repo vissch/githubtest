@@ -74,7 +74,9 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (atlas 82/68/57), which reads as dark brown crates under the night light. Palette/source art; the cut faces
   themselves are fixed in the playground's prototype and, since 2026-09-27, in `housesplit.py`; the game's committed
   chunks were cut before it and are not regenerated (most sets' split settings are unrecorded; re-cutting changes
-  every building). Owner: re-cut the sets, or leave them.
+  every building). Owner: re-cut the sets, or leave them. Measured 2026-09-27 (loop 2): those brown faces are FLAT (colour
+  spread under 2/255 over an 80x120 px patch of a shelled ruin), painted so by the kit; repainting them with masonry is
+  an art call, not a split fix.
 - **The frog's far LOD size:** 300 tris ships (pop overlap 0.855 with the shoulders kept); 380 tris 0.865, 460 0.868
   (measured 2026-09-27 on the derived LODs; the source level and the rig made no difference).
 
