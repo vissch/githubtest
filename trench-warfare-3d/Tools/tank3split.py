@@ -259,6 +259,14 @@ def split(lod, fbx):
         if c.z >= Z_DECK and (hi - lo).length < 0.2:
             n = PLATES[("L" if c.x > 0 else "R", "F" if c.y < Y_MID else "B")]
             parts[n].append(piece)
+        elif lo.z >= Z_DECK - 0.005:
+            # a big piece standing wholly on the deck goes with what it stands on: under the turret, the turret; else its
+            # plate. Left in the hull, the turret's base disc floated in the air once the plates were thrown, and the
+            # cook-off's flames stood on it (critic loop 2 r33-r34, v5)
+            x0, x1, y0, y1 = TURRET_BOX
+            n = "Turret" if (x0 < c.x < x1 and y0 < c.y < y1) else PLATES[("L" if c.x > 0 else "R", "F" if c.y < Y_MID else "B")]
+            parts[n].append(piece)
+            print("LOD%d: a piece on the deck (%.2f wide, top %.3f) goes with %s" % (lod, (hi - lo).length, hi.z, n))
         else:
             parts["Hull"].append(piece)
     for n, piece in cuts.items(): parts[n].insert(0, piece)
