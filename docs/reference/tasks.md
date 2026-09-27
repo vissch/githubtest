@@ -448,6 +448,22 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   reimported (menu TW/UI/Reimport Skin Sheets). `-unity-slice-scale` needs a unit (`1px`). Unit portraits are USS
   classes `.tw-portrait-<Name>`, not Resources.
 
+### Asset playground (a test range, never shipped)
+- **Files:** `Playground/Playground.unity` with `Playground/Runtime/PlaygroundHost.cs` (the scene it builds at Play,
+  its panel and command strings), `Playground/Runtime/PlaygroundLibrary.cs` (the asset list it spawns from),
+  `Playground/Runtime/PlaygroundCamera.cs`, `Playground/Runtime/PlaygroundFx.cs` (the game's FlipbookFx and
+  DebrisRenderer), `Playground/Runtime/VehicleRig.cs` (a destructible vehicle, the same parts at every LOD) with
+  `Playground/Runtime/VehicleManifest.cs` (`tank3.json`), `Playground/Runtime/FlyerDrive.cs`,
+  `Playground/Runtime/WalkerDrive.cs` (on the game's gait), `Playground/Runtime/UnitRig.cs` and
+  `Playground/Runtime/Retarget.cs` (figures on the game's clips at other proportions), `Playground/Runtime/BuildingRig.cs`
+  (a kit house brought down chunk by chunk), `Playground/Runtime/Tumble.cs` (loose pieces), `Playground/Runtime/LodPicker.cs`
+  and `Playground/Runtime/LodTint.cs` (LOD choice and colour match), `Playground/Editor/PlaygroundSetup.cs` (menu
+  TW/Playground/Build) and `Playground/Editor/PlaygroundImport.cs` (import rules for `Playground/Art`). Design:
+  `docs/22-asset-playground.md`; driving it and its stills: `pipelines.md`, "Asset playground".
+- **Tests:** PlaygroundAssetTests (parts and rigs per LOD, the LOD-identical breakup).
+- **Trap:** nothing here is in the build settings, and no battle code references it: an asset proven here still has
+  to be moved into `Resources/` and the battle's renderers.
+
 ## Tooling
 
 ### Statics that outlive a match
