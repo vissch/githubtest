@@ -60,8 +60,12 @@ namespace TW.Tests
             Assert.LessOrEqual(total, ScatterLayers.MaxGrass);
             Assert.Greater(far, 0, "the far rows have grass");
             Assert.Less(Mathf.Abs(near - far), 0.15f * Mathf.Max(near, far), $"near {near} and far {far} thirds within 15 %");
-            int rear = 0; foreach (var s in laid) if (s.Kind == ScatterKind.ShellStack) rear++;
-            Assert.LessOrEqual(rear, ScatterLayers.MaxRear);
+            // a blank field has no trenches or dugouts: every crate and shell stack is the rear band's
+            var rearInput = ScatterInput.Blank(120, 240, 1917);
+            var rearWant = ScatterLayers.Walk(rearInput, field, null, default);
+            int rear = 0; foreach (var s in laid) if (s.Kind == ScatterKind.ShellStack || s.Kind == ScatterKind.Crate) rear++;
+            Assert.LessOrEqual(rear, ScatterLayers.MaxRear, "the rear band keeps under its cap");
+            if (rearWant.Rear > ScatterLayers.MaxRear) Assert.Greater(rear, ScatterLayers.MaxRear / 2, "and fills a fair share of it");
         }
 
         /// <summary>A site's footprint turns the way Unity turns the site (Quaternion.Euler(0, yaw, 0)): the scatter's mask
@@ -282,7 +286,9 @@ namespace TW.Tests
                 else if (s.Kind == ScatterKind.GrassAccent) accents++;
                 else if (s.Kind == ScatterKind.Flower) flowers++;
             }
-            Assert.AreEqual(ScatterLayers.MaxGrass, grass, "the grass fills its budget and no more");
+            // thinned by a keep share, the grass lands near its budget, never over it (exactly the budget was the row-order cut)
+            Assert.LessOrEqual(grass, ScatterLayers.MaxGrass, "the grass keeps to its budget");
+            Assert.GreaterOrEqual(grass, (int)(ScatterLayers.MaxGrass * 0.9f), "and fills most of it");
             Assert.LessOrEqual(accents, ScatterLayers.MaxAccent);
             Assert.LessOrEqual(flowers, ScatterLayers.MaxFlowers);
         }

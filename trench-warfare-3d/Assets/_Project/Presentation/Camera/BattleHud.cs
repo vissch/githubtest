@@ -14,6 +14,12 @@ namespace TW.Presentation.Tactical
 {
     public sealed class BattleHud : MonoBehaviour
     {
+        /// <summary>The aim hint the old HUD shows: a test holds it to HudText.AimHintFor, word for word (TW.UI is out of
+        /// reach from here, and a hand copy drifts: critic r7).</summary>
+        public static string AimHint(bool line, bool cycles)
+            => (line ? "Press where the line starts, drag its heading and length, release to fire.  Shift snaps." : "Click the map to fire.")
+               + (cycles ? "  Tab changes the pattern." : "") + (line ? "" : "  Esc or right click cancels.");
+
         public SimHost Host;
         public TestPanel Panel;
         public const float BarHeight = 100f;
@@ -476,8 +482,7 @@ namespace TW.Presentation.Tactical
             if (Panel != null && Panel.Armed != OffMapAbilityId.None)
             {
                 bool cycles = OffMapAbilitySystem.TryGetStats((int)Panel.Armed, out var armedStats) && (armedStats.Patterns & ~1) != 0;
-                line = (Panel.Aim.IsLine ? "Press where the line starts, drag its heading and length, release to fire.  Shift snaps." : "Click the map to fire.")
-                     + (cycles ? "  Tab changes the pattern." : "") + "  Esc or right click cancels.";
+                line = AimHint(Panel.Aim.IsLine, cycles);
             }
             if (!string.IsNullOrEmpty(line))
             {

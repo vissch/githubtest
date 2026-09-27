@@ -27,7 +27,6 @@ namespace TW.Presentation
         public List<BuildingState> Buildings = new List<BuildingState>();
         public List<LineState> Lines = new List<LineState>();
         /// <summary>A bit per OffMapAbilityId the player has unlocked at the Signals Station.</summary>
-        public uint UnlockedAbilities;
         public string LastNode = "";
         public float HeroPity;
 

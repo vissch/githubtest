@@ -162,6 +162,8 @@ namespace TW.Presentation.Terrain
 
         /// <summary>Tests only: a strike at a point, as an Explosion of this reach and power would make.</summary>
         public void StrikeForTests(Vector3 at, float reach, float power) => Strike(at, reach, power, 1u, false);
+        /// <summary>Tests only: lining pieces the last strike threw (its ration, MaxSectionPiecesPerStrike).</summary>
+        public int SectionPiecesForTests => sectionPieces;
 
         void OnDestroy()
         {
@@ -403,12 +405,13 @@ namespace TW.Presentation.Terrain
         /// Bounded per strike: past MaxSectionPiecesPerStrike a section throws dust only.</summary>
         void Break(BattlefieldKit.Module module, Rule rule, Matrix4x4 m, Vector3 origin, float harm, DebrisRenderer debris, uint salt)
         {
-            if (debris == null || !debris.Ready) return;
+            // the ration is charged whether or not a renderer is up, so it holds (and a test can hold it) the same either way
             Measure(module, m, out var centre, out var size, out float scale, out _);
             Vector3 away = Away(origin, centre, 0.6f);
             Vector3 puff = new Vector3(centre.x, origin.y + 0.3f, centre.z);
             float dust = rule.Dust * 0.35f * Mathf.Clamp(scale, 0.5f, 1.5f);
-            if (sectionPieces >= TrenchSectionRules.MaxSectionPiecesPerStrike) { debris.Dust?.Invoke(puff, dust); return; }
+            bool draw = debris != null && debris.Ready;
+            if (sectionPieces >= TrenchSectionRules.MaxSectionPiecesPerStrike) { if (draw) debris.Dust?.Invoke(puff, dust); return; }
             var rng = new DebrisRng(centre, salt);   // the counts below are charged to the ration after they are chosen
             int shards = 0, planks = 0, sacks = 0, clods = 4;
             switch (rule.Piece)
@@ -418,6 +421,7 @@ namespace TW.Presentation.Terrain
                 default: shards = 2; break;
             }
             shards = LiningShare(rule, shards); planks = LiningShare(rule, planks); sacks = LiningShare(rule, sacks); clods = LiningShare(rule, clods);
+            if (!draw) return;
             float life = rule.Life > 0f ? rule.Life : TrenchSectionRules.PieceLife, speed = 3.5f + harm * 3f;
             float fit = Mathf.Clamp(scale, 0.6f, 1.3f);
             if (shards > 0) debris.Burst(DebrisRenderer.Piece.Shard, centre + Vector3.up * (size.y * 0.5f), shards, speed, 0.3f * fit, Tint(module, rule), life, 0f, 1.3f, away, salt);
@@ -518,12 +522,12 @@ namespace TW.Presentation.Terrain
             Measure(module, m, out var centre, out _, out float scale, out float volume);
             int count = Mathf.Clamp(Mathf.RoundToInt(rule.Pieces * Mathf.Sqrt(volume)), 3, 40);
             Vector3 away = Away(origin, centre, 0.6f);
+            bool earth = rule.Piece == DebrisRenderer.Piece.Rubble || rule.Piece == DebrisRenderer.Piece.Plank;
+            int clods = earth ? LiningShare(rule, count / 2) : 0;   // charged with or without a renderer (critic r7)
+            count = LiningShare(rule, count);   // a lining section past the strike's ration comes down as dust only
             if (debris != null && debris.Ready)
             {
                 float life = rule.Life > 0f ? rule.Life : 45f;   // the lining's pieces lie a short while (docs/21 phase 3), the rest the usual
-                bool earth = rule.Piece == DebrisRenderer.Piece.Rubble || rule.Piece == DebrisRenderer.Piece.Plank;
-                int clods = earth ? LiningShare(rule, count / 2) : 0;
-                count = LiningShare(rule, count);   // a lining section past the strike's ration comes down as dust only
                 if (count > 0) debris.Burst(rule.Piece, centre, count, 4.5f + power * 3f, rule.Size * Mathf.Clamp(scale, 0.6f, 1.6f), Tint(module, rule), life, 0f, 1.2f, away, salt);
                 if (clods > 0)
                     debris.Burst(DebrisRenderer.Piece.Clod, centre, clods, 4f, 0.18f, Earth, Mathf.Min(20f, life), 0f, 1.6f, away, salt + 101u);
@@ -537,9 +541,9 @@ namespace TW.Presentation.Terrain
         /// <summary>A hit that did not finish it: splinters, chips or twigs off the side facing the strike, as many as the harm.</summary>
         void Chip(BattlefieldKit.Module module, Rule rule, Matrix4x4 m, Vector3 origin, float harm, DebrisRenderer debris, uint salt)
         {
-            if (debris == null || !debris.Ready) return;
             Measure(module, m, out var centre, out var size, out float scale, out float volume);
-            int count = LiningShare(rule, Mathf.Clamp(Mathf.CeilToInt(rule.Pieces * Mathf.Sqrt(volume) * 0.4f * harm / rule.Hp), 1, 12));
+            int count = LiningShare(rule, Mathf.Clamp(Mathf.CeilToInt(rule.Pieces * Mathf.Sqrt(volume) * 0.4f * harm / rule.Hp), 1, 12));   // charged first (critic r7)
+            if (debris == null || !debris.Ready) return;
             Vector3 away = Away(origin, centre, 0.7f);
             Vector3 face = centre - away * (0.5f * Mathf.Max(size.x, size.z)) + Vector3.up * (size.y * 0.2f);   // the side the strike came from
             if (count <= 0) { debris.Dust?.Invoke(face, rule.Dust * 0.35f * Mathf.Clamp(scale, 0.5f, 1.5f)); Chipped++; return; }

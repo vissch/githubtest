@@ -393,14 +393,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
 | `HudLayoutTests` | EditMode | 6 | HudLayout, BattleHud, HudView, RosterEntry |
 | `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud, HudText |
-| `HudTextTests` | EditMode | 15 | BannerRules, BattleHud, VehicleArchetype, HudText, SimEventType, TankSpec |
+| `HudTextTests` | EditMode | 16 | BattleHud, BannerRules, HudText, VehicleArchetype, SimEventType, TankSpec |
 | `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |
 | `LandingTests` | EditMode | 8 | SimCommand, MatchSim, Sample, LandingState, BattlefieldGenerator, BattlefieldParams |
 | `MineTests` | EditMode | 14 | MineSystem, MineKind, SimEventType, Mine, MineState, MapData |
 | `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
 | `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
 | `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |
-| `ScatterRulesTests` | EditMode | 10 | Kind, ScatterKind, ScatterInput, ScatterLayers, ScatterField, NavLayer |
+| `ScatterRulesTests` | EditMode | 10 | Kind, ScatterKind, ScatterLayers, ScatterInput, ScatterField, NavLayer |
 | `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
 | `ShaderInclusionTests` | EditMode | 2 | CombatFx |
 | `ShellUxmlTests` | EditMode | 18 | DebriefScreen, CampaignSession, CampaignProfile, FactionBuildings, MatchLaunch, MatchReport |
@@ -415,7 +415,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
 | `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
-| `TrenchSectionTests` | EditMode | 7 | TrenchSectionRules, SectionState, BattlefieldKit, Module, AssetScaleTable, BattlefieldProps |
+| `TrenchSectionTests` | EditMode | 8 | TrenchSectionRules, SectionState, BattlefieldKit, BattlefieldProps, Module, AssetScaleTable |
 | `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, MapData, BattlefieldGenerator, SeparationJob |
 | `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
 | `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |

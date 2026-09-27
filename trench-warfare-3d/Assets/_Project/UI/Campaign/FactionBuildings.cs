@@ -289,7 +289,6 @@ namespace TW.UI
             int tier = p.TierOf(b.Faction, b.Id, line) + 1;
             p.Gold -= l.Cost(tier);
             p.SetTier(b.Faction, b.Id, line, tier);
-            if (l.Kind == LineKind.AbilityUnlock) p.UnlockedAbilities |= 1u << (int)l.Ability;
             return true;
         }
 

@@ -98,17 +98,19 @@ namespace TW.Presentation.Terrain
                 bool sand = input.InSand(cz);
                 if (sand) density *= SandGrass;
                 if (input.Frozen) density *= FrostGrass;
-                int n = density > 0f ? (int)(density * GrassPerCell + Hash(seed, cell, 1)) : 0;
+                int n = density > 0f ? (int)(density * GrassPerCell + Hash(seed, cell, 1)) : 0, kept = 0;
                 for (int k = 0; k < n && got.Grass < capG; k++)
                 {
                     if (lay && Hash(seed, cell, 300 + k) >= kg) continue;
-                    got.Grass++;
+                    got.Grass++; kept++;
                     if (!lay) continue;
                     float ox = Hash(seed, cell, 100 + k * 3) * ScatterInput.Cell, oz = Hash(seed, cell, 101 + k * 3) * ScatterInput.Cell;
                     float scale = input.Frozen ? 0.7f + 0.4f * Hash(seed, cell, 102 + k * 3) : 0.6f + 0.7f * Hash(seed, cell, 102 + k * 3);
                     into.Add(new ScatterInstance { Kind = input.Frozen ? ScatterKind.FrostTuft : ScatterKind.Grass, X = x * ScatterInput.Cell + ox, Z = z * ScatterInput.Cell + oz, Yaw = Hash(seed, cell, 103 + k * 3) * 360f, Scale = scale });
                 }
-                if (n > 0 && !input.Frozen)
+                // accents and flowers stand in the grass the cell kept, not in what it wanted (under a binding cap they
+                // landed in cells whose tufts were all thinned away: critic r7)
+                if (kept > 0 && !input.Frozen)
                 {
                     if (got.Accents < capA && Hash(seed, cell, 7) < 1f / AccentEvery && (!lay || Hash(seed, cell, 13) < ka))
                     {
@@ -117,7 +119,7 @@ namespace TW.Presentation.Terrain
                     }
                     if (!sand && density > FlowerMinDensity)
                     {
-                        int m = (int)(n * FlowerShare + Hash(seed, cell, 12));
+                        int m = (int)(kept * FlowerShare + Hash(seed, cell, 12));
                         for (int j = 0; j < m && got.Flowers < capF; j++)
                         {
                             if (lay && Hash(seed, cell, 400 + j) >= kf) continue;

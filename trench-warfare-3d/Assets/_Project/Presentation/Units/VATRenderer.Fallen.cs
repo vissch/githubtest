@@ -70,7 +70,7 @@ namespace TW.Presentation.Units
             {
                 var f = fallenMen[k];
                 float e = f.Born + (f.Lies > 0.01f ? f.Lies : FallenSeconds);
-                if (e < end) { end = e; best = k; }
+                if (e <= end) { end = e; best = k; }   // a tie goes to the later body: a heap's bottom, extended to its top's end, often ties it (critic r7)
             }
             return best;
         }

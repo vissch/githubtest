@@ -301,16 +301,19 @@ namespace TW.Tests
         public void TheShaderDecodesThePitchStepTheRendererEncodes()
         {
             string shader = System.IO.File.ReadAllText(System.IO.Path.Combine("Assets", "_Project", "Shaders", "VAT_URP.shader"));   // relative to the project (Unity's working folder), so Tools/otr.py runs it too
-            Assert.IsTrue(shader.Contains("/ " + VATRenderer.PitchSteps + ".0)"), "VAT_URP.shader decodes a pitch step as 2 pi / " + VATRenderer.PitchSteps + ": the two literals must agree");
+            // the decode line itself, not any "/ 32.0)" in the file (critic r7: a whole-file search passed with the rotation gone)
+            var decode = System.Text.RegularExpressions.Regex.Match(shader, @"float pitch = floor\(inst\.tint \* 0\.5\) \* \(6\.2831853\d* / (\d+)\.0\);");
+            Assert.IsTrue(decode.Success, "VAT_URP.shader decodes the pitch from the instance's tint");
+            Assert.AreEqual(VATRenderer.PitchSteps.ToString(), decode.Groups[1].Value, "as 2 pi / " + VATRenderer.PitchSteps + ": the two literals must agree");
+            StringAssert.Contains("sin(pitch), cp = cos(pitch)", shader.Substring(decode.Index + decode.Length), "and turns the figure by it (the rotation about local X)");
         }
 
         [Test]
-        public void ATorchLitForSevenSecondsSurvivesAPausedMatch()
+        public void ATorchGoesOutAfterItsSecondsOfSimTime()
         {
-            // the torch expires by the sim's clock: eight seconds of wall time at TimeScale 0 move it nowhere
+            // TorchOut takes the sim's clock only, so a paused match (the sim clock standing still) cannot run a torch out
             float bornSim = 12f, life = 7f;
             Assert.IsFalse(Flamethrower.TorchOut(bornSim, bornSim, life), "lit");
-            Assert.IsFalse(Flamethrower.TorchOut(bornSim, bornSim, life), "eight wall seconds later, paused: the sim clock is where it was, so is the fire");
             Assert.IsFalse(Flamethrower.TorchOut(bornSim + 6.9f, bornSim, life), "still burning at 6.9 s of sim");
             Assert.IsTrue(Flamethrower.TorchOut(bornSim + 7.1f, bornSim, life), "out after seven seconds of sim");
         }

@@ -93,6 +93,15 @@ namespace TW.Tests
             Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
         }
 
+        /// <summary>Both HUDs say the same thing while aiming (the old HUD's hint was a hand copy).</summary>
+        [Test]
+        public void BothHudsGiveTheSameAimHint()
+        {
+            foreach (bool line in new[] { false, true })
+                foreach (bool cycles in new[] { false, true })
+                    Assert.AreEqual(TW.UI.HudText.AimHintFor(line, cycles), BattleHud.AimHint(line, cycles), (line ? "line" : "point") + (cycles ? ", patterns" : ""));
+        }
+
         /// <summary>The aim hint offers Tab only for an ability with patterns to cycle.</summary>
         [Test]
         public void TheAimHintOffersTabOnlyWhereThereArePatterns()

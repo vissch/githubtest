@@ -18,7 +18,6 @@ namespace TW.Tests
             p.SetStage(1, "tusk-yard", 2);
             p.SetTier(1, "tusk-yard", 0, 3);
             p.SetTier(0, "rifle-works", 2, 1);
-            p.UnlockedAbilities = 1u << 6;
             return p;
         }
 
@@ -40,7 +39,6 @@ namespace TW.Tests
             Assert.That(back.TierOf(1, "tusk-yard", 0), Is.EqualTo(3));
             Assert.That(back.TierOf(1, "tusk-yard", 1), Is.Zero);
             Assert.That(back.TierOf(0, "rifle-works", 2), Is.EqualTo(1));
-            Assert.That(back.UnlockedAbilities, Is.EqualTo(1u << 6));
         }
 
         [Test]

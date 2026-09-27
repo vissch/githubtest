@@ -86,6 +86,28 @@ namespace TW.Tests
             finally { Object.DestroyImmediate(go); }
         }
 
+        /// <summary>One shell over forty sections throws at most MaxSectionPiecesPerStrike lining pieces, whichever way each
+        /// section goes (broken, collapsed or chipped); the ration is charged with or without a renderer (critic r7: it was
+        /// charged only when a DebrisRenderer was up, so nothing could test it).</summary>
+        [Test]
+        public void A_Barrage_Over_Forty_Sections_Throws_At_Most_The_Ration()
+        {
+            var go = new GameObject("lining ration test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var destruction = go.AddComponent<PropDestruction>();
+                destruction.AttachForTests(props);
+                for (int k = 0; k < 40; k++)
+                    props.AddInstance(kit.TrenchWalls[k % 3], Matrix4x4.TRS(new Vector3(10f + (k % 8) * 2f, 0f, 10f + (k / 8) * 2f), Quaternion.identity, Vector3.one));
+                destruction.StrikeForTests(new Vector3(17f, 0f, 14f), 9.2f, 1.2f);
+                Assert.Greater(destruction.SectionPiecesForTests, 0, "the strike threw lining pieces");
+                Assert.LessOrEqual(destruction.SectionPiecesForTests, TrenchSectionRules.MaxSectionPiecesPerStrike, "and no more than the ration");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
         static int Drawn(BattlefieldProps props, BattlefieldKit.Module module)
         {
             var found = new System.Collections.Generic.List<(int page, int slot, Matrix4x4 m)>();

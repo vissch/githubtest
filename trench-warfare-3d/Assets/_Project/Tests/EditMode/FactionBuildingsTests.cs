@@ -140,7 +140,7 @@ namespace TW.Tests
             Assert.That(FactionBuildings.Expand(p, b), Is.True);
             Assert.That(FactionBuildings.Buy(p, b, line), Is.True);
             Assert.That(p.Gold, Is.EqualTo(1000 - 40 - FactionBuildings.UnlockCost));
-            Assert.That(p.UnlockedAbilities & (1u << (int)OffMapAbilityId.CreepingBarrage), Is.Not.Zero);
+            Assert.That(FactionBuildings.AbilityMask(p, 0) & (1u << (int)OffMapAbilityId.CreepingBarrage), Is.Not.Zero, "the unlock opens the ability (AbilityMask, the one gate)");
             Assert.That(FactionBuildings.AbilityMask(p, FactionBuildings.Iron) & (1u << (int)OffMapAbilityId.CreepingBarrage), Is.Not.Zero);
             Assert.That(FactionBuildings.AbilityMask(p, FactionBuildings.Brass) & (1u << (int)OffMapAbilityId.CreepingBarrage), Is.Zero, "bought for Iron only");
             Assert.That(FactionBuildings.CanBuy(p, b, line, out var why), Is.False);
