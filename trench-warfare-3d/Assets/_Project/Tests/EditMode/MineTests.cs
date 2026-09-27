@@ -313,7 +313,7 @@ namespace TW.Tests
                 for (int s = 0; s < slots; s++)
                 {
                     bool vehicle = rng.NextFloat() < 0.1f;
-                    pos[s] = new float3(rng.NextFloat(0f, 120f), 0f, rng.NextFloat(0f, 120f));
+                    pos[s] = new float3(rng.NextFloat(-60f, 120f), 0f, rng.NextFloat(-60f, 120f));   // across zero: negative cells and the key's masking
                     flags[s] = (rng.NextFloat() < 0.9f ? (uint)UnitFlags.Alive : 0u) | (vehicle ? (uint)UnitFlags.Vehicle : 0u) | (vehicle && rng.NextFloat() < 0.2f ? (uint)UnitFlags.KnockedOut : 0u);
                     hp[s] = rng.NextFloat() < 0.95f ? 100f : 0f; yaw[s] = rng.NextFloat(0f, 6.2831853f);
                     team[s] = (byte)rng.NextInt(0, 2); arch[s] = vehicle ? (byte)rng.NextInt(4, 12) : (byte)0;
@@ -323,8 +323,8 @@ namespace TW.Tests
                 {
                     bool trip = rng.NextFloat() < 0.3f;
                     float a = rng.NextFloat(0f, 6.2831853f);
-                    mines[m] = new Mine { Pos = new float3(rng.NextFloat(0f, 120f), 0f, rng.NextFloat(0f, 120f)), Dir = trip ? new float3(math.sin(a), 0f, math.cos(a)) : float3.zero,
-                        Length = trip ? rng.NextFloat(1f, 12f) : 0f, Player = rng.NextInt(0, 2), Kind = trip ? (int)MineKind.Tripwire : (int)MineKind.Mine,
+                    mines[m] = new Mine { Pos = new float3(rng.NextFloat(-60f, 120f), 0f, rng.NextFloat(-60f, 120f)), Dir = trip ? new float3(math.sin(a), 0f, math.cos(a)) : float3.zero,
+                        Length = trip ? rng.NextFloat(1f, 40f) : 0f,   // past the placing limit: a line across many cells Player = rng.NextInt(0, 2), Kind = trip ? (int)MineKind.Tripwire : (int)MineKind.Mine,
                         State = rng.NextFloat() < 0.85f ? (int)MineState.Armed : (int)MineState.Spent };
                 }
                 var expected = Reference(mines, pos, flags, hp, yaw, team, arch);
