@@ -132,10 +132,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
 ### Fire in the sim
 - **Files:** vehicles burn: `Sim/Units/VehicleModules.cs` (`Fire`, `StartFire`, `UnitFlags.Burning`, the
-  `VehicleOnFire` event). Men and ground cells do not burn yet: `Sim/Combat/Burning.cs` is a stub that throws and is
-  not registered (`code-map.md`, sim system order) (until "SIM: a recruit lit before the burning system steps"
-  lands). Registering it is a hash and replay change (a seam commit).
-- **Tests:** TankMobilityTests (vehicle fire). None for infantry fire.
+  `VehicleOnFire` event). Men and ground cells burn in `Sim/Combat/Burning.cs` (`BurningSystem`, registered in
+  `MatchSim`; it reads `Blast.Resolved` for incendiary bursts, and the beam lights men too). Changing what it hashes is
+  a hash and replay change (a seam commit).
+- **Tests:** TankMobilityTests (vehicle fire), BurningSystemTests (men and ground).
 
 ### Vehicles in the sim: tanks and walkers
 - **Files:** `Sim/Core/RosterEntry.cs` (`VehicleArchetype`, default roster, `SlotCount`), `Sim/Combat/TankSpec.cs`,
@@ -249,12 +249,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Flamethrower
 - **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only: men do not burn in the sim, see "Fire in
-  the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Its clock is `now = Time.time` in
-  `CombatFx.cs` `Update`, passed to `flames.Update`: wall-clock, so it runs on while the sim is paused
-  (until "Pools of fuel and pyres burn out by the sim's clock" lands). The torch drawn on a burning man is
-  `Flamethrower` `torches`, also wall-clock; only his animation's `AlightUntil` runs on sim ticks. The `Death` case in
-  `CombatFx.cs` does not call `flames.Douse`, so a dead man's torch burns on and the slot's next tenant can be drawn
-  alight (until "Critique round 1: the fixes on the show lane" lands).
+  the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
+  man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
+  paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
+  (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
 - **Tests:** none.
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it.
@@ -362,8 +360,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
   replaces which. `CombatFx.cs` draws an IMGUI copy only while the legacy HUD is on (F9).
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD.
-- **Trap:** the support cards are `HudView.SupportAbilities` (HE barrage and chlorine only), but `HudLayout.SupportSlots` and `BattleHud` each keep
-  their own `SupportSlots = 2` (until "The HUD's width model counts every support card" lands).
+- **Trap:** the support cards are `HudView.SupportAbilities` (six: HE, chlorine, creeping barrage, smoke screen,
+  strafe run, beam); `HudLayout.SupportSlots` counts them, but the legacy `BattleHud` keeps `SupportSlots = 2` (the
+  newer four have cards only in the Toolkit HUD).
 
 ### Legacy IMGUI HUD and debug panel
 - **Files:** `Presentation/Camera/BattleHud.cs` (F9 switches to it), `Presentation/Camera/TestPanel.cs`,
@@ -379,8 +378,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the circle and target markers `Presentation/Camera/CombatFx.cs` `Update`. Sim side (SIM lane):
   `Sim/Match/OffMapAbilities.cs` (`TryGetStats`: which abilities exist and their radius).
 - **Tests:** SelectionTests (AimReadout), SupportAbilityTests (sim).
-- **Trap:** the drawn circle uses the ability's radius, or 8 m when it has none; `AimReadout` has its own 8 m
-  (`GasReticleM`). Change both (until "One reticle radius for the aim and the readout" lands).
+- **Trap:** an ability without a radius is aimed with `AbilityAim.PointFallbackRadius` (8 m); `AimReadout.GasReticleM`
+  reads the same constant, and a line ability is counted along its corridor (`ShowLine`).
 - **See it:** in Play, arm with the HUD card or keys 9 and 0, then `TW.Editor.HudCapture.Shoot(path)`.
 - **Adding a support ability (checklist).** SIM first: `OffMapAbilityId` and its stats in
   `Sim/Match/OffMapAbilities.cs`, the asset in `Editor/SliceDefinitions.cs`. Then SHOW: `UI/HudView.cs`
@@ -465,9 +464,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   keys), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
   `Presentation/Core/RenderGround.cs`. Budgets and past runs: `docs/05-performance-budgets.md`.
 - **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests. None
-  covers `FrameBudget`'s counts or `BenchOptions.Parse` (an unknown key is ignored without a word).
-- **Trap:** the `shot=` still is taken when the warm-up counter passes 10 (`PerfBench` `Warm`), so a `warm=` under
-  10 takes no still.
+  covers `FrameBudget`'s counts or `BenchOptions.Parse`. An unknown option is listed in the report's `warnings`
+  (`BenchOptions.Unknown`), not refused, so read the warnings before trusting a run.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
 - **Trap:** `FrameBudget` does not see every draw: `BattlefieldProps`, `PropDestruction` and `SelectionMarkers` call
   `Graphics.RenderMeshInstanced` directly (until "Every gameplay draw goes through FrameBudget" lands), and `PerfBench` reports the props'
