@@ -1,0 +1,43 @@
+diff --git a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+index c048419..482de20 100644
+--- a/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
++++ b/trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs
+@@ -160,7 +160,7 @@ namespace TW.Presentation.Tactical
+         //                  book has its own material, so no draw or material is added. 0 = the old look (the Column book
+         //                  got _Hard 0 before C102, and the shader skips the line at 0).
+         public const string ColumnHardKnob = "fx.columnHard";
+-        public const float DefaultColumnHard = 0f, OldColumnHard = 0f;   // off until a blind 2-way against the default passes (rule 6)
++        public const float DefaultColumnHard = 1f, OldColumnHard = 0f;   // blind 2-way against 0 (runs 9/c102-critic.md): earth 3.2 -> 5.1, men 5.7 -> 5.7
+ 
+         /// <summary>fx.columnHard, in [0, 1] (0 = the old look).</summary>
+         public static float ReadColumnHard() => Mathf.Clamp01(Knobs.Get(ColumnHardKnob, DefaultColumnHard));
+diff --git a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+index d7ee789..220efed 100644
+--- a/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
++++ b/trench-warfare-3d/Assets/_Project/Tests/EditMode/KnobsTests.cs
+@@ -383,16 +383,19 @@ namespace TW.Tests
+         }
+ 
+         [Test]
+-        public void ColumnHardKnob_DefaultIsTheOldLook_AndSetsTheCutOnTheColumnBookOnly()
++        public void ColumnHardKnob_DefaultIsTheNewLook_AndSetsTheCutOnTheColumnBookOnly()
+         {
+-            // AOSA C102: fx.smokeHard's toon cut on the earth column; 0 (the default until a blind 2-way passes) is the old look
++            // AOSA C102: fx.smokeHard's toon cut on the earth column; the default cuts it, fx.columnHard=0 is the old look
+             Assert.AreEqual("fx.columnHard", FlipbookFx.ColumnHardKnob);
+-            Assert.AreEqual(FlipbookFx.OldColumnHard, FlipbookFx.DefaultColumnHard, "the default is the old look");
+-            Assert.AreEqual(0f, FlipbookFx.ReadColumnHard());
+-            Assert.AreEqual("0", Knobs.Read["fx.columnHard"]);
++            Assert.AreEqual(FlipbookFx.DefaultColumnHard, FlipbookFx.ReadColumnHard());
++            Assert.AreEqual("1", Knobs.Read["fx.columnHard"]);
++            Assert.Greater(FlipbookFx.DefaultColumnHard, FlipbookFx.OldColumnHard, "the default is the new look");
++            Assert.AreEqual(1f, FlipbookFx.BookHard(FlipbookFx.Book.Column, 0f, FlipbookFx.ReadColumnHard()), "the default cuts the column");
+ 
+-            // the old values: every book is made with the _Hard the code before C102 gave it (s.Deep ? smokeHard : 0),
++            // the old value: every book is made with the _Hard the code before C102 gave it (s.Deep ? smokeHard : 0),
+             // written out: the burst's cloud and the smoke take fx.smokeHard, every other book (the Column among them) 0
++            Knobs.Set(FlipbookFx.ColumnHardKnob, "0");
++            Assert.AreEqual(FlipbookFx.OldColumnHard, FlipbookFx.ReadColumnHard());
+             foreach (float smoke in new[] { 0f, 0.5f, 1f })
+             for (int b = 0; b < (int)FlipbookFx.Book.Count; b++)
+             {
