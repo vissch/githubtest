@@ -42,17 +42,30 @@ function Show-Failures($xmlPath) {
     return $allNoise
 }
 
+# Print what actually ran and keep a copy per mode (the next run overwrites test-results.xml). A "pass" that ran no
+# tests is no verdict: the EditMode run prints nothing to the console, so without this line green and empty look alike.
+function Report-Run($mode, $code) {
+    if (-not (Test-Path 'test-results.xml')) { Write-Host "$mode : no test-results.xml written" -ForegroundColor Red; return 6 }
+    Copy-Item 'test-results.xml' "test-results-$mode.xml" -Force
+    [xml]$x = Get-Content 'test-results.xml' -Raw
+    $r = $x.'test-run'
+    Write-Host "$mode : $($r.total) run, $($r.passed) passed, $($r.failed) failed, $($r.skipped) skipped (test-results-$mode.xml)"
+    if ($code -eq 0 -and [int]$r.total -eq 0) { Write-Host "$mode ran no tests: not a pass." -ForegroundColor Red; return 6 }
+    return $code
+}
+
 function Run-Tests($mode, [string[]]$extra) {
+    Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
     & $unity test . --mode $mode --timeout 600 @extra | Out-Host
     $code = $LASTEXITCODE
-    if ($code -ne 8) { return $code }
+    if ($code -ne 8) { return (Report-Run $mode $code) }
     $noiseOnly = Show-Failures 'test-results.xml'
     if (-not $noiseOnly) { return $code }
     Write-Host "`nEvery failure is external pipeline noise (see the header of gate.ps1). Rerunning the failed tests once." -ForegroundColor Yellow
     & $unity test . --mode $mode --timeout 600 --rerun-failed @extra | Out-Host
     $code = $LASTEXITCODE
     if ($code -eq 8) { Show-Failures 'test-results.xml' | Out-Null }
-    return $code
+    return (Report-Run $mode $code)
 }
 
 $proj  = Join-Path $PSScriptRoot 'trench-warfare-3d'
