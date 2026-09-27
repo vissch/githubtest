@@ -22,7 +22,15 @@ fi
 "$T" run open_scene -- --path "Assets/_Project/Scenes/GreyboxCorridor.unity" >/dev/null 2>&1
 "$T" run editor_play >/dev/null 2>&1; sleep 30
 "$T" pause false >/dev/null 2>&1
-"$T" eval 'return "fx="+(TW.Presentation.Tactical.Flamethrower.Active!=null);'
+# The scene has to be the RIGHT scene. A fresh editor opens an untitled one, and if open_scene races the asset
+# import the run still succeeds and captures a blue sky over flat grey ground - four shots of nothing, all of
+# which measure cleanly. Check it before spending four minutes on captures.
+SC=$("$T" eval 'return UnityEngine.SceneManagement.SceneManager.GetActiveScene().name+"/"+(TW.Presentation.Tactical.Flamethrower.Active!=null);' | grep -o '"result": "[^"]*"' | sed 's/.*: "//;s/"$//')
+echo "  scene=$SC"
+case "$SC" in
+  GreyboxCorridor/True) ;;
+  *) echo "WRONG SCENE OR NO FLAMETHROWER ($SC) - not capturing" >&2; exit 1 ;;
+esac
 
 # shared preamble: the flamethrower, the height map, and a screen-right aim (a stream pointed at the eye has no
 # length to draw along and falls back to the round-card chain, which is not what these shots are for)
@@ -46,7 +54,6 @@ var r=cam.transform.right; r.y=0f; r=r.normalized;'
 # Mathf.Repeat phases inside the effect are actually keyed on.
 one() {
   "$T" pause true >/dev/null 2>&1
-  "$T" stepabs "$4" >/dev/null 2>&1
   "$T" eval "$PRE_CS $2" >/dev/null 2>&1
   "$T" stepto "$3" >/dev/null 2>&1
   "$T" shot "${PRE}_$1" >/dev/null 2>&1
@@ -109,7 +116,6 @@ set -- $SCAN; WX=$1; WY=$2; WZ=$3; DX=$4; DZ=$5
 echo "  bank site ($WX, $WY, $WZ) aim ($DX, $DZ)"
 
 "$T" pause true >/dev/null 2>&1
-"$T" stepabs 64 >/dev/null 2>&1
 # frame at yaw 0 first, read where screen-right actually points, then correct once
 "$T" eval "var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
 var mid=new UnityEngine.Vector3(${WX}f,0f,${WZ}f)+new UnityEngine.Vector3(${DX}f,0f,${DZ}f)*3.5f;
