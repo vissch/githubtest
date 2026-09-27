@@ -77,8 +77,8 @@ rebase before it continues. Never bundle a seam change into a feature commit.
 - **Landing a lane**, only when the owner says so: rebase onto origin's integration branch, run the full gate on
   that exact commit, then `python Tools/land.py`. It refuses a tree no green gate tested, a SHOW lane carrying SIM
   files, and a lane someone landed ahead of, and pushes both branches atomically. Refused: rebase, gate, land.
-- **An owner decision** does not wait for its lane: commit it alone (only `decisions.md`), cherry-pick it onto a
-  new `lane/show/decision-<date>` cut from origin's integration branch, `python Tools/land.py` there, delete it.
+- **An owner decision** lands ahead of its lane: commit it alone (only `decisions.md`), cherry-pick it onto a
+  `lane/show/decision-<date>-<topic>` off origin's integration branch, `land.py`, then delete it here and on origin.
 - Push your lane small and often.
 
 ## Gate
