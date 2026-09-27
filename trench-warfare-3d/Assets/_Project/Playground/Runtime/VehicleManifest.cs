@@ -17,6 +17,7 @@ namespace TW.Playground
         public float scale;
         public bool walker;                 // Tools/mechsplit.py: legs to walk on (WalkerDrive)
         public bool flyer;                  // Tools/mechsplit.py TW_KIND=flyer: flies (FlyerDrive)
+        public float fling;                 // how hard a cook-off throws parts (1 when absent: the tank's)
         public bool hover;                  // TW_KIND=hover: a hovercraft, FlyerDrive low over the ground
         public PartDef[] partList;
         public SocketDef[] socketList;

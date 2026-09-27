@@ -436,7 +436,7 @@ for k, P in enumerate(lods):
     caps = {n: cap(P[n], PLANES, uvs[k], epss[k]) for n in ["Hull"] + CUT_PARTS}
     print("LOD%d caps %s" % (k, caps))
 piv, sock = pivots_and_sockets(P0)
-manifest = {"source": "Tools/jeepsplit.py", "name": NAME, "scale": SCALE, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped, "derived": [1, 2] if LOD2_FROM == "derive" else [1]}
+manifest = {"source": "Tools/jeepsplit.py", "name": NAME, "scale": SCALE, "fling": 0.6, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped, "derived": [1, 2] if LOD2_FROM == "derive" else [1]}
 for n in ALL_PARTS: manifest["parts"][n] = {"parent": PARENT.get(n), "pivot": unity(piv[n] * SCALE), **BREAK[n]}
 for s, (owner, p) in sock.items(): manifest["sockets"][s] = {"part": owner, "pos": unity((p - piv[owner]) * SCALE)}
 for lod, P in enumerate(lods):
