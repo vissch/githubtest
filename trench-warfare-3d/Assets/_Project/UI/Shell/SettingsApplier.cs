@@ -56,7 +56,8 @@ namespace TW.UI
             var panel = Resources.Load<PanelSettings>(HudBootstrap.PanelResource);
             if (panel != null)
             {
-                float k = Mathf.Clamp(s.Interface.UiScale, 0.75f, 1.5f);
+                var scale = GameSettings.RangeOf("slider-ui-scale");
+                float k = Mathf.Clamp(s.Interface.UiScale, scale.x, scale.y);
                 var want = new Vector2Int(Mathf.RoundToInt(ReferenceWidth / k), Mathf.RoundToInt(ReferenceHeight / k));
                 if (panel.referenceResolution != want) panel.referenceResolution = want;
             }

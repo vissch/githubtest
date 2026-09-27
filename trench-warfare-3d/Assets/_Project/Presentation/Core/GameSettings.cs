@@ -3,6 +3,7 @@
 // ignored and missing ones keep their defaults. Applying it to the engine is SettingsApplier's job (TW.UI, because
 // the camera and the shake live in the Camera assembly which this one cannot reference).
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TW.Presentation
@@ -61,6 +62,37 @@ namespace TW.Presentation
             [Range(0f, 1f)] public float Gore = 1f;    // DebrisRenderer.Gore: 0 = no gore lumps, no limbs
         }
 
+        /// <summary>What each settings slider allows, by its name in Settings.uxml, and the field it edits. Migrate
+        /// clamps a loaded file into these and SettingsScreen gives each slider its range from here, so a value
+        /// the screen cannot show cannot be loaded either. GameSettingsTests holds Settings.uxml and the [Range]
+        /// attributes above to this table.</summary>
+        public static readonly IReadOnlyList<(string Slider, string Field, float Min, float Max)> Sliders = new[]
+        {
+            ("slider-pan-speed", "Camera.PanSpeed", 20f, 200f),
+            ("slider-zoom-min", "Camera.ZoomMin", 2f, 30f),
+            ("slider-zoom-max", "Camera.ZoomMax", 60f, 2000f),
+            ("slider-shake", "Camera.Shake", 0f, 2f),
+            ("slider-gore", "Camera.Gore", 0f, 1f),
+            ("slider-master", "Audio.Master", 0f, 1f),
+            ("slider-ambience", "Audio.Ambience", 0f, 1f),
+            ("slider-sfx", "Audio.Sfx", 0f, 1f),
+            ("slider-music", "Audio.Music", 0f, 1f),
+            ("slider-ui-scale", "Interface.UiScale", 0.75f, 1.5f),
+        };
+
+        /// <summary>The (min, max) of a slider in <see cref="Sliders"/>.</summary>
+        public static Vector2 RangeOf(string slider)
+        {
+            foreach (var s in Sliders) if (s.Slider == slider) return new Vector2(s.Min, s.Max);
+            throw new ArgumentException($"no settings slider named {slider}");
+        }
+
+        static float Clamp(float v, string slider)
+        {
+            var r = RangeOf(slider);
+            return Mathf.Clamp(v, r.x, r.y);
+        }
+
         public static GameSettings Defaults() => new GameSettings();
 
         /// <summary>Bring an older or hand-edited file up to this build's shape.</summary>
@@ -77,12 +109,15 @@ namespace TW.Presentation
             for (int i = 0; i < KeyMap.ActionCount; i++)
                 if (Bindings.Primary[i] == UnityEngine.InputSystem.Key.None && Bindings.Secondary[i] == UnityEngine.InputSystem.Key.None)
                 { Bindings.Primary[i] = d.Primary[i]; Bindings.Secondary[i] = d.Secondary[i]; }
-            Audio.Master = Mathf.Clamp01(Audio.Master); Audio.Ambience = Mathf.Clamp01(Audio.Ambience);
-            Audio.Sfx = Mathf.Clamp01(Audio.Sfx); Audio.Music = Mathf.Clamp01(Audio.Music);
-            Interface.UiScale = Mathf.Clamp(Interface.UiScale, 0.75f, 1.5f);
-            Camera.ZoomMin = Mathf.Clamp(Camera.ZoomMin, 2f, 60f);
-            Camera.Gore = Mathf.Clamp01(Camera.Gore);
-            Camera.ZoomMax = Mathf.Clamp(Camera.ZoomMax, Camera.ZoomMin + 10f, 2000f);
+            Audio.Master = Clamp(Audio.Master, "slider-master"); Audio.Ambience = Clamp(Audio.Ambience, "slider-ambience");
+            Audio.Sfx = Clamp(Audio.Sfx, "slider-sfx"); Audio.Music = Clamp(Audio.Music, "slider-music");
+            Interface.UiScale = Clamp(Interface.UiScale, "slider-ui-scale");
+            Camera.PanSpeed = Clamp(Camera.PanSpeed, "slider-pan-speed");
+            Camera.Shake = Clamp(Camera.Shake, "slider-shake");
+            Camera.Gore = Clamp(Camera.Gore, "slider-gore");
+            Camera.ZoomMin = Clamp(Camera.ZoomMin, "slider-zoom-min");
+            var far = RangeOf("slider-zoom-max");
+            Camera.ZoomMax = Mathf.Clamp(Camera.ZoomMax, Mathf.Max(far.x, Camera.ZoomMin + 10f), far.y);
             Version = CurrentVersion;
         }
 

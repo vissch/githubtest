@@ -11,6 +11,48 @@ namespace TW.Tests
 {
     public class GameSettingsTests
     {
+        static FieldInfo Field(string path, out object owner, GameSettings s)
+        {
+            var parts = path.Split('.');
+            owner = typeof(GameSettings).GetField(parts[0]).GetValue(s);
+            return owner.GetType().GetField(parts[1]);
+        }
+
+        /// <summary>A slider's range lived in Settings.uxml, in Migrate's clamps and in [Range] attributes, and they
+        /// had drifted (closest zoom 2-30 on screen, 2-60 on load; pan speed and shake never clamped). Now
+        /// GameSettings.Sliders is the one table; this holds every other copy to it.</summary>
+        [Test]
+        public void EverySettingsSliderHasOneRange()
+        {
+            var uxml = File.ReadAllText(Path.Combine(Application.dataPath, "_Project/UI/Shell/Settings.uxml"));
+            var names = System.Text.RegularExpressions.Regex.Matches(uxml, "<ui:Slider name=\"([\\w-]+)\"")
+                .Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).ToList();
+            CollectionAssert.AreEquivalent(names, GameSettings.Sliders.Select(x => x.Slider),
+                "every slider in Settings.uxml has a row in GameSettings.Sliders, and no row is left over");
+            foreach (var (slider, field, min, max) in GameSettings.Sliders)
+            {
+                var tag = System.Text.RegularExpressions.Regex.Match(uxml, $"<ui:Slider name=\"{slider}\"[^>]*>").Value;
+                Assert.That(tag, Does.Contain($"low-value=\"{min.ToString(System.Globalization.CultureInfo.InvariantCulture)}\""), slider);
+                Assert.That(tag, Does.Contain($"high-value=\"{max.ToString(System.Globalization.CultureInfo.InvariantCulture)}\""), slider);
+
+                var s = GameSettings.Defaults();
+                var f = Field(field, out var owner, s);
+                Assert.IsNotNull(f, $"{field} is a field of GameSettings");
+                var range = f.GetCustomAttribute<UnityEngine.RangeAttribute>();
+                if (range != null)
+                    Assert.That((range.min, range.max), Is.EqualTo((min, max)), $"[Range] on {field}");
+
+                float def = (float)f.GetValue(owner);
+                Assert.That(def, Is.InRange(min, max), $"the default {field} is on its slider");
+                f.SetValue(owner, min - 1000f);
+                s.Migrate();
+                Assert.That((float)f.GetValue(owner), Is.InRange(min, max), $"a loaded {field} below the slider is clamped");
+                f.SetValue(owner, max + 1000f);
+                s.Migrate();
+                Assert.That((float)f.GetValue(owner), Is.InRange(min, max), $"a loaded {field} above the slider is clamped");
+            }
+        }
+
         [Test]
         public void DefaultsRoundTripThroughJson()
         {

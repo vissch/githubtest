@@ -37,7 +37,7 @@ namespace TW.Tests
             ["GreyboxTerrainView"] = "code-made textures cached for the process (mudDetail, ripples)",
             ["HeavyWork"] = "frame-stamped claim that expires by itself",
             ["HudBootstrap"] = "Disabled: a test switch the tests set and restore",
-            ["HudBridge"] = "PointerOverUi is cleared by SceneStatics.Reset; WheelClaimed is re-wired by the HUD; UseToolkitHud lives in PlayerPrefs",
+            ["HudBridge"] = "PointerOverUi and WheelClaimed are set and cleared by their owners (HudController, SelectionController) and cleared by SceneStatics.ResetSession; UseToolkitHud lives in PlayerPrefs",
             ["HudHotkeys"] = "LegacyOverlayActive: follows the HUD flag",
             ["InputFocus"] = "cleared by SceneStatics.Reset on every scene load",
             ["KeyMap"] = "Current: the player's bindings from settings.json",

@@ -1,7 +1,8 @@
 // Phase: B6 (implemented) — puts the Toolkit HUD into any scene that has a SimHost and no HUD yet.
-// The committed GreyboxCorridor carries the HUD object, but SimHost.Restart() reloads the scene, fresh clones may
-// rebuild it, and a test scene has neither; this runs after every scene load and adds the UIDocument + HudController
-// when the flag is on. The same "add if missing" habit DebugOverlay.Start has for the IMGUI pieces.
+// No scene carries the HUD object: this runs after every scene load (SimHost.Restart() reloads the scene too) and
+// adds the UIDocument + HudController to a scene with a SimHost. It is added whether or not the Toolkit flag is on;
+// with the flag off it hides itself and only listens for F9. The same "add if missing" habit DebugOverlay.Start has
+// for the IMGUI pieces.
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;

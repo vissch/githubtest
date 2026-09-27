@@ -328,6 +328,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the one place the game builds one), `Presentation/Core/MatchClock.cs` (owns `SimHost.TimeScale`). Factions and
   unlocks are data in `Data/Definitions.cs` (SIM lane), not yet read at runtime.
 - **Tests:** ShellUxmlTests, ShellRouterPlayTests, GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests.
+- **Settings sliders:** each slider's range is a row in `GameSettings.Sliders`; loading clamps to it and
+  `SettingsScreen` sets the slider from it. A new slider needs a row, or GameSettingsTests fails.
 
 ### UI skin
 - **Files:** `UI/Skin/SkinSpec.cs` (the sprite table), `Editor/UI/UiSkinGenerator.cs`, `Editor/UI/UiSkinImport.cs`,
@@ -343,8 +345,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Core/SceneStatics.cs` (`Reset` per scene load; `ResetSession` and `Register` when Play
   ends), `Editor/PlayModeStaticsReset.cs` (calls it on EnteredEditMode), `SceneHooks.Reset` in `Presentation/Core/RenderGround.cs`.
 - **Tests:** StaticLifecycleTests (a new mutable static in presentation or UI fails until it registers a reset or
-  is explained there).
-- **Trap:** never clear `SceneHooks` from `SceneStatics.Reset`: it runs after the new scene has wired its hooks.
+  is explained there), SceneStaticsTests (what a scene load keeps).
+- **Trap:** never clear `SceneHooks` or `HudBridge`'s `PointerOverUi` / `WheelClaimed` from `SceneStatics.Reset`:
+  it runs after the new scene has wired its hooks, and `HudBootstrap` may already have built the HUD.
 
 ### Performance and allocations
 - **Files:** `Perf/PerfBench.cs`, `Perf/BenchOptions.cs` (every bench option is parsed in `Parse`: the list of
@@ -388,6 +391,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AllocProbeSanityTests, BattlefieldLockstepTests, BattlefieldTests, BiomeProfileTests, BlastReactionTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FlowFieldManagerTests, FlowFieldTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, StaticLifecycleTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, WinterLevelTests, WinterMapTests
+- **EditMode:** AllocProbeSanityTests, BattlefieldLockstepTests, BattlefieldTests, BiomeProfileTests, BlastReactionTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FlowFieldManagerTests, FlowFieldTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, SceneStaticsTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, StaticLifecycleTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, WinterLevelTests, WinterMapTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 <!-- /gen:tests -->

@@ -14,7 +14,7 @@ namespace TW.Presentation
 
         /// <summary>
         /// UI Toolkit HUD on, IMGUI BattleHud off. Read once by whoever bootstraps the HUD and every frame by the
-        /// OnGUI paths it replaces. Default 0 until the Toolkit HUD passes the two-developer playtest; F9 flips it.
+        /// OnGUI paths it replaces. Default on (DefaultToolkit); F9 flips it.
         /// </summary>
         public static bool UseToolkitHud
         {

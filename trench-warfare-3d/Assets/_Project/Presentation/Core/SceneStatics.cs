@@ -6,7 +6,9 @@
 // destroys every object but not a static. The owners clear their own (SimHost.OnDestroy, VATRenderer,
 // GreyboxTerrainView, TankRenderer, Storm's Thaw); these are the ones nobody owns: the debug bombardment override
 // the TestPanel presets set, the engine time scale Storm's lightning may be holding, and the shell's input focus.
-// It must NOT clear SceneHooks: sceneLoaded fires after the new scene's components have already wired theirs.
+// It must NOT clear SceneHooks, nor HudBridge's PointerOverUi / WheelClaimed: sceneLoaded fires after the new scene's
+// components have already wired theirs, and HudBootstrap builds the HUD in its own sceneLoaded handler, which Unity
+// may run before or after ShellRouter's. Their owners clear them in OnDisable; ResetSession clears them too.
 //
 // ResetSession() runs when no scene is live: when the editor leaves Play (Editor/PlayModeStaticsReset.cs) and
 // before tests that read these statics. The editor reloads the domain on entering Play but not on leaving it,
@@ -32,7 +34,6 @@ namespace TW.Presentation
             SimHost.BombardmentOverride = -1f;
             Time.timeScale = 1f;
             InputFocus.Reset();
-            HudBridge.PointerOverUi = null;
         }
 
         /// <summary>Register what to put back when a Play session ends. One entry per owner: registering the same
@@ -55,6 +56,8 @@ namespace TW.Presentation
         {
             Reset();
             SceneHooks.Reset();
+            HudBridge.PointerOverUi = null;
+            HudBridge.WheelClaimed = null;
             for (int i = 0; i < session.Count; i++) session[i].Value();
         }
     }

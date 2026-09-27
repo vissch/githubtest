@@ -247,6 +247,8 @@ namespace TW.UI
         {
             var s = Root.Q<Slider>(name);
             if (s == null) return;
+            var range = GameSettings.RangeOf(name);   // the range Migrate clamps to, not a second copy in the uxml
+            s.lowValue = range.x; s.highValue = range.y;
             s.SetValueWithoutNotify(value);
             s.RegisterValueChangedCallback(e => onChange(e.newValue));
         }

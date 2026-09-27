@@ -21,8 +21,5 @@ namespace TW.Presentation
             claimedFrame = f;
             return true;
         }
-
-        /// <summary>Whether a heavy job has already run this frame (for work that may share a frame but not stack).</summary>
-        public static bool ClaimedThisFrame => claimedFrame == Time.frameCount;
     }
 }
