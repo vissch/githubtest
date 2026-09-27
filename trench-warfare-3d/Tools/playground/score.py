@@ -3,7 +3,7 @@
 #   python Tools/playground/score.py TAG [PREV] [DIR]   -> DIR/TAG_scores.json; prints the table and REGRESSED lines
 # Noise floors, measured on unchanged builds (docs/22; loop 2): pop IoU 0.006; block colour 0.6 for the tank and frog
 # and 1.0 for the new machines (a gunship read 0.2-0.97 three times running; the frog's 2->3 swings 2-6 and is not
-# flagged); m3 contrast is the median of nine frames (single frames run 0.25-0.44 on one build) with a floor of 0.08; side cross-talk
+# flagged); m3 contrast is the mean of nine frames (single frames run 0.23-0.47 on one build, in two clusters) with a floor of 0.08; side cross-talk
 # 0.002. Frames per second are the editor's, swayed by whatever else the machine runs: shown, never flagged.
 import sys, json, os, glob
 T = sys.argv[1]; PREV = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] != "-" else None
@@ -31,7 +31,9 @@ def read(t):
     for shot, tag in (("m3_mud_standard", "m3"), ("u9_squad", "u9")):
         files = [f"{D}/{t}_{shot}.json"] + (sorted(glob.glob(f"{D}/{t}_m3c_*.json")) if tag == "m3" else [])
         vals = sorted(json.load(open(f))["contrast_median"] for f in files if os.path.exists(f) and "contrast_median" in json.load(open(f)))
-        if vals: sc[tag + " contrast"] = round(vals[len(vals) // 2], 3)
+        # the MEAN: the frames fall in two clusters (~0.24 and ~0.40 on one build) and a median jumps between them as
+        # the split goes 5/4 or 4/5 (r41 0.373 -> r42 0.269, nothing changed that touches the men or the ground)
+        if vals: sc[tag + " contrast"] = round(sum(vals) / len(vals), 3)
     # frames per second as the round saw them (a big drop means something got expensive)
     fps = [json.load(open(f)).get("fps", 0) for f in glob.glob(f"{D}/{t}_*.json") if not os.path.basename(f).startswith(f"{t}_pop") and "fps" in open(f).read(200)]
     if fps: sc["fps median"] = sorted(fps)[len(fps) // 2]
