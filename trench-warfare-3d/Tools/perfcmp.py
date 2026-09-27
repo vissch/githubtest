@@ -2,10 +2,11 @@
 
     python Tools/perfcmp.py before.json after.json [more.json ...]
 
-Only reports with the same hash_start measured the same battle. Noise, measured on two runs of one build and one
-fight (perf-pass-2026-09/runs/compose-editor*.json): p50 within about 1%, p95 about 7%, p99, hitch counts and single
-systems' per-tick ms up to about 25%. Run each side twice before calling a difference real. per_tick_ms exists only
-in the editor or a Development build (markers compile out of a release player); never compare across run.build.
+Only reports with the same hash_start measured the same battle. Noise, measured on two editor runs of one fight
+(perf-pass-2026-09/runs/compose-editor*.json): p50 within about 1%, p95 up to about 12%, p99 and one system's
+per-tick ms up to about 25%, hitches 2 vs 5. Run each side twice; trust p50; believe a per-system change only past
+about 30% and in both runs. per_tick_ms exists only in the editor or a Development build (markers compile out of a
+release player); never compare across run.build.
 """
 import json, sys
 
