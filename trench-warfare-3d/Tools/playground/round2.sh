@@ -35,8 +35,9 @@ for spec in "1:croaker" "2:hopper" "3:mercy" "4:skimmer"; do
   esac
   # the far view the battle's lens sees
   # (a flyer's focus is up where it flies: the battle's camera would follow the unit, not the ground under it)
-  if [ "$n" = hopper ]; then $P do "cam 0 12 0 20 25 78 25"; else $P do "cam 0 2 0 20 25 78 25"; fi
-  sleep 1.2; $P shot ${T}_${n}_9_standard
+  # (with a side colour: in the battle every machine has one, and a flyer's ring on the ground under it is its anchor)
+  if [ "$n" = hopper ]; then $P do "team 0; cam 0 12 0 20 25 78 25"; else $P do "team 0; cam 0 2 0 20 25 78 25"; fi
+  sleep 1.2; $P shot ${T}_${n}_9_standard; $P do "team -1"
   # LOD pops (a flyer on the ground for it: the meter frames the rig's middle)
   [ "$n" = hopper ] && $P do "fly 0 0" && sleep 1.5
   $P do "lod -1"; sleep 1

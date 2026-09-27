@@ -25,7 +25,7 @@ namespace TW.Playground
         VehicleRig rig;
         VehicleRig.Part hull;
         Vector3 rest;
-        float angle, fallV, fallSpin, fallYaw, fallPitch, crashY = -1f;
+        float angle, fallV, fallSpin, fallYaw, fallPitch, crashRoll, crashY = -1f;
         bool down;
 
         public FlyerDrive Init(VehicleRig r)
@@ -49,7 +49,9 @@ namespace TW.Playground
             if (!dead) angle += (Speed > 0.01f ? Speed / Radius : 0f) * dt;
             Vector3 at = r > 0f ? new Vector3(Mathf.Cos(angle) * r - r, 0f, Mathf.Sin(angle) * r) : Vector3.zero;
             float heading = r > 0f ? -angle * Mathf.Rad2Deg : 0f;
-            float bank = r > 0f ? Mathf.Clamp(Speed * Speed / Radius * 3f, 0f, 25f) : 0f;
+            // banked as an aircraft turns (the angle of v^2 / r g), and more, so it reads: 7 degrees read as level (loop 2 r34)
+            float bank = r > 0f && !Hover ? Mathf.Clamp(Mathf.Atan(Speed * Speed / (Radius * 9.81f)) * Mathf.Rad2Deg * 1.5f, 15f, 30f)
+                       : r > 0f ? Mathf.Clamp(Speed * Speed / Radius * 3f, 0f, 8f) : 0f;
             float amp = Hover ? 0.15f : 1f;
             float bob = (Mathf.Sin(T * 1.3f) * 0.35f + Mathf.Sin(T * 0.47f) * 0.2f) * amp;
             float sway = Mathf.Sin(T * 0.8f) * 3f * (Hover ? 0.5f : 1f);
@@ -92,11 +94,16 @@ namespace TW.Playground
                 fallSpin = Mathf.Min(140f, fallSpin + 120f * dt);
                 fallYaw += fallSpin * dt;
                 fallPitch = Mathf.Min(24f, fallPitch + 30f * dt);
-                if (crashY <= 0f) { down = true; fallPitch = 6f; if (rig.Fx != null) rig.Fx.Burst(hull.T.position, 2.5f * size); }
+                // it noses in and digs in: level on the ground it read as parked, not crashed (loop 2 r34)
+                if (crashY <= 0f)
+                {
+                    down = true; fallPitch = 16f; crashRoll = (rig.Seed & 1) == 0 ? 8f : -8f; crashY = -0.3f / size;
+                    if (rig.Fx != null) rig.Fx.Burst(hull.T.position, 2.5f * size);
+                }
             }
             var p = hull.T.localPosition; p.y = rest.y + crashY;
             hull.T.localPosition = p;
-            hull.T.localRotation = Quaternion.Euler(fallPitch, heading + fallYaw, down ? 4f : -bank);
+            hull.T.localRotation = Quaternion.Euler(fallPitch, heading + fallYaw, down ? crashRoll : -bank);
         }
     }
 }

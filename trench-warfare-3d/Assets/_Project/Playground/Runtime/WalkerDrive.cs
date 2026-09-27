@@ -169,7 +169,8 @@ namespace TW.Playground
             {
                 if (claw[s] == null || claw[s].Loose) continue;
                 float swing = Mathf.Clamp((s == 0 ? -along : along) * StrideArms, -35f, 35f);
-                claw[s].T.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+                // a little out from the body as well, so the swinging hand clears the thigh (a thumb went through it, r34)
+                claw[s].T.localRotation = Quaternion.Euler(-swing, 0f, s == 0 ? -6f : 6f);
                 if (jaw[s] != null && !jaw[s].Loose) jaw[s].T.localRotation = Quaternion.Euler(-0.4f * Mathf.Abs(swing), 0f, 0f);
             }
         }
