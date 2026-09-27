@@ -245,7 +245,7 @@ namespace TW.Tests
         [Test]
         public void TheShaderDecodesThePitchStepTheRendererEncodes()
         {
-            string shader = System.IO.File.ReadAllText(System.IO.Path.Combine(UnityEngine.Application.dataPath, "_Project", "Shaders", "VAT_URP.shader"));
+            string shader = System.IO.File.ReadAllText(System.IO.Path.Combine("Assets", "_Project", "Shaders", "VAT_URP.shader"));   // relative to the project (Unity's working folder), so Tools/otr.py runs it too
             Assert.IsTrue(shader.Contains("/ " + VATRenderer.PitchSteps + ".0)"), "VAT_URP.shader decodes a pitch step as 2 pi / " + VATRenderer.PitchSteps + ": the two literals must agree");
         }
 

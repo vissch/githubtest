@@ -55,7 +55,7 @@ namespace TW.Tests
             foreach (var imported in new[] { "kit/fieldGun", "kit/sandbag", "kit/grass", "kit/biplane" })
                 Assert.IsFalse(fieldKeys.Contains(imported), imported + " is an imported prop, keyed as Set/Prop");
             // the imported props are named in BattlefieldKit.BuildImported: Imported("Set", "Prop", ...)
-            string src = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Presentation", "Terrain", "BattlefieldKit.cs"));
+            string src = File.ReadAllText(Path.Combine("Assets", "_Project", "Presentation", "Terrain", "BattlefieldKit.cs"));   // relative to the project: Unity's working folder, and Tools/otr.py's
             foreach (Match m in Regex.Matches(src, "Imported\\(\"(\\w+)\", \"(\\w+)\""))
             {
                 string key = m.Groups[1].Value + "/" + m.Groups[2].Value;

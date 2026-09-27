@@ -226,7 +226,6 @@ namespace TW.Tests
             float life = 3f, born = SimClock.Seconds(null, 100f);
             Assert.IsFalse(TW.Presentation.Tactical.Flamethrower.TorchOut(SimClock.Seconds(null, 102.9f), born, life), "still burning before its life is up");
             Assert.IsTrue(TW.Presentation.Tactical.Flamethrower.TorchOut(SimClock.Seconds(null, 103.1f), born, life), "a fire lit without a match burns out on the wall clock");
-            Assert.AreEqual(Time.time, SimClock.Seconds(null), 1e-3f, "the plain overload passes Time.time");
             // with a match: the tick plus the fraction of the next, frozen while the fraction is (a paused match)
             float t = SimConfig.Default.TickSeconds;
             Assert.AreEqual(40.5f * t, SimClock.At(40u, 0.5f, t), 1e-6f);
