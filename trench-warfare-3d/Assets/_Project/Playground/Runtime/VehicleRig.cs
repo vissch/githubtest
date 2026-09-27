@@ -374,6 +374,10 @@ namespace TW.Playground
             if (p.Loose || p.Name == "Hull") return;
             LocalPose(p, out var pos, out var rot);
             p.Loose = true;
+            // every throw at the machine's own strength, not only the cook-off's (a gunship's wing knocked off in the air
+            // landed 22 m away, loop 2 r36)
+            float fling = Manifest != null && Manifest.fling > 0f ? Manifest.fling : 1f;
+            velocity *= fling;
             p.Fly = new Tumble { Pos = pos, Rot = rot, Vel = velocity / Size, Spin = spin, Nudge = new Vector3(R(-1f, 1f), 0f, R(-1f, 1f)) };
             p.T.SetParent(loose, false);
             p.T.localPosition = pos; p.T.localRotation = rot;
@@ -401,13 +405,12 @@ namespace TW.Playground
             var deck = SocketLocal("Socket_Deck");
             Fx?.CookOff(deckWorld, Size);
             // the turret goes up the ammunition's own column, the plates blow out from the fighting compartment
-            float fling = Manifest.fling > 0f ? Manifest.fling : 1f;
             foreach (var p in Parts)
             {
                 if (p.Loose || p.Name == "Hull" || StaysOnWreck(p)) continue;
                 var c = LocalCentre(p);
                 var out_ = c - deck; out_.y = 0f; out_ = out_.sqrMagnitude > 1e-4f ? out_.normalized : RSphere();
-                float s = Mathf.Sqrt(Size) * fling;
+                float s = Mathf.Sqrt(Size);   // (Detach applies the machine's fling)
                 Vector3 v; Vector3 spin;
                 if (p.Name == "Turret") { v = Vector3.up * R(11f, 14f) * s + out_ * R(0.5f, 1.5f); spin = RSphere() * R(2f, 5f); }
                 else if (p.Tier == 4) { v = out_ * R(2.5f, 4f) * s + Vector3.up * R(4f, 7f) * s; spin = Vector3.Cross(Vector3.up, out_) * R(4f, 8f); }
@@ -435,7 +438,8 @@ namespace TW.Playground
         /// r35: 12 of 12 parts loose on the Croaker, 15 of 15 on the Mercy). They burn where they are instead.</summary>
         static bool StaysOnWreck(Part p)
         {
-            foreach (var k in new[] { "Track", "Wheel", "Thigh", "Shin", "Foot", "Claw", "Pod", "Skid", "Wing", "Engine", "FanRing", "Fan", "Tail", "Cab", "Hood" })
+            // (and the ambulance's box: without it the wreck was a burnt truck front, loop 2 r36)
+            foreach (var k in new[] { "Track", "Wheel", "Thigh", "Shin", "Foot", "Claw", "Pod", "Skid", "Wing", "Engine", "FanRing", "Fan", "Tail", "Cab", "Hood", "Box" })
                 if (p.Name.StartsWith(k)) return true;
             return false;
         }
