@@ -477,6 +477,10 @@ namespace TW.Perf
             sb.Append("],\n  \"warnings\": [");
             if (!allFocused) warnings.Add("the window lost focus during the run");
             if (aliveStart >= alivePeak && alivePeak > 0) warnings.Add("nobody had died before the window: the armies may not be in contact yet");
+            // a held view off the armies' centre measures a different frame: never compare its numbers with a standard run
+            bool fx = !float.IsNaN(Options.FocusX), fz = !float.IsNaN(Options.FocusZ);
+            if (fx && fz) warnings.Add("custom focus (fx/fz): not the standard view, do not compare with standard runs");
+            else if (fx || fz) warnings.Add("only one of fx/fz was given: the view fell back to the armies' centre");
             for (int i = 0; i < warnings.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(warnings[i]));
             sb.Append("]\n}\n");
             return sb.ToString();
