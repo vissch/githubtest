@@ -6,7 +6,9 @@
 // Everything is compared as the shader sees it. The project renders in Gamma colour space, so the atlas and the vertex
 // colours both reach the shader as stored, and are compared as stored.
 // What it buys is small, measured (docs/22): the mean colour is only ~5/255 of the ~11/255 block-averaged colour change
-// at a switch; the rest is the shape (lines and shading move with the different sculpt). On for figures, off for vehicles.
+// at a switch; the rest is the shape (lines and shading move with the different sculpt). And this mesh estimate is not
+// what the camera sees (it counts undersides; it overshot on both models), so it is computed but not put on: the tints
+// that go on are fitted on the render (PlaygroundHost `lodfit`) and kept here in Fitted.
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,6 +16,11 @@ namespace TW.Playground
 {
     public static class LodTint
     {
+        /// <summary>Tints fitted on the render (PlaygroundHost `lodfit`), by library entry name: a rig built afterwards takes
+        /// these instead of the mesh estimate. The mesh estimate counts faces the camera never sees and overshot (critic r8:
+        /// the frog's LOD2 went from +2 to -3.6 brightness against LOD0).</summary>
+        public static readonly Dictionary<string, Color[]> Fitted = new Dictionary<string, Color[]>();
+
         public static Color MeanColour(IEnumerable<Mesh> meshes, Texture2D atlas)
         {
             double r = 0, g = 0, b = 0, area = 0;

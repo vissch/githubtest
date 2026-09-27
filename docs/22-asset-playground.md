@@ -56,11 +56,62 @@ The frog's LOD3 size was chosen by sweep: 219 tris 0.823, 300 tris 0.850, 380 tr
 under the far budget). Weighting the decimation to keep the cap and the gap between the legs made it WORSE (0.769):
 the triangles come off the shoulders. `TW_LOD3_KEEP` keeps the option for the next figure.
 
+The colour side of a pop is split three ways, each with a floor (the same LOD turned one degree): `dcol_inside` (per
+pixel, where both LODs cover), `dmean` (the change of the mean colour: all a tint can remove) and `dblock` (12-pixel
+block averages: the change a player sees as colour rather than as a line moving). Round r17, mean of four sides, /255:
+
+| Boundary | Tank dblock (floor) / dmean | Frog dblock (floor) / dmean |
+|---|---|---|
+| LOD0 -> LOD1 | 8.3 (1.4) / 2.6 | 11.4 (1.2) / 5.2 |
+| LOD1 -> LOD2 | 4.6 (0.8) / 1.2 | 13.7 (1.2) / 4.8 |
+| LOD2 -> LOD3 | - | 6.5 (0.5) / 0.8 |
+
+Most of it is SHAPE, not paint: Tripo's LODs are separate sculpts, so lines and shading move. What each remedy bought,
+measured on the frog (0->1 and 1->2, block shift and worst-side IoU):
+
+| Frog LODs | 0->1 | 1->2 |
+|---|---|---|
+| Tripo's three, as delivered (default) | 11.1, 0.919 | 12.6, 0.855 |
+| + per-LOD tint (`Runtime/LodTint.cs`, on for figures) | 11.4 -> mean 4.6 to 4.2 | mean 4.8 to 4.1 |
+| Tripo shapes repainted from LOD0 (`TW_REBAKE=1`, a Cycles bake) | 9.6, 0.918 | 11.7, 0.857 |
+| LOD1 and LOD2 decimated from LOD0 (`TW_DERIVE=12`) | 5.0, 0.968 | 11.3, 0.837 (the cap breaks) |
+| **LOD1 decimated from LOD0, Tripo's LOD2 (`TW_DERIVE=1`)** | **5.0, 0.968** | 13.6, **0.876** |
+
+`TW_DERIVE=1` is the best on every shape number and halves the first colour pop; it replaces the owner's LOD1 art, so it
+is the owner's call (decisions.md, Open).
+
+The per-LOD tint that goes on is fitted on the render, not estimated from the mesh (the mesh estimate counts undersides
+the camera never sees and overshot on both models). `lodfit` draws each LOD alone from the four lodpop sides, compares
+its mean colour over the silhouette with LOD0's, and puts the ratio on as a tint (two passes, 0.75-1.25); `round.sh`
+runs it first. Round r18: the tank's mean shift is 0.5-2.0 at every switch and side (up to 4.6 before) and its 1->2
+block shift 3.9 (4.6); the frog's 2->3 block shift 5.2 (6.5). The frog's 0->1 and 1->2 shifts stay side-dependent
+(3-8): shading on a different sculpt, which no single tint removes - derived LOD1 is the fix there.
+
 ## Readability
 `ground mud` swaps the metre grid for a dark warm mud; `team 0|1|split` puts the battle's side colours on (the tank's
 lamps and antenna, where the game paints a tank's horns, and field-grey over the olive for side 1; a light wash on a
 figure). Every capture with figures reports `figure_luma`, `ground_luma` and `figure_gap` through the silhouette pass
-and a 4 px ring: 4.5 on the grid at the standard view, 27.2 on mud with the side colours.
+and a 4 px ring: 4.5 on the grid at the standard view, 24.4 on mud with the side colours (27.2 before the rings).
+
+A vehicle with a side also gets the game's own side ring (`TW/TankDisc`, TankRenderer's size rule). `sidehue <path>`
+measures whether the sides read apart: time frozen, the frame is drawn with only side 0 coloured, only side 1, and
+neither, and each side's added colour is summed on the opponent-colour plane over its own (grown) silhouettes. m3 (mud,
+tank side 1, squad side 0): hues 199 and 9, a 170 degree gap; strength 0.013 for the figures against 0.041 for the tank.
+Reading the raw frame's hue said 5 degrees: the night grade turns everything blue, and against blue every model reads
+orange. Rings under figures (`unitrings 1`) add a third to the figures' strength but cost a quarter of `figure_gap`, and
+the game shows an infantryman's side on his cloth, so they are off.
+
+**The game's ring painted the enemy colour over friendly infantry** (found here, critic r8): TankDisc's second pass
+draws the ring faintly wherever something hides it, and that included a squad standing beside an enemy tank, and the
+tank's own hull. Tanks and figures now set stencil bit 8 (`Tank_URP`, `VAT_URP`) and the hidden pass skips it; terrain
+still shows the ring through. `sidehue` reports `side_cross` (the other side's colour over this side's men): 0.0225
+before, 0.0040 after.
+
+A figure's side colour goes on its uniform only, as the game's VAT figures do: `frogrig`'s frog gets a cloth mask in
+vertex alpha at build (blue cloth read from each LOD's atlas, LOD3 from its vertex colours) and `Tank_URP` takes it when
+`_TeamByAlpha` is 1 (default 0: the game's tanks and landing craft are untouched). `team split` puts half the squad on
+each side. m3 (r18): the figures alone read 169 and 17 degrees, 152 apart; the price is figure contrast, `figure_gap`
+24.4 -> 14.4.
 
 ## LOD distances (screen-height share of the bounding sphere)
 - Figure: LOD0 above 0.20 (under ~22 m at the 25 degree battle lens), LOD1 above 0.08 (~63 m), LOD2 above 0.03 (the
@@ -81,8 +132,22 @@ and a 4 px ring: 4.5 on the grid at the standard view, 27.2 on mud with the side
   centre (a pendulum), it scrubbed spin on every step a piece lay on the ground (freezing every topple), and a box with
   the antenna's base really is stable on end. A piece stopped on a small face is now pushed over about its ground
   corner, at most 100 degrees and 3 times (an unaligned axis once rolled a stack 140 m).
-- The house kit's cut faces read as flat brown card: measured, not a UV fault - the kit's texture is ~23 px a metre at
-  building size. An art item for the house sets, not a playground one.
+- The house kit's cut faces read as flat brown card. `housesplit.py`'s fix_fill_uvs gives each corner of a cut face
+  the UV of the first wall loop it finds, and the playground's first re-projection (`BuildingRig.CutFaces`) spread them
+  from the wall's centroid into the atlas's dark gutter. `cutsdebug 1` draws the found faces flat magenta (a magenta
+  vertex colour vanished under the dark texels). They are now anchored at the incentre of the largest OUTWARD wall
+  triangle and kept inside its incircle: the atlas under the cut faces averages 65/56/56 against the walls' 65/53/51.
+  The fix belongs in `housesplit.py`. What still reads as brown crates in a heap is NOT a texture fault: the texels
+  under those faces are the Boilerhouse's own tan plaster (82/68/57, textured), and tan reads dark brown under the night
+  light. A palette question for the house sets (decisions.md, Open).
+- A lone corner slab (0.44 x 1.43 x 3 m) kept standing as a ruin anchor read as a post on end. Corners must now be
+  stout (0.6 m thick, or no taller than three times their thickness); `A_Shelled_Building_Leaves_Nothing_Floating_And_
+  No_Piece_On_End` holds it (it failed on the old rule, naming that slab), and each capture reports `on_end`. Buildings
+  keep their own clock (`Advance`), not `Time.time`, so a test can step them.
+- **The project renders in Gamma colour space.** Colours are compared as stored (atlas and vertex colours alike); a
+  linear conversion made the far frog's tint clamp at its limit.
+- A Cycles selected-to-active bake writes BLACK where a ray finds nothing, not the image's generated colour: `frogrig`'s
+  rebake finds its misses as black texels whose own texture is not black (5 % at LOD1, 9 % at LOD2) and keeps those.
 
 ## Buildings
 `building` / `set Ruins|Houses|Military` / `house <name>` / `shell` / `rebuild`: a building from the game's own kit

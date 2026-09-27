@@ -84,7 +84,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Keep Tripo's own lower LODs, or derive them?** (asset playground, docs/22) The owner's LOD2 frog and LOD1 tank are
   separate Tripo sculpts; at their switch distance the frog's LOD1->LOD2 silhouette overlap is 0.856 (worst of four
   sides) and the tank's LOD0->LOD1 is 0.909. Deriving the frog's LOD2 by decimating LOD1 measures 0.937
-  (`frogrig.py TW_LOD2_FROM_LOD1=1`), but replaces the owner's art. Default kept: the owner's LODs.
+  (`frogrig.py TW_LOD2_FROM_LOD1=1`), but replaces the owner's art. Default kept: the owner's LODs. Measured since
+  (docs/22): deriving the frog's LOD1 from LOD0 (`TW_DERIVE=1`) takes the 0->1 overlap from 0.919 to 0.968, halves its
+  colour pop (block shift 11.1 -> 5.0) and lifts 1->2 to 0.876; repainting Tripo's shapes from LOD0 (`TW_REBAKE=1`)
+  gains little. Recommended: `TW_DERIVE=1`.
+- **The house kits' tan in a night ruin** (asset playground): a shelled Boilerhouse's chunks show its tan plaster
+  (atlas 82/68/57), which reads as dark brown crates under the night light. Palette/source art; the cut faces
+  themselves are fixed in the playground's prototype and wait for the same fix in `housesplit.py`.
 - **The frog's far LOD size:** 300 tris / 168 vertices ships (pop overlap 0.85); 219 tris was 0.82, 380 tris 0.87.
 
 ## Plans that live outside the repo

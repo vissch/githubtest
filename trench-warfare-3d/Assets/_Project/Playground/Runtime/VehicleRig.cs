@@ -58,6 +58,8 @@ namespace TW.Playground
         public int Team = -1;
         public Color[] LodTints { get; private set; }
         /// <summary>Switch the per-LOD colour match on or off (to measure what it does).</summary>
+        /// <summary>Put these per-LOD tints on (a fit from the render).</summary>
+        public void ApplyLodTints(Color[] t) { LodTints = (Color[])t.Clone(); UseLodTints(true); }
         public void UseLodTints(bool on) { if (LodTints != null) for (int k = 0; k < mats.Length && k < LodTints.Length; k++) mats[k].SetColor("_BaseColor", on ? LodTints[k] : Color.white); }
         public string LastEvent = "";
         public int TrisDrawn { get; private set; }
@@ -146,7 +148,7 @@ namespace TW.Playground
             if (gun != null && gun.Box.center.z < 0f) Debug.LogWarning($"VehicleRig {e.Name}: the Gun mesh lies BEHIND its pivot - the parts are turned 180 degrees");
             // each LOD's colour matched to LOD0's (LodTint) - measured, then left OFF for vehicles: on the Brute it moved
             // the rendered mean colour at 1->2 from 0.7 to 3.8 (/255; the mesh mean counts the undersides and track caps
-            // the camera never sees). `lodtint 1` puts it on. The figure keeps it (UnitRig: 4.8 -> 4.1).
+            // the camera never sees). `lodtint 1` puts it on. A fit on the render (`lodfit`, LodTint.Fitted) goes on instead.
             var means = new Color[e.Lods.Length];
             for (int k = 0; k < e.Lods.Length; k++)
             {
@@ -155,6 +157,7 @@ namespace TW.Playground
             }
             rig.LodTints = new Color[e.Lods.Length];
             for (int k = 0; k < e.Lods.Length; k++) rig.LodTints[k] = LodTint.Match(means[0], means[k]);
+            if (LodTint.Fitted.TryGetValue(e.Name, out var fit) && fit.Length == e.Lods.Length) rig.ApplyLodTints(fit);
             rig.SetLod(e.Lods.Length - 1);
             rig.SetLod(0);
             return rig;
