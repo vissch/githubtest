@@ -9,8 +9,14 @@ namespace TW.Presentation
     public static class SimClock
     {
         /// <summary>The sim's clock in seconds: the tick plus the fraction of the next; the wall clock without a match.</summary>
-        public static float Seconds(SimHost host)
-            => host != null && host.Local != null ? (host.Local.World.Tick + host.Alpha) * host.Local.World.Config.TickSeconds : UnityEngine.Time.time;
+        public static float Seconds(SimHost host) => Seconds(host, UnityEngine.Time.time);
+
+        /// <summary>The same with the wall clock handed in (tests drive it; Seconds(host) passes Time.time).</summary>
+        public static float Seconds(SimHost host, float wall)
+            => host != null && host.Local != null ? At(host.Local.World.Tick, host.Alpha, host.Local.World.Config.TickSeconds) : wall;
+
+        /// <summary>The arithmetic: a tick plus the fraction of the next, in seconds.</summary>
+        public static float At(uint tick, float alpha, float tickSeconds) => (tick + alpha) * tickSeconds;
 
         /// <summary>Ticks to seconds at the match's rate, or the default rate without a match.</summary>
         public static float Of(SimHost host, uint ticks)

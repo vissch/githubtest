@@ -353,7 +353,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- gen:tests -->
 | Test class | Mode | Tests | Production types it touches most |
 |---|---|---|---|
-| `AbilityAimTests` | EditMode | 14 | OffMapAbilityId, CombatFx, AbilityAim, AimReadout, Line, ScreenUnit |
+| `AbilityAimTests` | EditMode | 14 | OffMapAbilityId, CombatFx, AbilityAim, SimClock, AimReadout, Line |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
 | `AssetScaleTests` | EditMode | 8 | AssetScaleTable, Rule, ScatterLayers, BattlefieldKit, PropLayout, Module |

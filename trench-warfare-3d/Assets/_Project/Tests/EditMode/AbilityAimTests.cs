@@ -220,8 +220,18 @@ namespace TW.Tests
         [Test]
         public void TheSimClockIsTheWallClockWithoutAMatch()
         {
-            Assert.AreEqual(Time.time, SimClock.Seconds(null), 1e-3f, "no match: a fire lit by a hook still burns out on the wall clock");
-            Assert.AreEqual(20u * SimConfig.Default.TickSeconds, SimClock.Of(null, 20u), 1e-5f, "no match: the default tick rate");
+            // the wall clock is handed in, so the test can move it (EditMode's Time.time barely does): the round-3 bug was a
+            // clock that answered 0 without a match, and a fire lit then never burned out
+            Assert.AreEqual(12.5f, SimClock.Seconds(null, 12.5f), 1e-6f, "no match: the clock is the wall clock, not 0");
+            float life = 3f, born = SimClock.Seconds(null, 100f);
+            Assert.IsFalse(TW.Presentation.Tactical.Flamethrower.TorchOut(SimClock.Seconds(null, 102.9f), born, life), "still burning before its life is up");
+            Assert.IsTrue(TW.Presentation.Tactical.Flamethrower.TorchOut(SimClock.Seconds(null, 103.1f), born, life), "a fire lit without a match burns out on the wall clock");
+            Assert.AreEqual(Time.time, SimClock.Seconds(null), 1e-3f, "the plain overload passes Time.time");
+            // with a match: the tick plus the fraction of the next, frozen while the fraction is (a paused match)
+            float t = SimConfig.Default.TickSeconds;
+            Assert.AreEqual(40.5f * t, SimClock.At(40u, 0.5f, t), 1e-6f);
+            Assert.AreEqual(SimClock.At(41u, 0f, t), SimClock.At(40u, 1f, t), 1e-6f, "the fraction runs into the next tick without a jump");
+            Assert.AreEqual(20u * t, SimClock.Of(null, 20u), 1e-5f, "no match: the default tick rate");
         }
     }
 }
