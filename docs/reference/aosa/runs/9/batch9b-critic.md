@@ -168,3 +168,37 @@ night and 14-25% at day. By the rule (skip the ones that fall), none goes to the
 untested: the jitter alone with the outline left as it is (vat.sepJitter=1, vat.sepJitterDark=1, vat.sepOutline=0,
 vat.sepLift=0). m2 shows that the dark jitter holds men-vs-mud at night. Keeping the outline would keep the day's
 contrast, and whether the jitter alone separates the helmets has to be measured.
+
+## Follow-up C105s-2: m4, darker jitter only (outline and lift off)
+
+Runs 9/m4 and m4d: vat.sepJitter=1, vat.sepJitterDark=1, vat.sepOutline=0, vat.sepLift=0. Against m0, 1.8-2.1% of the
+pixels change (f0, f16, f40). Measured exactly as above (fixed n0/n5 mask, T = Otsu on the default's men):
+
+| | d' off -> m4 | blobs at fixed T / own Otsu | crowd edge |
+|---|---|---|---|
+| night LT | 0.254 -> 0.425 (+67%, up in 6/6) | 197 -> 136 / 181 | 43.8 -> 39.7 |
+| night TR | 0.327 -> 0.397 (+21%, up in 6/6) | 69 -> 54 / 51 | 67.2 -> 63.5 |
+| day LT | 1.280 -> 1.343 (+5%) | 718 -> 735 | 251 -> 249 |
+| day TR | 1.196 -> 1.245 (+4%) | 227 -> 238 / 232 | 208 -> 207 |
+
+Men-vs-mud separation holds, and rises, by night and by day. But the helmet blobs fall at night (-31% LT, -22% TR):
+darker men stand out from the mud and merge into each other. By the rule, it goes to the critic.
+
+**Blind critic** (one foreground general-purpose agent, 6 night pairs f0 f8 f16 f24 f40 f56 plus the day pair,
+X and Y shuffled, seed 4104). Key: m4 is Y in pairs 1, 2 and 4, and X in pairs 3, 5, 6 and 7 (pair 1 = f40,
+2 = day, 3 = f16, 4 = f8, 5 = f24, 6 = f0, 7 = f56).
+
+| | weight | men LT | men TR | smoke |
+|---|---|---|---|---|
+| night (6) | 6.50 -> 6.50 | 4.33 -> 3.33 (0 up, 6 down) | 2.00 -> 2.00 | 3.83 -> 3.83 |
+| day | n/a | 6 -> 5 | 6 -> 6 | n/a |
+
+The critic's words: m4's helmets are "darker with a grainy speckle, so the domes merge". The default's "smoother lit
+domes separate better" and keep their top highlight.
+
+**Decision: m4 fails rule 6.** The men fall 1 point in the left trench in 7 of 7 pairs, day included. No C105
+variant passes. Over five variants, the one lever trades against the other. Lighter or thinner-inked men separate
+from each other but sink into the mud (n5, m1, m3). Darker men stand out from the mud but merge (m4). m2 sits
+between and gains neither. C105 is rejected at default 0. A further try would have to separate the men with
+something other than their value, such as hue or a rim highlight on the helmet dome, and not by darkening or
+thinning.
