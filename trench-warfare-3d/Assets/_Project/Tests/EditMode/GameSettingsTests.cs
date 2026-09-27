@@ -171,6 +171,24 @@ namespace TW.Tests
                 Assert.That(s.Bindings.Primary[i], Is.EqualTo(d.Primary[i]), $"{(GameAction)i} should be filled from the defaults");
         }
 
+        /// <summary>Rebinding survives a reload: give the beam's key to hold fire (the settings screen unbinds the beam), save,
+        /// load. Migration used to refill every unbound action with its default on every load, so B did both again
+        /// (critic r5, 2026-09-27).</summary>
+        [Test]
+        public void AnActionThePlayerUnboundStaysUnboundAfterAReload()
+        {
+            var s = GameSettings.Defaults();
+            int beam = (int)GameAction.ArmBeam;
+            var key = s.Bindings.Primary[beam];
+            Assert.That(key, Is.Not.EqualTo(UnityEngine.InputSystem.Key.None), "the beam has a default key");
+            s.Bindings.Primary[beam] = UnityEngine.InputSystem.Key.None; s.Bindings.Secondary[beam] = UnityEngine.InputSystem.Key.None;
+            s.Bindings.Primary[0] = key;   // another action takes it
+            var back = GameSettings.FromJson(s.ToJson());
+            Assert.That(back.Bindings.Primary[beam], Is.EqualTo(UnityEngine.InputSystem.Key.None), "the beam stays unbound");
+            Assert.That(back.Bindings.Secondary[beam], Is.EqualTo(UnityEngine.InputSystem.Key.None));
+            Assert.That(back.Bindings.Primary[0], Is.EqualTo(key), "and its key stays where the player put it");
+        }
+
         [Test]
         public void StoreWritesAndReadsAFile()
         {

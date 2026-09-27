@@ -133,6 +133,13 @@ namespace TW.UI
         public const string Paused = "PAUSED";
         public const string AimHint = "Click the map to fire.  Tab changes the pattern.  Esc or right click cancels.";
         public const string AimLineHint = "Press where the line starts, drag its heading and length, release to fire.  Shift snaps.  Tab changes the pattern.";
+        /// <summary>The aim hint for the armed ability: the Tab clause only when it has patterns to cycle (smoke, strafe, beam
+        /// and creeping have none; the hint told them to press Tab: critic r5, 2026-09-27).</summary>
+        public static string AimHintFor(bool line, bool patterns)
+        {
+            string hint = line ? AimLineHint : AimHint;
+            return patterns ? hint : hint.Replace("  Tab changes the pattern.", "");
+        }
         public const string LockedTip = "Locked: reinforcements pass through to the next trench. Click to open";
         public const string OpenTip = "Open: reinforcements stop here. Click to lock";
         public const string FallbackTip = "Fall back to the trench behind";

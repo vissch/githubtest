@@ -93,6 +93,25 @@ namespace TW.Tests
             Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
         }
 
+        /// <summary>The aim hint offers Tab only for an ability with patterns to cycle.</summary>
+        [Test]
+        public void TheAimHintOffersTabOnlyWhereThereArePatterns()
+        {
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+            {
+                Assert.IsTrue(OffMapAbilitySystem.TryGetStats((int)id, out var s), id.ToString());
+                bool cycles = (s.Patterns & ~1) != 0;
+                foreach (bool line in new[] { false, true })
+                    Assert.AreEqual(cycles, TW.UI.HudText.AimHintFor(line, cycles).Contains("Tab"), id + (line ? " (line)" : " (point)"));
+            }
+            StringAssert.Contains("Esc", TW.UI.HudText.AimHintFor(false, false), "the hint still says how to cancel");
+            foreach (var id in new[] { OffMapAbilityId.SmokeScreen, OffMapAbilityId.StrafeRun, OffMapAbilityId.Beam, OffMapAbilityId.CreepingBarrage })
+            {
+                OffMapAbilitySystem.TryGetStats((int)id, out var s);
+                Assert.AreEqual(0, s.Patterns & ~1, id + " has nothing to cycle, so its hint must not offer Tab");
+            }
+        }
+
         /// <summary>Both HUDs' banners go through BannerRules (ObjectiveTracker, CombatFx.OnGUI): a stream of ability
         /// banners must not wipe a trench changing hands or the match's end off the plate, and a finished banner gives way.</summary>
         [Test]

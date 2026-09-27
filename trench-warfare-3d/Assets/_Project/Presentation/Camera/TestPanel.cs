@@ -31,6 +31,10 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The ability waiting for its target, or None. CombatFx draws the aim from Aim.Shape; SelectionController counts under it.</summary>
         public OffMapAbilityId Armed => aim.Armed;
+        /// <summary>The frame an armed aim spent a left press (Time.frameCount): the selection ignores that press until the
+        /// button is up, whichever of the two updates first (a point ability fired on the press used to clear the selection
+        /// on release: critic r5, 2026-09-27).</summary>
+        public int AimSpentFrame { get; private set; } = -1;
         public AbilityAim Aim => aim;
         /// <summary>Arm an ability, or None to cancel. What the match did not field (the launch request's mask for our seat,
         /// 0 = everything) cannot be armed here either: the debug panel is no back door round the Home Front's unlocks.</summary>
@@ -89,7 +93,11 @@ namespace TW.Presentation.Tactical
             uint tick = Host.Local.World.Tick;
             if (mouse != null && mouse.leftButton.wasPressedThisFrame && TryGroundPoint(out var p))
             {
+                AimSpentFrame = Time.frameCount;
                 if (aim.Press(p, tick, 0, out var fired)) Host.Issue(fired);
+                // a press and its release in one frame (a trackpad tap, a slow frame): finish the line now, or the aim stays
+                // dragging until the next click
+                else if (aim.Dragging && mouse.leftButton.wasReleasedThisFrame && aim.Release(p, tick, 0, out var tapped)) Host.Issue(tapped);
             }
             else if (aim.Dragging && mouse != null)
             {

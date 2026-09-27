@@ -71,12 +71,17 @@ namespace TW.Presentation
             Interface ??= new InterfaceSettings();
             Camera ??= new CameraSettings();
             Bindings ??= KeyMap.Defaults();
+            int saved = Bindings.Primary != null ? Bindings.Primary.Length : 0;   // how many actions the file knew
             Bindings.Normalise();
-            // fill unbound actions from defaults so a file from a build with fewer actions still has keys for the new ones
+            // only the actions this build added since the file was written get their default keys, and only keys no
+            // other action holds: an action the player unbound (its key given to another) stays unbound. Filling every
+            // unbound action on every load undid rebinding and doubled keys (critic r5, 2026-09-27)
             var d = KeyMap.Defaults();
-            for (int i = 0; i < KeyMap.ActionCount; i++)
-                if (Bindings.Primary[i] == UnityEngine.InputSystem.Key.None && Bindings.Secondary[i] == UnityEngine.InputSystem.Key.None)
-                { Bindings.Primary[i] = d.Primary[i]; Bindings.Secondary[i] = d.Secondary[i]; }
+            for (int i = saved; i < KeyMap.ActionCount; i++)
+            {
+                if (!InUse(d.Primary[i], i)) Bindings.Primary[i] = d.Primary[i];
+                if (!InUse(d.Secondary[i], i)) Bindings.Secondary[i] = d.Secondary[i];
+            }
             Audio.Master = Mathf.Clamp01(Audio.Master); Audio.Ambience = Mathf.Clamp01(Audio.Ambience);
             Audio.Sfx = Mathf.Clamp01(Audio.Sfx); Audio.Music = Mathf.Clamp01(Audio.Music);
             Interface.UiScale = Mathf.Clamp(Interface.UiScale, 0.75f, 1.5f);
@@ -84,6 +89,14 @@ namespace TW.Presentation
             Camera.Gore = Mathf.Clamp01(Camera.Gore);
             Camera.ZoomMax = Mathf.Clamp(Camera.ZoomMax, Camera.ZoomMin + 10f, 2000f);
             Version = CurrentVersion;
+        }
+
+        bool InUse(UnityEngine.InputSystem.Key key, int except)
+        {
+            if (key == UnityEngine.InputSystem.Key.None) return true;   // nothing to give
+            for (int j = 0; j < KeyMap.ActionCount; j++)
+                if (j != except && (Bindings.Primary[j] == key || Bindings.Secondary[j] == key)) return true;
+            return false;
         }
 
         public GameSettings Clone()
