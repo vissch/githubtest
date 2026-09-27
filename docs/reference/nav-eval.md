@@ -37,16 +37,22 @@ its battlefield (ed26a80) · launch request names faction and units (7847b5f) ·
 man lit before the burning system steps (0a9af6a) · picker projects with one matrix (5378697) · charcoal night smoke
 (dd6bef2) · thinner barrage smoke at soldier height (763664a) · stress preset spreads the army (e6bd10c) · every draw
 through FrameBudget (5932df5) · wreck provenance (a176a01) · hide the debug panel button in bench stills (dd9e3b9) ·
-repeatable player stills (2c4f3f3).
+repeatable player stills (2c4f3f3) · pure banner text (e68788f) · damaged trench lining (ff9e200) · bench warns on
+unknown options (7730ee3) · one banner per event (9b7a09d) · a dead man's fire goes out (d3c0936) · bench holds the
+camera on x/z (72cc25b).
 
 ## Results
 | Date | Docs at | Tasks | First file right | Right file in first three | Tool calls a task | Limits |
 |---|---|---|---|---|---|---|
 | 2026-09-27 | e7de2bf | 12 | 11 of 12 | 11 of 12 | about 7 | no control, graded by the docs' author, first file only |
 | 2026-09-27 | e7292bd | 8 held out | 6 of 8 | 8 of 8 | about 7 | same, and only 8 tasks |
+| 2026-09-27 | 227a009 | 6 held out, from lanes not yet landed | 5 of 6 | 6 of 6 | about 5 | no control, graded by the docs' author; tests right 2 of 4 |
 
 What the two rounds found (all fixed since): no rows for support-fire aiming, sim fire, render settings, factions,
 the stress preset or objectives; a flamethrower row that said the sim has no fire; bench options documented that
 exist only on another lane; a code comment claiming every draw goes through `FrameBudget`; three SHOW files listed
 under the SIM heading. A 2026-09-27 critique then found 57 production files named on no agent page, now enforced by
-`validate.py`. The next run should follow the method above in full; until then these numbers flatter the docs.
+`validate.py`. The third round (227a009) found: the centre banner routed only through the objectives row, the HUD
+test names swapped in the agent's head (HudTextTests checks tooltips, HudBindTests checks `HudText`), no mechanism in
+the debris row, and a flamethrower row that said a burning man runs on sim ticks while his torch does not. The next
+run should follow the method above in full; until then these numbers flatter the docs.

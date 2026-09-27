@@ -199,8 +199,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only: men do not burn in the sim, see "Fire in
   the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Its clock is `now = Time.time` in
   `CombatFx.cs` `Update`, passed to `flames.Update`: wall-clock, so it runs on while the sim is paused
-  (until "Pools of fuel and pyres burn out by the sim's clock" lands). A
-  burning man's state runs on sim ticks instead (`AnimationController.SetAlight`, `AlightUntil`).
+  (until "Pools of fuel and pyres burn out by the sim's clock" lands). The torch drawn on a burning man is
+  `Flamethrower` `torches`, also wall-clock; only his animation's `AlightUntil` runs on sim ticks. The `Death` case in
+  `CombatFx.cs` does not call `flames.Douse`, so a dead man's torch burns on and the slot's next tenant can be drawn
+  alight (until "Critique round 2: the fixes on the show lane" lands).
 - **Tests:** none.
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it.
@@ -212,6 +214,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers),
   `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
   `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`). Design: `docs/16-destruction.md`.
+- **How harm works:** `PropDestruction.Strike` applies each explosion to the props in reach, per `Rule` (hp,
+  pieces, dust; built in `BuildRules`, one per kit list such as `kit.TrenchWalls`). A prop with hp left is only
+  chipped (`Chip`: flying bits, no change of look); at zero it is `Finish`ed (`Collapse`/removed, debris thrown).
+  There is no damaged-but-standing state. Budgets: `MaxLoose`, `MaxRemembered`, `PropWear.SpallBudget`, and the
+  `DebrisRenderer` rings.
 - **Tests:** DebrisTests, PropWearTests, HouseKitTests.
 - **Trap:** a prop is identified by its position rounded to 0.25 m. Convert a drawn instance to a key through
   `PropWear.Home` first, or it forgets its damage.
@@ -269,9 +276,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`; `Presentation/Core/HudBridge.cs` is the
   seam between the camera assembly and UI (the camera may not reference UI).
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
-  UnitArtTests. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
+  UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
+  match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
+- **Centre banner** (a trench taken, an incoming barrage, the match end): `UI/ObjectiveTracker.cs` `OnEvent` picks
+  it, the words are in `HudText` (`CapturedBanner`, `IncomingBanner`, ...). `CombatFx.cs` still draws its own IMGUI
+  copy of the same banners (`Banner`, `OnGUI`).
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD.
-- **Trap:** the support cards are `HudView.SupportAbilities`, but `HudLayout.SupportSlots` and `BattleHud` each keep
+- **Trap:** the support cards are `HudView.SupportAbilities` (HE barrage and chlorine only), but `HudLayout.SupportSlots` and `BattleHud` each keep
   their own `SupportSlots = 2` (until "The HUD's width model counts every support card" lands).
 
 ### Legacy IMGUI HUD and debug panel
@@ -340,7 +351,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   keys), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
   `Presentation/Core/RenderGround.cs`. Budgets and past runs: `docs/05-performance-budgets.md`.
 - **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests. None
-  covers `FrameBudget`'s counts.
+  covers `FrameBudget`'s counts or `BenchOptions.Parse` (an unknown key is ignored without a word).
+- **Trap:** the `shot=` still is taken when the warm-up counter passes 10 (`PerfBench` `Warm`), so a `warm=` under
+  10 takes no still.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
 - **Trap:** `FrameBudget` does not see every draw: `BattlefieldProps`, `PropDestruction` and `SelectionMarkers` call
   `Graphics.RenderMeshInstanced` directly (until "Every gameplay draw goes through FrameBudget" lands), and `PerfBench` reports the props'
