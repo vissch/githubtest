@@ -27,6 +27,7 @@ namespace TW.UI
         readonly List<UnitHandle> items = new List<UnitHandle>();
         readonly HashSet<UnitHandle> set = new HashSet<UnitHandle>();
         readonly List<UnitHandle>[] groups = new List<UnitHandle>[GroupCount];
+        readonly int[] stamps = new int[GroupCount];
 
         public SelectionModel() { for (int g = 0; g < GroupCount; g++) groups[g] = new List<UnitHandle>(); }
 
@@ -59,7 +60,11 @@ namespace TW.UI
             int before = items.Count;
             for (int i = items.Count - 1; i >= 0; i--) if (!alive(items[i])) { set.Remove(items[i]); items.RemoveAt(i); }
             if (items.Count != before) Version++;
-            foreach (var g in groups) g.RemoveAll(h => !alive(h));
+            for (int g = 0; g < groups.Length; g++)
+            {
+                var list = groups[g];
+                for (int i = list.Count - 1; i >= 0; i--) if (!alive(list[i])) list.RemoveAt(i);
+            }
         }
 
         /// <summary>Ctrl+digit: the group becomes the current selection (an empty selection empties the group).</summary>
@@ -67,7 +72,11 @@ namespace TW.UI
         {
             if (group < 0 || group >= GroupCount) return;
             groups[group].Clear(); groups[group].AddRange(items);
+            stamps[group]++;
         }
+
+        /// <summary>Bumps each time the group is assigned, so whoever watches its strength starts again from the new men.</summary>
+        public int GroupStamp(int group) => group >= 0 && group < GroupCount ? stamps[group] : 0;
 
         /// <summary>Shift+digit: the selection becomes the group. False when the group is empty (nothing changes).</summary>
         public bool Recall(int group)

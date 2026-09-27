@@ -1,6 +1,8 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
-    <!-- The order cluster anchored on one owned trench: [fall back][lock] gap [hold fire][over the top], the garrison
-         count beneath. TrenchOrderCluster positions the root by transform each frame; the gap is the hole the trench
+    <!-- The order cluster anchored on one owned trench: [fall back][lock] gap [troop categories][over the top], the
+         garrison count beneath with the hold-fire tag beside it (F toggles hold fire; owner, 2026-09-24: the category
+         chips took the hold-fire button's place). TrenchOrderCluster fills "categories" with one chip per infantry
+         type in the trench. TrenchOrderCluster positions the root by transform each frame; the gap is the hole the trench
          shows through (2 x HudLayout.OrderOffPx). -->
     <ui:VisualElement name="orders" class="hud-orders" picking-mode="Ignore">
         <ui:VisualElement name="row" class="hud-orders__row" picking-mode="Ignore">
@@ -10,10 +12,13 @@
             </ui:VisualElement>
             <ui:VisualElement name="gap" class="hud-orders__gap" picking-mode="Ignore" />
             <ui:VisualElement name="pair-right" class="hud-orders__pair" picking-mode="Ignore">
-            <ui:Button name="holdfire" class="tw-btn tw-btn--icon hud-orders__btn hud-orders__btn--holdfire" text=""><ui:VisualElement name="holdfire-icon" class="tw-icon tw-ico-fireatwill" picking-mode="Ignore" /></ui:Button>
+            <ui:VisualElement name="categories" class="hud-orders__cats" picking-mode="Ignore" />
             <ui:Button name="advance" class="tw-btn tw-btn--icon hud-orders__btn hud-orders__btn--last" text=""><ui:VisualElement name="advance-icon" class="tw-icon tw-ico-overthetop" picking-mode="Ignore" /></ui:Button>
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:Label name="garrison" text="" class="tw-badge hud-orders__count" picking-mode="Ignore" />
+        <ui:VisualElement name="count-row" class="hud-orders__count-row" picking-mode="Ignore">
+            <ui:Label name="garrison" text="" class="tw-badge hud-orders__count" picking-mode="Ignore" />
+            <ui:VisualElement name="holdfire-tag" class="tw-icon tw-ico-holdfire hud-orders__holdtag" />
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

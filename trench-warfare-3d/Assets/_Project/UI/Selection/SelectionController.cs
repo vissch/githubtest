@@ -21,7 +21,7 @@ using TW.Sim.Match;
 
 namespace TW.UI
 {
-    public sealed class SelectionController : System.IDisposable
+    public sealed class SelectionController : System.IDisposable, TrenchOrderCluster.ISelection
     {
         public const float DragPx = 6f, DoubleClickSeconds = 0.35f, GroupDoubleTapSeconds = 0.4f;
 
@@ -31,22 +31,27 @@ namespace TW.UI
         readonly AimReadout aimReadout;
         /// <summary>The trench order buttons (their men badges answer the cursor with the garrison card); set by the HUD.</summary>
         public TrenchOrderCluster Trenches;
+        int scopeFrame = -1, scopeVersion = -1, scopeTrench = -1, scopeMask;
         public readonly GarrisonStats Garrison;
         readonly VisualElement marquee;
         readonly HoverCard hoverCard;
         public readonly SelectionModel Model = new SelectionModel();
         public readonly UnitPicker Picker = new UnitPicker();
-        readonly SelectionMarkers markers = new SelectionMarkers();
+        readonly SelectionMarkers markers;
+        readonly DeathMarks deathMarks;
+        /// <summary>The skulls where men die (DeathMarks).</summary>
+        public DeathMarks Deaths => deathMarks;
         readonly List<int> hits = new List<int>();
         readonly List<int> hoverClump = new List<int>();   // what the card and the hover brackets show (one man under Alt)
         readonly List<int> fullClump = new List<int>();    // the whole knot under the cursor
         readonly SelectCursor cursor = new SelectCursor();
         UnitHandle altPick; int altIndex; bool altHeld;
-        readonly List<ScreenUnit> hoverNow = new List<ScreenUnit>();
         readonly List<ScreenUnit> selectedNow = new List<ScreenUnit>();
         readonly Dictionary<UnitHandle, int> index = new Dictionary<UnitHandle, int>();
 
         bool pressing, dragging; Vector2 pressAt;
+        bool armedLastTick;   // TestPanel fires and disarms on the press, before we run: that press is the strike's, not ours
+        readonly System.Func<UnitHandle, bool> alive;   // cached: Prune every frame without a new delegate
         float lastClickTime = -10f; UnitHandle lastClicked;
         int lastGroupKey = -1; float lastGroupTime = -10f;
         int tabCursor;
@@ -59,7 +64,10 @@ namespace TW.UI
         public SelectionController(SimHost host, TacticalCamera cam, VisualElement root, System.Func<TestPanel> panel, GarrisonStats garrison = null)
         {
             this.host = host; this.cam = cam; this.panel = panel; Garrison = garrison ?? new GarrisonStats();
+            alive = Alive;
             aimReadout = new AimReadout(root);
+            markers = new SelectionMarkers(root, ToHud);
+            deathMarks = new DeathMarks(root, host, ToHud);
             marquee = root?.Q("marquee"); hoverCard = new HoverCard(root);
             if (marquee != null) marquee.style.display = DisplayStyle.None;
             HudBridge.WheelClaimed = WantsWheel;
@@ -68,7 +76,7 @@ namespace TW.UI
         public void Dispose()
         {
             if (HudBridge.WheelClaimed == (System.Func<bool>)WantsWheel) HudBridge.WheelClaimed = null;
-            markers.Dispose(); cursor.Dispose();
+            markers.Dispose(); cursor.Dispose(); deathMarks?.Dispose();
         }
 
         /// <summary>The camera asks before it zooms: Alt over a knot steps through it instead (read a frame late, harmless).</summary>
@@ -87,7 +95,7 @@ namespace TW.UI
         {
             var w = World; var unity = Camera.main;
             if (w == null || unity == null || host.Presenter == null) return;
-            Model.Prune(Alive);
+            Model.Prune(alive);
             Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f);
             index.Clear();
             for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i;
@@ -96,22 +104,54 @@ namespace TW.UI
             var p = panel?.Invoke();
             var armed = p != null ? p.Armed : OffMapAbilityId.None;
             bool fieldOwnsInput = interactive && InputFocus.Gameplay && armed == OffMapAbilityId.None;
-            if (mouse != null && kb != null && fieldOwnsInput) HandleMouse(mouse, kb);
+            bool strikeClick = armedLastTick; armedLastTick = armed != OffMapAbilityId.None;
+            if (mouse != null && kb != null && fieldOwnsInput) HandleMouse(mouse, kb, strikeClick);
             else { CancelDrag(); ClearHover(); }
             // aiming a strike: who is under it, beside the reticle and on the field
             if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
             {
                 aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
-                markers.DrawTargets(aimReadout.EnemyIn, aimReadout.OursIn);
             }
             else aimReadout.Hide();
             if (kb != null && fieldOwnsInput) HandleKeys(kb);
 
             selectedNow.Clear();
-            foreach (var h in Model.Items) if (index.TryGetValue(h, out int k)) selectedNow.Add(Picker.Units[k]);
-            hoverNow.Clear();
-            foreach (int i in hoverClump) if (!Model.Contains(Picker.Units[i].Handle)) hoverNow.Add(Picker.Units[i]);
-            markers.Draw(selectedNow, hoverNow, HpFraction, unity);
+            var items = Model.Items;
+            for (int i = 0; i < items.Count; i++) if (index.TryGetValue(items[i], out int k)) selectedNow.Add(Picker.Units[k]);
+            // the marks on the field, back to front in importance: hovered (faint, with their bar), selected, a strike's targets
+            markers.Begin(unity);
+            if (interactive)
+            {
+                foreach (int i in hoverClump)
+                    if (!Model.Contains(Picker.Units[i].Handle)) markers.Add(Picker.Units[i], SelectionMarkers.Kind.Hover, HpFraction(Picker.Units[i]));
+                foreach (var u in selectedNow) markers.Add(u, u.Ours ? SelectionMarkers.Kind.Ours : SelectionMarkers.Kind.Theirs, HpFraction(u));
+                PreviewTrench(w);
+                foreach (var u in aimReadout.EnemyIn) markers.Add(u, SelectionMarkers.Kind.Theirs, -1f);
+                foreach (var u in aimReadout.OursIn) markers.Add(u, SelectionMarkers.Kind.Danger, -1f);
+            }
+            markers.End();
+            deathMarks?.Tick(unity, interactive);
+        }
+
+        /// <summary>
+        /// Hovering a trench's over the top: amber brackets under the men it would send and red under the pinned who
+        /// would stay; hovering a category chip: faint brackets (and bars) under that category, so you see where they are.
+        /// </summary>
+        void PreviewTrench(SimWorld w)
+        {
+            if (Trenches == null) return;
+            int adv = Trenches.HoveredAdvanceTrench, cat = Trenches.HoveredCatTrench, arch = Trenches.HoveredCatArchetype;
+            if (adv < 0 && cat < 0) return;
+            int mask = adv >= 0 ? AdvanceMask(adv) : 0;
+            foreach (var u in Picker.Units)
+            {
+                if (!u.Ours || u.Vehicle) continue;
+                int t = w.TrenchId[u.Slot];
+                if (adv >= 0 && t == adv && (mask == 0 || (mask & (1 << u.Archetype)) != 0))
+                    markers.Add(u, w.Suppression[u.Slot] >= StanceRules.PinnedSuppression ? SelectionMarkers.Kind.Danger : SelectionMarkers.Kind.Go, -1f);
+                else if (cat >= 0 && t == cat && u.Archetype == arch && !Model.Contains(u.Handle))
+                    markers.Add(u, SelectionMarkers.Kind.Hover, HpFraction(u));
+            }
         }
 
         float HpFraction(ScreenUnit u)
@@ -121,7 +161,7 @@ namespace TW.UI
         }
 
         // ---- the mouse -------------------------------------------------------------------------------------------
-        void HandleMouse(Mouse mouse, Keyboard kb)
+        void HandleMouse(Mouse mouse, Keyboard kb, bool strikeClick)
         {
             Vector2 at = CursorOverride ?? mouse.position.ReadValue();
             bool overUi = HudBridge.IsPointerOverUi(at);
@@ -129,7 +169,7 @@ namespace TW.UI
             bool ctrl = kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;
             bool alt = kb.leftAltKey.isPressed || kb.rightAltKey.isPressed;
 
-            if (mouse.leftButton.wasPressedThisFrame && !overUi) { pressing = true; dragging = false; pressAt = at; }
+            if (mouse.leftButton.wasPressedThisFrame && !overUi && !strikeClick) { pressing = true; dragging = false; pressAt = at; }
             if (pressing && !dragging && (at - pressAt).sqrMagnitude > DragPx * DragPx) dragging = true;
             if (pressing && mouse.leftButton.wasReleasedThisFrame)
             {
@@ -141,6 +181,13 @@ namespace TW.UI
 
             // hover: the unit or knot under the cursor and its card beside it (not while boxing, not over the HUD)
             altHeld = alt;
+            // the cursor on a trench's troop-category chip: that category's card
+            if (overUi && !dragging && Trenches != null && Trenches.HoveredCatTrench >= 0 && hoverCard != null)
+            {
+                hoverClump.Clear(); fullClump.Clear(); Hovered = null; cursor.Set(SelectCursor.Kind.None);
+                hoverCard.ShowCategory(World, Trenches.HoveredCatTrench, Trenches.HoveredCatArchetype, ToHud(at), HudSize());
+                return;
+            }
             // the cursor on a trench's men badge: that garrison's card
             if (overUi && !dragging && Trenches != null && Trenches.HoveredTrench >= 0 && hoverCard != null)
             {
@@ -176,6 +223,9 @@ namespace TW.UI
             else hoverCard?.Hide();
         }
 
+        /// <summary>The HUD is going away (F9 to the legacy HUD): no hover, no drag, no painted cursor, no wheel claim.</summary>
+        public void Release() { CancelDrag(); ClearHover(); altHeld = false; aimReadout.Hide(); }
+
         void ClearHover() { hoverClump.Clear(); fullClump.Clear(); Hovered = null; hoverCard?.Hide(); cursor.Set(SelectCursor.Kind.None); }
 
         void ClickSelect(Vector2 at, bool shift, bool ctrl, bool alt)
@@ -190,7 +240,7 @@ namespace TW.UI
             if (doubled)
             {
                 UnitPicker.SameTypeOnScreen(Picker.Units, u.Archetype, u.Ours, Screen.width, Screen.height, hits);
-                Apply(hits, shift, ctrl);
+                if (!u.Ours) Apply(hits, false, false); else Apply(hits, shift, ctrl);   // enemies are inspected, never mixed with ours
                 return;
             }
             if (!alt && hits.Count > 1)   // a knot: the lot (enemies only ever alone, inspected, never mixed with ours)
@@ -308,6 +358,53 @@ namespace TW.UI
         }
 
         void Focus(Vector3 world) { if (cam != null) cam.Focus = new Vector2(world.x, world.z); }
+
+        // ---- a trench's troop categories (TrenchOrderCluster.ISelection) --------------------------------------------
+        /// <summary>The trench the selection is scoped to (every selected man garrisons it) and its category mask.</summary>
+        public bool ScopedTrench(out int trench, out int mask)
+        {
+            if (scopeFrame != Time.frameCount || scopeVersion != Model.Version)
+            {
+                scopeFrame = Time.frameCount; scopeVersion = Model.Version;
+                if (!TrenchScope.Of(World, Model.Items, out scopeTrench, out scopeMask)) { scopeTrench = -1; scopeMask = 0; }
+            }
+            trench = scopeTrench; mask = scopeMask;
+            return scopeTrench >= 0;
+        }
+
+        public int AdvanceMask(int trench)
+        {
+            if (!ScopedTrench(out int t, out int mask) || t != trench) return 0;
+            return TrenchScope.Effective(mask, TrenchScope.Present(Garrison, trench));
+        }
+
+        public bool CategorySelected(int trench, int archetype) =>
+            ScopedTrench(out int t, out int mask) && t == trench && (mask & (1 << archetype)) != 0;
+
+        /// <summary>A chip: select that category of the trench (Shift: add it, or drop it if it is in); a double click goes there.</summary>
+        public void SelectCategory(int trench, int archetype, bool toggle, bool focus)
+        {
+            var w = World; if (w == null) return;
+            var men = new List<UnitHandle>();
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint f = w.Flags[i];
+                if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0 || (w.Team[i] & 1) != 0) continue;
+                if (w.TrenchId[i] != trench || w.Archetype[i] != archetype) continue;
+                men.Add(new UnitHandle(i, w.Generation[i]));
+            }
+            if (men.Count == 0) return;
+            if (toggle)
+            {
+                DropEnemies();
+                bool allIn = true;
+                foreach (var h in men) if (!Model.Contains(h)) { allIn = false; break; }
+                if (allIn) foreach (var h in men) Model.Remove(h); else foreach (var h in men) Model.Add(h);
+            }
+            else Model.Set(men);
+            scopeFrame = -1;
+            if (focus) FocusSelection();
+        }
 
         /// <summary>The panel's tiles: select just this unit (or drop it with Shift).</summary>
         public void SelectOnly(UnitHandle h, bool drop) { if (drop) Model.Remove(h); else Model.Set(new[] { h }); }

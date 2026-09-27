@@ -1,136 +1,162 @@
 // Phase: B6 (implemented) — what selection looks like on the field, as Dust Front draws it (its developer's GIFs,
-// 2026-09-23 research): under each selected unit a flat hexagon of two thin off-white brackets with gaps at two
-// corners, lying on the ground so the camera's pitch flattens it; an inspected enemy gets the same in rust; above each
-// a thin health bar, dark track and red fill, facing the camera. The unit (or knot) under the cursor gets faint brackets. All
-// instanced (two draws per colour), textures painted in code, URP Unlit made transparent the way CombatFx does it.
+// 2026-09-23 research): under each selected unit a flat hexagon of two brackets with gaps at two corners, squashed by
+// the camera's pitch as if lying on the ground; above it a short health bar, dark track and red fill.
+// Drawn on the HUD, not in the world (round 15 capture: world markers sank under the duckboards and behind the trench
+// walls, and URP Unlit cannot switch its depth test off; a world bar also thinned to a hair when zoomed out). So each
+// mark is a pooled pair of HUD elements placed from the projected feet and head every frame: always visible, crisp at
+// any zoom, the bracket's size from the unit's projected footprint (never smaller than MinHexPx), the bar a fixed
+// width. Kinds: ours (off-white), theirs (rust), hover (faint), danger (alarm red: ours under our own strike, or pinned
+// men who will stay when over the top is hovered), go (amber: the men over the top would send).
+// Moved by transform only, so nothing here re-lays-out the HUD; hidden marks stay in the pool.
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
+using UnityEngine.UIElements;
 
 namespace TW.UI
 {
     public sealed class SelectionMarkers : System.IDisposable
     {
-        public static readonly Color Ours = new Color32(0xE8, 0xE1, 0xD2, 235);      // --tw-text-bright
-        public static readonly Color Theirs = new Color32(0xB5, 0x52, 0x3A, 235);    // --tw-enemy
-        public static readonly Color Hover = new Color32(0xE8, 0xE1, 0xD2, 90);
-        public static readonly Color Danger = new Color32(0xE0, 0x2B, 0x2B, 235);    // --tw-alarm: ours under our own shells
-        public static readonly Color Track = new Color32(0x0E, 0x0F, 0x10, 210);
-        public static readonly Color FillOurs = new Color32(0xD9, 0x48, 0x5A, 255);  // Dust Front's pinkish red
-        public static readonly Color FillTheirs = new Color32(0xE0, 0x2B, 0x2B, 255); // --tw-alarm
-        public const float BarWidthPerSize = 0.8f, BarHeightM = 0.12f, GroundLift = 0.06f;
+        public enum Kind : byte { Ours, Theirs, Hover, Danger, Go }
 
-        readonly Mesh ground, bar;
-        readonly Texture2D hex;
-        readonly Material hexOurs, hexTheirs, hexHover, hexDanger, track, fillOurs, fillTheirs;
-        readonly List<Matrix4x4> batch = new List<Matrix4x4>(256);
-        Matrix4x4[] array = new Matrix4x4[256];
-        static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 100000f);
+        public static readonly Color Ours = new Color32(0xE8, 0xE1, 0xD2, 255);      // --tw-text-bright
+        public static readonly Color Theirs = new Color32(0xC8, 0x5A, 0x3E, 255);    // --tw-enemy, lifted a little to read at 2 px
+        public static readonly Color Hover = new Color32(0xE8, 0xE1, 0xD2, 120);
+        public static readonly Color Danger = new Color32(0xE0, 0x2B, 0x2B, 255);    // --tw-alarm
+        public static readonly Color Go = new Color32(0xF2, 0xA6, 0x48, 255);        // --tw-accent-bright: would go over the top
+        public const int HexTexPx = 128;
+        public const float HexBoxPx = 64f, MinHexPx = 26f, MaxHexPx = 220f, ManBarPx = 30f, VehicleBarPx = 56f, BarHeightPx = 6f, BarGapPx = 5f;
+        public const float HeadM = 1.9f;   // the drawn man's helmet over his feet, per unit of figure scale (CombatFx puts the chest at 1.2)
 
-        public SelectionMarkers()
+        sealed class Mark
         {
-            ground = Quad(true); bar = Quad(false);
-            hex = HexBrackets(128);
-            var unlit = Shader.Find("Universal Render Pipeline/Unlit");   // kept in player builds (Resources/ShaderKeep), as CombatFx uses it
-            hexOurs = Transparent(unlit, Ours, hex); hexTheirs = Transparent(unlit, Theirs, hex); hexHover = Transparent(unlit, Hover, hex); hexDanger = Transparent(unlit, Danger, hex);
-            track = Transparent(unlit, Track, null); fillOurs = Transparent(unlit, FillOurs, null); fillTheirs = Transparent(unlit, FillTheirs, null);
-            fillOurs.renderQueue = fillTheirs.renderQueue = track.renderQueue + 1;   // the fill over its track
+            public VisualElement Root, Hex, Bar, Fill;
+            public Kind Kind = (Kind)255; public int Pct = -1; public bool BarOn = true, Vehicle, On = true, Enemy;
+        }
+
+        readonly VisualElement layer;
+        readonly System.Func<Vector2, Vector2> toHud;
+        readonly Texture2D hex;
+        readonly List<Mark> pool = new List<Mark>(64);
+        int used;
+        Camera cam;
+
+        /// <param name="toHud">Screen px (bottom-left origin) to the HUD's layout px, as SelectionController.ToHud.</param>
+        public SelectionMarkers(VisualElement root, System.Func<Vector2, Vector2> toHud)
+        {
+            layer = root?.Q("markers-layer");
+            this.toHud = toHud;
+            hex = HexBrackets(HexTexPx);
+            if (layer != null) layer.pickingMode = PickingMode.Ignore;
         }
 
         public void Dispose()
         {
-            foreach (var o in new Object[] { ground, bar, hex, hexOurs, hexTheirs, hexHover, hexDanger, track, fillOurs, fillTheirs })
-                if (o != null) Object.Destroy(o);
+            layer?.Clear(); pool.Clear();
+            if (hex != null) Object.Destroy(hex);
         }
 
-        /// <summary>Draw this frame's markers: brackets under the selected (and the hovered), bars over the selected.</summary>
-        public void Draw(List<ScreenUnit> selected, List<ScreenUnit> hovered, System.Func<ScreenUnit, float> hpFraction, Camera cam)
+        public void Begin(Camera c) { cam = c; used = 0; }
+
+        /// <summary>One mark this frame: its bracket, and a bar at hp (0..1) unless hp is negative.</summary>
+        public void Add(ScreenUnit u, Kind kind, float hp)
         {
-            if (cam == null) return;
-            batch.Clear(); foreach (var u in hovered) batch.Add(GroundTrs(u)); Flush(ground, hexHover);
-            for (int pass = 0; pass < 2; pass++)
+            if (layer == null || cam == null) return;
+            // feet and head in the world: the body centre the picker projects, less half a figure, and a helmet over it
+            float scale = u.Vehicle ? 1f : u.Size / 1.1f;   // UnitPicker: Size = 1.1 x figure scale for a man
+            float body = u.Vehicle ? UnitPicker.VehicleBodyM : UnitPicker.ManBodyM * scale;
+            Vector3 feet = new Vector3(u.World.x, u.World.y - body, u.World.z);
+            Vector3 head = u.Vehicle ? feet + Vector3.up * 2.6f : feet + Vector3.up * (HeadM * scale);
+            Vector3 sf = cam.WorldToScreenPoint(feet);
+            if (sf.z <= cam.nearClipPlane) return;
+            // the hexagon lies on the ground: its screen width from the camera's right, its height from the ground ahead
+            float r = u.Size * 0.5f;
+            Vector3 right = cam.transform.right; right.y = 0f; right = right.sqrMagnitude > 1e-6f ? right.normalized : Vector3.right;
+            Vector3 ahead = Vector3.Cross(right, Vector3.up);
+            Vector2 pf = toHud(sf);
+            Vector2 pr = toHud(cam.WorldToScreenPoint(feet + right * r)), pa = toHud(cam.WorldToScreenPoint(feet + ahead * r));
+            float w = 2f * (pr - pf).magnitude, h = 2f * Mathf.Abs((pa - pf).y);
+            h = Mathf.Max(h, w * 0.25f);   // never flatter than a quarter, or it vanishes when the camera lies low
+            float grow = w < MinHexPx ? MinHexPx / Mathf.Max(1f, w) : w > MaxHexPx ? MaxHexPx / w : 1f;
+            w *= grow; h *= grow;
+
+            var m = Take();
+            m.Root.transform.position = new Vector3(pf.x, pf.y, 0f);
+            m.Hex.transform.scale = new Vector3(w / HexBoxPx, h / HexBoxPx, 1f);
+            if (m.Kind != kind)
             {
-                batch.Clear();
-                foreach (var u in selected) if (u.Ours == (pass == 0)) batch.Add(GroundTrs(u));
-                Flush(ground, pass == 0 ? hexOurs : hexTheirs);
+                m.Kind = kind;
+                m.Hex.style.unityBackgroundImageTintColor = kind == Kind.Ours ? Ours : kind == Kind.Theirs ? Theirs : kind == Kind.Hover ? Hover : kind == Kind.Go ? Go : Danger;
             }
-            // bars: the track, then each side's fill scaled to its health from the left end
-            var face = cam.transform.rotation;
-            Vector3 right = cam.transform.right;
-            batch.Clear();
-            foreach (var u in selected) batch.Add(Matrix4x4.TRS(BarCentre(u), face, new Vector3(BarWidth(u), BarHeightM * BarScale(u), 1f)));
-            Flush(bar, track);
-            for (int pass = 0; pass < 2; pass++)
+            if (m.Enemy != !u.Ours) { m.Enemy = !u.Ours; m.Fill.EnableInClassList("hud-mark__fill--enemy", m.Enemy); }
+            bool bar = hp >= 0f;
+            if (bar != m.BarOn) { m.BarOn = bar; m.Bar.style.display = bar ? DisplayStyle.Flex : DisplayStyle.None; }
+            if (!bar) return;
+            if (u.Vehicle != m.Vehicle) { m.Vehicle = u.Vehicle; m.Bar.style.width = u.Vehicle ? VehicleBarPx : ManBarPx; }
+            int pct = Mathf.Clamp(Mathf.CeilToInt(hp * 100f), 0, 100);
+            if (pct != m.Pct) { m.Pct = pct; m.Fill.style.width = Length.Percent(pct); }
+            // over the head, or over the bracket's far edge if the camera looks so steeply down that the head is lower
+            Vector2 ph = toHud(cam.WorldToScreenPoint(head));
+            float top = Mathf.Min(ph.y, pf.y - h * 0.5f) - BarGapPx - BarHeightPx - pf.y;
+            m.Bar.transform.position = new Vector3(-(u.Vehicle ? VehicleBarPx : ManBarPx) * 0.5f + (ph.x - pf.x), top, 0f);
+        }
+
+        /// <summary>Hide whatever this frame did not use.</summary>
+        public void End()
+        {
+            for (int i = used; i < pool.Count; i++)
             {
-                batch.Clear();
-                foreach (var u in selected)
-                {
-                    if (u.Ours != (pass == 0)) continue;
-                    float k = Mathf.Clamp01(hpFraction(u));
-                    if (k <= 0f) continue;
-                    float w = BarWidth(u), inset = BarHeightM * BarScale(u) * 0.25f;
-                    float fw = (w - 2f * inset) * k;
-                    Vector3 c = BarCentre(u) - right * ((w - 2f * inset) * 0.5f - fw * 0.5f);
-                    batch.Add(Matrix4x4.TRS(c, face, new Vector3(fw, BarHeightM * BarScale(u) - 2f * inset, 1f)));
-                }
-                Flush(bar, pass == 0 ? fillOurs : fillTheirs);
+                var m = pool[i];
+                if (m.On) { m.On = false; m.Root.style.display = DisplayStyle.None; }
             }
         }
 
-        /// <summary>While a strike is aimed: rust brackets under the enemy it covers, red under ours in its reach.</summary>
-        public void DrawTargets(List<ScreenUnit> enemy, List<ScreenUnit> ours)
+        Mark Take()
         {
-            batch.Clear(); foreach (var u in enemy) batch.Add(GroundTrs(u)); Flush(ground, hexTheirs);
-            batch.Clear(); foreach (var u in ours) batch.Add(GroundTrs(u)); Flush(ground, hexDanger);
+            if (used < pool.Count)
+            {
+                var m = pool[used++];
+                if (!m.On) { m.On = true; m.Root.style.display = DisplayStyle.Flex; }
+                return m;
+            }
+            var n = new Mark();
+            n.Root = New("hud-mark", layer);
+            n.Hex = New("hud-mark__hex", n.Root);
+            n.Hex.style.backgroundImage = new StyleBackground(hex);
+            n.Bar = New("hud-mark__bar", n.Root);
+            n.Fill = New("hud-mark__fill", n.Bar);
+            pool.Add(n); used++;
+            return n;
         }
 
-        static float BarScale(ScreenUnit u) => u.Vehicle ? 1.6f : Mathf.Max(1f, u.Size * 0.6f);
-        static float BarWidth(ScreenUnit u) => u.Size * BarWidthPerSize;
-        static Vector3 BarCentre(ScreenUnit u) => u.World + Vector3.up * (u.Vehicle ? 2.4f : u.Size * 1.05f);   // over the head: the body centre is half a figure up
-        static Matrix4x4 GroundTrs(ScreenUnit u)
+        static VisualElement New(string cls, VisualElement parent)
         {
-            float body = u.Vehicle ? UnitPicker.VehicleBodyM : UnitPicker.ManBodyM * u.Size / 1.1f;
-            return Matrix4x4.TRS(new Vector3(u.World.x, u.World.y - body + GroundLift, u.World.z), Quaternion.identity, new Vector3(u.Size, 1f, u.Size));
-        }
-
-        void Flush(Mesh mesh, Material mat)
-        {
-            if (batch.Count == 0) return;
-            if (array.Length < batch.Count) array = new Matrix4x4[Mathf.NextPowerOfTwo(batch.Count)];
-            batch.CopyTo(array);
-            Graphics.RenderMeshInstanced(new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, mesh, 0, array, batch.Count);
-        }
-
-        /// <summary>A unit quad centred on the origin: on the ground (XZ) or facing +Z (the bar, rotated to the camera).</summary>
-        static Mesh Quad(bool onGround)
-        {
-            var m = new Mesh { name = onGround ? "tw-select-ground" : "tw-select-bar" };
-            m.vertices = onGround
-                ? new[] { new Vector3(-0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f) }
-                : new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(0.5f, 0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f) };
-            m.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
-            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };   // clockwise seen from above (ground) and from the camera (the bar faces away from it)
-            m.RecalculateNormals(); m.RecalculateBounds();
-            return m;
+            var e = new VisualElement { pickingMode = PickingMode.Ignore, usageHints = UsageHints.DynamicTransform };
+            e.AddToClassList(cls); parent.Add(e); return e;
         }
 
         /// <summary>
-        /// The bracket texture: a hexagon outline (flat top), 1/40 of the size thick, anti-aliased, white on clear, with
-        /// gaps at the top-right and bottom-left corners so it reads as two brackets, as Dust Front draws it.
+        /// The bracket texture: a flat-topped hexagon outline, white with a soft dark rim (so it reads on snow and on
+        /// mud alike), with gaps at the top-right and bottom-left corners so it reads as two brackets.
         /// </summary>
         public static Texture2D HexBrackets(int n)
         {
-            var t = new Texture2D(n, n, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 4, hideFlags = HideFlags.HideAndDontSave };
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, hideFlags = HideFlags.HideAndDontSave };
             var px = new Color32[n * n];
-            float r = 0.46f, thick = 1f / 40f;
+            float r = 0.42f, thick = 1f / 22f, rim = 1f / 24f;
             for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
             {
                 float u = (x + 0.5f) / n - 0.5f, v = (y + 0.5f) / n - 0.5f;
                 float d = Mathf.Abs(HexSdf(u, v, r));
-                float a = Mathf.Clamp01((thick - d) * n * 0.9f);
+                float ink = Mathf.Clamp01((thick - d) * n * 0.9f);
+                float shadow = Mathf.Clamp01((thick + rim - d) * n * 0.35f) * 0.6f;
                 float ang = Mathf.Atan2(v, u) * Mathf.Rad2Deg; if (ang < 0f) ang += 360f;
-                if (Mathf.Abs(Mathf.DeltaAngle(ang, 60f)) < 16f || Mathf.Abs(Mathf.DeltaAngle(ang, 240f)) < 16f) a = 0f;   // the two gaps
-                px[y * n + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255f));
+                float gap = Mathf.Min(Mathf.Abs(Mathf.DeltaAngle(ang, 60f)), Mathf.Abs(Mathf.DeltaAngle(ang, 240f)));
+                float keep = Mathf.Clamp01((gap - 14f) / 3f);   // the two gaps, with soft ends
+                ink *= keep; shadow *= keep;
+                // white over a dark rim: colour is white where inked, black in the rim; alpha is the union
+                float a = ink + shadow * (1f - ink);
+                byte c = (byte)Mathf.RoundToInt(a > 0f ? 255f * ink / a : 0f);
+                px[y * n + x] = new Color32(c, c, c, (byte)Mathf.RoundToInt(a * 255f));
             }
             t.SetPixels32(px); t.Apply(true, true);
             return t;
@@ -147,23 +173,6 @@ namespace TW.UI
             float a = r * 0.8660254f;
             px -= Mathf.Clamp(px, -k2 * a, k2 * a); py -= a;
             return new Vector2(px, py).magnitude * Mathf.Sign(py);
-        }
-
-        static Material Transparent(Shader shader, Color color, Texture tex)
-        {
-            var m = new Material(shader) { enableInstancing = true, color = color };
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 0f);
-            m.SetFloat("_ZWrite", 0f);
-            m.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-            m.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.SetOverrideTag("RenderType", "Transparent");
-            m.renderQueue = (int)RenderQueue.Transparent + 10;
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            if (tex != null) { m.mainTexture = tex; if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", tex); }
-            m.hideFlags = HideFlags.HideAndDontSave;
-            return m;
         }
     }
 }
