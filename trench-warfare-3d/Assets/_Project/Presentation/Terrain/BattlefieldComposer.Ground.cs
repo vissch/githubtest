@@ -12,6 +12,9 @@ namespace TW.Presentation.Terrain
     {
         /// <summary>The debris step's size jitter for its loose things (cases, branches): a test holds the spent cases' both ends inside their Strict row.</summary>
         public const float DebrisSizeMin = .85f, DebrisSizeRange = .5f;
+        /// <summary>Loose boards spread less than the rest of the debris: at the shared 0.85-1.35 a third of them were longer
+        /// than a man lying down (1.1 SU) and the scale clamp pulled them in; 0.85-1.15 keeps them 1.6-2.2 m.</summary>
+        float BoardSize(int k) => DebrisSizeMin + Rand(k, 66) * .30f;
         /// <summary>Loose litter on open ground: branches, boards and braced planks everywhere, now and then a door or a
         /// crossed pair of boards laid flat; spent cases, fallen sacks and sheets of corrugated iron near the trenches. One
         /// candidate per 4.5 m square, placed by hash so it never moves between rebuilds.</summary>
@@ -44,14 +47,14 @@ namespace TW.Presentation.Terrain
                     else if (pick < .44f) emit(kit.sandbag, Matrix4x4.TRS(new Vector3(x, ground - .04f, z), yaw * tilt, Vector3.one * (.9f + Rand(k, 66) * .25f)));
                     else if (pick < .53f) Sheet(x, z, ground, yaw, k);
                     else if (pick < .70f) emit(kit.branches, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
-                    else if (pick < .85f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else if (pick < .85f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * BoardSize(k)));
                     else emit(kit.bracedPlank, Matrix4x4.TRS(new Vector3(x, ground - .10f, z), yaw * tilt, Vector3.one * (.8f + Rand(k, 66) * .3f)));
                 }
                 else
                 {
                     // planks everywhere: broken branches and boards, braced planks, a door off some farm, a crossed pair of boards
                     if (pick < .40f) emit(kit.branches, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
-                    else if (pick < .62f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * size));
+                    else if (pick < .62f) emit(kit.looseBoards, Matrix4x4.TRS(new Vector3(x, ground + .01f, z), yaw, Vector3.one * BoardSize(k)));
                     else if (pick < .84f) emit(kit.bracedPlank, Matrix4x4.TRS(new Vector3(x, ground - .10f, z), yaw * tilt, Vector3.one * (.8f + Rand(k, 66) * .3f)));
                     else if (pick < .93f) Flat(kit.plankDoor, x, z, ground, yaw * tilt, 1f + Rand(k, 66) * .1f, .25f);   // a door a man walks through (AssetScaleTable: 0.85-1.15 SU)
                     else Flat(kit.crossedBoards, x, z, ground, yaw * tilt, .75f + Rand(k, 66) * .2f, .4f);

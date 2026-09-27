@@ -161,13 +161,16 @@ namespace TW.Presentation.Terrain
                 // what else is left of the place: wall stubs either side, a slab and a low wall in the rubble
                 (Vector3 local, BattlefieldKit.Module module, float size)[] rubble =
                 {
-                    (new Vector3(-10.5f, 0f, 1.5f), kit.wallStub, 1.1f), (new Vector3(7.8f, 0f, -1.8f), kit.wallStub, .9f),
+                    (new Vector3(-10.5f, 0f, 1.5f), kit.wallStub, 1.05f), (new Vector3(7.8f, 0f, -1.8f), kit.wallStub, .9f),
                     (new Vector3(2.4f, 0f, 3.2f), kit.rebarSlab, 1f), (new Vector3(-4.2f, 0f, -3.4f), kit.barricade, 1.1f),
                 };
+                // the rubble spreads with the ruin but grows only half as fast: a wall stub is a wall stub (0.8-1.4 soldiers)
+                // whether the ruin behind it is 5 m or 9 m, so the scale clamp never has to pull one in
+                float grows = .5f + .5f * s;
                 for (int r = 0; r < rubble.Length; r++)
                 {
                     if (Rand(i * 8 + r, 10) < .25f) continue;
-                    emit(rubble[r].module, Matrix4x4.TRS(at + turn * (rubble[r].local * s) + new Vector3(0f, .1f, 0f), turn * Quaternion.Euler(0f, (Rand(i * 8 + r, 11) - .5f) * 50f, 0f), Vector3.one * rubble[r].size * s));
+                    emit(rubble[r].module, Matrix4x4.TRS(at + turn * (rubble[r].local * s) + new Vector3(0f, .1f, 0f), turn * Quaternion.Euler(0f, (Rand(i * 8 + r, 11) - .5f) * 50f, 0f), Vector3.one * rubble[r].size * grows));
                 }
             }
         }

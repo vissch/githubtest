@@ -44,6 +44,20 @@ namespace TW.Tests
             Assert.AreEqual("warn", AssetScaleTable.Verdict(boulder, 9f));
         }
 
+        /// <summary>The audit judges what is drawn, which the clamp always pulls into bounds, so it must also judge how
+        /// often the clamp acted: past one instance in ten the composer is asking for the wrong size (critique 2026-09-27).</summary>
+        [Test]
+        public void A_Row_The_Clamp_Keeps_Pulling_In_Is_Not_Ok()
+        {
+            var stakes = new ScaleRule(ScaleClass.Strict, ScaleAxis.Height, 0.50f, 0.85f);
+            Assert.AreEqual("OK", AssetScaleTable.Verdict(stakes, 0.76f, 100, 10), "one in ten clamped is a look straying");
+            Assert.AreEqual("CLAMPED", AssetScaleTable.Verdict(stakes, 0.76f, 100, 11), "more is the composer's size");
+            Assert.AreEqual("FAIL", AssetScaleTable.Verdict(stakes, 0.95f, 100, 0), "out of bounds is still FAIL");
+            Assert.AreEqual("OK", AssetScaleTable.Verdict(stakes, 0.76f, 0, 0), "nothing placed: the look is judged alone");
+            var log = new ScaleRule(ScaleClass.Organic, ScaleAxis.Height, 0.1f, 3.0f);
+            Assert.AreEqual("OK", AssetScaleTable.Verdict(log, 1f, 100, 50), "an Organic row is never clamped, so never CLAMPED");
+        }
+
         [Test]
         public void Every_Kit_Piece_And_Imported_Prop_Has_A_Rule()
         {
@@ -112,7 +126,8 @@ namespace TW.Tests
                 foreach (var r in rows)
                 {
                     TestContext.WriteLine(r.Key + ": " + r.Verdict + " " + r.JudgedSU.ToString("0.00") + " SU x" + r.Instances);
-                    if (r.Verdict == "FAIL") failed.Add(r.Key + " " + r.JudgedSU.ToString("0.00") + " SU");
+                    // CLAMPED: in bounds only because the emit clamp pulled in more than one in ten of what the composer asked for
+                    if (r.Verdict == "FAIL" || r.Verdict == "CLAMPED") failed.Add(r.Key + " " + r.Verdict + " " + r.JudgedSU.ToString("0.00") + " SU (" + r.Clamped + " of " + r.Instances + " clamped)");
                 }
                 Assert.IsEmpty(failed, "man-made things out of proportion to the man: " + string.Join("; ", failed));
             }

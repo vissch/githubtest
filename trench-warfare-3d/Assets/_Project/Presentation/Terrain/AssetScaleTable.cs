@@ -84,6 +84,17 @@ namespace TW.Presentation.Terrain
             return f == 1f ? scale : scale * f;
         }
 
+        /// <summary>More than this share of a row's placed instances pulled in by the clamp is a composer asking for the
+        /// wrong size, not a look straying: the audit says CLAMPED, which fails like FAIL.</summary>
+        public const float MaxClampedShare = 0.10f;
+
+        /// <summary>The verdict on a placed row: its median drawn size, and how often the clamp had to act on it.</summary>
+        public static string Verdict(in ScaleRule rule, float su, int placed, int clamped)
+        {
+            string v = Verdict(rule, su);
+            return v == "OK" && rule.Bounded && placed > 0 && clamped > placed * MaxClampedShare ? "CLAMPED" : v;
+        }
+
         public static string Verdict(in ScaleRule rule, float su)
         {
             if (!rule.Has) return "no rule";
@@ -112,7 +123,7 @@ namespace TW.Presentation.Terrain
             S("kit/TrenchFloorsDamaged", ScaleAxis.Length, 0.90f, 1.10f, "broken duckboards on their rails (drawn at its whole twin's matrix)", enforce: false);
             B("kit/planks", ScaleAxis.Height, 0.50f, 1.40f, "never placed");
             S("kit/TrenchFloors", ScaleAxis.Length, 0.90f, 1.10f, "duckboards for a 2 m cell (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
-            S("kit/duckboards", ScaleAxis.Length, 0.70f, 1.10f, "a walkway section, 1.4-2.2 m across (the composer narrows ramp boards to 1.6 m and dugout thresholds to 1.5 m)");
+            S("kit/duckboards", ScaleAxis.Length, 0.70f, 1.10f, "a walkway section, 1.4-2.2 m across (sized per axis by the composer: ramp boards 1.6 m, dugout thresholds 1.5 m; a uniform clamp would stretch them: reported, not clamped)", enforce: false);
             S("kit/ladder", ScaleAxis.Height, 1.00f, 1.40f, "a trench ladder reaches the parapet");
             S("kit/knifeRest", ScaleAxis.Height, 0.50f, 0.85f);
             O("kit/wire", "a wire belt follows the map");

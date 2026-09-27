@@ -38,8 +38,8 @@ namespace TW.Editor
                 var edits = AssetScaleReport.Edits(layout);
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 File.WriteAllText(path, AssetScaleReport.Markdown(rows, edits, Seed));
-                int fails = 0; foreach (var r in rows) if (r.Verdict == "FAIL") fails++;
-                Debug.Log("Asset scale audit: " + rows.Count + " rows, " + fails + " FAIL");
+                int fails = 0, clamped = 0; foreach (var r in rows) { if (r.Verdict == "FAIL") fails++; if (r.Verdict == "CLAMPED") clamped++; }
+                Debug.Log("Asset scale audit: " + rows.Count + " rows, " + fails + " FAIL, " + clamped + " CLAMPED");
                 return path;
             }
             finally { kit.Dispose(); }

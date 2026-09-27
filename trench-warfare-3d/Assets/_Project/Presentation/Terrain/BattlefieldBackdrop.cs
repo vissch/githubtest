@@ -25,6 +25,10 @@ namespace TW.Presentation.Terrain
 {
     public sealed class BattlefieldBackdrop
     {
+        /// <summary>A hedgehog's or a stake run's size: under a man's shoulder (AssetScaleTable 0.50-0.85 SU) with its look's
+        /// spread on top; the wider belt range sent one in six past the scale clamp (docs/reference/asset-scale.md).</summary>
+        static float ObstacleSize(float r) => .85f + r * .25f;
+
         readonly BattlefieldKit kit;
         readonly int seed;
         Action<BattlefieldKit.Module, Matrix4x4> emit;
@@ -171,6 +175,7 @@ namespace TW.Presentation.Terrain
                         float size = .95f + Rand(key, 3) * .35f;
                         float pick = Rand(key, 4);
                         var piece = pick < .34f ? kit.knifeRest : pick < .56f ? kit.wire : pick < .74f ? kit.wireFence : pick < .88f ? kit.hedgehog : kit.stakes;
+                        if (piece == kit.hedgehog || piece == kit.stakes) size = ObstacleSize(Rand(key, 3));
                         Put(piece, x, z, yaw, size, .05f);
                         if (piece == kit.wire && Rand(key, 5) < .5f)
                             Put(kit.wirePost, x + (alongZ ? 0f : .95f * size), z + (alongZ ? .95f * size : 0f), yaw, size, .08f);
@@ -230,7 +235,7 @@ namespace TW.Presentation.Terrain
                     At(kit.sandbags, 3.6f, -.6f, (Rand(key, 8) - .5f) * 30f, 1f);
                     break;
                 case 2:   // the corner of a building, and what fell off it
-                    At(kit.wallStub, 0f, 0f, (Rand(key, 4) - .5f) * 40f, 1.3f);
+                    At(kit.wallStub, 0f, 0f, (Rand(key, 4) - .5f) * 40f, 1.15f);   // 2.6 m: at 1.3 the scale clamp cut it to 1.4 SU
                     At(kit.rebarSlab, 3.1f, 1.9f, Rand(key, 5) * 360f, 1f);
                     At(kit.boulder, -2.6f, 1.2f, Rand(key, 6) * 360f, 1.1f);
                     At(kit.corrugated, 1.4f, -2.4f, Rand(key, 7) * 360f, 1f);
@@ -278,8 +283,8 @@ namespace TW.Presentation.Terrain
                     float ground = Ground(x, z);
                     float depth = map.SeaLevel - ground;
                     if (depth > 1.5f) continue;                                          // deeper than that and it would be swimming
-                    float size = 1f + Rand(key, 2) * .4f;
                     var piece = Rand(key, 3) < .5f ? kit.hedgehog : Rand(key, 3) < .8f ? kit.stakes : kit.knifeRest;
+                    float size = piece == kit.knifeRest ? 1f + Rand(key, 2) * .4f : ObstacleSize(Rand(key, 2));
                     // they stand on the bed, leaning the way the sea has worked them
                     emit(piece, Matrix4x4.TRS(new Vector3(x, ground - .12f, z),
                         Quaternion.Euler((Rand(key, 4) - .5f) * 16f, Rand(key, 5) * 360f, (Rand(key, 6) - .5f) * 14f), Vector3.one * size));
@@ -295,7 +300,7 @@ namespace TW.Presentation.Terrain
                     float pick = Rand(key, 2);
                     var piece = pick < .30f ? kit.wire : pick < .50f ? kit.knifeRest : pick < .66f ? kit.branches
                               : pick < .80f ? kit.looseBoards : pick < .90f ? kit.stakes : kit.bracedPlank;
-                    Put(piece, x, z, (Rand(key, 3) - .5f) * 30f + (pick < .5f ? 0f : Rand(key, 4) * 180f), .9f + Rand(key, 5) * .4f, .04f);
+                    Put(piece, x, z, (Rand(key, 3) - .5f) * 30f + (pick < .5f ? 0f : Rand(key, 4) * 180f), piece == kit.stakes ? ObstacleSize(Rand(key, 5)) : .9f + Rand(key, 5) * .4f, .04f);
                 }
             }
         }

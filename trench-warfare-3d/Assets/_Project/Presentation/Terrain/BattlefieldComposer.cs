@@ -313,8 +313,10 @@ namespace TW.Presentation.Terrain
                 bool strung = !down;
                 if (down || kind < .50f) emit(kit.knifeRest, Matrix4x4.TRS(at, turn, Vector3.one * size));
                 else if (kind < .72f) { emit(kit.wireFence, Matrix4x4.TRS(at, turn, Vector3.one * size * 1.05f)); strung = false; }
-                else if (kind < .86f) emit(kit.hedgehog, Matrix4x4.TRS(at, turn * Quaternion.Euler(0f, Rand(key, 45) * 90f, 0f), Vector3.one * size));
-                else if (kind < .94f) emit(kit.stakes, Matrix4x4.TRS(at, turn * Quaternion.Euler(0f, (Rand(key, 45) - .5f) * 60f, 0f), Vector3.one * size));
+                // the hedgehogs and stakes stay under a man's shoulder (0.85 SU) with their looks' own spread on top: 0.85-1.10
+                // (at 1.20 the scale clamp pulled one in six back, docs/reference/asset-scale.md)
+                else if (kind < .86f) emit(kit.hedgehog, Matrix4x4.TRS(at, turn * Quaternion.Euler(0f, Rand(key, 45) * 90f, 0f), Vector3.one * (.85f + Rand(key, 38) * .25f)));
+                else if (kind < .94f) emit(kit.stakes, Matrix4x4.TRS(at, turn * Quaternion.Euler(0f, (Rand(key, 45) - .5f) * 60f, 0f), Vector3.one * (.85f + Rand(key, 38) * .25f)));
                 else
                     for (int end = -1; end <= 1; end += 2)
                         emit(kit.wirePost, Matrix4x4.TRS(at + turn * new Vector3(end * .95f * size, -.08f, 0f), turn * Quaternion.Euler(0f, Rand(key + end, 45) * 90f, 0f), Vector3.one * size));
