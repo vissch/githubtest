@@ -66,7 +66,7 @@ namespace TW.Tests
             // the bit-identity guard: _BurstLit defaults to 1 and the shader only scales the light below 1
             string src = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Shaders", "Flipbook_URP.shader"));
             StringAssert.Contains("Range(0, 1)) = 1", src.Substring(src.IndexOf("_BurstLit (")));
-            StringAssert.Contains("if (_BurstLit < 1.0) fire *= _BurstLit;", src);
+            StringAssert.Contains("if (_BurstLit < 1.0) burstLight *= _BurstLit;", src);
         }
 
         [Test]
