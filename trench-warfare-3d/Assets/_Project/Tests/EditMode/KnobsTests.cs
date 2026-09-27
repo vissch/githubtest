@@ -424,6 +424,77 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ColumnSoilKnob_DefaultIsTheOldLook_AndTheHeaveRisesFastFallsBackAndStaysLowOverMen()
+        {
+            // AOSA C103: fx.columnSoil, the soil heave; 0 (the default until a blind 2-way passes) is the old look
+            Assert.AreEqual("fx.columnSoil", FlipbookFx.ColumnSoilKnob);
+            Assert.AreEqual(FlipbookFx.OldColumnSoil, FlipbookFx.DefaultColumnSoil, "the default is the old look");
+            Assert.AreEqual(0f, FlipbookFx.ReadColumnSoil());
+            Assert.AreEqual("0", Knobs.Read["fx.columnSoil"]);
+
+            // the paint: dark umber at SoilValue, darker than C57's column, the same hue; below 1 it blends from fx.columnEarth
+            Assert.AreEqual(0.08f, FlipbookFx.SoilValue);
+            Assert.Less(FlipbookFx.SoilValue, FlipbookFx.DefaultEarth, "darker than C57's column");
+            Assert.AreEqual(FlipbookFx.SoilValue, FlipbookFx.SoilPaintValue(1f, FlipbookFx.DefaultEarth));
+            Assert.AreEqual(FlipbookFx.DefaultEarth, FlipbookFx.SoilPaintValue(0f, FlipbookFx.DefaultEarth));
+            Assert.AreEqual(FlipbookFx.SoilValue, FlipbookFx.SoilPaintValue(0.5f, 0f), "no C57 paint: the soil's own value");
+            var soil = FlipbookFx.EarthTint(FlipbookFx.SoilValue);
+            Assert.Greater(soil.r, soil.g); Assert.Greater(soil.g, soil.b);
+            Assert.AreEqual(FlipbookFx.SoilValue, (0.299f * soil.r + 0.587f * soil.g + 0.114f * soil.b) * Mathf.Lerp(0.61f, FlipbookFx.NightShade, FlipbookFx.NightLit), 1e-4f);
+            Assert.Less(FlipbookFx.SoilFire, 1f, "it takes less of the burst's light than the old column (1)");
+
+            // the shape: out of the ground in SoilRise (0.2-0.3 s) to its full height, on the dense frames (1-5, before the
+            // drawing splits into arcs), held, then falling back to 40% of its height by the end of its (shorter) life
+            Assert.That(FlipbookFx.SoilRise, Is.InRange(0.2f, 0.3f));
+            Assert.Less(FlipbookFx.SoilLife, 1.8f, "shorter than the old column");
+            FlipbookFx.SoilShape(0f, FlipbookFx.SoilLife, out float f0, out float w0, out float h0);
+            Assert.AreEqual(0.15f * FlipbookFx.SoilHeight, h0, 1e-5f);
+            float last = h0;
+            for (float t = 0.025f; t <= FlipbookFx.SoilRise; t += 0.025f)
+            {
+                FlipbookFx.SoilShape(t, FlipbookFx.SoilLife, out float f, out float w, out float h);
+                Assert.GreaterOrEqual(h, last, "rises at " + t); last = h;
+                Assert.That(f, Is.InRange(0.5f, 3.2f + 1e-4f));
+            }
+            FlipbookFx.SoilShape(FlipbookFx.SoilRise, FlipbookFx.SoilLife, out float fr, out float wr, out float hr);
+            Assert.AreEqual(FlipbookFx.SoilHeight, hr, 1e-4f, "full height at SoilRise");
+            Assert.AreEqual(3.2f, fr, 1e-4f, "on the dense frames");
+            FlipbookFx.SoilShape(FlipbookFx.SoilHold - 1e-4f, FlipbookFx.SoilLife, out float fh, out float wh, out float hh);
+            Assert.AreEqual(FlipbookFx.SoilPeak, hh, 1e-3f, "SoilPeak is its tallest");
+            Assert.Less(fh, 5f, "still dense at the end of the hold");
+            FlipbookFx.SoilShape(FlipbookFx.SoilLife, FlipbookFx.SoilLife, out float fe, out float we, out float he);
+            Assert.AreEqual(0.4f * FlipbookFx.SoilHeight, he, 1e-4f, "fallen back");
+            Assert.LessOrEqual(fe, 7.6f + 1e-4f);
+            for (float t = 0f; t <= FlipbookFx.SoilLife; t += 0.05f)
+            {
+                FlipbookFx.SoilShape(t, FlipbookFx.SoilLife, out float f, out float w, out float h);
+                Assert.LessOrEqual(w, 1.25f * FlipbookFx.SoilWidth + 1e-4f, "never wider than today's column grows (1.35)");
+                Assert.LessOrEqual(h, FlipbookFx.SoilPeak + 1e-4f);
+            }
+
+            // the cap over men: no man behind, full height; a man at its foot, SoilLow; in between, the top at his feet
+            Assert.AreEqual(1f, FlipbookFx.SoilCap(float.MaxValue, 0.466f, 9f));
+            Assert.AreEqual(FlipbookFx.SoilLow, FlipbookFx.SoilCap(0f, 0.466f, 9f));
+            Assert.AreEqual(1f, FlipbookFx.SoilCap(30f, 0.466f, 9f));
+            Assert.AreEqual(12f * 0.466f / 9f, FlipbookFx.SoilCap(12f, 0.466f, 9f), 1e-5f);
+            Assert.AreEqual(1f, FlipbookFx.SoilCap(3f, 0.466f, 0f), "no height, no cap");
+
+            // the clods: a 4x size span round the scale, the small ones commoner
+            Assert.AreEqual(4f, DebrisMath.SoilSpread);
+            Assert.AreEqual(0.5f * 0.4f, DebrisMath.SoilSize(0f, 0.4f, DebrisMath.SoilSpread), 1e-5f);
+            Assert.AreEqual(2f * 0.4f, DebrisMath.SoilSize(1f, 0.4f, DebrisMath.SoilSpread), 1e-4f);
+            Assert.Less(DebrisMath.SoilSize(0.5f, 0.4f, DebrisMath.SoilSpread), 0.4f, "the median clod is under the scale");
+            Assert.AreEqual(0.4f, DebrisMath.SoilSize(0.9f, 0.4f, 1f), 1e-6f, "spread 1: one size");
+            Assert.That(DebrisMath.SoilClump, Is.InRange(0f, 1f));
+
+            // out of range: kept in [0, 1]
+            Knobs.Set(FlipbookFx.ColumnSoilKnob, "-1");
+            Assert.AreEqual(0f, FlipbookFx.ReadColumnSoil());
+            Knobs.Set(FlipbookFx.ColumnSoilKnob, "3");
+            Assert.AreEqual(1f, FlipbookFx.ReadColumnSoil());
+        }
+
+        [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
             Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));

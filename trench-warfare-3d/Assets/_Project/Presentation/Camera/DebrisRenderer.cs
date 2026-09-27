@@ -91,6 +91,14 @@ namespace TW.Presentation.Tactical
         /// (DebrisRenderer reads them through the knobs debris.shareNear and debris.shareFar).</summary>
         public const float ShareNear = 55f, ShareFar = 120f;
         public static float Share(float distanceToLook, float near, float far) => distanceToLook < near ? 1f : distanceToLook < far ? 0.5f : 0.25f;
+
+        /// <summary>AOSA C103 (fx.columnSoil): a soil heave's clods span this ratio of sizes (smallest to largest), and this
+        /// share of them is thrown as a clump of three that flies together.</summary>
+        public const float SoilSpread = 4f, SoilClump = 0.35f;
+
+        /// <summary>A heave clod's size from a uniform u in [0, 1): scale / sqrt(spread) to scale x sqrt(spread), the small
+        /// ones commoner (u squared), so a few big lumps stand out of a spray of small ones.</summary>
+        public static float SoilSize(float u, float scale, float spread) => scale * Mathf.Pow(Mathf.Max(1f, spread), u * u - 0.5f);
     }
 
     /// <summary>A small deterministic generator seeded from a place, so a burst's pieces fly the same way in a replay.</summary>
@@ -271,6 +279,32 @@ namespace TW.Presentation.Tactical
                 dir += lean;
                 Vector3 vel = dir.normalized * (speed * rng.Range(0.5f, 1.2f));
                 Throw(piece, at, vel, scale * rng.Range(0.6f, 1.5f), tint, ref rng, life * rng.Range(0.7f, 1.3f), burn);
+            }
+        }
+
+        /// <summary>
+        /// AOSA C103 (fx.columnSoil): the earth a shell heaves up, as clods. A steep cone (it goes up with the column and
+        /// comes down round it), each at 0.6-1.1 of the speed, sized by DebrisMath.SoilSize over spread, each a shade of
+        /// the tint from dark to a little light, and a clump share thrown as three that fly together (two smaller lumps
+        /// beside it at nearly its speed). The count is scaled by how near the burst is to the middle of the picture, as
+        /// Burst. Clods only: the Clod pool, which a burst already draws, so no draw is added.
+        /// </summary>
+        public void Heave(Vector3 at, int count, float speed, float scale, float spread, float clump, Color tint, float life, uint salt = 0)
+        {
+            if (!Ready || count <= 0) return;
+            count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at), shareNear, shareFar));
+            var rng = new DebrisRng(at, salt * 3u + 0x5011u);
+            for (int k = 0; k < count; k++)
+            {
+                Vector3 dir = rng.OnSphere(); dir.y = Mathf.Abs(dir.y) * 2.6f + 0.7f;
+                Vector3 vel = dir.normalized * (speed * rng.Range(0.6f, 1.1f));
+                float size = DebrisMath.SoilSize(rng.Next(), scale, spread);
+                float shade = rng.Range(0.62f, 1.05f);
+                var c = new Color(tint.r * shade, tint.g * shade, tint.b * shade, tint.a);
+                Throw(Piece.Clod, at, vel, size, c, ref rng, life * rng.Range(0.6f, 1.4f));
+                if (rng.Next() >= clump) continue;
+                for (int j = 0; j < 2; j++)
+                    Throw(Piece.Clod, at + rng.OnSphere() * (size * 0.45f), vel * rng.Range(0.93f, 1.05f) + rng.OnSphere() * 0.5f, size * rng.Range(0.4f, 0.65f), c, ref rng, life * rng.Range(0.6f, 1.4f));
             }
         }
 

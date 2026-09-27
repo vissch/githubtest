@@ -137,6 +137,10 @@ namespace TW.Presentation.Tactical
         // knobs fx.smokeNightWarm and fx.smokeNightFire (Awake, AOSA C61): the night smoke's warmth and the share of a burst's
         // light it takes (FlipbookFx.NightSmoke). 1 and 1 = C59's look. (fx.smokeHard is read by FlipbookFx itself.)
         float smokeNightWarm = FlipbookFx.DefaultNightWarm, smokeNightFire = FlipbookFx.DefaultNightFire;
+        // knob fx.columnSoil (Awake, AOSA C103): on a moonlit field a dry shell's column is a dark soil heave that rises fast
+        // and falls back (FlipbookFx.SoilShape, painted by FlipbookFx.SoilEarth), kept low over men behind it (SoilCap),
+        // and it throws fewer, bigger, varied clods (DebrisRenderer.Heave). 0 = the old look.
+        float columnSoil = FlipbookFx.DefaultColumnSoil;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -220,6 +224,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.SoilEarth(columnSoil, columnEarth);   // AOSA C103: over C57's paint (soil 0 sets nothing)
             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
             if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
@@ -288,6 +293,7 @@ namespace TW.Presentation.Tactical
             columnEarthSize = FlipbookFx.ReadEarthSize();
             smokeNightWarm = FlipbookFx.ReadNightWarm();
             smokeNightFire = FlipbookFx.ReadNightFire();
+            columnSoil = FlipbookFx.ReadColumnSoil();
         }
 
         void Start()
@@ -708,6 +714,19 @@ namespace TW.Presentation.Tactical
                         // guess, and this project has been burned twice by those.
                         // AOSA C57: the dry column smaller at the standard view on a moonlit field (1 exactly with fx.columnEarthSize=1)
                         float earth = wet ? 1f : FlipbookFx.NightScale(columnEarthSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
+                        // AOSA C103: a dry column on a moonlit field is the soil heave at fx.columnSoil (0: the old column exactly)
+                        float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
+                        float columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth;
+                        if (soil > 0f)
+                        {
+                            // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
+                            // the drawing fills about 60% of its card, and a man is about 0.8 m across
+                            float reach = books.CardHeight(FlipbookFx.Book.Column, columnWidth) * FlipbookFx.SoilPeak;
+                            float behind = MenBehind(p, columnWidth * FlipbookFx.SoilWidth * 1.08f * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                            books.Add(FlipbookFx.Book.Column, p, columnWidth, Mathf.Lerp(1.8f, FlipbookFx.SoilLife, soil), ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: 1f, pop: 0.15f,
+                                soil: soil, soilCap: FlipbookFx.SoilCap(behind, tanPitch, reach));
+                        }
+                        else
                         books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
@@ -743,8 +762,14 @@ namespace TW.Presentation.Tactical
                         // the earth itself: clods the size of a fist to a head, thrown up and out, which lie where they land
                         // for half a minute; and a hail of smaller ones flung high that comes down over the next seconds
                         float r = Mathf.Clamp(e.Scalar, 2f, 9f);
+                        // AOSA C103: under the soil column, fewer, bigger, varied clods that go up with it and fall back round it
+                        if (!wet && columnSoil > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
+                            debris.Heave(p + Vector3.up * 0.4f, Mathf.RoundToInt(10f + r), 8f + r * 0.6f, Mathf.Lerp(0.16f + r * 0.02f, 0.3f + r * 0.02f, columnSoil), DebrisMath.SoilSpread, DebrisMath.SoilClump, Mud, FlipbookFx.SoilClodLife, e.Tick);
+                        else
+                        {
                         debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, default, e.Tick);
                         debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, default, e.Tick + 7u);
+                        }
                     }
                     if (!wet)
                     {
@@ -1364,6 +1389,35 @@ namespace TW.Presentation.Tactical
             SceneHooks.Flash?.Invoke(p + Vector3.up * 0.8f, new Color(1f, 0.62f, 0.3f), 6f, r * 5f, 0.25f);
             Startle(p);
             CameraShake.Add(p, r * 1.5f);
+        }
+
+        /// <summary>AOSA C103: the ground distance to the nearest living man behind a column at p (away from the eye) within
+        /// halfWidth of its line and reach of it, float.MaxValue if none; and the eye's slope down to p. A man in front of
+        /// the column is not covered by it (it is drawn behind him: the card tests depth), so only the men behind count.</summary>
+        float MenBehind(Vector3 p, float halfWidth, float reach, out float tanPitch)
+        {
+            tanPitch = 0.466f;   // the standard view's 25 degrees, if there is no eye
+            float best = float.MaxValue;
+            var cam = Camera.main;
+            if (cam == null || Host == null || Host.Local == null) return best;
+            Vector3 eye = cam.transform.position;
+            float fx = p.x - eye.x, fz = p.z - eye.z, flat = Mathf.Sqrt(fx * fx + fz * fz);
+            if (flat < 0.1f) return best;
+            tanPitch = (eye.y - p.y) / flat;
+            fx /= flat; fz /= flat;   // the flat view direction; its right is (fz, -fx)
+            var w = Host.Local.World;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint flags = w.Flags[i];
+                if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
+                var q = w.Position[i];
+                float dx = q.x - p.x, dz = q.z - p.z;
+                float d = dx * fx + dz * fz;
+                if (d < 0f || d > reach || d >= best) continue;
+                if (Mathf.Abs(dx * fz - dz * fx) > halfWidth) continue;
+                best = d;
+            }
+            return best;
         }
 
         void Throw(Vector3 at, int count, byte kind, float speed, float size)

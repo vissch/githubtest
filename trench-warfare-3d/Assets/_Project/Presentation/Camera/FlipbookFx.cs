@@ -31,6 +31,7 @@ namespace TW.Presentation.Tactical
         {
             public Vector3 Pos, Vel;
             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop;
+            public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
             public Book Book; public Kind Kind;
         }
 
@@ -254,6 +255,93 @@ namespace TW.Presentation.Tactical
             PaintNight(m, EarthTint(value));
             m.SetFloat("_Erode", 1f);
         }
+
+        // AOSA C103 (juice J01, split from C53: the column's size and dark core): two blind critics (runs 9/c102-critic.md,
+        // 8/c98-critic.md) read the column as thin translucent orange-brown arcs, "water spray, sparkler, flame", and the
+        // clods as uniform small dark pebbles. Three causes, from the code and the drawing:
+        //   the timing  the Column book plays its 16 frames evenly over 1.8 s, so the dense column (frames 1-5) is up for
+        //               0.1-0.6 s and the split arcs (frames 6-15, 10-25% cover) fill the other 1.2 s the critic sees.
+        //   the light   _BurstLit is 1 on the Column (C61 left it whole), so the shell's orange light is ADDED to a dark
+        //               brown and the column reads as flame (measured on c102h f50: (190, 110, 50) where lit).
+        //   the clods   two DebrisRenderer bursts of 0.19-0.48 m and 0.05-0.14 m lumps, one tint, lying 30 s.
+        // One knob, fx.columnSoil in [0, 1], on a moonlit field only (as C57: the day column is the size-1 book, unjudged):
+        //   the column  a soil heave (SoilShape): it rises in SoilRise s (frames 0.5 -> 3.2, the dense ones with two lumps
+        //               at the top, so wider at the top and ragged), holds the dense frames to SoilHold s, then collapses
+        //               back into the ground over the rest of its SoilLife (height x 1.06 -> 0.4, falling faster as it
+        //               goes, the frames running on to 7.6 while fx.columnEarth's erode tears it). Drawn SoilWidth as wide
+        //               and SoilHeight as tall as the book's own card: an opaque column no bigger than today's, dense for
+        //               1 s instead of sparse arcs for 1.8 s (the drawn cover over time is the same, 0.23 against 0.23).
+        //   over men    rule 6 (C98: a bigger column lowered the men 6.0 -> 5.3; C102: an opaque one over men, 3 -> 2): the
+        //               card is drawn behind a man in front of it (depth), but it covers the ground behind it out to its
+        //               height over the eye's slope. CombatFx finds the nearest man behind it inside its width and caps
+        //               its height so its top stops at his feet (SoilCap), down to SoilLow: a low heave, never a veil.
+        //   its paint   dark umber at value SoilValue (EarthTint, the C57 paint), taking SoilFire of the burst's light.
+        //   the clods   DebrisRenderer.Heave: fewer, bigger, varied (a 4x size span, most small; a third thrown as clumps
+        //               of three), a darker-to-lighter spread of the mud, on real arcs that go up with the column and come
+        //               down round it, lying SoilClodLife s instead of 30.
+        // Between 0 and 1 the paint and the timing blend (the clods are the heave at any value above 0). No book, material,
+        // mesh or pool is added: the Column book and the Clod pool already draw. 0 = the old look: nothing is painted,
+        // no card has Soil, and CombatFx throws the old clods (the code before C103, bit for bit).
+        public const string ColumnSoilKnob = "fx.columnSoil";
+        public const float DefaultColumnSoil = 0f, OldColumnSoil = 0f;   // off until a blind 2-way against the default passes (rule 6)
+        public const float SoilValue = 0.08f, SoilFire = 0.3f;           // critic: core ~0.08, dark umber #2A1E14-#4A3526, not flame-lit
+        public const float SoilLife = 1.4f, SoilRise = 0.25f, SoilHold = 0.65f;   // critic: rises in 0.2-0.3 s, then falls back
+        public const float SoilWidth = 0.9f, SoilHeight = 1.0f;          // rule 6: the footprint no wider or taller than today's column
+        public const float SoilClodLife = 1.5f;                          // short-lived on the ground (was 30 s)
+        public const float SoilLow = 0.3f;                               // the lowest the column is capped to over men (SoilCap)
+        public const float SoilPeak = 1.06f * SoilHeight;                // the heave's tallest, of the card's own height (SoilShape at SoilHold)
+
+        /// <summary>fx.columnSoil, in [0, 1] (0 = the old look).</summary>
+        public static float ReadColumnSoil() => Mathf.Clamp01(Knobs.Get(ColumnSoilKnob, DefaultColumnSoil));
+
+        /// <summary>The soil heave's frame, width and height factors (of the card's own) t seconds into a column of this
+        /// life: rise in SoilRise, hold to SoilHold, collapse over the rest.</summary>
+        public static void SoilShape(float t, float life, out float frame, out float wide, out float tall)
+        {
+            if (t < SoilRise)
+            {
+                float u = Mathf.Clamp01(t / SoilRise), e = 1f - (1f - u) * (1f - u) * (1f - u);   // out of the ground fast, easing at the top
+                frame = Mathf.Lerp(0.5f, 3.2f, e); wide = Mathf.Lerp(0.55f, 1f, e); tall = Mathf.Lerp(0.15f, 1f, e);
+            }
+            else if (t < SoilHold)
+            {
+                float u = (t - SoilRise) / (SoilHold - SoilRise);
+                frame = Mathf.Lerp(3.2f, 4.4f, u); wide = Mathf.Lerp(1f, 1.08f, u); tall = Mathf.Lerp(1f, 1.06f, u);
+            }
+            else
+            {
+                float u = Mathf.Clamp01((t - SoilHold) / Mathf.Max(0.05f, life - SoilHold));
+                frame = Mathf.Lerp(4.4f, 7.6f, u); wide = Mathf.Lerp(1.08f, 1.25f, u); tall = Mathf.Lerp(1.06f, 0.4f, u * u);   // falls back, faster as it goes
+            }
+            wide *= SoilWidth; tall *= SoilHeight;
+        }
+
+        /// <summary>The height cap of a soil column over men (rule 6: C98's and C102's columns hid the men they stood over).
+        /// The column stands on the impact and faces the eye, so it covers the ground behind it (away from the eye) out to
+        /// its height over the tangent of the eye's pitch. behind is the ground distance to the nearest man behind it inside
+        /// its width, tanPitch the eye's slope down to the impact, peak the column's full drawn height (m). The cap keeps the
+        /// column's top at that man's feet, never below SoilLow of its height (a low heave still reads as earth); 1 with no
+        /// man behind it.</summary>
+        public static float SoilCap(float behind, float tanPitch, float peak)
+            => peak <= 0f ? 1f : Mathf.Clamp(behind * Mathf.Max(0f, tanPitch) / peak, SoilLow, 1f);
+
+        /// <summary>The height a card of this book is drawn at for a width, when no height is given (the drawing's aspect).</summary>
+        public float CardHeight(Book book, float width) => width / Mathf.Max(0.05f, aspect[(int)book]);
+
+        /// <summary>The value the soil column is painted at: SoilValue at 1, blended from fx.columnEarth's below it.</summary>
+        public static float SoilPaintValue(float soil, float earth) => earth > 0f ? Mathf.Lerp(earth, SoilValue, soil) : SoilValue;
+
+        /// <summary>AOSA C103: paint the Column book as the soil heave's dark umber (see ColumnSoilKnob). Called after
+        /// NightEarth, on a moonlit field only; soil 0 sets nothing.</summary>
+        public void SoilEarth(float soil, float earth)
+        {
+            if (soil <= 0f) return;
+            var m = mats[(int)Book.Column];
+            if (m == null) return;
+            PaintNight(m, EarthTint(SoilPaintValue(soil, earth)));
+            m.SetFloat("_Erode", 1f);
+            m.SetFloat("_BurstLit", Mathf.Lerp(1f, SoilFire, soil));
+        }
         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
         readonly List<Card> cards = new List<Card>(512);
         readonly Material[] mats = new Material[(int)Book.Count];
@@ -320,12 +408,12 @@ namespace TW.Presentation.Tactical
         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
         /// out over its last third.
         /// </summary>
-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f)
+        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f)
         {
             if (!Ready) return;
             if (cards.Count >= maxCards) cards.RemoveAt(0);
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Book = book, Kind = kind });
+            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Book = book, Kind = kind });
         }
 
         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
@@ -356,7 +444,13 @@ namespace TW.Presentation.Tactical
                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
-                    batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
+                    if (c.Soil > 0f)
+                    {
+                        // AOSA C103: the soil heave's own timing and shape, blended by the knob (see ColumnSoilKnob)
+                        SoilShape(now - c.Born, c.Life, out float soilFrame, out float wide, out float tall);
+                        batch[n++] = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
+                    }
+                    else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
                 }
                 if (n > 0) FrameBudget.Draw(rp, quad, 0, batch, n);
