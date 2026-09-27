@@ -56,12 +56,14 @@ function Report-Run($mode, $code) {
 
 function Run-Tests($mode, [string[]]$extra) {
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
+    Remove-Item "test-results-$mode.xml" -ErrorAction SilentlyContinue   # a run that writes nothing must not leave the last green copy
     & $unity test . --mode $mode --timeout 600 @extra | Out-Host
     $code = $LASTEXITCODE
     if ($code -ne 8) { return (Report-Run $mode $code) }
     $noiseOnly = Show-Failures 'test-results.xml'
     if (-not $noiseOnly) { return $code }
     Write-Host "`nEvery failure is external pipeline noise (see the header of gate.ps1). Rerunning the failed tests once." -ForegroundColor Yellow
+    Copy-Item 'test-results.xml' "test-results-$mode.first-run.xml" -Force   # the rerun's xml holds only the rerun tests
     & $unity test . --mode $mode --timeout 600 --rerun-failed @extra | Out-Host
     $code = $LASTEXITCODE
     if ($code -eq 8) { Show-Failures 'test-results.xml' | Out-Null }
