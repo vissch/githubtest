@@ -82,8 +82,10 @@ is the owner's call (decisions.md, Open).
 
 The per-LOD tint that goes on is fitted on the render, not estimated from the mesh (the mesh estimate counts undersides
 the camera never sees and overshot on both models). `lodfit` draws each LOD alone from the four lodpop sides, compares
-its mean colour over the silhouette with LOD0's, and puts the ratio on as a tint (two passes, 0.75-1.25); `round.sh`
-runs it first. Round r18: the tank's mean shift is 0.5-2.0 at every switch and side (up to 4.6 before) and its 1->2
+its mean colour over the silhouette with the LOD the battle's standard view shows (78 m: the frog's LOD2, the tank's
+LOD1), and puts the ratio on as a tint (two passes, 0.75-1.25); `round.sh` runs it first. Matched to LOD0 instead, the
+far frogs came out darker than they are and a squad's contrast on the mud fell from 20.1 to 14.3 (`figure_gap`, r18);
+matched to the seen LOD it is 23.0, and 22.6 in r19's m3 (u9's file of men: -4.5 -> 3.4). Round r18: the tank's mean shift is 0.5-2.0 at every switch and side (up to 4.6 before) and its 1->2
 block shift 3.9 (4.6); the frog's 2->3 block shift 5.2 (6.5). The frog's 0->1 and 1->2 shifts stay side-dependent
 (3-8): shading on a different sculpt, which no single tint removes - derived LOD1 is the fix there.
 
@@ -110,8 +112,8 @@ before, 0.0040 after.
 A figure's side colour goes on its uniform only, as the game's VAT figures do: `frogrig`'s frog gets a cloth mask in
 vertex alpha at build (blue cloth read from each LOD's atlas, LOD3 from its vertex colours) and `Tank_URP` takes it when
 `_TeamByAlpha` is 1 (default 0: the game's tanks and landing craft are untouched). `team split` puts half the squad on
-each side. m3 (r18): the figures alone read 169 and 17 degrees, 152 apart; the price is figure contrast, `figure_gap`
-24.4 -> 14.4.
+each side. m3 (r19): the figures alone read 155 and 18 degrees, 137 apart, and the side colour RAISES their contrast
+(`figure_gap` 18.0 without sides, 23.0 with; the drop to 14.4 in r18 was the LOD tint's reference, not the cloth).
 
 ## LOD distances (screen-height share of the bounding sphere)
 - Figure: LOD0 above 0.20 (under ~22 m at the 25 degree battle lens), LOD1 above 0.08 (~63 m), LOD2 above 0.03 (the
