@@ -87,10 +87,17 @@ namespace TW.Tests
             profile.SetStage(0, "supply-depot", 1);
             var depot = FactionBuildings.Find(0, "supply-depot");
             profile.SetTier(0, depot.Id, 0, 1);   // WAR CHEST tier 1
+            // an unlock beyond the base two, so 'no picks' can be told from 'every unlock' (critic r5: it fielded every unlock)
+            var signals = FactionBuildings.Find(0, "signals-station");
+            int unlockLine = System.Array.FindIndex(signals.Lines, l => l.Kind == LineKind.AbilityUnlock);
+            profile.SetStage(0, "signals-station", 1);
+            profile.SetTier(0, signals.Id, unlockLine, 1);
+            Assert.That(FactionBuildings.AbilityMask(profile, 0), Is.Not.EqualTo(FactionBuildings.BaseAbilityMask), "the profile has an unlock past the base two");
             var staging = new StagingScreen(profile, "lowlands", 0);
             staging.Bind(Instantiate("Staging", "Assets/_Project/UI/Resources/Shell/"), null);
             try
             {
+                Assert.That(staging.BuildRequest().AbilityMaskA, Is.EqualTo(FactionBuildings.BaseAbilityMask), "no picks deploys the base two, not every unlock");
                 staging.SetDifficulty(2);
                 staging.Toggle(TW.Sim.Match.OffMapAbilityId.HeBarrage);
                 var r = staging.BuildRequest();

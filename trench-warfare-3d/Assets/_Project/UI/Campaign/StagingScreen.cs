@@ -19,7 +19,7 @@ namespace TW.UI
         public static readonly string[] RequiredNames = { "staging-screen", "mission-title", "mission-subtitle", "info-image", "info-body", "info-stats", "difficulty-tabs", "difficulty-blurb", "slot-row", "unit-info", "ability-row", "ability-note", "btn-homefront", "btn-back", "btn-deploy" };
         public const int MaxAbilityPicks = 2, DefaultDifficulty = 1;
         public const string RosterNote = "THE FIXED EIGHT. ROSTER SWAPS LAND WITH THE TEN-SLOT ROSTER.";
-        public const string AbilityNote = "PICK UP TO TWO. THE PICKS REACH THE SIM WITH THE UPGRADE SEAM; UNTIL THEN EVERY UNLOCK IS ON THE HUD.";
+        public const string AbilityNote = "PICK UP TO TWO. WITH NONE PICKED YOU TAKE THE BARRAGE AND THE GAS.";
         public const string NothingUnlocked = "ONLY THE BARRAGE AND THE GAS: THE SIGNALS STATION UNLOCKS THE REST.";
         public override bool HidesHud => true;
 
@@ -174,7 +174,8 @@ namespace TW.UI
             var r = mission.Build(CampaignGraph.MissionId(node, index), difficulty);
             FactionBuildings.ApplyTo(r, profile, Faction);
             r.FactionA = Faction; r.FactionB = node.EnemyFaction;
-            r.AbilityMaskA = picks != 0 ? picks : FactionBuildings.AbilityMask(profile, Faction);
+            // no picks: the base two, not every unlock (which made picking two strictly worse than picking none: critic r5)
+            r.AbilityMaskA = picks != 0 ? picks : FactionBuildings.BaseAbilityMask;
             r.AbilityMaskB = FactionBuildings.AbilityMask(new CampaignProfile(), node.EnemyFaction);
             return r;
         }

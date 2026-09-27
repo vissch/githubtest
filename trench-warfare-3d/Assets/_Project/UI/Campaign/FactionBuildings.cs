@@ -317,9 +317,12 @@ namespace TW.UI
         }
 
         /// <summary>The abilities the faction may fire: the two every side starts with plus the unlocks bought.</summary>
+        /// <summary>What every faction fields with nothing unlocked, and what staging deploys when nothing is picked.</summary>
+        public const uint BaseAbilityMask = (1u << (int)OffMapAbilityId.HeBarrage) | (1u << (int)OffMapAbilityId.ChlorineGas);
+
         public static uint AbilityMask(CampaignProfile p, byte faction)
         {
-            uint mask = (1u << (int)OffMapAbilityId.HeBarrage) | (1u << (int)OffMapAbilityId.ChlorineGas);
+            uint mask = BaseAbilityMask;
             foreach (var b in Of(faction))
                 for (int i = 0; i < b.Lines.Length; i++)
                     if (b.Lines[i].Kind == LineKind.AbilityUnlock && p.TierOf(faction, b.Id, i) > 0) mask |= 1u << (int)b.Lines[i].Ability;

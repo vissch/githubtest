@@ -81,9 +81,13 @@ namespace TW.Tests
                 Assert.That(shown, Is.GreaterThanOrEqualTo(last), "stage " + s);
                 last = shown;
             }
-            Assert.That(HomeFrontStages.ShownCount(house, 0.55f), Is.EqualTo(3), "the first floor is in by the middle stage");
+            // two levels (1.5 m, 3 m) for three paid stages: stage I shows the first floor, the last the whole tower, and the
+            // repeat falls on the middle stage (HomeFrontStages.Reveal)
+            Assert.That(HomeFrontStages.ShownCount(house, 0.3f), Is.EqualTo(2), "stage 0: the ground floor and the lean-to");
+            Assert.That(HomeFrontStages.ShownCount(house, 0.55f), Is.EqualTo(3), "stage I shows the first floor");
             Assert.That(HomeFrontStages.HiddenAt(house, 0.55f).Has(2), Is.True, "the top is still off");
-            Assert.That(HomeFrontStages.ShownCount(house, 0.8f), Is.EqualTo(4), "the top's foot at 3 m is under 80 % of 4.5 m");
+            Assert.That(HomeFrontStages.ShownCount(house, 0.8f), Is.EqualTo(3), "stage II repeats (two levels, three stages)");
+            Assert.That(HomeFrontStages.ShownCount(house, 1f), Is.EqualTo(4), "the last stage is the whole tower");
         }
 
         [Test]
@@ -105,6 +109,38 @@ namespace TW.Tests
                 Assert.That(MetaServices.MakeMap, Is.Not.Null);
             }
             finally { MetaServices.MakeHomeFront = home; MetaServices.MakeMap = map; }
+        }
+        /// <summary>Every real building the Home Front draws grows at every stage it is sold, as far as the model has levels
+        /// to show (critic r5: on the real models stage III changed nothing on 8 of 10, the Blockhouse's stage I nothing).</summary>
+        [Test]
+        public void Every_Real_Building_Grows_At_Each_Stage_Its_Model_Can_Show()
+        {
+            CollectionAssert.AreEqual(TW.UI.FactionBuildings.StageHeights, HomeFrontStages.StageFractions, "the stage fractions agree on both sides");
+            var sets = new System.Collections.Generic.Dictionary<string, HouseKit.House[]>();
+            int checkedModels = 0;
+            foreach (byte faction in new byte[] { 0, 1 })
+                foreach (var b in TW.UI.FactionBuildings.Of(faction))
+                {
+                    if (!sets.TryGetValue(b.Set, out var houses)) sets[b.Set] = houses = HouseKit.Load(b.Set, chunk => new BattlefieldKit.Module(), 0);
+                    var house = System.Array.Find(houses, h => h.Name == b.Model);
+                    Assert.IsNotNull(house, b.Id + ": model " + b.Model + " in " + b.Set);
+                    int levels = HomeFrontStages.Levels(house).Count, previous = -1, distinct = 0, first = -1, beforeLast = -1;
+                    for (int s = 0; s < b.Stages.Length; s++)
+                    {
+                        int shown = HomeFrontStages.ShownCount(house, b.Stages[s].ShownHeight);
+                        Assert.GreaterOrEqual(shown, previous, b.Id + " never loses chunks going up a stage");
+                        if (shown > previous) distinct++;
+                        if (s == 0) first = shown;
+                        if (s == 1 && levels > 0) Assert.Greater(shown, first, b.Id + ": stage I shows something new");
+                        if (s == b.Stages.Length - 2) beforeLast = shown;
+                        previous = shown;
+                    }
+                    Assert.AreEqual(house.Chunks.Length, previous, b.Id + ": the top stage is the whole building");
+                    if (levels > 1) Assert.Greater(previous, beforeLast, b.Id + ": the dearest stage shows something new");
+                    Assert.AreEqual(Mathf.Min(b.Stages.Length, levels + 1), distinct, b.Id + " (" + b.Model + ", " + levels + " levels): every stage the model can show looks different");
+                    checkedModels++;
+                }
+            Assert.GreaterOrEqual(checkedModels, 15, "every building of both factions");
         }
     }
 }
