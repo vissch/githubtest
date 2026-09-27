@@ -101,6 +101,10 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-09-25. Two editors vanished and the owner's was paged out** (8.6 GB private, 13 MB resident, unreachable)
   with three editors and a player benchmark on a 16 GB machine: 0.4 GB free. No crash dump. `health.py` now prints
   available memory; do not open another editor under ~4 GB.
+- **2026-09-26. Sixteen hours waiting on the wrong number.** A waiter held the gate until 3.5 GB of RAM was available;
+  it never was. The limit that matters is commit headroom (4.3 GB then), and a leaking `explorer.exe` held 7 GB of it
+  while resident at 99 MB. Restarting Explorer gave 15 GB of headroom and the gate passed with 0.6 GB RAM available.
+  **Measure what actually fails.** `health.py` now prints headroom.
 - **2026-09-25. Batch gate runs failed a random test each time** with "Sharing violation ... .unity-pipeline-port" or
   "Failed to handle /api/exec request". The batch run listens on the pipeline port like an editor; unpinned CLI calls
   and the MCP server reach it. `tw` now pins its project; `gate.ps1` reruns failures that are only this noise.

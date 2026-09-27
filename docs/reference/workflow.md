@@ -31,11 +31,12 @@ cost real time when broken:
 - **One editor per checkout.** Never open a second editor on a path that has one.
 - **Memory is the scarce resource.** An editor in Play holds 5-9 GB and the machine has 16. On 2026-09-25 three
   editors plus a player benchmark left 0.4 GB free; two editors vanished without a crash dump and the owner's was
-  paged out and stopped answering. Check before you open another editor:
-  ```bash
-  powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableMBytes/1024,1)"
-  ```
-  Under ~4 GB available, do not open one; use a batch run later, or offline checks.
+  paged out and stopped answering. Check before you open another editor or run the gate: `python Tools/health.py`
+  prints **commit headroom** (RAM plus page file not yet promised), which is what runs out and kills editors. Low
+  available RAM alone only means paging: the full gate passed on 2026-09-27 with 0.6 GB available and 13 GB of
+  headroom. Under 6 GB headroom run nothing; under 10 GB a batch gate but no new editor. When headroom is low, look for
+  the process holding commit (`Get-Process | Sort-Object PagedMemorySize64 -Descending`): on 2026-09-26 it was a
+  leaking `explorer.exe` with 7 GB, and restarting Explorer (ask the owner first) freed 10 GB.
 - **Never drive someone else's editor.** The `unity` CLI auto-detects a project and several are connected at once.
   `Tools/tw` pins every call to its own checkout (`UNITY_PROJECT_PATH`). A bare `unity cmd ...` from another folder
   can land in the owner's editor or a batch test run and fail it.
