@@ -39,7 +39,9 @@ man lit before the burning system steps (0a9af6a) · picker projects with one ma
 through FrameBudget (5932df5) · wreck provenance (a176a01) · hide the debug panel button in bench stills (dd9e3b9) ·
 repeatable player stills (2c4f3f3) · pure banner text (e68788f) · damaged trench lining (ff9e200) · bench warns on
 unknown options (7730ee3) · one banner per event (9b7a09d) · a dead man's fire goes out (d3c0936) · bench holds the
-camera on x/z (72cc25b).
+camera on x/z (72cc25b) · advance-order archetype mask (76b0542) · explosion source ids (1acc943) · one unit-look
+table and ten deploy keys (7c54acf) · torch on the sim clock (2f1ff57) · aim preview through a hook (6582cef) · walker
+as a field (fba5e18).
 
 ## Results
 | Date | Docs at | Tasks | First file right | Right file in first three | Tool calls a task | Limits |
@@ -47,6 +49,7 @@ camera on x/z (72cc25b).
 | 2026-09-27 | e7de2bf | 12 | 11 of 12 | 11 of 12 | about 7 | no control, graded by the docs' author, first file only |
 | 2026-09-27 | e7292bd | 8 held out | 6 of 8 | 8 of 8 | about 7 | same, and only 8 tasks |
 | 2026-09-27 | 227a009 | 6 held out, from lanes not yet landed | 5 of 6 | 6 of 6 | about 5 | no control, graded by the docs' author; tests right 2 of 4 |
+| 2026-09-27 | 92f6a29 | 6 held out (3 SIM, 3 SHOW) | 6 of 6 | 6 of 6 | about 5 | same; file recall low on the HUD table (4 of 8 files) and the walker change (6 of 10) |
 
 What the two rounds found (all fixed since): no rows for support-fire aiming, sim fire, render settings, factions,
 the stress preset or objectives; a flamethrower row that said the sim has no fire; bench options documented that
@@ -54,5 +57,7 @@ exist only on another lane; a code comment claiming every draw goes through `Fra
 under the SIM heading. A 2026-09-27 critique then found 57 production files named on no agent page, now enforced by
 `validate.py`. The third round (227a009) found: the centre banner routed only through the objectives row, the HUD
 test names swapped in the agent's head (HudTextTests checks tooltips, HudBindTests checks `HudText`), no mechanism in
-the debris row, and a flamethrower row that said a burning man runs on sim ticks while his torch does not. The next
-run should follow the method above in full; until then these numbers flatter the docs.
+the debris row, and a flamethrower row that said a burning man runs on sim ticks while his torch does not. The
+fourth (92f6a29) found no row for explosion source ids, the advance-order mask limit, the unit checklist's missing
+keys and portrait copies, and the walker call sites. The next run should follow the method above in full; until
+then these numbers flatter the docs.

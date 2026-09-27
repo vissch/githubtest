@@ -6,7 +6,13 @@ names, and look at the result the way "See it" says. Paths are under `trench-war
 in `Tests/EditMode/` or `Tests/PlayMode/`. Two lists at the bottom are generated from the code by `Tools/codemap.py`:
 which component sets and reads each `SceneHooks` member, and every test class by mode.
 
-A row that says **Tests: none** means nothing will go red if you break it. Look at it in Play.
+A row that says **Tests: none** means nothing will go red if you break it. Look at it in Play. A sentence tagged
+(until "<subject>" lands) describes code another lane has already fixed on its branch, in the commit with that subject;
+`validate.py` fails once that commit is on your branch, so the sentence gets rewritten then.
+
+A new link between presentation parts that must not reference each other (the effects and the debug panel, say):
+add a member to `SceneHooks` (`Presentation/Core/RenderGround.cs`; the generated table at the bottom lists them)
+rather than a new static or a reference to the other part. Audit R2 will move the hooks into services together.
 
 ## Worked examples
 
@@ -75,6 +81,9 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **Tests:** FlowFieldTests, FlowFieldManagerTests, GarrisonAndOrdersTests, GarrisonTests, TrenchSpreadTests,
   PlaytestMapTests.
 - **Trap:** `StanceSystem` is a stub. Stance is written in `MovementSystem.cs` as `StanceOf[i]`.
+- **Trap:** `CommandType.TrenchSelectAdvance` carries the advancing unit types as a bitmask of archetype ids in an
+  int (`SimCommand.cs`; `TrenchOrders.cs` tests `1 << w.Archetype[i]`), so an archetype id of 31 or more can never
+  be ordered to advance. No UI issues the command yet; GarrisonAndOrdersTests does.
 
 ### Infantry combat
 - **Files:** `Sim/Combat/TargetAcquisition.cs`, `Sim/Combat/DirectFire.cs`, `Sim/Combat/Suppression.cs`,
@@ -88,6 +97,10 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs`, `Sim/Match/Deformation.cs`.
 - **Tests:** SupportAbilityTests, DirectionalBlastTests.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
+- **What caused an explosion** is `Impact.Source` (`Blast.cs`), sent as `Explosion.a`. Its numbers are split by
+  hand across files that never mention each other: ability ids (`OffMapAbilities.cs`, `AmbientBombardment.cs`),
+  `VehicleModules.CookOffSource` 30, `TankGunnery.WeaponIdBase` 40 + archetype, `SeaLanding.ShipSource` 60. So a
+  machine id past 19 collides with the naval number. Nothing in SHOW reads `Explosion.a` today.
 
 ### Objectives, money, victory, the debrief
 - **Files:** `Sim/Match/SectorControl.cs` (an objective flips when enough infantry hold it; sets `WinnerTeam` when a
@@ -131,14 +144,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
    flight (`docs/inbox/`): coordinate before starting.
 2. Sim: a new archetype id in `VehicleArchetype` (`Sim/Core/RosterEntry.cs`; ids are a seam item), its roster
    entry, and for a vehicle a `TankSpec` and `VehicleProfile`. `IsWalker` is a range check (`Pincer` to `Redoubt`,
-   6-11), so a walker with id 12 is silently not a walker until the range moves.
-3. HUD: name, tooltip and icon in `UI/HudText.cs` and the unit art in `UI/UnitArt.cs`. HudTextTests,
-   HudBindTests and UnitArtTests fail until every archetype has them.
+   6-11), so a walker with id 12 is silently not a walker until the range moves. What reads it: `IsArmoured`
+   (gunnery, `VehicleModules`), `TankRenderer` (also indexes `crabs[archetype - Pincer]`), and `IsTank` callers that
+   mean "not a walker" (`AnimationController`, `CombatFx` Death). `VehicleProfile.Walker` (`Sim/Nav`) already says
+   it per profile, but `Sim/Core` cannot reference `Sim/Nav`.
+3. HUD: name, tooltip and icon in `UI/HudText.cs`, the unit art in `UI/UnitArt.cs` (`Faces`) and
+   `UI/Skin/SkinSpec.cs` (`PortraitNames`). HudTextTests, HudBindTests and UnitArtTests fail until every archetype
+   has them. Deploy keys: `Presentation/Core/KeyMap.cs` has `Deploy1`-`Deploy8` on digits 1-8, and 9 and 0 arm
+   the HE barrage and gas; ten slots need two more keys, which is the owner's call.
 4. Art: infantry needs a figure in `Editor/VATBaker.cs` and a bake. Vehicles need a `Resources/Vehicles/<Name>/`
    folder (`pipelines.md`) that `Presentation/Camera/TankModel.cs` loads; a walker's legs are solved by
    `Presentation/Camera/WalkerGait.cs` from the model, so check it stands and walks (GaitTests).
-5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` has fixed-size arrays and its own name switch. No test
-   runs OnGUI, so check it in Play with F9.
+5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` has fixed-size arrays (`UnitIcons = 8`, icons indexed by
+   slot) and its own name switch, a second copy of the HUD's names. No test runs OnGUI, so check it in Play with F9.
 6. Tests to run: CrabTests or TankTests, GaitTests, HudTextTests, HudBindTests, UnitArtTests, then the full gate.
    `TankCapture.Spawn` finds the new archetype in the live roster by itself.
 
