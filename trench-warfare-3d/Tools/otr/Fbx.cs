@@ -1,10 +1,11 @@
 // Tools/otr.py: a binary FBX mesh reader for the stand-in engine's Resources.Load<Mesh>, following how Unity's
 // importer sees this project's exports (Blender, bake_space_transform, axis_forward -Z / up Y, apply_unit_scale; the
 // .meta files: useFileScale 1, bakeAxisConversion 1, globalScale): the geometry's vertices are already Y-up, Unity
-// mirrors X for its left-handed space (x -> -x, and the winding with it) and scales by UnitScaleFactor / 100 times
+// mirrors Z for its left-handed space (z -> -z, and the winding with it) and scales by UnitScaleFactor / 100 times
 // globalScale. Polygons are fan-triangulated; UV0 is read when it is by polygon vertex; normals are recalculated.
-// The first Geometry in the file is the mesh. Validated against houses.json, whose chunk bounds were written in
-// Unity's axes by Tools/housesplit.py (tools/otr/known.txt and the fbx self-check in otr.py say how well).
+// The first Geometry in the file is the mesh. Checked against Tools/housesplit.py's houses.json: every chunk's bounds
+// (which are centred on its pivot in x and z, so they cannot tell a mirror in x from one in z), and the chunks put back
+// at their offsets landing on the whole prop's vertices (which can: mirroring x instead of z leaves them 0.3 m out).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -125,7 +126,7 @@ static class FakeFbx
             bool last = raw < 0;
             int vi = last ? -raw - 1 : raw;
             int outIndex = pos.Count / 3;
-            pos.Add((float)(-v[vi * 3] * s)); pos.Add((float)(v[vi * 3 + 1] * s)); pos.Add((float)(v[vi * 3 + 2] * s));
+            pos.Add((float)(v[vi * 3] * s)); pos.Add((float)(v[vi * 3 + 1] * s)); pos.Add((float)(-v[vi * 3 + 2] * s));
             if (uvData != null)
             {
                 int ui = uvIndex != null ? (int)uvIndex[c] : c;
@@ -134,7 +135,7 @@ static class FakeFbx
             face.Add(outIndex);
             if (last)
             {
-                // fan, with the winding reversed by the X mirror
+                // fan, with the winding reversed by the Z mirror
                 for (int k = 1; k + 1 < face.Count; k++) { tris.Add(face[0]); tris.Add(face[k + 1]); tris.Add(face[k]); }
                 face.Clear();
             }
