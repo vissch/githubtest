@@ -21,6 +21,20 @@
 // Cycle 9: t1 (runs 9/t1, c104s-critic.md: tracers +2.17, weight -0.33, men never lower) passed alone, but the cycle 9
 // candidate set (smokeSoft 0.6, burstGlow 0.5, tracerInSmoke 1 with tracerShape 0) failed together on weight (a0050,
 // runs 9/d9k-critic.md: -1.0, lower in 8 of 8), so the default stays the old look.
+// C107 (AOSA, weight back under the smoke). Why t1 loses mass, from the code: with the order on, the halo is an additive
+// cube that writes depth (_ZWrite 1) at queue 3005, and every transparent after it tests against that depth (the smoke
+// and burst books at 3010 / 3020 are ZTest LEqual, ZWrite Off, flat cards). So (a) a card in front of the round
+// alpha-blends over the halo and dense smoke takes it to nothing (halo x (1 - alpha)), and (b) a card, flare or burst
+// glow behind the round is rejected in the halo's whole 0.24 m x 11.5 m footprint: the halo no longer adds to the lit
+// cloud, it replaces it with a dim 0.36 / 0.50 colour, a slot cut out of the fire. Neither can be fixed by the halo's
+// blend alone (anything drawn before the smoke is scaled by 1 - alpha) without a second draw. Two knobs, read once in
+// CombatFx.Start:
+//   fx.tracerGlow       the night halo's colour gain, 0-4 (1 = today, bit for bit: the colour is not touched). Above 1
+//                       a round in clear air adds more light and, past about 2.4 (green) / 1.7 (red), crosses the bloom
+//                       threshold (0.85, Atmosphere); under thin smoke it keeps more of itself (gain x (1 - alpha)).
+//   fx.tracerHaloDepth  with fx.tracerInSmoke on, 1 = the halo writes depth (C104, the default) and 0 = it does not:
+//                       it stays before the smoke (a cloud still dims it) but no longer cuts the cloud and the bursts
+//                       behind it, so it adds to them again. Off, it does nothing (the old halo never wrote depth).
 // Same materials, same instances: no draw is added.
 using UnityEngine;
 
@@ -51,6 +65,22 @@ namespace TW.Presentation.Tactical
         public static int HaloQueue(bool inSmoke) => inSmoke ? InSmokeHaloQueue : OldHaloQueue;
         /// <summary>The night halo's _ZWrite: off (the old look), or on, so a cloud behind the round is not drawn over it.</summary>
         public static float HaloZWrite(bool inSmoke) => inSmoke ? 1f : 0f;
+
+        public const string GlowKnob = "fx.tracerGlow";
+        public const float DefaultGlow = 1f, OldGlow = 1f, MaxGlow = 4f;
+
+        /// <summary>fx.tracerGlow, clamped to 0-4 (read once, CombatFx.Start): the night halo's colour gain.</summary>
+        public static float ReadGlow() => Mathf.Clamp(Knobs.Get(GlowKnob, DefaultGlow), 0f, MaxGlow);
+        /// <summary>The halo's colour times the gain; at exactly 1 the colour itself, untouched (bit for bit).</summary>
+        public static Color HaloColor(Color c, float glow) => glow == 1f ? c : new Color(c.r * glow, c.g * glow, c.b * glow, c.a);
+
+        public const string DepthKnob = "fx.tracerHaloDepth";
+        public const float DefaultDepth = 1f;   // C104's depth write: fx.tracerInSmoke=1 alone keeps its meaning
+
+        /// <summary>fx.tracerHaloDepth, clamped to 0-1 (read once, CombatFx.Start). Above 0.5 the in-smoke halo writes depth.</summary>
+        public static float ReadDepth() => Mathf.Clamp01(Knobs.Get(DepthKnob, DefaultDepth));
+        /// <summary>The night halo's _ZWrite with fx.tracerHaloDepth: on only with the order on and the depth knob above 0.5.</summary>
+        public static float HaloZWrite(bool inSmoke, float depth) => inSmoke && depth > 0.5f ? 1f : 0f;
 
         // the new night shape (the old numbers stay written out in Matrix below)
         public const float NightStreak = 7f;        // m, the old 10

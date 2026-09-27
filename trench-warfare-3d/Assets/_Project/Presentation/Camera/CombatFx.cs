@@ -316,10 +316,16 @@ namespace TW.Presentation.Tactical
             // 0 (the default) = the old look; fx.tracerInSmoke=1,fx.tracerShape=0 = the order with the old shape.
             tracerInSmoke = TracerLook.On(TracerLook.Read());
             tracerShape = TracerLook.ReadShape(tracerInSmoke);
+            // AOSA C107 (TracerLook): fx.tracerGlow, the halo's colour gain (1 = the colour untouched), and
+            // fx.tracerHaloDepth, whether the in-smoke halo writes depth (1, C104) or not (0: it no longer cuts the cloud
+            // and the bursts behind it out). Neither set is today's look bit for bit.
+            float tracerGlow = TracerLook.ReadGlow();
+            if (tracerGlow != 1f)
+                foreach (var halo in new[] { tracerNightA, tracerNightB }) halo.color = TracerLook.HaloColor(halo.color, tracerGlow);
             if (tracerInSmoke)
                 foreach (var halo in new[] { tracerNightA, tracerNightB })
                 {
-                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true));
+                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true, TracerLook.ReadDepth()));
                     halo.renderQueue = TracerLook.HaloQueue(true);
                 }
             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
