@@ -285,7 +285,12 @@ namespace TW.Tests
             {
                 var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(a);
                 Assert.LessOrEqual(prof.Reach + MineSystem.TripwireReach, MineSystem.WidestHull, "archetype " + a + ": the box pad covers its corner and a tripwire's reach");
-                Assert.LessOrEqual(prof.Reach, MineSystem.MineRadius + System.Math.Max(prof.HalfWidth, prof.Reach), "archetype " + a + ": the burst's gate reaches its corner");
+                // the farthest point the burst's Covers accepts (the corner grown by the margin) lies inside the gate
+                // VehicleModules draws for a Mine-shaped burst, for the smaller of the two bursts (a mine's, not a tripwire's)
+                float m = TW.Sim.Units.VehicleModulesSystem.MineHullMargin;
+                float corner = Unity.Mathematics.math.length(new Unity.Mathematics.float3(prof.HalfLength + m, 0f, prof.HalfWidth + m));
+                float gate = System.Math.Min(MineSystem.MineRadius, MineSystem.TripwireRadius) + System.Math.Max(prof.HalfWidth, prof.Reach);
+                Assert.Less(corner, gate, "archetype " + a + ": the burst's gate reaches every point its margin covers");
                 Assert.IsTrue(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f), TW.Sim.Units.VehicleModulesSystem.MineHullMargin), "archetype " + a + ": the burst's margin reaches half a metre past the flank");
                 Assert.IsFalse(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f)), "archetype " + a + ": the trigger's footprint does not");
             }
