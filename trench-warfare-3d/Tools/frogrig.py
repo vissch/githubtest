@@ -9,8 +9,8 @@
 # TRANSFERRED from LOD0's surface (nearest face, interpolated), so a point on the frog bends the same way at every
 # LOD and the silhouette does not change when the LOD switches mid-animation. Then the simpler LODs get simpler rigs:
 #   LOD0, LOD1  23 bones, 4 per vertex
-#   LOD2        16 bones (spine1 -> spine/chest, neck -> head, shoulders -> upper arms, toes -> feet), 2 per vertex
-#   LOD3        11 bones (spine -> chest, hands -> forearms, feet -> shins), 2 per vertex, on a mesh decimated from
+#   LOD2        18 bones (spine1 -> spine/chest, neck -> head, toes -> feet), 2 per vertex
+#   LOD3        13 bones (spine -> chest, hands -> forearms, feet -> shins), 2 per vertex, on a mesh decimated from
 #               LOD2 to ~TW_LOD3_TRIS triangles. (TW_LOD3_RIGID=1 makes it 1 per vertex, split into rigid segments:
 #               tried, it opens gaps and shards at every bent joint.)
 # Joints are measured off LOD0 in the model frame (front -Y, left +X, feet on z = 0, height ~0.707) and scaled with it.
@@ -59,8 +59,10 @@ DEFORM = [b[0] for b in BONES if not b[0].endswith("_End")]
 # the simpler rigs: bone -> the bone it folds into
 def fold2(n):
     s = n.replace("mixamorig:", "")
-    m = {"Spine1": "Spine2", "Neck": "Head", "LeftShoulder": "LeftArm", "RightShoulder": "RightArm",
-         "LeftToeBase": "LeftFoot", "RightToeBase": "RightFoot"}
+    # the shoulders stay: they carry the whole arm, and folded into the upper arm they moved its outline at every switch
+    # below LOD1. Measured 2026-09-27 (lodpop, worst side): 1->2 IoU 0.945 -> 0.958, block colour 8.8 -> 6.2-6.9; 2->3
+    # 0.849 -> 0.855. Keeping every bone LOD2 folds gave 2->3 0.874 but LOD2 22 bones and LOD3 17: no simpler rig left.
+    m = {"Spine1": "Spine2", "Neck": "Head", "LeftToeBase": "LeftFoot", "RightToeBase": "RightFoot"}
     return "mixamorig:" + m.get(s, s)
 def fold3(n):
     s = fold2(n).replace("mixamorig:", "")

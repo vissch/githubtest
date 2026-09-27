@@ -92,6 +92,64 @@ def min_area_angle(points2d):
         if area < best: best, angle = area, th
     return angle
 
+TEX = os.environ.get("TW_TEX")
+img = bpy.data.images.load(TEX) if TEX else None
+px = list(img.pixels) if img else None
+
+def luma_at(u, v):
+    """the painted texture's brightness at a UV, as stored (the project is in Gamma space); 1 with no TW_TEX"""
+    if px is None: return 1.0
+    W, H = img.size
+    x = min(W - 1, max(0, int((u % 1.0) * W))); y = min(H - 1, max(0, int((v % 1.0) * H)))
+    i = (y * W + x) * 4
+    return 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]
+
+CUTFACE = "tw_cutface"
+def project_fill_uvs(bm, fill_faces, no):
+    """A cut face gets its own flat projection at the chunk's texel density, placed inside the chunk's biggest outward,
+    masonry-coloured wall triangle: broken stone. fix_fill_uvs (below, the old way) gave each corner the UV of whichever
+    wall loop it met first, so one strip of the atlas stretched across the face and it read as flat brown card, 6-20x
+    flatter than the walls (asset playground critic r5-r7, docs/22). Spread at the wall's density from a centroid, the
+    faces ran off the masonry island into the atlas's dark gutter; anchored at the triangle's incentre and kept inside
+    its incircle they stay on the stone. Faces a cut made earlier are tagged, so they are never borrowed from."""
+    uv = bm.loops.layers.uv.active
+    if uv is None: return
+    tag = bm.faces.layers.int.get(CUTFACE)   # made before the cut: a new layer invalidates every face held
+    for f in fill_faces: f[tag] = 1
+    uv_area = w_area = 0.0; best = None; best_score = 0.0
+    for f in bm.faces:
+        if f[tag]: continue
+        ls = f.loops
+        for k in range(1, len(ls) - 1):
+            a, b, c = ls[0], ls[k], ls[k + 1]
+            wa = (b.vert.co - a.vert.co).cross(c.vert.co - a.vert.co).length * 0.5
+            if wa < 1e-9: continue
+            A, B, C = a[uv].uv, b[uv].uv, c[uv].uv
+            ua = abs((B.x - A.x) * (C.y - A.y) - (C.x - A.x) * (B.y - A.y)) * 0.5
+            uv_area += ua; w_area += wa
+            # out of the building (its foot is at the origin here): the kit paints the insides a dark brown
+            mid = (a.vert.co + b.vert.co + c.vert.co) / 3; out = Vector((mid.x, mid.y, 0))
+            score = wa if out.length < 1e-6 or f.normal.dot(out.normalized()) > 0.3 else wa * 0.01
+            m = (A + B + C) / 3
+            if luma_at(m.x, m.y) < 0.2: score *= 0.01
+            if score > best_score: best_score, best = score, (A.copy(), B.copy(), C.copy())
+    if best is None or w_area <= 0 or uv_area <= 0:
+        fix_fill_uvs(bm, fill_faces); return
+    A, B, C = best
+    la, lb, lc = (B - C).length, (A - C).length, (A - B).length; per = la + lb + lc
+    anchor = (A * la + B * lb + C * lc) / per if per > 1e-9 else (A + B + C) / 3
+    inradius = abs((B.x - A.x) * (C.y - A.y) - (C.x - A.x) * (B.y - A.y)) / per if per > 1e-9 else 0.0
+    co = [v.co for v in bm.verts]
+    lo = Vector((min(x.x for x in co), min(x.y for x in co), min(x.z for x in co)))
+    hi = Vector((max(x.x for x in co), max(x.y for x in co), max(x.z for x in co)))
+    centre = (lo + hi) / 2
+    spread = min(math.sqrt(uv_area / w_area) * 0.5, 0.9 * inradius / max(0.01, 0.5 * (hi - lo).length))
+    t1 = no.orthogonal().normalized(); t2 = no.cross(t1).normalized()
+    for f in fill_faces:
+        for l in f.loops:
+            d = l.vert.co - centre
+            l[uv].uv = anchor + Vector((d.dot(t1), d.dot(t2))) * spread
+
 def fix_fill_uvs(bm, fill_faces):
     uv = bm.loops.layers.uv.active
     if uv is None: return
@@ -107,6 +165,7 @@ def cut(bm, co, no):
     halves = []
     for clear_inner, clear_outer in ((False, True), (True, False)):
         nb = bm.copy()
+        if nb.faces.layers.int.get(CUTFACE) is None: nb.faces.layers.int.new(CUTFACE)
         res = bmesh.ops.bisect_plane(nb, geom=nb.verts[:] + nb.edges[:] + nb.faces[:], dist=1e-5,
                                      plane_co=co, plane_no=no, clear_inner=clear_inner, clear_outer=clear_outer)
         cut_edges = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
@@ -120,7 +179,9 @@ def cut(bm, co, no):
                     want = no if clear_inner else -no
                     bad = [f for f in fill if f.normal.dot(want) < 0]
                     if bad: bmesh.ops.reverse_faces(nb, faces=bad)
-                    fix_fill_uvs(nb, set(fill))
+                    if os.environ.get("TW_OLDCAPS") == "1": fix_fill_uvs(nb, set(fill))
+                    else: project_fill_uvs(nb, set(fill), Vector(no).normalized())
+                    if os.environ.get("TW_CAPLOG") == "1": print("CAP %d faces" % len(fill))
             except Exception as ex:
                 print("FILL FAIL", ex)
         if len(nb.faces) > 0: halves.append(nb)
@@ -219,6 +280,8 @@ def split_big(bm, floors=()):
     return out
 
 def to_object(bm, name):
+    t = bm.faces.layers.int.get(CUTFACE)
+    if t is not None: bm.faces.layers.int.remove(t)   # a working tag, not for the game
     me = bpy.data.meshes.new(name); bm.to_mesh(me)
     for m in mats: me.materials.append(m)
     ob = bpy.data.objects.new(name, me); scene.collection.objects.link(ob)
@@ -230,9 +293,6 @@ scene.render.engine = 'BLENDER_WORKBENCH'; scene.display.shading.light = 'STUDIO
 scene.display.shading.show_cavity = True; scene.display.shading.show_object_outline = True
 scene.render.resolution_x = 900; scene.render.resolution_y = 700
 
-TEX = os.environ.get("TW_TEX")
-img = bpy.data.images.load(TEX) if TEX else None
-px = list(img.pixels) if img else None
 def material_of(bm):
     """stone or timber, from the chunk's painted colour: warm and saturated is wood and tile, grey is stone and plaster"""
     if px is None: return "stone"
