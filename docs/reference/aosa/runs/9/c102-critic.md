@@ -119,12 +119,74 @@ General observations
 - In pairs 1 and 2 the difference is marginal. The solid build is clearly better in pairs 3-5 and slightly better in pair 6.
 - Neither build hides the men in these frames. The solid earth blocks everything behind it, so a burst landing on a trench would hide the men under it more in the solid build, but none of these six frames tests that. The dark smoke columns hide far more of the scene than either version of the earth.
 
-## Decision
+## First decision (superseded below)
 
-The earth score rose (+1.9), and readability held (0 in all six pairs), so rule 6 passes. The default-change patch is
-`runs/9/C102-default.patch`: DefaultColumnHard 1, with the test expecting the new default and fx.columnHard=0 as the
-old look. It compiles with occ.py. It is for the lander to land, then check that fx.columnHard=0 is bit-identical to
-9/c102n, and that the no-knob run is bit-identical to 9/c102h.
+The earth score rose (+1.9), and readability held on these frames. `runs/9/C102-default.patch` (DefaultColumnHard 1)
+was written for the lander. The critic's named risk, a column over men, was untested, so the orchestrator asked for
+the second critic below before landing it.
 
-The weight did not reach +1, because the column is too small to carry the barrage. The next step is C103: the
-column's size and dark core. Any C103 still must put a column over men, the risk this critic named.
+# Second critic: columns over the men
+
+Four search runs from build 09f5c0d, same battle (barrage, `--no-hud`, 32 frames each): 9/c102s110o and
+9/c102s110h (shot-tick 110, fx.columnHard 0 and 1), and 9/c102s180o and 9/c102s180h (shot-tick 180).
+
+## Where the cut changes and what it lies over
+
+The diff used the same threshold of 8. changed_frac was 0.0001-0.0013 in every frame, and it is always the Column
+book's arcs. Regions were checked by eye against the men and trench lines:
+
+- **s110 f0-f7** (0-153, 520-740): arcs just left of the left trench's parapet. From f0 to f2 one hook touches the
+  sandbag edge beside the helmets. The rest is over open ground and smoke.
+- **s110 f5-f6** (0-44, 760-824): at the frame edge, over smoke. No men.
+- **s110 f18-f26** (963-1227, 0-346): in the debris and smoke up the middle. No men that can be told apart.
+- **s110 f27-f31** (1583-1674, 415-491): a crescent over the right trench's front, among the helmets, partly behind a
+  smoke ball.
+- **s180 f0-f7** and **f18-f31** (1448-1634, 40-240): in the right trench's heap of men and debris. This is the case
+  the first critic lacked, a column on the men.
+- **s180 f0-f25** (126-216, 60-400): top-left, over smoke and sandbags. Men near it only at f25.
+
+## Blind setup
+
+The critic got six pairs where a column stands over or right in front of men. Each pair had full frames and a 2x crop.
+X and Y were shuffled per pair (seed 102110). It was a separate general-purpose agent and was not told what changed.
+
+| pair | run, frame | crop (x0, y0, x1, y1) | new (columnHard=1) |
+|---|---|---|---|
+| 1 | s110 f0 | 0, 470, 300, 770 | Y |
+| 2 | s110 f1 | 0, 470, 300, 770 | Y |
+| 3 | s110 f28 | 1480, 300, 1780, 600 | X |
+| 4 | s180 f0 | 1360, 30, 1680, 350 | X |
+| 5 | s180 f18 | 1400, 0, 1720, 320 | X |
+| 6 | s180 f25 | 0, 220, 300, 520 | X |
+
+The critic again unshuffled the key correctly on its own from the change under test.
+
+## Scores, unblinded (0-10)
+
+| pair | men old | men new | earth old | earth new |
+|---|---|---|---|---|
+| 1 (s110 f0) | 6 | 6 | 3 | 5 |
+| 2 (s110 f1) | 6 | 6 | 3 | 5 |
+| 3 (s110 f28) | 5 | 5 | 2 | 3 |
+| 4 (s180 f0) | **3** | **2** | 3 | 5 |
+| 5 (s180 f18) | 2 | 2 | 3 | 4 |
+| 6 (s180 f25) | 3 | 3 | 2 | 3 |
+| **mean** | **4.17** | **4.00** | **2.67** | **4.17** |
+
+**The men read worse in pair 4, the only pair where the column is on the men.** The critic: "three or four opaque tan
+crescents (about 210-420, 180-330 crop) sit right over the figure area and hide more of it". The old build's streaks
+"are translucent and fade out, so you can see through them". In pairs 1-3, 5 and 6 the arcs land on open ground or
+smoke, or the men are already hidden by the shared smoke and debris, so the men scored equal.
+
+**Earth is higher in 6 of 6 (+1.5).** "Opaque brown-tan... reads as solid thrown matter", but "its sickle, claw
+shapes still look like ribbons rather than dirt clods, so it tops out around 5".
+
+## Decision: do not land the default change (rule 6)
+
+Where the column covers men, the men read worse with the cut: 3 -> 2 in the one pair that tests it. The mean over
+six pairs is 4.17 -> 4.00, lower in one pair and never higher. Rule 6 is hard, so `runs/9/C102-default.patch` is not
+landed. The knob stays in at default 0 (09f5c0d, bit-identical), and C102 is closed as measured.
+
+What the numbers say for C103: the hard cut makes the column read as earth (+1.5 to +1.9) but also makes it opaque,
+and opaque over the men is what rule 6 forbids. A C103 column needs its opacity capped where it stands over men or a
+trench, or the hard cut kept only aloft. Its evidence must include s180 f0 and s110 f28.
