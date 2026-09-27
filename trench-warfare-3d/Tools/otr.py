@@ -94,6 +94,13 @@ def main(argv):
         if newest_src.stat().st_mtime > built.stat().st_mtime + 1:
             print(f"otr: {name}.dll is older than {newest_src.relative_to(tested)}: run occ.py with every assembly and fix its errors first; not a verdict")
             return 2
+        # and no older than what it was built against: C# copies consts and enum values into the caller at compile time, so
+        # a dll built before its dependency changed carries the old values (critic r7)
+        for ref in table[name][1].get("references", []):
+            dep = occ.OUT / (ref + ".dll")
+            if ref.startswith("TW.") and dep.exists() and dep.stat().st_mtime > built.stat().st_mtime + 1:
+                print(f"otr: {name}.dll was built before {ref}.dll: run occ.py with every assembly; not a verdict")
+                return 2
     if not dll.exists():
         print(f"otr: {dll} not built: run occ.py with TW.Tests.EditMode first"); return 2
     exe = build_runner()
