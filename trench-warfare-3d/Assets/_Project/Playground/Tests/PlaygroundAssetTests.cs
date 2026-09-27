@@ -279,7 +279,8 @@ namespace TW.Tests.Playground
                     Assert.That(used.Count, Is.LessThanOrEqualTo(lastBones), $"LOD{k} uses {used.Count} bones, more than the LOD before");
                     Assert.That(mesh.vertexCount, Is.LessThan(lastVerts), $"LOD{k} vertices");
                     lastBones = used.Count; lastVerts = mesh.vertexCount;
-                    if (k == 3) { Assert.That(used.Count, Is.LessThanOrEqualTo(11), "LOD3 rig"); Assert.That(mesh.GetIndexCount(0) / 3, Is.LessThanOrEqualTo(300), "LOD3 triangles"); }
+                    // 13: the shoulders stay in the simpler rigs (folded, they moved the arm's outline at each switch; docs/22)
+                    if (k == 3) { Assert.That(used.Count, Is.LessThanOrEqualTo(13), "LOD3 rig"); Assert.That(mesh.GetIndexCount(0) / 3, Is.LessThanOrEqualTo(300), "LOD3 triangles"); }
                 }
                 // height as drawn: the mesh is stored Z-up under a turned node, so measure through the node's matrix
                 float Height(SkinnedMeshRenderer s)
