@@ -85,6 +85,8 @@ namespace TW.Playground
         public int Team = -1;
         public Color[] LodTints { get; private set; }
         /// <summary>Switch the per-LOD colour match on or off (to measure what it does).</summary>
+        /// <summary>Put these per-LOD tints on (a fit from the render).</summary>
+        public void ApplyLodTints(Color[] t) { LodTints = (Color[])t.Clone(); UseLodTints(true); }
         public void UseLodTints(bool on) { if (LodTints != null) for (int k = 0; k < mats.Length && k < LodTints.Length; k++) mats[k].SetColor("_BaseColor", on ? LodTints[k] : Color.white); }
         public PlaygroundFx Fx;
         public ClipDeck Deck;
@@ -160,7 +162,17 @@ namespace TW.Playground
                 means[k] = LodTint.MeanColour(new[] { u.Lods[k].sharedMesh }, atlas);
             }
             u.LodTints = new Color[u.Lods.Length];
-            for (int k = 0; k < u.Lods.Length; k++) { u.LodTints[k] = LodTint.Match(means[0], means[k]); u.mats[k].SetColor("_BaseColor", u.LodTints[k]); }
+            // the mesh estimate is kept for reference but not put on: in the lit frame it overshot (LOD2 from +2 to -3.6
+            // brightness against LOD0, critic r8). A fit on the render (`lodfit`, LodTint.Fitted) is what goes on.
+            for (int k = 0; k < u.Lods.Length; k++) u.LodTints[k] = LodTint.Match(means[0], means[k]);
+            if (LodTint.Fitted.TryGetValue(e.Name, out var fit) && fit.Length == u.Lods.Length) u.ApplyLodTints(fit);
+            // the side's colour goes on the uniform only (the game's VAT figures recolour their cloth): a mask in vertex alpha
+            for (int k = 0; k < u.Lods.Length; k++)
+            {
+                var atlas = e.Atlas != null && e.Atlas.Length > 0 ? e.Atlas[Mathf.Min(k, e.Atlas.Length - 1)] : null;
+                u.Lods[k].sharedMesh = ClothMasked(u.Lods[k].sharedMesh, atlas);
+                u.mats[k].SetFloat("_TeamByAlpha", 1f);
+            }
             u.mpb = new MaterialPropertyBlock();
             u.MakeRifle();
             u.SetLod(0);
@@ -171,6 +183,37 @@ namespace TW.Playground
 
         /// <summary>How many bones actually move this LOD (weights above zero), not how many the FBX lists: every LOD of
         /// one armature lists all of them.</summary>
+        static readonly Dictionary<Mesh, Mesh> clothed = new Dictionary<Mesh, Mesh>();
+
+        /// <summary>The uniform, as a mask in vertex alpha: blue cloth (hue 190-250 degrees, saturation over 0.35, not near
+        /// black), read from the atlas under each vertex, or from the vertex colour on a far LOD painted in its vertices.
+        /// One copy per source mesh, shared by every figure. Without it the side's colour was a 16 % wash over the whole
+        /// frog and read as nothing (critic r8: side strength 0.013 against the tank's 0.041).</summary>
+        static Mesh ClothMasked(Mesh src, Texture2D atlas)
+        {
+            if (src == null || !src.isReadable) return src;
+            if (clothed.TryGetValue(src, out var done)) return done;
+            var m = Object.Instantiate(src); m.name = src.name + " (cloth)";
+            var uv = m.uv; var col = m.colors; int n = m.vertexCount;
+            if (col.Length != n) { col = new Color[n]; for (int i = 0; i < n; i++) col[i] = Color.white; }
+            bool fromAtlas = atlas != null && atlas.isReadable && uv.Length == n;
+            int cloth = 0;
+            for (int i = 0; i < n; i++)
+            {
+                var c = fromAtlas ? atlas.GetPixelBilinear(uv[i].x, uv[i].y) : col[i];
+                Color.RGBToHSV(c, out float h, out float s, out float v);
+                bool blue = h * 360f >= 190f && h * 360f <= 250f && s > 0.35f && v > 0.12f;
+                col[i].a = blue ? 1f : 0f; if (blue) cloth++;
+            }
+            m.colors = col;
+            clothed[src] = m;
+            ClothShare = (float)cloth / Mathf.Max(1, n);
+            return m;
+        }
+
+        /// <summary>The share of the last masked mesh's vertices that are cloth (a report number).</summary>
+        public static float ClothShare { get; private set; }
+
         public static int BonesUsed(SkinnedMeshRenderer r)
         {
             if (r == null || r.sharedMesh == null) return 0;
@@ -458,7 +501,7 @@ namespace TW.Playground
             mpb.SetVector("_Damage", new Vector4(Scorch, Ember * 0.7f, 0f, 0f));
             mpb.SetVector("_Tint", new Vector4(1f, 1f, 1f, 0f));
             var tc = Team == 1 ? TW.Presentation.Tactical.TankRenderer.TeamB : TW.Presentation.Tactical.TankRenderer.TeamA;
-            mpb.SetVector("_Team", Team >= 0 ? new Vector4(tc.r, tc.g, tc.b, Dead ? 0.05f : 0.16f) : Vector4.zero);
+            mpb.SetVector("_Team", Team >= 0 ? new Vector4(tc.r, tc.g, tc.b, Dead ? 0.3f : 0.9f) : Vector4.zero);   // on the cloth only
             Lods[Lod].SetPropertyBlock(mpb);
         }
     }

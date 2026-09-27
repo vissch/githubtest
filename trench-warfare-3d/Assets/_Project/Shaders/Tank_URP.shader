@@ -11,6 +11,8 @@
 //  _Tint   rgb, strength: team 1's field-grey over the olive paint (only olive: bone, rust, iron and fire keep theirs).
 //  _Team   rgb the side's colour, a how much of this part wears it: the horns are painted in it and glow faintly, so
 //          the two sides tell apart at the gameplay zoom and at night (plain paint dies in the night grade).
+//  _TeamByAlpha  0 (default): _Team covers the whole part. 1: only where the vertex alpha says - a figure's cloth (the
+//          asset playground's frogs; the game's own figures are VAT_URP and recolour their cloth there).
 // Night readability (critique 2026-09-22): a cool moonlight fill and rim keep a live hull off the mud (only soot, a
 // wreck, goes near black, and even that keeps its plates); a trench lamp adds at most 0.6 so it never reads as fire.
 // Mesh data (TankImport): UV0 atlas, UV1 tread coordinate, UV2 masks (tread, furnace, exhaust), UV3 smoothed normal for the
@@ -26,6 +28,7 @@ Shader "TW/Tank (URP)"
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.2
         _GrouserDark ("Grouser shade", Range(0,1)) = 0.62
         _MoonFill ("Moonlight fill", Color) = (0.55, 0.64, 0.85, 1)
+        _TeamByAlpha ("Side colour only where vertex alpha (cloth)", Range(0,1)) = 0
         [HideInInspector] _Tread ("Tread (per instance)", Float) = 0
         [HideInInspector] _Damage ("Damage (per instance)", Vector) = (0,0,0,0)
         [HideInInspector] _Tint ("Team tint (per instance)", Vector) = (1,1,1,0)
@@ -42,7 +45,7 @@ Shader "TW/Tank (URP)"
         CBUFFER_START(UnityPerMaterial)
             half4 _BaseColor, _ShadeColor, _OutlineColor, _MoonFill;
             float4 _BaseMap_ST;
-            float _OutlineWidth, _GrouserDark;
+            float _OutlineWidth, _GrouserDark, _TeamByAlpha;
         CBUFFER_END
         UNITY_INSTANCING_BUFFER_START(TankProps)
             UNITY_DEFINE_INSTANCED_PROP(float, _Tread)
@@ -65,6 +68,8 @@ Shader "TW/Tank (URP)"
         {
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
+            // stencil bit 8: "a unit is drawn here" - TankDisc's hidden-ring pass skips it (see TankDisc_URP)
+            Stencil { Ref 8 WriteMask 8 Comp Always Pass Replace }
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -121,7 +126,8 @@ Shader "TW/Tank (URP)"
                 half lum = dot(albedo, half3(0.3, 0.59, 0.11));
                 albedo = lerp(albedo, lum * i.tint.rgb * 1.75, i.tint.a * olive);
                 // the side's colour on the parts that wear it (the horns)
-                albedo = lerp(albedo, i.team.rgb, i.team.a * 0.75 * (1.0 - fire));
+                half wear = i.team.a * lerp(1.0, i.color.a, _TeamByAlpha);
+                albedo = lerp(albedo, i.team.rgb, wear * 0.75 * (1.0 - fire));
 
                 // the tracks run: dark grouser bars travel round the loop on the tread band
                 if (i.mask.x > 0.5)
@@ -181,7 +187,7 @@ Shader "TW/Tank (URP)"
                 color += half3(1.0, 0.36, 0.09) * i.mask.z * saturate(burn + i.damage.w * 0.35) * flicker * 1.6;
                 color += paint * fire * i.mask.y * i.damage.w * (1.4 + 0.6 * flicker) * 1.8;
                 color += half3(1.0, 0.86, 0.62) * i.damage.z * 0.75;
-                color += i.team.rgb * i.team.a * 0.45 * (1.0 - soot * 0.8);   // the side's colour glows a little
+                color += i.team.rgb * wear * 0.45 * (1.0 - soot * 0.8);   // the side's colour glows a little
 
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
@@ -196,6 +202,8 @@ Shader "TW/Tank (URP)"
             Name "Outline"
             Tags { "LightMode"="SRPDefaultUnlit" }
             Cull Front
+            // stencil bit 8: "a unit is drawn here" - TankDisc's hidden-ring pass skips it (see TankDisc_URP)
+            Stencil { Ref 8 WriteMask 8 Comp Always Pass Replace }
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag

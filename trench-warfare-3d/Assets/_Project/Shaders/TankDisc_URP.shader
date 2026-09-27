@@ -3,7 +3,9 @@
 // round it, faintly lit, so the side reads at the gameplay zoom and at night (critique 2026-09-22). The shape is
 // computed: uv 0..1 across the footprint, which the quad's matrix stretches to the hull plus a margin. A second pass
 // draws the ring (not the blob) faintly where the ground or the hull hides it, so a trench lip or a slope never swallows
-// the side marker (critique round 2).
+// the side marker (critique round 2). Only the ground: tanks and figures set stencil bit 8 (Tank_URP, VAT_URP) and the
+// hidden pass skips it, or a tank's ring painted its side's colour over the infantry beside it and across its own hull
+// (asset playground, critic round 8: friendly frogs on an enemy tank's ring read as enemy).
 //  _Color  per instance: rgb the side's colour, a the ring's strength (0 on a wreck: only the blob).
 Shader "TW/TankDisc (URP)"
 {
@@ -72,6 +74,7 @@ Shader "TW/TankDisc (URP)"
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
             ZTest Greater
+            Stencil { Ref 8 ReadMask 8 Comp NotEqual }
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex vert

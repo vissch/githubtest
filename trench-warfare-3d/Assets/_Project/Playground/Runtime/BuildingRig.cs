@@ -22,6 +22,7 @@ namespace TW.Playground
             public HouseKit.Chunk Chunk; public Transform T; public MeshRenderer R; public Bounds Box;
             public float Hp, MaxHp; public bool Loose, Falling; public float FallAt; public Tumble Fly;
             public float Dust;
+            public bool Grounded => Chunk.Grounded;   // for callers without a reference to the terrain assembly (the tests)
         }
 
         public const float Step = 1f / 120f;
@@ -34,6 +35,7 @@ namespace TW.Playground
         public float Radius { get; private set; } = 6f;
         System.Random rng;
         float acc;
+        float clock;   // the building's own time (Advance), not Time.time: a test steps it, and it never runs ahead
         static readonly Dictionary<string, HouseKit.House[]> cache = new Dictionary<string, HouseKit.House[]>();
         static Material[] shared = new Material[0];
 
@@ -82,7 +84,7 @@ namespace TW.Playground
                 go.transform.localPosition = c.Offset;
                 // outward: from the building's middle to this chunk, level - the side its masonry faces
                 var outward = c.Offset + (c.Module.Mesh != null ? c.Module.Mesh.bounds.center : Vector3.zero) - h.Bounds.center; outward.y = 0f;
-                var mesh = CutFaces(c.Module.Mesh, outward.sqrMagnitude > 1e-4f ? outward.normalized : Vector3.zero);
+                var mesh = CutFaces(c.Module.Mesh, outward.sqrMagnitude > 1e-4f ? outward.normalized : Vector3.zero, set);
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var r = go.AddComponent<MeshRenderer>();
                 r.sharedMaterials = mesh != null && mesh.subMeshCount > 1 ? new[] { mat, DebugMaterial() } : new[] { mat };
@@ -116,7 +118,34 @@ namespace TW.Playground
         /// brown card, 6-20x flatter than the walls: critic r5/r6). A cut face lies flat on the chunk's bounding box (the
         /// cuts are axis-aligned). Each is given its own corners, projected flat onto that plane at the chunk's own texel
         /// density, placed inside the chunk's largest outward wall triangle's UVs (the building's masonry), and a little darker: broken stone.</summary>
-        static Mesh CutFaces(Mesh src, Vector3 outward)
+        /// <summary>The env atlas, read back small (it is not CPU-readable): to choose a masonry-coloured wall for the cut
+        /// faces to borrow from.</summary>
+        static Color32[] atlasPx; const int AtlasRead = 1024;
+        static float AtlasLuma(string set, Vector2 uv)
+        {
+            if (atlasPx == null)
+            {
+                atlasPx = new Color32[0];
+                var atlas = Resources.Load<Texture2D>("Env/EnvAtlas");
+                if (atlas != null)
+                {
+                    var rt = RenderTexture.GetTemporary(AtlasRead, AtlasRead, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+                    Graphics.Blit(atlas, rt); var was = RenderTexture.active; RenderTexture.active = rt;
+                    var t = new Texture2D(AtlasRead, AtlasRead, TextureFormat.RGBA32, false);
+                    t.ReadPixels(new Rect(0, 0, AtlasRead, AtlasRead), 0, 0); t.Apply();
+                    RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+                    atlasPx = t.GetPixels32(); VehicleRig.Kill(t);
+                }
+            }
+            if (atlasPx.Length == 0) return 1f;   // unread: every wall counts as masonry
+            int cell = System.Array.IndexOf(BattlefieldKit.EnvSets, set); if (cell < 0) return 1f;
+            var off = BattlefieldKit.EnvOffset(cell);
+            float u = off.x + Mathf.Repeat(uv.x, 1f) / BattlefieldKit.EnvCols, w = off.y + Mathf.Repeat(uv.y, 1f) / BattlefieldKit.EnvRows;
+            var c = atlasPx[Mathf.Clamp((int)(w * AtlasRead), 0, AtlasRead - 1) * AtlasRead + Mathf.Clamp((int)(u * AtlasRead), 0, AtlasRead - 1)];
+            return (0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b) / 255f;
+        }
+
+        static Mesh CutFaces(Mesh src, Vector3 outward, string set)
         {
             if (src == null || !src.isReadable) return src;
             if (recut.TryGetValue(src, out var done)) return done;
@@ -147,6 +176,8 @@ namespace TW.Playground
                 // textured from an inside wall came out brown (critic r7, seen with cutsdebug)
                 var fn = Vector3.Cross(p1 - p0, p2 - p0).normalized;
                 float score = outward == Vector3.zero || Vector3.Dot(fn, outward) > 0.3f ? wa : wa * 0.01f;
+                // and painted as masonry, not the kit's near-black inside brown (a big outward face can be dark too)
+                if (AtlasLuma(set, (uv[tris[t]] + uv[tris[t + 1]] + uv[tris[t + 2]]) / 3f) < 0.2f) score *= 0.01f;
                 if (score > wallArea) { wallArea = score; wall = t; }
             }
             int found = 0; foreach (int ax in cutAxis) if (ax >= 0) found++;
@@ -254,6 +285,10 @@ namespace TW.Playground
         {
             // corners are real walls on the real ground: not a detail, not a piece Solve grounded for want of anything under it
             var ground = Pieces.FindAll(p => p.Chunk.Grounded && OnGround(p) && !Detail(p));
+            // and stout enough to stand alone: a 0.44 m slab three metres tall, left by itself edge-on, read as a post stood
+            // on end (critic r8)
+            var stout = ground.FindAll(Stout);
+            if (stout.Count >= 2) ground = stout;
             if (ground.Count < 2) return;
             Piece a = null, b = null; float best = -1f;
             foreach (var x in ground) foreach (var y in ground)
@@ -273,6 +308,28 @@ namespace TW.Playground
                     if (above != null) { above.Anchored = true; above.Hp = above.MaxHp *= 2f; }
                     below = above;
                 }
+            }
+        }
+
+        /// <summary>Stands by itself: at least 0.6 m thick across the ground, or no taller than three times its thickness.</summary>
+        public static bool Stout(Piece p) { var s = p.Chunk.Local.size; float thin = Mathf.Min(s.x, s.z); return thin >= 0.6f || s.y <= 3f * thin; }
+
+        /// <summary>Loose pieces at rest on a small face: taller than their middle dimension (plus 0.2 m) and long (the
+        /// longest way over 1.5 times the middle). 0 in a sound ruin; the vehicles' test holds their parts to the same.</summary>
+        public int OnEnd
+        {
+            get
+            {
+                int n = 0;
+                foreach (var p in Pieces)
+                {
+                    if (!p.Loose || !p.Fly.Resting) continue;
+                    var e = p.Box.size; var d = new[] { e.x, e.y, e.z }; System.Array.Sort(d);
+                    var r = p.Fly.Rot;
+                    float up = Mathf.Abs((r * Vector3.right).y) * e.x + Mathf.Abs((r * Vector3.up).y) * e.y + Mathf.Abs((r * Vector3.forward).y) * e.z;
+                    if (up > d[1] + 0.2f && d[2] > 1.5f * d[1]) n++;
+                }
+                return n;
             }
         }
 
@@ -321,7 +378,7 @@ namespace TW.Playground
                         bool fixedTo = false;
                         foreach (int j in p.Leans) { var s = Pieces[j]; if (!s.Loose && !(s.Falling || falling.Contains(s))) { fixedTo = true; break; } }
                         if (fixedTo) continue;
-                        p.Falling = true; p.FallAt = Time.time + storey * StoreyDelay + R(0f, 0.12f); falling.Add(p); changed = true;
+                        p.Falling = true; p.FallAt = clock + storey * StoreyDelay + R(0f, 0.12f); falling.Add(p); changed = true;
                         continue;
                     }
                     if (p.Chunk.RestsOn.Length == 0) continue;
@@ -333,7 +390,7 @@ namespace TW.Playground
                     }
                     else foreach (int j in p.Holds) { var s = Pieces[j]; if (!s.Loose && !(s.Falling || falling.Contains(s))) { held = true; break; } }
                     if (held) continue;
-                    p.Falling = true; p.FallAt = Time.time + storey * StoreyDelay + R(0f, 0.12f);
+                    p.Falling = true; p.FallAt = clock + storey * StoreyDelay + R(0f, 0.12f);
                     falling.Add(p); changed = true;
                 }
             }
@@ -381,8 +438,9 @@ namespace TW.Playground
         public void Advance(float dt)
         {
             if (dt <= 0f) return;
+            clock += Mathf.Min(dt, 0.1f);
             foreach (var p in Pieces)
-                if (p.Falling && Time.time >= p.FallAt)
+                if (p.Falling && clock >= p.FallAt)
                 {
                     Detach(p, new Vector3(R(-0.6f, 0.6f), -0.5f, R(-0.6f, 0.6f)), new Vector3(R(-1f, 1f), 0f, R(-1f, 1f)) * R(0.5f, 2f));
                     if (Fx != null) Fx.Smoke(p.T.TransformPoint(p.Box.center), 2.2f, 0.8f, 0.55f, 5f);

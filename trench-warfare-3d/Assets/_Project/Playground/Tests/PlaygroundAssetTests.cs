@@ -226,6 +226,33 @@ namespace TW.Tests.Playground
         }
 
         [Test]
+        public void A_Shelled_Building_Leaves_Nothing_Floating_And_No_Piece_On_End()
+        {
+            // eight shells walking round the ruin, as round.sh fires them; then twenty seconds to settle. A slab 0.44 m thick
+            // was kept standing as a corner and read as a post on end (critic r8); loose pieces must lie on a broad face
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var b = BuildingRig.Build("Ruins", null, null, parent, Vector3.zero, 0f, 11);
+                Assert.That(b, Is.Not.Null, "the Ruins set loads");
+                foreach (var p in b.Pieces.Where(p => p.Anchored && p.Grounded))
+                    Assert.That(BuildingRig.Stout(p), Is.True, $"{p.T.name} is kept as a corner but cannot stand alone");
+                for (int k = 0; k < 8; k++)
+                {
+                    float ang = k * 2.39996f, r = b.Radius * 0.55f;
+                    b.ShellLocal(new Vector3(Mathf.Cos(ang) * r, 1f + (k % 3) * 1.2f, Mathf.Sin(ang) * r), 70f);
+                    for (int f = 0; f < 45; f++) b.Advance(1f / 60f);
+                }
+                for (int f = 0; f < 1200; f++) b.Advance(1f / 60f);
+                Assert.That(b.Standing, Is.LessThan(b.Pieces.Count), "eight shells bring something down");
+                Assert.That(b.Standing, Is.GreaterThan(0), "a ruin is left standing");
+                Assert.That(b.Floating, Is.EqualTo(0), "standing chunks with nothing under them");
+                Assert.That(b.OnEnd, Is.EqualTo(0), "loose pieces resting on a small face");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
         public void Every_Unit_LOD_Is_Skinned_To_One_Skeleton_And_Simpler_LODs_To_Fewer_Bones()
         {
             foreach (var u in Lib().Units)

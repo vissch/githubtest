@@ -135,6 +135,8 @@ Shader "TW/VAT Infantry (URP)"
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
             Cull [_Cull]
+            // stencil bit 8: "a unit is drawn here" - TankDisc's hidden-ring pass skips it (see TankDisc_URP)
+            Stencil { Ref 8 WriteMask 8 Comp Always Pass Replace }
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -267,6 +269,8 @@ Shader "TW/VAT Infantry (URP)"
             Name "Outline"
             Tags { "LightMode"="SRPDefaultUnlit" }
             Cull Front
+            // stencil bit 8: "a unit is drawn here" - TankDisc's hidden-ring pass skips it (see TankDisc_URP)
+            Stencil { Ref 8 WriteMask 8 Comp Always Pass Replace }
             HLSLPROGRAM
             #pragma vertex vertOutline
             #pragma fragment fragOutline

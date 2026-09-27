@@ -326,6 +326,7 @@ namespace TW.Playground
                 case "timescale": Time.timeScale = F(a, 1, 1f); break;
                 case "biome": if (System.Enum.TryParse<Biome>(a.Length > 1 ? a[1] : "NightMud", true, out var b)) SetBiome(b); break;
                 case "panel": ShowPanel = F(a, 1, 1f) > 0.5f; break;
+                case "lodfit": fitPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/lodfit.json"); break;
                 case "lodpop": popPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/lodpop.json"); break;
                 case "labels": Labels = F(a, 1, 1f) > 0.5f; break;
                 case "ground": SetGround(a.Length > 1 ? a[1] : "grid"); break;
@@ -338,10 +339,11 @@ namespace TW.Playground
                 case "cutsdebug": BuildingRig.DebugCuts = F(a, 1, 1f) > 0.5f; BuildingRig.ForgetCuts(); if (Mode == "building") Scene("building"); break;
                 case "team":
                     {
-                        // "team 0", "team 1", "team -1" for everyone; "team split": vehicles side 1, figures side 0
+                        // "team 0", "team 1", "team -1" for everyone; "team split": vehicles side 1, the first half of the
+                        // figures side 0 and the second half side 1 (critic r8: m3 never showed a side-1 man)
                         bool split = a.Length > 1 && a[1] == "split"; int t = split ? 0 : (int)F(a, 1, -1);
                         foreach (var v in Vehicles) v.Team = split ? 1 : t;
-                        foreach (var u in Units) u.Team = t;
+                        for (int i = 0; i < Units.Count; i++) Units[i].Team = split ? (i < Units.Count / 2 ? 0 : 1) : t;
                         break;
                     }
                 case "shot": shotPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/playground.png"); shotW = (int)F(a, 2, 1600); shotH = (int)F(a, 3, 900); break;
@@ -402,10 +404,87 @@ namespace TW.Playground
                 File.WriteAllText(path, LodPop(Path.ChangeExtension(path, null)));
             }
             if (huePath != null) SideSignalStep();
+            if (fitPath != null) { string path = fitPath; fitPath = null; File.WriteAllText(path, LodFit()); }
         }
 
         // ------------------------------------------------------------------------------------------------ LOD pops
-        string popPath;
+        string popPath, fitPath;
+
+        /// <summary>Each LOD's tint fitted on what the camera sees: every LOD drawn alone from four sides (the lodpop
+        /// sides, the object filling half a 320 px frame at the battle's 25 degree pitch), the mean colour over its
+        /// silhouette compared with LOD0's, the ratio put on as a tint, twice (lighting and the grade are not linear in
+        /// the albedo), within 0.75-1.25 (the frog's LOD3 wants 0.76: its far LODs render 23-30 % brighter). Kept by entry
+        /// name (LodTint.Fitted) so every rig built after uses it. The mesh estimate overshot: it counts faces nobody sees
+        /// (critic r8). What is left at a switch depends on the side it is seen from: shading, which no tint removes.</summary>
+        string LodFit()
+        {
+            var cam = Camera.main; var sb = new StringBuilder("{\"fits\":[");
+            var was = (cam.transform.position, cam.transform.rotation, cam.fieldOfView);
+            Cam.enabled = false;
+            bool first = true;
+            const int W = 320, H = 320;
+            void Fit(string name, GameObject root, Vector3 centre, float radius, int lods, System.Action<int> force, System.Action<Color[]> apply)
+            {
+                var tints = new Color[lods]; for (int k = 0; k < lods; k++) tints[k] = Color.white;
+                var means = new Vector3[lods]; var before = new Vector3[lods];
+                for (int iter = 0; iter < 3; iter++)
+                {
+                    apply(tints);
+                    for (int k = 0; k < lods; k++)
+                    {
+                        force(k); double r = 0, g = 0, b = 0; int n = 0;
+                        foreach (float side in new[] { 200f, 290f, 20f, 110f })
+                        {
+                            float d = radius * 8f;
+                            cam.fieldOfView = 2f * Mathf.Atan(2f * radius / d) * Mathf.Rad2Deg;
+                            var dir = Quaternion.Euler(25f, side, 0f) * Vector3.forward;
+                            cam.transform.SetPositionAndRotation(centre - dir * d, Quaternion.LookRotation(dir));
+                            var px = Grab(cam, W, H); var m = Silhouette(cam, root, W, H);
+                            for (int i = 0; i < px.Length; i++) if (m[i]) { r += px[i].r; g += px[i].g; b += px[i].b; n++; }
+                        }
+                        means[k] = n > 0 ? new Vector3((float)(r / n), (float)(g / n), (float)(b / n)) : Vector3.zero;
+                    }
+                    if (iter == 0) System.Array.Copy(means, before, lods);
+                    if (iter == 2) break;   // the third pass only measures the result
+                    for (int k = 1; k < lods; k++)
+                    {
+                        float f(float t, float want, float have) => Mathf.Clamp(have > 0.5f ? t * want / have : t, 0.75f, 1.25f);
+                        tints[k] = new Color(f(tints[k].r, means[0].x, means[k].x), f(tints[k].g, means[0].y, means[k].y), f(tints[k].b, means[0].z, means[k].z), 1f);
+                    }
+                }
+                LodTint.Fitted[name] = tints;
+                if (!first) sb.Append(','); first = false;
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"lods\":[", name);
+                for (int k = 0; k < lods; k++)
+                {
+                    if (k > 0) sb.Append(',');
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"tint\":[{1:0.000},{2:0.000},{3:0.000}],\"before\":[{4:0.0},{5:0.0},{6:0.0}],\"after\":[{7:0.0},{8:0.0},{9:0.0}]}}",
+                        k, tints[k].r, tints[k].g, tints[k].b, before[k].x, before[k].y, before[k].z, means[k].x, means[k].y, means[k].z);
+                }
+                sb.Append("]}");
+            }
+            var doneV = new HashSet<string>(); var doneU = new HashSet<string>();
+            foreach (var v in Vehicles)
+            {
+                string name = v.name.Split('#')[0]; if (!doneV.Add(name)) continue;
+                int prev = v.Lod;
+                Fit(name, v.gameObject, v.Centre, v.Radius, v.LodCount, k => { foreach (var p in v.Parts) p.R.enabled = true; v.SetLod(k); }, t => v.ApplyLodTints(t));
+                v.SetLod(prev);
+            }
+            foreach (var u in Units)
+            {
+                if (!doneU.Add(u.name)) continue;
+                int prev = Mathf.Max(0, u.Lod);
+                Fit(u.name, u.gameObject, u.Centre, 0.5f * u.Height * u.transform.lossyScale.y, u.Lods.Length, k => u.SetLodSilently(k), t => u.ApplyLodTints(t));
+                u.SetLodSilently(prev);
+            }
+            // every other rig of the same entry takes the fit too
+            foreach (var v in Vehicles) if (LodTint.Fitted.TryGetValue(v.name.Split('#')[0], out var fv)) v.ApplyLodTints(fv);
+            foreach (var u in Units) if (LodTint.Fitted.TryGetValue(u.name, out var fu)) u.ApplyLodTints(fu);
+            cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
+            Cam.enabled = true;
+            return sb.Append("]}").ToString();
+        }
 
         /// <summary>At every LOD boundary of every vehicle and figure on the stage: the camera put exactly where the switch
         /// happens (the battle's 25 degree lens), the thing drawn at the LOD before and the LOD after, and what changes on
@@ -567,7 +646,7 @@ namespace TW.Playground
         }
 
         // ------------------------------------------------------------------------------------------------ side colours
-        string huePath; int hueStep; Color32[][] hueFrames; bool[][] hueMasks; int[] hueV, hueU; float hueScale;
+        string huePath; int hueStep; Color32[][] hueFrames; bool[][] hueMasks, hueRaw, hueMen; int[] hueV, hueU; float hueScale;
 
         /// <summary>Whether the two sides read apart by colour, measured as what each side's colouring ADDS to the frame.
         /// With time frozen the same frame is drawn three times: only side 0 coloured, only side 1, neither. A side's
@@ -590,13 +669,16 @@ namespace TW.Playground
             {
                 case 0:
                     hueScale = Time.timeScale; Time.timeScale = 0f;
-                    hueMasks = new bool[2][]; hueFrames = new Color32[3][];
+                    hueMasks = new bool[2][]; hueRaw = new bool[2][]; hueMen = new bool[2][]; hueFrames = new Color32[3][];
                     for (int side = 0; side < 2; side++)
                     {
                         var mask = new bool[w * h];
                         foreach (var v in Vehicles) if (v.Team == side) Or(mask, Silhouette(c, v.gameObject, w, h));
                         foreach (var u in Units) if (u.Team == side) Or(mask, Silhouette(c, u.gameObject, w, h));
-                        hueMasks[side] = Grow(mask, w, h, Mathf.Max(4, w / 50));
+                        hueRaw[side] = mask; hueMasks[side] = Grow(mask, w, h, Mathf.Max(4, w / 50));
+                        var men = new bool[w * h];   // the side's figures alone (their rings, if on, inside the grown edge)
+                        foreach (var u in Units) if (u.Team == side) Or(men, Silhouette(c, u.gameObject, w, h));
+                        hueMen[side] = Grow(men, w, h, Mathf.Max(2, w / 200));
                     }
                     hueV = new int[Vehicles.Count]; hueU = new int[Units.Count];
                     for (int i = 0; i < Vehicles.Count; i++) hueV[i] = Vehicles[i].Team;
@@ -624,10 +706,41 @@ namespace TW.Playground
                 strength[side] = mean[side].magnitude;
             }
             float gap = n[0] > 0 && n[1] > 0 ? Mathf.Abs(Mathf.DeltaAngle(hue[0], hue[1])) : -1f;
+            // the same for the figures alone: the tank's ring and lamps are strong enough to carry a side by themselves
+            var menHue = new float[2]; var menStrength = new float[2]; int menSides = 0;
+            for (int side = 0; side < 2; side++)
+            {
+                double a = 0, b = 0; int k = 0; var on = hueFrames[side];
+                for (int i = 0; i < off.Length; i++)
+                {
+                    if (!hueMen[side][i]) continue;
+                    double r = on[i].r - off[i].r, g = on[i].g - off[i].g, bl = on[i].b - off[i].b;
+                    a += r - 0.5 * (g + bl); b += 0.8660254 * (g - bl); k++;
+                }
+                if (k > 0) menSides++;
+                menHue[side] = Mathf.Repeat(Mathf.Atan2((float)b, (float)a) * Mathf.Rad2Deg, 360f);
+                menStrength[side] = k > 0 ? new Vector2((float)(a / k / 255.0), (float)(b / k / 255.0)).magnitude : 0f;
+            }
+            float menGap = menSides == 2 ? Mathf.Abs(Mathf.DeltaAngle(menHue[0], menHue[1])) : -1f;
+            // cross-paint: the OTHER side's added colour over this side's own silhouettes (a ring drawn over a man beside
+            // an enemy tank painted him the enemy's colour; critic r8). 0 when nothing of one side lands on the other.
+            var cross = new float[2];
+            for (int side = 0; side < 2; side++)
+            {
+                var on = hueFrames[1 - side]; double sum = 0; int m = 0;
+                for (int i = 0; i < off.Length; i++)
+                {
+                    if (!hueRaw[side][i]) continue;
+                    double r = on[i].r - off[i].r, g = on[i].g - off[i].g, bl = on[i].b - off[i].b;
+                    double a = r - 0.5 * (g + bl), b = 0.8660254 * (g - bl); sum += System.Math.Sqrt(a * a + b * b); m++;
+                }
+                cross[side] = m > 0 ? (float)(sum / m / 255.0) : 0f;
+            }
             File.WriteAllText(huePath, string.Format(CultureInfo.InvariantCulture,
-                "{{\"side_hue\":[{0:0},{1:0}],\"side_strength\":[{2:0.0000},{3:0.0000}],\"side_pixels\":[{4},{5}],\"side_hue_gap\":{6:0},\"side_split\":{7:0.0000}}}",
-                hue[0], hue[1], strength[0], strength[1], n[0], n[1], gap, (mean[0] - mean[1]).magnitude));
-            huePath = null; hueFrames = null; hueMasks = null; hueStep = 0;
+                "{{\"side_hue\":[{0:0},{1:0}],\"side_strength\":[{2:0.0000},{3:0.0000}],\"side_pixels\":[{4},{5}],\"side_hue_gap\":{6:0},\"side_split\":{7:0.0000},\"side_cross\":[{8:0.0000},{9:0.0000}],\"men_hue\":[{10:0},{11:0}],\"men_strength\":[{12:0.0000},{13:0.0000}],\"men_gap\":{14:0}}}",
+                hue[0], hue[1], strength[0], strength[1], n[0], n[1], gap, (mean[0] - mean[1]).magnitude, cross[0], cross[1],
+                menHue[0], menHue[1], menStrength[0], menStrength[1], menGap));
+            huePath = null; hueFrames = null; hueMasks = null; hueRaw = null; hueMen = null; hueStep = 0;
         }
 
         static void Or(bool[] into, bool[] m) { for (int i = 0; i < into.Length; i++) into[i] |= m[i]; }
@@ -679,7 +792,7 @@ namespace TW.Playground
             for (int i = 0; i < Buildings.Count; i++)
             {
                 var b = Buildings[i]; if (i > 0) sb.Append(',');
-                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"name\":\"{0}\",\"standing\":{1},\"chunks\":{2},\"floating\":{3}}}", b.name, b.Standing, b.Pieces.Count, b.Floating);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"name\":\"{0}\",\"standing\":{1},\"chunks\":{2},\"floating\":{3},\"on_end\":{4}}}", b.name, b.Standing, b.Pieces.Count, b.Floating, b.OnEnd);
             }
             sb.Append("],\"units\":[");
             for (int i = 0; i < Units.Count; i++)
