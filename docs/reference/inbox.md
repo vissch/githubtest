@@ -40,6 +40,8 @@ in the `tasks.md` row's Trap line, or in a test.
 - **2026-09-27, to `lane/show/units-meta`.** `TankCapture.cs` conflicts: both branches replaced the archetype chain in
   `Spawn`. Take yours, which reads your new roster model; drop the maint version. Your one-line `CombatFx.cs` edit
   moves across the split with `Tools/port_split.py`. `UI/Selection.meta`: take either GUID.
-- **2026-09-25, to every lane cut before 9c1ec32** (`lane/sim/units-meta`, `lane/show/units-meta`, `lane/show/aosa`).
-  Your branch has no `CLAUDE.md`, no `gate.ps1` and none of `docs/reference/`. `git pull --rebase` onto
-  `claude/trench-warfare-2d-3d-plan-idt7lf` once this pass lands; `validate.py` will then check your docs too.
+- **2026-09-27, to every lane.** The maintenance pass landed on `claude/trench-warfare-2d-3d-plan-idt7lf` (26a078c):
+  the docs in `docs/reference/`, `Tools/health.py`, `codemap.py --check` in `validate.py`, the `CombatFx.cs` split and
+  the statics test. Rebase onto it (or merge it in) before your next push. `python Tools/health.py --lanes` shows
+  which files will conflict for you; the notes above say how to resolve each. Lanes cut before 9c1ec32
+  (`lane/sim/units-meta`, `lane/show/units-meta`, `lane/show/aosa`) also gain `CLAUDE.md` and `gate.ps1` this way.
