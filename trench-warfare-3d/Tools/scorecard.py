@@ -3,9 +3,15 @@
 
     python Tools/scorecard.py                         print the scores
     python Tools/scorecard.py --selftest              also run Tools/selftest.py (about a minute)
-    python Tools/scorecard.py --history FILE          append this run to FILE (JSON lines) and compare with the
-                                                      last run in it: every metric that got worse is printed as
-                                                      REGRESSED, and the exit code is 1
+    python Tools/scorecard.py --history FILE          append this run to FILE (JSON lines) and compare each metric
+                                                      with its value in the last clean run in FILE: every metric
+                                                      that got worse, or could not be measured, is REGRESSED and
+                                                      the exit code is 1
+    python Tools/scorecard.py --history FILE --accept  the same, but record this run as the new clean baseline
+                                                      (a regression you meant; say why in the commit)
+
+A run with a regression is recorded but never becomes the baseline, so the regression is reported again on every
+run until it is fixed or accepted.
 
 No Unity needed. Test counts come from the last gate's test-results-<mode>.xml, with their age, so a stale number
 is visible. Each metric says which way is better; "info" metrics are recorded but never flagged.
@@ -32,6 +38,7 @@ DIRECTION = {
     'selftest_failed': 'lower', 'selftest_cases': 'higher',
     'editmode_tests': 'higher', 'editmode_failed': 'lower', 'playmode_tests': 'higher', 'playmode_failed': 'lower',
 }
+OPTIONAL = {'selftest_failed', 'selftest_cases'}   # measured only with --selftest: absent is not a regression
 
 
 def read(p):
@@ -100,6 +107,30 @@ def scores(with_selftest):
     return s
 
 
+def compare(rows, s):
+    '''(regressed, improved) lines for this run's scores s against rows, the history so far. Each metric is compared
+    with its value in the last row that has no regression (or was accepted). A metric that baseline had and this run
+    lacks, or reads -1 (its source was unreadable), is a regression: an unmeasured number must not pass.'''
+    clean = [r for r in rows if not r.get('regressed') or r.get('accepted')]
+    worse, better = [], []
+    for k, d in DIRECTION.items():
+        if d == 'info':
+            continue
+        base = next((r[k] for r in reversed(clean) if r.get(k, -1) != -1), None)
+        if base is None:
+            continue
+        now = s.get(k)
+        if now is None and k in OPTIONAL:
+            continue
+        if now is None or now == -1:
+            worse.append(f'REGRESSED {k}: {base} -> {"not measured" if now is None else -1}')
+        elif (d == 'lower' and now > base) or (d == 'higher' and now < base):
+            worse.append(f'REGRESSED {k}: {base} -> {now}')
+        elif now != base:
+            better.append(f'improved  {k}: {base} -> {now}')
+    return worse, better
+
+
 def main():
     s = scores('--selftest' in sys.argv)
     for k, v in s.items():
@@ -110,28 +141,27 @@ def main():
     if '--history' not in sys.argv:
         return
     hist = Path(sys.argv[sys.argv.index('--history') + 1])
-    prev = None
+    rows = []
     if hist.exists():
-        rows = [json.loads(l) for l in hist.read_text(encoding='utf-8').split('\n') if l.strip()]
-        prev = rows[-1] if rows else None
+        for l in hist.read_text(encoding='utf-8').split('\n'):
+            try:
+                rows.append(json.loads(l))
+            except ValueError:
+                pass   # a blank or half-written line
+    worse, better = compare(rows, s)
+    s['regressed'] = [w.split()[1].rstrip(':') for w in worse]
+    if worse and '--accept' in sys.argv:
+        s['accepted'] = True
     with hist.open('a', encoding='utf-8') as f:
         f.write(json.dumps(s) + '\n')
-    if not prev:
+    if not rows:
         print('\nfirst run in this history: nothing to compare')
         return
-    worse = []
-    for k, d in DIRECTION.items():
-        if d == 'info' or k not in s or k not in prev:
-            continue
-        a, b = prev[k], s[k]
-        if (d == 'lower' and b > a) or (d == 'higher' and b < a):
-            worse.append(f'REGRESSED {k}: {a} -> {b}')
-        elif a != b:
-            print(f'improved  {k}: {a} -> {b}')
-    for w in worse:
-        print(w)
-    print(f'\n{len(worse)} regressions since {prev.get("time")} ({prev.get("head")})')
-    sys.exit(1 if worse else 0)
+    for line in better + worse:
+        print(line)
+    note = ' (accepted: this run is the new baseline)' if worse and s.get('accepted') else ''
+    print(f'\n{len(worse)} regressions against the last clean run{note}')
+    sys.exit(1 if worse and not s.get('accepted') else 0)
 
 
 if __name__ == '__main__':

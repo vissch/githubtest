@@ -25,12 +25,15 @@ The targets are FILE and every sibling named like it (CombatFx.*.cs), plus any f
 applied where its lines (context and removed) appear exactly once across the targets. If they do not, outer context
 lines are shed one at a time, but only lines that still exist somewhere in the targets (the split moved them). A
 context line that exists nowhere was changed by the other side: that is a conflict, and the edit goes to
-FILE.port.rej for you, as it does when its lines match nowhere or in more than one place.
+FILE.port.rej for you, as it does when its lines match nowhere or in more than one place. So does an edit whose
+lines the other side changed a copy of: two methods with the same body, one of them edited upstream, would
+otherwise pull the edit into the twin it still matches (git's 3-way merge calls that a conflict).
 
 Exit 0 when every hunk applied, 1 when some are in the .rej file. Then compile (Tools/tw build or the gate): this
 moves text, it does not know C#. A new member lands next to its old neighbours, which is the partial that owns them.
 """
 import argparse
+from collections import Counter
 import pathlib
 import subprocess
 import sys
@@ -47,7 +50,7 @@ def hunks(diff: str):
             cur = {'header': line, 'lines': []}
             out.append(cur)
         elif cur is not None and line[:1] in (' ', '-', '+'):
-            cur['lines'].append((line[0], line[1:].rstrip('\r')))
+            cur['lines'].append((line[0], line[1:].rstrip('\r').lstrip('﻿')))
         elif cur is not None and line.startswith('\\'):
             continue
     return out
@@ -82,13 +85,15 @@ def groups(body, ctx=3):
     return out
 
 
-def place(body, targets, text, everywhere):
+def place(body, targets, text, everywhere, edited):
     """Where this edit applies: full context first, then shed outer context lines one at a time (a split boundary
     can cut them off). Removed lines anchor on their own; a pure addition keeps one context line to hang from.
 
     A context line may only be shed if it still exists somewhere in the targets: then the split moved it. If it
     exists nowhere, the other side changed it, and git would call that a conflict; so do we (the edit goes to .rej).
     """
+    if any(k != '+' and s in edited for k, s in body):
+        return None
     changed = [i for i, (k, _) in enumerate(body) if k != ' ']
     lead, trail = changed[0], len(body) - 1 - changed[-1]
     keep = 0 if any(k == '-' for k, _ in body) else 1
@@ -144,6 +149,9 @@ def main():
         kept = git('show', f':{2 if keep == "--ours" else 3}:./{old.name}', cwd=here).lstrip('\ufeff')
     elif keep:
         git('checkout', keep, '--', old.name, cwd=here)
+    if keep and not git('ls-files', '-u', '--', old.name, cwd=here).strip():
+        sys.exit(f'git has no conflict on {old.name}: nothing to port (did the rebase stop on it? did the split delete '
+                 f'it? then port with --from/--to into its siblings)')
     targets = [old] if old.exists() else []
     targets += sorted(p for p in old.parent.glob(old.stem + '.*' + old.suffix) if p != old)
     targets += [pathlib.Path(p) for p in a.into]
@@ -163,6 +171,12 @@ def main():
     nl = {t: '\r\n' if '\r\n' in raw[t] else '\n' for t in targets}
     text = {t: raw[t].replace('\r\n', '\n').split('\n') for t in targets}
     everywhere = {s for t in targets for s in text[t]}
+    # Lines of the original file that the other side edited or deleted a copy of: a line that now appears fewer times
+    # across the targets than it did in the file the edits start from. A split only moves lines, so it never lowers a
+    # count. Lines without a letter or digit (braces) are left out: they cannot place an edit on their own.
+    base = git('show', f'{a.base}:./{old.name}', cwd=here).lstrip('﻿').replace('\r\n', '\n').split('\n')
+    now = Counter(s for t in targets for s in text[t])
+    edited = {s for s, n in Counter(base).items() if now[s] < n and any(c.isalnum() for c in s)}
 
     rejected, total = [], 0
     for h in hs:
@@ -171,7 +185,7 @@ def main():
         for n, body in enumerate(parts, 1):
             total += 1
             label = f'{h["header"].split(" @@")[0]} @@ edit {n}'
-            spot = place(body, targets, text, everywhere)
+            spot = place(body, targets, text, everywhere, edited)
             added = sum(1 for k, _ in body if k == '+')
             removed = sum(1 for k, _ in body if k == '-')
             if not spot:

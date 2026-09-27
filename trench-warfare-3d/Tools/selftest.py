@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test the tools that keep this repo honest. Run it after changing codemap.py, port_split.py or health.py.
+"""Test the tools that keep this repo honest. Run it after changing any tool here.
 
 WHY. validate.py trusts codemap.py --check, and a merge trusts port_split.py. If an edit to either quietly stops it
 catching anything, every session keeps trusting a check that no longer works. This breaks things on purpose and
@@ -11,7 +11,9 @@ Cases: codemap --check passes on a clean tree, then fails on each of: a command 
 cited file that does not exist, a folder with no purpose line, an undocumented command-line flag, a test class
 tasks.md never names, an agent-memory.md over its cap. port_split.py, on a small repo built here: an edit to moved
 code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
-changed goes to the .rej file. health.py --lanes runs and lists this checkout.
+changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file. health.py
+--lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
+counts an unmeasured metric as one.
 """
 import pathlib
 import shutil
@@ -95,6 +97,18 @@ def codemap_cases(wt: pathlib.Path):
     tasks = wt / 'docs/reference/tasks.md'
     expect('an "(until ... lands)" line whose commit has landed', 'has landed',
            lambda: tasks.write_bytes(tasks.read_bytes() + f'\nA pending fix (until "{head_subject}" lands).\n'.encode()))
+    tag = 'Selftest quoted subject that never landed'
+    tasks.write_bytes(tasks.read_bytes() + f'\nA pending fix (until "{tag}" lands).\n'.encode())
+    run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam',
+         f'quote it\n\nThe body says (until "{tag}" lands).'], wt)
+    code, out = run(check, proj)
+    case('codemap does not call a tag landed when a commit message only quotes it', tag not in out, out)
+    run(['git', 'reset', '-q', '--hard', 'HEAD~1'], wt)
+    sim_lines = len((proj / 'Assets/_Project/Presentation/Core/SimHost.cs').read_text(encoding='utf-8-sig').splitlines())
+    expect('a cited line one past the end of the file', 'past the end',
+           lambda: wf.write_bytes(wf.read_bytes() + f'\nSee `Presentation/Core/SimHost.cs:{sim_lines + 1}`.\n'.encode()))
+    expect('a tool whose name only appears inside a longer tool name', 'Tools/map.py is in neither',
+           lambda: (proj / 'Tools/map.py').write_text('print(1)\n'))
     mem = wt / 'docs/reference/agent-memory.md'
     expect('agent-memory.md over its cap', 'agent-memory.md is',
            lambda: mem.write_bytes(mem.read_bytes() + b''.join(b'- filler %d\n' % i for i in range(200))))
@@ -154,6 +168,51 @@ def port_split_cases(tmp: pathlib.Path):
          stopped and code == 0 and 'int move9 = 99;' in moved_now and code2 == 0, out + out2 + out3)
 
 
+def port_split_twin_case(tmp: pathlib.Path):
+    # Two methods with the same body. The lane edits B; upstream moves B out and changes a line of it. The edit's
+    # lines still match A exactly once, so a placement by text alone lands it in the wrong method.
+    r = tmp / 'twin-repo'
+    (r / 'A').mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    g('init', '-q', '-b', 'main')
+    big = r / 'A/Big.cs'
+    method = lambda name, reset: [f'    void {name}()', '    {', '        Init();', f'        {reset}();', '    }']
+    big.write_text('\n'.join(['class Big', '{'] + method('A', 'Reset') + method('B', 'Reset') +
+                             ['    int keep0 = 0;', '}', '']))
+    g('add', '.'); g('commit', '-qm', 'base')
+    g('checkout', '-qb', 'edits')
+    b = big.read_text().split('\n')
+    b.insert(b.index('    void B()') + 4, '        Log();')
+    big.write_text('\n'.join(b))
+    g('commit', '-qam', 'edits')
+    g('checkout', '-q', 'main')
+    big.write_text('\n'.join(['class Big', '{'] + method('A', 'Reset') + ['    int keep0 = 0;', '}', '']))
+    (r / 'A/Big.Moved.cs').write_text('\n'.join(['partial class Big', '{'] + method('B', 'ResetAll') + ['}', '']))
+    g('add', '.'); g('commit', '-qm', 'split')
+    code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--from', 'main~1', '--to', 'edits'], r)
+    case('port_split rejects an edit whose lines the other side changed in one of two identical copies',
+         code == 1 and 'Log();' not in big.read_text() and 'Log();' not in (r / 'A/Big.Moved.cs').read_text(), out)
+
+
+def scorecard_cases():
+    sys.path.insert(0, str(HERE))
+    import scorecard
+    good = {'codemap_errors': 0, 'editmode_tests': 343, 'editmode_failed': 0, 'statics_explained': 30}
+    bad = dict(good, codemap_errors=3)
+    worse, _ = scorecard.compare([good], bad)
+    case('scorecard flags a metric that got worse', any('codemap_errors' in w for w in worse), str(worse))
+    worse, _ = scorecard.compare([good, dict(bad, regressed=['codemap_errors'])], bad)
+    case('scorecard keeps flagging a regression on the next run (it never becomes the baseline)',
+         any('codemap_errors' in w for w in worse), str(worse))
+    worse, _ = scorecard.compare([good], dict(good, statics_explained=-1, editmode_failed=-1))
+    case('scorecard flags a metric that reads -1 (its source was unreadable)', len(worse) == 2, str(worse))
+    missing = dict(good); del missing['editmode_tests']
+    worse, _ = scorecard.compare([good], missing)
+    case('scorecard flags a metric that was not measured', any('editmode_tests' in w for w in worse), str(worse))
+    worse, _ = scorecard.compare([good, dict(bad, regressed=['codemap_errors'], accepted=True)], bad)
+    case('scorecard takes an accepted run as the new baseline', not worse, str(worse))
+
+
 def main():
     run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='tw-selftest-'))
@@ -175,6 +234,8 @@ def main():
              '--allow-empty', '--no-verify'], wt)
         codemap_cases(wt)
         port_split_cases(tmp)
+        port_split_twin_case(tmp)
+        scorecard_cases()
         code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:

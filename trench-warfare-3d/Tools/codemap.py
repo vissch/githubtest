@@ -469,7 +469,7 @@ def check_citations(errors):
     for doc in docs:
         if not doc.exists():
             continue
-        text = outside_blocks(read(doc))
+        text = GEN.sub(lambda m: '\n' * m.group(0).count('\n'), read(doc))
         fenced = False
         for ln, line in enumerate(text.split('\n'), 1):
             # Commands: a script run in a code block or in a multi-word `python Tools/x.py args` must exist, or a
@@ -495,7 +495,7 @@ def check_citations(errors):
                 m = re.search(r':(\d+)(?:-(\d+))?$', tok)
                 if m:
                     last = int(m.group(2) or m.group(1))
-                    if not any(h.is_file() and last <= len(read(h).split('\n')) for h in hits):
+                    if not any(h.is_file() and last <= len(read(h).splitlines()) for h in hits):
                         errors.append(f'{rel(doc, REPO)}:{ln}: cites `{tok}`, past the end of the file')
 
 
@@ -540,25 +540,28 @@ def check(errors, warnings):
     # A sentence about another lane's pending change carries (until "<that commit's subject>" lands). A subject, not a
     # hash: a lane rebases before it lands, which changes every hash. Once a commit with that subject is in HEAD the
     # sentence describes the past: rewrite it and drop the tag.
+    subjects = None
     for doc in (CLAUDE, TASKS, WORKFLOW, PIPELINES, FLAGS):
         if not doc.exists():
             continue
         text = read(doc)
         for m in re.finditer(r'\(until\s+"([^"]{12,})"\s+lands\)', text):
+            if subjects is None:
+                log = subprocess.run(['git', 'log', 'HEAD', '--format=%h %s'], cwd=REPO, capture_output=True)
+                subjects = [l.split(' ', 1) for l in log.stdout.decode('utf-8', 'replace').split('\n') if ' ' in l]
             subject = ' '.join(m.group(1).split())
-            hit = subprocess.run(['git', 'log', 'HEAD', '-1', '--fixed-strings', f'--grep={subject}', '--format=%h'],
-                                 cwd=REPO, capture_output=True).stdout.decode().strip()
+            hit = next((h for h, s in subjects if ' '.join(s.split()).startswith(subject)), None)
             if hit:
                 ln = text[:m.start()].count('\n') + 1
                 errors.append(f'{rel(doc, REPO)}:{ln}: "{subject}" has landed ({hit}), so this sentence is out of '
                               'date: rewrite it and drop the "(until ... lands)" tag')
     tool_docs = (read(PIPELINES) if PIPELINES.exists() else '') + (read(WORKFLOW) if WORKFLOW.exists() else '')
     for py in sorted((ROOT / 'Tools').glob('*.py')):
-        if py.name not in tool_docs:
+        if not re.search(r'(?<![\w.-])' + re.escape(py.name) + r'(?![\w])', tool_docs):
             errors.append(f'Tools/{py.name} is in neither pipelines.md nor workflow.md')
     tw = read(ROOT / 'Tools' / 'tw')
     for sub in re.findall(r'^  (\w+)\)', tw, re.M):
-        if f'tw {sub}' not in tool_docs:
+        if not re.search(r'\btw ' + re.escape(sub) + r'\b', tool_docs):
             errors.append(f'`tw {sub}` is in neither pipelines.md nor workflow.md')
 
     if MEMORY.exists():
