@@ -176,6 +176,10 @@ namespace TW.Playground
 
         public Part Find(string name) { foreach (var p in Parts) if (p.Name == name) return p; return null; }
 
+        /// <summary>The first part of a destruction tier, in the manifest's order (null if none): what a script aimed at a
+        /// tank's plate or track hits on a machine that has neither.</summary>
+        public Part FirstOfTier(int tier) { foreach (var p in Parts) if (p.Tier == tier) return p; return null; }
+
         public Vector3 Socket(string name)
         {
             if (sockets.TryGetValue(name, out var s)) return Parts[s.part].T.TransformPoint(s.local);
@@ -345,7 +349,9 @@ namespace TW.Playground
         {
             if (Hp <= 0.5f * MaxHp && State == Stage.Intact) State = Stage.Damaged;
             if (Hp <= 0f && State < Stage.KnockedOut) KnockOut();
-            if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff) CookOff();
+            // overkill cooks it off, but not in the same breath as the knock-out: a machine killed by one big hit went
+            // straight to the cook-off and never showed itself burning (critic loop 2 r30, the Croaker)
+            if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff && State == Stage.KnockedOut && Time.time - knockedAt > 1.5f) CookOff();
         }
 
         /// <summary>Throw a part off. velocity in m/s and spin in rad/s, both in the vehicle's frame.</summary>
@@ -435,7 +441,15 @@ namespace TW.Playground
                 // round the whole intact vehicle (TankRenderer measures the track gauge and pads 0.9 m; the full width
                 // and a 0.6 m pad come out the same size), staying where the hull stood when the parts fly
                 var mid = transform.TransformPoint(footprint.center); var e = Vector3.Scale(footprint.extents, transform.lossyScale);
-                Fx.Ring(new Vector3(mid.x, GroundY, mid.z), transform.eulerAngles.y, e.x, e.z, 0.6f, 0.6f, Team, State >= Stage.KnockedOut);
+                float yaw = transform.eulerAngles.y;
+                // a flyer's ring is on the ground under the aircraft, wherever it is flying, not where the rig stands
+                var hull = Flyer != null ? Find("Hull") : null;
+                if (hull != null && !hull.Loose)
+                {
+                    mid = hull.T.TransformPoint(transform.InverseTransformPoint(mid) - hull.RestLocal);
+                    yaw = hull.T.eulerAngles.y;
+                }
+                Fx.Ring(new Vector3(mid.x, GroundY, mid.z), yaw, e.x, e.z, 0.6f, 0.6f, Team, State >= Stage.KnockedOut);
             }
         }
 

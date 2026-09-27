@@ -17,12 +17,16 @@ namespace TW.Playground
         public float Speed;                        // m/s forward (the "walk" command); it walks a circle of Radius
         public float Radius = 22f;
         public bool InPlace;                       // a treadmill: it steps as if walking and stays where it was built (to look at)
-        public float StrideArms = 22f;             // degrees of arm swing per metre the feet are apart along the body
+        public float StrideArms = 30f;
+        public float Rise = 0.12f;                 // metres the body rises as a foot passes under it (rig units)
+        public float Sway = 4f;                    // degrees it leans over the foot it stands on
+        public float HipTurn = 5f;                 // degrees the hips turn with the stride             // degrees of arm swing per metre the feet are apart along the body
         public Vector3 WalkPos { get; private set; }   // metres from where it was built, in its build frame
         public float WalkYaw { get; private set; }     // radians turned since it was built
 
         VehicleRig rig;
         readonly WalkerGait gait = new WalkerGait();
+        public WalkerGait Gait => gait;                 // read by tests and the gait probe
         TankModel model;
         Vector3 startPos; Quaternion startRot;
         VehicleRig.Part hull, turret;
@@ -95,7 +99,20 @@ namespace TW.Playground
             float size = rig.Size;
             // the body: up by how high the gait rides it, tilted by the plane its feet make
             float dy = gait.Height / size - 0f;
-            var tilt = Quaternion.AngleAxis(-gait.Pitch * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-gait.Roll * Mathf.Rad2Deg, Vector3.forward);
+            // a biped carries its weight: the body rises as the swinging foot passes under it, leans over the foot it
+            // stands on and turns its hips with the stride. WalkerGait rides a crab level on the mean of its feet, and
+            // on two legs that read as a statue sliding (critic loop 2 r30: the hull at 1.25 m in both walk frames)
+            float lift = 0f, lean = 0f, stride = 0f;
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++)
+            {
+                if (gait.Feet[s].Swing < 0f || gait.Feet[s].Lost) continue;
+                float k = Mathf.Sin(gait.Feet[s].Swing * Mathf.PI);
+                lift = Mathf.Max(lift, k); lean += (s == 0 ? -1f : 1f) * k;   // left foot up: lean onto the right
+            }
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (gait.Feet[s].At - WalkPos)).z / size;
+            dy += Rise * lift;
+            var tilt = Quaternion.AngleAxis(-gait.Pitch * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-gait.Roll * Mathf.Rad2Deg + Sway * lean, Vector3.forward)
+                     * Quaternion.AngleAxis(Mathf.Clamp(stride, -1.5f, 1.5f) * HipTurn, Vector3.up);
             hull.T.localPosition = hullPivot + new Vector3(0f, dy, 0f);
             hull.T.localRotation = tilt;
             Vector3 hullAt = hull.T.localPosition;
