@@ -30,8 +30,9 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent          # trench-warfare-3d
 REPO = ROOT.parent
@@ -134,6 +135,7 @@ STATIC_SWITCHES = [
 # Paths that docs may cite although they are not in the repo (machine-local or produced at run time).
 ALLOW_MISSING = {
     'settings.json', 'editor-slot.json', 'Captures/', 'Builds/', 'Tools/flame-shots/', 'test-results.xml',
+    'test-results-EditMode.xml', 'test-results-PlayMode.xml',
     'Library/', 'Temp/', 'Temp/UnityLockfile', 'Library/BurstCache', 'Library/ScriptAssemblies', 'Assets/_shots/',
     'Editor.log',
 }
@@ -399,24 +401,45 @@ PATH_TOKEN = re.compile(r'^[\w.\-/]+\.(cs|py|md|shader|hlsl|uss|uxml|tss|asmdef|
                         r'jpeg|bytes|fbx|xml|yml)(:\d+(?:-\d+)?)?$|^[\w.\-]+(/[\w.\-]+)+/$')
 TOOL_WORD = re.compile(r'^Tools/[\w.\-]+$')
 SEARCH_BASES = [REPO, ROOT, PROJ, REPO / 'docs', REF]
-SKIP_DIRS = {'.git', 'Library', 'Temp', 'Logs', 'obj', 'github-test1', 'UserSettings', 'Builds', 'Captures'}
+SKIP_DIRS = {'github-test1'}
 _index = None
+_known = None
+
+
+def known():
+    """Every path the repo holds, as git sees it: tracked files plus new ones not yet added, never ignored ones.
+    A cited file must be in the repo, not merely on this disk: `test-results-EditMode.xml` existed only where the
+    gate had run, so the check passed here and failed in every fresh clone (2026-09-27)."""
+    global _known
+    if _known is None:
+        out = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=REPO,
+                             capture_output=True).stdout.decode('utf-8', 'replace')
+        files = {f for f in out.split('\0') if f and f.split('/')[0] not in SKIP_DIRS and (REPO / f).exists()}
+        dirs = {str(PurePosixPath(f).parents[i]) for f in files
+                for i in range(len(PurePosixPath(f).parents) - 1)}
+        _known = files | dirs
+    return _known
+
+
+def exists(p: Path) -> bool:
+    try:
+        return p.resolve().relative_to(REPO.resolve()).as_posix() in known()
+    except ValueError:
+        return False
 
 
 def by_name(name: str):
     global _index
     if _index is None:
         _index = {}
-        for p in REPO.rglob('*'):
-            if any(part in SKIP_DIRS for part in p.relative_to(REPO).parts):
-                continue
-            _index.setdefault(p.name, []).append(p)
+        for rel in known():
+            _index.setdefault(rel.rsplit('/', 1)[-1], []).append(REPO / rel)
     return _index.get(name, [])
 
 
 def resolve(token: str):
     path = token.split(':')[0].rstrip('/')
-    hits = [b / path for b in SEARCH_BASES if (b / path).exists()]
+    hits = [b / path for b in SEARCH_BASES if exists(b / path)]
     if not hits and '/' not in path:
         hits = by_name(path)
     if not hits and '/' in path:   # a path relative to some folder we did not guess: match by suffix
