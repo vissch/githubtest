@@ -133,8 +133,9 @@ namespace TW.Playground
             float face = ax >= ay && ax >= az ? e.y * e.z : ay >= az ? e.x * e.z : e.x * e.y;
             float largest = Mathf.Max(e.x * e.y, Mathf.Max(e.y * e.z, e.x * e.z));
             // 0.6: a gun barrel's box (1.8 x 1.9 x 3.1 m) stood on end is 0.58 of its largest face, and a track stood
-            // upright on its rollers 0.45: both read as broken standing, both are pushed over
-            return face >= 0.6f * largest;
+            // upright on its rollers 0.45: both read as broken standing, both are pushed over. 0.7: the Croaker's thrown arm
+            // stood on its end on a face 0.68 of its largest and read as a post (loop 2 r40)
+            return face >= 0.7f * largest;
         }
     }
 }
