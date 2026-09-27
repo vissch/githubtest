@@ -412,7 +412,7 @@ namespace TW.Playground
 
         /// <summary>Each LOD's tint fitted on what the camera sees: every LOD drawn alone from four sides (the lodpop
         /// sides, the object filling half a 320 px frame at the battle's 25 degree pitch), the mean colour over its
-        /// silhouette compared with LOD0's, the ratio put on as a tint, twice (lighting and the grade are not linear in
+        /// silhouette compared with the LOD the standard view shows (see Seen), the ratio put on as a tint, twice (lighting and the grade are not linear in
         /// the albedo), within 0.75-1.25 (the frog's LOD3 wants 0.76: its far LODs render 23-30 % brighter). Kept by entry
         /// name (LodTint.Fitted) so every rig built after uses it. The mesh estimate overshot: it counts faces nobody sees
         /// (critic r8). What is left at a switch depends on the side it is seen from: shading, which no tint removes.</summary>
@@ -423,8 +423,17 @@ namespace TW.Playground
             Cam.enabled = false;
             bool first = true;
             const int W = 320, H = 320;
-            void Fit(string name, GameObject root, Vector3 centre, float radius, int lods, System.Action<int> force, System.Action<Color[]> apply)
+            // the reference is the LOD the battle's standard view shows (78 m, 25 degree lens), not LOD0: matched to LOD0 the
+            // far frogs came out darker, and a squad's contrast against the mud fell from 20.1 to 14.3 (figure_gap)
+            int Seen(float radius, float[] cuts)
             {
+                float share = 2f * radius / (2f * 78f * Mathf.Tan(12.5f * Mathf.Deg2Rad)); int k = 0;
+                while (k < cuts.Length && share < cuts[k]) k++;
+                return k;
+            }
+            void Fit(string name, GameObject root, Vector3 centre, float radius, int lods, System.Action<int> force, System.Action<Color[]> apply, int refLod)
+            {
+                refLod = Mathf.Clamp(refLod, 0, lods - 1);
                 var tints = new Color[lods]; for (int k = 0; k < lods; k++) tints[k] = Color.white;
                 var means = new Vector3[lods]; var before = new Vector3[lods];
                 for (int iter = 0; iter < 3; iter++)
@@ -446,15 +455,16 @@ namespace TW.Playground
                     }
                     if (iter == 0) System.Array.Copy(means, before, lods);
                     if (iter == 2) break;   // the third pass only measures the result
-                    for (int k = 1; k < lods; k++)
+                    for (int k = 0; k < lods; k++)
                     {
+                        if (k == refLod) continue;
                         float f(float t, float want, float have) => Mathf.Clamp(have > 0.5f ? t * want / have : t, 0.75f, 1.25f);
-                        tints[k] = new Color(f(tints[k].r, means[0].x, means[k].x), f(tints[k].g, means[0].y, means[k].y), f(tints[k].b, means[0].z, means[k].z), 1f);
+                        tints[k] = new Color(f(tints[k].r, means[refLod].x, means[k].x), f(tints[k].g, means[refLod].y, means[k].y), f(tints[k].b, means[refLod].z, means[k].z), 1f);
                     }
                 }
                 LodTint.Fitted[name] = tints;
                 if (!first) sb.Append(','); first = false;
-                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"lods\":[", name);
+                sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"what\":\"{0}\",\"reference\":{1},\"lods\":[", name, refLod);
                 for (int k = 0; k < lods; k++)
                 {
                     if (k > 0) sb.Append(',');
@@ -468,14 +478,14 @@ namespace TW.Playground
             {
                 string name = v.name.Split('#')[0]; if (!doneV.Add(name)) continue;
                 int prev = v.Lod;
-                Fit(name, v.gameObject, v.Centre, v.Radius, v.LodCount, k => { foreach (var p in v.Parts) p.R.enabled = true; v.SetLod(k); }, t => v.ApplyLodTints(t));
+                Fit(name, v.gameObject, v.Centre, v.Radius, v.LodCount, k => { foreach (var p in v.Parts) p.R.enabled = true; v.SetLod(k); }, t => v.ApplyLodTints(t), Seen(v.Radius, v.Picker.Cuts));
                 v.SetLod(prev);
             }
             foreach (var u in Units)
             {
                 if (!doneU.Add(u.name)) continue;
                 int prev = Mathf.Max(0, u.Lod);
-                Fit(u.name, u.gameObject, u.Centre, 0.5f * u.Height * u.transform.lossyScale.y, u.Lods.Length, k => u.SetLodSilently(k), t => u.ApplyLodTints(t));
+                Fit(u.name, u.gameObject, u.Centre, 0.5f * u.Height * u.transform.lossyScale.y, u.Lods.Length, k => u.SetLodSilently(k), t => u.ApplyLodTints(t), Seen(0.5f * u.Height * u.transform.lossyScale.y, u.Picker.Cuts));
                 u.SetLodSilently(prev);
             }
             // every other rig of the same entry takes the fit too
