@@ -68,6 +68,10 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Explosions batches B and C** (sky flash, shock ring, per-weapon recipes; scar layer, smouldering craters, haze). Batch A shipped; B and C wait for a go.
 - **Not scaled with the giant machines:** trench cross width, slope limit, turn rates, speeds, `MaxGrow`. Balance, not geometry.
 - **Forward+** renderer: the perf pass was to switch and let the owner judge the night look. Not recorded as done.
+- **Which SIM lane lands first: `lane/sim/units-meta` or `lane/sim/overhaul`?** Both rewrite the same systems
+  (`DirectFire`, `TargetAcquisition`, `Replay`, `SimEvents`, `SimRandom`, `OffMapAbilities`; 41 and 25 `Sim/` files
+  since they parted, 2026-09-27). Whichever lands second re-does its changes on top and re-proves determinism and
+  replay. Nothing in the code decides this; the owner does.
 - **Repo hygiene** from the maintainability audit: Git LFS for FBX and `.bytes`, removing `github-test1/`, whether CI builds Windows.
 
 ## Plans that live outside the repo

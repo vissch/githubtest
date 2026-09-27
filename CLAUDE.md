@@ -25,15 +25,13 @@ cd trench-warfare-3d && python Tools/health.py
 It reports the editor lock, free memory, your editor, `validate.py` and your lane. Then read `inbox.md`.
 `python Tools/codemap.py` regenerates the doc tables; `validate.py` fails when a doc no longer matches the code.
 
-## In flight (as of 2026-09-27)
-Other checkouts on this machine and what they hold. Update this block when you start or finish something shared.
-- `githubtest` (main clone, `lane/show/riders`): the owner's editor; uncommitted selection and HUD work.
-- `githubtest-overhaul` / `-overhaul-sim` (`lane/show/overhaul`, `lane/sim/overhaul`) and `githubtest-playground`
-  (`lane/show/playground`): built on this pass; the overhaul plan is `docs/21` on those branches.
-- `wt-ui-selection` (`lane/show/ui-selection`): selection polish. `githubtest-sim` (`lane/show/units-meta`): unit
-  meta, uncommitted `SlotCount` 8 → 10. `githubtest-aosa` (`lane/show/aosa`): the AOSA loop, contract on its branch.
-- `githubtest-maint` (`lane/show/maint-2026-09`): these docs; gate green 2026-09-27, not merged yet.
-- Merge notes for the lanes cut before the `CombatFx.cs` split are in `inbox.md`.
+## Who else is working
+```bash
+cd trench-warfare-3d && python Tools/health.py --lanes
+```
+Every checkout on this machine: its branch, last commit, drift from the integration branch, uncommitted files, and
+the files it would conflict on with yours (a trial merge in memory). Nothing to keep up to date by hand. A conflict
+it shows is one to raise early: a note in `inbox.md`, or ask the owner which lane lands first.
 
 ## Lanes
 Work out your lane from the current branch before you edit anything. If the branch is not `lane/sim/*` or
@@ -70,6 +68,9 @@ rebase before it continues. Never bundle a seam change into a feature commit.
 - Push small and often; `git pull --rebase` before every push. A conflict in a file outside your lane means you
   rebased over someone else's work: take theirs.
 - Never edit a file the other lane owns "just to unblock yourself". Ask for a seam commit.
+- A conflict inside a generated block (`<!-- gen:NAME -->` in `docs/reference/`): take either side, then run
+  `python Tools/codemap.py`, which rewrites the block from the merged code.
+- A conflict in a file that was split into partials: `Tools/port_split.py` (`workflow.md`, section 8).
 
 ## Gate before every commit
 ```bash

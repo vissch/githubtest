@@ -28,6 +28,12 @@ in the `tasks.md` row's Trap line, or in a test.
     commits (60714dd), not with this pass.
   Tools/aosa/land.ps1 (on your branch) silently reverts `TW-URP.asset` and the URP global settings; an intended
   settings change will be lost without a message.
+- **2026-09-27, to `lane/show/overhaul`.** `CLAUDE.md` conflicts once: the hand-kept "In flight" list you added a
+  line to is gone, replaced by `python Tools/health.py --lanes`, which works the same list out live. Take the maint
+  side of that block. `code-map.md` conflicts between your branch and `lane/show/playground` are in generated blocks:
+  take either side and run `python Tools/codemap.py`.
+- **2026-09-27, to both SIM lanes (`lane/sim/units-meta`, `lane/sim/overhaul`).** You rewrite the same six sim
+  systems; see `decisions.md`, open questions. Do not resolve it by merging lane to lane: the owner picks the order.
 - **2026-09-27, to `lane/show/ui-selection` and the main clone's uncommitted selection work.** `UnitPicker.cs`
   conflicts: you and `lane/show/maint-2026-09` both fixed the 1.5 figure scale. Take the maint side
   (`FigureScale = FigureMetrics.UnitScale`, one constant shared with `VATRenderer`); the value is the same 1.125.

@@ -25,9 +25,17 @@ branch   lane/show/maint-2026-09  lane show  ahead 0 behind 0 of claude/trench-w
 
 ## 2. The machine you share
 
-Several Claude sessions and the owner work on this workstation at once, each in its own checkout
-(`githubtest` = the main clone, `githubtest-aosa`, `githubtest-sim`, `githubtest-maint`, `aosa-c1-*`). Rules that
-cost real time when broken:
+Several Claude sessions and the owner work on this workstation at once, each in its own checkout. See who, on
+which branch, and where your branch would collide with theirs (2.4 s, nothing checked out):
+```bash
+python Tools/health.py --lanes
+```
+```
+githubtest-sim  [lane/show/units-meta]  +19 -5 vs integration
+  09-25 20:42  The silent defaults stop arming and armouring things that are not there
+  CONFLICTS with yours in 3: TankCapture.cs, TankRenderer.cs, Selection.meta
+```
+Rules that cost real time when broken:
 - **One editor per checkout.** Never open a second editor on a path that has one.
 - **Memory is the scarce resource.** An editor in Play holds 5-9 GB and the machine has 16. On 2026-09-25 three
   editors plus a player benchmark left 0.4 GB free; two editors vanished without a crash dump and the owner's was
