@@ -63,6 +63,13 @@ def inbox(branch):
     here = {p.name for p in (REPO / 'docs' / 'inbox').glob('*.md') if p.name != 'README.md'}
     _, listed = run(['git', 'ls-tree', '--name-only', integration_ref(), 'docs/inbox/'], cwd=REPO)
     upstream = {Path(l).name for l in listed.split() if l.endswith('.md') and not l.endswith('README.md')}
+    # a note pushed on another lane is visible before that lane lands; one this lane deleted is gone for it
+    _, lane_refs = run(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/lane'], cwd=REPO)
+    for r in lane_refs.split():
+        _, l = run(['git', 'ls-tree', '--name-only', r, 'docs/inbox/'], cwd=REPO)
+        upstream |= {Path(x).name for x in l.split() if x.endswith('.md') and not x.endswith('README.md')}
+    _, gone = run(['git', 'diff', '--name-only', '--diff-filter=D', integration_ref(), 'HEAD', '--', 'docs/inbox/'], cwd=REPO)
+    upstream -= {Path(x).name for x in gone.split()}
     names = sorted(here | upstream)
     # the recipient is the LONGEST lane name the note starts with, so show-units-meta is not read as show-units
     _, refs = run(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads/lane', 'refs/remotes/origin/lane'], cwd=REPO)
@@ -74,7 +81,7 @@ def inbox(branch):
     mine = [n for n in names if recipient(n) in (to_me, 'all')]
     print(f'inbox    {len(names)} notes, {len(mine)} for you')
     for n in names:
-        where = '' if n in here else '  (on the integration branch only: rebase to get it)'
+        where = '' if n in here else '  (not on your branch yet: on the integration branch or another lane)'
         if recipient(n) is None:
             where += '  (addressed to no lane that exists: rename it or delete it)'
         print(f'         {"FOR YOU " if n in mine else "        "}docs/inbox/{n}{where}')
