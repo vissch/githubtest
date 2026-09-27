@@ -25,6 +25,7 @@ namespace TW.Tests
         static readonly Dictionary<string, string> Explained = new Dictionary<string, string>
         {
             ["Atmosphere"] = "weather, mood and the storm flash: the live Atmosphere rewrites them every frame; PinnedClock is a capture switch the caller restores",
+            ["AllocProbe"] = "a cached profiler Recorder and a re-entry guard for one measurement at a time",
             ["AudioLevels"] = "player settings, applied from settings.json by SettingsApplier",
             ["BattleHud"] = "legacy IMGUI HUD layout (MinimapRect, a warning latch); retired in the audit backlog",
             ["BattlefieldProps"] = "EditorCamera: the prop editor's camera, set and cleared by EnvPropEditor",
@@ -41,28 +42,39 @@ namespace TW.Tests
             ["InputFocus"] = "cleared by SceneStatics.Reset on every scene load",
             ["KeyMap"] = "Current: the player's bindings from settings.json",
             ["MatchLaunch"] = "Current/Running: the mission request carried across a scene load, by design",
+            ["PerfBench"] = "Running and the last run's result path and exit code, which CaptureRig reads after a bench",
+            ["PropHandle"] = "All: the handles in the scene, kept by OnEnable/OnDisable (editor stand-ins for props)",
             ["RenderGround"] = "the drawn ground, replaced when the next terrain view builds; tests pass their maps explicitly",
             ["SceneMood"] = "Night: set by Atmosphere at the start of each scene",
+            ["SceneStatics"] = "the reset registry itself: entries are added once, from static constructors",
             ["SceneTints"] = "the biome's tints and their epoch: set by Atmosphere at the start of each scene",
             ["SettingsStore"] = "Current: the loaded settings.json",
             ["ShellBoot"] = "Disabled: a test switch; the shell root outlives scene loads by design",
             ["ShellRouter"] = "Instance: the one shell router, which outlives scene loads by design",
             ["SimHost"] = "BombardmentOverride is cleared by SceneStatics.Reset; CanaryOverride and StressOverride are set and restored by tests and tools",
+            ["TankModel"] = "grown: mesh copies per (mesh, scale); a copy destroyed when Play ends is seen (kept != null) and rebuilt, so only stale keys remain",
+            ["UnitArt"] = "cache: portraits loaded from Resources; assets outlive Play",
         };
 
         /// <summary>Types SceneStatics.ResetSession resets directly rather than through a registration.</summary>
         static readonly HashSet<string> ResetDirectly = new HashSet<string> { "SceneHooks" };
 
+        static bool IsContainer(Type t) =>
+            !t.IsArray && (typeof(System.Collections.ICollection).IsAssignableFrom(t)
+                           || t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>)));
+
         static IEnumerable<Type> Holders()
         {
+            // TW.Editor is left out on purpose: editor tools are meant to keep their state across Play.
             var assemblies = AppDomain.CurrentDomain.GetAssemblies()
-                .Where(a => { var n = a.GetName().Name; return n.StartsWith("TW.Presentation") || n == "TW.UI"; });
+                .Where(a => { var n = a.GetName().Name; return n.StartsWith("TW.Presentation") || n == "TW.UI" || n == "TW.Perf"; });
             foreach (var asm in assemblies)
                 foreach (var t in asm.GetTypes())
                 {
                     if (t.Name.Contains('<') || t.IsDefined(typeof(CompilerGeneratedAttribute), false)) continue;
+                    // a static that can be assigned, or a readonly one holding a container that can still be filled
                     bool mutable = t.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                        .Any(f => !f.IsLiteral && !f.IsInitOnly);
+                        .Any(f => !f.IsLiteral && (!f.IsInitOnly || IsContainer(f.FieldType)));
                     if (mutable) yield return t;
                 }
         }

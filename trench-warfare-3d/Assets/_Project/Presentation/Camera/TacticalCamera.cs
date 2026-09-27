@@ -106,6 +106,10 @@ namespace TW.Presentation.Tactical
         static readonly int CloseId = Shader.PropertyToID("_TWClose");
         void OnDisable() { SceneHooks.CloseUp = 0f; Shader.SetGlobalFloat(CloseId, 0f); }
 
+        /// <summary>How close-up the view is at a zoom: 1 at DetailFullZoom and nearer, 0 at DetailGoneZoom and
+        /// further. The one formula for SceneHooks.CloseUp; CaptureRig and PerfBench call it while they pose a shot.</summary>
+        public float CloseUpAt(float zoom) => 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(DetailFullZoom, DetailGoneZoom, zoom));
+
         void LateUpdate()
         {
             using var perf = TW.Sim.PerfMarkers.CameraLate.Auto();
@@ -155,7 +159,7 @@ namespace TW.Presentation.Tactical
             }
             float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(ZoomMin, CloseZoom, Zoom));   // 0 tactical, 1 among the men
             // the small things of the field (grit, footprints, brass, litter) come in over a wider band and cost nothing at the standard view
-            SceneHooks.CloseUp = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(DetailFullZoom, DetailGoneZoom, Zoom));
+            SceneHooks.CloseUp = CloseUpAt(Zoom);
             Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
             float yawLimit = Mathf.Lerp(YawLimit, CloseYawLimit, close);   // up close Q/E can turn to face the enemy
             if (freeLook) yaw = Mathf.Repeat(yaw + 180f, 360f) - 180f; else yaw = Mathf.Clamp(yaw, -yawLimit, yawLimit);

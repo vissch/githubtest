@@ -203,7 +203,7 @@ namespace TW.Perf
             var tc = tactical;
             tc.Zoom = Mathf.Clamp(Options.Zoom, tc.ZoomMin, tc.ZoomMax);
             tc.Focus = focus;
-            SceneHooks.CloseUp = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.DetailFullZoom, tc.DetailGoneZoom, tc.Zoom));
+            SceneHooks.CloseUp = tc.CloseUpAt(tc.Zoom);
             Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
             float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.ZoomMin, tc.CloseZoom, tc.Zoom));
             float fov = Mathf.Lerp(tc.Fov, tc.CloseFov, close);
