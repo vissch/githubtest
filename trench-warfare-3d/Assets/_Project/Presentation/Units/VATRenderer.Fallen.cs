@@ -63,15 +63,14 @@ namespace TW.Presentation.Units
         public static float LiesUnder(float belowBorn, float belowLies, float topBorn, float topLies) => Mathf.Max(belowLies, topBorn + topLies - belowBorn);
 
         /// <summary>The fallen man whose time is up first (born + lies), the one the cap takes away.</summary>
-        int SoonestGone()
+        int SoonestGone() => SoonestEnd(fallenMen.Count, k => fallenMen[k].Born + (fallenMen[k].Lies > 0.01f ? fallenMen[k].Lies : FallenSeconds));
+
+        /// <summary>The index whose end comes first; a tie goes to the later index (a heap's bottom, extended to its top's
+        /// end, often ties it, and the later-added top must go first: critic r7). Pure, so DeathVarietyTests holds it.</summary>
+        public static int SoonestEnd(int count, System.Func<int, float> endOf)
         {
             int best = 0; float end = float.MaxValue;
-            for (int k = 0; k < fallenMen.Count; k++)
-            {
-                var f = fallenMen[k];
-                float e = f.Born + (f.Lies > 0.01f ? f.Lies : FallenSeconds);
-                if (e <= end) { end = e; best = k; }   // a tie goes to the later body: a heap's bottom, extended to its top's end, often ties it (critic r7)
-            }
+            for (int k = 0; k < count; k++) { float e = endOf(k); if (e <= end) { end = e; best = k; } }
             return best;
         }
 

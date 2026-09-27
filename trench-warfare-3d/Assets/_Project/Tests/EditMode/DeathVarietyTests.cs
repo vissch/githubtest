@@ -216,6 +216,33 @@ namespace TW.Tests
             Assert.AreEqual(0, r.A.Char[man], "and he comes up clean");
         }
 
+        /// <summary>The body cap takes the soonest gone, and on a tie the later one (the heap's top, not its bottom).</summary>
+        [Test]
+        public void TheBodyCapTakesTheSoonestGoneAndATieTakesTheLater()
+        {
+            float[] ends = { 40f, 31f, 31f, 50f };
+            Assert.AreEqual(2, VATRenderer.SoonestEnd(ends.Length, k => ends[k]), "the tie at 31 s goes to the later body");
+            float[] clear = { 40f, 30f, 31f };
+            Assert.AreEqual(1, VATRenderer.SoonestEnd(clear.Length, k => clear[k]), "else the soonest");
+        }
+
+        /// <summary>A walker's slot refilled in the tick it died writes no man's death (it leaves a wreck): the refill death
+        /// excluded only tanks until critic r7.</summary>
+        [Test]
+        public void AWalkersSlotRefilledInTheTickItDiedRecordsNoDeath()
+        {
+            using var r = new Rig();
+            int walker = r.W.Spawn(1, VehicleArchetype.Pincer, Here, 2300f, 2f, true);
+            r.Tick();
+            uint at = r.W.Tick;
+            r.W.Despawn(walker, (int)DeathCause.Blast, new float3(0f, 1f, 0f), 0f);
+            int man = r.Man(Here + new float3(20f, 0f, 0f));
+            Assert.AreEqual(walker, man, "the man takes the walker's slot in the same tick");
+            r.Tick();
+            Assert.IsFalse(r.A.TryDeath(walker, at, out _), "no man died there: a walker leaves a wreck");
+            Assert.IsFalse(r.A.State[man].Dead, "the man in the slot is alive");
+        }
+
         /// <summary>A heap sinks together or from the top: the body under a man lies at least until he is gone.</summary>
         [Test]
         public void ABodyUnderAHeapIsNotGoneBeforeTheManOnTop()
