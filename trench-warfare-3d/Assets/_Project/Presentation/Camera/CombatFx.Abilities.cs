@@ -49,20 +49,6 @@ namespace TW.Presentation.Tactical
         /// fraction BeamSystem.HeadOf walks tick by tick.</summary>
         public static float SweepFraction(float simNow, float t0, float t1) => Mathf.Clamp01((simNow - t0) / Mathf.Max(0.01f, t1 - t0));
 
-        /// <summary>What the banner calls a support ability.</summary>
-        static string AbilityWord(int id)
-        {
-            switch ((OffMapAbilityId)id)
-            {
-                case OffMapAbilityId.ChlorineGas: return "gas";
-                case OffMapAbilityId.SmokeScreen: return "smoke";
-                case OffMapAbilityId.StrafeRun: return "strafe";
-                case OffMapAbilityId.Beam: return "beam";
-                case OffMapAbilityId.CreepingBarrage: return "creeping barrage";
-                default: return "barrage";
-            }
-        }
-
         /// <summary>AbilityFired: what the sim is about to do is set going here (the aircraft's run-in, the beam's charge).
         /// dir is the heading times the length for a line ability, zero for a point.</summary>
         void OnAbilityFired(SimEvent e)

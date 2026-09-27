@@ -100,7 +100,7 @@ namespace TW.UI
             {
                 case SimEventType.TrenchCaptured: Banner(HudText.CapturedBanner(ev.A, ev.B == 0), HudLayout.BannerSeconds, ev.B == 0 ? "tw-banner--victory" : "tw-banner--defeat"); break;
                 case SimEventType.AbilityFired:
-                    if (ev.B != 0 && (ev.A == (int)OffMapAbilityId.HeBarrage || ev.A == (int)OffMapAbilityId.CreepingBarrage)) Banner(HudText.IncomingBanner, 4f, "tw-banner--defeat");
+                    Banner(HudText.AbilityBanner((OffMapAbilityId)ev.A, ev.B == 0), ev.B == 0 ? HudLayout.BannerSeconds : 4f, ev.B == 0 ? null : "tw-banner--defeat");
                     break;
                 case SimEventType.MatchEnded: Banner(ev.A == 0 ? HudText.VictoryBanner : HudText.DefeatBanner, 3600f, ev.A == 0 ? "tw-banner--victory" : "tw-banner--defeat"); break;
             }

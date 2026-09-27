@@ -56,6 +56,25 @@ namespace TW.Tests
 
         /// <summary>The hint line is one GUI.Label with a fixed rect: it clips rather than wraps, so a long tooltip
         /// is silently cut off. At the narrowest window that is about 100 characters.</summary>
+        /// <summary>One banner per event (CombatFx drew a second, IMGUI one over the HUD's until a player build's shot showed
+        /// both, 2026-09-27): every support card fired by either side names itself, in a banner the plate can hold.</summary>
+        [Test]
+        public void EverySupportAbilityHasABannerForEitherSide()
+        {
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+                foreach (bool mine in new[] { true, false })
+                {
+                    string text = TW.UI.HudText.AbilityBanner(id, mine);
+                    StringAssert.Contains(mine ? TW.UI.HudText.Support(id).Name : TW.UI.HudText.Support(id).Name.ToUpperInvariant(), text, id + " is named");
+                    Assert.LessOrEqual(text.Length, 32, id + ": '" + text + "' fits the banner plate");
+                }
+            // a card's nameplate shows seven capitals whole ("BARRAGE", "ASSAULT"); "CREEPING" drew as "CREEPI..." in the
+            // player build's shot
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+                Assert.LessOrEqual(TW.UI.HudText.Support(id).Card.Length, 7, id + ": '" + TW.UI.HudText.Support(id).Card + "' fits its card");
+            Assert.AreNotEqual(TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, true), TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, false), "yours and theirs read differently");
+        }
+
         [Test]
         public void NoTooltipOutgrowsTheHintLine()
         {

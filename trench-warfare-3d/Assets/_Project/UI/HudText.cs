@@ -96,7 +96,7 @@ namespace TW.UI
         public const string BarrageTip = "HE barrage: 12 shells in 25 m after 4 s; craters give cover. Tab: line or box";
         public const string GasTip = "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out. Tab: creeping";
         public const string CreepingName = "Creeping Barrage", SmokeName = "Smoke Screen", StrafeName = "Strafe Run", BeamName = "Beam";
-        public const string CreepingCard = "CREEPING", SmokeCard = "SMOKE", StrafeCard = "STRAFE", BeamCard = "BEAM";
+        public const string CreepingCard = "CREEP", SmokeCard = "SMOKE", StrafeCard = "STRAFE", BeamCard = "BEAM";
         public const string CreepingTip = "Creeping barrage: drag its advance; ten lifts of 4 shells walk 60 m; your men 15 m behind are safe";
         public const string SmokeTip = "Smoke screen: drag a 40 m line; 30 s of smoke that hides men from fire and spoils aim through it";
         public const string StrafeTip = "Strafe run: drag the corridor; one low pass lays 32 bursts along 80 m; men on the line die";
@@ -142,9 +142,11 @@ namespace TW.UI
         public const string PauseTip = "Tactical pause (Space): orders still go through";
         public const string SpeedTip = "Game speed";
 
-        /// <summary>Centre banners, as CombatFx.cs:554/566/569 word them.</summary>
+        /// <summary>Centre banners. The HUD's is the only one (CombatFx drew an IMGUI copy of each over it until 2026-09-27).</summary>
         public static string CapturedBanner(int trench, bool mine) => mine ? $"Trench {trench} captured!" : $"Trench {trench} lost";
-        public const string IncomingBanner = "INCOMING BARRAGE";
+        /// <summary>A support ability fired: yours on its way, or the enemy's coming in, named as its card names it.</summary>
+        public static string AbilityBanner(TW.Sim.Match.OffMapAbilityId id, bool mine)
+            => mine ? Support(id).Name + " on its way" : "INCOMING " + Support(id).Name.ToUpperInvariant();
         public const string VictoryBanner = "VICTORY: enemy HQ taken";
         public const string DefeatBanner = "DEFEAT: your HQ has fallen";
 

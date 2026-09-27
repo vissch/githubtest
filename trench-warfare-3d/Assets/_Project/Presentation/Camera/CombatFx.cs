@@ -1,7 +1,7 @@
 ﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
-// leaves a body, and every trench or objective capture raises a banner. Instanced draws, no GameObjects per effect.
+// leaves a body (the HUD's ObjectiveTracker raises the banners). Instanced draws, no GameObjects per effect.
 // Listens to SimHost.Events, so it sees exactly what the local sim produced.
 // One class in six files (2026-09-25): this one holds the event dispatch (OnSimEvent), Update, the materials and
 // the tracer/body/burst pools; CombatFx.Ground.cs what only a close camera sees (marks, rests, trails, breath);
@@ -99,7 +99,6 @@ namespace TW.Presentation.Tactical
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         int hitsThisFrame;
         TW.Presentation.Units.VATRenderer units;
-        string banner; float bannerUntil;
         bool subscribed;
         /// <summary>
         /// Drops the entries that are past it, in place and in order, allocating nothing. List.RemoveAll with a lambda
@@ -626,9 +625,7 @@ namespace TW.Presentation.Tactical
                     var corridor = new Vector3(e.Dir.x, 0f, e.Dir.z); float corridorLength = corridor.magnitude;
                     bool line = corridorLength > 1e-3f;
                     markers.Add(new Marker { Pos = p, Dir = line ? corridor / corridorLength : Vector3.zero, Length = line ? corridorLength : 0f, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
-                    OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs)
-                    string what = AbilityWord(e.A);
-                    Banner(e.B == 0 ? $"Your {what} is on its way" : $"INCOMING {what.ToUpper()}: fall back or keep below the rim", 3f);
+                    OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs); the HUD's banner names it
                     break;
                 }
                 case SimEventType.PropChanged:
@@ -652,16 +649,8 @@ namespace TW.Presentation.Tactical
                     debris.Burst(DebrisRenderer.Piece.Clod, p, Mathf.RoundToInt(4f * DebrisRenderer.Gore), 4f, 0.12f, Gore, 8f, 0f, 0.6f, default, e.Tick + 5u);
                     break;
                 }
-                case SimEventType.TrenchCaptured:
-                    Banner(e.B == 0 ? $"Trench {e.A} captured!" : $"Trench {e.A} lost!");
-                    break;
-                case SimEventType.MatchEnded:
-                    Banner(e.A == 0 ? "VICTORY: enemy HQ taken" : "DEFEAT: your HQ has fallen", 3600f);
-                    break;
             }
         }
-
-        void Banner(string text, float seconds = 4f) { banner = text; bannerUntil = Time.time + seconds; }
 
         void Update()
         {
@@ -874,15 +863,6 @@ namespace TW.Presentation.Tactical
             batch.CopyTo(batchArray);
             FrameBudget.Draw(rp, mesh, 0, batchArray, batch.Count);
             batch.Clear();
-        }
-
-        void OnGUI()
-        {
-            if (banner == null || Time.time > bannerUntil) return;
-            var style = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            var rect = new Rect(0, Screen.height * 0.12f, Screen.width, 50);
-            style.normal.textColor = Color.black; GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), banner, style);
-            style.normal.textColor = new Color(1f, 0.92f, 0.6f); GUI.Label(rect, banner, style);
         }
     }
 }
