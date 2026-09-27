@@ -98,8 +98,9 @@ namespace TW.Tests
 
                 File.WriteAllText(path, "{ this is not json");
                 Assert.That(ProfileStore.LoadFrom(path).Gold, Is.EqualTo(CampaignProfile.StartingGold), "garbage starts a fresh campaign");
-                Assert.That(File.Exists(path + ".bad"), Is.True, "the unreadable file is kept aside before a save can replace it");
-                Assert.That(File.ReadAllText(path + ".bad"), Is.EqualTo("{ this is not json"));
+                var kept = Directory.GetFiles(dir, ProfileStore.FileName + ".bad-*");   // a name of its own per bad load
+                Assert.That(kept.Length, Is.EqualTo(1), "the unreadable file is kept aside before a save can replace it");
+                Assert.That(File.ReadAllText(kept[0]), Is.EqualTo("{ this is not json"));
             }
             finally
             {
@@ -138,6 +139,43 @@ namespace TW.Tests
             Assert.That(p.Gold, Is.EqualTo(123));
             Assert.That(p.IsComplete("lowlands", 2), Is.False);
             Assert.That(p.StageOf(1, "tusk-yard"), Is.EqualTo(2));
+        }
+        /// <summary>A locked file is not a corrupt one: the load says it may not be written over, and keeps no .bad copy.
+        /// A file from a newer build is read but not written back. A broken one is kept under a name of its own each time.</summary>
+        [Test]
+        public void A_Locked_Or_Newer_Profile_Is_Never_Written_Over_And_A_Broken_One_Is_Kept()
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tw-profile-test-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(dir);
+            try
+            {
+                string path = System.IO.Path.Combine(dir, "profile.json");
+                var p = new CampaignProfile(); p.Gold = 77;
+                System.IO.File.WriteAllText(path, p.ToJson());
+                using (new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.ReadWrite, System.IO.FileShare.None))
+                {
+                    var locked = ProfileStore.LoadFrom(path, out bool writable);
+                    Assert.IsFalse(writable, "a locked profile is not to be written over");
+                    Assert.AreEqual(0, System.IO.Directory.GetFiles(dir, "*.bad*").Length, "and it is not taken for a broken one");
+                }
+                var back = ProfileStore.LoadFrom(path, out bool free);
+                Assert.IsTrue(free); Assert.AreEqual(77, back.Gold, "unlocked, the campaign is all there");
+
+                string newerJson = System.Text.RegularExpressions.Regex.Replace(p.ToJson(), "\"Version\":\\s*" + CampaignProfile.CurrentVersion, "\"Version\": " + (CampaignProfile.CurrentVersion + 1));
+                Assert.AreNotEqual(p.ToJson(), newerJson, "the test wrote a newer version");
+                System.IO.File.WriteAllText(path, newerJson);
+                var newer = ProfileStore.LoadFrom(path, out bool newerWritable);
+                Assert.IsFalse(newerWritable, "a newer build's profile is read, not written back");
+                Assert.AreEqual(77, newer.Gold);
+
+                System.IO.File.WriteAllText(path, "{ not json");
+                ProfileStore.LoadFrom(path, out _);
+                System.Threading.Thread.Sleep(5);
+                ProfileStore.LoadFrom(path, out bool brokenWritable);
+                Assert.IsTrue(brokenWritable, "a broken file may be replaced");
+                Assert.AreEqual(2, System.IO.Directory.GetFiles(dir, "profile.json.bad-*").Length, "each bad load keeps its own copy");
+            }
+            finally { try { System.IO.Directory.Delete(dir, true); } catch (System.Exception) { } }
         }
     }
 }

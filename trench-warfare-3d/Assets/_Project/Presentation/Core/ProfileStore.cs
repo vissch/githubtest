@@ -14,37 +14,83 @@ namespace TW.Presentation
 
         static CampaignProfile current;
         /// <summary>The profile in force, loaded on first use.</summary>
-        public static CampaignProfile Current => current ??= LoadFrom(DefaultPath);
+        public static CampaignProfile Current => current ??= LoadDefault();
+
+        /// <summary>False while profile.json could not be taken as it is: locked (an antivirus scan, a sync client) or written
+        /// by a newer build. Save then writes nothing, so a passing lock or a newer save is never replaced by a fresh or
+        /// downgraded profile (critic r5, 2026-09-27: a lock read as corruption, and the next Save wiped the campaign).</summary>
+        public static bool Writable { get; private set; } = true;
+
+        static CampaignProfile LoadDefault() { var p = LoadFrom(DefaultPath, out bool writable); Writable = writable; return p; }
+
+        [Serializable] sealed class VersionOnly { public int Version; }
         /// <summary>Tests: force saving on or off; null (the default) leaves it to <see cref="Persist"/>'s rule. Save and
         /// restore the old value, never a read of Persist, so the rule comes back after the test.</summary>
         public static bool? PersistOverride;
         /// <summary>Does Save write the file: the override, else off in the editor outside play (EditMode tests, so a fixture
         /// that forgets to substitute a profile cannot write the developer's) and on everywhere else. Read each time, not
-        /// fixed at type init: the project enters play without a domain reload (EditorSettings), so a value taken when
-        /// the type first loaded would carry an EditMode "off" into play (a campaign that never saves) or a play "on" out
-        /// of it (a test that writes the developer's profile).</summary>
+        /// fixed at type init, so it cannot go stale whatever the Enter Play Mode options (EditorSettings has them on with
+        /// both reloads, m_EnterPlayModeOptions 0, today; turning off the domain reload would otherwise carry an EditMode
+        /// "off" into play, a campaign that never saves, or a play "on" out of it).</summary>
         public static bool Persist => PersistOverride ?? !(Application.isEditor && !Application.isPlaying);
 
-        public static CampaignProfile Load() => current = LoadFrom(DefaultPath);
+        public static CampaignProfile Load() => current = LoadDefault();
 
-        public static CampaignProfile LoadFrom(string path)
+        public static CampaignProfile LoadFrom(string path) => LoadFrom(path, out _);
+
+        /// <summary>The profile in a file, and whether that file may be written over. A file that cannot be opened (locked)
+        /// is tried a few times, then left alone for the session (writable false); a file that opens but is not a profile
+        /// is kept beside it under a timestamped .bad name and a fresh campaign starts; a file from a newer build loads but
+        /// is not written back (its fields this build does not know would be lost).</summary>
+        public static CampaignProfile LoadFrom(string path, out bool writable)
         {
+            writable = true;
+            if (!File.Exists(path)) return new CampaignProfile();
+            string text = null;
+            for (int attempt = 0; attempt < 4 && text == null; attempt++)
+            {
+                try { text = File.ReadAllText(path); }
+                catch (IOException e) when (!(e is FileNotFoundException) && !(e is DirectoryNotFoundException))
+                {
+                    if (attempt == 3)
+                    {
+                        writable = false;
+                        Debug.LogWarning($"ProfileStore: {path} is locked ({e.Message}); this session plays a fresh campaign and saves nothing over it");
+                        return new CampaignProfile();
+                    }
+                    System.Threading.Thread.Sleep(50 * (attempt + 1));
+                }
+                catch (Exception e) { writable = false; Debug.LogWarning($"ProfileStore: cannot read {path}: {e.Message}; nothing will be saved over it"); return new CampaignProfile(); }
+            }
             try
             {
-                if (File.Exists(path)) return CampaignProfile.FromJson(File.ReadAllText(path));
+                var version = JsonUtility.FromJson<VersionOnly>(text);
+                var p = CampaignProfile.FromJson(text);
+                if (version != null && version.Version > CampaignProfile.CurrentVersion)
+                {
+                    writable = false;
+                    Debug.LogWarning($"ProfileStore: {path} was written by a newer build (version {version.Version}); it is read, not written back");
+                }
+                return p;
             }
             catch (Exception e)
             {
-                // keep the unreadable file beside the profile: the next Save replaces profile.json, and a hand-edit gone
-                // wrong should cost the player a repair, not the campaign
-                string kept = path + ".bad";
-                try { File.Copy(path, kept, true); } catch (Exception) { kept = "(could not keep a copy)"; }
+                // keep the unreadable file beside the profile, under a name of its own each time (a second bad load must not
+                // overwrite the first copy): a hand-edit gone wrong should cost the player a repair, not the campaign
+                string kept = path + ".bad-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
+                try { File.Copy(path, kept, false); } catch (Exception) { kept = "(could not keep a copy)"; }
                 Debug.LogWarning($"ProfileStore: could not read {path}: {e.Message}; starting a fresh campaign, the old file kept as {kept}");
+                return new CampaignProfile();
             }
-            return new CampaignProfile();
         }
 
-        public static void Save(CampaignProfile p) { current = p; if (Persist) SaveTo(p, DefaultPath); }
+        public static void Save(CampaignProfile p)
+        {
+            current = p;
+            if (!Persist) return;
+            if (!Writable) { Debug.LogWarning("ProfileStore: not saving over " + DefaultPath + " (it was locked or newer when read)"); return; }
+            SaveTo(p, DefaultPath);
+        }
 
         public static void SaveTo(CampaignProfile p, string path)
         {
