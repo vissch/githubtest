@@ -295,5 +295,80 @@ namespace TW.Tests
                 Assert.IsFalse(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f)), "archetype " + a + ": the trigger's footprint does not");
             }
         }
+        /// <summary>The mine trigger's grid (MineSystem.TriggerJob) finds exactly what the brute force found (every armed mine
+        /// against every slot, the first slot to set it off wins, mines in index order) over random fields of mines,
+        /// tripwires, men and vehicles of both sides, some dead, some spent: the grid is a speed-up, not a rule change, so the
+        /// hash of every replay is unchanged. The reference below is the loop the grid replaced, kept as the rule.</summary>
+        [Test]
+        public void The_Trigger_Grid_Finds_What_The_Brute_Force_Found()
+        {
+            var rng = new Unity.Mathematics.Random(20260927u);
+            int triggeredSomewhere = 0;
+            for (int trial = 0; trial < 200; trial++)
+            {
+                int slots = rng.NextInt(1, 300), mineCount = rng.NextInt(1, 80);
+                var pos = new NativeArray<float3>(slots, Allocator.Temp); var flags = new NativeArray<uint>(slots, Allocator.Temp);
+                var hp = new NativeArray<float>(slots, Allocator.Temp); var yaw = new NativeArray<float>(slots, Allocator.Temp);
+                var team = new NativeArray<byte>(slots, Allocator.Temp); var arch = new NativeArray<byte>(slots, Allocator.Temp);
+                for (int s = 0; s < slots; s++)
+                {
+                    bool vehicle = rng.NextFloat() < 0.1f;
+                    pos[s] = new float3(rng.NextFloat(0f, 120f), 0f, rng.NextFloat(0f, 120f));
+                    flags[s] = (rng.NextFloat() < 0.9f ? (uint)UnitFlags.Alive : 0u) | (vehicle ? (uint)UnitFlags.Vehicle : 0u) | (vehicle && rng.NextFloat() < 0.2f ? (uint)UnitFlags.KnockedOut : 0u);
+                    hp[s] = rng.NextFloat() < 0.95f ? 100f : 0f; yaw[s] = rng.NextFloat(0f, 6.2831853f);
+                    team[s] = (byte)rng.NextInt(0, 2); arch[s] = vehicle ? (byte)rng.NextInt(4, 12) : (byte)0;
+                }
+                var mines = new Mine[mineCount];
+                for (int m = 0; m < mineCount; m++)
+                {
+                    bool trip = rng.NextFloat() < 0.3f;
+                    float a = rng.NextFloat(0f, 6.2831853f);
+                    mines[m] = new Mine { Pos = new float3(rng.NextFloat(0f, 120f), 0f, rng.NextFloat(0f, 120f)), Dir = trip ? new float3(math.sin(a), 0f, math.cos(a)) : float3.zero,
+                        Length = trip ? rng.NextFloat(1f, 12f) : 0f, Player = rng.NextInt(0, 2), Kind = trip ? (int)MineKind.Tripwire : (int)MineKind.Mine,
+                        State = rng.NextFloat() < 0.85f ? (int)MineState.Armed : (int)MineState.Spent };
+                }
+                var expected = Reference(mines, pos, flags, hp, yaw, team, arch);
+                using var jobMines = new NativeArray<Mine>(mines, Allocator.Temp);
+                using var triggered = new NativeList<int>(Allocator.Temp);
+                var job = new MineSystem.TriggerJob { Count = slots, Mines = jobMines, Position = pos, Flags = flags, Hp = hp, Yaw = yaw, Team = team, Archetype = arch, Triggered = triggered };
+                job.Execute();
+                Assert.AreEqual(expected.Count, triggered.Length, "trial " + trial + ": as many (mine, victim) pairs");
+                for (int k = 0; k < expected.Count; k++) Assert.AreEqual(expected[k], triggered[k], "trial " + trial + ", pair entry " + k);
+                if (expected.Count > 0) triggeredSomewhere++;
+                pos.Dispose(); flags.Dispose(); hp.Dispose(); yaw.Dispose(); team.Dispose(); arch.Dispose();
+            }
+            Assert.Greater(triggeredSomewhere, 20, "the random fields set mines off often enough to test anything");
+        }
+
+        static System.Collections.Generic.List<int> Reference(Mine[] mines, NativeArray<float3> pos, NativeArray<uint> flags, NativeArray<float> hp, NativeArray<float> yaw, NativeArray<byte> team, NativeArray<byte> arch)
+        {
+            var outList = new System.Collections.Generic.List<int>();
+            for (int m = 0; m < mines.Length; m++)
+            {
+                var mine = mines[m];
+                if (mine.State != (int)MineState.Armed) continue;
+                bool trip = mine.Kind == (int)MineKind.Tripwire;
+                float3 end = mine.Pos + mine.Dir * mine.Length;
+                float minX = math.min(mine.Pos.x, end.x) - MineSystem.WidestHull, maxX = math.max(mine.Pos.x, end.x) + MineSystem.WidestHull;
+                float minZ = math.min(mine.Pos.z, end.z) - MineSystem.WidestHull, maxZ = math.max(mine.Pos.z, end.z) + MineSystem.WidestHull;
+                for (int i = 0; i < pos.Length; i++)
+                {
+                    uint f = flags[i];
+                    if ((f & (uint)UnitFlags.Alive) == 0 || hp[i] <= 0f || team[i] == mine.Player) continue;
+                    float3 p = pos[i];
+                    if (p.x < minX || p.x > maxX || p.z < minZ || p.z > maxZ) continue;
+                    bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
+                    if (vehicle && (f & (uint)UnitFlags.KnockedOut) != 0) continue;
+                    bool hit;
+                    if (vehicle && !trip) hit = TW.Sim.Nav.VehicleProfile.ForArchetype(arch[i]).Covers(yaw[i], p, mine.Pos);
+                    else if (trip) hit = MineSystem.TriggerJob.ToSegment(p, mine.Pos, end) <= MineSystem.TripwireReach + (vehicle ? TW.Sim.Nav.VehicleProfile.ForArchetype(arch[i]).HalfWidth : 0f);
+                    else { float3 q = p - mine.Pos; q.y = 0f; hit = math.abs(q.x) <= MineSystem.TriggerRadius && math.abs(q.z) <= MineSystem.TriggerRadius && SimMath.Length(q) <= MineSystem.TriggerRadius; }
+                    if (!hit) continue;
+                    outList.Add(m); outList.Add(i);
+                    break;
+                }
+            }
+            return outList;
+        }
     }
 }
