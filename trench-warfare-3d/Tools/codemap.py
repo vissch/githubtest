@@ -101,7 +101,7 @@ PURPOSE = {
 # What each runtime switch does. A switch found in the code with no line here fails --check.
 FLAG_EFFECT = {
     '-twCanary': 'Player/editor arg: run the second (peer) sim world as a determinism canary. Off in single player.',
-    '-twbench': 'Player/editor arg: run PerfBench with "key=value ..." options and quit. See workflow.md, Benchmark.',
+    '-twbench': 'Player/editor arg: run PerfBench with "key=value ..." options and quit. Options: `Perf/BenchOptions.cs` `Parse`; recipes: workflow.md, section 7.',
     'TW_BENCH': 'Environment variable, same as -twbench. Also fires in editor Play if set, so unset it after use.',
     '-twdev': 'Arg to the batch Windows build: make a Development build.',
     'tw.hud.toolkit': 'PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. '
@@ -137,7 +137,7 @@ ALLOW_MISSING = {
     'settings.json', 'editor-slot.json', 'Captures/', 'Builds/', 'Tools/flame-shots/', 'test-results.xml',
     'test-results-EditMode.xml', 'test-results-PlayMode.xml',
     'Library/', 'Temp/', 'Temp/UnityLockfile', 'Library/BurstCache', 'Library/ScriptAssemblies', 'Assets/_shots/',
-    'Editor.log',
+    'Editor.log', 'Tools/aosa',
 }
 
 # ---- helpers ----------------------------------------------------------------------------------------------------
