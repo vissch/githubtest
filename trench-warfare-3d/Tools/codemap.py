@@ -28,6 +28,7 @@ WHAT --check FAILS ON
 """
 from __future__ import annotations
 
+import functools
 import json
 import re
 import subprocess
@@ -143,6 +144,11 @@ ALLOW_MISSING = {
 # ---- helpers ----------------------------------------------------------------------------------------------------
 
 def read(p: Path) -> str:
+    return _read(p, p.stat().st_mtime_ns)
+
+
+@functools.lru_cache(maxsize=None)
+def _read(p: Path, mtime: int) -> str:   # keyed on mtime: a doc rewritten during this run is read afresh
     return p.read_text(encoding='utf-8-sig').replace('\r\n', '\n')
 
 
@@ -208,11 +214,9 @@ def assemblies():
     for name, folder, refs, _ in found:
         tw = [r.replace('TW.', '') for r in refs if r.startswith('TW.')]
         rows.append((f'`{name}`', f'`{rel(folder)}/`', ', '.join(f'`{n}`' for n in sorted(namespaces.get(name, []))),
-                     ', '.join(tw) or '(none)', files.get(name, 0)))
-    total = sum(files.values())
-    return (table(['Assembly', 'Folder', 'Namespaces declared', 'References (TW.*)', '.cs'], rows)
-            + f'\n{len(found)} assemblies, {total} C# files. Assembly names and namespaces differ on purpose: '
-              '`using` takes the namespace.\n')
+                     ', '.join(tw) or '(none)'))
+    return (table(['Assembly', 'Folder', 'Namespaces declared', 'References (TW.*)'], rows)
+            + f'\n{len(found)} assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.\n')
 
 # ---- folders ----------------------------------------------------------------------------------------------------
 
@@ -230,9 +234,8 @@ def project_folders():
 def folders_block():
     rows = []
     for f in project_folders():
-        n = sum(1 for _ in (PROJ / f).rglob('*.cs'))
-        rows.append((f'`{f}/`', PURPOSE.get(f, '**NO PURPOSE LINE: add one to Tools/codemap.py PURPOSE**'), n or ''))
-    return table(['Folder (under Assets/_Project)', 'What lives there', '.cs'], rows)
+        rows.append((f'`{f}/`', PURPOSE.get(f, '**NO PURPOSE LINE: add one to Tools/codemap.py PURPOSE**')))
+    return table(['Folder (under Assets/_Project)', 'What lives there'], rows)
 
 # ---- sim system order -------------------------------------------------------------------------------------------
 
@@ -309,30 +312,19 @@ def hooks_block():
 # ---- tests index ------------------------------------------------------------------------------------------------
 
 def tests_block():
-    prod_types = set()
-    for cs in cs_files():
-        if '/Tests/' in cs.as_posix():
-            continue
-        for m in re.finditer(r'\b(?:class|struct|enum|interface)\s+(\w+)', strip_comments(read(cs))):
-            if len(m.group(1)) > 3:
-                prod_types.add(m.group(1))
-    rows = []
+    """Every test class, by mode. Which tests guard an area is in the hand-written rows above; this list only
+    makes sure none is forgotten (the check fails when a class here is named in no row)."""
+    by_mode = {}
     for cs in cs_files(PROJ / 'Tests'):
-        src = strip_comments(read(cs))
-        n = len(re.findall(r'\[(?:Test|UnityTest)\b', src))
-        counts = {}
-        for t in prod_types:
-            c = len(re.findall(r'\b' + t + r'\b', src))
-            if c:
-                counts[t] = c
-        top = sorted(counts, key=lambda t: (-counts[t], t))[:6]
-        rows.append((f'`{cs.stem}`', cs.parent.name, n, ', '.join(top)))
-    return table(['Test class', 'Mode', 'Tests', 'Production types it touches most'], rows)
+        if re.search(r'\[(?:Test|UnityTest)\b', read(cs)):
+            by_mode.setdefault(cs.parent.name, []).append(cs.stem)
+    return ''.join(f'- **{mode}:** ' + ', '.join(sorted(names)) + '\n' for mode, names in sorted(by_mode.items()))
 
 # ---- flags ------------------------------------------------------------------------------------------------------
 
+@functools.lru_cache(maxsize=None)
 def find_flags():
-    flags = {}   # name -> (kind, file:line)
+    flags = {}   # name -> (kind, file)
     for cs in cs_files():
         if '/Tests/' in cs.as_posix():
             continue
@@ -341,7 +333,7 @@ def find_flags():
         for m in re.finditer(r'const string (\w+)\s*=\s*"([^"]+)"\s*,\s*(\w+)\s*=\s*"([^"]+)"', src):
             consts[m.group(3)] = m.group(4)
         for i, line in enumerate(src.split('\n'), 1):
-            at = f'{rel(cs)}:{i}'
+            at = rel(cs)
             for m in re.finditer(r'"(-tw\w+)"', line):
                 flags.setdefault(m.group(1), ('command-line arg', at))
             for m in re.finditer(r'(PlayerPrefs|EditorPrefs|SessionState)\.\w+\((\w+|"[^"]+")', line):
@@ -355,10 +347,9 @@ def find_flags():
         # constants declared on one line and used elsewhere (e.g. "tw.rig.stress" / "TW_BENCH")
         for name, value in consts.items():
             if re.fullmatch(r'(-tw\w+|tw\.[\w.]+|TW_\w+|TW\.[\w.]+)', value) and value not in flags:
-                line = src[:src.index(f'"{value}"')].count('\n') + 1
                 kind = 'EditorPrefs' if 'EditorPrefs' in src else 'PlayerPrefs' if 'PlayerPrefs' in src else \
                     'environment variable' if value.startswith('TW_') else 'command-line arg' if value.startswith('-') else 'key'
-                flags[value] = (kind, f'{rel(cs)}:{line}')
+                flags[value] = (kind, rel(cs))
     return flags
 
 
@@ -371,8 +362,7 @@ def flags_block():
     for f, name, effect in STATIC_SWITCHES:
         src = read(PROJ / f)
         m = re.search(r'public (?:static )?[\w?<>.]+ ' + name + r'\b', src)
-        line = src[:m.start()].count('\n') + 1 if m else '?'
-        srows.append((f'`{name}`', f'`{f}:{line}`', effect))
+        srows.append((f'`{name}`', f'`{f}`' if m else f'`{f}` (NOT FOUND)', effect))
     out += '\nCode and inspector switches (static fields or `SimHost` inspector fields):\n\n'
     out += table(['Field', 'Declared at (under Assets/_Project)', 'Effect'], srows)
     return out
@@ -432,7 +422,8 @@ _known = None
 
 
 def known():
-    """Every path the repo holds, as git sees it: tracked files plus new ones not yet added, never ignored ones.
+    """Every path the repo holds, as git sees it: tracked files, plus new files not yet added (so a doc can cite the
+    file you are adding in the same commit), never ignored ones.
     A cited file must be in the repo, not merely on this disk: `test-results-EditMode.xml` existed only where the
     gate had run, so the check passed here and failed in every fresh clone (2026-09-27)."""
     global _known
@@ -536,9 +527,31 @@ def check(errors, warnings):
         for cs in cs_files(PROJ / 'Tests'):
             if not re.search(r'\b' + cs.stem + r'\b', hand):
                 errors.append(f'tasks.md never names test {cs.stem}: put it in the row of the area it guards')
-        for mname in scene_hook_members():
-            if not re.search(r'\b' + mname + r'\b', hand):
-                errors.append(f'tasks.md never names SceneHooks.{mname}: put it in the row of the area it wires')
+
+    # Every production file is findable from the agent pages: a file no page names is one an agent can only grep for.
+    agent_pages = ' '.join(outside_blocks(read(d)) for d in (CLAUDE, TASKS, WORKFLOW, PIPELINES, CODE_MAP, FLAGS)
+                           if d.exists())
+    for cs in cs_files():
+        if '/Tests/' in cs.as_posix():
+            continue
+        if not re.search(r'(?<![\w.])' + re.escape(cs.stem) + r'(?![\w])', agent_pages):
+            errors.append(f'{rel(cs)} is named on no agent page: add it to the tasks.md row of its area')
+
+    # A sentence about another lane's pending change carries (until "<that commit's subject>" lands). A subject, not a
+    # hash: a lane rebases before it lands, which changes every hash. Once a commit with that subject is in HEAD the
+    # sentence describes the past: rewrite it and drop the tag.
+    for doc in (CLAUDE, TASKS, WORKFLOW, PIPELINES, FLAGS):
+        if not doc.exists():
+            continue
+        text = read(doc)
+        for m in re.finditer(r'\(until\s+"([^"]{12,})"\s+lands\)', text):
+            subject = ' '.join(m.group(1).split())
+            hit = subprocess.run(['git', 'log', 'HEAD', '-1', '--fixed-strings', f'--grep={subject}', '--format=%h'],
+                                 cwd=REPO, capture_output=True).stdout.decode().strip()
+            if hit:
+                ln = text[:m.start()].count('\n') + 1
+                errors.append(f'{rel(doc, REPO)}:{ln}: "{subject}" has landed ({hit}), so this sentence is out of '
+                              'date: rewrite it and drop the "(until ... lands)" tag')
     tool_docs = (read(PIPELINES) if PIPELINES.exists() else '') + (read(WORKFLOW) if WORKFLOW.exists() else '')
     for py in sorted((ROOT / 'Tools').glob('*.py')):
         if py.name not in tool_docs:

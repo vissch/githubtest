@@ -1,20 +1,22 @@
 # Workflow: run it, test it, see it
 
-Read this third, after `CLAUDE.md` and `tasks.md`. Every command is run from `trench-warfare-3d/` in Git Bash unless it
-says PowerShell. Outputs marked **verified 2026-09-25** were run and pasted on that date; the others say when they
-were last known to work.
+Commands to run, what they print, and what the output means. Run from `trench-warfare-3d/` in Git Bash unless a
+command says PowerShell. Pasted outputs are real, from the date given.
 
 ## 1. Land checks (every session, first)
 
 ```bash
 python Tools/health.py
 ```
-Verified 2026-09-25, with this checkout's editor open:
+Output (2026-09-27):
 ```
-lock     held  (an editor or batch run holds this checkout: no gate, no writes into Assets/ unless it is yours)
-editor   pid 14352 state ready port 7801
+lock     free
+memory   15.6 GB commit headroom, 1.3 GB RAM available
+editor   none connected for this checkout (Tools/tw up opens one)
 validate OK
-branch   lane/show/maint-2026-09  lane show  ahead 0 behind 0 of claude/trench-warfare-2d-3d-plan-idt7lf  13 uncommitted
+branch   lane/show/maint-2026-09  lane show  ahead 0 behind 0 of origin/claude/trench-warfare-2d-3d-plan-idt7lf  0 uncommitted
+inbox    7 notes, 1 for you
+         FOR YOU docs/inbox/2026-09-27-all-rebase-onto-maintenance-pass.md
 ```
 - `lock held` with an editor that is not yours: do not gate, do not write into `Assets/` (a save recompiles their
   editor and kills their Play session). `lock FREE`: nobody has this checkout.
@@ -22,7 +24,7 @@ branch   lane/show/maint-2026-09  lane show  ahead 0 behind 0 of claude/trench-w
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
   (`Tools/codemap.py` explains each rule). After changing `codemap.py`, `port_split.py` or `health.py`, run
   `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
-- Then read `docs/reference/inbox.md` for notes addressed to you.
+- Then read the notes `health.py` marks as yours (`docs/inbox/`).
 
 ## 2. The machine you share
 
@@ -38,14 +40,10 @@ githubtest-sim  [lane/show/units-meta]  +19 -5 vs integration
 ```
 Rules that cost real time when broken:
 - **One editor per checkout.** Never open a second editor on a path that has one.
-- **Memory is the scarce resource.** An editor in Play holds 5-9 GB and the machine has 16. On 2026-09-25 three
-  editors plus a player benchmark left 0.4 GB free; two editors vanished without a crash dump and the owner's was
-  paged out and stopped answering. Check before you open another editor or run the gate: `python Tools/health.py`
-  prints **commit headroom** (RAM plus page file not yet promised), which is what runs out and kills editors. Low
-  available RAM alone only means paging: the full gate passed on 2026-09-27 with 0.6 GB available and 13 GB of
-  headroom. Under 6 GB headroom run nothing; under 10 GB a batch gate but no new editor. When headroom is low, look for
-  the process holding commit (`Get-Process | Sort-Object PagedMemorySize64 -Descending`): on 2026-09-26 it was a
-  leaking `explorer.exe` with 7 GB, and restarting Explorer (ask the owner first) freed 10 GB.
+- **Memory is the scarce resource.** An editor in Play holds 5-9 GB of a 16 GB machine. `python Tools/health.py`
+  prints commit headroom, which is what runs out and kills editors (low free RAM only means paging): under 6 GB run
+  nothing, under 10 GB a batch gate but no new editor. If it is low, find the holder with
+  `Get-Process | Sort-Object PagedMemorySize64 -Descending` (PowerShell) and ask the owner before closing anything.
 - **Never drive someone else's editor.** The `unity` CLI auto-detects a project and several are connected at once.
   `Tools/tw` pins every call to its own checkout (`UNITY_PROJECT_PATH`). A bare `unity cmd ...` from another folder
   can land in the owner's editor or a batch test run and fail it.
@@ -86,7 +84,7 @@ Answers you will see, and what they mean:
 | Output | Meaning | Do |
 |---|---|---|
 | `503 Service Unavailable: Server Busy ... still settling` | editor just launched or compiling | wait and retry; `tw up` already waits |
-| `Main thread operation timed out after 5000ms` | main thread busy (first seconds of Play build the battlefield, or a compile) | retry after 10 s; for long evals pass `--timeout 90` to `unity cmd` |
+| `Main thread operation timed out after 5000ms` | main thread busy (first seconds of Play build the battlefield, or a compile) | retry after 10 s; for a long eval give a timeout in seconds: `Tools/tw eval '<code>' 90` |
 | `No Pipeline instance found for project` | no editor for this checkout: it was never opened, it quit, or it died | `unity status`; check free memory; `tw up` |
 | a paused editor, `frameCount` stuck at 1 after a refresh | Error Pause stopped Play on a logged error | `Tools/tw pause false` |
 | NullReferenceException every frame in `SimHost.Update` | a recompile during Play reloaded the domain | stop Play and start again; it is not a bug |
@@ -256,7 +254,7 @@ so two captures of "the same moment" can differ more than the change you are jud
 measured on 2026-09-25). Seed `UnityEngine.Random.InitState(...)`, and use `Tools/tw stepabs <seconds>` to create
 the effect and to sample it at fixed absolute game times. Before believing a difference between two rounds,
 capture the same build twice and treat anything inside that spread as noise. `python Tools/flamecheck.py <png>`
-refuses a fire capture with no fire in it. On `lane/show/aosa` (not merged), PerfBench's `shot_tick=N shot_hud=0` gives stills
+refuses a fire capture with no fire in it. On `lane/show/aosa` (until "AOSA C33: repeatable player stills" lands), PerfBench's `shot_tick=N shot_hud=0` gives stills
 that repeat bit for bit (the HUD animates on real time).
 
 A paused game view does not repaint. After changing anything, step one frame before capturing.
@@ -324,22 +322,34 @@ In Git Bash, `taskkill /PID` gets its slashes mangled: use `taskkill //PID <n> /
   `git show HEAD:<path>` plus your change (`git hash-object -w --path <path>`, then `git update-index --cacheinfo`),
   so their work stays in the working tree. Check both: the index has yours only, the working tree has both.
 
-**Merging edits made before a file was split.** Git cannot follow a branch's edits into code that moved to another
-file, so a merge conflicts in the old file. If the split only moved whole blocks (as `CombatFx.cs` into
-`CombatFx.*.cs` did), keep the split side of the old file and carry the other side's edits across:
+**Crossing a file split during a rebase.** Git cannot follow your edits into code that another branch moved to other
+files (as `CombatFx.cs` was split into `CombatFx.*.cs`), so the rebase stops on the old file. At each stop:
 ```bash
-git merge lane/show/x                                          # CONFLICT in .../CombatFx.cs
-git checkout --ours -- Assets/_Project/Presentation/Camera/CombatFx.cs      # --theirs if the split is theirs
-python Tools/port_split.py Assets/_Project/Presentation/Camera/CombatFx.cs     --from $(git merge-base HEAD MERGE_HEAD) --to MERGE_HEAD   # --to HEAD if the edits are yours
+python Tools/port_split.py Assets/_Project/Presentation/Camera/CombatFx.cs --rebase
 ```
-Each edit is placed where its lines now occur exactly once across `CombatFx.cs` and its siblings. An edit whose lines
-the other side also changed is a real conflict: it goes to `CombatFx.cs.port.rej` for you, and a `CHECK` line marks a
-hunk applied only in part. Output of the trial against `lane/show/aosa` (2026-09-27), trimmed:
-```
-applied     @@ -163,8 +189,8 @@ edit 1  ->  CombatFx.Chunks.cs:16  (+2 -2)
-NOT APPLIED @@ -644,22 +695,26 @@ edit 2  (+4 -2): its lines are not in any target exactly once
-  CHECK: @@ -644,22 +695,26 @@ was applied only in part; its applied edits may use something the rejected ones declare.
-3 of 20 edits left in Assets/_Project/Presentation/Camera/CombatFx.cs.port.rej: apply them by hand, then delete it
-17 of 20 edits applied
-```
-Then compile and run the gate. `--dry-run` shows the placement without writing.
+It keeps the upstream file and places each of your commit's edits where its lines now occur exactly once across the
+file and its siblings, and prints where each went. An edit whose lines upstream also changed is a real conflict: it
+goes to `CombatFx.cs.port.rej` for you, and a `CHECK` line marks a hunk applied only in part. Then compile, apply the
+`.rej` by hand, `git add` the files, delete the `.rej`, `git rebase --continue`. In a merge instead of a rebase, use
+`--merge` (it works out which side has the split). `--dry-run` shows the placement without writing.
+
+## 9. Debugging
+
+- **An error in the editor.** `Tools/tw run console` prints the log entries with counts, and `groundTruth` says
+  whether the last compile failed; `Tools/tw build` prints compile errors. The full log is
+  `%LOCALAPPDATA%\Unity\Editor\Editor.log`. The table in section 3 explains the pipeline's own errors, and
+  section 5 the test reds that are not bugs.
+- **A sim bug you can see in Play.** Live matches are not recorded: a recorder needs a hash every tick
+  (`LockstepDriver` refuses one otherwise) and single player turns hashing off for speed. Reproduce it in an EditMode
+  test instead: build the match from its seed and map, step it with the same commands, assert. `DeterminismReplayTests`
+  shows the pattern, including recording and replaying. `TW.Editor.TankCapture.Spawn` and `SimHost.WriteWorlds` set a
+  scene up in Play when you first need to see it.
+- **A desync.** The canary runs a second world beside yours and compares hashes every `HashInterval` ticks;
+  `LockstepSession` records the first tick they differ. `SimWorld.Hash()` is one chain over every array, so it says
+  when, not what: to find which array, hash them one by one in both worlds at that tick (no tool does this yet).
+  Rules that prevent most desyncs: `docs/03-determinism-rules.md`.
+- **Slower than before.** Run the bench (section 7) on both builds with the same options and compare the reports;
+  `Sim/Core/PerfMarkers.cs` names the profiler markers, `FrameBudget` counts draws (not all of them: `tasks.md`,
+  Performance), and `TW.Editor.CaptureRig.Profile(path, frames)` samples frame cost in the editor.
+- **Looks different than before.** Capture the same pose on both builds and compare with `python Tools/shotstats.py
+  after.png before.png`; capture the unchanged build twice first to know the noise (section 6).

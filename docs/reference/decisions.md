@@ -25,7 +25,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-21 | Battlefield: river is an obstacle with fords and a bridge; trees, stumps and wrecks give cover, block, and are destructible; fixed seed and params per mission. |
 | 2026-09-21 | Unit art budget: full model 1,200-1,500 verts (max 2,000), far model 250-400 beyond 170 m, vehicles 3,000-5,000. |
 | 2026-09-22 | Imported props drawn 2-3x their imported size. Bunkers, field guns and observation stands only at each side's back edge or on the far (-X, fog) side, openings toward the fog. |
-| 2026-09-23 | **Machines are gigantic and infantry 25% shorter.** `VehicleSize` Walker 2.5, Tank 1.7 (`Sim/Nav/VehicleKinematics.cs`); `VATRenderer.UnitScale` 1.125. |
+| 2026-09-23 | **Machines are gigantic and infantry 25% shorter.** `VehicleSize` Walker 2.5, Tank 1.7 (`Sim/Nav/VehicleKinematics.cs`); `FigureMetrics.UnitScale` 1.125 (`Presentation/Core/FigureMetrics.cs`, read by the renderer and the picker). |
 | 2026-09-23 | **Winter troops keep khaki.** No greatcoat, no second palette. Warm pixels on the men in winter are intended; do not tune them away. |
 
 ## Levels
@@ -72,6 +72,12 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (`DirectFire`, `TargetAcquisition`, `Replay`, `SimEvents`, `SimRandom`, `OffMapAbilities`; 41 and 25 `Sim/` files
   since they parted, 2026-09-27). Whichever lands second re-does its changes on top and re-proves determinism and
   replay. Nothing in the code decides this; the owner does.
+- **Record live matches for debugging?** A recorder needs a hash every tick, which single player turns off for
+  speed. Options: pay for per-tick hashing, or a commands-only replay format (a seam change). Audit R9.
+- **A CI check for the docs and tools** (`validate.py`, `Tools/selftest.py`, Python only), required before a lane
+  lands on the integration branch? Audit R10.
+- **`main`** is at afc6fe8, far behind the integration branch, and is what a fresh clone checks out. Fast-forward it,
+  or make the integration branch the default?
 - **Repo hygiene** from the maintainability audit: Git LFS for FBX and `.bytes`, removing `github-test1/`, whether CI builds Windows.
 
 ## Plans that live outside the repo

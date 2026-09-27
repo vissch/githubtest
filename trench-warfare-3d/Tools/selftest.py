@@ -57,6 +57,17 @@ def codemap_cases(wt: pathlib.Path):
     code, out = run(check, proj)
     case('codemap --check passes on the clean tree', code == 0, out)
 
+    # the other direction: ordinary edits must not fail the check, or every lane regenerates and conflicts
+    sim_host = proj / 'Assets/_Project/Presentation/Core/SimHost.cs'
+    sim_host.write_bytes(b'// a harmless comment\n' + sim_host.read_bytes())
+    tests = proj / 'Assets/_Project/Tests/EditMode/EnvAtlasTests.cs'
+    edit(tests, 'public void The_Packer_And_The_Kit_List_The_Same_Sets_In_The_Same_Order()',
+         'public void A_New_Case() { }\n        [Test]\n        public void The_Packer_And_The_Kit_List_The_Same_Sets_In_The_Same_Order()')
+    code, out = run(check, proj)
+    case('codemap --check passes a harmless edit (a comment, one more test in a class)', code == 0, out)
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
+
     wf = wt / 'docs/reference/workflow.md'
     expect('a command running a missing tool', 'Tools/shotstatz.py',
            lambda: edit(wf, 'python Tools/shotstats.py', 'python Tools/shotstatz.py'))
@@ -77,6 +88,13 @@ def codemap_cases(wt: pathlib.Path):
            lambda: (proj / 'Assets/_Project/Tests/EditMode/SelfTestProbeTests.cs').write_text(
                'using NUnit.Framework;\nnamespace TW.Tests { public class SelfTestProbeTests { [Test] public void A() {} } }\n'),
            regen=True)
+    expect('a production file no agent page names', 'NewHelper.cs is named on no agent page',
+           lambda: (proj / 'Assets/_Project/Presentation/Core/NewHelper.cs').write_text(
+               'namespace TW.Presentation { static class NewHelper { } }\n'))
+    head_subject = run(['git', 'log', '-1', '--format=%s'], wt)[1].strip().replace('"', '')[:60]
+    tasks = wt / 'docs/reference/tasks.md'
+    expect('an "(until ... lands)" line whose commit has landed', 'has landed',
+           lambda: tasks.write_bytes(tasks.read_bytes() + f'\nA pending fix (until "{head_subject}" lands).\n'.encode()))
     mem = wt / 'docs/reference/agent-memory.md'
     expect('agent-memory.md over its cap', 'agent-memory.md is',
            lambda: mem.write_bytes(mem.read_bytes() + b''.join(b'- filler %d\n' % i for i in range(200))))
@@ -96,9 +114,10 @@ def port_split_cases(tmp: pathlib.Path):
     edit(big, 'int keep3 = 3;', 'int keep3 = 30;')      # stays in Big.cs
     edit(big, 'int move8 = 8;', 'int move8 = 80;')      # moves to Big.Moved.cs
     edit(big, 'int move2 = 2;', 'int move2 = 20;')      # both sides change it: a real conflict
+    edit(big, 'int keep9 = 9;', 'int keep9 = 90;')      # the split side changes the line above: git calls it a conflict
     g('commit', '-qam', 'edits')
     g('checkout', '-q', 'main')
-    keep = [l for l in lines if 'move' not in l]
+    keep = [l if 'keep8' not in l else '    int keep8 = 8; // split side changed this' for l in lines if 'move' not in l]
     big.write_text('\n'.join(keep))
     moved = ['partial class Big', '{'] + [f'    int move{i} = {i};' for i in range(12)] + ['}', '']
     moved[2 + 2] = '    int move2 = 2; // split side changed this'
@@ -109,11 +128,29 @@ def port_split_cases(tmp: pathlib.Path):
     case('port_split carries an edit into the file the code moved to', 'int move8 = 80;' in b_new, out)
     case('port_split keeps an edit to code that stayed in the old file', 'int keep3 = 30;' in b_old, out)
     rej = r / 'A/Big.cs.port.rej'
+    rej_text = rej.read_text() if rej.exists() else ''
     case('port_split leaves a both-sides edit in .rej and exits 1',
-         code == 1 and rej.exists() and 'move2 = 20' in rej.read_text() and 'move2 = 20' not in b_new, out)
+         code == 1 and 'move2 = 20' in rej_text and 'move2 = 20' not in b_new, out)
+    case('port_split rejects an edit whose context the other side changed (git would conflict)',
+         'keep9 = 90' in rej_text and 'keep9 = 90' not in b_old, out)
+
+    # the lane rule is rebase: a lane cut before the split rebases onto it and ports each stopped commit
+    g('checkout', '-q', '-f', 'main'); g('clean', '-qfd')
+    g('checkout', '-qb', 'lane', 'main~1')
+    edit(big, 'int move9 = 9;', 'int move9 = 99;')
+    g('commit', '-qam', 'lane edit')
+    code, out = g('rebase', 'main')
+    stopped = code != 0
+    code, out2 = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--rebase'], r)
+    moved_now = (r / 'A/Big.Moved.cs').read_text()
+    g('add', '-A')
+    code2, out3 = run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'core.editor=true', 'rebase', '--continue'], r)
+    case('port_split --rebase carries a rebased commit into the split and the rebase completes',
+         stopped and code == 0 and 'int move9 = 99;' in moved_now and code2 == 0, out + out2 + out3)
 
 
 def main():
+    run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='tw-selftest-'))
     wt = tmp / 'wt'
     code, out = run(['git', 'worktree', 'add', '-q', '--detach', str(wt), 'HEAD'], REPO)
@@ -129,7 +166,7 @@ def main():
         for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
             (wt / rel.strip()).unlink(missing_ok=True)
         run(['git', 'add', '-A'], wt)
-        run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'working tree',
+        run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
              '--allow-empty', '--no-verify'], wt)
         codemap_cases(wt)
         port_split_cases(tmp)

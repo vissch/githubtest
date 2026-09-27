@@ -3,7 +3,8 @@
 #   ./gate.ps1 -EditOnly   validate + EditMode (SHOW lane, iterating)
 #
 # Exit codes: 0 green; 8 a test failed; 6 no verdict (compile error, licence); 3 the project is held by an editor
-# or another batch run (close it, or run the tests inside it: workflow.md); anything else is validate.py's code.
+# or another batch run (close it, or run the tests inside it: workflow.md); 1 unity.exe is missing; any other code is
+# validate.py's (it runs first) or unity's own.
 #
 # Failures are printed with their message, so you do not need to open test-results.xml.
 #
@@ -58,14 +59,16 @@ function Run-Tests($mode, [string[]]$extra) {
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
     & $unity test . --mode $mode --timeout 600 @extra | Out-Host
     $code = $LASTEXITCODE
-    if ($code -ne 8) { return (Report-Run $mode $code) }
+    $first = Report-Run $mode $code          # the full run's results stay in test-results-<mode>.xml whatever follows
+    if ($code -ne 8) { return $first }
     $noiseOnly = Show-Failures 'test-results.xml'
     if (-not $noiseOnly) { return $code }
     Write-Host "`nEvery failure is external pipeline noise (see the header of gate.ps1). Rerunning the failed tests once." -ForegroundColor Yellow
+    Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
     & $unity test . --mode $mode --timeout 600 --rerun-failed @extra | Out-Host
     $code = $LASTEXITCODE
     if ($code -eq 8) { Show-Failures 'test-results.xml' | Out-Null }
-    return (Report-Run $mode $code)
+    return (Report-Run "$mode-rerun" $code)
 }
 
 $proj  = Join-Path $PSScriptRoot 'trench-warfare-3d'

@@ -5,7 +5,7 @@ fails above it). Only incidents go here:
 - a fact about the code goes in the code, or in a Trap line in `tasks.md`;
 - a procedure goes in `workflow.md` or `pipelines.md`;
 - a decision goes in `decisions.md`;
-- a note for another session goes in `inbox.md`.
+- a note for another session goes in `docs/inbox/`, one file per note.
 
 When the log is full, fold an old entry into its page or delete it. The full log as it stood on 2026-09-25 (356
 lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent-memory.md`.
@@ -30,7 +30,8 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-09-23. A mesh without Read/Write scales silently.** Giant walkers drew with legs at the new spacing and
   bodies at the old size. An eval in the live editor looked fine, because the editor refetches vertex data on demand
   and the shipped load path does not. **A value read back from a live editor is not evidence about the shipped
-  path, and when numbers and a screenshot disagree, the screenshot is right.**
+  path: when such a value and a screenshot disagree, the screenshot is right** (numbers measured on the screenshot
+  itself, `shotstats.py`, are the screenshot).
 - **2026-09-23. `GC.GetAllocatedBytesForCurrentThread` reads 0 under Unity's GC**, so every "measured 0 B" result
   before that date was void. Validate an instrument on a known allocation first (AllocProbeSanityTests does).
 - **2026-09-24. Benchmark the code that shipped.** A note said the one-pass marks sweep was slower; that measurement

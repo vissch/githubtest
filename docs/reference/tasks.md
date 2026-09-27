@@ -19,7 +19,7 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   and the slot count is a seam change.
 - **"An EditMode test fails."** Find the test class in the generated table at the bottom to see which code it
   exercises, then its area row. Before believing a red from an editor that has been in Play, read
-  `workflow.md`, "False reds". A real red in the other lane's code is theirs to fix: write it in `inbox.md`
+  `workflow.md`, "False reds". A real red in the other lane's code is theirs to fix: write a note in `docs/inbox/`
   with the test name and the failure message, and do not patch their files.
 - **"The game looks wrong after my change."** `workflow.md`, "See the game": capture with `CaptureRig`, then
   read the numbers with `python Tools/shotstats.py`. Do not judge brightness or colour by eye.
@@ -29,7 +29,11 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 ### Sim core: world state, commands, hash, replay
 - **Files:** `Sim/Core/SimWorld.cs` (all per-slot arrays, `Hash()`), `Sim/Core/SimCommand.cs`, `Sim/Core/SimEvents.cs`,
   `Sim/Core/SimConfig.cs`, `Sim/Core/Replay.cs` (`FormatVersion`), `Sim/Match/MatchSim.cs` (system registration),
-  `Sim/Core/ISimSystem.cs` (order constants). System order table: `code-map.md`.
+  `Sim/Core/ISimSystem.cs` (order constants). System order table: `code-map.md`. Helpers: `Sim/Core/SimHash.cs`
+  (FNV-1a), `Sim/Core/SimRandom.cs` (every random draw from seed, tick, system and slot), `Sim/Core/SimMath.cs`
+  (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
+  (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
+  `Editor/DeterminismPlatformReport.cs`.
 - **Tests:** SimHashTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests.
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
   `FormatVersion`. Contracts in `docs/02-contracts.md`, rules in `docs/03-determinism-rules.md`.
@@ -38,6 +42,8 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **Files:** `Net/LockstepDriver.cs`, `Net/LoopbackTransport.cs`, `Net/CommandSeat.cs` (SIM lane), and on the
   SHOW side of the seam `Presentation/Core/LockstepSession.cs`, `Presentation/Core/SimHost.cs`,
   `Presentation/Core/ScriptedEnemy.cs` (the AI). The folder decides the lane: those three are SHOW files.
+  Interfaces `Net/ILockstepTransport.cs`, `Net/ICommandSink.cs`; `Net/UtpTransport.cs` is a stub (multiplayer is
+  deferred).
 - **Tests:** LockstepLoopbackTests, BattlefieldLockstepTests, CommandSeatTests, SinglePlayerEquivalenceTests,
   CanaryFixture (makes every PlayMode SimHost run the canary).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
@@ -51,16 +57,19 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **See it:** `TW.Editor.CaptureRig.Stress(1000, "C:/abs/stress.json")`, or `-twbench "stress=1000 ..."` in a build.
 
 ### Map generation and ground (sim side)
-- **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: ShelledForest, WinterLine, sea),
+- **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
   `Sim/Terrain/MudField.cs`, `Sim/Terrain/PropDef.cs`, `Sim/Match/Deformation.cs` (the only thing that edits the map).
+  Contracts `Sim/Terrain/MapStructs.cs`, `Sim/Terrain/NavLayer.cs`; `Sim/Terrain/GreyboxMapGenerator.cs` is the
+  flat corridor the determinism tests use.
 - **Tests:** BattlefieldTests, DynamicGroundTests, CoastTests, WinterMapTests.
 - **Trap:** a feature tested only on the playtest map is untested. BattlefieldTests runs the generated map.
 
 ### Movement, flow fields, garrison, trench orders
 - **Files:** `Sim/Nav/FlowFieldManager.cs`, `Sim/Nav/FlowField.cs`, `Sim/Nav/MovementSystem.cs` (`MoveJob` decides
   stance), `Sim/Nav/SeparationJob.cs`, `Sim/Units/TrenchGarrison.cs` (class `TrenchGarrisonSystem`),
-  `Sim/Units/TrenchOrders.cs`, `Sim/Core/TrenchPost.cs`, `Sim/Core/StanceRules.cs`.
+  `Sim/Units/TrenchOrders.cs`, `Sim/Core/TrenchPost.cs`, `Sim/Core/StanceRules.cs`,
+  `Sim/Nav/SpatialHash.cs` (1 m buckets, built in slot order so neighbour order is deterministic).
 - **Tests:** FlowFieldTests, FlowFieldManagerTests, GarrisonAndOrdersTests, GarrisonTests, TrenchSpreadTests,
   PlaytestMapTests.
 - **Trap:** `StanceSystem` is a stub. Stance is written in `MovementSystem.cs` as `StanceOf[i]`.
@@ -68,6 +77,8 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 ### Infantry combat
 - **Files:** `Sim/Combat/TargetAcquisition.cs`, `Sim/Combat/DirectFire.cs`, `Sim/Combat/Suppression.cs`,
   `Sim/Combat/CombatTables.cs` (placeholder weapon data), `Sim/Combat/HeightfieldRaycast.cs` (line of sight).
+  Data structs `Sim/Combat/CombatStructs.cs`, `Sim/Units/UnitStats.cs`, baked from ScriptableObjects by
+  `Data/DataBaker.cs` (the assets themselves are made by `Editor/SliceDefinitions.cs`).
 - **Tests:** CombatTests, HeightfieldRaycastTests.
 
 ### Shells, barrages, gas
@@ -76,10 +87,25 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 - **Tests:** SupportAbilityTests, DirectionalBlastTests.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
 
+### Objectives, money, victory, the debrief
+- **Files:** `Sim/Match/SectorControl.cs` (an objective flips when enough infantry hold it; sets `WinnerTeam` when a
+  side holds them all), `Sim/Core/SimWorld.cs` (`Silver` income each tick, deploy cost, `CommandType.Surrender`),
+  and on the SHOW side `UI/ObjectiveTracker.cs` (the objectives list and the centre banner),
+  `Presentation/Core/MatchStats.cs` (what the debrief counts, from the event pump), `UI/Shell/DebriefScreen.cs`.
+- **Tests:** BattlefieldLockstepTests, CombatTests and PlaytestMapTests reach `WinnerTeam`; ShellUxmlTests loads the
+  debrief. Nothing tests `SectorControl`, `MatchStats` or `ObjectiveTracker` directly.
+
+### Stubs: placeholders for planned phases, not wired
+`Sim/Combat/IndirectFire.cs`, `Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,
+`Sim/Units/Grenades.cs`, `Sim/Units/SpecialAbilities.cs` (unregistered systems that throw, `code-map.md`),
+`Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
+(each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
+
 ### Fire in the sim
 - **Files:** vehicles burn: `Sim/Units/VehicleModules.cs` (`Fire`, `StartFire`, `UnitFlags.Burning`, the
   `VehicleOnFire` event). Men and ground cells do not burn yet: `Sim/Combat/Burning.cs` is a stub that throws and is
-  not registered (`code-map.md`, sim system order). Registering it is a hash and replay change (a seam commit).
+  not registered (`code-map.md`, sim system order) (until "SIM: a recruit lit before the burning system steps"
+  lands). Registering it is a hash and replay change (a seam commit).
 - **Tests:** TankMobilityTests (vehicle fire). None for infantry fire.
 
 ### Vehicles in the sim: tanks and walkers
@@ -100,7 +126,7 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first; the SHOW lane then does 3-6.
 1. **Both rosters are full** (`RosterEntry.FillDefault` fills slots 0-7 for each side), so a new unit means
    replacing one or raising `RosterEntry.SlotCount`, a seam change. `lane/show/units-meta` already has 8 → 10 in
-   flight (`inbox.md`): coordinate before starting.
+   flight (`docs/inbox/`): coordinate before starting.
 2. Sim: a new archetype id in `VehicleArchetype` (`Sim/Core/RosterEntry.cs`; ids are a seam item), its roster
    entry, and for a vehicle a `TankSpec` and `VehicleProfile`. `IsWalker` is a range check (`Pincer` to `Redoubt`,
    6-11), so a walker with id 12 is silently not a walker until the range moves.
@@ -117,10 +143,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ## Presentation (SHOW lane)
 
 ### Infantry rendering (VAT)
-- **Files:** `Presentation/Units/VATRenderer.cs` (`UnitScale`, LOD tiers), `Presentation/Units/VatCodec.cs`,
+- **Files:** `Presentation/Units/VATRenderer.cs` (LOD tiers; the figure scale is `UnitScale` in
+  `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Core/IZoomSource.cs`, `Presentation/Units/VatCodec.cs`,
   `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs` (far tier and fallback),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
-- **Hooks:** reads `TanksDrawn`.
 - **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests.
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
   with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`.
@@ -135,7 +161,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/TankRenderer.cs`, `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
   `Presentation/Camera/WalkerGait.cs` (planted feet), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
   import rules `Editor/TankImport.cs`.
-- **Hooks:** sets `TanksDrawn`, `VehicleTracks`, `VehicleGunPort`, `DrawnWreck`, `IsTankSlot`; calls `FootFall`.
 - **Tests:** GaitTests (plus the sim tests above).
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
@@ -150,14 +175,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
-  **Colours:** the tints in `FlipbookFx.Sheets` are overwritten every scene by `CombatFx.ApplyTints` from
+  **Colours:** six books' tints (Splash, Column, Wings, Spurt, Puff, Smoke) are overwritten every scene by
+  `CombatFx.ApplyTints` from
   `BiomeProfile` (`SmokeTint` and the other `*Tint` fields, through `SceneTints`), so change a colour there. At
   night a burst also lights its own smoke: `NightLights` sets `_TWBurst`, read by `TWBurstLight` in
-  `Shaders/TWAtmosphere.hlsl`. `FlipbookFx.Book` maps to `Sheets` by position; the smoke book's sheet is named "Puff".
+  `Shaders/TWAtmosphere.hlsl`. `FlipbookFx.Book` maps to `Sheets` by position, and three
+  sheets are named "Puff": count the rows, the smoke book is the one with `Erode = true`.
   `CombatFx.cs` also draws the gameplay overlays: called-strike target markers, the ability aiming circle (in
   `Update`, from `TestPanel.Armed`) and the IMGUI banner (`Banner`, `OnGUI`).
-- **Hooks:** sets `Sparks`, `CookOff`, `FootFall`; reads `IsWater`, `AddRing`, `Flash`, `SmokeSources`, `IsTankSlot`,
-  `VehicleTracks`, `VehicleGunPort`, `CloseUp`.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests.
 - **Trap:** effects drawn only up close sit behind `if (!close) return;` in `CombatFx.Ground.cs` `CloseLife`. Keep
   that guard in front of anything close-only, or the standard view pays for it.
@@ -173,9 +198,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Flamethrower
 - **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only: men do not burn in the sim, see "Fire in
   the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Its clock is `now = Time.time` in
-  `CombatFx.cs` `Update`, passed to `flames.Update`: wall-clock, so it runs on while the sim is paused. A
+  `CombatFx.cs` `Update`, passed to `flames.Update`: wall-clock, so it runs on while the sim is paused
+  (until "Pools of fuel and pyres burn out by the sim's clock" lands). A
   burning man's state runs on sim ticks instead (`AnimationController.SetAlight`, `AlightUntil`).
-- **Hooks:** calls `FireLight`, `Sparks`.
 - **Tests:** none.
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it.
@@ -187,7 +212,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers),
   `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
   `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`). Design: `docs/16-destruction.md`.
-- **Hooks:** `PropDestruction` calls `CookOff`.
 - **Tests:** DebrisTests, PropWearTests, HouseKitTests.
 - **Trap:** a prop is identified by its position rounded to 0.25 m. Convert a drawn instance to a key through
   `PropWear.Home` first, or it forgets its damage.
@@ -196,8 +220,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement), `Presentation/Terrain/BattlefieldKit.cs`
   (modules, env atlas cells), `Presentation/Terrain/BattlefieldProps.cs` (instanced pages, `Generation`),
   `Presentation/Terrain/BattlefieldBlueprint.cs`, `Presentation/Terrain/PropLayout.cs` + `Resources/Layouts/`
-  (owner's hand edits), `Editor/EnvPropEditor.cs`, `Editor/EnvKitImport.cs`.
-- **Hooks:** reads `DrawnWreck`.
+  (owner's hand edits), `Editor/EnvPropEditor.cs` (with `Presentation/Terrain/PropHandle.cs`, the editor stand-in for
+  one batched prop), `Editor/EnvKitImport.cs`. The procedural kit: `Presentation/Terrain/BattlefieldGeometry.cs` (worn
+  solid primitives), `Presentation/Terrain/BattlefieldPigment.cs` (the painted surface sheet), and
+  `Presentation/Terrain/BattlefieldBackdrop.cs` (what lies beyond the fought-over ground).
 - **Tests:** EnvAtlasTests.
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
   gaps between placed structures.
@@ -212,8 +238,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
   shaders `Toon_URP`, `Water_URP`, `TWAtmosphere.hlsl`, `TWLocalLights.hlsl`, `TWWater.hlsl`.
-- **Hooks:** `WaterRings` sets `IsWater` and `AddRing`; `NightLights` sets `Flash`, `FireLight` and fills
-  `SmokeSources`; `SmallLife` and `NightLights` read `CloseUp`.
 - **Tests:** BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests.
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
@@ -226,7 +250,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   cascades), with `Settings/TW-Renderer.asset`. `ProjectSettings/QualitySettings.asset` also lists shadow
   distances (15 to 150): URP ignores them. `Editor/BootstrapSceneBuilder.cs` rebuilds the pipeline asset with its
   own copy of 220. No runtime code sets pipeline values today; a runtime knob belongs in `Atmosphere.cs`, which owns
-  the per-scene look.
+  the per-scene look. `Editor/InkLinesSetup.cs` installs the screen-space ink pass on the renderer.
 - **Trap:** changing a pipeline asset's value from code in the editor writes the asset to disk. Restore it, or
   change a copy.
 - **Tests:** none.
@@ -234,19 +258,21 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Camera
 - **Files:** `Presentation/Camera/TacticalCamera.cs` (standard view: fov 25, pitch 25, zoom 30; `FrameFrom`),
   `Presentation/Camera/CameraShake.cs`, `Editor/GameViewFit.cs`.
-- **Hooks:** sets `CloseUp` (so do `CaptureRig` and `PerfBench` while they shoot).
 - **Trap:** setting `Camera.main.transform` does nothing; the controller overwrites it every frame. Use `FrameFrom`.
 
 ## Interface (SHOW lane)
 
 ### Battle HUD (UI Toolkit, the live one)
 - **Files:** `UI/HudController.cs`, `UI/HudView.cs`, `UI/HudText.cs` (every word), `UI/HudLayout.cs`,
-  `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/HudBootstrap.cs`, `UI/Resources/Hud/BattleHud.uxml`.
+  `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/HudBootstrap.cs`, `UI/Resources/Hud/BattleHud.uxml`,
+  `UI/HudHotkeys.cs` (keys, through `KeyMap`), `UI/HudTooltip.cs`, `UI/HudDialogue.cs` (the speaker strip) and
+  `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`; `Presentation/Core/HudBridge.cs` is the
+  seam between the camera assembly and UI (the camera may not reference UI).
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
   UnitArtTests. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD.
 - **Trap:** the support cards are `HudView.SupportAbilities`, but `HudLayout.SupportSlots` and `BattleHud` each keep
-  their own `SupportSlots = 2`. Adding a support ability means changing all three.
+  their own `SupportSlots = 2` (until "The HUD's width model counts every support card" lands).
 
 ### Legacy IMGUI HUD and debug panel
 - **Files:** `Presentation/Camera/BattleHud.cs` (F9 switches to it), `Presentation/Camera/TestPanel.cs`,
@@ -263,8 +289,15 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Sim/Match/OffMapAbilities.cs` (`TryGetStats`: which abilities exist and their radius).
 - **Tests:** SelectionTests (AimReadout), SupportAbilityTests (sim).
 - **Trap:** the drawn circle uses the ability's radius, or 8 m when it has none; `AimReadout` has its own 8 m
-  (`GasReticleM`). Change both, or make one read the other.
+  (`GasReticleM`). Change both (until "One reticle radius for the aim and the readout" lands).
 - **See it:** in Play, arm with the HUD card or keys 9 and 0, then `TW.Editor.HudCapture.Shoot(path)`.
+- **Adding a support ability (checklist).** SIM first: `OffMapAbilityId` and its stats in
+  `Sim/Match/OffMapAbilities.cs`, the asset in `Editor/SliceDefinitions.cs`. Then SHOW: `UI/HudView.cs`
+  `SupportAbilities`; the slot counts in `UI/HudLayout.cs` and `Presentation/Camera/BattleHud.cs`; a `GameAction`,
+  key and label in `Presentation/Core/KeyMap.cs`; `UI/HudHotkeys.cs`; name and card text in `UI/HudText.cs`; its icon
+  in `UI/Skin/SkinSpec.cs`; `Presentation/Camera/TestPanel.cs`; the aim circle and effects in `CombatFx.cs`; the AI's
+  choice in `Presentation/Core/ScriptedEnemy.cs`. Tests: SupportAbilityTests, HudBindTests, HudStructureTests,
+  KeyMapTests, SkinAssetTests.
 
 ### Selection
 - **Files:** `UI/Selection/SelectionController.cs`, `UI/Selection/SelectionModel.cs`, `UI/Selection/UnitPicker.cs`
@@ -273,7 +306,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** SelectionTests.
 
 ### Menus, settings, keys, match launch
-- **Files:** `UI/Shell/ShellRouter.cs`, the `UI/Shell/` screens, `UI/Shell/SettingsApplier.cs`,
+- **Files:** `UI/Shell/ShellRouter.cs`, `UI/Shell/ShellBoot.cs` (keeps the shell alive through scene loads),
+  `UI/Shell/ShellScreen.cs` (one screen: a UXML bound to the router), `UI/Shell/ShellAssets.cs` (built by
+  `Editor/UI/ShellAssetsBuilder.cs`), the screens `UI/Shell/MainMenuScreen.cs`, `UI/Shell/MissionSelectScreen.cs`
+  (with `UI/Shell/MissionCatalog.cs`, `UI/Shell/MapThumbnail.cs`), `UI/Shell/ArmouryScreen.cs`,
+  `UI/Shell/SettingsScreen.cs`, `UI/Shell/PauseMenuScreen.cs`, `UI/Shell/DebriefScreen.cs`; `UI/Shell/SettingsApplier.cs`,
+  `Presentation/Core/AudioLevels.cs` (volume buses), `Presentation/Core/InputFocus.cs` (who owns the keyboard),
   `Presentation/Core/GameSettings.cs`, `Presentation/Core/SettingsStore.cs`, `Presentation/Core/KeyMap.cs`,
   `Presentation/Core/MatchLaunch.cs` (the `Request` a mission starts from; `UI/Shell/MissionCard.cs` `ToRequest` is
   the one place the game builds one), `Presentation/Core/MatchClock.cs` (owns `SimHost.TimeScale`). Factions and
@@ -305,7 +343,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   covers `FrameBudget`'s counts.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
 - **Trap:** `FrameBudget` does not see every draw: `BattlefieldProps`, `PropDestruction` and `SelectionMarkers` call
-  `Graphics.RenderMeshInstanced` directly (a fix is on `lane/show/aosa`), and `PerfBench` reports the props'
+  `Graphics.RenderMeshInstanced` directly (until "Every gameplay draw goes through FrameBudget" lands), and `PerfBench` reports the props'
   own `DrawCalls` rather than reading `FrameBudget`. A bench `shot=` still includes the HUD and IMGUI overlays.
 
 ### Windows build
@@ -313,6 +351,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** ShaderInclusionTests (every `Shader.Find("TW/...")` must be Always Included or it breaks the player).
 
 ## Generated indexes (do not edit: `python Tools/codemap.py`)
+
+Which component sets, reads or calls each `SceneHooks` member (the hand rows above no longer repeat this):
 
 <!-- gen:hooks -->
 | SceneHooks member | Set by | Read / called by |
@@ -334,64 +374,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-| Test class | Mode | Tests | Production types it touches most |
-|---|---|---|---|
-| `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
-| `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
-| `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
-| `BiomeProfileTests` | EditMode | 3 | SceneTints, BiomeProfile, Atmosphere, Biome |
-| `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
-| `CoastTests` | EditMode | 6 | BattlefieldGenerator, BattlefieldParams, SeaLandingSystem, Sample, MapData |
-| `CombatTests` | EditMode | 9 | MatchSim, SimCommand, SimEventType, Stance, CommandType, GoalKey |
-| `CommandSeatTests` | EditMode | 1 | CommandSeat, LockstepDriver, LoopbackNetwork, MatchSim, SimCommand, SimConfig |
-| `CommandValidationTests` | EditMode | 5 | SimCommand, MatchSim, SimConfig, SimEventType, SimWorld |
-| `ComponentLookupAllocationTests` | EditMode | 1 | IZoomSource, CombatFx, AllocProbe, Shot |
-| `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
-| `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
-| `DeterminismReplayTests` | EditMode | 3 | SimCommand, MatchSim, SimConfig, ReplayRecorder, GreyboxMapGenerator, Record |
-| `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |
-| `DynamicGroundTests` | EditMode | 11 | NavLayer, CraterStamp, Snapshot, MapData, MatchSim, CraterKind |
-| `EnvAtlasTests` | EditMode | 2 | BattlefieldKit |
-| `FlowFieldManagerTests` | EditMode | 4 | GoalKey, FlowField, MatchSim, NavLayer, SimCommand, NavMode |
-| `FlowFieldTests` | EditMode | 2 | FlowField, NavLayer, GreyboxMapGenerator, Kind, MapData, ObjectiveKind |
-| `GaitTests` | EditMode | 12 | WalkerGait, VehicleArchetype, TankModel, Body, Foot, Rest |
-| `GameSettingsTests` | EditMode | 10 | GameSettings, SettingsStore, SettingsApplier, Bindings, AudioLevels, GameAction |
-| `GarrisonAndOrdersTests` | EditMode | 9 | CommandType, SimCommand, NavLayer, MatchSim, UnitFlags, SimEventType |
-| `GarrisonTests` | EditMode | 5 | MatchSim, SimMath, Stance, SimCommand, SimConfig |
-| `HashIntervalTests` | EditMode | 2 | SimCommand, MatchSim, SimConfig, LockstepDriver, LoopbackNetwork, ReplayRecorder |
-| `HeightfieldRaycastTests` | EditMode | 4 | HeightfieldRaycast, Sample, Look, Stance, Heightfield, BattlefieldGenerator |
-| `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
-| `HudBindTests` | EditMode | 10 | HudText, HudView, VehicleArchetype, RosterEntry, IntText, TankSpec |
-| `HudLayoutTests` | EditMode | 5 | BattleHud, RosterEntry |
-| `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud |
-| `HudTextTests` | EditMode | 11 | BattleHud, VehicleArchetype, TankSpec, RosterEntry, OffMapAbilityId, OffMapAbilitySystem |
-| `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |
-| `LandingTests` | EditMode | 8 | SimCommand, MatchSim, Sample, LandingState, BattlefieldGenerator, BattlefieldParams |
-| `PaintedHorizonCompressionTests` | EditMode | 3 | GreyboxTerrainView |
-| `PlaytestMapTests` | EditMode | 4 | SimCommand, MatchSim, CommandType, GoalKey, SimConfig, UnitFlags |
-| `PropWearTests` | EditMode | 8 | PropDestruction, CombatTables, DebrisRenderer, Piece, SimConfig |
-| `SelectionTests` | EditMode | 15 | UnitState, UnitStatus, UnitPicker, ScreenUnit, Stance, GarrisonStats |
-| `ShaderInclusionTests` | EditMode | 2 | CombatFx |
-| `ShellUxmlTests` | EditMode | 9 | MatchLaunch, DebriefScreen, ShellAssets, SimHost, ArmouryScreen, Difficulty |
-| `SimHashTests` | EditMode | 3 | SimHash, SimRandom, SimMath, SystemId |
-| `SinglePlayerEquivalenceTests` | EditMode | 1 | LockstepSession, MatchSim, ScriptedEnemy, SimCommand, SimConfig |
-| `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |
-| `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, Pending, AudioLevels |
-| `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
-| `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
-| `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |
-| `TickAllocationTests` | EditMode | 2 | LockstepDriver, AnimationController, EventPump, MatchSim, SimPresenter, SimCommand |
-| `TrenchSpreadTests` | EditMode | 12 | TrenchPost, MatchSim, BattlefieldParams, BattlefieldGenerator, MapData, SeparationJob |
-| `UnitArtTests` | EditMode | 8 | UnitArt, Mood, HudDialogue, SimEvent, SimEventType, ArmouryScreen |
-| `VatAssetTests` | EditMode | 3 | Clip, VatAsset, Socket, VatCodec, AnimRow, Clips |
-| `VatAtlasMemoryTests` | EditMode | 5 | Figure, VATRenderer, VatAsset, VatAssetData, VatCodec, ProceduralSoldier |
-| `VatEarlyZTests` | EditMode | 2 | VATRenderer |
-| `WinterLevelTests` | EditMode | 6 | Ground, Biome, BiomeProfile, BattlefieldGenerator, BattlefieldParams, MatchLaunch |
-| `WinterMapTests` | EditMode | 7 | BattlefieldParams, BattlefieldGenerator, MapData |
-| `CanaryFixture` | PlayMode | 0 | SimHost |
-| `HudLayoutPlayTests` | PlayMode | 3 | HudBootstrap, HudView, RosterEntry, HudLayout, AllocProbe, BattleHud |
-| `LockstepLoopbackTests` | PlayMode | 3 | SimCommand, LockstepDriver, MatchSim, ReplayRecorder, LoopbackNetwork, SimConfig |
-| `MatchClockTests` | PlayMode | 5 | MatchClock, Hold, SimHost |
-| `MatchLaunchPlayTests` | PlayMode | 3 | MatchLaunch, AudioLevels, SimHost, HudBootstrap, SettingsStore, ShellBoot |
-| `ShellRouterPlayTests` | PlayMode | 1 | ShellBoot, ShellAssets, ShellRouter |
+- **EditMode:** AllocProbeSanityTests, BattlefieldLockstepTests, BattlefieldTests, BiomeProfileTests, BlastReactionTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FlowFieldManagerTests, FlowFieldTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, StaticLifecycleTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, WinterLevelTests, WinterMapTests
+- **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 <!-- /gen:tests -->

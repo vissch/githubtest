@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Is this checkout sane? Run this first when you land, and before you commit. About ten seconds, no Unity needed.
+"""Is this checkout sane? Run this first when you land, and before you commit. About 15 s (validate is most of it),
+no Unity needed.
 
     python Tools/health.py            from trench-warfare-3d/
     python Tools/health.py --compile  also compile the changed assemblies offline (needs Tools/aosa/occ.py)
@@ -10,16 +11,18 @@ the branch, its last commit (date and subject: what it is doing), how far it is 
 branch, whether it has uncommitted files, and the files a merge of it with YOUR branch would conflict on (a trial
 merge in memory, `git merge-tree`; nothing is checked out). It replaces the hand-kept "In flight" list, which every
 lane edited and so conflicted in every merge. A conflict it shows is one to talk about before it grows: a note in
-docs/reference/inbox.md, or ask the owner which lane lands first.
+a file in docs/inbox/, or ask the owner which lane lands first.
 
 It checks, in order, and prints one line each:
   1. lock     who holds THIS checkout's Unity project (Tools/editor_lock.py). HELD means an editor or a batch run
               has it: do not gate, and do not write into Assets/ unless that editor is yours.
   2. editor   whether an editor for THIS checkout is connected to the unity CLI, and whether its last compile failed.
   3. validate python validate.py, which also runs Tools/codemap.py --check (docs match the code).
-  4. branch   which lane you are in (from the branch name), how far you are behind the integration branch, and any
-              uncommitted file outside your lane.
-  5. compile  only with --compile.
+  4. branch   which lane you are in (from the branch name), how far you are ahead of and behind the integration
+              branch (origin's, when fetched), and any file outside your lane that this branch changed or has
+              uncommitted: a SHOW branch carrying Sim/ files fails here.
+  5. inbox    the notes in docs/inbox/, on your branch and on the integration branch, marking those for you.
+  6. compile  only with --compile.
 
 Exit code: 0 all good, 1 something to fix before committing. HELD and "behind" are reported, not failed: they
 tell you what not to do, they are not errors in your tree.
@@ -48,6 +51,26 @@ def run(cmd, cwd=ROOT, timeout=120):
         return 124, 'timed out'
 
 
+def integration_ref():
+    """origin's integration branch when this clone has fetched it (the shared truth), else the local one."""
+    code, _ = run(['git', 'rev-parse', '--verify', '-q', f'origin/{INTEGRATION}'], cwd=REPO)
+    return f'origin/{INTEGRATION}' if code == 0 else INTEGRATION
+
+
+def inbox(branch):
+    """Notes are files in docs/inbox/<date>-<to>-<topic>.md; <to> is a lane with / as - (show-aosa) or 'all'."""
+    to_me = branch.replace('lane/', '', 1).replace('/', '-') if branch.startswith('lane/') else None
+    here = {p.name for p in (REPO / 'docs' / 'inbox').glob('*.md') if p.name != 'README.md'}
+    _, listed = run(['git', 'ls-tree', '--name-only', integration_ref(), 'docs/inbox/'], cwd=REPO)
+    upstream = {Path(l).name for l in listed.split() if l.endswith('.md') and not l.endswith('README.md')}
+    names = sorted(here | upstream)
+    mine = [n for n in names if (to_me and f'-{to_me}-' in n) or '-all-' in n]
+    print(f'inbox    {len(names)} notes, {len(mine)} for you' + ('' if names else ''))
+    for n in names:
+        where = '' if n in here else '  (on the integration branch only: rebase to get it)'
+        print(f'         {"FOR YOU " if n in mine else "        "}docs/inbox/{n}{where}')
+
+
 def unity_cli():
     for c in ('unity', os.path.join(os.environ.get('LOCALAPPDATA', ''), 'unity', 'bin', 'unity.exe')):
         code, _ = run([c, '--version'])
@@ -67,8 +90,11 @@ def lanes():
         trees.append((f.get('worktree', '?'), branch))
     print(f'{len(trees)} checkouts; conflicts are against your branch {me or "(detached)"}')
     for path, branch in trees:
+        if not Path(path).exists():
+            print(f'\n{Path(path).name}  [{branch}]  folder is gone: `git worktree prune` forgets it')
+            continue
         _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', branch], cwd=REPO)
-        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{branch}...{INTEGRATION}'], cwd=REPO)
+        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{branch}...{integration_ref()}'], cwd=REPO)
         ahead, behind = (counts.split() + ['?', '?'])[:2]
         _, dirty = run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
         n = len([l for l in dirty.split('\n') if l.strip()])
@@ -147,18 +173,25 @@ def main():
     code, branch = run(['git', 'branch', '--show-current'], cwd=REPO)
     branch = branch.strip()
     lane = 'sim' if branch.startswith('lane/sim/') else 'show' if branch.startswith('lane/show/') else None
-    _, counts = run(['git', 'rev-list', '--left-right', '--count', f'HEAD...{INTEGRATION}'], cwd=REPO)
+    integ = integration_ref()
+    _, counts = run(['git', 'rev-list', '--left-right', '--count', f'HEAD...{integ}'], cwd=REPO)
     ahead, behind = (counts.split() + ['?', '?'])[:2]
     _, status = run(['git', 'status', '--porcelain'], cwd=REPO)
     dirty = [l[3:] for l in status.split('\n') if l.strip()]
+    _, committed = run(['git', 'diff', '--name-only', f'{integ}...HEAD'], cwd=REPO)
     msg = f'branch   {branch or "(detached)"}  lane {lane or "NONE (see CLAUDE.md: work out your lane first)"}' \
-          f'  ahead {ahead} behind {behind} of {INTEGRATION}  {len(dirty)} uncommitted'
+          f'  ahead {ahead} behind {behind} of {integ}  {len(dirty)} uncommitted'
     print(msg)
     if lane:
-        foreign = [f for f in dirty if (f.startswith(SIM_PATHS)) != (lane == 'sim') and f.startswith('trench-warfare-3d/Assets/_Project/')]
-        for f in foreign:
+        def foreign(f):
+            return f.startswith('trench-warfare-3d/Assets/_Project/') and f.startswith(SIM_PATHS) != (lane == 'sim')
+        outside = sorted({f for f in dirty + committed.split('\n') if f.strip() and foreign(f)})
+        for f in outside[:12]:
             print(f'         outside your lane: {f}')
-        bad |= bool(foreign)
+        if len(outside) > 12:
+            print(f'         ... and {len(outside) - 12} more outside your lane')
+        bad |= bool(outside)
+    inbox(branch)
 
     if '--compile' in sys.argv:
         occ = ROOT / 'Tools' / 'aosa' / 'occ.py'

@@ -3,8 +3,9 @@
 Unity 6000.0.50f1, Windows x64 only. The Unity project is `trench-warfare-3d/`, not the repo root.
 
 ## Start here
-Read three files, in order: this one, `docs/reference/tasks.md` (task → files → tests → how to see it), then
-`docs/reference/workflow.md` (run, test, see, commit). Open anything else only when the list below sends you there.
+Read this file, then sections 1-5 and 8 of `docs/reference/workflow.md` (land, the shared machine, the editor,
+compile, test, commit). `docs/reference/tasks.md` is a lookup: search it for your area's heading (task → files →
+tests → how to see it); do not read it through. Open anything else only when the list below sends you there.
 
 | You need | Open |
 |---|---|
@@ -14,17 +15,18 @@ Read three files, in order: this one, `docs/reference/tasks.md` (task → files 
 | a switch, arg or prefs key | `docs/reference/feature-flags.md` |
 | importing, splitting, baking art; any `Tools/` script | `docs/reference/pipelines.md` |
 | assemblies, folders, sim system order | `docs/reference/code-map.md` |
-| notes other sessions left for you | `docs/reference/inbox.md` |
+| notes other sessions left for you | `docs/inbox/` (one file per note; `health.py` lists them) |
 | design of a system (why it is built this way) | `docs/README.md` (index of docs 00-20) |
 | known risks and the refactor backlog | `docs/reference/maintainability-audit-2026-09.md` |
-| whether these docs still work for a fresh agent (after a big docs change) | `docs/reference/nav-eval.md` |
 
 ## Land checks
 ```bash
 cd trench-warfare-3d && python Tools/health.py
 ```
-It reports the editor lock, free memory, your editor, `validate.py` and your lane. Then read `inbox.md`.
-`python Tools/codemap.py` regenerates the doc tables; `validate.py` fails when a doc no longer matches the code.
+It reports the editor lock, memory, your editor, `validate.py`, your lane, and the notes in `docs/inbox/` for you.
+`python Tools/codemap.py` regenerates the doc tables. `validate.py` fails on a stale table, a cited path or tool
+that does not exist, an undocumented flag or folder, and a test, hook or production file no row names. It does not
+read prose: a sentence can still be wrong, so trust the code over the docs when they disagree, and fix the doc.
 
 ## Who else is working
 ```bash
@@ -32,23 +34,24 @@ cd trench-warfare-3d && python Tools/health.py --lanes
 ```
 Every checkout on this machine: its branch, last commit, drift from the integration branch, uncommitted files, and
 the files it would conflict on with yours (a trial merge in memory). Nothing to keep up to date by hand. A conflict
-it shows is one to raise early: a note in `inbox.md`, or ask the owner which lane lands first.
+it shows is one to raise early: a note in `docs/inbox/`, or ask the owner which lane lands first.
 
 ## Lanes
-Work out your lane from the current branch before you edit anything. If the branch is not `lane/sim/*` or
-`lane/show/*`, stop and ask which lane you are. The boundary is the assembly graph and it is one-way: `TW.Sim.*`
-references nothing outside `TW.Sim.*`; everything else references Sim. So SHOW can never desync the lockstep sim.
+Work out your lane from the current branch before you edit anything: `lane/sim/*` or `lane/show/*`. Any other
+name (`lane/rig/...`, `main`, the integration branch): stop and ask which lane you are.
 
 | | **SIM lane** (`lane/sim/*`) | **SHOW lane** (`lane/show/*`) |
 |---|---|---|
 | Owns | `Assets/_Project/Sim/**`, `Net/**`, `Data/**`, the sim tests | `Presentation/**`, `UI/**`, `Editor/**`, `Perf/**`, `Resources/**`, `Art/**`, `Shaders/**`, `Settings/**`, `Scenes/**`, their tests |
-| Gate | EditMode + PlayMode + determinism/replay/hash tests | EditMode + a Play-in-editor look at the thing changed |
 | Never touches | anything SHOW owns | anything SIM owns |
 
+The folder decides the lane, not the topic: `Presentation/Core/SimHost.cs` drives the sim and is SHOW's. The assembly
+graph is one-way (`TW.Sim.*` references nothing else), but SHOW code holds the worlds, so it can still desync them.
+**SHOW changes the sim only through commands (`SimCommand`) or `SimHost.WriteWorlds(...)`**, never by writing world
+arrays. A SHOW task that needs a sim change is split: the SIM part lands first, on a SIM branch.
 `TW.Editor` is SHOW's but references every assembly, so a SIM rename that breaks it is fixed in the SIM commit.
-A test belongs to the lane of the code it tests (`tasks.md` rows say which). `Tools/**` and `gate.ps1` are shared:
-change them in a commit of their own. A task that spans lanes is split: the SIM part lands first.
-Docs in `docs/reference/` belong to whoever changes the code they describe; `validate.py` keeps them honest.
+A test belongs to the lane of the code it tests. `Tools/**` and `gate.ps1` are shared: change them in a commit of
+their own. Docs in `docs/reference/` belong to whoever changes the code they describe.
 
 ## The seam: do not touch without a seam commit
 1. **`SimWorld` fields and `SimWorld.Hash()`.** SIM lane only. `Hash()` is an ordered chain: append at the end,
@@ -64,28 +67,32 @@ A change to a surface the other lane reads goes in **its own commit, alone, firs
 rebase before it continues. Never bundle a seam change into a feature commit.
 
 ## Integration
-- Lanes branch off `claude/trench-warfare-2d-3d-plan-idt7lf` and rebase onto it. Never merge lane to lane.
-- A branch without this file was cut before 2026-09-24: `git pull --rebase` onto the integration branch first.
-- Push small and often; `git pull --rebase` before every push. A conflict in a file outside your lane means you
-  rebased over someone else's work: take theirs.
-- Never edit a file the other lane owns "just to unblock yourself". Ask for a seam commit.
-- A conflict inside a generated block (`<!-- gen:NAME -->` in `docs/reference/`): take either side, then run
-  `python Tools/codemap.py`, which rewrites the block from the merged code.
-- A conflict in a file that was split into partials: `Tools/port_split.py` (`workflow.md`, section 8).
+- Lanes branch off `claude/trench-warfare-2d-3d-plan-idt7lf` (the integration branch) and **rebase** onto it. Never
+  merge lane to lane, never a merge commit on integration. (`main` is older; do not branch from it.)
+- **A conflict during a rebase:** `HEAD` is upstream and "ours"; your commit being replayed is "theirs". In a file
+  outside your lane, keep upstream (`git checkout --ours -- <file>`) and redo your change on top only if it is yours
+  to make. In a generated block (`<!-- gen:NAME -->`): keep either side, then `python Tools/codemap.py`. In a file
+  that was split into partials: `python Tools/port_split.py <old file> --rebase` (`workflow.md`, section 8).
+- **Landing a lane**, only when the owner says so: rebase onto origin's integration branch, run the full gate, then
+  fast-forward it (`git fetch . HEAD:claude/trench-warfare-2d-3d-plan-idt7lf`) and push both branches. If the
+  fast-forward is refused, someone landed first: rebase again.
+- Push your lane small and often. Never edit a file the other lane owns "just to unblock yourself".
 
-## Gate before every commit
+## Gate
 ```bash
-# from the repo root
-powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # validate + EditMode + PlayMode
-powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # SHOW lane, iterating
+# from the repo root, this checkout's editor closed
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # before every commit: validate + EditMode
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # before landing, and after any sim change
 ```
-Needs this checkout's editor closed. Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, not a
-pass), 3 project held. `validate.py` alone is not the gate. Details and false reds: `workflow.md`, section 5.
+Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no tests ran), 3 project held, 1 unity.exe
+missing. SIM changes also need the determinism, replay and hash tests green (they are in EditMode). SHOW changes
+also need a look in Play at what changed. Details and false reds: `workflow.md`, section 5.
 
 ## Asking and remembering
 - **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into
   `decisions.md` in the same turn.
-- **A note for another session:** `inbox.md`. Cross-session messages expire unread.
+- **A note for another session:** a new file `docs/inbox/<date>-<to>-<topic>.md`, one note per file, so notes never
+  conflict. The receiver deletes it when done. Cross-session messages expire unread; the inbox does not.
 - **`docs/reference/agent-memory.md`** is a short dated log of incidents that cost time, capped at 150 lines. A
   fact, procedure or decision goes to its reference page instead.
 

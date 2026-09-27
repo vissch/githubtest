@@ -40,7 +40,7 @@ up() {
 case "${1:-}" in
   up)   up ;;
   run)  shift; c="$1"; shift; U cmd "$c" --result-only "$@" ;;   # --result-only must precede the `--`
-  eval) shift; U cmd eval --result-only -- --code "$1" ;;
+  eval) shift; U cmd eval --result-only --timeout "${2:-30}" -- --code "$1" ;;   # optional 2nd arg: timeout in seconds
   build)
     U cmd recompile --result-only >/dev/null
     for i in $(seq 1 40); do
