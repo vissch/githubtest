@@ -512,3 +512,35 @@ score several at once, because each has a cheat.
   after and prints `UNCHANGED <name>.png`; if that line is missing for a book nobody meant to touch, the look has
   moved. `.meta` files are cloned from `FireBall.png.meta` (the fire convention, `maxTextureSize 1024`) with a fresh
   32-hex GUID each.
+
+## 2026-09-25 AOSA cycles 2-3 (lane/show/aosa)
+
+- **No player build draws any FlipbookFx effect.** Muzzle flares, hit flashes, shell bursts, smoke, gas and dust are
+  all missing. GraphicsSettings instancing stripping is "Strip Unused", and TW/Flipbook, TW/GroundMark, TW/Tank and
+  TW/TankDisc are only made with `new Material(Shader.Find(...))`, so no shipped material keeps their INSTANCING_ON
+  variants. Always Included does not keep them. RenderMeshInstanced then reads the plain object matrix, alpha 0, and
+  nothing draws. The editor compiles variants on demand, so it shows them all. Proven from the build's
+  globalgamemanagers.assets (UnityPy), and from held-clock stills where flare scale 6 was bit-identical to scale 1.
+  Fix staged on lane/show/aosa: `runs/3/C48.patch` (instancing keeper materials in Resources/ShaderKeep plus a guard
+  test).
+- **`unity test` batch editors write the shared %LOCALAPPDATA%/Unity/Editor/Editor.log unless given `-- -logFile`.**
+- **Every editor, batch ones included, starts the com.unity.pipeline server.** During the loop's gates, other clients'
+  requests (a `capture_game_view`, `/api/exec`) reached the worktree's headless editor. Both clones' project folders
+  are named trench-warfare-3d.
+- **Knob A/Bs on held-clock stills settle "is it drawn at all" in one run.** A cause inferred from code (occlusion by
+  the soft edge) was wrong, and the patch's own knob showed it.
+
+## 2026-09-25 AOSA cycle 4 (lane/show/aosa)
+
+- **The flipbook fix landed:** bd1cfb9 (ShaderKeep instancing keepers + `EveryAlwaysIncludedInstancedShaderHasAnInstancingKeeper`).
+  Players now draw the effects. Barrage smoke then hides about half the men at T1: card C52.
+- **The men stand on duckboards, not on the ground.** Trench floors are painted TW/Toon kit (`_Pigment >= 0`), not the
+  ground material (`_DetailStrength > 0`). A ground-only effect "under the men" (C49's fake crowd shade) changed
+  0.002% of pixels and was reverted. At T1 the men are drawn 4-6x life size and packed, so they also cover their own
+  shade. Check what a man stands on before writing a card for under him.
+- **An overfilled trench costs the sim nothing extra per man.** Spreading the stress army (knob `stress.spread`) cut
+  Sim.Step 39%, only because more men died: 0.82 against 0.87 µs a tick per 1,000 living men. TargetAcquisition's
+  130 m search sees the same men at any spacing. Normalise sim costs by men alive.
+- **(2026-09-27, AOSA C72) A blind count off held frames was a quarter low.** The per-shot log counted 183 tracer births
+  where a blind critic counted 136 (bundles undercounted, screen-edge lines mislabelled); its timing held (r 0.95).
+  Count events from a log, not from pixels.
