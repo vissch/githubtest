@@ -102,7 +102,11 @@ namespace TW.Playground
                 // it noses in and digs in: level on the ground it read as parked, not crashed (loop 2 r34)
                 if (crashY <= 0f)
                 {
-                    down = true; fallPitch = 16f; crashRoll = (rig.Seed & 1) == 0 ? 8f : -8f; crashY = -0.3f / size;
+                    // over onto the side it has lost (it rolled with the seed, onto the wing it still had, loop 2 r37)
+                    int lostSide = 0;
+                    foreach (var part in rig.Parts)
+                        if (part.Loose && (part.Name.StartsWith("Wing") || part.Name.StartsWith("Engine"))) lostSide = part.Name.EndsWith("_L") ? 1 : -1;
+                    down = true; fallPitch = 16f; crashRoll = lostSide != 0 ? 22f * lostSide : ((rig.Seed & 1) == 0 ? 8f : -8f); crashY = -0.3f / size;
                     if (rig.Fx != null) rig.Fx.Burst(hull.T.position, 2.5f * size);
                 }
             }

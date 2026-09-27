@@ -365,7 +365,7 @@ namespace TW.Playground
             if (Hp <= 0f && State < Stage.KnockedOut) KnockOut();
             // overkill cooks it off, but not in the same breath as the knock-out: a machine killed by one big hit went
             // straight to the cook-off and never showed itself burning (critic loop 2 r30, the Croaker)
-            if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff && State == Stage.KnockedOut && Time.time - knockedAt > 1.5f) CookOff();
+            if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff && State == Stage.KnockedOut && Time.time - knockedAt > Mathf.Max(1.5f, CookDelay * 0.5f)) CookOff();
         }
 
         /// <summary>Throw a part off. velocity in m/s and spin in rad/s, both in the vehicle's frame.</summary>
@@ -518,8 +518,35 @@ namespace TW.Playground
             }
         }
 
+        float sagRoll, sagPitch, sagDrop;
+
+        /// <summary>A machine that has lost a wheel or a track sits down on that corner (it stood dead level on three
+        /// wheels, loop 2 r37). Walkers and flyers pose their own hull.</summary>
+        void Sag(float dt)
+        {
+            if (Walker != null || Flyer != null) return;
+            var hull = Find("Hull"); if (hull == null || hull.Loose) return;
+            float roll = 0f, pitch = 0f, drop = 0f;
+            foreach (var p in Parts)
+            {
+                if (!p.Loose) continue;
+                bool wheel = p.Name.StartsWith("Wheel_"), track = p.Name.StartsWith("Track_");
+                if (!wheel && !track) continue;
+                float side = Mathf.Sign(p.RestLocal.x + (p.Parent >= 0 ? Parts[p.Parent].RestLocal.x : 0f));
+                roll += side * (track ? 6f : 5f);                                        // down on that side
+                if (wheel) { pitch += (p.RestLocal.z > 0f ? 3f : -3f); drop += 0.25f * p.Box.extents.y; }
+                else drop += 0.1f * p.Box.extents.y;
+            }
+            float k = 1f - Mathf.Exp(-dt * 6f);
+            sagRoll = Mathf.Lerp(sagRoll, Mathf.Clamp(roll, -10f, 10f), k); sagPitch = Mathf.Lerp(sagPitch, Mathf.Clamp(pitch, -6f, 6f), k);
+            sagDrop = Mathf.Lerp(sagDrop, drop, k);
+            hull.T.localPosition = hull.RestLocal + Vector3.down * sagDrop;
+            hull.T.localRotation = hull.RestRot * Quaternion.Euler(sagPitch, 0f, sagRoll);
+        }
+
         void Pose(float dt)
         {
+            Sag(dt);
             foreach (var p in Parts)
             {
                 p.Flash = Mathf.Max(0f, p.Flash - dt * 6f);
