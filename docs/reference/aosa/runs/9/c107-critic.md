@@ -110,3 +110,115 @@ What the notes point to: the weight is lost where the dense dark foreground clou
 f53). A brighter halo does not bring those back. Two directions could: tracers that fade through the cloud rather
 than stop at its hard edge, or more glow from the muzzle and impacts in front of the smoke. A stronger glow (above
 1.8, with g3) is the cheapest next point to try, though the critics noticed the brighter cores only as subtle.
+
+## Round 2: stronger glow (g4 = g3 with fx.tracerGlow=2.6, g5 = g3 with fx.tracerGlow=3.5)
+
+| run | knobs |
+|---|---|
+| g4 | fx.tracerInSmoke=1, fx.tracerShape=0, fx.tracerHaloDepth=0, fx.tracerGlow=2.6 |
+| g5 | fx.tracerInSmoke=1, fx.tracerShape=0, fx.tracerHaloDepth=0, fx.tracerGlow=3.5 |
+
+These come from the same build and the same battle: `hash_start` and `hash_end` equal g0's.
+
+### Diff
+
+- **The footprint does not grow.** The changed fraction against g0 is the same as g3's on every frame (for
+  example 0.066 at f15, 0.038 at f25, 0.040 at f53). The extra glow only brightens pixels that g3 already
+  changed.
+- **The change is in brightness.** Against g3, g4 differs by 0.013-0.044 in the volleys, and g5 by 0.013-0.046.
+  g4 and g5 differ from each other by 0.016-0.039 (f3-f53), with a max channel step of about 60.
+- **Clipping grows.** Pixels with any channel at 250 or more at f13: g0 4.4%, g3 4.8%, g4 6.8%, g5 7.2%. At f25: g0
+  1.7%, g3 1.9%, g4 2.6%, g5 2.8%. Most of the rise from g3 to g4 is new clipping, and g5 adds little over g4.
+
+### Blind setup
+
+There were two general-purpose critics, C and D, with the same scoring prompt as round 1. Each was also asked for
+a tracer-look tag per image: bullets, lasers, blown-out, dim or mixed. Each got the same 15 pairs against g0:
+g4 and g5 at f3, f12, f15, f25, f47 and f53, plus g3 as an anchor at f15, f25 and f53. The anchor compares these
+critics with A and B. C drew order and sides with seed 1108, and D with seed 1109. The crops are round 1's crops
+for each frame. Both critics judged the left trench.
+
+### Key and scores (w m t; old = g0, new = the candidate)
+
+| critic, pair | run | frame | new | old | new | d w m t | new tag (C / D) |
+|---|---|---|---|---|---|---|---|
+| C 14 | g3 | 15 | X | 9 4 3 | 9 4 6 | 0 0 +3 | mixed |
+| C 12 | g3 | 25 | Y | 7 4 3 | 7 4 7 | 0 0 +4 | bullets |
+| C 1 | g3 | 53 | X | 7 5 3 | 7 5 7 | 0 0 +4 | bullets |
+| C 6 | g4 | 3 | Y | 6 4 4 | 6 4 7 | 0 0 +3 | bullets |
+| C 8 | g4 | 12 | Y | 8 4 3 | 8 4 6 | 0 0 +3 | mixed (near-white cyan) |
+| C 10 | g4 | 15 | Y | 9 4 3 | 9 4 6 | 0 0 +3 | mixed (near blow-out) |
+| C 5 | g4 | 25 | Y | 7 4 3 | 7 4 7 | 0 0 +4 | bullets |
+| C 11 | g4 | 47 | X | 7 5 3 | 7 5 7 | 0 0 +4 | bullets |
+| C 13 | g4 | 53 | X | 7 5 3 | 7 5 7 | 0 0 +4 | bullets |
+| C 4 | g5 | 3 | X | 6 4 4 | 6 4 7 | 0 0 +3 | bullets |
+| C 15 | g5 | 12 | X | 8 4 3 | 8 4 6 | 0 0 +3 | mixed (near-white cyan) |
+| C 3 | g5 | 15 | X | 8 4 3 | 8 4 6 | 0 0 +3 | mixed (near-white cyan) |
+| C 9 | g5 | 25 | Y | 7 4 3 | 7 4 7 | 0 0 +4 | bullets |
+| C 2 | g5 | 47 | X | 7 5 3 | 7 5 7 | 0 0 +4 | bullets |
+| C 7 | g5 | 53 | Y | 7 5 3 | 7 5 7 | 0 0 +4 | bullets |
+| D 5 | g3 | 15 | X | 8 4 3 | 7 4 6 | -1 0 +3 | bullets |
+| D 11 | g3 | 25 | X | 7 4 3 | 6 4 6 | -1 0 +3 | bullets |
+| D 2 | g3 | 53 | X | 7 4 3 | 5 4 6 | -2 0 +3 | mixed |
+| D 8 | g4 | 3 | Y | 6 5 3 | 6 5 6 | 0 0 +3 | bullets |
+| D 1 | g4 | 12 | X | 7 4 3 | 6 4 6 | -1 0 +3 | bullets |
+| D 7 | g4 | 15 | X | 8 4 3 | 7 4 6 | -1 0 +3 | bullets |
+| D 15 | g4 | 25 | Y | 7 4 3 | 6 4 5 | -1 0 +2 | mixed |
+| D 9 | g4 | 47 | Y | 7 4 3 | 6 4 6 | -1 0 +3 | bullets |
+| D 12 | g4 | 53 | X | 7 4 3 | 5 4 6 | -2 0 +3 | mixed |
+| D 14 | g5 | 3 | X | 6 5 3 | 6 5 6 | 0 0 +3 | bullets |
+| D 3 | g5 | 12 | Y | 7 4 3 | 6 4 4 | -1 0 +1 | blown-out |
+| D 6 | g5 | 15 | Y | 8 4 3 | 7 4 4 | -1 0 +1 | blown-out |
+| D 13 | g5 | 25 | X | 7 4 3 | 6 4 5 | -1 0 +2 | mixed |
+| D 10 | g5 | 47 | X | 7 4 3 | 6 4 5 | -1 0 +2 | mixed |
+| D 4 | g5 | 53 | Y | 7 4 3 | 5 4 5 | -2 0 +2 | blown-out |
+
+The tag column gives C's tag for C's rows and D's tag for D's rows. g0 was tagged "lasers" in every pair by both
+critics.
+
+### Mean change against g0
+
+| run | critic C (6) | critic D (6) | pooled C+D (12) | weight down in |
+|---|---|---|---|---|
+| g4 (glow 2.6) | 0 / 0 / +3.50 | -1.00 / 0 / +2.83 | **-0.50 / 0 / +3.17** | 5 of 12 |
+| g5 (glow 3.5) | 0 / 0 / +3.50 | -1.00 / 0 / +1.83 | **-0.50 / 0 / +2.67** | 5 of 12 |
+| g3 anchor (glow 1.8) | 0 / 0 / +3.67 (3) | -1.33 / 0 / +3.00 (3) | -0.67 / 0 / +3.33 (6) | 3 of 6 |
+
+Each cell reads weight / men / tracers.
+
+- **Critic C scored weight 0 in all 15 pairs, the g3 anchors included.** Critics A, B and D all scored g3 lower
+  (A and B -0.83, D -1.33), so C does not tell the looks apart on weight. C's zeros are what lift the pooled
+  weight to exactly -0.50.
+- **Critic D saw the weight difference.** For D, g4 recovers +0.33 over the g3 anchor (-1.00 against -1.33), and
+  g5 recovers the same +0.33. Carrying that step over to A and B's g3 score (-0.83) puts g4 at about -0.50.
+- **f25 and f53 are unchanged.** D scored g4 and g5 at -1 and -2 there, the same as g3. A brighter halo does not
+  bring back the fire the dark foreground cloud hides.
+
+### Lasers and blow-out
+
+- **g4 still reads as bullets.** D tagged it bullets in 4 of 6 pairs and mixed in 2. C tagged it mixed at f12 and
+  f15, where the dense upper-left bundle goes near-white cyan and close to blowing out.
+- **g5 starts to blow out.** D tagged it blown-out in 3 of 6 pairs (f12, f15, f53). D wrote that the cyan-mint
+  cores are near clipped white and "read as neon beams / lasers". D's g5 tracers score fell to +1.83, against
+  +2.83 for g4. C saw the same near-white cyan at f12 and f15.
+- **Both critics raised the colour unprompted.** The brighter glow shifts the green toward cyan. C called it "a
+  little sci-fi" and suggested a warmer or yellower core. D said the pure green with a soft glow reads most like
+  real rounds.
+
+## Round 2 decision: reject g5, and reject g4 as not shown to pass
+
+- **g5 fails.** Its weight equals g4's, its tracers are lower (+2.67 pooled, +1.83 for D), and D tagged it
+  blown-out or laser-like in 3 of 6 pairs.
+- **g4 sits exactly on the floor.** Pooled, its weight is -0.50. The literal floor is "not below -0.5", so on the
+  letter g4 passes: men 0 in 12 of 12 pairs, tracers +3.17. But the only discriminating critic scored it -1.00,
+  and the other critic gave 0 even to the g3 anchor that three critics scored lower. The pass rests on a critic
+  that did not measure weight.
+- **The best estimate is borderline.** Anchoring g4 to the round 1 critics gives about -0.50: a borderline case,
+  not a pass.
+
+**Default change pending: reject.** If the coordinator accepts the pooled pass as the letter of the rule, the set
+would be `fx.tracerInSmoke=1,fx.tracerShape=0,fx.tracerHaloDepth=0,fx.tracerGlow=2.6`. Glow does not scale past
+2.6: g5 adds no weight and starts to clip. Two directions are left, both untried:
+
+- the tracers fade through the cloud instead of stopping at its edge (f25 and f53);
+- a warmer, less cyan core at glow 2.6.
