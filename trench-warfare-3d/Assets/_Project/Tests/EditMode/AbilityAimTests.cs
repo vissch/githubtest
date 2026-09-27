@@ -139,7 +139,7 @@ namespace TW.Tests
         [Test]
         public void EverySupportAbilityHasACardAKeyAndStats()
         {
-            Assert.AreEqual(6, HudView.SupportAbilities.Length);
+            Assert.AreEqual(7, HudView.SupportAbilities.Length);
             for (int i = 0; i < HudView.SupportAbilities.Length; i++)
             {
                 var id = HudView.SupportAbilities[i];

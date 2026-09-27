@@ -78,8 +78,8 @@ namespace TW.Tests
             Assert.That(refs.Root.worldBound.width, Is.EqualTo(w).Within(1f), "the scaled HUD root still covers the panel");
             Assert.That(bar.width, Is.LessThanOrEqualTo(w), "the bar fits the reference width");
             Assert.That(bar.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(bar.yMax, Is.LessThanOrEqualTo(h + 0.5f));
-            // the floor is the 70 the unit name needs, shrunk by what the bar had to shrink by (HudView.BarFit: six support
-            // cards make the bar 1,276 wide, so a window under 1.41:1 scales it) and carried to panel space by HudScale
+            // the floor is the 70 the unit name needs, shrunk by what the bar had to shrink by (HudView.BarFit: ten slots and
+            // seven support cards make the bar 1,732 wide, so a window under 1.95:1 scales it) and carried to panel space by HudScale
             // (worldBound is panel space, the bar lays out in the HUD's): this holds the fit's arithmetic, not readability
             // at a narrow window, which is the owner's call (docs/21)
             float fit = HudView.BarFit(refs.Root.resolvedStyle.width);

@@ -55,6 +55,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-23 | UI Toolkit HUD in the Dust Front style: keep the bottom-bar positions, full scope including main menu, mission select, pause, settings, debrief. Placeholder art now, artist textures later. |
 | 2026-09-23 | Unit selection the way Dust Front does it, with ten control groups. An armoury screen showing unit cutouts. |
 | 2026-09-24 | Hover card beside the cursor over a unit. |
+| 2026-09-27 | **The battle bar may shrink at 16:9.** With ten roster slots and seven support cards it is 1,732 px wide and draws at 0.91 on a 16:9 screen (`HudView.BarFit`), rather than narrowing the infantry cards to fit (180 to 154 px). `HudLayoutTests` holds it at no less than 0.9. Revisit with the HUD's next layout pass. |
 
 ## Process
 | Date | Decision |

@@ -25,11 +25,17 @@ namespace TW.Tests
             public ulong Hash;
         }
 
+        /// <summary>The player's side may have a hero (HeroSystem, units-meta): on this map one comes at about tick 860 and
+        /// leads 57 of the front trench's 77 men over the top, which is the game working, not the spread failing
+        /// (measured in the editor, 2026-09-27). These tests are about the preset, so every world they build, the
+        /// peer's too, runs without heroes.</summary>
+        static MatchSim NoHeroes(MatchSim m) { m.World.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask = 0; return m; }
+
         static Outcome Play(bool spread, bool canary)
         {
             var cfg = SimConfig.Default;
             cfg.StartingSilver = PerSide * 25;   // SimHost's stress silver
-            using var session = new LockstepSession(() => MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u)),
+            using var session = new LockstepSession(() => NoHeroes(MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u))),
                                                     canary, canary ? 2 : 0, canary ? 1 : 0, canary ? 0.05f : 0f, cfg.Seed);
             var ai = new ScriptedEnemy { StressUnits = PerSide, StressSpread = spread };
             int guard = Ticks * 40;

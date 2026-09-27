@@ -97,14 +97,16 @@ namespace TW.Tests
         }
 
         [Test]
-        public void TheWidthModelCountsEverySupportCardAndTheBarFitsTheReferenceWidth()
+        public void TheWidthModelCountsEverySupportCardAndTheBarKeepsNineTenthsAtTheReferenceWidth()
         {
-            // six support cards since docs/21 phase 5: the model that drives HudView.BarFit must count them, and at the
-            // reference width the bar still fits without shrinking; a narrower window shrinks it instead of overflowing
+            // seven support cards and ten roster slots since units-meta landed on the overhaul: the model that drives
+            // HudView.BarFit must count them. The bar is 1,732 wide, so at the 16:9 reference it draws at 0.91 (the
+            // owner's choice, decisions.md 2026-09-27, over narrower infantry cards); it must not shrink further
+            // unnoticed, and a narrower window shrinks it instead of overflowing
             Assert.AreEqual(HudView.SupportAbilities.Length, HudLayout.SupportSlots, "the model counts the cards the bar draws");
             float supportRow = HudLayout.Row(HudLayout.SupportSlots, HudLayout.CardPx);
             Assert.That(HudLayout.BarWidth(), Is.GreaterThanOrEqualTo(supportRow + HudLayout.InsetPx * 2f), "the bar is at least as wide as its support row");
-            Assert.AreEqual(1f, HudView.BarFit(HudLayout.ReferenceWidthPx), 1e-4f, "at the reference width the bar fits unscaled");
+            Assert.GreaterOrEqual(HudView.BarFit(HudLayout.ReferenceWidthPx), 0.9f, "at the reference width the bar keeps nine tenths of its size");
             Assert.Less(HudView.BarFit(HudLayout.ReferenceHeight * 4f / 3f), 1f, "a 4:3 window shrinks it rather than losing the support row");
         }
     }
