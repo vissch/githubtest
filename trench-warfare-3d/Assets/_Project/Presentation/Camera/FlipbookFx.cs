@@ -65,11 +65,23 @@ namespace TW.Presentation.Tactical
         //   fx.smokeAlpha  multiplies the opacity a shell's smoke puff is born with. 1 = the old look.
         // Both at their old values (fx.smokeSoft=0,fx.smokeAlpha=1) draw the image before C52 bit for bit.
         public const string SoftKnob = "fx.smokeSoft", AlphaKnob = "fx.smokeAlpha";
+        // Cycle 9: fx.smokeSoft=0.6 with fx.burstGlow=0.5 (runs 9/c99s, b1; c99-critic.md, batch9-critic.md) passed alone,
+        // but the cycle 9 candidate set (smokeSoft 0.6, burstGlow 0.5, tracerInSmoke 1 with tracerShape 0) failed
+        // together on weight (a0050, runs 9/d9k-critic.md: -1.0, lower in 8 of 8), so the defaults stay as they were.
         public const float DefaultSoft = 0.3f, DefaultAlpha = 0.85f;   // blind critic, cycle 5 (runs 5/w1): the one balance of six where the barrage stays heavy and the trench countable
         public const float OldSoft = 0f, OldAlpha = 1f;
 
         /// <summary>fx.smokeSoft, never below 0 (0 = the old look).</summary>
         public static float ReadSoft() { float v = Knobs.Get(SoftKnob, DefaultSoft); return v > 0f ? v : 0f; }
+
+        // AOSA C58/C99: fx.burstGlow multiplies the glow of a shell's burst cloud (CombatFx). 1 = the old look and the
+        // default. The cycle 9 candidate 0.5 (runs 9/b1, with fx.smokeSoft=0.6) passed alone but failed with the rest of
+        // the cycle 9 set on weight (a0050, runs 9/d9k-critic.md); fx.burstGlow=0.5 still draws it.
+        public const string BurstGlowKnob = "fx.burstGlow";
+        public const float DefaultBurstGlow = 1f, OldBurstGlow = 1f;
+
+        /// <summary>fx.burstGlow, never below 0 (1 = the old look).</summary>
+        public static float ReadBurstGlow() => Mathf.Max(0f, Knobs.Get(BurstGlowKnob, DefaultBurstGlow));
 
         /// <summary>fx.smokeAlpha, in [0, 1] (1 = the old look).</summary>
         public static float ReadAlpha() => Mathf.Clamp01(Knobs.Get(AlphaKnob, DefaultAlpha));

@@ -124,8 +124,9 @@ namespace TW.Presentation.Tactical
         float smokeAlpha = FlipbookFx.DefaultAlpha;
         // knobs fx.columnScale and fx.burstGlow (Awake, AOSA C57/C58): the drawn burst's earth column size and its cloud's
         // glow, as multipliers. 1 (default) = the look as it is; an extreme value is the discriminating test that a part is
-        // drawn at all at the standard view (the C42 lesson), before anyone tunes it.
-        float columnScale = 1f, burstGlow = 1f;
+        // drawn at all at the standard view (the C42 lesson), before anyone tunes it. burstGlow is read by
+        // FlipbookFx.ReadBurstGlow (the cycle 9 candidate 0.5 failed with the set on weight, a0050).
+        float columnScale = 1f, burstGlow = FlipbookFx.DefaultBurstGlow;
         // knobs fx.smokeNight and fx.smokeNightSize (Awake, AOSA C59): on a moonlit field the burst's cloud and its smoke are
         // drawn dark warm grey instead of moonlit blue (FlipbookFx.NightSmoke, from ApplyTints), and a shell's cloud and
         // puffs this much narrower at the standard view (FlipbookFx.NightScale). 0 and 1 = the old look.
@@ -202,6 +203,8 @@ namespace TW.Presentation.Tactical
         Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
         Material flashMat;
         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
+        bool tracerInSmoke;   // knob fx.tracerInSmoke (Start, AOSA C104): see TracerLook
+        float tracerShape;    // knob fx.tracerShape (Start, AOSA C104s): unset 0, or 1 when fx.tracerInSmoke is set on (TracerLook.ReadShape)
         /// <summary>
         /// Paint every material and flipbook the biome owns. Called when SceneTints.Epoch moves, not per frame:
         /// the old code compared waterMat.color against a static every frame, which is a native read to decide
@@ -286,7 +289,7 @@ namespace TW.Presentation.Tactical
             shotStagger = ShotStagger.ReadSpread();
             smokeAlpha = FlipbookFx.ReadAlpha();
             columnScale = Mathf.Max(0f, Knobs.Get("fx.columnScale", 1f));
-            burstGlow = Mathf.Max(0f, Knobs.Get("fx.burstGlow", 1f));
+            burstGlow = FlipbookFx.ReadBurstGlow();
             smokeNight = FlipbookFx.ReadNight();
             smokeNightSize = FlipbookFx.ReadNightSize();
             columnEarth = FlipbookFx.ReadEarth();
@@ -308,6 +311,17 @@ namespace TW.Presentation.Tactical
             // night (SceneMood): each side's fire is its own colour, over-bright so the bloom takes it
             tracerNightA = Additive(unlit, new Color(0.06f, 0.36f, 0.12f));   // the halo round the streak: its side's colour
             tracerNightB = Additive(unlit, new Color(0.50f, 0.07f, 0.05f));
+            // knob fx.tracerInSmoke (AOSA C104, TracerLook): the halos drawn before the smoke and writing depth, so a cloud
+            // in front of a round covers it; and (fx.tracerShape) the night streak's shorter, narrower, hot-headed shape.
+            // 0 (the default) = the old look; fx.tracerInSmoke=1,fx.tracerShape=0 = the order with the old shape.
+            tracerInSmoke = TracerLook.On(TracerLook.Read());
+            tracerShape = TracerLook.ReadShape(tracerInSmoke);
+            if (tracerInSmoke)
+                foreach (var halo in new[] { tracerNightA, tracerNightB })
+                {
+                    halo.SetFloat("_ZWrite", TracerLook.HaloZWrite(true));
+                    halo.renderQueue = TracerLook.HaloQueue(true);
+                }
             sparkMat = Additive(unlit, new Color(3.4f, 1.7f, 0.5f));
             waterMat = new Material(unlit) { enableInstancing = true, color = SceneTints.Now.Splash };
             birdMat = new Material(unlit) { enableInstancing = true, color = new Color(0.05f, 0.05f, 0.07f) };
@@ -986,12 +1000,9 @@ namespace TW.Presentation.Tactical
                 Vector3 d = t.To - t.From;
                 float len = d.magnitude;
                 if (len < 0.1f) continue;
-                // a streak that travels from muzzle to target over the tracer's life
+                // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
-                float streak = Mathf.Min(len, night ? 10f : 6f);
-                Vector3 mid = t.From + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
-                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, SceneHooks.CloseUp);   // sized for the standard view; among the men a round is a thin line
-                batch.Add(Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f)));
+                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape));
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);

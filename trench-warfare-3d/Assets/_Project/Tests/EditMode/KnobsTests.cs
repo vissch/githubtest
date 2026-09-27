@@ -167,7 +167,7 @@ namespace TW.Tests
             Assert.AreEqual("fx.smokeAlpha", FlipbookFx.AlphaKnob);
             Assert.AreEqual(FlipbookFx.DefaultSoft, FlipbookFx.ReadSoft());
             Assert.AreEqual(FlipbookFx.DefaultAlpha, FlipbookFx.ReadAlpha());
-            Assert.AreEqual("0.3", Knobs.Read["fx.smokeSoft"]);
+            Assert.AreEqual("0.3", Knobs.Read["fx.smokeSoft"]);   // the cycle 9 candidate 0.6 failed with the set on weight (a0050)
             Assert.AreEqual("0.85", Knobs.Read["fx.smokeAlpha"]);
             Assert.Greater(FlipbookFx.DefaultSoft, FlipbookFx.OldSoft, "the default is the new look");
             Assert.Less(FlipbookFx.DefaultAlpha, FlipbookFx.OldAlpha, "the default is the new look");
@@ -185,6 +185,10 @@ namespace TW.Tests
                 Assert.IsTrue(FlipbookFx.SmokeOpacity(0.6f, FlipbookFx.ReadAlpha(), close) == 0.6f, "cook-off smoke, closeUp " + close);
             }
 
+            // the cycle 9 candidate (runs 9/c99s, b1) is still reachable: fx.smokeSoft=0.6
+            Knobs.Set(FlipbookFx.SoftKnob, "0.6");
+            Assert.IsTrue(FlipbookFx.ReadSoft() == 0.6f);
+
             // out of range: softness never below 0 (the shader skips it), opacity kept in [0, 1]
             Knobs.Set(FlipbookFx.SoftKnob, "-2");
             Knobs.Set(FlipbookFx.AlphaKnob, "3");
@@ -192,6 +196,27 @@ namespace TW.Tests
             Assert.AreEqual(1f, FlipbookFx.ReadAlpha());
             Knobs.Set(FlipbookFx.AlphaKnob, "-1");
             Assert.AreEqual(0f, FlipbookFx.ReadAlpha());
+        }
+
+        [Test]
+        public void BurstGlowKnob_DefaultIsTheOldGlow_AndHalfIsTheCycle9Candidate()
+        {
+            // AOSA C58/C99: the default is the old glow, 1, the float the old code used (the cycle 9 candidate 0.5 passed
+            // alone but failed with the set on weight, a0050); fx.burstGlow=0.5 still draws runs 9/b1's glow
+            Assert.AreEqual("fx.burstGlow", FlipbookFx.BurstGlowKnob);
+            Assert.AreEqual(FlipbookFx.OldBurstGlow, FlipbookFx.DefaultBurstGlow, "the default is the old look");
+            Assert.AreEqual(1f, FlipbookFx.OldBurstGlow, "the old glow multiplier, the float the old code used");
+            Assert.IsTrue(FlipbookFx.ReadBurstGlow() == 1f);
+            Assert.AreEqual("1", Knobs.Read["fx.burstGlow"]);
+
+            // the cycle 9 candidate
+            Knobs.Set(FlipbookFx.BurstGlowKnob, "0.5");
+            Assert.IsTrue(FlipbookFx.ReadBurstGlow() == 0.5f);
+            // out of range: never below 0
+            Knobs.Set(FlipbookFx.BurstGlowKnob, "-2");
+            Assert.AreEqual(0f, FlipbookFx.ReadBurstGlow());
+            Knobs.Set(FlipbookFx.BurstGlowKnob, "3");
+            Assert.AreEqual(3f, FlipbookFx.ReadBurstGlow());
         }
 
         [Test]
@@ -492,6 +517,150 @@ namespace TW.Tests
             Assert.AreEqual(0f, FlipbookFx.ReadColumnSoil());
             Knobs.Set(FlipbookFx.ColumnSoilKnob, "3");
             Assert.AreEqual(1f, FlipbookFx.ReadColumnSoil());
+        }
+
+        [Test]
+        public void TracerInSmokeKnob_DefaultIsTheOldLook_AndOnDrawsTheHalosUnderTheSmokeAsAHotHead()
+        {
+            // AOSA C104: 0, the default, is the old look (the cycle 9 candidate, order on with shape 0, passed alone but
+            // failed with the set on weight, a0050): the halo materials as Additive() made them (queue 3100, no depth
+            // write), the old shape, and every tracer matrix the code before C104 drew, written out here
+            Assert.AreEqual("fx.tracerInSmoke", TracerLook.Knob);
+            Assert.AreEqual(TracerLook.OldInSmoke, TracerLook.DefaultInSmoke, "the default is the old look");
+            Assert.AreEqual(0f, TracerLook.Read());
+            Assert.AreEqual("0", Knobs.Read["fx.tracerInSmoke"]);
+            bool on = TracerLook.On(TracerLook.Read());
+            Assert.IsFalse(on);
+            Assert.AreEqual(3100, TracerLook.HaloQueue(on));
+            Assert.AreEqual(0f, TracerLook.HaloZWrite(on));
+            Assert.AreEqual(0f, TracerLook.ReadShape(on), "the old shape");
+            // fx.tracerInSmoke=0 set explicitly is the same old look
+            Knobs.Set(TracerLook.Knob, "0");
+            Assert.IsFalse(TracerLook.On(TracerLook.Read()));
+            Assert.AreEqual(0f, TracerLook.ReadShape(false), "the old shape");
+
+            var from = new Vector3(12f, 1.3f, 40f);
+            foreach (var to in new[] { new Vector3(80f, 1.1f, 95f), new Vector3(15f, 1.2f, 44f), new Vector3(12.05f, 1.3f, 40.06f) })
+            foreach (float k in new[] { 0f, 0.37f, 1f })
+            foreach (float close in new[] { 0f, 0.6f, 1f })
+            foreach (bool night in new[] { false, true })
+            for (int side = 0; side < (night ? 3 : 1); side++)
+            {
+                Vector3 d = to - from; float len = d.magnitude;
+                float streak = Mathf.Min(len, night ? 10f : 6f);
+                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, close);
+                var old = Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
+                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, false).Equals(old), "off: night " + night + ", side " + side + ", k " + k + ", len " + len);
+                // on: the day streak and the night's white core keep their width; the day streak does not move at all
+                var at = TracerLook.Matrix(from, d, len, k, night, side, close, true);
+                if (!night) Assert.IsTrue(at.Equals(old), "the day tracer is not changed");
+                else if (side == 2) Assert.AreEqual(thick, at.lossyScale.x, 1e-6f, "the core keeps J03's width");
+            }
+
+            // on: the halos are drawn before the smoke books (queue 3010) and write depth
+            Knobs.Set(TracerLook.Knob, "1");
+            on = TracerLook.On(TracerLook.Read());
+            Assert.IsTrue(on);
+            Assert.Less(TracerLook.HaloQueue(on), 3010, "the halos before the smoke, so a cloud in front covers them");
+            Assert.Greater(TracerLook.HaloQueue(on), 2500, "still a transparent: after the opaque men and ground");
+            Assert.AreEqual(1f, TracerLook.HaloZWrite(on));
+
+            // on, a long night shot: shorter, and the halo narrower, shorter than the core and at its head, ahead of the tip
+            {
+                var to = new Vector3(80f, 1.1f, 95f);
+                Vector3 d = to - from, along = d.normalized; float len = d.magnitude;
+                foreach (float k in new[] { 0f, 0.5f, 1f })
+                {
+                    var core = TracerLook.Matrix(from, d, len, k, true, 2, 0f, true);
+                    var halo = TracerLook.Matrix(from, d, len, k, true, 0, 0f, true);
+                    var oldCore = TracerLook.Matrix(from, d, len, k, true, 2, 0f, false);
+                    var oldHalo = TracerLook.Matrix(from, d, len, k, true, 0, 0f, false);
+                    Assert.Less(core.lossyScale.z, oldCore.lossyScale.z, "a shorter streak");
+                    Assert.Less(halo.lossyScale.x, oldHalo.lossyScale.x * 0.7f, "a narrower halo");
+                    Assert.Less(halo.lossyScale.z, core.lossyScale.z, "the halo is only the head");
+                    Vector3 c = core.GetColumn(3), h = halo.GetColumn(3);
+                    float coreTip = Vector3.Dot(c - from, along) + core.lossyScale.z * 0.5f;
+                    float haloTip = Vector3.Dot(h - from, along) + halo.lossyScale.z * 0.5f;
+                    float haloTail = Vector3.Dot(h - from, along) - halo.lossyScale.z * 0.5f;
+                    Assert.Greater(haloTip, coreTip, "the head glows a little ahead of the core");
+                    float coreTail = coreTip - core.lossyScale.z;
+                    Assert.Greater(haloTail, coreTail + 0.3f * core.lossyScale.z, "at the core's front, not along it");
+                    Assert.LessOrEqual(haloTip, len + 1e-3f, "never past the target");
+                    Assert.GreaterOrEqual(haloTail, -1e-3f, "never behind the muzzle");
+                }
+            }
+
+            // out of range: kept in [0, 1]
+            Knobs.Set(TracerLook.Knob, "-1");
+            Assert.AreEqual(0f, TracerLook.Read());
+            Knobs.Set(TracerLook.Knob, "3");
+            Assert.AreEqual(1f, TracerLook.Read());
+        }
+
+        [Test]
+        public void TracerShapeKnob_UnsetIsZeroUnlessInSmokeIsSetOn_EndsAreBitForBit_AndItBlendsOnItsOwn()
+        {
+            // AOSA C104s: fx.tracerShape splits C104's shape from its order. Unset it is 0, the old wide halos, so neither
+            // knob set is the old look; but when fx.tracerInSmoke is itself set on it is 1, so the run label
+            // fx.tracerInSmoke=1 alone (runs 9/s3, b3) is C104's order and slim shape bit for bit, and
+            // fx.tracerInSmoke=1,fx.tracerShape=0 (runs 9/t1, the cycle 9 candidate) is the order with the old halos
+            Assert.AreEqual("fx.tracerShape", TracerLook.ShapeKnob);
+            Assert.AreEqual(0f, TracerLook.DefaultShape);
+            Assert.AreEqual(TracerLook.OldShape, TracerLook.DefaultShape, "the default is the old shape");
+            Assert.AreEqual(0f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "nothing set: the old look");
+            Assert.AreEqual(0f, TracerLook.ReadShape(true), "unset, and fx.tracerInSmoke not set: 0");
+            Assert.AreEqual(0f, TracerLook.ReadShape(false));
+            Knobs.Clear();
+            Knobs.Set(TracerLook.Knob, "1");
+            Assert.IsTrue(TracerLook.On(TracerLook.Read()));
+            Assert.AreEqual(1f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "fx.tracerInSmoke=1 alone: C104's shape");
+            Knobs.Set(TracerLook.Knob, "0");
+            Assert.AreEqual(0f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "fx.tracerInSmoke=0: the old shape");
+            Knobs.Set(TracerLook.Knob, "1");
+            Knobs.Set(TracerLook.ShapeKnob, "0");
+            Assert.IsTrue(TracerLook.On(TracerLook.Read()), "t1: the order on");
+            Assert.AreEqual(0f, TracerLook.ReadShape(TracerLook.On(TracerLook.Read())), "t1: order on, the old wide halos");
+            Knobs.Set(TracerLook.ShapeKnob, "0.5");
+            Assert.AreEqual(0.5f, TracerLook.ReadShape(false));
+            Knobs.Set(TracerLook.ShapeKnob, "-2");
+            Assert.AreEqual(0f, TracerLook.ReadShape(true));
+            Knobs.Set(TracerLook.ShapeKnob, "4");
+            Assert.AreEqual(1f, TracerLook.ReadShape(false));
+
+            var from = new Vector3(12f, 1.3f, 40f);
+            foreach (var to in new[] { new Vector3(80f, 1.1f, 95f), new Vector3(15f, 1.2f, 44f), new Vector3(12.05f, 1.3f, 40.06f) })
+            foreach (float k in new[] { 0f, 0.37f, 1f })
+            foreach (float close in new[] { 0f, 0.6f, 1f })
+            foreach (bool night in new[] { false, true })
+            for (int side = 0; side < (night ? 3 : 1); side++)
+            {
+                Vector3 d = to - from; float len = d.magnitude;
+                var oldM = TracerLook.Matrix(from, d, len, k, night, side, close, false);
+                var newM = TracerLook.Matrix(from, d, len, k, night, side, close, true);
+                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, 0f).Equals(oldM), "shape 0 is the old look");
+                Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, 1f).Equals(newM), "shape 1 is C104's");
+                // the blend is continuous at both ends and lies between them
+                AssertNear(oldM, TracerLook.Matrix(from, d, len, k, night, side, close, 1e-4f), "near 0");
+                AssertNear(newM, TracerLook.Matrix(from, d, len, k, night, side, close, 1f - 1e-4f), "near 1");
+                var half = TracerLook.Matrix(from, d, len, k, night, side, close, 0.5f);
+                if (!night) { Assert.IsTrue(half.Equals(oldM), "the day tracer is not changed"); continue; }
+                float lo = Mathf.Min(oldM.lossyScale.x, newM.lossyScale.x), hi = Mathf.Max(oldM.lossyScale.x, newM.lossyScale.x);
+                Assert.That(half.lossyScale.x, Is.InRange(lo - 1e-5f, hi + 1e-5f), "width between");
+                lo = Mathf.Min(oldM.lossyScale.z, newM.lossyScale.z); hi = Mathf.Max(oldM.lossyScale.z, newM.lossyScale.z);
+                Assert.That(half.lossyScale.z, Is.InRange(lo - 1e-4f, hi + 1e-4f), "length between");
+            }
+            // a long night shot at 0.5: the halo is halfway wide, 0.195 m (0.24 -> 0.15)
+            {
+                Vector3 d = new Vector3(80f, 1.1f, 95f) - from;
+                Assert.AreEqual(0.195f, TracerLook.Matrix(from, d, d.magnitude, 0.5f, true, 0, 0f, 0.5f).lossyScale.x, 1e-5f);
+                Assert.AreEqual(8.5f * 0.8f, TracerLook.Matrix(from, d, d.magnitude, 0.5f, true, 2, 0f, 0.5f).lossyScale.z, 1e-4f, "the streak halfway, 8.5 m");
+            }
+        }
+
+        static void AssertNear(Matrix4x4 a, Matrix4x4 b, string what)
+        {
+            for (int i = 0; i < 16; i++) Assert.AreEqual(a[i], b[i], 2e-3f, what + " [" + i + "]");
         }
 
         [Test]
