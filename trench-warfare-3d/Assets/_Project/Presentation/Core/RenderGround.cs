@@ -155,8 +155,10 @@ namespace TW.Presentation
     /// rats, the flipbooks) lands in ones that counted nothing. A budget check that cannot see where the new work
     /// goes reports "unchanged" and rewards adding cost.
     ///
-    /// So every instanced and single-mesh submission in Presentation goes through Draw. DebugOverlay is
-    /// deliberately left out: its gizmos are not in the game and a debug key must not move the budget.
+    /// So instanced and single-mesh submissions go through Draw. Not yet all of them (2026-09-27): BattlefieldProps,
+    /// PropDestruction and UI's SelectionMarkers still call Graphics.RenderMeshInstanced directly, so the props and the
+    /// selection rings are missing from the count (lane/show/aosa routes them, with FrameBudgetCoverageTests).
+    /// DebugOverlay is deliberately left out: its gizmos are not in the game and a debug key must not move the budget.
     ///
     /// The count is stamped with the frame it belongs to rather than cleared by a caller. There is no point in the
     /// frame where every submitter has finished - they draw from different components' Update and LateUpdate - so
