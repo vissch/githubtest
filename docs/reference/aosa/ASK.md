@@ -56,6 +56,15 @@ The loop's recommendation: not at night at T1. It could be worth a look as a day
 and the knob already allows either. Do you want the vertices rule relaxed for this, and if so, for which weather
 or tier?
 
+**A09. Night tracers: depth or weight? (cycle 9, cards C104/C107)** Drawn under the smoke, tracers read as bullets
+flying through it (+3.2 on a 0-10 blind scale, 12 pairs), and the men are unchanged in every pair. But the barrage
+loses visual weight: the old wide beams on top of the smoke read as more fire, although critics call them "lasers" and
+"stickers". The best setting found lands exactly on the loop's weight floor (-0.5; three of four critics scored it
+lower), so the loop will not switch it on by itself. To see it, run any bench or the player with
+`fx.tracerInSmoke=1,fx.tracerShape=0,fx.tracerHaloDepth=0,fx.tracerGlow=2.6` (frames: runs/9/g4 against runs/9/g0,
+critic notes in runs/9/c107-critic.md). Your call: keep today's heavier beams, or take the depth read at a small weight
+cost (then it becomes the default in one commit).
+
 ## SIM-lane proposals (the loop measured it; the SIM lane decides)
 
 Each proposal is sent to the SIM lane as a seam request and is never edited here.
