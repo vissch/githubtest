@@ -748,12 +748,18 @@ Every lining kind has a broken twin on the same footprint (`BattlefieldKit.Trenc
 `TrenchFloorsDamaged`: the lower row whole and the upper tilted with the post splintered; the lower sacks sagged
 with one rolled off the lip; three of five boards, one snapped). When a section is damaged, `PropDestruction` hides
 the panel, adds the twin at the same matrix (`BattlefieldProps.AddInstance`) and throws what the section lost (a few
-shards and a board, a couple of sacks, the earth behind, a third of the dust; `Break`, at most
-`MaxSectionPiecesPerStrike` pieces a strike); the whole panel and the twin share one key, one hp and one memory
+shards and a board, a couple of sacks, the earth behind, a third of the dust; `Break`). Every lining piece a strike
+throws, broken, collapsed or chipped, draws on one ration of `MaxSectionPiecesPerStrike` (`LiningShare`; per cell
+sweep under gunfire); past it a section throws dust only. A strike touches a section once, so the twin it has just
+drawn is not hit again by the same shell (until 2026-09-27 it was, and a fresh section went straight to gone). The
+swap cancels any knock running on the panel and drops `PropWear`'s cell cache so gunfire finds the twin; the whole
+panel and the twin share one key, one hp and one memory
 (`KeyOf`: a twin's rule names its whole panel), so a later hit on the twin finishes the same section and `Suppress`
 keeps both out. Recomposition keeps emitting the whole panel; `BattlefieldProps.Replace` answers with the twin for a
-damaged key, so the broken lining survives every crater's rebuild. The lining's pieces lie `LiningLife` 12 s and sink
-in `DebrisMath.SinkSeconds` 3: a bay is clear of its fragments fifteen seconds after the shell.
+damaged key, so the broken lining survives every crater's rebuild. The lining's pieces are thrown with
+`TrenchSectionRules.PieceLife` (12 s over Burst's 1.3 jitter), so the longest lies `LiningLife` 12 s and sinks in
+`DebrisMath.SinkSeconds` 3: a bay is clear of its fragments fifteen seconds after the shell. A gone section leaves the
+damaged set.
 
 `DebrisRenderer.ZoomShare` (set by `CombatFx` each frame: 1 among the men, 0.6 at the standard view, 0.3 beyond
 zoom 60) scales every burst's count, so a barrage seen from far out throws pixels, not thousands of pieces.
