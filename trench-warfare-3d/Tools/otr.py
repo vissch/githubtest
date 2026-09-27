@@ -11,9 +11,9 @@ Unity's own Mono (mono-bdwgc) and registers managed stand-ins for the native eng
   Objects.cs   Unity object lifetimes and Mesh (channels, sub-meshes, bounds, normals, CombineMeshes, built-in cube/
                quad/plane exact, cylinder/sphere/capsule by size only); Destroy in edit mode logs Unity's error
   MathCalls.cs Quaternion / Matrix4x4 / Vector3 native maths
-  Render.cs    Resources.Load: TextAssets, ScriptableObject .assets (Yaml.cs), FBX meshes (Fbx.cs, checked against the
-               424 chunk bounds in houses.json, worst 0.5 mm, and against the sliced kit props put back together, which
-               HouseKitTests does), images as placeholder textures; Shader.Find;
+  Render.cs    Resources.Load: TextAssets, ScriptableObject .assets (Yaml.cs), FBX meshes (Fbx.cs: Blender's axes and
+               bakeAxisConversion 1 only, anything else is ENGINE; the axis map is proven by HouseKitTests putting the
+               sliced kit props back together in Unity and here alike), images as placeholder textures; Shader.Find;
                materials and textures created, every other rendering call an inert stub
 What still reports ENGINE: UI Toolkit layout, GameObjects/components, physics, audio, prefabs, UXML, profiler
 recorders. What otr cannot see: Burst codegen, the job system's threads and race detection, GPU work, pixels. A

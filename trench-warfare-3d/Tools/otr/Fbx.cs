@@ -101,9 +101,28 @@ static class FakeFbx
         return 1;
     }
 
+    /// <summary>The axes this reader's map is right for: Blender's exporter with axis_forward -Z, up Y (every FBX under
+    /// Resources/ on 2026-09-27, 475 files). Anything else would load silently mirrored, so it is refused as ENGINE.</summary>
+    static readonly (string name, int value)[] KnownAxes = { ("UpAxis", 1), ("UpAxisSign", 1), ("FrontAxis", 2), ("FrontAxisSign", 1), ("CoordAxis", 0), ("CoordAxisSign", 1) };
+
+    static void CheckAxes(Node root, string path)
+    {
+        var props = root.Child("GlobalSettings")?.Child("Properties70");
+        foreach (var (name, value) in KnownAxes)
+        {
+            var p = props?.Children.FirstOrDefault(c => c.Props.Count >= 5 && c.Props[0] as string == name);
+            int got = p == null ? int.MinValue : Convert.ToInt32(p.Props[4]);
+            if (got != value) throw new MissingMethodException("otr engine: " + path + " has " + name + " " + (p == null ? "missing" : got.ToString()) + ", not the Blender axes this FBX reader maps (" + value + ")");
+        }
+        string meta = path + ".meta";
+        if (File.Exists(meta) && !File.ReadAllLines(meta).Any(l => l.Trim() == "bakeAxisConversion: 1"))
+            throw new MissingMethodException("otr engine: " + meta + " does not bake the axis conversion; this FBX reader only maps bakeAxisConversion 1");
+    }
+
     public static MeshOut Load(string path, double globalScale)
     {
         var root = Read(File.ReadAllBytes(path));
+        CheckAxes(root, path);
         double s = UnitScale(root) / 100.0 * globalScale;
         var geo = root.Child("Objects")?.Children.FirstOrDefault(c => c.Name == "Geometry" && c.Child("Vertices") != null);
         if (geo == null) throw new InvalidDataException("fbx: no mesh in " + path);
