@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!21 &-9193811016871414424
+--- !u!21 &-7294593369704766318
 Material:
   serializedVersion: 8
   m_ObjectHideFlags: 0
@@ -24,7 +24,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _MainTex:
-        m_Texture: {fileID: -3120022499736308446}
+        m_Texture: {fileID: -5421242417652923207}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -57,7 +57,7 @@ Material:
     - _UnderlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!28 &-3120022499736308446
+--- !u!28 &-5421242417652923207
 Texture2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -116,7 +116,7 @@ MonoBehaviour:
   m_Name: DustFrontLabel
   m_EditorClassIdentifier: 
   m_Version: 1.1.0
-  m_Material: {fileID: -9193811016871414424}
+  m_Material: {fileID: -7294593369704766318}
   m_SourceFontFileGUID: 
   m_fontAssetCreationEditorSettings:
     sourceFontFileGUID: 
@@ -166,7 +166,7 @@ MonoBehaviour:
   m_GlyphTable: []
   m_CharacterTable: []
   m_AtlasTextures:
-  - {fileID: -3120022499736308446}
+  - {fileID: -5421242417652923207}
   m_AtlasTextureIndex: 0
   m_IsMultiAtlasTexturesEnabled: 0
   m_GetFontFeatures: 1
