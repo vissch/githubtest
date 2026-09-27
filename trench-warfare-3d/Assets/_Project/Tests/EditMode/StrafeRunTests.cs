@@ -99,6 +99,30 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>Machine-gun rounds kill men where they stand: the dead carry no knock (Death.scalar 0, so the picture
+        /// neither throws nor gibs them), where a shell's dead were thrown up to 13.5 m/s (BlastShape.Strafe, critic r4).</summary>
+        [Test]
+        public void AStrafedManDropsWhereHeStood()
+        {
+            using var r = new Rig();
+            var onLine = new int[7];
+            for (int k = 0; k < 7; k++) onLine[k] = r.Man(new float3(70f + k * 10f, 0f, Start.z), 100f);
+            r.Step(Rig.Support(0, OffMapAbilityId.StrafeRun, Start, heading: 90, length: 80));
+            int deaths = 0;
+            for (int t = 0; t < 160; t++)
+            {
+                r.Step();
+                var ev = r.W.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                    if (ev[i].Type == SimEventType.Death && System.Array.IndexOf(onLine, ev[i].A) >= 0)
+                    {
+                        deaths++;
+                        Assert.AreEqual(0f, ev[i].Scalar, "a strafed man is not thrown (knock " + ev[i].Scalar + " m/s)");
+                    }
+            }
+            Assert.GreaterOrEqual(deaths, 6, "the pass kills the men on the line");
+        }
+
         [Test]
         public void AStrafeCostsSilverCoolsDownAndIsRefusedMeanwhile()
         {

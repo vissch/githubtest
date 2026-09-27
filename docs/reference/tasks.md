@@ -303,7 +303,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
 | `DeathEventContractTests` | EditMode | 5 | DeathCause, SimEvent, SimEventType, Impact, MatchSim, AmbientBombardmentSystem |
 | `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
-| `DeterminismReplayTests` | EditMode | 3 | SimCommand, OffMapAbilityId, MatchSim, SimConfig, AbilityPattern, ReplayRecorder |
+| `DeterminismReplayTests` | EditMode | 3 | SimCommand, OffMapAbilityId, MatchSim, SimConfig, AbilityPattern, MineKind |
 | `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |
 | `DynamicGroundTests` | EditMode | 11 | NavLayer, CraterStamp, Snapshot, MapData, MatchSim, CraterKind |
 | `EnvAtlasTests` | EditMode | 2 | BattlefieldKit |
@@ -334,7 +334,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `SkinAssetTests` | EditMode | 8 | HudLayout, SkinSpec, Kind, SkinKind, UiSkinVerifier |
 | `SmokeScreenTests` | EditMode | 5 | SmokeLos, OffMapAbilityId, OffMapAbilitySystem, SimEventType, SimCommand, CombatTables |
 | `StaticLifecycleTests` | EditMode | 3 | SceneHooks, SceneStatics, Atmosphere, CameraShake, Pending, AudioLevels |
-| `StrafeRunTests` | EditMode | 5 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
+| `StrafeRunTests` | EditMode | 6 | OffMapAbilityId, SimEventType, SimCommand, SimEvent, MatchSim, OffMapAbilitySystem |
 | `SupportAbilityTests` | EditMode | 5 | OffMapAbilityId, SimCommand, MatchSim, CommandType, SimEventType, Impact |
 | `TankMobilityTests` | EditMode | 7 | VehicleModulesSystem |
 | `TankTests` | EditMode | 13 | SimEventType, VehicleArchetype, Armor, Kind, SimCommand, PropKind |

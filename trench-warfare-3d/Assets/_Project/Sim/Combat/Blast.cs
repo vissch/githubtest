@@ -47,7 +47,9 @@ namespace TW.Sim.Combat
     /// which reads Resolved right after this, sets the men and the ground inside its radius alight. A beam's scorch
     /// (BeamSystem) is for the trees, the wire and the picture: the men in a beam are the beam's own, so BlastJob
     /// leaves them alone and VehicleModules leaves the hulls alone.</summary>
-    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3, Beam = 4, Mine = 5 }
+    /// <summary>Strafe = 6: an aircraft's burst of machine-gun rounds, hurting like a small shell but throwing nobody (the
+    /// dead fall where they stand, no knock, so no gibs; a survivor in the open is not thrown clear).</summary>
+    public enum BlastShape : int { Shell = 0, Masonry = 1, CookOff = 2, Incendiary = 3, Beam = 4, Mine = 5, Strafe = 6 }
 
     public struct Impact
     {
@@ -195,6 +197,7 @@ namespace TW.Sim.Combat
                     int burstCell = CellOf(im.Pos);
                     short hitTrench = CellTrenchId[burstCell];
                     bool masonry = im.Shape == (int)BlastShape.Masonry;
+                    bool bullets = im.Shape == (int)BlastShape.Strafe;   // rounds, not a burst: nobody is thrown
                     float3 lean = new float3(im.Dir.x, 0f, im.Dir.z);
                     float leanLen = SimMath.Length(lean);
                     bool directional = !masonry && leanLen > 1e-3f;
@@ -269,6 +272,7 @@ namespace TW.Sim.Combat
                             // longer moves them, so this is only a record of how hard the burst hit, for the picture
                             float dead = math.lerp(KnockNear * 1.5f, KnockFar, math.min(1f, dist / math.max(0.05f, im.Radius))) * bias;
                             if (masonry) dead *= BlastRules.MasonryKnock;
+                            if (bullets) dead = 0f;   // a strafed man drops where he stood (the picture throws on knock > 0)
                             float3 deadAway = dist > 0.05f ? d / dist : new float3(1f, 0f, 0f);
                             if (directional) { deadAway = deadAway + lean * 0.6f; deadAway /= math.max(1e-3f, SimMath.Length(deadAway)); }
                             Killed.Add(i);
@@ -277,7 +281,7 @@ namespace TW.Sim.Combat
                         }
 
                         // a man in the open who lives is thrown clear (not in a trench, a shell hole or a vehicle)
-                        bool open = (f & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.Emplacement | (uint)UnitFlags.InTrench)) == 0 && (Layers[cell] & (byte)NavLayer.Crater) == 0;
+                        bool open = !bullets && (f & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.Emplacement | (uint)UnitFlags.InTrench)) == 0 && (Layers[cell] & (byte)NavLayer.Crater) == 0;
                         float reach = im.Radius * KnockReach;
                         if (open && dist < reach)
                         {
