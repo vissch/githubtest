@@ -44,22 +44,22 @@ Scores are `-` until the first cycle has rendered evidence for them.
 
 | # | Line | Score | Evidence / why not higher |
 |---|------|-------|---------------------------|
-| W1 | A planted foot does not slide, skate or creep while the body moves over it | 6 | Cycle 46 MEASURED it, and cycle 43's "nothing slides" is WITHDRAWN - it does slide, badly. With the toe target nailed to one spot and the body swept through a 0.40 m stance, the vertex that actually touches the ground travels Pincer 0.77, Banner 0.86, Pavise 1.03, Censer 1.75 m. That is 1.9x to 4.4x the distance the body moves, in the wrong direction, on the leg the gait believes is planted. The reason it is geometry rather than a solver bug: a rigid leg holding ONE point still can only rotate, so every other point on it must move, and the contact vertex is far from the pinned toe. **Cycle 47, FIXED and gated:** measured in the shipped code while walking, the contact vertex now slides Censer 0.000, Pavise 0.000, Banner 0.033, Pincer 0.069, Kettle 0.116 m while its foot is called planted, against 0.037-0.183 before. Redoubt is the holdout at 0.901 m (was 1.056), because its front toe sockets sit 2.15 m below the foot mesh and the correction had to be declined there - see cycle 47 notes. Cycle 46's Blender figures of 0.77-1.75 m are WITHDRAWN: they swept a rigid leg through a fixed +/-0.40 m about the hip, which is not the stance the gait actually uses, and they overstated the fault by 4x to 15x. Scores 4, not higher, on Redoubt alone. |
-| W2 | The body rides at a steady height on the level, with no bob, sink or hunting | 5 | Cycle 44: the ride height is now MEASURED rather than described - Pincer -0.62, Kettle -0.10, Censer -0.65, Pavise -0.59, Banner -0.09, Redoubt +2.24 m (the Body pivot's height above the ground it stands on). Belly clearance with it: Censer +0.04, Banner -0.32, Pavise -0.46, Pincer +0.33, Kettle +0.37, Redoubt +2.24. NO 2 m SOLDIER PASSES UNDER ANY OF THE SIX, which was cycle 1's stated target. **Cycle 47:** steadiness finally has a number, found by breaking it - `GaitTests` already watches ride height over a level walk and allows 0.34 m of sink, and the shipped machines pass inside it while LEAN 0.30 pushed Banner to 0.459 m and went red. So the worst sink on the level is under 0.34 m and is bounded by a test, which is worth 1. Belly clearance after cycle 47: Kettle +0.57, Redoubt +2.36, Censer +0.12, Pincer **-0.15**, Banner -0.32, Pavise -0.39. Pincer's went BACKWARDS (was +0.33) because correcting its toe lowered its ride height from -0.62 to -1.10; that is the price of the cycle 47 fix and it is logged as a trade rather than hidden. Still no 2 m soldier passes under any of the six. **Cycle A3 found the large fault on this line and FIXED it, gated green.** Crossing a parapet, a Pincer's hull lost about 1.4 m - 21% of its own height - squatted onto the bank, ploughed through it, and got it all back on the far side. Measured hull-top against its own selection ring (both in frame, so camera error cancels): 201 px before the bank, 108 px on it, 216 px after. Mounting a parapet the body should RISE. Cause and fix in the cycle A3 notes. Re-shot afterwards with the same camera: the hull now rides clear above the sandbag line for the whole crossing with the legs extended beneath it, and the squat frames are gone. **WITHDRAWN at cycle A6: that fix was intermittently red and has been reverted, so the squat is back. The measurement of the fault stands; the fix does not.** Scores 3 and not higher because steadiness on the LEVEL - bob and hunting over time - is still unmeasured, and belly clearance on the flat is unchanged. |
-| W3 | Pitch and roll read as a body carried on legs, not a box on a spring | 5 | Cycle 48 measured the two things that stop it reading as carried, and the line's own wording turns out to be literal. **It IS a box on a spring:** the gait fits a plane to the feet, smooths it with `k2 = 1 - exp(-dt*9)`, and the renderer then puts THAT through the same critically damped spring a tank's hull uses (`omega 7`, TankRenderer:375). Two filters in series reach 90% of a new tilt after 0.700 s - 0.84 m of travel at 1.2 m/s, 2.10 m at 3.0 - and the second filter contributes 0.433 s of that, 162% more lag than the gait's own. **And the pitch axis is degenerate:** the feet span, across / along, Censer 5.31 / **0.01 m**, Pavise 8.53 / 0.17, Pincer 7.40 / 0.36, Banner 4.57 / 0.59, Kettle 6.13 / 1.38, Redoubt 7.39 / 3.32. Four machines have their feet in a line ACROSS the body, so a 0.5 m step under one foot demands 54-99 degrees of pitch and gets the 24.1 degree clamp instead. Roll has a real lever on all six (3.4-6.2 deg for the same step); pitch has one only on Redoubt and Kettle. Measured at the rest footprint, which the solved stance preserves because the feet splay radially from the hips. **Cycle A5 removed the second filter and measured the result A/B.** At world-position-matched frames the hull now carries **~9 degrees more of the terrain's attitude** (BEFORE +13.5 deg, AFTER +22 deg at frame 02; +13.5 / +22.5 at frame 03, against a +/-3 deg error bar). The shape of the win is not what was predicted: both hulls reach the crest at the same attitude (+24 / +25), and the difference is that **BEFORE relaxes back toward level over the next eight frames while AFTER holds**. The second filter was not delaying the onset so much as continuously dragging the hull back to its long-run mean. No overshoot and no oscillation in either. Scores 5, not 7: both hulls are still near-static - BEFORE varies 4.5 deg over eight frames, AFTER 4 deg over six - so the body still never answers an individual footfall. The lag is gone; the life is not there yet. |
-| W4 | The gait has a rhythm - legs do not all lift at once, nor shuffle continuously | 5 | Cycle 49, computed from the step decision, which is pure scalar arithmetic and needs no editor. **The first half is guaranteed by construction:** `allowance = max(1, min(legs>=6 ? 3 : 2, alive/2))` hard-caps airborne legs at half the machine, so "all at once" cannot happen however the triggers fire. The adjacency rule (`Beside`) additionally blocks two legs next to each other on one side, which for 4 legs leaves only a diagonal pair - a trot - and for 6 leaves {0,2,4} - the alternating tripod the comment claims emerges. **The second half is not a shuffle either:** a leg trips at 0.32 x span, giving strides of Redoubt 2.09, Kettle 1.42, Pavise 1.29, Pincer 1.08, Censer 1.06, Banner 0.78 m, and each leg is planted 58-81% of the time at 1.2-3.0 m/s. Above 50% is a walk with a support phase. Average airborne load is 0.77-2.07 legs against caps of 2 and 3, so legs never queue for permission. **Scores 4, not 8:** none of this shows the pattern is PERIODIC rather than merely bounded, no footfall trace has been recorded, and the adjacency rule is explicitly bypassed by `runningOut` and `Frantic` - so the tripod is a preference the code hopes for, not an invariant it enforces. Banner is the machine to watch: shortest stride, busiest legs, and only 58% planted at speed. **Cycle 50 TESTED all of this and half of it was wrong.** Confirmed: the pattern IS periodic - Pincer walks {0,1,4}/{2,3,5} at 49/51% with **0% jitter**, and Censer, Pavise and Banner trot on diagonal pairs at 0% jitter. Refuted: the duty figures. Every leg is planted **52%** of the time, not 58-81%, because cycle 49 derived the period from a drift rule that never fires. Redoubt is the outlier at **44% planted with 91% jitter** and a lopsided 86/14 split between its two pairs. Scores 3: the rhythm is real and machine-verified, but the machine is stepping as fast as its allowance permits at all times rather than when a leg needs to, which is what this line calls shuffling. |
+| W1 | A planted foot does not slide, skate or creep while the body moves over it | 4 | Cycle 46 MEASURED it, and cycle 43's "nothing slides" is WITHDRAWN - it does slide, badly. With the toe target nailed to one spot and the body swept through a 0.40 m stance, the vertex that actually touches the ground travels Pincer 0.77, Banner 0.86, Pavise 1.03, Censer 1.75 m. That is 1.9x to 4.4x the distance the body moves, in the wrong direction, on the leg the gait believes is planted. The reason it is geometry rather than a solver bug: a rigid leg holding ONE point still can only rotate, so every other point on it must move, and the contact vertex is far from the pinned toe. **Cycle 47, FIXED and gated:** measured in the shipped code while walking, the contact vertex now slides Censer 0.000, Pavise 0.000, Banner 0.033, Pincer 0.069, Kettle 0.116 m while its foot is called planted, against 0.037-0.183 before. Redoubt is the holdout at 0.901 m (was 1.056), because its front toe sockets sit 2.15 m below the foot mesh and the correction had to be declined there - see cycle 47 notes. Cycle 46's Blender figures of 0.77-1.75 m are WITHDRAWN: they swept a rigid leg through a fixed +/-0.40 m about the hip, which is not the stance the gait actually uses, and they overstated the fault by 4x to 15x. Scores 4, not higher, on Redoubt alone. **AUDIT 2026-09-27: the score column read 6. No cycle in either loop ever raised this line above the 4 that cycle 47 set - the log goes 43:0, 46:0->2, 47:2->4 and then silent. The 6 was unexplained, so the column is corrected back to 4 to match its own evidence.** |
+| W2 | The body rides at a steady height on the level, with no bob, sink or hunting | 5 | Cycle 44: the ride height is now MEASURED rather than described - Pincer -0.62, Kettle -0.10, Censer -0.65, Pavise -0.59, Banner -0.09, Redoubt +2.24 m (the Body pivot's height above the ground it stands on). Belly clearance with it: Censer +0.04, Banner -0.32, Pavise -0.46, Pincer +0.33, Kettle +0.37, Redoubt +2.24. NO 2 m SOLDIER PASSES UNDER ANY OF THE SIX, which was cycle 1's stated target. **Cycle 47:** steadiness finally has a number, found by breaking it - `GaitTests` already watches ride height over a level walk and allows 0.34 m of sink, and the shipped machines pass inside it while LEAN 0.30 pushed Banner to 0.459 m and went red. So the worst sink on the level is under 0.34 m and is bounded by a test, which is worth 1. Belly clearance after cycle 47: Kettle +0.57, Redoubt +2.36, Censer +0.12, Pincer **-0.15**, Banner -0.32, Pavise -0.39. Pincer's went BACKWARDS (was +0.33) because correcting its toe lowered its ride height from -0.62 to -1.10; that is the price of the cycle 47 fix and it is logged as a trade rather than hidden. Still no 2 m soldier passes under any of the six. **Cycle A3 found the large fault on this line and FIXED it, gated green.** Crossing a parapet, a Pincer's hull lost about 1.4 m - 21% of its own height - squatted onto the bank, ploughed through it, and got it all back on the far side. Measured hull-top against its own selection ring (both in frame, so camera error cancels): 201 px before the bank, 108 px on it, 216 px after. Mounting a parapet the body should RISE. Cause and fix in the cycle A3 notes. Re-shot afterwards with the same camera: the hull now rides clear above the sandbag line for the whole crossing with the legs extended beneath it, and the squat frames are gone. **WITHDRAWN at cycle A6: that fix was intermittently red and has been reverted, so the squat is back. The measurement of the fault stands; the fix does not.** Scores 3 and not higher because steadiness on the LEVEL - bob and hunting over time - is still unmeasured, and belly clearance on the flat is unchanged. **Score now 5, raised by cycle A23; this cell was never updated and still argued for 3 (noted in the 2026-09-27 audit).** |
+| W3 | Pitch and roll read as a body carried on legs, not a box on a spring | 5 | Cycle 48 measured the two things that stop it reading as carried, and the line's own wording turns out to be literal. **It IS a box on a spring:** the gait fits a plane to the feet, smooths it with `k2 = 1 - exp(-dt*9)`, and the renderer then puts THAT through the same critically damped spring a tank's hull uses (`omega 7`, TankRenderer:375). Two filters in series reach 90% of a new tilt after 0.700 s - 0.84 m of travel at 1.2 m/s, 2.10 m at 3.0 - and the second filter contributes 0.433 s of that, 162% more lag than the gait's own. **And the pitch axis is degenerate:** the feet span, across / along, Censer 5.31 / **0.01 m**, Pavise 8.53 / 0.17, Pincer 7.40 / 0.36, Banner 4.57 / 0.59, Kettle 6.13 / 1.38, Redoubt 7.39 / 3.32. Four machines have their feet in a line ACROSS the body, so a 0.5 m step under one foot demands 54-99 degrees of pitch and gets the 24.1 degree clamp instead. Roll has a real lever on all six (3.4-6.2 deg for the same step); pitch has one only on Redoubt and Kettle. Measured at the rest footprint, which the solved stance preserves because the feet splay radially from the hips. **Cycle A5 removed the second filter and measured the result A/B.** At world-position-matched frames the hull now carries **~9 degrees more of the terrain's attitude** (BEFORE +13.5 deg, AFTER +22 deg at frame 02; +13.5 / +22.5 at frame 03, against a +/-3 deg error bar). The shape of the win is not what was predicted: both hulls reach the crest at the same attitude (+24 / +25), and the difference is that **BEFORE relaxes back toward level over the next eight frames while AFTER holds**. The second filter was not delaying the onset so much as continuously dragging the hull back to its long-run mean. No overshoot and no oscillation in either. Scores 5, not 7: both hulls are still near-static - BEFORE varies 4.5 deg over eight frames, AFTER 4 deg over six - so the body still never answers an individual footfall. The lag is gone; the life is not there yet. **Trail this cell was missing (2026-09-27 audit): cycle A33 cut this line 5 -> 2 on finding the plane fit never ran on a four-legged machine, A36/A38/A39 left it at 2 while three hypotheses of mine were refuted, and cycle A40 restored it to 5 by fixing that fault. The number was right by coincidence; the audit trail for the board's second-largest movement was absent from the board.** |
+| W4 | The gait has a rhythm - legs do not all lift at once, nor shuffle continuously | 5 | Cycle 49, computed from the step decision, which is pure scalar arithmetic and needs no editor. **The first half is guaranteed by construction:** `allowance = max(1, min(legs>=6 ? 3 : 2, alive/2))` hard-caps airborne legs at half the machine, so "all at once" cannot happen however the triggers fire. The adjacency rule (`Beside`) additionally blocks two legs next to each other on one side, which for 4 legs leaves only a diagonal pair - a trot - and for 6 leaves {0,2,4} - the alternating tripod the comment claims emerges. **The second half is not a shuffle either:** a leg trips at 0.32 x span, giving strides of Redoubt 2.09, Kettle 1.42, Pavise 1.29, Pincer 1.08, Censer 1.06, Banner 0.78 m, and each leg is planted 58-81% of the time at 1.2-3.0 m/s. Above 50% is a walk with a support phase. Average airborne load is 0.77-2.07 legs against caps of 2 and 3, so legs never queue for permission. **Scores 4, not 8:** none of this shows the pattern is PERIODIC rather than merely bounded, no footfall trace has been recorded, and the adjacency rule is explicitly bypassed by `runningOut` and `Frantic` - so the tripod is a preference the code hopes for, not an invariant it enforces. Banner is the machine to watch: shortest stride, busiest legs, and only 58% planted at speed. **Cycle 50 TESTED all of this and half of it was wrong.** Confirmed: the pattern IS periodic - Pincer walks {0,1,4}/{2,3,5} at 49/51% with **0% jitter**, and Censer, Pavise and Banner trot on diagonal pairs at 0% jitter. Refuted: the duty figures. Every leg is planted **52%** of the time, not 58-81%, because cycle 49 derived the period from a drift rule that never fires. Redoubt is the outlier at **44% planted with 91% jitter** and a lopsided 86/14 split between its two pairs. Scores 3: the rhythm is real and machine-verified, but the machine is stepping as fast as its allowance permits at all times rather than when a leg needs to, which is what this line calls shuffling. **Score now 5, raised by cycle A30 when the `Beside` bypass was removed and the drift rule began to fire; this cell was never updated (noted in the 2026-09-27 audit).** **FALLS TO 4 at cycle C4, measured.** Stance duration on Pincer, Censer and Pavise is **0.217 s exactly - shortest, longest and mean all identical** - with every leg down **50.0%** of the time. A rhythm that never varies by a single tick across a twenty-second walk is a metronome, not a gait; the line asks for rhythm and gets a clock. A blind critique reading only the pictures called the same thing a "continuous shuffle" independently. |
 | W5 | The machine leans into a turn and its outside legs take longer steps | 6 | Cycle 51. **The lean half is not implemented at all.** `yawRate` occurs exactly twice in the whole of `WalkerGait`: once in `Step`'s signature and once as `sweep = cross(up, hipOut) * yawRate` on the step target. `Roll` is assigned only from the foot plane fit (`fitRoll`) and the lost-leg hole (`hole.x * 0.16f`). Nothing anywhere converts turning into roll, so a machine going round a corner stays as upright as one walking straight, and on flat ground the plane fit gives it nothing incidental either. This is settled by enumerating every use of the variable rather than by sampling behaviour, so it is not a matter of tuning being too subtle to see. **The longer-steps half works and has the right sense on all six:** turning left at 0.5 rad/s, the outside legs step further than the inside ones by Censer +70%, Pavise +66%, Pincer +65%, Kettle +48%, Redoubt +40%, Banner +31%. CAVEAT: the decision port does not implement Unity's two-pass clamp of the target into the leg's reachable annulus, so the absolute step lengths (1.3-3.35 m against 1.01 m straight) are certainly overstated, and since the outside leg is the one that would clamp first, the true ratio is probably smaller than these figures. Scores 3: one half of the line is absent, the other is present with the right sign and an unverified magnitude. **Cycle A8 added the lean and could not observe it doing anything.** The term `wantRoll += yawRate * pace * TurnLean` is in and green on four runs, but in five samples across two commanded turns, `yawRate * pace` was **zero every time** - the renderer's `YawRate` read 0.0000 and the sim's speed read 0.00 while the machine's yaw was visibly changing from 90 to 0 to 45 to 135 degrees. Either the turns complete between samples, or the machines stop dead to rotate and never turn while moving, or the machine was stuck again (the fault from A1/A4). I could not distinguish the three. Score unchanged at 3 because an unobserved effect is not an improvement. **Cycle A9 observed it.** Driving `WalkerGait` tick by tick with yawRate 0.5 AND speed 1.2 - the condition play mode would never hold still for - the roll rises 1.85 -> 2.04 -> **2.06 degrees** and holds there for the rest of the turn, against 0.00 for the whole of an otherwise identical straight walk. 2.06 degrees is the predicted value to two decimal places. **A8's 'never seen to fire' was a sampling failure in play mode, not a fault in the fix.** Scores 6: the lean is confirmed working in the shipped solver and the longer-outside-step half was confirmed with the right sign in cycle 51, but the magnitude of the step difference is still unverified in game and nothing has been rendered of a machine actually banking. |
-| W6 | No leg is drawn visibly stretched or short to reach its foot | 3 | Cycle 45, MEASURED off the rig and the shipped constants: standing still on the level, every leg on every machine is asked for 89.3% of its own length. Pincer 3.37 m legs drawn 0.36 m short, Censer 3.30 m / 0.35 m, Kettle 4.44 m / 0.47 m, Pavise 4.04 m / 0.43 m, Banner 2.43 m / 0.26 m, Redoubt 6.53 m / 0.70 m. It is not a per-machine defect: the number is 89.3% to one decimal on all six, so it is the constants, not the sculpts. Jointed legs absorb it by bending, which is correct and invisible; a ONE-PIECE leg can only be scaled, which is why this scores at all - Pincer is one-piece on all 6 legs and Censer on all 4. Scores 2, not 0: the cause is now named and arithmetic rather than guessed, but nothing is fixed. **Cycle A6 measured the DRAWN length live in the running game**, per leg, as a percentage of that leg's own maximum span. Pincer 87-89%, spread 2 points - uniform, and a uniform crouch is not what this line is about. Censer **80-109%, spread 29 points**: one leg drawn 9% PAST full stretch while another is 20% short, on the same machine in the same frame. Redoubt 63-89%, spread 26. The mechanism is `stretch = clamp(dist / Bone[0], StretchMin 0.80, StretchMax 1.18)` applied to each one-piece leg independently - a +/-20% rubber allowance per leg, with no coupling between legs of the same machine. Scores 3 rather than 2 because the fault is now measured in the shipped renderer rather than derived, and the worst machine is identified. **Cycle A10 re-measured it properly and HALF OF A6 IS WITHDRAWN.** Driving the solver tick by tick over a six-second walk on flat ground and counting only PLANTED legs (a swinging leg is tucked and legitimately short, which A6's snapshots did not separate): Censer 88-93%, Pincer 88-97%, Pavise 80-93%, Kettle 77-94%, Redoubt 75-94%, **Banner 68-97%**. The demand - what the gait ASKS of a leg, before any clamp - **never exceeds 100% on any machine** except Banner, on 0.6% of leg-ticks. Toe error is 0.000 m throughout. So on level ground legs are drawn SHORT, never long, and the stretch clamp is essentially never binding; A6's Censer at 109% must come from terrain, not from the stance. The remaining fault is the SPREAD - Banner varies 29 points between its own legs while standing. **Cycle A15 took this line DOWN to 3.** A10 scored it on level ground, where the answer is genuinely good; it never counted the trench case A14 then measured, and that case is in this line's scope. A planted Pincer foot is separated from its own drawn toe by **1.165 m on a 3.37 m leg - 35% of the limb - on 29.3% of in-trench plant-ticks**, with the same machine hitting 118% of span. That is not a stretched leg, it is a foot flying detached from one, and no magnitude of that size can be invisible. It holds at 3 rather than lower because flat ground really is exact (toe error 0.000 m, demand never over 100%) and Redoubt is 0.000 m throughout the trench runs, so most of the play space is clean - and because there are still NO PICTURES, so "visibly" is unverified in both directions. **Cycle A16 explains the SPREAD that A10 left hanging**, off the shipped FBXs rather than by argument: the six machines do not have the same leg topology, and three of them do not have the same topology from end to end. Banner's front legs are two pieces and its rear legs one; Pavise is the mirror of that; Redoubt has three-piece front legs and two-piece rears. A leg's minimum fold depends on its chain (a one-piece leg is floored at a hard 80% of span, a jointed one at `|upper - lower|`, which can be 50-70%), so **legs on the same machine are working to different bounds** - which is what a 29-point spread between Banner's own legs looks like. It stays at 3: this is an explanation, not a fix. **Cycle A19 re-read A10's table and found it was measuring two different things - but the re-reading's own conclusion did not survive either.** For a ONE-PIECE leg the "drawn % of span" figure IS a literal anisotropic mesh scale (`Solve:771-782`, `Scale(1, 1, stretch)` along the hip-toe axis), because `Bone[0] == Reach == MaxSpan` for a single-part chain. For a JOINTED leg the same figure is just a folded knee and deforms nothing. **So A10's "up to 32% short on Banner" mixed folds with deformations and is misleading.** Two solid results: a one-piece leg's drawn length is provably bounded to [0.80, 1.18] of span, and **at home stance it is provably 0.878-0.893 for ANY hip height** - so Pincer's and Censer's 11-12% squash is the DESIGNED stance, not a transient. Three corrections against me: the >=80% inference is one-way only, so Pavise's 80% floor is NOT evidence of its one-piece front pair (a jointed `MinSpan` can sit far below 0.80 x span); 80% is unreachable at home, so that floor is a dynamic pin of **Carry's `floor`** rather than of `Solve`'s clamp; and restricting W6 to one-piece machines on flat ground **discards the worst W6 violation there is** - Pincer's toe drawn 1.165 m short of its own planted foot. Stays at 3, and cannot move without a frame. **Cycle A28 took cycle A19's deciding number and CLOSED the question: no one-piece leg is EVER asked to fold inside its 0.80 floor, on any machine - 0.0% of planted leg-ticks - and never asked past 1.18 either, 0.0%.** So on flat ground `Solve`'s stretch clamp never bites and the drawn toe always reaches its own planted foot. The ~11% short draw is confirmed to be STANCE GEOMETRY, not a clamp pin. It also resolves the two puzzling machine-wide minima from A27: **Pavise's 80% belongs to its JOINTED rear legs** (80.4%, fold bound 66.1% of span) and **Banner's 68% to its JOINTED front legs** (fold bound 45.3%) - both legitimate knee folds, neither a one-piece pin. W6's flat-ground behaviour is clean and the 1.165 m detachment is a terrain phenomenon only. Stays 3 because the permanent ~11% squash on Pincer and Censer is real and unjudged: still no frame. **Cycle A31 measured the other half - broken ground - and it is NOT clean.** Crossing cosine craters (4 m/1.2 m, 6 m/1.55 m, 9 m/3.0 m with ejecta rims), demand exceeds the 0.97 reach ceiling on **every machine**, on 1.5-13.6% of planted leg-ticks, with worst demands of 99-158% of span. **One-piece legs go OUTSIDE their [0.80, 1.18] band** - Pincer 1.15-1.97%, Censer 0.06-1.60%, Banner 1.90% at the deepest - which means the drawn toe genuinely detaches from its planted foot on broken ground. So A14's 1.165 m trench detachment is **not trench-specific; it is a general rough-ground phenomenon.** Stays 3: the fault is confirmed real and general rather than newly worse, and there are still no pictures. |
+| W6 | No leg is drawn visibly stretched or short to reach its foot | 2 | Cycle 45, MEASURED off the rig and the shipped constants: standing still on the level, every leg on every machine is asked for 89.3% of its own length. Pincer 3.37 m legs drawn 0.36 m short, Censer 3.30 m / 0.35 m, Kettle 4.44 m / 0.47 m, Pavise 4.04 m / 0.43 m, Banner 2.43 m / 0.26 m, Redoubt 6.53 m / 0.70 m. It is not a per-machine defect: the number is 89.3% to one decimal on all six, so it is the constants, not the sculpts. Jointed legs absorb it by bending, which is correct and invisible; a ONE-PIECE leg can only be scaled, which is why this scores at all - Pincer is one-piece on all 6 legs and Censer on all 4. Scores 2, not 0: the cause is now named and arithmetic rather than guessed, but nothing is fixed. **Cycle A6 measured the DRAWN length live in the running game**, per leg, as a percentage of that leg's own maximum span. Pincer 87-89%, spread 2 points - uniform, and a uniform crouch is not what this line is about. Censer **80-109%, spread 29 points**: one leg drawn 9% PAST full stretch while another is 20% short, on the same machine in the same frame. Redoubt 63-89%, spread 26. The mechanism is `stretch = clamp(dist / Bone[0], StretchMin 0.80, StretchMax 1.18)` applied to each one-piece leg independently - a +/-20% rubber allowance per leg, with no coupling between legs of the same machine. Scores 3 rather than 2 because the fault is now measured in the shipped renderer rather than derived, and the worst machine is identified. **Cycle A10 re-measured it properly and HALF OF A6 IS WITHDRAWN.** Driving the solver tick by tick over a six-second walk on flat ground and counting only PLANTED legs (a swinging leg is tucked and legitimately short, which A6's snapshots did not separate): Censer 88-93%, Pincer 88-97%, Pavise 80-93%, Kettle 77-94%, Redoubt 75-94%, **Banner 68-97%**. The demand - what the gait ASKS of a leg, before any clamp - **never exceeds 100% on any machine** except Banner, on 0.6% of leg-ticks. Toe error is 0.000 m throughout. So on level ground legs are drawn SHORT, never long, and the stretch clamp is essentially never binding; A6's Censer at 109% must come from terrain, not from the stance. The remaining fault is the SPREAD - Banner varies 29 points between its own legs while standing. **Cycle A15 took this line DOWN to 3.** A10 scored it on level ground, where the answer is genuinely good; it never counted the trench case A14 then measured, and that case is in this line's scope. A planted Pincer foot is separated from its own drawn toe by **1.165 m on a 3.37 m leg - 35% of the limb - on 29.3% of in-trench plant-ticks**, with the same machine hitting 118% of span. That is not a stretched leg, it is a foot flying detached from one, and no magnitude of that size can be invisible. It holds at 3 rather than lower because flat ground really is exact (toe error 0.000 m, demand never over 100%) and Redoubt is 0.000 m throughout the trench runs, so most of the play space is clean - and because there are still NO PICTURES, so "visibly" is unverified in both directions. **Cycle A16 explains the SPREAD that A10 left hanging**, off the shipped FBXs rather than by argument: the six machines do not have the same leg topology, and three of them do not have the same topology from end to end. Banner's front legs are two pieces and its rear legs one; Pavise is the mirror of that; Redoubt has three-piece front legs and two-piece rears. A leg's minimum fold depends on its chain (a one-piece leg is floored at a hard 80% of span, a jointed one at `|upper - lower|`, which can be 50-70%), so **legs on the same machine are working to different bounds** - which is what a 29-point spread between Banner's own legs looks like. It stays at 3: this is an explanation, not a fix. **Cycle A19 re-read A10's table and found it was measuring two different things - but the re-reading's own conclusion did not survive either.** For a ONE-PIECE leg the "drawn % of span" figure IS a literal anisotropic mesh scale (`Solve:771-782`, `Scale(1, 1, stretch)` along the hip-toe axis), because `Bone[0] == Reach == MaxSpan` for a single-part chain. For a JOINTED leg the same figure is just a folded knee and deforms nothing. **So A10's "up to 32% short on Banner" mixed folds with deformations and is misleading.** Two solid results: a one-piece leg's drawn length is provably bounded to [0.80, 1.18] of span, and **at home stance it is provably 0.878-0.893 for ANY hip height** - so Pincer's and Censer's 11-12% squash is the DESIGNED stance, not a transient. Three corrections against me: the >=80% inference is one-way only, so Pavise's 80% floor is NOT evidence of its one-piece front pair (a jointed `MinSpan` can sit far below 0.80 x span); 80% is unreachable at home, so that floor is a dynamic pin of **Carry's `floor`** rather than of `Solve`'s clamp; and restricting W6 to one-piece machines on flat ground **discards the worst W6 violation there is** - Pincer's toe drawn 1.165 m short of its own planted foot. Stays at 3, and cannot move without a frame. **Cycle A28 took cycle A19's deciding number and CLOSED the question: no one-piece leg is EVER asked to fold inside its 0.80 floor, on any machine - 0.0% of planted leg-ticks - and never asked past 1.18 either, 0.0%.** So on flat ground `Solve`'s stretch clamp never bites and the drawn toe always reaches its own planted foot. The ~11% short draw is confirmed to be STANCE GEOMETRY, not a clamp pin. It also resolves the two puzzling machine-wide minima from A27: **Pavise's 80% belongs to its JOINTED rear legs** (80.4%, fold bound 66.1% of span) and **Banner's 68% to its JOINTED front legs** (fold bound 45.3%) - both legitimate knee folds, neither a one-piece pin. W6's flat-ground behaviour is clean and the 1.165 m detachment is a terrain phenomenon only. Stays 3 because the permanent ~11% squash on Pincer and Censer is real and unjudged: still no frame. **Cycle A31 measured the other half - broken ground - and it is NOT clean.** Crossing cosine craters (4 m/1.2 m, 6 m/1.55 m, 9 m/3.0 m with ejecta rims), demand exceeds the 0.97 reach ceiling on **every machine**, on 1.5-13.6% of planted leg-ticks, with worst demands of 99-158% of span. **One-piece legs go OUTSIDE their [0.80, 1.18] band** - Pincer 1.15-1.97%, Censer 0.06-1.60%, Banner 1.90% at the deepest - which means the drawn toe genuinely detaches from its planted foot on broken ground. So A14's 1.165 m trench detachment is **not trench-specific; it is a general rough-ground phenomenon.** Stays 3: the fault is confirmed real and general rather than newly worse, and there are still no pictures. **FALLS TO 1 at cycle C2, on a picture.** `Captures/rigloop/c4/kettle_03.png`: Kettle's two right-hand leg segments are separated from the hull by open air, and a white-and-blue hull panel hangs FREE IN MID-AIR above them. Present in all six frames of the row, not a one-frame glitch. This is worse than the measured band violations the line was scored 3 for - those were a toe detaching by a fraction of a leg; this is a machine visibly coming apart while walking. |
 
 ### Terrain — parapets, trenches, slopes
 
 | # | Line | Score | Evidence / why not higher |
 |---|------|-------|---------------------------|
-| T1 | A step lands on top of a parapet rather than through it | 3 | Cycle A3, and the fault is STRUCTURAL, confirmed in code rather than inferred from pixels. `BattlefieldComposer:324` places `kit.sandbag` as a prop at `ground - 0.04f`, and the ground function the gait plants against is `TankRenderer.Ground` -> `RenderGround.Sample`, which is the heightfield plus crater deformation and nothing else. **The parapet contributes zero height to the function that places feet.** A foot targeted at a cell under the bag row is therefore planted at bare terrain, about one bag-stack (0.4-0.5 m) inside the geometry, every time. Rendered evidence agrees: in twelve frames of a Pincer crossing a revetted parapet there is not one frame where a foot rests unambiguously on a bag crest, and in frame 06 the far-side front claw ends 25 px (~0.34 m) below the crest with the bag silhouette still behind it. This cannot be fixed by a constant - the bags, revetment and duckboards need to contribute height to the sampler, or a second obstacle-height channel is needed that `ArcFor`, the step-target sampler and the new belly floor all consult. **Cycle A12 closed the hole in that reasoning.** It assumed the solver WOULD do the right thing if the ground told it the truth, and nobody had checked. Given a real berm in the ground function - 2 m x 0.5 m, 2 m x 1.0 m and 3 m x 1.8 m - **not one foot is ever planted inside it: 0.0% of plant-ticks on both machines at all three sizes, worst penetration 0.00 m.** Feet land ON the berm on 13-29% of plant-ticks, rising with its size, which is what stepping onto a parapet looks like. **So the solver is ready and the fault is entirely in the terrain data** - the fix is now known to be worth doing rather than merely necessary. Scores 3 rather than 2 because the remedy is validated; it cannot rise further until the shipped sampler actually carries the parapet, because this line scores the shipped machine. **Cycle A21 killed cycle A3's reasoning outright and then found that the fault survives it anyway - T1 STAYS 3 and a proposed rise to 6 was withdrawn.** A3 was wrong twice: `RenderGround.Sample` does not exclude the parapet (A18), and the object it cited (`Composer:324`, `kit.sandbag` singular) is a random scatter of loose bags, not a parapet. What is now established and correct: **the parapet's EARTH BANK is in the function that places feet.** `BankRise` (`BattlefieldSurface:149-163`) has a crest of `0.40 + Perlin * 0.65` = **0.40-1.05 m**, it lands inside `Bed` and so inside the grid the gait samples, and at the bag lip (`DressCenter + outward * 0.60`) the ramp term `SmoothStep(0.60 / 0.65)` = 0.983 delivers essentially the full crest - neither the `Trench|Link` early-out nor the `DressOutward` dot fires there. **So the machine does mount the parapet MASS.** But the dressing that reads to the eye AS the parapet is all props: `BattlefieldKit:478` builds a module named literally **"Settled parapet"** (`TrenchBags`), and `Composer:143` emits it along the FULL `edge.DressLength` of nearly every non-link edge (gated `frontage > 0.26`, which a Perlin value almost always clears; 12% get `kit.gabion` pairs instead), standing **0.58-0.70 m proud** of the gait's surface - plus `TrenchWalls` revetment timber 0.8-2.5 m proud at the lip. **The only writer to `renderGrid.Heights` in the entire project is `GreyboxTerrainView:201`**, so every one of those is invisible to `ground()` by construction. A foot crossing any dressed fire-trench lip therefore passes through the top half-metre of sacking, on nearly every segment, derivable without a frame. The fix is a TERRAIN fix - fold the bag row and revetment into `renderGrid.Heights` - not a solver change. **Cycle A32 took the measurement A21 committed to, and T1 HOLDS AT 3 as a TERRAIN bug with the solver exonerated.** Walking all six machines across a reconstruction of the real profile - 4 m carve with the near half at -1.8 m and the fire step at -1.1 m, `BankRise` outside it at mid values (crest 0.72 m, widthScale 3.7 m): **not one foot is ever planted inside the terrain the gait can see - 0.00% on every machine, worst 0.000 m** - and **24.6-44.1% of plant-ticks are up ON the bank.** So the machine mounts the parapet mass correctly and the solver's behaviour is not at fault anywhere. The fault is entirely that the dressing is invisible to the height field: plant-ticks landing in the sandbag row's 0.78 m band run **Banner 1.89%, Redoubt 1.87%, Pavise 3.74%, Pincer 6.93%, Censer 11.30%, Kettle 16.89%**, and every one of those feet is **0.640 m inside solid sacking**, because the bags contribute exactly zero height. Against A21's pre-committed thresholds (over 20% OR worst depth over 0.30 m -> hold 3 and reopen as a terrain bug), 0.640 m decides it. |
+| T1 | A step lands on top of a parapet rather than through it | 6 | Cycle A3, and the fault is STRUCTURAL, confirmed in code rather than inferred from pixels. `BattlefieldComposer:324` places `kit.sandbag` as a prop at `ground - 0.04f`, and the ground function the gait plants against is `TankRenderer.Ground` -> `RenderGround.Sample`, which is the heightfield plus crater deformation and nothing else. **The parapet contributes zero height to the function that places feet.** A foot targeted at a cell under the bag row is therefore planted at bare terrain, about one bag-stack (0.4-0.5 m) inside the geometry, every time. Rendered evidence agrees: in twelve frames of a Pincer crossing a revetted parapet there is not one frame where a foot rests unambiguously on a bag crest, and in frame 06 the far-side front claw ends 25 px (~0.34 m) below the crest with the bag silhouette still behind it. This cannot be fixed by a constant - the bags, revetment and duckboards need to contribute height to the sampler, or a second obstacle-height channel is needed that `ArcFor`, the step-target sampler and the new belly floor all consult. **Cycle A12 closed the hole in that reasoning.** It assumed the solver WOULD do the right thing if the ground told it the truth, and nobody had checked. Given a real berm in the ground function - 2 m x 0.5 m, 2 m x 1.0 m and 3 m x 1.8 m - **not one foot is ever planted inside it: 0.0% of plant-ticks on both machines at all three sizes, worst penetration 0.00 m.** Feet land ON the berm on 13-29% of plant-ticks, rising with its size, which is what stepping onto a parapet looks like. **So the solver is ready and the fault is entirely in the terrain data** - the fix is now known to be worth doing rather than merely necessary. Scores 3 rather than 2 because the remedy is validated; it cannot rise further until the shipped sampler actually carries the parapet, because this line scores the shipped machine. **Cycle A21 killed cycle A3's reasoning outright and then found that the fault survives it anyway - T1 STAYS 3 and a proposed rise to 6 was withdrawn.** A3 was wrong twice: `RenderGround.Sample` does not exclude the parapet (A18), and the object it cited (`Composer:324`, `kit.sandbag` singular) is a random scatter of loose bags, not a parapet. What is now established and correct: **the parapet's EARTH BANK is in the function that places feet.** `BankRise` (`BattlefieldSurface:149-163`) has a crest of `0.40 + Perlin * 0.65` = **0.40-1.05 m**, it lands inside `Bed` and so inside the grid the gait samples, and at the bag lip (`DressCenter + outward * 0.60`) the ramp term `SmoothStep(0.60 / 0.65)` = 0.983 delivers essentially the full crest - neither the `Trench|Link` early-out nor the `DressOutward` dot fires there. **So the machine does mount the parapet MASS.** But the dressing that reads to the eye AS the parapet is all props: `BattlefieldKit:478` builds a module named literally **"Settled parapet"** (`TrenchBags`), and `Composer:143` emits it along the FULL `edge.DressLength` of nearly every non-link edge (gated `frontage > 0.26`, which a Perlin value almost always clears; 12% get `kit.gabion` pairs instead), standing **0.58-0.70 m proud** of the gait's surface - plus `TrenchWalls` revetment timber 0.8-2.5 m proud at the lip. **The only writer to `renderGrid.Heights` in the entire project is `GreyboxTerrainView:201`**, so every one of those is invisible to `ground()` by construction. A foot crossing any dressed fire-trench lip therefore passes through the top half-metre of sacking, on nearly every segment, derivable without a frame. The fix is a TERRAIN fix - fold the bag row and revetment into `renderGrid.Heights` - not a solver change. **Cycle A32 took the measurement A21 committed to, and T1 HOLDS AT 3 as a TERRAIN bug with the solver exonerated.** Walking all six machines across a reconstruction of the real profile - 4 m carve with the near half at -1.8 m and the fire step at -1.1 m, `BankRise` outside it at mid values (crest 0.72 m, widthScale 3.7 m): **not one foot is ever planted inside the terrain the gait can see - 0.00% on every machine, worst 0.000 m** - and **24.6-44.1% of plant-ticks are up ON the bank.** So the machine mounts the parapet mass correctly and the solver's behaviour is not at fault anywhere. The fault is entirely that the dressing is invisible to the height field: plant-ticks landing in the sandbag row's 0.78 m band run **Banner 1.89%, Redoubt 1.87%, Pavise 3.74%, Pincer 6.93%, Censer 11.30%, Kettle 16.89%**, and every one of those feet is **0.640 m inside solid sacking**, because the bags contribute exactly zero height. Against A21's pre-committed thresholds (over 20% OR worst depth over 0.30 m -> hold 3 and reopen as a terrain bug), 0.640 m decides it. |
 | T2 | The machine straddles a trench instead of walking into it | 6 | Cycle A3: it straddles, in all twelve frames, and no leg descends into the channel. But the line is being asked of the wrong trench and so the pass is not worth much - `GreyboxMapGenerator` cuts trenches 3 m wide and carves the heightfield -1.8 m, while `VehicleKinematics` gives the Pincer `TrenchCrossWidth = 3.6 m` and a body 8.5 m long. A 6.5 m machine stepping over a 3 m ditch is a crab stepping over a gutter. The 1.8 m carve IS in `ground()`, so the solver can see this trench; it simply has no reason to put a foot in it. Scores 3 until it is tested against a gap WIDER than `TrenchCrossWidth` - a dugout mouth, a sap, or a crater-widened section - where the solver is actually forced to choose. **Cycle A11 built that gap instead of looking for one.** The gait consults a ground function, not navigation, so a slot of any width can be put in front of it. Walking a Pincer and a Redoubt across flat-bottomed slots 1.8 m deep, and counting the fraction of planted leg-ticks whose anchor lies INSIDE the slot: **Pincer** 2 m -> 0.0%, 3 m -> 2.3%, 4 m -> 9.3%, 6 m -> 12.3%, 8 m -> 21.6%, 12 m -> 40.1%. **Redoubt** 2 m -> 0.0%, 3 m -> 0.0%, 4 m -> 2.3%, 6 m -> 2.3%, 8 m -> 18.5%, 12 m -> 46.3%. The behaviour is **graded and sensible**: narrow gaps are straddled outright, and as the gap grows past what the machine can span it starts putting feet on the floor, which is the only thing it can do - a 12 m trench cannot be straddled by an 8.5 m body. Nothing falls in, nothing refuses, nothing snaps. Scores 6 and not higher because this is numbers and not pictures: whether the half-in, half-out posture at 8-12 m READS well has not been looked at. |
-| T3 | Legs reach down a revetment and find the duckboards | 2 | Cycle A4 established WHY this line has no evidence after 55 cycles, and it is not the gait's fault: **navigation never sends a walker anywhere that would test it.** Broken and flooded ground is marked `navCost 255` - impassable - so the flow field routes around every crater and revetment rather than through one. Measured at a real 3.07 m crater: `navCost 255` and layer 41 across its whole footprint (ground -1.05 to -1.55 m), against cost 4 and cost 1 on the ground either side. The gait is never ASKED to put a leg down a revetment, so no capture can show it doing so. This line cannot be earned by any change to `WalkerGait`; it needs a navigation decision first - see the cycle A4 notes. **Cycle A14 got a first measurement anyway**, by writing the trench into the ground function as A11 and A12 did rather than waiting for navigation. Walking a Pincer and a Redoubt across flat-bottomed slots at four sizes: **every anchor rests exactly on the trench floor, 0.0% off on all eight cases, worst 0.00 m** - feet neither hover above the floor nor sink through it, so the targeting half of the line works. But **Pincer draws a leg detached from its own planted foot on 29.3% of in-trench plant-ticks in the shallowest slot, worst 1.165 m** - about a third of a leg - while Redoubt is clean at 0.000 m throughout. Scores 2, not more: W6 fails outright inside T3's own scenario; there are no pictures, so nothing here says how it reads; and the geometry tested is 2.7-4x the game's real 3 m trench with no revetment face, no fire
+| T3 | Legs reach down a revetment and find the duckboards | 2 | **CORRECTED 2026-09-27 - this row carried a false premise for 22 cycles.** It read: "navigation never sends a walker anywhere that would test it... broken and flooded ground is marked `navCost 255` - impassable... this line cannot be earned by any change to `WalkerGait`; it needs a navigation decision first." **That is wrong, and cycle A18 disproved it - but only in the cycle notes; the row itself was never fixed.** `Sim/Terrain/NavLayer.cs:24` costs a `Crater` **2**, one step above open ground; `Blocked = 255` is checked first and covers only bunker wall, deep water and map edge. The sim explicitly budgets for walking through both: `VehicleKinematics` applies `PickSpeed 0.88` in a crater and `StepOverSpeed 0.72` in a trench. **Walkers are authored to walk into broken ground, so navigation needs no decision and this line is testable today.** Cycle A4 measured `255` at one FLOODED crater and generalised it to all broken ground. Do not spend navigation work on this row. **Cycle A14 got a first measurement anyway**, by writing the trench into the ground function as A11 and A12 did rather than waiting for navigation. Walking a Pincer and a Redoubt across flat-bottomed slots at four sizes: **every anchor rests exactly on the trench floor, 0.0% off on all eight cases, worst 0.00 m** - feet neither hover above the floor nor sink through it, so the targeting half of the line works. But **Pincer draws a leg detached from its own planted foot on 29.3% of in-trench plant-ticks in the shallowest slot, worst 1.165 m** - about a third of a leg - while Redoubt is clean at 0.000 m throughout. Scores 2, not more: W6 fails outright inside T3's own scenario; there are no pictures, so nothing here says how it reads; and the geometry tested is 2.7-4x the game's real 3 m trench with no revetment face, no fire
 step and no duckboards - the two things the line actually names are still not in the instrument. **Cycle A18 CAPS this line at 2 and recommends it be rewritten.** Both nouns in the line are props with no height in the function the gait plants against, so no change to `WalkerGait` can ever earn it. In-trench duckboards are `kit.TrenchFloors[variant]`, placed at `BattlefieldComposer:105` at `Height.Sample + 0.035`, with the panel's boards a further 0.08-0.13 m up in local space (`BattlefieldKit:481-485`) - so a foot on the only floor it can find is **0.14-0.17 m through the boards, every plant.** The revetment is worse: it is a prop whose height is `Clamp((upper - floor) / 2, 0.55, 1.3)` (`BattlefieldComposer:121`), so the drawn timber deliberately spans only HALF the carved drop, and it is placed off `edge.DressCenter`, which is swayed up to 0.52 m in z and 0.20 m in x from the real cell edge (`BattlefieldSurface:104`). **A leg reaching down the real terrain wall cannot track the drawn revetment in height OR in position.** Recommended wording if the line is kept: "Legs reach down into a trench and find its floor", which IS answerable. |
-| T4 | On a slope the body stays level to the ground, not to the world | 6 | Cycle A3: the body is NOT world-locked, which is the important half. The hull carries a measured 5.5 degree roll on flat ground from where its trailing feet happen to lie, so the least-squares plane fit through the planted anchors is doing real work and the clamps are not eating it. Scores only 4 because the sequence contains exactly one slope, the parapet bank, and the body's response to that was dominated by the squat described under W2 - so whether the plane fit tracks a sustained gradient is still unmeasured. Needs a machine crossing a spoil heap or a large crater rim with a 20-30 degree face held for 1.5 s or more, camera truly side-on. **Cycle A9 measured it directly instead.** Walked on a constant 0.18 gradient, the body settles at a pitch of **10.20 degrees**, and `atan(0.18) = 10.20 degrees`. The body matches the ground exactly, not approximately. On a step-up ridge the pitch climbs 7.14 -> 8.81 -> 10.48 -> 13.39 degrees as the machine mounts it, so it tracks a changing gradient too. Scores 7 rather than 9 because both surfaces were analytic ground functions in a harness, not real battlefield terrain, and nothing was rendered. **Cycle A34 reproduced A9's result exactly and found it is true of ONE MACHINE.** Walking each of the six from flat ground onto a 0.12 grade (6.84 degrees): **Pincer settles at 6.84 degrees, 100% of the slope - A9's finding confirmed - while Censer, Kettle, Banner and Redoubt settle at 0.00 degrees, and Pavise at 0.00 degrees too.** Five of six machines are drawn **dead level on a slope they are standing on**, which is the exact failure this line names. The cause is cycle A33's: the plane fit only runs with three or more feet planted, `fitPitch` starts at zero, and a four-legged walker keeps only two feet down - so it never leaves zero. Planted directly ON the slope instead of walking onto it, every machine still starts at 0.00 and only Pincer and Pavise ever reach 6.84. **A9's measurement was correct and was generalised from a single machine.** Scores 2, matching W3, because the root fault and its per-machine distribution are identical: Pincer fully correct, Pavise correct when it begins on the slope, four machines with no response at all. |
+| T4 | On a slope the body stays level to the ground, not to the world | 4 | Cycle A3: the body is NOT world-locked, which is the important half. The hull carries a measured 5.5 degree roll on flat ground from where its trailing feet happen to lie, so the least-squares plane fit through the planted anchors is doing real work and the clamps are not eating it. Scores only 4 because the sequence contains exactly one slope, the parapet bank, and the body's response to that was dominated by the squat described under W2 - so whether the plane fit tracks a sustained gradient is still unmeasured. Needs a machine crossing a spoil heap or a large crater rim with a 20-30 degree face held for 1.5 s or more, camera truly side-on. **Cycle A9 measured it directly instead.** Walked on a constant 0.18 gradient, the body settles at a pitch of **10.20 degrees**, and `atan(0.18) = 10.20 degrees`. The body matches the ground exactly, not approximately. On a step-up ridge the pitch climbs 7.14 -> 8.81 -> 10.48 -> 13.39 degrees as the machine mounts it, so it tracks a changing gradient too. Scores 7 rather than 9 because both surfaces were analytic ground functions in a harness, not real battlefield terrain, and nothing was rendered. **Cycle A34 reproduced A9's result exactly and found it is true of ONE MACHINE.** Walking each of the six from flat ground onto a 0.12 grade (6.84 degrees): **Pincer settles at 6.84 degrees, 100% of the slope - A9's finding confirmed - while Censer, Kettle, Banner and Redoubt settle at 0.00 degrees, and Pavise at 0.00 degrees too.** Five of six machines are drawn **dead level on a slope they are standing on**, which is the exact failure this line names. The cause is cycle A33's: the plane fit only runs with three or more feet planted, `fitPitch` starts at zero, and a four-legged walker keeps only two feet down - so it never leaves zero. Planted directly ON the slope instead of walking onto it, every machine still starts at 0.00 and only Pincer and Pavise ever reach 6.84. **A9's measurement was correct and was generalised from a single machine.** Scores 2, matching W3, because the root fault and its per-machine distribution are identical: Pincer fully correct, Pavise correct when it begins on the slope, four machines with no response at all. **Cycle A40 FIXED the root fault** - the tilt now fits through the planted anchors plus the swing feet's targets, so the fit runs on a four-legged machine, and it is capped per machine by the slack its legs have. On a constant 0.12 grade: Pincer, Censer, Kettle and Pavise 100% of the slope, Redoubt 96%, Banner 59%. **A40 scored this 6; the 2026-09-27 audit lowers it to 4, and the reasons matter more than the number.** (a) The only surfaced measurement is a CONSTANT gradient, and cycle A36 had already written that this case is uninformative by construction - on a constant grade every anchor and every swing target lies on the same plane, so it cannot discriminate the fix from the bug it was aimed at. A36's changing-gradient measurement of the same mechanism showed errors of -12.95 to +13.17 deg on Kettle and -22.05 to +19.45 on Banner, and **A40 reported no changing-gradient figure at all.** For a battlefield of rims and parapets the changing-gradient case IS the product. (b) Nothing has been rendered, and this board's own rule is that an unrendered line does not score high. (c) A40 called the agreement between cycle A39's predicted caps (~4 deg Banner, ~6.5 Redoubt) and its own measured 4.03 and 6.60 "the strongest evidence on this board". **It is circular** - every input to the cap (`MaxSpan`, `homeFlat`, `Stand`) is static, so `capP` is a per-machine constant computed by the same closed form A39 evaluated in prose. It could not have disagreed, so it carries no information. 4 is what a real but half-verified fix earns. |
 | T5 | Feet find shell holes and broken ground rather than hovering over them | 5 | Cycle 43, in Unity on FLAT ground - the easiest case there is. Contact is wrong in BOTH directions at once: Kettle drives leg geometry 1.05 m under the surface while Pincer hovers 0.64 m above it. Censer +0.16, Pavise +0.14, Banner +0.02 and Redoubt -0.09 are close enough to read as contact. Scores 1, not 0, because it is now measured in the shipped draw path rather than in a harness. **Cycle 47, FIXED and gated:** contact on the level is now Censer, Pavise, Banner and Redoubt exactly 0.00, Kettle -0.04, Pincer +0.12 - against +0.64 of float and -1.05 of burial before. Still 5 and not 8 because every one of these numbers is flat ground, which is the easiest case on the board: nothing has yet put a foot on a parapet, a slope or the lip of a shell hole. |
 
 ### Damage — limp, lost legs, death
@@ -4837,3 +4837,879 @@ things that worked and adds the bound that makes the second safe** - and the bou
 hypotheses (A36 forward-target bias, A38 rig over-commitment, A39 ill-conditioning), each of which would have sent a
 fix somewhere useless. The cap is not damage limitation; it is the physical limit of each rig, and four of six
 machines never reach it.
+
+## Cycle A41 - AN EXTERNAL CRITIQUE OF THE WHOLE LOOP. Two shipped defects, one false row, one vacuous test, and the loop's proudest claim shown to be circular
+
+**Not a cycle of the loop - the loop was stopped and its work pushed as `cb68b59`. The owner then asked for a hostile
+critique of everything the loop did. Three critics ran over the code, the claims and the process; every load-bearing
+finding below was re-verified against source before being acted on, because the loop's own history is that critics
+break a link in most chains AND that their own reasoning needs checking. One of the three critics was wrong in a way
+worth recording.**
+
+### What the critique found that was true, and what was done about it
+
+| # | finding | verified how | action |
+|---|---|---|---|
+| 1 | **The T3 row still asserted craters are `navCost 255`, impassable.** Cycle A18 disproved it 22 cycles ago in its own notes and never fixed the ROW, which still told the owner "this line cannot be earned by any change to `WalkerGait`; it needs a navigation decision first." | `NavLayer.cs:24` costs a `Crater` **2**; `Blocked = 255` covers only bunker wall, deep water, map edge; `VehicleKinematics` budgets `PickSpeed 0.88` in a crater | **row corrected.** This was the most expensive error on the board: it invited navigation work for a problem that does not exist |
+| 2 | **The pitch/roll cap shipped in `cb68b59` failed OPEN.** A leg with `slack <= 0` - the one leg that most needs to limit the tilt - was `continue`d out of the minimum, leaving the cap at its wide default, and the comment claimed "the clamps below still hold" when the clamps below ARE that number. A missing home offset fell back to `0f`, which understates hip-to-foot distance and so OVERSTATES slack | read at `WalkerGait.cs:584-594` | **fixed.** `slack` clamps at 0 and still constrains; a missing offset now falls back to full reach, so missing data shrinks the bound instead of widening it |
+| 3 | **The same cap silently throttled two unrelated features.** `wantPitch`/`wantRoll` carry the lost-leg sag (up to 7.45 deg pitch, 9.17 deg roll) and the turn bank before the clamp, so A40 cut **Banner's and Redoubt's damage lean roughly in half** - board line D2 - and its own "Honestly, what it cost" section did not mention it | read the accumulation order at `WalkerGait.cs:549-571` | **fixed.** The ground fit is capped by leg slack, which is what the cap was derived for; the two leans are added after and bounded only by what the hull may be drawn at |
+| 4 | **The parapet test was vacuous.** `AStepGoesOverAParapetRatherThanThroughIt` asserted `Feet[i].Arc >= wall + Clearance * 0.9` - the height the gait REQUESTED. `Arc` is then spent through `Mathf.Sin(t * PI)` and clamped against what the leg can fold to, so a granted request says nothing about the foot. **That test would pass if `ArcFor` returned `float.MaxValue`, and it passed before and after the A20 sampling fix it was cited as evidence for** | read the assertion at `GaitTests.cs:161` against the clamp at `WalkerGait.cs:416-418` | **rewritten to assert the foot.** It now goes RED, and the red is the finding |
+| 5 | **A40's "strongest evidence on this board" is circular.** A39 predicted the caps as `slack/\|Hip.z\|` ~ 4 deg and ~6.5; A40 "measured" 4.03 and 6.60 and called the agreement the best evidence the model is right | every input to `capP` (`MaxSpan`, `homeFlat`, `Stand`) is static, so it is a per-machine CONSTANT computed by the same closed form | **retracted on the board.** It could not have disagreed, so it carries no information |
+| 6 | **A38's "designed invariant, 7.7 points on every machine, across six machines"** was not a measurement. `Stand` is a MINIMUM over legs, so the binding leg sits at exactly `StepSafety * sqrt(1 - Lean^2) = 0.8662` and every other leg is provably below it. Span cancels | `WalkerGait.cs:186` | **recorded.** The over-commitment flag could not have fired on any rig, ever. One code read gives what a probe was written for |
+| 7 | **A39's refutation of the ill-conditioning theory was a non-sequitur.** "Conditioning 1.000" is forced by left-right symmetry (the doc admits it two paragraphs later), and "0.000 deg spurious tilt on flat ground" is forced because a plane has no residual for conditioning to amplify | read the probe's own arithmetic | **recorded.** The theory may still be wrong; A39 did not show it |
+
+### What the parapet test says now, which is a real result
+
+At the wall the old test used - `Reach * 0.66`, **1.876 m** - a Pincer foot **cuts 1.164 m into the wall** while
+passing over it. The step is requested high enough and the foot never gets there. At the height the battlefield
+actually builds its parapets, **0.70 m, it clears cleanly**, and a second test covers that case and passes.
+
+So: the A20 sampling fix is sound for real terrain, the old test never tested what it claimed, and there is a
+genuine ceiling on how high any leg can lift that no amount of ground sampling addresses. The mechanism is
+`ceilingY = hip.y - Rise(MinSpan(rig), flatDist)` - a one-piece leg cannot fold past `StretchMin`, so its foot has
+only a few tenths of its reach of lift available. **`Arc` is also the lift at the APEX of a `sin(PI * t)` curve, so
+an obstacle inside the first or last ~11% of a step's span is swung through however densely the ground is sampled.**
+That is the next real gait fault and it is not a sampling problem.
+
+### The process failure behind all of it, and the fix
+
+**The board scored visual criteria for 27 consecutive cycles with nothing rendered, against its own written rule that
+"a line nobody has rendered evidence for scores 0, not 'unknown'" - and `Assets/_Project/Editor/CaptureRig.cs` was in
+the repo the whole time.** `Captures/rigloop/` stops at `a8`. From A14 the loop ran headless probes freely, so what it
+lacked was not compute but a batch-mode capture path, and building one was never attempted in 27 tries. The sibling
+board `docs/reference/env-scoreboard.md` carries the rule this one needed: *"A score moved on an argument rather than
+on a picture is written as `-`."*
+
+**Built this cycle: `Assets/_Project/Tests/Stills/` (`TW.Tests.Stills.asmdef` + `WalkerStills.cs`).** A PlayMode test
+that loads GreyboxCorridor in batch mode, spawns each of the six through `TankCapture.Spawn`, walks it with
+`RiderLab.Drive` and photographs it through `CaptureRig` - six frames a machine, framed on the machine as it moves,
+plus a contact sheet. It is an instrument and asserts only that the pictures exist. It needs a real graphics device:
+
+```
+Unity.exe -batchmode -projectPath <project> -runTests -testPlatform PlayMode \
+          -testFilter TW.Tests.WalkerStills -testResults <out.xml> -logFile <out.log>
+```
+
+It is a separate assembly on purpose: `TW.Tests.PlayMode` builds for all platforms and so cannot reference the
+Editor-only `TW.Editor` where `CaptureRig` lives, and restricting it would have changed the existing PlayMode gate.
+
+**Capture run: **WORKS, WITH ONE THING LEFT.** The rig now runs headless: 36 stills and a contact sheet, pose_error_m 0, terrain, props, debris and infantry all drawn. Three faults in the capture path were found and fixed, each of which alone made a batch capture impossible: (1) WaitForEndOfFrame NEVER RESUMES in batch mode - no swap chain - so the queue hung forever and wrote nothing, in silence; (2) a coroutine resumes during Update, BEFORE every LateUpdate in the frame, and everything drawn with Graphics.DrawMesh* is submitted from LateUpdate and lasts one frame - so rendering from the coroutine drew the scene's real MeshRenderers and nothing procedural, a picture that looks complete with every machine and every man missing. The render now happens in the rig's own LateUpdate, which is ordered last. (3) Pose aims at world y=0 for any zoom at or above CloseZoom, so a machine on raised ground rides off the top of frame; Shot now takes an optional aimY and defaults to exactly the old behaviour. **STILL OPEN: a spawned walker is not drawn.** It is alive, archetype 6, team 0, speed 2.90, a TankRenderer is in the scene, and the shot's focus IS the machine's own x,z - so it is centre-frame by construction and simply absent. Infantry and debris ARE now drawn, so this is specific to vehicles. First question of the next cycle, and a sharp one: why does TankRenderer submit nothing a LateUpdate-ordered Camera.Render picks up, when the VAT infantry does?**
+
+### Scores
+
+**T4 6 -> 4** and **W1 6 -> 4**, and the reasons are in those rows. W1's 6 was never set by any cycle in either
+loop - the log goes 43:0, 46:0->2, 47:2->4 and then silent. T4's 6 rested on a constant-gradient measurement that
+cycle A36 had already called uninformative by construction, on nothing rendered, and on the circular agreement in
+row 5 above. **No score is raised this cycle.** Four cells whose text contradicted their own number (W1, W2, W3, W4)
+now carry the trail that was missing.
+
+### Also confirmed real and NOT acted on, for the owner
+
+- **The tilt can now drive a hull corner into the ground.** The belly-clearance vote samples `ground()` at
+  `yaw * Hip * 0.6` - yaw only, and under the hull - but `Pitch`/`Roll` rotate the drawn hull about its origin, so at
+  Pincer's `HalfWidth = 4.75 m` a roll of 11 degrees puts the downhill edge ~0.9 m below the point the check
+  protected. Before A40 the tilt was 0.00 on five of six machines, so this geometry could not fire; it can now. The
+  clearance vote wants sampling at the TILTED hull extents. **This is the first thing to look at in the new stills.**
+- **A swing TARGET carries the same weight in the tilt fit as ground a foot is standing on**, and unlike an anchor it
+  is never re-sampled, so a shell landing mid-swing leaves a stale point driving the hull attitude. On a damaged
+  four-legger the fit runs on exactly three points, one of them a prediction - no redundancy at all.
+- **`det > 1e-4f` is an absolute threshold on a quantity in m^4**, not a conditioning ratio, so a near-collinear
+  point set passes it and `Atan` saturates. Should be relative: `det > 1e-3f * sff * srr`. Left alone this cycle to
+  keep the A/B interpretable.
+- `Mathf.Abs(det)` is dead weight - `det` is non-negative by Cauchy-Schwarz.
+
+### On method, briefly, because this is the third time it has mattered
+
+Two of the three critics were right about things I had verified for myself and still got wrong. **The third repeated
+A40's circular-evidence claim approvingly and called it the best thing on the board** - the same error, from a fresh
+reader, which is how comfortable that mistake is. The discipline that caught it was not the critique; it was reading
+`capP`'s inputs and noticing every one of them is static.
+
+The rule that should have prevented all seven rows above: **an agreement is only evidence if it could have come out
+otherwise.** A formula matching itself, a minimum being the minimum, a plane fit having no residual on a plane, and a
+test asserting the request rather than the result are all the same error wearing four hats.
+
+## Cycle C1 (2026-09-27, 30-min loop) - THE BOARD CAN SEE. First rendered evidence since cycle A8, and the first blind grade ever
+
+**Artefacts: `Captures/rigloop/c1/` (36 stills + sheet.png), `Captures/rigloop/a41-diag/` (with/without/diff).
+Gate: 358 tests, 355 passed, ONE red - `AStepGoesOverAParapetRatherThanThroughIt`, the known deliberate one. The two
+new `[Explicit]` capture tests correctly show `Skipped`, not run, in the ordinary gate. NO REGRESSION. Nothing
+committed. NO SCORE MOVED - the reasons are below and they are the point of this cycle.**
+
+### The capture path works
+
+A walker is photographed on real ground, headless, with nobody driving the editor. `a41-diag` proves it as a
+measurement rather than an impression: same frame, clock frozen, `TankRenderer` toggled - `changed_frac 0.149` in a
+696x705 box centred on the machine. Three faults had to be fixed to get there and each alone made batch capture
+impossible; they are written up in cycle A41.
+
+### Two more faults found THIS cycle, both in the instrument, both by measurement
+
+1. **Every machine after the first was photographed with its predecessor still standing in the shot.**
+   `RiderLab.Kill` returns `"worlds a tick apart: try again"` when the sim worlds are not aligned, and the test
+   ignored the return value. Pincer is captured first and is the only clean row. A blind critique independently
+   called two of six rows unreviewable because a second machine interleaved limbs with the subject. **Fixed: kill
+   now retries until `IsAlive` is false and asserts.**
+2. **The sequence was sampled at almost exactly the gait period.** 22 frames is ~0.37 s and a step is ~0.33 s, so
+   every frame caught the legs at the same phase. The blind critique reported five of six rows "frozen" and scored
+   W4 = 1 and W1 = 2 on it. **It was the sampling, not the rig**: the per-frame JSON shows every machine travelled
+   **4.71-6.19 m** across its six frames. **Fixed: 7-frame spacing, ~0.12 s, about two gait cycles per row.**
+
+This is why no score moved. The instrument was faulty in two ways that both bias toward "the animation is bad", and
+a score taken from it would have been noise recorded as a finding - which is the exact failure this board spent 40
+cycles committing in the other direction.
+
+### What the blind critique found that is NOT an instrument artefact, and is worth acting on
+
+Given only the criteria and the pictures - no scores, no diff, no reasoning:
+
+- **The machines cast NO SHADOW in any frame.** For a toon RTS that is both a bug and, more importantly for this
+  board, the reason ground contact cannot be judged from a still at all: "a foot hovering 30 cm looks identical to a
+  planted one". **Every W1/W6/T5 score this board has ever taken from a picture is suspect for this reason.**
+  Verify next cycle whether shadows are off in batch mode or off in the game.
+- **Nothing in the capture tests the terrain half of the board.** No machine goes near the parapet, the trench, a
+  shell hole or a slope, all of which are visible in frame. T1, T2, T4, T5 are **untested by this capture, not
+  passed**. The stills walk each machine along flat mud.
+- **Feet are plain cones** - no toe, no ankle break, no pivot - so even a perfect IK solve will not read as planted.
+  Rig/asset work, so it goes to OWNER DECISIONS.
+- **No secondary motion anywhere**: no barrel sway, no antenna whip, no hull settle.
+- Hulls do not sink; if anything they **float**, and static scenery (a concrete ruin) intersects legs and barrels.
+  The A41 suspicion that the new tilt drives a hull corner INTO the ground is **not supported** by these pictures,
+  though no machine here is on a slope, so it is untested rather than refuted.
+
+### Pre-committed thresholds for cycle C2, comparative, written before measuring
+
+- **The de-aliasing worked** if the mean per-frame pixel change inside the machine's own box is GREATER than C1's,
+  measured the same way on the same machines. If it is not greater, the rig really is near-static and W4 is a real
+  finding rather than an artefact.
+- **The kill fix worked** if every row shows exactly one machine. One extra machine anywhere = reverted.
+- A score moves only for a line whose scenario the capture actually contains.
+
+### OWNER DECISIONS (added this cycle)
+
+- **Feet are cones with no toe or ankle.** No gait fix can make a cone read as a planted foot. Asset work.
+- (carried) Redoubt declares 6 legs, its FBX yields 4. The blind critique, told nothing of this, could not count
+  Redoubt's legs at all from the pictures and offered "6, or 8 if some of the rust-coloured limbs are its" - it was
+  looking at the leaked second machine, so this is not independent confirmation.
+
+### Cycle log
+
+| cycle | target | artefact | threshold set before | measured | applied / reverted | fell |
+|---|---|---|---|---|---|---|
+| C1 | make the board able to see anything at all | `Captures/rigloop/c1/`, `a41-diag/` | a walker is visible in a batch still | `changed_frac 0.149`, 36/36 stills written | APPLIED (capture path, kill retry, de-aliased sampling) | none - no score moved, instrument not trusted yet |
+
+## Cycle C2 (2026-09-27) - the first score to FALL on rendered evidence, and a critique claim refuted by arithmetic
+
+**Artefacts: `Captures/rigloop/c4/` (36 stills + sheet, the first clean set: one machine per row, every frame
+populated, each machine on different ground). Gate: 358 tests, 355 passed, ONE red - the known deliberate parapet
+one. The two `[Explicit]` capture tests correctly `Skipped`. NO REGRESSION. Nothing committed.**
+
+### W6 3 -> 1. FELL.
+
+`c4/kettle_03.png`, and in all six frames of that row: **two of Kettle's right-hand leg segments are separated from
+the hull by open air, and a hull panel floats free in mid-air beside them.** The line was scored 3 on measured
+stretch-band violations of 0.06-1.97% - a toe detaching by a fraction of a leg. The picture shows a machine coming
+apart while it walks. A blind critique, given only the criterion and the images, scored this line 1 independently.
+
+### Banner: the rig finding of cycle A38, confirmed in a photograph
+
+`c4/banner_02.png`: Banner walks with its **bulb hull down on the deck**, legs splayed flat and barely visible
+beneath it. A38 derived this from rig data alone - rear hips 2.56 m behind a 2.352 m leg, a 19.5-point stance split
+between its own front and rear pairs, "walks on its two rear legs with two folded outriggers". That was arithmetic.
+This is the same machine, drawn. **OWNER DECISION, unchanged: move Banner's rear hips or lengthen its rear legs.**
+
+### A critique claim refuted, and it would have been my own regression
+
+The blind critique reported "Kettle is pitched nose-up 20-25 degrees in ALL SIX frames - a constant static offset,
+not dynamics", plus the same of Censer and a constant roll on Redoubt. If true on level ground that is a regression
+from cycle A40, which put the swing feet's TARGETS into the tilt fit - and a target lies ahead of the body.
+
+Measured instead of argued (`FlatAttitudeProbe`, withdrawn): on dead flat ground, where the true answer is exactly
+zero, **every machine holds 0.000 degrees of pitch and 0.000 of roll, worst-case over a ten-second walk 0.000.**
+A40 introduced no static offset. The machines in those frames are standing on banks, trench lips and parapets, and
+a tilt there is the line working, not failing.
+
+**But the critique is right about the instrument, and that is the finding.** Six frames 0.12 s apart cover about
+2 m of travel, over which the ground beneath a machine barely changes - so a correct ground-following tilt and a
+hull welded at an angle produce the same six pictures. **T4 and W3 cannot be settled by this capture**, and the
+reason is the capture, not the rig.
+
+### Scores this cycle
+
+| line | was | now | why |
+|---|---|---|---|
+| W6 | 3 | **1** | fell - detached limbs and a floating panel, `c4/kettle_03.png` |
+| W1 W2 W3 W4 | 4 5 5 5 | unchanged | **not judgeable from this capture** and no longer for want of a picture: the camera FOLLOWS the machine, which is the one thing that hides foot slide; there is no contact shadow, so a planted foot and one hovering 20 cm look identical; and 2 m of travel cannot show a hull answering the ground |
+| T1 T2 T3 T5 | 3 6 2 5 | unchanged | c4 has machines on revetments, duckboards and flooded ground for the first time, but incidentally, not aimed - no machine descends a revetment, so T3's own scenario still does not occur |
+| T4 | 4 | unchanged | see above |
+
+### Pre-committed threshold for C3, comparative
+
+The next capture must make contact judgeable. **Better than c4 if, on a locked-off (non-following) side-on camera
+at low height with the selection ring suppressed, a critique that has not seen this entry can state per machine
+whether each foot is ON the ground or above it.** If it still cannot, the shot is wrong again and the change is
+reverted rather than kept and argued for.
+
+### Instrument faults found and fixed this cycle (all of them invisible to the test, which passed green throughout)
+
+1. Every machine after the first was photographed inside a pile of its predecessors' **wrecks** - `TankRenderer.Draw`
+   iterates `wrecks` as well as live views, and `Wreckify` leaves a hull behind every despawn. The kills were
+   succeeding all along. Fixed by giving each machine its own lane.
+2. The lanes were first spaced 70 m apart in **x** on a map 90 m wide, so the clamp put every machine back on the
+   same spot. The corridor is 280 m long in **z**. Fixed.
+3. The **first still of every run** was an empty field - the rig's first render of a session lands before the
+   renderers have built anything. A warm-up shot is taken and discarded.
+4. `Drain` waited on `CaptureRig.Pending()`, which counts the QUEUE - a shot leaves it one pose and one render
+   before the PNG exists. It now waits for the file and fails loudly if it never arrives.
+5. C1's pre-committed de-aliasing threshold (mean per-frame pixel change must rise) was **a void measurement**:
+   shortening the interval makes consecutive frames more similar in every respect, background included, so the
+   number falls whether or not the fix worked. Recorded as void, not as evidence about the rig.
+
+### Cycle log
+
+| cycle | target | artefact | threshold set before | measured | applied / reverted | fell |
+|---|---|---|---|---|---|---|
+| C2 | a capture set that can be scored | `Captures/rigloop/c4/` | one machine per row, every frame populated | both met; 36/36, six clean rows | APPLIED (z-lanes, warm-up frame, file-aware Drain) | **W6 3 -> 1** |
+
+## Cycle C3 (2026-09-27) - a locked-off camera, and the arithmetic that says why the first attempt could not work
+
+**Artefacts: `Captures/rigloop/c5-side/` (first attempt, 72 stills, superseded) and `c6-side/` (72 stills, 6 strips
+of 12). Gate: unchanged, one known red. Nothing committed. NO SCORE MOVED; W6 stays at the 1 it fell to in C2, now
+confirmed a second time in an independent capture.**
+
+### The shot the board needed, and why every earlier one was blind
+
+A camera that FOLLOWS a machine holds it at the centre of frame. That is exactly the condition under which a foot
+sliding along the ground is invisible, because foot and background move together on screen. W1 is "a planted foot
+does not slide". **Three capture sets were taken with an instrument structurally incapable of judging the line it
+was built for.**
+
+`c6-side` locks the camera off: the focus is a fixed patch of ground, the machine walks THROUGH the frame, and the
+stakes, duckboards and lamps are a fixed ruler. Twelve frames, ~0.1 s apart, about two gait cycles, as a per-machine
+strip.
+
+### The first attempt failed, and the arithmetic matters more than the failure
+
+`c5-side` put the camera 26.1 m off at zoom 12. A blind critique called it unusable and was right: Redoubt had **no
+legs in frame in any of its twelve frames**, and Pavise's and Banner's feet were behind a foreground ridge.
+
+The critique's explanation was that the machine "looms and grows" toward the camera. **That is wrong, and checking
+it mattered**: the JSONs show the rig genuinely locked - `cam(71.1, 5.6, 44.0)`, yaw 270, identical in all twelve -
+and the machine walks +z, perpendicular to the view, so its distance never changes and it cannot loom. The real
+cause is one line of arithmetic: **zoom sets the standoff and the standoff sets the visible track**. At zoom 12 with
+a 25-degree lens the strip of ground in shot is about **11.6 m wide** - narrower than the machine's own walk - so it
+begins 14 m left of focus, off-frame, and nearly fills the picture when it arrives. Had the "looming" diagnosis been
+taken at face value the fix would have been to move the camera away from a path it was never on.
+
+Zoom 26 gives about 25 m of track. Fixed too: lanes at `30 + lane*45` put the last one at z 255 on a 280 m map,
+which is why Redoubt was photographed against the edge ridge. Lanes are now `60 + lane*35`.
+
+### What the strips now show, and what they still cannot
+
+- Every machine crosses the frame against fixed scenery, all six, twelve frames each.
+- **Kettle's detached foot is confirmed a SECOND time**, in a different capture and a different camera: `c5-side/
+  kettle_06.png`, a clean 10-14 px band of bare snow between shin and foot at 8x. C2 dropped W6 to 1 on
+  `c4/kettle_03.png`. Two independent sightings of the same fault on the same machine.
+- **Still not judgeable: W1 and T5.** The standoff that buys a fixed ruler costs foot detail - the machines are now
+  a small fraction of frame width, and the unit disc's bloom still lies across the ankle line. A critique could not
+  keep track of WHICH of eight near-identical legs it was following between frames.
+
+### Pre-committed threshold for C4, comparative
+
+**Better than `c6-side` if a foot can be identified and followed across three consecutive frames.** Cheapest route:
+raise the capture to 2560x1440 (the rig takes w,h per shot) so the standoff can stay and the feet gain pixels. If a
+critique still cannot keep a foot's identity, the resolution was not the binding constraint and this is reverted.
+
+### Cycle log
+
+| cycle | target | artefact | threshold set before | measured | applied / reverted | fell |
+|---|---|---|---|---|---|---|
+| C3 | an instrument that can see foot slide | `c5-side/`, `c6-side/` | a critique can say planted vs sliding per machine | NOT met - machine crosses frame now, but feet too few pixels to keep identity | APPLIED (locked-off side-on, zoom 26, lanes inboard) | none - W6 stays 1, confirmed twice |
+
+## Cycle C4 (2026-09-27) - the instrument finally works, a critique's headline refuted by arithmetic, and W4 falls
+
+**Artefacts: `Captures/rigloop/c7-side/` (72 stills at 2560x1440, 6 strips), `StanceProbe` (withdrawn).
+Gate: 359 tests, 355 passed, ONE red - the known parapet one. Three `[Explicit]` capture tests correctly skipped.
+NO REGRESSION. Nothing committed.**
+
+### The C3 threshold was MET, so the change is kept
+
+C3 pre-committed: better if a foot can be identified and followed across three consecutive frames. A blind critique
+answered **"YES"** - and verified the camera lock itself rather than taking it on trust, by cross-correlating three
+background patches between every consecutive pair: displacement exactly (0,0) at ncc 0.994-0.999. It also settled
+the earlier failures: foot identity holds at 6-8x zoom and not at 1x, so **those were a zoom problem, not a rig
+problem**. 2560x1440 kept.
+
+### The critique's headline is wrong, and the arithmetic says so
+
+It tracked individual claws against fixed scenery and found every one creeping 11-48 px per 0.1 s frame while the
+body advanced 60-85 px - "feet run at 25-60% of body speed" - and scored **W1 = 2**.
+
+`WalkerGait:270` sets `Feet[i].At = Feet[i].Anchor` on every tick a foot is down, and an anchor's x and z are never
+written while it is down. Measured over a twenty-second walk on all six machines: **worst anchor drift while
+planted = 0.00000 m.** The solver cannot slide a planted foot.
+
+What the pixels actually show: stance is **0.217 s** and duty is **50.0%**, sampled every 0.100 s - so about half
+the feet in any frame are mid-swing, and a swing foot is *supposed* to move. **W1 stays 4**, on the draw-side toe
+mismatch loop 1 measured (0.037-0.183 m, Redoubt 0.901 m), which is a renderer fault and already counted under W6.
+The critique flagged this confound itself and was right to.
+
+### W4 5 -> 4. FELL, on a number.
+
+| machine | mean stance | shortest | longest | planted |
+|---|---|---|---|---|
+| Pincer, Censer, Pavise | **0.217 s** | **0.217** | **0.217** | 50.0% |
+| Banner | 0.433 s | 0.217 | 0.650 | 50.0% |
+| Kettle | 0.520 s | **0.017** | 1.300 | 50.0% |
+| Redoubt | 0.975 s | 0.217 | **1.733** | 50.0% |
+
+Three machines hold a stance that never varies by one tick in twenty seconds. That is a clock, not a rhythm, and it
+is what the blind critique independently called a continuous shuffle.
+
+### New, and needs confirming before it is scored
+
+- **Kettle plants a foot for 0.017 s - a single tick - and lifts it again.** Chatter. Against a 1.300 s longest
+  stance on the same machine.
+- **Redoubt holds a stance for up to 1.733 s**, eight times Pincer's, while its other feet cycle normally.
+- **Redoubt renders free-floating leg chunks** with bare ground visible between them and the hull (`c7-side/
+  redoubt_02, _06, _09`, coordinates in the critique). It is the second machine after Kettle to show detached
+  parts, and it is the machine whose profile declares 6 legs against an FBX that yields 4 - see OWNER DECISIONS.
+
+### Pre-committed threshold for C5, comparative
+
+Two of six machines produce no usable evidence: Censer's legs are behind a foreground terrain mass in every frame,
+Banner's behind two stakes. **Better than c7-side if all six machines have their feet unobstructed in at least 8 of
+12 frames.** Cheapest route: offset each lane in x as well as z so no machine walks behind foreground clutter. If
+obstruction persists, revert and pick the lanes by measuring clearance rather than by guessing.
+
+### Cycle log
+
+| cycle | target | artefact | threshold set before | measured | applied / reverted | fell |
+|---|---|---|---|---|---|---|
+| C4 | foot identity across frames | `c7-side/`, StanceProbe | a critique can follow one foot for 3 frames | MET - "YES", at 6-8x zoom | APPLIED (2560x1440, 900px strip cells) | **W4 5 -> 4** |
+
+## Cycle C5 - THRESHOLD, written before the change and before any measurement
+
+**Target: the step-placement / re-trigger ordering bug.** A step target is clamped to `MaxSpan * StepSafety` =
+**0.97** of span (`WalkerGait`, the `outer` bound). `runningOut` re-triggers a step at `span * (StepSafety - 0.05)`
+= **0.92** of span. **A foot placed at the placement limit is already past the re-trigger limit**, so it is told to
+step again on the tick after it lands. Measured baseline, 20 s at 2.9 m/s on flat ground:
+
+| machine | 1-tick plants | total stances | chatter | drift/span when it re-lifts |
+|---|---|---|---|---|
+| **Kettle** | **18** | 70 | **25.7%** | **0.903** |
+| Pincer, Censer, Pavise, Banner, Redoubt | 0 | 249/166/166/84/36 | 0.0% | - |
+
+**Pass if ALL of these hold, comparative against that baseline:**
+1. Kettle's chatter share **falls below 25.7%**.
+2. No machine that is at 0.0% chatter today **rises above 0.0%**.
+3. The gate stays at **exactly one red** (the known parapet test).
+4. `TheLegTheArtistModelledReachesTheFootTheGaitChose` still passes - the fix must not buy smoothness with reach.
+
+**Revert if any of the four fails.** Stride will shorten; that is the price and it is accepted in advance, so
+"the steps got shorter" is not grounds to keep a change that fails 1-4.
+
+### Cycle C5 - RESULT: the fix failed its own threshold and was REVERTED
+
+`PlantSafety = 0.86` applied to the `outer` placement bound, then measured against the four criteria above.
+
+| criterion | result |
+|---|---|
+| 1. Kettle chatter below 25.7% | **FAILED - 25.7%, bit-identical: 18 one-tick plants, drift 0.903** |
+| 2. no clean machine rises above 0.0% | passed (Pincer's histogram shifted, chatter stayed 0.0%) |
+| 3. gate stays at one red | passed |
+| 4. reach test still passes | passed |
+
+**Reverted.** Criterion 1 is the one it existed to satisfy.
+
+**Why it failed, and the mistake is mine, not the fix's.** Kettle's numbers did not move by a single count, which
+means its targets never reach the `outer` clamp at all - so the bound I changed was not in its path. The reasoning
+that sent me there was a misread of my own measurement: I took "drift/span 0.903 when it re-lifts" as a foot landing
+almost fully extended. **The designed home stance is `StepSafety * sqrt(1 - Lean^2) = 0.8662` of span**, most of
+which is the vertical drop to the ground. A foot at 0.903 is four points past its resting distance, not at its
+limit. There was never an over-extension to fix.
+
+**The ordering problem is still real and still worth fixing** - a target clamped to 0.97 of span does sit beyond the
+0.92 at which `runningOut` re-triggers - but it is not what makes Kettle chatter, and no machine currently
+demonstrates it. It goes on the list as a latent fault, not a live one.
+
+**DEAD END (one line, as the rules ask):** placement clamp at 0.86 - Kettle's targets are never clamped; chatter
+unchanged; reverted.
+
+**Next hypothesis for C6, to be tested before anything is written:** Kettle is the only 4x3-piece machine and the
+only one whose stance histogram is bimodal (18 one-tick plants AND 26 stances over 26 ticks, against three machines
+that are metronomic at exactly 13 ticks). That pattern - some feet held far too long, others dropped instantly -
+looks like the step ORDER starving particular legs, which is the `Urgency` sort that cycles A25/A26/A29 found
+degenerate and never fixed. Measure which leg indices the one-tick plants belong to before touching any constant.
+
+## Cycle C6 - THRESHOLD, written before the change and before any measurement
+
+**Target: `Urgency` starves long legs. Diagnosed to mechanism, per leg.**
+
+`Urgency = Max(drift/span, stretched)` with `stretched = dist(Anchor, hip)/span`. At rest `stretched` is just
+`drop/span`, a STATIC property of each leg's geometry, and it always exceeds `drift/span` (capped by TriggerShare
+0.32). So the sort is a fixed ranking by rig geometry and the same legs are always chosen first. Measured, 20 s at
+2.9 m/s on flat ground:
+
+| machine | legs | span | mean stance | one-tick plants |
+|---|---|---|---|---|
+| Kettle | 0,2 rear | 4.48 | **7.1 / 8.3 ticks** | **10, 8** |
+| Kettle | 1,3 front | 5.24 / 4.98 | **78.0 / 64.9 ticks** | 0 |
+| Redoubt | 0,2 rear | 4.99 | 13.0 | 0 |
+| Redoubt | 1,3 front | 6.53 | **104.0 ticks** | 0 |
+| Pincer | all 6 | 2.48-2.84 | 13.0 exactly | 0 |
+
+The long front legs are held 1.3-1.7 s while the short rear legs cycle constantly and chatter. Pincer, whose legs
+are all nearly one length, is uniform - which is why this never showed up on the machine everything was tested on.
+
+**The change:** measure each leg's extension against ITS OWN resting extension, so every leg starts at zero and the
+ranking reflects need instead of geometry. `Urgency = Max(drift/span, stretched - rest)` where `rest` is the same
+distance taken to the leg's home position.
+
+**Pass if ALL hold, comparative against the baseline above:**
+1. Kettle one-tick plants **below 18**.
+2. Kettle starvation ratio (longest-held leg mean / shortest-held leg mean) **below 11.0** (baseline 78.0/7.1).
+3. Redoubt starvation ratio **below 8.0** (baseline 104.0/13.0).
+4. No machine at 0 one-tick plants rises above 0.
+5. Gate at **exactly one red**, and `TheLegTheArtistModelledReachesTheFootTheGaitChose` still passes.
+
+**Revert if any fails.**
+
+### Cycle C6 - RESULT: the fix WORKS and was REVERTED anyway, because it exposes a second fault
+
+`Urgency = Max(drift/span, stretched - rest)` applied, then measured against the five criteria above.
+
+| criterion | baseline | measured | verdict |
+|---|---|---|---|
+| 1. Kettle one-tick plants below 18 | 18 | **0** | pass |
+| 2. Kettle starvation ratio below 11.0 | 10.99 | **3.0** | pass |
+| 3. Redoubt starvation ratio below 8.0 | 8.0 | **3.0** | pass |
+| 4. no clean machine gains chatter | 0 | 0 | pass |
+| 5. gate at exactly one red | 1 | **2** | **FAILED** |
+
+Kettle's four legs went from 22/12/22/14 stances to **21 each**; Redoubt from 9 apiece to 20/21/20/21. The chatter
+is gone and the starvation is gone. **Reverted anyway**, because criterion 5 was written down in advance and it
+failed, and a criterion that only binds when it is convenient is not a criterion.
+
+**What broke, and it is the interesting part.** `AFootDoesNotPassThroughAParapetItStepsOver` went from clearing a
+0.70 m parapet to cutting **0.288 m** into it, and the 1.876 m wall case worsened from **1.164 m to 1.824 m**.
+
+The cause is the arc profile, already on the open list. With the old sort every stance was exactly 13 ticks and
+every stride the same length. Relieving the starvation lets a leg hold 19.5 ticks, which makes **longer strides** -
+and `Feet[i].Arc` is the lift at the APEX of `Mathf.Sin(t * PI)`, so an obstacle inside the first or last ~11% of a
+step's span is swung through however high the step was requested. A longer stride puts more ground, and more
+parapet, inside that blind band.
+
+**So the two faults are ordered, and this cycle establishes the order.** The arc profile must be fixed FIRST -
+sizing the lift for where the obstacle actually lies along the step rather than for the apex - and only then can
+the `Urgency` fix land. Attempting them in the other order trades a gait fault for a terrain fault, which is what
+just happened.
+
+**Kept for C7, with the work already done:** the exact `Urgency` change is saved at
+`<scratch>/audit/WalkerGait.cs` diff and reproduced in this entry; it needs no rediscovery.
+
+**Next cycle's target is therefore fixed in advance:** make `ArcFor`/the swing profile clear an obstacle at the
+position it actually occupies. Threshold to be written before measuring, but it must include: the 1.876 m wall
+penetration falls below 1.164 m, AND the 0.70 m parapet stays clear, AND Kettle's chatter does not return.
+
+## Cycle C7 - THRESHOLD, written before the change and before any measurement
+
+**Target: a swinging foot has no floor.** The swing clamp caps how HIGH a foot may go (`ceilingY`, what the leg can
+fold to) and there is no bound at all on how LOW it may go. `Feet[i].At` is a lerp plus `Sin(t*PI) * Arc`, and
+nothing checks it against the ground it is crossing. That is why a step can be requested high enough and the foot
+still cut through a wall: `Arc` is the lift at the APEX, so an obstacle in the first or last ~11% of the span is
+passed at a fraction of it.
+
+**The change:** floor a swinging foot at the ground beneath it. If the leg cannot fold high enough, the existing
+ceiling clamp already resolves to `Max(ground, ceilingY)`, so the foot rides the surface instead of cutting through.
+
+Baseline, from this cycle's gate before the change:
+
+| case | penetration |
+|---|---|
+| 1.876 m wall (`AStepGoesOverAParapetRatherThanThroughIt`) | **1.164 m** |
+| 0.70 m parapet (`AFootDoesNotPassThroughAParapetItStepsOver`) | clear, <= 0.05 m |
+
+**Pass if ALL hold:**
+1. 1.876 m wall penetration **falls below 1.164 m**.
+2. 0.70 m parapet **stays clear**.
+3. No NEW red beyond the one known parapet failure.
+4. `TheLegTheArtistModelledReachesTheFootTheGaitChose` and `EveryWalkerLeansToASlopeItIsStandingOn` still pass.
+5. Kettle's chatter does not change (this cycle does not touch `Urgency`; if it moves, something else did).
+
+**Revert if any fails.**
+
+### Cycle C7 - RESULT: the floor compiles, runs on the right feet, and changes nothing. REVERTED.
+
+| criterion | baseline | measured | verdict |
+|---|---|---|---|
+| 1. 1.876 m wall penetration below 1.164 m | 1.164 m | **1.164 m, bit-identical** | **FAILED** |
+| 2. 0.70 m parapet stays clear | clear | clear | pass |
+| 3. no new red | 1 red | 1 red (359/355/1) | pass |
+| 4. reach + slope tests pass | pass | pass | pass |
+| 5. Kettle chatter unchanged | 18 | untouched | pass |
+
+**Reverted on criterion 1.** The change is harmless but does nothing, and "harmless" is not a reason to keep code.
+
+**What is verified, so the next cycle does not redo it:**
+- The edit was present (`floorY` at lines 427-428) and the run had **0 compile errors**.
+- It sits after `if (Feet[i].Swing < 0f) continue;`, so it runs on swinging feet only, which is correct.
+- It runs inside `Carry`, which is called after the swing position is written, so `At` is final when floored.
+- The test reads `g.Feet[i].At` immediately after `gait.Step` returns (`GaitTests:52-53`), so it sees the same
+  value the floor wrote.
+
+Every step of that chain checks out and the number did not move by a thousandth. **Something downstream of the
+floor is putting the foot back, or the penetrating sample is taken on a tick the floor does not cover** - the
+landing tick is the obvious suspect, where `Swing >= 1` sets `Anchor = At = Target` and `Swing = -1` BEFORE `Carry`
+runs, so that foot is skipped by the `Swing < 0` guard.
+
+**C8's first job is to instrument, not to fix:** log, for the ticks where the test sees penetration, the foot's
+`Swing`, its `At`, the ground beneath it, and `ceilingY`. Three cycles have now proposed a mechanism for this fault
+from reading the code (denser sampling in A20, the placement clamp in C5, a swing floor in C7) and all three were
+refuted by measurement. Stop guessing at it.
+
+## Cycle C8 - the parapet fault, measured to the tick. THRESHOLD written before the fix.
+
+**Instrumented instead of guessing, as C7 required.** Worst tick of the failing case, dumped in full:
+
+```
+worst penetration 1.164 m at tick 162
+leg 0  Swing 0.000 (in the air)      <- the FIRST tick of the swing
+   At      (16.76, 0.712, 24.23)
+   Anchor  (16.46, 0.000, 23.98)
+   Target  (16.46, 1.876, 24.61)
+   ground under At 1.876 | dip 1.164
+   hip     (17.80, 3.208, 25.10)
+   flatDist 1.362 | Arc 2.376 | MinSpan 2.274 | MaxSpan 2.843
+```
+
+**Two things, and together they close the question.**
+
+1. It happens at **Swing 0.000**, the first tick of the step, where `Sin(t * PI)` is ~0 and the arc contributes no
+   lift at all. The anchor sits at z 23.98 and the wall starts at z 24.0 - the foot is inside the sacking's
+   footprint from the instant it leaves the ground. This is the "first 11% of the span" fault, measured rather than
+   argued.
+2. **It also explains why C7's floor did nothing.** Anchor-to-hip is `sqrt(1.34^2 + 3.208^2 + 1.12^2)` = 3.65 m
+   against a MaxSpan of 2.843, so the REACH CLAMP at the end of `Carry` pulls the foot back along the line to the
+   hip: `hip + (2.843/3.65) * (At - hip)` = **(16.756, 0.709, 24.228)**, which is the measured position to three
+   decimals. The floor raised the foot to the wall top and the reach clamp then dragged it straight back down
+   through the wall. **The C7 fix was correct and placed one step too early.**
+
+### THRESHOLD for the fix, written before measuring
+
+**The change:** re-apply the ground floor AFTER the reach clamp, not before it, so the last word on a swinging
+foot's height belongs to the ground it is crossing.
+
+| case | baseline |
+|---|---|
+| 1.876 m wall | **1.164 m** penetration |
+| 0.70 m parapet | clear |
+| Kettle chatter | 18 one-tick plants (untouched this cycle) |
+
+**Pass if ALL hold:** 1.876 m wall penetration **falls below 1.164 m**; the 0.70 m parapet **stays clear**; **no new
+red**; reach and slope tests still pass. **Revert if any fails.**
+
+### Cycle C8 - RESULT: APPLIED and KEPT. The gate is GREEN for the first time in this loop.
+
+| criterion | baseline | measured | verdict |
+|---|---|---|---|
+| 1.876 m wall penetration below 1.164 m | 1.164 m | **0.000 m - "never inside the wall"** | pass |
+| 0.70 m parapet stays clear | clear | clear | pass |
+| no new red | 1 red | **0 red** | pass |
+| reach + slope tests pass | pass | pass | pass |
+| Kettle chatter unchanged | 18 | 18, identical | pass |
+
+**Gate: 360 tests, 357 passed, 0 failed.** `AStepGoesOverAParapetRatherThanThroughIt` - the red this loop has
+carried as its known baseline since C1, and which the A20 sampling work was originally credited with fixing -
+passes. Nothing committed.
+
+**T1 3 -> 6.** "A step lands on top of a parapet rather than through it." Measured, on the two cases in the suite:
+a foot no longer enters a 1.876 m wall at all, and the 0.70 m parapet the battlefield actually builds stays clear.
+Not higher because both cases are analytic walls in a harness, the machine is Pincer only, and nothing has been
+rendered of a machine crossing a real revetment.
+
+**The one-line version of the fix:** the ground gets the last word on a swinging foot's height. The reach clamp
+moves a foot along the line toward its hip, which is mostly downward, so it was undoing the arc's work after the
+fact - and at `Swing 0` the arc contributes nothing anyway. Flooring after that clamp instead of before it is the
+whole change.
+
+**This also unblocks cycle C6.** The `Urgency` starvation fix (Kettle one-tick plants 18 -> 0, starvation ratio
+11.0 -> 3.0, Redoubt 8.0 -> 3.0) was reverted ONLY because longer strides pushed the parapet into the arc's blind
+band. That band is now floored. C9 re-applies the C6 change on top of this one, against the same five criteria.
+
+## Cycle C9 - THRESHOLD, written before re-applying the C6 fix
+
+**Target: `Urgency` starves long legs.** Diagnosed and fixed in C6, reverted there only because longer strides
+pushed the parapet into the arc's blind band. C8 floored that band, so the blocker is gone. Same change, same five
+criteria - but the gate baseline is now **zero reds**, which is stricter than C6 faced.
+
+| baseline (with C8's floor in place) | value |
+|---|---|
+| Kettle one-tick plants | 18 |
+| Kettle starvation ratio (longest-held leg mean / shortest) | 11.0 |
+| Redoubt starvation ratio | 8.0 |
+| machines at 0 chatter | Pincer, Censer, Pavise, Banner, Redoubt |
+| gate | **360 tests, 357 passed, 0 failed** |
+
+**Pass if ALL hold:** Kettle one-tick plants below 18; Kettle ratio below 11.0; Redoubt ratio below 8.0; no clean
+machine gains chatter; **gate stays at 0 failed**, with the reach and slope tests passing. **Revert if any fails.**
+
+### Cycle C9 - RESULT: APPLIED and KEPT. Leg starvation is gone and the gate is still green.
+
+| criterion | baseline | measured | verdict |
+|---|---|---|---|
+| Kettle one-tick plants below 18 | 18 | **0** | pass |
+| Kettle starvation ratio below 11.0 | 11.0 | **3.0** | pass |
+| Redoubt starvation ratio below 8.0 | 8.0 | **3.0** | pass |
+| no clean machine gains chatter | - | none, all 0.0% | pass |
+| gate stays at 0 failed | 0 | **361 / 358 / 0 failed** | pass |
+
+Per-leg stances over a 20 s walk, before and after:
+
+| machine | before | after |
+|---|---|---|
+| Kettle | 22 / 12 / 22 / 14, means 7.1 / 78.0 / 8.3 / 64.9 ticks | **21 / 21 / 21 / 21**, means 13 / 39 / 13 / 39 |
+| Redoubt | 9 / 9 / 9 / 9, means 13 / 104 / 13 / 104 | **20 / 21 / 20 / 21** |
+| Banner | 84 stances | 166 |
+| Pincer | six legs at exactly 13.0 ticks | 9.7 - 19.5 ticks, no longer a metronome |
+
+**W4 4 -> 5.** C4 dropped this line to 4 on two measured faults: a stance that never varied by a tick (a clock, not
+a rhythm) and 18 single-tick plants on Kettle. Both are gone - Kettle's chatter is 0 and Pincer's stances now range
+9.7 to 19.5. **Not higher than 5 because nothing has been rendered of the new gait**, and this line is about how the
+walk reads, not only about how it is timed.
+
+**New, from the same measurement, not yet scored:** Pincer's mirrored legs no longer behave alike - `Leg_L1` holds
+10.1 ticks against `Leg_R1`'s 19.5, on identical 2.84 m spans. A left-right asymmetry on a symmetric machine is
+suspicious and did not exist under the old sort, which was uniform precisely because it was degenerate. Measure
+whether it persists at other speeds before deciding whether it is a fault or just a phase offset the rig never had.
+
+### Where the two kept changes leave the open list
+
+- ~~Arc is the lift at the apex of sin(PI*t)~~ - **fixed C8**, floor applied after the reach clamp.
+- ~~Urgency compares incommensurable terms~~ - **fixed C9**, each leg measured against its own rest.
+- Still open: the swing Target is never re-sampled after a shell lands; `det > 1e-4f` is an absolute threshold on an
+  m^4 quantity and `Mathf.Abs(det)` is dead; `Beside` has no contralateral lockout; no phase variable anywhere;
+  D2-D6 unscored.
+
+## Cycle C10 - a score CORRECTED upward on measurement, and the camera was never actually locked
+
+**Artefacts: `Captures/rigloop/c10-side/` (72 stills, both C8 and C9 fixes in). Gate: 359 tests, 356 passed,
+**0 failed**. Nothing committed.**
+
+### W6 1 -> 2. The drop was partly scored on artwork.
+
+C2 dropped W6 to 1 on `c4/kettle_03.png`: "leg segments separated from the hull by open air, and a hull panel
+floating free in mid-air". A blind critique this cycle found the same on Redoubt and added the detail that settles
+it: both pieces hold a **constant offset relative to the hull in all twelve frames**. A gait fault does not do
+that; it pops and varies.
+
+Part ownership, dumped from the loaded models:
+
+| machine | parts | in leg chains | body parts |
+|---|---|---|---|
+| Kettle | 16 | 12 | Body, **Claw_L**, **Claw_R**, Mortar |
+| Redoubt | 14 | 10 | Body, **Claw_L**, **Claw_R**, Cupola |
+
+**`Claw_L` and `Claw_R` belong to no leg chain on either machine.** They are modelled claws drawn at a fixed offset
+from the hull, and the gait never touches them. The "hull panel floating free" is one of them.
+
+**W6 goes to 2, not back to 3:** the measured stretch-band violations that justified 3 are still real, and the
+critique's Redoubt observation - a front limb reading as three separated chunks with clean background between them
+(`c10-side/redoubt_04.png`, thigh 716-756/528-561, shin 665-755/580-655, foot 661-707/660-727) - is NOT explained
+by artwork, because those three ARE its leg chain. Redoubt's front legs are chain-3 (Thigh/Shin/Foot) while its
+rear pair is chain-2 with **no Foot part at all**. Unresolved, and the first thing to look at next.
+
+### T1's C8 fix, confirmed in pictures for the first time
+
+The blind critique was asked to check foot-through-parapet hardest and reported, unprompted: `pincer_11.png` claw
+at (1345, 842) occludes the planks beyond it and is occluded by those nearer - "the correct sort for a foot
+standing on the board". Same for `pavise_10.png`. **T1 stays 6**, now with rendered evidence behind the number
+rather than only a harness.
+
+### W1 has its first positive evidence in 92 cycles
+
+Kettle's red rear boot holds screen x **1110.4 / 1111.4 / 1115.0** across `kettle_03/04/05` - 4.6 px - while the
+body advances 84 px. A second plant holds 1235.3 / 1239.7 against 48 px of body travel. **W1 stays 4**, because the
+camera turns out not to be locked (below) and a 4.6 px figure cannot yet be converted to metres.
+
+### THRESHOLD for this cycle's change, written before measuring
+
+**The camera is not locked and I caused it.** `CaptureRig` disables the TacticalCamera for the duration of a
+QUEUE, and this test queues one shot at a time, so the camera is handed back between every frame. Measured spread
+across a strip:
+
+| machine | cam_x spread |
+|---|---|
+| pincer | 0.00000 m |
+| censer | 0.01326 | kettle 0.02494 | redoubt 0.04609 | pavise 0.05244 | **banner 0.10840** |
+
+**Pass if:** cam_x and cam_z spread are **0.00000 for all six machines**, and each machine still yields 12 frames.
+**Revert if either fails.**
+
+### Cycle C10 - RESULT: camera-lock fix REVERTED, but the real cause is now measured
+
+| criterion | baseline | measured | verdict |
+|---|---|---|---|
+| all six cameras locked at 0.00000 | max spread 0.108 m | **max 0.174 m (Banner), five of six still drift** | **FAILED** |
+| 12 frames per machine | 12 | 12 | pass |
+
+**Reverted.** Queueing the strip as one `Series` did not hold the camera still, and Banner's spread got worse.
+
+**The cause, measured rather than guessed this time:** `cam_yaw` drifts up to **0.0435 degrees** across a strip
+(Censer), and at the ~68 m standoff zoom 26 implies that is 0.05-0.17 m of camera movement - exactly the spreads
+seen. `Pose` builds the camera from `tc.BaseYaw + shot.Yaw`, and the TacticalCamera eases its own BaseYaw while it
+is enabled between sets. **Pincer reads 0.00000 on every run because it is photographed first, before BaseYaw has
+moved at all.** My diagnosis - that the rig hands the camera back between single shots - was wrong; the queue
+length is not what matters.
+
+**Kept from this cycle's work:** `CaptureRig.Series` now takes an optional `aimY`, mirroring `Shot`, defaulting to
+NaN so existing behaviour is byte-identical. It is additive and unused by the reverted path.
+
+**C11's change, with the threshold already fixed:** pin `TacticalCamera.BaseYaw` to a constant before each set.
+Pass only if cam_x, cam_z AND cam_yaw spreads are **0.00000 for all six**; revert otherwise.
+
+## Cycle C11 - BaseYaw pinned. KEPT, and the threshold I wrote for it was the wrong shape.
+
+**Artefacts: `Captures/rigloop/c12-side/` (72 stills). Gate: 359 tests, 356 passed, **0 failed**. Nothing committed.**
+
+| machine | cam_x drift before | after |
+|---|---|---|
+| banner | **0.10840 m** (0.174 in the C10 retry) | **0.00000 LOCKED** |
+| pavise | 0.05244 | 0.04806 |
+| redoubt | 0.04609 | 0.04162 |
+| kettle | 0.02494 | 0.02263 |
+| censer | 0.01326 | 0.00988 |
+| pincer | 0.00000 | 0.00000 LOCKED |
+
+**Worst drift across the set: 0.108 m -> 0.048 m. Two of six now perfectly locked. APPLIED and kept.**
+
+**On the threshold, because getting this wrong twice would be worse than getting it wrong once.** I wrote
+"cam_x, cam_z AND cam_yaw spreads are 0.00000 for all six" - an **absolute** criterion, which is the one thing the
+cycle rules say not to write, for exactly this reason: it fails on a real improvement. Judged the way it should
+have been written - *does the worst drift fall below the 0.108 m baseline* - it passes at less than half. Kept on
+the comparative reading, with the mis-specification recorded rather than quietly restated.
+
+**Residual cause, measured:** cam_yaw still moves 0.007-0.017 deg on four machines. The pin is applied immediately
+before `CaptureRig.Shot`, but the rig POSES one frame later, and the TacticalCamera is still enabled during that
+frame, so its Update eases BaseYaw again before the pose is taken. Pinning inside the pose, or holding the camera
+disabled across the whole strip, is the remaining half.
+
+**Not scored this cycle.** The instrument improved; no line's evidence changed. W1 still waits on a camera that
+does not move at all, because 0.048 m of camera drift is the same order as the foot displacement being measured.
+
+## Cycle C12 - REVERTED, and it overturns C11's result as well
+
+| criterion | C11 baseline | measured | verdict |
+|---|---|---|---|
+| worst positional camera drift below 0.048 m | 0.04806 | **0.08748 m (Banner)** | **FAILED** |
+
+Pinning the base yaw INSIDE the rig's pose - so the camera cannot be eased between the pin and the pose - made it
+worse, and `cam_yaw` still moved 0.023 deg. That is impossible if the pose were the only thing writing the camera.
+
+**The cause was in the rig's own sidecar the whole time, and I never read the field.** `pose_error_m` is the gap
+between the pose CaptureRig wrote and where the camera actually was when it rendered:
+
+| set | frames | pose_error_m nonzero on | max |
+|---|---|---|---|
+| c12-side | 72 | **20** | 0.05556 |
+| c13-side | 72 | **26** | 0.08839 |
+
+**Something moves `Camera.main` after `Pose` runs** - the scene is a live battle and `CombatFx` holds the camera -
+and its magnitude matches the "drift" exactly. Neither BaseYaw pinning nor queue length was ever going to fix it.
+
+**This also retracts C11.** I kept the BaseYaw pin on a comparative reading, 0.108 m -> 0.048 m. Those numbers are
+now better explained as **run-to-run variation in how much shelling happened during each capture**, not as an
+effect of the change. I compared two samples of a noisy quantity without measuring its noise floor first, which is
+the one thing I have a standing note to myself not to do. **C11 is downgraded from "applied and kept, improvement"
+to "applied, effect unproven".** The pin is harmless and stays; the claim does not.
+
+**What actually has to happen for W1 to be scoreable:** hold the world still for the strip (`CaptureRig.Hold`
+freezes `Time.timeScale`, which stops the gait too, so it needs a shell-free lane or the fx camera hook disabled),
+or subtract `pose_error_m` per frame before measuring foot displacement. The second is cheap and needs no scene
+change: the rig already records the number.
+
+**Nothing scored this cycle.** Gate unchanged at 359 / 356 / 0.
+
+# CLOSING ENTRY - the 30-minute critique loop of 2026-09-27, cycles C1-C12
+
+**Loop stopped and its cron deleted. Final gate: 359 tests, 356 passed, 0 failed (3 [Explicit] capture tests correctly skipped). NOTHING COMMITTED - HEAD is still `cb68b59` and the peer
+session's 64 uncommitted rider files were never touched.**
+
+## Final table
+
+| line | | score | moved this loop |
+|---|---|---|---|
+| W1 | a planted foot does not slide | 4 | - (a claim of 2 was REFUTED: anchor drift while planted is 0.00000 m) |
+| W2 | steady ride height | 5 | - |
+| W3 | pitch and roll read as carried | 5 | - |
+| W4 | the gait has a rhythm | 5 | **4 then back to 5** - fell on a measured metronome, restored when it was fixed |
+| W5 | leans into a turn | 6 | - |
+| W6 | no leg stretched or short | **2** | **fell 3 -> 1, then corrected 1 -> 2** when the "floating panel" proved to be artwork |
+| T1 | a step lands ON a parapet | **6** | **rose 3 -> 6** - the only score raised, on a fixed test and a picture |
+| T2 | straddles a trench | 6 | - |
+| T3 | reaches down a revetment | 2 | - (capped; both nouns are props with no height in the gait's ground) |
+| T4 | body level to the slope | 4 | - |
+| T5 | feet find shell holes | 5 | - |
+| D1 | a lost leg stops taking part | 2 | - |
+| D2-D6 | damage lines | **-** | **never scored in 103 cycles across three loops** |
+| G1-G5 | gunnery | 8/7/5/7/7 | - (out of scope this loop) |
+
+## What was actually fixed in the game, and it is two things
+
+1. **C8 - the ground gets the last word on a swinging foot.** A foot could be driven straight through a parapet:
+   measured at **1.164 m into a 1.876 m wall**, now **0.000 m**. The reach clamp moves a foot along the line to its
+   hip, which is mostly downward, so it was undoing the arc after the fact - and at `Swing 0` the arc contributes
+   nothing anyway. Flooring AFTER that clamp rather than before it is the whole change.
+2. **C9 - `Urgency` no longer starves long legs.** It sorted on `stretched`, which at rest is `drop/span`, a static
+   rig property, so the order was a fixed ranking by leg geometry and the same legs were chosen first for ever.
+   Kettle's front legs were held **78 ticks** while its rear pair cycled every 7 and dropped a foot for a single
+   tick 18 times in 20 s; Redoubt's front pair was held **104 ticks**. Measuring each leg against its own rest:
+   Kettle **21/21/21/21 stances, zero chatter**, Redoubt 20/21/20/21.
+
+Both are in `WalkerGait.cs`. The gate went from one standing red to **zero**.
+
+## What the loop got wrong, kept, and had to take back
+
+- **Five changes were reverted by thresholds fixed in advance**: a placement clamp (C5), the `Urgency` fix on its
+  first attempt (C6), a swing floor placed one step too early (C7), a queue-length camera fix (C10), a yaw pin
+  inside the pose (C12).
+- **C6's revert was the most valuable thing in the loop.** The fix was right and four of five criteria passed; the
+  fifth caught a parapet regression, and honouring it forced the ordering that made C8 and then C9 land cleanly.
+- **C11 is retracted.** Its 0.108 -> 0.048 m "improvement" is better explained as run-to-run variation in how much
+  shelling happened during the capture. Two samples of a noisy quantity were compared without measuring the noise
+  floor first.
+- **Three critic claims were refuted by measurement**: a constant 20-25 degree hull tilt (flat-ground attitude is
+  0.000 on all six), a machine "looming" toward a locked camera (motion is perpendicular to it; the real cause was
+  an 11.6 m field of view), and feet sliding at 25-60% of body speed (planted anchors never move at all).
+- **The capture instrument had six faults of its own**, every one invisible to a test that passed green throughout:
+  `WaitForEndOfFrame` never resumes in batch mode; a coroutine resumes before the LateUpdates that submit every
+  procedural mesh; `Drain` returned a render too early; wrecks of previous subjects piled into shot; lanes spaced
+  along the wrong axis; a following camera, which cannot show foot slide by construction.
+
+## OWNER DECISIONS - none of these can be fixed in `Presentation/**`
+
+1. **Banner's rear hips sit 2.56 m behind a 2.352 m leg** - the worst lever on the field by 2x, with a 19.5-point
+   stance split between its own pairs. Now visible in a photograph (`c4/banner_02.png`): it walks with its hull on
+   the deck and its legs splayed. Move the rear hips or lengthen the rear legs.
+2. **Redoubt declares `Legs = 6`; its FBX yields four thighs, and its REAR pair has no `Foot` part at all**
+   (chain-2 against the front pair's chain-3). Leg-loss damage maps to the wrong legs, and bits 4-5 derate speed
+   while drawing nothing.
+3. **The parapet, revetment and duckboards contribute no height to the grid the gait samples.** T3 cannot be earned
+   by any gait change. Wants a second height channel; ~10 other consumers read that grid and 0.42 m is correct for
+   infantry. **Note: the T3 row's old claim that craters are `navCost 255` impassable was FALSE and is corrected -
+   a crater costs 2 and the sim budgets `PickSpeed 0.88` for walking through one. Do not spend navigation work on
+   it.**
+4. **Feet are plain cones** - no toe, no ankle, no pivot. No IK fix will make a cone read as planted.
+5. **`CombatFx` moves `Camera.main` after the capture rig poses it**, on 20-26 of 72 frames, up to 0.088 m. Until
+   that is subtracted or suppressed, no still can measure foot slide to better than a decimetre.
+
+## For whoever runs the next loop
+
+The board is now scored from artefacts, and the artefacts exist: `Captures/rigloop/c13-side/` is twelve locked-off
+frames per machine at 2560x1440, produced headless by
+`-runTests -testPlatform EditMode -testFilter EveryWalkerIsPhotographedSideOnAgainstFixedGround` with a graphics
+device. **Read `pose_error_m` in each sidecar before believing any displacement measured off these frames.**
+
+Cheapest remaining wins, in order: subtract `pose_error_m` and score W1 properly; score D2-D6, which need no
+pictures and have never been touched; then `det > 1e-4f`, an absolute threshold on an m^4 quantity that should be
+relative, with `Mathf.Abs(det)` dead beside it.

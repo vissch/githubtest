@@ -1,0 +1,395 @@
+// Phase: tooling (2026-09-27) — the one thing the walker board never had.
+//
+// docs/20-rig-scoreboard.md scores twenty-two lines, most of them worded as judgements about how the animation LOOKS
+// ("pitch and roll read as a body carried on legs, not a box on a spring", "traverse reads as weight"). Its own rule
+// is that "a line nobody has rendered evidence for scores 0, not 'unknown'". For twenty-seven consecutive cycles the
+// board moved scores anyway, on arithmetic taken from EditMode harnesses, because nothing could photograph a walker
+// without a human driving the editor. Captures/rigloop stops at a8. The board's second loop then shipped four changes
+// to a SHOW-lane file without once meeting CLAUDE.md's SHOW gate, which is EditMode plus a look at the thing changed.
+//
+// This is the look, from batch mode, with nobody driving.
+//
+// Why it is shaped like this, since two obvious shapes do not work:
+//  - CaptureRig has to pose the camera on one frame and photograph on the NEXT, after every LateUpdate that reads the
+//    camera has run against the new pose (see its header — that two-frame dance is the whole reason it exists). So a
+//    plain -executeMethod static call cannot take a still: there is no frame loop.
+//  - It cannot live in TW.Tests.PlayMode either. CaptureRig, TankCapture and RiderLab are in TW.Editor, which is
+//    Editor-only, and TW.Tests.PlayMode is built for all platforms; adding the reference would have forced that
+//    assembly to Editor-only and changed the existing PlayMode gate.
+// An assembly with includePlatforms ["Editor"] IS an EditMode test assembly as far as Unity's runner is concerned, so
+// this is an EditMode test that drives the editor in and out of Play itself. That is what EnterPlayMode is for.
+//
+// It is [Explicit] so the ordinary gate skips it: a normal EditMode run must not enter Play. Run it by name, WITH a
+// graphics device — not -nographics, or every PNG comes out empty:
+//   Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode \
+//             -testFilter EveryWalkerIsPhotographedWalkingOnRealGround -testResults <out.xml> -logFile <out.log>
+//
+// What it asserts is deliberately thin: that a file was written, that it is a plausible size, and that the machine
+// stayed alive to be photographed. It is an INSTRUMENT, not a judgement. Nothing here scores anything — the pictures
+// go to a critique that has not seen the code, which is the half of the loop that was missing.
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEditor.SceneManagement;
+using UnityEngine.TestTools;
+using TW.Editor;
+using TW.Presentation;
+using TW.Presentation.Tactical;
+using TW.Sim;
+using TW.UI;
+
+namespace TW.Tests
+{
+    public class WalkerStills
+    {
+        const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
+
+        // the six, in the order the board lists them
+        static readonly (string name, byte archetype)[] Machines =
+        {
+            ("pincer",  VehicleArchetype.Pincer),
+            ("censer",  VehicleArchetype.Censer),
+            ("kettle",  VehicleArchetype.Kettle),
+            ("pavise",  VehicleArchetype.Pavise),
+            ("banner",  VehicleArchetype.Banner),
+            ("redoubt", VehicleArchetype.Redoubt),
+        };
+
+        /// <summary>Where the stills land: &lt;project&gt;/Captures/rigloop/&lt;tag&gt;, beside the a2..a8 sets the
+        /// first loop left behind.</summary>
+        static string Dir(string tag)
+        {
+            string root = Directory.GetParent(Application.dataPath).FullName;
+            string d = Path.Combine(root, "Captures", "rigloop", tag);
+            Directory.CreateDirectory(d);
+            return d;
+        }
+
+        static SimHost Host => Object.FindFirstObjectByType<SimHost>();
+
+        /// <summary>Wait for a shot to be ON DISK, and FAIL if it never arrives.
+        ///
+        /// Waiting on CaptureRig.Pending() alone is not enough and the reason is easy to miss: Pending() returns
+        /// Queue.Count, and a shot leaves the queue when it is DEQUEUED — one frame of posing and one render before
+        /// the PNG is written. So Pending() reads "0" while the last shot is still in flight, and a test that then
+        /// reads the file gets FileNotFoundException, or worse, reads the PREVIOUS file and compares a still with
+        /// itself. Wait for the queue, then for the file.</summary>
+        static IEnumerator Drain(string path = null, int cap = 900)
+        {
+            for (int f = 0; f < cap && CaptureRig.Pending() != "0"; f++) yield return null;
+            Assert.That(CaptureRig.Pending(), Is.EqualTo("0"),
+                $"the capture queue stalled with {CaptureRig.Pending()} shots outstanding after {cap} frames");
+            if (path == null) yield break;
+            for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
+            Assert.That(File.Exists(path), Is.True, $"the queue drained but {Path.GetFileName(path)} was never written");
+        }
+
+        /// <summary>Is the machine in the picture at all? Three runs of stills came back with the terrain drawn
+        /// correctly and no walker anywhere near the middle of the frame, which has two very different causes —
+        /// badly framed, or not drawn — and guessing between them from a dark PNG wasted two capture runs. This
+        /// photographs one pose with the machine alive, kills it, photographs the identical pose, and asks
+        /// CaptureRig.Diff what changed. If the machine is being drawn, the difference is machine-shaped and sits
+        /// where the machine was. If nothing changed, it is not being drawn and no amount of framing will help.</summary>
+        [UnityTest, Explicit("Diagnostic: is a spawned walker drawn at all?")]
+        public IEnumerator ASpawnedWalkerIsActuallyDrawn()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            yield return new EnterPlayMode();
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host?.Local, Is.Not.Null, "no match");
+            for (int f = 0; f < 120; f++) yield return null;
+
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+
+            var size = Host.Local.Map.SizeMeters;
+            float sx = size.x * 0.5f, sz = size.y * 0.35f;
+            string spawned = TankCapture.Spawn(0, VehicleArchetype.Pincer, sx, sz, 0f);
+            TestContext.Out.WriteLine("spawn said: " + spawned);
+            Assert.That(spawned, Does.StartWith("slot "), "the spawn itself failed");
+            int slot = int.Parse(spawned.Substring(5));
+            for (int f = 0; f < 90; f++) yield return null;
+
+            var w = Host.Local.World;
+            var p = w.Position[slot];
+            TestContext.Out.WriteLine($"alive={w.IsAlive(slot)} archetype={w.Archetype[slot]} team={w.Team[slot]} "
+                + $"pos=({p.x:0.0},{p.y:0.0},{p.z:0.0}) speed={w.Speed[slot]:0.00}");
+            var tanks = Object.FindFirstObjectByType<TankRenderer>();
+            // TankRenderer.LateUpdate returns before Draw() unless Ready, and Ready is `maw != null && mats[0] != null`
+            // — one missing model or material and EVERY vehicle, wreck and piece of debris silently disappears while
+            // the terrain, which is ordinary MeshRenderers, carries on looking perfect.
+            TestContext.Out.WriteLine($"TankRenderer in scene: {tanks != null}, Ready: {(tanks != null ? tanks.Ready.ToString() : "n/a")}");
+
+            string dir = Dir("a41-diag");
+            string a = Path.Combine(dir, "with.png"), b = Path.Combine(dir, "without.png");
+
+            // The first version of this killed the machine between the two shots and let 60 frames pass. That
+            // confounds the comparison twice over: the men walk on, and the mud, water and rain shaders advance
+            // with Time — so the two stills differ whether or not a machine was ever drawn, and the 59 KB of
+            // difference it reported proved nothing. Freeze the clock and toggle the RENDERER instead. Nothing in
+            // the world changes between the two frames except whether TankRenderer is allowed to submit.
+            RiderLab.Stop(slot);
+            for (int f = 0; f < 30; f++) yield return null;
+            CaptureRig.Hold(30f);                       // Time.timeScale = 0; frames and LateUpdates still run
+            for (int f = 0; f < 5; f++) yield return null;
+
+            CaptureRig.Shot(a, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
+            yield return Drain(a);
+            if (tanks != null) tanks.enabled = false;
+            for (int f = 0; f < 5; f++) yield return null;
+            CaptureRig.Shot(b, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
+            yield return Drain(b);
+            if (tanks != null) tanks.enabled = true;
+            CaptureRig.Release();
+
+            long la = new FileInfo(a).Length, lb = new FileInfo(b).Length;
+            TestContext.Out.WriteLine($"with TankRenderer {la} bytes, without {lb} bytes, delta {la - lb}");
+
+            string diff = CaptureRig.Diff(a, b, Path.Combine(dir, "diff.png"));
+            TestContext.Out.WriteLine("DIFF: " + diff);
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            yield return new ExitPlayMode();
+        }
+
+        /// <summary>The shot the following camera cannot give you.
+        ///
+        /// Three capture sets in, four of the board's lines still could not be scored, and the reason was the shot,
+        /// not the rig. A camera that FOLLOWS a machine holds it at the centre of frame, which is precisely the
+        /// condition under which a foot sliding along the ground is invisible: foot and background move together on
+        /// screen. W1 is "a planted foot does not slide", so the instrument was blind to the thing it was built to
+        /// judge.
+        ///
+        /// This locks the camera off. The focus is a fixed point on the ground and the machine walks THROUGH the
+        /// frame past it, so the mud, the stakes and the duckboards are a fixed ruler. A foot that holds still
+        /// against that ruler is planted; one that creeps is not.
+        ///
+        /// Low pitch on purpose, for two reasons: it puts the eye near foot height where ground contact reads, and
+        /// it turns the unit disc that TankRenderer draws under every vehicle nearly edge-on. That disc sits exactly
+        /// on the foot line and its bloom was covering the feet in every previous set. (It is drawn unconditionally
+        /// in DrawRest, not as a selection highlight, so it cannot simply be switched off from here — and
+        /// TankRenderer.cs belongs to another session's working tree this week.)</summary>
+        [UnityTest, Explicit("Locked-off side-on strip; run by name, with a graphics device.")]
+        public IEnumerator EveryWalkerIsPhotographedSideOnAgainstFixedGround()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = false;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            yield return new EnterPlayMode();
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host?.Local, Is.Not.Null, "no match");
+            for (int f = 0; f < 120; f++) yield return null;
+
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+            var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+
+            var size = Host.Local.Map.SizeMeters;
+            string tag = System.Environment.GetEnvironmentVariable("TW_STILLS_TAG");
+            string dir = Dir((string.IsNullOrEmpty(tag) ? "adhoc" : tag) + "-side");
+
+            string warm = Path.Combine(dir, "warmup.png");
+            CaptureRig.Shot(warm, size.x * 0.5f, size.y * 0.35f, 26f, 0f, 16f);
+            yield return Drain(warm);
+            File.Delete(warm); File.Delete(Path.ChangeExtension(warm, ".json"));
+
+            var written = new List<string>();
+            int lane = 0;
+            foreach (var mk in Machines)
+            {
+                // Lanes kept well inside the map: at 30 + lane*45 the last lane landed at z 255 on a 280 m map and
+                // Redoubt was photographed against the edge ridge with no legs in frame at all.
+                float x = size.x * 0.5f, z = 60f + lane * 35f;
+                lane++;
+                string spawned = TankCapture.Spawn(0, mk.archetype, x, z, 0f);
+                Assert.That(spawned, Does.StartWith("slot "), mk.name + ": " + spawned);
+                int slot = int.Parse(spawned.Substring(5));
+                RiderLab.Drive(slot, 30f);
+                for (int f = 0; f < 150; f++) yield return null;
+
+                // THE CAMERA DOES NOT MOVE for this machine. Focus is a fixed patch of ground ahead of it; yaw 0 is
+                // side-on to the line of march (the machines walk +z); the aim height is the ground, not the hull.
+                // Zoom sets the STANDOFF, and the standoff sets how much track is in shot. At zoom 12 the camera
+                // stood 26 m off with a 25-degree lens, so the visible strip of ground was only about 11.6 m wide —
+                // narrower than the machine's own walk. It began 14 m left of focus, i.e. off-frame, and nearly
+                // filled the picture when it did arrive. Zoom 26 gives roughly 25 m of track: the machine crosses
+                // the frame instead of looming in it, and the fixed stakes stay in shot as a ruler the whole time.
+                float fz = z + 10f;
+                for (int k = 0; k < 12; k++)
+                {
+                    if (!Host.Local.World.IsAlive(slot)) break;
+                    string path = Path.Combine(dir, $"{mk.name}_{k:00}.png");
+                    // 2560x1440: the standoff that makes the background a usable ruler also makes the machine a
+                    // small part of the frame, and at 1600 wide a critique could not tell which of eight
+                    // near-identical legs it was following between frames.
+                    // Pin the camera's base yaw before every shot. CaptureRig builds the pose from
+                    // `tc.BaseYaw + shot.Yaw`, and the TacticalCamera eases BaseYaw on its own between sets — it
+                    // is switched off only for the length of a queue. Measured drift across a strip was up to
+                    // 0.0435 degrees, which at this standoff is 0.05-0.17 m of camera movement: the same order as
+                    // the foot displacement this shot exists to measure. Pincer always read 0.00000 purely
+                    // because it is photographed first, before BaseYaw has moved.
+                    if (tc != null) tc.BaseYaw = -90f;
+                    CaptureRig.Shot(path, x, fz, 26f, 0f, 16f, 2560, 1440, 2.0f);
+                    yield return Drain(path);
+                    for (int f = 0; f < 6; f++) yield return null;   // ~0.1 s, twelve frames = two gait cycles
+                    if (File.Exists(path) && new FileInfo(path).Length > 20000) written.Add(path);
+                }
+
+                for (int a = 0; a < 20 && Host.Local.World.IsAlive(slot); a++)
+                {
+                    RiderLab.Kill(slot);
+                    for (int f = 0; f < 10; f++) yield return null;
+                }
+                for (int f = 0; f < 20; f++) yield return null;
+            }
+
+            foreach (var mk in Machines)
+                CaptureRig.Sheet(dir, mk.name, Path.Combine(dir, mk.name + "_strip.png"), 4, 900);
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            yield return new ExitPlayMode();
+
+            TestContext.Out.WriteLine($"wrote {written.Count} side-on stills to {dir}");
+            Assert.That(written.Count, Is.GreaterThanOrEqualTo(Machines.Length * 10),
+                "too few side-on frames landed to judge a gait cycle");
+        }
+
+        [UnityTest, Explicit("Enters Play and writes PNGs; run it by name, with a graphics device.")]
+        public IEnumerator EveryWalkerIsPhotographedWalkingOnRealGround()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = true;      // every pose and render logged with its frame number
+
+            // open the real scene in edit mode, then play it. Loading it from inside Play would need
+            // SceneManager and the scene is not guaranteed to be the one the runner started in.
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            yield return new EnterPlayMode();
+
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host, Is.Not.Null, "GreyboxCorridor came up without a SimHost");
+            Assert.That(Host.Local, Is.Not.Null, "the SimHost never built a match");
+            // let the terrain view, the nav fields and the first frames of presentation settle
+            for (int f = 0; f < 120; f++) yield return null;
+
+            // GreyboxCorridor is a night field in a squall, and the first run of this came back as 36 photographs of
+            // weather: luma_mean 0.12, the machine a smudge. CaptureRig.Hold() pins the sky but also sets
+            // Time.timeScale = 0, which would stop the very thing being photographed, so the weather is pinned here
+            // by hand and the clock left running. This does not "fix" the lighting — it removes the rain streaks and
+            // the gusting so that six frames of one machine differ by the gait and nothing else.
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+            for (int f = 0; f < 30; f++) yield return null;
+
+            // one folder per cycle so sets stay comparable: set TW_STILLS_TAG before the run
+            var size = Host.Local.Map.SizeMeters;
+            string tag = System.Environment.GetEnvironmentVariable("TW_STILLS_TAG");
+            string dir = Dir(string.IsNullOrEmpty(tag) ? "adhoc" : tag);
+
+            // The first still of every run came back as an empty field — the rig's first Render of a session lands
+            // before the renderers have built anything. Throw one away rather than lose a machine's first frame.
+            string warm = Path.Combine(dir, "warmup.png");
+            CaptureRig.Shot(warm, size.x * 0.5f, size.y * 0.35f, 15f, 20f, 22f);
+            yield return Drain(warm);
+            File.Delete(warm);
+            File.Delete(Path.ChangeExtension(warm, ".json"));
+            var written = new List<string>();
+            var missing = new List<string>();
+
+            int lane = 0;
+            foreach (var mk in Machines)
+            {
+                // Each machine gets its OWN LANE, well outside the ~17 m the frame covers at zoom 15.
+                // Killing the previous subject is not enough and the reason is in TankRenderer.Draw: it iterates
+                // `wrecks` as well as live views, and a despawn without a VehicleDestroyed event goes through
+                // Wreckify, so every kill leaves a burnt-out hull standing on the spot. Six subjects spawned at one
+                // point meant every machine after the first was photographed inside a growing pile of its
+                // predecessors' wrecks. The kills were succeeding the whole time — "slot 0 destroyed", six times.
+                //
+                // The lanes must run along Z. This is a CORRIDOR: about 90 m wide and 280 m long. A first attempt
+                // spaced them 70 m apart in x and clamped to the map, so every machine after the first landed on
+                // the same spot again and the sheet came back looking identical to the one before it.
+                float x = size.x * 0.5f, z = 30f + lane * 45f;
+                lane++;
+                string spawned = TankCapture.Spawn(0, mk.archetype, x, z, 0f);
+                if (!spawned.StartsWith("slot "))
+                {
+                    missing.Add(mk.name + ": " + spawned);
+                    continue;
+                }
+                int slot = int.Parse(spawned.Substring(5));
+                TankCapture.Follow(slot, 24f, 32f);
+                RiderLab.Drive(slot, 15f);   // up the corridor, but not far enough to enter the next lane
+                // Two seconds of gait before the first frame — and WAIT FOR THE MODEL. pincer_00 of set c2 came
+                // back with no machine in it at all: the first subject of a run is photographed while the renderer
+                // is still building its view, so the still is of an empty field.
+                for (int f = 0; f < 180; f++) yield return null;
+
+                // Six frames along the walk, each framed on the machine where it actually is. Series() takes one
+                // fixed focus, which would let a walking machine stroll out of shot, so the shots are queued one at
+                // a time against a re-read position.
+                for (int k = 0; k < 6; k++)
+                {
+                    var w = Host.Local.World;
+                    if (!w.IsAlive(slot)) { missing.Add($"{mk.name}: died before frame {k}"); break; }
+                    var p = w.Position[slot];
+                    // 20 degrees off the line of march: side-on enough to read pitch, angled enough to read roll
+                    string path = Path.Combine(dir, $"{mk.name}_{k:00}.png");
+                    // Zoom and pitch are the FIRST loop's proven numbers (Captures/rigloop/L1_*.json: zoom 34
+                    // pitch 22, and a8/look.json: zoom 30 pitch 25), pulled in to 15 so one machine fills the frame
+                    // instead of the county. Two earlier attempts here were wrong in opposite directions and both
+                    // are worth not repeating: zoom 22 put the machine at ~40 px of a 1600 px frame, and zoom 8 put
+                    // the camera 5 m off the ground — below the hull of a 300-tonne machine, photographing its
+                    // unlit belly. Pitch must stay near 22: it is what gets light on the top surfaces.
+                    // aim at the machine's own hull, a little above its feet. Without this the rig looks at world
+                    // y = 0 at any zoom >= CloseZoom and a machine standing on raised ground rides off the top.
+                    CaptureRig.Shot(path, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
+                    yield return Drain(path);
+                    // 7 frames, not 22. A step takes roughly a third of a second and 22 frames IS roughly a third
+                    // of a second, so the set was sampled at very nearly the gait period and every frame caught the
+                    // legs at the same phase. Six photographs of one pose, from a machine that had in fact walked
+                    // 4.7-6.2 m across the sequence — a blind critique called five of six rows frozen and it was
+                    // the sampling, not the rig. 7 frames is ~0.12 s, so six frames span about two gait cycles.
+                    for (int f = 0; f < 7; f++) yield return null;
+
+                    if (File.Exists(path) && new FileInfo(path).Length > 20000) written.Add(path);
+                    else missing.Add($"{mk.name} frame {k}: "
+                        + (File.Exists(path) ? "only " + new FileInfo(path).Length + " bytes" : "no file"));
+                }
+
+                // Kill can fail and SAY so — RiderLab.Kill returns "worlds a tick apart: try again" when the two
+                // sim worlds are not aligned — and the first version of this ignored the return. The result was
+                // that every machine after the first was photographed with its predecessor still standing in the
+                // shot, close enough to interleave limbs with it. Pincer, captured first, was the only clean row,
+                // and a blind critique correctly called two of six rows unreviewable. Retry until it is gone.
+                for (int attempt = 0; attempt < 20 && Host.Local.World.IsAlive(slot); attempt++)
+                {
+                    TestContext.Out.WriteLine($"  kill {mk.name}: {RiderLab.Kill(slot)}");
+                    for (int f = 0; f < 10; f++) yield return null;
+                }
+                Assert.That(Host.Local.World.IsAlive(slot), Is.False,
+                    $"{mk.name} would not die and will pollute every later shot");
+                for (int f = 0; f < 20; f++) yield return null;
+            }
+
+            // One contact sheet, so a critique can be handed a single picture of the whole field. Sheet() globs
+            // `stem + "_*.png"` and composes synchronously, so the stem is a wildcard and there is nothing to wait for.
+            string made = CaptureRig.Sheet(dir, "*", Path.Combine(dir, "sheet.png"), 6, 460);
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+
+            yield return new ExitPlayMode();
+
+            TestContext.Out.WriteLine($"wrote {written.Count} stills to {dir}");
+            TestContext.Out.WriteLine("sheet: " + made);
+            foreach (var m in missing) TestContext.Out.WriteLine("  MISSING " + m);
+            Assert.That(missing, Is.Empty, "not every machine was photographed");
+            Assert.That(written.Count, Is.EqualTo(Machines.Length * 6));
+        }
+    }
+}

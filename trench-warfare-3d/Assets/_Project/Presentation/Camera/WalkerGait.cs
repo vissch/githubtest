@@ -421,18 +421,54 @@ namespace TW.Presentation.Tactical
                 Vector3 span = Feet[i].At - hip;
                 float len = span.magnitude, hi = MaxSpan(rig);
                 if (len > hi && len > 1e-4f) Feet[i].At = hip + span * (hi / len);
+
+                // ...and the ground gets the last word, because the clamp above moves a foot along the line to the
+                // hip, which is mostly DOWNWARD. Measured on a Pincer crossing a 1.876 m wall: on the first tick of
+                // a step the anchor lies 3.65 m from a hip that can span 2.843, so the clamp pulls the foot to
+                // 0.779 of the way back and drops it from the wall top to y 0.712 - 1.164 m inside the sacking.
+                // The arc cannot prevent that: at Swing 0 the lift is `Sin(0) * Arc` = nothing, and the foot is
+                // already inside the wall's footprint the instant it leaves the ground.
+                //
+                // So a swinging foot is floored here, after every other clamp has had its say. If the leg cannot
+                // reach that high the foot is drawn short of its span, which reads as a leg not quite reaching -
+                // and that is the honest failure, visible and already scored under W6, rather than a foot buried
+                // in a parapet.
+                if (Feet[i].Swing >= 0f)
+                {
+                    float floorY = ground(Feet[i].At.x, Feet[i].At.z);
+                    if (Feet[i].At.y < floorY) Feet[i].At.y = floorY;
+                }
             }
         }
 
-        /// <summary>How badly a leg needs to step: the worse of how far its foot has fallen behind and how much of
-        /// its length it has used up, both as a share of reach so the two can be compared.</summary>
+        /// <summary>How badly a leg needs to step: the worse of how far its foot has fallen behind and how much
+        /// FURTHER than its own resting stance it has been drawn out. Both are shares of reach, so the two can be
+        /// compared, and both are zero when the leg is standing where it wants to.
+        ///
+        /// That last part is the fix. This used to return `Max(drift/span, stretched)` with `stretched` the raw
+        /// distance from hip to foot over span — and at rest that is just `drop/span`, a STATIC property of the
+        /// leg's geometry. It is always larger than `drift/span`, which TriggerShare caps at 0.32, so the maximum
+        /// was always the static term and the sort was a fixed ranking by rig shape. The same legs were chosen
+        /// first on every tick of every walk, for ever.
+        ///
+        /// On a machine whose legs are all one length that is invisible — Pincer's six legs each held a stance of
+        /// exactly 13 ticks. On a machine with long legs at one end and short at the other it starves half the
+        /// rig: Kettle's 5.24 m front legs were held 78 ticks while its 4.48 m rear legs cycled every 7 and
+        /// chattered a foot down for a single tick 18 times in 20 seconds; Redoubt's 6.53 m front legs were held
+        /// 104 ticks against 13 at the back. The short legs have a higher drop/span, so they always sorted first,
+        /// took every step, and came straight back to the top of the queue.
+        ///
+        /// Measuring each leg against its own resting extension puts every leg at zero when it is comfortable, so
+        /// the order reflects which foot actually needs to move.</summary>
         float Urgency(TankModel.LegRig rig, Quaternion body, Vector3 pos, float yaw, int i)
         {
             if (rig.Reach <= 1e-4f || MaxSpan(rig) <= 1e-4f) return 0f;
             float span = Mathf.Max(1e-4f, MaxSpan(rig));
+            Vector3 hip = HipAt(rig, pos, yaw);
             float drift = Drift(rig, body, pos, i) / span;
-            float stretched = Vector3.Distance(Feet[i].Anchor, HipAt(rig, pos, yaw)) / span;
-            return Mathf.Max(drift, stretched);
+            float stretched = Vector3.Distance(Feet[i].Anchor, hip) / span;
+            float rest = Vector3.Distance(Home(rig, body, pos, i), hip) / span;
+            return Mathf.Max(drift, stretched - rest);
         }
 
         /// <summary>How far a planted foot has fallen from where it wants to stand, on the flat.</summary>
@@ -536,8 +572,15 @@ namespace TW.Presentation.Tactical
                 fitRoll = -Mathf.Atan(b);                   // Settle's sense: left up is positive
             }
             // too few feet down to say anything about the ground: keep the last plane they made rather than the
-            // last answer we gave, or the lean below compounds on itself
-            float wantPitch = fitPitch, wantRoll = fitRoll;
+            // last answer we gave, or the lean below compounds on itself.
+            //
+            // The ground FIT and the two LEANS below are now kept apart, and the reason is a fault this file
+            // shipped with. The leg-slack cap further down is derived for the fit alone — a hip may not be swung
+            // further than the leg beneath it can follow the ground. The lost-leg sag and the turn bank are not
+            // ground tracking and are not bounded by that argument, but they used to ride the same clamp, which
+            // quietly cut Banner's damage lean from the 9.2 degrees it is authored for to about 4. They are held
+            // here, added after the fit is capped, and bounded only by what the hull may be drawn at.
+            float leanP = 0f, leanR = 0f;
 
             // the legs it has lost pull it over: nothing holds that corner up any more
             Vector3 hole = Vector3.zero;
@@ -551,8 +594,8 @@ namespace TW.Presentation.Tactical
                 hole = hole.normalized * Mathf.Min(1f, Limp * 2f);
                 // hole points at the missing legs. Forward is +z, the machine's left is -x, and roll is positive
                 // left-up — so losing the front drops the nose and losing the left drops the left.
-                wantPitch -= hole.z * 0.13f;
-                wantRoll += hole.x * 0.16f;
+                leanP -= hole.z * 0.13f;
+                leanR += hole.x * 0.16f;
             }
 
             // A machine going round a corner leans into it. Nothing in this file did that: `yawRate` reached it
@@ -568,7 +611,7 @@ namespace TW.Presentation.Tactical
             // (yawRate > 0) lifts the left side, which is banking INTO the turn. It rides through the same clamp
             // and the same filter as everything else here, and it moves only what is drawn - no foot is placed
             // from Roll.
-            wantRoll += yawRate * pace * TurnLean;
+            leanR += yawRate * pace * TurnLean;
 
             // The tilt is settled FIRST, because how far each hip is from its foot depends on it. A hip a metre and
             // a quarter above the body's middle swings a good part of a foot when the machine leans, and reaches
@@ -580,6 +623,17 @@ namespace TW.Presentation.Tactical
             // a 2.352 m leg, the worst lever on the field by a factor of two, so it can afford about 4 degrees where
             // Pincer affords 11. Letting it attempt the whole ground angle is what put 9.74% of its legs outside the
             // stretch band when the fit above was first tried on its own.
+            //
+            // The cap as first written failed OPEN in three places, all of them silently and all of them in the
+            // permissive direction. Two are fixed here and the third turns out to be correct:
+            //  - `slack <= 0` used to `continue`, so the one leg with no room to follow the tilt dropped out of
+            //    the minimum entirely and the cap stayed at the wide default. The old comment said "the clamps
+            //    below still hold", which was simply wrong — the clamps below ARE this number.
+            //  - a missing home offset fell back to 0, which UNDERSTATES the hip-to-foot distance and so
+            //    OVERSTATES the slack. Missing data must shrink a safety bound, never widen it.
+            //  - a `Lost` leg still drops out, and that is right: a destroyed leg has no ground to reach, so it
+            //    genuinely stops constraining the hull. It is also why a limping machine is allowed to sag
+            //    further than an intact one, which is what the lost-leg lean is for.
             float capP = 0.42f, capR = 0.38f, standNow = Stand(rigs);
             for (int i = 0; i < rigs.Length; i++)
             {
@@ -587,14 +641,26 @@ namespace TW.Presentation.Tactical
                 if (cr == null || Feet[i].Lost) continue;
                 float cspan = MaxSpan(cr);
                 if (cspan <= 1e-4f) continue;
-                float cdrop = standNow + cr.Hip.y, chf = i < homeFlat.Length ? homeFlat[i] : 0f;
-                float slack = cspan * StepSafety - Mathf.Sqrt(chf * chf + cdrop * cdrop);
-                if (slack <= 0f) continue;                     // already at its limit: the clamps below still hold
+                float reach = cspan * StepSafety;
+                float cdrop = standNow + cr.Hip.y, chf = i < homeFlat.Length ? homeFlat[i] : reach;
+                float slack = reach - Mathf.Sqrt(chf * chf + cdrop * cdrop);
+                // A leg the rig cannot stand on at all — `Rise` saturated its home offset to zero AND it is
+                // already past its reach — tracks no ground and must not be allowed to weld the hull level.
+                // Redoubt's front pair is exactly this, and letting it cap the tilt would draw Redoubt dead flat
+                // on every slope, which is the fault this whole change set out to fix.
+                if (chf <= 0f && slack <= 0f) continue;
+                slack = Mathf.Max(0f, slack);
                 capP = Mathf.Min(capP, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Hip.z)));
                 capR = Mathf.Min(capR, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Hip.x)));
             }
-            Pitch = Mathf.Lerp(Pitch, Mathf.Clamp(wantPitch, -capP, capP), k2);
-            Roll = Mathf.Lerp(Roll, Mathf.Clamp(wantRoll, -capR, capR), k2);
+            // ...but a reachable leg standing at its limit now yields a cap of zero, and a hull welded rigid
+            // reads worse than one that leans a little too far. Two degrees is the floor.
+            capP = Mathf.Max(capP, 0.035f);
+            capR = Mathf.Max(capR, 0.035f);
+
+            // the fit is capped by the legs; the leans are added on top and bounded only by the hull
+            Pitch = Mathf.Lerp(Pitch, Mathf.Clamp(Mathf.Clamp(fitPitch, -capP, capP) + leanP, -0.42f, 0.42f), k2);
+            Roll = Mathf.Lerp(Roll, Mathf.Clamp(Mathf.Clamp(fitRoll, -capR, capR) + leanR, -0.38f, 0.38f), k2);
 
             float height = meanY + Stand(rigs);
             // and now the two bounds against the feet as they actually lie, with the hips where the lean has

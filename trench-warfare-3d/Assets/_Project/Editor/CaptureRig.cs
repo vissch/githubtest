@@ -43,6 +43,7 @@ namespace TW.Editor
                 public Vector2 Focus; public float Zoom, Yaw, Pitch;
                 public int W = 1600, H = 900;
                 public int Gap;        // frames to let run after this shot before the next one: how a series is spaced
+                public float AimY = float.NaN;   // look at THIS world height, not the default; NaN keeps the default
                 public bool Posed;
                 public Vector3 Want;   // the pose the rig computed, so a still can prove it was taken from where it claims
             }
@@ -51,12 +52,29 @@ namespace TW.Editor
             /// one-frame fault was found, and it is the first thing to turn on when a still looks wrong.</summary>
             public static bool Verbose;
 
+            /// <summary>Force the base yaw a pose is built from, instead of reading the tactical camera's own.
+            /// NaN (the default) keeps the existing behaviour exactly.
+            ///
+            /// A set is posed from `tc.BaseYaw + shot.Yaw`, and the tactical camera eases BaseYaw by itself
+            /// whenever it is enabled — which is every frame between one queue draining and the next being filled.
+            /// For a single still that does not matter. For a locked-off strip meant to measure whether a foot
+            /// slides, it does: the drift measured 0.0435 degrees, which at a 68 m standoff moves the camera
+            /// 0.05-0.17 m, the same order as the foot displacement being measured. Pinning it outside the rig
+            /// only half worked, because the pin is written one frame before the pose is taken and the camera
+            /// moves again in between.</summary>
+            public static float YawPin = float.NaN;
+
             public readonly Queue<Shot> Queue = new Queue<Shot>();
             public string Last = "", LastJson = "";
             bool running;
+            Shot toRender;      // batch mode only: rendered from LateUpdate, which is the whole point — see Run()
 
             void LateUpdate()
             {
+                // This component is [DefaultExecutionOrder(30000)], so this LateUpdate is the LAST one in the frame:
+                // every renderer that submits its meshes in its own LateUpdate has already done so for THIS frame.
+                // That is the only moment a batch-mode capture can render (see the note in Run()).
+                if (toRender != null) { var s = toRender; toRender = null; Render(s); }
                 if (!running && Queue.Count > 0) StartCoroutine(Run());
             }
 
@@ -74,7 +92,16 @@ namespace TW.Editor
                 running = true;
                 var tc = FindFirstObjectByType<TacticalCamera>();
                 var cam = Camera.main;
-                if (tc == null || cam == null) { Queue.Clear(); running = false; yield break; }
+                // This used to clear the queue and return in silence, which from batch mode looks exactly like a
+                // successful run that wrote no files. Say which one is missing.
+                if (tc == null || cam == null)
+                {
+                    Debug.LogError("[rig] nothing to shoot through: "
+                        + (tc == null ? "no TacticalCamera in the scene" : "")
+                        + (tc == null && cam == null ? " and " : "")
+                        + (cam == null ? "no Camera.main (is a camera tagged MainCamera and enabled?)" : ""));
+                    Queue.Clear(); running = false; yield break;
+                }
 
                 bool keepEnabled = tc.enabled;
                 float keepZoom = tc.Zoom; Vector2 keepFocus = tc.Focus; float keepFov = cam.fieldOfView;
@@ -86,8 +113,27 @@ namespace TW.Editor
                     var shot = Queue.Dequeue();
                     Pose(tc, cam, shot);
                     yield return null;                        // a whole frame, so everything that culls or scales
-                    yield return new WaitForEndOfFrame();     // against the camera has seen this pose
-                    Render(shot);
+                                                              // against the camera has seen this pose
+                    if (!Application.isBatchMode)
+                    {
+                        yield return new WaitForEndOfFrame();
+                        Render(shot);
+                    }
+                    else
+                    {
+                        // Batch mode has no end of frame to wait for — no swap chain — so WaitForEndOfFrame never
+                        // resumes and a batch capture used to hang here forever, drain no queue and write no PNG, in
+                        // silence. Rendering straight from the coroutine instead does NOT work either, and the way it
+                        // fails is worth writing down because it cost three capture runs: a coroutine resumes during
+                        // Update, BEFORE every LateUpdate in that frame. The tanks, the men and the effects are all
+                        // submitted with Graphics.DrawMesh* from their own LateUpdate and last only the frame they
+                        // are submitted in, so a Camera.Render() called from Update draws the scene's real
+                        // MeshRenderers — terrain, props, bunkers — and NOTHING that is drawn procedurally. The
+                        // stills come back looking correct and complete, with every machine and every man missing.
+                        // So the render is handed to this component's own LateUpdate, which is ordered last.
+                        toRender = shot;
+                        while (toRender != null) yield return null;
+                    }
                     for (int k = 0; k < shot.Gap; k++) yield return null;   // let the world move on between stills
                 }
 
@@ -110,11 +156,16 @@ namespace TW.Editor
                 float fov = Mathf.Lerp(tc.Fov, tc.CloseFov, close);
                 cam.fieldOfView = fov; cam.nearClipPlane = 0.2f;
                 float pitch = Mathf.Clamp(shot.Pitch, tc.PitchMin, tc.PitchMax);
-                var rot = Quaternion.Euler(pitch, tc.BaseYaw + shot.Yaw, 0f);
+                var rot = Quaternion.Euler(pitch, (float.IsNaN(YawPin) ? tc.BaseYaw : YawPin) + shot.Yaw, 0f);
                 float distance = tc.Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
                 var host = FindFirstObjectByType<SimHost>();
                 float ground = host != null && host.Local != null ? host.Local.Map.Height.Sample(shot.Focus.x, shot.Focus.y) : 0f;
-                var aim = new Vector3(shot.Focus.x, ground * close + 1.1f * close, shot.Focus.y);
+                // The default aim height is `ground * close + 1.1 * close`, and `close` is 0 for any zoom at or above
+                // CloseZoom — so at an ordinary zoom the camera looks at WORLD y = 0 regardless of how high the
+                // ground is. That is fine for a wide view of a field near sea level and wrong for framing one object
+                // standing on raised ground: it walks off the top of the picture. AimY overrides it.
+                float aimY = float.IsNaN(shot.AimY) ? ground * close + 1.1f * close : shot.AimY;
+                var aim = new Vector3(shot.Focus.x, aimY, shot.Focus.y);
                 shot.Want = aim - rot * Vector3.forward * distance;
                 cam.transform.SetPositionAndRotation(shot.Want, rot);
                 if (Verbose) Debug.Log($"[rig] posed {Path.GetFileName(shot.Path)} frame={Time.frameCount} want={shot.Want} zoom={tc.Zoom} fov={fov}");
@@ -294,9 +345,10 @@ namespace TW.Editor
         }
 
         /// <summary>Queue one still. Posed this frame, photographed the next, camera put back when the queue drains.</summary>
-        public static string Shot(string path, float x, float z, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900)
+        public static string Shot(string path, float x, float z, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900,
+                                  float aimY = float.NaN)
         {
-            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h });
+            Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY });
             return "queued " + path;
         }
 
@@ -344,14 +396,15 @@ namespace TW.Editor
         /// sequence instead of guessed at from one lucky frame. Writes stem_00.png, stem_01.png ... and a .json each.
         /// </summary>
         public static string Series(string dir, string stem, float x, float z, float zoom, float yaw,
-                                    float pitch = 25f, int count = 8, int everyFrames = 6, int w = 1600, int h = 900)
+                                    float pitch = 25f, int count = 8, int everyFrames = 6, int w = 1600, int h = 900,
+                                    float aimY = float.NaN)
         {
             for (int i = 0; i < count; i++)
                 Get().Queue.Enqueue(new Rig.Shot
                 {
                     Path = Path.Combine(dir, stem + "_" + i.ToString("00") + ".png"),
                     Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch,
-                    W = w, H = h, Gap = i == count - 1 ? 0 : everyFrames,
+                    W = w, H = h, Gap = i == count - 1 ? 0 : everyFrames, AimY = aimY
                 });
             return "queued " + count + " frames of " + stem;
         }

@@ -1,0 +1,37 @@
+{
+  "name": "TW.Tests.Stills",
+  "rootNamespace": "TW.Tests",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "TW.Sim.Core",
+    "TW.Sim.Match",
+    "TW.Sim.Terrain",
+    "TW.Sim.Nav",
+    "TW.Sim.Units",
+    "TW.Net",
+    "TW.Data",
+    "TW.UI",
+    "TW.Presentation.Core",
+    "TW.Presentation.Camera",
+    "TW.Presentation.Terrain",
+    "TW.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
