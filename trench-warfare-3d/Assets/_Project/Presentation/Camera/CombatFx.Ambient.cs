@@ -66,7 +66,7 @@ namespace TW.Presentation.Tactical
         void Ambient(float now)
         {
             var cam = Camera.main; if (cam == null) return;
-            Vector3 look = cam.transform.position + cam.transform.forward * (cam.transform.position.y / Mathf.Max(0.15f, -cam.transform.forward.y));
+            Vector3 look = ViewGround.Point(cam.transform);
             if (now >= nextKick)
             {
                 nextKick = now + 0.2f;

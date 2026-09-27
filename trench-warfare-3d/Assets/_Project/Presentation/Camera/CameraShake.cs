@@ -71,7 +71,7 @@ namespace TW.Presentation.Tactical
         {
             using var perf = TW.Sim.PerfMarkers.FxShake.Auto();
             var t = transform;
-            viewDistance = t.position.y / Mathf.Max(0.15f, -t.forward.y);
+            viewDistance = ViewGround.Distance(t);
             lookPoint = t.position + t.forward * viewDistance;
             lens = t.position;
             if (Time.timeScale <= 0.001f) return;   // frozen by lightning: the picture holds still (the kicks wait)

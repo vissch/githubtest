@@ -260,7 +260,7 @@ namespace TW.Presentation.Terrain
                 if (focus.active != on) focus.active = on;
                 if (on)
                 {
-                    float reach = cam.transform.position.y / Mathf.Max(0.12f, -cam.transform.forward.y);   // to the ground the view looks at
+                    float reach = ViewGround.Distance(cam.transform, 0.12f);   // to the ground the view looks at
                     focus.gaussianStart.Override(reach * 2.2f + 8f); focus.gaussianEnd.Override(reach * 6f + 40f);
                     focus.gaussianMaxRadius.Override(0.9f * lens);
                 }
@@ -284,8 +284,7 @@ namespace TW.Presentation.Terrain
             shadeNow = Color.Lerp(ShadeTint, Profile.FlashShade, flash * .4f);
             flashNow = flash;
             float height = Mathf.Max(1f, cam.transform.position.y);
-            float pitch = Mathf.Max(0.12f, -cam.transform.forward.y);
-            float toFocus = height / pitch;   // distance to the ground along the view
+            float toFocus = ViewGround.Along(height, cam.transform.forward, 0.12f);   // distance to the ground along the view
             RenderSettings.fogStartDistance = toFocus * StartFactor;
             // a squall closes the distance in: the far ground sinks into the rain
             float squall = Rain > 0f ? Mathf.Clamp01(RainNow / (Rain * 1.25f)) : 0f;

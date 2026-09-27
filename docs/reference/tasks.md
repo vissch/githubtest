@@ -285,7 +285,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Camera
 - **Files:** `Presentation/Camera/TacticalCamera.cs` (standard view: fov 25, pitch 25, zoom 30; `FrameFrom`),
-  `Presentation/Camera/CameraShake.cs`, `Editor/GameViewFit.cs`.
+  `Presentation/Camera/CameraShake.cs`, `Editor/GameViewFit.cs`. Where the view meets the ground (the shake, ambient
+  kicks, storm bolts, fog and focus distance): `Presentation/Core/ViewGround.cs`.
+- **Tests:** ViewGroundTests (also fails when a presentation file writes the formula out again; Rain and NightLights
+  still have their own copy until their lanes land).
 - **Trap:** setting `Camera.main.transform` does nothing; the controller overwrites it every frame. Use `FrameFrom`.
 
 ## Interface (SHOW lane)
@@ -370,6 +373,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** never clear `SceneHooks` or `HudBridge`'s `PointerOverUi` / `WheelClaimed` from `SceneStatics.Reset`:
   it runs after the new scene has wired its hooks, and `HudBootstrap` may already have built the HUD.
 
+### Fresh-clone setup
+- **Files:** `Editor/BootstrapSceneBuilder.cs` (`SetupAll` runs only the steps whose output is missing; its menu items
+  ask before replacing the committed URP asset or scenes).
+- **Tests:** FreshCloneSetupTests (on this repo SetupAll would replace nothing).
+
 ### Performance and allocations
 - **Files:** `Perf/PerfBench.cs`, `Perf/BenchOptions.cs` (every bench option is parsed in `Parse`: the list of
   keys), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
@@ -412,6 +420,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AllocProbeSanityTests, BattlefieldLockstepTests, BattlefieldTests, BiomeProfileTests, BlastReactionTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FlowFieldManagerTests, FlowFieldTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, SceneStaticsTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, StaticLifecycleTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, WinterLevelTests, WinterMapTests
+- **EditMode:** AllocProbeSanityTests, BattlefieldLockstepTests, BattlefieldTests, BiomeProfileTests, BlastReactionTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FlowFieldManagerTests, FlowFieldTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, SceneStaticsTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, StaticLifecycleTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 <!-- /gen:tests -->

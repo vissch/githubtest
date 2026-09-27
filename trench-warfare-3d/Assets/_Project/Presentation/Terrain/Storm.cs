@@ -129,8 +129,7 @@ namespace TW.Presentation.Terrain
         {
             var cam = Camera.main; if (cam == null) return;
             var t = cam.transform;
-            float toGround = t.position.y / Mathf.Max(.15f, -t.forward.y);
-            Vector3 look = t.position + t.forward * toGround;
+            Vector3 look = ViewGround.Point(t);
             // The camera never sees the sky, so the strike is aimed at the picture: a point in the upper part of the frame is
             // followed down to the ground, and the bolt lands there, its trunk running up and out of the top of the view.
             var ray = cam.ViewportPointToRay(new Vector3(Random.Range(.12f, .88f), Random.Range(.60f, .92f), 0f));
