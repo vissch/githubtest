@@ -76,6 +76,21 @@ namespace TW.UI
 
         protected override void OnUnbind() { if (thumb != null) { Discard(thumb); thumb = null; } }
 
+        /// <summary>Back from the Home Front: what was bought there shows (the roster's tiers, a new unlock), and the picks
+        /// that are still on offer stay picked (it kept the profile it bound with: critic r5).</summary>
+        public override void OnUncovered()
+        {
+            if (mission == null) return;
+            profile = given ?? ProfileStore.Current;
+            uint kept = picks;
+            BuildRoster();
+            BuildAbilities();
+            picks = kept & FactionBuildings.AbilityMask(profile, Faction);
+            RefreshAbilities();
+            SetDifficulty(difficulty);
+            Root.Q<Button>("btn-deploy")?.SetEnabled(CampaignGraph.CanFight(node, index, profile));
+        }
+
         public void SetDifficulty(int d)
         {
             difficulty = Mathf.Clamp(d, 0, CampaignDifficulty.Standard.Length - 1);
@@ -173,10 +188,11 @@ namespace TW.UI
             if (mission == null) return null;
             var r = mission.Build(CampaignGraph.MissionId(node, index), difficulty);
             FactionBuildings.ApplyTo(r, profile, Faction);
-            r.FactionA = Faction; r.FactionB = node.EnemyFaction;
+            // the enemy is the other side: every node names Brass, so a player who took the Brass tab fought Brass (critic r5)
+            r.FactionA = Faction; r.FactionB = (byte)(Faction == 0 ? 1 : 0);
             // no picks: the base two, not every unlock (which made picking two strictly worse than picking none: critic r5)
             r.AbilityMaskA = picks != 0 ? picks : FactionBuildings.BaseAbilityMask;
-            r.AbilityMaskB = FactionBuildings.AbilityMask(new CampaignProfile(), node.EnemyFaction);
+            r.AbilityMaskB = FactionBuildings.AbilityMask(new CampaignProfile(), r.FactionB);
             return r;
         }
 

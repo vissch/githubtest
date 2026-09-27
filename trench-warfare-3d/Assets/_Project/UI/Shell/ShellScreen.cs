@@ -39,12 +39,13 @@ namespace TW.UI
             if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(o); else UnityEngine.Object.DestroyImmediate(o);
         }
 
-        /// <summary>Go to a screen that links back here (the Home Front and the map): when it is already right under
-        /// this one, pop back to it instead of stacking another copy.</summary>
+        /// <summary>Go to a screen that links back here (the Home Front and the map): when one is anywhere below this one,
+        /// pop back to it instead of stacking another copy (staging -> Home Front -> TO THE FRONT used to push a new map
+        /// each time, with a stale staging screen and its thumbnail under it: critic r5).</summary>
         protected void SwapTo<T>(System.Func<T> make) where T : ShellScreen
         {
             if (Router == null) return;
-            if (Router.Under is T) Router.Pop(); else Router.Push(make());
+            if (!Router.PopTo<T>()) Router.Push(make());
         }
 
         protected Button Btn(string name, System.Action onClick)

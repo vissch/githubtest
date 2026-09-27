@@ -12,7 +12,7 @@ namespace TW.UI
     {
         public static readonly string[] Rows = { "men-lost", "vehicles-lost", "men-fielded", "kills", "shots", "accuracy", "silver-earned", "silver-left", "trenches-taken", "trenches-held", "objectives-held", "abilities-fired" };
         public static readonly string[] RequiredNames = { "debrief-plate", "result", "result-sub", "stats-table", "duration", "seed-line", "gold-row", "gold-earned", "gold-total", "btn-replay", "btn-restart", "btn-view-field", "btn-continue" };
-        public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN";
+        public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldForADraw = "NO GOLD FOR A DRAW", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN";
         public override bool HidesHud => !viewing;
 
         readonly MatchReport report;
@@ -59,12 +59,12 @@ namespace TW.UI
                 var node = CampaignGraph.Find(CampaignSession.NodeId);
                 if (node != null && profile.Complete(node.Id, CampaignSession.MissionIndex)) { earned = CampaignGraph.Reward(node, CampaignSession.MissionIndex); profile.Gold += earned; paid = true; }
                 profile.LastNode = CampaignSession.NodeId;
-                CampaignSession.Awarded = true; CampaignSession.LastAward = earned;
+                CampaignSession.Awarded = true; CampaignSession.LastAward = earned; CampaignSession.AwardedFor = report;
                 ProfileStore.Save(profile);
             }
-            else if (won) { earned = CampaignSession.LastAward; paid = earned > 0; }
+            else if (won) { earned = CampaignSession.LastAward; paid = earned > 0 && ReferenceEquals(CampaignSession.AwardedFor, report); }   // only this match's debrief shows what it paid
             row?.EnableInClassList("tw-hidden", false);
-            SetText("gold-earned", !won ? NoGoldForADefeat : paid ? "GOLD " + earned.ToString("+#;-#;0") : NoGoldAgain);
+            SetText("gold-earned", !won ? (report.Winner < 0 ? NoGoldForADraw : NoGoldForADefeat) : paid ? "GOLD " + earned.ToString("+#;-#;0") : NoGoldAgain);
             SetText("gold-total", "WAR CHEST " + profile.Gold + " GOLD");
             var cont = Root.Q<Button>("btn-continue");
             if (cont != null) cont.text = ToTheMap;

@@ -99,6 +99,17 @@ namespace TW.UI
             ApplyHolds();
         }
 
+        /// <summary>Pops down to the nearest screen of a kind below the top, if there is one (true), so a link back to it
+        /// from further up the stack does not stack another copy.</summary>
+        public bool PopTo<T>() where T : ShellScreen
+        {
+            int at = -1;
+            for (int i = stack.Count - 2; i >= 0; i--) if (stack[i] is T) { at = i; break; }
+            if (at < 0) return false;
+            while (stack.Count - 1 > at) Pop();
+            return true;
+        }
+
         public void Pop()
         {
             if (stack.Count == 0) return;

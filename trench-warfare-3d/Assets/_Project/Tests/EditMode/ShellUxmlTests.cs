@@ -142,6 +142,43 @@ namespace TW.Tests
             finally { CampaignSession.Clear(); }
         }
 
+        /// <summary>The map keeps the mission the player chose when its node is selected again (back from staging, a rebuild
+        /// of the list): it reset to the node's next mission every time (critic r5).</summary>
+        /// <summary>The enemy is the other side, whichever the player took (every node named Brass: Brass fought Brass).</summary>
+        [Test]
+        public void PlayingBrassFightsIron()
+        {
+            var profile = new CampaignProfile { Faction = 1 };
+            var staging = new StagingScreen(profile, "lowlands", 0);
+            staging.Bind(Instantiate("Staging", "Assets/_Project/UI/Resources/Shell/"), null);
+            try
+            {
+                var r = staging.BuildRequest();
+                Assert.That(r.FactionA, Is.EqualTo(1)); Assert.That(r.FactionB, Is.EqualTo(0), "Brass fights Iron");
+            }
+            finally { staging.Unbind(); }
+        }
+
+        [Test]
+        public void TheMapKeepsTheChosenMissionWhenItsNodeIsSelectedAgain()
+        {
+            var profile = new CampaignProfile();
+            profile.Complete("lowlands", 0); profile.Complete("lowlands", 1);
+            var map = new StrategicMapScreen(profile);
+            map.Bind(Instantiate("StrategicMap", "Assets/_Project/UI/Resources/Shell/"), null);
+            try
+            {
+                map.Select("lowlands");
+                Assert.That(map.Mission, Is.EqualTo(2), "a node opens on its next mission");
+                map.SelectMission(0);   // a replay of the first
+                map.Select("lowlands");
+                Assert.That(map.Mission, Is.EqualTo(0), "the choice survives the node being selected again");
+                map.OnUncovered();
+                Assert.That(map.Mission, Is.EqualTo(0), "and coming back to the map");
+            }
+            finally { map.Unbind(); }
+        }
+
         [Test]
         public void ADebriefPaysCampaignGoldOnce()
         {
@@ -162,8 +199,14 @@ namespace TW.Tests
                 Assert.That(root.Q("gold-row").ClassListContains("tw-hidden"), Is.False);
                 screen.Unbind();
 
-                var again = new DebriefScreen(new MatchReport { Winner = 0 }); again.Bind(Instantiate("Debrief"), null); again.Unbind();
+                var rebound = Instantiate("Debrief"); screen.Bind(rebound, null);   // the same debrief bound again (VIEW FIELD and back)
+                Assert.That(rebound.Q<Label>("gold-earned").text, Does.Contain("+" + CampaignGraph.RewardFirst), "a re-bind shows what that win paid");
+                screen.Unbind();
+                var againRoot = Instantiate("Debrief");
+                var again = new DebriefScreen(new MatchReport { Winner = 0 }); again.Bind(againRoot, null);   // RESTART, won again
                 Assert.That(profile.Gold, Is.EqualTo(10 + CampaignGraph.RewardFirst), "a re-bind (RESTART, VIEW FIELD) pays nothing more");
+                Assert.That(againRoot.Q<Label>("gold-earned").text, Is.EqualTo(DebriefScreen.NoGoldAgain), "the restarted match's win says so (it showed GOLD +25, paying nothing)");
+                again.Unbind();
 
                 CampaignSession.Begin("lowlands", 0, 0);
                 var replay = new DebriefScreen(new MatchReport { Winner = 0 }); var replayRoot = Instantiate("Debrief"); replay.Bind(replayRoot, null);
@@ -176,6 +219,9 @@ namespace TW.Tests
                 Assert.That(profile.IsComplete("lowlands", 1), Is.False, "a defeat records nothing");
                 Assert.That(lostRoot.Q<Label>("gold-earned").text, Is.EqualTo(DebriefScreen.NoGoldForADefeat));
                 lost.Unbind();
+                var drawn = new DebriefScreen(new MatchReport { Winner = -1 }); var drawnRoot = Instantiate("Debrief"); drawn.Bind(drawnRoot, null);
+                Assert.That(drawnRoot.Q<Label>("gold-earned").text, Is.EqualTo(DebriefScreen.NoGoldForADraw), "a draw is not called a defeat");
+                drawn.Unbind();
 
                 CampaignSession.Clear();
                 var skirmish = new DebriefScreen(new MatchReport { Winner = 0 }); var skRoot = Instantiate("Debrief"); skirmish.Bind(skRoot, null);

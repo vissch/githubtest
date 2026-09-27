@@ -109,8 +109,11 @@ namespace TW.UI
         {
             var n = CampaignGraph.Find(id);
             if (n == null) return;
+            // the same node again (coming back from staging, a rebuild of the list) keeps the mission the player chose, while
+            // it can still be fought; a new node opens on its next mission (it reset to the next one every time: critic r5)
+            bool same = id == Selected && Mission >= 0 && Mission < n.Missions.Length && CampaignGraph.CanFight(n, Mission, profile);
             Selected = id; CampaignSession.MapNode = id;
-            Mission = CampaignGraph.NextMission(n, profile);
+            if (!same) Mission = CampaignGraph.NextMission(n, profile);
             foreach (var r in rows) r.EnableInClassList("tw-list-row--selected", r.name == "row-" + id);
             if (view != null)
             {

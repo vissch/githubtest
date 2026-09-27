@@ -13,6 +13,9 @@ namespace TW.Presentation
         public static bool Awarded;
         /// <summary>What the debrief paid, so a re-bind shows the same figure.</summary>
         public static int LastAward;
+        /// <summary>The match report the gold was paid for: a re-bind of that debrief shows the figure again; the debrief of
+        /// a restarted match that is won again says no gold (it showed "GOLD +25", paying nothing: critic r5).</summary>
+        public static object AwardedFor;
         /// <summary>The debrief's CONTINUE asked for the map: the main menu pushes it when it binds after the scene
         /// load. Survives Clear (which runs on the way to the menu) and is consumed by the menu.</summary>
         public static bool ResumeMap;
@@ -25,9 +28,9 @@ namespace TW.Presentation
 
         public static void Begin(string nodeId, int missionIndex, byte faction)
         {
-            NodeId = nodeId ?? ""; MissionIndex = missionIndex; Faction = faction; Awarded = false; LastAward = 0;
+            NodeId = nodeId ?? ""; MissionIndex = missionIndex; Faction = faction; Awarded = false; LastAward = 0; AwardedFor = null;
         }
 
-        public static void Clear() { NodeId = ""; MissionIndex = -1; Faction = 0; Awarded = false; LastAward = 0; MapNode = null; HomeBuilding = null; }
+        public static void Clear() { NodeId = ""; MissionIndex = -1; Faction = 0; Awarded = false; LastAward = 0; AwardedFor = null; MapNode = null; HomeBuilding = null; }
     }
 }
