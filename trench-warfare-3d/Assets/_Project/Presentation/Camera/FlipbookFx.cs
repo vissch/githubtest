@@ -354,6 +354,46 @@ namespace TW.Presentation.Tactical
             m.SetFloat("_Erode", 1f);
             m.SetFloat("_BurstLit", Mathf.Lerp(1f, SoilFire, soil));
         }
+
+        // AOSA C108 (juice J01, split from C103: the smallest change): at night the column still reads as see-through orange
+        // arcs, "flame or spray, never soil", partly over men (runs 9/batch9-critic.md). From the code: NightEarth paints it
+        // #3B2A1E at value 0.22 but leaves _BurstLit 1, so the shader ADDS lerp(ink, 1, 0.3) x TWBurstLight x _Lit (0.6) to
+        // that dark brown: the burst's orange outweighs the earth wherever it reaches, and on the thin late arcs (low
+        // alpha, light ink) orange is all there is. C103 fixed it (columns over men 3 up / 7 equal / 0 down) but only inside
+        // its whole redesign, which left the earth score flat. Its two parts as knobs of their own, on the old column,
+        // on a moonlit field only (as C57; the day column and the Splash are untouched), read once in CombatFx.Awake:
+        //   fx.columnBurstLit  the Column book's share of the burst's light (its _BurstLit). 1 = today (nothing is set, the
+        //                      shader skips the line); C103 used SoilFire 0.3. fx.columnSoil above 0 sets its own share.
+        //   fx.columnCap       how far the old column is capped over men behind it (C103's SoilCap, its top at the nearest
+        //                      man's feet, never below SoilLow): the card's height x lerp(1, cap, knob). 0 = today (the old
+        //                      Add, no search for men). With fx.columnSoil above 0 the heave's own cap applies instead.
+        // No book, material, mesh or draw is added: the Column book's own material and card.
+        public const string ColumnBurstLitKnob = "fx.columnBurstLit", ColumnCapKnob = "fx.columnCap";
+        public const float DefaultColumnBurstLit = 1f, OldColumnBurstLit = 1f;   // off until a blind 2-way against the default passes (rule 6)
+        public const float DefaultColumnCap = 0f, OldColumnCap = 0f;
+        public const float ColumnGrow = 0.35f;   // the old column's grow (CombatFx): its card ends 1.35x as tall as it is born
+
+        /// <summary>fx.columnBurstLit, in [0, 1] (1 = today).</summary>
+        public static float ReadColumnBurstLit() => Mathf.Clamp01(Knobs.Get(ColumnBurstLitKnob, DefaultColumnBurstLit));
+
+        /// <summary>fx.columnCap, in [0, 1] (0 = today).</summary>
+        public static float ReadColumnCap() => Mathf.Clamp01(Knobs.Get(ColumnCapKnob, DefaultColumnCap));
+
+        /// <summary>The height factor of the old column's card: 1 at knob 0 (exactly), C103's cap at knob 1.</summary>
+        public static float ColumnCapScale(float knob, float cap) => knob <= 0f ? 1f : Mathf.Lerp(1f, cap, knob);
+
+        /// <summary>AOSA C108: the Column book's share of the burst's light (see ColumnBurstLitKnob). Called after
+        /// NightEarth and before SoilEarth, on a moonlit field only; 1 sets nothing.</summary>
+        public void ColumnBurstLit(float share)
+        {
+            if (share >= 1f) return;
+            var m = mats[(int)Book.Column];
+            if (m == null) return;
+            m.SetFloat("_BurstLit", Mathf.Clamp01(share));
+        }
+
+        /// <summary>The _BurstLit the Column book's material holds (1 when the book did not load), for the tests.</summary>
+        public float ColumnBurstLitNow => mats[(int)Book.Column] != null ? mats[(int)Book.Column].GetFloat("_BurstLit") : 1f;
         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
         readonly List<Card> cards = new List<Card>(512);
         readonly Material[] mats = new Material[(int)Book.Count];

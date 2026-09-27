@@ -142,6 +142,9 @@ namespace TW.Presentation.Tactical
         // and falls back (FlipbookFx.SoilShape, painted by FlipbookFx.SoilEarth), kept low over men behind it (SoilCap),
         // and it throws fewer, bigger, varied clods (DebrisRenderer.Heave). 0 = the old look.
         float columnSoil = FlipbookFx.DefaultColumnSoil;
+        // knobs fx.columnBurstLit and fx.columnCap (Awake, AOSA C108): C103's light and cap on the old column, on a moonlit
+        // field (FlipbookFx.ColumnBurstLit, from ApplyTints; FlipbookFx.ColumnCapScale where the column is thrown). 1 and 0 = today.
+        float columnBurstLit = FlipbookFx.DefaultColumnBurstLit, columnCap = FlipbookFx.DefaultColumnCap;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -227,6 +230,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.ColumnBurstLit(columnBurstLit);   // AOSA C108: before C103's (1 sets nothing)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.SoilEarth(columnSoil, columnEarth);   // AOSA C103: over C57's paint (soil 0 sets nothing)
             if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
             if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
@@ -297,6 +301,8 @@ namespace TW.Presentation.Tactical
             smokeNightWarm = FlipbookFx.ReadNightWarm();
             smokeNightFire = FlipbookFx.ReadNightFire();
             columnSoil = FlipbookFx.ReadColumnSoil();
+            columnBurstLit = FlipbookFx.ReadColumnBurstLit();
+            columnCap = FlipbookFx.ReadColumnCap();
         }
 
         void Start()
@@ -745,6 +751,14 @@ namespace TW.Presentation.Tactical
                             float behind = MenBehind(p, columnWidth * FlipbookFx.SoilWidth * 1.08f * 0.3f + 0.4f, reach * 3f, out float tanPitch);
                             books.Add(FlipbookFx.Book.Column, p, columnWidth, Mathf.Lerp(1.8f, FlipbookFx.SoilLife, soil), ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: 1f, pop: 0.15f,
                                 soil: soil, soilCap: FlipbookFx.SoilCap(behind, tanPitch, reach));
+                        }
+                        else if (!wet && columnCap > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
+                        {
+                            // AOSA C108: the old column, its card capped over men behind it as C103's heave (FlipbookFx.ColumnCapScale)
+                            float tall = books.CardHeight(FlipbookFx.Book.Column, columnWidth), reach = tall * (1f + FlipbookFx.ColumnGrow);
+                            float behind = MenBehind(p, columnWidth * (1f + FlipbookFx.ColumnGrow) * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                            books.Add(FlipbookFx.Book.Column, p, columnWidth, 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: FlipbookFx.ColumnGrow, alpha: 1f, pop: 0.15f,
+                                height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)));
                         }
                         else
                         books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
