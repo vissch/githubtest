@@ -307,8 +307,32 @@ namespace TW.Presentation.Tactical
                         // Twenty-eight frames, so the card lives long enough to play them. Chasing the old sheet's annulus down to
             // ten frames left a tank going up rendering nearly four times smaller and forty luminance darker than an
             // ambient campfire burning behind it in the same shot - the event was over before the eye arrived.
-            books.Add(FlipbookFx.Book.Blast, at + new Vector3(-0.95f, 1.15f, -0.35f), 7.2f, 2.33f,
-                      velocity: Vector3.up * 0.9f, grow: 0.35f, glow: glow, pop: 0.15f, roll: Lean());
+            // A COLUMN, not a ball. Measured in the same camera against the flamethrower burst, a tank's ammunition
+            // going up was rendering 1.7 to 2.2 times SMALLER than one man's jet, and shorter than a single burning
+            // man (bbox height ratio 0.77). That is not a polish problem, it is the scene telling the player the
+            // wrong thing about what just happened - and no amount of shading fixes a hierarchy that is inverted.
+            // A detonation is read as height and as things thrown, so it gets both.
+            books.Add(FlipbookFx.Book.Blast, at + new Vector3(-0.95f, 1.85f, -0.35f), 11.0f, 2.33f,
+                      velocity: Vector3.up * 1.4f, grow: 0.45f, glow: glow, pop: 0.15f, roll: Lean());
+            // The head, thrown clear of the base and still climbing when the base has begun to settle. It overshoots
+            // by about one and a half base radii, which is what makes the eye read a column rather than a bonfire.
+            books.Add(FlipbookFx.Book.Burst, at + new Vector3(-0.55f, 7.4f, -0.20f), 7.6f, 1.75f,
+                      velocity: Vector3.up * 5.2f, grow: 0.30f, glow: glow * 1.25f, pop: 0.10f, roll: Lean(),
+                      startFrame: 2f);
+            // and what a detonation throws. Small, bright, short-lived, leaving the mass at a spread of angles: the
+            // difference between a fire that grew and a thing that burst.
+            for (int i = 0; i < 8; i++)
+            {
+                float th = (i + Random.value * 0.6f) / 8f * Mathf.PI * 2f;
+                float lift = Mathf.Lerp(0.55f, 1.5f, Random.value);            // 30 to 70 degrees off the ground
+                Vector3 dir = new Vector3(Mathf.Cos(th), lift, Mathf.Sin(th)).normalized;
+                books.Add(FlipbookFx.Book.Core, at + Vector3.up * 2.2f + dir * 2.6f,
+                          1.5f + Random.value * 1.1f, 0.42f,
+                          (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                          height: 0.85f + Random.value * 0.5f,
+                          glow: glow * 1.5f, velocity: dir * (9f + Random.value * 5f),
+                          startFrame: 6f + Random.value * 8f);
+            }
             // ONE card. There was a second, mirrored and a couple of frames behind, to give the ball a far side, and
             // with the annulus cels cut there is nothing left for it to do but double the silhouette: the two copies
             // overlapped into a single opaque loaf two and a half times the area of the fire it replaced. A fireball
@@ -661,7 +685,12 @@ namespace TW.Presentation.Tactical
                                   // reason is the u * 2.2: it saturates at u = 0.45, so the whole downstream half is served
                                   // one flat value while the cards out there are thinner and more transparent than the ones
                                   // at the mouth. Ramping the whole length instead of the first half lets the head win.
-                                  glow: glow * Mathf.Lerp(0.55f, 1.45f, Mathf.Min(1f, u * 1.15f)),
+                                  // Floor pulled DOWN rather than ceiling pushed up. Widening the envelope's root (above) stacks more
+                                  // layers of card over the same pixels, so it quietly added at the mouth the brightness this
+                                  // ramp exists to move downstream: measured, the mouth went 85 -> 133 mean luminance while
+                                  // the head stayed at 92, so the two changes were cancelling. The head must out-burn the
+                                  // mouth - that is where the fuel has finished atomising.
+                                  glow: glow * Mathf.Lerp(0.38f, 1.60f, Mathf.Min(1f, u * 1.10f)),
                                   velocity: j.ManVel,
                                   // Reversed, and this was a real bug rather than a matter of degree. Staggering by i
                                   // put the TIP on frame-11.6, clamped to zero - the very first cel of the book, where
