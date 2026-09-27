@@ -444,10 +444,9 @@ namespace TW.Tests.Playground
         [Test]
         public void Every_Machine_Keeps_Its_Thrown_Parts_Near()
         {
-            // a cook-off's pieces land within 30 m on every machine in the bay (the gunship's engine landed 29 m off, r35).
-            // The tank's lying-down rule does NOT yet hold on every machine: run on all five it found the hovercraft's
-            // turret resting balanced on an edge and the tank's antenna tilted 2 cm over the limit (seed 5); a stricter
-            // rest rule (a face within 25 degrees of flat) left the tank's own turret and a plate tilted. Open in docs/22.
+            // a cook-off's pieces land within 30 m on every machine in the bay (the gunship's engine landed 29 m off, r35),
+            // and lie down flat on a face: the hovercraft's turret rested balanced on an edge and the tank's antenna 2 cm
+            // over the standing-on-end limit (seed 5) until a piece that stops tilted is laid flat before it rests
             var bad = new List<string>();
             var parent = new GameObject("test stage").transform;
             try
@@ -459,10 +458,17 @@ namespace TW.Tests.Playground
                     for (int f = 0; f < 900; f++) r.Advance(1f / 60f);
                     foreach (var p in r.Parts.Where(p => p.Loose))
                     {
-                        var d = p.Box.size * r.Size; var dims = new[] { d.x, d.y, d.z }.OrderBy(x => x).ToArray();
-                        float centre = (p.Fly.Pos + p.Fly.Rot * p.Box.center).y * r.Size;
+                        // judged on the box it tumbles as (its principal axes where those are tighter: the antenna's
+                        // axis-aligned box is three times its own, and it lay 34 degrees off its length, loop 3)
+                        var body = p.Fly.Rot * p.BodyAxes;
+                        var d = p.Body.size * r.Size; var dims = new[] { d.x, d.y, d.z }.OrderBy(x => x).ToArray();
+                        float centre = (p.Fly.Pos + body * p.Body.center).y * r.Size;
                         float far = new Vector2(p.Fly.Pos.x, p.Fly.Pos.z).magnitude * r.Size;
                         if (far > 30f) bad.Add($"{e.Name} {p.Name} {far:0} m away");
+                        if (centre > 0.5f * dims[1] + 0.2f) bad.Add($"{e.Name} {p.Name} on end: centre {centre:0.00} m up, dims {dims[0]:0.0}/{dims[1]:0.0}/{dims[2]:0.0}");
+                        float up = Mathf.Max(Mathf.Abs((body * Vector3.right).y), Mathf.Abs((body * Vector3.up).y), Mathf.Abs((body * Vector3.forward).y));
+                        if (!p.Fly.Resting) bad.Add($"{e.Name} {p.Name} still moving after 15 s");
+                        else if (up < Mathf.Cos(3f * Mathf.Deg2Rad)) bad.Add($"{e.Name} {p.Name} resting tilted {Mathf.Acos(up) * Mathf.Rad2Deg:0} degrees off a face");
                     }
                     Object.DestroyImmediate(r.gameObject);
                 }

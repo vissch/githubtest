@@ -13,10 +13,11 @@ for spec in "1:croaker" "2:hopper" "3:mercy" "4:skimmer"; do
   $P do "vehicle.compare"; sleep 3
   $P do "cam 0 5 0 20 18 80 35"; sleep 1
   $P shot ${T}_${n}_1_compare
-  # (2.3 s: after the first two hits, before the HE; at 2.9 s a machine already knocked out was shot as "hits", r37)
-  $P do "seq"; sleep 2.3
+  # (2.0 s: after the first two hits, before the HE; at 2.9 s a machine already knocked out was shot as "hits", r37, and
+  # at 2.3 s the HE's flash, due at 2.6 s, was caught lighting the machine cream, loop 3)
+  $P do "seq"; sleep 2.0
   $P shot ${T}_${n}_2_hits
-  sleep 3.2
+  sleep 3.5
   $P shot ${T}_${n}_3_burning
   sleep 6.0
   $P shot ${T}_${n}_4_cookoff
@@ -27,8 +28,8 @@ for spec in "1:croaker" "2:hopper" "3:mercy" "4:skimmer"; do
   case $n in
     croaker) $P do "walk 2.5 1; cam 0 4 0 150 6 26 35"; sleep 2; $P shot ${T}_${n}_6_walk_a; sleep 0.35; $P shot ${T}_${n}_7_walk_b
              $P do "cam 0 4 0 60 6 26 35"; sleep 0.6; $P shot ${T}_${n}_8_walk_side; $P do "walk 0" ;;
-    hopper)  $P do "cam 0 14 0 150 10 42 35"; sleep 1; $P shot ${T}_${n}_6_hover
-             $P do "fly 8; cam follow 200 14 45 35"; sleep 3; $P shot ${T}_${n}_7_circling; $P do "fly 0" ;;
+    hopper)  $P do "team 0; cam 0 14 0 150 10 42 35"; sleep 1; $P shot ${T}_${n}_6_hover
+             $P do "fly 8; cam follow 200 14 45 35"; sleep 3; $P shot ${T}_${n}_7_circling; $P do "fly 0; team -1" ;;
     skimmer) $P do "cam 0 3 0 150 12 34 35"; sleep 1; $P shot ${T}_${n}_6_close
              $P do "fly 6; cam follow 200 14 50 35"; sleep 3; $P shot ${T}_${n}_7_skimming; $P do "fly 0" ;;
     mercy)   $P do "cam 0 1.5 0 20 20 22 35"; sleep 1; $P shot ${T}_${n}_6_close

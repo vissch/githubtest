@@ -31,7 +31,7 @@ namespace TW.Playground
             Debris = gameObject.AddComponent<DebrisRenderer>();
         }
 
-        void OnDestroy() { Books?.Dispose(); if (discMat != null) Destroy(discMat); if (discMesh != null) Destroy(discMesh); }
+        void OnDestroy() { Books?.Dispose(); if (discMat != null) Destroy(discMat); if (tetherMat != null) Destroy(tetherMat); if (discMesh != null) Destroy(discMesh); }
 
         // ------------------------------------------------------------------ side rings (TankRenderer's disc, same shader)
         /// <summary>Rings under figures too (a playground proposal: the game's figures show their side on their cloth).</summary>
@@ -49,8 +49,40 @@ namespace TW.Playground
             discC.Add(new Vector4(c.r, c.g, c.b, dead ? 0f : 1f));
         }
 
+        // ------------------------------------------------------------------ a flyer's tether
+        // the gunship's ring lies on the ground 14 m under it and nothing tied the two together (critic, loop 2): a thin line
+        // in the side's colour from the ring up to the aircraft, strongest at the ground and fading up to it
+        readonly List<LineRenderer> tethers = new List<LineRenderer>(); int tethersUsed; Material tetherMat;
+
+        /// <summary>Queue this frame's line from the ring (ground) up to the aircraft (top).</summary>
+        public void Tether(Vector3 ground, Vector3 top, int team, float width)
+        {
+            if (team < 0) return;
+            if (tetherMat == null) { var sh = Shader.Find("Sprites/Default"); if (sh == null) return; tetherMat = new Material(sh) { name = "Playground tether" }; }
+            if (tethersUsed == tethers.Count)
+            {
+                var go = new GameObject("tether"); go.transform.SetParent(transform, false);
+                var lr = go.AddComponent<LineRenderer>();
+                lr.sharedMaterial = tetherMat; lr.positionCount = 2; lr.useWorldSpace = true;
+                lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; lr.receiveShadows = false;
+                tethers.Add(lr);
+            }
+            var l = tethers[tethersUsed++];
+            l.enabled = true; l.SetPosition(0, ground + Vector3.up * 0.15f); l.SetPosition(1, top);
+            // at least ~2.5 px wide at any range (1-3 px at the battle's 78 m, critic loop 3), and still there where it meets
+            // the aircraft: it fades to 0.45, not to nothing
+            var cam = Camera.main;
+            float px = cam != null ? Vector3.Distance(cam.transform.position, (ground + top) * 0.5f) * 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Max(1, cam.pixelHeight) : 0f;
+            float w = Mathf.Max(width, 2.5f * px);
+            l.startWidth = w; l.endWidth = w * 0.8f;
+            var c = team == 1 ? TankRenderer.TeamB : TankRenderer.TeamA;
+            l.startColor = new Color(c.r, c.g, c.b, 0.85f); l.endColor = new Color(c.r, c.g, c.b, 0.45f);
+        }
+
         void DrawRings()
         {
+            for (int i = tethersUsed; i < tethers.Count; i++) tethers[i].enabled = false;
+            tethersUsed = 0;
             if (discM.Count == 0) return;
             if (discMat == null)
             {
@@ -98,6 +130,14 @@ namespace TW.Playground
             go.transform.position = at;
             lamps.Add(new LampState { L = l, Born = Time.time, Life = life, Peak = intensity, Follow = follow, Offset = follow != null ? follow.InverseTransformPoint(at) : Vector3.zero, Flicker = flicker, Seed = Random.value * 50f });
             return l;
+        }
+
+        /// <summary>Set a held lamp's strength (its flicker and fade still apply). Setting the Light's intensity does nothing:
+        /// LateUpdate writes Peak over it every frame, so a fire's light burnt at full from its first flicker and lit a
+        /// damaged machine cream all over (critic loop 3, the _2_hits stills).</summary>
+        public void SetPeak(Light l, float peak)
+        {
+            foreach (var p in lamps) if (p.L == l) { p.Peak = peak; return; }
         }
 
         /// <summary>Every painted card alive (fire, smoke, bursts): gone. A new scene must not inherit the last one's smoke.</summary>

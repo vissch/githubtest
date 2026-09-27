@@ -176,13 +176,23 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
   A flyer that loses a wing or engine comes down, banks 15-30 degrees in a turn, crashes nose-in onto the side it lost,
   and burns before it cooks off (overkill cooks off only after half the cook-off delay). The tank's turret base disc
   (a piece standing on the deck) goes with the turret; it floated once the plates were thrown.
-- **Open after loop 2:** the tank's "every piece ends lying down" rule, run on all five machines, finds the hovercraft's
-  turret resting balanced on an edge (a near-cube always has a broad face nearest down) and the tank's antenna tilted
-  2 cm past the limit; requiring the resting face within 25 degrees of flat left the tank's own turret and a plate tilted
-  (the topple push is capped at three), so it was not kept. The Croaker's thrown arm no longer stands as a post (the
-  broad-face share 0.6 -> 0.7); nothing links a flyer's ground ring to the aircraft 14 m up; the Mercy's LOD1->2 colour (7.2 in the round) and
-  the Croaker's 1->2 overlap (0.899) are the weakest pops; the palettes (Skimmer, Croaker at night) and the ruin's flat
-  brown faces are owner questions.
+- **Loop 3 (settling and the flyer's ring):** a thrown piece that stops tilted on an edge, or on a small face with its
+  three topple pushes spent, is laid over flat onto the broad face nearest down before it rests (`Tumble.Settling`,
+  150 degrees a second about its centre). A piece tumbles as the tighter of its axis-aligned box and a box on its LOD0
+  mesh's principal axes (`VehicleRig.PrincipalBox`): the antenna's axis-aligned box is three times its own, and "flat" on
+  it had the antenna, the Croaker's jaw and the Mercy's stack lying 23-35 degrees off their length. Before, 12 pieces over
+  three seeds rested up to 41 degrees off a face or stood on end; after, none of 391 loose pieces over 17 seeds, on all
+  five machines. `Every_Machine_Keeps_Its_Thrown_Parts_Near` holds the lying-down rule on every machine. The tank's
+  "plates" are not plates: their boxes are 2.4-3.5 m on every side and their largest flat face is 19-24% of their area,
+  so they rest on a face as the chunks they are. A flyer is tied to its ring by a line in its side's colour, at least
+  2.5 px wide at any range (`PlaygroundFx.Tether`); a crashed flyer rolls 12 degrees (was 22) and digs its lowest hull
+  corner 0.6 m in, so its belly meets the ground along a side, not on one corner. A fire's light grows with the fire
+  (`PlaygroundFx.SetPeak`: the lamp loop wrote its full strength over the rig's every frame, so a first flicker lit the
+  machine at full). The Croaker's far LOD is derived at 1,443 triangles (was Tripo's count, 1,011; the far LOD's cap is
+  1,500): its 1->2 pop 0.899/4.0 -> 0.937/2.9.
+- **Open:** the Mercy's LOD1->2 colour (7.0) is the weakest pop; its rear doors carry a dark and a light triangle that
+  are Tripo's own painting (the source model renders them the same), not a split fault: repainting is the owner's call,
+  with the palettes (Skimmer, Croaker at night) and the ruin's flat brown faces.
 - **Measuring on this bench, lessons:** m3's contrast flips 0.24/0.44 frame to frame on one build, so the round takes nine
   frames and scores the median (floor 0.08); a vehicle's block colour wanders 0.2-1.0 on an unchanged model; the editor's
   fps is not a signal. `round.sh` selects the tank itself (a round once scored the hovercraft as "the tank").
