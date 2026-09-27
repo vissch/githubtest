@@ -118,3 +118,4 @@ repo. The board, the states and the commands are in `docs/reference/stations.md`
 |---|---|---|
 | `pipeline/pipeline.py` | Job board and stage states (DONE, RECHECK, STALE, IN_PROGRESS, READY, BLOCKED) from `tw3d-board` | `python Tools/pipeline/pipeline.py status` |
 | `pipeline/test_pipeline.py` | Its tests, on throwaway git repos | `python Tools/pipeline/test_pipeline.py` |
+| `pipeline/run_detached.py` | Runs a gate, bench, sweep or batch detached from the session: pids with start times, a heartbeat from log growth, a timeout that stops only its own tree, a commit-headroom floor. Runs live in `%LOCALAPPDATA%/TrenchWarfare/runs`, never in a checkout | `python Tools/pipeline/run_detached.py start <name> --timeout 3600 --min-headroom-gb 10 -- <cmd>` then `status <name>` |
