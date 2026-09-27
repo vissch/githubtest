@@ -52,12 +52,18 @@ namespace TW.Tests
             Assert.Greater(TrenchSectionRules.LiningLife, 5f, "but they do lie a while");
         }
 
-        static void SameFootprint(BattlefieldKit.Module intact, BattlefieldKit.Module twin, string what, float zTolerance = 0.10f)
+        static void SameFootprint(BattlefieldKit.Module intact, BattlefieldKit.Module twin, string what, float zTolerance = 0.10f, float rolledOut = 0f)
         {
             Assert.IsNotNull(twin, what + " has no damaged twin");
             var a = intact.Mesh.bounds.size; var b = twin.Mesh.bounds.size;
-            Assert.AreEqual(a.x, b.x, a.x * 0.10f, what + ": the twin spans the same length");
-            Assert.AreEqual(a.z, b.z, a.z * zTolerance, what + ": and the same depth");
+            // the twin swaps in at the intact panel's matrix: it must not reach past the intact piece (a pop outward) and
+            // must still span the whole 2 m section; an intact course may overhang its neighbour (the settled parapet's
+            // top sack, 2.53 m) and its burst twin need not (first run under Tools/otr.py, 2026-09-27)
+            Assert.LessOrEqual(b.x, a.x * 1.10f, what + ": the twin reaches no further along the edge than the whole one");
+            Assert.GreaterOrEqual(b.x, 1.8f, what + ": the twin still spans the 2 m section");
+            // the depth: the same, except that a burst parapet keeps the sack it rolls outward off the lip (rolledOut)
+            Assert.GreaterOrEqual(b.z, a.z * (1f - zTolerance), what + ": and the same depth");
+            Assert.LessOrEqual(b.z, a.z * (1f + zTolerance) + rolledOut, what + ": and no deeper than the whole one" + (rolledOut > 0f ? " and one rolled sack" : ""));
             Assert.LessOrEqual(b.y, a.y + 0.02f, what + ": the broken piece is no taller than the whole one");
             Assert.GreaterOrEqual(b.y, a.y * 0.4f, what + ": but something of it still stands");
         }
@@ -68,7 +74,7 @@ namespace TW.Tests
             for (int k = 0; k < 3; k++)
             {
                 SameFootprint(kit.TrenchWalls[k], kit.TrenchWallsDamaged[k], "revetment " + k);
-                SameFootprint(kit.TrenchBags[k], kit.TrenchBagsDamaged[k], "parapet " + k);
+                SameFootprint(kit.TrenchBags[k], kit.TrenchBagsDamaged[k], "parapet " + k, 0.10f, 0.6f);   // 0.6: about one sack's length, turned 40 degrees
                 SameFootprint(kit.TrenchFloors[k], kit.TrenchFloorsDamaged[k], "duckboards " + k, 0.20f);
             }
         }

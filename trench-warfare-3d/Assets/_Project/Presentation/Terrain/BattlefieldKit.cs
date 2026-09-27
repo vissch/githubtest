@@ -480,7 +480,10 @@ namespace TW.Presentation.Terrain
                 // tilted back, the post splintered short, one splinter left standing. The same 2 m footprint, lower.
                 parts.Clear();
                 parts.Add((cube, new Vector3((Rand(0, variant + 302) - .5f) * .10f, .30f, 0f), new Vector3(0f, 0f, (Rand(0, variant + 303) - .5f) * 4f), new Vector3(2.14f, .46f + Rand(0, variant + 304) * .07f, .10f)));
-                parts.Add((worn, new Vector3((Rand(1, variant + 302) - .5f) * .10f + .12f, .82f, .06f), new Vector3(-12f, 0f, 3f + (Rand(1, variant + 303) - .5f) * 6f), new Vector3(1.7f, .44f, .10f)));
+                // the tilted board sits 5 mm off the wall's face, not 6 cm: tipped 12 degrees it reaches 0.095 m either side of
+                // its centre, so at 0.06 it stood 5.5 cm behind the intact wall's back (0.355 m deep against 0.30; the
+                // footprint test caught it when it first ran, 2026-09-27)
+                parts.Add((worn, new Vector3((Rand(1, variant + 302) - .5f) * .10f + .12f, .82f, .005f), new Vector3(-12f, 0f, 3f + (Rand(1, variant + 303) - .5f) * 6f), new Vector3(1.7f, .44f, .10f)));
                 parts.Add((cube, new Vector3(-.91f, .55f, -.10f), new Vector3(0f, 0f, variant == 1 ? 9f : -6f), new Vector3(.18f, 1.1f, .20f)));
                 parts.Add((cube, new Vector3(.62f, .95f, -.04f), new Vector3(0f, 0f, -38f), new Vector3(.12f, .55f, .12f)));
                 TrenchWallsDamaged[variant] = Make(Combine("Broken revetment " + variant, parts.ToArray()), timber * .85f, false, 1.6f);
@@ -493,12 +496,14 @@ namespace TW.Presentation.Terrain
                 if (variant == 0) parts.Add((sackMesh, new Vector3(1.0f, .43f, -.05f), new Vector3(0f, 7f, -3f), new Vector3(.95f, .35f, .63f)));
                 TrenchBags[variant] = Make(Combine("Settled parapet " + variant, parts.ToArray()), sack);
                 Paint(TrenchBags[variant], BattlefieldPigment.Surface.Sacking);
-                // the same course burst: the lower sacks only, sagged and turned, one rolled outward off the lip
+                // the same course burst: the lower sacks only, sagged (lower and flatter, rolled a few degrees: a broken course
+                // is never taller than the whole one, which a variant with no top sack was, by 12 cm) and turned, one rolled
+                // outward off the lip
                 parts.Clear();
                 for (int bag = 0; bag < 2; bag++)
-                    parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .15f, (Rand(bag, variant + 315) - .5f) * .10f),
-                        new Vector3((Rand(bag, variant + 318) - .5f) * 10f, (Rand(bag, variant + 316) - .5f) * 28f, (Rand(bag, variant + 317) - .5f) * 14f), new Vector3(1.06f, .33f, .73f)));
-                parts.Add((sackMesh, new Vector3(.35f, .10f, .52f), new Vector3(0f, 40f, 12f), new Vector3(.95f, .30f, .60f)));
+                    parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .11f, (Rand(bag, variant + 315) - .5f) * .10f),
+                        new Vector3((Rand(bag, variant + 318) - .5f) * 4f, (Rand(bag, variant + 316) - .5f) * 28f, (Rand(bag, variant + 317) - .5f) * 5f), new Vector3(1.06f, .29f, .73f)));
+                parts.Add((sackMesh, new Vector3(.35f, .10f, .52f), new Vector3(0f, 40f, 0f), new Vector3(.95f, .26f, .60f)));   // its underside level with the course's
                 TrenchBagsDamaged[variant] = Make(Combine("Burst parapet " + variant, parts.ToArray()), sack);
                 Paint(TrenchBagsDamaged[variant], BattlefieldPigment.Surface.Sacking);
                 parts.Clear();
