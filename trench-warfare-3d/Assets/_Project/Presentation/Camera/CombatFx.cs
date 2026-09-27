@@ -530,6 +530,17 @@ namespace TW.Presentation.Tactical
                     // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
                     float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
                     tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
+                    // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
+                    if (ShotLog.On)
+                    {
+                        bool known = e.A >= 0 && e.A < w.Position.Length;
+                        ShotLog.Add(new ShotLog.Entry
+                        {
+                            Born = Time.time + delay, Arrived = Time.time, Life = TracerSeconds, Tick = e.Tick, Shooter = e.A,
+                            Team = known ? w.Team[e.A] : (byte)0, Garrison = known ? w.TrenchId[e.A] : (short)-1,
+                            X = known ? w.Position[e.A].x : from.x, Z = known ? w.Position[e.A].z : from.z, From = from, To = to,
+                        });
+                    }
                     Vector3 direction = (to - from).normalized;
                     bool drawn = books != null && books.Ready;
                     Vector3 carried = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Velocity(e.A, w.Config.TickSeconds) : Vector3.zero;   // a man firing on the run carries his flash

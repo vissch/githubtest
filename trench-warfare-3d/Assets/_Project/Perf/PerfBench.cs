@@ -46,6 +46,10 @@
 // and repaint, GC.Collect, the wait for present) are series `script:<name>`, per frame, as cmp.py reads them. A name
 // whose recorder is not valid goes to unavailable; one that is valid but was not registered yet when the recorders
 // opened is listed in script_markers.unregistered_at_open, because its zeros may mean "never ran" or "no such marker".
+// C72 (2026-09-27): an image run logs every shot CombatFx shows (ShotLog) from a few ticks before the still to the last
+// held frame, and the report sorts them by the Time.time of each captured frame: shot_log (every tracer first drawn on a
+// held frame: its frame, tick, side, firing line and screen start/end px), shot_log_inflight (the tracers already drawn
+// at frame 0) and shot_log_meta. A run without shot_tick never starts the log: CombatFx pays one static bool a shot.
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -122,7 +126,7 @@ namespace TW.Perf
         int gcCollectionsStart;
         long monoStart, monoMax;
 
-        void OnDestroy() { ReleaseClock(); if (Running == this) Running = null; }
+        void OnDestroy() { ReleaseClock(); if (heldFrameTimes != null) ShotLog.Clear(); if (Running == this) Running = null; }
 
         void Update()
         {
@@ -223,6 +227,13 @@ namespace TW.Perf
             // window opened on, and its orders land on the same tick in every run (its few allocations happen before
             // the GC and mono baselines below)
             if (Options.Scenario != BenchScenario.None) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
+            // C72: an image run logs its shots (allocated here, before the GC baselines; never in a perf run)
+            if (Options.ShotTick >= 0 && !string.IsNullOrEmpty(Options.Shot))
+            {
+                heldFrameTimes = new float[Math.Max(1, Options.ShotFrames)];
+                long from = (long)t0 + Options.ShotTick - ShotLogLeadTicks;
+                ShotLog.Begin(ShotLogCapacity, (uint)Math.Max((long)t0, from));
+            }
             startRealtime = Time.realtimeSinceStartupAsDouble;
             gcCollectionsStart = GC.CollectionCount(0);
             monoStart = monoMax = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
@@ -352,6 +363,7 @@ namespace TW.Perf
 
         void Capture(string path)
         {
+            if (heldFrameTimes != null && stage == Stage.Window && framesShot < heldFrameTimes.Length) heldFrameTimes[framesShot] = Time.time;   // C72
             try { ScreenCapture.CaptureScreenshot(path); }
             catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
             framesShot++; lastShotFrame = Time.frameCount;
@@ -604,6 +616,7 @@ namespace TW.Perf
             if (mono > monoMax) monoMax = mono;
 
             if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
+            if (ShotLog.On && heldFrameTimes != null && framesShot >= heldFrameTimes.Length) ShotLog.Stop();   // C72: the last held frame is shot
             if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }
             if (tick >= t0 + (uint)Options.Ticks) Finish(0, "ok");
         }
@@ -621,6 +634,7 @@ namespace TW.Perf
                 var we = host.Local.World;
                 hashEnd = we.Hash(); hashEndTick = we.Tick; hashEndTaken = true;
             }
+            ShotLog.Stop();   // C72
             string path = "";
             try
             {
@@ -630,6 +644,7 @@ namespace TW.Perf
                 File.WriteAllText(path, Report(code, why, endStage));
             }
             catch (Exception e) { Debug.LogError("[PerfBench] could not write the report: " + e.Message); code = 5; }
+            if (heldFrameTimes != null) { ShotLog.Clear(); heldFrameTimes = null; }
             foreach (var r in recs) r.R.Dispose();
             recs.Clear();
             if (mainRec.Valid) mainRec.Dispose();
@@ -689,6 +704,101 @@ namespace TW.Perf
                 return string.IsNullOrWhiteSpace(j) ? "null" : j.Trim();
             }
             catch (Exception e) { warnings.Add("Knobs.ToJson failed: " + e.Message); return "null"; }
+        }
+
+        // ------------------------------------------------------------------------------------------ C72: the shots
+        /// <summary>Ticks before the still whose shots are kept: covers a tracer's life (0.12 s) and its stagger (a tick)
+        /// with room to spare, so every tracer drawn at frame 0 is in the log.</summary>
+        const int ShotLogLeadTicks = 10;
+        const int ShotLogCapacity = 1 << 15;
+        float[] heldFrameTimes;
+
+        /// <summary>shot_log_meta, shot_log and shot_log_inflight. Each shot's held frame comes from its Born against the
+        /// captured frames' Time.time (ShotLog.BirthFrame); its line from the map's trench cell under the shooter and his
+        /// place along that trench (ShotLog.Line); its px from the bench's camera, which holds one pose all window.</summary>
+        void ShotLogJson(StringBuilder sb)
+        {
+            int frames = Math.Min(framesShot, heldFrameTimes.Length);
+            var map = host != null && host.Local != null ? host.Local.Map : null;
+            // a trench cell's index along its trench (MapData.TrenchCells is ordered along each trench)
+            var along = new Dictionary<long, int>();
+            if (map != null && map.Trenches.IsCreated && map.TrenchCells.IsCreated)
+                for (int t = 0; t < map.Trenches.Length; t++)
+                {
+                    var def = map.Trenches[t];
+                    for (int j = 0; j < def.CellCount && def.CellStart + j < map.TrenchCells.Length; j++)
+                    {
+                        long key = ((long)def.Id << 32) | (uint)map.TrenchCells[def.CellStart + j];
+                        if (!along.ContainsKey(key)) along.Add(key, j);
+                    }
+                }
+            float life = 0f;
+            int after = 0, nBirths = 0, nInflight = 0;
+            var ticks = new SortedDictionary<uint, int[]>();   // tick -> [before frame 0, on a held frame, after the last]
+            var births = new StringBuilder(); var inflight = new StringBuilder();
+            float sw = cam != null ? cam.pixelWidth : Screen.width, sh = cam != null ? cam.pixelHeight : Screen.height;
+            for (int i = 0; i < ShotLog.Count; i++)
+            {
+                var e = ShotLog.Get(i);
+                life = e.Life;
+                int f = ShotLog.BirthFrame(e.Born, heldFrameTimes, frames, HeldStep, e.Life);
+                if (!ticks.TryGetValue(e.Tick, out var c)) { c = new int[3]; ticks.Add(e.Tick, c); }
+                c[f >= 0 ? 1 : f == ShotLog.After ? 2 : 0]++;
+                if (f == ShotLog.After) { after++; continue; }
+                if (f == ShotLog.Gone) continue;
+                int trench = -1, at = -1;
+                if (map != null)
+                {
+                    var cell = map.NavCellOf(new Unity.Mathematics.float3(e.X, 0f, e.Z));
+                    int index = map.NavIndex(cell.x, cell.y);
+                    trench = index >= 0 && index < map.CellTrenchId.Length ? map.CellTrenchId[index] : -1;
+                    if (trench >= 0 && !along.TryGetValue(((long)trench << 32) | (uint)index, out at)) at = -1;
+                }
+                var target = f >= 0 ? births : inflight;
+                if (f >= 0) nBirths++; else nInflight++;
+                target.Append(target.Length > 0 ? ",\n    " : "\n    ").Append("{ \"f\": ").Append(f >= 0 ? f.ToString(Inv) : "null")
+                  .Append(", \"tick\": ").Append(e.Tick).Append(", \"team\": ").Append(e.Team).Append(", \"slot\": ").Append(e.Shooter)
+                  .Append(", \"line\": ").Append(Q(ShotLog.Line(e.Team, trench, at, e.X, e.Z)))
+                  .Append(", \"trench\": ").Append(trench).Append(", \"along\": ").Append(at).Append(", \"garrison\": ").Append(e.Garrison)
+                  .Append(", \"x\": ").Append(N(e.X)).Append(", \"z\": ").Append(N(e.Z));
+                bool on = Px(target, "s", e.From, sw, sh);
+                Px(target, "e", e.To, sw, sh);
+                target.Append(", \"on\": ").Append(on ? "true" : "false")
+                  .Append(", \"born\": ").Append(e.Born.ToString("0.#########", Inv)).Append(", \"arrived\": ").Append(e.Arrived.ToString("0.#########", Inv))
+                  .Append(", \"drawn\": ").Append((e.To - e.From).magnitude >= 0.1f ? "true" : "false").Append(" }");
+            }
+            sb.Append("  \"shot_log_meta\": { \"frames\": ").Append(frames).Append(", \"held_step\": ").Append(HeldStep.ToString("0.######", Inv))
+              .Append(", \"tracer_seconds\": ").Append(N(life)).Append(", \"from_tick\": ").Append(ShotLog.FromTick)
+              .Append(", \"logged\": ").Append(ShotLog.Count).Append(", \"dropped\": ").Append(ShotLog.Dropped)
+              .Append(", \"births\": ").Append(nBirths).Append(", \"inflight\": ").Append(nInflight).Append(", \"after\": ").Append(after)
+              .Append(", \"section_cells\": ").Append(ShotLog.SectionCells).Append(", \"open_grid_m\": ").Append(N(ShotLog.OpenGridMetres))
+              .Append(", \"screen\": [").Append(N(sw)).Append(", ").Append(N(sh)).Append("], \"px_origin\": \"top-left\"")
+              .Append(", \"frame_times\": [");
+            for (int k = 0; k < frames; k++) sb.Append(k > 0 ? ", " : "").Append(heldFrameTimes[k].ToString("0.#########", Inv));
+            // per tick: its shots first drawn before frame 0, on a held frame, after the last; a tick with only the middle
+            // count lies whole inside the held frames
+            sb.Append("], \"ticks\": [");
+            bool firstTick = true;
+            foreach (var kv in ticks)
+            {
+                sb.Append(firstTick ? "" : ", ").Append("[").Append(kv.Key).Append(", ").Append(kv.Value[0]).Append(", ").Append(kv.Value[1]).Append(", ").Append(kv.Value[2]).Append("]");
+                firstTick = false;
+            }
+            sb.Append("] },\n");
+            sb.Append("  \"shot_log\": [").Append(births).Append(births.Length > 0 ? "\n  ],\n" : "],\n");
+            sb.Append("  \"shot_log_inflight\": [").Append(inflight).Append(inflight.Length > 0 ? "\n  ],\n" : "],\n");
+        }
+
+        /// <summary>Appends `, "<k>x": px, "<k>y": px` from the top-left, as in the still's PNG (null behind the camera or
+        /// without one). True when the point is on the screen.</summary>
+        bool Px(StringBuilder sb, string k, Vector3 world, float width, float height)
+        {
+            if (cam == null) { sb.Append(", \"").Append(k).Append("x\": null, \"").Append(k).Append("y\": null"); return false; }
+            var p = cam.WorldToScreenPoint(world);
+            bool front = p.z > 0f;
+            sb.Append(", \"").Append(k).Append("x\": ").Append(front ? p.x.ToString("0.#", Inv) : "null")
+              .Append(", \"").Append(k).Append("y\": ").Append(front ? (height - p.y).ToString("0.#", Inv) : "null");
+            return front && p.x >= 0f && p.x < width && p.y >= 0f && p.y < height;
         }
 
         string Report(int code, string why, Stage endStage)
@@ -783,6 +893,7 @@ namespace TW.Perf
                 sb.Append(i > 0 ? ", " : "").Append("{ \"marker\": ").Append(Q(carriers[i].Marker)).Append(", \"hitches\": ").Append(carriers[i].Hitches)
                   .Append(", \"median_share\": ").Append(N(carriers[i].MedianShare)).Append(" }");
             sb.Append("] },\n");
+            if (heldFrameTimes != null) ShotLogJson(sb);   // C72: image runs only
             sb.Append("  \"series\": {\n");
             for (int i = 0; i < series.Count; i++) Stats(sb, series[i], i == series.Count - 1);
             sb.Append("  },\n");

@@ -15,6 +15,7 @@ Commands (run from trench-warfare-3d/, e.g. `python Tools/aosa/aosa.py status`):
   ledger add --mode P|E|B --cards ... --summary "..."              append a LEDGER.md row
   snapshot [--label L]        copy the live players to Builds/<kind>@<L> (default: the sha they were built from), verified
   prune [--apply]             storage retention: old snapshots and old cycles' sequence frames (dry run by default)
+  shots LABEL [--table]       an image run's shot_log (C72): per firing line births and single-frame shares, per tick
 
 Environment: AOSA_DOCS (docs dir, default <repo>/docs/reference/aosa), TW_BUILDS (player builds dir, default the
 main clone's trench-warfare-3d/Builds), TW_PROJECT (the Unity project the editor has open, default the main clone's
@@ -1338,6 +1339,149 @@ def cmd_prune(a):
     return 0
 
 
+def _seen(s, w, h):
+    """True when the tracer's segment (start px -> end px) crosses the screen; both ends must be in front of the lens."""
+    x0, y0, x1, y1 = s.get("sx"), s.get("sy"), s.get("ex"), s.get("ey")
+    if None in (x0, y0, x1, y1):
+        return False
+    t0, t1, dx, dy = 0.0, 1.0, x1 - x0, y1 - y0
+    for p, q in ((-dx, x0), (dx, w - x0), (-dy, y0), (dy, h - y0)):   # Liang-Barsky against [0,w] x [0,h]
+        if p == 0:
+            if q < 0:
+                return False
+        else:
+            r = q / p
+            if p < 0:
+                t0 = max(t0, r)
+            else:
+                t1 = min(t1, r)
+            if t0 > t1:
+                return False
+    return True
+
+
+_NULL_SHARE = {}
+
+
+def _null_share(n, frames_per_tick=3.2, trials=4000):
+    """The median largest one-frame share of n shots placed uniformly at random in one tick (what C63's per-shot hash
+    would give), the frame grid at a random phase: the chance level a line's per-tick share is judged against."""
+    if n not in _NULL_SHARE:
+        import random
+        rng = random.Random(72)
+        out = []
+        for _ in range(trials):
+            ph = rng.random()
+            cnt = {}
+            for _ in range(n):
+                f = int(ph + rng.random() * frames_per_tick)
+                cnt[f] = cnt.get(f, 0) + 1
+            out.append(max(cnt.values()) / float(n))
+        _NULL_SHARE[n] = statistics.median(out)
+    return _NULL_SHARE[n]
+
+
+def cmd_shots(a):
+    """C72: read an image run's shot_log. Per firing line: births on the held frames, the largest single-frame share
+    (C62), and per whole tick the largest share of the line's births of that tick on one frame (C63's question)."""
+    reps = load_reports(a.label)
+    if not reps:
+        die("no report for %s" % a.label)
+    rc = 0
+    for r in reps:
+        meta, log, fly = r.get("shot_log_meta"), r.get("shot_log"), r.get("shot_log_inflight") or []
+        print("== %s" % r["_path"])
+        if meta is None or log is None:
+            print("   no shot_log (not an image run, or built before C72)")
+            rc = 1
+            continue
+        w, h = (meta.get("screen") or [1920, 1080])[:2]
+        frames = meta.get("frames", 0)
+        complete = {t[0] for t in meta.get("ticks", []) if t[1] == 0 and t[3] == 0 and t[2] > 0}
+
+        def line(s):
+            if a.section and s.get("trench", -1) >= 0 and s.get("along", -1) >= 0:
+                return "%d:t%d.%d" % (s["team"], s["trench"], s["along"] // a.section)
+            return s["line"]
+
+        keep = (lambda s: True) if a.all else (lambda s: _seen(s, w, h))
+        births = [s for s in log if keep(s)]
+        flying = [s for s in fly if keep(s)]
+        print("   %d held frames, tracer %.3f s; logged %d (dropped %d), births %d (%s: %d), in flight at frame 0 %d (%s: %d); "
+              "%d whole ticks inside the frames"
+              % (frames, meta.get("tracer_seconds") or 0, meta.get("logged", 0), meta.get("dropped", 0), len(log),
+                 "all" if a.all else "crossing the screen", len(births), len(fly), "all" if a.all else "crossing the screen",
+                 len(flying), len(complete)))
+        if meta.get("dropped"):
+            print("   WARNING: the log was full; counts are low")
+            rc = 1
+        by = {}
+        for s in births:
+            by.setdefault(line(s), []).append(s)
+        inflight_by = {}
+        for s in flying:
+            inflight_by[line(s)] = inflight_by.get(line(s), 0) + 1
+        print("   %-10s %6s %6s %9s %7s %11s   %-24s %s" % ("line", "births", "f1+", "max/frame", "share", "share f1+", "start px x (min-max)", "y (min-max)"))
+        rows = []
+        for ln, ss in by.items():
+            per = {}
+            for s in ss:
+                per[s["f"]] = per.get(s["f"], 0) + 1
+            top_f, top = max(per.items(), key=lambda kv: (kv[1], -kv[0]))
+            later = {f: n for f, n in per.items() if f >= 1}   # frames 1.. only, as the blind critic counted (C71)
+            n1 = sum(later.values())
+            top1 = max(later.values()) if later else 0
+            xs = [s["sx"] for s in ss if s.get("sx") is not None]
+            ys = [s["sy"] for s in ss if s.get("sy") is not None]
+            rows.append((ln, len(ss), n1, top, top_f, top / float(len(ss)), top1 / float(n1) if n1 else 0.0,
+                         "%5.0f-%5.0f" % (min(xs), max(xs)) if xs else "-", "%5.0f-%5.0f" % (min(ys), max(ys)) if ys else "-"))
+        for ln, n, n1, top, top_f, share, share1, xr, yr in sorted(rows, key=lambda t: -t[1]):
+            print("   %-10s %6d %6d %5d @f%-3d %6.2f %11.2f   %-24s %s%s" % (ln, n, n1, top, top_f, share, share1, xr, yr,
+                  "   (+%d in flight at f0)" % inflight_by[ln] if inflight_by.get(ln) else ""))
+        # per whole tick: the share of a line's births of that tick drawn first on one frame
+        print("   per whole tick (a line's tick with >= %d births): largest share of its births on one frame" % a.min)
+        worst_all, over = 0.0, []
+        for ln, ss in sorted(by.items()):
+            ticks = {}
+            for s in ss:
+                if s["tick"] in complete:
+                    ticks.setdefault(s["tick"], []).append(s["f"])
+            shares = []
+            for t, fs in sorted(ticks.items()):
+                if len(fs) < a.min:
+                    continue
+                top = max(fs.count(f) for f in set(fs))
+                shares.append((top / float(len(fs)), t, top, len(fs)))
+            if not shares:
+                continue
+            worst = max(shares)
+            worst_all = max(worst_all, worst[0])
+            n_over = sum(1 for x in shares if x[0] > 0.5)
+            if n_over:
+                over.append(ln)
+            print("   %-10s %3d ticks  max %.2f (tick %d: %d of %d)  median %.2f (uniform-random chance %.2f)  ticks over 0.5: %d"
+                  % (ln, len(shares), worst[0], worst[1], worst[2], worst[3], statistics.median(x[0] for x in shares),
+                     statistics.median(_null_share(x[3]) for x in shares), n_over))
+        # the whole tick, every line together (what the strobe was: every shot of a tick on one frame)
+        whole = {}
+        for s in births:
+            if s["tick"] in complete:
+                whole.setdefault(s["tick"], []).append(s["f"])
+        for t, fs in sorted(whole.items()):
+            top = max(fs.count(f) for f in set(fs))
+            print("   tick %d, all lines: %d births over frames %s, largest one-frame share %.2f"
+                  % (t, len(fs), sorted(set(fs)), top / float(len(fs))))
+        print("   verdict: largest per-tick one-frame share of a line %.2f; lines with a tick over 0.5: %s"
+              % (worst_all, ", ".join(over) if over else "none"))
+        if a.table:
+            names = [t[0] for t in sorted(rows, key=lambda t: -t[1])]
+            print("   births per frame (frame 0 counts births, not what is visible):")
+            print("   frame " + " ".join("%9s" % n for n in names))
+            for f in range(frames):
+                print("   %5d " % f + " ".join("%9d" % sum(1 for s in by[n] if s["f"] == f) for n in names))
+    return rc
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="aosa.py", description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1395,6 +1539,12 @@ def main(argv=None):
     sn.add_argument("--label", help="default: the live player's build-info git_sha (short)")
     pr = sub.add_parser("prune", help="apply the storage retention rule (dry run unless --apply)")
     pr.add_argument("--apply", action="store_true")
+    sh = sub.add_parser("shots", help="an image run's shot_log (C72): per-line births and one-frame shares, per tick")
+    sh.add_argument("label", help="label, file or glob of image-run reports")
+    sh.add_argument("--all", action="store_true", help="every logged shot, not only tracers crossing the screen")
+    sh.add_argument("--min", type=int, default=4, help="a line's tick needs this many births to get a per-tick share")
+    sh.add_argument("--section", type=int, default=0, help="re-bin trench sections to this many cells (default: the log's)")
+    sh.add_argument("--table", action="store_true", help="births per frame per line, like the blind critic's table")
     lg = sub.add_parser("ledger")
     lg.add_argument("op", choices=["add"])
     lg.add_argument("--mode", required=True, choices=["P", "E", "B"])
@@ -1408,7 +1558,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"status": cmd_status, "bench": cmd_bench, "compare": cmd_compare, "attempt": cmd_attempt, "learn": cmd_learn,
           "pick": cmd_pick, "age": cmd_age, "budget": cmd_budget, "refimg": cmd_refimg, "retro": cmd_retro, "stilldiff": cmd_stilldiff,
-          "ledger": cmd_ledger, "snapshot": cmd_snapshot, "prune": cmd_prune}[a.cmd]
+          "ledger": cmd_ledger, "snapshot": cmd_snapshot, "prune": cmd_prune, "shots": cmd_shots}[a.cmd]
     if a.cmd == "status":
         try:
             return cmd_status(a)
