@@ -51,7 +51,7 @@ namespace TW.Tests
             go = new GameObject("hud-test");
             doc = go.AddComponent<UIDocument>();
             doc.panelSettings = panel; doc.visualTreeAsset = tree;
-            var costs = new[] { 150, 120, 250, 60, 180, 300 };   // one a support card, in HudView.SupportAbilities order (docs/07), so the poor state can fire on every card
+            var costs = new[] { 150, 120, 200, 250, 60, 180, 300 };   // one a support card, in HudView.SupportAbilities order (docs/07), so the poor state can fire on every card
             Assert.That(costs.Length, Is.EqualTo(HudView.SupportAbilities.Length), "a cost for every support card");
             return HudView.Build(doc.rootVisualElement, Resources.Load<VisualTreeAsset>("Hud/UnitCard"), DefaultRoster(), costs);
         }
