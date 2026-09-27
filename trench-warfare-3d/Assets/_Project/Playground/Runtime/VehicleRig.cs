@@ -401,12 +401,13 @@ namespace TW.Playground
             var deck = SocketLocal("Socket_Deck");
             Fx?.CookOff(deckWorld, Size);
             // the turret goes up the ammunition's own column, the plates blow out from the fighting compartment
+            float fling = Manifest.fling > 0f ? Manifest.fling : 1f;
             foreach (var p in Parts)
             {
-                if (p.Loose || p.Name == "Hull") continue;
+                if (p.Loose || p.Name == "Hull" || StaysOnWreck(p)) continue;
                 var c = LocalCentre(p);
                 var out_ = c - deck; out_.y = 0f; out_ = out_.sqrMagnitude > 1e-4f ? out_.normalized : RSphere();
-                float s = Mathf.Sqrt(Size);
+                float s = Mathf.Sqrt(Size) * fling;
                 Vector3 v; Vector3 spin;
                 if (p.Name == "Turret") { v = Vector3.up * R(11f, 14f) * s + out_ * R(0.5f, 1.5f); spin = RSphere() * R(2f, 5f); }
                 else if (p.Tier == 4) { v = out_ * R(2.5f, 4f) * s + Vector3.up * R(4f, 7f) * s; spin = Vector3.Cross(Vector3.up, out_) * R(4f, 8f); }
@@ -427,6 +428,16 @@ namespace TW.Playground
             }
             Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 14, 13f, 0.35f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.6f, default, (uint)(Seed * 7919));
             LastEvent = "COOKED OFF";
+        }
+
+        /// <summary>What a cook-off leaves on the hull: what it stands, walks or flies on, and the body around the crew. The
+        /// new machines came completely apart and every wreck was a bare box that said nothing of what it had been (loop 2
+        /// r35: 12 of 12 parts loose on the Croaker, 15 of 15 on the Mercy). They burn where they are instead.</summary>
+        static bool StaysOnWreck(Part p)
+        {
+            foreach (var k in new[] { "Track", "Wheel", "Thigh", "Shin", "Foot", "Claw", "Pod", "Skid", "Wing", "Engine", "FanRing", "Fan", "Tail", "Cab", "Hood" })
+                if (p.Name.StartsWith(k)) return true;
+            return false;
         }
 
         public void FireGun()

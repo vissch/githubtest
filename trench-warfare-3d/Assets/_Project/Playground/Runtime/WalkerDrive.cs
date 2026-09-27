@@ -110,7 +110,26 @@ namespace TW.Playground
             byte lost = 0;
             for (int s = 0; s < 2; s++) if (thigh[s].Loose || shin[s].Loose || foot[s].Loose) lost |= (byte)(1 << s);
             if (dt > 0f) gait.Step(model, GaitPos, WalkYaw, vel / GaitScale, yawRate, lost, dead, dt, Ground);
+            if (v < 0.05f && !dead && lost == 0) Settle(face);
             Pose(face);
+        }
+
+        /// <summary>Stopped, it brings its feet back under it one at a time: WalkerGait steps only when a foot has drifted
+        /// far from where the moving body wants it, so a walker that stopped mid-stride stood that way for good (loop 2
+        /// r35: feet 1.14 m apart along the body, arms 1 m apart).</summary>
+        void Settle(Quaternion face)
+        {
+            int worst = -1; float far = 0.15f * Unit;
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++)
+            {
+                if (gait.Feet[s].Swing >= 0f) return;                    // one is already on its way
+                var home = GaitPos + face * ((toe0[s] + new Vector3(0f, 0f, Lead)) * Unit); home.y = 0f;
+                float d = Vector3.Distance(new Vector3(gait.Feet[s].Anchor.x, 0f, gait.Feet[s].Anchor.z), home);
+                if (d > far) { far = d; worst = s; }
+            }
+            if (worst < 0) return;
+            var h = GaitPos + face * ((toe0[worst] + new Vector3(0f, 0f, Lead)) * Unit); h.y = 0f;
+            gait.Feet[worst].Target = h; gait.Feet[worst].Arc = 0.25f * Unit; gait.Feet[worst].Swing = 0f;
         }
 
         void Pose(Quaternion face)

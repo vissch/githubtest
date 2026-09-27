@@ -326,7 +326,9 @@ for k in (1, 2):
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
 piv, sock = pivots_and_sockets(P0)
-manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND in ("flyer", "hover"), "hover": KIND == "hover", "lods": [], "snapped": [],
+manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND in ("flyer", "hover"), "hover": KIND == "hover",
+            # a cook-off throws its parts at 0.6 of the tank's speeds: it has no magazine, and at 1.0 an engine landed 29 m off
+            "fling": 0.6, "lods": [], "snapped": [],
             "derived": [k for k in (1, 2) if not (k == 2 and LOD2_FROM == "tripo")],
             "partList": [dict(name=n, parent=PARENT.get(n, ""), pivot=unity(piv[n] * SCALE), **BREAK[n]) for n in PARTS],
             "socketList": [{"name": s, "part": o, "pos": unity((p - piv[o]) * SCALE)} for s, (o, p) in sock.items()]}
