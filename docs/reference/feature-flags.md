@@ -4,7 +4,13 @@ Every switch that changes what the game or the editor does without a code change
 PlayerPrefs / EditorPrefs / SessionState keys, environment variables, and the static or inspector fields tools set.
 The tables are generated from the code by `Tools/codemap.py`; the "Effect" text lives in that script's `FLAG_EFFECT`
 and `STATIC_SWITCHES`. A new command-line flag, pref or environment variable fails `validate.py` until it is
-described here. A new static switch does not: add it to `STATIC_SWITCHES` in `Tools/codemap.py` yourself.
+described here. A new static switch does not: add it to `STATIC_SWITCHES` in `Tools/codemap.py` yourself, and
+give it a reset (`SceneStatics.Register`) or a reason in `StaticLifecycleTests`, or that test fails.
+
+**Which kind of switch.** Something the player chooses: a field in `Presentation/Core/GameSettings.cs`, applied by
+`UI/Shell/SettingsApplier.cs` (GameSettingsTests). A knob for experiments or the bench: a static in the class that
+uses it, plus a `BenchOptions` key if the bench should set it. Something a scene or level chooses: a `SimHost`
+inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 
 **Two that surprise people:**
 - `tw.hud.toolkit` is stored in the Windows registry per machine. If someone pressed F9, that machine shows the old
@@ -16,7 +22,7 @@ described here. A new static switch does not: add it to `STATIC_SWITCHES` in `To
 <!-- gen:flags -->
 | Switch | Kind | Read at (under Assets/_Project) | Effect |
 |---|---|---|---|
-| `-twbench` | command-line arg | `Perf/PerfBench.cs:37` | Player/editor arg: run PerfBench with "key=value ..." options and quit. See workflow.md, Benchmark. |
+| `-twbench` | command-line arg | `Perf/PerfBench.cs:37` | Player/editor arg: run PerfBench with "key=value ..." options and quit. Options: `Perf/BenchOptions.cs` `Parse`; recipes: workflow.md, section 7. |
 | `-twCanary` | command-line arg | `Presentation/Core/SimHost.cs:106` | Player/editor arg: run the second (peer) sim world as a determinism canary. Off in single player. |
 | `-twdev` | command-line arg | `Editor/BuildWindows.cs:75` | Arg to the batch Windows build: make a Development build. |
 | `TW.EnvProps.Edit` | EditorPrefs | `Editor/EnvPropEditor.cs:36` | EditorPrefs bool: hand placement of props in the Scene view during Play (EnvPropEditor). Default on. |

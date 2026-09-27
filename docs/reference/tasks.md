@@ -35,12 +35,20 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
   `FormatVersion`. Contracts in `docs/02-contracts.md`, rules in `docs/03-determinism-rules.md`.
 
 ### Lockstep, one world, canary
-- **Files:** `Net/LockstepDriver.cs`, `Net/LoopbackTransport.cs`, `Net/CommandSeat.cs`,
-  `Presentation/Core/LockstepSession.cs`, `Presentation/Core/SimHost.cs`, `Presentation/Core/ScriptedEnemy.cs` (the AI).
+- **Files:** `Net/LockstepDriver.cs`, `Net/LoopbackTransport.cs`, `Net/CommandSeat.cs` (SIM lane), and on the
+  SHOW side of the seam `Presentation/Core/LockstepSession.cs`, `Presentation/Core/SimHost.cs`,
+  `Presentation/Core/ScriptedEnemy.cs` (the AI). The folder decides the lane: those three are SHOW files.
 - **Tests:** LockstepLoopbackTests, BattlefieldLockstepTests, CommandSeatTests, SinglePlayerEquivalenceTests,
   CanaryFixture (makes every PlayMode SimHost run the canary).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
   `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs.
+
+### The stress preset (thousands of men for perf work)
+- **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
+  (`StressSide` deploys both armies at their spawn points), `Perf/BenchOptions.cs` (`stress=`),
+  `Editor/CaptureRig.cs` (`Stress`: the documented 2,000-man run).
+- **Tests:** SinglePlayerEquivalenceTests (runs the preset with 60 men a side), BattlefieldLockstepTests.
+- **See it:** `TW.Editor.CaptureRig.Stress(1000, "C:/abs/stress.json")`, or `-twbench "stress=1000 ..."` in a build.
 
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: ShelledForest, WinterLine, sea),
@@ -77,7 +85,9 @@ A row that says **Tests: none** means nothing will go red if you break it. Look 
 ### Vehicles in the sim: tanks and walkers
 - **Files:** `Sim/Core/RosterEntry.cs` (`VehicleArchetype`, default roster, `SlotCount`), `Sim/Combat/TankSpec.cs`,
   `Sim/Combat/Armor.cs`, `Sim/Combat/TankGunnery.cs`, `Sim/Units/VehicleModules.cs` (legs, tracks, crew, fire,
-  wrecks), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, trench crossing, crushing).
+  when a vehicle is destroyed), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, trench crossing, crushing).
+  The wreck itself is a map prop made in `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`);
+  which vehicle it was survives only in the `PropChanged` event (`dir.x` = dead slot + 1), not on the prop.
 - **Tests:** TankTests, TankMobilityTests, CrabTests.
 - **Trap:** `VehicleSize` is baked into mesh vertices at load. Every gap authored in the composer depends on it.
 
@@ -140,6 +150,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
+  **Colours:** the tints in `FlipbookFx.Sheets` are overwritten every scene by `CombatFx.ApplyTints` from
+  `BiomeProfile` (`SmokeTint` and the other `*Tint` fields, through `SceneTints`), so change a colour there. At
+  night a burst also lights its own smoke: `NightLights` sets `_TWBurst`, read by `TWBurstLight` in
+  `Shaders/TWAtmosphere.hlsl`. `FlipbookFx.Book` maps to `Sheets` by position; the smoke book's sheet is named "Puff".
   `CombatFx.cs` also draws the gameplay overlays: called-strike target markers, the ability aiming circle (in
   `Update`, from `TestPanel.Armed`) and the IMGUI banner (`Banner`, `OnGUI`).
 - **Hooks:** sets `Sparks`, `CookOff`, `FootFall`; reads `IsWater`, `AddRing`, `Flash`, `SmokeSources`, `IsTankSlot`,
@@ -238,6 +252,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/BattleHud.cs` (F9 switches to it), `Presentation/Camera/TestPanel.cs`,
   `Presentation/Camera/DebugOverlay.cs`.
 - **Tests:** HudLayoutTests, HudTextTests test its static helpers only. No test runs OnGUI.
+- **See it:** in Play press F9 for the legacy HUD; the "Debug panel" button is top right. `Tools/tw shot` captures
+  the game view with its IMGUI.
 
 ### Support fire: arming, aiming, calling it in
 - **Files:** arming an ability is checked in three places that must agree: `TestPanel.Arm` / `Armed` (the debug
@@ -285,8 +301,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Perf/PerfBench.cs`, `Perf/BenchOptions.cs` (every bench option is parsed in `Parse`: the list of
   keys), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`, `FrameBudget` in
   `Presentation/Core/RenderGround.cs`. Budgets and past runs: `docs/05-performance-budgets.md`.
-- **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests.
+- **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests. None
+  covers `FrameBudget`'s counts.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
+- **Trap:** `FrameBudget` does not see every draw: `BattlefieldProps`, `PropDestruction` and `SelectionMarkers` call
+  `Graphics.RenderMeshInstanced` directly (a fix is on `lane/show/aosa`), and `PerfBench` reports the props'
+  own `DrawCalls` rather than reading `FrameBudget`. A bench `shot=` still includes the HUD and IMGUI overlays.
 
 ### Windows build
 - **Files:** `Editor/BuildWindows.cs`, `Resources/ShaderKeep/`.

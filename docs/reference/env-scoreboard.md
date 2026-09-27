@@ -53,8 +53,8 @@ These are not scored. They are conditions of a round being allowed to land at al
   have rewarded the loop for adding cost. The props are one of nine submitters, and the three that carry every
   close-tier effect - `CombatFx`, `FlipbookFx`, `SmallLife` - counted nothing at all, so five hundred new ground
   marks and six rats would have read as "budget held". `FrameBudget` (`Presentation/Core/RenderGround.cs`, beside
-  `SceneHooks`) counts the whole frame: every instanced and single-mesh submission in Presentation goes through it,
-  debug gizmos excluded. It reports the last COMPLETE frame, because the submitters draw from different components'
+  `SceneHooks`) counts the frame: instanced and single-mesh submissions go through it, debug gizmos excluded
+  (2026-09-27: not yet the props, prop destruction or selection rings, which still draw directly). It reports the last COMPLETE frame, because the submitters draw from different components'
   `Update` and `LateUpdate` and there is no point in the frame where all of them have finished.
 - **Sim untouched.** Presentation only. Nothing under `Assets/_Project/Sim` unless the owner asked for it, because it
   is hashed and it is replayed.

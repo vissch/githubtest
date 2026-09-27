@@ -410,7 +410,8 @@ view). Presentation only.
   card comes down to 55 %, and the hole's ember glow to half its size and 70 % of its strength (it was a 4 m pink ball
   standing in the crater for up to 12 s).
 - **Night tint.** Smoke and the burst cloud take 45 % of the mood's shade tint (`Sheet.Mood`, `_ShadeMood`), not all of
-  it: at night the burst cloud was saturated blue. Smoke is a warm grey (0.50, 0.47, 0.43).
+  it: at night the burst cloud was saturated blue. Smoke is a warm grey (0.50, 0.47, 0.43) in the sheet table; at run time
+  `BiomeProfile.SmokeTint` replaces it (0.34, 0.32, 0.29 by default), see `docs/reference/tasks.md`, Combat effects.
 - **Chunk smoke drifts with the wind** (`_TWWind`), not towards a fixed -Z.
 - **The knockdown hop is life-size metres** times the man's drawn scale (UnitScale times the zoom growth), so it stays in
   proportion to him after claude-14's UnitScale 1.5 to 1.125, and still reads when the men are drawn large far out.

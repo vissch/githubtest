@@ -17,6 +17,7 @@ Read three files, in order: this one, `docs/reference/tasks.md` (task → files 
 | notes other sessions left for you | `docs/reference/inbox.md` |
 | design of a system (why it is built this way) | `docs/README.md` (index of docs 00-20) |
 | known risks and the refactor backlog | `docs/reference/maintainability-audit-2026-09.md` |
+| whether these docs still work for a fresh agent (after a big docs change) | `docs/reference/nav-eval.md` |
 
 ## Land checks
 ```bash
