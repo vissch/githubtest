@@ -4,7 +4,7 @@
 set -u
 T="${1:-r0}"; HERE="$(dirname "${BASH_SOURCE[0]}")"; P="bash $HERE/pg.sh"
 OUT="${PG_OUT:-$(cd "$HERE/../.." && (pwd -W 2>/dev/null || pwd))/Captures/playground}"
-$P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7"
+$P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1"
 # ---- each LOD's colour fitted to LOD0's on the render, before anything is shot (kept for the session)
 $P do "vehicle"; sleep 2; $P do "lodfit $OUT/${T}_fit_vehicle.json"; sleep 2
 $P do "unit; clip Rifle Idle"; sleep 2; $P do "lodfit $OUT/${T}_fit_unit.json"; sleep 2
