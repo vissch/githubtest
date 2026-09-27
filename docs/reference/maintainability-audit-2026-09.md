@@ -43,10 +43,9 @@ by this pass (see `CLAUDE.md`); the code half is a backlog, in order, at the bot
 - **Env atlas order** tested; **statics** reset when Play ends and ratcheted by a test; **CombatFx** in five files.
 - Commits on `lane/show/maint-2026-09`: pick radius `e693c02`, dead stubs `553566f`, TankCapture `91026d6`, env atlas
   test `55aba9c`, statics and CombatFx split `2c08268`; docs and shared tools follow.
-- **Verified so far (2026-09-25):** all 19 assemblies compile offline (Roslyn, with the offline compiler from lane/show/aosa);
-  a metadata scan of the built dlls finds exactly the 26 static-holding types `StaticLifecycleTests` accounts for;
-  `validate.py` passes. **Not yet run:** the EditMode/PlayMode gate and the Play look, because the workstation had
-  under 1 GB free for a second editor. Run `gate.ps1` before this lane merges.
+- **Verified (2026-09-27):** full `gate.ps1` green on this branch: validate, EditMode 343/343 (including the five
+  new tests), PlayMode 15/15. All 19 assemblies also compile offline, and a metadata scan of the built dlls finds
+  exactly the 26 static-holding types `StaticLifecycleTests` accounts for. Not done: the Play look in GreyboxCorridor.
 
 ## Checked and found not to be problems
 - **`Roster` is not in `SimWorld.Hash()`.** Deliberate: it is written once from the same table on every machine and

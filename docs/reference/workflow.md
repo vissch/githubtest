@@ -136,11 +136,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly  # val
 |---|---|
 | 0 | green |
 | 8 | a test failed; the gate prints each failed test and its message |
-| 6 | no verdict: compile error or licence. Not a pass |
+| 6 | no verdict: compile error, licence, or a suite that ran no tests. Not a pass |
 | 3 | the checkout is held by an editor or another batch run |
 | other | validate.py failed (its lines are printed) |
 
-Full EditMode is ~338 tests and takes a few minutes; PlayMode is 15.
+Each suite prints one line of what ran, and keeps its results beside `test-results.xml` (verified 2026-09-27):
+```
+EditMode : 343 run, 343 passed, 0 failed, 0 skipped (test-results-EditMode.xml)
+```
+Full EditMode is 343 tests and takes a few minutes; PlayMode is 15. Read `test-results-EditMode.xml` for EditMode
+details after a full gate: `test-results.xml` then holds only PlayMode.
 
 ### False reds
 - **After Play in the same editor:** statics survive leaving Play (`CameraShake`'s look point is the known one).
