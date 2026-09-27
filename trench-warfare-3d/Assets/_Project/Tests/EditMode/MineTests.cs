@@ -251,7 +251,7 @@ namespace TW.Tests
         public void OnlyTheBlastSystemClearsItsResolvedList()
         {
             // the list is filled at 720 and read at 725, 730, 1000 and 1130: whoever drained it (Deformation once did) starved the readers after it
-            string simDir = System.IO.Path.Combine(UnityEngine.Application.dataPath, "_Project", "Sim");
+            string simDir = System.IO.Path.Combine("Assets", "_Project", "Sim");   // relative to the project (Unity's working folder), so Tools/otr.py runs it too
             var clearers = new System.Collections.Generic.List<string>();
             foreach (var file in System.IO.Directory.GetFiles(simDir, "*.cs", System.IO.SearchOption.AllDirectories))
                 if (System.IO.File.ReadAllText(file).Contains("Resolved.Clear(")) clearers.Add(System.IO.Path.GetFileName(file));
