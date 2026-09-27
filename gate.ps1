@@ -51,6 +51,8 @@ function Report-Run($mode, $code) {
     $r = $x.'test-run'
     Write-Host "$mode : $($r.total) run, $($r.passed) passed, $($r.failed) failed, $($r.skipped) skipped (test-results-$mode.xml)"
     if ($code -eq 0 -and [int]$r.total -eq 0) { Write-Host "$mode ran no tests: not a pass." -ForegroundColor Red; return 6 }
+    # the xml is the verdict, not unity's exit code (memory: unity-batch-gate-verdicts)
+    if ($code -eq 0 -and ([int]$r.failed -gt 0 -or $r.result -ne 'Passed')) { Write-Host "$mode : the xml says $($r.result), $($r.failed) failed, though unity exited 0: not a pass." -ForegroundColor Red; return 8 }
     return $code
 }
 
