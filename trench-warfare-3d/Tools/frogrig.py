@@ -237,24 +237,30 @@ lods = []
 stems = []
 for k, f in enumerate(SRC):
     o, stem = load(f, "Frog_LOD%d" % k); lods.append(o); stems.append(stem)
-# TW_DERIVE=1 (an option for the owner, off by default): LOD1 and LOD2 are LOD0 decimated to Tripo's LOD1 and LOD2
+# TW_DERIVE (default 12, the owner's choice 2026-09-27; 1 derives LOD1 only, 0 keeps Tripo's own): LOD1 and LOD2 are LOD0 decimated to Tripo's
 # triangle counts, on LOD0's atlas, instead of Tripo's own sculpts. Each Tripo LOD bakes its own texture, so the same
 # spot is a different colour at every level: measured 2026-09-26 the colour change inside the silhouette at each switch
 # is ~20/255, four times what a one-degree turn of the camera does, and a per-LOD tint removes only its mean (~5/255).
 # TW_DERIVE=1 derives LOD1 only, =12 both. Measured 2026-09-26 (docs/22): LOD1 from LOD0 takes the 0->1 pop from IoU
 # 0.919 to 0.968 and the block colour shift from 11.1 to 5.0; LOD2 from LOD0 (24% of its triangles) breaks the cap and
-# is worse at 1->2 (0.837 against 0.855), so Tripo's LOD2 stays.
-if os.environ.get("TW_DERIVE", "") in ("1", "12"):
-    tris0 = sum(len(p.vertices) - 2 for p in lods[0].data.polygons)
-    for k in ((1, 2) if os.environ["TW_DERIVE"] == "12" else (1,)):
+# was worse at 1->2 (0.837 against 0.855) - but that was the rig, not the mesh: its islands were re-made rigid on the
+# coarse surface and the head rode the arms. Stepped down from LOD1 and keeping LOD0's weights, measured 2026-09-27:
+# 0->1 IoU 0.986 (Tripo's LOD1 0.918), 1->2 0.945 (0.857), block colour 3.1 and 8.5 (13.4 and 15.4).
+DERIVE = os.environ.get("TW_DERIVE", "12")
+DERIVED = set()
+if DERIVE in ("1", "12"):
+    for k in ((1, 2) if DERIVE == "12" else (1,)):
+        # each level from the one above it (decimating LOD0 straight to a quarter of its triangles broke the cap)
+        src = lods[k - 1]; tris0 = sum(len(p.vertices) - 2 for p in src.data.polygons)
         tris_own = sum(len(p.vertices) - 2 for p in lods[k].data.polygons)
-        dk = lods[0].copy(); dk.data = lods[0].data.copy(); bpy.context.scene.collection.objects.link(dk)
+        if k == 2 and os.environ.get("TW_LOD2_TRIS"): tris_own = int(os.environ["TW_LOD2_TRIS"])
+        dk = src.copy(); dk.data = src.data.copy(); bpy.context.scene.collection.objects.link(dk)
         bpy.data.objects.remove(lods[k]); dk.name = "Frog_LOD%d" % k; dk.data.name = "Frog_LOD%d" % k
         select_only([dk], dk)
         md = dk.modifiers.new("dec", 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = min(1.0, tris_own / tris0)
-        md.use_symmetry = True; md.symmetry_axis = 'X'; md.use_collapse_triangulate = True
+        md.use_symmetry = os.environ.get("TW_DERIVE_SYM", "1") == "1"; md.symmetry_axis = 'X'; md.use_collapse_triangulate = True
         bpy.ops.object.modifier_apply(modifier=md.name)
-        lods[k] = dk; stems[k] = stems[0]
+        lods[k] = dk; stems[k] = stems[0]; DERIVED.add(k)
         print("LOD%d: made from LOD0, %d tris (Tripo's LOD%d had %d)" % (k, sum(len(p.vertices) - 2 for p in dk.data.polygons), k, tris_own))
 # TW_REBAKE=1 (an option for the owner, off by default): keep Tripo's LOD1 and LOD2 shapes but paint them from LOD0 -
 # LOD0's colour baked (Cycles, selected-to-active) onto each lower LOD's own UVs - so the same spot is the same colour
@@ -378,7 +384,13 @@ for k in (1, 2, 3):
     except Exception as ex: print("LOD%d: normal transfer failed: %s" % (k, ex)); o.modifiers.remove(dn)
     fold, kmax = RIGS[k]
     W = weights_of(o)
-    nacc = rigid_accessories(o, W, max(60, len(o.data.vertices) // 6) if k < 3 else max(12, len(o.data.vertices) // 10))
+    # the body/accessory line scales with the mesh from LOD0's 300 vertices: a LOD decimated from LOD0 keeps LOD0's
+    # islands at a quarter of their vertices, and a fixed share of its own count made the torso, legs and head
+    # 'accessories' riding the arms (derived LOD2 skinned to 8 bones, its head sank with the arms)
+    # a LOD decimated from LOD0 has LOD0's islands, which LOD0's weights already made rigid, so it keeps what it was given:
+    # re-made rigid on its own coarse surface, the head took the shoulders' weights and sank with the arms
+    derived = k in DERIVED or (k == 3 and 2 in DERIVED)
+    nacc = 0 if derived else rigid_accessories(o, W, max(12, int(300 * len(o.data.vertices) / len(lods[0].data.vertices))))
     ngate = gate(o, W)
     if k == 3 and os.environ.get("TW_LOD3_RIGID") == "1":   # tried 2026-09-26: gaps and shards when bent; kept as an option
         W, nseam = rigid_split(o, clean(W, o.data.vertices, fold, 4))

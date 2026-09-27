@@ -502,8 +502,38 @@ for k in range(3):
             step = close_big_holes(bm, 0.12 * (hi.y - lo.y), lods[k][4]); made += step
         texture_caps(bm, [f for f in bm.faces if f not in faces_before], before_caps); before_caps.free()
         print("LOD%d Track_%s: %d faces closing its open back; %d inner corners re-textured from the outer side" % (k, side, made, mirror_inner(bm, side)))
+# TW_DERIVE (default 12, the owner's choice 2026-09-27; 1 derives LOD1 only, 0 keeps Tripo's own LODs): each part of
+# LOD1 is the same part of LOD0 decimated to the triangles Tripo gave it at LOD1, on LOD0's atlas. Tripo's LODs are
+# separate sculpts with their own texture bakes, so the same plate is a different shape and colour at every level.
+# Measured 2026-09-27: 0->1 IoU 0.909 -> 0.949 and block colour shift 8.6 -> 2.5; 1->2 0.923 -> 0.910 and 4.4 -> 2.2
+# (LOD1 alone derived: 1->2 fell to 0.840 against Tripo's LOD2).
+def tris_of(bm): return sum(len(f.verts) - 2 for f in bm.faces)
+def decimated(bm, ratio):
+    me = bpy.data.meshes.new("dec"); bm.to_mesh(me)
+    o = bpy.data.objects.new("dec", me); bpy.context.scene.collection.objects.link(o)
+    for x in bpy.context.selected_objects: x.select_set(False)
+    o.select_set(True); bpy.context.view_layer.objects.active = o
+    md = o.modifiers.new("dec", 'DECIMATE'); md.decimate_type = 'COLLAPSE'; md.ratio = max(0.02, min(1.0, ratio))
+    md.use_collapse_triangulate = True
+    bpy.ops.object.modifier_apply(modifier=md.name)
+    out = bmesh.new(); out.from_mesh(o.data)
+    bpy.data.objects.remove(o); bpy.data.meshes.remove(me)
+    return out
+DERIVE = os.environ.get("TW_DERIVE", "12")
+derived = []
+for k in ((1, 2) if DERIVE == "12" else (1,) if DERIVE == "1" else ()):
+    P = {}; tripo = sum(tris_of(b) for b in lods[k][0].values())
+    for n in ALL_PARTS:
+        want, have = tris_of(lods[k][0][n]), tris_of(lods[0][0][n])
+        # a small part keeps at least 64 triangles: Tripo gave the antenna a handful at LOD2, and collapsed that far the
+        # thin mast folded into a lump 0.3 m off its place (Every_Vehicle_Part_Sits_In_The_Same_Place_At_Every_LOD)
+        want = max(want, min(have, 64))
+        P[n] = decimated(lods[0][0][n], want / max(1, have))
+    lods[k] = (P, lods[0][1], lods[0][2], lods[0][3], lods[0][4], lods[k][5])
+    derived.append(k)
+    print("LOD%d: derived from LOD0, %d tris (Tripo's had %d)" % (k, sum(tris_of(b) for b in P.values()), tripo))
 piv, sock = pivots_and_sockets(lods[0][0])
-manifest = {"source": "Tools/tank3split.py", "name": NAME, "scale": SCALE, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped}
+manifest = {"source": "Tools/tank3split.py", "name": NAME, "scale": SCALE, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped, "derived": derived}
 for n in ALL_PARTS:
     manifest["parts"][n] = {"parent": PARENT.get(n), "pivot": unity(piv[n] * SCALE), **BREAK[n]}
 for s, (owner, p) in sock.items():
