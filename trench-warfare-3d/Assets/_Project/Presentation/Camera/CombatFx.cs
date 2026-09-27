@@ -145,6 +145,9 @@ namespace TW.Presentation.Tactical
         // knobs fx.columnBurstLit and fx.columnCap (Awake, AOSA C108): C103's light and cap on the old column, on a moonlit
         // field (FlipbookFx.ColumnBurstLit, from ApplyTints; FlipbookFx.ColumnCapScale where the column is thrown). 1 and 0 = today.
         float columnBurstLit = FlipbookFx.DefaultColumnBurstLit, columnCap = FlipbookFx.DefaultColumnCap;
+        // knob fx.columnPlay (Awake, AOSA C109): the part of the Column book the old dry column plays on a moonlit field
+        // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = today.
+        float columnPlay = FlipbookFx.DefaultColumnPlay;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming circle and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -303,6 +306,7 @@ namespace TW.Presentation.Tactical
             columnSoil = FlipbookFx.ReadColumnSoil();
             columnBurstLit = FlipbookFx.ReadColumnBurstLit();
             columnCap = FlipbookFx.ReadColumnCap();
+            columnPlay = FlipbookFx.ReadColumnPlay();
         }
 
         void Start()
@@ -743,6 +747,8 @@ namespace TW.Presentation.Tactical
                         // AOSA C103: a dry column on a moonlit field is the soil heave at fx.columnSoil (0: the old column exactly)
                         float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
                         float columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth;
+                        // AOSA C109: a dry column on a moonlit field stops before its book's late arcs at fx.columnPlay (1: cut 0, the old card exactly)
+                        float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;
                         if (soil > 0f)
                         {
                             // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
@@ -758,10 +764,10 @@ namespace TW.Presentation.Tactical
                             float tall = books.CardHeight(FlipbookFx.Book.Column, columnWidth), reach = tall * (1f + FlipbookFx.ColumnGrow);
                             float behind = MenBehind(p, columnWidth * (1f + FlipbookFx.ColumnGrow) * 0.3f + 0.4f, reach * 3f, out float tanPitch);
                             books.Add(FlipbookFx.Book.Column, p, columnWidth, 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: FlipbookFx.ColumnGrow, alpha: 1f, pop: 0.15f,
-                                height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)));
+                                height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
                         }
                         else
-                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f);
+                        books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f, cut: cut);
                         // the two wings are not a mirror pair: the second is born a little later and a little smaller
                         books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
                         books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);

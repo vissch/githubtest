@@ -31,6 +31,7 @@ namespace TW.Presentation.Tactical
         {
             public Vector3 Pos, Vel;
             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop;
+            public float Cut;         // AOSA C109 (fx.columnPlay): the part of its life (and so of its book) it plays before it is gone (0 = all)
             public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
             public Book Book; public Kind Kind;
         }
@@ -392,6 +393,44 @@ namespace TW.Presentation.Tactical
             m.SetFloat("_BurstLit", Mathf.Clamp01(share));
         }
 
+        // AOSA C109 (juice J01, from C108's finding, runs 10/c108.md): the orange arcs a blind critic reads as flame or spray
+        // at night, partly over men, are the Column book's own late drawing (frames 6-15, the column split into thin arcs),
+        // in C57's night-earth paint, drawn 0.7-1.8 s into the old column's 1.8 s life. How the book plays (Draw): a card's
+        // frame is k x Frames x Sheet.Play (k = its age over its life), so a Sheet's Play slows the whole book to end at that
+        // frame; it neither stops early nor fades sooner. Every card fades over its last 35% of life and is gone at its life.
+        // So a Sheet Play would stretch the heave (frames 0-5) over the whole 1.8 s. Instead this cuts the card: its frames,
+        // swell, pop and glow run on the old 1.8 s clock exactly (the heave as today), but it is gone at Cut x its life, and
+        // it fades (and, eroding, tears) over the last PlayFade of that shortened life, to 0 at the cut: no pop.
+        //   fx.columnPlay   the part of the Column book the old dry column plays on a moonlit field (as C57), in
+        //                   [MinColumnPlay, 1]. 1 = today (no card is cut, the old fade line runs). 0.4: gone at 0.72 s at
+        //                   frame 6.4, the arcs' first frame (6) at fade 0.085. With fx.columnSoil above 0 the heave's own
+        //                   timing applies (no cut); with fx.columnCap the capped column is cut the same. Splash is never cut.
+        // No book, material, mesh or draw is added: the same card, gone sooner.
+        public const string ColumnPlayKnob = "fx.columnPlay";
+        public const float DefaultColumnPlay = 1f, OldColumnPlay = 1f;   // off until a blind 2-way against the default passes (rule 6)
+        public const float MinColumnPlay = 0.1f;
+        public const float PlayFade = 0.35f;   // the cut card fades over this part of its shortened life (every card's own last 35%)
+
+        /// <summary>fx.columnPlay, in [MinColumnPlay, 1] (1 = today).</summary>
+        public static float ReadColumnPlay() => Mathf.Clamp(Knobs.Get(ColumnPlayKnob, DefaultColumnPlay), MinColumnPlay, 1f);
+
+        /// <summary>The Cut a column card is added with at this knob: 0 (no cut, today exactly) at 1 or above.</summary>
+        public static float ColumnPlayCut(float play) => play >= 1f ? 0f : Mathf.Clamp(play, MinColumnPlay, 1f);
+
+        /// <summary>A card's age (seconds) at which it is gone: its life, or Cut x its life when it is cut.</summary>
+        public static float CardEnd(float life, float cut) => cut > 0f ? life * cut : life;
+
+        /// <summary>The fade of a cut card at k (its age over its FULL life): 1 until the last PlayFade of its shortened
+        /// life (cut x life), then smoothly to 0 at the cut.</summary>
+        public static float CutFade(float k, float cut)
+        {
+            float u = Mathf.Clamp01(k / Mathf.Max(0.0001f, cut));
+            return 1f - Mathf.SmoothStep(0f, 1f, (u - (1f - PlayFade)) / PlayFade);
+        }
+
+        /// <summary>The Cut the card at this index holds, for the tests.</summary>
+        public float CardCut(int index) => cards[index].Cut;
+
         /// <summary>The _BurstLit the Column book's material holds (1 when the book did not load), for the tests.</summary>
         public float ColumnBurstLitNow => mats[(int)Book.Column] != null ? mats[(int)Book.Column].GetFloat("_BurstLit") : 1f;
         readonly int maxCards;   // MaxCards, or the knob flipbook.maxCards (read in the constructor)
@@ -460,12 +499,12 @@ namespace TW.Presentation.Tactical
         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
         /// out over its last third.
         /// </summary>
-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f)
+        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f)
         {
             if (!Ready) return;
             if (cards.Count >= maxCards) cards.RemoveAt(0);
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Book = book, Kind = kind });
+            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind });
         }
 
         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
@@ -476,7 +515,7 @@ namespace TW.Presentation.Tactical
             for (int i = cards.Count - 1; i >= 0; i--)
             {
                 var c = cards[i];
-                if (now - c.Born > c.Life) { cards.RemoveAt(i); continue; }
+                if (now - c.Born > (c.Cut > 0f ? CardEnd(c.Life, c.Cut) : c.Life)) { cards.RemoveAt(i); continue; }   // AOSA C109: a cut card goes at its cut
                 if (now < c.Born) continue;   // not born yet
                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
             }
@@ -491,7 +530,7 @@ namespace TW.Presentation.Tactical
                     float k = Mathf.Clamp01((now - c.Born) / c.Life);
                     float swell = 1f + c.Grow * k;
                     if (c.Pop > 0f) { float u = 1f - Mathf.Clamp01(k / 0.2f); swell *= Mathf.Lerp(1f, c.Pop, u * u * u); }   // bursts out of a point, eased
-                    float fade = 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);
+                    float fade = c.Cut > 0f ? CutFade(k, c.Cut) : 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);   // AOSA C109: a cut card fades to 0 at its cut
                     if (Sheets[b].RampIn > 0f) fade *= Mathf.Clamp01((now - c.Born) / Sheets[b].RampIn);
                     float play = Sheets[b].Play > 0f ? Sheets[b].Play : 1f;
                     float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f) : Mathf.Min(k * frames * play, frames - 1.001f);
