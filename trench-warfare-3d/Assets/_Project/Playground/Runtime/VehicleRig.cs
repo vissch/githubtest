@@ -429,7 +429,8 @@ namespace TW.Playground
                 p.Scorch = Mathf.Max(p.Scorch, 0.7f);
                 if (Vector3.Distance(p.Fly.Pos, deck) < 12f) p.BurnUntil = Mathf.Max(p.BurnUntil, Time.time + R(8f, 16f));
             }
-            Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 14, 13f, 0.35f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.6f, default, (uint)(Seed * 7919));
+            // (10 chips at 9 m/s: 14 at 13 m/s landed as square tiles out to ~16 m, loop 2 r38)
+            Fx?.Debris?.Burst(DebrisRenderer.Piece.Plate, deckWorld, 10, 9f, 0.35f * Size, new Color(0.30f, 0.30f, 0.26f), 60f, 1f, 1.6f, default, (uint)(Seed * 7919));
             LastEvent = "COOKED OFF";
         }
 
@@ -518,30 +519,53 @@ namespace TW.Playground
             }
         }
 
-        float sagRoll, sagPitch, sagDrop;
+        float sagAngle;
 
         /// <summary>A machine that has lost a wheel or a track sits down on that corner (it stood dead level on three
-        /// wheels, loop 2 r37). Walkers and flyers pose their own hull.</summary>
+        /// wheels, loop 2 r37). It tips about the line through the running gear next to what it lost, which stays on the
+        /// ground: the two wheels beside a lost wheel, or the inner edge of the other track. Tipped about the hull's middle
+        /// it first leaned the wrong way, onto the wheel it still had and into the mud, then lifted a whole side 0.3 m (r38).
+        /// Walkers and flyers pose their own hull.</summary>
         void Sag(float dt)
         {
             if (Walker != null || Flyer != null) return;
             var hull = Find("Hull"); if (hull == null || hull.Loose) return;
-            float roll = 0f, pitch = 0f, drop = 0f;
+            Part lost = null;
+            var kept = new List<Part>();
             foreach (var p in Parts)
             {
-                if (!p.Loose) continue;
-                bool wheel = p.Name.StartsWith("Wheel_"), track = p.Name.StartsWith("Track_");
-                if (!wheel && !track) continue;
-                float side = Mathf.Sign(p.RestLocal.x + (p.Parent >= 0 ? Parts[p.Parent].RestLocal.x : 0f));
-                roll += side * (track ? 6f : 5f);                                        // down on that side
-                if (wheel) { pitch += (p.RestLocal.z > 0f ? 3f : -3f); drop += 0.25f * p.Box.extents.y; }
-                else drop += 0.1f * p.Box.extents.y;
+                if (p.Parent != hull.Index || !(p.Name.StartsWith("Wheel_") || p.Name.StartsWith("Track_"))) continue;
+                if (p.Loose) { if (lost == null) lost = p; } else kept.Add(p);
             }
             float k = 1f - Mathf.Exp(-dt * 6f);
-            sagRoll = Mathf.Lerp(sagRoll, Mathf.Clamp(roll, -10f, 10f), k); sagPitch = Mathf.Lerp(sagPitch, Mathf.Clamp(pitch, -6f, 6f), k);
-            sagDrop = Mathf.Lerp(sagDrop, drop, k);
-            hull.T.localPosition = hull.RestLocal + Vector3.down * sagDrop;
-            hull.T.localRotation = hull.RestRot * Quaternion.Euler(sagPitch, 0f, sagRoll);
+            sagAngle = Mathf.Lerp(sagAngle, lost == null ? 0f : lost.Name.StartsWith("Track_") ? 6f : 4f, k);
+            if (lost == null || kept.Count == 0 || sagAngle < 0.01f)
+            {
+                hull.T.localPosition = hull.RestLocal; hull.T.localRotation = hull.RestRot; return;
+            }
+            Vector3 Contact(Part p) => p.RestLocal + new Vector3(p.Box.center.x, p.Box.min.y, p.Box.center.z);
+            Vector3 a, b;
+            if (lost.Name.StartsWith("Track_"))
+            {
+                // the other track's inner bottom edge, front to back
+                var o = kept[0]; float inner = o.RestLocal.x + o.Box.center.x - Mathf.Sign(o.RestLocal.x) * o.Box.extents.x;
+                float y = o.RestLocal.y + o.Box.min.y;
+                a = new Vector3(inner, y, o.RestLocal.z + o.Box.min.z); b = new Vector3(inner, y, o.RestLocal.z + o.Box.max.z);
+            }
+            else
+            {
+                if (kept.Count < 2) { hull.T.localPosition = hull.RestLocal; hull.T.localRotation = hull.RestRot; return; }
+                var lc = Contact(lost);
+                kept.Sort((x, y) => (Contact(x) - lc).sqrMagnitude.CompareTo((Contact(y) - lc).sqrMagnitude));
+                a = Contact(kept[0]); b = Contact(kept[1]);
+            }
+            var axis = (b - a).normalized;
+            var turn = Quaternion.AngleAxis(sagAngle, axis);
+            var lostAt = Contact(lost);
+            if ((a + turn * (lostAt - a)).y > lostAt.y) turn = Quaternion.AngleAxis(-sagAngle, axis);   // the lost corner goes down
+            // the hull's own pivot (the origin of this frame) carried round the axis
+            hull.T.localPosition = hull.RestLocal + (a + turn * (-a));
+            hull.T.localRotation = turn * hull.RestRot;
         }
 
         void Pose(float dt)

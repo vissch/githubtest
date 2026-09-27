@@ -417,5 +417,28 @@ namespace TW.Tests.Playground
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }
+    
+        [Test]
+        public void A_Vehicle_That_Loses_A_Wheel_Sits_Down_On_That_Corner_With_The_Rest_On_The_Ground()
+        {
+            // VehicleRig.Sag once rolled the wrong way: every wreck leaned onto the wheel it still had, into the mud (r38)
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).partList.Any(p => p.name == "Wheel_FL"));
+            if (e == null) Assert.Ignore("no wheeled vehicle in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.7f, 3); r.CookDelay = -1f;
+                var lost = r.Find("Wheel_FL"); r.Detach(lost, Vector3.zero, Vector3.zero);
+                for (int f = 0; f < 90; f++) r.Advance(1f / 60f);
+                var hull = r.Find("Hull"); var wl = r.Find("Wheel_RL"); var wr = r.Find("Wheel_FR");
+                // the lost wheel's side is lower: the corner above it, against the same corner on the other side
+                var cornerLost = hull.T.TransformPoint(lost.RestLocal + Vector3.up * lost.Box.extents.y * 2f);
+                var cornerKept = hull.T.TransformPoint(new Vector3(-lost.RestLocal.x, lost.RestLocal.y, lost.RestLocal.z) + Vector3.up * lost.Box.extents.y * 2f);
+                Assert.That(cornerLost.y, Is.LessThan(cornerKept.y - 0.05f), "it leaned away from the wheel it lost");
+                foreach (var w in new[] { wl, wr })
+                    Assert.That(Lowest(w.T, w.Lods[0]), Is.GreaterThan(-0.12f), w.Name + " sank into the ground");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
     }
 }
