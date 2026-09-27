@@ -77,7 +77,7 @@ namespace TW.Perf
                             if (m.World.SlotUnlocked[ri] == 0) { log.Warnings.Add($"armour: player {p}'s slot {s} ({VehicleName(e.Archetype)}) is locked on this map: not deployed"); continue; }
                             cost[p] += e.Cost;
                             slotsUsed.Add(ri);
-                            string kind = VehicleArchetype.IsTank(e.Archetype) ? "tank" : VehicleArchetype.IsWalker(e.Archetype) ? "walker" : "vehicle";
+                            string kind = ChassisKind.IsTank(m.World.ChassisOf(e.Archetype)) ? "tank" : ChassisKind.IsWalker(m.World.ChassisOf(e.Archetype)) ? "walker" : "vehicle";
                             orders.Add(new Order
                             {
                                 Player = p, Command = SimCommand.Deploy(0, p, s),

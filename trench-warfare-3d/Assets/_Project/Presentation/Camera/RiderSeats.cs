@@ -203,7 +203,7 @@ namespace TW.Presentation.Tactical
 
             foreach (var t in tris) foreach (var p in new[] { t.A, t.B, t.C }) seats.Span = Mathf.Max(seats.Span, new Vector2(p.x, p.z).magnitude);
 
-            bool tank = TW.Sim.VehicleArchetype.IsTank(model.Archetype);
+            bool tank = TW.Sim.ChassisKind.IsTank(TW.Sim.RosterEntry.ForArchetype(model.Archetype).Chassis);
             if (tank && cands.Count > 0)
             {
                 // one level: the height band holding the most candidates

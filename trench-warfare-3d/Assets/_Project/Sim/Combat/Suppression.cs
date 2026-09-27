@@ -1,5 +1,6 @@
 // Phase: A2 (implemented: decay; gain is applied by DirectFireSystem, the stance consequences by MovementSystem)
-// — depends on: SimWorld.Suppression. Officer aura and smoke halving are A5.
+// — depends on: SimWorld.Suppression. The officer's aura (AuraSystem, 2026-09-25) halves the gain in DirectFire and,
+// here after the decay, keeps a covered man below Pinned. Smoke halving is A5.
 // Meter 0..100, decays 8/s. > 60 forces Prone; > 85 Pinned (refuses Advance, auto-Fallback if a friendly trench
 // is within 20 m). MG hits ×3 gain; officer aura and smoke ×0.5. Emits Suppressed / Pinned events on threshold crossings.
 using Unity.Jobs;
@@ -18,6 +19,7 @@ namespace TW.Sim.Combat
     public sealed class SuppressionSystem : ISimSystem
     {
         public int Order => SimSystemOrder.Suppression;
+        AuraSystem aura;
         public void Initialize(SimWorld world) { }
 
         public void Step(SimWorld w)
@@ -25,6 +27,8 @@ namespace TW.Sim.Combat
             int n = w.HighWater;
             if (n == 0) return;
             new DecayJob { Suppression = w.Suppression, Flags = w.Flags, Amount = SuppressionRules.DecayPerSecond * w.Config.TickSeconds }.Schedule(n, 256).Complete();
+            if (aura == null) aura = w.GetSystem<AuraSystem>();
+            aura?.Unpin(w);
         }
 
         [Unity.Burst.BurstCompile(CompileSynchronously = true, FloatMode = Unity.Burst.FloatMode.Strict, FloatPrecision = Unity.Burst.FloatPrecision.Standard)]

@@ -91,13 +91,18 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Files:** `Sim/Combat/TargetAcquisition.cs`, `Sim/Combat/DirectFire.cs`, `Sim/Combat/Suppression.cs`,
   `Sim/Combat/CombatTables.cs` (placeholder weapon data), `Sim/Combat/HeightfieldRaycast.cs` (line of sight).
   Data structs `Sim/Combat/CombatStructs.cs`, `Sim/Units/UnitStats.cs`, baked from ScriptableObjects by
-  `Data/DataBaker.cs` (the assets themselves are made by `Editor/SliceDefinitions.cs`).
-- **Tests:** CombatTests, HeightfieldRaycastTests.
+  `Data/DataBaker.cs` (the assets themselves are made by `Editor/SliceDefinitions.cs`). What a man does besides
+  shoot is data in `Sim/Core/InfantrySpec.cs` (no system switches on the archetype id): the officer's aura
+  `Sim/Combat/Aura.cs` (`AuraSystem`, asked through `Sim/Core/IAuraProvider.cs`; `DirectFire` reads its `DamageMul`
+  and `SuppressionMul`), the hero moment `Sim/Combat/HeroSystem.cs`, the jetpack's leap `Sim/Combat/Leap.cs`, the
+  medic and the repair engineer `Sim/Units/Support.cs`, the shield bearer's plate in `DirectFire` and
+  `TargetAcquisition`.
+- **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests.
 
 ### Shells, barrages, gas, fire
 - **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),
   `Sim/Match/OffMapAbilities.cs` (HE disc / line / box, creeping barrage, chlorine point / creeping, smoke screen,
-  strafe run; `ScheduledPayload`, `PayloadKind`), `Sim/Core/AbilityArgs.cs` (heading, pattern, length in
+  strafe run, the beam, the paratroopers `ParaDrop` (Brass only); `ScheduledPayload`, `PayloadKind`), `Sim/Core/AbilityArgs.cs` (heading, pattern, length in
   `SimCommand.B`), `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs` (the gas field and the smoke
   field), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
   `Sim/Combat/Burning.cs` (`BurningSystem`: men and ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`),
@@ -105,17 +110,17 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   scorch of `BlastShape.Beam`), `Sim/Combat/Mines.cs` (`MineSystem`: mines and tripwires, `BlastShape.Mine`, laid by
   a system call until the sapper lands; a crater cooks them off), `Sim/Match/Deformation.cs`.
 - **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests, AbilityArgsTests, StrafeRunTests,
-  BarragePatternTests, SmokeScreenTests, BeamTests, MineTests.
+  BarragePatternTests, SmokeScreenTests, BeamTests, MineTests, AirDropTests.
 - **Trap:** `MineSystem.Place` is a system call: no command lays a mine until the sapper (docs/21 SIM-D, units-meta),
   so the replay script fires none and `MineTests` carries the determinism check for the system.
 - **Trap:** a line starts at `pos` and runs along the heading (0 = +Z, 90 = +X) for the length; `B = 0` is the plain
   ability at its own length, so every older caller still works. Add a pattern only to `AbilityStats.Patterns`, or the
   command is rejected as one the ability does not offer.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
-- **What caused an explosion** is `Impact.Source` (`Blast.cs`), sent as `Explosion.a`. Its numbers are split by
-  hand across files that never mention each other: ability ids (`OffMapAbilities.cs`, `AmbientBombardment.cs`),
-  `VehicleModules.CookOffSource` 30, `TankGunnery.WeaponIdBase` 40 + archetype, `SeaLanding.ShipSource` 60. So a
-  machine id past 19 collides with the naval number. Nothing in SHOW reads `Explosion.a` today.
+- **What caused an explosion** is `Impact.Source` (`Blast.cs`), sent as `Explosion.a`, in the bands of
+  `Sim/Core/SourceId.cs`: an ability is its own id (0-999), a unit's weapon 1000 + archetype, a map gun 1300 + kind,
+  a cook-off 2000, the fleet 2001. Anything new that queues an `Impact` takes its number there. Nothing in SHOW reads
+  `Explosion.a` today.
 
 ### Objectives, money, victory, the debrief
 - **Files:** `Sim/Match/SectorControl.cs` (an objective flips when enough infantry hold it; sets `WinnerTeam` when a
@@ -141,10 +146,25 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 ### Vehicles in the sim: tanks and walkers
 - **Files:** `Sim/Core/RosterEntry.cs` (`VehicleArchetype`, default roster, `SlotCount`), `Sim/Combat/TankSpec.cs`,
   `Sim/Combat/Armor.cs`, `Sim/Combat/TankGunnery.cs`, `Sim/Units/VehicleModules.cs` (legs, tracks, crew, fire,
-  when a vehicle is destroyed), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, trench crossing, crushing).
-  The wreck itself is a map prop made in `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`);
-  which vehicle it was survives only in the `PropChanged` event (`dir.x` = dead slot + 1), not on the prop.
-- **Tests:** TankTests, TankMobilityTests, CrabTests.
+  when a vehicle is destroyed), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, trench crossing, crushing),
+  `Sim/Core/ChassisKind.cs` (what a unit stands on, `Foot`/`Tracked`/`Legged`/`Wheeled`: a field of `RosterEntry`,
+  read through `SimWorld.ChassisOf`; it replaced the id ranges of `IsTank`/`IsWalker`/`IsArmoured`),
+  `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
+  `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
+  how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop.
+- **Tests:** TankTests, TankMobilityTests, CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests.
+
+### Factions, rosters and the unit table
+- **Files:** `Sim/Core/Faction.cs` (`FactionId`: Iron and Brass, the greybox pair, and four historical armies; a side's
+  faction is `SimConfig.FactionA`/`FactionB`), `Sim/Core/FactionRoster.cs` (each faction's ten slots, its pool, and the
+  off-map abilities it may call: `AbilityMask`, `MayCall`; `RosterEntry.FillDefault` forwards here),
+  `Sim/Core/UnitCatalogue.cs` (the match's unit table; its `Fingerprint` is folded into `Hash()`),
+  `Sim/Combat/CombatCatalogue.cs` (the weapon and machine tables), `Sim/Match/UnitDefinitions.cs` (`UnitDef`: a unit
+  added from 2026-09-26 on is one entry here, written into every table), `Sim/Core/OrderGroup.cs` (the groups an order
+  names, and `Archetypes.Count` 64). The ten a player chose travel as `SimConfig.LoadoutA`/`LoadoutB`.
+- **Tests:** FactionRosterTests, UnitCatalogueTests, UnitDefinitionTests, LoadoutTests.
+- **Trap:** every faction calls the six abilities of the overhaul; Brass alone drops paratroopers (`decisions.md`,
+  2026-09-27). The HUD does not read the faction, so an Iron player sees the drop card and the sim refuses the call.
 - **Trap:** `VehicleSize` is baked into mesh vertices at load. Every gap authored in the composer depends on it.
 
 ### Sea landing
@@ -154,25 +174,24 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
 ### Adding a unit type (checklist)
 This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first; the SHOW lane then does 3-6.
-1. **Both rosters are full** (`RosterEntry.FillDefault` fills slots 0-7 for each side), so a new unit means
-   replacing one or raising `RosterEntry.SlotCount`, a seam change. `lane/show/units-meta` already has 8 → 10 in
-   flight (`docs/inbox/`): coordinate before starting.
-2. Sim: a new archetype id in `VehicleArchetype` (`Sim/Core/RosterEntry.cs`; ids are a seam item), its roster
-   entry, and for a vehicle a `TankSpec` and `VehicleProfile`. `IsWalker` is a range check (`Pincer` to `Redoubt`,
-   6-11), so a walker with id 12 is silently not a walker until the range moves. What reads it: `IsArmoured`
-   (gunnery, `VehicleModules`), `TankRenderer` (also indexes `crabs[archetype - Pincer]`), and `IsTank` callers that
-   mean "not a walker" (`AnimationController`, `CombatFx` Death). `VehicleProfile.Walker` (`Sim/Nav`) already says
-   it per profile, but `Sim/Core` cannot reference `Sim/Nav`.
-3. HUD: name, tooltip and icon in `UI/HudText.cs`, the unit art in `UI/UnitArt.cs` (`Faces`) and
-   `UI/Skin/SkinSpec.cs` (`PortraitNames`). HudTextTests, HudBindTests and UnitArtTests fail until every archetype
-   has them. Deploy keys: `Presentation/Core/KeyMap.cs` has `Deploy1`-`Deploy8` on digits 1-8, and 9 and 0 arm
-   the HE barrage and gas; ten slots need two more keys, which is the owner's call.
+1. **Where it goes:** each faction fields ten slots (`RosterEntry.SlotCount`, the digit keys 1-0) from a larger
+   pool (`Sim/Core/FactionRoster.cs`). A new unit joins a pool, or takes a slot from another unit.
+2. Sim: a new archetype id (ids are a seam item; `Archetypes.Count` is 64) and one `UnitDef` in
+   `Sim/Match/UnitDefinitions.cs`: its roster line with its `ChassisKind`, its `InfantrySpec`, its weapon, and for a
+   machine its `TankSpec` and `VehicleProfile`. The chassis is a field, so a walker may take any id; code that asks
+   whether a unit is a tank reads `ChassisKind` through `SimWorld.ChassisOf`, or `RosterEntry.ForArchetype(a).Chassis`
+   where no world is at hand.
+3. HUD: name, tooltip and portrait in `Presentation/Core/UnitLook.cs` (both HUDs read it; `UI/HudText.cs`
+   forwards), the portrait stem in `UI/Skin/SkinSpec.cs` (`PortraitNames`), the pictures in `UI/Skin/Portraits/`
+   and `UI/Resources/UnitArt/`. HudTextTests, HudBindTests and UnitArtTests fail until every archetype has them.
 4. Art: infantry needs a figure in `Editor/VATBaker.cs` and a bake. Vehicles need a `Resources/Vehicles/<Name>/`
-   folder (`pipelines.md`) that `Presentation/Camera/TankModel.cs` loads; a walker's legs are solved by
-   `Presentation/Camera/WalkerGait.cs` from the model, so check it stands and walks (GaitTests).
-5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` has fixed-size arrays (`UnitIcons = 8`, icons indexed by
-   slot) and its own name switch, a second copy of the HUD's names. No test runs OnGUI, so check it in Play with F9.
-6. Tests to run: CrabTests or TankTests, GaitTests, HudTextTests, HudBindTests, UnitArtTests, then the full gate.
+   folder (`pipelines.md`) that `Presentation/Camera/TankModel.cs` loads; a walker also needs its id and model name
+   in `TankRenderer`'s `CrabArchetypes` and `CrabNames`. Its legs are solved by `Presentation/Camera/WalkerGait.cs`
+   from the model, so check it stands and walks (GaitTests).
+5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` reads the same `UnitLook` names; its icon array is
+   `UnitLook.PortraitCount` long. No test runs OnGUI, so check it in Play with F9.
+6. Tests to run: FactionRosterTests, UnitDefinitionTests, CrabTests or TankTests, GaitTests, HudTextTests,
+   HudBindTests, UnitArtTests, then the full gate.
    `TankCapture.Spawn` finds the new archetype in the live roster by itself.
 
 ## Presentation (SHOW lane)
@@ -365,7 +384,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/HudBootstrap.cs`, `UI/Resources/Hud/BattleHud.uxml`,
   `UI/HudHotkeys.cs` (keys, through `KeyMap`), `UI/HudTooltip.cs`, `UI/HudDialogue.cs` (the speaker strip) and
   `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`; `Presentation/Core/HudBridge.cs` is the
-  seam between the camera assembly and UI (the camera may not reference UI).
+  seam between the camera assembly and UI (the camera may not reference UI). A unit's name, tip and portrait, and the
+  words of the barrage, gas and drop cards, are `Presentation/Core/UnitLook.cs`, keyed by archetype, so both HUDs say
+  the same.
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
   UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
   match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
@@ -373,9 +394,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
   replaces which. `CombatFx.cs` draws an IMGUI copy only while the legacy HUD is on (F9).
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD.
-- **Trap:** the support cards are `HudView.SupportAbilities` (six: HE, chlorine, creeping barrage, smoke screen,
-  strafe run, beam); `HudLayout.SupportSlots` counts them, but the legacy `BattleHud` keeps `SupportSlots = 2` (the
-  newer four have cards only in the Toolkit HUD).
+- **Trap:** the support cards are `HudView.SupportAbilities` (seven: HE, chlorine, paratroopers, creeping barrage,
+  smoke screen, strafe run, beam); `HudLayout.SupportSlots` counts them, but the legacy `BattleHud` keeps
+  `SupportSlots = UnitLook.SupportCards` (the first three; the line abilities have cards only in the Toolkit HUD).
 
 ### Legacy IMGUI HUD and debug panel
 - **Files:** `Presentation/Camera/BattleHud.cs` (F9 switches to it), `Presentation/Camera/TestPanel.cs`,
@@ -393,9 +414,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** SelectionTests (AimReadout), SupportAbilityTests (sim).
 - **Trap:** an ability without a radius is aimed with `AbilityAim.PointFallbackRadius` (8 m); `AimReadout.GasReticleM`
   reads the same constant, and a line ability is counted along its corridor (`ShowLine`).
-- **See it:** in Play, arm with the HUD card or keys 9 and 0, then `TW.Editor.HudCapture.Shoot(path)`.
+- **See it:** in Play, arm with the HUD card or a key (F5 F6 F7: HE, gas, paratroopers; C M V B: creeping barrage,
+  smoke, strafe, beam), then `TW.Editor.HudCapture.Shoot(path)`.
 - **Adding a support ability (checklist).** SIM first: `OffMapAbilityId` and its stats in
-  `Sim/Match/OffMapAbilities.cs`, the asset in `Editor/SliceDefinitions.cs`. Then SHOW: `UI/HudView.cs`
+  `Sim/Match/OffMapAbilities.cs`, the asset in `Editor/SliceDefinitions.cs`, the factions that may call it
+  (`FactionRoster.AbilityMask`). Then SHOW: `UI/HudView.cs`
   `SupportAbilities`; the slot counts in `UI/HudLayout.cs` and `Presentation/Camera/BattleHud.cs`; a `GameAction`,
   key and label in `Presentation/Core/KeyMap.cs`; `UI/HudHotkeys.cs`; name and card text in `UI/HudText.cs`; its icon
   in `UI/Skin/SkinSpec.cs`; `Presentation/Camera/TestPanel.cs`; the aim circle and effects in `CombatFx.cs`; the AI's
@@ -420,9 +443,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Core/AudioLevels.cs` (volume buses), `Presentation/Core/InputFocus.cs` (who owns the keyboard),
   `Presentation/Core/GameSettings.cs`, `Presentation/Core/SettingsStore.cs`, `Presentation/Core/KeyMap.cs`,
   `Presentation/Core/MatchLaunch.cs` (the `Request` a mission starts from; `UI/Shell/MissionCard.cs` `ToRequest` is
-  the one place the game builds one), `Presentation/Core/MatchClock.cs` (owns `SimHost.TimeScale`). Factions and
-  unlocks are data in `Data/Definitions.cs` (SIM lane), not yet read at runtime.
-- **Tests:** ShellUxmlTests, ShellRouterPlayTests, GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests.
+  the one place the game builds one), `Presentation/Core/MatchClock.cs` (owns `SimHost.TimeScale`). A side's faction
+  and its chosen ten go from `MatchLaunch.Request` (`FactionA`/`FactionB`, `LoadoutA`/`LoadoutB`) through `SimHost`
+  into the sim's `SimConfig`. Unlocks are data in `Data/Definitions.cs` (SIM lane), not yet read at runtime.
+- **Tests:** ShellUxmlTests, ShellRouterPlayTests, GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests,
+  LaunchLoadoutTests.
 - **Settings sliders:** each slider's range is a row in `GameSettings.Sliders`; loading clamps to it and
   `SettingsScreen` sets the slider from it. A new slider needs a row, or GameSettingsTests fails.
 
@@ -431,7 +456,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   (the three campaign screens; their UXML is hand-written under `UI/Resources/Shell/`, loaded by name like the
   Armoury), `UI/Campaign/ShellPick.cs` (is the mouse over a plate, for the 3D views' picking),
   `UI/Campaign/CampaignGraph.cs` (the country nodes, their missions in order, prerequisites and gold: a
-  code table, no asset), `UI/Campaign/FactionBuildings.cs` (the Home Front's buildings, their stages and upgrade
+  code table, no asset), `Data/FactionMap.cs` (SIM lane: which of the sim's factions a campaign nation fields), `UI/Campaign/FactionBuildings.cs` (the Home Front's buildings, their stages and upgrade
   lines per faction, priced and capped against the profile), `Presentation/Core/CampaignProfile.cs` +
   `ProfileStore.cs` (profile.json beside settings.json, versioned, written through a .tmp swap),
   `Presentation/Core/CampaignSession.cs` (the mission in flight across the scene load),
@@ -539,7 +564,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, KnobsTests, LandingTests, MineTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->

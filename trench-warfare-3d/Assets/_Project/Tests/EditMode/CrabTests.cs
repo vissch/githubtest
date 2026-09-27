@@ -282,15 +282,18 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             var w = m.World;
-            Assert.AreEqual(8, RosterEntry.SlotCount);
-            Assert.AreEqual(VehicleArchetype.Maw, w.Roster[4].Archetype);
-            Assert.AreEqual(VehicleArchetype.Pincer, w.Roster[5].Archetype);
-            Assert.AreEqual(VehicleArchetype.Pavise, w.Roster[6].Archetype);
-            Assert.AreEqual(VehicleArchetype.Tusk, w.Roster[RosterEntry.SlotCount + 4].Archetype);
-            Assert.AreEqual(VehicleArchetype.Kettle, w.Roster[RosterEntry.SlotCount + 5].Archetype);
-            Assert.AreEqual(VehicleArchetype.Censer, w.Roster[RosterEntry.SlotCount + 6].Archetype);
-            Assert.AreEqual(VehicleArchetype.Banner, w.Roster[7].Archetype);
-            Assert.AreEqual(VehicleArchetype.Redoubt, w.Roster[RosterEntry.SlotCount + 7].Archetype);
+            Assert.AreEqual(10, RosterEntry.SlotCount);
+            // the machines sit in the last four slots of each faction's ten; Iron brings the Breaker where Brass
+            // brings the Redoubt, and the Pavise has gone to Iron's pool
+            Assert.AreEqual(VehicleArchetype.Maw, w.Roster[6].Archetype);
+            Assert.AreEqual(VehicleArchetype.Pincer, w.Roster[7].Archetype);
+            Assert.AreEqual(VehicleArchetype.Banner, w.Roster[8].Archetype);
+            Assert.AreEqual(VehicleArchetype.Breaker, w.Roster[9].Archetype);
+            int b = RosterEntry.SlotCount;
+            Assert.AreEqual(VehicleArchetype.Tusk, w.Roster[b + 6].Archetype);
+            Assert.AreEqual(VehicleArchetype.Kettle, w.Roster[b + 7].Archetype);
+            Assert.AreEqual(VehicleArchetype.Censer, w.Roster[b + 8].Archetype);
+            Assert.AreEqual(VehicleArchetype.Redoubt, w.Roster[b + 9].Archetype);
             for (int s = 0; s < RosterEntry.SlotCount; s++) Assert.AreEqual(1, w.SlotUnlocked[s], $"slot {s} can be deployed");
         }
     }

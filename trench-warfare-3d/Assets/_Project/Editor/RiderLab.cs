@@ -29,7 +29,7 @@ namespace TW.Editor
     {
         static readonly string[] Names = { "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt" };
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
-        static string NameOf(byte a) => a == VehicleArchetype.Maw ? "Maw" : a == VehicleArchetype.Tusk ? "Tusk" : VehicleArchetype.IsWalker(a) ? Names[a - VehicleArchetype.Pincer] : "unit " + a;
+        static string NameOf(byte a) => a == VehicleArchetype.Maw ? "Maw" : a == VehicleArchetype.Tusk ? "Tusk" : ChassisKind.IsWalker(RosterEntry.ForArchetype(a).Chassis) ? Names[a - VehicleArchetype.Pincer] : "unit " + a;
         static TankRenderer Tanks => Object.FindFirstObjectByType<TankRenderer>();
         // Everything compiled code has to see lives on the Bench (a scene object), not in statics here: `unity command eval`
         // runs these methods in an interpreter whose static fields the compiled game never sees. A heading pin kept in a
@@ -44,7 +44,7 @@ namespace TW.Editor
         public static string Setup(int archetype = 6, int riders = 8, float x = -1f, float z = -1f, int team = 0, float yawDeg = 0f, bool climb = true)
         {
             var h = Host; if (h == null || h.Local == null) return "no SimHost / not in Play";
-            if (!VehicleArchetype.IsArmoured((byte)archetype)) return "archetype " + archetype + " is not a vehicle (4, 5 tanks; 6..11 walkers)";
+            if (!ChassisKind.IsArmoured(RosterEntry.ForArchetype((byte)archetype).Chassis)) return "archetype " + archetype + " is not a vehicle (4, 5 tanks; 6..11 walkers)";
             var size = h.Local.Map.SizeMeters;
             if (x < 0f) x = size.x * 0.5f;
             if (z < 0f) z = size.y * 0.45f;
@@ -251,7 +251,7 @@ namespace TW.Editor
             sb.Append('\n');
             for (int i = 0; i < w.HighWater; i++)
             {
-                if (!w.IsAlive(i) || !VehicleArchetype.IsArmoured(w.Archetype[i])) continue;
+                if (!w.IsAlive(i) || !ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]))) continue;
                 sb.Append($"#{i} {NameOf(w.Archetype[i])} t{w.Team[i]} at ({w.Position[i].x:0.0},{w.Position[i].z:0.0}) riders {t.RiderCount(i)}/{t.SeatCount(i)}:");
                 foreach (var r in t.RidersOf(i)) sb.Append(' ').Append(r.State.ToString().Substring(0, 3));
                 sb.Append('\n');

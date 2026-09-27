@@ -104,9 +104,9 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 | `ico_smg.png` | 32x32 | - | weapon badge for the Assault card |
 | `ico_mg.png` | 32x32 | - | weapon badge for the MG card |
 
-## Portraits (14 files, `Assets/_Project/UI/Skin/Portraits/`)
+## Portraits (22 files, `Assets/_Project/UI/Skin/Portraits/`)
 
-256x256 RGBA PNG, transparent background, no frame (the card draws its own). One per unit archetype plus the two support emblems, keyed by what the unit IS, never by its slot:
+256x256 RGBA PNG, transparent background, no frame (the card draws its own). One per unit archetype plus the three support emblems, keyed by what the unit IS, never by its slot — a slot means nothing across factions, since Iron's officer sits where Brass's sniper does:
 
 - `Rifleman.png`
 - `Assault.png`
@@ -120,11 +120,21 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Pavise.png`
 - `Banner.png`
 - `Redoubt.png`
+- `Officer.png`
+- `Shield.png`
+- `Medic.png`
+- `Engineer.png`
+- `Para.png`
+- `Jetpack.png`
+- `Breaker.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
+- `ParaDrop.png`
 - `Cutter.png` is reserved: the model exists but no archetype fields it yet.
 
-Framing, so the set reads as one: machine turned 55 degrees so its nose points to the viewer's front-right (the enemy is screen-right everywhere in the HUD); camera 18 degrees above horizontal with a long lens (22 degree vertical field); the model fills 86% of the frame's larger extent, centred on its bounds. Infantry: a bust from mid-chest, body turned 30 degrees, face toward frame right; the Rifleman, Assault and MG share one figure and differ by a small weapon badge the card adds. Light: warm key upper-left-front, cool rim from behind-right, dim cool fill from below-front. No ground, no shadow disc, no team colour (the card's rim carries the team). Support emblems are painted, not rendered: a shell over a crater burst (HeBarrage), a drum with a drifting cloud (ChlorineGas), in plate colours with an amber or gas-green accent.
+Framing, so the set reads as one: machine turned 55 degrees so its nose points to the viewer's front-right (the enemy is screen-right everywhere in the HUD); camera 18 degrees above horizontal with a long lens (22 degree vertical field); the model fills 86% of the frame's larger extent, centred on its bounds. Infantry: a bust from mid-chest, body turned 30 degrees, face toward frame right; the Rifleman, Assault and MG share one figure and differ by a small weapon badge the card adds. Light: warm key upper-left-front, cool rim from behind-right, dim cool fill from below-front. No ground, no shadow disc, no team colour (the card's rim carries the team). Support emblems are painted, not rendered: a shell over a crater burst (HeBarrage), a drum with a drifting cloud (ChlorineGas), a canopy over a falling man (ParaDrop), in plate colours with an amber, gas-green or pale-khaki accent.
+
+The six units of 2026-09-25 are busts on the infantry figure and read by one held thing each, so they are told apart at 72 px: the Officer bare-headed with a raised arm and a cane, the Shield bearer behind a plate held out at arm's length, the Medic with a white brassard and a satchel, the Engineer with a spanner and a rolled sleeve, the Para in a jump smock with the harness still on, the Jetpack man with two tanks over his shoulders. The Breaker is a machine and takes the machine framing: a squat hull behind a ram, stacks over the engine deck.
 
 `TW/UI/Bake Unit Portraits` renders placeholders from the game's own models with exactly this framing; a painted portrait replaces one by taking its file name.
 

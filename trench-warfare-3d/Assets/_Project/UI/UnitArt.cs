@@ -17,8 +17,14 @@ namespace TW.UI
         public static readonly string[] StateNames = { "neutral", "talking", "shouting", "cheering", "wounded", "critical" };
         /// <summary>Everyone with a face, hence a state sheet.</summary>
         public static readonly string[] Faces = { "Rifleman", "Assault", "MG", "Sniper", "Sergeant", "Pincer", "Kettle", "Maw" };
-        /// <summary>Every full cutout shipped (the twelve archetypes, the Cutter boat and the narrator).</summary>
-        public static readonly string[] Cutouts = { "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter", "Sergeant" };
+        /// <summary>Every full cutout shipped: the nineteen archetypes, the Cutter boat and the narrator. The seven
+        /// units of 2026-09-25 are placeholder plaques (a bust, the one thing the unit carries, its name) and are
+        /// replaced by taking their file names, exactly as a painted portrait replaces a generated one.</summary>
+        public static readonly string[] Cutouts =
+        {
+            "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt",
+            "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker", "Cutter", "Sergeant",
+        };
 
         static readonly Dictionary<string, Texture2D> cache = new Dictionary<string, Texture2D>();
 

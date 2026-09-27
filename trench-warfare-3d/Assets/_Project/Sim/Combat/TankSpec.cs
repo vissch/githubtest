@@ -46,6 +46,14 @@ namespace TW.Sim.Combat
         /// <summary>A standard carried over the machine (Banner): men of its own side within this many metres lose
         /// suppression the faster for it (0: it carries none).</summary>
         public float StandardRadius, StandardSteady;
+        // ---- the Breaker (2026-09-25): an assault tank that halts short of a trench, winds up, charges it and backs out ----
+        /// <summary>Metres ahead within which an enemy-held trench starts the cycle (0: not a breaker).</summary>
+        public float BreakerRange;
+        public float WindupSeconds, ChargeSpeedMul, ChargeSeconds, StrikeSeconds, WithdrawSpeedMul, RestSeconds;
+        /// <summary>While Charging its hull guns crit: this share of hits does CritMul times the damage.</summary>
+        public float CritChance, CritMul;
+        /// <summary>The deck plate while Charging: hatches down, the bundles thrown onto it bounce (8 mm would not).</summary>
+        public float ChargingTopMm;
 
         public TankGun Gun(int k) => k == 0 ? Gun0 : Gun1;
 
@@ -63,9 +71,25 @@ namespace TW.Sim.Combat
                 case VehicleArchetype.Pavise: return Pavise;
                 case VehicleArchetype.Banner: return Banner;
                 case VehicleArchetype.Redoubt: return Redoubt;
+                case VehicleArchetype.Breaker: return Breaker;
                 default: return Maw;
             }
         }
+
+        /// <summary>Breaker: no main gun. A ram of a nose with the claws on it, a machine gun to either side, and a
+        /// crew of four who bolt the hatches when it winds up. It is the one machine built to go INTO a trench: it
+        /// halts thirty metres short, runs the engine up, charges at two and a half times its speed, tears at what
+        /// is in the trench for two seconds, and reverses out to do it again. Thin everywhere but the deck while it
+        /// charges; on the approach a grenade bundle on the roof would still open it.</summary>
+        public static TankSpec Breaker => new TankSpec
+        {
+            Hull = new ArmorProfile { FrontMm = 18f, SideMm = 12f, RearMm = 10f, TopMm = 8f },
+            Turret = new ArmorProfile { FrontMm = 18f, SideMm = 12f, RearMm = 10f, TopMm = 8f },
+            TurretChance = 0f, Crew = 4, GunCount = 0, ShortHalt = false, FuelRisk = 0.30f, AmmoRisk = 0.35f,
+            ClawReach = 2.2f, ClawDamage = 250f, ClawSeconds = 1.0f,
+            BreakerRange = 30f, WindupSeconds = 3f, ChargeSpeedMul = 2.5f, ChargeSeconds = 6f, StrikeSeconds = 2f,
+            WithdrawSpeedMul = 0.6f, RestSeconds = 2f, CritChance = 0.35f, CritMul = 3f, ChargingTopMm = 24f,
+        };
 
         // ---- the walkers -------------------------------------------------------------------------------------
         /// <summary>Pincer: two turret guns on the carapace, each with most of a circle to itself, and two claws that

@@ -127,14 +127,16 @@ namespace TW.UI
         };
 
         /// <summary>
-        /// Portrait file stems under Portraits/: one per archetype 0..11 in archetype order, then the two support
-        /// emblems. HudText.PortraitName(archetype) yields the first twelve; UiSkinVerifier checks that every archetype
-        /// RosterEntry.FillDefault hands out for EITHER side is here.
+        /// Portrait file stems under Portraits/: one per archetype 0..18 — the four line infantry, the eight machines,
+        /// the six units of 2026-09-25 that go up the line on foot and the Breaker — then the three support emblems.
+        /// UnitLook.PortraitName(archetype) yields a stem from this list for every archetype either faction's roster
+        /// hands out, and UiSkinVerifier fails if one is missing.
         /// </summary>
         public static readonly string[] PortraitNames =
         {
             "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt",
-            "HeBarrage", "ChlorineGas",
+            "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker",
+            "HeBarrage", "ChlorineGas", "ParaDrop",
         };
 
         /// <summary>Has a model under Resources/Vehicles but no archetype yet; baked when present, not required.</summary>

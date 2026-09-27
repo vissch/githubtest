@@ -65,6 +65,23 @@ namespace TW.Sim
         MinePlaced,         // a = mine index, b = player, pos, dir = a tripwire's heading x length (zero for a mine), scalar = MineKind
         MineTriggered,      // a = mine index, b = victim slot, pos = where it went off, dir = the victim's velocity direction (zero if he stood still), scalar = MineKind
         MineCleared,        // a = mine index, b = the burst's player, pos, dir, scalar = MineKind: a crater set it cooking; its burst follows
+        // ---- 2026-09-25: factions, the new units, heroes. Appended in this order; never insert above. ----
+        // Where a slot may be reused before presentation reads the frame, the TEAM rides in dir.y.
+        UnitDeployed,       // a = slot, b = roster slot, dir.x = veteran rank, dir.y = player: a PAID deploy landed (SimWorld.Deploy or the sea lift; a bailed-out crew is UnitSpawned only)
+        UnitHealed,         // a = medic, b = patient, pos, scalar = hp restored this sweep (SupportSystem)
+        VehicleHullMended,  // a = vehicle, b = engineer, pos, scalar = hull restored this sweep (SupportSystem)
+        ShieldBlocked,      // a = shield bearer, b = shooter, pos, dir = the round's direction, scalar = damage the plate took (DirectFire)
+        DropInbound,        // a = player, b = men, pos = the drop point, scalar = seconds to landing (OffMapAbilitySystem)
+        DropLanded,         // a = slot, b = player, pos: one paratrooper on the ground
+        LeapStarted,        // a = slot, b = trench id, pos = where he lands, dir = where he left from, scalar = seconds in the air (LeapSystem)
+        BreakerPhase,       // a = slot, b = phase (0 approach, 1 wind-up, 2 charge, 3 strike, 4 withdraw), pos = the trench cell it is after (BreakerSystem)
+        CriticalHit,        // a = shooter, b = target, pos, scalar = damage: a charging Breaker's round found the mark
+        HeroMoment,         // a = slot, b = hero id (1-based, per match), dir.x = generation, dir.y = team, scalar = desperation (negative: pity forced it)
+        HeroFeat,           // a = slot, b = hero id, dir.y = team, scalar = kills as a hero so far
+        HeroSurvived,       // a = slot, b = hero id, dir.y = team, scalar = kills: his window closed and he is standing
+        HeroFallen,         // a = slot, b = hero id, dir.y = team, scalar = kills: he died in it
+        VeteranDeployed,    // a = slot, b = rank 1..3, dir.x = roster slot, dir.y = team
+        WreckRecorded,      // a = wreck record index, b = prop index, pos, scalar = quality 0..1 (DeformationSystem)
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing

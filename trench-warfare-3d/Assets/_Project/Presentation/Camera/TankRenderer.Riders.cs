@@ -115,7 +115,7 @@ namespace TW.Presentation.Tactical
         public int SeatCount(int slot)
         {
             var w = Host?.Local?.World;
-            if (w == null || slot < 0 || slot >= w.HighWater || !VehicleArchetype.IsArmoured(w.Archetype[slot])) return 0;   // walkers and tanks
+            if (w == null || slot < 0 || slot >= w.HighWater || !ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[slot]))) return 0;   // walkers and tanks
             var s = SeatsFor(ModelFor(w.Archetype[slot]));
             return s != null ? s.Seats.Count : 0;
         }
@@ -185,7 +185,7 @@ namespace TW.Presentation.Tactical
         {
             list = null; seats = 0;
             var w = Host?.Local?.World;
-            if (w == null || slot < 0 || slot >= w.HighWater || !w.IsAlive(slot) || !VehicleArchetype.IsArmoured(w.Archetype[slot])) return false;
+            if (w == null || slot < 0 || slot >= w.HighWater || !w.IsAlive(slot) || !ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[slot]))) return false;
             seats = SeatCount(slot);
             if (!riders.TryGetValue(slot, out list)) { list = new List<Rider>(); riders[slot] = list; }
             return seats > 0;
@@ -319,7 +319,7 @@ namespace TW.Presentation.Tactical
                     if (Step(r, v, body, seat, target, heaveKick, now, dt)) { list.RemoveAt(k); loose.Add(r); continue; }
                     // not on a tank: its men kneel on one level, where eight do not overlap, and half of them drawn left the
                     // men on show and the pips disagreeing (critic t3)
-                    if (thin && !VehicleArchetype.IsTank(v.Model.Archetype) && r.State == RiderState.Seated && (r.Seat & 1) == 1) continue;
+                    if (thin && !ChassisKind.IsTank(RosterEntry.ForArchetype(v.Model.Archetype).Chassis) && r.State == RiderState.Seated && (r.Seat & 1) == 1) continue;
                     if (n < riderInst.Length) Emit(r, now, scale, ref n);
                 }
                 if (list.Count == 0) { riderGone.Add(kv.Key); pipLinger[kv.Key] = now; }

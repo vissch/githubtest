@@ -48,7 +48,7 @@ namespace TW.Sim.Units
         public const float FireGrowth = 0.035f, FireBurn = 14f, ExtinguishChance = 0.15f, BailFire = 0.6f;
         public const int CookOffMin = 20, CookOffMax = 70, BurnOutMin = 240, BurnOutMax = 480;
         public const float CookOffDamage = 380f, CookOffRadius = 9f, CookOffSuppression = 70f, CookOffCrater = 2f;
-        public const int CookOffSource = 30;           // Explosion.a for a tank blowing up
+        public const int CookOffSource = SourceId.CookOff;   // Explosion.a for a tank blowing up
         public const float BailedHp = 50f, BailedSpeed = 3f;
         public const float ObliterateShare = 0.5f;
         public const uint StandardEvery = 5;   // ticks between two sweeps of a Banner's standard
@@ -63,6 +63,7 @@ namespace TW.Sim.Units
 
         readonly Terrain.MapData map;
         SimWorld world;
+        CombatCatalogueSystem catalogue;
         TankGunnerySystem gunnery;
         BlastSystem blast;
         GasSmokeSystem gas;
@@ -92,6 +93,7 @@ namespace TW.Sim.Units
         {
             world = w;
             kinematics = w.GetSystem<VehicleKinematicsSystem>() ?? throw new System.InvalidOperationException("VehicleModulesSystem needs VehicleKinematicsSystem registered before it");
+            catalogue = w.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("VehicleModulesSystem needs CombatCatalogueSystem registered before it");
             gunnery = w.GetSystem<TankGunnerySystem>();   // null without combat
             blast = w.GetSystem<BlastSystem>();
             gas = w.GetSystem<GasSmokeSystem>();          // null without combat: the Censer's drum needs it
@@ -108,10 +110,37 @@ namespace TW.Sim.Units
             Repair = new NativeArray<int>(n, Allocator.Persistent);
             LastShooter = new NativeArray<int>(n, Allocator.Persistent);
             LegsLost = new NativeArray<byte>(n, Allocator.Persistent);
+            KillCause = new NativeArray<byte>(n, Allocator.Persistent);
+            Fate = new NativeArray<byte>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) { KillCause[i] = Alive; Fate[i] = Alive; }
+        }
+
+        /// <summary>Why each vehicle stopped fighting (VehicleKillCause), or Alive. Kept until the slot is re-used so
+        /// the wreck record (DeformationSystem, the same tick as VehicleDestroyed) can read it.</summary>
+        public NativeArray<byte> KillCause;
+
+        /// <summary>What became of the hull after the blow that stopped it (VehicleKillCause), or Alive if nothing more:
+        /// a shelled hull that then burned through or cooked off is worth what is left of it, not what stopped it. The
+        /// record keeps the blow (KillCause); the salvage cut follows the fate.</summary>
+        public NativeArray<byte> Fate;
+        public const byte Alive = 255;
+
+        /// <summary>What is left of a machine as salvage, 0..1: the mean of its running gear, engine and guns, cut
+        /// by how it died (a burnt-out hull is half a hull, a cooked-off one is scrap).</summary>
+        public float QualityOf(SimWorld w, int slot)
+        {
+            var spec = catalogue.Tank[w.Archetype[slot]];
+            float sum = Module[slot * M + (int)VehicleModule.TrackLeft] + Module[slot * M + (int)VehicleModule.TrackRight] + Module[slot * M + (int)VehicleModule.Engine];
+            int n = 3;
+            if (spec.GunCount > 0) { sum += Module[slot * M + (int)VehicleModule.GunA]; n++; }
+            if (spec.GunCount > 1) { sum += Module[slot * M + (int)VehicleModule.GunB]; n++; }
+            byte end = Fate[slot] != Alive ? Fate[slot] : KillCause[slot];
+            float cause = end == (byte)VehicleKillCause.Fire ? 0.5f : end == (byte)VehicleKillCause.Ammunition ? 0.15f : 0.85f;
+            return math.saturate(sum / n * cause);
         }
 
         static bool IsTank(SimWorld w, int i)
-            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && VehicleArchetype.IsArmoured(w.Archetype[i]);
+            => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]));
 
         /// <summary>How many of a walker's legs on one side are gone.</summary>
         int LegsGone(int slot, bool right, int perSide)
@@ -139,12 +168,12 @@ namespace TW.Sim.Units
 
         void Init(SimWorld w, int i)
         {
-            var spec = TankSpec.For(w.Archetype[i]);
+            var spec = catalogue.Tank[w.Archetype[i]];
             Gen[i] = w.Generation[i];
             for (int m = 0; m < M; m++) Module[i * M + m] = 1f;
             Crew[i] = CrewMax[i] = spec.Crew;
             Fire[i] = 0f; State[i] = (byte)VehicleState.Active; StateTicks[i] = 0; LastHitTick[i] = w.Tick; Shaken[i] = 0; Repair[i] = 0; LastShooter[i] = -1;
-            LegsLost[i] = 0;
+            LegsLost[i] = 0; KillCause[i] = Alive; Fate[i] = Alive;
             kinematics.SpeedFactor[i] = 1f;
             if (gunnery != null) { gunnery.CrewFactor[i] = 1f; for (int k = 0; k < Guns; k++) gunnery.GunHealth[i * Guns + k] = 1f; }
         }
@@ -157,21 +186,23 @@ namespace TW.Sim.Units
             int t = hit.Target;
             if (!IsTank(w, t)) return;
             var rng = Dice(w, (uint)hitSerial++);
-            var spec = TankSpec.For(w.Archetype[t]);
+            var spec = catalogue.Tank[w.Archetype[t]];
             LastHitTick[t] = w.Tick; Repair[t] = 0;
             if (hit.Shooter >= 0) LastShooter[t] = hit.Shooter;
             bool turret = hit.Kind == VehicleHitKind.ArmourPiercing && spec.TurretChance > 0f && rng.NextFloat() < spec.TurretChance;
             ArmourFacing facing; bool right; bool holed; float plate;
+            var hull = spec.Hull;
+            if (spec.ChargingTopMm > 0f && (w.Flags[t] & (uint)UnitFlags.Charging) != 0) hull.TopMm = spec.ChargingTopMm;   // hatches down: the deck a bundle lands on
             if (hit.Kind == VehicleHitKind.CloseAssault)
             {
                 facing = ArmourFacing.Top; right = rng.NextFloat() < 0.5f;
-                holed = Armor.PenetratesTop(spec.Hull, hit.PenMm, out plate);
+                holed = Armor.PenetratesTop(hull, hit.PenMm, out plate);
             }
             else
             {
                 float yaw = w.Yaw[t] + (turret && gunnery != null ? gunnery.GunYaw[t * Guns] : 0f);
                 facing = Armor.FacingOf(hit.Dir, yaw, out float c, out right);
-                plate = Armor.PlateFor(turret ? spec.Turret : spec.Hull, facing);
+                plate = Armor.PlateFor(turret ? spec.Turret : hull, facing);
                 holed = c >= Armor.GlanceCos && hit.PenMm * c >= plate;
             }
             checksum = SimHash.Value(new int4(t, (int)facing, holed ? 1 : 0, turret ? 1 : 0), checksum);
@@ -259,7 +290,7 @@ namespace TW.Sim.Units
                 {
                     // A walker has legs on that side, not a track. The module is the share of them still under it, so
                     // a hit takes whole legs off one at a time and the side only fails when the last one has gone.
-                    var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[t]);
+                    var prof = kinematics.Profiles[w.Archetype[t]];
                     if (prof.Walker && prof.Legs > 0)
                     {
                         bool onRight = m == VehicleModule.TrackRight;
@@ -315,12 +346,12 @@ namespace TW.Sim.Units
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!IsTank(w, i)) continue;
-                var prof = VehicleProfile.ForArchetype(w.Archetype[i]);
+                var prof = kinematics.Profiles[w.Archetype[i]];
                 float3 d = w.Position[i] - im.Pos; d.y = 0f;
                 // a mine's burst reaches every hull whose footprint could cover it (a corner is prof.Reach out), not only a disc of the half width
                 float dist = SimMath.Length(d), reach = im.Radius + (im.Shape == (int)BlastShape.Mine ? math.max(prof.HalfWidth, prof.Reach) : prof.HalfWidth);
                 if (dist >= reach) continue;
-                var spec = TankSpec.For(w.Archetype[i]);
+                var spec = catalogue.Tank[w.Archetype[i]];
                 var rng = Dice(w, 0x1000000u + (uint)(k & 0xFFF) * 4096u + (uint)i);   // above every other stream here (slots < 4096)
                 LastHitTick[i] = w.Tick; Repair[i] = 0;
                 bool direct = dist < prof.HalfWidth + 0.6f;
@@ -373,7 +404,7 @@ namespace TW.Sim.Units
         void Tick(SimWorld w, int i)
         {
             var rng = Dice(w, 0x300000u + (uint)i);
-            var spec = TankSpec.For(w.Archetype[i]);
+            var spec = catalogue.Tank[w.Archetype[i]];
             if (Shaken[i] > 0) Shaken[i]--;
             if (Fire[i] > 0f)
             {
@@ -389,6 +420,7 @@ namespace TW.Sim.Units
                     Fire[i] = math.min(1f, Fire[i] + growth);
                     w.Hp[i] = w.Hp[i] - FireBurn * Fire[i] * w.Config.TickSeconds;
                     if (State[i] == (byte)VehicleState.Active && Fire[i] >= BailFire) KnockOut(w, i, VehicleKillCause.Fire, ref rng);
+                    else if (Fire[i] >= BailFire && Fate[i] == Alive) Fate[i] = (byte)VehicleKillCause.Fire;   // a hulk burning through: half a hull
                     if (Fire[i] >= 1f && State[i] != (byte)VehicleState.CookingOff) CookOff(w, i, rng.NextInt(CookOffMin, CookOffMax + 1), ref rng);
                 }
             }
@@ -414,7 +446,7 @@ namespace TW.Sim.Units
             // what the damage means for the rest of the sim
             float trackL = Module[i * M + (int)VehicleModule.TrackLeft], trackR = Module[i * M + (int)VehicleModule.TrackRight];
             float engine = Module[i * M + (int)VehicleModule.Engine];
-            var profile = TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]);
+            var profile = kinematics.Profiles[w.Archetype[i]];
             uint f = w.Flags[i] & ~((uint)UnitFlags.Immobilised | (uint)UnitFlags.Stalled | (uint)UnitFlags.Burning);
             // a walker's "track" is the share of its legs still under it, and a side fails at its last one; a tank's
             // track is only OFF once it is torn past TrackThrownBelow, and it drags all the way down to there
@@ -481,7 +513,8 @@ namespace TW.Sim.Units
              : e < StalledBelow ? 0f
              : EngineWorstFactor + (1f - EngineWorstFactor) * (e - StalledBelow) / (EngineFullAbove - StalledBelow);
 
-        void MendWorst(SimWorld w, int i)
+        /// <summary>The crew's repair, also done by a repair engineer standing by (SupportSystem).</summary>
+        internal void MendWorst(SimWorld w, int i)
         {
             var worst = VehicleModule.None; float lowest = RepairTo;
             for (int k = 0; k < 5; k++)
@@ -509,13 +542,14 @@ namespace TW.Sim.Units
         {
             if (State[t] != (byte)VehicleState.Active) return;
             State[t] = (byte)VehicleState.KnockedOut;
+            KillCause[t] = (byte)cause;
             KnockOuts++;
             w.Flags[t] = w.Flags[t] | (uint)UnitFlags.KnockedOut | (uint)UnitFlags.Immobilised;
             w.TargetSlot[t] = -1;
             w.Events.Add(w.Tick, SimEventType.VehicleKnockedOut, t, (int)cause, w.Position[t], new float3(0f, w.Yaw[t], 0f));
             if (cause == VehicleKillCause.Structure && rng.NextFloat() < 0.5f) StartFire(w, t, 0.4f);
             StateTicks[t] = rng.NextInt(BurnOutMin, BurnOutMax + 1);
-            if (!TankSpec.For(w.Archetype[t]).Unmanned) BailOut(w, t);   // nobody gets out of a walker: there is nobody in it
+            if (!catalogue.Tank[w.Archetype[t]].Unmanned) BailOut(w, t);   // nobody gets out of a walker: there is nobody in it
             if (gunnery != null) gunnery.CrewFactor[t] = 0f;
             checksum = SimHash.Value(new int2(t, (int)cause), checksum);
         }
@@ -541,6 +575,7 @@ namespace TW.Sim.Units
         {
             Crew[t] = 0;
             KnockOut(w, t, VehicleKillCause.Ammunition, ref rng);
+            Fate[t] = (byte)VehicleKillCause.Ammunition;
             State[t] = (byte)VehicleState.CookingOff;
             StateTicks[t] = 0;
             Blow(w, t);
@@ -550,6 +585,7 @@ namespace TW.Sim.Units
         {
             if (State[t] == (byte)VehicleState.CookingOff) return;
             KnockOut(w, t, VehicleKillCause.Ammunition, ref rng);
+            Fate[t] = (byte)VehicleKillCause.Ammunition;   // the rounds went up: scrap, whatever blow had stopped it first
             State[t] = (byte)VehicleState.CookingOff;
             StateTicks[t] = fuse;
             Fire[t] = math.max(Fire[t], 0.8f);
@@ -561,7 +597,7 @@ namespace TW.Sim.Units
             int n = Crew[t];
             Crew[t] = 0;
             if (n == 0) return;
-            var prof = VehicleProfile.ForArchetype(w.Archetype[t]);
+            var prof = kinematics.Profiles[w.Archetype[t]];
             float yaw = w.Yaw[t];
             float3 back = -SimMath.DirFromYaw(yaw), side = new float3(-back.z, 0f, back.x);
             int got = 0;
@@ -578,7 +614,11 @@ namespace TW.Sim.Units
         /// <summary>Somewhere a man can stand and walk off from: pos when its nav cell is open surface, else the nearest
         /// point of the nearest open surface cell within three (not a trench, link, bunker or blocked cell: a man there
         /// would have no flow-field direction, or be in a trench without garrisoning it). Ties go to the lower cell.</summary>
-        float3 OpenGround(float3 pos)
+        float3 OpenGround(float3 pos) => OpenGround(map, pos);
+
+        /// <summary>The same for anyone putting a man on the ground (a paratrooper, a sea landing): static, so the
+        /// off-map abilities can use it without a modules system.</summary>
+        public static float3 OpenGround(Terrain.MapData map, float3 pos)
         {
             if (map == null) return pos;
             const Terrain.NavLayer closed = Terrain.NavLayer.Trench | Terrain.NavLayer.Link | Terrain.NavLayer.Bunker | Terrain.NavLayer.Blocked;
@@ -625,6 +665,8 @@ namespace TW.Sim.Units
             h = SimHash.Array(Repair, n, h);
             h = SimHash.Array(LastShooter, n, h);
             h = SimHash.Array(LegsLost, n, h);
+            h = SimHash.Array(KillCause, n, h);
+            h = SimHash.Array(Fate, n, h);
             h = SimHash.Value(new int4(Penetrations, Ricochets, KnockOuts, CookOffs), h);
             h = SimHash.Value(BailedOut, h);
             return SimHash.Combine(h, checksum);
@@ -644,6 +686,8 @@ namespace TW.Sim.Units
             if (Repair.IsCreated) Repair.Dispose();
             if (LastShooter.IsCreated) LastShooter.Dispose();
             if (LegsLost.IsCreated) LegsLost.Dispose();
+            if (KillCause.IsCreated) KillCause.Dispose();
+            if (Fate.IsCreated) Fate.Dispose();
         }
     }
 }

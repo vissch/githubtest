@@ -42,6 +42,10 @@ namespace TW.Presentation
             public string Title = "";
             public string Difficulty = "";
             public uint MatchSeed = 0xC0FFEE;
+            // ---- 2026-09-25: who is fighting, and with which ten (the briefing writes these; phase 2) ----
+            public byte FactionA = (byte)TW.Sim.FactionId.Iron, FactionB = (byte)TW.Sim.FactionId.Brass;
+            /// <summary>The ten each side brings, or null/empty for its faction's default ten.</summary>
+            public byte[] LoadoutA, LoadoutB;
             public int StartingSilver = 300;
             public float SilverPerSecond = 2f;
             public bool GeneratedBattlefield = true;
@@ -57,10 +61,10 @@ namespace TW.Presentation
             public bool PeerDeploysTanks = false;
             public bool PeerUsesSupport = true;
             public int PeerSupportReserve = 180;
-            /// <summary>Campaign (docs/21 phase 6): which faction each side fields and which support abilities each may
-            /// fire (a bit per OffMapAbilityId; 0 = the faction's default). The sim's upgrade seam reads them when it
-            /// lands (B1); until then Apply leaves them for the HUD.</summary>
-            public byte FactionA = 0, FactionB = 1;
+            /// <summary>Campaign (docs/21 phase 6): which support abilities each side may fire (a bit per OffMapAbilityId;
+            /// 0 = the faction's default). The sides' factions are FactionA/FactionB above, the same ids (FactionId: Iron 0,
+            /// Brass 1) the campaign's FactionBuildings uses. The sim's upgrade seam reads the masks when it lands (B1);
+            /// until then Apply leaves them for the HUD.</summary>
             /// <summary>Seat A is the local player by fiat: the HUD's cards, the incoming markers and the mine marks all read
             /// seat 0; B is the scripted peer today, so AbilityMaskB is built and unread until a second human sits in B.</summary>
             public uint AbilityMaskA, AbilityMaskB;
@@ -72,6 +76,7 @@ namespace TW.Presentation
             public static Request From(SimHost h) => new Request
             {
                 MatchSeed = h.Seed, StartingSilver = h.StartingSilver, SilverPerSecond = h.SilverPerSecond,
+                FactionA = h.FactionA, FactionB = h.FactionB, LoadoutA = h.LoadoutA, LoadoutB = h.LoadoutB,
                 GeneratedBattlefield = h.GeneratedBattlefield, PlaytestMap = h.PlaytestMap, BattlefieldSeed = h.BattlefieldSeed,
                 Ground = h.Ground,
                 Bombardment = h.BombardmentPerMinute, ScriptedPeer = h.ScriptedPeer, PeerDeployEveryTicks = h.PeerDeployEveryTicks,
@@ -95,6 +100,7 @@ namespace TW.Presentation
             var r = Current;
             if (r == null || h == null) { Running = null; return; }
             h.Seed = r.MatchSeed; h.StartingSilver = r.StartingSilver; h.SilverPerSecond = r.SilverPerSecond;
+            h.FactionA = r.FactionA; h.FactionB = r.FactionB; h.LoadoutA = r.LoadoutA; h.LoadoutB = r.LoadoutB;
             h.GeneratedBattlefield = r.GeneratedBattlefield; h.PlaytestMap = r.PlaytestMap; h.BattlefieldSeed = r.BattlefieldSeed;
             h.Ground = r.Ground;
             h.BombardmentPerMinute = r.Bombardment;

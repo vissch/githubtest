@@ -28,6 +28,12 @@ namespace TW.Sim.Nav
         NativeArray<float3> push;
         NativeArray<short> arrivedLocked;     // transient: trench id a unit reached while it was locked (-1 none)
         NativeArray<short> garrisoned;        // transient: trench id a unit garrisoned this tick (-1 none)
+        // ---- the jetpack leap (LeapSystem writes them, MoveJob flies them; hashed) ----
+        /// <summary>Ticks left in the air; 0 = on his feet. While > 0 he moves in a straight line to LeapTarget, through
+        /// wire and over trench walls, and on the last tick lands ON the target cell (a trench body cell, so the arrival
+        /// rule below garrisons him without a ladder).</summary>
+        public NativeArray<int> LeapTicks;
+        public NativeArray<float3> LeapTarget;
 
         public MovementSystem(MapData map) { this.map = map; }
 
@@ -40,6 +46,8 @@ namespace TW.Sim.Nav
             push = new NativeArray<float3>(n, Allocator.Persistent);
             arrivedLocked = new NativeArray<short>(n, Allocator.Persistent);
             garrisoned = new NativeArray<short>(n, Allocator.Persistent);
+            LeapTicks = new NativeArray<int>(n, Allocator.Persistent);
+            LeapTarget = new NativeArray<float3>(n, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -69,11 +77,12 @@ namespace TW.Sim.Nav
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
                 PostCell = w.PostCell, PostKind = w.PostKind, TrenchDefs = map.Trenches.AsArray(), Team = w.Team,
                 GoalId = w.GoalId, Cooldown = w.Cooldown, Knock = w.Knock, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
-                Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick,
+                Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick, Archetype = w.Archetype,
+                Specs = w.Units.Infantry,
                 Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
-                Size = map.SizeMeters, Dt = w.Config.TickSeconds,
+                Size = map.SizeMeters, Dt = w.Config.TickSeconds, LeapTicks = LeapTicks, LeapTarget = LeapTarget,
             }.Schedule(n, 64).Complete();
 
             // 4. arrivals (main thread): events for garrisons, re-goal for locked trenches
@@ -103,9 +112,13 @@ namespace TW.Sim.Nav
             public NativeArray<float3> Knock;
             public NativeArray<short> TrenchId;
             public NativeArray<short> ArrivedLocked, Garrisoned;
+            public NativeArray<int> LeapTicks;
+            [ReadOnly] public NativeArray<float3> LeapTarget;
             [ReadOnly] public NativeArray<float> Speed, Suppression;
             [ReadOnly] public NativeArray<int> TargetSlot;
             [ReadOnly] public NativeArray<ushort> Generation;
+            [ReadOnly] public NativeArray<byte> Archetype;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<float3> Push;
             public uint Tick;
             public const float DriftAmount = 0.38f;     // lateral drift as a fraction of the forward speed
@@ -188,10 +201,12 @@ namespace TW.Sim.Nav
                 int goal = GoalId[i];
                 short garrison = TrenchId[i];
                 bool isGarrisoned = garrison >= 0;
+                int leap = LeapTicks[i];
+                bool leaping = leap > 0;   // in the air on a jetpack: a straight line, nothing else applies
 
                 // steering
                 float2 dir = float2.zero;
-                if (!isGarrisoned && goal >= 0 && Ready[goal] != 0)
+                if (!isGarrisoned && !leaping && goal >= 0 && Ready[goal] != 0)
                 {
                     dir = Flow(goal, p);
                     if (SimMath.Length(new float3(dir.x, 0f, dir.y)) < 0.5f)
@@ -199,7 +214,7 @@ namespace TW.Sim.Nav
                         byte d = Directions[goal * CellCount + cell];
                         dir = d != FlowField.NoDirection ? FlowField.Offset(d) : float2.zero;
                     }
-                    else if (!inTrench)
+                    else if (!inTrench && !Specs[Archetype[i]].NoDrift)   // a shield bearer walks straight: he is the front of the line
                     {
                         // open ground: a slow wander to one side and back, different for every man, so the company spreads
                         uint seed = (uint)i * 2654435761u ^ (uint)Generation[i] * 40503u;
@@ -221,14 +236,15 @@ namespace TW.Sim.Nav
                 bool ladderPost = PostCell[i] >= 0 && (Layers[PostCell[i]] & (byte)NavLayer.Link) != 0;
                 bool atPost = PostCell[i] < 0 || ladderPost || PostCell[i] == cell || SimMath.Length(PostPoint(PostCell[i]) - p) < 0.9f;
                 bool toPost = isGarrisoned && PostCell[i] >= 0 && !atPost && !ladderPost;   // walking to his post: he may cross a ladder, and keeps going across it
-                if (isGarrisoned) stance = TargetSlot[i] >= 0 && PostKind[i] != PostReserve && atPost ? Stance.FireStep : Stance.Crouch;
+                if (leaping) stance = Stance.Leap;
+                else if (isGarrisoned) stance = TargetSlot[i] >= 0 && PostKind[i] != PostReserve && atPost ? Stance.FireStep : Stance.Crouch;
                 else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
                 else if (inTrench) stance = Stance.Crouch;
                 else if (supp >= StanceRules.ProneSuppression) stance = Stance.Prone;
                 else stance = (f & (uint)UnitFlags.Exposed) != 0 ? Stance.Sprint : Stance.Standing;
                 float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
-                float3 v = isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
-                if (isGarrisoned)
+                float3 v = leaping ? (LeapTarget[i] - p) / (leap * Dt) : isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
+                if (isGarrisoned && !leaping)
                 {
                     // he walks to the post he was given and holds it (the parapet, a junction, a dugout mouth), instead of
                     // relaxing onto the duckboard centreline under separation alone
@@ -259,9 +275,9 @@ namespace TW.Sim.Nav
                 }
                 // thrown by a shell: the throw replaces his own steering until it is spent
                 float3 knock = Knock[i];
-                if (math.lengthsq(knock) > 0.09f && !isGarrisoned) { v = knock; Knock[i] = knock * KnockDecay; }
+                if (math.lengthsq(knock) > 0.09f && !isGarrisoned && !leaping) { v = knock; Knock[i] = knock * KnockDecay; }
                 else if (math.lengthsq(knock) > 0f) Knock[i] = float3.zero;
-                bool onLadder = isGarrisoned && (from & (byte)NavLayer.Link) != 0;
+                bool onLadder = isGarrisoned && !leaping && (from & (byte)NavLayer.Link) != 0;
                 if (onLadder)
                 {
                     // a garrison never stands on a ladder. A man crossing one on his way to his post is already being
@@ -282,8 +298,15 @@ namespace TW.Sim.Nav
                 // A blocked step slides along the obstacle (X only, then Z only) instead of stopping dead: a diagonal
                 // path that clips a trench wall next to a ladder would otherwise pin the unit there for good.
                 float pushX = Push[i].x;
+                if (leaping)
+                {
+                    // the last tick of the leap puts him exactly on the target cell, so the arrival rule below finds him
+                    // in the trench body and garrisons him
+                    LeapTicks[i] = leap - 1;
+                    if (leap == 1) { np = LeapTarget[i]; f &= ~(uint)UnitFlags.Airborne; }
+                }
                 int ncell = CellOf(np);
-                if (!CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, ncell))
+                if (!leaping && !CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, ncell))
                 {
                     // the blended flow at the corner of a trench cell beside a ladder points through the wall: the cell's
                     // own direction never does, so a blocked step takes that first (it used to oscillate against the wall
@@ -301,9 +324,9 @@ namespace TW.Sim.Nav
                 byte to = Layers[ncell];
                 // the parapet: the step that would take him out of the trench holds him at the edge for VaultTicks first
                 // (the climb has to be seen), then lets him over
-                bool crossing = inTrench && (to & (byte)NavLayer.Trench) == 0;
+                bool crossing = !leaping && inTrench && (to & (byte)NavLayer.Trench) == 0;
                 if (crossing && Cooldown[i] < VaultTicks) { Cooldown[i]++; np = p; v = float3.zero; ncell = cell; to = from; stance = Stance.Vault; }
-                else if (!crossing && Cooldown[i] > 0 && Cooldown[i] < VaultTicks && (to & (byte)NavLayer.Trench) != 0 && !isGarrisoned) { Cooldown[i]++; np = p; v = float3.zero; ncell = cell; to = from; stance = Stance.Vault; }   // shoved sideways mid-climb: he keeps climbing
+                else if (!leaping && !crossing && Cooldown[i] > 0 && Cooldown[i] < VaultTicks && (to & (byte)NavLayer.Trench) != 0 && !isGarrisoned) { Cooldown[i]++; np = p; v = float3.zero; ncell = cell; to = from; stance = Stance.Vault; }   // shoved sideways mid-climb: he keeps climbing
                 else if (!crossing) Cooldown[i] = 0;
                 Position[i] = np;
                 Velocity[i] = v;
@@ -312,7 +335,7 @@ namespace TW.Sim.Nav
                 // layer bookkeeping
                 bool nowTrench = (to & (byte)NavLayer.Trench) != 0;
                 Layer[i] = nowTrench ? (byte)NavLayer.Trench : (byte)NavLayer.Surface;
-                if (inTrench && !nowTrench) stance = Stance.Vault;
+                if (inTrench && !nowTrench && !leaping) stance = Stance.Vault;
 
                 // arrival: the goal is this trench
                 if (!isGarrisoned && goal >= 0 && nowTrench && (to & (byte)NavLayer.Link) == 0)   // off the ladder, in the trench body
@@ -337,12 +360,20 @@ namespace TW.Sim.Nav
             }
         }
 
-        public ulong Hash(ulong h) => h;   // no state of its own: goals/trenches live in FlowFieldManager, units in SimWorld
+        public ulong Hash(ulong h)
+        {
+            // goals/trenches live in FlowFieldManager, units in SimWorld; only the leaps are this system's own state
+            if (!LeapTicks.IsCreated) return h;
+            h = SimHash.Array(LeapTicks, h);
+            return SimHash.Array(LeapTarget, h);
+        }
 
         public void Dispose()
         {
             if (Spatial.IsCreated) Spatial.Dispose();
             if (Vehicles.IsCreated) Vehicles.Dispose();
+            if (LeapTicks.IsCreated) LeapTicks.Dispose();
+            if (LeapTarget.IsCreated) LeapTarget.Dispose();
             if (push.IsCreated) push.Dispose();
             if (arrivedLocked.IsCreated) arrivedLocked.Dispose();
             if (garrisoned.IsCreated) garrisoned.Dispose();

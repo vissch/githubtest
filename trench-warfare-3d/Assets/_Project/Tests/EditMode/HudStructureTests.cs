@@ -76,6 +76,9 @@ namespace TW.Tests
                 Assert.That(refs.Cards[s].Hotkey.text, Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s} hotkey badge");
             for (int i = 0; i < refs.SupportCards.Count; i++)
                 Assert.That(refs.SupportCards[i].Hotkey.text, Is.EqualTo(HudText.SupportHotkey(i)), $"support card {i} carries its bound key");
+            // the digit row is ten deploy slots, so barrage, gas and paratroopers sit on the free block of the function row
+            for (int i = 0; i < HudText.SupportCards; i++)
+                Assert.That(refs.SupportCards[i].Hotkey.text, Is.EqualTo("F" + (5 + i)), $"support card {i} is on F{5 + i} by default");
             root.Query<Button>().ForEach(b => Assert.That(b.focusable, Is.False, $"button '{b.name}' is focusable: Space would re-press it instead of pausing"));
         }
 

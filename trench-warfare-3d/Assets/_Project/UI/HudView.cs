@@ -42,7 +42,7 @@ namespace TW.UI
         public VisualElement Tooltip; public Label TooltipTitle, TooltipBody, TooltipCost, Hint;
         public VisualElement OrdersLayer, Banner, PausePlate; public Label BannerText;
         public readonly List<CardRefs> Cards = new List<CardRefs>(RosterEntry.SlotCount + 2);
-        public readonly List<CardRefs> SupportCards = new List<CardRefs>(2);
+        public readonly List<CardRefs> SupportCards = new List<CardRefs>(HudText.SupportCards);
         // cached values
         public int LastSilver = int.MinValue, LastMen = -1, LastEnemy = -1, LastSeconds = -1, LastSpeedIdx = -1;
         public float LastIncome = float.NaN;
@@ -62,10 +62,12 @@ namespace TW.UI
         };
         public static readonly string[] IgnorePickingNames = { "hud-root", "region-topleft", "region-topright", "region-bottom", "orders-layer", "banner", "hint", "tooltip", "pause-plate" };
 
-        /// <summary>The support abilities the bar offers, in card order; the hotkeys are KeyMap's (9 0 C M V B by default, HudText.SupportHotkey).</summary>
+        /// <summary>The support abilities the bar offers, in card order; the keys are KeyMap's (F5 F6 F7 C M V B by default,
+        /// HudText.SupportHotkey). The paratroopers are Brass's alone (FactionRoster.MayCall refuses them to anyone else).</summary>
         public static readonly OffMapAbilityId[] SupportAbilities =
         {
-            OffMapAbilityId.HeBarrage, OffMapAbilityId.ChlorineGas, OffMapAbilityId.CreepingBarrage, OffMapAbilityId.SmokeScreen, OffMapAbilityId.StrafeRun, OffMapAbilityId.Beam,
+            OffMapAbilityId.HeBarrage, OffMapAbilityId.ChlorineGas, OffMapAbilityId.ParaDrop,
+            OffMapAbilityId.CreepingBarrage, OffMapAbilityId.SmokeScreen, OffMapAbilityId.StrafeRun, OffMapAbilityId.Beam,
         };
 
         /// <summary>

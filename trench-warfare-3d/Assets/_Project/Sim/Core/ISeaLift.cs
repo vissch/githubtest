@@ -6,7 +6,8 @@ namespace TW.Sim
 {
     public interface ISeaLift
     {
-        /// <summary>Takes a deployed unit aboard an inbound craft. False: it spawns at the player's spawn point as before.</summary>
-        bool Embark(SimWorld world, byte player, RosterEntry entry);
+        /// <summary>Takes a deployed unit aboard an inbound craft. False: it spawns at the player's spawn point as before.
+        /// The roster slot and veteran rank ride with him so the lift can emit UnitDeployed when he steps ashore.</summary>
+        bool Embark(SimWorld world, byte player, int rosterSlot, int veteranRank, RosterEntry entry);
     }
 }

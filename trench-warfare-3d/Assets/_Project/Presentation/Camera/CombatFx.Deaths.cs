@@ -33,7 +33,7 @@ namespace TW.Presentation.Tactical
             var w = Host.Local.World;
             // a tank leaves a wreck (TankRenderer), not a body. Its Death comes just before its VehicleDestroyed, while
             // the tank view still has the slot; the archetype would be a later tenant's if the slot was refilled
-            if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : VehicleArchetype.IsTank(w.Archetype[e.A]))) return;
+            if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[e.A])))) return;   // a machine leaves a wreck, not a body
             if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
             // the controller's record of this death, by slot and tick: events are handled once a frame, up to eight ticks
             // late, so the slot may hold a newcomer by now (a same-tick refill, a deploy later in the frame): who he was and

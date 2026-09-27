@@ -43,7 +43,7 @@ namespace TW.Sim.Combat
         public const float AimTolerance = 0.05f;      // rad (about 3 degrees)
         public const float MovingAccuracy = 0.5f;
         public const float ArmourPreference = 2.5f;   // a gun that can hole armour looks at tanks this much farther out than at men
-        public const int WeaponIdBase = 40;           // Explosion.a for a tank shell: 40 + archetype
+        // Explosion.a for a tank shell is SourceId.Unit(archetype); the old 40 + id ceiling is gone (see SourceId.cs)
         public int Order => SimSystemOrder.DirectFire + 5;
 
         readonly MapData map;
@@ -68,12 +68,16 @@ namespace TW.Sim.Combat
         NativeList<Impact> impacts;
         NativeList<int2> clawed;                // (victim, walker) this tick: men taken in a claw, resolved below
         NativeArray<int> halt;                  // stand-in when no kinematics system is registered
+        NativeArray<VehicleProfile> drive;      // ditto for the drive profiles: the compiled defaults, by archetype
 
         public TankGunnerySystem(MapData map) { this.map = map; }
+
+        CombatCatalogueSystem catalogue;
 
         public void Initialize(SimWorld w)
         {
             world = w;
+            catalogue = w.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("TankGunnerySystem needs CombatCatalogueSystem registered before it");
             int n = w.Config.MaxSlots;
             GunYaw = new NativeArray<float>(n * Guns, Allocator.Persistent);
             Reload = new NativeArray<int>(n * Guns, Allocator.Persistent);
@@ -88,6 +92,8 @@ namespace TW.Sim.Combat
             events = new NativeList<SimEvent>(32, Allocator.Persistent);
             impacts = new NativeList<Impact>(16, Allocator.Persistent);
             halt = new NativeArray<int>(n, Allocator.Persistent);
+            drive = new NativeArray<VehicleProfile>(Archetypes.Count, Allocator.Persistent);
+            for (int a = 0; a < Archetypes.Count; a++) drive[a] = VehicleProfile.ForArchetype((byte)a);
         }
 
         public void Step(SimWorld w)
@@ -106,7 +112,7 @@ namespace TW.Sim.Combat
                 ClawCooldown = ClawCooldown, Clawed = clawed,
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
-                Hits = PendingHits, Events = events, Impacts = impacts,
+                Hits = PendingHits, Events = events, Impacts = impacts, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
@@ -116,7 +122,7 @@ namespace TW.Sim.Combat
             {
                 int j = clawed[c].x, i = clawed[c].y;
                 if (!w.IsAlive(j)) continue;
-                w.Hp[j] = w.Hp[j] - TankSpec.For(w.Archetype[i]).ClawDamage;
+                w.Hp[j] = w.Hp[j] - catalogue.Tank[w.Archetype[i]].ClawDamage;
                 w.Events.Add(w.Tick, SimEventType.VehicleClawed, i, j, w.Position[j]);
                 if (w.Hp[j] <= 0f) w.Despawn(j, i, SimMath.DirFromYaw(w.Yaw[i]) * 0.5f);
             }
@@ -134,6 +140,9 @@ namespace TW.Sim.Combat
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct GunneryJob : IJob
         {
+            [ReadOnly] public NativeArray<TankSpec> Tanks;   // the match table, by archetype (CombatCatalogueSystem)
+            [ReadOnly] public NativeArray<RosterEntry> Roster;          // for the chassis
+            [ReadOnly] public NativeArray<VehicleProfile> Drive;        // the match table, by archetype (VehicleKinematicsSystem)
             public int Count, NavWidth, NavLength;
             public uint Tick, Seed;
             public float Dt;
@@ -186,7 +195,7 @@ namespace TW.Sim.Combat
                 if ((Flags[j] & (uint)UnitFlags.Vehicle) != 0) return g.PenMm > 0f ? dist / ArmourPreference : float.MaxValue;
                 // its own burst could reach its hull (the burst, its half width, and a miss falling short): leave him to the
                 // machine guns (VehicleModules bursts reach Radius + HalfWidth from a hull's centre)
-                if (dist < g.HeRadius + VehicleProfile.ForArchetype(Archetype[i]).HalfWidth + SelfSafeScatter) return float.MaxValue;
+                if (dist < g.HeRadius + Drive[Archetype[i]].HalfWidth + SelfSafeScatter) return float.MaxValue;
                 bool belowRim = (Flags[j] & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep;
                 // a flat-trajectory gun can barely touch a man below the parapet; a mortar is the answer to him
                 return belowRim ? dist * (g.Indirect ? 0.55f : 1.8f) : dist;
@@ -218,8 +227,8 @@ namespace TW.Sim.Combat
                 for (int i = 0; i < Count; i++)
                 {
                     uint f = Flags[i];
-                    if ((f & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) || !VehicleArchetype.IsArmoured(Archetype[i])) continue;
-                    var spec = TankSpec.For(Archetype[i]);
+                    if ((f & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) || !ChassisKind.IsArmoured(Roster[Archetype[i]].Chassis)) continue;
+                    var spec = Tanks[Archetype[i]];
                     if (Gen[i] != Generation[i])
                     {
                         Gen[i] = Generation[i]; CrewFactor[i] = 1f;
@@ -296,7 +305,7 @@ namespace TW.Sim.Combat
                             Impacts.Add(new Impact
                             {
                                 Pos = land, Damage = g.HeDamage, Radius = g.HeRadius, Suppression = g.HeSuppression,
-                                CraterRadius = g.HeCrater, CraterDepth = g.HeCrater * 0.25f, Source = WeaponIdBase + Archetype[i], Player = Team[i],
+                                CraterRadius = g.HeCrater, CraterDepth = g.HeCrater * 0.25f, Source = SourceId.Unit(Archetype[i]), Player = Team[i],
                                 // the way the round was going: the far side of the burst takes more of it, and the
                                 // men are thrown along it. An indirect mortar round (Kettle) comes down steeply, so
                                 // its flattened direction is short and BlastRules leans it hardly at all.
@@ -311,7 +320,7 @@ namespace TW.Sim.Combat
                     // the machine guns a tank carries, and the reason infantry cannot simply walk up to one.
                     if (spec.ClawReach > 0f && ClawCooldown[i] <= 0)
                     {
-                        float reach = spec.ClawReach + VehicleProfile.ForArchetype(Archetype[i]).HalfLength;
+                        float reach = spec.ClawReach + Drive[Archetype[i]].HalfLength;
                         int victim = -1; float best = reach * reach;
                         for (int j = 0; j < Count; j++)
                         {
@@ -368,6 +377,7 @@ namespace TW.Sim.Combat
             if (events.IsCreated) events.Dispose();
             if (impacts.IsCreated) impacts.Dispose();
             if (halt.IsCreated) halt.Dispose();
+            if (drive.IsCreated) drive.Dispose();
         }
     }
 }

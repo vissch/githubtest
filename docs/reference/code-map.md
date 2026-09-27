@@ -130,6 +130,7 @@ determinism test: `docs/03-determinism-rules.md`).
 <!-- gen:sim-order -->
 | Order | System | SimSystemOrder | File (under Assets/_Project) | Status |
 |---|---|---|---|---|
+| 40 | `CombatCatalogueSystem` | `TerrainHash - 10` | `Sim/Combat/CombatCatalogue.cs` | registered |
 | 50 | `TerrainHashSystem` | `TerrainHash` | `Sim/Match/TerrainHashSystem.cs` | registered |
 | 110 | `TrenchOrdersSystem` | `Command + 10` | `Sim/Units/TrenchOrders.cs` | registered |
 | 120 | `SpecialAbilitiesSystem` | `Command + 20` | `Sim/Units/SpecialAbilities.cs` | **not referenced by MatchSim** |
@@ -140,6 +141,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 320 | `SeaLandingSystem` | `Economy + 20` | `Sim/Match/SeaLanding.cs` | registered (only if `map.HasSea`) |
 | 400 | `FlowFieldManager` | `FlowField` | `Sim/Nav/FlowFieldManager.cs` | registered |
 | 600 | `TargetAcquisitionSystem` | `TargetAcquisition` | `Sim/Combat/TargetAcquisition.cs` | registered (only if `combat`) |
+| 650 | `AuraSystem` | `Aura` | `Sim/Combat/Aura.cs` | registered (only if `combat`) |
 | 700 | `DirectFireSystem` | `DirectFire` | `Sim/Combat/DirectFire.cs` | registered (only if `combat`) |
 | 705 | `TankGunnerySystem` | `DirectFire + 5` | `Sim/Combat/TankGunnery.cs` | registered (only if `combat`) |
 | 709 | `GrenadeSystem` | `IndirectFire - 1` | `Sim/Units/Grenades.cs` | stub: commented out in MatchSim |
@@ -149,12 +151,16 @@ determinism test: `docs/03-determinism-rules.md`).
 | 723 | `BeamSystem` | `Beam` | `Sim/Combat/BeamSystem.cs` | registered |
 | 725 | `BurningSystem` | `Blast + 5` | `Sim/Combat/Burning.cs` | registered |
 | 730 | `VehicleModulesSystem` | `Blast + 10` | `Sim/Units/VehicleModules.cs` | registered |
+| 735 | `SupportSystem` | `Support` | `Sim/Units/Support.cs` | registered |
 | 800 | `SuppressionSystem` | `Suppression` | `Sim/Combat/Suppression.cs` | registered |
+| 805 | `HeroSystem` | `Hero` | `Sim/Combat/HeroSystem.cs` | registered |
 | 810 | `StanceSystem` | `Stance` | `Sim/Units/StanceSystem.cs` | stub: commented out in MatchSim |
 | 820 | `TrenchGarrisonSystem` | `TrenchGarrison` | `Sim/Units/TrenchGarrison.cs` | registered |
 | 900 | `GasSmokeSystem` | `GasSmoke` | `Sim/Combat/GasSmokeField.cs` | registered |
 | 1000 | `DeformationSystem` | `Deformation` | `Sim/Match/Deformation.cs` | registered |
+| 1105 | `LeapSystem` | `Leap` | `Sim/Combat/Leap.cs` | registered |
 | 1110 | `MovementSystem` | `Movement` | `Sim/Nav/MovementSystem.cs` | registered |
+| 1115 | `BreakerSystem` | `Breaker` | `Sim/Units/Breaker.cs` | registered |
 | 1120 | `VehicleKinematicsSystem` | `VehicleKinematics` | `Sim/Nav/VehicleKinematics.cs` | registered |
 | 1130 | `MineSystem` | `VehicleKinematics + 10` | `Sim/Combat/Mines.cs` | registered |
 | 1200 | `SectorControlSystem` | `SectorControl` | `Sim/Match/SectorControl.cs` | registered |

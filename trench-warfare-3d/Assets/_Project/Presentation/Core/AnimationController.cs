@@ -237,11 +237,11 @@ namespace TW.Presentation
                     // the man who held the slot died this tick and it was filled again in the same tick (free slots are reused
                     // last in, first out, and a knocked-out tank's crew bail into the slots a shell just freed): he still dies,
                     // from his own state and the Death event's position, before the newcomer takes over (critic r4, 2026-09-27)
-                    if (died[i] != 0 && !s.Dead && s.Generation != 0 && !VehicleArchetype.IsArmoured(s.Archetype)) Die(i, s, w);   // a tank or walker leaves a wreck, not a death (critic r6, r7)
+                    if (died[i] != 0 && !s.Dead && s.Generation != 0 && !ChassisKind.IsArmoured(w.ChassisOf(s.Archetype))) Die(i, s, w);   // a tank or walker leaves a wreck, not a death (critic r6, r7)
                     s = Fresh(i, w);
                 }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
-                if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && VehicleArchetype.IsArmoured(w.Archetype[i])))   // a dead walker too (Despawn clears its flags; critic r7)
+                if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]))))
                 { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {

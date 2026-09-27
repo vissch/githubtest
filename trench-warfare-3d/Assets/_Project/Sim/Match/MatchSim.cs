@@ -21,6 +21,11 @@ namespace TW.Sim.Match
         public VehicleModulesSystem Modules;
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
+        public AuraSystem Aura;
+        public TW.Sim.Units.SupportSystem Support;
+        public LeapSystem Leap;
+        public TW.Sim.Units.BreakerSystem Breaker;
+        public HeroSystem Hero;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
         public SeaLandingSystem Landing;
@@ -34,6 +39,7 @@ namespace TW.Sim.Match
         public BurningSystem Burning;
         public BeamSystem Beam;
         public MineSystem Mines;
+        public TW.Sim.Combat.CombatCatalogueSystem Catalogue;
         public TerrainHashSystem TerrainHash;
 
         /// <param name="combat">false leaves out target acquisition and direct fire: movement-only tests and the M1 stress run.</param>
@@ -60,6 +66,8 @@ namespace TW.Sim.Match
             World = new SimWorld(config, map.ToWorldInit());
             // ---- system registration (docs/04-architecture.md, "Sim system order"). Step order follows ISimSystem.Order;
             // Initialize order follows AddSystem order, so providers are added before the systems that resolve them. ----
+            Catalogue = new TW.Sim.Combat.CombatCatalogueSystem();
+            World.AddSystem(Catalogue);                     // A5c: steps nothing; the weapon and hull tables of this match, and their fingerprint
             TerrainHash = new TerrainHashSystem(map);
             World.AddSystem(TerrainHash);                   // A4: steps nothing; folds the map (ground, layers, holes) into the tick hash
             Fields = new FlowFieldManager(map);
@@ -73,6 +81,8 @@ namespace TW.Sim.Match
             {
                 Acquisition = new TargetAcquisitionSystem(map);
                 World.AddSystem(Acquisition);               // A2: who shoots at whom
+                Aura = new AuraSystem();
+                World.AddSystem(Aura);                      // A3: the officer's men hit harder, keep their nerve, do not stay pinned
                 Fire = new DirectFireSystem(map);
                 World.AddSystem(Fire);                      // A2: shots, damage, near-miss suppression, deaths
             }
@@ -90,6 +100,8 @@ namespace TW.Sim.Match
             World.AddSystem(Mines);                         // A5 / docs/21 SIM-D: mines and tripwires (steps after VehicleKinematics; its bursts resolve next tick)
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
+            Hero = new HeroSystem(map);
+            World.AddSystem(Hero);                          // A3: the Victoria Cross moment, and the profile's veterans
             // A3: World.AddSystem(new TW.Sim.Units.StanceSystem());   // stance is decided in MoveJob, which has the movement context
             Garrison = new TW.Sim.Units.TrenchGarrisonSystem(map);
             World.AddSystem(Garrison);                      // A3: a post per man inside his trench (the fire step, or back from it)
@@ -99,8 +111,12 @@ namespace TW.Sim.Match
             World.AddSystem(Deformation);                   // A4 core: crater stamps
             Movement = new MovementSystem(map);
             World.AddSystem(Movement);                      // A1: infantry
+            Leap = new LeapSystem(map);
+            World.AddSystem(Leap);                          // A3: jetpack men leap into enemy trenches (steps before Movement flies them)
             Vehicles = new VehicleKinematicsSystem(map);
             World.AddSystem(Vehicles);                      // A1 / A5b: vehicles: trenches, ditching, mud, slopes, crushing
+            Breaker = new TW.Sim.Units.BreakerSystem(map);
+            World.AddSystem(Breaker);                       // A5b: the Breaker's wind-up, charge, strike and withdrawal (steps before Kinematics drives it)
             if (combat)
             {
                 Gunnery = new TankGunnerySystem(map);
@@ -108,11 +124,16 @@ namespace TW.Sim.Match
             }
             Modules = new VehicleModulesSystem(map);
             World.AddSystem(Modules);                       // A5b: armour, modules, crew, fire, bail-out, cook-off, wrecks
+            Support = new TW.Sim.Units.SupportSystem();
+            World.AddSystem(Support);                       // A3: medics patch the wounded, engineers mend the machines
             Sectors = new SectorControlSystem(map);
             World.AddSystem(Sectors);                       // A3 core: objectives, trench ownership, HQ = match end
-            Abilities = new OffMapAbilitySystem();
+            Abilities = new OffMapAbilitySystem(map);
             World.AddSystem(Abilities);                     // A5 core: HE barrage, chlorine gas
             // A6: World.AddSystem(new WaveAiSystem());
+            // last, with every table allocated: the units defined in one place are written over the compiled defaults
+            // and the fingerprints re-sealed, so both machines agree on what a unit is before the first tick
+            UnitDefinitions.Apply(World);
         }
 
         public void Step(NativeArray<SimCommand> commands) => World.Step(commands);

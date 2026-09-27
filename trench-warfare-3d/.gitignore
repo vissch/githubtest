@@ -38,6 +38,8 @@ crashlytics-build.properties
 Thumbs.db
 DeterminismReport-*.txt
 test-results*.xml
+# the --retries run writes this one beside the xml
+test-results*.json
 *.junit.xml
 
 # Local capture dumps, gate logs and editor backups: kept on disk, never pushed

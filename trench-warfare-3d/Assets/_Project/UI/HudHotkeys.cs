@@ -28,15 +28,15 @@ namespace TW.UI
             if (!SelectionController.GroupModifierHeld())
                 for (int s = first; s < RosterEntry.SlotCount; s++)
                     if (KeyMap.Down((GameAction)((int)GameAction.Deploy1 + s))) hud.Deploy(s);
-            if (!SelectionController.GroupModifierHeld())   // 9 and 0 are group keys too
-            {
-                if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
-                if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
-                if (KeyMap.Down(GameAction.ArmCreeping)) hud.ToggleArm(OffMapAbilityId.CreepingBarrage);
-                if (KeyMap.Down(GameAction.ArmSmoke)) hud.ToggleArm(OffMapAbilityId.SmokeScreen);
-                if (KeyMap.Down(GameAction.ArmStrafe)) hud.ToggleArm(OffMapAbilityId.StrafeRun);
-                if (KeyMap.Down(GameAction.ArmBeam)) hud.ToggleArm(OffMapAbilityId.Beam);
-            }
+            // support: F5-F7 arm the barrage, the gas and the paratroopers (the digit row is ten deploy slots), C M V B the
+            // four line abilities (docs/21 phase 5); none of them is a group key, so no modifier applies
+            if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
+            if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
+            if (KeyMap.Down(GameAction.ArmDrop)) hud.ToggleArm(OffMapAbilityId.ParaDrop);
+            if (KeyMap.Down(GameAction.ArmCreeping)) hud.ToggleArm(OffMapAbilityId.CreepingBarrage);
+            if (KeyMap.Down(GameAction.ArmSmoke)) hud.ToggleArm(OffMapAbilityId.SmokeScreen);
+            if (KeyMap.Down(GameAction.ArmStrafe)) hud.ToggleArm(OffMapAbilityId.StrafeRun);
+            if (KeyMap.Down(GameAction.ArmBeam)) hud.ToggleArm(OffMapAbilityId.Beam);
             if (KeyMap.Down(GameAction.Advance)) hud.OrderFront(CommandType.TrenchAdvance);
             if (KeyMap.Down(GameAction.HoldFire)) hud.ToggleFront(CommandType.TrenchHoldFire);
             if (KeyMap.Down(GameAction.SpeedDown)) hud.Clock?.StepSpeed(-1);

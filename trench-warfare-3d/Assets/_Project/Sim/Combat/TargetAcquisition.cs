@@ -13,6 +13,9 @@
 //    targets (TankGunnerySystem); what is found here is for its machine guns;
 //  - past CombatTables.SmokeBlindMetres of thick smoke on the line (SmokeLos) nobody is seen, whatever the ground says;
 //    the scan drops such a target within three ticks.
+//  - a shield bearer (InfantrySpec.ShieldPlateMm) standing between a shooter and the man he picked, within
+//    ShieldGuardRadius of that man and inside a 15-degree cone on the bearing, takes the shot instead (2026-09-25).
+//    DirectFire then rolls the round against his plate.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -37,8 +40,11 @@ namespace TW.Sim.Combat
 
         public TargetAcquisitionSystem(MapData map) { this.map = map; }
 
+        CombatCatalogueSystem catalogue;
+
         public void Initialize(SimWorld world)
         {
+            catalogue = world.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("TargetAcquisitionSystem needs CombatCatalogueSystem registered before it");
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("TargetAcquisitionSystem needs FlowFieldManager registered before it");
             gridW = (int)math.ceil(map.SizeMeters.x / GridCell);
             gridL = (int)math.ceil(map.SizeMeters.y / GridCell);
@@ -58,7 +64,7 @@ namespace TW.Sim.Combat
                 Grid = grid, GridW = gridW, GridL = gridL, Tick = w.Tick,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype,
-                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot,
+                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry, Weapons = catalogue.Weapon,
                 Trenches = fields.Trenches, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
             }.Schedule(n, 32).Complete();
@@ -94,6 +100,8 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<float3> Position, Velocity;
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
+            [ReadOnly] public NativeArray<WeaponStats> Weapons;
             [ReadOnly] public NativeArray<float> Suppression;
             [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<TrenchState> Trenches;
@@ -111,11 +119,50 @@ namespace TW.Sim.Combat
                 return CellTrenchId[cz * NavWidth + cx];
             }
 
+            /// <summary>The shield bearer standing between the shooter and his pick, if there is one: the nearest man of
+            /// the pick's side with a plate, within the guard radius of the pick, nearer the shooter, inside a 15-degree
+            /// cone on the bearing (ties to the lower slot). Otherwise the pick itself.</summary>
+            int Shielded(int i, int pick, float3 p, short myTrench, float rangeSq)
+            {
+                float3 tp = Position[pick];
+                float3 toT = tp - p; toT.y = 0f;
+                float lenT = SimMath.Length(toT);
+                if (lenT <= 1e-3f) return pick;
+                float3 dirT = toT / lenT;
+                int best = -1; float bestLen = float.MaxValue;
+                int tcx = math.clamp((int)(tp.x / GridCell), 0, GridW - 1), tcz = math.clamp((int)(tp.z / GridCell), 0, GridL - 1);
+                for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int cx = tcx + dx, cz = tcz + dz;
+                    if (cx < 0 || cz < 0 || cx >= GridW || cz >= GridL) continue;
+                    if (!Grid.TryGetFirstValue(cz * GridW + cx, out int j, out var it)) continue;
+                    do
+                    {
+                        if (j == pick || Team[j] != Team[pick]) continue;
+                        uint fj = Flags[j];
+                        if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.Vehicle) != 0) continue;
+                        var spec = Specs[Archetype[j]];
+                        if (spec.ShieldPlateMm <= 0f) continue;
+                        float3 g = Position[j] - tp; g.y = 0f;
+                        if (math.lengthsq(g) > spec.ShieldGuardRadius * spec.ShieldGuardRadius) continue;
+                        float3 toJ = Position[j] - p; toJ.y = 0f;
+                        float lenJ = SimMath.Length(toJ);
+                        if (lenJ >= lenT || lenJ <= 1e-3f) continue;
+                        if (math.dot(toJ / lenJ, dirT) < 0.966f) continue;
+                        if (lenJ < bestLen || (lenJ == bestLen && j < best)) { best = j; bestLen = lenJ; }
+                    } while (Grid.TryGetNextValue(out j, ref it));
+                }
+                if (best >= 0 && Engageable(i, best, p, myTrench, rangeSq, out _)) return best;
+                return pick;
+            }
+
             bool Engageable(int i, int j, float3 p, short myTrench, float rangeSq, out float distSq)
             {
                 distSq = 0f;
                 uint fj = Flags[j];
                 if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & (uint)UnitFlags.KnockedOut) != 0 || Team[j] == Team[i]) return false;
+                if ((fj & (uint)UnitFlags.Airborne) != 0) return false;   // a jetpack man in the air, or just down (LeapSystem)
                 float3 d = Position[j] - p; d.y = 0f;
                 distSq = math.lengthsq(d);
                 if (distSq > rangeSq) return false;
@@ -125,7 +172,8 @@ namespace TW.Sim.Combat
                 {
                     short theirs = TrenchAt(Position[j]);
                     bool sameTrench = myTrench >= 0 && theirs == myTrench;
-                    if (!sameTrench && distSq > CombatTables.BelowRimRevealRange * CombatTables.BelowRimRevealRange) return false;
+                    float reveal = (Flags[i] & (uint)UnitFlags.Charging) != 0 ? CombatTables.ChargeRevealRange : CombatTables.BelowRimRevealRange;   // a charging Breaker looks down into it
+                    if (!sameTrench && distSq > reveal * reveal) return false;
                 }
                 return true;
             }
@@ -175,7 +223,7 @@ namespace TW.Sim.Combat
                 if (silent) { TargetSlot[i] = -1; return; }
 
                 float3 p = Position[i];
-                var weapon = CombatTables.WeaponFor(Archetype[i]);
+                var weapon = Weapons[Archetype[i]];
                 float range = weapon.RangeMax;
                 if ((f & (uint)UnitFlags.Exposed) != 0 && (f & (uint)UnitFlags.Vehicle) == 0) range = math.min(range, CombatTables.AdvanceFireRange);
                 float rangeSq = range * range;
@@ -209,6 +257,7 @@ namespace TW.Sim.Combat
                 if (b0 >= 0 && Sees(i, b0, myTrench)) pick = b0;
                 else if (b1 >= 0 && Sees(i, b1, myTrench)) pick = b1;
                 else if (b2 >= 0 && Sees(i, b2, myTrench)) pick = b2;
+                if (pick >= 0 && (Flags[pick] & (uint)UnitFlags.Vehicle) == 0) pick = Shielded(i, pick, p, myTrench, rangeSq);
                 TargetSlot[i] = pick;
             }
         }

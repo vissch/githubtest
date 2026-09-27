@@ -17,5 +17,8 @@ namespace TW.Net
     public struct LobbyHandshake
     {
         public uint Seed; public int MapId; public byte FactionA, FactionB; public byte Difficulty; public int TickRate; public int InputDelay;
+        /// <summary>The ten archetypes each side chose (SimConfig.Loadout*), empty for the faction's default ten. Both
+        /// machines must build the same rosters from this before the first tick or slot 3 means two different units.</summary>
+        public Unity.Collections.FixedList32Bytes<byte> LoadoutA, LoadoutB;
     }
 }

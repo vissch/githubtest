@@ -10,6 +10,9 @@
 // Smoke (docs/21 phase 5): every metre of thick smoke on the line of fire (SmokeLos) takes SmokeAccuracyPerMetre
 // off the chance, down to SmokeAccuracyFloor, and a target standing inside thick smoke gains only SmokeSuppression
 // of the suppression a hit or a near miss would give him: he cannot tell how close it was.
+// A shield bearer (InfantrySpec.ShieldPlateMm, 2026-09-25) shot from inside his plate's arc gets a penetration roll
+// first: PenetrationMm x 0.8..1.2 under the plate and the round is STOPPED (Hit with a negative scalar, ShieldBlocked,
+// a quarter of the suppression). The roll is drawn only for him, so every other man's stream is what it was.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -32,6 +35,8 @@ namespace TW.Sim.Combat
         GasSmokeSystem gas;               // registered after this system: resolved on the first step
         bool lookedForGas;
         NativeArray<float> noSmoke;       // a one-cell stand-in for the job while there is no smoke
+        AuraSystem aura;                  // the officer's multipliers; without one, every man's are 1
+        NativeArray<float> ones;
 
         /// <summary>Totals since the match started, per team: shots fired and kills scored. Derived from hashed state, not hashed itself.</summary>
         public readonly int[] Shots = new int[SimConfig.MaxPlayers];
@@ -39,13 +44,21 @@ namespace TW.Sim.Combat
 
         public DirectFireSystem(MapData map) { this.map = map; }
 
+        CombatCatalogueSystem catalogue;
+
         public void Initialize(SimWorld world)
         {
+            catalogue = world.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs CombatCatalogueSystem registered before it");
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
+            ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
+            for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
         }
+
+        /// <summary>This tick's kills, (slot, killer) in the order they died; valid until the next Step (HeroSystem reads it).</summary>
+        public NativeList<int2> Killed => killed;
 
         public void Step(SimWorld w)
         {
@@ -55,17 +68,20 @@ namespace TW.Sim.Combat
             if (gunnery == null) gunnery = w.GetSystem<TankGunnerySystem>();
             if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
             bool smokeOn = gas != null && gas.SmokeActive;
+            if (aura == null) aura = w.GetSystem<AuraSystem>();
             events.Clear();
             killed.Clear();
             ownHits.Clear();
             new FireJob
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
-                Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf,
+                Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf, Yaw = w.Yaw,
+                Specs = w.Units.Infantry, Roster = w.Units.Roster, Weapons = catalogue.Weapon, Tanks = catalogue.Tank,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
+                DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
             }.Run();
             for (int k = 0; k < ownHits.Length; k++)
             {
@@ -99,6 +115,11 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<float3> Position, Velocity;
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
+            [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
+            [ReadOnly] public NativeArray<RosterEntry> Roster;   // the same table: cost, hit points, and the chassis
+            [ReadOnly] public NativeArray<WeaponStats> Weapons;
+            [ReadOnly] public NativeArray<TankSpec> Tanks;
+            [ReadOnly] public NativeArray<float> Yaw;
             [ReadOnly] public SpatialHash Spatial;
             [ReadOnly] public NativeArray<short> CellTrenchId;
             [ReadOnly] public NativeArray<byte> CellCover;
@@ -119,6 +140,7 @@ namespace TW.Sim.Combat
                 int cz = math.clamp((int)(p.z / MapData.FieldCellSize), 0, SmokeL - 1);
                 return Smoke[cz * SmokeW + cx] > SmokeLos.Thick;
             }
+            [ReadOnly] public NativeArray<float> DamageMul, SuppressionMul;   // the officer's aura (AuraSystem), 1 without
 
             int CellOf(float3 p)
             {
@@ -129,8 +151,27 @@ namespace TW.Sim.Combat
 
             short TrenchAt(float3 p) => CellTrenchId[CellOf(p)];
 
+            /// <summary>A round that hit a shield bearer inside his plate's arc: does the plate stop it? Draws the
+            /// penetration roll and, when it stops, the damage the plate took, logs it and suppresses him a little.</summary>
+            bool Stopped(int i, int t, in WeaponStats weapon, float3 p, float3 q, float3 dir, ref Random rng)
+            {
+                var spec = Specs[Archetype[t]];
+                if (spec.ShieldPlateMm <= 0f) return false;
+                float3 back = p - q; back.y = 0f;
+                float bearing = SimMath.Atan2(back.x, back.z);                       // sim yaw: 0 is +Z, positive to the right
+                if (math.abs(SimMath.WrapAngle(bearing - Yaw[t])) > spec.ShieldArcHalf) return false;
+                float pen = weapon.PenetrationMm * rng.NextFloat(0.8f, 1.2f);
+                if (pen >= spec.ShieldPlateMm) return false;
+                float took = weapon.Damage * DamageMul[i] * rng.NextFloat(0.8f, 1.2f);
+                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Dir = dir, Scalar = -took });
+                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.ShieldBlocked, A = t, B = i, Pos = q, Dir = dir, Scalar = took });
+                AddSuppression(t, weapon.SuppressionPerShot * 0.25f * SuppressionMul[t]);
+                return true;
+            }
+
             void AddSuppression(int slot, float amount)
             {
+                if ((Flags[slot] & (uint)UnitFlags.Airborne) != 0) return;   // nothing reaches a man in the air (LeapSystem)
                 float before = Suppression[slot], after = math.min(100f, before + amount);
                 Suppression[slot] = after;
                 if (before < SuppressionRules.PinnedThreshold && after >= SuppressionRules.PinnedThreshold)
@@ -164,7 +205,7 @@ namespace TW.Sim.Combat
                             VehicleHits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.CloseAssault, PenMm = CombatTables.CloseAssaultPenMm, Damage = CombatTables.CloseAssaultDamage, Pos = q, Dir = along });
                         continue;
                     }
-                    var weapon = CombatTables.WeaponFor(Archetype[i]);
+                    var weapon = Weapons[Archetype[i]];
                     FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                     float3 d = q - p; d.y = 0f;
                     float dist = SimMath.Length(d);
@@ -173,7 +214,7 @@ namespace TW.Sim.Combat
                     var myStance = (Stance)StanceOf[i];
                     var theirStance = (Stance)StanceOf[t];
                     float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax)
-                                 * StanceRules.AccuracyMultiplier(myStance, Archetype[i] == 2 || VehicleArchetype.IsTank(Archetype[i]))
+                                 * StanceRules.AccuracyMultiplier(myStance, Specs[Archetype[i]].Braced || ChassisKind.IsTank(Roster[Archetype[i]].Chassis))
                                  * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                     if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (Flags[i] & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
 
@@ -181,7 +222,8 @@ namespace TW.Sim.Combat
                     if ((Flags[t] & (uint)UnitFlags.InTrench) != 0)
                     {
                         bool sameTrench = (Flags[i] & (uint)UnitFlags.InTrench) != 0 && TrenchAt(p) == TrenchAt(q);
-                        cover = sameTrench ? 0f : theirStance == Stance.FireStep ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
+                        bool charging = (Flags[i] & (uint)UnitFlags.Charging) != 0;   // a Breaker in the trench: nothing between its guns and them
+                        cover = sameTrench || charging ? 0f : theirStance == Stance.FireStep ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
                     }
                     else
                     {
@@ -200,13 +242,24 @@ namespace TW.Sim.Combat
                     var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
                     bool hit = rng.NextFloat() < chance;
                     Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = dir, Scalar = 0f });
-                    if (hit)
+                    if (hit && Stopped(i, t, weapon, p, q, dir, ref rng)) { }
+                    else if (hit)
                     {
-                        float dmg = weapon.Damage * rng.NextFloat(0.8f, 1.2f);
+                        float dmg = weapon.Damage * DamageMul[i] * rng.NextFloat(0.8f, 1.2f);
+                        if ((Flags[i] & (uint)UnitFlags.Charging) != 0)
+                        {
+                            // a charging Breaker's round finds the mark (the roll is drawn only for it)
+                            var ts = Tanks[Archetype[i]];
+                            if (ts.CritChance > 0f && rng.NextFloat() < ts.CritChance)
+                            {
+                                dmg *= ts.CritMul;
+                                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.CriticalHit, A = i, B = t, Pos = q, Dir = dir, Scalar = dmg });
+                            }
+                        }
                         Hp[t] = Hp[t] - dmg;
                         Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Dir = dir, Scalar = dmg });
                         if (Hp[t] <= 0f) { Killed.Add(new int2(t, i)); TargetSlot[i] = -1; }
-                        else AddSuppression(t, weapon.SuppressionPerShot * keepDown);
+                        else AddSuppression(t, weapon.SuppressionPerShot * keepDown * SuppressionMul[t]);
                     }
                     else
                     {
@@ -227,10 +280,10 @@ namespace TW.Sim.Combat
                                 float3 e = Position[j] - q; e.y = 0f;
                                 if (math.lengthsq(e) > SuppressionRules.NearMissRadius * SuppressionRules.NearMissRadius) continue;
                                 if (j == t) targetSeen = true;
-                                AddSuppression(j, near);
+                                AddSuppression(j, near * SuppressionMul[j]);
                             } while (Spatial.Map.TryGetNextValue(out j, ref it));
                         }
-                        if (!targetSeen) AddSuppression(t, near);   // the hash is a tick old: the target may have moved cells
+                        if (!targetSeen) AddSuppression(t, near * SuppressionMul[t]);   // the hash is a tick old: the target may have moved cells
                         Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.NearMiss, A = t, Pos = q, Scalar = near });
                     }
                 }
@@ -244,6 +297,7 @@ namespace TW.Sim.Combat
             if (killed.IsCreated) killed.Dispose();
             if (ownHits.IsCreated) ownHits.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
+            if (ones.IsCreated) ones.Dispose();
         }
     }
 }

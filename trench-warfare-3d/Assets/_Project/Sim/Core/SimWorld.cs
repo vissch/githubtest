@@ -75,10 +75,55 @@ namespace TW.Sim
         public IReadOnlyList<ISimSystem> Systems => systems;
         NativeList<SimCommand> sortScratch;
 
-        public SimWorld(SimConfig config, SimConfig.WorldInit init)
+        /// <summary>
+        /// The units of this match: every per-archetype spec, as a table. Two worlds in a lockstep pair must be given
+        /// the same one — the fingerprint is in the tick hash, so a mismatch is caught on the first tick rather than
+        /// looking like a physics bug later.
+        /// </summary>
+        public UnitCatalogue Units { get; private set; }
+
+        /// <summary>What kind of machine an archetype is, from the table of THIS match (ChassisKind). Foot for an id
+        /// past the table, which is the only honest answer for a unit nothing defined.</summary>
+        public byte ChassisOf(byte archetype) => archetype < Archetypes.Count ? Units.Roster[archetype].Chassis : ChassisKind.Foot;
+
+        /// <summary>
+        /// Fill every player's ten deployable slots: the archetypes they chose at the briefing (SimConfig.Loadout*),
+        /// falling back to their faction's default ten for any slot they did not name.
+        ///
+        /// It reads the archetype table (Units.Roster) rather than RosterEntry.ForArchetype, so a unit that exists only
+        /// as a definition arrives with its real cost and hit points instead of a zeroed line. That is also why
+        /// UnitDefinitions.Apply calls this again: the definitions are written after the world is built, and the slots
+        /// would otherwise hold whatever the compiled switch said when the constructor ran.
+        ///
+        /// It owns SlotUnlocked as well: a slot naming a unit nothing defines is locked, because a zeroed roster line
+        /// costs nothing and a cost of nothing always passes Deploy's silver check.
+        /// </summary>
+        public void FillRosters()
+        {
+            for (int i = 0; i < SimConfig.MaxPlayers; i++)
+            {
+                var chosen = Config.LoadoutOf(i);
+                var faction = Config.FactionOf(i);
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                {
+                    int ri = i * RosterEntry.SlotCount + s;
+                    byte a = s < chosen.Length ? chosen[s] : FactionRoster.Slot(faction, s).Archetype;
+                    var e = a < Archetypes.Count ? Units.Roster[a] : default;
+                    Roster[ri] = e;
+                    // A slot naming a unit nothing defines is locked rather than left deployable. Deploy rejects on the
+                    // lock, the cooldown and the silver, and a cost of nothing always passes the silver check, so the
+                    // alternative is a free man with no hit points. It opens again if a definition gives the id real
+                    // numbers, because UnitDefinitions.Apply calls this a second time.
+                    SlotUnlocked[ri] = (byte)(e.Hp > 0f ? 1 : 0);
+                }
+            }
+        }
+
+        public SimWorld(SimConfig config, SimConfig.WorldInit init, UnitCatalogue units = null)
         {
             Config = config;
             Init = init;
+            Units = units ?? UnitCatalogue.Default();
             int n = config.MaxSlots;
             Position = new NativeArray<float3>(n, Allocator.Persistent);
             Velocity = new NativeArray<float3>(n, Allocator.Persistent);
@@ -115,9 +160,12 @@ namespace TW.Sim
             {
                 Silver[i] = config.StartingSilver;
                 Rally[i] = i == 0 ? init.SpawnA : init.SpawnB;
-                RosterEntry.FillDefault(Roster, i * RosterEntry.SlotCount);
-                for (int s = 0; s < RosterEntry.SlotCount; s++) SlotUnlocked[i * RosterEntry.SlotCount + s] = 1;
+                // SlotUnlocked is FillRosters' to set (a defined slot open, an undefined one locked), called just below.
+                // A mission that wants a slot shut does it after the world is built, which was always the only moment
+                // that could work: this loop unlocked all ten unconditionally.
             }
+
+            FillRosters();
 
             freeSlots = new NativeList<int>(n, Allocator.Persistent);
             Events = new SimEventBuffer(config.EventCapacity, Allocator.Persistent);
@@ -244,7 +292,8 @@ namespace TW.Sim
             if (SlotUnlocked[ri] == 0 || SlotCooldown[ri] > 0 || Silver[c.Player] < entry.Cost) { Reject(c); return; }
             // a shore behind this player's line: his reinforcements are paid for now and come off a boat in a few
             // seconds (SeaLandingSystem). A lift with no berth left refuses, and he walks up from the rear as before.
-            if (SeaLift != null && SeaLift.Embark(this, c.Player, entry))
+            int rank = math.clamp(c.B, 0, 3);   // a named veteran from the profile rides in the command (HeroSystem reads UnitDeployed)
+            if (SeaLift != null && SeaLift.Embark(this, c.Player, c.A, rank, entry))
             { Silver[c.Player] -= entry.Cost; SlotCooldown[ri] = entry.CooldownTicks; return; }
             // one stream per deploy: several deploys by one player in one tick must not share a spawn point
             if (deployTick != Tick) { deployTick = Tick; System.Array.Clear(deploysThisTick, 0, deploysThisTick.Length); }
@@ -254,6 +303,7 @@ namespace TW.Sim
             spawn.z += rng.NextFloat(-2f, 2f);
             int slot = Spawn(c.Player, entry.Archetype, ClampToMap(spawn), entry.Hp, entry.Speed, entry.IsVehicle);
             if (slot < 0) { Reject(c); return; }
+            Events.Add(Tick, SimEventType.UnitDeployed, slot, c.A, Position[slot], new float3(rank, c.Player, 0f));
             Silver[c.Player] -= entry.Cost;
             SlotCooldown[ri] = entry.CooldownTicks;
         }
@@ -335,9 +385,14 @@ namespace TW.Sim
         {
             ulong h = SimHash.Offset;
             h = SimHash.Value(Tick, h);
+            h = Units.Hash(h);   // the units of the match are state: a different table is a different battle
             h = SimHash.Value(WinnerTeam, h);
             h = SimHash.Value(HighWater, h);
             h = SimHash.Value(AliveCount, h);
+            // the ten each side may deploy: authoritative state, and since 2026-09-25 a per-battle CHOICE rather
+            // than a constant of the faction, so two machines handed different loadouts must disagree here at
+            // tick 0 instead of drifting apart when the first odd slot is deployed
+            h = SimHash.Array(Roster, h);
             h = SimHash.Array(Silver, h);
             h = SimHash.Array(SilverFraction, h);
             h = SimHash.Array(Rally, h);
@@ -374,6 +429,7 @@ namespace TW.Sim
         {
             foreach (var s in systems) s.Dispose();
             systems.Clear();
+            Units?.Dispose(); Units = null;
             Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose();
             Speed.Dispose(); StanceOf.Dispose(); Team.Dispose(); Archetype.Dispose(); Layer.Dispose(); TrenchId.Dispose(); SourceTrench.Dispose();
             PostCell.Dispose(); PostKind.Dispose();
