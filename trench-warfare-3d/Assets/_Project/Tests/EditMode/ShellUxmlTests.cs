@@ -106,8 +106,8 @@ namespace TW.Tests
         public void ADebriefPaysCampaignGoldOnce()
         {
             var profile = new CampaignProfile { Gold = 10 };
-            bool persist = ProfileStore.Persist;
-            ProfileStore.Persist = false; ProfileStore.Use(profile);
+            bool? persist = ProfileStore.PersistOverride;
+            ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
             try
             {
                 CampaignSession.Begin("lowlands", 0, 0);
@@ -143,7 +143,7 @@ namespace TW.Tests
                 Assert.That(skRoot.Q<Button>("btn-continue").text, Is.EqualTo("CONTINUE"));
                 skirmish.Unbind();
             }
-            finally { CampaignSession.Clear(); CampaignSession.ResumeMap = false; ProfileStore.Use(null); ProfileStore.Persist = persist; }
+            finally { CampaignSession.Clear(); CampaignSession.ResumeMap = false; ProfileStore.Use(null); ProfileStore.PersistOverride = persist; }
         }
 
         [Test]

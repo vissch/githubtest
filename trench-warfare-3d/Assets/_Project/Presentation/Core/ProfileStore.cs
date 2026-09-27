@@ -15,9 +15,15 @@ namespace TW.Presentation
         static CampaignProfile current;
         /// <summary>The profile in force, loaded on first use.</summary>
         public static CampaignProfile Current => current ??= LoadFrom(DefaultPath);
-        /// <summary>Save writes the file. Off by default in the editor outside play (EditMode tests), so a fixture that forgets
-        /// to substitute a profile cannot write the developer's; tests may set it either way.</summary>
-        public static bool Persist = !(Application.isEditor && !Application.isPlaying);
+        /// <summary>Tests: force saving on or off; null (the default) leaves it to <see cref="Persist"/>'s rule. Save and
+        /// restore the old value, never a read of Persist, so the rule comes back after the test.</summary>
+        public static bool? PersistOverride;
+        /// <summary>Does Save write the file: the override, else off in the editor outside play (EditMode tests, so a fixture
+        /// that forgets to substitute a profile cannot write the developer's) and on everywhere else. Read each time, not
+        /// fixed at type init: the project enters play without a domain reload (EditorSettings), so a value taken when
+        /// the type first loaded would carry an EditMode "off" into play (a campaign that never saves) or a play "on" out
+        /// of it (a test that writes the developer's profile).</summary>
+        public static bool Persist => PersistOverride ?? !(Application.isEditor && !Application.isPlaying);
 
         public static CampaignProfile Load() => current = LoadFrom(DefaultPath);
 
@@ -27,7 +33,14 @@ namespace TW.Presentation
             {
                 if (File.Exists(path)) return CampaignProfile.FromJson(File.ReadAllText(path));
             }
-            catch (Exception e) { Debug.LogWarning($"ProfileStore: could not read {path}: {e.Message}; starting a fresh campaign"); }
+            catch (Exception e)
+            {
+                // keep the unreadable file beside the profile: the next Save replaces profile.json, and a hand-edit gone
+                // wrong should cost the player a repair, not the campaign
+                string kept = path + ".bad";
+                try { File.Copy(path, kept, true); } catch (Exception) { kept = "(could not keep a copy)"; }
+                Debug.LogWarning($"ProfileStore: could not read {path}: {e.Message}; starting a fresh campaign, the old file kept as {kept}");
+            }
             return new CampaignProfile();
         }
 

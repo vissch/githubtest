@@ -365,7 +365,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `BlastReactionTests` | EditMode | 6 | Clip, VatPad, CameraShake, Burst, AnimationController, MatchSim |
 | `BurningSystemTests` | EditMode | 12 | SimEventType, BurningSystem, DeathCause, Impact, MatchSim, UnitFlags |
 | `CampaignGraphTests` | EditMode | 8 | CampaignGraph, NodeState, CampaignProfile, Difficulty, Ground, CampaignDifficulty |
-| `CampaignProfileTests` | EditMode | 5 | CampaignProfile, ProfileStore, Faction, Sample, Building, BuildingState |
+| `CampaignProfileTests` | EditMode | 6 | CampaignProfile, ProfileStore, Faction, Sample, Building, BuildingState |
 | `CoastTests` | EditMode | 6 | BattlefieldGenerator, BattlefieldParams, SeaLandingSystem, Sample, MapData |
 | `CombatTests` | EditMode | 9 | MatchSim, SimCommand, SimEventType, Stance, CommandType, GoalKey |
 | `CommandSeatTests` | EditMode | 1 | CommandSeat, LockstepDriver, LoopbackNetwork, MatchSim, SimCommand, SimConfig |

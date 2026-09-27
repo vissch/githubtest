@@ -78,10 +78,13 @@ namespace TW.Tests
             Assert.That(refs.Root.worldBound.width, Is.EqualTo(w).Within(1f), "the scaled HUD root still covers the panel");
             Assert.That(bar.width, Is.LessThanOrEqualTo(w), "the bar fits the reference width");
             Assert.That(bar.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(bar.yMax, Is.LessThanOrEqualTo(h + 0.5f));
-            // the floor is the card's own 72 less what the bar had to shrink by (HudView.BarFit: six support cards make the bar
-            // 1,276 wide, so a window under 1.41:1 scales it), never less than the unit name needs unscaled
+            // the floor is the 70 the unit name needs, shrunk by what the bar had to shrink by (HudView.BarFit: six support
+            // cards make the bar 1,276 wide, so a window under 1.41:1 scales it) and carried to panel space by HudScale
+            // (worldBound is panel space, the bar lays out in the HUD's): this holds the fit's arithmetic, not readability
+            // at a narrow window, which is the owner's call (docs/21)
             float fit = HudView.BarFit(refs.Root.resolvedStyle.width);
-            foreach (var c in refs.Cards) Assert.That(c.Root.worldBound.width, Is.GreaterThanOrEqualTo(70f * fit - 0.5f), $"{c.Title} card is {c.Root.worldBound.width} px wide with the bar fitted by {fit:0.00}");
+            float floor = 70f * fit * HudLayout.HudScale - 0.5f;
+            foreach (var c in refs.Cards) Assert.That(c.Root.worldBound.width, Is.GreaterThanOrEqualTo(floor), $"{c.Title} card is {c.Root.worldBound.width} px wide with the bar fitted by {fit:0.00}");
             var mm = refs.MinimapBezel.worldBound;
             Assert.That(mm.xMax, Is.LessThanOrEqualTo(w + 0.5f)); Assert.That(mm.y, Is.GreaterThanOrEqualTo(0f));
         }

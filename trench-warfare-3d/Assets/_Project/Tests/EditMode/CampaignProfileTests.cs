@@ -98,6 +98,8 @@ namespace TW.Tests
 
                 File.WriteAllText(path, "{ this is not json");
                 Assert.That(ProfileStore.LoadFrom(path).Gold, Is.EqualTo(CampaignProfile.StartingGold), "garbage starts a fresh campaign");
+                Assert.That(File.Exists(path + ".bad"), Is.True, "the unreadable file is kept aside before a save can replace it");
+                Assert.That(File.ReadAllText(path + ".bad"), Is.EqualTo("{ this is not json"));
             }
             finally
             {
@@ -108,6 +110,23 @@ namespace TW.Tests
             ProfileStore.Use(mine);
             Assert.That(ProfileStore.Current, Is.SameAs(mine));
             ProfileStore.Use(null);
+        }
+
+        [Test]
+        public void Saving_Is_Off_In_Edit_Mode_Unless_A_Test_Turns_It_On()
+        {
+            // read live, not fixed at type init (the project enters play without a domain reload): critique round 6
+            bool? saved = ProfileStore.PersistOverride;
+            try
+            {
+                ProfileStore.PersistOverride = null;
+                Assert.That(ProfileStore.Persist, Is.False, "EditMode: a fixture that forgets to substitute a profile writes nothing");
+                ProfileStore.PersistOverride = true;
+                Assert.That(ProfileStore.Persist, Is.True);
+                ProfileStore.PersistOverride = null;
+                Assert.That(ProfileStore.Persist, Is.False, "clearing the override brings the rule back");
+            }
+            finally { ProfileStore.PersistOverride = saved; }
         }
 
         [Test]
