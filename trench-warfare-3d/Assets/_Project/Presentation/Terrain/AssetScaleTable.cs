@@ -97,7 +97,7 @@ namespace TW.Presentation.Terrain
             var t = new Dictionary<string, ScaleRule>();
             void S(string key, ScaleAxis axis, float min, float max, string note = "", bool enforce = true) => t[key] = new ScaleRule(ScaleClass.Strict, axis, min, max, note, enforce);
             void B(string key, ScaleAxis axis, float min, float max, string note = "", bool enforce = true) => t[key] = new ScaleRule(ScaleClass.Structure, axis, min, max, note, enforce);
-            void O(string key, string note = "") => t[key] = new ScaleRule(ScaleClass.Organic, ScaleAxis.Height, 0.1f, 3.0f, note);
+            void O(string key, string note = "", float min = 0.1f, float max = 3.0f) => t[key] = new ScaleRule(ScaleClass.Organic, ScaleAxis.Height, min, max, note);
             void M(string key, string note = "") => t[key] = new ScaleRule(ScaleClass.Machine, ScaleAxis.Length, 0f, float.PositiveInfinity, note);
 
             // ---- the trench lining and its kit --------------------------------------------------------------------
@@ -105,14 +105,14 @@ namespace TW.Presentation.Terrain
             S("kit/sandbags", ScaleAxis.Height, 0.25f, 0.45f, "the procedural parapet sack");
             // the lining is scaled per axis by TrenchKit (x = the edge's length, y = the bay's height): one uniform clamp
             // would stretch a shallow bay's panel past its edge, so these rows report and never enforce
-            S("kit/TrenchBags", ScaleAxis.Height, 0.25f, 0.45f, "a parapet course (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
+            S("kit/TrenchBags", ScaleAxis.Height, 0.10f, 0.45f, "a parapet of one course (variant 2) or two, 0.2-0.9 m (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
             B("kit/TrenchWalls", ScaleAxis.Height, 0.50f, 1.40f, "a revetment: waist to head high (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
             B("kit/TrenchWallsDamaged", ScaleAxis.Height, 0.25f, 1.40f, "a broken revetment, drawn at its whole twin's matrix", enforce: false);
             S("kit/TrenchBagsDamaged", ScaleAxis.Height, 0.08f, 0.45f, "a burst course: the lower sacks (drawn at its whole twin's matrix)", enforce: false);
             S("kit/TrenchFloorsDamaged", ScaleAxis.Length, 0.90f, 1.10f, "broken duckboards on their rails (drawn at its whole twin's matrix)", enforce: false);
             B("kit/planks", ScaleAxis.Height, 0.50f, 1.40f, "never placed");
             S("kit/TrenchFloors", ScaleAxis.Length, 0.90f, 1.10f, "duckboards for a 2 m cell (sized per axis by TrenchKit: reported, not clamped)", enforce: false);
-            S("kit/duckboards", ScaleAxis.Length, 0.90f, 1.10f);
+            S("kit/duckboards", ScaleAxis.Length, 0.70f, 1.10f, "a walkway section, 1.4-2.2 m across (the composer narrows ramp boards to 1.6 m and dugout thresholds to 1.5 m)");
             S("kit/ladder", ScaleAxis.Height, 1.00f, 1.40f, "a trench ladder reaches the parapet");
             S("kit/knifeRest", ScaleAxis.Height, 0.50f, 0.85f);
             O("kit/wire", "a wire belt follows the map");
@@ -137,7 +137,7 @@ namespace TW.Presentation.Terrain
             S("kit/leanRifle", ScaleAxis.Height, 0.50f, 0.70f, "a rifle is as long as a man's leg and a half");
             S("kit/graveMarker", ScaleAxis.Height, 0.50f, 0.70f);
             S("kit/signBoard", ScaleAxis.Height, 0.60f, 0.85f);
-            O("kit/phoneWire"); O("kit/rag");
+            O("kit/phoneWire", "a strung wire, a few centimetres", 0.01f, 0.2f); O("kit/rag");
             // ---- weapons and emplacements -----------------------------------------------------------------------------
             S("Weapons/FieldGun", ScaleAxis.Length, 2.00f, 3.00f, "a field gun with its trail: 4-6 m; its wheel reaches a man's chest");
             S("Weapons/ShellStack", ScaleAxis.Height, 0.40f, 0.60f);
@@ -156,7 +156,7 @@ namespace TW.Presentation.Terrain
             B("Siege/Well", ScaleAxis.Height, 1.00f, 1.80f);
             B("kit/dugout", ScaleAxis.Height, 1.00f, 1.80f); B("kit/bunker", ScaleAxis.Height, 1.00f, 1.80f); B("kit/roof", ScaleAxis.Height, 1.00f, 1.80f);
             B("Stones/WallStub", ScaleAxis.Height, 0.80f, 1.40f);
-            O("kit/ruin", "the horizon's ruins are scaled by Horizon() to 5-9 m (docs/21 phase 1)");
+            B("kit/ruin", ScaleAxis.Height, 2.5f, 4.5f, "the horizon's ruins, 5-9 m on a 7.2 m mesh (sized by the Landmarks step: reported, not clamped)", enforce: false);
             M("kit/bridge", "sized to the river");
             // ---- buildings: reported, never clamped (their chunks are placed by their own matrices) -------------------
             foreach (var h in new[] { "House0", "House1", "House2", "House3", "House4", "House5" }) B("house/" + h, ScaleAxis.Height, 2.00f, 4.00f, "a village house: one to two storeys", enforce: false);
@@ -165,7 +165,10 @@ namespace TW.Presentation.Terrain
             // ---- organic: free ----------------------------------------------------------------------------------------
             foreach (var p in new[] { "Plants/FallenLog", "Plants/SplitStumpTall", "Plants/SplitStump", "Plants/MossStump", "Plants/Poppies", "Plants/Cattails", "Plants/GrassClump",
                                       "Stones/Boulder", "Stones/RebarSlab" }) O(p);
-            foreach (var k in new[] { "trunk", "snag", "fallen", "stump", "fork", "branches", "bush", "tuft", "stones", "reeds", "icicles", "drift", "iceShard", "frostTuft", "snowClod", "grassMicro", "poppiesMicro" }) O("kit/" + k);
+            foreach (var k in new[] { "snag", "fallen", "stump", "branches", "bush", "tuft", "stones", "reeds", "icicles", "drift", "frostTuft", "grassMicro", "poppiesMicro" }) O("kit/" + k);
+            // a tree stands 3-14 m (the edge wood's big ones are the tallest things on the field); winter's crumbs are small
+            foreach (var k in new[] { "trunk", "fork" }) O("kit/" + k, "a shelled tree, 3-14 m", 1.5f, 7.0f);
+            foreach (var k in new[] { "iceShard", "snowClod" }) O("kit/" + k, "a crumb of ice or snow", 0.03f, 0.5f);
             // ---- machines: reported only -----------------------------------------------------------------------------
             M("Weapons/TankTurret", "a turret off a wreck"); M("Weapons/Biplane"); M("kit/wreck", "a wrecked hull: 7.4 m at scale 1");
             foreach (var v in new[] { "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt" }) M("vehicle/" + v, "VehicleSize is the owner's");
