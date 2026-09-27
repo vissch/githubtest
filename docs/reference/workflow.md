@@ -290,6 +290,9 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
+| `TW.Editor.SimProbe.Unit(slot)` | Editor/SimProbe.cs | One unit, sim then picture: what it is, where the sim has it and its trench post, where it is drawn over which ground height, and what it is ... |
+| `TW.Editor.SimProbe.Match()` | Editor/SimProbe.cs | The match being played: seed, battlefield seed and ground, bombardment, stress, tick and mission, the values a test needs to rebuild it. |
+| `TW.Editor.SimProbe.Arrays(peer)` | Editor/SimProbe.cs | A hash per world array, so the canary's two worlds can be compared array by array at the desync tick: pause, then diff Arrays() with Arrays(true). |
 | `TW.Editor.TankCapture.Shot(path, w, h)` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.TankCapture.Follow(slot, zoom, yaw)` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.TankCapture.Silver(amount)` | Editor/TankCapture.cs | (no summary: read the method) |
@@ -371,9 +374,13 @@ apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --contin
   frame rate moves it; if the bug depends on timing, sweep the tick you issue the order on by a few ticks either
   side. DeterminismReplayTests shows recording and replaying. `TW.Editor.TankCapture.Spawn` and
   `SimHost.WriteWorlds` set a scene up in Play when you first need to see it.
-- **Is it the sim or the drawing?** Read the sim's state for the unit with `tw eval` in Play
-  (`h.Local.World`, the eval pattern in section 6): position, `TrenchId` (-1 = not garrisoned), `PostCell` and `PostKind` (1 firing step, 2
-  reserve), `StanceOf`, `Layer` (Surface or Trench). If the sim has him posted in a trench and he is drawn standing
+- **Is it the sim or the drawing?** In Play, `Tools/tw eval 'return TW.Editor.SimProbe.Unit(N);'` prints the unit's
+  sim state and its picture side by side: position, `TrenchId` (-1 = not garrisoned), `PostCell` and `PostKind` (1
+  firing step, 2 reserve), `StanceOf`, `Layer` (Surface or Trench), then where it is drawn, the ground height there,
+  its pose and its animation clip. `SimProbe.Match()` prints the seeds, ground, bombardment and mission a test needs
+  to rebuild the match. Why the animation chose a clip, tick by tick: `h.Animation.Follow(N)`, let it run, then
+  `return h.Animation.TraceText(80);`. A slot is reused after a death: check `generation` has not changed between
+  reads. If the sim has him posted in a trench and he is drawn standing
   on the parapet, the fault is SHOW (`SimPresenter`, `AnimationController`, the ground height from
   `RenderGround.Sample`). If the sim has him on the surface, it is SIM: a test and a note in `docs/inbox/`.
   `DebugOverlay` keys: F1 flow-field arrows (`Debug.DrawRay`: Scene view or Gizmos on only), F2 stats and per-trench
@@ -385,7 +392,8 @@ apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --contin
   reproduce in the editor with `Application.targetFrameRate` set to the player's rate, or in a test.
 - **A desync.** The canary runs a second world beside yours and compares hashes every `HashInterval` ticks;
   `LockstepSession` records the first tick they differ. `SimWorld.Hash()` is one chain over every array, so it says
-  when, not what: to find which array, hash them one by one in both worlds at that tick (no tool does this yet).
+  when, not what: pause at that tick and compare `TW.Editor.SimProbe.Arrays()` with `SimProbe.Arrays(true)` (the
+  canary's world), one hash per array.
   Rules that prevent most desyncs: `docs/03-determinism-rules.md`.
 - **Slower than before.** Run the bench (section 7) on both builds with the same options, twice each, and compare
   with `python Tools/perfcmp.py`; section 7 gives the noise and the recipe for an older commit. `per_tick_ms` names
