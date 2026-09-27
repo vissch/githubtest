@@ -33,6 +33,7 @@ namespace TW.UI
 
         protected override void OnBind()
         {
+            if (given == null) ProfileStore.RetryIfLocked();   // a profile.json locked at first read gets another try
             profile = given ?? ProfileStore.Current; persist = given == null;
             Faction = (byte)Mathf.Clamp(profile.Faction, 0, FactionNames.Length - 1);
             var tabRoot = Root.Q("faction-tabs");

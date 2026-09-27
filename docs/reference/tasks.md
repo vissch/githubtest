@@ -373,7 +373,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `ComponentLookupAllocationTests` | EditMode | 1 | IZoomSource, CombatFx, AllocProbe, Shot |
 | `CrabTests` | EditMode | 13 | VehicleArchetype, RosterEntry, VehicleProfile, NavLayer, TankSpec, MatchSim |
 | `DeathEventContractTests` | EditMode | 5 | DeathCause, SimEvent, SimEventType, Impact, MatchSim, AmbientBombardmentSystem |
-| `DeathVarietyTests` | EditMode | 14 | Clip, VATRenderer, VatPad, DeathCause, DeathKind, AnimationController |
+| `DeathVarietyTests` | EditMode | 15 | Clip, VATRenderer, VatPad, DeathCause, DeathKind, AnimationController |
 | `DebrisTests` | EditMode | 8 | DebrisMath, DebrisRenderer, DebrisRng, Piece, Debris, Record |
 | `DeterminismReplayTests` | EditMode | 3 | SimCommand, OffMapAbilityId, MatchSim, SimConfig, AbilityPattern, MineKind |
 | `DirectionalBlastTests` | EditMode | 8 | BlastRules, Impact, UnitFlags, MatchSim, AmbientBombardmentSystem, BlastShape |
@@ -388,7 +388,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `GarrisonTests` | EditMode | 5 | MatchSim, SimMath, Stance, SimCommand, SimConfig |
 | `HashIntervalTests` | EditMode | 2 | SimCommand, MatchSim, SimConfig, LockstepDriver, LoopbackNetwork, ReplayRecorder |
 | `HeightfieldRaycastTests` | EditMode | 4 | HeightfieldRaycast, Sample, Look, Stance, Heightfield, BattlefieldGenerator |
-| `HomeFrontDioramaTests` | EditMode | 7 | HomeFrontStages, HouseKit, MetaServices, Chunk, House, FactionBuildings |
+| `HomeFrontDioramaTests` | EditMode | 8 | HomeFrontStages, HouseKit, MetaServices, Chunk, House, FactionBuildings |
 | `HouseKitTests` | EditMode | 8 | HouseKit, ChunkMask, House, Module, BattlefieldKit, Chunk |
 | `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
 | `HudLayoutTests` | EditMode | 6 | HudLayout, BattleHud, HudView, RosterEntry |

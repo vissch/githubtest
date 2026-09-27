@@ -23,6 +23,15 @@ namespace TW.Presentation
 
         static CampaignProfile LoadDefault() { var p = LoadFrom(DefaultPath, out bool writable); Writable = writable; return p; }
 
+        /// <summary>The campaign screens call this as they open: a profile.json that was locked when first read is read
+        /// again, so a passing lock costs the player nothing past that moment instead of the whole session (critic r6).</summary>
+        public static void RetryIfLocked()
+        {
+            if (Writable || current == null) return;
+            var p = LoadFrom(DefaultPath, out bool writable);
+            if (writable) { current = p; Writable = true; }
+        }
+
         [Serializable] sealed class VersionOnly { public int Version; }
         /// <summary>Tests: force saving on or off; null (the default) leaves it to <see cref="Persist"/>'s rule. Save and
         /// restore the old value, never a read of Persist, so the rule comes back after the test.</summary>
@@ -77,8 +86,9 @@ namespace TW.Presentation
             {
                 // keep the unreadable file beside the profile, under a name of its own each time (a second bad load must not
                 // overwrite the first copy): a hand-edit gone wrong should cost the player a repair, not the campaign
-                string kept = path + ".bad-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
-                try { File.Copy(path, kept, false); } catch (Exception) { kept = "(could not keep a copy)"; }
+                string kept = path + ".bad-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                // no copy, no overwrite: if the broken file cannot be kept aside, the next Save must not replace the only copy
+                try { File.Copy(path, kept, false); } catch (Exception) { kept = "(could not keep a copy: it will not be written over)"; writable = false; }
                 Debug.LogWarning($"ProfileStore: could not read {path}: {e.Message}; starting a fresh campaign, the old file kept as {kept}");
                 return new CampaignProfile();
             }

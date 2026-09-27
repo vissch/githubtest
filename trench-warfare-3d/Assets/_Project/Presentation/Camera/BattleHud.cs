@@ -470,7 +470,15 @@ namespace TW.Presentation.Tactical
             }
 
             // ---- hint line above the bar ---------------------------------------------------------------------
-            string line = Panel != null && Panel.Armed != OffMapAbilityId.None ? "Click the map to fire.  Esc or right click cancels." : GUI.tooltip;
+            // the Toolkit HUD's words (HudText.AimHintFor, which TW.Presentation.Camera cannot reference): a line is pressed,
+            // dragged and released, and Tab is offered only where there is a pattern to cycle to (critic r6)
+            string line = GUI.tooltip;
+            if (Panel != null && Panel.Armed != OffMapAbilityId.None)
+            {
+                bool cycles = OffMapAbilitySystem.TryGetStats((int)Panel.Armed, out var armedStats) && (armedStats.Patterns & ~1) != 0;
+                line = (Panel.Aim.IsLine ? "Press where the line starts, drag its heading and length, release to fire.  Shift snaps." : "Click the map to fire.")
+                     + (cycles ? "  Tab changes the pattern." : "") + "  Esc or right click cancels.";
+            }
             if (!string.IsNullOrEmpty(line))
             {
                 float tw = Mathf.Min(Screen.width - 40f, tip.CalcSize(new GUIContent(line)).x + 24f);

@@ -32,6 +32,7 @@ namespace TW.UI
 
         protected override void OnBind()
         {
+            if (given == null) ProfileStore.RetryIfLocked();   // a profile.json locked at first read gets another try
             profile = given ?? ProfileStore.Current;
             Btn("btn-back", () => Router?.Pop());
             Btn("btn-home", () => SwapTo(() => new HomeFrontScreen(given)));

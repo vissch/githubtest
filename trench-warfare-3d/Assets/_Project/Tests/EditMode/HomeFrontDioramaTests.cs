@@ -110,6 +110,17 @@ namespace TW.Tests
             }
             finally { MetaServices.MakeHomeFront = home; MetaServices.MakeMap = map; }
         }
+        /// <summary>How many levels each stage shows (Reveal): a purchase shows while the model has levels, stage I always
+        /// adds, and the last is whole; a one-level model shows its level at stage I (critic r6: it showed nothing until the last).</summary>
+        [Test]
+        public void Each_Paid_Stage_Reveals_Levels_While_There_Are_Any()
+        {
+            Assert.AreEqual(new[] { 0, 1, 1, 1 }, new[] { HomeFrontStages.Reveal(0, 3, 1), HomeFrontStages.Reveal(1, 3, 1), HomeFrontStages.Reveal(2, 3, 1), HomeFrontStages.Reveal(3, 3, 1) }, "one level");
+            Assert.AreEqual(new[] { 0, 1, 1, 2 }, new[] { HomeFrontStages.Reveal(0, 3, 2), HomeFrontStages.Reveal(1, 3, 2), HomeFrontStages.Reveal(2, 3, 2), HomeFrontStages.Reveal(3, 3, 2) }, "two levels: the repeat is the middle stage");
+            Assert.AreEqual(new[] { 0, 1, 2, 3 }, new[] { HomeFrontStages.Reveal(0, 3, 3), HomeFrontStages.Reveal(1, 3, 3), HomeFrontStages.Reveal(2, 3, 3), HomeFrontStages.Reveal(3, 3, 3) }, "three levels: one a stage");
+            Assert.AreEqual(0, HomeFrontStages.Reveal(2, 3, 0), "no levels: the ground floor only until the whole");
+        }
+
         /// <summary>Every real building the Home Front draws grows at every stage it is sold, as far as the model has levels
         /// to show (critic r5: on the real models stage III changed nothing on 8 of 10, the Blockhouse's stage I nothing).</summary>
         [Test]

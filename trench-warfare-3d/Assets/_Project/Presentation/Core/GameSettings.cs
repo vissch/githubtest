@@ -71,17 +71,15 @@ namespace TW.Presentation
             Interface ??= new InterfaceSettings();
             Camera ??= new CameraSettings();
             Bindings ??= KeyMap.Defaults();
-            int saved = Bindings.Primary != null ? Bindings.Primary.Length : 0;   // how many actions the file knew
+            // how many actions the file knew, per array (an old file's Secondary may be shorter than its Primary, even empty)
+            int savedPrimary = Bindings.Primary != null ? Bindings.Primary.Length : 0, savedSecondary = Bindings.Secondary != null ? Bindings.Secondary.Length : 0;
             Bindings.Normalise();
             // only the actions this build added since the file was written get their default keys, and only keys no
             // other action holds: an action the player unbound (its key given to another) stays unbound. Filling every
             // unbound action on every load undid rebinding and doubled keys (critic r5, 2026-09-27)
             var d = KeyMap.Defaults();
-            for (int i = saved; i < KeyMap.ActionCount; i++)
-            {
-                if (!InUse(d.Primary[i], i)) Bindings.Primary[i] = d.Primary[i];
-                if (!InUse(d.Secondary[i], i)) Bindings.Secondary[i] = d.Secondary[i];
-            }
+            for (int i = savedPrimary; i < KeyMap.ActionCount; i++) if (!InUse(d.Primary[i], i)) Bindings.Primary[i] = d.Primary[i];
+            for (int i = savedSecondary; i < KeyMap.ActionCount; i++) if (!InUse(d.Secondary[i], i)) Bindings.Secondary[i] = d.Secondary[i];
             Audio.Master = Mathf.Clamp01(Audio.Master); Audio.Ambience = Mathf.Clamp01(Audio.Ambience);
             Audio.Sfx = Mathf.Clamp01(Audio.Sfx); Audio.Music = Mathf.Clamp01(Audio.Music);
             Interface.UiScale = Mathf.Clamp(Interface.UiScale, 0.75f, 1.5f);

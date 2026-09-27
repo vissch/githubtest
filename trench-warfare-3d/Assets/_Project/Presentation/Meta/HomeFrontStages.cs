@@ -21,22 +21,20 @@ namespace TW.Presentation.Meta
         public static readonly float[] StageFractions = { 0.3f, 0.55f, 0.8f, 1f };
         public static float FirstStage => StageFractions[0];
 
-        /// <summary>The distinct heights (house frame) the chunks above the ground floor stand on, lowest first.</summary>
-        public static List<float> Levels(HouseKit.House house)
+        /// <summary>The distinct heights (house frame) the chunks above the ground floor stand on, lowest first; computed
+        /// once per house and kept on it (the diorama asks every frame: it allocated and sorted a list each time, critic r6).
+        /// Heights within a seam's width are one level, taken at the lowest of them, so no chunk shows a stage early.</summary>
+        public static IReadOnlyList<float> Levels(HouseKit.House house)
         {
-            var levels = new List<float>();
-            if (house == null || house.Chunks == null) return levels;
+            if (house == null || house.Chunks == null) return System.Array.Empty<float>();
+            if (house.StageLevels != null) return house.StageLevels;
             float ground = house.Bounds.min.y + HouseKit.GroundedBelow + Epsilon;
-            foreach (var c in house.Chunks)
-            {
-                float y = c.Local.min.y;
-                if (y <= ground) continue;
-                bool seen = false;
-                foreach (var l in levels) if (Mathf.Abs(l - y) <= Epsilon * 2f) { seen = true; break; }
-                if (!seen) levels.Add(y);
-            }
-            levels.Sort();
-            return levels;
+            var feet = new List<float>();
+            foreach (var c in house.Chunks) if (c.Local.min.y > ground) feet.Add(c.Local.min.y);
+            feet.Sort();
+            var levels = new List<float>();
+            foreach (var y in feet) if (levels.Count == 0 || y - levels[levels.Count - 1] > Epsilon * 2f) levels.Add(y);
+            return house.StageLevels = levels.ToArray();
         }
 
         /// <summary>How many of a model's levels stage s of the last shows: none at stage 0, all at the last, and between
@@ -46,7 +44,9 @@ namespace TW.Presentation.Meta
         {
             if (s <= 0) return 0;
             if (s >= last) return levels;
-            return Mathf.Min(Mathf.Max(Mathf.RoundToInt(s * levels / (float)last), s), Mathf.Max(0, levels - 1));
+            // a model with one level shows it at stage I (a purchase shows) and the rest repeat; with more, the last stage
+            // keeps one back so it too shows something (critic r6: one level gave stage I nothing)
+            return Mathf.Min(Mathf.Max(Mathf.RoundToInt(s * levels / (float)last), s), levels > 1 ? levels - 1 : levels);
         }
 
         /// <summary>The height (in the house's frame) a building showing <paramref name="shown"/> of itself reaches: at a
