@@ -27,6 +27,7 @@ namespace TW.Playground
             public string Name; public int Index, Parent, Tier; public float Mass;
             public Transform T; public MeshFilter F; public MeshRenderer R;
             public Mesh[] Lods; public Bounds Box;          // LOD0 bounds in the part's frame: physics reads this at every LOD
+            public Bounds Body; public Quaternion BodyAxes = Quaternion.identity;   // the tighter of that box and one on the LOD0 mesh's principal axes: what a loose part tumbles as
             public Vector3 RestLocal; public Quaternion RestRot = Quaternion.identity;
             public float Hp, MaxHp;
             public bool Loose;
@@ -117,6 +118,7 @@ namespace TW.Playground
                     if (p.Lods[k] == null) Debug.LogError($"VehicleRig {e.Name}: part {d.name} has no mesh at LOD{k}");
                 }
                 p.Box = p.Lods[0] != null ? p.Lods[0].bounds : new Bounds(Vector3.zero, Vector3.one);
+                (p.BodyAxes, p.Body) = PrincipalBox(p.Lods[0], p.Box);
                 p.MaxHp = p.Hp = d.tier switch { 1 => 10f, 2 => 40f, 3 => 90f, 4 => 120f, _ => 9999f };
                 var go = new GameObject(d.name);
                 p.T = go.transform; p.F = go.AddComponent<MeshFilter>(); p.R = go.AddComponent<MeshRenderer>();
@@ -165,6 +167,44 @@ namespace TW.Playground
             if (rig.Manifest.walker) rig.Walker = root.AddComponent<WalkerDrive>().Init(rig);
             if (rig.Manifest.flyer) rig.Flyer = root.AddComponent<FlyerDrive>().Init(rig);
             return rig;
+        }
+
+        /// <summary>A box on the mesh's principal axes (the eigenvectors of its vertices' covariance), when it is tighter
+        /// than the axis-aligned one: a bent side plate's axis-aligned box is 1.2 m thick and the plate rested standing on
+        /// its edge; on its own axes it is thin and lies down (critic loop 3).</summary>
+        public static (Quaternion, Bounds) PrincipalBox(Mesh m, Bounds aabb)
+        {
+            if (m == null || !m.isReadable) return (Quaternion.identity, aabb);
+            var v = m.vertices; if (v.Length < 4) return (Quaternion.identity, aabb);
+            Vector3 mean = Vector3.zero; foreach (var x in v) mean += x; mean /= v.Length;
+            var c = new double[3, 3];
+            foreach (var x in v)
+            {
+                var d = x - mean;
+                for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) c[i, j] += d[i] * d[j];
+            }
+            // Jacobi rotations: a 3x3 symmetric matrix is diagonal in a handful of sweeps
+            var e = new double[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+            for (int sweep = 0; sweep < 12; sweep++)
+                for (int pI = 0; pI < 2; pI++) for (int qI = pI + 1; qI < 3; qI++)
+                {
+                    if (System.Math.Abs(c[pI, qI]) < 1e-12) continue;
+                    double th = 0.5 * System.Math.Atan2(2 * c[pI, qI], c[qI, qI] - c[pI, pI]), cs = System.Math.Cos(th), sn = System.Math.Sin(th);
+                    for (int k = 0; k < 3; k++) { double a = c[k, pI], b = c[k, qI]; c[k, pI] = cs * a - sn * b; c[k, qI] = sn * a + cs * b; }
+                    for (int k = 0; k < 3; k++) { double a = c[pI, k], b = c[qI, k]; c[pI, k] = cs * a - sn * b; c[qI, k] = sn * a + cs * b; }
+                    for (int k = 0; k < 3; k++) { double a = e[k, pI], b = e[k, qI]; e[k, pI] = cs * a - sn * b; e[k, qI] = sn * a + cs * b; }
+                }
+            var ax = new Vector3((float)e[0, 0], (float)e[1, 0], (float)e[2, 0]).normalized;
+            var ay = new Vector3((float)e[0, 1], (float)e[1, 1], (float)e[2, 1]).normalized;
+            var az = Vector3.Cross(ax, ay).normalized; ay = Vector3.Cross(az, ax);
+            var q = Quaternion.LookRotation(az, ay);
+            var inv = Quaternion.Inverse(q);
+            Vector3 lo = Vector3.one * float.MaxValue, hi = -lo;
+            foreach (var x in v) { var y = inv * x; lo = Vector3.Min(lo, y); hi = Vector3.Max(hi, y); }
+            var b2 = new Bounds((lo + hi) * 0.5f, hi - lo);
+            float vol(Vector3 s) => s.x * s.y * s.z;
+            // only when clearly tighter: a boxy part keeps its own axes (and so its old flight)
+            return vol(b2.size) < 0.8f * vol(aabb.size) ? (q, b2) : (Quaternion.identity, aabb);
         }
 
         static Transform FindDeep(Transform t, string name)
@@ -381,7 +421,7 @@ namespace TW.Playground
             // landed 22 m away, loop 2 r36)
             float fling = Manifest != null && Manifest.fling > 0f ? Manifest.fling : 1f;
             velocity *= fling;
-            p.Fly = new Tumble { Pos = pos, Rot = rot, Vel = velocity / Size, Spin = spin, Nudge = new Vector3(R(-1f, 1f), 0f, R(-1f, 1f)) };
+            p.Fly = new Tumble { Pos = pos, Rot = rot, Axes = p.BodyAxes, Vel = velocity / Size, Spin = spin, Nudge = new Vector3(R(-1f, 1f), 0f, R(-1f, 1f)) };
             p.T.SetParent(loose, false);
             p.T.localPosition = pos; p.T.localRotation = rot;
             if (FireLevel > 0.2f) p.BurnUntil = Time.time + R(6f, 14f);
@@ -491,6 +531,12 @@ namespace TW.Playground
                 {
                     mid = hull.T.TransformPoint(transform.InverseTransformPoint(mid) - hull.RestLocal);
                     yaw = hull.T.eulerAngles.y;
+                    // tied up to the aircraft while it flies (a hovercraft is on its ring already)
+                    if (!Flyer.Hover && State < Stage.KnockedOut)
+                    {
+                        var under = hull.T.TransformPoint(hull.Box.center - new Vector3(0f, hull.Box.extents.y, 0f));
+                        if (under.y - GroundY > 2f) Fx.Tether(new Vector3(mid.x, GroundY, mid.z), under, Team, 0.08f * Size);
+                    }
                 }
                 Fx.Ring(new Vector3(mid.x, GroundY, mid.z), yaw, e.x, e.z, 0.6f, 0.6f, Team, State >= Stage.KnockedOut);
             }
@@ -608,7 +654,7 @@ namespace TW.Playground
             foreach (var p in Parts)
             {
                 if (!p.Loose || p.Fly.Resting) continue;
-                float impact = p.Fly.Step(p.Box, Size, h);
+                float impact = p.Fly.Step(p.Body, Size, h);
                 p.T.localPosition = p.Fly.Pos; p.T.localRotation = p.Fly.Rot;
                 if (impact > 3f && p.Mass > 0.5f && Fx != null && Fx.Debris != null)
                 {
@@ -639,8 +685,9 @@ namespace TW.Playground
                     float big = State == Stage.CookedOff ? 1.5f : 1f;
                     Fx.Flame(foot, V(1.2f, 1.9f) * Size * big * FireLevel, V(2.2f, 3.4f) * Size * big * Mathf.Sqrt(FireLevel), V(0.6f, 0.9f));
                 }
-                if (fireLight == null) fireLight = Fx.Lamp(Socket("Socket_Deck") + Vector3.up * 1.5f * Size, new Color(1f, 0.55f, 0.25f), 8f * Fx.Glow, 14f * Size, 99999f, true, transform);
-                else fireLight.intensity = 8f * Fx.Glow * FireLevel * (0.75f + 0.25f * Mathf.PerlinNoise(Seed, now * 7f));
+                // as strong as the fire is big (PlaygroundFx flickers it)
+                if (fireLight == null) fireLight = Fx.Lamp(Socket("Socket_Deck") + Vector3.up * 1.5f * Size, new Color(1f, 0.55f, 0.25f), 8f * Fx.Glow * FireLevel, 14f * Size, 99999f, true, transform);
+                else Fx.SetPeak(fireLight, 8f * Fx.Glow * FireLevel);
             }
             if ((State >= Stage.Damaged || FireLevel > 0f) && now >= nextSmoke && near)
             {

@@ -19,6 +19,13 @@ namespace TW.Playground
         public Vector3 Nudge;
         /// <summary>Being pushed over off a small face (see Step).</summary>
         public bool Toppling; public Vector3 ToppleAxis; public float ToppleRate, ToppleAngle; public int Topples;
+        /// <summary>Come to a stop tilted: laid down flat on the face nearest down before it rests (see Step).</summary>
+        public bool Settling;
+        /// <summary>The box's own axes in the piece's frame (identity when unset): a bent armour plate's axis-aligned box has
+        /// no thin side, so "a broad face down" held while the plate stood on its edge like a wall (critic loop 3); turned to
+        /// the plate's principal axes the box is thin and the plate lies down.</summary>
+        public Quaternion Axes;
+        Quaternion Body => Axes.x == 0f && Axes.y == 0f && Axes.z == 0f && Axes.w == 0f ? Rot : Rot * Axes;
 
         /// <summary>Advance h seconds. box: the piece's bounds in its own frame; metres: how many metres one local unit
         /// is (gravity is 9.81 m/s^2 whatever the owner's scale). Returns the speed it hit the ground at (0: no landing).</summary>
@@ -37,7 +44,7 @@ namespace TW.Playground
                 for (int k = 0; k < 8; k++)
                 {
                     var c = box.center + Vector3.Scale(box.extents, new Vector3((k & 1) == 0 ? -1f : 1f, (k & 2) == 0 ? -1f : 1f, (k & 4) == 0 ? -1f : 1f));
-                    var q = Pos + Rot * c; if (q.y < lowY) { lowY = q.y; pivot = q; }
+                    var q = Pos + Body * c; if (q.y < lowY) { lowY = q.y; pivot = q; }
                 }
                 ToppleRate = Mathf.Min(5f, ToppleRate + 9f * h);
                 var turn = Quaternion.AngleAxis(ToppleRate * h * Mathf.Rad2Deg, ToppleAxis);
@@ -49,6 +56,23 @@ namespace TW.Playground
                 if (Broad(box) || ToppleAngle > 100f) { Toppling = false; Vel = Vector3.zero; Spin = Vector3.zero; Still = Slow = 0; }
                 return 0f;
             }
+            if (Settling)
+            {
+                // it stopped tilted on an edge or a corner of its box (the hovercraft's near-cube turret rested balanced on
+                // an edge, loop 2): turned down onto the face nearest the ground, and only then at rest
+                var fix = Flatten(box);
+                fix.ToAngleAxis(out float ang, out Vector3 axis);
+                if (ang > 180f) ang -= 360f;
+                if (Mathf.Abs(ang) < 0.5f) { Rot = fix * Rot; Settling = false; Resting = true; }
+                else
+                {
+                    var centre0 = Pos + Body * box.center;
+                    Rot = Quaternion.AngleAxis(Mathf.Sign(ang) * Mathf.Min(Mathf.Abs(ang), 150f * h), axis) * Rot;
+                    Pos = centre0 - Body * box.center;
+                }
+                Pos.y += floor - LowestY(box);   // on the ground, neither in it nor over it
+                return 0f;
+            }
             Vel.y -= g * h;
             Pos += Vel * h;
             float w = Spin.magnitude;
@@ -57,9 +81,9 @@ namespace TW.Playground
             // (critic r2: the antenna and gun came to rest standing 4 m tall on their tips)
             if (w > 1e-5f)
             {
-                var centre0 = Pos + Rot * box.center;
+                var centre0 = Pos + Body * box.center;
                 Rot = Quaternion.AngleAxis(w * h * Mathf.Rad2Deg, Spin / w) * Rot;
-                Pos = centre0 - Rot * box.center;
+                Pos = centre0 - Body * box.center;
             }
             // the lowest corner of the box
             float minY = float.MaxValue; Vector3 low = default;
@@ -67,13 +91,13 @@ namespace TW.Playground
             for (int k = 0; k < 8; k++)
             {
                 var c = box.center + Vector3.Scale(box.extents, new Vector3((k & 1) == 0 ? -1f : 1f, (k & 2) == 0 ? -1f : 1f, (k & 4) == 0 ? -1f : 1f));
-                var p = Pos + Rot * c;
+                var p = Pos + Body * c;
                 ys[k] = p.y - floor;
                 if (p.y - floor < minY) { minY = p.y - floor; low = p; }
             }
             if (minY >= 0f) { Still = 0; return 0f; }
             Pos.y -= minY; low.y = floor;
-            var com = Pos + Rot * box.center;
+            var com = Pos + Body * box.center;
             var lever = com - low;
             float r2 = Mathf.Max(0.02f, box.extents.sqrMagnitude);
             float impact = 0f;
@@ -106,22 +130,45 @@ namespace TW.Playground
                 ToppleAxis = Vector3.Cross(Vector3.up, n.normalized); Toppling = true; ToppleRate = 0f; Still = Slow = 0;
                 return impact;
             }
+            // its pushes spent and still on a small face, rocking on it for good (the spare wheel on its tread, a turret on
+            // end, seeds 1-13): laid over onto a broad face
+            if (slow && !Broad(box)) { Settle(); return impact; }
             // resting needs a broad face on the ground (three corners down); on an edge gravity is still tipping it
-            if (slow && down >= 3) { if (++Still > 45) { Resting = true; Vel = Spin = Vector3.zero; } }
+            if (slow && down >= 3) { if (++Still > 45) { Settle(); } }
             else Still = 0;
             // and a piece on a broad face that has crept along for two seconds without getting anywhere is at rest,
             // however its corners lie (a rounded lamp or a bent plate never shows three corners down: 7 parts a wreck were
             // still being pushed 13 s after the cook-off)
-            if ((Vel * metres).sqrMagnitude < 0.09f && Spin.sqrMagnitude < 0.25f && Broad(box)) { if (++Slow > 240) { Resting = true; Vel = Spin = Vector3.zero; } }
+            if ((Vel * metres).sqrMagnitude < 0.09f && Spin.sqrMagnitude < 0.25f && Broad(box)) { if (++Slow > 240) { Settle(); } }
             else Slow = 0;
             return impact;
+        }
+
+        void Settle() { Vel = Spin = Vector3.zero; Settling = true; }
+
+        /// <summary>The turn that brings the box axis nearest vertical exactly vertical (the face nearest down, flat), of
+        /// the axes whose face is broad: the tank's turret (seed 11) had used its three topples up and would have been laid
+        /// flat on its small end, a post 3.6 m tall; it goes over onto its side instead.</summary>
+        Quaternion Flatten(Bounds box)
+        {
+            var e = box.size; float largest = Mathf.Max(e.x * e.y, Mathf.Max(e.y * e.z, e.x * e.z));
+            Vector3 best = Vector3.up; float bestUp = -1f;
+            for (int k = 0; k < 3; k++)
+            {
+                var a = Body * (k == 0 ? Vector3.right : k == 1 ? Vector3.up : Vector3.forward);
+                float face = k == 0 ? e.y * e.z : k == 1 ? e.x * e.z : e.x * e.y;
+                // a broad face wins over a nearer small one
+                float score = Mathf.Abs(a.y) + (face >= 0.7f * largest ? 2f : 0f);
+                if (score > bestUp) { bestUp = score; best = a.y < 0f ? -a : a; }
+            }
+            return Quaternion.FromToRotation(best, Vector3.up);
         }
 
         float LowestY(Bounds box)
         {
             float lo = float.MaxValue;
             for (int k = 0; k < 8; k++)
-                lo = Mathf.Min(lo, (Pos + Rot * (box.center + Vector3.Scale(box.extents, new Vector3((k & 1) == 0 ? -1f : 1f, (k & 2) == 0 ? -1f : 1f, (k & 4) == 0 ? -1f : 1f)))).y);
+                lo = Mathf.Min(lo, (Pos + Body * (box.center + Vector3.Scale(box.extents, new Vector3((k & 1) == 0 ? -1f : 1f, (k & 2) == 0 ? -1f : 1f, (k & 4) == 0 ? -1f : 1f)))).y);
             return lo;
         }
 
@@ -129,7 +176,7 @@ namespace TW.Playground
         bool Broad(Bounds box)
         {
             var e = box.size;
-            float ax = Mathf.Abs((Rot * Vector3.right).y), ay = Mathf.Abs((Rot * Vector3.up).y), az = Mathf.Abs((Rot * Vector3.forward).y);
+            float ax = Mathf.Abs((Body * Vector3.right).y), ay = Mathf.Abs((Body * Vector3.up).y), az = Mathf.Abs((Body * Vector3.forward).y);
             float face = ax >= ay && ax >= az ? e.y * e.z : ay >= az ? e.x * e.z : e.x * e.y;
             float largest = Mathf.Max(e.x * e.y, Mathf.Max(e.y * e.z, e.x * e.z));
             // 0.6: a gun barrel's box (1.8 x 1.9 x 3.1 m) stood on end is 0.58 of its largest face, and a track stood

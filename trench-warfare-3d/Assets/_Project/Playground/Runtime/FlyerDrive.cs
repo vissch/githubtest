@@ -26,7 +26,7 @@ namespace TW.Playground
         VehicleRig.Part hull;
         Vector3 rest;
         float angle, fallV, fallSpin, fallYaw, fallPitch, crashRoll, crashY = -1f;
-        bool down;
+        bool down, dig;
 
         public FlyerDrive Init(VehicleRig r)
         {
@@ -106,13 +106,26 @@ namespace TW.Playground
                     int lostSide = 0;
                     foreach (var part in rig.Parts)
                         if (part.Loose && (part.Name.StartsWith("Wing") || part.Name.StartsWith("Engine"))) lostSide = part.Name.EndsWith("_L") ? 1 : -1;
-                    down = true; fallPitch = 16f; crashRoll = lostSide != 0 ? 22f * lostSide : ((rig.Seed & 1) == 0 ? 8f : -8f); crashY = -0.3f / size;
+                    // 12 degrees of roll, not 22, and dug in by its lowest corner: at 22 and 0.3 m the hull rested on one
+                    // corner with the wing and tail in the air (critic loop 3)
+                    down = true; fallPitch = 16f; crashRoll = lostSide != 0 ? 12f * lostSide : ((rig.Seed & 1) == 0 ? 6f : -6f); dig = true;
                     if (rig.Fx != null) rig.Fx.Burst(hull.T.position, 2.5f * size);
                 }
             }
+            hull.T.localRotation = Quaternion.Euler(fallPitch, heading + fallYaw, down ? crashRoll : -bank);
+            if (dig)
+            {
+                // the hull's lowest box corner 0.6 m into the ground, so its belly meets the ground along a side
+                dig = false; float lo = float.MaxValue; var b = hull.Box;
+                for (int k = 0; k < 8; k++)
+                {
+                    var c = b.center + Vector3.Scale(b.extents, new Vector3((k & 1) == 0 ? -1f : 1f, (k & 2) == 0 ? -1f : 1f, (k & 4) == 0 ? -1f : 1f));
+                    lo = Mathf.Min(lo, (hull.T.localRotation * c).y);
+                }
+                crashY = -lo - rest.y - 0.6f / size;
+            }
             var p = hull.T.localPosition; p.y = rest.y + crashY;
             hull.T.localPosition = p;
-            hull.T.localRotation = Quaternion.Euler(fallPitch, heading + fallYaw, down ? crashRoll : -bank);
         }
     }
 }
