@@ -237,7 +237,7 @@ namespace TW.Presentation
                     // the man who held the slot died this tick and it was filled again in the same tick (free slots are reused
                     // last in, first out, and a knocked-out tank's crew bail into the slots a shell just freed): he still dies,
                     // from his own state and the Death event's position, before the newcomer takes over (critic r4, 2026-09-27)
-                    if (died[i] != 0 && !s.Dead && s.Generation != 0) Die(i, s, w);
+                    if (died[i] != 0 && !s.Dead && s.Generation != 0 && !VehicleArchetype.IsTank(s.Archetype)) Die(i, s, w);   // a tank leaves a wreck, not a death (critic r6)
                     s = Fresh(i, w);
                 }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
@@ -319,6 +319,10 @@ namespace TW.Presentation
                         // one man after the next instead of all on one tick, and it reaches WaveReach past the radius,
                         // where the sim stops. Everyone within six metres of the edge wears some of the earth it threw.
                         float r = e.Scalar, reach = r + WaveReach, reach2 = reach * reach, inner = 0.85f * r, dirty = r + 6f;
+                        // an aircraft's rounds (BlastShape.Strafe, in dir.y) kill where men stand: they flinch from it but nobody
+                        // is latched for a throw (its 5 m radius passed the 4 m throw test, so the sim's no-knock fix still threw
+                        // them 1.8-7.5 m on screen: critic r6, 2026-09-27)
+                        bool rounds = (int)math.round(e.Dir.y) == (int)TW.Sim.Combat.BlastShape.Strafe;
                         float perTick = WaveSpeed * tickSeconds;
                         for (int i = 0; i < count; i++)
                         {
@@ -330,7 +334,7 @@ namespace TW.Presentation
                             if (dist < dirty) { float close = 1f - dist / dirty; Grime[i] = math.min(1f, Grime[i] + 0.5f * close * close); }
                             if (!alive || dist < inner)
                             {
-                                if (blastRadius[i] <= 0f || dist < blastDist[i]) { blastRadius[i] = r; blastDist[i] = dist; hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
+                                if (!rounds && (blastRadius[i] <= 0f || dist < blastDist[i])) { blastRadius[i] = r; blastDist[i] = dist; hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
                             }
                             else if (waveAt[i] == 0u || dist < waveD[i])
                             {

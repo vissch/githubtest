@@ -62,6 +62,19 @@ namespace TW.Presentation.Units
         /// up to 18 s (critic r4, 2026-09-27). The heap sinks together, or from the top.</summary>
         public static float LiesUnder(float belowBorn, float belowLies, float topBorn, float topLies) => Mathf.Max(belowLies, topBorn + topLies - belowBorn);
 
+        /// <summary>The fallen man whose time is up first (born + lies), the one the cap takes away.</summary>
+        int SoonestGone()
+        {
+            int best = 0; float end = float.MaxValue;
+            for (int k = 0; k < fallenMen.Count; k++)
+            {
+                var f = fallenMen[k];
+                float e = f.Born + (f.Lies > 0.01f ? f.Lies : FallenSeconds);
+                if (e < end) { end = e; best = k; }
+            }
+            return best;
+        }
+
         void Remove(int index)
         {
             var f = fallenMen[index];
@@ -80,7 +93,7 @@ namespace TW.Presentation.Units
         /// </summary>
         public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f, Vector3 fly = default, int gib = 0, float grime = 0f, int density = 0, int chr = 0)
         {
-            if (fallenMen.Count >= MaxFallen) Remove(0);
+            if (fallenMen.Count >= MaxFallen) Remove(SoonestGone());   // not the oldest: that is often a heap's bottom (LiesUnder), and taking it floated the man on top (critic r6)
             ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
             int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
             bool near = clipAtlas && clip != Clip.None;

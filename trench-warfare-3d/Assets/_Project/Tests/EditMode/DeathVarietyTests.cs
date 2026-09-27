@@ -58,6 +58,28 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>An aircraft's rounds (BlastShape.Strafe, in the Explosion's dir.y) kill a man where he stands: the sim
+        /// gives no knock and the picture throws nobody. The same burst as a shell throws him (the control), which is what
+        /// the strafe did on screen until 2026-09-27 (critic r6: its 5 m radius passed the controller's 4 m throw test).</summary>
+        [Test]
+        public void AStrafedManDropsWhereHeStoodOnScreenToo()
+        {
+            foreach (bool strafe in new[] { true, false })
+            {
+                using var r = new Rig();
+                int man = r.Man(Here);
+                r.Tick();
+                r.W.Events.Add(r.W.Tick, SimEventType.Explosion, (int)OffMapAbilityId.StrafeRun, 1, Here + new float3(2f, 0f, 0f),
+                    new float3(0f, strafe ? (float)TW.Sim.Combat.BlastShape.Strafe : (float)TW.Sim.Combat.BlastShape.Shell, 0f), 5f);
+                r.W.Despawn(man, (int)DeathCause.Blast, new float3(0f, 1f, 0f), 0f);
+                r.Tick();
+                var s = r.A.State[man];
+                Assert.IsTrue(s.Dead);
+                if (strafe) { Assert.AreNotEqual(Clip.DeathThrown, s.Clip, "a strafed man is not thrown"); Assert.AreEqual(0f, s.ThrowUp, "not up either"); }
+                else Assert.AreEqual(Clip.DeathThrown, s.Clip, "the same burst as a shell throws him (the rig can throw)");
+            }
+        }
+
         [Test]
         public void ABlastDeathIsThrownTheWayAndAsHardAsTheSimSays()
         {
