@@ -43,6 +43,11 @@ namespace TW.Playground
             if (rig == null || hull == null || hull.Loose) return;
             T += dt;
             float size = rig.Size;
+            // a flyer that has lost a wing or an engine cannot stay up: it goes down as if knocked out (it hovered level on
+            // one engine, loop 2 r36)
+            if (!Hover && rig.State < VehicleRig.Stage.KnockedOut)
+                foreach (var part in rig.Parts)
+                    if (part.Loose && (part.Name.StartsWith("Wing") || part.Name.StartsWith("Engine"))) { rig.KnockOut(); break; }
             bool dead = rig.State >= VehicleRig.Stage.KnockedOut;
             // where it is flying: round a circle about the rig's middle, its nose along the circle
             float r = Speed > 0.01f ? Radius / size : 0f;
