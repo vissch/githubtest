@@ -35,7 +35,7 @@ using TW.Sim.Units;
 namespace TW.Presentation.Tactical
 {
     [DefaultExecutionOrder(500)]
-    public sealed class TankRenderer : MonoBehaviour
+    public sealed partial class TankRenderer : MonoBehaviour
     {
         public SimHost Host;
         public float LodDistance = 170f;
@@ -258,6 +258,7 @@ namespace TW.Presentation.Tactical
             while (wrecks.Count > MaxWrecks) Drop(0);
             FlyDebris(dt, match);
             RunPops(now);
+            RidersFrame(now);   // the men on the walkers' backs, at the hulls as posed above
             Draw();
             if (books != null && books.Ready) books.Draw(now, Everywhere);
             Fireballs(now);
@@ -1153,8 +1154,9 @@ namespace TW.Presentation.Tactical
             var at = new Vector3(v.Pos.x, Mathf.Max(Ground(v.Pos.x, v.Pos.z), v.Heave.Value - 0.3f) + 0.12f, v.Pos.z);
             discM[discCount] = Matrix4x4.TRS(at, Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up), new Vector3(w, 1f, l));
             var c = v.Team == 1 ? TeamB : TeamA;
-            discC[discCount] = new Vector4(c.r, c.g, c.b, v.Dead ? 0f : 1f);
+            discC[discCount] = new Vector4(c.r, c.g, c.b, v.Dead ? WreckRing(v) : 1f);
             discCount++;
+            QueuePips(v, at, w, l);   // a wreck too: its riders' row stays a moment, the dead in red
         }
 
         readonly Matrix4x4[] lodWorld = new Matrix4x4[64];
@@ -1203,6 +1205,7 @@ namespace TW.Presentation.Tactical
                 var dp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
                 FrameBudget.Draw(dp, discMesh, 0, discM, discCount);
             }
+            DrawPips();
             foreach (var b in batches.Values)
             {
                 if (b.Count == 0) continue;

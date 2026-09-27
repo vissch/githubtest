@@ -61,7 +61,7 @@ namespace TW.Presentation.Tactical
         // an image run turns the overlays off; a Play session after it in the same editor must see them again
         static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => ShowOverlays = true);
 
-        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }   // Hit: written by the strafe run (CombatFx.Abilities)
+        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width; }   // Hit: written by the strafe run (CombatFx.Abilities); Width: 0 = the usual round
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
@@ -74,6 +74,12 @@ namespace TW.Presentation.Tactical
         int tintEpoch = -1;   // which SceneTints.Epoch these materials were last painted for
 
         readonly List<Tracer> tracers = new List<Tracer>(512);
+
+        /// <summary>A round drawn like a sim shot's, for fire the sim does not know about (a rider on a walker).</summary>
+        public void AddTracer(Vector3 from, Vector3 to, byte team, float width = 1f)
+        {
+            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = team, Width = width });
+        }
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
         readonly List<Flash> flashes = new List<Flash>(256);
@@ -842,7 +848,8 @@ namespace TW.Presentation.Tactical
                 if (len < 0.1f) continue;
                 // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
                 float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
-                batch.Add(TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape));
+                var tm = TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape);
+                batch.Add(t.Width > 0f ? tm * Matrix4x4.Scale(new Vector3(t.Width, t.Width, 1f)) : tm);   // a heavier round is thicker, not longer
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);

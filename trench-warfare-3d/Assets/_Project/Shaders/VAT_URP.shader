@@ -20,6 +20,9 @@ Shader "TW/VAT Infantry (URP)"
         _TeamColorB ("Team 1 cloth", Color) = (0.25, 0.29, 0.32, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
         _OutlineWidth ("Outline width (m)", Float) = 0.028
+        _Lift ("Rider lift (set per draw)", Float) = 0
+        _LiftA ("Rider rim, side 0 (set per draw)", Color) = (0.35, 0.85, 1, 1)
+        _LiftB ("Rider rim, side 1 (set per draw)", Color) = (0.88, 0.25, 0.16, 1)
         _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
         _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
         // set per figure by VATRenderer from the baked asset; declared so a material copy (new Material(m)) and a shader
@@ -50,6 +53,8 @@ Shader "TW/VAT Infantry (URP)"
             float4 _TeamColorA, _TeamColorB;
             float4 _WoundCenter, _WoundRadii;
             float4 _OutlineColor; float _OutlineWidth;
+            float _Lift;   // 1 on the men riding a machine (VATRenderer.DrawExtras), 0 on everyone else
+            float4 _LiftA, _LiftB;   // their side's colour, as on the rings and the seat pips (TankRenderer.TeamA/B)
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
 
@@ -275,6 +280,11 @@ Shader "TW/VAT Infantry (URP)"
                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
                 color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
+                // a man riding a machine kneels on its dark hull, not on the field: lifted a step, with his side's colour on his
+                // edge, or at night he is olive on olive (critic t2, the Maw's roof)
+                // the cloth colour made a khaki rim on an olive hull (critic t3): the rings' own colour, on a wider edge
+                half sideRim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 1.4);
+                color = color * (1.0 + 0.2 * _Lift) + lerp(_LiftA.rgb, _LiftB.rgb, i.tint) * sideRim * _Lift * 0.8;
                 half3 lampGlint;
                 color += albedo * 1.18 * TWLocalLights(i.positionWS, normalize(i.normalWS), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.25 * _TWWet.x, lampGlint);
                 color += lampGlint;   // wet helmets and shoulders catch the lamps   // a muzzle flash lights the man behind it
