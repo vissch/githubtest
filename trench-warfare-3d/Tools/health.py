@@ -57,12 +57,18 @@ def main():
     print(f'lock     {state}' + ('  (an editor or batch run holds this checkout: no gate, no writes into Assets/'
                                   ' unless it is yours)' if state != editor_lock.FREE else ''))
 
+    # Commit headroom (limit minus committed, RAM + page file) is what runs out and kills editors. Low available RAM
+    # alone only means paging: on 2026-09-27 the full gate passed with 0.6 GB available and 13 GB of headroom.
     code, out = run(['powershell', '-NoProfile', '-Command',
-                     '[math]::Round((Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableMBytes/1024,1)'])
+                     '$m=Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory; "{0:N1} {1:N1}" -f '
+                     '($m.AvailableMBytes/1024), (($m.CommitLimit-$m.CommittedBytes)/1GB)'])
     try:
-        free = float(out.strip().split()[-1])
-        print(f'memory   {free} GB available' + ('  LOW: do not open another editor (an editor in Play holds 5-9 GB)'
-                                             if free < 4 else ''))
+        free, headroom = (float(v) for v in out.strip().split()[-2:])
+        warn = ('  LOW: no editor and no gate; find the process holding commit (a leaking explorer.exe held 7 GB '
+                'on 2026-09-26)' if headroom < 6 else
+                '  enough for a batch gate, not for another editor (an editor in Play holds 5-9 GB)' if headroom < 10
+                else '')
+        print(f'memory   {headroom} GB commit headroom, {free} GB RAM available{warn}')
     except (ValueError, IndexError):
         print('memory   unknown')
 
