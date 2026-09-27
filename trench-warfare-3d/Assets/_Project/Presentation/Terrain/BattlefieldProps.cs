@@ -237,11 +237,21 @@ namespace TW.Presentation.Terrain
         /// <summary>Where a hand edit puts its prop now: on the ground as it is today, at the kind's size.</summary>
         public Matrix4x4 Placement(PropLayout.Edit edit)
         {
+            modulesByName.TryGetValue(edit.Module, out var module);
+            return PlaceEdit(edit, module, SizeOf(edit.Module), Ground(edit.Position.x, edit.Position.z), out _);
+        }
+
+        /// <summary>A hand edit's matrix (the game's Placement and AssetScaleReport share it). It is clamped like anything
+        /// else, so the owner's placements keep their spot and turn but not a 15 m gun, and the height the owner sank it by
+        /// shrinks with it: kept whole, a clamped ArmouredStand sunk 5.15 m ended 0.75 m underground (critique 2026-09-27).</summary>
+        public static Matrix4x4 PlaceEdit(PropLayout.Edit edit, BattlefieldKit.Module module, float size, float ground, out bool clamped)
+        {
             var p = edit.Position;
-            var scale = edit.Scale * SizeOf(edit.Module);
-            // a hand edit is clamped like anything else: the owner's placements keep their spot and turn, not a 15 m gun
-            if (modulesByName.TryGetValue(edit.Module, out var module) && module.Mesh != null) scale = AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, scale);
-            return Matrix4x4.TRS(new Vector3(p.x, Ground(p.x, p.z) + p.y, p.z), edit.Rotation, scale);
+            var scale = edit.Scale * size;
+            var drawn = module != null && module.Mesh != null ? AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, scale) : scale;
+            clamped = drawn != scale;
+            float sink = clamped && Mathf.Abs(scale.y) > 1e-5f ? p.y * drawn.y / scale.y : p.y;
+            return Matrix4x4.TRS(new Vector3(p.x, ground + sink, p.z), edit.Rotation, drawn);
         }
         float SizeOf(string module) => Layout != null ? Layout.SizeOf(module) : 1f;
 

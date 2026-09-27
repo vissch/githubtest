@@ -8,8 +8,8 @@
 // of thing it is and how big it may be drawn along one axis:
 //   Strict     a thing men made to a size (a door, a crate, a helmet, a gun): bounded, and BattlefieldProps clamps
 //              any instance outside the bounds at emit time (Enforce), whatever the look or the hand edit said.
-//   Structure  a building or a shelter: bounded and reported; clamped only when the row says so, because a house's
-//              chunks are placed by their own matrices and would come apart from a clamped whole.
+//   Structure  a building or a shelter: bounded and clamped unless the row opts out (enforce: false), as every house
+//              row does: a house's chunks are placed by their own matrices and would come apart from a clamped whole.
 //   Organic    rocks, stumps, logs, debris, plants: free to vary (the audit only warns), and tinted per instance.
 //   Machine    vehicles and wrecks: reported against the man and never touched (VehicleSize is the owner's).
 // The audit (AssetScaleReport, AssetScaleTests, Editor/AssetScaleAudit) measures the composed field against these
@@ -87,12 +87,20 @@ namespace TW.Presentation.Terrain
         /// <summary>More than this share of a row's placed instances pulled in by the clamp is a composer asking for the
         /// wrong size, not a look straying: the audit says CLAMPED, which fails like FAIL.</summary>
         public const float MaxClampedShare = 0.10f;
+        /// <summary>One instance asking for more than this times the band's top (or less than the bottom over it) is CLAMPED
+        /// however rare: nine in a hundred asking for three times the size is still the composer's bug.</summary>
+        public const float MaxAsk = 1.5f;
 
-        /// <summary>The verdict on a placed row: its median drawn size, and how often the clamp had to act on it.</summary>
-        public static string Verdict(in ScaleRule rule, float su, int placed, int clamped)
+        /// <summary>The verdict on a placed row: its median drawn size, the tail of drawn instances outside the band (which
+        /// the median hides: a row the clamp never touches could have 49% out), how often the clamp acted and how far off
+        /// what it was asked for was. MaxClampedShare is the tolerance for both shares.</summary>
+        public static string Verdict(in ScaleRule rule, float su, int placed, int clamped, int outside = 0, float askedMin = 0f, float askedMax = 0f)
         {
             string v = Verdict(rule, su);
-            return v == "OK" && rule.Bounded && placed > 0 && clamped > placed * MaxClampedShare ? "CLAMPED" : v;
+            if (v != "OK" || !rule.Bounded || placed <= 0) return v;
+            if (outside > placed * MaxClampedShare) return "FAIL";
+            if (clamped > placed * MaxClampedShare || (clamped > 0 && askedMax > 0f && (askedMax > rule.MaxSU * MaxAsk || askedMin < rule.MinSU / MaxAsk))) return "CLAMPED";   // askedMax 0: no ask recorded (hand edits only)
+            return v;
         }
 
         public static string Verdict(in ScaleRule rule, float su)

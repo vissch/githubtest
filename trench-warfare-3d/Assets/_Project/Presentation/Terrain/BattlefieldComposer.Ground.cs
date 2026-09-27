@@ -99,7 +99,7 @@ namespace TW.Presentation.Terrain
                 if (byTrench || pick >= .07f || at.Hollow >= 0) continue;   // only the graves are left to this step
                 var module = kit.graveMarker;
                 const float sink = .06f;
-                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - sink, z), Quaternion.Euler(0f, Rand(k, 135) * 360f, 0f), Vector3.one * (.92f + Rand(k, 136) * .2f)));
+                emit(module, Matrix4x4.TRS(new Vector3(x, surface.VisualHeight(x, z) - sink, z), Quaternion.Euler(0f, Rand(k, 135) * 360f, 0f), Vector3.one * (.92f + Rand(k, 136) * .16f)));   // 0.92-1.08: at 1.12 the tallest crossed 0.70 SU
             }
         }
 

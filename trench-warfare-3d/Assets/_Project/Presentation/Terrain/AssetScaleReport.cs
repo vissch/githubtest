@@ -28,6 +28,8 @@ namespace TW.Presentation.Terrain
             /// <summary>The same before the clamp: what the composer and the look asked for (equal to the drawn range when
             /// the clamp touched nothing).</summary>
             public float AskedMinSU, AskedMaxSU;
+            /// <summary>Placed instances drawn outside the band (only a row the clamp does not enforce can have any).</summary>
+            public int Outside;
             /// <summary>Soldier units of mesh × baseline: what the look alone gives, placed or not.</summary>
             public float LookSU;
             public int Clamped;
@@ -39,13 +41,17 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>Every module of the kit, measured on the composed field of a seed. The kit must be built.</summary>
-        public static List<Row> Measure(BattlefieldKit kit, PropLayout layout, uint seed = 1917)
+        /// <summary>The three grounds the game ships (BattlefieldParams presets), for the audit and its gate test.</summary>
+        public static readonly (string name, System.Func<uint, BattlefieldParams> make)[] Grounds =
+            { ("ShelledForest", BattlefieldParams.ShelledForest), ("Landing", BattlefieldParams.Landing), ("WinterLine", BattlefieldParams.WinterLine) };
+
+        public static List<Row> Measure(BattlefieldKit kit, PropLayout layout, uint seed = 1917, System.Func<uint, BattlefieldParams> ground = null)
         {
             kit.ResolveKeysAndRules();
             var sizes = new Dictionary<BattlefieldKit.Module, List<float>>();
             var clamped = new Dictionary<BattlefieldKit.Module, int>();
             var asked = new Dictionary<BattlefieldKit.Module, Vector2>();
-            var map = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(seed), Allocator.Persistent);
+            var map = BattlefieldGenerator.Create((ground ?? BattlefieldParams.ShelledForest)(seed), Allocator.Persistent);
             try
             {
                 var surface = new BattlefieldSurface(map);
@@ -57,23 +63,46 @@ namespace TW.Presentation.Terrain
                     }
                 var composer = new BattlefieldComposer(kit, (int)seed);
                 float Ground(float x, float z) => surface.VisualHeight(x, z);
+                // a hand edit counts in the drawn sizes (and the tail outside the band) but not in the clamp's share or what
+                // was asked: the owner sized it on purpose, and the hand-edit table below lists every one the clamp touches
+                void Count(BattlefieldKit.Module module, Vector3 scale, Vector3 drawn, bool edit = false)
+                {
+                    if (!sizes.TryGetValue(module, out var list)) sizes[module] = list = new List<float>();
+                    list.Add(AssetScaleTable.SoldierUnits(module.Rule, module.Mesh.bounds.size, drawn));
+                    if (edit) return;
+                    float before = AssetScaleTable.SoldierUnits(module.Rule, module.Mesh.bounds.size, scale);
+                    asked[module] = asked.TryGetValue(module, out var range) ? new Vector2(Mathf.Min(range.x, before), Mathf.Max(range.y, before)) : new Vector2(before, before);
+                    if (drawn != scale) { clamped.TryGetValue(module, out int c); clamped[module] = c + 1; }
+                }
+                // BattlefieldProps.Emit, step for step: the '#n' key of a second prop on one spot, a hand edit in place of
+                // the generated prop (PlaceEdit, clamped), a removed one dropped, then the owner's added props
+                var spots = new Dictionary<string, int>();
+                var byName = new Dictionary<string, BattlefieldKit.Module>();
+                foreach (var module in kit.Modules) if (module.Name != null) byName[module.Name] = module;
                 composer.Build(map, surface, (module, m) =>
                 {
                     if (module.Mesh == null || !module.Rule.Has) return;
-                    var matrix = m;
-                    if (module.Name != null)
-                    {
-                        var look = layout?.LookOf(module.Name);
-                        if (look != null) matrix = PropLayout.Style(look, m, PropLayout.GeneratedKey(module.Name, m.GetPosition()), Ground);
-                    }
-                    var scale = matrix.lossyScale;
-                    var drawn = AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, scale);   // what Enforce does at emit
-                    float before = AssetScaleTable.SoldierUnits(module.Rule, module.Mesh.bounds.size, scale);
-                    if (!sizes.TryGetValue(module, out var list)) sizes[module] = list = new List<float>();
-                    list.Add(AssetScaleTable.SoldierUnits(module.Rule, module.Mesh.bounds.size, drawn));
-                    asked[module] = asked.TryGetValue(module, out var range) ? new Vector2(Mathf.Min(range.x, before), Mathf.Max(range.y, before)) : new Vector2(before, before);
-                    if (drawn != scale) { clamped.TryGetValue(module, out int c); clamped[module] = c + 1; }
+                    if (module.Name == null) { var s = m.lossyScale; Count(module, s, AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, s)); return; }
+                    string key = PropLayout.GeneratedKey(module.Name, m.GetPosition());
+                    spots.TryGetValue(key, out int n); spots[key] = n + 1;
+                    if (n > 0) key += "#" + n;
+                    var edit = layout?.Find(key);
+                    if (edit != null && edit.Removed) return;
+                    if (edit != null) { EditScale(edit, module); return; }
+                    var look = layout?.LookOf(module.Name);
+                    var styled = look != null ? PropLayout.Style(look, m, key, Ground) : m;
+                    var scale = styled.lossyScale;
+                    Count(module, scale, AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, scale));   // what Enforce does at emit
                 });
+                void EditScale(PropLayout.Edit edit, BattlefieldKit.Module module)
+                {
+                    var placed = BattlefieldProps.PlaceEdit(edit, module, layout.SizeOf(edit.Module), 0f, out _);
+                    Count(module, edit.Scale * layout.SizeOf(edit.Module), placed.lossyScale, edit: true);
+                }
+                if (layout != null)
+                    foreach (var edit in layout.Edits)
+                        if (edit != null && edit.Added && !edit.Removed && edit.Module != null && byName.TryGetValue(edit.Module, out var module) && module.Mesh != null && module.Rule.Has)
+                            EditScale(edit, module);
             }
             finally { map.Dispose(); }
 
@@ -89,10 +118,11 @@ namespace TW.Presentation.Terrain
                 {
                     list.Sort();
                     row.Instances = list.Count; row.MinSU = list[0]; row.MaxSU = list[list.Count - 1]; row.MedianSU = list[list.Count / 2];
-                    var range = asked[module]; row.AskedMinSU = range.x; row.AskedMaxSU = range.y;
+                    if (asked.TryGetValue(module, out var range)) { row.AskedMinSU = range.x; row.AskedMaxSU = range.y; }
+                    if (module.Rule.Bounded) foreach (var su in list) if (!module.Rule.Holds(su)) row.Outside++;
                 }
                 clamped.TryGetValue(module, out row.Clamped);
-                row.Verdict = AssetScaleTable.Verdict(module.Rule, row.JudgedSU, row.Instances, row.Clamped);
+                row.Verdict = AssetScaleTable.Verdict(module.Rule, row.JudgedSU, row.Instances, row.Clamped, row.Outside, row.AskedMinSU, row.AskedMaxSU);
                 rows.Add(row);
             }
             // the machines: their footprints, as the sim keeps them (VehicleSize already baked in)

@@ -36,10 +36,28 @@ namespace TW.Editor
                 var layout = Resources.Load<PropLayout>(PropLayout.ResourcePath((int)Seed));
                 var rows = AssetScaleReport.Measure(kit, layout, Seed);
                 var edits = AssetScaleReport.Edits(layout);
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, AssetScaleReport.Markdown(rows, edits, Seed));
+                var text = new System.Text.StringBuilder(AssetScaleReport.Markdown(rows, edits, Seed));
                 int fails = 0, clamped = 0; foreach (var r in rows) { if (r.Verdict == "FAIL") fails++; if (r.Verdict == "CLAMPED") clamped++; }
-                Debug.Log("Asset scale audit: " + rows.Count + " rows, " + fails + " FAIL, " + clamped + " CLAMPED");
+                // the other grounds the game ships: only what is not OK there (the table above is the shelled forest)
+                text.Append("\n## The other grounds\n\n<!-- gen:asset-scale-grounds -->\n");
+                foreach (var (name, ground) in AssetScaleReport.Grounds)
+                {
+                    if (name == "ShelledForest") continue;
+                    var other = AssetScaleReport.Measure(kit, layout, Seed, ground);
+                    int bad = 0;
+                    foreach (var r in other)
+                        if (r.Verdict == "FAIL" || r.Verdict == "CLAMPED" || r.Verdict == "warn")
+                        {
+                            bad++; if (r.Verdict == "FAIL") fails++; if (r.Verdict == "CLAMPED") clamped++;
+                            text.Append("- ").Append(name).Append(" `").Append(r.Key).Append("`: ").Append(r.Verdict).Append(", median ").Append(r.JudgedSU.ToString("0.00"))
+                                .Append(" SU, ").Append(r.Clamped).Append(" clamped / ").Append(r.Outside).Append(" outside of ").Append(r.Instances).Append("\n");
+                        }
+                    if (bad == 0) text.Append("- ").Append(name).Append(": every row OK (").Append(other.Count).Append(" rows)\n");
+                }
+                text.Append("<!-- /gen:asset-scale-grounds -->\n");
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, text.ToString());
+                Debug.Log("Asset scale audit: " + rows.Count + " rows, " + fails + " FAIL, " + clamped + " CLAMPED (all grounds)");
                 return path;
             }
             finally { kit.Dispose(); }

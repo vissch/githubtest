@@ -56,6 +56,31 @@ namespace TW.Tests
             Assert.AreEqual("OK", AssetScaleTable.Verdict(stakes, 0.76f, 0, 0), "nothing placed: the look is judged alone");
             var log = new ScaleRule(ScaleClass.Organic, ScaleAxis.Height, 0.1f, 3.0f);
             Assert.AreEqual("OK", AssetScaleTable.Verdict(log, 1f, 100, 50), "an Organic row is never clamped, so never CLAMPED");
+            Assert.AreEqual("FAIL", AssetScaleTable.Verdict(stakes, 0.76f, 100, 0, outside: 11), "a tail out of band the median hides still fails");
+            Assert.AreEqual("CLAMPED", AssetScaleTable.Verdict(stakes, 0.76f, 100, 1, 0, 0.6f, 0.85f * AssetScaleTable.MaxAsk + 0.01f), "one asking for half as much again past the top is the composer's bug");
+            Assert.AreEqual("OK", AssetScaleTable.Verdict(stakes, 0.76f, 100, 1, 0, 0.6f, 0.9f), "one a little over is a look straying");
+        }
+
+        /// <summary>A hand edit the clamp shrinks keeps the share of it the owner left showing: the depth it was sunk by
+        /// shrinks with it (ArmouredStand@-734,1396: 7.65 m sunk 5.15 m; clamped to 4.40 m with the depth kept whole, its
+        /// top ended 0.75 m underground; critique 2026-09-27).</summary>
+        [Test]
+        public void A_Clamped_Hand_Edit_Stays_Above_The_Ground()
+        {
+            var mesh = new Mesh { vertices = new[] { new Vector3(-.5f, 0f, -.5f), new Vector3(.5f, 1f, .5f), new Vector3(.5f, 0f, -.5f) }, triangles = new[] { 0, 1, 2 } };
+            mesh.RecalculateBounds();
+            var stand = new BattlefieldKit.Module { Mesh = mesh, Rule = new ScaleRule(ScaleClass.Structure, ScaleAxis.Height, 1.5f, 2.2f) };
+            var edit = new PropLayout.Edit { Module = "Siege/ArmouredStand", Position = new Vector3(10f, -5.15f, 20f), Scale = Vector3.one * 7.65f };
+            var m = BattlefieldProps.PlaceEdit(edit, stand, 1f, 3f, out bool clamped);
+            Assert.IsTrue(clamped, "a 7.65 m stand is past 2.2 SU");
+            float height = m.lossyScale.y, foot = m.GetPosition().y - 3f;
+            Assert.AreEqual(2.2f * AssetScaleTable.SoldierM, height, 1e-3f, "clamped to the band's top");
+            Assert.Greater(foot + height, 0f, "its top stays above the ground");
+            Assert.AreEqual(2.5f / 7.65f, (foot + height) / height, 1e-3f, "the same share of it shows as the owner left");
+            var small = new PropLayout.Edit { Module = "Siege/ArmouredStand", Position = new Vector3(0f, -.5f, 0f), Scale = Vector3.one * 4f };
+            var ok = BattlefieldProps.PlaceEdit(small, stand, 1f, 0f, out bool untouched);
+            Assert.IsFalse(untouched); Assert.AreEqual(-.5f, ok.GetPosition().y, 1e-5f, "an edit in bounds keeps its height exactly");
+            Object.DestroyImmediate(mesh);
         }
 
         [Test]
@@ -111,23 +136,30 @@ namespace TW.Tests
             TestContext.WriteLine(touched + " hand edit(s) the clamp touches");
         }
 
-        /// <summary>The whole audit: builds the kit, composes the field and judges every module. Explicit because it
-        /// takes seconds and every material in the kit; Editor/AssetScaleAudit runs the same and writes the report.</summary>
-        [Test, Explicit("builds the whole kit and composes a field; run it by name, or the audit menu")]
+        /// <summary>The whole audit on all three grounds: builds the kit, composes each field and judges every module, so
+        /// a composer size (a wire belt, a backdrop cluster, the coast's surf obstacles) cannot drift out of proportion
+        /// unseen. In the gate since 2026-09-27 (about 6 s a ground; it was Explicit, so no size fix had a test);
+        /// Editor/AssetScaleAudit writes the same for docs/reference/asset-scale.md.</summary>
+        [Test]
         public void The_Composed_Field_Stands_In_Proportion_To_The_Man()
         {
             var kit = new BattlefieldKit();
             try
             {
                 var layout = Resources.Load<PropLayout>(PropLayout.ResourcePath((int)Seed));
-                var rows = AssetScaleReport.Measure(kit, layout, Seed);
-                Assert.Greater(rows.Count, 40, "the kit has many modules");
                 var failed = new List<string>();
-                foreach (var r in rows)
+                foreach (var (name, ground) in AssetScaleReport.Grounds)
                 {
-                    TestContext.WriteLine(r.Key + ": " + r.Verdict + " " + r.JudgedSU.ToString("0.00") + " SU x" + r.Instances);
-                    // CLAMPED: in bounds only because the emit clamp pulled in more than one in ten of what the composer asked for
-                    if (r.Verdict == "FAIL" || r.Verdict == "CLAMPED") failed.Add(r.Key + " " + r.Verdict + " " + r.JudgedSU.ToString("0.00") + " SU (" + r.Clamped + " of " + r.Instances + " clamped)");
+                    var rows = AssetScaleReport.Measure(kit, layout, Seed, ground);
+                    Assert.Greater(rows.Count, 40, name + ": the kit has many modules");
+                    foreach (var r in rows)
+                    {
+                        TestContext.WriteLine(name + " " + r.Key + ": " + r.Verdict + " " + r.JudgedSU.ToString("0.00") + " SU x" + r.Instances);
+                        // CLAMPED: in bounds only because the emit clamp pulled in what the composer asked for too often, or too far
+                        if (r.Verdict == "FAIL" || r.Verdict == "CLAMPED")
+                            failed.Add(name + " " + r.Key + " " + r.Verdict + " " + r.JudgedSU.ToString("0.00") + " SU (" + r.Clamped + " clamped, " + r.Outside + " outside, of " + r.Instances
+                                + "; asked " + r.AskedMinSU.ToString("0.00") + "-" + r.AskedMaxSU.ToString("0.00") + ")");
+                    }
                 }
                 Assert.IsEmpty(failed, "man-made things out of proportion to the man: " + string.Join("; ", failed));
             }
