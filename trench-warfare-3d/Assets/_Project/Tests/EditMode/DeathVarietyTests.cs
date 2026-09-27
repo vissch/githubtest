@@ -171,6 +171,39 @@ namespace TW.Tests
             Assert.AreEqual(Clip.DeathThrown, rec.Clip);
         }
 
+        /// <summary>A slot freed and filled again in one tick (a shell kills a man and a knocked-out tank's crew bail into
+        /// his slot, which the free list hands out last in, first out): the dead man still gets his death, with his own side
+        /// and where he fell, and the newcomer comes up clean. Until 2026-09-27 the new generation made the controller start
+        /// the newcomer and never record the death (critic r4).</summary>
+        [Test]
+        public void ASlotFilledAgainInTheTickItWasFreedStillRecordsTheDeath()
+        {
+            using var r = new Rig();
+            int man = r.Man(Here, team: 0);
+            r.Tick();
+            uint at = r.W.Tick;
+            r.W.Despawn(man, (int)DeathCause.Blast, new float3(0f, 1f, 1f), 8f);
+            int crew = r.Man(Here + new float3(30f, 0f, 0f), team: 1);
+            Assert.AreEqual(man, crew, "the crewman takes the slot the shell just freed, in the same tick");
+            r.Tick();
+            Assert.IsTrue(r.A.TryDeath(man, at, out var rec), "the dead man's death is recorded");
+            Assert.AreEqual(0, rec.Team, "as his side, not the crewman's");
+            Assert.AreEqual(Here.x, rec.Pos.x, 0.01f, "where he fell, not where the crewman stands");
+            Assert.AreEqual(Clip.DeathThrown, rec.Clip, "the blast's death");
+            Assert.IsFalse(r.A.State[man].Dead, "the slot's state is the living crewman's");
+            Assert.AreEqual(0, r.A.Char[man], "and he comes up clean");
+        }
+
+        /// <summary>A heap sinks together or from the top: the body under a man lies at least until he is gone.</summary>
+        [Test]
+        public void ABodyUnderAHeapIsNotGoneBeforeTheManOnTop()
+        {
+            // below: fell at 10 s, lies 21 s (gone at 31); on top: fell at 12 s, lies 39 s (gone at 51)
+            float lies = TW.Presentation.Units.VATRenderer.LiesUnder(10f, 21f, 12f, 39f);
+            Assert.GreaterOrEqual(10f + lies, 12f + 39f, "the lower body outlasts the one on it");
+            Assert.AreEqual(30f, TW.Presentation.Units.VATRenderer.LiesUnder(10f, 30f, 12f, 14f), 1e-4f, "one that already outlasts him keeps its time");
+        }
+
         [Test]
         public void TwoMenShotStandingBesideEachOtherDoNotDieTheSameWay()
         {

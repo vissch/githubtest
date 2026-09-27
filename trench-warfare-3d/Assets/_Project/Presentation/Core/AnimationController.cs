@@ -113,6 +113,7 @@ namespace TW.Presentation
         public float AimYaw, BodyYaw, ShownYaw, TurnTo;   // where he aims; where his feet point; what is drawn (eases to BodyYaw); the yaw a turn clip ends at
         public uint IdleSince, LastShot, LastHit, LastNearMiss, LastBlast, LastDuck, ClipStart;
         public ushort Shots, Generation;
+        public byte Team, Archetype;                    // who holds the slot, taken at Fresh: a death seen after a same-tick refill still knows
         public uint Seed;
         public bool Aimed, Gassed, Down, Dead;          // rifle up; has met the gas; on the ground after a trip; death played
         public byte PrevLayer;
@@ -231,7 +232,14 @@ namespace TW.Presentation
             {
                 uint f = w.Flags[i];
                 var s = State[i];
-                if (s.Generation != w.Generation[i]) { s = Fresh(i, w); }
+                if (s.Generation != w.Generation[i])
+                {
+                    // the man who held the slot died this tick and it was filled again in the same tick (free slots are reused
+                    // last in, first out, and a knocked-out tank's crew bail into the slots a shell just freed): he still dies,
+                    // from his own state and the Death event's position, before the newcomer takes over (critic r4, 2026-09-27)
+                    if (died[i] != 0 && !s.Dead && s.Generation != 0) Die(i, s, w);
+                    s = Fresh(i, w);
+                }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
                 if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && VehicleArchetype.IsTank(w.Archetype[i])))
                 { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
@@ -250,6 +258,7 @@ namespace TW.Presentation
         {
             var s = new AnimState { Clip = Clip.Idle, Rung = Rung.Idle, Rate = 1f, Generation = w.Generation[i], Seed = (uint)i * 2654435761u ^ (uint)w.Generation[i] * 40503u, IdleSince = w.Tick, ClipStart = w.Tick };
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
+            s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
             Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
             return s;

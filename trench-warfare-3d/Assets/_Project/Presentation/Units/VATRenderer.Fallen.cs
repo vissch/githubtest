@@ -57,6 +57,11 @@ namespace TW.Presentation.Units
             return cz * pileW + cx;
         }
 
+        /// <summary>How long a body under a heap must lie so it is not gone before the man on top of it: lie times are
+        /// random (21-39 s, charred 12-16 s), and a lower body that sank first left the upper one hovering 0.3-0.9 m up for
+        /// up to 18 s (critic r4, 2026-09-27). The heap sinks together, or from the top.</summary>
+        public static float LiesUnder(float belowBorn, float belowLies, float topBorn, float topLies) => Mathf.Max(belowLies, topBorn + topLies - belowBorn);
+
         void Remove(int index)
         {
             var f = fallenMen[index];
@@ -113,6 +118,14 @@ namespace TW.Presentation.Units
                 man.Pos += new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * PileNudge;
                 man.Pos.y += PileStep * UnitScale * Mathf.Min(stacked, PileMax);
                 man.Pitch = (sbyte)(h < 0.5f ? -1 : 1);
+                // whoever he lies on stays down at least as long as he does
+                for (int k = 0; k < fallenMen.Count; k++)
+                {
+                    var below = fallenMen[k];
+                    if (below.Cell != cell) continue;
+                    below.Lies = LiesUnder(below.Born, below.Lies > 0.01f ? below.Lies : FallenSeconds, man.Born, man.Lies);
+                    fallenMen[k] = below;
+                }
             }
             pile[cell] = (byte)Mathf.Min(255, stacked + 1);
             man.Cell = cell;

@@ -24,6 +24,9 @@ namespace TW.Presentation
         public float Yaw, ThrowX, ThrowZ, ThrowUp, Grime;
         /// <summary>Char: 0..3 (VatPad). Density: how many died within PileRadius in the last PileWindow ticks. Cause: a DeathKind.</summary>
         public byte Char, Density, Cause;
+        /// <summary>His side and figure, and where the sim had him: the slot may hold someone else by the time the effects
+        /// read the record (a same-tick refill, or a deploy later in the frame).</summary>
+        public byte Team, Archetype; public Unity.Mathematics.float3 Pos;
         public bool Valid;
     }
 
@@ -53,6 +56,7 @@ namespace TW.Presentation
         NativeArray<int> deathB;         // the event's b: the killer's slot, or a DeathCause below zero
         NativeArray<uint> deathTick;     // the event's tick (the sim's, one behind the controller's on the host)
         NativeArray<float3> deathDir;    // dir: a blast's knock (y = 1), a shot's line
+        NativeArray<float3> deathPos;    // pos: where the sim had him when he died (the slot may be refilled the same tick)
         NativeArray<float> deathSpeed;   // scalar: the knock, m/s
         /// <summary>0..3 how burned a man is drawn (VatPad bits 22-23): 1 a man who has been alight and lives, 3 a man who died alight.</summary>
         public NativeArray<byte> Char;
@@ -69,6 +73,7 @@ namespace TW.Presentation
             deathB = new NativeArray<int>(maxSlots, Allocator.Persistent);
             deathTick = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             deathDir = new NativeArray<float3>(maxSlots, Allocator.Persistent);
+            deathPos = new NativeArray<float3>(maxSlots, Allocator.Persistent);
             deathSpeed = new NativeArray<float>(maxSlots, Allocator.Persistent);
             Char = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             recent = new NativeArray<float4>(RecentDeaths, Allocator.Persistent);
@@ -78,13 +83,13 @@ namespace TW.Presentation
 
         void DisposeDeaths()
         {
-            died.Dispose(); clawed.Dispose(); crushSpots.Dispose(); deathB.Dispose(); deathTick.Dispose(); deathDir.Dispose(); deathSpeed.Dispose(); Char.Dispose(); recent.Dispose(); ring.Dispose();
+            died.Dispose(); clawed.Dispose(); crushSpots.Dispose(); deathB.Dispose(); deathTick.Dispose(); deathDir.Dispose(); deathPos.Dispose(); deathSpeed.Dispose(); Char.Dispose(); recent.Dispose(); ring.Dispose();
         }
 
         void LatchDeath(in SimEvent e)
         {
             if (e.A < 0 || e.A >= count) return;
-            died[e.A] = 1; deathB[e.A] = e.B; deathTick[e.A] = e.Tick; deathDir[e.A] = e.Dir; deathSpeed[e.A] = e.Scalar;
+            died[e.A] = 1; deathB[e.A] = e.B; deathTick[e.A] = e.Tick; deathDir[e.A] = e.Dir; deathPos[e.A] = e.Pos; deathSpeed[e.A] = e.Scalar;
         }
 
         void LatchCrush(float3 at)
@@ -162,7 +167,7 @@ namespace TW.Presentation
             float knock = latched ? deathSpeed[i] : 0f;
             float3 simDir = latched ? deathDir[i] : float3.zero;
             uint diedAt = latched ? deathTick[i] : tick;
-            float3 p = w.Position[i];
+            float3 p = latched ? deathPos[i] : w.Position[i];   // the event's: the slot may already hold a newcomer
             // how many went down round him in the last moments: a bay under a shell goes down as a heap, and each man
             // in it is thrown harder than the one before
             int density = Density(p, tick);
@@ -228,7 +233,7 @@ namespace TW.Presentation
             {
                 Slot = i, Generation = s.Generation, Tick = diedAt, Clip = clip, PrevClip = s.PrevClip, PrevFrame = s.PrevFrame, Fade = s.Fade,
                 Yaw = s.ShownYaw, ThrowX = s.ThrowX, ThrowZ = s.ThrowZ, ThrowUp = s.ThrowUp, Grime = Grime[i],
-                Char = chr, Density = (byte)math.min(density, 255), Cause = (byte)cause, Valid = true,
+                Char = chr, Density = (byte)math.min(density, 255), Cause = (byte)cause, Team = s.Team, Archetype = s.Archetype, Pos = p, Valid = true,
             };
             ringCursor = (ringCursor + 1) % DeathRingSize;
             return s;

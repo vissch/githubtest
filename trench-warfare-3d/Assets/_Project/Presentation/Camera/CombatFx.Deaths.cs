@@ -35,22 +35,29 @@ namespace TW.Presentation.Tactical
             // the tank view still has the slot; the archetype would be a later tenant's if the slot was refilled
             if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : VehicleArchetype.IsTank(w.Archetype[e.A]))) return;
             if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
-            Vector3 p = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Drawn(e.A) : (Vector3)e.Pos;   // where he was drawn, so the corpse does not hop
+            // the controller's record of this death, by slot and tick: events are handled once a frame, up to eight ticks
+            // late, so the slot may hold a newcomer by now (a same-tick refill, a deploy later in the frame): who he was and
+            // where he was come from the record, the drawn position only while the slot is still his (critic r4, 2026-09-27)
+            var anim = Host != null ? Host.Animation : null;
+            DeathRecord rec = default;
+            bool controlled = anim != null && Host.UseAnimationController && e.A >= 0 && anim.TryDeath(e.A, e.Tick, out rec);
+            bool stillHis = e.A >= 0 && e.A < w.HighWater && (!controlled || w.Generation[e.A] == rec.Generation);
+            Vector3 p = Host.Presenter != null && stillHis ? (Vector3)Host.Presenter.Drawn(e.A) : controlled ? (Vector3)rec.Pos : (Vector3)e.Pos;   // drawn, so the corpse does not hop
             p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;
-            byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
+            byte team = controlled ? rec.Team : stillHis ? w.Team[e.A] : (byte)0;
+            byte archetype = controlled ? rec.Archetype : stillHis ? w.Archetype[e.A] : (byte)0;
             float fellYaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg;
             int death = (Mathf.FloorToInt(p.x * 13f) ^ Mathf.FloorToInt(p.z * 29f)) & 3;
-            bool burning = e.B == (int)DeathCause.Burning || e.B == (int)DeathCause.Beam;
+            // the controller's cause, when it has one: a man shot while alight dies charred, so he smoulders and his fuel
+            // burns too (the event's b alone called him a plain shot death)
+            bool burning = controlled ? rec.Cause == (byte)DeathKind.Burning || rec.Cause == (byte)DeathKind.Beam : e.B == (int)DeathCause.Burning || e.B == (int)DeathCause.Beam;
             // he goes down as the figure he was (VATRenderer plays the death and holds it); without it, a still box figure
             if (units != null && units.Ready)
             {
-                // the controller's record of this death: the clip it chose for his stance, gait, cause and the side it came
-                // from, how far a shell throws him, how many went down beside him. By slot and tick, not State[slot].
-                var anim = Host != null ? Host.Animation : null;
-                DeathRecord rec = default;
-                bool controlled = anim != null && Host.UseAnimationController && e.A >= 0 && anim.TryDeath(e.A, e.Tick, out rec);
+                // the record: the clip the controller chose for his stance, gait, cause and the side it came from, how far a
+                // shell throws him, how many went down beside him
                 Clip deathClip = controlled ? rec.Clip : Clip.None;
-                float yaw = controlled ? rec.Yaw : e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad;
+                float yaw = controlled ? rec.Yaw : stillHis ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad;
                 // the clip he was hit in fades into the death (the controller's own cross-fade, carried into the fallen buffer)
                 Clip from = controlled ? rec.PrevClip : Clip.None; float fromPhase = 0f, fade = 0f;
                 if (from != Clip.None)
@@ -72,7 +79,7 @@ namespace TW.Presentation.Tactical
                     flames.Spill(p, 1.2f, 6f);
                     AddSmoulder(p, e.Pos);
                 }
-                units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly, gib, grime, density, chr);
+                units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr);
             }
             else
             {
