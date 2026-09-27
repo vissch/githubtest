@@ -194,6 +194,57 @@ def port_split_twin_case(tmp: pathlib.Path):
          code == 1 and 'Log();' not in big.read_text() and 'Log();' not in (r / 'A/Big.Moved.cs').read_text(), out)
 
 
+def land_cases(tmp: pathlib.Path):
+    # A bare origin with the integration branch, and a clone with a lane on it. land.py runs from the clone.
+    integ = 'claude/trench-warfare-2d-3d-plan-idt7lf'
+    origin, work = tmp / 'origin.git', tmp / 'land-work'
+    run(['git', 'init', '-q', '--bare', str(origin)], tmp)
+    run(['git', 'clone', '-q', str(origin), str(work)], tmp)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], work)
+    proj = work / 'trench-warfare-3d'
+    (proj / 'Tools').mkdir(parents=True)
+    (proj / 'validate.py').write_text('print("validation OK")\n')
+    (proj / 'Tools/selftest.py').write_text('print("0 of 0 cases behaved")\n')
+    (work / 'docs').mkdir()
+    (work / 'docs/a.md').write_text('a\n')
+    g('checkout', '-qb', integ); g('add', '.'); g('commit', '-qm', 'base'); g('push', '-q', 'origin', integ)
+    land = lambda *extra: run([sys.executable, str(HERE / 'land.py'), *extra], proj)
+    head = lambda ref: run(['git', 'rev-parse', ref], work)[1].strip()
+
+    g('checkout', '-qb', 'lane/show/t')
+    (work / 'docs/a.md').write_text('a\nb\n'); g('commit', '-qam', 'docs')
+    code, out = land()
+    case('land.py lands a docs-only lane after validate, moving origin and the lane together',
+         code == 0 and head(f'origin/{integ}') == head('HEAD') == head('origin/lane/show/t'), out)
+
+    (proj / 'Code.cs').write_text('class C {}\n'); g('add', '.'); g('commit', '-qm', 'code')
+    code, out = land()
+    case('land.py refuses code that no green full gate tested', code == 1 and head(f'origin/{integ}') != head('HEAD'), out)
+    marker = pathlib.Path(run(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green'], work)[1].strip())
+    marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
+    (proj / 'Code.cs').write_text('class C { int x; }\n'); g('commit', '-qam', 'one more')
+    code, out = land()
+    case('land.py refuses when HEAD is not the tree the gate tested (one more commit after the gate)', code == 1, out)
+    marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
+    code, out = land()
+    case('land.py lands code whose exact tree went green', code == 0 and head(f'origin/{integ}') == head('HEAD'), out)
+
+    sim = proj / 'Assets/_Project/Sim'
+    sim.mkdir(parents=True); (sim / 'S.cs').write_text('class S {}\n'); g('add', '.'); g('commit', '-qm', 'sim on show')
+    marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
+    code, out = land()
+    code2, out2 = land('--dry-run', '--carry-sim', 'owner, 2026-09-26: one session on both lanes')
+    case('land.py refuses a SHOW lane carrying SIM files unless --carry-sim names the decision',
+         code == 1 and 'SIM' in out and code2 == 0 and 'would run' in out2, out + out2)
+
+    g('checkout', '-q', integ); g('reset', '-q', '--hard', f'origin/{integ}')
+    (work / 'docs/b.md').write_text('b\n'); g('add', '.'); g('commit', '-qm', 'someone else lands'); g('push', '-q', 'origin', integ)
+    g('checkout', '-q', 'lane/show/t')
+    code, out = land()
+    case('land.py refuses a lane that does not contain origin integration (someone landed first)',
+         code == 1 and 'rebase' in out, out)
+
+
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
     import scorecard
@@ -236,6 +287,7 @@ def main():
         port_split_cases(tmp)
         port_split_twin_case(tmp)
         scorecard_cases()
+        land_cases(tmp)
         code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:

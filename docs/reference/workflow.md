@@ -25,6 +25,8 @@ inbox    7 notes, 1 for you
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
   (`Tools/codemap.py` explains each rule). After changing any tool under `Tools/`, run
   `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
+- `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
+  the exact commit first.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted
   files, big files, `SceneHooks` references, explained statics, last gate counts). With a history file it prints
   every metric worse than the last clean run, on every run until fixed; `--accept` records a deliberate one.
@@ -339,20 +341,15 @@ In Git Bash, `taskkill /PID` gets its slashes mangled: use `taskkill //PID <n> /
 - Never let Python's `subprocess` decode a repo file: `text=True` decodes cp1252 here and mangles UTF-8. Read bytes
   and `.decode("utf-8")`.
 - Long inline Python in the Bash tool gets its backslashes mangled. Write patch scripts to a file and run them.
-- **A shared file with someone else's uncommitted edits:** stage only your hunks by building the blob from
-  `git show HEAD:<path>` plus your change (`git hash-object -w --path <path>`, then `git update-index --cacheinfo`),
-  so their work stays in the working tree. Check both: the index has yours only, the working tree has both.
+- **One session per checkout.** A second session makes its own (`git worktree add`); two in one tree gate each
+  other's half-done edits and cannot rebase.
 
-**Crossing a file split during a rebase.** Git cannot follow your edits into code that another branch moved to other
-files (as `CombatFx.cs` was split into `CombatFx.*.cs`), so the rebase stops on the old file. At each stop:
+**Crossing a file split during a rebase**, at each stop:
 ```bash
-python Tools/port_split.py Assets/_Project/Presentation/Camera/CombatFx.cs --rebase
+python Tools/port_split.py Assets/_Project/Presentation/Camera/CombatFx.cs --rebase   # --merge in a merge; --dry-run
 ```
-It keeps the upstream file and places each of your commit's edits where its lines now occur exactly once across the
-file and its siblings, and prints where each went. An edit whose lines upstream also changed is a real conflict: it
-goes to `CombatFx.cs.port.rej` for you, and a `CHECK` line marks a hunk applied only in part. Then compile, apply the
-`.rej` by hand, `git add` the files, delete the `.rej`, `git rebase --continue`. In a merge instead of a rebase, use
-`--merge` (it works out which side has the split). `--dry-run` shows the placement without writing.
+Edits it cannot place for certain go to `CombatFx.cs.port.rej`, and a `CHECK` line marks a hunk applied in part:
+apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --continue`.
 
 ## 9. Debugging
 

@@ -70,11 +70,14 @@ rebase before it continues. Never bundle a seam change into a feature commit.
   merge lane to lane, never a merge commit on integration. (`main` is older; do not branch from it.)
 - **A conflict during a rebase:** `HEAD` is upstream and "ours"; your commit being replayed is "theirs". In a file
   outside your lane, keep upstream (`git checkout --ours -- <file>`) and redo your change on top only if it is yours
-  to make. In a generated block (`<!-- gen:NAME -->`): keep either side, then `python Tools/codemap.py`. In a file
-  that was split into partials: `python Tools/port_split.py <old file> --rebase` (`workflow.md`, section 8).
-- **Landing a lane**, only when the owner says so: rebase onto origin's integration branch, run the full gate, then
-  fast-forward it (`git fetch . HEAD:claude/trench-warfare-2d-3d-plan-idt7lf`) and push both branches. If the
-  fast-forward is refused, someone landed first: rebase again.
+  to make. Shared files (`Tools/**`, `gate.ps1`, `CLAUDE.md`, `docs/`): merge both sides by hand, never `--ours`; in
+  `decisions.md` keep every row. In a generated block (`<!-- gen:NAME -->`): keep either side, then
+  `python Tools/codemap.py`. A file split into partials: `python Tools/port_split.py <old file> --rebase`.
+- **Landing a lane**, only when the owner says so: rebase onto origin's integration branch, run the full gate on
+  that exact commit, then `python Tools/land.py`. It refuses a tree no green gate tested, a SHOW lane carrying SIM
+  files, and a lane someone landed ahead of, and pushes both branches atomically. Refused: rebase, gate, land.
+- **An owner decision** does not wait for its lane: commit it alone (only `decisions.md`), cherry-pick it onto a
+  branch cut from origin's integration branch, and land that.
 - Push your lane small and often. Never edit a file the other lane owns "just to unblock yourself".
 
 ## Gate
@@ -89,7 +92,8 @@ Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no test
 
 ## Asking and remembering
 - **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into
-  `decisions.md` in the same turn.
+  `decisions.md` in the same turn. **Nobody to ask** (a loop, a cron, no reply): add it to the open questions with
+  the options and the default you take, go on only with work it does not decide, and do not land on it.
 - **A note for another session:** a new file `docs/inbox/<date>-<to>-<topic>.md`, one note per file and one file
   per recipient lane (`<to>` is the lane with `-` for `/`, or `all`), so notes never conflict. The receiver
   deletes it when done. Cross-session messages expire unread; the inbox does not.
