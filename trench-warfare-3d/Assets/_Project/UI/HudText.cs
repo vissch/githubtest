@@ -132,7 +132,7 @@ namespace TW.UI
         public const string Aim = "AIM";
         public const string Paused = "PAUSED";
         public const string AimHint = "Click the map to fire.  Tab changes the pattern.  Esc or right click cancels.";
-        public const string AimLineHint = "Press where the line starts, drag its heading and length, release to fire.  Shift snaps.  Tab changes the pattern.";
+        public const string AimLineHint = "Press where the line starts, drag its heading and length, release to fire.  Shift snaps.  Tab changes the pattern.  Esc or right click cancels.";
         /// <summary>The aim hint for the armed ability: the Tab clause only when it has patterns to cycle (smoke, strafe, beam
         /// and creeping have none; the hint told them to press Tab: critic r5, 2026-09-27).</summary>
         public static string AimHintFor(bool line, bool patterns)

@@ -86,7 +86,7 @@ namespace TW.UI
 
         void BuildList()
         {
-            SetText("gold-value", profile.Gold.ToString());
+            SetText("gold-value", given == null ? ProfileStore.GoldReadout(profile.Gold) : profile.Gold.ToString());   // says when nothing is saved
             var list = Root.Q("node-list");
             rows.Clear();
             if (list != null)

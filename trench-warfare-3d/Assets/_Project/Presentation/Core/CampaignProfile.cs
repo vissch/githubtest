@@ -26,7 +26,7 @@ namespace TW.Presentation
         [Serializable] public sealed class LineState { public byte Faction; public string Building = ""; public int Line; public int Tier; }
         public List<BuildingState> Buildings = new List<BuildingState>();
         public List<LineState> Lines = new List<LineState>();
-        /// <summary>A bit per OffMapAbilityId the player has unlocked at the Signals Station.</summary>
+        /// <summary>The node the map last opened on (the debrief and DEPLOY write it).</summary>
         public string LastNode = "";
         public float HeroPity;
 

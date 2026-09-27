@@ -103,7 +103,9 @@ namespace TW.Tests
                     props.AddInstance(kit.TrenchWalls[k % 3], Matrix4x4.TRS(new Vector3(10f + (k % 8) * 2f, 0f, 10f + (k / 8) * 2f), Quaternion.identity, Vector3.one));
                 destruction.StrikeForTests(new Vector3(17f, 0f, 14f), 9.2f, 1.2f);
                 Assert.Greater(destruction.SectionPiecesForTests, 0, "the strike threw lining pieces");
-                Assert.LessOrEqual(destruction.SectionPiecesForTests, TrenchSectionRules.MaxSectionPiecesPerStrike, "and no more than the ration");
+                // forty collapsing sections want far more than the ration, so it binds: exactly the ration, charged with no
+                // renderer (the clamp alone would pass a 'no more than' check whatever the charging did: critic r8)
+                Assert.AreEqual(TrenchSectionRules.MaxSectionPiecesPerStrike, destruction.SectionPiecesForTests, "the ration binds and is spent to the piece");
             }
             finally { Object.DestroyImmediate(go); }
         }

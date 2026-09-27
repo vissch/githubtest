@@ -71,17 +71,22 @@ namespace TW.Presentation.Terrain
             // cap / demand, so a cap thins the whole field evenly. A running count in row order cut the far rows first when a
             // cap bound: team B's trenches, then the rear's lanterns (critic r3 #10). The hard caps stay as a backstop for the
             // rounding. The rear band has a cap of its own now (it had none).
-            var want = Walk(input, field, null, default);
+            // flowers and accents stand in the grass a cell keeps, so their demand is counted with the grass already thinned
+            // (counted against the unthinned grass, their own keep share thinned them twice: a full map laid 8-51 flowers
+            // under a cap of 700: critic r8)
+            var grassWant = Walk(input, field, null, default);
+            var want = Walk(input, field, null, default, Keep(grassWant.Grass, MaxGrass));
+            want.Grass = grassWant.Grass;
             Walk(input, field, into, want);
         }
 
         /// <summary>One pass over the field. With <paramref name="into"/> null it only counts what the rules want; with a
         /// list it lays, keeping each candidate at Keep(want, cap) by its own hash and never passing a cap.</summary>
-        public static Tally Walk(ScatterInput input, ScatterField field, List<ScatterInstance> into, Tally want)
+        public static Tally Walk(ScatterInput input, ScatterField field, List<ScatterInstance> into, Tally want, float countGrassKeep = 1f)
         {
             var got = new Tally();
             bool lay = into != null;
-            float kg = lay ? Keep(want.Grass, MaxGrass) : 1f, ka = lay ? Keep(want.Accents, MaxAccent) : 1f, kf = lay ? Keep(want.Flowers, MaxFlowers) : 1f;
+            float kg = lay ? Keep(want.Grass, MaxGrass) : countGrassKeep, ka = lay ? Keep(want.Accents, MaxAccent) : 1f, kf = lay ? Keep(want.Flowers, MaxFlowers) : 1f;
             // the trench lanterns leave room for one by each rear building (laid after the field, they got whatever was left)
             int rearLamps = Mathf.Min(input.RearLanterns.Count, MaxLanterns / 2), fieldLamps = MaxLanterns - rearLamps;
             float ki = lay ? Keep(want.Interior, MaxInterior) : 1f, kl = lay ? Keep(want.Lanterns, fieldLamps) : 1f, kr = lay ? Keep(want.Rear, MaxRear) : 1f;
@@ -101,7 +106,7 @@ namespace TW.Presentation.Terrain
                 int n = density > 0f ? (int)(density * GrassPerCell + Hash(seed, cell, 1)) : 0, kept = 0;
                 for (int k = 0; k < n && got.Grass < capG; k++)
                 {
-                    if (lay && Hash(seed, cell, 300 + k) >= kg) continue;
+                    if (kg < 1f && Hash(seed, cell, 300 + k) >= kg) continue;
                     got.Grass++; kept++;
                     if (!lay) continue;
                     float ox = Hash(seed, cell, 100 + k * 3) * ScatterInput.Cell, oz = Hash(seed, cell, 101 + k * 3) * ScatterInput.Cell;

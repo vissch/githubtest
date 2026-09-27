@@ -58,6 +58,12 @@ namespace TW.Tests
                 if (s.Z < input.L * ScatterInput.Cell / 3f) near++; else if (s.Z > input.L * ScatterInput.Cell * 2f / 3f) far++;
             }
             Assert.LessOrEqual(total, ScatterLayers.MaxGrass);
+            // the flowers and accents the kept grass carries are laid, not thinned a second time (critic r8: 51 of 700)
+            var inKept = ScatterLayers.Walk(input, field, null, default, (float)ScatterLayers.MaxGrass / want.Grass);
+            int flowers = 0, accents = 0;
+            foreach (var s in laid) { if (s.Kind == ScatterKind.Flower) flowers++; else if (s.Kind == ScatterKind.GrassAccent) accents++; }
+            Assert.GreaterOrEqual(flowers, (int)(0.8f * Mathf.Min(inKept.Flowers, ScatterLayers.MaxFlowers)), $"{flowers} flowers of the {inKept.Flowers} the kept grass carries");
+            Assert.GreaterOrEqual(accents, (int)(0.8f * Mathf.Min(inKept.Accents, ScatterLayers.MaxAccent)), $"{accents} accents of the {inKept.Accents} the kept grass carries");
             Assert.Greater(far, 0, "the far rows have grass");
             Assert.Less(Mathf.Abs(near - far), 0.15f * Mathf.Max(near, far), $"near {near} and far {far} thirds within 15 %");
             // a blank field has no trenches or dugouts: every crate and shell stack is the rear band's

@@ -33,6 +33,11 @@ namespace TW.Presentation
         }
 
         [Serializable] sealed class VersionOnly { public int Version; }
+
+        /// <summary>What the campaign screens put beside the gold while nothing is saved (a locked or newer profile.json),
+        /// so the player is told rather than finding the progress gone next time (critic r8).</summary>
+        public const string NotSavingNote = "  ·  NOT SAVING: profile.json is locked or from a newer build";
+        public static string GoldReadout(int gold) => Writable ? gold.ToString() : gold + NotSavingNote;
         /// <summary>Tests: force saving on or off; null (the default) leaves it to <see cref="Persist"/>'s rule. Save and
         /// restore the old value, never a read of Persist, so the rule comes back after the test.</summary>
         public static bool? PersistOverride;

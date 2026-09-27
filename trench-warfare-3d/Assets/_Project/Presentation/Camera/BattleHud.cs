@@ -18,7 +18,7 @@ namespace TW.Presentation.Tactical
         /// reach from here, and a hand copy drifts: critic r7).</summary>
         public static string AimHint(bool line, bool cycles)
             => (line ? "Press where the line starts, drag its heading and length, release to fire.  Shift snaps." : "Click the map to fire.")
-               + (cycles ? "  Tab changes the pattern." : "") + (line ? "" : "  Esc or right click cancels.");
+               + (cycles ? "  Tab changes the pattern." : "") + "  Esc or right click cancels.";
 
         public SimHost Host;
         public TestPanel Panel;
