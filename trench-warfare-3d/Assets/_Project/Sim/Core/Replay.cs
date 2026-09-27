@@ -30,7 +30,10 @@ namespace TW.Sim
         // the ten archetypes each side chose (Loadout*), written as a count and that many bytes per side, so the header
         // layout changed; its systems (aura, support, hero, leap, breaker, air drop, the combat catalogue) join the hash.
         // That lane had numbered these v5 and v6 on its own branch; those numbers were the overhaul's by the time it landed.
-        public const ushort FormatVersion = 9;
+        // v10 (2026-09-28): UnitDefinitions.All holds its first two units (the Skimmer 19 and the Salvo 20, fielded by
+        // no faction), so the match's unit table, whose Fingerprint UnitCatalogue and CombatCatalogue fold into every
+        // tick's hash, is not the one v9 recorded against. Layout and hash chain unchanged.
+        public const ushort FormatVersion = 10;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

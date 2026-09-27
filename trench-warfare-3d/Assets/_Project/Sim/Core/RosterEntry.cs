@@ -127,6 +127,10 @@ namespace TW.Sim
         public const byte Breaker = 18;// assault tank: halts, winds up, charges the trench with its claws and hull guns, backs out
                                       // Ids are no longer squeezed by the explosion source space: SourceId bands it, so a
                                       // machine may take any byte (2026-09-25). What still binds is InfantryArchetype.Max.
+        // The two machines of 2026-09-28, defined in Sim/Match/UnitDefinitions.cs (not in the switches above, so
+        // ForArchetype does not know them) and in no faction's slots or pool: the Unit Sandbox fields them.
+        public const byte Skimmer = 19;// hovercraft: a machine gun in a small turret, a fan astern; skims over mud and trenches
+        public const byte Salvo = 20;  // half-track rocket truck: a box of rockets that lands out of sight, long to reload
         /// <summary>
         /// What kind of machine each SHIPPED id is. This is the seed of RosterEntry.Chassis and nothing else: the
         /// three predicates that used to live here (IsTank, IsWalker, IsArmoured, the last a range check over 6..11)

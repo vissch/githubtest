@@ -48,6 +48,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-24 | House chunk mask widened to 96 chunks (`HouseKit.MaxChunks`), so ruins come down a course at a time. |
 | 2026-09-26 | **Death physics are VAT launched bodies, not physics ragdolls.** The blast throw arc scales with how many men died nearby, bodies tumble in flight and pile on earlier bodies; presentation only, seeded so replays agree. (Overhaul directive, AskUserQuestion.) |
 | 2026-09-26 | **Mines and tripwires are laid by a sapper unit during the match**, not in a preparation phase: a new `InfantryArchetype.Sapper` in both faction pools (after `lane/show/units-meta` lands its ten slots), walking out on a `UnitAbility` command. (Overhaul directive, AskUserQuestion.) |
+| 2026-09-28 | **Two new machines are battle units that the Unit Sandbox fields and no faction does** (owner: make them "battle units", keep the original game; the sandbox is how they are tested). The Skimmer (archetype 19, a hovercraft) and the Salvo (20, a half-track rocket truck) are in `UnitDefinitions.All`, in no `FactionRoster` slot or pool. The Skimmer drives as a **tracked** machine (`ChassisKind.Tracked`, bog and ditch chances zero, bridges 3.5 m): `ChassisKind.Wheeled` has no movement or module rules of its own yet (the agent's choice, 2026-09-28). The unit table's fingerprint is hashed, so this is replay format v10. |
 
 ## Interface
 | Date | Decision |

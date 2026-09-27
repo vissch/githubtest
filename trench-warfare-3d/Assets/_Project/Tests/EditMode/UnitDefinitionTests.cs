@@ -18,8 +18,9 @@ namespace TW.Tests
             return MatchSim.CreateGreybox(cfg);
         }
 
-        /// <summary>An id inside the table that no faction fields, so writing over it cannot disturb a real unit.</summary>
-        const byte Spare = 20;
+        /// <summary>An id inside the table that nothing occupies (not a faction's unit, not one of UnitDefinitions.All),
+        /// so writing over it cannot disturb a real unit. It was 20 until the Salvo took that id (2026-09-28).</summary>
+        const byte Spare = 40;
 
         static UnitDef Fake() => new UnitDef
         {
@@ -74,6 +75,7 @@ namespace TW.Tests
             using var m = NewMatch();
             for (int a = 0; a < Archetypes.Count; a++)
             {
+                if (Defined((byte)a)) continue;   // the file's own units: DefinedUnitTests holds those to their numbers
                 var entry = RosterEntry.ForArchetype((byte)a);
                 Assert.AreEqual(entry.Cost, m.World.Units.Roster[a].Cost, $"archetype {a} cost");
                 // Both combat switches end in a silent default - WeaponFor in the rifleman's rifle, TankSpec.For in the
@@ -85,6 +87,25 @@ namespace TW.Tests
                 Assert.AreEqual(wantCrew, m.Catalogue.Tank[a].Crew, $"archetype {a} crew");
                 Assert.AreEqual(VehicleProfile.ForArchetype((byte)a).TurnRateRad, m.Vehicles.Profiles[a].TurnRateRad, $"archetype {a} turn rate");
                 Assert.AreEqual(OrderGroup.Of((byte)a), m.World.Units.Infantry[a].Group, $"archetype {a} order group");
+            }
+        }
+
+        static bool Defined(byte a)
+        {
+            foreach (var d in UnitDefinitions.All) if (d.Archetype == a) return true;
+            return false;
+        }
+
+        /// <summary>The ids the file defines are free ids: none is a unit the old switches already ship, which the
+        /// definition would silently replace.</summary>
+        [Test]
+        public void TheFileDefinesOnlyIdsTheOldSwitchesLeaveEmpty()
+        {
+            foreach (var d in UnitDefinitions.All)
+            {
+                Assert.AreEqual(0f, RosterEntry.ForArchetype(d.Archetype).Hp, $"archetype {d.Archetype} is already a shipped unit");
+                Assert.IsFalse(InfantryArchetype.IsInfantry(d.Archetype), $"archetype {d.Archetype} is an infantry id");
+                Assert.AreEqual(d.Archetype, d.Roster.Archetype, $"archetype {d.Archetype}: the roster line names another id");
             }
         }
 

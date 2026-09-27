@@ -71,7 +71,7 @@ namespace TW.Tests
             using var m = NewMatch();
             for (int a = 0; a < Archetypes.Count; a++)
             {
-                if (RosterEntry.ForArchetype((byte)a).Hp > 0f) continue;
+                if (m.World.Units.Roster[a].Hp > 0f) continue;   // the match's table: a UnitDefinitions unit occupies its id too
                 Assert.AreEqual(0f, m.Catalogue.Weapon[a].RangeMax, $"archetype {a} is nobody, and nobody is unarmed");
                 Assert.AreEqual(0f, m.Catalogue.Weapon[a].Damage, $"archetype {a} is nobody");
             }
