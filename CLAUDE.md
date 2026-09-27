@@ -25,13 +25,15 @@ cd trench-warfare-3d && python Tools/health.py
 It reports the editor lock, free memory, your editor, `validate.py` and your lane. Then read `inbox.md`.
 `python Tools/codemap.py` regenerates the doc tables; `validate.py` fails when a doc no longer matches the code.
 
-## In flight (as of 2026-09-25)
+## In flight (as of 2026-09-27)
 Other checkouts on this machine and what they hold. Update this block when you start or finish something shared.
-- `githubtest` (main clone, integration branch): the owner's editor; another session's uncommitted flamethrower work.
-- `githubtest-sim` (`lane/show/units-meta`): unit meta work; uncommitted `SlotCount` 8 → 10 (see `inbox.md`).
-- `githubtest-aosa` (`lane/show/aosa`) and `aosa-c1-*`: the AOSA optimisation loop, with its own contract in
-  docs/reference/aosa/ on that branch.
-- `githubtest-maint` (`lane/show/maint-2026-09`): these navigation docs and the maintainability pass.
+- `githubtest` (main clone, `lane/show/riders`): the owner's editor; uncommitted selection and HUD work.
+- `githubtest-overhaul` / `-overhaul-sim` (`lane/show/overhaul`, `lane/sim/overhaul`) and `githubtest-playground`
+  (`lane/show/playground`): built on this pass; the overhaul plan is `docs/21` on those branches.
+- `wt-ui-selection` (`lane/show/ui-selection`): selection polish. `githubtest-sim` (`lane/show/units-meta`): unit
+  meta, uncommitted `SlotCount` 8 → 10. `githubtest-aosa` (`lane/show/aosa`): the AOSA loop, contract on its branch.
+- `githubtest-maint` (`lane/show/maint-2026-09`): these docs; gate green 2026-09-27, not merged yet.
+- Merge notes for the lanes cut before the `CombatFx.cs` split are in `inbox.md`.
 
 ## Lanes
 Work out your lane from the current branch before you edit anything. If the branch is not `lane/sim/*` or

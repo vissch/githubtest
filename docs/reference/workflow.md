@@ -270,3 +270,23 @@ In Git Bash, `taskkill /PID` gets its slashes mangled: use `taskkill //PID <n> /
 - **A shared file with someone else's uncommitted edits:** stage only your hunks by building the blob from
   `git show HEAD:<path>` plus your change (`git hash-object -w --path <path>`, then `git update-index --cacheinfo`),
   so their work stays in the working tree. Check both: the index has yours only, the working tree has both.
+
+**Merging edits made before a file was split.** Git cannot follow a branch's edits into code that moved to another
+file, so a merge conflicts in the old file. If the split only moved whole blocks (as `CombatFx.cs` into
+`CombatFx.*.cs` did), keep the split side of the old file and carry the other side's edits across:
+```bash
+git merge lane/show/x                                          # CONFLICT in .../CombatFx.cs
+git checkout --ours -- Assets/_Project/Presentation/Camera/CombatFx.cs      # --theirs if the split is theirs
+python Tools/port_split.py Assets/_Project/Presentation/Camera/CombatFx.cs     --from $(git merge-base HEAD MERGE_HEAD) --to MERGE_HEAD   # --to HEAD if the edits are yours
+```
+Each edit is placed where its lines now occur exactly once across `CombatFx.cs` and its siblings. An edit whose lines
+the other side also changed is a real conflict: it goes to `CombatFx.cs.port.rej` for you, and a `CHECK` line marks a
+hunk applied only in part. Output of the trial against `lane/show/aosa` (2026-09-27), trimmed:
+```
+applied     @@ -163,8 +189,8 @@ edit 1  ->  CombatFx.Chunks.cs:16  (+2 -2)
+NOT APPLIED @@ -644,22 +695,26 @@ edit 2  (+4 -2): its lines are not in any target exactly once
+  CHECK: @@ -644,22 +695,26 @@ was applied only in part; its applied edits may use something the rejected ones declare.
+3 of 20 edits left in Assets/_Project/Presentation/Camera/CombatFx.cs.port.rej: apply them by hand, then delete it
+17 of 20 edits applied
+```
+Then compile and run the gate. `--dry-run` shows the placement without writing.
