@@ -529,28 +529,6 @@
    "mass": 1.4
   },
   {
-   "name": "FanRing",
-   "parent": "Hull",
-   "pivot": [
-    -0.21341,
-    4.45732,
-    -3.02032
-   ],
-   "tier": 2,
-   "mass": 1.0
-  },
-  {
-   "name": "Fan",
-   "parent": "FanRing",
-   "pivot": [
-    -0.21341,
-    4.45732,
-    -2.44309
-   ],
-   "tier": 1,
-   "mass": 0.5
-  },
-  {
    "name": "Pod_FL",
    "parent": "Hull",
    "pivot": [
@@ -593,6 +571,28 @@
    ],
    "tier": 2,
    "mass": 0.7
+  },
+  {
+   "name": "FanRing",
+   "parent": "Hull",
+   "pivot": [
+    -0.21341,
+    4.45732,
+    -3.02032
+   ],
+   "tier": 2,
+   "mass": 1.0
+  },
+  {
+   "name": "Fan",
+   "parent": "FanRing",
+   "pivot": [
+    -0.21341,
+    4.45732,
+    -2.44309
+   ],
+   "tier": 1,
+   "mass": 0.5
   }
  ],
  "socketList": [

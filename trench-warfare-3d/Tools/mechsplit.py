@@ -80,7 +80,8 @@ if KIND == "flyer":
         return "Hull"
 
 if KIND == "hover":
-    PARTS = ["Hull", "Turret", "Gun", "Engine", "FanRing", "Fan", "Pod_FL", "Pod_FR", "Pod_RL", "Pod_RR"]
+    # the pods before the fan: a script's hit on "the first tier-2 part" takes a pod, not the fan the machine is known by
+    PARTS = ["Hull", "Turret", "Gun", "Engine", "Pod_FL", "Pod_FR", "Pod_RL", "Pod_RR", "FanRing", "Fan"]
     BREAK = {"Gun": dict(tier=3, mass=0.4), "Turret": dict(tier=3, mass=1.0), "Engine": dict(tier=3, mass=1.4),
              "FanRing": dict(tier=2, mass=1.0), "Fan": dict(tier=1, mass=0.5), "Hull": dict(tier=9, mass=8.0),
              **{"Pod_" + k: dict(tier=2, mass=0.7) for k in ("FL", "FR", "RL", "RR")}}
