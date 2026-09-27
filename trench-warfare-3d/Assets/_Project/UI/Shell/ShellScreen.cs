@@ -19,6 +19,7 @@ namespace TW.UI
         {
             Root = root; Router = router;
             OnBind();
+            GameLogo.Fill(root);   // the logo wherever the screen marks a place for it
             root.Query<Button>().ForEach(b => b.focusable = false);
         }
 

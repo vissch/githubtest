@@ -4,6 +4,7 @@
     <ui:VisualElement name="mission-screen" class="tw-screen shell-screen">
         <ui:VisualElement class="tw-grain" picking-mode="Ignore" />
         <ui:VisualElement class="tw-topstrip shell-topstrip" picking-mode="Ignore">
+            <ui:VisualElement class="tw-wordmark shell-topstrip__wordmark" picking-mode="Ignore" />
             <ui:Label text="SECTOR SELECT" class="tw-topstrip__label" />
         </ui:VisualElement>
         <ui:VisualElement class="shell-content">

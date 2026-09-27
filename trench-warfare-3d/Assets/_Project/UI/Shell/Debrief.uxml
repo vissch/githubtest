@@ -2,6 +2,7 @@
     <Style src="../Skin/dustfront.uss" />
     <Style src="Shell.uss" />
     <ui:VisualElement name="debrief-screen" class="tw-screen tw-dim shell-screen">
+        <ui:VisualElement class="tw-logo shell-plate-logo shell-plate-logo--small" picking-mode="Ignore" />
         <ui:VisualElement name="debrief-plate" class="tw-panel shell-plate shell-debrief">
             <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
             <ui:VisualElement class="shell-result">

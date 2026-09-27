@@ -2,16 +2,20 @@
     <Style src="../Skin/dustfront.uss" />
     <Style src="Shell.uss" />
     <ui:VisualElement name="menu-screen" class="tw-screen shell-screen">
-        <ui:VisualElement name="backdrop" class="shell-backdrop" picking-mode="Ignore" />
-        <ui:VisualElement class="tw-grain" picking-mode="Ignore" />
+        <ui:VisualElement name="backdrop" class="shell-backdrop shell-backdrop--keyart" picking-mode="Ignore" />
+        <!-- the key art keeps its heroes centre and right; the menu sits left on a shade painted in code (MainMenuScreen) -->
+        <ui:VisualElement name="keyart-shade" class="shell-keyart-shade" picking-mode="Ignore" />
+        <ui:VisualElement name="keyart-foot" class="shell-keyart-foot" picking-mode="Ignore" />
+        <ui:VisualElement class="tw-grain shell-grain--light" picking-mode="Ignore" />
         <ui:VisualElement class="tw-topstrip shell-topstrip" picking-mode="Ignore">
             <ui:Label text="SECTOR COMMAND" class="tw-topstrip__label" />
         </ui:VisualElement>
-        <ui:VisualElement class="shell-title-block" picking-mode="Ignore">
-            <ui:Label name="title" text="TRENCH WARFARE" class="tw-display tw-title-plate" />
-            <ui:Label name="subtitle" text="1917" class="tw-h2 tw-accent" />
+        <ui:VisualElement class="shell-title-block shell-title-block--left" picking-mode="Ignore">
+            <ui:VisualElement name="logo" class="tw-logo--animated shell-menu-logo" picking-mode="Ignore" />
+            <ui:Label name="title" text="DIESELFRONT: TOADSTEEL" class="tw-display tw-title-plate shell-hidden" />
+            <ui:Label name="subtitle" text="" class="tw-h2 tw-accent shell-hidden" />
         </ui:VisualElement>
-        <ui:VisualElement name="menu-stack" class="shell-menu-stack">
+        <ui:VisualElement name="menu-stack" class="shell-menu-stack shell-menu-stack--left">
             <ui:Button name="btn-skirmish" text="SKIRMISH" class="tw-btn tw-btn--wide tw-btn--primary" />
             <ui:Button name="btn-armoury" text="ARMOURY" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-campaign" text="CAMPAIGN" class="tw-btn tw-btn--wide" />

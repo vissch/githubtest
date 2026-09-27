@@ -3,6 +3,7 @@
     <Style src="Shell.uss" />
     <ui:VisualElement name="settings-screen" class="tw-screen tw-dim shell-screen">
         <ui:VisualElement name="settings-plate" class="tw-panel shell-plate shell-settings">
+            <ui:VisualElement class="tw-wordmark shell-plate__wordmark" picking-mode="Ignore" />
             <ui:Label text="SETTINGS" class="tw-h1 shell-plate__title" />
             <ui:VisualElement name="tabs" class="shell-tabs">
                 <ui:Button name="tab-controls" text="CONTROLS" class="tw-tab" />
