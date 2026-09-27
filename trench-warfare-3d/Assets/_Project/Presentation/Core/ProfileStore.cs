@@ -36,7 +36,9 @@ namespace TW.Presentation
 
         /// <summary>What the campaign screens put beside the gold while nothing is saved (a locked or newer profile.json),
         /// so the player is told rather than finding the progress gone next time (critic r8).</summary>
-        public const string NotSavingNote = "  ·  NOT SAVING: profile.json is locked or from a newer build";
+        public const string NotSavingNote = "  NOT SAVING";
+        /// <summary>The readout's tooltip while nothing is saved: why, in words (the tag beside the gold stays short: critic r9).</summary>
+        public const string NotSavingWhy = "Progress is not being saved: profile.json could not be written safely (locked by another program, from a newer build, or damaged and not copied aside). It is tried again when the campaign opens.";
         public static string GoldReadout(int gold) => Writable ? gold.ToString() : gold + NotSavingNote;
         /// <summary>Tests: force saving on or off; null (the default) leaves it to <see cref="Persist"/>'s rule. Save and
         /// restore the old value, never a read of Persist, so the rule comes back after the test.</summary>

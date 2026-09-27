@@ -90,7 +90,7 @@ namespace TW.Tests
         /// section goes (broken, collapsed or chipped); the ration is charged with or without a renderer (critic r7: it was
         /// charged only when a DebrisRenderer was up, so nothing could test it).</summary>
         [Test]
-        public void A_Barrage_Over_Forty_Sections_Throws_At_Most_The_Ration()
+        public void A_Barrage_Over_Forty_Sections_Spends_Exactly_The_Ration()
         {
             var go = new GameObject("lining ration test");
             try

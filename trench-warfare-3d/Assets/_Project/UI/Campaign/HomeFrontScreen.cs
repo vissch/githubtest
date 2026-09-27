@@ -127,6 +127,8 @@ namespace TW.UI
         void RefreshInfo(Building b)
         {
             SetText("gold-value", given == null ? ProfileStore.GoldReadout(profile.Gold) : profile.Gold.ToString());   // says when nothing is saved
+            var goldLabel = Root.Q<Label>("gold-value");
+            if (goldLabel != null) goldLabel.tooltip = given == null && !ProfileStore.Writable ? ProfileStore.NotSavingWhy : null;
             SetText("info-title", b.Name);
             SetText("info-blurb", b.Blurb);
             int stage = Mathf.Clamp(profile.StageOf(Faction, b.Id), 0, b.Stages.Length - 1);
