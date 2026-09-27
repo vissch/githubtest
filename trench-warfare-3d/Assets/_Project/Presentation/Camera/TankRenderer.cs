@@ -82,7 +82,7 @@ namespace TW.Presentation.Tactical
             public Matrix4x4[] LegLocal; public bool[] LegSolved;
             public byte Archetype;
             public float Scorch, Burn, Flash, Furnace, Throttle;
-            public bool Ditched, Bogged, Stalled, Dead, CookOff, Hurt;
+            public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;

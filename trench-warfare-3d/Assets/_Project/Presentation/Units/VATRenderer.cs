@@ -109,7 +109,6 @@ namespace TW.Presentation.Units
         static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize"), CullId = Shader.PropertyToID("_Cull");
         /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
-        public VatAsset FigureAsset(int figure) => figures != null && figures.Length > 0 ? figures[math.clamp(figure, 0, figures.Length - 1)].Asset : null;
         public bool ClipAtlas => clipAtlas;
 
         static Figure Make(Shader shader, VatAsset a)

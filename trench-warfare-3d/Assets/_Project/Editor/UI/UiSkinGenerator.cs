@@ -526,7 +526,6 @@ namespace TW.Editor
             }
             public void HLine(int y, Color32 c, int x0, int x1) { if (y < 0 || y >= H) return; for (int x = Math.Max(0, x0); x < Math.Min(W, x1); x++) Px[y * W + x] = c; }
             public void VLine(int x, Color32 c, int y0, int y1) { if (x < 0 || x >= W) return; for (int y = Math.Max(0, y0); y < Math.Min(H, y1); y++) Px[y * W + x] = c; }
-            public void RectOutline(int x, int y, int w, int h, Color32 c) { HLine(y, c, x, x + w); HLine(y + h - 1, c, x, x + w); VLine(x, c, y, y + h); VLine(x + w - 1, c, y, y + h); }
             /// <summary>A 1 px line inset from the edge on all four sides, blended at the given alpha.</summary>
             public void InnerLine(int inset, Color32 c, byte alpha)
             {

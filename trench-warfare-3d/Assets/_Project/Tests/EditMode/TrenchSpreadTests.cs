@@ -32,11 +32,6 @@ namespace TW.Tests
             for (int t = 0; t < ticks; t++) m.Step(none);
         }
 
-        /// <summary>The exact height of a nav cell, not a sample at its centre: a centre falls on the seam between
-        /// two height cells, where interpolation would blur the very step we are measuring.</summary>
-        static float HeightOf(MapData map, int cell)
-            => map.Height.HeightAtCell((cell % map.NavWidth) * 2, (cell / map.NavWidth) * 2);
-
         // ---- the guns ------------------------------------------------------------------------------------------
 
         /// <summary>

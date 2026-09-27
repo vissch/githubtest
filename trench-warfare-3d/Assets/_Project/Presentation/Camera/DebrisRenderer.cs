@@ -143,7 +143,7 @@ namespace TW.Presentation.Tactical
         sealed class Pool
         {
             public Mesh Mesh; public int Start, Capacity, Head, Count; public bool Shadows; public float Lift;
-            public int DirtyLo = int.MaxValue, DirtyHi = -1, Wrapped;   // Wrapped: records written past the end this frame (they start at 0)
+            public int DirtyLo = int.MaxValue, DirtyHi = -1;
             public MaterialPropertyBlock Props;
         }
 

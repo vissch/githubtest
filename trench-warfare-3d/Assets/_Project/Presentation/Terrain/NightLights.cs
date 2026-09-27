@@ -54,7 +54,7 @@ namespace TW.Presentation.Terrain
         public IReadOnlyList<Vector3> FirePoints => firePoints;
         public bool Built => built;
         readonly List<Object> owned = new List<Object>();
-        int nextPooled; float lastShot, nextFlare, flareBorn = -100f;
+        float lastShot, nextFlare, flareBorn = -100f;
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
         Material glow, flareGlow;

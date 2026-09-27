@@ -21,7 +21,7 @@ namespace TW.Presentation.Tactical
         public float TracerSeconds = 0.12f;
         public int MaxBodies = 600;
 
-        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }
+        struct Tracer { public Vector3 From, To; public float Born; public byte Team; }
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
@@ -260,8 +260,7 @@ namespace TW.Presentation.Tactical
             markQuad.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0); markQuad.RecalculateBounds();
         }
 
-        /// <summary>The ground point the view looks at, and whether a place is near enough to it for the small things.</summary>
-        static Vector3 LookPoint(Camera cam) => cam.transform.position + cam.transform.forward * (cam.transform.position.y / Mathf.Max(0.15f, -cam.transform.forward.y));
+        /// <summary>Whether a place is near enough to the view for the small things.</summary>
         static bool Near(Vector3 p, float reach)
         {
             if (SceneHooks.CloseUp <= 0f) return false;
