@@ -98,16 +98,22 @@ namespace TW.UI
         {
             switch (ev.Type)
             {
-                case SimEventType.TrenchCaptured: Banner(HudText.CapturedBanner(ev.A, ev.B == 0), HudLayout.BannerSeconds, ev.B == 0 ? "tw-banner--victory" : "tw-banner--defeat"); break;
+                // player 0 is the local side (as everywhere until peer play lands); BannerRules decides what may cover what
+                case SimEventType.TrenchCaptured: Banner(HudText.CapturedBanner(ev.A, ev.B == 0), HudLayout.BannerSeconds, ev.B == 0 ? "tw-banner--victory" : "tw-banner--defeat", BannerRules.Rank(ev.Type, ev.B == 0)); break;
                 case SimEventType.AbilityFired:
-                    Banner(HudText.AbilityBanner((OffMapAbilityId)ev.A, ev.B == 0), ev.B == 0 ? HudLayout.BannerSeconds : 4f, ev.B == 0 ? null : "tw-banner--defeat");
+                    Banner(HudText.AbilityBanner((OffMapAbilityId)ev.A, ev.B == 0), ev.B == 0 ? HudLayout.BannerSeconds : 4f, ev.B == 0 ? null : "tw-banner--defeat", BannerRules.Rank(ev.Type, ev.B == 0));
                     break;
-                case SimEventType.MatchEnded: Banner(ev.A == 0 ? HudText.VictoryBanner : HudText.DefeatBanner, 3600f, ev.A == 0 ? "tw-banner--victory" : "tw-banner--defeat"); break;
+                case SimEventType.MatchEnded: Banner(ev.A == 0 ? HudText.VictoryBanner : HudText.DefeatBanner, 3600f, ev.A == 0 ? "tw-banner--victory" : "tw-banner--defeat", BannerRules.MatchEnd); break;
             }
         }
 
-        public void Banner(string text, float seconds, string cls)
+        int bannerRank;
+
+        /// <summary>Show a centre banner, unless one that matters more is still up (BannerRules.Replaces).</summary>
+        public void Banner(string text, float seconds, string cls, int rank = BannerRules.EnemyAbility)
         {
+            if (!BannerRules.Replaces(rank, bannerRank, bannerShown)) return;
+            bannerRank = rank;
             refs.BannerText.text = text;
             refs.BannerText.EnableInClassList("tw-banner--victory", cls == "tw-banner--victory");
             refs.BannerText.EnableInClassList("tw-banner--defeat", cls == "tw-banner--defeat");

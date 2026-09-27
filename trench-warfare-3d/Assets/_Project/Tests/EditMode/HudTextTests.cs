@@ -54,8 +54,6 @@ namespace TW.Tests
                     "nothing about what they are buying");
         }
 
-        /// <summary>The hint line is one GUI.Label with a fixed rect: it clips rather than wraps, so a long tooltip
-        /// is silently cut off. At the narrowest window that is about 100 characters.</summary>
         /// <summary>One banner per event (CombatFx drew a second, IMGUI one over the HUD's until a player build's shot showed
         /// both, 2026-09-27): every support card fired by either side names itself, in a banner the plate can hold.</summary>
         [Test]
@@ -75,6 +73,25 @@ namespace TW.Tests
             Assert.AreNotEqual(TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, true), TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, false), "yours and theirs read differently");
         }
 
+        /// <summary>Both HUDs' banners go through BannerRules (ObjectiveTracker, CombatFx.OnGUI): a stream of ability
+        /// banners must not wipe a trench changing hands or the match's end off the plate, and a finished banner gives way.</summary>
+        [Test]
+        public void ABannerIsNotCoveredByOneThatMattersLess()
+        {
+            int own = TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, true), enemy = TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, false);
+            int trench = TW.Presentation.BannerRules.Rank(SimEventType.TrenchCaptured, false), end = TW.Presentation.BannerRules.Rank(SimEventType.MatchEnded, true);
+            Assert.That(own < enemy && enemy < trench && trench < end, "own ability < enemy ability < trench < match end");
+            Assert.AreEqual(0, TW.Presentation.BannerRules.Rank(SimEventType.Shot, true), "a shot raises no banner");
+            Assert.IsFalse(TW.Presentation.BannerRules.Replaces(own, trench, true), "your barrage does not cover 'Trench 2 lost'");
+            Assert.IsFalse(TW.Presentation.BannerRules.Replaces(trench, end, true), "nothing covers the match's end");
+            Assert.IsTrue(TW.Presentation.BannerRules.Replaces(enemy, own, true), "the enemy's barrage covers your own");
+            Assert.IsTrue(TW.Presentation.BannerRules.Replaces(trench, trench, true), "the newer of two trench banners shows");
+            Assert.IsTrue(TW.Presentation.BannerRules.Replaces(own, end, false), "a finished banner gives way to anything");
+            Assert.IsFalse(TW.Presentation.BannerRules.Replaces(0, 0, false), "an event with no banner shows nothing");
+        }
+
+        /// <summary>The hint line is one GUI.Label with a fixed rect: it clips rather than wraps, so a long tooltip
+        /// is silently cut off. At the narrowest window that is about 100 characters.</summary>
         [Test]
         public void NoTooltipOutgrowsTheHintLine()
         {

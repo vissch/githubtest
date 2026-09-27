@@ -1,7 +1,7 @@
 ﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
-// leaves a body (the HUD's ObjectiveTracker raises the banners). Instanced draws, no GameObjects per effect.
+// leaves a body (banners: the Toolkit HUD's ObjectiveTracker, or OnGUI here under the old HUD). Instanced draws, no GameObjects.
 // Listens to SimHost.Events, so it sees exactly what the local sim produced.
 // One class in six files (2026-09-25): this one holds the event dispatch (OnSimEvent), Update, the materials and
 // the tracer/body/burst pools; CombatFx.Ground.cs what only a close camera sees (marks, rests, trails, breath);
@@ -625,7 +625,8 @@ namespace TW.Presentation.Tactical
                     var corridor = new Vector3(e.Dir.x, 0f, e.Dir.z); float corridorLength = corridor.magnitude;
                     bool line = corridorLength > 1e-3f;
                     markers.Add(new Marker { Pos = p, Dir = line ? corridor / corridorLength : Vector3.zero, Length = line ? corridorLength : 0f, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
-                    OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs); the HUD's banner names it
+                    OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs)
+                    Banner(e.B == 0 ? $"Your {AbilityWord(e.A)} is on its way" : $"INCOMING {AbilityWord(e.A).ToUpper()}", 3f, BannerRules.Rank(e.Type, e.B == 0));
                     break;
                 }
                 case SimEventType.PropChanged:
@@ -638,6 +639,12 @@ namespace TW.Presentation.Tactical
                     if (debris != null && debris.Ready) TreeBreaks(e, new Vector3(p.x, foot - 0.05f, p.z));
                     break;
                 }
+                case SimEventType.TrenchCaptured:
+                    Banner(e.B == 0 ? $"Trench {e.A} captured!" : $"Trench {e.A} lost", 3f, BannerRules.Trench);
+                    break;
+                case SimEventType.MatchEnded:
+                    Banner(e.A == 0 ? "VICTORY: enemy HQ taken" : "DEFEAT: your HQ has fallen", 3600f, BannerRules.MatchEnd);
+                    break;
                 case SimEventType.VehicleCrushed:
                 {
                     // a man under the tracks or a claw (b = 2): what is left of him comes out from under, low and slow
@@ -650,6 +657,24 @@ namespace TW.Presentation.Tactical
                     break;
                 }
             }
+        }
+
+        // the centre banner for the old IMGUI HUD only: with the Toolkit HUD on (HudBridge.UseToolkitHud), its
+        // ObjectiveTracker draws the one banner and this stays silent, so an event never shows twice (it did until 2026-09-27)
+        string banner; float bannerUntil; int bannerRank;
+        void Banner(string text, float seconds, int rank)
+        {
+            bool up = banner != null && Time.time <= bannerUntil;
+            if (!BannerRules.Replaces(rank, bannerRank, up)) return;
+            banner = text; bannerUntil = Time.time + seconds; bannerRank = rank;
+        }
+        void OnGUI()
+        {
+            if (HudBridge.UseToolkitHud || banner == null || Time.time > bannerUntil) return;
+            var style = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            var rect = new Rect(0, Screen.height * 0.12f, Screen.width, 50);
+            style.normal.textColor = Color.black; GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), banner, style);
+            style.normal.textColor = new Color(1f, 0.92f, 0.6f); GUI.Label(rect, banner, style);
         }
 
         void Update()
