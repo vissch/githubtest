@@ -33,7 +33,12 @@ read the assertion before adding one), SKIP-UNITYTEST / SKIP-EXPLICIT. Exit 1 on
 import os, pathlib, subprocess, sys, glob
 
 HERE = pathlib.Path(__file__).resolve()
-sys.path.insert(0, str(HERE.parent / "aosa"))   # occ.py lives there (from lane/show/aosa, not tracked on every lane)
+# the checkout under test is the one otr is run in (Unity's cwd rule: the project folder), not the one otr.py lives in:
+# occ.OUT is keyed by occ.py's own folder, so importing this file's neighbour tested the SHOW tree's dlls when otr was
+# run from the sim checkout (2026-09-27). Use the working project's occ.py when it has one.
+_here_proj = HERE.parents[1]
+_cwd_occ = pathlib.Path.cwd() / "Tools" / "aosa"
+sys.path.insert(0, str(_cwd_occ if (_cwd_occ / "occ.py").exists() else HERE.parent / "aosa"))   # occ.py (from lane/show/aosa, not tracked on every lane)
 try:
     import occ  # noqa: E402  (OUT, UNITY, MAIN_LIB, PKG_CACHE, nunit)
 except ImportError:
@@ -67,6 +72,10 @@ def main(argv):
     verbose = "-v" in argv
     filters = [a for a in argv if a != "-v"]
     dll = occ.OUT / "TW.Tests.EditMode.dll"
+    tested = pathlib.Path(occ.PROJ).resolve()
+    print(f"otr: testing {tested} (dlls in {occ.OUT})")
+    if tested != pathlib.Path.cwd().resolve():
+        print(f"otr: WARNING: run from {pathlib.Path.cwd()}, which is not the checkout under test ({tested}); cd into it")
     if not dll.exists():
         print(f"otr: {dll} not built: run occ.py with TW.Tests.EditMode first"); return 2
     exe = build_runner()
