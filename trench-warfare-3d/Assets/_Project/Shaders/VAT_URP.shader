@@ -234,6 +234,16 @@ Shader "TW/VAT Infantry (URP)"
                     albedo = lerp(albedo, mud, splash);
                     albedo *= 1.0 - 0.28 * g;
                 }
+                // (before the char, so a burned man reads burned, not snowed over: critic r4, 2026-09-27)
+                // The battlefield reaches the men, or they read as cut out of a different picture standing in it.
+                // Snow is keyed on positionOS, NOT positionWS: at TWSnowAmount's frequencies a world-space pattern
+                // slides across a man walking at 1.5 m/s about once a second, and three thousand of them shimmering
+                // independently is far worse than no snow at all. In his own space it is painted on and stays put.
+                // Offset per instance, or every soldier wears identical snow on the identical shoulder. The offset is
+                // CONSTANT per man, so it keeps the reason positionOS was used at all: it does not swim as he walks.
+                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.tint * 13.7 + floor(i.positionWS.xzy * 0.37) * 3.1);
+                if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.7);   // a man sheds some; he is warm and he moves
+                half3 glow = 0;   // the embers: emitted after the lighting, so they glow in shade and at night, not lit like cloth
                 // burned (AnimationController.Char, VatPad bits 22-23): 1 a man who was alight and lives, singed in
                 // blotches; 2 a charred corpse; 3 the same with the embers still in him, glowing in the cracks
                 if (i.grime.z > 0.5)
@@ -248,21 +258,13 @@ Shader "TW/VAT Infantry (URP)"
                         if (i.grime.z > 2.5)
                         {
                             half embers = smoothstep(0.55, 0.8, VatNoise(cq * 3.1 + 23.0)) * (0.55 + 0.45 * sin(_Time.y * 5.0 + i.grime.y));
-                            albedo += half3(1.0, 0.35, 0.08) * embers * 0.9;
+                            glow = half3(1.0, 0.35, 0.08) * embers * 0.9;
                         }
                     }
                 }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half lit = dot(normalize(i.normalWS), mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, lit) * 0.5 + smoothstep(0.69, 0.74, lit) * 0.5;
-                // The battlefield reaches the men, or they read as cut out of a different picture standing in it.
-                // Snow is keyed on positionOS, NOT positionWS: at TWSnowAmount's frequencies a world-space pattern
-                // slides across a man walking at 1.5 m/s about once a second, and three thousand of them shimmering
-                // independently is far worse than no snow at all. In his own space it is painted on and stays put.
-                // Offset per instance, or every soldier wears identical snow on the identical shoulder. The offset is
-                // CONSTANT per man, so it keeps the reason positionOS was used at all: it does not swim as he walks.
-                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.tint * 13.7 + floor(i.positionWS.xzy * 0.37) * 3.1);
-                if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.7);   // a man sheds some; he is warm and he moves
                 half3 shade = TWHemisphere(half3(0.70, 0.72, 0.76) * lerp(half3(1, 1, 1), TWShadeTint(), 0.45), normalize(i.normalWS));
                 half3 color = albedo * 1.18 * lerp(shade, mainLight.color, band);   // men are lit a step above the field so they read in a shaded trench
                 // and the floor lights them from beneath: on the lava field this is most of the light they get
@@ -284,6 +286,7 @@ Shader "TW/VAT Infantry (URP)"
                     color = lerp(color, TWSky(), top * _TWWet.x * (0.10 + 0.30 * edge) * nearMan);
                     if (_TWWet.z > 0.0) color += TWRainSplash(i.positionWS.xz * 3.1 + i.positionOS.y) * top * nearMan * (TWSky() * 0.9 + mainLight.color * 0.2);
                 }
+                color += glow;
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
                 return half4(MixFog(color, i.fog), 1.0);
