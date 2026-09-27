@@ -3,6 +3,14 @@
 
     python Tools/health.py            from trench-warfare-3d/
     python Tools/health.py --compile  also compile the changed assemblies offline (needs Tools/aosa/occ.py)
+    python Tools/health.py --lanes    only list the other checkouts on this machine (see below)
+
+--lanes answers "who else is working, on what, and will we collide". For every git worktree of this repo it prints
+the branch, its last commit (date and subject: what it is doing), how far it is ahead of and behind the integration
+branch, whether it has uncommitted files, and the files a merge of it with YOUR branch would conflict on (a trial
+merge in memory, `git merge-tree`; nothing is checked out). It replaces the hand-kept "In flight" list, which every
+lane edited and so conflicted in every merge. A conflict it shows is one to talk about before it grows: a note in
+docs/reference/inbox.md, or ask the owner which lane lands first.
 
 It checks, in order, and prints one line each:
   1. lock     who holds THIS checkout's Unity project (Tools/editor_lock.py). HELD means an editor or a batch run
@@ -48,7 +56,42 @@ def unity_cli():
     return None
 
 
+def lanes():
+    _, me = run(['git', 'branch', '--show-current'], cwd=REPO)
+    me = me.strip()
+    _, porcelain = run(['git', 'worktree', 'list', '--porcelain'], cwd=REPO)
+    trees = []
+    for block in porcelain.strip().split('\n\n'):
+        f = dict((l.split(' ', 1) + [''])[:2] for l in block.split('\n') if l)
+        branch = f.get('branch', '').replace('refs/heads/', '') or '(detached)'
+        trees.append((f.get('worktree', '?'), branch))
+    print(f'{len(trees)} checkouts; conflicts are against your branch {me or "(detached)"}')
+    for path, branch in trees:
+        _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', branch], cwd=REPO)
+        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{branch}...{INTEGRATION}'], cwd=REPO)
+        ahead, behind = (counts.split() + ['?', '?'])[:2]
+        _, dirty = run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
+        n = len([l for l in dirty.split('\n') if l.strip()])
+        print(f'\n{Path(path).name}  [{branch}]  +{ahead} -{behind} vs integration'
+              + (f'  {n} uncommitted' if n else '') + ('  (you)' if branch == me else ''))
+        print(f'  {last.strip()[:110]}')
+        if branch in (me, '(detached)') or not me:
+            continue
+        code, out = run(['git', 'merge-tree', '--write-tree', '--name-only', '--no-messages', me, branch], cwd=REPO)
+        files = [l for l in out.strip().split('\n')[1:] if l.strip()]
+        if code == 0:
+            print('  merges cleanly with yours')
+        elif files:
+            names = ', '.join(Path(x).name for x in files[:8]) + (f' (+{len(files) - 8})' if len(files) > 8 else '')
+            print(f'  CONFLICTS with yours in {len(files)}: {names}')
+        else:
+            print('  could not trial-merge: ' + out.strip()[:100])
+
+
 def main():
+    if '--lanes' in sys.argv:
+        lanes()
+        return
     bad = False
 
     sys.path.insert(0, str(ROOT / 'Tools'))

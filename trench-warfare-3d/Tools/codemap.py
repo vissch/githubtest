@@ -25,11 +25,9 @@ WHAT --check FAILS ON
   * a test file, or a SceneHooks member, that docs/reference/tasks.md never names outside its generated blocks
   * a Tools/*.py script or `tw` subcommand that neither pipelines.md nor workflow.md names
   * docs/reference/agent-memory.md over 150 lines, or CLAUDE.md over 110
-It WARNS (does not fail) when CLAUDE.md's "In flight" block is more than 7 days old.
 """
 from __future__ import annotations
 
-import datetime as _dt
 import json
 import re
 import sys
@@ -50,7 +48,6 @@ CLAUDE = REPO / 'CLAUDE.md'
 
 MEMORY_MAX_LINES = 150
 CLAUDE_MAX_LINES = 110
-IN_FLIGHT_MAX_DAYS = 7
 
 # ---- hand-maintained tables -------------------------------------------------------------------------------------
 
@@ -513,13 +510,6 @@ def check(errors, warnings):
         n = len(text.rstrip('\n').split('\n'))
         if n > CLAUDE_MAX_LINES:
             errors.append(f'CLAUDE.md is {n} lines (cap {CLAUDE_MAX_LINES}): it is read by every session, keep it short')
-        m = re.search(r'In flight \(as of (\d{4}-\d{2}-\d{2})\)', text)
-        if not m:
-            errors.append('CLAUDE.md has no "In flight (as of YYYY-MM-DD)" block')
-        else:
-            age = (_dt.date.today() - _dt.date.fromisoformat(m.group(1))).days
-            if age > IN_FLIGHT_MAX_DAYS:
-                warnings.append(f'CLAUDE.md "In flight" block is {age} days old: update it (branches, who, what)')
 
 
 def main():
