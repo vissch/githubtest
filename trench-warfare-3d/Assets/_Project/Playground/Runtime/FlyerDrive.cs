@@ -6,7 +6,8 @@
 // identically (nothing is read from a world matrix).
 //
 // Hovering it bobs and sways; `fly <speed>` circles it, banked into the turn. Knocked out, it falls nose down and
-// turning, and comes to rest on its skids where it hits.
+// turning, and comes to rest on its skids where it hits. A hovercraft (tank3.json "hover") is the same drive held just
+// off the ground: a small bob and roll, its fan spinning, and knocked out it settles flat onto its pods.
 using UnityEngine;
 
 namespace TW.Playground
@@ -17,6 +18,9 @@ namespace TW.Playground
         public float Speed;                        // m/s along a circle of Radius (0: hovers in place)
         public float Radius = 20f;
         public float T { get; private set; }        // its own clock: only dt enters, so copies agree
+        public bool Hover;                         // a hovercraft: rides Altitude (0.45 m) over the ground, settles when dead
+        VehicleRig.Part fan; float fanAngle, fanSpeed, nextSpray;
+        VehicleRig.Part[] pods;
 
         VehicleRig rig;
         VehicleRig.Part hull;
@@ -27,6 +31,9 @@ namespace TW.Playground
         public FlyerDrive Init(VehicleRig r)
         {
             rig = r; hull = r.Find("Hull"); rest = hull.RestLocal;
+            Hover = r.Manifest.hover; fan = r.Find("Fan");
+            pods = System.Array.FindAll(r.Parts.ToArray(), p => p.Name.StartsWith("Pod_"));
+            if (Hover) { Altitude = 0.45f; Radius = 16f; }
             return this;
         }
 
@@ -43,8 +50,25 @@ namespace TW.Playground
             Vector3 at = r > 0f ? new Vector3(Mathf.Cos(angle) * r - r, 0f, Mathf.Sin(angle) * r) : Vector3.zero;
             float heading = r > 0f ? -angle * Mathf.Rad2Deg : 0f;
             float bank = r > 0f ? Mathf.Clamp(Speed * Speed / Radius * 3f, 0f, 25f) : 0f;
-            float bob = Mathf.Sin(T * 1.3f) * 0.35f + Mathf.Sin(T * 0.47f) * 0.2f;
-            float sway = Mathf.Sin(T * 0.8f) * 3f;
+            float amp = Hover ? 0.15f : 1f;
+            float bob = (Mathf.Sin(T * 1.3f) * 0.35f + Mathf.Sin(T * 0.47f) * 0.2f) * amp;
+            float sway = Mathf.Sin(T * 0.8f) * 3f * (Hover ? 0.5f : 1f);
+            // the fan runs while it lives and winds down when it dies (spins about the machine's length)
+            fanSpeed = Mathf.MoveTowards(fanSpeed, dead ? 0f : 900f + 60f * Speed, (dead ? 250f : 600f) * dt);
+            fanAngle = Mathf.Repeat(fanAngle + fanSpeed * dt, 360f);
+            if (fan != null && !fan.Loose) fan.T.localRotation = Quaternion.Euler(0f, 0f, fanAngle);
+            // a hovercraft blows the ground out from under its pods (loop 2 r32: "at 78 m it reads as a parked truck")
+            if (Hover && !dead && rig.Fx != null && T >= nextSpray)
+            {
+                nextSpray = T + (Speed > 0.5f ? 0.12f : 0.25f);
+                foreach (var pod in pods)
+                {
+                    if (pod.Loose) continue;
+                    var c = pod.T.TransformPoint(pod.Box.center); var hc = hull.T.position;
+                    var outward = new Vector3(c.x - hc.x, 0f, c.z - hc.z).normalized;
+                    rig.Fx.Spray(new Vector3(c.x, rig.GroundY + 0.2f * size, c.z), outward, 1.6f * size, Speed > 0.5f ? 0.45f : 0.28f);
+                }
+            }
             if (!dead)
             {
                 float y = Altitude / size + bob / size;
@@ -53,7 +77,14 @@ namespace TW.Playground
                 crashY = y; fallV = 0f;
                 return;
             }
-            // knocked out: it drops, nose down and turning, and stops on the ground
+            // knocked out: a hovercraft sinks onto its pods, a flyer drops nose down and turning and stops on the ground
+            if (Hover)
+            {
+                crashY = Mathf.MoveTowards(crashY, 0f, 0.6f / size * dt);
+                var q = hull.T.localPosition; q.y = rest.y + crashY; hull.T.localPosition = q;
+                hull.T.localRotation = Quaternion.Euler(1.5f, heading, 2f);
+                return;
+            }
             if (!down)
             {
                 fallV += 9.81f / size * dt;

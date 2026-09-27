@@ -21,6 +21,11 @@
 # exhaust pipes). The
 # manifest says "flyer" and the playground flies it (Runtime/FlyerDrive.cs).
 #
+# TW_KIND=hover: a hovercraft (2026-09-27: Downloads/military tank 3d model = 7,098 tris, turned 90 degrees against the
+# other two, so TW_TURN=90 for it; (2) = 2,976; (1) = 1,607): Hull, Pod_FL/FR/RL/RR (the four hover pods), FanRing > Fan
+# (the blades and hub, which spin), Engine, Turret > Gun. The manifest says "hover" (Runtime/FlyerDrive.cs, low).
+# TW_TURN: degrees to turn the LOD0 model about Z first, so its front is -Y like the others.
+#
 # usage: blender -b --factory-startup -P mechsplit.py -- <name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>
 import bpy, bmesh, sys, os, math, json, random, glob, shutil
 import numpy as np
@@ -32,7 +37,7 @@ FBX = argv[1:-2]
 os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 KIND = os.environ.get("TW_KIND", "walker")
 # metres per model unit: the mech stands 0.883 units, 5.8 m; the gunship is 1 unit long, 8 m
-SCALE = float(os.environ.get("TW_SCALE", "8.0" if KIND == "flyer" else "6.6"))
+SCALE = float(os.environ.get("TW_SCALE", {"flyer": "8.0", "hover": "7.0"}.get(KIND, "6.6")))
 
 PARTS = ["Hull", "Turret", "Gun", "Claw_L", "Claw_R", "Jaw_L", "Jaw_R", "Thigh_L", "Thigh_R", "Shin_L", "Shin_R", "Foot_L", "Foot_R"]
 # destruction (VehicleRig): tier 1 fittings, 2 limbs, 3 the turret and gun, 9 the hull; mass shares
@@ -69,6 +74,22 @@ if KIND == "flyer":
         if ax < 0.16 and c.z > 0.34 and -0.40 < c.y < -0.03: return "Turret"
         if ax >= 0.14 and 0.20 <= c.z < 0.36 and c.y > -0.25: return "Wing_" + s
         if ax >= 0.17 and c.z >= 0.36: return "Engine_" + s
+        return "Hull"
+
+if KIND == "hover":
+    PARTS = ["Hull", "Turret", "Gun", "Engine", "FanRing", "Fan", "Pod_FL", "Pod_FR", "Pod_RL", "Pod_RR"]
+    BREAK = {"Gun": dict(tier=3, mass=0.4), "Turret": dict(tier=3, mass=1.0), "Engine": dict(tier=3, mass=1.4),
+             "FanRing": dict(tier=2, mass=1.0), "Fan": dict(tier=1, mass=0.5), "Hull": dict(tier=9, mass=8.0),
+             **{"Pod_" + k: dict(tier=2, mass=0.7) for k in ("FL", "FR", "RL", "RR")}}
+    PARENT = {"Turret": "Hull", "Gun": "Turret", "Engine": "Hull", "FanRing": "Hull", "Fan": "FanRing",
+              **{"Pod_" + k: "Hull" for k in ("FL", "FR", "RL", "RR")}}
+    def part_of(c, lo, hi):
+        ax = abs(c.x)
+        if c.y > 0.33 and c.z > 0.28 and ax < 0.3: return "FanRing" if (hi.x - lo.x) > 0.4 else "Fan"
+        if 0.14 < c.y <= 0.33 and c.z > 0.3 and ax < 0.2: return "Engine"
+        if ax < 0.06 and c.z > 0.58 and c.y < -0.1: return "Gun"
+        if ax < 0.13 and c.z > 0.54: return "Turret"
+        if ax > 0.22 and c.z < 0.26: return "Pod_" + ("F" if c.y < 0 else "R") + ("L" if c.x > 0 else "R")
         return "Hull"
 
 def load(fbx):
@@ -121,6 +142,8 @@ def split(fbx):
     obj, mat, base = load(fbx)
     bm = bmesh.new(); bm.from_mesh(obj.data)
     # the model frame: centred on x and y, feet on z = 0, the widest side 1 unit
+    if fbx == FBX[0] and float(os.environ.get("TW_TURN", "0")):
+        bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(float(os.environ["TW_TURN"])), 3, 'Z'))
     lo, hi = bounds(bm); size = max(hi - lo)
     bmesh.ops.transform(bm, matrix=Matrix.Scale(1.0 / size, 4) @ Matrix.Translation(-Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))), verts=bm.verts)
     bm.faces.ensure_lookup_table()
@@ -128,7 +151,9 @@ def split(fbx):
     for fs in islands(bm):
         a = sum(bm.faces[i].calc_area() for i in fs)
         c = sum((bm.faces[i].calc_center_median() * bm.faces[i].calc_area() for i in fs), Vector()) / max(a, 1e-12)
-        groups[part_of(c, None, None)].append(fs)
+        vs = {v for i in fs for v in bm.faces[i].verts}
+        ilo = Vector([min(v.co[k] for v in vs) for k in range(3)]); ihi = Vector([max(v.co[k] for v in vs) for k in range(3)])
+        groups[part_of(c, ilo, ihi)].append(fs)
     out = {}
     for n in PARTS:
         assert groups[n], "%s: part %s is EMPTY" % (os.path.basename(fbx), n)
@@ -177,8 +202,28 @@ def flyer_pivots_and_sockets(P):
         lo, hi = bounds(P["Engine_" + s]); sock["Socket_Exhaust" + ("0" if s == "L" else "1")] = ("Engine_" + s, Vector(((lo.x + hi.x) / 2, hi.y, (lo.z + hi.z) / 2)))
     return piv, sock
 
+def hover_pivots_and_sockets(P):
+    piv = {"Hull": Vector((0, 0, 0))}
+    for n in PARTS:
+        if n == "Hull": continue
+        lo, hi = bounds(P[n]); piv[n] = (lo + hi) / 2
+    lo, hi = bounds(P["Turret"]); piv["Turret"] = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+    lo, hi = bounds(P["Gun"]); piv["Gun"] = Vector(((lo.x + hi.x) / 2, hi.y, (lo.z + hi.z) / 2))
+    # the fan turns about its own hub: the ring's middle, on the fan's own axis
+    lo, hi = bounds(P["FanRing"]); piv["Fan"] = Vector(((lo.x + hi.x) / 2, bounds(P["Fan"])[0].y, (lo.z + hi.z) / 2))
+    for k in ("FL", "FR", "RL", "RR"): piv["Pod_" + k] = top_centre(P["Pod_" + k])
+    sock = {}
+    lo, hi = bounds(P["Gun"]); sock["Socket_Muzzle"] = ("Gun", Vector(((lo.x + hi.x) / 2, lo.y, (lo.z + hi.z) / 2)))
+    lo, hi = bounds(P["Hull"])
+    for i, (x, f) in enumerate(((0.0, 0.9), (0.1, 0.7), (-0.1, 0.7))):
+        sock["Socket_Fire%d" % i] = ("Hull", Vector((x, (lo.y + hi.y) / 2, lo.z + f * (hi.z - lo.z))))
+    sock["Socket_Deck"] = ("Hull", Vector((0, (lo.y + hi.y) / 2, hi.z)))
+    lo, hi = bounds(P["Engine"]); sock["Socket_Exhaust0"] = ("Engine", Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, hi.z)))
+    return piv, sock
+
 def pivots_and_sockets(P):
     if KIND == "flyer": return flyer_pivots_and_sockets(P)
+    if KIND == "hover": return hover_pivots_and_sockets(P)
     piv = {}
     lo, hi = bounds(P["Hull"]); piv["Hull"] = Vector((0, (lo.y + hi.y) / 2, lo.z))
     lo, hi = bounds(P["Turret"]); piv["Turret"] = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
@@ -262,6 +307,8 @@ lower = []
 for f in FBX[1:]:
     o, _, _ = load(f); lower.append(sum(len(p.vertices) - 2 for p in o.data.polygons)); bpy.data.objects.remove(o)
 budget = {1: lower[0] if len(lower) > 0 else int(t0 * 0.38), 2: lower[1] if len(lower) > 1 else int(t0 * 0.12)}
+# TW_LOD2_TRIS overrides Tripo's count (the playground holds a far LOD under 1,500: the hovercraft's Tripo LOD2 is 1,607)
+if os.environ.get("TW_LOD2_TRIS"): budget[2] = int(os.environ["TW_LOD2_TRIS"])
 LOD2_FROM = os.environ.get("TW_LOD2", "derive")
 lods = [P0]; mats = [mat0]; bases = [base0]
 for k in (1, 2):
@@ -276,7 +323,7 @@ for k in (1, 2):
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
 piv, sock = pivots_and_sockets(P0)
-manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND == "flyer", "lods": [], "snapped": [],
+manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND in ("flyer", "hover"), "hover": KIND == "hover", "lods": [], "snapped": [],
             "derived": [k for k in (1, 2) if not (k == 2 and LOD2_FROM == "tripo")],
             "partList": [dict(name=n, parent=PARENT.get(n, ""), pivot=unity(piv[n] * SCALE), **BREAK[n]) for n in PARTS],
             "socketList": [{"name": s, "part": o, "pos": unity((p - piv[o]) * SCALE)} for s, (o, p) in sock.items()]}

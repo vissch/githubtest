@@ -126,6 +126,7 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
 |---|---|---|---|---|
 | **Mercy**, a field ambulance | `ambulance jeep` 6,236 + `green toy jeep` 880 (the same design; the two `green toy jeep` zips are identical) | `jeepsplit.py` | 7,023 / 2,551 / 1,214 | 0.979 / 4.2, 0.907 / 8.1 |
 | **Croaker**, a two-legged frog mech | `steampunk+frog+robot` 9,738, `mecha frog` 3,702, `mech+robot` 1,008 | `mechsplit.py` | 9,738 / 3,687 / 1,010 | 0.968 / 2.1, 0.900 / 0.9 |
+| **Skimmer**, a hovercraft (fan, machine gun, four pods) | `military tank 3d model` 7,098 (turned 90 degrees: `TW_TURN=90`), `(2)` 2,976, `(1)` 1,607 | `mechsplit.py` `TW_KIND=hover` `TW_LOD2_TRIS=1400` | 7,098 / 2,965 / 1,391 | 0.987 / 2.0, 0.963 / 1.3 |
 | **Hopper**, a frog gunship on two ducted engines | `green+tank (1)` 5,903, `green+cartoon+tank` 3,297, `green+tank` 993 (`green+tank (2)` bundles the three) | `mechsplit.py` `TW_KIND=flyer` | 5,903 / 3,288 / 985 | 0.990 / 2.2, 0.967 / 1.9 |
 
 (The Brute measured 0.967 / 2.9 and 0.932 / 1.8 in the same session.)
@@ -150,6 +151,22 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
   a part shot off in the air starts its flight where it was and falls to the ground. It hovers at 14 m with a bob and a
   sway; `fly 8` circles it banked into the turn. Knocked out, it falls nose down and turning and lands on its skids,
   where it burns and cooks off like the tank. The sim has no flying unit yet: that is the owner's call.
+- **The hovercraft** is the flyer's drive held 0.45 m off the ground: a small bob and roll, its fan spinning (and winding
+  down when it dies), spray blown out from under its pods (thicker on the move), and knocked out it settles flat.
+- **Loop 2 (critic every cycle, `Tools/playground/round2.sh` + `score.py`):** the scripted hits fall back to a machine's
+  own first tier-1/tier-2 part (they hit the Hull of anything without a tank's plate and track, and the Croaker went
+  straight to the cook-off); overkill no longer cooks off in the same breath as the knock-out; a flyer's HE bursts
+  beside it in the air. Parts torn off early are scorched, and the cook-off blackens everything already lying about
+  (clean claws, pods and shrouds drew the eye first in every wreck). A walker's or flyer's `Centre` (report, LOD pick,
+  labels) is its hull's. The Mercy's LOD2 is Tripo's mesh painted with LOD0's colours (a Cycles bake): 1->2 block colour
+  11.0 -> 4.2-4.6. The walker runs its gait at a third of the world's size (`GaitScale` 3): WalkerGait times its steps by
+  the pace in m/s, tuned on crabs lifting two or three legs at once, and on two legs it took four 0.4 m steps a second;
+  now planted feet cover 0.7 rig units, centred under the hip (`Lead` 0.3), the body at its modelled height (`Reach` 1.1),
+  measured with the stride probe (`WalkerDrive.FootMinZ/MaxZ`). The body also rises as a foot passes, leans over the
+  standing foot and turns its hips with the stride.
+- **Measuring on this bench, lessons:** m3's contrast flips 0.24/0.44 frame to frame on one build, so the round takes nine
+  frames and scores the median (floor 0.08); a vehicle's block colour wanders 0.2-1.0 on an unchanged model; the editor's
+  fps is not a signal. `round.sh` selects the tank itself (a round once scored the hovercraft as "the tank").
 - Scales: the mech 5.8 m tall and the gunship 8 m long at `size 1`, the ambulance 4.6 m long. The battle draws walkers
   2.5x and tanks 1.7x (`VehicleSize`); how big these should be beside them is the owner's call too.
 

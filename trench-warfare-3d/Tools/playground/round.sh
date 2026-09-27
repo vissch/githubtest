@@ -4,7 +4,9 @@
 set -u
 T="${1:-r0}"; HERE="$(dirname "${BASH_SOURCE[0]}")"; P="bash $HERE/pg.sh"
 OUT="${PG_OUT:-$(cd "$HERE/../.." && (pwd -W 2>/dev/null || pwd))/Captures/playground}"
-$P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1"
+# the tank, whatever the last session left selected (a round once measured the hovercraft as "the tank", loop 2 r32)
+$P do "model v 0"; sleep 2
+$P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1; size 1.7"
 # ---- each LOD's colour fitted to LOD0's on the render, before anything is shot (kept for the session)
 $P do "vehicle"; sleep 2; $P do "lodfit $OUT/${T}_fit_vehicle.json"; sleep 2
 $P do "unit; clip Rifle Idle"; sleep 2; $P do "lodfit $OUT/${T}_fit_unit.json"; sleep 2
@@ -53,9 +55,9 @@ $P do "cam -2 1.5 -3 200 25 75 25"; sleep 1
 $P shot ${T}_m2_mixed_standard
 $P do "ground mud; team split"; sleep 0.5
 $P shot ${T}_m3_mud_standard
-# the contrast reading flips between two values frame to frame (0.24 / 0.44 on an unchanged scene, loop 2): four more
-# frames, and score.py takes the median of the five
-for k in 1 2 3 4; do sleep 0.7; $P shot ${T}_m3c_$k > /dev/null; done
+# the contrast reading flips between two values frame to frame (0.24 / 0.44 on an unchanged scene, loop 2): eight more
+# frames (0.25-0.44 across five on one build), and score.py takes the median of the nine
+for k in 1 2 3 4 5 6 7 8; do sleep 0.5; $P shot ${T}_m3c_$k > /dev/null; done
 $P do "sidehue $OUT/${T}_m3_sidehue.json"; sleep 1
 $P do "ground grid; team -1"
 # ---- a building from the game's kit, shelled until it comes down

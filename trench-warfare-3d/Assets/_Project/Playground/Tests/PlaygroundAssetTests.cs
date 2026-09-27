@@ -171,7 +171,10 @@ namespace TW.Tests.Playground
                 var m = VehicleManifest.Parse(v.Manifest);
                 var gun = m.partList.FirstOrDefault(p => p.name == "Gun");
                 if (gun == null) continue;
-                Assert.That(VehicleManifest.V(gun.pivot).z, Is.GreaterThan(0f), "the main gun's trunnion is in the front half (+Z)");
+                // the muzzle end in the front half (+Z): a machine turned 180 degrees fails this. (Not the trunnion: the
+                // hovercraft's gun is mounted mid-deck, its trunnion 0.65 m behind the middle.)
+                var barrel = FindDeep(v.Lods[0].transform, "Gun").GetComponent<MeshFilter>().sharedMesh.bounds;
+                Assert.That(VehicleManifest.V(gun.pivot).z + barrel.max.z, Is.GreaterThan(0f), v.Name + ": the gun's muzzle is in the front half (+Z)");
                 for (int k = 0; k < v.Lods.Length; k++)
                     Assert.That(FindDeep(v.Lods[k].transform, "Gun").GetComponent<MeshFilter>().sharedMesh.bounds.center.z, Is.GreaterThan(0f), $"LOD{k}: the barrel runs forward of its trunnion");
             }

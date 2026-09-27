@@ -3,7 +3,7 @@
 #   python Tools/playground/score.py TAG [PREV] [DIR]   -> DIR/TAG_scores.json; prints the table and REGRESSED lines
 # Noise floors, measured on unchanged builds (docs/22; loop 2): pop IoU 0.006; block colour 0.6 for the tank and frog
 # and 1.0 for the new machines (a gunship read 0.2-0.97 three times running; the frog's 2->3 swings 2-6 and is not
-# flagged); m3 contrast is the median of five frames (one frame flips 0.24 / 0.44) with a floor of 0.03; side cross-talk
+# flagged); m3 contrast is the median of nine frames (single frames run 0.25-0.44 on one build) with a floor of 0.08; side cross-talk
 # 0.002. Frames per second are the editor's, swayed by whatever else the machine runs: shown, never flagged.
 import sys, json, os, glob
 T = sys.argv[1]; PREV = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] != "-" else None
@@ -23,7 +23,7 @@ def read(t):
     sc = {}
     sc.update(pops(f"{D}/{t}_pop_vehicle.json", "brute"))
     sc.update(pops(f"{D}/{t}_pop_unit.json", "frog"))
-    for n in ("croaker", "hopper", "mercy"): sc.update(pops(f"{D}/{t}_pop_{n}.json", n))
+    for n in ("croaker", "hopper", "mercy", "skimmer"): sc.update(pops(f"{D}/{t}_pop_{n}.json", n))
     p = f"{D}/{t}_m3_sidehue.json"
     if os.path.exists(p):
         j = json.load(open(p))
@@ -38,9 +38,9 @@ def read(t):
     return sc
 
 # which way is better, and how much a number may wander on an unchanged build
-RULE = {"iou": (+1, 0.006), "block": (-1, 0.6), "contrast": (+1, 0.03), "cross-talk": (-1, 0.002), "gap": (+1, 5), "fps": (0, 0)}
+RULE = {"iou": (+1, 0.006), "block": (-1, 0.6), "contrast": (+1, 0.08), "cross-talk": (-1, 0.002), "gap": (+1, 5), "fps": (0, 0)}
 def rule(k):
-    if "block" in k and k.split()[0] in ("croaker", "hopper", "mercy"): return (-1, 1.0)
+    if "block" in k and k.split()[0] in ("croaker", "hopper", "mercy", "skimmer"): return (-1, 1.0)
     for key, r in RULE.items():
         if key in k: return r
     return (0, 0)

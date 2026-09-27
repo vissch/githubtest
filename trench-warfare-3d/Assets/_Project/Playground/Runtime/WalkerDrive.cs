@@ -20,12 +20,27 @@ namespace TW.Playground
         public float StrideArms = 30f;
         public float Rise = 0.12f;                 // metres the body rises as a foot passes under it (rig units)
         public float Sway = 4f;                    // degrees it leans over the foot it stands on
-        public float HipTurn = 5f;                 // degrees the hips turn with the stride             // degrees of arm swing per metre the feet are apart along the body
+        public float HipTurn = 5f;                 // degrees the hips turn with the stride
+        // measured with the stride probe on the Croaker at 2.5 m/s (loop 2 cycle 2): GaitScale 1 -> planted feet over 0.38
+        // rig units, 0.32 behind the hip; 3 -> 0.70; Lead 0.3 centres them (0.6 put them 0.3 ahead); Reach 1.1 stands the
+        // body at its modelled height (hull 1.16 against 1.12; 1.0 sank it to 0.88, 1.2 raised it to 1.37)
+        public float Lead = 0.3f;                  // metres ahead of the hip the gait stands each foot (rig units)
+        public float Reach = 1.1f;                 // the gait's leg as a share of the modelled hip-to-toe length
+        /// <summary>The gait runs in a frame this much smaller than the world. WalkerGait's step timing is set by the pace in
+        /// m/s and was tuned on crabs that lift two or three legs at once: a biped at 2.5 m/s got 0.26 s swings, four quick
+        /// steps a second of 0.4 m (loop 2 r32: "a shuffle"). Seen at half size, the same walk takes longer, slower steps.</summary>
+        public float GaitScale = 3f;
+        float Unit => rig.Size / GaitScale;        // gait metres per rig unit
+        Vector3 GaitPos => WalkPos / GaitScale;
+        /// <summary>Where the feet have been, relative to their hips along the body, since the last Reset: the stride probe
+        /// (loop 2 r32: the steps were centred 0.45 m behind the hips and spanned 0.64 m).</summary>
+        public float FootMinZ = float.MaxValue, FootMaxZ = float.MinValue, FootSumZ; public int FootN;
+        public void ResetStride() { FootMinZ = float.MaxValue; FootMaxZ = float.MinValue; FootSumZ = 0f; FootN = 0; }             // degrees of arm swing per metre the feet are apart along the body
         public Vector3 WalkPos { get; private set; }   // metres from where it was built, in its build frame
         public float WalkYaw { get; private set; }     // radians turned since it was built
 
         VehicleRig rig;
-        readonly WalkerGait gait = new WalkerGait();
+        WalkerGait gait = new WalkerGait();
         public WalkerGait Gait => gait;                 // read by tests and the gait probe
         TankModel model;
         Vector3 startPos; Quaternion startRot;
@@ -38,8 +53,8 @@ namespace TW.Playground
 
         public WalkerDrive Init(VehicleRig r)
         {
-            rig = r;
-            startPos = transform.position; startRot = transform.rotation;
+            rig = r; gait = new WalkerGait();   // a gait keeps its stance once worked out: a new rig needs a new one
+            if (startRot == default) { startPos = transform.position; startRot = transform.rotation; }
             hull = r.Find("Hull"); turret = r.Find("Turret");
             hullPivot = hull.RestLocal;
             var legs = new TankModel.LegRig[2];
@@ -55,10 +70,12 @@ namespace TW.Playground
                 l1[s] = (knee0[s] - hip0[s]).magnitude; l2[s] = (ankle0[s] - knee0[s]).magnitude;
                 // the gait's leg: ONE piece from hip to toe as modelled, so its ride height and stance come out as the
                 // sculpt stands (a jointed leg is taken at full stretch and stood the frog up straight-legged)
-                Vector3 rest = (toe0[s] - hip0[s]) * r.Size;
+                Vector3 rest = (toe0[s] - hip0[s]) * (r.Size / GaitScale) * Reach;
                 legs[s] = new TankModel.LegRig
                 {
-                    Chain = new[] { thigh[s].Index }, Hip = hip0[s] * r.Size, Toe = Vector3.zero, Rest = rest,
+                    // the hip given to the gait stands Lead ahead of the modelled one: its feet are homed under it, and
+                    // the frog's toes, modelled 0.7 m behind its hips, left every step centred behind the body
+                    Chain = new[] { thigh[s].Index }, Hip = (hip0[s] + new Vector3(0f, 0f, Lead)) * (r.Size / GaitScale), Toe = Vector3.zero, Rest = rest,
                     Outward = new Vector3(Mathf.Sign(hip0[s].x), 0f, 0f), Reach = rest.magnitude, Drop = Mathf.Max(0.05f, -rest.y),
                     Bone = new[] { rest.magnitude }, RestRot = new[] { Quaternion.identity }, RestDir = new[] { rest.normalized },
                     ParentRot = Quaternion.identity,
@@ -89,14 +106,14 @@ namespace TW.Playground
             if (free && !InPlace) transform.SetPositionAndRotation(startPos + startRot * WalkPos, startRot * face);
             byte lost = 0;
             for (int s = 0; s < 2; s++) if (thigh[s].Loose || shin[s].Loose || foot[s].Loose) lost |= (byte)(1 << s);
-            if (dt > 0f) gait.Step(model, WalkPos, WalkYaw, vel, yawRate, lost, dead, dt, Ground);
+            if (dt > 0f) gait.Step(model, GaitPos, WalkYaw, vel / GaitScale, yawRate, lost, dead, dt, Ground);
             Pose(face);
         }
 
         void Pose(Quaternion face)
         {
             var inv = Quaternion.Inverse(face);
-            float size = rig.Size;
+            float size = Unit;
             // the body: up by how high the gait rides it, tilted by the plane its feet make
             float dy = gait.Height / size - 0f;
             // a biped carries its weight: the body rises as the swinging foot passes under it, leans over the foot it
@@ -109,7 +126,7 @@ namespace TW.Playground
                 float k = Mathf.Sin(gait.Feet[s].Swing * Mathf.PI);
                 lift = Mathf.Max(lift, k); lean += (s == 0 ? -1f : 1f) * k;   // left foot up: lean onto the right
             }
-            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (gait.Feet[s].At - WalkPos)).z / size;
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (gait.Feet[s].At - GaitPos)).z / size;
             dy += Rise * lift;
             var tilt = Quaternion.AngleAxis(-gait.Pitch * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-gait.Roll * Mathf.Rad2Deg + Sway * lean, Vector3.forward)
                      * Quaternion.AngleAxis(Mathf.Clamp(stride, -1.5f, 1.5f) * HipTurn, Vector3.up);
@@ -122,7 +139,7 @@ namespace TW.Playground
                 if (thigh[s].Loose || gait.Feet.Length <= s) continue;
                 var f = gait.Feet[s];
                 // the foot's toe in the rig's frame; a swinging foot tips its toe down a little
-                Vector3 toe = inv * (f.At - WalkPos) / size;
+                Vector3 toe = inv * (f.At - GaitPos) / size;
                 float swing = f.Swing >= 0f ? Mathf.Sin(f.Swing * Mathf.PI) : 0f;
                 var footRot = Quaternion.Euler(18f * swing, 0f, 0f);
                 Vector3 ankle = toe + footRot * (ankle0[s] - toe0[s]);
@@ -142,6 +159,7 @@ namespace TW.Playground
                 if (!shin[s].Loose) shin[s].T.localRotation = Quaternion.Inverse(rThigh) * rShin;
                 if (!foot[s].Loose) foot[s].T.localRotation = Quaternion.Inverse(rShin) * footRot;
                 along += (s == 0 ? 1f : -1f) * toe.z;
+                if (f.Swing < 0f) { float z = toe.z - hip0[s].z; FootMinZ = Mathf.Min(FootMinZ, z); FootMaxZ = Mathf.Max(FootMaxZ, z); FootSumZ += z; FootN++; }
             }
             // the arms swing against the legs: a foot forward, the other side's arm forward
             for (int s = 0; s < 2; s++)

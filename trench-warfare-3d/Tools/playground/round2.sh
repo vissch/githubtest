@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # The second batch's capture round (docs/22): every machine in the vehicle bay, the same stills every time, and each
 # machine's LOD pops, so rounds compare like with like.  usage: round2.sh TAG   (after round.sh TAG, or on its own)
-# Vehicles are addressed by index in the library's (alphabetical) order: Brute 0, Croaker 1, Hopper 2, Mercy 3.
+# Vehicles are addressed by index in the library's (alphabetical) order: Brute 0, Croaker 1, Hopper 2, Mercy 3, Skimmer 4.
 set -u
 T="${1:-r0}"; HERE="$(dirname "${BASH_SOURCE[0]}")"; P="bash $HERE/pg.sh"
 OUT="${PG_OUT:-$(cd "$HERE/../.." && (pwd -W 2>/dev/null || pwd))/Captures/playground}"
 $P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1; size 1.7"
-for spec in "1:croaker" "2:hopper" "3:mercy"; do
+for spec in "1:croaker" "2:hopper" "3:mercy" "4:skimmer"; do
   k=${spec%%:*}; n=${spec#*:}
   $P do "model v $k"; sleep 2
   # the three LODs side by side, standing (a flyer hovers), then one scripted destruction
@@ -28,6 +28,8 @@ for spec in "1:croaker" "2:hopper" "3:mercy"; do
              $P do "cam 0 4 0 60 6 26 35"; sleep 0.6; $P shot ${T}_${n}_8_walk_side; $P do "walk 0" ;;
     hopper)  $P do "cam 0 14 0 150 10 30 35"; sleep 1; $P shot ${T}_${n}_6_hover
              $P do "fly 8; cam follow 200 14 45 35"; sleep 3; $P shot ${T}_${n}_7_circling; $P do "fly 0" ;;
+    skimmer) $P do "cam 0 3 0 150 12 34 35"; sleep 1; $P shot ${T}_${n}_6_close
+             $P do "fly 6; cam follow 200 14 36 35"; sleep 3; $P shot ${T}_${n}_7_skimming; $P do "fly 0" ;;
     mercy)   $P do "cam 0 1.5 0 20 20 22 35"; sleep 1; $P shot ${T}_${n}_6_close
              $P do "cam 0 1.5 0 200 20 22 35"; sleep 1; $P shot ${T}_${n}_7_rear ;;
   esac
