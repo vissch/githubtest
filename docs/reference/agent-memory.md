@@ -89,6 +89,13 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-09-23. An explicit Euler spring blew a tank 3 km** on one long frame (omega·dt ≈ 2 during an eval stall).
   Springs here are exact or clamp dt.
 
+- **2026-09-25 (AOSA). No player build drew any FlipbookFx effect.** Shaders made only with `new Material(Shader.Find)`
+  lose their INSTANCING_ON variants to "Strip Unused" (Always Included does not keep them); the editor compiles them on
+  demand, so it showed everything. Fixed with instancing keeper materials in `Resources/ShaderKeep/` and a guard test.
+  Check a look in a player build, not only in the editor.
+- **2026-09-25 (AOSA). The men stand on duckboards, not the ground.** A ground-only effect "under the men" changed
+  0.002% of pixels. Check what a man stands on before writing a change for under him.
+
 ## Sharing the machine
 - **2026-09-23. Saving into `Assets/` under a peer's open editor recompiled it and killed their Play session**, twice
   in one day. Then a landing script ran although its lock claim had failed: `claim ... | tail` swallowed the exit
@@ -110,6 +117,9 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
   "Failed to handle /api/exec request". The batch run listens on the pipeline port like an editor; unpinned CLI calls
   and the MCP server reach it. `tw` now pins its project; `gate.ps1` reruns failures that are only this noise.
 
+- **2026-09-25 (AOSA). Batch `unity test` editors write the shared `Editor.log`** unless given `-- -logFile`, and every
+  editor, batch ones included, starts the pipeline server that other sessions' requests reach.
+
 ## Process
 - **2026-09-22. After editing a Burst job the first run used managed code** and broke determinism tests. Every sim
   job has `CompileSynchronously = true`.
@@ -123,3 +133,7 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-09-25. Every entry-point doc had rotted within five days** (docs/04 named four systems that never existed;
   README called built systems stubs). Tables that can be derived are now generated, and the rest is checked, by
   `Tools/codemap.py` inside `validate.py`.
+- **2026-09-27 (AOSA). A blind count off held frames was a quarter low** (136 against a log's 183 tracer births).
+  Count events from a log, not from pixels. A knob A/B on held-clock stills settles "is it drawn at all" in one run.
+- **2026-09-25 (AOSA). Normalise sim costs by men alive:** spreading the stress army cut Sim.Step 39% only because more
+  men died.
