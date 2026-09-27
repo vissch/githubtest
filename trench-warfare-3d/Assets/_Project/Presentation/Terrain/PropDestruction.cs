@@ -41,7 +41,10 @@ namespace TW.Presentation.Terrain
         /// whether it is a shelter (it sheds bags and stands) and whether a tank flattens it.
         /// <para>Erode is how fast a stream of bullets eats it (1 = sacking, timber and scrub; concrete 0.08), and Jolt how
         /// far a round knocks it about (1 = a helmet, 0 = anything built in place). Both are PropWear's.</para></summary>
-        struct Rule { public DebrisRenderer.Piece Piece; public float Hp, Size, Dust, Erode, Jolt; public int Pieces; public Color Tint; public bool Shelter, Crush, Tinted, Cook, Kick; }
+        /// <para>Damaged / Intact (docs/21 phase 3): a lining panel's broken twin, and a twin's whole panel. The pair share one key
+        /// (the whole panel's), one hp and one memory: TrenchSectionRules takes a section intact -> damaged -> gone. Life: how long
+        /// the pieces are drawn (0 = the default 45 s; the lining's 12 s).</para>
+        struct Rule { public DebrisRenderer.Piece Piece; public float Hp, Size, Dust, Erode, Jolt, Life; public int Pieces; public Color Tint; public bool Shelter, Crush, Tinted, Cook, Kick; public BattlefieldKit.Module Damaged, Intact; }
         /// <summary>A dud that has been set off, going up when it is due.</summary>
         struct Cooking { public Vector3 At; public float Due; public uint Salt; }
         /// <summary>A house chunk whose support has gone, to be looked at when it is due.</summary>
@@ -87,6 +90,23 @@ namespace TW.Presentation.Terrain
         readonly Dictionary<long, float> damage = new Dictionary<long, float>(256);
         readonly Dictionary<long, int> bagsLeft = new Dictionary<long, int>(32);
         readonly HashSet<long> destroyed = new HashSet<long>();
+        readonly HashSet<long> damaged = new HashSet<long>();   // lining sections in their damaged state (the whole panel's key)
+        int sectionPieces;                                       // pieces thrown off the lining by the strike in hand
+        // the sections the strike in hand has already hit: the rules dictionary lists a panel just before its broken twin,
+        // so a panel that broke drew its twin under the same strike, which then took the same harm again and went straight
+        // to Gone (critique 2026-09-27: one shell never left a fresh section Damaged)
+        readonly HashSet<long> struckSections = new HashSet<long>();
+        static bool IsLining(in Rule rule) => rule.Damaged != null || rule.Intact != null;
+
+        /// <summary>Lining pieces are rationed per strike (MaxSectionPiecesPerStrike): Break, Collapse and Chip all draw on
+        /// it; past it a section throws dust only. Anything that is not lining gets what it asked for.</summary>
+        int LiningShare(in Rule rule, int want)
+        {
+            if (!IsLining(rule) || want <= 0) return want;
+            int got = Mathf.Clamp(want, 0, Mathf.Max(0, TrenchSectionRules.MaxSectionPiecesPerStrike - sectionPieces));
+            sectionPieces += got;
+            return got;
+        }
         readonly List<(int page, int slot, Matrix4x4 m)> found = new List<(int, int, Matrix4x4)>(64);
         readonly List<(int page, int slot, Matrix4x4 m)> near = new List<(int, int, Matrix4x4)>(4);
         readonly List<Falling> falling = new List<Falling>(32);
@@ -108,6 +128,8 @@ namespace TW.Presentation.Terrain
         bool subscribed;
         uint lastCrushTick = uint.MaxValue;
         public int Collapsed => destroyed.Count;
+        /// <summary>Lining sections standing damaged (their broken twin drawn where the panel stood).</summary>
+        public int SectionsDamaged => damaged.Count;
         /// <summary>Props flattened by tanks and chips thrown by hits that did not finish a prop, for the capture tools.</summary>
         public int Crushed { get; private set; }
         public int Chipped { get; private set; }
@@ -126,12 +148,28 @@ namespace TW.Presentation.Terrain
             if (props == null) { enabled = false; return; }
             props.Suppress = Suppress;
             props.MaskOf = MaskOf;
+            props.Replace = Replace;
         }
+
+        /// <summary>Tests only (TrenchSectionTests): the props to act on, hooked up as Start does, and the rules built,
+        /// so a strike can be driven through the real Strike / Section / Finish / Replace / Suppress with no scene.</summary>
+        public void AttachForTests(BattlefieldProps testProps)
+        {
+            props = testProps;
+            props.Suppress = Suppress; props.MaskOf = MaskOf; props.Replace = Replace;
+            BuildRules(props.Kit);
+        }
+
+        /// <summary>Tests only: a strike at a point, as an Explosion of this reach and power would make.</summary>
+        public void StrikeForTests(Vector3 at, float reach, float power) => Strike(at, reach, power, 1u, false);
+        /// <summary>Tests only: lining pieces the last strike threw (its ration, MaxSectionPiecesPerStrike).</summary>
+        public int SectionPiecesForTests => sectionPieces;
 
         void OnDestroy()
         {
             if (props != null && props.Suppress == (System.Func<BattlefieldKit.Module, Matrix4x4, bool>)Suppress) props.Suppress = null;
             if (props != null && props.MaskOf == (System.Func<BattlefieldKit.Module, Matrix4x4, HouseKit.ChunkMask>)MaskOf) props.MaskOf = null;
+            if (props != null && props.Replace == (System.Func<BattlefieldKit.Module, Matrix4x4, BattlefieldKit.Module>)Replace) props.Replace = null;
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
         }
 
@@ -171,12 +209,25 @@ namespace TW.Presentation.Terrain
             Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 0.8f, Size = 0.9f, Pieces = 9, Dust = 3f, Erode = 1f, Jolt = .5f, Tint = Timber, Crush = true },
                 kit.planks, kit.duckboards, kit.ladder, kit.supplies, kit.looseBoards, kit.bracedPlank, kit.crossedBoards, kit.hatchLid, kit.plankDoor,
                 kit.signBoard, kit.graveMarker, kit.stakes, kit.hedgehog, kit.wirePost, kit.knifeRest);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.2f, Size = 0.9f, Pieces = 8, Dust = 3f, Erode = 1f, Jolt = .12f, Tint = Timber }, kit.TrenchWalls);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.5f, Size = 0.9f, Pieces = 6, Dust = 2.5f, Erode = 1f, Jolt = .1f, Tint = Timber }, kit.TrenchFloors);
+            // the lining, a section at a time (one panel, one course, one length of boards): intact -> damaged -> gone
+            // (docs/21 phase 3, TrenchSectionRules). The broken twin shares the whole panel's key, hp and memory, and
+            // collapses to half the pieces; the lining's pieces lie LiningLife seconds, not the usual forty-five
+            void Lining(Rule rule, BattlefieldKit.Module[] whole, BattlefieldKit.Module[] twins)
+            {
+                for (int k = 0; k < whole.Length; k++)
+                {
+                    var twin = twins != null && k < twins.Length ? twins[k] : null;
+                    var standing = rule; standing.Damaged = twin; standing.Life = TrenchSectionRules.PieceLife; Add(standing, whole[k]);
+                    if (twin == null) continue;
+                    var broken = rule; broken.Intact = whole[k]; broken.Life = TrenchSectionRules.PieceLife; broken.Pieces = Mathf.Max(2, rule.Pieces / 2); Add(broken, twin);
+                }
+            }
+            Lining(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.2f, Size = 0.9f, Pieces = 8, Dust = 3f, Erode = 1f, Jolt = .12f, Tint = Timber }, kit.TrenchWalls, kit.TrenchWallsDamaged);
+            Lining(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 1.5f, Size = 0.9f, Pieces = 6, Dust = 2.5f, Erode = 1f, Jolt = .1f, Tint = Timber }, kit.TrenchFloors, kit.TrenchFloorsDamaged);
             // bags: burst by a near miss; a lone sack goes under a track, a parapet or a gabion does not
             Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 0.9f, Size = 0.55f, Pieces = 8, Dust = 3.5f, Erode = 1f, Jolt = .35f, Tint = Sack, Crush = true }, kit.sandbag);
             Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 0.9f, Size = 0.55f, Pieces = 8, Dust = 3.5f, Erode = 1f, Jolt = .08f, Tint = Sack }, kit.sandbags, kit.gabion);
-            Add(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 1.0f, Size = 0.55f, Pieces = 10, Dust = 3.5f, Erode = 1f, Jolt = .06f, Tint = Sack }, kit.TrenchBags);
+            Lining(new Rule { Piece = DebrisRenderer.Piece.Sandbag, Hp = 1.0f, Size = 0.55f, Pieces = 10, Dust = 3.5f, Erode = 1f, Jolt = .06f, Tint = Sack }, kit.TrenchBags, kit.TrenchBagsDamaged);
             // iron: sheets and fencing flatten; guns, limbers, the aeroplane are shot to pieces
             Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.0f, Size = 0.5f, Pieces = 6, Dust = 2.5f, Erode = .35f, Jolt = .6f, Tint = Metal, Crush = true }, kit.corrugated, kit.wireFence);
             Add(new Rule { Piece = DebrisRenderer.Piece.Plate, Hp = 1.3f, Size = 0.5f, Pieces = 8, Dust = 3f, Erode = .3f, Jolt = .05f, Tint = Metal },
@@ -196,7 +247,9 @@ namespace TW.Presentation.Terrain
                 kit.helmet, kit.messKit, kit.spade, kit.ammoTin, kit.boots, kit.leanRifle, kit.bucket, kit.hangingTins, kit.wireTins, kit.rag);
             // scrub: gone at a touch, a few twigs
             Add(new Rule { Piece = DebrisRenderer.Piece.Shard, Hp = 0.3f, Size = 0.25f, Pieces = 4, Dust = 1.2f, Erode = 1f, Jolt = .8f, Tint = Scrub, Crush = true },
-                kit.bush, kit.tuft, kit.reeds, kit.grass, kit.poppies, kit.cattails, kit.branches);
+                kit.bush, kit.tuft, kit.reeds, kit.grass, kit.poppies, kit.cattails, kit.branches, kit.grassMicro, kit.poppiesMicro);
+            // the camp's lantern post: light timber, knocked over by a track like a signboard
+            Add(new Rule { Piece = DebrisRenderer.Piece.Plank, Hp = 0.8f, Size = 0.6f, Pieces = 5, Dust = 2f, Erode = 1f, Jolt = .3f, Tint = Timber, Crush = true }, kit.lantern);
             // the village houses, chunk by chunk: stone and plaster to rubble, beams, boards and tiles to planks; a little
             // weaker than a lone wall stub (a chunk is a piece of a wall), never flattened by a tank
             var houseStone = new Rule { Piece = DebrisRenderer.Piece.Rubble, Hp = 1.4f, Size = 0.42f, Pieces = 12, Dust = 5f, Erode = .2f, Tint = Stone, Tinted = true };
@@ -229,6 +282,9 @@ namespace TW.Presentation.Terrain
             foreach (var kv in rules) if (kv.Value.Crush) crushable.Add(kv.Key);
         }
 
+        /// <summary>The key a prop's damage is kept under: a lining twin's is its whole panel's, so the pair share it.</summary>
+        long KeyOf(BattlefieldKit.Module module, in Rule rule, in Matrix4x4 m) => Key(rule.Intact != null ? rule.Intact : module, m);
+
         long Key(BattlefieldKit.Module module, in Matrix4x4 m)
         {
             indexOf.TryGetValue(module, out int index);
@@ -240,7 +296,7 @@ namespace TW.Presentation.Terrain
         /// tree's fallen top whose crown is still in the air. A pure function of module, position and what has happened.</summary>
         bool Suppress(BattlefieldKit.Module module, Matrix4x4 m)
         {
-            if (destroyed.Count > 0 && rules != null && rules.ContainsKey(module) && destroyed.Contains(Key(module, m))) return true;
+            if (destroyed.Count > 0 && rules != null && rules.TryGetValue(module, out var rule) && destroyed.Contains(KeyOf(module, rule, m))) return true;
             if (module == props.Kit?.fallen)
                 for (int i = 0; i < freshBreaks.Count; i++)
                 {
@@ -248,6 +304,14 @@ namespace TW.Presentation.Terrain
                     if (dx * dx + dz * dz < 1.5f * 1.5f) return true;
                 }
             return false;
+        }
+
+        /// <summary>BattlefieldProps asks this for every instance it composes: a lining panel whose section is damaged is
+        /// drawn as its broken twin, at the same matrix (the composer keeps emitting the whole panel).</summary>
+        BattlefieldKit.Module Replace(BattlefieldKit.Module module, Matrix4x4 m)
+        {
+            if (damaged.Count == 0 || rules == null || !rules.TryGetValue(module, out var rule) || rule.Damaged == null) return null;
+            return damaged.Contains(Key(module, m)) ? rule.Damaged : null;
         }
 
         void OnSimEvent(SimEvent e)
@@ -281,6 +345,8 @@ namespace TW.Presentation.Terrain
             var centre = new Vector2(at.x, at.z);
             Vector3 origin = new Vector3(at.x, GroundAt(at.x, at.z), at.z);
             int n = 0;
+            sectionPieces = 0;
+            struckSections.Clear();
             foreach (var kv in rules)
             {
                 var module = kv.Key; var rule = kv.Value;
@@ -292,17 +358,77 @@ namespace TW.Presentation.Terrain
                     var m = Home(module, page, slot, drawn);   // it may be mid-knock (PropWear): key it where it lies
                     float d = Vector2.Distance(centre, new Vector2(m.m03, m.m23));
                     if (d > reach) continue;
-                    long key = Key(module, m);
+                    long key = KeyOf(module, rule, m);
                     if (destroyed.Contains(key)) continue;
                     float harm = power * (1f - 0.75f * d / reach);
                     uint s = salt + (uint)(n++ * 7);
                     if (rule.Shelter) { ShedBags(module, rule, m, key, origin, harm, debris, s); continue; }
                     float hp = damage.TryGetValue(key, out float left) ? left : rule.Hp;
+                    if (rule.Damaged != null || rule.Intact != null)
+                    {
+                        if (!struckSections.Add(key)) continue;   // its twin, drawn by this very strike: once a strike
+                        // a section of the lining: intact -> damaged -> gone, and heavy ordnance close by shatters it at once
+                        bool heavy = TrenchSectionRules.IsHeavy(reach / BlastReach, power, d, reach);
+                        var was = damaged.Contains(key) ? SectionState.Damaged : SectionState.Intact;
+                        var state = TrenchSectionRules.Apply(ref hp, rule.Hp, harm, heavy, was);
+                        Section(module, rule, page, slot, key, m, origin, power, harm, hp, was, state, debris, s, shake);
+                        continue;
+                    }
                     hp -= harm;
                     if (hp > 0f) { damage[key] = hp; Chip(module, rule, m, origin, harm, debris, s); continue; }
                     Finish(module, rule, page, slot, key, m, origin, power, harm, debris, s, shake);
                 }
             }
+        }
+
+        /// <summary>A section of the lining after a hit: still whole (a chip), just damaged (its broken twin takes its place
+        /// where it stood and the pieces it lost fly), or gone (whatever stands there collapses).</summary>
+        void Section(BattlefieldKit.Module module, Rule rule, int page, int slot, long key, in Matrix4x4 m, Vector3 origin, float power, float harm, float hp, SectionState was, SectionState state, DebrisRenderer debris, uint salt, bool shake)
+        {
+            if (state == SectionState.Gone) { Finish(module, rule, page, slot, key, m, origin, power, harm, debris, salt, shake); return; }
+            damage[key] = hp;
+            if (state == SectionState.Damaged && was == SectionState.Intact && rule.Damaged != null)
+            {
+                if (damaged.Count < MaxRemembered) damaged.Add(key);
+                UnjoltSlot(module, page, slot);        // a knock running on the panel would Move it back up over its twin
+                props.Hide(module, page, slot);
+                props.AddInstance(rule.Damaged, m);   // the twin, where the panel stood; Replace keeps it there through every recomposition
+                swept.Clear();                         // PropWear's cells still list the hidden panel, never the twin (rare: rebuilt lazily)
+                Break(module, rule, m, origin, harm, debris, salt);
+                return;
+            }
+            Chip(module, rule, m, origin, harm, debris, salt);
+        }
+
+        /// <summary>Intact -> damaged: what the section lost flies (a few shards and a board off a wall, a couple of sacks
+        /// off a parapet, shards and a board off the duckboards, and the earth behind), with less dust than a collapse.
+        /// Bounded per strike: past MaxSectionPiecesPerStrike a section throws dust only.</summary>
+        void Break(BattlefieldKit.Module module, Rule rule, Matrix4x4 m, Vector3 origin, float harm, DebrisRenderer debris, uint salt)
+        {
+            // the ration is charged whether or not a renderer is up, so it holds (and a test can hold it) the same either way
+            Measure(module, m, out var centre, out var size, out float scale, out _);
+            Vector3 away = Away(origin, centre, 0.6f);
+            Vector3 puff = new Vector3(centre.x, origin.y + 0.3f, centre.z);
+            float dust = rule.Dust * 0.35f * Mathf.Clamp(scale, 0.5f, 1.5f);
+            bool draw = debris != null && debris.Ready;
+            if (sectionPieces >= TrenchSectionRules.MaxSectionPiecesPerStrike) { if (draw) debris.Dust?.Invoke(puff, dust); return; }
+            var rng = new DebrisRng(centre, salt);   // the counts below are charged to the ration after they are chosen
+            int shards = 0, planks = 0, sacks = 0, clods = 4;
+            switch (rule.Piece)
+            {
+                case DebrisRenderer.Piece.Plank: shards = size.z > 1f ? 2 : 3 + (int)(rng.Next() * 2.999f); planks = 1; break;   // duckboards lie flat and deep; a wall stands thin
+                case DebrisRenderer.Piece.Sandbag: sacks = 2 + (int)(rng.Next() * 1.999f); break;
+                default: shards = 2; break;
+            }
+            shards = LiningShare(rule, shards); planks = LiningShare(rule, planks); sacks = LiningShare(rule, sacks); clods = LiningShare(rule, clods);
+            if (!draw) return;
+            float life = rule.Life > 0f ? rule.Life : TrenchSectionRules.PieceLife, speed = 3.5f + harm * 3f;
+            float fit = Mathf.Clamp(scale, 0.6f, 1.3f);
+            if (shards > 0) debris.Burst(DebrisRenderer.Piece.Shard, centre + Vector3.up * (size.y * 0.5f), shards, speed, 0.3f * fit, Tint(module, rule), life, 0f, 1.3f, away, salt);
+            if (planks > 0) debris.Burst(DebrisRenderer.Piece.Plank, centre + Vector3.up * (size.y * 0.6f), planks, speed, rule.Size * fit, Tint(module, rule), life, 0f, 1.2f, away, salt + 7u);
+            if (sacks > 0) debris.Burst(DebrisRenderer.Piece.Sandbag, centre + Vector3.up * (size.y * 0.5f), sacks, speed, rule.Size, Tint(module, rule), life, 0f, 1.1f, away, salt + 11u);
+            if (clods > 0) debris.Burst(DebrisRenderer.Piece.Clod, centre, clods, 3.5f, 0.16f, Earth, life, 0f, 1.5f, away, salt + 13u);
+            debris.Dust?.Invoke(puff, dust);
         }
 
         /// <summary>A prop has nothing left: it is remembered, taken out of the draw, and goes the way its kind goes —
@@ -311,6 +437,7 @@ namespace TW.Presentation.Terrain
         void Finish(BattlefieldKit.Module module, Rule rule, int page, int slot, long key, in Matrix4x4 m, Vector3 origin, float power, float harm, DebrisRenderer debris, uint salt, bool shake)
         {
             damage.Remove(key);
+            damaged.Remove(key);   // gone is not damaged: SectionsDamaged counted the dead, and they filled the set's cap
             Down(module, page, slot, key);
             if (rule.Kick) { Toss(module, rule, m, origin, power, debris, salt); return; }
             if (!props.Kit.HouseChunkOf.ContainsKey(module) || !Throw(module, rule, m, origin, power, harm, salt))
@@ -395,11 +522,15 @@ namespace TW.Presentation.Terrain
             Measure(module, m, out var centre, out _, out float scale, out float volume);
             int count = Mathf.Clamp(Mathf.RoundToInt(rule.Pieces * Mathf.Sqrt(volume)), 3, 40);
             Vector3 away = Away(origin, centre, 0.6f);
+            bool earth = rule.Piece == DebrisRenderer.Piece.Rubble || rule.Piece == DebrisRenderer.Piece.Plank;
+            int clods = earth ? LiningShare(rule, count / 2) : 0;   // charged with or without a renderer (critic r7)
+            count = LiningShare(rule, count);   // a lining section past the strike's ration comes down as dust only
             if (debris != null && debris.Ready)
             {
-                debris.Burst(rule.Piece, centre, count, 4.5f + power * 3f, rule.Size * Mathf.Clamp(scale, 0.6f, 1.6f), Tint(module, rule), 45f, 0f, 1.2f, away, salt);
-                if (rule.Piece == DebrisRenderer.Piece.Rubble || rule.Piece == DebrisRenderer.Piece.Plank)
-                    debris.Burst(DebrisRenderer.Piece.Clod, centre, count / 2, 4f, 0.18f, Earth, 20f, 0f, 1.6f, away, salt + 101u);
+                float life = rule.Life > 0f ? rule.Life : 45f;   // the lining's pieces lie a short while (docs/21 phase 3), the rest the usual
+                if (count > 0) debris.Burst(rule.Piece, centre, count, 4.5f + power * 3f, rule.Size * Mathf.Clamp(scale, 0.6f, 1.6f), Tint(module, rule), life, 0f, 1.2f, away, salt);
+                if (clods > 0)
+                    debris.Burst(DebrisRenderer.Piece.Clod, centre, clods, 4f, 0.18f, Earth, Mathf.Min(20f, life), 0f, 1.6f, away, salt + 101u);
                 float dust = rule.Dust * Mathf.Clamp(scale, 0.5f, 2f);
                 debris.Dust?.Invoke(new Vector3(centre.x, origin.y + 0.3f, centre.z), dust);
                 debris.Dust?.Invoke(new Vector3(centre.x, origin.y + 0.3f, centre.z) + away * 1.5f, dust * 0.7f);
@@ -410,14 +541,15 @@ namespace TW.Presentation.Terrain
         /// <summary>A hit that did not finish it: splinters, chips or twigs off the side facing the strike, as many as the harm.</summary>
         void Chip(BattlefieldKit.Module module, Rule rule, Matrix4x4 m, Vector3 origin, float harm, DebrisRenderer debris, uint salt)
         {
-            if (debris == null || !debris.Ready) return;
             Measure(module, m, out var centre, out var size, out float scale, out float volume);
-            int count = Mathf.Clamp(Mathf.CeilToInt(rule.Pieces * Mathf.Sqrt(volume) * 0.4f * harm / rule.Hp), 1, 12);
+            int count = LiningShare(rule, Mathf.Clamp(Mathf.CeilToInt(rule.Pieces * Mathf.Sqrt(volume) * 0.4f * harm / rule.Hp), 1, 12));   // charged first (critic r7)
+            if (debris == null || !debris.Ready) return;
             Vector3 away = Away(origin, centre, 0.7f);
             Vector3 face = centre - away * (0.5f * Mathf.Max(size.x, size.z)) + Vector3.up * (size.y * 0.2f);   // the side the strike came from
+            if (count <= 0) { debris.Dust?.Invoke(face, rule.Dust * 0.35f * Mathf.Clamp(scale, 0.5f, 1.5f)); Chipped++; return; }
             var piece = rule.Piece == DebrisRenderer.Piece.Plank ? DebrisRenderer.Piece.Shard : rule.Piece == DebrisRenderer.Piece.Plate ? DebrisRenderer.Piece.Shard : rule.Piece;
             float chip = rule.Piece == DebrisRenderer.Piece.Plank ? 0.45f : rule.Size * 0.5f;
-            debris.Burst(piece, face, count, 3.5f + harm * 3f, chip * Mathf.Clamp(scale, 0.6f, 1.3f), Tint(module, rule), 30f, 0f, 1.4f, away, salt);
+            debris.Burst(piece, face, count, 3.5f + harm * 3f, chip * Mathf.Clamp(scale, 0.6f, 1.3f), Tint(module, rule), rule.Life > 0f ? rule.Life : 30f, 0f, 1.4f, away, salt);
             debris.Dust?.Invoke(face, rule.Dust * 0.35f * Mathf.Clamp(scale, 0.5f, 1.5f));
             Chipped++;
         }
@@ -699,7 +831,7 @@ namespace TW.Presentation.Terrain
                 for (int i = n; i < MaxLoose; i++) looseMasks[i] = Vector4.zero;
                 looseBlock.SetVectorArray("_ChunkMask", looseMasks);
                 var rp = new RenderParams(whole.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = looseBlock };
-                Graphics.RenderMeshInstanced(rp, whole.Mesh, 0, looseMatrices, n);
+                FrameBudget.Draw(rp, whole.Mesh, 0, looseMatrices, n);
             }
             // what men dropped, thrown whole: each kind in one draw of its own mesh
             looseKinds.Clear();
@@ -716,7 +848,7 @@ namespace TW.Presentation.Terrain
                     n++;
                 }
                 var rp = new RenderParams(module.Material) { worldBounds = bounds, shadowCastingMode = module.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
-                Graphics.RenderMeshInstanced(rp, module.Mesh, 0, looseMatrices, n);
+                FrameBudget.Draw(rp, module.Mesh, 0, looseMatrices, n);
             }
         }
         readonly List<BattlefieldKit.Module> looseKinds = new List<BattlefieldKit.Module>(8);

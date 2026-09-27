@@ -1,12 +1,14 @@
 ﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
-// leaves a body, and every trench or objective capture raises a banner. Instanced draws, no GameObjects per effect.
+// leaves a body (banners: the Toolkit HUD's ObjectiveTracker, or OnGUI here under the old HUD). Instanced draws, no GameObjects.
 // Listens to SimHost.Events, so it sees exactly what the local sim produced.
-// One class in five files (2026-09-25): this one holds the event dispatch (OnSimEvent), Update, the materials and
+// One class in six files (2026-09-25): this one holds the event dispatch (OnSimEvent), Update, the materials and
 // the tracer/body/burst pools; CombatFx.Ground.cs what only a close camera sees (marks, rests, trails, breath);
 // CombatFx.Chunks.cs thrown chunks and cook-offs; CombatFx.Ambient.cs birds and ambient smoke; CombatFx.Bodies.cs
-// gibs, tree breaks and where a man's muzzle and chest are drawn. CameraShake is in its own file.
+// gibs, tree breaks and where a man's muzzle and chest are drawn; CombatFx.Deaths.cs what a Death leaves (the body
+// from the controller's record, the gibs, a burning man's pool and smoulder); CombatFx.Abilities.cs the aim, the
+// strafe's aircraft and tracers, the beam's charge and sweep, the smoke screen. CameraShake is in its own file.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
@@ -21,11 +23,12 @@ namespace TW.Presentation.Tactical
         public float TracerSeconds = 0.12f;
         public int MaxBodies = 600;
 
-        struct Tracer { public Vector3 From, To; public float Born; public byte Team; }
+        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; }   // Hit: written by the strafe run (CombatFx.Abilities)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
-        struct Marker { public Vector3 Pos; public float Radius, Until; public bool Mine; }
+        struct Marker { public Vector3 Pos, Dir; public float Length, Radius, Until; public bool Mine; }   // Dir, Length: a line ability's corridor (Length 0: a disc)
+        const float MarkerSegment = 6f;   // a corridor marker is drawn in pieces this long, each on its own ground sample
         static readonly int WetId = Shader.PropertyToID("_TWWet");
         static readonly int WindGlobalId = Shader.PropertyToID("_TWWind");
         float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
@@ -95,9 +98,7 @@ namespace TW.Presentation.Tactical
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         int hitsThisFrame;
-        TestPanel panel;
         TW.Presentation.Units.VATRenderer units;
-        string banner; float bannerUntil;
         bool subscribed;
         /// <summary>
         /// Drops the entries that are past it, in place and in order, allocating nothing. List.RemoveAll with a lambda
@@ -164,7 +165,6 @@ namespace TW.Presentation.Tactical
             gasMats[0] = Transparent(unlit, new Color(0.78f, 0.85f, 0.25f, 0.18f));
             gasMats[1] = Transparent(unlit, new Color(0.78f, 0.85f, 0.25f, 0.34f));
             gasMats[2] = Transparent(unlit, new Color(0.80f, 0.86f, 0.22f, 0.52f));
-            panel = GetComponent<TestPanel>();
             units = FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
             books = new FlipbookFx();
             // Where a man is DRAWN standing, which is not where the sim has him: the presenter's y is the sim's zero.
@@ -495,50 +495,25 @@ namespace TW.Presentation.Tactical
                     break;
                 }
                 case SimEventType.Death:
-                {
-                    // a tank leaves a wreck (TankRenderer), not a body. Its Death comes just before its VehicleDestroyed, while
-                    // the tank view still has the slot; the archetype would be a later tenant's if the slot was refilled
-                    if (e.A >= 0 && e.A < w.HighWater && (SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.A) : VehicleArchetype.IsTank(w.Archetype[e.A]))) break;
-                    if (bodies.Count >= MaxBodies) bodies.RemoveAt(0);
-                    Vector3 p = Host.Presenter != null && e.A >= 0 ? (Vector3)Host.Presenter.Drawn(e.A) : (Vector3)e.Pos;   // where he was drawn, so the corpse does not hop
-                    p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.02f;
-                    byte team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0;
-                    float fellYaw = Mathf.Atan2(e.Dir.x, e.Dir.z) * Mathf.Rad2Deg;
-                    int death = (Mathf.FloorToInt(p.x * 13f) ^ Mathf.FloorToInt(p.z * 29f)) & 3;
-                    // he goes down as the figure he was (VATRenderer plays the death and holds it); without it, a still box figure
-                    if (units != null && units.Ready)
-                    {
-                        // the controller chose the death for his stance, gait and the side the shot came from; it is drawn where he fell
-                        var anim = Host != null ? Host.Animation : null;
-                        bool controlled = anim != null && Host.UseAnimationController && e.A >= 0 && e.A < w.HighWater;
-                        Clip deathClip = controlled ? anim.State[e.A].Clip : Clip.None;
-                        float yaw = controlled ? anim.State[e.A].ShownYaw : e.A >= 0 && e.A < w.HighWater ? w.Yaw[e.A] : fellYaw * Mathf.Deg2Rad;
-                        // the clip he was hit in fades into the death (the controller's own cross-fade, carried into the fallen buffer)
-                        Clip from = controlled ? anim.State[e.A].PrevClip : Clip.None; float fromPhase = 0f, fade = 0f;
-                        if (from != Clip.None)
-                        {
-                            var prev = Clips.Table[(int)from]; float pp = prev.Seconds > 0f ? anim.State[e.A].PrevFrame / prev.Seconds : 0f;
-                            fromPhase = prev.Loop ? pp - Mathf.Floor(pp) : Mathf.Min(pp, 1f); fade = Mathf.Max(anim.State[e.A].Fade, 0.2f);
-                        }
-                        // a shell that killed him throws him (the controller worked out how far and how high)
-                        Vector3 fly = controlled ? new Vector3(anim.State[e.A].ThrowX, anim.State[e.A].ThrowUp, anim.State[e.A].ThrowZ) : Vector3.zero;
-                        // a shell close enough to throw him high takes him apart: the figure loses the limbs (a bit each, read by
-                        // the VAT shader), and they fly off with his helmet and rifle
-                        int gib = e.B < 0 && e.Dir.y > 0.5f && fly.y > 0.6f ? Gibs(e.A, p, yaw, team, fly) : 0;
-                        float grime = anim != null && e.A >= 0 && e.A < anim.Grime.Length ? anim.Grime[e.A] : 0f;   // he goes down in the mud he wore
-                        units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, e.A >= 0 && e.A < w.HighWater ? w.Archetype[e.A] : 0, from, fromPhase, fade, fly, gib, grime);
-                    }
-                    else bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
-                    // his helmet comes off as he goes down and rolls a step away
-                    if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
-                        chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + UnityEngine.Random.Range(-70f, 70f), 0f) * Vector3.forward * UnityEngine.Random.Range(1.2f, 2.4f) + Vector3.up * 1.6f,
-                            Born = Time.time, Life = 4f, Size = 1f, Kind = 6 });
+                    OnDeath(e);   // CombatFx.Deaths.cs: the body, by the controller's record of the death
                     break;
-                }
+                case SimEventType.UnitAlight:
+                    OnAlight(e);  // the sim's BurningSystem lit or doused him
+                    break;
+                case SimEventType.MinePlaced:
+                    OnMinePlaced(e);   // CombatFx.Mines.cs: our own marked on the ground
+                    break;
+                case SimEventType.MineTriggered:
+                    OnMineGone(e, true);    // the fuse's flash; the burst is the next tick's Explosion
+                    break;
+                case SimEventType.MineCleared:
+                    OnMineGone(e, false);   // a crater took it: the mark goes
+                    break;
                 case SimEventType.Explosion:
                 {
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+                    if (LightBurst(e, p, Time.time)) break;   // a strafe's rounds, a beam's scorch: not a shell (CombatFx.Abilities.cs)
                     bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
                     // Water damps a shell; melt does not. IsWater is map data and knows nothing about the
                     // biome, so on the lava field it is true over the river - 11% of the ground, measured -
@@ -644,9 +619,13 @@ namespace TW.Presentation.Tactical
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.15f;
                     float radius = e.Scalar > 0f ? e.Scalar : 8f;
-                    markers.Add(new Marker { Pos = p, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
-                    string what = e.A == (int)OffMapAbilityId.ChlorineGas ? "gas" : "barrage";
-                    Banner(e.B == 0 ? $"Your {what} is on its way" : $"INCOMING {what.ToUpper()}: fall back or keep below the rim", 3f);
+                    // a line ability's dir is its heading times its length and its scalar the corridor's half width
+                    // (docs/02): the marker is the whole corridor, not a spot at its start
+                    var corridor = new Vector3(e.Dir.x, 0f, e.Dir.z); float corridorLength = corridor.magnitude;
+                    bool line = corridorLength > 1e-3f;
+                    markers.Add(new Marker { Pos = p, Dir = line ? corridor / corridorLength : Vector3.zero, Length = line ? corridorLength : 0f, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
+                    OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs)
+                    Banner(e.B == 0 ? $"Your {AbilityWord(e.A)} is on its way" : $"INCOMING {AbilityWord(e.A).ToUpper()}", 3f, BannerRules.Rank(e.Type, e.B == 0));
                     break;
                 }
                 case SimEventType.PropChanged:
@@ -659,6 +638,12 @@ namespace TW.Presentation.Tactical
                     if (debris != null && debris.Ready) TreeBreaks(e, new Vector3(p.x, foot - 0.05f, p.z));
                     break;
                 }
+                case SimEventType.TrenchCaptured:
+                    Banner(e.B == 0 ? $"Trench {e.A} captured!" : $"Trench {e.A} lost", 3f, BannerRules.Trench);
+                    break;
+                case SimEventType.MatchEnded:
+                    Banner(e.A == 0 ? "VICTORY: enemy HQ taken" : "DEFEAT: your HQ has fallen", 3600f, BannerRules.MatchEnd);
+                    break;
                 case SimEventType.VehicleCrushed:
                 {
                     // a man under the tracks or a claw (b = 2): what is left of him comes out from under, low and slow
@@ -670,16 +655,26 @@ namespace TW.Presentation.Tactical
                     debris.Burst(DebrisRenderer.Piece.Clod, p, Mathf.RoundToInt(4f * DebrisRenderer.Gore), 4f, 0.12f, Gore, 8f, 0f, 0.6f, default, e.Tick + 5u);
                     break;
                 }
-                case SimEventType.TrenchCaptured:
-                    Banner(e.B == 0 ? $"Trench {e.A} captured!" : $"Trench {e.A} lost!");
-                    break;
-                case SimEventType.MatchEnded:
-                    Banner(e.A == 0 ? "VICTORY: enemy HQ taken" : "DEFEAT: your HQ has fallen", 3600f);
-                    break;
             }
         }
 
-        void Banner(string text, float seconds = 4f) { banner = text; bannerUntil = Time.time + seconds; }
+        // the centre banner for the old IMGUI HUD only: with the Toolkit HUD on (HudBridge.UseToolkitHud), its
+        // ObjectiveTracker draws the one banner and this stays silent, so an event never shows twice (it did until 2026-09-27)
+        string banner; float bannerUntil; int bannerRank;
+        void Banner(string text, float seconds, int rank)
+        {
+            bool up = banner != null && Time.time <= bannerUntil;
+            if (!BannerRules.Replaces(rank, bannerRank, up)) return;
+            banner = text; bannerUntil = Time.time + seconds; bannerRank = rank;
+        }
+        void OnGUI()
+        {
+            if (HudBridge.UseToolkitHud || banner == null || Time.time > bannerUntil) return;
+            var style = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            var rect = new Rect(0, Screen.height * 0.12f, Screen.width, 50);
+            style.normal.textColor = Color.black; GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), banner, style);
+            style.normal.textColor = new Color(1f, 0.92f, 0.6f); GUI.Label(rect, banner, style);
+        }
 
         void Update()
         {
@@ -689,6 +684,11 @@ namespace TW.Presentation.Tactical
             var size = Host.Local.Map.SizeMeters;
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
 
+            // how much of every debris burst is worth throwing at this zoom (docs/21 phase 3): all of it among the men,
+            // less at the standard view, little from far out
+            var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
+            float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
+            DebrisRenderer.ZoomShare = SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f;
             // tracers
             float now = Time.time;
             Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);
@@ -727,7 +727,6 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(flashMesh, new RenderParams(flashMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
             // Earth rises sharply, then collapses. The silhouette faces the view but stays vertical and rooted.
-            var view = Camera.main;
             Vector3 facing = view != null ? -view.transform.forward : Vector3.forward; facing.y = 0f;
             var splashRotation = facing.sqrMagnitude > 0.001f ? Quaternion.LookRotation(facing) : Quaternion.identity;
             Prune(bursts, now - 0.8f, static (b, cut) => b.Born < cut);
@@ -753,7 +752,9 @@ namespace TW.Presentation.Tactical
             if (batch.Count > 0) Flush(puff, new RenderParams(smokeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
             DrawChunks(now, bounds);
+            flames.SimNow = SimNow;   // the torches expire by the sim's clock (CombatFx.Abilities.cs)
             flames.Update(now, view, books, drawnAt, groundAt);
+            TickSmoulders(now);
             books?.Draw(now, bounds);
             hitsThisFrame = 0;
 
@@ -761,19 +762,37 @@ namespace TW.Presentation.Tactical
             Prune(markers, now, static (m, at) => at > m.Until);
             for (int pass = 0; pass < 2; pass++)
             {
+                var rpMark = new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                // a point ability: a disc on the ground where it was called (not at sea level)
                 batch.Clear();
                 for (int i = 0; i < markers.Count; i++)
-                    if (markers[i].Mine == (pass == 0)) batch.Add(Matrix4x4.TRS(new Vector3(markers[i].Pos.x, RenderGround.Sample(Host.Local.Map, markers[i].Pos.x, markers[i].Pos.z) + 0.4f, markers[i].Pos.z), Quaternion.identity, new Vector3(markers[i].Radius * 2f, 0.05f, markers[i].Radius * 2f)));   // on the ground where it was called, not at sea level
-                if (batch.Count > 0) Flush(sphere, new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
-            }
-            if (panel != null && panel.Armed != OffMapAbilityId.None && panel.TryGroundPoint(out var aim) && OffMapAbilitySystem.TryGetStats((int)panel.Armed, out var aimStats))
-            {
-                float r = aimStats.Radius > 0f ? aimStats.Radius : 8f;
-                aim.y = RenderGround.Sample(Host.Local.Map, aim.x, aim.z) + 0.2f;
+                {
+                    var m = markers[i];
+                    if (m.Mine != (pass == 0) || m.Length > 0f) continue;
+                    batch.Add(Matrix4x4.TRS(new Vector3(m.Pos.x, RenderGround.Sample(Host.Local.Map, m.Pos.x, m.Pos.z) + 0.4f, m.Pos.z), Quaternion.identity, new Vector3(m.Radius * 2f, 0.05f, m.Radius * 2f)));
+                }
+                if (batch.Count > 0) Flush(sphere, rpMark);
+                // a line ability: the whole corridor, as wide as the payload scatters
                 batch.Clear();
-                batch.Add(Matrix4x4.TRS(aim, Quaternion.identity, new Vector3(r * 2f, 0.05f, r * 2f)));
-                Flush(sphere, new RenderParams(aimMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+                for (int i = 0; i < markers.Count; i++)
+                {
+                    var m = markers[i];
+                    if (m.Mine != (pass == 0) || m.Length <= 0f) continue;
+                    // in pieces, each on its own ground sample, so a long corridor follows a ridge instead of floating over it
+                    var rot = Quaternion.LookRotation(m.Dir);
+                    for (float s = 0f; s < m.Length; s += MarkerSegment)
+                    {
+                        float len = Mathf.Min(MarkerSegment, m.Length - s);
+                        var mid = m.Pos + m.Dir * (s + len * 0.5f);
+                        mid.y = RenderGround.Sample(Host.Local.Map, mid.x, mid.z) + 0.4f;
+                        batch.Add(Matrix4x4.TRS(mid, rot, new Vector3(m.Radius * 2f, 0.05f, len)));
+                    }
+                }
+                if (batch.Count > 0) Flush(cube, rpMark);
             }
+            DrawMineMarks(bounds);         // our mines and tripwires on the ground (CombatFx.Mines.cs)
+            DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
+            TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep
 
             // gas: drawn clouds that boil slowly over each 4 m field cell (the old translucent blocks stand in without the books)
             var gas = Host.Local.Gas;
@@ -824,6 +843,8 @@ namespace TW.Presentation.Tactical
                 }
             }
 
+            DrawSmokeScreen(gas, now, bounds);   // the smoke field as pale cards (CombatFx.Abilities.cs)
+
             // the fallen: a still figure in one of four deaths, lying on the slope where he fell
             float grow = 1f;
             if (units != null && view != null) grow = units.UnitScale * Mathf.Clamp((view.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f) / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
@@ -866,15 +887,6 @@ namespace TW.Presentation.Tactical
             batch.CopyTo(batchArray);
             FrameBudget.Draw(rp, mesh, 0, batchArray, batch.Count);
             batch.Clear();
-        }
-
-        void OnGUI()
-        {
-            if (banner == null || Time.time > bannerUntil) return;
-            var style = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            var rect = new Rect(0, Screen.height * 0.12f, Screen.width, 50);
-            style.normal.textColor = Color.black; GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), banner, style);
-            style.normal.textColor = new Color(1f, 0.92f, 0.6f); GUI.Label(rect, banner, style);
         }
     }
 }

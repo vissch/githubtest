@@ -13,6 +13,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Tactical;
+using TW.UI;
 using TW.Sim;   // RosterEntry: the ASSEMBLY is TW.Sim.Core, the namespace is TW.Sim. They do not match.
 
 namespace TW.Tests
@@ -93,6 +94,18 @@ namespace TW.Tests
             BattleHud.BarMetrics(Room(1920, false), out float size, out _);
             Assert.That(size, Is.GreaterThanOrEqualTo(70f),
                 $"at 1920x1080 the cells are {size:0.#} px, under the 70 px at which unit names stop being drawn");
+        }
+
+        [Test]
+        public void TheWidthModelCountsEverySupportCardAndTheBarFitsTheReferenceWidth()
+        {
+            // six support cards since docs/21 phase 5: the model that drives HudView.BarFit must count them, and at the
+            // reference width the bar still fits without shrinking; a narrower window shrinks it instead of overflowing
+            Assert.AreEqual(HudView.SupportAbilities.Length, HudLayout.SupportSlots, "the model counts the cards the bar draws");
+            float supportRow = HudLayout.Row(HudLayout.SupportSlots, HudLayout.CardPx);
+            Assert.That(HudLayout.BarWidth(), Is.GreaterThanOrEqualTo(supportRow + HudLayout.InsetPx * 2f), "the bar is at least as wide as its support row");
+            Assert.AreEqual(1f, HudView.BarFit(HudLayout.ReferenceWidthPx), 1e-4f, "at the reference width the bar fits unscaled");
+            Assert.Less(HudView.BarFit(HudLayout.ReferenceHeight * 4f / 3f), 1f, "a 4:3 window shrinks it rather than losing the support row");
         }
     }
 }

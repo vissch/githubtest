@@ -57,6 +57,16 @@ namespace TW.Presentation
             public bool PeerDeploysTanks = false;
             public bool PeerUsesSupport = true;
             public int PeerSupportReserve = 180;
+            /// <summary>Campaign (docs/21 phase 6): which faction each side fields and which support abilities each may
+            /// fire (a bit per OffMapAbilityId; 0 = the faction's default). The sim's upgrade seam reads them when it
+            /// lands (B1); until then Apply leaves them for the HUD.</summary>
+            public byte FactionA = 0, FactionB = 1;
+            /// <summary>Seat A is the local player by fiat: the HUD's cards, the incoming markers and the mine marks all read
+            /// seat 0; B is the scripted peer today, so AbilityMaskB is built and unread until a second human sits in B.</summary>
+            public uint AbilityMaskA, AbilityMaskB;
+            /// <summary>Does a mask field an ability: bit (int)id, or everything when the mask is 0 (a skirmish, a test). The one
+            /// copy: the HUD's cards and keys, the debug panel and (B1, later) the sim ask this.</summary>
+            public static bool Offered(uint mask, int ability) => mask == 0 || (mask & (1u << ability)) != 0;
 
             /// <summary>The scene's SimHost as it is, so a request can start from what the scene already says.</summary>
             public static Request From(SimHost h) => new Request
@@ -105,7 +115,7 @@ namespace TW.Presentation
         /// <summary>Drop the request and go back to the menu.</summary>
         public static void QuitToMenu()
         {
-            Current = null; Running = null;
+            Current = null; Running = null; CampaignSession.Clear();
             SceneStatics.Reset();
             UnityEngine.SceneManagement.SceneManager.LoadScene(MenuScene);
         }

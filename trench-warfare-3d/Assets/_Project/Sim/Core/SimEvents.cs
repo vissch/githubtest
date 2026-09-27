@@ -13,7 +13,8 @@ namespace TW.Sim
         NearMiss,           // a = target slot, scalar = suppression added
         Explosion,          // a = ability/weapon id, pos, scalar = radius
         CraterStamp,        // pos, scalar = radius, dir.y = depth
-        Death,              // a = slot, b = killer slot, dir = impulse
+        Death,              // a = slot, b = killer slot (>= 0) or a DeathCause (< 0), dir = knock direction (a blast sets dir.y = 1 and
+                            //   dir.xz = the unit knock), scalar = knock speed in m/s (0 when nobody was thrown)
         StanceChanged,      // a = slot, b = new stance
         Suppressed,         // a = slot, scalar = meter value
         Pinned,             // a = slot
@@ -22,13 +23,14 @@ namespace TW.Sim
         UnitLeftTrench,     // a = slot, b = trench id
         TrenchCaptured,     // a = trench id, b = team
         ObjectiveCaptured,  // a = objective id, b = team
-        GasCloudSpawned,    // a = agent id, pos, dir = wind, scalar = concentration
-        SmokeSpawned,       // pos, dir = line direction, scalar = length
+        GasCloudSpawned,    // a = ability id, b = player, pos = the source, dir = the creeping heading (zero for a point), scalar = concentration
+        SmokeSpawned,       // a = ability id, b = player, pos = one source of the screen, dir = the line's heading, scalar = concentration
         VehicleTrackHit,    // a = slot, b = side (0 left, 1 right)
         VehicleStalled,     // a = slot, b = 1 the engine died / 0 it runs again
         VehicleDestroyed,   // a = slot, b = killer, dir.y = hull yaw (SimWorld.Despawn)
         WireBreached,       // pos, scalar = width
-        AbilityFired,       // a = ability id, b = player, pos
+        AbilityFired,       // a = ability id, b = player, pos = the target or where a line starts, dir = heading x length (zero for a
+                            //   point), scalar = an area's radius or a line's corridor half width
         WaveStarted,        // a = wave index, b = unit count
         MissionTriggerFired,// a = trigger id
         CellBurning,        // pos, scalar = seconds
@@ -58,7 +60,16 @@ namespace TW.Sim
         OrderFoundNoOne,    // a = command type, b = player: the order was VALID and moved nobody (an empty trench).
                             // Deliberately not CommandRejected, which means the command itself was bad - a UI that
                             // beeps at a rejection should not beep at a player who ordered an empty line forward.
+        // ---- fire (A5): BurningSystem ----
+        UnitAlight,         // a = slot, b = 1 caught fire / 0 it went out (a corpse's fire too: a b = 0 may name a slot with no live man), pos, scalar = seconds it will burn (b = 1)
+        MinePlaced,         // a = mine index, b = player, pos, dir = a tripwire's heading x length (zero for a mine), scalar = MineKind
+        MineTriggered,      // a = mine index, b = victim slot, pos = where it went off, dir = the victim's velocity direction (zero if he stood still), scalar = MineKind
+        MineCleared,        // a = mine index, b = the burst's player, pos, dir, scalar = MineKind: a crater set it cooking; its burst follows
     }
+
+    /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing
+    /// track keep the killer's slot in b; the picture reads the same-tick Explosion for a blast's weapon.</summary>
+    public enum DeathCause : int { Blast = -1, Gas = -2, Crush = -3 /* reserved: tracks and claws keep the vehicle's slot */, Burning = -4, Beam = -5 }
 
     /// <summary>Why a vehicle stopped fighting (VehicleKnockedOut.b).</summary>
     public enum VehicleKillCause : byte { Structure = 0, CrewLost = 1, Fire = 2, Ammunition = 3 }

@@ -7,6 +7,9 @@
 // A vehicle is only ever close-assaulted (TargetAcquisition): the bundle of grenades is a VehicleHit on the armour,
 // queued on TankGunnerySystem.PendingHits for VehicleModulesSystem (without them, it takes the damage straight off).
 // A knocked-out hulk is not worth a grenade.
+// Smoke (docs/21 phase 5): every metre of thick smoke on the line of fire (SmokeLos) takes SmokeAccuracyPerMetre
+// off the chance, down to SmokeAccuracyFloor, and a target standing inside thick smoke gains only SmokeSuppression
+// of the suppression a hit or a near miss would give him: he cannot tell how close it was.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -26,6 +29,9 @@ namespace TW.Sim.Combat
         NativeList<int2> killed;     // (slot, killer) in the order they died
         NativeList<VehicleHit> ownHits;   // close assaults when no TankGunnerySystem is registered
         TankGunnerySystem gunnery;
+        GasSmokeSystem gas;               // registered after this system: resolved on the first step
+        bool lookedForGas;
+        NativeArray<float> noSmoke;       // a one-cell stand-in for the job while there is no smoke
 
         /// <summary>Totals since the match started, per team: shots fired and kills scored. Derived from hashed state, not hashed itself.</summary>
         public readonly int[] Shots = new int[SimConfig.MaxPlayers];
@@ -38,6 +44,7 @@ namespace TW.Sim.Combat
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
+            noSmoke = new NativeArray<float>(1, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -46,6 +53,8 @@ namespace TW.Sim.Combat
             if (n == 0) return;
             if (movement == null) movement = w.GetSystem<MovementSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs MovementSystem");
             if (gunnery == null) gunnery = w.GetSystem<TankGunnerySystem>();
+            if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
+            bool smokeOn = gas != null && gas.SmokeActive;
             events.Clear();
             killed.Clear();
             ownHits.Clear();
@@ -56,6 +65,7 @@ namespace TW.Sim.Combat
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
+                Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
             }.Run();
             for (int k = 0; k < ownHits.Length; k++)
             {
@@ -98,6 +108,17 @@ namespace TW.Sim.Combat
             public NativeList<SimEvent> Events;
             public NativeList<int2> Killed;
             public NativeList<VehicleHit> VehicleHits;
+            [ReadOnly] public NativeArray<float> Smoke;
+            public int SmokeW, SmokeL;
+            public bool SmokeOn;
+
+            bool InSmoke(float3 p)
+            {
+                if (!SmokeOn) return false;
+                int cx = math.clamp((int)(p.x / MapData.FieldCellSize), 0, SmokeW - 1);
+                int cz = math.clamp((int)(p.z / MapData.FieldCellSize), 0, SmokeL - 1);
+                return Smoke[cz * SmokeW + cx] > SmokeLos.Thick;
+            }
 
             int CellOf(float3 p)
             {
@@ -168,7 +189,13 @@ namespace TW.Sim.Combat
                         if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);
                         cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
                     }
+                    if (SmokeOn)
+                    {
+                        float through = SmokeLos.MetresThrough(Smoke, SmokeW, SmokeL, p, q);
+                        if (through > 0f) chance *= math.max(CombatTables.SmokeAccuracyFloor, 1f - CombatTables.SmokeAccuracyPerMetre * through);
+                    }
                     chance = math.clamp(chance * (1f - cover), 0.02f, 0.95f);
+                    float keepDown = InSmoke(q) ? CombatTables.SmokeSuppression : 1f;
 
                     var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
                     bool hit = rng.NextFloat() < chance;
@@ -179,12 +206,12 @@ namespace TW.Sim.Combat
                         Hp[t] = Hp[t] - dmg;
                         Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Dir = dir, Scalar = dmg });
                         if (Hp[t] <= 0f) { Killed.Add(new int2(t, i)); TargetSlot[i] = -1; }
-                        else AddSuppression(t, weapon.SuppressionPerShot);
+                        else AddSuppression(t, weapon.SuppressionPerShot * keepDown);
                     }
                     else
                     {
                         // near miss: everyone on the target's side within 1.5 m of where the round went
-                        float near = weapon.SuppressionPerShot * 0.6f;
+                        float near = weapon.SuppressionPerShot * 0.6f * keepDown;
                         int cx = math.clamp((int)(q.x / Spatial.CellSize), 0, Spatial.Width - 1);
                         int cz = math.clamp((int)(q.z / Spatial.CellSize), 0, Spatial.Length - 1);
                         bool targetSeen = false;
@@ -216,6 +243,7 @@ namespace TW.Sim.Combat
             if (events.IsCreated) events.Dispose();
             if (killed.IsCreated) killed.Dispose();
             if (ownHits.IsCreated) ownHits.Dispose();
+            if (noSmoke.IsCreated) noSmoke.Dispose();
         }
     }
 }

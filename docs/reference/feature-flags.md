@@ -29,6 +29,7 @@ inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 | `tw.hud.toolkit` | PlayerPrefs | `Presentation/Core/HudBridge.cs` | PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. Default 1. A machine where someone pressed F9 shows the other HUD. |
 | `tw.rig.stress` | SessionState | `Editor/CaptureRig.cs` | SessionState (this editor session only): CaptureRig stress request carried across a domain reload. |
 | `tw.rig.stress.restore` | SessionState | `Editor/CaptureRig.cs` | SessionState: the StressUnits value CaptureRig puts back afterwards. |
+| `TW_AUDIT_OUT` | environment variable | `Editor/AssetScaleAudit.cs` | Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. Default docs/reference/asset-scale.md. |
 | `TW_BENCH` | environment variable | `Perf/PerfBench.cs` | Environment variable, same as -twbench. Also fires in editor Play if set, so unset it after use. |
 
 Code and inspector switches (static fields or `SimHost` inspector fields):

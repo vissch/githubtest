@@ -1,0 +1,2 @@
+# Tests that FAIL under Tools/otr.py only because a stand-in differs from the engine. One per line: <Class.Method> <why>.
+# Read the assertion before adding a line; remove a line when the stand-in grows to cover it.

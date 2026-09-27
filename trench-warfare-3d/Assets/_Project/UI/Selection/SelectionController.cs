@@ -47,6 +47,7 @@ namespace TW.UI
         readonly Dictionary<UnitHandle, int> index = new Dictionary<UnitHandle, int>();
 
         bool pressing, dragging; Vector2 pressAt;
+        bool swallow;   // a left press an armed aim spent (TestPanel.AimSpentFrame): not a click on the field until the button is up
         float lastClickTime = -10f; UnitHandle lastClicked;
         int lastGroupKey = -1; float lastGroupTime = -10f;
         int tabCursor;
@@ -95,13 +96,17 @@ namespace TW.UI
             var mouse = Mouse.current; var kb = Keyboard.current;
             var p = panel?.Invoke();
             var armed = p != null ? p.Armed : OffMapAbilityId.None;
+            if (p != null && p.AimSpentFrame == Time.frameCount) swallow = true;
+            if (swallow && mouse != null && !mouse.leftButton.isPressed && !mouse.leftButton.wasPressedThisFrame) swallow = false;
             bool fieldOwnsInput = interactive && InputFocus.Gameplay && armed == OffMapAbilityId.None;
             if (mouse != null && kb != null && fieldOwnsInput) HandleMouse(mouse, kb);
             else { CancelDrag(); ClearHover(); }
             // aiming a strike: who is under it, beside the reticle and on the field
             if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
             {
-                aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
+                // a line ability is counted along its corridor (AbilityAim.Shape), a point ability round the reticle
+                if (p.Aim.Shape(aim, 0, out var shape) && shape.Line) aimReadout.ShowLine(Picker.Units, armed, shape, ToHud(mouse.position.ReadValue()));
+                else aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
                 markers.DrawTargets(aimReadout.EnemyIn, aimReadout.OursIn);
             }
             else aimReadout.Hide();
@@ -129,6 +134,7 @@ namespace TW.UI
             bool ctrl = kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;
             bool alt = kb.leftAltKey.isPressed || kb.rightAltKey.isPressed;
 
+            if (swallow) { CancelDrag(); return; }   // the aim spent this press
             if (mouse.leftButton.wasPressedThisFrame && !overUi) { pressing = true; dragging = false; pressAt = at; }
             if (pressing && !dragging && (at - pressAt).sqrMagnitude > DragPx * DragPx) dragging = true;
             if (pressing && mouse.leftButton.wasReleasedThisFrame)

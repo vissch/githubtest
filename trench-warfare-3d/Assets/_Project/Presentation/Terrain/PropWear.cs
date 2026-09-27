@@ -219,11 +219,12 @@ namespace TW.Presentation.Terrain
         {
             var list = here.Props;
             int budget = SpallBudget, given = 0;
+            sectionPieces = 0;   // the lining's piece ration (LiningShare) is per sweep of a cell under fire, as it is per shell
             for (int n = 0; n < list.Count; n++)
             {
                 var it = list[(here.Cursor + n) % list.Count];
                 if (!rules.TryGetValue(it.Module, out var rule) || rule.Erode <= 0f) continue;
-                long key = Key(it.Module, it.M);
+                long key = KeyOf(it.Module, rule, it.M);
                 if (destroyed.Contains(key)) continue;
                 uint s = salt + (uint)(n * 13);
                 // where the fire is coming from, so chips come off the right face and a thing is knocked the right way
@@ -235,15 +236,37 @@ namespace TW.Presentation.Terrain
 
                 float harm = rounds * WearPerRound * rule.Erode;
                 float hp = damage.TryGetValue(key, out float rest) ? rest : rule.Hp;
-                hp -= harm;
-                if (hp <= 0f)
+                if (rule.Damaged != null || rule.Intact != null)
                 {
-                    Unjolt(it);
-                    Finish(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, debris, s, false);
-                    Worn++;
-                    continue;
+                    // a section of the lining under fire: the same two steps a shell takes it through, never at once
+                    var was = damaged.Contains(key) ? SectionState.Damaged : SectionState.Intact;
+                    var state = TrenchSectionRules.Apply(ref hp, rule.Hp, harm, false, was);
+                    if (state == SectionState.Gone)
+                    {
+                        Unjolt(it);
+                        Finish(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, debris, s, false);
+                        Worn++;
+                        continue;
+                    }
+                    if (state == SectionState.Damaged && was == SectionState.Intact)
+                    {
+                        Section(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, hp, was, state, debris, s, false);
+                        continue;
+                    }
+                    damage[key] = hp;
                 }
-                damage[key] = hp;
+                else
+                {
+                    hp -= harm;
+                    if (hp <= 0f)
+                    {
+                        Unjolt(it);
+                        Finish(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, debris, s, false);
+                        Worn++;
+                        continue;
+                    }
+                    damage[key] = hp;
+                }
                 if (!piece) continue;
                 given++;
                 sinceDust.TryGetValue(key, out float since); since += harm;
@@ -311,10 +334,12 @@ namespace TW.Presentation.Terrain
             jolts.Add(new Jolted { Module = it.Module, Page = it.Page, Slot = it.Slot, Home = it.M, Push = dir * amp, Born = Time.time });
         }
 
-        void Unjolt(in Standing_ it)
+        void Unjolt(in Standing_ it) => UnjoltSlot(it.Module, it.Page, it.Slot);
+
+        void UnjoltSlot(BattlefieldKit.Module module, int page, int slot)
         {
             for (int i = jolts.Count - 1; i >= 0; i--)
-                if (jolts[i].Page == it.Page && jolts[i].Slot == it.Slot && jolts[i].Module == it.Module) jolts.RemoveAt(i);
+                if (jolts[i].Page == page && jolts[i].Slot == slot && jolts[i].Module == module) jolts.RemoveAt(i);
         }
 
         /// <summary>Every knocked thing on its way back: out fast, then settling. A prop taken out while it was jumping is

@@ -32,6 +32,10 @@ namespace TW.UI
             {
                 if (KeyMap.Down(GameAction.ArmBarrage)) hud.ToggleArm(OffMapAbilityId.HeBarrage);
                 if (KeyMap.Down(GameAction.ArmGas)) hud.ToggleArm(OffMapAbilityId.ChlorineGas);
+                if (KeyMap.Down(GameAction.ArmCreeping)) hud.ToggleArm(OffMapAbilityId.CreepingBarrage);
+                if (KeyMap.Down(GameAction.ArmSmoke)) hud.ToggleArm(OffMapAbilityId.SmokeScreen);
+                if (KeyMap.Down(GameAction.ArmStrafe)) hud.ToggleArm(OffMapAbilityId.StrafeRun);
+                if (KeyMap.Down(GameAction.ArmBeam)) hud.ToggleArm(OffMapAbilityId.Beam);
             }
             if (KeyMap.Down(GameAction.Advance)) hud.OrderFront(CommandType.TrenchAdvance);
             if (KeyMap.Down(GameAction.HoldFire)) hud.ToggleFront(CommandType.TrenchHoldFire);

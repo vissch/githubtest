@@ -68,6 +68,7 @@ PURPOSE = {
                            'DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical.',
     'Presentation/Core': 'SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, '
                          'MatchClock, KeyMap, settings, HudBridge.',
+    'Presentation/Meta': 'The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera.',
     'Presentation/Terrain': 'Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea.',
     'Presentation/Units': 'VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback.',
     'Presentation/VFX': 'Stub assembly (B5 router). Real effects live in Presentation/Camera.',
@@ -92,6 +93,7 @@ PURPOSE = {
     'Tests/EditMode': 'EditMode tests (references every assembly incl. TW.Editor).',
     'Tests/PlayMode': 'PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router.',
     'UI': 'UI Toolkit: the battle HUD (HudController/HudView) and its parts.',
+    'UI/Campaign': 'Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings).',
     'UI/Missions': 'Mission card assets for the mission select.',
     'UI/Resources': 'UXML/USS/PanelSettings loaded by name (Hud/, Shell/, UI/).',
     'UI/Selection': 'Unit selection: picker, model, markers, hover card, selection panel.',
@@ -110,6 +112,8 @@ FLAG_EFFECT = {
     'tw.rig.stress': 'SessionState (this editor session only): CaptureRig stress request carried across a domain reload.',
     'tw.rig.stress.restore': 'SessionState: the StressUnits value CaptureRig puts back afterwards.',
     'TW.EnvProps.Edit': 'EditorPrefs bool: hand placement of props in the Scene view during Play (EnvPropEditor). Default on.',
+    'TW_AUDIT_OUT': 'Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. '
+                    'Default docs/reference/asset-scale.md.',
 }
 
 # Code-level switches worth knowing. Each must still be declared where it says, or --check fails.

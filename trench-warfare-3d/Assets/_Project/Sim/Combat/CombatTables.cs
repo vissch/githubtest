@@ -21,6 +21,11 @@ namespace TW.Sim.Combat
         public const float MovingSpeed = 0.5f;
         public const float AdvanceFireRange = 60f;       // units under >> only engage this close: they are running
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
+        // ---- smoke (docs/21 phase 5): what a screen does to sight and aim; SmokeLos measures the metres ----
+        public const float SmokeBlindMetres = 12.5f;      // this much thick smoke on the line of sight and the target is lost
+        public const float SmokeAccuracyPerMetre = 0.08f; // accuracy lost per metre of thick smoke on the line of fire ...
+        public const float SmokeAccuracyFloor = 0.2f;     // ... down to this share: a blind burst still finds somebody
+        public const float SmokeSuppression = 0.5f;       // suppression gain of a man inside thick smoke: he cannot tell how close it was
 
         public static WeaponStats WeaponFor(byte archetype)
         {

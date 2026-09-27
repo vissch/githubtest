@@ -121,9 +121,9 @@ namespace TW.Presentation.Tactical
                                             // not renewed on top of itself, and it does not stand a metre from a parapet
 
         struct Jet { public float NextCatch; public int Slot; public Vector3 Nozzle, Offset, Aim, ManVel, WasAt; public float Started, Until, NextPuff, NextLight, NextSpill, NextRoot, Seed; public bool Rides; }
-        struct Pool { public Vector3 At; public float Born, Life, Size, Next, NextLight, NextCatch, Seed; public bool Stood; }
-        struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; }
-        struct Pyre { public Vector3 At; public float Born, Life, Size, Next, NextLight, Seed; public bool Stood; }
+        struct Pool { public Vector3 At; public float Born, Life, Size, Next, NextLight, NextCatch, Seed; public bool Stood; public float BornSim, LifeSim; }   // BornSim, LifeSim: sim seconds, what it burns out by
+        struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; public float BornSim, LifeSim; }   // BornSim, LifeSim: sim seconds, what the torch expires by
+        struct Pyre { public Vector3 At; public float Born, Life, Size, Next, NextLight, Seed; public bool Stood; public float BornSim, LifeSim; }
 
         readonly List<Jet> jets = new List<Jet>(MaxJets);
         readonly List<Pool> pools = new List<Pool>(MaxPools);
@@ -227,6 +227,7 @@ namespace TW.Presentation.Tactical
                 if (dx * dx + dz * dz > reach * reach) continue;
                 e.Size = Mathf.Min(e.Size + size * 0.22f, 4.5f);              // it spreads a little, it does not double
                 e.Life = Mathf.Max(e.Life, Time.time + seconds - e.Born);     // and it is kept alight
+                e.LifeSim = Mathf.Max(e.LifeSim, SimNow + seconds - e.BornSim);
                 pools[i] = e; return;
             }
             if (pools.Count >= MaxPools)
@@ -236,18 +237,28 @@ namespace TW.Presentation.Tactical
                 if (CameraShake.DistanceToLook(at) > far) return;   // the new one is further off than everything alight: let it go
                 pools.RemoveAt(worst);
             }
-            pools.Add(new Pool { At = at, Born = Time.time, Life = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
+            pools.Add(new Pool { At = at, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
         }
 
-        /// <summary>A man is alight and will run until he drops (the controller has him on Clip.Burning).</summary>
+        /// <summary>The sim's clock in seconds (CombatFx sets it every frame from the tick and the fraction of the next):
+        /// a torch expires by it, so a paused or slowed match holds the fire on a man as long as the sim burns him.
+        /// The flicker and the trail keep the wall clock.</summary>
+        public float SimNow { get; set; }
+
+        /// <summary>A man is alight and will run until he drops (the controller has him on Clip.Burning). Seconds are the
+        /// sim's (UnitAlight's scalar): the torch goes out when the sim says so, or by this timer on the sim's clock
+        /// for a torch the debug panel lit without a sim behind it.</summary>
         public void Ignite(int slot, float seconds)
         {
             for (int i = 0; i < torches.Count; i++)
-                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); torches[i] = t; return; }
+                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); t.LifeSim = Mathf.Max(t.LifeSim, SimNow + seconds - t.BornSim); torches[i] = t; return; }
             if (torches.Count >= MaxTorches) torches.RemoveAt(0);
-            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, Next = 0f, Seed = Random.value * 10f });
+            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Next = 0f, Seed = Random.value * 10f });
             Alighted?.Invoke(slot, seconds);
         }
+
+        /// <summary>Is a fire (a torch, a pool of fuel, a pyre) out at a sim time: pure, so a test can hold the clock.</summary>
+        public static bool TorchOut(float simNow, float bornSim, float lifeSim) => simNow - bornSim > lifeSim;
 
         /// <summary>He is dead or the fire is out: stop drawing him alight (the corpse keeps a pool under it).</summary>
         public void Douse(int slot)
@@ -264,10 +275,10 @@ namespace TW.Presentation.Tactical
                 // so comparing heights too would stop a raised bank's fire from ever being fed
                 if (new Vector2(pyres[i].At.x - at.x, pyres[i].At.z - at.z).sqrMagnitude < 4f)
                 {
-                    var q = pyres[i]; q.Size = Mathf.Max(q.Size, size); q.Life = Mathf.Max(q.Life, Time.time + seconds - q.Born); pyres[i] = q; return;
+                    var q = pyres[i]; q.Size = Mathf.Max(q.Size, size); q.Life = Mathf.Max(q.Life, Time.time + seconds - q.Born); q.LifeSim = Mathf.Max(q.LifeSim, SimNow + seconds - q.BornSim); pyres[i] = q; return;
                 }
             if (pyres.Count >= MaxPyres) pyres.RemoveAt(0);
-            pyres.Add(new Pyre { At = at, Born = Time.time, Life = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
+            pyres.Add(new Pyre { At = at, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
         }
 
         /// <summary>
@@ -363,21 +374,21 @@ namespace TW.Presentation.Tactical
             for (int i = pools.Count - 1; i >= 0; i--)
             {
                 var p = pools[i];
-                if (now - p.Born > p.Life) { pools.RemoveAt(i); continue; }
+                if (TorchOut(SimNow, p.BornSim, p.LifeSim)) { pools.RemoveAt(i); continue; }   // sim time, as the torch
                 StepPool(ref p, now, books, glowNight * tint);
                 pools[i] = p;
             }
             for (int i = torches.Count - 1; i >= 0; i--)
             {
                 var t = torches[i];
-                if (now - t.Born > t.Life) { Alighted?.Invoke(t.Slot, 0f); torches.RemoveAt(i); continue; }
+                if (TorchOut(SimNow, t.BornSim, t.LifeSim)) { Alighted?.Invoke(t.Slot, 0f); torches.RemoveAt(i); continue; }   // sim time: paused, he burns on
                 StepTorch(ref t, now, books, drawn, ground, glowNight * tint);
                 torches[i] = t;
             }
             for (int i = pyres.Count - 1; i >= 0; i--)
             {
                 var q = pyres[i];
-                if (now - q.Born > q.Life) { pyres.RemoveAt(i); continue; }
+                if (TorchOut(SimNow, q.BornSim, q.LifeSim)) { pyres.RemoveAt(i); continue; }
                 StepPyre(ref q, now, books, glowNight * tint);
                 pyres[i] = q;
             }
@@ -949,7 +960,7 @@ namespace TW.Presentation.Tactical
         void StepPool(ref Pool p, float now, FlipbookFx books, float glow)
         {
             if (!p.Stood) { p.At = Stand(p.At); p.Stood = true; }
-            float k = (now - p.Born) / p.Life;
+            float k = p.LifeSim > 0f ? Mathf.Clamp01((SimNow - p.BornSim) / p.LifeSim) : 1f;   // how far through its fuel: the sim's clock
             float ebb = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((k - 0.45f) / 0.55f));   // a pool burns down, it does not blink out
             if (now >= p.NextLight)
             {
@@ -999,7 +1010,7 @@ namespace TW.Presentation.Tactical
             // as the mud under him: a man climbing a parapet or thrown up by a shell is drawn off the ground, and
             // grounding his fire here would leave it behind in the dirt at the one moment anyone is watching him.
             Vector3 at = drawn(t.Slot);
-            float k = (now - t.Born) / t.Life;
+            float k = t.LifeSim > 0f ? Mathf.Clamp01((SimNow - t.BornSim) / t.LifeSim) : 1f;   // how far through his fire he is: the sim's clock, as the expiry
             // he leaves a trail of burning fuel behind him wherever he runs, which is most of what makes this read
             if (now >= t.Next)
             {
@@ -1043,7 +1054,7 @@ namespace TW.Presentation.Tactical
             // it catches, it rages, it burns down. The catch is in SECONDS and the burning down is a fraction of the
             // life: a fire takes about the same second to take hold whether it has a minute in it or a quarter of an
             // hour, and reading the catch off the life meant a long fire spent its first minute invisible.
-            float k = (now - q.Born) / q.Life;
+            float k = q.LifeSim > 0f ? Mathf.Clamp01((SimNow - q.BornSim) / q.LifeSim) : 1f;
             float ebb = Mathf.Clamp01((now - q.Born) / CatchSeconds) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((k - 0.55f) / 0.45f)));
             if (now >= q.NextLight)
             {

@@ -68,6 +68,7 @@ function Report-Run($mode, $code) {
 
 function Run-Tests($mode, [string[]]$extra) {
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
+    Remove-Item "test-results-$mode.xml" -ErrorAction SilentlyContinue   # a run that writes nothing must not leave the last green copy
     & $unity test . --mode $mode --timeout 600 @extra | Out-Host
     $code = $LASTEXITCODE
     $first = Report-Run $mode $code          # the full run's results stay in test-results-<mode>.xml whatever follows

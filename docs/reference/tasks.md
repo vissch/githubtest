@@ -40,7 +40,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
   (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
   `Editor/DeterminismPlatformReport.cs`.
-- **Tests:** SimHashTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests.
+- **Tests:** SimHashTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+  (what `Death.b`, `dir` and `scalar` mean).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
   `FormatVersion`. Contracts in `docs/02-contracts.md`, rules in `docs/03-determinism-rules.md`.
 
@@ -92,10 +93,23 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Data/DataBaker.cs` (the assets themselves are made by `Editor/SliceDefinitions.cs`).
 - **Tests:** CombatTests, HeightfieldRaycastTests.
 
-### Shells, barrages, gas
-- **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5), `Sim/Match/OffMapAbilities.cs`,
-  `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs`, `Sim/Match/Deformation.cs`.
-- **Tests:** SupportAbilityTests, DirectionalBlastTests.
+### Shells, barrages, gas, fire
+- **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),
+  `Sim/Match/OffMapAbilities.cs` (HE disc / line / box, creeping barrage, chlorine point / creeping, smoke screen,
+  strafe run; `ScheduledPayload`, `PayloadKind`), `Sim/Core/AbilityArgs.cs` (heading, pattern, length in
+  `SimCommand.B`), `Sim/Match/AmbientBombardment.cs`, `Sim/Combat/GasSmokeField.cs` (the gas field and the smoke
+  field), `Sim/Combat/SmokeLos.cs` (metres of thick cloud on a line; read by `TargetAcquisition` and `DirectFire`),
+  `Sim/Combat/Burning.cs` (`BurningSystem`: men and ground alight, reads `Blast.Resolved` for `BlastShape.Incendiary`),
+  `Sim/Combat/BeamSystem.cs` (`BeamSystem`: the sweeping beam, started by the Beam ability; men, hulls, fire, the
+  scorch of `BlastShape.Beam`), `Sim/Combat/Mines.cs` (`MineSystem`: mines and tripwires, `BlastShape.Mine`, laid by
+  a system call until the sapper lands; a crater cooks them off), `Sim/Match/Deformation.cs`.
+- **Tests:** SupportAbilityTests, DirectionalBlastTests, BurningSystemTests, AbilityArgsTests, StrafeRunTests,
+  BarragePatternTests, SmokeScreenTests, BeamTests, MineTests.
+- **Trap:** `MineSystem.Place` is a system call: no command lays a mine until the sapper (docs/21 SIM-D, units-meta),
+  so the replay script fires none and `MineTests` carries the determinism check for the system.
+- **Trap:** a line starts at `pos` and runs along the heading (0 = +Z, 90 = +X) for the length; `B = 0` is the plain
+  ability at its own length, so every older caller still works. Add a pattern only to `AbilityStats.Patterns`, or the
+  command is rejected as one the ability does not offer.
 - **Trap:** a trench never caves in, by owner decision (`decisions.md`).
 - **What caused an explosion** is `Impact.Source` (`Blast.cs`), sent as `Explosion.a`. Its numbers are split by
   hand across files that never mention each other: ability ids (`OffMapAbilities.cs`, `AmbientBombardment.cs`),
@@ -163,19 +177,28 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ## Presentation (SHOW lane)
 
 ### Infantry rendering (VAT)
-- **Files:** `Presentation/Units/VATRenderer.cs` (LOD tiers; the figure scale is `UnitScale` in
-  `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Core/IZoomSource.cs`, `Presentation/Units/VatCodec.cs`,
-  `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs` (far tier and fallback),
-  `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
-- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests.
+- **Files:** `Presentation/Units/VATRenderer.cs` (LOD tiers, the living; the figure scale is `UnitScale` in
+  `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Units/VATRenderer.Fallen.cs` (the dead:
+  the throw arc, the tumble, the heap per 2 m cell, the charred), `Presentation/Core/IZoomSource.cs`,
+  `Presentation/Units/VatCodec.cs`, `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs`
+  (far tier and fallback), `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu
+  TW/VAT/Bake Infantry).
+- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch).
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
-  with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`.
+  with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is the team in its low bit and
+  a fallen man's tumble pitch above it (`team + 2 * step`, 32 steps a turn): the shader decodes `fmod(tint, 2)`, so
+  never read `Tint` as the team on the C# side. `VatPad` packs limbs, grime, seed and char into 24 bits: nothing more fits.
 
 ### Animation (which clip a man plays)
 - **Files:** `Presentation/Core/AnimationController.cs` (the per-man priority ladder, run every tick by SimHost),
-  clip names in `Editor/InfantryClipTable.cs`. Design: `docs/15-character-controller.md`.
-- **Tests:** BlastReactionTests (knockdown and daze), TickAllocationTests (no per-tick allocation).
+  `Presentation/Core/AnimationController.Death.cs` (how a man dies: the Death event's cause and knock, density in the
+  heap, the death ring `TryDeath` the effects read, `Char`), clip names in `Editor/InfantryClipTable.cs`.
+  Design: `docs/15-character-controller.md` (section 9 is the death ladder).
+- **Tests:** BlastReactionTests (knockdown and daze), DeathVarietyTests (the death ladder and its records),
+  TickAllocationTests (no per-tick allocation).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions.
+- **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
+  dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
 ### Tanks and walkers drawn
 - **Files:** `Presentation/Camera/TankRenderer.cs`, `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
@@ -190,6 +213,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Combat effects: tracers, bursts, smoke, camera shake
 - **Files:** `Presentation/Camera/CombatFx.cs` (event dispatch `OnSimEvent`, tracers, bodies, bursts, materials),
+  `Presentation/Camera/CombatFx.Mines.cs` (our mines and tripwires marked on the ground until they go off or a
+  crater cooks them; a trigger's flash; the burst is the Explosion's), `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
+  man's pool and smoulder; `UnitAlight` lights and douses the drawn torch),
+  `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
+  beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/SimClock.cs` (the sim's clock in seconds for everything the picture times against the sim: the
+  aircraft, the beam, the fires), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets
+  so the effects draw it without knowing the panel), `Presentation/Camera/AbilityAim.cs` (the aim
+  state machine: point, or press-drag-release with patterns and snapping; `TestPanel` drives it),
   `Presentation/Camera/CombatFx.Chunks.cs` (thrown dirt, splinters, smoke balls, cook-offs),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
@@ -201,9 +232,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   night a burst also lights its own smoke: `NightLights` sets `_TWBurst`, read by `TWBurstLight` in
   `Shaders/TWAtmosphere.hlsl`. `FlipbookFx.Book` maps to `Sheets` by position, and three
   sheets are named "Puff": count the rows, the smoke book is the one with `Erode = true`.
-  `CombatFx.cs` also draws the gameplay overlays: called-strike target markers, the ability aiming circle (in
-  `Update`, from `TestPanel.Armed`) and the IMGUI banner (`Banner`, `OnGUI`).
-- **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests.
+  `CombatFx.cs` also draws the called-strike target markers, and `CombatFx.Abilities.cs` the ability aim, from
+  `SceneHooks.AimPreview` (whoever owns the aim sets it; `TestPanel` today). The IMGUI banner (`Banner`, `OnGUI`)
+  draws only when the legacy HUD is on (F9).
+- **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim).
 - **Trap:** effects drawn only up close sit behind `if (!close) return;` in `CombatFx.Ground.cs` `CloseLife`. Keep
   that guard in front of anything close-only, or the standard view pays for it.
 
@@ -231,30 +263,54 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the PNG together, and check `books.Ready`.
 
 ### Debris and destruction of props and houses
-- **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers),
-  `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
-  `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`). Design: `docs/16-destruction.md`.
+- **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
+  `ZoomShare`), `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
+  `Presentation/Terrain/TrenchSection.cs` (`TrenchSectionRules`: a lining section intact -> damaged -> gone, heavy
+  ordnance, the pieces' life), `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`).
+  Design: `docs/16-destruction.md` ("The lining breaks in two steps").
 - **How harm works:** `PropDestruction.Strike` applies each explosion to the props in reach, per `Rule` (hp,
   pieces, dust; built in `BuildRules`, one per kit list such as `kit.TrenchWalls`). A prop with hp left is only
   chipped (`Chip`: flying bits, no change of look); at zero it is `Finish`ed (`Collapse`/removed, debris thrown).
-  A shelter (`Rule.Shelter`: dugouts, bunkers, MG nests) is never finished: `ShedBags` throws sandbags off it. There
-  is no damaged-but-standing state. Budgets: `MaxLoose`, `MaxRemembered`, `PropDestruction.SpallBudget` (declared in
-  `PropWear.cs`, a part of the same class), and the `DebrisRenderer` rings.
-- **Tests:** DebrisTests, PropWearTests, HouseKitTests.
+  Trench lining is the exception: `TrenchSection` gives it a damaged state between. A shelter (`Rule.Shelter`:
+  dugouts, bunkers, MG nests) is never finished: `ShedBags` throws sandbags off it. Budgets: `MaxLoose`,
+  `MaxRemembered`, `PropDestruction.SpallBudget` (declared in `PropWear.cs`, a part of the same class), and the
+  `DebrisRenderer` rings.
+- **Tests:** DebrisTests, PropWearTests, HouseKitTests, TrenchSectionTests.
 - **Trap:** a prop is identified by its position rounded to 0.25 m. Convert a drawn instance to a key through
-  `PropWear.Home` first, or it forgets its damage.
+  `PropWear.Home` first, or it forgets its damage. A lining panel and its broken twin share the panel's key
+  (`KeyOf`): key a twin by itself and it becomes a second, undamaged thing. The twin is put where the panel stood by
+  `BattlefieldProps.AddInstance` and kept there by `Replace`; the composer keeps emitting the whole panel.
 
 ### Battlefield props and composition
-- **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement), `Presentation/Terrain/BattlefieldKit.cs`
-  (modules, env atlas cells), `Presentation/Terrain/BattlefieldProps.cs` (instanced pages, `Generation`),
-  `Presentation/Terrain/BattlefieldBlueprint.cs`, `Presentation/Terrain/PropLayout.cs` + `Resources/Layouts/`
+- **Files:** `Presentation/Terrain/BattlefieldComposer.cs` (seeded placement: the steps, the sites, the map's props; one
+  class in six files), `Presentation/Terrain/BattlefieldComposer.Trench.cs` (the lining),
+  `Presentation/Terrain/BattlefieldComposer.Ground.cs` (debris, graves, gatherings, margins, the winter ground),
+  `Presentation/Terrain/BattlefieldComposer.Landmarks.cs` (landmarks, horizon),
+  `Presentation/Terrain/BattlefieldComposer.Buildings.cs` (village, rear), `Presentation/Terrain/BattlefieldComposer.Scatter.cs`
+  (the scatter step: builds the rules' input from the map and the layout, emits the placements),
+  `Presentation/Terrain/BattlefieldKit.cs` (modules, env atlas cells) + `Presentation/Terrain/BattlefieldKit.Keys.cs`
+  (module keys and scale rules), `Presentation/Terrain/BattlefieldProps.cs` (instanced pages, `Generation`, `Enforce`),
+  `Presentation/Terrain/BattlefieldBlueprint.cs`, `Presentation/Terrain/PropLayout.cs` (`Style`) + `Resources/Layouts/`
   (owner's hand edits), `Editor/EnvPropEditor.cs` (with `Presentation/Terrain/PropHandle.cs`, the editor stand-in for
   one batched prop), `Editor/EnvKitImport.cs`. The procedural kit: `Presentation/Terrain/BattlefieldGeometry.cs` (worn
   solid primitives), `Presentation/Terrain/BattlefieldPigment.cs` (the painted surface sheet), and
   `Presentation/Terrain/BattlefieldBackdrop.cs` (what lies beyond the fought-over ground).
-- **Tests:** EnvAtlasTests.
+- **Scale (docs/21 phase 1):** `Presentation/Terrain/AssetScaleTable.cs` (the soldier unit and every module's class and
+  bounds), `Presentation/Terrain/AssetScaleReport.cs` (measures the composed field), `Editor/AssetScaleAudit.cs`
+  (writes the report: menu TW/Audit/Asset Scale or `-executeMethod TW.Editor.AssetScaleAudit.Run`), `Tools/looks.py`
+  (rescales the looks in the layout asset).
+- **Scatter (docs/21 phase 2):** `Presentation/Terrain/ScatterField.cs` (`ScatterInput`: cells, banks, what stands up,
+  footprints, ladders, roads, season, coast, rear bands; `ScatterField`: Traffic, Vertical, Patch, Wet, Open) and
+  `Presentation/Terrain/ScatterLayers.cs` (grass, accents, flowers, frost, the camp's kit in trenches, dugouts and the
+  rear; the caps). Design: `docs/13-environment-system-rebuild.md`, "Rule-based scatter".
+- **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests.
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
-  gaps between placed structures.
+  gaps between placed structures. The scale clamp lives in `BattlefieldProps.Emit` and `Placement`, not in
+  `Styled` (which returns early without a look, and hand edits never pass through it); a building is reported,
+  never clamped, because its chunks are placed by their own matrices. A new public `Module` field on the kit needs a
+  row in `AssetScaleTable` (AssetScaleTests keys every field). The scatter's placements are computed once a map and
+  re-emitted every pass: put nothing in `ScatterLayers.Place` that reads the surface (a crater), that filter is the
+  emit loop's in `BattlefieldComposer.Scatter.cs`.
 
 ### Terrain view, weather, night, biomes
 - **Files:** `Presentation/Terrain/GreyboxTerrainView.cs` (ground mesh, adds most environment components; owns the
@@ -302,9 +358,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
   UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
   match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
-- **Centre banner** (a trench taken, an incoming barrage, the match end): `UI/ObjectiveTracker.cs` `OnEvent` picks
-  it, the words are in `HudText` (`CapturedBanner`, `IncomingBanner`, ...). `CombatFx.cs` still draws its own IMGUI
-  copy of the same banners (`Banner`, `OnGUI`).
+- **Centre banner** (a trench taken, an ability, the match end): `ObjectiveTracker.BannerFor` (`UI/ObjectiveTracker.cs`,
+  pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
+  replaces which. `CombatFx.cs` draws an IMGUI copy only while the legacy HUD is on (F9).
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD.
 - **Trap:** the support cards are `HudView.SupportAbilities` (HE barrage and chlorine only), but `HudLayout.SupportSlots` and `BattleHud` each keep
   their own `SupportSlots = 2` (until "The HUD's width model counts every support card" lands).
@@ -355,6 +411,32 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Settings sliders:** each slider's range is a row in `GameSettings.Sliders`; loading clamps to it and
   `SettingsScreen` sets the slider from it. A new slider needs a row, or GameSettingsTests fails.
 
+### Campaign shell
+- **Files:** `UI/Campaign/HomeFrontScreen.cs`, `UI/Campaign/StrategicMapScreen.cs`, `UI/Campaign/StagingScreen.cs`
+  (the three campaign screens; their UXML is hand-written under `UI/Resources/Shell/`, loaded by name like the
+  Armoury), `UI/Campaign/ShellPick.cs` (is the mouse over a plate, for the 3D views' picking),
+  `UI/Campaign/CampaignGraph.cs` (the country nodes, their missions in order, prerequisites and gold: a
+  code table, no asset), `UI/Campaign/FactionBuildings.cs` (the Home Front's buildings, their stages and upgrade
+  lines per faction, priced and capped against the profile), `Presentation/Core/CampaignProfile.cs` +
+  `ProfileStore.cs` (profile.json beside settings.json, versioned, written through a .tmp swap),
+  `Presentation/Core/CampaignSession.cs` (the mission in flight across the scene load),
+  `Presentation/Core/MetaViews.cs` (the seam to the 3D views: `IHomeFrontView`, `IStrategicMapView`,
+  `MetaServices`), `Presentation/Meta/` (its own assembly, `TW.Presentation.Meta`: `HomeFrontDiorama.cs` and
+  `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask), `StrategicMapView.cs` and
+  `ContinentMesh.cs` (the generated continent, pins, the front line, the fog sheet), `MapFog.cs` (the fog mask:
+  clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map),
+  `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
+- **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests, HomeFrontDioramaTests,
+  StrategicMapMeshTests.
+- **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
+  which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
+  plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
+  (docs/21 B1); today only the depot's silver and income go into the launch request, and the HUD fields only the
+  cards the request's `AbilityMaskA` allows (`HudView.Offered`: cards and keys; the sim itself does not refuse a
+  masked ability yet). The debrief pays a
+  campaign win through `ProfileStore.Current`: a test that binds it sets `ProfileStore.Persist = false` and
+  `ProfileStore.Use(profile)` first, or it writes the player's profile.json.
+
 ### UI skin
 - **Files:** `UI/Skin/SkinSpec.cs` (the sprite table), `Editor/UI/UiSkinGenerator.cs`, `Editor/UI/UiSkinImport.cs`,
   `Editor/UI/UiSkinVerifier.cs`, `Editor/UI/UiAssetBuilder.cs`. `docs/17-ui-art-spec.md` is generated by `Tools/gen_artspec.py`.
@@ -404,15 +486,16 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Chunks, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
-| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, NightLights, TankRenderer |
+| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
-| `Sparks` | CombatFx | Flamethrower, NightLights, TankRenderer |
+| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer |
+| `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
 | `VehicleTracks` | TankRenderer | CombatFx.Ground |
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
-| `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Ground |
+| `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx.Chunks, TankRenderer |
 | `FireLight` | NightLights | Flamethrower |
 | `CookOff` | CombatFx | PropDestruction |
@@ -420,6 +503,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AllocProbeSanityTests, BattlefieldLockstepTests, BattlefieldTests, BiomeProfileTests, BlastReactionTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FlowFieldManagerTests, FlowFieldTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, SceneStaticsTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, StaticLifecycleTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BiomeProfileTests, BlastReactionTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DeterminismReplayTests, DirectionalBlastTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FlowFieldManagerTests, FlowFieldTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, KeyMapTests, LandingTests, MineTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ScatterRulesTests, SceneStaticsTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, SupportAbilityTests, TankMobilityTests, TankTests, TickAllocationTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WinterLevelTests, WinterMapTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 <!-- /gen:tests -->

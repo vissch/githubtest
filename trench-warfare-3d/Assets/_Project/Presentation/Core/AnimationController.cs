@@ -113,6 +113,7 @@ namespace TW.Presentation
         public float AimYaw, BodyYaw, ShownYaw, TurnTo;   // where he aims; where his feet point; what is drawn (eases to BodyYaw); the yaw a turn clip ends at
         public uint IdleSince, LastShot, LastHit, LastNearMiss, LastBlast, LastDuck, ClipStart;
         public ushort Shots, Generation;
+        public byte Team, Archetype;                    // who holds the slot, taken at Fresh: a death seen after a same-tick refill still knows
         public uint Seed;
         public bool Aimed, Gassed, Down, Dead;          // rifle up; has met the gas; on the ground after a trip; death played
         public byte PrevLayer;
@@ -131,7 +132,9 @@ namespace TW.Presentation
         public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
     }
 
-    public sealed class AnimationController : System.IDisposable
+    /// <summary>One class in two files: this one is the ladder, the latch and the render-frame advance;
+    /// AnimationController.Death.cs how a man dies and the records of it (docs/21 phase 4).</summary>
+    public sealed partial class AnimationController : System.IDisposable
     {
         /// <summary>Seconds into DeathThrown (at rate 1) when his back meets the ground: the corpse's arc is timed to land there.</summary>
         public const float ThrownLands = 0.9f;
@@ -208,12 +211,14 @@ namespace TW.Presentation
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
+            AllocateDeaths(maxSlots);
         }
 
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); shotAt.Dispose();
+            DisposeDeaths();
         }
 
         // ------------------------------------------------------------------------------------------------------ tick
@@ -227,9 +232,16 @@ namespace TW.Presentation
             {
                 uint f = w.Flags[i];
                 var s = State[i];
-                if (s.Generation != w.Generation[i]) { s = Fresh(i, w); }
+                if (s.Generation != w.Generation[i])
+                {
+                    // the man who held the slot died this tick and it was filled again in the same tick (free slots are reused
+                    // last in, first out, and a knocked-out tank's crew bail into the slots a shell just freed): he still dies,
+                    // from his own state and the Death event's position, before the newcomer takes over (critic r4, 2026-09-27)
+                    if (died[i] != 0 && !s.Dead && s.Generation != 0 && !VehicleArchetype.IsArmoured(s.Archetype)) Die(i, s, w);   // a tank or walker leaves a wreck, not a death (critic r6, r7)
+                    s = Fresh(i, w);
+                }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
-                if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && VehicleArchetype.IsTank(w.Archetype[i])))
+                if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && VehicleArchetype.IsArmoured(w.Archetype[i])))   // a dead walker too (Despawn clears its flags; critic r7)
                 { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {
@@ -246,8 +258,9 @@ namespace TW.Presentation
         {
             var s = new AnimState { Clip = Clip.Idle, Rung = Rung.Idle, Rate = 1f, Generation = w.Generation[i], Seed = (uint)i * 2654435761u ^ (uint)w.Generation[i] * 40503u, IdleSince = w.Tick, ClipStart = w.Tick };
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
+            s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
-            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -270,7 +283,8 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
             {
@@ -289,6 +303,15 @@ namespace TW.Presentation
                     case SimEventType.UnitLeftTrench:
                         if (e.A >= 0 && e.A < count) leftTrench[e.A] = 1;
                         break;
+                    case SimEventType.Death:
+                        LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
+                        break;
+                    case SimEventType.VehicleClawed:
+                        if (e.B >= 0 && e.B < count) clawed[e.B] = 1;   // a claw closed on him: Die reads it beside the Death
+                        break;
+                    case SimEventType.VehicleCrushed:
+                        if (e.B == 2) LatchCrush(e.Pos);   // b = 2: a man went under the tracks at pos (the event does not name his slot)
+                        break;
                     case SimEventType.Explosion:
                     {
                         // Inside the ring the sim throws men in (0.85 of the radius), and for anyone it killed, the burst
@@ -296,6 +319,10 @@ namespace TW.Presentation
                         // one man after the next instead of all on one tick, and it reaches WaveReach past the radius,
                         // where the sim stops. Everyone within six metres of the edge wears some of the earth it threw.
                         float r = e.Scalar, reach = r + WaveReach, reach2 = reach * reach, inner = 0.85f * r, dirty = r + 6f;
+                        // an aircraft's rounds (BlastShape.Strafe, in dir.y) kill where men stand: they flinch from it but nobody
+                        // is latched for a throw (its 5 m radius passed the 4 m throw test, so the sim's no-knock fix still threw
+                        // them 1.8-7.5 m on screen: critic r6, 2026-09-27)
+                        bool rounds = (int)math.round(e.Dir.y) == (int)TW.Sim.Combat.BlastShape.Strafe;
                         float perTick = WaveSpeed * tickSeconds;
                         for (int i = 0; i < count; i++)
                         {
@@ -307,7 +334,7 @@ namespace TW.Presentation
                             if (dist < dirty) { float close = 1f - dist / dirty; Grime[i] = math.min(1f, Grime[i] + 0.5f * close * close); }
                             if (!alive || dist < inner)
                             {
-                                if (blastRadius[i] <= 0f || dist < blastDist[i]) { blastRadius[i] = r; blastDist[i] = dist; hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
+                                if (!rounds && (blastRadius[i] <= 0f || dist < blastDist[i])) { blastRadius[i] = r; blastDist[i] = dist; hitDir[i] = -math.normalizesafe(d, new float3(0, 0, 1)); }
                             }
                             else if (waveAt[i] == 0u || dist < waveD[i])
                             {
@@ -382,46 +409,6 @@ namespace TW.Presentation
             var s = State[slot]; s.AlightUntil = 0u; State[slot] = s;
         }
 
-        AnimState Die(int i, AnimState s, SimWorld w)
-        {
-            // stance first, then gait, then the direction the impulse came from against the body
-            Clip clip;
-            var st = (Stance)s.Stance;
-            bool blast = blastRadius[i] > 0f;
-            float speed = s.Speed;   // the smoothed speed: the sim kills before it moves him this tick
-            // a heavy shell inside four fifths of its radius throws him through the air, whatever his stance: he goes up
-            // facing it and comes down on his back, further and higher the closer it was (the corpse's arc: VATRenderer)
-            float closeness = blast && blastRadius[i] >= 4f ? math.saturate(1.15f - blastDist[i] / (0.8f * blastRadius[i])) : 0f;
-            s.ThrowX = s.ThrowZ = s.ThrowUp = 0f;
-            if (closeness > 0f)
-            {
-                float3 toward = hitDir[i]; toward.y = 0f; toward = math.normalizesafe(toward, new float3(0f, 0f, 1f));
-                float jitter = 0.8f + 0.4f * Hash(s.Seed, tick + 31);
-                float far = math.lerp(1.8f, 7.5f, closeness) * jitter, high = math.lerp(1.4f, 6.0f, closeness) * jitter;
-                bool flat = st == Stance.Prone || st == Stance.Pinned, dug = (w.Flags[i] & (uint)UnitFlags.InTrench) != 0 || s.PrevLayer == (byte)NavLayer.Trench;
-                if (flat) { far *= 0.5f; high *= 0.5f; }
-                if (dug) { far *= 0.25f; high *= 0.8f; }   // in a trench he goes up, not out
-                s.ThrowX = -toward.x * far; s.ThrowZ = -toward.z * far; s.ThrowUp = high;
-                Start(i, ref s, Clip.DeathThrown, Rung.Death, (i == FollowSlot ? "killed: shell at " + blastDist[i].ToString("0.0") + " m throws him " + far.ToString("0.0") + " m, " + high.ToString("0.0") + " m up" : null));
-                s.ShownYaw = s.BodyYaw = math.atan2(toward.x, toward.z);   // facing the burst: it throws him backwards
-                s.Dead = true;
-                return s;
-            }
-            if (st == Stance.Prone || st == Stance.Pinned) clip = Clip.DeathProne;
-            else if (st == Stance.Crouch || st == Stance.FireStep) clip = (s.Seed & 4) != 0 ? Clip.DeathSquat : Clip.DeathKneel;
-            else if (blast) clip = Clip.DeathBlast;
-            else if (speed > 2.2f) clip = Clip.DeathRunning;
-            else if (speed > 0.3f) clip = Clip.DeathWalking;
-            else
-            {
-                float rel = Relative(hitDir[i], s.BodyYaw);
-                clip = (s.Seed % 5) == 0 ? Clip.DeathHeadshot : math.abs(rel) < 0.79f ? Clip.DeathBack : math.abs(rel) > 2.36f ? Clip.DeathFront : rel > 0f ? Clip.DeathRight : Clip.DeathLeft;
-            }
-            Start(i, ref s, clip, Rung.Death, (i == FollowSlot ? "killed: " + (blast ? "blast" : "shot") + ", " + st + (speed > 0.3f ? ", moving" : "") : null));
-            s.Dead = true;
-            return s;
-        }
-
         /// <summary>The angle (rad, -pi..pi) between a world direction and the body's facing; 0 = the direction the body faces.</summary>
         static float Relative(float3 dir, float bodyYaw)
         {
@@ -464,6 +451,7 @@ namespace TW.Presentation
             if (s.AlightUntil > tick)
             {
                 s.Stance = (byte)Stance.Standing; s.WantStance = (byte)Stance.Standing; s.Routine = 0; s.Aimed = false;
+                if (Char[i] < 1) Char[i] = 1;   // singed from now on, whether or not he lives (VatPad)
                 Start(i, ref s, Clip.Burning, Rung.Reaction, "on fire: runs", 1f, 0.2f);
                 return;
             }

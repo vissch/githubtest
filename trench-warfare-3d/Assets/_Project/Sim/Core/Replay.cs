@@ -16,7 +16,17 @@ namespace TW.Sim
         // v4 (2026-09-24): MapData is folded into the tick hash by TerrainHashSystem -- the heightfield, the nav
         // layers and the holes the shells have dug are compared state now, which docs/03 deferred "to the next
         // replay-format break". Blast impacts also carry a direction and a shape.
-        public const ushort FormatVersion = 4;
+        // v5 (2026-09-26): BurningSystem is registered (its per-slot fire and burning cells join the hash), a blast's
+        // dead carry their knock in the Death event, and Impact has an Incendiary shape. Header layout unchanged.
+        // v6 (2026-09-26): SupportFire.b carries AbilityArgs (heading, pattern, length); ScheduledPayload gains Dir,
+        // Radius, Kind and Ticks (hashed); GasSmokeSystem's smoke field and its sources join the hash while a screen
+        // is up; the HE scatter draws from SimRandom.SystemId.Abilities; Impact gains SafeBehind. Layout unchanged.
+        // v7 (2026-09-26): BeamSystem is registered (its running sweeps join the hash); OffMapAbilityId.Beam = 11 is a
+        // real ability whose BeamStart payload carries heading x length in Dir; BlastShape.Beam = 4. Layout unchanged.
+        // v8 (2026-09-26): MineSystem is registered (mines and tripwires join the hash, order 1130); BlastShape.Mine = 5.
+        // Before v8 landed anywhere (2026-09-27): BlastShape.Strafe = 6 (a strafe's rounds throw nobody) and the ability dice
+        // are salted by ability id as well as player and round, and BurningSystem hashes every slot's timer. Layout unchanged.
+        public const ushort FormatVersion = 8;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

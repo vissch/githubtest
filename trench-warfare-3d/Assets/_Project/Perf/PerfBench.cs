@@ -73,6 +73,7 @@ namespace TW.Perf
         TacticalCamera tactical;
         Camera cam;
         Vector2 focus;
+        float zoomUsed = float.NaN;   // the camera's zoom after its own clamp (Options.Zoom is what was asked)
         int waitFrames, warmLeft, alivePeak;
         float settleDeadline, keepShake = 1f;
         uint lastTick, t0;
@@ -151,7 +152,7 @@ namespace TW.Perf
             tactical = FindFirstObjectByType<TacticalCamera>();
             cam = tactical != null ? tactical.GetComponent<Camera>() : null;
             if (cam == null) cam = Camera.main;
-            focus = ArmyCentre(w);
+            focus = float.IsNaN(Options.FocusX) || float.IsNaN(Options.FocusZ) ? ArmyCentre(w) : new Vector2(Options.FocusX, Options.FocusZ);
             if (tactical != null) tactical.enabled = false;   // it re-places the camera every frame; the bench holds it
             keepShake = CameraShake.Strength;
             CameraShake.Strength = 0f;
@@ -162,7 +163,7 @@ namespace TW.Perf
 
         void Warm()
         {
-            if (warmLeft == 10 && !string.IsNullOrEmpty(Options.Shot))
+            if (warmLeft == Mathf.Min(10, Mathf.Max(1, Options.Warm)) && !string.IsNullOrEmpty(Options.Shot))   // warm below 10 still shoots
             {
                 try { string dir = Path.GetDirectoryName(Path.GetFullPath(Options.Shot)); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir); ScreenCapture.CaptureScreenshot(Path.GetFullPath(Options.Shot)); }
                 catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
@@ -202,6 +203,7 @@ namespace TW.Perf
             if (tactical == null || cam == null || host == null || host.Local == null) return;
             var tc = tactical;
             tc.Zoom = Mathf.Clamp(Options.Zoom, tc.ZoomMin, tc.ZoomMax);
+            zoomUsed = tc.Zoom;
             tc.Focus = focus;
             SceneHooks.CloseUp = tc.CloseUpAt(tc.Zoom);
             Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
@@ -235,7 +237,7 @@ namespace TW.Perf
         readonly List<string> unavailable = new List<string>(), warnings = new List<string>();
         readonly FrameTiming[] timing = new FrameTiming[1];
         Series dt, cpu, main, render, gpu, mainTick, mainIdle, ticksPerFrame;
-        Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive;
+        Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive, frameDraws, frameVerts, frameIndirect;
         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
         int hitches, frames;
@@ -287,6 +289,7 @@ namespace TW.Perf
             terrain = FindFirstObjectByType<GreyboxTerrainView>();
             vatDrawn = New("vat_drawn"); vatNear = New("vat_near"); vatVerts = New("vat_vertices"); vatShadows = New("vat_shadows_on");
             propDraws = New("props_draw_calls"); propVerts = New("props_vertices"); debrisAlive = New("debris_alive"); debrisDraws = New("debris_draw_calls");
+            frameDraws = New("frame_draw_calls"); frameVerts = New("frame_vertices"); frameIndirect = New("frame_indirect_draws");   // FrameBudget: every submission in Presentation, the lining included
             paintMs = New("terrain_paint_ms"); alive = New("alive");
 #if UNITY_EDITOR
             if (UnityEditor.SceneView.sceneViews.Count > 0)
@@ -335,6 +338,7 @@ namespace TW.Perf
 
             if (vat != null) { vatDrawn.Add(vat.DrawnInfantry); vatNear.Add(vat.DrawnNear); vatVerts.Add(vat.VerticesThisFrame); vatShadows.Add(vat.ShadowsThisFrame ? 1 : 0); }
             if (props != null) { propDraws.Add(props.DrawCalls); propVerts.Add(props.SubmittedVertices); }
+            frameDraws.Add(FrameBudget.DrawCalls); frameVerts.Add(FrameBudget.Vertices); frameIndirect.Add(FrameBudget.IndirectDraws);
             if (debris != null) { debrisAlive.Add(debris.Alive); debrisDraws.Add(debris.DrawCalls); }
             if (terrain != null) paintMs.Add(terrain.LastPaintMilliseconds);
             alive.Add(w.AliveCount);
@@ -441,7 +445,7 @@ namespace TW.Perf
               .Append(", \"generated\": ").Append(host != null && host.GeneratedBattlefield ? "true" : "false")
               .Append(", \"bombardment_per_min\": ").Append(N(host != null ? host.BombardmentNow : 0))
               .Append(", \"canary\": ").Append(host != null && host.Peer != null ? "true" : "false")
-              .Append(", \"view\": { \"focus\": [").Append(N(focus.x)).Append(", ").Append(N(focus.y)).Append("], \"zoom\": ").Append(N(Options.Zoom))
+              .Append(", \"view\": { \"focus\": [").Append(N(focus.x)).Append(", ").Append(N(focus.y)).Append("], \"zoom\": ").Append(N(Options.Zoom)).Append(", \"zoom_used\": ").Append(N(zoomUsed))
               .Append(", \"yaw\": ").Append(N(Options.Yaw)).Append(", \"pitch\": ").Append(N(Options.Pitch)).Append(" }, \"weather_clock\": ").Append(N(Options.Weather)).Append(" },\n");
             double seconds = startRealtime > 0 ? Time.realtimeSinceStartupAsDouble - startRealtime : 0;
             sb.Append("  \"window\": { \"tick_start\": ").Append(t0).Append(", \"tick_end\": ").Append(w != null ? w.Tick : 0)
@@ -475,6 +479,12 @@ namespace TW.Perf
             sb.Append("],\n  \"warnings\": [");
             if (!allFocused) warnings.Add("the window lost focus during the run");
             if (aliveStart >= alivePeak && alivePeak > 0) warnings.Add("nobody had died before the window: the armies may not be in contact yet");
+            // a held view off the armies' centre measures a different frame: never compare its numbers with a standard run
+            bool fx = !float.IsNaN(Options.FocusX), fz = !float.IsNaN(Options.FocusZ);
+            if (fx && fz) warnings.Add("custom focus (fx/fz): not the standard view, do not compare with standard runs");
+            else if (fx || fz) warnings.Add("only one of fx/fz was given: the view fell back to the armies' centre");
+            if (!float.IsNaN(zoomUsed) && Mathf.Abs(zoomUsed - Options.Zoom) > 1e-3f) warnings.Add("zoom " + Options.Zoom + " was clamped to " + zoomUsed + " by the camera");
+            if (Options.Unknown.Count > 0) warnings.Add("unknown bench option(s) ignored: " + string.Join(", ", Options.Unknown));
             for (int i = 0; i < warnings.Count; i++) sb.Append(i > 0 ? ", " : "").Append(Q(warnings[i]));
             sb.Append("]\n}\n");
             return sb.ToString();

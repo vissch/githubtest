@@ -163,14 +163,17 @@ namespace TW.Sim
             return slot;
         }
 
-        public void Despawn(int slot, int killer = -1, float3 impulse = default)
+        /// <param name="killer">The killer's slot, or a <see cref="DeathCause"/> (negative) when no slot did it.</param>
+        /// <param name="impulse">The direction he is thrown (a blast sets y = 1 and the knock in xz).</param>
+        /// <param name="knock">How hard, in m/s; 0 when he simply drops.</param>
+        public void Despawn(int slot, int killer = -1, float3 impulse = default, float knock = 0f)
         {
             if (!IsAlive(slot)) return;
             bool vehicle = (Flags[slot] & (uint)UnitFlags.Vehicle) != 0;
             Flags[slot] = 0u; StanceOf[slot] = (byte)Stance.Dead; Hp[slot] = 0f; TrenchId[slot] = -1; TargetSlot[slot] = -1; PostCell[slot] = -1; PostKind[slot] = 0;
             freeSlots.Add(slot);
             AliveCount--;
-            Events.Add(Tick, SimEventType.Death, slot, killer, Position[slot], impulse);
+            Events.Add(Tick, SimEventType.Death, slot, killer, Position[slot], impulse, knock);
             if (vehicle) Events.Add(Tick, SimEventType.VehicleDestroyed, slot, killer, Position[slot], new float3(0f, Yaw[slot], 0f));   // dir.y = hull yaw, for the wreck
         }
 

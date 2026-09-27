@@ -45,7 +45,8 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
 | `TW.Presentation.Audio` | `Presentation/Audio/` | `TW.Presentation.Audio` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
 | `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net |
-| `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data |
+| `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation`, `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data |
+| `TW.Presentation.Meta` | `Presentation/Meta/` | `TW.Presentation.Meta` | Sim.Core, Sim.Terrain, Presentation.Core, Presentation.Camera, Presentation.Terrain |
 | `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core |
 | `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
 | `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
@@ -55,11 +56,11 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Sim.Nav` | `Sim/Nav/` | `TW.Sim.Nav` | Sim.Core, Sim.Terrain |
 | `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core |
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat |
-| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, UI, Data, Editor, Perf |
+| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
-19 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+20 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -78,6 +79,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Presentation/Audio/` | Stub: event audio router (B7). No audio assets exist yet. |
 | `Presentation/Camera/` | NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical. |
 | `Presentation/Core/` | SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, MatchClock, KeyMap, settings, HudBridge. |
+| `Presentation/Meta/` | The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera. |
 | `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. |
 | `Presentation/Units/` | VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback. |
 | `Presentation/VFX/` | Stub assembly (B5 router). Real effects live in Presentation/Camera. |
@@ -102,6 +104,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. |
 | `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. |
+| `UI/Campaign/` | Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings). |
 | `UI/Missions/` | Mission card assets for the mission select. |
 | `UI/Resources/` | UXML/USS/PanelSettings loaded by name (Hud/, Shell/, UI/). |
 | `UI/Selection/` | Unit selection: picker, model, markers, hover card, selection panel. |
@@ -133,7 +136,8 @@ determinism test: `docs/03-determinism-rules.md`).
 | 710 | `IndirectFireSystem` | `IndirectFire` | `Sim/Combat/IndirectFire.cs` | stub: commented out in MatchSim |
 | 715 | `AmbientBombardmentSystem` | `AmbientBombardment` | `Sim/Match/AmbientBombardment.cs` | registered |
 | 720 | `BlastSystem` | `Blast` | `Sim/Combat/Blast.cs` | registered |
-| 725 | `BurningSystem` | `Blast + 5` | `Sim/Combat/Burning.cs` | stub: commented out in MatchSim |
+| 723 | `BeamSystem` | `Beam` | `Sim/Combat/BeamSystem.cs` | registered |
+| 725 | `BurningSystem` | `Blast + 5` | `Sim/Combat/Burning.cs` | registered |
 | 730 | `VehicleModulesSystem` | `Blast + 10` | `Sim/Units/VehicleModules.cs` | registered |
 | 800 | `SuppressionSystem` | `Suppression` | `Sim/Combat/Suppression.cs` | registered |
 | 810 | `StanceSystem` | `Stance` | `Sim/Units/StanceSystem.cs` | stub: commented out in MatchSim |
@@ -142,6 +146,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 1000 | `DeformationSystem` | `Deformation` | `Sim/Match/Deformation.cs` | registered |
 | 1110 | `MovementSystem` | `Movement` | `Sim/Nav/MovementSystem.cs` | registered |
 | 1120 | `VehicleKinematicsSystem` | `VehicleKinematics` | `Sim/Nav/VehicleKinematics.cs` | registered |
+| 1130 | `MineSystem` | `VehicleKinematics + 10` | `Sim/Combat/Mines.cs` | registered |
 | 1200 | `SectorControlSystem` | `SectorControl` | `Sim/Match/SectorControl.cs` | registered |
 
 Step order follows `Order`; `Initialize` order follows the `AddSystem` calls in `Sim/Match/MatchSim.cs`. Order constants no system uses: `SpatialHash` (500), `Building` (728), `Separation` (1100), `Death` (1300).

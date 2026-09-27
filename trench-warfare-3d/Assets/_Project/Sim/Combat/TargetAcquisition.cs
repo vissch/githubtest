@@ -1,5 +1,6 @@
 // Phase: A2 (implemented) — depends on: MapData (heightfield, CellTrenchId), FlowFieldManager (trench hold-fire),
-// HeightfieldRaycast, CombatTables. Smoke attenuation (A5) and sniper priorities (SpecialAbilities) come later.
+// HeightfieldRaycast, CombatTables, GasSmokeSystem (the smoke field, read a tick old). Sniper priorities
+// (SpecialAbilities) come later.
 // Staggered scan: one third of the slots per tick (slot % 3 == tick % 3); the other two ticks only re-validate the
 // current target. A scan looks through a coarse 16 m grid for the three nearest engageable enemies and takes the
 // first with a terrain line of sight. Ties break on the slot index, so the result does not depend on bucket order.
@@ -9,7 +10,9 @@
 //  - units under a >> order are running: they only engage within 60 m;
 //  - small arms cannot hurt vehicles; infantry within 8 m close-assault them with grenades (a charge on the armour);
 //  - a knocked-out vehicle (UnitFlags.KnockedOut) is no target and fires nothing. A tank's main guns choose their own
-//    targets (TankGunnerySystem); what is found here is for its machine guns.
+//    targets (TankGunnerySystem); what is found here is for its machine guns;
+//  - past CombatTables.SmokeBlindMetres of thick smoke on the line (SmokeLos) nobody is seen, whatever the ground says;
+//    the scan drops such a target within three ticks.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -26,6 +29,9 @@ namespace TW.Sim.Combat
 
         readonly MapData map;
         FlowFieldManager fields;
+        GasSmokeSystem gas;          // registered after this system: resolved on the first step
+        bool lookedForGas;
+        NativeArray<float> noSmoke;  // a one-cell stand-in for the job while there is no smoke
         NativeParallelMultiHashMap<int, int> grid;
         int gridW, gridL;
 
@@ -37,16 +43,20 @@ namespace TW.Sim.Combat
             gridW = (int)math.ceil(map.SizeMeters.x / GridCell);
             gridL = (int)math.ceil(map.SizeMeters.y / GridCell);
             grid = new NativeParallelMultiHashMap<int, int>(world.Config.MaxSlots, Allocator.Persistent);
+            noSmoke = new NativeArray<float>(1, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
         {
             int n = w.HighWater;
             if (n == 0) return;
+            if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
+            bool smokeOn = gas != null && gas.SmokeActive;
             new BuildGridJob { Grid = grid, Position = w.Position, Flags = w.Flags, Count = n, GridW = gridW, GridL = gridL }.Run();
             new AcquireJob
             {
                 Grid = grid, GridW = gridW, GridL = gridL, Tick = w.Tick,
+                Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype,
                 StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot,
                 Trenches = fields.Trenches, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
@@ -89,6 +99,9 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<TrenchState> Trenches;
             [ReadOnly] public NativeArray<short> CellTrenchId;
             [ReadOnly] public Heightfield Height;
+            [ReadOnly] public NativeArray<float> Smoke;
+            public int SmokeW, SmokeL;
+            public bool SmokeOn;
             [NativeDisableParallelForRestriction] public NativeArray<int> TargetSlot;   // each index writes only its own entry
 
             short TrenchAt(float3 p)
@@ -146,6 +159,8 @@ namespace TW.Sim.Combat
                 float3 a = Position[i], b = Position[j];
                 float3 d = b - a; d.y = 0f;
                 if (math.lengthsq(d) < 36f) return true;
+                // a screen between them: past SmokeBlindMetres of thick smoke nobody is seen, whatever the ground says
+                if (SmokeOn && SmokeLos.MetresThrough(Smoke, SmokeW, SmokeL, a, b) >= CombatTables.SmokeBlindMetres) return false;
                 if (myTrench >= 0 && TrenchAt(b) == myTrench) return true;
                 return HeightfieldRaycast.HasLineOfSight(Height, Muzzle(i, a, b), Muzzle(j, b, a));
             }
@@ -199,6 +214,10 @@ namespace TW.Sim.Combat
         }
 
         public ulong Hash(ulong h) => h;   // TargetSlot lives in SimWorld; the grid is rebuilt every tick
-        public void Dispose() { if (grid.IsCreated) grid.Dispose(); }
+        public void Dispose()
+        {
+            if (grid.IsCreated) grid.Dispose();
+            if (noSmoke.IsCreated) noSmoke.Dispose();
+        }
     }
 }

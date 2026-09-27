@@ -54,6 +54,90 @@ namespace TW.Tests
                     "nothing about what they are buying");
         }
 
+        /// <summary>One banner per event (CombatFx drew a second, IMGUI one over the HUD's until a player build's shot showed
+        /// both, 2026-09-27): every support card fired by either side names itself, in a banner the plate can hold.</summary>
+        [Test]
+        public void EverySupportAbilityHasABannerForEitherSide()
+        {
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+                foreach (bool mine in new[] { true, false })
+                {
+                    string text = TW.UI.HudText.AbilityBanner(id, mine);
+                    StringAssert.Contains(mine ? TW.UI.HudText.Support(id).Name : TW.UI.HudText.Support(id).Name.ToUpperInvariant(), text, id + " is named");
+                    Assert.LessOrEqual(text.Length, 32, id + ": '" + text + "' fits the banner plate");
+                }
+            // a card's nameplate shows seven capitals whole ("BARRAGE", "ASSAULT"); "CREEPING" drew as "CREEPI..." in the
+            // player build's shot
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+                Assert.LessOrEqual(TW.UI.HudText.Support(id).Card.Length, 7, id + ": '" + TW.UI.HudText.Support(id).Card + "' fits its card");
+            Assert.AreNotEqual(TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, true), TW.UI.HudText.AbilityBanner(OffMapAbilityId.StrafeRun, false), "yours and theirs read differently");
+        }
+
+        /// <summary>What ObjectiveTracker.OnEvent shows for each event (it calls BannerFor and nothing else): every support
+        /// ability fired by either side raises its banner, not only the enemy's barrages as before 2026-09-27.</summary>
+        [Test]
+        public void TheHudRaisesABannerForEveryAbilityTrenchAndTheEnd()
+        {
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+                foreach (int player in new[] { 0, 1 })
+                {
+                    Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.AbilityFired, A = (int)id, B = player }, out var text, out _, out var cls, out int rank), id + " by player " + player);
+                    Assert.AreEqual(TW.UI.HudText.AbilityBanner(id, player == 0), text);
+                    Assert.AreEqual(player == 0 ? null : "tw-banner--defeat", cls, "the enemy's is a warning");
+                    Assert.AreEqual(TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, player == 0), rank);
+                }
+            Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.TrenchCaptured, A = 2, B = 1 }, out var lost, out _, out var lostCls, out _));
+            Assert.AreEqual("Trench 2 lost", lost); Assert.AreEqual("tw-banner--defeat", lostCls);
+            Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.MatchEnded, A = 0 }, out var won, out float stays, out _, out int endRank));
+            Assert.AreEqual(TW.UI.HudText.VictoryBanner, won); Assert.GreaterOrEqual(stays, 600f, "the end stays up"); Assert.AreEqual(TW.Presentation.BannerRules.MatchEnd, endRank);
+            Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
+        }
+
+        /// <summary>Both HUDs say the same thing while aiming (the old HUD's hint was a hand copy).</summary>
+        [Test]
+        public void BothHudsGiveTheSameAimHint()
+        {
+            foreach (bool line in new[] { false, true })
+                foreach (bool cycles in new[] { false, true })
+                    Assert.AreEqual(TW.UI.HudText.AimHintFor(line, cycles), BattleHud.AimHint(line, cycles), (line ? "line" : "point") + (cycles ? ", patterns" : ""));
+        }
+
+        /// <summary>The aim hint offers Tab only for an ability with patterns to cycle.</summary>
+        [Test]
+        public void TheAimHintOffersTabOnlyWhereThereArePatterns()
+        {
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+            {
+                Assert.IsTrue(OffMapAbilitySystem.TryGetStats((int)id, out var s), id.ToString());
+                bool cycles = (s.Patterns & ~1) != 0;
+                foreach (bool line in new[] { false, true })
+                    Assert.AreEqual(cycles, TW.UI.HudText.AimHintFor(line, cycles).Contains("Tab"), id + (line ? " (line)" : " (point)"));
+            }
+            StringAssert.Contains("Esc", TW.UI.HudText.AimHintFor(false, false), "the hint still says how to cancel");
+            foreach (var id in new[] { OffMapAbilityId.SmokeScreen, OffMapAbilityId.StrafeRun, OffMapAbilityId.Beam, OffMapAbilityId.CreepingBarrage })
+            {
+                OffMapAbilitySystem.TryGetStats((int)id, out var s);
+                Assert.AreEqual(0, s.Patterns & ~1, id + " has nothing to cycle, so its hint must not offer Tab");
+            }
+        }
+
+        /// <summary>Both HUDs' banners go through BannerRules (ObjectiveTracker, CombatFx.OnGUI): a stream of ability
+        /// banners must not wipe a trench changing hands or the match's end off the plate, and a finished banner gives way.</summary>
+        [Test]
+        public void ABannerIsNotCoveredByOneThatMattersLess()
+        {
+            int own = TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, true), enemy = TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, false);
+            int trench = TW.Presentation.BannerRules.Rank(SimEventType.TrenchCaptured, false), end = TW.Presentation.BannerRules.Rank(SimEventType.MatchEnded, true);
+            Assert.That(own < enemy && enemy < trench && trench < end, "own ability < enemy ability < trench < match end");
+            Assert.AreEqual(0, TW.Presentation.BannerRules.Rank(SimEventType.Shot, true), "a shot raises no banner");
+            Assert.IsFalse(TW.Presentation.BannerRules.Replaces(own, trench, true), "your barrage does not cover 'Trench 2 lost'");
+            Assert.IsFalse(TW.Presentation.BannerRules.Replaces(trench, end, true), "nothing covers the match's end");
+            Assert.IsTrue(TW.Presentation.BannerRules.Replaces(enemy, own, true), "the enemy's barrage covers your own");
+            Assert.IsTrue(TW.Presentation.BannerRules.Replaces(trench, trench, true), "the newer of two trench banners shows");
+            Assert.IsTrue(TW.Presentation.BannerRules.Replaces(own, end, false), "a finished banner gives way to anything");
+            Assert.IsFalse(TW.Presentation.BannerRules.Replaces(0, 0, false), "an event with no banner shows nothing");
+        }
+
         /// <summary>The hint line is one GUI.Label with a fixed rect: it clips rather than wraps, so a long tooltip
         /// is silently cut off. At the narrowest window that is about 100 characters.</summary>
         [Test]

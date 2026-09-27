@@ -56,6 +56,10 @@ namespace TW.Sim.Units
         const int Guns = TankGunnerySystem.Guns;
 
         public int Order => SimSystemOrder.Blast + 10;
+        /// <summary>A mine under a hull (docs/21 SIM-D): this much track damage, and this share of its damage off the structure.</summary>
+        public const float MineTrackDamage = 0.6f, MineHullShare = 0.15f;
+        /// <summary>How far past the footprint a mine's burst still counts as under the hull (the direct burst's own 0.6 m).</summary>
+        public const float MineHullMargin = 0.6f;
 
         readonly Terrain.MapData map;
         SimWorld world;
@@ -307,12 +311,14 @@ namespace TW.Sim.Units
         // ------------------------------------------------------------------ bursts
         void Burst(SimWorld w, Impact im, int k)
         {
+            if (im.Shape == (int)BlastShape.Beam) return;   // the beam takes its own toll off the hull (BeamSystem)
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!IsTank(w, i)) continue;
                 var prof = VehicleProfile.ForArchetype(w.Archetype[i]);
                 float3 d = w.Position[i] - im.Pos; d.y = 0f;
-                float dist = SimMath.Length(d), reach = im.Radius + prof.HalfWidth;
+                // a mine's burst reaches every hull whose footprint could cover it (a corner is prof.Reach out), not only a disc of the half width
+                float dist = SimMath.Length(d), reach = im.Radius + (im.Shape == (int)BlastShape.Mine ? math.max(prof.HalfWidth, prof.Reach) : prof.HalfWidth);
                 if (dist >= reach) continue;
                 var spec = TankSpec.For(w.Archetype[i]);
                 var rng = Dice(w, 0x1000000u + (uint)(k & 0xFFF) * 4096u + (uint)i);   // above every other stream here (slots < 4096)
@@ -325,6 +331,19 @@ namespace TW.Sim.Units
                     continue;
                 }
                 checksum = SimHash.Value(new int3(i, k, direct ? 1 : 0), checksum);
+                if (im.Shape == (int)BlastShape.Mine && prof.Covers(w.Yaw[i], w.Position[i], im.Pos, MineHullMargin))
+                {
+                    // a mine goes off under the tracks, not on the top plate (docs/21 SIM-D): the nearer track takes it.
+                    // "Under" is the footprint the trigger used (VehicleProfile.Covers) with the burst's own margin, and
+                    // nothing else: a mine 4 m under a long hull's bow is under the hull, one 0.5 m off its flank is not
+                    bool rightTrack = SimMath.Sin(w.Yaw[i]) * -d.z + SimMath.Cos(w.Yaw[i]) * d.x < 0f;
+                    float dmg = im.Damage * MineHullShare;
+                    w.Hp[i] = w.Hp[i] - dmg;
+                    w.Events.Add(w.Tick, SimEventType.Hit, -1, i, w.Position[i], down, dmg);
+                    DamageModule(w, i, spec, rightTrack ? VehicleModule.TrackRight : VehicleModule.TrackLeft, MineTrackDamage, ref rng);
+                    Shaken[i] = math.max(Shaken[i], 50);
+                    continue;
+                }
                 if (direct)
                 {
                     bool holed = Armor.PenetratesTop(spec.Hull, im.Damage * 0.1f, out float plate);

@@ -30,6 +30,8 @@ namespace TW.UI
         public bool InMatch => Host != null;
         public int Depth => stack.Count;
         public ShellScreen Top => stack.Count > 0 ? stack[stack.Count - 1] : null;
+        /// <summary>The screen under the top one, or null.</summary>
+        public ShellScreen Under => stack.Count > 1 ? stack[stack.Count - 2] : null;
 
         UIDocument doc;
         VisualElement root;
@@ -95,6 +97,17 @@ namespace TW.UI
             stack.Add(screen);
             screen.Bind(ve, this);
             ApplyHolds();
+        }
+
+        /// <summary>Pops down to the nearest screen of a kind below the top, if there is one (true), so a link back to it
+        /// from further up the stack does not stack another copy.</summary>
+        public bool PopTo<T>() where T : ShellScreen
+        {
+            int at = -1;
+            for (int i = stack.Count - 2; i >= 0; i--) if (stack[i] is T) { at = i; break; }
+            if (at < 0) return false;
+            while (stack.Count - 1 > at) Pop();
+            return true;
         }
 
         public void Pop()

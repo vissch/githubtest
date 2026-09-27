@@ -19,7 +19,8 @@ namespace TW.Sim
         TrenchFallback = 5,
         /// <summary>a = unit slot, b = Stance. 3D addition: explicit prone/crouch/sprint override.</summary>
         UnitStance = 6,
-        /// <summary>a = ability id, pos = target, b = heading in degrees for line/heading abilities.</summary>
+        /// <summary>a = ability id, pos = the target (a point, an area's centre, or where a line starts),
+        /// b = AbilityArgs.Pack(heading, pattern, length) for a line or a pattern; 0 is the plain ability at its own length.</summary>
         SupportFire = 7,
         /// <summary>a = unit slot, b = ability id, pos = target. Officer smoke call, Bangalore, fascine, etc.</summary>
         UnitAbility = 8,

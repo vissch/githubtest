@@ -127,6 +127,12 @@ rm -rf Tools/aosa
 Name every assembly you changed, in dependency order, or it compiles against yesterday's dlls. It prints
 `occ OK <assembly> (N files)` or the compiler errors. It cannot check shaders, USS or scenes.
 
+Then Tools/otr.py runs the EditMode suite on those dlls in Unity's own Mono with a stand-in engine (Tools/otr/*.cs:
+native memory and jobs, JsonUtility, meshes and FBX import, maths, text assets and .asset files), no editor, no RAM
+(`python Tools/otr.py [ClassNameFilter ...] [-v]`). Nearly all of the sim and presentation suite runs; UI Toolkit
+layout, GameObjects, physics and audio still report ENGINE. A strong first filter, never the gate's verdict (no Burst,
+no job threads, no pixels). A FAIL caused only by the stand-in goes in `Tools/otr/known.txt` with its reason.
+
 ## 5. Tests
 
 **One class, in your open editor** (fast, while iterating). Leave Play and reload scripts first, or statics from the
@@ -272,6 +278,7 @@ today is listed today. Read the method's own comment for its arguments.
 <!-- gen:eval-api -->
 | Call | File | What it does |
 |---|---|---|
+| `TW.Editor.AssetScaleAudit.Write(path)` | Editor/AssetScaleAudit.cs | (no summary: read the method) |
 | `TW.Editor.BuildWindows.Queue(development)` | Editor/BuildWindows.cs | Schedules a build for the next editor tick and returns at once, so a `unity command eval` does not hold the command server for the minutes a first ... |
 | `TW.Editor.BuildWindows.Build(development)` | Editor/BuildWindows.cs | (no summary: read the method) |
 | `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h)` | Editor/CaptureRig.cs | Queue one still. |
@@ -316,10 +323,12 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
   and an empty `per_tick_ms`. To see which system costs what, bench the Development build or the editor. Never
   compare numbers across the two (`run.build` in the report says which).
 - Benchmark in the player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`
-  (`Builds/WinBenchDev/` for the Development one). Same options in the editor: `TW.Editor.CaptureRig.Bench("...
-  out=<abs path>.json")` with GreyboxCorridor open. Two reports with the same `hash_start` measured the same battle.
-  Look at the `shot=` image before trusting numbers. Pass `quality=` always: the default (-1) takes whatever the
-  machine's `settings.json` says.
+  (`Builds/WinBenchDev/` for the Development one). `fx=<x> fz=<z> zoom=<z>` holds the camera on one place instead of
+  the armies' centre, for a still of a trench bay or a hamlet (`-screen-fullscreen 0 -screen-width 1280
+  -screen-height 720` before `-twbench` keeps the player in a window). Same options in the editor:
+  `TW.Editor.CaptureRig.Bench("... out=<abs path>.json")` with GreyboxCorridor open. Two reports with the same
+  `hash_start` measured the same battle. Look at the `shot=` image before trusting numbers. Pass `quality=` always:
+  the default (-1) takes whatever the machine's `settings.json` says.
 - **Compare two reports:** `python Tools/perfcmp.py before.json after.json`. Noise on two editor runs of one fight
   (2026-09-23): p50 within about 1%, p95 up to about 12%, p99 and one system's per-tick ms up to about 25%, hitches 2
   vs 5. Run each side twice; trust p50; believe a per-system change only past about 30% and in both runs.
@@ -335,6 +344,7 @@ Last verified 2026-09-23 by the performance pass; not re-run on 2026-09-25.
 - Count allocations with `TW.Perf.AllocProbe`. `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity.
 
 **Batch without an editor:** `Unity.exe -batchmode -quit -projectPath <checkout>/trench-warfare-3d -executeMethod <Class.Method> -logFile <file>`
+(for instance `-executeMethod TW.Editor.AssetScaleAudit.Run`, which writes the asset scale audit to `docs/reference/asset-scale.md`)
 runs any static editor method with the editor closed (the Hub install is `C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe`).
 In Git Bash, `taskkill /PID` gets its slashes mangled: use `taskkill //PID <n> //F`, and only on a process you started.
 

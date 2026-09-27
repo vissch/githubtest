@@ -15,6 +15,7 @@
             <ui:Button name="btn-skirmish" text="SKIRMISH" class="tw-btn tw-btn--wide tw-btn--primary" />
             <ui:Button name="btn-armoury" text="ARMOURY" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-campaign" text="CAMPAIGN" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-homefront" text="HOME FRONT" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-settings" text="SETTINGS" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-quit" text="QUIT" class="tw-btn tw-btn--wide tw-btn--danger" />
         </ui:VisualElement>

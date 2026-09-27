@@ -5,6 +5,7 @@
 // both sides but the machine slots are not (player 0 fields the Maw, player 1 the Tusk), and a bar indexed by slot
 // draws player 0's pictures for player 1. Dormant while multiplayer is deferred; cheaper never to have than to fix.
 using TW.Sim;
+using TW.Presentation;
 
 namespace TW.UI
 {
@@ -40,7 +41,12 @@ namespace TW.UI
 
         /// <summary>The key printed in a card's badge: roster slots 0..7 are "1".."8"; support 0 and 1 are "9" and "0".</summary>
         public static string Hotkey(int slot) => slot < 8 ? ((slot + 1) % 10).ToString() : "";
-        public static string SupportHotkey(int index) => index == 0 ? "9" : index == 1 ? "0" : "";
+        static readonly GameAction[] SupportActions = { GameAction.ArmBarrage, GameAction.ArmGas, GameAction.ArmCreeping, GameAction.ArmSmoke, GameAction.ArmStrafe, GameAction.ArmBeam };
+        /// <summary>The key on a support card, in HudView.SupportAbilities order: whatever KeyMap binds the arm action to
+        /// now, so a rebinding shows on the card.</summary>
+        public static string SupportHotkey(int index) => index >= 0 && index < SupportActions.Length ? Badge(KeyMap.Display(KeyMap.Primary(SupportActions[index]))) : "";
+        /// <summary>An unbound action's badge: a dash, so the card still reads and two unbound cards do not share an empty key.</summary>
+        static string Badge(string key) => string.IsNullOrEmpty(key) ? "—" : key;
 
         public static string VehicleName(byte archetype)
         {
@@ -87,8 +93,35 @@ namespace TW.UI
         public const string SilverGaugeTip = "Silver to spend on units and support; the figure beside it is income per second";
         public const string MenGaugeTip = "Your men on the field, and the enemy's beside VS";
         public const string TimeGaugeTip = "Time since the battle began; PAUSED shows here while the clock is stopped";
-        public const string BarrageTip = "HE barrage: 12 shells in 25 m after 4 s; craters give cover";
-        public const string GasTip = "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out";
+        public const string BarrageTip = "HE barrage: 12 shells in 25 m after 4 s; craters give cover. Tab: line or box";
+        public const string GasTip = "Chlorine gas: drifts with the wind, pools in trenches, drives the garrison out. Tab: creeping";
+        public const string CreepingName = "Creeping Barrage", SmokeName = "Smoke Screen", StrafeName = "Strafe Run", BeamName = "Beam";
+        public const string CreepingCard = "CREEP", SmokeCard = "SMOKE", StrafeCard = "STRAFE", BeamCard = "BEAM";
+        public const string CreepingTip = "Creeping barrage: drag its advance; ten lifts of 4 shells walk 60 m; your men 15 m behind are safe";
+        public const string SmokeTip = "Smoke screen: drag a 40 m line; 30 s of smoke that hides men from fire and spoils aim through it";
+        public const string StrafeTip = "Strafe run: drag the corridor; one low pass lays 32 bursts along 80 m; men on the line die";
+        public const string BeamTip = "Beam: drag the corridor; a 6 s sweep burns everything on 60 m, men catch fire, hulls lose armour";
+
+        /// <summary>A support card's words: the full name (the tooltip's title), what fits the nameplate, the tip, and the
+        /// portrait it shows (the four new abilities borrow the two baked portraits until the skin bakes their own).</summary>
+        public readonly struct SupportText
+        {
+            public readonly string Name, Card, Tip, Portrait;
+            public SupportText(string name, string card, string tip, string portrait) { Name = name; Card = card; Tip = tip; Portrait = portrait; }
+        }
+
+        public static SupportText Support(TW.Sim.Match.OffMapAbilityId id)
+        {
+            switch (id)
+            {
+                case TW.Sim.Match.OffMapAbilityId.ChlorineGas: return new SupportText(GasName, GasCard, GasTip, "ChlorineGas");
+                case TW.Sim.Match.OffMapAbilityId.CreepingBarrage: return new SupportText(CreepingName, CreepingCard, CreepingTip, "HeBarrage");
+                case TW.Sim.Match.OffMapAbilityId.SmokeScreen: return new SupportText(SmokeName, SmokeCard, SmokeTip, "ChlorineGas");
+                case TW.Sim.Match.OffMapAbilityId.StrafeRun: return new SupportText(StrafeName, StrafeCard, StrafeTip, "HeBarrage");
+                case TW.Sim.Match.OffMapAbilityId.Beam: return new SupportText(BeamName, BeamCard, BeamTip, "HeBarrage");
+                default: return new SupportText(BarrageName, BarrageCard, BarrageTip, "HeBarrage");
+            }
+        }
 
         // ---- fixed strings, uppercase because USS has no text-transform ---------------------------------------
         public const string GroupInfantry = "INFANTRY";
@@ -98,7 +131,15 @@ namespace TW.UI
         public const string Locked = "LOCKED";
         public const string Aim = "AIM";
         public const string Paused = "PAUSED";
-        public const string AimHint = "Click the map to fire.  Esc or right click cancels.";
+        public const string AimHint = "Click the map to fire.  Tab changes the pattern.  Esc or right click cancels.";
+        public const string AimLineHint = "Press where the line starts, drag its heading and length, release to fire.  Shift snaps.  Tab changes the pattern.  Esc or right click cancels.";
+        /// <summary>The aim hint for the armed ability: the Tab clause only when it has patterns to cycle (smoke, strafe, beam
+        /// and creeping have none; the hint told them to press Tab: critic r5, 2026-09-27).</summary>
+        public static string AimHintFor(bool line, bool patterns)
+        {
+            string hint = line ? AimLineHint : AimHint;
+            return patterns ? hint : hint.Replace("  Tab changes the pattern.", "");
+        }
         public const string LockedTip = "Locked: reinforcements pass through to the next trench. Click to open";
         public const string OpenTip = "Open: reinforcements stop here. Click to lock";
         public const string FallbackTip = "Fall back to the trench behind";
@@ -108,9 +149,11 @@ namespace TW.UI
         public const string PauseTip = "Tactical pause (Space): orders still go through";
         public const string SpeedTip = "Game speed";
 
-        /// <summary>Centre banners, as CombatFx.cs:554/566/569 word them.</summary>
+        /// <summary>Centre banners. The HUD's is the only one (CombatFx drew an IMGUI copy of each over it until 2026-09-27).</summary>
         public static string CapturedBanner(int trench, bool mine) => mine ? $"Trench {trench} captured!" : $"Trench {trench} lost";
-        public const string IncomingBanner = "INCOMING BARRAGE";
+        /// <summary>A support ability fired: yours on its way, or the enemy's coming in, named as its card names it.</summary>
+        public static string AbilityBanner(TW.Sim.Match.OffMapAbilityId id, bool mine)
+            => mine ? Support(id).Name + " on its way" : "INCOMING " + Support(id).Name.ToUpperInvariant();
         public const string VictoryBanner = "VICTORY: enemy HQ taken";
         public const string DefeatBanner = "DEFEAT: your HQ has fallen";
 

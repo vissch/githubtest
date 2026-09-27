@@ -3,17 +3,22 @@
 // the circle and red ones under ours in reach, so shelling your own line is a choice you see, not a surprise. The reach
 // for ours is the circle plus one shell's blast (HE shells land anywhere in the circle and burst ShellRadius wide);
 // gas has no radius in the sim (it drifts), so its reticle is used for the enemy and twice that for ours.
-// Counts come from the drawn positions (UnitPicker's frame), the same place the player sees the men.
+// Counts come from the drawn positions (UnitPicker's frame), the same place the player sees the men. A line ability
+// (docs/21 phase 5) is counted as a capsule: the enemy within the corridor's half width of the line, ours within the
+// half width plus a burst's reach of it (ShowLine, from AbilityAim's Shape).
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using TW.Sim.Match;
+using TW.Presentation.Tactical;
 
 namespace TW.UI
 {
     public sealed class AimReadout
     {
-        public const float GasReticleM = 8f, GasReachFactor = 2f, OffsetX = 26f, OffsetY = -10f;
+        /// <summary>The disc a point ability draws when its stats give no radius and the reticle the readout counts in
+        /// are one radius: AbilityAim owns it.</summary>
+        public const float GasReticleM = AbilityAim.PointFallbackRadius, GasReachFactor = 2f, OffsetX = 26f, OffsetY = -10f;
 
         readonly VisualElement box;
         readonly Label enemyLine, oursLine;
@@ -36,9 +41,35 @@ namespace TW.UI
         {
             hit = reach = 0f;
             if (!OffMapAbilitySystem.TryGetStats((int)id, out var s)) return false;
-            if (s.Radius > 0f) { hit = s.Radius; reach = s.Radius + s.ShellRadius; }
+            bool harmless = id == OffMapAbilityId.SmokeScreen;   // no burst, no gas: nothing of ours is in reach past the corridor
+            if (s.Target == AbilityTargetMode.Line || s.Target == AbilityTargetMode.Heading) { hit = s.HalfWidth; reach = harmless ? s.HalfWidth : s.HalfWidth + Mathf.Max(s.ShellRadius, GasReticleM); }
+            else if (s.Radius > 0f) { hit = s.Radius; reach = s.Radius + s.ShellRadius; }
             else { hit = GasReticleM; reach = GasReticleM * GasReachFactor; }
             return true;
+        }
+
+        /// <summary>Sort the units into the enemy within the corridor (halfWidth of the segment) and ours within reach of it.</summary>
+        public static void TallyLine(List<ScreenUnit> units, Vector2 startXZ, Vector2 dirXZ, float length, float halfWidth, float reach, List<ScreenUnit> enemyIn, List<ScreenUnit> oursIn)
+        {
+            enemyIn.Clear(); oursIn.Clear();
+            float len2 = length * length;
+            foreach (var u in units)
+            {
+                float px = u.World.x - startXZ.x, pz = u.World.z - startXZ.y;
+                float t = len2 > 1e-4f ? Mathf.Clamp01((px * dirXZ.x + pz * dirXZ.y) / length) : 0f;
+                float ax = px - dirXZ.x * length * t, az = pz - dirXZ.y * length * t;
+                float d2 = ax * ax + az * az;
+                if (u.Ours) { if (d2 <= reach * reach) oursIn.Add(u); }
+                else if (d2 <= halfWidth * halfWidth) enemyIn.Add(u);
+            }
+        }
+
+        /// <summary>Count and show for a corridor (a line ability being aimed); cursor in HUD px.</summary>
+        public void ShowLine(List<ScreenUnit> units, OffMapAbilityId id, in AimShape shape, Vector2 cursor)
+        {
+            if (box == null || !Radii(id, out _, out float reach)) { Hide(); return; }
+            TallyLine(units, new Vector2(shape.Start.x, shape.Start.z), new Vector2(shape.Dir.x, shape.Dir.z), shape.Length, shape.HalfWidth, reach, EnemyIn, OursIn);
+            Present(cursor);
         }
 
         /// <summary>Sort the units into the enemy inside hit and ours inside reach of the aim point (x, z).</summary>
@@ -59,6 +90,11 @@ namespace TW.UI
         {
             if (box == null || !Radii(id, out float hit, out float reach)) { Hide(); return; }
             Tally(units, new Vector2(aim.x, aim.z), hit, reach, EnemyIn, OursIn);
+            Present(cursor);
+        }
+
+        void Present(Vector2 cursor)
+        {
             if (EnemyIn.Count != shownEnemy)
             {
                 shownEnemy = EnemyIn.Count;

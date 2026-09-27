@@ -95,6 +95,8 @@ namespace TW.Presentation.Terrain
 
         public sealed class House
         {
+            /// <summary>HomeFrontStages' cache of the heights its chunks stand on (computed once: the diorama asks every frame).</summary>
+            public float[] StageLevels;
             public string Name;
             /// <summary>The set it came from, its folder in Resources/Env: "Houses" (the village), "Military" (the rear).</summary>
             public string Set;

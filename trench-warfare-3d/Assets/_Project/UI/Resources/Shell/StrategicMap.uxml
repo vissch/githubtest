@@ -1,0 +1,35 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- The strategic map (docs/21 phase 6): the continent shows through a clear screen; the countries on the left
+         (built by StrategicMapScreen, mirroring the pins), the chosen one's plate on the right with its missions in
+         order; SELECT MISSION goes to the staging screen. Containers ignore picking so the pins can be clicked. -->
+    <Style src="../../Skin/dustfront.uss" />
+    <Style src="../../Shell/Shell.uss" />
+    <ui:VisualElement name="map-screen" class="tw-screen shell-screen shell-screen--clear" picking-mode="Ignore">
+        <ui:VisualElement class="tw-topstrip shell-topstrip" picking-mode="Ignore">
+            <ui:Label text="THE FRONT" class="tw-topstrip__label" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement name="gold-readout" class="campaign-gold" picking-mode="Ignore">
+            <ui:Label text="GOLD" class="tw-caption campaign-gold__label" picking-mode="Ignore" />
+            <ui:Label name="gold-value" text="0" class="tw-h2 tw-accent campaign-gold__value" picking-mode="Ignore" />
+        </ui:VisualElement>
+        <ui:VisualElement class="campaign-content" picking-mode="Ignore">
+            <ui:VisualElement class="tw-panel campaign-side">
+                <ui:Label text="COUNTRIES" class="tw-caption shell-section" />
+                <ui:VisualElement name="node-list" class="tw-list" />
+            </ui:VisualElement>
+            <ui:VisualElement name="node-info" class="tw-panel tw-info-panel campaign-info">
+                <ui:Label name="info-title" text="" class="tw-h2 tw-header-window shell-info-header" />
+                <ui:Label name="info-blurb" text="" class="tw-body tw-info-panel__body" />
+                <ui:Label name="info-enemy" text="" class="tw-caption" />
+                <ui:Label name="info-progress" text="" class="tw-caption campaign-stage" />
+                <ui:Label text="MISSIONS" class="tw-caption shell-section" />
+                <ui:VisualElement name="mission-list" class="tw-list" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-bottom-row" picking-mode="Ignore">
+            <ui:Button name="btn-back" text="BACK" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-home" text="HOME FRONT" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-select" text="SELECT MISSION" class="tw-btn tw-btn--wide tw-btn--primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

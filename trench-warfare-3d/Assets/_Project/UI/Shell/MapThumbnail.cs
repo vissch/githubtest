@@ -3,15 +3,19 @@
 // seed's picture is what the player will see on the minimap when the match starts, so the two agree by construction.
 using Unity.Collections;
 using UnityEngine;
+using TW.Presentation;
 using TW.Sim.Terrain;
 
 namespace TW.UI
 {
     public static class MapThumbnail
     {
-        public static Texture2D Render(uint seed)
+        public static Texture2D Render(uint seed) => Render(seed, Ground.ShelledForest);
+
+        /// <summary>The picture of a seed on a ground (the campaign's coast and winter missions).</summary>
+        public static Texture2D Render(uint seed, Ground ground)
         {
-            var p = BattlefieldParams.ShelledForest(seed);
+            var p = MatchLaunch.Field(ground, seed);
             MapData map;
             try { map = BattlefieldGenerator.Create(p, Allocator.Persistent); }
             catch (System.Exception e) { Debug.LogWarning($"MapThumbnail: could not generate seed {seed}: {e.Message}"); return null; }

@@ -26,6 +26,9 @@ namespace TW.Perf
         public float Weather = 120f;
         /// <summary>The camera, held for the whole window: the standard view by default (docs: owner, 2026-09-21).</summary>
         public float Zoom = 30f, Yaw = 21f, Pitch = 25f;
+        /// <summary>Where the held camera looks (map metres, x and z); NaN, the default, is the armies' centre. For a still of
+        /// one place (a trench bay, a hamlet) beside the numbers: `fx=12 fz=40 zoom=10 shot=bay.png`.</summary>
+        public float FocusX = float.NaN, FocusZ = float.NaN;
         /// <summary>Time every EventPump subscriber under its own marker (costs ~2 marker calls per event per subscriber).</summary>
         public bool Subscribers;
         /// <summary>1 runs the determinism canary (two worlds, every tick hashed and compared), 0 forces one world, -1 leaves
@@ -39,6 +42,8 @@ namespace TW.Perf
         /// <summary>Quit the player (or leave play mode in the editor) when the file is written.</summary>
         public bool Quit = true;
         public string Raw = "";
+        /// <summary>Keys the parser did not know ("tick=800" for ticks): PerfBench warns, so a typo cannot run 400 silently.</summary>
+        public System.Collections.Generic.List<string> Unknown = new System.Collections.Generic.List<string>();
 
         public static BenchOptions Parse(string raw)
         {
@@ -64,12 +69,15 @@ namespace TW.Perf
                     case "zoom": o.Zoom = F(v, o.Zoom); break;
                     case "yaw": o.Yaw = F(v, o.Yaw); break;
                     case "pitch": o.Pitch = F(v, o.Pitch); break;
+                    case "fx": o.FocusX = F(v, o.FocusX); break;
+                    case "fz": o.FocusZ = F(v, o.FocusZ); break;
                     case "subs": o.Subscribers = v == "1" || v.ToLowerInvariant() == "true"; break;
                     case "canary": o.Canary = I(v, o.Canary); break;
                     case "label": o.Label = v; break;
                     case "out": o.Out = v; break;
                     case "shot": o.Shot = v; break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
+                    default: o.Unknown.Add(k); break;
                 }
             }
             return o;

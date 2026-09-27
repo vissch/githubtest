@@ -103,12 +103,15 @@ namespace TW.Presentation
             Interface ??= new InterfaceSettings();
             Camera ??= new CameraSettings();
             Bindings ??= KeyMap.Defaults();
+            // how many actions the file knew, per array (an old file's Secondary may be shorter than its Primary, even empty)
+            int savedPrimary = Bindings.Primary != null ? Bindings.Primary.Length : 0, savedSecondary = Bindings.Secondary != null ? Bindings.Secondary.Length : 0;
             Bindings.Normalise();
-            // fill unbound actions from defaults so a file from a build with fewer actions still has keys for the new ones
+            // only the actions this build added since the file was written get their default keys, and only keys no
+            // other action holds: an action the player unbound (its key given to another) stays unbound. Filling every
+            // unbound action on every load undid rebinding and doubled keys (critic r5, 2026-09-27)
             var d = KeyMap.Defaults();
-            for (int i = 0; i < KeyMap.ActionCount; i++)
-                if (Bindings.Primary[i] == UnityEngine.InputSystem.Key.None && Bindings.Secondary[i] == UnityEngine.InputSystem.Key.None)
-                { Bindings.Primary[i] = d.Primary[i]; Bindings.Secondary[i] = d.Secondary[i]; }
+            for (int i = savedPrimary; i < KeyMap.ActionCount; i++) if (!InUse(d.Primary[i], i)) Bindings.Primary[i] = d.Primary[i];
+            for (int i = savedSecondary; i < KeyMap.ActionCount; i++) if (!InUse(d.Secondary[i], i)) Bindings.Secondary[i] = d.Secondary[i];
             Audio.Master = Clamp(Audio.Master, "slider-master"); Audio.Ambience = Clamp(Audio.Ambience, "slider-ambience");
             Audio.Sfx = Clamp(Audio.Sfx, "slider-sfx"); Audio.Music = Clamp(Audio.Music, "slider-music");
             Interface.UiScale = Clamp(Interface.UiScale, "slider-ui-scale");
@@ -119,6 +122,14 @@ namespace TW.Presentation
             var far = RangeOf("slider-zoom-max");
             Camera.ZoomMax = Mathf.Clamp(Camera.ZoomMax, Mathf.Max(far.x, Camera.ZoomMin + 10f), far.y);
             Version = CurrentVersion;
+        }
+
+        bool InUse(UnityEngine.InputSystem.Key key, int except)
+        {
+            if (key == UnityEngine.InputSystem.Key.None) return true;   // nothing to give
+            for (int j = 0; j < KeyMap.ActionCount; j++)
+                if (j != except && (Bindings.Primary[j] == key || Bindings.Secondary[j] == key)) return true;
+            return false;
         }
 
         public GameSettings Clone()

@@ -14,6 +14,12 @@ namespace TW.Presentation.Tactical
 {
     public sealed class BattleHud : MonoBehaviour
     {
+        /// <summary>The aim hint the old HUD shows: a test holds it to HudText.AimHintFor, word for word (TW.UI is out of
+        /// reach from here, and a hand copy drifts: critic r7).</summary>
+        public static string AimHint(bool line, bool cycles)
+            => (line ? "Press where the line starts, drag its heading and length, release to fire.  Shift snaps." : "Click the map to fire.")
+               + (cycles ? "  Tab changes the pattern." : "") + "  Esc or right click cancels.";
+
         public SimHost Host;
         public TestPanel Panel;
         public const float BarHeight = 100f;
@@ -23,7 +29,7 @@ namespace TW.Presentation.Tactical
         /// to seven turned a two-pixel overhang into a frame sized for seven cells with nine drawn into it.
         /// </summary>
         const float Gap = 8f, Inset = 12f, Divider = 20f;
-        const int SupportSlots = 2;
+        const int SupportSlots = 2;   // the IMGUI fallback bar (F9) keeps the two base abilities; the four newer ones have cards only in the Toolkit HUD (HudView.SupportAbilities)
 
         /// <summary>
         /// The cell size and wooden frame width for a given amount of horizontal room. Pure, static and public
@@ -470,7 +476,14 @@ namespace TW.Presentation.Tactical
             }
 
             // ---- hint line above the bar ---------------------------------------------------------------------
-            string line = Panel != null && Panel.Armed != OffMapAbilityId.None ? "Click the map to fire.  Esc or right click cancels." : GUI.tooltip;
+            // the Toolkit HUD's words (HudText.AimHintFor, which TW.Presentation.Camera cannot reference): a line is pressed,
+            // dragged and released, and Tab is offered only where there is a pattern to cycle to (critic r6)
+            string line = GUI.tooltip;
+            if (Panel != null && Panel.Armed != OffMapAbilityId.None)
+            {
+                bool cycles = OffMapAbilitySystem.TryGetStats((int)Panel.Armed, out var armedStats) && (armedStats.Patterns & ~1) != 0;
+                line = AimHint(Panel.Aim.IsLine, cycles);
+            }
             if (!string.IsNullOrEmpty(line))
             {
                 float tw = Mathf.Min(Screen.width - 40f, tip.CalcSize(new GUIContent(line)).x + 24f);

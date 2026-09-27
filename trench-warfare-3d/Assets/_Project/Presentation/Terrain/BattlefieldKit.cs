@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace TW.Presentation.Terrain
 {
-    public sealed class BattlefieldKit : System.IDisposable
+    public sealed partial class BattlefieldKit : System.IDisposable
     {
         public sealed class Module
         {
@@ -27,6 +27,9 @@ namespace TW.Presentation.Terrain
             /// <summary>A kit prop that comes apart chunk by chunk (Resources/Env/&lt;set&gt;/Chunks): placed, named and edited as
             /// itself, but never drawn or hit as itself; BattlefieldProps puts its building's whole mesh and chunks where it stands.</summary>
             public HouseKit.House Sliced;
+            /// <summary>What class of thing it is and how big it may be drawn against the soldier (AssetScaleTable), set
+            /// by ResolveKeysAndRules; default(ScaleRule) for a module nobody has classed (a chunk).</summary>
+            public ScaleRule Rule;
         }
         public Module trunk, snag, fallen, stump, wreck, bridge, knifeRest, wire, sandbags, planks, ladder, ruin, duckboards, dugout, roof, supplies, fork, bunker, branches, looseBoards, shellCases, bush, tuft, stones, reeds;
         /// <summary>The small things a close camera finds (Module.MaxDistance): what men drop, what a trench is hung with, what catches on the wire.</summary>
@@ -36,13 +39,15 @@ namespace TW.Presentation.Terrain
         /// <summary>Winter ground micro-kit: what stands on the snow for the camera among the men and is not
         /// submitted at all at the standard view (BattlefieldProps culls a finite MaxDistance on CloseUp).</summary>
         public Module drift, iceShard, frostTuft, snowClod;
+        /// <summary>The scatter's own (docs/21 phase 2): live grass and poppies by the thousand (Micro: the close lens only), and a lantern on a post for the trenches and the rear.</summary>
+        public Module grassMicro, poppiesMicro, lantern;
         /// <summary>
         /// The imported sets (Resources/Env, split per prop by Tools/envsplit.py, prepared by EnvKitImport): metre scale,
         /// ground pivot, front +Z, one graded texture per set (Tools/envgrade.py). The landmarks stand sparingly (BattlefieldComposer
         /// .Landmarks, the site blueprints, the horizon), the wire obstacles only on wire, and the planks, sacks, grass,
         /// rocks, stumps and cattails wherever the scatter rules put their kind, mixed in with the procedural pieces.
         /// </summary>
-        public Module sodShelter, mgNest, armouredStand, pillbox, well,               // Siege
+        [Imported] public Module sodShelter, mgNest, armouredStand, pillbox, well,    // Siege
             fieldGun, tankTurret, biplane, shellStack, limber, dudShell,                // Weapons
             wallStub, rebarSlab, boulder, sandbag, gabion,                               // Stones
             bracedPlank, crossedBoards, hatchLid, plankDoor, corrugated,                 // Wood
@@ -58,6 +63,8 @@ namespace TW.Presentation.Terrain
         /// as densely, and because below about 20 cm a thing is a speck rather than a shape past 30 m.</summary>
         public const float MicroReach = 30f;
         public readonly Module[] TrenchWalls = new Module[3], TrenchBags = new Module[3], TrenchFloors = new Module[3];
+        /// <summary>The same three kinds broken (docs/21 phase 3): drawn at the intact piece's matrix once its section is damaged (PropDestruction).</summary>
+        public readonly Module[] TrenchWallsDamaged = new Module[3], TrenchBagsDamaged = new Module[3], TrenchFloorsDamaged = new Module[3];
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
@@ -469,6 +476,18 @@ namespace TW.Presentation.Terrain
                 if (variant == 2) parts.Add((cube, new Vector3(.28f, .90f, -.13f), new Vector3(0f, 0f, -24f), new Vector3(.15f, 1.6f, .16f)));
                 TrenchWalls[variant] = Make(Combine("Weathered revetment " + variant, parts.ToArray()), timber * (variant == 2 ? .9f : 1f), false, 1.6f);
                 Paint(TrenchWalls[variant], BattlefieldPigment.Surface.Timber);
+                // the same wall broken (docs/21 phase 3, TrenchSectionRules): the lower row whole, the upper row shorter and
+                // tilted back, the post splintered short, one splinter left standing. The same 2 m footprint, lower.
+                parts.Clear();
+                parts.Add((cube, new Vector3((Rand(0, variant + 302) - .5f) * .10f, .30f, 0f), new Vector3(0f, 0f, (Rand(0, variant + 303) - .5f) * 4f), new Vector3(2.14f, .46f + Rand(0, variant + 304) * .07f, .10f)));
+                // the tilted board sits 5 mm off the wall's face, not 6 cm: tipped 12 degrees it reaches 0.095 m either side of
+                // its centre, so at 0.06 it stood 5.5 cm behind the intact wall's back (0.355 m deep against 0.30; the
+                // footprint test caught it when it first ran, 2026-09-27)
+                parts.Add((worn, new Vector3((Rand(1, variant + 302) - .5f) * .10f + .12f, .82f, .005f), new Vector3(-12f, 0f, 3f + (Rand(1, variant + 303) - .5f) * 6f), new Vector3(1.7f, .44f, .10f)));
+                parts.Add((cube, new Vector3(-.91f, .55f, -.10f), new Vector3(0f, 0f, variant == 1 ? 9f : -6f), new Vector3(.18f, 1.1f, .20f)));
+                parts.Add((cube, new Vector3(.62f, .95f, -.04f), new Vector3(0f, 0f, -38f), new Vector3(.12f, .55f, .12f)));
+                TrenchWallsDamaged[variant] = Make(Combine("Broken revetment " + variant, parts.ToArray()), timber * .85f, false, 1.6f);
+                Paint(TrenchWallsDamaged[variant], BattlefieldPigment.Surface.Timber);
                 parts.Clear();
                 for (int bag = 0; bag < 2; bag++)
                     parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .15f, (Rand(bag, variant + 315) - .5f) * .10f),
@@ -477,6 +496,16 @@ namespace TW.Presentation.Terrain
                 if (variant == 0) parts.Add((sackMesh, new Vector3(1.0f, .43f, -.05f), new Vector3(0f, 7f, -3f), new Vector3(.95f, .35f, .63f)));
                 TrenchBags[variant] = Make(Combine("Settled parapet " + variant, parts.ToArray()), sack);
                 Paint(TrenchBags[variant], BattlefieldPigment.Surface.Sacking);
+                // the same course burst: the lower sacks only, sagged (lower and flatter, rolled a few degrees: a broken course
+                // is never taller than the whole one, which a variant with no top sack was, by 12 cm) and turned, one rolled
+                // outward off the lip
+                parts.Clear();
+                for (int bag = 0; bag < 2; bag++)
+                    parts.Add((sackMesh, new Vector3((bag - .5f) * 1.02f, .11f, (Rand(bag, variant + 315) - .5f) * .10f),
+                        new Vector3((Rand(bag, variant + 318) - .5f) * 4f, (Rand(bag, variant + 316) - .5f) * 28f, (Rand(bag, variant + 317) - .5f) * 5f), new Vector3(1.06f, .29f, .73f)));
+                parts.Add((sackMesh, new Vector3(.35f, .10f, .52f), new Vector3(0f, 40f, 0f), new Vector3(.95f, .26f, .60f)));   // its underside level with the course's
+                TrenchBagsDamaged[variant] = Make(Combine("Burst parapet " + variant, parts.ToArray()), sack);
+                Paint(TrenchBagsDamaged[variant], BattlefieldPigment.Surface.Sacking);
                 parts.Clear();
                 for (int board = 0; board < 5; board++)
                     parts.Add((cube, new Vector3((board - 2) * .39f, .08f + Rand(board, variant + 321) * .025f, (Rand(board, variant + 322) - .5f) * .14f),
@@ -484,6 +513,15 @@ namespace TW.Presentation.Terrain
                 for (int rail = -1; rail <= 1; rail += 2) parts.Add((cube, new Vector3(0f, .025f, rail * .55f), Vector3.zero, new Vector3(2f, .10f, .14f)));
                 TrenchFloors[variant] = Make(Combine("Uneven duckboards " + variant, parts.ToArray()), timber, false, .8f);
                 Paint(TrenchFloors[variant], BattlefieldPigment.Surface.Timber);
+                // the same boards broken: three of the five left, one of them snapped short and turned, on the same rails
+                parts.Clear();
+                foreach (int board in new[] { 0, 2, 4 })
+                    parts.Add((cube, new Vector3((board - 2) * .39f, .08f + Rand(board, variant + 321) * .025f, (Rand(board, variant + 322) - .5f) * .14f),
+                        new Vector3(0f, (Rand(board, variant + 323) - .5f) * 7f, 0f), new Vector3(.32f + Rand(board, variant + 324) * .045f, .10f, 1.43f + Rand(board, variant + 325) * .30f)));
+                parts.Add((cube, new Vector3(-.39f, .09f, -.42f), new Vector3(0f, 22f + (Rand(1, variant + 323) - .5f) * 7f, 0f), new Vector3(.32f, .10f, .62f)));
+                for (int rail = -1; rail <= 1; rail += 2) parts.Add((cube, new Vector3(0f, .025f, rail * .55f), Vector3.zero, new Vector3(2f, .10f, .14f)));
+                TrenchFloorsDamaged[variant] = Make(Combine("Broken duckboards " + variant, parts.ToArray()), timber, false, .8f);
+                Paint(TrenchFloorsDamaged[variant], BattlefieldPigment.Surface.Timber);
             }
         }
 
@@ -595,6 +633,34 @@ namespace TW.Presentation.Terrain
         {
             var dome = Blob(8, 5); var tin = Taper(0.07f, 0.07f, 0.10f, Vector2.zero, 0.1f);
             var steel = new Color(0.36f, 0.40f, 0.34f); var leather = new Color(0.17f, 0.14f, 0.115f); var rifleWood = new Color(0.31f, 0.23f, 0.16f);
+            // docs/21 phase 2: the live grass the scatter rules lay by the thousand. Five blades, under 90 vertices, no
+            // shadow, Micro reach: nothing of it is drawn at the standard view. Greener than the dead tuft beside it.
+            grassMicro = Micro(Make(Combine("Grass tuft",
+                (Taper(0.014f, 0.002f, 0.34f, new Vector2(0.05f, 0f), 1.2f), Vector3.zero, new Vector3(8f, 0f, 5f), Vector3.one),
+                (Taper(0.012f, 0.002f, 0.28f, new Vector2(-0.07f, 0.03f), 1.2f), new Vector3(0.06f, 0f, 0.03f), new Vector3(12f, 60f, -9f), Vector3.one),
+                (Taper(0.013f, 0.002f, 0.40f, new Vector2(0.02f, -0.08f), 1.2f), new Vector3(-0.05f, 0f, 0.04f), new Vector3(-8f, 130f, 10f), Vector3.one),
+                (Taper(0.012f, 0.002f, 0.25f, new Vector2(0.08f, 0.06f), 1.2f), new Vector3(0.01f, 0f, -0.06f), new Vector3(10f, 210f, -7f), Vector3.one),
+                (Taper(0.011f, 0.002f, 0.31f, new Vector2(-0.04f, -0.05f), 1.2f), new Vector3(-0.06f, 0f, -0.04f), new Vector3(-11f, 290f, 8f), Vector3.one)),
+                new Color(0.46f, 0.52f, 0.28f), false, 0.35f));
+            grassMicro.Material.SetFloat("_Sway", .5f);
+            // and the poppies among it: three stems with a head each, a child layer of the grass
+            poppiesMicro = Micro(Make(Combine("Poppies",
+                (Taper(0.008f, 0.004f, 0.38f, new Vector2(0.03f, 0f), 1f), Vector3.zero, new Vector3(6f, 0f, 4f), Vector3.one),
+                (dome, new Vector3(0.02f, 0.38f, 0f), Vector3.zero, new Vector3(0.09f, 0.05f, 0.09f)),
+                (Taper(0.008f, 0.004f, 0.30f, new Vector2(-0.04f, 0.02f), 1f), new Vector3(0.10f, 0f, 0.06f), new Vector3(10f, 80f, -6f), Vector3.one),
+                (dome, new Vector3(0.08f, 0.30f, 0.07f), Vector3.zero, new Vector3(0.08f, 0.045f, 0.08f)),
+                (Taper(0.008f, 0.004f, 0.34f, new Vector2(0.02f, -0.05f), 1f), new Vector3(-0.09f, 0f, -0.05f), new Vector3(-8f, 200f, 9f), Vector3.one),
+                (dome, new Vector3(-0.08f, 0.34f, -0.06f), Vector3.zero, new Vector3(0.085f, 0.05f, 0.085f))),
+                new Color(0.66f, 0.16f, 0.12f), false, 0.4f));
+            poppiesMicro.Material.SetFloat("_Sway", .4f);
+            // a lantern on a post, unlit: the camp's, in the trenches and by the rear buildings (NightLights hangs its own lit ones)
+            lantern = Small(Make(Combine("Trench lantern",
+                (cube, new Vector3(0f, 0.75f, 0f), Vector3.zero, new Vector3(0.05f, 1.5f, 0.05f)),      // the post
+                (cube, new Vector3(0f, 0.02f, 0f), Vector3.zero, new Vector3(0.22f, 0.04f, 0.22f)),     // its foot
+                (cube, new Vector3(0.14f, 1.44f, 0f), Vector3.zero, new Vector3(0.30f, 0.04f, 0.04f)),  // the arm
+                (cube, new Vector3(0.24f, 1.28f, 0f), Vector3.zero, new Vector3(0.14f, 0.22f, 0.14f)),  // the lamp
+                (cube, new Vector3(0.24f, 1.41f, 0f), Vector3.zero, new Vector3(0.18f, 0.03f, 0.18f))), // its cap
+                new Color(0.22f, 0.20f, 0.17f), false, 0.8f));
             // W3 and the ground micro-kit. A drift is two shallow wedges set a few degrees apart, so the crest
             // wanders instead of being a ruled line, with a thin lip along the windward side where the pack has
             // been cut back. Under 60 vertices and no shadow.
@@ -646,9 +712,10 @@ namespace TW.Presentation.Terrain
             // fresh snow is held matt on purpose (SnowSparkle 0.15) so that the ice carries the highlight. Make
             // sets only colour and outline, so the gloss the Toon shader already has goes on here by hand.
             icicles.Material.SetFloat("_Gloss", 0.62f);
+            // a helmet fits a head: a 0.31 m brim (docs/21 phase 1: 0.13-0.18 SU), not the 0.43 m of the 2.67 m man's day
             helmet = Small(Make(Combine("Lost helmet",
-                (dome, new Vector3(0f, 0.06f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.29f, 0.15f, 0.31f)),
-                (dome, new Vector3(0f, 0.035f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.40f, 0.03f, 0.43f))), steel, false, 0.9f));
+                (dome, new Vector3(0f, 0.045f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.21f, 0.11f, 0.22f)),
+                (dome, new Vector3(0f, 0.025f, 0f), new Vector3(0f, 0f, 14f), new Vector3(0.29f, 0.03f, 0.31f))), steel, false, 0.9f));
             messKit = Small(Make(Combine("Mess tin and bottle",
                 (tin, new Vector3(0f, 0f, 0f), Vector3.zero, new Vector3(1.2f, 1f, 0.8f)),
                 (tin, new Vector3(0.22f, 0.05f, 0.10f), new Vector3(90f, 35f, 0f), new Vector3(0.7f, 1.1f, 0.7f)),
@@ -670,8 +737,8 @@ namespace TW.Presentation.Terrain
             graveMarker = Small(Make(Combine("Rifle and helmet",
                 (cube, new Vector3(0f, 0.55f, 0f), new Vector3(4f, 0f, -5f), new Vector3(0.045f, 1.10f, 0.06f)),
                 (cube, new Vector3(0.035f, 0.98f, 0.03f), new Vector3(4f, 0f, -5f), new Vector3(0.055f, 0.36f, 0.12f)),
-                (dome, new Vector3(0.05f, 1.20f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.29f, 0.15f, 0.31f)),
-                (dome, new Vector3(0.05f, 1.175f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.40f, 0.03f, 0.43f))), new Color(0.29f, 0.27f, 0.21f), false, 0.9f));
+                (dome, new Vector3(0.05f, 1.20f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.21f, 0.11f, 0.22f)),
+                (dome, new Vector3(0.05f, 1.185f, 0.04f), new Vector3(6f, 0f, -14f), new Vector3(0.29f, 0.03f, 0.31f))), new Color(0.29f, 0.27f, 0.21f), false, 0.9f));
             // a trench is lived in: rifles stood against the wall, a board that points the way, a bucket, tins on a nail, the telephone wire
             leanRifle = Small(Make(Combine("Rifle stood against the wall",
                 (cube, new Vector3(0f, 0.62f, 0f), Vector3.zero, new Vector3(0.04f, 1.22f, 0.055f)),
@@ -753,12 +820,15 @@ namespace TW.Presentation.Terrain
             return (h & 0xFFFF) / 65535f;
         }
 
+        // Destroy logs an error outside Play (an EditMode test that builds the kit: the audit), so it branches as Discard does
+        static void DiscardObject(Object o) { if (o == null) return; if (Application.isPlaying) Object.Destroy(o); else Object.DestroyImmediate(o); }
+
         public void Dispose()
         {
-            foreach (var mesh in ownedMeshes) if (mesh != null) Object.Destroy(mesh);
-            foreach (var texture in ownedTextures) if (texture != null) Object.Destroy(texture);
-            if (pigmentSheet != null) Object.Destroy(pigmentSheet);
-            foreach (var module in Modules) if (module.Material != null) Object.Destroy(module.Material);
+            foreach (var mesh in ownedMeshes) DiscardObject(mesh);
+            foreach (var texture in ownedTextures) DiscardObject(texture);
+            DiscardObject(pigmentSheet);
+            foreach (var module in Modules) DiscardObject(module.Material);
         }
     }
 }

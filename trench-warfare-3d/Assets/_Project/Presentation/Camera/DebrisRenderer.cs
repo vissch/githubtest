@@ -34,6 +34,10 @@ namespace TW.Presentation.Tactical
         public const float BounceKeep = 0.45f, BounceUp = 0.30f;
         /// <summary>A piece past its life sinks this many metres (times its scale) over SinkSeconds and is then gone.</summary>
         public const float SinkSeconds = 3f, SinkDepth = 1.2f;
+        /// <summary>Burst lays each piece down for life x (1 +- this): a piece asked to lie 12 s may lie 15.6 s.</summary>
+        public const float LifeJitter = 0.3f;
+        /// <summary>The longest a piece given this life lies before it sinks.</summary>
+        public static float MaxLife(float life) => life * (1f + LifeJitter);
 
         /// <summary>
         /// When a piece thrown from p0 at v0 first reaches the height restY: the positive root of the fall, 0 when it
@@ -151,6 +155,9 @@ namespace TW.Presentation.Tactical
         public SimHost Host;
         /// <summary>0 turns the dark lumps and the limbs off (a player setting), 1 as designed.</summary>
         public static float Gore = 1f;
+        /// <summary>How much of every burst is thrown at the current zoom (docs/21 phase 3): all of it up close, 0.6 at the
+        /// standard view, 0.3 beyond zoom 60, where a fragment is a pixel. CombatFx sets it each frame.</summary>
+        public static float ZoomShare = 1f;
         /// <summary>
         /// The battlefield's say over every piece: rgb multiplies each piece's own tint (white = as thrown; grey-white
         /// for rock under snow, near-black for basalt), a is a floor under the ember glow (0 = only burning pieces
@@ -248,6 +255,7 @@ namespace TW.Presentation.Tactical
         /// </summary>
         public void Burst(Piece piece, Vector3 at, int count, float speed, float scale, Color tint, float life = 20f, float burn = 0f, float up = 1.6f, Vector3 lean = default, uint salt = 0)
         {
+            if (ZoomShare < 0.999f) count = Mathf.Max(1, Mathf.RoundToInt(count * Mathf.Clamp01(ZoomShare)));
             if (!Ready || count <= 0) return;
             count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at)));
             var rng = new DebrisRng(at, salt + (uint)piece * 17u);
@@ -256,7 +264,7 @@ namespace TW.Presentation.Tactical
                 Vector3 dir = rng.OnSphere(); dir.y = Mathf.Abs(dir.y) * up + 0.35f;
                 dir += lean;
                 Vector3 vel = dir.normalized * (speed * rng.Range(0.5f, 1.2f));
-                Throw(piece, at, vel, scale * rng.Range(0.6f, 1.5f), tint, ref rng, life * rng.Range(0.7f, 1.3f), burn);
+                Throw(piece, at, vel, scale * rng.Range(0.6f, 1.5f), tint, ref rng, life * rng.Range(1f - DebrisMath.LifeJitter, 1f + DebrisMath.LifeJitter), burn);
             }
         }
 
