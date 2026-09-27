@@ -117,12 +117,10 @@ A `Failed to handle /api/exec request` line during a build is `tw build` polling
 harmless. Unity keeps running the last good assemblies after a failed compile, so Play and captures still work and
 silently show the old code. Check `compilationFailed` before believing anything you see.
 
-No editor of your own? The offline Roslyn compiler lives on `lane/show/aosa` until it merges. Fetch it for the
-run and delete it after (the aosa lane owns it), pointing it at your own built dlls:
+No editor of your own? The offline Roslyn compiler `Tools/aosa/occ.py` compiles against this checkout's
+`Library/ScriptAssemblies`; a checkout with no Library sets `TW_LIB` to another checkout's:
 ```bash
-mkdir -p Tools/aosa && git show lane/show/aosa:trench-warfare-3d/Tools/aosa/occ.py > Tools/aosa/occ.py
-TW_LIB="$PWD/Library/ScriptAssemblies" python Tools/aosa/occ.py TW.Presentation.Core TW.Presentation.Camera
-rm -rf Tools/aosa
+python Tools/aosa/occ.py TW.Presentation.Core TW.Presentation.Camera
 ```
 Name every assembly you changed, in dependency order, or it compiles against yesterday's dlls. It prints
 `occ OK <assembly> (N files)` or the compiler errors. It cannot check shaders, USS or scenes.

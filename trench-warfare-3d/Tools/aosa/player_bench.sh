@@ -2,7 +2,7 @@
 # Run the Windows player's PerfBench once and wait for its report. Usage: player_bench.sh <label> "<extra args>" [build dir]
 set -u
 SP="$(cd "$(dirname "$0")" && pwd)"
-R="/c/Users/thomas.visscher_magi/Documents/GitHub/githubtest/trench-warfare-3d"
+R="${TW_PROJECT:-$(cd "$SP/../.." && pwd)}"   # this checkout's trench-warfare-3d unless TW_PROJECT says otherwise
 LABEL="$1"; EXTRA="${2:-}"; DIR="${3:-$R/Builds/WinBench}"
 EXE="$DIR/TrenchWarfare.exe"
 [ -f "$EXE" ] || { echo "no player at $EXE"; exit 1; }

@@ -17,9 +17,10 @@ Commands (run from trench-warfare-3d/, e.g. `python Tools/aosa/aosa.py status`):
   prune [--apply]             storage retention: old snapshots and old cycles' sequence frames (dry run by default)
   shots LABEL [--table]       an image run's shot_log (C72): per firing line births and single-frame shares, per tick
 
-Environment: AOSA_DOCS (docs dir, default <repo>/docs/reference/aosa), TW_BUILDS (player builds dir, default the
-main clone's trench-warfare-3d/Builds), TW_PROJECT (the Unity project the editor has open, default the main clone's
-trench-warfare-3d), AOSA_FALKIT (path of falkit.py), AOSA_OFFLINE=1 (never touch the network, even for pricing).
+Environment: AOSA_DOCS (docs dir, default <repo>/docs/reference/aosa), TW_BUILDS (player builds dir, default this
+checkout's trench-warfare-3d/Builds), TW_PROJECT (the Unity project the editor has open, default this checkout's
+trench-warfare-3d), AOSA_FALKIT (path of falkit.py, default ~/Documents/claude/emtd-dragon-circle/falkit.py),
+AOSA_OFFLINE=1 (never touch the network, even for pricing).
 Stdlib only. ASCII only.
 """
 import argparse, datetime, glob, importlib.util, json, os, re, statistics, subprocess, sys, time
@@ -29,8 +30,8 @@ sys.dont_write_bytecode = True  # importing editor_lock/falkit by path must not 
 HERE = Path(__file__).resolve()
 REPO = HERE.parents[3]
 TOOLS = HERE.parents[1]
-MAIN_PROJECT = Path("C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest/trench-warfare-3d")
-FALKIT = "C:/Users/thomas.visscher_magi/Documents/claude/emtd-dragon-circle/falkit.py"
+# falkit.py lives outside the repo; each machine keeps it in the same place under its own profile
+FALKIT = str(Path.home() / "Documents" / "claude" / "emtd-dragon-circle" / "falkit.py")
 ENDPOINT = "fal-ai/nano-banana-pro/edit"
 
 CLASSES = ["cull", "cap", "cache", "batch", "shader", "budget-sweep", "instrument", "juice", "art", "sim-proposal"]

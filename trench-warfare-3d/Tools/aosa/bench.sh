@@ -2,8 +2,9 @@
 # Run one editor PerfBench and wait for its report. Usage: bench.sh <label> "<extra args>"
 set -u
 SP="$(cd "$(dirname "$0")" && pwd)"
-R="/c/Users/thomas.visscher_magi/Documents/GitHub/githubtest/trench-warfare-3d"
-export PATH="$PATH:/c/Users/thomas.visscher_magi/AppData/Local/unity/bin"
+R="${TW_PROJECT:-$(cd "$SP/../.." && pwd)}"   # this checkout's trench-warfare-3d unless TW_PROJECT says otherwise
+export PATH="$PATH:$(cygpath -u "$LOCALAPPDATA")/unity/bin"
+export UNITY_PROJECT_PATH="$(cygpath -m "$R")"   # pin `unity command` to this checkout's editor, as Tools/tw does
 LABEL="$1"; EXTRA="${2:-}"
 OUTW="$(cygpath -m "$SP/../runs")/$LABEL.json"
 rm -f "$SP/../runs/$LABEL.json"

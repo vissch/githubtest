@@ -20,8 +20,8 @@ HERE = pathlib.Path(__file__).resolve()
 PROJ = HERE.parents[2]                      # trench-warfare-3d/
 ASSETS = PROJ / "Assets" / "_Project"
 UNITY = pathlib.Path(os.environ.get("TW_UNITY", r"C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor"))
-MAIN_LIB = pathlib.Path(os.environ.get(
-    "TW_LIB", r"C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest/trench-warfare-3d/Library/ScriptAssemblies"))
+# default: this checkout's own Library; TW_LIB points a Library-less worktree at another checkout's built dlls
+MAIN_LIB = pathlib.Path(os.environ.get("TW_LIB") or PROJ / "Library" / "ScriptAssemblies")
 PKG_CACHE = MAIN_LIB.parent / "PackageCache"
 # one output folder per tree: two authors compiling in two worktrees at once shared "tw-occ", and each read the
 # other's half-written dlls (cycle 5: "being used by another process", then phantom missing members)
