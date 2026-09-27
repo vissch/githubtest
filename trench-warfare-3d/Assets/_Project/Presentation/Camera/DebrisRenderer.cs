@@ -34,6 +34,10 @@ namespace TW.Presentation.Tactical
         public const float BounceKeep = 0.45f, BounceUp = 0.30f;
         /// <summary>A piece past its life sinks this many metres (times its scale) over SinkSeconds and is then gone.</summary>
         public const float SinkSeconds = 3f, SinkDepth = 1.2f;
+        /// <summary>Burst lays each piece down for life x (1 +- this): a piece asked to lie 12 s may lie 15.6 s.</summary>
+        public const float LifeJitter = 0.3f;
+        /// <summary>The longest a piece given this life lies before it sinks.</summary>
+        public static float MaxLife(float life) => life * (1f + LifeJitter);
 
         /// <summary>
         /// When a piece thrown from p0 at v0 first reaches the height restY: the positive root of the fall, 0 when it
@@ -260,7 +264,7 @@ namespace TW.Presentation.Tactical
                 Vector3 dir = rng.OnSphere(); dir.y = Mathf.Abs(dir.y) * up + 0.35f;
                 dir += lean;
                 Vector3 vel = dir.normalized * (speed * rng.Range(0.5f, 1.2f));
-                Throw(piece, at, vel, scale * rng.Range(0.6f, 1.5f), tint, ref rng, life * rng.Range(0.7f, 1.3f), burn);
+                Throw(piece, at, vel, scale * rng.Range(0.6f, 1.5f), tint, ref rng, life * rng.Range(1f - DebrisMath.LifeJitter, 1f + DebrisMath.LifeJitter), burn);
             }
         }
 

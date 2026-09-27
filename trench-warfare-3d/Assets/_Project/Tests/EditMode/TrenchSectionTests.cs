@@ -49,6 +49,8 @@ namespace TW.Tests
         public void A_Sections_Pieces_Are_Gone_In_Fifteen_Seconds()
         {
             Assert.LessOrEqual(TrenchSectionRules.LiningLife + DebrisMath.SinkSeconds, 15f, "a bay is clear of its fragments fifteen seconds after the shell");
+            // what the lining throws with, jittered by Burst at its longest, is LiningLife: 12 s asked lay 15.6 s before
+            Assert.LessOrEqual(DebrisMath.MaxLife(TrenchSectionRules.PieceLife), TrenchSectionRules.LiningLife + 1e-4f, "Burst's jitter does not stretch a lining piece past LiningLife");
             Assert.Greater(TrenchSectionRules.LiningLife, 5f, "but they do lie a while");
         }
 

@@ -17,6 +17,9 @@ namespace TW.Presentation.Terrain
         public const float HeavyRadius = 6f, HeavyPower = 1.05f, HeavyInner = 0.5f;
         /// <summary>Seconds the pieces of a broken section are drawn before they sink (a bay is clear of its fragments
         /// fifteen seconds after the shell, with DebrisMath.SinkSeconds).</summary>
+        /// <summary>The life a lining piece is thrown with: Burst's jitter stretches it to LiningLife at most, so a bay is
+        /// clear LiningLife + SinkSeconds after the shell (critique 2026-09-27: 12 s jittered to 15.6 s, 18.6 s in all).</summary>
+        public static float PieceLife => LiningLife / (1f + TW.Presentation.Tactical.DebrisMath.LifeJitter);
         public const float LiningLife = 12f;
         /// <summary>At most this many pieces one strike throws off the lining; past it a section throws dust only.</summary>
         public const int MaxSectionPiecesPerStrike = 120;

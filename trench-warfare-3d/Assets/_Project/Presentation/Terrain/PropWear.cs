@@ -219,6 +219,7 @@ namespace TW.Presentation.Terrain
         {
             var list = here.Props;
             int budget = SpallBudget, given = 0;
+            sectionPieces = 0;   // the lining's piece ration (LiningShare) is per sweep of a cell under fire, as it is per shell
             for (int n = 0; n < list.Count; n++)
             {
                 var it = list[(here.Cursor + n) % list.Count];
@@ -249,7 +250,6 @@ namespace TW.Presentation.Terrain
                     }
                     if (state == SectionState.Damaged && was == SectionState.Intact)
                     {
-                        sectionPieces = 0;
                         Section(it.Module, rule, it.Page, it.Slot, key, it.M, origin, 0.5f, harm, hp, was, state, debris, s, false);
                         continue;
                     }
@@ -334,10 +334,12 @@ namespace TW.Presentation.Terrain
             jolts.Add(new Jolted { Module = it.Module, Page = it.Page, Slot = it.Slot, Home = it.M, Push = dir * amp, Born = Time.time });
         }
 
-        void Unjolt(in Standing_ it)
+        void Unjolt(in Standing_ it) => UnjoltSlot(it.Module, it.Page, it.Slot);
+
+        void UnjoltSlot(BattlefieldKit.Module module, int page, int slot)
         {
             for (int i = jolts.Count - 1; i >= 0; i--)
-                if (jolts[i].Page == it.Page && jolts[i].Slot == it.Slot && jolts[i].Module == it.Module) jolts.RemoveAt(i);
+                if (jolts[i].Page == page && jolts[i].Slot == slot && jolts[i].Module == module) jolts.RemoveAt(i);
         }
 
         /// <summary>Every knocked thing on its way back: out fast, then settling. A prop taken out while it was jumping is

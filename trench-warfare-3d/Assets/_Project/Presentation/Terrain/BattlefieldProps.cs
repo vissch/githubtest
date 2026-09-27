@@ -205,9 +205,12 @@ namespace TW.Presentation.Terrain
         /// <summary>Takes one instance out of the draw now; Suppress keeps it out of the next composition.</summary>
         /// <summary>Moves one drawn instance where it stands, without touching where it was placed: PropWear knocks a
         /// helmet about as rounds go into it. The next composition puts it back, so nothing has to be undone.</summary>
+        /// <summary>Moves a drawn slot (PropWear's knocks). A hidden slot stays hidden: a knock still running when its prop
+        /// broke or fell would otherwise bring it back up over its broken twin or its debris.</summary>
         public void Move(BattlefieldKit.Module module, int page, int slot, Matrix4x4 m)
         {
-            if (module != null && batches.TryGetValue(module, out var b) && page >= 0 && page < b.Counts.Count && slot >= 0 && slot < b.Counts[page]) b.Set(page, slot, m);
+            if (module != null && batches.TryGetValue(module, out var b) && page >= 0 && page < b.Counts.Count && slot >= 0 && slot < b.Counts[page]
+                && b.Pages[page][slot].lossyScale.y > 1e-3f) b.Set(page, slot, m);
         }
 
         public void Hide(BattlefieldKit.Module module, int page, int slot)
