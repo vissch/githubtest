@@ -877,7 +877,8 @@ namespace TW.Playground
             {
                 var v = Vehicles[i]; if (i > 0) sb.Append(',');
                 int loose = 0; foreach (var p in v.Parts) if (p.Loose) loose++;
-                var sv = Camera.main != null ? Camera.main.WorldToViewportPoint(v.Centre + Vector3.up * v.Radius * 0.8f) : Vector3.zero;
+                // the machine's middle (a label hangs 0.8 radius above it: reported, a walker in frame read sy 1.06, loop 2 r33)
+                var sv = Camera.main != null ? Camera.main.WorldToViewportPoint(v.Centre) : Vector3.zero;
                 int moving = 0; foreach (var p in v.Parts) if (p.Loose && !p.Fly.Resting) moving++;
                 sb.AppendFormat(CultureInfo.InvariantCulture, "{{\"lod\":{0},\"tris\":{1},\"stage\":\"{2}\",\"hp\":{3:0},\"fire\":{4:0.00},\"loose\":{5},\"moving\":{9},\"sx\":{7:0.000},\"sy\":{8:0.000},\"pose\":\"{6}\"}}", v.Lod, v.TrisDrawn, v.State, v.Hp, v.FireLevel, loose, v.PoseSignature(), sv.x, sv.y, moving);
             }

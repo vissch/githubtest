@@ -43,7 +43,7 @@ namespace TW.Playground
         WalkerGait gait = new WalkerGait();
         public WalkerGait Gait => gait;                 // read by tests and the gait probe
         TankModel model;
-        Vector3 startPos; Quaternion startRot;
+        Vector3 startPos; Quaternion startRot; bool started;
         VehicleRig.Part hull, turret;
         readonly VehicleRig.Part[] thigh = new VehicleRig.Part[2], shin = new VehicleRig.Part[2], foot = new VehicleRig.Part[2], claw = new VehicleRig.Part[2], jaw = new VehicleRig.Part[2];
         Vector3 hullPivot;
@@ -54,7 +54,10 @@ namespace TW.Playground
         public WalkerDrive Init(VehicleRig r)
         {
             rig = r; gait = new WalkerGait();   // a gait keeps its stance once worked out: a new rig needs a new one
-            if (startRot == default) { startPos = transform.position; startRot = transform.rotation; }
+            // where it was built, once (a re-Init keeps it). NOT `startRot == default`: Unity's == on quaternions compares
+            // by dot product, which never equals the all-zero default, so the spawn was never taken and every walker
+            // walked from the world's origin, three LODs stacked on one spot (loop 2 r33)
+            if (!started) { started = true; startPos = transform.position; startRot = transform.rotation; }
             hull = r.Find("Hull"); turret = r.Find("Turret");
             hullPivot = hull.RestLocal;
             var legs = new TankModel.LegRig[2];

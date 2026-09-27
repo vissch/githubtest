@@ -26,10 +26,10 @@ for spec in "1:croaker" "2:hopper" "3:mercy" "4:skimmer"; do
   case $n in
     croaker) $P do "walk 2.5 1; cam 0 4 0 150 6 26 35"; sleep 2; $P shot ${T}_${n}_6_walk_a; sleep 0.35; $P shot ${T}_${n}_7_walk_b
              $P do "cam 0 4 0 60 6 26 35"; sleep 0.6; $P shot ${T}_${n}_8_walk_side; $P do "walk 0" ;;
-    hopper)  $P do "cam 0 14 0 150 10 30 35"; sleep 1; $P shot ${T}_${n}_6_hover
+    hopper)  $P do "cam 0 14 0 150 10 42 35"; sleep 1; $P shot ${T}_${n}_6_hover
              $P do "fly 8; cam follow 200 14 45 35"; sleep 3; $P shot ${T}_${n}_7_circling; $P do "fly 0" ;;
     skimmer) $P do "cam 0 3 0 150 12 34 35"; sleep 1; $P shot ${T}_${n}_6_close
-             $P do "fly 6; cam follow 200 14 36 35"; sleep 3; $P shot ${T}_${n}_7_skimming; $P do "fly 0" ;;
+             $P do "fly 6; cam follow 200 14 50 35"; sleep 3; $P shot ${T}_${n}_7_skimming; $P do "fly 0" ;;
     mercy)   $P do "cam 0 1.5 0 20 20 22 35"; sleep 1; $P shot ${T}_${n}_6_close
              $P do "cam 0 1.5 0 200 20 22 35"; sleep 1; $P shot ${T}_${n}_7_rear ;;
   esac

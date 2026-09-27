@@ -52,6 +52,9 @@ def part_of(c, lo, hi):
     """Which part a loose piece belongs to, from its area-weighted centre c and its bounds."""
     s = "L" if c.x > 0 else "R"; ax = abs(c.x)
     if ax < 0.16 and c.z > 0.745: return "Gun" if c.y < -0.15 else "Turret"
+    # nothing of a leg stands further out than 0.31: out past 0.33 it is the arm, however low (the fingertips hang to
+    # z 0.24 and went to the hull, then hung in the air under the swinging arm; loop 2 r33)
+    if ax > 0.33 and (c.z < 0.44 and c.y < -0.08 or c.z <= 0.26): return "Jaw_" + s
     if ax >= 0.20 and c.z > 0.26:
         return ("Jaw_" + s) if (ax > 0.33 and c.z < 0.44 and c.y < -0.08) else ("Claw_" + s)
     if 0.07 <= ax <= 0.31 and c.z < 0.48 and not (ax < 0.14 and c.z > 0.34):
