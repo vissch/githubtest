@@ -69,6 +69,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-27 | **The overhaul lands as one merge commit** (owner's choice), the one exception to "no merge commit on integration": its 140 commits hold 12 merges of its SIM lane, and a rebase would replay them and re-raise every conflict they resolved. The merge is made on a branch cut from integration, so integration stays the first parent. Every other lane rebases. |
 | 2026-09-27 | **aosa lands as one merge commit too** (owner's choice): its 75 commits turn constants into run-time knobs in the code integration and the overhaul rewrote, so a rebase would stop at 26 of them in the same regions; one merge resolves 11 files once. |
 | 2026-09-27 | **units-meta lands as one merge commit on the overhaul** (owner's choice; a rebase would stop at 16 of its 20 commits). Its SIM work is redone in the merge: `ParaDrop` becomes ability 12 (`StrafeRun` 10 and `Beam` 11 keep theirs), its random streams 17-21, `FormatVersion` 9 (the overhaul's 8 + 1), its events after the overhaul's. Every faction may call the overhaul's six abilities and Brass alone the paratroopers (`FactionRoster.AbilityMask`; the owner may split them per faction). Keys: the digit row is the ten deploy slots, F5 F6 F7 arm HE, gas and the drop, C M V B the four line abilities. The HUD shows the drop card to both sides, as on units-meta's own branch, and the sim refuses it to Iron. |
+| 2026-09-28 | **Go for a VFX pass over every ability and unit action, explosion batches B and C included** (sky flash, shock ring, per-weapon recipes; scar layer, smouldering craters, haze): catalogue every event, design its look at close, standard and far zoom, generate new sheets on the desktop (ComfyUI, `tw-vfx-sheets`), implement on `lane/show/pipe-vfx`. Lands only on the owner's word. (Owner, in the pipeline session.) |
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
@@ -76,7 +77,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Sim protection from shelters:** map-generator shelter positions, or trench-bay protection? `NavLayer.Bunker` is never set today.
 - **Do houses give sim cover?** Needs a hash change.
 - **Where the ruins set goes.** It is cut, imported and tested, and nothing places it (`BattlefieldComposer` only uses Houses and Military).
-- **Explosions batches B and C** (sky flash, shock ring, per-weapon recipes; scar layer, smouldering craters, haze). Batch A shipped; B and C wait for a go.
 - **Not scaled with the giant machines:** trench cross width, slope limit, turn rates, speeds, `MaxGrow`. Balance, not geometry.
 - **Forward+** renderer: the perf pass was to switch and let the owner judge the night look. Not recorded as done.
 - **Record live matches for debugging?** A recorder needs a hash every tick, which single player turns off for
