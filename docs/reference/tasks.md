@@ -356,7 +356,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `AbilityAimTests` | EditMode | 14 | OffMapAbilityId, CombatFx, AbilityAim, SimClock, AimReadout, Line |
 | `AbilityArgsTests` | EditMode | 4 | AbilityArgs |
 | `AllocProbeSanityTests` | EditMode | 5 | AllocProbe |
-| `AssetScaleTests` | EditMode | 9 | AssetScaleTable, Rule, ScatterLayers, BattlefieldKit, PropLayout, Module |
+| `AssetScaleTests` | EditMode | 10 | AssetScaleTable, Rule, ScatterLayers, Module, PropLayout, BattlefieldKit |
 | `BarragePatternTests` | EditMode | 7 | OffMapAbilityId, SimEventType, OffMapAbilitySystem, SimEvent, AbilityPattern, SimCommand |
 | `BattlefieldLockstepTests` | EditMode | 6 | SimHash, MatchSim, SimCommand, BattlefieldParams, SimConfig, SimWorld |
 | `BattlefieldTests` | EditMode | 10 | NavLayer, PropKind, BattlefieldParams, BattlefieldGenerator, Kind, MatchSim |
@@ -393,7 +393,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `HudBindTests` | EditMode | 11 | HudView, HudText, VehicleArchetype, RosterEntry, OffMapAbilityId, IntText |
 | `HudLayoutTests` | EditMode | 6 | HudLayout, BattleHud, HudView, RosterEntry |
 | `HudStructureTests` | EditMode | 6 | RosterEntry, HudView, BattleHud, HudText |
-| `HudTextTests` | EditMode | 13 | BattleHud, VehicleArchetype, BannerRules, TankSpec, HudText, RosterEntry |
+| `HudTextTests` | EditMode | 14 | BannerRules, BattleHud, VehicleArchetype, SimEventType, HudText, TankSpec |
 | `KeyMapTests` | EditMode | 9 | KeyMap, GameAction, Bindings |
 | `LandingTests` | EditMode | 8 | SimCommand, MatchSim, Sample, LandingState, BattlefieldGenerator, BattlefieldParams |
 | `MineTests` | EditMode | 14 | MineSystem, MineKind, SimEventType, Mine, MineState, MapData |
