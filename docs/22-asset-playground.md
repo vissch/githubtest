@@ -164,6 +164,22 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
   now planted feet cover 0.7 rig units, centred under the hip (`Lead` 0.3), the body at its modelled height (`Reach` 1.1),
   measured with the stride probe (`WalkerDrive.FootMinZ/MaxZ`). The body also rises as a foot passes, leans over the
   standing foot and turns its hips with the stride.
+- **Loop 2, cycles 3-10 (the critic's findings, each measured before and after):** a walker took its spawn only when
+  `startRot == default`, which Unity's quaternion `==` never satisfies (it compares a dot product), so every walker walked
+  from the world's origin - a test now spawns one 200 m out. The Croaker's fingertips hung in the air under the swinging
+  arm (sorted into the hull); a dying walker's feet skidded into the splits (WalkerGait does that to a crab's rigid legs)
+  and now stay put while the knees fold; stopped, it steps back onto both feet. A cook-off leaves on the hull what the
+  machine stands, walks or flies on and the body round the crew (wrecks were bare boxes); every throw is at the machine's
+  own `fling` (the gunship's farthest piece 25 m -> 13 m, the tank's 20.6 -> 14.7 m); a part riding a thrown part goes
+  with it. A vehicle that loses a wheel or track tips 4-6 degrees about the gear beside it, which stays on the ground,
+  and what that lifts droops back down (first version tipped the wrong way and sank the good tyre - a test guards it).
+  A flyer that loses a wing or engine comes down, banks 15-30 degrees in a turn, crashes nose-in onto the side it lost,
+  and burns before it cooks off (overkill cooks off only after half the cook-off delay). The tank's turret base disc
+  (a piece standing on the deck) goes with the turret; it floated once the plates were thrown.
+- **Open after loop 2:** thrown limbs can come to rest standing on end (the tank's "lies down" rule is tested on the tank
+  only); nothing links a flyer's ground ring to the aircraft 14 m up; the Mercy's LOD1->2 colour (7.2 in the round) and
+  the Croaker's 1->2 overlap (0.899) are the weakest pops; the palettes (Skimmer, Croaker at night) and the ruin's flat
+  brown faces are owner questions.
 - **Measuring on this bench, lessons:** m3's contrast flips 0.24/0.44 frame to frame on one build, so the round takes nine
   frames and scores the median (floor 0.08); a vehicle's block colour wanders 0.2-1.0 on an unchanged model; the editor's
   fps is not a signal. `round.sh` selects the tank itself (a round once scored the hovercraft as "the tank").
