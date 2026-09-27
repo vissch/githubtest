@@ -6,6 +6,7 @@ of their section. When the same lesson appears twice, the retrospective turns it
 
 ## About instruments
 
+- **A blind count off held frames was a quarter low, although it called its totals reliable.** C72's shot log counted 183 births on frames 1-31 where the C71 critic counted 136. LTU was 38% low, mostly in bundles (10 births on frame 2, counted as 4). Tracers from shooters just below the screen were split between the wrong lines (LTL and BOT). Its timing on unoccluded lines did hold (r 0.95). Count events from a log, and use a blind critic only for how they look. (C72, a0041; runs/9/c72-check.md)
 - **An instrument answers only the question it was pointed at.** `gc_bytes_per_frame` answered "how much" and was
   read as if it said "where". Before trusting a number, say what the instrument cannot see. (docs/05, s003)
 - **`GC.GetAllocatedBytesForCurrentThread` reads 0 under Unity's Boehm GC, whatever the code allocates.** Use
