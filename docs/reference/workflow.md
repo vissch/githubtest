@@ -24,6 +24,9 @@ inbox    7 notes, 1 for you
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
   (`Tools/codemap.py` explains each rule). After changing `codemap.py`, `port_split.py` or `health.py`, run
   `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
+- `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted
+  files, big files, `SceneHooks` references, explained statics, last gate counts) and, with a history file, prints
+  every metric that got worse since the last run. Run it before and after a clean-up to show it helped.
 - Then read the notes `health.py` marks as yours (`docs/inbox/`).
 
 ## 2. The machine you share
