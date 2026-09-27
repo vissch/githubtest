@@ -92,6 +92,17 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   every building). Owner: re-cut the sets, or leave them. Measured 2026-09-27 (loop 2): those brown faces are FLAT (colour
   spread under 2/255 over an 80x120 px patch of a shelled ruin), painted so by the kit; repainting them with masonry is
   an art call, not a split fix.
+- **Faction abilities after the merge (2026-09-27):** every faction may call the overhaul's six abilities and Brass
+  alone the paratroopers (`FactionRoster.AbilityMask`). Split them per faction? And the HUD shows the drop card to an
+  Iron player, whose call the sim then refuses: hide cards the side's faction cannot call (`HudView.Offered`)?
+- **Heroes in the stress bench:** `HeroSystem.TeamMask` is 1, so the stress preset's player side can get a hero who
+  takes the front trench over the top (about tick 860 on ShelledForest). Bench runs compared across builds carry that
+  event; the preset's tests run without heroes. Turn heroes off in the stress preset itself?
+- **The bench report's frame budget twice:** `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws` (overhaul) and
+  `frame_budget_*` (aosa) read the same `FrameBudget`. Keep one set of names?
+- **The `-land` branches on origin** (`lane/show/*-land`, pushed by `land.py` when the lanes landed on 2026-09-27) are
+  copies of what is on the integration branch. Delete them once every lane session has caught up
+  (`docs/inbox/2026-09-27-all-lanes-landed.md`).
 - **The frog's far LOD size:** 300 tris ships (pop overlap 0.855 with the shoulders kept); 380 tris 0.865, 460 0.868
   (measured 2026-09-27 on the derived LODs; the source level and the rig made no difference).
 
