@@ -71,7 +71,10 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Which SIM lane lands first: `lane/sim/units-meta` or `lane/sim/overhaul`?** Both rewrite the same systems
   (`DirectFire`, `TargetAcquisition`, `Replay`, `SimEvents`, `SimRandom`, `OffMapAbilities`; 41 and 25 `Sim/` files
   since they parted, 2026-09-27). Whichever lands second re-does its changes on top and re-proves determinism and
-  replay. Nothing in the code decides this; the owner does.
+  replay. Nothing in the code decides this; the owner does. Landing `lane/show/overhaul` decides it too: it merged
+  `lane/sim/overhaul` into itself ten times under its own 2026-09-26 decision "one session on both lanes", which is
+  recorded only on that branch. `Tools/land.py` refuses to land a SHOW lane carrying SIM files unless `--carry-sim`
+  names the decision, so the choice comes back here.
 - **Record live matches for debugging?** A recorder needs a hash every tick, which single player turns off for
   speed. Options: pay for per-tick hashing, or a commands-only replay format (a seam change). Audit R9.
 - **A CI check for the docs and tools** (`validate.py`, `Tools/selftest.py`, Python only), required before a lane

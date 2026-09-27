@@ -64,10 +64,19 @@ def inbox(branch):
     _, listed = run(['git', 'ls-tree', '--name-only', integration_ref(), 'docs/inbox/'], cwd=REPO)
     upstream = {Path(l).name for l in listed.split() if l.endswith('.md') and not l.endswith('README.md')}
     names = sorted(here | upstream)
-    mine = [n for n in names if (to_me and f'-{to_me}-' in n) or '-all-' in n]
-    print(f'inbox    {len(names)} notes, {len(mine)} for you' + ('' if names else ''))
+    # the recipient is the LONGEST lane name the note starts with, so show-units-meta is not read as show-units
+    _, refs = run(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads/lane', 'refs/remotes/origin/lane'], cwd=REPO)
+    lanes = {r.split('lane/', 1)[1].replace('/', '-') for r in refs.split() if 'lane/' in r} | {'all'}
+
+    def recipient(name):
+        rest = name[11:]   # after YYYY-MM-DD-
+        return next((l for l in sorted(lanes, key=len, reverse=True) if rest.startswith(l + '-')), None)
+    mine = [n for n in names if recipient(n) in (to_me, 'all')]
+    print(f'inbox    {len(names)} notes, {len(mine)} for you')
     for n in names:
         where = '' if n in here else '  (on the integration branch only: rebase to get it)'
+        if recipient(n) is None:
+            where += '  (addressed to no lane that exists: rename it or delete it)'
         print(f'         {"FOR YOU " if n in mine else "        "}docs/inbox/{n}{where}')
 
 
