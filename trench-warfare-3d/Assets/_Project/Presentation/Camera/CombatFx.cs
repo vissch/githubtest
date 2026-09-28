@@ -78,9 +78,9 @@ namespace TW.Presentation.Tactical
         readonly List<Tracer> tracers = new List<Tracer>(512);
 
         /// <summary>A round drawn like a sim shot's, for fire the sim does not know about (a rider on a walker).</summary>
-        public void AddTracer(Vector3 from, Vector3 to, byte team, float width = 1f)
+        public void AddTracer(Vector3 from, Vector3 to, byte team, float width = 1f, float delay = 0f)
         {
-            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = team, Width = width });
+            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = team, Width = width });
         }
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
