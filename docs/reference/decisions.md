@@ -76,6 +76,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
+- **VFX pass (2026-09-28, loop mode; defaults taken for work only they do not decide, nothing landed on them).**
+  From the tw3d-board catalogue `evidence/vfx-run/phase1-catalogue.md` section 6 (Q1, blood, is answered above):
+  Q2 the beam is fire, not an electric lance (default fire: the new FireLance sheet was generated on it); Q3 keep the
+  old pack books and layer the new ones (default); Q4 battle haze overview-only; Q5 a SIM flight time for indirect
+  rounds (default no); Q6 scars by SHOW matching, no Dir in CraterStamp; Q7 drawn pyres on burning hulls (default yes);
+  Q8 a procedural parachute canopy; Q9 abilities without sim stay design-only; Q10 hero flash only, no auras;
+  Q11 books stay 256 px cells; Q12 the Salvo's ripple drawn as five bursts. And from the loop's critique rounds:
+  **looped books never draw their last frame** (`span = frames*play - 1.001` in `FlipbookFx.Draw`; the fix also
+  retimes FireBall/FireColumn/FireStand/FirePool: default leave as is); **the dark band** (ShellPlume 81 %, MortarBurst
+  63 %, Smoulder 53 %, LeanBurst 45 % of ink under 0.2 against the plan's 20 %: default retune Low in Play at night,
+  sheets kept); the NightSmoke/NightEarth passes for the new books (default: add them with the recipes).
 - **M1.5 fun-gate playtest** with both developers is still not done. docs/11 says nothing after it is scheduled until it passes; work has continued on the owner's word.
 - **Sim protection from shelters:** map-generator shelter positions, or trench-bay protection? `NavLayer.Bunker` is never set today.
 - **Do houses give sim cover?** Needs a hash change.
