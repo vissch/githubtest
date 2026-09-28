@@ -89,6 +89,8 @@ namespace TW.Sim.Match
                 Hull = new ArmorProfile { FrontMm = 10f, SideMm = 8f, RearMm = 6f, TopMm = 6f },
                 Turret = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 6f, TopMm = 5f },
                 TurretChance = 0.35f, Crew = 3, GunCount = 1, ShortHalt = true, FuelRisk = 0.30f, AmmoRisk = 0.70f,
+                // the shell below is the whole rack: twelve rockets, each landing on its own tick (TankGunnerySystem)
+                Rockets = 12, RocketSpeed = 140f,
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 20f * Deg,

@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
+using TW.Presentation;
 
 namespace TW.Tests
 {
@@ -140,6 +141,116 @@ namespace TW.Tests
             int fired = Count(log2, SimEventType.VehicleFired, truck2);
             Assert.Greater(fired, 0, "at rocket range it fires");
             Assert.LessOrEqual(fired, 2, "and a 16 s reload allows at most two in 20 s");
+        }
+            // ------------------------------------------------------------------ the Salvo's rack (format v11)
+        struct Landing { public uint Tick; public float3 Pos; }
+
+        /// <summary>A Salvo 150 m from six men in the open, run long enough for one rack to fire and come down.</summary>
+        static (List<SimEvent> log, int truck, List<int> men) Rack(MatchSim m)
+        {
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            var men = new List<int>();
+            for (int k = 0; k < 6; k++) men.Add(m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false));
+            return (Run(m, 20 * 12), truck, men);
+        }
+
+        static List<Landing> Promised(List<SimEvent> log, int truck, out uint fired)
+        {
+            var list = new List<Landing>(); fired = uint.MaxValue;
+            foreach (var e in log)
+                if (e.Type == SimEventType.RocketFired && e.A == truck && fired == uint.MaxValue || e.Type == SimEventType.RocketFired && e.A == truck && e.Tick == fired)
+                {
+                    fired = e.Tick;
+                    list.Add(new Landing { Tick = e.Tick + (uint)e.Dir.x + (uint)e.Dir.y, Pos = e.Pos });
+                }
+            return list;
+        }
+
+        /// <summary>Every rocket the event promised bursts on the tick it named and at the point it named, and nothing of
+        /// the rack bursts on the tick it is fired: the damage waits for the rockets.</summary>
+        [Test]
+        public void EachRocketBurstsOnTheTickAndAtThePointItsEventNamed()
+        {
+            using var m = NewMatch();
+            var (log, truck, _) = Rack(m);
+            var promised = Promised(log, truck, out uint fired);
+            Assert.AreEqual(m.Catalogue.Tank[VehicleArchetype.Salvo].Rockets, promised.Count, "one RocketFired per rocket of the rack");
+            int source = SourceId.Unit(VehicleArchetype.Salvo);
+            var bursts = new List<SimEvent>();
+            foreach (var e in log) if (e.Type == SimEventType.Explosion && e.A == source) bursts.Add(e);
+            foreach (var b in bursts) Assert.Greater(b.Tick, fired, "a burst on the tick the rack fired: the damage did not wait for the rockets");
+            foreach (var p in promised)
+            {
+                Assert.GreaterOrEqual(p.Tick, fired + (uint)math.round(TankGunnerySystem.SalvoFlightMin / m.World.Config.TickSeconds), "a rocket lands sooner than it can fly");
+                bool found = false;
+                foreach (var b in bursts)
+                    if (b.Tick == p.Tick && math.distance(b.Pos.xz, p.Pos.xz) < 0.01f) { found = true; break; }
+                Assert.IsTrue(found, $"no burst at tick {p.Tick}, ({p.Pos.x:F1}, {p.Pos.z:F1}) as the event said");
+            }
+            Assert.AreEqual(promised.Count, bursts.Count, "a burst the events never promised");
+        }
+
+        /// <summary>The men are hurt when the rockets land, not when the rack fires; and hurt they are.</summary>
+        [Test]
+        public void TheMenAreHurtWhenTheRocketsLandNotWhenTheRackFires()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            var men = new List<int>();
+            for (int k = 0; k < 6; k++) men.Add(m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false));
+            uint fired = uint.MaxValue, firstLand = uint.MaxValue, firstHurt = uint.MaxValue;
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int t = 0; t < 20 * 12; t++)
+            {
+                m.Step(none);
+                var ev = m.World.Events.Events;
+                for (int k = 0; k < ev.Length; k++)
+                    if (ev[k].Type == SimEventType.RocketFired && ev[k].A == truck)
+                    {
+                        if (fired == uint.MaxValue) fired = ev[k].Tick;
+                        if (ev[k].Tick == fired) firstLand = math.min(firstLand, ev[k].Tick + (uint)ev[k].Dir.x + (uint)ev[k].Dir.y);
+                    }
+                if (firstHurt == uint.MaxValue)
+                    foreach (int i in men) if (!m.World.IsAlive(i) || m.World.Hp[i] < 100f) { firstHurt = m.World.Tick - 1; break; }
+            }
+            Assert.AreNotEqual(uint.MaxValue, fired, "the rack never fired");
+            Assert.AreNotEqual(uint.MaxValue, firstHurt, "the rockets hurt nobody in the open 150 m off");
+            Assert.AreEqual(firstLand, firstHurt, "the first man is hurt on the tick the first rocket lands");
+        }
+
+        /// <summary>The rack is deterministic: the same seed lands the same rockets on the same ticks, and a two-world canary
+        /// plays it hash for hash as one world does.</summary>
+        [Test]
+        public void TheRackIsTheSameEveryRunAndInTheCanary()
+        {
+            List<Landing> a, b;
+            { using var m = NewMatch(); var (log, truck, _) = Rack(m); a = Promised(log, truck, out _); }
+            { using var m = NewMatch(); var (log, truck, _) = Rack(m); b = Promised(log, truck, out _); }
+            Assert.AreEqual(a.Count, b.Count);
+            for (int k = 0; k < a.Count; k++) { Assert.AreEqual(a[k].Tick, b[k].Tick); Assert.AreEqual(a[k].Pos, b[k].Pos); }
+
+            var one = Canary(false); var two = Canary(true);
+            for (int t = 0; t < one.Length; t++) Assert.AreEqual(one[t], two[t], $"one world and the canary part at tick {t}");
+        }
+
+        static ulong[] Canary(bool canary)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var session = new LockstepSession(() => MatchSim.CreatePlaytest(cfg), canary, 0, 0, 0f, cfg.Seed);
+            foreach (var m in canary ? new[] { session.Local, session.Peer } : new[] { session.Local })
+            {
+                m.World.HashInterval = 1;
+                Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+                for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 100f, 0f, false);
+            }
+            var ai = new ScriptedEnemy { Enabled = false };
+            const int Ticks = 20 * 12;
+            var hashes = new ulong[Ticks];
+            int guard = Ticks * 40;
+            while (session.Local.World.Tick < Ticks && guard-- > 0)
+                if (session.StepOnce(ai)) hashes[session.Local.World.Tick - 1] = session.Local.World.LastHash;
+            Assert.IsFalse(session.Desync, "the canary desynced on the rack");
+            return hashes;
         }
     }
 }

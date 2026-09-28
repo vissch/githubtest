@@ -32,6 +32,15 @@ namespace TW.Sim.Combat
         public float3 Pos, Dir;   // where it struck, which way it was travelling
     }
 
+    /// <summary>A rocket of a rack in the air (TankSpec.Rockets): its burst, and the tick it lands on. Hashed.</summary>
+    public struct PendingRocket
+    {
+        public uint LandTick;
+        public float3 Pos;
+        public float Damage, Radius, Suppression, Crater;
+        public int Source, Player;
+    }
+
     public sealed class TankGunnerySystem : ISimSystem
     {
         public const int Guns = TankSpec.MaxGuns;
@@ -43,6 +52,17 @@ namespace TW.Sim.Combat
         public const float AimTolerance = 0.05f;      // rad (about 3 degrees)
         public const float MovingAccuracy = 0.5f;
         public const float ArmourPreference = 2.5f;   // a gun that can hole armour looks at tanks this much farther out than at men
+        // ---- a rack of rockets (the Salvo, 2026-09-28) ----
+        public const float SalvoRackSeconds = 1f;      // the rack empties over this long
+        public const float SalvoSpread = 0.8f;         // rockets come down within this share of the shell's HeRadius of its landing point
+        public const float SalvoRocketRadius = 0.6f;   // each bursts over this share of HeRadius
+        public const float SalvoFlightMin = 0.8f, SalvoFlightMax = 3.5f;   // seconds a rocket is in the air
+        public const float SalvoWeight = 1.6f;          // see RocketShare
+        /// <summary>A rocket's share of the shell's damage and suppression. Of n rockets scattered evenly over radius
+        /// Spread x R, n (Rocket/Spread)^2 on average burst within Rocket x R of a man at the aim point, and SalvoWeight
+        /// makes up for the gaps between them: measured 2026-09-28 (20 seeds, 25 men 2.5 m apart at 150 m), a rack takes
+        /// 23,628 hp off them and the one shell it replaced 23,819, but kills 164 to the shell's 225 (spread thinner).</summary>
+        public static float RocketShare(int rockets) => SalvoWeight / (rockets * (SalvoRocketRadius / SalvoSpread) * (SalvoRocketRadius / SalvoSpread));
         // Explosion.a for a tank shell is SourceId.Unit(archetype); the old 40 + id ceiling is gone (see SourceId.cs)
         public int Order => SimSystemOrder.DirectFire + 5;
 
@@ -63,6 +83,8 @@ namespace TW.Sim.Combat
         /// <summary>This tick's rounds and charges on vehicles (close assaults from DirectFire, then these guns);
         /// VehicleModulesSystem drains it later in the same tick.</summary>
         public NativeList<VehicleHit> PendingHits;
+        /// <summary>Rockets in the air, each released to BlastSystem on its LandTick. Hashed.</summary>
+        public NativeList<PendingRocket> Rockets;
 
         NativeList<SimEvent> events;
         NativeList<Impact> impacts;
@@ -89,6 +111,7 @@ namespace TW.Sim.Combat
             clawed = new NativeList<int2>(8, Allocator.Persistent);
             for (int i = 0; i < n * Guns; i++) GunTarget[i] = -1;
             PendingHits = new NativeList<VehicleHit>(32, Allocator.Persistent);
+            Rockets = new NativeList<PendingRocket>(32, Allocator.Persistent);
             events = new NativeList<SimEvent>(32, Allocator.Persistent);
             impacts = new NativeList<Impact>(16, Allocator.Persistent);
             halt = new NativeArray<int>(n, Allocator.Persistent);
@@ -103,6 +126,22 @@ namespace TW.Sim.Combat
             if (blast == null) blast = w.GetSystem<BlastSystem>();
             if (kinematics == null) kinematics = w.GetSystem<VehicleKinematicsSystem>();
             events.Clear(); impacts.Clear(); clawed.Clear();
+            // the rockets that come down this tick burst now (BlastSystem steps after this system, the same tick)
+            if (blast != null)
+            {
+                int keep = 0;
+                for (int r = 0; r < Rockets.Length; r++)
+                {
+                    var rk = Rockets[r];
+                    if (rk.LandTick > w.Tick) { Rockets[keep++] = rk; continue; }
+                    blast.Queue(new Impact
+                    {
+                        Pos = rk.Pos, Damage = rk.Damage, Radius = rk.Radius, Suppression = rk.Suppression,
+                        CraterRadius = rk.Crater, CraterDepth = rk.Crater * 0.25f, Source = rk.Source, Player = rk.Player,
+                    });
+                }
+                Rockets.Length = keep;
+            }
             new GunneryJob
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, Dt = w.Config.TickSeconds,
@@ -112,7 +151,7 @@ namespace TW.Sim.Combat
                 ClawCooldown = ClawCooldown, Clawed = clawed,
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
-                Hits = PendingHits, Events = events, Impacts = impacts, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
+                Hits = PendingHits, Events = events, Impacts = impacts, Rockets = Rockets, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
@@ -160,6 +199,7 @@ namespace TW.Sim.Combat
             public NativeList<VehicleHit> Hits;
             public NativeList<SimEvent> Events;
             public NativeList<Impact> Impacts;
+            public NativeList<PendingRocket> Rockets;
 
             int CellOf(float3 p)
             {
@@ -300,6 +340,29 @@ namespace TW.Sim.Combat
                             if (hit) Hits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.ArmourPiercing, PenMm = g.PenMm * rng.NextFloat(0.9f, 1.1f), Damage = g.ApDamage, Pos = AimPoint(t), Dir = dir });
                             Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.VehicleFired, A = i, B = k, Pos = land, Dir = dir, Scalar = 0f });
                         }
+                        else if (spec.Rockets > 0)
+                        {
+                            // a rack of rockets: each leaves its tube in turn, flies its own time and comes down at its
+                            // own point round where the shell would have burst, on its own tick
+                            var rr = SimRandom.For(Seed, Tick, SimRandom.SystemId.Salvo, (uint)gi);
+                            float share = RocketShare(spec.Rockets);
+                            int rack = (int)math.round(SalvoRackSeconds / Dt);
+                            for (int n = 0; n < spec.Rockets; n++)
+                            {
+                                float ra = rr.NextFloat(0f, SimMath.TwoPi), rd = g.HeRadius * SalvoSpread * SimMath.Sqrt(rr.NextFloat());
+                                float3 at = land + new float3(SimMath.Sin(ra) * rd, 0f, SimMath.Cos(ra) * rd);
+                                float3 run = at - p; run.y = 0f;
+                                int launch = n * rack / spec.Rockets;
+                                int flight = math.max(1, (int)math.round(math.clamp(SimMath.Length(run) / math.max(1f, spec.RocketSpeed), SalvoFlightMin, SalvoFlightMax) / Dt));
+                                Rockets.Add(new PendingRocket
+                                {
+                                    LandTick = Tick + (uint)(launch + flight), Pos = at, Damage = g.HeDamage * share, Radius = g.HeRadius * SalvoRocketRadius,
+                                    Suppression = g.HeSuppression * share, Crater = g.HeCrater * SalvoRocketRadius, Source = SourceId.Unit(Archetype[i]), Player = Team[i],
+                                });
+                                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.RocketFired, A = i, B = n, Pos = at, Dir = new float3(launch, flight, 0f), Scalar = spec.Rockets });
+                            }
+                            Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.VehicleFired, A = i, B = k, Pos = land, Dir = dir, Scalar = 1f });
+                        }
                         else
                         {
                             Impacts.Add(new Impact
@@ -360,7 +423,11 @@ namespace TW.Sim.Combat
             h = SimHash.Array(Gen, n, h);
             h = SimHash.Array(CrewFactor, n, h);
             h = SimHash.Array(ClawCooldown, n, h);
-            return SimHash.Value(PendingHits.Length, h);   // empty between ticks
+            h = SimHash.Value(PendingHits.Length, h);   // empty between ticks
+            // v11 (2026-09-28): the rockets in the air, appended at the end of this system's part of the chain
+            h = SimHash.Value(Rockets.Length, h);
+            for (int r = 0; r < Rockets.Length; r++) h = SimHash.Value(Rockets[r], h);
+            return h;
         }
 
         public void Dispose()
@@ -374,6 +441,7 @@ namespace TW.Sim.Combat
             if (ClawCooldown.IsCreated) ClawCooldown.Dispose();
             if (clawed.IsCreated) clawed.Dispose();
             if (PendingHits.IsCreated) PendingHits.Dispose();
+            if (Rockets.IsCreated) Rockets.Dispose();
             if (events.IsCreated) events.Dispose();
             if (impacts.IsCreated) impacts.Dispose();
             if (halt.IsCreated) halt.Dispose();

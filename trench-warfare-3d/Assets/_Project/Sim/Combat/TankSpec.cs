@@ -55,6 +55,13 @@ namespace TW.Sim.Combat
         /// <summary>The deck plate while Charging: hatches down, the bundles thrown onto it bounce (8 mm would not).</summary>
         public float ChargingTopMm;
 
+        // ---- a rack of rockets (2026-09-28, the Salvo) ----
+        /// <summary>Gun 0 fires this many rockets a shot instead of one shell (0: a shell). They leave the tubes one after
+        /// another over TankGunnerySystem.SalvoRackSeconds, fly at RocketSpeed (metres a second along the ground) and
+        /// come down scattered over the shell's burst: TankGunnerySystem holds them until they land.</summary>
+        public int Rockets;
+        public float RocketSpeed;
+
         public TankGun Gun(int k) => k == 0 ? Gun0 : Gun1;
 
         public const float Deg = SimMath.Pi / 180f;

@@ -16,6 +16,7 @@ namespace TW.Sim
             TrenchGarrison = 11, TrenchPost = 12,   // registered so nobody reuses them by accident
             Abilities = 13, Mines = 14, Beam = 15, Burning = 16,   // the overhaul's systems (docs/21); registered ahead of use
             Hero = 17, AirDrop = 18, Leap = 19, Breaker = 20, Support = 21,   // 2026-09-25; renumbered after the overhaul's when both landed (2026-09-27)
+            Salvo = 22,   // 2026-09-28: where each rocket of a rack comes down (TankGunnerySystem)
             Test = 1000,
         }
 

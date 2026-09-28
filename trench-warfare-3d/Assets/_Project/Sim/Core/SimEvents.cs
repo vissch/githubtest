@@ -82,6 +82,10 @@ namespace TW.Sim
         HeroFallen,         // a = slot, b = hero id, dir.y = team, scalar = kills: he died in it
         VeteranDeployed,    // a = slot, b = rank 1..3, dir.x = roster slot, dir.y = team
         WreckRecorded,      // a = wreck record index, b = prop index, pos, scalar = quality 0..1 (DeformationSystem)
+        // 2026-09-28 (format v11): one per rocket of a rack (TankSpec.Rockets, the Salvo), on the tick the rack fires:
+        // a = the machine's slot, b = the rocket (0..n-1, its tube), pos = where it comes down, dir.x = ticks until it
+        // leaves its tube, dir.y = ticks it flies, scalar = rockets in the rack. Its burst is queued for tick + x + y.
+        RocketFired,
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing

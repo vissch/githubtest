@@ -40,12 +40,12 @@ namespace TW.Tests
             Assert.AreEqual(System.Math.Atan2(-3, -0.5), SimMath.Atan2(-3f, -0.5f), 1e-4);
         }
 
-        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 10 has
+        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 11 has
         /// them in the greybox match. Two SIM lanes that each add a system merge without a conflict into a chain
         /// neither of them ran, and a determinism rerun then compares the merged build with itself and passes (the
         /// overhaul and units-meta, 2026-09-27). This fails instead: a change to the chain is a format change, so it
         /// bumps ReplayRecorder.FormatVersion and pins the new chain here in the same commit.</summary>
-        // v10 (2026-09-28) changed the unit table's contents (UnitDefinitions.All), not the chain.
+        // v10 (2026-09-28) changed the unit table's contents (UnitDefinitions.All), v11 what TankGunnerySystem hashes; not the chain.
         const string ChainV10 =
             "40 CombatCatalogueSystem;50 TerrainHashSystem;110 TrenchOrdersSystem;130 OffMapAbilitySystem;" +
             "400 FlowFieldManager;600 TargetAcquisitionSystem;650 AuraSystem;700 DirectFireSystem;" +
@@ -61,7 +61,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(10, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(11, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(ChainV10, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
     }

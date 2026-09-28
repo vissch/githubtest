@@ -33,7 +33,10 @@ namespace TW.Sim
         // v10 (2026-09-28): UnitDefinitions.All holds its first two units (the Skimmer 19 and the Salvo 20, fielded by
         // no faction), so the match's unit table, whose Fingerprint UnitCatalogue and CombatCatalogue fold into every
         // tick's hash, is not the one v9 recorded against. Layout and hash chain unchanged.
-        public const ushort FormatVersion = 10;
+        // v11 (2026-09-28): the Salvo's shot is a rack of rockets held in the air (TankGunnerySystem.Rockets, hashed at the
+        // end of that system's part of the chain) and each bursts on its own later tick; SimEventType.RocketFired;
+        // SimRandom.SystemId.Salvo = 22; TankSpec gains Rockets and RocketSpeed (the combat table's fingerprint).
+        public const ushort FormatVersion = 11;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
