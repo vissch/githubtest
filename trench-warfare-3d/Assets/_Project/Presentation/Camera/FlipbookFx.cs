@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace TW.Presentation.Tactical
 {
-    public sealed class FlipbookFx
+    public sealed partial class FlipbookFx
     {
         public enum Book : byte
         {
@@ -672,6 +672,7 @@ namespace TW.Presentation.Tactical
                 if (now < c.Born) continue;   // not born yet
                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
             }
+            float far = FarBlendNow(), keep = FarKeepShare(far), keepGrow = 1f / Mathf.Sqrt(keep);   // the far fire (FlipbookFx.FarFire.cs)
             int bookCount = (int)Book.Count;
             System.Array.Clear(bookStart, 0, bookCount + 1);
             for (int i = 0; i < cards.Count; i++) bookStart[(int)cards[i].Book + 1]++;
@@ -686,6 +687,15 @@ namespace TW.Presentation.Tactical
                 for (int j = bookStart[b]; j < bookStart[b + 1]; j++)
                 {
                     var c = cards[byBook[j]]; if (now < c.Born) continue;
+                    if (far > 0f && Sheets[b].Fire)
+                    {
+                        Glow(c.Pos, c.Width, c.Alpha);   // the halo counts all of the fire, kept or not
+                        if (c.Width < FarThinWidth)
+                        {
+                            if (!FarKeep(c.Born, c.Life, keep)) continue;
+                            c.Width *= keepGrow; c.Height *= keepGrow;   // a local copy: the card itself is not changed
+                        }
+                    }
                     float k = Mathf.Clamp01((now - c.Born) / c.Life);
                     float swell = 1f + c.Grow * k;
                     if (c.Pop > 0f) { float u = 1f - Mathf.Clamp01(k / 0.2f); swell *= Mathf.Lerp(1f, c.Pop, u * u * u); }   // bursts out of a point, eased
@@ -709,6 +719,7 @@ namespace TW.Presentation.Tactical
                 }
                 if (n > 0) FrameBudget.Draw(rp, quad, 0, batch, n);
             }
+            if (far > 0f) FlushGlow(bounds);
         }
 
         /// <summary>Draw cards the caller keeps itself (a gas field, a persistent cloud): packed records, any count.</summary>
@@ -722,6 +733,13 @@ namespace TW.Presentation.Tactical
                 int n = Mathf.Min(batch.Length, packed.Count - start);
                 packed.CopyTo(start, batch, 0, n);
                 FrameBudget.Draw(rp, quad, 0, batch, n);
+            }
+            // the far fire's halo over a caller's own fire cards (a hull's tongues, the beam's pillar); the caller keeps its
+            // count, so nothing is thinned here
+            if (Sheets[(int)book].Fire && FarBlendNow() > 0f)
+            {
+                for (int i = 0; i < packed.Count; i++) { var m = packed[i]; Glow(new Vector3(m.m03, m.m13, m.m23), m.m00, m.m21); }
+                FlushGlow(bounds);
             }
         }
 
