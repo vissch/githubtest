@@ -343,7 +343,7 @@ namespace TW.Presentation.Tactical
             if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 6));   // FactionRoster.Slot: Brass's tank
             GUILayout.EndHorizontal();
             Host.PeerDeploysTanks = GUILayout.Toggle(Host.PeerDeploysTanks, " sends a tank whenever it can afford one");
-            Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own with {Host.PeerAttackGarrison}+ men");
+            Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own: {Host.PeerAttackGarrison}+ men at 2:1 behind a barrage, or 3:1");
             GUILayout.Label("Or use the enemy trench's >> above to send them at you.", small);
 
             // ---- camera -----------------------------------------------------------------------------------------

@@ -22,7 +22,7 @@ namespace TW.Tests
         const int Rifleman = 0, Assault = 1;
         public static uint Field = 1917;   // GreyboxCorridor's BattlefieldSeed
 
-        public enum Support { None, Smoke, Barrage }
+        public enum Support { None, Smoke, Barrage, Both }
 
         public struct Rung
         {
@@ -53,7 +53,7 @@ namespace TW.Tests
         /// <summary>One assault: <paramref name="defenders"/> riflemen of team 1 walk into their front trench, then
         /// <paramref name="attackers"/> of team 0 (three riflemen to one assault man) into ours, and ">>" sends ours at
         /// theirs. The garrison gets no reinforcement and no order: what is measured is the assault.</summary>
-        public static Rung Run(int attackers, int defenders, Support support, uint seed, int ticks = 3600)
+        public static Rung Run(int attackers, int defenders, Support support, uint seed, int ticks = 3600, int gunners = 0)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 1000000; cfg.Seed = seed;
             var field = BattlefieldParams.ShelledForest(Field); field.Bombardment = 0f;   // the battle scene's ground; shells are nobody's decision
@@ -68,7 +68,8 @@ namespace TW.Tests
             float ownZ = TrenchZ(m, own), width = m.Map.SizeMeters.x;
             for (int k = 0; k < defenders; k++)
             {
-                var e = w.Roster[1 * RosterEntry.SlotCount + Rifleman];
+                int every = gunners > 0 ? math.max(1, defenders / gunners) : 0;   // gunners spread evenly along the line
+                var e = gunners > 0 && k % every == every / 2 && k / every < gunners ? RosterEntry.Machinegunner : w.Roster[1 * RosterEntry.SlotCount + Rifleman];
                 int s = w.Spawn(1, e.Archetype, new float3((k + 0.5f) * width / defenders, 0f, theirZ + 8f), e.Hp, e.Speed, false);
                 w.GoalId[s] = goalTheirs;
             }
@@ -96,16 +97,16 @@ namespace TW.Tests
                 if (w.TrenchId[i] < 0) r.Stray += (w.Team[i] == 0 ? "a" : "d") + $"({w.Position[i].x:F0},{w.Position[i].z:F0}) ";
             }
 
-            if (support == Support.Smoke)
-                for (int k = 0; k < 2; k++)
-                    cmds.Add(new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.SmokeScreen,
-                                              Pos = new float3(5f + 40f * k, 0f, theirZ - 12f), B = AbilityArgs.Pack(90, 0, 40) });
-            if (support == Support.Barrage)
+            if (support == Support.Smoke || support == Support.Both)
+                // one screen, 40 m of the 90 m front (a second call the same tick is refused by the ability's cooldown)
+                cmds.Add(new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.SmokeScreen,
+                                          Pos = new float3(5f, 0f, theirZ - 12f), B = AbilityArgs.Pack(90, 0, 40) });
+            if (support == Support.Barrage || support == Support.Both)
                 cmds.Add(new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage,
                                           Pos = new float3(15f, 0f, theirZ), B = AbilityArgs.Pack(90, AbilityPattern.Line, 60) });
             Step(m, cmds); cmds.Clear();
             // over the top as the support comes down: smoke takes two seconds, the barrage four and lasts six
-            int wait = support == Support.Barrage ? 120 : support == Support.Smoke ? 40 : 0;
+            int wait = support == Support.Barrage || support == Support.Both ? 120 : support == Support.Smoke ? 40 : 0;
             for (int t = 0; t < wait; t++) Step(m, cmds);
             // ">>" on every trench of ours that holds men (a front line may be several trenches), and a man who never
             // got into one goes with them
