@@ -36,7 +36,31 @@ namespace TW.Presentation
 
         /// <summary>The portrait file stem under Assets/_Project/UI/Skin/Portraits/, per SkinSpec.PortraitNames.</summary>
         public static string PortraitName(byte archetype) =>
-            archetype < InfantryPortraits.Length ? InfantryPortraits[archetype] : FootName(archetype) ?? VehicleName(archetype);
+            archetype < InfantryPortraits.Length ? InfantryPortraits[archetype]
+            : StandInPortrait(archetype) ?? FootName(archetype) ?? VehicleName(archetype);
+
+        /// <summary>
+        /// The Proving Ground's units (archetypes 21-36, 2026-09-28) have no portrait of their own yet: each wears the
+        /// picture of the shipped unit it is nearest to, so a deploy bar that fields one shows a card and not a hole.
+        /// Null for every other id. Their own portraits replace these lines one at a time.
+        /// </summary>
+        public static string StandInPortrait(byte archetype)
+        {
+            switch (archetype)
+            {
+                case VehicleArchetype.Brute: case VehicleArchetype.MarkIV: case VehicleArchetype.MarkV: case VehicleArchetype.A7V: return "Maw";
+                case VehicleArchetype.Croaker: return "Pincer";
+                case VehicleArchetype.Hopper: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Skimmer";
+                case VehicleArchetype.Mercy: return "Medic";
+                case VehicleArchetype.RenaultFT: return "Tusk";
+                case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
+                case InfantryArchetype.Sentry: return "MG";
+                case InfantryArchetype.AtRifle: return "Sniper";
+                case InfantryArchetype.Sapper: return "Engineer";
+                case InfantryArchetype.Flamethrower: return "Assault";
+                default: return null;
+            }
+        }
 
         /// <summary>
         /// How many unit portraits the skin has: archetypes 0..20 — four line infantry, two tanks, six walkers, the six
@@ -57,6 +81,13 @@ namespace TW.Presentation
                 case InfantryArchetype.Repair: return "Engineer";
                 case InfantryArchetype.Para: return "Para";
                 case InfantryArchetype.Jetpack: return "Jetpack";
+                // the Proving Ground's men (2026-09-28)
+                case InfantryArchetype.Frog: return "Frog";
+                case InfantryArchetype.Sentry: return "Sentry";
+                case InfantryArchetype.AtRifle: return "AT Rifle";
+                case InfantryArchetype.DeathBattalion: return "Death Bn";
+                case InfantryArchetype.Sapper: return "Sapper";
+                case InfantryArchetype.Flamethrower: return "Flamer";
                 default: return null;
             }
         }
@@ -77,6 +108,13 @@ namespace TW.Presentation
                 case InfantryArchetype.Repair: return "Engineer: mends a machine within 6 m at 40 hp/s, beats out its fire, frees a jammed module";
                 case InfantryArchetype.Para: return "Paratrooper: comes down behind the line on the air card, never deployed from a trench";
                 case InfantryArchetype.Jetpack: return "Jetpack trooper: leaps 28 m into an enemy trench. Cannot be shot in the air; blast on landing";
+                // the Proving Ground's men: numbers from UnitDefinitions (ProvingGroundTests holds them)
+                case InfantryArchetype.Frog: return "Frog, prototype: a rifleman's numbers under the playground's frog";
+                case InfantryArchetype.Sentry: return "Sentry, stand-in: a machine gun behind an 8 mm plate over a 60 degree arc";
+                case InfantryArchetype.AtRifle: return "AT rifle, stand-in: pierces 20 mm at up to 70 m, one round in five seconds";
+                case InfantryArchetype.DeathBattalion: return "Death Battalion, stand-in: a harder-hitting rifleman who never stays pinned";
+                case InfantryArchetype.Sapper: return "Sapper, stand-in: carries two charges. Walks out and lays a mine or a tripwire";
+                case InfantryArchetype.Flamethrower: return "Flamethrower, stand-in: a 12 m jet that sets men and ground alight, past a plate";
                 default: return null;
             }
         }
@@ -96,6 +134,17 @@ namespace TW.Presentation
                 case VehicleArchetype.Breaker: return "Breaker";
                 case VehicleArchetype.Skimmer: return "Skimmer";
                 case VehicleArchetype.Salvo: return "Salvo";
+                // the Proving Ground's machines (2026-09-28)
+                case VehicleArchetype.Brute: return "Brute";
+                case VehicleArchetype.Croaker: return "Croaker";
+                case VehicleArchetype.Hopper: return "Hopper";
+                case VehicleArchetype.Mercy: return "Mercy";
+                case VehicleArchetype.MarkIV: return "Mark IV";
+                case VehicleArchetype.MarkV: return "Mark V";
+                case VehicleArchetype.A7V: return "A7V";
+                case VehicleArchetype.RenaultFT: return "Renault FT";
+                case VehicleArchetype.Whippet: return "Whippet";
+                case VehicleArchetype.Austin: return "Austin";
                 default: return "Vehicle";
             }
         }
@@ -124,6 +173,17 @@ namespace TW.Presentation
                 case VehicleArchetype.Breaker: return "Breaker, assault tank: winds up, charges a trench at 2.5x and strikes. Thin deck once it runs";
                 case VehicleArchetype.Skimmer: return "Skimmer, hovercraft: the fastest machine. 130 m 12 mm gun pierces light hulls. 8 mm";
                 case VehicleArchetype.Salvo: return "Salvo, rocket half-track: 16 rockets to 380 m, 16 s reload. A 110 m machine gun up close";
+                // the Proving Ground's machines: placeholder numbers (UnitDefinitions), so the words say what to watch for
+                case VehicleArchetype.Brute: return "Brute, prototype heavy tank: the Maw's guns under thicker plate. Slow";
+                case VehicleArchetype.Croaker: return "Croaker, prototype biped: a turret gun and claws at 2.4 m. One leg a side";
+                case VehicleArchetype.Hopper: return "Hopper, prototype gunship: strides over trenches and wire. No flight in the sim yet";
+                case VehicleArchetype.Mercy: return "Mercy, prototype ambulance: unarmed. Heals the men within 10 m of its hull";
+                case VehicleArchetype.MarkIV: return "Mark IV Male, stand-in: the Maw's numbers under a historical name";
+                case VehicleArchetype.MarkV: return "Mark V, stand-in: a quicker heavy tank that bogs less, thinner plate";
+                case VehicleArchetype.A7V: return "A7V, stand-in: 30 mm in front, one hull gun in a narrow arc. Ditches easily";
+                case VehicleArchetype.RenaultFT: return "Renault FT, stand-in: the Tusk's turret gun in a small hull. Ditches in wide trenches";
+                case VehicleArchetype.Whippet: return "Whippet, stand-in: a fast tank with machine guns only";
+                case VehicleArchetype.Austin: return "Austin, stand-in: an armoured car with twin machine guns. Wheels bog in mud";
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }

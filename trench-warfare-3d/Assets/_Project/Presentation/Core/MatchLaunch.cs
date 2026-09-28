@@ -68,6 +68,11 @@ namespace TW.Presentation
             /// <summary>Seat A is the local player by fiat: the HUD's cards, the incoming markers and the mine marks all read
             /// seat 0; B is the scripted peer today, so AbilityMaskB is built and unread until a second human sits in B.</summary>
             public uint AbilityMaskA, AbilityMaskB;
+            /// <summary>The Proving Ground (2026-09-28): the test level. The shell opens its panel over the match (units,
+            /// waves, match) and the ten of each side may name any unit the match's table defines.</summary>
+            public bool ProvingGround;
+            /// <summary>SimConfig.Endless: holding every objective names no winner, so a tester's waves never end the match.</summary>
+            public bool Endless;
             /// <summary>Does a mask field an ability: bit (int)id, or everything when the mask is 0 (a skirmish, a test). The one
             /// copy: the HUD's cards and keys, the debug panel and (B1, later) the sim ask this.</summary>
             public static bool Offered(uint mask, int ability) => mask == 0 || (mask & (1u << ability)) != 0;
@@ -82,6 +87,7 @@ namespace TW.Presentation
                 Bombardment = h.BombardmentPerMinute, ScriptedPeer = h.ScriptedPeer, PeerDeployEveryTicks = h.PeerDeployEveryTicks,
                 PeerAttacks = h.PeerAttacks, PeerAttackGarrison = h.PeerAttackGarrison, PeerDeploysTanks = h.PeerDeploysTanks,
                 PeerUsesSupport = h.PeerUsesSupport, PeerSupportReserve = h.PeerSupportReserve,
+                Endless = h.Endless,
             };
         }
 
@@ -107,6 +113,7 @@ namespace TW.Presentation
             h.ScriptedPeer = r.ScriptedPeer; h.PeerDeployEveryTicks = Mathf.Max(1, r.PeerDeployEveryTicks);   // SimHost divides by it
             h.PeerAttacks = r.PeerAttacks; h.PeerAttackGarrison = r.PeerAttackGarrison; h.PeerDeploysTanks = r.PeerDeploysTanks;
             h.PeerUsesSupport = r.PeerUsesSupport; h.PeerSupportReserve = r.PeerSupportReserve;
+            h.Endless = r.Endless;
             SimHost.BombardmentOverride = -1f;   // the debug presets never outrank a mission
             Running = r;
         }

@@ -12,6 +12,9 @@ namespace TW.UI
         public virtual bool Modal => true;
         /// <summary>The HUD hides behind this screen (the debrief, the main menu).</summary>
         public virtual bool HidesHud => false;
+        /// <summary>The screen sits over a live match and is no menu (the Proving Ground's panel): Esc is not its business,
+        /// so the router treats it as if nothing were on top and opens the pause menu over it.</summary>
+        public virtual bool Overlay => false;
 
         public abstract VisualTreeAsset Tree(ShellAssets assets);
 

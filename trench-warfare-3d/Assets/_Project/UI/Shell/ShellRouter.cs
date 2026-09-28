@@ -5,6 +5,8 @@
 // with no host, shows the main menu. Esc opens the pause menu in a match unless an armed ability consumed it; a
 // finished match brings the debrief a beat after the capture reads on screen. Screens are plain classes over a
 // VisualElement (ShellScreen), so EditMode tests bind them with no panel.
+// The Proving Ground (2026-09-28): a match started from its launch screen gets its panel pushed when the scene binds;
+// F8 opens the panel over any match and folds it when it is up. The panel is an Overlay: Esc passes it by.
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -76,6 +78,7 @@ namespace TW.UI
                 Stats = MatchStats.Attach(Host);
                 SettingsApplier.ApplyCamera(settings);
                 SettingsApplier.ApplyInterface(settings);
+                if (MatchLaunch.Running != null && MatchLaunch.Running.ProvingGround) Push(new ProvingGroundPanel());
             }
             else
             {
@@ -145,19 +148,37 @@ namespace TW.UI
             // Esc: the top screen's business, else the pause menu (unless an armed ability just used it)
             if (!InputFocus.Listening && KeyMap.DownRaw(GameAction.Menu) && !InputFocus.EscapeConsumed)
             {
-                if (Top != null) Top.OnEscape();
+                if (Top != null && !Top.Overlay) Top.OnEscape();
                 else if (Host != null && !debriefShown)
                 {
                     var panel = Camera.main != null ? Camera.main.GetComponent<TestPanel>() : null;
                     if (panel == null || panel.Armed == OffMapAbilityId.None) Push(new PauseMenuScreen());
                 }
             }
+            if (Host != null && !debriefShown && !InputFocus.Listening && !InputFocus.Modal && ProvingKeyDown()) ToggleProvingGround();
             // the debrief, a beat after the end
             if (Host != null && Host.Local != null && !debriefShown && Host.Local.World.WinnerTeam >= 0)
             {
                 if (endedAt < 0f) endedAt = Time.unscaledTime;
                 else if (Time.unscaledTime - endedAt >= EndDelaySeconds) ShowDebrief();
             }
+        }
+
+        /// <summary>F8, not a GameAction: a test tool's key is not the player's to rebind, and an action added to the list
+        /// would show in the settings' controls page.</summary>
+        static bool ProvingKeyDown()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            return kb != null && kb[UnityEngine.InputSystem.Key.F8].wasPressedThisFrame;
+        }
+
+        /// <summary>The Proving Ground's panel over this match: opened if it is not up, folded or unfolded if it is.</summary>
+        public void ToggleProvingGround()
+        {
+            if (Host == null) return;
+            foreach (var s in stack)
+                if (s is ProvingGroundPanel panel) { panel.Fold(!panel.Folded); return; }
+            if (Top == null) Push(new ProvingGroundPanel());
         }
 
         public void ShowDebrief(string reason = null)

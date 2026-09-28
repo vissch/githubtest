@@ -18,6 +18,7 @@
         <ui:VisualElement name="menu-stack" class="shell-menu-stack shell-menu-stack--left">
             <ui:Button name="btn-skirmish" text="SKIRMISH" class="tw-btn tw-btn--wide tw-btn--primary" />
             <ui:Button name="btn-armoury" text="ARMOURY" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-proving" text="PROVING GROUND" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-campaign" text="CAMPAIGN" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-homefront" text="HOME FRONT" class="tw-btn tw-btn--wide" />
             <ui:Button name="btn-settings" text="SETTINGS" class="tw-btn tw-btn--wide" />

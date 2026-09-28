@@ -90,6 +90,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-28 | **Allied selection in the level = an in-match panel (spawn 1/5/10 at the rally) plus a launch screen that picks any ten for the deploy bar**, so the real deploy path (cost, cooldown, boats) is testable too. (AskUserQuestion.) |
 | 2026-09-28 | A Proving Ground match never ends: `SimConfig.Endless`, so support calls and the bombardment keep going after a tester's wave takes an HQ (the agent's choice; replay v16). The Hopper drives as a legless walker profile (strides trenches and wire, never bogs) and is drawn hovering: the sim has no flight, and it is shot at ground level (the agent's choice). |
 
+| 2026-09-28 | The level itself (SHOW, `lane/show/proving-ground`): waves are PLACED at the enemy's rally by default (any unit, no silver) and go THROUGH THEIR SLOTS only when asked, because a slot can field only the enemy's ten; the panel opens with F8 over ANY match, not only the level, as the debug panel does with F10; the sixteen borrow the portrait of the nearest shipped unit until they have their own; the ideas with nothing in the sim are listed greyed with what each waits for (the agent's choices). |
+
 ## Open: waiting on the owner
 - **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
   Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
