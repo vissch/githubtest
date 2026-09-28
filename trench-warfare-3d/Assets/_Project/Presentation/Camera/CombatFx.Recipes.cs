@@ -18,6 +18,7 @@ namespace TW.Presentation.Tactical
             public bool Mortar;     // a MortarBurst over the column: a round that came down with no lean
             public bool CookOff;    // a FireCookOff fireball in place of the column: a hull going up
             public bool Ring;       // a GroundRing lying on the ground: how big a big burst was, read from far off
+            public bool Lean;       // a ShellLean: the earth thrown the way a flying shell was going (L02)
 
             public static BurstRecipe Old => new BurstRecipe { Column = true, OldSmoke = true };
         }
@@ -37,7 +38,7 @@ namespace TW.Presentation.Tactical
             int kind = Mathf.RoundToInt(shape);
             if (kind == 2) return new BurstRecipe { CookOff = true, Plume = true };   // no earth: the hull is what goes up
             if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine (5): their own looks come later (L14, L19, L24)
-            return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Ring = radius >= RingRadius };
+            return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Lean = lean > 0f, Ring = radius >= RingRadius };
         }
     }
 }
