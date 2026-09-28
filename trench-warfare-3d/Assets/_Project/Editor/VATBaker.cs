@@ -16,6 +16,8 @@
 //   per side and keeps the folds. A figure without one is coloured by its dominant bone. A rifle box is added in the
 //   right hand (the models carry none); the old CrouchedRun figure also gets a helmet brim.
 // The result is normalised to a 1.78 m man standing on y = 0, facing +Z.
+// The mid figures (WriteMidFigures, after every bake): Tools/midfigure.py's cut of each figure to 250 triangles of its own
+// vertices, written as Figure<Name>MidMesh with each vertex's atlas column in UV1.y; VATRenderer draws it past MidDistance.
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -87,7 +89,71 @@ namespace TW.Editor
                 AssetDatabase.DeleteAsset($"{OutputFolder}/{name}.asset");
             AssetDatabase.DeleteAsset($"{OutputFolder}/InfantryVatAtlas.bytes");
             AssetDatabase.SaveAssets();
+            WriteMidFigures();   // their corners are columns of the atlases just written
             File.WriteAllText(Path.Combine(Application.dataPath, "../Library/vat-bake-report.txt"), LastReport);
+        }
+
+        // ---- the mid figures ------------------------------------------------------------------------------------
+        /// <summary>Where Tools/midfigure.py writes each figure's mid source (relative to the project folder).</summary>
+        public const string MidSourceFolder = "Tools/midfigure";
+
+        /// <summary>A mid figure as Tools/midfigure.py writes it: the full figure's vertices it keeps (atlas columns),
+        /// three corners a triangle into that list, a colour per kept vertex (rgb + team mask) and where its column stood
+        /// in the idle frame when it was cut (all flat).</summary>
+        [System.Serializable]
+        sealed class MidSource { public int[] columns; public int[] tris; public float[] colours; public float[] positions; }
+
+        /// <summary>
+        /// VATRenderer's middle tier: for each figure with a source in MidSourceFolder, Figure&lt;Name&gt;MidMesh, a
+        /// quarter of the figure's triangles made only of the figure's own vertices. Each vertex carries in UV1.y the atlas
+        /// column it plays + 1 (VAT_URP reads it in place of its own index), so it animates from the figure's atlas as it is:
+        /// no second bake, no second atlas. Positions, normals and limb ids are the full figure's at that column; the
+        /// colour is the source's (the mean of the vertices it stands for). The rifle box is kept whole.
+        /// </summary>
+        [MenuItem("TW/VAT/Write Mid Figures")]
+        public static void WriteMidFigures()
+        {
+            foreach (var fig in Figures)
+            {
+                string src = Path.Combine(Application.dataPath, "..", MidSourceFolder, $"Figure{fig.Name}Mid.json");
+                if (!File.Exists(src)) continue;
+                var full = AssetDatabase.LoadAssetAtPath<Mesh>($"{OutputFolder}/Figure{fig.Name}Mesh.asset");
+                if (full == null) { Debug.LogError($"VATBaker: no Figure{fig.Name}Mesh for its mid figure"); continue; }
+                var mid = BuildMid(File.ReadAllText(src), full, $"Figure{fig.Name}MidMesh");
+                if (mid == null) { Debug.LogError($"VATBaker: {src} does not fit Figure{fig.Name}Mesh (a column out of range or no longer where it was cut: rerun Tools/midfigure.py)"); continue; }
+                string path = $"{OutputFolder}/Figure{fig.Name}MidMesh.asset";
+                AssetDatabase.DeleteAsset(path);
+                AssetDatabase.CreateAsset(mid, path);
+                Debug.Log($"VATBaker {fig.Name} mid: {mid.vertexCount} vertices, {mid.triangles.Length / 3} triangles (full {full.vertexCount}, {full.triangles.Length / 3})");
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>The mid mesh from a Tools/midfigure.py source, or null when the source does not fit the figure: a column
+        /// outside it, or one that no longer stands where it stood when it was cut (the figure was rebaked from a changed
+        /// model, and every mid vertex would play a stranger's path).</summary>
+        public static Mesh BuildMid(string json, Mesh full, string name)
+        {
+            var s = JsonUtility.FromJson<MidSource>(json);
+            int n = s.columns != null ? s.columns.Length : 0;
+            if (n == 0 || s.colours == null || s.colours.Length != n * 4 || s.positions == null || s.positions.Length != n * 3 || s.tris == null || s.tris.Length % 3 != 0) return null;
+            var pos = full.vertices; var nrm = full.normals; var uv1 = new List<Vector2>(); full.GetUVs(1, uv1);
+            var v = new Vector3[n]; var no = new Vector3[n]; var c = new Color[n]; var limb = new Vector2[n];
+            for (int i = 0; i < n; i++)
+            {
+                int col = s.columns[i];
+                if (col < 0 || col >= pos.Length) return null;
+                v[i] = new Vector3(s.positions[i * 3], s.positions[i * 3 + 1], s.positions[i * 3 + 2]);
+                if ((v[i] - pos[col]).sqrMagnitude > 1e-6f) return null;   // a millimetre: the source rounds to 10 microns
+                no[i] = nrm[col];
+                c[i] = new Color(s.colours[i * 4], s.colours[i * 4 + 1], s.colours[i * 4 + 2], s.colours[i * 4 + 3]);
+                limb[i] = new Vector2(uv1.Count == pos.Length ? uv1[col].x : 0f, col + 1);
+            }
+            foreach (int t in s.tris) if (t < 0 || t >= n) return null;
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(v); mesh.SetNormals(no); mesh.SetColors(c); mesh.SetUVs(1, limb); mesh.SetTriangles(s.tris, 0);
+            mesh.bounds = full.bounds;
+            return mesh;
         }
 
         static Rig BuildRig(GameObject source, string path)

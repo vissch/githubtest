@@ -100,7 +100,9 @@ Shader "TW/VAT Infantry (URP)"
                      SAMPLE_TEXTURE2D_LOD(_NrmTex, sampler_NrmTex, float2(u, v1), 0).xyz, w);
         }
 
-        Animated Animate(uint vertexID, uint svInstanceID, float limb)
+        // limb: the mesh's UV1. x the limb id (VATBaker); y the atlas column + 1 of a vertex that plays another vertex's
+        // column (the mid figure, VATBaker.MidFigures: its corners are vertices of the full figure), 0 = its own index
+        Animated Animate(uint vertexID, uint svInstanceID, float2 limbColumn)
         {
             InitIndirectDrawArgs(0);
             // _Base: every draw after the first (the sniper figure, the far tier, the fallen of each) starts at an offset
@@ -111,8 +113,10 @@ Shader "TW/VAT Infantry (URP)"
             // tint: the team in the low bit; above it, for a fallen man in the air, the pitch he tumbles at in 32nds of a turn
             float team = fmod(inst.tint, 2.0);
             float pitch = floor(inst.tint * 0.5) * (6.28318530 / 32.0);   // 2 pi / VATRenderer.PitchSteps: change both together
+            float limb = limbColumn.x;
             float gone = limb > 0.5 && ((lost >> (uint)(limb + 0.5)) & 1u) != 0u ? 1.0 : 0.0;
-            float u = (vertexID + 0.5) / _VertexCount;
+            uint column = limbColumn.y > 0.5 ? (uint)(limbColumn.y + 0.5) - 1u : vertexID;
+            float u = (column + 0.5) / _VertexCount;   // _VertexCount: the atlas' columns, not the drawn mesh's vertices
             float3 p, n;
             SampleClip(u, inst.animRow, inst.animT, p, n);
             if (inst.blend > 0.001)   // the clip on its way out, while the cross-fade lasts
@@ -171,7 +175,7 @@ Shader "TW/VAT Infantry (URP)"
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(v.vertexID, instanceID, v.limb.x);
+                Animated a = Animate(v.vertexID, instanceID, v.limb);
                 Varyings o;
                 o.positionOS = a.positionOS;
                 o.positionWS = a.positionWS;
@@ -321,7 +325,7 @@ Shader "TW/VAT Infantry (URP)"
             struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float gone : TEXCOORD1; };
             OutlineVaryings vertOutline(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(vertexID, instanceID, limb.x);
+                Animated a = Animate(vertexID, instanceID, limb);
                 OutlineVaryings o;
                 o.gone = a.gone;
                 float w = TransformWorldToHClip(a.positionWS).w;
@@ -355,7 +359,7 @@ Shader "TW/VAT Infantry (URP)"
             struct ShadowVaryings { float4 positionCS : SV_POSITION; float gone : TEXCOORD0; };
             ShadowVaryings vertShadow(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(vertexID, instanceID, limb.x);
+                Animated a = Animate(vertexID, instanceID, limb);
             #if _CASTING_PUNCTUAL_LIGHT_SHADOW
                 float3 lightDir = normalize(_LightPosition - a.positionWS);
             #else
@@ -387,7 +391,7 @@ Shader "TW/VAT Infantry (URP)"
             struct DepthVaryings { float4 positionCS : SV_POSITION; float gone : TEXCOORD0; };
             DepthVaryings vertDepth(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
-                Animated a = Animate(vertexID, instanceID, limb.x);
+                Animated a = Animate(vertexID, instanceID, limb);
                 DepthVaryings o; o.positionCS = TransformWorldToHClip(a.positionWS); o.gone = a.gone;
                 return o;
             }
