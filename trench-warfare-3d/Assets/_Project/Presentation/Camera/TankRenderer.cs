@@ -137,6 +137,8 @@ namespace TW.Presentation.Tactical
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
         const float HoverSettle = 3f;       // omega of its pitch and roll: a cushion rides the ground's average, slowly
+        const float HoverDip = 0.3f;        // how far below its skirt's highest ground it may ride (round 6)
+        const int HoverRing = 8;            // points round the skirt it looks at, besides its four corners
         const float HoverDrift = 0.08f, HoverDriftMax = 0.25f;   // its tail swings out in a turn: rad per (rad/s x m/s), and at most
         const int WalkerRows = 6;
         // a rack of rockets (the Salvo): the pitch it rides at and fires at, its limit, and how hard it is kicked (critic r3)
@@ -195,7 +197,7 @@ namespace TW.Presentation.Tactical
         static float SideColourOn(byte archetype, string part)
         {
             if (archetype == VehicleArchetype.Skimmer) return part == "FanRing" || part.StartsWith("Pod_", System.StringComparison.Ordinal) ? 0.6f : 0f;
-            if (archetype == VehicleArchetype.Salvo) return part == "Gun" ? 0.45f : 0f;
+            if (archetype == VehicleArchetype.Salvo) return part == "Gun" ? 0.2f : 0f;   // 0.45 glowed ice-blue at night, 0.28 read salmon in both looks (round 6)
             return 0f;
         }
 
@@ -573,7 +575,16 @@ namespace TW.Presentation.Tactical
             float mid = Ground(v.Pos.x, v.Pos.z);
             pitch = Mathf.Clamp(Mathf.Atan2((fl + fr) - (rl + rr), 4f * hl), -0.2f, 0.2f);
             roll = Mathf.Clamp(Mathf.Atan2((fl + rl) - (fr + rr), 4f * g), -0.15f, 0.15f);
-            heave = (fl + fr + rl + rr + mid) * 0.2f + HoverLift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
+            // round 6: riding the mean alone, it sank 2.1 m into a trench's walls for 4.5 s. The skirt bridges a trench as
+            // tracks do (Settle): never below its highest ground, round the whole skirt, less a little it can dip
+            float top = Mathf.Max(Mathf.Max(fl, fr), Mathf.Max(rl, rr));
+            for (int k = 0; k < HoverRing; k++)
+            {
+                float a = k * Mathf.PI * 2f / HoverRing, c = Mathf.Cos(a), s2 = Mathf.Sin(a);
+                top = Mathf.Max(top, Ground(v.Pos.x + fwd.x * hl * c + right.x * g * s2, v.Pos.z + fwd.z * hl * c + right.z * g * s2));
+            }
+            float mean = (fl + fr + rl + rr + mid) * 0.2f;
+            heave = Mathf.Max(mean, top - HoverDip) + HoverLift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
             float want = Mathf.Clamp(-v.YawRate * Mathf.Abs(v.Speed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
             v.Drift = Mathf.Lerp(v.Drift, want, 1f - Mathf.Exp(-dt * 2f));
         }
@@ -1301,13 +1312,15 @@ namespace TW.Presentation.Tactical
                 var v = d.Owner; var parts = v.Model.Lods[0].Parts;
                 var dmg = new Vector4(Mathf.Max(v.Scorch, d.Burn > 0f ? 0.9f : v.Scorch), Mathf.Max(d.Burn, v.Burn * 0.5f), v.Flash, 0f);
                 var tint = v.Team == 1 ? TeamTintB : new Vector4(1f, 1f, 1f, 0f);
-                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, TeamBand(v, parts[d.Part]));
+                // a piece thrown off wears no side colour (a horn keeps its paint): the side's glow on a burning fan ring
+                // drew it pale cream in a cook-off (round 6)
+                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, parts[d.Part].Role == TankPartRole.Horn ? TeamBand(v, parts[d.Part]) : Vector4.zero);
                 // what hangs off the piece rides with it
                 for (int c = d.Part + 1; c < parts.Count; c++)
                 {
                     if (!d.Local.TryGetValue(c, out var local)) continue;
                     lodWorld[c] = (parts[c].Parent == d.Part ? d.World : lodWorld[parts[c].Parent]) * local;
-                    Queue(parts[c].Mesh, MaterialFor(v.Archetype, 0), lodWorld[c], 0f, dmg, tint, TeamBand(v, parts[c]));
+                    Queue(parts[c].Mesh, MaterialFor(v.Archetype, 0), lodWorld[c], 0f, dmg, tint, parts[c].Role == TankPartRole.Horn ? TeamBand(v, parts[c]) : Vector4.zero);
                 }
             }
         }

@@ -415,3 +415,21 @@ Checked in GreyboxCorridor at night (Play, `TankCapture.Spawn`, `CaptureRig`; im
 
 Left for Play: the ribbons are bright at night (alpha 0.7): judge them at the standard view; the hover at speed over
 trenches. Format v15.
+
+### Critic round 6: live in GreyboxCorridor, night and the Winter day (2026-09-28)
+The critic confirmed the rockets land on their burst's frame at time scales 0.5, 1 and 2, no visible pop at the far LOD's
+170 m, and the cook-off and wrecks. Fixed and checked in both looks (the Winter look set on the scene's
+GreyboxTerrainView before Play, not saved); images `figures/battle-loop/r6-*`:
+
+| Finding | Fix | Checked |
+|---|---|---|
+| The trails a searchlight bar at night (RGB ~170 on ~31 ground) and a light shaft by day (`r6-trail-night-before.jpg`, `r6-trail-day-before.jpg`) | narrower (0.9 m, growing 1 m), alpha 0.3, each point's alpha broken up (up to 55 % less, fixed per point) and soft across the width (a centre line, clear edges); at night the night smoke's own tint (`FlipbookFx.NightTint`, read only), by day a grey darker than snow | night: along the trails luma p90 80 against 70 for the ground beside them, below the moon, lamps and bursts (`r6-trail-night-after.jpg`); day: a grey smoke line (the first day grey, 0.66, vanished on snow) (`r6-trail-day-and-box-after.jpg`) |
+| The Skimmer sank 2.1 m into a trench's walls for 4.5 s (`r6-hover-trench-before.jpg`) | the hover never rides below its skirt's highest ground (the four corners and eight points round the skirt) less 0.3 m, as tracks bridge a trench | driven across the trenches, 70 samples: never below the ground at its centre (lowest +0.07 m), at most 0.35 m below the highest ground under its skirt (a parapet edge: the 0.3 m dip and the bob) |
+| The Salvo's rocket box glowed ice-blue at night (`r6-box-before.jpg`) | its side colour 0.45 -> 0.2 (0.28, tried first, still read salmon in both looks) | `r6-trail-day-and-box-after.jpg` (bottom): side-coloured, no glow; it still reads pinkish at night: the owner's eye |
+| A Skimmer part thrown in a cook-off drawn pale cream (`r6-cookoff-before.jpg`) | the fan ring wore the side's colour, and a thrown piece kept it, glowing over the burn: a thrown piece now wears no side colour (a horn keeps its paint). In TankRenderer (mine), not the shared debris code | by reading the draw path: a cook-off was not staged again |
+
+Balance note: 8 racks on 6 riflemen moving at ~150 m killed 2. Consistent with the balance round: a rack comes down
+where the target was when it fired (`AManWhoMovesAwayBeforeTheRocketsLandEscapes`), and in 1-3 s of flight a man at
+3 m/s leaves most of the 5.6 m circle; against men standing 5 m apart a rack killed ~1.1 (4.5 in 4). The Salvo is
+artillery against men who stay put, and trenches. Not changed. **Audio:** the whole game is silent
+(`EventAudioRouter` is a B7 stub): the owner's scope decision, not built here.

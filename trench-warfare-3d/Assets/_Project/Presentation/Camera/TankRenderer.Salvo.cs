@@ -44,9 +44,14 @@ namespace TW.Presentation.Tactical
         Mesh ribbonMesh; Material ribbonMat;
         readonly List<Vector3> rV = new List<Vector3>(2048); readonly List<Color> rC = new List<Color>(2048); readonly List<int> rI = new List<int>(6144);
         const float RibbonStep = 2f, RibbonLife = 4f;               // metres between points; seconds a point lasts
-        const float RibbonWidth = 1.2f, RibbonGrow = 3f;            // metres across when laid; added over its life
-        const float RibbonAlpha = 0.7f;
-        static readonly Color RibbonColour = new Color(0.72f, 0.70f, 0.67f);
+        // round 6: at 1.2 m growing 3 m, alpha 0.7 and a flat pale grey, sixteen overlapping ribbons were a searchlight bar at
+        // night (RGB ~170 on ~31 ground) and a light shaft by day. Now thinner, fainter, broken up along the length and soft
+        // across it, and at night the night smoke's own tint (FlipbookFx.NightTint), as the burst smoke is drawn
+        const float RibbonWidth = 0.9f, RibbonGrow = 1f;            // metres across when laid; added over its life
+        const float RibbonAlpha = 0.3f;
+        const float RibbonBreak = 0.55f;    // how much of the alpha each point may lose to the break-up along the length
+        const float RibbonNightValue = 0.16f;   // the night tint's value: the burst smoke's darkness
+        static readonly Color RibbonDay = new Color(0.40f, 0.39f, 0.37f);   // darker than snow: pale grey vanished on the Winter field
 
         readonly List<Rocket> rockets = new List<Rocket>(32);
         const float RocketLength = 1.5f, RocketRadius = 0.16f;
@@ -212,6 +217,7 @@ namespace TW.Presentation.Tactical
             }
             var cam = Camera.main;
             Vector3 eye = cam != null ? cam.transform.position : Vector3.up * 100f;
+            Color tone = SceneMood.Night ? FlipbookFx.NightTint(RibbonNightValue) : RibbonDay;
             rV.Clear(); rC.Clear(); rI.Clear();
             for (int n = ribbons.Count - 1; n >= 0; n--)
             {
@@ -221,7 +227,7 @@ namespace TW.Presentation.Tactical
                 if (old > 0) { rb.P.RemoveRange(0, old); rb.T.RemoveRange(0, old); }
                 if (rb.P.Count == 0 && !rb.Live) { ribbons.RemoveAt(n); ribbonPool.Add(rb); continue; }
                 if (rb.P.Count < 2) continue;
-                int first = rV.Count;
+                int first = rV.Count, seed = rb.GetHashCode();
                 for (int k = 0; k < rb.P.Count; k++)
                 {
                     Vector3 p = rb.P[k];
@@ -229,9 +235,17 @@ namespace TW.Presentation.Tactical
                     Vector3 side = Vector3.Cross(along, eye - p).normalized;
                     float age = Mathf.Clamp01((now - rb.T[k]) / RibbonLife);
                     float half = 0.5f * (RibbonWidth + RibbonGrow * age);
-                    var c = RibbonColour; c.a = RibbonAlpha * (1f - age) * (k == rb.P.Count - 1 && rb.Live ? 0f : 1f);
-                    rV.Add(p - side * half); rV.Add(p + side * half); rC.Add(c); rC.Add(c);
-                    if (k > 0) { int a = first + 2 * (k - 1); rI.Add(a); rI.Add(a + 2); rI.Add(a + 1); rI.Add(a + 1); rI.Add(a + 2); rI.Add(a + 3); }
+                    // puffy: each point's own share of the alpha (fixed per point, so it does not flicker), soft at the edges
+                    float lump = 1f - RibbonBreak * Hash01(seed + k * 7919);
+                    var c = tone; c.a = RibbonAlpha * lump * (1f - age) * (k == rb.P.Count - 1 && rb.Live ? 0f : 1f);
+                    var edge = c; edge.a = 0f;
+                    rV.Add(p - side * half); rV.Add(p); rV.Add(p + side * half); rC.Add(edge); rC.Add(c); rC.Add(edge);
+                    if (k > 0)
+                    {
+                        int a = first + 3 * (k - 1), b = a + 3;
+                        rI.Add(a); rI.Add(b); rI.Add(a + 1); rI.Add(a + 1); rI.Add(b); rI.Add(b + 1);
+                        rI.Add(a + 1); rI.Add(b + 1); rI.Add(a + 2); rI.Add(a + 2); rI.Add(b + 1); rI.Add(b + 2);
+                    }
                 }
             }
             ribbonMesh.Clear();
@@ -241,6 +255,8 @@ namespace TW.Presentation.Tactical
             var rp = new RenderParams(ribbonMat) { worldBounds = ribbonMesh.bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
             FrameBudget.Draw(rp, ribbonMesh, 0, Matrix4x4.identity);
         }
+
+        static float Hash01(int n) { unchecked { uint h = (uint)n * 2654435761u; h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; return (h & 0xFFFF) / 65535f; } }
 
         /// <summary>For the capture tools: how many trail ribbons and trail points are being drawn now.</summary>
         public (int ribbons, int points) TrailCount()
