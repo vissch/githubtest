@@ -85,7 +85,9 @@ namespace TW.Sim
         // v28 (2026-09-28, wrecks break in stages: machines): a heavy machine grinds down a wreck it brushes or pushes
         // against and any machine flattens scrap it drives over (VehicleKinematicsSystem, every 10 ticks a machine), through
         // the same PropHarm as a blast; the kinematics checksum folds what the tracks wore.
-        public const ushort FormatVersion = 28;
+        // v29 (2026-09-28, wrecks break in stages: gunfire): a machine gun's round that a wreck's cover stopped (the same
+        // roll: a miss that would have hit with no cover) wears that wreck by its share of the cover (DirectFire.Wrecks).
+        public const ushort FormatVersion = 29;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

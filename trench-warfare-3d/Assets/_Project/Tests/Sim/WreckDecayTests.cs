@@ -1,7 +1,7 @@
 // Phase: A4 wrecks (2026-09-28, the seam) — a wreck breaks in stages and then is gone (owner, 2026-09-28): whole wreck
 // (blocks, 50 % cover), broken wreck (blocks, 35 %), scrap (does not block, 15 %), cleared (nothing). This file holds
 // the stages' rules; the steps that make wrecks take harm add their tests here: blasts (S1), machines grinding wrecks
-// and flattening scrap (S2).
+// and flattening scrap (S2), machine-gun rounds a wreck's cover stopped (S3).
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -299,6 +299,73 @@ namespace TW.Tests
             }
             Assert.AreEqual(0, ground, "standing against a wreck is not grinding it");
             Assert.AreEqual(600f, m.Map.Props[wreck].Hp);
+        }
+
+        // ---- S3: sustained fire (DirectFire.Wrecks) ----
+
+        /// <summary>An enemy (team 1) standing a cell east of a prop at (166, lane), held and too tough to die, and one
+        /// `shooter` of team 0 35 m west of him, held; `ticks` of their fire. Returns the wear events on the prop
+        /// (PropWorn b = 1) and the shooter's shots. A twin, when given, is set up the same and must hash the same.</summary>
+        static (int worn, int shots) ShootAtCover(MatchSim m, byte shooter, PropKind cover, int ticks, MatchSim twin = null)
+        {
+            float lane = Lane(m.Map);
+            int prop = -1;
+            foreach (var s in twin != null ? new[] { m, twin } : new[] { m })
+            {
+                prop = s.Map.AddProp(new PropDef { Pos = new float3(166f, 0f, lane), Kind = cover });
+                Assert.GreaterOrEqual(prop, 0);
+                int man = s.World.Spawn(1, InfantryArchetype.Rifle, new float3(168f, 0f, lane), 100000f, 0f, false);
+                int gun = s.World.Spawn(0, shooter, new float3(133f, 0f, lane), 100000f, 0f, false);
+                foreach (int u in new[] { man, gun }) { s.World.GoalId[u] = -1; s.World.TrenchId[u] = -1; }
+            }
+            int worn = 0, shots = 0;
+            for (int t = 0; t < ticks; t++)
+            {
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                {
+                    if (ev[i].Type == SimEventType.PropWorn && ev[i].B == 1 && ev[i].A == prop) worn++;
+                    if (ev[i].Type == SimEventType.Shot && m.World.Team[ev[i].A] == 0) shots++;
+                }
+                if (twin != null) { Step(twin); Assert.AreEqual(m.World.LastHash, twin.World.LastHash, $"tick {t}"); }
+            }
+            return (worn, shots);
+        }
+
+        [Test]
+        public void AMachineGunWearsTheWreckItsTargetSheltersBehind()
+        {
+            using var m = NewMatch();
+            using var twin = NewMatch();
+            var (worn, shots) = ShootAtCover(m, InfantryArchetype.Machinegunner, PropKind.Wreck, 600, twin);
+            Assert.Greater(shots, 50, "the gun kept firing at him");
+            Assert.Greater(worn, 0, "rounds the wreck's cover stopped wore it (PropWorn b = 1)");
+            int prop = m.Map.Props.Length - 1;
+            Assert.Less(m.Map.Props[prop].Hp, 600f);
+            Assert.AreEqual(worn, m.World.GetSystem<DirectFireSystem>().WreckRounds, "one wear per stopped round");
+        }
+
+        [Test]
+        public void ARifleDoesNotWearIt()
+        {
+            using var m = NewMatch();
+            var (worn, shots) = ShootAtCover(m, InfantryArchetype.Rifle, PropKind.Wreck, 600);
+            Assert.Greater(shots, 5, "the rifle kept firing at him");
+            Assert.AreEqual(0, worn, "a rifle's rounds do not wear a wreck (CombatTables.WearsWrecks)");
+            Assert.AreEqual(600f, m.Map.Props[m.Map.Props.Length - 1].Hp);
+        }
+
+        [Test]
+        public void ATreeTakesTheRoundsAndStandsAsItWas()
+        {
+            using var m = NewMatch();
+            var (_, shots) = ShootAtCover(m, InfantryArchetype.Machinegunner, PropKind.Tree, 600);
+            Assert.Greater(shots, 50);
+            var tree = m.Map.Props[m.Map.Props.Length - 1];
+            Assert.AreEqual(PropKind.Tree, tree.Kind);
+            Assert.AreEqual(PropRules.StartHp(PropKind.Tree), tree.Hp, "trees do not wear under gunfire");
+            Assert.AreEqual(0, m.World.GetSystem<DirectFireSystem>().WreckRounds);
         }
 
         [Test]

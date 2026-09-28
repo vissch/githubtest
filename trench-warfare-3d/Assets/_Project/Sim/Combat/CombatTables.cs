@@ -77,6 +77,11 @@ namespace TW.Sim.Combat
         public const float SmokeAccuracyPerMetre = 0.08f; // accuracy lost per metre of thick smoke on the line of fire ...
         public const float SmokeAccuracyFloor = 0.2f;     // ... down to this share: a blind burst still finds somebody
         public const float SmokeSuppression = 0.5f;       // suppression gain of a man inside thick smoke: he cannot tell how close it was
+        // ---- wrecks (2026-09-28): sustained fire wears the wreck men shelter behind (DirectFire.Wrecks) ----
+        public const float WreckWearRate = 4f;            // rounds a second: a machine gun's, and up; a rifle's do not wear a wreck
+
+        /// <summary>Its rounds wear the wreck whose cover stops them: a machine gun (WreckWearRate rounds a second and up).</summary>
+        public static bool WearsWrecks(in WeaponStats weapon) => weapon.RoundsPerSecond >= WreckWearRate;
 
         public static WeaponStats WeaponFor(byte archetype)
         {
