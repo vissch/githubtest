@@ -101,7 +101,7 @@ namespace TW.Sim.Combat
             Turret = new ArmorProfile { FrontMm = 18f, SideMm = 12f, RearMm = 10f, TopMm = 8f },
             TurretChance = 0f, Crew = 4, GunCount = 0, ShortHalt = false, FuelRisk = 0.30f, AmmoRisk = 0.35f,
             ClawReach = 2.2f, ClawDamage = 250f, ClawSeconds = 1.0f,
-            BreakerRange = 30f, WindupSeconds = 3f, ChargeSpeedMul = 2.5f, ChargeSeconds = 6f, StrikeSeconds = 2f,
+            BreakerRange = 30f, WindupSeconds = 3f, ChargeSpeedMul = 2.5f, ChargeSeconds = 8f, StrikeSeconds = 2f,
             WithdrawSpeedMul = 0.6f, RestSeconds = 2f, CritChance = 0.35f, CritMul = 3f, ChargingTopMm = 24f,
         };
 

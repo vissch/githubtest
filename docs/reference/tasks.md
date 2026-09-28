@@ -255,13 +255,13 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 ### Vehicles in the sim: tanks and walkers
 - **Files:** `Sim/Core/RosterEntry.cs` (`VehicleArchetype`, default roster, `SlotCount`), `Sim/Combat/TankSpec.cs`,
   `Sim/Combat/Armor.cs`, `Sim/Combat/TankGunnery.cs`, `Sim/Units/VehicleModules.cs` (legs, tracks, crew, fire,
-  when a vehicle is destroyed), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, trench crossing, crushing),
+  when a vehicle is destroyed), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, momentum and steering, trench crossing, crushing),
   `Sim/Core/ChassisKind.cs` (what a unit stands on, `Foot`/`Tracked`/`Legged`/`Wheeled`: a field of `RosterEntry`,
   read through `SimWorld.ChassisOf`; it replaced the id ranges of `IsTank`/`IsWalker`/`IsArmoured`),
   `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop.
-- **Tests:** TankTests, TankMobilityTests, CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests.
+- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests.
 
 ### Factions, rosters and the unit table
 - **Files:** `Sim/Core/Faction.cs` (`FactionId`: Iron and Brass, the greybox pair, and four historical armies; a side's
