@@ -720,12 +720,17 @@ namespace TW.Presentation.Tactical
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
-                            for (int k = 0; recipe.OldSmoke && k < puffs; k++)
+                            for (int k = 0; k < puffs; k++)
                             {
-                                Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r
-                                             + flight * (r * lean * (0.25f + k * 0.12f));
-                                books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink * night, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
+                                // the six draws are taken whether or not the puff is drawn: fx.recipes must not shift the shared
+                                // UnityEngine.Random stream, or the weather's lightning lands on other frames and an A/B differs in light
+                                float ox = UnityEngine.Random.Range(-0.5f, 0.5f), oz = UnityEngine.Random.Range(-0.5f, 0.5f);
+                                float size = UnityEngine.Random.Range(1.1f, 1.6f), life = UnityEngine.Random.Range(4f, 6.5f);
+                                float speed = UnityEngine.Random.Range(1.4f, 2.2f), roll = UnityEngine.Random.Range(-0.6f, 0.6f);
+                                if (!recipe.OldSmoke) continue;
+                                Vector3 off = new Vector3(ox, 0.3f + k * 0.18f, oz) * r + flight * (r * lean * (0.25f + k * 0.12f));
+                                books.Add(FlipbookFx.Book.Smoke, p + off, r * size * shrink * night, life * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: drift * speed + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: roll, alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
                             // fx.recipes: one standing plume in place of the seven puffs; it drifts down wind and leans with the shell
                             if (recipe.Plume)
