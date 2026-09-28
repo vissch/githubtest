@@ -87,7 +87,10 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   **looped books never draw their last frame** (`span = frames*play - 1.001` in `FlipbookFx.Draw`; the fix also
   retimes FireBall/FireColumn/FireStand/FirePool: default leave as is); **the dark band** (ShellPlume 81 %, MortarBurst
   63 %, Smoulder 53 %, LeanBurst 45 % of ink under 0.2 against the plan's 20 %: default retune Low in Play at night,
-  sheets kept); the NightSmoke/NightEarth passes for the new books (default: add them with the recipes).
+  sheets kept); the NightSmoke/NightEarth passes for the new books (default: add them with the recipes);
+  **the jetpack man is not drawn in the air**: the sim flies him on a straight line at ground height and nothing lifts
+  his figure, so L15's smoke arc is a line along the ground (default: leave; lifting the drawn man on an arc is units
+  work, not the VFX pass).
 - **M1.5 fun-gate playtest** with both developers is still not done. docs/11 says nothing after it is scheduled until it passes; work has continued on the owner's word.
 - **Sim protection from shelters:** map-generator shelter positions, or trench-bay protection? `NavLayer.Bunker` is never set today.
 - **Do houses give sim cover?** Needs a hash change.
