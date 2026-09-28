@@ -29,8 +29,8 @@
 # TW_KIND=halftrack: a half-track rocket truck (2026-09-28: Downloads/military+vehicle+3d+model = 7,863 tris, its front
 # already -Y; (1) = 2,971 and rocket+launcher+vehicle+3d+model = 1,450, the same design turned 90 degrees, read for their
 # triangle counts only): Hull (chassis, cab, the tracks and the two clawed legs braced at the tail), Wheel_L/R (the front
-# tyres, which roll: pivot on the axle), Turret (the rocket box on its turntable, everything standing above the yoke)
-# > Gun (the bundle of tubes, pitched at its breech). Tripo's texture is not called *basecolor* here: the image wired to
+# tyres, which roll: pivot on the axle), Turret (the yoke the rack turns on) > Gun (the rocket box and its sixteen
+# tubes, pitched at the yoke's top; Socket_Tube00..15 at the tube mouths). Tripo's texture is not called *basecolor* here: the image wired to
 # the material's Base Color is used.
 #
 # TW_BATTLE=1: write the BATTLE's form instead of the playground's (2026-09-28): the parts nested (each under its parent,
@@ -121,12 +121,15 @@ if KIND == "halftrack":
              "Turret": dict(tier=3, mass=2.0), "Hull": dict(tier=9, mass=10.0)}
     PARENT = {"Turret": "Hull", "Gun": "Turret", "Wheel_L": "Hull", "Wheel_R": "Hull"}
     TYRES = {}   # side -> (lo, hi) of that front tyre, set in split() from the largest low piece forward on that side
+    TUBES = []   # (lo, hi) of each rocket tube at LOD0, set in split(): a Socket_Tube## at each mouth
+    # 2026-09-28 (the critic's round): the Turret is the YOKE the box turns on, and the Gun is the whole rocket box with
+    # its tubes, pitched at the yoke's top, so the rack elevates as one piece (it was the tubes alone, inside the box)
     def part_of(c, lo, hi):
         ax = abs(c.x)
         for s, (tlo, thi) in TYRES.items():   # the tyre and everything inside its box (hub, rim, bolts); not the mudguard
             if all(lo[k] >= tlo[k] - 0.01 and hi[k] <= thi[k] + 0.01 for k in range(3)): return "Wheel_" + s
-        if c.z > 0.55 and c.y < -0.1 and ax < 0.14 and hi.y - lo.y > 0.08: return "Gun"         # a tube, long along y
-        if c.z > 0.44 and lo.z > 0.38 and not (ax > 0.12 and c.y < -0.2): return "Turret"      # above the yoke; not the stack
+        if lo.z > 0.38 and c.z < 0.50 and ax < 0.12 and abs(c.y - 0.03) < 0.1: return "Turret"      # the yoke
+        if c.z > 0.44 and lo.z > 0.38 and not (ax > 0.12 and c.y < -0.2): return "Gun"            # the box above it; not the stack
         return "Hull"
 
 def base_colour(stem, obj):
@@ -210,6 +213,10 @@ def split(fbx):
             TYRES[s] = (best[2], best[3])
     for fs, c, ilo, ihi in pieces:
         groups[part_of(c, ilo, ihi)].append(fs)
+    if KIND == "halftrack" and fbx == FBX[0]:
+        TUBES.clear()
+        TUBES.extend((ilo, ihi) for fs, c, ilo, ihi in pieces
+                     if part_of(c, ilo, ihi) == "Gun" and c.z > 0.55 and c.y < -0.1 and abs(c.x) < 0.14 and ihi.y - ilo.y > 0.08)
     out = {}
     for n in PARTS:
         assert groups[n], "%s: part %s is EMPTY" % (os.path.basename(fbx), n)
@@ -282,11 +289,14 @@ def halftrack_pivots_and_sockets(P):
     # the turntable: the middle of the rocket box's lowest band (the yoke it turns on), at its foot
     lo, hi = bounds(P["Turret"]); band = [v.co for v in P["Turret"].verts if v.co.z <= lo.z + 0.04]
     piv["Turret"] = Vector((sum(v.x for v in band) / len(band), sum(v.y for v in band) / len(band), lo.z))
-    lo, hi = bounds(P["Gun"]); piv["Gun"] = Vector(((lo.x + hi.x) / 2, hi.y, (lo.z + hi.z) / 2))   # the breech
+    piv["Gun"] = Vector((piv["Turret"].x, piv["Turret"].y, hi.z))   # the trunnion: the top of the yoke
     for s in "LR":
         lo, hi = bounds(P["Wheel_" + s]); piv["Wheel_" + s] = (lo + hi) / 2                     # the axle
     sock = {}
-    lo, hi = bounds(P["Gun"]); sock["Socket_Muzzle"] = ("Gun", Vector(((lo.x + hi.x) / 2, lo.y, (lo.z + hi.z) / 2)))
+    # the tube mouths, top row first, left to right as the crew sees them (+x is left); the muzzle is their middle
+    mouths = sorted((Vector(((a.x + b.x) / 2, a.y, (a.z + b.z) / 2)) for a, b in TUBES), key=lambda m: (-round(m.z, 2), -m.x))
+    for k, m in enumerate(mouths): sock["Socket_Tube%02d" % k] = ("Gun", m)
+    sock["Socket_Muzzle"] = ("Gun", sum(mouths, Vector()) / len(mouths))
     lo, hi = bounds(P["Hull"])
     for i, (x, f) in enumerate(((0.0, 0.8), (0.1, 0.55), (-0.1, 0.55))):
         sock["Socket_Fire%d" % i] = ("Hull", Vector((x, (lo.y + hi.y) / 2, lo.z + f * (hi.z - lo.z))))

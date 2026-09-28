@@ -82,7 +82,7 @@ Tools/tw eval 'var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Si
 ```
 Verified 2026-09-25 in Play: `"result": "tick=135 peer=False"`. Single player runs one world, so `Peer` is null.
 
-Longer scripts: write a `.cs` body to a file and run `Tools/tw run eval_file -- --path <absolute path>` (it refuses
+Longer scripts: write a `.cs` body to a file and run `Tools/tw run eval_file -- --file <absolute path>` (it refuses
 any other extension). Any pipeline command is `Tools/tw run <command> [-- --arg value]`; `unity cmd` with no
 command lists them all.
 
