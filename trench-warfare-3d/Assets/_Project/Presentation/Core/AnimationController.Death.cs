@@ -158,7 +158,7 @@ namespace TW.Presentation
             recentCursor = (recentCursor + 1) % RecentDeaths;
         }
 
-        static bool IsStandingDeath(Clip c) => c == Clip.DeathFront || c == Clip.DeathBack || c == Clip.DeathRight || c == Clip.DeathLeft || c == Clip.DeathHeadshot;
+        static bool IsStandingDeath(Clip c) => c == Clip.DeathFront || c == Clip.DeathBack || c == Clip.DeathRight || c == Clip.DeathLeft || c == Clip.DeathHeadshot || c == Clip.DeathBackHeadshot;
 
         AnimState Die(int i, AnimState s, SimWorld w)
         {
@@ -222,7 +222,7 @@ namespace TW.Presentation
                 else if (low) { clip = (s.Seed & 4) != 0 ? Clip.DeathSquat : Clip.DeathKneel; cause = blast ? DeathKind.Blast : DeathKind.Shot; }
                 else if (blast) { clip = Clip.DeathBlast; cause = DeathKind.Blast; }
                 else if (speed > 2.2f) clip = Clip.DeathRunning;
-                else if (speed > 0.3f) clip = Clip.DeathWalking;
+                else if (speed > 0.3f) clip = (s.Seed & 8) != 0 ? Clip.DeathWalking2 : Clip.DeathWalking;   // two walking deaths, by seed
                 else clip = StandingDeath(i, in s, p, hitKind[i] != 0 ? hitDir[i] : simDir);
             }
             Start(i, ref s, clip, Rung.Death, (i == FollowSlot ? "killed: " + cause + (s.ThrowUp > 0f ? ", thrown " + math.sqrt(s.ThrowX * s.ThrowX + s.ThrowZ * s.ThrowZ).ToString("0.0") + " m, " + s.ThrowUp.ToString("0.0") + " m up" : "") + ", " + st + (speed > 0.3f ? ", moving" : "") + (density > 0 ? ", " + density + " down beside him" : "") : null));
@@ -244,7 +244,7 @@ namespace TW.Presentation
         Clip StandingDeath(int i, in AnimState s, float3 p, float3 from)
         {
             float rel = Relative(from, s.BodyYaw);
-            Clip side = math.abs(rel) < 0.79f ? Clip.DeathBack : math.abs(rel) > 2.36f ? Clip.DeathFront : rel > 0f ? Clip.DeathRight : Clip.DeathLeft;
+            Clip side = math.abs(rel) < 0.79f ? ((s.Seed % 3) == 0 ? Clip.DeathBackHeadshot : Clip.DeathBack) : math.abs(rel) > 2.36f ? Clip.DeathFront : rel > 0f ? Clip.DeathRight : Clip.DeathLeft;   // from behind, a third of them through the head
             Clip first = (s.Seed % 5) == 0 ? Clip.DeathHeadshot : side;
             int last = LastStandingNear(p, tick);
             if (last < 0 || last != (int)first) return first;

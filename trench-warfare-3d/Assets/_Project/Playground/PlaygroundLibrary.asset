@@ -116,6 +116,10 @@ MonoBehaviour:
     Clip: {fileID: -203655887218126122, guid: 85501b37890457645a262b6f7140aad2, type: 3}
     Loop: 0
     Death: 1
+  - Name: Death From Back Headshot
+    Clip: {fileID: -203655887218126122, guid: ada23519212c3e94280a8785ae75c91d, type: 3}
+    Loop: 0
+    Death: 1
   - Name: Death From Front Headshot
     Clip: {fileID: -203655887218126122, guid: 71f83361488edb74fb54a7ed4dde071f, type: 3}
     Loop: 0
@@ -176,6 +180,10 @@ MonoBehaviour:
     Clip: {fileID: -203655887218126122, guid: f70bef67b5cbad645a459e14b7dab7a5, type: 3}
     Loop: 1
     Death: 0
+  - Name: Firing Rifle (6)
+    Clip: {fileID: -203655887218126122, guid: 5441cbb29c9422f4e891a291f06ee5d0, type: 3}
+    Loop: 1
+    Death: 0
   - Name: Get Up From Prone
     Clip: {fileID: -203655887218126122, guid: 21410f06d07cfa349a18ac5149dd2af8, type: 3}
     Loop: 0
@@ -234,6 +242,14 @@ MonoBehaviour:
     Death: 0
   - Name: Moving Backward In Prone Position
     Clip: {fileID: -203655887218126122, guid: d8487b9885ce73545b1bbf1ac622e2f5, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Officer Point
+    Clip: {fileID: -203655887218126122, guid: d7114aab1dbcb0b4aa8ea8aae2e16ca5, type: 3}
+    Loop: 0
+    Death: 0
+  - Name: Officer Whistle
+    Clip: {fileID: -203655887218126122, guid: 4ba24b55a99453642b1b3d6a85285f74, type: 3}
     Loop: 0
     Death: 0
   - Name: Prone Crawl Forward
@@ -348,6 +364,10 @@ MonoBehaviour:
     Clip: {fileID: -203655887218126122, guid: af100e6a6c2dc3e4b9886e677bdcdd1a, type: 3}
     Loop: 1
     Death: 0
+  - Name: Rifle Jump In Place
+    Clip: {fileID: -203655887218126122, guid: c92e0e0ea1a118642a65cf78f66fff86, type: 3}
+    Loop: 0
+    Death: 0
   - Name: Rifle Kneel Hit To Back
     Clip: {fileID: -203655887218126122, guid: e5d25701aee5c4242ba1da94f551f656, type: 3}
     Loop: 0
@@ -428,6 +448,10 @@ MonoBehaviour:
     Clip: {fileID: -203655887218126122, guid: 746d69ab0b9923642b5f04d31ead17b0, type: 3}
     Loop: 1
     Death: 0
+  - Name: Shoot Rifle
+    Clip: {fileID: -203655887218126122, guid: d478982571218334a8c21b1db21f96d4, type: 3}
+    Loop: 0
+    Death: 0
   - Name: Smash
     Clip: {fileID: -203655887218126122, guid: d3e4a32b14e582e48a73615134cb0b8f, type: 3}
     Loop: 0
@@ -478,6 +502,10 @@ MonoBehaviour:
     Death: 0
   - Name: Walking To Dying
     Clip: {fileID: -203655887218126122, guid: 42b4841698cc4b94c9dc6cb3c93af35c, type: 3}
+    Loop: 0
+    Death: 1
+  - Name: Walking To Dying (1)
+    Clip: {fileID: -203655887218126122, guid: 66012ad91df7d984a9352973408bcf28, type: 3}
     Loop: 0
     Death: 1
   - Name: Wire Crossing

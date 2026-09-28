@@ -28,15 +28,19 @@ namespace TW.Presentation
         FireWalk, FireRun, FireSprint, FireStoop,
         // fire (FireSnap is the 0.27 s aimed shot: the bolt-action rifle and the sniper, followed by ReloadBolt)
         FireStand, FireSnap, FireKneel, FireProne, FireMG, AimUp, AimDown, KneelAimUp, KneelAimDown,
+        FireBurst, FireParapet,   // the automatics' shouldered burst standing; leaning into the parapet to fire over it (2026-09-28)
         // actions
         ReloadStand, ReloadStoop, ReloadProne, ReloadBolt, ReloadKneel, BoltKneel, KneelInspect, KneelLookAround, Throw, MeleeStab, MeleePunch, MeleeSmash, MeleeBlock, Sling, Unsling,
+        OfficerPoint, OfficerWhistle,
         // reactions
         HitStand, HitHeavy, HitWalk, HitRun, HitProne, KneelFlinch, ProneFlinch, Duck, Shield, DiveRoll, ProneRoll, Trip, GetUp, MaskOn, Burning, Stumble, DiveAway,
         // trench and stance (the climb out is three parts: the push up, the hold while the sim lifts him, the landing)
         JumpDown, ClimbOut, ClimbHold, ClimbLand, ClimbLadder, StandToKneel, KneelToStand, KneelToProne, ProneToKneel, StandToStoop, StoopToStand, StoopToKneel, KneelToStoop, TakeCover, Emerge,
+        Airborne,   // up in the air on a jetpack leap: the spring and the tuck, held until the drop
         Turn90L, Turn90R, Turn180, KneelTurn90L, KneelTurn90R, StoopTurn90L, StoopTurn90R, StoopTurn180,
         // deaths
         DeathFront, DeathBack, DeathRight, DeathLeft, DeathHeadshot, DeathWalking, DeathRunning, DeathKneel, DeathSquat, DeathProne, DeathBlast, DeathThrown,
+        DeathBackHeadshot, DeathWalking2,
         Count
     }
 
@@ -99,6 +103,10 @@ namespace TW.Presentation
             t[(int)Clip.DeathFront] = O(1.8f, AnimRow.Death0); t[(int)Clip.DeathBack] = O(1.8f, AnimRow.Death1); t[(int)Clip.DeathRight] = O(1.8f, AnimRow.Death2); t[(int)Clip.DeathLeft] = O(1.8f, AnimRow.Death3);
             t[(int)Clip.DeathHeadshot] = O(1.6f, AnimRow.Death1); t[(int)Clip.DeathWalking] = O(2f, AnimRow.Death0); t[(int)Clip.DeathRunning] = O(2.2f, AnimRow.Death0); t[(int)Clip.DeathKneel] = O(1.7f, AnimRow.Death2); t[(int)Clip.DeathSquat] = O(1.5f, AnimRow.Death2);
             t[(int)Clip.DeathProne] = O(1.5f, AnimRow.Death3); t[(int)Clip.DeathBlast] = O(1.9f, AnimRow.Death1); t[(int)Clip.DeathThrown] = O(1.8f, AnimRow.Death1);
+            t[(int)Clip.DeathBackHeadshot] = O(3.7f, AnimRow.Death1); t[(int)Clip.DeathWalking2] = O(2.9f, AnimRow.Death0);
+            t[(int)Clip.FireBurst] = L(1.37f, AnimRow.FireStanding); t[(int)Clip.FireParapet] = O(0.93f, AnimRow.FireFireStep);
+            t[(int)Clip.OfficerPoint] = O(2.17f, AnimRow.Idle); t[(int)Clip.OfficerWhistle] = O(1.57f, AnimRow.Idle);
+            t[(int)Clip.Airborne] = O(0.4f, AnimRow.Vault);
             return t;
         }
     }
@@ -126,7 +134,8 @@ namespace TW.Presentation
         public uint LastDive, DownUntil;                // the last dive away from a shell; lying flat after it until then
         public bool Scramble;                           // up off the ground straight into a run: the gait fades in slowly
         public float ThrowX, ThrowZ, ThrowUp;           // a shell killed him: how far it throws him (m, world XZ) and how high the arc goes
-        public float HopHeight, HopFrame, HopFor; public uint HopTick;   // HopFor: seconds the lift lasts (0 = HopSeconds; a jetpack leap's flight)   // a shell blew him off his feet (and he lived): how high it lifts him (life-size metres; drawn at his scale), where in the clip and on which tick it did
+        public float HopHeight, HopFrame, HopFor, HopAge; public uint HopTick;   // HopFor: seconds the lift lasts (0 = HopSeconds, timed by the clip; a leap's flight, timed by HopAge)
+        public uint LeapLands, LastOrder;               // a jetpack leap puts him down on this tick; the officer's last point or whistle   // a shell blew him off his feet (and he lived): how high it lifts him (life-size metres; drawn at his scale), where in the clip and on which tick it did
         public uint KnockedUntil, DazedUntil;           // on his face where the blast put him until then; then on one knee, dazed, until then
         public bool Rubbed;                             // the dazed man has rubbed his eyes once (he does not do it again after every shot)
         public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
@@ -497,21 +506,28 @@ namespace TW.Presentation
             // can return early (a sweep that lands while his work clip plays must still renew it)
             if (act[i] == 1 || act[i] == 2) { s.TendUntil = tick + 8u; s.TendOn = actOn[i]; }
 
-            // a jetpack leap: the drop, timed so its landing (about 1 s into the clip) comes where the sim puts him down.
-            // It starts from the leap's own event, so a man still in another clip (a trench drop) leaps too.
+            // a jetpack leap: the spring off the ground and the tuck (Airborne, held), then, 0.6 s before the sim puts him
+            // down, the drop, entered 0.4 s in so its landing (about 1 s into the clip) comes as he touches down. It starts
+            // from the leap's own event, so a man still in another clip (a trench drop) leaps too.
             if (simStance == Stance.Leap)
             {
                 s.Routine = 0; s.Stance = (byte)Stance.Standing; s.PrevLayer = (byte)NavLayer.Surface; s.Aimed = false; s.InBowl = false;
-                if (act[i] == 4 || s.Clip != Clip.JumpDown)
+                if (act[i] == 4 || (s.Clip != Clip.Airborne && s.Clip != Clip.JumpDown))
                 {
-                    float air = math.max(0.2f, (act[i] == 4 ? actOn[i] : 20) * tickSeconds);
-                    Start(i, ref s, Clip.JumpDown, Rung.Trench, (i == FollowSlot ? "jetpack: " + air.ToString("0.0") + " s in the air" : null), math.clamp(1f / air, 0.4f, 2f), 0.1f);
+                    int airTicks = act[i] == 4 ? math.max(1, actOn[i]) : 20;
+                    float air = airTicks * tickSeconds;
+                    s.LeapLands = tick + (uint)airTicks;
+                    Start(i, ref s, Clip.Airborne, Rung.Trench, (i == FollowSlot ? "jetpack: " + air.ToString("0.0") + " s in the air" : null), 1f, 0.08f);
                     // the sim flies him level at 12 m/s: the arc is drawn, 1.4 m a second of flight, 1 to 4 m high (Advance)
-                    s.HopHeight = math.clamp(1.44f * air, 1f, 4f); s.HopTick = tick; s.HopFrame = 0f; s.HopFor = air;
+                    s.HopHeight = math.clamp(1.44f * air, 1f, 4f); s.HopTick = tick; s.HopFrame = 0f; s.HopFor = air; s.HopAge = 0f;
+                }
+                else if (s.Clip == Clip.Airborne && s.LeapLands <= tick + 12u)
+                {
+                    Start(i, ref s, Clip.JumpDown, Rung.Trench, "jetpack: comes down", 1f, 0.2f);
+                    s.Frame = 0.4f;
                 }
                 return;
             }
-            if (s.Clip == Clip.JumpDown && s.Rate < 1f) { s.Rate = 1.4f; s.HopHeight = 0f; }   // down: the rest of the landing at speed, not in slow motion
             // down by parachute: he appears on the ground at the end of his fall, so he is drawn landing (the knees
             // taking it, quickly: he is usually off at a run the next moment)
             if (act[i] == 3) { s.Stance = (byte)Stance.Standing; s.PrevLayer = inTrench ? (byte)NavLayer.Trench : (byte)NavLayer.Surface; Start(i, ref s, Clip.JumpDown, Rung.Trench, "lands by parachute", 1.5f, 0.05f); s.Frame = 1.05f; return; }
@@ -716,7 +732,12 @@ namespace TW.Presentation
                 // the pistol (the shield bearer) snaps a quick shot rather than shouldering a rifle for a second
                 // Prone, the automatics fire the prone loop (the 0.9 s one-shot restarted three times a second stuttered);
                 // at a parapet they shoulder it (the stooped hip burst would put the muzzle under the sandbags).
-                Clip fire = prone ? (auto ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : auto && !inTrench ? Clip.FireStoop : bolt || arche == 13 ? Clip.FireSnap : Clip.FireStand;
+                // At the parapet (in a trench, up) the rifles, the pistol and the carbine lean into it and fire over it (the
+                // owner's foxhole fix, 2026-09-28); the SMG and machine pistol fire their burst at the shoulder, the MG from
+                // the hip in the open.
+                Clip fire = prone ? (auto ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel
+                          : auto ? (arche == 2 && !inTrench ? Clip.FireStoop : Clip.FireBurst)
+                          : inTrench ? Clip.FireParapet : bolt || arche == 13 ? Clip.FireSnap : Clip.FireStand;
                 Start(i, ref s, fire, Rung.Fire, (i == FollowSlot ? "fires at " + shotAt[i] : null), 1f, 0.05f);
                 return;
             }
@@ -726,8 +747,17 @@ namespace TW.Presentation
             if (s.Rung == Rung.Action && Playing(s)) { if (speed > 0.3f && Left(s) > 0.4f && (cur != Clip.Throw || speed > 1.5f)) {   // a throw holds a walk, not a run (it skated metres)
  /* dropped: the run takes over below */ } else return; }
             byte wantNow = Wanted(ref s, w, i, simStance, inTrench, target, speed);
-            if (bolt && (cur == Clip.FireSnap || cur == Clip.FireStand || cur == Clip.FireKneel) && !Playing(s) && s.Rung == Rung.Fire && speed < 0.3f && !prone && s.Shots < magazine)
+            if (bolt && (cur == Clip.FireSnap || cur == Clip.FireStand || cur == Clip.FireKneel || cur == Clip.FireParapet) && !Playing(s) && s.Rung == Rung.Fire && speed < 0.3f && !prone && s.Shots < magazine)
             { Start(i, ref s, low ? Clip.BoltKneel : Clip.ReloadBolt, Rung.Action, "works the bolt"); return; }
+            // the officer leads: a blast on the whistle when a target first shows, then every 6 to 10 s (by seed) he points
+            // his men at it; standing still, not flat, between his own shots
+            if (arche == 12 && target >= 0 && speed < 0.3f && !prone && !low && tick - s.LastShot > 30 && tick - s.LastOrder > 120u + (s.Seed >> 5) % 80u)
+            {
+                bool fresh = tick - s.TargetSince < 20;
+                s.LastOrder = tick; s.Routine = 0; s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw;
+                Start(i, ref s, fresh ? Clip.OfficerWhistle : Clip.OfficerPoint, Rung.Action, fresh ? "officer: whistles, a target" : "officer: points his men at the target", 1f, 0.2f);
+                return;
+            }
             if (target >= 0 && !s.Aimed && speed < 0.3f && !prone && s.Stance == wantNow) { s.Aimed = true; Start(i, ref s, low ? Clip.KneelAimUp : Clip.AimUp, Rung.Action, "target seen: rifle up"); return; }
             if (target < 0 && s.Aimed && tick - s.LastShot > 160 && tick - s.LastTarget > 160 && speed < 0.3f && !prone && s.Stance == wantNow) { s.Aimed = false; Start(i, ref s, low ? Clip.KneelAimDown : Clip.AimDown, Rung.Action, "target lost 8 s: rifle down"); return; }
             // the magazine: reloaded in the gap before the sim's next shot, played faster to fit it (the rifle has 0.85 s after
@@ -885,7 +915,7 @@ namespace TW.Presentation
             // ---- rung 8: fire, standing still
             // the looped bursts hold through the gap to the next round: the MG's 3 ticks, the SMG's 7 (a hold on
             // FireCooldown < 6 dropped the SMG to its idle for most of every gap)
-            if (s.Rung == Rung.Fire && (Playing(s) || ((cur == Clip.FireMG || cur == Clip.FireStoop) && (w.FireCooldown[i] < 6 || tick - s.LastShot < 12)))) return;
+            if (s.Rung == Rung.Fire && (Playing(s) || ((cur == Clip.FireMG || cur == Clip.FireStoop || cur == Clip.FireBurst) && (w.FireCooldown[i] < 6 || tick - s.LastShot < 12)))) return;
 
             // ---- rung 9: idle
             if (s.Rung == Rung.Idle && Playing(s)) return;   // a fidget or a routine's transition
@@ -996,9 +1026,18 @@ namespace TW.Presentation
                 Lift[i] = climb ? math.saturate(s.Frame / 0.8f) : 0f;   // the sim holds him on the trench floor for the vault: he is drawn rising up the wall
                 // blown off his feet: a parabola over the first HopSeconds of his fall (Frame runs at Rate, so measure in clip seconds)
                 float hop = 0f;
-                if (s.HopHeight > 0f && (s.Clip == Clip.Trip || s.Clip == Clip.DiveAway || s.Clip == Clip.JumpDown) && s.ClipStart <= s.HopTick)
+                if (s.HopHeight > 0f && s.HopFor > 0f)
                 {
-                    float u = math.saturate((s.Frame - s.HopFrame) / ((s.HopFor > 0f ? s.HopFor : HopSeconds) * math.max(0.1f, s.Rate)));
+                    // a leap's arc runs on its own clock: the clip changes from the tuck to the drop under it
+                    s.HopAge += dt;
+                    float u = math.saturate(s.HopAge / s.HopFor);
+                    hop = s.HopHeight * 4f * u * (1f - u);
+                    if (u >= 1f) s.HopHeight = 0f;
+                    State[i] = s;
+                }
+                else if (s.HopHeight > 0f && (s.Clip == Clip.Trip || s.Clip == Clip.DiveAway) && s.ClipStart <= s.HopTick)
+                {
+                    float u = math.saturate((s.Frame - s.HopFrame) / (HopSeconds * math.max(0.1f, s.Rate)));
                     hop = s.HopHeight * 4f * u * (1f - u);
                     if (u >= 1f) { s.HopHeight = 0f; State[i] = s; }
                 }

@@ -178,6 +178,16 @@ an arc 1.4 m per second of flight (1-4 m, through the blast lift `Hop`); once do
 (DropLanded) is drawn from the landing of `Jumping Down`. A stooped man turns with the stoop turns; a kneeling man
 still eases round without a clip. Throw at infantry and melee still wait for the sim.
 
+**The troops' clip batch (2026-09-28, one rebake of both figures, owner's decision):** `Shoot Rifle` (FireParapet):
+a man up at the parapet (in a trench, not kneeling) leans into it to fire over it, knees giving, hips 87 cm, instead of
+the upright standing shot; the bolt follows as before. `Firing Rifle (6)` (FireBurst, looped at the shoulder): the SMG
+and the machine pistol standing, and every automatic at a parapet; the MG in the open keeps the hip burst.
+`Rifle Jump In Place` 0.45-0.85 s (Airborne): the jetpack's spring and tuck, held, then `Jumping Down` entered 0.4 s in,
+0.6 s before he lands; the arc (Hop) runs on its own clock across the change. The officer (made clips): `Officer
+Whistle` when a target first shows, then `Officer Point` at it every 6-10 s. Deaths: `Death From Back Headshot` for a
+third of the men shot from behind, `Walking To Dying (1)` for half of those shot walking. Still missing (not
+downloaded): a treat clip, a hammering clip, a gas death.
+
 ## 7. Reactions
 
 | Situation | Signal | Response |
@@ -312,7 +322,8 @@ frame, reactions go in over 2 to 4 frames and out over 15. Prone Death's right a
 sat inside the torso) and the bent knee stayed up: fixed, and it now lands in 0.3 s with an overshoot. Get Up drifted
 a metre forward, which under VAT would slide the man and snap him back: the root travel is stripped. Stumble is a
 3-frame trip; Mask is four phases (bag, face into the mask, straps, drop); Burning is a folded stagger; the officer's
-point raises then chops, the whistle adds the "follow me" arm. The critique's ranking of what the tactical camera sees
+point raises then chops 30 degrees up; the whistle keeps the left hand down (it holds the rifle once the right hand
+leaves it, so the old raised "follow me" arm swung the rifle through his face, found in the 2026-09-28 review). The critique's ranking of what the tactical camera sees
 most: prone death, get up, stumble, wire / wade, crawl.
 
 ## 14. Order of work

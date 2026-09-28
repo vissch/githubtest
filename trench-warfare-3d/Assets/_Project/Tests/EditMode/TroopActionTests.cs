@@ -1,6 +1,7 @@
 // Phase: C1 (troop animation pass, 2026-09-28) — what each troop does on screen for the sim's actions that used to
 // play nothing or the wrong clip: a close assault throws the grenade bundle, the MG changes its belt when the burst
-// ends, the SMG fires the looped burst and the pistol a snap shot, a man stopped in a crater under fire goes down into
+// ends, the SMG fires the looped burst at the shoulder and the pistol a snap shot, a rifleman at the parapet leans
+// into it to fire, the officer whistles and points, a man stopped in a crater under fire goes down into
 // the bowl, the medic kneels and the repair man hammers at their work facing it, a kneeling man eases round (no stoop
 // turn), a jetpack leap arcs and comes down, and a para is drawn landing. No sim is stepped: the tests place men, write
 // the events the sim would, and tick the controller alone (as BlastReactionTests does).
@@ -100,8 +101,9 @@ namespace TW.Tests
             Assert.AreEqual(Clip.FireSnap, r.A.State[man].Clip, "the control: a rifleman's shot");
         }
 
-        [TestCase((byte)1, Clip.FireStoop)]
-        [TestCase((byte)17, Clip.FireStoop)]
+        [TestCase((byte)1, Clip.FireBurst)]
+        [TestCase((byte)17, Clip.FireBurst)]
+        [TestCase((byte)2, Clip.FireStoop)]
         [TestCase((byte)13, Clip.FireSnap)]
         [TestCase((byte)12, Clip.FireStand)]
         public void EachWeaponFiresItsOwnClipStanding(byte archetype, Clip expected)
@@ -113,12 +115,12 @@ namespace TW.Tests
             r.W.FireCooldown[man] = 7;   // the SMG's 3 rps: 7 ticks to the next round
             r.Tick();
             Assert.AreEqual(expected, r.A.State[man].Clip, "archetype " + archetype);
-            if (expected != Clip.FireStoop) return;
+            if (expected != Clip.FireStoop && expected != Clip.FireBurst) return;
             for (int t = 0; t < 6; t++)
             {
                 r.W.FireCooldown[man] = 6 - t;
                 r.Tick();
-                Assert.AreEqual(Clip.FireStoop, r.A.State[man].Clip, "critic r1: the burst holds through the gap to the next round, tick " + t);
+                Assert.AreEqual(expected, r.A.State[man].Clip, "critic r1: the burst holds through the gap to the next round, tick " + t);
             }
         }
 
@@ -243,15 +245,55 @@ namespace TW.Tests
             r.W.StanceOf[man] = (byte)Stance.Leap;
             r.W.Events.Add(r.W.Tick, SimEventType.LeapStarted, man, 0, Here + new float3(0f, 0f, 18f), Here, 1.5f);
             r.Tick();
-            Assert.AreEqual(Clip.JumpDown, r.A.State[man].Clip, "the leap's fall, not the sprint he used to play in the air");
-            Assert.AreEqual(1f / 1.5f, r.A.State[man].Rate, 0.02f, "timed to land 1.5 s on, where the sim puts him down");
+            Assert.AreEqual(Clip.Airborne, r.A.State[man].Clip, "the spring and the tuck, not the sprint he used to play in the air");
             uint started = r.A.State[man].ClipStart;
             for (int t = 0; t < 14; t++) r.Tick();
+            Assert.AreEqual(Clip.Airborne, r.A.State[man].Clip, "held in the air");
             Assert.AreEqual(started, r.A.State[man].ClipStart, "and not restarted while he is in the air");
             Assert.Greater(r.A.Hop[man], 1.5f, "critic r2: mid-flight he is drawn high in his arc, not gliding along the ground");
-            r.W.StanceOf[man] = (byte)Stance.Standing;   // down
+            Assert.IsTrue(r.Until(man, Clip.JumpDown, 10), "0.6 s before he lands: the drop");
+            Assert.GreaterOrEqual(r.A.State[man].Frame, 0.4f, "entered past its top, so its landing comes as he touches down");
+            Assert.AreEqual(1f, r.A.State[man].Rate, 1e-3f, "critic r2: at speed, not in slow motion");
+        }
+
+        /// <summary>The owner's foxhole ask (2026-09-28): men at the parapet fired the standing rifle shot upright; now they
+        /// lean into the parapet and fire over it, and still work the bolt after.</summary>
+        [Test]
+        public void ARiflemanAtTheParapetLeansInToFire()
+        {
+            using var r = new Rig();
+            int man = r.Man(Here), foe = r.Man(Here + new float3(0f, 0f, 80f), 0, 1);
+            r.W.Flags[man] |= (uint)UnitFlags.InTrench;
+            r.W.StanceOf[man] = (byte)Stance.FireStep;
+            for (int t = 0; t < 40; t++) r.Tick();   // settled at the parapet, standing (the fire step)
+            r.W.Events.Add(r.W.Tick, SimEventType.Shot, man, foe, Here, new float3(0f, 0f, 1f), 0f);
             r.Tick();
-            Assert.GreaterOrEqual(r.A.State[man].Rate, 1f, "critic r2: the rest of the landing at speed, not in slow motion");
+            Assert.AreEqual(Clip.FireParapet, r.A.State[man].Clip);
+            Assert.IsTrue(r.Until(man, Clip.ReloadBolt, 30), "then the bolt");
+
+            using var c = new Rig();
+            int open = c.Man(Here), foe2 = c.Man(Here + new float3(0f, 0f, 80f), 0, 1);
+            c.Tick();
+            c.W.Events.Add(c.W.Tick, SimEventType.Shot, open, foe2, Here, new float3(0f, 0f, 1f), 0f);
+            c.Tick();
+            Assert.AreEqual(Clip.FireSnap, c.A.State[open].Clip, "the control: in the open, the standing shot");
+        }
+
+        [Test]
+        public void TheOfficerWhistlesThenPointsHisMenAtTheTarget()
+        {
+            using var r = new Rig();
+            int officer = r.Man(Here, 12), foe = r.Man(Here + new float3(0f, 0f, 80f), 0, 1);
+            for (int t = 0; t < 130; t++) r.Tick();   // long enough since any order
+            r.W.TargetSlot[officer] = foe;
+            Assert.IsTrue(r.Until(officer, Clip.OfficerWhistle, 5), "a target: the whistle");
+            Assert.IsTrue(r.Until(officer, Clip.OfficerPoint, 260), "then he points his men at it");
+
+            using var c = new Rig();
+            int rifleman = c.Man(Here, 0), foe2 = c.Man(Here + new float3(0f, 0f, 80f), 0, 1);
+            for (int t = 0; t < 130; t++) c.Tick();
+            c.W.TargetSlot[rifleman] = foe2;
+            for (int t = 0; t < 260; t++) { c.Tick(); var k = c.A.State[rifleman].Clip; Assert.IsFalse(k == Clip.OfficerWhistle || k == Clip.OfficerPoint, "the control: a rifleman gives no orders"); }
         }
 
         [Test]

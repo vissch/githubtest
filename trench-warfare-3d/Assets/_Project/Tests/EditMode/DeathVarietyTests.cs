@@ -265,8 +265,8 @@ namespace TW.Tests
             r.W.Despawn(b, killer, new float3(0f, 0f, 1f));
             r.Tick();
             Clip first = r.A.State[a].Clip, second = r.A.State[b].Clip;
-            Assert.IsTrue(first == Clip.DeathBack || first == Clip.DeathHeadshot, "shot from behind, standing: " + first);
-            Assert.IsTrue(second == Clip.DeathBack || second == Clip.DeathHeadshot || second == Clip.DeathRight || second == Clip.DeathLeft, "a standing death: " + second);
+            Assert.IsTrue(first == Clip.DeathBack || first == Clip.DeathBackHeadshot || first == Clip.DeathHeadshot, "shot from behind, standing: " + first);
+            Assert.IsTrue(second == Clip.DeathBack || second == Clip.DeathBackHeadshot || second == Clip.DeathHeadshot || second == Clip.DeathRight || second == Clip.DeathLeft, "a standing death: " + second);
             Assert.AreNotEqual(first, second, "the man beside him a tick later dies another way");
             Assert.IsTrue(r.A.TryDeath(b, r.W.Tick - 1, out var rec) && rec.Cause == (byte)DeathKind.Shot);
         }

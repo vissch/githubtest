@@ -50,6 +50,9 @@ namespace TW.Editor
             L(Clip.FireWalk, "Firing Rifle (2)"); L(Clip.FireRun, "Firing Rifle (3)", 20); L(Clip.FireSprint, "Firing Rifle (5)", 24); L(Clip.FireStoop, "Firing Rifle (4)");
             // fire
             O(Clip.FireStand, "Firing Rifle (1)", 24); O(Clip.FireSnap, "Firing Rifle", 30); O(Clip.FireKneel, "Fire Rifle", 24); O(Clip.FireProne, "Prone Firing Rifle", 24); L(Clip.FireMG, "Prone Firing Rifle (1)", 30);
+            // the troops' batch (2026-09-28): the automatics' burst at the shoulder, looped; the rifleman leaning into the
+            // parapet to fire over it (hips 87 cm, knees giving: the lean the fire step and the foxhole lacked)
+            L(Clip.FireBurst, "Firing Rifle (6)", 24); O(Clip.FireParapet, "Shoot Rifle", 24);
             O(Clip.AimUp, "Rifle Down To Aim", 24, 0f, 0f, 1f, true); O(Clip.AimDown, "Rifle Aim To Down", 15, 0f, 0f, 1f, true); O(Clip.KneelAimUp, "Rifle Kneel To Aim", 24, 0f, 0f, 1f, true); O(Clip.KneelAimDown, "Rifle Aim To Kneel", 24, 0f, 0f, 1f, true);
             // actions
             O(Clip.ReloadStand, "Reloading", 15, 0f, 0f, 1.5f); C(Clip.ReloadStoop, "Reload", "Crouch Idle", 15, 0f, 0f, 1.5f); O(Clip.ReloadProne, "Prone Reloading", 12, 0f, 4.8f, 2f); O(Clip.ReloadBolt, "Reloading", 20, 2.3f, 3.3f, 1.25f);
@@ -57,6 +60,7 @@ namespace TW.Editor
             C(Clip.KneelInspect, "Inspecting", "Rifle Kneel Idle", 12); C(Clip.KneelLookAround, "Rifle Idle (3)", "Rifle Kneel Idle", 12, 0f, 5.3f);   // the kneeling fidgets: standing fidgets on the kneeling legs   // reloads at 1.5x: the sim fires again 2.4 s after the shot's clip   // Mixamo has no kneeling reload: the standing one's arms on the kneeling legs
             O(Clip.Throw, "Toss Grenade", 12); O(Clip.MeleeStab, "Bayonet Stab", 15); O(Clip.MeleePunch, "Rifle Punch", 15); O(Clip.MeleeSmash, "Smash", 15); O(Clip.MeleeBlock, "Block With Rifle", 15);
             O(Clip.Sling, "Rifle Put Away", 12); O(Clip.Unsling, "Rifle Pull Out", 12);
+            O(Clip.OfficerPoint, "Officer Point", 12); O(Clip.OfficerWhistle, "Officer Whistle", 12);   // made clips (Tools/make_missing_clips.py)
             // reactions
             O(Clip.HitStand, "Hit Reaction (1)", 15); O(Clip.HitHeavy, "Hit Reaction", 15); O(Clip.HitWalk, "Walking Hit Reaction", 15); O(Clip.HitRun, "Hit Reaction (2)", 24); O(Clip.HitProne, "Rifle Prone Hit Reaction", 15);
             O(Clip.KneelFlinch, "Kneel Flinch", 24); O(Clip.ProneFlinch, "Prone Flinch", 24); O(Clip.Duck, "Rifle Shielding Face", 15, 0f, 0.8f, 1f, true); O(Clip.Shield, "Rifle Shielding Face", 12, 0f, 0f, 1f, true);
@@ -70,12 +74,15 @@ namespace TW.Editor
             O(Clip.StandToKneel, "Rifle Stand To Kneel", 20); O(Clip.KneelToStand, "Rifle Kneel To Stand", 20); O(Clip.KneelToProne, "Rifle Kneel To Prone", 15, 0f, 0f, 1f, true); O(Clip.ProneToKneel, "Rifle Prone To Kneel", 15);
             O(Clip.StandToStoop, "Rifle Idle To Crouch", 15, 0f, 1.4f, 1f, true); O(Clip.StoopToStand, "Rifle Crouch Walk To Idle", 15, 1.4f, 2.93f); O(Clip.StoopToKneel, "Rifle Crouch Walk To Kneel", 15, 1.2f, 2.73f); O(Clip.KneelToStoop, "Rifle Crouch Idle To Walk", 15, 0f, 1.5f);
             O(Clip.TakeCover, "Taking Cover", 15); O(Clip.Emerge, "Emerging", 15);
+            // the jetpack's flight: the spring off the ground to the top of the jump, the knees tucked (hips 77 -> 125 cm), held
+            O(Clip.Airborne, "Rifle Jump In Place", 20, 0.45f, 0.85f);
             O(Clip.Turn90L, "Rifle Turn (4)", 15); O(Clip.Turn90R, "Rifle Turn (6)", 15); O(Clip.Turn180, "Rifle Turn (3)", 15);
             O(Clip.KneelTurn90L, "Crouching Turn 90 Left", 15); O(Clip.KneelTurn90R, "Crouching Turn 90 Right", 15);
             O(Clip.StoopTurn90L, "Rifle Crouch Turn (1)", 15); O(Clip.StoopTurn90R, "Rifle Crouch Turn (7)", 15); O(Clip.StoopTurn180, "Rifle Crouch Turn", 15);
             // deaths
             D(Clip.DeathFront, "Death From The Front"); D(Clip.DeathBack, "Death From The Back"); D(Clip.DeathRight, "Death From Right"); D(Clip.DeathLeft, "Rifle Death");
             D(Clip.DeathHeadshot, "Death From Front Headshot"); D(Clip.DeathWalking, "Walking To Dying", 12, false); D(Clip.DeathRunning, "Rifle Run To Dying", 12, false);
+            D(Clip.DeathBackHeadshot, "Death From Back Headshot"); D(Clip.DeathWalking2, "Walking To Dying (1)", 12, false);
             D(Clip.DeathKneel, "Rifle Kneel Hit To Back"); D(Clip.DeathSquat, "Death Crouching Headshot Front"); D(Clip.DeathProne, "Prone Death"); D(Clip.DeathBlast, "Rifle Hit To Back", 15);
             // thrown by a shell: knocked backwards off his feet onto his back, the body tipped flat early (the clip alone
             // hangs upright in the air for half a second); the root stays put: VATRenderer flies the corpse on an arc timed
@@ -83,7 +90,7 @@ namespace TW.Editor
             T(Clip.DeathThrown, "Rifle Hit To Back", 15);
             // aimed and firing: the forestock hand reaches 0.58 m ahead of the grip, past the baker's one-hand test, so the
             // rifle took the left hand's bind grip, 35 to 41 degrees at the ground, and the flash left it by his knees
-            var aimed = new HashSet<Clip> { Clip.AimedIdle, Clip.KneelAimedIdle, Clip.FireWalk, Clip.FireRun, Clip.FireSprint, Clip.FireStoop, Clip.FireStand, Clip.FireSnap, Clip.FireKneel, Clip.FireProne, Clip.FireMG };
+            var aimed = new HashSet<Clip> { Clip.AimedIdle, Clip.KneelAimedIdle, Clip.FireWalk, Clip.FireRun, Clip.FireSprint, Clip.FireStoop, Clip.FireStand, Clip.FireSnap, Clip.FireKneel, Clip.FireProne, Clip.FireMG, Clip.FireBurst, Clip.FireParapet };
             for (int i = 0; i < list.Count; i++)
             {
                 var e = list[i];
