@@ -34,6 +34,19 @@ The battle's copies, as run 2026-09-28 (the sources unzipped to short paths firs
 | Skimmer | `C:\tw\s0` = `military tank 3d model.zip`, `s1` = `(2)`, `s2` = `(1)` | `TW_KIND=hover TW_TURN=90 TW_LOD2_TRIS=1400 TW_KEEP=FanRing:0.5,Fan:0.35,Hull:0.3 TW_BATTLE=1 ... -- Skimmer C:/tw/s0/m.fbx C:/tw/s1/m.fbx C:/tw/s2/m.fbx Assets/_Project/Resources/Vehicles/Skimmer <renderdir>` (`TW_SCALE` 7.0, the default) | 7,098 / 1,840 |
 | Salvo | `C:\tw\z4` = `military+vehicle+3d+model.zip`, `z5` = `military+vehicle+3d+model (1).zip`, `z6` = `rocket+launcher+vehicle+3d+model.zip` | `TW_KIND=halftrack TW_BATTLE=1 TW_PIECE_TRIS=12 TW_KEEP=Wheel_L:0.4,Wheel_R:0.4,Turret:0.35,Gun:0.35,Hull:0.3 ... -- Salvo C:/tw/z4/m.fbx C:/tw/z5/m.fbx C:/tw/z6/m.fbx Assets/_Project/Resources/Vehicles/Salvo <renderdir>` (`TW_SCALE` 8.0, the default) | 7,863 / 2,539 |
 
+| Croaker | `steampunk+frog+robot+3d+model.zip`, `mecha frog 3d model.zip`, `mech+robot+3d+model.zip` | `TW_BATTLE=1 TW_LOD2_TRIS=1443 ... mechsplit.py -- Croaker <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/Croaker <renderdir>` | 9,738 / 1,435 |
+| Hopper | `green+tank+3d+model (1).zip`, `green+cartoon+tank+3d+model.zip`, `green+tank+3d+model.zip` | `TW_BATTLE=1 TW_KIND=flyer ... mechsplit.py -- Hopper <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/Hopper <renderdir>` | 5,903 / 985 |
+| Brute | `tank+3d+model.zip`, `(1)`, `(2)`, each unzipped to a folder of its own, the FBX renamed m.fbx, with the four textures of its .fbm folder (the names ending _0_0 to _0_3) beside it as m_tex0_0 to m_tex0_3 (.jpg) | `TW_BATTLE=1 ... tank3split.py -- Brute <b0>/m.fbx <b1>/m.fbx <b2>/m.fbx Assets/_Project/Resources/Vehicles/Brute <renderdir>` | 7,861 / 1,304 |
+| Mercy | `ambulance jeep 3d model.zip`, `green toy jeep 3d model.zip` | `TW_BATTLE=1 TW_LOD2=derive ... jeepsplit.py -- Mercy <lod0.fbx> <lower.fbx> Assets/_Project/Resources/Vehicles/Mercy <renderdir>` | 6,989 / 963 |
+
+`tank3split.py` and `jeepsplit.py` write the battle's form through `Tools/battleform.py` (imported, not run by
+itself): the parts nested, the sockets under their parts, two LODs on LOD0's atlas, so the far LOD has to be derived
+from LOD0 (`TW_LOD2=derive` for the jeep; the tank derives by default). In the battle's form the root part stands on
+the origin (`mechsplit.py` moves the Hull's pivot there): with the Croaker's Hull pivot at its pelvis every part under
+it came out of Unity displaced. `Editor/TankImport.cs` imports these four by the full rule for nested nodes
+(`TankImport.ParentAware`), which puts a part three levels down (a foot under a shin under a thigh) where the manifest
+has it; the older machines keep the old rule.
+
 Then `python Tools/portraitcut.py <renderdir>/<Name>_portrait.png <Name>` cuts the HUD's two pictures from the render.
 Re-importing one of these FBXs into Blender shows the nested parts out of place: that is the exporter's node turn
 that `Editor/TankImport.cs` puts right in Unity (the Tusk's files look the same), not a fault in the file.

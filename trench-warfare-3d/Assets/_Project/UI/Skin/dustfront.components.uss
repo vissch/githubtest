@@ -268,6 +268,10 @@
 .tw-portrait-Breaker { background-image: url("Portraits/Breaker.png"); }
 .tw-portrait-Skimmer { background-image: url("Portraits/Skimmer.png"); }
 .tw-portrait-Salvo { background-image: url("Portraits/Salvo.png"); }
+.tw-portrait-Brute { background-image: url("Portraits/Brute.png"); }
+.tw-portrait-Croaker { background-image: url("Portraits/Croaker.png"); }
+.tw-portrait-Hopper { background-image: url("Portraits/Hopper.png"); }
+.tw-portrait-Mercy { background-image: url("Portraits/Mercy.png"); }
 .tw-portrait-HeBarrage { background-image: url("Portraits/HeBarrage.png"); }
 .tw-portrait-ChlorineGas { background-image: url("Portraits/ChlorineGas.png"); }
 .tw-portrait-ParaDrop { background-image: url("Portraits/ParaDrop.png"); }

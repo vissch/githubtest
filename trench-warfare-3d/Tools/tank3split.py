@@ -547,6 +547,20 @@ for n in ALL_PARTS:
     manifest["parts"][n] = {"parent": PARENT.get(n), "pivot": unity(piv[n] * SCALE), **BREAK[n]}
 for s, (owner, p) in sock.items():
     manifest["sockets"][s] = {"part": owner, "pos": unity((p - piv[owner]) * SCALE)}
+# TW_BATTLE=1 (2026-09-28): the battle's form instead of the playground's (Tools/battleform.py): nested parts, two LODs,
+# <outdir>/../<Name>Atlas.jpg; the manifest and a portrait render go to <renderdir>. Both LODs wear LOD0's atlas, so the
+# far one has to be derived from LOD0 (TW_DERIVE=12, the default).
+#   TW_BATTLE=1 ... -- <Name> <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/<Name> <renderdir>
+if os.environ.get("TW_BATTLE", "") == "1":
+    if 2 not in derived: sys.exit("TW_BATTLE needs the far LOD derived from LOD0 (TW_DERIVE=12): both battle LODs wear LOD0's atlas")
+    import sys as _sys
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import battleform
+    manifest["partList"] = [dict(name=n, **manifest["parts"][n]) for n in ALL_PARTS]
+    for p in manifest["partList"]: p["parent"] = p["parent"] or ""
+    manifest["socketList"] = [dict(name=s, **v) for s, v in manifest["sockets"].items()]
+    battleform.write(NAME, OUTDIR, RENDERDIR, lods[0][0], lods[2][0], ALL_PARTS, PARENT, piv, sock, lods[0][2], lods[0][3] + "_tex0_0.jpg", SCALE, manifest, tris_of)
+    _sys.exit(0)
 for lod, (P, img, mat, stem, uv, log) in enumerate(lods):
     root, objs = make(lod, P, piv, mat)
     for n, o in objs.items(): o.name = "%d|%s" % (lod, n)

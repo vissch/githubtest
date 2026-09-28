@@ -49,11 +49,11 @@ namespace TW.Presentation
         {
             switch (archetype)
             {
-                case VehicleArchetype.Brute: case VehicleArchetype.MarkIV: case VehicleArchetype.MarkV: case VehicleArchetype.A7V: return "Maw";
-                case VehicleArchetype.Croaker: return "Pincer";
-                case VehicleArchetype.Hopper: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Skimmer";
-                case VehicleArchetype.Mercy: return "Medic";
-                case VehicleArchetype.RenaultFT: return "Tusk";
+                // the Brute, the Croaker, the Hopper and the Mercy wear their own (rendered off their models, 2026-09-28);
+                // a machine that wears another's model (TankRenderer.StandIns) wears its picture too
+                case VehicleArchetype.MarkIV: case VehicleArchetype.MarkV: return "Maw";
+                case VehicleArchetype.A7V: return "Brute";
+                case VehicleArchetype.RenaultFT: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Tusk";
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
                 case InfantryArchetype.Sentry: return "MG";
                 case InfantryArchetype.AtRifle: return "Sniper";

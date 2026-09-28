@@ -86,6 +86,8 @@ namespace TW.Presentation.Tactical
             public float Fan, FanRate;
             /// <summary>A hovering machine's yaw drawn off its heading in a turn (radians), and whether it hovers.</summary>
             public float Drift; public bool Hover;
+            /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
+            public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
@@ -126,15 +128,72 @@ namespace TW.Presentation.Tactical
         /// by Tools/mechsplit.py TW_BATTLE=1 (2026-09-28) are written in metres at the size they are meant to be, so
         /// they are drawn at 1.
         /// </summary>
-        /// Hover: drawn riding an air cushion, not on tracks (the pose, not the sim: it drives as a tracked machine).
-        static readonly (string Name, byte Archetype, string Root, float Scale, bool Hover)[] Machines =
+        /// Lift: metres it is drawn above the ground, 0 for a machine that stands on it. The pose, not the sim: a machine
+        /// that hovers or flies drives as the sim's profile says and is shot at where it is on the ground. Under
+        /// FlyingFrom it rides an air cushion and follows the ground's tilt (the Skimmer); from there up it flies level
+        /// (the Hopper) and, killed, falls to the ground before it burns.
+        static readonly (string Name, byte Archetype, string Root, float Scale, float Lift)[] Machines =
         {
-            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker, false), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker, false),
-            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker, false), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker, false),
-            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker, false), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, false),
-            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f, true),    // 7 m across its pods
-            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, false),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
+            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker, 0f), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker, 0f),
+            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker, 0f), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker, 0f),
+            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker, 0f), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, 0f),
+            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f, HoverLift),    // 7 m across its pods
+            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, 0f),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
+            // the playground's four (2026-09-28), written in metres by the splitters' TW_BATTLE=1 (Tools/battleform.py)
+            ("Brute", VehicleArchetype.Brute, "Hull", BruteScale, 0f),   // a tank with its gun in the hull and a small turret over it
+            ("Croaker", VehicleArchetype.Croaker, "Hull", 1f, 0f),   // two legs: WalkerGait walks it as it walks the crabs
+            ("Hopper", VehicleArchetype.Hopper, "Hull", 1f, FlyerLift),
+            ("Mercy", VehicleArchetype.Mercy, "Hull", 1f, 0f),       // four wheels, which roll
         };
+
+        /// <summary>
+        /// The stand-ins (docs/06's ideas on the sim's existing specs, 2026-09-28) have no model of their own: each wears
+        /// the model of the machine it is nearest to in shape, so that none is drawn as the Maw for want of a row. A
+        /// model of its own replaces a line here with a row above.
+        /// </summary>
+        static readonly (byte Archetype, byte Wears)[] StandIns =
+        {
+            (VehicleArchetype.MarkIV, VehicleArchetype.Maw), (VehicleArchetype.MarkV, VehicleArchetype.Maw),   // rhomboids with sponson guns
+            (VehicleArchetype.A7V, VehicleArchetype.Brute),          // a box with its gun in the hull
+            (VehicleArchetype.RenaultFT, VehicleArchetype.Tusk),     // a small tank under a turret
+            (VehicleArchetype.Whippet, VehicleArchetype.Tusk), (VehicleArchetype.Austin, VehicleArchetype.Tusk),
+        };
+
+        /// <summary>The archetype whose model a machine is drawn with: its own, or the one it stands in for.</summary>
+        public static byte Wears(byte archetype)
+        {
+            for (int i = 0; i < StandIns.Length; i++) if (StandIns[i].Archetype == archetype) return StandIns[i].Wears;
+            return archetype;
+        }
+
+        /// <summary>The model's name a machine is drawn with ("Maw" for anything with no row: the fallback), for tests and tools.</summary>
+        public static string ModelName(byte archetype)
+        {
+            byte a = Wears(archetype);
+            for (int c = 0; c < Machines.Length; c++) if (Machines[c].Archetype == a) return Machines[c].Name;
+            return a == VehicleArchetype.Tusk ? "Tusk" : "Maw";
+        }
+
+        /// <summary>How far above the ground a machine is drawn (0: it stands on it).</summary>
+        public static float LiftOf(byte archetype)
+        {
+            byte a = Wears(archetype);
+            for (int c = 0; c < Machines.Length; c++) if (Machines[c].Archetype == a) return Machines[c].Lift;
+            return 0f;
+        }
+        /// <summary>The Brute's sculpt is 6.5 m long; the battle's heavy tanks are drawn 1.7 times theirs (the Maw 9.3 m).
+        /// At 1.35 it is 8.8 m long and 5.3 m wide, which is the footprint the sim drives it on.</summary>
+        public const float BruteScale = 1.35f;
+
+        /// <summary>How much bigger than its file a machine's model is built (1 for a model written at its size).</summary>
+        public static float ScaleOf(byte archetype)
+        {
+            byte a = Wears(archetype);
+            for (int c = 0; c < Machines.Length; c++) if (Machines[c].Archetype == a) return Machines[c].Scale;
+            return VehicleSize.Tank;
+        }
+        public const float FlyerLift = 9f;      // metres: over the wire, the parapets and a walker's back; under the camera's near views
+        public const float FlyingFrom = 2f;     // a lift from here up is flight: level, and a fall when it dies
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
         const float HoverSettle = 3f;       // omega of its pitch and roll: a cushion rides the ground's average, slowly
@@ -225,6 +284,7 @@ namespace TW.Presentation.Tactical
             {
                 models[c] = TankModel.Load(Machines[c].Name, Machines[c].Archetype, Machines[c].Root, Machines[c].Scale);
                 modelRow[Machines[c].Archetype] = (sbyte)c;
+                if (models[c] != null) models[c].TreadRuns = false;   // its tracks, if it has any, are painted on its own atlas
                 if (models[c] != null)   // the side's colour, once per part, not asked of its name every frame
                     foreach (var l in models[c].Lods) if (l != null) foreach (var part in l.Parts) part.SideWear = SideColourOn(Machines[c].Archetype, part.Name);
             }
@@ -296,6 +356,7 @@ namespace TW.Presentation.Tactical
         TankModel ModelFor(SimWorld w, int slot) => w == null || slot < 0 || slot >= w.HighWater ? null : ModelFor(w.Archetype[slot]);
         TankModel ModelFor(byte archetype)
         {
+            archetype = Wears(archetype);
             int row = archetype < modelRow.Length ? modelRow[archetype] : -1;
             if (row >= 0 && models[row] != null) return models[row];
             return archetype == VehicleArchetype.Tusk && tusk != null ? tusk : maw;
@@ -304,6 +365,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The material a machine is drawn in: the tanks share an atlas, every other machine has its own.</summary>
         Material MaterialFor(byte archetype, int lod)
         {
+            archetype = Wears(archetype);
             int row = archetype < modelRow.Length ? modelRow[archetype] : -1;
             return row >= 0 && modelMats[row, lod] != null ? modelMats[row, lod] : mats[lod];
         }
@@ -384,8 +446,8 @@ namespace TW.Presentation.Tactical
         {
             var model = ModelFor(w.Archetype[slot]);
             var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot] };
-            int hoverRow = v.Archetype < modelRow.Length ? modelRow[v.Archetype] : -1;
-            v.Hover = hoverRow >= 0 && Machines[hoverRow].Hover;
+            v.Lift = LiftOf(v.Archetype);
+            v.Hover = v.Lift > 0f;
             v.Pos = v.LastPos = (Vector3)(float3)w.Position[slot];
             v.Yaw = v.LastYaw = w.Yaw[slot];
             v.Off = new bool[model.Lods[0].Parts.Count];
@@ -581,6 +643,12 @@ namespace TW.Presentation.Tactical
             float mid = Ground(v.Pos.x, v.Pos.z);
             pitch = Mathf.Clamp(Mathf.Atan2((fl + fr) - (rl + rr), 4f * hl), -0.2f, 0.2f);
             roll = Mathf.Clamp(Mathf.Atan2((fl + rl) - (fr + rr), 4f * g), -0.15f, 0.15f);
+            // a flyer does not lean with the ground under it: it noses down a little with its speed and banks into a turn
+            if (v.Lift >= FlyingFrom)
+            {
+                pitch = Mathf.Clamp(-Mathf.Abs(v.Speed) * 0.02f, -0.12f, 0f);
+                roll = Mathf.Clamp(v.YawRate * 0.25f, -0.2f, 0.2f);
+            }
             // round 6: riding the mean alone, it sank 2.1 m into a trench's walls for 4.5 s. The skirt bridges a trench as
             // tracks do (Settle): never below its highest ground, round the whole skirt, less a little it can dip
             float top = Mathf.Max(Mathf.Max(fl, fr), Mathf.Max(rl, rr));
@@ -590,7 +658,7 @@ namespace TW.Presentation.Tactical
                 top = Mathf.Max(top, Ground(v.Pos.x + fwd.x * hl * c + right.x * g * s2, v.Pos.z + fwd.z * hl * c + right.z * g * s2));
             }
             float mean = (fl + fr + rl + rr + mid) * 0.2f;
-            heave = Mathf.Max(mean, top - HoverDip) + HoverLift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
+            heave = Mathf.Max(mean, top - HoverDip) + v.Lift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
             float want = Mathf.Clamp(-v.YawRate * Mathf.Abs(v.Speed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
             v.Drift = Mathf.Lerp(v.Drift, want, 1f - Mathf.Exp(-dt * 2f));
         }
@@ -970,6 +1038,18 @@ namespace TW.Presentation.Tactical
         bool Smoulder(View v, float dt, float now)
         {
             float age = now - v.DiedAt;
+            // a flyer killed in the air comes down before it burns: it falls as a stone does and stays where it lands
+            if (v.Lift >= FlyingFrom && !v.Landed)
+            {
+                float floor = Ground(v.Pos.x, v.Pos.z) + 0.15f;
+                v.Fall += 9.81f * dt;
+                v.Heave.Value -= v.Fall * dt; v.Heave.Velocity = 0f;
+                if (v.Heave.Value <= floor)
+                {
+                    v.Heave.Value = floor; v.Landed = true;
+                    CameraShake.Add(v.Pos, 8f);
+                }
+            }
             if (!v.Linked && age > UnlinkedSinkAfter)
             {
                 // no wreck prop in the sim: nothing here blocks or gives cover, so the hull and its pieces settle out of sight
@@ -1320,7 +1400,7 @@ namespace TW.Presentation.Tactical
                 var tint = v.Team == 1 ? TeamTintB : new Vector4(1f, 1f, 1f, 0f);
                 // a piece thrown off wears no side colour (a horn keeps its paint): the side's glow on a burning fan ring
                 // drew it pale cream in a cook-off (round 6)
-                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, parts[d.Part].Role == TankPartRole.Horn ? TeamBand(v, parts[d.Part]) : Vector4.zero);
+                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track && v.Model.TreadRuns ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, parts[d.Part].Role == TankPartRole.Horn ? TeamBand(v, parts[d.Part]) : Vector4.zero);
                 // what hangs off the piece rides with it
                 for (int c = d.Part + 1; c < parts.Count; c++)
                 {
@@ -1368,7 +1448,7 @@ namespace TW.Presentation.Tactical
             {
                 if (IsOff(v, l, i)) continue;
                 var p = l.Parts[i];
-                float tread = p.Role == TankPartRole.Track ? (p.Side < 0 ? v.TreadL : v.TreadR) : 0f;
+                float tread = p.Role == TankPartRole.Track && v.Model.TreadRuns ? (p.Side < 0 ? v.TreadL : v.TreadR) : 0f;
                 Queue(p.Mesh, MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p));
             }
         }

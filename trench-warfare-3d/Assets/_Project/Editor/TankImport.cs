@@ -12,6 +12,17 @@
 // still in Blender's axes. Every part was exported unturned, so such a node is put right here: its offset turned
 // back (x, -z, y) and its rotation cleared. The Tusk's muzzle offset fits no turn at all, so it is put at the tip of
 // the barrel (the gun mesh's front, which points +Z). Checked against tanksplit.py's tanks.json pivots and sockets.
+//
+// 2026-09-28, measured on the Croaker (a raw import beside this one, every node against mechsplit's manifest): that rule
+// is exact only while the node ABOVE a turned node stands on its parent's origin. The exporter turns every other level
+// of the hierarchy (the parts under the hull, then the parts under THEIR children), and writes a turned node T under
+// a node U with offset u as turn(E + u) - u, and an unturned node under T as E - (u - unturn(u)), E being the offset
+// meant. Under a hull on the origin both are the old rule, which is why the tanks and the hovercraft came out right;
+// three levels down (a walker's foot under its shin under its thigh) the foot was displaced by its shin's offset, turned
+// (the Croaker's feet 0.7 m up and 1.6 m forward of its ankles), and its toe socket with it. ParentAware names the models
+// imported by the full rule. The crabs are not among them: their feet carry the same error (their bodies stand 0.2 m off
+// the origin too), TankModel and the gait were tuned around it, and putting them right is a change to six shipped
+// machines that wants its own look in Play.
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -22,7 +33,28 @@ namespace TW.Editor
     {
         public const string Folder = "Assets/_Project/Resources/Vehicles/";
 
-        public override uint GetVersion() => 2;
+        public override uint GetVersion() => 3;
+
+        /// <summary>The models whose nested nodes are put right by the full rule (the header): written by the splitters'
+        /// TW_BATTLE=1 on 2026-09-28.</summary>
+        public static readonly string[] ParentAware = { "Brute", "Croaker", "Hopper", "Mercy" };
+
+        static bool IsParentAware(string path)
+        {
+            string file = System.IO.Path.GetFileNameWithoutExtension(path);
+            foreach (var n in ParentAware) if (file.StartsWith(n + "_LOD")) return true;
+            return false;
+        }
+
+        /// <summary>The exporter's turn undone on an offset: Blender's axes to Unity's.</summary>
+        public static Vector3 Unturn(Vector3 p) => new Vector3(p.x, -p.z, p.y);
+
+        /// <summary>The offset meant for a turned node, from the one it arrived with and its parent's offset.</summary>
+        public static Vector3 TurnedOffset(Vector3 arrived, Vector3 parent) => Unturn(arrived + parent) - parent;
+
+        /// <summary>The offset meant for an unturned node under a turned one, from the one it arrived with and the offset
+        /// of the node above its parent.</summary>
+        public static Vector3 UnderTurnedOffset(Vector3 arrived, Vector3 grandparent) => arrived + grandparent - Unturn(grandparent);
 
         static bool Ours(string path) => path.Replace('\\', '/').StartsWith(Folder);
 
@@ -51,9 +83,20 @@ namespace TW.Editor
         {
             if (!Ours(assetPath)) return;
             var turned = Quaternion.Euler(270f, 0f, 0f);
-            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            bool aware = IsParentAware(assetPath);
+            var all = root.GetComponentsInChildren<Transform>(true);   // parents before their children
+            var wasTurned = new HashSet<Transform>();
+            foreach (var t in all) if (t != root.transform && Quaternion.Angle(t.localRotation, turned) <= 1f) wasTurned.Add(t);
+            foreach (var t in all)
             {
-                if (t == root.transform || Quaternion.Angle(t.localRotation, turned) > 1f) continue;
+                if (t == root.transform) continue;
+                if (!wasTurned.Contains(t))
+                {
+                    // under a turned node: displaced by the offset of the node above that one (nothing, under a hull on the origin)
+                    if (aware && t.parent != null && wasTurned.Contains(t.parent) && t.parent.parent != null && !t.name.StartsWith("Socket_Muzzle"))
+                        t.localPosition = UnderTurnedOffset(t.localPosition, t.parent.parent.localPosition);
+                    continue;
+                }
                 var p = t.localPosition;
                 t.localRotation = Quaternion.identity;
                 var gun = t.parent != null ? t.parent.GetComponent<MeshFilter>() : null;
@@ -62,7 +105,7 @@ namespace TW.Editor
                     var b = gun.sharedMesh.bounds;
                     t.localPosition = new Vector3(b.center.x, b.center.y, b.max.z);
                 }
-                else t.localPosition = new Vector3(p.x, -p.z, p.y);
+                else t.localPosition = aware && t.parent != null ? TurnedOffset(p, t.parent.localPosition) : Unturn(p);
             }
             foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
             {

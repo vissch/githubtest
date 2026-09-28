@@ -439,6 +439,19 @@ piv, sock = pivots_and_sockets(P0)
 manifest = {"source": "Tools/jeepsplit.py", "name": NAME, "scale": SCALE, "fling": 0.6, "parts": {}, "sockets": {}, "lods": [], "snapped": snapped, "derived": [1, 2] if LOD2_FROM == "derive" else [1]}
 for n in ALL_PARTS: manifest["parts"][n] = {"parent": PARENT.get(n), "pivot": unity(piv[n] * SCALE), **BREAK[n]}
 for s, (owner, p) in sock.items(): manifest["sockets"][s] = {"part": owner, "pos": unity((p - piv[owner]) * SCALE)}
+# TW_BATTLE=1 (2026-09-28): the battle's form instead of the playground's (Tools/battleform.py): nested parts, two LODs,
+# <outdir>/../<Name>Atlas.jpg; the manifest and a portrait render go to <renderdir>. Both LODs wear LOD0's atlas, so the
+# far one has to be derived from LOD0: run it with TW_LOD2=derive.
+#   TW_BATTLE=1 TW_LOD2=derive ... -- <Name> <lod0.fbx> [<lower.fbx>] Assets/_Project/Resources/Vehicles/<Name> <renderdir>
+if os.environ.get("TW_BATTLE", "") == "1":
+    if LOD2_FROM != "derive": sys.exit("TW_BATTLE needs TW_LOD2=derive: both battle LODs wear LOD0's atlas")
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import battleform
+    manifest["partList"] = [dict(name=n, **manifest["parts"][n]) for n in ALL_PARTS]
+    for p in manifest["partList"]: p["parent"] = p["parent"] or ""
+    manifest["socketList"] = [dict(name=s, **v) for s, v in manifest["sockets"].items()]
+    battleform.write(NAME, OUTDIR, RENDERDIR, lods[0], lods[2], ALL_PARTS, PARENT, piv, sock, mats[0], bases[0], SCALE, manifest, tris_of)
+    sys.exit(0)
 for lod, P in enumerate(lods):
     root, objs = make(lod, P, piv, mats[lod])
     for n, o in objs.items(): o.name = "%d|%s" % (lod, n)
