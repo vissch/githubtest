@@ -14,7 +14,7 @@ namespace TW.Tests
         static void AssertOld(CombatFx.BurstRecipe r, string what)
         {
             Assert.IsTrue(r.Column && r.OldSmoke, what + ": the old column and smoke");
-            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring, what + ": nothing new");
+            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring || r.Lean, what + ": nothing new");
         }
 
         [Test]
@@ -34,7 +34,7 @@ namespace TW.Tests
         public void On_AShellInFlight_LeavesAPlumeNotPuffs()
         {
             var r = CombatFx.RecipeFor(0f, 0.8f, false, 1f);
-            Assert.IsTrue(r.Column && r.Plume);
+            Assert.IsTrue(r.Column && r.Plume && r.Lean, "the column, the plume, and the earth thrown on");
             Assert.IsFalse(r.OldSmoke || r.Mortar || r.CookOff);
         }
 
@@ -43,7 +43,7 @@ namespace TW.Tests
         {
             var r = CombatFx.RecipeFor(0f, 0f, false, 1f);
             Assert.IsTrue(r.Column && r.Plume && r.Mortar);
-            Assert.IsFalse(r.OldSmoke || r.CookOff);
+            Assert.IsFalse(r.OldSmoke || r.CookOff || r.Lean, "no flight, no lean");
         }
 
         [Test]
@@ -51,7 +51,7 @@ namespace TW.Tests
         {
             var r = CombatFx.RecipeFor(2f, 0f, false, 1f);
             Assert.IsTrue(r.CookOff && r.Plume);
-            Assert.IsFalse(r.Column || r.OldSmoke || r.Mortar);
+            Assert.IsFalse(r.Column || r.OldSmoke || r.Mortar || r.Lean);
         }
 
         [Test]
