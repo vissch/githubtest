@@ -510,7 +510,7 @@ namespace TW.Playground
             }
             Hp = MaxHp; State = Stage.Intact; FireLevel = 0f; cookAt = -1f; rng = new System.Random(Seed); LastEvent = "repaired";
             Fx?.ClearCards();
-            if (fireLight != null) { Destroy(fireLight.gameObject); fireLight = null; }
+            if (fireLight != null) { if (Fx != null) Fx.EndLamp(fireLight); else Destroy(fireLight.gameObject); fireLight = null; }
         }
 
         // ------------------------------------------------------------------------------------------------ frame

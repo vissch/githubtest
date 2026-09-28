@@ -111,6 +111,8 @@ namespace TW.Playground
             for (int i = lamps.Count - 1; i >= 0; i--)
             {
                 var p = lamps[i];
+                // a light someone else destroyed (a machine's OnDestroy): drop its entry, or it throws here every frame
+                if (p.L == null) { lamps.RemoveAt(i); continue; }
                 float k = (now - p.Born) / p.Life;
                 if (k >= 1f || (p.Follow == null && p.Offset.x == float.MaxValue)) { Destroy(p.L.gameObject); lamps.RemoveAt(i); continue; }
                 if (p.Follow != null) p.L.transform.position = p.Follow.TransformPoint(p.Offset);
@@ -152,6 +154,17 @@ namespace TW.Playground
         {
             if (Debris != null) Destroy(Debris);
             Debris = gameObject.AddComponent<DebrisRenderer>();
+        }
+
+        public int LampsAlive => lamps.Count;
+
+        /// <summary>Put out one lamp and forget it. Destroying the Light yourself left its entry behind: a held fire
+        /// (life 99999 s, following a machine that is still there) then threw in LateUpdate every frame after a repair.</summary>
+        public void EndLamp(Light l)
+        {
+            for (int i = lamps.Count - 1; i >= 0; i--) if (lamps[i].L == l) lamps.RemoveAt(i);
+            if (l == null) return;
+            if (Application.isPlaying) Destroy(l.gameObject); else DestroyImmediate(l.gameObject);
         }
 
         public void ClearLamps()
