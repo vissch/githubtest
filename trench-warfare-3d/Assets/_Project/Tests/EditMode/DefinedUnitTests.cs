@@ -62,11 +62,11 @@ namespace TW.Tests
             Assert.IsTrue(sk.IsVehicle);
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Skimmer), "it drives as a tracked machine");
             var mg = m.Catalogue.Weapon[VehicleArchetype.Skimmer];
-            Assert.AreEqual(130f, mg.RangeMax, "a machine gun"); Assert.AreEqual(6f, mg.RoundsPerSecond); Assert.AreEqual(24f, mg.Damage);
+            Assert.AreEqual(130f * CombatTables.RangeScale, mg.RangeMax, "a machine gun"); Assert.AreEqual(6f, mg.RoundsPerSecond); Assert.AreEqual(24f, mg.Damage);
             Assert.AreEqual(12f, mg.PenetrationMm, "that holes a light machine's side and rear");
             Assert.IsTrue(w.Units.Infantry[VehicleArchetype.Skimmer].HuntsArmour);
             Assert.AreEqual(CombatTables.ChargeRevealRange, w.Units.Infantry[VehicleArchetype.Skimmer].LooksDownMetres, "it looks down into a trench");
-            Assert.AreEqual(90f, m.Catalogue.Tank[VehicleArchetype.Skimmer].StandOffMetres, "it shoots from out of grenade range");
+            Assert.AreEqual(90f * CombatTables.RangeScale, m.Catalogue.Tank[VehicleArchetype.Skimmer].StandOffMetres, "it shoots from out of grenade range");
             var skHull = m.Catalogue.Tank[VehicleArchetype.Skimmer];
             Assert.AreEqual(0, skHull.GunCount, "no gun for TankGunnery: the machine gun is small arms");
             Assert.AreEqual(8f, skHull.Hull.FrontMm); Assert.AreEqual(2, skHull.Crew);
@@ -77,14 +77,14 @@ namespace TW.Tests
             var sa = w.Units.Roster[VehicleArchetype.Salvo];
             Assert.AreEqual(380, sa.Cost); Assert.AreEqual(2000f, sa.Hp); Assert.AreEqual(1.8f, sa.Speed);
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Salvo));
-            Assert.AreEqual(110f, m.Catalogue.Weapon[VehicleArchetype.Salvo].RangeMax, "a hull machine gun for the 60 m its rockets cannot reach");
-            Assert.AreEqual(380f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres);
+            Assert.AreEqual(110f * CombatTables.RangeScale, m.Catalogue.Weapon[VehicleArchetype.Salvo].RangeMax, "a hull machine gun for the 48 m its rockets cannot reach");
+            Assert.AreEqual(380f * CombatTables.RangeScale, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres);
             Assert.AreEqual(32f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffPatience, "two reloads without a hit and it moves on");
             var rockets = m.Catalogue.Tank[VehicleArchetype.Salvo];
             Assert.AreEqual(1, rockets.GunCount);
             Assert.IsTrue(rockets.Gun0.Indirect, "the rockets need no line of sight");
             Assert.AreEqual(16f, rockets.Gun0.ReloadSeconds, "and are long to reload");
-            Assert.AreEqual(60f, rockets.Gun0.RangeMin); Assert.AreEqual(380f, rockets.Gun0.RangeMax);
+            Assert.AreEqual(60f * CombatTables.RangeScale, rockets.Gun0.RangeMin); Assert.AreEqual(380f * CombatTables.RangeScale, rockets.Gun0.RangeMax);
             Assert.AreEqual(7f, rockets.Gun0.HeRadius, "a wide burst"); Assert.AreEqual(360f, rockets.Gun0.HeDamage);
             Assert.IsTrue(rockets.Gun0.FullCircle, "the box turns all the way round on its turntable");
             Assert.AreEqual(0.5f, m.Vehicles.Profiles[VehicleArchetype.Salvo].TurnRateRad);
@@ -359,7 +359,10 @@ namespace TW.Tests
             bool inTheAir = false;
             using (var m = MatchSim.CreatePlaytest(cfg))
             {
-                for (uint t = 0; t < 20 * 30; t++)
+                // until 2 s after its first rack is up, at most 150 s: the Salvo closes on the riflemen at about 0.3 m/s,
+                // and since the range cut (304 m, not 380) that takes it about two minutes, not 25 s
+                uint up = uint.MaxValue;
+                for (uint t = 0; t < 20 * 150 && (up == uint.MaxValue || t < up + 40); t++)
                 {
                     var cmds = new List<SimCommand>();
                     if (t == 5) cmds.Add(SimCommand.Deploy(t, 1, 0));
@@ -367,7 +370,7 @@ namespace TW.Tests
                     using var arr = new NativeArray<SimCommand>(cmds.ToArray(), Allocator.Temp);
                     m.World.HashInterval = 1;
                     m.Step(arr);
-                    inTheAir |= m.Gunnery.Rockets.Length > 0;
+                    if (m.Gunnery.Rockets.Length > 0 && !inTheAir) { inTheAir = true; up = t; }
                     recorder.Record(arr, m.World.LastHash);
                 }
             }

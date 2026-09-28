@@ -149,8 +149,8 @@ namespace TW.Tests
         [Test]
         public void AMan_LeavesHisWay_ForAnEnemyInTheOpen_AndStopsAtHisDistance()
         {
-            // the enemy is 65 m off to his right; his goal is 380 m straight up the field
-            using var m = Pair(InfantryArchetype.Rifle, 65f, out int man, out int foe);
+            // the enemy is 5 m inside the hunt radius, off to his right; his goal is 380 m straight up the field
+            using var m = Pair(InfantryArchetype.Rifle, EngageSystem.HuntRadius - 5f, out int man, out int foe);
             var w = m.World;
             bool closed = false, held = false;
             for (int t = 0; t < 400; t++)
