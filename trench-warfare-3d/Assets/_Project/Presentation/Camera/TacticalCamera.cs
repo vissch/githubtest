@@ -57,6 +57,8 @@ namespace TW.Presentation.Tactical
         public Vector2 Focus = new Vector2(38f, 34f);   // the owner's standard view: on your rear trench, where men arrive
         float yaw, zoomBeforeSuper, pitchOffset, panHeld;
         float autoYaw, autoPitch, mineZ, theirsZ, nextArmies;
+        /// <summary>The yaw the camera adds on its own to follow the battle (tooling that aims the view subtracts it).</summary>
+        public float AutoYaw => autoYaw;
         bool autoPrimed;
         /// <summary>Where the view sits between the sides: 0 behind your men, 0.5 between, 1 beyond the enemy (for the HUD and tests).</summary>
         public float Along { get; private set; }

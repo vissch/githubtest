@@ -39,7 +39,7 @@ namespace TW.Editor
         public static string LastRun = "";
 
         /// <summary>Play the catalogue unattended. Options: tabs=scenes,clips,units,abilities,deaths,events (all when absent),
-        /// filter=&lt;part of a name, or parts split by |&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1), out=&lt;run folder&gt;,
+        /// filter=&lt;part of a name, or parts split by |&gt;, film=&lt;seconds: a unit fights an enemy line, filmed to mp4&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1), out=&lt;run folder&gt;,
         /// minutes=&lt;wall-clock limit, default 45&gt;, quit=1 (exit the editor when done; CommandLine adds it).</summary>
         public static string Run(string options = "")
         {
@@ -87,6 +87,28 @@ namespace TW.Editor
             var run = host.gameObject.GetComponent<GymRun>();   // never `??` on a component: a missing one is Unity's fake null
             if (run == null) run = host.gameObject.AddComponent<GymRun>();
             run.Options = options ?? "";
+        }
+
+        /// <summary>Join a folder of f_0000.png frames (15 a second) into an mp4 with ffmpeg (TW_FFMPEG, else on PATH); the
+        /// frames are deleted when it worked and kept when it did not.</summary>
+        internal static string Encode(string frames, string mp4)
+        {
+            string exe = System.Environment.GetEnvironmentVariable("TW_FFMPEG");
+            if (string.IsNullOrEmpty(exe)) exe = "ffmpeg";
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo(exe, "-y -loglevel error -framerate 15 -i f_%04d.png -c:v libx264 -pix_fmt yuv420p -crf 23 \"" + Path.GetFullPath(mp4) + "\"")
+                { WorkingDirectory = frames, UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
+                using (var p = System.Diagnostics.Process.Start(psi))
+                {
+                    string err = p.StandardError.ReadToEnd();
+                    if (!p.WaitForExit(180000)) { p.Kill(); return "ffmpeg timed out; frames kept in " + frames; }
+                    if (p.ExitCode != 0 || !File.Exists(mp4)) return "ffmpeg failed (" + p.ExitCode + ": " + err.Trim() + "); frames kept in " + frames;
+                }
+                Directory.Delete(frames, true);
+                return "wrote " + mp4 + " (" + new FileInfo(mp4).Length / 1024 + " KB)";
+            }
+            catch (System.Exception ex) { return "no ffmpeg (" + ex.Message + "); frames kept in " + frames; }
         }
 
         internal static string Opt(string options, string key)
@@ -236,6 +258,9 @@ namespace TW.Editor
                     catch (System.Exception ex) { Debug.LogException(ex); wait = -1f; r.Log.Add("staging threw: " + ex.Message); }
                 }
                 if (wait < 0f) { SafeWrite(dir, summary, e, r, null, new List<string> { "not staged" }, ref flagged, ref done, null, null); continue; }
+                // film=<seconds>: a unit fights an enemy rifle line 70 m off its nose (inside every machine's reach), filmed below
+                float film = e.Tab == GymTab.Units && slot >= 0 && float.TryParse(Gym.Opt(Options, "film"), NumberStyles.Float, Inv, out float fs) ? fs : 0f;
+                if (film > 0f) { r.Log.Add("film: " + RiderLab.Stop(slot) + ", " + RiderLab.Enemies(slot, 12, 70f)); }   // held, so the take keeps it (a Salvo drove into a trench)
                 yield return new WaitForSecondsRealtime(wait);
 
                 var shots = new List<string>(); var jsons = new List<string>();
@@ -266,6 +291,26 @@ namespace TW.Editor
                     TW.Presentation.Tactical.CameraShake.Strength = shake;
                     if (sky != null) sky.Lightning = lightning;
                     TW.Presentation.Terrain.Storm.Hold = held;
+                }
+                if (film > 0f)
+                {
+                    // two takes, followed: close on the unit, then wide enough to see the line it is fighting; each joined
+                    // into an mp4 (ffmpeg: TW_FFMPEG or on PATH) and its frames deleted, or the frames kept when no ffmpeg
+                    // framed down the line of fire: from behind the unit towards the enemy's middle, so its fire runs up the
+                    // screen; close on the unit, then wide over both (following a fixed world yaw left the enemy off-screen)
+                    var cam = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+                    TankCapture.Follow(-1, 22f, 30f);
+                    foreach (var (take, share) in new[] { ("close", 0.4f), ("wide", 0.6f) })
+                    {
+                        string frames = Path.Combine(dir, "Film", Safe(e.Name) + "_" + take);
+                        FrameFight(host, cam, slot, take == "wide");
+                        yield return new WaitForSecondsRealtime(0.5f);
+                        r.Log.Add("film: " + RiderLab.Film(frames, film * share, 15, 960, 540));
+                        float filmUntil = Time.realtimeSinceStartup + film * share * 6f + 30f;
+                        while (!RiderLab.FilmStatus().StartsWith("done") && Time.realtimeSinceStartup < filmUntil) { FrameFight(host, cam, slot, take == "wide"); yield return null; }
+                        r.Log.Add("film: " + RiderLab.FilmStatus() + "; " + Gym.Encode(frames, Path.Combine(dir, "Film", Safe(e.Name) + "_" + take + ".mp4")));
+                    }
+                    r.Log.Add("film: " + RiderLab.ClearEnemies(slot, 150f));
                 }
                 director.End();
                 List<string> flags;
@@ -300,6 +345,24 @@ namespace TW.Editor
             foreach (var part in filter.Split('|'))
                 if (part.Length > 0 && name.IndexOf(part, System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
             return false;
+        }
+
+        /// <summary>The camera on a fight: behind `slot`, looking at the middle of the living enemies within 150 m; close
+        /// (22 m) on the unit, or wide over both.</summary>
+        static void FrameFight(SimHost host, TW.Presentation.Tactical.TacticalCamera cam, int slot, bool wide)
+        {
+            if (cam == null || host == null || host.Local == null || !host.Local.World.IsAlive(slot)) return;
+            var w = host.Local.World; var p = w.Position[slot]; Vector2 me = new Vector2(p.x, p.z), sum = Vector2.zero; int n = 0;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if (i == slot || !w.IsAlive(i) || w.Team[i] == w.Team[slot]) continue;
+                var q = new Vector2(w.Position[i].x, w.Position[i].z);
+                if ((q - me).sqrMagnitude < 150f * 150f) { sum += q; n++; }
+            }
+            Vector2 foe = n > 0 ? sum / n : me + new Vector2(Mathf.Sin(w.Yaw[slot]), Mathf.Cos(w.Yaw[slot])) * 60f;
+            Vector2 d = foe - me; float yaw = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg - cam.BaseYaw - cam.AutoYaw;   // the view's heading is BaseYaw + AutoYaw + yaw
+            if (wide) cam.FrameFrom(me + d * 0.45f, Mathf.Max(35f, d.magnitude * 0.9f), yaw);
+            else cam.FrameFrom(me + d.normalized * 6f, 22f, yaw);
         }
 
         List<GymEntry> Select(List<GymEntry> all)
