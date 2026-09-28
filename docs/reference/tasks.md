@@ -533,11 +533,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   it is still shot at on the ground, the sim has no air) and falls when it dies. The stand-in machines wear the nearest
   model by `TankRenderer.StandIns` (Mark IV and Mark V the Maw's, the A7V the Brute's, the Renault FT, the Whippet and
   the Austin the Tusk's) and that model's portrait. The Breaker has no model of its own and no line: it is drawn as
-  the Maw, as it always was. Every foot unit is drawn as the soldier figure (the sniper as his own).
+  the Maw, as it always was. Every foot unit is drawn as the soldier figure (the sniper as his own), but the Frog, who
+  is drawn as the playground's frog: `Resources/Units/FigureFrog`, baked by **TW > VAT > Bake Frog**
+  (`Editor/VATBaker.cs` poses each clip on the Soldier and carries the pose onto the frog's rig with the playground's
+  `Playground/Runtime/Retarget.cs`; the Soldier and the Sniper are not re-baked by it), `VATRenderer.FigureOfArchetype`.
   ProvingGroundModelTests holds the four models (parts, facing, the Croaker's legs, size against the sim's footprint)
   and that every machine is drawn with a model somebody chose.
-- **Not built yet:** models of their own for the stand-ins and the Breaker, the Frog's figure in the battle (its rig is
-  in the playground), a knee that bends forward in the Croaker's gait, LAY MINE / LAY TRIPWIRE buttons that aim one
+- **Not built yet:** models of their own for the stand-ins and the Breaker, figures of their own for the other foot
+  units, a knee that bends forward in the Croaker's gait, LAY MINE / LAY TRIPWIRE buttons that aim one
   selected sapper at a point. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
 
 ### Campaign shell
