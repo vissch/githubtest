@@ -1,10 +1,10 @@
-// Phase: A5 / docs/21 SIM-D (implemented 2026-09-26: the mine half; the sapper that lays them waits for units-meta) —
-// mines and tripwires on the ground.
+// Phase: A5 / docs/21 SIM-D (implemented 2026-09-26: the mine half; the sapper that lays them is Sim/Units/Sapper.cs,
+// 2026-09-28) — mines and tripwires on the ground.
 // Depends on: BlastSystem (Queue: a mine's burst; Resolved: a shell that digs sets off the mines in its crater),
 // MapData (where a mine may lie), VehicleProfile (how wide a hull is).
 //
 // A MINE lies at a point; a TRIPWIRE is a line up to MaxTripwireMetres, open ground along its whole length. Place()
-// is a system call today (the sapper's UnitAbility will call it, docs/21 SIM-D): the mine arms in ArmTicks and then
+// is a system call (SapperSystem makes it when a sapper's UnitAbility errand ends): the mine arms in ArmTicks and then
 // waits. An enemy man within TriggerRadius of a mine, or within TripwireReach of a tripwire's line, or an enemy hull
 // whose rectangle (half length by half width, in its yaw) covers a mine, sets it off (slot order, the first wins): a
 // MineTriggered event (dir = the victim's velocity direction, zero if he stood still) and an Impact of BlastShape.Mine that BlastSystem
@@ -64,6 +64,8 @@ namespace TW.Sim.Combat
 
         readonly MapData map;
         BlastSystem blast;
+        VehicleKinematicsSystem kinematics;        // registered after this system: resolved on the first step
+        NativeArray<VehicleProfile> compiled;      // the compiled defaults, for a world with no kinematics system
         /// <summary>Every mine laid this match, spent ones included (their index is the picture's handle). Authoritative, hashed.</summary>
         public NativeList<Mine> Mines;
         NativeList<int> triggered;   // transient: (mine, victim) pairs the job found this tick
@@ -80,6 +82,8 @@ namespace TW.Sim.Combat
             blast = world.GetSystem<BlastSystem>() ?? throw new System.InvalidOperationException("MineSystem needs BlastSystem registered before it");
             Mines = new NativeList<Mine>(64, Allocator.Persistent);
             triggered = new NativeList<int>(64, Allocator.Persistent);
+            compiled = new NativeArray<VehicleProfile>(Archetypes.Count, Allocator.Persistent);
+            for (int a = 0; a < Archetypes.Count; a++) compiled[a] = VehicleProfile.ForArchetype((byte)a);
         }
 
         /// <summary>How many mines are lying live or arming.</summary>
@@ -177,10 +181,14 @@ namespace TW.Sim.Combat
 
             // ---- who stepped on what ---------------------------------------------------------------------------
             triggered.Clear();
+            if (kinematics == null) kinematics = w.GetSystem<VehicleKinematicsSystem>();
             new TriggerJob
             {
                 Count = w.HighWater, Mines = Mines.AsArray(),
                 Position = w.Position, Flags = w.Flags, Hp = w.Hp, Team = w.Team, Archetype = w.Archetype, Yaw = w.Yaw,
+                // the match's table (2026-09-28): the compiled switch knows no unit that is only a definition, and gave
+                // every such machine (the Skimmer, the Salvo, the Proving Ground's) the Maw's footprint
+                Profiles = kinematics != null && kinematics.Profiles.IsCreated ? kinematics.Profiles : compiled,
                 Triggered = triggered,
             }.Run();
             for (int k = 0; k < triggered.Length; k += 2)
@@ -228,6 +236,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<float> Hp, Yaw;
             [ReadOnly] public NativeArray<byte> Team, Archetype;
+            [ReadOnly] public NativeArray<VehicleProfile> Profiles;   // the match table, by archetype (VehicleKinematicsSystem)
             public NativeList<int> Triggered;   // (mine, victim) pairs
 
             const float WidestHull = MineSystem.WidestHull;
@@ -297,10 +306,10 @@ namespace TW.Sim.Combat
                 if (vehicle && !trip)
                     // the hull's footprint in its own yaw, not a disc round its centre (VehicleProfile.Covers, the same test
                     // VehicleModules asks when the burst reaches the hull)
-                    return VehicleProfile.ForArchetype(Archetype[i]).Covers(Yaw[i], p, mine.Pos);
+                    return Profiles[Archetype[i]].Covers(Yaw[i], p, mine.Pos);
                 if (trip)
                 {
-                    float hull = vehicle ? VehicleProfile.ForArchetype(Archetype[i]).HalfWidth : 0f;
+                    float hull = vehicle ? Profiles[Archetype[i]].HalfWidth : 0f;
                     return ToSegment(p, mine.Pos, end) <= TripwireReach + hull;
                 }
                 float3 q = p - mine.Pos; q.y = 0f;
@@ -327,6 +336,7 @@ namespace TW.Sim.Combat
         {
             if (Mines.IsCreated) Mines.Dispose();
             if (triggered.IsCreated) triggered.Dispose();
+            if (compiled.IsCreated) compiled.Dispose();
         }
     }
 }

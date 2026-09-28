@@ -48,7 +48,10 @@ namespace TW.Sim
         // v16 (2026-09-28, the Proving Ground): sixteen definitions (archetypes 21-36) in UnitDefinitions.All and two
         // InfantrySpec fields (MineCharges, NeverPinned) change the unit tables' fingerprints from tick 0; the header gains
         // SimConfig.Endless; UnitAbilityId 13-14, SapperOrdered/SapperLaying and SimSystemOrder.Sapper appended, unused yet.
-        public const ushort FormatVersion = 16;
+        // v17 (2026-09-28, the sapper): SapperSystem joins the chain at order 120 with its per-slot state (Charges, Phase,
+        // Kind, Goal, Args, LayTicks, Back, Target); CommandType.UnitAbility is consumed (b = UnitAbilityId in the low
+        // byte, AbilityArgs above it); MineSystem's trigger reads the match's vehicle profiles.
+        public const ushort FormatVersion = 17;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -23,7 +23,7 @@ namespace TW.Sim
         public const int Command = 100;
         /// <summary>The sapper: reads the tick's UnitAbility orders after TrenchOrders (110), before the flow fields (400)
         /// build the cell goal it sets. 2026-09-28.</summary>
-        public const int Sapper = Command + 20;
+        public const int Sapper = 120;   // Command + 20, written out: Tools/codemap.py reads literals
         public const int Mission = 200;
         public const int Economy = 300;
         public const int FlowField = 400;

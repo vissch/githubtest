@@ -276,14 +276,45 @@ namespace TW.Tests
             Assert.GreaterOrEqual(hp - r.W.Hp[hull], MineSystem.MineDamage * TW.Sim.Units.VehicleModulesSystem.MineHullShare - 1e-3f, "and the hull takes the mine's share, not a near miss's five points");
         }
 
+        /// <summary>A machine that exists only as a definition (UnitDefinitions) sets a mine off under ITS hull. The
+        /// trigger read the compiled switch until 2026-09-28, which knows no such machine and answered with the Maw's
+        /// 4.3 x 3.8 m: a Mercy (2.3 x 1.6) a metre clear of a mine set it off.</summary>
+        [Test]
+        public void AMachineThatIsOnlyADefinitionSetsAMineOffUnderItsOwnHull()
+        {
+            using var r = new Rig();
+            var mercy = r.M.Vehicles.Profiles[VehicleArchetype.Mercy];
+            float beside = mercy.HalfWidth + 1f;
+            Assert.Less(beside, TW.Sim.Nav.VehicleProfile.Maw.HalfWidth, "setup: clear of the Mercy, under where a Maw would be");
+            int mine = r.Mines.Place(r.W, Open, float3.zero, 0f, 0, MineKind.Mine);
+            r.Step(MineSystem.ArmTicks + 1);
+            int clear = r.Walker(Open + new float3(beside, 0f, 0f), VehicleArchetype.Mercy);
+            r.W.Yaw[clear] = 0f;
+            r.Step();
+            Assert.AreEqual(0, r.Count(SimEventType.MineTriggered), "a metre clear of its flank: nothing");
+            Assert.AreEqual((int)MineState.Armed, r.Mines.Mines[mine].State);
+            r.W.Despawn(clear);
+            int over = r.Walker(Open + new float3(mercy.HalfWidth - 0.4f, 0f, 0f), VehicleArchetype.Mercy);
+            r.W.Yaw[over] = 0f;
+            r.Step();
+            Assert.AreEqual(1, r.Count(SimEventType.MineTriggered, mine, over), "under its own flank: it goes off");
+        }
+
         [Test]
         public void TheTriggersBoxAndTheBurstsGateHoldForEveryHull()
         {
             // two margins the code once held by arithmetic nobody asserted (critique round 5): the trigger's box pad against
             // every hull's corner plus a tripwire's reach, and the burst's gate against the corner a covered mine can lie at
-            for (byte a = 4; a <= 11; a++)
+            // every machine of a match (2026-09-28): the shipped ones and the ones that are only definitions, read from the
+            // table the trigger reads since then
+            using var r = new Rig();
+            int machines = 0;
+            for (int a = 0; a < Archetypes.Count; a++)
             {
-                var prof = TW.Sim.Nav.VehicleProfile.ForArchetype(a);
+                var line = r.W.Units.Roster[a];
+                if (line.Hp <= 0f || !line.IsVehicle) continue;
+                machines++;
+                var prof = r.M.Vehicles.Profiles[a];
                 Assert.LessOrEqual(prof.Reach + MineSystem.TripwireReach, MineSystem.WidestHull, "archetype " + a + ": the box pad covers its corner and a tripwire's reach");
                 // the farthest point the burst's Covers accepts (the corner grown by the margin) lies inside the gate
                 // VehicleModules draws for a Mine-shaped burst, for the smaller of the two bursts (a mine's, not a tripwire's)
@@ -294,6 +325,7 @@ namespace TW.Tests
                 Assert.IsTrue(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f), TW.Sim.Units.VehicleModulesSystem.MineHullMargin), "archetype " + a + ": the burst's margin reaches half a metre past the flank");
                 Assert.IsFalse(prof.Covers(0f, new Unity.Mathematics.float3(0f, 0f, 0f), new Unity.Mathematics.float3(prof.HalfWidth + 0.5f, 0f, 0f)), "archetype " + a + ": the trigger's footprint does not");
             }
+            Assert.GreaterOrEqual(machines, 21, "the nine shipped machines, the Skimmer and the Salvo, and the Proving Ground's ten");
         }
         /// <summary>The mine trigger's grid (MineSystem.TriggerJob) finds exactly what the brute force found (every armed mine
         /// against every slot, the first slot to set it off wins, mines in index order) over random fields of mines,
@@ -330,7 +362,9 @@ namespace TW.Tests
                 var expected = Reference(mines, pos, flags, hp, yaw, team, arch);
                 using var jobMines = new NativeArray<Mine>(mines, Allocator.Temp);
                 using var triggered = new NativeList<int>(Allocator.Temp);
-                var job = new MineSystem.TriggerJob { Count = slots, Mines = jobMines, Position = pos, Flags = flags, Hp = hp, Yaw = yaw, Team = team, Archetype = arch, Triggered = triggered };
+                using var profiles = new NativeArray<TW.Sim.Nav.VehicleProfile>(Archetypes.Count, Allocator.Temp);
+                for (int a = 0; a < Archetypes.Count; a++) { var all = profiles; all[a] = TW.Sim.Nav.VehicleProfile.ForArchetype((byte)a); }
+                var job = new MineSystem.TriggerJob { Count = slots, Mines = jobMines, Position = pos, Flags = flags, Hp = hp, Yaw = yaw, Team = team, Archetype = arch, Profiles = profiles, Triggered = triggered };
                 job.Execute();
                 Assert.AreEqual(expected.Count, triggered.Length, "trial " + trial + ": as many (mine, victim) pairs");
                 for (int k = 0; k < expected.Count; k++) Assert.AreEqual(expected[k], triggered[k], "trial " + trial + ", pair entry " + k);

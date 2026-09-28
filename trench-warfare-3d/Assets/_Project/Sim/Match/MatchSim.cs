@@ -39,6 +39,7 @@ namespace TW.Sim.Match
         public BurningSystem Burning;
         public BeamSystem Beam;
         public MineSystem Mines;
+        public SapperSystem Sapper;
         public TW.Sim.Combat.CombatCatalogueSystem Catalogue;
         public TerrainHashSystem TerrainHash;
 
@@ -98,6 +99,8 @@ namespace TW.Sim.Match
             World.AddSystem(Beam);                          // A5 / docs/21 SIM-C: the sweeping beam (steps before Burning, registered after it)
             Mines = new MineSystem(map);
             World.AddSystem(Mines);                         // A5 / docs/21 SIM-D: mines and tripwires (steps after VehicleKinematics; its bursts resolve next tick)
+            Sapper = new SapperSystem(map);
+            World.AddSystem(Sapper);                        // A5 / docs/21 SIM-D: the man who lays them, on a UnitAbility (steps with the commands, order 120)
             Suppression = new SuppressionSystem();
             World.AddSystem(Suppression);                   // A2: decay (stance consequences are applied by MovementSystem)
             Hero = new HeroSystem(map);

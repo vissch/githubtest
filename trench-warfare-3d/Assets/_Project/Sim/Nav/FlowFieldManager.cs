@@ -41,7 +41,9 @@ namespace TW.Sim.Nav
 
     public sealed class FlowFieldManager : ISimSystem
     {
-        public const int MaxGoals = 16;
+        /// <summary>16 until 2026-09-28: a sapper's errand is a cell goal, so the table has room for a handful of them
+        /// beside the trenches' and objectives' (the hash covers goals only up to GoalCount, so the size is not in it).</summary>
+        public const int MaxGoals = 32;
         public const int MaxRebuildsPerTick = 2;
         public const float TrackedCrossWidth = 3.5f;   // Mark IV / A7V class; wheeled vehicles never cross (A5b)
 
@@ -97,6 +99,22 @@ namespace TW.Sim.Nav
             int id = GoalCount++;
             Goals[id] = key; Dirty[id] = 1; Ready[id] = 0; RallyCell[id] = -1;
             return id;
+        }
+
+        /// <summary>GetGoal for a caller that acts on a command: -1 when the table is full, never a throw (a throw inside a
+        /// lockstep tick is a crash on one machine and a desync on the other).</summary>
+        public int TryGetGoal(GoalKey key)
+        {
+            for (int g = 0; g < GoalCount; g++) if (Goals[g].Equals(key)) return g;
+            return GoalCount < MaxGoals ? GetGoal(key) : -1;
+        }
+
+        /// <summary>Make an existing goal over for another key (a cell goal nobody walks to any more, SapperSystem): its
+        /// field is rebuilt before anyone follows it. The caller answers for nobody still holding the id.</summary>
+        public void Retarget(int goalId, GoalKey key)
+        {
+            if (goalId < 0 || goalId >= GoalCount) return;
+            Goals[goalId] = key; Dirty[goalId] = 1; Ready[goalId] = 0; RallyCell[goalId] = -1;
         }
 
         public bool IsReady(int goalId) => goalId >= 0 && goalId < GoalCount && Ready[goalId] != 0;

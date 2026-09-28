@@ -47,6 +47,26 @@ namespace TW.Tests
             Assert.AreEqual(1, m.World.AliveCount);
         }
 
+        /// <summary>A UnitAbility is the sapper's (SapperSystem, 2026-09-28): any other ability id, and a laying order for
+        /// a slot that holds no sapper, is rejected rather than quietly dropped.</summary>
+        [Test]
+        public void UnitAbility_ThatNobodyCanCarryOut_IsRejected()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100;
+            using var m = MatchSim.CreateGreybox(cfg);
+            using var deploy = new NativeArray<SimCommand>(new[] { SimCommand.Deploy(0, 0, 0) }, Allocator.Temp);
+            m.Step(deploy);   // slot 0: a rifleman
+            using var cmds = new NativeArray<SimCommand>(new[]
+            {
+                new SimCommand { Tick = 1, Player = 0, Type = CommandType.UnitAbility, A = 0, B = (int)TW.Sim.Units.UnitAbilityId.Bangalore, Pos = new float3(100f, 0f, 100f) },
+                new SimCommand { Tick = 1, Player = 0, Type = CommandType.UnitAbility, A = 0, B = (int)TW.Sim.Units.UnitAbilityId.LayMine, Pos = new float3(100f, 0f, 100f) },
+                new SimCommand { Tick = 1, Player = 0, Type = CommandType.UnitAbility, A = 999999, B = (int)TW.Sim.Units.UnitAbilityId.LayMine, Pos = new float3(100f, 0f, 100f) },
+            }, Allocator.Temp);
+            m.Step(cmds);
+            Assert.AreEqual(3, CountEvents(m.World, SimEventType.CommandRejected));
+            Assert.AreEqual(0, CountEvents(m.World, SimEventType.SapperOrdered));
+        }
+
         [Test]
         public void Rally_IsClampedToMap()
         {
