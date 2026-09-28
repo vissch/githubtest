@@ -746,6 +746,28 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Tools/selftest.py (`gate_cases` with a stand-in for Unity, `land_cases` on a throwaway repo).
 - **How:** a test over 3 s gets `[Test, Category("Long")]`; a new tool's tests go in a `test_<tool>.py` beside it and
   are found by name. `workflow.md`, sections 1 and 5.
+### The gym: every clip, unit, ability, death and event, one at a time, in the battle's drawing
+- **Files:**
+  - `Perf/GymCatalogue.cs`: the entries, read from the enums and the unit table. `EventHow` has one row per
+    `SimEventType` and no default.
+  - `Perf/GymDirector.cs`: staging through `SimHost.WriteWorlds` / `Issue` / `IssuePeer` only. Editor and development
+    builds only.
+  - `Presentation/Core/AnimationController.Pin.cs`: hold one man on one clip, presentation only.
+  - `Editor/Gym.cs`: **TW > Gym**, `Gym.Run`, `Gym.CommandLine`.
+
+  The agents' guide to it is the `tw-gym` skill (on `lane/show/pipe-skills2` until that lands).
+- **Tests:**
+  - GymCatalogueTests: a new event, ability or death kind with no gym row fails.
+  - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
+  - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
+- **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
+  `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
+  "<options>"`.
+  - The run goes to `%LOCALAPPDATA%\TrenchWarfare\gym\<run>` (`TW_GYM`), never into the checkout.
+  - Each entry gets a JPG of the bands and a JSON sidecar, and the run's summary file lists every flag.
+- **Trap:** a death or effect raised inside `WriteWorlds` never reaches the picture, because `SimWorld.Step` clears
+  events first. The gym stages the cause and lets a system do the killing inside a tick.
+- **Trap:** `desync` is `null` in a run without the canary. Only a canary run can see one.
 
 ### Windows build
 - **Files:** `Editor/BuildWindows.cs`, `Resources/ShaderKeep/`.
@@ -781,9 +803,9 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 
 <!-- gen:tests -->
 - **Match:** AssaultLadderTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, StressPresetTests
-- **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
+- **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
-- **Show:** AllocProbeSanityTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests
+- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckRecordTests
 - **Stills:** VfxStills, WalkerStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
