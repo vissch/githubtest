@@ -211,6 +211,7 @@ namespace TW.Presentation.Tactical
             recipes = ReadRecipes();
             shellFire = ReadShellFire();
             shellGrit = ReadShellGrit();
+            classArms = ReadClassArms();
         }
 
         void Start()
@@ -503,13 +504,8 @@ namespace TW.Presentation.Tactical
                 {
                     if (PropTarget.IsProp(e.B)) { ShotAtWreck(e); break; }   // at a wreck its enemies are behind (CombatFx.Wrecks)
                     if (tracers.Count >= 1500 || e.B < 0 || e.B >= w.Position.Length) break;
-                    float scale = 1f;
-                    var cam = Camera.main;
-                    if (units != null)
-                    {
-                        float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
-                        scale = units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
-                    }
+                    ViewNow(out var cam, out _, out float scale);   // CombatFx.Weapons.cs: once a frame
+                    var arms = ArmsNow(w, e);                         // and the shooter's class: its flare, round, spurt, smoke
                     // the round leaves the muzzle of the rifle as it is drawn this frame (the figure's baked sockets for the clip
                     // the controller chose) and goes into the chest of the man it was fired at; without sockets (a vehicle, the
                     // far tier, no controller) both ends are estimated from the stance
@@ -518,7 +514,7 @@ namespace TW.Presentation.Tactical
                     if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
                     // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
                     float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
-                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0 });
+                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer });
                     // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
                     if (ShotLog.On)
                     {
@@ -539,7 +535,7 @@ namespace TW.Presentation.Tactical
                         // the flare: the root of the book's flame (the left edge of every cell) sits on the muzzle and it streams
                         // out down the barrel; half the flares are flipped across the barrel for variety (mirror and half a turn),
                         // never along it. Over-bright at night so the bloom takes it.
-                        float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale;
+                        float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale * arms.Flare;
                         float roll = FlipbookFx.ScreenRoll(cam, barrel);
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
@@ -572,17 +568,18 @@ namespace TW.Presentation.Tactical
                             Throw(hit, drawn ? 5 : 7, 0, 5.5f, 0.09f);
                             if (SceneMood.Night && UnityEngine.Random.value < 0.35f) Throw(hit, 3, 3, 11f, 0.035f);
                             // and in the mud a spurt of dust that leans away from the shooter
-                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
+                            if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale * arms.Spurt, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
-                        chunks.Add(new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
+                        chunks.Add(new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * arms.Smoke * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
                     if (e.Scalar < 0.5f && chunks.Count < 600 && Near(from, 34f))
                     {
                         // up close every shot throws its case out of the breech to the right, and the muzzle keeps a thread of smoke
                         Vector3 right = Vector3.Cross(Vector3.up, barrel).normalized, breech = from - barrel * (0.75f * scale);
-                        chunks.Add(new Chunk { Pos = breech + right * (0.05f * scale), Vel = right * UnityEngine.Random.Range(1.5f, 2.5f) + Vector3.up * UnityEngine.Random.Range(1.6f, 2.4f) - barrel * UnityEngine.Random.Range(0.1f, 0.6f),
-                            Born = Time.time, Life = 3f, Size = 1f, Kind = 5 });
+                        var brass = new Chunk { Pos = breech + right * (0.05f * scale), Vel = right * UnityEngine.Random.Range(1.5f, 2.5f) + Vector3.up * UnityEngine.Random.Range(1.6f, 2.4f) - barrel * UnityEngine.Random.Range(0.1f, 0.6f),
+                            Born = Time.time, Life = 3f, Size = 1f, Kind = 5 };
+                        if (arms.Case) chunks.Add(brass);   // its draws taken either way (the shared stream); a hull gun's case stays inside
                         chunks.Add(new Chunk { Pos = from + barrel * (0.05f * scale), Vel = barrel * 0.25f + Vector3.up * 0.5f, Born = Time.time, Life = UnityEngine.Random.Range(1.8f, 2.6f), Size = 0.06f, Kind = 7 });
                     }
                     break;
@@ -594,13 +591,7 @@ namespace TW.Presentation.Tactical
                     if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater) break;
                     if (hitsThisFrame >= (CameraShake.DistanceToLook(w.Position[e.B]) < 45f ? 40 : 10)) break;
                     hitsThisFrame++;
-                    var cam = Camera.main;
-                    float scale = 1f;
-                    if (units != null)
-                    {
-                        float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
-                        scale = units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
-                    }
+                    ViewNow(out var cam, out float viewZoom, out float scale);   // CombatFx.Weapons.cs: once a frame
                     // a tank that died this tick has no flags left, and its slot may hold a man already: ask the tank view
                     bool vehicle = SceneHooks.IsTankSlot != null ? SceneHooks.IsTankSlot(e.B) : (w.Flags[e.B] & (uint)UnitFlags.Vehicle) != 0;
                     if (vehicle && SceneHooks.TanksDrawn) { hitsThisFrame--; break; }   // TankRenderer strikes the sparks where the round met the plate
@@ -616,7 +607,7 @@ namespace TW.Presentation.Tactical
                         // the puff's two draws are taken whether or not it is drawn: fx.recipes must not shift the shared stream
                         var mirror = UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None;
                         float puffRoll = UnityEngine.Random.Range(-0.5f, 0.5f);
-                        var blood = vehicle ? null : BloodFor(e.Scalar, DebrisRenderer.Gore, cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f, recipes);
+                        var blood = vehicle ? null : BloodFor(e.Scalar, DebrisRenderer.Gore, viewZoom, recipes);
                         if (blood.HasValue)
                         {
                             // blood in place of the dust: the drawing sprays from its left edge, so the card sits half its width on
