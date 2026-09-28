@@ -54,6 +54,9 @@ namespace TW.Presentation.Tactical
             MendSparks, // a welding torch's sparks: an engineer mending (loops)
             ShellLean,  // earth thrown one way: the burst of a shell that came in flying
             WreckSmoke, // black smoke standing over a burning wreck (loops)
+            // blood on hits (owner, 2026-09-28), rooted at the left edge: the spray goes along the round
+            BloodSpurt, // a rifle hit
+            BloodSnipe, // a heavy hit: a sniper's, a machine gun's burst at close range
             Count
         }
 
@@ -168,6 +171,8 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "MendSparks", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.40f, 0.78f, 0.32f), Low = 0.00f, High = 0.59f, Bands = new Vector4(0.13f, 0.25f, 0.43f, 0.75f), Ink = new Vector2(0.09f, 0.95f), Fill = 0.90f },
             new Sheet { Name = "ShellLean", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Lit = 0.8f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.15f, High = 0.95f, Ink = new Vector2(0.13f, 0.89f), Fill = 0.87f },   // High past its p97 0.79: the pale core must not light up (ShellPlume, bench r4)
             new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.6f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },
+            new Sheet { Name = "BloodSpurt", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Lit = 0.5f, Tint = new Color(0.62f, 0.07f, 0.05f), Low = 0.00f, High = 0.75f, Ink = new Vector2(0.00f, 1.00f), Fill = 0.98f },
+            new Sheet { Name = "BloodSnipe", Cols = 8, Rows = 4, Frames = 25, Snap = true, Fps = 12f, Mood = 0.45f, Lit = 0.5f, Tint = new Color(0.62f, 0.07f, 0.05f), Low = 0.05f, High = 0.69f, Ink = new Vector2(0.00f, 1.00f), Fill = 0.87f },
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
