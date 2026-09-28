@@ -94,7 +94,7 @@ namespace TW.Presentation.Tactical
         // Deep: a cloud as deep as it is wide (fx.smokeSoft)
         static readonly Sheet[] Sheets =
         {
-            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.55f, 0.50f, 0.45f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f, Deep = true },   // a cloud born of fire: the full night tint turned it saturated blue
+            new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.54f, 0.52f, 0.50f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f, Deep = true },   // a cloud born of fire: the full night tint turned it saturated blue; a warm grey, not brown (bench s1: 0.55/0.50/0.45 read as mud)
             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.30f, High = 0.95f },
             new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.60f, 0.66f, 0.76f), Low = 0.28f, High = 0.85f },
             new Sheet { Name = "Wings",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Play = 0.75f, Tint = new Color(0.74f, 0.65f, 0.52f), Low = 0.15f, High = 0.42f },
