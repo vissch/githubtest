@@ -209,6 +209,7 @@ namespace TW.Presentation.Tactical
             columnPlay = FlipbookFx.ReadColumnPlay();
             recipes = ReadRecipes();
             shellFire = ReadShellFire();
+            shellGrit = ReadShellGrit();
         }
 
         void Start()
