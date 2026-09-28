@@ -183,7 +183,7 @@ namespace TW.Presentation.Tactical
                     float far = FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
                     float bright = (SceneMood.Night ? 1.5f : 1f) * Mathf.Lerp(1f, 2f, (far - 1f) / (FlipbookFx.FarGrowMax - 1f));
                     lanceCards.Clear();
-                    lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * BeamLanceWidth * far, BeamLanceHeight, Mathf.Repeat(run, 27f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                    lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * BeamLanceWidth * far, BeamLanceHeight * far,   // at 240 the old column stood 60 m: the drawn one grows to 75 Mathf.Repeat(run, 27f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
                     books.DrawPacked(FlipbookFx.Book.FireLance, lanceCards, bounds);
                     lanceCards.Clear();
                     lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * 3f, s.HalfWidth * 3f, Mathf.Repeat(run, 20f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
