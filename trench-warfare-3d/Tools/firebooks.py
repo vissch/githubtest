@@ -84,7 +84,7 @@ BOOKS = {
     # VFX pass wave 1, new sheets (desktop H3 / re-cuts, owner's montage OK 2026-09-28; published as tw_*)
     "FireCookOff": ("tw_cookoff_fireball_8x4_12fps_32f.png",      "luma",  False, (2, 30)),   # a hull cooking off; frames 0, 31 empty
     "FireTall":    ("tw_fire_tall_8x4_12fps_32f_loop.png",        "luma",  False, (0, 23)),   # trees and posts burning; two flicker periods
-    "FireGunBlast":("tw_gun_blast_8x4_12fps_32f.png",             "luma",  True,  (0, 12)),   # the first burst only (the drawing fires twice)
+    "FireGunBlast":("tw_gun_blast_8x4_12fps_32f.png",             "luma",  True,  (0, 11)),   # the first burst only (the drawing fires twice; f12 is cut at the cell edge)
     "Smoulder":    ("tw_crater_smoulder_8x4_12fps_32f_loop.png",  "luma",  False, None),      # a crater smouldering (seam crossfaded)
     "GroundRing":  ("tw_ground_ring_8x4_12fps_32f.png",           "luma",  False, None),      # the shock ring, seen from above
     "DustPuff":    ("tw_dust_puff_8x4_12fps_32f.png",             "luma",  False, (2, 29)),   # hits and landings; frames 0-1 a stray cap
