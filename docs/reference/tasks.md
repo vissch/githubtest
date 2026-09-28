@@ -285,7 +285,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
   brushes or pushes against and any machine flattens scrap it drives over (`Sim/Nav/VehicleKinematics.Wrecks.cs`);
   both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time, as do machine-gun rounds a wreck's cover stopped
-  (`Sim/Combat/DirectFire.Wrecks.cs`, `CombatTables.WearsWrecks`).
+  (`Sim/Combat/DirectFire.Wrecks.cs`, `CombatTables.WearsWrecks`). A shot at a wreck names it in `Shot.b` as
+  `Sim/Core/PropTarget.cs` encodes it (`-2 - prop`).
 - **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests.
 
 ### Factions, rosters and the unit table

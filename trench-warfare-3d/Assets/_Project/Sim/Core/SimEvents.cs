@@ -8,7 +8,7 @@ namespace TW.Sim
     public enum SimEventType : byte
     {
         None = 0,
-        Shot,               // a = shooter slot, b = target slot, dir = direction, scalar = 0 direct / 1 arc
+        Shot,               // a = shooter slot, b = target slot (or PropTarget.Encode(prop) <= -2: at a wreck), dir = direction, scalar = 0 direct / 1 arc
         Hit,                // a = shooter, b = target, scalar = damage (negative = ricochet)
         NearMiss,           // a = target slot, scalar = suppression added
         Explosion,          // a = ability/weapon id, pos, scalar = radius
