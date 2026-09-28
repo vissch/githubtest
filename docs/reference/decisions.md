@@ -77,7 +77,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **VFX pass (2026-09-28, loop mode; defaults taken for work only they do not decide, nothing landed on them).**
-  From the tw3d-board catalogue `evidence/vfx-run/phase1-catalogue.md` section 6 (Q1, blood, is answered above):
+  From the tw3d-board catalogue (evidence, vfx-run, phase1-catalogue) section 6 (Q1, blood, is answered above):
   Q2 the beam is fire, not an electric lance (default fire: the new FireLance sheet was generated on it); Q3 keep the
   old pack books and layer the new ones (default); Q4 battle haze overview-only; Q5 a SIM flight time for indirect
   rounds (default no); Q6 scars by SHOW matching, no Dir in CraterStamp; Q7 drawn pyres on burning hulls (default yes);
