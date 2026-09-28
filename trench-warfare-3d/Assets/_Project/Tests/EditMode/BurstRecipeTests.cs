@@ -55,6 +55,25 @@ namespace TW.Tests
         }
 
         [Test]
+        public void On_OnlyABigShell_ThrowsAGroundRing()
+        {
+            Assert.IsTrue(CombatFx.RecipeFor(0f, 0.8f, false, 1f, CombatFx.RingRadius).Ring, "a shell of the ring's radius");
+            Assert.IsFalse(CombatFx.RecipeFor(0f, 0.8f, false, 1f, CombatFx.RingRadius - 0.5f).Ring, "a smaller shell");
+            Assert.IsFalse(CombatFx.RecipeFor(2f, 0f, false, 1f, 9f).Ring, "a cook-off");
+            Assert.IsFalse(CombatFx.RecipeFor(0f, 0.8f, false, 0f, 9f).Ring, "fx.recipes 0");
+        }
+
+        [Test]
+        public void Pack_AFlatCard_LiesOnTheGround()
+        {
+            var at = UnityEngine.Vector3.zero;
+            Assert.AreEqual(2f, FlipbookFx.Pack(at, 1f, 1f, 0f, 1f, 1f, 0f, FlipbookFx.Kind.Flat).m12, "flat");
+            Assert.AreEqual(2f, FlipbookFx.Pack(at, 1f, 1f, 0f, 1f, 1f, 0f, FlipbookFx.Kind.Flat | FlipbookFx.Kind.Upright).m12, "flat wins over upright");
+            Assert.AreEqual(1f, FlipbookFx.Pack(at, 1f, 1f, 0f, 1f, 1f, 0f, FlipbookFx.Kind.Upright).m12, "upright as before");
+            Assert.AreEqual(0f, FlipbookFx.Pack(at, 1f, 1f, 0f, 1f, 1f, 0f, FlipbookFx.Kind.None).m12, "facing the view as before");
+        }
+
+        [Test]
         public void On_WaterAndMasonry_KeepTheOldBurst()
         {
             AssertOld(CombatFx.RecipeFor(0f, 0.8f, true, 1f), "a shell in water");

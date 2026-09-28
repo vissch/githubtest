@@ -2,7 +2,7 @@
 // round kicks up, the puff and star where a man is hit, the muzzle flare. One quad each, drawn instanced by FlipbookFx.
 // Nothing about the sprite is in the mesh: the instance matrix is not a transform but a packed record (see FlipbookFx.Pack)
 //   m03 m13 m23  world position          m00 width (m)      m11 height (m)     m22 frame (fractional: blends to the next)
-//   m01 alpha    m10 brightness           m02 roll (rad)     m12 1 = upright (turns to the view about Y only, stays vertical)
+//   m01 alpha    m10 brightness           m02 roll (rad)     m12 1 = upright (turns to the view about Y only, stays vertical), 2 = flat on the ground
 //   m20 1 = anchored at its bottom edge   m21 the card's opacity, negative to mirror it   (m01 is the fade, 1 at birth)
 // and the vertex shader builds the card facing the camera. The books are greyscale drawings with alpha: their own light and
 // dark reads as the toon's lit and shade bands (_Lit), so a tinted cloud sits under the same moon as the men. Additive books
@@ -87,7 +87,10 @@ Shader "TW/Flipbook (URP)"
                 float3 viewRight = UNITY_MATRIX_V[0].xyz, viewUp = UNITY_MATRIX_V[1].xyz;
                 float3 toEye = normalize(_WorldSpaceCameraPos - at);
                 float3 flatRight = normalize(cross(float3(0, 1, 0), toEye));
-                float3 right = lerp(viewRight, flatRight, upright), up = lerp(viewUp, float3(0, 1, 0), upright);
+                // m12 2 = lying flat on the ground, facing up (a ring seen from above): world X is its right, world Z its up
+                float flat = step(1.5, upright); upright = saturate(upright) * (1.0 - flat);
+                float3 right = lerp(lerp(viewRight, flatRight, upright), float3(1, 0, 0), flat);
+                float3 up = lerp(lerp(viewUp, float3(0, 1, 0), upright), float3(0, 0, 1), flat);
                 o.positionWS = at + right * c.x + up * c.y;
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 // the book: frames left to right, top row first; a fractional frame blends into the next
