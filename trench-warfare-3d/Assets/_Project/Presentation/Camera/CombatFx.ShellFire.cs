@@ -38,7 +38,7 @@ namespace TW.Presentation.Tactical
         public static Color EmberFor(bool night, float fire)
         {
             float k = Mathf.Clamp01(fire);
-            return (night ? new Color(0.30f, 0.10f, 0.03f) : new Color(0.95f, 0.42f, 0.10f)) * k;   // by day past 0.55: the winter grade's -28 saturation ate half of it
+            return (night ? new Color(0.30f, 0.10f, 0.03f) : new Color(0.55f, 0.24f, 0.06f)) * k;   // on the lit billows now (_EmberLit), where 0.95 by day was a peach wash
         }
 
         /// <summary>Whether a burst is falling masonry (the sim's Dir.y shape 1): a wall coming down has dust, not fire.</summary>
@@ -71,13 +71,14 @@ namespace TW.Presentation.Tactical
         {
             if (shellFire <= 0f) return;
             bool night = SceneMood.Night;
-            // the flamethrower's glow by day; at night less (critique s3: at 3.4 three near-white shapes outshone the tracers)
-            float glow = (night ? 2.4f : 2.0f) * SceneTints.Now.Glow, alpha = Mathf.Min(1f, shellFire) * (night ? 0.85f : 1f);
+            // well under the flamethrower's glow: at 2.0 by day and 2.4 at night the body (tint 1.4 x glow) clipped to cream and a
+            // yellow-white slab (critique c2); and less again as it grows with the zoom, so a far fire stays orange
             float far = ShellFar();   // grown with the zoom
+            float glow = (night ? 1.8f : 1.15f) * SceneTints.Now.Glow / Mathf.Sqrt(far), alpha = Mathf.Min(1f, shellFire) * (night ? 0.85f : 1f);
             float w = ShellFireWidth(r, closeUp) * Mathf.Min(1f, shellFire) * far;
             // centred low over the hole, not anchored and sunk: a sunk card's bottom edge is a ruler line on the snow
             books.Add(FlipbookFx.Book.Fireball, p + Vector3.up * (0.5f * r * far), w, ShellFireLife, FlipbookFx.Kind.Upright | (mirror ? FlipbookFx.Kind.Mirror : 0),
-                velocity: rise * 0.35f, grow: 0.3f, alpha: alpha, glow: glow, pop: 0.25f, startFrame: 2f);
+                velocity: rise * 0.35f, grow: 0.3f, alpha: alpha, glow: glow, pop: 0.25f, startFrame: 5f);   // past frames 2-4, a four-point star cel
             for (int k = 0; k < ShellPockets; k++)
                 books.Add(FlipbookFx.Book.Fireball, p + PocketOffset(p, k, r) * far, w * 0.65f, PocketLife, (mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                     velocity: rise, grow: 0.4f, alpha: alpha * PocketAlpha, glow: glow, pop: 0.3f, delay: 0.08f + 0.12f * k, startFrame: 6f + k * 3f);   // the fuller frames (4 and 6 read as glyphs)
@@ -100,9 +101,10 @@ namespace TW.Presentation.Tactical
             if (shellFire <= 0f || shellGrit <= 0f) return;
             // fast and short-lived, so it leaves the fire in the first frames instead of parking on it as polka dots, and two
             // sizes (critique c1b): seven in ten fine, three in ten coarse
-            int n = Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit), coarse = Mathf.RoundToInt(n * 0.3f);
-            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, n - coarse, 15f + r, 0.09f, Mud, 1.4f, 0f, 0.9f, lean, tick + 29u);
-            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, coarse, 12f + 0.8f * r, 0.2f, Mud, 1.4f, 0f, 0.9f, lean, tick + 31u);
+            // specks, not dots (critique c2: one-value octagons parked on the fire): twice as many fine at 0.055 m, a fifth coarse at 0.14
+            int n = Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit), coarse = Mathf.RoundToInt(n * 0.2f);
+            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, 2 * (n - coarse), 15f + r, 0.055f, Mud, 1.4f, 0f, 0.9f, lean, tick + 29u);
+            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, coarse, 12f + 0.8f * r, 0.14f, Mud, 1.4f, 0f, 0.9f, lean, tick + 31u);
         }
     }
 }
