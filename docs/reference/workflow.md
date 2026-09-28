@@ -331,6 +331,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
+| `TW.Editor.WreckLab.Shell(x, z, damage, radius)` | Editor/WreckLab.cs | One shell at a point in every world, bursting next tick. |
+| `TW.Editor.WreckLab.Wreck(x, z)` | Editor/WreckLab.cs | The wreck prop nearest a point within 8 m: "prop N Kind hp H", or "none". |
 <!-- /gen:eval-api -->
 
 ## 7. Windows build and benchmark

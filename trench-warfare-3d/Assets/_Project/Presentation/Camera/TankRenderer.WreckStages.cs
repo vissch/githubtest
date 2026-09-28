@@ -220,6 +220,18 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>A point on a wreck brought down to what is left of it: a broken wreck has lost its crown band, scrap is
+        /// the keel pressed flat (the first stills had the deck's flames hanging in the air over the heap).</summary>
+        Vector3 OnWhatIsLeft(View v, Vector3 at)
+        {
+            if (!v.Dead || v.Stage <= WreckStageRules.Whole) return at;
+            var c = CarcassOf(v.Model, 0);
+            float bands = c != null ? c.Bands : 3f;
+            float left = v.Stage == WreckStageRules.Broken ? (bands - 1f) / bands : v.Squash / bands;
+            at.y = Mathf.Min(at.y, v.Heave.Value + v.Model.Height * left);
+            return at;
+        }
+
         /// <summary>A shard: the carcass with every chunk but its own masked, turned about that chunk's middle.</summary>
         void DrawShards()
         {

@@ -261,10 +261,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   as the sim's wreck prop loses hit points, the stage changes, shards, cleared heaps sinking, the map's own wrecks adopted
   as husks), `Presentation/Camera/WreckModel.cs` (the root part cut into chunks at load, the chunk in UV4.x),
   `Presentation/Camera/WreckStages.cs` (`WreckStageRules`: which chunks are gone at each stage); `Shaders/Tank_URP.shader`
-  collapses a chunk whose bit is set in the instance's `_Chunks`.
+  collapses a chunk whose bit is set in the instance's `_Chunks`. `Editor/WreckLab.cs` shells a point or reads the wreck
+  nearest it, for staging one by hand.
 - **Tests:** GaitTests (plus the sim tests above), RiderSeatTests, WreckModelTests (the carcass and the stages' masks), DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
-  for the rig scoreboard in `docs/20-rig-scoreboard.md`.
+  for the rig scoreboard in `docs/20-rig-scoreboard.md`; WreckStills (`Tests/Stills/WreckStills.cs`) films a Maw killed and its wreck
+  shelled through every stage to nothing (a contact sheet, `TW_STILLS_DIR`).
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
 - **Trap:** vehicle meshes must import Read/Write enabled or scaling silently does nothing.
@@ -602,5 +604,5 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- gen:tests -->
 - **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckDecayTests, WreckModelTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
-- **Stills:** WalkerStills
+- **Stills:** WalkerStills, WreckStills
 <!-- /gen:tests -->
