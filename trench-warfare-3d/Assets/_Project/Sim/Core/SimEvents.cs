@@ -86,6 +86,11 @@ namespace TW.Sim
         // a = the machine's slot, b = the rocket (0..n-1, its tube), pos = where it comes down, dir.x = ticks until it
         // leaves its tube, dir.y = ticks it flies, scalar = rockets in the rack. Its burst is queued for tick + x + y.
         RocketFired,
+        // 2026-09-28 (format v16): the sapper. Ordered: a = slot, b = UnitAbilityId (LayMine / LayTripwire), pos = the
+        // point (a mine) or the line's start (a tripwire), dir = heading x length. Laying: a = slot, b = the id, pos,
+        // scalar = seconds until it is placed. The placing itself is MinePlaced. Emitted by SapperSystem (v17).
+        SapperOrdered,
+        SapperLaying,
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing

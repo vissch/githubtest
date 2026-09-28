@@ -104,7 +104,7 @@ namespace TW.Tests
             foreach (var d in UnitDefinitions.All)
             {
                 Assert.AreEqual(0f, RosterEntry.ForArchetype(d.Archetype).Hp, $"archetype {d.Archetype} is already a shipped unit");
-                Assert.IsFalse(InfantryArchetype.IsInfantry(d.Archetype), $"archetype {d.Archetype} is an infantry id");
+                Assert.AreEqual(!d.Roster.IsVehicle, InfantryArchetype.IsInfantry(d.Archetype), $"archetype {d.Archetype}: IsInfantry and the roster line disagree");
                 Assert.AreEqual(d.Archetype, d.Roster.Archetype, $"archetype {d.Archetype}: the roster line names another id");
             }
         }

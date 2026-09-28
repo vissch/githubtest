@@ -21,7 +21,7 @@ namespace TW.Tests
         }
 
         /// <summary>An id past the old walker band (6..11) and past every shipped machine.</summary>
-        const byte FarWalker = 30;
+        const byte FarWalker = 50;   // past the Proving Ground's 21-36 (2026-09-28)
 
         [Test]
         public void EveryShippedMachineDeclaresWhatItStandsOn()
@@ -51,7 +51,7 @@ namespace TW.Tests
         }
 
         /// <summary>
-        /// The point of the whole change: a walker defined at id 30 — nowhere near Pincer..Redoubt — is armoured, is a
+        /// The point of the whole change: a walker defined at id 50 — nowhere near Pincer..Redoubt — is armoured, is a
         /// walker and is not a tank, everywhere that used to ask the id range.
         /// </summary>
         [Test]

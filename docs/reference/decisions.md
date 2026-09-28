@@ -82,7 +82,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-28 | **Go for a VFX pass over every ability and unit action, explosion batches B and C included** (sky flash, shock ring, per-weapon recipes; scar layer, smouldering craters, haze): catalogue every event, design its look at close, standard and far zoom, generate new sheets on the desktop (ComfyUI, `tw-vfx-sheets`), implement on `lane/show/pipe-vfx`. Lands only on the owner's word. (Owner, in the pipeline session.) |
 | 2026-09-28 | **The FlipbookFx ordinal bug is fixed inside the VFX pass**, as its own commit on `lane/show/pipe-vfx`: `Book.Core/Head/Bloom` drew the wrong Fire rows (`Sheets` out of order with the enum; the tw3d-board finding BUG-desktop-20260928-flipbook-ordinals). A test holds `Sheets[(int)b].Name == "Fire"+b`; before/after flameshots go to the owner. (Owner, AskUserQuestion.) |
 
+## The Proving Ground (a test level with every unit)
+| Date | Decision |
+|---|---|
+| 2026-09-28 | **The five playground prototypes (Brute, Croaker, Hopper, Mercy, Frog) become stand-in battle units** with placeholder stats: machines first, the Frog as a VAT figure last. Archetypes 21-25 in `UnitDefinitions.All`, no faction's pool. (AskUserQuestion.) |
+| 2026-09-28 | **The idea units get cheap stand-ins where the sim can carry them** (a spec or a weapon the sim already reads: Sentry, AT rifle, Death Battalion, the historical armour drawn as shipped models; the Sapper on `MineSystem`, the Flamethrower on `BurningSystem`); the rest stay idea cards in the level's panel. Archetypes 26-36. (AskUserQuestion.) |
+| 2026-09-28 | **Allied selection in the level = an in-match panel (spawn 1/5/10 at the rally) plus a launch screen that picks any ten for the deploy bar**, so the real deploy path (cost, cooldown, boats) is testable too. (AskUserQuestion.) |
+| 2026-09-28 | A Proving Ground match never ends: `SimConfig.Endless`, so support calls and the bombardment keep going after a tester's wave takes an HQ (the agent's choice; replay v16). The Hopper drives as a legless walker profile (strides trenches and wire, never bogs) and is drawn hovering: the sim has no flight, and it is shot at ground level (the agent's choice). |
+
 ## Open: waiting on the owner
+- **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
+  Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
+  shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **M1.5 fun-gate playtest** with both developers is still not done. docs/11 says nothing after it is scheduled until it passes; work has continued on the owner's word.
 - **Sim protection from shelters:** map-generator shelter positions, or trench-bay protection? `NavLayer.Bunker` is never set today.

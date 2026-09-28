@@ -37,6 +37,11 @@ namespace TW.Sim
         /// deploying a different unit from slot 3 than its peer thinks it deployed is a desync, not a mistake.
         /// </summary>
         public Unity.Collections.FixedList32Bytes<byte> LoadoutA, LoadoutB;
+        // ---- 2026-09-28 (replay v16): the Proving Ground ----
+        /// <summary>No side ever wins: SectorControl still flips objectives and trenches but never sets WinnerTeam, so
+        /// a test match keeps taking support calls and shelling after a tester's wave took the HQ. In the config because
+        /// both machines must agree on it before the first tick, and in the replay header for the same reason.</summary>
+        public bool Endless;
 
         public float TickSeconds => 1f / TickRate;
         public FactionId FactionOf(int player) => Factions.Of(player == 0 ? FactionA : FactionB);

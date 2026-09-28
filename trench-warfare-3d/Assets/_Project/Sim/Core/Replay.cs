@@ -45,7 +45,10 @@ namespace TW.Sim
         // in a dead machine's slot, and holds only on the machine's first goal.
         // v15 (2026-09-28, critic round 4): PendingRocket gains LaunchTick, Shooter, ShooterGen (hashed with it): a rocket
         // still in its tube when its machine dies is dropped; a rack's landing points are clamped to the map.
-        public const ushort FormatVersion = 15;
+        // v16 (2026-09-28, the Proving Ground): sixteen definitions (archetypes 21-36) in UnitDefinitions.All and two
+        // InfantrySpec fields (MineCharges, NeverPinned) change the unit tables' fingerprints from tick 0; the header gains
+        // SimConfig.Endless; UnitAbilityId 13-14, SapperOrdered/SapperLaying and SimSystemOrder.Sapper appended, unused yet.
+        public const ushort FormatVersion = 16;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
@@ -73,6 +76,7 @@ namespace TW.Sim
             w.Write(Config.TickRate); w.Write(Config.InputDelayTicks); w.Write(Config.MaxSlots); w.Write(Config.Seed);
             w.Write(Config.SilverPerSecond); w.Write(Config.StartingSilver); w.Write(Config.EventCapacity);
             w.Write(Config.FactionA); w.Write(Config.FactionB); w.Write(Config.HeroPity0); w.Write(Config.HeroPity1);
+            w.Write(Config.Endless);   // v16
             WriteLoadout(w, Config.LoadoutA); WriteLoadout(w, Config.LoadoutB);
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
             w.Write(MapId);
@@ -127,6 +131,7 @@ namespace TW.Sim
                 TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
                 SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
                 FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
+                Endless = r.ReadBoolean(),   // v16
             };
             p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
             float3 size = ReadF3(r);

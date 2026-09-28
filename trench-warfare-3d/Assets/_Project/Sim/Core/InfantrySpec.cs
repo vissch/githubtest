@@ -53,6 +53,13 @@ namespace TW.Sim
         /// </summary>
         public int Group;
 
+        // ---- the Proving Ground's stand-ins (2026-09-28, replay v16) ----
+        /// <summary>Mines and tripwires a sapper carries (SapperSystem lays one per UnitAbility order); 0 = cannot lay.</summary>
+        public int MineCharges;
+        /// <summary>Never stays pinned: his suppression is clamped to the officer aura's unpin level every tick (the
+        /// Death Battalion). The rounds still hit him; only his nerve is different.</summary>
+        public bool NeverPinned;
+
         public const float Deg = SimMath.Pi / 180f;
 
         public static InfantrySpec For(byte archetype)

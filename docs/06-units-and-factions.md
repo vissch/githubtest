@@ -61,6 +61,20 @@ All are `UnitDefinition` fields and will be tuned; 3D columns are new behaviours
 **Slice scope:** British and German fully implemented (all their specials and vehicles); French vehicles for
 M3 enemy variety; every other faction exists as data with shared archetypes and placeholder art.
 
+### 5.4b Status of the units above (2026-09-28)
+Every row is an idea until it is in code. What is in code today, by archetype id (`Sim/Core/RosterEntry.cs`):
+- **Built, in a faction's ten:** Rifleman 0, Assault 1, Machinegunner 2, Sniper 3, Officer 12, Shield (grenadier) 13,
+  Medic 14, Repair 15, Para 16, Jetpack 17; the fiction's machines Maw 4, Tusk 5, Pincer 6, Kettle 7, Censer 8, Pavise 9,
+  Banner 10, Redoubt 11, Breaker 18.
+- **Built, fielded by no faction (the Unit Sandbox and the Proving Ground):** Skimmer 19, Salvo 20.
+- **Prototype stand-ins (the asset playground's art, placeholder stats, `UnitDefinitions.All`):** Brute 21, Croaker 22,
+  Hopper 23 (no flight in the sim: a legless walker profile drawn hovering), Mercy 24, Frog 25.
+- **Idea stand-ins on existing specs (no faction):** Sentry 26, AT rifle 27, Death Battalion 28, Mark IV Male 29,
+  Mark V 30, A7V 31, Renault FT 32, Whippet 33, Austin 34, Sapper 35 (lays on a UnitAbility once SapperSystem lands),
+  Flamethrower 36 (hits ignite once DirectFire reads `SetsBurning`).
+- **Still ideas:** Mortar team, Arditi, Field gun crew, Cavalry / camel cavalry, Mark IV Female, Saint-Chamond,
+  Schneider CA1, Garford-Putilov, Lancia 1ZM, Pierce-Arrow, motorcycle MG, Ehrhardt, and every emplacement below.
+
 ### 5.5 Static enemy / emplacement types
 | Emplacement | Sim representation | Counter |
 |---|---|---|

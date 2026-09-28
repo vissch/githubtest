@@ -21,6 +21,9 @@ namespace TW.Sim
         /// reference TW.Sim.Terrain. First, so a diverging map is named before anything reads it.</summary>
         public const int TerrainHash = 50;
         public const int Command = 100;
+        /// <summary>The sapper: reads the tick's UnitAbility orders after TrenchOrders (110), before the flow fields (400)
+        /// build the cell goal it sets. 2026-09-28.</summary>
+        public const int Sapper = Command + 20;
         public const int Mission = 200;
         public const int Economy = 300;
         public const int FlowField = 400;

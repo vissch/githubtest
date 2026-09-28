@@ -127,7 +127,7 @@ namespace TW.Tests
         [Test]
         public void AChosenUnitThatOnlyADefinitionKnowsArrivesWithItsRealNumbers()
         {
-            const byte Spare = 21;
+            const byte Spare = 50;   // past the Proving Ground's 21-36 (2026-09-28)
             var cfg = Config();
             cfg.LoadoutA = Ten(Spare);
             using var m = MatchSim.CreateGreybox(cfg);
@@ -194,7 +194,7 @@ namespace TW.Tests
             cfg.LoadoutB = Ten(VehicleArchetype.Breaker, InfantryArchetype.Sniper);
             var back = ReplayPlayer.Parse(new ReplayRecorder(cfg, default, 1).Serialize());
 
-            Assert.AreEqual(15, ReplayRecorder.FormatVersion, "a header that carries the loadout (since v9) is v15's: bump with the format (v6 on its own lane, before the overhaul landed)");
+            Assert.AreEqual(16, ReplayRecorder.FormatVersion, "a header that carries the loadout (since v9) is v16's: bump with the format (v6 on its own lane, before the overhaul landed)");
             Assert.AreEqual(RosterEntry.SlotCount, back.Config.LoadoutA.Length);
             var chosen = Odd();
             for (int s = 0; s < RosterEntry.SlotCount; s++) Assert.AreEqual(chosen[s], back.Config.LoadoutA[s], $"slot {s}");

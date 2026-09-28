@@ -132,7 +132,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
 ### Stubs: placeholders for planned phases, not wired
 `Sim/Combat/IndirectFire.cs`, `Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,
-`Sim/Units/Grenades.cs`, `Sim/Units/SpecialAbilities.cs` (unregistered systems that throw, `code-map.md`),
+`Sim/Units/Grenades.cs` (unregistered systems that throw, `code-map.md`; `Sim/Units/SpecialAbilities.cs` is only the
+`UnitAbilityId` enum now, its stub system deleted 2026-09-28),
 `Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
 (each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
 
@@ -163,12 +164,22 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   added from 2026-09-26 on is one entry here, written into every table), `Sim/Core/OrderGroup.cs` (the groups an order
   names, and `Archetypes.Count` 64). The ten a player chose travel as `SimConfig.LoadoutA`/`LoadoutB`.
   `UnitDefinitions.All` holds the Skimmer (19, a hovercraft) and the Salvo (20, a half-track rocket truck), in no
-  faction's slots or pool: the Unit Sandbox is the only way onto the field (2026-09-28). The Salvo's gun fires a rack
+  faction's slots or pool: the Unit Sandbox is the only way onto the field (2026-09-28). Since replay v16 it also holds
+  the Proving Ground's sixteen (`UnitDefinitions.ProvingGround`, ids 21-36): the playground's prototypes (Brute, Croaker,
+  Hopper, Mercy, Frog) and docs/06's ideas as stand-ins on the specs the sim already has (Sentry, AT rifle, Death
+  Battalion, Mark IV, Mark V, A7V, Renault FT, Whippet, Austin, Sapper, Flamethrower), fielded by no faction either; a
+  stand-in that has no model of its own is drawn as a shipped one (the SHOW lane's `TankRenderer.Machines` names it). The
+  sapper's `InfantrySpec.MineCharges`, the Death Battalion's `NeverPinned` and the flamethrower's `WeaponStats.SetsBurning`
+  are data until their SIM commits land (SapperSystem at `SimSystemOrder.Sapper`; DirectFire reading `SetsBurning`).
+  `SimConfig.Endless` (the level's rule: `SectorControl` never names a winner) rides the config and the replay header.
+  The Salvo's gun fires a rack
   (`TankSpec.Rockets`): `Sim/Combat/TankGunnery.cs` holds each rocket (`PendingRocket`) until its land tick and says
   so in a `RocketFired` event, which `Presentation/Camera/TankRenderer.Salvo.cs` flies on the sim's clock.
   A machine holds at `TankSpec.StandOffMetres` (`TankGunnerySystem.StandOff`); a machine's small arms hunt light
   machines only with `InfantrySpec.HuntsArmour` (`Sim/Combat/TargetAcquisition.cs`, `Sim/Combat/DirectFire.cs`).
-- **Tests:** FactionRosterTests, UnitCatalogueTests, UnitDefinitionTests, LoadoutTests, DefinedUnitTests (the
+- **Tests:** FactionRosterTests, UnitCatalogueTests, UnitDefinitionTests, LoadoutTests, ProvingGroundUnitTests (the
+  sixteen: in the table with their numbers, in no roster, a loadout may name them, each machine drives, each armed unit
+  fires, the endless match, the same on two worlds), DefinedUnitTests (the
   Skimmer's and Salvo's numbers, that no faction fields them, that each drives and fights, that each rocket bursts on
   the tick and at the point its event named and not before, the same every run and in the canary).
 - **See it:** in Play, **TW > Unit Sandbox** (`Editor/UnitSandbox.cs`) spawns any unit type for either side at its
@@ -585,7 +596,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundUnitTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->

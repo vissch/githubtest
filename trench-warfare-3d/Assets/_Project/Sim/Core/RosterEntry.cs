@@ -101,13 +101,21 @@ namespace TW.Sim
     {
         public const byte Rifle = 0, Assault = 1, Machinegunner = 2, Sniper = 3;
         public const byte Officer = 12, Shield = 13, Medic = 14, Repair = 15, Para = 16, Jetpack = 17;
+        // The Proving Ground's men (2026-09-28): defined in Sim/Match/UnitDefinitions.cs, in no faction's slots or pool.
+        public const byte Frog = 25;           // the playground's frog infantryman: a rifleman with his own figure
+        public const byte Sentry = 26;         // a machine gunner behind a frontal plate (docs/06)
+        public const byte AtRifle = 27;        // an anti-tank rifle: 20 mm at 70 m, hunts light machines
+        public const byte DeathBattalion = 28; // the elite rifle: harder, dearer, never pinned
+        public const byte Sapper = 35;         // lays mines and tripwires on a UnitAbility (decisions.md 2026-09-26)
+        public const byte Flamethrower = 36;   // a cone of fire to 12 m whose hits set men and ground alight
         /// <summary>
         /// The highest id any unit may take. It was 31 because TrenchOrders masked with `1 << archetype`; that order
         /// now carries an OrderGroup mask instead, so what binds is Archetypes.Count — the length of every table an
         /// archetype indexes.
         /// </summary>
         public const byte Max = Archetypes.Max;
-        public static bool IsInfantry(byte archetype) => archetype <= Sniper || (archetype >= Officer && archetype <= Jetpack);
+        public static bool IsInfantry(byte archetype) => archetype <= Sniper || (archetype >= Officer && archetype <= Jetpack)
+            || archetype == Frog || (archetype >= Sentry && archetype <= DeathBattalion) || archetype == Sapper || archetype == Flamethrower;
     }
 
     /// <summary>Archetype ids of the fighting vehicles (Resources/Vehicles/Maw, /Tusk, /Pincer ... /Breaker).</summary>
@@ -131,6 +139,19 @@ namespace TW.Sim
         // ForArchetype does not know them) and in no faction's slots or pool: the Unit Sandbox fields them.
         public const byte Skimmer = 19;// hovercraft: a machine gun in a small turret, a fan astern; skims over mud and trenches
         public const byte Salvo = 20;  // half-track rocket truck: a box of rockets that lands out of sight, long to reload
+        // The Proving Ground's machines (2026-09-28), all definitions in Sim/Match/UnitDefinitions.cs and in no faction's
+        // slots or pool. The first four are the asset playground's prototypes; the rest are docs/06's historical armour as
+        // stand-ins that borrow a shipped model until they have their own.
+        public const byte Brute = 21;  // the playground's heavy tank: sponson guns, the Maw's kind
+        public const byte Croaker = 22;// a two-legged frog mech: claws and one turret gun
+        public const byte Hopper = 23; // a frog gunship: the sim has no flight, so it strides everything and never bogs
+        public const byte Mercy = 24;  // a field ambulance: unarmed, heals the men beside it
+        public const byte MarkIV = 29; // Mark IV Male: the Maw's numbers and model
+        public const byte MarkV = 30;  // Mark V: a Mark IV that handles mud
+        public const byte A7V = 31;    // A7V: thick in front, one hull gun, cannot cross a wide trench
+        public const byte RenaultFT = 32; // Renault FT: the Tusk's turret, a narrower trench
+        public const byte Whippet = 33;// Whippet: quick, machine guns only
+        public const byte Austin = 34; // Austin armoured car: wheels, two machine guns, ditches in anything
         /// <summary>
         /// What kind of machine each SHIPPED id is. This is the seed of RosterEntry.Chassis and nothing else: the
         /// three predicates that used to live here (IsTank, IsWalker, IsArmoured, the last a range check over 6..11)

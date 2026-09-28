@@ -113,7 +113,7 @@ namespace TW.Sim.Match
                     w.Events.Add(w.Tick, SimEventType.TrenchCaptured, trench, team);
                 }
             }
-            if (def.Kind == ObjectiveKind.HQ)
+            if (def.Kind == ObjectiveKind.HQ && !w.Config.Endless)   // a Proving Ground match never ends (SimConfig.Endless)
             {
                 w.WinnerTeam = team;
                 w.Events.Add(w.Tick, SimEventType.MatchEnded, team);
