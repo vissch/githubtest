@@ -27,8 +27,9 @@ namespace TW.Presentation.Tactical
 
         public const float ArcSeconds = 0.16f;   // the arc's whole flight on screen
         public const int ArcSegments = 8;        // at High; FxQuality.Now.ArcSegments by the tier
-        public const float RippleSeconds = 0.09f, RippleSpread = 3f;   // the Salvo: a rocket every 0.09 s, landing within 3 m of the first
+        public const float RippleSeconds = 0.18f, RippleSpread = 3f;   // the Salvo: a rocket every 0.18 s, landing within 3 m of the first
         public const float RocketApex = 0.6f;    // a rocket flies flatter than a mortar round
+        public const float RocketTrail = 2.2f, RocketTrailLife = 4f;   // its smoke along the way: wide and long enough to read as a trail (critique lin5)
 
         /// <summary>How many rockets of a Salvo's ripple are drawn at a tier (the sim's burst is the first one's).</summary>
         public static int RocketsOf(FxTier tier) => tier >= FxTier.High ? 4 : tier == FxTier.Medium ? 2 : 1;
@@ -73,10 +74,20 @@ namespace TW.Presentation.Tactical
                 {
                     float a = i / (float)segments, b = (i + 1) / (float)segments;
                     fx.AddTracer(ArcPoint(from, end, apex, a), ArcPoint(from, end, apex, b), team, width, lag + a * ArcSeconds);
-                    // a rocket leaves its smoke hanging along the way it went
-                    if (rocket && drawn && i > 0)
-                        books.Add(FlipbookFx.Book.Smoke, ArcPoint(from, end, apex, a), 0.9f, 1.8f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: Vector3.up * 0.3f, grow: 1.4f, alpha: 0.4f, delay: lag + a * ArcSeconds);
+                    // a rocket leaves its smoke hanging along the way it went, behind a burning head; a mortar round a thin grey thread
+                    if (drawn && i > 0)
+                    {
+                        Vector3 at = ArcPoint(from, end, apex, a);
+                        if (rocket)
+                        {
+                            books.Add(FlipbookFx.Book.Smoke, at, RocketTrail, RocketTrailLife, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: Vector3.up * 0.3f, grow: 1.4f, alpha: 0.8f, delay: lag + a * ArcSeconds);
+                            books.Add(FlipbookFx.Book.Star, at, 1.5f, 0.06f, roll: FxQuality.Hash01(salt + (uint)(i * 7 + j)) * 6.2832f, glow: SceneMood.Night ? 3f : 2f, delay: lag + a * ArcSeconds);
+                        }
+                        else
+                            books.Add(FlipbookFx.Book.Smoke, at, 0.8f, 1.6f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: Vector3.up * 0.2f, grow: 1.2f, alpha: 0.5f, delay: lag + a * ArcSeconds);
+                    }
                 }
                 if (rocket && drawn && j > 0)
                 {
