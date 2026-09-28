@@ -636,6 +636,10 @@ namespace TW.Presentation.Tactical
                 case SimEventType.UnitAlight:
                     OnAlight(e);  // the sim's BurningSystem lit or doused him
                     break;
+                case SimEventType.GasCloudSpawned:
+                case SimEventType.SmokeSpawned:
+                    OnBankSpawned(e);   // CombatFx.Banks.cs: the canister's release (fx.recipes)
+                    break;
                 case SimEventType.UnitHealed:
                     OnHealed(e);  // CombatFx.Support.cs: the medic's glint (fx.recipes)
                     break;
@@ -1011,7 +1015,8 @@ namespace TW.Presentation.Tactical
 
             // gas: drawn clouds that boil slowly over each 4 m field cell (the old translucent blocks stand in without the books)
             var gas = Host.Local.Gas;
-            if (gas != null && gas.Active && books != null && books.Ready)
+            if (gas != null && gas.Active && books != null && books.Ready && recipes >= 0.5f) DrawGasBank(gas, now, bounds);   // L07 (CombatFx.Banks.cs)
+            else if (gas != null && gas.Active && books != null && books.Ready)
             {
                 float cs = TW.Sim.Terrain.MapData.FieldCellSize;
                 gasCards.Clear();

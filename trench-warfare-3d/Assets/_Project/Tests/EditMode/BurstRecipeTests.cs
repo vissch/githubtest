@@ -102,5 +102,16 @@ namespace TW.Tests
             Assert.AreEqual(FlipbookFx.Book.BloodSpurt, CombatFx.BloodFor(24f, 1f, 30f, 1f), "a rifle");
             Assert.AreEqual(FlipbookFx.Book.BloodSnipe, CombatFx.BloodFor(95f, 1f, 30f, 1f), "the sniper");
         }
+        [Test]
+        public void Banks_MergeFromTheOverviewAndBoilInsideTheirFrames()
+        {
+            Assert.AreEqual(1, CombatFx.BankStep(30f), "close: a card a cell");
+            Assert.AreEqual(2, CombatFx.BankStep(CombatFx.BankMergeZoom), "the overview: a card a 2 x 2 block");
+            for (float t = 0f; t < 7f; t += 0.37f)
+            {
+                float f = CombatFx.BankFrame(17f, 28f, t);
+                Assert.That(f, Is.InRange(17f, 28f), "the boil stays inside the bank's full frames");
+            }
+        }
     }
 }
