@@ -49,6 +49,11 @@ namespace TW.Presentation.Tactical
             GroundRing, // the shock ring a big burst throws along the ground, seen from above
             DustPuff,   // dust where a round or a man lands
             ShellPlume, // the smoke a shell burst leaves standing
+            // VFX pass wave 2 (2026-09-28)
+            FireLance,  // the beam: a pillar of fire pouring down, steady (loops)
+            MendSparks, // a welding torch's sparks: an engineer mending (loops)
+            ShellLean,  // earth thrown one way: the burst of a shell that came in flying
+            WreckSmoke, // black smoke standing over a burning wreck (loops)
             Count
         }
 
@@ -158,6 +163,11 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "GroundRing", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 0f, Ground = true, Lit = 0.75f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.20f, High = 0.81f, Ink = new Vector2(0.12f, 0.88f), Fill = 0.94f },
             new Sheet { Name = "DustPuff", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.16f, High = 0.91f, Ink = new Vector2(0.18f, 0.82f), Fill = 0.90f },
             new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.8f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 1.30f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },
+            // wave 2: Low/High, Ink, Fill and the fire Bands from the firebooks printout (tw3d-board logs/firebooks-w2.log)
+            new Sheet { Name = "FireLance", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.08f, High = 0.92f, Bands = new Vector4(0.12f, 0.30f, 0.59f, 0.75f), Ink = new Vector2(0.02f, 0.97f), Fill = 0.62f },
+            new Sheet { Name = "MendSparks", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.40f, 0.78f, 0.32f), Low = 0.00f, High = 0.59f, Bands = new Vector4(0.13f, 0.25f, 0.43f, 0.75f), Ink = new Vector2(0.09f, 0.95f), Fill = 0.90f },
+            new Sheet { Name = "ShellLean", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Lit = 0.8f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.15f, High = 0.95f, Ink = new Vector2(0.13f, 0.89f), Fill = 0.87f },   // High past its p97 0.79: the pale core must not light up (ShellPlume, bench r4)
+            new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.6f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
