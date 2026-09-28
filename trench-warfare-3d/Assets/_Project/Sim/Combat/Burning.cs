@@ -8,7 +8,8 @@
 // who burns to death dies of DeathCause.Burning. GROUND alight (a BurningCell, a nav cell with a tick it stops)
 // sets any man who stands on it alight. Ignition comes from an Incendiary Impact resolved by BlastSystem this tick
 // (every man inside its radius, every nav cell inside it), from the beam (docs/21 phase 5) and from Ignite() /
-// IgniteCell() called by another sim system; presentation never calls into here.
+// IgniteCell() called by another sim system (DirectFireSystem, for a weapon whose WeaponStats.SetsBurning is set: the
+// Flamethrower, 2026-09-28); presentation never calls into here.
 //
 // The flag and the timer are set together and only together (Ignite, the catch in the job). A dead man's timer goes
 // out the tick the job sees him dead, with one UnitAlight (b = 0) whatever killed him. A man who dies AFTER this

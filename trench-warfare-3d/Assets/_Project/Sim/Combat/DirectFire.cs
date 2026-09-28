@@ -45,9 +45,15 @@ namespace TW.Sim.Combat
         public DirectFireSystem(MapData map) { this.map = map; }
 
         CombatCatalogueSystem catalogue;
+        // ---- fire (2026-09-28, the Flamethrower): what a weapon that SetsBurning lit this tick ----
+        BurningSystem burning; bool lookedForBurning;   // registered after this system: resolved on the first step
+        NativeList<int2> ignited;      // (target, shooter) of every hit by such a weapon, in shot order
+        NativeList<float4> scorched;   // where every round of one landed, hit or miss (xyz), and the shooter's side (w)
 
         public void Initialize(SimWorld world)
         {
+            ignited = new NativeList<int2>(64, Allocator.Persistent);
+            scorched = new NativeList<float4>(64, Allocator.Persistent);
             catalogue = world.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs CombatCatalogueSystem registered before it");
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
@@ -72,8 +78,11 @@ namespace TW.Sim.Combat
             events.Clear();
             killed.Clear();
             ownHits.Clear();
+            ignited.Clear();
+            scorched.Clear();
             new FireJob
             {
+                Ignited = ignited, Scorched = scorched,
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype, StanceOf = w.StanceOf, Yaw = w.Yaw,
                 Specs = w.Units.Infantry, Roster = w.Units.Roster, Weapons = catalogue.Weapon, Tanks = catalogue.Tank,
@@ -104,6 +113,19 @@ namespace TW.Sim.Combat
                 float3 impulse = w.Position[slot] - w.Position[killer]; impulse.y = 0f;
                 w.Despawn(slot, killer, SimMath.Length(impulse) > 1e-3f ? impulse / SimMath.Length(impulse) : default);
             }
+
+            // what the fire lit: the man it hit (if the hit left him alive) and the ground its rounds landed on. After
+            // the deaths, so a man the flame killed is not set alight as the next tenant of his slot. BurningSystem steps
+            // at 725, after this system, so he burns from this tick on.
+            if (ignited.Length > 0 || scorched.Length > 0)
+            {
+                if (!lookedForBurning) { burning = w.GetSystem<BurningSystem>(); lookedForBurning = true; }
+                if (burning != null)
+                {
+                    for (int k = 0; k < ignited.Length; k++) burning.Ignite(w, ignited[k].x, BurningSystem.BurstManSeconds);
+                    for (int k = 0; k < scorched.Length; k++) burning.IgniteCell(w, scorched[k].xyz, BurningSystem.BurstCellSeconds, (int)scorched[k].w);
+                }
+            }
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
@@ -129,6 +151,8 @@ namespace TW.Sim.Combat
             public NativeList<SimEvent> Events;
             public NativeList<int2> Killed;
             public NativeList<VehicleHit> VehicleHits;
+            public NativeList<int2> Ignited;      // WeaponStats.SetsBurning: (target, shooter) of each hit
+            public NativeList<float4> Scorched;   // and where each round landed (xyz), the shooter's side in w
             [ReadOnly] public NativeArray<float> Smoke;
             public int SmokeW, SmokeL;
             public bool SmokeOn;
@@ -157,6 +181,7 @@ namespace TW.Sim.Combat
             {
                 var spec = Specs[Archetype[t]];
                 if (spec.ShieldPlateMm <= 0f) return false;
+                if (weapon.SetsBurning) return false;   // fire goes round a plate: it stops rounds, not a jet of flame
                 float3 back = p - q; back.y = 0f;
                 float bearing = SimMath.Atan2(back.x, back.z);                       // sim yaw: 0 is +Z, positive to the right
                 if (math.abs(SimMath.WrapAngle(bearing - Yaw[t])) > spec.ShieldArcHalf) return false;
@@ -278,11 +303,13 @@ namespace TW.Sim.Combat
                         }
                         Hp[t] = Hp[t] - dmg;
                         Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Hit, A = i, B = t, Pos = q, Dir = dir, Scalar = dmg });
+                        if (weapon.SetsBurning) { Ignited.Add(new int2(t, i)); Scorched.Add(new float4(q, Team[i])); }
                         if (Hp[t] <= 0f) { Killed.Add(new int2(t, i)); TargetSlot[i] = -1; }
                         else AddSuppression(t, weapon.SuppressionPerShot * keepDown * SuppressionMul[t]);
                     }
                     else
                     {
+                        if (weapon.SetsBurning) Scorched.Add(new float4(q, Team[i]));   // the jet missed him and lit the ground
                         // near miss: everyone on the target's side within 1.5 m of where the round went
                         float near = weapon.SuppressionPerShot * 0.6f * keepDown;
                         int cx = math.clamp((int)(q.x / Spatial.CellSize), 0, Spatial.Width - 1);
@@ -316,6 +343,8 @@ namespace TW.Sim.Combat
             if (events.IsCreated) events.Dispose();
             if (killed.IsCreated) killed.Dispose();
             if (ownHits.IsCreated) ownHits.Dispose();
+            if (ignited.IsCreated) ignited.Dispose();
+            if (scorched.IsCreated) scorched.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (ones.IsCreated) ones.Dispose();
         }

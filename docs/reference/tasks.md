@@ -150,9 +150,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 ### Fire in the sim
 - **Files:** vehicles burn: `Sim/Units/VehicleModules.cs` (`Fire`, `StartFire`, `UnitFlags.Burning`, the
   `VehicleOnFire` event). Men and ground cells burn in `Sim/Combat/Burning.cs` (`BurningSystem`, registered in
-  `MatchSim`; it reads `Blast.Resolved` for incendiary bursts, and the beam lights men too). Changing what it hashes is
+  `MatchSim`; it reads `Blast.Resolved` for incendiary bursts, the beam lights men too, and since 2026-09-28
+  `Sim/Combat/DirectFire.cs` lights the man and the ground a weapon with `WeaponStats.SetsBurning` hits: the
+  Flamethrower). Changing what it hashes is
   a hash and replay change (a seam commit).
-- **Tests:** TankMobilityTests (vehicle fire), BurningSystemTests (men and ground).
+- **Tests:** TankMobilityTests (vehicle fire), BurningSystemTests (men and ground), FlamethrowerTests (a hit lights the
+  man and the ground, a miss the ground, a plate does not stop it, a rifle lights nothing).
 
 ### Vehicles in the sim: tanks and walkers
 - **Files:** `Sim/Core/RosterEntry.cs` (`VehicleArchetype`, default roster, `SlotCount`), `Sim/Combat/TankSpec.cs`,
@@ -320,8 +323,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
 
 ### Flamethrower
-- **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only: men do not burn in the sim, see "Fire in
-  the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
+- **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only, driven by the debug panel's flame tools; the
+  sim's flamethrower unit, archetype 36, burns men for real since 2026-09-28, see "Fire in the sim", and is not yet
+  wired to this picture: route a `Shot` from a `SetsBurning` weapon to `Jet`), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
   man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
   paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
   (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
@@ -606,7 +610,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->
