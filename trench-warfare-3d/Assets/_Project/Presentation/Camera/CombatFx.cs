@@ -648,7 +648,7 @@ namespace TW.Presentation.Tactical
                     Vector3 flight = new Vector3(e.Dir.x, 0f, e.Dir.z);
                     float lean = flight.magnitude;
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
-                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
+                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
                     if (drawn)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
@@ -711,6 +711,9 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.MortarBurst, p, r * 2.2f * columnScale * earth, 1.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
                         if (recipe.CookOff)
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
+                        // lying on the ground a hand above it (the terrain is sampled at the centre only), widening with the book
+                        if (recipe.Ring)
+                            books.Add(FlipbookFx.Book.GroundRing, p + Vector3.up * 0.15f, r * 3f, 2.6f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f);
                         if (!wet || melt)
                         {
                             // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
