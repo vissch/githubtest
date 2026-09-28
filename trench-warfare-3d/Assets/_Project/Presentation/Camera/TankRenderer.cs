@@ -1223,6 +1223,9 @@ namespace TW.Presentation.Tactical
                         // so the card is centred half its width out along the barrel; 12 frames at 12 fps
                         const float Blast = 4.5f;
                         books.Add(FlipbookFx.Book.GunBlast, muzzle + dir * (Blast * 0.5f), Blast, 1f, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);
+                        // L20: the round itself, a heavy tracer from the muzzle to where it went: who shot whom
+                        var w = Host.Local.World;
+                        if (e.A < w.HighWater) Fx()?.AddTracer(muzzle, (Vector3)e.Pos, w.Team[e.A], 2.2f);
                     }
                     else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
                     books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
