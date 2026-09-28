@@ -57,7 +57,7 @@ namespace TW.Tests
             return slots.Count == 0 ? -1 : slots[n % slots.Count];
         }
 
-        public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8)
+        public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8, System.Action<MatchSim> each = null)
         {
             var cfg = SimConfig.Default; cfg.Seed = seed; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2;   // GreyboxCorridor's
             var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 8f;
@@ -109,6 +109,7 @@ namespace TW.Tests
                     }
                 }
                 session.StepOnce(ai);
+                each?.Invoke(m);
                 var ev = w.Events.Events;
                 for (int k = 0; k < ev.Length; k++)
                 {
@@ -163,8 +164,9 @@ namespace TW.Tests
         [Test]
         public void TheEnemy_KeepsItsArmyComing()
         {
+            // a rate, not a count: a match it wins in four minutes deploys fewer (the old script: 8 in ten minutes)
             foreach (var r in Defended(new List<string>()))
-                Assert.GreaterOrEqual(r.Deployed[1], 15, "it spent its silver on men, not only on shells: " + r);
+                Assert.GreaterOrEqual(r.Deployed[1] * 1200f / math.max(1, r.EndTick), 1.5f, "men a minute: it spent its silver on men, not only on shells: " + r);
         }
 
         [Test]
@@ -190,6 +192,29 @@ namespace TW.Tests
             int broke = 0;
             foreach (var r in Defended(new List<string>())) if (r.CapturedByEnemy > 0) broke++;
             Assert.GreaterOrEqual(broke, 2, "in ten minutes, on two seeds of three");
+        }
+
+        [Test]
+        public void TheEnemy_BuysMenUntilItHasTheOdds_BeforeItSavesForTheBarrage()
+        {
+            // Saving at parity (2026-09-29, seen in Play) held it at the player's count: 18 men to 6 with only ten in its
+            // front trench and 200 silver it never spent, so it never reached two to one there and sat for four minutes
+            int hoarded = 0, samples = 0;
+            for (uint s = 1; s <= 3; s++)
+                Play(Policy.Defend, 10, s, null, 8, m =>
+                {
+                    var w = m.World;
+                    if (w.Tick < 600 || w.Tick % 100 != 0) return;
+                    short theirs = m.Fields.FrontTrench(0);
+                    int held = theirs >= 0 ? m.Fields.Trenches[theirs].GarrisonCount : 0, men = 0;
+                    for (int i = 0; i < w.HighWater; i++)
+                        if (w.IsAlive(i) && w.Team[i] == 1 && (w.Flags[i] & (uint)UnitFlags.Vehicle) == 0) men++;
+                    if (men >= math.max(8, 2 * held)) return;
+                    samples++;
+                    if (w.Silver[1] >= 180) hoarded++;   // the reserve, and more than any man it deploys costs
+                });
+            Assert.Greater(samples, 20, "it was short of men for a while");
+            Assert.LessOrEqual(hoarded, samples / 20, $"short of men, it sat on its silver {hoarded} times in {samples}");
         }
 
         [Test, Explicit("ten minutes of each policy against the scene's enemy, for tuning")]

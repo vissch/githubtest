@@ -138,8 +138,13 @@ namespace TW.Presentation
                 if (slot >= 0)
                 {
                     int cost = pw.Roster[Side * RosterEntry.SlotCount + slot].Cost;
-                    // men first: silver is kept back for support only once it fields as many as the player does
-                    int reserve = UsesSupport && t > 600 && MenOf(pw, Side) >= Mathf.Max(AttackGarrison, MenOf(pw, Other)) ? SupportReserve : 0;
+                    // men first: silver is kept back for the barrage only once it fields the men for the attack it wants,
+                    // Odds times the player's front garrison, counting those still walking up. Saving at parity, as it
+                    // did, held it at the player's count for good and it never had the odds to attack (Play, 2026-09-29)
+                    short theirs = view.Fields.FrontTrench(Other);
+                    int held = theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0;
+                    int army = Mathf.Max(AttackGarrison, Mathf.CeilToInt(Odds * held));
+                    int reserve = UsesSupport && t > 600 && MenOf(pw, Side) >= army ? SupportReserve : 0;
                     if (pw.Silver[Side] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, Side, slot));
                 }
             }

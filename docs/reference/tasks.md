@@ -58,7 +58,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
 ### The enemy (`ScriptedEnemy`, SHOW)
 - **What it does (2026-09-29):** deploys an armed man every `DeployEveryTicks` while it can pay, and keeps
-  `SupportReserve` back only once it fields as many men as the player; locks its rear trenches so men walk through to
+  `SupportReserve` back only once it fields the men for the attack it wants (`Odds` times the player's front garrison,
+  counting men still walking up; saving at parity held it at the player's count, seen in Play); locks its rear trenches so men walk through to
   the front; goes over the top when its front garrison is at least `AttackGarrison` and `Odds` + 1 (three) times the
   player's front garrison, or, at `Odds` (two) times, first lays an HE line 60 m along the player's garrison and, if the
   silver runs to it, a 40 m smoke screen just in front of it, and goes `BarrageLeadTicks` later (`PlannedAttack`);
@@ -69,7 +70,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   one behind smoke and a barrage takes it four times in four). The enemy before 2026-09-29 attacked with eight men
   whatever stood before them, and from two minutes in spent every coin on harassing fire and never deployed again.
 - **Tests:** MatchLoopTests (ten-minute matches against a player who only defends: the enemy keeps deploying, attacks
-  only with the odds, and breaks him on two seeds of three; `Report_TheMatchLoop`, Explicit, prints four policies
+  only with the odds, never sits on silver while it is short of men for the odds, and breaks him on two seeds of three;
+  `Report_TheMatchLoop`, Explicit, prints four policies
   including the script against itself), CampaignGraphTests (difficulty presets), SinglePlayerEquivalenceTests.
 
 ### The stress preset (thousands of men for perf work)
