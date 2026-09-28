@@ -717,6 +717,14 @@ namespace TW.Presentation.Tactical
                         // as one fireball, playing its book once over the book's own length (21 and 29 frames at 12 fps)
                         if (recipe.Mortar)
                             books.Add(FlipbookFx.Book.MortarBurst, p, r * 2.2f * columnScale * earth, 1.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
+                        // L02: the earth thrown on the way the shell was going. The drawing throws to its right, so it is mirrored
+                        // when the flight runs to the left of the screen; it plays its book once (32 frames at 12 fps)
+                        if (recipe.Lean)
+                        {
+                            var eye = Camera.main;
+                            bool left = eye != null && Vector3.Dot(flight, eye.transform.right) < 0f;
+                            books.Add(FlipbookFx.Book.ShellLean, p, r * 2.4f * columnScale * earth, 2.67f, ground | (left ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
+                        }
                         if (recipe.CookOff)
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
                         // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
