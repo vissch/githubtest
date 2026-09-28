@@ -12,14 +12,9 @@ at 558c667). Repo pages: workflow.md sections 5 (false reds) and "reproducing a 
 1. After every stage result: sweep the stage's logs, results XML and probe numbers.
 2. After every landing: the full gate on integration, plus a determinism pass.
 3. **Patrol** (desktop, detached, no model in the loop): round-robin over every item's bench scenarios with fresh seeds, derived from the patrol id and a counter, within a time budget. It yields the batch slot between scenarios. The agent reads the findings afterwards.
-4. **Every gym run** (`tw-gym`): read `summary.json`. Each flag is a candidate:
-   - log errors;
-   - an unexpected reject, or no expected event;
-   - desync;
-   - a blown or empty frame;
-   - NaN or stuck pose.
-
-   Then `gymscore.py <previous> <latest>` for REGRESSED lines. A flag only in the newest run, with the same entry
+4. **Every gym run** (`tw-gym`): read `summary.json`. Each flag is a candidate. The flag list is `tw-gym`'s "Reading a
+   run", which is copied from `GymRun.Judge`. Then compare with the previous run: `gymscore.py` (**to build**; until
+   then diff the two summaries' flags by entry). A flag only in the newest run, with the same entry
    clean in the previous run, points at the commits in between. Put both run ids on the card.
 
 **Loop over every sim role**, "in any kind of form" (the owner). Take each role's stage result, plus the gym's entries
@@ -45,7 +40,7 @@ for that role's area:
 - an event with no picture where the catalogue promises one.
 
 One card per signature, whichever sim raised it.
-**Learn** (Brief 2 §B5): signatures that recur go to the board's `lessons/bug-catcher.md`, and a new check is proposed
+**Learn** (Brief 2 §B5): signatures that recur go to the board's `lessons/bug-catcher.md` (the learning loop in `../pipeline/SKILL.md`), and a new check is proposed
 for the owner.
 
 ## Is it real? (check in this order)

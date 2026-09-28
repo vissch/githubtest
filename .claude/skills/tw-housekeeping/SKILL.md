@@ -15,13 +15,13 @@ the table is not ours to delete.
 | Kind | Where | One item is | Pruned by |
 |---|---|---|---|
 | Gym runs | `%LOCALAPPDATA%\TrenchWarfare\gym\<run>` | a folder holding `gym-run.txt` | the gym itself (keeps its run + 1); `prune.py` as backstop |
-| Detached runs | `%LOCALAPPDATA%\TrenchWarfare\runs\<name>` | a folder whose `run.json` state is not RUNNING | `prune.py` |
+| Detached runs | `%LOCALAPPDATA%\TrenchWarfare\runs\<name>` | a folder whose `run.json` state is not RUNNING, **and with no `KEEP.txt`** | `prune.py` |
 | CaptureRig sets | `trench-warfare-3d/Captures/`, `Captures/playground/` (gitignored) | the files sharing one stem before `_NN` / the extension | `prune.py`. **Never** `lod*.json`, and never a file a board item cites |
-| Gate copies | `trench-warfare-3d/test-results-*.xml` (written in the project folder by `gate.ps1`) | one per mode | `prune.py` keeps the newest per mode |
+| Gate copies | `trench-warfare-3d/test-results-*.xml` (written in the project folder by `gate.ps1`) | one per mode, overwritten by each gate | **never pruned**: there is only ever one per mode |
 | AOSA temp files | `%TEMP%\aosa-*.log`, `%TEMP%\aosa-*.xml`, `%TEMP%\aosa-validate.txt` | a file | `prune.py`, **these exact globs only**. The session scratchpad, ComfyUI and the GPU broker also live under `%TEMP%` |
 | AOSA builds and cycles | `trench-warfare-3d/Builds/WinBench@<sha>`, `docs/reference/aosa/runs/` | a snapshot | **`python Tools/aosa/aosa.py prune [--apply]` only**. It keeps any baseline a recent run points at. `land.ps1` runs it |
 | Live player builds | `Builds/WinBench`, `Builds/WinBenchDev` | the live build | never. The shared copy is **one** zip on the Drive, replaced each time |
-| Blender / LOD candidates | the job's run folder | with the run | `prune.py` (detached runs) |
+| Blender / LOD candidates | the job's run folder, which holds a `KEEP.txt` naming the owner decision it waits on | with the run | **never while `KEEP.txt` is there**. Delete `KEEP.txt` once the owner has approved (and the files are committed) or rejected |
 | ComfyUI outputs | the generator's staging folders | a sheet | only a sheet the owner rejected, **with the owner's word**: outputs may be the only copy |
 | Board evidence | `tw3d-board/evidence/<item>/<stage>/` | fixed paths, overwritten | nothing to prune; JPG ≤ 400 KB |
 

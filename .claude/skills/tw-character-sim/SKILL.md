@@ -52,8 +52,7 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 4. The same clip is now on every Soldier-figure unit. Check the other archetypes still pass their cells.
 5. After three rounds the cell is BLOCKED, with a note of the source animation needed.
 6. **Critic** (`tw-critic` character rubric, rotating angles) on the gym sheets. Keep the best round.
-7. **Learn:** the board's `lessons/character.md`. A flaw that recurs across units becomes a proposed checklist line,
-   which the owner approves.
+7. **Learn:** the learning loop in `../pipeline/SKILL.md` (lessons file `character.md`).
 
 ## Foxholes, trenches and craters (the owner: "fix the characters sitting in their fox hole and shooting")
 **What happens today, at `c43b73f`:**
@@ -94,8 +93,11 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 4. **Proof.**
    - The gym (`tw-gym`), at T3 and T1: the Clips tab for the clip itself, and a trench and a crater staged with a
      rifle line for the real choice.
-   - clipcheck thresholds (skate, drift, foot and hand floor, hand-to-head). clipcheck has no hand-to-weapon or
-     penetration measure, so judge those from the gym's T3 sheet.
+   - clipcheck thresholds: skate, drift, foot below floor, hand to helmet (the table above). It also prints `handMin`
+     (hand floor) with no threshold. It has no hand-to-weapon or penetration measure, so judge those from the gym's T3
+     sheet.
+   - The gym's **Scenes** tab: TrenchLine (men in our trench, an enemy line at 80 m) and CraterMen (men in fresh
+     craters) at T1 first, then T3.
    - The trace showing the new rung.
    - Before and after sheets.
 

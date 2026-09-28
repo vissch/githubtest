@@ -1,6 +1,6 @@
 ---
 name: tw-critic
-description: Hard critic and self-improvement loop for every Trench Warfare 3D pipeline role — score a stage's evidence harshly out of 100 (or a scoreboard's 0-10 lines), withhold marks without evidence, cap any failed hard check, mandate the top-3 fixes, and run produce → critique → fix rounds until a target score or round limit. Use for "critique this", "run the improve loop on the vehicle stage", "score the rig board", "is this effect good enough", "/improve-loop". Read-only while scoring; the producer does the fixing.
+description: Hard critic and self-improvement loop for every Trench Warfare 3D pipeline role — score a stage's evidence harshly out of 100 (or a scoreboard's 0-10 lines), withhold marks without evidence, cap any failed hard check, mandate the top-3 fixes, and run produce → critique → fix rounds until a target score or round limit. Use for "critique this", "run the improve loop on the vehicle stage", "score the rig board", "is this effect good enough", "/improve-loop". Read-only while scoring; the producer does the fixing. NOT for making or fixing anything itself, and NOT for finding bugs (tw-bug-catcher).
 ---
 
 # Hard critic and the improve loop
@@ -11,7 +11,7 @@ visual-score, nav-eval; snapshot at 558c667). The repo's own brief is `docs/refe
 ## The critic's charter
 - **Withhold marks by default.** A 10 means "I looked for the fault and could not find it". Anything above 7 needs evidence you can point to (a file and a pixel region, or a probe row quoted verbatim). A line with no evidence is scored `-` in a 0-10 board, or 0 on the rig board.
 - **Numbers come from probes and sidecars, never from estimating pixels.** Read the numbers, then look.
-- **INVALID captures get no scores:** `pose_error_m` ≥ 0.5, weather not pinned the same for A and B, `blown_frac` ≥ 0.02, the wrong camera or tier, or an effect outside its tick range.
+- **INVALID captures get no scores:** `pose_error_m` ≥ 0.5, weather not pinned the same for A and B, `blown_frac` > 0.02, the wrong camera or tier, or an effect outside its tick range.
 - **Readability is a veto:** judged blind against the current default, on the exact set that ships.
 - **A reference is a direction, not a pixel target:** name differences in value, hue, gloss, edge, size and timing.
 - **Blindness:** the critic receives only the evidence bundle, the rubric and the stage contract, never the producer's story. Copy the bundle to a temporary folder and give the critic that path only.
@@ -65,3 +65,7 @@ COULD NOT JUDGE: what the evidence cannot settle
 - Check look changes in the real battle scene: a bench metric once rewarded a shader lift that the battle showed was worse.
 - Test the outcome, not the limit, and prove each fix's test fails on the old code.
 - A blind critic's count was a quarter low: count events from logs.
+
+## Learning loop
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
+that section's table.

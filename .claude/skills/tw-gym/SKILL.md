@@ -34,7 +34,8 @@ The Playground's men are `UnitRig`/`Retarget` skinned figures. The battle draws 
 | Units | archetype with Hp > 0 in the match's unit table | spawned through `SimHost.WriteWorlds` | all six |
 | Abilities | `OffMapAbilityId` | `SimHost.Issue` / `IssuePeer`; ParaDrop from the Brass seat. Expected: Fires, Rejected or FactionSeat | all six |
 | Deaths | `DeathKind` (Shot, Blast, Gas, Crushed, Burning, Beam) | the cause is staged, and the sim kills inside a tick | all six |
-| Events | `SimEventType` | Covered (by another tab), Preview (replayed into `EventPump.Frame`, labelled), or Excluded with a reason | all six (previews) |
+| Events | `SimEventType` | Covered (by another tab), Preview, or Excluded with a reason. A preview is replayed into `EventPump.Frame`: **effects only, the men never see it** | all six (previews) |
+| Scenes | `GymScene`: TrenchLine, BarrageOnTrench, GasOnTrench, CraterMen | men where a player has them (our trench, fresh craters), an enemy line 80 m out, and the thing that hits them. The sidecar's `consequence` counts hits, near misses, suppression and deaths among the watched men | all six |
 
 The bands are T3 7.5 · T2 16 · T1 30 · O120 · O240 · Far 600, via `TacticalCamera.FrameFrom`.
 
@@ -58,19 +59,29 @@ Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips filter=Fire max=20");'    # 
 
 **Unattended, whole catalogue** (desktop, editor closed, one heavy job at a time; ask pc-e5 or other sessions first):
 ```bash
+( cd trench-warfare-3d && python Tools/editor_lock.py claim gym --minutes 60 --why "gym run" ) || exit 1
 SHA=$(git rev-parse --short HEAD); P="$(pwd)/trench-warfare-3d"; L="$LOCALAPPDATA/TrenchWarfare/runs/gym-$SHA"; mkdir -p "$L"
 python trench-warfare-3d/Tools/pipeline/run_detached.py start gym-$SHA --timeout 3600 --min-headroom-gb 10 -- \
   "C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe" -batchmode -projectPath "$P" \
-  -executeMethod TW.Editor.Gym.CommandLine -twgym "tabs=clips,units,abilities,deaths,events" -logFile "$L/unity.log"
+  -executeMethod TW.Editor.Gym.CommandLine -twgym "tabs=scenes,clips,units,abilities,deaths,events" -logFile "$L/unity.log"
 ```
-The editor exits by itself: **0** clean, **2** flagged entries, **1** could not run. Don't add `-quit`.
+The editor exits by itself:
+- **0** clean;
+- **2** flagged entries;
+- **1** could not run, or a guard stopped it (1 GB, 10 GB free, or the `minutes=` wall clock, 45 by default).
+
+Don't add `-quit`. `Unity.exe` here is the 6000.0.50f1 **editor**. The `unity` CLI at
+`%LOCALAPPDATA%\unity\bin\unity.exe` is a different program (`Tools/tw`, the gate). Afterwards run
+`editor_lock.py release gym`.
 
 **Options:**
-- `tabs=` — a list of clips, units, abilities, deaths, events;
+- `tabs=` — a list of scenes, clips, units, abilities, deaths, events;
 - `filter=<part of a name>`;
 - `max=<n>`;
-- `bands=close` — T3/T2/T1 only;
-- `out=<folder>`.
+- `bands=all|close` — close is T3/T2/T1; Clips always use close;
+- `out=<folder>`;
+- `minutes=<limit>`;
+- `quit=1` — CommandLine adds it.
 
 **Output.** The run goes to `%LOCALAPPDATA%\TrenchWarfare\gym\<yyyyMMdd-HHmm>-<sha>\` (`TW_GYM` overrides). It is
 **never inside a checkout**, because an untracked file changes the tree `land.py` checks. It holds:
@@ -84,22 +95,24 @@ The editor exits by itself: **0** clean, **2** flagged entries, **1** could not 
 stops at 1 GB, or at under 10 GB free.
 
 ## The loop (Brief 2 §B5)
-1. **Run.** Then read `summary.json`. The flags are:
-   - log errors;
-   - an unexpected accept or reject;
-   - no AbilityFired or no Death;
-   - desync (canary only);
-   - `blown_frac` > 0.02;
-   - `pose_error_m` ≥ 0.5 (an invalid still: its pictures aren't scored);
-   - no man in a clip's T3 frame;
-   - the pinned man drawn in the wrong clip.
+1. **Run.** Then read `summary.json`. The flags are the ones `GymRun.Judge` raises (`Editor/Gym.cs`); this list must
+   match it:
+   - `N log errors`;
+   - `desync` (canary only);
+   - Clips: `pinned man is drawn in <clip>`, `no man in the T3 frame`;
+   - Abilities: `expected the sim to refuse it; it did not`, `refused by the sim`, `no AbilityFired`;
+   - Deaths: `he did not die` (only the victim's own Death counts);
+   - Units: `not alive 4 s after spawning`;
+   - Scenes: `no men staged`, `nothing reached the men`;
+   - per still: `blown <frac>` (> 0.02), `camera off pose <m>` (≥ 0.5 m: an invalid still, not scored), `no capture`;
+   - staging or judging: `not staged`, `staging threw`, `judging threw`, `sheet failed`.
 2. **Bugs.** Every flag goes to `tw-bug-catcher`, which files one card per signature.
 3. **Compare runs.** `Tools/gymscore.py <old run> <new run>` is **to build** (G3). Until it exists, diff the two
    `summary.json` files' flag lists by entry (`python -c` with json), and compare sheets side by side.
 4. **Score.** `tw-critic` scores the sheets per band against the look spec: the numbers first, then the picture.
 5. **Fix and prove.** The owning role fixes, and the proof is the same entry before and after, at every band it names,
    with the unchanged build run twice for the noise floor.
-6. **Learn.** Recurring flags go to the board's `lessons/gym.md`. A flaw seen in several entries becomes a proposed
+6. **Learn.** Recurring flags go to the board's `lessons/gym.md` (the learning loop in `../pipeline/SKILL.md`). A flaw seen in several entries becomes a proposed
    catalogue or flag change, which the owner approves.
 
 ## Traps

@@ -88,7 +88,16 @@ Anything else is silently cut wrong. Check the grid before publishing.
 
 ## Owner questions — ask, never decide
 
-- Explosion batches B and C are an open question in `docs/reference/decisions.md`: do not generate them unasked.
+- **Decided on 2026-09-28** (`decisions.md`):
+  - explosion batches B and C are **go**, inside the VFX pass;
+  - blood on hits uses the pack's blood sheets, scaled by GORE.
+
+  The VFX lane and the broker queue belong to the session doing the VFX run (pc-e5 on 2026-09-28): check with it
+  before queueing.
 - Priority changes on the shared broker; overwriting or renaming anything in `G:\My Drive\vfx\sheets`.
-- Known open finding: `FlipbookFx` Core/Head/Bloom rows are out of order with the enum (board `findings/`); do not
-  "fix" it inside an unrelated change.
+- The `FlipbookFx` Core/Head/Bloom row order is fixed **inside the VFX pass**, as its own commit with
+  `FlipbookOrdinalTests` (decided 2026-09-28). It is never fixed inside an unrelated change.
+
+## Learning loop
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
+that section's table.

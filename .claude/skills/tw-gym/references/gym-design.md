@@ -12,7 +12,7 @@ Paths are under `trench-warfare-3d/Assets/_Project/` unless they say otherwise.
 | Writing to the sim legally from SHOW | `SimHost.WriteWorlds(Action<...>)` (both worlds, same order), `Issue`, `IssuePeer` | `Presentation/Core/SimHost.cs` ~174-180, ~200, ~203 |
 | A quiet battle | the `ScriptedPeer`, `PeerAttacks` and `PeerUsesSupport` fields (read every tick by `SyncEnemy`), plus `Bombardment.ShellsPerMinute = 0` via WriteWorlds. `BombardmentOverride` is static and read only in `NewMatch`, so it is no use mid-match | `SimHost.cs` ~48-61, ~115, ~191-196 |
 | Calling an ability the way the benches do | `BenchScenarios.Issue`: tops up silver and clears cooldowns through `WriteWorlds`, then issues SupportFire | `Perf/BenchScenarios.cs` ~117-122, ~144-156 |
-| Which abilities the sim takes | `OffMapAbilities.TryGetStats` (false → CommandRejected); `FactionRoster.MayCall` (ParaDrop Brass only) | `Sim/Match/OffMapAbilities.cs` ~159-161, ~193; `Sim/Core/FactionRoster.cs` ~117-120 |
+| Which abilities the sim takes | `OffMapAbilitySystem.TryGetStats` (false → CommandRejected); `FactionRoster.MayCall` (ParaDrop Brass only) | `Sim/Match/OffMapAbilities.cs` ~159-161, ~193; `Sim/Core/FactionRoster.cs` ~117-120 |
 | Unit abilities | Breaker, Leap and Support run on their own. `SpecialAbilitiesSystem.Step` throws, and `CommandType.UnitAbility` has no consumer | `Sim/Units/Breaker.cs`, `Sim/Combat/Leap.cs`, `Sim/Units/Support.cs`, `Sim/Units/SpecialAbilities.cs` ~18 |
 | Burning a man | `m.Burning.Ignite(...)` inside `WriteWorlds`; the burning system kills him in its step; `Animation.SetAlight` gives the look | `Sim/Combat/Burning.cs` ~90, ~199; AnimationController ~397 |
 | Events to the screen | `EventPump.Frame` (a public list dispatched once per frame), `Events.OnEvent` | `Presentation/Core/EventPump.cs` ~15, ~23, ~66 |
@@ -42,7 +42,7 @@ slot. The gym therefore lists the presentation's `DeathKind`, which is what the 
 | Gas | `ChlorineGas` on him (slow: 40 s timebox) |
 | Beam | `Beam` along a heading through him |
 | Burning | `Burning.Ignite` inside WriteWorlds (a tooling write; `Burning.cs` says presentation never calls it, so it is flagged to the SIM lane; the fallback is the Beam, which sets men alight); the burning system kills in its step |
-| Crushed | Best effort: a Maw ordered over him. May fail and flag; the owner may ask the SIM lane for a debug path |
+| Crushed | Best effort: there is no move order for one vehicle, so a Maw of ours is placed 25 m short of him, nose on, and drives for the enemy on its own. It may miss, and the entry flags it |
 
 ## Estimates (not measured, update after the first run)
 About 220 clip entries at 10 men per sheet row, ~10 min; 21 units × 15 s ≈ 5 min; abilities, deaths, effects and

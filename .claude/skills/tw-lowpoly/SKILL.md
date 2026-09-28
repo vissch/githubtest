@@ -24,7 +24,7 @@ Until then, a Blender pass over the FBXs does the same, counting `len(mesh.polyg
 
 | Family | Files | LODs today | Target |
 |---|---|---|---|
-| Battle machines (11) | `Resources/Vehicles/<Name>/<Name>_LOD0,1.fbx` | LOD0 + LOD1 (LOD1 is the far form) | Every LOD1 ≤ 1,500 tris (the far cap, `docs/22` ~191). A LOD0 over the 3-5k vehicle budget gets a mid form |
+| Battle machines (11) | `Resources/Vehicles/<Name>/<Name>_LOD0,1.fbx` | LOD0 + LOD1 (LOD1 is the far form) | Every LOD1 ≤ 1,500 tris (the far cap, `docs/22` ~191). A LOD0 over the 5k vehicle budget gets a mid form when a band shows the pop (IoU < 0.85) |
 | Houses | `Resources/Env/Houses` (83 chunk FBXs) | none: every intact house draws all its chunks | **Intact-house LOD1** (one merged, decimated mesh) plus a far LOD2 block. Chunks swap in on the first hit. Chunk LODs are the owner's question Q-B4 |
 | Ruins | `Resources/Env/Ruins/Chunks` (220) | none | owner's question Q-B4 |
 | Env props | `Resources/Env/<Set>` (Fence, Military, Plants, Siege, Stones, Weapons, Wood) | none; small ones are culled past `BattlefieldKit.SmallReach` (55 m) | LOD1 for every prop, and a far LOD where overview/far shows it |
@@ -50,7 +50,8 @@ Until then, a Blender pass over the FBXs does the same, counting `len(mesh.polyg
      band above;
    - then a before/after sheet by `tw-optimizer`: images per band, `CaptureRig.Diff`, draws, vertices, triangles.
 5. **Propose** the swap with the sheet. The swap is applied only on the owner's word. **Candidates live only in the run
-   folder** (`%LOCALAPPDATA%\TrenchWarfare\runs\<job>`). Approved files are then copied into `Resources/` beside the
+   folder** (`%LOCALAPPDATA%\TrenchWarfare\runs\<job>`, with a `KEEP.txt` naming what it waits on, so housekeeping
+   leaves it alone). Approved files are then copied into `Resources/` beside the
    original (`<Name>_LOD2.fbx`) and committed. **The original is never overwritten.**
 6. **Critic round** (`tw-critic` lowpoly rubric, rotating angles). Keep the best round, not the last.
 7. **Learn:** record the numbers that worked (tris, IoU, the flags) in `references/lod-lessons.md` and in the board's
