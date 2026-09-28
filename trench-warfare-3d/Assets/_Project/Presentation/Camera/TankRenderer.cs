@@ -853,12 +853,12 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < 2; k++)
                 {
                     var at = SocketWorld(v, "Socket_Fire" + k, out bool ok);
-                    if (ok) flames.Add(new Flame { Foot = at, Width = 0.7f + 1.3f * fire, Height = 1.2f + 2.6f * fire, Phase = v.Slot * 0.37f + k * 0.5f });
+                    if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, at), Width = 0.7f + 1.3f * fire, Height = 1.2f + 2.6f * fire, Phase = v.Slot * 0.37f + k * 0.5f });
                 }
                 if (fire > 0.55f)
                 {
                     var hatch = SocketWorld(v, "Socket_Crew", out bool ok);
-                    if (ok) flames.Add(new Flame { Foot = hatch, Width = 0.9f * fire, Height = 2.4f * fire, Phase = v.Slot * 0.71f });
+                    if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, hatch), Width = 0.9f * fire, Height = 2.4f * fire, Phase = v.Slot * 0.71f });
                 }
                 // the fire spreads over the deck: a few more tongues at fixed places on the hull (seeded by the slot, so
                 // they do not jump), one of them big
@@ -873,13 +873,13 @@ namespace TW.Presentation.Tactical
                     Vector3 top = hull.MultiplyPoint3x4(local);
                     top.y = v.Heave.Value + v.Model.Height * (0.75f + 0.1f * a);
                     bool big = k == 0;
-                    flames.Add(new Flame { Foot = top, Width = (big ? 1.6f : 0.8f) * fire, Height = (big ? 3.6f : 1.8f) * fire, Phase = v.Slot * 0.53f + k * 1.7f });
+                    flames.Add(new Flame { Foot = OnWhatIsLeft(v, top), Width = (big ? 1.6f : 0.8f) * fire, Height = (big ? 3.6f : 1.8f) * fire, Phase = v.Slot * 0.53f + k * 1.7f });
                 }
             }
             if (books != null && books.Ready && now >= v.NextSmoke && smoke > 0.02f)
             {
                 v.NextSmoke = now + Mathf.Lerp(0.6f, 0.18f, Mathf.Max(fire, smoke * 0.5f));
-                var at = SocketWorld(v, "Socket_Fire0", out _);
+                var at = OnWhatIsLeft(v, SocketWorld(v, "Socket_Fire0", out _));
                 books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * (0.6f + fire), (1.6f + 2.2f * fire) * Mathf.Max(0.4f, smoke), UnityEngine.Random.Range(4f, 7f),
                     UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                     velocity: Vector3.up * (1.4f + fire * 1.5f) + new Vector3(UnityEngine.Random.Range(-0.3f, 0.3f), 0f, UnityEngine.Random.Range(-0.3f, 0.3f)),
