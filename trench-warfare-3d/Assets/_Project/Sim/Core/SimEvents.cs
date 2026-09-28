@@ -95,6 +95,20 @@ namespace TW.Sim
         // b = the man he threw at, pos = where it left his hand, dir = from there to where it lands (it goes off this
         // tick: BlastSystem's Explosion follows, Source = SourceId.Grenade), scalar = the metres thrown.
         GrenadeThrown,
+        // 2026-09-28 (format v24, lane/sim/melee): hand to hand (MeleeSystem). A blow: a = attacker, b = defender, pos = the
+        // attacker, dir.xz = unit direction to the defender, dir.y = the style (MeleeSystem.StyleStab 0, StyleButt 1,
+        // StyleSmash 2, StyleFists 3), scalar = damage dealt, 0 when the defender blocked it, -1 when it missed (a landed
+        // blow is also a Hit, a killing one a Death with the attacker as killer).
+        MeleeBlow,
+        // a = the man, pos = where his weapon falls, dir = the unit direction he throws it (to his side). A fists man as a
+        // fight starts; he fights on with his fists (UnitFlags.Disarmed) until WeaponPickedUp (a = the man, pos).
+        WeaponDropped,
+        WeaponPickedUp,
+        // a crab's pounce (PounceSystem). Crouched: a = the crab, b = the man it leaps at, pos = where it will land, dir.x =
+        // ticks until it leaves the ground, dir.y = ticks in the air. Landed: a = the crab, pos = where, scalar = the radius
+        // its weight falls on (the men under it take its damage: Hit and Death events with the crab as their killer).
+        PounceCrouched,
+        PounceLanded,
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing
