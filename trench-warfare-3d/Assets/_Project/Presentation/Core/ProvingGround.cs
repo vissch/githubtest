@@ -10,7 +10,9 @@
 //    unit) or DEPLOYED through the enemy's own roster slots by command, a man a tick per slot as the cooldown and the
 //    silver allow, which is the path a real opponent's units take (boats on the coast, the rear trench, the walk up);
 //  - the queue: one wave repeated on a timer of sim ticks, so the match speed scales it;
-//  - enemy support fire on the player's front trench, now.
+//  - enemy support fire on the player's front trench, now;
+//  - the sappers of a side ordered to lay a mine or a tripwire ahead of where each stands (the order a HUD button will
+//    give for one selected sapper and a point; here for all of them at once, so the unit can be tested before that).
 // Placing writes the world directly (SimHost.WriteWorlds: every world the match has, aligned to one tick), as the Unit
 // Sandbox and TankCapture do; a replay of such a match does not verify, which a test level does not need. Deploying
 // and support fire are commands and replay like any others.
@@ -20,6 +22,7 @@ using Unity.Mathematics;
 using TW.Net;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Units;
 
 namespace TW.Presentation
 {
@@ -267,6 +270,7 @@ namespace TW.Presentation
         readonly Func<Action<MatchSim>, bool> write;
         readonly Func<MatchSim> view;
         readonly Func<ICommandSink> enemy;
+        readonly Func<ICommandSink> player;
 
         /// <summary>Waves go through the enemy's roster slots by command instead of being placed.</summary>
         public bool ThroughSlots;
@@ -285,12 +289,48 @@ namespace TW.Presentation
         /// <param name="write">Write every world of the match (SimHost.WriteWorlds); false when it could not.</param>
         /// <param name="view">The world the enemy reads (SimHost.EnemyView).</param>
         /// <param name="enemy">The enemy's seat (SimHost.EnemySeat).</param>
-        public ProvingGround(Func<Action<MatchSim>, bool> write, Func<MatchSim> view, Func<ICommandSink> enemy)
+        /// <param name="player">The player's seat (SimHost.LocalDriver); null when nothing orders the player's men.</param>
+        public ProvingGround(Func<Action<MatchSim>, bool> write, Func<MatchSim> view, Func<ICommandSink> enemy, Func<ICommandSink> player = null)
         {
-            this.write = write; this.view = view; this.enemy = enemy;
+            this.write = write; this.view = view; this.enemy = enemy; this.player = player;
         }
 
-        public static ProvingGround For(SimHost h) => new ProvingGround(h.WriteWorlds, () => h.EnemyView, () => h.EnemySeat);
+        public static ProvingGround For(SimHost h) => new ProvingGround(h.WriteWorlds, () => h.EnemyView, () => h.EnemySeat, () => h.LocalDriver);
+
+        public const float LayAheadMetres = 18f;
+        public const int TripwireMetres = 8;
+
+        /// <summary>
+        /// Every sapper of a side who has a charge and no errand is ordered to lay ahead of himself: a mine at the point
+        /// LayAheadMetres toward the enemy, or a tripwire across the front from there. The order is the sim's own
+        /// (CommandType.UnitAbility), so the sim may still refuse one (the point is in a trench, off the map, he is
+        /// pinned) and says so with CommandRejected. Returns how many were ordered.
+        /// </summary>
+        public int OrderSappers(int team, UnitAbilityId ability, float ahead = LayAheadMetres)
+        {
+            var v = view(); var seat = team == 0 ? player?.Invoke() : enemy();
+            if (v == null || seat == null || v.Sapper == null) { Last = "NOBODY TO ORDER"; return 0; }
+            if (ability != UnitAbilityId.LayMine && ability != UnitAbilityId.LayTripwire) { Last = "SAPPERS LAY MINES AND TRIPWIRES"; return 0; }
+            var w = v.World; int n = 0;
+            float forward = team == 0 ? 1f : -1f;
+            int args = ability == UnitAbilityId.LayTripwire ? AbilityArgs.Pack(90, 0, TripwireMetres) : 0;   // 90: across the front
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if (!w.IsAlive(i) || w.Team[i] != team || (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
+                if (w.Units.Infantry[w.Archetype[i]].MineCharges <= 0 || v.Sapper.ChargesOf(w, i) <= 0 || v.Sapper.Phase[i] != 0) continue;
+                var p = w.Position[i];
+                seat.Issue(new SimCommand
+                {
+                    Tick = w.Tick, Player = (byte)team, Type = CommandType.UnitAbility, A = i, B = (int)ability | (args << 8),
+                    Pos = new float3(p.x, 0f, p.z + forward * ahead),
+                });
+                n++;
+            }
+            string what = ability == UnitAbilityId.LayMine ? "A MINE" : "A TRIPWIRE";
+            Last = n == 0 ? $"NO SAPPER OF {(team == 0 ? "OURS" : "THEIRS")} HAS A CHARGE AND NO ERRAND"
+                : $"{n} SAPPER{(n == 1 ? "" : "S")} OF {(team == 0 ? "OURS" : "THEIRS")} SENT TO LAY {what} {ahead:0} M AHEAD";
+            return n;
+        }
 
         /// <summary>Deploys still owed to the enemy's slots (a wave sent THROUGH THEIR SLOTS that is not all out yet).</summary>
         public int Pending { get { int n = 0; foreach (var o in owed) n += o.Count; return n; } }
