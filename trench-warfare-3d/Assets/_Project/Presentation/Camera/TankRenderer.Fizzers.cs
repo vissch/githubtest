@@ -18,7 +18,7 @@ namespace TW.Presentation.Tactical
             public Matrix4x4 Frame;                    // the rack's frame at death, when it stayed on the hull
             public Vector3 Mouth, Out;                 // its tube's mouth and way, in the rack's frame
             public Vector3 Pos, Vel, Axis, Home;
-            public float Turn, Wander, LaunchAt, PopAt, NextPoint;
+            public float Turn, Wander, LaunchAt, PopAt, NextPoint, NextPuff;
             public bool Flying;
             public Ribbon Trail;
         }
@@ -27,7 +27,9 @@ namespace TW.Presentation.Tactical
         TW.Sim.Match.MatchSim fizzMatch;
         /// <summary>Seconds between the points of a fizzer's smoke (its loops are too tight for RibbonStep's metres).</summary>
         const float FizzPointEvery = 0.05f;
-        const float FizzScale = 1f;         // a fizzer's body against a flying rocket's
+        /// <summary>Seconds between the puffs a fizzer leaves (critic round 1: its ribbon alone did not read by day).</summary>
+        const float FizzPuffEvery = 0.07f;
+        const float FizzScale = 1.4f;       // a fizzer's body against a flying rocket's (bigger: it must read by day)
         /// <summary>Seconds after the death before the first can leave: the first stills lost them in the fireball.</summary>
         const float FizzAfter = 0.5f;
 
@@ -96,9 +98,14 @@ namespace TW.Presentation.Tactical
                 if (fx)
                 {
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, -way) : 0f;
-                    books.Add(FlipbookFx.Book.Muzzle, tail - way * 0.4f, 1.0f, 0.05f, roll: roll, glow: SceneMood.Night ? 3f : 2.2f);
+                    books.Add(FlipbookFx.Book.Muzzle, tail - way * 0.5f, 1.6f, 0.05f, roll: roll, glow: SceneMood.Night ? 3f : 2.6f);
                 }
                 if (now >= f.NextPoint) { f.Trail.P.Add(tail); f.Trail.T.Add(now); f.NextPoint = now + FizzPointEvery; }
+                if (fx && now >= f.NextPuff)
+                {
+                    f.NextPuff = now + FizzPuffEvery;
+                    books.Add(FlipbookFx.Book.Smoke, tail, 1.3f, 1.6f, velocity: Vector3.up * 0.3f, grow: 1.4f, alpha: 0.75f);   // dark enough for snow (round 2)
+                }
             }
         }
 

@@ -34,6 +34,9 @@ namespace TW.Presentation.Tactical
         /// torn in two or blown apart.</summary>
         public const int HeapOfFour = 3;
         public const float HeapBurstCap = 0.5f, AloneBurstCap = 0.15f;
+        /// <summary>How much larger than life his parts are drawn, at an intensity (critic round 1: at life size an arm was
+        /// a few pixels at the play zoom and read as mud): 1.3 at 1, 1.6 at 2.</summary>
+        public static float PartScale(float intensity) => 1f + 0.3f * System.Math.Min(2f, System.Math.Max(0f, intensity));
         /// <summary>GORE below this: one limb at most, no head, never torn or blown apart.</summary>
         public const float FullGore = 0.5f;
 
@@ -45,7 +48,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The share of deaths torn in two or blown apart at an intensity, beside `density` others.</summary>
         public static float BurstShare(float intensity, int density)
-            => density >= HeapOfFour ? System.Math.Min(HeapBurstCap, 0.3f * intensity) : System.Math.Min(AloneBurstCap, 0.08f * intensity);
+            => density >= HeapOfFour ? System.Math.Min(HeapBurstCap, 0.4f * intensity) : System.Math.Min(AloneBurstCap, 0.08f * intensity);
 
         /// <summary>What a shell takes off him, at intensity `a` and GORE `gore`, with `density` dead beside him.</summary>
         public static GibPlan Decide(uint seed, float a, float gore, int density)

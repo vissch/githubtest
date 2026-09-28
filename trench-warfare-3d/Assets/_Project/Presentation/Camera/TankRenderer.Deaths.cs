@@ -48,9 +48,20 @@ namespace TW.Presentation.Tactical
             float hullLength = v.Model.HalfLength * 2f;
 
             // the turret: straight up, end over end, two bounces
+            // (a rack of rockets stays on its truck: its last rockets fizz off it, TankRenderer.Fizzers; critic round 1
+            // found the rack perched on a wall and the fizzers gone with it)
             int top = -1;
             for (int i = 1; i < parts.Count && top < 0; i++) if (parts[i].Role == TankPartRole.Turret) top = i;
+            bool turret = top >= 0;
             for (int i = 1; i < parts.Count && top < 0; i++) if (parts[i].Role == TankPartRole.Cupola) top = i;
+            if (v.Model.IsRack)
+            {
+                // even a cook-off leaves the rack on its truck now (critic round 2): its rockets fizz off it instead
+                if (top >= 0 && v.Off[top])
+                    for (int k = v.Pieces.Count - 1; k >= 0; k--)
+                        if (v.Pieces[k].Part == top) { debris.Remove(v.Pieces[k]); v.Pieces.RemoveAt(k); v.Off[top] = false; }
+                top = -1;
+            }
             if (top >= 0)
             {
                 Debris d = null;
@@ -70,7 +81,8 @@ namespace TW.Presentation.Tactical
             int rollers = 0;
             for (int i = 1; i < parts.Count && rollers < VehicleGags.MaxRollers; i++)
             {
-                if (parts[i].Role != TankPartRole.Wheel || v.Off[i] || rng.Next() < 0.5f) continue;
+                if (parts[i].Role != TankPartRole.Wheel || v.Off[i]) continue;
+                if (rng.Next() < 0.5f && rollers >= 2) continue;   // two at least, where it has them
                 var d = Detach(v, i, v.World[i]);
                 Vector3 at = (Vector3)v.World[i].GetColumn(3) - v.Pos;
                 float side = Vector3.Dot(at, right) >= 0f ? 1f : -1f, ahead = Vector3.Dot(at, fwd) >= 0f ? 1f : -1f;
@@ -83,6 +95,7 @@ namespace TW.Presentation.Tactical
 
             // what came after the first film (its own dice, so the turret and the wheels above go as they were filmed)
             var more = new DebrisRng(v.Pos, 0xF1A7u + (uint)Mathf.Max(0, v.Slot));
+            if (!turret) Sponsons(v, ref more, a, right);   // a machine with no turret (the Maw) throws its gun sponsons
             PayOut(v, ref more, a, fwd, right);
             FanOff(v, ref more, a, fwd);
             Fizzers(v, top, ref more, a, now);   // TankRenderer.Fizzers
@@ -168,7 +181,7 @@ namespace TW.Presentation.Tactical
             if ((p.Role == TankPartRole.Leg || p.Role == TankPartRole.Thigh) && legs != null && p.Leg >= 0 && p.Leg < legs.Length && legs[p.Leg] != null)
             {
                 var rig = legs[p.Leg];
-                float down = Mathf.Clamp(Mathf.Max(0f, rig.Hip.y - v.Belly) / Mathf.Max(0.1f, rig.Reach), 0f, 0.8f);
+                float down = Mathf.Clamp(Mathf.Max(0f, rig.Hip.y - v.Belly) / Mathf.Max(0.1f, rig.Reach), 0f, VehicleGags.SplayDown);
                 Vector3 flat = new Vector3(rig.Outward.x, 0f, rig.Outward.z);
                 flat = flat.sqrMagnitude > 1e-6f ? flat.normalized : Vector3.right;
                 Vector3 want = flat * Mathf.Sqrt(1f - down * down) + Vector3.down * down;
@@ -216,18 +229,42 @@ namespace TW.Presentation.Tactical
             d.Spool = 0f; d.Vel = Vector3.zero; d.Spin = Vector3.zero;
         }
 
-        /// <summary>The Skimmer's fan, off astern like a frisbee.</summary>
+        /// <summary>The Skimmer's fan, off astern like a frisbee: its ring (FanRing) with it, which is what reads from the
+        /// camera (critic round 1: the blades alone left and the ring stayed, so nothing seemed to go).</summary>
         void FanOff(View v, ref DebrisRng rng, float a, Vector3 fwd)
         {
             var parts = v.Model.Lods[0].Parts;
+            int fan = -1, ring = v.Model.Lods[0].Find("FanRing");
+            for (int i = 1; i < parts.Count && fan < 0; i++) if (parts[i].Role == TankPartRole.Fan && !v.Off[i]) fan = i;
+            if (fan < 0) return;
+            var glide = VehicleGags.FanThrow(a, -fwd, rng.Next(), rng.Next(), rng.Next());
+            bool fanUnderRing = false;
+            for (int k = fan; k >= 0; k = parts[k].Parent) if (k == ring) fanUnderRing = true;
+            if (ring >= 0 && !v.Off[ring])
+            {
+                var r = Detach(v, ring, v.World[ring]);
+                r.Vel = glide.Vel; r.Curve = glide.Curve; r.Glide = VehicleGags.FanGlideCap; r.Burn = Mathf.Max(r.Burn, v.Burn * 0.5f);
+            }
+            if (fanUnderRing) return;   // it rides its ring
+            var d = Detach(v, fan, v.World[fan]);
+            d.Vel = glide.Vel; d.Curve = glide.Curve; d.Glide = VehicleGags.FanGlideCap;
+            d.Burn = Mathf.Max(d.Burn, v.Burn * 0.5f);
+        }
+
+        /// <summary>A machine with no turret throws its gun sponsons off its sides, up and out, tumbling.</summary>
+        void Sponsons(View v, ref DebrisRng rng, float a, Vector3 right)
+        {
+            var parts = v.Model.Lods[0].Parts;
+            float k = Mathf.Sqrt(Mathf.Min(a, 2f));
             for (int i = 1; i < parts.Count; i++)
             {
-                if (parts[i].Role != TankPartRole.Fan || v.Off[i]) continue;
+                if (parts[i].Role != TankPartRole.Sponson || v.Off[i]) continue;
                 var d = Detach(v, i, v.World[i]);
-                var glide = VehicleGags.FanThrow(a, -fwd, rng.Next(), rng.Next(), rng.Next());
-                d.Vel = glide.Vel; d.Curve = glide.Curve; d.Glide = VehicleGags.FanGlideCap;
-                d.Burn = Mathf.Max(d.Burn, v.Burn * 0.5f);
-                return;
+                float side = parts[i].Side < 0 ? -1f : 1f;
+                d.Vel = (right * (side * rng.Range(4f, 6.5f)) + Vector3.up * rng.Range(8f, 11f)) * k;
+                d.Spin = rng.OnSphere() * rng.Range(3f, 6f);
+                d.Bounce = VehicleGags.TurretBounce; d.Bounces = 1;
+                d.Burn = Mathf.Max(d.Burn, v.Burn);
             }
         }
 
@@ -263,8 +300,8 @@ namespace TW.Presentation.Tactical
                 // out of roll: over onto its face, and FlyDebris takes it from here
                 Vector3 dir = speed > 1e-3f ? flat / speed : Vector3.forward;
                 d.Roll = 0f;
-                d.Vel = dir * speed + Vector3.up * 1.2f;
-                d.Spin = dir * 2.4f;
+                d.Vel = dir * speed + Vector3.up * 1.6f;
+                d.Spin = dir * 5.5f;   // a quarter turn and more in the hop: it lies flat (critic round 2 found tyres standing)
                 return;
             }
             float slowed = Mathf.Max(0.01f, speed - VehicleGags.RollDecel * dt);
