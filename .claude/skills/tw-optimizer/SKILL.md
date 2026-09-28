@@ -50,6 +50,8 @@ Write it to the board: `evidence/<item>/optimizer/sheet.md` plus JPGs.
 - **Find candidates:** meshes over budget, LODs that pop (`lodpop` IoU in the Playground), props drawn at far zoom with near detail.
 - **Reduce:** LODs derive from LOD0 (`TW_DERIVE` 12 in `tank3split.py` / `frogrig.py`, owner decision). The static-mesh decimator pattern is in `C:\Users\PC\Documents\unity\EMTD-marketing\Video_1_Project\EnvBuilder\tools\decimate_buildings.py` (static meshes only).
 - **Never overwrite the original.** A swap is a proposal with its comparison sheet, applied only after the owner approves.
+- **Making the lower models** is `tw-lowpoly`'s job (Blender, inventory, per-model loop). This role measures them and
+  makes the sheet.
 
 ## Never (from the contract)
 - Edit `Sim/`, `Net/`, `Data/`, asmdefs, `ProjectSettings/` or `Packages/`. A sim cost becomes an ASK item for the SIM lane.

@@ -60,6 +60,56 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 4. The same clip is now on every Soldier-figure unit. Check the other archetypes still pass their cells.
 5. After three rounds the cell is BLOCKED, with a note of the source animation needed.
 
+## Foxholes, trenches and craters (the owner: "fix the characters sitting in their fox hole and shooting")
+**What happens today, at `c43b73f`:**
+- **Stance.** A man at his garrison post gets `Stance.Crouch` (`Sim/Nav/MovementSystem.cs` ~352-357).
+  `AnimationController` draws FireStep, Vault and Sprint as Standing (~461); only the sniper kneels (~462).
+- **Firing.** The fire clip is picked at ~649: prone → FireProne / FireMG, low → FireKneel, otherwise FireStoop (MG),
+  FireSnap (bolt rifle) or FireStand. **So a man on the fire step fires standing.**
+- **Idle.** `TrenchRoutine` (~814-840) keeps him on KneelIdle, with these beats:
+  - rise to AimedIdle;
+  - StoopIdle;
+  - KneelInspect / LookAround / FidgetRubEyes;
+  - Shield when Suppression > 30.
+- **What's missing.** There is **no seated-in-a-hole pose and no parapet lean**, and "foxhole" appears nowhere.
+- **Craters.** They are designed (`docs/15-character-controller.md` ~191: kneel, go prone in the bowl, fire prone), but
+  `NavLayer.Crater` is read only by the minimap, so a man in a crater plays his open-ground clips.
+- **Muzzle height.** The fire step changes the picture only: the muzzle is at +0.3 m for every man in a trench
+  (`docs/14-organic-trenches.md` ~96-103). Changing that is **SIM**: put it in "Open" and don't build around it.
+
+**The fix (SHOW lane), in order:**
+1. **Sources.** Look in `Art/Characters/Clips/` (103 Mixamo FBX, `InfantryClipTable.Folder`) and the owner's
+   `Downloads\mixamo animations\` (`pipelines.md`). You want:
+   - a rifle aim and fire leaning forward on a wall (parapet lean);
+   - a crouched or seated hole idle, and a fire from it.
+
+   Measure each candidate with `clipcheck.py` before choosing. Anything missing is made with `animforge`
+   (`layer`/`offset` on a kneel-fire, for example), like the `make_missing_clips.py` recipes.
+2. **Clips.** For each new clip:
+   - a new `Clip` value;
+   - its `Clips.Table` row with a fallback;
+   - an `InfantryClipTable.Build` source.
+
+   **Batch every new clip into one bake**: each bake adds about 19 MB to git history.
+3. **Choice.** FireStep → parapet lean-fire (and its idle). A man in a crater cell → the hole or prone set. Read
+   `NavLayer.Crater` through the presentation's terrain view. Don't change the sim.
+4. **Proof.**
+   - The gym (`tw-gym`), at T3 and T1: the Clips tab for the clip itself, and a trench and a crater staged with a
+     rifle line for the real choice.
+   - clipcheck thresholds (floor, hand to weapon).
+   - The trace showing the new rung.
+   - Before and after sheets.
+
+## Reactions to the battlefield (the owner: "feedback from the sim to the units is critical")
+This role owns the unit column of the reaction matrix (`tw-destruction-vfx`, Brief 2 §B3):
+- flinch and duck under near misses and suppression;
+- knockdown and blast throws (`BlastReactionTests`);
+- deaths per cause;
+- a man carried or hit by debris.
+
+Every reaction must read at T3 and T1. At far, it only has to change the squad's shape. A cell with no sim event is
+flagged, never faked.
+
 ## Traps (tasks.md)
 - Read a dead man through `TryDeath`, never `State[slot]`.
 - Any clip or discard in the shader goes behind `_TW_LIMBCUT`.

@@ -43,6 +43,9 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 | bug-catcher | `tw-bug-catcher` | desktop |
 | hard-critic, `/improve-loop` | `tw-critic` | either |
 | master | `tw-master` | review either; gate and land on the desktop |
+| gym (proving ground for every role) | `tw-gym` | desktop (runs); either (reading) |
+| lowpoly | `tw-lowpoly` | desktop (Blender) |
+| housekeeping | `tw-housekeeping`: after every long job | both |
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
 
