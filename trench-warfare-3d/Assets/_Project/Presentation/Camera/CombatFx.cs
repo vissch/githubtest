@@ -483,6 +483,7 @@ namespace TW.Presentation.Tactical
             {
                 case SimEventType.Shot:
                 {
+                    if (PropTarget.IsProp(e.B)) { ShotAtWreck(e); break; }   // at a wreck its enemies are behind (CombatFx.Wrecks)
                     if (tracers.Count >= 1500 || e.B < 0 || e.B >= w.Position.Length) break;
                     float scale = 1f;
                     var cam = Camera.main;

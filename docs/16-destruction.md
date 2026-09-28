@@ -809,3 +809,16 @@ Tests: `WreckDecayTests` (every stage with its cover and block, sizes, the cook-
 generated wrecks, a barrage and a Maw grinding through two sims in lockstep, the Tusk that does not grind, scrap
 flattened, a parked Maw, a machine gun that wears it and a rifle and a tree that do not, an idle machine gun firing at
 the wreck a hidden garrison is behind, a rifle that fires but does not wear, a living target that always wins).
+
+### Drawn (TankRenderer.WreckStages)
+
+A dead machine's hull is drawn as its carcass: the same root part cut at load into up to 24 chunks on a grid of height
+bands (keel, waist, crown) and rows (`Presentation/Camera/WreckModel.cs`, the chunk in UV4.x, no vertex shared by two
+chunks); `Shaders/Tank_URP.shader` collapses a chunk whose bit is set in the instance's `_Chunks`, so a wreck is still
+one instance of one mesh at every stage. As the prop's hit points fall (read once a sim tick) chunks come away from
+the top down and fly as pieces of hull (`WreckStageRules.Hidden`: at most half the crown while it is whole). To a
+broken wreck everything still bolted on goes, the crown with it, in a burst of plates and dust, and the hull slumps;
+to scrap the rest topples in and the keel is pressed into a heap; cleared, the heap bursts low and sinks into the mud
+over five seconds and the view is gone. Its flames and smoke come down with it (`OnWhatIsLeft`). The map's own wrecks
+are adopted as husks of the Maw or the Tusk and break the same way. A round a gun fires at a wreck is a tracer to its
+side (`CombatFx.Wrecks`). Seen in `Tests/Stills/WreckStills` (a Maw killed and shelled through every stage).

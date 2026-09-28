@@ -261,7 +261,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   as the sim's wreck prop loses hit points, the stage changes, shards, cleared heaps sinking, the map's own wrecks adopted
   as husks), `Presentation/Camera/WreckModel.cs` (the root part cut into chunks at load, the chunk in UV4.x),
   `Presentation/Camera/WreckStages.cs` (`WreckStageRules`: which chunks are gone at each stage); `Shaders/Tank_URP.shader`
-  collapses a chunk whose bit is set in the instance's `_Chunks`. `Editor/WreckLab.cs` shells a point or reads the wreck
+  collapses a chunk whose bit is set in the instance's `_Chunks`. A round fired at a wreck (`Shot.b` a prop) is drawn by
+  `Presentation/Camera/CombatFx.Wrecks.cs` (a tracer to the wreck's side), and the shooter faces it (AnimationController). `Editor/WreckLab.cs` shells a point or reads the wreck
   nearest it, for staging one by hand.
 - **Tests:** GaitTests (plus the sim tests above), RiderSeatTests, WreckModelTests (the carcass and the stages' masks), DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
