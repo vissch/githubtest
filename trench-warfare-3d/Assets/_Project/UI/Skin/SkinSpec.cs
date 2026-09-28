@@ -136,6 +136,7 @@ namespace TW.UI
         {
             "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt",
             "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker", "Skimmer", "Salvo",
+            "Brute", "Croaker", "Hopper", "Mercy",   // the playground's four (2026-09-28), rendered off their battle models
             "HeBarrage", "ChlorineGas", "ParaDrop",
         };
 

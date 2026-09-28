@@ -129,6 +129,10 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Breaker.png`
 - `Skimmer.png`
 - `Salvo.png`
+- `Brute.png`
+- `Croaker.png`
+- `Hopper.png`
+- `Mercy.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`
