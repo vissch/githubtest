@@ -26,6 +26,15 @@ namespace TW.Presentation.Tactical
 
         /// <summary>How long a smoke card lives at a weight, as a share of what it was asked for: lighter smoke also clears
         /// sooner, but never in under 60 % of its time (a puff that pops out of existence reads as a glitch).</summary>
+        /// <summary>The weight the burst's own boiling cloud is born at: most of the way back to full. It lives under two seconds
+        /// and is the body the fire burns inside (the owner's snow reference); thinned to the lingering smoke's 0.6 it was a
+        /// grey veil the snow showed through (critique s3). The lingering smoke keeps the owner's lighter weight.</summary>
+        public static float BurstWeight(float weight) => Mathf.Lerp(Mathf.Clamp01(weight), 1f, 0.7f);
+
+        /// <summary>A cloud born of fire, lit warm from underneath while it is young (Flipbook_URP _Ember): by day, and dimmer at night.</summary>
+        public void Ember(Book book, Color warm) { var m = mats[(int)book]; if (m != null) m.SetColor(EmberId, warm); }
+        static readonly int EmberId = Shader.PropertyToID("_Ember");
+
         public static float SmokeLife(float weight) => Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(weight));
 
         /// <summary>A smoke card's width, height, life and opacity as it is born (height 0: the drawing's own aspect, taken

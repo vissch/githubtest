@@ -319,7 +319,7 @@ namespace TW.Presentation.Terrain
             // shell throws up is dirt through the snow. At 0.55/0.58/0.64 and 0.62/0.66/0.72 the cloud was cold glass and the
             // column hung over the field as blue icicles (bench snow0); both now separate from the snow by hue as well as value.
             SmokeTint = new Color(0.56f, 0.54f, 0.52f),
-            ColumnTint = new Color(0.58f, 0.56f, 0.54f),
+            ColumnTint = new Color(0.42f, 0.37f, 0.33f),   // frozen earth: grey at 0.58 still took the shade band's blue and hung as icicles (critique s3)
             DustTint = new Color(0.88f, 0.91f, 0.95f),   // slush and broken ice, not summer river water
             DebrisTint = new Color(0.80f, 0.84f, 0.90f, 0f),
             Flooding = 0.25f,                                      // what water there is has frozen; see docs/18 W2
