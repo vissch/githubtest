@@ -16,6 +16,7 @@ namespace TW.Sim.Combat
         public const float ChargeRevealRange = 20f;      // a charging Breaker (UnitFlags.Charging) looks down into the trench from this far
         public const float CraterCover = 0.35f;          // added to the stance cover of a man standing in a shell hole
         public const float CloseAssaultRange = 8f;       // infantry this close to a vehicle attack it with bundled grenades
+        public const float HullTargetBonus = 1.3f;       // a hull is a big target: the odds of a round hitting one (tank guns, armour-hunting small arms)
         public const float CloseAssaultDamage = 600f;         // structure, when the charge gets through the plate
         public const float CloseAssaultPenMm = 20f;           // a grenade bundle on the deck: through a top plate, not a front
         public const float CloseAssaultChance = 0.5f;

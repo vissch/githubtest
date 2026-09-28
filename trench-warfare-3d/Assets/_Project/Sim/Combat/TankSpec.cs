@@ -63,8 +63,9 @@ namespace TW.Sim.Combat
         public float RocketSpeed;
         /// <summary>It holds where it is while its target (gun 0's, or its small arms' if it has no gun) is within this many
         /// metres (0: it never holds): the Salvo at its rockets' reach, the Skimmer at 90 m, out of grenade range. After
-        /// StandOffPatience seconds on one target without taking a hit point off it, it gives up the hold for
-        /// StandOffRelease seconds and drives on (it cannot camp a target it is not hurting). 2026-09-28.</summary>
+        /// StandOffPatience seconds on one target that has lost no hit point (to anyone: a burst does not say whose it
+        /// was), it gives up the hold for StandOffRelease seconds and drives on (it cannot camp a target nobody is
+        /// hurting). It holds only on the first goal it was given. 2026-09-28.</summary>
         public float StandOffMetres, StandOffPatience;
         public const float StandOffRelease = 10f;
 

@@ -261,7 +261,7 @@ namespace TW.Tests
             cfg.FactionA = (byte)FactionId.Brass; cfg.FactionB = (byte)FactionId.Iron; cfg.HeroPity0 = 0.42f; cfg.HeroPity1 = 0.07f;
             var rec = new ReplayRecorder(cfg, default, 1);
             var back = ReplayPlayer.Parse(rec.Serialize());
-            Assert.GreaterOrEqual(ReplayRecorder.FormatVersion, 9);   // v5 on its own lane; v9 once it landed on the overhaul's v8
+            Assert.AreEqual(14, ReplayRecorder.FormatVersion, "the header this test reads is v14's (factions and pity since v9; bump with the format)");
             Assert.AreEqual(FactionId.Brass, back.Config.FactionOf(0));
             Assert.AreEqual(FactionId.Iron, back.Config.FactionOf(1));
             Assert.AreEqual(0.42f, back.Config.HeroPity0);

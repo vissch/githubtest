@@ -204,7 +204,7 @@ namespace TW.Sim.Combat
                             float range = SimMath.Length(at);
                             float3 way = range > 1e-3f ? at / range : new float3(0f, 0f, 1f);
                             Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = way, Scalar = 0f });
-                            float odds = mg.Accuracy * CombatTables.RangeFalloff(range, mg.RangeMax) * 1.3f;   // a hull is a big target
+                            float odds = mg.Accuracy * CombatTables.RangeFalloff(range, mg.RangeMax) * CombatTables.HullTargetBonus;
                             if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed) odds *= CombatTables.MovingAccuracy;
                             if (SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i).NextFloat() < odds)
                                 VehicleHits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.ArmourPiercing, PenMm = mg.PenetrationMm, Damage = mg.Damage, Pos = q, Dir = way });

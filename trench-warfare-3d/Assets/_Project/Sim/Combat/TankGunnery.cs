@@ -84,6 +84,8 @@ namespace TW.Sim.Combat
         /// hit on it, the target's hit points when the count started, and ticks it has given up holding for.</summary>
         public NativeArray<int> HoldTarget, HoldTicks, Release;
         public NativeArray<float> HoldHp;
+        /// <summary>The goal it held on (format v14): -1 until it is given one.</summary>
+        public NativeArray<int> HoldGoal;
         /// <summary>This tick's rounds and charges on vehicles (close assaults from DirectFire, then these guns);
         /// VehicleModulesSystem drains it later in the same tick.</summary>
         public NativeList<VehicleHit> PendingHits;
@@ -114,7 +116,8 @@ namespace TW.Sim.Combat
             ClawCooldown = new NativeArray<int>(n, Allocator.Persistent);
             HoldTarget = new NativeArray<int>(n, Allocator.Persistent); HoldTicks = new NativeArray<int>(n, Allocator.Persistent);
             Release = new NativeArray<int>(n, Allocator.Persistent); HoldHp = new NativeArray<float>(n, Allocator.Persistent);
-            for (int i = 0; i < n; i++) HoldTarget[i] = -1;
+            HoldGoal = new NativeArray<int>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) { HoldTarget[i] = -1; HoldGoal[i] = -1; }
             clawed = new NativeList<int2>(8, Allocator.Persistent);
             for (int i = 0; i < n * Guns; i++) GunTarget[i] = -1;
             PendingHits = new NativeList<VehicleHit>(32, Allocator.Persistent);
@@ -133,8 +136,10 @@ namespace TW.Sim.Combat
             if (blast == null) blast = w.GetSystem<BlastSystem>();
             if (kinematics == null) kinematics = w.GetSystem<VehicleKinematicsSystem>();
             events.Clear(); impacts.Clear(); clawed.Clear();
-            // the rockets that come down this tick burst now (BlastSystem steps after this system, the same tick)
-            if (blast != null)
+            // the rockets that come down this tick burst now (BlastSystem steps after this system, the same tick). A world
+            // with no BlastSystem (a bare test rig) has nothing to burst them: they are dropped, not kept for ever
+            if (blast == null) Rockets.Clear();
+            else
             {
                 int keep = 0;
                 for (int r = 0; r < Rockets.Length; r++)
@@ -159,7 +164,7 @@ namespace TW.Sim.Combat
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Hits = PendingHits, Events = events, Impacts = impacts, Rockets = Rockets,
-                TargetSlot = w.TargetSlot, Hp = w.Hp, HoldTarget = HoldTarget, HoldTicks = HoldTicks, Release = Release, HoldHp = HoldHp, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
+                TargetSlot = w.TargetSlot, GoalId = w.GoalId, Hp = w.Hp, HoldTarget = HoldTarget, HoldTicks = HoldTicks, Release = Release, HoldHp = HoldHp, HoldGoal = HoldGoal, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
@@ -208,9 +213,9 @@ namespace TW.Sim.Combat
             public NativeList<SimEvent> Events;
             public NativeList<Impact> Impacts;
             public NativeList<PendingRocket> Rockets;
-            [ReadOnly] public NativeArray<int> TargetSlot;
+            [ReadOnly] public NativeArray<int> TargetSlot, GoalId;
             [ReadOnly] public NativeArray<float> Hp;
-            public NativeArray<int> HoldTarget, HoldTicks, Release;
+            public NativeArray<int> HoldTarget, HoldTicks, Release, HoldGoal;
             public NativeArray<float> HoldHp;
 
             int CellOf(float3 p)
@@ -255,10 +260,14 @@ namespace TW.Sim.Combat
                 return belowRim ? dist * (g.Indirect ? 0.55f : 1.8f) : dist;
             }
 
-            /// <summary>TankSpec.StandOffMetres: hold while the target is in reach and being hurt; give up for a while
-            /// after StandOffPatience seconds on one target that has not lost a hit point.</summary>
+            /// <summary>TankSpec.StandOffMetres: hold while the target is in reach and losing hit points (to anyone: a
+            /// burst does not say whose it was); give up for a while after StandOffPatience seconds on one target that has
+            /// lost none. Only on the goal it was first given (HoldGoal): a machine sent anywhere else by anything - an
+            /// order, an ability, a hero's call - drives there and holds no more (critic r3).</summary>
             void StandOff(int i, float3 p, in TankSpec spec)
             {
+                if (HoldGoal[i] < 0) HoldGoal[i] = GoalId[i];   // the first goal it was given: its default, where it was put
+                if (GoalId[i] != HoldGoal[i]) return;         // sent somewhere else: it goes
                 int t = spec.GunCount > 0 ? GunTarget[i * Guns] : TargetSlot[i];
                 if (Release[i] > 0) { Release[i]--; return; }
                 bool inReach = t >= 0 && t < Count && (Flags[t] & (uint)UnitFlags.Alive) != 0
@@ -304,6 +313,8 @@ namespace TW.Sim.Combat
                     if (Gen[i] != Generation[i])
                     {
                         Gen[i] = Generation[i]; CrewFactor[i] = 1f;
+                        // the stand-off hold is the machine's own: a new one in a dead one's slot starts with none (critic r3)
+                        HoldTarget[i] = -1; HoldTicks[i] = 0; Release[i] = 0; HoldHp[i] = 0f; HoldGoal[i] = -1;
                         for (int k = 0; k < Guns; k++)
                         {
                             int g0 = i * Guns + k;
@@ -346,7 +357,7 @@ namespace TW.Sim.Combat
                         float dist = SimMath.Length(d);
                         bool armour = (Flags[t] & (uint)UnitFlags.Vehicle) != 0;
                         float chance = g.Accuracy * CombatTables.RangeFalloff(dist, g.RangeMax) * (moving ? MovingAccuracy : 1f) * (0.6f + 0.4f * CrewFactor[i]);
-                        if (armour) chance *= 1.3f;   // a tank is a big target
+                        if (armour) chance *= CombatTables.HullTargetBonus;   // a tank is a big target
                         else
                         {
                             if ((Flags[t] & (uint)UnitFlags.InTrench) != 0) chance *= StanceOf[t] == (byte)Stance.FireStep ? 0.8f : 0.5f;
@@ -462,6 +473,7 @@ namespace TW.Sim.Combat
             for (int r = 0; r < Rockets.Length; r++) h = SimHash.Value(Rockets[r], h);
             // v13 (2026-09-28): the stand-off hold, appended
             h = SimHash.Array(HoldTarget, n, h); h = SimHash.Array(HoldTicks, n, h); h = SimHash.Array(Release, n, h); h = SimHash.Array(HoldHp, n, h);
+            h = SimHash.Array(HoldGoal, n, h);   // v14
             return h;
         }
 
@@ -481,6 +493,7 @@ namespace TW.Sim.Combat
             if (HoldTicks.IsCreated) HoldTicks.Dispose();
             if (Release.IsCreated) Release.Dispose();
             if (HoldHp.IsCreated) HoldHp.Dispose();
+            if (HoldGoal.IsCreated) HoldGoal.Dispose();
             if (events.IsCreated) events.Dispose();
             if (impacts.IsCreated) impacts.Dispose();
             if (halt.IsCreated) halt.Dispose();

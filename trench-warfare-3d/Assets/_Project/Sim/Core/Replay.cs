@@ -41,7 +41,9 @@ namespace TW.Sim
         // v13 (2026-09-28, the balance critic's round): TankGunnerySystem hashes the stand-off hold (HoldTarget, HoldTicks,
         // Release, HoldHp) after the rockets; TankSpec.StandOff (bool) became StandOffMetres/StandOffPatience; InfantrySpec
         // gains HuntsArmour and LooksDownMetres; a machine's armour-hunting small arms fire armour-piercing at machines.
-        public const ushort FormatVersion = 13;
+        // v14 (2026-09-28, critic round 3): TankGunnerySystem hashes HoldGoal after HoldHp; the hold is reset for a new unit
+        // in a dead machine's slot, and holds only on the machine's first goal.
+        public const ushort FormatVersion = 14;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -243,8 +243,9 @@ namespace TW.Tests
             Assert.AreNotEqual(man, m.World.TargetSlot[tusk], "15 m off, a Tusk does not");
         }
 
-        /// <summary>The hold is patient but not for ever: on a mark it is not hurting (a man it cannot kill here: its
-        /// rockets land out of reach of him), the Salvo gives the hold up after StandOffPatience and drives on.</summary>
+        /// <summary>The hold is patient but not for ever: on a mark that loses no hit points (here a man whose hit points
+        /// the test puts back every tick, so its rockets hurt him and it never sees it), the Salvo gives the hold up after
+        /// StandOffPatience and drives on.</summary>
         [Test]
         public void TheHoldIsGivenUpOnAMarkItIsNotHurting()
         {
@@ -261,6 +262,121 @@ namespace TW.Tests
             Assert.Less(math.distance(held, m.World.Position[truck]), 0.5f, "inside its patience it holds");
             for (int t = 0; t < 20 * 10; t++) { m.World.Hp[man] = 1e6f; m.Step(none); }
             Assert.Greater(math.distance(held, m.World.Position[truck]), 3f, "after 32 s on a mark that loses nothing it drives on");
+        }
+
+        // ------------------------------------------------------------------ critic round 3 (format v14)
+        /// <summary>A unit spawned into a dead machine's slot starts with no hold: the old code kept HoldTarget,
+        /// HoldTicks, Release and HoldHp from the Salvo that died there.</summary>
+        [Test]
+        public void ANewUnitInADeadSalvosSlotInheritsNoHold()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
+            Run(m, 20 * 3);
+            var g = m.Gunnery;
+            Assume.That(g.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "it is holding");
+            m.World.Despawn(truck, -1, default);
+            var tusk = m.World.Units.Roster[VehicleArchetype.Tusk];
+            int next = m.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 260f), tusk.Hp, 0f, true);
+            Assume.That(next, Is.EqualTo(truck), "the Tusk took the Salvo's slot");
+            Run(m, 1);
+            Assert.AreEqual(-1, g.HoldTarget[next], "no mark"); Assert.AreEqual(0, g.HoldTicks[next], "no count");
+            Assert.AreEqual(0, g.Release[next], "no release"); Assert.AreEqual(0f, g.HoldHp[next], "no hit points");
+            Assert.AreEqual(-1, g.HoldGoal[next], "no goal");
+        }
+
+        /// <summary>A held Salvo sent somewhere else drives there: the hold is only on the goal it was first given. Nothing
+        /// in the sim orders a machine yet (players order trenches); anything that re-goals one (an ability, a hero's call,
+        /// a move order later) must not be overridden by the hold for 32 s at a time.</summary>
+        [Test]
+        public void AHeldSalvoSentElsewhereGoes()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 200f));
+            m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
+            Run(m, 20 * 3);
+            Assume.That(m.Gunnery.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "it is holding");
+            float3 held = m.World.Position[truck];
+            // back to its own side's rear: the goal the other team's machines drive to, as an order to retreat would be
+            int back = -1;
+            for (int i = 0; i < m.World.HighWater && back < 0; i++)
+                if (m.World.IsAlive(i) && m.World.Team[i] == 0 && (m.World.Flags[i] & (uint)UnitFlags.Vehicle) != 0) back = m.World.GoalId[i];
+            if (back < 0) { int probe = m.World.Spawn(0, VehicleArchetype.Tusk, new float3(30f, 0f, 30f), 2000f, 0f, true); Run(m, 1); back = m.World.GoalId[probe]; m.World.Despawn(probe, -1, default); }
+            Assume.That(back, Is.GreaterThanOrEqualTo(0).And.Not.EqualTo(m.World.GoalId[truck]));
+            m.World.GoalId[truck] = back;
+            Run(m, 20 * 10);
+            Assert.Greater(math.distance(held, m.World.Position[truck]), 5f, "sent back, it goes, whatever it has in reach");
+        }
+
+        /// <summary>The Salvo dies with its rockets in the air: they still come down, on the ticks and at the points they
+        /// were fired for, the same in two runs.</summary>
+        [Test]
+        public void RocketsInTheAirLandWhenTheSalvoDies()
+        {
+            List<Landing> a = null, b = null; int burstsA = 0, burstsB = 0;
+            for (int run = 0; run < 2; run++)
+            {
+                using var m = NewMatch();
+                int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+                for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);
+                var log = new List<SimEvent>();
+                using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+                bool killed = false;
+                for (int t = 0; t < 20 * 12; t++)
+                {
+                    m.Step(none);
+                    var ev = m.World.Events.Events;
+                    for (int k = 0; k < ev.Length; k++) log.Add(ev[k]);
+                    if (!killed && m.Gunnery.Rockets.Length > 0) { m.World.Despawn(truck, -1, default); killed = true; }
+                }
+                Assume.That(killed, "the rack fired");
+                var promised = Promised(log, truck, out _);
+                int bursts = 0; int source = SourceId.Unit(VehicleArchetype.Salvo);
+                foreach (var e in log) if (e.Type == SimEventType.Explosion && e.A == source) bursts++;
+                if (run == 0) { a = promised; burstsA = bursts; } else { b = promised; burstsB = bursts; }
+            }
+            Assert.AreEqual(a.Count, burstsA, "every rocket in the air burst after the Salvo died");
+            Assert.AreEqual(a.Count, b.Count); Assert.AreEqual(burstsA, burstsB);
+            for (int k = 0; k < a.Count; k++) { Assert.AreEqual(a[k].Tick, b[k].Tick); Assert.AreEqual(a[k].Pos, b[k].Pos); }
+        }
+
+        /// <summary>A match with a Salvo's rockets in the air records and replays to the same hashes: the pending
+        /// rockets and the hold are in the verified state.</summary>
+        [Test]
+        public void AMatchWithRocketsInTheAirReplays()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            cfg.LoadoutA = Ten(InfantryArchetype.Rifle);
+            cfg.LoadoutB = Ten(VehicleArchetype.Salvo);
+            var recorder = new ReplayRecorder(cfg, default, 1);
+            bool inTheAir = false;
+            using (var m = MatchSim.CreatePlaytest(cfg))
+            {
+                for (uint t = 0; t < 20 * 30; t++)
+                {
+                    var cmds = new List<SimCommand>();
+                    if (t == 5) cmds.Add(SimCommand.Deploy(t, 1, 0));
+                    if (t % 40 == 10) cmds.Add(SimCommand.Deploy(t, 0, 0));
+                    using var arr = new NativeArray<SimCommand>(cmds.ToArray(), Allocator.Temp);
+                    m.World.HashInterval = 1;
+                    m.Step(arr);
+                    inTheAir |= m.Gunnery.Rockets.Length > 0;
+                    recorder.Record(arr, m.World.LastHash);
+                }
+            }
+            Assert.IsTrue(inTheAir, "the Salvo fired while it was recorded");
+            var player = ReplayPlayer.Parse(recorder.Serialize());
+            using var again = MatchSim.CreatePlaytest(player.Config);
+            again.World.HashInterval = 1;
+            Assert.AreEqual(-1, player.Verify(again.World), "the replay re-simulates to the recorded hashes");
+        }
+
+        static Unity.Collections.FixedList32Bytes<byte> Ten(byte a)
+        {
+            var l = new Unity.Collections.FixedList32Bytes<byte>();
+            for (int k = 0; k < RosterEntry.SlotCount; k++) l.Add(a);
+            return l;
         }
 
         // ------------------------------------------------------------------ the Salvo's rack (format v11)
@@ -350,14 +466,18 @@ namespace TW.Tests
             Assert.AreEqual(a.Count, b.Count);
             for (int k = 0; k < a.Count; k++) { Assert.AreEqual(a[k].Tick, b[k].Tick); Assert.AreEqual(a[k].Pos, b[k].Pos); }
 
-            var one = Canary(false); var two = Canary(true);
-            for (int t = 0; t < one.Length; t++) Assert.AreEqual(one[t], two[t], $"one world and the canary part at tick {t}");
+            var one = Canary(false, 0, 0, 0f); var two = Canary(true, 0, 0, 0f); var lossy = Canary(true, 2, 1, 0.05f);
+            for (int t = 0; t < one.Length; t++)
+            {
+                Assert.AreEqual(one[t], two[t], $"one world and the canary part at tick {t}");
+                Assert.AreEqual(two[t], lossy[t], $"the canary under latency, jitter and loss parts at tick {t}");
+            }
         }
 
-        static ulong[] Canary(bool canary)
+        static ulong[] Canary(bool canary, int latency, int jitter, float loss)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
-            using var session = new LockstepSession(() => MatchSim.CreatePlaytest(cfg), canary, 0, 0, 0f, cfg.Seed);
+            using var session = new LockstepSession(() => MatchSim.CreatePlaytest(cfg), canary, latency, jitter, loss, cfg.Seed);
             foreach (var m in canary ? new[] { session.Local, session.Peer } : new[] { session.Local })
             {
                 m.World.HashInterval = 1;
