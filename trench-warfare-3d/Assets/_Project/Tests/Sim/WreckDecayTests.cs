@@ -1,7 +1,8 @@
 // Phase: A4 wrecks (2026-09-28, the seam) — a wreck breaks in stages and then is gone (owner, 2026-09-28): whole wreck
 // (blocks, 50 % cover), broken wreck (blocks, 35 %), scrap (does not block, 15 %), cleared (nothing). This file holds
 // the stages' rules; the steps that make wrecks take harm add their tests here: blasts (S1), machines grinding wrecks
-// and flattening scrap (S2), machine-gun rounds a wreck's cover stopped (S3).
+// and flattening scrap (S2), machine-gun rounds a wreck's cover stopped (S3), guns with nobody to shoot at turning on a
+// wreck that shelters their enemies (S4).
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -366,6 +367,116 @@ namespace TW.Tests
             Assert.AreEqual(PropKind.Tree, tree.Kind);
             Assert.AreEqual(PropRules.StartHp(PropKind.Tree), tree.Hp, "trees do not wear under gunfire");
             Assert.AreEqual(0, m.World.GetSystem<DirectFireSystem>().WreckRounds);
+        }
+
+        // ---- S4: a gun with nobody to shoot at fires at the wreck its enemies are behind (DirectFire.Wrecks) ----
+
+        const NavLayer NotOpen = NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Bunker | NavLayer.Wire;
+
+        /// <summary>Three enemy riflemen (team 1) in a trench beside a wreck, below its rim, and one `gun` of team 0 in the
+        /// open `distance` metres off along the field with a clear sight of the wreck; everyone held and too tough to die.
+        /// Returns the men; the wreck and the gun come out.</summary>
+        static int[] Hidden(MatchSim m, byte gun, float distance, out int wreck, out int shooter)
+        {
+            var map = m.Map;
+            for (int t = 0; t < map.TrenchCells.Length; t++)
+            {
+                var c = map.NavCellCenter(map.TrenchCells[t]);
+                foreach (var off in new[] { new float3(2f, 0f, 0f), new float3(-2f, 0f, 0f), new float3(0f, 0f, 2f), new float3(0f, 0f, -2f) })
+                {
+                    var at = c + off;
+                    if ((map.LayerAt(at) & NotOpen) != 0) continue;
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        var g = at + new float3(0f, 0f, side * distance);
+                        if (g.z < 6f || g.z > map.SizeMeters.y - 6f || (map.LayerAt(g) & NotOpen) != 0) continue;
+                        var eye = new float3(g.x, map.Height.Sample(g.x, g.z) + 1.6f, g.z);
+                        var top = new float3(at.x, map.Height.Sample(at.x, at.z) + 1.5f, at.z);
+                        if (!HeightfieldRaycast.HasLineOfSight(map.Height, eye, top)) continue;
+                        wreck = map.AddProp(new PropDef { Pos = at, Kind = PropKind.Wreck });
+                        if (wreck < 0) continue;
+                        var men = new int[3];
+                        for (int k = 0; k < 3; k++)
+                        {
+                            float dx = (k - 1) * 1.2f;
+                            men[k] = m.World.Spawn(1, InfantryArchetype.Rifle, c + new float3(dx, 0f, 0f), 100000f, 0f, false);
+                        }
+                        shooter = m.World.Spawn(0, gun, g, 100000f, 0f, false);
+                        foreach (int u in men) { m.World.GoalId[u] = -1; m.World.TrenchId[u] = -1; }
+                        m.World.GoalId[shooter] = -1; m.World.TrenchId[shooter] = -1;
+                        return men;
+                    }
+                }
+            }
+            Assert.Fail("no trench beside open ground with a clear sight of it");
+            wreck = shooter = -1;
+            return null;
+        }
+
+        const int Settle = 10;
+
+        /// <summary>Run `ticks` (counting after the first Settle): the shooter's shots at the wreck and at anyone, and the
+        /// most suppression any hidden man took.</summary>
+        static (int atWreck, int atMen, float suppressed) Watch(MatchSim m, int wreck, int shooter, int[] men, int ticks, bool pinMen = false, MatchSim twin = null)
+        {
+            int atWreck = 0, atMen = 0; float suppressed = 0f;
+            for (int t = 0; t < ticks; t++)
+            {
+                if (pinMen) foreach (int u in men) { m.World.Suppression[u] = 100f; if (twin != null) twin.World.Suppression[u] = 100f; }
+                Step(m);
+                if (twin != null) { Step(twin); Assert.AreEqual(m.World.LastHash, twin.World.LastHash, $"tick {t}"); }
+                if (t < Settle) continue;   // a man spawned in a trench is flagged in it by his first move: seen until then
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                {
+                    if (ev[i].Type != SimEventType.Shot || ev[i].A != shooter) continue;
+                    if (PropTarget.IsProp(ev[i].B)) { Assert.AreEqual(wreck, PropTarget.Decode(ev[i].B), "the wreck they are behind"); atWreck++; }
+                    else if (ev[i].B >= 0) atMen++;
+                }
+                foreach (int u in men) suppressed = math.max(suppressed, m.World.Suppression[u]);
+            }
+            return (atWreck, atMen, suppressed);
+        }
+
+        [Test]
+        public void AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind()
+        {
+            using var m = NewMatch();
+            using var twin = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, 150f, out int wreck, out int gun);
+            Hidden(twin, InfantryArchetype.Machinegunner, 150f, out _, out _);
+            var (atWreck, atMen, suppressed) = Watch(m, wreck, gun, men, 400, twin: twin);
+            Assert.AreEqual(0, atMen, "below the rim and out of their rifles' range, nobody is seen");
+            Assert.Greater(atWreck, 20, "so the gun fires at the wreck they are behind (Shot.b names it)");
+            Assert.Greater(suppressed, 20f, "and keeps their heads down");
+            Assert.Less(m.Map.Props[wreck].Hp, 600f, "a machine gun's hits wear it");
+        }
+
+        [Test]
+        public void ARifleFiresAtItButDoesNotWearIt()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Rifle, 100f, out int wreck, out int gun);
+            var (atWreck, _, _) = Watch(m, wreck, gun, men, 400, pinMen: true);
+            Assert.Greater(atWreck, 5, "a rifle keeps them down too");
+            Assert.AreEqual(600f, m.Map.Props[wreck].Hp, "but its rounds do not wear a wreck");
+        }
+
+        [Test]
+        public void ALivingTargetAlwaysWins()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, 150f, out int wreck, out int gun);
+            // an enemy in the open, 20 m from the gun, toward nobody's trench: seen at once
+            var p = m.World.Position[gun];
+            int bait = -1;
+            foreach (var off in new[] { new float3(20f, 0f, 0f), new float3(-20f, 0f, 0f) })
+                if (bait < 0 && (m.Map.LayerAt(p + off) & NotOpen) == 0) bait = m.World.Spawn(1, InfantryArchetype.Rifle, p + off, 100000f, 0f, false);
+            Assert.GreaterOrEqual(bait, 0);
+            m.World.GoalId[bait] = -1; m.World.TrenchId[bait] = -1;
+            var (atWreck, atMen, _) = Watch(m, wreck, gun, men, 300);
+            Assert.Greater(atMen, 20, "the man it can see");
+            Assert.AreEqual(0, atWreck, "never the wreck while a living target stands");
         }
 
         [Test]

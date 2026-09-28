@@ -87,7 +87,9 @@ namespace TW.Sim
         // the same PropHarm as a blast; the kinematics checksum folds what the tracks wore.
         // v29 (2026-09-28, wrecks break in stages: gunfire): a machine gun's round that a wreck's cover stopped (the same
         // roll: a miss that would have hit with no cover) wears that wreck by its share of the cover (DirectFire.Wrecks).
-        public const ushort FormatVersion = 29;
+        // v30 (2026-09-28, wrecks break in stages: guns turn on them): a gun with nobody to shoot at fires at a wreck that
+        // shelters its enemies (Shot.b = PropTarget), keeping their heads down; a machine gun's hits wear it (DirectFire.Wrecks).
+        public const ushort FormatVersion = 30;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

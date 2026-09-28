@@ -23,7 +23,8 @@
 // goes off the tick it lands, where it was aimed, whether or not the thrower still lives. It went off the tick it was
 // thrown, so nothing could be drawn between the throw and the burst. The bombs in the air are hashed.
 // Wrecks (2026-09-28): a machine gun's round that the cover of a wreck stopped (the same roll: it would have hit with
-// no cover and missed with it) wears that wreck, by the wreck's share of the cover (DirectFire.Wrecks).
+// no cover and missed with it) wears that wreck, by the wreck's share of the cover; a gun with nobody to shoot at fires
+// at a wreck that shelters its enemies, keeping their heads down (DirectFire.Wrecks).
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -81,6 +82,7 @@ namespace TW.Sim.Combat
             killed = new NativeList<int2>(256, Allocator.Persistent);
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
             stopped = new NativeList<WreckRound>(16, Allocator.Persistent);
+            shelters = new NativeList<Shelter>(16, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
             ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
@@ -130,6 +132,7 @@ namespace TW.Sim.Combat
                 flying.ResizeUninitialized(keep); lands.ResizeUninitialized(keep);
             }
             stopped.Clear();
+            BuildShelters(w);   // the wrecks men are behind this tick (DirectFire.Wrecks)
             new FireJob
             {
                 Ignited = ignited, Scorched = scorched,
@@ -143,7 +146,7 @@ namespace TW.Sim.Combat
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
                 Impacts = blast != null ? thrown : noImpacts, CanThrow = blast != null,
-                CoverStops = stopped,
+                CoverStops = stopped, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
             }.Run();
             for (int k = 0; k < thrown.Length; k++)
             {
@@ -194,7 +197,7 @@ namespace TW.Sim.Combat
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
-        struct FireJob : IJob
+        partial struct FireJob : IJob
         {
             public int Count, NavWidth, NavLength;
             public uint Tick, Seed;
@@ -219,6 +222,9 @@ namespace TW.Sim.Combat
             public NativeList<int2> Ignited;      // WeaponStats.SetsBurning: (target, shooter) of each hit
             public NativeList<float4> Scorched;   // and where each round landed (xyz), the shooter's side in w
             public NativeList<WreckRound> CoverStops;   // machine-gun rounds a prop's cover stopped, by target cell (DirectFire.Wrecks)
+            [ReadOnly] public NativeArray<Shelter> Shelters;   // wrecks men are behind this tick, and whose (DirectFire.Wrecks)
+            [ReadOnly] public Heightfield Height;
+            [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<float> Smoke;
             public int SmokeW, SmokeL;
             public bool SmokeOn;
@@ -340,7 +346,7 @@ namespace TW.Sim.Combat
                     int t = TargetSlot[i];
                     bool handToHand = (Flags[i] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed)) != 0;
                     if (handToHand && (t < 0 || (Flags[t] & (uint)UnitFlags.Vehicle) == 0)) continue;
-                    if (t < 0) continue;
+                    if (t < 0) { if (Shelters.Length > 0) AtWreck(i); continue; }   // nobody to shoot at: a wreck they hide behind
                     if ((Flags[t] & (uint)UnitFlags.Alive) == 0 || Hp[t] <= 0f) { TargetSlot[i] = -1; continue; }
 
                     float3 p = Position[i], q = Position[t];
@@ -497,6 +503,7 @@ namespace TW.Sim.Combat
             if (ignited.IsCreated) ignited.Dispose();
             if (scorched.IsCreated) scorched.Dispose();
             if (stopped.IsCreated) stopped.Dispose();
+            if (shelters.IsCreated) shelters.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (ones.IsCreated) ones.Dispose();
             if (grenades.IsCreated) grenades.Dispose();
