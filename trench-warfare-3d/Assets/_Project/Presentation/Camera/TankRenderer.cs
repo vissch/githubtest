@@ -113,7 +113,8 @@ namespace TW.Presentation.Tactical
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
             public readonly float[] ModuleLeft = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };   // L21: what each VehicleModule had left at its last hit
-            public float NextMend, NextColumn, NextVent;
+            public float NextMend, NextColumn, NextVent, NextBreak;
+            public int BreakerPhase;               // L18: the Breaker's last BreakerPhase (0 approach, 1 wind-up, 2 charge, 3 strike, 4 withdraw)
             public uint BeatTick = uint.MaxValue;   // L21: the tick an engine or fuel beat was drawn, so that tick's stall or fire does not draw it again     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
@@ -606,6 +607,7 @@ namespace TW.Presentation.Tactical
             // guns: traverse as the sim lays them, elevate to the target, recoil
             var spec = Machine(w, w.Archetype[s]);
             Vent(v, spec, now);   // L07: the Censer's drum
+            Charge(v, now);       // L18: the Breaker winding up and charging
             for (int k = 0; k < spec.GunCount; k++)
             {
                 v.GunYaw[k] = LerpAngle(prevGun[s * 2 + k], curGun[s * 2 + k], Host.Alpha);
@@ -1389,6 +1391,9 @@ namespace TW.Presentation.Tactical
                     }
                     else books.Add(FlipbookFx.Book.Star, v.Pos + Vector3.up * (v.Heave.Value + 1.2f), 0.8f, 0.2f, glow: 1.5f);
                     break;
+                case SimEventType.BreakerPhase:
+                    if (v != null) { v.BreakerPhase = e.B; v.NextBreak = 0f; if (e.B == 3) Strike(v); }
+                    break;
                 case SimEventType.VehicleHullMended:
                     Mended(v, e);
                     break;
@@ -1511,6 +1516,53 @@ namespace TW.Presentation.Tactical
             Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw));
             Vector3 drum = v.Pos - fwd * (v.Model.HalfLength * 0.5f) + Vector3.up * (v.Heave.Value + v.Model.Height);
             books.Add(FlipbookFx.Book.GasVent, drum, 2.5f, 32f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, velocity: -fwd * 0.4f, alpha: 0.8f);
+        }
+
+        /// <summary>
+        /// L18 (fx.recipes): the Breaker's charge read by its phase. Wind-up: black exhaust bursts every 0.3 s and the tracks
+        /// throwing earth as it churns in place (it is about to go). Charge: a heavy dust wake off both tracks and the ground
+        /// shaking near it. Its own clock, no random draws.
+        /// </summary>
+        void Charge(View v, float now)
+        {
+            if (recipes < 0.5f || v.Dead || v.Model == null || books == null || !books.Ready) return;
+            if ((v.BreakerPhase != 1 && v.BreakerPhase != 2) || v.State != (int)VehicleState.Active || now < v.NextBreak) return;
+            var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
+            if (v.BreakerPhase == 1)
+            {
+                v.NextBreak = now + 0.3f;
+                for (int k = 0; k < 2; k++)
+                {
+                    var at = SocketWorld(v, "Socket_Exhaust" + k, out bool ok);
+                    if (ok) books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * 0.3f, 1.5f, 2.2f, k == 1 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: Vector3.up * 2.2f, grow: 1.5f, alpha: 0.9f);
+                    var track = SocketWorld(v, k == 0 ? "Socket_Dust_L" : "Socket_Dust_R", out bool okT);
+                    if (okT) { track.y = Ground(track.x, track.z); books.Add(FlipbookFx.Book.Spurt, track, 1.4f, 0.5f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0)); }
+                }
+                return;
+            }
+            v.NextBreak = now + 0.16f;
+            for (int k = 0; k < 2; k++)
+            {
+                var track = SocketWorld(v, k == 0 ? "Socket_Dust_L" : "Socket_Dust_R", out bool ok);
+                if (!ok) continue;
+                track.y = Ground(track.x, track.z);
+                books.Add(FlipbookFx.Book.DustPuff, track + Vector3.up * 0.2f, 2.6f, 28f / 12f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0), alpha: 0.7f);
+            }
+            CameraShake.Add(v.Pos, 1f);
+        }
+
+        /// <summary>L18 (fx.recipes): the Breaker's nose goes into the trench: earth thrown up and out where it strikes, a
+        /// spike of metal on metal, and a hard shake.</summary>
+        void Strike(View v)
+        {
+            if (recipes < 0.5f || v.Dead || v.Model == null || books == null || !books.Ready) return;
+            Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw));
+            Vector3 nose = v.Pos + fwd * v.Model.HalfLength; nose.y = Ground(nose.x, nose.z);
+            var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
+            books.Add(FlipbookFx.Book.Column, nose, 3f, 1.2f, ground);
+            books.Add(FlipbookFx.Book.Wings, nose, 5f, 0.8f, ground, grow: 0.4f, alpha: 0.7f);
+            books.Add(FlipbookFx.Book.Star, nose + Vector3.up * 1f, 1.8f, 0.12f, glow: SceneMood.Night ? 3.5f : 2f);
+            CameraShake.Add(nose, 3f);
         }
 
         const float MendEvery = 0.4f, MendWidth = 1.2f;
