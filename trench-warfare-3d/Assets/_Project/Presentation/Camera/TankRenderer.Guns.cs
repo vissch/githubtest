@@ -82,15 +82,18 @@ namespace TW.Presentation.Tactical
                         {
                             books.Add(FlipbookFx.Book.Smoke, at, RocketTrail, RocketTrailLife, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                 velocity: Vector3.up * 0.3f, grow: 1.4f, alpha: 0.8f, delay: lag + a * ArcSeconds);
-                            books.Add(FlipbookFx.Book.Star, at, 1.5f, 0.06f, roll: FxQuality.Hash01(salt + (uint)(i * 7 + j)) * 6.2832f, glow: SceneMood.Night ? 3f : 2f, delay: lag + a * ArcSeconds);
                         }
                         else
-                            books.Add(FlipbookFx.Book.Smoke, at, 0.8f, 1.6f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: Vector3.up * 0.2f, grow: 1.2f, alpha: 0.5f, delay: lag + a * ArcSeconds);
+                            books.Add(FlipbookFx.Book.Smoke, at, 1.4f, 1.8f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: Vector3.up * 0.2f, grow: 1.2f, alpha: 0.6f, delay: lag + a * ArcSeconds);
                     }
                 }
+                if (rocket && drawn)
+                    books.Add(FlipbookFx.Book.Muzzle, ArcPoint(from, end, apex, 0.1f), 1.5f, ArcSeconds * 0.9f, velocity: (end - ArcPoint(from, end, apex, 0.1f)) / ArcSeconds,
+                        roll: 0f, glow: SceneMood.Night ? 3f : 2f, delay: lag);
                 if (rocket && drawn && j > 0)
                 {
+                    // the rocket's burning head: one flame card flying the chord of its arc (a card flies straight), over the flight
                     // each rocket after the first: its own flash at the rack, and its own pop where it lands
                     books.Add(FlipbookFx.Book.Flash, from, 2.4f, 0.08f, roll: FxQuality.Hash01(salt + 31u + (uint)j) * 6.2832f, glow: SceneMood.Night ? 3.5f : 1.8f, pop: 0.5f, delay: lag);
                     books.Add(FlipbookFx.Book.Flash, end + Vector3.up * 0.4f, 2.2f, 0.1f, roll: FxQuality.Hash01(salt + 41u + (uint)j) * 6.2832f, glow: SceneMood.Night ? 4f : 1.8f, pop: 0.5f, delay: lag + ArcSeconds);

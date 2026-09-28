@@ -29,7 +29,7 @@ namespace TW.Presentation.Tactical
         {
             var look = BurstLook.Same;
             if (source == MineSystem.SourceBase + (int)MineKind.Mine) { look.Mine = true; look.Fire = 0f; look.Column = 0.8f; look.Wings = 0.8f; look.Flash = 0.25f; return look; }   // a buried charge: a dull thump, not a white-out
-            if (source == MineSystem.SourceBase + (int)MineKind.Tripwire) { look.Tripwire = true; look.Fire = 0.5f; look.Column = 0f; look.Wings = 1.8f; look.Size = 0.85f; look.Flash = 0.375f; return look; }
+            if (source == MineSystem.SourceBase + (int)MineKind.Tripwire) { look.Tripwire = true; look.Fire = 0.5f; look.Column = 0f; look.Wings = 1.8f; look.Size = 0.85f; look.Flash = 0.2f; return look; }
             if (!SourceId.IsUnit(source)) return look;   // an ability's shells, a cook-off, the fleet: the shell burst as it is
             switch (SourceId.ArchetypeOf(source))
             {
@@ -62,9 +62,9 @@ namespace TW.Presentation.Tactical
             }
             if (look.Mine)   // a buried charge: the black smoke of the explosive (the wreck's black book), standing over the thrown earth
                 for (int k = 0; k < 2; k++)
-                    books.Add(FlipbookFx.Book.WreckSmoke, p + Vector3.up * (r * (0.3f + k * 0.4f)), r * (1.6f + k * 0.3f), 4.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
-                        velocity: drift * 1.3f + Vector3.up * 0.4f, grow: 0.8f, alpha: 0.95f * (1f - 0.5f * SceneHooks.CloseUp), pop: 0.2f, delay: 0.15f + k * 0.2f);
-            if (look.Tripwire) Sparks(p + Vector3.up * 0.4f, 40, 14f, 0.1f, salt);   // the charge's casing, day and night
+                    books.Add(FlipbookFx.Book.WreckSmoke, p + Vector3.up * (r * (0.3f + k * 0.4f)), r * (2.2f + k * 0.3f), 4.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
+                        velocity: drift * 1.3f + Vector3.up * 0.4f, grow: 0.8f, alpha: 0.95f * (1f - 0.5f * SceneHooks.CloseUp), pop: 0.2f, delay: 0.05f + k * 0.2f);
+            if (look.Tripwire) Sparks(p + Vector3.up * 0.4f, 40, 14f, 0.14f, salt);   // the charge's casing, day and night
         }
 
         /// <summary>Throw's sparks (kind 3) on FxQuality.Hash in place of the shared stream: out and up, each its own speed and life.</summary>
