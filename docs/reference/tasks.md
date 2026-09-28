@@ -373,13 +373,15 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Units/VATRenderer.Fallen.cs` (the dead:
   the throw arc, the tumble, the heap per 2 m cell, the charred), `Presentation/Core/IZoomSource.cs`,
   `Presentation/Units/VatCodec.cs`, `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs`
-  (far tier and fallback), `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu
-  TW/VAT/Bake Infantry).
-- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch).
+  (far tier and fallback), `Presentation/Units/VatTint.cs` (what `VatInstance.Tint` carries), `Shaders/VAT_URP.shader`,
+  bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
+- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch),
+  VatTintTests (the Tint layout, C# against the shader).
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
-  with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is the team in its low bit and
-  a fallen man's tumble pitch above it (`team + 2 * step`, 32 steps a turn): the shader decodes `fmod(tint, 2)`, so
-  never read `Tint` as the team on the C# side. `VatPad` packs limbs, grime, seed and char into 24 bits: nothing more fits.
+  with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is packed by `VatTint`: the team
+  in bit 0, a fallen man's tumble pitch in bits 1-5, his roll in 6-10, a squash in 11-16 and a feet pivot in 17 (all
+  zero on a living man, so his Tint is his team). Build it with `VatTint.Pack`, never by hand, and never read `Tint`
+  as the team on the C# side. `VatPad` packs limbs, grime, seed and char into 24 bits: nothing more fits.
 
 ### Animation (which clip a man plays)
 - **Files:** `Presentation/Core/AnimationController.cs` (the per-man priority ladder, run every tick by SimHost),
