@@ -225,6 +225,34 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>The Frog is drawn as the playground's frog (TW/VAT/Bake Frog), every other man as a man.</summary>
+        [Test]
+        public void TheFrogIsDrawnAsAFrog()
+        {
+            Assert.AreEqual(3, TW.Presentation.Units.VATRenderer.FigureNames.Length);
+            Assert.AreEqual("Frog", TW.Presentation.Units.VATRenderer.FigureNames[2]);
+            Assert.AreEqual(2, TW.Presentation.Units.VATRenderer.FigureOfArchetype(InfantryArchetype.Frog));
+            Assert.AreEqual(1, TW.Presentation.Units.VATRenderer.FigureOfArchetype(InfantryArchetype.Sniper));
+            foreach (var u in ProvingGround.Catalogue())
+                if (!u.Machine && u.Archetype != InfantryArchetype.Frog && u.Archetype != InfantryArchetype.Sniper)
+                    Assert.AreEqual(0, TW.Presentation.Units.VATRenderer.FigureOfArchetype(u.Archetype), $"{u.Name} is drawn as the soldier");
+
+            var frog = Resources.Load<TW.Presentation.Units.VatAssetData>("Units/FigureFrog");
+            var man = Resources.Load<TW.Presentation.Units.VatAssetData>("Units/FigureSoldier");
+            Assert.NotNull(frog, "Resources/Units/FigureFrog is missing: run TW/VAT/Bake Frog");
+            Assert.IsTrue(frog.Valid);
+            Assert.AreEqual(man.Rows, frog.Rows, "a row for every clip the controller plays, as the soldier has");
+            Assert.AreEqual(man.TotalFrames, frog.TotalFrames, "the same clips at the same rates: the frog's poses are the soldier's, carried over");
+            Assert.Less(frog.VertexCount, 1100, "under eleven hundred vertices, like the men");
+            Assert.AreNotSame(man.Mesh, frog.Mesh);
+            // a man 1.78 m tall standing on the ground, as every figure is normalised
+            var b = frog.Mesh.bounds;
+            var vs = frog.Mesh.vertices; float lo = float.MaxValue, hi = float.MinValue;
+            foreach (var v in vs) { lo = Mathf.Min(lo, v.y); hi = Mathf.Max(hi, v.y); }
+            Assert.AreEqual(0f, lo, 0.08f, "his feet are on the ground in the idle frame");
+            Assert.AreEqual(1.78f, hi - lo, 0.25f, "and he stands as tall as a man");
+        }
+
         [Test]
         public void TheHopperFliesTheSkimmerSkimsTheRestStand()
         {
