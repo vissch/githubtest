@@ -68,7 +68,11 @@ namespace TW.Presentation
         public const float DefaultIntensity = 0f, MaxIntensity = 2f;
         /// <summary>Whatever the intensity, no body flies further or higher than this, turns more, bounces more, slides
         /// further or waits longer. High stays under the fallen draw's bounds (VATRenderer).</summary>
-        public const float FarCap = 26f, HighCap = 18f, SkidCap = 4f, DelayCap = 0.6f;
+        public const float FarCap = 26f, HighCap = 11f, SkidCap = 4f, DelayCap = 0.6f;
+        /// <summary>A shell's throw at intensity 1 against today's: how much further, how much higher (a heap's fountain
+        /// its own), and how wide a heap fans out off the burst's line (degrees each way). Critic round 1 (2026-09-29): at
+        /// 2.4 and 3.0 high, capped at 18 m, the men left the top of the frame and the heap never read as a heap.</summary>
+        public const float RocketFar = 1.9f, RocketHigh = 1.7f, FountainFar = 1.6f, FountainHigh = 1.9f, FountainFan = 60f;   // round 2: 2.2 threw them to the ice's edge
         public const int FlipCap = 5, RollCap = 4, BounceCap = 2;
         /// <summary>Gravity the renderer throws a corpse with (VATRenderer.ThrowGravity), for counting the turns a flight holds.</summary>
         public const float BodyGravity = 14f;
@@ -165,12 +169,12 @@ namespace TW.Presentation
                 float3 way = math.lengthsq(g.Throw.xz) > 1e-4f ? math.normalize(new float3(g.Throw.x, 0f, g.Throw.z)) : float3.zero;
                 float far = math.length(g.Throw.xz), high = g.Throw.y;
                 bool heap = g.Density >= 2;
-                far *= Towards(1f, 1.9f, a); high *= Towards(1f, heap ? 3.0f : 2.4f, a);
+                far *= Towards(1f, heap ? FountainFar : RocketFar, a); high *= Towards(1f, heap ? FountainHigh : RocketHigh, a);
                 if (heap && math.lengthsq(way) > 0f)
                 {
                     // the bay goes up as a fountain: each man fanned off the burst's line, a beat apart
-                    way = Flat(Yaw(way) + math.radians(Range(s, t, 931u, -35f, 35f)));
-                    plan.Delay = Range(s, t, 932u, 0f, 0.18f) * math.min(1f, a);
+                    way = Flat(Yaw(way) + math.radians(Range(s, t, 931u, -FountainFan, FountainFan)));
+                    plan.Delay = Range(s, t, 932u, 0.05f, 0.3f) * math.min(1f, a);
                 }
                 if (g.InTrench) { far *= 0.5f; }   // the ladder already made it up, not out: keep it so
                 fly = new float3(way.x * far, high, way.z * far);

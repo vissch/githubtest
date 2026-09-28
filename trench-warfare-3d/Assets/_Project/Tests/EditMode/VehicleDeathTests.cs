@@ -49,7 +49,7 @@ namespace TW.Tests
                     for (float r = 0f; r <= 1f; r += 0.25f)
                     {
                         var leap = VehicleGags.TurretLeap(a, hull, new Vector3(0.6f, 0f, 0.8f), Vector3.right, r, r, r);
-                        if (a == 1f) Assert.That(leap.Vel.y, Is.InRange(VehicleGags.TurretUpMin, VehicleGags.TurretUpMax), "17-21 m/s at 1");
+                        if (a == 1f) Assert.That(leap.Vel.y, Is.InRange(VehicleGags.TurretUpMin, VehicleGags.TurretUpMax), "15-18 m/s at 1");
                         Assert.LessOrEqual(leap.Vel.y, VehicleGags.TurretUpCap, "never past the cap");
                         Assert.Less(new Vector2(leap.Vel.x, leap.Vel.z).magnitude, leap.Vel.y * 0.25f, "straight up, drifting a little");
                         float went = Fly(leap.Vel, 3f, VehicleGags.TurretBounces, VehicleGags.TurretBounce);

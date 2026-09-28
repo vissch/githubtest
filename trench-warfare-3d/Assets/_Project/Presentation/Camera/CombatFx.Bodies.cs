@@ -88,9 +88,9 @@ namespace TW.Presentation.Tactical
             var plan = GibPlan.Decide(seed, DeathGags.Intensity, DebrisRenderer.Gore, density);
             if (plan.Whole) return 0;
             var rng = new DebrisRng(at, 0x61B5u + (uint)slot);
-            float scale = FigureScale();
+            float figure = FigureScale(), scale = figure * GibPlan.PartScale(DeathGags.Intensity);
             Color cloth = team == 1 ? ClothB : ClothA;
-            Vector3 chest = at + Vector3.up * (1.2f * scale);
+            Vector3 chest = at + Vector3.up * (1.2f * figure);
             Vector3 facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
             Vector3 carry = new Vector3(fly.x, 0f, fly.z) * 0.9f + Vector3.up * (2.5f + fly.y * 2f);   // the shell's throw, and up
             GibPlan.Pieces(plan, gibPieces);
@@ -134,7 +134,7 @@ namespace TW.Presentation.Tactical
                 debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * scale, Gore, ref rng, 8f);
             }
             if ((plan.Torn || plan.Apart) && DebrisRenderer.Gore > 0f)
-                AddGagMark(at, rng.Range(0f, 360f), new Vector2(1.9f, 1.9f) * (Mathf.Sqrt(DebrisRenderer.Gore) * scale), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);
+                AddGagMark(at, rng.Range(0f, 360f), new Vector2(2.6f, 2.6f) * (Mathf.Sqrt(DebrisRenderer.Gore) * figure), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);
             return plan.Mask | (plan.Torn ? GibPlan.TornBit : 0);
         }
 

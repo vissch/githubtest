@@ -249,8 +249,8 @@ namespace TW.Tests
             }
             var before = Today(0f, out _); var after = Today(1f, out var gagged);
             Assert.AreEqual(DeathGag.Rocket, gagged.Gag.Gag);
-            Assert.AreEqual(1.9f, after.x / before.x, 0.01f, "nearly twice as far");
-            Assert.AreEqual(math.min(2.4f * before.y, DeathGags.HighCap), after.y, 0.01f, "and higher");
+            Assert.AreEqual(DeathGags.RocketFar, after.x / before.x, 0.01f, "nearly twice as far");
+            Assert.AreEqual(math.min(DeathGags.RocketHigh * before.y, DeathGags.HighCap), after.y, 0.01f, "and higher");
             Assert.AreEqual(2, gagged.Gag.Bounces);
             Assert.GreaterOrEqual(gagged.Gag.Flips, 1);
         }

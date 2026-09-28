@@ -92,8 +92,8 @@ namespace TW.Presentation.Tactical
         /// <summary>How long a splat lies on mud, and on snow (where nothing closes over it).</summary>
         public const float BloodLife = 45f, BloodLifeSnow = 150f;
         readonly Material[] gagMarkMats = new Material[2];   // shape 3 blood, 4 scorch
-        readonly List<Matrix4x4>[] gagMarkBatch = { new List<Matrix4x4>(64), new List<Matrix4x4>(64) };
-        static readonly Color BloodColor = new Color(0.30f, 0.025f, 0.02f), ScorchColor = new Color(0.05f, 0.042f, 0.036f);
+        readonly List<Matrix4x4>[] gagMarkBatch = { new List<Matrix4x4>(MaxGagMarks), new List<Matrix4x4>(MaxGagMarks) };   // full size: never grown mid-battle
+        static readonly Color BloodColor = new Color(0.42f, 0.02f, 0.02f), ScorchColor = new Color(0.05f, 0.042f, 0.036f);
         /// <summary>FlipbookFx's blood book when the build has one (the VFX lane's BloodSpurt), by name so this compiles
         /// without it: -2 not looked yet, -1 none.</summary>
         int bloodBook = -2;
@@ -113,7 +113,7 @@ namespace TW.Presentation.Tactical
             {
                 if (k > 0 && !near) break;   // far out, the first landing is all that reads
                 var a = k == 0 ? path.A0 : k == 1 ? path.A1 : path.A2;
-                float s = (k == 0 ? 1.6f : k == 1 ? 1.1f : 0.8f) * size;
+                float s = (k == 0 ? 2.1f : k == 1 ? 1.4f : 1.0f) * size;   // round 2: smaller read as dirty snow
                 AddGagMark(a.To, rng.Range(0f, 360f), new Vector2(s, s * rng.Range(0.8f, 1.2f)), life, 3, path.Delay + a.End);
             }
             if (path.SkidDur > 0f && gag.Gag != DeathGag.Skid)

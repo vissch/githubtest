@@ -11,7 +11,7 @@ namespace TW.Presentation.Tactical
     {
         public const float Gravity = 9.81f;
         /// <summary>The turret's leap at intensity 1 (m/s up), grown with the square root of the intensity and capped.</summary>
-        public const float TurretUpMin = 17f, TurretUpMax = 21f, TurretUpCap = 26f;
+        public const float TurretUpMin = 15f, TurretUpMax = 18f, TurretUpCap = 23f;   // 11-16 m up (critic rounds 1 and 2: 20 m left the frame, 9 m looked short)
         /// <summary>Where the turret comes down, in hull lengths from where it left, bounces and all.</summary>
         public const float LandWithin = 1.5f;
         /// <summary>The share of its fall speed the turret keeps on each of its first TurretBounces landings.</summary>
@@ -38,7 +38,8 @@ namespace TW.Presentation.Tactical
             // the first flight carries it drift x air; every bounce after keeps TurretBounce of the lift and 45 % of the
             // drift (TankRenderer.FlyDebris), so the whole way is drift x air x (1 + 0.45 b + (0.45 b)^2)
             float k = 0.45f * TurretBounce, total = 1f + k + k * k;
-            float drift = air > 0f ? LandWithin * hullLength * (0.4f + 0.5f * r1) / (air * total) : 0f;
+            // it comes down clear of the hull, never on it (critic round 1: at 0.4 it landed on the deck and fused with it)
+            float drift = air > 0f ? LandWithin * hullLength * (0.6f + 0.3f * r1) / (air * total) : 0f;
             away.y = 0f;
             Vector3 dir = away.sqrMagnitude > 1e-6f ? away.normalized : Vector3.forward;
             int flips = 1 + Mathf.FloorToInt(r2 * (1f + a));   // one or two at 1, up to three at 2
@@ -99,7 +100,9 @@ namespace TW.Presentation.Tactical
 
         /// <summary>A walker's belly-flop: it holds WalkerFreeze, pops up at FlopUp m/s, and its legs splay out flat over
         /// SplaySeconds as it comes down on its belly.</summary>
-        public const float FlopUp = 2.2f, SplaySeconds = 0.18f;
+        public const float FlopUp = 4.5f, SplaySeconds = 0.18f;   // a pop of a metre: at 2.2 (25 cm) no still caught it
+        /// <summary>How far below level a splayed leg points at most (the sine): nearly flat, whatever the hip's height.</summary>
+        public const float SplayDown = 0.3f;
         /// <summary>How far a splayed leg is out (0 as it stood, 1 flat out) t seconds after the pop.</summary>
         public static float Splay(float t) => t <= 0f ? 0f : Mathf.SmoothStep(0f, 1f, t / SplaySeconds);
 
@@ -188,7 +191,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A track comes off and pays out flat along the ground over UnspoolSeconds: it slides out UnspoolOut hull
         /// half-gauges to its side, lies down to UnspoolFlat of its height and stretches to UnspoolStretch of its length
         /// (the belt laid out), its links running at UnspoolLinks a second as it goes.</summary>
-        public const float UnspoolSeconds = 1.4f, UnspoolOut = 1.6f, UnspoolFlat = 0.14f, UnspoolStretch = 2.1f, UnspoolLinks = 9f;
+        public const float UnspoolSeconds = 1.4f, UnspoolOut = 2.4f, UnspoolFlat = 0.14f, UnspoolStretch = 2.6f, UnspoolLinks = 9f;
 
         /// <summary>How far through paying out it is at t (0..1, eased at both ends).</summary>
         public static float Unspool(float t) => Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / UnspoolSeconds));
