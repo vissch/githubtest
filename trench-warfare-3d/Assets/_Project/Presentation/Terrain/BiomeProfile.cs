@@ -315,8 +315,11 @@ namespace TW.Presentation.Terrain
                                                            // luma 0.84 between SnowColor 0.95 and Haze 0.69, dead in
                                                            // the middle of the band this profile warns about, and it
                                                            // vanished at 200 m. Shadowed ice separates from both.
-            SmokeTint = new Color(0.55f, 0.58f, 0.64f),
-            ColumnTint = new Color(0.62f, 0.66f, 0.72f),
+            // Warm, not the field's blue (owner's snow reference, 2026-09-28): smoke off a fire is brown-grey and the earth a
+            // shell throws up is dirt through the snow. At 0.55/0.58/0.64 and 0.62/0.66/0.72 the cloud was cold glass and the
+            // column hung over the field as blue icicles (bench snow0); both now separate from the snow by hue as well as value.
+            SmokeTint = new Color(0.56f, 0.52f, 0.48f),
+            ColumnTint = new Color(0.58f, 0.56f, 0.54f),
             DustTint = new Color(0.88f, 0.91f, 0.95f),   // slush and broken ice, not summer river water
             DebrisTint = new Color(0.80f, 0.84f, 0.90f, 0f),
             Flooding = 0.25f,                                      // what water there is has frozen; see docs/18 W2
