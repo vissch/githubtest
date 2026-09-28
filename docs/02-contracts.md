@@ -42,8 +42,9 @@ enum SimEventType { Shot, Hit, NearMiss, Explosion, CraterStamp, Death, StanceCh
   VehicleLegLost, VehicleClawed, CraftInbound, CraftBeached, ShipFired, OrderFoundNoOne, UnitAlight,
   MinePlaced, MineTriggered, MineCleared, UnitDeployed, UnitHealed, VehicleHullMended, ShieldBlocked, DropInbound,
   DropLanded, LeapStarted, BreakerPhase, CriticalHit, HeroMoment, HeroFeat, HeroSurvived, HeroFallen, VeteranDeployed,
-  WreckRecorded }
+  WreckRecorded, RocketFired, PropWorn }
 enum DeathCause { Blast = -1, Gas = -2, Crush = -3 (reserved), Burning = -4, Beam = -5 }   // Death.b when no slot did it
+enum PropKind { Tree, BrokenTree, Stump, Log, Wreck, Bridge, BrokenWreck, Scrap, Cleared }   // PropChanged.b; hashed as numbers
 struct SimEvent { uint tick; SimEventType type; int a; int b; float3 pos; float3 dir; float scalar; }
 ```
 Presentation consumes the ring buffer once per frame; audio, VFX, UI, ragdolls and mission dialogue all hang
@@ -73,6 +74,10 @@ Dropping is deterministic because validation reads only sim state, never present
 - `Death`: `b` is the killer's slot when one did it (a shot, a claw, a track) and a `DeathCause` below zero when a
   blast, gas or fire did; a blast's dead carry the way they were thrown in `dir.xz` with `dir.y = 1`, and how hard in
   `scalar` (m/s). The same-tick `Explosion` says which weapon. Consumers test `b < 0`, never `b == -1`.
+- A wreck breaks in stages: `PropChanged` with `b` = `Wreck` when a machine dies (`dir.x` = its slot + 1), then
+  `BrokenWreck`, `Scrap` and `Cleared` as it is worn down (`dir` zero). A `Cleared` prop is gone from the field and keeps
+  its index. `PropWorn` is harm that did not change the stage (`b` 0 a blast, 1 wear; `scalar` the share of the stage's
+  hit points left). `VehicleCrushed.b = 3` is a machine grinding or flattening wreckage.
 - Presentation must tolerate dropped events (ring buffer overrun is reported via `SimEvents.Overrun`) and rebuild from state, never rely on events for correctness.
 
 ## Change log
@@ -105,3 +110,4 @@ Dropping is deterministic because validation reads only sim state, never present
 | 2026-09-28 (the balance critic's round) | `TankSpec.StandOff` (bool) becomes `StandOffMetres`, `StandOffPatience` (and `StandOffRelease` 10 s): a machine holds while its target (gun 0's, or its small arms' if it has no gun) is within reach, and gives the hold up for 10 s after `StandOffPatience` on one mark that lost no hit points to anyone (not only to it: corrected in the v14 row); `TankGunnerySystem` gains per-slot `HoldTarget`, `HoldTicks`, `Release`, `HoldHp`, hashed after the rockets. `InfantrySpec` gains `HuntsArmour` (a machine's small arms fire armour-piercing, `VehicleHitKind.ArmourPiercing`, at a machine whose facing plate their `PenetrationMm` beats) and `LooksDownMetres` (sees men below the parapet that close). A rack of rockets may take a machine as its mark. The Skimmer: 180 silver, 12 mm, holds at 90 m (patience 20 s), looks down 20 m; the Salvo: a 110 m hull machine gun, patience 32 s. Replays recorded before this commit no longer verify. | v12 → **v13** (hash content, table layout) |
 | 2026-09-28 (critic round 3) | `TankGunnerySystem` gains `HoldGoal` (per slot, hashed after `HoldHp`): a machine holds only on the first goal it was given, so anything that re-goals it ends the hold. The hold state (`HoldTarget`, `HoldTicks`, `Release`, `HoldHp`, `HoldGoal`) is reset for a new unit in a dead machine's slot, as the guns' state always was. The patience counts hit points the mark loses to anyone (the v13 row said "without taking a hit point off it": a burst does not carry its shooter's slot, so it cannot be credited to the machine). Rockets pending in a world with no `BlastSystem` are dropped. Replays recorded before this commit no longer verify. | v13 → **v14** (hash content) |
 | 2026-09-28 (critic round 4) | `PendingRocket` gains `LaunchTick`, `Shooter`, `ShooterGen` (hashed with it): a rocket whose launch tick has not come when its machine is gone, knocked out or its slot reused is dropped, never fired. A rack's landing points are clamped to the map (0.5 m in from each edge). Replays recorded before this commit no longer verify. | v14 → **v15** (hash content) |
+| 2026-09-28 (wrecks break in stages: seam) | `PropKind` gains `BrokenWreck` 6, `Scrap` 7 and `Cleared` 8 (appended; hashed as their numbers): a broken wreck blocks and gives 35 % cover, scrap does not block and gives 15 %, cleared is nothing and keeps its index. `PropRules.Next` runs Wreck → BrokenWreck → Scrap → Cleared; `IsWreckage` and `WreckSize` (a wreck's size class, for `PropDef.Scale`) are new. `SimEventType` gains `PropWorn` (appended after `RocketFired`); `VehicleCrushed.b = 3` means wreckage. Inert: a wreck still starts with 0 hit points, so nothing reaches the new kinds until the next step. On `lane/sim/wreck-decay`, numbered on top of v15; renumbered at landing if the proving ground (v17) or nav-engage (v18) lands first. | v15 → **v16** (contract) |

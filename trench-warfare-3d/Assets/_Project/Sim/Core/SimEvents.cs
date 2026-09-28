@@ -36,7 +36,8 @@ namespace TW.Sim
         CellBurning,        // pos, scalar = seconds
         MatchEnded,         // a = winning team (-1 draw)
         CommandRejected,    // a = command type, b = player (debug only; not hashed)
-        PropChanged,        // a = prop index, b = new PropKind, pos (a tree broke, a wreck appeared; for a wreck dir.x = the dead slot + 1)
+        PropChanged,        // a = prop index, b = new PropKind, pos (a tree broke, a wreck appeared; for a wreck dir.x = the dead slot + 1;
+                            //   a wreck breaking further, Wreck -> BrokenWreck -> Scrap -> Cleared, has dir = 0; Cleared is gone)
         // ---- armour (A5b): TankGunnerySystem, VehicleModulesSystem, VehicleKinematicsSystem ----
         VehicleFired,       // a = slot, b = gun index, pos = where the round went, dir = muzzle direction, scalar = 0 AP / 1 HE
         VehicleArmourHit,   // a = target, b = shooter (-1 blast), pos, dir = the round's direction, scalar = plate mm: + holed, - stopped
@@ -48,7 +49,7 @@ namespace TW.Sim
         VehicleCookOff,     // a = slot, pos, scalar = blast radius (its Explosion comes from BlastSystem the next tick)
         VehicleBogged,      // a = slot, b = 1 stuck / 0 free
         VehicleDitched,     // a = slot, b = trench id it nosed into (-1 = climbed out)
-        VehicleCrushed,     // a = slot, b = 0 wire / 1 tree / 2 man, pos
+        VehicleCrushed,     // a = slot, b = 0 wire / 1 tree / 2 man / 3 wreckage (ground against or flattened), pos
         VehicleRepaired,    // a = slot, b = VehicleModule
         VehicleLegLost,     // a = slot, b = which leg (left legs first), pos = where it stood: a walker is down a leg
         VehicleClawed,      // a = slot, b = victim, pos = where it caught him: a claw closed on a man or a hull
@@ -86,6 +87,10 @@ namespace TW.Sim
         // a = the machine's slot, b = the rocket (0..n-1, its tube), pos = where it comes down, dir.x = ticks until it
         // leaves its tube, dir.y = ticks it flies, scalar = rockets in the rack. Its burst is queued for tick + x + y.
         RocketFired,
+        // 2026-09-28 (format v16): a wreck took harm and still stands at its stage (DeformationSystem; a stage change is
+        // PropChanged instead): a = prop index, b = 0 a blast / 1 wear (absorbed rounds, a machine grinding it), pos = the
+        // prop, dir = the way the harm went (zero when unknown), scalar = the share of this stage's hit points left, 0..1.
+        PropWorn,
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing

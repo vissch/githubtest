@@ -1,12 +1,15 @@
 // Phase: A4 (implemented) — depends on: MapData (Props, CellCover), NavLayer.Blocked
 // Things standing on the battlefield that the sim cares about: trees, what is left of them, wrecks, bridges. A prop
 // blocks its own nav cell when it is solid and gives cover to men in the cells around it. Blasts wear props down
-// (DeformationSystem): tree -> broken tree -> stump. A destroyed vehicle leaves a wreck.
+// (DeformationSystem): tree -> broken tree -> stump. A destroyed vehicle leaves a wreck, which breaks in stages
+// (owner, 2026-09-28): wreck -> broken wreck -> scrap -> cleared. A cleared prop is gone from the field (no block, no
+// cover, never drawn) but keeps its index, because events and WreckRecord.PropIndex name props by index.
 using Unity.Mathematics;
 
 namespace TW.Sim.Terrain
 {
-    public enum PropKind : byte { Tree = 0, BrokenTree, Stump, Log, Wreck, Bridge }
+    /// <summary>Appended only: the kind is hashed as its number.</summary>
+    public enum PropKind : byte { Tree = 0, BrokenTree, Stump, Log, Wreck, Bridge, BrokenWreck, Scrap, Cleared }
 
     public struct PropDef
     {
@@ -30,15 +33,37 @@ namespace TW.Sim.Terrain
                 case PropKind.Stump: return 20;
                 case PropKind.Log: return 35;
                 case PropKind.Wreck: return 50;
+                case PropKind.BrokenWreck: return 35;
+                case PropKind.Scrap: return 15;
                 default: return 0;
             }
         }
 
-        public static bool Blocks(PropKind kind) => kind == PropKind.Tree || kind == PropKind.BrokenTree || kind == PropKind.Wreck;
+        /// <summary>A scrap pile no longer blocks: men and machines go over it.</summary>
+        public static bool Blocks(PropKind kind) => kind == PropKind.Tree || kind == PropKind.BrokenTree || kind == PropKind.Wreck || kind == PropKind.BrokenWreck;
 
         public static float StartHp(PropKind kind) => kind == PropKind.Tree ? 220f : kind == PropKind.BrokenTree ? 160f : 0f;   // 0 = blasts do not change it
 
         /// <summary>What a prop becomes when its hit points run out; the same kind when it is already at the end.</summary>
-        public static PropKind Next(PropKind kind) => kind == PropKind.Tree ? PropKind.BrokenTree : kind == PropKind.BrokenTree ? PropKind.Stump : kind;
+        public static PropKind Next(PropKind kind)
+        {
+            switch (kind)
+            {
+                case PropKind.Tree: return PropKind.BrokenTree;
+                case PropKind.BrokenTree: return PropKind.Stump;
+                case PropKind.Wreck: return PropKind.BrokenWreck;
+                case PropKind.BrokenWreck: return PropKind.Scrap;
+                case PropKind.Scrap: return PropKind.Cleared;
+                default: return kind;
+            }
+        }
+
+        /// <summary>A wreck at any stage that is still on the field (not yet cleared).</summary>
+        public static bool IsWreckage(PropKind kind) => kind == PropKind.Wreck || kind == PropKind.BrokenWreck || kind == PropKind.Scrap;
+
+        /// <summary>A wreck's size class, kept in PropDef.Scale: its machine's hull hit points over WreckSizeHp, clamped. A Maw
+        /// (3600) leaves a wreck half again as tough as a Tusk's (2000 x 1.5 / 1.67); the map generator's wrecks are 1.</summary>
+        public const float WreckSizeHp = 2400f, WreckSizeMin = 0.6f, WreckSizeMax = 1.5f;
+        public static float WreckSize(float hullHp) => math.clamp(hullHp / WreckSizeHp, WreckSizeMin, WreckSizeMax);
     }
 }
