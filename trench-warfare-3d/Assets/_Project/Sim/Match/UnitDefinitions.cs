@@ -149,14 +149,19 @@ namespace TW.Sim.Match
 
         // ---- the playground's prototypes ----
 
-        /// <summary>Brute (21): the playground's first tank, a heavy of the Maw's kind: two sponson guns, thicker plate,
-        /// slower. Drawn from its own model (Resources/Vehicles/Brute, built from the playground by the SHOW lane).</summary>
+        /// <summary>Brute (21): the playground's first tank, a heavy of the Maw's weight under thicker plate, and slower. Its
+        /// model (Resources/Vehicles/Brute, drawn 1.35 times its sculpt: 8.8 m long, 5.3 m wide) carries ONE gun, in the
+        /// front of the hull under a small turret, so it fires the Maw's six-pounder from a hull mount over a narrow arc
+        /// and has to turn to bring it on; the footprint is the model's (2026-09-28: it was given the Maw's two sponsons
+        /// and a footprint 3.4 m half-wide before the model was in the battle to be measured).</summary>
         public static UnitDef Brute
         {
             get
             {
                 var m = TankSpec.Maw; m.Hull = Plate(20f, 14f, 10f, 8f); m.Turret = m.Hull; m.Crew = 5;
-                var d = VehicleProfile.Maw; d.TurnRateRad = 0.40f; d.HalfLength = 4.4f; d.HalfWidth = 3.4f;
+                var g = m.Gun0; g.Mount = TankMount.Hull; g.RestYaw = 0f; g.ArcHalf = 25f * Deg; g.Mount3 = new float3(0f, 3.9f, 0.8f);
+                m.Gun0 = g; m.Gun1 = default; m.GunCount = 1;
+                var d = VehicleProfile.Maw; d.TurnRateRad = 0.40f; d.HalfLength = 4.4f; d.HalfWidth = 2.7f;
                 return new UnitDef
                 {
                     Archetype = VehicleArchetype.Brute,
@@ -349,7 +354,7 @@ namespace TW.Sim.Match
             Drive = new VehicleProfile
             {
                 TurnRateRad = 0.35f, TrenchCrossWidth = 2.0f, DitchChance = 0.8f, SlopeLimit = 0.4f, BogChance = 0.10f,
-                HalfLength = 4.4f, HalfWidth = 3.4f, PushesTrees = true,
+                HalfLength = 4.4f, HalfWidth = 2.7f, PushesTrees = true,   // the Brute's model, which it wears (SHOW: TankRenderer.StandIns)
             },
         };
 

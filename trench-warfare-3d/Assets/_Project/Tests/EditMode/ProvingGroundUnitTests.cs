@@ -271,5 +271,26 @@ namespace TW.Tests
             var one = Play(); var two = Play();
             for (int t = 0; t < one.Length; t++) Assert.AreEqual(one[t], two[t], $"the worlds part at tick {t}");
         }
+
+        /// <summary>The Brute's model carries one gun, in the front of its hull, and is 8.8 m long and 5.3 m wide as the
+        /// battle draws it: the sim fires that gun and drives that footprint (the A7V wears the same model).</summary>
+        [Test]
+        public void TheBruteFiresTheOneGunItsModelHasFromTheFootprintItsModelHas()
+        {
+            using var m = MatchSim.CreatePlaytest(SimConfig.Default);
+            var spec = m.Catalogue.Tank[VehicleArchetype.Brute];
+            Assert.AreEqual(1, spec.GunCount);
+            Assert.AreEqual(TW.Sim.Combat.TankMount.Hull, spec.Gun0.Mount, "in the hull: it turns to bring it on");
+            Assert.AreEqual(25f, spec.Gun0.ArcHalf * 180f / SimMath.Pi, 0.01f);
+            Assert.AreEqual(0f, spec.Gun0.RestYaw);
+            Assert.AreEqual(TW.Sim.Combat.TankMount.None, spec.Gun1.Mount, "no second gun");
+            Assert.AreEqual(TW.Sim.Combat.TankSpec.Maw.Gun0.ApDamage, spec.Gun0.ApDamage, "the Maw's six-pounder");
+            foreach (byte a in new[] { VehicleArchetype.Brute, VehicleArchetype.A7V })
+            {
+                var drive = m.Vehicles.Profiles[a];
+                Assert.AreEqual(4.4f, drive.HalfLength, 1e-4f, $"archetype {a}");
+                Assert.AreEqual(2.7f, drive.HalfWidth, 1e-4f, $"archetype {a}");
+            }
+        }
     }
 }
