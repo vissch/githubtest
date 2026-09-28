@@ -608,8 +608,25 @@ namespace TW.Presentation.Tactical
                     if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 4f : 1.8f) * SceneTints.Now.Glow);
                     else books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale, 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 3.2f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
                     if (e.Scalar > 0f)
-                        books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
+                    {
+                        // the puff's two draws are taken whether or not it is drawn: fx.recipes must not shift the shared stream
+                        var mirror = UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None;
+                        float puffRoll = UnityEngine.Random.Range(-0.5f, 0.5f);
+                        var blood = vehicle ? null : BloodFor(e.Scalar, DebrisRenderer.Gore, cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f, recipes);
+                        if (blood.HasValue)
+                        {
+                            // blood in place of the dust: the drawing sprays from its left edge, so the card sits half its width on
+                            // along the round, rolled to it on screen; GORE scales it
+                            float gore = Mathf.Min(1f, DebrisRenderer.Gore);
+                            float wide = (blood.Value == FlipbookFx.Book.BloodSnipe ? 1.6f : 1.1f) * scale * Mathf.Lerp(0.6f, 1f, gore);
+                            Vector3 along = toward.normalized;
+                            books.Add(blood.Value, p + along * (wide * 0.45f), wide, blood.Value == FlipbookFx.Book.BloodSnipe ? 25f / 12f : 28f / 12f,
+                                velocity: Vector3.down * 0.4f, roll: cam != null ? FlipbookFx.ScreenRoll(cam, along) : 0f, alpha: 0.95f * gore);
+                        }
+                        else
+                            books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, mirror,
+                                velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: puffRoll, alpha: 0.85f, pop: 0.4f);
+                    }
                     if (vehicle && SceneMood.Night) Throw(p, 10, 3, 10f, 0.035f);   // sparks off armour
                     else if (e.Scalar > 0f) Throw(p, 3, 0, 3.5f, 0.05f);           // and something physical comes off a man struck
                     if (!vehicle && e.Scalar > 0f) HitBlood(e, p, toward.normalized, scale);   // and he bleeds (CombatFx.HitBlood)

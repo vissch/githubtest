@@ -92,5 +92,15 @@ namespace TW.Tests
             Assert.IsTrue(CombatFx.HealGlint(10f + CombatFx.HealEvery, 10f + CombatFx.HealEvery, 30f, 1f), "HealEvery on");
             Assert.IsFalse(CombatFx.HealGlint(10f, 0f, CombatFx.HealNearZoom, 1f), "the overview: none");
         }
+        [Test]
+        public void BloodFor_OnlyWithRecipesGoreAWoundAndNotFromTheOverview()
+        {
+            Assert.IsNull(CombatFx.BloodFor(24f, 1f, 30f, 0f), "fx.recipes 0: the dust as before");
+            Assert.IsNull(CombatFx.BloodFor(24f, 0f, 30f, 1f), "GORE 0: none");
+            Assert.IsNull(CombatFx.BloodFor(0f, 1f, 30f, 1f), "no wound: none");
+            Assert.IsNull(CombatFx.BloodFor(24f, 1f, CombatFx.BloodFarZoom, 1f), "the overview: none");
+            Assert.AreEqual(FlipbookFx.Book.BloodSpurt, CombatFx.BloodFor(24f, 1f, 30f, 1f), "a rifle");
+            Assert.AreEqual(FlipbookFx.Book.BloodSnipe, CombatFx.BloodFor(95f, 1f, 30f, 1f), "the sniper");
+        }
     }
 }
