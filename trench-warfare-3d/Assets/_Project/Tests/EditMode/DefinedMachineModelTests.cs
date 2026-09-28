@@ -89,6 +89,7 @@ namespace TW.Tests
                     // A rack split facing backwards puts them behind it, one unturned puts them level with it.
                     var parts = m.Lods[0].Parts; int hull = m.Lods[0].Find("Hull"), gun = m.Lods[0].Find("Gun");
                     Vector3 trunnionInHull = parts[gun].Local + parts[parts[gun].Parent].Local;
+                    Assert.AreEqual(16, m.Tubes.Length, $"{name}: the tube mouths are looked up once, in order"); Assert.IsTrue(m.IsRack);
                     for (int k = 0; k < 16; k++)
                     {
                         Assert.IsTrue(m.Sockets.TryGetValue("Socket_Tube" + k.ToString("00"), out var tube), $"{name} has no tube {k}");

@@ -381,3 +381,23 @@ Kettle's mortar swings only 24 degrees either side of the nose, so a halted Kett
 targets never fires. A moving Kettle, pointed along its path, does (CrabTests). Left for the owner: it is the original
 game's machine. **Open:** the Salvo beats a Tusk 6 in 10 (the critic expected the Tusk to win at a price): its bursts on
 the deck strike the Tusk's modules; the Skimmer still cannot touch a Tusk (all of the Tusk's plate is thicker than 12 mm).
+
+### Critic round 3: code and sim correctness (2026-09-28)
+No leak into the original game, determinism rules held. Fixed, each with a test that fails on the old code (proved by
+putting the old code back):
+
+| Finding | Fix | Test |
+|---|---|---|
+| A unit spawned into a dead machine's slot inherited its stand-off hold | the hold is reset with the guns' state when the slot's generation changes | `ANewUnitInADeadSalvosSlotInheritsNoHold` (old: HoldTarget 1) |
+| The hold (a hard halt every tick) would override a move order for up to 32 s | a machine holds only on the first goal it was given; re-goaled by anything it goes. The sim has no per-machine move order yet, so the test re-goals a held Salvo as an order would | `AHeldSalvoSentElsewhereGoes` (old: it stayed) |
+| The patience counted hit points lost to anyone; the docs said "taken off it" | the docs and the spec now say what it does: a burst carries no shooter slot to credit | - |
+| The canary ran with no latency; no replay with rockets in the air; nothing killed the Salvo mid-flight | the canary also runs at latency 2, jitter 1, loss 5 %; a recorded match with a Salvo deployed by command and its rockets in the air replays to the same hashes; a Salvo removed with its rack in the air still has every rocket burst, the same in two runs | `TheRackIsTheSameEveryRunAndInTheCanary`, `AMatchWithRocketsInTheAirReplays`, `RocketsInTheAirLandWhenTheSalvoDies` |
+| Two header tests had been loosened to "v9 or later" | pinned to v14 again | `LoadoutTests`, `FactionRosterTests` |
+
+Minor: `SimHashTests`' pinned chain renamed `SystemChain` (it has not changed since v9); the rack's tube sockets are
+looked up once per model (`TankModel.Tubes`, no strings per rocket), the side's colour is set once per part
+(`TankModel.Part.SideWear`, ordinal), the rack's recoil reads a per-model flag, the magic numbers are named
+(`CombatTables.HullTargetBonus`, the rack's pitches and recoils, the fan's rates, a rocket's arc); rockets pending in a
+world with no BlastSystem are dropped; the renderer drops the last match's rockets and views when a new match starts. The
+Salvo's triangle counts after the re-split (7,863 / 2,539) are the ones in `pipelines.md`; its portraits are re-cut from
+the current rack. Format v14.

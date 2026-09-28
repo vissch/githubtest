@@ -132,6 +132,11 @@ namespace TW.Presentation.Tactical
             ("Salvo", VehicleArchetype.Salvo, "Hull", 1f),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
         };
         const int WalkerRows = 6;
+        // a rack of rockets (the Salvo): the pitch it rides at and fires at, its limit, and how hard it is kicked (critic r3)
+        const float RackRidingPitch = 16f, RackFiringPitch = 28f, RackMaxPitch = 30f;   // degrees
+        const float RackRecoil = 0.1f, GunRecoil = 0.45f;   // metres back along the barrel at full Recoil
+        const float RackFireKick = 0.35f;                   // Recoil when the rack fires (each rocket then adds its own)
+        const float FanIdle = 9f, FanThrottle = 25f;        // rad/s: a fan's turn at idle, and what full throttle adds
         /// <summary>The model and the two LOD materials of each Machines row.</summary>
         readonly TankModel[] models = new TankModel[Machines.Length];
         readonly Material[,] modelMats = new Material[Machines.Length, 2];
@@ -156,6 +161,7 @@ namespace TW.Presentation.Tactical
         readonly List<Vector3> fPos = new List<Vector3>(); readonly List<Vector2> fCorner = new List<Vector2>(); readonly List<Vector4> fShape = new List<Vector4>(); readonly List<int> fTris = new List<int>();
         float[] prevYaw, curYaw, prevGun, curGun;
         uint lastTick = uint.MaxValue;
+        TW.Sim.Match.MatchSim lastMatch;
         bool subscribed;
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
         static readonly int TreadId = Shader.PropertyToID("_Tread"), DamageId = Shader.PropertyToID("_Damage"), TintId = Shader.PropertyToID("_Tint"), TeamId = Shader.PropertyToID("_Team"), ColorId = Shader.PropertyToID("_Color");
@@ -165,7 +171,7 @@ namespace TW.Presentation.Tactical
 
         static Vector4 TeamBand(View v, TankModel.Part p)
         {
-            float wear = p.Role == TankPartRole.Horn ? 1f : SideColourOn(v.Archetype, p.Name);
+            float wear = p.Role == TankPartRole.Horn ? 1f : p.SideWear;
             if (wear <= 0f) return Vector4.zero;
             var c = v.Team == 1 ? TeamB : TeamA;
             return new Vector4(c.r, c.g, c.b, (v.Dead ? 0.5f : 1f) * wear);
@@ -178,7 +184,7 @@ namespace TW.Presentation.Tactical
         /// </summary>
         static float SideColourOn(byte archetype, string part)
         {
-            if (archetype == VehicleArchetype.Skimmer) return part == "FanRing" || part.StartsWith("Pod_") ? 0.6f : 0f;
+            if (archetype == VehicleArchetype.Skimmer) return part == "FanRing" || part.StartsWith("Pod_", System.StringComparison.Ordinal) ? 0.6f : 0f;
             if (archetype == VehicleArchetype.Salvo) return part == "Gun" ? 0.45f : 0f;
             return 0f;
         }
@@ -202,6 +208,8 @@ namespace TW.Presentation.Tactical
             {
                 models[c] = TankModel.Load(Machines[c].Name, Machines[c].Archetype, Machines[c].Root, Machines[c].Scale);
                 modelRow[Machines[c].Archetype] = (sbyte)c;
+                if (models[c] != null)   // the side's colour, once per part, not asked of its name every frame
+                    foreach (var l in models[c].Lods) if (l != null) foreach (var part in l.Parts) part.SideWear = SideColourOn(Machines[c].Archetype, part.Name);
             }
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null || maw == null) { Debug.LogWarning("TankRenderer: TW/Tank or the tank models are missing; the box tanks stay."); enabled = false; return; }
@@ -293,6 +301,7 @@ namespace TW.Presentation.Tactical
             if (Host == null || Host.Local == null || Host.Presenter == null || !Ready) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var match = Host.Local; var w = match.World;
+            if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); }   // a new match: nothing of the last one flies on
             float dt = Mathf.Max(1e-4f, Time.deltaTime), now = Time.time;
             Capture(match);
             foreach (var v in views.Values) v.Seen = false;
@@ -472,9 +481,9 @@ namespace TW.Presentation.Tactical
                 // a rack of rockets rides raised, and higher still to fire (2026-09-28: it read as a grey lump flat on its
                 // back at 45-120 m): the whole box is the Gun part (Tools/mechsplit.py halftrack), pitched at its yoke
                 bool rack = spec.Rockets > 0 && k == 0;
-                if (rack) want = (t >= 0 ? 28f : 16f) * Mathf.Deg2Rad;
+                if (rack) want = (t >= 0 ? RackFiringPitch : RackRidingPitch) * Mathf.Deg2Rad;
                 if (gun != null && gun.GunHealth[s * TankGunnerySystem.Guns + k] <= 0f) want = -7f * Mathf.Deg2Rad;
-                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? 30f : 22f) * Mathf.Deg2Rad), dt * 12f * Mathf.Deg2Rad);
+                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? RackMaxPitch : 22f) * Mathf.Deg2Rad), dt * 12f * Mathf.Deg2Rad);
                 v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * 2.6f);
             }
 
@@ -491,7 +500,7 @@ namespace TW.Presentation.Tactical
                 v.GunYaw[0] = Mathf.MoveTowardsAngle(v.GunYaw[0] * Mathf.Rad2Deg, want * Mathf.Rad2Deg, dt * 120f) * Mathf.Deg2Rad;
             }
             // a fan runs up with the engine and winds down when it stops or the machine is done for
-            v.FanRate = Mathf.MoveTowards(v.FanRate, v.Stalled ? 0f : 9f + 25f * v.Throttle, dt * 8f);
+            v.FanRate = Mathf.MoveTowards(v.FanRate, v.Stalled ? 0f : FanIdle + FanThrottle * v.Throttle, dt * 8f);
             v.Fan = Mathf.Repeat(v.Fan + v.FanRate * dt, Mathf.PI * 2f);
 
             // the commander: looks round, or at what the guns are after; out of the hatch when it is all over
@@ -561,7 +570,7 @@ namespace TW.Presentation.Tactical
                     int k = p.Gun >= 0 ? p.Gun : 0;
                     if (p.SelfAimed) rot *= Quaternion.AngleAxis(v.GunYaw[k] * Mathf.Rad2Deg, Vector3.up);   // a mortar on its bed, a gun on its pintle
                     rot *= Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right);
-                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[k]) * (p.Name == "Gun" && v.Model.Sockets.ContainsKey("Socket_Tube00") ? 0.1f : 0.45f));
+                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[k]) * (v.Model.IsRack ? RackRecoil : GunRecoil));
                     break;
                 }
                 // ---- the walkers ----
@@ -979,7 +988,7 @@ namespace TW.Presentation.Tactical
                     if (v == null || v.Dead || e.B < 0 || e.B > 1) break;
                     v.Recoil[e.B] = 1f;
                     // a rack of rockets, not one gun: each rocket comes as its own RocketFired, drawn by TankRenderer.Salvo.cs
-                    if (Machine(null, v.Archetype).Rockets > 0) { v.Recoil[e.B] = 0.35f; break; }
+                    if (Machine(null, v.Archetype).Rockets > 0) { v.Recoil[e.B] = RackFireKick; break; }
                     Vector3 muzzle = MuzzleWorld(v, e.B, out Vector3 dir);
                     // the hull answers the shot: rocks back along the barrel
                     Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);

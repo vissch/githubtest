@@ -39,6 +39,9 @@ namespace TW.Presentation.Tactical
             public Vector3 Outward = Vector3.forward;
             /// <summary>A gun with no turret above it (a mortar, a pintle gun): it takes the traverse itself.</summary>
             public bool SelfAimed;
+            /// <summary>How much of its side's colour this part wears (0 none; a horn wears 1). Set once by TankRenderer
+            /// when the model is loaded (TankRenderer.SideColourOn), not asked of the part's name every frame.</summary>
+            public float SideWear;
         }
 
         /// <summary>What WalkerGait needs to put one leg's foot on a chosen piece of ground: the parts from the hip
@@ -78,6 +81,10 @@ namespace TW.Presentation.Tactical
         public readonly Lod[] Lods = new Lod[2];
         /// <summary>LOD0 part index and offset in that part's frame, by socket name.</summary>
         public readonly Dictionary<string, (int part, Vector3 local)> Sockets = new Dictionary<string, (int, Vector3)>();
+        /// <summary>A rack's tube mouths (Socket_Tube00, 01, ... from Tools/mechsplit.py), in order; empty on anything else.
+        /// Looked up once here so drawing a rocket builds no strings.</summary>
+        public (int part, Vector3 local)[] Tubes = System.Array.Empty<(int, Vector3)>();
+        public bool IsRack => Tubes.Length > 0;
         public readonly float[] ArtRestYaw = new float[2];       // radians from the nose, positive to the right
         public readonly Vector3[] MuzzleLocal = new Vector3[2];  // in the gun's (or sponson's) own frame
         public readonly int[] GunPart = { -1, -1 };               // LOD0 part that fires gun k
@@ -122,6 +129,9 @@ namespace TW.Presentation.Tactical
                 model.MuzzleLocal[k] = s.local;
                 model.ArtRestYaw[k] = Mathf.Atan2(s.local.x, s.local.z);
             }
+            var tubes = new List<(int, Vector3)>();
+            while (model.Sockets.TryGetValue("Socket_Tube" + tubes.Count.ToString("00"), out var tube)) tubes.Add(tube);
+            model.Tubes = tubes.ToArray();
             int tl = model.Lods[0].Find("Track_L"), tr = model.Lods[0].Find("Track_R");
             if (tl >= 0 && tr >= 0)
             {

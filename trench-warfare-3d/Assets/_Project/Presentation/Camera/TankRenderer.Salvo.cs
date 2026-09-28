@@ -32,6 +32,9 @@ namespace TW.Presentation.Tactical
         readonly List<Rocket> rockets = new List<Rocket>(32);
         const float TrailStep = 0.7f;       // metres between trail puffs: they overlap into a ribbon
         const float RocketLength = 1.5f, RocketRadius = 0.16f;
+        const float LaunchKick = 0.25f;     // how far a rocket leaving rocks the rack (Recoil, 0..1)
+        const float ApexShare = 0.22f;      // an arc's height as a share of the ground it covers (at least MinApex)
+        const float MinApex = 8f;
         Mesh rocketMesh; Material rocketMat;
 
         /// <summary>The sim clock the rockets are timed on, in ticks: a burst queued for tick L is shown from the first
@@ -53,12 +56,10 @@ namespace TW.Presentation.Tactical
         Vector3 TubeMouth(View v, int k, out Vector3 dir)
         {
             Vector3 muzzle = MuzzleWorld(v, 0, out dir);
-            int tubes = 0;
-            while (v.Model.Sockets.ContainsKey("Socket_Tube" + tubes.ToString("00"))) tubes++;
-            if (tubes == 0) return muzzle;
+            if (!v.Model.IsRack) return muzzle;
             // the mouths hang off the Hull, as the rack stands at rest (Tools/mechsplit.py: deeper sockets do not survive
             // the import), so each is taken into the rack's own frame at rest and carried on the rack as it is posed now
-            var s = v.Model.Sockets["Socket_Tube" + (k % tubes).ToString("00")];
+            var s = v.Model.Tubes[k % v.Model.Tubes.Length];
             var parts = v.Model.Lods[0].Parts;
             int gun = v.Model.GunPart[0];
             Vector3 rest = Vector3.zero;
@@ -113,11 +114,11 @@ namespace TW.Presentation.Tactical
                     if (views.TryGetValue(r.Slot, out var v) && v.Gen == r.Gen && !v.Dead && v.Model.GunPart[0] >= 0)
                     {
                         r.From = TubeMouth(v, r.Tube, out r.Dir);
-                        v.Recoil[0] = Mathf.Max(v.Recoil[0], 0.25f);
+                        v.Recoil[0] = Mathf.Max(v.Recoil[0], LaunchKick);
                     }
                     else { r.From = r.To + Vector3.up * 40f; r.Dir = Vector3.down; }
                     float ground = new Vector2(r.To.x - r.From.x, r.To.z - r.From.z).magnitude;
-                    r.Apex = Mathf.Max(8f, ground * 0.22f);
+                    r.Apex = Mathf.Max(MinApex, ground * ApexShare);
                     r.Flying = true; r.Trail = r.From;
                     if (fx) Launch(r, now);
                 }
