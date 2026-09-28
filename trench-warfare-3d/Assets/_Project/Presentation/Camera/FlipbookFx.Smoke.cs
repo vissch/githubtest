@@ -39,8 +39,17 @@ namespace TW.Presentation.Tactical
         // The DAY look (owner's snow reference; critique c1b: "brown cardboard, one value"): the burst cloud from cream-lit tops
         // to soot (tint up, the lit band reached sooner, the shade down), and the thrown earth's shade only half the field's
         // blue. Set by field (CombatFx.ApplyTints, before the night passes): a moonlit field keeps its AOSA-tuned values.
-        static readonly Color DayBurstTint = new Color(0.90f, 0.78f, 0.64f), DayBurstShade = new Color(0.30f, 0.25f, 0.22f);
-        const float DayBurstHigh = 0.50f, DayEarthMood = 0.45f;
+        // Critique c2: the burst's ink sits at 0.20-0.51 (p10-p90), so Levels 0.12-0.50 lit all of it and the soot cores went:
+        // the lit band now starts at 0.25 and ends at 0.44, and the shade is darker, so the drawing's darks are soot again.
+        static readonly Color DayBurstTint = new Color(0.90f, 0.78f, 0.64f), DayBurstShade = new Color(0.20f, 0.16f, 0.14f);
+        const float DayBurstLow = 0.25f, DayBurstHigh = 0.44f, DayEarthMood = 0.45f;
+        // ShellPlume's ink is 0.18-0.27 from frame 9: at its sheet Levels (0.17-1.30) it is all shade, which by day is the
+        // field's blue - slate "tadpoles" standing for five seconds (critique c2). By day it reaches the lit band.
+        const float DayPlumeHigh = 0.45f, DayPlumeMood = 0.15f;
+        // By day the burst and its fire draw after the snowfall's curtain (RainCurtain, Transparent+25): fire is its own light,
+        // and under the curtain at z70 both were bleached to cream splats on white (critique c2).
+        const int DayBurstQueue = 3026, DayFireQueue = 3027;
+        static readonly int EmberLitId = Shader.PropertyToID("_EmberLit");
 
         /// <summary>Put the day look on (on) or back to the sheets' own values (off).</summary>
         public void DayLook(bool on)
@@ -50,8 +59,19 @@ namespace TW.Presentation.Tactical
             {
                 var s = Sheets[(int)Book.Burst];
                 b.SetColor("_Tint", on ? DayBurstTint : s.Tint);
-                b.SetVector("_Levels", new Vector4(s.Low, on ? DayBurstHigh : s.High, 0f, 0f));
+                b.SetVector("_Levels", new Vector4(on ? DayBurstLow : s.Low, on ? DayBurstHigh : s.High, 0f, 0f));
                 b.SetColor("_Shade", on ? DayBurstShade : BurstShade);
+                b.SetFloat(EmberLitId, on ? 1f : 0f);   // the ember on the lit billows by day, in the soot at night (as tuned)
+                b.renderQueue = on ? DayBurstQueue : 3010;
+            }
+            var f = mats[(int)Book.Fireball];
+            if (f != null) f.renderQueue = on ? DayFireQueue : 3015;
+            var plume = mats[(int)Book.ShellPlume];
+            if (plume != null)
+            {
+                var s = Sheets[(int)Book.ShellPlume];
+                plume.SetVector("_Levels", new Vector4(s.Low, on ? DayPlumeHigh : s.High, 0f, 0f));
+                plume.SetFloat("_ShadeMood", on ? DayPlumeMood : s.Mood > 0f ? s.Mood : 1f);
             }
             foreach (var k in new[] { Book.Column, Book.Wings })
             {
