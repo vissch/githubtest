@@ -136,5 +136,15 @@ namespace TW.Tests
             Assert.IsFalse(CombatFx.IsIncoming((int)TW.Sim.Match.PayloadKind.GasSource, (int)TW.Sim.Match.OffMapAbilityId.ChlorineGas), "a canister");
             Assert.AreEqual(13u, CombatFx.IncomingLeadTicks(0.05f), "8 frames at 12 fps, at 20 ticks a second");
         }
+        [Test]
+        public void Smoulders_AboutAThirdOfPlaces_TheSameEveryTime()
+        {
+            int n = 0, total = 0;
+            for (int x = 0; x < 40; x++)
+            for (int z = 0; z < 40; z++, total++)
+                if (CombatFx.Smoulders(x * 3.7f, z * 5.3f)) n++;
+            Assert.That(n / (float)total, Is.InRange(0.25f, 0.35f), "30 % of heavy bursts smoulder");
+            Assert.AreEqual(CombatFx.Smoulders(12.5f, 40.25f), CombatFx.Smoulders(12.5f, 40.25f), "by place, not by chance");
+        }
     }
 }
