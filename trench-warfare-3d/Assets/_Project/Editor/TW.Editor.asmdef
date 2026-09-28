@@ -22,7 +22,8 @@
     "TW.Presentation.VFX",
     "TW.Presentation.Audio",
     "TW.UI",
-    "TW.Perf"
+    "TW.Perf",
+    "TW.Playground"
   ],
   "includePlatforms": [
     "Editor"
