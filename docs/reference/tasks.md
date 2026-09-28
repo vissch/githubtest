@@ -400,7 +400,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   TickAllocationTests (no per-tick allocation).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions. The gags in
   Play: `TW.Editor.DeathLab.Absurd(1)`, then `DeathLab.Scene("shot" | "mg" | "shell" | "heap" | "gas" | "fire" |
-  "beam" | "crush", x, z)` (`Editor/DeathLab.cs`: every death made by the sim's own systems).
+  "beam" | "crush", x, z)` (`Editor/DeathLab.cs`: every death made by the sim's own systems). Unattended, from batch
+  mode: DeathStills (`Tests/Stills`, explicit, run by name with a graphics device; `TW_STILLS_DIR` outside the checkout,
+  `TW_DEATH_ABSURD`, `TW_DEATH_SCENES`) films each scene as a strip and a contact sheet.
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
@@ -463,7 +465,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   crater cooks them; a trigger's flash; the burst is the Explosion's), `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
   man's pool and smoulder; `UnitAlight` lights and douses the drawn torch), `Presentation/Camera/CombatFx.Gags.cs`
   (a gagged death: the body through `VATRenderer`'s gag overload, a popped helmet, a pancake's squirt, the beam's
-  boots, dust at each landing),
+  boots, dust at each landing; its blood: a trail of gore along the flight, a splat where each arc lands, a streak
+  along a skid, scorch under the boots, in a pool of its own (`MaxGagMarks`), GORE-scaled; a blood card from the
+  `BloodSpurt` book when the build has one, looked up by name),
   `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
   beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/SimClock.cs` (the sim's clock in seconds for everything the picture times against the sim: the
   aircraft, the beam, the fires), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets
@@ -502,7 +506,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Ground marks and footfalls
 - **Files:** `Presentation/Camera/CombatFx.Ground.cs` (`AddMark`, `MaxMarks`, `MachineMarkReach`, the marks pool,
   `DrawClose`), `SceneHooks.FootFall` is wired in `CombatFx.cs` `Start`,
-  `Shaders/GroundMark_URP.shader` (shape 0 boot, 1 rut, 2 walker pad; snow vs mud handled in the shader),
+  `Shaders/GroundMark_URP.shader` (shape 0 boot, 1 rut, 2 walker pad, 3 blood, 4 scorch: the last two drawn by
+  `CombatFx.Gags` from a pool of their own, and keep their colour on snow; snow vs mud handled in the shader),
   `Presentation/Camera/TankRenderer.cs` (calls `FootFall` where a walker's foot lands).
 - **Tests:** none.
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
