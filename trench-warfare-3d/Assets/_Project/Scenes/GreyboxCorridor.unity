@@ -528,7 +528,7 @@ MonoBehaviour:
   PlaytestMap: 1
   GeneratedBattlefield: 1
   BattlefieldSeed: 1917
-  BombardmentPerMinute: 8
+  BombardmentPerMinute: 0
   ScriptedPeer: 1
   PeerDeployEveryTicks: 40
   PeerAttacks: 1

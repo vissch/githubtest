@@ -32,7 +32,7 @@ namespace TW.UI
         public string Title, Subtitle, Description;
         public Ground Ground;
         public uint Seed;
-        public float Bombardment = 8f;
+        public float Bombardment = 8f;   // how hard this front was shelled; not applied since 2026-09-28 (MatchLaunch.Apply)
         public int StartingSilver = 300;
         public float SilverPerSecond = 2f;
         public string FrontLine = "90 x 240 M";

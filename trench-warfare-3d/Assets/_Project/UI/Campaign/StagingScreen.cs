@@ -106,7 +106,7 @@ namespace TW.UI
             int silver = FactionBuildings.StartingSilverBonus(profile, Faction); float income = FactionBuildings.IncomeBonus(profile, Faction);
             bool won = profile.IsComplete(node.Id, index);
             SetText("info-stats",
-                $"FRONT {mission.FrontLine}\nSEED {mission.Seed}\nBOMBARDMENT {mission.Bombardment:0}/MIN\nENEMY DEPLOYS EVERY {every:0.#} S\n" +
+                $"FRONT {mission.FrontLine}\nSEED {mission.Seed}\nENEMY DEPLOYS EVERY {every:0.#} S\n" +
                 $"ENEMY ATTACKS AT {(d.PeerAttacks ? d.PeerAttackGarrison + "+ MEN" : "NEVER")}\nENEMY TANKS: {(d.PeerDeploysTanks ? "YES" : "NO")}\nENEMY SUPPORT FIRE: {(d.PeerUsesSupport ? "YES" : "NO")}\n" +
                 $"WAR CHEST +{silver} SILVER\nSUPPLY +{income:0.00}/S\n" +
                 (won ? "ALREADY WON: NO GOLD AGAIN" : $"REWARD {CampaignGraph.Reward(node, index)} GOLD"));

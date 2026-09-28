@@ -42,8 +42,11 @@ namespace TW.Presentation
         [Tooltip("Play on a generated battlefield (shelled wood, river, mud) instead of the flat playtest map.")]
         public bool GeneratedBattlefield = true;
         public uint BattlefieldSeed = 1917;
-        [Tooltip("Shells per minute that fall on no man's land all match long. 0 = quiet.")]
-        public float BombardmentPerMinute = 8f;
+        /// <summary>Shells per minute that fall on no man's land all match long. Off (owner, 2026-09-28: "remove the constant
+        /// bombardment on the field, it adds too much unknown and chaos; we might add it back later with an ability"):
+        /// no mission sets it (MatchLaunch.Apply), only the debug panel's presets do, through BombardmentOverride.</summary>
+        [Tooltip("Shells per minute that fall on no man's land all match long. 0 = quiet (the game's setting since 2026-09-28).")]
+        public float BombardmentPerMinute = 0f;
         /// <summary>Set by the debug panel before a restart; survives the scene reload. Negative = use the field above.</summary>
         public static float BombardmentOverride = -1f;
         /// <summary>Tooling (TW.Perf.PerfBench): riflemen a side for the stress preset, set before the scene loads so a
