@@ -48,5 +48,19 @@ namespace TW.Tests
             }
             Assert.That(kept / (float)n, Is.InRange(0.35f, 0.45f), "about the share asked for");
         }
+        [Test]
+        public void Smoke_WeightAndLeanOfOne_IsTheOldSmoke_TheDefaultsLighterAndLeaner()
+        {
+            float w = 3f, h = 0f, life = 5f, alpha = 0.8f;
+            FlipbookFx.ShapeSmoke(1f, 1f, 1.25f, ref w, ref h, ref life, ref alpha);
+            Assert.AreEqual(3f, w); Assert.AreEqual(3f / 1.25f, h, 1e-6f, "the drawing's own aspect"); Assert.AreEqual(5f, life); Assert.AreEqual(0.8f, alpha);
+            w = 3f; h = 0f; life = 5f; alpha = 0.8f;
+            FlipbookFx.ShapeSmoke(FlipbookFx.DefaultSmokeWeight, FlipbookFx.DefaultSmokeLean, 1.25f, ref w, ref h, ref life, ref alpha);
+            Assert.AreEqual(3f / 1.25f, h, 1e-6f, "as tall as it was");
+            Assert.Less(w, 3f, "leaner"); Assert.Less(alpha, 0.8f, "lighter"); Assert.Less(life, 5f, "clears sooner");
+            Assert.GreaterOrEqual(life, 5f * 0.6f, "never popping out in under 60 % of its time");
+            Assert.IsTrue(FlipbookFx.IsSmoke(FlipbookFx.Book.Smoke) && FlipbookFx.IsSmoke(FlipbookFx.Book.ShellPlume) && FlipbookFx.IsSmoke(FlipbookFx.Book.WreckSmoke));
+            Assert.IsFalse(FlipbookFx.IsSmoke(FlipbookFx.Book.GasBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.SmokeBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.DustPuff), "the field's gas and screen, and grit, are not a fire's smoke");
+        }
     }
 }
