@@ -160,6 +160,11 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.8f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 1.30f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },
         };
 
+        /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
+        /// then in step with the zoom, capped at FarGrowMax. The men grow the same way from zoom 24 (FigureMetrics.Grow).</summary>
+        public const float FarGrowFrom = 80f, FarGrowMax = 2.5f;
+        public static float FarGrow(float zoom) => Mathf.Clamp(zoom / FarGrowFrom, 1f, FarGrowMax);
+
         /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
         public static string SheetName(Book b) => Sheets[(int)b].Name;
         public static int SheetCount => Sheets.Length;
