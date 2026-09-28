@@ -148,6 +148,20 @@ namespace TW.Tests
             Assert.AreEqual(CombatFx.Smoulders(12.5f, 40.25f), CombatFx.Smoulders(12.5f, 40.25f), "by place, not by chance");
         }
         [Test]
+        public void ClassArms_EachClassItsOwnShot()
+        {
+            var rifle = CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Rifle, 10u, 3);
+            Assert.AreEqual(1f, rifle.Flare); Assert.AreEqual(1f, rifle.Tracer); Assert.IsTrue(rifle.Case, "the rifle is the base look");
+            var sniper = CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Sniper, 10u, 3);
+            Assert.Greater(sniper.Tracer, rifle.Tracer); Assert.Greater(sniper.Flare, rifle.Flare);
+            Assert.Less(CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Shield, 10u, 3).Flare, rifle.Flare, "a pistol flares less");
+            int bright = 0;
+            for (uint t = 0; t < 30; t++) if (CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7).Tracer > 1.5f) bright++;
+            Assert.AreEqual(10, bright, "every third machine-gun round a tracer round");
+            Assert.IsFalse(CombatFx.ArmsFor(TW.Sim.VehicleArchetype.Maw, 10u, 3).Case, "no case out of a hull gun");
+            Assert.AreEqual(1f, CombatFx.ReadClassArms(), "on by default");
+        }
+        [Test]
         public void ShellFire_InsideTheCloud_ByPlace()
         {
             Assert.Greater(CombatFx.ShellFireWidth(8f, 0f), CombatFx.ShellFireWidth(3f, 0f), "a bigger shell, a bigger fireball");
