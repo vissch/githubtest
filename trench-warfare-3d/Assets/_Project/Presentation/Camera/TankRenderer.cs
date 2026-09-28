@@ -84,6 +84,8 @@ namespace TW.Presentation.Tactical
             public float Scorch, Burn, Flash, Furnace, Throttle;
             /// <summary>A fan's angle (radians) and how fast it is turning: it winds up and down, never jumps.</summary>
             public float Fan, FanRate;
+            /// <summary>A hovering machine's yaw drawn off its heading in a turn (radians), and whether it hovers.</summary>
+            public float Drift; public bool Hover;
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
@@ -123,17 +125,25 @@ namespace TW.Presentation.Tactical
         /// by Tools/mechsplit.py TW_BATTLE=1 (2026-09-28) are written in metres at the size they are meant to be, so
         /// they are drawn at 1.
         /// </summary>
-        static readonly (string Name, byte Archetype, string Root, float Scale)[] Machines =
+        /// Hover: drawn riding an air cushion, not on tracks (the pose, not the sim: it drives as a tracked machine).
+        static readonly (string Name, byte Archetype, string Root, float Scale, bool Hover)[] Machines =
         {
-            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker),
-            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker),
-            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker),
-            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f),   // 7 m across its pods
-            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
+            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker, false), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker, false),
+            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker, false), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker, false),
+            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker, false), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, false),
+            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f, true),    // 7 m across its pods
+            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, false),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
         };
+        // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
+        const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
+        const float HoverSettle = 3f;       // omega of its pitch and roll: a cushion rides the ground's average, slowly
+        const float HoverDrift = 0.08f, HoverDriftMax = 0.25f;   // its tail swings out in a turn: rad per (rad/s x m/s), and at most
         const int WalkerRows = 6;
         // a rack of rockets (the Salvo): the pitch it rides at and fires at, its limit, and how hard it is kicked (critic r3)
         const float RackRidingPitch = 16f, RackFiringPitch = 28f, RackMaxPitch = 30f;   // degrees
+        const float RackRaiseRate = 30f;    // deg/s: up before its first rocket leaves (12, a gun's, left the first ones low)
+        const float RackRecoilDecay = 10f;  // per second: each rocket's kick shows, and is gone before the next
+        const float FanMaxShown = 14f;      // rad/s: faster, a six-bladed fan strobes backwards at 60 fps; shown at this
         const float RackRecoil = 0.1f, GunRecoil = 0.45f;   // metres back along the barrel at full Recoil
         const float RackFireKick = 0.35f;                   // Recoil when the rack fires (each rocket then adds its own)
         const float FanIdle = 9f, FanThrottle = 25f;        // rad/s: a fan's turn at idle, and what full throttle adds
@@ -301,7 +311,7 @@ namespace TW.Presentation.Tactical
             if (Host == null || Host.Local == null || Host.Presenter == null || !Ready) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var match = Host.Local; var w = match.World;
-            if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); }   // a new match: nothing of the last one flies on
+            if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); ribbonPool.AddRange(ribbons); ribbons.Clear(); }   // a new match: nothing of the last one flies on
             float dt = Mathf.Max(1e-4f, Time.deltaTime), now = Time.time;
             Capture(match);
             foreach (var v in views.Values) v.Seen = false;
@@ -321,6 +331,7 @@ namespace TW.Presentation.Tactical
             RunPops(now);
             RidersFrame(now);   // the men on the walkers' backs, at the hulls as posed above
             RocketsFrame(now);  // the Salvo's rockets in the air (their bodies go in this frame's batches), their trails and landings
+            RibbonsFrame(now);  // their smoke, one mesh
             Draw();
             if (books != null && books.Ready) books.Draw(now, Everywhere);
             Fireballs(now);
@@ -366,6 +377,8 @@ namespace TW.Presentation.Tactical
         {
             var model = ModelFor(w.Archetype[slot]);
             var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot] };
+            int hoverRow = v.Archetype < modelRow.Length ? modelRow[v.Archetype] : -1;
+            v.Hover = hoverRow >= 0 && Machines[hoverRow].Hover;
             v.Pos = v.LastPos = (Vector3)(float3)w.Position[slot];
             v.Yaw = v.LastYaw = w.Yaw[slot];
             v.Off = new bool[model.Lods[0].Parts.Count];
@@ -440,9 +453,10 @@ namespace TW.Presentation.Tactical
                 // its middle, and it stands as high as they let it
                 pitch = v.Legs.Pitch; roll = v.Legs.Roll; heave = v.Legs.Height;
             }
+            else if (v.Hover) HoverPose(v, fwd, right, now, dt, out pitch, out roll, out heave);
             else Settle(v, fwd, right, out pitch, out roll, out heave);
-            if (v.Ditched) { pitch -= 17f * Mathf.Deg2Rad; heave -= 1.1f; }
-            if (v.Bogged) heave -= 0.25f;
+            if (v.Ditched && !v.Hover) { pitch -= 17f * Mathf.Deg2Rad; heave -= 1.1f; }   // a cushion neither ditches nor bogs
+            if (v.Bogged && !v.Hover) heave -= 0.25f;
             float vib = v.Stalled ? 0f : (0.006f + 0.01f * v.Throttle);
             // A WALKER'S TILT IS NOT SPRUNG. This spring was written for a hull riding on tracks, where `Settle`
             // samples raw terrain under the chassis and the result is noisy enough to need smoothing. A walker's
@@ -452,7 +466,7 @@ namespace TW.Presentation.Tactical
             // 0.84 m of travel at 1.2 m/s, and the second filter is 162% of the total. It is lag for nothing, and
             // it is what makes a machine read as a box on a spring rather than a body carried on legs.
             if (legged) { v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
-            else { v.Pitch.Step(pitch, dt, 7f); v.Roll.Step(roll, dt, 7f); }
+            else { float omega = v.Hover ? HoverSettle : 7f; v.Pitch.Step(pitch, dt, omega); v.Roll.Step(roll, dt, omega); }
             v.Heave.Step(heave + Mathf.Sin(now * 41f + s) * vib, dt, 10f);
             v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
@@ -483,8 +497,8 @@ namespace TW.Presentation.Tactical
                 bool rack = spec.Rockets > 0 && k == 0;
                 if (rack) want = (t >= 0 ? RackFiringPitch : RackRidingPitch) * Mathf.Deg2Rad;
                 if (gun != null && gun.GunHealth[s * TankGunnerySystem.Guns + k] <= 0f) want = -7f * Mathf.Deg2Rad;
-                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? RackMaxPitch : 22f) * Mathf.Deg2Rad), dt * 12f * Mathf.Deg2Rad);
-                v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * 2.6f);
+                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? RackMaxPitch : 22f) * Mathf.Deg2Rad), dt * (rack ? RackRaiseRate : 12f) * Mathf.Deg2Rad);
+                v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * (rack ? RackRecoilDecay : 2.6f));
             }
 
             // A machine whose only weapon is small arms (the Skimmer's machine gun) has no TankGun to lay its turret, so
@@ -501,7 +515,7 @@ namespace TW.Presentation.Tactical
             }
             // a fan runs up with the engine and winds down when it stops or the machine is done for
             v.FanRate = Mathf.MoveTowards(v.FanRate, v.Stalled ? 0f : FanIdle + FanThrottle * v.Throttle, dt * 8f);
-            v.Fan = Mathf.Repeat(v.Fan + v.FanRate * dt, Mathf.PI * 2f);
+            v.Fan = Mathf.Repeat(v.Fan + Mathf.Min(v.FanRate, FanMaxShown) * dt, Mathf.PI * 2f);
 
             // the commander: looks round, or at what the guns are after; out of the hatch when it is all over
             if (now >= v.NextLook)
@@ -548,9 +562,25 @@ namespace TW.Presentation.Tactical
             heave = Mathf.Max((front + rear) * 0.5f, Mathf.Max(front, rear) - 0.4f);
         }
 
+        /// <summary>A cushion: it rides the average of the ground under its skirt (not its highest points, as tracks do),
+        /// a little off it, with a slow bob, and its tail swings out as it turns at speed.</summary>
+        void HoverPose(View v, Vector3 fwd, Vector3 right, float now, float dt, out float pitch, out float roll, out float heave)
+        {
+            var m = v.Model;
+            float hl = m.HalfLength * 0.8f, g = m.HalfGauge * 0.8f;
+            float fl = Ground(v.Pos.x + fwd.x * hl - right.x * g, v.Pos.z + fwd.z * hl - right.z * g), fr = Ground(v.Pos.x + fwd.x * hl + right.x * g, v.Pos.z + fwd.z * hl + right.z * g);
+            float rl = Ground(v.Pos.x - fwd.x * hl - right.x * g, v.Pos.z - fwd.z * hl - right.z * g), rr = Ground(v.Pos.x - fwd.x * hl + right.x * g, v.Pos.z - fwd.z * hl + right.z * g);
+            float mid = Ground(v.Pos.x, v.Pos.z);
+            pitch = Mathf.Clamp(Mathf.Atan2((fl + fr) - (rl + rr), 4f * hl), -0.2f, 0.2f);
+            roll = Mathf.Clamp(Mathf.Atan2((fl + rl) - (fr + rr), 4f * g), -0.15f, 0.15f);
+            heave = (fl + fr + rl + rr + mid) * 0.2f + HoverLift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
+            float want = Mathf.Clamp(-v.YawRate * Mathf.Abs(v.Speed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
+            v.Drift = Mathf.Lerp(v.Drift, want, 1f - Mathf.Exp(-dt * 2f));
+        }
+
         // ------------------------------------------------------------------ pose
         Quaternion HullRotation(View v)
-            => Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-v.Pitch.Value * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-v.Roll.Value * Mathf.Rad2Deg, Vector3.forward);
+            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-v.Pitch.Value * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-v.Roll.Value * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
         Matrix4x4 PartLocal(View v, TankModel.Part p, int index)

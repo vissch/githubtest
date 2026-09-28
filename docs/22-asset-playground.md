@@ -401,3 +401,17 @@ looked up once per model (`TankModel.Tubes`, no strings per rocket), the side's 
 world with no BlastSystem are dropped; the renderer drops the last match's rockets and views when a new match starts. The
 Salvo's triangle counts after the re-split (7,863 / 2,539) are the ones in `pipelines.md`; its portraits are re-cut from
 the current rack. Format v14.
+
+### Critic round 4: performance, motion and edges (2026-09-28)
+Checked in GreyboxCorridor at night (Play, `TankCapture.Spawn`, `CaptureRig`; images `figures/battle-loop/r4-*`) and offline.
+
+| Finding | Fix | Measured |
+|---|---|---|
+| Trails flooded TankRenderer's FlipbookFx (a 3.2 s puff every 0.7 m: about 600 cards a rocket, ~9,600 a rack, against the 1,536-card cap, which evicts the oldest) | `TankRenderer.Salvo.cs`: each rocket's trail is a ribbon of points laid every 2 m, all the rack's ribbons one camera-facing mesh that widens and fades over 4 s (pooled; URP Particles/Unlit, both faces); cards only for launch, motor and landing | peak cards through one rack **116, then 88** (was ~9,600 by the arithmetic above); up to 16 ribbons, 151 points. The first build drew nothing (the strip was culled, `r4-ribbons-culled.jpg`); double-sided it does (`r4-ribbons.jpg`) |
+| A dead Salvo kept firing (all 16 rockets queued on the fire tick) | the sim drops a rocket still in its tube when its machine is gone (`PendingRocket.LaunchTick`, `Shooter`); the picture drops it too, so no rocket is drawn from a vanished rack | `ADeadSalvoFiresNoMoreRockets`: 6 away, 6 land (old: 7+); `RocketsInTheAirLandWhenTheSalvoDies` now counts only those away |
+| Rockets did not leave along their tubes; the rack rose at 12 deg/s | a cubic path whose first control point lies along the tube; the rack rises at 30 deg/s | in the stills the ribbons leave the rack along it |
+| The Skimmer moved like a tank | a hover pose, data in `TankRenderer.Machines` (Hover): the ground's average under its skirt, 0.35 m up, a 0.1 m bob at 0.5 Hz, pitch and roll slowly low-passed, the tail swinging out in a turn at speed; no ditch or bog pose | read in Play: 0.08-0.53 m off the ground, drift up to 0.14 rad (`r4-skimmer-hover.jpg`) |
+| Minor: recoil not shown per rocket; fan strobing; a rack at the map's edge; a moving target | each rocket adds 0.25 to the rack's recoil, which decays at 10/s; the fan is shown at 14 rad/s at most (six blades strobe backwards faster at 60 fps); landing points clamped to the map | `ARackAtTheMapsEdgeLandsOnTheMap` (old: x 300.3 on a 300 m map); `AManWhoMovesAwayBeforeTheRocketsLandEscapes` |
+
+Left for Play: the ribbons are bright at night (alpha 0.7): judge them at the standard view; the hover at speed over
+trenches. Format v15.
