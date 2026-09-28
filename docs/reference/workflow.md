@@ -294,6 +294,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Textures(path, top)` | Editor/CaptureRig.cs | Every texture in memory, largest first, with what it really costs, and a count of the distinct materials and shaders the props are drawn with. |
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
+| `TW.Editor.Gym.Run(options)` | Editor/Gym.cs | Play the catalogue unattended. |
+| `TW.Editor.Gym.Root()` | Editor/Gym.cs | The folder gym runs go in: TW_GYM, else %LOCALAPPDATA%\TrenchWarfare\gym. |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Setup(archetype, riders, x, z, team, yawDeg, climb)` | Editor/RiderLab.cs | A walker of `archetype` (6 Pincer .. |
 | `TW.Editor.RiderLab.Climbers(slot, n)` | Editor/RiderLab.cs | `n` riflemen of the machine's team spawn 12-15 m behind it, held, and run in and climb aboard (for a machine that is already standing: spawn it ... |
