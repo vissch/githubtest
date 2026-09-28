@@ -60,6 +60,21 @@ namespace TW.Presentation.Tactical
                 Value = target + (x + j * dt) * e;
                 Velocity = (Velocity - omega * j * dt) * e;
             }
+
+            /// <summary>The same with a damping ratio: at 1 or more the exact critical solve above; below it an
+            /// under-damped spring that overshoots and rocks on (DriveStyle.Zeta), stepped in pieces of at most 0.15
+            /// rad of its cycle so a long frame cannot blow it up.</summary>
+            public void Ride(float target, float dt, float omega, float zeta)
+            {
+                if (zeta >= 0.999f) { Step(target, dt, omega); return; }
+                int n = Mathf.Clamp(Mathf.CeilToInt(dt * omega / 0.15f), 1, 32);
+                float h = dt / n;
+                for (int k = 0; k < n; k++)
+                {
+                    Velocity += (-2f * zeta * omega * Velocity - omega * omega * (Value - target)) * h;
+                    Value += Velocity * h;
+                }
+            }
         }
 
         sealed class View
@@ -67,6 +82,9 @@ namespace TW.Presentation.Tactical
             public int Slot; public ushort Gen; public byte Team; public TankModel Model;
             public Vector3 Pos, LastPos; public float Yaw, LastYaw; public bool Seen;
             public float Speed, YawRate;
+            /// <summary>Its ride (TankRenderer.DriveStyle.cs): the way it is gathering (m/s^2, smoothed), metres
+            /// travelled (the running gear's rhythm), and the nod drawn on top of the sprung pitch.</summary>
+            public DriveStyle Style; public float Accel, Travel, PitchFx;
             public Spring Pitch, Roll, Heave;
             public float TreadL, TreadR, WheelL, WheelR;
             public readonly float[] GunYaw = new float[2], GunPitch = new float[2], Recoil = new float[2];
@@ -383,7 +401,7 @@ namespace TW.Presentation.Tactical
         View NewView(SimWorld w, int slot, float now)
         {
             var model = ModelFor(w.Archetype[slot]);
-            var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot] };
+            var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot], Style = StyleFor(w.Archetype[slot]) };
             int hoverRow = v.Archetype < modelRow.Length ? modelRow[v.Archetype] : -1;
             v.Hover = hoverRow >= 0 && Machines[hoverRow].Hover;
             v.Pos = v.LastPos = (Vector3)(float3)w.Position[slot];
@@ -412,7 +430,10 @@ namespace TW.Presentation.Tactical
             Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);
             float speed = Vector3.Dot(v.Pos - v.LastPos, fwd) / dt, yawRate = Mathf.DeltaAngle(v.LastYaw * Mathf.Rad2Deg, v.Yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad / dt;
             if (Host.TimeScale <= 0f) { speed = 0f; yawRate = 0f; }
+            float wasSpeed = v.Speed;
             v.Speed = Mathf.Lerp(v.Speed, speed, 1f - Mathf.Exp(-dt * 10f));
+            v.Accel = Mathf.Lerp(v.Accel, dt > 1e-4f ? (v.Speed - wasSpeed) / dt : 0f, 1f - Mathf.Exp(-dt * 6f));
+            v.Travel = Mathf.Repeat(v.Travel + Mathf.Abs(v.Speed) * dt, 1000f);
             v.YawRate = Mathf.Lerp(v.YawRate, yawRate, 1f - Mathf.Exp(-dt * 10f));
 
             // what the sim says about it
@@ -440,7 +461,7 @@ namespace TW.Presentation.Tactical
                     v.LegsLost = lost;
                 }
                 // the feet: planted on the ground and left there while the body walks over them
-                if (v.Legs == null) v.Legs = new WalkerGait();
+                if (v.Legs == null) v.Legs = new WalkerGait { SwingScale = v.Style.Swing, ArcScale = v.Style.Arc };
                 if (groundFn == null) groundFn = Ground;
                 Vector3 vel = Host.TimeScale <= 0f ? Vector3.zero : (v.Pos - v.LastPos) / Mathf.Max(1e-4f, dt);
                 v.Legs.Step(v.Model, v.Pos, v.Yaw, vel, v.YawRate, lost, dead, dt, groundFn);
@@ -465,7 +486,17 @@ namespace TW.Presentation.Tactical
             else Settle(v, fwd, right, out pitch, out roll, out heave);
             if (v.Ditched && !v.Hover) { pitch -= 17f * Mathf.Deg2Rad; heave -= 1.1f; }   // a cushion neither ditches nor bogs
             if (v.Bogged && !v.Hover) heave -= 0.25f;
-            float vib = v.Stalled ? 0f : (0.006f + 0.01f * v.Throttle);
+            var st = v.Style;
+            if (!legged) Flair(v, now, ref pitch, ref roll);
+            else
+            {
+                v.PitchFx = 0f;
+                // each footfall thumps the body down a little: a heavy walker's stride is felt, a light one's barely
+                int down = v.Legs.Landed, feet = 0;
+                while (down != 0) { feet += down & 1; down >>= 1; }
+                if (feet > 0) v.Heave.Velocity -= st.Stomp * (feet > 1 ? 1.4f : 1f);
+            }
+            float vib = v.Stalled ? 0f : (st.RumbleAmp + st.RumbleThrottle * v.Throttle);
             // A WALKER'S TILT IS NOT SPRUNG. This spring was written for a hull riding on tracks, where `Settle`
             // samples raw terrain under the chassis and the result is noisy enough to need smoothing. A walker's
             // pitch and roll are a plane fitted through feet that are resting on ground they were placed on, and
@@ -474,9 +505,13 @@ namespace TW.Presentation.Tactical
             // 0.84 m of travel at 1.2 m/s, and the second filter is 162% of the total. It is lag for nothing, and
             // it is what makes a machine read as a box on a spring rather than a body carried on legs.
             if (legged) { v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
-            else { float omega = v.Hover ? HoverSettle : 7f; v.Pitch.Step(pitch, dt, omega); v.Roll.Step(roll, dt, omega); }
-            v.Heave.Step(heave + Mathf.Sin(now * 41f + s) * vib, dt, 10f);
-            v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
+            else
+            {
+                float omega = v.Hover && st.Omega == PlainStyle.Omega ? HoverSettle : st.Omega;
+                v.Pitch.Ride(pitch, dt, omega, st.Zeta); v.Roll.Ride(roll, dt, omega, st.Zeta);
+            }
+            v.Heave.Step(heave + Mathf.Sin(now * st.RumbleRate + s) * vib, dt, st.HeaveOmega);
+            v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + st.Rev * Mathf.Max(0f, v.Accel) + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
             // tracks and wheels: each at the hull's speed plus or minus the turn; stuck, they spin
             float vl = v.Speed + v.YawRate * m.HalfGauge, vr = v.Speed - v.YawRate * m.HalfGauge;
@@ -597,7 +632,7 @@ namespace TW.Presentation.Tactical
 
         // ------------------------------------------------------------------ pose
         Quaternion HullRotation(View v)
-            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-v.Pitch.Value * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-v.Roll.Value * Mathf.Rad2Deg, Vector3.forward);
+            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.PitchFx) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-v.Roll.Value * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
         Matrix4x4 PartLocal(View v, TankModel.Part p, int index)
@@ -737,7 +772,7 @@ namespace TW.Presentation.Tactical
             // exhaust: faster as the engine works, black when it is hurt, nothing when it is dead
             if (!v.Stalled && now >= v.NextExhaust && near)
             {
-                v.NextExhaust = now + Mathf.Lerp(0.4f, 0.13f, v.Throttle);
+                v.NextExhaust = now + Mathf.Lerp(0.4f, 0.13f, v.Throttle) * v.Style.Puff;
                 for (int k = 0; k < 2; k++)
                 {
                     var at = SocketWorld(v, "Socket_Exhaust" + k, out bool ok);
