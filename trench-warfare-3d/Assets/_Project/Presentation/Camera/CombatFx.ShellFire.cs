@@ -19,13 +19,13 @@ namespace TW.Presentation.Tactical
 {
     public sealed partial class CombatFx
     {
-        public const string ShellFireKnob = "fx.shellFire";
+        public const string ShellFireKnob = "fx.shellFire", ShellGritKnob = "fx.shellGrit";
         public const float ShellFireLife = 0.9f;     // s: the burst's eruption (11 of its 32 frames at 12 fps), fading over the last third
         public const float PocketLife = 0.85f;       // s
         public const int ShellPockets = 2;
         public const float PocketAlpha = 0.8f;       // a shade under the fireball's: fire further inside the cloud
         public const float DayColumnPlay = 0.5f;     // the thrown earth stops before its falling arcs by day as it does by night (fx.columnPlay)
-        float shellFire = 1f;                         // knob fx.shellFire (Awake)
+        float shellFire = 1f, shellGrit = 1f;         // knobs fx.shellFire, fx.shellGrit (Awake; grit 0: none, 1: GritCount)
 
         /// <summary>The burst cloud's width over r: 2.6 as it was at night (AOSA-tuned) and with fx.shellFire 0; 2.2 by day,
         /// where the veil was the widest thing on the snow.</summary>
@@ -43,6 +43,7 @@ namespace TW.Presentation.Tactical
         public static bool Masonry(float shape) => Mathf.RoundToInt(shape) == 1;
 
         public static float ReadShellFire() => Mathf.Clamp(Knobs.Get(ShellFireKnob, 1f), 0f, 2f);
+        public static float ReadShellGrit() => Mathf.Clamp(Knobs.Get(ShellGritKnob, 1f), 0f, 2f);
 
         /// <summary>The fireball's width for a burst of radius r (2 to 9 m): about half the cloud (Burst is 2.2-2.6 r), and
         /// smaller up close, where the cloud is too (the flash comes down the same way).</summary>
@@ -91,8 +92,8 @@ namespace TW.Presentation.Tactical
         /// a grain was a pixel and out of the burst in 0.3 s. DebrisRenderer's own seeded stream: no random draws here.</summary>
         void ShellGrit(Vector3 p, float r, Vector3 lean, uint tick)
         {
-            if (shellFire <= 0f) return;
-            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire)), 10f + 0.6f * r, 0.12f, Mud, 2.5f, 0f, 0.9f, lean, tick + 29u);
+            if (shellFire <= 0f || shellGrit <= 0f) return;
+            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit), 10f + 0.6f * r, 0.12f, Mud, 2.5f, 0f, 0.9f, lean, tick + 29u);
         }
     }
 }
