@@ -20,11 +20,13 @@ namespace TW.Presentation.Tactical
         public const float FarThinWidth = 3f;                       // m: cards this wide or wider are never thinned (a cook-off, the beam)
         public const float FarKeepMin = 0.4f;                       // the share of small fire cards kept at FarFireFull
         public const float FarGlowCell = 8f;                        // m: the halo's grid
+        const float GlowOpacity = 0.75f;                            // bench r11 at zoom 240: 0.55 was barely there
         const int MaxGlowCells = 96;
 
         readonly bool farFire = CombatFx.ReadRecipes() >= 0.5f;
         int farFrame = -1; float farBlend;
-        readonly Vector4[] glowSum = new Vector4[MaxGlowCells];     // x*w, y*w, z*w, w
+        readonly Vector4[] glowSum = new Vector4[MaxGlowCells];     // x*w, y*w, z*w, w (y: the fire's middle, not its foot)
+        readonly float[] glowTall = new float[MaxGlowCells];        // the tallest fire standing in the cell (m)
         readonly long[] glowKey = new long[MaxGlowCells];
         int glowCount;
         readonly List<Matrix4x4> glowCards = new List<Matrix4x4>(MaxGlowCells);
@@ -56,16 +58,19 @@ namespace TW.Presentation.Tactical
             return farBlend;
         }
 
-        /// <summary>Count a fire card into its halo cell.</summary>
-        void Glow(Vector3 at, float width, float alpha)
+        /// <summary>Count a fire card into its halo cell. A card standing on its foot (anchored) counts at its middle, and
+        /// its height is kept, so a tall fire (the beam's pillar, a burning tree) gets a tall glow and not a blob at its foot.</summary>
+        void Glow(Vector3 at, float width, float height, bool anchored, float alpha)
         {
             float w = Mathf.Max(0f, width) * Mathf.Clamp01(Mathf.Abs(alpha));
             if (w <= 0f) return;
+            float tall = anchored ? Mathf.Max(0f, height) : 0f;
+            at.y += tall * 0.45f;
             long key = ((long)Mathf.FloorToInt(at.x / FarGlowCell) << 32) ^ (uint)Mathf.FloorToInt(at.z / FarGlowCell);
             for (int i = 0; i < glowCount; i++)
-                if (glowKey[i] == key) { glowSum[i] += new Vector4(at.x * w, at.y * w, at.z * w, w); return; }
+                if (glowKey[i] == key) { glowSum[i] += new Vector4(at.x * w, at.y * w, at.z * w, w); glowTall[i] = Mathf.Max(glowTall[i], tall); return; }
             if (glowCount == MaxGlowCells) return;
-            glowKey[glowCount] = key; glowSum[glowCount++] = new Vector4(at.x * w, at.y * w, at.z * w, w);
+            glowKey[glowCount] = key; glowTall[glowCount] = tall; glowSum[glowCount++] = new Vector4(at.x * w, at.y * w, at.z * w, w);
         }
 
         /// <summary>Draw the halos counted since the last flush: one additive Flash card a cell, over the fire's weighted
@@ -79,8 +84,11 @@ namespace TW.Presentation.Tactical
             {
                 var s = glowSum[i];
                 float size = Mathf.Clamp(3f + 2.2f * Mathf.Sqrt(s.w), 3f, 24f);
-                Vector3 at = new Vector3(s.x / s.w, s.y / s.w + size * 0.2f, s.z / s.w);
-                glowCards.Add(Pack(at, size, size, 0f, 1f, bright, 0f, Kind.None, farBlend * Mathf.Clamp01(s.w / 3f) * 0.55f));
+                // as tall as the tallest fire in it (the Flash drawing is a soft round glow: stretched, a soft column), never
+                // narrower than round
+                float tall = Mathf.Clamp(glowTall[i] * 1.1f, size, 90f);
+                Vector3 at = new Vector3(s.x / s.w, s.y / s.w, s.z / s.w);
+                glowCards.Add(Pack(at, size, tall, 0f, 1f, bright, 0f, Kind.None, farBlend * Mathf.Clamp01(s.w / 3f) * GlowOpacity));
             }
             glowCount = 0;
             DrawPacked(Book.Flash, glowCards, bounds);
