@@ -89,6 +89,8 @@ namespace TW.Presentation.Terrain
         Mesh flashMesh; Vector3[] flashPos = new Vector3[PoolSize * 4]; Color[] flashCol = new Color[PoolSize * 4]; readonly List<Vector4> flashShape = new List<Vector4>(PoolSize * 4);
         const float FlareLife = 16f;
 
+        float recipes;
+
         void Start()
         {
             frame0 = Time.frameCount;
@@ -99,6 +101,7 @@ namespace TW.Presentation.Terrain
             maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
             poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
             shotStagger = ShotStagger.ReadSpread();
+            recipes = TW.Presentation.Tactical.CombatFx.ReadRecipes();   // fx.recipes (VFX pass): 0 = the lights as they were
             if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
             SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
@@ -458,6 +461,9 @@ namespace TW.Presentation.Terrain
             else if (e.Type == SimEventType.Explosion)
             {
                 Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.5f;
+                // L09 (fx.recipes): a strafe's rounds are not shells. Each burst lit the field as a full shell does, 32 strobes
+                // in two seconds; now a small quick flash where they strike and no ember left in the ground
+                if (recipes >= 0.5f && e.A == (int)TW.Sim.Match.OffMapAbilityId.StrafeRun) { Flash(at, Burst, 12f, 6f, .12f, 3.0f); return; }
                 // the burst is the brightest thing on the field for a quarter of a second (owner, 2026-09-22: twice as
                 // strong), and a big shell lights more ground than a light one. Peak rides hard on the shell's radius;
                 // REACH DOES NOT. A light that reaches past about 23 m covers the whole picture at the standard view and
