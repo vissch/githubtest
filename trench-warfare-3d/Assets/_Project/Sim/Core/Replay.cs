@@ -43,7 +43,9 @@ namespace TW.Sim
         // gains HuntsArmour and LooksDownMetres; a machine's armour-hunting small arms fire armour-piercing at machines.
         // v14 (2026-09-28, critic round 3): TankGunnerySystem hashes HoldGoal after HoldHp; the hold is reset for a new unit
         // in a dead machine's slot, and holds only on the machine's first goal.
-        public const ushort FormatVersion = 14;
+        // v15 (2026-09-28, critic round 4): PendingRocket gains LaunchTick, Shooter, ShooterGen (hashed with it): a rocket
+        // still in its tube when its machine dies is dropped; a rack's landing points are clamped to the map.
+        public const ushort FormatVersion = 15;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

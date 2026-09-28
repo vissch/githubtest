@@ -36,6 +36,11 @@ namespace TW.Sim.Combat
     public struct PendingRocket
     {
         public uint LandTick;
+        /// <summary>When it leaves its tube, and the machine it leaves (slot, generation): a rocket still in its tube when
+        /// the machine dies is never fired (format v15, critic round 4).</summary>
+        public uint LaunchTick;
+        public int Shooter;
+        public ushort ShooterGen;
         public float3 Pos;
         public float Damage, Radius, Suppression, Crater;
         public int Source, Player;
@@ -145,6 +150,9 @@ namespace TW.Sim.Combat
                 for (int r = 0; r < Rockets.Length; r++)
                 {
                     var rk = Rockets[r];
+                    // still in its tube, and the machine that was to fire it is gone: it never leaves
+                    if (rk.LaunchTick >= w.Tick && (!w.IsAlive(rk.Shooter) || w.Generation[rk.Shooter] != rk.ShooterGen
+                        || (w.Flags[rk.Shooter] & (uint)UnitFlags.KnockedOut) != 0)) continue;
                     if (rk.LandTick > w.Tick) { Rockets[keep++] = rk; continue; }
                     blast.Queue(new Impact
                     {
@@ -395,12 +403,15 @@ namespace TW.Sim.Combat
                             {
                                 float ra = rr.NextFloat(0f, SimMath.TwoPi), rd = g.HeRadius * SalvoSpread * SimMath.Sqrt(rr.NextFloat());
                                 float3 at = land + new float3(SimMath.Sin(ra) * rd, 0f, SimMath.Cos(ra) * rd);
+                                // on the map: a rack aimed at its edge does not put rockets off it (critic round 4)
+                                at.x = math.clamp(at.x, 0.5f, NavWidth * MapData.NavCellSize - 0.5f);
+                                at.z = math.clamp(at.z, 0.5f, NavLength * MapData.NavCellSize - 0.5f);
                                 float3 run = at - p; run.y = 0f;
                                 int launch = n * rack / spec.Rockets;
                                 int flight = math.max(1, (int)math.round(math.clamp(SimMath.Length(run) / math.max(1f, spec.RocketSpeed), SalvoFlightMin, SalvoFlightMax) / Dt));
                                 Rockets.Add(new PendingRocket
                                 {
-                                    LandTick = Tick + (uint)(launch + flight), Pos = at, Damage = g.HeDamage * share, Radius = g.HeRadius * SalvoRocketRadius,
+                                    LandTick = Tick + (uint)(launch + flight), LaunchTick = Tick + (uint)launch, Shooter = i, ShooterGen = Generation[i], Pos = at, Damage = g.HeDamage * share, Radius = g.HeRadius * SalvoRocketRadius,
                                     Suppression = g.HeSuppression * share, Crater = g.HeCrater * SalvoRocketRadius, Source = SourceId.Unit(Archetype[i]), Player = Team[i],
                                 });
                                 Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.RocketFired, A = i, B = n, Pos = at, Dir = new float3(launch, flight, 0f), Scalar = spec.Rockets });

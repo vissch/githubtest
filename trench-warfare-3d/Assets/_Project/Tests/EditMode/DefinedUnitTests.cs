@@ -309,12 +309,12 @@ namespace TW.Tests
             Assert.Greater(math.distance(held, m.World.Position[truck]), 5f, "sent back, it goes, whatever it has in reach");
         }
 
-        /// <summary>The Salvo dies with its rockets in the air: they still come down, on the ticks and at the points they
-        /// were fired for, the same in two runs.</summary>
+        /// <summary>The Salvo dies with its rack half away: the rockets already in the air still come down, on the ticks and
+        /// at the points they were fired for, the same in two runs (those still in their tubes never leave: round 4).</summary>
         [Test]
         public void RocketsInTheAirLandWhenTheSalvoDies()
         {
-            List<Landing> a = null, b = null; int burstsA = 0, burstsB = 0;
+            List<Landing> a = null, b = null; int burstsA = 0, burstsB = 0, awayA = 0;
             for (int run = 0; run < 2; run++)
             {
                 using var m = NewMatch();
@@ -322,21 +322,25 @@ namespace TW.Tests
                 for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);
                 var log = new List<SimEvent>();
                 using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
-                bool killed = false;
+                bool killed = false; uint deadAt = 0;
                 for (int t = 0; t < 20 * 12; t++)
                 {
                     m.Step(none);
                     var ev = m.World.Events.Events;
                     for (int k = 0; k < ev.Length; k++) log.Add(ev[k]);
-                    if (!killed && m.Gunnery.Rockets.Length > 0) { m.World.Despawn(truck, -1, default); killed = true; }
+                    if (!killed && m.Gunnery.Rockets.Length > 0 && deadAt == 0) deadAt = m.World.Tick + 10;
+                    if (!killed && deadAt != 0 && m.World.Tick == deadAt) { m.World.Despawn(truck, -1, default); killed = true; }
                 }
                 Assume.That(killed, "the rack fired");
                 var promised = Promised(log, truck, out _);
+                int away = 0; foreach (var e in log) if (e.Type == SimEventType.RocketFired && e.A == truck && e.Tick + (uint)e.Dir.x < deadAt) away++;
+                if (run == 0) awayA = away;
                 int bursts = 0; int source = SourceId.Unit(VehicleArchetype.Salvo);
                 foreach (var e in log) if (e.Type == SimEventType.Explosion && e.A == source) bursts++;
                 if (run == 0) { a = promised; burstsA = bursts; } else { b = promised; burstsB = bursts; }
             }
-            Assert.AreEqual(a.Count, burstsA, "every rocket in the air burst after the Salvo died");
+            Assume.That(awayA, Is.GreaterThan(0), "some were away when it died");
+            Assert.AreEqual(awayA, burstsA, "every rocket in the air burst after the Salvo died");
             Assert.AreEqual(a.Count, b.Count); Assert.AreEqual(burstsA, burstsB);
             for (int k = 0; k < a.Count; k++) { Assert.AreEqual(a[k].Tick, b[k].Tick); Assert.AreEqual(a[k].Pos, b[k].Pos); }
         }
@@ -377,6 +381,77 @@ namespace TW.Tests
             var l = new Unity.Collections.FixedList32Bytes<byte>();
             for (int k = 0; k < RosterEntry.SlotCount; k++) l.Add(a);
             return l;
+        }
+
+        // ------------------------------------------------------------------ critic round 4 (format v15)
+        /// <summary>The Salvo dies a few ticks into its rack: the rockets already away still land, the ones still in their
+        /// tubes never leave (the old code fired all sixteen from a dead machine).</summary>
+        [Test]
+        public void ADeadSalvoFiresNoMoreRockets()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);
+            var log = new List<SimEvent>();
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            uint killedAt = 0;
+            for (int t = 0; t < 20 * 12; t++)
+            {
+                m.Step(none);
+                var ev = m.World.Events.Events;
+                for (int k = 0; k < ev.Length; k++) log.Add(ev[k]);
+                if (killedAt == 0 && m.Gunnery.Rockets.Length > 0) killedAt = m.World.Tick + 6;   // six ticks into the rack
+                if (killedAt != 0 && m.World.Tick == killedAt) m.World.Despawn(truck, -1, default);
+            }
+            Assume.That(killedAt, Is.Not.EqualTo(0u), "the rack fired");
+            int away = 0, fired = 0;
+            foreach (var e in log)
+                if (e.Type == SimEventType.RocketFired && e.A == truck) { fired++; if (e.Tick + (uint)e.Dir.x < killedAt) away++; }
+            int bursts = 0, source = SourceId.Unit(VehicleArchetype.Salvo);
+            foreach (var e in log) if (e.Type == SimEventType.Explosion && e.A == source) bursts++;
+            Assume.That(away, Is.GreaterThan(0).And.LessThan(fired), "some were away and some still in their tubes");
+            Assert.AreEqual(away, bursts, "only the rockets that had left before it died come down");
+        }
+
+        /// <summary>A rack aimed at the map's edge puts no rocket off the map.</summary>
+        [Test]
+        public void ARackAtTheMapsEdgeLandsOnTheMap()
+        {
+            using var m = NewMatch();
+            float width = m.Map.NavWidth * TW.Sim.Terrain.MapData.NavCellSize;
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(width - 2f, 0f, 260f), 0f);
+            Clear(m, -1);
+            m.World.Spawn(0, 0, new float3(width - 0.6f, 0f, 110f), 1e6f, 0f, false);
+            var log = Run(m, 20 * 8);
+            int seen = 0;
+            foreach (var e in log)
+                if (e.Type == SimEventType.RocketFired && e.A == truck)
+                {
+                    seen++;
+                    Assert.That(e.Pos.x, Is.InRange(0f, width), $"rocket {e.B} lands at x {e.Pos.x:F1}, off a map {width} m wide");
+                }
+            Assume.That(seen, Is.GreaterThan(0), "the rack fired");
+        }
+
+        /// <summary>The rockets come down where they were aimed when the rack fired: a man who moves 30 m away in the
+        /// meantime is not hurt.</summary>
+        [Test]
+        public void AManWhoMovesAwayBeforeTheRocketsLandEscapes()
+        {
+            using var m = NewMatch();
+            Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            Clear(m, -1);
+            int man = m.World.Spawn(0, 0, new float3(30f, 0f, 110f), 100f, 0f, false);
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            bool moved = false;
+            for (int t = 0; t < 20 * 8; t++)
+            {
+                m.Step(none);
+                if (!moved && m.Gunnery.Rockets.Length > 0) { m.World.Position[man] = m.World.Position[man] + new float3(30f, 0f, 0f); moved = true; }
+            }
+            Assume.That(moved, "the rack fired");
+            Assert.IsTrue(m.World.IsAlive(man), "he was not where the rockets came down");
+            Assert.AreEqual(100f, m.World.Hp[man], 1e-3f, "and not a splinter reached him");
         }
 
         // ------------------------------------------------------------------ the Salvo's rack (format v11)
