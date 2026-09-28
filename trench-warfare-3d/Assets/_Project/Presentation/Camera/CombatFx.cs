@@ -63,7 +63,7 @@ namespace TW.Presentation.Tactical
         // an image run turns the overlays off; a Play session after it in the same editor must see them again
         static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => ShowOverlays = true);
 
-        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width; }   // Hit: written by the strafe run (CombatFx.Abilities); Width: 0 = the usual round
+        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width, Life, Streak; }   // Hit: written by the strafe run (CombatFx.Abilities); Width: 0 = the usual round; Life: its time on screen (s); Streak: its length x the usual (0 = 1)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
@@ -80,7 +80,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A round drawn like a sim shot's, for fire the sim does not know about (a rider on a walker).</summary>
         public void AddTracer(Vector3 from, Vector3 to, byte team, float width = 1f, float delay = 0f)
         {
-            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = team, Width = width });
+            if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = team, Width = width, Life = TracerSeconds });
         }
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
@@ -517,14 +517,15 @@ namespace TW.Presentation.Tactical
                     // the close assault's bundle of grenades is thrown, not fired (CombatFx.Close.cs): no bullet's tracer for it
                     bool bundle = e.Scalar >= 0.5f && classArms > 0f && books != null && books.Ready;
                     if (bundle) ThrowBundle(from, to, delay, scale, e.Tick * 31u + (uint)e.A);
-                    else tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer });
+                    else tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer,
+                        Life = TracerSeconds * arms.TracerLife, Streak = arms.Streak });   // the class's round: its weight, its time on screen, its length
                     // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
                     if (ShotLog.On)
                     {
                         bool known = e.A >= 0 && e.A < w.Position.Length;
                         ShotLog.Add(new ShotLog.Entry
                         {
-                            Born = Time.time + delay, Arrived = Time.time, Life = TracerSeconds, Tick = e.Tick, Shooter = e.A,
+                            Born = Time.time + delay, Arrived = Time.time, Life = TracerSeconds * arms.TracerLife, Tick = e.Tick, Shooter = e.A,
                             Team = known ? w.Team[e.A] : (byte)0, Garrison = known ? w.TrenchId[e.A] : (short)-1,
                             X = known ? w.Position[e.A].x : from.x, Z = known ? w.Position[e.A].z : from.z, From = from, To = to,
                         });
@@ -538,7 +539,7 @@ namespace TW.Presentation.Tactical
                         // the flare: the root of the book's flame (the left edge of every cell) sits on the muzzle and it streams
                         // out down the barrel; half the flares are flipped across the barrel for variety (mirror and half a turn),
                         // never along it. Over-bright at night so the bloom takes it.
-                        float flare = (1.05f + UnityEngine.Random.value * 0.4f) * scale * arms.Flare;
+                        float flare = FlareBase(UnityEngine.Random.value, SceneHooks.CloseUp, classArms > 0f) * scale * arms.Flare;   // bigger among the men (CombatFx.Weapons.cs)
                         float roll = FlipbookFx.ScreenRoll(cam, barrel);
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
@@ -546,8 +547,8 @@ namespace TW.Presentation.Tactical
                         // or from the overview (FxQuality.FlareKept); its draws above are taken either way
                         bool flared = arms.Flared && FxQuality.FlareKept(q, CameraShake.DistanceToLook(from), zoom, e.Tick + (uint)e.A);
                         if (flared)
-                            books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, arms.FlareLife, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
+                            books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow, delay: delay);
                         // among the men, the weapon's own drawing (CombatFx.Close.cs): a sniper's brake, an MG's star, an SMG's flicker
                         if (e.A >= 0 && e.A < w.Archetype.Length)
                             ShotExtras(w.Archetype[e.A], cam, from, barrel, roll, flare, carried, delay, scale, e.Tick + (uint)e.A, flared, arms.Smoked, arms.Smoke);
@@ -721,7 +722,7 @@ namespace TW.Presentation.Tactical
                         if (recipe.Dust)   // L15: a man landing is a grenade's pop, not a shell's white-out
                             books.Add(FlipbookFx.Book.Flash, p + Vector3.up * 0.6f, r * 1.2f, 0.12f, roll: flashRoll, glow: (SceneMood.Night ? 3f : 1.5f) * SceneTints.Now.Glow, pop: 0.5f);
                         else
-                            books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f) + flight * (r * 0.25f * lean), r * Mathf.Lerp(3.2f, 1.6f, closeUp), 0.18f, roll: flashRoll, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
+                            books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f) + flight * (r * 0.25f * lean), r * Mathf.Lerp(3.2f, 1.6f, closeUp) * look.Flash, 0.18f, roll: flashRoll, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
                         // The column, and the piece cycle 11 missed. It restored the burst, the smoke and the clods
                         // on melt and left THIS keyed on `wet`, so a shell in molten rock still threw a plume at
                         // 1.25r for 1.5 s - 60% of the size, because that is what water does to a shell. ApplyTints
@@ -819,7 +820,7 @@ namespace TW.Presentation.Tactical
                             // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
                             float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
                             float burstRoll = UnityEngine.Random.Range(-0.15f, 0.15f);   // drawn either way: the shared stream
-                            if (!recipe.Dust)   // L15: no shell's glowing cloud over a man landing
+                            if (!recipe.Dust && !look.Mine)   // L15: no shell's glowing cloud over a man landing; a mine's is its black smoke (CombatFx.Bursts.cs)
                                 books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night * (shellFire > 0f ? Mathf.Pow(ShellFar(), 0.8f) : 1f), 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
@@ -972,7 +973,7 @@ namespace TW.Presentation.Tactical
             DebrisRenderer.ZoomShare = (SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f) * FxQuality.Now.Debris;   // x the effects' tier
             // tracers
             float now = Time.time;
-            Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);
+            Prune(tracers, now, static (t, at) => at - t.Born > t.Life);   // each round its own time on screen (CombatFx.Weapons.cs)
             bool night = SceneMood.Night;
             if (tintEpoch != SceneTints.Epoch) ApplyTints();
             // night: three layers a tracer. side 0 / 1 = a wide additive halo in the side's colour, side 2 = the white-hot streak.
@@ -989,9 +990,12 @@ namespace TW.Presentation.Tactical
                 float len = d.magnitude;
                 if (len < 0.1f) continue;
                 // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
-                float k = Mathf.Clamp01((now - t.Born) / TracerSeconds);
+                float k = Mathf.Clamp01((now - t.Born) / Mathf.Max(0.01f, t.Life));
                 var tm = TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape);
-                batch.Add(t.Width > 0f ? tm * Matrix4x4.Scale(new Vector3(t.Width, t.Width, 1f)) : tm);   // a heavier round is thicker, not longer
+                // a heavier round is thicker (and keeps it up close); a class's round longer or shorter, never past its target
+                float thick = t.Width > 0f ? (classArms > 0f ? TracerWidthAt(t.Width, SceneHooks.CloseUp) : t.Width) : 1f;
+                float streak = t.Streak <= 0f || t.Streak == 1f ? 1f : t.Streak < 1f ? t.Streak : Mathf.Min(t.Streak, Mathf.Max(1f, len / (night ? 10f : 6f)));
+                batch.Add(thick != 1f || streak != 1f ? tm * Matrix4x4.Scale(new Vector3(thick, thick, streak)) : tm);
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);
