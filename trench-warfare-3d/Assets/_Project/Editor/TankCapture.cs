@@ -110,7 +110,7 @@ namespace TW.Editor
             for (int i = 0; i < w.HighWater; i++)
             {
                 if ((w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) != ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) continue;
-                sb.Append($"#{i} {(w.Archetype[i] == VehicleArchetype.Tusk ? "Tusk" : "Maw")} t{w.Team[i]} pos({w.Position[i].x:0.0},{w.Position[i].z:0.0}) yaw {w.Yaw[i] * Mathf.Rad2Deg:0} v {Unity.Mathematics.math.length(w.Velocity[i]):0.00}");
+                sb.Append($"#{i} {TW.Presentation.UnitLook.Name(w.Archetype[i])} t{w.Team[i]} pos({w.Position[i].x:0.0},{w.Position[i].z:0.0}) yaw {w.Yaw[i] * Mathf.Rad2Deg:0} v {Unity.Mathematics.math.length(w.Velocity[i]):0.00}");
                 sb.Append($" hp {w.Hp[i]:0}/{w.MaxHp[i]:0} flags 0x{w.Flags[i]:X}");
                 if (m != null) sb.Append($" state {m.State[i]} crew {m.Crew[i]}/{m.CrewMax[i]} fire {m.Fire[i]:0.00} trkL {m.Module[i * M + 1]:0.0} trkR {m.Module[i * M + 5]:0.0} eng {m.Module[i * M + 2]:0.0}");
                 if (k != null) sb.Append($" ditch {k.DitchTicks[i]} bog {k.BogTicks[i]} cross {k.CrossTrench[i]}");

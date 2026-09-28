@@ -73,15 +73,22 @@ namespace TW.Tests
                     var gun = m.Lods[lod].Parts[m.Lods[lod].Find("Gun")];
                     var b = gun.Mesh.bounds;
                     Assert.Greater(b.max.z, 1.5f, $"{name} LOD{lod}: the barrel reaches {b.max.z:F2} m ahead of its breech");
-                    Assert.Greater(b.max.z, -4f * b.min.z, $"{name} LOD{lod}: the barrel runs backwards (z {b.min.z:F2}..{b.max.z:F2})");
+                    // (the Salvo's Gun is the whole rocket box, which reaches behind its trunnion as well: its tubes are checked below)
+                    if (archetype != VehicleArchetype.Salvo)
+                        Assert.Greater(b.max.z, -4f * b.min.z, $"{name} LOD{lod}: the barrel runs backwards (z {b.min.z:F2}..{b.max.z:F2})");
                 }
-                // a node two deep (the gun under the turret) keeps its offset the right way round through TankImport:
-                // the Salvo's tube breech stands 1.2 m ahead of and 2.4 m above its turntable (mechsplit's manifest)
+                // a node two deep (the gun under the turret) keeps its offset the right way round through TankImport: the
+                // Salvo's rack (the box and its tubes) is pitched 1.15 m up its yoke (mechsplit's manifest, 2026-09-28)
                 if (archetype == VehicleArchetype.Salvo)
                 {
-                    var breech = m.Lods[0].Parts[m.Lods[0].Find("Gun")].Local;
-                    Assert.AreEqual(1.23f, breech.z, 0.2f, $"{name}: the breech is {breech.z:F2} m ahead of the turntable");
-                    Assert.AreEqual(2.36f, breech.y, 0.2f, $"{name}: the breech is {breech.y:F2} m above the turntable");
+                    var trunnion = m.Lods[0].Parts[m.Lods[0].Find("Gun")].Local;
+                    Assert.AreEqual(1.15f, trunnion.y, 0.1f, $"{name}: the rack's trunnion is {trunnion.y:F2} m above the turntable");
+                    Assert.AreEqual(0f, trunnion.z, 0.1f, $"{name}: and {trunnion.z:F2} m ahead of it");
+                    for (int k = 0; k < 16; k++)
+                    {
+                        Assert.IsTrue(m.Sockets.TryGetValue("Socket_Tube" + k.ToString("00"), out var tube), $"{name} has no tube {k}");
+                        Assert.Greater(tube.local.z, 2f, $"{name}: tube {k}'s mouth is {tube.local.z:F2} m ahead of the trunnion");
+                    }
                 }
                 var muzzle = m.Sockets["Socket_Muzzle"].local;
                 Assert.Greater(muzzle.z, 1.5f, $"{name}: the muzzle is {muzzle.z:F2} m ahead of the breech");

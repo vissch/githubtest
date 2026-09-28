@@ -238,7 +238,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Tanks and walkers drawn
 - **Files:** `Presentation/Camera/TankRenderer.cs` (`Machines`: every machine with an atlas of its own, the walkers and
   since 2026-09-28 the Skimmer and the Salvo, `Resources/Vehicles/Skimmer`, `/Salvo`; a row's Rockets draw its shot as a rack of rockets, `Presentation/Camera/TankRenderer.Salvo.cs`; a turret on a machine armed only
-  with small arms follows `SimWorld.TargetSlot`; a part called Fan spins), `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
+  with small arms follows `SimWorld.TargetSlot`; a part called Fan spins; `SideColourOn` names the parts that wear the side's
+  colour on a machine without horns), `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
   `Presentation/Camera/WalkerGait.cs` (planted feet), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
   import rules `Editor/TankImport.cs`. Infantry riding the machines (a prototype, presentation only):
   `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
@@ -575,7 +576,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
-| `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders |
+| `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |

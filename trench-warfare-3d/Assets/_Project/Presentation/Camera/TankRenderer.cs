@@ -163,11 +163,24 @@ namespace TW.Presentation.Tactical
         readonly Matrix4x4[] discM = new Matrix4x4[256]; readonly Vector4[] discC = new Vector4[256]; int discCount;
         MaterialPropertyBlock discProps;   // made in BuildDisc: Unity does not allow it from a MonoBehaviour's field initialiser
 
-        static Vector4 TeamBand(View v, TankPartRole role)
+        static Vector4 TeamBand(View v, TankModel.Part p)
         {
-            if (role != TankPartRole.Horn) return Vector4.zero;
+            float wear = p.Role == TankPartRole.Horn ? 1f : SideColourOn(v.Archetype, p.Name);
+            if (wear <= 0f) return Vector4.zero;
             var c = v.Team == 1 ? TeamB : TeamA;
-            return new Vector4(c.r, c.g, c.b, v.Dead ? 0.5f : 1f);
+            return new Vector4(c.r, c.g, c.b, (v.Dead ? 0.5f : 1f) * wear);
+        }
+
+        /// <summary>
+        /// The parts a machine without horns wears its side's colour on, and how much (2026-09-28, the critic's round:
+        /// the Skimmer and the Salvo drew in their own paint alone, the one machine of either side you could not tell
+        /// apart). The Skimmer's fan ring and its four pods, the Salvo's rocket box: the shapes that read from the camera.
+        /// </summary>
+        static float SideColourOn(byte archetype, string part)
+        {
+            if (archetype == VehicleArchetype.Skimmer) return part == "FanRing" || part.StartsWith("Pod_") ? 0.6f : 0f;
+            if (archetype == VehicleArchetype.Salvo) return part == "Gun" ? 0.45f : 0f;
+            return 0f;
         }
 
         public bool Ready => maw != null && mats[0] != null;
@@ -298,8 +311,8 @@ namespace TW.Presentation.Tactical
             FlyDebris(dt, match);
             RunPops(now);
             RidersFrame(now);   // the men on the walkers' backs, at the hulls as posed above
+            RocketsFrame(now);  // the Salvo's rockets in the air (their bodies go in this frame's batches), their trails and landings
             Draw();
-            RocketsFrame(now);   // the Salvo's rockets in the air, their trails and where they come down
             if (books != null && books.Ready) books.Draw(now, Everywhere);
             Fireballs(now);
             DrawFlames();
@@ -456,8 +469,12 @@ namespace TW.Presentation.Tactical
                     float dh = Ground(q.x, q.z) + ((w.Flags[t] & (uint)UnitFlags.Vehicle) != 0 ? 1.5f : 0.6f) - (v.Heave.Value + spec.Gun(k).Mount3.y);
                     want = Mathf.Atan2(dh, Mathf.Max(1f, dist)) + dist * 0.0007f;   // and a little for the drop
                 }
+                // a rack of rockets rides raised, and higher still to fire (2026-09-28: it read as a grey lump flat on its
+                // back at 45-120 m): the whole box is the Gun part (Tools/mechsplit.py halftrack), pitched at its yoke
+                bool rack = spec.Rockets > 0 && k == 0;
+                if (rack) want = (t >= 0 ? 28f : 16f) * Mathf.Deg2Rad;
                 if (gun != null && gun.GunHealth[s * TankGunnerySystem.Guns + k] <= 0f) want = -7f * Mathf.Deg2Rad;
-                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, 22f * Mathf.Deg2Rad), dt * 12f * Mathf.Deg2Rad);
+                v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? 30f : 22f) * Mathf.Deg2Rad), dt * 12f * Mathf.Deg2Rad);
                 v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * 2.6f);
             }
 
@@ -544,7 +561,7 @@ namespace TW.Presentation.Tactical
                     int k = p.Gun >= 0 ? p.Gun : 0;
                     if (p.SelfAimed) rot *= Quaternion.AngleAxis(v.GunYaw[k] * Mathf.Rad2Deg, Vector3.up);   // a mortar on its bed, a gun on its pintle
                     rot *= Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right);
-                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[k]) * 0.45f);
+                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[k]) * (p.Name == "Gun" && v.Model.Sockets.ContainsKey("Socket_Tube00") ? 0.1f : 0.45f));
                     break;
                 }
                 // ---- the walkers ----
@@ -1245,13 +1262,13 @@ namespace TW.Presentation.Tactical
                 var v = d.Owner; var parts = v.Model.Lods[0].Parts;
                 var dmg = new Vector4(Mathf.Max(v.Scorch, d.Burn > 0f ? 0.9f : v.Scorch), Mathf.Max(d.Burn, v.Burn * 0.5f), v.Flash, 0f);
                 var tint = v.Team == 1 ? TeamTintB : new Vector4(1f, 1f, 1f, 0f);
-                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, TeamBand(v, parts[d.Part].Role));
+                Queue(parts[d.Part].Mesh, MaterialFor(v.Archetype, 0), d.World, parts[d.Part].Role == TankPartRole.Track ? (parts[d.Part].Side < 0 ? v.TreadL : v.TreadR) : 0f, dmg, tint, TeamBand(v, parts[d.Part]));
                 // what hangs off the piece rides with it
                 for (int c = d.Part + 1; c < parts.Count; c++)
                 {
                     if (!d.Local.TryGetValue(c, out var local)) continue;
                     lodWorld[c] = (parts[c].Parent == d.Part ? d.World : lodWorld[parts[c].Parent]) * local;
-                    Queue(parts[c].Mesh, MaterialFor(v.Archetype, 0), lodWorld[c], 0f, dmg, tint, TeamBand(v, parts[c].Role));
+                    Queue(parts[c].Mesh, MaterialFor(v.Archetype, 0), lodWorld[c], 0f, dmg, tint, TeamBand(v, parts[c]));
                 }
             }
         }
@@ -1294,7 +1311,7 @@ namespace TW.Presentation.Tactical
                 if (IsOff(v, l, i)) continue;
                 var p = l.Parts[i];
                 float tread = p.Role == TankPartRole.Track ? (p.Side < 0 ? v.TreadL : v.TreadR) : 0f;
-                Queue(p.Mesh, MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p.Role));
+                Queue(p.Mesh, MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p));
             }
         }
 

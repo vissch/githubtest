@@ -331,3 +331,23 @@ the frame its burst is drawn (format v11, `02-contracts.md`). The rack does the 
 
 **Left for a look in Play:** each rocket reaching the ground on the frame its burst shows; its trails and bursts at night; the Skimmer's
 turret following its machine gun's target and its fan spinning; the Salvo's wheels rolling; both far LODs at 170 m.
+
+### The critic's round, in the battle (2026-09-28)
+A critic looked at both machines live in GreyboxCorridor at night. Each finding, what it was, what changed, and how it
+was checked in the real scene (Play in GreyboxCorridor, `TankCapture.Spawn`, `CaptureRig`); images under
+`docs/reference/figures/battle-loop/critic-*`.
+
+| Finding | Cause | Changed | Checked |
+|---|---|---|---|
+| The rack read as a dotted line of sparks (`critic-rack-before.jpg`) | a Flash card per frame at the rocket, a puff every 35 ms | `TankRenderer.Salvo.cs`: a rocket body (an 8-sided mesh along its velocity), its motor's flame along the flight, the trail laid by distance (a puff every 0.7 m, one ribbon at any speed), a flash and smoke at each tube, the back-blast cloud and dust at the rack, earth thrown up and dust where each lands, on top of the sim's own burst | 18 stills through one rack (`critic-rack-after-series.jpg`): sixteen arcing smoke ribbons, the back-blast, the bursts (`critic-rack-after.jpg`) |
+| Rockets left a 4 x 4 guess at the tubes, for a rack of 12 | no tube positions in the model | the split writes `Socket_Tube00..15`, one at each of the model's sixteen tube mouths; the sim fires 16 rockets (was 12). Harm per shot unchanged: 23,907 hp off 25 men over 20 seeds (the shell 23,819), 163 killed | the manifest: 16 mouths 2.3-2.8 m ahead of the trunnion |
+| No team colour | the two drew in their own paint | `TankRenderer.SideColourOn`: the Skimmer's fan ring and pods wear the side's colour at 0.6, the Salvo's rocket box at 0.45 | stills: cyan for team 0 (`critic-salvo-game-after.jpg`) |
+| The Salvo a grey lump at 45-120 m (`critic-salvo-game-before.jpg`) | the rack lay flat along its back; only its tubes could pitch, inside the box | re-split: the Turret is the yoke, the Gun is the whole box and its tubes, pitched at the yoke's top; a rack rides raised 16 degrees and lifts to 28 to fire (recoil 0.1 m, not a gun's 0.45) | the renderer's own state read in Play: pitch 16 driving, 28 with a target |
+| The Skimmer inside the Maw's track (`critic-overlap-before.jpg`) | hulls are kept apart by round radii off their footprints, and the Maw is drawn 5.8 m out from its centre on a 3.8 m half width | `VehicleProfile.Clearance` (added to `Radius`): 1.2 m for the Skimmer and the Salvo | set down 3 m apart, they settle 9.49 m apart, hull beside track (`critic-overlap-after.jpg`) |
+| The Salvo on the sea's edge, firing from there | not water: (51, 230) is dry ground, team B's deploy zone. A team-A machine drives to the enemy's line like every machine | `TankSpec.StandOff`: while gun 0 has a target the Salvo holds where it is. Its 380 m covers the whole of this 276 m map, so once the enemy has anything on the field it stays where it was put | `TheSalvoHoldsWhereItIsOnceItHasATarget` (fails with the flag off: 15.9 m moved) |
+| The Skimmer's turret never tracked ("gun0 target -1") | TankGunnery's target is -1 by design for a machine with no TankGun; the turret follows `SimWorld.TargetSlot`. It had none: small arms look from a man's eye height even on a hull, and a trench berm hid the riflemen | nothing: that is the sim's line-of-sight rule for every machine's small arms | a foe in the open: target taken, turret at 51 degrees with the foe at 53; the fan turning; the Salvo's wheels 6.4 -> 11.6 rad over a few metres |
+| `TankCapture.Status` called every machine but the Tusk "Maw" | a two-way ternary | `UnitLook.Name` | |
+
+The re-split Salvo's LOD pop is unchanged (0.975 / 7.3, 7.1 at the battle's scale). **Left for Play:** the rack from
+the player's own camera in a real fight; whether 0.45 of the side's colour on the box is too loud; the claw legs stay
+folded into the hull (they are one piece with it: folding them needs a split into leg parts).
