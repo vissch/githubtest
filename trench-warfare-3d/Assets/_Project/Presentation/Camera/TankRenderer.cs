@@ -88,6 +88,7 @@ namespace TW.Presentation.Tactical
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
+            public readonly float[] ModuleLeft = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };   // L21: what each VehicleModule had left at its last hit
             public float NextMend, NextColumn;     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
@@ -1159,6 +1160,11 @@ namespace TW.Presentation.Tactical
                 case SimEventType.VehicleHullMended:
                     Mended(v, e);
                     break;
+                case SimEventType.VehicleModuleHit:
+                case SimEventType.VehicleTrackHit:
+                case SimEventType.VehicleKnockedOut:
+                    DamageBeat(v, e);
+                    break;
             }
         }
 
@@ -1182,6 +1188,77 @@ namespace TW.Presentation.Tactical
             Vector3 at = v.Pos + fwd * along + right * side + Vector3.up * (v.Heave.Value + v.Model.Height * 0.55f);
             books.Add(FlipbookFx.Book.MendSparks, at, MendWidth, MendEvery + 0.1f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 2f : 1.3f, startFrame: Mathf.Repeat(now * 12f, 32f));
             books.Add(FlipbookFx.Book.Star, at, 0.6f, 0.12f, glow: SceneMood.Night ? 2.4f : 1.4f);
+        }
+
+        /// <summary>
+        /// L21 (fx.recipes): the beats of a machine being taken apart, each where it happens. A module hit only when what is
+        /// left of it drops by more than a quarter (the sim reports every graze): the engine coughs black smoke from the
+        /// exhausts, the fuel flares, a gun throws a spark and plates. A track thrown: earth, dust and links at its sprocket,
+        /// and the hull shakes. Knocked out through the structure: a flash in the hatch and black smoke pouring from it for
+        /// six seconds (x FarGrow, the one beat read from far off); the crew lost: dust at the hatch. Fire and ammunition
+        /// are L22's. No random draws (the scrap is salted by the tick).
+        /// </summary>
+        void DamageBeat(View v, SimEvent e)
+        {
+            if (recipes < 0.5f || v == null || v.Dead || v.Model == null || books == null || !books.Ready) return;
+            var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
+            if (e.Type == SimEventType.VehicleModuleHit)
+            {
+                if (e.B <= 0 || e.B >= v.ModuleLeft.Length) return;
+                float was = v.ModuleLeft[e.B]; v.ModuleLeft[e.B] = e.Scalar;
+                if (was - e.Scalar <= 0.25f) return;
+                switch ((VehicleModule)e.B)
+                {
+                    case VehicleModule.Engine:
+                    {
+                        var at = SocketWorld(v, "Socket_Exhaust", out _);
+                        for (int k = 0; k < 2; k++)
+                            books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * (0.3f + 0.5f * k), 1.6f, 3f, k == 1 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: Vector3.up * 1.6f, grow: 1.6f, alpha: 0.85f, delay: 0.25f * k);
+                        break;
+                    }
+                    case VehicleModule.Fuel:
+                    {
+                        var at = SocketWorld(v, "Socket_Fire0", out _);
+                        books.Add(FlipbookFx.Book.Fan, at, 1.5f, 0.8f, ground, glow: SceneMood.Night ? 2.4f : 1.6f);
+                        books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * 0.8f, 1.8f, 3f, velocity: Vector3.up * 1.4f, grow: 1.6f, alpha: 0.7f);
+                        break;
+                    }
+                    case VehicleModule.GunA:
+                    case VehicleModule.GunB:
+                    {
+                        Vector3 at = MuzzleWorld(v, e.B == (int)VehicleModule.GunA ? 0 : 1, out Vector3 dir) - dir * 1.2f;
+                        books.Add(FlipbookFx.Book.Star, at, 1.4f, 0.12f, glow: SceneMood.Night ? 3f : 1.8f);
+                        Scrap(at, 2, 3f, 0.3f, 0f, 30f, Vector3.up, e.Tick + (uint)e.B);
+                        break;
+                    }
+                }
+                return;
+            }
+            if (e.Type == SimEventType.VehicleTrackHit)
+            {
+                var at = SocketWorld(v, e.B == 0 ? "Socket_Dust_L" : "Socket_Dust_R", out _);
+                at.y = Ground(at.x, at.z);
+                for (int k = 0; k < 2; k++)
+                    books.Add(FlipbookFx.Book.Spurt, at + Vector3.right * (k == 0 ? 0.3f : -0.3f), 1.6f, 0.6f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0));
+                books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.2f, 2f, 28f / 12f, ground, alpha: 0.7f);
+                books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.5f, 1.2f, 0.1f, glow: SceneMood.Night ? 3f : 1.8f);
+                Scrap(at + Vector3.up * 0.4f, 3, 4f, 0.25f, 0f, 40f, Vector3.up, e.Tick + 11u + (uint)e.B);
+                CameraShake.Add(at, 1.5f);
+                return;
+            }
+            // knocked out
+            var hatch = SocketWorld(v, "Socket_Crew", out bool hasHatch);
+            if (!hasHatch) hatch = v.Pos + Vector3.up * (v.Heave.Value + v.Model.Height);
+            if (e.B == (int)VehicleKillCause.Structure)
+            {
+                books.Add(FlipbookFx.Book.Flash, hatch, 3f, 0.15f, glow: SceneMood.Night ? 4f : 2.2f, pop: 0.5f);
+                var cam = Camera.main;
+                float far = FlipbookFx.FarGrow(cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f);
+                for (int k = 0; k < 3; k++)   // six seconds of it: three overlapping cards of the loop, each taking it up where the last is
+                    books.Add(FlipbookFx.Book.WreckSmoke, hatch, 4.5f * far, WreckSmokeEvery * 2.6f, ground, alpha: 0.75f, delay: 2f * k, startFrame: 24f * k % 27f);
+            }
+            else if (e.B == (int)VehicleKillCause.CrewLost)
+                books.Add(FlipbookFx.Book.DustPuff, hatch, 1.6f, 28f / 12f, ground, alpha: 0.6f);
         }
 
         const float MendEvery = 0.4f, MendWidth = 1.2f;
