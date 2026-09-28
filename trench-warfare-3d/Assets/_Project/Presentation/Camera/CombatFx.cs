@@ -717,6 +717,9 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.MortarBurst, p, r * 2.2f * columnScale * earth, 1.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
                         if (recipe.CookOff)
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
+                        // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
+                        // reads where a shell landed; the old parts are not grown (fx.recipes 0 draws exactly as before)
+                        float far = recipe.Plume || recipe.Ring ? FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f) : 1f;
                         if (recipe.Ring)
                         {
                             // lying a hand above the highest of five ground samples across its reach, so a slope or the
@@ -726,7 +729,7 @@ namespace TW.Presentation.Tactical
                             for (int q = 0; q < 4; q++)
                                 top = Mathf.Max(top, RenderGround.Sample(Host.Local.Map, p.x + (q == 0 ? reachR : q == 1 ? -reachR : 0f), p.z + (q == 2 ? reachR : q == 3 ? -reachR : 0f)));
                             // L06: very faint, fast (the whole book over half a second), running out to twice its width; gone up close
-                            books.Add(FlipbookFx.Book.GroundRing, new Vector3(p.x, Mathf.Min(top, p.y + 1f) + 0.15f, p.z), r * 2.4f, 0.5f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 1f, alpha: 0.25f * (1f - closeUp));   // a barrage lays three or four at once: 0.25 each stays under 0.6 stacked
+                            books.Add(FlipbookFx.Book.GroundRing, new Vector3(p.x, Mathf.Min(top, p.y + 1f) + 0.15f, p.z), r * 2.4f * far, 0.5f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 1f, alpha: 0.25f * (1f - closeUp) * Mathf.Lerp(1f, 1.5f, (far - 1f) / (FlipbookFx.FarGrowMax - 1f)));   // a barrage lays three or four at once: 0.25 each stays under 0.6 stacked
                         }
                         if (!wet || melt)
                         {
@@ -756,7 +759,7 @@ namespace TW.Presentation.Tactical
                             // fx.recipes: one standing plume in place of the seven puffs; it drifts down wind and leans with the shell
                             // (L03: 1.5r, five seconds; a big shell leaves a second, later one beside it)
                             for (int k = 0; recipe.Plume && k < (r >= RingRadius ? 2 : 1); k++)
-                                books.Add(FlipbookFx.Book.ShellPlume, p + flight * (r * 0.3f * lean) + (k == 0 ? Vector3.zero : new Vector3(r * 0.35f, 0f, r * 0.2f)), r * 1.5f * shrink * night, 5f * shrink, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
+                                books.Add(FlipbookFx.Book.ShellPlume, p + flight * (r * 0.3f * lean) + (k == 0 ? Vector3.zero : new Vector3(r * 0.35f, 0f, r * 0.2f)), r * 1.5f * shrink * night * far, 5f * shrink, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
                                     velocity: drift * 1.2f + flight * (r * 0.2f * lean), grow: 0.6f, alpha: FlipbookFx.SmokeOpacity(0.8f, smokeAlpha, closeUp), pop: 0.2f, delay: k == 0 ? 0.5f : 0.8f);
                         }
                     }
