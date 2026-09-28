@@ -38,7 +38,7 @@ The RTX 5090 is not the target: frame time here is a proxy. The target is a GTX 
 The owner's fidelity bar: an "indistinguishable" change needs before/after captures and a critic, **in the editor and in a Windows player**.
 
 ## The comparison sheet (the owner asked for this)
-For each change or model swap, per band (T1, T2, T3, far):
+For each change or model swap, per band (the gym's six: T3, T2, T1, O120, O240, Far):
 - **Before and after images:** the same pose, held clock, `shot_tick`, HUD off. Add the `CaptureRig.Diff` image and `changed_frac`.
 - **A numbers table:** main/gpu p50 and p95, draw calls, SetPass, vertices (note that `FrameBudget.Vertices` excludes the indirect-drawn men), GC bytes, per-tick ms, each with its noise band and verdict.
 - **What was changed**, in one line, with the commit.
@@ -48,7 +48,7 @@ Write it to the board: `evidence/<item>/optimizer/sheet.md` plus JPGs.
 ## Polygon reduction and model swaps
 - **Budgets** (decisions.md): units 1,200-1,500 vertices (max 2,000), far model 250-400 beyond 170 m; vehicles 3,000-5,000. The VAT vertex budget knob is `vat.vertexBudget` (1.5 M).
 - **Find candidates:** meshes over budget, LODs that pop (`lodpop` IoU in the Playground), props drawn at far zoom with near detail.
-- **Reduce:** LODs derive from LOD0 (`TW_DERIVE` 12 in `tank3split.py` / `frogrig.py`, owner decision). The static-mesh decimator pattern is in `C:\Users\PC\Documents\unity\EMTD-marketing\Video_1_Project\EnvBuilder\tools\decimate_buildings.py` (static meshes only).
+- **Reduce** (details and the tearing trap: `../tw-lowpoly/SKILL.md`): LODs derive from LOD0 (`TW_DERIVE` 12 in `tank3split.py` / `frogrig.py`, owner decision). The static-mesh decimator pattern is in `C:\Users\PC\Documents\unity\EMTD-marketing\Video_1_Project\EnvBuilder\tools\decimate_buildings.py` (static meshes only).
 - **Never overwrite the original.** A swap is a proposal with its comparison sheet, applied only after the owner approves.
 - **Making the lower models** is `tw-lowpoly`'s job (Blender, inventory, per-model loop). This role measures them and
   makes the sheet.
@@ -58,13 +58,6 @@ Write it to the board: `evidence/<item>/optimizer/sheet.md` plus JPGs.
 - Close a card on an argument, trust `max` over sums/p99, or trust a number over a screenshot that disagrees.
 - Set `EditorApplication.update = null`.
 
-## Learning loop (Brief 2 §B5, every role)
-The loop, every time:
-1. produce;
-2. evidence from the gym (`tw-gym`) or a bench;
-3. a `tw-critic` round, with angles rotated between rounds;
-4. fix;
-5. keep the **best** round, not the last;
-6. write what worked and what failed to the board's `lessons/optimizer.md`.
-
-A flaw that recurs across items becomes a proposed checklist line for this page, which the owner approves.
+## Learning loop
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
+that section's table.

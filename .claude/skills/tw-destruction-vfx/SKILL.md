@@ -33,10 +33,11 @@ GPU broker, a reference that was found, or a page drawn in HTML or SVG. Write th
 ## The coverage job: every event gets a look at every band
 1. **Catalogue** from code: every `OffMapAbilityId`, weapon per archetype, unit ability, `DeathCause`, vehicle module event, and prop kind in the rules table. List the handler that draws each today.
 2. **Audit** each one as GOOD / WEAK / MISSING / WRONG, from captures with numbers, not from memory.
-3. **Design** each at three bands:
-   - T3 close (zoom 6-9): detail, only behind `_TWClose` / `SceneHooks.CloseUp`, so it costs nothing at T1.
+3. **Design** each at the six bands (T3 7.5, T2 16, T1 30, O120, O240, Far 600; the gym's), never losing detail
+   going in:
+   - T3 and T2 close: detail, only behind `_TWClose` / `SceneHooks.CloseUp`, so it costs nothing at T1.
    - T1 standard (zoom 30): the budget view.
-   - Overview/far (120-600): silhouette, flash and column only.
+   - O120, O240 and Far: silhouette, flash and column only.
 4. **Source** each look: an existing book, then an unconverted pack sheet, then a new sheet (tw-vfx-sheets). Prefer reuse.
 5. **Wire it:** the CombatFx handler, the FlipbookFx book, debris, light, shake. A `Book` enum entry and its `Sheets` row are added **together, at the same ordinal**, with the PNG. Check `books.Ready`.
 6. **Prove it** (below). Keep a destructible inventory with a coverage percentage (props, house kits, trench sections, wrecks) on the board item.
@@ -63,8 +64,9 @@ no sim event is flagged for the SIM lane, never faked in SHOW.
 - **Placement:** cards along the round's direction on men hit.
 - **Scaling:** by `DebrisRenderer.Gore` (0 means none).
 - **Bands:** T3, T2 and T1; nothing from O120 out.
-- **Budget:** the barrage frame is at 374 draws against 300, so blood must **replace** cards (the hit's dust Puff
-  first), never add. The VFX lane (session pc-e5) implements it.
+- **Budget:** the barrage frame is at 374 draws against 300, so blood must **replace** cards, never add. The first
+  candidate is the dust puff `CombatFx` spawns on a man hit (the Hit handler; `Puff` is three `Sheets` rows, so name the
+  row index when changing it). The VFX lane (session pc-e5) implements it.
 
 ## Proving it
 - **Benches, same battle:** `CaptureRig.Bench("scenario=vfx|barrage|armour stress=1500 settle_ticks=1800 ticks=400 shot=<png> shot_tick=N shot_hud=0 out=<abs json>")` in the editor. In the player: `-twbench "..."`. JUICE J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
@@ -79,7 +81,7 @@ no sim event is flagged for the SIM lane, never faked in SHOW.
 - **Guard tests:** HouseKitTests, TrenchSectionTests, DebrisTests, PropWearTests, DeathEventContractTests, DeathVarietyTests, BlastReactionTests, PlaygroundAssetTests, FrameBudgetCoverageTests, StaticLifecycleTests, ShaderInclusionTests (any new `Shader.Find("TW/…")`).
 - **Critic:** `tw-critic` with JUICE's readability check. A moment closes at 8, and any readability drop means revert.
 - **Gym:** every event's entry (`tw-gym`), captured at all six bands, is the standing proof. Rerun it after each change.
-- **Learn** (Brief 2 §B5): the board's `lessons/destruction-vfx.md`. A recurring flaw becomes a proposed checklist line.
+- **Learn:** the learning loop in `../pipeline/SKILL.md` (lessons file `destruction-vfx.md`).
 
 ## Traps
 - The `Sheets` table is indexed by the `Book` ordinal. Rows 19-21 (Core, Head, Bloom) are out of order today; see the board finding. Three rows are named "Puff": the smoke book is the one with `Erode = true`.

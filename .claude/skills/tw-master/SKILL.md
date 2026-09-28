@@ -62,13 +62,6 @@ New-file rules (validate/codemap):
 - Rewrite history.
 - Close a feedback request the owner has not seen answered.
 
-## Learning loop (Brief 2 §B5, every role)
-The loop, every time:
-1. produce;
-2. evidence from the gym (`tw-gym`) or a bench;
-3. a `tw-critic` round, with angles rotated between rounds;
-4. fix;
-5. keep the **best** round, not the last;
-6. write what worked and what failed to the board's `lessons/master.md`.
-
-A flaw that recurs across items becomes a proposed checklist line for this page, which the owner approves.
+## Learning loop
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
+that section's table.

@@ -49,12 +49,41 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
 
+## The learning loop (Brief 2 §B5; every role runs it)
+"Allways make loops of learning and improving" (the owner). Each job:
+1. produce;
+2. evidence from the gym (`tw-gym`) or a bench, noise floor first;
+3. a `tw-critic` round, rotating its angles between rounds;
+4. fix, or rebut in writing;
+5. keep the **best** round, not the last;
+6. write what worked and what failed to the role's lessons file on the board.
+
+A flaw that recurs across items becomes a proposed checklist line for that role's skill, which the owner approves.
+
+**Lessons files** (board `lessons/<file>`; one per role):
+
+| Role | File |
+|---|---|
+| balance-simulator | `balance.md` |
+| env-simulator | `env.md` |
+| character-simulator | `character.md` |
+| vehicle-simulator | `vehicle.md` |
+| destruction-vfx-simulator | `destruction-vfx.md` |
+| vfx sheets | `vfx-sheets.md` |
+| optimizer | `optimizer.md` |
+| lowpoly | `lowpoly.md` |
+| bug-catcher | `bug-catcher.md` |
+| hard-critic | `critic.md` |
+| master | `master.md` |
+| gym | `gym.md` |
+| housekeeping | `housekeeping.md` |
+
 ## The work loop (one job)
 
 1. `$P next` on this station. Nothing: say so and stop.
 2. `$P claim <job>`. Refused as busy: another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
-   The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
+   The stage's role skill (the table above) says how. A job over a few minutes (gate, bench, sweep,
    Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status`.
 4. Commit outputs on the stage's lane (`lane/sim/pipe-<item>` or `lane/show/pipe-<item>`) with
    `gate.ps1 -EditOnly` green first. A path on the seam list (`CLAUDE.md`) stops the job: BLOCKED, and ask.
