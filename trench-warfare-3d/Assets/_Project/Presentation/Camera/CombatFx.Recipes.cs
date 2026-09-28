@@ -20,6 +20,7 @@ namespace TW.Presentation.Tactical
             public bool Ring;       // a GroundRing lying on the ground: how big a big burst was, read from far off
             public bool Lean;       // a ShellLean: the earth thrown the way a flying shell was going (L02)
             public bool Dust;       // two DustPuffs at the foot: a jetpack man coming down (L15)
+            public bool Curtain;    // a SmokeBank standing where a creeping barrage's lift landed: the wall that walks (L04)
 
             public static BurstRecipe Old => new BurstRecipe { Column = true, OldSmoke = true };
         }
@@ -41,7 +42,8 @@ namespace TW.Presentation.Tactical
             int kind = Mathf.RoundToInt(shape);
             if (kind == 2) return new BurstRecipe { CookOff = true, Plume = true };   // no earth: the hull is what goes up
             if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine (5): their own looks come later (L14, L19, L24)
-            return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Lean = lean > 0f, Ring = radius >= RingRadius };
+            return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Lean = lean > 0f, Ring = radius >= RingRadius,
+                                     Curtain = source == (int)TW.Sim.Match.OffMapAbilityId.CreepingBarrage };
         }
 
         public const float BloodSnipeDamage = 60f;   // a hit this hard (the sniper's 95, not a rifle's 22-30) sprays the heavy sheet
