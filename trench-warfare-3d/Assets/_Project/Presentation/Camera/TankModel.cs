@@ -120,6 +120,11 @@ namespace TW.Presentation.Tactical
                 Walk(model, l, hull, -1, lod == 0, scale);
             }
             model.LinkLength *= scale; model.WheelRadius *= scale;
+            if (System.Array.IndexOf(JoinedLegs, name) >= 0)
+            {
+                var joined = Assemble(model.Lods[0], null);
+                if (model.Lods[1] != null && model.Lods[1] != model.Lods[0]) Assemble(model.Lods[1], joined);
+            }
             var parts = model.Lods[0].Parts;
             for (int i = 0; i < parts.Count; i++) if (parts[i].Gun >= 0) model.GunPart[parts[i].Gun] = i;
             for (int k = 0; k < 2; k++)
@@ -166,6 +171,94 @@ namespace TW.Presentation.Tactical
                     p.SelfAimed = p.Role == TankPartRole.Gun && (p.Parent < 0 || l.Parts[p.Parent].Role != TankPartRole.Turret);
             }
             return model;
+        }
+
+        /// <summary>A leg piece's joint lies on the piece it hangs from (2026-09-28, owner: the Redoubt and the Kettle
+        /// "are bugged"). Tools/crabsplit.py builds a walker whose sheet came with its limbs as loose pieces (Kettle,
+        /// Redoubt, Pavise, Banner) by sorting them into thigh, shin and foot and pivoting each at its own top, and
+        /// never joins them: with every node where crabsplit put it (TankImport, CrabManifest) a Kettle hip still stands
+        /// 0.55 m (1.4 m drawn) off the shell and its feet 0.8 m (2 m drawn) off their shins, a Redoubt shin 0.58 m
+        /// (1.45 m drawn) off its thigh (measured 2026-09-29), so a Kettle leg walked beside the machine and a Redoubt
+        /// leg came apart. Every leg piece's pivot is moved, in its parent's frame: a hip to the nearest
+        /// point of the body's surface, a knee or an ankle to the end of the piece above (EndToward); what it carries (the next piece, a toe socket) goes with it. LOD0 decides;
+        /// LOD1 takes the same moves by name (`moved`), so the two cannot pop apart. Returns the moves made.
+        /// Only the machines in JoinedLegs: Pavise and Banner have hips as far off (3.5-3.9 m drawn) and are not
+        /// joined yet; they wait on their own look.</summary>
+        static Dictionary<string, Vector3> Assemble(Lod lod, Dictionary<string, Vector3> moved)
+        {
+            var made = new Dictionary<string, Vector3>();
+            if (lod == null) return made;
+            var parts = lod.Parts;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var p = parts[i];
+                if (!IsLimb(p.Role) || p.Parent < 0) continue;
+                Vector3 by;
+                if (moved != null) { if (!moved.TryGetValue(p.Name, out by)) continue; }
+                else
+                {
+                    var q = parts[p.Parent].Mesh;
+                    if (q == null || !q.isReadable) continue;
+                    // a hip goes to the nearest of the body; a knee or an ankle to the far end of the piece above it,
+                    // the way the next piece hangs (the nearest point of a thigh is often up by its own hip: a
+                    // Redoubt's knee went there and left a thigh 0.27 m long and the machine sitting in the ground)
+                    by = (IsLimb(parts[p.Parent].Role) ? EndToward(q, p.Local) : NearestOnSurface(q, p.Local)) - p.Local;
+                    if (by.magnitude < JointSlack) continue;
+                }
+                p.Local += by;
+                made[p.Name] = by;
+            }
+            return made;
+        }
+
+        /// <summary>The walkers whose legs are joined on loading (see Assemble).</summary>
+        public static readonly string[] JoinedLegs = { "Kettle", "Redoubt" };
+
+        /// <summary>A joint closer to its parent than this is already on it (metres, drawn size).</summary>
+        public const float JointSlack = 0.05f;
+
+        /// <summary>The point of a mesh's surface nearest `at`, in the mesh's frame (every triangle, once, at load).</summary>
+        public static Vector3 NearestOnSurface(Mesh mesh, Vector3 at)
+        {
+            var v = mesh.vertices; var t = mesh.triangles;
+            Vector3 best = v.Length > 0 ? v[0] : at; float bestSq = float.MaxValue;
+            for (int k = 0; k + 2 < t.Length; k += 3)
+            {
+                var c = NearestOnTriangle(at, v[t[k]], v[t[k + 1]], v[t[k + 2]]);
+                float d = (c - at).sqrMagnitude;
+                if (d < bestSq) { bestSq = d; best = c; }
+            }
+            return best;
+        }
+
+        /// <summary>A limb's end the way `toward` lies from its pivot: the vertex furthest along that direction.</summary>
+        public static Vector3 EndToward(Mesh mesh, Vector3 toward)
+        {
+            var v = mesh.vertices;
+            Vector3 dir = toward.sqrMagnitude > 1e-8f ? toward.normalized : Vector3.down, best = toward;
+            float far = float.MinValue;
+            for (int i = 0; i < v.Length; i++) { float d = Vector3.Dot(v[i], dir); if (d > far) { far = d; best = v[i]; } }
+            return best;
+        }
+
+        /// <summary>Ericson, Real-Time Collision Detection 5.1.5: the point of triangle abc nearest p.</summary>
+        static Vector3 NearestOnTriangle(Vector3 p, Vector3 a, Vector3 b, Vector3 c)
+        {
+            Vector3 ab = b - a, ac = c - a, ap = p - a;
+            float d1 = Vector3.Dot(ab, ap), d2 = Vector3.Dot(ac, ap);
+            if (d1 <= 0f && d2 <= 0f) return a;
+            Vector3 bp = p - b; float d3 = Vector3.Dot(ab, bp), d4 = Vector3.Dot(ac, bp);
+            if (d3 >= 0f && d4 <= d3) return b;
+            float vc = d1 * d4 - d3 * d2;
+            if (vc <= 0f && d1 >= 0f && d3 <= 0f) return a + ab * (d1 / (d1 - d3));
+            Vector3 cp = p - c; float d5 = Vector3.Dot(ab, cp), d6 = Vector3.Dot(ac, cp);
+            if (d6 >= 0f && d5 <= d6) return c;
+            float vb = d5 * d2 - d1 * d6;
+            if (vb <= 0f && d2 >= 0f && d6 <= 0f) return a + ac * (d2 / (d2 - d6));
+            float va = d3 * d6 - d5 * d4;
+            if (va <= 0f && (d4 - d3) >= 0f && (d5 - d6) >= 0f) return b + (c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6)));
+            float denom = 1f / (va + vb + vc);
+            return a + ab * (vb * denom) + ac * (vc * denom);
         }
 
         /// <summary>Give every leg its number and the direction it stands out in. The numbering has to agree with the
