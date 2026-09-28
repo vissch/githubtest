@@ -35,6 +35,20 @@ namespace TW.Presentation.Tactical
             Core,       // a second, denser stream drawing: the opaque inside of the jet, and a different glyph to Jet
             Head,       // a CLOSED bolus: the jet's leading mass, where a curl's hole would be fatal
             Bloom,      // the jet's TERMINUS: a ground-rooted bloom, where the stream stops being a jet and goes up
+            // VFX pass wave 1 (2026-09-28): pack sheets and new desktop sheets, rows below in this order (FlipbookOrdinalTests)
+            GasBank,    // a chlorine cloud lying on the field
+            GasVent,    // gas let out of a canister or the Censer
+            SmokeBank,  // a smoke screen's bank
+            MortarBurst,// a lobbed round's burst: no lean
+            ShellFall,  // the falling shell, before it lands
+            LeanBurst,  // prototype of the directional burst (ShellLean replaces it)
+            FireCookOff,// a hull cooking off: the fireball
+            FireTall,   // a tree or post burning, looping
+            GunBlast,   // a big gun's muzzle blast, rooted at its left edge
+            Smoulder,   // a crater smouldering, looping
+            GroundRing, // the shock ring a big burst throws along the ground, seen from above
+            DustPuff,   // dust where a round or a man lands
+            ShellPlume, // the smoke a shell burst leaves standing
             Count
         }
 
@@ -129,10 +143,26 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.05f, 0.51f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f },
             new Sheet { Name = "FireHead",  Cols = 8, Rows = 4, Frames = 19, Fire = true, Snap = true, Tint = new Color(1.44f, 0.66f, 0.18f), Low = 0.08f, High = 0.79f, Fps = 12f, Bands = new Vector4(0.03f, 0.05f, 0.29f, 0.75f), Ink = new Vector2(0.23f, 0.80f), Fill = 0.89f },
             new Sheet { Name = "FireBloom", Cols = 8, Rows = 4, Frames = 21, Fire = true, Snap = true, Tint = new Color(1.38f, 0.64f, 0.18f), Low = 0.12f, High = 0.74f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.39f, 0.75f), Ink = new Vector2(0.05f, 0.98f), Fill = 0.84f },
+            // VFX pass wave 1 (2026-09-28): Low/High, Ink, Fill and the fire Bands from the Tools/firebooks.py printout.
+            // Tints are starting points: CombatFx.ApplyTints sets the biome's (catalogue IN-2). Smoke-like books erode like Smoke.
+            new Sheet { Name = "GasBank", Cols = 8, Rows = 4, Frames = 30, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.73f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },
+            new Sheet { Name = "GasVent", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.66f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },
+            new Sheet { Name = "SmokeBank", Cols = 8, Rows = 4, Frames = 22, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 0.31f, Ink = new Vector2(0.03f, 0.87f), Fill = 0.94f },
+            new Sheet { Name = "MortarBurst", Cols = 8, Rows = 4, Frames = 21, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.09f, High = 0.77f, Ink = new Vector2(0.05f, 0.65f), Fill = 0.54f },
+            new Sheet { Name = "ShellFall", Cols = 8, Rows = 4, Frames = 8, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.08f, High = 0.74f, Ink = new Vector2(0.07f, 0.95f), Fill = 0.25f },
+            new Sheet { Name = "LeanBurst", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.11f, High = 0.73f, Ink = new Vector2(0.26f, 0.73f), Fill = 0.90f },
+            new Sheet { Name = "FireCookOff", Cols = 8, Rows = 4, Frames = 29, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.08f, High = 0.90f, Bands = new Vector4(0.07f, 0.28f, 0.75f, 0.75f), Ink = new Vector2(0.07f, 0.91f), Fill = 0.94f },
+            new Sheet { Name = "FireTall", Cols = 8, Rows = 4, Frames = 24, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.08f, High = 0.85f, Bands = new Vector4(0.11f, 0.28f, 0.65f, 0.75f), Ink = new Vector2(0.05f, 0.99f), Fill = 0.62f },
+            new Sheet { Name = "FireGunBlast", Cols = 8, Rows = 4, Frames = 13, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.12f, 0.37f, 0.57f, 0.75f), Ink = new Vector2(0.23f, 0.78f), Fill = 0.62f },
+            new Sheet { Name = "Smoulder", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.07f, High = 0.85f, Ink = new Vector2(0.05f, 0.92f), Fill = 0.45f },
+            new Sheet { Name = "GroundRing", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.20f, High = 0.81f, Ink = new Vector2(0.12f, 0.88f), Fill = 0.94f },
+            new Sheet { Name = "DustPuff", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.16f, High = 0.91f, Ink = new Vector2(0.18f, 0.82f), Fill = 0.90f },
+            new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 0.91f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },
         };
 
         /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
         public static string SheetName(Book b) => Sheets[(int)b].Name;
+        public static int SheetCount => Sheets.Length;
 
         /// <summary>Where a book's drawing sits in its cell: y as bottom-up fractions, and its width as a fraction of the cell.</summary>
         public static void Geometry(Book b, out float inkLow, out float inkHigh, out float fill)
