@@ -55,7 +55,10 @@ namespace TW.Sim
         // ParapetCost), every man on foot keeps to a lane (Lane) and is deployed on it, and EngageSystem joins the chain
         // at order 1108 with its state (Hunt, HuntGen, the generation seen, MovementSystem.Engage): men in the open
         // close on the enemy and hold to shoot. Layout unchanged; every battle runs differently from the first deploy.
-        public const ushort FormatVersion = 18;
+        // v19 (2026-09-28, the range cut, lane/sim/melee): every attack reach at CombatTables.RangeScale 0.8 of its design
+        // (weapon and main-gun ranges, minimum ranges, stand-offs, AdvanceFireRange, EngageSystem.HuntRadius): the
+        // catalogue fingerprints change. Layout and chain unchanged.
+        public const ushort FormatVersion = 19;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
