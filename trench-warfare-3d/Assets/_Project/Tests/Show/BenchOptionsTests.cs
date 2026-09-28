@@ -21,7 +21,7 @@ namespace TW.Tests
         [Test]
         public void EveryScenarioNameRoundTrips()
         {
-            foreach (var s in new[] { BenchScenario.None, BenchScenario.Barrage, BenchScenario.Armour, BenchScenario.Vfx, BenchScenario.Beam })
+            foreach (var s in new[] { BenchScenario.None, BenchScenario.Barrage, BenchScenario.Armour, BenchScenario.Vfx, BenchScenario.Beam, BenchScenario.Lineup })
                 Assert.AreEqual(s, BenchOptions.Parse("scenario=" + BenchOptions.ScenarioName(s)).Scenario, BenchOptions.ScenarioName(s));
             Assert.AreEqual(BenchScenario.Armour, BenchOptions.Parse("scenario=armor").Scenario, "the American spelling");
             Assert.AreEqual(BenchScenario.Vfx, BenchOptions.Parse("scenario=VFX").Scenario, "case does not matter");

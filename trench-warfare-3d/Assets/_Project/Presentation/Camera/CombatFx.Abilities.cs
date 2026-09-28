@@ -241,7 +241,7 @@ namespace TW.Presentation.Tactical
                     for (int g = -1; g <= 1; g += 2)
                     {
                         Vector3 gun = at + rot * new Vector3(g * 0.9f, -0.3f, 1.5f);
-                        tracers.Add(new Tracer { From = gun, To = p, Born = now, Hit = true, Team = (byte)(e.B & 1) });
+                        tracers.Add(new Tracer { From = gun, To = p, Born = now, Hit = true, Team = (byte)(e.B & 1), Life = TracerSeconds });
                         if (recipes >= 0.5f)   // L09: the wing guns flare as they fire
                         {
                             var cam = Camera.main;

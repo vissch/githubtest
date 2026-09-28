@@ -20,16 +20,16 @@ namespace TW.Presentation.Tactical
         /// shin height, thrown out sideways, sparks and dust and no column.</summary>
         public struct BurstLook
         {
-            public float Size, Fire, Column, Wings;
+            public float Size, Fire, Column, Wings, Flash;
             public bool Mortar, Rocket, Mine, Tripwire;
-            public static readonly BurstLook Same = new BurstLook { Size = 1f, Fire = 1f, Column = 1f, Wings = 1f };
+            public static readonly BurstLook Same = new BurstLook { Size = 1f, Fire = 1f, Column = 1f, Wings = 1f, Flash = 1f };
         }
 
         public static BurstLook BurstBy(int source)
         {
             var look = BurstLook.Same;
-            if (source == MineSystem.SourceBase + (int)MineKind.Mine) { look.Mine = true; look.Fire = 0f; look.Column = 0.8f; look.Wings = 0.8f; return look; }
-            if (source == MineSystem.SourceBase + (int)MineKind.Tripwire) { look.Tripwire = true; look.Fire = 0.5f; look.Column = 0f; look.Wings = 1.35f; look.Size = 0.85f; return look; }
+            if (source == MineSystem.SourceBase + (int)MineKind.Mine) { look.Mine = true; look.Fire = 0f; look.Column = 0.8f; look.Wings = 0.8f; look.Flash = 0.25f; return look; }   // a buried charge: a dull thump, not a white-out
+            if (source == MineSystem.SourceBase + (int)MineKind.Tripwire) { look.Tripwire = true; look.Fire = 0.5f; look.Column = 0f; look.Wings = 1.8f; look.Size = 0.85f; look.Flash = 0.375f; return look; }
             if (!SourceId.IsUnit(source)) return look;   // an ability's shells, a cook-off, the fleet: the shell burst as it is
             switch (SourceId.ArchetypeOf(source))
             {
@@ -60,11 +60,11 @@ namespace TW.Presentation.Tactical
                     books.Add(FlipbookFx.Book.DustPuff, p + Vector3.up * 0.2f, r * (look.Tripwire ? 1.5f : 1.2f), 2f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0),
                         velocity: new Vector3(k == 0 ? 1.6f : -1.6f, 0.3f, 0f), alpha: 0.75f, delay: 0.05f);
             }
-            if (look.Mine)   // a buried charge: the black smoke of the explosive, standing over the thrown earth
+            if (look.Mine)   // a buried charge: the black smoke of the explosive (the wreck's black book), standing over the thrown earth
                 for (int k = 0; k < 2; k++)
-                    books.Add(FlipbookFx.Book.Smoke, p + Vector3.up * (r * (0.6f + k * 0.4f)), r * (1.1f + k * 0.3f), 4.5f, (mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                        velocity: drift * 1.3f + Vector3.up * 0.6f, grow: 1.8f, alpha: FlipbookFx.SmokeOpacity(0.8f, smokeAlpha, SceneHooks.CloseUp), pop: 0.3f, delay: 0.25f + k * 0.2f);
-            if (look.Tripwire) Sparks(p + Vector3.up * 0.4f, 14, 12f, 0.04f, salt);   // the charge's casing, day and night
+                    books.Add(FlipbookFx.Book.WreckSmoke, p + Vector3.up * (r * (0.3f + k * 0.4f)), r * (1.6f + k * 0.3f), 4.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
+                        velocity: drift * 1.3f + Vector3.up * 0.4f, grow: 0.8f, alpha: 0.95f * (1f - 0.5f * SceneHooks.CloseUp), pop: 0.2f, delay: 0.15f + k * 0.2f);
+            if (look.Tripwire) Sparks(p + Vector3.up * 0.4f, 40, 14f, 0.1f, salt);   // the charge's casing, day and night
         }
 
         /// <summary>Throw's sparks (kind 3) on FxQuality.Hash in place of the shared stream: out and up, each its own speed and life.</summary>
