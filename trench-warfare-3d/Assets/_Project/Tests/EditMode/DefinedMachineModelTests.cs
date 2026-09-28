@@ -126,6 +126,8 @@ namespace TW.Tests
                 Assert.AreEqual(wheel.Mesh.bounds.extents.y, wheel.Local.y, 0.2f, $"{wheel.Name}: its axle is a radius off the ground");
             }
             Assert.AreEqual(sa.Lods[0].Parts[sa.Lods[0].Find("Wheel_L")].Mesh.bounds.extents.y, sa.WheelRadius, 1e-3f, "the wheels turn at their own radius");
+            float gauge = (Mathf.Abs(sa.Lods[0].Parts[sa.Lods[0].Find("Wheel_L")].Local.x) + Mathf.Abs(sa.Lods[0].Parts[sa.Lods[0].Find("Wheel_R")].Local.x)) * 0.5f;
+            Assert.AreEqual(gauge, sa.HalfGauge, 1e-3f, "and a pivot turns them by their own gauge, not the hull's half width (round 7)");
         }
 
         /// <summary>The sim drives each on a footprint (VehicleProfile.HalfLength, HalfWidth); the drawn model is that size.</summary>

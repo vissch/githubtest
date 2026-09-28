@@ -433,3 +433,18 @@ where the target was when it fired (`AManWhoMovesAwayBeforeTheRocketsLandEscapes
 3 m/s leaves most of the 5.6 m circle; against men standing 5 m apart a rack killed ~1.1 (4.5 in 4). The Salvo is
 artillery against men who stay put, and trenches. Not changed. **Audio:** the whole game is silent
 (`EventAudioRouter` is a B7 stub): the owner's scope decision, not built here.
+
+### Critic round 7: measured live (2026-09-28)
+Images `figures/battle-loop/r7-*`; all in GreyboxCorridor, Play, the machines held in place with `SimHost.WriteWorlds`.
+
+| Finding | Fix | Measured |
+|---|---|---|
+| The side colour glowed at night: the Salvo's box the brightest solid on screen, the Skimmer's ring and pods saturated cyan (`r7-side-night-before.jpg`) | the Maw and Tusk carry their side on their horns, which glow; a whole part wearing it glowed as much. At night a non-horn part wears 0.3 of its share (`NightSideShare`); by day all of it | a Maw, a Salvo and a Skimmer of team 1 side by side, 24 px patches of each part: night, the Salvo's box luma 85, the Maw's hull 76, the Skimmer's ring 66, ground 30 (`r7-side-night-after.jpg`); what is left of the box's lightness is the field grey team 1 lays over olive paint, the rule every machine has. Day (Winter): box 151, Maw hull 86, ring 113, snow 199 (`r7-side-day-after.jpg`) |
+| GC p50 25 -> 53 KB a frame once 4 Salvos fought (uncontrolled) | none: it is not ours | the sim, in Unity with AllocProbe, 400 ticks after 200 warm: **0.0 bytes a tick** with 60 men, and 0.0 with 4 firing Salvos and 6 Skimmers added. Live, 40 held men fighting: GC a frame p50 51 KB without our machines, 51 KB with 4 Salvos and 6 Skimmers firing, 51 KB after removing them. Main thread p50: none 8.4 ms, ours 8.4 / 8.7 ms, the same number of Maws and Tusks 9.6 / 9.1 ms (frame counts per window swing 130-560 in the editor: not a measure) |
+| The Salvo's wheels turned 1.8x too fast in a pivot (HalfGauge the hull's 3.13 m) | on wheels without tracks, HalfGauge is the wheels' own (their mean Local.x, 1.7 m) | `DefinedMachineModelTests` (gate) |
+| A fresh Salvo's wheels turned 4.5 rad in its first frame | a new view's first frame takes the position it is drawn at as its last, so it measures no speed | read by the draw path |
+| ~12 draw calls a new machine | recorded, not changed: parts are instanced per mesh and material, so every Skimmer on the field shares the Skimmer's 10 batches and every Salvo the Salvo's 5 (and the rockets one); a new *kind* costs its part count, as each walker does | - |
+| The selection hexagon sits toward the camera from the hull | not ours: `UnitPicker.VehicleBodyM` (1.3 m above the ground) places every vehicle's marker, the Maw's too: a UI rule for the owner/UI lane | - |
+| A thrown Skimmer part glowing (round 6's fix) | - | a live cook-off at night: the burning fan ring is charred and ember-lit, not cream (`r7-cookoff-after.jpg`) |
+
+Not done this round: the Skimmer over craters and wire at full speed.

@@ -146,6 +146,10 @@ namespace TW.Presentation.Tactical
                 // A machine with no treads to measure: take its body, rather than keep a default that was
                 // written for a tank and is used to place fire and smoke on the hull.
                 if (tl < 0 || tr < 0) { model.HalfGauge = hull.extents.x; model.HalfLength = hull.extents.z; }
+                // on wheels, the gauge is the wheels' own, which the wheels turn by in a pivot (round 7: the Salvo's hull is
+                // 3.13 m half-wide, its wheels 1.7 m out, and a pivot spun them 1.8 times too fast)
+                int wl = model.Lods[0].Find("Wheel_L"), wr = model.Lods[0].Find("Wheel_R");
+                if (tl < 0 && tr < 0 && wl >= 0 && wr >= 0) model.HalfGauge = (Mathf.Abs(parts[wl].Local.x) + Mathf.Abs(parts[wr].Local.x)) * 0.5f;
             }
             // A machine that rolls on wheels and has no treads (the Salvo's front tyres): turn them at the speed their
             // own size gives, not the tank's 0.36 m, which spun a 1 m tyre three times too fast.

@@ -86,6 +86,7 @@ namespace TW.Presentation.Tactical
             public float Fan, FanRate;
             /// <summary>A hovering machine's yaw drawn off its heading in a turn (radians), and whether it hovers.</summary>
             public float Drift; public bool Hover;
+            public bool Fresh = true;              // not drawn yet: its first frame measures no speed
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
@@ -138,6 +139,7 @@ namespace TW.Presentation.Tactical
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
         const float HoverSettle = 3f;       // omega of its pitch and roll: a cushion rides the ground's average, slowly
         const float HoverDip = 0.3f;        // how far below its skirt's highest ground it may ride (round 6)
+        const float NightSideShare = 0.3f;  // the share of a part's side colour it wears at night (round 7)
         const int HoverRing = 8;            // points round the skirt it looks at, besides its four corners
         const float HoverDrift = 0.08f, HoverDriftMax = 0.25f;   // its tail swings out in a turn: rad per (rad/s x m/s), and at most
         const int WalkerRows = 6;
@@ -183,7 +185,10 @@ namespace TW.Presentation.Tactical
 
         static Vector4 TeamBand(View v, TankModel.Part p)
         {
-            float wear = p.Role == TankPartRole.Horn ? 1f : p.SideWear;
+            // a horn is the Maw's and Tusk's own side mark and keeps its glow; a whole part wearing the side's colour (the
+            // Skimmer's ring and pods, the Salvo's box) glowed as the brightest solid on a night field (round 7): at night
+            // it wears NightSideShare of it, which leaves its paint in the side's hue without the added light
+            float wear = p.Role == TankPartRole.Horn ? 1f : p.SideWear * (SceneMood.Night ? NightSideShare : 1f);
             if (wear <= 0f) return Vector4.zero;
             var c = v.Team == 1 ? TeamB : TeamA;
             return new Vector4(c.r, c.g, c.b, (v.Dead ? 0.5f : 1f) * wear);
@@ -403,6 +408,7 @@ namespace TW.Presentation.Tactical
             v.LastPos = v.Pos; v.LastYaw = v.Yaw;
             v.Pos = new Vector3(drawn.x, 0f, drawn.z);
             v.Yaw = LerpAngle(prevYaw[s], curYaw[s], Host.Alpha);
+            if (v.Fresh) { v.LastPos = v.Pos; v.LastYaw = v.Yaw; v.Fresh = false; }   // a new view has not moved yet: no speed spike on its first frame
             Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);
             float speed = Vector3.Dot(v.Pos - v.LastPos, fwd) / dt, yawRate = Mathf.DeltaAngle(v.LastYaw * Mathf.Rad2Deg, v.Yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad / dt;
             if (Host.TimeScale <= 0f) { speed = 0f; yawRate = 0f; }
