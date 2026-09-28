@@ -46,5 +46,55 @@ namespace TW.Presentation.Tactical
                 books.Add(FlipbookFx.Book.ShellFall, at, 5f, IncomingLead, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, glow: SceneMood.Night ? 1.6f : 1f, delay: Mathf.Max(0f, early));
             }
         }
+    
+        // L23: smouldering craters, a pool of SmoulderPool at most (a long card each)
+        public const int SmoulderPool = 24;
+        public const float SmoulderShare = 0.3f;
+        readonly float[] smoulderUntil = new float[SmoulderPool];
+
+        /// <summary>Whether a heavy burst at this place leaves its crater smouldering: 30 % of them, by a hash of the place
+        /// (not a random draw, so the same shell smoulders every run). Pure, so a test can hold it.</summary>
+        public static bool Smoulders(float x, float z) => Hash01(x, z, 41) < SmoulderShare;
+
+        /// <summary>L23 (fx.recipes): a heavy dry burst may leave a thread of smoke standing in its crater for 20-40 s,
+        /// fading as it goes; close up and at the standard view only (a pool of long cards costs).</summary>
+        void SmoulderCrater(Vector3 p, float r, float far)
+        {
+            if (far > 1f || !Smoulders(p.x, p.z)) return;
+            float now = Time.time;
+            int slot = -1;
+            for (int k = 0; k < SmoulderPool; k++) if (smoulderUntil[k] <= now) { slot = k; break; }
+            if (slot < 0) return;   // the pool is full: the oldest threads are still standing
+            float life = Mathf.Lerp(20f, 40f, Hash01(p.x, p.z, 43));
+            smoulderUntil[slot] = now + life;
+            books.Add(FlipbookFx.Book.Smoulder, p - Vector3.up * 0.3f, Mathf.Clamp(r * 0.6f, 2.5f, 5f), life, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
+                alpha: 0.7f, delay: 2f, startFrame: Hash01(p.x, p.z, 47) * 31f);
+        }
+
+        /// <summary>L24 (fx.recipes): wire cut (WireBreached: pos, scalar the gap's width): earth kicked up along the gap and
+        /// the wire's snap, a spike of light. No sparks thrown (they take random draws).</summary>
+        void OnWireBreached(SimEvent e)
+        {
+            if (recipes < 0.5f || books == null || !books.Ready) return;
+            Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
+            float half = Mathf.Clamp(e.Scalar * 0.5f, 0.5f, 6f);
+            for (int k = 0; k < 3; k++)
+            {
+                float a = Hash01(at.x, at.z, 50 + k) * 6.2832f, d = half * Hash01(at.x, at.z, 60 + k);
+                books.Add(FlipbookFx.Book.Spurt, at + new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d), 1.2f, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (k == 1 ? FlipbookFx.Kind.Mirror : 0));
+            }
+            books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
+        }
+
+        /// <summary>L11 (fx.recipes): a paratrooper down (DropLanded: pos): the dust he lands in. The canopy is a mesh and
+        /// owner question Q8.</summary>
+        void OnDropLanded(SimEvent e)
+        {
+            if (recipes < 0.5f || books == null || !books.Ready) return;
+            var cam = Camera.main;
+            if (cam != null && cam.TryGetComponent<IZoomSource>(out var zs) && zs.CurrentZoom >= IncomingFarZoom) return;
+            Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
+            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, 2f, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
+        }
     }
 }
