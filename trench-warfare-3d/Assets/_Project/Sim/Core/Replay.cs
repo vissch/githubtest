@@ -61,7 +61,9 @@ namespace TW.Sim
         // bombs and their generation; SimEventType.GrenadeThrown appended, SourceId.Grenade 2002). Layout unchanged.
         // v20 (2026-09-29, dead ground): a man on foot in the open more than CombatTables.DeadGroundMetres behind his own
         // side's front trench is not a target for a shooter on the far side of it (TargetAcquisition). Layout unchanged.
-        public const ushort FormatVersion = 20;
+        // v21 (2026-09-29, the bomb's flight): a thrown bomb is in the air CombatTables.GrenadeFlightTicks and goes off
+        // where it lands on that tick (DirectFireSystem hashes the bombs in the air). Layout unchanged.
+        public const ushort FormatVersion = 21;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

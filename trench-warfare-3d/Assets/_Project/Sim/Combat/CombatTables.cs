@@ -46,6 +46,12 @@ namespace TW.Sim.Combat
         public const float GrenadeScatter = 0.5f;        // metres off the mark at no range ...
         public const float GrenadeScatterPerMetre = 0.08f; // ... and this much more per metre thrown
         public const float GrenadeFriend = 4f;
+        /// <summary>A bomb's time in the air (2026-09-29): this much at any range, and GrenadeFlightPerMetre more a metre:
+        /// half a second at 5 m, 1.2 s at 22 m. It went off the tick it was thrown, so no throw could be drawn.</summary>
+        public const float GrenadeFlightSeconds = 0.3f, GrenadeFlightPerMetre = 0.04f;
+        /// <summary>Ticks a bomb thrown <paramref name="metres"/> is in the air; at least one.</summary>
+        public static int GrenadeFlightTicks(float metres, float tickSeconds)
+            => math.max(1, (int)math.round((GrenadeFlightSeconds + GrenadeFlightPerMetre * metres) / tickSeconds));
 
         /// <summary>Bombs a man of this archetype goes into battle with. Riflemen carry two, assault troops (the
         /// bombers) four; a man whose trade is not the assault (the gunner, the sniper, the medic) none.</summary>

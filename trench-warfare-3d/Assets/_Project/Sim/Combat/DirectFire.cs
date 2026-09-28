@@ -15,10 +15,13 @@
 // first: PenetrationMm x 0.8..1.2 under the plate and the round is STOPPED (Hit with a negative scalar, ShieldBlocked,
 // a quarter of the suppression). The roll is drawn only for him, so every other man's stream is what it was.
 // The bomb (2026-09-28): a man on foot in the open, not pinned, with a bomb left, whose target is a man in a trench
-// 5-22 m off throws one instead of firing (Throws): it lands within GrenadeScatter of him and goes off this tick as
-// an Impact on BlastSystem (720, after this system), so the bay, the traverse and the parapet still count. He holds
-// it while a friend stands within GrenadeFriend of the mark. Bombs are per slot and refill when a slot's Generation
-// moves on (a new man); both arrays are in the hash.
+// 5-22 m off throws one instead of firing (Throws): it lands within GrenadeScatter of him and goes off as an Impact on
+// BlastSystem (720, after this system), so the bay, the traverse and the parapet still count. He holds it while a
+// friend stands within GrenadeFriend of the mark. Bombs are per slot and refill when a slot's Generation moves on (a
+// new man); both arrays are in the hash.
+// Its flight (2026-09-29): the bomb is in the air CombatTables.GrenadeFlightTicks (0.5 s at 5 m, 1.2 s at 22 m) and
+// goes off the tick it lands, where it was aimed, whether or not the thrower still lives. It went off the tick it was
+// thrown, so nothing could be drawn between the throw and the burst. The bombs in the air are hashed.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -48,6 +51,9 @@ namespace TW.Sim.Combat
         NativeArray<byte> grenades;              // bombs each slot's man has left
         NativeArray<ushort> grenadeGen;          // the Generation they were counted for: another means a new man
         NativeList<Impact> noImpacts;            // the job's list in a match without a BlastSystem (it throws nothing then)
+        NativeList<Impact> thrown;               // this tick's throws, from the job
+        NativeList<Impact> flying;               // bombs in the air, in throw order
+        NativeList<uint> lands;                  // the tick each of them lands
 
         /// <summary>Totals since the match started, per team: shots fired and kills scored. Derived from hashed state, not hashed itself.</summary>
         public readonly int[] Shots = new int[SimConfig.MaxPlayers];
@@ -75,7 +81,13 @@ namespace TW.Sim.Combat
             grenades = new NativeArray<byte>(world.Config.MaxSlots, Allocator.Persistent);
             grenadeGen = new NativeArray<ushort>(world.Config.MaxSlots, Allocator.Persistent);
             noImpacts = new NativeList<Impact>(1, Allocator.Persistent);
+            thrown = new NativeList<Impact>(16, Allocator.Persistent);
+            flying = new NativeList<Impact>(32, Allocator.Persistent);
+            lands = new NativeList<uint>(32, Allocator.Persistent);
         }
+
+        /// <summary>Bombs in the air now.</summary>
+        public int GrenadesFlying => flying.IsCreated ? flying.Length : 0;
 
         /// <summary>Bombs the man in <paramref name="slot"/> has left (a man not yet counted has his archetype's full load).</summary>
         public int GrenadesLeft(SimWorld w, int slot)
@@ -99,6 +111,18 @@ namespace TW.Sim.Combat
             ownHits.Clear();
             ignited.Clear();
             scorched.Clear();
+            thrown.Clear();
+            // the bombs that land this tick go off now (BlastSystem steps after this system), in the order they were thrown
+            if (flying.Length > 0 && blast != null)
+            {
+                int keep = 0;
+                for (int k = 0; k < flying.Length; k++)
+                {
+                    if (lands[k] <= w.Tick) { blast.Queue(flying[k]); continue; }
+                    flying[keep] = flying[k]; lands[keep] = lands[k]; keep++;
+                }
+                flying.ResizeUninitialized(keep); lands.ResizeUninitialized(keep);
+            }
             new FireJob
             {
                 Ignited = ignited, Scorched = scorched,
@@ -111,8 +135,19 @@ namespace TW.Sim.Combat
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
-                Impacts = blast != null ? blast.Pending : noImpacts, CanThrow = blast != null,
+                Impacts = blast != null ? thrown : noImpacts, CanThrow = blast != null,
             }.Run();
+            for (int k = 0; k < thrown.Length; k++)
+            {
+                float3 d = thrown[k].Dir;   // the job keeps the throw's length in Dir.y until here
+                flying.Add(new Impact
+                {
+                    Pos = thrown[k].Pos, Dir = new float3(d.x, 0f, d.z), Damage = thrown[k].Damage, Radius = thrown[k].Radius,
+                    Suppression = thrown[k].Suppression, CraterRadius = thrown[k].CraterRadius, CraterDepth = thrown[k].CraterDepth,
+                    Source = thrown[k].Source, Player = thrown[k].Player, Shape = thrown[k].Shape,
+                });
+                lands.Add(w.Tick + (uint)CombatTables.GrenadeFlightTicks(d.y, w.Config.TickSeconds));
+            }
             for (int k = 0; k < ownHits.Length; k++)
             {
                 var hit = ownHits[k];   // no armour model registered: the charge's damage comes straight off
@@ -189,7 +224,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<ushort> Generation;
             public NativeArray<byte> Grenades;
             public NativeArray<ushort> GrenadeGen;
-            public NativeList<Impact> Impacts;   // BlastSystem.Pending: a bomb goes off this tick
+            public NativeList<Impact> Impacts;   // this tick's throws; Step puts them in the air
             public bool CanThrow;
 
             /// <summary>A man in the open throws a bomb at the trench man <paramref name="t"/> instead of firing, when
@@ -213,7 +248,7 @@ namespace TW.Sim.Combat
                 FireCooldown[i] = (int)math.round(CombatTables.GrenadeCooldownSeconds / TickSeconds);
                 Impacts.Add(new Impact
                 {
-                    Pos = at, Dir = way, Damage = CombatTables.GrenadeDamage, Radius = CombatTables.GrenadeRadius,
+                    Pos = at, Dir = new float3(way.x, dist, way.z), Damage = CombatTables.GrenadeDamage, Radius = CombatTables.GrenadeRadius,
                     Suppression = CombatTables.GrenadeSuppression, CraterRadius = 0.8f, CraterDepth = 0.15f,
                     Source = SourceId.Grenade, Player = Team[i], Shape = (int)BlastShape.Shell,
                 });
@@ -425,7 +460,10 @@ namespace TW.Sim.Combat
         {
             if (!grenades.IsCreated) return h;
             h = SimHash.Array(grenades, h);
-            return SimHash.Array(grenadeGen, h);
+            h = SimHash.Array(grenadeGen, h);
+            h = SimHash.Value(flying.Length, h);
+            h = SimHash.Array(flying.AsArray(), h);
+            return SimHash.Array(lands.AsArray(), h);
         }
         public void Dispose()
         {
@@ -439,6 +477,9 @@ namespace TW.Sim.Combat
             if (grenades.IsCreated) grenades.Dispose();
             if (grenadeGen.IsCreated) grenadeGen.Dispose();
             if (noImpacts.IsCreated) noImpacts.Dispose();
+            if (thrown.IsCreated) thrown.Dispose();
+            if (flying.IsCreated) flying.Dispose();
+            if (lands.IsCreated) lands.Dispose();
         }
     }
 }

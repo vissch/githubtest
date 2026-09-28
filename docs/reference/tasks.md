@@ -131,10 +131,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `RunningTargetSpeed` is a harder mark the farther off he is (`RunningTarget`: no change inside 20 m, a third of the
   chance left past 60 m); (2) a miss at a man on the fire step suppresses him fully (the round strikes the parapet);
   (3) the bomb: a man in the open, not pinned, with a bomb left, whose target is a man in a trench 5-22 m off throws
-  one instead of firing (`Throws`). It goes off the same tick as an `Impact` on `BlastSystem` (so the bay still saves
-  some of it), he holds it while a friend stands within 4 m of the mark, riflemen carry two and assault men four
+  one instead of firing (`Throws`). It is in the air `GrenadeFlightTicks` (0.3 s and 0.04 s a metre: half a second at
+  5 m, 1.2 s at 22 m; since 2026-09-29, v21, so the throw can be drawn) and goes off where it lands, thrower alive or
+  not, as an `Impact` on `BlastSystem` (so the bay still saves some of it), he holds it while a friend stands within 4 m of the mark, riflemen carry two and assault men four
   (`GrenadesFor`), and the count is per slot in `DirectFireSystem` (refilled for the next man, in the hash).
-  `SimEventType.GrenadeThrown` (thrower, target, from, flight, metres) is there for the picture to draw the throw.
+  `SimEventType.GrenadeThrown` (thrower, target, from, flight, metres) is there for the picture to draw the throw:
+  it lands at from + flight, `GrenadeFlightTicks(metres)` later.
 - **The assault ladder** (`AssaultLadderTests`: a garrison of ten on ShelledForest 1917, four seeds a rung). Trenches
   taken out of four, before these rules and after them:
 

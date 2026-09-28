@@ -69,14 +69,19 @@ namespace TW.Tests
             using var m = NewMatch();
             var s = Face(m, 14f);
             Assert.AreEqual(2, m.Fire.GrenadesLeft(m.World, s.y), "a rifleman goes in with two");
-            var log = Run(m, 300, e => e.Type == SimEventType.GrenadeThrown);
+            var log = Run(m, 300, e => e.Type == SimEventType.Explosion && e.A == SourceId.Grenade);
             var thrown = log.FindIndex(e => e.Type == SimEventType.GrenadeThrown);
             Assert.GreaterOrEqual(thrown, 0, "he threw one");
             var throwEv = log[thrown];
             Assert.AreEqual(s.y, throwEv.A);
             Assert.AreEqual(s.x, throwEv.B, "at the man he was fighting");
             Assert.That(throwEv.Scalar, Is.InRange(CombatTables.GrenadeMin, CombatTables.GrenadeRange));
-            Assert.IsTrue(log.Exists(e => e.Type == SimEventType.Explosion && e.A == SourceId.Grenade && e.Tick == throwEv.Tick), "and it went off the tick he threw it");
+            int flight = CombatTables.GrenadeFlightTicks(throwEv.Scalar, m.World.Config.TickSeconds);
+            Assert.That(flight * m.World.Config.TickSeconds, Is.InRange(0.5f, 1.3f), "a bomb thrown 5-22 m is in the air half a second to a second and a bit");
+            var burst = log.Find(e => e.Type == SimEventType.Explosion && e.A == SourceId.Grenade);
+            Assert.AreEqual(throwEv.Tick + (uint)flight, burst.Tick, "and it went off when it landed, not the tick he threw it");
+            float3 landed = throwEv.Pos + throwEv.Dir;
+            Assert.Less(math.distance(new float2(landed.x, landed.z), new float2(burst.Pos.x, burst.Pos.z)), 0.01f, "where the throw said it would land");
             Assert.AreEqual(1, m.Fire.GrenadesLeft(m.World, s.y), "one spent");
         }
 
