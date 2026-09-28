@@ -182,7 +182,10 @@ EditMode takes a few minutes. After a full gate `test-results.xml` holds only Pl
 - **First run after a Burst job edit** can run managed code and differ from the next run. Every sim job has
   `CompileSynchronously = true`; keep it on new jobs. Rerun before trusting a single determinism failure.
 - **Stale `Library/BurstCache`** after a job struct changes: NullReference or IndexOutOfRange inside Burst jobs.
-  Close the editor, delete it, reopen.
+  Close the editor, delete it, reopen. It can also fail quietly, as a wrong answer in a job the change never touched:
+  on 2026-09-28 a change to `InfantrySpec` and `TankSpec` made `MineTests.AMineUnderALongHullsBowIsTakenOnTheHullNotAsANearMiss`
+  fail in Unity (the mine job no longer saw the hull over it) while otr passed; with the cache deleted it passed, twice.
+  Suspect it when Unity and otr disagree after a struct in `Sim/` changed shape.
 
 ## 6. See the game
 
