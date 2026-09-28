@@ -394,7 +394,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   (punt, jig, headshot pop, rocket, fountain, pancake, fling, wilt, plank, skid, boots), seeded, capped;
   `Presentation/Core/AnimationController.Gags.cs` feeds it and puts the plan in the `DeathRecord`. The knob
   `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) is 0 until the owner has seen the captures;
-  `DeathGags.Pin` overrides it for a test or a capture.
+  `DeathGags.Pin` overrides it for a test or a capture. A machine's absurd death (same knob): `Presentation/Camera/TankRenderer.Deaths.cs`
+  (the turret leaps and flips, the hull hops, road wheels roll away) on `Presentation/Camera/VehicleGags.cs` (the flight,
+  pure); tests FigurePartsTests (the parts cut from the figure) and VehicleDeathTests.
 - **Tests:** BlastReactionTests (knockdown and daze), DeathVarietyTests (the death ladder and its records),
   DeathGagTests (the gags: nothing at 0, one per cause, the trench rule, the caps, no allocation),
   TickAllocationTests (no per-tick allocation).

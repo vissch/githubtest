@@ -109,6 +109,7 @@ Shader "TW/Debris (URP)"
         {
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
+            Cull Off   // a man's part is cut open: its inside is drawn (wound red), lit from the other side
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -120,8 +121,8 @@ Shader "TW/Debris (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float3 smoothOS : TEXCOORD3; half4 color : COLOR; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float4 tint : TEXCOORD3; float2 age : TEXCOORD4; float3 positionOS : TEXCOORD5; float fog : TEXCOORD6; };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 flesh : TEXCOORD2; float3 smoothOS : TEXCOORD3; half4 color : COLOR; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float4 tint : TEXCOORD3; float2 age : TEXCOORD4; float3 positionOS : TEXCOORD5; float fog : TEXCOORD6; float flesh : TEXCOORD7; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
@@ -135,20 +136,23 @@ Shader "TW/Debris (URP)"
                 o.age = float2(a.age, a.life);
                 o.positionOS = a.positionOS;
                 o.fog = ComputeFogFactor(o.positionCS.z);
+                o.flesh = v.flesh.x;
                 return o;
             }
 
-            half4 frag(Varyings i) : SV_Target
+            half4 frag(Varyings i, bool front : SV_IsFrontFace) : SV_Target
             {
-                half3 albedo = i.color.rgb * i.tint.rgb;
+                half3 albedo = i.color.rgb * lerp(half3(1.0, 1.0, 1.0), i.tint.rgb, i.color.a);   // vertex alpha is the cloth mask: a man's skin and kit keep their colour, his uniform takes the side's (every other piece is all cloth, a = 1)
+                // the inside of a piece: a man's part is flesh (UV2.x, DebrisRenderer.Build), anything else its own colour in the dark
+                if (!front) albedo = lerp(albedo * 0.35, half3(0.42, 0.07, 0.06), i.flesh);
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
-                float3 n = normalize(i.normalWS);
+                float3 n = normalize(front ? i.normalWS : -i.normalWS);
                 if (_TWWet.x > 0.0) albedo *= 1.0 - 0.22 * _TWWet.x * saturate(n.y * 0.55 + 0.5);   // wet on top, like everything in the rain
                 half wrap = dot(n, mainLight.direction) * 0.5 + 0.5;
                 half band = smoothstep(0.32, 0.36, wrap) * 0.5 + smoothstep(0.69, 0.74, wrap) * 0.5;
                 // the battlefield reaches this too: the shaded half is a hemisphere, and the floor lights it from below
-                half3 color = albedo * lerp(TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS)), mainLight.color, band);
-                color += TWGroundBounce(normalize(i.normalWS), albedo);
+                half3 color = albedo * lerp(TWHemisphere(_ShadeColor.rgb * TWShadeTint(), n), mainLight.color, band);
+                color += TWGroundBounce(n, albedo);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 half3 lampGlint;
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, n, i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.2 * _TWWet.x, lampGlint);

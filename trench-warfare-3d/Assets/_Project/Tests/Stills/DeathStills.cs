@@ -29,7 +29,7 @@ namespace TW.Tests
     public class DeathStills
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
-        static readonly string[] AllScenes = { "shell", "heap", "shot", "mg", "crush", "fire", "gas", "beam" };
+        static readonly string[] AllScenes = { "shell", "heap", "shot", "mg", "fire", "gas", "beam", "crush" };
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -47,6 +47,9 @@ namespace TW.Tests
             {
                 case "shell": case "heap": return (26f, 40f, 14f, 4f);
                 case "crush": return (20f, 40f, 18f, 1.5f);
+                case "beam": return (10f, 40f, 32f, 0.4f);
+                case "parts": return (9f, 40f, 38f, 0.1f);   // a row of parts on the ground, close
+                case "machine": return (24f, 40f, 22f, 3f);  // a turret's leap: wide and low   // what is left is a pair of boots and a helmet: close, from above
                 default: return (13f, 40f, 20f, 1.2f);
             }
         }
@@ -62,6 +65,8 @@ namespace TW.Tests
                 case "fire": return (12f, 12);
                 case "gas": return (22f, 12);
                 case "beam": return (16f, 16);
+                case "parts": return (4f, 4);
+                case "machine": return (8f, 16);
                 default: return (8f, 12);
             }
         }
@@ -87,6 +92,16 @@ namespace TW.Tests
             return true;
         }
 
+        /// <summary>The crush machine's road: nothing it cannot drive through (a blocked cell, a bunker) within 4 m of x
+        /// from z0 to z1. A trench it bridges and wire it flattens (the first sets asked for open ground and found none).</summary>
+        static bool Road(MapData map, float x, float z0, float z1)
+        {
+            for (float zz = z0; zz <= z1; zz += 2f)
+                for (float xx = x - 4f; xx <= x + 4f; xx += 2f)
+                    if ((map.LayerAt(new float3(xx, 0f, zz)) & (NavLayer.Blocked | NavLayer.Bunker)) != 0) return false;
+            return true;
+        }
+
         [UnityTest, Explicit("The absurd deaths photographed; run by name, with a graphics device.")]
         public IEnumerator EveryDeathGagIsPhotographed()
         {
@@ -105,6 +120,8 @@ namespace TW.Tests
             float absurd = float.TryParse(System.Environment.GetEnvironmentVariable("TW_DEATH_ABSURD"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float a) ? a : 1f;
             string wanted = System.Environment.GetEnvironmentVariable("TW_DEATH_SCENES");
             string[] scenes = string.IsNullOrEmpty(wanted) ? AllScenes : wanted.Split(',');
+            // the crush machine drives on 15 m past its row: filmed last, it cannot park in another scene's shot
+            System.Array.Sort(scenes, (p, q) => (p == "crush" ? 1 : 0).CompareTo(q == "crush" ? 1 : 0));
             // quiet: no enemy deploys or attacks, no stray shells (the scenes make their own deaths)
             Host.ScriptedPeer = false; Host.PeerAttacks = false;
             Host.WriteWorlds(m => { var b = m.World.GetSystem<AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
@@ -129,7 +146,11 @@ namespace TW.Tests
                     {
                         bool clear = true;
                         foreach (var u in used) if (Mathf.Abs(u.x - xx) < 20f && Mathf.Abs(u.y - zz) < 24f) clear = false;
-                        if (clear && Open(map, xx, zz, 14f, 5f, 5f)) { x = xx; z = zz; }   // the row's own ground: shooters and the tank may stand across a trench
+                        // the row's own ground (shooters may stand across a trench); the crush machine drives from 15 m short
+                        // of the row, at its middle, so its road must hold nothing it cannot drive through
+                        bool road = scene != "crush" || Road(map, xx + 3f, zz - 18f, zz + 6f);
+                        if (scene == "beam" && xx < 14f) road = false;   // the beam is called 10 m short of the row: on the map
+                        if (clear && road && Open(map, xx, zz, 14f, 5f, 5f)) { x = xx; z = zz; }
                     }
                 if (x < 0f) { TestContext.Out.WriteLine(scene + ": no open ground left"); continue; }
                 used.Add(new Vector2(x, z));

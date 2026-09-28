@@ -115,7 +115,7 @@ namespace TW.Presentation.Tactical
             public readonly List<Debris> Pieces = new List<Debris>();
         }
 
-        sealed class Debris
+        sealed partial class Debris
         {
             public View Owner; public int Part; public Matrix4x4 World;
             public Vector3 Vel, Spin; public bool Resting, Thrown;   // Thrown: a track slid off, put back when it is mended
@@ -355,6 +355,7 @@ namespace TW.Presentation.Tactical
             foreach (int slot in gone) { Wreckify(views[slot], now); views.Remove(slot); }   // missed its VehicleDestroyed: still leave a wreck
             for (int k = wrecks.Count - 1; k >= 0; k--) if (!Smoulder(wrecks[k], dt, now)) Drop(k);
             WreckStagesFrame(dt, now, match);   // the wrecks' stages: chunks with the hit points, shards, cleared heaps (TankRenderer.WreckStages)
+            HopsFrame(now);   // hulls still hopping from an absurd death (TankRenderer.Deaths)
             while (wrecks.Count > MaxWrecks) Drop(0);
             FlyDebris(dt, match);
             RunPops(now);
@@ -957,6 +958,7 @@ namespace TW.Presentation.Tactical
             {
                 d.Burn = Mathf.Max(0f, d.Burn - dt * 0.03f);
                 if (d.Resting) continue;
+                if (d.Roll > 0f) { RollWheel(d, dt); continue; }   // a wheel rolling away (TankRenderer.Deaths)
                 var p = d.Owner.Model.Lods[0].Parts[d.Part];
                 Vector3 pos = d.World.GetColumn(3);
                 Quaternion rot = d.World.rotation;
@@ -969,7 +971,7 @@ namespace TW.Presentation.Tactical
                 {
                     pos.y += ground - bottom;
                     if (d.Vel.y < -2f && books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, new Vector3(centre.x, ground + 0.2f, centre.z), 1.6f, 1.3f, velocity: Vector3.up * 0.5f, grow: 1f, alpha: 0.7f);
-                    d.Vel = new Vector3(d.Vel.x * 0.45f, -d.Vel.y * 0.25f, d.Vel.z * 0.45f);
+                    d.Vel = new Vector3(d.Vel.x * 0.45f, -d.Vel.y * BounceOf(d), d.Vel.z * 0.45f);   // 0.25, or a gag's own for a bounce or two
                     d.Spin *= 0.5f;
                     if (d.Vel.magnitude < 0.6f) { d.Resting = true; d.Vel = Vector3.zero; d.Spin = Vector3.zero; }
                 }
@@ -1006,6 +1008,7 @@ namespace TW.Presentation.Tactical
                     pops.Add(new Pop { Owner = v, At = now + UnityEngine.Random.Range(0.4f, 6f), Offset = new Vector3(UnityEngine.Random.Range(-1.2f, 1.2f), UnityEngine.Random.Range(1.2f, 2.6f), UnityEngine.Random.Range(-1.8f, 1.8f)), Size = UnityEngine.Random.Range(0.6f, 1.4f) });
                 CameraShake.Add(v.Pos, 12f);
             }
+            if (DeathGags.Intensity > 0f) DeathGag(v, now);   // fx.deathAbsurd: the turret leaps, the hull hops, the wheels roll (TankRenderer.Deaths)
             wrecks.Add(v);
         }
 
