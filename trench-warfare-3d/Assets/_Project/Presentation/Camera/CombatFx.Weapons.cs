@@ -56,9 +56,9 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Assault:   // a submachine gun: small quick flares, short quick rounds
                     return Look(0.7f, 0.8f, 0.8f, 0.6f, true, 0.18f, 0.6f, 0.45f);
                 case InfantryArchetype.Machinegunner:   // a long flare, a smoking barrel, a broken stream with every third round bright
-                    return Stream(Look(1.35f, tracerRound ? 1.7f : 0.7f, 1.1f, 1.3f, true, 0.18f, 1f, 1f), round, tracerRound);
-                case InfantryArchetype.Sniper:   // one big flash that hangs, a long white round, a heavy kick of dirt
-                    return Look(2.4f, 1.9f, 1.5f, 1.6f, true, 0.3f, 2.2f, 1.6f);
+                    return Stream(Look(1.35f, tracerRound ? 1.3f : 0.7f, 1.1f, 1.3f, true, 0.18f, 1f, 1f), round, tracerRound);
+                case InfantryArchetype.Sniper:   // one big flash, a thin white-hot needle that lingers, a heavy kick of dirt
+                    return Look(1.7f, 1.3f, 1.5f, 1.6f, true, 0.22f, 2.2f, 1f);
                 case InfantryArchetype.Officer:  // a carbine: a crisp pop, hardly a wisp
                     return Look(1.1f, 0.9f, 0.9f, 0.3f, true, 0.12f, 0.8f, 0.7f);
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit
@@ -67,7 +67,7 @@ namespace TW.Presentation.Tactical
                     return Look(0.5f, 0.8f, 0.8f, 0.6f, true, 0.18f, 0.55f, 0.4f);
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer:
                     // a hull or coaxial machine gun: heavier than a man's, tracer rounds as the MG's, no case in the open
-                    return Stream(Look(1.25f, tracerRound ? 1.8f : 0.8f, 1.2f, 1.1f, false, 0.18f, 1f, 1f), round, tracerRound);
+                    return Stream(Look(1.25f, tracerRound ? 1.4f : 0.8f, 1.2f, 1.1f, false, 0.18f, 1f, 1f), round, tracerRound);
                 default:
                     return ArmsLook.Rifle;   // rifleman, para, repair man, and anything not named
             }
@@ -88,9 +88,17 @@ namespace TW.Presentation.Tactical
         public static float FlareLifeAt(float life, float closeUp, bool classLooks) => classLooks ? life * Mathf.Lerp(1f, 1.45f, closeUp) : life;
         public static float FlareGlow(bool night, float closeUp, bool classLooks) => night ? 3.2f : classLooks ? Mathf.Lerp(1.6f, 2.6f, closeUp) : 1.6f;
 
-        /// <summary>A heavy round keeps its weight up close: TracerLook thins every round to 0.3 among the men, which took a
-        /// 1.9 x sniper's round to a hair; a round over 1 x regains up to twice that.</summary>
-        public static float TracerWidthAt(float width, float closeUp) => width > 1f ? width * Mathf.Lerp(1f, 2f, closeUp) : width;
+        /// <summary>A heavy round keeps a little weight up close (TracerLook thins every round to 0.3 among the men); x2 made a
+        /// sniper's round a lightsaber and the MG's a glass bar (critique lin6), so 1.15.</summary>
+        public static float TracerWidthAt(float width, float closeUp) => width > 1f ? width * Mathf.Lerp(1f, 1.15f, closeUp) : width;
+
+        /// <summary>By day among the men a round's streak is halved: 6 m cream bars read as poles lying on the snow (lin6).</summary>
+        public static float DayStreakAt(bool night, float closeUp, bool classLooks) => night || !classLooks ? 1f : Mathf.Lerp(1f, 0.5f, closeUp);
+
+        /// <summary>By day up close the flare is drawn from the gun-blast fire book, whose soot fringe shows on snow; the additive
+        /// Muzzle card is light added to white and vanished (lin5, lin6). Past this closeness only.</summary>
+        public const float DayFlareCloseUp = 0.3f;
+        public static bool DayFlare(bool night, float closeUp, bool classLooks) => classLooks && !night && closeUp >= DayFlareCloseUp;
 
         // the view once a frame (task: the shot and hit paths read it per event)
         int viewFrame = -1; Camera viewCam; float viewZoom, viewScale = 1f;

@@ -156,7 +156,7 @@ namespace TW.Tests
             Assert.Greater(sniper.Tracer, rifle.Tracer); Assert.Greater(sniper.Flare, rifle.Flare);
             Assert.Less(CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Shield, 10u, 3).Flare, rifle.Flare, "a pistol flares less");
             int bright = 0;
-            for (uint t = 0; t < 30; t++) if (CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7).Tracer > 1.5f) bright++;
+            for (uint t = 0; t < 30; t++) if (CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7).Tracer > 1.2f) bright++;
             Assert.AreEqual(10, bright, "every third machine-gun round a tracer round");
             int flares = 0, puffs = 0;
             for (uint t = 0; t < 30; t++) { var mg = CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7); if (mg.Flared) flares++; if (mg.Smoked) puffs++; }
