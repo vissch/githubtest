@@ -112,6 +112,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   (`CombatTables.RunningTarget`, floor 0.35 past 60 m), a miss at a man on the fire step suppressing him fully, and
   hand grenades (riflemen two, assault men four, thrown at a trench man from 5-22 m, held while a friend is near the
   mark). Each is one constant or one rule to turn; the ratios are the thing to judge in play.
+- **Dead ground (2026-09-29), the agent's choice:** a man more than 10 m behind his own front trench is out of sight of
+  the other side's small arms (the approaches and communication trenches the map does not draw). Without it the
+  machine gun's 170 m covered the other side's whole rear area. The alternative was a shorter machine gun.
 - **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
   Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
   shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).

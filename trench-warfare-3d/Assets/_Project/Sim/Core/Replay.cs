@@ -59,7 +59,9 @@ namespace TW.Sim
         // (CombatTables.RunningTarget), a miss at a man on the fire step suppresses him fully (the parapet), and a man
         // in the open bombs the trench man he fights from 5-22 m (DirectFireSystem, whose hash now folds its per-slot
         // bombs and their generation; SimEventType.GrenadeThrown appended, SourceId.Grenade 2002). Layout unchanged.
-        public const ushort FormatVersion = 19;
+        // v20 (2026-09-29, dead ground): a man on foot in the open more than CombatTables.DeadGroundMetres behind his own
+        // side's front trench is not a target for a shooter on the far side of it (TargetAcquisition). Layout unchanged.
+        public const ushort FormatVersion = 20;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

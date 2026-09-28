@@ -18,6 +18,11 @@
 //    DirectFire then rolls the round against his plate.
 //  - the same scan finds, for a man on foot in the open, the nearest enemy in the open within EngageSystem.HuntRadius,
 //    seen or not: the man he goes after (EngageSystem.Hunt, 2026-09-28). One walk through the grid serves both.
+//  - dead ground (2026-09-29): a man on foot in the open more than CombatTables.DeadGroundMetres behind his own side's
+//    front trench (measured along the field, at his own column: FrontZ) cannot be seen by a shooter on the far side of
+//    that trench. He is on the approaches, which the parapet, the traverses and the communication trenches hide. Before
+//    it a machine gun in a front trench reached 170 m, past the whole of no man's land, and shot the other side's
+//    reinforcements dead between their spawn and their lines (MatchLoopTests): no army ever grew.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -43,6 +48,11 @@ namespace TW.Sim.Combat
         bool lookedForEngage;
         NativeArray<int> noHunt;     // one-cell stand-ins for the job in a match without an EngageSystem
         NativeArray<ushort> noHuntGen;
+        // ---- dead ground (2026-09-29) ----
+        NativeArray<float> trenchColumnZ;   // trench * NavWidth + nav column: the mean z of its cells there (its own mean where it has none)
+        NativeArray<float> frontZ;          // team * NavWidth + column: that team's front trench there, NaN with no front trench
+        readonly short[] frontOf = { -2, -2 };
+        float2 homeSign;                     // per team: +1 when its home end of the field is at the high z, -1 at the low
 
         public TargetAcquisitionSystem(MapData map) { this.map = map; }
 
@@ -58,6 +68,41 @@ namespace TW.Sim.Combat
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
             noHunt = new NativeArray<int>(1, Allocator.Persistent);
             noHuntGen = new NativeArray<ushort>(1, Allocator.Persistent);
+            int wdt = map.NavWidth, nt = map.Trenches.Length;
+            trenchColumnZ = new NativeArray<float>(math.max(1, nt * wdt), Allocator.Persistent);
+            frontZ = new NativeArray<float>(2 * wdt, Allocator.Persistent);
+            for (int k = 0; k < frontZ.Length; k++) frontZ[k] = float.NaN;
+            var sum = new float[wdt]; var cnt = new int[wdt];
+            for (int t = 0; t < nt; t++)
+            {
+                System.Array.Clear(sum, 0, wdt); System.Array.Clear(cnt, 0, wdt);
+                var def = map.Trenches[t];
+                float all = 0f;
+                for (int c = 0; c < def.CellCount; c++)
+                {
+                    int cell = map.TrenchCells[def.CellStart + c];
+                    float z = map.NavCellCenter(cell).z;
+                    sum[cell % wdt] += z; cnt[cell % wdt]++; all += z;
+                }
+                float mean = def.CellCount > 0 ? all / def.CellCount : float.NaN;
+                for (int x = 0; x < wdt; x++) trenchColumnZ[t * wdt + x] = cnt[x] > 0 ? sum[x] / cnt[x] : mean;
+            }
+            float home0 = world.Init.SpawnA.z <= world.Init.SpawnB.z ? -1f : 1f;
+            homeSign = new float2(home0, -home0);
+        }
+
+        /// <summary>Where each team's front trench runs, column by column, for the dead-ground rule. Rewritten only
+        /// when a front moves (a capture).</summary>
+        void UpdateFronts()
+        {
+            int wdt = map.NavWidth;
+            for (int team = 0; team < 2; team++)
+            {
+                short f = fields.FrontTrench((byte)team);
+                if (f == frontOf[team]) continue;
+                frontOf[team] = f;
+                for (int x = 0; x < wdt; x++) frontZ[team * wdt + x] = f >= 0 && f < map.Trenches.Length ? trenchColumnZ[f * wdt + x] : float.NaN;
+            }
         }
 
         public void Step(SimWorld w)
@@ -67,6 +112,7 @@ namespace TW.Sim.Combat
             if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
             if (!lookedForEngage) { engage = w.GetSystem<EngageSystem>(); lookedForEngage = true; }
             bool smokeOn = gas != null && gas.SmokeActive;
+            UpdateFronts();
             new BuildGridJob { Grid = grid, Position = w.Position, Flags = w.Flags, Count = n, GridW = gridW, GridL = gridL }.Run();
             new AcquireJob
             {
@@ -78,6 +124,7 @@ namespace TW.Sim.Combat
                 Height = map.Height,
                 Hunts = engage != null, Hunt = engage != null ? engage.Hunt : noHunt, HuntGen = engage != null ? engage.HuntGen : noHuntGen,
                 Generation = w.Generation,
+                FrontZ = frontZ, HomeSign = homeSign,
             }.Schedule(n, 32).Complete();
         }
 
@@ -105,6 +152,22 @@ namespace TW.Sim.Combat
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct AcquireJob : IJobParallelFor
         {
+            [ReadOnly] public NativeArray<float> FrontZ;   // team * NavWidth + column (dead ground)
+            public float2 HomeSign;
+
+            /// <summary>True when <paramref name="j"/>, on foot in the open, stands more than DeadGroundMetres behind
+            /// his own front trench and a shooter at <paramref name="p"/> is on the far side of it: the approaches hide him.</summary>
+            bool InDeadGround(int j, float3 p)
+            {
+                int team = Team[j] & 1;
+                float3 q = Position[j];
+                int col = math.clamp((int)(q.x / MapData.NavCellSize), 0, NavWidth - 1);
+                float fz = FrontZ[team * NavWidth + col];
+                if (math.isnan(fz)) return false;
+                float s = team == 0 ? HomeSign.x : HomeSign.y;
+                return (q.z - fz) * s > CombatTables.DeadGroundMetres && (p.z - fz) * s < 0f;
+            }
+
             [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
             public int GridW, GridL, NavWidth, NavLength;
             public uint Tick;
@@ -198,6 +261,7 @@ namespace TW.Sim.Combat
                     if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0) return false;
                     return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 }
+                if ((fj & (uint)UnitFlags.InTrench) == 0 && TrenchId[j] < 0 && InDeadGround(j, p)) return false;
                 if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
                     short theirs = TrenchAt(Position[j]);
@@ -312,6 +376,8 @@ namespace TW.Sim.Combat
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (noHunt.IsCreated) noHunt.Dispose();
             if (noHuntGen.IsCreated) noHuntGen.Dispose();
+            if (trenchColumnZ.IsCreated) trenchColumnZ.Dispose();
+            if (frontZ.IsCreated) frontZ.Dispose();
         }
     }
 }

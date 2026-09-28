@@ -146,11 +146,11 @@ namespace TW.Tests
             return r;
         }
 
-        /// <summary>Four seeds of one rung: how many took the trench, and the share of the garrison it cost.</summary>
-        static (int taken, float bled, string said) Rung4(int ratio, Support support)
+        /// <summary>Some seeds of one rung: how many took the trench, and the share of the garrison it cost.</summary>
+        static (int taken, float bled, string said) Rung4(int ratio, Support support, uint seeds = 4)
         {
             int taken = 0, lost = 0, held = 0; var sb = new StringBuilder();
-            for (uint s = 0; s < 4; s++)
+            for (uint s = 0; s < seeds; s++)
             {
                 var r = Run(10 * ratio, 10, support, 0xA55A0000u + s);
                 if (r.Taken) taken++;
@@ -174,9 +174,11 @@ namespace TW.Tests
         [Test]
         public void ABareAttackAtTwoToOne_IsBeatenOff_ButBleedsTheGarrison()
         {
-            var (taken, bled, said) = Rung4(2, Support.None);
-            Assert.LessOrEqual(taken, 2, said);
-            Assert.GreaterOrEqual(bled, 0.2f, "the next wave finds a thinner line: " + said);
+            // eight seeds: the rung sits on the edge (one seed where eight men got in used to decide it), so four were
+            // noise; measured 2026-09-29 with dead ground, 1 of 8 taken and the garrison 22 % down (38 % without it)
+            var (taken, bled, said) = Rung4(2, Support.None, 8);
+            Assert.LessOrEqual(taken, 3, said);
+            Assert.GreaterOrEqual(bled, 0.15f, "the next wave finds a thinner line: " + said);
         }
 
         [Test]

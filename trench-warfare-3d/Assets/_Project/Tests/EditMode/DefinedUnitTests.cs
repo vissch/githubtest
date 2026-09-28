@@ -120,9 +120,11 @@ namespace TW.Tests
             Assert.Greater(math.distance(m.World.Position[sk], start), 5f, "it drives off towards the enemy");
 
             using var m2 = NewMatch();
-            int gun = Spawn(m2, 1, VehicleArchetype.Skimmer, new float3(30f, 0f, 200f), 0f);
+            // the men out in no man's land, 19 m in front of their front trench (z 141): behind it they would be in dead
+            // ground (TargetAcquisition, 2026-09-29), where nothing on this side of it sees them
+            int gun = Spawn(m2, 1, VehicleArchetype.Skimmer, new float3(30f, 0f, 240f), 0f);
             var men = new List<int>();
-            for (int k = 0; k < 4; k++) men.Add(m2.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 120f), 100f, 0f, false));
+            for (int k = 0; k < 4; k++) men.Add(m2.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 160f), 100f, 0f, false));
             Run(m2, 400);
             int hurt = 0;
             foreach (int i in men) if (!m2.World.IsAlive(i) || m2.World.Hp[i] < 100f) hurt++;

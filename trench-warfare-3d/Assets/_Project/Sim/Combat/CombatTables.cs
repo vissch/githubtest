@@ -32,6 +32,7 @@ namespace TW.Sim.Combat
         public const float RunningTargetFar = 60f;       // metres: from here on the whole penalty
         public const float RunningTargetFloor = 0.35f;   // the share of the chance left at RunningTargetFar and beyond
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
+        public const float DeadGroundMetres = 10f;       // a man this far behind his own front trench is out of the far side's sight (TargetAcquisition)
         // ---- the bomb (2026-09-28): how a trench was cleared. A man in the open who has come within GrenadeRange of the
         // trench man he is fighting throws one instead of firing: it goes off where it lands (BlastSystem, so the bay
         // still saves a man some of it), and he holds it when a friend stands within GrenadeFriend of the mark. A rifle
