@@ -40,5 +40,16 @@ namespace TW.Presentation.Tactical
             if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine (5): their own looks come later (L14, L19, L24)
             return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Lean = lean > 0f, Ring = radius >= RingRadius };
         }
+
+        public const float BloodSnipeDamage = 60f;   // a hit this hard (the sniper's 95, not a rifle's 22-30) sprays the heavy sheet
+        public const float BloodFarZoom = 120f;      // past this (the overview) no blood (decisions.md: far zoom shows none)
+
+        /// <summary>The blood card a man struck gets in place of the dust off his coat (owner, 2026-09-28: "we need blood"),
+        /// or null: not with fx.recipes 0, GORE 0, a ricochet (damage <= 0) or from the overview.</summary>
+        public static FlipbookFx.Book? BloodFor(float damage, float gore, float zoom, float recipes)
+        {
+            if (recipes < 0.5f || gore <= 0f || damage <= 0f || zoom >= BloodFarZoom) return null;
+            return damage >= BloodSnipeDamage ? FlipbookFx.Book.BloodSnipe : FlipbookFx.Book.BloodSpurt;
+        }
     }
 }
