@@ -81,9 +81,18 @@ BOOKS = {
     "MortarBurst": ("green_ground_explosion_8x4_12fps_30f.png",  "light", False, (7, 27)),   # from the impact spike on
     "ShellFall":   ("green_ground_explosion_8x4_12fps_30f.png",  "light", False, (0, 7)),    # the falling shell only
     "LeanBurst":   ("purple_ground_explosion_8x4_12fps_28f.png", "light", False, None),      # prototype for ShellLean
+    # VFX pass wave 1, new sheets (desktop H3 / re-cuts, owner's montage OK 2026-09-28; published as tw_*)
+    "FireCookOff": ("tw_cookoff_fireball_8x4_12fps_32f.png",      "luma",  False, (2, 30)),   # a hull cooking off; frames 0, 31 empty
+    "FireTall":    ("tw_fire_tall_8x4_12fps_32f_loop.png",        "luma",  False, (0, 23)),   # trees and posts burning; two flicker periods
+    "FireGunBlast":("tw_gun_blast_8x4_12fps_32f.png",             "luma",  True,  (0, 12)),   # the first burst only (the drawing fires twice)
+    "Smoulder":    ("tw_crater_smoulder_8x4_12fps_32f_loop.png",  "luma",  False, None),      # a crater smouldering (seam crossfaded)
+    "GroundRing":  ("tw_ground_ring_8x4_12fps_32f.png",           "luma",  False, None),      # the shock ring, seen from above
+    "DustPuff":    ("tw_dust_puff_8x4_12fps_32f.png",             "luma",  False, (2, 29)),   # hits and landings; frames 0-1 a stray cap
+    "ShellPlume":  ("tw_shell_plume_8x4_12fps_32f.png",           "luma",  False, (4, 26)),   # the smoke a burst leaves; no flash frames
 }
 FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26,
-             "GasBank": 30, "GasVent": 32, "SmokeBank": 32, "MortarBurst": 30, "ShellFall": 30, "LeanBurst": 28}
+             "GasBank": 30, "GasVent": 32, "SmokeBank": 32, "MortarBurst": 30, "ShellFall": 30, "LeanBurst": 28,
+             "FireCookOff": 32, "FireTall": 32, "FireGunBlast": 32, "Smoulder": 32, "GroundRing": 32, "DustPuff": 32, "ShellPlume": 32}
 # FireBall's band split, measured in round 2: the shader's default _Bands and the levels its Sheet row uses
 FIREBALL_BANDS = (0.12, 0.40, 0.86)
 FIREBALL_LEVELS = (0.16, 0.86)
