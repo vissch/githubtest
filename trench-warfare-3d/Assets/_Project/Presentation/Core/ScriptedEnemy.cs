@@ -44,6 +44,10 @@ namespace TW.Presentation
         /// (default) = the preset as it was: the benchmark baselines stay comparable, and spread wipes the enemy out
         /// mid-window at 1,500 a side (knob stress.spread=1 turns it on).</summary>
         public bool StressSpread = false;
+        /// <summary>Stress preset, the VFX pass (2026-09-28): every second man from the side's other armed classes in turn (MG,
+        /// sniper, assault, officer, shield, jetpack ... whatever its faction fields), so a bench or a census sees each class
+        /// fire. false (default) = riflemen only, the preset as it was (knob stress.mix=1 turns it on).</summary>
+        public bool StressMix = false;
 
         struct Stress
         {
@@ -90,6 +94,29 @@ namespace TW.Presentation
             for (int s = 0; s < RosterEntry.SlotCount; s++)
                 if (Armed(pw, s) && want-- == 0) return s;
             return -1;
+        }
+
+        /// <summary>StressMix: the n-th man of `side`'s stress army - slot 0 for every even one, and for the odd ones the side's
+        /// armed classes other than slot 0's in turn (0 if it fields no other).</summary>
+        static int MixSlot(SimWorld w, byte side, int n)
+        {
+            if ((n & 1) == 0) return 0;
+            int count = 0;
+            for (int s = 1; s < RosterEntry.SlotCount; s++) if (ArmedOf(w, side, s)) count++;
+            if (count == 0) return 0;
+            int want = (n >> 1) % count;
+            for (int s = 1; s < RosterEntry.SlotCount; s++)
+                if (ArmedOf(w, side, s) && want-- == 0) return s;
+            return 0;
+        }
+
+        /// <summary>A foot soldier in `side`'s roster slot who can shoot, and is not a rifleman as slot 0 is.</summary>
+        static bool ArmedOf(SimWorld w, byte side, int slot)
+        {
+            var e = w.Roster[side * RosterEntry.SlotCount + slot];
+            if (e.IsVehicle || w.SlotUnlocked[side * RosterEntry.SlotCount + slot] == 0) return false;
+            return e.Archetype != InfantryArchetype.Medic && e.Archetype != InfantryArchetype.Repair
+                && e.Archetype != InfantryArchetype.Para && e.Archetype != InfantryArchetype.Rifle;
         }
 
         /// <summary>A foot soldier of the enemy's roster who can actually shoot back.</summary>
@@ -180,7 +207,7 @@ namespace TW.Presentation
             s.LastTick = t;
             if (s.Deployed < StressUnits)
             {
-                for (int k = 0; k < 4 && s.Deployed < StressUnits; k++, s.Deployed++) seat.Issue(SimCommand.Deploy(t, side, 0));
+                for (int k = 0; k < 4 && s.Deployed < StressUnits; k++, s.Deployed++) seat.Issue(SimCommand.Deploy(t, side, StressMix ? MixSlot(world.World, side, s.Deployed) : 0));
                 s.AdvanceTick = t + (uint)StressAdvanceDelayTicks;
             }
             else if (!s.Advanced && t >= s.AdvanceTick)
