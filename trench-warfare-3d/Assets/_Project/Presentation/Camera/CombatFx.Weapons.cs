@@ -19,39 +19,55 @@ namespace TW.Presentation.Tactical
         public static float ReadClassArms() => Mathf.Clamp01(Knobs.Get(ClassArmsKnob, 1f));
 
         /// <summary>How a class's small arms draw, as multiples of the rifle's: the muzzle flare's size, the tracer's width (1 = the
-        /// usual round), the dirt spurt's size, the muzzle smoke's size, and whether a case flies from the breech.</summary>
+        /// usual round), the dirt spurt's size, the muzzle smoke's size, and whether a case flies from the breech. FlareLife is the
+        /// flare card's life (s); Flared and Smoked say whether THIS round draws its flare card and its smoke puff at all.</summary>
         public struct ArmsLook
         {
-            public float Flare, Tracer, Spurt, Smoke; public bool Case;
-            public static readonly ArmsLook Rifle = new ArmsLook { Flare = 1f, Tracer = 1f, Spurt = 1f, Smoke = 1f, Case = true };
+            public float Flare, Tracer, Spurt, Smoke, FlareLife; public bool Case, Flared, Smoked;
+            public static readonly ArmsLook Rifle = new ArmsLook { Flare = 1f, Tracer = 1f, Spurt = 1f, Smoke = 1f, FlareLife = 0.18f, Case = true, Flared = true, Smoked = true };
+        }
+
+        /// <summary>A machine gun's stream (the census: 72 % of every shot in a mixed battle, 7 rounds a second a gun). A flare
+        /// card of 0.18 s and a smoke puff of 1.1-1.9 s for every round kept about ten puffs alive a gunner and filled the chunk
+        /// pool (420) in a firefight; the flare lives 0.3 s on every second round and one bigger puff on every third, which
+        /// reads as the same burning muzzle and the same hanging smoke for half and a third of the cards.</summary>
+        static ArmsLook Stream(ArmsLook look, uint round)
+        {
+            look.Flared = (round & 1u) == 0u; look.FlareLife = 0.3f;
+            look.Smoked = round % 3u == 0u; look.Smoke *= 1.45f;
+            return look;
         }
 
         /// <summary>The look of a shot by the shooter's class. Every third round of a machine gun is a tracer round, drawn
         /// heavier (by the tick and the gunner, so the same round every run).</summary>
         public static ArmsLook ArmsFor(byte archetype, uint tick, int shooter)
         {
-            bool tracerRound = ((tick + (uint)shooter) % 3u) == 0u;
+            uint round = tick + (uint)shooter;
+            bool tracerRound = round % 3u == 0u;
             switch (archetype)
             {
                 case InfantryArchetype.Assault:   // a submachine gun: small quick flares, light rounds
-                    return new ArmsLook { Flare = 0.7f, Tracer = 0.8f, Spurt = 0.8f, Smoke = 0.6f, Case = true };
+                    return Look(0.7f, 0.8f, 0.8f, 0.6f, true);
                 case InfantryArchetype.Machinegunner:   // a long flare, a smoking barrel, a stream with every third round bright
-                    return new ArmsLook { Flare = 1.35f, Tracer = tracerRound ? 1.7f : 0.9f, Spurt = 1.1f, Smoke = 1.3f, Case = true };
+                    return Stream(Look(1.35f, tracerRound ? 1.7f : 0.9f, 1.1f, 1.3f, true), round);
                 case InfantryArchetype.Sniper:   // one big flash, a long bright round, a heavy kick of dirt
-                    return new ArmsLook { Flare = 1.6f, Tracer = 1.9f, Spurt = 1.5f, Smoke = 1.6f, Case = true };
+                    return Look(1.6f, 1.9f, 1.5f, 1.6f, true);
                 case InfantryArchetype.Officer:  // a carbine
-                    return new ArmsLook { Flare = 0.85f, Tracer = 0.9f, Spurt = 0.9f, Smoke = 0.8f, Case = true };
+                    return Look(0.85f, 0.9f, 0.9f, 0.8f, true);
                 case InfantryArchetype.Shield:   // a pistol behind the plate
-                    return new ArmsLook { Flare = 0.6f, Tracer = 0.7f, Spurt = 0.7f, Smoke = 0.5f, Case = true };
+                    return Look(0.6f, 0.7f, 0.7f, 0.5f, true);
                 case InfantryArchetype.Jetpack:  // a machine pistol
-                    return new ArmsLook { Flare = 0.75f, Tracer = 0.8f, Spurt = 0.8f, Smoke = 0.6f, Case = true };
+                    return Look(0.75f, 0.8f, 0.8f, 0.6f, true);
                 case VehicleArchetype.Maw: case VehicleArchetype.Tusk: case VehicleArchetype.Breaker: case VehicleArchetype.Skimmer:
                     // a hull or coaxial machine gun: heavier than a man's, tracer rounds as the MG's, no case in the open
-                    return new ArmsLook { Flare = 1.25f, Tracer = tracerRound ? 1.8f : 1.0f, Spurt = 1.2f, Smoke = 1.1f, Case = false };
+                    return Stream(Look(1.25f, tracerRound ? 1.8f : 1.0f, 1.2f, 1.1f, false), round);
                 default:
                     return ArmsLook.Rifle;   // rifleman, para, repair man, and anything not named
             }
         }
+
+        static ArmsLook Look(float flare, float tracer, float spurt, float smoke, bool brass) =>
+            new ArmsLook { Flare = flare, Tracer = tracer, Spurt = spurt, Smoke = smoke, FlareLife = 0.18f, Case = brass, Flared = true, Smoked = true };
 
         ArmsLook ArmsNow(SimWorld w, SimEvent e) =>
             classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? ArmsFor(w.Archetype[e.A], e.Tick, e.A) : ArmsLook.Rifle;

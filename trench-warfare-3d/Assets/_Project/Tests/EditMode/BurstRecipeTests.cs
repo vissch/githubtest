@@ -158,6 +158,10 @@ namespace TW.Tests
             int bright = 0;
             for (uint t = 0; t < 30; t++) if (CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7).Tracer > 1.5f) bright++;
             Assert.AreEqual(10, bright, "every third machine-gun round a tracer round");
+            int flares = 0, puffs = 0;
+            for (uint t = 0; t < 30; t++) { var mg = CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7); if (mg.Flared) flares++; if (mg.Smoked) puffs++; }
+            Assert.AreEqual(15, flares, "a machine gun's flare card on every second round"); Assert.AreEqual(10, puffs, "and a smoke puff on every third");
+            Assert.IsTrue(rifle.Flared && rifle.Smoked && rifle.FlareLife == 0.18f, "a rifle: every round as before");
             Assert.IsFalse(CombatFx.ArmsFor(TW.Sim.VehicleArchetype.Maw, 10u, 3).Case, "no case out of a hull gun");
             Assert.AreEqual(1f, CombatFx.ReadClassArms(), "on by default");
         }
