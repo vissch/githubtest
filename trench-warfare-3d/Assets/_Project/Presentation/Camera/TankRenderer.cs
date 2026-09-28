@@ -112,6 +112,7 @@ namespace TW.Presentation.Tactical
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
+            public float NextMend;                 // L16 (fx.recipes): the next engineer's sparks card on this hull
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
             public readonly List<Debris> Pieces = new List<Debris>();
@@ -1350,10 +1351,45 @@ namespace TW.Presentation.Tactical
                     { Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 1.0f; Scrap(at, 4, 6f, 0.28f, 0.4f, 40f, default, e.Tick + (uint)e.B); }   // the joint's plates and pins
                     break;
                 case SimEventType.VehicleRepaired:
-                    if (v != null && books != null && books.Ready) books.Add(FlipbookFx.Book.Star, v.Pos + Vector3.up * (v.Heave.Value + 1.2f), 0.8f, 0.2f, glow: 1.5f);
+                    if (v == null || books == null || !books.Ready) break;
+                    if (recipes >= 0.5f)
+                    {
+                        // L16 (fx.recipes): the part comes good: a bigger glint on the deck and the dust shaken off it
+                        Vector3 deck = v.Pos + Vector3.up * (v.Heave.Value + (v.Model != null ? v.Model.Height : 1.2f));
+                        books.Add(FlipbookFx.Book.Star, deck, 1.6f, 0.3f, glow: SceneMood.Night ? 2.2f : 1.5f);
+                        books.Add(FlipbookFx.Book.DustPuff, deck, 2.4f, 1.2f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.4f, alpha: 0.5f);
+                    }
+                    else books.Add(FlipbookFx.Book.Star, v.Pos + Vector3.up * (v.Heave.Value + 1.2f), 0.8f, 0.2f, glow: 1.5f);
+                    break;
+                case SimEventType.VehicleHullMended:
+                    Mended(v, e);
                     break;
             }
         }
+
+        /// <summary>
+        /// L16 (fx.recipes): an engineer at work on a hull (VehicleHullMended, every SupportEvery ticks while he mends): the
+        /// MendSparks loop at the point of the hull nearest him, a card every 0.4 s at most, each taking up the loop where the
+        /// last left it so the sparks run on unbroken. No random draws (the shared stream is the recipes A/B's fairness).
+        /// </summary>
+        void Mended(View v, SimEvent e)
+        {
+            if (recipes < 0.5f || v == null || v.Dead || v.Model == null || books == null || !books.Ready) return;
+            float now = Time.time;
+            if (now < v.NextMend) return;
+            v.NextMend = now + MendEvery;
+            var w = Host.Local.World;
+            if (e.B < 0 || e.B >= w.HighWater) return;
+            Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);
+            Vector3 off = (Vector3)w.Position[e.B] - v.Pos; off.y = 0f;
+            float along = Mathf.Clamp(Vector3.Dot(off, fwd), -v.Model.HalfLength, v.Model.HalfLength);
+            float side = Mathf.Clamp(Vector3.Dot(off, right), -v.Model.HalfGauge - 0.2f, v.Model.HalfGauge + 0.2f);
+            Vector3 at = v.Pos + fwd * along + right * side + Vector3.up * (v.Heave.Value + v.Model.Height * 0.55f);
+            books.Add(FlipbookFx.Book.MendSparks, at, MendWidth, MendEvery + 0.1f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 2f : 1.3f, startFrame: Mathf.Repeat(now * 12f, 32f));
+            books.Add(FlipbookFx.Book.Star, at, 0.6f, 0.12f, glow: SceneMood.Night ? 2.4f : 1.4f);
+        }
+
+        const float MendEvery = 0.4f, MendWidth = 1.2f;
 
         /// <summary>
         /// A burst near a hull rocks it on its springs and lifts it (the sim only damages it; the push is ours): tipped away
