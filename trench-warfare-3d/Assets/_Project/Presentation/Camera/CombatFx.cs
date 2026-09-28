@@ -548,7 +548,7 @@ namespace TW.Presentation.Tactical
                         // or from the overview (FxQuality.FlareKept); its draws above are taken either way
                         bool flared = arms.Flared && FxQuality.FlareKept(q, CameraShake.DistanceToLook(from), zoom, e.Tick + (uint)e.A);
                         if (flared)
-                            books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            books.Add(DayFlare(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) ? FlipbookFx.Book.GunBlast : FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                 velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow, delay: delay);
                         // among the men, the weapon's own drawing (CombatFx.Close.cs): a sniper's brake, an MG's star, an SMG's flicker
                         if (e.A >= 0 && e.A < w.Archetype.Length)
@@ -986,6 +986,7 @@ namespace TW.Presentation.Tactical
             float now = Time.time;
             Prune(tracers, now, static (t, at) => at - t.Born > t.Life);   // each round its own time on screen (CombatFx.Weapons.cs)
             bool night = SceneMood.Night;
+            float dayStreak = DayStreakAt(night, SceneHooks.CloseUp, classArms > 0f);
             if (tintEpoch != SceneTints.Epoch) ApplyTints();
             // night: three layers a tracer. side 0 / 1 = a wide additive halo in the side's colour, side 2 = the white-hot streak.
             for (int side = 0; side < (night ? 3 : 1); side++)
@@ -1006,6 +1007,7 @@ namespace TW.Presentation.Tactical
                 // a heavier round is thicker (and keeps it up close); a class's round longer or shorter, never past its target
                 float thick = t.Width > 0f ? (classArms > 0f ? TracerWidthAt(t.Width, SceneHooks.CloseUp) : t.Width) : 1f;
                 float streak = t.Streak <= 0f || t.Streak == 1f ? 1f : t.Streak < 1f ? t.Streak : Mathf.Min(t.Streak, Mathf.Max(1f, len / (night ? 10f : 6f)));
+                if (t.Streak > 0f) streak *= dayStreak;   // a man's round, by day up close: shorter (the strafe's and the guns' as they were)
                 batch.Add(thick != 1f || streak != 1f ? tm * Matrix4x4.Scale(new Vector3(thick, thick, streak)) : tm);
                 if (batch.Count == 1023) Flush(cube, rpT);
             }

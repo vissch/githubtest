@@ -14,6 +14,11 @@ look that exists now; these three need sim units or events first, and SHOW will 
 3. **A flamethrower unit.** The show side is built (`Presentation/Camera/Flamethrower.cs`: jet, pools, torches, pyres),
    driven today only by the debug TestPanel. Wanted: the unit, its stream as events (start/stop, aim, reach) and
    `BlastShape.Incendiary` for its fireball (declared, no producer).
+4. **Flight time for the indirect guns** (added 2026-09-29). The Kettle's mortar and the Salvo's rockets burst the tick
+   after `VehicleFired` (TankGunnery adds the Impact at once), so the picture's arc onto the burst has to be over in 0.16 s,
+   and from the tactical camera a 0.16 s arc along the depth axis reads as a vertical line (critique lin6). Wanted: the
+   Impact queued N ticks after the shot (about 0.5 s for the Kettle, 0.35 s for the Salvo), with the flight seconds on
+   `VehicleFired` (its `Scalar` is AP/HE today; a new field or event is fine). SHOW then flies a visible shell or rocket.
 
 Nothing here is urgent for SHOW's current work (small arms per class, mortar arc, rockets, tank calibres, mines, the bundle
 drawn as a thrown grenade). Reply with a note to `show-pipe-vfx` when any of these lands, with the event fields. Delete this
