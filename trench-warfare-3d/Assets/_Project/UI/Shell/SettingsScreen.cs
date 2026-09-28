@@ -18,7 +18,7 @@ namespace TW.UI
         {
             "settings-plate", "tabs", "tab-controls", "tab-video", "tab-audio", "tab-interface", "pages", "page-controls", "page-video", "page-audio", "page-interface",
             "controls-list", "slider-pan-speed", "toggle-edge-scroll", "slider-zoom-min", "slider-zoom-max", "slider-shake", "slider-gore", "btn-controls-defaults",
-            "dropdown-resolution", "dropdown-fullscreen", "toggle-vsync", "dropdown-quality",
+            "dropdown-resolution", "dropdown-fullscreen", "toggle-vsync", "dropdown-quality", "dropdown-effects",
             "slider-master", "slider-ambience", "slider-sfx", "slider-music", "audio-note",
             "slider-ui-scale", "toggle-tooltips", "toggle-round-radar",
             "btn-apply", "btn-defaults", "btn-back",
@@ -195,6 +195,15 @@ namespace TW.UI
                 q.choices = names;
                 q.index = Mathf.Clamp(draft.Video.QualityLevel >= 0 ? draft.Video.QualityLevel : QualitySettings.GetQualityLevel(), 0, Mathf.Max(0, names.Count - 1));
                 q.RegisterValueChangedCallback(_ => draft.Video.QualityLevel = q.index);
+            }
+            var fx = Root.Q<DropdownField>("dropdown-effects");
+            if (fx != null)
+            {
+                // AUTO (follow the quality level), then FxQuality's tiers in order: the index is the setting + 1
+                var names = new List<string> { FxQuality.AutoName }; names.AddRange(FxQuality.Names);
+                fx.choices = names;
+                fx.index = Mathf.Clamp(draft.Video.Effects + 1, 0, names.Count - 1);
+                fx.RegisterValueChangedCallback(_ => draft.Video.Effects = fx.index - 1);
             }
         }
 

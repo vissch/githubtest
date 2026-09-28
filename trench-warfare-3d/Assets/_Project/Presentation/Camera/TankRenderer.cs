@@ -1235,7 +1235,8 @@ namespace TW.Presentation.Tactical
                         if (e.A < world.HighWater && !gun.Arc) Fx()?.AddTracer(muzzle, (Vector3)e.Pos, team, gun.Tracer);
                     }
                     else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f * gun.Blast / GunLook.Old.Blast, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
-                    if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer);   // an indirect round goes up and over
+                    if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer, v.Archetype == VehicleArchetype.Salvo, e.Tick * 7u + (uint)e.A);   // an indirect round goes up and over; a Salvo's ripple
+                    if (classGuns) GunExtras(v.Archetype, muzzle, dir, gun.Blast);   // near the eye, the gun's own piece (TankRenderer.Guns.cs)
                     books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
                     for (int k = 0; k < 3; k++)
                         books.Add(FlipbookFx.Book.Smoke, muzzle + dir * (0.6f + k * 0.7f), (1.2f + k * 0.4f) * gun.Smoke, 2.5f + k * 0.5f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,

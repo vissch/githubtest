@@ -27,6 +27,7 @@ namespace TW.UI
             if (s.Video.QualityLevel >= 0 && s.Video.QualityLevel < QualitySettings.names.Length && QualitySettings.GetQualityLevel() != s.Video.QualityLevel)
                 QualitySettings.SetQualityLevel(s.Video.QualityLevel, true);
             QualitySettings.vSyncCount = s.Video.VSync ? 1 : 0;   // after the quality level: levels carry their own vSync
+            ApplyEffects(s);   // after the quality level too: AUTO follows it
             if (Application.isEditor) return;
             int w = s.Video.Width > 0 ? s.Video.Width : Screen.currentResolution.width;
             int h = s.Video.Height > 0 ? s.Video.Height : Screen.currentResolution.height;
@@ -40,7 +41,11 @@ namespace TW.UI
         /// the owner plays — left AudioListener.volume at 1 and ignored the player's levels entirely.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        static void ApplyAudioOnLaunch() => ApplyAudio(SettingsStore.Load());
+        static void ApplyAudioOnLaunch() { var s = SettingsStore.Load(); ApplyAudio(s); ApplyEffects(s); }
+
+        /// <summary>The effects' tier (FxQuality): the player's EFFECTS DETAIL, or AUTO from the quality level; the knob
+        /// fx.quality wins over both. Scene-independent, so it is put into force at launch with the audio.</summary>
+        public static void ApplyEffects(GameSettings s) => FxQuality.Apply(s.Video.Effects);
 
         public static void ApplyAudio(GameSettings s)
         {
