@@ -767,3 +767,40 @@ zoom 60) scales every burst's count, so a barrage seen from far out throws pixel
 `BattlefieldProps.Submit` and the loose pieces' draws go through `FrameBudget.Draw` like every other submission, so
 the counts it reports include the lining. Not yet: the three-minute-barrage bench with the before/after counts (an
 editor session).
+
+## A wreck breaks in stages, then it is gone (2026-09-28, owner)
+
+A dead machine's wreck used to lie on the field for good: a prop with no hit points that blocked its cell and gave
+half cover to the men behind it. Now it wears down like a tree, a stage at a time, and each stage changes the game
+(`Sim/Terrain/PropDef.cs`, `PropRules`):
+
+| Stage | Cover | Blocks | Hit points at size 1 |
+|---|---|---|---|
+| `Wreck` | 50 % | yes | 600 |
+| `BrokenWreck` | 35 % | yes | 450 |
+| `Scrap` | 15 % | no | 250 |
+| `Cleared` | none | no | none (the prop keeps its index: indices never move) |
+
+A wreck's size is its machine's (`PropDef.Scale` = `PropRules.WreckSize`, the hull's hit points in the match's unit
+table over 2400, 0.6 to 1.5): a Maw's wreck has 900, a Skimmer's 360, the map generator's own 600. The size carries
+into every stage. What the wreck was worth stays on its `WreckRecord` whatever happens to the prop (the owner kept
+salvage out of it).
+
+Four things wear it, all through one routine, `Sim/Terrain/PropHarm.cs`: hit points off; while any are left the stage
+stands and `PropWorn` says so (b 0 a blast, 1 wear; the share left); at none, one stage on (`PropChanged`) with the
+next stage's hit points, however hard the hit. Nothing skips a stage.
+
+- **Blasts** (`DeformationSystem.Shake`): measured from `WreckBlastReach` (2 m x size) off the wreck's middle, so a
+  burst on its deck is on it. A cook-off's own burst spares the wreck it made the tick before.
+- **Machines** (`VehicleKinematics.Wrecks`): a heavy machine (`PushesTrees`) grinds a wreck or broken wreck its hull
+  meets while it moves or pushes against it (75 a second); any machine flattens scrap it drives over (150 a second).
+  Applied every 10 ticks a machine, ten ticks' worth; a parked machine wears nothing; ramming costs it nothing.
+- **Machine guns** (`DirectFire.Wrecks`): a round the cover of a wreck stopped (the one roll already drawn: a miss that
+  would have hit with no cover) wears that wreck by the wreck's share of the man's cover. Rifles do not, and trees
+  never wear under gunfire. Nothing more is drawn, so a field with no wreck plays exactly as before.
+- **Guns turning on a wreck** that shelters enemies (the owner's "automatic only"): not built yet.
+
+Replay versions: v16 the kinds and the event (the seam), v17 blasts, v18 machines, v19 machine guns.
+Tests: `WreckDecayTests` (every stage with its cover and block, sizes, the cook-off, the record outliving its wreck,
+generated wrecks, a barrage and a Maw grinding through two sims in lockstep, the Tusk that does not grind, scrap
+flattened, a parked Maw, a machine gun that wears it and a rifle and a tree that do not).
