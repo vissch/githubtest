@@ -35,6 +35,8 @@ namespace TW.Presentation
         public byte[] LoadoutA, LoadoutB;
         public int StartingSilver = 300;
         public float SilverPerSecond = 2f;
+        [Tooltip("The Proving Ground: holding every objective names no winner (SimConfig.Endless).")]
+        public bool Endless = false;
         [Tooltip("Sim time multiplier for testing: 0 pauses, 1 is real time. Both sims step together, so it never affects determinism.")]
         public float TimeScale = 1f;
         [Tooltip("Two trench lines a side and 200 m of no man's land. Off = the 800 m M1 corridor.")]
@@ -133,6 +135,7 @@ namespace TW.Presentation
             cfg.Seed = Seed;
             cfg.StartingSilver = StressUnits > 0 ? StressUnits * 25 : StartingSilver;
             cfg.SilverPerSecond = SilverPerSecond;
+            cfg.Endless = Endless;
             cfg.FactionA = FactionA; cfg.FactionB = FactionB;
             cfg.LoadoutA = Loadout(LoadoutA); cfg.LoadoutB = Loadout(LoadoutB);
             bool canary = CanaryOverride ?? (DeterminismCanary || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twCanary") >= 0);
@@ -206,6 +209,9 @@ namespace TW.Presentation
 
         /// <summary>Test panel only: queue a command as the enemy seat (player 1), so the greybox can stage an enemy assault.</summary>
         public void IssuePeer(SimCommand c) => session.Enemy.Issue(c);
+
+        /// <summary>The enemy's seat as something to issue to (the Proving Ground's waves deploy through it).</summary>
+        public ICommandSink EnemySeat => session?.Enemy;
 
         /// <summary>Reload the active scene: fresh sims, same seed.</summary>
         public void Restart() => UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.buildIndex >= 0 ? gameObject.scene.buildIndex : 0);
