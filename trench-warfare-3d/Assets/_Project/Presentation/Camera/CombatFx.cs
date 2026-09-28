@@ -776,12 +776,13 @@ namespace TW.Presentation.Tactical
                         // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
                         // reads where a shell landed; the old parts are not grown (fx.recipes 0 draws exactly as before)
                         float far = recipe.Plume || recipe.Ring || recipe.Curtain ? FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f) : 1f;
-                        if (recipe.Ring && (!wet || melt)) SmoulderCrater(p, r, far);   // L23: 30 % of heavy dry bursts leave the crater smouldering
+                        if (recipe.Ring && !recipe.Dust && (!wet || melt)) SmoulderCrater(p, r, far);   // L23: 30 % of heavy dry bursts leave the crater smouldering
                         if (recipe.Curtain)
                         {
                             // L04: each shell of a lift stands a smoke mound; four in a 20 m row are a wall, and each lift's wall stands
                             // 8 s, so the last lift's still hangs as the next lands 6 m on: a curtain walking ahead of the men. x FarGrow
-                            // so the overview still reads a moving band; gone up close (it would fill the lens)
+                            // so the overview still reads a moving band; thinned up close (it would fill the lens); the mound grows for 1.75 s
+                            // and stands grown (SmokeBank does not loop)
                             books.Add(FlipbookFx.Book.SmokeBank, p - Vector3.up * 0.2f, 7f * far, 8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.65f * (1f - 0.7f * closeUp), delay: 0.3f);
                         }
                         if (recipe.Ring)
