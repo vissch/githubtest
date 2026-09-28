@@ -299,9 +299,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   fires, the endless match, the same on two worlds), DefinedUnitTests (the
   Skimmer's and Salvo's numbers, that no faction fields them, that each drives and fights, that each rocket bursts on
   the tick and at the point its event named and not before, the same every run and in the canary).
-- **See it:** in Play, **TW > Unit Sandbox** (`Editor/UnitSandbox.cs`) spawns any unit type for either side at its
-  rally point, 1 to 10 at a time, and tops up both sides' silver: every model and unit, whatever the rosters hold.
-  Editor only; it spawns through `TankCapture.Spawn` into both lockstep worlds and changes no roster or faction.
+- **See it:** the Proving Ground (its own row below) fields every unit in a real match, in the editor and in a
+  build. In Play, **TW > Unit Sandbox** (`Editor/UnitSandbox.cs`) is the editor window that does the placing alone:
+  any unit type for either side at its rally point, 1 to 10 at a time, through `ProvingGround.Place`.
 - **Trap:** every faction calls the six abilities of the overhaul; Brass alone drops paratroopers (`decisions.md`,
   2026-09-27). The HUD does not read the faction, so an Iron player sees the drop card and the sim refuses the call.
 - **Trap:** `VehicleSize` is baked into mesh vertices at load. Every gap authored in the composer depends on it.
@@ -635,6 +635,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `UI/Shell/ShellScreen.cs` (one screen: a UXML bound to the router), `UI/Shell/ShellAssets.cs` (built by
   `Editor/UI/ShellAssetsBuilder.cs`), the screens `UI/Shell/MainMenuScreen.cs`, `UI/Shell/MissionSelectScreen.cs`
   (with `UI/Shell/MissionCatalog.cs`, `UI/Shell/MapThumbnail.cs`), `UI/Shell/ArmouryScreen.cs`,
+  `UI/Shell/ProvingGroundLaunchScreen.cs` and `UI/Shell/ProvingGroundPanel.cs` (their own row below),
   `UI/Shell/SettingsScreen.cs`, `UI/Shell/PauseMenuScreen.cs`, `UI/Shell/DebriefScreen.cs`; `UI/Shell/SettingsApplier.cs`,
   `Presentation/Core/AudioLevels.cs` (volume buses), `Presentation/Core/InputFocus.cs` (who owns the keyboard),
   `Presentation/Core/GameSettings.cs`, `Presentation/Core/SettingsStore.cs`, `Presentation/Core/KeyMap.cs`,
@@ -646,6 +647,32 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   LaunchLoadoutTests.
 - **Settings sliders:** each slider's range is a row in `GameSettings.Sliders`; loading clamps to it and
   `SettingsScreen` sets the slider from it. A new slider needs a row, or GameSettingsTests fails.
+
+### The Proving Ground (the test level: every unit, waves on demand)
+- **What it is:** an endless match (`SimConfig.Endless`) started from the main menu's PROVING GROUND, where any unit
+  the tables define can be fielded by either side. Owner's request and answers: `decisions.md`, "The Proving Ground".
+- **Files:** `Presentation/Core/ProvingGround.cs` (the director, plain C# over a `MatchSim`: `Catalogue` with each
+  unit's `UnitStage` BUILT / PROTOTYPE / STAND-IN and the `Ideas` that are words only, `Place` in ranks at a side's
+  rally, `Wave` and `Presets`, `Send` placed or THROUGH THEIR SLOTS by `DeployUnit` commands, `Schedule` on a timer
+  of sim ticks, `EnemySupport`, `Clear`, `Request` and the scripted enemy's `AiPresets`),
+  `UI/Shell/ProvingGroundLaunchScreen.cs` (ground, seed, bombardment, silver, the scripted enemy, and the ten of each
+  side picked from every unit; UXML `UI/Resources/Shell/ProvingGround.uxml`), `UI/Shell/ProvingGroundPanel.cs` (docked
+  over the running match, never modal, pages UNITS / WAVES / MATCH; UXML `UI/Resources/Shell/ProvingGroundPanel.uxml`),
+  styles `UI/Shell/ProvingGround.uss`. `MatchLaunch.Request.ProvingGround` and `.Endless` go through `SimHost.Endless`
+  into the config; `ShellRouter.Bind` pushes the panel for such a match, **F8** opens it over any match and folds it,
+  and a screen with `ShellScreen.Overlay` lets Esc through to the pause menu.
+- **Names:** `Presentation/Core/UnitLook.cs` names ids 21-36 and gives each a tooltip; until they have portraits of
+  their own `UnitLook.StandInPortrait` lends each the picture of the shipped unit nearest to it (the deploy bar, the
+  tiles). `UnitLook.PortraitCount` stays 21: it counts pictures, not units.
+- **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
+  timer, the enemy's support, the request, the same on two worlds), ProvingGroundScreenTests (the editor: both UXMLs,
+  picking a ten, the panel over a director of its own).
+- **Trap:** placing writes the world between ticks (`SimHost.WriteWorlds`), so the tick's `UnitSpawned` event is
+  cleared before anything reads it and a replay of the match does not verify. Count living units, not events. Waves
+  THROUGH THEIR SLOTS are commands and have neither problem, but can only field units of the enemy's ten.
+- **Not built yet:** models for the sixteen (a machine with no `TankRenderer.Machines` row draws as the Maw, a man as the
+  soldier figure), the Croaker's gait and the Hopper's hover, portraits of their own, LAY MINE / LAY TRIPWIRE buttons for a
+  selected sapper, the flame jet's picture. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
 
 ### Campaign shell
 - **Files:** `UI/Campaign/HomeFrontScreen.cs`, `UI/Campaign/StrategicMapScreen.cs`, `UI/Campaign/StagingScreen.cs`
@@ -764,6 +791,8 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 
 <!-- gen:tests -->
 - **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, ComicWordsTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DriveFeelTests, DriveStyleTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeLookTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, HullRideTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, MatchLoopTests, MeleeTests, MineTests, NightLookTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeLookTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MatchLoopTests, MeleeTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundScreenTests, ProvingGroundTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->

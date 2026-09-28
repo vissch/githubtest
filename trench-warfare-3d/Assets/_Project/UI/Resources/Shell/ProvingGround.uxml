@@ -1,0 +1,59 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- The launch screen of the Proving Ground: the ground and the match on the left with the two tens, every unit
+         the tables define on the right (tiles built by ProvingGroundLaunchScreen: BUILT, PROTOTYPE, STAND-IN, and the
+         IDEAS that are words only). A tile goes into the ten being picked; a slot of a ten empties when clicked.
+         Loaded from Resources, so no ShellAssets field. -->
+    <Style src="../../Skin/dustfront.uss" />
+    <Style src="../../Shell/Shell.uss" />
+    <Style src="../../Shell/ProvingGround.uss" />
+    <ui:VisualElement name="proving-screen" class="tw-screen shell-screen">
+        <ui:VisualElement class="tw-grain" picking-mode="Ignore" />
+        <ui:VisualElement class="tw-topstrip shell-topstrip" picking-mode="Ignore">
+            <ui:Label text="PROVING GROUND" class="tw-topstrip__label" />
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-content">
+            <ui:VisualElement class="shell-list-column pg-setup-column">
+                <ui:Label text="GROUND" class="tw-caption" />
+                <ui:VisualElement name="ground-tabs" class="pg-tabs" />
+                <ui:VisualElement name="seed-row" class="shell-seed-row">
+                    <ui:Label text="SEED" class="tw-caption" />
+                    <ui:IntegerField name="seed-field" value="1917" class="tw-field" />
+                    <ui:Button name="btn-seed-random" text="RANDOM" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+                <ui:Label text="BOMBARDMENT" class="tw-caption" />
+                <ui:VisualElement name="bombardment-tabs" class="pg-tabs" />
+                <ui:Label text="STARTING SILVER" class="tw-caption" />
+                <ui:VisualElement name="silver-tabs" class="pg-tabs" />
+                <ui:Label text="SCRIPTED ENEMY" class="tw-caption" />
+                <ui:VisualElement name="ai-tabs" class="pg-tabs" />
+                <ui:Label name="ai-blurb" text="" class="tw-body pg-blurb" />
+                <ui:VisualElement class="pg-ten-head">
+                    <ui:Button name="btn-side-ours" text="YOUR TEN" class="tw-tab" />
+                    <ui:Button name="btn-side-theirs" text="THEIR TEN" class="tw-tab" />
+                    <ui:Button name="btn-defaults" text="DEFAULT" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-clear" text="CLEAR" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+                <ui:Label text="YOURS" class="tw-caption" />
+                <ui:VisualElement name="ten-ours" class="pg-ten" />
+                <ui:Label text="THEIRS" class="tw-caption" />
+                <ui:VisualElement name="ten-theirs" class="pg-ten" />
+                <ui:Label name="ten-note" text="" class="tw-body pg-blurb" />
+            </ui:VisualElement>
+            <ui:VisualElement name="info-panel" class="tw-panel shell-info-column pg-units">
+                <ui:ScrollView name="unit-scroll" class="tw-scroll pg-units-scroll">
+                    <ui:Label text="INFANTRY" class="tw-caption shell-section armoury-section" />
+                    <ui:VisualElement name="infantry-grid" class="armoury-grid" />
+                    <ui:Label text="MACHINES" class="tw-caption shell-section armoury-section" />
+                    <ui:VisualElement name="machine-grid" class="armoury-grid" />
+                    <ui:Label text="IDEAS: NOT IN THE SIM YET" class="tw-caption shell-section armoury-section" />
+                    <ui:VisualElement name="idea-grid" class="armoury-grid" />
+                </ui:ScrollView>
+                <ui:Label name="unit-tip" text="" class="tw-body pg-unit-tip" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="shell-bottom-row">
+            <ui:Button name="btn-back" text="BACK" class="tw-btn tw-btn--wide" />
+            <ui:Button name="btn-start" text="TO THE GROUND" class="tw-btn tw-btn--wide tw-btn--primary" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

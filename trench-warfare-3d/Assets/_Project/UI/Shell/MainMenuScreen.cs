@@ -1,5 +1,5 @@
 // Phase: B6 (implemented) — the main menu: a stack of riveted plates over a dark field. SKIRMISH goes to the mission
-// select; ARMOURY shows every unit's artwork; CAMPAIGN opens the strategic map and HOME FRONT the city (docs/21
+// select; ARMOURY shows every unit's artwork; PROVING GROUND opens the test level's launch screen (2026-09-28); CAMPAIGN opens the strategic map and HOME FRONT the city (docs/21
 // phase 6); SETTINGS and QUIT do what they say. A debrief that asked for the map (CampaignSession.ResumeMap) gets it
 // pushed over the menu as soon as the menu binds.
 // The backdrop is the key art (owner, 2026-09-25) with the title and menu on its dark left, over a shade that fades from
@@ -13,7 +13,7 @@ namespace TW.UI
 {
     public sealed class MainMenuScreen : ShellScreen
     {
-        public static readonly string[] RequiredNames = { "backdrop", "logo", "title", "subtitle", "menu-stack", "btn-skirmish", "btn-armoury", "btn-campaign", "btn-homefront", "btn-settings", "btn-quit", "version" };
+        public static readonly string[] RequiredNames = { "backdrop", "logo", "title", "subtitle", "menu-stack", "btn-skirmish", "btn-armoury", "btn-proving", "btn-campaign", "btn-homefront", "btn-settings", "btn-quit", "version" };
         public override bool HidesHud => true;
 
         public override VisualTreeAsset Tree(ShellAssets a) => a?.MainMenu;
@@ -29,6 +29,7 @@ namespace TW.UI
             if (foot != null) foot.style.backgroundImage = new StyleBackground(footTex ??= Shade(1, 128, false, 0.75f, 1f));
             Btn("btn-skirmish", () => Router?.Push(new MissionSelectScreen()));
             Btn("btn-armoury", () => Router?.Push(new ArmouryScreen()));
+            Btn("btn-proving", () => Router?.Push(new ProvingGroundLaunchScreen()));
             Btn("btn-campaign", () => Router?.Push(new StrategicMapScreen()));
             Btn("btn-homefront", () => Router?.Push(new HomeFrontScreen()));
             Btn("btn-settings", () => Router?.Push(new SettingsScreen()));

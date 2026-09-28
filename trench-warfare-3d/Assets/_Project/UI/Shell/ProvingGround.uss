@@ -1,0 +1,59 @@
+/* The Proving Ground (2026-09-28): the launch screen (Resources/Shell/ProvingGround.uxml) and the panel docked over a
+   running match (Resources/Shell/ProvingGroundPanel.uxml). Tokens and the component skin come from dustfront.uss;
+   the unit tiles are the armoury's (Shell.uss). */
+
+/* ---- status chips: what state a unit is in ---- */
+.pg-chip { margin: 1px 0 0 0; padding: 0 4px; font-size: 10px; color: var(--tw-text); border-width: 1px; border-radius: var(--tw-radius-sm); -unity-text-align: middle-center; letter-spacing: 1px; }
+.pg-chip--built { border-color: var(--tw-text-dim); background-color: rgba(120, 120, 110, 0.25); }
+.pg-chip--prototype { border-color: var(--tw-accent); background-color: rgba(214, 153, 58, 0.30); }
+.pg-chip--standin { border-color: rgb(96, 148, 176); background-color: rgba(96, 148, 176, 0.30); }
+.pg-chip--idea { border-color: var(--tw-enemy); background-color: rgba(181, 82, 58, 0.30); }
+
+/* ---- the launch screen ---- */
+.pg-setup-column { width: 460px; }
+.pg-setup-column > .tw-caption { margin-top: 10px; }
+.pg-tabs { flex-direction: row; flex-wrap: wrap; margin: 4px 0 2px 0; }
+.pg-tabs > .tw-tab { min-height: 32px; padding: 2px 12px; margin-bottom: 2px; }
+.pg-blurb { white-space: normal; color: var(--tw-text-dim); min-height: 34px; }
+.pg-ten { flex-direction: row; flex-wrap: wrap; margin: 4px 0 0 0; }
+.pg-slot { width: 86px; height: 46px; margin: 0 4px 4px 0; padding: 2px; flex-direction: column; align-items: center; justify-content: center; background-image: none; background-color: var(--tw-plate-700); border-width: 1px; border-color: var(--tw-plate-500); }
+.pg-slot:hover { border-color: var(--tw-text-dim); }
+.pg-slot--empty { background-color: var(--tw-plate-900); }
+.pg-slot--active { border-color: var(--tw-accent); border-width: 2px; }
+.pg-slot__key { font-size: 10px; color: var(--tw-text-dim); margin: 0; padding: 0; }
+.pg-slot__name { font-size: 11px; color: var(--tw-text); -unity-font-style: bold; margin: 0; padding: 0; -unity-text-align: middle-center; }
+.pg-ten-head { flex-direction: row; align-items: center; margin-top: 12px; }
+.pg-ten-head > .tw-tab { min-height: 30px; padding: 2px 12px; }
+.pg-ten-head > .tw-btn { margin-left: 6px; }
+.pg-units { padding: 18px; }
+.pg-units-scroll { flex-grow: 1; }
+.pg-unit-tip { white-space: normal; min-height: 40px; margin-top: 8px; color: var(--tw-text); }
+.pg-tile--idea { opacity: 0.6; }
+.pg-tile__needs { font-size: 10px; color: var(--tw-text-dim); white-space: normal; -unity-text-align: upper-center; margin: 0; padding: 0 2px; }
+
+/* ---- the panel over the match ---- */
+.pg-dock { position: absolute; right: 12px; top: 76px; bottom: 236px; width: 400px; padding: 10px 12px 8px 12px; flex-direction: column; }
+.pg-dock Label, .pg-dock Button { -unity-font-definition: url("../Skin/Fonts/DustFrontLabel.asset"); }
+.pg-dock--collapsed { bottom: auto; }
+.pg-dock--collapsed > .pg-body { display: none; }
+.pg-head { flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-shrink: 0; }
+.pg-head__title { color: var(--tw-accent-bright); -unity-font-style: bold; letter-spacing: 2px; font-size: var(--tw-size-label); }
+.pg-head > .tw-btn { margin: 0; }
+.pg-body { flex-grow: 1; flex-shrink: 1; flex-direction: column; min-height: 0; }
+.pg-page { flex-grow: 1; flex-shrink: 1; flex-direction: column; min-height: 0; }
+.pg-page--hidden { display: none; }
+.pg-list { flex-grow: 1; flex-shrink: 1; min-height: 60px; }
+.pg-row { flex-direction: row; align-items: center; min-height: 30px; padding: 1px 2px; border-bottom-width: 1px; border-bottom-color: rgba(0, 0, 0, 0.35); }
+.pg-row--idea { opacity: 0.6; }
+.pg-row__text { flex-grow: 1; flex-shrink: 1; flex-direction: column; overflow: hidden; }
+.pg-row__name { font-size: 12px; color: var(--tw-text); -unity-font-style: bold; margin: 0; padding: 0; }
+.pg-row__sub { font-size: 10px; color: var(--tw-text-dim); margin: 0; padding: 0; white-space: normal; }
+.pg-row > .pg-chip { flex-shrink: 0; margin: 0 6px 0 4px; }
+.pg-row > .tw-btn { flex-shrink: 0; margin: 0 0 0 4px; min-height: 24px; padding: 1px 8px; }
+.pg-line { flex-direction: row; flex-wrap: wrap; align-items: center; margin: 3px 0; flex-shrink: 0; }
+.pg-line > .tw-caption { margin-right: 8px; }
+.pg-line > .tw-btn { margin: 0 4px 2px 0; }
+.pg-line > .tw-tab { min-height: 28px; padding: 2px 10px; }
+.pg-section { margin: 8px 0 2px 0; color: var(--tw-text); -unity-font-style: bold; flex-shrink: 0; }
+.pg-note { white-space: normal; color: var(--tw-text-dim); font-size: 11px; flex-shrink: 0; }
+.pg-status { flex-shrink: 0; margin-top: 6px; padding-top: 4px; border-top-width: 1px; border-top-color: var(--tw-plate-500); color: var(--tw-accent-bright); white-space: normal; font-size: 11px; min-height: 30px; }
