@@ -284,6 +284,13 @@ namespace TW.Presentation
 
         struct Owed { public int Slot; public int Count; }
         readonly List<Owed> owed = new List<Owed>();
+        /// <summary>A deploy that was issued and is not in the view yet: a seat's command runs InputDelayTicks after
+        /// it is issued, and until then the view shows its slot ready and its price unspent.</summary>
+        struct Flight { public int Slot; public int Cost; public uint Seen; }
+        readonly List<Flight> flying = new List<Flight>();
+        /// <summary>Ticks past the seat's delay before a deploy is looked for in the view (the tick it runs in, and one
+        /// the enemy's view may be behind the world the seat counts from).</summary>
+        public const int SeenMargin = 2;
         uint lastTick = uint.MaxValue;
 
         /// <param name="write">Write every world of the match (SimHost.WriteWorlds); false when it could not.</param>
@@ -303,32 +310,45 @@ namespace TW.Presentation
         /// <summary>
         /// Every sapper of a side who has a charge and no errand is ordered to lay ahead of himself: a mine at the point
         /// LayAheadMetres toward the enemy, or a tripwire across the front from there. The order is the sim's own
-        /// (CommandType.UnitAbility), so the sim may still refuse one (the point is in a trench, off the map, he is
-        /// pinned) and says so with CommandRejected. Returns how many were ordered.
+        /// (CommandType.UnitAbility). A sapper the sim would refuse is not ordered and is counted in what the panel
+        /// says (his point is in a trench, a bunker or off the map, or he is pinned: the sim's own rules, asked of its
+        /// own mine system): seen in Play on 2026-09-28, five men walking up to their trench were all "sent" and all
+        /// refused, and nothing on the panel said so. Returns how many were ordered.
         /// </summary>
         public int OrderSappers(int team, UnitAbilityId ability, float ahead = LayAheadMetres)
         {
             var v = view(); var seat = team == 0 ? player?.Invoke() : enemy();
             if (v == null || seat == null || v.Sapper == null) { Last = "NOBODY TO ORDER"; return 0; }
             if (ability != UnitAbilityId.LayMine && ability != UnitAbilityId.LayTripwire) { Last = "SAPPERS LAY MINES AND TRIPWIRES"; return 0; }
-            var w = v.World; int n = 0;
+            var w = v.World; int n = 0, noGround = 0, pinned = 0;
             float forward = team == 0 ? 1f : -1f;
-            int args = ability == UnitAbilityId.LayTripwire ? AbilityArgs.Pack(90, 0, TripwireMetres) : 0;   // 90: across the front
+            bool wire = ability == UnitAbilityId.LayTripwire;
+            int args = wire ? AbilityArgs.Pack(90, 0, TripwireMetres) : 0;   // 90: across the front
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!w.IsAlive(i) || w.Team[i] != team || (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
                 if (w.Units.Infantry[w.Archetype[i]].MineCharges <= 0 || v.Sapper.ChargesOf(w, i) <= 0 || v.Sapper.Phase[i] != 0) continue;
                 var p = w.Position[i];
+                var at = new float3(p.x, 0f, p.z + forward * ahead);
+                if (w.Suppression[i] >= StanceRules.PinnedSuppression) { pinned++; continue; }
+                if (v.Mines != null)
+                {
+                    var on = w.ClampToMap(at); on.y = 0f;
+                    if (wire ? !v.Mines.LiesAlong(on, AbilityArgs.Heading(90), TripwireMetres) : !v.Mines.Lies(on)) { noGround++; continue; }
+                }
                 seat.Issue(new SimCommand
                 {
                     Tick = w.Tick, Player = (byte)team, Type = CommandType.UnitAbility, A = i, B = (int)ability | (args << 8),
-                    Pos = new float3(p.x, 0f, p.z + forward * ahead),
+                    Pos = at,
                 });
                 n++;
             }
-            string what = ability == UnitAbilityId.LayMine ? "A MINE" : "A TRIPWIRE";
-            Last = n == 0 ? $"NO SAPPER OF {(team == 0 ? "OURS" : "THEIRS")} HAS A CHARGE AND NO ERRAND"
-                : $"{n} SAPPER{(n == 1 ? "" : "S")} OF {(team == 0 ? "OURS" : "THEIRS")} SENT TO LAY {what} {ahead:0} M AHEAD";
+            string what = wire ? "A TRIPWIRE" : "A MINE", whose = team == 0 ? "OURS" : "THEIRS";
+            string kept = (noGround > 0 ? $"; {noGround} NOT: NO OPEN GROUND {ahead:0} M AHEAD OF {(noGround == 1 ? "HIM" : "THEM")}" : "")
+                + (pinned > 0 ? $"; {pinned} PINNED" : "");
+            Last = n > 0 ? $"{n} SAPPER{(n == 1 ? "" : "S")} OF {whose} SENT TO LAY {what} {ahead:0} M AHEAD{kept}"
+                : noGround + pinned > 0 ? $"NO SAPPER OF {whose} SENT{kept}"
+                : $"NO SAPPER OF {whose} HAS A CHARGE AND NO ERRAND";
             return n;
         }
 
@@ -437,8 +457,13 @@ namespace TW.Presentation
             }
             if (owed.Count == 0) return;
             var seat = enemy(); if (seat == null) return;
-            // a man a tick per slot: a second deploy of one slot in a tick would be refused while its cooldown runs
+            // a man per slot at a time, and the next when the last is in the view: seen in Play on 2026-09-28, a deploy
+            // issued every tick was issued again before the first had run (three ticks later), while the view still
+            // showed the slot ready, and the sim refused it: of two Brutes one came, and the panel said none was owed
             int spent = 0; ulong used = 0;
+            uint seen = t + (uint)(math.max(0, w.Config.InputDelayTicks) + SeenMargin);
+            flying.RemoveAll(f => t >= f.Seen || f.Seen > seen);   // in the view by now, or of a match before this one
+            foreach (var f in flying) { used |= 1ul << f.Slot; spent += f.Cost; }
             for (int i = 0; i < owed.Count; i++)
             {
                 var o = owed[i];
@@ -448,6 +473,7 @@ namespace TW.Presentation
                 int cost = w.Roster[ri].Cost;
                 if (w.SlotCooldown[ri] != 0 || w.Silver[1] - spent < cost) continue;
                 used |= bit; spent += cost;
+                flying.Add(new Flight { Slot = o.Slot, Cost = cost, Seen = seen });
                 seat.Issue(SimCommand.Deploy(t, 1, o.Slot));
                 o.Count--; owed[i] = o;
             }

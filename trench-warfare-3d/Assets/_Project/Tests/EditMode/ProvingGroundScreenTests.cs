@@ -227,8 +227,50 @@ namespace TW.Tests
             finally { panel.Custom.Squads.Clear(); panel.Unbind(); }
         }
 
-        /// <summary>A jet the sim fired is held by its slot and marked as the sim's (the mark is what stops the stream
-        /// setting men alight by itself; that needs the flipbooks and is looked at in Play, not here).</summary>
+        /// <summary>
+        /// The sim says who burns (UnitAlight): a jet drawn for the sim's shot, and the fuel it leaves on the ground,
+        /// light nobody by themselves. The same stream from the debug panel does, which is what shows the test can fail.
+        /// Found on 2026-09-28: the jet was held back and its fuel was not.
+        /// </summary>
+        [Test]
+        public void AJetTheSimFiredAndTheFuelItLeavesLightNobody()
+        {
+            var books = new TW.Presentation.Tactical.FlipbookFx();
+            try
+            {
+                Assume.That(books.Ready, "the flipbook shader and sheets load in the editor");
+                int caught = 0;
+                var fire = new TW.Presentation.Tactical.Flamethrower { Catch = (at, radius, seconds) => caught++ };
+                System.Func<int, UnityEngine.Vector3> drawn = slot => UnityEngine.Vector3.zero;
+                System.Func<float, float, float> ground = (x, z) => 0f;
+                float t0 = UnityEngine.Time.time;
+
+                // two seconds of the sim's stream (a jet ends by the frame's clock: it is given two seconds), four more of its fuel
+                fire.Burst(3, new UnityEngine.Vector3(0f, 1f, 0f), UnityEngine.Vector3.forward, UnityEngine.Vector3.zero, 2f, sim: true);
+                for (float t = 0f; t < 6f; t += 0.02f) { fire.SimNow = t; fire.Update(t0 + t, null, books, drawn, ground); }
+                Assert.That(fire.Jets, Is.EqualTo(0), "the stream is over");
+                Assert.That(fire.Pools, Is.GreaterThan(0), "the stream left fuel burning on the ground");
+                Assert.That(fire.SimPools, Is.EqualTo(fire.Pools), "and all of it is the sim's");
+                Assert.That(caught, Is.EqualTo(0), "neither the stream nor its fuel lit anybody");
+
+                // the debug panel's stream over the same ground: it catches, and the fuel it feeds catches again
+                fire.Burst(4, new UnityEngine.Vector3(0f, 1f, 0f), UnityEngine.Vector3.forward, UnityEngine.Vector3.zero, 60f);
+                for (float t = 6f; t < 8f; t += 0.02f) { fire.SimNow = t; fire.Update(t0 + t, null, books, drawn, ground); }
+                Assert.That(caught, Is.GreaterThan(0), "a stream that is not the sim's sets alight what it sweeps");
+                Assert.That(fire.SimPools, Is.LessThan(fire.Pools), "and the fuel it fed is no longer the sim's alone");
+            }
+            finally
+            {
+                // DestroyImmediate: Dispose's Object.Destroy is not allowed in edit mode (ColumnLightTests)
+                var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                var mats = (UnityEngine.Material[])typeof(TW.Presentation.Tactical.FlipbookFx).GetField("mats", flags).GetValue(books);
+                if (mats != null) foreach (var m in mats) if (m != null) UnityEngine.Object.DestroyImmediate(m);
+                var quad = (UnityEngine.Mesh)typeof(TW.Presentation.Tactical.FlipbookFx).GetField("quad", flags).GetValue(books);
+                if (quad != null) UnityEngine.Object.DestroyImmediate(quad);
+            }
+        }
+
+        /// <summary>A jet the sim fired is held by its slot and marked as the sim's.</summary>
         [Test]
         public void AJetTheSimFiredIsHeldByItsSlotAndMarkedAsTheSims()
         {
