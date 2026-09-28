@@ -8,7 +8,11 @@
 // the men on screen times the mesh's vertices (twice with shadows) exceed it, shadows go first.
 // The standard view is flat (25 degrees), so one frame holds men 40 m and 400 m away: beyond LodDistance a man is
 // drawn with the far model in its own indirect draw from the same instance buffer (near records from the front,
-// far records from the back). The far tier is the 264-vertex box soldier.
+// far records from the back). The far tier is the 264-vertex box soldier. Between them, beyond MidDistance, each figure
+// is drawn with its mid mesh (Figure<Name>MidMesh: its own vertices and atlas, the triangles of about 42 % of them;
+// VATBaker/VatDecimate), as one more figure of the near draw, so it plays every clip and casts its shadow like the near
+// tier. A man switches at MidDistance + MidBand going out and - MidBand coming in, so camera shake at the line does
+// not flick him between the two.
 // Figures: the baked atlases in Resources/Units (Figure<Name>, VATBaker.Figures order): the Soldier for the
 // rifleman, assault and machine-gunner, the hooded Sniper for the sniper. A missing figure falls back to the
 // Soldier's bake (FigureOfArchetype's mapping stays untouched); without the Soldier the box soldier is the only
@@ -93,6 +97,10 @@ namespace TW.Presentation.Units
         public bool CastShadows = true;
         [Tooltip("Metres from the camera beyond which the far model is used (a man is under about 40 pixels tall there).")]
         public float LodDistance = 170f;
+        [Tooltip("Metres from the camera beyond which a baked figure is drawn with its mid figure (about 42 % of the vertices). 0 = never.")]
+        public float MidDistance = 75f;
+        /// <summary>Metres either side of MidDistance a man keeps the mesh he has (camera shake moves the camera ~0.75 m).</summary>
+        public const float MidBand = 5f;
 
         /// <summary>Infantry drawn last frame (for the stats overlay and tests).</summary>
         public int DrawnInfantry { get; private set; }
@@ -108,6 +116,11 @@ namespace TW.Presentation.Units
         public static readonly string[] FigureNames = { "Soldier", "Sniper", "Frog" };
         /// <summary>Which figure each archetype is drawn with (the sniper: the hooded man; the Frog, archetype 25: the
         /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
+        /// <summary>Each figure's mid-distance figure, in FigureNames order: Resources/Units/Figure&lt;Name&gt;MidMesh, drawn with the
+        /// figure's atlas. The Frog has none yet: it is its own mid.</summary>
+        public static readonly string[] MidNames = { "SoldierMid", "SniperMid" };
+        /// <summary>Mid figures drawn last frame (a part of DrawnNear).</summary>
+        public int DrawnMid { get; private set; }
         public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : 0;
 
         /// <summary>Which loaded bake fills each FigureNames slot: its own (k), else the Soldier's (0, the named
@@ -127,7 +140,10 @@ namespace TW.Presentation.Units
             public VatAsset Asset; public Material Material, Fallen; public GraphicsBuffer Rows; public int Near, Start;
             public MaterialPropertyBlock Props, FallenProps;
         }
-        Figure[] figures;            // the near tier(s); one box-soldier figure when nothing is baked
+        Figure[] figures;            // the near tier(s): the baked figures, then their mid figures; one box-soldier figure when nothing is baked
+        int fullFigures = 1;         // how many of them are full figures (FigureNames); the rest are mids
+        NativeArray<byte> midOf;     // full figure -> the figure drawn beyond MidDistance (itself when it has no mid bake)
+        NativeArray<byte> atMid;     // per slot: drawn with the mid mesh last frame (the band's memory)
         Figure far;                  // the box soldier beyond LodDistance (null when nothing is baked: the box is then the near tier)
         bool clipAtlas;
         Material tankMatA, tankMatB;
@@ -190,6 +206,7 @@ namespace TW.Presentation.Units
             // knobs (Knobs): the tiers, and the public fields only where a knob is set, so inspector values still hold
             blendZoom = LodTiers.ReadBlendZoom(); vertexBudget = LodTiers.ReadVertexBudget(); cullRadius = LodTiers.ReadCullRadius();
             LodDistance = Knobs.Get("vat.lodDistance", LodDistance);
+            MidDistance = Knobs.Get("vat.midDistance", MidDistance);
             CastShadows = Knobs.Get("vat.castShadows", CastShadows);
             MaxFallen = Mathf.Max(1, Knobs.Get("vat.maxFallen", MaxFallen));
         }
@@ -211,8 +228,22 @@ namespace TW.Presentation.Units
             {
                 var asset = new VatAsset[FigureNames.Length];
                 for (int k = 0; k < src.Length; k++) asset[src[k]] ??= data[src[k]].ToAsset();   // decode only the distinct sources used
-                figures = new Figure[FigureNames.Length];
-                for (int k = 0; k < figures.Length; k++) figures[k] = Make(shader, asset[src[k]]);
+                // the mid figures follow the full ones; a figure without its own mid bake is its own mid. The mid mesh has
+                // the figure's vertices in the same order and fewer triangles: drawn with the figure's own atlas (the shader
+                // reads it by SV_VertexID), so it costs no texture memory
+                int full = FigureNames.Length;
+                midOf = new NativeArray<byte>(full, Allocator.Persistent);
+                var all = new List<VatAsset>();
+                for (int k = 0; k < full; k++) all.Add(asset[src[k]]);
+                for (int k = 0; k < full; k++)
+                {
+                    var mid = k < MidNames.Length && has[k] ? Resources.Load<Mesh>("Units/Figure" + MidNames[k] + "Mesh") : null;
+                    if (mid != null && all[k].Mesh != null && mid.vertexCount == all[k].Mesh.vertexCount) { midOf[k] = (byte)all.Count; all.Add(all[k].WithMesh(mid)); }
+                    else midOf[k] = (byte)k;
+                }
+                fullFigures = full;
+                figures = new Figure[all.Count];
+                for (int k = 0; k < all.Count; k++) figures[k] = Make(shader, all[k]);
                 clipAtlas = asset[0].ClipAtlas;
                 far = Make(shader, ProceduralSoldier.Build(), withFallen: false);
                 far.Material.SetFloat(LerpId, 0f);
@@ -317,11 +348,16 @@ namespace TW.Presentation.Units
             CurrentGrow = grow;
             var anim = Host.Animation;
             bool controlled = Host.UseAnimationController && anim != null;
+            int slotCount = Host.Local.World.Config.MaxSlots;
+            if (!atMid.IsCreated || atMid.Length < slotCount) { if (atMid.IsCreated) atMid.Dispose(); atMid = new NativeArray<byte>(slotCount, Allocator.Persistent); }
             new FillJob
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, PoseSlot = presenter.PoseSlot, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Ground = ReferenceEquals(RenderGround.Map, Host.Local.Map) ? RenderGround.Grid : default,
-                Instances = instances, Sorted = sorted, Group = group, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = EffectiveCullRadius(cullRadius, UnitScale, grow),
+                Instances = instances, Sorted = sorted, Group = group, FigureOf = figureOf, Figures = fullFigures, Groups = figures.Length, MidOf = midOf.IsCreated ? midOf : spareBytes,
+                MidOutSq = midOf.IsCreated && cam != null && MidDistance > 0f ? (MidDistance + MidBand) * (MidDistance + MidBand) : float.MaxValue,
+                MidInSq = midOf.IsCreated && cam != null && MidDistance > 0f ? math.max(0f, MidDistance - MidBand) * math.max(0f, MidDistance - MidBand) : float.MaxValue,
+                AtMid = atMid, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = EffectiveCullRadius(cullRadius, UnitScale, grow),
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf, AnimRowNearOf = animRowNearOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
@@ -336,10 +372,12 @@ namespace TW.Presentation.Units
 
             var size = Host.Local.Map.SizeMeters;
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
+            DrawnMid = 0;
             if (DrawnInfantry > 0)
             {
                 // the near records were grouped by figure in the fill job ([V5] GroupByFigure); these are its spans
                 for (int k = 0; k < figures.Length; k++) { figures[k].Near = group[k]; figures[k].Start = group[figures.Length + k]; }
+                for (int k = fullFigures; k < figures.Length; k++) DrawnMid += figures[k].Near;
                 int farStart = instances.Length - DrawnFar;
                 if (DrawnNear > 0) instanceBuffer.SetData(sorted, 0, 0, DrawnNear);
                 if (DrawnFar > 0) instanceBuffer.SetData(instances, farStart, farStart, DrawnFar);
@@ -384,7 +422,7 @@ namespace TW.Presentation.Units
             if (!clipAtlas || figures == null || anim == null || !Host.UseAnimationController || Host.Presenter == null || Host.Local == null) return false;
             var w = Host.Local.World;
             if (slot < 0 || slot >= w.HighWater || slot >= anim.Row.Length || (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0) return false;
-            var asset = figures[math.clamp(FigureOfArchetype(w.Archetype[slot]), 0, figures.Length - 1)].Asset;
+            var asset = figures[math.clamp(FigureOfArchetype(w.Archetype[slot]), 0, fullFigures - 1)].Asset;
             if (asset.Sockets == null) return false;
             float3 p = Host.Presenter.Drawn(slot);
             var map = Host.Local.Map;
@@ -435,7 +473,7 @@ namespace TW.Presentation.Units
             [ReadOnly] public NativeArray<int> PoseSlot;
             [ReadOnly] public Heightfield Height;
             public RenderGroundGrid Ground;
-            public int PoseCount, Figures;
+            public int PoseCount, Figures, Groups;   // Figures: the full figures (an archetype maps into them); Groups: every figure, mids too
             public float Scale;
             public bool Controlled;
             [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow, AnimRowNearOf;
@@ -444,13 +482,15 @@ namespace TW.Presentation.Units
             [ReadOnly] public NativeArray<byte> Char;
             [ReadOnly] public NativeArray<byte> Wound;
             public NativeArray<VatInstance> Instances, Sorted;
+            [ReadOnly] public NativeArray<byte> MidOf;   // full figure -> its mid figure
             public NativeArray<byte> FigureOf;
             public NativeArray<int> Group;
             public NativeArray<float4> Vehicles;
             public NativeArray<int> Counts;
             [ReadOnly] public NativeArray<float4> Planes;
             public bool Cull;
-            public float Radius, FarSq;
+            public float Radius, FarSq, MidOutSq, MidInSq;
+            public NativeArray<byte> AtMid;   // per slot: on the mid mesh last frame
             public float3 CamPos;
 
             bool Visible(float3 p)
@@ -479,7 +519,8 @@ namespace TW.Presentation.Units
                         Vehicles[v++] = new float4(p.Pos.x, y, p.Pos.z, (p.Yaw + 10f) * (p.Team == 0 ? 1f : -1f));
                         continue;
                     }
-                    bool distant = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;
+                    float d2 = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z));
+                    bool distant = d2 > FarSq;
                     var map = distant ? FarRowOf : NearRowOf;
                     int row = p.AnimRow, prevRow = row, seed = 0, chr = 0, wound = 0; float prevT = 0f, blend = 0f, grime = 0f;
                     if (Controlled)
@@ -496,10 +537,19 @@ namespace TW.Presentation.Units
                         PrevRow = prevRow, PrevT = prevT, Blend = blend, Pad = VatPad.Pack(0, grime, seed, chr),
                     };
                     if (distant) Instances[last - far++] = inst;
-                    else { FigureOf[n] = (byte)math.min(Figures - 1, FigureOfArchetype(p.Archetype)); Instances[n++] = inst; }
+                    else
+                    {
+                        int fig = math.min(Figures - 1, FigureOfArchetype(p.Archetype));
+                        int hs2 = PoseSlot[i];
+                        bool was = hs2 >= 0 && hs2 < AtMid.Length && AtMid[hs2] != 0;
+                        bool mid = d2 > (was ? MidInSq : MidOutSq);   // the band: he keeps the mesh he has near the line
+                        if (hs2 >= 0 && hs2 < AtMid.Length) AtMid[hs2] = (byte)(mid ? 1 : 0);
+                        if (mid && fig < MidOf.Length) fig = MidOf[fig];   // mid distance: the figure's reduced mesh
+                        FigureOf[n] = (byte)fig; Instances[n++] = inst;
+                    }
                 }
                 Counts[0] = n; Counts[1] = v; Counts[2] = far;
-                GroupByFigure(Instances, FigureOf, n, Figures, Sorted, Group);
+                GroupByFigure(Instances, FigureOf, n, Groups, Sorted, Group);
             }
         }
 
@@ -561,6 +611,7 @@ namespace TW.Presentation.Units
             if (hidden.IsCreated) hidden.Dispose();
             if (nearRowOf.IsCreated) nearRowOf.Dispose(); if (farRowOf.IsCreated) farRowOf.Dispose();
             if (animRowNearOf.IsCreated) animRowNearOf.Dispose();
+            if (midOf.IsCreated) midOf.Dispose(); if (atMid.IsCreated) atMid.Dispose();
             VatAsset.Kill(tankMatA); tankMatA = null;
             VatAsset.Kill(tankMatB); tankMatB = null;
             VatAsset.Kill(tankMesh); tankMesh = null;

@@ -134,7 +134,7 @@ namespace TW.Tests
             const long BudgetBytes = 128L * 1024 * 1024;
             long total = 0;
             var lines = new List<string>();
-            foreach (var figure in VATRenderer.FigureNames)
+            foreach (var figure in VATRenderer.FigureNames)   // the mid meshes share these atlases (VatAsset.WithMesh)
             {
                 var data = Resources.Load<VatAssetData>("Units/Figure" + figure);
                 // [TS19] every figure's bake is committed: a missing or empty one must not read as fitting the budget
