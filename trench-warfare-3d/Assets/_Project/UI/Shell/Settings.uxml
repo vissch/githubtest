@@ -31,6 +31,7 @@
                     <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="DISPLAY MODE" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-fullscreen" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>
                     <ui:VisualElement class="tw-row"><ui:Label text="VERTICAL SYNC" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:Toggle name="toggle-vsync" class="tw-toggle" /></ui:VisualElement></ui:VisualElement>
                     <ui:VisualElement class="tw-row tw-row--alt"><ui:Label text="QUALITY" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-quality" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>
+                    <ui:VisualElement class="tw-row"><ui:Label text="EFFECTS DETAIL" class="tw-row__label" /><ui:VisualElement class="tw-row__control"><ui:DropdownField name="dropdown-effects" class="tw-dropdown" /></ui:VisualElement></ui:VisualElement>
                     <ui:Label text="RESOLUTION AND DISPLAY MODE APPLY IN A BUILD, NOT IN THE EDITOR." class="tw-caption shell-note" />
                 </ui:VisualElement>
                 <ui:VisualElement name="page-audio" class="shell-page tw-hidden">
