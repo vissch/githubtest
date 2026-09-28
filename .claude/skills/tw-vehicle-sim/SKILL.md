@@ -52,3 +52,14 @@ before believing any displacement.
 ## Owner questions — never build around them
 From docs/20's closing list: Banner's rear hips sit behind the leg's reach; Redoubt declares 6 legs but its model has 4, so leg-loss bits map to the wrong legs; parapet, revetment and duckboards have no height in the gait's ground, so T3 cannot be earned; feet are plain cones; the capture camera is nudged by CombatFx.
 Also: "Not scaled with the giant machines: trench cross width, slope limit, turn rates, speeds, `MaxGrow`" (decisions.md, Open). No flying unit in the sim. Breaker has no model of its own (drawn as Maw).
+
+## Learning loop (Brief 2 §B5, every role)
+The loop, every time:
+1. produce;
+2. evidence from the gym (`tw-gym`) or a bench;
+3. a `tw-critic` round, with angles rotated between rounds;
+4. fix;
+5. keep the **best** round, not the last;
+6. write what worked and what failed to the board's `lessons/vehicle-sim.md`.
+
+A flaw that recurs across items becomes a proposed checklist line for this page, which the owner approves.

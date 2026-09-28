@@ -22,9 +22,31 @@ at 558c667). Repo pages: workflow.md sections 5 (false reds) and "reproducing a 
    Then `gymscore.py <previous> <latest>` for REGRESSED lines. A flag only in the newest run, with the same entry
    clean in the previous run, points at the commits in between. Put both run ids on the card.
 
-**Loop over every sim role:** each role's stage result, plus the gym's entries for that role's area. That's clips and
-deaths for character, units and modules for vehicle, effects and destruction for destruction-vfx, and the
-battlefield for env. One card per signature, whichever sim raised it.
+**Loop over every sim role**, "in any kind of form" (the owner). Take each role's stage result, plus the gym's entries
+for that role's area:
+
+| Role | What the bug catcher checks |
+|---|---|
+| character | clips, deaths, the pin |
+| vehicle | units, modules |
+| destruction-vfx | effects, destruction |
+| env | the battlefield |
+| balance | sweep results: a seed that crashes, a match that never ends, a win rate outside its band |
+
+**What counts as broken, beyond test reds:**
+- log errors and exceptions;
+- desyncs (canary);
+- a man drawn floating or sunk (`SimProbe.Unit` drawn vs sim height), or clipping a parapet;
+- a pose metric past clipcheck's thresholds;
+- a still blown out or empty;
+- a LOD pop (IoU < 0.85);
+- a frame-time spike (CaptureRig `Profile`);
+- managed memory that grows run to run;
+- an event with no picture where the catalogue promises one.
+
+One card per signature, whichever sim raised it.
+**Learn** (Brief 2 §B5): signatures that recur go to the board's `lessons/bug-catcher.md`, and a new check is proposed
+for the owner.
 
 ## Is it real? (check in this order)
 1. **The verdict source.** The results XML decides, never Unity's exit code. A run with no tests, or nothing passed, is **no verdict** (gate exit 6), not a pass. `gate.ps1` deletes old XML first, so a stale green copy cannot answer.

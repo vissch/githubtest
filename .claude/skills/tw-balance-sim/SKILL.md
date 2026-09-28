@@ -43,3 +43,14 @@ A playable match needs no final art: box/capsule meshes at gameplay dimensions o
 - **Open items:** balance not scaled with the giant machines (trench cross width, slope limit, turn rates, speeds, `MaxGrow`); the M1.5 fun-gate playtest; house HP scale (battle 1.4/1.0 vs Playground 60/30, ground floor ×3).
 - **Roster v3 decisions:** Great Works built by labour with a bar both sides see; commander names; the Brass and Iron commanders; one Great Work or a choice of two.
 - **Not in code yet:** Sapper, Great Works, balloon, commanders, wheeled units, the upgrade seam.
+
+## Learning loop (Brief 2 §B5, every role)
+The loop, every time:
+1. produce;
+2. evidence from the gym (`tw-gym`) or a bench;
+3. a `tw-critic` round, with angles rotated between rounds;
+4. fix;
+5. keep the **best** round, not the last;
+6. write what worked and what failed to the board's `lessons/balance-sim.md`.
+
+A flaw that recurs across items becomes a proposed checklist line for this page, which the owner approves.
