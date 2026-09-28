@@ -29,14 +29,14 @@ namespace TW.Presentation.Tactical
         /// <summary>fx.recipes, 0 (the old burst) or 1 (the VFX pass's recipes).</summary>
         public static float ReadRecipes() => Mathf.Clamp01(Knobs.Get(RecipesKnob, DefaultRecipes));
 
-        /// <summary>The parts a burst draws. shape: the sim's Dir.y (0 shell, 1 masonry, 2 cook-off); lean: how much of Dir.xz
+        /// <summary>The parts a burst draws. shape: the sim's Dir.y (0 shell, 1 masonry, 2 cook-off, 3 incendiary, 5 mine); lean: how much of Dir.xz
         /// there was (0 for a round with no flight: the Kettle's, the Salvo's); recipes: fx.recipes; radius: the sim's blast radius.</summary>
         public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes, float radius = 0f)
         {
             if (recipes < 0.5f || wet) return BurstRecipe.Old;   // water keeps its splash and its drawn smoke as they were
             int kind = Mathf.RoundToInt(shape);
             if (kind == 2) return new BurstRecipe { CookOff = true, Plume = true };   // no earth: the hull is what goes up
-            if (kind == 1) return BurstRecipe.Old;                                    // masonry: the house's own look (L24)
+            if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine (5): their own looks come later (L14, L19, L24)
             return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Ring = radius >= RingRadius };
         }
     }
