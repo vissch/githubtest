@@ -12,6 +12,19 @@ at 558c667). Repo pages: workflow.md sections 5 (false reds) and "reproducing a 
 1. After every stage result: sweep the stage's logs, results XML and probe numbers.
 2. After every landing: the full gate on integration, plus a determinism pass.
 3. **Patrol** (desktop, detached, no model in the loop): round-robin over every item's bench scenarios with fresh seeds, derived from the patrol id and a counter, within a time budget. It yields the batch slot between scenarios. The agent reads the findings afterwards.
+4. **Every gym run** (`tw-gym`): read `summary.json`. Each flag is a candidate:
+   - log errors;
+   - an unexpected reject, or no expected event;
+   - desync;
+   - a blown or empty frame;
+   - NaN or stuck pose.
+
+   Then `gymscore.py <previous> <latest>` for REGRESSED lines. A flag only in the newest run, with the same entry
+   clean in the previous run, points at the commits in between. Put both run ids on the card.
+
+**Loop over every sim role:** each role's stage result, plus the gym's entries for that role's area. That's clips and
+deaths for character, units and modules for vehicle, effects and destruction for destruction-vfx, and the
+battlefield for env. One card per signature, whichever sim raised it.
 
 ## Is it real? (check in this order)
 1. **The verdict source.** The results XML decides, never Unity's exit code. A run with no tests, or nothing passed, is **no verdict** (gate exit 6), not a pass. `gate.ps1` deletes old XML first, so a stale green copy cannot answer.

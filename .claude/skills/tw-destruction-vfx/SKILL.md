@@ -33,6 +33,27 @@ Driving and capture: `../pipeline/references/driving-and-evidence.md`. New sheet
 5. **Wire it:** the CombatFx handler, the FlipbookFx book, debris, light, shake. A `Book` enum entry and its `Sheets` row are added **together, at the same ordinal**, with the PNG. Check `books.Ready`.
 6. **Prove it** (below). Keep a destructible inventory with a coverage percentage (props, house kits, trench sections, wrecks) on the board item.
 
+**The current catalogue** is the VFX run's phase 1, on the board at `evidence/vfx-run/phase1-catalogue.md` (board
+`9211aa9`): 86 events rated 27 GOOD, 31 WEAK, 23 MISSING and 5 WRONG. It includes a look per band, the wave-1 sheet
+list and the implementation order. Start from it; don't redo it.
+
+## The reaction matrix (Brief 2 §B3: "see your actions affect the battlefield")
+Rows are events (the catalogue's 86). Columns are what an event touches: man, squad, vehicle, house, tree, wire,
+trench, ground. Each cell names:
+- the sim event that carries it;
+- the reaction (flinch, knockdown, throw, body left, crater, scar, burn, collapse, debris);
+- its fidelity per band: T3 the richest, T1 readable, far one clear mark.
+
+Units' cells are shared with `tw-character-sim`. Each filled cell has a gym entry (`tw-gym`) as its proof. A cell with
+no sim event is flagged for the SIM lane, never faked in SHOW.
+
+**Blood (decided 2026-09-28, "we need blood"):**
+- **Sheets:** the pack's `blood_spurt_1` / `blood_sniper_1`.
+- **Placement:** cards along the round's direction on men hit.
+- **Scaling:** by `DebrisRenderer.Gore` (0 means none).
+- **Bands:** T3 and T1 only; far shows nothing.
+- **Budget:** it counts against the draw budget like any book.
+
 ## Proving it
 - **Benches, same battle:** `CaptureRig.Bench("scenario=vfx|barrage|armour stress=1500 settle_ticks=1800 ticks=400 shot=<png> shot_tick=N shot_hud=0 out=<abs json>")` in the editor. In the player: `-twbench "..."`. JUICE J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
 - **Fire:** `bash Tools/flameshots <prefix>` gives jet, cook, stand and wall. Then `python Tools/flamecheck.py Tools/flame-shots/<prefix>_jet.png`; exit 1 means no fire.
@@ -49,11 +70,28 @@ Driving and capture: `../pipeline/references/driving-and-evidence.md`. New sheet
 ## Traps
 - The `Sheets` table is indexed by the `Book` ordinal. Rows 19-21 (Core, Head, Bloom) are out of order today; see the board finding. Three rows are named "Puff": the smoke book is the one with `Erode = true`.
 - Six books' tints (Splash, Column, Wings, Spurt, Puff, Smoke) are overwritten every scene by `CombatFx.ApplyTints`. Change the biome profile, not the row.
-- `Explosion.Dir` is always zero today (ASK S05), so a directional look needs the SIM lane to fill it first. The decision says explosions are directional in look **and** damage.
+- **`Explosion.Dir` is already filled** for barrage, creeping barrage, strafe, ship, ambient and tank HE shells, and for
+  mines. It is zero only for the Kettle mortar, the jetpack landing and cook-offs (phase 1 corrected the old "ASK S05").
+  `CombatFx` already leans the burst by it. What's missing is a drawing that leans. The decision says explosions are
+  directional in look **and** damage.
+- **`CombatFx` ignores who fired a burst.** Cook-offs, jetpack landings, tripwires, mines and the Kettle mortar all get
+  the full shell recipe (earth column, rim clods, 22 s hot crater). The event carries the source, so per-weapon recipes
+  are SHOW work.
+- **Draw calls were 374 against the 300 ceiling** in the catalogue's barrage frame. A new book must replace cards, not
+  add them.
 - An `Explosion` with `Scalar < 0.3` does no prop harm. House HP has two scales: battle 1.4 / 1.0 and Playground 60 / 30 (open owner question).
 - Brightness scales: CaptureRig is 0-1 Rec.709, `shotstats.py` is 0-255 Rec.601, and the Playground's `luma_mean` is 0-255 Rec.709. Never mix them.
 - The non-fire books come from Asset Store packs: they may ship in the game but must not be redistributed on their own.
 
 ## Owner questions — ask, never decide
-- Explosion batches B and C: **go given 2026-09-28** (decisions.md). Other open items: house sim cover (hash change), where the ruins set goes, shelter protection, the house HP scale, the Core/Head/Bloom fix if it changes the look.
+- **Decided on 2026-09-28** (decisions.md):
+  - explosion batches B and C: go;
+  - the Core/Head/Bloom ordinal fix: its own commit with a test, inside the VFX pass;
+  - blood on hits.
+- **Still open:**
+  - house sim cover (a hash change);
+  - where the ruins set goes;
+  - shelter protection;
+  - the house HP scale;
+  - the 11 questions in phase 1 §8, of which Q1 (blood) is answered.
 - The owner has decided: trench never caves in; buildings never block movement; deaths are VAT bodies; the house mask is 96 chunks.

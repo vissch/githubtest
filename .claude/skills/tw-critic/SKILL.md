@@ -39,6 +39,18 @@ COULD NOT JUDGE: what the evidence cannot settle
 | balance | ≥ 8 seeds, same seeds per variant | distribution evidence 40 · counter-play 20 · campaign envelopes 20 · extensibility 10 · clarity 10 |
 | optimizer | AOSA rules 1-4 (same battle, bands, no regressions, floor) | gain past band 40 · image class honest 20 · sheet completeness 20 · cost 20 |
 | master | gate green on the exact tree, lane rules | un-entangled (scorecard, no new asmdef edges) 40 · compact 20 · docs in step 20 · owner's words kept verbatim 20 |
+| gym | `GymCatalogueTests` green (no enum value without an entry), run folder outside the checkout, 0 unexplained flags | coverage of catalogue 30 · every entry triggers what it claims (events counted) 30 · sheets readable per band 15 · run time and size 15 · retention works 10 |
+| lowpoly | the silhouette IoU ≥ 0.85 against the level above, no empty part, pivots unchanged, original untouched | triangle/draw gain 30 · pop at the swap band (critic, blind) 30 · every band sheet 20 · budget met 10 · cost 10 |
+| housekeeping | never deletes an unrecognised, tracked or newest-2 item (dry run first) | space recovered 40 · classification correct on a hand sample 40 · report clarity 20 |
+| plan / skill | every cited path and symbol exists (`checkskills.py`-style scan), owner's words quoted verbatim | fidelity to the owner's brief 30 · technical correctness against the repo 30 · actionable (an agent can run it cold) 20 · compact 20 |
+
+## Angles (rotate them between rounds, so a second round does not reread with the same eyes)
+1. **Fidelity:** does it do exactly what the owner asked, in the owner's words, no more and no less?
+2. **Technical truth:** every path, symbol, flag and number checked against the repo at the current commit.
+3. **Cold start:** a fresh agent with only this page and the repo: where does it get stuck or do damage?
+4. **Adversarial:** how could following it break the build, the lanes, determinism, the disk or the shared GPU?
+5. **Player's eye:** at T3, T1 and far, would a player see the consequence? Is the fun visible?
+6. **Cost:** time, disk, git history, draw calls: what does it cost, and is that measured?
 
 ## The improve loop (`/improve-loop <role> <item> --target 85 --rounds 3`)
 1. Measure the noise floor first: capture the unchanged build twice.
