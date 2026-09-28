@@ -258,7 +258,8 @@ Shader "TW/Flipbook (URP)"
                 if (_Erode > 0.5) color *= lerp(0.78, 1.0, smoothstep(0.0, 0.6, i.local.y));   // a cloud's underside is in its own shadow
                 // ...unless it was born of fire (_Ember, the shell's boiling cloud only): its underside is lit by the fire inside it
                 // while it is young, the dark of the drawing most (the owner's snow reference: peach-lit billows over the fireball)
-                color += _Ember.rgb * (i.tone.x * i.tone.x) * (1.0 - smoothstep(0.0, 0.55, i.local.y)) * lerp(1.0, 0.4, band);
+                // a glow round the fire low in the card, not a strip along its foot (critique c1b)
+                color += _Ember.rgb * (i.tone.x * i.tone.x) * (1.0 - smoothstep(0.08, 0.45, distance(i.local, half2(0.5, 0.3)))) * lerp(1.0, 0.4, band);
                 // the shell's own flash lights the earth it threw up and the smoke rolling off it: the drawing's light
                 // parts catch it most, its dark parts least, so the column is modelled by its own burst and not flooded
                 // AOSA C61 (fx.smokeNightFire, the night smoke only): dark smoke under an orange burst light turned tan
