@@ -14,7 +14,7 @@ namespace TW.Tests
         static void AssertOld(CombatFx.BurstRecipe r, string what)
         {
             Assert.IsTrue(r.Column && r.OldSmoke, what + ": the old column and smoke");
-            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring || r.Lean, what + ": nothing new");
+            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring || r.Lean || r.Dust, what + ": nothing new");
         }
 
         [Test]
@@ -112,6 +112,16 @@ namespace TW.Tests
                 float f = CombatFx.BankFrame(17f, 28f, t);
                 Assert.That(f, Is.InRange(17f, 28f), "the boil stays inside the bank's full frames");
             }
+        }
+        [Test]
+        public void JetpackLanding_RingAndDustNoColumn()
+        {
+            int landing = TW.Sim.Combat.LeapSystem.LandingSource;
+            var r = CombatFx.RecipeFor(0f, 0f, false, 1f, 4f, landing);
+            Assert.IsTrue(r.Ring && r.Dust, "a ring and dust where he comes down");
+            Assert.IsFalse(r.Column || r.OldSmoke || r.Plume || r.Mortar || r.Lean || r.CookOff, "no shell's parts");
+            AssertOld(CombatFx.RecipeFor(0f, 0f, false, 0f, 4f, landing), "fx.recipes 0");
+            Assert.IsFalse(CombatFx.RecipeFor(0f, 0f, false, 1f, 4f).Dust, "a shell has no landing dust");
         }
     }
 }
