@@ -135,12 +135,13 @@ namespace TW.Perf
                 case "barrage": return BenchScenario.Barrage;
                 case "armour": case "armor": return BenchScenario.Armour;
                 case "vfx": return BenchScenario.Vfx;
+                case "beam": return BenchScenario.Beam;
                 default: return BenchScenario.None;
             }
         }
 
-        /// <summary>The name the report writes: "none", "barrage", "armour", "vfx".</summary>
-        public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : "none";
+        /// <summary>The name the report writes: "none", "barrage", "armour", "vfx", "beam".</summary>
+        public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : s == BenchScenario.Beam ? "beam" : "none";
 
         /// <summary>A Ground by its enum name, any case (`WinterLine`, `winterline`), or by a short name: `forest`, `winter`.
         /// Numbers are refused, so `ground=1` cannot quietly mean a map. False for anything else.</summary>
@@ -166,5 +167,5 @@ namespace TW.Perf
     }
 
     /// <summary>What the measured window stages on top of the stress battle (PerfBench, BenchScenarios).</summary>
-    public enum BenchScenario { None = 0, Barrage = 1, Armour = 2, Vfx = 3 }
+    public enum BenchScenario { None = 0, Barrage = 1, Armour = 2, Vfx = 3, Beam = 4 }
 }
