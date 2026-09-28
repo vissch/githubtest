@@ -155,7 +155,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
   no longer blocking. Its hit points (`PropRules.StartHp(kind, scale)`) are sized to its machine through
   `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
-  `WreckBlastReach` off its middle, and a cook-off spares the wreck it made.
+  `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
+  brushes or pushes against and any machine flattens scrap it drives over (`Sim/Nav/VehicleKinematics.Wrecks.cs`);
+  both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time.
 - **Tests:** TankTests, TankMobilityTests, CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests,
   WreckDecayTests (the wreck's stages).
 
