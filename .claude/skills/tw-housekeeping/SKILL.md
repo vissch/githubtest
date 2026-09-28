@@ -30,7 +30,9 @@ an empty `githubtest-desk-decision`) is listed, and the owner asked. Anything wi
 standalone clone) is never deleted by this skill.
 
 ## prune.py (to build)
-`trench-warfare-3d/Tools/pipeline/prune.py` is **to build**. It goes in a Tools-only commit, named in `pipelines.md`,
+`trench-warfare-3d/Tools/pipeline/prune.py` is **to build only when the runs pass 5 GB**. On 2026-09-28 the disk had 780 GB
+free and the runs took 1.1 MB, so today the real limit is commit memory, not disk. It goes in a Tools-only commit,
+named in `pipelines.md`,
 shaped like `aosa.py prune`: `prune.py [--kind K] [--apply]`, a dry-run table first. `run_detached.py` will call it
 after each finished job.
 
@@ -73,7 +75,7 @@ Say what you would delete, with sizes, before deleting anything.
 3. Weekly, or on "clean up": a dry run of every kind, a table (kind, count, size, what would go), then apply with the
    owner's word.
 4. **Learn** (Brief 2 §B5): a kind that keeps growing, or a file found that no kind covers, goes to the board's
-   `lessons/housekeeping.md`. A new kind is added only when the owner approves.
+   `lessons.md`. A new kind is added only when the owner approves.
 
 **Desktop, 2026-09-28:**
 - C: 780 GB free.

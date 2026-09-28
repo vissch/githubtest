@@ -14,7 +14,9 @@ visual-score, nav-eval; snapshot at 558c667). The repo's own brief is `docs/refe
 - **INVALID captures get no scores:** `pose_error_m` ≥ 0.5, weather not pinned the same for A and B, `blown_frac` > 0.02, the wrong camera or tier, or an effect outside its tick range.
 - **Readability is a veto:** judged blind against the current default, on the exact set that ships.
 - **A reference is a direction, not a pixel target:** name differences in value, hue, gloss, edge, size and timing.
-- **Blindness:** the critic receives only the evidence bundle, the rubric and the stage contract, never the producer's story. Copy the bundle to a temporary folder and give the critic that path only.
+- **Blindness:** the critic receives only the evidence bundle, the rubric, the stage contract **and the role's lines
+  from the board's `lessons.md`**, never the producer's story. Hard check: "Did this output repeat a recorded lesson?
+  Name it." Copy the bundle to a temporary folder and give the critic that path only.
 
 ## Output (always this shape)
 ```
@@ -58,7 +60,8 @@ COULD NOT JUDGE: what the evidence cannot settle
 3. The critic scores. **Run critics in the foreground**, because a background child reports to the main session, not to you.
 4. The producer implements every top-3 fix or rebuts it in writing. Rebuttals are fine; silent skips are not.
 5. Repeat until the target score or the round limit. **Keep the best round, not the last.** Stop and ask the owner after 2 rounds with no gain.
-6. Record each round's score on the board (`evidence/<item>/<stage>/critic-r<n>.md`). A flaw that recurs across items becomes a proposed checklist line for that role, which the owner approves.
+6. Record each round's score on the board (`evidence/<item>/<stage>/critic-r<n>.md`), and append the round's top
+   finding verbatim to the board's `lessons.md` (`| date | role | finding | critic-r<n> |`). A flaw that recurs across items becomes a proposed checklist line for that role, which the owner approves.
 
 ## Lessons the owner's sessions paid for
 - A self-grading loop needs external artefacts: render before scoring anything visual.
@@ -67,5 +70,5 @@ COULD NOT JUDGE: what the evidence cannot settle
 - A blind critic's count was a quarter low: count events from logs.
 
 ## Learning loop
-Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
-that section's table.
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". Step 0 is reading this role's
+lines in the board's `lessons.md`.

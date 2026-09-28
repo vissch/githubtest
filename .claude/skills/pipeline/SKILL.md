@@ -50,33 +50,19 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
 
 ## The learning loop (Brief 2 §B5; every role runs it)
-"Allways make loops of learning and improving" (the owner). Each job:
-1. produce;
-2. evidence from the gym (`tw-gym`) or a bench, noise floor first;
-3. a `tw-critic` round, rotating its angles between rounds;
-4. fix, or rebut in writing;
-5. keep the **best** round, not the last;
-6. write what worked and what failed to the role's lessons file on the board.
+"Allways make loops of learning and improving" (the owner). Lessons live in **one file**, `tw3d-board/lessons.md`: one
+line per lesson, `| date | role | lesson | source |`. Each job:
+0. **Read before producing:** `grep -i "<role>" ../tw3d-board/lessons.md | tail -20`. Quote every line that applies in
+   your first message. The critic checks it: a recorded lesson repeated is a MAJOR finding.
+1. Produce.
+2. Evidence from the gym (`tw-gym`) or a bench, noise floor first.
+3. A `tw-critic` round **per milestone** (not per small job), rotating its angles.
+4. Fix, or rebut in writing. Keep the **best** round, not the last.
+5. **Write:** the critic's top finding goes in verbatim, and so does anything that surprised you. A gym run appends its
+   own recurring flags (a flag signature seen in two runs in a row) without anyone choosing to.
 
-A flaw that recurs across items becomes a proposed checklist line for that role's skill, which the owner approves.
-
-**Lessons files** (board `lessons/<file>`; one per role):
-
-| Role | File |
-|---|---|
-| balance-simulator | `balance.md` |
-| env-simulator | `env.md` |
-| character-simulator | `character.md` |
-| vehicle-simulator | `vehicle.md` |
-| destruction-vfx-simulator | `destruction-vfx.md` |
-| vfx sheets | `vfx-sheets.md` |
-| optimizer | `optimizer.md` |
-| lowpoly | `lowpoly.md` |
-| bug-catcher | `bug-catcher.md` |
-| hard-critic | `critic.md` |
-| master | `master.md` |
-| gym | `gym.md` |
-| housekeeping | `housekeeping.md` |
+A lesson in the file three times becomes a proposed checklist line in that role's skill. Put it to the owner as one
+question.
 
 ## The work loop (one job)
 

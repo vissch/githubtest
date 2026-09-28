@@ -99,5 +99,5 @@ Anything else is silently cut wrong. Check the grid before publishing.
   `FlipbookOrdinalTests` (decided 2026-09-28). It is never fixed inside an unrelated change.
 
 ## Learning loop
-Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
-that section's table.
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". Step 0 is reading this role's
+lines in the board's `lessons.md`.
