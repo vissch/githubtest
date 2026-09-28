@@ -561,12 +561,13 @@ if os.environ.get("TW_BATTLE", "") == "1":
     manifest["partList"] = [dict(name=n, **manifest["parts"][n]) for n in ALL_PARTS]
     for p in manifest["partList"]: p["parent"] = p["parent"] or ""
     manifest["socketList"] = [dict(name=s, **v) for s, v in manifest["sockets"].items()]
-    # The low sculpt keeps its own paint (TW_REBAKE=1 paints it with LOD0's colours, as jeepsplit.py does): the faces
-    # that close a track's open back take their corners' UVs from the faces beside them, so each is a triangle across
-    # half the atlas, and the bake painted those over the tracks' own islands (seen 2026-09-28: a dark wedge on the atlas,
-    # a blue-grey slab where the far model's track should be)
-    far_base, far_mat = (None, None) if 2 in derived else (lods[2][3] + "_tex0_0.jpg", lods[2][2]) if os.environ.get("TW_REBAKE", "0") != "1" \
-        else battleform.rebake(lods[0][0], lods[0][2], lods[2][0], lods[2][1], os.path.join(RENDERDIR, NAME + "_far.jpg"))
+    # The low sculpt is painted with LOD0's colours (TW_REBAKE, default 1, as jeepsplit.py does; 0 keeps its own paint,
+    # which is greyer: at 170 m the tank turned from green to grey as the level changed). Its tracks keep their own:
+    # the faces that close a track's open back take their corners' UVs from the faces beside them, so each is a
+    # triangle across half the atlas, and baked, they were painted over the tracks' own islands (seen 2026-09-28: a
+    # dark wedge on the atlas, a blue-grey slab where the far model's track should be)
+    far_base, far_mat = (None, None) if 2 in derived else (lods[2][3] + "_tex0_0.jpg", lods[2][2]) if os.environ.get("TW_REBAKE", "1") != "1" \
+        else battleform.rebake(lods[0][0], lods[0][2], lods[2][0], lods[2][1], os.path.join(RENDERDIR, NAME + "_far.jpg"), keep=("Track_L", "Track_R"))
     battleform.write(NAME, OUTDIR, RENDERDIR, lods[0][0], lods[2][0], ALL_PARTS, PARENT, piv, sock, lods[0][2], lods[0][3] + "_tex0_0.jpg", SCALE, manifest, tris_of,
                      far_mat=far_mat, far_base=far_base)
     _sys.exit(0)

@@ -46,9 +46,9 @@ sculpt on an atlas of its own, written beside the near one with `_LOD1` after `A
 of its triangles (`TW_DERIVE=12` for the tank, `TW_LOD2=derive` for the jeep: the far model then wears LOD0's atlas)
 both tore into shards: seen in Play on 2026-09-28 with the far models drawn close, and held since by
 ProvingGroundModelTests (a model's FOLDS, edges whose two triangles face away from each other, were 21 % and 16 % of
-their edge length; every model that looks whole is under 9 %). The jeep's low sculpt is painted with LOD0's colours
-(a Cycles bake, `TW_REBAKE=1`, its default); the tank's keeps its own paint (`TW_REBAKE=0`, its default), because
-the faces that close its tracks' open backs have UVs across half the atlas and the bake painted them over the
+their edge length; every model that looks whole is under 9 %). Both low sculpts are painted with LOD0's colours
+(a Cycles bake, `TW_REBAKE=1`, the default; 0 keeps the sculpt's own paint), but the tank's tracks, which keep their
+own: the faces that close a track's open back have UVs across half the atlas, and baked, they were painted over the
 tracks' own islands. The Croaker's and the Hopper's far models are derived by `mechsplit.py` and are whole.
 Blender exits 0 when the script it ran raised: read the log for `DONE`. In the battle's form the root part stands on
 the origin (`mechsplit.py` moves the Hull's pivot there): with the Croaker's Hull pivot at its pelvis every part under

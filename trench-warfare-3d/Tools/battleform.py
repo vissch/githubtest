@@ -94,10 +94,12 @@ def joined(parts, mat, name):
     return o
 
 
-def rebake(src_parts, src_mat, dst_parts, dst_img, path):
+def rebake(src_parts, src_mat, dst_parts, dst_img, path, keep=()):
     """Paint a far model that has UVs of its own with the near model's colours (a Cycles bake from the one onto the
-    other, jeepsplit.py's); a texel the bake misses keeps the far model's own paint. Returns (path, material)."""
+    other, jeepsplit.py's); a texel the bake misses keeps the far model's own paint, and so does every part named in
+    `keep` (a part whose faces lie across other parts' islands would be painted over them). Returns (path, material)."""
     import numpy as np
+    dst_parts = {n: b for n, b in dst_parts.items() if n not in keep}
     os.makedirs(os.path.dirname(path), exist_ok=True)
     src = joined(src_parts, src_mat, "bake_src")
     w, h = dst_img.size
