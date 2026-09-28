@@ -32,7 +32,7 @@ COULD NOT JUDGE: what the evidence cannot settle
 ## Rubrics per role (bands out of 100; the visual share is capped, because vision scores saturate)
 | Role | Hard checks (a FAIL caps at 49) | Bands |
 |---|---|---|
-| destruction-vfx | readability, T1 budget, `books.Ready`, guard tests | coverage of events 30 · look per band vs spec 30 (visual ≤ 15) · budget 20 · repeatability 10 · cost 10 |
+| destruction-vfx | readability, T1 budget, `books.Ready`, guard tests, fidelity never drops as the camera zooms in (T3 ≥ T2 ≥ T1 ≥ O120 ≥ O240 ≥ Far) | coverage of events 30 · look per band vs spec 30 (visual ≤ 15) · budget 20 · repeatability 10 · cost 10 |
 | vehicle | GaitTests green, `pose_error_m` read | the docs/20 lines at the current zoom level, mapped to 100 |
 | character | clipcheck thresholds, guard tests | situation-matrix pass rate 40 · per-unit specificity 20 · look 15 · repeatability 15 · cost 10 |
 | env | asset-scale audit, readability | the env-scoreboard's ten criteria at the tier, mapped to 100 |

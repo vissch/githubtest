@@ -50,7 +50,10 @@ Rows are events (the catalogue's 86). Columns are what an event touches: man, sq
 trench, ground. Each cell names:
 - the sim event that carries it;
 - the reaction (flinch, knockdown, throw, body left, crater, scar, burn, collapse, debris);
-- its fidelity per band: T3 the richest, T1 readable, far one clear mark.
+- **a spec for each of the six bands** (T3, T2, T1, O120, O240, Far).
+
+The owner's rule is "higher fidelity each time" you zoom in, and it is a hard check: a cell's spec never loses detail
+going T3 ← T2 ← T1 ← O120 ← O240 ← Far.
 
 Units' cells are shared with `tw-character-sim`. Each filled cell has a gym entry (`tw-gym`) as its proof. A cell with
 no sim event is flagged for the SIM lane, never faked in SHOW.
@@ -59,8 +62,9 @@ no sim event is flagged for the SIM lane, never faked in SHOW.
 - **Sheets:** the pack's `blood_spurt_1` / `blood_sniper_1`.
 - **Placement:** cards along the round's direction on men hit.
 - **Scaling:** by `DebrisRenderer.Gore` (0 means none).
-- **Bands:** T3 and T1 only; far shows nothing.
-- **Budget:** it counts against the draw budget like any book.
+- **Bands:** T3, T2 and T1; nothing from O120 out.
+- **Budget:** the barrage frame is at 374 draws against 300, so blood must **replace** cards (the hit's dust Puff
+  first), never add. The VFX lane (session pc-e5) implements it.
 
 ## Proving it
 - **Benches, same battle:** `CaptureRig.Bench("scenario=vfx|barrage|armour stress=1500 settle_ticks=1800 ticks=400 shot=<png> shot_tick=N shot_hud=0 out=<abs json>")` in the editor. In the player: `-twbench "..."`. JUICE J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
@@ -74,12 +78,16 @@ no sim event is flagged for the SIM lane, never faked in SHOW.
   - New mutable statics register with `SceneStatics` (StaticLifecycleTests).
 - **Guard tests:** HouseKitTests, TrenchSectionTests, DebrisTests, PropWearTests, DeathEventContractTests, DeathVarietyTests, BlastReactionTests, PlaygroundAssetTests, FrameBudgetCoverageTests, StaticLifecycleTests, ShaderInclusionTests (any new `Shader.Find("TW/…")`).
 - **Critic:** `tw-critic` with JUICE's readability check. A moment closes at 8, and any readability drop means revert.
+- **Gym:** every event's entry (`tw-gym`), captured at all six bands, is the standing proof. Rerun it after each change.
+- **Learn** (Brief 2 §B5): the board's `lessons/destruction-vfx.md`. A recurring flaw becomes a proposed checklist line.
 
 ## Traps
 - The `Sheets` table is indexed by the `Book` ordinal. Rows 19-21 (Core, Head, Bloom) are out of order today; see the board finding. Three rows are named "Puff": the smoke book is the one with `Erode = true`.
 - Six books' tints (Splash, Column, Wings, Spurt, Puff, Smoke) are overwritten every scene by `CombatFx.ApplyTints`. Change the biome profile, not the row.
-- **`Explosion.Dir` is already filled** for barrage, creeping barrage, strafe, ship, ambient and tank HE shells, and for
-  mines. It is zero only for the Kettle mortar, the jetpack landing and cook-offs (phase 1 corrected the old "ASK S05").
+- **`Explosion.Dir` is already filled** for barrage, creeping barrage, strafe, ship, ambient and direct tank HE shells,
+  and for mines. It is zero for **every indirect tank gun** (the Kettle mortar and the Salvo's rockets:
+  `TankGunnery.cs` ~312), the jetpack landing and cook-offs. **`Dir.y` carries the blast shape** (`Blast.cs` ~151), so
+  read the lean from x and z only. Phase 1 corrected the old "ASK S05".
   `CombatFx` already leans the burst by it. What's missing is a drawing that leans. The decision says explosions are
   directional in look **and** damage.
 - **`CombatFx` ignores who fired a burst.** Cook-offs, jetpack landings, tripwires, mines and the Kettle mortar all get

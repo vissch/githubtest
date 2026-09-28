@@ -21,7 +21,7 @@ GPU broker, a reference that was found, or a page drawn in HTML or SVG. Write th
   infantry type except the sniper is drawn as Soldier, whatever its role.
 - Repairing a clip changes it for **every** archetype on that figure. A unit-specific fix therefore needs either a
   per-archetype choice in the controller (SHOW lane) or a new figure and a rebake. A new figure is the owner's decision
-  (about 20 MB of git history per atlas, and no LFS).
+  (about 19 MB of git history per atlas, both rebaked each bake, and no LFS).
 - Per-unit proportions exist only in the Playground today (`UnitRig`, `Retarget`, `frogrig.py`).
 
 ## The situation matrix (a cell per unit type × situation × band)
@@ -50,7 +50,7 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 | Trace one man in Play | `Tools/tw eval 'var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.Animation.Follow(N); return "ok";'`, later `return h.Animation.TraceText();`. Reference traces are in `docs/reference/controller/` |
 | Guard tests | DeathVarietyTests, BlastReactionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, TickAllocationTests, PlaygroundAssetTests (figure tests) |
 
-## Repair loop (at most 3 rounds per failing cell)
+## Repair loop (at most 3 rounds per failing cell; Brief 2 §B5)
 1. Name the cell, the metric and its threshold before touching anything.
 2. The cheapest fix first:
    - clip table flags and cuts in `Editor/InfantryClipTable.cs` (`L` loop, `O` once, `C` composed, `T` thrown, `D` death with `KeepRoot`);
@@ -59,6 +59,9 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 3. Rebake, rerun clipcheck and the guard tests, and re-trace the same man in the same situation.
 4. The same clip is now on every Soldier-figure unit. Check the other archetypes still pass their cells.
 5. After three rounds the cell is BLOCKED, with a note of the source animation needed.
+6. **Critic** (`tw-critic` character rubric, rotating angles) on the gym sheets. Keep the best round.
+7. **Learn:** the board's `lessons/character.md`. A flaw that recurs across units becomes a proposed checklist line,
+   which the owner approves.
 
 ## Foxholes, trenches and craters (the owner: "fix the characters sitting in their fox hole and shooting")
 **What happens today, at `c43b73f`:**
@@ -73,7 +76,9 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
   - Shield when Suppression > 30.
 - **What's missing.** There is **no seated-in-a-hole pose and no parapet lean**, and "foxhole" appears nowhere.
 - **Craters.** They are designed (`docs/15-character-controller.md` ~191: kneel, go prone in the bowl, fire prone), but
-  `NavLayer.Crater` is read only by the minimap, so a man in a crater plays his open-ground clips.
+  `NavLayer.Crater` has **no presentation reader except the map views** (HudMinimap, BattleHud, MapThumbnail), so a man
+  in a crater plays his open-ground clips. The sim does read it (cover, blast protection, gas, vehicle speed:
+  `DirectFire.cs` ~231, `Blast.cs` ~234).
 - **Muzzle height.** The fire step changes the picture only: the muzzle is at +0.3 m for every man in a trench
   (`docs/14-organic-trenches.md` ~96-103). Changing that is **SIM**: put it in "Open" and don't build around it.
 
@@ -90,13 +95,15 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
    - its `Clips.Table` row with a fallback;
    - an `InfantryClipTable.Build` source.
 
-   **Batch every new clip into one bake**: each bake adds about 19 MB to git history.
+   **Batch every new clip into one bake.** A bake rebakes both figures and adds about **38 MB** to git history (two
+   ~19 MB atlases).
 3. **Choice.** FireStep → parapet lean-fire (and its idle). A man in a crater cell → the hole or prone set. Read
    `NavLayer.Crater` through the presentation's terrain view. Don't change the sim.
 4. **Proof.**
    - The gym (`tw-gym`), at T3 and T1: the Clips tab for the clip itself, and a trench and a crater staged with a
      rifle line for the real choice.
-   - clipcheck thresholds (floor, hand to weapon).
+   - clipcheck thresholds (skate, drift, foot and hand floor, hand-to-head). clipcheck has no hand-to-weapon or
+     penetration measure, so judge those from the gym's T3 sheet.
    - The trace showing the new rung.
    - Before and after sheets.
 

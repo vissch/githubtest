@@ -10,7 +10,7 @@ Paths are under `trench-warfare-3d/Assets/_Project/` unless they say otherwise.
 | Watching one man | `Follow(slot)` / `TraceText()` (record only, they never steer) | same file ~911-928 |
 | Figure of an archetype | `VATRenderer.FigureOfArchetype` (archetype 3 = Sniper, else Soldier); clip → atlas row; `ClipAtlas` | `Presentation/Units/VATRenderer.cs` ~96, ~123, ~188-194 |
 | Writing to the sim legally from SHOW | `SimHost.WriteWorlds(Action<...>)` (both worlds, same order), `Issue`, `IssuePeer` | `Presentation/Core/SimHost.cs` ~174-180, ~200, ~203 |
-| A quiet battle | `ScriptedPeer`, `PeerAttacks`, `BombardmentOverride` | `SimHost.cs` ~48, ~53-56 |
+| A quiet battle | the `ScriptedPeer`, `PeerAttacks` and `PeerUsesSupport` fields (read every tick by `SyncEnemy`), plus `Bombardment.ShellsPerMinute = 0` via WriteWorlds. `BombardmentOverride` is static and read only in `NewMatch`, so it is no use mid-match | `SimHost.cs` ~48-61, ~115, ~191-196 |
 | Calling an ability the way the benches do | `BenchScenarios.Issue`: tops up silver and clears cooldowns through `WriteWorlds`, then issues SupportFire | `Perf/BenchScenarios.cs` ~117-122, ~144-156 |
 | Which abilities the sim takes | `OffMapAbilities.TryGetStats` (false → CommandRejected); `FactionRoster.MayCall` (ParaDrop Brass only) | `Sim/Match/OffMapAbilities.cs` ~159-161, ~193; `Sim/Core/FactionRoster.cs` ~117-120 |
 | Unit abilities | Breaker, Leap and Support run on their own. `SpecialAbilitiesSystem.Step` throws, and `CommandType.UnitAbility` has no consumer | `Sim/Units/Breaker.cs`, `Sim/Combat/Leap.cs`, `Sim/Units/Support.cs`, `Sim/Units/SpecialAbilities.cs` ~18 |
@@ -24,22 +24,24 @@ Paths are under `trench-warfare-3d/Assets/_Project/` unless they say otherwise.
 ## The files the gym adds (SHOW lane, `lane/show/gym`)
 | File | What |
 |---|---|
-| `Presentation/Core/AnimationController.Pin.cs` | Partial. `Pin(slot, clip, rate)`, `Unpin(slot)`, `PinnedCount`. A `NativeArray<byte>` of clip + 1 per slot (0 = none), a rate array, and the pinned generation. One guarded call in `Tick` before `Decide`: a living pinned man whose generation is unchanged replays the clip through `Start`; a one-shot restarts after a 0.5 s hold. A death takes over because the alive check comes first. Allocation-free. |
-| `Perf/GymCatalogue.cs` | Pure data: the entry lists built from `Enum.GetValues`, the roster and the bands, with per-entry expectations and exclusion reasons. |
-| `Perf/GymDirector.cs` | A runtime MonoBehaviour. It quiets the battle, stages each entry through `WriteWorlds`/`Issue`, records events via `Events.OnEvent` and log lines via `Application.logMessageReceived`, and drives the camera. |
-| `Editor/Gym.cs` | The TW > Gym window, `Gym.Run(string opts)` and `Gym.CommandLine()`: capture per band via `CaptureRig`, a JPG sheet per entry, the JSON sidecars, `summary.json` and retention. |
-| `Tools/gymscore.py` | Diffs two runs and joins `clipcheck.py` by clip. A Tools-only commit, named in `pipelines.md`. |
-| Tests | `GymCatalogueTests` and `AnimationPinTests` (EditMode), `GymPlayTests` (PlayMode, one: HeBarrage is accepted and the pin draws). Named in a new `tasks.md` "Gym" row. |
-| Docs | The `tasks.md` Gym row (files, tests, how to see it), `code-map.md`, `feature-flags.md` FLAG_EFFECT for `TW_GYM`, `workflow.md` §6 for `Gym.Run`. Every new `.cs` starts with `// Phase:`. |
+| `Presentation/Core/AnimationController.Pin.cs` | A partial class. `Pin(slot, clip, rate)`, `Unpin`, `UnpinAll`, `PinnedClip` and `PinnedCount`. The arrays are made on the first Pin and disposed from `Dispose` (`DisposePins`). `Tick` runs `if (PinnedCount == 0 \|\| !Pinned(i, ref s)) Decide(...)`. A pinned one-shot rests `PinHold` (0.5 s) and replays. A new generation drops the pin. Allocation-free. |
+| `Perf/GymCatalogue.cs` | Pure data. The tabs `Clips` / `Units` / `Abilities` / `Deaths` / `Events` are built from `Enum.GetValues` and the unit table. `GymExpect` is Fires / Rejected / FactionSeat / Covered / Preview / Excluded. `EventHow` has **no default case**. There are six bands. |
+| `Perf/GymDirector.cs` | Under `#if UNITY_EDITOR \|\| DEVELOPMENT_BUILD`. `Attach`, `Quiet`, `Begin`/`End` (a Result with events, rejects, errors, canary, desync), `Spawn` via WriteWorlds, `Row`, `Clear` (only the gym's own units), `PlayClip`, `Ability`, `Death(DeathKind)`, `Preview`, `Look`. |
+| `Editor/Gym.cs` | `Gym.Run(opts)`, `Gym.CommandLine()`, the `GymRun` coroutine, and the `GymWindow` (**TW > Gym**). |
+| `Tools/gymscore.py` | **To build** (G3, a Tools-only commit named in `pipelines.md`). |
+| Tests | `GymCatalogueTests` and `AnimationPinTests` (EditMode), and `GymPlayTests` (PlayMode). Each is named in the `tasks.md` "Gym" row. |
+| Docs | The `tasks.md` Gym row, `code-map.md`, `feature-flags.md` (FLAG_EFFECT for `TW_GYM` and `-twgym`), `workflow.md` §6 (`Gym.Run`). Every new `.cs` starts with `// Phase:`. |
 
-## Staging per death cause (deaths must come from a system inside a tick)
+## Staging per `DeathKind` (deaths come from a system inside a tick)
+`DeathCause` (the sim's) has no Shot, and its `Crush` is reserved and never raised: a shot and a crush keep the killer's
+slot. The gym therefore lists the presentation's `DeathKind`, which is what the picture shows.
 | Cause | Staging |
 |---|---|
 | Shot | Victim at Hp 1 (WriteWorlds), then an enemy rifle line in range |
 | Blast | `HeBarrage` on him |
 | Gas | `ChlorineGas` on him (slow: 40 s timebox) |
 | Beam | `Beam` along a heading through him |
-| Burning | `Burning.Ignite` via WriteWorlds; the burning system kills in its step |
+| Burning | `Burning.Ignite` inside WriteWorlds (a tooling write; `Burning.cs` says presentation never calls it, so it is flagged to the SIM lane; the fallback is the Beam, which sets men alight); the burning system kills in its step |
 | Crushed | Best effort: a Maw ordered over him. May fail and flag; the owner may ask the SIM lane for a debug path |
 
 ## Estimates (not measured, update after the first run)
@@ -48,10 +50,11 @@ vehicle modules ≈ 10 min. **About 25 min and 60-100 MB per run.** The run abor
 falls under 10 GB.
 
 ## Defaults taken (Brief 2; the owner may overturn them)
-- Editor only. A `-twgym` switch in a development player comes later and is the owner's call; it would need a
-  `Debug.isDebugBuild` guard because `Perf/` ships.
-- Death clips are pinned on living men for clip review, next to the real per-cause deaths.
-- Replayed events are labelled "preview".
-- The canary is off by default, since it doubles the sim cost; a canary run is what catches WriteWorlds desyncs.
-- Crush death is best effort.
-- Raw stills are kept for flagged entries only.
+- **Editor now, a development player later.** G4 adds `-twgym` behind `DEVELOPMENT_BUILD`. When it happens is the owner's
+  question Q-B2; the plan builds it either way.
+- **Death clips** are pinned on living men for clip review, alongside the real deaths per kind.
+- **Replayed events** are labelled "preview".
+- **The canary** is off by default. `desync` is then `null`, not false. A weekly run with the canary catches WriteWorlds
+  desyncs.
+- **Crushed** is best effort.
+- **Raw stills** are kept for flagged entries only.

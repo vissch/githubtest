@@ -57,3 +57,14 @@ Write it to the board: `evidence/<item>/optimizer/sheet.md` plus JPGs.
 - Edit `Sim/`, `Net/`, `Data/`, asmdefs, `ProjectSettings/` or `Packages/`. A sim cost becomes an ASK item for the SIM lane.
 - Close a card on an argument, trust `max` over sums/p99, or trust a number over a screenshot that disagrees.
 - Set `EditorApplication.update = null`.
+
+## Learning loop (Brief 2 §B5, every role)
+The loop, every time:
+1. produce;
+2. evidence from the gym (`tw-gym`) or a bench;
+3. a `tw-critic` round, with angles rotated between rounds;
+4. fix;
+5. keep the **best** round, not the last;
+6. write what worked and what failed to the board's `lessons/optimizer.md`.
+
+A flaw that recurs across items becomes a proposed checklist line for this page, which the owner approves.
