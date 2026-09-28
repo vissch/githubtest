@@ -296,6 +296,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Pigments(path, cell)` | Editor/CaptureRig.cs | Lays every painted surface out side by side as one PNG, each tiled 2x2 so the repeat is visible. |
 | `TW.Editor.CaptureRig.Textures(path, top)` | Editor/CaptureRig.cs | Every texture in memory, largest first, with what it really costs, and a count of the distinct materials and shaders the props are drawn with. |
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
+| `TW.Editor.CrabManifest.MachineOf(assetPath)` | Editor/CrabManifest.cs | The machine a model file belongs to: "Kettle" for .../Kettle_LOD1.fbx. |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
 | `TW.Editor.LookLab.Knob(name, value)` | Editor/LookLab.cs | A knob set in the game on the lab's next frame. |

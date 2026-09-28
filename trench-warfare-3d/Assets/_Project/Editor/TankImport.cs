@@ -23,6 +23,8 @@
 // imported by the full rule. The crabs are not among them: their feet carry the same error (their bodies stand 0.2 m off
 // the origin too), TankModel and the gait were tuned around it, and putting them right is a change to six shipped
 // machines that wants its own look in Play.
+// A node two levels down under a part off the root's origin is moved as well: the walkers' are put at crabs.json's
+// places (CrabManifest).
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -106,6 +108,18 @@ namespace TW.Editor
                     t.localPosition = new Vector3(b.center.x, b.center.y, b.max.z);
                 }
                 else t.localPosition = aware && t.parent != null ? TurnedOffset(p, t.parent.localPosition) : Unturn(p);
+            }
+            // The walkers and the Cutter (crabsplit.py) nest a level deeper under a body off the root's origin, and the
+            // same export moves those nodes as well (CrabManifest): each goes to the place its manifest gives, parents
+            // first, the muzzles kept at the barrel's tip as above. Read on every import of theirs, so the manifest is a
+            // dependency.
+            var places = CrabManifest.Places(CrabManifest.MachineOf(assetPath));
+            if (places != null)
+            {
+                context.DependsOnSourceAsset(CrabManifest.Path);
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                    if (t != root.transform && !t.name.StartsWith("Socket_Muzzle") && places.TryGetValue(t.name, out var at))
+                        t.localPosition = at - root.transform.InverseTransformPoint(t.parent.position);
             }
             foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
             {
