@@ -256,6 +256,7 @@ namespace TW.Presentation.Tactical
         void DrawSmokeScreen(GasSmokeSystem gas, float now, Bounds bounds)
         {
             if (gas == null || !gas.SmokeActive || books == null || !books.Ready) return;
+            if (recipes >= 0.5f) { DrawSmokeBank(gas, now, bounds); return; }   // L08 (CombatFx.Banks.cs)
             float cs = MapData.FieldCellSize;
             var map = Host.Local.Map;
             // the whole grid is scanned once a sim tick, not once a frame: the field cannot change between ticks
