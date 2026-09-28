@@ -53,15 +53,18 @@ namespace TW.Sim.Match
         public static UnitDef Skimmer => new UnitDef
         {
             Archetype = VehicleArchetype.Skimmer,
-            Roster = new RosterEntry { Archetype = VehicleArchetype.Skimmer, Cost = 220, Hp = 1300f, Speed = 3.4f, CooldownTicks = 420, IsVehicle = true, Chassis = ChassisKind.Tracked },
-            Infantry = new InfantrySpec { Group = OrderGroup.Line },
+            Roster = new RosterEntry { Archetype = VehicleArchetype.Skimmer, Cost = 180, Hp = 1300f, Speed = 3.4f, CooldownTicks = 420, IsVehicle = true, Chassis = ChassisKind.Tracked },
+            // it hunts light machines with its machine gun (12 mm beats a Salvo's or a Skimmer's side and rear, never a Maw's
+            // front) and looks down into a trench it drives up to, as a charging Breaker does (the balance critic, 2026-09-28)
+            Infantry = new InfantrySpec { Group = OrderGroup.Line, HuntsArmour = true, LooksDownMetres = CombatTables.ChargeRevealRange },
             // the machine gun in its turret: fired by the small-arms systems (TargetAcquisition reads its range here)
-            Weapon = new WeaponStats { Id = VehicleArchetype.Skimmer, Damage = 24f, RangeMax = 130f, RoundsPerSecond = 6f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 9f },
+            Weapon = new WeaponStats { Id = VehicleArchetype.Skimmer, Damage = 24f, RangeMax = 130f, RoundsPerSecond = 6f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 12f },
             Machine = new TankSpec
             {
                 Hull = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 5f },
                 Turret = new ArmorProfile { FrontMm = 10f, SideMm = 8f, RearMm = 6f, TopMm = 5f },
                 TurretChance = 0.2f, Crew = 2, GunCount = 0, ShortHalt = false, FuelRisk = 0.40f, AmmoRisk = 0.20f,
+                StandOffMetres = 90f, StandOffPatience = 20f,   // shoots from out of grenade range; gives up a mark it is not hurting
             },
             // footprint off the model (7.0 m across the pods at TW_SCALE 7): 6.6 m long, 6.9 m wide
             Drive = new VehicleProfile
@@ -84,7 +87,8 @@ namespace TW.Sim.Match
             Archetype = VehicleArchetype.Salvo,
             Roster = new RosterEntry { Archetype = VehicleArchetype.Salvo, Cost = 380, Hp = 2000f, Speed = 1.8f, CooldownTicks = 700, IsVehicle = true, Chassis = ChassisKind.Tracked },
             Infantry = new InfantrySpec { Group = OrderGroup.Line },
-            Weapon = new WeaponStats { Id = VehicleArchetype.Salvo },   // no small arms: RangeMax 0 acquires nothing
+            // a hull machine gun, the Tusk's: it covers the 60 m the rockets cannot reach (no armour-piercing: men only)
+            Weapon = new WeaponStats { Id = VehicleArchetype.Salvo, Damage = 24f, RangeMax = 110f, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f },
             Machine = new TankSpec
             {
                 Hull = new ArmorProfile { FrontMm = 10f, SideMm = 8f, RearMm = 6f, TopMm = 6f },
@@ -92,7 +96,7 @@ namespace TW.Sim.Match
                 TurretChance = 0.35f, Crew = 3, GunCount = 1, ShortHalt = true, FuelRisk = 0.30f, AmmoRisk = 0.70f,
                 // the shell below is the whole rack: a rocket from each of its sixteen tubes, each landing on its own
                 // tick (TankGunnerySystem); it holds where it is while it has a target, so it fires from its reach
-                Rockets = 16, RocketSpeed = 140f, StandOff = true,
+                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 380f, StandOffPatience = 32f,   // two reloads without a hit: move on
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 20f * Deg,

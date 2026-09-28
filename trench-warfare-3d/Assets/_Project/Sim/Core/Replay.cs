@@ -38,7 +38,10 @@ namespace TW.Sim
         // SimRandom.SystemId.Salvo = 22; TankSpec gains Rockets and RocketSpeed (the combat table's fingerprint).
         // v12 (2026-09-28): TankSpec gains StandOff (the Salvo holds while it has a target) and VehicleProfile Clearance
         // (added to Radius; the Skimmer and Salvo keep 1.2 m more round them); the Salvo's rack is 16 rockets, not 12.
-        public const ushort FormatVersion = 12;
+        // v13 (2026-09-28, the balance critic's round): TankGunnerySystem hashes the stand-off hold (HoldTarget, HoldTicks,
+        // Release, HoldHp) after the rockets; TankSpec.StandOff (bool) became StandOffMetres/StandOffPatience; InfantrySpec
+        // gains HuntsArmour and LooksDownMetres; a machine's armour-hunting small arms fire armour-piercing at machines.
+        public const ushort FormatVersion = 13;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

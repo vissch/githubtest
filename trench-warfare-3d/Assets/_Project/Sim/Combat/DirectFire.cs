@@ -194,6 +194,22 @@ namespace TW.Sim.Combat
                     if ((Flags[t] & (uint)UnitFlags.Vehicle) != 0)
                     {
                         if ((Flags[t] & (uint)UnitFlags.KnockedOut) != 0) { TargetSlot[i] = -1; continue; }
+                        if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0)
+                        {
+                            // a machine's armour-hunting small arms (InfantrySpec.HuntsArmour, TargetAcquisition): a burst of
+                            // armour-piercing at the hull, resolved against the plate it strikes by VehicleModulesSystem
+                            var mg = Weapons[Archetype[i]];
+                            FireCooldown[i] = CombatTables.CooldownTicks(mg, TickSeconds);
+                            float3 at = q - p; at.y = 0f;
+                            float range = SimMath.Length(at);
+                            float3 way = range > 1e-3f ? at / range : new float3(0f, 0f, 1f);
+                            Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = way, Scalar = 0f });
+                            float odds = mg.Accuracy * CombatTables.RangeFalloff(range, mg.RangeMax) * 1.3f;   // a hull is a big target
+                            if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed) odds *= CombatTables.MovingAccuracy;
+                            if (SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i).NextFloat() < odds)
+                                VehicleHits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.ArmourPiercing, PenMm = mg.PenetrationMm, Damage = mg.Damage, Pos = q, Dir = way });
+                            continue;
+                        }
                         // close assault: a bundle of grenades on the engine deck, the tracks or through a vision slit
                         FireCooldown[i] = CombatTables.CloseAssaultCooldownTicks;
                         var dice = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);

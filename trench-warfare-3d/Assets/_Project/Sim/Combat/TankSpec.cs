@@ -61,9 +61,12 @@ namespace TW.Sim.Combat
         /// come down scattered over the shell's burst: TankGunnerySystem holds them until they land.</summary>
         public int Rockets;
         public float RocketSpeed;
-        /// <summary>Artillery (2026-09-28, the Salvo): while gun 0 has a target it holds where it is, so it fires from
-        /// the edge of its reach instead of driving on into the enemy's lines.</summary>
-        public bool StandOff;
+        /// <summary>It holds where it is while its target (gun 0's, or its small arms' if it has no gun) is within this many
+        /// metres (0: it never holds): the Salvo at its rockets' reach, the Skimmer at 90 m, out of grenade range. After
+        /// StandOffPatience seconds on one target without taking a hit point off it, it gives up the hold for
+        /// StandOffRelease seconds and drives on (it cannot camp a target it is not hurting). 2026-09-28.</summary>
+        public float StandOffMetres, StandOffPatience;
+        public const float StandOffRelease = 10f;
 
         public TankGun Gun(int k) => k == 0 ? Gun0 : Gun1;
 

@@ -166,6 +166,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   faction's slots or pool: the Unit Sandbox is the only way onto the field (2026-09-28). The Salvo's gun fires a rack
   (`TankSpec.Rockets`): `Sim/Combat/TankGunnery.cs` holds each rocket (`PendingRocket`) until its land tick and says
   so in a `RocketFired` event, which `Presentation/Camera/TankRenderer.Salvo.cs` flies on the sim's clock.
+  A machine holds at `TankSpec.StandOffMetres` (`TankGunnerySystem.StandOff`); a machine's small arms hunt light
+  machines only with `InfantrySpec.HuntsArmour` (`Sim/Combat/TargetAcquisition.cs`, `Sim/Combat/DirectFire.cs`).
 - **Tests:** FactionRosterTests, UnitCatalogueTests, UnitDefinitionTests, LoadoutTests, DefinedUnitTests (the
   Skimmer's and Salvo's numbers, that no faction fields them, that each drives and fights, that each rocket bursts on
   the tick and at the point its event named and not before, the same every run and in the canary).

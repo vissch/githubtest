@@ -38,6 +38,14 @@ namespace TW.Sim
         /// <summary>Delivered by air (the paratrooper): never a roster slot, always an off-map drop.</summary>
         public bool DropCapable;
 
+        // ---- a machine's small arms (2026-09-28, the balance critic's round; the Skimmer) ----
+        /// <summary>Its small arms fire armour-piercing at another machine whose facing plate their PenetrationMm beats
+        /// (TargetAcquisition, DirectFire): a light machine hunting light machines. Off, a machine's guns never look at one.</summary>
+        public bool HuntsArmour;
+        /// <summary>Metres within which it sees men below a parapet (0: the rule for everyone, BelowRimRevealRange 8 m);
+        /// a raider that drives up to a trench looks down into it, as a charging Breaker does.</summary>
+        public float LooksDownMetres;
+
         /// <summary>
         /// Which OrderGroup mask bit this man answers to, so "send the line over" reaches him or does not. It lives in
         /// the spec rather than in a switch of its own because the spec is already the table a new unit is written

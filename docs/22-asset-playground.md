@@ -351,3 +351,33 @@ was checked in the real scene (Play in GreyboxCorridor, `TankCapture.Spawn`, `Ca
 The re-split Salvo's LOD pop is unchanged (0.975 / 7.3, 7.1 at the battle's scale). **Left for Play:** the rack from
 the player's own camera in a real fight; whether 0.45 of the side's colour on the box is too loud; the claw legs stay
 folded into the hull (they are one piece with it: folding them needs a split into leg parts).
+
+### The balance critic's round (2026-09-28)
+A critic fought both machines offline (otr, 10 seeds a fight). Re-measured here with a scratch harness of the same
+fights on the greybox map (open ground; the playtest map's berms hide a hull's small arms, which look from a man's eye
+height), 60 s a fight, 10 seeds, one side the new machine (A). "Win" = every enemy dead or knocked out, A standing.
+
+| Fight | Before | After |
+|---|---|---|
+| Salvo vs Tusk closing from 240 m | 0 win / 10 loss, 0 racks fired | 6 / 4, 1.9 racks, the Salvo keeps 76 % |
+| Salvo vs 4 riflemen at 40 m (inside its rockets' 60 m) | 0 / 0 / 10 draw, 0 shots | 10 / 0, its machine gun |
+| Salvo vs 15 riflemen 5 m apart at 200 m | 4.5 killed, 4 racks | the same (rack weight unchanged) |
+| Skimmer vs 9 riflemen garrisoned in a trench | 0 dealt, 0 shots | 121 hp dealt, 0.9 killed, closes to 20 m |
+| Skimmer vs Tusk from 240 m | 0 / 10 (the Tusk's 220 m gun outranges 130 m) | 0 / 10, unchanged |
+| Skimmer vs a holding Salvo from 200 m | 0 / 0 / 10 draw | 0 / 10: the Salvo's rockets reach it first |
+| Skimmer vs a holding Salvo from 120 m, side-on | (not run before) | 8 / 2: 12 mm through its side |
+| Skimmer vs 9 riflemen, static, from 120 m | (not run before) | 8 / 0 / 2, 8.8 killed, holds at 90 m |
+| Skimmer vs 9 riflemen advancing, from 120 m | (not run before) | 0 / 0 / 10, 217 hp dealt, closest 71 m (it holds; they did not reach it) |
+| Kettle holding, the critic's reference | 0 shots | 0 shots: see below |
+
+Changed (the critic's final report): the Skimmer's machine gun is 12 mm and hunts light machines (`InfantrySpec.HuntsArmour`:
+a machine whose facing plate it beats, never a Maw's front), costs 180, holds at 90 m (`TankSpec.StandOffMetres`) and looks
+down into a trench within 20 m (`InfantrySpec.LooksDownMetres`); the Salvo's rack may take a machine as its mark (its
+bursts test the deck), it carries the Tusk's hull machine gun (110 m) for the 60 m its rockets cannot reach, and its hold
+gives up after 32 s on a mark that loses no hit points (`StandOffPatience`). Not changed: the rack's weight (the critic
+judged the fewer-kills calibration right), the Skimmer's hit points. **The Kettle's 0 shots** are the shipped Kettle's,
+not the harness's: a machine turns its hull toward its path even standing still (yaw 3.14 -> -2.36 in the probe), and the
+Kettle's mortar swings only 24 degrees either side of the nose, so a halted Kettle whose path does not point at its
+targets never fires. A moving Kettle, pointed along its path, does (CrabTests). Left for the owner: it is the original
+game's machine. **Open:** the Salvo beats a Tusk 6 in 10 (the critic expected the Tusk to win at a price): its bursts on
+the deck strike the Tusk's modules; the Skimmer still cannot touch a Tusk (all of the Tusk's plate is thicker than 12 mm).

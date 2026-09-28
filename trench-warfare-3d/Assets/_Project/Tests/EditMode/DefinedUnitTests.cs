@@ -58,11 +58,15 @@ namespace TW.Tests
 
             var sk = w.Units.Roster[VehicleArchetype.Skimmer];
             Assert.AreEqual(VehicleArchetype.Skimmer, sk.Archetype);
-            Assert.AreEqual(220, sk.Cost); Assert.AreEqual(1300f, sk.Hp); Assert.AreEqual(3.4f, sk.Speed);
+            Assert.AreEqual(180, sk.Cost); Assert.AreEqual(1300f, sk.Hp); Assert.AreEqual(3.4f, sk.Speed);
             Assert.IsTrue(sk.IsVehicle);
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Skimmer), "it drives as a tracked machine");
             var mg = m.Catalogue.Weapon[VehicleArchetype.Skimmer];
             Assert.AreEqual(130f, mg.RangeMax, "a machine gun"); Assert.AreEqual(6f, mg.RoundsPerSecond); Assert.AreEqual(24f, mg.Damage);
+            Assert.AreEqual(12f, mg.PenetrationMm, "that holes a light machine's side and rear");
+            Assert.IsTrue(w.Units.Infantry[VehicleArchetype.Skimmer].HuntsArmour);
+            Assert.AreEqual(CombatTables.ChargeRevealRange, w.Units.Infantry[VehicleArchetype.Skimmer].LooksDownMetres, "it looks down into a trench");
+            Assert.AreEqual(90f, m.Catalogue.Tank[VehicleArchetype.Skimmer].StandOffMetres, "it shoots from out of grenade range");
             var skHull = m.Catalogue.Tank[VehicleArchetype.Skimmer];
             Assert.AreEqual(0, skHull.GunCount, "no gun for TankGunnery: the machine gun is small arms");
             Assert.AreEqual(8f, skHull.Hull.FrontMm); Assert.AreEqual(2, skHull.Crew);
@@ -73,7 +77,9 @@ namespace TW.Tests
             var sa = w.Units.Roster[VehicleArchetype.Salvo];
             Assert.AreEqual(380, sa.Cost); Assert.AreEqual(2000f, sa.Hp); Assert.AreEqual(1.8f, sa.Speed);
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Salvo));
-            Assert.AreEqual(0f, m.Catalogue.Weapon[VehicleArchetype.Salvo].RangeMax, "no small arms");
+            Assert.AreEqual(110f, m.Catalogue.Weapon[VehicleArchetype.Salvo].RangeMax, "a hull machine gun for the 60 m its rockets cannot reach");
+            Assert.AreEqual(380f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres);
+            Assert.AreEqual(32f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffPatience, "two reloads without a hit and it moves on");
             var rockets = m.Catalogue.Tank[VehicleArchetype.Salvo];
             Assert.AreEqual(1, rockets.GunCount);
             Assert.IsTrue(rockets.Gun0.Indirect, "the rockets need no line of sight");
@@ -179,6 +185,82 @@ namespace TW.Tests
             Assert.GreaterOrEqual(math.distance(m.World.Position[a].xz, m.World.Position[b].xz), want - 0.3f, "they are still inside each other");
             // the Maw is drawn with its sponsons 5.8 m out and the Skimmer 3.45 m out: that far apart, the hulls clear
             Assert.GreaterOrEqual(want, 5.8f + 3.45f - 0.05f);
+        }
+
+        // ------------------------------------------------------------------ the balance critic's round (format v13)
+        /// <summary>The Skimmer's 12 mm machine gun takes a light machine (a Salvo's 8 mm side) as its mark, and never a
+        /// heavy one's front (a Maw's 12 mm); the Tusk's 9 mm gun, whose machine does not hunt armour, takes neither.</summary>
+        [Test]
+        public void TheSkimmerHuntsLightMachinesButNotAMawsFront()
+        {
+            using var m = NewMatch();
+            int sk = Spawn(m, 1, VehicleArchetype.Skimmer, new float3(40f, 0f, 150f), 0f);
+            m.World.Yaw[sk] = SimMath.Pi;
+            int salvo = Spawn(m, 0, VehicleArchetype.Salvo, new float3(40f, 0f, 125f), 0f);   // 25 m: in sight on this lumpy map
+            m.World.Yaw[salvo] = SimMath.HalfPi;   // its side to the Skimmer
+            Clear(m, salvo);
+            Run(m, 6);
+            int mark = m.World.TargetSlot[sk];
+            Assert.AreEqual(salvo, mark, $"the Salvo's side is the Skimmer's mark (it took slot {mark}, archetype {(mark >= 0 ? m.World.Archetype[mark] : -1)}, team {(mark >= 0 ? m.World.Team[mark] : -1)}; sk {sk} salvo {salvo})");
+            float before = m.World.Hp[salvo];
+            Run(m, 20 * 20);
+            Assert.Less(m.World.Hp[salvo], before, "and the machine gun holes it");
+
+            using var m2 = NewMatch();
+            int sk2 = Spawn(m2, 1, VehicleArchetype.Skimmer, new float3(40f, 0f, 150f), 0f);
+            var maw = m2.World.Units.Roster[VehicleArchetype.Maw];
+            int mw = m2.World.Spawn(0, VehicleArchetype.Maw, new float3(40f, 0f, 125f), maw.Hp, 0f, true);
+            m2.World.Yaw[mw] = 0f;   // its front to the Skimmer
+            Clear(m2, mw);
+            Run(m2, 6);
+            Assert.AreNotEqual(mw, m2.World.TargetSlot[sk2], "a Maw's 12 mm front is not a mark for 12 mm");
+        }
+
+        /// <summary>Take every other team-0 unit off the field (the playtest map has men on it), so the mark is the machine.</summary>
+        static void Clear(MatchSim m, int keep)
+        {
+            for (int i = 0; i < m.World.HighWater; i++)
+                if (i != keep && m.World.IsAlive(i) && m.World.Team[i] == 0) m.World.Despawn(i, -1, default);
+        }
+
+        /// <summary>Men below the parapet are hidden from everyone beyond 8 m; the Skimmer, driven up, sees them at 20.</summary>
+        [Test]
+        public void TheSkimmerLooksDownIntoATrenchWithinTwentyMetres()
+        {
+            using var m = NewMatch();
+            var map = m.Map; int found = -1; float3 cell = default;
+            for (int c = 0; c < map.CellTrenchId.Length && found < 0; c++)
+                if (map.CellTrenchId[c] >= 0) { found = c; cell = new float3((c % map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize, 0f, (c / map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize); }
+            Assume.That(found >= 0, "the playtest map has a trench");
+            int man = m.World.Spawn(0, 0, cell, 1e6f, 0f, false);
+            Run(m, 10);
+            Assume.That((m.World.Flags[man] & (uint)UnitFlags.InTrench) != 0 && m.World.StanceOf[man] != (byte)Stance.FireStep, "he is below the rim");
+            float3 at = cell + new float3(0f, 0f, 15f);
+            int sk = Spawn(m, 1, VehicleArchetype.Skimmer, at, 0f);
+            int tusk = m.World.Spawn(1, VehicleArchetype.Tusk, cell + new float3(0f, 0f, -15f), 2000f, 0f, true);
+            Run(m, 20);
+            Assert.AreEqual(man, m.World.TargetSlot[sk], "15 m off, the Skimmer sees him");
+            Assert.AreNotEqual(man, m.World.TargetSlot[tusk], "15 m off, a Tusk does not");
+        }
+
+        /// <summary>The hold is patient but not for ever: on a mark it is not hurting (a man it cannot kill here: its
+        /// rockets land out of reach of him), the Salvo gives the hold up after StandOffPatience and drives on.</summary>
+        [Test]
+        public void TheHoldIsGivenUpOnAMarkItIsNotHurting()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f));
+            int man = m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
+            Run(m, 20 * 3);
+            Assert.AreEqual(man, m.Gunnery.GunTarget[truck * TankGunnerySystem.Guns]);
+            m.World.MaxHp[man] = 1e6f;
+            // make him proof against its rockets: hit points restored every tick, so the hold never sees one come off
+            float3 held = m.World.Position[truck];
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int t = 0; t < 20 * 28; t++) { m.World.Hp[man] = 1e6f; m.Step(none); }
+            Assert.Less(math.distance(held, m.World.Position[truck]), 0.5f, "inside its patience it holds");
+            for (int t = 0; t < 20 * 10; t++) { m.World.Hp[man] = 1e6f; m.Step(none); }
+            Assert.Greater(math.distance(held, m.World.Position[truck]), 3f, "after 32 s on a mark that loses nothing it drives on");
         }
 
         // ------------------------------------------------------------------ the Salvo's rack (format v11)

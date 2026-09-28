@@ -64,7 +64,7 @@ namespace TW.Sim.Combat
                 Grid = grid, GridW = gridW, GridL = gridL, Tick = w.Tick,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 Position = w.Position, Velocity = w.Velocity, Flags = w.Flags, Team = w.Team, Archetype = w.Archetype,
-                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry, Weapons = catalogue.Weapon,
+                StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry, Weapons = catalogue.Weapon, Tanks = catalogue.Tank, Yaw = w.Yaw,
                 Trenches = fields.Trenches, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
             }.Schedule(n, 32).Complete();
@@ -102,6 +102,8 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<WeaponStats> Weapons;
+            [ReadOnly] public NativeArray<TankSpec> Tanks;
+            [ReadOnly] public NativeArray<float> Yaw;
             [ReadOnly] public NativeArray<float> Suppression;
             [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<TrenchState> Trenches;
@@ -166,13 +168,21 @@ namespace TW.Sim.Combat
                 float3 d = Position[j] - p; d.y = 0f;
                 distSq = math.lengthsq(d);
                 if (distSq > rangeSq) return false;
-                if ((fj & (uint)UnitFlags.Vehicle) != 0)   // small arms do nothing to armour (A5 adds penetration); infantry close-assault it instead
-                    return (Flags[i] & (uint)UnitFlags.Vehicle) == 0 && distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
+                if ((fj & (uint)UnitFlags.Vehicle) != 0)   // small arms do nothing to armour; infantry close-assault it instead
+                {
+                    if ((Flags[i] & (uint)UnitFlags.Vehicle) == 0) return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
+                    // a machine whose small arms hunt armour (InfantrySpec.HuntsArmour, the Skimmer) takes a machine whose
+                    // plate facing it they beat: a light machine's side or rear, never a heavy one's front
+                    if (!Specs[Archetype[i]].HuntsArmour) return false;
+                    var facing = Armor.FacingOf(Position[j] - p, Yaw[j], out _, out _);
+                    return Weapons[Archetype[i]].PenetrationMm > Armor.PlateFor(Tanks[Archetype[j]].Hull, facing);
+                }
                 if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
                     short theirs = TrenchAt(Position[j]);
                     bool sameTrench = myTrench >= 0 && theirs == myTrench;
                     float reveal = (Flags[i] & (uint)UnitFlags.Charging) != 0 ? CombatTables.ChargeRevealRange : CombatTables.BelowRimRevealRange;   // a charging Breaker looks down into it
+                    reveal = math.max(reveal, Specs[Archetype[i]].LooksDownMetres);   // so does a raider driven up to the trench (the Skimmer)
                     if (!sameTrench && distSq > reveal * reveal) return false;
                 }
                 return true;

@@ -80,6 +80,10 @@ namespace TW.Sim.Combat
         public NativeArray<ushort> Gen;
         public NativeArray<float> CrewFactor;   // VehicleModulesSystem: the men left to load and lay (0 = cannot fire)
         public NativeArray<int> ClawCooldown;   // ticks until a walker's claws can close again
+        /// <summary>TankSpec.StandOffMetres (2026-09-28, format v13): the target it is holding on, ticks held without a
+        /// hit on it, the target's hit points when the count started, and ticks it has given up holding for.</summary>
+        public NativeArray<int> HoldTarget, HoldTicks, Release;
+        public NativeArray<float> HoldHp;
         /// <summary>This tick's rounds and charges on vehicles (close assaults from DirectFire, then these guns);
         /// VehicleModulesSystem drains it later in the same tick.</summary>
         public NativeList<VehicleHit> PendingHits;
@@ -108,6 +112,9 @@ namespace TW.Sim.Combat
             Gen = new NativeArray<ushort>(n, Allocator.Persistent);
             CrewFactor = new NativeArray<float>(n, Allocator.Persistent);
             ClawCooldown = new NativeArray<int>(n, Allocator.Persistent);
+            HoldTarget = new NativeArray<int>(n, Allocator.Persistent); HoldTicks = new NativeArray<int>(n, Allocator.Persistent);
+            Release = new NativeArray<int>(n, Allocator.Persistent); HoldHp = new NativeArray<float>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) HoldTarget[i] = -1;
             clawed = new NativeList<int2>(8, Allocator.Persistent);
             for (int i = 0; i < n * Guns; i++) GunTarget[i] = -1;
             PendingHits = new NativeList<VehicleHit>(32, Allocator.Persistent);
@@ -151,7 +158,8 @@ namespace TW.Sim.Combat
                 ClawCooldown = ClawCooldown, Clawed = clawed,
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
-                Hits = PendingHits, Events = events, Impacts = impacts, Rockets = Rockets, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
+                Hits = PendingHits, Events = events, Impacts = impacts, Rockets = Rockets,
+                TargetSlot = w.TargetSlot, Hp = w.Hp, HoldTarget = HoldTarget, HoldTicks = HoldTicks, Release = Release, HoldHp = HoldHp, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
@@ -200,6 +208,10 @@ namespace TW.Sim.Combat
             public NativeList<SimEvent> Events;
             public NativeList<Impact> Impacts;
             public NativeList<PendingRocket> Rockets;
+            [ReadOnly] public NativeArray<int> TargetSlot;
+            [ReadOnly] public NativeArray<float> Hp;
+            public NativeArray<int> HoldTarget, HoldTicks, Release;
+            public NativeArray<float> HoldHp;
 
             int CellOf(float3 p)
             {
@@ -232,13 +244,33 @@ namespace TW.Sim.Combat
                 if (g.RangeMin > 0f && dsq < g.RangeMin * g.RangeMin) return float.MaxValue;   // a mortar cannot drop one on its own feet
                 if (!TankSpec.InArc(g, SimMath.WrapAngle(SimMath.YawOf(d) - hullYaw))) return float.MaxValue;
                 float dist = SimMath.Sqrt(dsq);
-                if ((Flags[j] & (uint)UnitFlags.Vehicle) != 0) return g.PenMm > 0f ? dist / ArmourPreference : float.MaxValue;
+                // a machine is a mark for a gun that can hole it, or for a rack of rockets, whose bursts come down on its deck
+                // (VehicleModules: a direct burst tests the top plate) - the Salvo could not answer a Tusk at all (2026-09-28)
+                if ((Flags[j] & (uint)UnitFlags.Vehicle) != 0) return g.PenMm > 0f ? dist / ArmourPreference : Tanks[Archetype[i]].Rockets > 0 ? dist : float.MaxValue;
                 // its own burst could reach its hull (the burst, its half width, and a miss falling short): leave him to the
                 // machine guns (VehicleModules bursts reach Radius + HalfWidth from a hull's centre)
                 if (dist < g.HeRadius + Drive[Archetype[i]].HalfWidth + SelfSafeScatter) return float.MaxValue;
                 bool belowRim = (Flags[j] & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep;
                 // a flat-trajectory gun can barely touch a man below the parapet; a mortar is the answer to him
                 return belowRim ? dist * (g.Indirect ? 0.55f : 1.8f) : dist;
+            }
+
+            /// <summary>TankSpec.StandOffMetres: hold while the target is in reach and being hurt; give up for a while
+            /// after StandOffPatience seconds on one target that has not lost a hit point.</summary>
+            void StandOff(int i, float3 p, in TankSpec spec)
+            {
+                int t = spec.GunCount > 0 ? GunTarget[i * Guns] : TargetSlot[i];
+                if (Release[i] > 0) { Release[i]--; return; }
+                bool inReach = t >= 0 && t < Count && (Flags[t] & (uint)UnitFlags.Alive) != 0
+                               && math.distancesq(Position[t].xz, p.xz) <= spec.StandOffMetres * spec.StandOffMetres;
+                if (!inReach) { HoldTarget[i] = -1; HoldTicks[i] = 0; return; }
+                if (t != HoldTarget[i] || Hp[t] < HoldHp[i] - 0.5f) { HoldTarget[i] = t; HoldHp[i] = Hp[t]; HoldTicks[i] = 0; }   // a new mark, or a hit on it
+                if (spec.StandOffPatience > 0f && ++HoldTicks[i] > (int)(spec.StandOffPatience / Dt))
+                {
+                    Release[i] = (int)(TankSpec.StandOffRelease / Dt); HoldTicks[i] = 0; HoldTarget[i] = -1;
+                    return;
+                }
+                HaltTicks[i] = math.max(HaltTicks[i], ScanEveryTicks + 1);
             }
 
             bool Sees(int i, int j, in TankGun g)
@@ -282,6 +314,7 @@ namespace TW.Sim.Combat
                     float3 p = Position[i];
                     float hullYaw = Yaw[i];
                     bool moving = SimMath.Length(Velocity[i]) > 0.3f;
+                    if (spec.StandOffMetres > 0f) StandOff(i, p, spec);
                     for (int k = 0; k < spec.GunCount; k++)
                     {
                         int gi = i * Guns + k;
@@ -293,8 +326,6 @@ namespace TW.Sim.Combat
                         if (t >= 0 && Score(i, t, p, hullYaw, g) == float.MaxValue) t = -1;
                         if (t < 0 || ((uint)(i + k) % ScanEveryTicks) == Tick % ScanEveryTicks) t = Pick(i, p, hullYaw, g);
                         GunTarget[gi] = t;
-                        // artillery holds where it is while it has something in reach (TankSpec.StandOff)
-                        if (spec.StandOff && k == 0 && t >= 0) HaltTicks[i] = math.max(HaltTicks[i], ScanEveryTicks + 1);
 
                         // lay the gun: toward the target, or back to rest
                         float rel = t >= 0 ? SimMath.WrapAngle(SimMath.YawOf(Position[t] - p) - hullYaw) : g.RestYaw;
@@ -429,6 +460,8 @@ namespace TW.Sim.Combat
             // v11 (2026-09-28): the rockets in the air, appended at the end of this system's part of the chain
             h = SimHash.Value(Rockets.Length, h);
             for (int r = 0; r < Rockets.Length; r++) h = SimHash.Value(Rockets[r], h);
+            // v13 (2026-09-28): the stand-off hold, appended
+            h = SimHash.Array(HoldTarget, n, h); h = SimHash.Array(HoldTicks, n, h); h = SimHash.Array(Release, n, h); h = SimHash.Array(HoldHp, n, h);
             return h;
         }
 
@@ -444,6 +477,10 @@ namespace TW.Sim.Combat
             if (clawed.IsCreated) clawed.Dispose();
             if (PendingHits.IsCreated) PendingHits.Dispose();
             if (Rockets.IsCreated) Rockets.Dispose();
+            if (HoldTarget.IsCreated) HoldTarget.Dispose();
+            if (HoldTicks.IsCreated) HoldTicks.Dispose();
+            if (Release.IsCreated) Release.Dispose();
+            if (HoldHp.IsCreated) HoldHp.Dispose();
             if (events.IsCreated) events.Dispose();
             if (impacts.IsCreated) impacts.Dispose();
             if (halt.IsCreated) halt.Dispose();
