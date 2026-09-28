@@ -802,7 +802,7 @@ namespace TW.Presentation.Tactical
                             float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
                             float burstRoll = UnityEngine.Random.Range(-0.15f, 0.15f);   // drawn either way: the shared stream
                             if (!recipe.Dust)   // L15: no shell's glowing cloud over a man landing
-                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night * (shellFire > 0f ? Mathf.Sqrt(ShellFar()) : 1f), 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night * (shellFire > 0f ? Mathf.Pow(ShellFar(), 0.8f) : 1f), 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
                             if (!recipe.Dust && !recipe.CookOff && !Masonry(e.Dir.y))
