@@ -1457,7 +1457,7 @@ namespace TW.Presentation.Tactical
                 track.y = Ground(track.x, track.z);
                 books.Add(FlipbookFx.Book.DustPuff, track + Vector3.up * 0.2f, 2.6f, 28f / 12f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0), alpha: 0.7f);
             }
-            CameraShake.Add(v.Pos, 1f);
+            if (Mathf.Repeat(now, 0.6f) < 0.16f) CameraShake.Add(v.Pos, 0.4f);   // a rumble, not a barrage: one light kick in four dust beats
         }
 
         /// <summary>L18 (fx.recipes): the Breaker's nose goes into the trench: earth thrown up and out where it strikes, a
