@@ -460,13 +460,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
-  **Colours:** fourteen books' tints (Splash, Column, Wings, Spurt, Puff, Smoke, and the VFX pass's MortarBurst, ShellFall,
-  LeanBurst with Column, ShellPlume, Smoulder with Smoke, SmokeBank, GroundRing, DustPuff with Dust) are overwritten every scene by
+  **Colours:** sixteen books' tints (Splash, Column, Wings, Spurt, Puff, Smoke, and the VFX pass's MortarBurst, ShellFall,
+  LeanBurst, ShellLean with Column, ShellPlume, Smoulder, WreckSmoke with Smoke, SmokeBank, GroundRing, DustPuff with Dust) are overwritten every scene by
   `CombatFx.ApplyTints` from
   `BiomeProfile` (`SmokeTint` and the other `*Tint` fields, through `SceneTints`), so change a colour there. At
   night a burst also lights its own smoke: `NightLights` sets `_TWBurst`, read by `TWBurstLight` in
   `Shaders/TWAtmosphere.hlsl`. `FlipbookFx.Book` maps to `Sheets` by position, and three
-  sheets are named "Puff": count the rows, the smoke book is the one with `Erode = true`. The VFX pass's 13 books
+  sheets are named "Puff": count the rows, the smoke book is the one with `Erode = true`. The VFX pass's 17 books
   (2026-09-28) follow Bloom, one row each, named `<Book>` or `Fire<Book>` (FlipbookOrdinalTests).
   `CombatFx.cs` also draws the called-strike target markers, and `CombatFx.Abilities.cs` the ability aim, from
   `SceneHooks.AimPreview` (whoever owns the aim sets it; `TestPanel` today). The IMGUI banner (`Banner`, `OnGUI`)

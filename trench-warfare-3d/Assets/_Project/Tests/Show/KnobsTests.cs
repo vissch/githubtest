@@ -425,7 +425,8 @@ namespace TW.Tests
                 var book = (FlipbookFx.Book)b;
                 bool deep = book == FlipbookFx.Book.Burst || book == FlipbookFx.Book.Smoke
                     || book == FlipbookFx.Book.GasBank || book == FlipbookFx.Book.SmokeBank
-                    || book == FlipbookFx.Book.Smoulder || book == FlipbookFx.Book.ShellPlume;
+                    || book == FlipbookFx.Book.Smoulder || book == FlipbookFx.Book.ShellPlume
+                    || book == FlipbookFx.Book.WreckSmoke;
                 float old = deep ? smoke : 0f;
                 Assert.IsTrue(FlipbookFx.BookHard(book, smoke, FlipbookFx.ReadColumnHard()) == old, book + ", fx.smokeHard " + smoke);
             }
