@@ -10,11 +10,20 @@ namespace TW.Tests
     public class FlipbookOrdinalTests
     {
         [Test]
-        public void EveryFireBook_DrawsTheSheetNamedAfterIt()
+        public void EveryRow_HasItsBook()
         {
-            // the round-3 books, Jet on, are each cut from Fire<Book>
+            Assert.AreEqual((int)Book.Count, FlipbookFx.SheetCount, "one Sheets row per Book, no more, no fewer");
+        }
+
+        [Test]
+        public void EveryBookFromJetOn_DrawsTheSheetNamedAfterIt()
+        {
+            // the round-3 books and the VFX pass's are each cut from <Book> or Fire<Book>
             for (var b = Book.Jet; b < Book.Count; b++)
-                Assert.AreEqual("Fire" + b, FlipbookFx.SheetName(b), $"Book.{b} is row {(int)b}: the Sheets row there is another book's");
+            {
+                string name = FlipbookFx.SheetName(b);
+                Assert.IsTrue(name == b.ToString() || name == "Fire" + b, $"Book.{b} is row {(int)b}, which draws {name}: the Sheets row there is another book's");
+            }
         }
 
         [Test]
