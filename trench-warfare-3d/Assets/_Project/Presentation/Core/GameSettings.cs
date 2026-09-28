@@ -27,6 +27,7 @@ namespace TW.Presentation
             public int FullscreenMode = 1;       // FullScreenMode: 0 exclusive, 1 fullscreen window, 2 maximised, 3 windowed
             public bool VSync = true;
             public int QualityLevel = -1;        // -1 = leave the project default
+            public int Effects = -1;             // FxQuality's tier (0 Low .. 3 Epic); -1 = follow the quality level
         }
 
         [Serializable]
@@ -116,6 +117,7 @@ namespace TW.Presentation
             Audio.Sfx = Clamp(Audio.Sfx, "slider-sfx"); Audio.Music = Clamp(Audio.Music, "slider-music");
             Interface.UiScale = Clamp(Interface.UiScale, "slider-ui-scale");
             Camera.PanSpeed = Clamp(Camera.PanSpeed, "slider-pan-speed");
+            Video.Effects = Mathf.Clamp(Video.Effects, -1, FxQuality.Names.Length - 1);
             Camera.Shake = Clamp(Camera.Shake, "slider-shake");
             Camera.Gore = Clamp(Camera.Gore, "slider-gore");
             Camera.ZoomMin = Clamp(Camera.ZoomMin, "slider-zoom-min");

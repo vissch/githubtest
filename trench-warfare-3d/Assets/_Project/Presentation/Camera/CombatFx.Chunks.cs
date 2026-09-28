@@ -11,7 +11,7 @@ namespace TW.Presentation.Tactical
 {
     public sealed partial class CombatFx
     {
-        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water, 5 brass, 6 helmet, 7 vapour
+        struct Chunk { public Vector3 Pos, Vel; public float Born, Life, Size; public byte Kind; }   // 0 dirt, 1 splinter, 2 smoke, 3 spark (night), 4 water, 5 brass, 6 helmet, 7 vapour, 8 a thrown bundle of grenades (CombatFx.Close.cs)
         readonly List<Chunk> chunks = new List<Chunk>(768);
         int MaxChunks = 940;                // knob fx.maxChunks (Awake)
         int MaxAmbientChunks = 300;         // knob fx.maxAmbientChunks (Awake); kinds 2, 5, 7: rifle smoke, breath, exhaust, crater steam
@@ -75,8 +75,9 @@ namespace TW.Presentation.Tactical
         void Throw(Vector3 at, int count, byte kind, float speed, float size, Vector3 bias = default)
         {
             bool ambient = kind == 2 || kind == 5 || kind == 7;
-            if (ambient && ambientChunks >= MaxAmbientChunks) return;
-            for (int k = 0; k < count && chunks.Count < MaxChunks && (!ambient || ambientChunks + k < MaxAmbientChunks); k++)
+            var q = FxQuality.Now; int most = q.Cap(MaxChunks), ambientMost = q.Cap(MaxAmbientChunks);   // the pools by the effects' tier
+            if (ambient && ambientChunks >= ambientMost) return;
+            for (int k = 0; k < count && chunks.Count < most && (!ambient || ambientChunks + k < ambientMost); k++)
             {
                 // the cone leans up, not out, and dirt lives long enough to come down again (gravity stays at 9.8: floaty reads as cheap)
                 Vector3 dir = UnityEngine.Random.onUnitSphere; dir.y = Mathf.Abs(dir.y) * (kind == 2 ? 0.4f : 2.2f) + (kind == 2 ? 0.2f : 0.45f);
@@ -172,21 +173,21 @@ namespace TW.Presentation.Tactical
                 if (batch.Count == 1023) Flush(sphere, rpW);
             }
             if (batch.Count > 0) Flush(sphere, rpW);
-            // in flight: brass cases and helmets tumble; breath, muzzle threads and crater steam are a pale vapour
-            for (int kind = 5; kind <= 7; kind++)
+            // in flight: brass cases, helmets and a bundle of grenades tumble; breath, muzzle threads and crater steam are a pale vapour
+            for (int kind = 5; kind <= 8; kind++)
             {
                 batch.Clear();
-                var rpC = new RenderParams(kind == 5 ? brassMat : kind == 6 ? helmetMat : vapourMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
+                var rpC = new RenderParams(kind == 5 ? brassMat : kind == 6 || kind == 8 ? helmetMat : vapourMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
                 for (int i = 0; i < chunks.Count; i++)
                 {
                     var c = chunks[i];
                     if (c.Kind != kind) continue;
                     float k = (now - c.Born) / Mathf.Max(0.01f, c.Life);
                     if (kind == 7) { float s = c.Size * (1f + 3.2f * k) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1f, k))); batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.identity, new Vector3(s, s, s))); }
-                    else batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.Euler(now * 640f + c.Born * 997f, c.Born * 613f, now * 410f), kind == 5 ? new Vector3(0.020f, 0.020f, 0.085f) : new Vector3(0.33f, 0.15f, 0.35f)));
-                    if (batch.Count == 1023) Flush(kind == 5 ? cube : kind == 6 ? sphere : puff, rpC);
+                    else batch.Add(Matrix4x4.TRS(c.Pos, Quaternion.Euler(now * 640f + c.Born * 997f, c.Born * 613f, now * 410f), kind == 5 ? new Vector3(0.020f, 0.020f, 0.085f) : kind == 8 ? new Vector3(0.14f, 0.14f, 0.34f) : new Vector3(0.33f, 0.15f, 0.35f)));
+                    if (batch.Count == 1023) Flush(kind == 5 || kind == 8 ? cube : kind == 6 ? sphere : puff, rpC);
                 }
-                if (batch.Count > 0) Flush(kind == 5 ? cube : kind == 6 ? sphere : puff, rpC);
+                if (batch.Count > 0) Flush(kind == 5 || kind == 8 ? cube : kind == 6 ? sphere : puff, rpC);
             }
             DrawBirds(now, bounds);
             Ambient(now);

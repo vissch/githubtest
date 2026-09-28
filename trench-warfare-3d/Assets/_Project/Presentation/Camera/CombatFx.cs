@@ -504,8 +504,9 @@ namespace TW.Presentation.Tactical
                 {
                     if (PropTarget.IsProp(e.B)) { ShotAtWreck(e); break; }   // at a wreck its enemies are behind (CombatFx.Wrecks)
                     if (tracers.Count >= 1500 || e.B < 0 || e.B >= w.Position.Length) break;
-                    ViewNow(out var cam, out _, out float scale);   // CombatFx.Weapons.cs: once a frame
+                    ViewNow(out var cam, out float zoom, out float scale);   // CombatFx.Weapons.cs: once a frame
                     var arms = ArmsNow(w, e);                         // and the shooter's class: its flare, round, spurt, smoke
+                    var q = FxQuality.Now;                            // and the effects' tier (FxQuality): what this picture spends
                     // the round leaves the muzzle of the rifle as it is drawn this frame (the figure's baked sockets for the clip
                     // the controller chose) and goes into the chest of the man it was fired at; without sockets (a vehicle, the
                     // far tier, no controller) both ends are estimated from the stance
@@ -514,7 +515,10 @@ namespace TW.Presentation.Tactical
                     if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
                     // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
                     float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
-                    tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer });
+                    // the close assault's bundle of grenades is thrown, not fired (CombatFx.Close.cs): no bullet's tracer for it
+                    bool bundle = e.Scalar >= 0.5f && classArms > 0f && books != null && books.Ready;
+                    if (bundle) ThrowBundle(from, to, delay, scale, e.Tick * 31u + (uint)e.A);
+                    else tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = e.A >= 0 && e.A < w.Team.Length ? w.Team[e.A] : (byte)0, Width = arms.Tracer == 1f ? 0f : arms.Tracer });
                     // AOSA C72: an image run logs the shot as drawn (read-only; off, this is one static bool)
                     if (ShotLog.On)
                     {
@@ -539,9 +543,15 @@ namespace TW.Presentation.Tactical
                         float roll = FlipbookFx.ScreenRoll(cam, barrel);
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
-                        if (arms.Flared)   // a machine gun's every second round (CombatFx.Weapons.cs); its draws above are taken either way
+                        // a machine gun's every second round (CombatFx.Weapons.cs), and far from the eye one in FlareEvery at a low tier
+                        // or from the overview (FxQuality.FlareKept); its draws above are taken either way
+                        bool flared = arms.Flared && FxQuality.FlareKept(q, CameraShake.DistanceToLook(from), zoom, e.Tick + (uint)e.A);
+                        if (flared)
                             books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, arms.FlareLife, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                 velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
+                        // among the men, the weapon's own drawing (CombatFx.Close.cs): a sniper's brake, an MG's star, an SMG's flicker
+                        if (e.A >= 0 && e.A < w.Archetype.Length)
+                            ShotExtras(w.Archetype[e.A], cam, from, barrel, roll, flare, carried, delay, scale, e.Tick + (uint)e.A, flared, arms.Smoked, arms.Smoke);
                     }
                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
@@ -550,7 +560,7 @@ namespace TW.Presentation.Tactical
                     // stands in water, now and then a ricochet spark at night. A few a frame at most, whatever the firefight.
                     // near the look point first: a round landing under the eye always draws, one far off only while there is room
                     float nearHit = CameraShake.DistanceToLook(to);
-                    if (e.Scalar < 0.5f && impactsThisFrame < (nearHit < 45f ? 24 : 8) && chunks.Count < 700)
+                    if (e.Scalar < 0.5f && impactsThisFrame < (nearHit < 45f ? q.ImpactsNear : q.ImpactsFar) && chunks.Count < q.Cap(700))
                     {
                         impactsThisFrame++;
                         float angle = UnityEngine.Random.value * 6.2832f, off = UnityEngine.Random.Range(0.35f, 1.7f);
@@ -572,12 +582,12 @@ namespace TW.Presentation.Tactical
                             if (drawn) books.Add(FlipbookFx.Book.Spurt, hit, (1.3f + UnityEngine.Random.value * 0.6f) * scale * arms.Spurt, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (Vector3.Dot(direction, cam != null ? cam.transform.right : Vector3.right) < 0f ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f, pop: 0.3f, delay: delay);
                         }
                     }
-                    if (e.Scalar < 0.5f && chunks.Count < 420)
+                    if (e.Scalar < 0.5f && chunks.Count < q.Cap(420))
                     {
                         var puff = new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * arms.Smoke * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 };
                         if (arms.Smoked) chunks.Add(puff);   // a machine gun's every third round, bigger; the draws taken either way
                     }
-                    if (e.Scalar < 0.5f && chunks.Count < 600 && Near(from, 34f))
+                    if (e.Scalar < 0.5f && q.Reach > 0f && chunks.Count < q.Cap(600) && Near(from, 34f * q.Reach))
                     {
                         // up close every shot throws its case out of the breech to the right, and the muzzle keeps a thread of smoke
                         Vector3 right = Vector3.Cross(Vector3.up, barrel).normalized, breech = from - barrel * (0.75f * scale);
@@ -593,7 +603,7 @@ namespace TW.Presentation.Tactical
                     // a man struck: a spike of light where the round lands and a small cloud off his coat, at chest height for
                     // his stance. A ricochet (negative damage) is only the spike. A few a frame at most, whatever the fight.
                     if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater) break;
-                    if (hitsThisFrame >= (CameraShake.DistanceToLook(w.Position[e.B]) < 45f ? 40 : 10)) break;
+                    if (hitsThisFrame >= (CameraShake.DistanceToLook(w.Position[e.B]) < 45f ? FxQuality.Now.HitsNear : FxQuality.Now.HitsFar)) break;   // by the effects' tier
                     hitsThisFrame++;
                     ViewNow(out var cam, out float viewZoom, out float scale);   // CombatFx.Weapons.cs: once a frame
                     // a tank that died this tick has no flags left, and its slot may hold a man already: ask the tank view
@@ -605,7 +615,13 @@ namespace TW.Presentation.Tactical
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
                     if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 4f : 1.8f) * SceneTints.Now.Glow);
-                    else books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale, 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 3.2f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
+                    else
+                    {
+                        // the spike by the weapon that fired it (CombatFx.Close.cs): a sniper's harder than a pistol's
+                        var shotBy = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? KindOf(w.Archetype[e.A]) : ArmsKind.Rifle;
+                        books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale * HitFlashOf(shotBy), 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 3.2f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
+                        if (e.Scalar > 0f) HitExtras(shotBy, p, toward.normalized, scale, e.Tick * 17u + (uint)e.B);
+                    }
                     if (e.Scalar > 0f)
                     {
                         // the puff's two draws are taken whether or not it is drawn: fx.recipes must not shift the shared stream
@@ -694,11 +710,12 @@ namespace TW.Presentation.Tactical
                     float lean = flight.magnitude;
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
                     var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar, e.A);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
+                    var look = classArms > 0f && !wet ? BurstBy(e.A) : BurstLook.Same;     // CombatFx.Bursts.cs: the burst by what made it
                     if (drawn)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
                         // burst running out either side, and the boiling cloud that rises off it and thins
-                        float r = Mathf.Clamp(e.Scalar, 2f, 9f);
+                        float r = Mathf.Clamp(e.Scalar, 2f, 9f) * look.Size;
                         bool mirror = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 1) == 0;
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
@@ -730,7 +747,8 @@ namespace TW.Presentation.Tactical
                             : !wet && shellFire > 0f ? FlipbookFx.ColumnPlayCut(DayColumnPlay) : 0f;   // by day too (CombatFx.ShellFire.cs): the late arcs hung over the snow as icicles
                         bool dayEarth = !wet && shellFire > 0f && !FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid);   // the day column slimmer and its wings cut too (critique c1b)
                         Vector3 columnLean = flight * (r * 0.45f * lean);   // the column leans the way the shell was going
-                        if (recipe.Column)
+                        columnWidth *= look.Column;
+                        if (recipe.Column && look.Column > 0f)
                         {
                             if (soil > 0f)
                             {
@@ -750,15 +768,20 @@ namespace TW.Presentation.Tactical
                                     velocity: columnLean, height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
                             }
                             else
-                                books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f), damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : dayEarth ? 0.8f : 1f, pop: 0.15f,
+                                books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * look.Column, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : dayEarth ? 0.8f : 1f, pop: 0.15f,
                                     velocity: columnLean, cut: cut);
                             // the two wings are not a mirror pair: the second is born a little later and a little smaller
-                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
-                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
+                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
+                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
+                        }
+                        else if (recipe.Column && look.Tripwire)   // a tripwire's charge stands no column: its burst runs out low along the ground
+                        {
+                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings, 0.95f, ground, grow: 0.4f, alpha: 0.9f, pop: 0.2f);
+                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: 0.8f, pop: 0.1f);
                         }
                         // fx.recipes (CombatFx.Recipes.cs): a round with no lean bursts wide and low over its column; a hull goes up
                         // as one fireball, playing its book once over the book's own length (21 and 29 frames at 12 fps)
-                        if (recipe.Mortar)
+                        if (recipe.Mortar || look.Mortar)   // the Kettle's round draws its own wide low burst with or without the recipes
                             books.Add(FlipbookFx.Book.MortarBurst, p, r * 2.2f * columnScale * earth, 1.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
                         // L02: the earth thrown on the way the shell was going. The drawing throws to its right, so it is mirrored
                         // when the flight runs to the left of the screen; it plays its book once (32 frames at 12 fps)
@@ -805,8 +828,9 @@ namespace TW.Presentation.Tactical
                                 books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night * (shellFire > 0f ? Mathf.Pow(ShellFar(), 0.8f) : 1f), 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
-                            if (!recipe.Dust && !recipe.CookOff && !Masonry(e.Dir.y))
-                                ShellFire(p + flight * (r * 0.25f * lean), r, closeUp, mirror, Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean));
+                            if (!recipe.Dust && !recipe.CookOff && !Masonry(e.Dir.y) && look.Fire > 0f)   // a mine has no fire (CombatFx.Bursts.cs)
+                                ShellFire(p + flight * (r * 0.25f * lean), r * look.Fire, closeUp, mirror, Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean));
+                            BurstExtras(look, p, r, mirror, drift, e.Tick * 13u + (uint)(p.x * 7f));   // the pieces only this burst has
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
@@ -950,7 +974,7 @@ namespace TW.Presentation.Tactical
             // less at the standard view, little from far out
             var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
             float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
-            DebrisRenderer.ZoomShare = SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f;
+            DebrisRenderer.ZoomShare = (SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f) * FxQuality.Now.Debris;   // x the effects' tier
             // tracers
             float now = Time.time;
             Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);
