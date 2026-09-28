@@ -720,7 +720,7 @@ namespace TW.Presentation.Tactical
                             for (int q = 0; q < 4; q++)
                                 top = Mathf.Max(top, RenderGround.Sample(Host.Local.Map, p.x + (q == 0 ? reachR : q == 1 ? -reachR : 0f), p.z + (q == 2 ? reachR : q == 3 ? -reachR : 0f)));
                             // L06: very faint, fast (the whole book over half a second), running out to twice its width; gone up close
-                            books.Add(FlipbookFx.Book.GroundRing, new Vector3(p.x, Mathf.Min(top, p.y + 1f) + 0.15f, p.z), r * 2.4f, 0.5f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 1f, alpha: 0.35f * (1f - closeUp));
+                            books.Add(FlipbookFx.Book.GroundRing, new Vector3(p.x, Mathf.Min(top, p.y + 1f) + 0.15f, p.z), r * 2.4f, 0.5f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 1f, alpha: 0.25f * (1f - closeUp));   // a barrage lays three or four at once: 0.25 each stays under 0.6 stacked
                         }
                         if (!wet || melt)
                         {
