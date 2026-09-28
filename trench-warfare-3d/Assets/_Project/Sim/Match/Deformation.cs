@@ -156,22 +156,8 @@ namespace TW.Sim.Match
                 if (wreck) dist = math.max(0f, dist - PropRules.WreckBlastReach * (prop.Scale > 0f ? prop.Scale : 1f));
                 if (dist >= im.Radius) continue;
                 if (wreck && im.Shape == (int)BlastShape.CookOff && MadeLastTick(w, p)) continue;   // a cook-off does not wear the wreck it made
-                prop.Hp -= im.Damage * (1f - 0.75f * (dist / im.Radius));
-                if (prop.Hp > 0f)
-                {
-                    map.Props[p] = prop; map.Touch();
-                    if (wreck)
-                    {
-                        float3 way = math.normalizesafe(d);
-                        w.Events.Add(w.Tick, SimEventType.PropWorn, p, 0, prop.Pos, way, prop.Hp / PropRules.StartHp(prop.Kind, prop.Scale));
-                    }
-                    continue;
-                }
-                var next = PropRules.Next(prop.Kind);   // one stage a hit, however hard: a wreck goes wreck, broken, scrap, gone
-                if (map.SetPropKind(p, next)) nav = true;
-                checksum = SimHash.Value(new int2(p, (int)next), checksum);
-                PropsChanged++;
-                w.Events.Add(w.Tick, SimEventType.PropChanged, p, (int)next, prop.Pos);
+                var harm = PropHarm.Harm(w, map, p, im.Damage * (1f - 0.75f * (dist / im.Radius)), wreck ? math.normalizesafe(d) : default, 0, ref checksum, out bool changed);
+                if (harm == PropHarm.Outcome.Changed) { PropsChanged++; nav |= changed; }
             }
             if (im.CraterRadius > 0f)
             {

@@ -1,12 +1,14 @@
 // Phase: A4 wrecks (2026-09-28, the seam) — a wreck breaks in stages and then is gone (owner, 2026-09-28): whole wreck
 // (blocks, 50 % cover), broken wreck (blocks, 35 %), scrap (does not block, 15 %), cleared (nothing). This file holds
-// the stages' rules; the steps that make wrecks take harm add their tests here.
+// the stages' rules; the steps that make wrecks take harm add their tests here: blasts (S1), machines grinding wrecks
+// and flattening scrap (S2).
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
+using TW.Sim.Nav;
 using TW.Sim.Terrain;
 
 namespace TW.Tests
@@ -177,6 +179,126 @@ namespace TW.Tests
             float after = 0f; for (int i = 0; i < a.Map.Props.Length; i++) if (PropRules.IsWreckage(a.Map.Props[i].Kind)) after += a.Map.Props[i].Hp;
             Assert.Less(after, before, "the barrage wore the wreckage");
             Assert.AreEqual(a.Map.Hash(SimHash.Offset), b.Map.Hash(SimHash.Offset));
+        }
+
+        // ---- S2: machines (VehicleKinematics.Wrecks) ----
+
+        /// <summary>A machine sent straight east along its lane to x 190; what the tracks did to wreckage over `ticks`
+        /// (VehicleCrushed b = 3), and the wear events (PropWorn b = 1). A second match, when given, runs in lockstep and
+        /// must hash the same every tick.</summary>
+        /// <summary>The first row of the playtest map, from the south, open from x 140 to 200 and 6 m either side: no
+        /// trench, link, wire, bunker or blocked cell (the machine drives along it and the wreck stands in it).</summary>
+        static float Lane(MapData map)
+        {
+            for (float z = 20f; z < map.SizeMeters.y - 20f; z += 2f)
+            {
+                bool open = true;
+                for (float x = 140f; x <= 200f && open; x += 1f)
+                    for (float dz = -6f; dz <= 6f && open; dz += 2f)
+                        if ((map.LayerAt(new float3(x, 0f, z + dz)) & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire | NavLayer.Bunker)) != 0) open = false;
+                if (open) return z + 1f;   // the middle of a nav cell's row
+            }
+            Assert.Fail("no open lane on the playtest map");
+            return 0f;
+        }
+
+        static (int ground, int worn) DriveEast(MatchSim m, int tank, int ticks, MatchSim twin = null, int twinTank = -1, int prop = -1)
+        {
+            var target = new float3(190f, 0f, m.World.Position[tank].z);
+            m.Vehicles.Drive[tank] = VehicleKinematicsSystem.DriveStraight; m.Vehicles.DriveTarget[tank] = target;
+            if (twin != null) { twin.Vehicles.Drive[twinTank] = VehicleKinematicsSystem.DriveStraight; twin.Vehicles.DriveTarget[twinTank] = target; }
+            int ground = 0, worn = 0;
+            for (int t = 0; t < ticks; t++)
+            {
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                {
+                    if (ev[i].Type == SimEventType.VehicleCrushed && ev[i].B == 3 && ev[i].A == tank) ground++;
+                    if (ev[i].Type == SimEventType.PropWorn && ev[i].B == 1) worn++;
+                }
+                if (twin != null) { Step(twin); Assert.AreEqual(m.World.LastHash, twin.World.LastHash, $"tick {t}"); }
+                if (prop >= 0 && m.Map.Props[prop].Kind == PropKind.Cleared) break;
+            }
+            return (ground, worn);
+        }
+
+        static int SpawnMachine(MatchSim m, byte archetype, float lane)
+        {
+            var e = m.World.Units.Roster[archetype];
+            int tank = m.World.Spawn(0, archetype, new float3(150f, 0f, lane), e.Hp, e.Speed, true);
+            Step(m);
+            return tank;
+        }
+
+        [Test]
+        public void AHeavyMachineGrindsAWreckInItsWayDownToNothing()
+        {
+            using var m = NewMatch();
+            using var twin = NewMatch();
+            float lane = Lane(m.Map);
+            var at = new float3(166f, 0f, lane);
+            int wreck = m.Map.AddProp(new PropDef { Pos = at, Kind = PropKind.Wreck });
+            Assert.GreaterOrEqual(wreck, 0, "open ground for the wreck");
+            twin.Map.AddProp(new PropDef { Pos = at, Kind = PropKind.Wreck });
+            int tank = SpawnMachine(m, VehicleArchetype.Maw, lane), twinTank = SpawnMachine(twin, VehicleArchetype.Maw, lane);
+            float hp = m.World.Hp[tank];
+            var (ground, worn) = DriveEast(m, tank, 3000, twin, twinTank, wreck);
+            Assert.AreEqual(PropKind.Cleared, m.Map.Props[wreck].Kind, "ground to a broken wreck, to scrap, and the scrap flattened");
+            Assert.Greater(worn, 0, "wear the picture is told of (PropWorn b = 1)");
+            Assert.Greater(ground, 3, "VehicleCrushed b = 3 each time the tracks bit");
+            Assert.Greater(m.Vehicles.WrecksGround, 3);
+            Assert.AreEqual(hp, m.World.Hp[tank], "ramming costs the machine nothing");
+            Assert.Greater(m.World.Position[tank].x, at.x, "and it drove on through where the wreck stood");
+        }
+
+        [Test]
+        public void ALightMachineIsStoppedByAWreckButDoesNotGrindIt()
+        {
+            using var m = NewMatch();
+            float lane = Lane(m.Map);
+            int wreck = m.Map.AddProp(new PropDef { Pos = new float3(166f, 0f, lane), Kind = PropKind.Wreck });
+            Assert.GreaterOrEqual(wreck, 0);
+            int tank = SpawnMachine(m, VehicleArchetype.Tusk, lane);
+            var (ground, worn) = DriveEast(m, tank, 600);
+            Assert.AreEqual(0, ground, "the Tusk does not push trees over, nor grind wrecks");
+            Assert.AreEqual(0, worn);
+            Assert.AreEqual(PropKind.Wreck, m.Map.Props[wreck].Kind);
+            Assert.Less(m.World.Position[tank].x, 166f, "it stopped short of it");
+        }
+
+        [Test]
+        public void AnyMachineFlattensScrapItDrivesOver()
+        {
+            using var m = NewMatch();
+            float lane = Lane(m.Map);
+            int scrap = m.Map.AddProp(new PropDef { Pos = new float3(166f, 0f, lane), Kind = PropKind.Scrap });
+            Assert.GreaterOrEqual(scrap, 0);
+            Assert.AreEqual(250f, m.Map.Props[scrap].Hp, "scrap of size 1");
+            int tank = SpawnMachine(m, VehicleArchetype.Tusk, lane);
+            var (ground, worn) = DriveEast(m, tank, 900, prop: scrap);
+            Assert.Greater(ground, 0, "a light machine goes over scrap and presses it into the mud");
+            Assert.IsTrue(m.Map.Props[scrap].Kind == PropKind.Cleared || m.Map.Props[scrap].Hp < 250f, $"worn: {m.Map.Props[scrap].Kind} {m.Map.Props[scrap].Hp}");
+        }
+
+        [Test]
+        public void AParkedHeavyMachineLeavesTheWreckBesideItAlone()
+        {
+            using var m = NewMatch();
+            float lane = Lane(m.Map);
+            int wreck = m.Map.AddProp(new PropDef { Pos = new float3(153f, 0f, lane), Kind = PropKind.Wreck });
+            Assert.GreaterOrEqual(wreck, 0);
+            int tank = SpawnMachine(m, VehicleArchetype.Maw, lane);
+            m.Vehicles.HaltTicks[tank] = 100000;
+            int ground = 0;
+            for (int t = 0; t < 200; t++)
+            {
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++) if (ev[i].Type == SimEventType.VehicleCrushed && ev[i].B == 3) ground++;
+            }
+            Assert.AreEqual(0, ground, "standing against a wreck is not grinding it");
+            Assert.AreEqual(600f, m.Map.Props[wreck].Hp);
         }
 
         [Test]

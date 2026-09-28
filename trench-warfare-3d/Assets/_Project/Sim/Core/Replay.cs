@@ -82,7 +82,10 @@ namespace TW.Sim
         // v27 (2026-09-28, wrecks break in stages: blasts): a wreck has hit points sized to its machine (PropDef.Scale) and
         // blasts wear it down a stage at a time; generated maps' wrecks start at 600, so their MapHash changes; the prop
         // checksum folds (prop, kind) as an int2.
-        public const ushort FormatVersion = 27;
+        // v28 (2026-09-28, wrecks break in stages: machines): a heavy machine grinds down a wreck it brushes or pushes
+        // against and any machine flattens scrap it drives over (VehicleKinematicsSystem, every 10 ticks a machine), through
+        // the same PropHarm as a blast; the kinematics checksum folds what the tracks wore.
+        public const ushort FormatVersion = 28;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

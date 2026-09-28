@@ -21,7 +21,8 @@
 //    SlopeLimit slows it to a crawl at the limit (trench walls do not count: it bridges them);
 //  - obstacles: the flow field routes round what blocks a cell, but a hull is wider than its path: a tree under a
 //    moving hull goes over into a log (a heavy tank, PushesTrees, flattens standing trees, any tank what is left of a
-//    broken one; a tree it drives straight into goes the same way); wrecks stop anything;
+//    broken one; a tree it drives straight into goes the same way); wrecks stop anything, but a heavy machine grinds
+//    down a wreck it brushes or pushes against and any machine flattens scrap it drives over (VehicleKinematics.Wrecks);
 //  - men: an enemy man in front of the hull at speed is run down (CrushDamage); friends are pushed aside by separation;
 //  - other tanks: two hulls never overlap (pushed apart along the line between them, in slot order). A push obeys the
 //    tracked rules (never into a blocked cell or a trench it is not already in) and never moves a tank that is not
@@ -152,7 +153,7 @@ namespace TW.Sim.Nav
         public float Radius => math.max(HalfLength, HalfWidth) + 0.25f + Clearance;
     }
 
-    public sealed class VehicleKinematicsSystem : ISimSystem
+    public sealed partial class VehicleKinematicsSystem : ISimSystem
     {
         public const float CrossSpeed = 0.45f, MudSpeed = 0.5f, CraterSpeed = 0.7f, WireSpeed = 0.8f, PivotAngle = 1.1f;
         /// <summary>The same three for a walker, which is slowed far less by all of them (and not at all by wire).</summary>
@@ -285,6 +286,7 @@ namespace TW.Sim.Nav
                 }
                 if (speed > CrushSpeed) FindMenUnder(w, i, p, prof);
                 if (speed > 0.2f) navChanged |= FellUnder(w, i, p, prof);
+                navChanged |= GrindWrecks(w, i, p, prof, speed);   // VehicleKinematics.Wrecks
             }
             // trees a tank ran into this tick go over (the cell opens: the next tick it drives on)
             for (int b = 0; b < blocked.Length; b++)
