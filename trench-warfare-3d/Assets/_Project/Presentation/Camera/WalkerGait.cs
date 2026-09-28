@@ -86,6 +86,9 @@ namespace TW.Presentation.Tactical
         /// and roll are in radians and in the same sense TankRenderer.Settle uses (nose up positive, left up
         /// positive), so HullRotation does not need to know which one produced them.</summary>
         public float Height, Pitch, Roll;
+        /// <summary>This machine's own step (TankRenderer.DriveStyle): its swing time and its ordinary step height
+        /// as shares of SwingSlow..SwingFast and ArcShare. 1 is the gait every walker had.</summary>
+        public float SwingScale = 1f, ArcScale = 1f;
         /// <summary>0 while it walks properly, toward 1 as its legs go.</summary>
         public float Limp;
         /// <summary>A bit per leg that planted a foot this frame: the renderer kicks dust off these.</summary>
@@ -225,7 +228,7 @@ namespace TW.Presentation.Tactical
 
             var body = Quaternion.AngleAxis(yaw * Mathf.Rad2Deg, Vector3.up);
             float pace = new Vector2(vel.x, vel.z).magnitude;
-            float swingTime = Mathf.Lerp(SwingSlow, SwingFast, Mathf.Clamp01(pace / 3f));
+            float swingTime = Mathf.Lerp(SwingSlow, SwingFast, Mathf.Clamp01(pace / 3f)) * SwingScale;
 
             int alive = 0, gone = 0;
             for (int i = 0; i < rigs.Length; i++)
@@ -362,7 +365,7 @@ namespace TW.Presentation.Tactical
                     }
 
                     Feet[i].Target = target;
-                    Feet[i].Arc = ArcFor(Feet[i].Anchor, target, rig.Reach, rig.Chain.Length == 1, ground);
+                    Feet[i].Arc = ArcFor(Feet[i].Anchor, target, rig.Reach, rig.Chain.Length == 1, ground, ArcScale);
                     Feet[i].Swing = 0f;
                     swinging++;
                 }
@@ -495,11 +498,11 @@ namespace TW.Presentation.Tactical
 
         /// <summary>How high this step must go: its ordinary height, or enough to clear whatever stands between the
         /// foot and where it is going — a parapet, a sandbag, the far lip of a trench.</summary>
-        static float ArcFor(Vector3 from, Vector3 to, float reach, bool rigid, System.Func<float, float, float> ground)
+        static float ArcFor(Vector3 from, Vector3 to, float reach, bool rigid, System.Func<float, float, float> ground, float scale = 1f)
         {
             // a leg built in one piece cannot fold, so lifting its foot high pulls the toe up off the ground it is
             // aiming at: it picks its feet up less, which is also how a thing with stiff legs actually moves
-            float arc = reach * (rigid ? ArcShare * 0.55f : ArcShare);
+            float arc = reach * (rigid ? ArcShare * 0.55f : ArcShare) * scale;
             float basis = Mathf.Min(from.y, to.y);
             float high = Mathf.Max(from.y, to.y);
             // Sample every quarter metre, not at three fixed fractions. The ground function is a 0.5 m lattice and
