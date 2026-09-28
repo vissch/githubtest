@@ -73,13 +73,13 @@ namespace TW.Sim.Match
             // front) and looks down into a trench it drives up to, as a charging Breaker does (the balance critic, 2026-09-28)
             Infantry = new InfantrySpec { Group = OrderGroup.Line, HuntsArmour = true, LooksDownMetres = CombatTables.ChargeRevealRange },
             // the machine gun in its turret: fired by the small-arms systems (TargetAcquisition reads its range here)
-            Weapon = new WeaponStats { Id = VehicleArchetype.Skimmer, Damage = 24f, RangeMax = 130f, RoundsPerSecond = 6f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 12f },
+            Weapon = new WeaponStats { Id = VehicleArchetype.Skimmer, Damage = 24f, RangeMax = 130f * CombatTables.RangeScale, RoundsPerSecond = 6f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 12f },
             Machine = new TankSpec
             {
                 Hull = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 5f },
                 Turret = new ArmorProfile { FrontMm = 10f, SideMm = 8f, RearMm = 6f, TopMm = 5f },
                 TurretChance = 0.2f, Crew = 2, GunCount = 0, ShortHalt = false, FuelRisk = 0.40f, AmmoRisk = 0.20f,
-                StandOffMetres = 90f, StandOffPatience = 20f,   // shoots from out of grenade range; gives up a mark it is not hurting
+                StandOffMetres = 90f * CombatTables.RangeScale, StandOffPatience = 20f,   // shoots from out of grenade range; gives up a mark it is not hurting
             },
             // footprint off the model (7.0 m across the pods at TW_SCALE 7): 6.6 m long, 6.9 m wide
             Drive = new VehicleProfile
@@ -103,7 +103,7 @@ namespace TW.Sim.Match
             Roster = new RosterEntry { Archetype = VehicleArchetype.Salvo, Cost = 380, Hp = 2000f, Speed = 1.8f, CooldownTicks = 700, IsVehicle = true, Chassis = ChassisKind.Tracked },
             Infantry = new InfantrySpec { Group = OrderGroup.Line },
             // a hull machine gun, the Tusk's: it covers the 60 m the rockets cannot reach (no armour-piercing: men only)
-            Weapon = new WeaponStats { Id = VehicleArchetype.Salvo, Damage = 24f, RangeMax = 110f, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f },
+            Weapon = new WeaponStats { Id = VehicleArchetype.Salvo, Damage = 24f, RangeMax = 110f * CombatTables.RangeScale, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f },
             Machine = new TankSpec
             {
                 Hull = new ArmorProfile { FrontMm = 10f, SideMm = 8f, RearMm = 6f, TopMm = 6f },
@@ -111,11 +111,11 @@ namespace TW.Sim.Match
                 TurretChance = 0.35f, Crew = 3, GunCount = 1, ShortHalt = true, FuelRisk = 0.30f, AmmoRisk = 0.70f,
                 // the shell below is the whole rack: a rocket from each of its sixteen tubes, each landing on its own
                 // tick (TankGunnerySystem); it holds where it is while it has a target, so it fires from its reach
-                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 380f, StandOffPatience = 32f,   // two reloads without a hit: move on
+                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 380f * CombatTables.RangeScale, StandOffPatience = 32f,   // two reloads without a hit: move on
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 20f * Deg,
-                    Indirect = true, RangeMin = 60f, RangeMax = 380f, Accuracy = 0.22f, ReloadSeconds = 16f,
+                    Indirect = true, RangeMin = 60f * CombatTables.RangeScale, RangeMax = 380f * CombatTables.RangeScale, Accuracy = 0.22f, ReloadSeconds = 16f,
                     PenMm = 0f, ApDamage = 0f,
                     HeDamage = 360f, HeRadius = 7.0f, HeSuppression = 90f, HeCrater = 1.6f, Mount3 = new float3(0f, 4.8f, 0.3f),
                 },
@@ -142,9 +142,9 @@ namespace TW.Sim.Match
             => new RosterEntry { Archetype = id, Cost = cost, Hp = hp, Speed = speed, CooldownTicks = cooldown, IsVehicle = true, Chassis = chassis };
         /// <summary>A shipped weapon under a new id: the table keys a shooter's rounds by the id it carries.</summary>
         static WeaponStats Borrowed(byte from, byte id) { var w = CombatTables.WeaponFor(from); w.Id = id; return w; }
-        /// <summary>A hull machine gun (the Maw's numbers) under a new id.</summary>
+        /// <summary>A hull machine gun (the Maw's numbers) under a new id; range as designed (RangeScale is applied here).</summary>
         static WeaponStats MachineGun(byte id, float range = 120f, float roundsPerSecond = 5f)
-            => new WeaponStats { Id = id, Damage = 24f, RangeMax = range, RoundsPerSecond = roundsPerSecond, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 9f };
+            => new WeaponStats { Id = id, Damage = 24f, RangeMax = range * CombatTables.RangeScale, RoundsPerSecond = roundsPerSecond, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 9f };
         static ArmorProfile Plate(float front, float side, float rear, float top) => new ArmorProfile { FrontMm = front, SideMm = side, RearMm = rear, TopMm = top };
 
         // ---- the playground's prototypes ----
@@ -190,7 +190,7 @@ namespace TW.Sim.Match
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = 105f * Deg, TraverseRate = 60f * Deg,
-                    RangeMax = 200f, Accuracy = 0.5f, ReloadSeconds = 3.0f, PenMm = 34f, ApDamage = 500f,
+                    RangeMax = 200f * CombatTables.RangeScale, Accuracy = 0.5f, ReloadSeconds = 3.0f, PenMm = 34f, ApDamage = 500f,
                     HeDamage = 150f, HeRadius = 3.2f, HeSuppression = 35f, HeCrater = 0.8f, Mount3 = new float3(0f, 4.2f, 0.6f),
                 },
             },
@@ -218,7 +218,7 @@ namespace TW.Sim.Match
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 90f * Deg,
-                    RangeMax = 160f, Accuracy = 0.40f, ReloadSeconds = 1.5f, PenMm = 0f, ApDamage = 0f,
+                    RangeMax = 160f * CombatTables.RangeScale, Accuracy = 0.40f, ReloadSeconds = 1.5f, PenMm = 0f, ApDamage = 0f,
                     HeDamage = 90f, HeRadius = 2.5f, HeSuppression = 25f, HeCrater = 0.3f, Mount3 = new float3(0f, 3.0f, 1.0f),
                 },
             },
@@ -280,7 +280,7 @@ namespace TW.Sim.Match
             Archetype = InfantryArchetype.AtRifle,
             Roster = Man(InfantryArchetype.AtRifle, 100, 90f, 2.8f, 200),
             Infantry = new InfantrySpec { Group = OrderGroup.Marksman, HuntsArmour = true, Braced = true },
-            Weapon = new WeaponStats { Id = InfantryArchetype.AtRifle, Damage = 250f, RangeMax = 70f, RoundsPerSecond = 0.2f, Accuracy = 0.6f, SuppressionPerShot = 15f, PenetrationMm = 20f },
+            Weapon = new WeaponStats { Id = InfantryArchetype.AtRifle, Damage = 250f, RangeMax = 70f * CombatTables.RangeScale, RoundsPerSecond = 0.2f, Accuracy = 0.6f, SuppressionPerShot = 15f, PenetrationMm = 20f },
         };
 
         /// <summary>Death Battalion (28): the elite rifle. Dearer, harder, hits harder, and never stays pinned (the clamp
@@ -348,7 +348,7 @@ namespace TW.Sim.Match
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Hull, RestYaw = 0f, ArcHalf = 25f * Deg, TraverseRate = 20f * Deg,
-                    RangeMax = 240f, Accuracy = 0.45f, ReloadSeconds = 4f, PenMm = 40f, ApDamage = 650f,
+                    RangeMax = 240f * CombatTables.RangeScale, Accuracy = 0.45f, ReloadSeconds = 4f, PenMm = 40f, ApDamage = 650f,
                     HeDamage = 220f, HeRadius = 4.5f, HeSuppression = 45f, HeCrater = 1.2f, Mount3 = new float3(0f, 2.4f, 3.0f),
                 },
             },
@@ -439,7 +439,7 @@ namespace TW.Sim.Match
             Archetype = InfantryArchetype.Flamethrower,
             Roster = Man(InfantryArchetype.Flamethrower, 120, 100f, 3.0f, 300),
             Infantry = new InfantrySpec { Group = OrderGroup.Line },
-            Weapon = new WeaponStats { Id = InfantryArchetype.Flamethrower, Mode = FireMode.Cone, Damage = 10f, RangeMax = 12f, RoundsPerSecond = 4f, Accuracy = 0.9f, SuppressionPerShot = 15f, PenetrationMm = 0f, SetsBurning = true },
+            Weapon = new WeaponStats { Id = InfantryArchetype.Flamethrower, Mode = FireMode.Cone, Damage = 10f, RangeMax = 12f * CombatTables.RangeScale, RoundsPerSecond = 4f, Accuracy = 0.9f, SuppressionPerShot = 15f, PenetrationMm = 0f, SetsBurning = true },
         };
 
         /// <summary>

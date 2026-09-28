@@ -162,7 +162,10 @@ namespace TW.Tests
             using var m = NewBattle();
             short ta = m.Fields.FrontTrench(0), tb = m.Fields.FrontTrench(1);
             float apart = math.abs(TrenchZ(m, ta) - TrenchZ(m, tb));
-            float rifle = CombatTables.WeaponFor(Rifleman).RangeMax;
+            // the range cut (decisions.md 2026-09-28) put these lines exactly at rifle range (104 m); this match's rifle is
+            // given 20 m more, so the standoff below still proves the stance rule and not the map
+            var longRifle = m.Catalogue.Weapon[Rifleman]; longRifle.RangeMax = math.max(longRifle.RangeMax, apart + 20f); m.Catalogue.Weapon[Rifleman] = longRifle;
+            float rifle = m.Catalogue.Weapon[Rifleman].RangeMax;
             Assert.Less(apart, rifle,
                 $"setup: the front lines are {apart:F0} m apart against a {rifle:F0} m rifle, so a standoff here " +
                 "would prove nothing about stance and everything about the map");

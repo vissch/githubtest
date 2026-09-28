@@ -11,6 +11,11 @@ namespace TW.Sim.Combat
     [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
     public static class CombatTables
     {
+        /// <summary>Every attack reach is this share of what it was designed at (the owner, 2026-09-28: "We reduce the
+        /// range of all units by 20%"; decisions.md): each weapon's and main gun's range and the numbers typed in beside
+        /// them (minimum ranges, stand-offs, the advance-fire range, the hunt radius). Healing, auras, off-map abilities,
+        /// claws and leaps keep theirs. The tables keep the designed metres, times this.</summary>
+        public const float RangeScale = 0.8f;
         public const float TrenchCover = 0.75f;          // fire-step target shot at from outside its trench
         public const float BelowRimRevealRange = 8f;     // a garrison below the rim can only be engaged from this close
         public const float ChargeRevealRange = 20f;      // a charging Breaker (UnitFlags.Charging) looks down into the trench from this far
@@ -23,7 +28,7 @@ namespace TW.Sim.Combat
         public const int CloseAssaultCooldownTicks = 60;
         public const float MovingAccuracy = 0.5f;        // shooter moving faster than MovingSpeed
         public const float MovingSpeed = 0.5f;
-        public const float AdvanceFireRange = 60f;       // units under >> only engage this close: they are running
+        public const float AdvanceFireRange = 60f * RangeScale;   // units under >> only engage this close: they are running
         // ---- a running man is a hard mark (2026-09-28): the rifleman has to lead him, and the farther off he is the
         // more of a guess that is; close up it makes no odds. Without it a garrison of ten shot every assault of up to
         // thirty dead at 60-100 m and lost nobody (AssaultLadderTests).
@@ -78,26 +83,26 @@ namespace TW.Sim.Combat
             switch (archetype)
             {
                 case 1:  // assault: SMG / trench gun
-                    return new WeaponStats { Id = 1, Damage = 22f, RangeMax = 45f, RoundsPerSecond = 3f, Accuracy = 0.45f, SuppressionPerShot = 7f, PenetrationMm = 4f };
+                    return new WeaponStats { Id = 1, Damage = 22f, RangeMax = 45f * RangeScale, RoundsPerSecond = 3f, Accuracy = 0.45f, SuppressionPerShot = 7f, PenetrationMm = 4f };
                 case 2:  // machinegunner
-                    return new WeaponStats { Id = 2, Damage = 24f, RangeMax = 170f, RoundsPerSecond = 7f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f };
+                    return new WeaponStats { Id = 2, Damage = 24f, RangeMax = 170f * RangeScale, RoundsPerSecond = 7f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f };
                 case 3:  // sniper
-                    return new WeaponStats { Id = 3, Damage = 95f, RangeMax = 230f, RoundsPerSecond = 0.3f, Accuracy = 0.9f, SuppressionPerShot = 20f, PenetrationMm = 14f };
+                    return new WeaponStats { Id = 3, Damage = 95f, RangeMax = 230f * RangeScale, RoundsPerSecond = 0.3f, Accuracy = 0.9f, SuppressionPerShot = 20f, PenetrationMm = 14f };
                 case 4:  // Maw: hull machine guns (its sponson 6-pdrs are TankGunnerySystem's)
-                    return new WeaponStats { Id = 4, Damage = 24f, RangeMax = 120f, RoundsPerSecond = 5f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 9f };
+                    return new WeaponStats { Id = 4, Damage = 24f, RangeMax = 120f * RangeScale, RoundsPerSecond = 5f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 9f };
                 case 5:  // Tusk: the machine gun beside the 37 mm in its turret
-                    return new WeaponStats { Id = 5, Damage = 24f, RangeMax = 110f, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f };
+                    return new WeaponStats { Id = 5, Damage = 24f, RangeMax = 110f * RangeScale, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f };
                 // ---- 2026-09-25 ----
                 case InfantryArchetype.Officer:   // a carbine: he is there for the men round him, not for his own shooting
-                    return new WeaponStats { Id = 12, Damage = 30f, RangeMax = 80f, RoundsPerSecond = 0.8f, Accuracy = 0.6f, SuppressionPerShot = 8f, PenetrationMm = 5f };
+                    return new WeaponStats { Id = 12, Damage = 30f, RangeMax = 80f * RangeScale, RoundsPerSecond = 0.8f, Accuracy = 0.6f, SuppressionPerShot = 8f, PenetrationMm = 5f };
                 case InfantryArchetype.Shield:    // a pistol in the hand the plate leaves free
-                    return new WeaponStats { Id = 13, Damage = 20f, RangeMax = 30f, RoundsPerSecond = 1.5f, Accuracy = 0.45f, SuppressionPerShot = 4f, PenetrationMm = 3f };
+                    return new WeaponStats { Id = 13, Damage = 20f, RangeMax = 30f * RangeScale, RoundsPerSecond = 1.5f, Accuracy = 0.45f, SuppressionPerShot = 4f, PenetrationMm = 3f };
                 case InfantryArchetype.Medic:     // nothing: RangeMax 0 finds no target and Damage 0 bundles no grenades
                     return new WeaponStats { Id = 14, Damage = 0f, RangeMax = 0f, RoundsPerSecond = 0.5f, Accuracy = 0f, SuppressionPerShot = 0f, PenetrationMm = 0f };
                 case InfantryArchetype.Para:      // a rifle, carried down
-                    return new WeaponStats { Id = 16, Damage = 30f, RangeMax = 100f, RoundsPerSecond = 0.8f, Accuracy = 0.5f, SuppressionPerShot = 10f, PenetrationMm = 6f };
+                    return new WeaponStats { Id = 16, Damage = 30f, RangeMax = 100f * RangeScale, RoundsPerSecond = 0.8f, Accuracy = 0.5f, SuppressionPerShot = 10f, PenetrationMm = 6f };
                 case InfantryArchetype.Jetpack:   // a machine pistol for the trench he lands in
-                    return new WeaponStats { Id = 17, Damage = 22f, RangeMax = 40f, RoundsPerSecond = 3f, Accuracy = 0.45f, SuppressionPerShot = 7f, PenetrationMm = 4f };
+                    return new WeaponStats { Id = 17, Damage = 22f, RangeMax = 40f * RangeScale, RoundsPerSecond = 3f, Accuracy = 0.45f, SuppressionPerShot = 7f, PenetrationMm = 4f };
                 // The six crabs carry NO small arms: every gun a walker has is TankGunnerySystem's (sponson guns, the
                 // Kettle's mortar, the Pavise's and Banner's long guns), and the Redoubt has none at all. Without these
                 // cases they fell through to the rifleman below and fired a phantom rifle at 130 m on top of their own
@@ -110,9 +115,9 @@ namespace TW.Sim.Combat
                 case VehicleArchetype.Redoubt:
                     return new WeaponStats { Id = archetype };   // RangeMax 0: acquires nothing, fires nothing
                 case VehicleArchetype.Breaker:    // hull machine guns either side of the ram
-                    return new WeaponStats { Id = 18, Damage = 26f, RangeMax = 110f, RoundsPerSecond = 6f, Accuracy = 0.32f, SuppressionPerShot = 10f, PenetrationMm = 9f };
+                    return new WeaponStats { Id = 18, Damage = 26f, RangeMax = 110f * RangeScale, RoundsPerSecond = 6f, Accuracy = 0.32f, SuppressionPerShot = 10f, PenetrationMm = 9f };
                 default: // rifleman (and the repair engineer, who carries one)
-                    return new WeaponStats { Id = 0, Damage = 36f, RangeMax = 130f, RoundsPerSecond = 0.5f, Accuracy = 0.55f, SuppressionPerShot = 12f, PenetrationMm = 6f };
+                    return new WeaponStats { Id = 0, Damage = 36f, RangeMax = 130f * RangeScale, RoundsPerSecond = 0.5f, Accuracy = 0.55f, SuppressionPerShot = 12f, PenetrationMm = 6f };
             }
         }
 

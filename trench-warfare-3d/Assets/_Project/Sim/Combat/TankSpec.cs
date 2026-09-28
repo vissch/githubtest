@@ -130,7 +130,7 @@ namespace TW.Sim.Combat
             Gun0 = new TankGun
             {
                 Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = 24f * Deg, TraverseRate = 24f * Deg,
-                RangeMax = 300f, RangeMin = 46f, Indirect = true, Accuracy = 0.30f, ReloadSeconds = 6.5f,
+                RangeMax = 300f * CombatTables.RangeScale, RangeMin = 46f * CombatTables.RangeScale, Indirect = true, Accuracy = 0.30f, ReloadSeconds = 6.5f,
                 PenMm = 0f, ApDamage = 0f,
                 HeDamage = 320f, HeRadius = 6.0f, HeSuppression = 75f, HeCrater = 2.0f, Mount3 = new float3(0f, 2.2f, -0.2f),
             },
@@ -159,7 +159,7 @@ namespace TW.Sim.Combat
             Gun0 = new TankGun
             {
                 Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = 42f * Deg, TraverseRate = 30f * Deg,
-                RangeMax = 360f, Accuracy = 0.62f, ReloadSeconds = 5.0f, PenMm = 52f, ApDamage = 780f,
+                RangeMax = 360f * CombatTables.RangeScale, Accuracy = 0.62f, ReloadSeconds = 5.0f, PenMm = 52f, ApDamage = 780f,
                 HeDamage = 190f, HeRadius = 3.8f, HeSuppression = 50f, HeCrater = 1.0f, Mount3 = new float3(0f, 2.45f, 0.1f),
             },
         };
@@ -177,7 +177,7 @@ namespace TW.Sim.Combat
             Gun0 = new TankGun
             {
                 Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = 38f * Deg, TraverseRate = 34f * Deg,
-                RangeMax = 300f, Accuracy = 0.58f, ReloadSeconds = 4.2f, PenMm = 44f, ApDamage = 640f,
+                RangeMax = 300f * CombatTables.RangeScale, Accuracy = 0.58f, ReloadSeconds = 4.2f, PenMm = 44f, ApDamage = 640f,
                 HeDamage = 175f, HeRadius = 3.5f, HeSuppression = 45f, HeCrater = 0.9f, Mount3 = new float3(0f, 2.3f, 0.3f),
             },
         };
@@ -195,7 +195,7 @@ namespace TW.Sim.Combat
         static TankGun CrabGun(TankMount mount, float rest, float3 at) => new TankGun
         {
             Mount = mount, RestYaw = rest, ArcHalf = 105f * Deg, TraverseRate = 60f * Deg,
-            RangeMax = 200f, Accuracy = 0.5f, ReloadSeconds = 3.0f, PenMm = 34f, ApDamage = 500f,
+            RangeMax = 200f * CombatTables.RangeScale, Accuracy = 0.5f, ReloadSeconds = 3.0f, PenMm = 34f, ApDamage = 500f,
             HeDamage = 150f, HeRadius = 3.2f, HeSuppression = 35f, HeCrater = 0.8f, Mount3 = at,
         };
 
@@ -216,7 +216,7 @@ namespace TW.Sim.Combat
             Gun0 = new TankGun
             {
                 Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 50f * Deg,
-                RangeMax = 220f, Accuracy = 0.55f, ReloadSeconds = 2.2f, PenMm = 30f, ApDamage = 420f,
+                RangeMax = 220f * CombatTables.RangeScale, Accuracy = 0.55f, ReloadSeconds = 2.2f, PenMm = 30f, ApDamage = 420f,
                 HeDamage = 130f, HeRadius = 2.5f, HeSuppression = 30f, HeCrater = 0f, Mount3 = new float3(0f, 2.6f, 0.9f),
             },
         };
@@ -224,7 +224,7 @@ namespace TW.Sim.Combat
         static TankGun SixPounder(TankMount mount, float rest, float3 at) => new TankGun
         {
             Mount = mount, RestYaw = rest, ArcHalf = 60f * Deg, TraverseRate = 35f * Deg,
-            RangeMax = 240f, Accuracy = 0.45f, ReloadSeconds = 4f, PenMm = 40f, ApDamage = 650f,
+            RangeMax = 240f * CombatTables.RangeScale, Accuracy = 0.45f, ReloadSeconds = 4f, PenMm = 40f, ApDamage = 650f,
             HeDamage = 220f, HeRadius = 4.5f, HeSuppression = 45f, HeCrater = 1.2f, Mount3 = at,
         };
 
