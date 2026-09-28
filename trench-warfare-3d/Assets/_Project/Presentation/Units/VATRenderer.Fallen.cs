@@ -19,6 +19,8 @@ namespace TW.Presentation.Units
         {
             public Vector3 Pos, From; public float Yaw, Born, Seconds, FromT, Fade, Flight, Up, Top, Rate, Spin, Lies, Grime;
             public byte Team, Figure, Gib, Flips, Char; public sbyte Pitch; public ushort Row, FarRow, FromRow; public int Cell;
+            // a death gag (DeathGags; VATRenderer.Gags): which, its flags, the intensity it was chosen at, and his whole path
+            public byte Gag, GagFlags; public float Absurd; public FallenFlight.Plan Path;
         }
         static float Hash01(Vector3 v) { float h = Mathf.Sin(v.x * 12.9898f + v.z * 78.233f) * 43758.5453f; return h - Mathf.Floor(h); }
         /// <summary>Gravity for a thrown corpse (m/s2): a little over the real thing, so the arc reads as a blow, not a float.</summary>
@@ -156,6 +158,7 @@ namespace TW.Presentation.Units
             float age = now - f.Born;
             float lies = f.Lies > 0.01f ? f.Lies : FallenSeconds;
             float sunk = FallenSeconds > 0f ? Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds) * SinkDepth : 0f;
+            if (f.Gag != 0) { var on = FallenFlight.At(f.Path, age); return sunk > 0f ? on - new Vector3(0f, sunk, 0f) : on; }
             if (f.Flight <= 0f || age >= f.Flight) return sunk > 0f ? f.Pos - new Vector3(0f, sunk, 0f) : f.Pos;
             Vector3 at = Vector3.Lerp(f.From, f.Pos, age / f.Flight);
             float g = Mathf.Max(1f, ThrowGravity), fromTop = age - f.Up;
@@ -242,18 +245,21 @@ namespace TW.Presentation.Units
         static VatInstance Fallen(in FallenMan f, VatAsset tier, ushort row, float now, float scale, Vector3 at)
         {
             float age = now - f.Born;
-            float t = Mathf.Clamp01(age * f.Rate / f.Seconds);
+            bool gag = f.Gag != 0;
+            // a gag's clip starts at its launch (a jig or a claw's hold comes first), or is held at its first frame (a plank)
+            float t = gag && (f.GagFlags & GagFlags.Freeze) != 0 ? 0.02f : Mathf.Clamp01((gag ? Mathf.Max(0f, age - f.Path.Delay) : age) * f.Rate / f.Seconds);
             if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
             float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - age / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
             // thrown: he turns as he goes through the air and comes to rest the way he landed
             float yaw = f.Yaw;
-            if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(age, f.Flight);
-            int pitch = PitchStepOf(age, f.Flight, f.Flips, f.Pitch);
+            if (gag) yaw = GagYaw(f, age);
+            else if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(age, f.Flight);
+            int pitch = gag ? FallenFlight.PitchStep(f.Path, age, f.Pitch) : PitchStepOf(age, f.Flight, f.Flips, f.Pitch);
             // charred: the embers go out after EmberSeconds, and the mud takes what is left smaller than it was
             int chr = f.Char == 3 && age > EmberSeconds ? 2 : f.Char;
             float lies = f.Lies > 0.01f ? f.Lies : 30f;
             if (f.Char >= 2) scale *= Mathf.Lerp(1f, CharredShrink, Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds));
-            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = VatTint.Pack(f.Team, pitch), Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend, Pad = VatPad.Pack(f.Gib, f.Grime, (int)(Hash01(f.From) * 255f), chr) };
+            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = gag ? GagTint(f, pitch, age) : VatTint.Pack(f.Team, pitch), Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend, Pad = VatPad.Pack(f.Gib, f.Grime, (int)(Hash01(f.From) * 255f), chr) };
         }
 
         void ReleaseFallen()

@@ -786,7 +786,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.VehicleCrushed:
                 {
                     // a man under the tracks or a claw (b = 2): what is left of him comes out from under, low and slow
-                    if (e.B != 2 || debris == null || !debris.Ready || DebrisRenderer.Gore <= 0f) break;
+                    if (e.B != 2 || debris == null || !debris.Ready || DebrisRenderer.Gore <= 0f || DeathGags.Intensity > 0f) break;   // with the gags on, the pancake's Death throws it (CombatFx.Gags)
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.3f;
                     debris.Burst(DebrisRenderer.Piece.Helmet, p, 1, 3.5f, 0.32f * FigureScale(), Steel, 60f, 0f, 1.0f, default, e.Tick);
