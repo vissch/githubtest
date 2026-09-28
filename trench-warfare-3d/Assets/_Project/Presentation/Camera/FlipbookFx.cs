@@ -575,6 +575,11 @@ namespace TW.Presentation.Tactical
         readonly Material[] mats = new Material[(int)Book.Count];
         readonly float[] aspect = new float[(int)Book.Count];
         readonly Matrix4x4[] batch = new Matrix4x4[1023];
+        // IN-4 (VFX pass): the live cards counted into their books once a frame (a stable counting sort), so Draw walks each
+        // book's own cards instead of every card once per book (39 books x up to maxCards). Order within a book is kept,
+        // so every batch is the same as before.
+        readonly int[] bookStart = new int[(int)Book.Count + 1], bookCursor = new int[(int)Book.Count];
+        int[] byBook = new int[2048];   // over MaxCards: no allocation in play (it grows only past a raised flipbook.maxCards)
         Mesh quad;
         public bool Ready { get; private set; }
         public int Alive => cards.Count;
@@ -662,14 +667,20 @@ namespace TW.Presentation.Tactical
                 if (now < c.Born) continue;   // not born yet
                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
             }
-            for (int b = 0; b < (int)Book.Count; b++)
+            int bookCount = (int)Book.Count;
+            System.Array.Clear(bookStart, 0, bookCount + 1);
+            for (int i = 0; i < cards.Count; i++) bookStart[(int)cards[i].Book + 1]++;
+            for (int b = 0; b < bookCount; b++) { bookStart[b + 1] += bookStart[b]; bookCursor[b] = bookStart[b]; }
+            if (byBook.Length < cards.Count) byBook = new int[Mathf.NextPowerOfTwo(cards.Count)];
+            for (int i = 0; i < cards.Count; i++) byBook[bookCursor[(int)cards[i].Book]++] = i;
+            for (int b = 0; b < bookCount; b++)
             {
-                var mat = mats[b]; if (mat == null) continue;
+                var mat = mats[b]; if (mat == null || bookStart[b] == bookStart[b + 1]) continue;
                 int frames = Sheets[b].Frames, n = 0;
                 var rp = new RenderParams(mat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
-                for (int i = 0; i < cards.Count; i++)
+                for (int j = bookStart[b]; j < bookStart[b + 1]; j++)
                 {
-                    var c = cards[i]; if ((int)c.Book != b || now < c.Born) continue;
+                    var c = cards[byBook[j]]; if (now < c.Born) continue;
                     float k = Mathf.Clamp01((now - c.Born) / c.Life);
                     float swell = 1f + c.Grow * k;
                     if (c.Pop > 0f) { float u = 1f - Mathf.Clamp01(k / 0.2f); swell *= Mathf.Lerp(1f, c.Pop, u * u * u); }   // bursts out of a point, eased
