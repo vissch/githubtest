@@ -120,7 +120,10 @@ namespace TW.Presentation.Tactical
         const float FireLit = 3.8f;   // the LIGHT a fire throws. Raise this, never the glow card: peak lights the mud, the card only paints a white disc over it         // a fire's light. NightLights burns its own at 7 over 11 m, but that one is
                                             // not renewed on top of itself, and it does not stand a metre from a parapet
 
-        struct Jet { public float NextCatch; public int Slot; public Vector3 Nozzle, Offset, Aim, ManVel, WasAt; public float Started, Until, NextPuff, NextLight, NextSpill, NextRoot, Seed; public bool Rides; }
+        struct Jet { public float NextCatch; public int Slot; public Vector3 Nozzle, Offset, Aim, ManVel, WasAt; public float Started, Until, NextPuff, NextLight, NextSpill, NextRoot, Seed; public bool Rides;
+            /// <summary>The sim fired it (a unit whose weapon SetsBurning): the sim decides who is alight, so the stream
+            /// is drawn and leaves its fuel on the ground but sets nobody burning by itself.</summary>
+            public bool Sim; }
         struct Pool { public Vector3 At; public float Born, Life, Size, Next, NextLight, NextCatch, Seed; public bool Stood; public float BornSim, LifeSim; }   // BornSim, LifeSim: sim seconds, what it burns out by
         struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; public float BornSim, LifeSim; }   // BornSim, LifeSim: sim seconds, what the torch expires by
         struct Pyre { public Vector3 At; public float Born, Life, Size, Next, NextLight, Seed; public bool Stood; public float BornSim, LifeSim; }
@@ -163,6 +166,8 @@ namespace TW.Presentation.Tactical
         public System.Action<Vector3, float, float> Catch;
 
         public int Jets => jets.Count;
+        /// <summary>Jets the sim fired (tests, the debug line).</summary>
+        public int SimJets { get { int n = 0; foreach (var j in jets) if (j.Sim) n++; return n; } }
         public int Fires => pools.Count + torches.Count + pyres.Count;
 
         public void Clear() { jets.Clear(); pools.Clear(); torches.Clear(); pyres.Clear(); }
@@ -174,7 +179,7 @@ namespace TW.Presentation.Tactical
         /// the man as he is drawn rather than hanging where he stood when the tick fired, and a second Shot while the
         /// first is still running lengthens the burst instead of starting a second one on top of it.
         /// </summary>
-        public void Burst(int slot, Vector3 nozzle, Vector3 aim, Vector3 manAt, float seconds = BurstSeconds)
+        public void Burst(int slot, Vector3 nozzle, Vector3 aim, Vector3 manAt, float seconds = BurstSeconds, bool sim = false)
         {
             aim.y *= 0.35f;                                    // he plays it along the ground, never up at the sky
             aim = aim.sqrMagnitude > 1e-4f ? aim.normalized : Vector3.forward;
@@ -187,25 +192,26 @@ namespace TW.Presentation.Tactical
                     held.Nozzle = nozzle; held.Offset = offset; held.Rides = rides;
                     held.Aim = Vector3.Slerp(held.Aim, aim, 0.5f);                         // the stream swings onto the new target, it does not cut
                     held.Until = Mathf.Max(held.Until, Time.time + seconds);
+                    held.Sim = sim;
                     jets[i] = held; return;
                 }
             if (jets.Count >= MaxJets) jets.RemoveAt(0);
             jets.Add(new Jet { Slot = slot, Nozzle = nozzle, Offset = offset, Rides = rides, Aim = aim, Started = Time.time,
-                               Until = Time.time + seconds, NextPuff = 0f, NextLight = 0f, Seed = Random.value * 10f });
+                               Until = Time.time + seconds, NextPuff = 0f, NextLight = 0f, Seed = Random.value * 10f, Sim = sim });
         }
 
         /// <summary>
         /// He turns his nozzle on a point: the burst is taken from the figure's own weapon socket and aimed from
         /// there, so it leaves the weapon and not the middle of the man. False if he is not being drawn.
         /// </summary>
-        public bool BurstFrom(int slot, Vector3 target, float seconds = BurstSeconds)
+        public bool BurstFrom(int slot, Vector3 target, float seconds = BurstSeconds, bool sim = false)
         {
             if (Nozzle == null) return false;
             var (at, forward) = Nozzle(slot);
             if (at.sqrMagnitude <= 0f) return false;
             Vector3 aim = target - at;
             if (aim.sqrMagnitude < 1e-4f) aim = forward;
-            Burst(slot, at, aim, drawn != null ? drawn(slot) : Vector3.zero, seconds);
+            Burst(slot, at, aim, drawn != null ? drawn(slot) : Vector3.zero, seconds, sim);
             return true;
         }
 
@@ -922,7 +928,7 @@ namespace TW.Presentation.Tactical
             // and what it sweeps over catches. Sampled along the stream rather than at its end, because a jet held on
             // a trench takes everyone between the man and the far end, not only whoever is standing at the tip. It
             // starts a third of the way out so the man working the weapon is never in his own fire.
-            if (now >= j.NextCatch && Catch != null)
+            if (now >= j.NextCatch && Catch != null && !j.Sim)   // a sim jet lights whom the sim says (UnitAlight)
             {
                 j.NextCatch = now + CatchEvery;
                 for (int c = 0; c < 3; c++)

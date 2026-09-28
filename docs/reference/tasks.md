@@ -223,7 +223,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Laying a mine** is a sapper's errand (2026-09-28): `CommandType.UnitAbility`, `a` = his slot, `b` = the ability id in
   the low byte and `AbilityArgs` above it, `pos` = the point. `MineSystem.Place` stays the system call underneath
   (tests and tools may still call it). DeterminismReplayTests deploys a sapper and orders him by command, so the
-  serialized replay verifies `SapperSystem`; no HUD issues the order yet (the Proving Ground's panel will).
+  serialized replay verifies `SapperSystem`. The Proving Ground's panel issues it for every sapper of a side at once
+  (`ProvingGround.OrderSappers`: each lays 18 m ahead of himself); no HUD button aims one sapper at a point yet.
 - **Trap:** a sapper walks on a flow-field CELL goal, and the goal table is small (`FlowFieldManager.MaxGoals`). Ask for
   one with `TryGetGoal` (it answers -1, `GetGoal` throws) and make a finished one over with `Retarget`; SapperTests
   runs more errands than the table has goals.
@@ -453,9 +454,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
 
 ### Flamethrower
-- **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only, driven by the debug panel's flame tools; the
-  sim's flamethrower unit, archetype 36, burns men for real since 2026-09-28, see "Fire in the sim", and is not yet
-  wired to this picture: route a `Shot` from a `SetsBurning` weapon to `Jet`), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
+- **Files:** `Presentation/Camera/Flamethrower.cs` (the picture: driven by the debug panel's flame tools and, since
+  2026-09-28, by the sim's flamethrower unit, archetype 36: `CombatFx.FlameShot` takes a `Shot` from a weapon whose
+  `WeaponStats.SetsBurning` is set and draws a burst of the stream instead of a tracer; such a jet is marked `Sim` and
+  sets nobody alight by itself, the sim's `UnitAlight` does, see "Fire in the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
   man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
   paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
   (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
@@ -654,7 +656,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Core/ProvingGround.cs` (the director, plain C# over a `MatchSim`: `Catalogue` with each
   unit's `UnitStage` BUILT / PROTOTYPE / STAND-IN and the `Ideas` that are words only, `Place` in ranks at a side's
   rally, `Wave` and `Presets`, `Send` placed or THROUGH THEIR SLOTS by `DeployUnit` commands, `Schedule` on a timer
-  of sim ticks, `EnemySupport`, `Clear`, `Request` and the scripted enemy's `AiPresets`),
+  of sim ticks, `EnemySupport`, `OrderSappers`, `Clear`, `Request` and the scripted enemy's `AiPresets`),
   `UI/Shell/ProvingGroundLaunchScreen.cs` (ground, seed, bombardment, silver, the scripted enemy, and the ten of each
   side picked from every unit; UXML `UI/Resources/Shell/ProvingGround.uxml`), `UI/Shell/ProvingGroundPanel.cs` (docked
   over the running match, never modal, pages UNITS / WAVES / MATCH; UXML `UI/Resources/Shell/ProvingGroundPanel.uxml`),
@@ -667,12 +669,14 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
   timer, the enemy's support, the request, the same on two worlds), ProvingGroundScreenTests (the editor: both UXMLs,
   picking a ten, the panel over a director of its own).
+- **Statics:** the launch screen's choices and the panel's own wave are statics so that they outlive a restart; both
+  register a reset with `SceneStatics.Register` (StaticLifecycleTests), which runs when the Play session ends.
 - **Trap:** placing writes the world between ticks (`SimHost.WriteWorlds`), so the tick's `UnitSpawned` event is
   cleared before anything reads it and a replay of the match does not verify. Count living units, not events. Waves
   THROUGH THEIR SLOTS are commands and have neither problem, but can only field units of the enemy's ten.
 - **Not built yet:** models for the sixteen (a machine with no `TankRenderer.Machines` row draws as the Maw, a man as the
-  soldier figure), the Croaker's gait and the Hopper's hover, portraits of their own, LAY MINE / LAY TRIPWIRE buttons for a
-  selected sapper, the flame jet's picture. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
+  soldier figure), the Croaker's gait and the Hopper's hover, portraits of their own, LAY MINE / LAY TRIPWIRE buttons
+  that aim one selected sapper at a point. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
 
 ### Campaign shell
 - **Files:** `UI/Campaign/HomeFrontScreen.cs`, `UI/Campaign/StrategicMapScreen.cs`, `UI/Campaign/StagingScreen.cs`
