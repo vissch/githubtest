@@ -711,9 +711,15 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.MortarBurst, p, r * 2.2f * columnScale * earth, 1.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
                         if (recipe.CookOff)
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
-                        // lying on the ground a hand above it (the terrain is sampled at the centre only), widening with the book
                         if (recipe.Ring)
-                            books.Add(FlipbookFx.Book.GroundRing, p + Vector3.up * 0.15f, r * 3f, 2.6f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f);
+                        {
+                            // lying a hand above the highest of five ground samples across its reach, so a slope or the
+                            // crater's own mound does not cut it (the depth test still hides it behind what stands in front)
+                            float reachR = r * 1.5f, top = p.y;
+                            for (int q = 0; q < 4; q++)
+                                top = Mathf.Max(top, RenderGround.Sample(Host.Local.Map, p.x + (q == 0 ? reachR : q == 1 ? -reachR : 0f), p.z + (q == 2 ? reachR : q == 3 ? -reachR : 0f)));
+                            books.Add(FlipbookFx.Book.GroundRing, new Vector3(p.x, top + 0.15f, p.z), r * 3f, 2.6f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.3f, alpha: 0.85f);
+                        }
                         if (!wet || melt)
                         {
                             // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
