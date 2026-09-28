@@ -54,6 +54,8 @@ namespace TW.Presentation.Tactical
         // knob fx.columnPlay (Awake, AOSA C109): the part of the Column book the old dry column plays on a moonlit field
         // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = the old card; default 0.4 (cycle 10).
         float columnPlay = FlipbookFx.DefaultColumnPlay;
+        // knob fx.recipes (Awake, VFX pass 2026-09-28): which drawn parts a burst gets (CombatFx.Recipes.cs). 0 = the old burst.
+        float recipes = DefaultRecipes;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming shape and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
@@ -202,6 +204,7 @@ namespace TW.Presentation.Tactical
             columnBurstLit = FlipbookFx.ReadColumnBurstLit();
             columnCap = FlipbookFx.ReadColumnCap();
             columnPlay = FlipbookFx.ReadColumnPlay();
+            recipes = ReadRecipes();
         }
 
         void Start()
@@ -650,6 +653,7 @@ namespace TW.Presentation.Tactical
                     Vector3 flight = new Vector3(e.Dir.x, 0f, e.Dir.z);
                     float lean = flight.magnitude;
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
+                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
                     if (drawn)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
@@ -680,29 +684,38 @@ namespace TW.Presentation.Tactical
                         // AOSA C109: a dry column on a moonlit field stops before its book's late arcs at fx.columnPlay (1: cut 0, the old card exactly)
                         float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;
                         Vector3 columnLean = flight * (r * 0.45f * lean);   // the column leans the way the shell was going
-                        if (soil > 0f)
+                        if (recipe.Column)
                         {
-                            // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
-                            // the drawing fills about 60% of its card, and a man is about 0.8 m across
-                            float reach = books.CardHeight(FlipbookFx.Book.Column, columnWidth) * FlipbookFx.SoilPeak;
-                            float behind = MenBehind(p, columnWidth * FlipbookFx.SoilWidth * 1.08f * 0.3f + 0.4f, reach * 3f, out float tanPitch);
-                            books.Add(FlipbookFx.Book.Column, p, columnWidth, Mathf.Lerp(1.8f, FlipbookFx.SoilLife, soil), ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: 1f, pop: 0.15f,
-                                velocity: columnLean, soil: soil, soilCap: FlipbookFx.SoilCap(behind, tanPitch, reach));
+                            if (soil > 0f)
+                            {
+                                // rule 6: kept low where men stand behind it, so its top stops at their feet (FlipbookFx.SoilCap);
+                                // the drawing fills about 60% of its card, and a man is about 0.8 m across
+                                float reach = books.CardHeight(FlipbookFx.Book.Column, columnWidth) * FlipbookFx.SoilPeak;
+                                float behind = MenBehind(p, columnWidth * FlipbookFx.SoilWidth * 1.08f * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                                books.Add(FlipbookFx.Book.Column, p, columnWidth, Mathf.Lerp(1.8f, FlipbookFx.SoilLife, soil), ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: 1f, pop: 0.15f,
+                                    velocity: columnLean, soil: soil, soilCap: FlipbookFx.SoilCap(behind, tanPitch, reach));
+                            }
+                            else if (!wet && columnCap > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
+                            {
+                                // AOSA C108: the old column, its card capped over men behind it as C103's heave (FlipbookFx.ColumnCapScale)
+                                float tall = books.CardHeight(FlipbookFx.Book.Column, columnWidth), reach = tall * (1f + FlipbookFx.ColumnGrow);
+                                float behind = MenBehind(p, columnWidth * (1f + FlipbookFx.ColumnGrow) * 0.3f + 0.4f, reach * 3f, out float tanPitch);
+                                books.Add(FlipbookFx.Book.Column, p, columnWidth, 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: FlipbookFx.ColumnGrow, alpha: 1f, pop: 0.15f,
+                                    velocity: columnLean, height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
+                            }
+                            else
+                                books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f,
+                                    velocity: columnLean, cut: cut);
+                            // the two wings are not a mirror pair: the second is born a little later and a little smaller
+                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
+                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
                         }
-                        else if (!wet && columnCap > 0f && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid))
-                        {
-                            // AOSA C108: the old column, its card capped over men behind it as C103's heave (FlipbookFx.ColumnCapScale)
-                            float tall = books.CardHeight(FlipbookFx.Book.Column, columnWidth), reach = tall * (1f + FlipbookFx.ColumnGrow);
-                            float behind = MenBehind(p, columnWidth * (1f + FlipbookFx.ColumnGrow) * 0.3f + 0.4f, reach * 3f, out float tanPitch);
-                            books.Add(FlipbookFx.Book.Column, p, columnWidth, 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: FlipbookFx.ColumnGrow, alpha: 1f, pop: 0.15f,
-                                velocity: columnLean, height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
-                        }
-                        else
-                            books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : 1f, pop: 0.15f,
-                                velocity: columnLean, cut: cut);
-                        // the two wings are not a mirror pair: the second is born a little later and a little smaller
-                        books.Add(FlipbookFx.Book.Wings, p, r * 2.5f, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f);
-                        books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f);
+                        // fx.recipes (CombatFx.Recipes.cs): a round with no lean bursts wide and low over its column; a hull goes up
+                        // as one fireball, playing its book once over the book's own length (21 and 29 frames at 12 fps)
+                        if (recipe.Mortar)
+                            books.Add(FlipbookFx.Book.MortarBurst, p, r * 2.2f * columnScale * earth, 1.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
+                        if (recipe.CookOff)
+                            books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
                         if (!wet || melt)
                         {
                             // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
@@ -712,13 +725,17 @@ namespace TW.Presentation.Tactical
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
-                            for (int k = 0; k < puffs; k++)
+                            for (int k = 0; recipe.OldSmoke && k < puffs; k++)
                             {
                                 Vector3 off = new Vector3(UnityEngine.Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, UnityEngine.Random.Range(-0.5f, 0.5f)) * r
                                              + flight * (r * lean * (0.25f + k * 0.12f));
                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * UnityEngine.Random.Range(1.1f, 1.6f) * shrink * night, UnityEngine.Random.Range(4f, 6.5f) * shrink, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                     velocity: drift * UnityEngine.Random.Range(1.4f, 2.2f) + Vector3.up * 0.4f, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: UnityEngine.Random.Range(-0.6f, 0.6f), alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp), pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
+                            // fx.recipes: one standing plume in place of the seven puffs; it drifts down wind and leans with the shell
+                            if (recipe.Plume)
+                                books.Add(FlipbookFx.Book.ShellPlume, p + flight * (r * 0.3f * lean), r * 2.4f * shrink * night, 3.5f * shrink, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0),
+                                    velocity: drift * 1.2f + flight * (r * 0.2f * lean), grow: 0.6f, alpha: FlipbookFx.SmokeOpacity(0.8f, smokeAlpha, closeUp), pop: 0.2f, delay: 0.25f);
                         }
                     }
                     else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });
