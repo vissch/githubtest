@@ -108,6 +108,15 @@ Shader "TW/VAT Infantry (URP)"
             VatInstance inst = _Instances[GetIndirectInstanceID_Base(svInstanceID)];
             uint packed = (uint)(inst.pad + 0.5);   // VatPad: limbs in bits 0-5, grime in 6-13, seed in 14-21, char in 22-23
             uint lost = packed & 63u;
+            // above the pitch (VatTint, a fallen man's death gag): his roll in 32nds of a turn, a squash of 6 signed bits
+            // (height x 1 + q x 0.0275) and whether he turns and squashes about his feet rather than his middle. All zero on
+            // a living man, so what is left below is team + 2 x pitch step, as it always was.
+            float gag = floor(inst.tint / 64.0);
+            inst.tint -= gag * 64.0;
+            float roll = fmod(gag, 32.0) * (6.28318530 / 32.0);
+            float sq = fmod(floor(gag / 32.0), 64.0);
+            sq = sq > 31.5 ? sq - 64.0 : sq;
+            float pivot = floor(gag / 2048.0) > 0.5 ? 0.0 : 0.9;
             // tint: the team in the low bit; above it, for a fallen man in the air, the pitch he tumbles at in 32nds of a turn
             float team = fmod(inst.tint, 2.0);
             float pitch = floor(inst.tint * 0.5) * (6.28318530 / 32.0);   // 2 pi / VATRenderer.PitchSteps: change both together
@@ -130,9 +139,25 @@ Shader "TW/VAT Infantry (URP)"
             {
                 // end over end about his middle, so he stays on his arc (VATRenderer.Fallen); level again when he lands
                 float sp = sin(pitch), cp = cos(pitch);
-                float3 q = p - float3(0.0, 0.9, 0.0);
-                p = float3(q.x, q.y * cp - q.z * sp, q.y * sp + q.z * cp) + float3(0.0, 0.9, 0.0);
+                float3 q = p - float3(0.0, pivot, 0.0);
+                p = float3(q.x, q.y * cp - q.z * sp, q.y * sp + q.z * cp) + float3(0.0, pivot, 0.0);
                 n = float3(n.x, n.y * cp - n.z * sp, n.y * sp + n.z * cp);
+            }
+            if (roll != 0.0)
+            {
+                // cartwheeling: side over side about the same point (local Z)
+                float sr = sin(roll), cr = cos(roll);
+                float3 q = p - float3(0.0, pivot, 0.0);
+                p = float3(q.x * cr - q.y * sr, q.x * sr + q.y * cr, q.z) + float3(0.0, pivot, 0.0);
+                n = float3(n.x * cr - n.y * sr, n.x * sr + n.y * cr, n.z);
+            }
+            if (sq != 0.0)
+            {
+                // squash and stretch along the world's up, after the turns: the volume kept, the width capped
+                float sy = 1.0 + sq * 0.0275;
+                float sxz = clamp(rsqrt(sy), 0.75, 1.8);
+                p = float3(p.x * sxz, pivot + (p.y - pivot) * sy, p.z * sxz);
+                n = float3(n.x / sxz, n.y / sy, n.z / sxz);
             }
             p *= inst.scale;
             o.positionWS = inst.pos + float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
