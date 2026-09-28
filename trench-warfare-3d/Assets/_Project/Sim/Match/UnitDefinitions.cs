@@ -35,11 +35,12 @@ namespace TW.Sim.Match
     {
         /// <summary>
         /// The units defined here rather than in the old switches. Applying them changes nothing about the units that
-        /// shipped before (UnitDefinitionTests). Since 2026-09-28 it holds the Skimmer and the Salvo, which no faction
+        /// shipped before (UnitDefinitionTests). Since 2026-09-28 it holds the Skimmer and the Salvo, and then the
+        /// Playground's five (the Brute, Croaker, Mercy, Hopper and the Frog; owner: "all", spawn-only), which no faction
         /// fields: they are in the match's table, so the Unit Sandbox (Editor/UnitSandbox.cs) can put them on the field,
         /// and in no roster, so the game the owner plays is the one it was.
         /// </summary>
-        public static readonly UnitDef[] All = { Skimmer, Salvo };
+        public static readonly UnitDef[] All = { Skimmer, Salvo, Brute, Croaker, Mercy, Hopper, Frog };
 
         const float Deg = TankSpec.Deg;
 
@@ -112,6 +113,135 @@ namespace TW.Sim.Match
                 HalfLength = 4.0f, HalfWidth = 3.1f, PushesTrees = false, Clearance = 1.2f,
             },
         };
+
+        // ---- the Playground's units (2026-09-28). Their models are the Playground's (Playground/Art/Tanks/<Name>,
+        // Units/Frog) at the Playground's scale, as the Skimmer's was; footprints off those meshes (Blender bounds of
+        // LOD2, width x length). The numbers are the agent's, placed beside the shipped machines they sit between.
+
+        /// <summary>The Brute (Playground/Art/Tanks/Brute, Tools/tank3split.py): a medium tank, 3.9 x 6.3 m, between the
+        /// Tusk and the Maw: a 57 mm in its turret, a machine gun in the hull, thicker than the Tusk and quicker than the
+        /// Maw, and it pushes a tree over.</summary>
+        public static UnitDef Brute => new UnitDef
+        {
+            Archetype = VehicleArchetype.Brute,
+            Roster = new RosterEntry { Archetype = VehicleArchetype.Brute, Cost = 300, Hp = 2600f, Speed = 2.1f, CooldownTicks = 480, IsVehicle = true, Chassis = ChassisKind.Tracked },
+            Infantry = new InfantrySpec { Group = OrderGroup.Line },
+            Weapon = new WeaponStats { Id = VehicleArchetype.Brute, Damage = 24f, RangeMax = 110f, RoundsPerSecond = 4f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f },
+            Machine = new TankSpec
+            {
+                Hull = new ArmorProfile { FrontMm = 22f, SideMm = 16f, RearMm = 12f, TopMm = 8f },
+                Turret = new ArmorProfile { FrontMm = 24f, SideMm = 18f, RearMm = 14f, TopMm = 8f },
+                TurretChance = 0.4f, Crew = 4, GunCount = 1, ShortHalt = true, FuelRisk = 0.3f, AmmoRisk = 0.4f,
+                Gun0 = new TankGun
+                {
+                    Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 40f * Deg,
+                    RangeMax = 230f, Accuracy = 0.50f, ReloadSeconds = 3.2f, PenMm = 38f, ApDamage = 560f,
+                    HeDamage = 180f, HeRadius = 3.5f, HeSuppression = 38f, HeCrater = 0.8f, Mount3 = new float3(0f, 3.6f, 1.0f),
+                },
+            },
+            Drive = new VehicleProfile
+            {
+                TurnRateRad = 0.55f, TrenchCrossWidth = 2.8f, DitchChance = 0.5f, SlopeLimit = 0.55f, BogChance = 0.04f,
+                HalfLength = 3.17f, HalfWidth = 1.96f, PushesTrees = true,
+            },
+        };
+
+        /// <summary>The Croaker (Playground/Art/Tanks/Croaker, Tools/mechsplit.py): a frog mech on two legs, a 37 mm in the
+        /// turret on its back and two claws. It walks where a tank would ditch and bog, as the crabs do; two legs, so
+        /// losing one stops it. 4.6 m long and 6.5 m across its arms: the footprint is the whole model, arms and all, as the
+        /// battle's model test holds every drawn part to the footprint.</summary>
+        public static UnitDef Croaker => new UnitDef
+        {
+            Archetype = VehicleArchetype.Croaker,
+            Roster = new RosterEntry { Archetype = VehicleArchetype.Croaker, Cost = 290, Hp = 1900f, Speed = 2.6f, CooldownTicks = 520, IsVehicle = true, Chassis = ChassisKind.Legged },
+            Infantry = new InfantrySpec { Group = OrderGroup.Line },
+            Machine = new TankSpec
+            {
+                Hull = new ArmorProfile { FrontMm = 14f, SideMm = 11f, RearMm = 9f, TopMm = 10f },
+                Turret = new ArmorProfile { FrontMm = 16f, SideMm = 12f, RearMm = 10f, TopMm = 8f },
+                TurretChance = 0.35f, Crew = 2, GunCount = 1, ShortHalt = true, FuelRisk = 0.2f, AmmoRisk = 0.35f,
+                ClawReach = 2.4f, ClawDamage = 400f, ClawSeconds = 3.0f,
+                Gun0 = new TankGun
+                {
+                    Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 45f * Deg,
+                    RangeMax = 210f, Accuracy = 0.50f, ReloadSeconds = 2.4f, PenMm = 28f, ApDamage = 400f,
+                    HeDamage = 120f, HeRadius = 2.5f, HeSuppression = 28f, HeCrater = 0f, Mount3 = new float3(0f, 4.6f, 0.4f),
+                },
+            },
+            Drive = new VehicleProfile
+            {
+                TurnRateRad = 1.2f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.85f, BogChance = 0.015f,
+                HalfLength = 2.3f, HalfWidth = 3.2f, Walker = true, Legs = 2,
+            },
+        };
+
+        /// <summary>The Mercy (Playground/Art/Tanks/Mercy, Tools/jeepsplit.py): a field ambulance, 3.2 x 4.6 m. Unarmed; it
+        /// patches the nearest wounded man of its side within 14 m as a medic does (SupportSystem), quicker than one. It
+        /// drives as a tracked machine (ChassisKind.Wheeled has no rules yet, as with the Skimmer): thin, and it ditches.</summary>
+        public static UnitDef Mercy => new UnitDef
+        {
+            Archetype = VehicleArchetype.Mercy,
+            Roster = new RosterEntry { Archetype = VehicleArchetype.Mercy, Cost = 150, Hp = 1000f, Speed = 3.0f, CooldownTicks = 400, IsVehicle = true, Chassis = ChassisKind.Tracked },
+            Infantry = new InfantrySpec { Group = OrderGroup.Line, HealRadius = 14f, HealPerSecond = 30f },
+            Machine = new TankSpec
+            {
+                Hull = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 5f },
+                Turret = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 5f },
+                TurretChance = 0f, Crew = 2, GunCount = 0, ShortHalt = false, FuelRisk = 0.35f, AmmoRisk = 0f,
+            },
+            Drive = new VehicleProfile
+            {
+                TurnRateRad = 0.9f, TrenchCrossWidth = 1.8f, DitchChance = 0.8f, SlopeLimit = 0.5f, BogChance = 0.05f,
+                HalfLength = 2.3f, HalfWidth = 1.58f, PushesTrees = false,
+            },
+        };
+
+        /// <summary>The Hopper (Playground/Art/Tanks/Hopper, Tools/mechsplit.py TW_KIND=flyer): a frog gunship on two ducted
+        /// engines, an autocannon in its chin turret and a machine gun on each engine. The sim has no flying unit (the
+        /// owner's call): it moves as a machine that never ditches or bogs and crosses any trench, and is DRAWN in the air
+        /// (presentation only, as the Skimmer is drawn hovering). 8.0 m long, 7.3 m across the wings.</summary>
+        public static UnitDef Hopper => new UnitDef
+        {
+            Archetype = VehicleArchetype.Hopper,
+            Roster = new RosterEntry { Archetype = VehicleArchetype.Hopper, Cost = 360, Hp = 1400f, Speed = 3.8f, CooldownTicks = 600, IsVehicle = true, Chassis = ChassisKind.Tracked },
+            Infantry = new InfantrySpec { Group = OrderGroup.Line, HuntsArmour = true, LooksDownMetres = CombatTables.ChargeRevealRange },
+            Weapon = new WeaponStats { Id = VehicleArchetype.Hopper, Damage = 24f, RangeMax = 140f, RoundsPerSecond = 8f, Accuracy = 0.30f, SuppressionPerShot = 12f, PenetrationMm = 10f },
+            Machine = new TankSpec
+            {
+                Hull = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 4f },
+                Turret = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 4f },
+                TurretChance = 0.25f, Crew = 2, GunCount = 1, ShortHalt = false, FuelRisk = 0.45f, AmmoRisk = 0.3f,
+                StandOffMetres = 120f, StandOffPatience = 20f,
+                Gun0 = new TankGun
+                {
+                    Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 70f * Deg,
+                    RangeMax = 200f, Accuracy = 0.45f, ReloadSeconds = 1.2f, PenMm = 20f, ApDamage = 260f,
+                    HeDamage = 90f, HeRadius = 2.0f, HeSuppression = 25f, HeCrater = 0f, Mount3 = new float3(0f, 2.0f, 2.5f),
+                },
+            },
+            Drive = new VehicleProfile
+            {
+                TurnRateRad = 1.3f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.95f,
+                BogChance = 0f, HalfLength = 3.97f, HalfWidth = 3.66f, PushesTrees = false, Clearance = 1.2f,
+            },
+        };
+
+        /// <summary>The Frog (Playground/Art/Units/Frog, Tools/frogrig.py): the Playground's frog rifleman. Its own id so
+        /// it is drawn as a frog (a VAT figure of its own) and the riflemen stay men; everything else is a rifleman's.</summary>
+        public static UnitDef Frog
+        {
+            get
+            {
+                var roster = RosterEntry.Rifleman; roster.Archetype = InfantryArchetype.Frog;
+                return new UnitDef
+                {
+                    Archetype = InfantryArchetype.Frog,
+                    Roster = roster,
+                    Infantry = InfantrySpec.For(InfantryArchetype.Rifle),
+                    Weapon = CombatTables.WeaponFor(InfantryArchetype.Rifle),
+                };
+            }
+        }
 
         /// <summary>
         /// Write every definition into the tables of a world and re-seal the fingerprints. Called by MatchSim once the

@@ -101,6 +101,7 @@ namespace TW.Sim
     {
         public const byte Rifle = 0, Assault = 1, Machinegunner = 2, Sniper = 3;
         public const byte Officer = 12, Shield = 13, Medic = 14, Repair = 15, Para = 16, Jetpack = 17;
+        public const byte Frog = 25;   // the Playground's frog rifleman (2026-09-28): a rifleman's numbers, defined in UnitDefinitions, in no faction
         /// <summary>
         /// The highest id any unit may take. It was 31 because TrenchOrders masked with `1 << archetype`; that order
         /// now carries an OrderGroup mask instead, so what binds is Archetypes.Count — the length of every table an
@@ -131,6 +132,11 @@ namespace TW.Sim
         // ForArchetype does not know them) and in no faction's slots or pool: the Unit Sandbox fields them.
         public const byte Skimmer = 19;// hovercraft: a machine gun in a small turret, a fan astern; skims over mud and trenches
         public const byte Salvo = 20;  // half-track rocket truck: a box of rockets that lands out of sight, long to reload
+        // The Playground's machines (2026-09-28, owner: "all" of them into the battle, spawn-only), defined the same way:
+        public const byte Brute = 21;  // medium tank: a 57 mm in the turret and a hull machine gun, between the Tusk and the Maw
+        public const byte Croaker = 22;// two-legged frog mech: a 37 mm in the turret and two claws
+        public const byte Mercy = 23;  // field ambulance: unarmed, patches the wounded men round it
+        public const byte Hopper = 24; // frog gunship on two ducted engines: an autocannon and two machine guns (drawn flying)
         /// <summary>
         /// What kind of machine each SHIPPED id is. This is the seed of RosterEntry.Chassis and nothing else: the
         /// three predicates that used to live here (IsTank, IsWalker, IsArmoured, the last a range check over 6..11)

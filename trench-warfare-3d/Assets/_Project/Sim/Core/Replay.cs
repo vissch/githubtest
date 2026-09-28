@@ -45,7 +45,10 @@ namespace TW.Sim
         // in a dead machine's slot, and holds only on the machine's first goal.
         // v15 (2026-09-28, critic round 4): PendingRocket gains LaunchTick, Shooter, ShooterGen (hashed with it): a rocket
         // still in its tube when its machine dies is dropped; a rack's landing points are clamped to the map.
-        public const ushort FormatVersion = 15;
+        // v16 (2026-09-28, the Playground's units): UnitDefinitions.All gains the Brute 21, Croaker 22, Mercy 23, Hopper 24
+        // and the Frog 25 (fielded by no faction), so the unit table's fingerprint changes; a machine with a heal rate (the
+        // Mercy) heals in SupportSystem. Layout and hash chain unchanged.
+        public const ushort FormatVersion = 16;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

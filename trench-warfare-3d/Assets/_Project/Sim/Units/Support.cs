@@ -4,7 +4,7 @@
 // the Banner's standard is (VehicleModulesSystem), in slot order on the main thread because it writes other slots.
 //  - A medic (InfantrySpec.HealPerSecond) takes the NEAREST wounded man of his own side within HealRadius (ties to
 //    the lower slot) and gives him HealPerSecond of hit points, one patient at a time, never past MaxHp, never a
-//    vehicle. UnitHealed each sweep.
+//    vehicle. UnitHealed each sweep. A machine with a heal rate (the Mercy ambulance) heals the same way.
 //  - An engineer (InfantrySpec.RepairPerSecond) tends every friendly machine within RepairRadius of its hull:
 //    the hull's structure comes back at RepairPerSecond (VehicleHullMended), a fire is beaten down at
 //    FirePerSecond, and every MendEverySeconds the worst broken module is mended the way the crew would mend it
@@ -45,10 +45,13 @@ namespace TW.Sim.Units
                 if (gen[i] != w.Generation[i]) { gen[i] = w.Generation[i]; MendTimer[i] = 0; }
                 if (w.Tick % SupportEvery != (uint)i % SupportEvery) continue;
                 uint f = w.Flags[i];
-                if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) continue;
+                if ((f & (uint)UnitFlags.Alive) == 0) continue;
+                bool machine = (f & (uint)UnitFlags.Vehicle) != 0;
                 var spec = w.Units.Infantry[w.Archetype[i]];   // the match table, not the compiled default
+                // a machine that heals is an ambulance (the Mercy, 2026-09-28): it patches men as a medic does; no shipped
+                // machine has a heal rate, so none of them changes
                 if (spec.HealPerSecond > 0f) Heal(w, i, spec, dt);
-                if (spec.RepairPerSecond > 0f) Repair(w, i, spec, dt);
+                if (!machine && spec.RepairPerSecond > 0f) Repair(w, i, spec, dt);
             }
         }
 
