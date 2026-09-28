@@ -65,7 +65,10 @@ namespace TW.Sim
         // where it lands on that tick (DirectFireSystem hashes the bombs in the air). Layout unchanged.
         // v22 (2026-09-29, the guns): machine gunners (and the Sentry) answer OrderGroup.Gun, not Line, so a
         // TrenchSelectAdvance naming the line leaves them in the trench. The unit table's groups are hashed. Layout unchanged.
-        public const ushort FormatVersion = 22;
+        // v23 (2026-09-28, the range cut, lane/sim/melee): every attack reach at CombatTables.RangeScale 0.8 of its design
+        // (weapon and main-gun ranges, minimum ranges, stand-offs, AdvanceFireRange, EngageSystem.HuntRadius): the
+        // catalogue fingerprints change. Layout and chain unchanged.
+        public const ushort FormatVersion = 23;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -28,7 +28,7 @@ namespace TW.Sim.Combat
 {
     public sealed class EngageSystem : ISimSystem
     {
-        public const float HuntRadius = 70f;     // metres within which a man goes after an enemy in the open
+        public const float HuntRadius = 70f * CombatTables.RangeScale;   // metres within which a man goes after an enemy in the open
         public const float HuntKeep = 1.25f;     // he stays after him until he is this many times as far
         public const float HoldShare = 0.5f;     // he stops to shoot at this share of his weapon's range (RangeFalloff is whole inside it)
         public const float BracedShare = 0.75f;  // a braced gun is set up sooner

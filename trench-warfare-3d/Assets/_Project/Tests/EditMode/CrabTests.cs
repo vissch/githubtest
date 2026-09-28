@@ -1,4 +1,4 @@
-// Phase: A5b (implemented) — the owner's four crab walkers: that they walk over what a tank has to fight through,
+// Phase: A5b (implemented) â€” the owner's four crab walkers: that they walk over what a tank has to fight through,
 // that they are stopped by losing legs rather than by a broken track, that their claws kill what comes close, that
 // the Kettle's mortar drops shells on men it cannot see, that the Censer lays its gas as it goes, and that every bit
 // of it is the same on both machines. (Owner, 2026-09-22: two crab sheets, then two more, "do the same for these".)
@@ -191,7 +191,7 @@ namespace TW.Tests
         {
             var spec = TankSpec.Kettle;
             Assert.IsTrue(spec.Gun0.Indirect, "the Kettle lobs");
-            Assert.Greater(spec.Gun0.RangeMin, 40f, "and cannot drop one close in");
+            Assert.AreEqual(46f * CombatTables.RangeScale, spec.Gun0.RangeMin, 1e-4f, "and cannot drop one close in");
             using var m = NewMatch();
             int crab = SpawnCrab(m, 1, VehicleArchetype.Kettle, new float3(30f, 0f, 120f), 0f);
             var close = new List<int>();
