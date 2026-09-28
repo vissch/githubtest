@@ -21,7 +21,11 @@ namespace TW.Presentation.Tactical
         public const float ShellFireLife = 1.2f;     // s: the blast's eruption (14 of its 32 frames at 12 fps), fading over the last third
         public const float PocketLife = 0.85f;       // s
         public const int ShellPockets = 2;
+        public const float PocketAlpha = 0.6f;       // under the fireball's: fire seen THROUGH its smoke (bench s2: at 0.9 each pocket was a sticker)
         float shellFire = 1f;                         // knob fx.shellFire (Awake)
+
+        /// <summary>Whether a burst is falling masonry (the sim's Dir.y shape 1): a wall coming down has dust, not fire.</summary>
+        public static bool Masonry(float shape) => Mathf.RoundToInt(shape) == 1;
 
         public static float ReadShellFire() => Mathf.Clamp(Knobs.Get(ShellFireKnob, 1f), 0f, 2f);
 
@@ -29,13 +33,14 @@ namespace TW.Presentation.Tactical
         /// and smaller up close, where the cloud is too (the flash comes down the same way).</summary>
         public static float ShellFireWidth(float r, float closeUp) => r * 1.15f * Mathf.Lerp(1f, 0.7f, Mathf.Clamp01(closeUp));
 
-        /// <summary>Where fire pocket k sits over the hole, from a hash of the spot: up in the lower half of the cloud
-        /// (0.7 to 1.3 r) and off to one side, the two on opposite sides, never further out than half the cloud's width.</summary>
+        /// <summary>Where fire pocket k sits over the hole, from a hash of the spot: low in the cloud, just over the fireball
+        /// (0.45 to 0.95 r; bench s2 had them at up to 1.3 r, flames hanging in the air on their own) and off to one side,
+        /// the two on opposite sides, never further out than half the cloud's width.</summary>
         public static Vector3 PocketOffset(Vector3 p, int k, float r)
         {
             uint h = (uint)Mathf.FloorToInt(p.x * 13f) * 73856093u ^ (uint)Mathf.FloorToInt(p.z * 13f) * 19349663u ^ (uint)(k + 1) * 83492791u;
             h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
-            float a = (h & 0x3FF) / 1024f * 6.2832f, side = 0.25f + ((h >> 10) & 0xFF) / 255f * 0.25f, up = 0.7f + ((h >> 18) & 0xFF) / 255f * 0.3f + k * 0.3f;
+            float a = (h & 0x3FF) / 1024f * 6.2832f, side = 0.25f + ((h >> 10) & 0xFF) / 255f * 0.25f, up = 0.45f + ((h >> 18) & 0xFF) / 255f * 0.25f + k * 0.25f;
             if ((k & 1) == 1) a += 3.1416f;
             return new Vector3(Mathf.Cos(a) * side * r, up * r, Mathf.Sin(a) * side * r);
         }
@@ -54,7 +59,19 @@ namespace TW.Presentation.Tactical
                 velocity: rise * 0.35f, grow: 0.3f, alpha: Mathf.Min(1f, shellFire), glow: glow, pop: 0.25f);
             for (int k = 0; k < ShellPockets; k++)
                 books.Add(FlipbookFx.Book.Fire, p + PocketOffset(p, k, r), w * 0.5f, PocketLife, (mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                    velocity: rise, grow: 0.4f, alpha: Mathf.Min(1f, shellFire) * 0.9f, glow: glow, pop: 0.3f, delay: 0.08f + 0.12f * k, startFrame: 2f + k * 3f);
+                    velocity: rise, grow: 0.4f, alpha: Mathf.Min(1f, shellFire) * PocketAlpha, glow: glow, pop: 0.3f, delay: 0.08f + 0.12f * k, startFrame: 2f + k * 3f);
+        }
+
+        /// <summary>How many grains of grit a burst of radius r sprays (before DebrisRenderer's own share by distance and zoom).</summary>
+        public static int GritCount(float r) => Mathf.RoundToInt(10f + 2.5f * Mathf.Clamp(r, 2f, 9f));
+
+        /// <summary>The reference's grit: a flat, fast spray of fine dark earth out of the burst, the shotgun around the fireball
+        /// that the clods (fist to head size, thrown up) are not. Small clods in the Clod pool (no draw added), flung low and
+        /// far along the shell's flight, lying only a few seconds. DebrisRenderer's own seeded stream: no random draws here.</summary>
+        void ShellGrit(Vector3 p, float r, Vector3 lean, uint tick)
+        {
+            if (shellFire <= 0f) return;
+            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire)), 18f + r, 0.05f, Mud, 5f, 0f, 0.7f, lean, tick + 29u);
         }
     }
 }
