@@ -99,9 +99,9 @@ Source clips: the owner's `Downloads\mixamo animations\`. Classification: `docs/
 
 | Script | Does | Usage |
 |---|---|---|
-| `firebooks.py` | Cuts the flamethrower's greyscale flipbooks into `Resources/VFX/` from the owner's generated pack | `python Tools/firebooks.py [packdir] [outdir]`, pack default `G:/My Drive/vfx/sheets` |
+| `firebooks.py` | Cuts every 8x4 greyscale flipbook (the flamethrower's, and since 2026-09-28 the VFX pass's `BOOKS`: pack sheets and the desktop's `tw_*` sheets) into `Resources/VFX/` from the owner's generated pack | `python Tools/firebooks.py [packdir] [outdir]`, pack default `G:/My Drive/vfx/sheets` |
 
-The other books in `Resources/VFX/` come from Asset Store packs (SrRubfish, Hun0FX). They may ship in the game but
+The 4x4/3x3 books (Burst, Column, Puff and the rest before FireBall) come from Asset Store packs (SrRubfish, Hun0FX). They may ship in the game but
 must not be redistributed on their own.
 
 How the owner's pack is read (32 sheets, 8x4 cells, 12 fps, named `<colour>_<kind>_8x4_12fps_<n>f.png`):
