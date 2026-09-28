@@ -72,9 +72,21 @@ namespace TW.Presentation.Units
         /// </summary>
         public void Release()
         {
-            Kill(Positions); Positions = null;
-            Kill(Normals); Normals = null;
+            if (!SharesAtlas) { Kill(Positions); Kill(Normals); }   // a view (WithMesh) leaves them to the asset that owns them
+            Positions = null; Normals = null;
             if (OwnsMesh) { Kill(Mesh); Mesh = null; }
+        }
+
+        /// <summary>True for a view made by WithMesh: its atlas textures belong to another VatAsset.</summary>
+        public bool SharesAtlas { get; private set; }
+
+        /// <summary>The same atlas drawn with another mesh of the SAME vertices in the same order (the shader reads the
+        /// atlas by SV_VertexID): the mid-distance figure, whose mesh only has fewer triangles. No texture is copied.</summary>
+        public VatAsset WithMesh(Mesh mesh)
+        {
+            var view = (VatAsset)MemberwiseClone();
+            view.Mesh = mesh; view.OwnsMesh = false; view.SharesAtlas = true;
+            return view;
         }
 
         /// <summary>Destroy that works in both worlds: Object.Destroy is deferred to end of frame and does nothing at

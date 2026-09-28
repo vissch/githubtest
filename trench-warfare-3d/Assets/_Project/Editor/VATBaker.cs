@@ -15,6 +15,8 @@
 //   arms, legs, hips) are stored as their brightness with the team mask set, so the shader recolours the uniform
 //   per side and keeps the folds. A figure without one is coloured by its dominant bone. A rifle box is added in the
 //   right hand (the models carry none); the old CrouchedRun figure also gets a helmet brim.
+// - Each figure also gets its mid-distance mesh, Figure<Name>MidMesh: the same vertices with the triangles of about 42 %
+//   of them (VatDecimate); the renderer draws it with this figure's atlas, so it costs no atlas memory.
 // The result is normalised to a 1.78 m man standing on y = 0, facing +Z.
 using System.Collections.Generic;
 using System.IO;
@@ -350,18 +352,56 @@ namespace TW.Editor
             tris.AddRange(helmet.Tris.Select(t => t + skinCount));
             tris.AddRange(rifle.Tris.Select(t => t + skinCount + helmet.Pos.Length));
             int idle = (int)table[(int)Clip.Idle].x;
-            var mesh = new Mesh { name = "Figure" + figure + "Mesh" };
             // UV1.x: which limb a vertex belongs to, 0 body, 1 head (and the helmet), 2/3 left/right arm, 4/5 left/right leg.
             // VAT_URP cuts the limbs VatInstance.Pad names; the rifle stays 0 (DebrisRenderer throws its own).
             var limbs = new Vector2[vertexCount];
             for (int i = 0; i < skinCount; i++) limbs[i] = new Vector2(LimbOf(bones[weights[i].boneIndex0].name), 0f);
             for (int i = 0; i < helmet.Pos.Length; i++) limbs[skinCount + i] = new Vector2(1f, 0f);
-            mesh.SetVertices(frames[idle]); mesh.SetNormals(frameNormals[idle]); mesh.SetColors(colors); mesh.SetUVs(1, limbs); mesh.SetTriangles(tris, 0);
-            mesh.bounds = new Bounds(new Vector3(0f, 0.9f, 0f), new Vector3(3f, 2.4f, 3f));
+            var allFrames = frames.ToArray(); var allNormals = frameNormals.ToArray(); var sockets = frameSockets.ToArray();
+            var allTris = tris.ToArray();
+            long bytes = Write(figure, allFrames, allNormals, colors, limbs, allTris, vertexCount, idle, table, seconds, sockets);
+            string summary = $"VATBaker {figure}: {vertexCount} vertices x {frames.Count} frames, {rows} clips, {bytes / 1048576f:0.0} MB on disk, {(long)vertexCount * frames.Count * 12 / 1048576f:0.0} MB in memory, scale {rig.Scale:0.###}, hip scale {rig.HipScale:0.###}, albedo {(rig.Albedo != null ? rig.Albedo.name : "none")}; {missing} missing, {unbound} unbound";
 
-            // ---- atlas and assets -------------------------------------------------------------------------------
-            int total = frames.Count;
-            var bytes = VatCodec.Encode(frames.ToArray(), frameNormals.ToArray(), vertexCount, table, seconds, frameSockets.ToArray());
+            // ---- the mid-distance figure: this figure's vertices and atlas with fewer triangles (VatDecimate collapses
+            // vertices onto others of the same limb, over several poses; the rifle and brim are their own group and kept
+            // whole). Only the mesh is written: the renderer draws it with this figure's atlas (VatAsset.WithMesh).
+            var locked = new bool[vertexCount]; for (int i = skinCount; i < vertexCount; i++) locked[i] = true;
+            var limbOf = new int[vertexCount];
+            for (int i = 0; i < vertexCount; i++) limbOf[i] = locked[i] ? 9 : (int)limbs[i].x;   // nothing of the body collapses onto the rifle
+            var poses = new List<Vector3[]> { allFrames[idle] };
+            foreach (var c in new[] { Clip.Run, Clip.FireKneel, Clip.FireProne, Clip.Crawl, Clip.ReloadStand })
+            {
+                var row = table[(int)c];
+                if (Mathf.Abs(row.y) >= 1f) poses.Add(allFrames[(int)row.x + (int)(Mathf.Abs(row.y) / 3f)]);
+            }
+            var mid = VatDecimate.Reduce(poses.ToArray(), allTris, Mathf.RoundToInt(MidShare * vertexCount), locked, limbOf);
+            var midMesh = new Mesh { name = "Figure" + figure + MidSuffix + "Mesh" };
+            midMesh.SetVertices(allFrames[idle]); midMesh.SetNormals(allNormals[idle]); midMesh.SetColors(colors); midMesh.SetUVs(1, limbs); midMesh.SetTriangles(mid.Triangles, 0);
+            midMesh.bounds = new Bounds(new Vector3(0f, 0.9f, 0f), new Vector3(3f, 2.4f, 3f));
+            foreach (var stale in new[] { "", "Atlas.bytes" }) AssetDatabase.DeleteAsset($"{OutputFolder}/Figure{figure}{MidSuffix}{(stale == "" ? ".asset" : stale)}");   // the first cut's separate mid atlas
+            AssetDatabase.DeleteAsset($"{OutputFolder}/Figure{figure}{MidSuffix}Mesh.asset");
+            AssetDatabase.CreateAsset(midMesh, $"{OutputFolder}/Figure{figure}{MidSuffix}Mesh.asset");
+            AssetDatabase.SaveAssets();
+            summary += $"\nVATBaker {figure}{MidSuffix}: {mid.Used} of {vertexCount} vertices used, {mid.Triangles.Length / 3} triangles (from {allTris.Length / 3}); shares {figure}'s atlas";
+            LastReport += summary + "\n" + report + "\n";
+            Debug.Log(summary + "\n" + report);
+        }
+
+        /// <summary>The mid figure keeps this share of the full figure's vertices (welded positions, the rifle and brim
+        /// included): about 400 of the Soldier's 917, where the far box has 264.</summary>
+        public const float MidShare = 0.42f;
+        /// <summary>The mid mesh of Figure&lt;Name&gt; is Figure&lt;Name&gt;MidMesh (VATRenderer.MidNames + "Mesh").</summary>
+        public const string MidSuffix = "Mid";
+
+        /// <summary>One figure's mesh (posed at the idle's first frame), atlas and VatAssetData into Resources/Units. Returns the atlas bytes.</summary>
+        static long Write(string figure, Vector3[][] frames, Vector3[][] normals, Color[] colors, Vector2[] limbs, int[] tris, int vertexCount, int idle, Vector2[] table, float[] seconds, Vector3[][] sockets)
+        {
+            int rows = table.Length;
+            var mesh = new Mesh { name = "Figure" + figure + "Mesh" };
+            mesh.SetVertices(frames[idle]); mesh.SetNormals(normals[idle]); mesh.SetColors(colors); mesh.SetUVs(1, limbs); mesh.SetTriangles(tris, 0);
+            mesh.bounds = new Bounds(new Vector3(0f, 0.9f, 0f), new Vector3(3f, 2.4f, 3f));
+            int total = frames.Length;
+            var bytes = VatCodec.Encode(frames, normals, vertexCount, table, seconds, sockets);
             if (!AssetDatabase.IsValidFolder("Assets/_Project/Resources")) AssetDatabase.CreateFolder("Assets/_Project", "Resources");
             if (!AssetDatabase.IsValidFolder(OutputFolder)) AssetDatabase.CreateFolder("Assets/_Project/Resources", "Units");
             AssetDatabase.DeleteAsset($"{OutputFolder}/Figure{figure}.asset"); AssetDatabase.DeleteAsset($"{OutputFolder}/Figure{figure}Mesh.asset");
@@ -374,9 +414,7 @@ namespace TW.Editor
             AssetDatabase.CreateAsset(mesh, $"{OutputFolder}/Figure{figure}Mesh.asset");
             AssetDatabase.CreateAsset(data, $"{OutputFolder}/Figure{figure}.asset");
             AssetDatabase.SaveAssets();
-            string summary = $"VATBaker {figure}: {vertexCount} vertices x {total} frames, {rows} clips, {bytes.Length / 1048576f:0.0} MB on disk, {(long)vertexCount * total * 12 / 1048576f:0.0} MB in memory, scale {rig.Scale:0.###}, hip scale {rig.HipScale:0.###}, albedo {(rig.Albedo != null ? rig.Albedo.name : "none")}; {missing} missing, {unbound} unbound";
-            LastReport += summary + "\n" + report + "\n";
-            Debug.Log(summary + "\n" + report);
+            return bytes.Length;
         }
 
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
