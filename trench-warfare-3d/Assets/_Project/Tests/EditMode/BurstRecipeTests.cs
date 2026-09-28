@@ -162,6 +162,15 @@ namespace TW.Tests
             for (uint t = 0; t < 30; t++) { var mg = CombatFx.ArmsFor(TW.Sim.InfantryArchetype.Machinegunner, t, 7); if (mg.Flared) flares++; if (mg.Smoked) puffs++; }
             Assert.AreEqual(15, flares, "a machine gun's flare card on every second round"); Assert.AreEqual(10, puffs, "and a smoke puff on every third");
             Assert.IsTrue(rifle.Flared && rifle.Smoked && rifle.FlareLife == 0.18f, "a rifle: every round as before");
+            // the machines' guns
+            var maw = TankRenderer.GunFor(TW.Sim.VehicleArchetype.Maw);
+            Assert.AreEqual(TankRenderer.GunLook.Old.Blast, maw.Blast, "the Maw's 6-pdr is the old shot");
+            Assert.Less(TankRenderer.GunFor(TW.Sim.VehicleArchetype.Tusk).Blast, maw.Blast, "a 37 mm blasts smaller");
+            Assert.Greater(TankRenderer.GunFor(TW.Sim.VehicleArchetype.Pavise).Blast, maw.Blast, "a long gun bigger");
+            Assert.IsTrue(TankRenderer.GunFor(TW.Sim.VehicleArchetype.Kettle).Arc && !maw.Arc, "the mortar lobs, the tank gun does not");
+            Vector3 a = new Vector3(0, 1, 0), b = new Vector3(60, 1, 0);
+            Assert.AreEqual(a, TankRenderer.ArcPoint(a, b, 10f, 0f)); Assert.AreEqual(b, TankRenderer.ArcPoint(a, b, 10f, 1f));
+            Assert.AreEqual(11f, TankRenderer.ArcPoint(a, b, 10f, 0.5f).y, 1e-4f, "the top of the arc stands apex over the line");
             Assert.IsFalse(CombatFx.ArmsFor(TW.Sim.VehicleArchetype.Maw, 10u, 3).Case, "no case out of a hull gun");
             Assert.AreEqual(1f, CombatFx.ReadClassArms(), "on by default");
         }
