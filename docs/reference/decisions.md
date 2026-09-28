@@ -110,6 +110,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-29 | **The bomb's throw is cut by 20 % too** (the owner, asked whether `CombatTables.GrenadeRange` 22 m, landed after the range cut, should take it: "yes lets go"): `GrenadeRange` = 22 m x `RangeScale` = 17.6 m. `GrenadeMin` 5 m (not throwing at his own feet) and `GrenadeFriend` 4 m are safety distances, not reaches, and stay (the agent's reading). |
 | 2026-09-28 | The level itself (SHOW, `lane/show/proving-ground`): waves are PLACED at the enemy's rally by default (any unit, no silver) and go THROUGH THEIR SLOTS only when asked, because a slot can field only the enemy's ten; the panel opens with F8 over ANY match, not only the level, as the debug panel does with F10; the sixteen borrow the portrait of the nearest shipped unit until they have their own; the ideas with nothing in the sim are listed greyed with what each waits for (the agent's choices). |
 
+| 2026-09-28 | "Make sure that as much as possible each unit has a 3d model" (the owner). The playground's four machines are in the battle from their own models; a stand-in with no model wears the nearest one and says so in a table (`TankRenderer.StandIns`) instead of falling through to the Maw. The Brute is drawn 1.35 times its sculpt, at the Maw's size, and the sim fires the one hull gun its model has (the agent's choices). |
+
 ## Open: waiting on the owner
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
   out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
@@ -144,6 +146,14 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   Measured in ten-minute matches (`MatchLoopTests`): it now breaks a player who only sits in his trench in five to nine
   minutes, and the same script on both sides either holds a stalemate or snowballs once one side gets ahead. `Odds`,
   `AttackGarrison` and `UsesSupport` are the difficulty knobs (Easy has no support, so it needs three to one).
+- **Names and jobs for the six models without a settled one (2026-09-28):** proposed and not answered: Brute as the
+  Anvil (a medium tank) or as the Breaker's missing model; the Croaker a leaping assault walker; the Hopper as the
+  Dragonfly, the aircraft that flies the strafe run and the drop; the Mercy a healer; the Frog as the Wader, amphibious
+  infantry, or the look of one faction's infantry; the Cutter as it is.
+- **The crabs' feet (2026-09-28):** `Editor/TankImport.cs` puts a node three levels down out of place by its parent's
+  offset, turned. Measured on the Croaker and fixed for the four new models only. The six walkers carry the same error
+  (their feet, by their shins' offsets, 0.2-0.3 m); `TankModel` and the gait were tuned around it. Putting them right
+  changes six shipped machines and wants its own look in Play.
 - **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
   Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
   shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).

@@ -89,6 +89,10 @@ namespace TW.Presentation.Tactical
         public readonly Vector3[] MuzzleLocal = new Vector3[2];  // in the gun's (or sponson's) own frame
         public readonly int[] GunPart = { -1, -1 };               // LOD0 part that fires gun k
         public float LinkLength = 0.34f;                          // tanksplit: a tread link every ~34 cm
+        /// <summary>The tracks' texture runs with the tread (the tanks of Tools/tanksplit.py, whose tracks are unwrapped as
+        /// one strip of links). False on a machine whose tracks are painted on its own atlas (the Brute): run there, the
+        /// tread would drag the rest of the atlas across the track.</summary>
+        public bool TreadRuns = true;
         public float WheelRadius = 0.36f;
         public float HalfGauge = 1.65f, HalfLength = 2.5f, Height = 3f;   // Height: the hull's top above the ground
         public int LegCount;                                              // 0 on a tank
@@ -401,11 +405,15 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>Track_L, Wheel_LF, Horn_R, Sponson_R: the letter after the first underscore (left is -X in Unity).</summary>
-        static int SideOf(string name)
+        /// <summary>-1 left, +1 right, 0 on the centre line, by the part's suffix: _L / _R, and a wheel's or a door's
+        /// _FL, _FR, _RL, _RR, _BL, _BR (front, rear, back), whose side is the second letter.</summary>
+        public static int SideOf(string name)
         {
             int u = name.IndexOf('_');
             if (u < 0 || u + 1 >= name.Length) return 0;
-            return name[u + 1] == 'L' ? -1 : name[u + 1] == 'R' ? 1 : 0;
+            char c = name[u + 1];
+            if (name.Length == u + 3 && (c == 'F' || c == 'R' || c == 'B') && (name[u + 2] == 'L' || name[u + 2] == 'R')) c = name[u + 2];
+            return c == 'L' ? -1 : c == 'R' ? 1 : 0;
         }
 
         static TankPartRole RoleOf(string name)
