@@ -32,8 +32,8 @@
 .pg-tile__needs { font-size: 10px; color: var(--tw-text-dim); white-space: normal; -unity-text-align: upper-center; margin: 0; padding: 0 2px; }
 
 /* ---- the panel over the match ---- */
-/* under the minimap (its bezel ends at 153 in panel units) and over the deploy bar (222 from the bottom) */
-.pg-dock { position: absolute; right: 12px; top: 160px; bottom: 236px; width: 400px; padding: 10px 12px 8px 12px; flex-direction: column; }
+/* under the minimap and its speed row (they end at 215 in panel units) and over the deploy bar (222 from the bottom) */
+.pg-dock { position: absolute; right: 12px; top: 224px; bottom: 236px; width: 400px; padding: 10px 12px 8px 12px; flex-direction: column; }
 .pg-dock Label, .pg-dock Button { -unity-font-definition: url("../Skin/Fonts/DustFrontLabel.asset"); }
 .pg-dock--collapsed { bottom: auto; }
 .pg-dock--collapsed > .pg-body { display: none; }

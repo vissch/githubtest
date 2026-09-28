@@ -290,6 +290,20 @@ it; whatever loses all its supports (`HouseKit.Solve`'s RestsOn) comes down a st
  the vehicle and figure are not yet in `Resources/` nor known to the sim (archetype,
 `TankModel` 3-LOD support, a VAT bake of the frog through the retarget).
 
+## Into the battle: the Brute, the Croaker, the Hopper and the Mercy (2026-09-28)
+The four became battle models the same day the Proving Ground (the test level, `tasks.md`) first fielded them:
+`Resources/Vehicles/<Name>/<Name>_LOD0.fbx` and `_LOD1.fbx` with `<Name>Atlas.jpg` beside the folder, written by the
+splitters' `TW_BATTLE=1` from the same sources as the playground's copies (commands in `pipelines.md`), and portraits
+cut from the splitters' renders. Seen in Play beside the Maw: each assembles, faces the way it drives and stands on
+the ground; the Hopper flies 9 m up. What the measuring found:
+- the Croaker's parts came out of Unity displaced until its root part stood on the origin, and its feet (three levels
+  down) until `Editor/TankImport.cs` learned the full rule for nested nodes (`pipelines.md`);
+- the Brute's model has ONE gun, in its hull, and at the battle's size is 8.8 x 5.3 m: the sim had given it the Maw's
+  two sponsons and a footprint 6.8 m wide, and was changed to fit the model;
+- the Brute's tracks are painted on its own atlas, so the tread that runs on the Maw's tracks does not run on them.
+Not done: a knee that bends forward in the battle's gait (the playground's walker has one), a look at the far LODs at
+170 m, the Croaker's darker atlas beside the others.
+
 ## Into the battle: the Skimmer and the Salvo (2026-09-28)
 The Skimmer and a new half-track rocket truck, the Salvo, became battle units (archetypes 19 and 20, defined in
 `Sim/Match/UnitDefinitions.cs`, fielded by no faction: the Unit Sandbox spawns them). Their battle copies are written

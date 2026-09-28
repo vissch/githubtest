@@ -742,7 +742,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   and a screen with `ShellScreen.Overlay` lets Esc through to the pause menu.
 - **Names:** `Presentation/Core/UnitLook.cs` names ids 21-36 and gives each a tooltip; until they have portraits of
   their own `UnitLook.StandInPortrait` lends each the picture of the shipped unit nearest to it (the deploy bar, the
-  tiles). `UnitLook.PortraitCount` stays 21: it counts pictures, not units.
+  tiles; the Brute, the Croaker, the Hopper and the Mercy have their own since their models came into the battle).
+  `UnitLook.PortraitCount` stays 21: it counts the old bar's icons, not units.
   A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
   baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
@@ -753,9 +754,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** placing writes the world between ticks (`SimHost.WriteWorlds`), so the tick's `UnitSpawned` event is
   cleared before anything reads it and a replay of the match does not verify. Count living units, not events. Waves
   THROUGH THEIR SLOTS are commands and have neither problem, but can only field units of the enemy's ten.
-- **Not built yet:** models for the sixteen (a machine with no `TankRenderer.Machines` row draws as the Maw, a man as the
-  soldier figure), the Croaker's gait and the Hopper's hover, portraits of their own, LAY MINE / LAY TRIPWIRE buttons
-  that aim one selected sapper at a point. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
+- **Models (2026-09-28):** the Brute, the Croaker, the Hopper and the Mercy are drawn from their own models
+  (`Resources/Vehicles/<Name>/`, rows of `TankRenderer.Machines` in `Presentation/Camera/TankRenderer.cs`, written by
+  the splitters' `TW_BATTLE=1`, `pipelines.md`), with their own portraits. The Hopper flies (`Machines`' `Lift`, 9 m;
+  it is still shot at on the ground, the sim has no air) and falls when it dies. The stand-in machines wear the nearest
+  model by `TankRenderer.StandIns` (Mark IV and Mark V the Maw's, the A7V the Brute's, the Renault FT, the Whippet and
+  the Austin the Tusk's) and that model's portrait. The Breaker has no model of its own and no line: it is drawn as
+  the Maw, as it always was. Every foot unit is drawn as the soldier figure (the sniper as his own).
+  ProvingGroundModelTests holds the four models (parts, facing, the Croaker's legs, size against the sim's footprint)
+  and that every machine is drawn with a model somebody chose.
+- **Not built yet:** models of their own for the stand-ins and the Breaker, the Frog's figure in the battle (its rig is
+  in the playground), a knee that bends forward in the Croaker's gait, LAY MINE / LAY TRIPWIRE buttons that aim one
+  selected sapper at a point. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
 
 ### Campaign shell
 - **Files:** `UI/Campaign/HomeFrontScreen.cs`, `UI/Campaign/StrategicMapScreen.cs`, `UI/Campaign/StagingScreen.cs`

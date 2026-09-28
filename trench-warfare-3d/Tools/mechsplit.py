@@ -469,6 +469,11 @@ for k in (1, 2):
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
 piv, sock = pivots_and_sockets(P0)
+# The battle's root part stands on the origin (2026-09-28): with the Hull's pivot at the walker's pelvis (2.24 m up), every
+# part under it came out of Unity's import displaced by that height, turned (the Croaker's shins 2.2 m from its thighs).
+# The crabs' Body and the hovercraft's Hull have always stood on it. The sockets and the parts keep their places: both
+# are written relative to their owner's pivot.
+if BATTLE: piv["Hull"] = Vector((0, 0, 0))
 manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND in ("flyer", "hover"), "hover": KIND == "hover",
             # a cook-off throws its parts at 0.6 of the tank's speeds: it has no magazine, and at 1.0 an engine landed 29 m off
             "fling": 0.6, "lods": [], "snapped": [],
@@ -487,7 +492,7 @@ if BATTLE:
         if lod == 0: portrait(objs, os.path.join(RENDERDIR, NAME + "_portrait.png"))
         export(root, os.path.join(OUTDIR, tag + ".fbx"))
         # facing: from its breech the barrel runs to Blender +Y, which the export puts at Unity +Z (the axis trap)
-        ys = [v.co.y for v in objs["Gun"].data.vertices]
+        ys = [v.co.y for v in objs["Gun"].data.vertices] if "Gun" in objs else [0.0]   # a flyer has no Gun part: its guns are in its engine pods
         for n, o in objs.items(): o.name = "%d|%s" % (lod, n)
         t = sum(tris_of(b) for b in P.values())
         manifest["lods"].append({"lod": lod, "tris": t, "parts": {n: tris_of(P[n]) for n in PARTS}})
