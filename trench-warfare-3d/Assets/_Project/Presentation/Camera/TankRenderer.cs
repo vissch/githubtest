@@ -111,7 +111,7 @@ namespace TW.Presentation.Tactical
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
             public readonly float[] ModuleLeft = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };   // L21: what each VehicleModule had left at its last hit
-            public float NextMend, NextColumn;     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
+            public float NextMend, NextColumn, NextVent;     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
             public readonly List<Debris> Pieces = new List<Debris>();
@@ -536,6 +536,7 @@ namespace TW.Presentation.Tactical
 
             // guns: traverse as the sim lays them, elevate to the target, recoil
             var spec = Machine(w, w.Archetype[s]);
+            Vent(v, spec, now);   // L07: the Censer's drum
             for (int k = 0; k < spec.GunCount; k++)
             {
                 v.GunYaw[k] = LerpAngle(prevGun[s * 2 + k], curGun[s * 2 + k], Host.Alpha);
@@ -1353,9 +1354,11 @@ namespace TW.Presentation.Tactical
                 {
                     case VehicleModule.Engine:
                     {
-                        var at = SocketWorld(v, "Socket_Exhaust", out _);
-                        for (int k = 0; k < 2; k++)
-                            books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * (0.3f + 0.5f * k), 1.6f, 3f, k == 1 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: Vector3.up * 1.6f, grow: 1.6f, alpha: 0.85f, delay: 0.25f * k);
+                        for (int k = 0; k < 2; k++)   // a black cough from each exhaust
+                        {
+                            var at = SocketWorld(v, "Socket_Exhaust" + k, out bool ok);
+                            if (ok) books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * 0.3f, 1.6f, 3f, k == 1 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: Vector3.up * 1.6f, grow: 1.6f, alpha: 0.85f, delay: 0.25f * k);
+                        }
                         break;
                     }
                     case VehicleModule.Fuel:
@@ -1401,6 +1404,23 @@ namespace TW.Presentation.Tactical
             }
             else if (e.B == (int)VehicleKillCause.CrewLost)
                 books.Add(FlipbookFx.Book.DustPuff, hatch, 1.6f, 28f / 12f, ground, alpha: 0.6f);
+        }
+
+        /// <summary>
+        /// L07 (fx.recipes): a gas machine (the Censer: TankSpec.GasEverySeconds) lays its chlorine out of the drum on its
+        /// back while it fights and the drum is whole: a GasVent over the rear deck at the sim's cadence, so "that machine is
+        /// gassing" reads at T1. The sim raises no event for it (VehicleModules), so this keeps its own clock. Close only.
+        /// </summary>
+        void Vent(View v, TankSpec spec, float now)
+        {
+            if (recipes < 0.5f || spec.GasEverySeconds <= 0f || v.Dead || v.Model == null || books == null || !books.Ready) return;
+            if (v.State != (int)VehicleState.Active || v.ModuleLeft[(int)VehicleModule.Ammo] <= 0f || now < v.NextVent) return;
+            v.NextVent = now + spec.GasEverySeconds;
+            var cam = Camera.main;
+            if (cam != null && (cam.transform.position - v.Pos).sqrMagnitude > 150f * 150f) return;
+            Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw));
+            Vector3 drum = v.Pos - fwd * (v.Model.HalfLength * 0.5f) + Vector3.up * (v.Heave.Value + v.Model.Height);
+            books.Add(FlipbookFx.Book.GasVent, drum, 2.5f, 32f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, velocity: -fwd * 0.4f, alpha: 0.8f);
         }
 
         const float MendEvery = 0.4f, MendWidth = 1.2f;
