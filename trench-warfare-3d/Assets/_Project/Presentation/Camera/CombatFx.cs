@@ -207,6 +207,7 @@ namespace TW.Presentation.Tactical
             columnCap = FlipbookFx.ReadColumnCap();
             columnPlay = FlipbookFx.ReadColumnPlay();
             recipes = ReadRecipes();
+            shellFire = ReadShellFire();
         }
 
         void Start()
@@ -798,6 +799,9 @@ namespace TW.Presentation.Tactical
                             if (!recipe.Dust)   // L15: no shell's glowing cloud over a man landing
                                 books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
+                            // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
+                            if (!recipe.Dust && !recipe.CookOff)
+                                ShellFire(p + flight * (r * 0.25f * lean), r, closeUp, mirror, Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean));
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);
