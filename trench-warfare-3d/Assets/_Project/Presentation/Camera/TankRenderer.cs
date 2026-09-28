@@ -213,6 +213,8 @@ namespace TW.Presentation.Tactical
             return VehicleSize.Tank;
         }
         public const float FlyerLift = 9f;      // metres: over the wire, the parapets and a walker's back; under the camera's near views
+        /// <summary>Resources/Vehicles/&lt;Name&gt; + this: the far model's own atlas, where it has one.</summary>
+        public const string FarAtlasSuffix = "Atlas_LOD1";
         public const float FlyingFrom = 2f;     // a lift from here up is flight: level, and a fall when it dies
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
@@ -320,10 +322,13 @@ namespace TW.Presentation.Tactical
             for (int c = 0; c < Machines.Length; c++)
             {
                 var atlas = Resources.Load<Texture2D>("Vehicles/" + Machines[c].Name + "Atlas");
+                // a far model that is a sculpt of its own (the Brute's, the Mercy's) has UVs and an atlas of its own
+                var far = Resources.Load<Texture2D>("Vehicles/" + Machines[c].Name + FarAtlasSuffix);
                 for (int lod = 0; lod < 2; lod++)
                 {
                     var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = Machines[c].Name + " LOD" + lod };
-                    if (atlas != null) m.SetTexture("_BaseMap", atlas);
+                    var wears = lod == 1 && far != null ? far : atlas;
+                    if (wears != null) m.SetTexture("_BaseMap", wears);
                     m.SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
                     modelMats[c, lod] = m;
                 }

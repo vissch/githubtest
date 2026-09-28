@@ -36,12 +36,21 @@ The battle's copies, as run 2026-09-28 (the sources unzipped to short paths firs
 
 | Croaker | `steampunk+frog+robot+3d+model.zip`, `mecha frog 3d model.zip`, `mech+robot+3d+model.zip` | `TW_BATTLE=1 TW_LOD2_TRIS=1443 ... mechsplit.py -- Croaker <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/Croaker <renderdir>` | 9,738 / 1,435 |
 | Hopper | `green+tank+3d+model (1).zip`, `green+cartoon+tank+3d+model.zip`, `green+tank+3d+model.zip` | `TW_BATTLE=1 TW_KIND=flyer ... mechsplit.py -- Hopper <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/Hopper <renderdir>` | 5,903 / 985 |
-| Brute | `tank+3d+model.zip`, `(1)`, `(2)`, each unzipped to a folder of its own, the FBX renamed m.fbx, with the four textures of its .fbm folder (the names ending _0_0 to _0_3) beside it as m_tex0_0 to m_tex0_3 (.jpg) | `TW_BATTLE=1 ... tank3split.py -- Brute <b0>/m.fbx <b1>/m.fbx <b2>/m.fbx Assets/_Project/Resources/Vehicles/Brute <renderdir>` | 7,861 / 1,304 |
-| Mercy | `ambulance jeep 3d model.zip`, `green toy jeep 3d model.zip` | `TW_BATTLE=1 TW_LOD2=derive ... jeepsplit.py -- Mercy <lod0.fbx> <lower.fbx> Assets/_Project/Resources/Vehicles/Mercy <renderdir>` | 6,989 / 963 |
+| Brute | `tank+3d+model.zip`, `(1)`, `(2)`, each unzipped to a folder of its own, the FBX renamed m.fbx, with the four textures of its .fbm folder (the names ending _0_0 to _0_3) beside it as m_tex0_0 to m_tex0_3 (.jpg) | `TW_BATTLE=1 ... tank3split.py -- Brute <b0>/m.fbx <b1>/m.fbx <b2>/m.fbx Assets/_Project/Resources/Vehicles/Brute <renderdir>` | 7,861 / 1,166 |
+| Mercy | `ambulance jeep 3d model.zip`, `green toy jeep 3d model.zip` | `TW_BATTLE=1 ... jeepsplit.py -- Mercy <lod0.fbx> <lower.fbx> Assets/_Project/Resources/Vehicles/Mercy <renderdir>` | 6,984 / 1,214 |
 
 `tank3split.py` and `jeepsplit.py` write the battle's form through `Tools/battleform.py` (imported, not run by
-itself): the parts nested, the sockets under their parts, two LODs on LOD0's atlas, so the far LOD has to be derived
-from LOD0 (`TW_LOD2=derive` for the jeep; the tank derives by default). In the battle's form the root part stands on
+itself): the parts nested, the sockets under their parts, two LODs. The far model of these two is Tripo's own low
+sculpt on an atlas of its own, written beside the near one with `_LOD1` after `Atlas` in its name, which
+`TankRenderer` loads for the far level when it is there (`TankRenderer.FarAtlasSuffix`). Derived from LOD0 to a sixth
+of its triangles (`TW_DERIVE=12` for the tank, `TW_LOD2=derive` for the jeep: the far model then wears LOD0's atlas)
+both tore into shards: seen in Play on 2026-09-28 with the far models drawn close, and held since by
+ProvingGroundModelTests (a model's FOLDS, edges whose two triangles face away from each other, were 21 % and 16 % of
+their edge length; every model that looks whole is under 9 %). The jeep's low sculpt is painted with LOD0's colours
+(a Cycles bake, `TW_REBAKE=1`, its default); the tank's keeps its own paint (`TW_REBAKE=0`, its default), because
+the faces that close its tracks' open backs have UVs across half the atlas and the bake painted them over the
+tracks' own islands. The Croaker's and the Hopper's far models are derived by `mechsplit.py` and are whole.
+Blender exits 0 when the script it ran raised: read the log for `DONE`. In the battle's form the root part stands on
 the origin (`mechsplit.py` moves the Hull's pivot there): with the Croaker's Hull pivot at its pelvis every part under
 it came out of Unity displaced. `Editor/TankImport.cs` imports these four by the full rule for nested nodes
 (`TankImport.ParentAware`), which puts a part three levels down (a foot under a shin under a thigh) where the manifest
