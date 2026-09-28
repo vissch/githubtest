@@ -2,8 +2,15 @@
 // PropDef, SimRandom.SystemId.Bog. Damage (engine, tracks, crew) reaches here through the unit flags and SpeedFactor,
 // which VehicleModulesSystem writes; TankGunnerySystem asks for a halt to lay a gun through HaltTicks.
 // How a tank gets across the battlefield. Each follows the tracked-mode flow field of its goal:
-//  - steering: it turns toward the field at its profile's rate; a turn sharper than PivotAngle is made on the spot
-//    (one track forward, one back), anything gentler is driven round while the heading closes;
+//  - steering: it turns toward the field at its profile's rate; a turn sharper than PivotAngle is made at the
+//    profile's PivotSpeed (a heavy tank on the spot, one track forward and one back; a walker or a skimmer keeps
+//    going round), anything gentler is driven round while the heading closes. It steers at where the field's steps
+//    lead a hull length on (Steer), so it drives the line a staircase of 45-degree steps stands for and begins a
+//    turn before the corner, and slides along an edge that line would cut (the cell's own step);
+//  - momentum (2026-09-28): speed is not set, it is driven toward the wanted speed at the profile's Accel and
+//    shed at its Brake, so a machine gathers way and runs on to a stop (a halt to lay a gun, the end of a drive,
+//    no field). Velocity carries it from tick to tick; being stuck (ditched, bogged, stalled) or a charge's strike
+//    still stops it dead;
 //  - trenches: a trench no wider than its TrenchCrossWidth is bridged at CrossSpeed. A wider one, up to the
 //    tracked flow field's limit (FlowFieldManager.TrackedCrossWidth, one field for every tank), is tried anyway and may
 //    ditch it, the chance rising from 0 at TrenchCrossWidth to DitchChance at the limit: nose down in the trench for
@@ -60,6 +67,16 @@ namespace TW.Sim.Nav
         /// <summary>Metres added to Radius (2026-09-28): room a machine keeps round it beyond its footprint, for one
         /// whose neighbours are drawn wider than theirs (the Maw's sponsons reach 5.8 m out on a 3.8 m half width).</summary>
         public float Clearance;
+        /// <summary>How it gathers and sheds way (2026-09-28), m/s per second: a landship takes seconds to get going
+        /// and a skimmer glides on to a stop. 0 takes DefaultAccel / DefaultBrake.</summary>
+        public float Accel, Brake;
+        /// <summary>The share of its speed it keeps through a turn sharper than PivotAngle: a heavy tank stops to
+        /// pivot (0.04), a walker steps round (0.5). 0 takes DefaultPivot.</summary>
+        public float PivotSpeed;
+        public const float DefaultAccel = 1.2f, DefaultBrake = 2.4f, DefaultPivot = 0.06f;
+        public float AccelOr => Accel > 0f ? Accel : DefaultAccel;
+        public float BrakeOr => Brake > 0f ? Brake : DefaultBrake;
+        public float PivotOr => PivotSpeed > 0f ? PivotSpeed : DefaultPivot;
 
         /// <summary>Is a world point under this hull's footprint: the rectangle HalfLength x HalfWidth in the hull's yaw
         /// (forward = (sin yaw, 0, cos yaw)), grown by <paramref name="margin"/> on every side. The one test for "under
@@ -96,38 +113,38 @@ namespace TW.Sim.Nav
         /// <summary>The Breaker (2026-09-25): a squat assault tank, shorter than the Maw, that bridges a full-width
         /// trench and never ditches (it is built to go in and come out).</summary>
         public static VehicleProfile Breaker => new VehicleProfile
-        { TurnRateRad = 0.6f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.04f, HalfLength = 2.2f, HalfWidth = 1.9f, PushesTrees = true };   // grows with the tanks when VehicleSize lands
+        { TurnRateRad = 0.6f, Accel = 2.2f, Brake = 3.0f, PivotSpeed = 0.08f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.04f, HalfLength = 2.2f, HalfWidth = 1.9f, PushesTrees = true };   // grows with the tanks when VehicleSize lands
 
         public static VehicleProfile Maw => new VehicleProfile
-        { TurnRateRad = 0.42f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.05f, HalfLength = 2.55f * VehicleSize.Tank, HalfWidth = 2.25f * VehicleSize.Tank, PushesTrees = true };
+        { TurnRateRad = 0.42f, Accel = 0.5f, Brake = 1.2f, PivotSpeed = 0.04f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.55f, BogChance = 0.05f, HalfLength = 2.55f * VehicleSize.Tank, HalfWidth = 2.25f * VehicleSize.Tank, PushesTrees = true };
 
         public static VehicleProfile Tusk => new VehicleProfile
-        { TurnRateRad = 0.75f, TrenchCrossWidth = 2.4f, DitchChance = 0.75f, SlopeLimit = 0.6f, BogChance = 0.025f, HalfLength = 1.85f * VehicleSize.Tank, HalfWidth = 2.25f * VehicleSize.Tank };
+        { TurnRateRad = 0.75f, Accel = 1.6f, Brake = 2.6f, PivotSpeed = 0.18f, TrenchCrossWidth = 2.4f, DitchChance = 0.75f, SlopeLimit = 0.6f, BogChance = 0.025f, HalfLength = 1.85f * VehicleSize.Tank, HalfWidth = 2.25f * VehicleSize.Tank };
 
         // The crabs, measured off Tools/crabsplit.py's crabs.json: Pincer 3.80 x 3.36 m, Kettle 3.20 x 2.65 m. A leg
         // finds its own footing, so mud barely holds them and a slope a tank would slide off is nothing; what stops a
         // walker is losing legs.
         public static VehicleProfile Pincer => new VehicleProfile
-        { TurnRateRad = 1.15f, TrenchCrossWidth = 3.6f, DitchChance = 0f, SlopeLimit = 0.95f, BogChance = 0.008f, HalfLength = 1.70f * VehicleSize.Walker, HalfWidth = 1.90f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
+        { TurnRateRad = 1.15f, Accel = 2.2f, Brake = 3.5f, PivotSpeed = 0.5f, TrenchCrossWidth = 3.6f, DitchChance = 0f, SlopeLimit = 0.95f, BogChance = 0.008f, HalfLength = 1.70f * VehicleSize.Walker, HalfWidth = 1.90f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
 
         public static VehicleProfile Kettle => new VehicleProfile
-        { TurnRateRad = 1.35f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.90f, BogChance = 0.012f, HalfLength = 1.35f * VehicleSize.Walker, HalfWidth = 1.60f * VehicleSize.Walker, Walker = true, Legs = 4 };
+        { TurnRateRad = 1.35f, Accel = 1.6f, Brake = 3.0f, PivotSpeed = 0.45f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.90f, BogChance = 0.012f, HalfLength = 1.35f * VehicleSize.Walker, HalfWidth = 1.60f * VehicleSize.Walker, Walker = true, Legs = 4 };
 
         // Censer 3.30 x 2.95 m, Pavise 3.60 x 3.55 m. The gas crab is the quickest thing on the field on its feet;
         // the shielded one is the slowest, and plants itself to shoot.
         public static VehicleProfile Censer => new VehicleProfile
-        { TurnRateRad = 1.45f, TrenchCrossWidth = 3.1f, DitchChance = 0f, SlopeLimit = 0.92f, BogChance = 0.010f, HalfLength = 1.50f * VehicleSize.Walker, HalfWidth = 1.65f * VehicleSize.Walker, Walker = true, Legs = 4 };
+        { TurnRateRad = 1.45f, Accel = 2.4f, Brake = 3.5f, PivotSpeed = 0.55f, TrenchCrossWidth = 3.1f, DitchChance = 0f, SlopeLimit = 0.92f, BogChance = 0.010f, HalfLength = 1.50f * VehicleSize.Walker, HalfWidth = 1.65f * VehicleSize.Walker, Walker = true, Legs = 4 };
 
         public static VehicleProfile Pavise => new VehicleProfile
-        { TurnRateRad = 0.95f, TrenchCrossWidth = 3.4f, DitchChance = 0f, SlopeLimit = 0.88f, BogChance = 0.014f, HalfLength = 1.78f * VehicleSize.Walker, HalfWidth = 1.80f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 4 };
+        { TurnRateRad = 0.95f, Accel = 0.9f, Brake = 3.2f, PivotSpeed = 0.3f, TrenchCrossWidth = 3.4f, DitchChance = 0f, SlopeLimit = 0.88f, BogChance = 0.014f, HalfLength = 1.78f * VehicleSize.Walker, HalfWidth = 1.80f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 4 };
 
         // Banner 2.03 x 3.40 m on four tall legs, Redoubt 2.97 x 3.60 m on six. The blockhouse is the heaviest thing
         // that walks and the slowest; the command walker is tall and narrow and steps over anything.
         public static VehicleProfile Banner => new VehicleProfile
-        { TurnRateRad = 1.05f, TrenchCrossWidth = 3.5f, DitchChance = 0f, SlopeLimit = 0.94f, BogChance = 0.010f, HalfLength = 1.70f * VehicleSize.Walker, HalfWidth = 1.05f * VehicleSize.Walker, Walker = true, Legs = 4 };
+        { TurnRateRad = 1.05f, Accel = 1.2f, Brake = 2.0f, PivotSpeed = 0.4f, TrenchCrossWidth = 3.5f, DitchChance = 0f, SlopeLimit = 0.94f, BogChance = 0.010f, HalfLength = 1.70f * VehicleSize.Walker, HalfWidth = 1.05f * VehicleSize.Walker, Walker = true, Legs = 4 };
 
         public static VehicleProfile Redoubt => new VehicleProfile
-        { TurnRateRad = 0.80f, TrenchCrossWidth = 3.3f, DitchChance = 0f, SlopeLimit = 0.86f, BogChance = 0.018f, HalfLength = 1.80f * VehicleSize.Walker, HalfWidth = 1.50f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
+        { TurnRateRad = 0.80f, Accel = 0.6f, Brake = 1.8f, PivotSpeed = 0.3f, TrenchCrossWidth = 3.3f, DitchChance = 0f, SlopeLimit = 0.86f, BogChance = 0.018f, HalfLength = 1.80f * VehicleSize.Walker, HalfWidth = 1.50f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
 
         /// <summary>A round radius for keeping two hulls apart: the longer half plus a hand, so the corners of two
         /// hulls side by side or nose to flank do not pass through each other (the mean of length and width let the
@@ -137,7 +154,7 @@ namespace TW.Sim.Nav
 
     public sealed class VehicleKinematicsSystem : ISimSystem
     {
-        public const float CrossSpeed = 0.45f, MudSpeed = 0.5f, CraterSpeed = 0.7f, WireSpeed = 0.8f, PivotAngle = 1.1f, PivotSpeed = 0.06f;
+        public const float CrossSpeed = 0.45f, MudSpeed = 0.5f, CraterSpeed = 0.7f, WireSpeed = 0.8f, PivotAngle = 1.1f;
         /// <summary>The same three for a walker, which is slowed far less by all of them (and not at all by wire).</summary>
         public const float StepOverSpeed = 0.72f, WadeSpeed = 0.78f, PickSpeed = 0.88f;
         public const int DitchMin = 240, DitchMax = 600, BogMin = 80, BogMax = 260;
@@ -436,6 +453,38 @@ namespace TW.Sim.Nav
                 return math.min(1.15f, 1f - rise * 0.5f);
             }
 
+            float3 Clamp(float3 q)
+            {
+                q.x = math.clamp(q.x, 1f, Size.x - 1f);
+                q.z = math.clamp(q.z, 1f, Size.y - 1f);
+                return q;
+            }
+
+            /// <summary>Where to steer on the field: follow its steps from this cell for about a hull length (3 to 6
+            /// cells) and aim from this cell's centre at where they lead. A straight path stays exactly straight; one
+            /// the 8-way field draws as a staircase (north, north, north-east, ...) is driven as the line it stands
+            /// for; a turn the path is about to make is begun before the corner. (Blending the neighbouring cells'
+            /// directions instead, tried first, put a hull on a cell edge 20 degrees off a straight course: a
+            /// neighbour's field breaks its tie to the goal with a diagonal.) Falls back to the cell's own step where
+            /// the walk goes nowhere.</summary>
+            float2 Steer(int goal, int cell, in VehicleProfile prof, float2 own)
+            {
+                int steps = math.clamp((int)math.round(2f * prof.HalfLength / NavCell), 3, 6);
+                int cx = cell % NavWidth, cz = cell / NavWidth, x = cx, z = cz;
+                for (int k = 0; k < steps; k++)
+                {
+                    byte d = Directions[goal * CellCount + z * NavWidth + x];
+                    if (d == FlowField.NoDirection) break;
+                    float2 o = FlowField.Offset(d);
+                    int nx = x + (o.x > 0.1f ? 1 : o.x < -0.1f ? -1 : 0), nz = z + (o.y > 0.1f ? 1 : o.y < -0.1f ? -1 : 0);
+                    if (nx < 0 || nz < 0 || nx >= NavWidth || nz >= NavLength) break;
+                    x = nx; z = nz;
+                }
+                float2 to = new float2(x - cx, z - cz);
+                float len = SimMath.Length(to);
+                return len < 0.5f ? own : to / len;
+            }
+
             public void Execute()
             {
                 for (int k = 0; k < Vehicles.Length; k++)
@@ -465,41 +514,60 @@ namespace TW.Sim.Nav
                         if (--BogTicks[i] == 0) { Flags[i] = f & ~(uint)UnitFlags.Bogged; Emit(SimEventType.VehicleBogged, i, 0, p); }
                         continue;
                     }
-                    if (halted) { Velocity[i] = float3.zero; continue; }
-
                     int cell = CellOf(p);
                     var prof = Profiles[Archetype[i]];
                     byte drive = Drive[i];
-                    float2 want;
-                    if (drive == DriveFlow)
+                    float yaw = Yaw[i];
+                    // the way it has on it: Velocity along the nose, negative when it is backing
+                    float3 was = Velocity[i];
+                    float cur = SimMath.Length(was);
+                    if (math.dot(was, SimMath.DirFromYaw(yaw)) < -0.5f * cur) cur = -cur;   // (a slide along a wall is not backing)
+                    // stopping: a gun is being laid, no field, or the drive's point is reached. It runs on to a stop.
+                    // a charge ends in the trench it hit: a halted Breaker still charging stops dead (the strike)
+                    if (halted && (f & (uint)UnitFlags.Charging) != 0) { Velocity[i] = float3.zero; continue; }
+                    bool stopping = halted;
+                    float2 want = float2.zero, step = float2.zero;
+                    float ramp = float.MaxValue;              // the speed it can still shed before a drive's point
+                    if (!stopping && drive == DriveFlow)
                     {
                         int goal = GoalId[i];
-                        if (goal < 0 || Ready[goal] == 0) { Velocity[i] = float3.zero; continue; }
-                        byte d = Directions[goal * CellCount + cell];
-                        if (d == FlowField.NoDirection) { Velocity[i] = float3.zero; continue; }
-                        want = Laned(i, goal, cell, p, FlowField.Offset(d), prof);
+                        byte d = goal < 0 || Ready[goal] == 0 ? FlowField.NoDirection : Directions[goal * CellCount + cell];
+                        if (d == FlowField.NoDirection) stopping = true;
+                        else
+                        {
+                            step = FlowField.Offset(d);
+                            // the line looked ahead along the field, then bent onto its lane (Laned, v18)
+                            want = Laned(i, goal, cell, p, Steer(goal, cell, prof, step), prof);
+                        }
                     }
-                    else
+                    else if (!stopping)
                     {
                         // driven at a point by a system (the Breaker's charge and withdrawal): a straight line, no field
                         float3 toward = DriveTarget[i] - p; toward.y = 0f;
                         float len = SimMath.Length(toward);
-                        if (len < DriveArrive) { Velocity[i] = float3.zero; continue; }
-                        want = new float2(toward.x, toward.z) / len;
+                        if (len < DriveArrive) stopping = true;
+                        else
+                        {
+                            want = new float2(toward.x, toward.z) / len;
+                            // ease in to arrive, unless it is charging: a charge slams in and its strike stops it dead
+                            if ((f & (uint)UnitFlags.Charging) == 0) ramp = SimMath.Sqrt(2f * prof.BrakeOr * (len - DriveArrive * 0.5f));
+                        }
                     }
-                    float yaw = Yaw[i];
+                    if (stopping && math.abs(cur) < 0.02f) { Velocity[i] = float3.zero; continue; }   // standing, and staying so
                     float align = 1f;
-                    if (drive != DriveReverse)
+                    if (!stopping && drive != DriveReverse)
                     {
-                        // steer: turn toward the wanted direction at the profile's rate; pivot on the spot for a sharp turn
+                        // steer: turn toward the wanted direction at the profile's rate; a sharp turn is made at its pivot share
                         float desiredYaw = SimMath.YawOf(new float3(want.x, 0f, want.y));
                         float maxTurn = prof.TurnRateRad * Dt * math.max(0.6f, SpeedFactor[i]);
                         yaw = SimMath.WrapAngle(yaw + math.clamp(SimMath.WrapAngle(desiredYaw - yaw), -maxTurn, maxTurn));
                         float remaining = SimMath.WrapAngle(desiredYaw - yaw);
-                        align = math.abs(remaining) > PivotAngle ? PivotSpeed : math.max(0.3f, SimMath.Cos(remaining));
+                        align = math.abs(remaining) > PivotAngle ? prof.PivotOr : math.max(0.3f, SimMath.Cos(remaining));
                     }
                     float3 heading = SimMath.DirFromYaw(yaw);
-                    if (drive == DriveReverse) heading = -heading;   // backing up: the tracks run the other way, the nose stays where it points
+                    // backing up: the tracks run the other way, the nose stays where it points (and one running on to a
+                    // stop keeps the way it had)
+                    float sense = stopping ? (cur < 0f ? -1f : 1f) : drive == DriveReverse ? -1f : 1f;
                     byte from = Layers[cell];
                     // A walker picks its way over what a tank has to drive through: it strides a trench instead of
                     // bellying across it, finds footing in mud and shell holes, and lifts its legs over wire.
@@ -507,16 +575,31 @@ namespace TW.Sim.Nav
                         ? ((from & (byte)NavLayer.Trench) != 0 ? StepOverSpeed : (from & (byte)NavLayer.Mud) != 0 ? WadeSpeed : (from & (byte)NavLayer.Crater) != 0 ? PickSpeed : 1f)
                         : ((from & (byte)NavLayer.Trench) != 0 ? CrossSpeed : (from & (byte)NavLayer.Mud) != 0 ? MudSpeed : (from & (byte)NavLayer.Crater) != 0 ? CraterSpeed : 1f);
                     if ((from & (byte)NavLayer.Wire) != 0 && !prof.Walker) terrain *= WireSpeed;
-                    float3 v = heading * (Speed[i] * align * terrain * SlopeFactor(p, heading, prof) * SpeedFactor[i] * DriveSpeedMul[i]);
-                    float3 np = p + v * Dt;
-                    np.x = math.clamp(np.x, 1f, Size.x - 1f);
-                    np.z = math.clamp(np.z, 1f, Size.y - 1f);
+                    float top = stopping ? 0f : math.min(ramp, Speed[i] * align * terrain * SlopeFactor(p, heading * sense, prof) * SpeedFactor[i] * DriveSpeedMul[i]);
+                    // gather way at Accel (less with a hurt engine, less in what slows it), shed it at Brake
+                    float target = sense * top;
+                    bool gaining = math.abs(target) > math.abs(cur) && target * cur >= 0f;
+                    // (driven past its speed, the Breaker's charge, it lunges: it gathers way that much faster too)
+                    float rate = gaining ? prof.AccelOr * math.max(0.4f, SpeedFactor[i]) * math.max(0.5f, terrain) * math.max(1f, DriveSpeedMul[i]) : prof.BrakeOr;
+                    float s = cur + math.clamp(target - cur, -rate * Dt, rate * Dt);
+                    float3 v = heading * s;
+                    float3 np = Clamp(p + v * Dt);
                     int ncell = CellOf(np);
                     byte to = Layers[ncell];
                     if (!FlowField.CanStep(NavMode.Tracked, from, to, CellTrenchId[ncell], TrenchCrossable))
                     {
                         Blocked.Add(new int2(i, ncell));
-                        np = p; v = float3.zero;
+                        // the steered line cut an edge the field goes round: slide along the cell's own step instead,
+                        // at the way it has (a hull scrapes along a wall, it does not stop dead against it)
+                        float3 slide = Clamp(p + new float3(step.x, 0f, step.y) * (math.abs(s) * Dt));
+                        int scell = CellOf(slide);
+                        if (!stopping && drive == DriveFlow && math.any(step != 0f) && scell != ncell
+                            && FlowField.CanStep(NavMode.Tracked, from, Layers[scell], CellTrenchId[scell], TrenchCrossable)
+                            && (Layers[scell] & (byte)NavLayer.Trench) == 0)
+                        {
+                            np = slide; ncell = scell; to = Layers[scell]; v = new float3(step.x, 0f, step.y) * math.abs(s);
+                        }
+                        else { np = p; v = float3.zero; }
                     }
                     else if ((to & (byte)NavLayer.Trench) != 0)
                     {

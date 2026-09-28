@@ -65,7 +65,11 @@ namespace TW.Sim
         // where it lands on that tick (DirectFireSystem hashes the bombs in the air). Layout unchanged.
         // v22 (2026-09-29, the guns): machine gunners (and the Sentry) answer OrderGroup.Gun, not Line, so a
         // TrenchSelectAdvance naming the line leaves them in the trench. The unit table's groups are hashed. Layout unchanged.
-        public const ushort FormatVersion = 22;
+        // v23 (2026-09-29, how machines drive): VehicleProfile gains Accel, Brake and PivotSpeed, so the hashed profile
+        // table's bytes change; VehicleKinematicsSystem drives with momentum (Velocity carries the way from tick to tick),
+        // follows the field 3-6 cells ahead before its lane bends it, and the Breaker charges where the men are. Same
+        // inputs, different tracks: a v19 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 23;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

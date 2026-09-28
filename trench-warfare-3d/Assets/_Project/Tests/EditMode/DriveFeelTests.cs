@@ -1,0 +1,129 @@
+// Phase: A5b (2026-09-28) — how a machine drives, not only where (owner: "improve the vehicles driving … each its own
+// speed, rhythm, style"). Before this every machine reached full speed in one tick, stopped dead in one, stopped to
+// pivot on any sharp turn, and zig-zagged along the flow field's 45-degree steps. These hold what replaced that
+// (VehicleKinematicsSystem): momentum at the profile's Accel and Brake, a pivot share per machine, and a field read
+// followed a hull length ahead (Steer), and a charge that still ends dead in the trench it hits.
+using NUnit.Framework;
+using Unity.Collections;
+using Unity.Mathematics;
+using TW.Sim;
+using TW.Sim.Match;
+using TW.Sim.Nav;
+
+namespace TW.Tests
+{
+    public class DriveFeelTests
+    {
+        static MatchSim NewMatch()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            return MatchSim.CreateGreybox(cfg);
+        }
+
+        static void Step(MatchSim m)
+        {
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            m.Step(none);
+        }
+
+        /// <summary>One machine of team 0, sent at a nav cell `dx` columns across and near the far end of the map.</summary>
+        static int Spawn(MatchSim m, byte archetype, float3 at, int dx = 0)
+        {
+            var e = m.World.Units.Roster[archetype];
+            int slot = m.World.Spawn(0, archetype, at, e.Hp, e.Speed, true);
+            var c = m.Map.NavCellOf(at);
+            m.World.GoalId[slot] = m.Fields.GetGoal(GoalKey.Cell(m.Map.NavIndex(math.clamp(c.x + dx, 1, m.Map.NavWidth - 2), m.Map.NavLength - 6), NavMode.Tracked));
+            return slot;
+        }
+
+        static float SpeedOf(MatchSim m, int slot) => math.length(m.World.Velocity[slot]);
+
+        /// <summary>Ticks from standing to 90 % of its roster speed on open ground.</summary>
+        static int TicksToPace(byte archetype)
+        {
+            using var m = NewMatch();
+            int it = Spawn(m, archetype, new float3(120f, 0f, 40f));
+            float pace = m.World.Units.Roster[archetype].Speed * 0.9f;
+            for (int t = 1; t <= 400; t++)
+            {
+                Step(m);
+                if (SpeedOf(m, it) >= pace) return t;
+            }
+            return int.MaxValue;
+        }
+
+        [Test]
+        public void AMachineGathersWayAndRunsOnToAStop()
+        {
+            using var m = NewMatch();
+            int it = Spawn(m, VehicleArchetype.Maw, new float3(120f, 0f, 40f));
+            float speed = m.World.Units.Roster[VehicleArchetype.Maw].Speed;
+            Step(m);
+            Assert.Less(SpeedOf(m, it), speed * 0.1f, "a landship does not leap to full speed in a tick");
+            for (int t = 0; t < 120; t++) Step(m);
+            Assert.Greater(SpeedOf(m, it), speed * 0.85f, "but it gets there in a few seconds");
+
+            var prof = m.Vehicles.Profiles[VehicleArchetype.Maw];
+            float3 before = m.World.Position[it];
+            m.Vehicles.HaltTicks[it] = 200;            // a gun being laid
+            int stopped = -1;
+            for (int t = 1; t <= 200 && stopped < 0; t++) { Step(m); if (SpeedOf(m, it) < 1e-3f) stopped = t; }
+            Assert.Greater(stopped, 1, "it runs on: a halt does not stop it dead");
+            Assert.LessOrEqual(stopped, (int)math.ceil(speed / prof.BrakeOr / SimConfig.Default.TickSeconds) + 2, "and stops within its braking");
+            Assert.Greater(math.distance(before.xz, m.World.Position[it].xz), 0.3f, "covering ground as it brakes");
+        }
+
+        [Test]
+        public void EachMachineHasItsOwnPace()
+        {
+            int maw = TicksToPace(VehicleArchetype.Maw), tusk = TicksToPace(VehicleArchetype.Tusk), censer = TicksToPace(VehicleArchetype.Censer);
+            Assert.Less(tusk, maw, "the light tank is off the mark before the landship");
+            Assert.Less(censer, maw, "and the quick crab too");
+            Assert.Greater(maw, 40, "the landship takes more than two seconds");
+            Assert.Less(maw, 200, "but it does get going");
+        }
+
+        /// <summary>The slowest it goes, as a share of its roster speed, while it turns about to a point behind it.</summary>
+        static float SlowestThroughATurnAbout(byte archetype)
+        {
+            using var m = NewMatch();
+            int it = Spawn(m, archetype, new float3(120f, 0f, 40f));
+            for (int t = 0; t < 160; t++) Step(m);
+            float3 p = m.World.Position[it];
+            m.Vehicles.Drive[it] = VehicleKinematicsSystem.DriveStraight;
+            m.Vehicles.DriveTarget[it] = p - SimMath.DirFromYaw(m.World.Yaw[it]) * 60f;
+            float speed = m.World.Units.Roster[archetype].Speed, least = float.MaxValue;
+            for (int t = 0; t < 200; t++) { Step(m); least = math.min(least, SpeedOf(m, it)); }
+            return least / speed;
+        }
+
+        [Test]
+        public void AWalkerStepsRoundASharpTurnWhereALandshipStopsToPivot()
+        {
+            float maw = SlowestThroughATurnAbout(VehicleArchetype.Maw), pincer = SlowestThroughATurnAbout(VehicleArchetype.Pincer);
+            Assert.Less(maw, 0.1f, "the landship stops to pivot");
+            Assert.Greater(pincer, 0.3f, "the walker keeps walking round");
+        }
+
+        [Test]
+        public void ItDrivesACurveNotTheFieldsStepsAndGetsThere()
+        {
+            // a goal a third of a column across per row: the 8-way field alternates north and north-east cells
+            using var m = NewMatch();
+            var start = new float3(80f, 0f, 30f);
+            int it = Spawn(m, VehicleArchetype.Tusk, start, 30);
+            for (int t = 0; t < 60; t++) Step(m);
+            int flips = 0; float lastTurn = 0f, lastYaw = m.World.Yaw[it];
+            for (int t = 0; t < 400; t++)
+            {
+                Step(m);
+                float turn = SimMath.WrapAngle(m.World.Yaw[it] - lastYaw); lastYaw = m.World.Yaw[it];
+                if (math.abs(turn) < 1e-4f) continue;
+                if (lastTurn != 0f && math.sign(turn) != math.sign(lastTurn)) flips++;
+                lastTurn = turn;
+            }
+            Assert.LessOrEqual(flips, 6, "it holds a line instead of hunting between two field steps");
+            Assert.Greater(math.distance(start.xz, m.World.Position[it].xz), 40f, "and it never stalls against an edge");
+        }
+    }
+}
