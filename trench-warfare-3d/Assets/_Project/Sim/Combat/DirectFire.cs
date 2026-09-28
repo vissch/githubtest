@@ -194,9 +194,13 @@ namespace TW.Sim.Combat
                     if ((Flags[t] & (uint)UnitFlags.Vehicle) != 0)
                     {
                         if ((Flags[t] & (uint)UnitFlags.KnockedOut) != 0) { TargetSlot[i] = -1; continue; }
-                        if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0)
+                        // a man with an anti-tank rifle (2026-09-28) fires it at a plate it beats, from its own range; at a
+                        // plate it does not beat he is a man beside a machine, with a bundle of grenades (below)
+                        bool pierces = (Flags[i] & (uint)UnitFlags.Vehicle) == 0 && Specs[Archetype[i]].HuntsArmour
+                            && Weapons[Archetype[i]].PenetrationMm > Armor.PlateFor(Tanks[Archetype[t]].Hull, Armor.FacingOf(q - p, Yaw[t], out _, out _));
+                        if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0 || pierces)
                         {
-                            // a machine's armour-hunting small arms (InfantrySpec.HuntsArmour, TargetAcquisition): a burst of
+                            // armour-hunting small arms (InfantrySpec.HuntsArmour, TargetAcquisition): a burst of
                             // armour-piercing at the hull, resolved against the plate it strikes by VehicleModulesSystem
                             var mg = Weapons[Archetype[i]];
                             FireCooldown[i] = CombatTables.CooldownTicks(mg, TickSeconds);

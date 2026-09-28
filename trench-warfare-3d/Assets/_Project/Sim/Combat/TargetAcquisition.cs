@@ -170,12 +170,17 @@ namespace TW.Sim.Combat
                 if (distSq > rangeSq) return false;
                 if ((fj & (uint)UnitFlags.Vehicle) != 0)   // small arms do nothing to armour; infantry close-assault it instead
                 {
-                    if ((Flags[i] & (uint)UnitFlags.Vehicle) == 0) return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
-                    // a machine whose small arms hunt armour (InfantrySpec.HuntsArmour, the Skimmer) takes a machine whose
-                    // plate facing it they beat: a light machine's side or rear, never a heavy one's front
-                    if (!Specs[Archetype[i]].HuntsArmour) return false;
-                    var facing = Armor.FacingOf(Position[j] - p, Yaw[j], out _, out _);
-                    return Weapons[Archetype[i]].PenetrationMm > Armor.PlateFor(Tanks[Archetype[j]].Hull, facing);
+                    // a shooter whose small arms hunt armour (InfantrySpec.HuntsArmour: the Skimmer, and since 2026-09-28 a
+                    // man with an anti-tank rifle) takes a machine whose plate facing it they beat: a light machine's side
+                    // or rear, never a heavy one's front
+                    if (Specs[Archetype[i]].HuntsArmour)
+                    {
+                        var facing = Armor.FacingOf(Position[j] - p, Yaw[j], out _, out _);
+                        if (Weapons[Archetype[i]].PenetrationMm > Armor.PlateFor(Tanks[Archetype[j]].Hull, facing)) return true;
+                    }
+                    // otherwise a machine's guns never look at one, and a man close-assaults it
+                    if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0) return false;
+                    return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 }
                 if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
