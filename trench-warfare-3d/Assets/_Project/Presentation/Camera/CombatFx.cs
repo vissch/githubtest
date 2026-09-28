@@ -538,8 +538,9 @@ namespace TW.Presentation.Tactical
                         float roll = FlipbookFx.ScreenRoll(cam, barrel);
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
-                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, 0.18f, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
+                        if (arms.Flared)   // a machine gun's every second round (CombatFx.Weapons.cs); its draws above are taken either way
+                            books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, arms.FlareLife, flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow, delay: delay);
                     }
                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well
@@ -571,7 +572,10 @@ namespace TW.Presentation.Tactical
                         }
                     }
                     if (e.Scalar < 0.5f && chunks.Count < 420)
-                        chunks.Add(new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * arms.Smoke * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 });
+                    {
+                        var puff = new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * arms.Smoke * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 };
+                        if (arms.Smoked) chunks.Add(puff);   // a machine gun's every third round, bigger; the draws taken either way
+                    }
                     if (e.Scalar < 0.5f && chunks.Count < 600 && Near(from, 34f))
                     {
                         // up close every shot throws its case out of the breech to the right, and the muzzle keeps a thread of smoke
