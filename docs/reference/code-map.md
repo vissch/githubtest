@@ -159,6 +159,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 900 | `GasSmokeSystem` | `GasSmoke` | `Sim/Combat/GasSmokeField.cs` | registered |
 | 1000 | `DeformationSystem` | `Deformation` | `Sim/Match/Deformation.cs` | registered |
 | 1105 | `LeapSystem` | `Leap` | `Sim/Combat/Leap.cs` | registered |
+| 1108 | `EngageSystem` | `Engage` | `Sim/Combat/Engage.cs` | registered (only if `combat`) |
 | 1110 | `MovementSystem` | `Movement` | `Sim/Nav/MovementSystem.cs` | registered |
 | 1115 | `BreakerSystem` | `Breaker` | `Sim/Units/Breaker.cs` | registered |
 | 1120 | `VehicleKinematicsSystem` | `VehicleKinematics` | `Sim/Nav/VehicleKinematics.cs` | registered |

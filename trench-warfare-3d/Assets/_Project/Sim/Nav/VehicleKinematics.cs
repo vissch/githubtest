@@ -221,7 +221,7 @@ namespace TW.Sim.Nav
                 Speed = w.Speed, Archetype = w.Archetype, GoalId = w.GoalId, Generation = w.Generation,
                 Gen = Gen, SpeedFactor = SpeedFactor, HaltTicks = HaltTicks, CrossTrench = CrossTrench, DitchTicks = DitchTicks, BogTicks = BogTicks,
                 Drive = Drive, DriveTarget = DriveTarget, DriveSpeedMul = DriveSpeedMul,
-                Directions = fields.Direction, Ready = fields.Ready, TrenchCrossable = fields.TrenchCrossable, TrenchWidth = trenchWidth,
+                Directions = fields.Direction, Integration = fields.Integration, Goals = fields.Goals, Ready = fields.Ready, TrenchCrossable = fields.TrenchCrossable, TrenchWidth = trenchWidth,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId, Height = map.Height,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
                 Size = map.SizeMeters, Dt = w.Config.TickSeconds, Seed = w.Config.Seed, Tick = w.Tick,
@@ -366,6 +366,8 @@ namespace TW.Sim.Nav
             public NativeArray<float> DriveSpeedMul;
             [ReadOnly] public NativeArray<float3> DriveTarget;
             [ReadOnly] public NativeArray<byte> Directions;
+            [ReadOnly] public NativeArray<int> Integration;
+            [ReadOnly] public NativeArray<GoalKey> Goals;
             [ReadOnly] public NativeArray<byte> Ready;
             [ReadOnly] public NativeArray<byte> TrenchCrossable;
             [ReadOnly] public NativeArray<float> TrenchWidth;
@@ -387,6 +389,39 @@ namespace TW.Sim.Nav
             }
 
             void Emit(SimEventType type, int slot, int b, float3 pos) => Events.Add(new SimEvent { Tick = Tick, Type = type, A = slot, B = b, Pos = pos });
+
+            /// <summary>The field's way on, turned toward the machine's own lane across the field (Lane, 2026-09-28: a
+            /// troop of machines on one goal drove nose to tail down the field's cheapest line). The turn is taken only
+            /// over ground the field allows: a cell ahead and the cell under its nose must both be open to it, no
+            /// further from the goal than where it stands, and not a trench (it crosses those where the field does).</summary>
+            float2 Laned(int i, int goal, int cell, float3 p, float2 flow, in VehicleProfile prof)
+            {
+                var kind = Goals[goal].Kind;
+                if (kind != GoalKind.Trench && kind != GoalKind.Objective) return flow;
+                float lat = Lane.Turn(flow, p.x, Lane.Of(i, Generation[i], Size.x));
+                if (lat == 0f) return flow;
+                int here = Integration[goal * CellCount + cell];
+                float2 side = new float2(-flow.y, flow.x);
+                for (int k = 0; k < 2; k++, lat *= 0.5f)
+                {
+                    float2 mixed = flow + side * lat;
+                    float ml = SimMath.Length(new float3(mixed.x, 0f, mixed.y));
+                    if (ml <= 1e-4f) continue;
+                    mixed /= ml;
+                    float3 way = new float3(mixed.x, 0f, mixed.y);
+                    int near = CellOf(p + way * NavCell), far = CellOf(p + way * (prof.HalfLength + NavCell));
+                    if (Open(goal, here, cell, near) && Open(goal, here, cell, far)) return mixed;
+                }
+                return flow;
+            }
+
+            bool Open(int goal, int here, int cell, int c)
+            {
+                if (c == cell) return true;
+                byte to = Layers[c];
+                if ((to & (byte)(NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) return false;
+                return FlowField.CanStep(NavMode.Tracked, Layers[cell], to, CellTrenchId[c], TrenchCrossable) && Integration[goal * CellCount + c] <= here;
+            }
 
             /// <summary>1 on the level, a crawl at the slope limit uphill, a little quicker downhill. Trench walls are
             /// bridged, not climbed, so a footprint end over a trench cell does not count.</summary>
@@ -442,7 +477,7 @@ namespace TW.Sim.Nav
                         if (goal < 0 || Ready[goal] == 0) { Velocity[i] = float3.zero; continue; }
                         byte d = Directions[goal * CellCount + cell];
                         if (d == FlowField.NoDirection) { Velocity[i] = float3.zero; continue; }
-                        want = FlowField.Offset(d);
+                        want = Laned(i, goal, cell, p, FlowField.Offset(d), prof);
                     }
                     else
                     {

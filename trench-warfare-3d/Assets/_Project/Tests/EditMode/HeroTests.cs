@@ -69,7 +69,9 @@ namespace TW.Tests
         {
             using var m = NewMatch(pity: 1f);
             m.Hero.BaseChance = 0f;   // the dice never roll: only the pity can make him
-            short t = Garrison(m, 12);
+            // forty men, not twelve: since 2026-09-28 they come up on the whole width of the field (Lane), and twelve of
+            // them along a trench that long stand too far apart for three to be within HeroRules.RallyRadius of one
+            short t = Garrison(m, 40);
             var log = Run(m, 40, () => m.Hero.HeroCount > 0, w => PinTeam(w, 0));
             Assert.AreEqual(1, Count(log, SimEventType.HeroMoment), "one hero");
             var moment = log.Find(e => e.Type == SimEventType.HeroMoment);

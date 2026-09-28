@@ -8,6 +8,10 @@
 // Spread: the flow direction is blended between the four cells round the man (no eight-way zigzag lines), and on
 // open ground each man carries a slow, hashed lateral drift, so a company fans out across the field instead of
 // filing along one line; SeparationJob adds a soft comfortable spacing on the surface. All of it is deterministic.
+// Lanes (2026-09-28): on open ground every man also makes for his own line across the field (Lane), as far as the
+// field lets him: a turn is taken only where it does not lead up the field, into wire or through a wall.
+// The fight (2026-09-28): EngageSystem (Combat) tells each man in the open whether to close on an enemy or to stand
+// and shoot (Engage, EngageDir); MoveJob walks him there instead of along the flow, and kneels him to fire.
 using System;
 using Unity.Burst;
 using Unity.Collections;
@@ -34,6 +38,12 @@ namespace TW.Sim.Nav
         /// rule below garrisons him without a ladder).</summary>
         public NativeArray<int> LeapTicks;
         public NativeArray<float3> LeapTarget;
+        // ---- the fight (EngageSystem writes them before every step, MoveJob reads them; hashed there) ----
+        public const byte EngageNone = 0, EngageClose = 1, EngageHold = 2;
+        /// <summary>What the man does about the enemy he is after: nothing (he follows his goal), close on him along
+        /// EngageDir, or hold where he stands, facing along EngageDir, and shoot. All zero without an EngageSystem.</summary>
+        public NativeArray<byte> Engage;
+        public NativeArray<float2> EngageDir;
 
         public MovementSystem(MapData map) { this.map = map; }
 
@@ -48,6 +58,8 @@ namespace TW.Sim.Nav
             garrisoned = new NativeArray<short>(n, Allocator.Persistent);
             LeapTicks = new NativeArray<int>(n, Allocator.Persistent);
             LeapTarget = new NativeArray<float3>(n, Allocator.Persistent);
+            Engage = new NativeArray<byte>(n, Allocator.Persistent);
+            EngageDir = new NativeArray<float2>(n, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -79,10 +91,11 @@ namespace TW.Sim.Nav
                 GoalId = w.GoalId, Cooldown = w.Cooldown, Knock = w.Knock, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
                 Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick, Archetype = w.Archetype,
                 Specs = w.Units.Infantry,
-                Directions = fields.Direction, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
+                Directions = fields.Direction, Integration = fields.Integration, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
                 NavWidth = map.NavWidth, NavLength = map.NavLength, CellCount = fields.CellCount, NavCell = MapData.NavCellSize,
                 Size = map.SizeMeters, Dt = w.Config.TickSeconds, LeapTicks = LeapTicks, LeapTarget = LeapTarget,
+                Engage = Engage, EngageDir = EngageDir,
             }.Schedule(n, 64).Complete();
 
             // 4. arrivals (main thread): events for garrisons, re-goal for locked trenches
@@ -126,6 +139,9 @@ namespace TW.Sim.Nav
             public const float KnockDecay = 0.78f;      // per tick: a throw of 9 m/s carries him about 2 m over a second
             public const int VaultTicks = 16;          // a man takes 0.8 s to get over the parapet (Cooldown counts it; the climb is drawn up the wall)
             [ReadOnly] public NativeArray<byte> Directions;
+            [ReadOnly] public NativeArray<int> Integration;
+            [ReadOnly] public NativeArray<byte> Engage;
+            [ReadOnly] public NativeArray<float2> EngageDir;
             [ReadOnly] public NativeArray<byte> Ready;
             [ReadOnly] public NativeArray<GoalKey> Goals;
             [ReadOnly] public NativeArray<TrenchState> Trenches;
@@ -176,6 +192,38 @@ namespace TW.Sim.Nav
                 return len > 1e-4f ? sum / len : float2.zero;
             }
 
+            /// <summary>The flow turned by <paramref name="lat"/> along its left-hand normal, if the field allows it:
+            /// the cell that way must be one he may step into and no further from the goal than the one he is in, and
+            /// wire or a trench only where the field itself goes through it. The whole turn is tried, then half of
+            /// it; otherwise he keeps to the flow.</summary>
+            float2 Turned(int goal, int cell, byte from, float3 p, float2 dir, float lat)
+            {
+                int here = Integration[goal * CellCount + cell];
+                byte own = Directions[goal * CellCount + cell];
+                int onward = own != FlowField.NoDirection ? cell + CellStep(own) : -1;
+                float2 side = new float2(-dir.y, dir.x);
+                for (int k = 0; k < 2; k++, lat *= 0.5f)
+                {
+                    float2 mixed = dir + side * lat;
+                    float ml = SimMath.Length(new float3(mixed.x, 0f, mixed.y));
+                    if (ml <= 1e-4f) continue;
+                    mixed /= ml;
+                    int c = CellOf(p + new float3(mixed.x, 0f, mixed.y) * NavCell);
+                    if (c == cell) return mixed;
+                    byte to = Layers[c];
+                    if ((to & (byte)(NavLayer.Wire | NavLayer.Trench | NavLayer.Link)) != 0 && c != onward) continue;
+                    if (FlowField.CanStepInfantry(from, to) && Integration[goal * CellCount + c] <= here) return mixed;
+                }
+                return dir;
+            }
+
+            /// <summary>The cell index offset of a flow direction.</summary>
+            int CellStep(byte d)
+            {
+                float2 o = FlowField.Offset(d);
+                return (int)math.sign(o.y) * NavWidth + (int)math.sign(o.x);
+            }
+
             bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, bool toPost, float pushX, byte from, int ncell)
             {
                 byte to = Layers[ncell];
@@ -206,7 +254,10 @@ namespace TW.Sim.Nav
 
                 // steering
                 float2 dir = float2.zero;
-                if (!isGarrisoned && !leaping && goal >= 0 && Ready[goal] != 0)
+                byte engage = isGarrisoned || leaping || inTrench ? MovementSystem.EngageNone : Engage[i];
+                if (engage == MovementSystem.EngageClose) dir = EngageDir[i];   // he leaves his way for the man he is after
+                else if (engage == MovementSystem.EngageHold) { }               // he stands where he is, and shoots
+                else if (!isGarrisoned && !leaping && goal >= 0 && Ready[goal] != 0)
                 {
                     dir = Flow(goal, p);
                     if (SimMath.Length(new float3(dir.x, 0f, dir.y)) < 0.5f)
@@ -214,16 +265,22 @@ namespace TW.Sim.Nav
                         byte d = Directions[goal * CellCount + cell];
                         dir = d != FlowField.NoDirection ? FlowField.Offset(d) : float2.zero;
                     }
-                    else if (!inTrench && !Specs[Archetype[i]].NoDrift)   // a shield bearer walks straight: he is the front of the line
+                    else if (!inTrench)
                     {
-                        // open ground: a slow wander to one side and back, different for every man, so the company spreads
-                        uint seed = (uint)i * 2654435761u ^ (uint)Generation[i] * 40503u;
-                        float phase = (seed & 0xFFFF) / 65536f * 6.2831853f;
-                        float lat = DriftAmount * SimMath.Sin(Tick * (6.2831853f / DriftPeriodTicks) + phase);
-                        float2 side = new float2(-dir.y, dir.x);
-                        float2 mixed = dir + side * lat;
-                        float ml = SimMath.Length(new float3(mixed.x, 0f, mixed.y));
-                        if (ml > 1e-4f) dir = mixed / ml;
+                        float lat = 0f;
+                        if (!Specs[Archetype[i]].NoDrift)   // a shield bearer walks straight: he is the front of the line
+                        {
+                            // open ground: a slow wander to one side and back, different for every man, so the company spreads
+                            uint seed = (uint)i * 2654435761u ^ (uint)Generation[i] * 40503u;
+                            float phase = (seed & 0xFFFF) / 65536f * 6.2831853f;
+                            lat = DriftAmount * SimMath.Sin(Tick * (6.2831853f / DriftPeriodTicks) + phase);
+                        }
+                        // his own line across the field, when he is going to a trench or an objective (a rally point and
+                        // an errand to one cell are places, and he goes straight to them)
+                        var kind = Goals[goal].Kind;
+                        if (kind == GoalKind.Trench || kind == GoalKind.Objective)
+                            lat = math.clamp(lat + Lane.Turn(dir, p.x, Lane.Of(i, Generation[i], Size.x)), -Lane.Pull, Lane.Pull);
+                        if (lat != 0f) dir = Turned(goal, cell, from, p, dir, lat);
                     }
                 }
 
@@ -241,7 +298,8 @@ namespace TW.Sim.Nav
                 else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
                 else if (inTrench) stance = Stance.Crouch;
                 else if (supp >= StanceRules.ProneSuppression) stance = Stance.Prone;
-                else stance = (f & (uint)UnitFlags.Exposed) != 0 ? Stance.Sprint : Stance.Standing;
+                else if (engage == MovementSystem.EngageHold) stance = Stance.Crouch;   // down on one knee to shoot
+                else stance = (f & (uint)UnitFlags.Exposed) != 0 || engage == MovementSystem.EngageClose ? Stance.Sprint : Stance.Standing;
                 float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
                 float3 v = leaping ? (LeapTarget[i] - p) / (leap * Dt) : isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
                 if (isGarrisoned && !leaping)
@@ -330,7 +388,12 @@ namespace TW.Sim.Nav
                 else if (!crossing) Cooldown[i] = 0;
                 Position[i] = np;
                 Velocity[i] = v;
-                if (SimMath.Length(v) > 0.05f && !(isGarrisoned && stance == Stance.FireStep)) Yaw[i] = SimMath.YawOf(v);   // on the step he keeps facing over the parapet
+                if (engage == MovementSystem.EngageHold && math.lengthsq(knock) <= 0.09f)
+                {
+                    float2 at = EngageDir[i];   // he faces the man he is shooting at, whatever jostles him
+                    if (math.lengthsq(at) > 1e-6f) Yaw[i] = SimMath.YawOf(new float3(at.x, 0f, at.y));
+                }
+                else if (SimMath.Length(v) > 0.05f && !(isGarrisoned && stance == Stance.FireStep)) Yaw[i] = SimMath.YawOf(v);   // on the step he keeps facing over the parapet
 
                 // layer bookkeeping
                 bool nowTrench = (to & (byte)NavLayer.Trench) != 0;
@@ -374,6 +437,8 @@ namespace TW.Sim.Nav
             if (Vehicles.IsCreated) Vehicles.Dispose();
             if (LeapTicks.IsCreated) LeapTicks.Dispose();
             if (LeapTarget.IsCreated) LeapTarget.Dispose();
+            if (Engage.IsCreated) Engage.Dispose();
+            if (EngageDir.IsCreated) EngageDir.Dispose();
             if (push.IsCreated) push.Dispose();
             if (arrivedLocked.IsCreated) arrivedLocked.Dispose();
             if (garrisoned.IsCreated) garrisoned.Dispose();

@@ -51,7 +51,11 @@ namespace TW.Sim
         // v17 (2026-09-28, the sapper): SapperSystem joins the chain at order 120 with its per-slot state (Charges, Phase,
         // Kind, Goal, Args, LayTicks, Back, Target); CommandType.UnitAbility is consumed (b = UnitAbilityId in the low
         // byte, AbilityArgs above it); MineSystem's trigger reads the match's vehicle profiles.
-        public const ushort FormatVersion = 17;
+        // v18 (2026-09-28, spread and the fight): infantry cross a trench wall anywhere (FlowField.CanStepInfantry,
+        // ParapetCost), every man on foot keeps to a lane (Lane) and is deployed on it, and EngageSystem joins the chain
+        // at order 1108 with its state (Hunt, HuntGen, the generation seen, MovementSystem.Engage): men in the open
+        // close on the enemy and hold to shoot. Layout unchanged; every battle runs differently from the first deploy.
+        public const ushort FormatVersion = 18;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

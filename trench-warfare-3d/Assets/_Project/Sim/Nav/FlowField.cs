@@ -1,7 +1,7 @@
 // Phase: A1 (implemented) — depends on: MapData (P0)
 // Layered Dijkstra flow field on the 2 m nav grid. FlowFieldManager owns one per goal; tests build them standalone.
-// Infantry mode: a move between neighbouring cells is legal only if they share a traversal layer (Surface or Trench)
-// or one of them is a Link cell, so paths enter and leave trenches only through ladders, ramps and vault points.
+// Infantry mode: a move between neighbouring cells is legal between ground and trench cells and through Link cells.
+// A trench wall is crossed anywhere, at ParapetCost (2026-09-28; before, only through ladders, ramps and vault points).
 // Tracked mode (vehicles): links mean nothing; a trench cell is crossed directly at a high cost when the trench is
 // narrow enough for the vehicle (FlowFieldManager.TrenchCrossable) and never entered otherwise; wire is crushed.
 using System;
@@ -21,6 +21,7 @@ namespace TW.Sim.Nav
         public const byte NoDirection = 255;
         public const int TrackedTrenchCost = 20;   // per trench cell while a tracked vehicle crosses it
         public const int TrackedWireCost = 2;      // tracks crush wire
+        public const int ParapetCost = 30;         // a man over a trench wall: three cells' walk, less than a ladder six cells off
 
         public int Width, Length;
         public NativeArray<int> Integration;   // accumulated cost to reach the goal (units: cost*10 straight, cost*14 diagonal)
@@ -79,14 +80,22 @@ namespace TW.Sim.Nav
             }
         }
 
-        /// <summary>Infantry traversal rule: trenches are entered and left only through Link cells.</summary>
+        /// <summary>Infantry traversal rule. Until 2026-09-28 a trench was entered and left only through Link cells,
+        /// which put every company on the same few ladders, in file. Now a man goes over the parapet wherever he
+        /// stands and drops into a trench wherever he reaches it; the wall costs him ParapetCost in the field and
+        /// MoveJob's VaultTicks on the way out. Cells that are neither ground nor trench (a bunker's inside) still
+        /// need a link.</summary>
         public static bool CanStepInfantry(byte from, byte to)
         {
             if ((to & (byte)NavLayer.Blocked) != 0) return false;
             const byte traversal = (byte)(NavLayer.Surface | NavLayer.Trench);
             if ((from & (byte)NavLayer.Link) != 0 || (to & (byte)NavLayer.Link) != 0) return true;
-            return (from & to & traversal) != 0;
+            return (from & traversal) != 0 && (to & traversal) != 0;
         }
+
+        /// <summary>True for a step over a trench wall: between ground and trench, not by a ladder.</summary>
+        public static bool OverTheParapet(byte from, byte to)
+            => ((from ^ to) & (byte)NavLayer.Trench) != 0 && ((from | to) & (byte)NavLayer.Link) == 0;
 
         /// <summary>Traversal rule per nav mode. <paramref name="toTrench"/> is the trench id of the destination cell (-1 none).</summary>
         public static bool CanStep(NavMode mode, byte from, byte to, short toTrench, NativeArray<byte> trenchCrossable)
@@ -174,6 +183,7 @@ namespace TW.Sim.Nav
                             if ((Layers[ax] & (byte)NavLayer.Blocked) != 0 || (Layers[az] & (byte)NavLayer.Blocked) != 0) continue;
                         }
                         int step = StepCost(Mode, to, Cost[nc]) * ((d & 1) == 1 ? 14 : 10);
+                        if (Mode == NavMode.Infantry && OverTheParapet(from, to)) step += ParapetCost;
                         int nCost = cost + step;
                         if (nCost < Integration[nc])
                         {
@@ -182,22 +192,37 @@ namespace TW.Sim.Nav
                         }
                     }
                 }
-                // direction = neighbour with lowest integration; ties resolved by lowest d (fixed order)
+                // direction = the neighbour the cheapest way on goes through: its integration plus the step to it (the
+                // step is charged to the cell that is left, as in the expansion above). Until 2026-09-28 this took the
+                // neighbour with the lowest integration alone, and ties went to the lowest d: on open ground before a
+                // wide goal the three cells ahead tie, so every cell pointed NE and a company (and every machine) crossed
+                // the field on one diagonal. Ties are now resolved straight before diagonal, then by lowest d.
                 for (int cell = 0; cell < n; cell++)
                 {
-                    int best = Integration[cell];
-                    if (best == Unreachable || best == 0) continue;
+                    int here = Integration[cell];
+                    if (here == Unreachable || here == 0) continue;
                     int x = cell % Width, z = cell / Width;
                     byte from = Layers[cell];
+                    int own = StepCost(Mode, from, Cost[cell]);
                     byte bestD = NoDirection;
-                    for (int d = 0; d < 8; d++)
+                    long best = long.MaxValue;
+                    for (int pass = 0; pass < 2; pass++)   // the four straight neighbours, then the four diagonals
+                    for (int d = pass; d < 8; d += 2)
                     {
                         int2 o = OffsetInt(d);
                         int nx = x + o.x, nz = z + o.y;
                         if (nx < 0 || nz < 0 || nx >= Width || nz >= Length) continue;
                         int nc = nz * Width + nx;
-                        if (!CanStep(Mode, from, Layers[nc], CellTrenchId[nc], TrenchCrossable)) continue;
-                        int v = Integration[nc];
+                        byte to = Layers[nc];
+                        if (!CanStep(Mode, from, to, CellTrenchId[nc], TrenchCrossable)) continue;
+                        if (Integration[nc] >= here) continue;   // never up the field
+                        if ((d & 1) == 1)
+                        {
+                            int ax = z * Width + nx, az = nz * Width + x;
+                            if ((Layers[ax] & (byte)NavLayer.Blocked) != 0 || (Layers[az] & (byte)NavLayer.Blocked) != 0) continue;
+                        }
+                        long v = (long)Integration[nc] + own * ((d & 1) == 1 ? 14 : 10);
+                        if (Mode == NavMode.Infantry && OverTheParapet(to, from)) v += ParapetCost;
                         if (v < best) { best = v; bestD = (byte)d; }
                     }
                     Direction[cell] = bestD;

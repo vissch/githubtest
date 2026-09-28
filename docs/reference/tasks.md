@@ -79,9 +79,26 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Files:** `Sim/Nav/FlowFieldManager.cs`, `Sim/Nav/FlowField.cs`, `Sim/Nav/MovementSystem.cs` (`MoveJob` decides
   stance), `Sim/Nav/SeparationJob.cs`, `Sim/Units/TrenchGarrison.cs` (class `TrenchGarrisonSystem`),
   `Sim/Units/TrenchOrders.cs`, `Sim/Core/TrenchPost.cs`, `Sim/Core/StanceRules.cs`,
-  `Sim/Nav/SpatialHash.cs` (1 m buckets, built in slot order so neighbour order is deterministic).
+  `Sim/Nav/SpatialHash.cs` (1 m buckets, built in slot order so neighbour order is deterministic),
+  `Sim/Core/Lane.cs` (each man's and machine's own line across the field), `Sim/Nav/VehicleKinematics.cs` (`Laned`).
 - **Tests:** FlowFieldTests, FlowFieldManagerTests, GarrisonAndOrdersTests, GarrisonTests, TrenchSpreadTests,
-  PlaytestMapTests.
+  PlaytestMapTests, SpreadAndEngageTests (the march and the battle on ShelledForest, measured), LaneAndEngageRulesTests.
+- **How men spread (2026-09-28, the owner: "walking in rows in seemingly defined paths"):** four rules, each of which
+  put a company in file on its own. (1) A flow cell points at the neighbour its cheapest way on goes through, straight
+  before diagonal (`FlowField.BuildJob`; it used to take the lowest integration alone, ties to the lowest direction, so
+  every cell of open ground before a wide goal pointed north-east). (2) A trench wall is crossed anywhere, at
+  `FlowField.ParapetCost` (`CanStepInfantry`; ladders were the only way in or out). (3) Every man keeps to a lane
+  (`Lane.Of(slot, generation, width)`, stateless), is deployed on it (`SimWorld.Deploy`), and `MoveJob.Turned` turns
+  the flow toward it by up to `Lane.Pull`, only where the cell that way is no further from the goal, and into wire or
+  a trench only where the field itself goes. Lanes apply to trench and objective goals, not to a rally point or a
+  cell. (4) Mud costs what it takes (`NavCosts.Mud` 2, was 4). What still gathers men is the map: a wire belt has two
+  or three gaps, the river its fords.
+- **See it:** `python Tools/otr.py SpreadAndEngage` (or the class in the editor) leaves three files in the temp
+  folder, all named tw-...: the numbers (spread-engage, a text file) and the tracks of the first march and the first
+  battle (tracks-march and tracks-battle, csv). `python Tools/tracks.py <csv> <png>` draws where everybody walked.
+  Look at the picture before believing the numbers. Measured on ShelledForest 1917 / 1918, 48 men, before and after: men in
+  file 0.44 / 0.47 and 0.21 / 0.16; 3 m strips of the width in use 20 / 19 and 26 / 27 of 30; traffic on the five
+  busiest strips 0.57 / 0.56 and 0.37 / 0.28.
 - **Trap:** `StanceSystem` is a stub. Stance is written in `MovementSystem.cs` as `StanceOf[i]`.
 - **Trap:** `CommandType.TrenchSelectAdvance` carries the advancing unit types as a bitmask of archetype ids in an
   int (`SimCommand.cs`; `TrenchOrders.cs` tests `1 << w.Archetype[i]`), so an archetype id of 31 or more can never
@@ -100,7 +117,15 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   anti-tank rifle at a plate they beat), `NeverPinned` in `Sim/Combat/Suppression.cs` (the Death Battalion).
 - **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests,
   ProvingGroundBehaviourTests (the ambulance, the anti-tank rifle, the never-pinned rifleman; each fails on the sim
-  before 2026-09-28).
+  before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests.
+- **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
+  (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
+  shooting at, or else the nearest enemy in the open within `HuntRadius` 70 m; he closes on him in a straight line
+  over open ground and holds at `HoldDistance` (half his weapon's range, 45 m under a `>>` order, a braced gun at
+  three quarters), where he kneels, faces him and shoots without the moving penalty. It writes
+  `MovementSystem.Engage` / `EngageDir` and `MoveJob` walks it. Not hunted: men in a trench (stormed along the goal's
+  field), machines (except by a weapon that beats their plate), anyone across wire or a trench. Not hunting: a
+  garrison, pinned men, medics, engineers, a sapper on his errand. The numbers are constants at the top of the file.
 
 ### Shells, barrages, gas, fire
 - **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),
@@ -610,7 +635,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->

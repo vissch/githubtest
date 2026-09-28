@@ -16,6 +16,8 @@
 //  - a shield bearer (InfantrySpec.ShieldPlateMm) standing between a shooter and the man he picked, within
 //    ShieldGuardRadius of that man and inside a 15-degree cone on the bearing, takes the shot instead (2026-09-25).
 //    DirectFire then rolls the round against his plate.
+//  - the same scan finds, for a man on foot in the open, the nearest enemy in the open within EngageSystem.HuntRadius,
+//    seen or not: the man he goes after (EngageSystem.Hunt, 2026-09-28). One walk through the grid serves both.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -37,6 +39,10 @@ namespace TW.Sim.Combat
         NativeArray<float> noSmoke;  // a one-cell stand-in for the job while there is no smoke
         NativeParallelMultiHashMap<int, int> grid;
         int gridW, gridL;
+        EngageSystem engage;         // registered after this system: resolved on the first step
+        bool lookedForEngage;
+        NativeArray<int> noHunt;     // one-cell stand-ins for the job in a match without an EngageSystem
+        NativeArray<ushort> noHuntGen;
 
         public TargetAcquisitionSystem(MapData map) { this.map = map; }
 
@@ -50,6 +56,8 @@ namespace TW.Sim.Combat
             gridL = (int)math.ceil(map.SizeMeters.y / GridCell);
             grid = new NativeParallelMultiHashMap<int, int>(world.Config.MaxSlots, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
+            noHunt = new NativeArray<int>(1, Allocator.Persistent);
+            noHuntGen = new NativeArray<ushort>(1, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -57,6 +65,7 @@ namespace TW.Sim.Combat
             int n = w.HighWater;
             if (n == 0) return;
             if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
+            if (!lookedForEngage) { engage = w.GetSystem<EngageSystem>(); lookedForEngage = true; }
             bool smokeOn = gas != null && gas.SmokeActive;
             new BuildGridJob { Grid = grid, Position = w.Position, Flags = w.Flags, Count = n, GridW = gridW, GridL = gridL }.Run();
             new AcquireJob
@@ -67,6 +76,8 @@ namespace TW.Sim.Combat
                 StanceOf = w.StanceOf, Suppression = w.Suppression, TrenchId = w.TrenchId, TargetSlot = w.TargetSlot, Specs = w.Units.Infantry, Weapons = catalogue.Weapon, Tanks = catalogue.Tank, Yaw = w.Yaw,
                 Trenches = fields.Trenches, CellTrenchId = map.CellTrenchId, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Height = map.Height,
+                Hunts = engage != null, Hunt = engage != null ? engage.Hunt : noHunt, HuntGen = engage != null ? engage.HuntGen : noHuntGen,
+                Generation = w.Generation,
             }.Schedule(n, 32).Complete();
         }
 
@@ -113,6 +124,11 @@ namespace TW.Sim.Combat
             public int SmokeW, SmokeL;
             public bool SmokeOn;
             [NativeDisableParallelForRestriction] public NativeArray<int> TargetSlot;   // each index writes only its own entry
+            // the man each man on foot in the open goes after (EngageSystem): each index writes only its own entry
+            public bool Hunts;
+            [NativeDisableParallelForRestriction] public NativeArray<int> Hunt;
+            [NativeDisableParallelForRestriction] public NativeArray<ushort> HuntGen;
+            [ReadOnly] public NativeArray<ushort> Generation;
 
             short TrenchAt(float3 p)
             {
@@ -254,15 +270,26 @@ namespace TW.Sim.Combat
                 // three nearest engageable enemies, ordered by (distance, slot)
                 int b0 = -1, b1 = -1, b2 = -1;
                 float d0 = float.MaxValue, d1 = float.MaxValue, d2 = float.MaxValue;
-                int minX = math.clamp((int)((p.x - range) / GridCell), 0, GridW - 1), maxX = math.clamp((int)((p.x + range) / GridCell), 0, GridW - 1);
-                int minZ = math.clamp((int)((p.z - range) / GridCell), 0, GridL - 1), maxZ = math.clamp((int)((p.z + range) / GridCell), 0, GridL - 1);
+                // and, for a man who goes after the enemy, the nearest of them in the open, seen or not
+                bool hunter = Hunts && EngageSystem.Hunter(f, garrison) && EngageSystem.Fights(Specs[Archetype[i]], weapon);
+                int hunt = -1; float huntSq = EngageSystem.HuntRadius * EngageSystem.HuntRadius;
+                float look = hunter ? math.max(range, EngageSystem.HuntRadius) : range;
+                int minX = math.clamp((int)((p.x - look) / GridCell), 0, GridW - 1), maxX = math.clamp((int)((p.x + look) / GridCell), 0, GridW - 1);
+                int minZ = math.clamp((int)((p.z - look) / GridCell), 0, GridL - 1), maxZ = math.clamp((int)((p.z + look) / GridCell), 0, GridL - 1);
                 for (int cz = minZ; cz <= maxZ; cz++)
                 for (int cx = minX; cx <= maxX; cx++)
                 {
                     if (!Grid.TryGetFirstValue(cz * GridW + cx, out int j, out var it)) continue;
                     do
                     {
-                        if (j == i || !Engageable(i, j, p, myTrench, rangeSq, out float ds)) continue;
+                        if (j == i) continue;
+                        if (hunter && Team[j] != Team[i] && EngageSystem.InTheOpen(Flags[j], TrenchId[j]))
+                        {
+                            float3 e = Position[j] - p; e.y = 0f;
+                            float es = math.lengthsq(e);
+                            if (es < huntSq || (es == huntSq && hunt >= 0 && j < hunt)) { huntSq = es; hunt = j; }
+                        }
+                        if (!Engageable(i, j, p, myTrench, rangeSq, out float ds)) continue;
                         if (ds < d0 || (ds == d0 && j < b0)) { d2 = d1; b2 = b1; d1 = d0; b1 = b0; d0 = ds; b0 = j; }
                         else if (ds < d1 || (ds == d1 && j < b1)) { d2 = d1; b2 = b1; d1 = ds; b1 = j; }
                         else if (ds < d2 || (ds == d2 && j < b2)) { d2 = ds; b2 = j; }
@@ -274,6 +301,7 @@ namespace TW.Sim.Combat
                 else if (b2 >= 0 && Sees(i, b2, myTrench)) pick = b2;
                 if (pick >= 0 && (Flags[pick] & (uint)UnitFlags.Vehicle) == 0) pick = Shielded(i, pick, p, myTrench, rangeSq);
                 TargetSlot[i] = pick;
+                if (hunter) { Hunt[i] = hunt; HuntGen[i] = hunt >= 0 ? Generation[hunt] : (ushort)0; }
             }
         }
 
@@ -282,6 +310,8 @@ namespace TW.Sim.Combat
         {
             if (grid.IsCreated) grid.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
+            if (noHunt.IsCreated) noHunt.Dispose();
+            if (noHuntGen.IsCreated) noHuntGen.Dispose();
         }
     }
 }

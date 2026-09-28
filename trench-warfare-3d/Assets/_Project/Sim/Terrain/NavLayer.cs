@@ -20,7 +20,8 @@ namespace TW.Sim.Terrain
         public const byte Surface = 1;
         public const byte Trench = 1;
         public const byte Link = 6;
-        public const byte Mud = 4;
+        public const byte Mud = 2;        // what it costs him: twice the time (StanceRules.TerrainMultiplier 0.5). It was 4 until
+                                          // 2026-09-28, which sent a whole company down the one dry strip of a wet field
         public const byte Crater = 2;
         public const byte Wire = 40;
         public const byte Blocked = 255;

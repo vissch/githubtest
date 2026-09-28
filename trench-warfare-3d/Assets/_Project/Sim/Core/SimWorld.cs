@@ -299,7 +299,11 @@ namespace TW.Sim
             if (deployTick != Tick) { deployTick = Tick; System.Array.Clear(deploysThisTick, 0, deploysThisTick.Length); }
             var rng = SimRandom.For(Config.Seed, Tick, SimRandom.SystemId.Deployment, (uint)c.Player + 16u * (uint)deploysThisTick[c.Player]++);
             float3 spawn = c.Player == 0 ? Init.SpawnA : Init.SpawnB;
-            spawn.x += rng.NextFloat(-30f, 30f);   // reinforcements come up on a front, so they use several ladders
+            // reinforcements come up on a front as wide as the field: a man on foot starts on his own lane (Lane), so
+            // nobody crosses the rear area to reach it; a machine within 30 m of the spawn point, as before
+            float across = rng.NextFloat(-30f, 30f);
+            int next = freeSlots.Length > 0 ? freeSlots[freeSlots.Length - 1] : HighWater;   // the slot Spawn takes
+            spawn.x = entry.IsVehicle || next >= Config.MaxSlots ? spawn.x + across : Lane.Of(next, (ushort)(Generation[next] + 1), Init.SizeMeters.x);
             spawn.z += rng.NextFloat(-2f, 2f);
             int slot = Spawn(c.Player, entry.Archetype, ClampToMap(spawn), entry.Hp, entry.Speed, entry.IsVehicle);
             if (slot < 0) { Reject(c); return; }

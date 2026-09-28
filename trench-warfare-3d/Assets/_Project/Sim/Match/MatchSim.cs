@@ -21,6 +21,7 @@ namespace TW.Sim.Match
         public VehicleModulesSystem Modules;
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
+        public EngageSystem Engage;              // null without combat
         public AuraSystem Aura;
         public TW.Sim.Units.SupportSystem Support;
         public LeapSystem Leap;
@@ -122,6 +123,8 @@ namespace TW.Sim.Match
             World.AddSystem(Breaker);                       // A5b: the Breaker's wind-up, charge, strike and withdrawal (steps before Kinematics drives it)
             if (combat)
             {
+                Engage = new EngageSystem(map);
+                World.AddSystem(Engage);                    // A3: men in the open close on the enemy and stand to shoot (steps just before Movement)
                 Gunnery = new TankGunnerySystem(map);
                 World.AddSystem(Gunnery);                   // A5b: tank main guns (steps right after direct fire)
             }

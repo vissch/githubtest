@@ -53,11 +53,20 @@ namespace TW.Tests
         static float TrenchZ(MatchSim m, short trench)
             => m.Map.NavCellCenter(m.Map.TrenchCells[m.Map.Trenches[trench].CellStart + m.Map.Trenches[trench].CellCount / 2]).z;
 
+        /// <summary>Riflemen in the enemy's front trench, in a knot where the Breaker strikes it. They are put down behind
+        /// that stretch of it and walk in: since 2026-09-28 deployed men come up on the whole width of the field (Lane),
+        /// ten of them stand thirty metres apart, and its guns have the one man before it down before its claws reach him.</summary>
         static short EnemyLine(MatchSim m, int count)
         {
             short t = m.Fields.FrontTrench(1);
             int want = m.Fields.Trenches[t].GarrisonCount + count;
-            for (int k = 0; k < count; k++) Step(m, SimCommand.Deploy(m.World.Tick, 1, 0));
+            int goal = m.Fields.GetGoal(GoalKey.Trench(t));
+            float z = TrenchZ(m, t) + 8f;
+            for (int k = 0; k < count; k++)
+            {
+                int slot = m.World.Spawn(1, 0, new float3(120f + (k - count / 2) * 2f, 0f, z), 100f, 3f, false);
+                m.World.GoalId[slot] = goal;
+            }
             for (int i = 0; i < 2000 && m.Fields.Trenches[t].GarrisonCount < want; i++) Step(m);
             Assert.AreEqual(want, m.Fields.Trenches[t].GarrisonCount, "setup: garrison did not form");
             return t;

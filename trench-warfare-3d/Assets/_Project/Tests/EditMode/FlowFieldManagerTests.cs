@@ -80,7 +80,7 @@ namespace TW.Tests
         }
 
         [Test]
-        public void TrackedField_CrossesTrenchesDirectly_InfantryFieldNeedsLinks()
+        public void TrackedField_CrossesTrenchesDirectly_AndTheInfantryFieldGoesOverTheWall()
         {
             using var m = NewMatch();
             var map = m.Map;
@@ -108,7 +108,8 @@ namespace TW.Tests
             Assert.AreEqual(0, tf.Integration[cell], "tracked walk reaches the enemy HQ");
             Assert.GreaterOrEqual(trenchEntries, 2, "the tank crosses both trench lines");
 
-            // infantry: a surface cell right behind a non-link trench cell must not point straight into the trench
+            // infantry: a surface cell right behind a non-link trench cell points straight into the trench (over its wall:
+            // until 2026-09-28 it could not, and pointed along the wall to the nearest ladder)
             var def = map.Trenches[0];
             int nonLink = -1;
             for (int c = 0; c < def.CellCount && nonLink < 0; c++)
@@ -119,7 +120,7 @@ namespace TW.Tests
             Assert.GreaterOrEqual(nonLink, 0);
             int behind = nonLink - map.NavWidth;   // one cell toward team 0's spawn
             var inff = f.Field(inf);
-            Assert.AreNotEqual(2, inff.Direction[behind], "infantry field does not step north into a trench cell that is not a link");
+            Assert.AreEqual(2, inff.Direction[behind], "the infantry field steps north into the trench where it meets it");
             Assert.AreNotEqual(FlowField.Unreachable, inff.Integration[behind]);
         }
     }

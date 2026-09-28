@@ -1,4 +1,5 @@
-// Phase: A1 (implemented) — deployed infantry walk to their front trench through links and garrison; trench orders
+// Phase: A1 (implemented) — deployed infantry walk to their front trench and garrison (over its wall where they meet
+// it since 2026-09-28, no longer only through links: SpreadAndEngageTests holds where they cross); trench orders
 // (>> / ↩ / lock) move them on, back, or through; vehicles cross trenches without links; orders are validated per
 // player; and all of it is deterministic.
 using System.Collections.Generic;
@@ -54,7 +55,7 @@ namespace TW.Tests
             return false;
         }
 
-        /// <summary>Asserts every trench entry by an infantry unit happens through a Link cell.</summary>
+        /// <summary>Counts every trench entry by an infantry unit, and asserts none of them was into blocked ground.</summary>
         sealed class LinkWatch
         {
             readonly Dictionary<int, int> lastCell = new Dictionary<int, int>();
@@ -74,7 +75,7 @@ namespace TW.Tests
                         if ((to & NavLayer.Trench) != 0 && (from & NavLayer.Trench) == 0)
                         {
                             Entries++;
-                            Assert.IsTrue((to & NavLayer.Link) != 0 || (from & NavLayer.Link) != 0, $"unit {i} entered a trench at cell {cell} without a link (tick {w.Tick})");
+                            Assert.IsTrue((to & NavLayer.Blocked) == 0, $"unit {i} entered a trench at blocked cell {cell} (tick {w.Tick})");
                         }
                     }
                     lastCell[i] = cell;
@@ -83,7 +84,7 @@ namespace TW.Tests
         }
 
         [Test]
-        public void DeployedInfantry_WalkToFrontTrench_ThroughLinks_AndGarrison()
+        public void DeployedInfantry_WalkToFrontTrench_AndGarrison()
         {
             using var m = NewMatch();
             Deploy(m, 0, Rifleman, 20);

@@ -54,6 +54,9 @@ namespace TW.Sim
         public const int Separation = 1100;
         /// <summary>Jetpack leaps: decided before Movement moves him along the line it sets.</summary>
         public const int Leap = 1105;
+        /// <summary>The fight on foot (EngageSystem): who closes on whom and who stands to shoot, decided on this
+        /// tick's targets and deaths, just before Movement walks it. 2026-09-28.</summary>
+        public const int Engage = 1108;
         public const int Movement = 1110;
         /// <summary>The Breaker's phases: after Movement listed the vehicles, before Kinematics drives them.</summary>
         public const int Breaker = 1115;
