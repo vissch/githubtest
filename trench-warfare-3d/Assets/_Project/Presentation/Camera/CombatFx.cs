@@ -791,7 +791,14 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
                         // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
                         // reads where a shell landed; the old parts are not grown (fx.recipes 0 draws exactly as before)
-                        float far = recipe.Plume || recipe.Ring ? FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f) : 1f;
+                        float far = recipe.Plume || recipe.Ring || recipe.Curtain ? FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f) : 1f;
+                        if (recipe.Curtain)
+                        {
+                            // L04: each shell of a lift stands a smoke mound; four in a 20 m row are a wall, and each lift's wall stands
+                            // 8 s, so the last lift's still hangs as the next lands 6 m on: a curtain walking ahead of the men. x FarGrow
+                            // so the overview still reads a moving band; gone up close (it would fill the lens)
+                            books.Add(FlipbookFx.Book.SmokeBank, p - Vector3.up * 0.2f, 7f * far, 8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.65f * (1f - 0.7f * closeUp), delay: 0.3f);
+                        }
                         if (recipe.Ring)
                         {
                             // lying a hand above the highest of five ground samples across its reach, so a slope or the
@@ -1065,6 +1072,7 @@ namespace TW.Presentation.Tactical
             DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
             TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep
             TickLeaps(now);                // the jetpack men in the air (CombatFx.Support.cs)
+            TickIncoming();                // the off-map shells seen coming in (CombatFx.Barrage.cs)
 
             // gas: drawn clouds that boil slowly over each 4 m field cell (the old translucent blocks stand in without the books)
             var gas = Host.Local.Gas;
