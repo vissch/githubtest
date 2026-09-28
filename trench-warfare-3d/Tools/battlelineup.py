@@ -5,12 +5,14 @@
 #      textured with their atlases, noses to +X, from the front-right and from the right side: lineup_q.png, lineup_side.png.
 #   2. Each named machine's LOD pop: LOD0 and LOD1 from four sides at the same ortho framing, 256 px, 15 degrees down;
 #      the worst side's silhouette IoU and block colour (mean |RGB| difference of 8 px block means where both cover the
-#      block, 0-255), docs/22's two measures: pop.json, pop_<Name>.png (the eight frames).
-# Re-importing these FBXs puts nested parts out of place (the exporter's node turn that Editor/TankImport.cs undoes in
-# Unity); this script undoes it the same way in Blender's frame: a part turned 90 degrees about X loses the turn and its
-# offset (x, y, z) becomes (x, z, y); a part one below such a part has its offset's z negated. Checked against
-# mechsplit's manifest pivots (Salvo Turret, Gun, Wheels; Skimmer FanRing, Fan). Deeper parts are sockets: not drawn.
-#
+#      block, 0-255), docs/22's two measures: pop.json, pop_<Name>.png (the eight frames); and both again at the battle's
+#      scale at the switch (the frames box-filtered to 85 px, 3 px blocks: iou80, block80).
+# Re-importing these FBXs puts nested parts out of place: the exporter turns every node below the top part 90 degrees
+# about X, which Editor/TankImport.cs undoes in Unity (rotation cleared, offset (x, -z, y) in Unity's axes). This script
+# undoes it the same way in Blender's: rotation cleared, offset (x, y, z) -> (x, z, -y); nothing else is touched, as in
+# Unity. Checked 2026-09-28: every Skimmer part's box, taken into the Hull's frame, lands on mechsplit's manifest
+# (tank3.json) to 0.01 m, mirrored in z as Blender's frame is to Unity's. (A first rule that also negated the offsets
+# of the parts under a turned part put every mesh mirrored about its pivot: the Pincer came apart.)
 # TW_ENGINE=workbench renders with Workbench instead of EEVEE (when memory is short).
 # usage (from trench-warfare-3d/): blender -b --factory-startup -P Tools/battlelineup.py -- <outdir> <Name>...
 import bpy, sys, os, math, json
@@ -32,9 +34,7 @@ def fixed_import(name, lod, atlas):
     def fix(o, depth):
         r = o.rotation_euler
         if depth >= 2 and abs(math.degrees(r.x) - 90) < 1 and abs(r.y) < 1e-3 and abs(r.z) < 1e-3:
-            x, y, z = o.location; o.location = (x, z, y); o.rotation_euler = (0, 0, 0); turned.add(o)
-        elif depth >= 2 and o.parent in turned:
-            x, y, z = o.location; o.location = (x, y, -z)
+            x, y, z = o.location; o.location = (x, z, -y); o.rotation_euler = (0, 0, 0); turned.add(o)
         for c in list(o.children): fix(c, depth + 1)
     fix(root, 0)
     img = bpy.data.images.load(os.path.abspath(atlas), check_existing=True)
@@ -43,7 +43,10 @@ def fixed_import(name, lod, atlas):
     b = mat.node_tree.nodes["Principled BSDF"]; b.inputs["Roughness"].default_value = 0.8
     mat.node_tree.links.new(t.outputs["Color"], b.inputs["Base Color"])
     meshes = [o for o in new if o.type == 'MESH']
-    for o in meshes: o.data.materials.clear(); o.data.materials.append(mat)
+    for o in meshes:
+        o.data.materials.clear(); o.data.materials.append(mat)
+        # shaded as Unity shades it: Editor/TankImport.cs has the normals recalculated, smooth up to 55 degrees
+        o.data.shade_smooth(); o.data.set_sharp_from_angle(angle=math.radians(55))
     for o in new:
         if o.type == 'EMPTY' and o.name.split(".")[0].startswith("Socket_"): o.hide_render = True
     return root, meshes
@@ -119,7 +122,7 @@ for name in NAMES:
         root, meshes = fixed_import(name, lod, atlas); roots.append((root, meshes))
     lo, hi = bounds(roots[0][1]); mid = (lo + hi) / 2; size = max(hi - lo) * 1.15
     sides = {}
-    for side, yaw in (("front", 0), ("left", 90), ("back", 180), ("right", 270)):
+    for side, yaw in (("back", 0), ("right", 90), ("front", 180), ("left", 270)):   # the model faces Blender +Y here
         d = Vector((math.sin(math.radians(yaw)), -math.cos(math.radians(yaw)), math.tan(math.radians(15))))
         frames = []
         for lod in (0, 1):
@@ -138,8 +141,21 @@ for name in NAMES:
                 ra = a[by:by + 8, bx:bx + 8, :3][ca].mean(0); rb = b[by:by + 8, bx:bx + 8, :3][cb].mean(0)
                 diffs.append(float(np.abs(ra - rb).mean()) * 255)
         sides[side] = {"iou": round(iou, 3), "block": round(sum(diffs) / max(1, len(diffs)), 1)}
+        # and as the battle shows the switch: docs/22 measures each at its switch distance; past LodDistance (170 m) a
+        # 7-8 m machine is ~80 px tall on a 1080 p screen, so the same frames box-filtered to 85 px, 3 px blocks
+        small = [f[:255, :255].reshape(85, 3, 85, 3, 4).mean(axis=(1, 3)) for f in frames]
+        sa_, sb_ = small[0][..., 3] > 0.5, small[1][..., 3] > 0.5
+        d80 = []
+        for by in range(0, 84, 3):
+            for bx in range(0, 84, 3):
+                ca, cb = sa_[by:by + 3, bx:bx + 3], sb_[by:by + 3, bx:bx + 3]
+                if ca.mean() < 0.5 or cb.mean() < 0.5: continue
+                d80.append(float(np.abs(small[0][by:by + 3, bx:bx + 3, :3][ca].mean(0) - small[1][by:by + 3, bx:bx + 3, :3][cb].mean(0)).mean()) * 255)
+        sides[side]["iou80"] = round(float((sa_ & sb_).sum()) / max(1, float((sa_ | sb_).sum())), 3)
+        sides[side]["block80"] = round(sum(d80) / max(1, len(d80)), 1)
     worst = min(sides.values(), key=lambda s: s["iou"])
-    report["pop"][name] = {"sides": sides, "worst_iou": worst["iou"], "worst_block": max(s["block"] for s in sides.values())}
+    report["pop"][name] = {"sides": sides, "worst_iou": worst["iou"], "worst_block": max(s["block"] for s in sides.values()),
+                           "worst_iou80": min(s["iou80"] for s in sides.values()), "worst_block80": max(s["block80"] for s in sides.values())}
     print("POP", name, json.dumps(report["pop"][name]))
 json.dump(report, open(os.path.join(OUT, "pop.json"), "w"), indent=1)
 print("LINEUP", json.dumps(report["lineup"]))

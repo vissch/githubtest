@@ -40,6 +40,7 @@
 # <renderdir>/<Name>_battle.json, since Resources ships whatever sits in it, and a portrait render to
 # <renderdir>/<Name>_portrait.png (the HUD's pictures are cut from it: Tools/portraitcut.py).
 # TW_PIECE_TRIS: at a derived LOD, a part keeps at least this many triangles per loose piece (default 0: off).
+# TW_KEEP="Part:share,...": at a derived LOD, a named part keeps at least that share of its LOD0 triangles.
 #
 # usage: blender -b --factory-startup -P mechsplit.py -- <name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>
 #   the battle's copy: TW_BATTLE=1 ... -- <Name> <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/<Name> <renderdir>
@@ -447,6 +448,11 @@ for k in (1, 2):
         # TW_PIECE_TRIS: a part of many small loose pieces keeps this many triangles a piece (the Salvo's sixteen rocket
         # tubes, 22 each, went to spikes at 4); 0 (the default) derives as before
         want = max(want, min(have, len(islands(P0[n])) * int(os.environ.get("TW_PIECE_TRIS", "0"))))
+        # TW_KEEP="Part:share,...": a round part keeps at least that share of its LOD0 triangles (the Skimmer's fan ring
+        # went octagonal at the far LOD, the Salvo's tyres too)
+        for item in filter(None, os.environ.get("TW_KEEP", "").split(",")):
+            part, share = item.split(":")
+            if part == n: want = max(want, int(have * float(share)))
         P[n] = decimated(P0[n], want / max(1, have))
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
