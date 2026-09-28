@@ -152,7 +152,13 @@ namespace TW.Tests
         {
             Assert.Greater(CombatFx.ShellFireWidth(8f, 0f), CombatFx.ShellFireWidth(3f, 0f), "a bigger shell, a bigger fireball");
             Assert.Less(CombatFx.ShellFireWidth(8f, 1f), CombatFx.ShellFireWidth(8f, 0f), "smaller up close, as the flash is");
-            Assert.Less(CombatFx.ShellFireWidth(8f, 0f), 8f * 2.6f, "narrower than the cloud it burns in");
+            Assert.Less(CombatFx.ShellFireWidth(8f, 0f), 8f * CombatFx.BurstWidth(false, 1f), "narrower than the cloud it burns in");
+            Assert.AreEqual(2.6f, CombatFx.BurstWidth(true, 1f), "the night cloud as the AOSA tuned it");
+            Assert.AreEqual(2.6f, CombatFx.BurstWidth(false, 0f), "fx.shellFire 0: the old cloud");
+            Assert.AreEqual(Color.clear, CombatFx.EmberFor(false, 0f), "fx.shellFire 0: no ember");
+            Assert.Greater(CombatFx.EmberFor(false, 1f).r, CombatFx.EmberFor(true, 1f).r, "dimmer at night");
+            Assert.That(FlipbookFx.BurstWeight(0.6f), Is.InRange(0.85f, 0.9f), "the burst's cloud denser than the lingering smoke");
+            Assert.AreEqual(1f, FlipbookFx.BurstWeight(1f), 1e-6f, "fx.smokeWeight 1: as it was");
             for (int x = 0; x < 30; x++)
             {
                 var p = new Vector3(x * 7.3f, 1f, x * -4.1f);
