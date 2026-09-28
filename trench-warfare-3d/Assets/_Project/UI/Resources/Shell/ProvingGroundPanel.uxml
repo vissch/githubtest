@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <!-- The panel of the Proving Ground, docked at the right of a running match and never modal: the match plays on
          under it. UNITS puts any unit on the field for either side, WAVES sends the enemy at you (ready made, your
-         own, on a timer), MATCH holds the clock and the purse. Rows are built by ProvingGroundPanel. F8 folds it away.
+         own, on a timer), MATCH holds the clock, the purse, the enemy's support and the scripted enemy. Rows are built by ProvingGroundPanel. F8 folds it away.
          Loaded from Resources, so no ShellAssets field. -->
     <Style src="../../Skin/dustfront.uss" />
     <Style src="../../Shell/Shell.uss" />
@@ -48,13 +48,6 @@
                     <ui:Label name="timer-text" text="NO WAVE ON THE TIMER" class="tw-caption" />
                     <ui:Button name="btn-timer-stop" text="STOP" class="tw-btn tw-btn--small" />
                 </ui:VisualElement>
-                <ui:Label text="THEIR SUPPORT, ON YOUR FRONT TRENCH" class="tw-caption pg-section" />
-                <ui:VisualElement class="pg-line">
-                    <ui:Button name="btn-enemy-barrage" text="BARRAGE NOW" class="tw-btn tw-btn--small tw-btn--danger" />
-                    <ui:Button name="btn-enemy-gas" text="GAS NOW" class="tw-btn tw-btn--small tw-btn--danger" />
-                </ui:VisualElement>
-                <ui:Label text="SCRIPTED ENEMY" class="tw-caption pg-section" />
-                <ui:VisualElement name="ai-tabs" class="pg-line" />
             </ui:VisualElement>
 
             <ui:VisualElement name="page-match" class="pg-page">
@@ -77,6 +70,13 @@
                     <ui:Button name="btn-sappers-wire" text="OURS: TRIPWIRE" class="tw-btn tw-btn--small" />
                     <ui:Button name="btn-sappers-theirs" text="THEIRS: MINE" class="tw-btn tw-btn--small" />
                 </ui:VisualElement>
+                <ui:Label text="THEIR SUPPORT, ON YOUR FRONT TRENCH" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-enemy-barrage" text="BARRAGE NOW" class="tw-btn tw-btn--small tw-btn--danger" />
+                    <ui:Button name="btn-enemy-gas" text="GAS NOW" class="tw-btn tw-btn--small tw-btn--danger" />
+                </ui:VisualElement>
+                <ui:Label text="SCRIPTED ENEMY" class="tw-caption pg-section" />
+                <ui:VisualElement name="ai-tabs" class="pg-line" />
                 <ui:Label text="THE MATCH" class="tw-caption pg-section" />
                 <ui:VisualElement class="pg-line">
                     <ui:Button name="btn-restart" text="RESTART" class="tw-btn tw-btn--small" />
