@@ -516,7 +516,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   burst and lobs a man's height).
 - **The AOSA look knobs** (`fx.*`, read in `Awake`/`Start` from `Presentation/Core/Knobs.cs`): the night column, soil
   heave and smoke in the shell-burst handler (`fx.columnSoil`, `fx.columnCap`, `fx.columnPlay`, `fx.smokeNight*`; the VFX
-  pass's burst recipes, `fx.recipes`, default 0 = the old burst, `CombatFx.Recipes.cs`), when a
+  pass's burst recipes, `fx.recipes`, default 0 = the old burst, `CombatFx.Recipes.cs`; the medic's glint behind it, `CombatFx.Support.cs`), when a
   tick's rifle shots are shown (`Presentation/Core/ShotStagger.cs`, `fx.shotStagger`), and where a tracer is drawn among
   the smoke (`Presentation/Camera/TracerLook.cs`). Every knob's default is the look as it was; the AOSA loop's record of
   what each one did is `docs/reference/aosa/`.
