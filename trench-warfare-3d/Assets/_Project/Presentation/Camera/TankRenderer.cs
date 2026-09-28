@@ -1470,8 +1470,26 @@ namespace TW.Presentation.Tactical
             flameMesh.MarkDynamic();
         }
 
+        readonly List<Matrix4x4> standCards = new List<Matrix4x4>(256);
+
         void DrawFlames()
         {
+            if (recipes >= 0.5f && books != null && books.Ready)
+            {
+                // L22 / Q7 (fx.recipes): the drawn fire in place of the noise tongues, the Stand loop the flamethrower's pyres
+                // burn with, each tongue its own place in the loop (its Phase); the procedural flame stays the no-books fallback
+                float now = Time.time;
+                standCards.Clear();
+                for (int g = 0; g < flames.Count && g < 256; g++)
+                {
+                    var f = flames[g];
+                    if (f.Height < 0.05f) continue;
+                    standCards.Add(FlipbookFx.Pack(f.Foot, f.Width * 2.6f, f.Height * 1.25f, Mathf.Repeat(now * 12f + f.Phase * 7f, 15f), 1f, SceneMood.Night ? 1.4f : 1f, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                }
+                flames.Clear();
+                if (standCards.Count > 0) books.DrawPacked(FlipbookFx.Book.Stand, standCards, Everywhere);
+                return;
+            }
             if (flameMat == null || flameMesh == null) { flames.Clear(); return; }
             fPos.Clear(); fCorner.Clear(); fShape.Clear(); fTris.Clear();
             for (int g = 0; g < flames.Count && g < 256; g++)
