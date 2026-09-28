@@ -112,7 +112,7 @@ namespace TW.Tests
         {
             using var r = new Rig();
             int flame = r.Man(InfantryArchetype.Flamethrower, Open, 0, 1e6f);
-            int bearer = r.Man(InfantryArchetype.Shield, Open + new float3(0f, 0f, 6f), 1, 1e5f);
+            int bearer = r.Man(InfantryArchetype.Shield, Open + new float3(0f, 0f, 9f), 1, 1e5f);   // past 8 m: nobody charges (MeleeSystem)
             r.W.Yaw[bearer] = SimMath.Pi;   // facing the jet: the plate is between them
             Assert.IsTrue(r.RunUntil(200, () => Rig.Count(r.Log, SimEventType.Shot, flame, bearer) >= 8), "setup: eight bursts at him");
             Assert.AreEqual(0, Rig.Count(r.Log, SimEventType.ShieldBlocked, bearer, flame), "the plate stopped none of them");
@@ -125,7 +125,7 @@ namespace TW.Tests
         {
             using var r = new Rig();
             int rifle = r.Man(InfantryArchetype.Rifle, Open, 0, 1e6f);
-            int target = r.Man(InfantryArchetype.Medic, Open + new float3(0f, 0f, 6f), 1, 1e5f);
+            int target = r.Man(InfantryArchetype.Medic, Open + new float3(0f, 0f, 9f), 1, 1e5f);   // past 8 m: he shoots, not charges
             Assert.IsTrue(r.RunUntil(400, () => Rig.Count(r.Log, SimEventType.Hit, rifle, target) >= 3), "setup: the rifle hits him");
             Assert.AreEqual(0, Rig.Count(r.Log, SimEventType.UnitAlight));
             Assert.AreEqual(0, Rig.Count(r.Log, SimEventType.CellBurning));

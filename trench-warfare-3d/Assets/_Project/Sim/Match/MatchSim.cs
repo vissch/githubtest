@@ -22,6 +22,8 @@ namespace TW.Sim.Match
         public TargetAcquisitionSystem Acquisition;
         public DirectFireSystem Fire;
         public EngageSystem Engage;              // null without combat
+        public MeleeSystem Melee;                // null without combat
+        public PounceSystem Pounce;              // null without combat
         public AuraSystem Aura;
         public TW.Sim.Units.SupportSystem Support;
         public LeapSystem Leap;
@@ -125,8 +127,12 @@ namespace TW.Sim.Match
             {
                 Engage = new EngageSystem(map);
                 World.AddSystem(Engage);                    // A3: men in the open close on the enemy and stand to shoot (steps just before Movement)
+                Melee = new MeleeSystem(map);
+                World.AddSystem(Melee);                     // A3: hand to hand within 8 m, over Engage's orders (steps between it and Movement)
                 Gunnery = new TankGunnerySystem(map);
                 World.AddSystem(Gunnery);                   // A5b: tank main guns (steps right after direct fire)
+                Pounce = new PounceSystem(map);
+                World.AddSystem(Pounce);                    // A5b: a crab leaps onto a man about 10 m in front (steps after Kinematics)
             }
             Modules = new VehicleModulesSystem(map);
             World.AddSystem(Modules);                       // A5b: armour, modules, crew, fire, bail-out, cook-off, wrecks

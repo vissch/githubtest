@@ -324,6 +324,8 @@ namespace TW.Sim.Combat
                 {
                     if ((Flags[i] & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
                     if (FireCooldown[i] > 0) { FireCooldown[i]--; continue; }
+                    // charging or fighting hand to hand, or his weapon on the ground (MeleeSystem): no shot
+                    if ((Flags[i] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed)) != 0) continue;
                     int t = TargetSlot[i];
                     if (t < 0) continue;
                     if ((Flags[t] & (uint)UnitFlags.Alive) == 0 || Hp[t] <= 0f) { TargetSlot[i] = -1; continue; }

@@ -116,7 +116,8 @@ namespace TW.Tests
             int Hits(bool smoke, out float nearMiss)
             {
                 using var r = new Rig();
-                int shooter = r.Man(new float3(100f, 0f, 200f), 1e6f, team: 0, archetype: 2);   // a machine gun: enough rounds to count
+                // (12 m: at 8 he would charge instead of shooting, MeleeSystem)
+                int shooter = r.Man(new float3(96f, 0f, 200f), 1e6f, team: 0, archetype: 2);   // a machine gun: enough rounds to count
                 int target = r.Man(new float3(108f, 0f, 200f), 1e6f, team: 1);
                 if (smoke)
                     for (int dz = -8; dz <= 8; dz += 8) { r.M.Gas.AddSmokeSource(new float3(104f, 0f, 200f + dz), 30f, 2000, 1); r.M.Gas.AddSmokeSource(new float3(108f, 0f, 200f + dz), 30f, 2000, 1); }
