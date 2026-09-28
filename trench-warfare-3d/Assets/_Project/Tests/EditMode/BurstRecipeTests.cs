@@ -174,6 +174,9 @@ namespace TW.Tests
             }
             Assert.IsTrue(CombatFx.Masonry(1f) && !CombatFx.Masonry(0f) && !CombatFx.Masonry(2f), "only falling masonry has no fire");
             Assert.Greater(CombatFx.GritCount(8f), CombatFx.GritCount(3f), "a bigger shell sprays more grit");
+            Assert.AreEqual(1f, CombatFx.ShellFarAt(30f), "the standard view: as drawn");
+            Assert.Greater(CombatFx.ShellFarAt(70f), 1.5f, "z70: grown, not a pinprick");
+            Assert.AreEqual(2.2f, CombatFx.ShellFarAt(400f), 1e-6f, "capped");
         }
     }
 }
