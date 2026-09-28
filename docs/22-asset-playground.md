@@ -289,3 +289,44 @@ it; whatever loses all its supports (`HouseKit.Solve`'s RestsOn) comes down a st
 ## Not done yet
  the vehicle and figure are not yet in `Resources/` nor known to the sim (archetype,
 `TankModel` 3-LOD support, a VAT bake of the frog through the retarget).
+
+## Into the battle: the Skimmer and the Salvo (2026-09-28)
+The Skimmer and a new half-track rocket truck, the Salvo, became battle units (archetypes 19 and 20, defined in
+`Sim/Match/UnitDefinitions.cs`, fielded by no faction: the Unit Sandbox spawns them). Their battle copies are written
+by `Tools/mechsplit.py TW_BATTLE=1` (commands in `pipelines.md`). The loop below judged them off those FBXs with
+`Tools/battlelineup.py`: a lineup beside the Maw (drawn 1.7x), the Pincer (2.5x) and a 1.8 m man, and each machine's
+LOD0 -> LOD1 pop from four sides, EEVEE, the normals smoothed at 55 degrees as `Editor/TankImport.cs` has Unity do.
+Worst side, silhouette IoU / block colour (mean |RGB| of 8 px block means, 0-255), full frame and at the battle's
+scale at the switch (85 px, 3 px blocks). Images: `docs/reference/figures/battle-loop/`.
+
+| Round | What was seen | Changed | Skimmer | Salvo |
+|---|---|---|---|---|
+| before | the lineup came apart (the Pincer's turrets and the Skimmer's gun floating: `lineup-before-fix.jpg`) | `battlelineup.py` undoes the exporter's node turn exactly as TankImport does, nothing more (a first rule also moved the parts below a turned part, and every mesh sat mirrored about its pivot); checked on every Skimmer part against the manifest to 0.01 m | - | - |
+| r0 | all four assemble (`lineup-r0.jpg`): noses left, the Maw 9.3 m long, the Pincer 9.0, the Skimmer 7.0, the Salvo 8.0, a man 1.8. At LOD1 the Skimmer's fan ring is an octagon, the Salvo's tyres too, its rocket box blotchy, its legs spiky | nothing (baseline); smoothing as Unity does moved the numbers by 0.3 at most | 0.954 / 9.2 | 0.957 / 9.5 |
+| r1 | | `TW_KEEP`: the fan ring keeps 50 % of its LOD0 triangles, the fan 35 %; the Salvo's tyres 40 %, its rocket box 35 %. The ring and the tyres are round again | 0.976 / 8.8 (85 px 8.5) | 0.966 / 7.9 (7.4) |
+| r2 | the Skimmer's camouflage and rim smear on the hull; the box is clean | both hulls keep 30 % | 0.977 / 8.1 (7.8) | 0.975 / 7.3 (7.1) |
+| r3 | the Salvo's legs and joint balls still faceted | per-piece floor 20 (Salvo), 16 (Skimmer) | 0.978 / 8.1 (7.7) | 0.981 / 6.2 (6.0) |
+
+Shipped with round 2's settings: the far LODs are 1,840 (Skimmer) and 2,539 (Salvo) triangles. Round 3 bought the
+Salvo 1.1 of block colour for 650 more triangles (3,188, more than any walker's near LOD) and the Skimmer nothing, so
+the loop stopped there. On this bench the shipped walkers measure Kettle 0.992 / 4.2, Redoubt 0.972 / 6.2, Pincer
+0.951 / 11.1: both new machines sit inside the shipped range and, at the battle's scale, inside the playground's 1-8.
+What is left of the Skimmer's 7.8 is its camouflage spots smeared by the decimation (UVs move with the collapsed
+vertices); a UV-preserving decimation would be the next step, not more triangles. The coordinator's first run of the
+tool (Workbench, 13.3 / 18.5) is not comparable: flat studio light and no smoothing.
+
+**The numbers, against the machines that ship.** The Skimmer (220 silver, 1,300 hp, 3.4 m/s, 8 mm front, a machine
+gun at 130 m) is the cheapest and quickest machine and the thinnest: it hunts men in the open and mud and trenches do
+not slow it, but it cannot hurt a machine, any tank gun holes it anywhere, and a 37 mm Tusk (260) kills it. The Salvo
+(380, 2,000 hp, 1.8 m/s, rockets to 380 m, blind inside 60 m, 360 over 7 m every 16 s) outranges everything (the
+Pavise's gun reaches 360 m) but throws about half the Kettle's HE a second (Kettle: 320 every 6.5 s), cannot answer a
+machine that closes inside 60 m and cooks off easily (ammunition risk 0.7). Neither should dominate; the Salvo may
+read as weak for its price, which Play will tell.
+
+**The salvo.** The sim fires one indirect shell per reload and its burst (and the men it kills) happens on the tick it
+is fired. `Presentation/Camera/TankRenderer.Salvo.cs` draws that shot as twelve rockets leaving the tubes over a
+second, each on its own arc with a smoke trail, landing scattered over the burst's radius round the sim's landing
+point. They land 1-3 s after the sim's burst: a delayed impact in the sim would line them up, and that is the owner's call.
+
+**Left for a look in Play:** the salvo's timing against the sim's burst; its trails and bursts at night; the Skimmer's
+turret following its machine gun's target and its fan spinning; the Salvo's wheels rolling; both far LODs at 170 m.

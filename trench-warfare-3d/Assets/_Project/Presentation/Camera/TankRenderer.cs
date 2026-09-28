@@ -123,13 +123,14 @@ namespace TW.Presentation.Tactical
         /// by Tools/mechsplit.py TW_BATTLE=1 (2026-09-28) are written in metres at the size they are meant to be, so
         /// they are drawn at 1.
         /// </summary>
-        static readonly (string Name, byte Archetype, string Root, float Scale)[] Machines =
+        /// Rockets: a shot is drawn as a rack of that many rockets (TankRenderer.Salvo.cs); 0 draws it as one gun.
+        static readonly (string Name, byte Archetype, string Root, float Scale, int Rockets)[] Machines =
         {
-            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker),
-            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker),
-            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker),
-            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f),   // 7 m across its pods
-            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f),       // 8 m long
+            ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker, 0), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker, 0),
+            ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker, 0), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker, 0),
+            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker, 0), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, 0),
+            ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f, 0),    // 7 m across its pods
+            ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, 12),       // 8 m long; twelve of its sixteen tubes a shot
         };
         const int WalkerRows = 6;
         /// <summary>The model and the two LOD materials of each Machines row.</summary>
@@ -299,6 +300,7 @@ namespace TW.Presentation.Tactical
             RunPops(now);
             RidersFrame(now);   // the men on the walkers' backs, at the hulls as posed above
             Draw();
+            RocketsFrame(now);   // the Salvo's rockets in the air, their trails and where they come down
             if (books != null && books.Ready) books.Draw(now, Everywhere);
             Fireballs(now);
             DrawFlames();
@@ -959,6 +961,7 @@ namespace TW.Presentation.Tactical
                 {
                     if (v == null || v.Dead || e.B < 0 || e.B > 1) break;
                     v.Recoil[e.B] = 1f;
+                    if (Salvo(v, (Vector3)e.Pos, Time.time)) { v.Recoil[e.B] = 0.35f; break; }   // a rack of rockets, not one gun
                     Vector3 muzzle = MuzzleWorld(v, e.B, out Vector3 dir);
                     // the hull answers the shot: rocks back along the barrel
                     Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);

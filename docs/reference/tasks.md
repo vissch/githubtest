@@ -234,7 +234,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Tanks and walkers drawn
 - **Files:** `Presentation/Camera/TankRenderer.cs` (`Machines`: every machine with an atlas of its own, the walkers and
-  since 2026-09-28 the Skimmer and the Salvo, `Resources/Vehicles/Skimmer`, `/Salvo`; a turret on a machine armed only
+  since 2026-09-28 the Skimmer and the Salvo, `Resources/Vehicles/Skimmer`, `/Salvo`; a row's Rockets draw its shot as a rack of rockets, `Presentation/Camera/TankRenderer.Salvo.cs`; a turret on a machine armed only
   with small arms follows `SimWorld.TargetSlot`; a part called Fan spins), `Presentation/Camera/TankModel.cs` (parts, sockets, leg rigs),
   `Presentation/Camera/WalkerGait.cs` (planted feet), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
   import rules `Editor/TankImport.cs`. Infantry riding the machines (a prototype, presentation only):
