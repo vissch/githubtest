@@ -16,6 +16,7 @@ namespace TW.UI
         public static void ApplyAll(GameSettings s, bool video)
         {
             if (video) ApplyVideo(s);
+            else ApplyEffects(s);   // the effects' tier is no screen change: the editor's boot applies it too
             ApplyAudio(s);
             ApplyInterface(s);
             ApplyCamera(s);

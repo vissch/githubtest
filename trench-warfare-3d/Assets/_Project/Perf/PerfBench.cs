@@ -121,6 +121,7 @@ namespace TW.Perf
         uint hashEndTick;
         bool hashEndTaken;
         readonly BenchScenarios.Log scenarioLog = new BenchScenarios.Log();
+        BenchLineup lineup;   // scenario=lineup: its staged fire, queued each window tick
         int aliveStart;
         double startRealtime;
         bool prevTicked, allFocused = true;
@@ -233,7 +234,8 @@ namespace TW.Perf
             // the scenario, after hash_start and before the match resumes: nothing it does can reach the battle the
             // window opened on, and its orders land on the same tick in every run (its few allocations happen before
             // the GC and mono baselines below)
-            if (Options.Scenario != BenchScenario.None) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
+            if (Options.Scenario == BenchScenario.Lineup) lineup = BenchLineup.Stage(host, focus, scenarioLog);   // it ticks with the window (Sample)
+            else if (Options.Scenario != BenchScenario.None) BenchScenarios.Issue(Options.Scenario, host, focus, scenarioLog);
             // C72: an image run logs its shots (allocated here, before the GC baselines; never in a perf run)
             if (Options.ShotTick >= 0 && !string.IsNullOrEmpty(Options.Shot))
             {
@@ -625,6 +627,7 @@ namespace TW.Perf
             long mono = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
             if (mono > monoMax) monoMax = mono;
 
+            lineup?.Tick(host, (int)(tick - t0), Options.ShotTick >= 0 ? Options.ShotTick : 60);
             if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
             if (ShotLog.On && heldFrameTimes != null && framesShot >= heldFrameTimes.Length) ShotLog.Stop();   // C72: the last held frame is shot
             if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }

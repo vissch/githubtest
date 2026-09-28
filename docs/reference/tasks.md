@@ -853,7 +853,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Performance and allocations
 - **Files:** `Perf/PerfBench.cs`, `Perf/BenchOptions.cs` (every bench option is parsed in `Parse`: the list of
-  keys), `Perf/BenchScenarios.cs` (`scenario=`: what the window stages on top of the stress battle),
+  keys), `Perf/BenchScenarios.cs` (`scenario=`: what the window stages on top of the stress battle), `Perf/BenchLineup.cs` (`scenario=lineup`: every class's shot, every gun and every burst side by side at the focus, staged fire; knob `bench.lineupFire`),
   `Perf/HitchAttribution.cs` (which TW marker carried a hitch), `Perf/AllocProbe.cs`, `Presentation/Core/HeavyWork.cs`,
   `FrameBudget` in `Presentation/Core/RenderGround.cs`, `Presentation/Core/Knobs.cs` (run-time knobs: `knobs=`,
   `-twknob`, `TW_KNOBS`; a report lists every knob it read), `Presentation/Core/ShotLog.cs` (the per-shot log of an image
