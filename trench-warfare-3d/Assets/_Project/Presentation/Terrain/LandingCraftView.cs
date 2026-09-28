@@ -27,6 +27,7 @@ namespace TW.Presentation.Terrain
         /// Null until it loads, and the welded steamer below is what is drawn in its place if it never does.</summary>
         TW.Presentation.Tactical.TankModel cutter;
         Material cutterMat;
+        Matrix4x4[] cutterPose;   // each part of the Cutter in the model's frame, this frame
         MapData map;
         float nextWake;
         bool subscribed;
@@ -197,10 +198,13 @@ namespace TW.Presentation.Terrain
                 {
                     // the gunboat, drawn part by part off its own model: hull, and the gun on it laid out to sea
                     var lod = cutter.Lods[0];
+                    if (cutterPose == null || cutterPose.Length < lod.Parts.Count) cutterPose = new Matrix4x4[lod.Parts.Count];
                     for (int k = 0; k < lod.Parts.Count; k++)
                     {
                         var part = lod.Parts[k];
-                        var local = Matrix4x4.TRS(part.Local, part.LocalRot, Vector3.one);
+                        // each part in its parent's frame (the gun stands on the hull, which sits 4.4 m forward of the
+                        // model's origin): drawn in the ship's frame alone, the gun stood 4.4 m off its deck
+                        var local = (part.Parent >= 0 ? cutterPose[part.Parent] : Matrix4x4.identity) * Matrix4x4.TRS(part.Local, part.LocalRot, Vector3.one);
                         if (part.Role == TW.Presentation.Tactical.TankPartRole.Gun)
                         {
                             // it lays the gun slowly along the shore, and kicks when it fires
@@ -208,6 +212,7 @@ namespace TW.Presentation.Terrain
                             float kick = since < .45f ? Mathf.Sin((1f - since / .45f) * Mathf.PI) * 0.5f : 0f;
                             local *= Matrix4x4.TRS(new Vector3(0f, 0f, -kick), Quaternion.Euler(-4f - kick * 9f, Mathf.Sin(now * .13f + i) * 22f, 0f), Vector3.one);
                         }
+                        cutterPose[k] = local;
                         FrameBudget.Draw(new RenderParams(cutterMat) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true },
                             part.Mesh, 0, body * local);
                     }
