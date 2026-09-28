@@ -113,6 +113,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A thin thread of smoke off every charred body for a while after it fell.</summary>
         void TickSmoulders(float now)
         {
+            DrawGagMarks(now);   // the gags' blood and scorch (CombatFx.Gags)
             if (smoulders.Count == 0) return;
             bool draw = books != null && books.Ready;
             for (int i = smoulders.Count - 1; i >= 0; i--)
