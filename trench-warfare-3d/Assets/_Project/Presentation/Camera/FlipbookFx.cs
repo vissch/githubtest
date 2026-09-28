@@ -126,10 +126,13 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "FireFan",   Cols = 8, Rows = 4, Frames = 16, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.09f, High = 0.75f, Fps = 12f, Bands = new Vector4(0.02f, 0.08f, 0.64f, 0.75f), Ink = new Vector2(0.00f, 1.00f), Fill = 0.98f },
             new Sheet { Name = "FireStand", Cycle = true, Cols = 8, Rows = 4, Frames = 16, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.13f, High = 1.00f, Fps = 12f, Rise = 0.62f, Bands = new Vector4(0.05f, 0.13f, 0.73f, 0.75f), Ink = new Vector2(0.11f, 0.90f), Fill = 0.83f },
             new Sheet { Name = "FirePool",  Cycle = true, Cols = 8, Rows = 4, Frames = 16, Fire = true, Snap = true, Tint = new Color(1.30f, 0.58f, 0.16f), Low = 0.00f, High = 0.53f, Fps = 12f, Rise = 0.80f, Play = 0.75f, Bands = new Vector4(0.42f, 0.51f, 0.80f, 0.75f), Ink = new Vector2(0.06f, 0.94f), Fill = 1.00f },
+            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.05f, 0.51f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f },
             new Sheet { Name = "FireHead",  Cols = 8, Rows = 4, Frames = 19, Fire = true, Snap = true, Tint = new Color(1.44f, 0.66f, 0.18f), Low = 0.08f, High = 0.79f, Fps = 12f, Bands = new Vector4(0.03f, 0.05f, 0.29f, 0.75f), Ink = new Vector2(0.23f, 0.80f), Fill = 0.89f },
             new Sheet { Name = "FireBloom", Cols = 8, Rows = 4, Frames = 21, Fire = true, Snap = true, Tint = new Color(1.38f, 0.64f, 0.18f), Low = 0.12f, High = 0.74f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.39f, 0.75f), Ink = new Vector2(0.05f, 0.98f), Fill = 0.84f },
-            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.05f, 0.51f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f },
         };
+
+        /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
+        public static string SheetName(Book b) => Sheets[(int)b].Name;
 
         /// <summary>Where a book's drawing sits in its cell: y as bottom-up fractions, and its width as a fraction of the cell.</summary>
         public static void Geometry(Book b, out float inkLow, out float inkHigh, out float fill)
