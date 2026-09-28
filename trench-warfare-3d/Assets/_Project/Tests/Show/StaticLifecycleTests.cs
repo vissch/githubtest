@@ -27,6 +27,7 @@ namespace TW.Tests
             ["Atmosphere"] = "weather, mood and the storm flash: the live Atmosphere rewrites them every frame; PinnedClock is a capture switch the caller restores",
             ["AllocProbe"] = "a cached profiler Recorder and a re-entry guard for one measurement at a time",
             ["AudioLevels"] = "player settings, applied from settings.json by SettingsApplier",
+            ["FxQuality"] = "a player setting (the effects' tier), applied from settings.json by SettingsApplier; a bench pins it with the knob fx.quality",
             ["BattleHud"] = "legacy IMGUI HUD layout (MinimapRect, a warning latch); retired in the audit backlog",
             ["BattlefieldProps"] = "EditorCamera: the prop editor's camera, set and cleared by EnvPropEditor",
             ["AssetScaleTable"] = "rules: built once from the table in its code, never written after",
