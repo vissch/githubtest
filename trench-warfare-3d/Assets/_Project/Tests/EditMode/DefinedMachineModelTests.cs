@@ -84,10 +84,17 @@ namespace TW.Tests
                     var trunnion = m.Lods[0].Parts[m.Lods[0].Find("Gun")].Local;
                     Assert.AreEqual(1.15f, trunnion.y, 0.1f, $"{name}: the rack's trunnion is {trunnion.y:F2} m above the turntable");
                     Assert.AreEqual(0f, trunnion.z, 0.1f, $"{name}: and {trunnion.z:F2} m ahead of it");
+                    // the mouths hang off the Hull (mechsplit.py: a socket under the Gun is three nodes deep and does not
+                    // survive TankImport); taken relative to the trunnion they stand 2.31-3.14 m ahead of it (the manifest).
+                    // A rack split facing backwards puts them behind it, one unturned puts them level with it.
+                    var parts = m.Lods[0].Parts; int hull = m.Lods[0].Find("Hull"), gun = m.Lods[0].Find("Gun");
+                    Vector3 trunnionInHull = parts[gun].Local + parts[parts[gun].Parent].Local;
                     for (int k = 0; k < 16; k++)
                     {
                         Assert.IsTrue(m.Sockets.TryGetValue("Socket_Tube" + k.ToString("00"), out var tube), $"{name} has no tube {k}");
-                        Assert.Greater(tube.local.z, 2f, $"{name}: tube {k}'s mouth is {tube.local.z:F2} m ahead of the trunnion");
+                        Assert.AreEqual(hull, tube.part, $"{name}: tube {k}'s mouth must hang off the Hull");
+                        float ahead = tube.local.z - trunnionInHull.z;
+                        Assert.AreEqual(2.72f, ahead, 0.5f, $"{name}: tube {k}'s mouth is {ahead:F2} m ahead of the trunnion");
                     }
                 }
                 var muzzle = m.Sockets["Socket_Muzzle"].local;

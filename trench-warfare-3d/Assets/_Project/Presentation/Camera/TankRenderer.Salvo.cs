@@ -56,8 +56,14 @@ namespace TW.Presentation.Tactical
             int tubes = 0;
             while (v.Model.Sockets.ContainsKey("Socket_Tube" + tubes.ToString("00"))) tubes++;
             if (tubes == 0) return muzzle;
+            // the mouths hang off the Hull, as the rack stands at rest (Tools/mechsplit.py: deeper sockets do not survive
+            // the import), so each is taken into the rack's own frame at rest and carried on the rack as it is posed now
             var s = v.Model.Sockets["Socket_Tube" + (k % tubes).ToString("00")];
-            return v.World[s.part].MultiplyPoint3x4(s.local);
+            var parts = v.Model.Lods[0].Parts;
+            int gun = v.Model.GunPart[0];
+            Vector3 rest = Vector3.zero;
+            for (int p = gun; p >= 0 && p != s.part; p = parts[p].Parent) rest += parts[p].Local;
+            return v.World[gun].MultiplyPoint3x4(s.local - rest);
         }
 
         void BuildRocket()
