@@ -14,7 +14,7 @@ namespace TW.Tests
         static void AssertOld(CombatFx.BurstRecipe r, string what)
         {
             Assert.IsTrue(r.Column && r.OldSmoke, what + ": the old column and smoke");
-            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring || r.Lean || r.Dust, what + ": nothing new");
+            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring || r.Lean || r.Dust || r.Curtain, what + ": nothing new");
         }
 
         [Test]
@@ -122,6 +122,19 @@ namespace TW.Tests
             Assert.IsFalse(r.Column || r.OldSmoke || r.Plume || r.Mortar || r.Lean || r.CookOff, "no shell's parts");
             AssertOld(CombatFx.RecipeFor(0f, 0f, false, 0f, 4f, landing), "fx.recipes 0");
             Assert.IsFalse(CombatFx.RecipeFor(0f, 0f, false, 1f, 4f).Dust, "a shell has no landing dust");
+        }
+        [Test]
+        public void CreepingBarrage_StandsACurtain_AndShellsComeInAhead()
+        {
+            int creeping = (int)TW.Sim.Match.OffMapAbilityId.CreepingBarrage, he = (int)TW.Sim.Match.OffMapAbilityId.HeBarrage;
+            Assert.IsTrue(CombatFx.RecipeFor(0f, 0.5f, false, 1f, 8f, creeping).Curtain, "a creeping lift's shell");
+            Assert.IsFalse(CombatFx.RecipeFor(0f, 0.5f, false, 1f, 8f, he).Curtain, "an ordinary barrage's shell");
+            AssertOld(CombatFx.RecipeFor(0f, 0.5f, false, 0f, 8f, creeping), "fx.recipes 0");
+            int shell = (int)TW.Sim.Match.PayloadKind.Shell;
+            Assert.IsTrue(CombatFx.IsIncoming(shell, he));
+            Assert.IsFalse(CombatFx.IsIncoming(shell, (int)TW.Sim.Match.OffMapAbilityId.StrafeRun), "a strafe's rounds come from the aircraft");
+            Assert.IsFalse(CombatFx.IsIncoming((int)TW.Sim.Match.PayloadKind.GasSource, (int)TW.Sim.Match.OffMapAbilityId.ChlorineGas), "a canister");
+            Assert.AreEqual(13u, CombatFx.IncomingLeadTicks(0.05f), "8 frames at 12 fps, at 20 ticks a second");
         }
     }
 }
