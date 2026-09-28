@@ -115,10 +115,11 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "FireBall",   Cycle = true, Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.16f, High = 0.86f, Play = 0.62f, Fps = 12f, Bands = new Vector4(0.00f, 0.21f, 0.88f, 0.75f), Ink = new Vector2(0.23f, 0.72f), Fill = 0.90f },
             new Sheet { Name = "FireColumn", Cycle = true, Cols = 8, Rows = 4, Frames = 30, Fire = true, Snap = true, Tint = new Color(1.3f, 0.64f, 0.19f), Low = 0.18f, High = 0.88f, Play = 0.80f, Fps = 12f, Rise = 0.70f, Bands = new Vector4(0.00f, 0.05f, 0.42f, 0.75f), Ink = new Vector2(0.29f, 0.71f), Fill = 0.90f },
             // Book.Fireball is the shell's fireball (CombatFx.ShellFire.cs): cut so the 44 % of its ink that is pure black stays the
-            // soot drawn into it (the reference's dark flecks in the fire) and the rest is 14 % fringe, 22 % body, 16 % heart; and
+            // soot drawn into it (the reference's dark flecks in the fire) and the heart cut at 0.90, about a tenth (at 0.80 a
+            // quarter of it was white: critique c2); and
             // its soot in the burst cloud's own brown (below), so the smoke drawn into the fire runs into the cloud behind it and
             // the flame reads as coming out from inside the cloud. (Bench c1 drew it under the cloud instead: the cloud hid all of it.)
-            new Sheet { Name = "FireBurst",  Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.4f, 0.68f, 0.24f), Low = 0.14f, High = 0.84f, Fps = 12f, Rise = 0.55f, Bands = new Vector4(0.004f, 0.05f, 0.80f, 0.75f), Ink = new Vector2(0.28f, 0.78f), Fill = 0.90f },
+            new Sheet { Name = "FireBurst",  Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.4f, 0.68f, 0.24f), Low = 0.14f, High = 0.84f, Fps = 12f, Rise = 0.55f, Bands = new Vector4(0.004f, 0.05f, 0.90f, 0.75f), Ink = new Vector2(0.28f, 0.78f), Fill = 0.90f },
             // FireStand's window is wide open, and the reason is worth keeping. It was narrowed to 0.62 to make the
             // book brighter and it came out DARKER - twenty luminance darker, the dimmest fire in the build. The
             // window was innocent: narrowing it pushes the measured band cuts up with it, and at 0.62 the core cut
@@ -616,7 +617,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Lit", s.Additive || s.Fire ? 0f : s.Lit > 0f ? s.Lit : 1f);   // fire is its own light, like the additive books
                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
                 m.SetFloat("_Fire", s.Fire ? 1f : 0f);
-                if ((Book)k == Book.Fireball) m.SetColor("_Smoke", new Color(0.48f, 0.40f, 0.33f, 1f));   // the shell's fireball: its soot is the burst cloud's lit brown (at 0.36 it ringed each fire in dark: critique c1b)
+                if ((Book)k == Book.Fireball) { m.SetColor("_Smoke", new Color(0.48f, 0.40f, 0.33f, 1f)); m.SetColor("_Core", new Color(1.6f, 1.3f, 0.8f, 1f)); }   // the shell's fireball: its soot the burst cloud's lit brown (at 0.36 it ringed each fire in dark: critique c1b), its heart yellow, not the flamethrower's white (critique c2)
                 if (s.Bands.sqrMagnitude > 0f) m.SetVector("_Bands", s.Bands);
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
