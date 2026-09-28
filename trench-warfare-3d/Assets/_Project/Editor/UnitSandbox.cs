@@ -1,7 +1,7 @@
-// Phase: tooling (2026-09-27) — depends on: SimHost, TankCapture.Spawn, UnitLook
+// Phase: tooling (2026-09-27) — depends on: SimHost, ProvingGround.Place, UnitLook
 // TW > Unit Sandbox: in Play, put any unit type on the field for either side, a few at a time, so every model and unit
-// type can be watched without it being in anyone's roster. It spawns through TankCapture.Spawn (both lockstep worlds at
-// once) at the side's rally point, and never touches a roster, a faction or the shipped game: an editor window only.
+// type can be watched without it being in anyone's roster. It spawns through ProvingGround.Place (every world the
+// match has) in ranks at the side's rally point, and never touches a roster, a faction or the shipped game: an editor window only.
 using UnityEditor;
 using UnityEngine;
 using TW.Sim;
@@ -33,23 +33,19 @@ namespace TW.Editor
                 if (string.IsNullOrEmpty(name)) continue;
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField($"{a,2}  {name}", GUILayout.Width(180));
-                if (GUILayout.Button("Ours")) Spawn(w, 0, a);
-                if (GUILayout.Button("Theirs")) Spawn(w, 1, a);
+                if (GUILayout.Button("Ours")) Spawn(host, 0, a);
+                if (GUILayout.Button("Theirs")) Spawn(host, 1, a);
                 EditorGUILayout.EndHorizontal();
             }
             EditorGUILayout.EndScrollView();
         }
 
-        void Spawn(SimWorld w, int team, int archetype)
+        /// <summary>The Proving Ground's placing (ranks at the side's rally, the match table's numbers), in every world.</summary>
+        void Spawn(TW.Presentation.SimHost host, int team, int archetype)
         {
-            var at = w.Rally[team];
-            bool machine = ChassisKind.IsArmoured(w.ChassisOf((byte)archetype));
-            float step = machine ? 9f : 1.5f;
-            for (int i = 0; i < count; i++)
-            {
-                float x = at.x + (i - (count - 1) * 0.5f) * step;
-                Debug.Log($"Unit Sandbox: {TW.Presentation.UnitLook.Name((byte)archetype)} for team {team}: " + TankCapture.Spawn(team, archetype, x, at.z));
-            }
+            int placed = 0;
+            bool ok = host.WriteWorlds(m => placed = TW.Presentation.ProvingGround.Place(m, team, (byte)archetype, count));
+            Debug.Log($"Unit Sandbox: {placed} of {count} {TW.Presentation.UnitLook.Name((byte)archetype)} for team {team}" + (ok ? "" : " (worlds a tick apart: try again)"));
         }
     }
 }

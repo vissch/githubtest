@@ -1,0 +1,86 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- The panel of the Proving Ground, docked at the right of a running match and never modal: the match plays on
+         under it. UNITS puts any unit on the field for either side, WAVES sends the enemy at you (ready made, your
+         own, on a timer), MATCH holds the clock and the purse. Rows are built by ProvingGroundPanel. F8 folds it away.
+         Loaded from Resources, so no ShellAssets field. -->
+    <Style src="../../Skin/dustfront.uss" />
+    <Style src="../../Shell/Shell.uss" />
+    <Style src="../../Shell/ProvingGround.uss" />
+    <ui:VisualElement name="pg-dock" class="tw-panel pg-dock">
+        <ui:VisualElement class="pg-head">
+            <ui:Label name="pg-title" text="PROVING GROUND" class="pg-head__title" picking-mode="Ignore" />
+            <ui:Button name="btn-fold" text="F8" class="tw-btn tw-btn--small" />
+        </ui:VisualElement>
+        <ui:VisualElement name="pg-body" class="pg-body">
+            <ui:VisualElement name="pg-tabs" class="pg-line">
+                <ui:Button name="tab-units" text="UNITS" class="tw-tab" />
+                <ui:Button name="tab-waves" text="WAVES" class="tw-tab" />
+                <ui:Button name="tab-match" text="MATCH" class="tw-tab" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="page-units" class="pg-page">
+                <ui:VisualElement class="pg-line">
+                    <ui:Label text="HOW MANY" class="tw-caption" />
+                    <ui:VisualElement name="count-tabs" class="pg-line" />
+                </ui:VisualElement>
+                <ui:ScrollView name="unit-list" class="tw-scroll pg-list" />
+                <ui:Label name="unit-tip" text="" class="pg-note" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="page-waves" class="pg-page">
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-through-slots" text="THROUGH THEIR SLOTS" class="tw-btn tw-btn--small" />
+                    <ui:Label text="REPEAT EVERY" class="tw-caption" />
+                    <ui:VisualElement name="every-tabs" class="pg-line" />
+                </ui:VisualElement>
+                <ui:Label name="slots-note" text="" class="pg-note" />
+                <ui:ScrollView name="wave-list" class="tw-scroll pg-list" />
+                <ui:Label text="YOUR OWN WAVE (+W ON THE UNITS PAGE)" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-row">
+                    <ui:VisualElement class="pg-row__text">
+                        <ui:Label name="custom-text" text="EMPTY" class="pg-row__sub" />
+                    </ui:VisualElement>
+                    <ui:Button name="btn-custom-send" text="SEND" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-custom-repeat" text="REPEAT" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-custom-clear" text="CLEAR" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+                <ui:VisualElement class="pg-line">
+                    <ui:Label name="timer-text" text="NO WAVE ON THE TIMER" class="tw-caption" />
+                    <ui:Button name="btn-timer-stop" text="STOP" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+                <ui:Label text="THEIR SUPPORT, ON YOUR FRONT TRENCH" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-enemy-barrage" text="BARRAGE NOW" class="tw-btn tw-btn--small tw-btn--danger" />
+                    <ui:Button name="btn-enemy-gas" text="GAS NOW" class="tw-btn tw-btn--small tw-btn--danger" />
+                </ui:VisualElement>
+                <ui:Label text="SCRIPTED ENEMY" class="tw-caption pg-section" />
+                <ui:VisualElement name="ai-tabs" class="pg-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="page-match" class="pg-page">
+                <ui:Label text="SILVER" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-silver-ours" text="+1000 OURS" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-silver-theirs" text="+1000 THEIRS" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+                <ui:Label text="CLOCK" class="tw-caption pg-section" />
+                <ui:VisualElement name="speed-tabs" class="pg-line" />
+                <ui:Label text="THE FIELD" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-clear-ours" text="REMOVE OURS" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-clear-theirs" text="REMOVE THEIRS" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
+                <ui:Label name="field-text" text="" class="pg-note" />
+                <ui:Label text="THE MATCH" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-restart" text="RESTART" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-end" text="END MATCH" class="tw-btn tw-btn--small tw-btn--danger" />
+                    <ui:Button name="btn-quit-menu" text="QUIT TO MENU" class="tw-btn tw-btn--small tw-btn--danger" />
+                </ui:VisualElement>
+                <ui:Label name="match-note" text="" class="pg-note" />
+            </ui:VisualElement>
+
+            <ui:Label name="status" text="" class="pg-status" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
