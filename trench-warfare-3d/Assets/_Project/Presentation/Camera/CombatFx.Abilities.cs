@@ -24,14 +24,18 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         struct Flyover { public Vector3 Start, Dir; public float Length, Fired, Warm; }        // Fired, Warm: sim seconds
-        struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1; }     // T0, T1: sim seconds
+        struct Sweep { public Vector3 Start, Dir; public float Length, HalfWidth, T0, T1, Trail; }     // T0, T1: sim seconds; Trail: metres burned so far
         readonly List<Flyover> flyovers = new List<Flyover>(4);
         readonly List<Sweep> sweeps = new List<Sweep>(4);
         readonly List<Matrix4x4> smokeCards = new List<Matrix4x4>(2048);
+        readonly List<Matrix4x4> lanceCards = new List<Matrix4x4>(4);   // the beam's drawn column, packed afresh each frame
         readonly List<int> thickSmokeCells = new List<int>(512);   // the field's thick cells, found once a tick (the field only changes per tick)
         uint thickSmokeTick = uint.MaxValue;
         public const float PlaneSpeed = 40f, PlaneRunIn = 200f, PlaneRunOut = 120f, PlaneHigh = 45f, PlaneLow = 25f;
         public const float BeamChargeSeconds = 4f, BeamFlashEvery = 0.08f, ScorchShakeEvery = 0.3f;
+        // fx.recipes (L10): the beam drawn as a pillar of fire (FireLance) this tall at its head, a burning trail card every
+        // BeamTrailEvery metres behind it that burns for BeamTrailSeconds
+        public const float BeamLanceHeight = 30f, BeamTrailEvery = 1f, BeamTrailSeconds = 3f;
         float nextBeamFlash, nextScorchShake;
 
         /// <summary>The sim's clock in seconds (SimClock): what the aircraft, the beam and the fires are timed by, so a
@@ -143,10 +147,20 @@ namespace TW.Presentation.Tactical
                 var s = sweeps[i];
                 if (simNow > s.T1 + 0.5f) { sweeps.RemoveAt(i); continue; }
                 float groundY = RenderGround.Sample(map, s.Start.x, s.Start.z);
+                bool drawnBeam = recipes >= 0.5f && books != null && books.Ready;   // fx.recipes 0 (the default): the old column
                 if (simNow < s.T0)
                 {
                     // the charge: a glow gathering over the start of the corridor, brighter and larger as it comes
                     float u = Mathf.InverseLerp(s.T0 - BeamChargeSeconds, s.T0, simNow);
+                    if (drawnBeam)
+                    {
+                        // L10: a standing flame growing 0.5 -> 2 m at the start, brighter as the charge comes (sim clock: pause holds it)
+                        float w = Mathf.Lerp(0.5f, 2f, u) * 2.2f;
+                        lanceCards.Clear();
+                        lanceCards.Add(FlipbookFx.Pack(new Vector3(s.Start.x, groundY, s.Start.z), w, w, Mathf.Repeat(simNow * 12f, 15f), 1f, 1f + u * 2f, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                        books.DrawPacked(FlipbookFx.Book.Stand, lanceCards, bounds);
+                        continue;
+                    }
                     var glow = sparkMat != null ? sparkMat : aimMat;
                     if (glow == null) continue;
                     batch.Clear();
@@ -158,7 +172,31 @@ namespace TW.Presentation.Tactical
                 var head = s.Start + s.Dir * (s.Length * t);
                 head.y = RenderGround.Sample(map, head.x, head.z);
                 var column = flashMat != null ? flashMat : sparkMat != null ? sparkMat : aimMat;
-                if (column != null)
+                if (drawnBeam)
+                {
+                    // L10: the pillar of fire at the head (its drawing fills 62 % of its card's width: 2.4 x HalfWidth of fire),
+                    // the bloom where it splashes on the ground, and a burning trail card each metre it has walked
+                    float run = (simNow - s.T0) * 12f;
+                    float bright = SceneMood.Night ? 1.5f : 1f;
+                    lanceCards.Clear();
+                    lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * 2.4f / 0.62f, BeamLanceHeight, Mathf.Repeat(run, 27f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                    books.DrawPacked(FlipbookFx.Book.FireLance, lanceCards, bounds);
+                    lanceCards.Clear();
+                    lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * 3f, s.HalfWidth * 3f, Mathf.Repeat(run, 20f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                    books.DrawPacked(FlipbookFx.Book.Bloom, lanceCards, bounds);
+                    if (running)
+                    {
+                        float walked = s.Length * t;
+                        while (s.Trail + BeamTrailEvery <= walked)
+                        {
+                            s.Trail += BeamTrailEvery;
+                            var at = s.Start + s.Dir * s.Trail; at.y = RenderGround.Sample(map, at.x, at.z);
+                            books.Add(FlipbookFx.Book.Pool, at, s.HalfWidth * 1.6f, BeamTrailSeconds, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.9f);
+                        }
+                        sweeps[i] = s;
+                    }
+                }
+                else if (column != null)
                 {
                     // the column of fire from above: tall, thin, the width of the corridor; and the glow where it meets the ground
                     batch.Clear();
