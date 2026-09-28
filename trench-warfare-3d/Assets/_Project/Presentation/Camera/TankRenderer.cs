@@ -112,7 +112,7 @@ namespace TW.Presentation.Tactical
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
-            public float NextMend;                 // L16 (fx.recipes): the next engineer's sparks card on this hull
+            public float NextMend, NextColumn;     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
             public readonly List<Debris> Pieces = new List<Debris>();
@@ -958,12 +958,32 @@ namespace TW.Presentation.Tactical
             }
             if (books != null && books.Ready && now >= v.NextSmoke && smoke > 0.02f)
             {
-                v.NextSmoke = now + Mathf.Lerp(0.6f, 0.18f, Mathf.Max(fire, smoke * 0.5f));
+                v.NextSmoke = now + Mathf.Lerp(0.6f, 0.18f, Mathf.Max(fire, smoke * 0.5f));   // at the old rate either way: the draws below
                 var at = OnWhatIsLeft(v, SocketWorld(v, "Socket_Fire0", out _));
-                books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * (0.6f + fire), (1.6f + 2.2f * fire) * Mathf.Max(0.4f, smoke), UnityEngine.Random.Range(4f, 7f),
-                    UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                    velocity: Vector3.up * (1.4f + fire * 1.5f) + new Vector3(UnityEngine.Random.Range(-0.3f, 0.3f), 0f, UnityEngine.Random.Range(-0.3f, 0.3f)),
-                    grow: 2.2f, roll: UnityEngine.Random.Range(-0.7f, 0.7f), alpha: Mathf.Clamp01(0.45f + fire * 0.4f) * Mathf.Clamp01(smoke), pop: 0.2f);
+                // the puff's draws are taken whether or not it is drawn: fx.recipes must not shift the shared stream
+                float life = UnityEngine.Random.Range(4f, 7f);
+                bool mirror = UnityEngine.Random.value < 0.5f;
+                float dx = UnityEngine.Random.Range(-0.3f, 0.3f), dz = UnityEngine.Random.Range(-0.3f, 0.3f), roll = UnityEngine.Random.Range(-0.7f, 0.7f);
+                if (recipes >= 0.5f)
+                {
+                    if (now < v.NextColumn) return;
+                    // L22 (fx.recipes): a standing column of black smoke (the WreckSmoke loop) in place of the climbing puffs, a
+                    // card every WreckSmokeEvery taking up the loop where the last left it; it grows past zoom 80 (FarGrow) so
+                    // a dead or burning tank is marked from the overview
+                    v.NextColumn = now + WreckSmokeEvery;
+                    var cam = Camera.main;
+                    float far = FlipbookFx.FarGrow(cam != null && cam.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
+                    books.Add(FlipbookFx.Book.WreckSmoke, at + Vector3.up * 0.3f, (3f + 4f * fire) * Mathf.Max(0.4f, smoke) * far, WreckSmokeEvery * 2.6f,
+                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: Mathf.Clamp01(0.35f + fire * 0.3f) * Mathf.Clamp01(smoke * 1.5f),
+                        startFrame: Mathf.Repeat(now * 12f, 27f));
+                }
+                else
+                {
+                    books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * (0.6f + fire), (1.6f + 2.2f * fire) * Mathf.Max(0.4f, smoke), life,
+                        mirror ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        velocity: Vector3.up * (1.4f + fire * 1.5f) + new Vector3(dx, 0f, dz),
+                        grow: 2.2f, roll: roll, alpha: Mathf.Clamp01(0.45f + fire * 0.4f) * Mathf.Clamp01(smoke), pop: 0.2f);
+                }
             }
         }
 
@@ -1390,6 +1410,7 @@ namespace TW.Presentation.Tactical
         }
 
         const float MendEvery = 0.4f, MendWidth = 1.2f;
+        const float WreckSmokeEvery = 1.2f;   // L22: s between a burning hull's WreckSmoke cards (each lives 2.6 of these)
 
         /// <summary>
         /// A burst near a hull rocks it on its springs and lifts it (the sim only damages it; the push is ours): tipped away
