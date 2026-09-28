@@ -111,7 +111,8 @@ namespace TW.Presentation.Tactical
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
             public readonly float[] ModuleLeft = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };   // L21: what each VehicleModule had left at its last hit
-            public float NextMend, NextColumn, NextVent;     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
+            public float NextMend, NextColumn, NextVent;
+            public uint BeatTick = uint.MaxValue;   // L21: the tick an engine or fuel beat was drawn, so that tick's stall or fire does not draw it again     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
             public readonly List<Debris> Pieces = new List<Debris>();
@@ -1193,7 +1194,7 @@ namespace TW.Presentation.Tactical
                     break;
                 }
                 case SimEventType.VehicleOnFire:
-                    if (v != null && e.B == 1 && books != null && books.Ready)
+                    if (v != null && e.B == 1 && books != null && books.Ready && v.BeatTick != e.Tick)   // L21 drew this tick's fuel flare already
                     {
                         var at = SocketWorld(v, "Socket_Fire0", out _);
                         books.Add(FlipbookFx.Book.Flash, at, 2.6f, 0.15f, glow: 2.4f, pop: 0.4f);
@@ -1201,7 +1202,7 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 case SimEventType.VehicleStalled:
-                    if (v != null && books != null && books.Ready)
+                    if (v != null && books != null && books.Ready && v.BeatTick != e.Tick)   // L21 drew this tick's engine cough already
                         for (int k = 0; k < 2; k++)
                         {
                             var at = SocketWorld(v, "Socket_Exhaust" + k, out bool ok);
@@ -1290,6 +1291,8 @@ namespace TW.Presentation.Tactical
                     { Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 1.0f; Scrap(at, 4, 6f, 0.28f, 0.4f, 40f, default, e.Tick + (uint)e.B); }   // the joint's plates and pins
                     break;
                 case SimEventType.VehicleRepaired:
+                    // L21: the mended module stands at the crew's repair level again, so its next hit is measured from there
+                    if (v != null && e.B > 0 && e.B < v.ModuleLeft.Length) v.ModuleLeft[e.B] = VehicleModulesSystem.RepairTo;
                     if (v == null || books == null || !books.Ready) break;
                     if (recipes >= 0.5f)
                     {
@@ -1329,7 +1332,7 @@ namespace TW.Presentation.Tactical
             float along = Mathf.Clamp(Vector3.Dot(off, fwd), -v.Model.HalfLength, v.Model.HalfLength);
             float side = Mathf.Clamp(Vector3.Dot(off, right), -v.Model.HalfGauge - 0.2f, v.Model.HalfGauge + 0.2f);
             Vector3 at = v.Pos + fwd * along + right * side + Vector3.up * (v.Heave.Value + v.Model.Height * 0.55f);
-            books.Add(FlipbookFx.Book.MendSparks, at, MendWidth, MendEvery + 0.1f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 2f : 1.3f, startFrame: Mathf.Repeat(now * 12f, 32f));
+            books.Add(FlipbookFx.Book.MendSparks, at, MendWidth, MendEvery + 0.1f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 2f : 1.3f, startFrame: Mathf.Repeat(now * 12f, 31f));   // a Cycle book wraps at frames - 1
             books.Add(FlipbookFx.Book.Star, at, 0.6f, 0.12f, glow: SceneMood.Night ? 2.4f : 1.4f);
         }
 
@@ -1337,8 +1340,8 @@ namespace TW.Presentation.Tactical
         /// L21 (fx.recipes): the beats of a machine being taken apart, each where it happens. A module hit only when what is
         /// left of it drops by more than a quarter (the sim reports every graze): the engine coughs black smoke from the
         /// exhausts, the fuel flares, a gun throws a spark and plates. A track thrown: earth, dust and links at its sprocket,
-        /// and the hull shakes. Knocked out through the structure: a flash in the hatch and black smoke pouring from it for
-        /// six seconds (x FarGrow, the one beat read from far off); the crew lost: dust at the hatch. Fire and ammunition
+        /// and the hull shakes. Knocked out through the structure: a flash in the hatch, and the hull's WreckSmoke column
+        /// (Burning, x FarGrow: the one beat read from far off) starts at once; the crew lost: dust at the hatch. Fire and ammunition
         /// are L22's. No random draws (the scrap is salted by the tick).
         /// </summary>
         void DamageBeat(View v, SimEvent e)
@@ -1354,6 +1357,7 @@ namespace TW.Presentation.Tactical
                 {
                     case VehicleModule.Engine:
                     {
+                        v.BeatTick = e.Tick;
                         for (int k = 0; k < 2; k++)   // a black cough from each exhaust
                         {
                             var at = SocketWorld(v, "Socket_Exhaust" + k, out bool ok);
@@ -1363,6 +1367,7 @@ namespace TW.Presentation.Tactical
                     }
                     case VehicleModule.Fuel:
                     {
+                        v.BeatTick = e.Tick;
                         var at = SocketWorld(v, "Socket_Fire0", out _);
                         books.Add(FlipbookFx.Book.Fan, at, 1.5f, 0.8f, ground, glow: SceneMood.Night ? 2.4f : 1.6f);
                         books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * 0.8f, 1.8f, 3f, velocity: Vector3.up * 1.4f, grow: 1.6f, alpha: 0.7f);
@@ -1396,11 +1401,10 @@ namespace TW.Presentation.Tactical
             if (!hasHatch) hatch = v.Pos + Vector3.up * (v.Heave.Value + v.Model.Height);
             if (e.B == (int)VehicleKillCause.Structure)
             {
+                // the flash in the hatch; the black smoke is Burning's WreckSmoke column, which any hull out of the fight stands
+                // under from now on (State != Active): started at once rather than drawn twice
                 books.Add(FlipbookFx.Book.Flash, hatch, 3f, 0.15f, glow: SceneMood.Night ? 4f : 2.2f, pop: 0.5f);
-                var cam = Camera.main;
-                float far = FlipbookFx.FarGrow(cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f);
-                for (int k = 0; k < 3; k++)   // six seconds of it: three overlapping cards of the loop, each taking it up where the last is
-                    books.Add(FlipbookFx.Book.WreckSmoke, hatch, 4.5f * far, WreckSmokeEvery * 2.6f, ground, alpha: 0.75f, delay: 2f * k, startFrame: 24f * k % 27f);
+                v.NextColumn = 0f;
             }
             else if (e.B == (int)VehicleKillCause.CrewLost)
                 books.Add(FlipbookFx.Book.DustPuff, hatch, 1.6f, 28f / 12f, ground, alpha: 0.6f);
