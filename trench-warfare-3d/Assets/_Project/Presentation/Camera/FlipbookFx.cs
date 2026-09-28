@@ -656,6 +656,7 @@ namespace TW.Presentation.Tactical
         {
             if (!Ready) return;
             if (cards.Count >= maxCards) cards.RemoveAt(0);
+            if (IsSmoke(book)) ShapeSmoke(smokeWeight, smokeLean, aspect[(int)book], ref width, ref height, ref life, ref alpha);   // FlipbookFx.Smoke.cs
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
             cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind });
         }
