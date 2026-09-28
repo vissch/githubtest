@@ -621,6 +621,9 @@ namespace TW.Presentation.Tactical
                 case SimEventType.UnitAlight:
                     OnAlight(e);  // the sim's BurningSystem lit or doused him
                     break;
+                case SimEventType.UnitHealed:
+                    OnHealed(e);  // CombatFx.Support.cs: the medic's glint (fx.recipes)
+                    break;
                 case SimEventType.MinePlaced:
                     OnMinePlaced(e);   // CombatFx.Mines.cs: our own marked on the ground
                     break;

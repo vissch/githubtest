@@ -82,5 +82,15 @@ namespace TW.Tests
             AssertOld(CombatFx.RecipeFor(3f, 0f, false, 1f, 9f), "an incendiary");
             AssertOld(CombatFx.RecipeFor(5f, 0f, false, 1f, 9f), "a mine (no lean, but not a mortar)");
         }
+
+        [Test]
+        public void HealGlint_OnlyWithRecipesNearAndOncePerMedicSpell()
+        {
+            Assert.IsFalse(CombatFx.HealGlint(10f, 0f, 30f, 0f), "fx.recipes 0: no glint");
+            Assert.IsTrue(CombatFx.HealGlint(10f, 0f, 30f, 1f), "near, first sweep");
+            Assert.IsFalse(CombatFx.HealGlint(10f, 10f + CombatFx.HealEvery, 30f, 1f), "his next sweep inside HealEvery");
+            Assert.IsTrue(CombatFx.HealGlint(10f + CombatFx.HealEvery, 10f + CombatFx.HealEvery, 30f, 1f), "HealEvery on");
+            Assert.IsFalse(CombatFx.HealGlint(10f, 0f, CombatFx.HealNearZoom, 1f), "the overview: none");
+        }
     }
 }
