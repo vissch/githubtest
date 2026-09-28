@@ -641,6 +641,9 @@ namespace TW.Presentation.Tactical
                 case SimEventType.SmokeSpawned:
                     OnBankSpawned(e);   // CombatFx.Banks.cs: the canister's release (fx.recipes)
                     break;
+                case SimEventType.LeapStarted:
+                    OnLeap(e);    // CombatFx.Support.cs: the jetpack's take-off (fx.recipes)
+                    break;
                 case SimEventType.UnitHealed:
                     OnHealed(e);  // CombatFx.Support.cs: the medic's glint (fx.recipes)
                     break;
@@ -679,7 +682,7 @@ namespace TW.Presentation.Tactical
                     Vector3 flight = new Vector3(e.Dir.x, 0f, e.Dir.z);
                     float lean = flight.magnitude;
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
-                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
+                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar, e.A);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
                     if (drawn)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
@@ -748,6 +751,9 @@ namespace TW.Presentation.Tactical
                             bool left = eye != null && Vector3.Dot(flight, eye.transform.right) < 0f;
                             books.Add(FlipbookFx.Book.ShellLean, p, r * 2.4f * columnScale * earth, 2.67f, ground | (left ? FlipbookFx.Kind.Mirror : 0), grow: 0.2f, pop: 0.15f);
                         }
+                        if (recipe.Dust)   // L15: the dust a jetpack man comes down in, thrown out either side of him
+                            for (int k = 0; k < 2; k++)
+                                books.Add(FlipbookFx.Book.DustPuff, p + Vector3.up * 0.2f, r * 1.1f, 28f / 12f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0), velocity: new Vector3(k == 0 ? 1.2f : -1.2f, 0.3f, 0f), alpha: 0.75f);
                         if (recipe.CookOff)
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
                         // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
@@ -1018,6 +1024,7 @@ namespace TW.Presentation.Tactical
             DrawMineMarks(bounds);         // our mines and tripwires on the ground (CombatFx.Mines.cs)
             DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
             TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep
+            TickLeaps(now);                // the jetpack men in the air (CombatFx.Support.cs)
 
             // gas: drawn clouds that boil slowly over each 4 m field cell (the old translucent blocks stand in without the books)
             var gas = Host.Local.Gas;

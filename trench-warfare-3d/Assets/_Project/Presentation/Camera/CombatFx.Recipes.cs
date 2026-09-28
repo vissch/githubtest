@@ -19,6 +19,7 @@ namespace TW.Presentation.Tactical
             public bool CookOff;    // a FireCookOff fireball in place of the column: a hull going up
             public bool Ring;       // a GroundRing lying on the ground: how big a big burst was, read from far off
             public bool Lean;       // a ShellLean: the earth thrown the way a flying shell was going (L02)
+            public bool Dust;       // two DustPuffs at the foot: a jetpack man coming down (L15)
 
             public static BurstRecipe Old => new BurstRecipe { Column = true, OldSmoke = true };
         }
@@ -31,10 +32,12 @@ namespace TW.Presentation.Tactical
         public static float ReadRecipes() => Mathf.Clamp01(Knobs.Get(RecipesKnob, DefaultRecipes));
 
         /// <summary>The parts a burst draws. shape: the sim's Dir.y (0 shell, 1 masonry, 2 cook-off, 3 incendiary, 5 mine); lean: how much of Dir.xz
-        /// there was (0 for a round with no flight: the Kettle's, the Salvo's); recipes: fx.recipes; radius: the sim's blast radius.</summary>
-        public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes, float radius = 0f)
+        /// there was (0 for a round with no flight: the Kettle's, the Salvo's); recipes: fx.recipes; radius: the sim's blast radius;
+        /// source: the Explosion's a (SourceId), which tells a jetpack landing from a shell.</summary>
+        public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes, float radius = 0f, int source = 0)
         {
             if (recipes < 0.5f || wet) return BurstRecipe.Old;   // water keeps its splash and its drawn smoke as they were
+            if (source == TW.Sim.Combat.LeapSystem.LandingSource) return new BurstRecipe { Ring = true, Dust = true };   // L15: a man lands, no shell: no column, no smoke
             int kind = Mathf.RoundToInt(shape);
             if (kind == 2) return new BurstRecipe { CookOff = true, Plume = true };   // no earth: the hull is what goes up
             if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine (5): their own looks come later (L14, L19, L24)
