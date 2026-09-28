@@ -134,7 +134,7 @@ namespace TW.Tests
             Assert.IsTrue(CombatFx.IsIncoming(shell, he));
             Assert.IsFalse(CombatFx.IsIncoming(shell, (int)TW.Sim.Match.OffMapAbilityId.StrafeRun), "a strafe's rounds come from the aircraft");
             Assert.IsFalse(CombatFx.IsIncoming((int)TW.Sim.Match.PayloadKind.GasSource, (int)TW.Sim.Match.OffMapAbilityId.ChlorineGas), "a canister");
-            Assert.AreEqual(13u, CombatFx.IncomingLeadTicks(0.05f), "8 frames at 12 fps, at 20 ticks a second");
+            Assert.AreEqual(12u, CombatFx.IncomingLeadTicks(0.05f), "the streak lands 7/12 s in, at 20 ticks a second");
         }
         [Test]
         public void Smoulders_AboutAThirdOfPlaces_TheSameEveryTime()

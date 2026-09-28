@@ -1,7 +1,8 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-8, look spec L05) — part of CombatFx. Behind fx.recipes,
 // the shells of an off-map barrage are seen coming in: the sim schedules every payload ahead (OffMapAbilitySystem.
 // Scheduled, read here and never written), so a ShellFall card (a shell streaking down onto its point, 8 frames at
-// 12 fps) is laid IncomingLead before each shell's tick and ends as the shell lands. Read once per sim tick; up close
+// 12 fps) is laid IncomingLead before each shell's tick and ends as the shell lands (on game time: at a raised
+// TimeScale the streak runs slow against the sim). Read once per sim tick; up close
 // and at the standard view only (culled from IncomingFarZoom: at the overview the burst is the read). The Kettle's and
 // the tanks' rounds land the tick they fire, so they have no incoming (a SIM flight time is owner question Q5).
 using UnityEngine;
@@ -12,7 +13,8 @@ namespace TW.Presentation.Tactical
 {
     public sealed partial class CombatFx
     {
-        public const float IncomingLead = 8f / 12f;     // the ShellFall book's length: the streak meets the ground on its last frame
+        public const float IncomingLead = 7f / 12f;     // the ShellFall book reaches its last frame (the streak on the ground) 7/12 s in
+        const float IncomingCardLife = 1f;               // held a little past the landing, so the fade (the last third) starts after it
         public const float IncomingFarZoom = 120f;
         uint incomingTick = uint.MaxValue;
         OffMapAbilitySystem offMap;
@@ -42,14 +44,17 @@ namespace TW.Presentation.Tactical
                 var p = offMap.Scheduled[i];
                 if (!IsIncoming(p.Kind, p.Ability) || p.Tick < from + lead || p.Tick > tick + lead) continue;
                 Vector3 at = (Vector3)p.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
-                float early = (p.Tick - (tick + lead)) * w.Config.TickSeconds;   // 0 unless it was caught up late (negative then)
-                books.Add(FlipbookFx.Book.ShellFall, at, 5f, IncomingLead, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, glow: SceneMood.Night ? 1.6f : 1f, delay: Mathf.Max(0f, early));
+                // caught up late (a frame that stepped several ticks): start the streak that far into its fall, not later
+                int behind = (int)(tick + lead) - (int)p.Tick;   // >= 0 here; signed, so it cannot wrap
+                float late = behind * w.Config.TickSeconds;
+                books.Add(FlipbookFx.Book.ShellFall, at, 5f, IncomingCardLife, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, glow: SceneMood.Night ? 1.6f : 1f, startFrame: late * 12f);
             }
         }
     
         // L23: smouldering craters, a pool of SmoulderPool at most (a long card each)
         public const int SmoulderPool = 24;
         public const float SmoulderShare = 0.3f;
+        const float SmoulderDelay = 2f;   // the burst's own smoke first
         readonly float[] smoulderUntil = new float[SmoulderPool];
 
         /// <summary>Whether a heavy burst at this place leaves its crater smouldering: 30 % of them, by a hash of the place
@@ -66,13 +71,13 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < SmoulderPool; k++) if (smoulderUntil[k] <= now) { slot = k; break; }
             if (slot < 0) return;   // the pool is full: the oldest threads are still standing
             float life = Mathf.Lerp(20f, 40f, Hash01(p.x, p.z, 43));
-            smoulderUntil[slot] = now + life;
+            smoulderUntil[slot] = now + SmoulderDelay + life;   // the card lives from its delay on
             books.Add(FlipbookFx.Book.Smoulder, p - Vector3.up * 0.3f, Mathf.Clamp(r * 0.6f, 2.5f, 5f), life, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
-                alpha: 0.7f, delay: 2f, startFrame: Hash01(p.x, p.z, 47) * 31f);
+                alpha: 0.7f, delay: SmoulderDelay, startFrame: Hash01(p.x, p.z, 47) * 31f);
         }
 
         /// <summary>L24 (fx.recipes): wire cut (WireBreached: pos, scalar the gap's width): earth kicked up along the gap and
-        /// the wire's snap, a spike of light. No sparks thrown (they take random draws).</summary>
+        /// the wire's snap, a spike of light (scattered round the cut: the event carries no heading). No sparks thrown (they take random draws).</summary>
         void OnWireBreached(SimEvent e)
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
