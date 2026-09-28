@@ -295,7 +295,9 @@ namespace TW.Presentation.Tactical
             // knobs (Knobs): MaxWrecks only where its knob is set, so an inspector value still holds
             MaxWrecks = Knobs.Get("tank.maxWrecks", MaxWrecks);
             maxLoose = Knobs.Get("tank.maxLoose", MaxLoose);
+            recipes = CombatFx.ReadRecipes();   // fx.recipes (VFX pass): 0 = the machines' shots and cook-offs as they were
         }
+        float recipes;
 
         void Start()
         {
@@ -1193,7 +1195,14 @@ namespace TW.Presentation.Tactical
                     if (books == null || !books.Ready) break;
                     var cam = Camera.main;
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, dir) : 0f;
-                    books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
+                    if (recipes >= 0.5f)
+                    {
+                        // L20 (fx.recipes): a big gun's blast, its drawing rooted at the card's left edge (firebooks root_left),
+                        // so the card is centred half its width out along the barrel; 12 frames at 12 fps
+                        const float Blast = 4.5f;
+                        books.Add(FlipbookFx.Book.GunBlast, muzzle + dir * (Blast * 0.5f), Blast, 1f, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);
+                    }
+                    else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
                     books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
                     for (int k = 0; k < 3; k++)
                         books.Add(FlipbookFx.Book.Smoke, muzzle + dir * (0.6f + k * 0.7f), 1.2f + k * 0.4f, 2.5f + k * 0.5f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
@@ -1275,9 +1284,17 @@ namespace TW.Presentation.Tactical
                         CookOffLight(v, at);   // with the machine light pool on (lights.machinePool)
                         // the fireball: one big tongue up the middle and a ring of smaller ones, each on its own clock, its own
                         // flash, and the black smoke that boils up after it
-                        fireballs.Add(new Fireball { At = at, Born = now, Life = 1.5f, Width = 5.5f * hull, Height = 9f * hull, Phase = 0f });
+                        // L22 (fx.recipes): the drawn fireball (FireCookOff, 29 frames at 12 fps) standing on the deck in place of the
+                        // procedural tongues; the Random draws are taken either way so the shared stream does not shift
+                        bool drawnFireball = recipes >= 0.5f && books != null && books.Ready;
+                        if (!drawnFireball) fireballs.Add(new Fireball { At = at, Born = now, Life = 1.5f, Width = 5.5f * hull, Height = 9f * hull, Phase = 0f });
                         for (int k = 0; k < 6; k++)
-                            fireballs.Add(new Fireball { At = at + UnityEngine.Random.insideUnitSphere * (1.6f * hull), Born = now + k * 0.05f, Life = UnityEngine.Random.Range(0.9f, 1.4f), Width = 3.2f * hull, Height = 5.5f * hull, Phase = k + 1f });
+                        {
+                            var off = UnityEngine.Random.insideUnitSphere * (1.6f * hull); float life = UnityEngine.Random.Range(0.9f, 1.4f);
+                            if (!drawnFireball) fireballs.Add(new Fireball { At = at + off, Born = now + k * 0.05f, Life = life, Width = 3.2f * hull, Height = 5.5f * hull, Phase = k + 1f });
+                        }
+                        if (drawnFireball)
+                            books.Add(FlipbookFx.Book.FireCookOff, new Vector3(at.x, v.Pos.y + v.Heave.Value + 0.6f * v.Model.Height, at.z), 11f * hull, 2.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.2f, glow: SceneMood.Night ? 2f : 1.3f, pop: 0.2f);
                         if (books != null && books.Ready)
                         {
                             books.Add(FlipbookFx.Book.Flash, at + Vector3.up * (2f * hull), 16f * hull, 0.2f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 6f : 3f, pop: 0.4f);
