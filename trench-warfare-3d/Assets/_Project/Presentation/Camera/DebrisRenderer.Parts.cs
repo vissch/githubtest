@@ -1,8 +1,9 @@
 // Phase: deaths (2026-09-28, implemented) — part of DebrisRenderer: a man's parts as pieces (Head, Helm, Torso, Pelvis,
 // Arm, Leg, Boot, Pack and the two halves), for the absurd deaths. Life-size, thrown at the figure's drawn scale
 // (CombatFx.FigureScale), and laid out the way the debris shader rests a piece: it settles yaw-only, so a limb or a
-// torso lies along +Z with its thin side up, a boot stands on its sole. Until the parts cut from the figures are in
-// (Tools/gibsplit.py) each kind is a stand-in built here; the throws never need to know which.
+// torso lies along +Z with its thin side up, a boot stands on its sole. Each is cut from the soldier's own figure
+// (DebrisRenderer.Figure); a stand-in is built here when there is none to cut (and for the pack, which he does not
+// carry); the throws never need to know which.
 // Vertex alpha is the cloth mask: 1 where the side's tint dyes it (the uniform), 0 where it keeps its own colour.
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,9 +15,10 @@ namespace TW.Presentation.Tactical
         /// <summary>A stand-in for a man's part, built in code.</summary>
         static void Part(Piece piece, List<Vector3> v, List<int> t, List<Color> c)
         {
+            if (FigurePart(piece, v, t, c)) return;   // his own, cut from the figure
             var rng = new DebrisRng(new Vector3((int)piece * 5.1f, 2f, 1.3f), 77u);
             Color cloth = new Color(1f, 1f, 1f, 1f), clothLow = new Color(0.86f, 0.86f, 0.86f, 1f);
-            Color bare = new Color(1f, 1f, 1f, 0f), bareLow = new Color(0.88f, 0.88f, 0.88f, 0f);
+            Color bare = new Color(0.78f, 0.60f, 0.47f, 0f), bareLow = new Color(0.69f, 0.53f, 0.41f, 0f);   // skin: kept, not dyed
             switch (piece)
             {
                 case Piece.Head: Lump(v, t, c, 6, 4, 0.12f, 0.06f, ref rng, bareLow, bare, new Vector3(0.9f, 1f, 1.05f)); break;
@@ -24,7 +26,7 @@ namespace TW.Presentation.Tactical
                 {
                     int first = v.Count;
                     HelmetMesh(v, t, c);
-                    for (int i = first; i < v.Count; i++) { v[i] *= 0.32f; var k = c[i]; k.a = 0f; c[i] = k; }
+                    for (int i = first; i < v.Count; i++) v[i] *= 0.32f;   // takes the thrower's steel tint, as the kit's helmet does
                     break;
                 }
                 case Piece.Torso: Box(v, t, c, new Vector3(0.40f, 0.24f, 0.52f), 0.9f, ref rng, clothLow, cloth, 0.03f); break;

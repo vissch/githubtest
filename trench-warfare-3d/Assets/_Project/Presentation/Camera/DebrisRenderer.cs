@@ -417,6 +417,13 @@ namespace TW.Presentation.Tactical
             }
             var m = new Mesh { name = "Debris " + piece, hideFlags = HideFlags.HideAndDontSave };
             m.SetVertices(v); m.SetTriangles(t, 0); m.SetColors(c);
+            if (piece >= Piece.Head)
+            {
+                // a man's part: its inside, where it was cut open, is drawn as flesh (Debris_URP, UV2.x)
+                var flesh = new List<Vector2>(v.Count);
+                for (int i = 0; i < v.Count; i++) flesh.Add(Vector2.right);
+                m.SetUVs(2, flesh);
+            }
             m.RecalculateNormals();
             // the crown is hinged at its foot: its origin stays at y = 0; everything else is centred on its bounds
             if (piece != Piece.Crown)

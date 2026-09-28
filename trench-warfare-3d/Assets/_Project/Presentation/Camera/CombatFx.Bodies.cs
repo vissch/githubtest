@@ -31,7 +31,9 @@ namespace TW.Presentation.Tactical
         /// leg; the VAT shader cuts them from the figure at the root), and the same limbs, his helmet and his rifle thrown
         /// from where he stood on the shell's own throw plus a scatter. Seeded from the place, so a replay agrees. Nothing
         /// with DebrisRenderer.Gore at 0. density: how many died beside him this moment (AnimationController's death
-        /// record): in a heap more comes off, and fewer come down whole.
+        /// record): in a heap more comes off, and fewer come down whole. With fx.deathAbsurd above 0 what flies is his
+        /// own arm, leg, head and helmet, cut from his figure (DebrisRenderer.Figure); at 0 a tube, a clod and the kit's
+        /// helmet, as ever (the dice are thrown the same either way).
         /// </summary>
         int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0)
         {
@@ -39,6 +41,7 @@ namespace TW.Presentation.Tactical
             var rng = new DebrisRng(at, 0x6B1u + (uint)slot);
             if (rng.Next() < 0.3f / (1f + density)) return 0;   // most men thrown by a shell alone come down whole; in a heap, few
             float scale = FigureScale();
+            bool own = DeathGags.Intensity > 0f;   // his own parts (fx.deathAbsurd); at 0 today's stand-ins
             Color cloth = team == 1 ? ClothB : ClothA;
             Vector3 chest = at + Vector3.up * (1.2f * scale);
             Vector3 carry = new Vector3(fly.x, 0f, fly.z) * 0.9f + Vector3.up * (2.5f + fly.y * 2f);   // the shell's throw, and up
@@ -49,16 +52,19 @@ namespace TW.Presentation.Tactical
                 if ((mask & (1 << limb)) != 0) continue;
                 mask |= 1 << limb;
                 Vector3 vel = carry + rng.OnSphere() * 3.5f; vel.y = Mathf.Abs(vel.y) + 2f;
-                debris.Throw(DebrisRenderer.Piece.Limb, chest + rng.OnSphere() * (0.3f * scale), vel, (limb >= 4 ? 0.85f : 0.62f) * scale, cloth, ref rng, 30f);
+                if (own) debris.Throw(limb >= 4 ? DebrisRenderer.Piece.Leg : DebrisRenderer.Piece.Arm, chest + rng.OnSphere() * (0.3f * scale), vel, scale, cloth, ref rng, 30f);
+                else debris.Throw(DebrisRenderer.Piece.Limb, chest + rng.OnSphere() * (0.3f * scale), vel, (limb >= 4 ? 0.85f : 0.62f) * scale, cloth, ref rng, 30f);
             }
             if (rng.Next() < 0.22f + 0.12f * density)
             {
                 mask |= 1 << 1;   // his head: the helmet goes one way, the head another
                 Vector3 vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 3f;
-                debris.Throw(DebrisRenderer.Piece.Clod, chest + Vector3.up * (0.4f * scale), vel, 0.24f * scale, Skin, ref rng, 30f);
+                if (own) debris.Throw(DebrisRenderer.Piece.Head, chest + Vector3.up * (0.4f * scale), vel, scale, Skin, ref rng, 30f);
+                else debris.Throw(DebrisRenderer.Piece.Clod, chest + Vector3.up * (0.4f * scale), vel, 0.24f * scale, Skin, ref rng, 30f);
             }
             Vector3 helmetVel = carry + rng.OnSphere() * 4f; helmetVel.y = Mathf.Abs(helmetVel.y) + 4f;
-            debris.Throw(DebrisRenderer.Piece.Helmet, chest + Vector3.up * (0.5f * scale), helmetVel, 0.32f * scale, Steel, ref rng, 60f);
+            if (own) debris.Throw(DebrisRenderer.Piece.Helm, chest + Vector3.up * (0.5f * scale), helmetVel, scale, Steel, ref rng, 60f);
+            else debris.Throw(DebrisRenderer.Piece.Helmet, chest + Vector3.up * (0.5f * scale), helmetVel, 0.32f * scale, Steel, ref rng, 60f);
             if (rng.Next() < 0.6f)
             {
                 Vector3 vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;
