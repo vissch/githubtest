@@ -239,7 +239,16 @@ namespace TW.Presentation.Tactical
                 // the rounds come from the aircraft: two tracers from its guns to the burst, and the dust they kick up
                 if (TryPlane(now, out var at, out var rot))
                     for (int g = -1; g <= 1; g += 2)
-                        tracers.Add(new Tracer { From = at + rot * new Vector3(g * 0.9f, -0.3f, 1.5f), To = p, Born = now, Hit = true, Team = (byte)(e.B & 1) });
+                    {
+                        Vector3 gun = at + rot * new Vector3(g * 0.9f, -0.3f, 1.5f);
+                        tracers.Add(new Tracer { From = gun, To = p, Born = now, Hit = true, Team = (byte)(e.B & 1) });
+                        if (recipes >= 0.5f)   // L09: the wing guns flare as they fire
+                        {
+                            var cam = Camera.main;
+                            Vector3 down = (p - gun).normalized;
+                            books.Add(FlipbookFx.Book.Muzzle, gun + down * 0.7f, 1.8f, 0.1f, roll: cam != null ? FlipbookFx.ScreenRoll(cam, down) : 0f, glow: SceneMood.Night ? 3f : 1.8f);
+                        }
+                    }
                 for (int k = 0; k < 3; k++)
                     books.Add(FlipbookFx.Book.Spurt, p + new Vector3(Mathf.Lerp(-1.2f, 1.2f, Hash01(p.x, p.z, 10 + k)), 0.1f, Mathf.Lerp(-1.2f, 1.2f, Hash01(p.x, p.z, 20 + k))), 1.3f, 0.45f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 2.5f, grow: 0.4f);
                 books.Add(FlipbookFx.Book.Puff, p + Vector3.up * 0.4f, 2.2f, 0.9f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.9f, grow: 0.6f, alpha: 0.7f);
