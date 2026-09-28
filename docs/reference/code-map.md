@@ -40,7 +40,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | Assembly | Folder | Namespaces declared | References (TW.*) |
 |---|---|---|---|
 | `TW.Data` | `Data/` | `TW.Data` | Sim.Core, Sim.Terrain, Sim.Combat, Sim.Units, Sim.Match |
-| `TW.Editor` | `Editor/` | `TW.Editor` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Units, Presentation.VFX, Presentation.Audio, UI, Perf |
+| `TW.Editor` | `Editor/` | `TW.Editor` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Units, Presentation.VFX, Presentation.Audio, UI, Perf, Playground |
 | `TW.Net` | `Net/` | `TW.Net` | Sim.Core |
 | `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
 | `TW.Playground.Editor` | `Playground/Editor/` | `TW.Playground.Editor` | Playground, Presentation.Terrain |

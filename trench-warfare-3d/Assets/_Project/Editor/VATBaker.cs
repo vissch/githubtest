@@ -16,6 +16,11 @@
 //   per side and keeps the folds. A figure without one is coloured by its dominant bone. A rifle box is added in the
 //   right hand (the models carry none); the old CrouchedRun figure also gets a helmet brim.
 // The result is normalised to a 1.78 m man standing on y = 0, facing +Z.
+// 2026-09-28, the Frog (TW/VAT/Bake Frog): a figure whose rig is not Mixamo's (the playground's frog, rigged in Blender
+// with Mixamo's bone names and its own bone rolls) cannot take the clips' curves. Its clips are posed on the Soldier, as
+// above, and each frame's pose is carried onto the frog's rig by the playground's Retarget (each bone's change from a
+// canonical T-pose), its hips placed by the ratio of the two rigs' leg lengths; what is captured, skinned, coloured and
+// given the rifle is the frog. The Soldier and the Sniper are not re-baked by it.
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,6 +29,7 @@ using UnityEngine;
 using TW.Sim;
 using TW.Presentation;
 using TW.Presentation.Units;
+using TW.Playground;
 
 namespace TW.Editor
 {
@@ -38,6 +44,33 @@ namespace TW.Editor
             ("Soldier", "Assets/_Project/Art/Characters/Soldier.fbx"),
             ("Sniper", "Assets/_Project/Art/Characters/Sniper.fbx"),
         };
+
+        /// <summary>The Frog: its file, which of its four skinned meshes is baked (the playground's LOD2, under a thousand
+        /// vertices like the two men), that mesh's base colour, and the rig its clips are posed on.</summary>
+        public const string FrogName = "Frog";
+        public const string FrogPath = "Assets/_Project/Playground/Art/Units/Frog/Frog.fbx";
+        public const string FrogSkin = "Frog_LOD2";
+        public const string FrogAlbedo = "Assets/_Project/Playground/Art/Units/Frog/Frog_LOD2_Base.jpg";
+
+        [MenuItem("TW/VAT/Bake Frog")]
+        public static void BakeFrog()
+        {
+            LastReport = "";
+            var poseSource = AssetDatabase.LoadAssetAtPath<GameObject>(Figures[0].Path);
+            var frogSource = AssetDatabase.LoadAssetAtPath<GameObject>(FrogPath);
+            if (poseSource == null || frogSource == null) { Debug.LogError("VATBaker: missing " + (poseSource == null ? Figures[0].Path : FrogPath)); return; }
+            var pose = BuildRig(poseSource, Figures[0].Path);
+            // the frog faces wherever its file has it: measured, and its root turned so both figures face the same way
+            var probe = BuildRig(frogSource, FrogPath, FrogSkin, FrogAlbedo);
+            var turn = (pose.Root.transform.rotation * Retarget.Skeleton.Of(pose.Root.transform).Frame) * Quaternion.Inverse(Retarget.Skeleton.Of(probe.Root.transform).Frame);
+            Object.DestroyImmediate(probe.Root);
+            pose.Reset();
+            var frog = BuildRig(frogSource, FrogPath, FrogSkin, FrogAlbedo, turn);
+            try { Bake(pose, FrogName, frog); }
+            finally { Object.DestroyImmediate(pose.Root); Object.DestroyImmediate(frog.Root); }
+            AssetDatabase.SaveAssets();
+            File.WriteAllText(Path.Combine(Application.dataPath, "../Library/vat-bake-report-frog.txt"), LastReport);
+        }
 
         sealed class Rig
         {
@@ -90,12 +123,26 @@ namespace TW.Editor
             File.WriteAllText(Path.Combine(Application.dataPath, "../Library/vat-bake-report.txt"), LastReport);
         }
 
-        static Rig BuildRig(GameObject source, string path)
+        /// <param name="skin">Which skinned mesh of the file is baked, by name (null: its first).</param>
+        /// <param name="albedo">Its base colour, where it does not lie in the file's .fbm folder.</param>
+        /// <param name="turn">The root's rotation (the Frog: so that it faces as the rig its clips are posed on does).</param>
+        static Rig BuildRig(GameObject source, string path, string skin = null, string albedo = null, Quaternion? turn = null)
         {
             var go = Object.Instantiate(source);
             go.hideFlags = HideFlags.HideAndDontSave;
-            go.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            go.transform.SetPositionAndRotation(Vector3.zero, turn ?? Quaternion.identity);
             var rig = new Rig { Root = go, Skin = go.GetComponentInChildren<SkinnedMeshRenderer>(), All = go.GetComponentsInChildren<Transform>() };
+            if (skin != null)
+            {
+                rig.Skin = go.GetComponentsInChildren<SkinnedMeshRenderer>(true).FirstOrDefault(s => s.name == skin);
+                if (rig.Skin == null) throw new System.InvalidOperationException("VATBaker: " + path + " has no skinned mesh called " + skin);
+            }
+            if (albedo != null)
+            {
+                var ai = AssetImporter.GetAtPath(albedo) as TextureImporter;
+                if (ai != null && (!ai.isReadable || ai.textureCompression != TextureImporterCompression.Uncompressed)) { ai.isReadable = true; ai.textureCompression = TextureImporterCompression.Uncompressed; ai.SaveAndReimport(); }
+                rig.Albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(albedo);
+            }
             rig.HasHelmet = !path.EndsWith("CrouchedRun.fbx");   // the Tripo figures model their own
             string fbm = path.Substring(0, path.Length - 4) + ".fbm";
             if (AssetDatabase.IsValidFolder(fbm))
@@ -182,21 +229,35 @@ namespace TW.Editor
             return AssetDatabase.LoadAllAssetsAtPath(path).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview__"));
         }
 
-        static void Bake(Rig rig, string figure)
+        /// <param name="rig">The rig the clips are posed on.</param>
+        /// <param name="target">The figure that is captured, when it is not that rig (the Frog); null: the rig itself.</param>
+        static void Bake(Rig rig, string figure, Rig target = null)
         {
-            var source = rig.Skin.sharedMesh;
+            var draw = target ?? rig;
+            Retarget.Skeleton posed = null, onto = null;
+            float legs = 1f;   // the target's leg length over the posed rig's, in their own units: what its hips travel by
+            if (target != null)
+            {
+                rig.Reset(); target.Reset();
+                posed = Retarget.Skeleton.Of(rig.Root.transform); onto = Retarget.Skeleton.Of(target.Root.transform);
+                if (posed.Found < Retarget.Names.Length - 4 || onto.Found < Retarget.Names.Length - 4)
+                    throw new System.InvalidOperationException($"VATBaker: {figure}: a skeleton is incomplete ({posed.Found} and {onto.Found} of {Retarget.Names.Length} bones)");
+                legs = target.HipHeight / rig.HipHeight;
+            }
+            var source = draw.Skin.sharedMesh;
             int skinCount = source.vertexCount;
             var verts = new List<Vector3>(); var normals = new List<Vector3>();
 
             // ---- extra rigid geometry, modelled in the bind pose in rig units -----------------------------------
-            rig.Reset();
-            Skinned(rig, verts, normals);
-            float u = 1f / rig.Scale;   // one metre of the finished soldier, in rig units
-            var skinWeights = source.boneWeights; var skinBones = rig.Skin.bones;
-            float top = Enumerable.Range(0, skinCount).Where(i => skinBones[skinWeights[i].boneIndex0] == rig.Head).Select(i => verts[i].y).DefaultIfEmpty(verts.Max(p => p.y)).Max();
-            var headPos = rig.Head.position;
-            var helmet = rig.HasHelmet ? new BoxMesh { Pos = new Vector3[0], Nrm = new Vector3[0], Tris = new int[0] } : Box(new Vector3(headPos.x, top - 0.07f * u, headPos.z + 0.01f * u), new Vector3(0.31f, 0.03f, 0.34f) * u);   // the brim of a Brodie
-            var rifle = Box(new Vector3(0f, 0f, 0.30f * u), new Vector3(0.06f, 0.10f, 1.15f) * u);   // fat enough to read at 30 m; butt 27 cm behind the grip
+            rig.Reset(); draw.Reset();
+            Skinned(draw, verts, normals);
+            float u = 1f / rig.Scale;   // one metre of the finished soldier, in the posed rig's units
+            float ud = 1f / draw.Scale;   // and in the drawn figure's (the same rig, but for the Frog)
+            var skinWeights = source.boneWeights; var skinBones = draw.Skin.bones;
+            float top = Enumerable.Range(0, skinCount).Where(i => skinBones[skinWeights[i].boneIndex0] == draw.Head).Select(i => verts[i].y).DefaultIfEmpty(verts.Max(p => p.y)).Max();
+            var headPos = draw.Head.position;
+            var helmet = draw.HasHelmet ? new BoxMesh { Pos = new Vector3[0], Nrm = new Vector3[0], Tris = new int[0] } : Box(new Vector3(headPos.x, top - 0.07f * ud, headPos.z + 0.01f * ud), new Vector3(0.31f, 0.03f, 0.34f) * ud);   // the brim of a Brodie
+            var rifle = Box(new Vector3(0f, 0f, 0.30f * ud), new Vector3(0.06f, 0.10f, 1.15f) * ud);   // fat enough to read at 30 m; butt 27 cm behind the grip
             const float RifleTip = 0.30f + 0.575f;   // the muzzle: the box's far end, metres ahead of the grip
             int vertexCount = skinCount + helmet.Pos.Length + rifle.Pos.Length;
 
@@ -215,31 +276,40 @@ namespace TW.Editor
             bool aiming = false;   // an aimed clip: the forestock hand reaches well ahead of the grip, but both hands hold the rifle
             void Capture(Vector3 shift, float yawFix)
             {
-                Skinned(rig, verts, normals);
+                if (target != null)
+                {
+                    // the pose carried over; the hips by the legs' ratio, each rig's feet on its own floor
+                    target.Reset();
+                    Retarget.Apply(posed, onto, legs, Vector3.zero);
+                    Vector3 h = rig.Hips.position;
+                    target.Hips.position = new Vector3(h.x * legs, (h.y - rig.MinY) * legs + target.MinY, h.z * legs);
+                    shift *= legs;
+                }
+                Skinned(draw, verts, normals);
                 var p = new Vector3[vertexCount]; var n = new Vector3[vertexCount];
                 for (int i = 0; i < skinCount; i++) { p[i] = verts[i]; n[i] = normals[i]; }
-                var head = rig.Head.localToWorldMatrix * rig.HeadBindInverse;
+                var head = draw.Head.localToWorldMatrix * draw.HeadBindInverse;
                 for (int i = 0; i < helmet.Pos.Length; i++) { p[skinCount + i] = head.MultiplyPoint3x4(helmet.Pos[i]); n[skinCount + i] = head.MultiplyVector(helmet.Nrm[i]).normalized; }
                 // carried in the right hand's socket; when the right hand leaves the weapon (bolt, reload, a fidget, the
                 // ladder, a throw) the left hand keeps it
                 // both hands on it: from the right hand (the grip) through the left (the forestock), whatever the rig's hand axes are
-                Vector3 span = rig.HandL.position - rig.HandR.position;
-                bool rightOff = span.magnitude > 0.48f / rig.Scale && !aiming;
+                Vector3 span = draw.HandL.position - draw.HandR.position;
+                bool rightOff = span.magnitude > 0.48f / draw.Scale && !aiming;
                 Matrix4x4 grip;
-                if (rightOff) grip = rig.HandL.localToWorldMatrix * rig.GripL;
-                else if (span.magnitude > 0.08f / rig.Scale) grip = Matrix4x4.TRS(rig.HandR.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
-                else grip = rig.HandR.localToWorldMatrix * rig.GripR;
+                if (rightOff) grip = draw.HandL.localToWorldMatrix * draw.GripL;
+                else if (span.magnitude > 0.08f / draw.Scale) grip = Matrix4x4.TRS(draw.HandR.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
+                else grip = draw.HandR.localToWorldMatrix * draw.GripR;
                 int r0 = skinCount + helmet.Pos.Length;
                 for (int i = 0; i < rifle.Pos.Length; i++) { p[r0 + i] = grip.MultiplyPoint3x4(rifle.Pos[i]); n[r0 + i] = grip.MultiplyVector(rifle.Nrm[i]); }
                 var turn = Quaternion.Euler(0f, -yawFix * Mathf.Rad2Deg, 0f);
-                for (int i = 0; i < vertexCount; i++) { p[i] = turn * ((p[i] - shift - new Vector3(0f, rig.MinY, 0f)) * rig.Scale); n[i] = turn * n[i]; }
+                for (int i = 0; i < vertexCount; i++) { p[i] = turn * ((p[i] - shift - new Vector3(0f, draw.MinY, 0f)) * draw.Scale); n[i] = turn * n[i]; }
                 // sockets, in the same space as the vertices: the rifle's muzzle (the far end of the box), the way the barrel
                 // points, and the chest (between the spine and the neck)
-                Vector3 Place(Vector3 world) => turn * ((world - shift - new Vector3(0f, rig.MinY, 0f)) * rig.Scale);
+                Vector3 Place(Vector3 world) => turn * ((world - shift - new Vector3(0f, draw.MinY, 0f)) * draw.Scale);
                 var sockets = new Vector3[3];
-                sockets[VatAsset.Muzzle] = Place(grip.MultiplyPoint3x4(new Vector3(0f, 0f, RifleTip * u)));
+                sockets[VatAsset.Muzzle] = Place(grip.MultiplyPoint3x4(new Vector3(0f, 0f, RifleTip * ud)));
                 sockets[VatAsset.Barrel] = (turn * grip.MultiplyVector(Vector3.forward)).normalized;
-                sockets[VatAsset.Chest] = Place(Vector3.Lerp(rig.Spine.position, rig.Neck.position, 0.6f));
+                sockets[VatAsset.Chest] = Place(Vector3.Lerp(draw.Spine.position, draw.Neck.position, 0.6f));
                 frames.Add(p); frameNormals.Add(n); frameSockets.Add(sockets);
             }
             var upperBody = rig.All.Where(t => t == rig.Spine || t.IsChildOf(rig.Spine)).ToArray();
@@ -331,14 +401,14 @@ namespace TW.Editor
 
             // ---- mesh -------------------------------------------------------------------------------------------
             var colors = new Color[vertexCount];
-            var weights = source.boneWeights; var bones = rig.Skin.bones;
+            var weights = source.boneWeights; var bones = draw.Skin.bones;
             var uvs = source.uv;
             for (int i = 0; i < skinCount; i++)
             {
                 string bone = bones[weights[i].boneIndex0].name;
-                if (rig.Albedo != null && uvs != null && uvs.Length == skinCount)
+                if (draw.Albedo != null && uvs != null && uvs.Length == skinCount)
                 {
-                    Color c = rig.Albedo.GetPixelBilinear(uvs[i].x, uvs[i].y);
+                    Color c = draw.Albedo.GetPixelBilinear(uvs[i].x, uvs[i].y);
                     if (Cloth(bone)) { float lum = Mathf.Clamp(c.grayscale / 0.55f, 0.25f, 1.6f); colors[i] = new Color(lum, lum, lum, 1f); }   // the uniform: brightness only, the team colours it
                     else colors[i] = new Color(c.r, c.g, c.b, 0f);
                 }

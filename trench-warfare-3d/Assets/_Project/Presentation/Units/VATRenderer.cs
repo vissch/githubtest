@@ -91,9 +91,10 @@ namespace TW.Presentation.Units
         public bool Ready => figures != null && figures.Length > 0;
 
         /// <summary>The figure names, in archetype-map order; the assets are Resources/Units/Figure&lt;Name&gt;.</summary>
-        public static readonly string[] FigureNames = { "Soldier", "Sniper" };
-        /// <summary>Which figure each archetype is drawn with (rifleman, assault, machine-gunner: the soldier; sniper: the hooded man).</summary>
-        public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : 0;
+        public static readonly string[] FigureNames = { "Soldier", "Sniper", "Frog" };
+        /// <summary>Which figure each archetype is drawn with (the sniper: the hooded man; the Frog, archetype 25: the
+        /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
+        public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : 0;
 
         sealed class Figure
         {

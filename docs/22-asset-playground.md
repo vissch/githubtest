@@ -301,6 +301,8 @@ the ground; the Hopper flies 9 m up. What the measuring found:
 - the Brute's model has ONE gun, in its hull, and at the battle's size is 8.8 x 5.3 m: the sim had given it the Maw's
   two sponsons and a footprint 6.8 m wide, and was changed to fit the model;
 - the Brute's tracks are painted on its own atlas, so the tread that runs on the Maw's tracks does not run on them.
+The Frog followed as a baked figure (`Resources/Units/FigureFrog`, 987 vertices, the soldier's 111 clips carried onto
+its rig; `tasks.md`): seen in Play beside three riflemen, standing as they stand.
 Not done: a knee that bends forward in the battle's gait (the playground's walker has one), a look at the far LODs at
 170 m, the Croaker's darker atlas beside the others.
 
