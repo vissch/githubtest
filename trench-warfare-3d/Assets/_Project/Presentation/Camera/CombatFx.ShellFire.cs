@@ -40,7 +40,9 @@ namespace TW.Presentation.Tactical
         {
             uint h = (uint)Mathf.FloorToInt(p.x * 13f) * 73856093u ^ (uint)Mathf.FloorToInt(p.z * 13f) * 19349663u ^ (uint)(k + 1) * 83492791u;
             h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
-            float a = (h & 0x3FF) / 1024f * 6.2832f, side = 0.25f + ((h >> 10) & 0xFF) / 255f * 0.25f, up = 0.45f + ((h >> 18) & 0xFF) / 255f * 0.25f + k * 0.25f;
+            // one bearing for the spot (a hash without k), the odd pocket turned half a circle: the two on opposite sides
+            uint g = (uint)Mathf.FloorToInt(p.x * 13f) * 2654435761u ^ (uint)Mathf.FloorToInt(p.z * 13f) * 40503u; g ^= g >> 15;
+            float a = (g & 0x3FF) / 1024f * 6.2832f, side = 0.25f + ((h >> 10) & 0xFF) / 255f * 0.25f, up = 0.45f + ((h >> 18) & 0xFF) / 255f * 0.25f + k * 0.25f;
             if ((k & 1) == 1) a += 3.1416f;
             return new Vector3(Mathf.Cos(a) * side * r, up * r, Mathf.Sin(a) * side * r);
         }
