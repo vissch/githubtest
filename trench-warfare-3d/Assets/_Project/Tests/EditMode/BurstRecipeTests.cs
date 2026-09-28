@@ -14,7 +14,7 @@ namespace TW.Tests
         static void AssertOld(CombatFx.BurstRecipe r, string what)
         {
             Assert.IsTrue(r.Column && r.OldSmoke, what + ": the old column and smoke");
-            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff, what + ": nothing new");
+            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring, what + ": nothing new");
         }
 
         [Test]
@@ -74,11 +74,13 @@ namespace TW.Tests
         }
 
         [Test]
-        public void On_WaterAndMasonry_KeepTheOldBurst()
+        public void On_WaterMasonryIncendiaryAndMines_KeepTheOldBurst()
         {
             AssertOld(CombatFx.RecipeFor(0f, 0.8f, true, 1f), "a shell in water");
             AssertOld(CombatFx.RecipeFor(2f, 0f, true, 1f), "a cook-off in water");
             AssertOld(CombatFx.RecipeFor(1f, 0f, false, 1f), "falling masonry");
+            AssertOld(CombatFx.RecipeFor(3f, 0f, false, 1f, 9f), "an incendiary");
+            AssertOld(CombatFx.RecipeFor(5f, 0f, false, 1f, 9f), "a mine (no lean, but not a mortar)");
         }
     }
 }
