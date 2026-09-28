@@ -14,7 +14,8 @@
 // first: PenetrationMm x 0.8..1.2 under the plate and the round is STOPPED (Hit with a negative scalar, ShieldBlocked,
 // a quarter of the suppression). The roll is drawn only for him, so every other man's stream is what it was.
 // Wrecks (2026-09-28): a machine gun's round that the cover of a wreck stopped (the same roll: it would have hit with
-// no cover and missed with it) wears that wreck, by the wreck's share of the cover (DirectFire.Wrecks).
+// no cover and missed with it) wears that wreck, by the wreck's share of the cover; a gun with nobody to shoot at fires
+// at a wreck that shelters its enemies, keeping their heads down (DirectFire.Wrecks).
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -55,6 +56,7 @@ namespace TW.Sim.Combat
             killed = new NativeList<int2>(256, Allocator.Persistent);
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
             stopped = new NativeList<WreckRound>(16, Allocator.Persistent);
+            shelters = new NativeList<Shelter>(16, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
             ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
@@ -76,6 +78,7 @@ namespace TW.Sim.Combat
             killed.Clear();
             ownHits.Clear();
             stopped.Clear();
+            BuildShelters(w);   // the wrecks men are behind this tick (DirectFire.Wrecks)
             new FireJob
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
@@ -86,7 +89,7 @@ namespace TW.Sim.Combat
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
-                CoverStops = stopped,
+                CoverStops = stopped, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
             }.Run();
             for (int k = 0; k < ownHits.Length; k++)
             {
@@ -113,7 +116,7 @@ namespace TW.Sim.Combat
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
-        struct FireJob : IJob
+        partial struct FireJob : IJob
         {
             public int Count, NavWidth, NavLength;
             public uint Tick, Seed;
@@ -136,6 +139,9 @@ namespace TW.Sim.Combat
             public NativeList<int2> Killed;
             public NativeList<VehicleHit> VehicleHits;
             public NativeList<WreckRound> CoverStops;   // machine-gun rounds a prop's cover stopped, by target cell (DirectFire.Wrecks)
+            [ReadOnly] public NativeArray<Shelter> Shelters;   // wrecks men are behind this tick, and whose (DirectFire.Wrecks)
+            [ReadOnly] public Heightfield Height;
+            [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<float> Smoke;
             public int SmokeW, SmokeL;
             public bool SmokeOn;
@@ -194,7 +200,7 @@ namespace TW.Sim.Combat
                     if ((Flags[i] & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
                     if (FireCooldown[i] > 0) { FireCooldown[i]--; continue; }
                     int t = TargetSlot[i];
-                    if (t < 0) continue;
+                    if (t < 0) { if (Shelters.Length > 0) AtWreck(i); continue; }   // nobody to shoot at: a wreck they hide behind
                     if ((Flags[t] & (uint)UnitFlags.Alive) == 0 || Hp[t] <= 0f) { TargetSlot[i] = -1; continue; }
 
                     float3 p = Position[i], q = Position[t];
@@ -328,6 +334,7 @@ namespace TW.Sim.Combat
             if (killed.IsCreated) killed.Dispose();
             if (ownHits.IsCreated) ownHits.Dispose();
             if (stopped.IsCreated) stopped.Dispose();
+            if (shelters.IsCreated) shelters.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (ones.IsCreated) ones.Dispose();
         }

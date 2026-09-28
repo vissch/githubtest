@@ -798,9 +798,14 @@ next stage's hit points, however hard the hit. Nothing skips a stage.
 - **Machine guns** (`DirectFire.Wrecks`): a round the cover of a wreck stopped (the one roll already drawn: a miss that
   would have hit with no cover) wears that wreck by the wreck's share of the man's cover. Rifles do not, and trees
   never wear under gunfire. Nothing more is drawn, so a field with no wreck plays exactly as before.
-- **Guns turning on a wreck** that shelters enemies (the owner's "automatic only"): not built yet.
+- **Guns turning on a wreck** that shelters enemies (the owner's "automatic only", `DirectFire.Wrecks`): a man or a
+  machine with nobody to shoot at, not pinned and not holding a trench, fires at the nearest wreck in range and sight
+  with his enemies within 3 m of it (a garrison below the rim, men in a dip). Every round keeps their heads down; a
+  machine gun's hits wear it (half the round). A living target always wins, and tank guns do not do it.
 
-Replay versions: v16 the kinds and the event (the seam), v17 blasts, v18 machines, v19 machine guns.
+Replay versions: v16 the kinds and the event (the seam), v17 blasts, v18 machines, v19 machine guns, v20 guns
+turning on a wreck (`Shot.b <= -2` names the prop: `PropTarget`).
 Tests: `WreckDecayTests` (every stage with its cover and block, sizes, the cook-off, the record outliving its wreck,
 generated wrecks, a barrage and a Maw grinding through two sims in lockstep, the Tusk that does not grind, scrap
-flattened, a parked Maw, a machine gun that wears it and a rifle and a tree that do not).
+flattened, a parked Maw, a machine gun that wears it and a rifle and a tree that do not, an idle machine gun firing at
+the wreck a hidden garrison is behind, a rifle that fires but does not wear, a living target that always wins).

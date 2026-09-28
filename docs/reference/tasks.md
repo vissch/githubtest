@@ -159,7 +159,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   brushes or pushes against and any machine flattens scrap it drives over (`Sim/Nav/VehicleKinematics.Wrecks.cs`);
   both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time, as do machine-gun rounds a wreck's cover stopped
   (`Sim/Combat/DirectFire.Wrecks.cs`, `CombatTables.WearsWrecks`). A shot at a wreck names it in `Shot.b` as
-  `Sim/Core/PropTarget.cs` encodes it (`-2 - prop`).
+  `Sim/Core/PropTarget.cs` encodes it (`-2 - prop`): a gun with nobody to shoot at fires at a wreck its enemies are
+  behind (`DirectFire.Wrecks`, `Shelter`).
 - **Tests:** TankTests, TankMobilityTests, CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests,
   WreckDecayTests (the wreck's stages).
 
