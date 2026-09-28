@@ -196,7 +196,8 @@ def point():
     c = clip('Idle').resample(66, 'Officer Point')
     raise_ = trap(0.0, 0.18, 0.18, 0.28); chop = trap(0.18, 0.28, 0.72, 1.0)
     c = ik_hold(c, 'Right', lambda p: [p['RightShoulder'][0] - 6, p['RightShoulder'][1] + 40, p['RightShoulder'][2] + 34], 0, raise_)   # up
-    c = ik_hold(c, 'Right', lambda p: [p['RightShoulder'][0] - 6, p['RightShoulder'][1] + 10, p['RightShoulder'][2] + 54], 0, chop)     # and chops to the point
+    # and chops to the point: up 30 degrees and within reach (level at 54 cm missed by 11 cm and hid behind the chest)
+    c = ik_hold(c, 'Right', lambda p: [p['RightShoulder'][0] - 6, p['RightShoulder'][1] + 24, p['RightShoulder'][2] + 42], 0, chop)
     c = ik_hold(c, 'Left', lambda p: [p['Hips'][0] + 18, p['Hips'][1] + 2, p['Hips'][2] + 8], 0, trap(0.0, 0.25, 0.75, 1.0))          # the other hand on the hip
     c = c.offset('Spine', (0, -25, 0), chop); c = c.offset('Head', (-8, -15, 0), chop)   # turns into the point, chin up, the face follows the arm
     c = c.offset('RightArm', (10, 0, 0), bump(0.30, 0.06)); c = c.offset('RightArm', (10, 0, 0), bump(0.55, 0.07)); c = c.offset('Spine', (4, 0, 0), bump(0.55, 0.07))   # lands with an overshoot, jabs again
@@ -205,8 +206,9 @@ def point():
 def whistle():
     c = clip('Idle').resample(48, 'Officer Whistle')
     c = ik_hold(c, 'Right', lambda p: [p['Head'][0] - 2, p['Head'][1] - 10, p['Head'][2] + 18], 0, trap(0.0, 0.15, 0.70, 0.85))
-    c = ik_hold(c, 'Left', lambda p: [p['LeftShoulder'][0] + 8, p['LeftShoulder'][1] + 50, p['LeftShoulder'][2] + 34], 0, trap(0.05, 0.25, 0.70, 0.90))   # the other arm straight, forward and up: advance
-    c = c.offset('LeftArm', (12, 0, 0), bump(0.45, 0.08)); c = c.offset('LeftArm', (12, 0, 0), bump(0.62, 0.08))   # two pumps
+    # the left hand stays down: it keeps the rifle when the right hand leaves it (VATBaker), so a raised left arm
+    # swung the rifle through his face (clip-batch review, 2026-09-28). Two sharp nods on the blasts instead.
+    c = c.offset('Head', (6, 0, 0), bump(0.42, 0.06)); c = c.offset('Head', (6, 0, 0), bump(0.60, 0.06))
     c = c.offset('Head', (-8, 0, 0), trap(0.2, 0.3, 0.6, 0.75)); c = c.offset('Spine', (-4, 0, 0), trap(0.15, 0.3, 0.5, 0.75))   # head back to blow, a breath in
     return c
 
@@ -240,8 +242,8 @@ MAKE = [
     ('Stumble Running', stumble, 'once', 'three cycles of Rifle Run; a 3-frame trip: torso pitches, knees buckle, arms reach down to catch, 13 frames to recover'),
     ('Mask Donning', mask, 'once', 'Rifle Idle: right hand to the chest bag, both hands bring the mask up as the face goes down into it, then behind the head for the straps as the chin lifts'),
     ('Burning Run', burning, 'loop', 'Sprint Forward shortened to a stagger, folded over, hips rolling and lurching, head thrashing, arms thrown between over the head and the face (two IK poses each, out of step)'),
-    ('Officer Point', point, 'once', 'Idle, the right arm raised high then chopped forward to the point (IK), the left hand on the hip, the body turned into it, chin up'),
-    ('Officer Whistle', whistle, 'once', 'Idle, the right hand to the mouth, the left arm straight up (follow me), head back to blow, 0.6 s'),
+    ('Officer Point', point, 'once', 'Idle, the right arm raised high then chopped forward to the point, 30 degrees up (IK), the left hand on the hip, the body turned into it, chin up'),
+    ('Officer Whistle', whistle, 'once', 'Idle, the right hand to the mouth, the left hand down with the rifle, head back to blow with two sharp nods, 0.6 s'),
     ('MG Carry Walk', mg_carry, 'loop', 'Rifle Walk at 0.77x, short steps, right hand at the hip and left on the barrel (IK), leaning back off the weight, the gun heaving with the stride'),
     ('Wire Crossing', wire, 'loop', 'Walk Crouching Forward at 0.5x, thighs lifted with the forward swing 1.5x and the trailing 0.5x, stooped, watching the ground, arms from Rifle Crouch Walk'),
 ]
