@@ -375,6 +375,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Units/VatCodec.cs`, `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs`
   (far tier and fallback), `Presentation/Units/VatTint.cs` (what `VatInstance.Tint` carries),
   `Presentation/Units/FallenFlight.cs` (a gagged body's path: hold, throw, bounces, skid, rest; its turns and squash),
+  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn; the heap stacked by who lands first),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
 - **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch),
   VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path).
@@ -389,9 +390,17 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Core/AnimationController.Death.cs` (how a man dies: the Death event's cause and knock, density in the
   heap, the death ring `TryDeath` the effects read, `Char`), clip names in `Editor/InfantryClipTable.cs`.
   Design: `docs/15-character-controller.md` (section 9 is the death ladder).
+  The absurd deaths (owner, 2026-09-28): `Presentation/Core/DeathGags.cs` chooses a gag on top of the ladder's death
+  (punt, jig, headshot pop, rocket, fountain, pancake, fling, wilt, plank, skid, boots), seeded, capped;
+  `Presentation/Core/AnimationController.Gags.cs` feeds it and puts the plan in the `DeathRecord`. The knob
+  `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) is 0 until the owner has seen the captures;
+  `DeathGags.Pin` overrides it for a test or a capture.
 - **Tests:** BlastReactionTests (knockdown and daze), DeathVarietyTests (the death ladder and its records),
+  DeathGagTests (the gags: nothing at 0, one per cause, the trench rule, the caps, no allocation),
   TickAllocationTests (no per-tick allocation).
-- **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions.
+- **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions. The gags in
+  Play: `TW.Editor.DeathLab.Absurd(1)`, then `DeathLab.Scene("shot" | "mg" | "shell" | "heap" | "gas" | "fire" |
+  "beam" | "crush", x, z)` (`Editor/DeathLab.cs`: every death made by the sim's own systems).
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
@@ -452,7 +461,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/CombatFx.cs` (event dispatch `OnSimEvent`, tracers, bodies, bursts, materials),
   `Presentation/Camera/CombatFx.Mines.cs` (our mines and tripwires marked on the ground until they go off or a
   crater cooks them; a trigger's flash; the burst is the Explosion's), `Presentation/Camera/CombatFx.Deaths.cs` (a Death: the body from the controller's record, gibs by density, a burning
-  man's pool and smoulder; `UnitAlight` lights and douses the drawn torch),
+  man's pool and smoulder; `UnitAlight` lights and douses the drawn torch), `Presentation/Camera/CombatFx.Gags.cs`
+  (a gagged death: the body through `VATRenderer`'s gag overload, a popped helmet, a pancake's squirt, the beam's
+  boots, dust at each landing),
   `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
   beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/SimClock.cs` (the sim's clock in seconds for everything the picture times against the sim: the
   aircraft, the beam, the fires), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets

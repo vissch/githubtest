@@ -79,7 +79,8 @@ namespace TW.Presentation.Tactical
                     flames.Spill(p, 1.2f, 6f);
                     AddSmoulder(p, e.Pos);
                 }
-                units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr);
+                if (controlled && rec.Gag.Any) GagDeath(e, rec, p, yaw, team, archetype, death, deathClip, from, fromPhase, fade, fly, gib, grime, density, chr);   // CombatFx.Gags
+                else units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr);
             }
             else
             {

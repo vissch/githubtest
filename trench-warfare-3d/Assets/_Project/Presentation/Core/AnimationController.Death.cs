@@ -28,6 +28,8 @@ namespace TW.Presentation
         /// read the record (a same-tick refill, or a deploy later in the frame).</summary>
         public byte Team, Archetype; public Unity.Mathematics.float3 Pos;
         public bool Valid;
+        /// <summary>The absurd on top (DeathGags, AnimationController.Gags); no gag at fx.deathAbsurd 0.</summary>
+        public GagPlan Gag;
     }
 
     /// <summary>DeathRecord.Cause.</summary>
@@ -225,6 +227,7 @@ namespace TW.Presentation
                 else if (speed > 0.3f) clip = Clip.DeathWalking;
                 else clip = StandingDeath(i, in s, p, hitKind[i] != 0 ? hitDir[i] : simDir);
             }
+            var gag = Gag(i, ref s, ref clip, cause, b, simDir, flat, crushed, density, w);   // the absurd on top (nothing at fx.deathAbsurd 0)
             Start(i, ref s, clip, Rung.Death, (i == FollowSlot ? "killed: " + cause + (s.ThrowUp > 0f ? ", thrown " + math.sqrt(s.ThrowX * s.ThrowX + s.ThrowZ * s.ThrowZ).ToString("0.0") + " m, " + s.ThrowUp.ToString("0.0") + " m up" : "") + ", " + st + (speed > 0.3f ? ", moving" : "") + (density > 0 ? ", " + density + " down beside him" : "") : null));
             s.Dead = true;
             Char[i] = chr;
@@ -234,6 +237,7 @@ namespace TW.Presentation
                 Slot = i, Generation = s.Generation, Tick = diedAt, Clip = clip, PrevClip = s.PrevClip, PrevFrame = s.PrevFrame, Fade = s.Fade,
                 Yaw = s.ShownYaw, ThrowX = s.ThrowX, ThrowZ = s.ThrowZ, ThrowUp = s.ThrowUp, Grime = Grime[i],
                 Char = chr, Density = (byte)math.min(density, 255), Cause = (byte)cause, Team = s.Team, Archetype = s.Archetype, Pos = p, Valid = true,
+                Gag = gag,
             };
             ringCursor = (ringCursor + 1) % DeathRingSize;
             return s;
