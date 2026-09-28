@@ -65,7 +65,7 @@ namespace TW.Presentation.Tactical
             for (int i = leaps.Count - 1; i >= 0; i--)
             {
                 var l = leaps[i];
-                if (now > l.Until || books == null || !books.Ready || l.Slot >= w.HighWater) { leaps.RemoveAt(i); continue; }
+                if (now > l.Until || books == null || !books.Ready || l.Slot >= w.HighWater || (w.Flags[l.Slot] & (uint)UnitFlags.Alive) == 0) { leaps.RemoveAt(i); continue; }   // killed in the air: the jet goes with him
                 Vector3 at = Host.Presenter != null ? (Vector3)Host.Presenter.Drawn(l.Slot) : (Vector3)w.Position[l.Slot];
                 Vector3 back = at + Vector3.up * 1.1f;
                 if (now >= l.NextFlame)

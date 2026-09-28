@@ -689,7 +689,11 @@ namespace TW.Presentation.Tactical
                         // up close the flash card was wider than the picture (a white-out) and the smoke filled it for seconds:
                         // both come down as the lens goes in (SceneHooks.CloseUp: 0 at the standard view, 1 among the men)
                         float closeUp = SceneHooks.CloseUp;
-                        books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f) + flight * (r * 0.25f * lean), r * Mathf.Lerp(3.2f, 1.6f, closeUp), 0.18f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
+                        float flashRoll = UnityEngine.Random.value * 6.2832f;   // drawn either way: the shared stream
+                        if (recipe.Dust)   // L15: a man landing is a grenade's pop, not a shell's white-out
+                            books.Add(FlipbookFx.Book.Flash, p + Vector3.up * 0.6f, r * 1.2f, 0.12f, roll: flashRoll, glow: (SceneMood.Night ? 3f : 1.5f) * SceneTints.Now.Glow, pop: 0.5f);
+                        else
+                            books.Add(FlipbookFx.Book.Flash, p + Vector3.up * (r * 0.3f) + flight * (r * 0.25f * lean), r * Mathf.Lerp(3.2f, 1.6f, closeUp), 0.18f, roll: flashRoll, glow: (SceneMood.Night ? 7f : 2.5f) * SceneTints.Now.Glow * Mathf.Lerp(1f, 0.5f, closeUp), pop: 0.5f);
                         // The column, and the piece cycle 11 missed. It restored the burst, the smoke and the clods
                         // on melt and left THIS keyed on `wet`, so a shell in molten rock still threw a plume at
                         // 1.25r for 1.5 s - 60% of the size, because that is what water does to a shell. ApplyTints
@@ -769,8 +773,10 @@ namespace TW.Presentation.Tactical
                         {
                             // AOSA C59: narrower at the standard view on a moonlit field (1 exactly with fx.smokeNightSize=1)
                             float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
-                            books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
-                                velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: UnityEngine.Random.Range(-0.15f, 0.15f), glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
+                            float burstRoll = UnityEngine.Random.Range(-0.15f, 0.15f);   // drawn either way: the shared stream
+                            if (!recipe.Dust)   // L15: no shell's glowing cloud over a man landing
+                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                    velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
                             float shrink = Mathf.Lerp(1f, 0.7f, closeUp);

@@ -438,6 +438,7 @@ namespace TW.Presentation.Terrain
                 // L09 (fx.recipes): a strafe's rounds are not shells. Each burst lit the field as a full shell does, 32 strobes
                 // in two seconds; now a small quick flash where they strike and no ember left in the ground
                 if (recipes >= 0.5f && e.A == (int)TW.Sim.Match.OffMapAbilityId.StrafeRun) { Flash(at, Burst, 12f, 6f, .12f, 3.0f); return; }
+                if (recipes >= 0.5f && e.A == TW.Sim.Combat.LeapSystem.LandingSource) { Flash(at, Burst, 18f, 8f, .2f, 3.0f); return; }   // L15: a man landing
                 // the burst is the brightest thing on the field for a quarter of a second (owner, 2026-09-22: twice as
                 // strong), and a big shell lights more ground than a light one. Peak rides hard on the shell's radius;
                 // REACH DOES NOT. A light that reaches past about 23 m covers the whole picture at the standard view and
