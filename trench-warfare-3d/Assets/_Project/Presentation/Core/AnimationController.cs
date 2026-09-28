@@ -220,7 +220,7 @@ namespace TW.Presentation
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
-            DisposeDeaths();
+            DisposeDeaths(); DisposePins();
         }
 
         // ------------------------------------------------------------------------------------------------------ tick
@@ -250,7 +250,7 @@ namespace TW.Presentation
                     if (!s.Dead) { s = Die(i, s, w); }
                     State[i] = s; prevPos[i] = w.Position[i]; continue;
                 }
-                Decide(i, ref s, w);
+                if (PinnedCount == 0 || !Pinned(i, ref s)) Decide(i, ref s, w);   // the gym's pin (AnimationController.Pin.cs)
                 State[i] = s;
                 prevPos[i] = w.Position[i];
             }

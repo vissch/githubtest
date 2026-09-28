@@ -766,10 +766,16 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** a bench `shot=` includes the HUD. `shot_tick=N shot_hud=0` hides it (and `CombatFx`'s world overlays,
   `CombatFx.ShowOverlays`) and holds the clock so the still repeats; such a run's timings are not real time.
 
-### The gate, the Long tier and the tools' own check
-- **Files:** `gate.ps1` (what a run before a commit leaves out, the 300 s budget), Tools/gate_scope.py (which test
-  modules a lane's changes reach, and whether it changes a tool), Tools/toolcheck.py (validate, selftest and every
-  tool's tests, as one check), Tools/land.py (what a lane must pass to land).
+### The gym: every clip, unit, ability, death and event, one at a time, in the battle's drawing
+- **Files:**
+  - `Perf/GymCatalogue.cs`: the entries, read from the enums and the unit table. `EventHow` has one row per
+    `SimEventType` and no default.
+  - `Perf/GymDirector.cs`: staging through `SimHost.WriteWorlds` / `Issue` / `IssuePeer` only. Editor and development
+    builds only.
+  - `Presentation/Core/AnimationController.Pin.cs`: hold one man on one clip, presentation only.
+  - `Editor/Gym.cs`: **TW > Gym**, `Gym.Run`, `Gym.CommandLine`.
+
+  The agents' guide to it is the `tw-gym` skill (on `lane/show/pipe-skills2` until that lands).
 - **Tests:** `python Tools/toolcheck.py`, no Unity. The gate's and `land.py`'s own rules are cases in
   Tools/selftest.py (`gate_cases` with a stand-in for Unity, `land_cases` on a throwaway repo).
 - **How:** a test over 3 s gets `[Test, Category("Long")]`; a new tool's tests go in a `test_<tool>.py` beside it and
