@@ -127,6 +127,8 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.LeanBurst, t.Column);
             books.Tint(FlipbookFx.Book.ShellPlume, t.Smoke);
             books.Tint(FlipbookFx.Book.Smoulder, t.Smoke);
+            books.Tint(FlipbookFx.Book.WreckSmoke, t.Smoke);
+            books.Tint(FlipbookFx.Book.ShellLean, t.Column);
             books.Tint(FlipbookFx.Book.SmokeBank, t.Dust);
             books.Tint(FlipbookFx.Book.GroundRing, t.Dust);
             books.Tint(FlipbookFx.Book.DustPuff, t.Dust);
