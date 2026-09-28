@@ -157,7 +157,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "Smoulder", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.07f, High = 0.85f, Ink = new Vector2(0.05f, 0.92f), Fill = 0.45f },
             new Sheet { Name = "GroundRing", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.20f, High = 0.81f, Ink = new Vector2(0.12f, 0.88f), Fill = 0.94f },
             new Sheet { Name = "DustPuff", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.16f, High = 0.91f, Ink = new Vector2(0.18f, 0.82f), Fill = 0.90f },
-            new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 0.91f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },
+            new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.6f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 1.30f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },
         };
 
         /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
