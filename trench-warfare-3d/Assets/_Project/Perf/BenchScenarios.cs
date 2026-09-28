@@ -13,6 +13,8 @@
 //   armour   each side: every vehicle slot in its roster (tank and walkers)
 //   vfx      each side: HE barrage and chlorine gas round the view's focus; plus a star shell (presentation only)
 //   beam     player 0: the beam, 40 m due east (+x) across the view's focus (VFX pass L10: the pillar of fire)
+//   lineup   every class's shot, every machine's gun and every kind of burst side by side at the focus (BenchLineup.cs:
+//            staged by PerfBench itself, which also queues its presentation-only fire each tick; Issue does nothing)
 // Anything that does not exist in this build is skipped with a warning in the report, never an exception.
 using System;
 using System.Collections.Generic;
@@ -105,6 +107,9 @@ namespace TW.Perf
                     break;
                 }
 
+                case BenchScenario.Lineup:
+                    return;   // BenchLineup.Stage, called by PerfBench: it has to tick with the window
+
                 case BenchScenario.Beam:
                     // one sweep from 20 m west of the focus to 20 m east of it, so the whole walk is on screen
                     Support(m, orders, abilitiesUsed, cost, log, 0, OffMapAbilityId.Beam, Clamp(m, view + new Vector2(-BeamBenchLength * 0.5f, 0f)),
@@ -149,6 +154,7 @@ namespace TW.Perf
         }
 
         const float BeamBenchLength = 40f;
+
 
         static void Support(MatchSim m, List<Order> orders, List<int> used, int[] cost, Log log, byte p, OffMapAbilityId ability, Vector2 at, string what, int args = 0)
         {

@@ -102,6 +102,35 @@ namespace TW.Tests
         }
 
         [Test]
+        public void Up_Close_The_Flare_Grows_And_Each_Round_Has_Its_Own_Life_And_Length()
+        {
+            for (float r = 0f; r <= 1f; r += 0.25f)
+            {
+                Assert.AreEqual(1.05f + r * 0.4f, CombatFx.FlareBase(r, 1f, false), 1e-5f, "fx.classArms 0: the old flare at any zoom");
+                Assert.AreEqual(1.05f + r * 0.4f, CombatFx.FlareBase(r, 0f, true), 1e-5f, "the standard view: the old flare");
+                Assert.Greater(CombatFx.FlareBase(r, 1f, true), 1.7f, "among the men: bigger");
+            }
+            Assert.AreEqual(0.18f, CombatFx.FlareLifeAt(0.18f, 0f, true), 1e-6f); Assert.Greater(CombatFx.FlareLifeAt(0.18f, 1f, true), 0.25f);
+            Assert.AreEqual(1.6f, CombatFx.FlareGlow(false, 0f, true)); Assert.Greater(CombatFx.FlareGlow(false, 1f, true), 2.5f, "brighter on snow up close");
+            Assert.AreEqual(1.9f, CombatFx.TracerWidthAt(1.9f, 0f)); Assert.AreEqual(3.8f, CombatFx.TracerWidthAt(1.9f, 1f), 1e-5f, "a heavy round keeps its weight");
+            Assert.AreEqual(0.7f, CombatFx.TracerWidthAt(0.7f, 1f), "a light one thins as every round does");
+            var rifle = CombatFx.ArmsLook.Rifle;
+            Assert.AreEqual(1f, rifle.TracerLife); Assert.AreEqual(1f, rifle.Streak);
+            var sniper = CombatFx.ArmsFor(InfantryArchetype.Sniper, 4u, 1);
+            Assert.Greater(sniper.TracerLife, 2f); Assert.Greater(sniper.Streak, 1.5f); Assert.Greater(sniper.Flare, 2f);
+            Assert.Less(CombatFx.ArmsFor(InfantryArchetype.Shield, 4u, 1).Streak, 0.5f, "a pistol spits");
+            int dashes = 0, tracerRounds = 0;
+            for (uint t = 0; t < 30; t++)
+            {
+                var mg = CombatFx.ArmsFor(InfantryArchetype.Machinegunner, t, 5);
+                if (mg.Streak < 1f && mg.TracerLife < 1f) dashes++; else if (mg.TracerLife > 1f) tracerRounds++;
+            }
+            Assert.AreEqual(20, dashes, "two machine-gun rounds in three are dashes");
+            Assert.AreEqual(10, tracerRounds, "and the third a tracer round that hangs");
+            Assert.AreNotEqual(CombatFx.ArmsFor(InfantryArchetype.Assault, 4u, 1).Flare, CombatFx.ArmsFor(InfantryArchetype.Jetpack, 4u, 1).Flare, "the SMG and the machine pistol differ");
+        }
+
+        [Test]
         public void The_Bundle_Is_Thrown_Onto_The_Hull()
         {
             Vector3 hand = new Vector3(0f, 1.8f, 0f), to = new Vector3(6f, 2.2f, 3f);
@@ -128,7 +157,7 @@ namespace TW.Tests
             Assert.Greater(CombatFx.BurstBy(SourceId.Unit(VehicleArchetype.Pavise)).Size, 1f, "a long gun's is big");
             Assert.AreEqual(1f, CombatFx.BurstBy(SourceId.Unit(VehicleArchetype.Maw)).Size, "a 6-pdr's is the shell burst");
             var mine = CombatFx.BurstBy(MineSystem.SourceBase + (int)MineKind.Mine);
-            Assert.IsTrue(mine.Mine); Assert.AreEqual(0f, mine.Fire, "a buried charge throws earth, no fireball");
+            Assert.IsTrue(mine.Mine); Assert.AreEqual(0f, mine.Fire, "a buried charge throws earth, no fireball"); Assert.Less(mine.Flash, 0.5f, "and no white-out");
             var wire = CombatFx.BurstBy(MineSystem.SourceBase + (int)MineKind.Tripwire);
             Assert.IsTrue(wire.Tripwire); Assert.AreEqual(0f, wire.Column, "a tripwire stands no column"); Assert.Greater(wire.Wings, 1f);
             Assert.IsFalse(CombatFx.BurstBy(SourceId.CookOff).Mine, "a cook-off is not a mine");
