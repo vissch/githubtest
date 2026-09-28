@@ -612,11 +612,11 @@ namespace TW.Presentation.Tactical
                 m.SetVector("_Grid", new Vector4(s.Cols, s.Rows, s.Frames, s.Snap ? 1f : 0f));
                 m.SetColor("_Tint", s.Tint);
                 m.SetVector("_Levels", new Vector4(s.Low, s.High, 0f, 0f));
-                m.SetColor("_Shade", (Book)k == Book.Burst ? new Color(0.50f, 0.45f, 0.42f) : new Color(0.70f, 0.71f, 0.74f));   // a cloud is lit through: its shade is paler than the ground's; the burst's boiling cloud has a sooty underside (critique s3)
+                m.SetColor("_Shade", (Book)k == Book.Burst ? BurstShade : new Color(0.70f, 0.71f, 0.74f));   // a cloud is lit through: its shade is paler than the ground's; the burst's boiling cloud has a sooty underside (critique s3)
                 m.SetFloat("_Lit", s.Additive || s.Fire ? 0f : s.Lit > 0f ? s.Lit : 1f);   // fire is its own light, like the additive books
                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
                 m.SetFloat("_Fire", s.Fire ? 1f : 0f);
-                if ((Book)k == Book.Fireball) m.SetColor("_Smoke", new Color(0.36f, 0.31f, 0.27f, 1f));   // the shell's fireball: its soot is the burst cloud's brown
+                if ((Book)k == Book.Fireball) m.SetColor("_Smoke", new Color(0.48f, 0.40f, 0.33f, 1f));   // the shell's fireball: its soot is the burst cloud's lit brown (at 0.36 it ringed each fire in dark: critique c1b)
                 if (s.Bands.sqrMagnitude > 0f) m.SetVector("_Bands", s.Bands);
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);

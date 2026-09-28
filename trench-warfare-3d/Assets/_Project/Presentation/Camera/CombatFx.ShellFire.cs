@@ -20,11 +20,13 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         public const string ShellFireKnob = "fx.shellFire", ShellGritKnob = "fx.shellGrit";
-        public const float ShellFireLife = 0.9f;     // s: the burst's eruption (11 of its 32 frames at 12 fps), fading over the last third
-        public const float PocketLife = 0.85f;       // s
+        public const float ShellFireLife = 1.35f;    // s: 16 of its 32 frames from frame 2, fading over the last third (at 0.9 the fire
+                                                     // was dead at half the cloud's 1.7 s: critique c1b)
+        public const float PocketLife = 1.25f;       // s
         public const int ShellPockets = 2;
         public const float PocketAlpha = 0.8f;       // a shade under the fireball's: fire further inside the cloud
         public const float DayColumnPlay = 0.5f;     // the thrown earth stops before its falling arcs by day as it does by night (fx.columnPlay)
+        public const float DayColumnWidth = 0.7f;    // and is slimmer: the reference has chunks, no tall dark shafts (critique c1b)
         float shellFire = 1f, shellGrit = 1f;         // knobs fx.shellFire, fx.shellGrit (Awake; grit 0: none, 1: GritCount)
 
         /// <summary>The burst cloud's width over r: 2.6 as it was at night (AOSA-tuned) and with fx.shellFire 0; 2.2 by day,
@@ -36,7 +38,7 @@ namespace TW.Presentation.Tactical
         public static Color EmberFor(bool night, float fire)
         {
             float k = Mathf.Clamp01(fire);
-            return (night ? new Color(0.30f, 0.10f, 0.03f) : new Color(0.55f, 0.24f, 0.07f)) * k;
+            return (night ? new Color(0.30f, 0.10f, 0.03f) : new Color(0.95f, 0.42f, 0.10f)) * k;   // by day past 0.55: the winter grade's -28 saturation ate half of it
         }
 
         /// <summary>Whether a burst is falling masonry (the sim's Dir.y shape 1): a wall coming down has dust, not fire.</summary>
@@ -47,7 +49,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The fireball's width for a burst of radius r (2 to 9 m): about half the cloud (Burst is 2.2-2.6 r), and
         /// smaller up close, where the cloud is too (the flash comes down the same way).</summary>
-        public static float ShellFireWidth(float r, float closeUp) => r * 1.4f * Mathf.Lerp(1f, 0.7f, Mathf.Clamp01(closeUp));
+        public static float ShellFireWidth(float r, float closeUp) => r * 1.9f * Mathf.Lerp(1f, 0.7f, Mathf.Clamp01(closeUp));   // the drawing fills 40 % of its cell
 
         /// <summary>Where fire pocket k sits over the hole, from a hash of the spot: low in the cloud, just over the fireball
         /// (0.45 to 0.95 r; bench s2 had them at up to 1.3 r, flames hanging in the air on their own) and off to one side,
@@ -71,29 +73,36 @@ namespace TW.Presentation.Tactical
             bool night = SceneMood.Night;
             // the flamethrower's glow by day; at night less (critique s3: at 3.4 three near-white shapes outshone the tracers)
             float glow = (night ? 2.4f : 2.0f) * SceneTints.Now.Glow, alpha = Mathf.Min(1f, shellFire) * (night ? 0.85f : 1f);
-            // grown with the zoom as the recipes' plume is (FlipbookFx.FarGrow), or at z70 it is a pale smudge in the haze
-            var eye = Camera.main;
-            float far = FlipbookFx.FarGrow(eye != null && eye.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f);
+            float far = ShellFar();   // grown with the zoom
             float w = ShellFireWidth(r, closeUp) * Mathf.Min(1f, shellFire) * far;
             // centred low over the hole, not anchored and sunk: a sunk card's bottom edge is a ruler line on the snow
             books.Add(FlipbookFx.Book.Fireball, p + Vector3.up * (0.5f * r * far), w, ShellFireLife, FlipbookFx.Kind.Upright | (mirror ? FlipbookFx.Kind.Mirror : 0),
                 velocity: rise * 0.35f, grow: 0.3f, alpha: alpha, glow: glow, pop: 0.25f, startFrame: 2f);
             for (int k = 0; k < ShellPockets; k++)
-                books.Add(FlipbookFx.Book.Fireball, p + PocketOffset(p, k, r) * far, w * 0.5f, PocketLife, (mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                    velocity: rise, grow: 0.4f, alpha: alpha * PocketAlpha, glow: glow, pop: 0.3f, delay: 0.08f + 0.12f * k, startFrame: 4f + k * 2f);
+                books.Add(FlipbookFx.Book.Fireball, p + PocketOffset(p, k, r) * far, w * 0.65f, PocketLife, (mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                    velocity: rise, grow: 0.4f, alpha: alpha * PocketAlpha, glow: glow, pop: 0.3f, delay: 0.08f + 0.12f * k, startFrame: 6f + k * 3f);   // the fuller frames (4 and 6 read as glyphs)
         }
 
+        /// <summary>How much the shell's fire grows with the zoom: from 40 (FlipbookFx.FarGrow starts at 80, so at z70 it was 1
+        /// and the fire a pinprick in the blizzard: critique c1b), to 2.2 from 88. The cloud grows by its square root.</summary>
+        public static float ShellFarAt(float zoom) => Mathf.Clamp(zoom / 40f, 1f, 2.2f);
+        float ShellFar() { var eye = Camera.main; return ShellFarAt(eye != null && eye.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f); }
+
         /// <summary>How many grains of grit a burst of radius r sprays (before DebrisRenderer's own share by distance and zoom).</summary>
-        public static int GritCount(float r) => Mathf.RoundToInt(16f + 3f * Mathf.Clamp(r, 2f, 9f));
+        public static int GritCount(float r) => Mathf.RoundToInt(12f + 2.5f * Mathf.Clamp(r, 2f, 9f));
 
         /// <summary>The reference's grit: a spray of dark earth out of the burst, the fan of specks round the fireball that the
         /// clods (fist to head size, thrown up high) are not. Small clods in the Clod pool (no draw added), flung out and up
-        /// along the shell's flight, lying only a couple of seconds. 0.12 m and 10 + 0.6 r m/s: at 0.05 m and 26 m/s (s3)
-        /// a grain was a pixel and out of the burst in 0.3 s. DebrisRenderer's own seeded stream: no random draws here.</summary>
+        /// along the shell's flight, gone in 1.4 s. At 0.05 m (s3) a grain was a pixel; at 0.12 m and 10 m/s (c1b) they sat
+        /// on the fire as even dots. DebrisRenderer's own seeded stream: no random draws here.</summary>
         void ShellGrit(Vector3 p, float r, Vector3 lean, uint tick)
         {
             if (shellFire <= 0f || shellGrit <= 0f) return;
-            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit), 10f + 0.6f * r, 0.12f, Mud, 2.5f, 0f, 0.9f, lean, tick + 29u);
+            // fast and short-lived, so it leaves the fire in the first frames instead of parking on it as polka dots, and two
+            // sizes (critique c1b): seven in ten fine, three in ten coarse
+            int n = Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit), coarse = Mathf.RoundToInt(n * 0.3f);
+            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, n - coarse, 15f + r, 0.09f, Mud, 1.4f, 0f, 0.9f, lean, tick + 29u);
+            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, coarse, 12f + 0.8f * r, 0.2f, Mud, 1.4f, 0f, 0.9f, lean, tick + 31u);
         }
     }
 }
