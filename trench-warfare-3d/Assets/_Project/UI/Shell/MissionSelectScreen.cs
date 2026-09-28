@@ -82,7 +82,7 @@ namespace TW.UI
             var d = card.Difficulties[Mathf.Clamp(difficulty, 0, card.Difficulties.Length - 1)];
             float every = d.PeerDeployEveryTicks / 20f;
             SetText("info-stats",
-                $"FRONT {card.FrontLine}\nSEED {seed}\nBOMBARDMENT {card.Bombardment:0}/MIN\nENEMY DEPLOYS EVERY {every:0.#} S\n" +
+                $"FRONT {card.FrontLine}\nSEED {seed}\nENEMY DEPLOYS EVERY {every:0.#} S\n" +
                 $"ENEMY ATTACKS AT {(d.PeerAttacks ? d.PeerAttackGarrison + "+ MEN" : "NEVER")}\nENEMY TANKS: {(d.PeerDeploysTanks ? "YES" : "NO")}\nENEMY SUPPORT FIRE: {(d.PeerUsesSupport ? (d.PeerDefends ? "YES, AND ON YOUR ATTACKS" : "YES") : "NO")}");
         }
 

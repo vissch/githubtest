@@ -289,5 +289,25 @@ namespace TW.Tests
             }
             finally { MatchLaunch.Current = null; UnityEngine.Object.DestroyImmediate(go); }
         }
+
+        [Test]
+        public void NoMissionShellsTheFieldAllMatchLong()
+        {
+            // the owner, 2026-09-28: no constant bombardment. A host starts quiet, a mission's rate is carried and not
+            // applied, and the battle scene does not set one of its own
+            var go = new UnityEngine.GameObject("host-quiet-test"); go.SetActive(false);
+            try
+            {
+                var host = go.AddComponent<SimHost>();
+                Assert.That(host.BombardmentPerMinute, Is.EqualTo(0f), "a new host is quiet");
+                host.BombardmentPerMinute = 8f;   // what the scene held before
+                MatchLaunch.Current = new MatchLaunch.Request { Bombardment = 8f };
+                MatchLaunch.Apply(host);
+                Assert.That(host.BombardmentPerMinute, Is.EqualTo(0f), "a mission's rate must not reach the host");
+                var scene = System.IO.File.ReadAllText($"Assets/_Project/Scenes/{MatchLaunch.BattleScene}.unity");
+                Assert.That(scene, Does.Contain("BombardmentPerMinute: 0\n").Or.Contain("BombardmentPerMinute: 0\r"), "the battle scene's own rate");
+            }
+            finally { MatchLaunch.Current = null; UnityEngine.Object.DestroyImmediate(go); }
+        }
     }
 }

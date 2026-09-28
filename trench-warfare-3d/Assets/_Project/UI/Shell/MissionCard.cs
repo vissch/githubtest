@@ -24,7 +24,7 @@ namespace TW.UI
         [Tooltip("Which battlefield. The shelled wood is the zero value, so cards made before this are unchanged.")]
         public Ground Ground = TW.Presentation.Ground.ShelledForest;
         public bool AllowSeedEdit = true;
-        public float Bombardment = 8f;
+        public float Bombardment = 8f;   // not applied since 2026-09-28 (MatchLaunch.Apply): no constant bombardment
         public string FrontLine = "90 x 240 M";
 
         [Header("Match")]

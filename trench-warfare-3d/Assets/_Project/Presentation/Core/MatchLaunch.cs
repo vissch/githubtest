@@ -53,7 +53,7 @@ namespace TW.Presentation
             public uint BattlefieldSeed = 1917;
             /// <summary>Which ground. Zero is the shelled wood, so an old saved request is unchanged.</summary>
             public Ground Ground = TW.Presentation.Ground.ShelledForest;
-            public float Bombardment = 8f;
+            public float Bombardment;   // carried, not applied: no ambient bombardment (SimHost.BombardmentPerMinute)
             public bool ScriptedPeer = true;
             public int PeerDeployEveryTicks = 40;
             public bool PeerAttacks = true;
@@ -104,7 +104,7 @@ namespace TW.Presentation
             h.FactionA = r.FactionA; h.FactionB = r.FactionB; h.LoadoutA = r.LoadoutA; h.LoadoutB = r.LoadoutB;
             h.GeneratedBattlefield = r.GeneratedBattlefield; h.PlaytestMap = r.PlaytestMap; h.BattlefieldSeed = r.BattlefieldSeed;
             h.Ground = r.Ground;
-            h.BombardmentPerMinute = r.Bombardment;
+            h.BombardmentPerMinute = 0f;   // owner 2026-09-28: no constant bombardment; a mission's rate is not applied
             h.ScriptedPeer = r.ScriptedPeer; h.PeerDeployEveryTicks = Mathf.Max(1, r.PeerDeployEveryTicks);   // SimHost divides by it
             h.PeerAttacks = r.PeerAttacks; h.PeerAttackGarrison = r.PeerAttackGarrison; h.PeerDeploysTanks = r.PeerDeploysTanks;
             h.PeerUsesSupport = r.PeerUsesSupport; h.PeerSupportReserve = r.PeerSupportReserve; h.PeerDefends = r.PeerDefends;

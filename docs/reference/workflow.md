@@ -479,7 +479,7 @@ apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --contin
   (`LockstepDriver` refuses one otherwise) and single player turns hashing off for speed. Reproduce it in an EditMode
   test instead, built the way the game builds it. `SimHost`'s private `NewMatch` makes
   `MatchSim.CreateBattlefield(cfg, MatchLaunch.Field(Ground, BattlefieldSeed))` with `field.Bombardment` from
-  `BombardmentOverride` or `BombardmentPerMinute` when `GeneratedBattlefield` is set, else `CreatePlaytest` or
+  `BombardmentOverride` or `BombardmentPerMinute` (0 since 2026-09-28: no constant bombardment) when `GeneratedBattlefield` is set, else `CreatePlaytest` or
   `CreateGreybox`; a mission first writes its values into those fields (`MatchLaunch.Apply` in `Awake`). In a test,
   call `MatchSim.CreateBattlefield` with the match's values yourself. The enemy is `ScriptedEnemy` (SHOW code);
   SinglePlayerEquivalenceTests shows the loop that drives it (`LockstepSession` plus `session.StepOnce(ai)`), on the
