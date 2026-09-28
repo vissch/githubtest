@@ -448,6 +448,7 @@ namespace TW.Presentation
             if (speed > 0.15f) s.BodyYaw = math.atan2(step.x, step.z);
             int aimAt = target >= 0 ? target : shotThisTick[i] != 0 || threw[i] != 0 ? shotAt[i] : -1;
             if (aimAt >= 0 && aimAt < count) { float3 d = w.Position[aimAt] - p; s.AimYaw = math.atan2(d.x, d.z); }
+            else if (PropTarget.IsProp(aimAt) && PropTarget.Decode(aimAt) < map.Props.Length) { float3 d = map.Props[PropTarget.Decode(aimAt)].Pos - p; s.AimYaw = math.atan2(d.x, d.z); }   // at a wreck (DirectFire.Wrecks)
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
 
             // on fire. A man alight does not take cover, does not flinch at a near miss and does not keep his place in a
