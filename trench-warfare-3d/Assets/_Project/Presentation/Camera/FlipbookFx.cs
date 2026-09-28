@@ -689,7 +689,7 @@ namespace TW.Presentation.Tactical
                     var c = cards[byBook[j]]; if (now < c.Born) continue;
                     if (far > 0f && Sheets[b].Fire)
                     {
-                        Glow(c.Pos, c.Width, c.Alpha);   // the halo counts all of the fire, kept or not
+                        Glow(c.Pos, c.Width, c.Height, (c.Kind & Kind.Anchored) != 0, c.Alpha);   // the halo counts all of the fire, kept or not
                         if (c.Width < FarThinWidth)
                         {
                             if (!FarKeep(c.Born, c.Life, keep)) continue;
@@ -738,7 +738,7 @@ namespace TW.Presentation.Tactical
             // count, so nothing is thinned here
             if (Sheets[(int)book].Fire && FarBlendNow() > 0f)
             {
-                for (int i = 0; i < packed.Count; i++) { var m = packed[i]; Glow(new Vector3(m.m03, m.m13, m.m23), m.m00, m.m21); }
+                for (int i = 0; i < packed.Count; i++) { var m = packed[i]; Glow(new Vector3(m.m03, m.m13, m.m23), m.m00, m.m11, m.m20 > 0.5f, m.m21); }
                 FlushGlow(bounds);
             }
         }
