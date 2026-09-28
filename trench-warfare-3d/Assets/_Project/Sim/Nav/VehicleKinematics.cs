@@ -57,6 +57,9 @@ namespace TW.Sim.Nav
         public bool Wheeled;           // road-only effective speed (A5b data, no wheeled vehicle yet)
         public bool Walker;            // legs, not tracks: steps over trenches and wire, climbs, cannot ditch
         public byte Legs;              // how many it has to lose (VehicleModulesSystem)
+        /// <summary>Metres added to Radius (2026-09-28): room a machine keeps round it beyond its footprint, for one
+        /// whose neighbours are drawn wider than theirs (the Maw's sponsons reach 5.8 m out on a 3.8 m half width).</summary>
+        public float Clearance;
 
         /// <summary>Is a world point under this hull's footprint: the rectangle HalfLength x HalfWidth in the hull's yaw
         /// (forward = (sin yaw, 0, cos yaw)), grown by <paramref name="margin"/> on every side. The one test for "under
@@ -129,7 +132,7 @@ namespace TW.Sim.Nav
         /// <summary>A round radius for keeping two hulls apart: the longer half plus a hand, so the corners of two
         /// hulls side by side or nose to flank do not pass through each other (the mean of length and width let the
         /// Maw's sponson into a Tusk's side).</summary>
-        public float Radius => math.max(HalfLength, HalfWidth) + 0.25f;
+        public float Radius => math.max(HalfLength, HalfWidth) + 0.25f + Clearance;
     }
 
     public sealed class VehicleKinematicsSystem : ISimSystem

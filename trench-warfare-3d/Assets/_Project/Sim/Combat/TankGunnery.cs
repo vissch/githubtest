@@ -293,6 +293,8 @@ namespace TW.Sim.Combat
                         if (t >= 0 && Score(i, t, p, hullYaw, g) == float.MaxValue) t = -1;
                         if (t < 0 || ((uint)(i + k) % ScanEveryTicks) == Tick % ScanEveryTicks) t = Pick(i, p, hullYaw, g);
                         GunTarget[gi] = t;
+                        // artillery holds where it is while it has something in reach (TankSpec.StandOff)
+                        if (spec.StandOff && k == 0 && t >= 0) HaltTicks[i] = math.max(HaltTicks[i], ScanEveryTicks + 1);
 
                         // lay the gun: toward the target, or back to rest
                         float rel = t >= 0 ? SimMath.WrapAngle(SimMath.YawOf(Position[t] - p) - hullYaw) : g.RestYaw;

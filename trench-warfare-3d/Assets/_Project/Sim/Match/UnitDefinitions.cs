@@ -68,6 +68,7 @@ namespace TW.Sim.Match
             {
                 TurnRateRad = 1.1f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.5f,
                 BogChance = 0f, HalfLength = 3.3f, HalfWidth = 3.45f, PushesTrees = false,
+                Clearance = 1.2f,   // the Maw is drawn 1.2 m wider than its footprint: the Skimmer sat inside its track
             },
         };
 
@@ -89,8 +90,9 @@ namespace TW.Sim.Match
                 Hull = new ArmorProfile { FrontMm = 10f, SideMm = 8f, RearMm = 6f, TopMm = 6f },
                 Turret = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 6f, TopMm = 5f },
                 TurretChance = 0.35f, Crew = 3, GunCount = 1, ShortHalt = true, FuelRisk = 0.30f, AmmoRisk = 0.70f,
-                // the shell below is the whole rack: twelve rockets, each landing on its own tick (TankGunnerySystem)
-                Rockets = 12, RocketSpeed = 140f,
+                // the shell below is the whole rack: a rocket from each of its sixteen tubes, each landing on its own
+                // tick (TankGunnerySystem); it holds where it is while it has a target, so it fires from its reach
+                Rockets = 16, RocketSpeed = 140f, StandOff = true,
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 20f * Deg,
@@ -103,7 +105,7 @@ namespace TW.Sim.Match
             Drive = new VehicleProfile
             {
                 TurnRateRad = 0.5f, TrenchCrossWidth = 2.6f, DitchChance = 0.6f, SlopeLimit = 0.5f, BogChance = 0.035f,
-                HalfLength = 4.0f, HalfWidth = 3.1f, PushesTrees = false,
+                HalfLength = 4.0f, HalfWidth = 3.1f, PushesTrees = false, Clearance = 1.2f,
             },
         };
 

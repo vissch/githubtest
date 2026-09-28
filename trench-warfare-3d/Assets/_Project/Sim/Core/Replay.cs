@@ -36,7 +36,9 @@ namespace TW.Sim
         // v11 (2026-09-28): the Salvo's shot is a rack of rockets held in the air (TankGunnerySystem.Rockets, hashed at the
         // end of that system's part of the chain) and each bursts on its own later tick; SimEventType.RocketFired;
         // SimRandom.SystemId.Salvo = 22; TankSpec gains Rockets and RocketSpeed (the combat table's fingerprint).
-        public const ushort FormatVersion = 11;
+        // v12 (2026-09-28): TankSpec gains StandOff (the Salvo holds while it has a target) and VehicleProfile Clearance
+        // (added to Radius; the Skimmer and Salvo keep 1.2 m more round them); the Salvo's rack is 16 rockets, not 12.
+        public const ushort FormatVersion = 12;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

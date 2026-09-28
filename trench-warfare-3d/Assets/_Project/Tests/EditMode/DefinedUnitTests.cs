@@ -142,7 +142,46 @@ namespace TW.Tests
             Assert.Greater(fired, 0, "at rocket range it fires");
             Assert.LessOrEqual(fired, 2, "and a 16 s reload allows at most two in 20 s");
         }
-            // ------------------------------------------------------------------ the Salvo's rack (format v11)
+            /// <summary>The Salvo is artillery: once it has something in reach it holds there and fires, instead of driving on
+        /// into the enemy's lines as every other machine does (the critic found one parked on the enemy's deploy zone).</summary>
+        [Test]
+        public void TheSalvoHoldsWhereItIsOnceItHasATarget()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f));   // at its own speed, heading south
+            // men who outlive the rockets (a target that dies lets it drive on, which is right)
+            for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 20f), 1e6f, 0f, false);
+            Run(m, 20 * 30);
+            float3 held = m.World.Position[truck];
+            Assert.GreaterOrEqual(m.Gunnery.GunTarget[truck * TankGunnerySystem.Guns], 0, "it has the men as its target");
+            Run(m, 20 * 10);
+            Assert.Less(math.distance(held, m.World.Position[truck]), 0.5f, "and it holds while it has them");
+            Assert.Greater(math.distance(held.xz, new float2(30f, 20f)), 200f, "from well back: they were in reach where it stood (240 m), so it never closed");
+
+            using var m2 = NewMatch();
+            int tusk = m2.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 260f), m2.World.Units.Roster[VehicleArchetype.Tusk].Hp, m2.World.Units.Roster[VehicleArchetype.Tusk].Speed, true);
+            var start = m2.World.Position[tusk];
+            Run(m2, 20 * 40);
+            Assert.Greater(math.distance(start, m2.World.Position[tusk]), 60f, "a machine without StandOff drives on (the rule is the Salvo's alone)");
+        }
+
+        /// <summary>Two machines set down on top of each other are pushed apart to their radii, clearance included.</summary>
+        [Test]
+        public void TheSkimmerIsPushedClearOfAMawItsDrawnSizeApart()
+        {
+            using var m = NewMatch();
+            var maw = m.World.Units.Roster[VehicleArchetype.Maw];
+            int a = m.World.Spawn(0, VehicleArchetype.Maw, new float3(40f, 0f, 120f), maw.Hp, 0f, true);
+            int b = Spawn(m, 0, VehicleArchetype.Skimmer, new float3(42f, 0f, 120f), 0f);
+            Run(m, 20 * 8);
+            float want = m.Vehicles.Profiles[VehicleArchetype.Maw].Radius + m.Vehicles.Profiles[VehicleArchetype.Skimmer].Radius;
+            Assert.AreEqual(1.2f, m.Vehicles.Profiles[VehicleArchetype.Skimmer].Clearance);
+            Assert.GreaterOrEqual(math.distance(m.World.Position[a].xz, m.World.Position[b].xz), want - 0.3f, "they are still inside each other");
+            // the Maw is drawn with its sponsons 5.8 m out and the Skimmer 3.45 m out: that far apart, the hulls clear
+            Assert.GreaterOrEqual(want, 5.8f + 3.45f - 0.05f);
+        }
+
+        // ------------------------------------------------------------------ the Salvo's rack (format v11)
         struct Landing { public uint Tick; public float3 Pos; }
 
         /// <summary>A Salvo 150 m from six men in the open, run long enough for one rack to fire and come down.</summary>

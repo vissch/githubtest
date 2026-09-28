@@ -61,6 +61,9 @@ namespace TW.Sim.Combat
         /// come down scattered over the shell's burst: TankGunnerySystem holds them until they land.</summary>
         public int Rockets;
         public float RocketSpeed;
+        /// <summary>Artillery (2026-09-28, the Salvo): while gun 0 has a target it holds where it is, so it fires from
+        /// the edge of its reach instead of driving on into the enemy's lines.</summary>
+        public bool StandOff;
 
         public TankGun Gun(int k) => k == 0 ? Gun0 : Gun1;
 
