@@ -39,7 +39,7 @@ namespace TW.Editor
         public static string LastRun = "";
 
         /// <summary>Play the catalogue unattended. Options: tabs=scenes,clips,units,abilities,deaths,events (all when absent),
-        /// filter=&lt;part of a name&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1), out=&lt;run folder&gt;,
+        /// filter=&lt;part of a name, or parts split by |&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1), out=&lt;run folder&gt;,
         /// minutes=&lt;wall-clock limit, default 45&gt;, quit=1 (exit the editor when done; CommandLine adds it).</summary>
         public static string Run(string options = "")
         {
@@ -244,6 +244,15 @@ namespace TW.Editor
                 {
                     int bands = e.Tab == GymTab.Clips || Gym.Opt(Options, "bands") == "close" ? 3 : GymCatalogue.Bands.Length;
                     string stem = Safe(e.Tab + "_" + e.Name);
+                    // a still is the pose, not the weather: no camera shake (a barrage moved the camera 1-10 m off its
+                    // pose and voided the stills) and no lightning (a flash blew out 5 % of a trench still); both come
+                    // back after the capture
+                    float shake = TW.Presentation.Tactical.CameraShake.Strength;
+                    var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+                    bool lightning = sky != null && sky.Lightning;
+                    TW.Presentation.Tactical.CameraShake.Strength = 0f; TW.Presentation.Tactical.CameraShake.Reset();
+                    if (sky != null) sky.Lightning = false;
+                    bool held = TW.Presentation.Terrain.Storm.Hold; TW.Presentation.Terrain.Storm.Hold = true;   // the bolt itself (Atmosphere only lights it)
                     for (int b = 0; b < bands; b++)
                     {
                         var band = GymCatalogue.Bands[b];
@@ -254,6 +263,9 @@ namespace TW.Editor
                     float capUntil = Time.realtimeSinceStartup + 30f;
                     while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < capUntil) yield return null;
                     yield return null;
+                    TW.Presentation.Tactical.CameraShake.Strength = shake;
+                    if (sky != null) sky.Lightning = lightning;
+                    TW.Presentation.Terrain.Storm.Hold = held;
                 }
                 director.End();
                 List<string> flags;
@@ -282,6 +294,14 @@ namespace TW.Editor
             Finish(quit, stopped != null ? 1 : flagged > 0 ? 2 : 0);
         }
 
+        /// <summary>A filter is one part of a name, or several split by '|' (any of them matches).</summary>
+        internal static bool Matches(string name, string filter)
+        {
+            foreach (var part in filter.Split('|'))
+                if (part.Length > 0 && name.IndexOf(part, System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
+
         List<GymEntry> Select(List<GymEntry> all)
         {
             string tabs = Gym.Opt(Options, "tabs"), filter = Gym.Opt(Options, "filter");
@@ -290,7 +310,7 @@ namespace TW.Editor
             foreach (var e in all)
             {
                 if (tabs != null && tabs.ToLowerInvariant().IndexOf(e.Tab.ToString().ToLowerInvariant(), System.StringComparison.Ordinal) < 0) continue;
-                if (filter != null && e.Name.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (filter != null && !Matches(e.Name, filter)) continue;
                 list.Add(e);
                 if (list.Count >= max) break;
             }
