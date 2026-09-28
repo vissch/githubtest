@@ -164,8 +164,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests, DeadGroundTests.
 - **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
   (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
-  shooting at, or else the nearest enemy in the open within `HuntRadius` 70 m; he closes on him in a straight line
-  over open ground and holds at `HoldDistance` (half his weapon's range, 45 m under a `>>` order, a braced gun at
+  shooting at, or else the nearest enemy in the open within `HuntRadius` (70 m x `CombatTables.RangeScale` 0.8: the
+  owner cut every attack reach by a fifth, 2026-09-28); he closes on him in a straight line
+  over open ground and holds at `HoldDistance` (half his weapon's range, 48 m under a `>>` order, a braced gun at
   three quarters), where he kneels, faces him and shoots without the moving penalty. It writes
   `MovementSystem.Engage` / `EngageDir` and `MoveJob` walks it. Not hunted: men in a trench (stormed along the goal's
   field), machines (except by a weapon that beats their plate), anyone across wire or a trench. Not hunting: a
@@ -205,6 +206,14 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   front trench killed the player's reinforcements between their spawn and their lines: in ten minutes of a match the
   player lost 17 of 23 men without an attack being made, and no army ever grew past ten (`MatchLoopTests` on the show
   lane). Artillery, gas and aircraft still reach him.
+- **Hand to hand and the pounce (2026-09-28, lane/sim/melee):** `Sim/Combat/MeleeSystem.cs` (order 1109, over Engage's
+  orders): within 8 m a man charges the nearest enemy man (over open ground, into or along the foe's trench) and at
+  2.5 m both fight (`Stance.Melee`, `MovementSystem.EngageMelee`), blows every 1.2 s (`MeleeBlow`); `KeepsRifle` says
+  rifle or fists (fists men throw the weapon down: `UnitFlags.Disarmed`, `WeaponDropped`/`WeaponPickedUp`); `Melee`
+  and `Disarmed` hold fire (DirectFire) and leaps. `Sim/Combat/PounceSystem.cs` (order 1125, after Kinematics): a
+  walker with claws crouches, leaps onto a man within 10 m of its front and lands on him (`PounceCrouched`,
+  `PounceLanded`), never onto a trench, a wall, a machine or its own men. Tests: `MeleeTests`. The picture's half is
+  tw3d-board item `melee` (docs/inbox/2026-09-28-all-melee.md).
 
 ### Shells, barrages, gas, fire
 - **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),
