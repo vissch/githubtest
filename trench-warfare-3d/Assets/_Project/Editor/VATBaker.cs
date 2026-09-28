@@ -1,4 +1,4 @@
-// Phase: B3 (implemented), C1 (the clip atlas), C2 (the figures)
+﻿// Phase: B3 (implemented), C1 (the clip atlas), C2 (the figures)
 // Bakes each infantry figure (Art/Characters/Soldier.fbx for the rifleman, assault and machine-gunner; Sniper.fbx, the
 // hooded man; both Tripo models auto-rigged by Mixamo, under a thousand vertices) through every clip in
 // InfantryClipTable into the VAT layout VATRenderer draws: U = vertex, V = frame, one row per controller Clip, written
@@ -225,12 +225,14 @@ namespace TW.Editor
                 // carried in the right hand's socket; when the right hand leaves the weapon (bolt, reload, a fidget, the
                 // ladder, a throw) the left hand keeps it
                 // both hands on it: from the right hand (the grip) through the left (the forestock), whatever the rig's hand axes are
+                // The grip moves between the three smoothly as the hands part: hard switches at 8 and 48 cm popped the rifle up
+                // to 0.87 m in one frame (Shield, MaskOn, GetUp, the prone reloads: 51 pops in 28 clips, 2026-09-28)
                 Vector3 span = rig.HandL.position - rig.HandR.position;
-                bool rightOff = span.magnitude > 0.48f / rig.Scale && !aiming;
-                Matrix4x4 grip;
-                if (rightOff) grip = rig.HandL.localToWorldMatrix * rig.GripL;
-                else if (span.magnitude > 0.08f / rig.Scale) grip = Matrix4x4.TRS(rig.HandR.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one);
-                else grip = rig.HandR.localToWorldMatrix * rig.GripR;
+                float apart = span.magnitude * rig.Scale;   // metres
+                Matrix4x4 right = rig.HandR.localToWorldMatrix * rig.GripR;
+                Matrix4x4 both = apart > 0.02f ? Matrix4x4.TRS(rig.HandR.position, Quaternion.LookRotation(span.normalized, Vector3.up), Vector3.one) : right;
+                Matrix4x4 grip = BlendGrip(right, both, Smooth01((apart - 0.05f) / 0.06f));
+                if (!aiming) grip = BlendGrip(grip, rig.HandL.localToWorldMatrix * rig.GripL, Smooth01((apart - 0.42f) / 0.12f));
                 int r0 = skinCount + helmet.Pos.Length;
                 for (int i = 0; i < rifle.Pos.Length; i++) { p[r0 + i] = grip.MultiplyPoint3x4(rifle.Pos[i]); n[r0 + i] = grip.MultiplyVector(rifle.Nrm[i]); }
                 var turn = Quaternion.Euler(0f, -yawFix * Mathf.Rad2Deg, 0f);
@@ -318,6 +320,8 @@ namespace TW.Editor
                             if (lift != 0f) Level(rig, lift);
                             Capture(first + keep * frac, yaw0 + (src.StripYaw ? turn * frac : 0f));
                         }
+                        // the rifle out of the ground: a death drops it, anything else pitches it about the grip (VatRifleGround)
+                        VatRifleGround.Settle(frames, frameNormals, frameSockets, start, n, vertexCount - VatRifleGround.Corners, src.Drops);
                         aiming = false;
                         table[r] = new Vector2(start, src.Loop ? n : -n); seconds[r] = played;
                         report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} kept {(travel - keep).magnitude * rig.Scale * 100f,4:0} of {travel.magnitude * rig.Scale * 100f,4:0} cm travel{(src.Lower != null ? " on " + src.Lower : "")} turn {turn * Mathf.Rad2Deg,5:0} deg{(src.Aim ? $" rifle through both hands, turned {lift:+0;-0;0} deg" : "")}");
@@ -538,6 +542,16 @@ namespace TW.Editor
 
         // ---- boxes ----------------------------------------------------------------------------------------------
         struct BoxMesh { public Vector3[] Pos, Nrm; public int[] Tris; }
+
+        static float Smooth01(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
+
+        /// <summary>A rigid grip part way from a to b: position lerped, rotation slerped (no shear, so the rifle keeps its shape).</summary>
+        public static Matrix4x4 BlendGrip(Matrix4x4 a, Matrix4x4 b, float w)
+        {
+            if (w <= 0f) return a;
+            if (w >= 1f) return b;
+            return Matrix4x4.TRS(Vector3.Lerp(a.GetPosition(), b.GetPosition(), w), Quaternion.Slerp(a.rotation, b.rotation, w), Vector3.one);
+        }
 
         static BoxMesh Box(Vector3 center, Vector3 size)
         {

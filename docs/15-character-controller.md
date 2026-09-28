@@ -188,6 +188,14 @@ Whistle` when a target first shows, then `Officer Point` at it every 6-10 s. Dea
 third of the men shot from behind, `Walking To Dying (1)` for half of those shot walking. Still missing (not
 downloaded): a treat clip, a hammering clip, a gas death.
 
+**The rifle out of the ground (2026-09-28):** `Tools/vatcheck.py` read the baked atlas and found every death and every
+prone, crawling and rolling clip standing the rifle 20-80 cm in the mud (57 clip rows on the two figures). The bake now
+settles each clip (`Editor/VatRifleGround.cs`): a death drops the rifle, easing it from the hand over 25-80 % of the
+fall to lie level where it ends; any other clip pitches it about the grip towards level as far as the depth asks (5 cm
+or less only lifts it: a kneeling man's butt on the ground), towards the way it leaned at the clip's start. Measured on
+the atlas before choosing: lifting alone floated the rifle up to 83 cm out of the hand, and levelling it outright made the
+muzzle jump up to 1.4 m between frames where the source spins the rifle upright.
+
 ## 7. Reactions
 
 | Situation | Signal | Response |

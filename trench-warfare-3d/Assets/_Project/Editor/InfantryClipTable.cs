@@ -20,6 +20,7 @@ namespace TW.Editor
         public bool Aim;                               // the rifle at the shoulder: laid through both hands, levelled where the clip strays (VATBaker.Level), and the
                                                        // clip turned so the rifle, not the pelvis, faces +Z (he stands bladed, 70 degrees side-on, with the rifle on his target)
         public bool RaiseAim, LowerAim;                // a raise to the aim ends facing by the rifle; a lower from it starts so (the turn spread over the clip)
+        public bool Drops;                             // a death: he lets go of the rifle, which comes to lie on the ground (VatRifleGround)
     }
 
     public static class InfantryClipTable
@@ -32,8 +33,8 @@ namespace TW.Editor
         static void L(Clip c, string file, int fps = 15, float cutStart = 0f, float cutEnd = 0f, float rate = 1f) => list.Add(new ClipSource { Clip = c, File = file, Loop = true, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate });
         static void O(Clip c, string file, int fps = 15, float cutStart = 0f, float cutEnd = 0f, float rate = 1f, bool stripYaw = false) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate, StripYaw = stripYaw });
         static void C(Clip c, string file, string lower, int fps = 12, float cutStart = 0f, float cutEnd = 0f, float rate = 1f, float lowerTime = 0f) => list.Add(new ClipSource { Clip = c, File = file, Lower = lower, LowerTime = lowerTime, Loop = false, Fps = fps, CutStart = cutStart, CutEnd = cutEnd, Rate = rate, StripYaw = true });
-        static void T(Clip c, string file, int fps = 15) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, Thrown = true });
-        static void D(Clip c, string file, int fps = 12, bool keepRoot = true) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, KeepRoot = keepRoot });
+        static void T(Clip c, string file, int fps = 15) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, Thrown = true, Drops = c.ToString().StartsWith("Death") });
+        static void D(Clip c, string file, int fps = 12, bool keepRoot = true) => list.Add(new ClipSource { Clip = c, File = file, Loop = false, Fps = fps, Rate = 1f, KeepRoot = keepRoot, Drops = true });
 
         static void Build()
         {

@@ -92,6 +92,7 @@ both lists.
 | `animforge.py` | Library: edit Mixamo clips as bone curves (reverse, retime, layer, IK) and write FBX | imported by `make_missing_clips.py` |
 | `make_missing_clips.py` | Makes the 15 clips the Mixamo download lacks | `python Tools/make_missing_clips.py "<Mixamo folder>"` writes `<folder>/Made/` |
 | `clipcheck.py` | Foot skate, root drift, floor and helmet clipping of the made clips | `python Tools/clipcheck.py "<folder>/Made"` |
+| `vatcheck.py` | Every baked clip of the VAT figures, rifle included: how low the rifle and the body go; exit 1 on a rifle in the ground | `python Tools/vatcheck.py [Soldier Sniper] [--atlas <file>]` |
 
 Source clips: the owner's `Downloads\mixamo animations\`. Classification: `docs/reference/animation-clips.md`.
 
