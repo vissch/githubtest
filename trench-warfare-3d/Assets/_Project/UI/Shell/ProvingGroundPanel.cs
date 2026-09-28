@@ -4,7 +4,8 @@
 //         or 10 of it at that side's rally point, +W adds as many to your own wave; the ideas are listed and greyed;
 //  WAVES  the ready-made waves and your own: SEND now or REPEAT on the timer, placed at the enemy's rally or sent up
 //         THROUGH THEIR SLOTS by command; the enemy's barrage and gas on your front trench; the scripted enemy's level;
-//  MATCH  silver, the clock, clearing the field, restart, end (the debrief), quit.
+//  MATCH  silver, the clock, clearing the field, the sappers' orders (every sapper of a side lays ahead of himself),
+//         restart, end (the debrief), quit.
 // The router pushes it when the match was started from the Proving Ground's launch screen and F8 opens it over any
 // match; F8 or its button folds it to its title. Esc is not its business (Overlay): the pause menu opens over it.
 // Everything it does goes through the director (Presentation/Core/ProvingGround.cs); a test binds it over a director
@@ -27,6 +28,7 @@ namespace TW.UI
             "count-tabs", "unit-list", "unit-tip", "btn-through-slots", "every-tabs", "slots-note", "wave-list", "custom-text",
             "btn-custom-send", "btn-custom-repeat", "btn-custom-clear", "timer-text", "btn-timer-stop", "btn-enemy-barrage", "btn-enemy-gas",
             "ai-tabs", "btn-silver-ours", "btn-silver-theirs", "speed-tabs", "btn-clear-ours", "btn-clear-theirs", "field-text",
+            "btn-sappers-mine", "btn-sappers-wire", "btn-sappers-theirs",
             "btn-restart", "btn-end", "btn-quit-menu", "match-note", "status",
         };
         public override bool Modal => false;
@@ -42,7 +44,10 @@ namespace TW.UI
         public const string SlotsNote = "WAVES GO UP THROUGH THEIR SLOTS BY COMMAND: ONLY UNITS OF THEIR TEN.";
 
         /// <summary>Your own wave survives a restart of the match (the scene reloads and the panel is rebuilt).</summary>
-        static ProvingGround.Wave custom = new ProvingGround.Wave { Name = "YOUR WAVE", Blurb = "Built on the units page." };
+        static ProvingGround.Wave custom = NewCustom();
+        static ProvingGround.Wave NewCustom() => new ProvingGround.Wave { Name = "YOUR WAVE", Blurb = "Built on the units page." };
+        // kept across scene loads on purpose (a restart); emptied when the Play session ends
+        static ProvingGroundPanel() => SceneStatics.Register(nameof(ProvingGroundPanel), () => custom = NewCustom());
 
         ProvingGround ground;
         List<ProvingGround.Wave> presets;
@@ -101,6 +106,9 @@ namespace TW.UI
             Btn("btn-silver-theirs", () => { ground?.GiveSilver(1, SilverGift); Refresh(); });
             Btn("btn-clear-ours", () => { ground?.Clear(0); Refresh(); });
             Btn("btn-clear-theirs", () => { ground?.Clear(1); Refresh(); });
+            Btn("btn-sappers-mine", () => { ground?.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine); Refresh(); });
+            Btn("btn-sappers-wire", () => { ground?.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayTripwire); Refresh(); });
+            Btn("btn-sappers-theirs", () => { ground?.OrderSappers(1, TW.Sim.Units.UnitAbilityId.LayMine); Refresh(); });
             Btn("btn-restart", () => Router?.RestartMatch());
             Btn("btn-end", () => Router?.ShowDebrief(EndReason));
             Btn("btn-quit-menu", () => Router?.QuitToMenu());
