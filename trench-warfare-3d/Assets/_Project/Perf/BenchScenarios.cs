@@ -12,6 +12,7 @@
 //   barrage  each side: HE barrage on the other side's front trench
 //   armour   each side: every vehicle slot in its roster (tank and walkers)
 //   vfx      each side: HE barrage and chlorine gas round the view's focus; plus a star shell (presentation only)
+//   beam     player 0: the beam, 40 m due east (+x) across the view's focus (VFX pass L10: the pillar of fire)
 // Anything that does not exist in this build is skipped with a warning in the report, never an exception.
 using System;
 using System.Collections.Generic;
@@ -103,6 +104,12 @@ namespace TW.Perf
                     StarShell(log);
                     break;
                 }
+
+                case BenchScenario.Beam:
+                    // one sweep from 20 m west of the focus to 20 m east of it, so the whole walk is on screen
+                    Support(m, orders, abilitiesUsed, cost, log, 0, OffMapAbilityId.Beam, Clamp(m, view + new Vector2(-BeamBenchLength * 0.5f, 0f)),
+                        "20 m west of the held view's focus, heading east", AbilityArgs.Pack(90, 0, (int)BeamBenchLength));
+                    break;
             }
             if (orders.Count == 0) return;
 
@@ -141,7 +148,9 @@ namespace TW.Perf
             }
         }
 
-        static void Support(MatchSim m, List<Order> orders, List<int> used, int[] cost, Log log, byte p, OffMapAbilityId ability, Vector2 at, string what)
+        const float BeamBenchLength = 40f;
+
+        static void Support(MatchSim m, List<Order> orders, List<int> used, int[] cost, Log log, byte p, OffMapAbilityId ability, Vector2 at, string what, int args = 0)
         {
             if (m.Abilities == null) { log.Warnings.Add($"{ability}: this match has no OffMapAbilitySystem: skipped"); return; }
             if (!OffMapAbilitySystem.TryGetStats((int)ability, out var stats)) { log.Warnings.Add($"{ability}: no such ability in this build: skipped"); return; }
@@ -150,7 +159,7 @@ namespace TW.Perf
             orders.Add(new Order
             {
                 Player = p,
-                Command = new SimCommand { Player = p, Type = CommandType.SupportFire, A = (int)ability, Pos = new Unity.Mathematics.float3(at.x, 0f, at.y) },
+                Command = new SimCommand { Player = p, Type = CommandType.SupportFire, A = (int)ability, B = args, Pos = new Unity.Mathematics.float3(at.x, 0f, at.y) },
                 Text = string.Format(Inv, "p{0} SupportFire {1} at ({2:0.0}, {3:0.0}): {4} ({5} silver)", p, ability, at.x, at.y, what, stats.Cost),
             });
         }
