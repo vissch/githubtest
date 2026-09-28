@@ -89,10 +89,16 @@ BOOKS = {
     "GroundRing":  ("tw_ground_ring_8x4_12fps_32f.png",           "luma",  False, None),      # the shock ring, seen from above
     "DustPuff":    ("tw_dust_puff_8x4_12fps_32f.png",             "luma",  False, (2, 29)),   # hits and landings; frames 0-1 a stray cap
     "ShellPlume":  ("tw_shell_plume_8x4_12fps_32f.png",           "luma",  False, (4, 26)),   # the smoke a burst leaves; no flash frames
+    # VFX pass wave 2 (owner's montage OK 2026-09-28; published as tw_*): the loops keep 0-27, their last row is a crossfade bump
+    "FireLance":   ("tw_fire_lance_8x4_12fps_32f_loop.png",       "luma",  False, (0, 27)),   # the beam: a pillar of fire, steady
+    "MendSparks":  ("tw_mend_sparks_8x4_12fps_32f_loop.png",      "luma",  False, None),      # a welding torch's sparks: repairs
+    "ShellLean":   ("tw_shell_lean_b_8x4_12fps_32f.png",          "luma",  False, None),      # earth thrown one way: the directional burst
+    "WreckSmoke":  ("tw_wreck_smoke_8x4_12fps_32f_loop.png",      "luma",  False, (0, 27)),   # black smoke over a burning wreck, steady
 }
 FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26,
              "GasBank": 30, "GasVent": 32, "SmokeBank": 32, "MortarBurst": 30, "ShellFall": 30, "LeanBurst": 28,
-             "FireCookOff": 32, "FireTall": 32, "FireGunBlast": 32, "Smoulder": 32, "GroundRing": 32, "DustPuff": 32, "ShellPlume": 32}
+             "FireCookOff": 32, "FireTall": 32, "FireGunBlast": 32, "Smoulder": 32, "GroundRing": 32, "DustPuff": 32, "ShellPlume": 32,
+             "FireLance": 32, "MendSparks": 32, "ShellLean": 32, "WreckSmoke": 32}
 # FireBall's band split, measured in round 2: the shader's default _Bands and the levels its Sheet row uses
 FIREBALL_BANDS = (0.12, 0.40, 0.86)
 FIREBALL_LEVELS = (0.16, 0.86)
