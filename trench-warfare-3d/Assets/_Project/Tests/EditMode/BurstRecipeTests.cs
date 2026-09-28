@@ -161,11 +161,13 @@ namespace TW.Tests
                 foreach (var o in new[] { a, b })
                 {
                     Assert.LessOrEqual(new Vector2(o.x, o.z).magnitude, 0.5f * r + 1e-4f, "within half the cloud's width");
-                    Assert.That(o.y, Is.InRange(0.7f * r - 1e-4f, 1.3f * r + 1e-4f), "up in the cloud, off the ground");
+                    Assert.That(o.y, Is.InRange(0.45f * r - 1e-4f, 0.95f * r + 1e-4f), "low in the cloud, off the ground");
                 }
                 Assert.Less(a.x * b.x + a.z * b.z, 0f, "the two on opposite sides");
                 Assert.AreEqual(a, CombatFx.PocketOffset(p, 0, r), "by place, not by chance");
             }
+            Assert.IsTrue(CombatFx.Masonry(1f) && !CombatFx.Masonry(0f) && !CombatFx.Masonry(2f), "only falling masonry has no fire");
+            Assert.Greater(CombatFx.GritCount(8f), CombatFx.GritCount(3f), "a bigger shell sprays more grit");
         }
     }
 }
