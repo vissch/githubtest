@@ -33,6 +33,9 @@ namespace TW.Tests
             public readonly ProvingGround Ground;
             public readonly List<SimEvent> Log = new List<SimEvent>();
             public SimWorld W => M.World;
+            /// <summary>Ticks between a seat being told and the world doing it (a CommandSeat's InputDelay; 0: at once).</summary>
+            public int Delay;
+            readonly List<(uint due, SimCommand c)> late = new List<(uint, SimCommand)>();
 
             public Rig(byte[] theirs = null, uint seed = 0xC0FFEE)
             {
@@ -49,7 +52,11 @@ namespace TW.Tests
             public void Step()
             {
                 Ground.Tick();
-                var both = new List<SimCommand>(Player.Issued); both.AddRange(Enemy.Issued);   // by player, each in issue order
+                foreach (var c in Player.Issued) late.Add((W.Tick + (uint)Delay, c));   // by player, each in issue order
+                foreach (var c in Enemy.Issued) late.Add((W.Tick + (uint)Delay, c));
+                var both = new List<SimCommand>();
+                foreach (var l in late) if (l.due <= W.Tick) { var c = l.c; c.Tick = W.Tick; both.Add(c); }
+                late.RemoveAll(l => l.due <= W.Tick);
                 using var cmds = new NativeArray<SimCommand>(both.ToArray(), Allocator.Temp);
                 Enemy.Issued.Clear(); Player.Issued.Clear();
                 M.Step(cmds);
@@ -66,6 +73,7 @@ namespace TW.Tests
             }
 
             public int Count(SimEventType type) { int n = 0; foreach (var e in Log) if (e.Type == type) n++; return n; }
+            public int Count(SimEventType type, int b) { int n = 0; foreach (var e in Log) if (e.Type == type && e.B == b) n++; return n; }
             public void Dispose() => M.Dispose();
         }
 
@@ -224,6 +232,31 @@ namespace TW.Tests
             Assert.AreEqual(0, r.Alive(1, VehicleArchetype.Brute));
         }
 
+        /// <summary>Seen in Play on 2026-09-28: a seat's command runs InputDelayTicks after it is issued, and the
+        /// director, reading the slot as ready for those ticks, issued the next deploy of the same slot, which the sim
+        /// refused. Of two Brutes, two Croakers, two Sappers and two Flamethrowers one each came, and nothing was owed.</summary>
+        [Test]
+        public void AWaveThroughTheirSlotsWaitsForEachDeployToBeSeen()
+        {
+            var ten = new byte[] { VehicleArchetype.Brute, InfantryArchetype.Flamethrower, InfantryArchetype.Sapper, InfantryArchetype.Frog, 0, 0, 0, 0, 0, 0 };
+            using var r = new Rig(ten);
+            r.Delay = r.W.Config.InputDelayTicks;
+            Assert.Greater(r.Delay, 0, "the match has a delay to wait out");
+            r.Ground.ThroughSlots = true;
+            var wave = new ProvingGround.Wave { Name = "TEST" };
+            wave.Add(VehicleArchetype.Brute, 2); wave.Add(InfantryArchetype.Flamethrower, 2); wave.Add(InfantryArchetype.Sapper, 2); wave.Add(InfantryArchetype.Frog, 5);
+            Assert.AreEqual(11, r.Ground.Send(wave));
+            for (int t = 0; t < 1200 && r.Ground.Pending > 0; t++) r.Step();
+            Assert.AreEqual(0, r.Ground.Pending);
+            for (int t = 0; t < r.Delay + 2; t++) r.Step();
+            Assert.AreEqual(0, r.Count(SimEventType.CommandRejected), "none was refused");
+            Assert.AreEqual(11, r.Enemy.All.Count, "and none was issued twice");
+            Assert.AreEqual(2, r.Count(SimEventType.UnitSpawned, VehicleArchetype.Brute));
+            Assert.AreEqual(2, r.Count(SimEventType.UnitSpawned, InfantryArchetype.Flamethrower));
+            Assert.AreEqual(2, r.Count(SimEventType.UnitSpawned, InfantryArchetype.Sapper));
+            Assert.AreEqual(5, r.Count(SimEventType.UnitSpawned, InfantryArchetype.Frog));
+        }
+
         [Test]
         public void TheTimerSendsItsWaveEveryInterval()
         {
@@ -299,6 +332,47 @@ namespace TW.Tests
             AbilityArgs.Unpack(wire.B >> 8, out int heading, out _, out int length);
             Assert.AreEqual(90, heading); Assert.AreEqual(ProvingGround.TripwireMetres, length);
             Assert.AreEqual(r.W.Position[wire.A].z - ProvingGround.LayAheadMetres, wire.Pos.z, 1e-3f, "toward us");
+        }
+
+        /// <summary>Seen in Play on 2026-09-28: five sappers walking up to their trench were ordered to lay 18 m ahead,
+        /// which was the trench; the sim refused all five and the panel said five were sent.</summary>
+        [Test]
+        public void ASapperWithNoOpenGroundAheadIsNotOrderedAndThePanelSaysSo()
+        {
+            using var r = new Rig();
+            r.Ground.Spawn(0, InfantryArchetype.Sapper, 2);
+            int a = -1, b = -1;
+            for (int i = 0; i < r.W.HighWater; i++)
+                if (r.W.IsAlive(i) && r.W.Archetype[i] == InfantryArchetype.Sapper) { if (a < 0) a = i; else b = i; }
+            // the first stands 18 m short of a trench cell, the second 18 m short of open ground
+            float3 trench = default, open = default; bool gotTrench = false, gotOpen = false;
+            for (float z = 30f; z < 200f && !(gotTrench && gotOpen); z += 1f)
+                for (float x = 20f; x < 90f && !(gotTrench && gotOpen); x += 1f)
+                {
+                    var p = new float3(x, 0f, z);
+                    bool lies = r.M.Mines.Lies(p);
+                    if (!lies && !gotTrench) { trench = p; gotTrench = true; }
+                    if (lies && !gotOpen) { open = p; gotOpen = true; }
+                }
+            Assert.IsTrue(gotTrench && gotOpen, "the map has both kinds of ground");
+            r.W.Position[a] = trench - new float3(0f, 0f, ProvingGround.LayAheadMetres);
+            r.W.Position[b] = open - new float3(0f, 0f, ProvingGround.LayAheadMetres);
+
+            Assert.AreEqual(1, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine));
+            Assert.AreEqual(1, r.Player.All.Count);
+            Assert.AreEqual(b, r.Player.All[0].A, "the one with ground to lay on");
+            StringAssert.Contains("1 SAPPER OF OURS SENT", r.Ground.Last);
+            StringAssert.Contains("1 NOT: NO OPEN GROUND", r.Ground.Last);
+            r.Step();
+            Assert.AreEqual(0, r.Count(SimEventType.CommandRejected), "what was sent, the sim took");
+            Assert.AreEqual(1, r.Count(SimEventType.SapperOrdered));
+
+            r.W.Suppression[a] = StanceRules.PinnedSuppression + 1f;
+            r.W.Position[a] = open - new float3(2f, 0f, ProvingGround.LayAheadMetres);
+            Assert.AreEqual(0, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine), "one is pinned, one on his errand");
+            StringAssert.Contains("NO SAPPER OF OURS SENT", r.Ground.Last);
+            StringAssert.Contains("1 PINNED", r.Ground.Last);
+            Assert.AreEqual(1, r.Player.All.Count);
         }
 
         [Test]
