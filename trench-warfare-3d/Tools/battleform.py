@@ -7,7 +7,12 @@
 # render (Tools/portraitcut.py cuts the HUD's pictures from it) to the render folder, because Resources ships
 # whatever sits in it.
 #
-# Both LODs wear LOD0's material, so the far LOD must be DERIVED from LOD0 (its UVs are LOD0's): the callers say so.
+# The far LOD wears LOD0's atlas when it was DERIVED from LOD0 (its UVs are LOD0's), and an atlas of its own
+# (<Name>Atlas_LOD1.jpg, which TankRenderer loads for the far level when it is there) when it is another sculpt with
+# its own UVs: seen in Play on 2026-09-28, the Brute's and the Mercy's derived far models were torn into shards
+# (a quarter of their surface faced another way than the near model's beside it; the others 4-14 %), which
+# jeepsplit.py had measured on the playground's jeep the day before. Tripo's own low sculpts are whole; rebake()
+# paints one with LOD0's colours so that the switch changes the shape's detail and not its paint.
 import bpy, bmesh, os, math, json, shutil
 from mathutils import Vector, Matrix
 
@@ -80,13 +85,55 @@ def portrait(objs, path):
     scn.render.engine, scn.render.resolution_x, scn.render.resolution_y, scn.render.film_transparent = was
 
 
-def write(name, outdir, renderdir, near, far, parts, parent, piv, sock, mat, base, scale, manifest, tris_of):
+def joined(parts, mat, name):
+    bm = bmesh.new()
+    for b in parts.values():
+        me = bpy.data.meshes.new("part"); b.to_mesh(me); bm.from_mesh(me); bpy.data.meshes.remove(me)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free(); me.materials.append(mat)
+    o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o)
+    return o
+
+
+def rebake(src_parts, src_mat, dst_parts, dst_img, path):
+    """Paint a far model that has UVs of its own with the near model's colours (a Cycles bake from the one onto the
+    other, jeepsplit.py's); a texel the bake misses keeps the far model's own paint. Returns (path, material)."""
+    import numpy as np
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    src = joined(src_parts, src_mat, "bake_src")
+    w, h = dst_img.size
+    img = bpy.data.images.new("rebake", w, h, alpha=False); img.generated_color = (1.0, 0.0, 1.0, 1.0)
+    mat = bpy.data.materials.new("rebake_mat"); mat.use_nodes = True
+    tn = mat.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img
+    mat.node_tree.nodes.active = tn
+    dst = joined(dst_parts, mat, "bake_dst")
+    scn = bpy.context.scene; was = scn.render.engine
+    scn.render.engine = 'CYCLES'; scn.cycles.samples = 1; scn.cycles.device = 'CPU'
+    for x in bpy.context.selected_objects: x.select_set(False)
+    src.select_set(True); dst.select_set(True); bpy.context.view_layer.objects.active = dst
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_selected_to_active=True, cage_extrusion=0.02,
+                        max_ray_distance=0.08, margin=8)
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(-1, 4); own = np.array(dst_img.pixels[:], dtype=np.float32).reshape(-1, 4)
+    miss = ((px[:, 0] > 0.98) & (px[:, 1] < 0.02) & (px[:, 2] > 0.98)) | ((px[:, :3].sum(1) < 0.02) & (own[:, :3].sum(1) > 0.08))
+    px[miss] = own[miss]; img.pixels[:] = px.ravel()
+    print("FAR rebaked from LOD0: %.1f%% of texels missed, kept from its own paint" % (100.0 * miss.mean()))
+    img.filepath_raw = path; img.file_format = 'JPEG'; img.save()
+    out = bpy.data.materials.new("far_rebaked"); out.use_nodes = True
+    t = out.node_tree.nodes.new("ShaderNodeTexImage"); t.image = img
+    out.node_tree.links.new(t.outputs["Color"], out.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    for o in (src, dst): bpy.data.objects.remove(o)
+    scn.render.engine = was
+    return path, out
+
+
+def write(name, outdir, renderdir, near, far, parts, parent, piv, sock, mat, base, scale, manifest, tris_of, far_mat=None, far_base=None):
     """Both LODs, the atlas, the manifest and the portrait. `near` and `far` are {part: bmesh}; `manifest` is the
-    playground's, which gains "battle" and the two LODs' triangle counts."""
+    playground's, which gains "battle" and the two LODs' triangle counts. `far_mat` and `far_base`: the far model's
+    own material and base colour, when it is not derived from the near one (written as <Name>Atlas_LOD1.jpg)."""
     os.makedirs(outdir, exist_ok=True); os.makedirs(renderdir, exist_ok=True)
     manifest = dict(manifest); manifest["battle"] = True; manifest["lods"] = []
+    manifest["farAtlas"] = far_base is not None
     for lod, P in ((0, near), (1, far)):
-        root, objs = make(name, lod, P, parts, parent, piv, sock, mat, scale)
+        root, objs = make(name, lod, P, parts, parent, piv, sock, far_mat if lod == 1 and far_mat is not None else mat, scale)
         if lod == 0: portrait(objs, os.path.join(renderdir, name + "_portrait.png"))
         export(root, os.path.join(outdir, "%s_LOD%d.fbx" % (name, lod)))
         for n, o in objs.items(): o.name = "%d|%s" % (lod, n)   # free the names for the next LOD
@@ -96,6 +143,7 @@ def write(name, outdir, renderdir, near, far, parts, parent, piv, sock, mat, bas
         manifest["lods"].append({"lod": lod, "tris": t, "parts": {n: tris_of(P[n]) for n in parts}})
         print("EXPORT BATTLE LOD%d: %d tris" % (lod, t))
     shutil.copyfile(base, os.path.join(os.path.dirname(os.path.normpath(outdir)), name + "Atlas.jpg"))
+    if far_base is not None: shutil.copyfile(far_base, os.path.join(os.path.dirname(os.path.normpath(outdir)), name + "Atlas_LOD1.jpg"))
     manifest["lodList"] = manifest["lods"]
     json.dump(manifest, open(os.path.join(renderdir, name + "_battle.json"), "w"), indent=1)
     print("DONE")
