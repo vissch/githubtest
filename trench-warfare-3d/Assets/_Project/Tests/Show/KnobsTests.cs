@@ -417,12 +417,15 @@ namespace TW.Tests
             Assert.AreEqual("0", Knobs.Read["fx.columnHard"]);
 
             // the old values: every book is made with the _Hard the code before C102 gave it (s.Deep ? smokeHard : 0),
-            // written out: the burst's cloud and the smoke take fx.smokeHard, every other book (the Column among them) 0
+            // written out: the burst's cloud and the smoke take fx.smokeHard, every other book (the Column among them) 0;
+            // the VFX pass's smoke-like books (2026-09-28) are Deep like Smoke and take it too
             foreach (float smoke in new[] { 0f, 0.5f, 1f })
             for (int b = 0; b < (int)FlipbookFx.Book.Count; b++)
             {
                 var book = (FlipbookFx.Book)b;
-                bool deep = book == FlipbookFx.Book.Burst || book == FlipbookFx.Book.Smoke;
+                bool deep = book == FlipbookFx.Book.Burst || book == FlipbookFx.Book.Smoke
+                    || book == FlipbookFx.Book.GasBank || book == FlipbookFx.Book.SmokeBank
+                    || book == FlipbookFx.Book.Smoulder || book == FlipbookFx.Book.ShellPlume;
                 float old = deep ? smoke : 0f;
                 Assert.IsTrue(FlipbookFx.BookHard(book, smoke, FlipbookFx.ReadColumnHard()) == old, book + ", fx.smokeHard " + smoke);
             }
