@@ -84,7 +84,7 @@ namespace TW.Sim.Match
             // footprint off the model (7.0 m across the pods at TW_SCALE 7): 6.6 m long, 6.9 m wide
             Drive = new VehicleProfile
             {
-                TurnRateRad = 1.1f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.5f,
+                TurnRateRad = 1.1f, Accel = 1.8f, Brake = 1.1f, PivotSpeed = 0.6f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 0.5f,
                 BogChance = 0f, HalfLength = 3.3f, HalfWidth = 3.45f, PushesTrees = false,
                 Clearance = 1.2f,   // the Maw is drawn 1.2 m wider than its footprint: the Skimmer sat inside its track
             },
@@ -123,7 +123,7 @@ namespace TW.Sim.Match
             // footprint off the model (8.0 m long at TW_SCALE 8): 6.25 m wide
             Drive = new VehicleProfile
             {
-                TurnRateRad = 0.5f, TrenchCrossWidth = 2.6f, DitchChance = 0.6f, SlopeLimit = 0.5f, BogChance = 0.035f,
+                TurnRateRad = 0.5f, Accel = 0.7f, Brake = 1.4f, PivotSpeed = 0.06f, TrenchCrossWidth = 2.6f, DitchChance = 0.6f, SlopeLimit = 0.5f, BogChance = 0.035f,
                 HalfLength = 4.0f, HalfWidth = 3.1f, PushesTrees = false, Clearance = 1.2f,
             },
         };
@@ -162,6 +162,7 @@ namespace TW.Sim.Match
                 var g = m.Gun0; g.Mount = TankMount.Hull; g.RestYaw = 0f; g.ArcHalf = 25f * Deg; g.Mount3 = new float3(0f, 3.9f, 0.8f);
                 m.Gun0 = g; m.Gun1 = default; m.GunCount = 1;
                 var d = VehicleProfile.Maw; d.TurnRateRad = 0.40f; d.HalfLength = 4.4f; d.HalfWidth = 2.7f;
+                d.Accel = 0.9f; d.Brake = 2.0f; d.PivotSpeed = 0.08f;   // heavier than it is quick: slow to get going, a stop to pivot
                 return new UnitDef
                 {
                     Archetype = VehicleArchetype.Brute,
@@ -195,7 +196,7 @@ namespace TW.Sim.Match
             },
             Drive = new VehicleProfile
             {
-                TurnRateRad = 1.2f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.9f, BogChance = 0.010f,
+                TurnRateRad = 1.2f, Accel = 1.9f, Brake = 2.8f, PivotSpeed = 0.5f, TrenchCrossWidth = 3.0f, DitchChance = 0f, SlopeLimit = 0.9f, BogChance = 0.010f,
                 HalfLength = 2.3f, HalfWidth = 3.3f, PushesTrees = true, Walker = true, Legs = 2,
             },
         };
@@ -223,7 +224,7 @@ namespace TW.Sim.Match
             },
             Drive = new VehicleProfile
             {
-                TurnRateRad = 1.3f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 1f,
+                TurnRateRad = 1.3f, Accel = 2.0f, Brake = 1.4f, PivotSpeed = 0.7f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 1f,
                 BogChance = 0f, HalfLength = 4.0f, HalfWidth = 3.5f, PushesTrees = false, Walker = true, Legs = 0,
             },
         };
@@ -244,7 +245,7 @@ namespace TW.Sim.Match
             },
             Drive = new VehicleProfile
             {
-                TurnRateRad = 0.9f, TrenchCrossWidth = 2.0f, DitchChance = 0.9f, SlopeLimit = 0.5f, BogChance = 0.04f,
+                TurnRateRad = 0.9f, Accel = 1.4f, Brake = 2.2f, PivotSpeed = 0.22f, TrenchCrossWidth = 2.0f, DitchChance = 0.9f, SlopeLimit = 0.5f, BogChance = 0.04f,
                 HalfLength = 2.3f, HalfWidth = 1.6f, PushesTrees = false, Wheeled = true,
             },
         };

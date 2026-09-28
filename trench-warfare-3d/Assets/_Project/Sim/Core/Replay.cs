@@ -59,7 +59,11 @@ namespace TW.Sim
         // (CombatTables.RunningTarget), a miss at a man on the fire step suppresses him fully (the parapet), and a man
         // in the open bombs the trench man he fights from 5-22 m (DirectFireSystem, whose hash now folds its per-slot
         // bombs and their generation; SimEventType.GrenadeThrown appended, SourceId.Grenade 2002). Layout unchanged.
-        public const ushort FormatVersion = 19;
+        // v20 (2026-09-29, how machines drive): VehicleProfile gains Accel, Brake and PivotSpeed, so the hashed profile
+        // table's bytes change; VehicleKinematicsSystem drives with momentum (Velocity carries the way from tick to tick),
+        // follows the field 3-6 cells ahead before its lane bends it, and the Breaker charges where the men are. Same
+        // inputs, different tracks: a v19 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 20;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
