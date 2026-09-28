@@ -1,6 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7) - CombatFx.RecipeFor, the drawn parts of a burst by what
 // went off. fx.recipes 0 (the default) must hand every burst the old parts, so the AOSA-tuned column and smoke are untouched.
 using NUnit.Framework;
+using UnityEngine;
 using TW.Presentation;
 using TW.Presentation.Tactical;
 
@@ -145,6 +146,26 @@ namespace TW.Tests
                 if (CombatFx.Smoulders(x * 3.7f, z * 5.3f)) n++;
             Assert.That(n / (float)total, Is.InRange(0.25f, 0.35f), "30 % of heavy bursts smoulder");
             Assert.AreEqual(CombatFx.Smoulders(12.5f, 40.25f), CombatFx.Smoulders(12.5f, 40.25f), "by place, not by chance");
+        }
+        [Test]
+        public void ShellFire_InsideTheCloud_ByPlace()
+        {
+            Assert.Greater(CombatFx.ShellFireWidth(8f, 0f), CombatFx.ShellFireWidth(3f, 0f), "a bigger shell, a bigger fireball");
+            Assert.Less(CombatFx.ShellFireWidth(8f, 1f), CombatFx.ShellFireWidth(8f, 0f), "smaller up close, as the flash is");
+            Assert.Less(CombatFx.ShellFireWidth(8f, 0f), 8f * 2.6f, "narrower than the cloud it burns in");
+            for (int x = 0; x < 30; x++)
+            {
+                var p = new Vector3(x * 7.3f, 1f, x * -4.1f);
+                float r = 2f + (x % 8);
+                var a = CombatFx.PocketOffset(p, 0, r); var b = CombatFx.PocketOffset(p, 1, r);
+                foreach (var o in new[] { a, b })
+                {
+                    Assert.LessOrEqual(new Vector2(o.x, o.z).magnitude, 0.5f * r + 1e-4f, "within half the cloud's width");
+                    Assert.That(o.y, Is.InRange(0.7f * r - 1e-4f, 1.3f * r + 1e-4f), "up in the cloud, off the ground");
+                }
+                Assert.Less(a.x * b.x + a.z * b.z, 0f, "the two on opposite sides");
+                Assert.AreEqual(a, CombatFx.PocketOffset(p, 0, r), "by place, not by chance");
+            }
         }
     }
 }
