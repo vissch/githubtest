@@ -43,12 +43,19 @@ namespace TW.Tests
         }
 
         [Test, Explicit("a measurement: run by name")]
-        public void Census_TheBenchBattle()
+        public void Census_TheBenchBattle() => Census(false, "vfx-census.txt");
+
+        /// <summary>The same battle with every second man from the other armed classes (ScriptedEnemy.StressMix): how often
+        /// each class's look is seen, for the per-class VFX order.</summary>
+        [Test, Explicit("a measurement: run by name")]
+        public void Census_MixedClasses() => Census(true, "vfx-census-mixed.txt");
+
+        static void Census(bool mix, string file)
         {
             var cfg = SimConfig.Default;
-            cfg.StartingSilver = PerSide * 25;   // SimHost's stress silver
+            cfg.StartingSilver = PerSide * (mix ? 60 : 25);   // SimHost's stress silver; the other classes cost more
             using var session = new LockstepSession(() => MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u)), false, 0, 0, 0f, cfg.Seed);
-            var ai = new ScriptedEnemy { StressUnits = PerSide };
+            var ai = new ScriptedEnemy { StressUnits = PerSide, StressMix = mix };
             var byType = new Dictionary<SimEventType, int>();
             var byWho = new Dictionary<string, int>();
             int overrun = 0, guard = Ticks * 40, ticks = 0;
@@ -73,7 +80,7 @@ namespace TW.Tests
 
             var sb = new StringBuilder();
             float minutes = ticks / 20f / 60f;
-            sb.AppendLine($"VFX event census: ShelledForest 1917, {PerSide} a side, {ticks} ticks ({minutes:0.0} min), overrun {overrun}");
+            sb.AppendLine($"VFX event census: ShelledForest 1917, {PerSide} a side{(mix ? ", mixed classes" : "")}, {ticks} ticks ({minutes:0.0} min), overrun {overrun}");
             sb.AppendLine("-- by type (count, per minute) --");
             foreach (var kv in byType.OrderByDescending(k => k.Value))
                 sb.AppendLine($"{kv.Key,-22} {kv.Value,9} {kv.Value / minutes,10:0}");
@@ -84,7 +91,7 @@ namespace TW.Tests
             TestContext.WriteLine(text);
             string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TrenchWarfare", "runs");
             Directory.CreateDirectory(dir);
-            File.WriteAllText(Path.Combine(dir, "vfx-census.txt"), text);
+            File.WriteAllText(Path.Combine(dir, file), text);
             Assert.That(byType.Count > 0, "no events at all");
         }
     }
