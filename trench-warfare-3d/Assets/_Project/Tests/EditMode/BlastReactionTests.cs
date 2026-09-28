@@ -173,6 +173,25 @@ namespace TW.Tests
             }
             Assert.Less(widest, 0.5f, "a 3 m/s kick never lifts it half a metre");
             Assert.Less(last, 1e-3f, "and it has settled");
+
+            // the under-damped ride a machine may have (DriveStyle.Zeta, 2026-09-28: the Salvo and the Mercy rock on) is
+            // stepped in small pieces, so the same kick through the same hitches rocks, but settles and never grows
+            var ride = t.GetMethod("Ride");
+            Assert.IsNotNull(ride, "TankRenderer.Spring.Ride moved or was renamed");
+            foreach (float zeta in new[] { 0.3f, 0.55f })
+            {
+                s = Activator.CreateInstance(t);
+                t.GetField("Velocity").SetValue(s, 3f);
+                widest = 0f;
+                for (int k = 0; k < 20; k++)
+                {
+                    ride.Invoke(s, new object[] { 0f, 0.34f, 10f, zeta });
+                    last = Mathf.Abs((float)t.GetField("Value").GetValue(s));
+                    widest = Mathf.Max(widest, last);
+                }
+                Assert.Less(widest, 0.5f, $"zeta {zeta}: a 3 m/s kick never lifts it half a metre");
+                Assert.Less(last, 1e-3f, $"zeta {zeta}: and it has settled");
+            }
         }
 
         [Test]
