@@ -46,10 +46,11 @@ namespace TW.Perf
         public static Vector2 TargetSpot(Vector2 focus, int i) => focus + new Vector2(Gap * 0.5f + TargetsBeyond, (i - (Machines.Length - 1) * 0.5f) * 10f - BurstRow);
 
         /// <summary>The window tick (after t0) each thing goes off, about shot_tick `s`: the small arms every tick from s-3 to
-        /// s+5, the guns at s-4 (their rounds in the air at the still), their bursts and the row's at s-3.</summary>
+        /// s+5; the guns at s-12 and their bursts and the row's at s-11, so the trails, the smoke and the columns have grown by
+        /// the still (at s-4 the cards were a frame old and their smoke not yet out: lin7).</summary>
         public static bool ArmsAt(int t, int s) => t >= s - 3 && t <= s + 5;
-        public static bool GunsAt(int t, int s) => t == s - 4;
-        public static bool BurstsAt(int t, int s) => t == s - 3;
+        public static bool GunsAt(int t, int s) => t == s - 12;
+        public static bool BurstsAt(int t, int s) => t == s - 11;
 
         readonly int[] row0 = new int[Men.Length], row1 = new int[Men.Length], machines = new int[Machines.Length];
         int bomber = -1;

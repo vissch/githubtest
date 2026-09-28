@@ -50,6 +50,9 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>The widest a close-up piece (a star, a brake's jet) is drawn, x the men's scale.</summary>
+        public const float CloseMost = 1.6f;
+
         /// <summary>Whether a place is inside the effects' tier's close-up reach of the eye (read once a frame by ViewNow).</summary>
         bool CloseEnough(Vector3 p, float reach)
         {
@@ -69,6 +72,7 @@ namespace TW.Presentation.Tactical
             var q = FxQuality.Now;
             if (classArms <= 0f || cam == null || !CloseEnough(from, q.ExtraReach)) return;
             float glow = (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow;
+            float most = CloseMost * scale;   // no close piece wider than this: a sniper's star at 1.4 x his flare was 7 m, a shell hit (lin6)
             uint h = FxQuality.Hash(round * 2654435761u + archetype);
             float spin = (h & 0xFFFFu) / 65536f * 6.2832f;
             Vector3 along = ScreenDir(cam, roll);
@@ -80,10 +84,10 @@ namespace TW.Presentation.Tactical
                     for (int s = -1; s <= 1; s += 2)
                     {
                         float side = roll + s * 1.5708f;
-                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.3f), flare * 0.8f, 0.22f,
+                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.3f), Mathf.Min(flare * 0.8f, most), 0.22f,
                             s > 0 ? FlipbookFx.Kind.None : FlipbookFx.Kind.Mirror, velocity: carried, roll: side, glow: glow, delay: delay);
                     }
-                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), flare * 1.4f, 0.13f, roll: spin, glow: glow * 1.3f, delay: delay);
+                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), Mathf.Min(flare * 0.55f, most), 0.13f, roll: spin, glow: glow * 0.9f, delay: delay);
                     if (Host != null && Host.Local != null)
                     {
                         Vector3 foot = new Vector3(from.x, RenderGround.Sample(Host.Local.Map, from.x, from.z), from.z);
@@ -95,7 +99,7 @@ namespace TW.Presentation.Tactical
                 case ArmsKind.Mg:
                 case ArmsKind.HullMg:
                     // the burning muzzle of a gun at work is a star as much as a flare; at Epic the belt's links spill
-                    if (flared) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.18f), flare * 1.0f, 0.13f, roll: spin, glow: glow, delay: delay);
+                    if (flared) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.18f), Mathf.Min(flare * 1.0f, most), 0.13f, roll: spin, glow: glow, delay: delay);
                     if (q.Epic && KindOf(archetype) == ArmsKind.Mg && (round & 1u) == 0u && chunks.Count < q.Cap(600))
                     {
                         Vector3 left = Vector3.Cross(barrel, Vector3.up).normalized;
@@ -118,7 +122,7 @@ namespace TW.Presentation.Tactical
                 case ArmsKind.Pistol:
                 case ArmsKind.Carbine:
                     // a short barrel: more pop than flame
-                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f), flare * (KindOf(archetype) == ArmsKind.Pistol ? 0.9f : 1.0f), 0.13f, roll: spin, glow: glow * 1.2f, delay: delay);
+                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f), Mathf.Min(flare * (KindOf(archetype) == ArmsKind.Pistol ? 0.9f : 1.0f), most), 0.13f, roll: spin, glow: glow * 1.2f, delay: delay);
                     break;
             }
             // Epic: the round's smoke as a drawn puff over the ball, which reads as a sphere up close
