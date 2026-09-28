@@ -1,4 +1,4 @@
-// Phase: A5b / C4 (implemented) — depends on: Resources/Vehicles/<Tank>/<Tank>_LOD0|1.fbx (Tools/tanksplit.py, TankImport)
+// Phase: A5b / C4 (implemented) — depends on: Resources/Vehicles/<Tank>/<Tank>_LOD0|1[|2].fbx (Tools/tanksplit.py, TankImport)
 // One of the owner's tanks as TankRenderer needs it: the parts of each LOD in parent-first order with their pivots
 // (each part's origin; the FBX hierarchy is kept), what each part does (its role, its side, which gun it carries),
 // the Socket_* empties (muzzles, exhaust outlets, fire on the engine deck, the crew hatch, dust behind the tracks),
@@ -78,7 +78,9 @@ namespace TW.Presentation.Tactical
 
         public string Name;
         public byte Archetype;
-        public readonly Lod[] Lods = new Lod[2];
+        /// <summary>Near, far and very far (LOD2: simple shapes for the 120-600 zoom bands, 2026-09-28). A level with no
+        /// file of its own is the level above it, the same object.</summary>
+        public readonly Lod[] Lods = new Lod[3];
         /// <summary>LOD0 part index and offset in that part's frame, by socket name.</summary>
         public readonly Dictionary<string, (int part, Vector3 local)> Sockets = new Dictionary<string, (int, Vector3)>();
         /// <summary>A rack's tube mouths (Socket_Tube00, 01, ... from Tools/mechsplit.py), in order; empty on anything else.
@@ -105,14 +107,14 @@ namespace TW.Presentation.Tactical
         public static TankModel Load(string name, byte archetype, string root = "Hull", float scale = 1f)
         {
             var model = new TankModel { Name = name, Archetype = archetype };
-            for (int lod = 0; lod < 2; lod++)
+            for (int lod = 0; lod < model.Lods.Length; lod++)
             {
                 var go = Resources.Load<GameObject>($"Vehicles/{name}/{name}_LOD{lod}");
                 var hull = go != null ? Find(go.transform, root) : null;
                 if (hull == null)
                 {
                     if (lod == 0) { Debug.LogWarning($"TankModel: Resources/Vehicles/{name}/{name}_LOD0 is missing or has no {root}"); return null; }
-                    model.Lods[1] = model.Lods[0];
+                    for (int k = lod; k < model.Lods.Length; k++) model.Lods[k] = model.Lods[lod - 1];
                     break;
                 }
                 var l = new Lod();
@@ -156,17 +158,21 @@ namespace TW.Presentation.Tactical
             if (tl < 0 && tr < 0)
                 for (int i = 0; i < parts.Count; i++)
                     if (parts[i].Role == TankPartRole.Wheel && parts[i].Mesh != null) { model.WheelRadius = Mathf.Max(0.05f, parts[i].Mesh.bounds.extents.y); break; }
-            for (int lod = 0; lod < 2; lod++) if (model.Lods[lod] != null && (lod == 0 || model.Lods[1] != model.Lods[0])) NumberLegs(model, model.Lods[lod]);
-            for (int lod = 0; lod < 2; lod++) if (model.Lods[lod] != null && (lod == 0 || model.Lods[1] != model.Lods[0])) BuildRigs(model, model.Lods[lod], lod == 0);
-            for (int lod = 0; lod < 2; lod++)
+            for (int lod = 0; lod < model.Lods.Length; lod++) if (model.OwnLod(lod)) NumberLegs(model, model.Lods[lod]);
+            for (int lod = 0; lod < model.Lods.Length; lod++) if (model.OwnLod(lod)) BuildRigs(model, model.Lods[lod], lod == 0);
+            for (int lod = 0; lod < model.Lods.Length; lod++)
             {
                 var l = model.Lods[lod];
-                if (l == null || (lod == 1 && l == model.Lods[0])) continue;
+                if (!model.OwnLod(lod)) continue;
                 foreach (var p in l.Parts)
                     p.SelfAimed = p.Role == TankPartRole.Gun && (p.Parent < 0 || l.Parts[p.Parent].Role != TankPartRole.Turret);
             }
             return model;
         }
+
+        /// <summary>True when this level was loaded from its own file, not borrowed from the level above: the passes
+        /// that build per-level data run once per mesh set, not again on a borrowed one.</summary>
+        public bool OwnLod(int lod) => Lods[lod] != null && (lod == 0 || Lods[lod] != Lods[lod - 1]);
 
         /// <summary>Give every leg its number and the direction it stands out in. The numbering has to agree with the
         /// simulation's, which takes a walker's legs off left side first, in order, so the leg that flies off is the

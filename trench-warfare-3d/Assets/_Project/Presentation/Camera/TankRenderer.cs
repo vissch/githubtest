@@ -39,6 +39,9 @@ namespace TW.Presentation.Tactical
     {
         public SimHost Host;
         public float LodDistance = 170f;
+        /// <summary>Past this the very-far LOD2 (simple shapes, ~100-300 triangles) where a machine has one; the far
+        /// bands (zoom 120-600) otherwise drew 500-2,500 triangles a machine at a few dozen pixels.</summary>
+        public float FarLodDistance = 320f;
         public int MaxWrecks = 48;
         const float UnlinkedSinkAfter = 75f;   // seconds a hull with no sim wreck prop burns before it sinks away
         public static readonly Vector4 TeamTintB = new Vector4(0.52f, 0.56f, 0.60f, 0.8f);   // field grey
@@ -151,14 +154,16 @@ namespace TW.Presentation.Tactical
         const float RackRecoil = 0.1f, GunRecoil = 0.45f;   // metres back along the barrel at full Recoil
         const float RackFireKick = 0.35f;                   // Recoil when the rack fires (each rocket then adds its own)
         const float FanIdle = 9f, FanThrottle = 25f;        // rad/s: a fan's turn at idle, and what full throttle adds
-        /// <summary>The model and the two LOD materials of each Machines row.</summary>
+        /// <summary>The model and the three LOD materials of each Machines row.</summary>
         readonly TankModel[] models = new TankModel[Machines.Length];
-        readonly Material[,] modelMats = new Material[Machines.Length, 2];
+        readonly Material[,] modelMats = new Material[Machines.Length, 3];
         /// <summary>Which Machines row draws an archetype, or -1 (the Maw's and Tusk's shared atlas). It used to be
         /// `archetype - Pincer`, which made the walkers a contiguous band of ids nothing could be added to.</summary>
         readonly sbyte[] modelRow = new sbyte[Archetypes.Count];
         public const float StrideMetres = 1.15f;   // how far a walker travels per full leg cycle
-        readonly Material[] mats = new Material[2];
+        readonly Material[] mats = new Material[3];
+        /// <summary>The Maw's and Tusk's own LOD2 materials, by archetype (their LOD0/1 share `mats`).</summary>
+        readonly Dictionary<byte, Material> tankFarMats = new Dictionary<byte, Material>();
         FlipbookFx books;
         readonly Dictionary<int, View> views = new Dictionary<int, View>();
         readonly List<View> wrecks = new List<View>();
@@ -230,21 +235,33 @@ namespace TW.Presentation.Tactical
             }
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null || maw == null) { Debug.LogWarning("TankRenderer: TW/Tank or the tank models are missing; the box tanks stay."); enabled = false; return; }
-            for (int lod = 0; lod < 2; lod++)
+            for (int lod = 0; lod < mats.Length; lod++)
             {
                 mats[lod] = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = "Tank LOD" + lod };
-                var atlas = Resources.Load<Texture2D>("Vehicles/TankAtlas_LOD" + lod);
+                // a tank with no LOD2 of its own draws LOD1 again at that range, on LOD1's atlas
+                var atlas = Resources.Load<Texture2D>("Vehicles/TankAtlas_LOD" + Mathf.Min(lod, 1));
                 if (atlas != null) mats[lod].SetTexture("_BaseMap", atlas);
-                mats[lod].SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
+                mats[lod].SetFloat("_OutlineWidth", OutlineWidth(lod));
+            }
+            // an own LOD2 is UV'd onto its own small baked atlas (<Name>Atlas_LOD2): the tanks share nothing there
+            foreach (var (model, arch) in new[] { (maw, VehicleArchetype.Maw), (tusk, VehicleArchetype.Tusk) })
+            {
+                var far = FarAtlas(model);
+                if (far == null) continue;
+                var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = model.Name + " LOD2" };
+                m.SetTexture("_BaseMap", far); m.SetFloat("_OutlineWidth", OutlineWidth(2));
+                tankFarMats[arch] = m;
             }
             for (int c = 0; c < Machines.Length; c++)
             {
                 var atlas = Resources.Load<Texture2D>("Vehicles/" + Machines[c].Name + "Atlas");
-                for (int lod = 0; lod < 2; lod++)
+                var far = FarAtlas(models[c]);
+                for (int lod = 0; lod < mats.Length; lod++)
                 {
                     var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = Machines[c].Name + " LOD" + lod };
-                    if (atlas != null) m.SetTexture("_BaseMap", atlas);
-                    m.SetFloat("_OutlineWidth", lod == 0 ? 2.2f : 1.4f);
+                    var t = lod == 2 && far != null ? far : atlas;
+                    if (t != null) m.SetTexture("_BaseMap", t);
+                    m.SetFloat("_OutlineWidth", OutlineWidth(lod));
                     modelMats[c, lod] = m;
                 }
             }
@@ -273,6 +290,7 @@ namespace TW.Presentation.Tactical
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.TanksDrawn = false; SceneHooks.VehicleTracks = null; SceneHooks.DrawnWreck = null; SceneHooks.VehicleGunPort = null; SceneHooks.IsTankSlot = null;
             foreach (var m in mats) if (m != null) Destroy(m);
+            foreach (var m in tankFarMats.Values) if (m != null) Destroy(m);
             if (flameMat != null) Destroy(flameMat);
             if (discMat != null) Destroy(discMat);
             if (discMesh != null) Destroy(discMesh);
@@ -301,9 +319,15 @@ namespace TW.Presentation.Tactical
             return archetype == VehicleArchetype.Tusk && tusk != null ? tusk : maw;
         }
 
+        /// <summary>A model's own LOD2 atlas (Resources/Vehicles/<Name>Atlas_LOD2), or null: only a LOD2 loaded from its
+        /// own file is UV'd onto it; a borrowed one is LOD1 again and keeps LOD1's atlas.</summary>
+        public static Texture2D FarAtlas(TankModel model)
+            => model != null && model.OwnLod(2) ? Resources.Load<Texture2D>($"Vehicles/{model.Name}Atlas_LOD2") : null;
+
         /// <summary>The material a machine is drawn in: the tanks share an atlas, every other machine has its own.</summary>
         Material MaterialFor(byte archetype, int lod)
         {
+            if (lod == 2 && tankFarMats.TryGetValue(archetype, out var tankFar)) return tankFar;
             int row = archetype < modelRow.Length ? modelRow[archetype] : -1;
             return row >= 0 && modelMats[row, lod] != null ? modelMats[row, lod] : mats[lod];
         }
@@ -1356,12 +1380,23 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>The outline each level is drawn with: thinner as the machine gets smaller on screen.</summary>
+        static float OutlineWidth(int lod) => lod == 0 ? 2.2f : lod == 1 ? 1.4f : 1.0f;
+
+        /// <summary>Which level to draw a machine at, from its squared distance to the eye: LOD1 past `near`, LOD2 past
+        /// `far`, each only where the model has that level (a missing one is the level above, drawn the same).</summary>
+        public static int PickLod(float sqrDistance, float near, float far, TankModel model)
+        {
+            if (sqrDistance > far * far && model.Lods[2] != null) return 2;
+            return sqrDistance > near * near && model.Lods[1] != null ? 1 : 0;
+        }
+
         void DrawTank(View v, Vector3 eye)
         {
-            int lod = (v.Pos - eye).sqrMagnitude > LodDistance * LodDistance && v.Model.Lods[1] != null ? 1 : 0;
+            int lod = PickLod((v.Pos - eye).sqrMagnitude, LodDistance, FarLodDistance, v.Model);
             var l = v.Model.Lods[lod];
             Matrix4x4[] world = v.World;
-            if (lod == 1) { if (l.Parts.Count > lodWorld.Length) return; Pose(v, l, lodWorld); world = lodWorld; }
+            if (lod >= 1) { if (l.Parts.Count > lodWorld.Length) return; Pose(v, l, lodWorld); world = lodWorld; }
             var damage = new Vector4(v.Scorch, v.Burn, v.Flash, v.Model.Archetype == VehicleArchetype.Maw ? v.Furnace : 0f);
             var tint = v.Team == 1 ? TeamTintB : new Vector4(1f, 1f, 1f, 0f);
             for (int i = 0; i < l.Parts.Count; i++)
