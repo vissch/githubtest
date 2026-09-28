@@ -527,7 +527,9 @@ def decimated(bm, ratio):
     out = bmesh.new(); out.from_mesh(o.data)
     bpy.data.objects.remove(o); bpy.data.meshes.remove(me)
     return out
-DERIVE = os.environ.get("TW_DERIVE", "12")
+# The battle's far model (TW_BATTLE=1) is Tripo's own low sculpt unless TW_DERIVE=12 is asked for: derived that far
+# the tank tore (seen in Play 2026-09-28: 27 % of the far model's surface faced another way than the near one's).
+DERIVE = os.environ.get("TW_DERIVE", "1" if os.environ.get("TW_BATTLE", "") == "1" else "12")
 derived = []
 for k in ((1, 2) if DERIVE == "12" else (1,) if DERIVE == "1" else ()):
     P = {}; tripo = sum(tris_of(b) for b in lods[k][0].values())
@@ -548,18 +550,25 @@ for n in ALL_PARTS:
 for s, (owner, p) in sock.items():
     manifest["sockets"][s] = {"part": owner, "pos": unity((p - piv[owner]) * SCALE)}
 # TW_BATTLE=1 (2026-09-28): the battle's form instead of the playground's (Tools/battleform.py): nested parts, two LODs,
-# <outdir>/../<Name>Atlas.jpg; the manifest and a portrait render go to <renderdir>. Both LODs wear LOD0's atlas, so the
-# far one has to be derived from LOD0 (TW_DERIVE=12, the default).
+# <outdir>/../<Name>Atlas.jpg; the manifest and a portrait render go to <renderdir>. The far model is Tripo's own low
+# sculpt painted with LOD0's colours on its own UVs (<outdir>/../<Name>Atlas_LOD1.jpg); with TW_DERIVE=12 it is LOD0
+# decimated, on LOD0's atlas.
 #   TW_BATTLE=1 ... -- <Name> <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/<Name> <renderdir>
 if os.environ.get("TW_BATTLE", "") == "1":
-    if 2 not in derived: sys.exit("TW_BATTLE needs the far LOD derived from LOD0 (TW_DERIVE=12): both battle LODs wear LOD0's atlas")
     import sys as _sys
     _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import battleform
     manifest["partList"] = [dict(name=n, **manifest["parts"][n]) for n in ALL_PARTS]
     for p in manifest["partList"]: p["parent"] = p["parent"] or ""
     manifest["socketList"] = [dict(name=s, **v) for s, v in manifest["sockets"].items()]
-    battleform.write(NAME, OUTDIR, RENDERDIR, lods[0][0], lods[2][0], ALL_PARTS, PARENT, piv, sock, lods[0][2], lods[0][3] + "_tex0_0.jpg", SCALE, manifest, tris_of)
+    # The low sculpt keeps its own paint (TW_REBAKE=1 paints it with LOD0's colours, as jeepsplit.py does): the faces
+    # that close a track's open back take their corners' UVs from the faces beside them, so each is a triangle across
+    # half the atlas, and the bake painted those over the tracks' own islands (seen 2026-09-28: a dark wedge on the atlas,
+    # a blue-grey slab where the far model's track should be)
+    far_base, far_mat = (None, None) if 2 in derived else (lods[2][3] + "_tex0_0.jpg", lods[2][2]) if os.environ.get("TW_REBAKE", "0") != "1" \
+        else battleform.rebake(lods[0][0], lods[0][2], lods[2][0], lods[2][1], os.path.join(RENDERDIR, NAME + "_far.jpg"))
+    battleform.write(NAME, OUTDIR, RENDERDIR, lods[0][0], lods[2][0], ALL_PARTS, PARENT, piv, sock, lods[0][2], lods[0][3] + "_tex0_0.jpg", SCALE, manifest, tris_of,
+                     far_mat=far_mat, far_base=far_base)
     _sys.exit(0)
 for lod, (P, img, mat, stem, uv, log) in enumerate(lods):
     root, objs = make(lod, P, piv, mat)

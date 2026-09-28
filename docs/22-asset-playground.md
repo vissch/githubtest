@@ -303,8 +303,12 @@ the ground; the Hopper flies 9 m up. What the measuring found:
 - the Brute's tracks are painted on its own atlas, so the tread that runs on the Maw's tracks does not run on them.
 The Frog followed as a baked figure (`Resources/Units/FigureFrog`, 987 vertices, the soldier's 111 clips carried onto
 its rig; `tasks.md`): seen in Play beside three riflemen, standing as they stand.
-Not done: a knee that bends forward in the battle's gait (the playground's walker has one), a look at the far LODs at
-170 m, the Croaker's darker atlas beside the others.
+The far models were looked at the same evening, drawn close (`TankRenderer.LodDistance` set to 1 in Play): the
+Croaker's and the Hopper's are whole; the Brute's and the Mercy's, decimated from their near models, were torn into
+shards, as the jeep's had been in the playground the day before. Both are now Tripo's own low sculpts on atlases of
+their own (`pipelines.md`). The Brute's far tracks are darker than its near ones: that is the low sculpt's own paint.
+Not done: a knee that bends forward in the battle's gait (the playground's walker has one), the Croaker's darker
+atlas beside the others.
 
 ## Into the battle: the Skimmer and the Salvo (2026-09-28)
 The Skimmer and a new half-track rocket truck, the Salvo, became battle units (archetypes 19 and 20, defined in

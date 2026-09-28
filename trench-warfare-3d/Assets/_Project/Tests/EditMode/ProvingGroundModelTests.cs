@@ -253,6 +253,114 @@ namespace TW.Tests
             Assert.AreEqual(1.78f, hi - lo, 0.25f, "and he stands as tall as a man");
         }
 
+        /// <summary>
+        /// How much of a model's edge length is a FOLD: two triangles that share the edge and face away from each other
+        /// (their normals' dot under -0.3), vertices welded by place. A sound model folds at the rims of its thin plates
+        /// and nowhere else; a mesh decimated until it tore is folds all over.
+        /// </summary>
+        public static float Folded(TankModel.Lod l)
+        {
+            double length = 0, folded = 0;
+            foreach (var part in l.Parts)
+            {
+                if (part.Mesh == null) continue;
+                var vs = part.Mesh.vertices; var ix = part.Mesh.triangles;
+                var place = new Dictionary<(int, int, int), int>(); var weld = new int[vs.Length];
+                for (int i = 0; i < vs.Length; i++)
+                {
+                    var k = (Mathf.RoundToInt(vs[i].x * 2000f), Mathf.RoundToInt(vs[i].y * 2000f), Mathf.RoundToInt(vs[i].z * 2000f));
+                    if (!place.TryGetValue(k, out int j)) { j = place.Count; place[k] = j; }
+                    weld[i] = j;
+                }
+                var edges = new Dictionary<(int, int), (Vector3 normal, int count, float length, bool fold)>();
+                for (int t = 0; t + 2 < ix.Length; t += 3)
+                {
+                    var cross = Vector3.Cross(vs[ix[t + 1]] - vs[ix[t]], vs[ix[t + 2]] - vs[ix[t]]);
+                    if (cross.magnitude < 2e-10f) continue;
+                    var n = cross.normalized;
+                    for (int e = 0; e < 3; e++)
+                    {
+                        int a = weld[ix[t + e]], b = weld[ix[t + (e + 1) % 3]];
+                        if (a == b) continue;
+                        var k = a < b ? (a, b) : (b, a);
+                        float len = (vs[ix[t + e]] - vs[ix[t + (e + 1) % 3]]).magnitude;
+                        edges[k] = edges.TryGetValue(k, out var was)
+                            ? (was.normal, was.count + 1, len, was.fold || Vector3.Dot(was.normal, n) < -0.3f)
+                            : (n, 1, len, false);
+                    }
+                }
+                foreach (var e in edges.Values) { length += e.length; if (e.count > 1 && e.fold) folded += e.length; }
+            }
+            return length > 0 ? (float)(folded / length) : 0f;
+        }
+
+        /// <summary>
+        /// Seen in Play on 2026-09-28, with the far models drawn close: the Brute's and the Mercy's, decimated from
+        /// their near models to a sixth of the triangles, were torn into shards (folds on 20.7 % and 15.5 % of their
+        /// edge length). Every far model that looks whole folds on 9 % or less (the Croaker's, 8.9 %, is the most);
+        /// the two are now Tripo's own low sculpts (5.0 % and 0.8 %), on atlases of their own.
+        /// </summary>
+        [Test]
+        public void NoFarModelIsTornIntoShards()
+        {
+            var all = new List<(string name, byte archetype, string root)>
+            {
+                ("Maw", VehicleArchetype.Maw, "Hull"), ("Tusk", VehicleArchetype.Tusk, "Hull"),
+                ("Pincer", VehicleArchetype.Pincer, "Body"), ("Kettle", VehicleArchetype.Kettle, "Body"), ("Censer", VehicleArchetype.Censer, "Body"),
+                ("Pavise", VehicleArchetype.Pavise, "Body"), ("Banner", VehicleArchetype.Banner, "Body"), ("Redoubt", VehicleArchetype.Redoubt, "Body"),
+                ("Skimmer", VehicleArchetype.Skimmer, "Hull"), ("Salvo", VehicleArchetype.Salvo, "Hull"),
+            };
+            foreach (var (name, archetype, _) in Four) all.Add((name, archetype, "Hull"));
+            foreach (var (name, archetype, root) in all)
+            {
+                var m = TankModel.Load(name, archetype, root, 1f);
+                Assert.NotNull(m, $"{name} did not load");
+                Assert.NotNull(m.Lods[1], $"{name} has no far model");
+                Assert.Less(Folded(m.Lods[1]), 0.12f, $"{name}'s far model is torn: it folds back on itself along this share of its edges");
+                Assert.Less(Folded(m.Lods[0]), 0.12f, $"{name}'s near model is torn");
+            }
+        }
+
+        /// <summary>The measure can fail: a sheet crumpled into a fan of facing triangles is all folds, a flat one none.</summary>
+        [Test]
+        public void TheFoldMeasureTellsACrumpledSheetFromAFlatOne()
+        {
+            TankModel.Lod Sheet(bool crumpled)
+            {
+                // a strip of quads along x; crumpled, every other row of vertices is folded back over the last
+                var vs = new List<Vector3>(); var ix = new List<int>();
+                for (int i = 0; i <= 8; i++)
+                {
+                    float x = crumpled ? (i % 2) * 0.05f : i * 0.5f, y = crumpled ? i * 0.01f : 0f;
+                    vs.Add(new Vector3(x, y, 0f)); vs.Add(new Vector3(x, y, 1f));
+                }
+                for (int i = 0; i < 8; i++) { int a = i * 2; ix.AddRange(new[] { a, a + 1, a + 2, a + 1, a + 3, a + 2 }); }
+                var mesh = new Mesh { hideFlags = HideFlags.HideAndDontSave };
+                mesh.SetVertices(vs); mesh.SetTriangles(ix, 0);
+                var l = new TankModel.Lod(); l.Parts.Add(new TankModel.Part { Name = "Hull", Mesh = mesh });
+                return l;
+            }
+            var flat = Sheet(false); var torn = Sheet(true);
+            Assert.AreEqual(0f, Folded(flat), 1e-6f);
+            Assert.Greater(Folded(torn), 0.12f, "the folds of a crumpled sheet are counted");
+            Object.DestroyImmediate(flat.Parts[0].Mesh); Object.DestroyImmediate(torn.Parts[0].Mesh);
+        }
+
+        /// <summary>A far model that is a sculpt of its own has UVs of its own, and is black or scrambled on the near
+        /// model's atlas: the battle loads Resources/Vehicles/&lt;Name&gt;Atlas_LOD1 for it.</summary>
+        [Test]
+        public void AFarModelThatIsItsOwnSculptHasItsOwnAtlas()
+        {
+            foreach (var name in new[] { "Brute", "Mercy" })
+            {
+                Assert.NotNull(Resources.Load<Texture2D>("Vehicles/" + name + "Atlas"), $"{name} has no atlas");
+                Assert.NotNull(Resources.Load<Texture2D>("Vehicles/" + name + TankRenderer.FarAtlasSuffix), $"{name}'s far model has no atlas of its own");
+            }
+            // the two derived from their near models wear the near model's atlas
+            foreach (var name in new[] { "Croaker", "Hopper" })
+                Assert.IsNull(Resources.Load<Texture2D>("Vehicles/" + name + TankRenderer.FarAtlasSuffix), $"{name}'s far model is derived: it wears the near atlas");
+        }
+
         [Test]
         public void TheHopperFliesTheSkimmerSkimsTheRestStand()
         {

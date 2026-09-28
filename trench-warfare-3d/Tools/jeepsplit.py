@@ -403,7 +403,8 @@ if LOD2_FROM == "tripo":
     # keeps the clean shape and loses the other texture bake: with Tripo's own paint 1->2 block colour was 11.0, the
     # worst on the board (loop 2 r32). Texels the bake misses keep the low model's own paint.
     if os.environ.get("TW_REBAKE", "1") == "1":
-        base2, mat2 = rebake(P0, mat0, P2, img2, os.path.join(OUTDIR, "rebake_LOD2.jpg"))
+        # the battle's folder is a Resources folder, which ships whatever sits in it: its rebake goes with the renders
+        base2, mat2 = rebake(P0, mat0, P2, img2, os.path.join(RENDERDIR if os.environ.get("TW_BATTLE", "") == "1" else OUTDIR, "rebake_LOD2.jpg"))
     lods.append(P2); mats.append(mat2); bases.append(base2); uvs.append(uv2); epss.append(1e-4)
     print("LOD2: Tripo's own, %d tris; snapped %s" % (sum(tris_of(b) for b in P2.values()), snapped))
 # a wheel thrown off shows its back: Tripo's lower jeep modelled only the outside of each tyre, and the hole round the
@@ -440,17 +441,19 @@ manifest = {"source": "Tools/jeepsplit.py", "name": NAME, "scale": SCALE, "fling
 for n in ALL_PARTS: manifest["parts"][n] = {"parent": PARENT.get(n), "pivot": unity(piv[n] * SCALE), **BREAK[n]}
 for s, (owner, p) in sock.items(): manifest["sockets"][s] = {"part": owner, "pos": unity((p - piv[owner]) * SCALE)}
 # TW_BATTLE=1 (2026-09-28): the battle's form instead of the playground's (Tools/battleform.py): nested parts, two LODs,
-# <outdir>/../<Name>Atlas.jpg; the manifest and a portrait render go to <renderdir>. Both LODs wear LOD0's atlas, so the
-# far one has to be derived from LOD0: run it with TW_LOD2=derive.
-#   TW_BATTLE=1 TW_LOD2=derive ... -- <Name> <lod0.fbx> [<lower.fbx>] Assets/_Project/Resources/Vehicles/<Name> <renderdir>
+# <outdir>/../<Name>Atlas.jpg; the manifest and a portrait render go to <renderdir>. The far model is Tripo's own
+# lower sculpt, rebaked (<outdir>/../<Name>Atlas_LOD1.jpg): derived (TW_LOD2=derive, on LOD0's atlas) it tore, in the
+# playground on 2026-09-27 and in the battle on 2026-09-28.
+#   TW_BATTLE=1 ... -- <Name> <lod0.fbx> <lower.fbx> Assets/_Project/Resources/Vehicles/<Name> <renderdir>
 if os.environ.get("TW_BATTLE", "") == "1":
-    if LOD2_FROM != "derive": sys.exit("TW_BATTLE needs TW_LOD2=derive: both battle LODs wear LOD0's atlas")
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import battleform
     manifest["partList"] = [dict(name=n, **manifest["parts"][n]) for n in ALL_PARTS]
     for p in manifest["partList"]: p["parent"] = p["parent"] or ""
     manifest["socketList"] = [dict(name=s, **v) for s, v in manifest["sockets"].items()]
-    battleform.write(NAME, OUTDIR, RENDERDIR, lods[0], lods[2], ALL_PARTS, PARENT, piv, sock, mats[0], bases[0], SCALE, manifest, tris_of)
+    own = LOD2_FROM != "derive"
+    battleform.write(NAME, OUTDIR, RENDERDIR, lods[0], lods[2], ALL_PARTS, PARENT, piv, sock, mats[0], bases[0], SCALE, manifest, tris_of,
+                     far_mat=mats[2] if own else None, far_base=bases[2] if own else None)
     sys.exit(0)
 for lod, P in enumerate(lods):
     root, objs = make(lod, P, piv, mats[lod])
