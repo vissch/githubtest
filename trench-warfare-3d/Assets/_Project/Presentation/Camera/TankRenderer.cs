@@ -238,8 +238,10 @@ namespace TW.Presentation.Tactical
             MaxWrecks = Knobs.Get("tank.maxWrecks", MaxWrecks);
             maxLoose = Knobs.Get("tank.maxLoose", MaxLoose);
             recipes = CombatFx.ReadRecipes();   // fx.recipes (VFX pass): 0 = the machines' shots and cook-offs as they were
+            classGuns = CombatFx.ReadClassArms() >= 0.5f;   // fx.classArms (TankRenderer.Guns.cs): each machine's gun its own shot
         }
         float recipes;
+        bool classGuns = true;
 
         void Start()
         {
@@ -1130,20 +1132,22 @@ namespace TW.Presentation.Tactical
                     if (books == null || !books.Ready) break;
                     var cam = Camera.main;
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, dir) : 0f;
+                    var gun = classGuns ? GunFor(v.Archetype) : GunLook.Old;   // TankRenderer.Guns.cs: the machine's own gun
+                    var world = Host.Local.World;
+                    byte team = e.A < world.HighWater ? world.Team[e.A] : (byte)0;
                     if (recipes >= 0.5f)
                     {
                         // L20 (fx.recipes): a big gun's blast, its drawing rooted at the card's left edge (firebooks root_left),
                         // so the card is centred half its width out along the barrel; 12 frames at 12 fps
-                        const float Blast = 4.5f;
-                        books.Add(FlipbookFx.Book.GunBlast, muzzle + dir * (Blast * 0.5f), Blast, 1f, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);
+                        books.Add(FlipbookFx.Book.GunBlast, muzzle + dir * (gun.Blast * 0.5f), gun.Blast, 1f, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);
                         // L20: the round itself, a heavy tracer from the muzzle to where it went: who shot whom
-                        var w = Host.Local.World;
-                        if (e.A < w.HighWater) Fx()?.AddTracer(muzzle, (Vector3)e.Pos, w.Team[e.A], 2.2f);
+                        if (e.A < world.HighWater && !gun.Arc) Fx()?.AddTracer(muzzle, (Vector3)e.Pos, team, gun.Tracer);
                     }
-                    else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
+                    else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f * gun.Blast / GunLook.Old.Blast, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
+                    if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer);   // an indirect round goes up and over
                     books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
                     for (int k = 0; k < 3; k++)
-                        books.Add(FlipbookFx.Book.Smoke, muzzle + dir * (0.6f + k * 0.7f), 1.2f + k * 0.4f, 2.5f + k * 0.5f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        books.Add(FlipbookFx.Book.Smoke, muzzle + dir * (0.6f + k * 0.7f), (1.2f + k * 0.4f) * gun.Smoke, 2.5f + k * 0.5f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: dir * (2.5f - k * 0.6f) + Vector3.up * 0.5f, grow: 1.6f, alpha: 0.55f, delay: k * 0.03f);
                     float g = Ground(muzzle.x, muzzle.z);
                     if (muzzle.y - g < 3.5f)   // the blast lifts the dust under the muzzle
