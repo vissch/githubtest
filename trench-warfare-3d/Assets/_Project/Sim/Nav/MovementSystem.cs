@@ -1,6 +1,6 @@
-// Phase: A1 (implemented) — depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
+// Phase: A1 (implemented) â€” depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
 // Infantry movement. Every alive infantry slot follows the flow field of its goal, takes a separation push from its
-// neighbours (and keeps clear of vehicles), and moves at base speed × stance × terrain. A unit without a goal gets
+// neighbours (and keeps clear of vehicles), and moves at base speed Ã— stance Ã— terrain. A unit without a goal gets
 // the team's default goal (its front trench). Arriving at the goal trench garrisons the unit: it stops, crouches
 // below the rim and stays until TrenchOrdersSystem hands it a new goal; a locked trench passes arrivals straight on
 // to the next goal. Layer bookkeeping: on a Surface cell a unit under orders is Exposed and sprints, otherwise it
@@ -40,6 +40,13 @@ namespace TW.Sim.Nav
         public NativeArray<float3> LeapTarget;
         // ---- the fight (EngageSystem writes them before every step, MoveJob reads them; hashed there) ----
         public const byte EngageNone = 0, EngageClose = 1, EngageHold = 2;
+        /// <summary>Hand to hand (MeleeSystem): Stance.Melee, facing his foe, stepping in while EngageDir says so. In a
+        /// trench or a garrison too: a man fights where he stands.</summary>
+        public const byte EngageMelee = 3;
+
+        /// <summary>EngageDir for a man in a fight: the unit direction to his foe, lengthened by how much of a step in
+        /// he still wants (0 at MeleeSystem.StandOff, 1 at arm's length and beyond).</summary>
+        public static float2 MeleeDir(float2 unit, float close) => unit * (1f + math.saturate(close));
         /// <summary>What the man does about the enemy he is after: nothing (he follows his goal), close on him along
         /// EngageDir, or hold where he stands, facing along EngageDir, and shoot. All zero without an EngageSystem.</summary>
         public NativeArray<byte> Engage;
