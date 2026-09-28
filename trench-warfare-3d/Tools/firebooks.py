@@ -74,8 +74,16 @@ BOOKS = {
     # own centroid against 0.65-0.72 for most of the pack: a closed bolus, which is what the head of a gout of burning
     # fuel is. It is an explosion sheet and it is used here for one card only.
     "FireHead":   ("orange_explosion_8x4_12fps_26f.png",            "luma",   False, (4, 22)),
+    # VFX pass wave 1 (2026-09-28, tw3d-board evidence/vfx-run/phase1-catalogue.md 4): pack sheets, no new drawing
+    "GasBank":     ("chlorine_billow_8x4_12fps_30f.png",         "light", False, None),      # a gas cloud lying on the field
+    "GasVent":     ("chlorine_vent_8x4_12fps_32f.png",           "light", False, None),      # gas let out of a canister or the Censer
+    "SmokeBank":   ("smoke_bank_8x4_12fps_32f.png",              "luma",  False, (0, 21)),   # later frames fill the cell as a slab
+    "MortarBurst": ("green_ground_explosion_8x4_12fps_30f.png",  "light", False, (7, 27)),   # from the impact spike on
+    "ShellFall":   ("green_ground_explosion_8x4_12fps_30f.png",  "light", False, (0, 7)),    # the falling shell only
+    "LeanBurst":   ("purple_ground_explosion_8x4_12fps_28f.png", "light", False, None),      # prototype for ShellLean
 }
-FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26}
+FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26,
+             "GasBank": 30, "GasVent": 32, "SmokeBank": 32, "MortarBurst": 30, "ShellFall": 30, "LeanBurst": 28}
 # FireBall's band split, measured in round 2: the shader's default _Bands and the levels its Sheet row uses
 FIREBALL_BANDS = (0.12, 0.40, 0.86)
 FIREBALL_LEVELS = (0.16, 0.86)
