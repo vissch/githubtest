@@ -13,6 +13,8 @@
 // A shield bearer (InfantrySpec.ShieldPlateMm, 2026-09-25) shot from inside his plate's arc gets a penetration roll
 // first: PenetrationMm x 0.8..1.2 under the plate and the round is STOPPED (Hit with a negative scalar, ShieldBlocked,
 // a quarter of the suppression). The roll is drawn only for him, so every other man's stream is what it was.
+// Wrecks (2026-09-28): a machine gun's round that the cover of a wreck stopped (the same roll: it would have hit with
+// no cover and missed with it) wears that wreck, by the wreck's share of the cover (DirectFire.Wrecks).
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -22,7 +24,7 @@ using TW.Sim.Terrain;
 
 namespace TW.Sim.Combat
 {
-    public sealed class DirectFireSystem : ISimSystem
+    public sealed partial class DirectFireSystem : ISimSystem
     {
         public int Order => SimSystemOrder.DirectFire;
 
@@ -52,6 +54,7 @@ namespace TW.Sim.Combat
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
+            stopped = new NativeList<WreckRound>(16, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
             ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
@@ -72,6 +75,7 @@ namespace TW.Sim.Combat
             events.Clear();
             killed.Clear();
             ownHits.Clear();
+            stopped.Clear();
             new FireJob
             {
                 Count = n, Tick = w.Tick, Seed = w.Config.Seed, TickSeconds = w.Config.TickSeconds,
@@ -82,6 +86,7 @@ namespace TW.Sim.Combat
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
+                CoverStops = stopped,
             }.Run();
             for (int k = 0; k < ownHits.Length; k++)
             {
@@ -91,6 +96,7 @@ namespace TW.Sim.Combat
                 if (w.Hp[hit.Target] <= 0f && w.IsAlive(hit.Target)) killed.Add(new int2(hit.Target, hit.Shooter));
             }
 
+            WearWrecks(w);   // the rounds wreck cover stopped (DirectFire.Wrecks)
             for (int e = 0; e < events.Length; e++)
             {
                 var ev = events[e];
@@ -129,6 +135,7 @@ namespace TW.Sim.Combat
             public NativeList<SimEvent> Events;
             public NativeList<int2> Killed;
             public NativeList<VehicleHit> VehicleHits;
+            public NativeList<WreckRound> CoverStops;   // machine-gun rounds a prop's cover stopped, by target cell (DirectFire.Wrecks)
             [ReadOnly] public NativeArray<float> Smoke;
             public int SmokeW, SmokeL;
             public bool SmokeOn;
@@ -234,7 +241,7 @@ namespace TW.Sim.Combat
                                  * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                     if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (Flags[i] & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
 
-                    float cover;
+                    float cover, propCover = 0f;   // propCover: what a tree, a stump or a wreck next to him adds
                     if ((Flags[t] & (uint)UnitFlags.InTrench) != 0)
                     {
                         bool sameTrench = (Flags[i] & (uint)UnitFlags.InTrench) != 0 && TrenchAt(p) == TrenchAt(q);
@@ -245,18 +252,26 @@ namespace TW.Sim.Combat
                     {
                         cover = StanceRules.CoverBonusInOpen(theirStance);
                         if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);
+                        float open = cover;
                         cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
+                        propCover = cover - open;
                     }
                     if (SmokeOn)
                     {
                         float through = SmokeLos.MetresThrough(Smoke, SmokeW, SmokeL, p, q);
                         if (through > 0f) chance *= math.max(CombatTables.SmokeAccuracyFloor, 1f - CombatTables.SmokeAccuracyPerMetre * through);
                     }
+                    float bare = math.clamp(chance, 0.02f, 0.95f);   // the chance with nothing between them
                     chance = math.clamp(chance * (1f - cover), 0.02f, 0.95f);
                     float keepDown = InSmoke(q) ? CombatTables.SmokeSuppression : 1f;
 
                     var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
-                    bool hit = rng.NextFloat() < chance;
+                    float roll = rng.NextFloat();
+                    bool hit = roll < chance;
+                    // missed, and would not have with no cover: the cover took it. A machine gun's round wears a wreck by
+                    // the prop's share of the cover (the same roll, nothing more drawn: a field with no wreck is as it was)
+                    if (!hit && roll < bare && propCover > 0f && CombatTables.WearsWrecks(weapon))
+                        CoverStops.Add(new WreckRound { Cell = CellOf(q), Damage = weapon.Damage * DamageMul[i] * (propCover / cover), Way = dir });
                     Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = dir, Scalar = 0f });
                     if (hit && Stopped(i, t, weapon, p, q, dir, ref rng)) { }
                     else if (hit)
@@ -312,6 +327,7 @@ namespace TW.Sim.Combat
             if (events.IsCreated) events.Dispose();
             if (killed.IsCreated) killed.Dispose();
             if (ownHits.IsCreated) ownHits.Dispose();
+            if (stopped.IsCreated) stopped.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (ones.IsCreated) ones.Dispose();
         }

@@ -157,7 +157,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
   `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
   brushes or pushes against and any machine flattens scrap it drives over (`Sim/Nav/VehicleKinematics.Wrecks.cs`);
-  both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time.
+  both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time, as do machine-gun rounds a wreck's cover stopped
+  (`Sim/Combat/DirectFire.Wrecks.cs`, `CombatTables.WearsWrecks`).
 - **Tests:** TankTests, TankMobilityTests, CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests,
   WreckDecayTests (the wreck's stages).
 
