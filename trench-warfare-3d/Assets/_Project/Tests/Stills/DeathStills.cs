@@ -8,7 +8,8 @@
 //             -testResults <out.xml> -logFile <out.log>
 // Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-deathstills: never inside the checkout, whose
 // untracked files land.py would see), TW_DEATH_ABSURD the intensity (default 1; 0 films today's deaths for a before),
-// TW_DEATH_SCENES a comma list (default every scene DeathLab knows).
+// TW_DEATH_SCENES a comma list (default every scene DeathLab knows), TW_STILLS_FIELD the look (NightMud, the scene's own,
+// by default; Winter is the day field, overcast and snowed on).
 // It asserts only that stills were written: it is an instrument; the pictures go to a critique.
 using System.Collections;
 using System.IO;
@@ -49,7 +50,9 @@ namespace TW.Tests
                 case "crush": return (20f, 40f, 18f, 1.5f);
                 case "beam": return (10f, 40f, 32f, 0.4f);
                 case "parts": return (9f, 40f, 38f, 0.1f);   // a row of parts on the ground, close
-                case "machine": return (24f, 40f, 22f, 3f);  // a turret's leap: wide and low   // what is left is a pair of boots and a helmet: close, from above
+                case "machine": case "maw": case "salvo": return (24f, 40f, 22f, 3f);  // a turret's leap: wide and low
+                case "skimmer": return (40f, 40f, 26f, 2f);   // its fan glides 18-27 m astern
+                case "walker": return (18f, 40f, 20f, 1.5f);  // a belly-flop: close and low
                 default: return (13f, 40f, 20f, 1.2f);
             }
         }
@@ -66,7 +69,7 @@ namespace TW.Tests
                 case "gas": return (22f, 12);
                 case "beam": return (16f, 16);
                 case "parts": return (4f, 4);
-                case "machine": return (8f, 16);
+                case "machine": case "maw": case "salvo": case "skimmer": case "walker": return (8f, 16);
                 default: return (8f, 12);
             }
         }
@@ -110,6 +113,12 @@ namespace TW.Tests
             ShellBoot.Disabled = true;
             CaptureRig.Rig.Verbose = false;
             EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            // the look: set on the scene before Play (a serialized field survives the domain reload; the scene is not saved)
+            if (System.Enum.TryParse(System.Environment.GetEnvironmentVariable("TW_STILLS_FIELD"), true, out TW.Presentation.Terrain.Biome field))
+            {
+                foreach (var g in Object.FindObjectsByType<TW.Presentation.Terrain.GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
+                foreach (var at in Object.FindObjectsByType<TW.Presentation.Terrain.Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
+            }
             yield return new EnterPlayMode();
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");

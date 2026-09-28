@@ -2,8 +2,12 @@
 // slapstick; fx.deathAbsurd, DeathGags.Intensity, 0 = today's death exactly: nothing here runs). On top of Wreckify:
 //  - the turret (or the cupola) leaps straight up at 17-21 m/s, turning end over end about the hull's side axis in
 //    whole flips, and comes down with two bounces within 1.5 hull lengths (a cook-off's throw is taken over);
-//  - the hull hops a metre and comes down with a bump; a walker holds its death pose a beat first, then drops;
-//  - up to four of a machine's road wheels roll away 8-14 m along its length, spreading out, then topple flat.
+//  - up to four of a machine's road wheels roll away 8-14 m along its length, spreading out, then topple flat;
+//  - a track comes off and pays out flat on the ground beside the hull, its links running as it goes;
+//  - the Skimmer's fan leaves astern like a frisbee: it lies over flat, spinning, and glides 18-27 m before it lands;
+//  - the Salvo's last rockets fizz off out of the rack (TankRenderer.Fizzers): harmless, looping, popping in the air;
+//  - the hull hops a metre and comes down with a bump; a hover machine's cushion goes and it drops onto its skirt; a
+//    walker holds its death pose a beat, then belly-flops: a pop, its legs splayed flat out, down on its belly.
 // The flight is VehicleGags' (pure, tested); the dice are DebrisRng's, seeded by where it died, never UnityEngine.Random.
 using UnityEngine;
 
@@ -13,8 +17,12 @@ namespace TW.Presentation.Tactical
     {
         sealed partial class View
         {
-            /// <summary>The hull's hop: its launch speed (0: none), when it leaves, and the height it leaves from.</summary>
-            public float HopSpeed, HopAt, HopBase;
+            /// <summary>The body's drop (VehicleGags.Drop): when it leaves, its launch speed, the heights it leaves from and
+            /// lands at, and how much of it Heave carries now (others may move Heave meanwhile: a wreck's stages).</summary>
+            public bool Dropping, DropLanded; public float DropAt, DropUp, DropFrom, DropTo, Dropped;
+            /// <summary>A walker's belly-flop: its legs splay out (0 as they stood, 1 flat out, PartLocal reads it), its
+            /// tilt as it died, which the flop lays flat, and its belly's height in its own frame.</summary>
+            public bool Flops; public float Splay, DropPitch, DropRoll, Belly;
         }
 
         sealed partial class Debris
@@ -23,6 +31,10 @@ namespace TW.Presentation.Tactical
             public float Bounce = 0.25f; public int Bounces;
             /// <summary>Seconds a wheel still rolls on its rim before it topples (0: it flies as any piece).</summary>
             public float Roll;
+            /// <summary>Seconds a fan may still glide (0: it flies as any piece), and the way its path bends (rad/s).</summary>
+            public float Glide, Curve;
+            /// <summary>A track paying out: seconds since it began (-1: not), from and to, as it stood and as it lies.</summary>
+            public float Spool = -1f; public Vector3 SpoolFrom, SpoolTo; public Quaternion SpoolRot0, SpoolRot1;
         }
 
         /// <summary>The absurd death, once, as the machine becomes a wreck (Wreckify, fx.deathAbsurd above 0).</summary>
@@ -69,29 +81,163 @@ namespace TW.Presentation.Tactical
                 rollers++;
             }
 
-            // the hull: a hop (a walker holds a beat first)
-            v.HopSpeed = VehicleGags.HopSpeed(a);
-            v.HopAt = now + (v.Model.LegCount > 0 ? VehicleGags.WalkerFreeze : 0f);
-            v.HopBase = v.Heave.Value;
+            // what came after the first film (its own dice, so the turret and the wheels above go as they were filmed)
+            var more = new DebrisRng(v.Pos, 0xF1A7u + (uint)Mathf.Max(0, v.Slot));
+            PayOut(v, ref more, a, fwd, right);
+            FanOff(v, ref more, a, fwd);
+            Fizzers(v, top, ref more, a, now);   // TankRenderer.Fizzers
+
+            // the body: a hop; a hover machine drops onto its skirt; a walker holds a beat, then belly-flops
+            v.Dropping = true; v.DropLanded = false; v.Dropped = 0f;
+            v.DropFrom = v.DropTo = v.Heave.Value;
+            v.DropUp = VehicleGags.HopSpeed(a);
+            v.DropAt = now;
+            if (v.Hover) v.DropTo = Mathf.Min(v.DropFrom, Ground(v.Pos.x, v.Pos.z));
+            if (v.Model.LegCount > 0)
+            {
+                v.Flops = true;
+                v.Belly = Belly(v);
+                v.DropTo = Mathf.Min(v.DropFrom, Ground(v.Pos.x, v.Pos.z) - v.Belly + 0.02f);
+                v.DropUp = VehicleGags.FlopUp * Mathf.Sqrt(Mathf.Min(a, VehicleGags.HopCap));
+                v.DropAt = now + VehicleGags.WalkerFreeze;
+                v.DropPitch = v.Pitch.Value; v.DropRoll = v.Roll.Value;
+            }
         }
 
-        /// <summary>Once a frame, after the wrecks smoulder: the hulls still hopping.</summary>
-        void HopsFrame(float now)
+        /// <summary>Once a frame, after the wrecks smoulder: the bodies still dropping, a walker's legs splaying, the
+        /// fizzers in the air.</summary>
+        void GagsFrame(float dt, float now)
         {
             foreach (var v in wrecks)
             {
-                if (v.HopSpeed <= 0f) continue;
-                float t = now - v.HopAt;
+                if (!v.Dropping) continue;
+                float t = now - v.DropAt;
                 if (t < 0f) continue;
-                if (t >= VehicleGags.HopSeconds(v.HopSpeed))
+                float h = VehicleGags.Drop(v.DropFrom, v.DropTo, v.DropUp, t) - v.DropFrom;
+                v.Heave.Value += h - v.Dropped; v.Dropped = h;
+                if (v.Flops)
                 {
-                    v.Heave.Value = v.HopBase; v.HopSpeed = 0f;
-                    if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, v.Pos + Vector3.up * 0.3f, v.Model.HalfLength * 1.4f, 1.1f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.4f, grow: 0.8f, alpha: 0.6f);
-                    CameraShake.Add(v.Pos, 3f);
-                    continue;
+                    v.Splay = VehicleGags.Splay(t);
+                    v.Pitch.Value = v.DropPitch * (1f - v.Splay); v.Roll.Value = v.DropRoll * (1f - v.Splay);
                 }
-                v.Heave.Value = v.HopBase + VehicleGags.Hop(v.HopSpeed, t);
+                if (!v.DropLanded && t >= VehicleGags.DropFirst(v.DropFrom, v.DropTo, v.DropUp)) { v.DropLanded = true; Landing(v); }
+                if (t >= VehicleGags.DropSeconds(v.DropFrom, v.DropTo, v.DropUp))
+                {
+                    v.Heave.Value += (v.DropTo - v.DropFrom) - v.Dropped; v.Dropped = v.DropTo - v.DropFrom;
+                    v.Dropping = false;
+                }
             }
+            FizzersFrame(dt, now);
+        }
+
+        /// <summary>The body comes down: dust, a bump, and a walker's belly throws plates.</summary>
+        void Landing(View v)
+        {
+            float size = v.Flops ? 2.2f : 1.4f;
+            if (books != null && books.Ready)
+            {
+                books.Add(FlipbookFx.Book.Puff, v.Pos + Vector3.up * 0.3f, v.Model.HalfLength * size, 1.1f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.4f, grow: 0.8f, alpha: 0.6f);
+                if (v.Flops) books.Add(FlipbookFx.Book.Wings, new Vector3(v.Pos.x, Ground(v.Pos.x, v.Pos.z), v.Pos.z), v.Model.HalfLength * 3f, 1.0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.5f, alpha: 0.55f);
+            }
+            if (v.Flops) Scrap(v.Pos + Vector3.up * 0.5f, 5, 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
+            CameraShake.Add(v.Pos, v.Flops ? 6f : 3f);
+        }
+
+        /// <summary>A walker's belly: the lowest corner of its body's box, in the frame its heave is the height of.</summary>
+        static float Belly(View v)
+        {
+            var body = v.Model.Lods[0].Parts[0];
+            if (body.Mesh == null) return 0f;
+            var b = body.Mesh.bounds;
+            float low = float.MaxValue;
+            for (int k = 0; k < 8; k++)
+            {
+                Vector3 c = b.center + Vector3.Scale(b.extents, new Vector3((k & 1) != 0 ? 1f : -1f, (k & 2) != 0 ? 1f : -1f, (k & 4) != 0 ? 1f : -1f));
+                low = Mathf.Min(low, (body.Local + body.LocalRot * c).y);
+            }
+            return low;
+        }
+
+        /// <summary>A leg of a walker that belly-flopped (View.Splay above 0; PartLocal asks): the hip turned so the leg
+        /// lies flat out from the body with its toe on the ground, what hangs below the hip as it was modelled, and while
+        /// it splays, the way it stood blended into that.</summary>
+        Matrix4x4 Splayed(View v, TankModel.Part p, int index)
+        {
+            var target = Matrix4x4.TRS(p.Local, p.LocalRot, Vector3.one);
+            var legs = v.Model.Lods[0].Legs;
+            if ((p.Role == TankPartRole.Leg || p.Role == TankPartRole.Thigh) && legs != null && p.Leg >= 0 && p.Leg < legs.Length && legs[p.Leg] != null)
+            {
+                var rig = legs[p.Leg];
+                float down = Mathf.Clamp(Mathf.Max(0f, rig.Hip.y - v.Belly) / Mathf.Max(0.1f, rig.Reach), 0f, 0.8f);
+                Vector3 flat = new Vector3(rig.Outward.x, 0f, rig.Outward.z);
+                flat = flat.sqrMagnitude > 1e-6f ? flat.normalized : Vector3.right;
+                Vector3 want = flat * Mathf.Sqrt(1f - down * down) + Vector3.down * down;
+                Quaternion turn = Quaternion.FromToRotation(rig.Rest.normalized, want);   // in the body's frame
+                turn = Quaternion.Inverse(rig.ParentRot) * turn * rig.ParentRot;          // in the hip's parent's
+                target = Matrix4x4.TRS(p.Local, turn * p.LocalRot, Vector3.one);
+            }
+            if (v.Splay >= 1f || v.LegSolved == null || index < 0 || index >= v.LegSolved.Length || !v.LegSolved[index]) return target;
+            var from = v.LegLocal[index];
+            return Matrix4x4.TRS(Vector3.Lerp(from.GetColumn(3), target.GetColumn(3), v.Splay), Quaternion.Slerp(from.rotation, target.rotation, v.Splay), Vector3.one);
+        }
+
+        /// <summary>A track comes off and pays out flat beside the hull (a track the sim already threw is left alone; at
+        /// ludicrous both go).</summary>
+        void PayOut(View v, ref DebrisRng rng, float a, Vector3 fwd, Vector3 right)
+        {
+            var lod = v.Model.Lods[0];
+            int l = lod.Find("Track_L"), r = lod.Find("Track_R");
+            if (l < 0 && r < 0) return;
+            bool left = rng.Next() < 0.5f;
+            int first = left ? l : r, second = left ? r : l;
+            if (first < 0 || v.Off[first]) { first = second; second = -1; }
+            if (first < 0 || v.Off[first]) return;
+            StartPayOut(v, first, fwd, right);
+            if (a >= 1.5f && second >= 0 && !v.Off[second]) StartPayOut(v, second, fwd, right);
+        }
+
+        void StartPayOut(View v, int i, Vector3 fwd, Vector3 right)
+        {
+            var p = v.Model.Lods[0].Parts[i];
+            var d = Detach(v, i, v.World[i]);
+            // a wheel that already rolled off is its own piece: it does not ride the belt as well
+            var own = new System.Collections.Generic.List<int>();
+            foreach (var c in d.Local.Keys) if (v.Off[c]) own.Add(c);
+            foreach (int c in own) d.Local.Remove(c);
+            float side = p.Side < 0 ? -1f : 1f;
+            Vector3 from = d.World.GetColumn(3);
+            Vector3 to = from + right * (side * v.Model.HalfGauge * (VehicleGags.UnspoolOut - 1f))
+                              - fwd * (p.Mesh != null ? p.Mesh.bounds.extents.z * (VehicleGags.UnspoolStretch - 1f) : 0f);
+            float low = p.Mesh != null ? p.Mesh.bounds.min.y : 0f;
+            to.y = Ground(to.x, to.z) - low * VehicleGags.UnspoolFlat + 0.03f;
+            d.SpoolFrom = from; d.SpoolTo = to;
+            d.SpoolRot0 = d.World.rotation;
+            d.SpoolRot1 = Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up) * p.LocalRot;
+            d.Spool = 0f; d.Vel = Vector3.zero; d.Spin = Vector3.zero;
+        }
+
+        /// <summary>The Skimmer's fan, off astern like a frisbee.</summary>
+        void FanOff(View v, ref DebrisRng rng, float a, Vector3 fwd)
+        {
+            var parts = v.Model.Lods[0].Parts;
+            for (int i = 1; i < parts.Count; i++)
+            {
+                if (parts[i].Role != TankPartRole.Fan || v.Off[i]) continue;
+                var d = Detach(v, i, v.World[i]);
+                var glide = VehicleGags.FanThrow(a, -fwd, rng.Next(), rng.Next(), rng.Next());
+                d.Vel = glide.Vel; d.Curve = glide.Curve; d.Glide = VehicleGags.FanGlideCap;
+                d.Burn = Mathf.Max(d.Burn, v.Burn * 0.5f);
+                return;
+            }
+        }
+
+        /// <summary>A piece on a gag's own path this frame (FlyDebris asks first): true if it was moved here.</summary>
+        bool FlyGag(Debris d, float dt)
+        {
+            if (d.Roll > 0f) { RollWheel(d, dt); return true; }
+            if (d.Glide > 0f) { GlideFan(d, dt); return true; }
+            if (d.Spool >= 0f) { PayingOut(d, dt); return true; }
+            return false;
         }
 
         /// <summary>What a landing piece keeps of its fall speed (FlyDebris): its own share for its next few bounces.</summary>
@@ -130,6 +276,54 @@ namespace TW.Presentation.Tactical
             Vector3 centre = pos + rot * p.Center;
             pos.y += Ground(centre.x, centre.z) + radius - centre.y;   // on its rim
             d.World = Matrix4x4.TRS(pos, rot, Vector3.one);
+        }
+
+        /// <summary>The fan in the air: it lies over flat (its hub's axis, local +Z, to the vertical), spins about that
+        /// axis and glides (VehicleGags.GlideStep); where it meets the ground, or its glide runs out, FlyDebris takes it.</summary>
+        void GlideFan(Debris d, float dt)
+        {
+            var p = d.Owner.Model.Lods[0].Parts[d.Part];
+            Vector3 pos = d.World.GetColumn(3);
+            Quaternion rot = d.World.rotation;
+            VehicleGags.GlideStep(ref pos, ref d.Vel, d.Curve, dt);
+            Vector3 hub = rot * Vector3.forward;
+            Vector3 flatUp = Vector3.Dot(hub, Vector3.up) >= 0f ? Vector3.up : Vector3.down;
+            Vector3 lean = Vector3.RotateTowards(hub, flatUp, Mathf.PI * 0.5f * dt / VehicleGags.FanTilt, 0f);
+            rot = Quaternion.FromToRotation(hub, lean) * rot;
+            rot = Quaternion.AngleAxis(VehicleGags.FanSpin * Mathf.Rad2Deg * dt, lean) * rot;
+            d.Glide -= dt;
+            Vector3 centre = pos + rot * p.Center;
+            float ground = Ground(centre.x, centre.z);
+            if (centre.y - Mathf.Min(p.Radius, 1.2f) * 0.2f < ground || d.Glide <= 0f)
+            {
+                d.Glide = 0f;
+                d.Spin = lean * (VehicleGags.FanSpin * 0.4f);   // it skids on, still turning, and FlyDebris settles it
+            }
+            d.World = Matrix4x4.TRS(pos, rot, Vector3.one);
+        }
+
+        /// <summary>A track paying out (VehicleGags.Unspool): off the hull, a little up, out and down onto the ground,
+        /// lying flatter and longer as it goes, its links running; at the end it lies there.</summary>
+        void PayingOut(Debris d, float dt)
+        {
+            var v = d.Owner; var p = v.Model.Lods[0].Parts[d.Part];
+            d.Spool += dt;
+            float k = VehicleGags.Unspool(d.Spool);
+            Vector3 pos = Vector3.Lerp(d.SpoolFrom, d.SpoolTo, k) + Vector3.up * (Mathf.Sin(k * Mathf.PI) * 0.4f);
+            Quaternion rot = Quaternion.Slerp(d.SpoolRot0, d.SpoolRot1, k);
+            var scale = new Vector3(1f, Mathf.Lerp(1f, VehicleGags.UnspoolFlat, k), Mathf.Lerp(1f, VehicleGags.UnspoolStretch, k));
+            float links = VehicleGags.UnspoolLinks * dt * (1f - k);
+            if (p.Side < 0) v.TreadL = Mathf.Repeat(v.TreadL + links, 1000f); else v.TreadR = Mathf.Repeat(v.TreadR + links, 1000f);
+            d.World = Matrix4x4.TRS(pos, rot, scale);
+            if (d.Spool < VehicleGags.UnspoolSeconds) return;
+            d.Spool = -1f; d.Resting = true; d.Vel = Vector3.zero; d.Spin = Vector3.zero;
+            if (books != null && books.Ready)
+            {
+                Vector3 along = rot * Vector3.forward;
+                float half = p.Mesh != null ? p.Mesh.bounds.extents.z * VehicleGags.UnspoolStretch : 2f;
+                for (int k2 = -1; k2 <= 1; k2++)
+                    books.Add(FlipbookFx.Book.Puff, pos + along * (half * 0.6f * k2) + Vector3.up * 0.2f, 1.3f, 0.9f, velocity: Vector3.up * 0.4f, grow: 0.8f, alpha: 0.5f, delay: 0.05f * (k2 + 1));
+            }
         }
     }
 }

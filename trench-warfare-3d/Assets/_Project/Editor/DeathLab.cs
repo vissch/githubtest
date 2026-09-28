@@ -11,8 +11,9 @@
 //  - DriveAt(slot, x, z): a machine driven straight at a point;
 //  - Parts(x, z): one of each of a man's parts dropped in a row, to look at them close;
 //  - Later(seconds, act): something done a moment from now (the "machine" scene's shell);
-//  - Scene(name, x, z): a whole staging by name (shot, mg, shell, heap, gas, fire, beam, crush, parts, machine), then film it with
-//    TankCapture.Follow/Shot or CaptureRig.
+//  - Machine(archetype, x, z): a machine held where it stands and shelled to death a moment later (its absurd death);
+//  - Scene(name, x, z): a whole staging by name (shot, mg, shell, heap, gas, fire, beam, crush, parts, and the machines:
+//    machine (a Tusk), maw, salvo, skimmer, walker (a Pincer)), then film it with TankCapture.Follow/Shot or CaptureRig.
 // None of this is part of the game; it exists for the capture-and-critique loop.
 using System.Text;
 using Unity.Mathematics;
@@ -89,15 +90,11 @@ namespace TW.Editor
                 case "fire": return Row(6, x, z, 0, 1.6f, 40f) + "; " + Fire(x + 4f, z, 6f);
                 case "beam": return Row(6, x, z, 1, 1.6f, 100f) + "; " + Call((int)OffMapAbilityId.Beam, x - 10f, z, AbilityArgs.Pack(90, 0, 0));   // it walks east from there along the row (x >= 14 or the call is off the map)
                 case "parts": return Parts(x, z);
-                case "machine":
-                {
-                    // a Tusk (turret, road wheels) held where it stands, and a shell that obliterates it once the picture
-                    // draws it there (a machine killed the moment it appears is drawn blending in from the map's corner)
-                    string tank = TankCapture.Spawn(1, VehicleArchetype.Tusk, x + 4f, z, 90f);
-                    if (!tank.StartsWith("slot ")) return tank;
-                    RiderLab.Stop(int.Parse(tank.Substring(5)));
-                    return tank + "; " + Later(1.5f, () => Shell(x + 4f, z, 4f, 50000f));
-                }
+                case "machine": return Machine(VehicleArchetype.Tusk, x, z);      // a turret, tracks
+                case "maw": return Machine(VehicleArchetype.Maw, x, z);           // a cupola, road wheels, tracks
+                case "salvo": return Machine(VehicleArchetype.Salvo, x, z);       // a rack of rockets on a turret, tyres
+                case "skimmer": return Machine(VehicleArchetype.Skimmer, x, z);   // a fan astern, a cushion
+                case "walker": return Machine(VehicleArchetype.Pincer, x, z);     // six legs
                 case "crush":
                 {
                     string row = Row(6, x, z, 1, 1.2f, 100f);
@@ -106,8 +103,18 @@ namespace TW.Editor
                     int slot = int.Parse(tank.Substring(5));
                     return row + "; " + tank + "; " + Disarm(slot) + "; " + DriveAt(slot, x + 3f, z + 12f);   // unarmed, or it shells the row before it gets there
                 }
-                default: return "scenes: shot, mg, shell, heap, gas, fire, beam, crush, parts, machine";
+                default: return "scenes: shot, mg, shell, heap, gas, fire, beam, crush, parts, machine, maw, salvo, skimmer, walker";
             }
+        }
+
+        /// <summary>A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the
+        /// picture draws it there (a machine killed the moment it appears is drawn blending in from the map's corner).</summary>
+        public static string Machine(int archetype, float x, float z)
+        {
+            string tank = TankCapture.Spawn(1, archetype, x + 4f, z, 90f);
+            if (!tank.StartsWith("slot ")) return tank;
+            RiderLab.Stop(int.Parse(tank.Substring(5)));
+            return tank + "; " + Later(1.5f, () => Shell(x + 4f, z, 4f, 50000f));
         }
 
         /// <summary>One of each of a man's parts (DebrisRenderer.Figure, cut from his figure) dropped in a row from (x, z)

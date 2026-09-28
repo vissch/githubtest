@@ -355,7 +355,7 @@ namespace TW.Presentation.Tactical
             foreach (int slot in gone) { Wreckify(views[slot], now); views.Remove(slot); }   // missed its VehicleDestroyed: still leave a wreck
             for (int k = wrecks.Count - 1; k >= 0; k--) if (!Smoulder(wrecks[k], dt, now)) Drop(k);
             WreckStagesFrame(dt, now, match);   // the wrecks' stages: chunks with the hit points, shards, cleared heaps (TankRenderer.WreckStages)
-            HopsFrame(now);   // hulls still hopping from an absurd death (TankRenderer.Deaths)
+            GagsFrame(dt, now);   // an absurd death's bodies dropping, legs splaying, rockets fizzing (TankRenderer.Deaths)
             while (wrecks.Count > MaxWrecks) Drop(0);
             FlyDebris(dt, match);
             RunPops(now);
@@ -674,6 +674,7 @@ namespace TW.Presentation.Tactical
                 case TankPartRole.Thigh:
                 case TankPartRole.Shin:
                 case TankPartRole.Foot:
+                    if (v.Splay > 0f) return Splayed(v, p, index);   // a walker that belly-flopped (TankRenderer.Deaths)
                     if (v.LegSolved != null && index >= 0 && index < v.LegSolved.Length && v.LegSolved[index]) return v.LegLocal[index];
                     break;
                 case TankPartRole.Claw:
@@ -958,7 +959,7 @@ namespace TW.Presentation.Tactical
             {
                 d.Burn = Mathf.Max(0f, d.Burn - dt * 0.03f);
                 if (d.Resting) continue;
-                if (d.Roll > 0f) { RollWheel(d, dt); continue; }   // a wheel rolling away (TankRenderer.Deaths)
+                if (FlyGag(d, dt)) continue;   // a wheel rolling away, a fan gliding, a track paying out (TankRenderer.Deaths)
                 var p = d.Owner.Model.Lods[0].Parts[d.Part];
                 Vector3 pos = d.World.GetColumn(3);
                 Quaternion rot = d.World.rotation;
@@ -1008,7 +1009,7 @@ namespace TW.Presentation.Tactical
                     pops.Add(new Pop { Owner = v, At = now + UnityEngine.Random.Range(0.4f, 6f), Offset = new Vector3(UnityEngine.Random.Range(-1.2f, 1.2f), UnityEngine.Random.Range(1.2f, 2.6f), UnityEngine.Random.Range(-1.8f, 1.8f)), Size = UnityEngine.Random.Range(0.6f, 1.4f) });
                 CameraShake.Add(v.Pos, 12f);
             }
-            if (DeathGags.Intensity > 0f) DeathGag(v, now);   // fx.deathAbsurd: the turret leaps, the hull hops, the wheels roll (TankRenderer.Deaths)
+            if (DeathGags.Intensity > 0f) DeathGag(v, now);   // fx.deathAbsurd: the turret leaps, wheels roll, a track pays out, a fan glides, rockets fizz, the body drops (TankRenderer.Deaths)
             wrecks.Add(v);
         }
 
