@@ -32,7 +32,8 @@
 .pg-tile__needs { font-size: 10px; color: var(--tw-text-dim); white-space: normal; -unity-text-align: upper-center; margin: 0; padding: 0 2px; }
 
 /* ---- the panel over the match ---- */
-.pg-dock { position: absolute; right: 12px; top: 76px; bottom: 236px; width: 400px; padding: 10px 12px 8px 12px; flex-direction: column; }
+/* under the minimap (its bezel ends at 153 in panel units) and over the deploy bar (222 from the bottom) */
+.pg-dock { position: absolute; right: 12px; top: 160px; bottom: 236px; width: 400px; padding: 10px 12px 8px 12px; flex-direction: column; }
 .pg-dock Label, .pg-dock Button { -unity-font-definition: url("../Skin/Fonts/DustFrontLabel.asset"); }
 .pg-dock--collapsed { bottom: auto; }
 .pg-dock--collapsed > .pg-body { display: none; }
@@ -47,7 +48,8 @@
 .pg-row--idea { opacity: 0.6; }
 .pg-row__text { flex-grow: 1; flex-shrink: 1; flex-direction: column; overflow: hidden; }
 .pg-row__name { font-size: 12px; color: var(--tw-text); -unity-font-style: bold; margin: 0; padding: 0; }
-.pg-row__sub { font-size: 10px; color: var(--tw-text-dim); margin: 0; padding: 0; white-space: normal; }
+.pg-row__sub { font-size: 10px; color: var(--tw-text-dim); margin: 0; padding: 0; white-space: nowrap; overflow: hidden; }
+.pg-row--idea .pg-row__sub, .pg-row--wave .pg-row__sub { white-space: normal; }
 .pg-row > .pg-chip { flex-shrink: 0; margin: 0 6px 0 4px; }
 .pg-row > .tw-btn { flex-shrink: 0; margin: 0 0 0 4px; min-height: 24px; padding: 1px 8px; }
 .pg-line { flex-direction: row; flex-wrap: wrap; align-items: center; margin: 3px 0; flex-shrink: 0; }

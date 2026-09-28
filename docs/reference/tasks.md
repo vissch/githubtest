@@ -666,6 +666,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Names:** `Presentation/Core/UnitLook.cs` names ids 21-36 and gives each a tooltip; until they have portraits of
   their own `UnitLook.StandInPortrait` lends each the picture of the shipped unit nearest to it (the deploy bar, the
   tiles). `UnitLook.PortraitCount` stays 21: it counts pictures, not units.
+  A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
+  baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
   timer, the enemy's support, the request, the same on two worlds), ProvingGroundScreenTests (the editor: both UXMLs,
   picking a ten, the panel over a director of its own).
