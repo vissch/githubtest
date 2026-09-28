@@ -651,6 +651,12 @@ namespace TW.Presentation.Tactical
                 case SimEventType.CriticalHit:
                     OnCriticalHit(e);     // CombatFx.Support.cs (fx.recipes)
                     break;
+                case SimEventType.WireBreached:
+                    OnWireBreached(e);   // CombatFx.Barrage.cs (fx.recipes)
+                    break;
+                case SimEventType.DropLanded:
+                    OnDropLanded(e);     // CombatFx.Barrage.cs (fx.recipes)
+                    break;
                 case SimEventType.UnitHealed:
                     OnHealed(e);  // CombatFx.Support.cs: the medic's glint (fx.recipes)
                     break;
@@ -770,6 +776,7 @@ namespace TW.Presentation.Tactical
                         // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
                         // reads where a shell landed; the old parts are not grown (fx.recipes 0 draws exactly as before)
                         float far = recipe.Plume || recipe.Ring || recipe.Curtain ? FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f) : 1f;
+                        if (recipe.Ring && (!wet || melt)) SmoulderCrater(p, r, far);   // L23: 30 % of heavy dry bursts leave the crater smouldering
                         if (recipe.Curtain)
                         {
                             // L04: each shell of a lift stands a smoke mound; four in a 20 m row are a wall, and each lift's wall stands
