@@ -96,8 +96,11 @@ namespace TW.Presentation.Tactical
         Mesh HopMesh(View v, TankModel.Part p, int lod)
         {
             if (v.Hop == null || p.Parent >= 0) return p.Mesh;
-            v.Hop.Rig.Apply(lod);
-            return v.Hop.Mesh[lod];
+            // the rig is welded to LOD0 and LOD1 only: past FarLodDistance (LOD2, borrowed from LOD1 for the Bullfrog)
+            // the posed LOD1 hull is drawn
+            int k = Mathf.Min(lod, v.Hop.Mesh.Length - 1);
+            v.Hop.Rig.Apply(k);
+            return v.Hop.Mesh[k];
         }
 
         /// <summary>A view that is gone gives its hull copies back (and the batches they were drawn through).</summary>
