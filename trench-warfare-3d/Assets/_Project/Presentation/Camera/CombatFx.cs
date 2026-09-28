@@ -119,6 +119,15 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Spurt, t.Dust);
             books.Tint(FlipbookFx.Book.Puff, t.Dust);
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+            // the VFX pass's books (2026-09-28), with the book each stands in for; the night passes below still touch only the old ones
+            books.Tint(FlipbookFx.Book.MortarBurst, t.Column);
+            books.Tint(FlipbookFx.Book.ShellFall, t.Column);
+            books.Tint(FlipbookFx.Book.LeanBurst, t.Column);
+            books.Tint(FlipbookFx.Book.ShellPlume, t.Smoke);
+            books.Tint(FlipbookFx.Book.Smoulder, t.Smoke);
+            books.Tint(FlipbookFx.Book.SmokeBank, t.Dust);
+            books.Tint(FlipbookFx.Book.GroundRing, t.Dust);
+            books.Tint(FlipbookFx.Book.DustPuff, t.Dust);
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.ColumnBurstLit(columnBurstLit);   // AOSA C108: before C103's (1 sets nothing)
