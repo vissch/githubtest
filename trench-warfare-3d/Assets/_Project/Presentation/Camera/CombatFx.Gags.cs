@@ -22,6 +22,9 @@ namespace TW.Presentation.Tactical
         void GagDeath(in SimEvent e, in DeathRecord rec, Vector3 p, float yaw, byte team, byte archetype, int variant, Clip clip, Clip from, float fromPhase, float fade, Vector3 fly, int gib, float grime, int density, int chr)
         {
             var gag = rec.Gag;
+            // torn in two by the shell (CombatFx.OwnGibs): both his halves flew, so no corpse; his path is still planned,
+            // and the dust and the blood go where it comes down, which is where the upper half lands
+            if ((gib & GibPlan.TornBit) != 0) { gib &= ~GibPlan.TornBit; gag.Flags |= GagFlags.NoCorpse; }
             float scale = FigureScale();
             bool pieces = debris != null && debris.Ready, gore = pieces && DebrisRenderer.Gore > 0f;
             // a headshot may take his head: the shader cuts limb 1 (the head and the helmet) from the body, GORE willing

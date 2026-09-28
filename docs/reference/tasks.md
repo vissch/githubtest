@@ -65,6 +65,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
+  Unattended, from batch mode (a knob's A/B, one launch a side): BenchRuns (`Tests/Stills`, explicit, run by name with
+  a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/aosa/cmp.py`.
 
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
@@ -239,17 +241,22 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   (punt, jig, headshot pop, rocket, fountain, pancake, fling, wilt, plank, skid, boots), seeded, capped;
   `Presentation/Core/AnimationController.Gags.cs` feeds it and puts the plan in the `DeathRecord`. The knob
   `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) is 0 until the owner has seen the captures;
-  `DeathGags.Pin` overrides it for a test or a capture. A machine's absurd death (same knob): `Presentation/Camera/TankRenderer.Deaths.cs`
-  (the turret leaps and flips, the hull hops, road wheels roll away) on `Presentation/Camera/VehicleGags.cs` (the flight,
-  pure); tests FigurePartsTests (the parts cut from the figure) and VehicleDeathTests.
+  `DeathGags.Pin` overrides it for a test or a capture. What a shell takes off a man at the knob above 0:
+  `Presentation/Camera/GibPlan.cs` (pure: the limbs lost, then exactly those parts fly; torn in two or blown apart in a
+  heap; kit at GORE 0), thrown by `CombatFx.OwnGibs`. A machine's absurd death (same knob): `Presentation/Camera/TankRenderer.Deaths.cs`
+  (the turret leaps and flips, road wheels roll away, a track pays out, the Skimmer's fan glides off, the hull hops, a
+  hover machine drops onto its skirt, a walker belly-flops) and `Presentation/Camera/TankRenderer.Fizzers.cs` (a dead
+  Salvo's rockets fizz off), on `Presentation/Camera/VehicleGags.cs` (the flights, pure); tests FigurePartsTests (the
+  parts cut from the figure), GibPlanTests and VehicleDeathTests.
 - **Tests:** BlastReactionTests (knockdown and daze), DeathVarietyTests (the death ladder and its records),
   DeathGagTests (the gags: nothing at 0, one per cause, the trench rule, the caps, no allocation),
   TickAllocationTests (no per-tick allocation).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions. The gags in
   Play: `TW.Editor.DeathLab.Absurd(1)`, then `DeathLab.Scene("shot" | "mg" | "shell" | "heap" | "gas" | "fire" |
-  "beam" | "crush", x, z)` (`Editor/DeathLab.cs`: every death made by the sim's own systems). Unattended, from batch
-  mode: DeathStills (`Tests/Stills`, explicit, run by name with a graphics device; `TW_STILLS_DIR` outside the checkout,
-  `TW_DEATH_ABSURD`, `TW_DEATH_SCENES`) films each scene as a strip and a contact sheet.
+  "beam" | "crush" | "machine" | "maw" | "salvo" | "skimmer" | "walker", x, z)` (`Editor/DeathLab.cs`: every death made
+  by the sim's own systems). Unattended, from batch mode: DeathStills (`Tests/Stills`, explicit, run by name with a
+  graphics device; `TW_STILLS_DIR` outside the checkout, `TW_DEATH_ABSURD`, `TW_DEATH_SCENES`, `TW_STILLS_FIELD`
+  (`Winter` for daylight)) films each scene as a strip and a contact sheet.
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
@@ -593,7 +600,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Chunks, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
-| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer |
+| `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer, TankRenderer.Fizzers |
 | `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
@@ -608,7 +615,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FallenFlightTests, FigurePartsTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FallenFlightTests, FigurePartsTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GibPlanTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
-- **Stills:** DeathStills, WalkerStills
+- **Stills:** BenchRuns, DeathStills, WalkerStills
 <!-- /gen:tests -->
