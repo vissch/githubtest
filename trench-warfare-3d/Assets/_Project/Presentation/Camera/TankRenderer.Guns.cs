@@ -5,8 +5,13 @@
 // round in an ARC: a short streak up and over onto the burst. The sim fires and bursts on consecutive ticks (the round has
 // no flight: TankGunnery adds the impact the tick it fires), so the arc is quick (ArcSeconds), and it never holds the burst
 // back: men do not die before the shell is seen to land. fx.classArms 0 draws every gun as before.
+// Then (owner, 2026-09-28: "have everything customized, add the extra effort zoom and quality level"): the Salvo's box goes
+// off as a RIPPLE of rockets, each with its own smoke trail, launch and pop (as many as the effects' tier allows); the
+// arcs are drawn in the tier's pieces; and near the eye each gun has its own piece (GunExtras): a long gun's brake throws
+// its blast out sideways in the dust, the Kettle's tube coughs its smoke straight up, the Salvo's rack blasts back.
 using UnityEngine;
 using TW.Sim;
+using TW.Presentation;
 
 namespace TW.Presentation.Tactical
 {
@@ -21,7 +26,12 @@ namespace TW.Presentation.Tactical
         }
 
         public const float ArcSeconds = 0.16f;   // the arc's whole flight on screen
-        public const int ArcSegments = 8;
+        public const int ArcSegments = 8;        // at High; FxQuality.Now.ArcSegments by the tier
+        public const float RippleSeconds = 0.09f, RippleSpread = 3f;   // the Salvo: a rocket every 0.09 s, landing within 3 m of the first
+        public const float RocketApex = 0.6f;    // a rocket flies flatter than a mortar round
+
+        /// <summary>How many rockets of a Salvo's ripple are drawn at a tier (the sim's burst is the first one's).</summary>
+        public static int RocketsOf(FxTier tier) => tier >= FxTier.High ? 4 : tier == FxTier.Medium ? 2 : 1;
 
         public static GunLook GunFor(byte archetype)
         {
@@ -43,14 +53,68 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The indirect round's arc as ArcSegments short tracers, each shown a little after the one before, so a
         /// bright streak runs up and over onto the burst in ArcSeconds.</summary>
-        void ThrowArc(Vector3 from, Vector3 to, byte team, float width)
+        void ThrowArc(Vector3 from, Vector3 to, byte team, float width, bool rocket, uint salt)
         {
             var fx = Fx(); if (fx == null) return;
-            float apex = ArcApex(Vector3.Distance(from, to));
-            for (int i = 0; i < ArcSegments; i++)
+            var q = FxQuality.Now;
+            int segments = Mathf.Max(2, q.ArcSegments), rounds = rocket ? RocketsOf(q.Tier) : 1;
+            bool drawn = books != null && books.Ready;
+            for (int j = 0; j < rounds; j++)
             {
-                float a = i / (float)ArcSegments, b = (i + 1) / (float)ArcSegments;
-                fx.AddTracer(ArcPoint(from, to, apex, a), ArcPoint(from, to, apex, b), team, width, a * ArcSeconds);
+                float lag = j * RippleSeconds;
+                Vector3 end = to;
+                if (j > 0)
+                {
+                    float a = FxQuality.Hash01(salt + (uint)j) * 6.2832f, d = Mathf.Lerp(1.2f, RippleSpread, FxQuality.Hash01(salt + 17u + (uint)j));
+                    end += new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d); end.y = Ground(end.x, end.z);
+                }
+                float apex = ArcApex(Vector3.Distance(from, end)) * (rocket ? RocketApex : 1f);
+                for (int i = 0; i < segments; i++)
+                {
+                    float a = i / (float)segments, b = (i + 1) / (float)segments;
+                    fx.AddTracer(ArcPoint(from, end, apex, a), ArcPoint(from, end, apex, b), team, width, lag + a * ArcSeconds);
+                    // a rocket leaves its smoke hanging along the way it went
+                    if (rocket && drawn && i > 0)
+                        books.Add(FlipbookFx.Book.Smoke, ArcPoint(from, end, apex, a), 0.9f, 1.8f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: Vector3.up * 0.3f, grow: 1.4f, alpha: 0.4f, delay: lag + a * ArcSeconds);
+                }
+                if (rocket && drawn && j > 0)
+                {
+                    // each rocket after the first: its own flash at the rack, and its own pop where it lands
+                    books.Add(FlipbookFx.Book.Flash, from, 2.4f, 0.08f, roll: FxQuality.Hash01(salt + 31u + (uint)j) * 6.2832f, glow: SceneMood.Night ? 3.5f : 1.8f, pop: 0.5f, delay: lag);
+                    books.Add(FlipbookFx.Book.Flash, end + Vector3.up * 0.4f, 2.2f, 0.1f, roll: FxQuality.Hash01(salt + 41u + (uint)j) * 6.2832f, glow: SceneMood.Night ? 4f : 1.8f, pop: 0.5f, delay: lag + ArcSeconds);
+                    books.Add(FlipbookFx.Book.DustPuff, end, 1.8f, 1.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((j & 1) == 0 ? FlipbookFx.Kind.Mirror : 0), alpha: 0.7f, delay: lag + ArcSeconds);
+                }
+            }
+        }
+
+        /// <summary>The gun's own piece near the eye (FxQuality: High and Epic, inside twice ExtraReach: a machine is big).</summary>
+        void GunExtras(byte archetype, Vector3 muzzle, Vector3 dir, float blast)
+        {
+            var q = FxQuality.Now;
+            if (books == null || !books.Ready || q.ExtraReach <= 0f || CameraShake.DistanceToLook(muzzle) > q.ExtraReach * 2f) return;
+            var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
+            float g = Ground(muzzle.x, muzzle.z);
+            Vector3 flat = new Vector3(dir.x, 0f, dir.z); flat = flat.sqrMagnitude > 1e-4f ? flat.normalized : Vector3.forward;
+            switch (archetype)
+            {
+                case VehicleArchetype.Pavise: case VehicleArchetype.Banner: case VehicleArchetype.Maw: case VehicleArchetype.Pincer:
+                {
+                    // the muzzle brake throws the blast out sideways: a jet of dust along the ground either side of the barrel
+                    Vector3 side = Vector3.Cross(Vector3.up, flat);
+                    for (int s = -1; s <= 1; s += 2)
+                        books.Add(FlipbookFx.Book.DustPuff, new Vector3(muzzle.x, g, muzzle.z) + side * (s * 1.2f) + flat * 0.8f, blast * 0.6f, 1.6f, ground | (s < 0 ? FlipbookFx.Kind.Mirror : 0),
+                            velocity: side * (s * 2.2f) + Vector3.up * 0.3f, grow: 0.5f, alpha: 0.55f);
+                    break;
+                }
+                case VehicleArchetype.Kettle:   // the mortar's tube coughs its smoke straight up
+                    books.Add(FlipbookFx.Book.Smoke, muzzle + Vector3.up * 0.6f, 1.6f, 2.8f, velocity: Vector3.up * 2.2f, grow: 1.8f, alpha: 0.6f);
+                    books.Add(FlipbookFx.Book.Smoke, muzzle + Vector3.up * 1.4f, 1.2f, 2.4f, FlipbookFx.Kind.Mirror, velocity: Vector3.up * 1.6f, grow: 1.6f, alpha: 0.45f, delay: 0.08f);
+                    break;
+                case VehicleArchetype.Salvo:    // the rack's backblast, and the dust it lifts behind the truck
+                    books.Add(FlipbookFx.Book.Smoke, muzzle - flat * 2.5f, 2.4f, 3f, velocity: -flat * 3f + Vector3.up * 0.6f, grow: 1.8f, alpha: 0.55f);
+                    books.Add(FlipbookFx.Book.DustPuff, new Vector3(muzzle.x, g, muzzle.z) - flat * 3.5f, 3.5f, 1.8f, ground, velocity: -flat * 1.5f, grow: 0.5f, alpha: 0.6f);
+                    break;
             }
         }
     }

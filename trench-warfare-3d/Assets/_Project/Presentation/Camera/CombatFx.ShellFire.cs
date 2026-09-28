@@ -102,7 +102,7 @@ namespace TW.Presentation.Tactical
             // fast and short-lived, so it leaves the fire in the first frames instead of parking on it as polka dots, and two
             // sizes (critique c1b): seven in ten fine, three in ten coarse
             // specks, not dots (critique c2: one-value octagons parked on the fire): twice as many fine at 0.055 m, a fifth coarse at 0.14
-            int n = Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit), coarse = Mathf.RoundToInt(n * 0.2f);
+            int n = Mathf.RoundToInt(GritCount(r) * Mathf.Min(1f, shellFire) * shellGrit * FxQuality.Now.Grit), coarse = Mathf.RoundToInt(n * 0.2f);   // x the effects' tier
             debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, 2 * (n - coarse), 15f + r, 0.055f, Mud, 1.4f, 0f, 0.9f, lean, tick + 29u);
             debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.6f, coarse, 12f + 0.8f * r, 0.14f, Mud, 1.4f, 0f, 0.9f, lean, tick + 31u);
         }
