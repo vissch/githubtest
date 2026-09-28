@@ -86,6 +86,7 @@ namespace TW.Presentation.Tactical
             public float Fan, FanRate;
             /// <summary>A hovering machine's yaw drawn off its heading in a turn (radians), and whether it hovers.</summary>
             public float Drift; public bool Hover;
+            public float Fly;                     // metres it is drawn flying above its cushion height (FlyHeight); 0 on the ground
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
@@ -134,6 +135,12 @@ namespace TW.Presentation.Tactical
             ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker, false), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, false),
             ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f, true),    // 7 m across its pods
             ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, false),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
+            // the Playground's machines in the battle (2026-09-28, owner: "all" of them, spawn-only; Tools/battleform.py
+            // wrote them from the Playground's own files): before this row each drew as a Maw
+            ("Brute", VehicleArchetype.Brute, "Hull", 1f, false),       // a medium tank on tracks
+            ("Croaker", VehicleArchetype.Croaker, "Hull", 1f, false),   // two legs (Thigh, Shin, Foot a side): WalkerGait walks it
+            ("Mercy", VehicleArchetype.Mercy, "Hull", 1f, false),       // the ambulance, on four wheels
+            ("Hopper", VehicleArchetype.Hopper, "Hull", 1f, true),      // the gunship: a hover row, flown HopperLift up (FlyHeight)
         };
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
@@ -143,6 +150,10 @@ namespace TW.Presentation.Tactical
         const int HoverRing = 8;            // points round the skirt it looks at, besides its four corners
         const float HoverDrift = 0.08f, HoverDriftMax = 0.25f;   // its tail swings out in a turn: rad per (rad/s x m/s), and at most
         const int WalkerRows = 6;
+        /// <summary>How high a machine drawn flying rides over the ground under it (the Hopper: the sim drives it as a
+        /// machine on the ground, the picture puts it in the air), and its slow climb and sink as it flies.</summary>
+        const float HopperLift = 9f, FlyBob = 0.45f, FlyBobHz = 0.22f;
+        static float FlyHeight(byte archetype) => archetype == VehicleArchetype.Hopper ? HopperLift : 0f;
         // a rack of rockets (the Salvo): the pitch it rides at and fires at, its limit, and how hard it is kicked (critic r3)
         const float RackRidingPitch = 16f, RackFiringPitch = 28f, RackMaxPitch = 30f;   // degrees
         const float RackRaiseRate = 30f;    // deg/s: up before its first rocket leaves (12, a gun's, left the first ones low)
@@ -203,6 +214,10 @@ namespace TW.Presentation.Tactical
         {
             if (archetype == VehicleArchetype.Skimmer) return part == "FanRing" || part.StartsWith("Pod_", System.StringComparison.Ordinal) ? 0.6f : 0f;
             if (archetype == VehicleArchetype.Salvo) return part == "Gun" ? 0.2f : 0f;   // 0.45 glowed ice-blue at night, 0.28 read salmon in both looks (round 6)
+            if (archetype == VehicleArchetype.Brute) return part == "Turret" ? 0.3f : 0f;
+            if (archetype == VehicleArchetype.Croaker) return part.StartsWith("Claw_", System.StringComparison.Ordinal) ? 0.4f : 0f;
+            if (archetype == VehicleArchetype.Mercy) return part == "Hull" ? 0.15f : 0f;
+            if (archetype == VehicleArchetype.Hopper) return part.StartsWith("Wing_", System.StringComparison.Ordinal) ? 0.4f : 0f;
             return 0f;
         }
 
@@ -386,6 +401,7 @@ namespace TW.Presentation.Tactical
             var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot] };
             int hoverRow = v.Archetype < modelRow.Length ? modelRow[v.Archetype] : -1;
             v.Hover = hoverRow >= 0 && Machines[hoverRow].Hover;
+            v.Fly = FlyHeight(v.Archetype);
             v.Pos = v.LastPos = (Vector3)(float3)w.Position[slot];
             v.Yaw = v.LastYaw = w.Yaw[slot];
             v.Off = new bool[model.Lods[0].Parts.Count];
@@ -591,6 +607,7 @@ namespace TW.Presentation.Tactical
             }
             float mean = (fl + fr + rl + rr + mid) * 0.2f;
             heave = Mathf.Max(mean, top - HoverDip) + HoverLift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
+            if (v.Fly > 0f) heave += v.Fly + FlyBob * Mathf.Sin((now * FlyBobHz + v.Slot * 0.61f) * Mathf.PI * 2f);
             float want = Mathf.Clamp(-v.YawRate * Mathf.Abs(v.Speed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
             v.Drift = Mathf.Lerp(v.Drift, want, 1f - Mathf.Exp(-dt * 2f));
         }
@@ -970,6 +987,13 @@ namespace TW.Presentation.Tactical
         bool Smoulder(View v, float dt, float now)
         {
             float age = now - v.DiedAt;
+            if (v.Fly > 0f)
+            {
+                // shot down: it falls to the ground it was flying over, and lies there
+                float floor = Ground(v.Pos.x, v.Pos.z);
+                if (v.Heave.Value > floor) { v.Heave.Velocity -= Gravity * dt; v.Heave.Value = Mathf.Max(floor, v.Heave.Value + v.Heave.Velocity * dt); }
+                else { v.Heave.Velocity = 0f; v.Fly = 0f; CameraShake.Add(v.Pos, 6f); }
+            }
             if (!v.Linked && age > UnlinkedSinkAfter)
             {
                 // no wreck prop in the sim: nothing here blocks or gives cover, so the hull and its pieces settle out of sight
