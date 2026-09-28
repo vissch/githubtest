@@ -198,6 +198,7 @@ namespace TW.Presentation.Tactical
             {
                 ribbonMesh = new Mesh { name = "Salvo trails", hideFlags = HideFlags.HideAndDontSave };
                 ribbonMesh.MarkDynamic();
+                // kept in the build by Resources/ShaderKeep/KeepParticlesUnlit.mat (ShaderInclusionTests)
                 var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Universal Render Pipeline/Unlit");
                 ribbonMat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave, name = "Salvo trails" };
                 ribbonMat.SetFloat("_Surface", 1f); ribbonMat.SetFloat("_Blend", 0f); ribbonMat.SetFloat("_ZWrite", 0f);
@@ -236,7 +237,9 @@ namespace TW.Presentation.Tactical
             ribbonMesh.Clear();
             if (rI.Count == 0) return;
             ribbonMesh.SetVertices(rV); ribbonMesh.SetColors(rC); ribbonMesh.SetTriangles(rI, 0); ribbonMesh.RecalculateBounds();
-            Graphics.DrawMesh(ribbonMesh, Matrix4x4.identity, ribbonMat, 0, null, 0, null, false, false);
+            // through FrameBudget, as every draw is (FrameBudgetCoverageTests)
+            var rp = new RenderParams(ribbonMat) { worldBounds = ribbonMesh.bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
+            FrameBudget.Draw(rp, ribbonMesh, 0, Matrix4x4.identity);
         }
 
         /// <summary>For the capture tools: how many trail ribbons and trail points are being drawn now.</summary>
