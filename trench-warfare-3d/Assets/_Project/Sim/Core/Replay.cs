@@ -77,7 +77,9 @@ namespace TW.Sim
         // generation seen) join the chain; MovementSystem.EngageMelee and Stance.Melee; UnitFlags Melee, Disarmed and
         // Pouncing (bits 16-18); events MeleeBlow, WeaponDropped, WeaponPickedUp, PounceCrouched, PounceLanded appended;
         // random streams Melee 23 and Pounce 24.
-        public const ushort FormatVersion = 25;
+        // v26 (2026-09-28, wrecks break in stages: seam): PropKind gains BrokenWreck, Scrap and Cleared (appended),
+        // SimEventType gains PropWorn (appended), VehicleCrushed.b = 3 is wreckage. Nothing produces them yet.
+        public const ushort FormatVersion = 26;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

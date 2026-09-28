@@ -278,7 +278,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   read through `SimWorld.ChassisOf`; it replaced the id ranges of `IsTank`/`IsWalker`/`IsArmoured`),
   `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
-  how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop.
+  how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
+  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
+  no longer blocking.
 - **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests.
 
 ### Factions, rosters and the unit table
