@@ -644,6 +644,12 @@ namespace TW.Presentation.Tactical
                 case SimEventType.LeapStarted:
                     OnLeap(e);    // CombatFx.Support.cs: the jetpack's take-off (fx.recipes)
                     break;
+                case SimEventType.ShieldBlocked:
+                    OnShieldBlocked(e);   // CombatFx.Support.cs (fx.recipes)
+                    break;
+                case SimEventType.CriticalHit:
+                    OnCriticalHit(e);     // CombatFx.Support.cs (fx.recipes)
+                    break;
                 case SimEventType.UnitHealed:
                     OnHealed(e);  // CombatFx.Support.cs: the medic's glint (fx.recipes)
                     break;
