@@ -42,7 +42,28 @@ namespace TW.Sim.Terrain
         /// <summary>A scrap pile no longer blocks: men and machines go over it.</summary>
         public static bool Blocks(PropKind kind) => kind == PropKind.Tree || kind == PropKind.BrokenTree || kind == PropKind.Wreck || kind == PropKind.BrokenWreck;
 
-        public static float StartHp(PropKind kind) => kind == PropKind.Tree ? 220f : kind == PropKind.BrokenTree ? 160f : 0f;   // 0 = blasts do not change it
+        /// <summary>A prop's hit points when it becomes this kind; 0 = blasts do not change it (a stump, a log, a bridge, a
+        /// cleared wreck). A wreck's stages are for a wreck of size 1: StartHp(kind, scale) sizes them to their machine.
+        /// About three to five heavy shells a stage (a barrage shell is 150, a Maw's HE 220).</summary>
+        public static float StartHp(PropKind kind)
+        {
+            switch (kind)
+            {
+                case PropKind.Tree: return 220f;
+                case PropKind.BrokenTree: return 160f;
+                case PropKind.Wreck: return 600f;
+                case PropKind.BrokenWreck: return 450f;
+                case PropKind.Scrap: return 250f;
+                default: return 0f;
+            }
+        }
+
+        /// <summary>StartHp, a wreck's sized by its PropDef.Scale (WreckSize: a Maw's 1.5, a Skimmer's 0.6).</summary>
+        public static float StartHp(PropKind kind, float scale) => StartHp(kind) * (IsWreckage(kind) && scale > 0f ? scale : 1f);
+
+        /// <summary>A burst this many metres (times the wreck's size) from a wreck's middle counts as on it: the hull is
+        /// several metres long, and a shell on its deck should not be measured from the middle of it.</summary>
+        public const float WreckBlastReach = 2f;
 
         /// <summary>What a prop becomes when its hit points run out; the same kind when it is already at the end.</summary>
         public static PropKind Next(PropKind kind)

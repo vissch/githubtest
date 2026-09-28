@@ -5,7 +5,8 @@
 // - props: every blast wears down the trees inside its radius (tree -> broken tree -> stump, PropChanged), and a
 //   destroyed vehicle leaves a wreck that blocks its cell and gives cover (a wreck cannot stand in a trench, link,
 //   bunker or blocked cell, so a tank that died ditched, astride a trench or against a tree leaves it in the nearest
-//   cell within two that can hold it, or none);
+//   cell within two that can hold it, or none); a wreck is sized to its machine and blasts wear it down a stage at a
+//   time (wreck -> broken wreck -> scrap -> cleared, owner 2026-09-28), PropWorn for a hit it stands;
 // - wire: a cratering blast clears the wire inside its crater (WireBreached).
 // Flow fields are marked stale whenever a nav cell changed. The map's mutable arrays are covered by MapData.Version,
 // which FlowFieldManager hashes; this system hashes its queue and a running checksum of what it has applied.
@@ -94,8 +95,12 @@ namespace TW.Sim.Match
                 var e = events[i];
                 if (e.Type != SimEventType.VehicleDestroyed) continue;
                 float3 at = e.Pos;
-                int index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck });
-                if (index < 0 && NearestFreeCell(e.Pos, out at)) index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck });
+                // its size class (PropDef.Scale) from the machine's hull in the match's unit table, not the slot's MaxHp: a
+                // tougher machine leaves a tougher wreck, and every stage keeps the size (MapData.SetPropKind)
+                byte kindOf = w.Archetype[e.A];
+                float size = PropRules.WreckSize(kindOf < Archetypes.Count ? w.Units.Roster[kindOf].Hp : PropRules.WreckSizeHp);
+                int index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck, Scale = size });
+                if (index < 0 && NearestFreeCell(e.Pos, out at)) index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck, Scale = size });
                 if (index < 0) continue;
                 checksum = SimHash.Value(at, checksum);
                 PropsChanged++; navChanged = true;
@@ -143,15 +148,28 @@ namespace TW.Sim.Match
             for (int p = 0; p < map.Props.Length; p++)
             {
                 var prop = map.Props[p];
-                if (prop.Hp <= 0f) continue;   // stumps, logs, wrecks, bridges: nothing left to break
+                if (prop.Hp <= 0f) continue;   // stumps, logs, bridges, a cleared wreck: nothing left to break
+                bool wreck = PropRules.IsWreckage(prop.Kind);
                 float3 d = prop.Pos - im.Pos; d.y = 0f;
                 float dist = SimMath.Length(d);
+                // a burst on a wreck's deck is on the wreck, not WreckBlastReach metres off its middle
+                if (wreck) dist = math.max(0f, dist - PropRules.WreckBlastReach * (prop.Scale > 0f ? prop.Scale : 1f));
                 if (dist >= im.Radius) continue;
+                if (wreck && im.Shape == (int)BlastShape.CookOff && MadeLastTick(w, p)) continue;   // a cook-off does not wear the wreck it made
                 prop.Hp -= im.Damage * (1f - 0.75f * (dist / im.Radius));
-                if (prop.Hp > 0f) { map.Props[p] = prop; map.Touch(); continue; }
-                var next = PropRules.Next(prop.Kind);
+                if (prop.Hp > 0f)
+                {
+                    map.Props[p] = prop; map.Touch();
+                    if (wreck)
+                    {
+                        float3 way = math.normalizesafe(d);
+                        w.Events.Add(w.Tick, SimEventType.PropWorn, p, 0, prop.Pos, way, prop.Hp / PropRules.StartHp(prop.Kind, prop.Scale));
+                    }
+                    continue;
+                }
+                var next = PropRules.Next(prop.Kind);   // one stage a hit, however hard: a wreck goes wreck, broken, scrap, gone
                 if (map.SetPropKind(p, next)) nav = true;
-                checksum = SimHash.Value(p * 8 + (int)next, checksum);
+                checksum = SimHash.Value(new int2(p, (int)next), checksum);
                 PropsChanged++;
                 w.Events.Add(w.Tick, SimEventType.PropChanged, p, (int)next, prop.Pos);
             }
@@ -166,6 +184,17 @@ namespace TW.Sim.Match
                 }
             }
             return nav;
+        }
+
+        /// <summary>Prop p is the wreck of a machine that died last tick. A cook-off queues its burst as the machine dies,
+        /// and BlastSystem resolves it the tick after, where the wreck already stands: this spares the wreck its own
+        /// ammunition (and, the same tick, a newborn wreck beside another cook-off: derived from hashed state, no new state).</summary>
+        bool MadeLastTick(SimWorld w, int p)
+        {
+            if (!Wrecks.IsCreated) return false;
+            for (int k = Wrecks.Length - 1; k >= 0 && Wrecks[k].Tick + 1u >= w.Tick; k--)
+                if (Wrecks[k].PropIndex == p && Wrecks[k].Tick + 1u == w.Tick) return true;
+            return false;
         }
 
         public ulong Hash(ulong h)

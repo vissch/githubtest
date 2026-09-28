@@ -153,7 +153,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
   (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
-  no longer blocking.
+  no longer blocking. Its hit points (`PropRules.StartHp(kind, scale)`) are sized to its machine through
+  `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
+  `WreckBlastReach` off its middle, and a cook-off spares the wreck it made.
 - **Tests:** TankTests, TankMobilityTests, CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests,
   WreckDecayTests (the wreck's stages).
 

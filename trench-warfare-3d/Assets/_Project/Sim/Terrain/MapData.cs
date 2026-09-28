@@ -180,7 +180,7 @@ namespace TW.Sim.Terrain
             var layer = (NavLayer)NavLayers[cell];
             if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Bunker | NavLayer.Blocked)) != 0) return -1;
             prop.Cell = cell;
-            if (prop.Hp <= 0f) prop.Hp = PropRules.StartHp(prop.Kind);
+            if (prop.Hp <= 0f) prop.Hp = PropRules.StartHp(prop.Kind, prop.Scale);
             Props.Add(prop);
             if (PropRules.Blocks(prop.Kind)) SetLayer(c.x, c.y, layer | NavLayer.Blocked);
             StampCover(cell, PropRules.CoverPercent(prop.Kind));
@@ -193,7 +193,7 @@ namespace TW.Sim.Terrain
         {
             var prop = Props[index];
             bool was = PropRules.Blocks(prop.Kind), now = PropRules.Blocks(kind);
-            prop.Kind = kind; prop.Hp = PropRules.StartHp(kind);
+            prop.Kind = kind; prop.Hp = PropRules.StartHp(kind, prop.Scale);   // a wreck's size survives each stage
             Props[index] = prop;
             int x = prop.Cell % NavWidth, z = prop.Cell / NavWidth;
             var layer = (NavLayer)NavLayers[prop.Cell];

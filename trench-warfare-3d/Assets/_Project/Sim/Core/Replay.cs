@@ -47,7 +47,10 @@ namespace TW.Sim
         // still in its tube when its machine dies is dropped; a rack's landing points are clamped to the map.
         // v16 (2026-09-28, wrecks break in stages: seam): PropKind gains BrokenWreck, Scrap and Cleared (appended),
         // SimEventType gains PropWorn (appended), VehicleCrushed.b = 3 is wreckage. Nothing produces them yet.
-        public const ushort FormatVersion = 16;
+        // v17 (2026-09-28, wrecks break in stages: blasts): a wreck has hit points sized to its machine (PropDef.Scale) and
+        // blasts wear it down a stage at a time; generated maps' wrecks start at 600, so their MapHash changes; the prop
+        // checksum folds (prop, kind) as an int2.
+        public const ushort FormatVersion = 17;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
