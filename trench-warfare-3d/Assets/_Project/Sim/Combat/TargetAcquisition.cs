@@ -56,6 +56,12 @@ namespace TW.Sim.Combat
 
         public TargetAcquisitionSystem(MapData map) { this.map = map; }
 
+        /// <summary>This tick's grid of the living (GridCell squares, slots in slot order), for other systems' near
+        /// searches after this one steps (MeleeSystem). Read only.</summary>
+        public NativeParallelMultiHashMap<int, int> Grid => grid;
+        public int GridW => gridW;
+        public int GridL => gridL;
+
         CombatCatalogueSystem catalogue;
 
         public void Initialize(SimWorld world)

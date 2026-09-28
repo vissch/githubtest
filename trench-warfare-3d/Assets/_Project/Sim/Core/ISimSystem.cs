@@ -57,10 +57,15 @@ namespace TW.Sim
         /// <summary>The fight on foot (EngageSystem): who closes on whom and who stands to shoot, decided on this
         /// tick's targets and deaths, just before Movement walks it. 2026-09-28.</summary>
         public const int Engage = 1108;
+        /// <summary>Hand to hand (MeleeSystem): after Engage, over its orders for the men within 8 m of an enemy man; its
+        /// blows kill before Movement walks the living. 2026-09-28.</summary>
+        public const int Melee = 1109;
         public const int Movement = 1110;
         /// <summary>The Breaker's phases: after Movement listed the vehicles, before Kinematics drives them.</summary>
         public const int Breaker = 1115;
         public const int VehicleKinematics = 1120;
+        /// <summary>A crab's pounce (PounceSystem): after Kinematics, whose move it holds and then overrides. 2026-09-28.</summary>
+        public const int Pounce = 1125;
         public const int SectorControl = 1200;
         public const int Death = 1300;
     }

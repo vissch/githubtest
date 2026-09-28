@@ -6,7 +6,9 @@ namespace TW.Sim
 {
     public enum Stance : byte { Standing = 0, Crouch = 1, FireStep = 2, Prone = 3, Sprint = 4, Pinned = 5, Vault = 6, Dead = 7,
         /// <summary>In the air on a jetpack leap (LeapSystem): a straight line to an enemy trench, nothing can be done to him.</summary>
-        Leap = 8 }
+        Leap = 8,
+        /// <summary>Hand to hand (MeleeSystem, 2026-09-28): on his feet at arm's length from his foe, facing him, striking.</summary>
+        Melee = 9 }
 
     [System.Flags]
     public enum UnitFlags : uint
@@ -29,6 +31,10 @@ namespace TW.Sim
         Charging = 1 << 13,     // a Breaker between wind-up and withdrawal (BreakerSystem): sees below the rim, crits, a thicker deck
         Hero = 1 << 14,         // his moment (HeroSystem): the named man leading the section over the top
         Veteran = 1 << 15,      // a named man from the profile (HeroSystem): a rank, a little more of everything
+        // ---- 2026-09-28 (lane/sim/melee) ----
+        Melee = 1 << 16,        // charging a foe within 8 m or fighting him hand to hand (MeleeSystem): he does not shoot
+        Disarmed = 1 << 17,     // his weapon lies on the ground (a fists man in a fight, MeleeSystem): he does not shoot
+        Pouncing = 1 << 18,     // a crab crouched to leap or in the leap (PounceSystem)
     }
 
     public struct UnitPose
