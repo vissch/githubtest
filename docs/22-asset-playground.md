@@ -306,7 +306,9 @@ its rig; `tasks.md`): seen in Play beside three riflemen, standing as they stand
 The far models were looked at the same evening, drawn close (`TankRenderer.LodDistance` set to 1 in Play): the
 Croaker's and the Hopper's are whole; the Brute's and the Mercy's, decimated from their near models, were torn into
 shards, as the jeep's had been in the playground the day before. Both are now Tripo's own low sculpts on atlases of
-their own (`pipelines.md`). The Brute's far tracks are darker than its near ones: that is the low sculpt's own paint.
+their own (`pipelines.md`), and were looked at again at the distance the level changes (camera 167 m and 175 m
+off): each reads as the machine it is on both sides of the change. The Brute's far tracks are darker than its near
+ones: that is the low sculpt's own paint, which its tracks keep.
 Not done: a knee that bends forward in the battle's gait (the playground's walker has one), the Croaker's darker
 atlas beside the others.
 
