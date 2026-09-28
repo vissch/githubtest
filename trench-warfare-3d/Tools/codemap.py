@@ -119,6 +119,7 @@ FLAG_EFFECT = {
     '-twdev': 'Arg to the batch Windows build: make a Development build.',
     '-twgym': 'Editor arg with -executeMethod TW.Editor.Gym.CommandLine: the gym run\'s options ("tabs=clips,abilities filter=Fire max=20 bands=close out=<dir>"); the editor exits when the run ends (0 clean, 2 flagged, 1 could not run).',
     'TW_GYM': 'Environment variable: the folder gym runs are written in (default %LOCALAPPDATA%\\TrenchWarfare\\gym). Never a checkout.',
+    'TW_FFMPEG': 'Environment variable: the ffmpeg the gym joins its film= frames with into an mp4 (default: ffmpeg on PATH; none: the frames are kept).',
     'TW_BOARD': 'Environment variable: the pipeline job board checkout (default ../tw3d-board beside the repo); a gym run appends its recurring flags to its lessons.md.',
     'TW.Gym.Request': 'SessionState key (editor): a gym run asked for before Play, carried over the domain reload; erased when the run starts.',
     'tw.hud.toolkit': 'PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. '
