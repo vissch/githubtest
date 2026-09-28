@@ -29,6 +29,9 @@ namespace TW.Presentation.Terrain
         public float FreezeSeconds = 1f;
         float frozenUntil = -1f, scaleBefore = 1f;
         public Color BoltLight = new Color(0.78f, 0.86f, 1f);
+        /// <summary>Tooling only (the gym): while set, no strike starts (so no time freeze either) and any bolt still burning goes dark.</summary>
+        public static bool Hold;
+        static Storm() => SceneStatics.Register(nameof(Storm), () => Hold = false);   // a gym stopped mid-capture leaves no calm sky behind
 
         struct Pulse { public float At, Length, Strength; }
         readonly List<Pulse> pulses = new List<Pulse>();
@@ -232,7 +235,7 @@ namespace TW.Presentation.Terrain
             clock += Time.captureDeltaTime > 0f ? Time.captureDeltaTime : Time.unscaledDeltaTime;
             if (frozenUntil >= 0f && clock >= frozenUntil) Thaw();
             float rain = Mathf.Clamp01(Atmosphere.RainNow);
-            if (clock >= nextStrike)
+            if (clock >= nextStrike && !Hold)
             {
                 nextStrike = clock + Mathf.Lerp(Every.y, Every.x, rain) * Random.Range(.6f, 1.4f);
                 if (rain > .12f && Time.timeScale > 0f) Strike();   // never while something else has the game paused
@@ -243,7 +246,7 @@ namespace TW.Presentation.Terrain
                 float a = since - pulses[k].At;
                 if (a >= 0f && a < pulses[k].Length) flash = Mathf.Max(flash, pulses[k].Strength * (1f - a / pulses[k].Length));
             }
-            flash *= strikeStrength;
+            flash *= Hold ? 0f : strikeStrength;
             Atmosphere.StormFlash = flash;
             boltMaterial.SetColor("_Tint", Color.white * flash * 1.6f);
             glowMaterial.SetColor("_Tint", Color.white * flash);
