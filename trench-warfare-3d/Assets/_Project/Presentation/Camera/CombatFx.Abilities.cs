@@ -35,7 +35,7 @@ namespace TW.Presentation.Tactical
         public const float BeamChargeSeconds = 4f, BeamFlashEvery = 0.08f, ScorchShakeEvery = 0.3f;
         // fx.recipes (L10): the beam drawn as a pillar of fire (FireLance) this tall at its head, a burning trail card every
         // BeamTrailEvery metres behind it that burns for BeamTrailSeconds
-        public const float BeamLanceHeight = 30f, BeamTrailEvery = 1f, BeamTrailSeconds = 3f;
+        public const float BeamLanceHeight = 30f, BeamLanceWidth = 6f, BeamTrailEvery = 1f, BeamTrailSeconds = 3f;
         float nextBeamFlash, nextScorchShake;
 
         /// <summary>The sim's clock in seconds (SimClock): what the aircraft, the beam and the fires are timed by, so a
@@ -174,12 +174,16 @@ namespace TW.Presentation.Tactical
                 var column = flashMat != null ? flashMat : sparkMat != null ? sparkMat : aimMat;
                 if (drawnBeam)
                 {
-                    // L10: the pillar of fire at the head (its drawing fills 62 % of its card's width: 2.4 x HalfWidth of fire),
-                    // the bloom where it splashes on the ground, and a burning trail card each metre it has walked
+                    // L10: the pillar of fire at the head, the bloom where it splashes on the ground, and a burning trail card
+                    // each metre it has walked. The pillar is about a fifth of its drawing's width (the 62 % fill is the foot's
+                    // splash), so the card is BeamLanceWidth x HalfWidth for a pillar of about 2.5 m (bench r8b: at 2.4/0.62 it
+                    // was 1.5 m, a sliver). Past zoom 80 it widens and brightens with FarGrow: the old white column was the
+                    // overview's strongest read, and the drawn one must not lose it.
                     float run = (simNow - s.T0) * 12f;
-                    float bright = SceneMood.Night ? 1.5f : 1f;
+                    float far = FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
+                    float bright = (SceneMood.Night ? 1.5f : 1f) * Mathf.Lerp(1f, 2f, (far - 1f) / (FlipbookFx.FarGrowMax - 1f));
                     lanceCards.Clear();
-                    lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * 2.4f / 0.62f, BeamLanceHeight, Mathf.Repeat(run, 27f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                    lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * BeamLanceWidth * far, BeamLanceHeight, Mathf.Repeat(run, 27f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
                     books.DrawPacked(FlipbookFx.Book.FireLance, lanceCards, bounds);
                     lanceCards.Clear();
                     lanceCards.Add(FlipbookFx.Pack(head, s.HalfWidth * 3f, s.HalfWidth * 3f, Mathf.Repeat(run, 20f), 1f, bright, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
