@@ -73,7 +73,7 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle, Under; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -116,8 +116,9 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "FireColumn", Cycle = true, Cols = 8, Rows = 4, Frames = 30, Fire = true, Snap = true, Tint = new Color(1.3f, 0.64f, 0.19f), Low = 0.18f, High = 0.88f, Play = 0.80f, Fps = 12f, Rise = 0.70f, Bands = new Vector4(0.00f, 0.05f, 0.42f, 0.75f), Ink = new Vector2(0.29f, 0.71f), Fill = 0.90f },
             // Book.Fireball is the shell's fireball (CombatFx.ShellFire.cs): cut so the 44 % of its ink that is pure black stays the
             // soot drawn into it (the reference's dark flecks in the fire) and the rest is 14 % fringe, 22 % body, 16 % heart; and
-            // Under, drawn before the smoke, so the burst's cloud covers its top and it glows out from inside it (critique s3)
-            new Sheet { Name = "FireBurst",  Cols = 8, Rows = 4, Frames = 32, Fire = true, Under = true, Snap = true, Tint = new Color(1.4f, 0.68f, 0.24f), Low = 0.14f, High = 0.84f, Fps = 12f, Rise = 0.55f, Bands = new Vector4(0.004f, 0.05f, 0.80f, 0.75f), Ink = new Vector2(0.28f, 0.78f), Fill = 0.90f },
+            // its soot in the burst cloud's own brown (below), so the smoke drawn into the fire runs into the cloud behind it and
+            // the flame reads as coming out from inside the cloud. (Bench c1 drew it under the cloud instead: the cloud hid all of it.)
+            new Sheet { Name = "FireBurst",  Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.4f, 0.68f, 0.24f), Low = 0.14f, High = 0.84f, Fps = 12f, Rise = 0.55f, Bands = new Vector4(0.004f, 0.05f, 0.80f, 0.75f), Ink = new Vector2(0.28f, 0.78f), Fill = 0.90f },
             // FireStand's window is wide open, and the reason is worth keeping. It was narrowed to 0.62 to make the
             // book brighter and it came out DARKER - twenty luminance darker, the dimmest fire in the build. The
             // window was innocent: narrowing it pushes the measured band cuts up with it, and at 0.62 the core cut
@@ -615,6 +616,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Lit", s.Additive || s.Fire ? 0f : s.Lit > 0f ? s.Lit : 1f);   // fire is its own light, like the additive books
                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
                 m.SetFloat("_Fire", s.Fire ? 1f : 0f);
+                if ((Book)k == Book.Fireball) m.SetColor("_Smoke", new Color(0.36f, 0.31f, 0.27f, 1f));   // the shell's fireball: its soot is the burst cloud's brown
                 if (s.Bands.sqrMagnitude > 0f) m.SetVector("_Bands", s.Bands);
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
@@ -626,7 +628,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_DstBlend", (float)(s.Additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
                 m.SetFloat("_Ground", s.Ground ? 1f : 0f);
                 // a ground book goes first: the columns, bursts and fire stand on it rather than under it
-                m.renderQueue = s.Ground ? 3005 : s.Additive ? 3020 : s.Fire ? (s.Under ? 3009 : 3015) : 3010;   // Under: fire inside a cloud, drawn before it
+                m.renderQueue = s.Ground ? 3005 : s.Additive ? 3020 : s.Fire ? 3015 : 3010;
                 mats[k] = m;
                 aspect[k] = ((float)tex.width / s.Cols) / ((float)tex.height / s.Rows);   // a cell's width over its height
             }

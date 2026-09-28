@@ -3,13 +3,14 @@
 // drew no fire in a shell burst at all: the Flash card is additive, so on white snow it adds nothing, and what was left
 // was a cold grey cloud. So every dry shell burst now also draws
 //  - a FIREBALL: the pack's soot-flecked burst (Book.Fireball, the FireBurst sheet: fire with the smoke drawn into it)
-//    over the hole, its eruption frames only (ShellFireLife), drawn UNDER the smoke (FlipbookFx Sheet.Under), so the
-//    burst's boiling cloud covers its top and it glows out from inside it, and
+//    over the hole, its eruption frames only (ShellFireLife), its drawn-in soot the burst cloud's own brown (FlipbookFx), so
+//    the soot runs into the cloud behind and the flame reads as bursting out of it, and
 //  - two FIRE POCKETS of the same book born a beat later up inside the rising cloud and riding up with it,
 //  - and the cloud itself is lit warm from underneath while it is young (Flipbook_URP _Ember, EmberFor), denser than the
 //    lingering smoke (FlipbookFx.BurstWeight), narrower by day (BurstWidth), with a sooty underside.
 // History (bench s1-s3 and the harsh critique of s3): the flamethrower's Bloom/Head read as a cream slab; Blast/Fire, drawn
-// over the cloud, as orange stickers pasted on a grey veil, with a ruler-cut base where an anchored card was sunk.
+// over the cloud, as orange stickers pasted on a grey veil, with a ruler-cut base where an anchored card was sunk; c1 drew the
+// fireball under the denser cloud, which hid it completely.
 // Fire cards are premultiplied banded ink (Flipbook_URP), so unlike the flash they read on snow. fx.shellFire scales
 // them (0: none, the burst as it was). No random draws: the pockets' places are a hash of the spot.
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace TW.Presentation.Tactical
         public const float ShellFireLife = 0.9f;     // s: the burst's eruption (11 of its 32 frames at 12 fps), fading over the last third
         public const float PocketLife = 0.85f;       // s
         public const int ShellPockets = 2;
-        public const float PocketAlpha = 1.0f;       // the cloud over them does the hiding now (Under)
+        public const float PocketAlpha = 0.8f;       // a shade under the fireball's: fire further inside the cloud
         public const float DayColumnPlay = 0.5f;     // the thrown earth stops before its falling arcs by day as it does by night (fx.columnPlay)
         float shellFire = 1f;                         // knob fx.shellFire (Awake)
 
@@ -74,7 +75,7 @@ namespace TW.Presentation.Tactical
             float far = FlipbookFx.FarGrow(eye != null && eye.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f);
             float w = ShellFireWidth(r, closeUp) * Mathf.Min(1f, shellFire) * far;
             // centred low over the hole, not anchored and sunk: a sunk card's bottom edge is a ruler line on the snow
-            books.Add(FlipbookFx.Book.Fireball, p + Vector3.up * (0.35f * r * far), w, ShellFireLife, FlipbookFx.Kind.Upright | (mirror ? FlipbookFx.Kind.Mirror : 0),
+            books.Add(FlipbookFx.Book.Fireball, p + Vector3.up * (0.5f * r * far), w, ShellFireLife, FlipbookFx.Kind.Upright | (mirror ? FlipbookFx.Kind.Mirror : 0),
                 velocity: rise * 0.35f, grow: 0.3f, alpha: alpha, glow: glow, pop: 0.25f, startFrame: 2f);
             for (int k = 0; k < ShellPockets; k++)
                 books.Add(FlipbookFx.Book.Fireball, p + PocketOffset(p, k, r) * far, w * 0.5f, PocketLife, (mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
