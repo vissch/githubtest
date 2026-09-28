@@ -723,6 +723,29 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** a bench `shot=` includes the HUD. `shot_tick=N shot_hud=0` hides it (and `CombatFx`'s world overlays,
   `CombatFx.ShowOverlays`) and holds the clock so the still repeats; such a run's timings are not real time.
 
+### The gym: every clip, unit, ability, death and event, one at a time, in the battle's drawing
+- **Files:**
+  - `Perf/GymCatalogue.cs`: the entries, read from the enums and the unit table. `EventHow` has one row per
+    `SimEventType` and no default.
+  - `Perf/GymDirector.cs`: staging through `SimHost.WriteWorlds` / `Issue` / `IssuePeer` only. Editor and development
+    builds only.
+  - `Presentation/Core/AnimationController.Pin.cs`: hold one man on one clip, presentation only.
+  - `Editor/Gym.cs`: **TW > Gym**, `Gym.Run`, `Gym.CommandLine`.
+
+  The agents' guide to it is the `tw-gym` skill (on `lane/show/pipe-skills2` until that lands).
+- **Tests:**
+  - GymCatalogueTests: a new event, ability or death kind with no gym row fails.
+  - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
+  - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
+- **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
+  `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
+  "<options>"`.
+  - The run goes to `%LOCALAPPDATA%\TrenchWarfare\gym\<run>` (`TW_GYM`), never into the checkout.
+  - Each entry gets a JPG of the bands and a JSON sidecar, and the run's summary file lists every flag.
+- **Trap:** a death or effect raised inside `WriteWorlds` never reaches the picture, because `SimWorld.Step` clears
+  events first. The gym stages the cause and lets a system do the killing inside a tick.
+- **Trap:** `desync` is `null` in a run without the canary. Only a canary run can see one.
+
 ### Windows build
 - **Files:** `Editor/BuildWindows.cs`, `Resources/ShaderKeep/`.
 - **Tests:** ShaderInclusionTests (every `Shader.Find("TW/...")` must be in Always Included Shaders or used by a
@@ -756,7 +779,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BehaviourBenchTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, ComicWordsTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DriveFeelTests, DriveStyleTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeLookTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, HullRideTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, MatchLoopTests, MineTests, NightLookTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
-- **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AnimationPinTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BehaviourBenchTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, ComicWordsTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DriveFeelTests, DriveStyleTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeLookTests, GrenadeTests, GymCatalogueTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, HullRideTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, MatchLoopTests, MineTests, NightLookTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->
