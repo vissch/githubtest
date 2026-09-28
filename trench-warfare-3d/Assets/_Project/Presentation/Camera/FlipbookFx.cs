@@ -52,7 +52,7 @@ namespace TW.Presentation.Tactical
             Count
         }
 
-        [System.Flags] public enum Kind : byte { None = 0, Upright = 1, Anchored = 2, Mirror = 4, HoldLast = 8 }
+        [System.Flags] public enum Kind : byte { None = 0, Upright = 1, Anchored = 2, Mirror = 4, HoldLast = 8, Flat = 16 }   // Flat: lying on the ground, facing up (wins over Upright)
 
         struct Card
         {
@@ -699,7 +699,7 @@ namespace TW.Presentation.Tactical
             m.m03 = at.x; m.m13 = at.y; m.m23 = at.z;
             m.m00 = width; m.m11 = height; m.m22 = frame;
             m.m01 = fade; m.m10 = bright; m.m02 = roll;
-            m.m12 = (kind & Kind.Upright) != 0 ? 1f : 0f;
+            m.m12 = (kind & Kind.Flat) != 0 ? 2f : (kind & Kind.Upright) != 0 ? 1f : 0f;
             m.m20 = (kind & Kind.Anchored) != 0 ? 1f : 0f;
             m.m21 = (kind & Kind.Mirror) != 0 ? -opacity : opacity;
             return m;

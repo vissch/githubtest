@@ -17,25 +17,27 @@ namespace TW.Presentation.Tactical
             public bool Plume;      // one ShellPlume in their place: the smoke a burst leaves standing
             public bool Mortar;     // a MortarBurst over the column: a round that came down with no lean
             public bool CookOff;    // a FireCookOff fireball in place of the column: a hull going up
+            public bool Ring;       // a GroundRing lying on the ground: how big a big burst was, read from far off
 
             public static BurstRecipe Old => new BurstRecipe { Column = true, OldSmoke = true };
         }
 
         public const string RecipesKnob = "fx.recipes";
+        public const float RingRadius = 5f;       // a shell this big (the sim's radius, m) throws a ring along the ground
         public const float DefaultRecipes = 0f;   // the old burst until the recipes have been seen in Play (catalogue: proof per zoom)
 
         /// <summary>fx.recipes, 0 (the old burst) or 1 (the VFX pass's recipes).</summary>
         public static float ReadRecipes() => Mathf.Clamp01(Knobs.Get(RecipesKnob, DefaultRecipes));
 
         /// <summary>The parts a burst draws. shape: the sim's Dir.y (0 shell, 1 masonry, 2 cook-off); lean: how much of Dir.xz
-        /// there was (0 for a round with no flight: the Kettle's, the Salvo's); recipes: fx.recipes.</summary>
-        public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes)
+        /// there was (0 for a round with no flight: the Kettle's, the Salvo's); recipes: fx.recipes; radius: the sim's blast radius.</summary>
+        public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes, float radius = 0f)
         {
             if (recipes < 0.5f || wet) return BurstRecipe.Old;   // water keeps its splash and its drawn smoke as they were
             int kind = Mathf.RoundToInt(shape);
             if (kind == 2) return new BurstRecipe { CookOff = true, Plume = true };   // no earth: the hull is what goes up
             if (kind == 1) return BurstRecipe.Old;                                    // masonry: the house's own look (L24)
-            return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f };
+            return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Ring = radius >= RingRadius };
         }
     }
 }
