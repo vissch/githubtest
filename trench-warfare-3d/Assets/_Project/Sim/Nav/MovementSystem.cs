@@ -1,6 +1,6 @@
-// Phase: A1 (implemented) â€” depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
+// Phase: A1 (implemented) — depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
 // Infantry movement. Every alive infantry slot follows the flow field of its goal, takes a separation push from its
-// neighbours (and keeps clear of vehicles), and moves at base speed Ã— stance Ã— terrain. A unit without a goal gets
+// neighbours (and keeps clear of vehicles), and moves at base speed × stance × terrain. A unit without a goal gets
 // the team's default goal (its front trench). Arriving at the goal trench garrisons the unit: it stops, crouches
 // below the rim and stays until TrenchOrdersSystem hands it a new goal; a locked trench passes arrivals straight on
 // to the next goal. Layer bookkeeping: on a Surface cell a unit under orders is Exposed and sprints, otherwise it
@@ -261,8 +261,18 @@ namespace TW.Sim.Nav
 
                 // steering
                 float2 dir = float2.zero;
-                byte engage = isGarrisoned || leaping || inTrench ? MovementSystem.EngageNone : Engage[i];
-                if (engage == MovementSystem.EngageClose) dir = EngageDir[i];   // he leaves his way for the man he is after
+                bool melee = !leaping && Engage[i] == MovementSystem.EngageMelee;   // hand to hand, wherever he is
+                // a charge at a man within 8 m (MeleeSystem: UnitFlags.Melee) goes where it has to: down into his trench,
+                // along one, off a garrison post
+                bool charge = !leaping && Engage[i] == MovementSystem.EngageClose && (f & (uint)UnitFlags.Melee) != 0;
+                byte engage = melee ? MovementSystem.EngageMelee : charge ? MovementSystem.EngageClose : isGarrisoned || leaping || inTrench ? MovementSystem.EngageNone : Engage[i];
+                if (melee)
+                {
+                    // he steps in to arm's length (a garrison and a man in a trench stand where they are)
+                    float2 m = EngageDir[i]; float len = SimMath.Length(new float3(m.x, 0f, m.y));
+                    if (!isGarrisoned && !inTrench && len > 1f) dir = m / len * (len - 1f);
+                }
+                else if (engage == MovementSystem.EngageClose) dir = EngageDir[i];   // he leaves his way for the man he is after
                 else if (engage == MovementSystem.EngageHold) { }               // he stands where he is, and shoots
                 else if (!isGarrisoned && !leaping && goal >= 0 && Ready[goal] != 0)
                 {
@@ -301,6 +311,8 @@ namespace TW.Sim.Nav
                 bool atPost = PostCell[i] < 0 || ladderPost || PostCell[i] == cell || SimMath.Length(PostPoint(PostCell[i]) - p) < 0.9f;
                 bool toPost = isGarrisoned && PostCell[i] >= 0 && !atPost && !ladderPost;   // walking to his post: he may cross a ladder, and keeps going across it
                 if (leaping) stance = Stance.Leap;
+                else if (melee) stance = Stance.Melee;   // struck, even a pinned man fights back
+                else if (charge) stance = Stance.Sprint;
                 else if (isGarrisoned) stance = TargetSlot[i] >= 0 && PostKind[i] != PostReserve && atPost ? Stance.FireStep : Stance.Crouch;
                 else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
                 else if (inTrench) stance = Stance.Crouch;
@@ -308,8 +320,8 @@ namespace TW.Sim.Nav
                 else if (engage == MovementSystem.EngageHold) stance = Stance.Crouch;   // down on one knee to shoot
                 else stance = (f & (uint)UnitFlags.Exposed) != 0 || engage == MovementSystem.EngageClose ? Stance.Sprint : Stance.Standing;
                 float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
-                float3 v = leaping ? (LeapTarget[i] - p) / (leap * Dt) : isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
-                if (isGarrisoned && !leaping)
+                float3 v = leaping ? (LeapTarget[i] - p) / (leap * Dt) : isGarrisoned && !charge ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
+                if (isGarrisoned && !leaping && !melee && !charge)
                 {
                     // he walks to the post he was given and holds it (the parapet, a junction, a dugout mouth), instead of
                     // relaxing onto the duckboard centreline under separation alone
@@ -395,9 +407,9 @@ namespace TW.Sim.Nav
                 else if (!crossing) Cooldown[i] = 0;
                 Position[i] = np;
                 Velocity[i] = v;
-                if (engage == MovementSystem.EngageHold && math.lengthsq(knock) <= 0.09f)
+                if ((engage == MovementSystem.EngageHold || melee) && math.lengthsq(knock) <= 0.09f)
                 {
-                    float2 at = EngageDir[i];   // he faces the man he is shooting at, whatever jostles him
+                    float2 at = EngageDir[i];   // he faces the man he is shooting at (or fighting), whatever jostles him
                     if (math.lengthsq(at) > 1e-6f) Yaw[i] = SimMath.YawOf(new float3(at.x, 0f, at.y));
                 }
                 else if (SimMath.Length(v) > 0.05f && !(isGarrisoned && stance == Stance.FireStep)) Yaw[i] = SimMath.YawOf(v);   // on the step he keeps facing over the parapet

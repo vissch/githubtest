@@ -53,8 +53,8 @@ namespace TW.Tests
             "705 TankGunnerySystem;715 AmbientBombardmentSystem;720 BlastSystem;723 BeamSystem;" +
             "725 BurningSystem;730 VehicleModulesSystem;735 SupportSystem;800 SuppressionSystem;" +
             "805 HeroSystem;820 TrenchGarrisonSystem;900 GasSmokeSystem;1000 DeformationSystem;" +
-            "1105 LeapSystem;1108 EngageSystem;1110 MovementSystem;1115 BreakerSystem;1120 VehicleKinematicsSystem;" +
-            "1130 MineSystem;1200 SectorControlSystem;";
+            "1105 LeapSystem;1108 EngageSystem;1109 MeleeSystem;1110 MovementSystem;1115 BreakerSystem;1120 VehicleKinematicsSystem;" +
+            "1125 PounceSystem;1130 MineSystem;1200 SectorControlSystem;";
 
         [Test]
         public void TheHashChainIsTheOneItsFormatVersionNames()
@@ -62,7 +62,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(23, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(24, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
     }

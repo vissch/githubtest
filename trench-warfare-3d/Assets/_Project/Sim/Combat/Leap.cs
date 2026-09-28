@@ -70,6 +70,7 @@ namespace TW.Sim.Combat
                 if (LeapCooldown[i] > 0) LeapCooldown[i]--;
                 if (InAir[i] != 0 || GraceTicks[i] > 0 || LeapCooldown[i] > 0) continue;
                 if (w.Suppression[i] >= SuppressionRules.PinnedThreshold) continue;
+                if ((w.Flags[i] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed)) != 0) continue;   // in a fight, or his weapon on the ground (MeleeSystem)
                 if (w.Tick % CheckEvery != (uint)i % CheckEvery) continue;
 
                 int cell = LandingCell(w, i, spec.JumpRange);
