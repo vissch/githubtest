@@ -834,7 +834,7 @@ namespace TW.Presentation.Tactical
                                 books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
-                            if (!recipe.Dust && !recipe.CookOff)
+                            if (!recipe.Dust && !recipe.CookOff && !Masonry(e.Dir.y))
                                 ShellFire(p + flight * (r * 0.25f * lean), r, closeUp, mirror, Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean));
                             // what a burst leaves: dark smoke that climbs, spreads and drifts off down wind for seconds
                             int puffs = closeUp > 0.5f ? 5 : 7;
@@ -886,6 +886,7 @@ namespace TW.Presentation.Tactical
                             debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.3f, Mathf.RoundToInt(8f + r * 2.2f), 7f + r * 0.9f, 0.16f + r * 0.02f, Mud, 30f, 0f, 1.8f, flight * (0.85f * lean), e.Tick);
                             debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.5f, Mathf.RoundToInt(4f + r), 14f + r, 0.09f, Mud, 12f, 0f, 2.4f, flight * (1.25f * lean), e.Tick + 7u);
                         }
+                        if (!recipe.Dust && !Masonry(e.Dir.y)) ShellGrit(p, r, flight * (1.1f * lean), e.Tick);   // CombatFx.ShellFire.cs: not a man landing, not a wall coming down
                     }
                     if (!wet)
                     {
