@@ -834,8 +834,8 @@ namespace TW.Presentation.Terrain
                 for (int i = 0; i < map.Props.Length; i++)
                 {
                     var prop = map.Props[i];
-                    if (prop.Kind == PropKind.Bridge) continue;
-                    float reach = prop.Kind == PropKind.Wreck ? 4.2f : prop.Kind == PropKind.Log ? 1.7f : 1.25f;
+                    if (prop.Kind == PropKind.Bridge || prop.Kind == PropKind.Cleared) continue;
+                    float reach = PropRules.IsWreckage(prop.Kind) ? 4.2f : prop.Kind == PropKind.Log ? 1.7f : 1.25f;
                     int x0 = Mathf.Max(0, (int)((prop.Pos.x - reach) * 2f)), x1 = Mathf.Min(shadeW - 1, (int)((prop.Pos.x + reach) * 2f));
                     int z0 = Mathf.Max(0, (int)((prop.Pos.z - reach) * 2f)), z1 = Mathf.Min(shadeL - 1, (int)((prop.Pos.z + reach) * 2f));
                     for (int z = z0; z <= z1; z++)

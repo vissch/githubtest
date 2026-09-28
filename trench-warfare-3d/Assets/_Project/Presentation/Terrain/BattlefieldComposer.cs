@@ -282,6 +282,14 @@ namespace TW.Presentation.Terrain
                                     Quaternion.Euler((Rand(i, 145) - .5f) * 16f, Rand(i, 146) * 360f, (Rand(i, 147) - .5f) * 22f), Vector3.one * (.9f + Rand(i, 148) * .2f)));
                         }
                         break;
+                    // a wreck breaking further (2026-09-28): TankRenderer draws its hull's carcass; the boxes are only the
+                    // fallback, lower at each stage, and a cleared wreck is nothing at all
+                    case PropKind.BrokenWreck:
+                    case PropKind.Scrap:
+                        if (SceneHooks.DrawnWreck != null && SceneHooks.DrawnWreck(p.Pos.x, p.Pos.z)) break;
+                        emit(kit.wreck, Matrix4x4.TRS(new Vector3(p.Pos.x, hf.Sample(p.Pos.x, p.Pos.z) - 0.25f, p.Pos.z), yaw, new Vector3(1.05f, p.Kind == PropKind.Scrap ? 0.3f : 0.62f, 1.05f)));
+                        break;
+                    case PropKind.Cleared: break;
                     case PropKind.Bridge: emit(kit.bridge, Matrix4x4.TRS(new Vector3(p.Pos.x, map.WaterLevel + 0.3f, p.Pos.z), Quaternion.identity, Vector3.one)); break;
                 }
             }

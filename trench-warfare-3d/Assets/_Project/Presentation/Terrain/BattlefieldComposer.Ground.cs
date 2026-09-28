@@ -150,8 +150,10 @@ namespace TW.Presentation.Terrain
             {
                 var p = map.Props[i];
                 if (p.Kind == PropKind.Bridge) continue;
-                bool big = p.Kind == PropKind.Wreck || p.Scale >= 1.1f;
-                if (big) Gather(map, surface, p.Pos, i + 1, p.Kind == PropKind.Wreck ? 5.5f : 4.2f, 1 + (int)(Rand(i, 96) * 3f), 6 + (int)(Rand(i, 97) * 7f));
+                if (p.Kind == PropKind.Cleared) continue;
+                bool wreck = PropRules.IsWreckage(p.Kind);   // a wreck's Scale is its size class, not a drawn size (2026-09-28)
+                bool big = wreck || p.Scale >= 1.1f;
+                if (big) Gather(map, surface, p.Pos, i + 1, wreck ? 5.5f : 4.2f, 1 + (int)(Rand(i, 96) * 3f), 6 + (int)(Rand(i, 97) * 7f));
                 else if (p.Scale >= .75f && Rand(i, 98) < .5f) Gather(map, surface, p.Pos, i + 1, 2.2f, 0, 2 + (int)(Rand(i, 97) * 4f));
             }
             for (int i = 0; i < surface.Hollows.Count; i++)
