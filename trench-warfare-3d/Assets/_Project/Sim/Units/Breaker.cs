@@ -24,6 +24,8 @@ namespace TW.Sim.Units
     {
         public const uint LookEvery = 4;          // ticks between looks for a trench while approaching
         public const float AheadCos = 0.3f;       // the trench must lie ahead of the nose, not beside it
+        public const float ManSearch = 12f;      // metres round a trench cell it looks for the garrison it will charge
+        public const float AimSlack = 8f;        // how much further than BreakerRange the cell it charges may be
         public const float StrikeReach = 2.5f;    // metres from the target cell that count as "in it"
         public const float WithdrawSeconds = 10f; // the most a withdrawal may take before it gives up and approaches again
         public const int StuckTicks = 20;         // a withdrawal that has not moved for this long is over
@@ -38,6 +40,7 @@ namespace TW.Sim.Units
         public NativeArray<short> TargetTrench;
         public NativeArray<float3> HomePos;
         NativeArray<ushort> gen;
+        NativeList<float2> men;                  // TrenchAhead's scratch: enemy men near it (transient, not hashed)
         public int Cycles;
 
         public BreakerSystem(MapData map) { this.map = map; }
@@ -59,6 +62,7 @@ namespace TW.Sim.Units
             TargetTrench = new NativeArray<short>(n, Allocator.Persistent);
             HomePos = new NativeArray<float3>(n, Allocator.Persistent);
             gen = new NativeArray<ushort>(n, Allocator.Persistent);
+            if (!men.IsCreated) men = new NativeList<float2>(64, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -154,13 +158,28 @@ namespace TW.Sim.Units
         void Emit(SimWorld w, int i, BreakerPhase phase)
             => w.Events.Add(w.Tick, SimEventType.BreakerPhase, i, (int)phase, TargetCell[i] >= 0 ? map.NavCellCenter(TargetCell[i]) : w.Position[i]);
 
-        /// <summary>The nearest body cell of an enemy-held fire trench within range and ahead of the nose, or -1.</summary>
+        /// <summary>The body cell of an enemy-held fire trench within range and ahead of the nose that it should
+        /// charge, or -1: the one its men are nearest, then the nearest (2026-09-28: with momentum the charge lands a
+        /// second later than when it leapt to full speed, and aimed at the nearest cell it hit empty trench 9 m from
+        /// the garrison; a breaker goes in where the men are). Each cell scores its distance plus three times the
+        /// distance from it to the nearest enemy man near the Breaker (capped at ManSearch). It winds up when a cell is within
+        /// range; the cell it charges may be up to AimSlack further.</summary>
         int TrenchAhead(SimWorld w, int i, float range)
         {
             float3 p = w.Position[i];
             float3 nose = SimMath.DirFromYaw(w.Yaw[i]);
             byte team = w.Team[i];
-            int best = -1; float bestD = range * range;
+            men.Clear();
+            float near = (range + ManSearch) * (range + ManSearch);
+            for (int j = 0; j < w.HighWater; j++)
+            {
+                if (!w.IsAlive(j) || w.Team[j] == team || (w.Flags[j] & (uint)UnitFlags.Vehicle) != 0) continue;
+                float3 d = w.Position[j] - p; d.y = 0f;
+                if (math.lengthsq(d) < near) men.Add(w.Position[j].xz);
+            }
+            // it winds up once any cell is within range; the cell it then charges may lie AimSlack further on, where the men are
+            int best = -1; float bestScore = float.MaxValue, rsq = range * range, aim = (range + AimSlack) * (range + AimSlack);
+            bool inRange = false;
             for (int t = 0; t < map.Trenches.Length; t++)
             {
                 if (fields.Trenches[t].OwnerTeam == team) continue;
@@ -170,14 +189,20 @@ namespace TW.Sim.Units
                 {
                     int cell = map.TrenchCells[def.CellStart + k];
                     if ((map.NavLayers[cell] & (byte)NavLayer.Link) != 0) continue;
-                    float3 d = map.NavCellCenter(cell) - p; d.y = 0f;
+                    float3 c = map.NavCellCenter(cell);
+                    float3 d = c - p; d.y = 0f;
                     float dsq = math.lengthsq(d);
-                    if (dsq >= bestD || dsq < 1f) continue;
-                    if (math.dot(d / SimMath.Sqrt(dsq), nose) < AheadCos) continue;
-                    bestD = dsq; best = cell;
+                    if (dsq >= aim || dsq < 1f) continue;
+                    float dist = SimMath.Sqrt(dsq);
+                    if (math.dot(d / dist, nose) < AheadCos) continue;
+                    if (dsq < rsq) inRange = true;
+                    float man = ManSearch;
+                    for (int m = 0; m < men.Length; m++) man = math.min(man, SimMath.Length(men[m] - c.xz));
+                    float score = dist + 3f * man;
+                    if (score < bestScore) { bestScore = score; best = cell; }
                 }
             }
-            return best;
+            return inRange ? best : -1;
         }
 
         public ulong Hash(ulong h)
@@ -194,6 +219,7 @@ namespace TW.Sim.Units
 
         public void Dispose()
         {
+            if (men.IsCreated) men.Dispose();
             if (Phase.IsCreated) Phase.Dispose();
             if (PhaseTicks.IsCreated) PhaseTicks.Dispose();
             if (TargetCell.IsCreated) TargetCell.Dispose();

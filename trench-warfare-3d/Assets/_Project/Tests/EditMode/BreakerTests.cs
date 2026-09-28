@@ -90,14 +90,17 @@ namespace TW.Tests
             float z = TrenchZ(m, t);
             int it = SpawnBreaker(m, 0, 120f, z - 42f);
             var spec = TankSpec.For(VehicleArchetype.Breaker);
-            float top = 0f, yawAtWithdraw = 0f, zAtWithdraw = 0f; bool sawWindupHalt = false;
+            float top = 0f, yawAtWithdraw = 0f, zAtWithdraw = 0f; bool sawWindupHalt = false; var lastPhase = BreakerPhase.Approach;
             var log = Run(m, 1400, () => m.Breaker.Cycles >= 2 || !m.World.IsAlive(it), w =>
             {
                 float speed = math.length(w.Velocity[it]);
                 var phase = (BreakerPhase)m.Breaker.Phase[it];
                 if (phase == BreakerPhase.Charge) top = math.max(top, speed);
                 if (phase == BreakerPhase.Windup && speed < 0.01f) sawWindupHalt = true;
-                if (phase == BreakerPhase.Withdraw && yawAtWithdraw == 0f) { yawAtWithdraw = w.Yaw[it] + 10f; zAtWithdraw = w.Position[it].z; }
+                // the yaw it had as its latest withdrawal began (2026-09-28: each charge is aimed at the men, so two
+                // cycles need not face the same way; what must hold is that backing out does not turn it)
+                if (phase == BreakerPhase.Withdraw && lastPhase != BreakerPhase.Withdraw) { yawAtWithdraw = w.Yaw[it] + 10f; zAtWithdraw = w.Position[it].z; }
+                lastPhase = phase;
             });
             Assert.IsTrue(m.World.IsAlive(it), "it lives through two cycles against ten men");
             Assert.GreaterOrEqual(m.Breaker.Cycles, 2);
@@ -128,7 +131,7 @@ namespace TW.Tests
             Assert.AreEqual(yaw, m.World.Yaw[tank], "reversing does not turn it");
             Assert.Less(math.dot((m.World.Position[tank] - before).xz, math.normalize(SimMath.DirFromYaw(yaw).xz)), -3f, "it went backwards along its nose");
             m.Vehicles.Drive[tank] = VehicleKinematicsSystem.DriveFlow;
-            Run(m, 40);
+            Run(m, 140);   // backing at speed, a landship must stop and gather way again (VehicleProfile.Accel/Brake)
             Assert.Greater(m.World.Position[tank].z, 60f, "and drives on its field again");
         }
 
