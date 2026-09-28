@@ -1,4 +1,4 @@
-# To every lane: how units move and fight changed on `lane/sim/nav-engage` (not landed)
+# To every lane: how units move and fight changed on `lane/sim/nav-engage` (landed 2026-09-28 at fca7371)
 
 The owner, playing the game on 2026-09-28: "units are now walking in rows in seemingly defined paths, we need them to
 spread over the map instead", and "units should be attacking each other, go out of their way to attack each other."

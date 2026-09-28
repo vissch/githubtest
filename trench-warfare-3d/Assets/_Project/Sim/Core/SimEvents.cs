@@ -91,6 +91,10 @@ namespace TW.Sim
         // scalar = seconds until it is placed. The placing itself is MinePlaced. Emitted by SapperSystem (v17).
         SapperOrdered,
         SapperLaying,
+        // 2026-09-28 (format v19): a bomb thrown at a trench (CombatTables.Grenade*, DirectFireSystem). a = the thrower,
+        // b = the man he threw at, pos = where it left his hand, dir = from there to where it lands (it goes off this
+        // tick: BlastSystem's Explosion follows, Source = SourceId.Grenade), scalar = the metres thrown.
+        GrenadeThrown,
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing

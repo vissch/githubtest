@@ -55,7 +55,11 @@ namespace TW.Sim
         // ParapetCost), every man on foot keeps to a lane (Lane) and is deployed on it, and EngageSystem joins the chain
         // at order 1108 with its state (Hunt, HuntGen, the generation seen, MovementSystem.Engage): men in the open
         // close on the enemy and hold to shoot. Layout unchanged; every battle runs differently from the first deploy.
-        public const ushort FormatVersion = 18;
+        // v19 (2026-09-28, the assault): a running man in the open is a harder mark the farther off he is
+        // (CombatTables.RunningTarget), a miss at a man on the fire step suppresses him fully (the parapet), and a man
+        // in the open bombs the trench man he fights from 5-22 m (DirectFireSystem, whose hash now folds its per-slot
+        // bombs and their generation; SimEventType.GrenadeThrown appended, SourceId.Grenade 2002). Layout unchanged.
+        public const ushort FormatVersion = 19;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -24,7 +24,42 @@ namespace TW.Sim.Combat
         public const float MovingAccuracy = 0.5f;        // shooter moving faster than MovingSpeed
         public const float MovingSpeed = 0.5f;
         public const float AdvanceFireRange = 60f;       // units under >> only engage this close: they are running
+        // ---- a running man is a hard mark (2026-09-28): the rifleman has to lead him, and the farther off he is the
+        // more of a guess that is; close up it makes no odds. Without it a garrison of ten shot every assault of up to
+        // thirty dead at 60-100 m and lost nobody (AssaultLadderTests).
+        public const float RunningTargetSpeed = 2f;      // m/s: a man going faster than this is running
+        public const float RunningTargetNear = 20f;      // metres: closer than this he is no harder to hit
+        public const float RunningTargetFar = 60f;       // metres: from here on the whole penalty
+        public const float RunningTargetFloor = 0.35f;   // the share of the chance left at RunningTargetFar and beyond
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
+        // ---- the bomb (2026-09-28): how a trench was cleared. A man in the open who has come within GrenadeRange of the
+        // trench man he is fighting throws one instead of firing: it goes off where it lands (BlastSystem, so the bay
+        // still saves a man some of it), and he holds it when a friend stands within GrenadeFriend of the mark. A rifle
+        // on the fire step barely finds a running man's shooters; the bomb is how an assault that got there wins.
+        public const float GrenadeRange = 22f;           // metres: a strong arm
+        public const float GrenadeMin = 5f;              // closer than this he does not throw at his own feet
+        public const float GrenadeDamage = 110f;
+        public const float GrenadeRadius = 4.5f;
+        public const float GrenadeSuppression = 50f;
+        public const float GrenadeCooldownSeconds = 3f;  // pin out, throw, get down again
+        public const float GrenadeScatter = 0.5f;        // metres off the mark at no range ...
+        public const float GrenadeScatterPerMetre = 0.08f; // ... and this much more per metre thrown
+        public const float GrenadeFriend = 4f;
+
+        /// <summary>Bombs a man of this archetype goes into battle with. Riflemen carry two, assault troops (the
+        /// bombers) four; a man whose trade is not the assault (the gunner, the sniper, the medic) none.</summary>
+        public static byte GrenadesFor(byte archetype)
+        {
+            switch (archetype)
+            {
+                case InfantryArchetype.Rifle: case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion:
+                case InfantryArchetype.Para: case InfantryArchetype.Jetpack: case InfantryArchetype.Shield: case InfantryArchetype.Sapper:
+                    return 2;
+                case InfantryArchetype.Assault: return 4;
+                case InfantryArchetype.Officer: return 1;
+                default: return 0;
+            }
+        }
         // ---- smoke (docs/21 phase 5): what a screen does to sight and aim; SmokeLos measures the metres ----
         public const float SmokeBlindMetres = 12.5f;      // this much thick smoke on the line of sight and the target is lost
         public const float SmokeAccuracyPerMetre = 0.08f; // accuracy lost per metre of thick smoke on the line of fire ...
@@ -83,6 +118,15 @@ namespace TW.Sim.Combat
         {
             float t = math.saturate((dist / math.max(1f, rangeMax) - 0.5f) * 2f);
             return 1f - 0.5f * t;
+        }
+
+        /// <summary>The share of a shooter's chance left against a man running at <paramref name="speed"/> m/s
+        /// <paramref name="dist"/> metres off: 1 standing, walking or close, falling to RunningTargetFloor by RunningTargetFar.</summary>
+        public static float RunningTarget(float dist, float speed)
+        {
+            if (speed <= RunningTargetSpeed) return 1f;
+            float t = math.saturate((dist - RunningTargetNear) / (RunningTargetFar - RunningTargetNear));
+            return 1f - (1f - RunningTargetFloor) * t;
         }
     }
 }

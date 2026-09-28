@@ -2,6 +2,7 @@
 // MovementSystem.Spatial (near-miss neighbours; one tick stale, which is fine for a 1.5 m radius). Armour is A5.
 // One sequential Burst job resolves every shot in slot order, so damage is applied in a fixed order and a target
 // that dies mid-tick is not shot again. hit = accuracy × range falloff × shooter stance × moving × own suppression
+// × running target (a man in the open running past RunningTargetSpeed, CombatTables.RunningTarget, 2026-09-28)
 // × (1 − target cover). A hit adds the weapon's suppression to the target; a miss adds 60 % of it to every enemy
 // of the shooter within 1.5 m of the target (NearMiss). Deaths are applied on the main thread after the job.
 // A vehicle is only ever close-assaulted (TargetAcquisition): the bundle of grenades is a VehicleHit on the armour,
@@ -13,6 +14,11 @@
 // A shield bearer (InfantrySpec.ShieldPlateMm, 2026-09-25) shot from inside his plate's arc gets a penetration roll
 // first: PenetrationMm x 0.8..1.2 under the plate and the round is STOPPED (Hit with a negative scalar, ShieldBlocked,
 // a quarter of the suppression). The roll is drawn only for him, so every other man's stream is what it was.
+// The bomb (2026-09-28): a man on foot in the open, not pinned, with a bomb left, whose target is a man in a trench
+// 5-22 m off throws one instead of firing (Throws): it lands within GrenadeScatter of him and goes off this tick as
+// an Impact on BlastSystem (720, after this system), so the bay, the traverse and the parapet still count. He holds
+// it while a friend stands within GrenadeFriend of the mark. Bombs are per slot and refill when a slot's Generation
+// moves on (a new man); both arrays are in the hash.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -37,6 +43,11 @@ namespace TW.Sim.Combat
         NativeArray<float> noSmoke;       // a one-cell stand-in for the job while there is no smoke
         AuraSystem aura;                  // the officer's multipliers; without one, every man's are 1
         NativeArray<float> ones;
+        // ---- the bomb (2026-09-28) ----
+        BlastSystem blast; bool lookedForBlast;   // registered after this system: resolved on the first step
+        NativeArray<byte> grenades;              // bombs each slot's man has left
+        NativeArray<ushort> grenadeGen;          // the Generation they were counted for: another means a new man
+        NativeList<Impact> noImpacts;            // the job's list in a match without a BlastSystem (it throws nothing then)
 
         /// <summary>Totals since the match started, per team: shots fired and kills scored. Derived from hashed state, not hashed itself.</summary>
         public readonly int[] Shots = new int[SimConfig.MaxPlayers];
@@ -61,7 +72,14 @@ namespace TW.Sim.Combat
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
             ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
+            grenades = new NativeArray<byte>(world.Config.MaxSlots, Allocator.Persistent);
+            grenadeGen = new NativeArray<ushort>(world.Config.MaxSlots, Allocator.Persistent);
+            noImpacts = new NativeList<Impact>(1, Allocator.Persistent);
         }
+
+        /// <summary>Bombs the man in <paramref name="slot"/> has left (a man not yet counted has his archetype's full load).</summary>
+        public int GrenadesLeft(SimWorld w, int slot)
+            => grenadeGen[slot] == w.Generation[slot] ? grenades[slot] : CombatTables.GrenadesFor(w.Archetype[slot]);
 
         /// <summary>This tick's kills, (slot, killer) in the order they died; valid until the next Step (HeroSystem reads it).</summary>
         public NativeList<int2> Killed => killed;
@@ -75,6 +93,7 @@ namespace TW.Sim.Combat
             if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
             bool smokeOn = gas != null && gas.SmokeActive;
             if (aura == null) aura = w.GetSystem<AuraSystem>();
+            if (!lookedForBlast) { blast = w.GetSystem<BlastSystem>(); lookedForBlast = true; }
             events.Clear();
             killed.Clear();
             ownHits.Clear();
@@ -91,6 +110,8 @@ namespace TW.Sim.Combat
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
+                Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
+                Impacts = blast != null ? blast.Pending : noImpacts, CanThrow = blast != null,
             }.Run();
             for (int k = 0; k < ownHits.Length; k++)
             {
@@ -165,6 +186,63 @@ namespace TW.Sim.Combat
                 return Smoke[cz * SmokeW + cx] > SmokeLos.Thick;
             }
             [ReadOnly] public NativeArray<float> DamageMul, SuppressionMul;   // the officer's aura (AuraSystem), 1 without
+            [ReadOnly] public NativeArray<ushort> Generation;
+            public NativeArray<byte> Grenades;
+            public NativeArray<ushort> GrenadeGen;
+            public NativeList<Impact> Impacts;   // BlastSystem.Pending: a bomb goes off this tick
+            public bool CanThrow;
+
+            /// <summary>A man in the open throws a bomb at the trench man <paramref name="t"/> instead of firing, when
+            /// he has one, is not pinned, the man is 5-22 m off and no friend stands by the mark.</summary>
+            bool Throws(int i, int t, float3 p, float3 q)
+            {
+                if (!CanThrow) return false;
+                if ((Flags[i] & (uint)(UnitFlags.Vehicle | UnitFlags.InTrench | UnitFlags.Airborne)) != 0) return false;
+                if ((Flags[t] & (uint)UnitFlags.InTrench) == 0 || StanceOf[i] == (byte)Stance.Pinned) return false;
+                if (GrenadeGen[i] != Generation[i]) { GrenadeGen[i] = Generation[i]; Grenades[i] = CombatTables.GrenadesFor(Archetype[i]); }
+                if (Grenades[i] == 0) return false;
+                float3 d = q - p; d.y = 0f;
+                float dist = SimMath.Length(d);
+                if (dist < CombatTables.GrenadeMin || dist > CombatTables.GrenadeRange) return false;
+                if (FriendNear(i, q)) return false;
+                var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
+                float spread = CombatTables.GrenadeScatter + CombatTables.GrenadeScatterPerMetre * dist;
+                float3 at = q + new float3(rng.NextFloat(-spread, spread), 0f, rng.NextFloat(-spread, spread));
+                float3 way = d / dist;
+                Grenades[i] = (byte)(Grenades[i] - 1);
+                FireCooldown[i] = (int)math.round(CombatTables.GrenadeCooldownSeconds / TickSeconds);
+                Impacts.Add(new Impact
+                {
+                    Pos = at, Dir = way, Damage = CombatTables.GrenadeDamage, Radius = CombatTables.GrenadeRadius,
+                    Suppression = CombatTables.GrenadeSuppression, CraterRadius = 0.8f, CraterDepth = 0.15f,
+                    Source = SourceId.Grenade, Player = Team[i], Shape = (int)BlastShape.Shell,
+                });
+                float3 flight = at - p; flight.y = 0f;
+                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.GrenadeThrown, A = i, B = t, Pos = p, Dir = flight, Scalar = dist });
+                return true;
+            }
+
+            /// <summary>True when a man of <paramref name="i"/>'s side stands within GrenadeFriend of <paramref name="q"/>.</summary>
+            bool FriendNear(int i, float3 q)
+            {
+                int r = (int)math.ceil(CombatTables.GrenadeFriend / Spatial.CellSize);
+                int cx = math.clamp((int)(q.x / Spatial.CellSize), 0, Spatial.Width - 1);
+                int cz = math.clamp((int)(q.z / Spatial.CellSize), 0, Spatial.Length - 1);
+                for (int dz = -r; dz <= r; dz++)
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    int x = cx + dx, z = cz + dz;
+                    if (x < 0 || z < 0 || x >= Spatial.Width || z >= Spatial.Length) continue;
+                    if (!Spatial.Map.TryGetFirstValue(Spatial.KeyXZ(x, z), out int j, out var it)) continue;
+                    do
+                    {
+                        if (j == i || Team[j] != Team[i] || (Flags[j] & (uint)UnitFlags.Alive) == 0) continue;
+                        float3 e = Position[j] - q; e.y = 0f;
+                        if (math.lengthsq(e) <= CombatTables.GrenadeFriend * CombatTables.GrenadeFriend) return true;
+                    } while (Spatial.Map.TryGetNextValue(out j, ref it));
+                }
+                return false;
+            }
 
             int CellOf(float3 p)
             {
@@ -250,6 +328,7 @@ namespace TW.Sim.Combat
                             VehicleHits.Add(new VehicleHit { Target = t, Shooter = i, Kind = VehicleHitKind.CloseAssault, PenMm = CombatTables.CloseAssaultPenMm, Damage = CombatTables.CloseAssaultDamage, Pos = q, Dir = along });
                         continue;
                     }
+                    if (Throws(i, t, p, q)) continue;
                     var weapon = Weapons[Archetype[i]];
                     FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                     float3 d = q - p; d.y = 0f;
@@ -273,6 +352,7 @@ namespace TW.Sim.Combat
                     else
                     {
                         cover = StanceRules.CoverBonusInOpen(theirStance);
+                        chance *= CombatTables.RunningTarget(dist, SimMath.Length(Velocity[t]));   // he has to be led
                         if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);
                         cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
                     }
@@ -331,13 +411,22 @@ namespace TW.Sim.Combat
                             } while (Spatial.Map.TryGetNextValue(out j, ref it));
                         }
                         if (!targetSeen) AddSuppression(t, near * SuppressionMul[t]);   // the hash is a tick old: the target may have moved cells
+                        // a round that misses a man on the fire step strikes the parapet at his face: the whole of it
+                        if (theirStance == Stance.FireStep && (Flags[t] & (uint)UnitFlags.InTrench) != 0)
+                            AddSuppression(t, weapon.SuppressionPerShot * (1f - 0.6f) * keepDown * SuppressionMul[t]);
                         Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.NearMiss, A = t, Pos = q, Scalar = near });
                     }
                 }
             }
         }
 
-        public ulong Hash(ulong h) => h;   // Hp, Suppression, TargetSlot and FireCooldown live in SimWorld
+        // Hp, Suppression, TargetSlot and FireCooldown live in SimWorld; the bombs are this system's own
+        public ulong Hash(ulong h)
+        {
+            if (!grenades.IsCreated) return h;
+            h = SimHash.Array(grenades, h);
+            return SimHash.Array(grenadeGen, h);
+        }
         public void Dispose()
         {
             if (events.IsCreated) events.Dispose();
@@ -347,6 +436,9 @@ namespace TW.Sim.Combat
             if (scorched.IsCreated) scorched.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (ones.IsCreated) ones.Dispose();
+            if (grenades.IsCreated) grenades.Dispose();
+            if (grenadeGen.IsCreated) grenadeGen.Dispose();
+            if (noImpacts.IsCreated) noImpacts.Dispose();
         }
     }
 }

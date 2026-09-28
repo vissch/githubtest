@@ -31,5 +31,7 @@ namespace TW.Sim
         /// <summary>Nobody fired these: a hull whose ammunition went up, and the fleet's own guns off the map.</summary>
         public const int CookOff = 2000;
         public const int Ship = 2001;
+        /// <summary>A man's hand grenade (DirectFireSystem, 2026-09-28): any man's, so no archetype band.</summary>
+        public const int Grenade = 2002;
     }
 }

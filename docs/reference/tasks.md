@@ -117,7 +117,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   anti-tank rifle at a plate they beat), `NeverPinned` in `Sim/Combat/Suppression.cs` (the Death Battalion).
 - **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests,
   ProvingGroundBehaviourTests (the ambulance, the anti-tank rifle, the never-pinned rifleman; each fails on the sim
-  before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests.
+  before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests.
 - **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
   (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
   shooting at, or else the nearest enemy in the open within `HuntRadius` 70 m; he closes on him in a straight line
@@ -126,6 +126,28 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `MovementSystem.Engage` / `EngageDir` and `MoveJob` walks it. Not hunted: men in a trench (stormed along the goal's
   field), machines (except by a weapon that beats their plate), anyone across wire or a trench. Not hunting: a
   garrison, pinned men, medics, engineers, a sapper on his errand. The numbers are constants at the top of the file.
+- **The assault (2026-09-28, the owner: "make it even better, the best game"):** the front has to be able to move.
+  Three rules in `DirectFire`, their numbers in `CombatTables`: (1) a man in the open running faster than
+  `RunningTargetSpeed` is a harder mark the farther off he is (`RunningTarget`: no change inside 20 m, a third of the
+  chance left past 60 m); (2) a miss at a man on the fire step suppresses him fully (the round strikes the parapet);
+  (3) the bomb: a man in the open, not pinned, with a bomb left, whose target is a man in a trench 5-22 m off throws
+  one instead of firing (`Throws`). It goes off the same tick as an `Impact` on `BlastSystem` (so the bay still saves
+  some of it), he holds it while a friend stands within 4 m of the mark, riflemen carry two and assault men four
+  (`GrenadesFor`), and the count is per slot in `DirectFireSystem` (refilled for the next man, in the hash).
+  `SimEventType.GrenadeThrown` (thrower, target, from, flight, metres) is there for the picture to draw the throw.
+- **The assault ladder** (`AssaultLadderTests`: a garrison of ten on ShelledForest 1917, four seeds a rung). Trenches
+  taken out of four, before these rules and after them:
+
+  | Attack | 1:1 | 2:1 | 3:1 |
+  |---|---|---|---|
+  | bare, before | 0 (garrison lost 0 %) | 0 (0 %) | 0 (9 %) |
+  | bare, after | 0 (0 %) | 0 (36 %) | 4 |
+  | smoke / barrage at two to one, before | | 0 / 2 | |
+  | smoke / barrage at two to one, after | | 4 / 4 | |
+
+  So: an equal attack with nothing behind it takes nothing; two to one is beaten off but costs the garrison a third,
+  so the next wave finds a thinner line; three to one, or two to one behind smoke or a barrage, takes the trench.
+  `Report_TheAssaultLadder` (Explicit) prints the whole table for a tuning pass.
 
 ### Shells, barrages, gas, fire
 - **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),
@@ -635,7 +657,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->

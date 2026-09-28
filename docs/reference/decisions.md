@@ -106,6 +106,12 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   Measured in the test battle (both sides ordered forward every 5 s): fights in the open are now fought out to the
   last man, and the side caught in front of the other's trench line loses. (Deployment across the whole width was
   one of these and is decided: the table above.)
+- **The assault (2026-09-28), the agent's choices:** an attack needs about three to one bare, or two to one behind
+  smoke or a barrage, to take a trench, and a failed attack at two to one costs the garrison about a third
+  (`AssaultLadderTests`, `tasks.md` Infantry combat). Made by: a running man a harder mark at range
+  (`CombatTables.RunningTarget`, floor 0.35 past 60 m), a miss at a man on the fire step suppressing him fully, and
+  hand grenades (riflemen two, assault men four, thrown at a trench man from 5-22 m, held while a friend is near the
+  mark). Each is one constant or one rule to turn; the ratios are the thing to judge in play.
 - **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
   Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
   shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).
