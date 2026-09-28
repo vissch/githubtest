@@ -295,7 +295,9 @@ def halftrack_pivots_and_sockets(P):
     sock = {}
     # the tube mouths, top row first, left to right as the crew sees them (+x is left); the muzzle is their middle
     mouths = sorted((Vector(((a.x + b.x) / 2, a.y, (a.z + b.z) / 2)) for a, b in TUBES), key=lambda m: (-round(m.z, 2), -m.x))
-    for k, m in enumerate(mouths): sock["Socket_Tube%02d" % k] = ("Gun", m)
+    # under the HULL, not the Gun: a socket three nodes deep comes out of Unity's import out of place (TankImport puts
+    # right only the nodes under the top part, and Socket_Muzzle by name); the renderer carries them onto the rack's pose
+    for k, m in enumerate(mouths): sock["Socket_Tube%02d" % k] = ("Hull", m)
     sock["Socket_Muzzle"] = ("Gun", sum(mouths, Vector()) / len(mouths))
     lo, hi = bounds(P["Hull"])
     for i, (x, f) in enumerate(((0.0, 0.8), (0.1, 0.55), (-0.1, 0.55))):
