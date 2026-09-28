@@ -3,8 +3,9 @@
 //  UNITS  every unit the match's table defines, with its state (BUILT, PROTOTYPE, STAND-IN): OURS and THEIRS put 1, 5
 //         or 10 of it at that side's rally point, +W adds as many to your own wave; the ideas are listed and greyed;
 //  WAVES  the ready-made waves and your own: SEND now or REPEAT on the timer, placed at the enemy's rally or sent up
-//         THROUGH THEIR SLOTS by command; the enemy's barrage and gas on your front trench; the scripted enemy's level;
+//         THROUGH THEIR SLOTS by command;
 //  MATCH  silver, the clock, clearing the field, the sappers' orders (every sapper of a side lays ahead of himself),
+//         the enemy's barrage and gas on your front trench, the scripted enemy's level,
 //         restart, end (the debrief), quit.
 // The router pushes it when the match was started from the Proving Ground's launch screen and F8 opens it over any
 // match; F8 or its button folds it to its title. Esc is not its business (Overlay): the pause menu opens over it.
@@ -205,6 +206,7 @@ namespace TW.UI
             {
                 var wave = presets[i];
                 var row = Row("wave-" + i, $"{wave.Name}  ({wave.Units})", wave.Describe(), out _);
+                row.AddToClassList("pg-row--wave");
                 row.Add(Small("btn-send-" + i, "SEND", () => Send(wave)));
                 row.Add(Small("btn-repeat-" + i, "REPEAT", () => Repeat(wave)));
                 row.RegisterCallback<MouseEnterEvent>(_ => SetText("slots-note", wave.Blurb.ToUpperInvariant()));
