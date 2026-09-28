@@ -33,6 +33,7 @@ Shader "TW/Flipbook (URP)"
         _Hard ("Toon-cut silhouette: the drawing's edge stepped at half its alpha (0 = its own soft edge)", Range(0, 1)) = 0
         _BurstLit ("How much of the burst's own light it takes (1 = all)", Range(0, 1)) = 1
         _Ember ("A cloud born of fire: warm light on its underside while it is young (0 = none)", Color) = (0, 0, 0, 0)
+        _EmberLit ("The ember on the lit billows (1) or in the drawing's darks (0)", Range(0, 1)) = 0
         _Ground ("A book lying on the ground (1): not softened against the ground it lies on", Float) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
@@ -60,7 +61,7 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels, _Bands, _Contour;
                 half4 _Tint, _Shade, _Smoke, _Fringe, _Core, _InkColor, _Ember;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -259,7 +260,8 @@ Shader "TW/Flipbook (URP)"
                 // ...unless it was born of fire (_Ember, the shell's boiling cloud only): its underside is lit by the fire inside it
                 // while it is young, the dark of the drawing most (the owner's snow reference: peach-lit billows over the fireball)
                 // a glow round the fire low in the card, not a strip along its foot (critique c1b)
-                color += _Ember.rgb * (i.tone.x * i.tone.x) * (1.0 - smoothstep(0.08, 0.45, distance(i.local, half2(0.5, 0.3)))) * lerp(1.0, 0.4, band);
+                // on the lit billows by day (_EmberLit 1); in the darks it filled the soot cores in (critique c2)
+                color += _Ember.rgb * (i.tone.x * i.tone.x) * (1.0 - smoothstep(0.08, 0.45, distance(i.local, half2(0.5, 0.3)))) * lerp(lerp(1.0, 0.4, band), lerp(0.2, 1.0, band), _EmberLit);
                 // the shell's own flash lights the earth it threw up and the smoke rolling off it: the drawing's light
                 // parts catch it most, its dark parts least, so the column is modelled by its own burst and not flooded
                 // AOSA C61 (fx.smokeNightFire, the night smoke only): dark smoke under an orange burst light turned tan
