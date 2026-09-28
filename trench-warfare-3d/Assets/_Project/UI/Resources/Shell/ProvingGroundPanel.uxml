@@ -71,6 +71,12 @@
                     <ui:Button name="btn-clear-theirs" text="REMOVE THEIRS" class="tw-btn tw-btn--small" />
                 </ui:VisualElement>
                 <ui:Label name="field-text" text="" class="pg-note" />
+                <ui:Label text="SAPPERS: EACH LAYS 18 M AHEAD OF HIMSELF" class="tw-caption pg-section" />
+                <ui:VisualElement class="pg-line">
+                    <ui:Button name="btn-sappers-mine" text="OURS: MINE" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-sappers-wire" text="OURS: TRIPWIRE" class="tw-btn tw-btn--small" />
+                    <ui:Button name="btn-sappers-theirs" text="THEIRS: MINE" class="tw-btn tw-btn--small" />
+                </ui:VisualElement>
                 <ui:Label text="THE MATCH" class="tw-caption pg-section" />
                 <ui:VisualElement class="pg-line">
                     <ui:Button name="btn-restart" text="RESTART" class="tw-btn tw-btn--small" />

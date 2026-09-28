@@ -48,6 +48,8 @@ namespace TW.UI
         }
         static Choice kept;
         Choice c;
+        // kept across scene loads on purpose (a restart, a return to the menu); forgotten when the Play session ends
+        static ProvingGroundLaunchScreen() => SceneStatics.Register(nameof(ProvingGroundLaunchScreen), () => kept = null);
 
         readonly List<Button> groundTabs = new List<Button>(), bombardmentTabs = new List<Button>(), silverTabs = new List<Button>(), aiTabs = new List<Button>();
         readonly List<Button>[] slots = { new List<Button>(), new List<Button>() };

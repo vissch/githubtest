@@ -122,6 +122,25 @@ namespace TW.Tests
         }
 
         [Test]
+        public void WhatTheScreensKeepIsForgottenWhenTheSessionEnds()
+        {
+            var a = new ProvingGroundLaunchScreen();
+            a.Bind(Instantiate("ProvingGround"), null);
+            a.SetSide(0); a.Clear(); a.Pick(VehicleArchetype.Mercy); a.Unbind();
+            var panel = new ProvingGroundPanel();
+            panel.Bind(Instantiate("ProvingGroundPanel"), null);
+            panel.AddToWave(InfantryArchetype.Frog); panel.Unbind();
+            Assert.That(new ProvingGroundPanel().Custom.Units, Is.GreaterThan(0), "setup: your wave outlives the panel (a restart)");
+
+            SceneStatics.ResetSession();
+            Assert.That(new ProvingGroundPanel().Custom.Empty, Is.True, "your wave is emptied");
+            var b = new ProvingGroundLaunchScreen();
+            b.Bind(Instantiate("ProvingGround"), null);
+            try { Assert.That(b.Ours, Is.EqualTo(ProvingGround.DefaultTen(FactionId.Iron)), "the tens are the factions' again"); }
+            finally { b.Unbind(); }
+        }
+
+        [Test]
         public void ThePanelHasItsPartsAndBindsWithNoMatch()
         {
             var root = Instantiate("ProvingGroundPanel");
@@ -186,12 +205,27 @@ namespace TW.Tests
 
                 panel.Repeat(panel.Custom);
                 Assert.That(director.Scheduled, Is.Not.Null);
-                Assert.That(director.EveryTicks, Is.EqualTo((int)(ProvingGroundPanel.Everys[panel.EveryIndex] / m.World.Config.TickSeconds)));
+                Assert.That(director.EveryTicks, Is.EqualTo(UnityEngine.Mathf.RoundToInt(ProvingGroundPanel.Everys[panel.EveryIndex] / m.World.Config.TickSeconds)), "30 s of sim time");
+                Assert.That(director.EveryTicks, Is.EqualTo(600));
                 panel.Tick();
                 Assert.That(root.Q<Label>("timer-text").text, Does.StartWith("YOUR WAVE EVERY 30 S"));
                 Assert.That(root.Q<Button>("btn-timer-stop").enabledSelf, Is.True);
             }
             finally { panel.Custom.Squads.Clear(); panel.Unbind(); }
+        }
+
+        /// <summary>A jet the sim fired is held by its slot and marked as the sim's (the mark is what stops the stream
+        /// setting men alight by itself; that needs the flipbooks and is looked at in Play, not here).</summary>
+        [Test]
+        public void AJetTheSimFiredIsHeldByItsSlotAndMarkedAsTheSims()
+        {
+            var fire = new TW.Presentation.Tactical.Flamethrower();
+            fire.Burst(3, new UnityEngine.Vector3(0f, 1f, 0f), UnityEngine.Vector3.forward, UnityEngine.Vector3.zero, 0.45f, sim: true);
+            Assert.That(fire.Jets, Is.EqualTo(1)); Assert.That(fire.SimJets, Is.EqualTo(1));
+            fire.Burst(3, new UnityEngine.Vector3(0f, 1f, 0f), UnityEngine.Vector3.forward, UnityEngine.Vector3.zero, 0.45f, sim: true);
+            Assert.That(fire.Jets, Is.EqualTo(1), "a second shot lengthens his stream");
+            fire.Burst(4, new UnityEngine.Vector3(5f, 1f, 0f), UnityEngine.Vector3.forward, UnityEngine.Vector3.zero);
+            Assert.That(fire.Jets, Is.EqualTo(2)); Assert.That(fire.SimJets, Is.EqualTo(1), "the debug panel's burst is not the sim's");
         }
     }
 }

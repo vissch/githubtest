@@ -18,16 +18,18 @@ namespace TW.Tests
     {
         sealed class Seat : ICommandSink
         {
-            public int Player => 1;
+            readonly byte player;
+            public Seat(byte player = 1) { this.player = player; }
+            public int Player => player;
             public readonly List<SimCommand> Issued = new List<SimCommand>();
             public readonly List<SimCommand> All = new List<SimCommand>();
-            public void Issue(SimCommand c) { c.Player = 1; Issued.Add(c); All.Add(c); }
+            public void Issue(SimCommand c) { c.Player = player; Issued.Add(c); All.Add(c); }
         }
 
         sealed class Rig : IDisposable
         {
             public readonly MatchSim M;
-            public readonly Seat Enemy = new Seat();
+            public readonly Seat Enemy = new Seat(), Player = new Seat(0);
             public readonly ProvingGround Ground;
             public readonly List<SimEvent> Log = new List<SimEvent>();
             public SimWorld W => M.World;
@@ -40,15 +42,16 @@ namespace TW.Tests
                 var stray = M.World.GetSystem<AmbientBombardmentSystem>();
                 if (stray != null) stray.ShellsPerMinute = 0f;
                 M.World.HashInterval = 1;
-                Ground = new ProvingGround(a => { a(M); return true; }, () => M, () => Enemy);
+                Ground = new ProvingGround(a => { a(M); return true; }, () => M, () => Enemy, () => Player);
             }
 
             /// <summary>One tick: the director thinks, then the world steps with what the enemy's seat was told.</summary>
             public void Step()
             {
                 Ground.Tick();
-                using var cmds = new NativeArray<SimCommand>(Enemy.Issued.ToArray(), Allocator.Temp);
-                Enemy.Issued.Clear();
+                var both = new List<SimCommand>(Player.Issued); both.AddRange(Enemy.Issued);   // by player, each in issue order
+                using var cmds = new NativeArray<SimCommand>(both.ToArray(), Allocator.Temp);
+                Enemy.Issued.Clear(); Player.Issued.Clear();
                 M.Step(cmds);
                 var ev = W.Events.Events;
                 for (int k = 0; k < ev.Length; k++) Log.Add(ev[k]);
@@ -261,6 +264,57 @@ namespace TW.Tests
             Assert.Greater(r.M.Abilities.CooldownOf(1, OffMapAbilityId.HeBarrage), 0);
             Assert.IsFalse(r.Ground.EnemySupport(OffMapAbilityId.HeBarrage), "reloading: no second command");
             Assert.AreEqual(1, r.Enemy.All.Count);
+        }
+
+        [Test]
+        public void TheSappersOfASideAreOrderedToLayAheadOfThemselves()
+        {
+            using var r = new Rig();
+            Assert.AreEqual(0, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine), "no sapper on the field");
+            StringAssert.Contains("NO SAPPER", r.Ground.Last);
+            r.Ground.Spawn(0, InfantryArchetype.Sapper, 2);
+            r.Ground.Spawn(0, InfantryArchetype.Rifle, 3);
+            r.Ground.Spawn(1, InfantryArchetype.Sapper, 1);
+            Assert.AreEqual(0, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.MobileCover), "not a sapper's ability");
+            Assert.AreEqual(2, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine), "ours, and only the sappers");
+            Assert.AreEqual(2, r.Player.All.Count); Assert.AreEqual(0, r.Enemy.All.Count);
+            foreach (var c in r.Player.All)
+            {
+                Assert.AreEqual(CommandType.UnitAbility, c.Type); Assert.AreEqual(0, c.Player);
+                Assert.AreEqual((int)TW.Sim.Units.UnitAbilityId.LayMine, c.B & 0xFF);
+                Assert.AreEqual(InfantryArchetype.Sapper, r.W.Archetype[c.A]);
+                Assert.AreEqual(r.W.Position[c.A].z + ProvingGround.LayAheadMetres, c.Pos.z, 1e-3f, "toward the enemy");
+            }
+            r.Step();
+            Assert.AreEqual(0, r.Count(SimEventType.CommandRejected), "the sim took both orders");
+            Assert.AreEqual(2, r.Count(SimEventType.SapperOrdered));
+            Assert.AreEqual(0, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine), "both are on an errand");
+            for (int t = 0; t < 600 && r.Count(SimEventType.MinePlaced) < 2; t++) r.Step();
+            Assert.AreEqual(2, r.Count(SimEventType.MinePlaced), "each walked out and laid his mine");
+
+            Assert.AreEqual(1, r.Ground.OrderSappers(1, TW.Sim.Units.UnitAbilityId.LayTripwire), "theirs, through their seat");
+            var wire = r.Enemy.All[r.Enemy.All.Count - 1];
+            Assert.AreEqual(1, wire.Player);
+            Assert.AreEqual((int)TW.Sim.Units.UnitAbilityId.LayTripwire, wire.B & 0xFF);
+            AbilityArgs.Unpack(wire.B >> 8, out int heading, out _, out int length);
+            Assert.AreEqual(90, heading); Assert.AreEqual(ProvingGround.TripwireMetres, length);
+            Assert.AreEqual(r.W.Position[wire.A].z - ProvingGround.LayAheadMetres, wire.Pos.z, 1e-3f, "toward us");
+        }
+
+        [Test]
+        public void OnlyAWeaponThatSetsBurningFiresAFlameShot()
+        {
+            using var r = new Rig();
+            int flame = r.W.Spawn(0, InfantryArchetype.Flamethrower, r.W.Rally[0], 100f, 3f, false);
+            int rifle = r.W.Spawn(0, InfantryArchetype.Rifle, r.W.Rally[0] + new float3(3f, 0f, 0f), 100f, 3f, false);
+            var cat = r.M.Catalogue;
+            Assert.IsTrue(TW.Presentation.Tactical.CombatFx.FlameShot(r.W, cat, new SimEvent { Type = SimEventType.Shot, A = flame, B = rifle }));
+            Assert.IsFalse(TW.Presentation.Tactical.CombatFx.FlameShot(r.W, cat, new SimEvent { Type = SimEventType.Shot, A = rifle, B = flame }), "a rifle throws a round");
+            Assert.IsFalse(TW.Presentation.Tactical.CombatFx.FlameShot(r.W, cat, new SimEvent { Type = SimEventType.Hit, A = flame, B = rifle }), "only the Shot");
+            Assert.IsFalse(TW.Presentation.Tactical.CombatFx.FlameShot(r.W, cat, new SimEvent { Type = SimEventType.Shot, A = -1, B = rifle }));
+            Assert.IsFalse(TW.Presentation.Tactical.CombatFx.FlameShot(r.W, null, new SimEvent { Type = SimEventType.Shot, A = flame, B = rifle }));
+            Assert.Greater(TW.Presentation.Tactical.CombatFx.FlameShotSeconds, 1f / cat.Weapon[InfantryArchetype.Flamethrower].RoundsPerSecond,
+                "one shot holds the stream open until the next, so a man who keeps firing keeps one stream");
         }
 
         [Test]
