@@ -127,9 +127,12 @@ namespace TW.Tests
             StringAssert.Contains("float fade = c.Cut > 0f ? CutFade(k, c.Cut) : 1f - Mathf.SmoothStep(0f, 1f, (k - 0.65f) / 0.35f);", fx);
             StringAssert.Contains("Cut = cut > 0f && cut < 1f ? cut : 0f", fx);
 
-            // CombatFx: a cut only for a dry column on a moonlit field (as C57), passed to the capped and old column Adds
+            // CombatFx: a cut for a dry column on a moonlit field (as C57) at fx.columnPlay, and - since the owner's snow reference
+            // (decisions.md 2026-09-28, CombatFx.ShellFire.cs) - by day at DayColumnPlay while fx.shellFire is on; fx.shellFire 0
+            // leaves the day column uncut as it was. Passed to the capped and old column Adds
             string combat = File.ReadAllText(Path.Combine(Application.dataPath, "_Project", "Presentation", "Camera", "CombatFx.cs"));
-            StringAssert.Contains("float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;", combat);
+            StringAssert.Contains("float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay)\n", combat);
+            StringAssert.Contains(": !wet && shellFire > 0f ? FlipbookFx.ColumnPlayCut(DayColumnPlay) : 0f;", combat);
             StringAssert.Contains("columnPlay = FlipbookFx.ReadColumnPlay();", combat);
             Assert.AreEqual(2, Count(combat, "cut: cut"), "the capped and the old column; never the soil heave or another book");
         }
