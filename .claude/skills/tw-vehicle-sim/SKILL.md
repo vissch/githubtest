@@ -54,5 +54,5 @@ From docs/20's closing list: Banner's rear hips sit behind the leg's reach; Redo
 Also: "Not scaled with the giant machines: trench cross width, slope limit, turn rates, speeds, `MaxGrow`" (decisions.md, Open). No flying unit in the sim. Breaker has no model of its own (drawn as Maw).
 
 ## Learning loop
-Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
-that section's table.
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". Step 0 is reading this role's
+lines in the board's `lessons.md`.

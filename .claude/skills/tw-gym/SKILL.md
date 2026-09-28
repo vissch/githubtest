@@ -5,6 +5,15 @@ description: The Trench Warfare 3D gym — play and test everything on integrati
 
 # The gym
 
+## Fast path (everything below is reference)
+1. **Landed?** `git ls-tree -r --name-only origin/claude/trench-warfare-2d-3d-plan-idt7lf | grep Editor/Gym.cs`.
+   No hit means using `githubtest-desk-show` (`lane/show/gym`).
+2. **By hand:** Play `GreyboxCorridor`, then **TW > Gym**, then Quiet, a tab, Play, and the band buttons.
+3. **From a session:** `python Tools/editor_lock.py claim gym --minutes 40 --why gym || exit 1`, then
+   `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=scenes max=4");'`.
+4. **Read:** `%LOCALAPPDATA%\TrenchWarfare\gym\<newest>\summary.json`. Every flag goes to `tw-bug-catcher`.
+5. **Show the owner** `<Tab>/<entry>.jpg`, then `editor_lock.py release gym`.
+
 **The owner's words, verbatim:** "Gym somewhere all the results in the merged build are playble and testable per
 animation and special ability too."
 
@@ -112,8 +121,9 @@ stops at 1 GB, or at under 10 GB free.
 4. **Score.** `tw-critic` scores the sheets per band against the look spec: the numbers first, then the picture.
 5. **Fix and prove.** The owning role fixes, and the proof is the same entry before and after, at every band it names,
    with the unchanged build run twice for the noise floor.
-6. **Learn.** Recurring flags go to the board's `lessons/gym.md` (the learning loop in `../pipeline/SKILL.md`). A flaw seen in several entries becomes a proposed
-   catalogue or flag change, which the owner approves.
+6. **Learn.** The run itself lists `recurring` flags in `summary.json`: the same entry and flag in this run and the kept
+   older one. It appends them to the board's `lessons.md` when the board sits beside the checkout (`TW_BOARD`
+   overrides). Commit the board afterwards.
 
 ## Traps
 - **Events raised inside `WriteWorlds` are lost** (`SimWorld.Step` clears them first). A death or effect comes from a

@@ -49,5 +49,5 @@ A playable match needs no final art: box/capsule meshes at gameplay dimensions o
 - **Not in code yet:** Sapper, Great Works, balloon, commanders, wheeled units, the upgrade seam.
 
 ## Learning loop
-Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". This role's lessons file is in
-that section's table.
+Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". Step 0 is reading this role's
+lines in the board's `lessons.md`.

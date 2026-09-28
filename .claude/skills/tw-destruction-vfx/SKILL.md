@@ -81,7 +81,7 @@ no sim event is flagged for the SIM lane, never faked in SHOW.
 - **Guard tests:** HouseKitTests, TrenchSectionTests, DebrisTests, PropWearTests, DeathEventContractTests, DeathVarietyTests, BlastReactionTests, PlaygroundAssetTests, FrameBudgetCoverageTests, StaticLifecycleTests, ShaderInclusionTests (any new `Shader.Find("TW/…")`).
 - **Critic:** `tw-critic` with JUICE's readability check. A moment closes at 8, and any readability drop means revert.
 - **Gym:** every event's entry (`tw-gym`), captured at all six bands, is the standing proof. Rerun it after each change.
-- **Learn:** the learning loop in `../pipeline/SKILL.md` (lessons file `destruction-vfx.md`).
+- **Learn:** the learning loop in `../pipeline/SKILL.md` (board `lessons.md`, step 0 first).
 
 ## Traps
 - The `Sheets` table is indexed by the `Book` ordinal. Rows 19-21 (Core, Head, Bloom) are out of order today; see the board finding. Three rows are named "Puff": the smoke book is the one with `Erode = true`.

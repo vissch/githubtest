@@ -40,7 +40,7 @@ for that role's area:
 - an event with no picture where the catalogue promises one.
 
 One card per signature, whichever sim raised it.
-**Learn** (Brief 2 §B5): signatures that recur go to the board's `lessons/bug-catcher.md` (the learning loop in `../pipeline/SKILL.md`), and a new check is proposed
+**Learn** (Brief 2 §B5): signatures that recur go to the board's `lessons.md` (the learning loop in `../pipeline/SKILL.md`), and a new check is proposed
 for the owner.
 
 ## Is it real? (check in this order)

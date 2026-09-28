@@ -60,7 +60,7 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 4. The same clip is now on every Soldier-figure unit. Check the other archetypes still pass their cells.
 5. After three rounds the cell is BLOCKED, with a note of the source animation needed.
 6. **Critic** (`tw-critic` character rubric, rotating angles) on the gym sheets. Keep the best round.
-7. **Learn:** the learning loop in `../pipeline/SKILL.md` (lessons file `character.md`).
+7. **Learn:** the learning loop in `../pipeline/SKILL.md` (board `lessons.md`, step 0 first).
 
 ## Foxholes, trenches and craters (the owner: "fix the characters sitting in their fox hole and shooting")
 **What happens today, at `c43b73f`:**

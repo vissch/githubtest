@@ -54,8 +54,8 @@ Until then, a Blender pass over the FBXs does the same, counting `len(mesh.polyg
    leaves it alone). Approved files are then copied into `Resources/` beside the
    original (`<Name>_LOD2.fbx`) and committed. **The original is never overwritten.**
 6. **Critic round** (`tw-critic` lowpoly rubric, rotating angles). Keep the best round, not the last.
-7. **Learn:** record the numbers that worked (tris, IoU, the flags) in `references/lod-lessons.md` and in the board's
-   `lessons/lowpoly.md`. A flaw that recurs becomes a proposed checklist line, which the owner approves.
+7. **Learn:** record the numbers that worked (tris, IoU, the flags) once, in the board's
+   `lessons.md`. A flaw that recurs becomes a proposed checklist line, which the owner approves.
 
 ## Contracts that bite
 - **The house chunk mask is a seam** (`Toon_URP` float4, 96 chunks, `HouseKit.ChunkMask`). A merged intact-house LOD
