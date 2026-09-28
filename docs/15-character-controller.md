@@ -157,13 +157,26 @@ on the next cooldown).
 | Fire, standing still | Shot event, Standing/FireStep | same | `Firing Rifle` (rifle, sniper), `Firing Rifle (1)` at the 0.5 rps rifle rate |
 | Fire, kneeling / prone | Shot event | same | `Fire Rifle`, `Prone Firing Rifle`; MG: `Prone Firing Rifle (1)` looped at 7 rps |
 | Reload | presentation counter: rifle 5 shots, assault 20, MG 50, sniper every shot (bolt: `Reloading` at 2x, 1.2 s) | sim magazine (`WeaponDefinition.MagazineRounds/ReloadSeconds` exist, unused): fire pauses, one `Reload` event | by stance: `Reloading`, `Reload` (stoop), `Prone Reloading` |
-| Throw | none (`GrenadeSystem` is a stub) | grenade at ≤ 20 m onto Trench / Crater cells, 6 s cooldown, Shot event with Scalar 1 | `Toss Grenade`, the release frame at 1.4 s spawns the presentation grenade |
+| Throw | the close assault on a vehicle only (Shot, Scalar 1: `Toss Grenade`); none at infantry (`GrenadeSystem` is a stub) | grenade at ≤ 20 m onto Trench / Crater cells, 6 s cooldown, Shot event with Scalar 1 | `Toss Grenade`, the release frame at 1.4 s spawns the presentation grenade |
 | Melee | none (close assault is vehicles only) | infantry within 1.5 m of an enemy: strike every 1.2 s, defender rolls a block | `Bayonet Stab` / `Rifle Punch` / `Smash` by seed; `Block With Rifle`; `Upward Rifle Butt Strike` from a crouch |
 | Sling | entering the rear trench with no enemy within 120 m; alarm = target or near miss | same | `Rifle Put Away` then the plain `Idle` / `Walking`; `Rifle Pull Out` on alarm |
 
 Until the sim step lands, reload is cosmetic (the sim keeps firing: the controller only plays it when
 `FireCooldown` shows no shot is due within the clip, which is true for the rifle and sniper rates and false for the
-MG, whose belt change waits for the sim). Throw and melee simply do not happen until the sim does them.
+MG, so the MG's belt change plays when its burst ends and it has no target). Magazines: rifle 5, SMG and machine
+pistol 20, pistol 8, MG belt 50. Standing still, the automatics (SMG, MG, the jetpack's machine pistol) fire the
+looped stooped burst (`Firing Rifle (4)`); the pistol the 0.27 s snap shot.
+
+**Built with the clips already baked (2026-09-28):** the close assault on a vehicle (Shot, Scalar 1) plays `Toss
+Grenade` facing the vehicle (a man lying flat stays down and is drawn firing; a throw holds a walk, a run drops it).
+The medic (UnitHealed) kneels facing the patient with the kneeling reload's busy hands, and the repair man
+(VehicleHullMended) swings `Smash` at the hull; both only once stopped half a second within reach (2.5 m of the man,
+6 m of the vehicle), held 8 ticks past each of the sim's sweeps (every 5), and a target does not stop the armed
+repair man (his shots cut in, then he goes back to it). Stand-ins until a treat and a hammer clip are baked. A
+jetpack leap (stance Leap) plays `Jumping Down` timed from LeapStarted to land where the sim puts him down, lifted on
+an arc 1.4 m per second of flight (1-4 m, through the blast lift `Hop`); once down the landing plays at speed. A para
+(DropLanded) is drawn from the landing of `Jumping Down`. A stooped man turns with the stoop turns; a kneeling man
+still eases round without a clip. Throw at infantry and melee still wait for the sim.
 
 ## 7. Reactions
 
@@ -188,7 +201,7 @@ MG, whose belt change waits for the sim). Throw and melee simply do not happen u
 | Dropping in | cell Surface → Trench over one tick, drop ≥ 0.8 m | `Jumping Down` (starts 0.65 m up: the sim's own height drop plus the clip's makes the fall) |
 | Climbing out | Vault stance / `UnitLeftTrench` | `Jump Up` (0.53 s) → `Jump Loop` while the sim lifts him → `Jump Down`; on a `Link` (ladder) cell the same until a ladder clip exists |
 | Cover | arriving within 1.2 m of a cell with `CellCover` ≥ 30 and stopping, target on the far side | `Taking Cover` (runs in, turns to the wall), then `Left/Right Cover Sneak` when sliding along it, `Emerging` when he leaves toward the target |
-| Crater | cell Crater, stopped, under fire | kneel → prone in the bowl (`Rifle Kneel To Prone`), `Prone Firing Rifle` |
+| Crater | cell Crater (not in a trench, not in water), stopped, with a target or Suppression over 20 | kneel → prone in the bowl (`Rifle Kneel To Prone`), `Prone Firing Rifle`; the MG fires its prone loop (built 2026-09-28) |
 | Water | depth = WaterLevel − ground under his feet | 0.15 to 0.5 m: walk at rate 0.7 with `Walk With Rifle (1)`, feet sunk (VAT y offset = −depth x 0.6); 0.5 to 1.0: the low stoop at rate 0.5 as a wade (no wading clip exists); prone is impossible in water: suppression puts him in the squat instead |
 | Mud cell | NavLayer Mud | rate 0.5, wary walk; the 2% trip roll |
 | Wire cell | NavLayer Wire | stooped low, rate 0.6; trip when entered above walk speed |
@@ -321,7 +334,7 @@ kept 75 % at the reload's world lean); reloads play at 1.5× because the sim fir
 a one-shot fire plays out before a stance change or a turn can take it, a shot snaps the body yaw to the target (the
 feet come round at 6 rad/s) and a shot mid-turn lets the turn finish; a garrison man with no target faces the enemy
 side, not his last step; a moving man the sim flips between prone and upright holds his gait ten ticks, then plays
-the transition (`FlipSince`); kneeling men turn on the knee (the "kneel turn" files are stoops); a stop under 0.4 s
+the transition (`FlipSince`); kneeling men ease round on the knee with no clip (the "kneel turn" files are stoops), stooped men play the stoop turns; a stop under 0.4 s
 in a queue keeps the gait (`StopTick`) and a man who has just walked up stands stooped 1.5 s before the knee; a
 runner does not duck at a shell (he stumbles half the time). Sim step, agreed as needed to show the climb at all:
 `MoveJob.VaultTicks` holds a man at the parapet half a second with stance Vault (the `Cooldown` array counts it),
