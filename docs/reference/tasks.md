@@ -224,7 +224,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   the low byte and `AbilityArgs` above it, `pos` = the point. `MineSystem.Place` stays the system call underneath
   (tests and tools may still call it). DeterminismReplayTests deploys a sapper and orders him by command, so the
   serialized replay verifies `SapperSystem`. The Proving Ground's panel issues it for every sapper of a side at once
-  (`ProvingGround.OrderSappers`: each lays 18 m ahead of himself); no HUD button aims one sapper at a point yet.
+  (`ProvingGround.OrderSappers`: each lays 18 m ahead of himself; a sapper the sim would refuse, because that point is
+  in a trench or off the map or he is pinned, is not ordered and the panel says how many were not); no HUD button aims
+  one sapper at a point yet.
 - **Trap:** a sapper walks on a flow-field CELL goal, and the goal table is small (`FlowFieldManager.MaxGoals`). Ask for
   one with `TryGetGoal` (it answers -1, `GetGoal` throws) and make a finished one over with `Retarget`; SapperTests
   runs more errands than the table has goals.
@@ -457,7 +459,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Files:** `Presentation/Camera/Flamethrower.cs` (the picture: driven by the debug panel's flame tools and, since
   2026-09-28, by the sim's flamethrower unit, archetype 36: `CombatFx.FlameShot` takes a `Shot` from a weapon whose
   `WeaponStats.SetsBurning` is set and draws a burst of the stream instead of a tracer; such a jet is marked `Sim` and
-  sets nobody alight by itself, the sim's `UnitAlight` does, see "Fire in the sim"), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
+  neither it nor the fuel it leaves on the ground (a pool marked `Sim`) sets anybody alight by itself, the sim's
+  `UnitAlight` does, see "Fire in the sim"; ProvingGroundScreenTests), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
   man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
   paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
   (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
@@ -670,8 +673,15 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
   baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
-  timer, the enemy's support, the request, the same on two worlds), ProvingGroundScreenTests (the editor: both UXMLs,
-  picking a ten, the panel over a director of its own).
+  timer, the enemy's support, the sappers' orders, the request, the same on two worlds), ProvingGroundScreenTests
+  (the editor: both UXMLs, picking a ten, the panel over a director of its own, the sim's flame jet).
+- **Seen in Play (2026-09-28, the owner's "test and verify"):** a wave through the enemy's slots, the sappers of both
+  sides laying mines and tripwires, F8 folding the panel by the key, each of the four models near and far, the dead
+  Hopper's fall. What it found, each held by a test that fails on the code before: a deploy was issued again while
+  the first was still on its way (the seat's `InputDelayTicks`), and refused, so of two Brutes one came (the director
+  now holds a slot until its last deploy is in the view, `ProvingGround.SeenMargin`); sappers ordered at a point in
+  their own trench were all refused while the panel said they were sent; the Brute's and the Mercy's far models were
+  torn (below, Models); the fuel a sim jet left burning lit the men beside it.
 - **Statics:** the launch screen's choices and the panel's own wave are statics so that they outlive a restart; both
   register a reset with `SceneStatics.Register` (StaticLifecycleTests), which runs when the Play session ends.
 - **Trap:** placing writes the world between ticks (`SimHost.WriteWorlds`), so the tick's `UnitSpawned` event is
@@ -687,8 +697,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   is drawn as the playground's frog: `Resources/Units/FigureFrog`, baked by **TW > VAT > Bake Frog**
   (`Editor/VATBaker.cs` poses each clip on the Soldier and carries the pose onto the frog's rig with the playground's
   `Playground/Runtime/Retarget.cs`; the Soldier and the Sniper are not re-baked by it), `VATRenderer.FigureOfArchetype`.
-  ProvingGroundModelTests holds the four models (parts, facing, the Croaker's legs, size against the sim's footprint)
-  and that every machine is drawn with a model somebody chose.
+  ProvingGroundModelTests holds the four models (parts, facing, the Croaker's legs, size against the sim's footprint),
+  that every machine is drawn with a model somebody chose, and that no machine's model, near or far, is torn
+  (`ProvingGroundModelTests.Folded`, all fourteen models). The Brute's and the Mercy's far models are sculpts of their
+  own on atlases of their own (`TankRenderer.FarAtlasSuffix`, `pipelines.md`).
 - **Not built yet:** models of their own for the stand-ins and the Breaker, figures of their own for the other foot
   units, a knee that bends forward in the Croaker's gait, LAY MINE / LAY TRIPWIRE buttons that aim one
   selected sapper at a point. Plan of record: `~/.claude/plans/can-you-make-a-misty-dove.md`, phases 2-4.
