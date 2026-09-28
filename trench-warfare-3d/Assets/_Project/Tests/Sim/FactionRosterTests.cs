@@ -261,7 +261,7 @@ namespace TW.Tests
             cfg.FactionA = (byte)FactionId.Brass; cfg.FactionB = (byte)FactionId.Iron; cfg.HeroPity0 = 0.42f; cfg.HeroPity1 = 0.07f;
             var rec = new ReplayRecorder(cfg, default, 1);
             var back = ReplayPlayer.Parse(rec.Serialize());
-            Assert.AreEqual(26, ReplayRecorder.FormatVersion, "the header this test reads is v26's (factions and pity since v9, Endless since v16; bump with the format)");
+            Assert.AreEqual(27, ReplayRecorder.FormatVersion, "the header this test reads is v27's (factions and pity since v9, Endless since v16; bump with the format)");
             Assert.IsFalse(back.Config.Endless, "a match that can be won stays one");
             Assert.AreEqual(FactionId.Brass, back.Config.FactionOf(0));
             Assert.AreEqual(FactionId.Iron, back.Config.FactionOf(1));

@@ -79,7 +79,10 @@ namespace TW.Sim
         // random streams Melee 23 and Pounce 24.
         // v26 (2026-09-28, wrecks break in stages: seam): PropKind gains BrokenWreck, Scrap and Cleared (appended),
         // SimEventType gains PropWorn (appended), VehicleCrushed.b = 3 is wreckage. Nothing produces them yet.
-        public const ushort FormatVersion = 26;
+        // v27 (2026-09-28, wrecks break in stages: blasts): a wreck has hit points sized to its machine (PropDef.Scale) and
+        // blasts wear it down a stage at a time; generated maps' wrecks start at 600, so their MapHash changes; the prop
+        // checksum folds (prop, kind) as an int2.
+        public const ushort FormatVersion = 27;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

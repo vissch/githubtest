@@ -95,6 +95,8 @@ namespace TW.Tests
                 minesLaid |= a >= 0 && b >= 0;
             }
             if (t == 35) w.GetSystem<TW.Sim.Combat.BurningSystem>().IgniteCell(w, new float3(90f, 0f, 280f), 8f, 0);
+            // a wreck in the line barrage's path (t == 51): its hit points and stages (2026-09-28) are hashed with the map
+            if (t == 32) match.Map.AddProp(new TW.Sim.Terrain.PropDef { Pos = new float3(150f, 0f, 520f), Kind = TW.Sim.Terrain.PropKind.Wreck, Scale = 1f });
         }
 
         static ulong[] Run(int ticks, ReplayRecorder recorder = null)
