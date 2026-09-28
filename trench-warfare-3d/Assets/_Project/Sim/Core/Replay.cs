@@ -68,7 +68,12 @@ namespace TW.Sim
         // v24 (2026-09-28, the range cut, lane/sim/melee): every attack reach at CombatTables.RangeScale 0.8 of its design
         // (weapon and main-gun ranges, minimum ranges, stand-offs, AdvanceFireRange, EngageSystem.HuntRadius): the
         // catalogue fingerprints change. Layout and chain unchanged.
-        public const ushort FormatVersion = 23;
+        // v24 (2026-09-28, hand to hand, lane/sim/melee): MeleeSystem (order 1109: Foe, FoeGen, Contact, Swing, Dropped,
+        // Calm, the generation seen) and PounceSystem (order 1125: Phase, Ticks, Cooldown, From, To, Target, the
+        // generation seen) join the chain; MovementSystem.EngageMelee and Stance.Melee; UnitFlags Melee, Disarmed and
+        // Pouncing (bits 16-18); events MeleeBlow, WeaponDropped, WeaponPickedUp, PounceCrouched, PounceLanded appended;
+        // random streams Melee 23 and Pounce 24.
+        public const ushort FormatVersion = 24;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

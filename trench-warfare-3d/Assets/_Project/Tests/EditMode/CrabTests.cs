@@ -1,4 +1,4 @@
-// Phase: A5b (implemented) â€” the owner's four crab walkers: that they walk over what a tank has to fight through,
+// Phase: A5b (implemented) — the owner's four crab walkers: that they walk over what a tank has to fight through,
 // that they are stopped by losing legs rather than by a broken track, that their claws kill what comes close, that
 // the Kettle's mortar drops shells on men it cannot see, that the Censer lays its gas as it goes, and that every bit
 // of it is the same on both machines. (Owner, 2026-09-22: two crab sheets, then two more, "do the same for these".)
@@ -198,7 +198,8 @@ namespace TW.Tests
             for (int k = 0; k < 4; k++) close.Add(m.World.Spawn(0, 0, new float3(28f + k, 0f, 110f), 100f, 0f, false));   // inside the minimum range
             var log = Run(m, 200);
             Assert.AreEqual(0, Count(log, SimEventType.VehicleFired, crab), "nothing within the minimum range is worth a shell");
-            foreach (int i in close) Assert.IsTrue(m.World.IsAlive(i), "and they are not shelled");
+            // (the Kettle may pounce on them or claw them: PounceSystem, 2026-09-28; what may not reach them is a shell)
+            foreach (var e in log) if (e.Type == SimEventType.Death && close.Contains(e.A)) Assert.AreNotEqual((int)DeathCause.Blast, e.B, "and they are not shelled");
 
             using var m2 = NewMatch();
             int crab2 = SpawnCrab(m2, 1, VehicleArchetype.Kettle, new float3(30f, 0f, 200f), 0f);
