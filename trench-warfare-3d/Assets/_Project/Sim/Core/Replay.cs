@@ -48,7 +48,10 @@ namespace TW.Sim
         // v16 (2026-09-28, the Playground's units): UnitDefinitions.All gains the Brute 21, Croaker 22, Mercy 23, Hopper 24
         // and the Frog 25 (fielded by no faction), so the unit table's fingerprint changes; a machine with a heal rate (the
         // Mercy) heals in SupportSystem. Layout and hash chain unchanged.
-        public const ushort FormatVersion = 16;
+        // v17 (2026-09-28, how machines drive): VehicleProfile gains Accel, Brake and PivotSpeed, so the hashed profile
+        // table's bytes change; VehicleKinematicsSystem drives with momentum (Velocity carries the way from tick to tick)
+        // and steers on a blended field. Same inputs, different tracks: a v16 replay does not replay. Chain unchanged.
+        public const ushort FormatVersion = 17;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
