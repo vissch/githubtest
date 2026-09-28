@@ -121,6 +121,7 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.Spurt, t.Dust);
             books.Tint(FlipbookFx.Book.Puff, t.Dust);
             books.Tint(FlipbookFx.Book.Smoke, t.Smoke);
+            books.Ember(FlipbookFx.Book.Burst, EmberFor(SceneMood.Night, shellFire));   // CombatFx.ShellFire.cs: the cloud lit by the fire inside it
             // the VFX pass's books (2026-09-28), with the book each stands in for; the night passes below still touch only the old ones
             books.Tint(FlipbookFx.Book.MortarBurst, t.Column);
             books.Tint(FlipbookFx.Book.ShellFall, t.Column);
@@ -729,7 +730,8 @@ namespace TW.Presentation.Tactical
                         float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
                         float columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth;
                         // AOSA C109: a dry column on a moonlit field stops before its book's late arcs at fx.columnPlay (1: cut 0, the old card exactly)
-                        float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay) : 0f;
+                        float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay)
+                            : !wet && shellFire > 0f ? FlipbookFx.ColumnPlayCut(DayColumnPlay) : 0f;   // by day too (CombatFx.ShellFire.cs): the late arcs hung over the snow as icicles
                         Vector3 columnLean = flight * (r * 0.45f * lean);   // the column leans the way the shell was going
                         if (recipe.Column)
                         {
@@ -803,7 +805,7 @@ namespace TW.Presentation.Tactical
                             float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
                             float burstRoll = UnityEngine.Random.Range(-0.15f, 0.15f);   // drawn either way: the shared stream
                             if (!recipe.Dust)   // L15: no shell's glowing cloud over a man landing
-                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * 2.6f * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night, 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
                             if (!recipe.Dust && !recipe.CookOff && !Masonry(e.Dir.y))

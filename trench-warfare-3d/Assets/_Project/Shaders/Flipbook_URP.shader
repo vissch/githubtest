@@ -32,6 +32,7 @@ Shader "TW/Flipbook (URP)"
         _Soft ("A cloud as deep as it is wide: fades in front of a surface over this x its width (0 = off)", Float) = 0
         _Hard ("Toon-cut silhouette: the drawing's edge stepped at half its alpha (0 = its own soft edge)", Range(0, 1)) = 0
         _BurstLit ("How much of the burst's own light it takes (1 = all)", Range(0, 1)) = 1
+        _Ember ("A cloud born of fire: warm light on its underside while it is young (0 = none)", Color) = (0, 0, 0, 0)
         _Ground ("A book lying on the ground (1): not softened against the ground it lies on", Float) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
@@ -58,7 +59,7 @@ Shader "TW/Flipbook (URP)"
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels, _Bands, _Contour;
-                half4 _Tint, _Shade, _Smoke, _Fringe, _Core, _InkColor;
+                half4 _Tint, _Shade, _Smoke, _Fringe, _Core, _InkColor, _Ember;
                 float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -255,6 +256,9 @@ Shader "TW/Flipbook (URP)"
                 half3 lit = lerp(_Shade.rgb * lerp(half3(1, 1, 1), TWShadeTint(), _ShadeMood), _MainLightColor.rgb, band);   // smoke keeps more of its own grey under a blue moon
                 half3 color = _Tint.rgb * lerp(ink.xxx, lit, _Lit) * i.tone.y;
                 if (_Erode > 0.5) color *= lerp(0.78, 1.0, smoothstep(0.0, 0.6, i.local.y));   // a cloud's underside is in its own shadow
+                // ...unless it was born of fire (_Ember, the shell's boiling cloud only): its underside is lit by the fire inside it
+                // while it is young, the dark of the drawing most (the owner's snow reference: peach-lit billows over the fireball)
+                color += _Ember.rgb * (i.tone.x * i.tone.x) * (1.0 - smoothstep(0.0, 0.55, i.local.y)) * lerp(1.0, 0.4, band);
                 // the shell's own flash lights the earth it threw up and the smoke rolling off it: the drawing's light
                 // parts catch it most, its dark parts least, so the column is modelled by its own burst and not flooded
                 // AOSA C61 (fx.smokeNightFire, the night smoke only): dark smoke under an orange burst light turned tan
