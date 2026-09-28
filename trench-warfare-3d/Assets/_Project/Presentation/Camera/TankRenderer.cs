@@ -71,7 +71,7 @@ namespace TW.Presentation.Tactical
             }
         }
 
-        sealed class View
+        sealed partial class View
         {
             public int Slot; public ushort Gen; public byte Team; public TankModel Model;
             public Vector3 Pos, LastPos; public float Yaw, LastYaw; public bool Seen;
@@ -129,6 +129,7 @@ namespace TW.Presentation.Tactical
             public readonly Matrix4x4[] M = new Matrix4x4[1023];
             public readonly float[] Tread = new float[1023];
             public readonly Vector4[] Damage = new Vector4[1023], Tint = new Vector4[1023], Team = new Vector4[1023];
+            public readonly float[] Chunks = new float[1023];   // a carcass's gone chunks (TankRenderer.WreckStages); 0 on every other mesh
             public readonly MaterialPropertyBlock Props = new MaterialPropertyBlock();
         }
 
@@ -353,6 +354,7 @@ namespace TW.Presentation.Tactical
             foreach (var kv in views) if (!kv.Value.Seen) gone.Add(kv.Key);
             foreach (int slot in gone) { Wreckify(views[slot], now); views.Remove(slot); }   // missed its VehicleDestroyed: still leave a wreck
             for (int k = wrecks.Count - 1; k >= 0; k--) if (!Smoulder(wrecks[k], dt, now)) Drop(k);
+            WreckStagesFrame(dt, now, match);   // the wrecks' stages: chunks with the hit points, shards, cleared heaps (TankRenderer.WreckStages)
             while (wrecks.Count > MaxWrecks) Drop(0);
             FlyDebris(dt, match);
             RunPops(now);
@@ -1067,13 +1069,15 @@ namespace TW.Presentation.Tactical
             if (Host == null || Host.Local == null) return;
             float now = Time.time;
             if (e.Type == SimEventType.Explosion) { Blasted(e); return; }
+            if (e.Type == SimEventType.PropWorn) { WreckWorn(e); return; }
+            if (e.Type == SimEventType.PropChanged && WreckStageEvent(e)) return;   // a wreck breaking further (TankRenderer.WreckStages)
             if (e.Type == SimEventType.PropChanged)
             {
                 // a wreck prop for a tank that just died (dir.x = slot + 1): tie it to the newest unlinked hull of that slot
                 if (e.B != (int)TW.Sim.Terrain.PropKind.Wreck || e.Dir.x < 1f) return;
                 int slot = (int)e.Dir.x - 1;
                 for (int k = wrecks.Count - 1; k >= 0; k--)
-                    if (!wrecks[k].Linked && wrecks[k].Slot == slot) { wrecks[k].Linked = true; wrecks[k].PropPos = (Vector3)e.Pos; break; }
+                    if (!wrecks[k].Linked && wrecks[k].Slot == slot) { wrecks[k].Linked = true; wrecks[k].PropPos = (Vector3)e.Pos; wrecks[k].Prop = e.A; break; }
                 return;
             }
             views.TryGetValue(e.A, out var v);
@@ -1303,11 +1307,11 @@ namespace TW.Presentation.Tactical
             return b;
         }
 
-        void Queue(Mesh mesh, Material mat, Matrix4x4 m, float tread, Vector4 damage, Vector4 tint, Vector4 team = default)
+        void Queue(Mesh mesh, Material mat, Matrix4x4 m, float tread, Vector4 damage, Vector4 tint, Vector4 team = default, uint chunks = 0u)
         {
             var b = BatchFor(mesh, mat);
             if (b.Count >= b.M.Length) return;
-            b.M[b.Count] = m; b.Tread[b.Count] = tread; b.Damage[b.Count] = damage; b.Tint[b.Count] = tint; b.Team[b.Count] = team;
+            b.M[b.Count] = m; b.Tread[b.Count] = tread; b.Damage[b.Count] = damage; b.Tint[b.Count] = tint; b.Team[b.Count] = team; b.Chunks[b.Count] = chunks;
             b.Count++;
         }
 
@@ -1361,6 +1365,7 @@ namespace TW.Presentation.Tactical
                 try { DrawDebris(d); }   // one bad piece must not stop every tank being drawn
                 catch (System.Exception ex) { if (!debrisLogged) { debrisLogged = true; Debug.LogError($"TankRenderer debris part {d.Part} owner {(d.Owner == null ? "null" : d.Owner.Slot.ToString())} model {(d.Owner?.Model == null ? "null" : "ok")} local {d.Local?.Count}: {ex}"); } }
             }
+            DrawShards();   // chunks of wrecks in the air and on the ground (TankRenderer.WreckStages)
             DrawRest();
         }
 
@@ -1404,6 +1409,7 @@ namespace TW.Presentation.Tactical
                 b.Props.SetVectorArray(DamageId, b.Damage);
                 b.Props.SetVectorArray(TintId, b.Tint);
                 b.Props.SetVectorArray(TeamId, b.Team);
+                b.Props.SetFloatArray(ChunksId, b.Chunks);
                 var rp = new RenderParams(b.Material) { worldBounds = Everywhere, shadowCastingMode = ShadowCastingMode.On, receiveShadows = true, matProps = b.Props };
                 FrameBudget.Draw(rp, b.Mesh, 0, b.M, b.Count);
                 b.Count = 0;
@@ -1423,6 +1429,7 @@ namespace TW.Presentation.Tactical
                 if (IsOff(v, l, i)) continue;
                 var p = l.Parts[i];
                 float tread = p.Role == TankPartRole.Track ? (p.Side < 0 ? v.TreadL : v.TreadR) : 0f;
+                if (v.Dead && p.Parent < 0 && QueueCarcass(v, lod, world[i], damage, tint, TeamBand(v, p))) continue;   // a wreck's hull, as its carcass
                 Queue(p.Mesh, MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p));
             }
         }

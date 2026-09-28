@@ -413,7 +413,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   import rules `Editor/TankImport.cs` (the walkers' nodes put at `crabs.json`'s places by `Editor/CrabManifest.cs`). Infantry riding the machines (a prototype, presentation only):
   `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
   `Presentation/Units/VATRenderer.Extras.cs` (the riders drawn; a seated man is hidden from the normal pass),
-  `Editor/RiderLab.cs` (the seat sheet and captures).
+  `Editor/RiderLab.cs` (the seat sheet and captures). A wreck breaking in stages (2026-09-28):
+  `Presentation/Camera/TankRenderer.WreckStages.cs` (a dead machine's root part drawn as its carcass, chunks coming away
+  as the sim's wreck prop loses hit points, the stage changes, shards, cleared heaps sinking, the map's own wrecks adopted
+  as husks), `Presentation/Camera/WreckModel.cs` (the root part cut into chunks at load, the chunk in UV4.x),
+  `Presentation/Camera/WreckStages.cs` (`WreckStageRules`: which chunks are gone at each stage); `Shaders/Tank_URP.shader`
+  collapses a chunk whose bit is set in the instance's `_Chunks`.
 - **Tests:** GaitTests (plus the sim tests above), WalkerPivotTests (every walker's and the Cutter's part and socket
   where crabsplit.py built it, at both LODs: `Editor/TankImport.cs` puts them there from `crabs.json`), WalkerJointTests (the joined legs hang together at both LODs), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), TrackDustTests (a pivot throws dust where the hull-speed gate threw none), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers

@@ -15,8 +15,10 @@
 //          asset playground's frogs; the game's own figures are VAT_URP and recolour their cloth there).
 // Night readability (critique 2026-09-22): a cool moonlight fill and rim keep a live hull off the mud (only soot, a
 // wreck, goes near black, and even that keeps its plates); a trench lamp adds at most 0.6 so it never reads as fire.
+//  _Chunks a wreck's carcass (TankRenderer.WreckStages): a bit per chunk (1..24) that is gone; UV4.x names each vertex's
+//          chunk, 0 on every other mesh, so nothing else is touched. A gone chunk's vertices collapse to the origin.
 // Mesh data (TankImport): UV0 atlas, UV1 tread coordinate, UV2 masks (tread, furnace, exhaust), UV3 smoothed normal for the
-// ink, vertex colour the painted form (darker at the foot).
+// ink, UV4.x a carcass chunk (built at load, WreckModel), vertex colour the painted form (darker at the foot).
 Shader "TW/Tank (URP)"
 {
     Properties
@@ -33,6 +35,7 @@ Shader "TW/Tank (URP)"
         [HideInInspector] _Damage ("Damage (per instance)", Vector) = (0,0,0,0)
         [HideInInspector] _Tint ("Team tint (per instance)", Vector) = (1,1,1,0)
         [HideInInspector] _Team ("Team colour band (per instance)", Vector) = (0,0,0,0)
+        [HideInInspector] _Chunks ("Carcass chunks gone (per instance)", Float) = 0
     }
     SubShader
     {
@@ -52,7 +55,18 @@ Shader "TW/Tank (URP)"
             UNITY_DEFINE_INSTANCED_PROP(float4, _Damage)
             UNITY_DEFINE_INSTANCED_PROP(float4, _Tint)
             UNITY_DEFINE_INSTANCED_PROP(float4, _Team)
+            UNITY_DEFINE_INSTANCED_PROP(float, _Chunks)
         UNITY_INSTANCING_BUFFER_END(TankProps)
+
+        /// A carcass chunk that is gone: its vertices go to the origin (degenerate, no pixels), in every pass. Called after
+        /// UNITY_SETUP_INSTANCE_ID. chunk 0 (every mesh but a carcass) is never touched.
+        float3 TankChunk(float3 positionOS, float chunk)
+        {
+            if (chunk < 0.5) return positionOS;
+            float gone = UNITY_ACCESS_INSTANCED_PROP(TankProps, _Chunks);
+            float bit = exp2(floor(chunk + 0.5) - 1.0);
+            return fmod(floor(gone / bit), 2.0) > 0.5 ? float3(0.0, 0.0, 0.0) : positionOS;
+        }
 
         float TankHash(float3 p) { p = frac(p * 0.3183099 + 0.1); p *= 17.0; return frac(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         /// Value noise in object space: soot patches stay put on a moving hull.
@@ -86,7 +100,7 @@ Shader "TW/Tank (URP)"
 
             struct Attributes
             {
-                float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 tread : TEXCOORD1; float4 mask : TEXCOORD2;
+                float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 tread : TEXCOORD1; float4 mask : TEXCOORD2; float chunk : TEXCOORD4;
                 half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct Varyings
@@ -100,6 +114,7 @@ Shader "TW/Tank (URP)"
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TankChunk(v.positionOS.xyz, v.chunk);
                 Varyings o;
                 o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
                 o.positionCS = TransformWorldToHClip(o.positionWS);
@@ -219,12 +234,13 @@ Shader "TW/Tank (URP)"
             #pragma multi_compile_fog
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float3 smoothOS : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float3 smoothOS : TEXCOORD3; float chunk : TEXCOORD4; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float3 positionWS : TEXCOORD1; };
 
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TankChunk(v.positionOS.xyz, v.chunk);
                 Varyings o;
                 o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
                 float3 n = dot(v.smoothOS, v.smoothOS) > 0.01 ? v.smoothOS : v.normalOS;
@@ -256,10 +272,11 @@ Shader "TW/Tank (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
             float3 _LightDirection;
             float3 _LightPosition;
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float chunk : TEXCOORD4; UNITY_VERTEX_INPUT_INSTANCE_ID };
             float4 vertShadow(Attributes v) : SV_POSITION
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                v.positionOS.xyz = TankChunk(v.positionOS.xyz, v.chunk);
                 float3 ws = TransformObjectToWorld(v.positionOS.xyz);
                 float3 n = TransformObjectToWorldNormal(v.normalOS);
             #if _CASTING_PUNCTUAL_LIGHT_SHADOW
@@ -288,8 +305,8 @@ Shader "TW/Tank (URP)"
             #pragma vertex vertDepth
             #pragma fragment fragDepth
             #pragma multi_compile_instancing
-            struct Attributes { float4 positionOS : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); return TransformWorldToHClip(TransformObjectToWorld(v.positionOS.xyz)); }
+            struct Attributes { float4 positionOS : POSITION; float chunk : TEXCOORD4; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            float4 vertDepth(Attributes v) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(v); return TransformWorldToHClip(TransformObjectToWorld(TankChunk(v.positionOS.xyz, v.chunk))); }
             half4 fragDepth() : SV_Target { return 0; }
             ENDHLSL
         }

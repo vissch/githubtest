@@ -52,6 +52,9 @@ namespace TW.Presentation.Terrain
                     case PropKind.Stump: radius = 0.4f; height = 1f; break;
                     case PropKind.Log: radius = 0.3f; height = 0.6f; break;
                     case PropKind.Wreck: radius = 2.5f; height = 2.5f; break;
+                    case PropKind.BrokenWreck: radius = 2.3f; height = 1.6f; break;
+                    case PropKind.Scrap: radius = 2.1f; height = 0.7f; break;
+                    case PropKind.Cleared: continue;   // a wreck that is gone obstructs nothing
                     case PropKind.Bridge: continue;
                     default: radius = 0.4f; height = 1f; break;
                 }
