@@ -121,6 +121,19 @@ namespace TW.Tests
             finally { b.SetSide(0); b.Defaults(); b.SetGround(0); b.Unbind(); }
         }
 
+        /// <summary>A card takes its picture from a USS class named after the portrait. The pictures of the six units of
+        /// 2026-09-25, the Breaker and the drop were baked and their classes never written, so their cards were blank;
+        /// the Sapper and the Mercy borrow two of them.</summary>
+        [Test]
+        public void EveryPortraitTheSkinBakesHasItsClass()
+        {
+            string uss = System.IO.File.ReadAllText(System.IO.Path.Combine(UnityEngine.Application.dataPath, "_Project/UI/Skin/dustfront.components.uss"));
+            foreach (var n in SkinSpec.PortraitNames)
+                StringAssert.Contains(".tw-portrait-" + n + " { background-image: url(\"Portraits/" + n + ".png\"); }", uss, $"no class for the portrait {n}: its card is blank");
+            foreach (var u in ProvingGround.Catalogue())
+                StringAssert.Contains(".tw-portrait-" + UnitLook.PortraitName(u.Archetype) + " {", uss, $"{u.Name}'s card is blank");
+        }
+
         [Test]
         public void WhatTheScreensKeepIsForgottenWhenTheSessionEnds()
         {

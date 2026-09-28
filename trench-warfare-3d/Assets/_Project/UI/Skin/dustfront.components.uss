@@ -258,10 +258,19 @@
 .tw-portrait-Pavise { background-image: url("Portraits/Pavise.png"); }
 .tw-portrait-Banner { background-image: url("Portraits/Banner.png"); }
 .tw-portrait-Redoubt { background-image: url("Portraits/Redoubt.png"); }
+/* the six of 2026-09-25 and the Breaker: their cards were blank until 2026-09-28 (the pictures were baked, the classes never written) */
+.tw-portrait-Officer { background-image: url("Portraits/Officer.png"); }
+.tw-portrait-Shield { background-image: url("Portraits/Shield.png"); }
+.tw-portrait-Medic { background-image: url("Portraits/Medic.png"); }
+.tw-portrait-Engineer { background-image: url("Portraits/Engineer.png"); }
+.tw-portrait-Para { background-image: url("Portraits/Para.png"); }
+.tw-portrait-Jetpack { background-image: url("Portraits/Jetpack.png"); }
+.tw-portrait-Breaker { background-image: url("Portraits/Breaker.png"); }
 .tw-portrait-Skimmer { background-image: url("Portraits/Skimmer.png"); }
 .tw-portrait-Salvo { background-image: url("Portraits/Salvo.png"); }
 .tw-portrait-HeBarrage { background-image: url("Portraits/HeBarrage.png"); }
 .tw-portrait-ChlorineGas { background-image: url("Portraits/ChlorineGas.png"); }
+.tw-portrait-ParaDrop { background-image: url("Portraits/ParaDrop.png"); }
 
 /* ---- corners: each component clips to the radius UiSkinGenerator paints into its sprite (v3) ------------------ */
 .tw-keycap, .tw-tab, .tw-list-row { border-radius: var(--tw-radius); }
