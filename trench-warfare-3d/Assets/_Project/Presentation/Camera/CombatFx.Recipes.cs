@@ -23,7 +23,7 @@ namespace TW.Presentation.Tactical
         }
 
         public const string RecipesKnob = "fx.recipes";
-        public const float RingRadius = 5f;       // a shell this big (the sim's radius, m) throws a ring along the ground
+        public const float RingRadius = 6f;       // a shell this big (the sim's radius, m) throws a ring along the ground (the barrage's 8 m shells, not its 5 m)
         public const float DefaultRecipes = 0f;   // the old burst until the recipes have been seen in Play (catalogue: proof per zoom)
 
         /// <summary>fx.recipes, 0 (the old burst) or 1 (the VFX pass's recipes).</summary>
