@@ -84,5 +84,32 @@ namespace TW.Presentation.Tactical
                 leaps[i] = l;
             }
         }
+    
+        /// <summary>L13 (fx.recipes): a round stopped by a shield bearer's plate (ShieldBlocked: pos is the bearer, dir the
+        /// round's way): a strike on the plate, 0.6 m in front of him toward the shooter and 1.1 m up, and the round going
+        /// off it, a quick star thrown up and back the way it came.</summary>
+        void OnShieldBlocked(SimEvent e)
+        {
+            if (recipes < 0.5f || books == null || !books.Ready) return;
+            Vector3 dir = new Vector3(e.Dir.x, 0f, e.Dir.z);
+            if (dir.sqrMagnitude < 1e-4f) return;
+            dir.Normalize();
+            Vector3 plate = (Vector3)e.Pos; plate.y = RenderGround.Sample(Host.Local.Map, plate.x, plate.z) + 1.1f;
+            plate -= dir * 0.6f;
+            float glow = (SceneMood.Night ? 3.2f : 1.8f) * SceneTints.Now.Glow;
+            books.Add(FlipbookFx.Book.Star, plate, 0.9f, 0.08f, glow: glow);
+            books.Add(FlipbookFx.Book.Star, plate, 0.5f, 0.15f, velocity: (-dir + Vector3.up * 0.8f) * 9f, glow: glow);
+        }
+
+        /// <summary>L18 (fx.recipes): a charging Breaker's round found the mark (CriticalHit, pos the target): a bigger strike
+        /// and a flash on the one it hit.</summary>
+        void OnCriticalHit(SimEvent e)
+        {
+            if (recipes < 0.5f || books == null || !books.Ready) return;
+            Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.2f;
+            float glow = (SceneMood.Night ? 4f : 2f) * SceneTints.Now.Glow;
+            books.Add(FlipbookFx.Book.Star, at, 2.1f, 0.12f, glow: glow);
+            books.Add(FlipbookFx.Book.Flash, at, 2.6f, 0.12f, glow: glow, pop: 0.5f);
+        }
     }
 }
