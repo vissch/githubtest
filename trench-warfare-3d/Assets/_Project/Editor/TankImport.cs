@@ -12,6 +12,8 @@
 // still in Blender's axes. Every part was exported unturned, so such a node is put right here: its offset turned
 // back (x, -z, y) and its rotation cleared. The Tusk's muzzle offset fits no turn at all, so it is put at the tip of
 // the barrel (the gun mesh's front, which points +Z). Checked against tanksplit.py's tanks.json pivots and sockets.
+// A node two levels down under a part off the root's origin is moved as well: the walkers' are put at crabs.json's
+// places (CrabManifest).
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -22,7 +24,7 @@ namespace TW.Editor
     {
         public const string Folder = "Assets/_Project/Resources/Vehicles/";
 
-        public override uint GetVersion() => 2;
+        public override uint GetVersion() => 3;
 
         static bool Ours(string path) => path.Replace('\\', '/').StartsWith(Folder);
 
@@ -63,6 +65,18 @@ namespace TW.Editor
                     t.localPosition = new Vector3(b.center.x, b.center.y, b.max.z);
                 }
                 else t.localPosition = new Vector3(p.x, -p.z, p.y);
+            }
+            // The walkers and the Cutter (crabsplit.py) nest a level deeper under a body off the root's origin, and the
+            // same export moves those nodes as well (CrabManifest): each goes to the place its manifest gives, parents
+            // first, the muzzles kept at the barrel's tip as above. Read on every import of theirs, so the manifest is a
+            // dependency.
+            var places = CrabManifest.Places(CrabManifest.MachineOf(assetPath));
+            if (places != null)
+            {
+                context.DependsOnSourceAsset(CrabManifest.Path);
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                    if (t != root.transform && !t.name.StartsWith("Socket_Muzzle") && places.TryGetValue(t.name, out var at))
+                        t.localPosition = at - root.transform.InverseTransformPoint(t.parent.position);
             }
             foreach (var filter in root.GetComponentsInChildren<MeshFilter>())
             {
