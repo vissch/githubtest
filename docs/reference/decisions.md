@@ -94,22 +94,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | Date | Decision |
 |---|---|
 | 2026-09-28 | **Units spread over the map instead of walking in rows on set paths, and go out of their way to attack each other** (the owner, playing the game). Built on `lane/sim/nav-engage` as lanes, trench walls crossed anywhere, a corrected flow field and `EngageSystem` (`tasks.md`, Movement and Infantry combat; replay v18). The choices made on the way are the agent's and are listed under Open. |
+| 2026-09-28 | **Men are deployed across the whole width of the field** (the owner, told what it costs): reinforcements on foot come up each on his own lane (`Lane.Of` in `SimWorld.Deploy`), and men off a boat fan out to theirs. The cost is accepted: a garrison is thin. Ten men on the greybox field (284 m wide) stand some thirty metres apart in their trench, so what reaches men by radius reaches fewer of them: a hero's rally (20 m) found two of twelve where it found three or more, and a Breaker's guns had the one man before it down before its claws reached him. Two tests had their garrisons made thicker for it (HeroTests forty men, BreakerTests a knot put down behind the trench); the rules themselves are unchanged. |
 
 ## Open: waiting on the owner
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
   out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
   garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
   in the open to duel across wire or a trench, and men in an enemy trench are stormed, not hunted; (4) he hunts within
-  70 m and stops to shoot at half his weapon's range (45 m under a `>>` order), kneeling; (5) reinforcements on foot
-  are deployed across the whole width of the field, each on his lane, and men off a boat fan out to theirs; (6) mud
-  costs a path twice dry ground, not four times; (7) machines keep to lanes too but do not hunt (their guns choose
-  their own targets). Measured in the test battle (both sides ordered forward every 5 s): fights in the open are now
-  fought out to the last man, and the side caught in front of the other's trench line loses. A cost of (5): a
-  garrison is thin. Ten men deployed on the greybox field (284 m wide) stand some thirty metres apart in their
-  trench, so what reaches men by radius reaches fewer of them: a hero's rally (20 m) found two of twelve where it
-  found three or more, and a Breaker's guns had the one man before it down before its claws reached him. Two tests
-  had their garrisons made thicker for it (HeroTests forty men, BreakerTests a knot put down behind the trench); the
-  rules themselves are unchanged. A narrower deployment front is one argument of `Lane.Of` in `SimWorld.Deploy`.
+  70 m and stops to shoot at half his weapon's range (45 m under a `>>` order), kneeling; (5) mud costs a path twice
+  dry ground, not four times; (6) machines keep to lanes too but do not hunt (their guns choose their own targets).
+  Measured in the test battle (both sides ordered forward every 5 s): fights in the open are now fought out to the
+  last man, and the side caught in front of the other's trench line loses. (Deployment across the whole width was
+  one of these and is decided: the table above.)
 - **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
   Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
   shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).
