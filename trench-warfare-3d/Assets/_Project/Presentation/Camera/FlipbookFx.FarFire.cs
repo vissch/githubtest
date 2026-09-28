@@ -89,6 +89,10 @@ namespace TW.Presentation.Tactical
                 float tall = Mathf.Clamp(glowTall[i] * 1.1f, size, 90f);
                 Vector3 at = new Vector3(s.x / s.w, s.y / s.w, s.z / s.w);
                 glowCards.Add(Pack(at, size, tall, 0f, 1f, bright, 0f, Kind.None, farBlend * Mathf.Clamp01(s.w / 3f) * GlowOpacity));
+                // a tall fire (the beam's pillar, a burning tree) also gets a narrow hot core down its length: r12 showed the soft
+                // column alone lifts the picture by only a couple of levels, and the old procedural column's read was its core
+                if (tall > size * 1.5f)
+                    glowCards.Add(Pack(at, size * 0.3f, tall * 0.9f, 0f, 1f, bright * 1.6f, 0f, Kind.None, farBlend * GlowOpacity));
             }
             glowCount = 0;
             DrawPacked(Book.Flash, glowCards, bounds);
