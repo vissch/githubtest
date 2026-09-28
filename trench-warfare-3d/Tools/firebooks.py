@@ -94,11 +94,16 @@ BOOKS = {
     "MendSparks":  ("tw_mend_sparks_8x4_12fps_32f_loop.png",      "luma",  False, None),      # a welding torch's sparks: repairs
     "ShellLean":   ("tw_shell_lean_b_8x4_12fps_32f.png",          "luma",  False, None),      # earth thrown one way: the directional burst
     "WreckSmoke":  ("tw_wreck_smoke_8x4_12fps_32f_loop.png",      "luma",  False, (0, 27)),   # black smoke over a burning wreck, steady
+    # Blood on hits (owner, 2026-09-28: "we need blood"; decisions.md): the pack's red sheets, read by LIGHTNESS like the
+    # other saturated ones, both drawn spraying rightward from a point on the left, so rooted there like the jet
+    "BloodSpurt":  ("blood_spurt_1_8x4_12fps_32f.png",            "light", True,  (1, 28)),   # a rifle hit; f0 a stray streak, f29-31 near empty
+    "BloodSnipe":  ("blood_sniper_1_8x4_12fps_32f.png",           "light", True,  (5, 29)),   # a heavy hit; f0-4 a different drawing (clouds)
 }
 FRAMES_IN = {"FireBall": 32, "FireColumn": 30, "FireBurst": 32, "FireJet": 29, "FireBlast": 32, "FireFan": 32, "FireStand": 32, "FirePool": 32, "FireCore": 32, "FireBloom": 27, "FireHead": 26,
              "GasBank": 30, "GasVent": 32, "SmokeBank": 32, "MortarBurst": 30, "ShellFall": 30, "LeanBurst": 28,
              "FireCookOff": 32, "FireTall": 32, "FireGunBlast": 32, "Smoulder": 32, "GroundRing": 32, "DustPuff": 32, "ShellPlume": 32,
-             "FireLance": 32, "MendSparks": 32, "ShellLean": 32, "WreckSmoke": 32}
+             "FireLance": 32, "MendSparks": 32, "ShellLean": 32, "WreckSmoke": 32,
+             "BloodSpurt": 32, "BloodSnipe": 32}
 # FireBall's band split, measured in round 2: the shader's default _Bands and the levels its Sheet row uses
 FIREBALL_BANDS = (0.12, 0.40, 0.86)
 FIREBALL_LEVELS = (0.16, 0.86)
