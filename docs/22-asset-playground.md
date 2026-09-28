@@ -323,10 +323,11 @@ Pavise's gun reaches 360 m) but throws about half the Kettle's HE a second (Kett
 machine that closes inside 60 m and cooks off easily (ammunition risk 0.7). Neither should dominate; the Salvo may
 read as weak for its price, which Play will tell.
 
-**The salvo.** The sim fires one indirect shell per reload and its burst (and the men it kills) happens on the tick it
-is fired. `Presentation/Camera/TankRenderer.Salvo.cs` draws that shot as twelve rockets leaving the tubes over a
-second, each on its own arc with a smoke trail, landing scattered over the burst's radius round the sim's landing
-point. They land 1-3 s after the sim's burst: a delayed impact in the sim would line them up, and that is the owner's call.
+**The salvo.** First drawn over the sim's one shell (which burst on the firing tick, 1-3 s before the drawn rockets
+landed); then made the sim's own: the gun fires twelve rockets, each held by `TankGunnerySystem` until its own land
+tick and announced by a `RocketFired` event with its launch and flight ticks and its landing point, so
+`Presentation/Camera/TankRenderer.Salvo.cs` flies each from its tube on the sim's clock and it reaches the ground on
+the frame its burst is drawn (format v11, `02-contracts.md`). The rack does the shell's harm, spread wider (decisions.md).
 
-**Left for a look in Play:** the salvo's timing against the sim's burst; its trails and bursts at night; the Skimmer's
+**Left for a look in Play:** each rocket reaching the ground on the frame its burst shows; its trails and bursts at night; the Skimmer's
 turret following its machine gun's target and its fan spinning; the Salvo's wheels rolling; both far LODs at 170 m.
