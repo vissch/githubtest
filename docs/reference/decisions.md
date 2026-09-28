@@ -120,6 +120,11 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 - **Dead ground (2026-09-29), the agent's choice:** a man more than 10 m behind his own front trench is out of sight of
   the other side's small arms (the approaches and communication trenches the map does not draw). Without it the
   machine gun's 170 m covered the other side's whole rear area. The alternative was a shorter machine gun.
+- **The enemy plans its attacks (2026-09-29), the agent's choices:** it masses until it has two to one and lays a barrage
+  and smoke first, or three to one bare, and only then goes over the top; it deploys men before it saves for support.
+  Measured in ten-minute matches (`MatchLoopTests`): it now breaks a player who only sits in his trench in five to nine
+  minutes, and the same script on both sides either holds a stalemate or snowballs once one side gets ahead. `Odds`,
+  `AttackGarrison` and `UsesSupport` are the difficulty knobs (Easy has no support, so it needs three to one).
 - **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
   Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
   shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).

@@ -52,7 +52,7 @@ namespace TW.Presentation
         public float BombardmentNow => Local != null && Local.Bombardment != null ? Local.Bombardment.ShellsPerMinute : 0f;
         public bool ScriptedPeer = true;
         public int PeerDeployEveryTicks = 40;
-        [Tooltip("Scripted peer sends its front trench over the top once the garrison reaches PeerAttackGarrison.")]
+        [Tooltip("Scripted peer goes over the top once its front garrison is at least PeerAttackGarrison and outnumbers yours two to one behind a barrage and smoke, or three to one bare (ScriptedEnemy.Odds).")]
         public bool PeerAttacks = true;
         [Tooltip("The scripted enemy sends its tank (roster slot 4) whenever the slot is ready and it has the silver.")]
         public bool PeerDeploysTanks = false;

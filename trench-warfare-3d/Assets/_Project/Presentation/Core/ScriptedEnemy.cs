@@ -19,6 +19,13 @@
 // enemy side needs none of it: EnemyOrders already locks its rear trench and sends its front over every 100 ticks.
 // StressSpread = false (the default; knob stress.spread=1 turns spreading on) is the preset as it was, so old and new
 // measure in one build.
+// It plans its attacks (2026-09-29, the owner: "make the best game"). An assault takes a trench at about three to one
+// bare or two to one behind a barrage (AssaultLadderTests), so it masses until it has those odds against the player's
+// front garrison, lays a barrage on that trench and goes over the top as the shells come down (PlannedAttack); it keeps
+// no silver back for support until it fields as many men as the player, and it shells or gasses only out of silver it
+// has to spare. Before, it went over the top with eight men whatever stood in front of them, and kept 180 silver
+// back from the first minute: once the player held six men it spent every coin on a barrage or gas every ten seconds
+// and never deployed another man (MatchLoopTests).
 // A6 replaces this with WaveAiSystem.
 using UnityEngine;
 using TW.Net;
@@ -30,12 +37,24 @@ namespace TW.Presentation
     public sealed class ScriptedEnemy
     {
         public bool Enabled = true;
+        /// <summary>The seat it plays (2026-09-29): 1, the enemy, as it always has; 0 lets a test or an attract mode put
+        /// the same script on the player's side. Everything below reads Side and Other, never a literal seat.</summary>
+        public byte Side = 1;
+        byte Other => (byte)(1 - Side);
         public int DeployEveryTicks = 40;
         public bool Attacks = true;
         public bool DeploysTanks;
         public int AttackGarrison = 8;
         public bool UsesSupport = true;
         public int SupportReserve = 180;
+        /// <summary>The odds it wants behind a barrage: its front garrison against the player's. Bare, one more.</summary>
+        public float Odds = 2f;
+        /// <summary>Ticks from calling the barrage to going over the top: its warm-up and the first shells.</summary>
+        public int BarrageLeadTicks = 110;
+        /// <summary>The tick its planned attack goes over the top, 0 with none planned.</summary>
+        public uint PlannedAttack;
+        /// <summary>Told each decision it takes, for a test or a log: what it did and on what count.</summary>
+        public System.Action<string> Said;
         /// <summary>Stress preset: riflemen a side, deployed 4 a tick by BOTH players; 0 = off.</summary>
         public int StressUnits;
         public int StressAdvanceDelayTicks = 300;
@@ -81,7 +100,7 @@ namespace TW.Presentation
         /// once every twenty seconds, so a script deploying by index spent a third of its silver on men who cannot
         /// shoot; paratroopers are dropped by the air card and are not deployable from a trench. -1 if it fields none.
         /// </summary>
-        static int ArmedSlot(SimWorld pw, int n)
+        int ArmedSlot(SimWorld pw, int n)
         {
             int count = 0;
             for (int s = 0; s < RosterEntry.SlotCount; s++) if (Armed(pw, s)) count++;
@@ -93,19 +112,19 @@ namespace TW.Presentation
         }
 
         /// <summary>A foot soldier of the enemy's roster who can actually shoot back.</summary>
-        static bool Armed(SimWorld pw, int slot)
+        bool Armed(SimWorld pw, int slot)
         {
-            var e = pw.Roster[RosterEntry.SlotCount + slot];
+            var e = pw.Roster[Side * RosterEntry.SlotCount + slot];
             if (e.IsVehicle) return false;
             return e.Archetype != InfantryArchetype.Medic && e.Archetype != InfantryArchetype.Repair
                 && e.Archetype != InfantryArchetype.Para;
         }
 
         /// <summary>The enemy's first machine, whatever its faction calls it; -1 if it fields none.</summary>
-        static int MachineSlot(SimWorld pw)
+        int MachineSlot(SimWorld pw)
         {
             for (int s = 0; s < RosterEntry.SlotCount; s++)
-                if (pw.Roster[RosterEntry.SlotCount + s].IsVehicle) return s;
+                if (pw.Roster[Side * RosterEntry.SlotCount + s].IsVehicle) return s;
             return -1;
         }
 
@@ -118,43 +137,69 @@ namespace TW.Presentation
                 int slot = ArmedSlot(pw, (int)(t / (uint)Mathf.Max(1, DeployEveryTicks)));
                 if (slot >= 0)
                 {
-                    int cost = pw.Roster[RosterEntry.SlotCount + slot].Cost;
-                    int reserve = UsesSupport && pw.AliveCount > 0 && t > 600 ? SupportReserve : 0;
-                    if (pw.Silver[1] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, 1, slot));
+                    int cost = pw.Roster[Side * RosterEntry.SlotCount + slot].Cost;
+                    // men first: silver is kept back for support only once it fields as many as the player does
+                    int reserve = UsesSupport && t > 600 && MenOf(pw, Side) >= Mathf.Max(AttackGarrison, MenOf(pw, Other)) ? SupportReserve : 0;
+                    if (pw.Silver[Side] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, Side, slot));
                 }
             }
             if (DeploysTanks && t % 100 == 70)
             {
                 int slot = MachineSlot(pw);
-                int ri = RosterEntry.SlotCount + slot;
-                if (slot >= 0 && pw.SlotCooldown[ri] == 0 && pw.Silver[1] >= pw.Roster[ri].Cost)
-                    enemy.Issue(SimCommand.Deploy(t, 1, slot));
+                int ri = Side * RosterEntry.SlotCount + slot;
+                if (slot >= 0 && pw.SlotCooldown[ri] == 0 && pw.Silver[Side] >= pw.Roster[ri].Cost)
+                    enemy.Issue(SimCommand.Deploy(t, Side, slot));
             }
             if (t % 100 == 20)
             {
                 // every trench behind the front is locked so reinforcements walk through to the front line
-                short front = view.Fields.FrontTrench(1);
+                short front = view.Fields.FrontTrench(Side);
                 for (int k = 0; k < view.Fields.Trenches.Length; k++)
                 {
                     var ts = view.Fields.Trenches[k];
-                    if (ts.OwnerTeam != 1) continue;
+                    if (ts.OwnerTeam != Side) continue;
                     byte want = (byte)(k != front ? 1 : 0);
-                    if (ts.Locked != want) enemy.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchLock, A = k, B = want });
-                    if (k != front && ts.GarrisonCount > 0) enemy.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = k });
+                    if (ts.Locked != want) enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchLock, A = k, B = want });
+                    if (k != front && ts.GarrisonCount > 0) enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = k });
                 }
             }
-            if (Attacks && t % 100 == 50)
+            if (Attacks && PlannedAttack != 0 && t >= PlannedAttack)
             {
-                short front = view.Fields.FrontTrench(1);
-                if (front >= 0 && view.Fields.Trenches[front].GarrisonCount >= AttackGarrison)
-                    enemy.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.TrenchAdvance, A = front });
+                // the barrage is coming down: over the top now, whatever the count, or the shells were wasted
+                PlannedAttack = 0;
+                short front = view.Fields.FrontTrench(Side), theirs = view.Fields.FrontTrench(Other);
+                if (front >= 0 && view.Fields.Trenches[front].GarrisonCount > 0)
+                {
+                    enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = front });
+                    Said?.Invoke($"{t / 20} s over the top behind the barrage, {view.Fields.Trenches[front].GarrisonCount} against {(theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0)}");
+                }
             }
-            if (UsesSupport && t % 200 == 150 && view.Abilities != null)
+            if (Attacks && PlannedAttack == 0 && t % 100 == 50)
             {
-                short mine = view.Fields.FrontTrench(0);
+                short front = view.Fields.FrontTrench(Side), theirs = view.Fields.FrontTrench(Other);
+                int mine = front >= 0 ? view.Fields.Trenches[front].GarrisonCount : 0;
+                int held = theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0;
+                if (front >= 0 && mine >= AttackGarrison)
+                {
+                    if (mine >= (Odds + 1f) * held)
+                    {
+                        enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = front });
+                        Said?.Invoke($"{t / 20} s over the top bare, {mine} against {held}");
+                    }
+                    else if (mine >= Odds * held && UsesSupport && Barrage(view, enemy, t, theirs))
+                    {
+                        PlannedAttack = t + (uint)Mathf.Max(1, BarrageLeadTicks);
+                        Said?.Invoke($"{t / 20} s barrage called, {mine} against {held}");
+                    }
+                }
+            }
+            if (UsesSupport && PlannedAttack == 0 && t % 200 == 150 && view.Abilities != null)
+            {
+                short mine = view.Fields.FrontTrench(Other);
                 var ability = (supportCount & 1) == 0 ? OffMapAbilityId.HeBarrage : OffMapAbilityId.ChlorineGas;
-                if (mine >= 0 && view.Fields.Trenches[mine].GarrisonCount >= 6 && view.Abilities.CooldownOf(1, ability) == 0
-                    && OffMapAbilitySystem.TryGetStats((int)ability, out var stats) && pw.Silver[1] >= stats.Cost + 20)
+                // harassing fire only out of silver to spare: the reserve stays for the barrage before an attack
+                if (mine >= 0 && view.Fields.Trenches[mine].GarrisonCount >= 6 && view.Abilities.CooldownOf(Side, ability) == 0
+                    && OffMapAbilitySystem.TryGetStats((int)ability, out var stats) && pw.Silver[Side] >= stats.Cost + SupportReserve)
                 {
                     Vector3 sum = Vector3.zero; int n = 0;
                     for (int i = 0; i < pw.HighWater; i++)
@@ -164,11 +209,60 @@ namespace TW.Presentation
                         sum /= n;
                         // gas is released upwind (the map wind blows toward -Z) so the cloud rolls over the trench
                         float dz = ability == OffMapAbilityId.ChlorineGas ? 12f : 0f;
-                        enemy.Issue(new SimCommand { Tick = t, Player = 1, Type = CommandType.SupportFire, A = (int)ability, Pos = new Unity.Mathematics.float3(sum.x, 0f, sum.z + dz) });
+                        enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.SupportFire, A = (int)ability, Pos = new Unity.Mathematics.float3(sum.x, 0f, sum.z + dz) });
                         supportCount++;
                     }
                 }
             }
+        }
+
+        /// <summary>Men of <paramref name="team"/> alive on foot.</summary>
+        static int MenOf(SimWorld w, int team)
+        {
+            int n = 0;
+            for (int i = 0; i < w.HighWater; i++)
+                if ((w.Flags[i] & (uint)UnitFlags.Alive) != 0 && (w.Flags[i] & (uint)UnitFlags.Vehicle) == 0 && w.Team[i] == team) n++;
+            return n;
+        }
+
+        /// <summary>The preparation for an attack on <paramref name="trench"/>: an HE line 60 m along it through the
+        /// middle of its garrison, and, if the silver runs to it, a smoke screen just in front of it on the attacker's
+        /// side, so its machine guns are blind as the men cross (a garrison with two gunners in ten beat every bare
+        /// attack up to three to one, and two to one behind both took it four times in four: AssaultLadderTests).
+        /// True when the barrage was called.</summary>
+        bool Barrage(MatchSim view, ICommandSink enemy, uint t, short trench)
+        {
+            var pw = view.World;
+            if (trench < 0 || view.Abilities == null || view.Abilities.CooldownOf(Side, OffMapAbilityId.HeBarrage) != 0) return false;
+            if (!OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.HeBarrage, out var stats) || pw.Silver[Side] < stats.Cost) return false;
+            Vector3 sum = Vector3.zero; int n = 0;
+            for (int i = 0; i < pw.HighWater; i++)
+                if (pw.IsAlive(i) && pw.TrenchId[i] == trench) { sum += (Vector3)pw.Position[i]; n++; }
+            if (n == 0)
+            {
+                // nobody in it: the trench's own middle, so the men who walk up into it walk into the shells
+                var def = view.Map.Trenches[trench];
+                if (def.CellCount == 0) return false;
+                sum = (Vector3)view.Map.NavCellCenter(view.Map.TrenchCells[def.CellStart + def.CellCount / 2]); n = 1;
+            }
+            sum /= n;
+            float width = view.Map.SizeMeters.x;
+            float start = Mathf.Clamp(sum.x - 30f, 0f, Mathf.Max(0f, width - 60f));
+            enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage,
+                                         Pos = new Unity.Mathematics.float3(start, 0f, sum.z), B = AbilityArgs.Pack(90, AbilityPattern.Line, 60) });
+            supportCount++;
+            if (OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.SmokeScreen, out var smoke) && view.Abilities.CooldownOf(Side, OffMapAbilityId.SmokeScreen) == 0
+                && pw.Silver[Side] >= stats.Cost + smoke.Cost)
+            {
+                short own = view.Fields.FrontTrench(Side);
+                float toward = own >= 0 && view.Map.Trenches[own].CellCount > 0
+                    ? Mathf.Sign(view.Map.NavCellCenter(view.Map.TrenchCells[view.Map.Trenches[own].CellStart]).z - sum.z) : 1f;
+                // one screen (its cooldown refuses a second the same tick), 40 m across the middle of the garrison
+                float from = Mathf.Clamp(sum.x - smoke.Length * 0.5f, 0f, Mathf.Max(0f, width - smoke.Length));
+                enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.SmokeScreen,
+                                             Pos = new Unity.Mathematics.float3(from, 0f, sum.z + 12f * toward), B = AbilityArgs.Pack(90, 0, (int)smoke.Length) });
+            }
+            return true;
         }
 
         /// <summary>The stress preset for one side, once per tick of that side's own world: 4 riflemen a tick until
