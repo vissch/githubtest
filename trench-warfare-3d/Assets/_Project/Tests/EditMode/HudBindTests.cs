@@ -155,6 +155,9 @@ namespace TW.Tests
         {
             foreach (byte a in DeployableArchetypes())
                 Assert.That(HudText.VehicleTip(a).Length, Is.LessThanOrEqualTo(100), $"{HudText.VehicleName(a)}'s tooltip is too long");
+            // and the units only the Unit Sandbox fields (UnitDefinitions.All): no roster lists them, and one outgrew the plate
+            foreach (var d in TW.Sim.Match.UnitDefinitions.All)
+                Assert.That(HudText.VehicleTip(d.Archetype).Length, Is.LessThanOrEqualTo(100), $"{HudText.VehicleName(d.Archetype)}'s tooltip is too long");
             for (byte a = 0; a < 4; a++) Assert.That(HudText.Tip(a).Length, Is.LessThanOrEqualTo(100));
             Assert.That(HudText.BarrageTip.Length, Is.LessThanOrEqualTo(100));
             Assert.That(HudText.GasTip.Length, Is.LessThanOrEqualTo(100));

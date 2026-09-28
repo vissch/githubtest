@@ -315,7 +315,7 @@ What is left of the Skimmer's 7.8 is its camouflage spots smeared by the decimat
 vertices); a UV-preserving decimation would be the next step, not more triangles. The coordinator's first run of the
 tool (Workbench, 13.3 / 18.5) is not comparable: flat studio light and no smoothing.
 
-**The numbers, against the machines that ship.** The Skimmer (220 silver, 1,300 hp, 3.4 m/s, 8 mm front, a machine
+(Round 0. Superseded by the balance critic's round below: the Skimmer costs 180 and pierces light machines with 12 mm; the Salvo carries a 110 m machine gun.) **The numbers, against the machines that ship.** The Skimmer (220 silver, 1,300 hp, 3.4 m/s, 8 mm front, a machine
 gun at 130 m) is the cheapest and quickest machine and the thinnest: it hunts men in the open and mud and trenches do
 not slow it, but it cannot hurt a machine, any tank gun holes it anywhere, and a 37 mm Tusk (260) kills it. The Salvo
 (380, 2,000 hp, 1.8 m/s, rockets to 380 m, blind inside 60 m, 360 over 7 m every 16 s) outranges everything (the
@@ -324,7 +324,7 @@ machine that closes inside 60 m and cooks off easily (ammunition risk 0.7). Neit
 read as weak for its price, which Play will tell.
 
 **The salvo.** First drawn over the sim's one shell (which burst on the firing tick, 1-3 s before the drawn rockets
-landed); then made the sim's own: the gun fires twelve rockets, each held by `TankGunnerySystem` until its own land
+landed); then made the sim's own: the gun fires twelve rockets (sixteen since the critic's round, one per tube), each held by `TankGunnerySystem` until its own land
 tick and announced by a `RocketFired` event with its launch and flight ticks and its landing point, so
 `Presentation/Camera/TankRenderer.Salvo.cs` flies each from its tube on the sim's clock and it reaches the ground on
 the frame its burst is drawn (format v11, `02-contracts.md`). The rack does the shell's harm, spread wider (decisions.md).

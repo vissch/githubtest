@@ -122,8 +122,8 @@ namespace TW.Presentation
                 case VehicleArchetype.Banner: return "Banner, command walker: a 300 m gun, and a standard that steadies your men within 26 m. Thin plate";
                 case VehicleArchetype.Redoubt: return "Redoubt, blockhouse walker: no gun. 38 mm of front plate and the heaviest claws on the field";
                 case VehicleArchetype.Breaker: return "Breaker, assault tank: winds up, charges a trench at 2.5x and strikes. Thin deck once it runs";
-                case VehicleArchetype.Skimmer: return "Skimmer, hovercraft: the fastest machine, a 130 m machine gun. Rides over mud and trenches. 8 mm";
-                case VehicleArchetype.Salvo: return "Salvo, rocket half-track: rockets out of sight to 380 m, a 7 m burst. Blind inside 60 m, 16 s to reload";
+                case VehicleArchetype.Skimmer: return "Skimmer, hovercraft: the fastest machine. 130 m 12 mm gun pierces light hulls. 8 mm";
+                case VehicleArchetype.Salvo: return "Salvo, rocket half-track: 16 rockets to 380 m, 16 s reload. A 110 m machine gun up close";
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }
