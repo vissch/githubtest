@@ -397,7 +397,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   The absurd deaths (owner, 2026-09-28): `Presentation/Core/DeathGags.cs` chooses a gag on top of the ladder's death
   (punt, jig, headshot pop, rocket, fountain, pancake, fling, wilt, plank, skid, boots), seeded, capped;
   `Presentation/Core/AnimationController.Gags.cs` feeds it and puts the plan in the `DeathRecord`. The knob
-  `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) is 0 until the owner has seen the captures;
+  `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) defaults to 1 (the owner turned it on, 2026-09-30);
   `DeathGags.Pin` overrides it for a test or a capture. What a shell takes off a man at the knob above 0:
   `Presentation/Camera/GibPlan.cs` (pure: the limbs lost, then exactly those parts fly; torn in two or blown apart in a
   heap; kit at GORE 0), thrown by `CombatFx.OwnGibs`. A machine's absurd death (same knob): `Presentation/Camera/TankRenderer.Deaths.cs`
