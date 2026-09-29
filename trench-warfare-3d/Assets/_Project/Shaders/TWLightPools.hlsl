@@ -35,6 +35,34 @@ half3 TWLightPools(float3 positionWS, half3 normalWS)
     return sum;
 }
 
+/// For a figure (a man, a machine): the pools' light and a warm rim together in one pass. The rim: the edge of a figure
+/// turned toward a flame catches it, hard and warm, strongest near it, as the owner's colour edit rims every man on the
+/// trench's lip orange from the wreck burning behind him; it shows where the surface turns away from the eye AND toward
+/// the flame, so a man between the camera and a fire is outlined in it and one lit face-on is not. Both over the first
+/// TW_FIGURE_POOLS pools only. NightLights sorts them best first for the camera, so these are the ones that light the
+/// most of what it sees; looping all 32 twice over a thousand men cost the GPU 0.8 to 1.6 ms (bench, 2026-09-30).
+#define TW_FIGURE_POOLS 12
+half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3 rimOut)
+{
+    half3 sum = 0; rimOut = 0;
+    half edge = 1.0 - saturate(dot(normalWS, viewWS));
+    int count = min((int)_TWPoolCount, TW_FIGURE_POOLS);
+    [loop] for (int k = 0; k < count; k++)
+    {
+        float3 d = _TWPools[k].xyz - positionWS;
+        float reach = _TWPools[k].w * 1.25;
+        float dist2 = dot(d, d);
+        if (dist2 >= reach * reach) continue;
+        float t = sqrt(dist2) / reach;
+        half toward = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))));
+        float tp = t * 1.25;                                                    // the pool's own reach, not the rim's
+        half band = tp < 1.0 ? 0.45 * (1.0 - smoothstep(0.30, 0.34, tp)) + 0.33 * (1.0 - smoothstep(0.62, 0.66, tp)) + 0.22 * (1.0 - smoothstep(0.94, 1.0, tp)) : 0.0;
+        sum += _TWPoolTint[k].rgb * band * (toward * 0.6 + 0.4);
+        rimOut += _TWPoolTint[k].rgb * smoothstep(0.30, 0.38, edge * toward) * (1.0 - smoothstep(0.45, 1.0, t));
+    }
+    return sum;
+}
+
 /// look.wet: the flames' glints on wet ground. A reflection r that points back at a flame within its pool catches a hard
 /// highlight of its colour, so the mud near a fire sparkles orange and, away from it, only the moon's blue remains.
 half3 TWPoolGlints(float3 positionWS, float3 r)

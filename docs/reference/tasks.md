@@ -527,7 +527,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   and the bank lift by only `look.liftMist` / `look.liftBank` of it, since both lie over the near ground too; `look.wet`
   less pale sky in the puddles and the flames' glints on wet mud), `Presentation/Terrain/NightLights.Pools.cs`
   (`look.pools`: each camera hands its nearest 32 flames to the Toon shader as painted light pools, past the eight real
-  lights an object may take; `look.poolReach`), shader include `TWLightPools.hlsl`; `Editor/LookLab.cs` sets knobs
+  lights an object may take; `look.poolReach`; `look.firePools` the fires that come and go, through
+  `SceneHooks.FirePool`: a burning machine or wreck from `TankRenderer.Burning`, a flamethrower's fires from
+  `SceneHooks.FireLight`; the men (`VAT_URP`) and machines (`Tank_URP`) take the pools too, with a warm rim on the edge
+  turned to a fire, `TWPoolsOnFigure`), shader include `TWLightPools.hlsl`; `Editor/LookLab.cs` sets knobs
   from `unity command eval` for before-and-after stills.
   Rare comic sound words over the field (the owner kept them, rare): `UI/Selection/ComicWords.cs` (CRACK on a near
   miss, CLANG on a shell a hull stopped, KRUMP on a burst of 6 m or more, KA-BOOM on a cook-off; one word at most each
@@ -743,6 +746,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower |
+| `FirePool` | NightLights.Pools | NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 | `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |

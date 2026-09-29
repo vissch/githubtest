@@ -51,5 +51,29 @@ namespace TW.Tests
             Assert.Less(w.y, 1f); Assert.Less(w.z, w.y, "blue goes most: orange, not the pale sand the lantern colour alone made");
             Assert.AreEqual(32, NightLights.MaxPools, "TW_MAX_POOLS in TWLightPools.hlsl");
         }
+
+        [Test]
+        public void ABurningWreck_WinsItsPoolOverALampAtTheSameDistance()
+        {
+            float d2 = 40f * 40f;
+            Assert.AreEqual(d2, NightLights.PoolRank(d2, NightLights.PoolReach), 1e-3f, "a lantern ranks by its distance");
+            Assert.AreEqual(d2, NightLights.PoolRank(d2, 3f), 1e-3f, "a small flame is not counted farther off");
+            Assert.Less(NightLights.PoolRank(d2, 13f), NightLights.PoolRank(30f * 30f, NightLights.PoolReach), "a wreck 13 m across at 40 m beats a lamp at 30 m");
+        }
+
+        [Test]
+        public void FirePools_AreKept_UntilTheCap_AndNothingForAColdOne()
+        {
+            var go = new GameObject("NightLookTests lights");
+            try
+            {
+                var lights = go.AddComponent<NightLights>();
+                lights.AddFirePool(Vector3.zero, Color.white, 0f, 8f, 1f);
+                Assert.AreEqual(0, lights.FirePools, "no strength: no pool");
+                for (int k = 0; k < NightLights.MaxFirePools + 10; k++) lights.AddFirePool(new Vector3(k, 0f, 0f), Color.white, 1f, 8f, 1f);
+                Assert.AreEqual(NightLights.MaxFirePools, lights.FirePools, "a field of fires stops at the cap");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
     }
 }

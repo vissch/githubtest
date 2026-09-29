@@ -10,6 +10,12 @@
 //                   barely showed (Play, 2026-09-29: warm pixels 0.03 to 0.08 %); 4 reads as the edit's torch patches, 8
 //                   flattens them into yellow discs
 //   look.poolReach  a lantern's pool across its radius, in metres (fires and torches reach further by their range)
+//   look.firePools  how strong the pools of the fires that come and go are (1): a burning machine or wreck, a flamethrower's
+//                   fires. Before, only the lamps built with the scene had pools, and a wreck burning for a minute lit
+//                   nothing round it (the owner's colour edit lights the mud round every burning wreck); 0 leaves them out
+// Fires reach SceneHooks.FirePool; a big fire counts as nearer than a lamp at the same distance, by its reach squared
+// against a lantern's, so the pools a camera keeps are the ones that light the most mud it sees.
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -27,17 +33,55 @@ namespace TW.Presentation.Terrain
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
-        float poolStrength, poolReach = PoolReach; int poolKnobs = -1; bool poolsSet, poolHooked;
+        float poolStrength, poolReach = PoolReach, firePoolStrength = 1f; int poolKnobs = -1; bool poolsSet, poolHooked;
+
+        /// <summary>A fire's pool: where, its colour times its strength, its reach, and when it goes out (a frame stamp for a
+        /// pool renewed every frame, else a time).</summary>
+        struct FirePoolEntry { public Vector3 At; public Vector3 Tint; public float Reach, Until; public int Frame; }
+        public const int MaxFirePools = 64;
+        readonly List<FirePoolEntry> firePools = new List<FirePoolEntry>(MaxFirePools);
+        /// <summary>Fire pools alive now (for tests and captures).</summary>
+        public int FirePools => firePools.Count;
+
+        /// <summary>SceneHooks.FirePool: a fire's pool, held for this frame (life 0) or for life seconds.</summary>
+        public void AddFirePool(Vector3 at, Color color, float strength, float reach, float life)
+        {
+            if (strength <= 0f || reach <= 0f || firePools.Count >= MaxFirePools) return;
+            float k = Mathf.Min(strength, 4f);
+            firePools.Add(new FirePoolEntry
+            {
+                At = at, Reach = Mathf.Min(reach, 20f),
+                Tint = new Vector3(color.r * PoolWarmth.x * k, color.g * PoolWarmth.y * k, color.b * PoolWarmth.z * k),
+                Frame = life <= 0f ? Time.frameCount : -1, Until = Time.time + life,
+            });
+        }
+
+        /// <summary>Fire pools that have gone out: last frame's, and the timed ones past their time.</summary>
+        void ExpireFirePools()
+        {
+            int f = Time.frameCount; float t = Time.time;
+            for (int i = firePools.Count - 1; i >= 0; i--)
+            {
+                var e = firePools[i];
+                if (e.Frame >= 0 ? e.Frame < f : e.Until < t) firePools.RemoveAt(i);
+            }
+        }
 
         /// <summary>Reads the pool knobs; with pools on, each camera picks its own nearest flames as it begins to render.</summary>
         void PushPools()
         {
-            if (!poolHooked) { RenderPipelineManager.beginCameraRendering += PoolsFor; poolHooked = true; }
+            if (!poolHooked)
+            {
+                RenderPipelineManager.beginCameraRendering += PoolsFor; poolHooked = true;
+                SceneHooks.FirePool = AddFirePool;
+            }
+            ExpireFirePools();
             if (poolKnobs != Knobs.Generation)
             {
                 poolKnobs = Knobs.Generation;
                 poolStrength = Mathf.Max(0f, Knobs.Get("look.pools", DefaultPools));
                 poolReach = Mathf.Clamp(Knobs.Get("look.poolReach", PoolReach), 1f, 20f);
+                firePoolStrength = Mathf.Max(0f, Knobs.Get("look.firePools", 1f));
             }
             if (poolStrength <= 0f || !SceneMood.Night)
             {
@@ -56,26 +100,40 @@ namespace TW.Presentation.Terrain
             {
                 var l = lanterns[i];
                 if (l == null || !l.enabled) continue;
-                Vector3 p = l.transform.position;
-                float d = (p - eye).sqrMagnitude;
-                int at = n < MaxPools ? n++ : MaxPools;       // keep the nearest MaxPools, farthest last
-                if (at == MaxPools) { if (d >= poolD[MaxPools - 1]) continue; at = MaxPools - 1; }
-                while (at > 0 && poolD[at - 1] > d) { poolD[at] = poolD[at - 1]; poolAt[at] = poolAt[at - 1]; poolTint[at] = poolTint[at - 1]; at--; }
                 float reach = poolReach * Mathf.Clamp(l.range / LanternRange, 0.8f, 1.3f);
                 float strength = poolStrength * PoolGain * l.intensity / Mathf.Max(0.01f, LanternIntensity);
-                poolD[at] = d; poolAt[at] = new Vector4(p.x, p.y, p.z, reach);
-                poolTint[at] = new Vector4(l.color.r * PoolWarmth.x * strength, l.color.g * PoolWarmth.y * strength, l.color.b * PoolWarmth.z * strength, 0f);
+                Keep(ref n, eye, l.transform.position, reach, new Vector3(l.color.r * PoolWarmth.x, l.color.g * PoolWarmth.y, l.color.b * PoolWarmth.z) * strength);
             }
+            float fireGain = poolStrength * PoolGain * firePoolStrength;
+            if (fireGain > 0f)
+                for (int i = 0; i < firePools.Count; i++) { var e = firePools[i]; Keep(ref n, eye, e.At, e.Reach, e.Tint * fireGain); }
             Shader.SetGlobalVectorArray(PoolsId, poolAt);
             Shader.SetGlobalVectorArray(PoolTintId, poolTint);
             Shader.SetGlobalFloat(PoolCountId, n);
             poolsSet = true;
         }
 
+        /// <summary>How a pool ranks for a camera, lower first: its distance squared, over its reach squared against a
+        /// lantern's once it reaches further than one.</summary>
+        public static float PoolRank(float sqrDist, float reach) { float big = reach / PoolReach; return sqrDist / Mathf.Max(1f, big * big); }
+
+        /// <summary>Keeps a pool among the MaxPools a camera sees best: nearest first, a bigger one counting as nearer by its
+        /// reach squared against a lantern's (a burning wreck 12 m across wins over a lamp at the same distance).</summary>
+        void Keep(ref int n, Vector3 eye, Vector3 p, float reach, Vector3 tint)
+        {
+            float d = PoolRank((p - eye).sqrMagnitude, reach);
+            int at = n < MaxPools ? n++ : MaxPools;       // keep the best MaxPools, worst last
+            if (at == MaxPools) { if (d >= poolD[MaxPools - 1]) return; at = MaxPools - 1; }
+            while (at > 0 && poolD[at - 1] > d) { poolD[at] = poolD[at - 1]; poolAt[at] = poolAt[at - 1]; poolTint[at] = poolTint[at - 1]; at--; }
+            poolD[at] = d; poolAt[at] = new Vector4(p.x, p.y, p.z, reach); poolTint[at] = new Vector4(tint.x, tint.y, tint.z, 0f);
+        }
+
         /// <summary>No pools once the lights are gone.</summary>
         void ClearPools()
         {
             if (poolHooked) { RenderPipelineManager.beginCameraRendering -= PoolsFor; poolHooked = false; }
+            SceneHooks.FirePool = null;
+            firePools.Clear();
             Shader.SetGlobalFloat(PoolCountId, 0f);
         }
     }
