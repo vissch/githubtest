@@ -27,9 +27,10 @@ namespace TW.Playground
         readonly Mesh[] mesh; readonly Vector3[][] rest, restN; readonly int[][] wi; readonly float[][] ww;
         Vector3[] buf, bufN; int shown = -1; bool posed, shownPosed;
         readonly float[][] throatW;
+        readonly Vector3[][] throatDir;   // the way each vertex of the sac goes out: from the sac's centre, so split vertices go together
         /// <summary>The vocal sac under the chin, 0..1: its vertices pushed out along their normals by ThroatDepth.</summary>
         public float Throat;
-        public const float ThroatDepth = 0.11f;   // hull units at a full swell
+        public const float ThroatDepth = 0.2f;    // hull units at a full swell (0.11 hardly showed at the default camera, g15)
         /// <summary>The belly pressed flat on the ground, hull units: its underside (from Floor up BellyBand) pushed up by
         /// this much at the bottom, less higher up, and bulging out. The toad's belly rests 1 cm above its feet, so without
         /// it the body could not sink over its folding legs at all (0.017 m, not the 0.15 asked for, critic g13).</summary>
@@ -55,7 +56,7 @@ namespace TW.Playground
             float yaw = f.yaw * Mathf.Deg2Rad;
             Right = new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)); Forward = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
             mesh = copies; int lods = copies.Length;
-            rest = new Vector3[lods][]; restN = new Vector3[lods][]; wi = new int[lods][]; ww = new float[lods][]; throatW = new float[lods][]; bodyW = new float[lods][];
+            rest = new Vector3[lods][]; restN = new Vector3[lods][]; wi = new int[lods][]; ww = new float[lods][]; throatW = new float[lods][]; throatDir = new Vector3[lods][]; bodyW = new float[lods][];
             cx = f.cen != null && f.cen.Length > 1 ? f.cen[0] : 0f; cz = f.cen != null && f.cen.Length > 1 ? f.cen[1] : 0f;
             for (int k = 0; k < lods; k++)
             {
@@ -77,15 +78,18 @@ namespace TW.Playground
                 }
                 bodyW[k] = new float[nv];
                 for (int i = 0; i < nv; i++) bodyW[k][i] = 1f - LegShare(k, i);
-                // the throat: the white under the chin (body frame a within 0.75, y 1.0-1.6, f 0.9-1.6), facing forward or down
-                throatW[k] = new float[nv];
+                // the throat: the white under the chin (body frame a within 0.75, y 1.0-1.6, f 0.9-1.6), its front half.
+                // Weight and direction from the position alone: a normal-based weight and push tore the sac from the lip at
+                // the mesh's split seam (a dark slit at a full swell, g15)
+                throatW[k] = new float[nv]; throatDir[k] = new Vector3[nv];
+                var sac = new Vector3(cx + Forward.x * 1.0f, 1.25f, cz + Forward.z * 1.0f);
                 for (int i = 0; i < nv; i++)
                 {
                     var p = rest[k][i]; float x = p.x - cx, z = p.z - cz;
                     float a = x * Right.x + z * Right.z, fw = x * Forward.x + z * Forward.z;
                     float e = (a / 0.75f) * (a / 0.75f) + ((p.y - 1.3f) / 0.32f) * ((p.y - 1.3f) / 0.32f) + ((fw - 1.25f) / 0.38f) * ((fw - 1.25f) / 0.38f);
-                    var nr = restN[k][i]; float facing = nr.x * Forward.x + nr.z * Forward.z - 0.6f * nr.y;
-                    throatW[k][i] = e < 1f && facing > 0.1f ? Mathf.SmoothStep(0f, 1f, 1f - e) * Mathf.Clamp01(facing * 2f) : 0f;
+                    throatW[k][i] = e < 1f && fw > 1.0f ? Mathf.SmoothStep(0f, 1f, 1f - e) * Mathf.Clamp01((fw - 1.0f) / 0.15f) : 0f;
+                    var o = p - sac; throatDir[k][i] = o.sqrMagnitude > 1e-6f ? o.normalized : Forward;
                 }
             }
         }
@@ -130,7 +134,7 @@ namespace TW.Playground
         public Vector3 Skin(int k, int i)
         {
             var p = rest[k][i];
-            if (Throat > 0f && throatW[k][i] > 0f) p += restN[k][i] * (Throat * ThroatDepth * throatW[k][i]);
+            if (Throat > 0f && throatW[k][i] > 0f) p += throatDir[k][i] * (Throat * ThroatDepth * throatW[k][i]);
             if (Squash > 0f)
             {
                 float h = p.y - Floor;
