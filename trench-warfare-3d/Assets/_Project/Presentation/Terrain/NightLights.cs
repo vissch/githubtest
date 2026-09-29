@@ -390,6 +390,7 @@ namespace TW.Presentation.Terrain
         {
             Shader.SetGlobalColor(BurstColorId, Color.clear);   // nothing is burning once we are gone
             Shader.SetGlobalColor(HearthColorId, Color.clear);
+            ClearPools();
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.SmokeSources.Clear();
             SceneHooks.Flash = null;
@@ -483,6 +484,7 @@ namespace TW.Presentation.Terrain
                 lanterns[i].transform.position = lanternHome[i] + new Vector3(Mathf.Sin(t * .31f) * rock, 0f, Mathf.Cos(t * .23f + 1.7f) * rock);
                 lanterns[i].intensity = lanternBase[i] * (.86f + .10f * Mathf.Sin(t) * Mathf.Sin(t * .43f) + .04f * Mathf.Sin(t * 3.1f));
             }
+            PushPools();   // look.pools: the nearest flames' painted pools (NightLights.Pools.cs)
             for (int i = 0; i < poolSize; i++)
             {
                 float age = pool[i].Light.enabled ? (Time.time - pool[i].Born) / pool[i].Life : 1f;

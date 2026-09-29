@@ -1,0 +1,56 @@
+// Warm light pools (look.pools, NightLights.Pools.cs; the owner's night look, 2026-09-29): the ground under every lantern,
+// trench lamp, torch and fire lit in a painted pool of its own, the way the owner's effects edit has a dozen torches each
+// lighting its patch of mud. The real lights cannot do it: the renderer is Forward, eight lights an object at most
+// (TW-URP.asset), and a ground chunk sees far more lamps than that. So NightLights hands the nearest TW_MAX_POOLS flames
+// to every Toon surface as a global array, and this adds them in the toon's own hard bands.
+//   _TWPools[k]     xyz where the flame hangs, w the pool's reach (m)
+//   _TWPoolTint[k]  rgb the flame's colour times its strength now (it flickers with the lamp)
+//   _TWPoolCount    how many are set; 0 (the default, look.pools 0) adds nothing and costs one branch
+#ifndef TW_LIGHT_POOLS_INCLUDED
+#define TW_LIGHT_POOLS_INCLUDED
+
+#define TW_MAX_POOLS 32
+float4 _TWPools[TW_MAX_POOLS];
+float4 _TWPoolTint[TW_MAX_POOLS];
+float _TWPoolCount;
+float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
+
+/// The warm light the pools throw on a surface at positionWS facing normalWS: three hard bands, brightest in the middle
+/// third of the reach, falling to a faint rim, and only on the side that faces the flame.
+half3 TWLightPools(float3 positionWS, half3 normalWS)
+{
+    half3 sum = 0;
+    int count = (int)_TWPoolCount;
+    [loop] for (int k = 0; k < count; k++)
+    {
+        float3 d = _TWPools[k].xyz - positionWS;
+        float reach = _TWPools[k].w;
+        float dist2 = dot(d, d);
+        if (dist2 >= reach * reach) continue;
+        float t = sqrt(dist2) / reach;                                            // 0 under the flame, 1 at the rim
+        half facing = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))) * 0.6 + 0.4);
+        half band = 0.45 * (1.0 - smoothstep(0.30, 0.34, t)) + 0.33 * (1.0 - smoothstep(0.62, 0.66, t)) + 0.22 * (1.0 - smoothstep(0.94, 1.0, t));
+        sum += _TWPoolTint[k].rgb * band * facing;
+    }
+    return sum;
+}
+
+/// look.wet: the flames' glints on wet ground. A reflection r that points back at a flame within its pool catches a hard
+/// highlight of its colour, so the mud near a fire sparkles orange and, away from it, only the moon's blue remains.
+half3 TWPoolGlints(float3 positionWS, float3 r)
+{
+    half3 sum = 0;
+    int count = (int)_TWPoolCount;
+    [loop] for (int k = 0; k < count; k++)
+    {
+        float3 d = _TWPools[k].xyz - positionWS;
+        float reach = _TWPools[k].w * 1.6;                                      // a glint is seen from further than the pool
+        float dist2 = dot(d, d);
+        if (dist2 >= reach * reach) continue;
+        half toward = smoothstep(0.86, 0.92, dot(r, d * rsqrt(max(dist2, 1e-4))));
+        sum += _TWPoolTint[k].rgb * toward * (1.0 - smoothstep(0.55, 1.0, sqrt(dist2) / reach));
+    }
+    return sum;
+}
+
+#endif

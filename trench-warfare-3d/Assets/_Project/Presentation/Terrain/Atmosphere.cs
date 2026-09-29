@@ -16,7 +16,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace TW.Presentation.Terrain
 {
-    public sealed class Atmosphere : MonoBehaviour
+    public sealed partial class Atmosphere : MonoBehaviour
     {
         public enum Mood { OvercastDay, Night }
         [Tooltip("Legacy. Field chooses the battlefield now; this is kept so old scenes deserialize and is overwritten in Start.")]
@@ -260,6 +260,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
+            Shader.SetGlobalFloat(WetLookId, 0f);
             ClearBiome();
             if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
             if (profile != null) Destroy(profile);
@@ -298,7 +299,8 @@ namespace TW.Presentation.Terrain
                 Vector3 from = StormLightFrom; from.y = Mathf.Min(from.y, -.35f);   // never so low that the shadows run to the horizon
                 key.transform.rotation = flash > .02f ? Quaternion.LookRotation(from.normalized) : Quaternion.Euler(KeyEuler);
             }
-            Color sky = Color.Lerp(Haze, Profile.FlashSky, flash * .40f);
+            float lifted = Lift();   // look.lift: the distance into lighter haze (Atmosphere.NightLook.cs)
+            Color sky = Color.Lerp(Lifted(Haze, LiftHaze, lifted), Profile.FlashSky, flash * .40f);
             RenderSettings.fogColor = sky;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = sky;
@@ -309,11 +311,12 @@ namespace TW.Presentation.Terrain
             RenderSettings.fogStartDistance = toFocus * StartFactor;
             // a squall closes the distance in: the far ground sinks into the rain
             float squall = Rain > 0f ? Mathf.Clamp01(RainNow / (Rain * 1.25f)) : 0f;
-            RenderSettings.fogEndDistance = toFocus * StartFactor + Depth * (1f - .38f * squall) + toFocus;
+            RenderSettings.fogEndDistance = LiftedFogEnd(toFocus * StartFactor, toFocus * StartFactor + Depth * (1f - .38f * squall) + toFocus, toFocus, liftReach, lifted);
 
             float water = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
             Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
-            Shader.SetGlobalVector(MistColorId, new Vector4(Mist.r, Mist.g, Mist.b, MistDensity));
+            Color mist = Lifted(Mist, LiftMist, lifted * liftMist);
+            Shader.SetGlobalVector(MistColorId, new Vector4(mist.r, mist.g, mist.b, MistDensity));
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
             Color mirror = Color.Lerp(SkyMirror, Profile.FlashMirror, flashNow * .55f);   // lightning shows in every puddle
@@ -335,7 +338,8 @@ namespace TW.Presentation.Terrain
             var map = RenderGround.Map;
             if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));
             Shader.SetGlobalVector(FieldFogId, new Vector4(BankStart, 1f / Mathf.Max(1f, BankRange), BankTop, BankRise));
-            Shader.SetGlobalVector(FieldFogColorId, new Vector4(Bank.r, Bank.g, Bank.b, map != null ? BankDensity : 0f));
+            Color bank = Lifted(Bank, LiftBank, lifted * liftBank);
+            Shader.SetGlobalVector(FieldFogColorId, new Vector4(bank.r, bank.g, bank.b, map != null ? BankDensity : 0f));
         }
     }
 }
