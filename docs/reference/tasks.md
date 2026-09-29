@@ -393,6 +393,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   for the rig scoreboard in `docs/20-rig-scoreboard.md`.
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
+- **Measure behaviour in a match:** `Editor/MachineStudy.cs` (`-executeMethod TW.Editor.MachineStudy.CommandLine -twstudy <dir>`,
+  `-twstudyseed`, `-twstudysec`): every machine in a real match for 150 s, scored for jams, spinning in place, a hunting
+  nose and rubbing hulls, with FLAG lines in its summary file and each jam's place in its jams file. Run it before and after a
+  driving change (2026-09-29: integration 368 s jammed and 5 flags, `lane/sim/drive-feel-v20` 2 s and none).
 - **Trap:** vehicle meshes must import Read/Write enabled or scaling silently does nothing.
 - **Already there, check before adding:** `WalkerGait` `Carry` sets the body's height, pitch and roll from the
   planted feet, and `Step` leads each step by the walker's velocity; `TankRenderer` applies them to the hull.
