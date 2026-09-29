@@ -160,7 +160,9 @@ namespace TW.Tests
         /// every one behind. Swerving round hulls that are driving on only weaves the followers: in three 150 s studies
         /// of a real match (MachineStudy) our side spun in place 111 s, the Brute (which keeps 0.08 of its speed
         /// through a sharp turn) 49 s of it, most 9 m behind a machine going 0.6-1.9 m/s. The study's own start: our
-        /// fifteen machines in two ranks behind the spawn point, all sent forward.</summary>
+        /// fifteen machines in two ranks behind the spawn point, all sent forward. Nor does any nose hunt either way:
+        /// letting go of a hull ahead whenever it kept pace with the one behind (whose speed drops as it swerves) had
+        /// the Breaker and the Redoubt flip 68 and 72 times per 100 m here; alone, every machine flips none.</summary>
         [Test]
         public void AColumnOfEveryMachineDrivesOnWithoutTurningOnTheSpot()
         {
@@ -175,7 +177,8 @@ namespace TW.Tests
                 m.World.GoalId[slots[n]] = m.Fields.DefaultGoal(0, true);
             }
             var yaw = new float[cast.Length]; var spin = new int[cast.Length];
-            for (int n = 0; n < cast.Length; n++) yaw[n] = m.World.Yaw[slots[n]];
+            var flips = new int[cast.Length]; var lastRate = new float[cast.Length]; var metres = new float[cast.Length]; var at = new float3[cast.Length];
+            for (int n = 0; n < cast.Length; n++) { yaw[n] = m.World.Yaw[slots[n]]; at[n] = m.World.Position[slots[n]]; }
             for (int t = 0; t < 3000; t++)
             {
                 Step(m);
@@ -184,11 +187,20 @@ namespace TW.Tests
                     int i = slots[n];
                     float rate = math.degrees(SimMath.WrapAngle(m.World.Yaw[i] - yaw[n])) / SimConfig.Default.TickSeconds; yaw[n] = m.World.Yaw[i];
                     if (t > 100 && (m.World.Flags[i] & (uint)UnitFlags.Alive) != 0 && SpeedOf(m, i) < 0.3f && math.abs(rate) > 17f) spin[n]++;
+                    metres[n] += math.length((m.World.Position[i] - at[n]).xz); at[n] = m.World.Position[i];
+                    if (math.abs(rate) > 14f) { if (math.abs(lastRate[n]) > 14f && math.sign(rate) != math.sign(lastRate[n])) flips[n]++; lastRate[n] = rate; }
                 }
             }
-            int total = 0; var line = new System.Text.StringBuilder();
-            for (int n = 0; n < cast.Length; n++) { total += spin[n]; if (spin[n] > 0) line.Append($"{cast[n]}:{spin[n]} "); }
-            TestContext.WriteLine($"spun in place {total} ticks: {line}");
+            int total = 0; float worst = 0f; byte worstOf = 0; var line = new System.Text.StringBuilder();
+            for (int n = 0; n < cast.Length; n++)
+            {
+                total += spin[n];
+                float per100 = 100f * flips[n] / math.max(20f, metres[n]);
+                if (per100 > worst) { worst = per100; worstOf = cast[n]; }
+                line.Append($"{cast[n]}: spin {spin[n]}, {per100:F1} flips/100 m; ");
+            }
+            TestContext.WriteLine($"spun in place {total} ticks; {line}");
+            Assert.Less(worst, 10f, $"no nose hunted either way (flips per 100 m, the worst: archetype {worstOf})");
             Assert.Less(total, 60, "the column spun in place under 3 s between fifteen machines (ticks; 116 when it swerved round every hull ahead)");
         }
     }
