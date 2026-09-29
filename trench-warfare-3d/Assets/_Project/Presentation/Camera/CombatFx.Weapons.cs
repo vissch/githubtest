@@ -122,12 +122,15 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Up close a class book is drawn this much bigger than the flare it replaces: its drawing uses the middle
         /// of its cell, and at the flare's size a petal was 3 px (critique r12: about 3x too small to show its shape).</summary>
-        public const float BookGrow = 2.5f;
+        public const float BookGrow = 2.5f, BookGrowNight = 2.0f;   // at night a little smaller: its glow is dimmed as well (r13 bonfires, r14 flecks)
+        /// <summary>A class book is capped by its HEIGHT (across the barrel), not its length: a width cap cut the MG's tongue,
+        /// whose identity is its length, and let nothing stop a fan ballooning (critique r14).</summary>
+        public const float ClassBookTallest = 1.6f;
 
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
             float k = book == FlipbookFx.Book.MuzzleBrake ? 1.25f : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
-            return Mathf.Lerp(1f, k * BookGrow, closeUp);
+            return Mathf.Lerp(1f, k * (SceneMood.Night ? BookGrowNight : BookGrow), closeUp);
         }
 
         /// <summary>A flame nearly end-on (just short of the Star pop) blooms into a soft ellipse: its glow x0.7 there.</summary>

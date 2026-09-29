@@ -76,7 +76,7 @@ namespace TW.Presentation.Tactical
                 for (int i = 0; i < segments; i++)
                 {
                     float a = i / (float)segments, b = (i + 1) / (float)segments;
-                    fx.AddTracer(ArcPoint(from, end, apex, a), ArcPoint(from, end, apex, b), team, Mathf.Min(width, 0.6f), lag + a * ArcSeconds);   // a thread, not a laser: the head and the smoke carry it (r10)
+                    fx.AddTracer(ArcPoint(from, end, apex, a), ArcPoint(from, end, apex, b), team, Mathf.Min(width, 1.0f), lag + a * ArcSeconds);   // a thread, not a laser: the head and the smoke carry it (r10)
                     // a rocket leaves its smoke hanging along the way it went, behind a burning head; a mortar round a thin grey thread
                     if (drawn && i > 0)
                     {
@@ -87,8 +87,8 @@ namespace TW.Presentation.Tactical
                                 velocity: wake, grow: 1.4f, alpha: 0.85f, delay: lag + a * ArcSeconds);   // dark (the wreck's book: the Smoke book read as snow haze), it hangs and leans down wind
                         }
                         else
-                            books.Add(FlipbookFx.Book.WreckSmoke, at, 1.4f, 2.4f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: Vector3.up * 0.2f, grow: 1.2f, alpha: 0.5f, delay: lag + a * ArcSeconds);   // grey-dark, so it survives the day
+                            books.Add(FlipbookFx.Book.WreckSmoke, at, 1.8f, 2.4f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: Vector3.up * 0.2f, grow: 1.2f, alpha: 0.8f, delay: lag + a * ArcSeconds);   // grey-dark, so it survives the day
                     }
                 }
                 if (rocket && drawn)
