@@ -14,6 +14,7 @@ float4 _TWPools[TW_MAX_POOLS];
 float4 _TWPoolTint[TW_MAX_POOLS];
 float _TWPoolCount;
 float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
+float _TWPoolsThroughHaze;   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
 
 /// The warm light the pools throw on a surface at positionWS facing normalWS: three hard bands, brightest in the middle
 /// third of the reach, falling to a faint rim, and only on the side that faces the flame.

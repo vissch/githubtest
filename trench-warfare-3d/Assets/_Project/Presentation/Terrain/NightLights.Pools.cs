@@ -13,6 +13,8 @@
 //   look.firePools  how strong the pools of the fires that come and go are (1): a burning machine or wreck, a flamethrower's
 //                   fires. Before, only the lamps built with the scene had pools, and a wreck burning for a minute lit
 //                   nothing round it (the owner's colour edit lights the mud round every burning wreck); 0 leaves them out
+//   look.poolsThroughHaze  the share of a pool's light the Toon shader adds after the fog (1): with the haze lifted
+//                   the distance's lamps went out in it (warm pixels 2.8 to 1.6 %, 2026-09-30); 0 fogs them as before
 // Fires reach SceneHooks.FirePool; a big fire counts as nearer than a lamp at the same distance, by its reach squared
 // against a lantern's, so the pools a camera keeps are the ones that light the most mud it sees.
 using System.Collections.Generic;
@@ -27,9 +29,13 @@ namespace TW.Presentation.Terrain
         public const float PoolReach = 6.5f, PoolGain = 4f;
         /// <summary>On by default since the owner's word (2026-09-29); look.pools 0 sets no pool: the old night.</summary>
         public const float DefaultPools = 1f;
+        /// <summary>look.poolsThroughHaze: the share of a pool's light the Toon shader adds after the fog (1), so the
+        /// lifted haze does not put out the lamps in the distance; 0 fogs the pools with the ground as before.</summary>
+        public const float DefaultThroughHaze = 1f;
         /// <summary>What a pool does to its flame's colour: deeper toward orange. The lantern's own colour on the mud read
         /// as pale sand (Play, 2026-09-29); the owner's edits light the mud orange.</summary>
         public static readonly Vector3 PoolWarmth = new Vector3(1f, 0.74f, 0.5f);
+        static readonly int ThroughHazeId = Shader.PropertyToID("_TWPoolsThroughHaze");
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
@@ -82,6 +88,7 @@ namespace TW.Presentation.Terrain
                 poolStrength = Mathf.Max(0f, Knobs.Get("look.pools", DefaultPools));
                 poolReach = Mathf.Clamp(Knobs.Get("look.poolReach", PoolReach), 1f, 20f);
                 firePoolStrength = Mathf.Max(0f, Knobs.Get("look.firePools", 1f));
+                Shader.SetGlobalFloat(ThroughHazeId, Mathf.Clamp01(Knobs.Get("look.poolsThroughHaze", DefaultThroughHaze)));
             }
             if (poolStrength <= 0f || !SceneMood.Night)
             {
@@ -133,6 +140,7 @@ namespace TW.Presentation.Terrain
         {
             if (poolHooked) { RenderPipelineManager.beginCameraRendering -= PoolsFor; poolHooked = false; }
             SceneHooks.FirePool = null;
+            Shader.SetGlobalFloat(ThroughHazeId, 0f);
             firePools.Clear();
             Shader.SetGlobalFloat(PoolCountId, 0f);
         }

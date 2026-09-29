@@ -20,6 +20,11 @@
 // capture rig poses the main camera after that, last in the frame, so its stills were fogged for the gameplay view
 // (78 m) whatever they framed (Play, 2026-09-29). While lifted, they are set again as the main camera begins to
 // render, from the pose it renders from; at look.lift 0 nothing is hooked and every picture is the old one.
+// The reach was 1 until the loop's first critique (2026-09-30): the far third still read no lighter than the near
+// (lift +0.00 to +0.04 against the edit's +0.106). The shaders' field fog closes far more gently than the linear fog these
+// distances suggest, so a reach of 0.2 lifts the far third 0.14-0.17 to 0.21-0.23 at zoom 30 and 60 with the near third
+// within 0.01; 0.05 to 0.18 all gave the same, 0.3 fell short. The pools go on after the fog (look.poolsThroughHaze), or the
+// haze put the distance's lamps out.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -33,7 +38,7 @@ namespace TW.Presentation.Terrain
         /// <summary>What the haze (the fog and the clear colour), the bank round the field and the low mist become at
         /// look.lift 1: lighter than the night ground and less saturated than today's, still blue.</summary>
         public static readonly Color LiftHaze = new Color(0.25f, 0.29f, 0.37f), LiftBank = new Color(0.21f, 0.25f, 0.33f), LiftMist = new Color(0.27f, 0.32f, 0.41f);
-        public const float LiftReach = 1f, LiftMistShare = 0.3f, LiftBankShare = 0.35f;
+        public const float LiftReach = 0.2f, LiftMistShare = 0.3f, LiftBankShare = 0.35f;
         /// <summary>The owner's word (2026-09-29, "its good"): the night look on by default; each knob at 0 is the old night.</summary>
         public const float DefaultLift = 1f, DefaultWet = 1f;
         /// <summary>The view distance at which the reach is LiftReach itself (zoom 30 looks about 28 m), and the most it grows.</summary>

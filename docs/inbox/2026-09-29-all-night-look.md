@@ -11,7 +11,7 @@ owner's word to land.**
 | Surface | Change |
 |---|---|
 | Replay format | none: presentation only. |
-| Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.firePools`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
+| Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.firePools`, `look.poolsThroughHaze`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
 | `Atmosphere` | now `partial` (`Atmosphere.NightLook.cs`). Hook lines in `LateUpdate` only: the fog colour, its end, the mist and bank colours go through `Lifted` / `LiftedFogEnd`, which return today's values at 0. New global `_TWWetLook`, cleared in `OnDestroy`. The fog's distances moved into `FogDistances(camera)`: called from `LateUpdate` as before, and while lifted also as the main camera begins to render, so `CaptureRig` stills are fogged for the view they frame (they were fogged for the gameplay view). |
 | `NightLights` | now `partial` (`NightLights.Pools.cs`): `PushPools()` in `Update`, `ClearPools()` in `OnDestroy`; a `beginCameraRendering` hook sets `_TWPools`, `_TWPoolTint`, `_TWPoolCount` (0 unless `look.pools` > 0). |
 | `SceneHooks` | new `FirePool(at, colour, strength, reach, life)` (0 life: this frame only), set by `NightLights`, cleared in `Reset`. `TankRenderer.Burning` calls it once a frame per burning hull or wreck (one line); `NightLights`' `FireLight` hook passes a flamethrower's fires on to it. |

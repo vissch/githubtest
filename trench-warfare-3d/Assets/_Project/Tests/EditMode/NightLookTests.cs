@@ -41,6 +41,8 @@ namespace TW.Tests
         public void TheNightLook_IsOnByDefault()
         {
             Assert.AreEqual(1f, Atmosphere.DefaultLift); Assert.AreEqual(1f, Atmosphere.DefaultWet); Assert.AreEqual(1f, NightLights.DefaultPools);
+            Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");
+            Assert.Less(Atmosphere.LiftReach, 0.3f, "a reach of 0.3 or more left the far third short of the edit's lift (loop round 1)");
         }
 
         [Test]
