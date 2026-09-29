@@ -252,7 +252,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   DeathGagTests (the gags: nothing at 0, one per cause, the trench rule, the caps, no allocation),
   TickAllocationTests (no per-tick allocation).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions. The gags in
-  Play: `TW.Editor.DeathLab.Absurd(1)`, then `DeathLab.Scene("shot" | "mg" | "shell" | "heap" | "gas" | "fire" |
+  Play: `TW.Editor.DeathLab.Absurd(1)`, then `DeathLab.Scene("shot" | "mg" | "wounds" (hit, not killed: the hit blood) | "shell" | "heap" | "gas" | "fire" |
   "beam" | "crush" | "machine" | "maw" | "salvo" | "skimmer" | "walker", x, z)` (`Editor/DeathLab.cs`: every death made
   by the sim's own systems). Unattended, from batch mode: DeathStills (`Tests/Stills`, explicit, run by name with a
   graphics device; `TW_STILLS_DIR` outside the checkout, `TW_DEATH_ABSURD`, `TW_DEATH_SCENES`, `TW_STILLS_FIELD`
@@ -288,6 +288,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   boots, dust at each landing; its blood: a trail of gore along the flight, a splat where each arc lands, a streak
   along a skid, scorch under the boots, in a pool of its own (`MaxGagMarks`), GORE-scaled; a blood card from the
   `BloodSpurt` book when the build has one, looked up by name),
+  `Presentation/Camera/CombatFx.HitBlood.cs` (a man hit and still standing bleeds: red droplets out of his far side
+  along the round's way, more for a heavier hit, a `BloodSpurt` card when the build has it, and a few drops on the
+  ground in the gag marks' pool with a shorter life; GORE-scaled, 0 is none; not behind `fx.deathAbsurd`),
   `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
   beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/SimClock.cs` (the sim's clock in seconds for everything the picture times against the sim: the
   aircraft, the beam, the fires), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets
