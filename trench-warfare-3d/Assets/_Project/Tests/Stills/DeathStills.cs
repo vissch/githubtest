@@ -50,7 +50,7 @@ namespace TW.Tests
                 case "crush": return (20f, 40f, 18f, 1.5f);
                 case "beam": return (10f, 40f, 32f, 0.4f);
                 case "parts": return (9f, 40f, 38f, 0.1f);   // a row of parts on the ground, close
-                case "machine": case "maw": case "salvo": return (24f, 40f, 22f, 3f);  // a turret's leap: wide and low
+                case "machine": case "maw": case "salvo": return (30f, 40f, 22f, 6f);  // a turret's leap: wide and low, aimed up so its 14 m peak stays in (critic round 16 found it cut off)
                 case "skimmer": return (40f, 40f, 26f, 2f);   // its fan glides 18-27 m astern
                 case "walker": return (18f, 40f, 20f, 1.5f);  // a belly-flop: close and low
                 default: return (13f, 40f, 20f, 1.2f);
@@ -150,6 +150,9 @@ namespace TW.Tests
             var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
             if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+            // a still costs about 0.3 s of game time to capture (the clock runs on through the stall, measured round 16),
+            // so stills asked 0.16 s apart landed 0.33 s apart: the game clock steps 1/30 s a frame while filming
+            Time.captureDeltaTime = 1f / 30f;
             var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
             TestContext.Out.WriteLine(DeathLab.Absurd(absurd));
 
@@ -201,6 +204,7 @@ namespace TW.Tests
             }
             DeathLab.Absurd(-1f);
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
             TestContext.Out.WriteLine($"wrote {written} stills to {dir}");
             Assert.That(written, Is.GreaterThan(scenes.Length * 4), "too few stills landed to judge the deaths");
