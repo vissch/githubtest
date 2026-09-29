@@ -69,7 +69,15 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   more of the player's men in the open 8-70 m before its front trench bring an HE line down on them (`Sos`, the SOS
   barrage), and while the player's front garrison is at least eight and no smaller than its own it keeps the
   barrage's 150 silver in hand. Off on Easy and Normal: one barrage broke a bare three-to-one attack every time
-  (`TheSosBarrage_BreaksABareAttackAtThreeToOne`; seven of eight taken without it). `Side` is the seat it plays (1;
+  (`TheSosBarrage_BreaksABareAttackAtThreeToOne`; seven of eight taken without it).
+- **Tried and dropped (2026-09-29), so nobody repeats them:** (1) calling back a failed attack (`TrenchFallback` when it
+  stalls, or loses half its men short of the trench): it fired every time and saved nobody, 17.3 of 20 lost against
+  17.4, since the way back is as open as the way in. (2) Buying by a true round-robin: 23 men in ten minutes, a third
+  of them officers, shields and jetpack men, and it broke a passive player once in eight instead of seven. (3) Every
+  fifth man a machine gunner: the script against itself stalemated seven times in eight. Its deploys are 85 %
+  riflemen because the rotation runs on the clock and skips a slot it cannot pay for; per silver a gunner kills about
+  0.085, a sniper 0.05-0.08, a rifleman 0.019 (the script against itself, Iron against Brass, eight seeds). Brass beat
+  Iron in 7 of the 8 matches that ended, from either side, on its gunners and snipers: faction balance, the owner's. `Side` is the seat it plays (1;
   0 puts it on the player's side). `Said` reports each attack decision with its count.
 - **Why:** the assault ladder says a trench falls at about three to one bare and two to one behind support, and a
   garrison with machine guns falls only behind support (two gunners in ten: bare attacks fail at three to one, two to
