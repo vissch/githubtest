@@ -15,6 +15,11 @@ namespace TW.Presentation.Tactical
         /// <summary>A stand-in for a man's part, built in code.</summary>
         static void Part(Piece piece, List<Vector3> v, List<int> t, List<Color> c)
         {
+            if (piece >= Piece.FrogHead)
+            {
+                piece = SoldierOf(piece);
+                if (FigurePart(piece, v, t, c, frog: true)) return;   // a frog's own, cut from the frog
+            }
             if (FigurePart(piece, v, t, c)) return;   // his own, cut from the figure
             var rng = new DebrisRng(new Vector3((int)piece * 5.1f, 2f, 1.3f), 77u);
             Color cloth = new Color(1f, 1f, 1f, 1f), clothLow = new Color(0.86f, 0.86f, 0.86f, 1f);

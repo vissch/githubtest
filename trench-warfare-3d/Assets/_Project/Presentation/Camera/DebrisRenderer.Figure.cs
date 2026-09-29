@@ -19,7 +19,7 @@ namespace TW.Presentation.Tactical
 {
     public sealed partial class DebrisRenderer
     {
-        public const string FigurePath = "Units/FigureSoldier";
+        public const string FigurePath = "Units/FigureSoldier", FrogFigurePath = "Units/FigureFrog";
         /// <summary>The rifle's baked colour (VATBaker): how its vertices are told from the body's.</summary>
         public static readonly Color RifleColour = new Color(0.27f, 0.18f, 0.11f, 0f);
 
@@ -29,8 +29,8 @@ namespace TW.Presentation.Tactical
         /// <summary>Where the waist is between the bottom and the top of the body (limb 0), and the ankle up the leg.</summary>
         public const float WaistShare = 0.3f, AnkleShare = 0.14f;
 
-        static FigureSource figure;
-        static bool figureTried;
+        static FigureSource figure, frogFigure;
+        static bool figureTried, frogTried;
 
         /// <summary>The soldier's mesh read once: positions, colours, limbs and triangles, with the body's height span.</summary>
         sealed class FigureSource
@@ -39,11 +39,16 @@ namespace TW.Presentation.Tactical
             public float BodyLow, BodyHigh, LegLow, LegHigh;
         }
 
-        static FigureSource Figure()
+        static FigureSource Figure(bool frog = false)
         {
-            if (figureTried) return figure;
-            figureTried = true;
-            var data = Resources.Load<VatAssetData>(FigurePath);
+            if (frog) { if (!frogTried) { frogTried = true; frogFigure = Load(FrogFigurePath); } return frogFigure; }
+            if (!figureTried) { figureTried = true; figure = Load(FigurePath); }
+            return figure;
+        }
+
+        static FigureSource Load(string path)
+        {
+            var data = Resources.Load<VatAssetData>(path);
             var mesh = data != null ? data.Mesh : null;
             if (mesh == null || !mesh.isReadable) return null;
             var uv = new List<Vector2>(); mesh.GetUVs(1, uv);
@@ -59,13 +64,13 @@ namespace TW.Presentation.Tactical
                 if (f.Limb[i] == 4) { f.LegLow = Mathf.Min(f.LegLow, y); f.LegHigh = Mathf.Max(f.LegHigh, y); }
             }
             if (f.BodyHigh <= f.BodyLow || f.LegHigh <= f.LegLow) return null;
-            return figure = f;
+            return f;
         }
 
         static bool Near(Color a, Color b) => Mathf.Abs(a.r - b.r) < 0.02f && Mathf.Abs(a.g - b.g) < 0.02f && Mathf.Abs(a.b - b.b) < 0.02f && a.a < 0.5f;
 
         /// <summary>Is triangle k (its first index) part of `piece`? By its vertices' limb and colour and its middle's height.</summary>
-        static bool Takes(FigureSource f, Piece piece, int k)
+        static bool Takes(FigureSource f, Piece piece, int k, bool frog)
         {
             int a = f.T[k], b = f.T[k + 1], c = f.T[k + 2];
             int limb = f.Limb[a];
@@ -77,8 +82,8 @@ namespace TW.Presentation.Tactical
             float waist = Mathf.Lerp(f.BodyLow, f.BodyHigh, WaistShare), ankle = Mathf.Lerp(f.LegLow, f.LegHigh, AnkleShare);
             switch (piece)
             {
-                case Piece.Head: return limb == 1 && !helmet;
-                case Piece.Helm: return limb == 1 && helmet;
+                case Piece.Head: return limb == 1 && (frog || !helmet);   // a frog's green reads as olive: his head is all head
+                case Piece.Helm: return limb == 1 && helmet && !frog;
                 case Piece.Arm: return limb == 2;
                 case Piece.Leg: return limb == 4;
                 case Piece.Boot: return limb == 4 && y < ankle;
@@ -96,17 +101,17 @@ namespace TW.Presentation.Tactical
 
         /// <summary>`piece` cut from the soldier into v/t/c. False (nothing added) when there is no figure to cut, or the
         /// piece is not one of his (the pack).</summary>
-        public static bool FigurePart(Piece piece, List<Vector3> v, List<int> t, List<Color> c)
+        public static bool FigurePart(Piece piece, List<Vector3> v, List<int> t, List<Color> c, bool frog = false)
         {
             if (piece == Piece.Pack) return false;
-            var f = Figure();
+            var f = Figure(frog);
             if (f == null) return false;
             var map = new Dictionary<int, int>();
             int first = v.Count, firstTri = t.Count;
             bool lies = Lies(piece);
             for (int k = 0; k + 2 < f.T.Length; k += 3)
             {
-                if (!Takes(f, piece, k)) continue;
+                if (!Takes(f, piece, k, frog)) continue;
                 for (int j = 0; j < 3; j++)
                 {
                     int src = f.T[k + j];
@@ -191,6 +196,16 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < loop.Count; k++) { t.Add(ring + (k + 1) % loop.Count); t.Add(ring + k); t.Add(centre); }
             }
         }
+
+        /// <summary>The soldier's piece a frog's part is cut as (any other piece: itself); FrogOf the other way, for the
+        /// pieces a frog has (Helm and Pack stay the soldier's: a frog's helm flies as the kit's helmet).</summary>
+        public static Piece SoldierOf(Piece p) => p >= Piece.FrogHead && p < Piece.Count ? FrogParts[p - Piece.FrogHead] : p;
+        public static Piece FrogOf(Piece p)
+        {
+            int k = System.Array.IndexOf(FrogParts, p);
+            return k >= 0 ? (Piece)((int)Piece.FrogHead + k) : p;
+        }
+        static readonly Piece[] FrogParts = { Piece.Head, Piece.Torso, Piece.Pelvis, Piece.Arm, Piece.Leg, Piece.Boot, Piece.UpperHalf, Piece.LowerHalf };
 
         static long EdgeKey(int a, int b) => ((long)a << 32) | (uint)b;
 
