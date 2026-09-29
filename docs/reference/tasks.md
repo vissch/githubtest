@@ -521,7 +521,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
   shaders `Toon_URP`, `Water_URP`, `TWAtmosphere.hlsl`, `TWLocalLights.hlsl`, `TWWater.hlsl`.
-  The owner's night look (2026-09-29; its `decisions.md` row rides on `lane/show/vehicle-weight`), every part behind a knob that draws today's night at 0:
+  The owner's night look (2026-09-29; its `decisions.md` row rides on `lane/show/vehicle-weight`), every part behind a knob, on by default since the owner's word, 0 the old night:
   `Presentation/Terrain/Atmosphere.NightLook.cs` (`look.lift` the distance into lighter, greyer blue haze: the fog, the
   bank and the clear colour lift and the fog closes within `look.liftReach` x the distance looked at, while the low mist
   and the bank lift by only `look.liftMist` / `look.liftBank` of it, since both lie over the near ground too; `look.wet`

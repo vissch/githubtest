@@ -29,6 +29,21 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheReach_GrowsWithTheViewDistance_WithinItsCap()
+        {
+            Assert.AreEqual(1f, Atmosphere.ReachFor(1f, 20f), 1e-6f, "nearer than zoom 30: the knob's own");
+            Assert.AreEqual(1f, Atmosphere.ReachFor(1f, Atmosphere.ReachAt), 1e-6f);
+            Assert.AreEqual(2f, Atmosphere.ReachFor(1f, 2f * Atmosphere.ReachAt), 1e-5f, "zoom 60: twice, as the sweep chose");
+            Assert.AreEqual(Atmosphere.ReachGrowMax, Atmosphere.ReachFor(1f, 1000f), 1e-6f, "capped");
+        }
+
+        [Test]
+        public void TheNightLook_IsOnByDefault()
+        {
+            Assert.AreEqual(1f, Atmosphere.DefaultLift); Assert.AreEqual(1f, Atmosphere.DefaultWet); Assert.AreEqual(1f, NightLights.DefaultPools);
+        }
+
+        [Test]
         public void ThePools_TurnAFlameOrange_NotPale()
         {
             var w = NightLights.PoolWarmth;

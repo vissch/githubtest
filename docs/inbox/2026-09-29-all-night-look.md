@@ -5,14 +5,14 @@ The owner, 2026-09-29: the night look is the palette of their colour edit and th
 mud that sparkles by the fires. Worktree `githubtest-night-look`, based on integration `b406f70`. **Waiting for the
 owner's word to land.**
 
-**Every look is behind a knob that draws today's night at 0**, as `fx.deathAbsurd` is. The owner picks the defaults from
-the captures.
+**Every look is behind a knob that draws the old night at 0**, as `fx.deathAbsurd` is. **The owner set all three on
+(2026-09-29, `decisions.md`).** A capture or test that wants the old night sets `look.lift`, `look.pools` and `look.wet` to 0.
 
 | Surface | Change |
 |---|---|
 | Replay format | none: presentation only. |
 | Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
-| `Atmosphere` | now `partial` (`Atmosphere.NightLook.cs`). Hook lines in `LateUpdate` only: the fog colour, its end, the mist and bank colours go through `Lifted` / `LiftedFogEnd`, which return today's values at 0. New global `_TWWetLook`, cleared in `OnDestroy`. |
+| `Atmosphere` | now `partial` (`Atmosphere.NightLook.cs`). Hook lines in `LateUpdate` only: the fog colour, its end, the mist and bank colours go through `Lifted` / `LiftedFogEnd`, which return today's values at 0. New global `_TWWetLook`, cleared in `OnDestroy`. The fog's distances moved into `FogDistances(camera)`: called from `LateUpdate` as before, and while lifted also as the main camera begins to render, so `CaptureRig` stills are fogged for the view they frame (they were fogged for the gameplay view). |
 | `NightLights` | now `partial` (`NightLights.Pools.cs`): `PushPools()` in `Update`, `ClearPools()` in `OnDestroy`; a `beginCameraRendering` hook sets `_TWPools`, `_TWPoolTint`, `_TWPoolCount` (0 unless `look.pools` > 0). |
 | `Toon_URP.shader` | includes `TWLightPools.hlsl`; two added lines behind `_TWPoolCount > 0` / `_TWWetLook > 0`, and the puddle mirror's weight times `1 - 0.55 * _TWWetLook`. |
 | Editor | `LookLab` (knobs set from `unity command eval`). |

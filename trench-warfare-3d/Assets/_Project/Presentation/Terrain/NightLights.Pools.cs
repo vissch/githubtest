@@ -5,7 +5,7 @@
 // their flicker) to the Toon shader as a global array (_TWPools, _TWPoolTint, _TWPoolCount). Chosen per camera, not in
 // Update: the capture rig poses the camera after Update, and the pools then gathered round the spot it had left (Play,
 // 2026-09-29). Behind knobs:
-//   look.pools      how strong the pools are; 0 (the default) sets no pool at all: today's picture. At 1 a lantern's pool
+//   look.pools      how strong the pools are (1 by default since the owner's word, 2026-09-29); 0 sets no pool: the old night. At 1 a lantern's pool
 //                   is PoolGain times its light over the mud: the mud is near black when wet, and at a gain of 1 the pools
 //                   barely showed (Play, 2026-09-29: warm pixels 0.03 to 0.08 %); 4 reads as the edit's torch patches, 8
 //                   flattens them into yellow discs
@@ -19,6 +19,8 @@ namespace TW.Presentation.Terrain
     {
         public const int MaxPools = 32;   // TW_MAX_POOLS in TWLightPools.hlsl
         public const float PoolReach = 6.5f, PoolGain = 4f;
+        /// <summary>On by default since the owner's word (2026-09-29); look.pools 0 sets no pool: the old night.</summary>
+        public const float DefaultPools = 1f;
         /// <summary>What a pool does to its flame's colour: deeper toward orange. The lantern's own colour on the mud read
         /// as pale sand (Play, 2026-09-29); the owner's edits light the mud orange.</summary>
         public static readonly Vector3 PoolWarmth = new Vector3(1f, 0.74f, 0.5f);
@@ -34,7 +36,7 @@ namespace TW.Presentation.Terrain
             if (poolKnobs != Knobs.Generation)
             {
                 poolKnobs = Knobs.Generation;
-                poolStrength = Mathf.Max(0f, Knobs.Get("look.pools", 0f));
+                poolStrength = Mathf.Max(0f, Knobs.Get("look.pools", DefaultPools));
                 poolReach = Mathf.Clamp(Knobs.Get("look.poolReach", PoolReach), 1f, 20f);
             }
             if (poolStrength <= 0f || !SceneMood.Night)
