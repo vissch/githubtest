@@ -191,6 +191,23 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AFizzerIsDrawnOnACorkscrew()
+        {
+            foreach (var way in new[] { Vector3.up, new Vector3(0.6f, 0.2f, 0.77f).normalized, Vector3.right })
+                for (float t = 0f; t < 1f; t += 0.05f)
+                {
+                    var off = VehicleGags.Helix(way, t, 0.7f, out var turning);
+                    Assert.AreEqual(VehicleGags.FizzHelixRadius, off.magnitude, 1e-3f, "always the radius off its path");
+                    Assert.AreEqual(0f, Vector3.Dot(off, way), 1e-3f, "square to it");
+                    Assert.AreEqual(0f, Vector3.Dot(off, turning), 1e-2f, "and going round it");
+                }
+            var a = VehicleGags.Helix(Vector3.up, 0f, 0f, out _);
+            var b = VehicleGags.Helix(Vector3.up, 2f * Mathf.PI / VehicleGags.FizzHelixSpin, 0f, out _);
+            Assert.Less((a - b).magnitude, 1e-3f, "a whole loop in 2 pi / spin seconds");
+            Assert.GreaterOrEqual(VehicleGags.FizzHelixSpin / (2f * Mathf.PI), 2f, "two loops a second at least");
+        }
+
+        [Test]
         public void ATrackPaysOutInOneAndAHalfSeconds()
         {
             Assert.AreEqual(0f, VehicleGags.Unspool(0f)); Assert.AreEqual(1f, VehicleGags.Unspool(VehicleGags.UnspoolSeconds), 1e-5f);
