@@ -144,7 +144,7 @@ Shader "TW/Debris (URP)"
             {
                 half3 albedo = i.color.rgb * lerp(half3(1.0, 1.0, 1.0), i.tint.rgb, i.color.a);   // vertex alpha is the cloth mask: a man's skin and kit keep their colour, his uniform takes the side's (every other piece is all cloth, a = 1)
                 // the inside of a piece: a man's part is flesh (UV2.x, DebrisRenderer.Build), anything else its own colour in the dark
-                if (!front) albedo = lerp(albedo * 0.35, half3(0.42, 0.07, 0.06), i.flesh);
+                if (!front) albedo = lerp(albedo * 0.35, half3(0.66, 0.04, 0.03), i.flesh);   // DebrisRenderer.Wound
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 float3 n = normalize(front ? i.normalWS : -i.normalWS);
                 if (_TWWet.x > 0.0) albedo *= 1.0 - 0.22 * _TWWet.x * saturate(n.y * 0.55 + 0.5);   // wet on top, like everything in the rain

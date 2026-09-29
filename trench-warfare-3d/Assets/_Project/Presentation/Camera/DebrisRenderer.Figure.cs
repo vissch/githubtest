@@ -130,8 +130,9 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>The colours of a cut's cap: a wound, red with the bone white in its middle; a boot's charred; the
-        /// underside of a helmet dark steel. Kit-coloured (vertex alpha 0): the side's tint never dyes them.</summary>
-        public static readonly Color Wound = new Color(0.42f, 0.07f, 0.06f, 0f), Bone = new Color(0.86f, 0.82f, 0.72f, 0f),
+        /// underside of a helmet dark steel. Kit-coloured (vertex alpha 0): the side's tint never dyes them. The wound a
+        /// full red (critic round 7: at 0.42 the heap's parts read as mud at the play zoom, no cut end to be seen).</summary>
+        public static readonly Color Wound = new Color(0.66f, 0.04f, 0.03f, 0f), Bone = new Color(0.86f, 0.82f, 0.72f, 0f),
                                       Charred = new Color(0.12f, 0.10f, 0.09f, 0f), SteelInside = new Color(0.20f, 0.21f, 0.18f, 0f);
 
         /// <summary>A hole no wider than this across is capped; a wider one (a waist, a shoulder's ragged rim) is left open

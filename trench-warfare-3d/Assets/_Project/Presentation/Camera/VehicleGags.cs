@@ -18,14 +18,16 @@ namespace TW.Presentation.Tactical
         public const float TurretBounce = 0.5f;
         public const int TurretBounces = 2;
         /// <summary>The hull's hop at intensity 1, and the most it ever hops; the share it keeps on its one bounce.</summary>
-        public const float HopMetres = 1f, HopCap = 1.8f, HopBounce = 0.3f;
+        public const float HopMetres = 1.5f, HopCap = 1.8f, HopBounce = 0.3f;   // round 7: a metre did not show between stills
         /// <summary>A walker holds its death pose this long before it drops.</summary>
         public const float WalkerFreeze = 0.35f;
         /// <summary>How far a wheel rolls (m), how hard the ground slows it (m/s²), how many roll away at most.</summary>
-        public const float RollMin = 10f, RollMax = 16f, RollDecel = 2.5f;   // critic round 3: 8 m read as "barely travels" beside a Maw
+        public const float RollMin = 10f, RollMax = 14f, RollDecel = 2.5f;   // critic round 3: 8 m read as "barely travels" beside a Maw; round 7: 16 took a Salvo's tyre to the frame's edge
         public const int MaxRollers = 4;
         /// <summary>A hull longer than this rolls its wheels further in proportion; how long a wheel takes to go over.</summary>
         public const float RollHull = 6f, ToppleSeconds = 0.35f;
+        /// <summary>The furthest any wheel rolls, however long its hull.</summary>
+        public const float RollFar = 18f;
 
         public struct Leap { public Vector3 Vel; public Vector3 Spin; public float Air; public int Flips; }
 
@@ -69,6 +71,8 @@ namespace TW.Presentation.Tactical
         public static float RollSpeed(float distance) => Mathf.Sqrt(2f * RollDecel * Mathf.Max(0f, distance));
         public static float RollSeconds(float distance) => RollSpeed(distance) / RollDecel;
         public static float RollDistance(float r) => Mathf.Lerp(RollMin, RollMax, r);
+        /// <summary>How far a wheel of a hull that long rolls: further on a long hull (a Maw's), never past RollFar.</summary>
+        public static float RollDistance(float r, float hullLength) => Mathf.Min(RollFar, RollDistance(r) * Mathf.Max(1f, hullLength / RollHull));
 
         // ------------------------------------------------------------------ a body dropped: a hull's hop, a walker's flop
         /// <summary>Height at t of a body sent up at `up` m/s from `from`, falling to `to` (lower or level), bouncing once
