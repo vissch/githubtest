@@ -28,10 +28,16 @@ namespace TW.Perf
         public static readonly byte[] Machines = { VehicleArchetype.Tusk, VehicleArchetype.Pavise, VehicleArchetype.Kettle, VehicleArchetype.Salvo };
         /// <summary>The bursts in a row beyond the lineup: a shell (the HE barrage), a mine, a tripwire (Explosion.a sources).</summary>
         public static readonly int[] Bursts = { (int)TW.Sim.Match.OffMapAbilityId.HeBarrage, MineSystem.SourceBase + (int)MineKind.Mine, MineSystem.SourceBase + (int)MineKind.Tripwire };
-        public const float Gap = 16f, Spacing = 2.5f, MachinesBack = 22f, MachineSpacing = 7f, BurstRow = 16f, TargetsBeyond = 16f;
+        public const float Gap = 16f, Spacing = 2.5f, MachinesBack = 22f, MachineSpacing = 12f, BurstRow = 16f, TargetsBeyond = 16f;
         /// <summary>Knob: what the lineup fires. 1 the small arms only (a still of the men), 2 the guns and the bursts only,
         /// anything else both.</summary>
         public const string FireKnob = "bench.lineupFire";
+        /// <summary>Knob: 1..7 fires only that class of Men (both rows), so one class's flare can be judged alone - the
+        /// sniper's cross had never been positively seen among the other six (critique r13); 0 or absent, every class.</summary>
+        public const string OnlyKnob = "bench.lineupOnly";
+
+        /// <summary>Whether man `i` fires under the lineupOnly knob value `only`.</summary>
+        public static bool Fires(int i, int only) => only <= 0 || only > Men.Length || i == only - 1;
 
         /// <summary>Where man `i` of `team`'s row stands (x, z): the rows run along x (the held camera's line of sight, yaw 21),
         /// Gap apart across z, player 0 to the south, so every man fires ACROSS the view, broadside to the eye. Rows across x
@@ -51,20 +57,29 @@ namespace TW.Perf
         /// s+5; the guns at s-12 and their bursts and the row's at s-11, so the trails, the smoke and the columns have grown by
         /// the still (at s-4 the cards were a frame old and their smoke not yet out: lin7).</summary>
         public static bool ArmsAt(int t, int s) => t >= s - 3 && t <= s + 5;
-        public static bool GunsAt(int t, int s) => t == s - 12;
+
+        /// <summary>How many ticks apart man `i`'s rounds go: the automatic weapons every tick, a rifle's every third, the
+        /// sniper's every sixth (iso3: nine sniper rounds in 0.45 s stacked nine muzzle puffs into a white bloom over the
+        /// drawing - no sniper fires like that). Each class's last round before the still lands on s-1.</summary>
+        public static int PeriodOf(int i) => Men[i] == InfantryArchetype.Sniper ? 6 : Men[i] == InfantryArchetype.Machinegunner || Men[i] == InfantryArchetype.Assault ? 1 : 3;
+        public static bool FiresAt(int i, int t, int s) => ArmsAt(t, s) && ((t - (s - 1)) % PeriodOf(i) + PeriodOf(i)) % PeriodOf(i) == 0;
+        public static bool MutedAt(int t, int s) => t >= s - 8 && t <= s + 8;
+        /// <summary>The guns fire twice: at s-12, so their rounds' bursts and smoke have grown by the still, and at s-1, so
+        /// the still holds each gun's own blast (g16: by s-12's still every blast book had played out).</summary>
+        public static bool GunsAt(int t, int s) => t == s - 12 || t == s - 1;
         public static bool BurstsAt(int t, int s) => t == s - 11;
 
         readonly int[] row0 = new int[Men.Length], row1 = new int[Men.Length], machines = new int[Machines.Length];
         int bomber = -1;
         Vector2 focus;
         int lastT = -1;
-        int fire;
+        int fire, only;
 
         /// <summary>Spawn the lineup at `view` (the held focus) and log it; null if the worlds would not take the write.</summary>
         public static BenchLineup Stage(SimHost host, Vector2 view, BenchScenarios.Log log)
         {
             if (host == null || host.Local == null) { log.Warnings.Add("lineup: no match to stage it on"); return null; }
-            var show = new BenchLineup { focus = view, fire = Mathf.RoundToInt(Knobs.Get(FireKnob, 0f)) };
+            var show = new BenchLineup { focus = view, fire = Mathf.RoundToInt(Knobs.Get(FireKnob, 0f)), only = Mathf.RoundToInt(Knobs.Get(OnlyKnob, 0f)) };
             var inv = CultureInfo.InvariantCulture;
             bool wrote = host.WriteWorlds(m =>
             {
@@ -91,25 +106,36 @@ namespace TW.Perf
                 if (local) show.bomber = k;
             });
             if (!wrote) { log.Warnings.Add("lineup: SimHost.WriteWorlds refused (the canary is waiting on the network): nobody spawned"); return null; }
-            log.Presentation.Add("lineup: Shot/Hit every tick from shot_tick-3 to +5, VehicleFired at -4, Explosions at -3 (EventPump, presentation only)");
+            log.Presentation.Add("lineup: Shot/Hit every tick from shot_tick-3 to +5, VehicleFired at -12 and -1, Explosions at -11 (EventPump, presentation only; lineupOnly drops the rest at dispatch)");
             return show;
         }
 
         /// <summary>Queue this window tick's staged events (once per tick). `t` is the window tick, `s` shot_tick.</summary>
         public void Tick(SimHost host, int t, int s)
         {
-            if (t == lastT || host == null || host.Local == null) return;
+            if (host == null || host.Local == null) return;
+            var frame = host.Events.Frame;
+            // isolating one class: the men fight on their own too, so around the still every Shot and Hit but the chosen
+            // class's two men's is dropped at dispatch (iso1: the sim's own shots drew six other flares beside the one under
+            // test; removing them from Frame here did nothing, iso2: the host collects and dispatches inside its own Update)
+            if (only > 0 && only <= Men.Length)
+            {
+                if (MutedAt(t, s)) { int a = row0[only - 1], b = row1[only - 1]; host.Events.Skip ??= e => (e.Type == SimEventType.Shot || e.Type == SimEventType.Hit) && e.A != a && e.A != b; }
+                else host.Events.Skip = null;
+            }
+            if (t == lastT) return;
             lastT = t;
-            var w = host.Local.World; var frame = host.Events.Frame;
+            var w = host.Local.World;
             uint tick = w.Tick;
             bool arms = fire != 2, guns = fire != 1;
             if (arms && ArmsAt(t, s))
                 for (int i = 0; i < Men.Length; i++)
                 {
+                    if (!Fires(i, only) || !FiresAt(i, t, s)) continue;
                     Fire(frame, w, tick, row0[i], row1[i], i);
                     Fire(frame, w, tick, row1[i], row0[i], i + 7);
                 }
-            if (arms && t == s - 3 && Alive(w, bomber) && Alive(w, machines[0]))   // the bundle onto the Tusk
+            if (arms && only <= 0 && t == s - 3 && Alive(w, bomber) && Alive(w, machines[0]))   // the bundle onto the Tusk
                 frame.Add(new SimEvent { Tick = tick, Type = SimEventType.Shot, A = bomber, B = machines[0], Pos = w.Position[bomber], Dir = new float3(0f, 0f, -1f), Scalar = 1f });
             if (guns && GunsAt(t, s))
                 for (int i = 0; i < Machines.Length; i++)
