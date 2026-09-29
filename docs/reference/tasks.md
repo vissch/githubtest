@@ -576,7 +576,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders |
-| `FireLight` | NightLights | Flamethrower |
+| `FireLight` | NightLights | Flamethrower, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 <!-- /gen:hooks -->
