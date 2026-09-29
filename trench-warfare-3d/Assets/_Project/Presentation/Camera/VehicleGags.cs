@@ -27,11 +27,11 @@ namespace TW.Presentation.Tactical
         /// <summary>A hull longer than this rolls its wheels further in proportion; how long a wheel takes to go over.</summary>
         public const float RollHull = 6f, ToppleSeconds = 0.35f;
         /// <summary>How brightly a cook-off pop lights its wreck above intensity 0 (1 is today's full flash).</summary>
-        public const float PopGlint = 0.25f;
+        public const float PopGlint = 0.1f;   // critic round 11: at 0.25 a pop still paled the wreck to see-through in a still
         /// <summary>How many puffs ring a walker as its belly lands.</summary>
         public const int FlopRing = 8;
         /// <summary>The furthest any wheel rolls, however long its hull.</summary>
-        public const float RollFar = 18f;
+        public const float RollFar = 15f;   // critic round 11: the Maw's wheels at 18 m reached the frame's edge
 
         public struct Leap { public Vector3 Vel; public Vector3 Spin; public float Air; public int Flips; }
 

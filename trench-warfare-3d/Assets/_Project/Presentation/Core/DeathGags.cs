@@ -72,7 +72,7 @@ namespace TW.Presentation
         /// <summary>A shell's throw at intensity 1 against today's: how much further, how much higher (a heap's fountain
         /// its own), and how wide a heap fans out off the burst's line (degrees each way). Critic round 1 (2026-09-29): at
         /// 2.4 and 3.0 high, capped at 18 m, the men left the top of the frame and the heap never read as a heap.</summary>
-        public const float RocketFar = 1.9f, RocketHigh = 1.7f, FountainFar = 1.6f, FountainHigh = 1.9f, FountainFan = 60f;   // round 2: 2.2 threw them to the ice's edge
+        public const float RocketFar = 1.9f, RocketHigh = 1.7f, FountainFar = 1.3f, FountainHigh = 1.9f, FountainFan = 60f;   // round 2: 2.2 threw them to the ice's edge; round 11: 1.6 still put bodies on the ice
         public const int FlipCap = 5, RollCap = 4, BounceCap = 2;
         /// <summary>Gravity the renderer throws a corpse with (VATRenderer.ThrowGravity), for counting the turns a flight holds.</summary>
         public const float BodyGravity = 14f;
