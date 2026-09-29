@@ -10,7 +10,7 @@ Shader "TW/GroundMark (URP)"
 {
     Properties
     {
-        _Shape ("Shape (0 boot print, 1 track rut, 2 walker foot)", Float) = 0
+        _Shape ("Shape (0 boot print, 1 track rut, 2 walker foot, 3 blood, 4 scorch)", Float) = 0
         _Alpha ("Strength", Range(0,1)) = 0.6
         _Color ("Pressed mud", Color) = (0.035, 0.030, 0.026, 1)
         _FadeFrom ("Fades out from (m)", Float) = 30
@@ -45,7 +45,7 @@ Shader "TW/GroundMark (URP)"
             // fade.y: how much fine detail is worth computing. Both are per-vertex - a mark is a quad a metre or two
             // across, so interpolating them across it costs nothing and takes a distance() and two divides off every
             // pixel of every mark on the field.
-            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 positionWS : TEXCOORD1; float fog : TEXCOORD2; float2 fade : TEXCOORD3; };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 positionWS : TEXCOORD1; float fog : TEXCOORD2; float2 fade : TEXCOORD3; float seed : TEXCOORD4; };
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
@@ -61,6 +61,8 @@ Shader "TW/GroundMark (URP)"
                 float d = distance(_WorldSpaceCameraPos, o.positionWS);
                 o.fade.x = age * (1.0 - saturate((d - _FadeFrom) / max(1.0, _FadeOver)));
                 o.fade.y = 1.0 - saturate((d - _DetailFrom) / max(1.0, _DetailOver));
+                // a number of the mark's own, from where it lies, so no two splats break up alike (shapes 3 and 4)
+                o.seed = frac(sin(dot(float2(UNITY_MATRIX_M._m03, UNITY_MATRIX_M._m23), float2(12.9898, 78.233))) * 43758.5453);
                 return o;
             }
             half4 frag(Varyings i) : SV_Target
@@ -113,7 +115,7 @@ Shader "TW/GroundMark (URP)"
                         shape = saturate(shape * lerp(1.0, saturate(0.88 + 0.16 * score), detail) + detail * 0.26 * shoulder);
                     }
                 }
-                else
+                else if (_Shape < 2.5)
                 {
                     // a walking machine's foot: a broad pad driven into the ground with the toes of the claw ahead of
                     // it. Nothing about it is a tread - the weight goes through one point, so the pad is deep and its
@@ -154,6 +156,30 @@ Shader "TW/GroundMark (URP)"
                     }
                     pooled = smoothstep(0.45, 0.92, pad);
                 }
+                else if (_Shape < 3.5)
+                {
+                    // blood (the absurd deaths, CombatFx.Gags): a lobed splat where a body came down, and the drops it
+                    // threw out round it. Stretched along its length it is a skid's streak.
+                    float a = atan2(p.y, p.x);
+                    float rr = length(p) * (1.0 + 0.16 * sin(a * 5.0 + i.seed * 6.2832) + 0.09 * sin(a * 9.0 + i.seed * 17.0));
+                    half blob = 1.0 - smoothstep(0.40 - soft * 0.10, 0.60, rr);
+                    half drops = 0.0;
+                    [unroll] for (int k = 0; k < 5; k++)
+                    {
+                        float ang = i.seed * 6.2832 + k * 1.2566;
+                        float2 c = float2(cos(ang), sin(ang)) * (0.68 + 0.18 * frac(i.seed * (k + 3.1) * 7.0));
+                        drops = max(drops, 1.0 - smoothstep(0.05, 0.12, length(p - c)));
+                    }
+                    shape = saturate(max(blob, drops * 0.9));
+                    pooled = smoothstep(0.5, 0.9, blob) * 0.6;
+                }
+                else
+                {
+                    // a scorch: burnt ground under what burned there, darkest in the middle, ragged at the edge
+                    float a = atan2(p.y, p.x);
+                    shape = (1.0 - smoothstep(0.30, 1.0, length(p))) * (0.78 + 0.22 * sin(a * 7.0 + i.seed * 9.0));
+                    pooled = 0.0;
+                }
                 // pressed mud is matt and dark (it kills the glitter of the wet ground round it); what stands in the deepest
                 // part is water, and mirrors the sky at the low angle a close camera looks from
                 // _Color is PRESSED MUD, near black, and on a white field that reads as a hole punched through the
@@ -169,6 +195,7 @@ Shader "TW/GroundMark (URP)"
                 half3 mud = _Color.rgb * TWShadeTint() * 3.0;
                 half3 trodden = _TWSnowColor.rgb * TWShadeTint() * 0.62;
                 half3 color = lerp(mud, trodden, snowy);
+                if (_Shape > 2.5) color = _Color.rgb * TWShadeTint() * 1.6;   // blood and scorch are what they are, on snow too
                 // Standing water is a close thing twice over: it wants a view vector per pixel, and at range a rut is
                 // thinner than a pixel, so a sky mirror in it is a white speckle crawling over the field. It keeps a
                 // little of itself far out and comes fully in as the camera does.

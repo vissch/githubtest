@@ -38,6 +38,10 @@ namespace TW.Presentation.Tactical
         public const float LifeJitter = 0.3f;
         /// <summary>The longest a piece given this life lies before it sinks.</summary>
         public static float MaxLife(float life) => life * (1f + LifeJitter);
+        /// <summary>When a piece born then, landing landT later and lying life seconds, is sure to have sunk out of sight:
+        /// its bounce (under a second and a half from a 25 m fall; 2.5 s to spare), its life and the sink. A pool past the last of these
+        /// draws nothing, instead of drawing forever once it has held a piece.</summary>
+        public static float GoneAt(float born, float landT, float life) => born + landT + 2.5f + life + SinkSeconds;
 
         /// <summary>
         /// When a piece thrown from p0 at v0 first reaches the height restY: the positive root of the fall, 0 when it
@@ -125,7 +129,7 @@ namespace TW.Presentation.Tactical
     }
 
     [DefaultExecutionOrder(500)]
-    public sealed class DebrisRenderer : MonoBehaviour
+    public sealed partial class DebrisRenderer : MonoBehaviour
     {
         /// <summary>The kinds of piece there are: one mesh, one pool and one indirect draw each.</summary>
         public enum Piece : byte
@@ -140,6 +144,8 @@ namespace TW.Presentation.Tactical
             Limb,     // an arm or a leg
             Helmet,
             Rifle,
+            // a man's parts, life-size, for the absurd deaths (DebrisRenderer.Parts; deaths 2026-09-28): appended only
+            Head, Helm, Torso, Pelvis, Arm, Leg, Boot, Pack, UpperHalf, LowerHalf,
             Count
         }
 
@@ -159,6 +165,8 @@ namespace TW.Presentation.Tactical
         sealed class Pool
         {
             public Mesh Mesh; public int Start, Capacity, Head, Count; public bool Shadows; public float Lift;
+            /// <summary>When its last piece will have sunk: past it the pool is not drawn (Time.time).</summary>
+            public float AliveUntil;
             public int DirtyLo = int.MaxValue, DirtyHi = -1;
             public MaterialPropertyBlock Props;
         }
@@ -186,9 +194,9 @@ namespace TW.Presentation.Tactical
         public int Alive { get; private set; }
         public int DrawCalls { get; private set; }
 
-        static readonly int[] Capacity = { 1024, 512, 384, 512, 256, 256, 64, 256, 128, 128 };
-        static readonly bool[] CastsShadow = { false, false, true, true, true, true, true, false, false, false };
-        /// <summary>The pool for a kind of piece: past it the oldest is overwritten. Sums to about 3,500 records (330 KB) for the field.</summary>
+        static readonly int[] Capacity = { 1024, 512, 384, 512, 256, 256, 64, 256, 128, 128, /* parts */ 64, 96, 48, 48, 128, 128, 128, 48, 32, 32 };
+        static readonly bool[] CastsShadow = { false, false, true, true, true, true, true, false, false, false, /* parts */ false, false, false, false, false, false, false, false, false, false };
+        /// <summary>The pool for a kind of piece: past it the oldest is overwritten. Sums to about 4,300 records (410 KB) for the field.</summary>
         public static int CapacityOf(Piece piece) => Capacity[(int)piece];
         /// <summary>The pool as built with the knob debris.capacityScale (1 = CapacityOf, exactly).</summary>
         public static int CapacityOf(Piece piece, float scale) => Mathf.Max(1, Mathf.RoundToInt(Capacity[(int)piece] * scale));
@@ -343,6 +351,7 @@ namespace TW.Presentation.Tactical
             if (i > pool.DirtyHi) pool.DirtyHi = i;
             pool.Head = (i + 1) % pool.Capacity;
             if (pool.Count < pool.Capacity) pool.Count++;
+            pool.AliveUntil = Mathf.Max(pool.AliveUntil, DebrisMath.GoneAt(r.Born, r.LandT, r.Life));
         }
 
         // ------------------------------------------------------------------ frame
@@ -371,10 +380,11 @@ namespace TW.Presentation.Tactical
                 };
             }
             args.SetData(argsData);
+            float now = Time.time;
             for (int k = 0; k < pools.Length; k++)
             {
                 var pool = pools[k];
-                if (pool.Count == 0) continue;
+                if (pool.Count == 0 || now > pool.AliveUntil) continue;   // nothing in it, or all of it sunk: no draw
                 var rp = new RenderParams(material) { worldBounds = Everywhere, shadowCastingMode = pool.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = pool.Props };
                 FrameBudget.DrawIndirect(rp, pool.Mesh, args, 1, k);
                 DrawCalls++;
@@ -403,9 +413,17 @@ namespace TW.Presentation.Tactical
                 case Piece.Limb: Taper(v, t, c, 0.11f, 0.075f, 1.0f, 6, new Color(0.95f, 0.95f, 0.95f), new Color(1.0f, 1.0f, 1.0f), true); break;
                 case Piece.Helmet: HelmetMesh(v, t, c); break;
                 case Piece.Rifle: RifleMesh(v, t, c); break;
+                default: Part(piece, v, t, c); break;   // a man's parts (DebrisRenderer.Parts)
             }
             var m = new Mesh { name = "Debris " + piece, hideFlags = HideFlags.HideAndDontSave };
             m.SetVertices(v); m.SetTriangles(t, 0); m.SetColors(c);
+            if (piece >= Piece.Head)
+            {
+                // a man's part: its inside, where it was cut open, is drawn as flesh (Debris_URP, UV2.x)
+                var flesh = new List<Vector2>(v.Count);
+                for (int i = 0; i < v.Count; i++) flesh.Add(Vector2.right);
+                m.SetUVs(2, flesh);
+            }
             m.RecalculateNormals();
             // the crown is hinged at its foot: its origin stays at y = 0; everything else is centred on its bounds
             if (piece != Piece.Crown)

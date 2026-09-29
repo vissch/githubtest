@@ -128,6 +128,7 @@ namespace TW.Presentation.Terrain
             kit.ResolveKeysAndRules();   // every module named for the scale table and carrying its rule (docs/21 phase 1)
             groundFn = Ground;
             SceneHooks.Biplane = () => kit.biplane != null ? (kit.biplane.Mesh, kit.biplane.Material, kit.biplane.Size) : (null, null, Vector3.one);   // the strafe's aircraft (CombatFx.Abilities.cs)
+            SceneHooks.Standing = Standing;   // where a thrown turret may come down (TankRenderer.Deaths)
             foreach (var module in kit.Modules)
             {
                 batches.Add(module, new Batch { Module = module });
@@ -302,6 +303,29 @@ namespace TW.Presentation.Terrain
             else if (module.Sliced != null) PutSliced(module.Sliced, matrix);
             placedByKey[key] = placed.Count;
             placed.Add(new Placed { Module = module, Key = key, Added = added, Matrix = matrix, Generated = generated, Page = page, Slot = slot });
+        }
+
+        /// <summary>How far x, z is from the nearest placed prop a metre tall or more, out to `within` (SceneHooks.Standing):
+        /// its bounds' middle less its half width. Asked a few times a machine's death, never a frame.</summary>
+        float Standing(float x, float z, float within)
+        {
+            float best = within;
+            for (int i = 0; i < placed.Count; i++)
+            {
+                var p = placed[i];
+                Bounds b;
+                if (p.Module.Sliced != null) b = p.Module.Sliced.Bounds;
+                else if (p.Module.Mesh != null) b = p.Module.Mesh.bounds;
+                else continue;
+                Vector3 s = p.Matrix.lossyScale;
+                if (b.size.y * Mathf.Abs(s.y) < 1f) continue;
+                Vector3 c = p.Matrix.MultiplyPoint3x4(b.center);
+                float dx = c.x - x, dz = c.z - z;
+                if (Mathf.Abs(dx) > within + 20f || Mathf.Abs(dz) > within + 20f) continue;
+                float gap = Mathf.Sqrt(dx * dx + dz * dz) - Mathf.Max(b.extents.x * Mathf.Abs(s.x), b.extents.z * Mathf.Abs(s.z));
+                if (gap < best) best = gap;
+            }
+            return best;
         }
 
         /// <summary>A sliced prop where it stands: its building's whole mesh (the chunks that have gone masked off, MaskOf)

@@ -62,7 +62,7 @@ namespace TW.Presentation.Tactical
             }
         }
 
-        sealed class View
+        sealed partial class View
         {
             public int Slot; public ushort Gen; public byte Team; public TankModel Model;
             public Vector3 Pos, LastPos; public float Yaw, LastYaw; public bool Seen;
@@ -98,7 +98,7 @@ namespace TW.Presentation.Tactical
             public readonly List<Debris> Pieces = new List<Debris>();
         }
 
-        sealed class Debris
+        sealed partial class Debris
         {
             public View Owner; public int Part; public Matrix4x4 World;
             public Vector3 Vel, Spin; public bool Resting, Thrown;   // Thrown: a track slid off, put back when it is mended
@@ -400,6 +400,7 @@ namespace TW.Presentation.Tactical
             foreach (var kv in views) if (!kv.Value.Seen) gone.Add(kv.Key);
             foreach (int slot in gone) { Wreckify(views[slot], now); views.Remove(slot); }   // missed its VehicleDestroyed: still leave a wreck
             for (int k = wrecks.Count - 1; k >= 0; k--) if (!Smoulder(wrecks[k], dt, now)) Drop(k);
+            GagsFrame(dt, now);   // an absurd death's bodies dropping, legs splaying, rockets fizzing (TankRenderer.Deaths)
             while (wrecks.Count > MaxWrecks) Drop(0);
             FlyDebris(dt, match);
             RunPops(now);
@@ -701,12 +702,14 @@ namespace TW.Presentation.Tactical
                 case TankPartRole.Thigh:
                 case TankPartRole.Shin:
                 case TankPartRole.Foot:
+                    if (v.Splay > 0f) return Splayed(v, p, index);   // a walker that belly-flopped (TankRenderer.Deaths)
                     if (v.LegSolved != null && index >= 0 && index < v.LegSolved.Length && v.LegSolved[index]) return v.LegLocal[index];
                     break;
                 case TankPartRole.Claw:
                 {
                     float sway = Mathf.Sin(Phase(v, p) + (p.Side < 0 ? 0f : Mathf.PI)) * 5f * v.Gait;
                     rot = Quaternion.AngleAxis(sway - v.Claw * 24f * (p.Side < 0 ? 1f : -1f), Vector3.up) * rot;
+                    if (v.Splay > 0f) rot = Quaternion.AngleAxis(-VehicleGags.ClawFlat * v.Splay, Vector3.right) * rot;   // a belly-flop lays them flat (TankRenderer.Deaths)
                     break;
                 }
                 case TankPartRole.Jaw:
@@ -979,6 +982,7 @@ namespace TW.Presentation.Tactical
             {
                 d.Burn = Mathf.Max(0f, d.Burn - dt * 0.03f);
                 if (d.Resting) continue;
+                if (FlyGag(d, dt)) continue;   // a wheel rolling away, a fan gliding, a track paying out (TankRenderer.Deaths)
                 var p = d.Owner.Model.Lods[0].Parts[d.Part];
                 Vector3 pos = d.World.GetColumn(3);
                 Quaternion rot = d.World.rotation;
@@ -991,7 +995,7 @@ namespace TW.Presentation.Tactical
                 {
                     pos.y += ground - bottom;
                     if (d.Vel.y < -2f && books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, new Vector3(centre.x, ground + 0.2f, centre.z), 1.6f, 1.3f, velocity: Vector3.up * 0.5f, grow: 1f, alpha: 0.7f);
-                    d.Vel = new Vector3(d.Vel.x * 0.45f, -d.Vel.y * 0.25f, d.Vel.z * 0.45f);
+                    d.Vel = new Vector3(d.Vel.x * 0.45f, -d.Vel.y * BounceOf(d), d.Vel.z * 0.45f);   // 0.25, or a gag's own for a bounce or two
                     d.Spin *= 0.5f;
                     if (d.Vel.magnitude < 0.6f) { d.Resting = true; d.Vel = Vector3.zero; d.Spin = Vector3.zero; }
                 }
@@ -1027,6 +1031,7 @@ namespace TW.Presentation.Tactical
                     pops.Add(new Pop { Owner = v, At = now + UnityEngine.Random.Range(0.4f, 6f), Offset = new Vector3(UnityEngine.Random.Range(-1.2f, 1.2f), UnityEngine.Random.Range(1.2f, 2.6f), UnityEngine.Random.Range(-1.8f, 1.8f)), Size = UnityEngine.Random.Range(0.6f, 1.4f) });
                 CameraShake.Add(v.Pos, 12f);
             }
+            if (DeathGags.Intensity > 0f) DeathGag(v, now);   // fx.deathAbsurd: the turret leaps, wheels roll, a track pays out, a fan glides, rockets fizz, the body drops (TankRenderer.Deaths)
             wrecks.Add(v);
         }
 
@@ -1092,7 +1097,7 @@ namespace TW.Presentation.Tactical
                 books.Add(FlipbookFx.Book.Star, at, 1.4f * p.Size, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: 2f);
                 books.Add(FlipbookFx.Book.Smoke, at, 1.8f * p.Size, 3f, velocity: Vector3.up * 1.5f, grow: 1.6f, alpha: 0.7f);
                 SceneHooks.Sparks?.Invoke(at, 6);
-                p.Owner.Flash = 1f;
+                p.Owner.Flash = PopFlash(p.Owner.Flash);   // TankRenderer.Deaths
             }
         }
 

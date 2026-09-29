@@ -56,12 +56,14 @@ Shader "TW/VAT Infantry (URP)"
             float _Lift;   // 1 on the men riding a machine (VATRenderer.DrawExtras), 0 on everyone else
             float4 _LiftA, _LiftB;   // their side's colour, as on the rings and the seat pips (TankRenderer.TeamA/B)
         CBUFFER_END
+        float _TWGore;   // the GORE slider, 0..1 (CombatFx sets it each frame): the blood on a wounded man's uniform scales by it
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
 
         // gone: 1 on a vertex of a limb this man has lost (the record's pad is a bit per limb id, the mesh's UV1.x the
         // limb id per vertex, VATBaker); interpolated, so a triangle across the root is cut at its middle by clip()
         // grime: x the mud and soot on him (0..1), y his own seed for where the blotches of it fall, z how burned he is, 0..3 (VatPad)
-        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float3 grime; };
+        // wound: 0..1 the blood on his uniform (VatTint bits 18-23: hp lost, or a corpse's), before the GORE slider
+        struct Animated { float3 positionOS; float3 positionWS; float3 normalWS; float tint; float scale; float gone; float cut; float3 grime; float wound; };
 
         // Only the fallen lose limbs (a living man's record packs none: VatPad, VATRenderer), so only their material
         // enables _TW_LIMBCUT. A shader that can discard is depth-tested after it has run, not before, so the clip that
@@ -108,6 +110,16 @@ Shader "TW/VAT Infantry (URP)"
             VatInstance inst = _Instances[GetIndirectInstanceID_Base(svInstanceID)];
             uint packed = (uint)(inst.pad + 0.5);   // VatPad: limbs in bits 0-5, grime in 6-13, seed in 14-21, char in 22-23
             uint lost = packed & 63u;
+            // above the pitch (VatTint, a fallen man's death gag): his roll in 32nds of a turn, a squash of 6 signed bits
+            // (height x 1 + q x 0.0275) and whether he turns and squashes about his feet rather than his middle. All zero on
+            // a living man, so what is left below is team + 2 x pitch step, as it always was.
+            float gag = floor(inst.tint / 64.0);
+            inst.tint -= gag * 64.0;
+            float roll = fmod(gag, 32.0) * (6.28318530 / 32.0);
+            float sq = fmod(floor(gag / 32.0), 64.0);
+            sq = sq > 31.5 ? sq - 64.0 : sq;
+            float pivot = fmod(floor(gag / 2048.0), 2.0) > 0.5 ? 0.0 : 0.9;
+            float wound = floor(gag / 4096.0) / 63.0;   // VatTint.WoundShift / RollShift; 63 = VatTint.WoundMax
             // tint: the team in the low bit; above it, for a fallen man in the air, the pitch he tumbles at in 32nds of a turn
             float team = fmod(inst.tint, 2.0);
             float pitch = floor(inst.tint * 0.5) * (6.28318530 / 32.0);   // 2 pi / VATRenderer.PitchSteps: change both together
@@ -130,9 +142,25 @@ Shader "TW/VAT Infantry (URP)"
             {
                 // end over end about his middle, so he stays on his arc (VATRenderer.Fallen); level again when he lands
                 float sp = sin(pitch), cp = cos(pitch);
-                float3 q = p - float3(0.0, 0.9, 0.0);
-                p = float3(q.x, q.y * cp - q.z * sp, q.y * sp + q.z * cp) + float3(0.0, 0.9, 0.0);
+                float3 q = p - float3(0.0, pivot, 0.0);
+                p = float3(q.x, q.y * cp - q.z * sp, q.y * sp + q.z * cp) + float3(0.0, pivot, 0.0);
                 n = float3(n.x, n.y * cp - n.z * sp, n.y * sp + n.z * cp);
+            }
+            if (roll != 0.0)
+            {
+                // cartwheeling: side over side about the same point (local Z)
+                float sr = sin(roll), cr = cos(roll);
+                float3 q = p - float3(0.0, pivot, 0.0);
+                p = float3(q.x * cr - q.y * sr, q.x * sr + q.y * cr, q.z) + float3(0.0, pivot, 0.0);
+                n = float3(n.x * cr - n.y * sr, n.x * sr + n.y * cr, n.z);
+            }
+            if (sq != 0.0)
+            {
+                // squash and stretch along the world's up, after the turns: the volume kept, the width capped
+                float sy = 1.0 + sq * 0.0275;
+                float sxz = clamp(rsqrt(sy), 0.75, 1.8);
+                p = float3(p.x * sxz, pivot + (p.y - pivot) * sy, p.z * sxz);
+                n = float3(n.x / sxz, n.y / sy, n.z / sxz);
             }
             p *= inst.scale;
             o.positionWS = inst.pos + float3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
@@ -142,6 +170,7 @@ Shader "TW/VAT Infantry (URP)"
             o.gone = gone;
             o.cut = lost != 0u && limb < 0.5 ? 1.0 : 0.0;   // he lost something: the inside of his body (what a cut opens onto) is a wound; the inside of a helmet or a sleeve is not
             o.grime = float3(((packed >> 6) & 255u) / 255.0, (packed >> 14) & 255u, (packed >> 22) & 3u);
+            o.wound = wound;
             return o;
         }
         ENDHLSL
@@ -167,7 +196,7 @@ Shader "TW/VAT Infantry (URP)"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; float2 limb : TEXCOORD1; };
-            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; float3 grime : TEXCOORD8; };
+            struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; float3 grime : TEXCOORD8; float wound : TEXCOORD9; };
 
             Varyings vert(Attributes v, uint instanceID : SV_InstanceID)
             {
@@ -179,7 +208,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.normalWS = a.normalWS;
                 o.color = v.color;
                 o.tint = a.tint;
-                o.gone = a.gone; o.cut = a.cut; o.grime = a.grime;
+                o.gone = a.gone; o.cut = a.cut; o.grime = a.grime; o.wound = a.wound;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
@@ -240,6 +269,21 @@ Shader "TW/VAT Infantry (URP)"
                     half splash = smoothstep(cut - 0.04, cut + 0.04, blot) * (0.5 + 0.4 * rise);
                     albedo = lerp(albedo, mud, splash);
                     albedo *= 1.0 - 0.28 * g;
+                }
+                // his wounds (VatTint bits 18-23, hp lost; GORE scales it): dark wet blood soaking out from his chest, in ragged
+                // blotches that run downward, spreading over the body as he is hurt more. His own seed places it, so it stays
+                // put as he moves and differs man to man; before the char, so a burned corpse reads burned
+                half hurt = sqrt(i.wound) * _TWGore;   // an early wound shows at once (a first film: a quarter of his hp lost read as a few specks)
+                if (hurt > 0.004)
+                {
+                    float3 wq = i.positionOS * float3(10.0, 4.5, 10.0) + i.grime.y * float3(0.382, 0.271, 0.618);   // stretched in height: it runs
+                    float wb = VatNoise(wq) * 0.65 + VatNoise(wq * 2.1 + 31.0) * 0.35;
+                    half chest = 1.15 + (frac(i.grime.y * 0.137) - 0.5) * 0.25;                                     // where it soaks out from
+                    half reach = 0.22 + 0.8 * hurt;                                                                   // how far it has spread
+                    half near = saturate(1.0 - abs(i.positionOS.y - chest + 0.15 * hurt) / reach);
+                    half cutW = 1.0 - (0.5 + 0.65 * hurt) * near;
+                    half soak = smoothstep(cutW - 0.05, cutW + 0.05, wb) * near;
+                    albedo = lerp(albedo, half3(0.34, 0.03, 0.03), soak * 0.92);
                 }
                 // (before the char, so a burned man reads burned, not snowed over: critic r4, 2026-09-27)
                 // The battlefield reaches the men, or they read as cut out of a different picture standing in it.

@@ -143,7 +143,8 @@ namespace TW.Tests
             int[] old = { 1024, 512, 384, 512, 256, 256, 64, 256, 128, 128 };
             float scale = Knobs.Get("debris.capacityScale", 1f);
             Assert.AreEqual(1f, scale);
-            Assert.AreEqual(old.Length, (int)DebrisRenderer.Piece.Count);
+            // the ten kinds there were keep their pools; a man's parts (deaths, 2026-09-28) are appended after them
+            Assert.AreEqual(old.Length, (int)DebrisRenderer.Piece.Head);
             for (int k = 0; k < old.Length; k++)
             {
                 Assert.AreEqual(old[k], DebrisRenderer.CapacityOf((DebrisRenderer.Piece)k));

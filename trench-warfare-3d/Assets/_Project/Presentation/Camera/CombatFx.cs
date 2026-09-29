@@ -625,6 +625,7 @@ namespace TW.Presentation.Tactical
                             velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
                     if (vehicle && SceneMood.Night) Throw(p, 10, 3, 10f, 0.035f);   // sparks off armour
                     else if (e.Scalar > 0f) Throw(p, 3, 0, 3.5f, 0.05f);           // and something physical comes off a man struck
+                    if (!vehicle && e.Scalar > 0f) HitBlood(e, p, toward.normalized, scale);   // and he bleeds (CombatFx.HitBlood)
                     break;
                 }
                 case SimEventType.Death:
@@ -814,7 +815,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.VehicleCrushed:
                 {
                     // a man under the tracks or a claw (b = 2): what is left of him comes out from under, low and slow
-                    if (e.B != 2 || debris == null || !debris.Ready || DebrisRenderer.Gore <= 0f) break;
+                    if (e.B != 2 || debris == null || !debris.Ready || DebrisRenderer.Gore <= 0f || DeathGags.Intensity > 0f) break;   // with the gags on, the pancake's Death throws it (CombatFx.Gags)
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.3f;
                     debris.Burst(DebrisRenderer.Piece.Helmet, p, 1, 3.5f, 0.32f * FigureScale(), Steel, 60f, 0f, 1.0f, default, e.Tick);
@@ -856,6 +857,7 @@ namespace TW.Presentation.Tactical
             var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
             float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
             DebrisRenderer.ZoomShare = SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f;
+            Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
             float now = Time.time;
             Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);

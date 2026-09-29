@@ -1,4 +1,4 @@
-﻿// Phase: B1 / C4 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared pools): what
+// Phase: B1 / C4 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared pools): what
 // comes off a man and a tree: gibs and kit on a blast death, a tree crown breaking, and where a man's muzzle and
 // chest are drawn (for tracers and hits), all at the drawn figure scale.
 using System.Collections.Generic;
@@ -31,10 +31,13 @@ namespace TW.Presentation.Tactical
         /// leg; the VAT shader cuts them from the figure at the root), and the same limbs, his helmet and his rifle thrown
         /// from where he stood on the shell's own throw plus a scatter. Seeded from the place, so a replay agrees. Nothing
         /// with DebrisRenderer.Gore at 0. density: how many died beside him this moment (AnimationController's death
-        /// record): in a heap more comes off, and fewer come down whole.
+        /// record): in a heap more comes off, and fewer come down whole. With fx.deathAbsurd above 0 GibPlan decides it
+        /// and what flies is his own arm, leg, head and helmet, cut from his figure (DebrisRenderer.Figure), maybe both
+        /// his halves (GibPlan.TornBit in what comes back: lay no corpse); at 0 a tube, a clod and the kit's helmet, as ever.
         /// </summary>
-        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0)
+        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0, float delay = 0f)
         {
+            if (DeathGags.Intensity > 0f) return OwnGibs(slot, at, yaw, team, fly, density, delay);   // fx.deathAbsurd: his own parts
             if (DebrisRenderer.Gore <= 0f || debris == null || !debris.Ready) return 0;
             var rng = new DebrisRng(at, 0x6B1u + (uint)slot);
             if (rng.Next() < 0.3f / (1f + density)) return 0;   // most men thrown by a shell alone come down whole; in a heap, few
@@ -71,6 +74,116 @@ namespace TW.Presentation.Tactical
                 debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * scale, Gore, ref rng, 8f);
             }
             return mask;
+        }
+
+        /// <summary>A lump of him at fx.deathAbsurd above 0: blood red, not today's near-black (critic round 6: a swarm of
+        /// dark lumps read as clods of earth and hid his parts).</summary>
+        static readonly Color GoreRed = new Color(0.55f, 0.04f, 0.04f);
+        readonly List<DebrisRenderer.Piece> gibPieces = new List<DebrisRenderer.Piece>(12);
+
+        /// <summary>Gibs at fx.deathAbsurd above 0: GibPlan decides what he loses, and exactly that flies, cut from his own
+        /// figure; torn in two, the upper half goes where his body would have landed (so its blood is there) and the lower
+        /// half a shorter way. Kit flies at GORE 0.</summary>
+        int OwnGibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density, float delay)
+        {
+            if (debris == null || !debris.Ready) return 0;
+            uint seed = (uint)Mathf.FloorToInt(at.x * 37f) * 73856093u ^ (uint)Mathf.FloorToInt(at.z * 37f) * 19349663u ^ (uint)slot * 83492791u;
+            var plan = GibPlan.Decide(seed, DeathGags.Intensity, DebrisRenderer.Gore, density);
+            if (plan.Whole) return 0;
+            // his parts leave with him: a heap's men go a beat apart (DeathGags' delay), and theirs with them (critic
+            // round 9: every part left the burst in one clump while the bodies were staggered)
+            if (delay > 0.02f) pendingGibs.Add(new PendingGibs { Plan = plan, Slot = slot, At = at, Yaw = yaw, Team = team, Fly = fly, Due = Time.time + delay });
+            else ThrowGibs(plan, slot, at, yaw, team, fly);
+            return plan.Mask | (plan.Torn ? GibPlan.TornBit : 0);
+        }
+
+        struct PendingGibs { public GibPlan Plan; public int Slot, Team; public Vector3 At, Fly; public float Yaw, Due; }
+        readonly List<PendingGibs> pendingGibs = new List<PendingGibs>(32);
+
+        /// <summary>Once a frame: the parts whose men leave now (OwnGibs).</summary>
+        void DueGibs(float now)
+        {
+            for (int k = pendingGibs.Count - 1; k >= 0; k--)
+            {
+                var g = pendingGibs[k];
+                if (now < g.Due) continue;
+                pendingGibs.RemoveAt(k);
+                if (debris != null && debris.Ready) ThrowGibs(g.Plan, g.Slot, g.At, g.Yaw, g.Team, g.Fly);
+            }
+        }
+
+        void ThrowGibs(in GibPlan plan, int slot, Vector3 at, float yaw, int team, Vector3 fly)
+        {
+            var rng = new DebrisRng(at, 0x61B5u + (uint)slot);
+            float figure = FigureScale(), scale = figure * GibPlan.PartScale(DeathGags.Intensity);
+            Color cloth = team == 1 ? ClothB : ClothA;
+            Vector3 chest = at + Vector3.up * (1.2f * figure);
+            Vector3 facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+            // his parts ride his own arc (the gag's throw, already grown): today's 2.5 + 2 x height sent them 25 m/s up and
+            // out of the frame at the new heights (critic round 5 found no parts to point at)
+            Vector3 carry = Reaching(fly, 0.8f, 0.8f);
+            GibPlan.Pieces(plan, gibPieces);
+            foreach (var piece in gibPieces)
+            {
+                Vector3 vel;
+                switch (piece)
+                {
+                    case DebrisRenderer.Piece.Arm:
+                    case DebrisRenderer.Piece.Leg:
+                        vel = carry + rng.OnSphere() * 3.5f; vel.y = Mathf.Abs(vel.y) + 2f;
+                        debris.Throw(piece, chest + rng.OnSphere() * (0.3f * scale), Topped(vel), scale, cloth, ref rng, 30f);
+                        break;
+                    case DebrisRenderer.Piece.Head:
+                        vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 3f;
+                        debris.Throw(piece, chest + Vector3.up * (0.4f * scale), Topped(vel), scale, Skin, ref rng, 30f);
+                        break;
+                    case DebrisRenderer.Piece.UpperHalf:
+                        debris.Throw(piece, chest, Topped(Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
+                        break;
+                    case DebrisRenderer.Piece.LowerHalf:
+                        debris.Throw(piece, at + Vector3.up * (0.6f * scale), Topped(Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
+                        break;
+                    case DebrisRenderer.Piece.Helm:
+                        vel = carry + rng.OnSphere() * 4f; vel.y = Mathf.Abs(vel.y) + 4f;
+                        debris.Throw(piece, chest + Vector3.up * (0.5f * scale), Topped(vel), scale, Steel, ref rng, 60f);
+                        break;
+                    case DebrisRenderer.Piece.Rifle:
+                        vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;
+                        debris.Throw(piece, chest, Topped(vel), scale, Bark, ref rng, 60f);
+                        break;
+                    case DebrisRenderer.Piece.Pack:
+                        vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;
+                        debris.Throw(piece, chest - facing * (0.25f * scale), Topped(vel), scale, cloth, ref rng, 60f);
+                        break;
+                }
+            }
+            for (int k = 0; k < plan.Lumps; k++)
+            {
+                Vector3 vel = carry * 0.8f + rng.OnSphere() * 4.5f; vel.y = Mathf.Abs(vel.y) + 1.5f;
+                debris.Throw(DebrisRenderer.Piece.Clod, chest, Topped(vel), rng.Range(0.07f, 0.14f) * figure, GoreRed, ref rng, 8f);
+            }
+            // round 9: at 2.6 m, and none for a man who only lost a limb, the heap's aftermath showed two small splats for eight men
+            float splat = plan.Torn || plan.Apart ? 3.4f : (plan.Mask & GibPlan.AllLimbs) != 0 ? 1.8f : 0f;
+            if (splat > 0f && DebrisRenderer.Gore > 0f)
+                AddGagMark(at, rng.Range(0f, 360f), new Vector2(splat, splat) * (Mathf.Sqrt(DebrisRenderer.Gore) * figure), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);
+        }
+
+        /// <summary>The launch that carries a thrown piece `far` of the throw's way and `high` of its height under the
+        /// debris' gravity: the body's own arc (VATRenderer throws the corpse the same distance and height).</summary>
+        /// <summary>A part's launch with its rise capped at GibPlan.PartTop (critic round 9: riding a fountain's arc under the
+        /// debris' lighter gravity, parts hung in the air 3 s and more, above the frame, after their men had landed).</summary>
+        static Vector3 Topped(Vector3 vel)
+        {
+            float most = Mathf.Sqrt(2f * DebrisMath.Gravity * GibPlan.PartTop);
+            if (vel.y > most) vel.y = most;
+            return vel;
+        }
+
+        static Vector3 Reaching(Vector3 fly, float far, float high)
+        {
+            float up = Mathf.Sqrt(2f * DebrisMath.Gravity * Mathf.Max(0.3f, fly.y * high));
+            float air = 2f * up / DebrisMath.Gravity;
+            return new Vector3(fly.x * far / air, up, fly.z * far / air);
         }
 
         /// <summary>
