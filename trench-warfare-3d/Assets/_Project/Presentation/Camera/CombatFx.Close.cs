@@ -38,7 +38,7 @@ namespace TW.Presentation.Tactical
         /// flashes harder than a pistol's).</summary>
         /// <summary>A hit's flash by day with the class looks on: x0.55 up close. The drawn blood and puff carry the strike;
         /// the additive flash at full size was a white disc on snow (iso3-5: the sniper's hits bloomed over his row).</summary>
-        public static float HitFlashDay(float closeUp) => Mathf.Lerp(1f, 0.55f, closeUp);
+        public static float HitFlashDay(float closeUp) => Mathf.Lerp(0.6f, 0.4f, closeUp);   // drawn as a Star by day: a spike this size, not a disc
 
         public static float HitFlashOf(ArmsKind kind)
         {
