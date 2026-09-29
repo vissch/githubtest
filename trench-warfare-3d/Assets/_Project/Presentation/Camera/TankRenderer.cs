@@ -359,6 +359,7 @@ namespace TW.Presentation.Tactical
             RidersFrame(now);   // the men on the walkers' backs, at the hulls as posed above
             RocketsFrame(now);  // the Salvo's rockets in the air (their bodies go in this frame's batches), their trails and landings
             RibbonsFrame(now);  // their smoke, one mesh
+            EmitMachineLights(now);   // lamps, exhausts and fires (TankRenderer.Lights.cs; all off by default)
             Draw();
             if (books != null && books.Ready) books.Draw(now, Everywhere);
             Fireballs(now);
@@ -1172,6 +1173,7 @@ namespace TW.Presentation.Tactical
                         const float DrawnForHalfLength = 2.5f;
                         float hull = Mathf.Max(0.6f, v.Model.HalfLength / DrawnForHalfLength);
                         var at = v.Pos + Vector3.up * (v.Heave.Value + Mathf.Max(2f, 0.7f * v.Model.Height));
+                        CookOffLight(v, at);   // with the machine light pool on (lights.machinePool)
                         // the fireball: one big tongue up the middle and a ring of smaller ones, each on its own clock, its own
                         // flash, and the black smoke that boils up after it
                         fireballs.Add(new Fireball { At = at, Born = now, Life = 1.5f, Width = 5.5f * hull, Height = 9f * hull, Phase = 0f });

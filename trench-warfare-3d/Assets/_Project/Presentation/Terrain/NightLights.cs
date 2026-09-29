@@ -19,7 +19,7 @@ using TW.Sim.Terrain;
 
 namespace TW.Presentation.Terrain
 {
-    public sealed class NightLights : MonoBehaviour
+    public sealed partial class NightLights : MonoBehaviour
     {
         public SimHost Host;
         public const int MaxLanterns = 12, MaxTrenchLamps = 14, MaxFires = 5, MaxTorches = 6, MaxPropLamps = 12, PoolSize = 8;
@@ -116,14 +116,18 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(9f, .25f, .3f, .2f) }, new[] { new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
             flareGlow.SetColor("_Tint", Color.black);
             nextFlare = Time.time + 6f;
-            // one small mesh holds a card per pooled light; its vertices are rewritten each frame (32 of them)
+            // one small mesh holds a card per pooled light; its vertices are rewritten each frame (32 of them), and after
+            // them the machines' lamps (NightLights.Machines.cs): zero-sized, so no fragment, until a machine lights one
+            StartMachines();
+            int cards = poolSize + machineCards;
+            if (flashPos.Length != cards * 4) { flashPos = new Vector3[cards * 4]; flashCol = new Color[cards * 4]; }
             var host = new GameObject("Flash glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
-            var centres = new Vector3[poolSize]; var shapes = new Vector4[poolSize]; var colors = new Color[poolSize];
-            for (int i = 0; i < poolSize; i++) shapes[i] = new Vector4(1f, 0f, i * .19f, .15f);
+            var centres = new Vector3[cards]; var shapes = new Vector4[cards]; var colors = new Color[cards];
+            for (int i = 0; i < cards; i++) shapes[i] = new Vector4(i < poolSize ? 1f : 0f, 0f, i * .19f, .15f);
             AddGlowMesh(host, glow, centres, shapes, colors);
             flashMesh = host.GetComponent<MeshFilter>().sharedMesh; flashMesh.MarkDynamic();
-            for (int i = 0; i < poolSize * 4; i++) flashShape.Add(new Vector4(1f, 0f, (i / 4) * .19f, .15f));
+            for (int i = 0; i < cards * 4; i++) flashShape.Add(new Vector4((i / 4) < poolSize ? 1f : 0f, 0f, (i / 4) * .19f, .15f));
             // embers: what a shell leaves glowing in its hole for a few seconds. Cards only, no lights.
             var emberHost = new GameObject("Ember glows") { hideFlags = HideFlags.DontSave };
             emberHost.transform.SetParent(transform, false);
@@ -321,6 +325,7 @@ namespace TW.Presentation.Terrain
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
             AddGlowMesh(host, glow, centres.ToArray(), shapes.ToArray(), colors.ToArray());
+            nightGlows = host.GetComponent<MeshFilter>().sharedMesh;   // card j is lanterns[j]: a lamp whose post goes is put out on it (LampOut)
         }
 
         void AddFlameMesh(List<Vector3> feet, List<Vector4> flameShapes)
@@ -389,6 +394,7 @@ namespace TW.Presentation.Terrain
             SceneHooks.SmokeSources.Clear();
             SceneHooks.Flash = null;
             SceneHooks.FireLight = null;
+            SceneHooks.MachineGlows = null; SceneHooks.MachineLight = null; SceneHooks.LampOut = null;
             foreach (var o in owned) if (o != null) Destroy(o);
         }
 
@@ -490,6 +496,7 @@ namespace TW.Presentation.Terrain
                 var shape = new Vector4(pool[i].Light.range * (.30f + .25f * age) * Mathf.Lerp(1f, .55f, SceneHooks.CloseUp), 0f, i * .19f, .15f);   // among the men it was wider than the picture
                 for (int k = 0; k < 4; k++) { flashPos[i * 4 + k] = pool[i].Light.transform.position; flashCol[i * 4 + k] = card; flashShape[i * 4 + k] = shape; }
             }
+            UpdateMachines();
             flashMesh.vertices = flashPos; flashMesh.colors = flashCol; flashMesh.SetUVs(1, flashShape);
             flashMesh.bounds = new Bounds(Vector3.zero, Vector3.one * 4000f);
             // hand the live burst to the shaders: its colour carries what is left of it, black once it is out

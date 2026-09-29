@@ -141,6 +141,17 @@ namespace TW.Presentation
         /// pad. Stamped where the leg actually is rather than guessed from the body's path. (TankRenderer fills it from
         /// WalkerGait's own footfalls; CombatFx lays the mark.)</summary>
         public static System.Action<UnityEngine.Vector3, float, UnityEngine.Vector2> FootFall;
+        /// <summary>A machine's small lights this frame, as glow cards: place, colour (a = strength), size (m), the first n
+        /// of the arrays. (TankRenderer fills them from its lamps, exhausts and furnace, tank.lamps; NightLights draws them
+        /// in its flash-glow mesh, so they cost no draw call.)</summary>
+        public static System.Action<UnityEngine.Vector3[], UnityEngine.Color[], float[], int> MachineGlows;
+        /// <summary>A machine asks for a real light: a key that stays the same while the same thing asks (slot times four
+        /// plus its kind), priority (3 a cook-off, 2 a fire, 1 the Maw's furnace), place, colour, peak, reach (m)
+        /// and life (s; 0 = while it keeps asking). (NightLights lends its machine pool, lights.machinePool, 0 by default.)</summary>
+        public static System.Action<int, int, UnityEngine.Vector3, UnityEngine.Color, float, float, float> MachineLight;
+        /// <summary>A lantern post has gone, whatever broke it: the lamp hung within the reach (m) of that point goes out,
+        /// its light and its glow. (PropDestruction calls it; NightLights puts the lamp out.)</summary>
+        public static System.Action<UnityEngine.Vector3, float> LampOut;
 
         /// <summary>Nobody is here: every service unset, every flag off. Only when no scene is live
         /// (SceneStatics.ResetSession): on a scene load the new scene's components have already wired theirs.</summary>
@@ -149,6 +160,7 @@ namespace TW.Presentation
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
             IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; CookOff = null; FootFall = null; AimPreview = null;
+            MachineGlows = null; MachineLight = null; LampOut = null;
         }
     }
 
