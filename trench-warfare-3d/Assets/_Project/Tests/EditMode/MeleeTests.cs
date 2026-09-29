@@ -433,6 +433,58 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AHeroWhoseSlotIsTakenRightAfterABayonetKill_StillFallsWithIt()
+        {
+            using var m = Pair(InfantryArchetype.Rifle, InfantryArchetype.Medic, 2f, out int man, out int foe, hp: 1e6f, foeHp: 60f);
+            var w = m.World;
+            Run(m, 1);
+            m.Hero.HeroTicks[man] = 400; m.Hero.HeroId[man] = 99; m.Hero.HeroGen[man] = w.Generation[man];
+            bool killed = false;
+            for (int t = 0; t < 400 && !killed; t++)
+            {
+                Step(m);
+                for (int k = 0; k < m.Melee.Killed.Length; k++) if (m.Melee.Killed[k].y == man) killed = true;
+            }
+            Assert.IsTrue(killed, "setup: the bayonet killed");
+            float3 stood = w.Position[man];
+            w.Despawn(man, -1);
+            int next = w.Spawn(0, InfantryArchetype.Rifle, new float3(40f, 0f, 60f), 100f, 3f, false);   // a deploy takes his slot first
+            Assert.AreEqual(man, next, "setup: the slot is used again before the next step");
+            var log = Run(m, 1);
+            var fallen = log.FindAll(e => e.Type == SimEventType.HeroFallen && e.A == man);
+            Assert.AreEqual(1, fallen.Count, "he falls, once");
+            Assert.AreEqual(1f, fallen[0].Scalar, "with his last kill");
+            Assert.Less(math.distance(fallen[0].Pos, stood), 0.5f, "where he stood (at the last hero step), not where the next man came in");
+            Assert.AreEqual(0, m.Hero.HeroTicks[next], "and the next man is no hero");
+        }
+
+        [Test]
+        public void AManBrawlingInHisTrench_IsNotSeenFromAcrossTheField()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var w = m.World;
+            short t = m.Fields.FrontTrench(1);
+            float z = m.Map.NavCellCenter(m.Map.TrenchCells[m.Map.Trenches[t].CellStart + m.Map.Trenches[t].CellCount / 2]).z;
+            int d = w.Spawn(1, InfantryArchetype.Rifle, new float3(120f, 0f, z + 6f), 1e6f, 3f, false);
+            w.GoalId[d] = m.Fields.GetGoal(GoalKey.Trench(t));
+            for (int k = 0; k < 600 && w.TrenchId[d] < 0; k++) Step(m);
+            Assert.GreaterOrEqual(w.TrenchId[d], 0, "setup: he got into his trench");
+            Run(m, 40);
+            float3 at = w.Position[d];
+            w.Spawn(0, InfantryArchetype.Rifle, at + new float3(1.5f, 0f, 0f), 1e6f, 0f, false);   // a raider in the trench beside him
+            int far = w.Spawn(0, InfantryArchetype.Rifle, at - new float3(0f, 0f, 50f), 1e6f, 0f, false);   // a rifleman 50 m out
+            int brawling = 0;
+            Run(m, 120, k =>
+            {
+                if (w.StanceOf[d] != (byte)Stance.Melee) return;
+                brawling++;
+                Assert.AreNotEqual(d, w.TargetSlot[far], $"tick {k}: the man 50 m out had the brawler below the rim as his target");
+            });
+            Assert.Greater(brawling, 40, "setup: he fought in his trench");
+        }
+
+        [Test]
         public void TheDeathBattalion_HitsHarderWithTheButt()
         {
             using var m = Pair(InfantryArchetype.DeathBattalion, InfantryArchetype.Medic, 2f, out int man, out int foe, hp: 1e6f, foeHp: 1e6f);
