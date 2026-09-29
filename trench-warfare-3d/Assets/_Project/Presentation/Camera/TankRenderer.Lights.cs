@@ -25,6 +25,7 @@ namespace TW.Presentation.Tactical
         /// <summary>How far a card is drawn toward the camera (m, tank.lampPull): the plates round a hull corner hid it at
         /// 0.35 m; at 1 m every lamp of two Maws showed at zoom 20 (Play, 2026-09-29).</summary>
         public const float LampPull = 1f;
+        static readonly string[] Exhausts = { "Socket_Exhaust0", "Socket_Exhaust1" };   // named once: "Socket_Exhaust" + k built a string per machine per frame
         const float LampRear = 1f, LampFront = 0.55f, LampFlicker = 0.03f, LampHaze = 0.3f, LampPerMetre = 0.015f;
         const float CookOffPeak = 30f, CookOffSeconds = 1.2f, MachineLightReach = 10f;
         /// <summary>The red of Dust Front's running lamps (tank.lampHue 1).</summary>
@@ -136,7 +137,7 @@ namespace TW.Presentation.Tactical
                 float heat = exhaustGlow * (0.3f + 0.7f * v.Throttle);
                 for (int k = 0; k < 2 && g < MaxMachineGlows; k++)
                 {
-                    var at = SocketWorld(v, "Socket_Exhaust" + k, out bool ok);
+                    var at = SocketWorld(v, Exhausts[k], out bool ok);
                     if (ok) g = Card(g, at + ahead, eye, 0.9f, new Color(ExhaustHot.r, ExhaustHot.g, ExhaustHot.b, heat));
                 }
                 if (g < MaxMachineGlows && FurnaceFor(v.Model, out Vector3 mouth))
