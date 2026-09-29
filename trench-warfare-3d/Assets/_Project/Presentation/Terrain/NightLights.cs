@@ -94,6 +94,7 @@ namespace TW.Presentation.Terrain
             SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
             {
                 Flash(at, color, peak, reach, life, card);
+                SceneHooks.FirePool?.Invoke(at, color, peak / Mathf.Max(0.01f, LanternIntensity), reach * 1.3f, life);   // and its pool on the mud (look.firePools)
                 // the strongest one alive also becomes the hearth, which is what lights the smoke standing over it
                 float live = hearthPeak * Mathf.Max(0f, 1f - (Time.time - hearthSeen) / HearthHold);
                 if (peak >= live) { hearthAt = at; hearthPeak = peak; hearthSeen = Time.time; hearthRange = reach * 0.55f; hearthTint = color; }

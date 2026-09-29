@@ -82,6 +82,7 @@ Shader "TW/Tank (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
+            #include "Assets/_Project/Shaders/TWLightPools.hlsl"
 
             struct Attributes
             {
@@ -173,6 +174,13 @@ Shader "TW/Tank (URP)"
                 lamp = lerp(lampLum.xxx, lamp, 0.4);
                 color += albedo * min(lamp * 0.45, 0.3);
                 color += lampGlint * 0.35;
+                // look.pools: a fire near it lights the plate a little and rims its edge warm, capped like the lamps (TWLightPools.hlsl)
+                if (_TWPoolCount > 0.0)
+                {
+                    half3 fireRim;
+                    half3 pools = TWPoolsOnFigure(i.positionWS, normalize(i.normalWS), view, fireRim);
+                    color += albedo * min(pools * 0.35, 0.3) + 0.3 * fireRim * (1.0 - soot * 0.6);
+                }
                 // moonlight: a cool fill and a rim, so a live hull stands off the mud at night (less on soot)
                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), view)), 3.0);
                 color += albedo * _MoonFill.rgb * (0.22 + 0.9 * rim) * (1.0 - soot * 0.5);

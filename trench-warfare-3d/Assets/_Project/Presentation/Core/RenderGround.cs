@@ -134,6 +134,10 @@ namespace TW.Presentation
         /// does not care how dim the light under it was set - a fire needs a fraction of that or it erases the
         /// drawing it is supposed to be lighting. (NightLights lends the same pooled light.)</summary>
         public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float, float> FireLight;
+        /// <summary>A fire's pool of light on the mud (look.pools): where it burns, its colour, how strong against a lantern
+        /// (1), its reach (m), and seconds it holds (0: this frame only, for a caller that renews it every frame). Pools are
+        /// painted in the shaders, not lights, so a field of burning wrecks costs no light slots. (NightLights.Pools.cs)</summary>
+        public static System.Action<UnityEngine.Vector3, UnityEngine.Color, float, float, float> FirePool;
         /// <summary>A small burst where the sim has none: a dud shell cooking off in a fire (PropDestruction). Place, radius
         /// (m). Drawn only; the sim never hears of it. (CombatFx)</summary>
         public static System.Action<UnityEngine.Vector3, float> CookOff;
@@ -159,7 +163,7 @@ namespace TW.Presentation
         {
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
             IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
-            DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; CookOff = null; FootFall = null; AimPreview = null;
+            DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
             MachineGlows = null; MachineLight = null; LampOut = null;
         }
     }
