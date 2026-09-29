@@ -365,6 +365,13 @@ namespace TW.Tests.Playground
             return low;
         }
 
+        static float Highest(Transform t, Mesh m)
+        {
+            float high = float.MinValue; var w = t.localToWorldMatrix;
+            foreach (var v in m.vertices) high = Mathf.Max(high, w.MultiplyPoint3x4(v).y);
+            return high;
+        }
+
         [Test]
         public void A_Walker_Walks_With_Its_Feet_On_The_Ground()
         {
@@ -395,6 +402,254 @@ namespace TW.Tests.Playground
                 Assert.That(r.Walker.WalkPos.magnitude, Is.GreaterThan(8f), "it did not walk anywhere");
                 var h = r.Find("Hull").T.position;
                 Assert.That(new Vector2(h.x - spawn.x, h.z - spawn.z).magnitude, Is.LessThan(2f * r.Walker.Radius + 5f), "it walked somewhere other than where it was built");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void A_Gatling_Spins_Up_Fires_Both_Guns_And_Winds_Down_Its_Barrels_Turning_On_Their_Axis()
+        {
+            // the Bullfrog (mechsplit.py TW_KIND=gatling): a burst spins the barrels up, rounds come only once they are near
+            // speed, by turns from both guns, and the barrels wind down after. They turn on their own axis: spun half a
+            // turn, their mesh's middle is where it was (a pivot off the axis would swing the barrels round the gun).
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).hopper);
+            if (e == null) Assert.Ignore("no gatling in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0);
+                foreach (var s in new[] { "L", "R" })
+                {
+                    var b = r.Find("Barrels_" + s); Assert.NotNull(b, "no Barrels_" + s);
+                    Assert.That(new Vector2(b.Box.center.x, b.Box.center.y).magnitude * r.Size, Is.LessThan(0.05f), $"Barrels_{s} do not turn on their own axis");
+                    Assert.NotNull(r.Find("Gun_" + s), "no Gun_" + s);
+                }
+                var bar = r.Find("Barrels_L"); var barGun = r.Find("Gun_L");
+                // in the gun's frame: firing, the whole body leans and shudders (HopDrive), which moves the gun too
+                Vector3 mid0 = barGun.T.InverseTransformPoint(bar.T.TransformPoint(bar.Box.center));
+                r.FireGun();
+                r.Advance(0.2f);
+                Assert.That(r.RoundsFired[0] + r.RoundsFired[1], Is.EqualTo(0), "it fired before the barrels were at speed");
+                for (int f = 0; f < 60; f++) r.Advance(1f / 60f);
+                Assert.That(r.BarrelSpeed, Is.EqualTo(VehicleRig.BarrelMax).Within(1f), "the barrels are not at full speed a second into the burst");
+                Assert.That(Vector3.Distance(barGun.T.InverseTransformPoint(bar.T.TransformPoint(bar.Box.center)), mid0) * r.Size, Is.LessThan(0.05f), "spinning, the barrels moved off their axis");
+                Assert.That(r.RoundsFired[0], Is.GreaterThan(4), "the left gun did not fire"); Assert.That(r.RoundsFired[1], Is.GreaterThan(4), "the right gun did not fire");
+                Assert.That(Mathf.Abs(r.RoundsFired[0] - r.RoundsFired[1]), Is.LessThanOrEqualTo(1), "the guns do not fire by turns");
+                for (int f = 0; f < 300; f++) r.Advance(1f / 60f);
+                int fired = r.RoundsFired[0] + r.RoundsFired[1];
+                Assert.That(fired, Is.InRange((int)((VehicleRig.Burst - 0.5f) * VehicleRig.RoundsPerSecond * 0.7f), (int)(VehicleRig.Burst * VehicleRig.RoundsPerSecond) + 2), "a burst fires about its length in rounds");
+                Assert.That(r.BarrelSpeed, Is.EqualTo(0f), "the barrels did not wind down after the burst");
+                // a gun shot off falls silent; the other keeps firing
+                r.Detach(r.Find("Gun_L"), Vector3.up, Vector3.zero);
+                int left = r.RoundsFired[0], right = r.RoundsFired[1];
+                r.FireGun(); for (int f = 0; f < 120; f++) r.Advance(1f / 60f);
+                Assert.That(r.RoundsFired[0], Is.EqualTo(left), "a gun that came off still fired");
+                Assert.That(r.RoundsFired[1], Is.GreaterThan(right + 8), "the gun still on it stopped firing");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void A_Gatling_Aims_At_Its_Target_And_Its_Rounds_Land_Round_It()
+        {
+            // "target": the saddle turns to the point, each gun elevates to it (from its own trunnion), and the rounds of a
+            // burst land within the spread of it. Aimed well off to the side and down at the ground 60 m out.
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).hopper);
+            if (e == null) Assert.Ignore("no gatling in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var spawn = new Vector3(30f, 0f, -20f);
+                var r = VehicleRig.Build(e, null, parent, spawn, 20f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0);
+                var target = spawn + Quaternion.Euler(0f, 20f, 0f) * new Vector3(-40f, 0f, 45f);
+                r.AimAt = target;
+                for (int f = 0; f < 180; f++) r.Advance(1f / 60f);
+                foreach (var s in new[] { "L", "R" })
+                {
+                    var gun = r.Find("Gun_" + s); var muzzle = r.Socket("Socket_Muzzle_" + s);
+                    float off = Vector3.Angle(gun.T.forward, target - muzzle);
+                    Assert.That(off, Is.LessThan(2f), $"Gun_{s} points {off:0.0} degrees off its target");
+                }
+                r.FireGun();
+                float worst = 0f; int landed = 0;
+                var line = (target - spawn); line.y = 0f; line.Normalize(); var side = new Vector3(line.z, 0f, -line.x);
+                var acrossAt = new System.Collections.Generic.List<float>();
+                for (int f = 0; f < 150; f++)
+                {
+                    int before = r.RoundsFired[0] + r.RoundsFired[1];
+                    r.Advance(1f / 60f);
+                    if (r.RoundsFired[0] + r.RoundsFired[1] == before) continue;
+                    Assert.IsTrue(r.LastRoundLands, "a round aimed at the ground did not land");
+                    worst = Mathf.Max(worst, Vector3.Distance(r.LastRoundTo, target)); landed++;
+                    acrossAt.Add(Vector3.Dot(r.LastRoundTo - target, side));
+                }
+                Assert.That(landed, Is.GreaterThan(10), "the burst fired nothing");
+                float range = Vector3.Distance(r.Socket("Socket_Muzzle_L"), target);
+                // scattered Spread of the range across the line of fire and twice that along it, walked Sweep either side
+                Assert.That(worst, Is.LessThan((VehicleRig.Spread * 2.3f + VehicleRig.Sweep) * range), "a round landed wide of the target");
+                // and the burst walks across the target: its first rounds fall on one side, its last on the other (a burst
+                // in one spot read as one blob 40 m off, critic g6)
+                int q = acrossAt.Count / 4;
+                float first = 0f, last = 0f; for (int k = 0; k < q; k++) { first += acrossAt[k] / q; last += acrossAt[acrossAt.Count - 1 - k] / q; }
+                Assert.That(Mathf.Abs(last - first), Is.GreaterThan(VehicleRig.Sweep * range), "the burst did not walk across its target");
+                r.AimAt = null;
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void A_Gatling_Cook_Off_Throws_Each_Gun_Clear_Of_The_Body()
+        {
+            // twin guns on a small saddle: they come off on their own and land outside the body's footprint, not riding
+            // the saddle down into the body (critic g1: both guns ended inside the toad, 2.2 m under where they stood)
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).hopper);
+            if (e == null) Assert.Ignore("no gatling in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0); r.CookDelay = -1f;
+                var hull = r.Find("Hull");
+                var stood = new Dictionary<string, Vector3>();
+                foreach (var s in new[] { "L", "R" }) { var g = r.Find("Gun_" + s); stood[s] = g.T.TransformPoint(g.Box.center); }
+                r.KnockOut(); r.CookOff();
+                for (int f = 0; f < 600; f++) r.Advance(1f / 60f);
+                foreach (var s in new[] { "L", "R" })
+                {
+                    var g = r.Find("Gun_" + s);
+                    Assert.IsTrue(g.Loose, $"Gun_{s} stayed on");
+                    var c = r.transform.InverseTransformPoint(g.T.TransformPoint(g.Box.center));
+                    var hb = hull.Box; var hc = hull.RestLocal + hb.center;
+                    bool outside = Mathf.Abs(c.x - hc.x) > hb.extents.x || Mathf.Abs(c.z - hc.z) > hb.extents.z;
+                    Assert.IsTrue(outside, $"Gun_{s} came down inside the body's footprint at {c}");
+                    Assert.That(Lowest(g.T, g.Lods[0]), Is.GreaterThan(-0.3f), $"Gun_{s} lies under the ground");
+                    // and near: thrown 7-10 m, a wreck's guns lay nearer the next machine than their own (critic g2, g3)
+                    var at = g.T.TransformPoint(g.Box.center);
+                    float far = new Vector2(at.x - stood[s].x, at.z - stood[s].z).magnitude;
+                    Assert.That(far, Is.LessThan(5.5f), $"Gun_{s} was thrown {far:0.0} m from where it stood");
+                }
+                // the saddle, a sparse frame in a big box, stays on the wreck: thrown it toppled corner over corner 12.9 m off
+                Assert.IsFalse(r.Find("Turret").Loose, "the saddle was thrown (it toppled 12.9 m away, critic g2)");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void A_Hopper_Hops_Clear_Of_The_Ground_And_Lands_Back_On_Its_Feet()
+        {
+            // HopDrive: each hop lifts the whole body clear of the ground (a toad's feet leave it) and puts it back down at
+            // its modelled height; it gets somewhere; knocked out it slumps but does not sink through the ground.
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).hopper);
+            if (e == null) Assert.Ignore("no hopper in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var spawn = new Vector3(-150f, 0f, 40f);
+                var r = VehicleRig.Build(e, null, parent, spawn, 0f, 1.4f, 3); r.ForcedLod = 0; r.SetLod(0); r.CookDelay = -1f;
+                var hull = r.Find("Hull");
+                // its legs are skinned (Bullfrog_legs.json matched its hull; a mismatch leaves them still with a warning)
+                Assert.IsTrue(r.Hopper.HasLegs, "the hopper's legs file did not match its hull: run Tools/legrig.py (docs/22)");
+                float rest = Lowest(hull.T, hull.Lods[0]);
+                Assert.That(rest, Is.InRange(-0.1f, 0.1f), "standing, the toad's feet are not on the ground");
+                float top = Highest(hull.T, hull.Lods[0]);
+                var gun = r.Find("Gun_L");
+                r.Hopper.Speed = 2f;
+                float high = float.MinValue, low = float.MaxValue, flat = float.MaxValue, tall = float.MinValue, shear = 0f, sadLo = 0f, sadHi = 0f;
+                // the legs: the body's own footprint, back to front, in its frame (Lods[0] is the rig's bent copy)
+                float Reach(bool front) { float z = front ? float.MinValue : float.MaxValue; foreach (var v in hull.Lods[0].vertices) if (v.y < hull.Box.min.y + 0.1f * hull.Box.size.y) z = front ? Mathf.Max(z, v.z) : Mathf.Min(z, v.z); return z; }
+                float back0 = Reach(false), front0 = Reach(true), backMost = back0, frontMost = front0, pushed = 0f, sunk = 0f;
+                for (int f = 0; f < 360; f++)
+                {
+                    r.Advance(1f / 60f);
+                    float y = Lowest(hull.T, hull.Lods[0]);
+                    high = Mathf.Max(high, y); low = Mathf.Min(low, y);
+                    // the body's height over its own feet: squashed flat landing, stretched springing
+                    float bh = Highest(hull.T, hull.Lods[0]) - y;
+                    flat = Mathf.Min(flat, bh); tall = Mathf.Max(tall, bh);
+                    var g = gun.T.lossyScale; shear = Mathf.Max(shear, Mathf.Max(Mathf.Abs(g.x - g.y), Mathf.Abs(g.z - g.y)) / g.y);
+                    sadLo = Mathf.Min(sadLo, r.Hopper.SaddleOffset); sadHi = Mathf.Max(sadHi, r.Hopper.SaddleOffset);
+                    if (f % 4 == 0) { backMost = Mathf.Min(backMost, Reach(false)); frontMost = Mathf.Max(frontMost, Reach(true)); }
+                    if (!r.Hopper.InAir && r.Hopper.Extend > 0.3f) pushed = Mathf.Max(pushed, r.Hopper.Lift);
+                    if (!r.Hopper.InAir) sunk = Mathf.Min(sunk, r.Hopper.Lift);
+                }
+                // on the ground the crouch and the landing let the body down over its planted feet, the legs folding under
+                // it (planted, the body only ever rose, critic g13); the feet stay on the ground (below)
+                Assert.That(sunk, Is.LessThan(-0.12f), "crouching and landing, the body did not sink over its feet");
+                // in the air the hind feet trail back and the fore feet reach forward (tucked, a statue lifted: g8)
+                Assert.That((back0 - backMost) * r.Size, Is.GreaterThan(0.25f), "the hind legs did not trail off the take-off");
+                Assert.That((frontMost - front0) * r.Size, Is.GreaterThan(0.2f), "the forelegs did not reach for the landing");
+                // and it pushes off: its hind legs unfold while its feet are still down and stand it up on them (it rose
+                // with its legs folded and unfolded them only in the air, critic g10)
+                Assert.That(pushed, Is.GreaterThan(0.3f), "the hind legs did not push it off the ground");
+                // the saddle rides a spring: sags as the body springs, bounces on the landing (critic g6)
+                Assert.That(sadLo, Is.LessThan(-0.03f), "the saddle did not sag as the body sprang up");
+                Assert.That(sadHi, Is.GreaterThan(0.02f), "the saddle did not bounce back");
+                // rigid legs: planted, the crouch and landing squat showed nothing, and three hop stills looked alike (g6)
+                Assert.That(flat, Is.LessThan(0.9f * (top - rest)), "landing, the body did not squash");
+                Assert.That(tall, Is.GreaterThan(1.06f * (top - rest)), "springing, the body did not stretch");
+                Assert.That(shear, Is.LessThan(0.01f), "the hull's squash sheared the guns riding on it");
+                Assert.That(r.Hopper.Landings, Is.GreaterThanOrEqualTo(4), "it did not hop");
+                Assert.That(high, Is.GreaterThan(0.4f), "a hop did not lift its feet off the ground");
+                Assert.That(low, Is.GreaterThan(rest - 0.05f), "crouching or landing, its feet went into the ground (the legs fold to let the body down)");
+                Assert.That(r.Hopper.HopPos.magnitude, Is.GreaterThan(6f), "it hopped nowhere");
+                var h = hull.T.position;
+                Assert.That(new Vector2(h.x - spawn.x, h.z - spawn.z).magnitude, Is.LessThan(2f * r.Hopper.Radius + 5f), "it hopped somewhere other than where it was built");
+                // standing and firing, the body leans back and shudders with the guns (nothing moved, critic g6)
+                r.Hopper.Speed = 0f;
+                // sitting, its throat swells (and the vertices under the chin move out with it)
+                float swell = 0f, moveOut = 0f; var rest0 = hull.Lods[0].vertices;
+                for (int f = 0; f < 240; f++)
+                {
+                    r.Advance(1f / 60f);
+                    // (only above the legs: the weight shift moves the thighs)
+                    if (r.Hopper.Throat > swell) { swell = r.Hopper.Throat; var now = hull.Lods[0].vertices; moveOut = 0f; for (int i = 0; i < now.Length; i++) if (rest0[i].y > 1.2f) moveOut = Mathf.Max(moveOut, (now[i] - rest0[i]).magnitude * r.Size); }
+                }
+                Assert.That(swell, Is.GreaterThan(0.9f), "sitting, its throat never swelled");
+                Assert.That(moveOut, Is.GreaterThan(0.1f), "the throat swelled but no vertex under the chin moved");
+                // a hit jolts it away from the blow
+                var before = hull.T.localRotation;
+                r.HitPart(r.Find("Hull"), 20f); float jolt = 0f, dropped = 0f;
+                for (int f = 0; f < 20; f++) { r.Advance(1f / 60f); jolt = Mathf.Max(jolt, Quaternion.Angle(before, hull.T.localRotation)); dropped = Mathf.Min(dropped, r.Hopper.Lift); }
+                Assert.That(jolt, Is.GreaterThan(2f), "a hit did not jolt it");
+                // and drops it on its legs (a hit moved the body only up, critic g13)
+                Assert.That(dropped, Is.LessThan(-0.03f), "a hit did not drop it on its legs");
+                for (int f = 0; f < 60; f++) r.Advance(1f / 60f);
+                var calm = hull.T.localRotation;
+                var seat = r.Find("Turret");
+                r.FireGun(); float moved = 0f, turned = 0f, bob = 0f, driven = 0f; Quaternion was = calm;
+                for (int f = 0; f < 90; f++)
+                {
+                    r.Advance(1f / 60f);
+                    var off = seat.T.localPosition - seat.RestLocal; off.y = 0f; driven = Mathf.Max(driven, off.magnitude * r.Size);
+                    if (f > 30) bob = Mathf.Max(bob, Mathf.Abs(r.Hopper.SaddleOffset));
+                    moved = Mathf.Max(moved, Quaternion.Angle(calm, hull.T.localRotation));
+                    turned += Quaternion.Angle(was, hull.T.localRotation); was = hull.T.localRotation;
+                }
+                Assert.That(moved, Is.GreaterThan(1.5f), "firing, the body did not lean back against the guns");
+                Assert.That(turned, Is.GreaterThan(20f), "firing, the body did not shudder");
+                // but the saddle stays seated: the shudder rang its spring 0.1 m and the guns jumped between stills (g8)
+                Assert.That(bob, Is.LessThan(0.02f), "firing standing, the saddle bobbed on its spring");
+                // but it is driven back along its guns (firing had no weight, critic g13)
+                Assert.That(driven, Is.GreaterThan(0.025f), "firing, the gun block was not driven back");
+                // one hit on a barrel set while it is still healthy scars it but does not knock it off (the first hit took half
+                // its firepower away at 85 % health, critic g13)
+                r.HitPart(r.Find("Barrels_L"), 15f); r.Advance(1f / 60f);
+                Assert.IsFalse(r.Find("Barrels_L").Loose, "a healthy gatling lost a barrel set to its first hit");
+                Assert.That(Lowest(hull.T, hull.Lods[0]), Is.GreaterThan(rest - 0.05f), "firing, its feet went into the ground");
+                r.KnockOut();
+                float kicked = 0f, downLo = float.MaxValue, downHi = float.MinValue;
+                for (int f = 0; f < 180; f++)
+                {
+                    r.Advance(1f / 60f); kicked = Mathf.Max(kicked, r.Hopper.Extend);
+                    if (f >= 60) { downLo = Mathf.Min(downLo, r.Hopper.Lift); downHi = Mathf.Max(downHi, r.Hopper.Lift); }
+                }
+                Assert.That(kicked, Is.GreaterThan(0.6f), "knocked out, its hind legs never kicked");
+                // down, it lies on its belly below its standing height, its legs laid out flat (propped on its sprawled legs
+                // it stood 0.44 m higher, a table), and the kicks move only the legs (they dropped the body 0.21 m, g13)
+                Assert.That(downHi, Is.LessThan(-0.03f), "knocked out, its legs held it up off its belly");
+                Assert.That(downHi - downLo, Is.LessThan(0.01f), "knocked out, the kicks moved the whole body");
+                float dead = Lowest(hull.T, hull.Lods[0]);
+                // over onto a side with that corner dug 5 cm in: not sunk (0.22 m down put its feet through the floor)
+                Assert.That(dead, Is.InRange(-0.08f, 0.01f), "knocked out, it did not settle onto the ground, or sank into it");
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }

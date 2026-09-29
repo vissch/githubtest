@@ -322,7 +322,28 @@ namespace TW.Playground
                 case "cookdelay": cookDelay = F(a, 1, 7f); foreach (var v in Vehicles) v.CookDelay = cookDelay; break;
                 case "size": VehicleSize = F(a, 1, 1.7f); Scene(Mode); break;
                 case "fly": foreach (var v in Vehicles) if (v.Flyer != null) { v.Flyer.Speed = F(a, 1, 8f); if (a.Length > 2) v.Flyer.Altitude = F(a, 2, 14f); } break;   // "fly 8 [14]": m/s round a circle [altitude, m]
-                case "walk": foreach (var v in Vehicles) if (v.Walker != null) { v.Walker.Speed = F(a, 1, 2f); v.Walker.InPlace = F(a, 2, 0f) > 0.5f; } break;   // "walk 2 [1]": a walker's pace, m/s [on the spot]
+                case "target":   // "target x y z": every machine aims there; "target near": 35 m ahead and 20 m to the left of each; "target off"
+                    foreach (var v in Vehicles)
+                    {
+                        if (a.Length > 1 && a[1] == "off") v.AimAt = null;
+                        else if (a.Length > 1 && a[1] == "near") v.AimAt = v.transform.TransformPoint(new Vector3(20f, 0f, 35f) / v.Size) - Vector3.up * (v.transform.position.y - v.GroundY);
+                        else if (a.Length >= 4) v.AimAt = new Vector3(F(a, 1, 0), F(a, 2, 0), F(a, 3, 0));
+                    }
+                    break;
+                case "hopphase": foreach (var v in Vehicles) if (v.Hopper != null) v.Hopper.SetPhase(F(a, 1, 0f)); break;
+                case "legpose":   // "legpose extend tuck reach splay" (0..1 each): hold a hopper's legs there; "legpose off" lets go
+                    foreach (var v in Vehicles) if (v.Hopper != null) v.Hopper.LegOverride = a.Length > 1 && a[1] == "off" ? (Vector4?)null : new Vector4(F(a, 1, 0f), F(a, 2, 0f), F(a, 3, 0f), F(a, 4, 0f));
+                    break;
+                case "dumphull":   // "dumphull <dir>": each hull LOD's vertices and triangles as JSON, the input of Tools/legrig.py
+                    foreach (var v in Vehicles) { DumpHull(v, a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures")); break; }
+                    break;   // "hopphase 0.43": every hop at that moment (with "timescale 0", a still of it)
+                case "walk":   // "walk 2 [1]": a walker's (or a hopper's) pace, m/s [on the spot]
+                    foreach (var v in Vehicles)
+                    {
+                        if (v.Walker != null) { v.Walker.Speed = F(a, 1, 2f); v.Walker.InPlace = F(a, 2, 0f) > 0.5f; }
+                        if (v.Hopper != null) { v.Hopper.Speed = F(a, 1, 2f); v.Hopper.InPlace = F(a, 2, 0f) > 0.5f; }
+                    }
+                    break;
                 case "clip":
                     {
                         int k = Library.ClipIndex(line.Substring(line.IndexOf(' ') + 1).Trim());
@@ -357,8 +378,15 @@ namespace TW.Playground
                 case "ground": SetGround(a.Length > 1 ? a[1] : "grid"); break;
                 case "sidehue": huePath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/sidehue.json"); hueStep = 0; break;
                 case "lodtint": foreach (var v in Vehicles) v.UseLodTints(F(a, 1, 1f) > 0.5f); foreach (var u in Units) u.UseLodTints(F(a, 1, 1f) > 0.5f); break;
-                case "model":   // "model u 1": which of the library's figures (v: vehicles) the scenes build
-                    if (a.Length > 2 && a[1] == "v") vehicleIndex = (int)F(a, 2, 0); else if (a.Length > 2) unitIndex = (int)F(a, 2, 0);
+                case "model":   // "model u 1": which of the library's figures (v: vehicles) the scenes build; "model v Croaker": by name
+                    if (a.Length > 2 && a[1] == "v")
+                    {
+                        // by name, or by index in the library's (alphabetical) order: a new machine shifts every index after
+                        // it (the Bullfrog made round2.sh's "Croaker 1" select itself)
+                        int byName = System.Array.FindIndex(Library.Vehicles, x => string.Equals(x.Name, a[2], System.StringComparison.OrdinalIgnoreCase));
+                        vehicleIndex = byName >= 0 ? byName : (int)F(a, 2, 0);
+                    }
+                    else if (a.Length > 2) unitIndex = (int)F(a, 2, 0);
                     Queue(Mode); break;
                 case "unitrings": Fx.UnitRings = F(a, 1, 1f) > 0.5f; break;
                 case "cutsdebug": BuildingRig.DebugCuts = F(a, 1, 1f) > 0.5f; BuildingRig.ForgetCuts(); if (Mode == "building") Scene("building"); break;
@@ -433,6 +461,28 @@ namespace TW.Playground
             }
             if (huePath != null) SideSignalStep();
             if (fitPath != null) { string path = fitPath; fitPath = null; File.WriteAllText(path, LodFit()); }
+        }
+
+        /// <summary>The hull's LOD meshes in its frame, as <dir>/hull<k>.json ({"v": [x,y,z...], "t": [...]}). Dump it
+        /// standing still (not hopping, not knocked out): the rig's hull copies carry the legs' pose.</summary>
+        static void DumpHull(VehicleRig v, string dir)
+        {
+            var hull = v.Find("Hull"); if (hull == null) return;
+            Directory.CreateDirectory(dir);
+            var inv = CultureInfo.InvariantCulture;
+            for (int k = 0; k < hull.Lods.Length; k++)
+            {
+                var m = Instantiate(hull.Lods[k]);
+                var sb = new StringBuilder("{\"v\":[");
+                var vs = m.vertices;
+                for (int i = 0; i < vs.Length; i++) { if (i > 0) sb.Append(','); sb.Append(vs[i].x.ToString("F4", inv)).Append(',').Append(vs[i].y.ToString("F4", inv)).Append(',').Append(vs[i].z.ToString("F4", inv)); }
+                sb.Append("],\"t\":[");
+                var t = m.triangles;
+                for (int i = 0; i < t.Length; i++) { if (i > 0) sb.Append(','); sb.Append(t[i]); }
+                sb.Append("]}");
+                File.WriteAllText(Path.Combine(dir, "hull" + k + ".json"), sb.ToString());
+                Destroy(m);
+            }
         }
 
         // ------------------------------------------------------------------------------------------------ LOD pops
