@@ -547,8 +547,14 @@ namespace TW.Presentation.Tactical
                         // a machine gun's every second round (CombatFx.Weapons.cs), and far from the eye one in FlareEvery at a low tier
                         // or from the overview (FxQuality.FlareKept); its draws above are taken either way
                         bool flared = arms.Flared && FxQuality.FlareKept(q, CameraShake.DistanceToLook(from), zoom, e.Tick + (uint)e.A);
-                        if (flared)
-                            books.Add(DayFlare(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) ? FlipbookFx.Book.GunBlast : FlipbookFx.Book.Muzzle, from + along * (flare * 0.44f), flare, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        if (flared && cam != null && EndOn(barrel, cam.transform.forward, classArms > 0f))   // end-on: a pop, not a sheet (critique la5)
+                            books.Add(FlipbookFx.Book.Star, from + barrel * (flare * 0.2f) + FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, true), flare * 0.5f,
+                                FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, true) * 0.6f, roll: roll, glow: FlareGlow(SceneMood.Night, SceneHooks.CloseUp, true) * SceneTints.Now.Glow, delay: delay);
+                        else if (flared)
+                            books.Add(classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length && MuzzleBookOf(KindOf(w.Archetype[e.A])).HasValue ? MuzzleBookOf(KindOf(w.Archetype[e.A])).Value
+                                      : DayFlare(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) ? FlipbookFx.Book.GunBlast : FlipbookFx.Book.Muzzle,
+                                from + along * (flare * 0.44f) + (cam != null ? FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, classArms > 0f) : Vector3.zero),
+                                flare * (DayFlare(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) ? Mathf.Lerp(1f, 1.4f, SceneHooks.CloseUp) : 1f), FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                 velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow, delay: delay);
                         // among the men, the weapon's own drawing (CombatFx.Close.cs): a sniper's brake, an MG's star, an SMG's flicker
                         if (e.A >= 0 && e.A < w.Archetype.Length)
@@ -749,7 +755,7 @@ namespace TW.Presentation.Tactical
                         bool dayEarth = !wet && shellFire > 0f && !FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid);   // the day column slimmer and its wings cut too (critique c1b)
                         Vector3 columnLean = flight * (r * 0.45f * lean);   // the column leans the way the shell was going
                         columnWidth *= look.Column;
-                        if (recipe.Column && look.Column > 0f)
+                        if (recipe.Column && look.Column > 0f && !look.Tripwire)
                         {
                             if (soil > 0f)
                             {
@@ -775,11 +781,7 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
                             books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
                         }
-                        else if (recipe.Column && look.Tripwire)   // a tripwire's charge stands no column: its burst runs out low along the ground
-                        {
-                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings, 0.95f, ground, grow: 0.4f, alpha: 0.9f, pop: 0.2f);
-                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: 0.8f, pop: 0.1f);
-                        }
+                        // a tripwire's charge stands no column and no wings: its ring and its spark fan are its whole shape (CombatFx.Bursts.cs)
                         // fx.recipes (CombatFx.Recipes.cs): a round with no lean bursts wide and low over its column; a hull goes up
                         // as one fireball, playing its book once over the book's own length (21 and 29 frames at 12 fps)
                         if (recipe.Mortar || look.Mortar)   // the Kettle's round draws its own wide low burst with or without the recipes
@@ -826,7 +828,7 @@ namespace TW.Presentation.Tactical
                             float night = FlipbookFx.NightScale(smokeNightSize, closeUp, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));
                             float burstRoll = UnityEngine.Random.Range(-0.15f, 0.15f);   // drawn either way: the shared stream
                             if (!recipe.Dust && !look.Mine)   // L15: no shell's glowing cloud over a man landing; a mine's is its black smoke (CombatFx.Bursts.cs)
-                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * 0.55f) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night * (shellFire > 0f ? Mathf.Pow(ShellFar(), 0.8f) : 1f), 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
+                                books.Add(FlipbookFx.Book.Burst, p + Vector3.up * (r * (look.Tripwire ? 0.2f : 0.55f)) + flight * (r * 0.35f * lean), r * BurstWidth(SceneMood.Night, shellFire) * night * (shellFire > 0f ? Mathf.Pow(ShellFar(), 0.8f) : 1f) * (look.Tripwire ? 0.6f : 1f), 1.8f, FlipbookFx.Kind.Upright | (mirror ? 0 : FlipbookFx.Kind.Mirror),
                                     velocity: Vector3.up * (r * 0.5f) + drift + flight * (r * 0.5f * lean), grow: 0.5f, roll: burstRoll, glow: (SceneMood.Night ? 3.4f : 1.6f) * SceneTints.Now.Glow * burstGlow, pop: 0.3f);
                             // owner's snow reference (CombatFx.ShellFire.cs): fire in the burst, not only its flash; a hull has its own
                             if (!recipe.Dust && !recipe.CookOff && !Masonry(e.Dir.y) && look.Fire > 0f)   // a mine has no fire (CombatFx.Bursts.cs)

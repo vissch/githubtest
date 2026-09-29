@@ -97,6 +97,13 @@ namespace TW.Tests
             Assert.AreEqual(CombatFx.ArmsKind.MachinePistol, CombatFx.KindOf(InfantryArchetype.Jetpack));
             Assert.AreEqual(CombatFx.ArmsKind.HullMg, CombatFx.KindOf(VehicleArchetype.Tusk));
             Assert.AreEqual(1f, CombatFx.HitFlashOf(CombatFx.ArmsKind.Rifle), "the rifle's hit is the old one");
+            // each class its own muzzle drawing; the rifle keeps the old flare
+            Assert.IsFalse(CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Rifle).HasValue);
+            Assert.AreEqual(FlipbookFx.Book.MuzzleBrake, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Sniper));
+            Assert.AreEqual(FlipbookFx.Book.MuzzleStream, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Mg));
+            Assert.AreEqual(FlipbookFx.Book.MuzzlePop, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Pistol));
+            Assert.AreEqual(FlipbookFx.Book.MuzzleBurst, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Smg));
+            Assert.IsNotNull(Resources.Load<Texture2D>("VFX/MuzzleBrake"), "the sheet is in Resources/VFX");
             Assert.Greater(CombatFx.HitFlashOf(CombatFx.ArmsKind.Sniper), CombatFx.HitFlashOf(CombatFx.ArmsKind.Mg));
             Assert.Less(CombatFx.HitFlashOf(CombatFx.ArmsKind.Pistol), 1f);
         }
@@ -120,7 +127,7 @@ namespace TW.Tests
             var rifle = CombatFx.ArmsLook.Rifle;
             Assert.AreEqual(1f, rifle.TracerLife); Assert.AreEqual(1f, rifle.Streak);
             var sniper = CombatFx.ArmsFor(InfantryArchetype.Sniper, 4u, 1);
-            Assert.Greater(sniper.TracerLife, 2f, "a sniper's round lingers"); Assert.Greater(sniper.Flare, 1.5f);
+            Assert.Greater(sniper.TracerLife, 2f, "a sniper's round lingers"); Assert.Greater(sniper.Flare, rifle.Flare, "and flares more than a rifle");
             Assert.Less(CombatFx.ArmsFor(InfantryArchetype.Shield, 4u, 1).Streak, 0.5f, "a pistol spits");
             int dashes = 0, tracerRounds = 0;
             for (uint t = 0; t < 30; t++)
