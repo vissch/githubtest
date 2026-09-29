@@ -165,12 +165,32 @@ namespace TW.Perf
             }
         }
 
+        /// <summary>The man in front of `a` as he now faces: the nearest live unit within 45 degrees of his heading and
+        /// 4-60 m off, else `mark`. The men turn to whatever they fight, so a round staged at the opposite row went out
+        /// behind a man's back and his flare was drawn behind his own body (fx.logFlares: the muzzle 0.2-1.0 m BEHIND the
+        /// chest along the shot for every class in the lineup; 0.5-0.9 m in front in the battle).</summary>
+        public static int Ahead(SimWorld w, int a, int mark)
+        {
+            float3 at = w.Position[a], facing = new float3(math.sin(w.Yaw[a]), 0f, math.cos(w.Yaw[a]));
+            int best = -1; float bestD = float.MaxValue;
+            for (int j = 0; j < w.HighWater; j++)
+            {
+                if (j == a || !Alive(w, j)) continue;
+                float3 d = w.Position[j] - at; d.y = 0f;
+                float dist = math.length(d);
+                if (dist < 4f || dist > 60f || math.dot(d / dist, facing) < 0.7f) continue;
+                if (dist < bestD) { bestD = dist; best = j; }
+            }
+            return best >= 0 ? best : mark;
+        }
+
         static bool Alive(SimWorld w, int slot) => slot >= 0 && slot < w.HighWater && (w.Flags[slot] & (uint)UnitFlags.Alive) != 0;
 
         /// <summary>One round from `a` at `b`, and every other tick it strikes him (a sniper's harder).</summary>
         static void Fire(List<SimEvent> frame, SimWorld w, uint tick, int a, int b, int salt)
         {
             if (!Alive(w, a) || b < 0 || b >= w.HighWater) return;   // a fallen target is still shot at where he lies
+            b = Ahead(w, a, b);
             float3 d = w.Position[b] - w.Position[a]; d.y = 0f; d = math.normalizesafe(d);
             frame.Add(new SimEvent { Tick = tick, Type = SimEventType.Shot, A = a, B = b, Pos = w.Position[a], Dir = d, Scalar = 0f });
             if (Alive(w, b) && ((tick + (uint)salt) & 1u) == 0u)
