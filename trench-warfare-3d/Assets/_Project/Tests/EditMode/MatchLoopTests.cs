@@ -149,31 +149,51 @@ namespace TW.Tests
             return r;
         }
 
-        /// <summary>Ten minutes against a player who only holds his trench, on three seeds.</summary>
-        static List<Report> Defended(List<string> decisions)
+        /// <summary>Ten minutes against a player who only holds his trench, on three seeds: played once and shared by the
+        /// tests below (each playing its own three cost the gate twelve matches; EditMode runs near its 600 s limit).</summary>
+        sealed class Defence
         {
-            var list = new List<Report>();
+            public readonly List<Report> Reports = new List<Report>();
+            public readonly List<string> Decisions = new List<string>();
+            public int Hoarded, Short;   // samples short of men for the odds, and those sitting on the reserve
+        }
+        static Defence defended;
+
+        static Defence Defended()
+        {
+            if (defended != null) return defended;
+            var d = new Defence();
             for (uint s = 1; s <= 3; s++)
             {
-                var ai = new ScriptedEnemy { Said = x => decisions.Add(x) };
-                list.Add(Play(Policy.Defend, 10, s, ai));
+                var ai = new ScriptedEnemy { Said = x => d.Decisions.Add(x) };
+                d.Reports.Add(Play(Policy.Defend, 10, s, ai, 8, m =>
+                {
+                    var w = m.World;
+                    if (w.Tick < 600 || w.Tick % 100 != 0) return;
+                    short theirs = m.Fields.FrontTrench(0);
+                    int held = theirs >= 0 ? m.Fields.Trenches[theirs].GarrisonCount : 0, men = 0;
+                    for (int i = 0; i < w.HighWater; i++)
+                        if (w.IsAlive(i) && w.Team[i] == 1 && (w.Flags[i] & (uint)UnitFlags.Vehicle) == 0) men++;
+                    if (men >= math.max(8, 2 * held)) return;
+                    d.Short++;
+                    if (w.Silver[1] >= 180) d.Hoarded++;   // the reserve, and more than any man it deploys costs
+                }));
             }
-            return list;
+            return defended = d;
         }
 
         [Test]
         public void TheEnemy_KeepsItsArmyComing()
         {
             // a rate, not a count: a match it wins in four minutes deploys fewer (the old script: 8 in ten minutes)
-            foreach (var r in Defended(new List<string>()))
+            foreach (var r in Defended().Reports)
                 Assert.GreaterOrEqual(r.Deployed[1] * 1200f / math.max(1, r.EndTick), 1.5f, "men a minute: it spent its silver on men, not only on shells: " + r);
         }
 
         [Test]
         public void TheEnemy_AttacksOnlyWithTheOdds()
         {
-            var said = new List<string>();
-            Defended(said);
+            var said = Defended().Decisions;
             Assert.IsNotEmpty(said, "it attacked at all");
             foreach (var d in said)
             {
@@ -190,7 +210,7 @@ namespace TW.Tests
         public void TheEnemy_BreaksAPlayerWhoOnlySitsInHisTrench()
         {
             int broke = 0;
-            foreach (var r in Defended(new List<string>())) if (r.CapturedByEnemy > 0) broke++;
+            foreach (var r in Defended().Reports) if (r.CapturedByEnemy > 0) broke++;
             Assert.GreaterOrEqual(broke, 2, "in ten minutes, on two seeds of three");
         }
 
@@ -199,22 +219,9 @@ namespace TW.Tests
         {
             // Saving at parity (2026-09-29, seen in Play) held it at the player's count: 18 men to 6 with only ten in its
             // front trench and 200 silver it never spent, so it never reached two to one there and sat for four minutes
-            int hoarded = 0, samples = 0;
-            for (uint s = 1; s <= 3; s++)
-                Play(Policy.Defend, 10, s, null, 8, m =>
-                {
-                    var w = m.World;
-                    if (w.Tick < 600 || w.Tick % 100 != 0) return;
-                    short theirs = m.Fields.FrontTrench(0);
-                    int held = theirs >= 0 ? m.Fields.Trenches[theirs].GarrisonCount : 0, men = 0;
-                    for (int i = 0; i < w.HighWater; i++)
-                        if (w.IsAlive(i) && w.Team[i] == 1 && (w.Flags[i] & (uint)UnitFlags.Vehicle) == 0) men++;
-                    if (men >= math.max(8, 2 * held)) return;
-                    samples++;
-                    if (w.Silver[1] >= 180) hoarded++;   // the reserve, and more than any man it deploys costs
-                });
-            Assert.Greater(samples, 20, "it was short of men for a while");
-            Assert.LessOrEqual(hoarded, samples / 20, $"short of men, it sat on its silver {hoarded} times in {samples}");
+            var d = Defended();
+            Assert.Greater(d.Short, 20, "it was short of men for a while");
+            Assert.LessOrEqual(d.Hoarded, d.Short / 20, $"short of men, it sat on its silver {d.Hoarded} times in {d.Short}");
         }
 
         [Test, Explicit("ten minutes of each policy against the scene's enemy, for tuning")]
