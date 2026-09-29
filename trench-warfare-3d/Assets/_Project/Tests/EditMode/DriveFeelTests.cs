@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Nav;
+using TW.Sim.Terrain;
 
 namespace TW.Tests
 {
@@ -202,6 +203,34 @@ namespace TW.Tests
             TestContext.WriteLine($"spun in place {total} ticks; {line}");
             Assert.Less(worst, 10f, $"no nose hunted either way (flips per 100 m, the worst: archetype {worstOf})");
             Assert.Less(total, 60, "the column spun in place under 3 s between fifteen machines (ticks; 116 when it swerved round every hull ahead)");
+        }
+
+        /// <summary>Alone on broken ground, a machine drives its course without snaking about it. On the Shelled Forest
+        /// (seed 1917, the study's map) each drove a near-straight 230 m, yet its turn reversed 18-27 times per 100 m:
+        /// every step of the field's line (a cell's width) snapped its heading 15-20 degrees at the full turn rate, and
+        /// its lane was taken and dropped as the turn moved its probe. Now 6-15.</summary>
+        [TestCase(VehicleArchetype.Tusk)]
+        [TestCase(VehicleArchetype.Kettle)]
+        [TestCase(VehicleArchetype.Croaker)]
+        public void AloneOnBrokenGroundItDoesNotSnake(byte archetype)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917), false);
+            var e = m.World.Units.Roster[archetype];
+            int it = m.World.Spawn(0, archetype, m.World.Init.SpawnA, e.Hp, e.Speed, true);
+            m.World.GoalId[it] = m.Fields.DefaultGoal(0, true);
+            float yaw = m.World.Yaw[it], last = 0f, metres = 0f; var at = m.World.Position[it]; int flips = 0;
+            for (int t = 0; t < 2400; t++)
+            {
+                Step(m);
+                float rate = math.degrees(SimMath.WrapAngle(m.World.Yaw[it] - yaw)) / cfg.TickSeconds; yaw = m.World.Yaw[it];
+                metres += math.length((m.World.Position[it] - at).xz); at = m.World.Position[it];
+                if (math.abs(rate) > 14f) { if (math.abs(last) > 14f && math.sign(rate) != math.sign(last)) flips++; last = rate; }
+            }
+            float per100 = 100f * flips / math.max(1f, metres);
+            TestContext.WriteLine($"{archetype}: {metres:F0} m, {flips} reversals, {per100:F1} per 100 m");
+            Assert.Greater(metres, 120f, "it drove on");
+            Assert.Less(per100, 16f, "its turn reversed under 16 times per 100 m (26-28 when every step of the line was a snap)");
         }
     }
 }

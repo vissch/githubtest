@@ -2,7 +2,7 @@
 // PropDef, SimRandom.SystemId.Bog. Damage (engine, tracks, crew) reaches here through the unit flags and SpeedFactor,
 // which VehicleModulesSystem writes; TankGunnerySystem asks for a halt to lay a gun through HaltTicks.
 // How a tank gets across the battlefield. Each follows the tracked-mode flow field of its goal:
-//  - steering: it turns toward the field at its profile's rate; a turn sharper than PivotAngle is made at the
+//  - steering: it turns toward the field at its profile's rate, easing the last of a turn in (TurnGain); a turn sharper than PivotAngle is made at the
 //    profile's PivotSpeed (a heavy tank on the spot, one track forward and one back; a walker or a skimmer keeps
 //    going round), anything gentler is driven round while the heading closes. It steers at where the field's steps
 //    lead a hull length on (Steer), so it drives the line a staircase of 45-degree steps stands for and begins a
@@ -192,6 +192,11 @@ namespace TW.Sim.Nav
         /// looks in (cosine: 0.3 is 72 degrees either side of the line); how hard it bends the line; the most it bends
         /// it (radians, under PivotAngle, so a hull ahead never stops a heavy tank to turn on the spot).</summary>
         public const float AvoidLook = 4f, AvoidCone = 0.3f, AvoidGain = 1.5f, AvoidMaxBend = 0.8f;
+        /// <summary>How fast a machine closes on the heading it wants, per second of the error, up to its profile's turn
+        /// rate: a big turn is made at that rate, the last 15-30 degrees eased in. Before (2026-09-29) it closed any error
+        /// at the full rate, so each step of the field's line (it moves by a cell's width, 15-20 degrees) was a snap,
+        /// and a machine alone on the Shelled Forest snaked 18-27 turn reversals per 100 m about a straight course.</summary>
+        public const float TurnGain = 1.5f;
         public int WireCrushed, TreesPushed, MenCrushed;
         ulong checksum = SimHash.Offset;
 
@@ -430,7 +435,10 @@ namespace TW.Sim.Nav
                     if (ml <= 1e-4f) continue;
                     mixed /= ml;
                     float3 way = new float3(mixed.x, 0f, mixed.y);
-                    int near = CellOf(p + way * NavCell), far = CellOf(p + way * (prof.HalfLength + NavCell));
+                    // probed from the cell's centre, so the answer holds across the cell: probed from the hull, the
+                    // turn it caused moved the probe back onto open ground and the lane was taken and dropped by turns
+                    float3 from = new float3((cell % NavWidth + 0.5f) * NavCell, p.y, (cell / NavWidth + 0.5f) * NavCell);
+                    int near = CellOf(from + way * NavCell), far = CellOf(from + way * (prof.HalfLength + NavCell));
                     if (Open(goal, here, cell, near) && Open(goal, here, cell, far)) return mixed;
                 }
                 return flow;
@@ -601,7 +609,7 @@ namespace TW.Sim.Nav
                         // steer: turn toward the wanted direction at the profile's rate; a sharp turn is made at its pivot share
                         float desiredYaw = SimMath.YawOf(new float3(want.x, 0f, want.y));
                         float maxTurn = prof.TurnRateRad * Dt * math.max(0.6f, SpeedFactor[i]);
-                        yaw = SimMath.WrapAngle(yaw + math.clamp(SimMath.WrapAngle(desiredYaw - yaw), -maxTurn, maxTurn));
+                        yaw = SimMath.WrapAngle(yaw + math.clamp(SimMath.WrapAngle(desiredYaw - yaw) * math.min(1f, TurnGain * Dt), -maxTurn, maxTurn));
                         float remaining = SimMath.WrapAngle(desiredYaw - yaw);
                         align = math.abs(remaining) > PivotAngle ? prof.PivotOr : math.max(0.3f, SimMath.Cos(remaining));
                     }
