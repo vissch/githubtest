@@ -57,6 +57,19 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>The wounds scene turns about the row, a still each way in turn: close from the three-quarter front and
+        /// from behind, high and steep, and the zoom the game is played at (hit blood must read at all four).</summary>
+        static (float zoom, float yaw, float pitch, float aim) WoundView(int k)
+        {
+            switch (k % 4)
+            {
+                case 0: return (9f, 40f, 28f, 1.0f);
+                case 1: return (9f, 220f, 28f, 1.0f);
+                case 2: return (14f, 130f, 55f, 0.8f);
+                default: return (30f, 40f, 25f, 0.5f);
+            }
+        }
+
         /// <summary>How long each scene takes to play out, and how many stills it gets across that time.</summary>
         static (float seconds, int frames) Timing(string scene)
         {
@@ -188,7 +201,7 @@ namespace TW.Tests
                     while (Time.time < due) yield return null;
                     string path = Path.Combine(dir, $"{stem}_{k:00}.png");
                     // the base yaw pinned before every shot, as WalkerStills does, or the shot's yaw drifts with the camera's own
-                    var fr = Frame(scene);
+                    var fr = scene == "wounds" ? WoundView(k) : Frame(scene);
                     if (tc != null) tc.BaseYaw = -90f;
                     CaptureRig.Shot(path, x + 4f, z - 2f, fr.zoom, fr.yaw, fr.pitch, 1280, 720, fr.aim);
                     yield return Drain(path);
