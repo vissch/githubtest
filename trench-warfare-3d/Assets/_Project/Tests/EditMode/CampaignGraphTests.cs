@@ -137,7 +137,8 @@ namespace TW.Tests
             Assert.That(r.Difficulty, Is.EqualTo("HARD"));
             Assert.That(r.PeerDeploysTanks, Is.True);
             Assert.That(r.PeerDefends, Is.True, "Hard answers an attack with an SOS barrage");
-            Assert.That(n.Missions[0].Build(CampaignGraph.MissionId(n, 0), 1).PeerDefends, Is.False, "Normal does not");
+            Assert.That(n.Missions[0].Build(CampaignGraph.MissionId(n, 0), 1).PeerDefends, Is.True, "so does Normal");
+            Assert.That(n.Missions[0].Build(CampaignGraph.MissionId(n, 0), 0).PeerDefends, Is.False, "Easy fires no support at all");
             Assert.That(r.PeerDeployEveryTicks, Is.EqualTo(CampaignDifficulty.Standard[2].PeerDeployEveryTicks));
 
             var easy = n.Missions[0].Build(CampaignGraph.MissionId(n, 0), 0);

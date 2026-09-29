@@ -22,7 +22,7 @@ namespace TW.UI
         public static readonly CampaignDifficulty[] Standard =
         {
             new CampaignDifficulty { Name = "EASY", Blurb = "A slow enemy that attacks late and fields no armour or support.", PeerDeployEveryTicks = 60, PeerAttackGarrison = 12, PeerDeploysTanks = false, PeerUsesSupport = false, PeerSupportReserve = 400, EnemyUpgradeTier = 0 },
-            new CampaignDifficulty { Name = "NORMAL", Blurb = "Deploys every two seconds, attacks at eight men, shells you when it can.", PeerDeployEveryTicks = 40, PeerAttackGarrison = 8, PeerDeploysTanks = false, PeerUsesSupport = true, PeerSupportReserve = 180, EnemyUpgradeTier = 1 },
+            new CampaignDifficulty { Name = "NORMAL", Blurb = "Deploys every two seconds, attacks at eight men, shells you when it can and when you attack.", PeerDeployEveryTicks = 40, PeerAttackGarrison = 8, PeerDeploysTanks = false, PeerUsesSupport = true, PeerSupportReserve = 180, PeerDefends = true, EnemyUpgradeTier = 1 },
             new CampaignDifficulty { Name = "HARD", Blurb = "Fast deploys, early attacks, tanks whenever it can afford them, and a barrage on any attack you make.", PeerDeployEveryTicks = 28, PeerAttackGarrison = 6, PeerDeploysTanks = true, PeerUsesSupport = true, PeerSupportReserve = 120, PeerDefends = true, EnemyUpgradeTier = 2 },
         };
     }

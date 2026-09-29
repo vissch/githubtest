@@ -54,9 +54,9 @@ namespace TW.Presentation
         /// <summary>The tick its planned attack goes over the top, 0 with none planned.</summary>
         public uint PlannedAttack;
         /// <summary>Defensive fire: an HE line on the player's men in the open coming at its trench (the SOS barrage).</summary>
-        /// Off by default: it is the Hard difficulty's (PeerDefends). One barrage on a bare attack at three to one turned
-        /// seven trenches taken of eight into none (20 of 30 men lost to 26), so on every difficulty it would undo the
-        /// assault ladder while the enemy had 150 silver.
+        /// Off by default: Normal and Hard switch it on (PeerDefends), Easy fires no support. One barrage on a bare attack
+        /// at three to one turned seven trenches taken of eight into none (20 of 30 men lost to 26): on those difficulties
+        /// an attack wants its own barrage first, or the enemy's silver spent.
         public bool Defends;
         /// <summary>How many of the player's men in the open, how near its front trench, before it calls one.</summary>
         public int SosMen = 5;

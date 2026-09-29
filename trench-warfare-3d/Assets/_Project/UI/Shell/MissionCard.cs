@@ -49,7 +49,7 @@ namespace TW.UI
         public Difficulty[] Difficulties =
         {
             new Difficulty { Name = "EASY", Blurb = "A slow enemy that attacks late and fields no armour or support.", PeerDeployEveryTicks = 60, PeerAttacks = true, PeerAttackGarrison = 12, PeerDeploysTanks = false, PeerUsesSupport = false, PeerSupportReserve = 400 },
-            new Difficulty { Name = "NORMAL", Blurb = "Today's opponent: deploys every two seconds, attacks at eight men, shells you when it can.", PeerDeployEveryTicks = 40, PeerAttacks = true, PeerAttackGarrison = 8, PeerDeploysTanks = false, PeerUsesSupport = true, PeerSupportReserve = 180 },
+            new Difficulty { Name = "NORMAL", Blurb = "Today's opponent: deploys every two seconds, attacks at eight men, shells you when it can and when you attack.", PeerDeployEveryTicks = 40, PeerAttacks = true, PeerAttackGarrison = 8, PeerDeploysTanks = false, PeerUsesSupport = true, PeerSupportReserve = 180, PeerDefends = true },
             new Difficulty { Name = "HARD", Blurb = "Fast deploys, early attacks, tanks whenever it can afford them, and a barrage on any attack you make.", PeerDeployEveryTicks = 28, PeerAttacks = true, PeerAttackGarrison = 6, PeerDeploysTanks = true, PeerUsesSupport = true, PeerSupportReserve = 120, PeerDefends = true },
         };
 
