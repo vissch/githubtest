@@ -390,7 +390,8 @@ namespace TW.Sim.Combat
                     {
                         bool sameTrench = (Flags[i] & (uint)UnitFlags.InTrench) != 0 && TrenchAt(p) == TrenchAt(q);
                         bool charging = (Flags[i] & (uint)UnitFlags.Charging) != 0;   // a Breaker in the trench: nothing between its guns and them
-                        cover = sameTrench || charging ? 0f : theirStance == Stance.FireStep ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
+                        // (a man fighting hand to hand in it is up at the rim, as covered as on the fire step)
+                        cover = sameTrench || charging ? 0f : theirStance == Stance.FireStep || theirStance == Stance.Melee ? CombatTables.TrenchCover : 0.4f;   // below the rim but reached from the parapet
                     }
                     else
                     {

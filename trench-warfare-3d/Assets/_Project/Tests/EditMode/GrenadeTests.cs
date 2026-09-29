@@ -1,5 +1,5 @@
 // Phase: A2 (implemented 2026-09-28) — the bomb and the running man. A man in the open bombs the trench man he is
-// fighting from 5-22 m, the burst goes off on BlastSystem, and he spends one of his; he holds it while a friend
+// fighting from 5-17.6 m, the burst goes off on BlastSystem, and he spends one of his; he holds it while a friend
 // stands by the mark; a gunner carries none and the next man in a slot carries his own. A running man is a harder
 // mark the farther off he is, and no harder close up.
 using System.Collections.Generic;
@@ -77,7 +77,7 @@ namespace TW.Tests
             Assert.AreEqual(s.x, throwEv.B, "at the man he was fighting");
             Assert.That(throwEv.Scalar, Is.InRange(CombatTables.GrenadeMin, CombatTables.GrenadeRange));
             int flight = CombatTables.GrenadeFlightTicks(throwEv.Scalar, m.World.Config.TickSeconds);
-            Assert.That(flight * m.World.Config.TickSeconds, Is.InRange(0.5f, 1.3f), "a bomb thrown 5-22 m is in the air half a second to a second and a bit");
+            Assert.That(flight * m.World.Config.TickSeconds, Is.InRange(0.5f, 1.3f), "a bomb thrown 5-17.6 m is in the air half a second to a second and a bit");
             var burst = log.Find(e => e.Type == SimEventType.Explosion && e.A == SourceId.Grenade);
             Assert.AreEqual(throwEv.Tick + (uint)flight, burst.Tick, "and it went off when it landed, not the tick he threw it");
             float3 landed = throwEv.Pos + throwEv.Dir;
