@@ -262,7 +262,7 @@ namespace TW.Presentation
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
-            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0; Wound[i] = 0;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -356,6 +356,8 @@ namespace TW.Presentation
             for (int i = 0; i < count; i++)
             {
                 if (Grime[i] > 0f) Grime[i] = math.max(0f, Grime[i] - fade);
+                // the blood on him: the share of his hp he has lost, while he lives (a corpse keeps what he had)
+                if ((w.Flags[i] & (uint)UnitFlags.Alive) != 0) Wound[i] = (byte)math.round(WoundMax * math.saturate(1f - w.Hp[i] / math.max(1f, w.MaxHp[i])));
                 if (waveAt[i] == 0u || waveAt[i] > tick) continue;
                 if (blastRadius[i] <= 0f) { blastRadius[i] = waveR[i]; blastDist[i] = waveD[i]; }
                 waveAt[i] = 0u;

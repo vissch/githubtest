@@ -54,6 +54,23 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AWoundRidesAboveEveryOtherFieldAndLeavesThemAlone()
+        {
+            foreach (int wound in new[] { 0, 1, 31, VatTint.WoundMax })
+                foreach (bool feet in new[] { false, true })
+                {
+                    float tint = VatTint.Pack(1, 31, 31, VatTint.SquashMin, feet, wound);
+                    Assert.Less(tint, 16777216f, "inside what a float holds exactly");
+                    Assert.AreEqual(wound, VatTint.Wound(tint), "the wound");
+                    VatTint.Unpack(tint, out int t, out int p, out int r, out int q, out bool f);
+                    Assert.AreEqual(1, t); Assert.AreEqual(31, p); Assert.AreEqual(31, r); Assert.AreEqual(VatTint.SquashMin, q); Assert.AreEqual(feet, f, "the feet bit is not read from the wound");
+                }
+            Assert.AreEqual(VatTint.WoundMax, VatTint.Wound(VatTint.Pack(0, 0, wound: 999)), "clamped, not wrapped");
+            VatTint.Unpack(VatTint.Pack(1, 0, wound: 40), out int team, out int pitch, out _, out _, out _);
+            Assert.AreEqual(1, team); Assert.AreEqual(0, pitch, "a wounded man standing is his team and no tumble");
+        }
+
+        [Test]
         public void ASquashPastItsRangeIsClampedNotWrapped()
         {
             VatTint.Unpack(VatTint.Pack(0, 0, 0, -40), out _, out _, out _, out int flat, out _);
@@ -74,7 +91,8 @@ namespace TW.Tests
             StringAssert.Contains("float roll = fmod(gag, 32.0)", s, "the roll's five bits");
             StringAssert.Contains("float sq = fmod(floor(gag / 32.0), 64.0);", s, "the squash's six bits");
             StringAssert.Contains("sq = sq > 31.5 ? sq - 64.0 : sq;", s, "two's complement");
-            StringAssert.Contains("floor(gag / " + (VatTint.FeetShift / VatTint.RollShift) + ".0) > 0.5 ? 0.0 : 0.9", s, "the feet bit");
+            StringAssert.Contains("fmod(floor(gag / " + (VatTint.FeetShift / VatTint.RollShift) + ".0), 2.0) > 0.5 ? 0.0 : 0.9", s, "the feet bit, alone (the wound sits above it)");
+            StringAssert.Contains("float wound = floor(gag / " + (VatTint.WoundShift / VatTint.RollShift) + ".0) / " + VatTint.WoundMax + ".0;", s, "the wound's six bits");
             var step = Regex.Match(s, @"float sy = 1\.0 \+ sq \* ([0-9.]+);");
             Assert.IsTrue(step.Success, "the squash scales the height");
             Assert.AreEqual(VatTint.SquashStep, float.Parse(step.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture), 1e-6f, "by the same step as VatTint.SquashStep");

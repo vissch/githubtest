@@ -106,7 +106,7 @@ namespace TW.Presentation.Units
             int roll = FallenFlight.RollStep(f.Path, age);
             int q = FallenFlight.Squash(f.Path, age, f.Absurd);
             bool feet = (f.GagFlags & GagFlags.Feet) != 0 || (q != 0 && age >= f.Path.Delay && FallenFlight.ArcAt(f.Path, age) < 0);
-            return VatTint.Pack(f.Team, pitch, roll, q, feet);
+            return VatTint.Pack(f.Team, pitch, roll, q, feet, VatTint.FallenWound);
         }
     }
 }

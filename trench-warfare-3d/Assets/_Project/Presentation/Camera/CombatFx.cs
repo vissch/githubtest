@@ -834,6 +834,7 @@ namespace TW.Presentation.Tactical
             var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
             float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
             DebrisRenderer.ZoomShare = SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f;
+            Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
             float now = Time.time;
             Prune(tracers, now - TracerSeconds, static (t, cut) => t.Born < cut);
