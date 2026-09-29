@@ -29,8 +29,8 @@ namespace TW.Presentation.Tactical
         const float FizzPointEvery = 0.05f;
         /// <summary>Seconds between the puffs a fizzer leaves (critic round 1: its ribbon alone did not read by day).</summary>
         const float FizzPuffEvery = 0.07f;
-        const float FizzFlare = 2.6f;       // the flame card behind a fizzer, metres
-        const float FizzScale = 1.4f;       // a fizzer's body against a flying rocket's (bigger: it must read by day)
+        const float FizzFlare = 3.4f;       // the flame card behind a fizzer, metres
+        const float FizzScale = 2.0f;       // a fizzer's body against a flying rocket's (bigger: it must read by day; round 17: at 1.4 none could be found at the wider framing)
         /// <summary>Seconds after the death before the first can leave: the first stills lost them in the fireball.</summary>
         const float FizzAfter = 0.5f;
 
