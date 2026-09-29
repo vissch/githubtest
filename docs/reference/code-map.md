@@ -65,32 +65,6 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
 24 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
-| Assembly | Folder | Namespaces declared | References (TW.*) | .cs |
-|---|---|---|---|---|
-| `TW.Data` | `Data/` | `TW.Data` | Sim.Core, Sim.Terrain, Sim.Combat, Sim.Units, Sim.Match | 2 |
-| `TW.Editor` | `Editor/` | `TW.Editor` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Units, Presentation.VFX, Presentation.Audio, UI, Perf | 20 |
-| `TW.Net` | `Net/` | `TW.Net` | Sim.Core | 8 |
-| `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain | 3 |
-| `TW.Playground.Editor` | `Playground/Editor/` | `TW.Playground.Editor` | Playground, Presentation.Terrain | 2 |
-| `TW.Playground` | `Playground/Runtime/` | `TW.Playground` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Net, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain | 16 |
-| `TW.Tests.Playground` | `Playground/Tests/` | `TW.Tests.Playground` | Playground, Playground.Editor | 1 |
-| `TW.Presentation.Audio` | `Presentation/Audio/` | `TW.Presentation.Audio` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
-| `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net | 16 |
-| `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data | 21 |
-| `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core | 26 |
-| `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 4 |
-| `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core | 1 |
-| `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav | 13 |
-| `TW.Sim.Core` | `Sim/Core/` | `TW.Sim` | (none) | 15 |
-| `TW.Sim.Match` | `Sim/Match/` | `TW.Sim.Match` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units | 10 |
-| `TW.Sim.Nav` | `Sim/Nav/` | `TW.Sim.Nav` | Sim.Core, Sim.Terrain | 6 |
-| `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core | 10 |
-| `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat | 7 |
-| `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, UI, Data, Editor, Perf | 52 |
-| `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf | 6 |
-| `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera | 38 |
-
-22 assemblies, 278 C# files. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -146,53 +120,6 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `UI/Selection/` | Unit selection: picker, model, markers, hover card, selection panel. |
 | `UI/Shell/` | Menus: router, main menu, mission select, pause, settings, debrief, armoury. |
 | `UI/Skin/` | Dust Front skin: SkinSpec (the sprite table), USS tokens, fonts. |
-| Folder (under Assets/_Project) | What lives there | .cs |
-|---|---|---|
-| `Art/` | Source art Unity imports but the game does not load by name (figures, clip FBX). |  |
-| `Art/Characters/` | Owner's Mixamo-rigged figures (Soldier, Sniper) and the ~100 clip FBX the VAT baker reads. |  |
-| `Data/` | ScriptableObject schemas and the baker that turns them into sim tables (SIM lane). | 2 |
-| `Editor/` | Editor-only tools: scene builder, VAT baker, importers, CaptureRig, Windows build, prop editor. | 20 |
-| `Editor/UI/` | Editor tools for the UI skin: placeholder painter, importer, verifier, HUD capture. | 6 |
-| `Net/` | Lockstep driver, loopback transport, command seat; UTP/hash exchange/snapshot are stubs (SIM lane). | 8 |
-| `Perf/` | PerfBench (editor + player benchmark), AllocProbe, bench options. | 3 |
-| `Playground/` | The asset playground: new units, vehicles and buildings tried at every LOD before they go into the battle. | 19 |
-| `Playground/Art/` | Art on trial, not yet in Resources: tank3split vehicles (Tanks/), frogrig figures (Units/). |  |
-| `Playground/Editor/` | PlaygroundImport (import rules for Playground/Art) and PlaygroundSetup (TW/Playground/Build). | 2 |
-| `Playground/Runtime/` | PlaygroundHost (scene, panel, commands, captures), VehicleRig, UnitRig, Retarget, PlaygroundFx. | 16 |
-| `Playground/Tests/` | EditMode checks of the playground art: parts per LOD, rigs per LOD, the LOD-identical breakup. | 1 |
-| `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). | 69 |
-| `Presentation/Audio/` | Stub: event audio router (B7). No audio assets exist yet. | 1 |
-| `Presentation/Camera/` | NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical. | 16 |
-| `Presentation/Core/` | SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, MatchClock, KeyMap, settings, HudBridge. | 21 |
-| `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. | 26 |
-| `Presentation/Units/` | VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback. | 4 |
-| `Presentation/VFX/` | Stub assembly (B5 router). Real effects live in Presentation/Camera. | 1 |
-| `Resources/` | Everything loaded by name at runtime (Resources.Load). Moving a file here breaks a string somewhere. |  |
-| `Resources/Env/` | Imported environment sets (Tripo), one folder per set, plus EnvAtlas.jpg built by Tools/envatlas.py. |  |
-| `Resources/Layouts/` | PropLayout asset: the owner's hand edits over the composed props. |  |
-| `Resources/ShaderKeep/` | Materials that keep Shader.Find shaders in player builds (ShaderInclusionTests). |  |
-| `Resources/Units/` | Baked VAT atlases (.bytes) per figure. Rebuilt by TW/VAT/Bake Infantry. |  |
-| `Resources/Vehicles/` | Tank and walker FBX + atlases, one folder per machine (tanksplit.py / crabsplit.py output). |  |
-| `Resources/VFX/` | Flipbook textures (Asset Store packs + firebooks.py output). |  |
-| `Scenes/` | Bootstrap (entry), MainMenu, GreyboxCorridor (the dev battle scene: open this one to Play). |  |
-| `Settings/` | URP pipeline and renderer assets (TW-URP, TW-Renderer). |  |
-| `Shaders/` | All TW/* shaders and the shared .hlsl includes. |  |
-| `Sim/` | Deterministic lockstep simulation. References nothing outside TW.Sim.* (SIM lane). | 61 |
-| `Sim/Combat/` | Target acquisition, direct fire, blast, suppression, gas, tank gunnery, armour. | 13 |
-| `Sim/Core/` | SimWorld (state + hash), commands, events, config, RNG, math, roster, system order. | 15 |
-| `Sim/Match/` | MatchSim (system registration), sector control, off-map abilities, bombardment, deformation, sea landing. | 10 |
-| `Sim/Nav/` | Flow fields, movement, separation, spatial hash, vehicle kinematics (VehicleSize lives here). | 6 |
-| `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. | 10 |
-| `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. | 7 |
-| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. | 58 |
-| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). | 52 |
-| `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. | 6 |
-| `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. | 38 |
-| `UI/Missions/` | Mission card assets for the mission select. |  |
-| `UI/Resources/` | UXML/USS/PanelSettings loaded by name (Hud/, Shell/, UI/). |  |
-| `UI/Selection/` | Unit selection: picker, model, markers, hover card, selection panel. | 10 |
-| `UI/Shell/` | Menus: router, main menu, mission select, pause, settings, debrief, armoury. | 14 |
-| `UI/Skin/` | Dust Front skin: SkinSpec (the sprite table), USS tokens, fonts. | 1 |
 <!-- /gen:folders -->
 
 ## Sim system order
