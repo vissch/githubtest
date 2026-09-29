@@ -324,11 +324,12 @@ namespace TW.Sim.Combat
                 {
                     if ((Flags[i] & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
                     if (FireCooldown[i] > 0) { FireCooldown[i]--; continue; }
-                    // his weapon on the ground, or charging or fighting hand to hand (MeleeSystem): no shot, except the
-                    // grenade bundle for a machine beside him (a charge made escorted tanks immune to it, critic r2)
-                    if ((Flags[i] & (uint)UnitFlags.Disarmed) != 0) continue;
+                    // charging or fighting hand to hand, or his weapon on the ground (MeleeSystem): no shot, except the
+                    // grenade bundle for a machine beside him, which needs no rifle (a charge made escorted tanks immune to
+                    // it, critic r2; a disarmed fists man too, critic r3)
                     int t = TargetSlot[i];
-                    if ((Flags[i] & (uint)UnitFlags.Melee) != 0 && (t < 0 || (Flags[t] & (uint)UnitFlags.Vehicle) == 0)) continue;
+                    bool handToHand = (Flags[i] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed)) != 0;
+                    if (handToHand && (t < 0 || (Flags[t] & (uint)UnitFlags.Vehicle) == 0)) continue;
                     if (t < 0) continue;
                     if ((Flags[t] & (uint)UnitFlags.Alive) == 0 || Hp[t] <= 0f) { TargetSlot[i] = -1; continue; }
 
@@ -338,7 +339,7 @@ namespace TW.Sim.Combat
                         if ((Flags[t] & (uint)UnitFlags.KnockedOut) != 0) { TargetSlot[i] = -1; continue; }
                         // a man with an anti-tank rifle (2026-09-28) fires it at a plate it beats, from its own range; at a
                         // plate it does not beat he is a man beside a machine, with a bundle of grenades (below)
-                        bool pierces = (Flags[i] & (uint)UnitFlags.Vehicle) == 0 && Specs[Archetype[i]].HuntsArmour
+                        bool pierces = !handToHand && (Flags[i] & (uint)UnitFlags.Vehicle) == 0 && Specs[Archetype[i]].HuntsArmour
                             && Weapons[Archetype[i]].PenetrationMm > Armor.PlateFor(Tanks[Archetype[t]].Hull, Armor.FacingOf(q - p, Yaw[t], out _, out _));
                         if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0 || pierces)
                         {

@@ -345,6 +345,7 @@ namespace TW.Tests
             using var m = MatchSim.CreateGreybox(cfg);
             var w = m.World;
             int man = w.Spawn(0, InfantryArchetype.Rifle, new float3(150f, 0f, 300f), 5000f, 0.001f, false);
+            w.GoalId[man] = m.Fields.GetGoal(GoalKey.Trench(1));   // on his way to the enemy (going home he would not charge)
             w.Spawn(1, InfantryArchetype.Medic, new float3(156f, 0f, 300f), 1e6f, 0.001f, false);   // a man to charge
             int tank = w.Spawn(1, VehicleArchetype.Tusk, new float3(150f, 0f, 305f), RosterEntry.Tusk.Hp, 0f, true);   // and a machine within 8 m
             bool bundle = false; int charging = 0;
@@ -359,6 +360,26 @@ namespace TW.Tests
             });
             Assert.Greater(charging, 60, "setup: he was in the fight with the man beside the tank");
             Assert.IsTrue(bundle, "a grenade bundle at the tank, charge or no charge");
+        }
+
+        [Test]
+        public void MenOrderedBack_DoNotCharge()
+        {
+            using var m = Pair(InfantryArchetype.Rifle, InfantryArchetype.Medic, 6f, out int man, out int foe, foeHp: 1e6f);
+            var w = m.World;
+            short own = m.Fields.RearTrench(0);
+            w.GoalId[man] = m.Fields.GetGoal(GoalKey.Trench(own));   // back to a trench his side holds
+            Run(m, 80, t => Assert.AreNotEqual(MovementSystem.EngageClose, (w.Flags[man] & (uint)UnitFlags.Melee) != 0 ? m.Movement.Engage[man] : (byte)255, $"tick {t}: he charged on his way back"));
+        }
+
+        [Test]
+        public void MeleeKills_CountForTheSide()
+        {
+            using var m = Pair(InfantryArchetype.Rifle, InfantryArchetype.Medic, 2f, out int man, out int foe, hp: 1e6f, foeHp: 60f);
+            int before = m.Fire.Kills[0];
+            Run(m, 400);
+            Assert.IsFalse(m.World.IsAlive(foe), "setup: he won");
+            Assert.AreEqual(before + 1, m.Fire.Kills[0], "the bayonet kill counts");
         }
 
         [Test]

@@ -233,7 +233,14 @@ namespace TW.Sim.Combat
             // a flamethrower (9.6 m) would put his weapon down before he could use it: he flames until it comes to blows
             if (weapon.Mode == FireMode.Cone) return false;
             int goal = w.GoalId[i];
-            return goal < 0 || fields.Goals[goal].Kind != GoalKind.Cell;
+            if (goal < 0) return true;
+            var g = fields.Goals[goal];
+            if (g.Kind == GoalKind.Cell || g.Kind == GoalKind.Rally) return false;   // on an errand, or called back to his rally point
+            // going back to a trench his side holds (a fallback, a return, reinforcements coming up): he goes, and fights
+            // only a man who comes to blows with him (critic r3: nothing got a man out of a fight)
+            if (g.Kind == GoalKind.Trench && g.Ref >= 0 && g.Ref < fields.Trenches.Length && fields.Trenches[g.Ref].OwnerTeam == w.Team[i]
+                && w.TrenchId[i] != g.Ref) return false;
+            return true;
         }
 
         /// <summary>One blow of man i at his foe j: missed, blocked or landed; the next blow's time.</summary>
@@ -368,9 +375,11 @@ namespace TW.Sim.Combat
                 int s = StruckBy[i];
                 if (s >= 0 && s != best && Enemy(i, s) && (best < 0 || Foe[best] != i))
                 {
+                    // only a man within arm's length and with nothing between them: turning on one further off dropped
+                    // him out of his own fight (critic r3)
                     float3 e = Position[s] - p; e.y = 0f;
                     float d = SimMath.Length(e);
-                    if (d <= BreakRange) { best = s; bestD = d; }
+                    if (d <= ContactRange && (Layers[Cell((p + Position[s]) * 0.5f)] & (byte)(NavLayer.Blocked | NavLayer.Bunker)) == 0) { best = s; bestD = d; }
                 }
                 if (best < 0) return;
                 float3 to = Position[best] - p; to.y = 0f;
