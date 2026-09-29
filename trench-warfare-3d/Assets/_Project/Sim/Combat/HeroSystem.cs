@@ -64,6 +64,10 @@ namespace TW.Sim.Combat
         public int HeroCount;
         // ---- transient ----
         NativeArray<int> counts;
+        // where each live hero stood and for whom at the last step: only for the HeroFallen of one whose slot was taken
+        // before the next (derived from hashed state, read only into an event; not hashed)
+        NativeArray<float3> lastAt;
+        NativeArray<byte> heroTeam;
         int gridW, gridL;
 
         public HeroSystem(MapData map) { this.map = map; }
@@ -79,6 +83,8 @@ namespace TW.Sim.Combat
             HeroId = new NativeArray<int>(n, Allocator.Persistent);
             HeroGen = new NativeArray<ushort>(n, Allocator.Persistent);
             HeroKills = new NativeArray<ushort>(n, Allocator.Persistent);
+            lastAt = new NativeArray<float3>(n, Allocator.Persistent);
+            heroTeam = new NativeArray<byte>(n, Allocator.Persistent);
             seenGen = new NativeArray<ushort>(n, Allocator.Persistent);
             BaseSpeed = new NativeArray<float>(n, Allocator.Persistent);
             HeroScale = new NativeArray<float>(n, Allocator.Persistent);
@@ -110,9 +116,21 @@ namespace TW.Sim.Combat
         public void Step(SimWorld w)
         {
             int n = w.HighWater;
-            // fresh slots
+            // fresh slots; a hero whose slot another man took since the last step (freed slots go out last in, first out,
+            // so a deploy at order 100 can) falls here, with the bayonet kills he made that tick (critic r5)
+            melee ??= w.GetSystem<MeleeSystem>();
             for (int i = 0; i < n; i++)
-                if (seenGen[i] != w.Generation[i]) { seenGen[i] = w.Generation[i]; HeroTicks[i] = 0; HeroId[i] = 0; HeroKills[i] = 0; HeroScale[i] = 1f; VeteranRank[i] = 0; }
+                if (seenGen[i] != w.Generation[i])
+                {
+                    if (HeroTicks[i] > 0 && seenGen[i] == HeroGen[i])
+                    {
+                        if (melee != null && melee.Killed.IsCreated)
+                            for (int k = 0; k < melee.Killed.Length; k++)
+                                if (melee.Killed[k].y == i) HeroKills[i]++;
+                        w.Events.Add(w.Tick, SimEventType.HeroFallen, i, HeroId[i], lastAt[i], new float3(0f, heroTeam[i], 0f), HeroKills[i]);
+                    }
+                    seenGen[i] = w.Generation[i]; HeroTicks[i] = 0; HeroId[i] = 0; HeroKills[i] = 0; HeroScale[i] = 1f; VeteranRank[i] = 0;
+                }
 
             // veterans: the rank rode in the deploy command (SimWorld.Deploy / the sea lift emit UnitDeployed)
             var ev = w.Events.Events;
@@ -160,6 +178,7 @@ namespace TW.Sim.Combat
                         for (int k = 0; k < melee.Killed.Length; k++)
                             if (melee.Killed[k].y == i) Feat(w, i, fell);
                 }
+                lastAt[i] = w.Position[i]; heroTeam[i] = w.Team[i];
                 if (fell)
                 {
                     w.Events.Add(w.Tick, SimEventType.HeroFallen, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]);
@@ -309,6 +328,8 @@ namespace TW.Sim.Combat
             if (CandGen.IsCreated) CandGen.Dispose();
             if (ForcedUsed.IsCreated) ForcedUsed.Dispose();
             if (counts.IsCreated) counts.Dispose();
+            if (lastAt.IsCreated) lastAt.Dispose();
+            if (heroTeam.IsCreated) heroTeam.Dispose();
         }
     }
 }

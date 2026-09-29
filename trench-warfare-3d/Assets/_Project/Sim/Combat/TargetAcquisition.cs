@@ -268,14 +268,15 @@ namespace TW.Sim.Combat
                     return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 }
                 if ((fj & (uint)UnitFlags.InTrench) == 0 && TrenchId[j] < 0 && InDeadGround(j, p)) return false;
-                // below the rim unless on the fire step, or up fighting hand to hand (a man brawling in his trench with
-                // one at the parapet is no more hidden than one shooting from it)
-                if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep && StanceOf[j] != (byte)Stance.Melee)
+                if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
                     short theirs = TrenchAt(Position[j]);
                     bool sameTrench = myTrench >= 0 && theirs == myTrench;
                     float reveal = (Flags[i] & (uint)UnitFlags.Charging) != 0 ? CombatTables.ChargeRevealRange : CombatTables.BelowRimRevealRange;   // a charging Breaker looks down into it
                     reveal = math.max(reveal, Specs[Archetype[i]].LooksDownMetres);   // so does a raider driven up to the trench (the Skimmer)
+                    // a man up fighting hand to hand in it shows over the rim to anyone near (the bomb's reach), not across
+                    // the field (critic r5: Stance.Melee seen like the fire step exposed him to every gun in range)
+                    if (StanceOf[j] == (byte)Stance.Melee) reveal = math.max(reveal, CombatTables.ChargeRevealRange);
                     if (!sameTrench && distSq > reveal * reveal) return false;
                 }
                 return true;
