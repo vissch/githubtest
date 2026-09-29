@@ -40,6 +40,7 @@ namespace TW.Playground.Editor
                     lods.Add(go); atlas.Add(AssetDatabase.LoadAssetAtPath<Texture2D>($"{dir}/{name}_LOD{k}_Base.jpg"));
                 }
                 e.Lods = lods.ToArray(); e.Atlas = atlas.ToArray();
+                e.Legs = AssetDatabase.LoadAssetAtPath<TextAsset>($"{dir}/{name}_legs.json");
                 if (e.Manifest != null && e.Lods.Length > 0) vehicles.Add(e);
             }
             // units

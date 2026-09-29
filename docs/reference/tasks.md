@@ -289,7 +289,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 | `DynamicGroundTests` | EditMode | 11 | NavLayer, CraterStamp, Snapshot, MapData, MatchSim, CraterKind |
 | `EnvAtlasTests` | EditMode | 2 | BattlefieldKit |
 | `FlowFieldManagerTests` | EditMode | 4 | GoalKey, FlowField, MatchSim, NavLayer, SimCommand, NavMode |
-| `FlowFieldTests` | EditMode | 2 | FlowField, NavLayer, GreyboxMapGenerator, Kind, MapData, ObjectiveKind |
+| `FlowFieldTests` | EditMode | 2 | FlowField, NavLayer, Round, GreyboxMapGenerator, Kind, MapData |
 | `GaitTests` | EditMode | 12 | WalkerGait, VehicleArchetype, TankModel, Body, Foot, Rest |
 | `GameSettingsTests` | EditMode | 10 | GameSettings, SettingsStore, SettingsApplier, Bindings, AudioLevels, GameAction |
 | `GarrisonAndOrdersTests` | EditMode | 9 | CommandType, SimCommand, NavLayer, MatchSim, UnitFlags, SimEventType |
