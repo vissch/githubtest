@@ -28,6 +28,9 @@ namespace TW.Presentation.Tactical
         public const float RollHull = 6f, ToppleSeconds = 0.35f;
         /// <summary>How brightly a cook-off pop lights its wreck above intensity 0 (1 is today's full flash).</summary>
         public const float PopGlint = 0.1f;   // critic round 11: at 0.25 a pop still paled the wreck to see-through in a still
+        /// <summary>A leaping turret's gun, snapped off: the share of the turret's launch it keeps, and how hard it is
+        /// flung sideways (m/s).</summary>
+        public const float GunKeeps = 0.7f, GunOutMin = 3f, GunOutMax = 5f;
         /// <summary>How many puffs ring a walker as its belly lands.</summary>
         public const int FlopRing = 8;
         /// <summary>The furthest any wheel rolls, however long its hull.</summary>
@@ -124,7 +127,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The fan leaves up and astern (m/s at intensity 1, grown with its square root, capped), spinning about
         /// its hub, and lies over flat as it goes: while it keeps FanLiftSpeed it holds up FanLift of its weight, the air
         /// slows it by FanDrag a second and bends its way by up to FanCurve rad/s. It comes down 18-27 m off at 1.</summary>
-        public const float FanUpMin = 4f, FanUpMax = 5.5f, FanUpCap = 7f, FanBackMin = 10f, FanBackMax = 13f, FanBackCap = 16f;
+        public const float FanUpMin = 2.5f, FanUpMax = 3.5f, FanUpCap = 5f, FanBackMin = 12f, FanBackMax = 14.5f, FanBackCap = 17f;   // round 15: launched 4-5.5 m/s up it flew high; lower and faster, it glides
         public const float FanLift = 0.8f, FanLiftSpeed = 10f, FanDrag = 0.3f, FanCurve = 0.35f, FanSpin = 28f, FanTilt = 0.35f;
         /// <summary>Longest it glides before FlyDebris takes it (a last safety: it is down well before).</summary>
         public const float FanGlideCap = 8f;

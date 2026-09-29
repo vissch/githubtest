@@ -80,6 +80,7 @@ namespace TW.Presentation.Tactical
                     d.Vel = leap.Vel; d.Spin = leap.Spin; d.Resting = false;
                     d.Bounce = VehicleGags.TurretBounce; d.Bounces = VehicleGags.TurretBounces;
                     d.Burn = Mathf.Max(d.Burn, v.Burn);
+                    GunOff(v, d, right);
                 }
             }
 
@@ -215,9 +216,9 @@ namespace TW.Presentation.Tactical
                     {
                         float b = v.Yaw + k * 2f * Mathf.PI / VehicleGags.FlopRing;
                         var out1 = new Vector3(Mathf.Sin(b), 0f, Mathf.Cos(b));
-                        Vector3 at = v.Pos + out1 * (v.Model.HalfLength * 0.9f);
+                        Vector3 at = v.Pos + out1 * (v.Model.HalfLength * 1.35f);   // outside the rim: over the body the cards made the hull look glassy (critic round 15)
                         at.y = Ground(at.x, at.z) + 0.25f;
-                        books.Add(FlipbookFx.Book.Smoke, at, v.Model.HalfLength * 0.7f, 1.2f, velocity: out1 * 3f + Vector3.up * 0.3f, grow: 1.2f, alpha: 0.6f);
+                        books.Add(FlipbookFx.Book.Smoke, at, v.Model.HalfLength * 0.55f, 1.0f, velocity: out1 * 3.5f + Vector3.up * 0.2f, grow: 1.1f, alpha: 0.45f);
                     }
             }
             if (v.Flops) Scrap(v.Pos + Vector3.up * 0.5f, 5, 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
@@ -340,6 +341,29 @@ namespace TW.Presentation.Tactical
             var d = Detach(v, fan, v.World[fan]);
             d.Vel = glide.Vel; d.Curve = glide.Curve; d.Glide = VehicleGags.FanGlideCap;
             d.Burn = Mathf.Max(d.Burn, v.Burn * 0.5f);
+        }
+
+        /// <summary>The leaping turret's gun snaps off and cartwheels away on its own (critic round 15: a turret going up
+        /// gun first, the barrel pointing down at the hull, read as a turret on a stalk). Its own dice, so the leap filmed
+        /// before goes as it went.</summary>
+        void GunOff(View v, Debris turret, Vector3 right)
+        {
+            var parts = v.Model.Lods[0].Parts;
+            int gun = -1;
+            foreach (var c in turret.Local.Keys) if (parts[c].Role == TankPartRole.Gun && (gun < 0 || c < gun)) gun = c;
+            if (gun < 0) return;
+            var rng = new DebrisRng(v.Pos, 0x6A77u + (uint)Mathf.Max(0, v.Slot));
+            var d = Detach(v, gun, v.World[gun]);
+            // what hung off the gun goes with it, not with the turret
+            var gone = new System.Collections.Generic.List<int>();
+            foreach (var c in turret.Local.Keys)
+                for (int k = c; k >= 0; k = parts[k].Parent) if (k == gun) { gone.Add(c); break; }
+            foreach (int c in gone) turret.Local.Remove(c);
+            float side = rng.Next() < 0.5f ? -1f : 1f;
+            d.Vel = turret.Vel * VehicleGags.GunKeeps + right * (side * rng.Range(VehicleGags.GunOutMin, VehicleGags.GunOutMax));
+            d.Spin = rng.OnSphere() * rng.Range(8f, 12f);
+            d.Bounce = VehicleGags.TurretBounce; d.Bounces = 1;
+            d.Burn = Mathf.Max(d.Burn, turret.Burn);
         }
 
         /// <summary>A machine with no turret throws its gun sponsons off its sides, up and out, tumbling.</summary>
