@@ -635,7 +635,7 @@ namespace TW.Tests.Playground
                     if (r.Hopper.Throat > swell) { swell = r.Hopper.Throat; var now = hull.Lods[0].vertices; moveOut = 0f; for (int i = 0; i < now.Length; i++) if (rest0[i].y > 1.2f) moveOut = Mathf.Max(moveOut, (now[i] - rest0[i]).magnitude * r.Size); }
                 }
                 Assert.That(swell, Is.GreaterThan(0.9f), "sitting, its throat never swelled");
-                Assert.That(moveOut, Is.GreaterThan(0.1f), "the throat swelled but no vertex under the chin moved");
+                Assert.That(moveOut, Is.GreaterThan(0.2f), "the throat swelled but no vertex under the chin moved far enough to see (0.11 hull units hardly showed, g15)");
                 // a hit jolts it away from the blow
                 var before = hull.T.localRotation;
                 r.HitPart(r.Find("Hull"), 20f); float jolt = 0f, dropped = 0f;

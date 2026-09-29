@@ -42,6 +42,12 @@ namespace TW.Playground
             // (0.78, 0.64, 0.50) came out (81, 95, 129), blue strongest (critic g4). Out of this it comes out mud-warm.
             Books?.Tint(Book.Spurt, new Color(1.25f, 0.72f, 0.36f)); Books?.Tint(Book.Column, new Color(1.15f, 0.68f, 0.34f));
             Books?.Tint(Book.Puff, new Color(0.46f, 0.40f, 0.34f));
+            // the shell burst's smoke, the same way: untinted, the moon made its three cards a solid blue ball in front of
+            // the Bullfrog (g13, still open at g15); this comes out a cool grey under the moon alone, about (64, 74, 93), warming by a fire (0.72, 0.48, 0.27 came out mustard beside a burning hull)
+            Books?.Tint(Book.Smoke, new Color(0.62f, 0.50f, 0.36f));
+            // and the shell burst's own card: its last frames are its smoke, and they were the blue ball (found by drawing the
+            // burst without it, g15); lighter than the smoke's so the flame frames keep their fire
+            Books?.Tint(Book.Burst, new Color(0.9f, 0.66f, 0.42f));
         }
 
         void OnDestroy() { Books?.Dispose(); if (discMat != null) Destroy(discMat); if (tetherMat != null) Destroy(tetherMat); if (discMesh != null) Destroy(discMesh); if (tracerMat != null) Destroy(tracerMat); if (tailMat != null) Destroy(tailMat); }
@@ -323,9 +329,15 @@ namespace TW.Playground
             Books.Add(Book.Burst, at + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, Kind.Upright | (Random.value < 0.5f ? Kind.Mirror : Kind.None),
                       velocity: Vector3.up * (r * 0.5f), grow: 0.5f, roll: Random.Range(-0.15f, 0.15f), glow: 3.4f * Glow, pop: 0.3f);
             Books.Add(Book.Column, at, r * 1.6f, 1.4f, Kind.Upright | Kind.Anchored);
+            // as the battle draws them (CombatFx): thinner (0.65), after the flash (0.5 s on), and each drifting its own way so
+            // the three do not stack into one ball
             for (int k = 0; k < 3; k++)
-                Books.Add(Book.Smoke, at + new Vector3(Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, Random.Range(-0.4f, 0.4f)) * r, r * Random.Range(1.1f, 1.6f), Random.Range(4f, 6.5f),
-                          (k & 1) == 0 ? Kind.Mirror : Kind.None, velocity: Vector3.up * 0.8f, grow: 1.5f, alpha: 0.8f, pop: 0.3f, delay: 0.15f + k * 0.1f);
+            {
+                var off = new Vector3(Random.Range(-0.5f, 0.5f), 0.3f + k * 0.18f, Random.Range(-0.5f, 0.5f));
+                Books.Add(Book.Smoke, at + off * r, r * Random.Range(1.1f, 1.6f), Random.Range(4f, 6.5f),
+                          (k & 1) == 0 ? Kind.Mirror : Kind.None, velocity: new Vector3(off.x, 0f, off.z) * 1.6f + Vector3.up * 0.6f, grow: 2f,
+                          roll: Random.Range(-0.6f, 0.6f), alpha: 0.65f, pop: 0.3f, delay: 0.5f + k * 0.15f);
+            }
             Lamp(at + Vector3.up, new Color(1f, 0.7f, 0.4f), 14f * Glow, 10f * r, 0.35f);
         }
 

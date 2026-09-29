@@ -485,10 +485,11 @@ namespace TW.Playground
                 // and on the ground it drops and is shoved back on its feet (a hit moved the body only up, critic g13)
                 if (!inAir && legs != null) { sink += 0.25f * Jolt; shift += 0.15f * Jolt * Vector3.Dot(d, legs.Forward); }
             }
-            // sitting still, the throat swells twice every 3.2 s (the pulses 0.3 s each); firing, it pumps with the burst
+            // sitting still, the throat swells twice every 3.2 s (the pulses 0.45 s each: 0.3 s went by unseen, g15); firing,
+            // it pumps with the burst
             float tt = Mathf.Repeat(T, 3.2f);
             Throat = fireLean > 0.01f ? fireLean * (0.45f + 0.35f * Mathf.Sin(T * 2f * Mathf.PI * 4f))
-                   : !hopping && tt < 0.6f ? Mathf.Pow(Mathf.Sin(Mathf.PI * tt / 0.3f), 2f) : 0f;
+                   : !hopping && tt < 0.9f ? Mathf.Pow(Mathf.Sin(Mathf.PI * tt / 0.45f), 2f) : 0f;
             if (legs != null) legs.Throat = Throat;
             var turn = Quaternion.Euler(-pitch, 0f, shake);
             SetStretch(stretch);
