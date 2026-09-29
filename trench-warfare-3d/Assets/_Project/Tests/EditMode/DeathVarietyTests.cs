@@ -19,6 +19,10 @@ namespace TW.Tests
     {
         static readonly float3 Here = new float3(150f, 0f, 300f);
 
+        // today's deaths: fx.deathAbsurd defaults to 1 since 2026-09-30, and these hold the look at 0 (DeathGagTests the rest)
+        [SetUp] public void Today() => DeathGags.Pin(0f);
+        [TearDown] public void Knob() => DeathGags.Pin(-1f);
+
         sealed class Rig : IDisposable
         {
             public readonly MatchSim M;
