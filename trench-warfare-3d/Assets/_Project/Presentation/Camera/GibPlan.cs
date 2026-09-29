@@ -35,8 +35,8 @@ namespace TW.Presentation.Tactical
         public const int HeapOfFour = 3;
         public const float HeapBurstCap = 0.5f, AloneBurstCap = 0.15f;
         /// <summary>How much larger than life his parts are drawn, at an intensity (critic round 1: at life size an arm was
-        /// a few pixels at the play zoom and read as mud; round 4: at 1.3 still none could be pointed at): 1.6 at 1, 2.2 at 2.</summary>
-        public static float PartScale(float intensity) => 1f + 0.6f * System.Math.Min(2f, System.Math.Max(0f, intensity));
+        /// a few pixels at the play zoom and read as mud; round 4: at 1.3 still none could be pointed at; round 13: at 1.6 they read as dark lumps at the play zoom): 1.8 at 1, 2.6 at 2.</summary>
+        public static float PartScale(float intensity) => 1f + 0.8f * System.Math.Min(2f, System.Math.Max(0f, intensity));
         /// <summary>The highest a thrown part rises, metres (CombatFx.Gibs caps its launch): down within about 2.2 s.</summary>
         public const float PartTop = 6f;
         /// <summary>GORE below this: one limb at most, no head, never torn or blown apart.</summary>
@@ -68,7 +68,7 @@ namespace TW.Presentation.Tactical
             {
                 if (Dice(seed, 5) < 0.5f) { plan.Torn = true; plan.Helmet = false; }   // the helmet stays on the upper half
                 else { plan.Apart = true; plan.Mask = AllLimbs; plan.Helmet = true; }
-                plan.Lumps = Round(4f * gore * (1f + 0.25f * density));   // round 6: 10 a man in a heap swamped the parts
+                plan.Lumps = Round(2.5f * gore * (1f + 0.25f * density));   // round 6: 10 a man in a heap swamped the parts; round 13: so did 6
                 return plan;
             }
             plan.Helmet = true;
@@ -80,7 +80,7 @@ namespace TW.Presentation.Tactical
                 plan.Mask |= 1 << limb;
             }
             if (full && Dice(seed, 8) < 0.22f + 0.12f * density + 0.1f * System.Math.Min(a, 2f)) plan.Mask |= Head;
-            plan.Lumps = Round(2f * gore * (1f + 0.25f * density));
+            plan.Lumps = Round(1.2f * gore * (1f + 0.25f * density));
             return plan;
         }
 
