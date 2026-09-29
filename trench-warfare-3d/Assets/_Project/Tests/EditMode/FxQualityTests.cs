@@ -105,7 +105,7 @@ namespace TW.Tests
             Assert.AreEqual(FlipbookFx.Book.MuzzleBurst, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Smg));
             Assert.AreEqual(FlipbookFx.Book.MuzzleCarbine, CombatFx.MuzzleBookOf(CombatFx.ArmsKind.Carbine), "the officer and the SMG no longer share a drawing");
             Assert.AreEqual(1f, CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleBrake, 0f), "the standard view: the flare's own size");
-            Assert.Greater(CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleBrake, 1f), 1.2f);
+            Assert.Greater(CombatFx.MuzzleScale(FlipbookFx.Book.MuzzleBrake, 1f), 2.5f, "up close a book is drawn well over its flare's size");
             Assert.IsNotNull(Resources.Load<Texture2D>("VFX/MuzzleBrake"), "the sheet is in Resources/VFX");
             Assert.Greater(CombatFx.HitFlashOf(CombatFx.ArmsKind.Sniper), CombatFx.HitFlashOf(CombatFx.ArmsKind.Mg));
             Assert.Less(CombatFx.HitFlashOf(CombatFx.ArmsKind.Pistol), 1f);
