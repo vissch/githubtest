@@ -74,6 +74,18 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>When still k of a scene is taken, in seconds from its staging. A machine is shelled 1.5 s in
+        /// (DeathLab.Machine), and its hop, a walker's pop and a turret's leap are over within a second: evenly 0.53 s apart
+        /// they fell between stills (critic round 7), so a machine's first twelve stills are 0.16 s apart from 1.4 s and
+        /// the last four are spread to the end.</summary>
+        static float Due(string scene, int k, float seconds, int frames)
+        {
+            bool machine = scene == "machine" || scene == "maw" || scene == "salvo" || scene == "skimmer" || scene == "walker";
+            if (!machine || frames < 16) return seconds * k / Mathf.Max(1, frames - 1);
+            if (k < 12) return 1.4f + 0.16f * k;
+            return 3.2f + (seconds - 3.2f) * (k - 11) / 4f;
+        }
+
         /// <summary>A patch of open ground for a scene: no trench, ladder, wire, bunker or blocked cell (deep water is blocked)
         /// from 4 m before (x, z - back) to 4 m past (x + w, z + ahead), and no prop on the row's own strip. The first
         /// staging stood a row on the bridge.</summary>
@@ -169,7 +181,7 @@ namespace TW.Tests
                 string stem = $"a{tag}_{scene}";
                 for (int k = 0; k < frames; k++)
                 {
-                    float due = start + seconds * k / Mathf.Max(1, frames - 1);
+                    float due = start + Due(scene, k, seconds, frames);
                     while (Time.time < due) yield return null;
                     string path = Path.Combine(dir, $"{stem}_{k:00}.png");
                     // the base yaw pinned before every shot, as WalkerStills does, or the shot's yaw drifts with the camera's own

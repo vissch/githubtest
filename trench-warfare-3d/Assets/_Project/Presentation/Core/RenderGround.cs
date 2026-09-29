@@ -156,6 +156,9 @@ namespace TW.Presentation
         /// <summary>A lantern post has gone, whatever broke it: the lamp hung within the reach (m) of that point goes out,
         /// its light and its glow. (PropDestruction calls it; NightLights puts the lamp out.)</summary>
         public static System.Action<UnityEngine.Vector3, float> LampOut;
+        /// <summary>How far x, z is from the nearest placed prop a metre tall or more (a ruin, a house, a wall), out to the
+        /// last argument: the scenery the sim's map does not hold. (BattlefieldProps fills it; a thrown turret keeps off it.)</summary>
+        public static System.Func<float, float, float, float> Standing;
 
         /// <summary>Nobody is here: every service unset, every flag off. Only when no scene is live
         /// (SceneStatics.ResetSession): on a scene load the new scene's components have already wired theirs.</summary>
@@ -164,7 +167,7 @@ namespace TW.Presentation
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
             IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
-            MachineGlows = null; MachineLight = null; LampOut = null;
+            MachineGlows = null; MachineLight = null; LampOut = null; Standing = null;
         }
     }
 

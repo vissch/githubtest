@@ -88,7 +88,7 @@ namespace TW.Presentation.Tactical
                 Vector3 at = (Vector3)v.World[i].GetColumn(3) - v.Pos;
                 float side = Vector3.Dot(at, right) >= 0f ? 1f : -1f, ahead = Vector3.Dot(at, fwd) >= 0f ? 1f : -1f;
                 Vector3 dir = (fwd * ahead + right * (side * rng.Range(0.2f, 0.5f))).normalized;
-                float distance = VehicleGags.RollDistance(rng.Next()) * Mathf.Max(1f, hullLength / VehicleGags.RollHull);   // a Maw's roll further
+                float distance = VehicleGags.RollDistance(rng.Next(), hullLength);   // a Maw's roll further
                 d.Vel = dir * VehicleGags.RollSpeed(distance);
                 d.Roll = VehicleGags.RollSeconds(distance) + 0.5f;
                 rollers++;
@@ -141,6 +141,13 @@ namespace TW.Presentation.Tactical
                     if (dx * dx + dz * dz > 900f) continue;
                     gap = Mathf.Min(gap, Mathf.Sqrt(dx * dx + dz * dz) - 1.5f * (q.Scale > 0f ? q.Scale : 1f));
                 }
+                // the scenery the map does not hold (critic round 7: a stone ruin), along the stretch it lands and bounces on
+                if (SceneHooks.Standing != null)
+                    for (float along = 0.9f; along <= 1.5f; along += 0.3f)
+                    {
+                        Vector3 on = at + dir * (reach * along);
+                        gap = Mathf.Min(gap, SceneHooks.Standing(on.x, on.z, 30f) - 1f);
+                    }
                 if (map.StaticCover.IsCreated)
                     for (int i = 0; i < map.StaticCover.Length; i++)
                     {
