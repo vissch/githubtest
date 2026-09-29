@@ -70,7 +70,7 @@ namespace TW.Presentation.Tactical
                 if (d != null)
                 {
                     float turn = rng.Range(0f, 2f * Mathf.PI);
-                    var leap = VehicleGags.TurretLeap(a, hullLength, new Vector3(Mathf.Sin(turn), 0f, Mathf.Cos(turn)), right, rng.Next(), rng.Next(), rng.Next());
+                    var leap = VehicleGags.TurretLeap(a, hullLength, ClearWay(v.Pos, turn, hullLength), right, rng.Next(), rng.Next(), rng.Next());
                     d.Vel = leap.Vel; d.Spin = leap.Spin; d.Resting = false;
                     d.Bounce = VehicleGags.TurretBounce; d.Bounces = VehicleGags.TurretBounces;
                     d.Burn = Mathf.Max(d.Burn, v.Burn);
@@ -115,6 +115,32 @@ namespace TW.Presentation.Tactical
                 v.DropAt = now + VehicleGags.WalkerFreeze;
                 v.DropPitch = v.Pitch.Value; v.DropRoll = v.Roll.Value;
             }
+        }
+
+        /// <summary>Which way a leaping turret drifts: of eight bearings from the dice's, the one whose landing spot (a hull
+        /// length out) is furthest from any prop, so it comes down on open ground, not on a wall (critic round 3).</summary>
+        Vector3 ClearWay(Vector3 at, float turn, float reach)
+        {
+            Vector3 best = new Vector3(Mathf.Sin(turn), 0f, Mathf.Cos(turn));
+            var map = Host != null && Host.Local != null ? Host.Local.Map : null;
+            if (map == null || !map.Props.IsCreated) return best;
+            float bestGap = -1f;
+            for (int k = 0; k < 8; k++)
+            {
+                float b = turn + k * Mathf.PI * 0.25f;
+                var dir = new Vector3(Mathf.Sin(b), 0f, Mathf.Cos(b));
+                Vector3 spot = at + dir * reach;
+                float gap = 30f;
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var q = map.Props[i];
+                    float dx = q.Pos.x - spot.x, dz = q.Pos.z - spot.z;
+                    if (dx * dx + dz * dz > 900f) continue;
+                    gap = Mathf.Min(gap, Mathf.Sqrt(dx * dx + dz * dz) - 1.5f * (q.Scale > 0f ? q.Scale : 1f));
+                }
+                if (gap > bestGap + 0.5f) { bestGap = gap; best = dir; }   // the dice's own bearing wins a near tie
+            }
+            return best;
         }
 
         /// <summary>Once a frame, after the wrecks smoulder: the bodies still dropping, a walker's legs splaying, the
@@ -232,7 +258,7 @@ namespace TW.Presentation.Tactical
             Quaternion rot1 = Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up) * p.LocalRot;
             Vector3 centre = new Vector3(v.Pos.x, 0f, v.Pos.z)
                              + right * (side * (Mathf.Max(hullHalf, v.Model.HalfGauge) + bounds.extents.x * VehicleGags.UnspoolOut))
-                             - fwd * (bounds.extents.z * (VehicleGags.UnspoolStretch - 1f));
+                             - fwd * (bounds.extents.z * (VehicleGags.UnspoolStretch - 1f) * 0.5f);   // half its new length behind: beside the hull, not off its tail
             Vector3 scaled = new Vector3(bounds.center.x, bounds.center.y * VehicleGags.UnspoolFlat, bounds.center.z * VehicleGags.UnspoolStretch);
             Vector3 to = centre - rot1 * scaled;
             to.y = Ground(centre.x, centre.z) - bounds.min.y * VehicleGags.UnspoolFlat + 0.03f;

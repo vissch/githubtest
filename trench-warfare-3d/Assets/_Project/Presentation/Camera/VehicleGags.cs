@@ -205,7 +205,7 @@ namespace TW.Presentation.Tactical
         // ------------------------------------------------------------------ a track paying out
         /// <summary>A track comes off and pays out flat along the ground over UnspoolSeconds: its middle comes to lie UnspoolOut of its own half-widths out past the hull's side, lies down to UnspoolFlat of its height and stretches to UnspoolStretch of its length
         /// (the belt laid out), its links running at UnspoolLinks a second as it goes.</summary>
-        public const float UnspoolSeconds = 1.4f, UnspoolOut = 2.4f, UnspoolFlat = 0.14f, UnspoolStretch = 2.6f, UnspoolLinks = 9f;
+        public const float UnspoolSeconds = 1.4f, UnspoolOut = 1.3f, UnspoolFlat = 0.14f, UnspoolStretch = 2.6f, UnspoolLinks = 9f;
 
         /// <summary>How far through paying out it is at t (0..1, eased at both ends).</summary>
         public static float Unspool(float t) => Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / UnspoolSeconds));
