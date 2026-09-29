@@ -118,12 +118,16 @@ namespace TW.Presentation.Tactical
         /// <summary>A class book's width up close, x its flare: the brake's cross and the MG's tongue a little bigger to read at
         /// 25 px, the pop a little smaller (critique r6).</summary>
         /// <summary>The widest a class book is drawn, x the men's scale.</summary>
-        public const float ClassBookMost = 2.4f;
+        public const float ClassBookMost = 4.5f;
+
+        /// <summary>Up close a class book is drawn this much bigger than the flare it replaces: its drawing uses the middle
+        /// of its cell, and at the flare's size a petal was 3 px (critique r12: about 3x too small to show its shape).</summary>
+        public const float BookGrow = 2.5f;
 
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
             float k = book == FlipbookFx.Book.MuzzleBrake ? 1.25f : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
-            return Mathf.Lerp(1f, k, closeUp);
+            return Mathf.Lerp(1f, k * BookGrow, closeUp);
         }
 
         /// <summary>A flame nearly end-on (just short of the Star pop) blooms into a soft ellipse: its glow x0.7 there.</summary>
