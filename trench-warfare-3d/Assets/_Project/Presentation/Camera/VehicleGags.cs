@@ -24,6 +24,8 @@ namespace TW.Presentation.Tactical
         /// <summary>How far a wheel rolls (m), how hard the ground slows it (m/s²), how many roll away at most.</summary>
         public const float RollMin = 10f, RollMax = 16f, RollDecel = 2.5f;   // critic round 3: 8 m read as "barely travels" beside a Maw
         public const int MaxRollers = 4;
+        /// <summary>A hull longer than this rolls its wheels further in proportion; how long a wheel takes to go over.</summary>
+        public const float RollHull = 6f, ToppleSeconds = 0.35f;
 
         public struct Leap { public Vector3 Vel; public Vector3 Spin; public float Air; public int Flips; }
 
@@ -102,7 +104,7 @@ namespace TW.Presentation.Tactical
         /// SplaySeconds as it comes down on its belly.</summary>
         public const float FlopUp = 4.5f, SplaySeconds = 0.18f;   // a pop of a metre: at 2.2 (25 cm) no still caught it
         /// <summary>How far below level a splayed leg points at most (the sine): nearly flat, whatever the hip's height.</summary>
-        public const float SplayDown = 0.3f;
+        public const float SplayDown = 0.12f;   // round 4: at 0.3 the legs still read as folded under
         /// <summary>How far a splayed leg is out (0 as it stood, 1 flat out) t seconds after the pop.</summary>
         public static float Splay(float t) => t <= 0f ? 0f : Mathf.SmoothStep(0f, 1f, t / SplaySeconds);
 

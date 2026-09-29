@@ -93,7 +93,7 @@ namespace TW.Presentation.Tactical
         public const float BloodLife = 45f, BloodLifeSnow = 150f;
         readonly Material[] gagMarkMats = new Material[2];   // shape 3 blood, 4 scorch
         readonly List<Matrix4x4>[] gagMarkBatch = { new List<Matrix4x4>(MaxGagMarks), new List<Matrix4x4>(MaxGagMarks) };   // full size: never grown mid-battle
-        static readonly Color BloodColor = new Color(0.42f, 0.02f, 0.02f), ScorchColor = new Color(0.05f, 0.042f, 0.036f);
+        static readonly Color BloodColor = new Color(0.28f, 0.0f, 0.01f), ScorchColor = new Color(0.05f, 0.042f, 0.036f);
         /// <summary>FlipbookFx's blood book when the build has one (the VFX lane's BloodSpurt), by name so this compiles
         /// without it: -2 not looked yet, -1 none.</summary>
         int bloodBook = -2;
@@ -164,7 +164,7 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < 2; k++)
                 {
                     gagMarkMats[k] = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = k == 0 ? "Blood mark" : "Scorch mark" };
-                    gagMarkMats[k].SetFloat("_Shape", 3 + k); gagMarkMats[k].SetFloat("_Alpha", k == 0 ? 0.9f : 0.75f);
+                    gagMarkMats[k].SetFloat("_Shape", 3 + k); gagMarkMats[k].SetFloat("_Alpha", k == 0 ? 1f : 0.75f);   // round 4: blood read as pink paint on snow
                     gagMarkMats[k].SetColor("_Color", k == 0 ? BloodColor : ScorchColor);
                     gagMarkMats[k].SetFloat("_FadeFrom", 90f); gagMarkMats[k].SetFloat("_FadeOver", 30f);
                     gagMarkMats[k].SetFloat("_DetailFrom", 12f); gagMarkMats[k].SetFloat("_DetailOver", 16f);

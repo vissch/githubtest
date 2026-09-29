@@ -35,8 +35,8 @@ namespace TW.Presentation.Tactical
         public const int HeapOfFour = 3;
         public const float HeapBurstCap = 0.5f, AloneBurstCap = 0.15f;
         /// <summary>How much larger than life his parts are drawn, at an intensity (critic round 1: at life size an arm was
-        /// a few pixels at the play zoom and read as mud): 1.3 at 1, 1.6 at 2.</summary>
-        public static float PartScale(float intensity) => 1f + 0.3f * System.Math.Min(2f, System.Math.Max(0f, intensity));
+        /// a few pixels at the play zoom and read as mud; round 4: at 1.3 still none could be pointed at): 1.6 at 1, 2.2 at 2.</summary>
+        public static float PartScale(float intensity) => 1f + 0.6f * System.Math.Min(2f, System.Math.Max(0f, intensity));
         /// <summary>GORE below this: one limb at most, no head, never torn or blown apart.</summary>
         public const float FullGore = 0.5f;
 
