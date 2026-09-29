@@ -22,7 +22,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A walker holds its death pose this long before it drops.</summary>
         public const float WalkerFreeze = 0.35f;
         /// <summary>How far a wheel rolls (m), how hard the ground slows it (m/s²), how many roll away at most.</summary>
-        public const float RollMin = 10f, RollMax = 14f, RollDecel = 2.5f;   // critic round 3: 8 m read as "barely travels" beside a Maw; round 7: 16 took a Salvo's tyre to the frame's edge
+        public const float RollMin = 9f, RollMax = 12f, RollDecel = 2.5f;   // critic round 3: 8 m read as "barely travels" beside a Maw; round 7: 16 took a Salvo's tyre to the frame's edge
         public const int MaxRollers = 4;
         /// <summary>A hull longer than this rolls its wheels further in proportion; how long a wheel takes to go over.</summary>
         public const float RollHull = 6f, ToppleSeconds = 0.35f;
@@ -34,7 +34,7 @@ namespace TW.Presentation.Tactical
         /// <summary>How many puffs ring a walker as its belly lands.</summary>
         public const int FlopRing = 8;
         /// <summary>The furthest any wheel rolls, however long its hull.</summary>
-        public const float RollFar = 15f;   // critic round 11: the Maw's wheels at 18 m reached the frame's edge
+        public const float RollFar = 12f;   // round 17: a probe found the Maw's wheels rolling the full 15 m, out of the shot and once off the map   // critic round 11: the Maw's wheels at 18 m reached the frame's edge
 
         public struct Leap { public Vector3 Vel; public Vector3 Spin; public float Air; public int Flips; }
 
