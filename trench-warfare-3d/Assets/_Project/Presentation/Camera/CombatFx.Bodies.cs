@@ -35,9 +35,9 @@ namespace TW.Presentation.Tactical
         /// and what flies is his own arm, leg, head and helmet, cut from his figure (DebrisRenderer.Figure), maybe both
         /// his halves (GibPlan.TornBit in what comes back: lay no corpse); at 0 a tube, a clod and the kit's helmet, as ever.
         /// </summary>
-        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0, float delay = 0f)
+        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0, float delay = 0f, byte archetype = 0)
         {
-            if (DeathGags.Intensity > 0f) return OwnGibs(slot, at, yaw, team, fly, density, delay);   // fx.deathAbsurd: his own parts
+            if (DeathGags.Intensity > 0f) return OwnGibs(slot, at, yaw, team, fly, density, delay, archetype);   // fx.deathAbsurd: his own parts
             if (DebrisRenderer.Gore <= 0f || debris == null || !debris.Ready) return 0;
             var rng = new DebrisRng(at, 0x6B1u + (uint)slot);
             if (rng.Next() < 0.3f / (1f + density)) return 0;   // most men thrown by a shell alone come down whole; in a heap, few
@@ -84,7 +84,7 @@ namespace TW.Presentation.Tactical
         /// <summary>Gibs at fx.deathAbsurd above 0: GibPlan decides what he loses, and exactly that flies, cut from his own
         /// figure; torn in two, the upper half goes where his body would have landed (so its blood is there) and the lower
         /// half a shorter way. Kit flies at GORE 0.</summary>
-        int OwnGibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density, float delay)
+        int OwnGibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density, float delay, byte archetype)
         {
             if (debris == null || !debris.Ready) return 0;
             uint seed = (uint)Mathf.FloorToInt(at.x * 37f) * 73856093u ^ (uint)Mathf.FloorToInt(at.z * 37f) * 19349663u ^ (uint)slot * 83492791u;
@@ -92,12 +92,12 @@ namespace TW.Presentation.Tactical
             if (plan.Whole) return 0;
             // his parts leave with him: a heap's men go a beat apart (DeathGags' delay), and theirs with them (critic
             // round 9: every part left the burst in one clump while the bodies were staggered)
-            if (delay > 0.02f) pendingGibs.Add(new PendingGibs { Plan = plan, Slot = slot, At = at, Yaw = yaw, Team = team, Fly = fly, Due = Time.time + delay });
-            else ThrowGibs(plan, slot, at, yaw, team, fly);
+            if (delay > 0.02f) pendingGibs.Add(new PendingGibs { Plan = plan, Slot = slot, At = at, Yaw = yaw, Team = team, Fly = fly, Due = Time.time + delay, Archetype = archetype });
+            else ThrowGibs(plan, slot, at, yaw, team, fly, archetype);
             return plan.Mask | (plan.Torn ? GibPlan.TornBit : 0);
         }
 
-        struct PendingGibs { public GibPlan Plan; public int Slot, Team; public Vector3 At, Fly; public float Yaw, Due; }
+        struct PendingGibs { public GibPlan Plan; public int Slot, Team; public Vector3 At, Fly; public float Yaw, Due; public byte Archetype; }
         readonly List<PendingGibs> pendingGibs = new List<PendingGibs>(32);
 
         /// <summary>Once a frame: the parts whose men leave now (OwnGibs).</summary>
@@ -108,12 +108,13 @@ namespace TW.Presentation.Tactical
                 var g = pendingGibs[k];
                 if (now < g.Due) continue;
                 pendingGibs.RemoveAt(k);
-                if (debris != null && debris.Ready) ThrowGibs(g.Plan, g.Slot, g.At, g.Yaw, g.Team, g.Fly);
+                if (debris != null && debris.Ready) ThrowGibs(g.Plan, g.Slot, g.At, g.Yaw, g.Team, g.Fly, g.Archetype);
             }
         }
 
-        void ThrowGibs(in GibPlan plan, int slot, Vector3 at, float yaw, int team, Vector3 fly)
+        void ThrowGibs(in GibPlan plan, int slot, Vector3 at, float yaw, int team, Vector3 fly, byte archetype)
         {
+            bool frog = archetype == InfantryArchetype.Frog;   // a frog's parts are cut from the frog (DebrisRenderer.FrogOf)
             var rng = new DebrisRng(at, 0x61B5u + (uint)slot);
             float figure = FigureScale(), scale = figure * GibPlan.PartScale(DeathGags.Intensity);
             Color cloth = team == 1 ? ClothB : ClothA;
@@ -126,26 +127,28 @@ namespace TW.Presentation.Tactical
             foreach (var piece in gibPieces)
             {
                 Vector3 vel;
+                var drawn = frog ? DebrisRenderer.FrogOf(piece) : piece;
                 switch (piece)
                 {
                     case DebrisRenderer.Piece.Arm:
                     case DebrisRenderer.Piece.Leg:
                         vel = carry + rng.OnSphere() * 3.5f; vel.y = Mathf.Abs(vel.y) + 2f;
-                        debris.Throw(piece, chest + rng.OnSphere() * (0.3f * scale), Topped(vel), scale, cloth, ref rng, 30f);
+                        debris.Throw(drawn, chest + rng.OnSphere() * (0.3f * scale), Topped(vel), scale, cloth, ref rng, 30f);
                         break;
                     case DebrisRenderer.Piece.Head:
                         vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 3f;
-                        debris.Throw(piece, chest + Vector3.up * (0.4f * scale), Topped(vel), scale, Skin, ref rng, 30f);
+                        debris.Throw(drawn, chest + Vector3.up * (0.4f * scale), Topped(vel), scale, Skin, ref rng, 30f);
                         break;
                     case DebrisRenderer.Piece.UpperHalf:
-                        debris.Throw(piece, chest, Topped(Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
+                        debris.Throw(drawn, chest, Topped(Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
                         break;
                     case DebrisRenderer.Piece.LowerHalf:
-                        debris.Throw(piece, at + Vector3.up * (0.6f * scale), Topped(Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
+                        debris.Throw(drawn, at + Vector3.up * (0.6f * scale), Topped(Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
                         break;
                     case DebrisRenderer.Piece.Helm:
                         vel = carry + rng.OnSphere() * 4f; vel.y = Mathf.Abs(vel.y) + 4f;
-                        debris.Throw(piece, chest + Vector3.up * (0.5f * scale), Topped(vel), scale, Steel, ref rng, 60f);
+                        if (frog) debris.Throw(DebrisRenderer.Piece.Helmet, chest + Vector3.up * (0.5f * scale), Topped(vel), 0.32f * scale, Steel, ref rng, 60f);
+                        else debris.Throw(piece, chest + Vector3.up * (0.5f * scale), Topped(vel), scale, Steel, ref rng, 60f);
                         break;
                     case DebrisRenderer.Piece.Rifle:
                         vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;

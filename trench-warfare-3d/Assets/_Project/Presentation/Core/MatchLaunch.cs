@@ -45,7 +45,7 @@ namespace TW.Presentation
             // ---- 2026-09-25: who is fighting, and with which ten (the briefing writes these; phase 2) ----
             public byte FactionA = (byte)TW.Sim.FactionId.Iron, FactionB = (byte)TW.Sim.FactionId.Brass;
             /// <summary>The ten each side brings, or null/empty for its faction's default ten.</summary>
-            public byte[] LoadoutA, LoadoutB;
+            public byte[] LoadoutA = TW.Presentation.ProvingGround.FrogTen(), LoadoutB;   // play test: the frogs are ours in every launch
             public int StartingSilver = 300;
             public float SilverPerSecond = 2f;
             public bool GeneratedBattlefield = true;

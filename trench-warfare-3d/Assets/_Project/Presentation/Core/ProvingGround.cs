@@ -115,6 +115,15 @@ namespace TW.Presentation
             return list;
         }
 
+        /// <summary>The frogs' ten (owner, 2026-09-30, play test: "all the frog themed characters on the players side",
+        /// replacing Iron's): six Frog riflemen, two Croakers, two Hoppers. The player's ten by default on test/frog-deaths.</summary>
+        public static byte[] FrogTen() => new[]
+        {
+            InfantryArchetype.Frog, InfantryArchetype.Frog, InfantryArchetype.Frog,
+            InfantryArchetype.Frog, InfantryArchetype.Frog, InfantryArchetype.Frog,
+            VehicleArchetype.Croaker, VehicleArchetype.Croaker, VehicleArchetype.Hopper, VehicleArchetype.Hopper,
+        };
+
         /// <summary>A side's ten as the faction hands them out, for the launch screen's starting point.</summary>
         public static byte[] DefaultTen(FactionId faction)
         {

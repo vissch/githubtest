@@ -32,7 +32,7 @@ namespace TW.Presentation
         public byte FactionA = (byte)FactionId.Iron, FactionB = (byte)FactionId.Brass;
         /// <summary>The archetypes filling each side's ten slots, chosen at the briefing. Empty (the normal case, and
         /// what the inspector shows) means the faction's default ten.</summary>
-        public byte[] LoadoutA, LoadoutB;
+        public byte[] LoadoutA = ProvingGround.FrogTen(), LoadoutB;   // play test: the frogs are ours (ProvingGround.FrogTen)
         public int StartingSilver = 300;
         public float SilverPerSecond = 2f;
         [Tooltip("The Proving Ground: holding every objective names no winner (SimConfig.Endless).")]

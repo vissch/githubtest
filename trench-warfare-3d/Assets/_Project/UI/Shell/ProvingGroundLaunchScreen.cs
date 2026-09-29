@@ -44,7 +44,7 @@ namespace TW.UI
         {
             public int Ground, Bombardment = 1, Silver = 2, Ai, Side;
             public uint Seed = 1917;
-            public byte[] Ours = ProvingGround.DefaultTen(FactionId.Iron), Theirs = ProvingGround.DefaultTen(FactionId.Brass);
+            public byte[] Ours = ProvingGround.FrogTen(), Theirs = ProvingGround.DefaultTen(FactionId.Brass);
         }
         static Choice kept;
         Choice c;

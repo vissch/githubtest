@@ -44,7 +44,7 @@ namespace TW.Presentation.Tactical
                     if ((gib & (1 << 1)) != 0 && gore)
                     {
                         Vector3 hv = -facing * 2.2f + Vector3.up * 3.2f + rng.OnSphere() * 0.8f;
-                        debris.Throw(DebrisRenderer.Piece.Head, head, hv, scale, Skin, ref rng, 30f);
+                        debris.Throw(archetype == InfantryArchetype.Frog ? DebrisRenderer.Piece.FrogHead : DebrisRenderer.Piece.Head, head, hv, scale, Skin, ref rng, 30f);
                         int lumps = Mathf.RoundToInt(4f * DebrisRenderer.Gore);
                         for (int k = 0; k < lumps; k++) debris.Throw(DebrisRenderer.Piece.Clod, head, hv * 0.8f + rng.OnSphere() * 2.5f, rng.Range(0.06f, 0.11f) * scale, Gore, ref rng, 8f);
                     }

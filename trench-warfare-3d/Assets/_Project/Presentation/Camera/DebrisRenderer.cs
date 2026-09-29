@@ -146,6 +146,10 @@ namespace TW.Presentation.Tactical
             Rifle,
             // a man's parts, life-size, for the absurd deaths (DebrisRenderer.Parts; deaths 2026-09-28): appended only
             Head, Helm, Torso, Pelvis, Arm, Leg, Boot, Pack, UpperHalf, LowerHalf,
+            // the Frog's parts (archetype 25), cut from its own figure, Resources/Units/FigureFrog (play test, 2026-09-30):
+            // appended only; each is cut as the soldier's piece of the same name (SoldierOf). No helm: the frog's cap is
+            // blue, not the olive the cut tells a helmet by, so his head comes off whole and the kit's helmet flies
+            FrogHead, FrogTorso, FrogPelvis, FrogArm, FrogLeg, FrogBoot, FrogUpperHalf, FrogLowerHalf,
             Count
         }
 
@@ -194,8 +198,8 @@ namespace TW.Presentation.Tactical
         public int Alive { get; private set; }
         public int DrawCalls { get; private set; }
 
-        static readonly int[] Capacity = { 1024, 512, 384, 512, 256, 256, 64, 256, 128, 128, /* parts */ 64, 96, 48, 48, 128, 128, 128, 48, 32, 32 };
-        static readonly bool[] CastsShadow = { false, false, true, true, true, true, true, false, false, false, /* parts */ false, false, false, false, false, false, false, false, false, false };
+        static readonly int[] Capacity = { 1024, 512, 384, 512, 256, 256, 64, 256, 128, 128, /* parts */ 64, 96, 48, 48, 128, 128, 128, 48, 32, 32, /* frog */ 48, 32, 32, 96, 96, 96, 24, 24 };
+        static readonly bool[] CastsShadow = { false, false, true, true, true, true, true, false, false, false, /* parts */ false, false, false, false, false, false, false, false, false, false, /* frog */ false, false, false, false, false, false, false, false };
         /// <summary>The pool for a kind of piece: past it the oldest is overwritten. Sums to about 4,300 records (410 KB) for the field.</summary>
         public static int CapacityOf(Piece piece) => Capacity[(int)piece];
         /// <summary>The pool as built with the knob debris.capacityScale (1 = CapacityOf, exactly).</summary>
