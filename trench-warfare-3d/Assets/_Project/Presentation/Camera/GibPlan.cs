@@ -66,7 +66,7 @@ namespace TW.Presentation.Tactical
             {
                 if (Dice(seed, 5) < 0.5f) { plan.Torn = true; plan.Helmet = false; }   // the helmet stays on the upper half
                 else { plan.Apart = true; plan.Mask = AllLimbs; plan.Helmet = true; }
-                plan.Lumps = Round(10f * gore * (1f + 0.5f * density));
+                plan.Lumps = Round(4f * gore * (1f + 0.25f * density));   // round 6: 10 a man in a heap swamped the parts
                 return plan;
             }
             plan.Helmet = true;
@@ -78,7 +78,7 @@ namespace TW.Presentation.Tactical
                 plan.Mask |= 1 << limb;
             }
             if (full && Dice(seed, 8) < 0.22f + 0.12f * density + 0.1f * System.Math.Min(a, 2f)) plan.Mask |= Head;
-            plan.Lumps = Round(5f * gore * (1f + 0.5f * density));
+            plan.Lumps = Round(2f * gore * (1f + 0.25f * density));
             return plan;
         }
 

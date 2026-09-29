@@ -76,6 +76,9 @@ namespace TW.Presentation.Tactical
             return mask;
         }
 
+        /// <summary>A lump of him at fx.deathAbsurd above 0: blood red, not today's near-black (critic round 6: a swarm of
+        /// dark lumps read as clods of earth and hid his parts).</summary>
+        static readonly Color GoreRed = new Color(0.55f, 0.04f, 0.04f);
         readonly List<DebrisRenderer.Piece> gibPieces = new List<DebrisRenderer.Piece>(12);
 
         /// <summary>Gibs at fx.deathAbsurd above 0: GibPlan decides what he loses, and exactly that flies, cut from his own
@@ -133,7 +136,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < plan.Lumps; k++)
             {
                 Vector3 vel = carry * 0.8f + rng.OnSphere() * 4.5f; vel.y = Mathf.Abs(vel.y) + 1.5f;
-                debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * scale, Gore, ref rng, 8f);
+                debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * figure, GoreRed, ref rng, 8f);
             }
             if ((plan.Torn || plan.Apart) && DebrisRenderer.Gore > 0f)
                 AddGagMark(at, rng.Range(0f, 360f), new Vector2(2.6f, 2.6f) * (Mathf.Sqrt(DebrisRenderer.Gore) * figure), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);

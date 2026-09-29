@@ -414,11 +414,19 @@ namespace TW.Presentation.Tactical
             rot = Quaternion.AngleAxis(VehicleGags.FanSpin * Mathf.Rad2Deg * dt, lean) * rot;
             d.Glide -= dt;
             Vector3 centre = pos + rot * p.Center;
+            // it lands on what is drawn there: a frozen pond's ice, not the bed under it (critic round 6: it glided out
+            // over the pond, FlyDebris set it down on the bed and it vanished under the ice)
             float ground = Ground(centre.x, centre.z);
-            if (centre.y - Mathf.Min(p.Radius, 1.2f) * 0.2f < ground || d.Glide <= 0f)
+            var map = Host != null && Host.Local != null ? Host.Local.Map : null;
+            if (map != null && SceneTints.Now.Frozen && map.WaterLevel > ground) ground = map.WaterLevel;
+            float half = Mathf.Min(p.Radius, 1.2f) * 0.2f;
+            if (centre.y - half < ground || d.Glide <= 0f)
             {
-                d.Glide = 0f;
-                d.Spin = lean * (VehicleGags.FanSpin * 0.4f);   // it skids on, still turning, and FlyDebris settles it
+                // down: flat on its face where it came down, and it lies there (it glided in flat; no bounce to lose it)
+                d.Glide = 0f; d.Resting = true; d.Vel = Vector3.zero; d.Spin = Vector3.zero;
+                pos.y += ground + half - centre.y;
+                rot = Quaternion.FromToRotation(rot * Vector3.forward, Vector3.Dot(rot * Vector3.forward, Vector3.up) >= 0f ? Vector3.up : Vector3.down) * rot;
+                if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, new Vector3(centre.x, ground + 0.2f, centre.z), 2.2f, 0.9f, velocity: Vector3.up * 0.4f, grow: 0.9f, alpha: 0.6f);
             }
             d.World = Matrix4x4.TRS(pos, rot, Vector3.one);
         }
