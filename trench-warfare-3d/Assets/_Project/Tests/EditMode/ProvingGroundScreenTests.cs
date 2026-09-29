@@ -69,7 +69,7 @@ namespace TW.Tests
             screen.Bind(root, null);
             try
             {
-                var iron = ProvingGround.DefaultTen(FactionId.Iron); var brass = ProvingGround.DefaultTen(FactionId.Brass);
+                var iron = ProvingGround.FrogTen(); var brass = ProvingGround.DefaultTen(FactionId.Brass);
                 Assert.That(screen.Ours, Is.EqualTo(iron)); Assert.That(screen.Theirs, Is.EqualTo(brass));
                 Assert.That(screen.Pick(VehicleArchetype.Brute), Is.False, "a full ten takes no more");
                 Assert.That(root.Q<Label>("ten-note").text, Is.EqualTo(ProvingGroundLaunchScreen.FullNote));
@@ -149,7 +149,7 @@ namespace TW.Tests
             Assert.That(new ProvingGroundPanel().Custom.Empty, Is.True, "your wave is emptied");
             var b = new ProvingGroundLaunchScreen();
             b.Bind(Instantiate("ProvingGround"), null);
-            try { Assert.That(b.Ours, Is.EqualTo(ProvingGround.DefaultTen(FactionId.Iron)), "the tens are the factions' again"); }
+            try { Assert.That(b.Ours, Is.EqualTo(ProvingGround.FrogTen()), "the tens are the defaults again (ours: the frogs, play test)"); }
             finally { b.Unbind(); }
         }
 

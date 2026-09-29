@@ -38,13 +38,13 @@ namespace TW.Editor
         }
 
         /// <summary>n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots.</summary>
-        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f)
+        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f, byte archetype = 0)
         {
             var h = Host; if (h == null) return "no SimHost";
             var sb = new StringBuilder("slots");
             for (int k = 0; k < n; k++)
             {
-                string s = TankCapture.Spawn(team, 0, x + k * spacing, z, 0f);
+                string s = TankCapture.Spawn(team, archetype, x + k * spacing, z, 0f);
                 if (!s.StartsWith("slot ")) return s;
                 int slot = int.Parse(s.Substring(5));
                 h.WriteWorlds(m => { m.World.Hp[slot] = hp; m.World.Speed[slot] = 0f; if (maxHp > 0f) m.World.MaxHp[slot] = maxHp; });
@@ -89,6 +89,10 @@ namespace TW.Editor
                 case "wounds": return Row(6, x, z, 0, 1.6f, 900f, 900f) + "; " + TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 2f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
                 case "shell": return Row(6, x, z, 0, 3f, 100f) + "; " + Shell(x + 7.5f, z - 2f, 8f, 600f);
                 case "heap": return Row(8, x, z, 0, 0.7f, 100f) + "; " + Shell(x + 2.5f, z, 6f, 800f);
+                // play test (test/frog-deaths): the frogs under a shell, and the frogs' side standing
+                case "frogheap": return Row(8, x, z, 0, 0.7f, 100f, archetype: InfantryArchetype.Frog) + "; " + Shell(x + 2.5f, z, 6f, 800f);
+                case "frogshell": return Row(6, x, z, 0, 3f, 100f, archetype: InfantryArchetype.Frog) + "; " + Shell(x + 7.5f, z - 2f, 8f, 600f);
+                case "frogs": return Row(6, x, z, 0, 1.6f, 100f, archetype: InfantryArchetype.Frog) + "; " + TankCapture.Spawn(0, VehicleArchetype.Croaker, x + 2f, z + 9f, 0f) + " " + TankCapture.Spawn(0, VehicleArchetype.Hopper, x + 9f, z + 9f, 0f);
                 case "gas": return Row(6, x, z, 1, 1.6f, 30f) + "; " + Call((int)OffMapAbilityId.ChlorineGas, x + 4f, z);   // the enemy's men: player 0 calls it
                 case "fire": return Row(6, x, z, 0, 1.6f, 40f) + "; " + Fire(x + 4f, z, 6f);
                 case "beam": return Row(6, x, z, 1, 1.6f, 100f) + "; " + Call((int)OffMapAbilityId.Beam, x - 10f, z, AbilityArgs.Pack(90, 0, 0));   // it walks east from there along the row (x >= 14 or the call is off the map)

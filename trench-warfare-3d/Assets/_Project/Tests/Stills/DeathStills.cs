@@ -46,7 +46,8 @@ namespace TW.Tests
         {
             switch (scene)
             {
-                case "shell": case "heap": return (26f, 40f, 14f, 4f);
+                case "shell": case "heap": case "frogheap": case "frogshell": return (26f, 40f, 14f, 4f);
+                case "frogs": return (22f, 40f, 20f, 2f);
                 case "crush": return (20f, 40f, 18f, 1.5f);
                 case "beam": return (10f, 40f, 32f, 0.4f);
                 case "parts": return (9f, 40f, 38f, 0.1f);   // a row of parts on the ground, close
@@ -75,7 +76,8 @@ namespace TW.Tests
         {
             switch (scene)
             {
-                case "shell": case "heap": return (4f, 12);
+                case "shell": case "heap": case "frogheap": case "frogshell": return (4f, 12);
+                case "frogs": return (3f, 4);
                 case "shot": case "mg": case "wounds": return (14f, 16);
                 case "crush": return (14f, 16);
                 case "fire": return (12f, 12);
