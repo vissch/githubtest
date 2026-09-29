@@ -60,7 +60,7 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Sniper:   // one big flash, a thin white-hot needle that lingers, a heavy kick of dirt
                     return Look(1.5f, 1.3f, 1.5f, 1.6f, true, 0.22f, 2.2f, 1f);
                 case InfantryArchetype.Officer:  // a carbine: a crisp pop, hardly a wisp
-                    return Look(0.8f, 0.9f, 0.9f, 0.3f, true, 0.085f, 0.8f, 0.7f);   // smaller and quicker than the SMG's cone (critique r7)
+                    return Look(0.8f, 0.9f, 0.9f, 0.3f, true, 0.12f, 0.8f, 0.7f);   // smaller and quicker than the SMG's cone (critique r7)
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit
                     return Look(0.6f, 0.7f, 0.7f, 0.5f, true, 0.18f, 0.6f, 0.3f);
                 case InfantryArchetype.Jetpack:  // a machine pistol: tiny flares that flicker three times (CombatFx.Close.cs)
