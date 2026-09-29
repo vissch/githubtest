@@ -2,8 +2,8 @@
 
 The owner, 2026-09-29, on the Dust Front RTS trailer: a craft reference, not a style reference; the lessons start with
 vehicle weight; `lane/show/drive-style` is taken over and built on (`decisions.md`). This lane is Phase 1: how machines
-move, fire, light and push through props. It is based on the desktop's rebase of drive-style, **`lane/show/drive-style-v20`**
-(the ride) on **`lane/sim/drive-feel-v20`** (the momentum seam). The Kettle and Redoubt leg joins are
+move, fire, light and push through props. It is based on the desktop's rebase of drive-style, **`lane/show/drive-style-v23`**
+(the ride) on **`lane/sim/drive-feel-v23`** (the momentum seam), as `lane/show/vehicle-weight-v23`. The Kettle and Redoubt leg joins are
 `lane/show/walker-legs`, not here. Worktree `githubtest-vehicle-weight`. **Waiting for the owner's word to land**.
 
 **Every new look is behind a knob that draws the old picture at 0**, as `fx.deathAbsurd` is (`decisions.md`, 2026-09-28). **The owner set them
@@ -12,7 +12,7 @@ machine lights, the ram. A capture or test that wants the old machines sets the 
 
 | Surface | Change |
 |---|---|
-| Replay format | none from this lane. **Its base claims v20, and front-line has since landed v20-v22 on the integration branch**: `drive-feel-v20` renumbers to v23 when it lands, and this lane rebases after it. |
+| Replay format | none from this lane. It is based on **`lane/sim/drive-feel-v23`** (a138bb7, replay v23) and the ride of `lane/show/drive-style-v23` (4ceb516), as branch **`lane/show/vehicle-weight-v23`**; the older `lane/show/vehicle-weight` sits on the v20 bases and is superseded. |
 | Knobs | `tank.weight`, `tank.recoil`, `tank.shotRock`, `tank.gunHullFlash`, `tank.traverseSettle`, `tank.squat`, `tank.lamps`, `tank.lampHue`, `tank.lampSize`, `tank.lampPull`, `tank.exhaustGlow`, `tank.lightReach`, `lights.machinePool`, `lights.maxMachineGlows`, `props.ram` (`tasks.md`: Tanks and walkers drawn). |
 | `SceneHooks` | + `MachineGlows` (a machine's glow cards, drawn by NightLights), `MachineLight` (a real light from NightLights' machine pool), `LampOut` (a lantern post has gone: its lamp goes out). All three are reset. |
 | `NightLights` | now `partial` (`NightLights.Machines.cs`): the flash-glow mesh carries `lights.maxMachineGlows` more cards (zero-sized unless a machine lights one: no draw call); the machine pool; `LampOut`. |
