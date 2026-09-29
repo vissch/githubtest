@@ -205,7 +205,7 @@ namespace TW.Sim.Combat
                 if (w.Hp[j] <= 0f)
                 {
                     var fire = w.GetSystem<DirectFireSystem>();
-                    if (fire != null) fire.Kills[w.Team[i] & 1]++;
+                    if (fire != null) { fire.Kills[w.Team[i] & 1]++; fire.KillsWithoutShot[w.Team[i] & 1]++; }
                     w.Despawn(j, i, away, LandKnock);
                 }
             }

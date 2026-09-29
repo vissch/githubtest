@@ -363,6 +363,29 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ADisarmedFistsMan_StillBundlesAMachineBesideHim()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var w = m.World;
+            int man = w.Spawn(0, InfantryArchetype.Assault, new float3(150f, 0f, 300f), 5000f, 0.001f, false);
+            w.GoalId[man] = m.Fields.GetGoal(GoalKey.Trench(1));
+            w.Spawn(1, InfantryArchetype.Medic, new float3(152f, 0f, 300f), 1e6f, 0.001f, false);   // at arm's length, nearer than the tank
+            int tank = w.Spawn(1, VehicleArchetype.Tusk, new float3(150f, 0f, 305f), RosterEntry.Tusk.Hp, 0f, true);
+            bool bundle = false; int disarmed = 0;
+            Run(m, 300, t =>
+            {
+                bool now = (w.Flags[man] & (uint)UnitFlags.Disarmed) != 0;
+                if (now) disarmed++;
+                var ev = w.Events.Events;
+                for (int k = 0; k < ev.Length; k++)
+                    if (now && ev[k].Type == SimEventType.Shot && ev[k].A == man && ev[k].B == tank) bundle = true;
+            });
+            Assert.Greater(disarmed, 60, "setup: he threw his weapon down");
+            Assert.IsTrue(bundle, "his weapon on the ground, he still throws a bundle at the tank");
+        }
+
+        [Test]
         public void MenOrderedBack_DoNotCharge()
         {
             using var m = Pair(InfantryArchetype.Rifle, InfantryArchetype.Medic, 6f, out int man, out int foe, foeHp: 1e6f);
@@ -380,6 +403,50 @@ namespace TW.Tests
             Run(m, 400);
             Assert.IsFalse(m.World.IsAlive(foe), "setup: he won");
             Assert.AreEqual(before + 1, m.Fire.Kills[0], "the bayonet kill counts");
+            Assert.AreEqual(1, m.Fire.KillsWithoutShot[0], "and is not a round that hit (a hit rate over 100 %)");
+        }
+
+        [Test]
+        public void AHeroWhoFallsRightAfterABayonetKill_KeepsItInHisTally()
+        {
+            using var m = Pair(InfantryArchetype.Rifle, InfantryArchetype.Medic, 2f, out int man, out int foe, hp: 1e6f, foeHp: 60f);
+            var w = m.World;
+            Run(m, 1);   // HeroSystem has seen the slot (a fresh slot's hero state is cleared)
+            m.Hero.HeroTicks[man] = 400; m.Hero.HeroId[man] = 99; m.Hero.HeroGen[man] = w.Generation[man];
+            bool killed = false;
+            for (int t = 0; t < 400 && !killed; t++)
+            {
+                Step(m);
+                for (int k = 0; k < m.Melee.Killed.Length; k++) if (m.Melee.Killed[k].y == man) killed = true;
+            }
+            Assert.IsTrue(killed, "setup: the bayonet killed");
+            w.Despawn(man, -1);   // and he falls before the next tick's HeroSystem
+            var log = Run(m, 1);
+            float kills = -1f; bool feat = false;
+            foreach (var e in log)
+            {
+                if (e.Type == SimEventType.HeroFallen && e.A == man) kills = e.Scalar;
+                if (e.Type == SimEventType.HeroFeat && e.A == man) feat = true;
+            }
+            Assert.AreEqual(1f, kills, "his last kill is in his tally");
+            Assert.IsFalse(feat, "no feat announced for a dead man");
+        }
+
+        [Test]
+        public void TheDeathBattalion_HitsHarderWithTheButt()
+        {
+            using var m = Pair(InfantryArchetype.DeathBattalion, InfantryArchetype.Medic, 2f, out int man, out int foe, hp: 1e6f, foeHp: 1e6f);
+            float want = MeleeSystem.WeaponMul(m.Catalogue.Weapon[InfantryArchetype.DeathBattalion].Damage, m.Catalogue.Weapon[InfantryArchetype.Rifle].Damage);
+            Assert.Greater(want, 1.05f, "setup: his rifle hits harder than the rifleman's");
+            var log = Run(m, 400);
+            int landed = 0;
+            foreach (var e in log)
+            {
+                if (e.Type != SimEventType.MeleeBlow || e.A != man || e.Scalar <= 0f) continue;
+                landed++;
+                Assert.AreEqual(MeleeSystem.DamageOf((byte)e.Dir.y) * want, e.Scalar, 1e-3f, "the blow carries his rifle's weight");
+            }
+            Assert.Greater(landed, 3, "setup: blows landed");
         }
 
         [Test]
