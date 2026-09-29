@@ -26,6 +26,8 @@ namespace TW.Presentation.Tactical
         public const int MaxRollers = 4;
         /// <summary>A hull longer than this rolls its wheels further in proportion; how long a wheel takes to go over.</summary>
         public const float RollHull = 6f, ToppleSeconds = 0.35f;
+        /// <summary>How brightly a cook-off pop lights its wreck above intensity 0 (1 is today's full flash).</summary>
+        public const float PopGlint = 0.25f;
         /// <summary>The furthest any wheel rolls, however long its hull.</summary>
         public const float RollFar = 18f;
 
@@ -42,8 +44,9 @@ namespace TW.Presentation.Tactical
             // the first flight carries it drift x air; every bounce after keeps TurretBounce of the lift and 45 % of the
             // drift (TankRenderer.FlyDebris), so the whole way is drift x air x (1 + 0.45 b + (0.45 b)^2)
             float k = 0.45f * TurretBounce, total = 1f + k + k * k;
-            // it comes down clear of the hull, never on it (critic round 1: at 0.4 it landed on the deck and fused with it)
-            float drift = air > 0f ? LandWithin * hullLength * (0.6f + 0.3f * r1) / (air * total) : 0f;
+            // it comes down clear of the hull, never on it (critic round 1: at 0.4 it landed on the deck and fused with it;
+            // round 9: at 0.6-0.9 of the way it still came to rest against the hull's end)
+            float drift = air > 0f ? LandWithin * hullLength * (0.75f + 0.18f * r1) / (air * total) : 0f;
             away.y = 0f;
             Vector3 dir = away.sqrMagnitude > 1e-6f ? away.normalized : Vector3.forward;
             int flips = 1 + Mathf.FloorToInt(r2 * (1f + a));   // one or two at 1, up to three at 2

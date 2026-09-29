@@ -1012,7 +1012,7 @@ namespace TW.Presentation.Tactical
                 books.Add(FlipbookFx.Book.Star, at, 1.4f * p.Size, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: 2f);
                 books.Add(FlipbookFx.Book.Smoke, at, 1.8f * p.Size, 3f, velocity: Vector3.up * 1.5f, grow: 1.6f, alpha: 0.7f);
                 SceneHooks.Sparks?.Invoke(at, 6);
-                p.Owner.Flash = 1f;
+                p.Owner.Flash = PopFlash(p.Owner.Flash);   // TankRenderer.Deaths
             }
         }
 

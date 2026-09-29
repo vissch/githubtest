@@ -107,44 +107,55 @@ namespace TW.Presentation.Tactical
                     case DebrisRenderer.Piece.Arm:
                     case DebrisRenderer.Piece.Leg:
                         vel = carry + rng.OnSphere() * 3.5f; vel.y = Mathf.Abs(vel.y) + 2f;
-                        debris.Throw(piece, chest + rng.OnSphere() * (0.3f * scale), vel, scale, cloth, ref rng, 30f);
+                        debris.Throw(piece, chest + rng.OnSphere() * (0.3f * scale), Topped(vel), scale, cloth, ref rng, 30f);
                         break;
                     case DebrisRenderer.Piece.Head:
                         vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 3f;
-                        debris.Throw(piece, chest + Vector3.up * (0.4f * scale), vel, scale, Skin, ref rng, 30f);
+                        debris.Throw(piece, chest + Vector3.up * (0.4f * scale), Topped(vel), scale, Skin, ref rng, 30f);
                         break;
                     case DebrisRenderer.Piece.UpperHalf:
-                        debris.Throw(piece, chest, Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f, scale, cloth, ref rng, 40f);
+                        debris.Throw(piece, chest, Topped(Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
                         break;
                     case DebrisRenderer.Piece.LowerHalf:
-                        debris.Throw(piece, at + Vector3.up * (0.6f * scale), Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f, scale, cloth, ref rng, 40f);
+                        debris.Throw(piece, at + Vector3.up * (0.6f * scale), Topped(Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
                         break;
                     case DebrisRenderer.Piece.Helm:
                         vel = carry + rng.OnSphere() * 4f; vel.y = Mathf.Abs(vel.y) + 4f;
-                        debris.Throw(piece, chest + Vector3.up * (0.5f * scale), vel, scale, Steel, ref rng, 60f);
+                        debris.Throw(piece, chest + Vector3.up * (0.5f * scale), Topped(vel), scale, Steel, ref rng, 60f);
                         break;
                     case DebrisRenderer.Piece.Rifle:
                         vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;
-                        debris.Throw(piece, chest, vel, scale, Bark, ref rng, 60f);
+                        debris.Throw(piece, chest, Topped(vel), scale, Bark, ref rng, 60f);
                         break;
                     case DebrisRenderer.Piece.Pack:
                         vel = carry + rng.OnSphere() * 3f; vel.y = Mathf.Abs(vel.y) + 2.5f;
-                        debris.Throw(piece, chest - facing * (0.25f * scale), vel, scale, cloth, ref rng, 60f);
+                        debris.Throw(piece, chest - facing * (0.25f * scale), Topped(vel), scale, cloth, ref rng, 60f);
                         break;
                 }
             }
             for (int k = 0; k < plan.Lumps; k++)
             {
                 Vector3 vel = carry * 0.8f + rng.OnSphere() * 4.5f; vel.y = Mathf.Abs(vel.y) + 1.5f;
-                debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * figure, GoreRed, ref rng, 8f);
+                debris.Throw(DebrisRenderer.Piece.Clod, chest, Topped(vel), rng.Range(0.07f, 0.14f) * figure, GoreRed, ref rng, 8f);
             }
-            if ((plan.Torn || plan.Apart) && DebrisRenderer.Gore > 0f)
-                AddGagMark(at, rng.Range(0f, 360f), new Vector2(2.6f, 2.6f) * (Mathf.Sqrt(DebrisRenderer.Gore) * figure), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);
+            // round 9: at 2.6 m, and none for a man who only lost a limb, the heap's aftermath showed two small splats for eight men
+            float splat = plan.Torn || plan.Apart ? 3.4f : (plan.Mask & GibPlan.AllLimbs) != 0 ? 1.8f : 0f;
+            if (splat > 0f && DebrisRenderer.Gore > 0f)
+                AddGagMark(at, rng.Range(0f, 360f), new Vector2(splat, splat) * (Mathf.Sqrt(DebrisRenderer.Gore) * figure), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);
             return plan.Mask | (plan.Torn ? GibPlan.TornBit : 0);
         }
 
         /// <summary>The launch that carries a thrown piece `far` of the throw's way and `high` of its height under the
         /// debris' gravity: the body's own arc (VATRenderer throws the corpse the same distance and height).</summary>
+        /// <summary>A part's launch with its rise capped at GibPlan.PartTop (critic round 9: riding a fountain's arc under the
+        /// debris' lighter gravity, parts hung in the air 3 s and more, above the frame, after their men had landed).</summary>
+        static Vector3 Topped(Vector3 vel)
+        {
+            float most = Mathf.Sqrt(2f * DebrisMath.Gravity * GibPlan.PartTop);
+            if (vel.y > most) vel.y = most;
+            return vel;
+        }
+
         static Vector3 Reaching(Vector3 fly, float far, float high)
         {
             float up = Mathf.Sqrt(2f * DebrisMath.Gravity * Mathf.Max(0.3f, fly.y * high));

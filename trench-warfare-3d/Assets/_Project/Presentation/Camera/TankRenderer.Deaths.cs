@@ -38,6 +38,11 @@ namespace TW.Presentation.Tactical
             public float Spool = -1f; public Vector3 SpoolFrom, SpoolTo; public Quaternion SpoolRot0, SpoolRot1;
         }
 
+        /// <summary>How a cook-off pop lights its wreck: today (intensity 0) a full flash, which washes the whole hull and
+        /// every piece thrown off it pale cream for a fifth of a second a pop, so through a cook-off the wreck read as a
+        /// pale blob in four stills of ten (critic round 9); above 0 a glint, the pop's own flipbook flash doing the rest.</summary>
+        static float PopFlash(float flash) => DeathGags.Intensity > 0f ? Mathf.Max(flash, VehicleGags.PopGlint) : 1f;
+
         /// <summary>The absurd death, once, as the machine becomes a wreck (Wreckify, fx.deathAbsurd above 0).</summary>
         void DeathGag(View v, float now)
         {
@@ -255,6 +260,16 @@ namespace TW.Presentation.Tactical
             int l = lod.Find("Track_L"), r = lod.Find("Track_R");
             if (l < 0 && r < 0) return;
             bool left = rng.Next() < 0.5f;
+            // the side with open ground, where the scenery says (critic round 9: the Maw's belt ran into a ruin); the dice's
+            // side when both are clear
+            if (SceneHooks.Standing != null && l >= 0 && r >= 0)
+            {
+                float reach = v.Model.HalfGauge + 3f;
+                Vector3 back = -fwd * 2f;
+                float openL = SceneHooks.Standing(v.Pos.x - right.x * reach + back.x, v.Pos.z - right.z * reach + back.z, 8f);
+                float openR = SceneHooks.Standing(v.Pos.x + right.x * reach + back.x, v.Pos.z + right.z * reach + back.z, 8f);
+                if (Mathf.Abs(openL - openR) > 1f && Mathf.Min(openL, openR) < 6f) left = openL > openR;
+            }
             int first = left ? l : r, second = left ? r : l;
             if (first < 0) { first = second; second = -1; }
             if (first < 0) return;
