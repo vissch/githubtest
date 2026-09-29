@@ -69,7 +69,7 @@ namespace TW.Presentation.Tactical
                 int density = controlled ? rec.Density : 0;
                 // a shell that threw him high takes him apart: the sim's Death says a blast did it and how hard, the
                 // figure loses the limbs (a bit each, read by the VAT shader), and they fly off with his helmet and rifle
-                int gib = e.B == (int)DeathCause.Blast && e.Scalar > 0f && fly.y > 0.6f ? Gibs(e.A, p, yaw, team, fly, density) : 0;
+                int gib = e.B == (int)DeathCause.Blast && e.Scalar > 0f && fly.y > 0.6f ? Gibs(e.A, p, yaw, team, fly, density, controlled && rec.Gag.Any ? rec.Gag.Delay : 0f) : 0;
                 float grime = controlled ? rec.Grime : anim != null && e.A >= 0 && e.A < anim.Grime.Length ? anim.Grime[e.A] : 0f;   // he goes down in the mud he wore
                 int chr = controlled ? rec.Char : burning ? 3 : 0;
                 flames.Douse(e.A);   // whatever killed him, the torch on his slot goes out with him: the next tenant is not alight
@@ -114,6 +114,7 @@ namespace TW.Presentation.Tactical
         void TickSmoulders(float now)
         {
             DrawGagMarks(now);   // the gags' blood and scorch (CombatFx.Gags)
+            DueGibs(now);   // a heap's parts, each with its man (CombatFx.Bodies)
             if (smoulders.Count == 0) return;
             bool draw = books != null && books.Ready;
             for (int i = smoulders.Count - 1; i >= 0; i--)

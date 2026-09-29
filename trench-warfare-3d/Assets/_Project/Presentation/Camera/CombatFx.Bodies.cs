@@ -35,9 +35,9 @@ namespace TW.Presentation.Tactical
         /// and what flies is his own arm, leg, head and helmet, cut from his figure (DebrisRenderer.Figure), maybe both
         /// his halves (GibPlan.TornBit in what comes back: lay no corpse); at 0 a tube, a clod and the kit's helmet, as ever.
         /// </summary>
-        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0)
+        int Gibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density = 0, float delay = 0f)
         {
-            if (DeathGags.Intensity > 0f) return OwnGibs(slot, at, yaw, team, fly, density);   // fx.deathAbsurd: his own parts
+            if (DeathGags.Intensity > 0f) return OwnGibs(slot, at, yaw, team, fly, density, delay);   // fx.deathAbsurd: his own parts
             if (DebrisRenderer.Gore <= 0f || debris == null || !debris.Ready) return 0;
             var rng = new DebrisRng(at, 0x6B1u + (uint)slot);
             if (rng.Next() < 0.3f / (1f + density)) return 0;   // most men thrown by a shell alone come down whole; in a heap, few
@@ -84,12 +84,36 @@ namespace TW.Presentation.Tactical
         /// <summary>Gibs at fx.deathAbsurd above 0: GibPlan decides what he loses, and exactly that flies, cut from his own
         /// figure; torn in two, the upper half goes where his body would have landed (so its blood is there) and the lower
         /// half a shorter way. Kit flies at GORE 0.</summary>
-        int OwnGibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density)
+        int OwnGibs(int slot, Vector3 at, float yaw, int team, Vector3 fly, int density, float delay)
         {
             if (debris == null || !debris.Ready) return 0;
             uint seed = (uint)Mathf.FloorToInt(at.x * 37f) * 73856093u ^ (uint)Mathf.FloorToInt(at.z * 37f) * 19349663u ^ (uint)slot * 83492791u;
             var plan = GibPlan.Decide(seed, DeathGags.Intensity, DebrisRenderer.Gore, density);
             if (plan.Whole) return 0;
+            // his parts leave with him: a heap's men go a beat apart (DeathGags' delay), and theirs with them (critic
+            // round 9: every part left the burst in one clump while the bodies were staggered)
+            if (delay > 0.02f) pendingGibs.Add(new PendingGibs { Plan = plan, Slot = slot, At = at, Yaw = yaw, Team = team, Fly = fly, Due = Time.time + delay });
+            else ThrowGibs(plan, slot, at, yaw, team, fly);
+            return plan.Mask | (plan.Torn ? GibPlan.TornBit : 0);
+        }
+
+        struct PendingGibs { public GibPlan Plan; public int Slot, Team; public Vector3 At, Fly; public float Yaw, Due; }
+        readonly List<PendingGibs> pendingGibs = new List<PendingGibs>(32);
+
+        /// <summary>Once a frame: the parts whose men leave now (OwnGibs).</summary>
+        void DueGibs(float now)
+        {
+            for (int k = pendingGibs.Count - 1; k >= 0; k--)
+            {
+                var g = pendingGibs[k];
+                if (now < g.Due) continue;
+                pendingGibs.RemoveAt(k);
+                if (debris != null && debris.Ready) ThrowGibs(g.Plan, g.Slot, g.At, g.Yaw, g.Team, g.Fly);
+            }
+        }
+
+        void ThrowGibs(in GibPlan plan, int slot, Vector3 at, float yaw, int team, Vector3 fly)
+        {
             var rng = new DebrisRng(at, 0x61B5u + (uint)slot);
             float figure = FigureScale(), scale = figure * GibPlan.PartScale(DeathGags.Intensity);
             Color cloth = team == 1 ? ClothB : ClothA;
@@ -142,7 +166,6 @@ namespace TW.Presentation.Tactical
             float splat = plan.Torn || plan.Apart ? 3.4f : (plan.Mask & GibPlan.AllLimbs) != 0 ? 1.8f : 0f;
             if (splat > 0f && DebrisRenderer.Gore > 0f)
                 AddGagMark(at, rng.Range(0f, 360f), new Vector2(splat, splat) * (Mathf.Sqrt(DebrisRenderer.Gore) * figure), SceneTints.Now.Frozen ? BloodLifeSnow : BloodLife, 3, 0.05f);
-            return plan.Mask | (plan.Torn ? GibPlan.TornBit : 0);
         }
 
         /// <summary>The launch that carries a thrown piece `far` of the throw's way and `high` of its height under the
