@@ -1,4 +1,4 @@
-﻿// Phase: B1 / C4 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared pools): what
+// Phase: B1 / C4 (implemented) — part of CombatFx (see CombatFx.cs for the event dispatch and the shared pools): what
 // comes off a man and a tree: gibs and kit on a blast death, a tree crown breaking, and where a man's muzzle and
 // chest are drawn (for tracers and hits), all at the drawn figure scale.
 using System.Collections.Generic;
@@ -92,7 +92,9 @@ namespace TW.Presentation.Tactical
             Color cloth = team == 1 ? ClothB : ClothA;
             Vector3 chest = at + Vector3.up * (1.2f * figure);
             Vector3 facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
-            Vector3 carry = new Vector3(fly.x, 0f, fly.z) * 0.9f + Vector3.up * (2.5f + fly.y * 2f);   // the shell's throw, and up
+            // his parts ride his own arc (the gag's throw, already grown): today's 2.5 + 2 x height sent them 25 m/s up and
+            // out of the frame at the new heights (critic round 5 found no parts to point at)
+            Vector3 carry = Reaching(fly, 0.8f, 0.8f);
             GibPlan.Pieces(plan, gibPieces);
             foreach (var piece in gibPieces)
             {

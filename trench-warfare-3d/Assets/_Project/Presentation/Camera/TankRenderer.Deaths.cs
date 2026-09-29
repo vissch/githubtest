@@ -111,7 +111,8 @@ namespace TW.Presentation.Tactical
             {
                 v.Flops = true;
                 v.Belly = Belly(v);
-                v.DropTo = Mathf.Min(v.DropFrom, Ground(v.Pos.x, v.Pos.z) - v.Belly + 0.02f);
+                // a little into the snow: its claws hang lower than its belly (critic round 5: it sat up on them)
+                v.DropTo = Mathf.Min(v.DropFrom, Ground(v.Pos.x, v.Pos.z) - v.Belly - VehicleGags.BellySink * v.Model.Height);
                 v.DropUp = VehicleGags.FlopUp * Mathf.Sqrt(Mathf.Min(a, VehicleGags.HopCap));
                 v.DropAt = now + VehicleGags.WalkerFreeze;
                 v.DropPitch = v.Pitch.Value; v.DropRoll = v.Roll.Value;
@@ -140,6 +141,15 @@ namespace TW.Presentation.Tactical
                     if (dx * dx + dz * dz > 900f) continue;
                     gap = Mathf.Min(gap, Mathf.Sqrt(dx * dx + dz * dz) - 1.5f * (q.Scale > 0f ? q.Scale : 1f));
                 }
+                if (map.StaticCover.IsCreated)
+                    for (int i = 0; i < map.StaticCover.Length; i++)
+                    {
+                        var cv = map.StaticCover[i];   // a ruin, a wall: what men take cover behind
+                        if (cv.OwnerSlot >= 0) continue;
+                        float dx = cv.Center.x - spot.x, dz = cv.Center.z - spot.z;
+                        if (dx * dx + dz * dz > 900f) continue;
+                        gap = Mathf.Min(gap, Mathf.Sqrt(dx * dx + dz * dz) - 0.5f * cv.Radius - 1f);
+                    }
                 for (int ring = 0; ring <= 2; ring++)
                     for (int n = 0; n < (ring == 0 ? 1 : 8); n++)
                     {
