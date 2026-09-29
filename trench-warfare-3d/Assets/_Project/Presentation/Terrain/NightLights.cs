@@ -80,6 +80,10 @@ namespace TW.Presentation.Terrain
         const float FlareLife = 16f;
 
         float recipes;
+        float classArms;   // fx.classArms: with the class looks on, a shot's light by day draws a small card (DayShotCard)
+        /// <summary>The glow card over a shot's light by day with the class looks on. Flash's 2.6 is a white disc that sat over
+        /// the muzzle drawing on snow (iso3-7: the "bloom" at the sniper was this, one light per 0.03 s, on whoever shot).</summary>
+        public const float DayShotCard = 0.35f;
 
         void Start()
         {
@@ -91,7 +95,8 @@ namespace TW.Presentation.Terrain
             maxPropLamps = Mathf.Max(0, Knobs.Get("lights.maxPropLamps", MaxPropLamps));
             poolSize = Mathf.Max(1, Knobs.Get("lights.poolSize", PoolSize));
             shotStagger = ShotStagger.ReadSpread();
-            recipes = TW.Presentation.Tactical.CombatFx.ReadRecipes();   // fx.recipes (VFX pass): 0 = the lights as they were
+            recipes = TW.Presentation.Tactical.CombatFx.ReadRecipes();
+            classArms = TW.Presentation.Tactical.CombatFx.ReadClassArms();   // fx.recipes (VFX pass): 0 = the lights as they were
             if (poolSize != PoolSize) { pool = new Pooled[poolSize]; flashPos = new Vector3[poolSize * 4]; flashCol = new Color[poolSize * 4]; }
             SceneHooks.Flash = (at, color, peak, reach, life) => Flash(at, color, peak, reach, life);
             SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
@@ -430,7 +435,7 @@ namespace TW.Presentation.Terrain
                 at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.2f;
                 lastShot = Time.time;
                 // on with its flare: the same place in the tick CombatFx shows this shot at (ShotStagger)
-                Flash(at, Muzzle, 13f, 10f, .09f, 2.6f, ShotStagger.Delay(e.A, e.Tick, Host.Local.World.Config.TickSeconds, shotStagger));
+                Flash(at, Muzzle, 13f, 10f, .09f, classArms > 0f && !SceneMood.Night ? DayShotCard : 2.6f, ShotStagger.Delay(e.A, e.Tick, Host.Local.World.Config.TickSeconds, shotStagger));
             }
             else if (e.Type == SimEventType.Explosion)
             {

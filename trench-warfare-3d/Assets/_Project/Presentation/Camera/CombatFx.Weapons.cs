@@ -18,6 +18,9 @@ namespace TW.Presentation.Tactical
     {
         public const string ClassArmsKnob = "fx.classArms";
         float classArms = 1f;   // knob fx.classArms (Awake): 1 each class its own look, 0 all as the rifle
+        /// <summary>Tooling knob: 1 logs each shot's flare branch to the player log (off in play).</summary>
+        public const string LogFlaresKnob = "fx.logFlares";
+        bool logFlares;
 
         public static float ReadClassArms() => Mathf.Clamp01(Knobs.Get(ClassArmsKnob, 1f));
 
