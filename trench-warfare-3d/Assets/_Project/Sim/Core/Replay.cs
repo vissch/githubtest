@@ -69,7 +69,7 @@ namespace TW.Sim
         // (weapon and main-gun ranges, minimum ranges, stand-offs, AdvanceFireRange, EngageSystem.HuntRadius): the
         // catalogue fingerprints change. Layout and chain unchanged.
         // v24 (2026-09-28, hand to hand, lane/sim/melee): MeleeSystem (order 1109: Foe, FoeGen, Contact, Swing, Dropped,
-        // Calm, the generation seen) and PounceSystem (order 1125: Phase, Ticks, Cooldown, From, To, Target, the
+        // Calm, StruckBy, the generation seen) and PounceSystem (order 1125: Phase, Ticks, Cooldown, From, To, Target, the
         // generation seen) join the chain; MovementSystem.EngageMelee and Stance.Melee; UnitFlags Melee, Disarmed and
         // Pouncing (bits 16-18); events MeleeBlow, WeaponDropped, WeaponPickedUp, PounceCrouched, PounceLanded appended;
         // random streams Melee 23 and Pounce 24.
