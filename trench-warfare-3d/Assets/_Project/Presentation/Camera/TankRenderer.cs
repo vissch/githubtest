@@ -1010,6 +1010,12 @@ namespace TW.Presentation.Tactical
                         // L20: the round itself, a heavy tracer from the muzzle to where it went: who shot whom
                         if (e.A < world.HighWater && !gun.Arc) Fx()?.AddTracer(muzzle, (Vector3)e.Pos, team, gun.Tracer);
                     }
+                    else if (classGuns && !SceneMood.Night)   // by day the fire book with its soot fringe: an additive flare on snow is not seen (critique lin8)
+                    {
+                        books.Add(FlipbookFx.Book.GunBlast, muzzle + dir * (gun.Blast * 0.7f), gun.Blast * 1.6f, 0.45f, roll: roll, glow: 1.4f);
+                        books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.5f, gun.Blast * 0.8f, 0.08f, roll: roll, glow: 2f, pop: 0.5f);
+                        books.Add(FlipbookFx.Book.Puff, muzzle + dir * 0.6f, gun.Blast * 0.8f, 1.2f, velocity: dir * 1.5f + Vector3.up * 0.4f, grow: 1.2f, alpha: 0.7f, pop: 0.3f);   // the ring of smoke the shot leaves: it still reads in a busy frame
+                    }
                     else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f * gun.Blast / GunLook.Old.Blast, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
                     if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer, v.Archetype == VehicleArchetype.Salvo, e.Tick * 7u + (uint)e.A);   // an indirect round goes up and over; a Salvo's ripple
                     if (classGuns) GunExtras(v.Archetype, muzzle, dir, gun.Blast);   // near the eye, the gun's own piece (TankRenderer.Guns.cs)

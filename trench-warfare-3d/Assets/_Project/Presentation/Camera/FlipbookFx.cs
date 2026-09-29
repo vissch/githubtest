@@ -57,6 +57,11 @@ namespace TW.Presentation.Tactical
             // blood on hits (owner, 2026-09-28), rooted at the left edge: the spray goes along the round
             BloodSpurt, // a rifle hit
             BloodSnipe, // a heavy hit: a sniper's, a machine gun's burst at close range
+            // each class its own muzzle (owner, 2026-09-29; tw3d-board tools/muzzlebooks.py), fire books rooted at the left edge
+            MuzzleBrake,  // the sniper's brake: a forward jet and two side jets square to the barrel
+            MuzzleStream, // the machine gun: a long tongue, a star at the root
+            MuzzlePop,    // the pistol and the machine pistol: a round spiky pop
+            MuzzleBurst,  // the SMG and the carbine: a fat cone opening into petals
             Count
         }
 
@@ -178,6 +183,10 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.6f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },
             new Sheet { Name = "BloodSpurt", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Lit = 0.5f, Tint = new Color(0.62f, 0.07f, 0.05f), Low = 0.00f, High = 0.75f, Ink = new Vector2(0.00f, 1.00f), Fill = 0.98f },
             new Sheet { Name = "BloodSnipe", Cols = 8, Rows = 4, Frames = 25, Snap = true, Fps = 12f, Mood = 0.45f, Lit = 0.5f, Tint = new Color(0.62f, 0.07f, 0.05f), Low = 0.05f, High = 0.69f, Ink = new Vector2(0.00f, 1.00f), Fill = 0.87f },
+            new Sheet { Name = "MuzzleBrake", Cols = 3, Rows = 4, Frames = 12, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
+            new Sheet { Name = "MuzzleStream", Cols = 3, Rows = 4, Frames = 12, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
+            new Sheet { Name = "MuzzlePop", Cols = 3, Rows = 4, Frames = 12, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
+            new Sheet { Name = "MuzzleBurst", Cols = 3, Rows = 4, Frames = 12, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
