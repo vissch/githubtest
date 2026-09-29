@@ -187,5 +187,15 @@ namespace TW.Tests
             Assert.AreEqual(4, TankRenderer.RocketsOf(FxTier.Epic));
             Assert.Less(TankRenderer.RocketApex, 1f, "a rocket flies flatter than a mortar round");
         }
+
+        [Test]
+        public void Each_Gun_Blast_Is_Its_Calibre_Drawing()
+        {
+            Assert.AreEqual(FlipbookFx.Book.GunCrack, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Tusk), "the 37 mm: a crack");
+            Assert.AreEqual(FlipbookFx.Book.GunLong, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Pavise), "the long gun");
+            Assert.AreEqual(FlipbookFx.Book.GunLong, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Banner));
+            Assert.AreEqual(FlipbookFx.Book.GunBlast, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Kettle), "the rest keep the shared blast");
+            Assert.AreNotEqual(TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Tusk), TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Pavise), "critique r15: they read alike");
+        }
     }
 }
