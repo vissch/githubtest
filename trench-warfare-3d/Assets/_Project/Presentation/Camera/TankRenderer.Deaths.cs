@@ -29,8 +29,9 @@ namespace TW.Presentation.Tactical
         {
             /// <summary>The share of its fall speed it keeps on each of its next Bounces landings (then FlyDebris' 0.25).</summary>
             public float Bounce = 0.25f; public int Bounces;
-            /// <summary>Seconds a wheel still rolls on its rim before it topples (0: it flies as any piece).</summary>
-            public float Roll;
+            /// <summary>Seconds a wheel still rolls on its rim before it topples (0: it flies as any piece), and seconds
+            /// left of its topple onto its face (critic round 4: left to FlyDebris, wheels came to rest on edge).</summary>
+            public float Roll, Topple;
             /// <summary>Seconds a fan may still glide (0: it flies as any piece), and the way its path bends (rad/s).</summary>
             public float Glide, Curve;
             /// <summary>A track paying out: seconds since it began (-1: not), from and to, as it stood and as it lies.</summary>
@@ -87,7 +88,7 @@ namespace TW.Presentation.Tactical
                 Vector3 at = (Vector3)v.World[i].GetColumn(3) - v.Pos;
                 float side = Vector3.Dot(at, right) >= 0f ? 1f : -1f, ahead = Vector3.Dot(at, fwd) >= 0f ? 1f : -1f;
                 Vector3 dir = (fwd * ahead + right * (side * rng.Range(0.2f, 0.5f))).normalized;
-                float distance = VehicleGags.RollDistance(rng.Next());
+                float distance = VehicleGags.RollDistance(rng.Next()) * Mathf.Max(1f, hullLength / VehicleGags.RollHull);   // a Maw's roll further
                 d.Vel = dir * VehicleGags.RollSpeed(distance);
                 d.Roll = VehicleGags.RollSeconds(distance) + 0.5f;
                 rollers++;
@@ -118,7 +119,8 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>Which way a leaping turret drifts: of eight bearings from the dice's, the one whose landing spot (a hull
-        /// length out) is furthest from any prop, so it comes down on open ground, not on a wall (critic round 3).</summary>
+        /// length out) is furthest from any prop or blocked ground (a ruin, a bunker), so it comes down on open ground, not
+        /// on a wall (critic rounds 3 and 4: the ruined wall it kept landing on is blocked ground, not a prop).</summary>
         Vector3 ClearWay(Vector3 at, float turn, float reach)
         {
             Vector3 best = new Vector3(Mathf.Sin(turn), 0f, Mathf.Cos(turn));
@@ -138,6 +140,13 @@ namespace TW.Presentation.Tactical
                     if (dx * dx + dz * dz > 900f) continue;
                     gap = Mathf.Min(gap, Mathf.Sqrt(dx * dx + dz * dz) - 1.5f * (q.Scale > 0f ? q.Scale : 1f));
                 }
+                for (int ring = 0; ring <= 2; ring++)
+                    for (int n = 0; n < (ring == 0 ? 1 : 8); n++)
+                    {
+                        float c = n * Mathf.PI * 0.25f, r = ring * 1.5f;
+                        var layer = map.LayerAt(new Unity.Mathematics.float3(spot.x + Mathf.Sin(c) * r, 0f, spot.z + Mathf.Cos(c) * r));
+                        if ((layer & (TW.Sim.Terrain.NavLayer.Blocked | TW.Sim.Terrain.NavLayer.Bunker)) != 0) gap = Mathf.Min(gap, r - 1.5f);
+                    }
                 if (gap > bestGap + 0.5f) { bestGap = gap; best = dir; }   // the dice's own bearing wins a near tie
             }
             return best;
@@ -311,6 +320,7 @@ namespace TW.Presentation.Tactical
         bool FlyGag(Debris d, float dt)
         {
             if (d.Roll > 0f) { RollWheel(d, dt); return true; }
+            if (d.Topple > 0f) { ToppleWheel(d, dt); return true; }
             if (d.Glide > 0f) { GlideFan(d, dt); return true; }
             if (d.Spool >= 0f) { PayingOut(d, dt); return true; }
             return false;
@@ -336,11 +346,12 @@ namespace TW.Presentation.Tactical
             d.Roll -= dt;
             if (speed < 0.5f || d.Roll <= 0f)
             {
-                // out of roll: over onto its face, and FlyDebris takes it from here
+                // out of roll: over onto its face, a quarter turn about the way it was going (ToppleWheel)
                 Vector3 dir = speed > 1e-3f ? flat / speed : Vector3.forward;
                 d.Roll = 0f;
-                d.Vel = dir * speed + Vector3.up * 1.6f;
-                d.Spin = dir * 5.5f;   // a quarter turn and more in the hop: it lies flat (critic round 2 found tyres standing)
+                d.Topple = VehicleGags.ToppleSeconds;
+                d.Vel = dir * (speed * 0.5f);
+                d.Spin = dir * (0.5f * Mathf.PI / VehicleGags.ToppleSeconds);
                 return;
             }
             float slowed = Mathf.Max(0.01f, speed - VehicleGags.RollDecel * dt);
@@ -352,6 +363,30 @@ namespace TW.Presentation.Tactical
             Vector3 centre = pos + rot * p.Center;
             pos.y += Ground(centre.x, centre.z) + radius - centre.y;   // on its rim
             d.World = Matrix4x4.TRS(pos, rot, Vector3.one);
+        }
+
+        /// <summary>A wheel toppling onto its face: a quarter turn about the way it rolled, its rim kept on the ground as
+        /// it goes over; then it lies there.</summary>
+        void ToppleWheel(Debris d, float dt)
+        {
+            var model = d.Owner.Model;
+            var p = model.Lods[0].Parts[d.Part];
+            Vector3 pos = d.World.GetColumn(3);
+            Quaternion rot = d.World.rotation;
+            float step = Mathf.Min(dt, d.Topple);
+            d.Topple -= step;
+            if (d.Spin.sqrMagnitude > 1e-6f) rot = Quaternion.AngleAxis(d.Spin.magnitude * Mathf.Rad2Deg * step, d.Spin.normalized) * rot;
+            pos += d.Vel * step;
+            float radius = Mathf.Max(0.15f, model.WheelRadius);
+            Vector3 axle = rot * Vector3.right;   // a wheel turns about its own x (PartLocal)
+            float up = Mathf.Abs(axle.y);
+            float low = radius * Mathf.Sqrt(Mathf.Max(0f, 1f - up * up)) + radius * 0.2f * up;   // its lowest point below its middle
+            Vector3 centre = pos + rot * p.Center;
+            pos.y += Ground(centre.x, centre.z) + low - centre.y;
+            d.World = Matrix4x4.TRS(pos, rot, Vector3.one);
+            if (d.Topple > 0f) return;
+            d.Topple = 0f; d.Resting = true; d.Vel = Vector3.zero; d.Spin = Vector3.zero;
+            if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, centre + Vector3.up * 0.1f, radius * 2.4f, 0.8f, velocity: Vector3.up * 0.3f, grow: 0.8f, alpha: 0.5f);
         }
 
         /// <summary>The fan in the air: it lies over flat (its hub's axis, local +Z, to the vertical), spins about that
