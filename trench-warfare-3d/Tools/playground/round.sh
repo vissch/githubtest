@@ -5,7 +5,7 @@ set -u
 T="${1:-r0}"; HERE="$(dirname "${BASH_SOURCE[0]}")"; P="bash $HERE/pg.sh"
 OUT="${PG_OUT:-$(cd "$HERE/../.." && (pwd -W 2>/dev/null || pwd))/Captures/playground}"
 # the tank, whatever the last session left selected (a round once measured the hovercraft as "the tank", loop 2 r32)
-$P do "model v 0"; sleep 2
+$P do "model v Brute"; sleep 2
 $P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1; size 1.7"
 # ---- each LOD's colour fitted to LOD0's on the render, before anything is shot (kept for the session)
 $P do "vehicle"; sleep 2; $P do "lodfit $OUT/${T}_fit_vehicle.json"; sleep 2
