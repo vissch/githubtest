@@ -35,14 +35,14 @@ namespace TW.Sim.Combat
         public const float RunningTargetSpeed = 2f;      // m/s: a man going faster than this is running
         public const float RunningTargetNear = 20f * RangeScale;      // metres: closer than this he is no harder to hit
         public const float RunningTargetFar = 60f * RangeScale;       // metres: from here on the whole penalty
-        public const float RunningTargetFloor = 0.35f;   // the share of the chance left at RunningTargetFar and beyond
+        public const float RunningTargetFloor = 0.28f;   // the share of the chance left at RunningTargetFar and beyond (0.35 before the bomb's throw was cut, 2026-09-29)
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
         public const float DeadGroundMetres = 10f;       // a man this far behind his own front trench is out of the far side's sight (TargetAcquisition)
         // ---- the bomb (2026-09-28): how a trench was cleared. A man in the open who has come within GrenadeRange of the
         // trench man he is fighting throws one instead of firing: it goes off where it lands (BlastSystem, so the bay
         // still saves a man some of it), and he holds it when a friend stands within GrenadeFriend of the mark. A rifle
         // on the fire step barely finds a running man's shooters; the bomb is how an assault that got there wins.
-        public const float GrenadeRange = 22f;           // metres: a strong arm
+        public const float GrenadeRange = 22f * RangeScale;   // metres: a strong arm (17.6 m since the range cut: the owner, 2026-09-29)
         public const float GrenadeMin = 5f;              // closer than this he does not throw at his own feet
         public const float GrenadeDamage = 110f;
         public const float GrenadeRadius = 4.5f;

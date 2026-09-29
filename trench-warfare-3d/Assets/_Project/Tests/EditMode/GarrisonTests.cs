@@ -77,7 +77,7 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             var men = Garrison(m);
-            // an enemy in front of the trench for them to shoot at, past a bomb's throw (CombatTables.GrenadeRange 22 m): at
+            // an enemy in front of the trench for them to shoot at, past a bomb's throw (CombatTables.GrenadeRange 17.6 m): at
             // 12 m, where they stood before there were bombs, their bombs drove the step empty (v21, 2026-09-29)
             float3 front = m.World.Position[men[0]] + new float3(0f, 0f, 26f);
             for (int k = 0; k < 6; k++) m.World.Spawn(1, 0, front + new float3(k * 2f, 0f, 0f), 100000f, 0f, false);
