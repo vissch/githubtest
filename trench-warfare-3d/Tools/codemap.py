@@ -125,6 +125,10 @@ FLAG_EFFECT = {
     'tw.hud.toolkit': 'PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. '
                       'Default 1. A machine where someone pressed F9 shows the other HUD.',
     'tw.rig.stress': 'SessionState (this editor session only): CaptureRig stress request carried across a domain reload.',
+    '-twstudy': 'Editor batch arg: MachineStudy (`Editor/MachineStudy.cs`) writes its machine scores, jams and summary into this folder.',
+    '-twstudyseed': 'Editor batch arg: the match seed MachineStudy plays (default 12648430, 0xC0FFEE).',
+    '-twstudysec': 'Editor batch arg: seconds of match time MachineStudy measures (default 150).',
+    'tw.machinestudy': 'SessionState: the MachineStudy request carried into Play mode.',
     'tw.rig.stress.restore': 'SessionState: the StressUnits value CaptureRig puts back afterwards.',
     'TW.EnvProps.Edit': 'EditorPrefs bool: hand placement of props in the Scene view during Play (EnvPropEditor). Default on.',
     'TW_AUDIT_OUT': 'Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. '
