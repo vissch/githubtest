@@ -137,11 +137,17 @@ namespace TW.Presentation.Tactical
             ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, false),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
             // the Playground's machines in the battle (2026-09-28, owner: "all" of them, spawn-only; Tools/battleform.py
             // wrote them from the Playground's own files): before this row each drew as a Maw
-            ("Brute", VehicleArchetype.Brute, "Hull", 1f, false),       // a medium tank on tracks
+            ("Brute", VehicleArchetype.Brute, "Hull", VehicleSize.Tank, false),   // a medium tank on tracks, drawn at the tanks' size (the sim drives 8.8 x 5.4 m)
             ("Croaker", VehicleArchetype.Croaker, "Hull", 1f, false),   // two legs (Thigh, Shin, Foot a side): WalkerGait walks it
             ("Mercy", VehicleArchetype.Mercy, "Hull", 1f, false),       // the ambulance, on four wheels
             ("Hopper", VehicleArchetype.Hopper, "Hull", 1f, true),      // the gunship: a hover row, flown HopperLift up (FlyHeight)
         };
+        /// <summary>The scale a machine's model is drawn at (its Machines row), 0 when it has no row of its own.</summary>
+        public static float ScaleOf(byte archetype)
+        {
+            foreach (var m in Machines) if (m.Archetype == archetype) return m.Scale;
+            return 0f;
+        }
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
         const float HoverSettle = 3f;       // omega of its pitch and roll: a cushion rides the ground's average, slowly
