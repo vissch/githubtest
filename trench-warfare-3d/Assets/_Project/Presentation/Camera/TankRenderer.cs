@@ -681,6 +681,7 @@ namespace TW.Presentation.Tactical
                 {
                     float sway = Mathf.Sin(Phase(v, p) + (p.Side < 0 ? 0f : Mathf.PI)) * 5f * v.Gait;
                     rot = Quaternion.AngleAxis(sway - v.Claw * 24f * (p.Side < 0 ? 1f : -1f), Vector3.up) * rot;
+                    if (v.Splay > 0f) rot = Quaternion.AngleAxis(-VehicleGags.ClawFlat * v.Splay, Vector3.right) * rot;   // a belly-flop lays them flat (TankRenderer.Deaths)
                     break;
                 }
                 case TankPartRole.Jaw:

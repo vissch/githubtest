@@ -104,7 +104,10 @@ namespace TW.Presentation.Tactical
         /// SplaySeconds as it comes down on its belly.</summary>
         public const float FlopUp = 4.5f, SplaySeconds = 0.18f;   // a pop of a metre: at 2.2 (25 cm) no still caught it
         /// <summary>How far below level a splayed leg points at most (the sine): nearly flat, whatever the hip's height.</summary>
-        public const float SplayDown = 0.12f;   // round 4: at 0.3 the legs still read as folded under
+        public const float SplayDown = 0.12f;
+        /// <summary>How far into the ground a flopped walker's belly sinks, as a share of its height; how far its claws
+        /// lift flat (degrees) as it splays.</summary>
+        public const float BellySink = 0.18f, ClawFlat = 45f;   // round 4: at 0.3 the legs still read as folded under
         /// <summary>How far a splayed leg is out (0 as it stood, 1 flat out) t seconds after the pop.</summary>
         public static float Splay(float t) => t <= 0f ? 0f : Mathf.SmoothStep(0f, 1f, t / SplaySeconds);
 
