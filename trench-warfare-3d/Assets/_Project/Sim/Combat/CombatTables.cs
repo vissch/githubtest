@@ -33,8 +33,8 @@ namespace TW.Sim.Combat
         // more of a guess that is; close up it makes no odds. Without it a garrison of ten shot every assault of up to
         // thirty dead at 60-100 m and lost nobody (AssaultLadderTests).
         public const float RunningTargetSpeed = 2f;      // m/s: a man going faster than this is running
-        public const float RunningTargetNear = 20f;      // metres: closer than this he is no harder to hit
-        public const float RunningTargetFar = 60f;       // metres: from here on the whole penalty
+        public const float RunningTargetNear = 20f * RangeScale;      // metres: closer than this he is no harder to hit
+        public const float RunningTargetFar = 60f * RangeScale;       // metres: from here on the whole penalty
         public const float RunningTargetFloor = 0.35f;   // the share of the chance left at RunningTargetFar and beyond
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
         public const float DeadGroundMetres = 10f;       // a man this far behind his own front trench is out of the far side's sight (TargetAcquisition)
