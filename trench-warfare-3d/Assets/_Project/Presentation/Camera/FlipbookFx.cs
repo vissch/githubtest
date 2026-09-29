@@ -63,6 +63,7 @@ namespace TW.Presentation.Tactical
             MuzzlePop,    // the pistol and the machine pistol: a round spiky pop
             MuzzleBurst,  // the SMG: a fat cone opening into petals
             MuzzleCarbine,// the officer's carbine: the cone with three petals, shorter
+            MuzzleRifle,  // the rifle by day up close: a plain medium cone, its soot ring the edge on snow
             Count
         }
 
@@ -189,6 +190,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "MuzzlePop", Cols = 3, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
             new Sheet { Name = "MuzzleBurst", Cols = 3, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
             new Sheet { Name = "MuzzleCarbine", Cols = 3, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
+            new Sheet { Name = "MuzzleRifle", Cols = 3, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
