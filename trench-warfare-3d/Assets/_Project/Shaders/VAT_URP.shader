@@ -280,9 +280,9 @@ Shader "TW/VAT Infantry (URP)"
                     float3 wq = i.positionOS * float3(10.0, 4.5, 10.0) + i.grime.y * float3(0.382, 0.271, 0.618);   // stretched in height: it runs
                     float wb = VatNoise(wq) * 0.65 + VatNoise(wq * 2.1 + 31.0) * 0.35;
                     half chest = 1.15 + (frac(i.grime.y * 0.137) - 0.5) * 0.25;                                     // where it soaks out from
-                    half reach = 0.22 + 0.8 * hurt;                                                                   // how far it has spread
+                    half reach = 0.2 + 0.35 * hurt;   // how far it has spread (critic, frog round 1: at 0.8 a man near death turned red all over, read as a team colour)
                     half near = saturate(1.0 - abs(i.positionOS.y - chest + 0.15 * hurt) / reach);
-                    half cutW = 1.0 - (0.5 + 0.65 * hurt) * near;
+                    half cutW = 1.0 - (0.45 + 0.35 * hurt) * near;   // never soaked through: patches even at the last hit
                     half soak = smoothstep(cutW - 0.05, cutW + 0.05, wb) * near;
                     albedo = lerp(albedo, half3(0.34, 0.03, 0.03), soak * 0.92);
                 }
