@@ -212,6 +212,7 @@ namespace TW.Presentation.Tactical
             shellFire = ReadShellFire();
             shellGrit = ReadShellGrit();
             classArms = ReadClassArms();
+            logFlares = Knobs.Get(LogFlaresKnob, 0f) > 0.5f;
         }
 
         void Start()
@@ -511,7 +512,9 @@ namespace TW.Presentation.Tactical
                     // the controller chose) and goes into the chest of the man it was fired at; without sockets (a vehicle, the
                     // far tier, no controller) both ends are estimated from the stance
                     Vector3 from, barrel, to;
-                    if (units == null || !units.Sockets(e.A, out from, out barrel, out _)) EstimateMuzzle(e.A, e.B, scale, out from, out barrel);
+                    float ahead = -1f;   // tooling (fx.logFlares): how far the muzzle stands in front of his chest along the shot
+                    if (units == null || !units.Sockets(e.A, out from, out barrel, out var shooterChest)) EstimateMuzzle(e.A, e.B, scale, out from, out barrel);
+                    else if (logFlares) ahead = Vector3.Dot(from - shooterChest, new Vector3(e.Dir.x, 0f, e.Dir.z).normalized);   // in play 0.5-0.9 m; negative = a man shooting behind his back
                     if (units == null || !units.Sockets(e.B, out _, out _, out to)) to = EstimateChest(e.B, scale);
                     // shown a little late, by this shooter's place in the tick (the flare, the light and the spurt with it)
                     float delay = ShotStagger.Delay(e.A, e.Tick, w.Config.TickSeconds, shotStagger);
@@ -555,6 +558,10 @@ namespace TW.Presentation.Tactical
                         Vector3 camFlat = cam != null ? new Vector3(cam.transform.forward.x, 0f, cam.transform.forward.z).normalized : Vector3.forward;
                         bool endOn = flared && cam != null && EndOn(aim, camFlat, classArms > 0f);
                         var ownBook = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? MuzzleBookOf(KindOf(w.Archetype[e.A])) : null;
+                        if (logFlares && e.A >= 0 && e.A < w.Archetype.Length)   // tooling: which branch a shot's flare took (the sniper's cross was never seen in a still)
+                            Debug.Log(string.Format(System.Globalization.CultureInfo.InvariantCulture, "flare t{0} a{1} arch{2} book {3} flared {4} endOn {5} dot {6:0.00} from ({7:0.0},{8:0.0},{9:0.0}) scale {10:0.00} flare {11:0.00} screen ({12:0},{13:0}) of {14}x{15} ahead {16:0.00}",
+                                e.Tick, e.A, w.Archetype[e.A], ownBook?.ToString() ?? "-", flared, endOn, cam != null ? Vector3.Dot(aim, camFlat) : 0f, from.x, from.y, from.z, scale, flare,
+                                cam != null ? cam.WorldToScreenPoint(from).x : -1f, cam != null ? cam.pixelHeight - cam.WorldToScreenPoint(from).y : -1f, cam != null ? cam.pixelWidth : 0, cam != null ? cam.pixelHeight : 0, ahead));
                         if (endOn && Vector3.Dot(aim, camFlat) > 0.85f)
                             // firing AWAY from the eye: the muzzle is behind his own body, so the class's drawing goes up over his
                             // helmet, rolled to point up the screen, smaller (critique r9: the near row showed nothing)
@@ -655,7 +662,8 @@ namespace TW.Presentation.Tactical
                         // the spike by the weapon that fired it (CombatFx.Close.cs): a sniper's harder than a pistol's
                         var shotBy = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? KindOf(w.Archetype[e.A]) : ArmsKind.Rifle;
                         bool dayHit = classArms > 0f && !SceneMood.Night;   // by day an additive flash this size clips white on snow: the sniper's 2.7 m was the bloom that hid his cross (iso3-5)
-                        books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale * HitFlashOf(shotBy) * (dayHit ? HitFlashDay(SceneHooks.CloseUp) : 1f), 0.09f, roll: UnityEngine.Random.value * 6.2832f,
+                        // by day a small hard spike in place of the soft Flash: iso6 showed the sniper's hit still a 2 m white glow at 0.55
+                        books.Add(dayHit ? FlipbookFx.Book.Star : FlipbookFx.Book.Flash, p, 2.0f * scale * HitFlashOf(shotBy) * (dayHit ? HitFlashDay(SceneHooks.CloseUp) : 1f), dayHit ? 0.07f : 0.09f, roll: UnityEngine.Random.value * 6.2832f,
                             glow: (SceneMood.Night ? 3.2f : dayHit ? 1.0f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
                         if (e.Scalar > 0f) HitExtras(shotBy, p, toward.normalized, scale, e.Tick * 17u + (uint)e.B);
                     }
