@@ -89,6 +89,9 @@ namespace TW.Presentation.Tactical
         /// <summary>This machine's own step (TankRenderer.DriveStyle): its swing time and its ordinary step height
         /// as shares of SwingSlow..SwingFast and ArcShare. 1 is the gait every walker had.</summary>
         public float SwingScale = 1f, ArcScale = 1f;
+        /// <summary>How far the body may tilt this frame (radians), pitch and roll: what the legs can take. A kick drawn
+        /// on top of the gait (TankRenderer.Weight.cs) is held to half of it.</summary>
+        public float TiltCapPitch = 0.42f, TiltCapRoll = 0.38f;
         /// <summary>0 while it walks properly, toward 1 as its legs go.</summary>
         public float Limp;
         /// <summary>A bit per leg that planted a foot this frame: the renderer kicks dust off these.</summary>
@@ -660,6 +663,7 @@ namespace TW.Presentation.Tactical
             // reads worse than one that leans a little too far. Two degrees is the floor.
             capP = Mathf.Max(capP, 0.035f);
             capR = Mathf.Max(capR, 0.035f);
+            TiltCapPitch = capP; TiltCapRoll = capR;
 
             // the fit is capped by the legs; the leans are added on top and bounded only by the hull
             Pitch = Mathf.Lerp(Pitch, Mathf.Clamp(Mathf.Clamp(fitPitch, -capP, capP) + leanP, -0.42f, 0.42f), k2);

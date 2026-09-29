@@ -364,13 +364,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/TankRenderer.DriveStyle.cs` (how each machine rides: `StyleFor` per archetype, its spring and
   damping, squat and dive, turn lean, engine note and beat, the running gear's rhythm, a walker's swing, step height
   and footfall thump; a machine with no row rides `PlainStyle`),
+  `Presentation/Camera/TankRenderer.Weight.cs` (the weight layer, Dust Front lessons Phase 1, every look behind a knob
+  that draws today's machines at 0: `tank.weight` rides each machine its own style on an acceleration followed from the
+  sim's speed and keeps a walker's kicks and footfalls on layers of their own; `tank.recoil` recoil by the shot's weight;
+  `tank.shotRock` degrees a six-pounder rocks its hull; `tank.gunHullFlash`; `tank.traverseSettle`),
+  `Presentation/Camera/HullRide.cs` (its pure maths: the exact spring solve, the felt acceleration, shot weights, the
+  recoil's shape, kick sizes, a walker's kick layer, a turret's settle),
   `Presentation/Camera/MachineSockets.cs` (a walker answers the first of a numbered socket pair with its one socket),
-  `Presentation/Camera/WalkerGait.cs` (planted feet; `SwingScale`, `ArcScale` from the style), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
+  `Presentation/Camera/WalkerGait.cs` (planted feet; `SwingScale`, `ArcScale` from the style; `TiltCapPitch`, `TiltCapRoll`), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
   import rules `Editor/TankImport.cs`. Infantry riding the machines (a prototype, presentation only):
   `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
   `Presentation/Units/VATRenderer.Extras.cs` (the riders drawn; a seated man is hidden from the normal pass),
   `Editor/RiderLab.cs` (the seat sheet and captures).
-- **Tests:** GaitTests (plus the sim tests above), DriveStyleTests (no two machines ride alike), MachineSocketTests (every walker finds its exhaust and fire), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
+- **Tests:** GaitTests (plus the sim tests above), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
   for the rig scoreboard in `docs/20-rig-scoreboard.md`.
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
