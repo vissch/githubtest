@@ -22,7 +22,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The books that are a fire's or a burst's smoke. Burst is the boiling cloud a shell throws up: at the
         /// barrage's 8 m shells it is a 21 m card, and it was the near-black mass over the frame (bench r15: the four
         /// smoke books alone lightened the frame by only 75 k pixels).</summary>
-        public static bool IsSmoke(Book book) => book == Book.Smoke || book == Book.ShellPlume || book == Book.WreckSmoke || book == Book.Smoulder || book == Book.Burst;
+        public static bool IsSmoke(Book book) => book == Book.Smoke || book == Book.ShellPlume || book == Book.WreckSmoke || book == Book.MineSmoke || book == Book.Smoulder || book == Book.Burst;
 
         /// <summary>How long a smoke card lives at a weight, as a share of what it was asked for: lighter smoke also clears
         /// sooner, but never in under 60 % of its time (a puff that pops out of existence reads as a glitch).</summary>
