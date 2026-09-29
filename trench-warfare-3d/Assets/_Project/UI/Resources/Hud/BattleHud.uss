@@ -163,6 +163,10 @@
 .hud-skull__icon { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; -unity-background-scale-mode: stretch-to-fill; }
 .hud-skull__count { position: absolute; left: 14px; top: -12px; font-size: var(--tw-size-caption); color: var(--tw-text-bright); -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontMono.asset"); -unity-text-outline-width: 1px; -unity-text-outline-color: #0A0B0C; }
 .hud-skull--ours .hud-skull__count { color: #E02B2B; }
+/* ComicWords: the owner's edit letters a pale blue "CRACK" with a dark rim into the night; no glow (the owner kept the letters without it) */
+.hud-comic { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.hud-comic__text { position: absolute; left: -120px; top: -22px; width: 240px; -unity-text-align: middle-center; font-size: 36px; color: #B9DDF7; -unity-font-style: bold; -unity-font-definition: url("../../Skin/Fonts/DustFrontDisplay.asset"); -unity-text-outline-width: 4px; -unity-text-outline-color: #0C1B3A; letter-spacing: 1px; }
+.hud-comic--big .hud-comic__text { font-size: 44px; top: -28px; }
 .hud-cat-chip { width: 44px; height: var(--tw-order-btn); margin-right: var(--tw-order-gap); overflow: hidden; background-color: #0A0B0C; border-width: 1px; border-color: #3A3D42; border-radius: var(--tw-radius-sm); }
 .hud-cat-chip:hover { border-color: var(--tw-text-dim); }
 .hud-cat-chip__face { position: absolute; left: 0; top: 2px; right: 0; bottom: 0; -unity-background-scale-mode: scale-and-crop; background-position-y: top; }

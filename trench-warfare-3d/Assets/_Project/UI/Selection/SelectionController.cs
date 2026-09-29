@@ -46,6 +46,9 @@ namespace TW.UI
         readonly DeathMarks deathMarks;
         /// <summary>The skulls where men die (DeathMarks).</summary>
         public DeathMarks Deaths => deathMarks;
+        readonly ComicWords comicWords;
+        /// <summary>The rare comic sound words over the field (ComicWords).</summary>
+        public ComicWords Comics => comicWords;
         readonly List<int> hits = new List<int>();
         readonly List<int> hoverClump = new List<int>();   // what the card and the hover brackets show (one man under Alt)
         readonly List<int> fullClump = new List<int>();    // the whole knot under the cursor
@@ -87,6 +90,7 @@ namespace TW.UI
             aimReadout = new AimReadout(root);
             markers = new SelectionMarkers(root, ToHud);
             deathMarks = new DeathMarks(root, host, ToHud);
+            comicWords = new ComicWords(root, host, ToHud);
             marquee = root?.Q("marquee"); hoverCard = new HoverCard(root);
             if (marquee != null) marquee.style.display = DisplayStyle.None;
             HudBridge.WheelClaimed = WantsWheel;
@@ -95,7 +99,7 @@ namespace TW.UI
         public void Dispose()
         {
             if (HudBridge.WheelClaimed == (System.Func<bool>)WantsWheel) HudBridge.WheelClaimed = null;
-            markers.Dispose(); cursor.Dispose(); deathMarks?.Dispose();
+            markers.Dispose(); cursor.Dispose(); deathMarks?.Dispose(); comicWords?.Dispose();
         }
 
         /// <summary>The camera asks before it zooms: Alt over a knot steps through it instead (read a frame late, harmless).</summary>
@@ -164,6 +168,7 @@ namespace TW.UI
             }
             markers.End();
             deathMarks?.Tick(unity, interactive);
+            comicWords?.Tick(unity, interactive);
         }
 
         void FillIndex() { for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i; }

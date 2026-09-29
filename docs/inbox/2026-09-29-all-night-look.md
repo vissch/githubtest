@@ -16,6 +16,7 @@ owner's word to land.**
 | `NightLights` | now `partial` (`NightLights.Pools.cs`): `PushPools()` in `Update`, `ClearPools()` in `OnDestroy`; a `beginCameraRendering` hook sets `_TWPools`, `_TWPoolTint`, `_TWPoolCount` (0 unless `look.pools` > 0). |
 | `Toon_URP.shader` | includes `TWLightPools.hlsl`; two added lines behind `_TWPoolCount > 0` / `_TWWetLook > 0`, and the puddle mirror's weight times `1 - 0.55 * _TWWetLook`. |
 | Editor | `LookLab` (knobs set from `unity command eval`). |
+| UI | `ComicWords` (rare comic sound words on the HUD's markers layer, built beside `DeathMarks` in `SelectionController`; `fx.comicWords`, `fx.comicGap`); `.hud-comic` in `BattleHud.uss`. |
 
 `lane/show/vehicle-weight` also makes `NightLights` partial (`NightLights.Machines.cs`): whoever lands second keeps both
 partial files, a one-word conflict at most. If your lane edits `Toon_URP.shader` round the gloss block or the local
