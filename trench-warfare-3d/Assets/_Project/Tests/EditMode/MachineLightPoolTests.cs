@@ -100,12 +100,17 @@ namespace TW.Tests
         }
 
         [Test]
-        public void TheLamps_WearTheSidesColourOrTheTrailersRed_AndHoldOnScreenFarOff()
+        public void TheLamps_WearTheSidesColourTheTrailersRedOrTheLanternsAmber_AndHoldOnScreenFarOff()
         {
             Same(TankRenderer.TeamA, TankRenderer.LampColour(0, 0f), "side A");
             Same(TankRenderer.TeamB, TankRenderer.LampColour(1, 0f), "side B");
             Same(TankRenderer.TrailerRed, TankRenderer.LampColour(0, 1f), "the trailer's red");
-            Same(TankRenderer.TrailerRed, TankRenderer.LampColour(1, 2f), "clamped");
+            Same(TankRenderer.LampAmber, TankRenderer.LampColour(0, 2f), "the lanterns' amber, side A");
+            Same(TankRenderer.LampAmber, TankRenderer.LampColour(1, 2f), "and side B: warm light carries no side");
+            Same(TankRenderer.LampAmber, TankRenderer.LampColour(1, 3f), "clamped");
+            var go = new GameObject("lanterns");
+            try { Same(go.AddComponent<TW.Presentation.Terrain.NightLights>().Lantern, TankRenderer.LampAmber, "the same amber as the trench's lanterns"); }
+            finally { Object.DestroyImmediate(go); }
             Assert.AreEqual(1.2f, TankRenderer.LampCard(1.2f, 20f), 1e-6f, "close by, its own size");
             Assert.AreEqual(2.25f, TankRenderer.LampCard(1.2f, 150f), 1e-4f, "far off, 0.015 of its distance");
             float px20 = TankRenderer.LampCard(1.2f, 20f) / 20f, px150 = TankRenderer.LampCard(1.2f, 150f) / 150f;

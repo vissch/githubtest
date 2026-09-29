@@ -328,7 +328,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   recoil's shape, kick sizes, a walker's kick layer, a turret's settle),
   `Presentation/Camera/MachineSockets.cs` (a walker answers the first of a numbered socket pair with its one socket),
   `Presentation/Camera/TankRenderer.Lights.cs` (a machine's own lights, each behind a knob at 0: `tank.lamps` four running
-  lamps on the hull's corners, `tank.lampHue` the side's colour or Dust Front's red, `tank.lampSize`, `tank.lampPull`, `tank.exhaustGlow`
+  lamps on the hull's corners, `tank.lampHue` 0 the side's colour, 1 Dust Front's red, 2 the lanterns' amber, `tank.lampSize`, `tank.lampPull`, `tank.exhaustGlow`
   the exhausts and the Maw's furnace, `tank.lightReach`; glow cards NightLights draws, and with `lights.machinePool` a
   burning machine's, a cook-off's and the furnace's real lights), `Presentation/Camera/MachineLamps.cs` (where the lamps and
   the furnace sit, read off the hull in its own frame), `Presentation/Core/MachineLightSlots.cs` (which machine light
