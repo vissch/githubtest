@@ -48,6 +48,8 @@ namespace TW.Editor
         /// <summary>The Frog: its file, which of its four skinned meshes is baked (the playground's LOD2, under a thousand
         /// vertices like the two men), that mesh's base colour, and the rig its clips are posed on.</summary>
         public const string FrogName = "Frog";
+        /// <summary>How much richer the Frog's own colours are baked than its texture (1 = as painted).</summary>
+        public const float OwnSaturation = 1.4f;
         public const string FrogPath = "Assets/_Project/Playground/Art/Units/Frog/Frog.fbx";
         public const string FrogSkin = "Frog_LOD2";
         public const string FrogAlbedo = "Assets/_Project/Playground/Art/Units/Frog/Frog_LOD2_Base.jpg";
@@ -409,7 +411,10 @@ namespace TW.Editor
                 if (draw.Albedo != null && uvs != null && uvs.Length == skinCount)
                 {
                     Color c = draw.Albedo.GetPixelBilinear(uvs[i].x, uvs[i].y);
-                    if (Cloth(bone)) { float lum = Mathf.Clamp(c.grayscale / 0.55f, 0.25f, 1.6f); colors[i] = new Color(lum, lum, lum, 1f); }   // the uniform: brightness only, the team colours it
+                    // the Frog keeps its own colours, a little richer (play test, critic round 1: dyed khaki, a frog read as a
+                    // stocky man from above): green skin, blue tunic and cap, red trim; the side's tint does not dye it
+                    if (target != null) { float g = c.grayscale; colors[i] = new Color(Mathf.Clamp01(g + (c.r - g) * OwnSaturation), Mathf.Clamp01(g + (c.g - g) * OwnSaturation), Mathf.Clamp01(g + (c.b - g) * OwnSaturation), 0f); }
+                    else if (Cloth(bone)) { float lum = Mathf.Clamp(c.grayscale / 0.55f, 0.25f, 1.6f); colors[i] = new Color(lum, lum, lum, 1f); }   // the uniform: brightness only, the team colours it
                     else colors[i] = new Color(c.r, c.g, c.b, 0f);
                 }
                 else colors[i] = BoneColor(bone);

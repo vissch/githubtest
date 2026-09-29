@@ -43,6 +43,9 @@ namespace TW.Presentation.Tactical
         /// pale blob in four stills of ten (critic round 9); above 0 a glint, the pop's own flipbook flash doing the rest.</summary>
         static float PopFlash(float flash) => DeathGags.Intensity > 0f ? Mathf.Max(flash, VehicleGags.PopGlint) : 1f;
 
+        /// <summary>How far a falling flyer has nosed over and rolled when it hits the ground (radians).</summary>
+        const float FlyerNose = -0.55f, FlyerRoll = 0.45f;
+
         /// <summary>The absurd death, once, as the machine becomes a wreck (Wreckify, fx.deathAbsurd above 0).</summary>
         void DeathGag(View v, float now)
         {
@@ -113,6 +116,14 @@ namespace TW.Presentation.Tactical
             v.DropUp = VehicleGags.HopSpeed(a);
             v.DropAt = now;
             if (v.Hover) v.DropTo = Mathf.Min(v.DropFrom, Ground(v.Pos.x, v.Pos.z));
+            if (v.Lift >= FlyingFrom)
+            {
+                // a flyer drops like a stone at once and noses over (frog round 1: it hopped, hung burning 2 s at its
+                // height, drifted off the top of the frame and landed as a lump); Smoulder's own fall stands aside
+                v.DropUp = 0f; v.Landed = true;
+                v.DropTo = Ground(v.Pos.x, v.Pos.z) + 0.15f;
+                v.DropPitch = v.Pitch.Value; v.DropRoll = v.Roll.Value;
+            }
             if (v.Model.LegCount > 0)
             {
                 v.Flops = true;
@@ -186,6 +197,12 @@ namespace TW.Presentation.Tactical
                 if (t < 0f) continue;
                 float h = VehicleGags.Drop(v.DropFrom, v.DropTo, v.DropUp, t) - v.DropFrom;
                 v.Heave.Value += h - v.Dropped; v.Dropped = h;
+                if (v.Lift >= FlyingFrom && !v.DropLanded)
+                {
+                    // nosing over and rolling as it falls, a quarter turn of each by the ground
+                    float k = Mathf.Clamp01(t / Mathf.Max(0.1f, VehicleGags.DropFirst(v.DropFrom, v.DropTo, v.DropUp)));
+                    v.Pitch.Value = Mathf.Lerp(v.DropPitch, FlyerNose, k); v.Roll.Value = Mathf.Lerp(v.DropRoll, FlyerRoll, k);
+                }
                 if (v.Flops)
                 {
                     v.Splay = VehicleGags.Splay(t);
@@ -211,7 +228,7 @@ namespace TW.Presentation.Tactical
                 if (v.Flops) books.Add(FlipbookFx.Book.Wings, new Vector3(v.Pos.x, Ground(v.Pos.x, v.Pos.z), v.Pos.z), v.Model.HalfLength * 3f, 1.0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.5f, alpha: 0.55f);
                 // a ring of dust pushed out from under its rim (critic round 9: the one puff read as haze, not a ring), grey
                 // smoke cards: white puffs vanished on snow (round 11 film); a hull landing its hop too (round 13: no thump)
-                if (v.Flops || !v.Hover)
+                if (v.Flops || !v.Hover || v.Lift >= FlyingFrom)
                     for (int k = 0; k < VehicleGags.FlopRing; k++)
                     {
                         float b = v.Yaw + k * 2f * Mathf.PI / VehicleGags.FlopRing;
@@ -221,8 +238,9 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Smoke, at, v.Model.HalfLength * 0.55f, 1.0f, velocity: out1 * 3.5f + Vector3.up * 0.2f, grow: 1.1f, alpha: 0.45f);
                     }
             }
-            if (v.Flops) Scrap(v.Pos + Vector3.up * 0.5f, 5, 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
-            CameraShake.Add(v.Pos, v.Flops ? 6f : 3f);
+            bool crash = v.Lift >= FlyingFrom;
+            if (v.Flops || crash) Scrap(v.Pos + Vector3.up * 0.5f, crash ? 9 : 5, crash ? 7f : 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
+            CameraShake.Add(v.Pos, v.Flops || crash ? 8f : 3f);
         }
 
         /// <summary>A walker's belly: the lowest corner of its body's box, in the frame its heave is the height of.</summary>

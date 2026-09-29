@@ -54,6 +54,8 @@ namespace TW.Tests
                 case "machine": case "maw": case "salvo": return (30f, 40f, 22f, 6f);  // a turret's leap: wide and low, aimed up so its 14 m peak stays in (critic round 16 found it cut off)
                 case "skimmer": return (40f, 40f, 26f, 2f);   // its fan glides 18-27 m astern
                 case "walker": return (18f, 40f, 20f, 1.5f);  // a belly-flop: close and low
+                case "croaker": return (22f, 40f, 20f, 3f);
+                case "hopper": return (36f, 40f, 24f, 4f);   // it flies 9 m up and falls: all of it in (round 1: off the top)
                 default: return (13f, 40f, 20f, 1.2f);
             }
         }
@@ -76,15 +78,16 @@ namespace TW.Tests
         {
             switch (scene)
             {
-                case "shell": case "heap": case "frogheap": case "frogshell": return (4f, 12);
+                case "shell": case "heap": return (4f, 12);
+                case "frogheap": case "frogshell": return (5f, 12);   // shelled 0.8 s in: the row seen standing first
                 case "frogs": return (3f, 4);
-                case "shot": case "mg": case "wounds": return (14f, 16);
+                case "shot": case "mg": case "wounds": case "frogshot": case "frogmg": return (14f, 16);
                 case "crush": return (14f, 16);
                 case "fire": return (12f, 12);
                 case "gas": return (22f, 12);
                 case "beam": return (16f, 16);
                 case "parts": return (4f, 4);
-                case "machine": case "maw": case "salvo": case "skimmer": case "walker": return (8f, 16);
+                case "machine": case "maw": case "salvo": case "skimmer": case "walker": case "croaker": case "hopper": return (8f, 16);
                 default: return (8f, 12);
             }
         }
@@ -95,7 +98,7 @@ namespace TW.Tests
         /// the last four are spread to the end.</summary>
         static float Due(string scene, int k, float seconds, int frames)
         {
-            bool machine = scene == "machine" || scene == "maw" || scene == "salvo" || scene == "skimmer" || scene == "walker";
+            bool machine = scene == "machine" || scene == "maw" || scene == "salvo" || scene == "skimmer" || scene == "walker" || scene == "croaker" || scene == "hopper";
             if (!machine || frames < 16) return seconds * k / Mathf.Max(1, frames - 1);
             if (k < 12) return 1.4f + 0.16f * k;
             return 3.2f + (seconds - 3.2f) * (k - 11) / 4f;
