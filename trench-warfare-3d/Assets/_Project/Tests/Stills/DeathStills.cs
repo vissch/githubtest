@@ -30,7 +30,7 @@ namespace TW.Tests
     public class DeathStills
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
-        static readonly string[] AllScenes = { "shell", "heap", "shot", "mg", "fire", "gas", "beam", "crush" };
+        static readonly string[] AllScenes = { "shell", "heap", "shot", "mg", "wounds", "fire", "gas", "beam", "crush" };
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -63,7 +63,7 @@ namespace TW.Tests
             switch (scene)
             {
                 case "shell": case "heap": return (4f, 12);
-                case "shot": case "mg": return (14f, 16);
+                case "shot": case "mg": case "wounds": return (14f, 16);
                 case "crush": return (14f, 16);
                 case "fire": return (12f, 12);
                 case "gas": return (22f, 12);

@@ -598,6 +598,7 @@ namespace TW.Presentation.Tactical
                             velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
                     if (vehicle && SceneMood.Night) Throw(p, 10, 3, 10f, 0.035f);   // sparks off armour
                     else if (e.Scalar > 0f) Throw(p, 3, 0, 3.5f, 0.05f);           // and something physical comes off a man struck
+                    if (!vehicle && e.Scalar > 0f) HitBlood(e, p, toward.normalized, scale);   // and he bleeds (CombatFx.HitBlood)
                     break;
                 }
                 case SimEventType.Death:
