@@ -3,6 +3,7 @@
 // before any default changes (the fx.deathAbsurd rule):
 //  - tank.weight: each machine's own ride (TankRenderer.DriveStyle.cs) on an acceleration followed from the sim's own
 //    speed; a walker's kicks and footfalls on layers of their own. Off, every machine rides PlainStyle, as before;
+//  - tank.squat: the share of each style's squat drawn against the sim's held acceleration (0.4, HullRide.SquatShare);
 //  - tank.recoil: the barrel's travel and return by the weight of its shot (the Maw's six-pounder is 1);
 //  - tank.shotRock: degrees a six-pounder rocks its hull, by the shot's weight (0 keeps today's kick of 0.35 rad/s);
 //  - tank.gunHullFlash: the hull lights up (its hit-flash channel) when its gun fires;
@@ -17,7 +18,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class TankRenderer
     {
         bool weightOn, calibreRecoil;
-        float shotRockDeg, gunHullFlash, settleDeg;
+        float shotRockDeg, gunHullFlash, settleDeg, squatShare = HullRide.SquatShare;
         int weightKnobs = -1;
 
         /// <summary>Reads the weight knobs when any knob has changed, and re-rides the machines on the field.</summary>
@@ -30,6 +31,7 @@ namespace TW.Presentation.Tactical
             shotRockDeg = Mathf.Max(0f, Knobs.Get("tank.shotRock", 0f));
             gunHullFlash = Mathf.Clamp01(Knobs.Get("tank.gunHullFlash", 0f));
             settleDeg = Mathf.Clamp(Knobs.Get("tank.traverseSettle", 0f), 0f, 0.6f);
+            squatShare = Mathf.Clamp(Knobs.Get("tank.squat", HullRide.SquatShare), 0f, 1f);
             foreach (var v in views.Values)
             {
                 v.Style = RideFor(v.Archetype);
@@ -39,7 +41,13 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The ride a machine is drawn with: its own with the weight layer on, the one every machine rode
         /// before it (PlainStyle) with it off.</summary>
-        DriveStyle RideFor(byte archetype) => weightOn ? StyleFor(archetype) : PlainStyle;
+        DriveStyle RideFor(byte archetype)
+        {
+            if (!weightOn) return PlainStyle;
+            var s = StyleFor(archetype);
+            s.Squat *= squatShare;   // tank.squat: DriveStyle's squats against the sim's held acceleration (HullRide.SquatShare)
+            return s;
+        }
 
         /// <summary>A new view's guns: how heavy each shot is, and how long its barrel takes to run back.</summary>
         static void WeighGuns(View v, in TankSpec spec)

@@ -48,8 +48,14 @@ namespace TW.Presentation.Tactical
         // ---- the felt acceleration ----
 
         /// <summary>How quickly the felt speed follows the sim's (rad/s): the ride's own stiffness, kept in a band a
-        /// 20 Hz step cannot chatter through ((omega / 63)^2 of tick-rate noise gets through).</summary>
+        /// 20 Hz step cannot chatter through ((omega / 63)^2 of tick-rate noise gets through). Twice as quick tripled the
+        /// felt noise and still brought no rock-back to a braking Maw: that is its damping's (zeta 0.8), traced 2026-09-29.</summary>
         public static float FollowOmega(float rideOmega) => Mathf.Clamp(rideOmega, 2f, 7f);
+
+        /// <summary>The share of a style's squat the weight layer draws (tank.squat). DriveStyle's squats were set against an
+        /// acceleration read off the drawn position, a spike a frame or two long; the sim's momentum holds a Maw's 1.2 m/s^2
+        /// of braking for 1.3 s, and at the whole squat its nose went down 5.9 degrees and stayed there (traced 2026-09-29).</summary>
+        public const float SquatShare = 0.4f;
 
         /// <summary>One frame of the follower: the felt speed chases the sim's speed; the returned value (its velocity)
         /// is the felt acceleration in m/s^2 of sim time. h is the frame in sim time (dt times the time scale).</summary>

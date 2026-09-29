@@ -5,8 +5,9 @@
 //    NightLights draws with its flash glows (no draw call of their own), at night, the nearest machines first; out
 //    when the machine is dead, knocked out or stalled. The rear pair burns brighter than the front, as tail lamps do;
 //  - tank.lampHue: 0 the side's colour, 1 the red Dust Front's hulls carry, for the owner to compare;
-//  - tank.lampSize: a lamp's card across, in metres, never under 0.006 of its distance, so it holds on the screen;
+//  - tank.lampSize: a lamp's card across, in metres, never under 0.015 of its distance, so it holds on the screen;
 //  - tank.exhaustGlow: the exhausts glow with the throttle, and the Maw's furnace mouth with its fire;
+//  - tank.lampPull: how far toward the camera a card is drawn, so the hull does not hide it (1 m);
 //  - tank.lightReach: how far from the camera a machine still shows them (110 m; the standard view stands 77.6 m off).
 // With NightLights' machine pool on (lights.machinePool, 0 by default), real lights of their own: a burning machine's
 // fire, held while it burns; its cook-off, 1.2 s; the Maw's furnace, held. A gun keeps the shared flash it always had.
@@ -18,12 +19,18 @@ namespace TW.Presentation.Tactical
     public sealed partial class TankRenderer
     {
         public const int MaxMachineGlows = 128, MachineLightsPerFrame = 8;
-        const float LampRear = 1f, LampFront = 0.55f, LampFlicker = 0.03f, LampHaze = 0.3f, LampPerMetre = 0.006f;
+        /// <summary>A lamp's card across (m). The glow falls off from its middle, so the bright part is a third of it: at
+        /// 0.45 m the lamps drew nothing a camera could see (Play, 2026-09-29); the lanterns' cards are 2-2.6 m.</summary>
+        public const float LampSize = 1.2f;
+        /// <summary>How far a card is drawn toward the camera (m, tank.lampPull): the plates round a hull corner hid it at
+        /// 0.35 m; at 1 m every lamp of two Maws showed at zoom 20 (Play, 2026-09-29).</summary>
+        public const float LampPull = 1f;
+        const float LampRear = 1f, LampFront = 0.55f, LampFlicker = 0.03f, LampHaze = 0.3f, LampPerMetre = 0.015f;
         const float CookOffPeak = 30f, CookOffSeconds = 1.2f, MachineLightReach = 10f;
         /// <summary>The red of Dust Front's running lamps (tank.lampHue 1).</summary>
         public static readonly Color TrailerRed = new Color(1f, 0.16f, 0.07f);
         static readonly Color ExhaustHot = new Color(1f, 0.42f, 0.12f), FurnaceHot = new Color(1f, 0.48f, 0.16f), FireHot = new Color(1f, 0.52f, 0.2f);
-        bool lampsOn; float lampHue, lampSize = 0.45f, exhaustGlow, lightReach = 110f;
+        bool lampsOn; float lampHue, lampSize = LampSize, exhaustGlow, lightReach = 110f, lampPull = LampPull;
         int lampKnobs = -1;
         readonly Vector3[] glowPos = new Vector3[MaxMachineGlows];
         readonly Color[] glowCol = new Color[MaxMachineGlows];
@@ -38,9 +45,10 @@ namespace TW.Presentation.Tactical
             lampKnobs = Knobs.Generation;
             lampsOn = Knobs.Get("tank.lamps", false);
             lampHue = Mathf.Clamp01(Knobs.Get("tank.lampHue", 0f));
-            lampSize = Mathf.Max(0.05f, Knobs.Get("tank.lampSize", 0.45f));
+            lampSize = Mathf.Max(0.05f, Knobs.Get("tank.lampSize", LampSize));
             exhaustGlow = Mathf.Clamp01(Knobs.Get("tank.exhaustGlow", 0f));
             lightReach = Mathf.Max(0f, Knobs.Get("tank.lightReach", 110f));
+            lampPull = Mathf.Clamp(Knobs.Get("tank.lampPull", LampPull), 0f, 3f);
         }
 
         /// <summary>The colour of a side's running lamps: its own colour, or toward Dust Front's red with tank.lampHue.</summary>
@@ -137,13 +145,13 @@ namespace TW.Presentation.Tactical
             return g;
         }
 
-        /// <summary>A card: drawn a little toward the camera, so the plate it sits on does not cut it in half.</summary>
+        /// <summary>A card: drawn toward the camera (tank.lampPull), so the plates round the corner it sits on do not hide it.</summary>
         int Card(int g, Vector3 at, Vector3 eye, float size, Color color)
         {
             Vector3 toEye = eye - at;
             float d = toEye.magnitude;
             float across = LampCard(size, d);
-            if (d > 1e-3f) at += toEye * (Mathf.Min(0.35f, across * 0.5f) / d);
+            if (d > 1e-3f) at += toEye * (lampPull / d);
             glowPos[g] = at; glowCol[g] = color; glowSize[g] = across;
             return g + 1;
         }

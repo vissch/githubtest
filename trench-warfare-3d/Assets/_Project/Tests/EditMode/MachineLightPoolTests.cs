@@ -106,10 +106,10 @@ namespace TW.Tests
             Same(TankRenderer.TeamB, TankRenderer.LampColour(1, 0f), "side B");
             Same(TankRenderer.TrailerRed, TankRenderer.LampColour(0, 1f), "the trailer's red");
             Same(TankRenderer.TrailerRed, TankRenderer.LampColour(1, 2f), "clamped");
-            Assert.AreEqual(0.45f, TankRenderer.LampCard(0.45f, 20f), 1e-6f, "close by, its own size");
-            Assert.AreEqual(0.9f, TankRenderer.LampCard(0.45f, 150f), 1e-4f, "far off, 0.006 of its distance");
-            float px20 = TankRenderer.LampCard(0.45f, 20f) / 20f, px150 = TankRenderer.LampCard(0.45f, 150f) / 150f;
-            Assert.Greater(px150, 0.005f, "never under 0.006 radians across, however far");
+            Assert.AreEqual(1.2f, TankRenderer.LampCard(1.2f, 20f), 1e-6f, "close by, its own size");
+            Assert.AreEqual(2.25f, TankRenderer.LampCard(1.2f, 150f), 1e-4f, "far off, 0.015 of its distance");
+            float px20 = TankRenderer.LampCard(1.2f, 20f) / 20f, px150 = TankRenderer.LampCard(1.2f, 150f) / 150f;
+            Assert.GreaterOrEqual(px150, 0.015f - 1e-6f, "never under 0.015 radians across, however far");
             Assert.Greater(px20, px150, "and nearer, larger on the screen");
         }
     }
