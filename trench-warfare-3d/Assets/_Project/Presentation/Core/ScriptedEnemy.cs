@@ -175,7 +175,7 @@ namespace TW.Presentation
                 short front = view.Fields.FrontTrench(Side), theirs = view.Fields.FrontTrench(Other);
                 if (front >= 0 && view.Fields.Trenches[front].GarrisonCount > 0)
                 {
-                    enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = front });
+                    enemy.Issue(OverTheTop(t, front));
                     Said?.Invoke($"{t / 20} s over the top behind the barrage, {view.Fields.Trenches[front].GarrisonCount} against {(theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0)}");
                 }
             }
@@ -188,7 +188,7 @@ namespace TW.Presentation
                 {
                     if (mine >= (Odds + 1f) * held)
                     {
-                        enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = front });
+                        enemy.Issue(OverTheTop(t, front));
                         Said?.Invoke($"{t / 20} s over the top bare, {mine} against {held}");
                     }
                     else if (mine >= Odds * held && UsesSupport && Barrage(view, enemy, t, theirs))
@@ -220,6 +220,12 @@ namespace TW.Presentation
                 }
             }
         }
+
+        /// <summary>Over the top from <paramref name="front"/>: everyone but the machine gunners, who stay on the parapet
+        /// and fire over the attack (OrderGroup.Gun, v22). Four guns covering twenty men cost the attack about half the
+        /// men that sending them with it did (AssaultLadderTests, behind smoke and a barrage).</summary>
+        SimCommand OverTheTop(uint t, short front)
+            => new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchSelectAdvance, A = front, B = OrderGroup.All & ~OrderGroup.Gun };
 
         /// <summary>Men of <paramref name="team"/> alive on foot.</summary>
         static int MenOf(SimWorld w, int team)

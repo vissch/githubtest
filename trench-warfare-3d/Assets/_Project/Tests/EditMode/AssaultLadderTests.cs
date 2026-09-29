@@ -53,7 +53,9 @@ namespace TW.Tests
         /// <summary>One assault: <paramref name="defenders"/> riflemen of team 1 walk into their front trench, then
         /// <paramref name="attackers"/> of team 0 (three riflemen to one assault man) into ours, and ">>" sends ours at
         /// theirs. The garrison gets no reinforcement and no order: what is measured is the assault.</summary>
-        public static Rung Run(int attackers, int defenders, Support support, uint seed, int ticks = 3600, int gunners = 0)
+        /// <paramref name="attackGuns"/> of the attackers are machine gunners; with <paramref name="gunsCover"/> the order
+        /// names every group but the guns (v22), so they stay on the parapet and fire over the attack.
+        public static Rung Run(int attackers, int defenders, Support support, uint seed, int ticks = 3600, int gunners = 0, int attackGuns = 0, bool gunsCover = false)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 1000000; cfg.Seed = seed;
             var field = BattlefieldParams.ShelledForest(Field); field.Bombardment = 0f;   // the battle scene's ground; shells are nobody's decision
@@ -75,7 +77,9 @@ namespace TW.Tests
             }
             for (int k = 0; k < attackers; k++)
             {
-                var e = w.Roster[0 * RosterEntry.SlotCount + (k % 4 == 3 ? Assault : Rifleman)];
+                int everyGun = attackGuns > 0 ? math.max(1, attackers / attackGuns) : 0;
+                var e = attackGuns > 0 && k % everyGun == everyGun / 2 && k / everyGun < attackGuns ? RosterEntry.Machinegunner
+                      : w.Roster[0 * RosterEntry.SlotCount + (k % 4 == 3 ? Assault : Rifleman)];
                 int s = w.Spawn(0, e.Archetype, new float3((k + 0.5f) * width / attackers, 0f, ownZ - 8f), e.Hp, e.Speed, false);
                 w.GoalId[s] = goalOwn;
             }
@@ -112,7 +116,8 @@ namespace TW.Tests
             // got into one goes with them
             for (short tr = 0; tr < m.Map.Trenches.Length; tr++)
                 if (m.Fields.Trenches[tr].OwnerTeam == 0 && m.Fields.Trenches[tr].GarrisonCount > 0)
-                    cmds.Add(new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.TrenchAdvance, A = tr });
+                    cmds.Add(gunsCover ? new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.TrenchSelectAdvance, A = tr, B = OrderGroup.All & ~OrderGroup.Gun }
+                                       : new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.TrenchAdvance, A = tr });
             for (int i = 0; i < w.HighWater; i++)
                 if (w.IsAlive(i) && w.Team[i] == 0 && w.TrenchId[i] < 0) { w.GoalId[i] = goalTheirs; w.Flags[i] |= (uint)UnitFlags.Exposed; }
             Step(m, cmds); cmds.Clear();
@@ -180,6 +185,24 @@ namespace TW.Tests
             var (taken, bled, said) = Rung4(2, Support.None, 8);
             Assert.LessOrEqual(taken, 3, said);
             Assert.GreaterOrEqual(bled, 0.15f, "the next wave finds a thinner line: " + said);
+        }
+
+        /// <summary>The guns hold the parapet (v22): twenty men with four machine gunners against a garrison of ten with
+        /// two, behind smoke and a barrage. Sent over with the line the guns are four more men to shoot (5.6 lost a
+        /// seed, eight seeds); left on the parapet they fire over the attack and it loses about half that (2.9).</summary>
+        [Test]
+        public void GunsThatStayToCover_CostTheAttackFewerMen()
+        {
+            float cover = 0f, go = 0f; int takenCover = 0, takenGo = 0;
+            for (uint s = 1; s <= 8; s++)
+            {
+                var c = Run(20, 10, Support.Both, s, 3600, 2, 4, true);
+                var g = Run(20, 10, Support.Both, s, 3600, 2, 4, false);
+                cover += c.AttackersLost; go += g.AttackersLost;
+                if (c.Taken) takenCover++; if (g.Taken) takenGo++;
+            }
+            Assert.GreaterOrEqual(takenCover, takenGo, "covering does not cost the trench");
+            Assert.Less(cover, 0.8f * go, $"attackers lost over eight seeds: {cover} with the guns covering, {go} with them going over");
         }
 
         [Test]

@@ -63,7 +63,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   the front; goes over the top when its front garrison is at least `AttackGarrison` and `Odds` + 1 (three) times the
   player's front garrison, or, at `Odds` (two) times, first lays an HE line 60 m along the player's garrison and, if the
   silver runs to it, a 40 m smoke screen just in front of it, and goes `BarrageLeadTicks` later (`PlannedAttack`);
-  shells or gasses the player's front only out of silver it has beyond the reserve. `Side` is the seat it plays (1;
+  shells or gasses the player's front only out of silver it has beyond the reserve. When it goes over the top its
+  machine gunners stay on the parapet and fire over the attack (`OverTheTop`: every group but `OrderGroup.Gun`, v22). `Side` is the seat it plays (1;
   0 puts it on the player's side). `Said` reports each attack decision with its count.
 - **Why:** the assault ladder says a trench falls at about three to one bare and two to one behind support, and a
   garrison with machine guns falls only behind support (two gunners in ten: bare attacks fail at three to one, two to
@@ -172,6 +173,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   so the next wave finds a thinner line; three to one, or two to one behind smoke or a barrage, takes the trench.
   `Report_TheAssaultLadder` (Explicit) prints the whole table for a tuning pass. Since dead ground (below) a bare two
   to one over eight seeds takes 1 and costs the garrison 22 % (38 % without it); the test asks eight seeds for 15 %.
+  **The guns (v22):** twenty attackers with four machine gunners against ten with two, eight seeds: bare, sending the
+  guns over takes 0 and loses 18.3 a seed, leaving them on the parapet takes 1 and loses 14.1 (the garrison 3.5
+  instead of 0); behind smoke and a barrage both take 8 of 8, and the attack loses 2.9 with the guns covering against
+  5.6 with them going over (`GunsThatStayToCover_CostTheAttackFewerMen` asks under 0.8 of it).
 - **Dead ground (2026-09-29):** `TargetAcquisition` does not let a shooter on the far side of a team's front trench see
   a man of that team on foot in the open more than `CombatTables.DeadGroundMetres` (10 m) behind it, measured at his
   column (`FrontZ`, rebuilt when a front moves). He is on the approaches. Before it a machine gun (170 m) in the enemy's
