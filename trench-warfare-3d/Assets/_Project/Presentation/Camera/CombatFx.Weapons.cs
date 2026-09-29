@@ -93,6 +93,8 @@ namespace TW.Presentation.Tactical
         public const float BrakeDay = 0.8f;
         /// <summary>The brake's height by day, x scale: its side jets thrown 3 men wide read as a firework (r20).</summary>
         public const float BrakeDayTallest = 1.0f;
+        /// <summary>The SMG's burst by day: its fat cone and petals 2 men long each read as a firework (r20, r21).</summary>
+        public const float BurstDay = 0.75f;
 
         public static float FlareGlow(bool night, float closeUp, bool classLooks) => night ? 3.2f : classLooks ? Mathf.Lerp(1.6f, 2.6f, closeUp) : 1.6f;
 
@@ -137,7 +139,8 @@ namespace TW.Presentation.Tactical
 
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
-            float k = book == FlipbookFx.Book.MuzzleBrake ? (SceneMood.Night ? 1.25f : BrakeDay) : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
+            float k = book == FlipbookFx.Book.MuzzleBrake ? (SceneMood.Night ? 1.25f : BrakeDay) : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f
+                    : book == FlipbookFx.Book.MuzzleBurst && !SceneMood.Night ? BurstDay : 1f;
             return Mathf.Lerp(1f, k * (SceneMood.Night ? BookGrowNight : BookGrow), closeUp);
         }
 
