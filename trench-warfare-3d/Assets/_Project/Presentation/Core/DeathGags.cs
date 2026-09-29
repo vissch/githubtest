@@ -64,8 +64,8 @@ namespace TW.Presentation
     public static class DeathGags
     {
         public const string Knob = "fx.deathAbsurd";
-        /// <summary>The intensity before the owner has seen the captures: today's deaths.</summary>
-        public const float DefaultIntensity = 0f, MaxIntensity = 2f;
+        /// <summary>The new look: the owner turned it on (2026-09-30, "turn it on and let me test it").</summary>
+        public const float DefaultIntensity = 1f, MaxIntensity = 2f;
         /// <summary>Whatever the intensity, no body flies further or higher than this, turns more, bounces more, slides
         /// further or waits longer. High stays under the fallen draw's bounds (VATRenderer).</summary>
         public const float FarCap = 26f, HighCap = 11f, SkidCap = 4f, DelayCap = 0.6f;

@@ -85,27 +85,25 @@ namespace TW.Tests
         }
 
         [Test]
-        public void AtIntensityZeroTheControllersDeathIsTodays()
+        public void AtIntensityZeroTheControllersDeathIsTodaysAndTheDefaultIsTheNewLook()
         {
-            float3 thrown0, thrown1; Clip clip0;
-            using (var r = new Rig(0f))
+            DeathRecord Blasted(float intensity)
             {
-                int man = r.Man(Here); r.Tick(); uint at = r.W.Tick;
-                r.W.Despawn(man, (int)DeathCause.Blast, new float3(1f, 1f, 0f), 10f); r.Tick();
-                var rec = r.Record(man, at);
-                Assert.IsFalse(rec.Gag.Any);
-                thrown0 = new float3(rec.ThrowX, rec.ThrowUp, rec.ThrowZ); clip0 = rec.Clip;
+                using (var r = new Rig(intensity))
+                {
+                    int man = r.Man(Here); r.Tick(); uint at = r.W.Tick;
+                    r.W.Despawn(man, (int)DeathCause.Blast, new float3(1f, 1f, 0f), 10f); r.Tick();
+                    return r.Record(man, at);
+                }
             }
-            using (var r = new Rig(-1f))   // the knob, unset: the default intensity
-            {
-                int man = r.Man(Here); r.Tick(); uint at = r.W.Tick;
-                r.W.Despawn(man, (int)DeathCause.Blast, new float3(1f, 1f, 0f), 10f); r.Tick();
-                var rec = r.Record(man, at);
-                thrown1 = new float3(rec.ThrowX, rec.ThrowUp, rec.ThrowZ);
-                Assert.AreEqual(clip0, rec.Clip);
-            }
-            Assert.AreEqual(0f, DeathGags.DefaultIntensity, "the new deaths stay dark until the owner has seen them");
-            Assert.AreEqual(thrown0, thrown1);
+            var today = Blasted(0f);
+            Assert.IsFalse(today.Gag.Any);
+            var on = Blasted(1f);
+            var unset = Blasted(-1f);   // the knob, unset: the default intensity
+            Assert.AreEqual(1f, DeathGags.DefaultIntensity, "the owner turned the new deaths on (2026-09-30)");
+            Assert.AreEqual(new float3(on.ThrowX, on.ThrowUp, on.ThrowZ), new float3(unset.ThrowX, unset.ThrowUp, unset.ThrowZ));
+            Assert.AreEqual(on.Clip, unset.Clip);
+            Assert.AreNotEqual(new float3(today.ThrowX, today.ThrowUp, today.ThrowZ), new float3(unset.ThrowX, unset.ThrowUp, unset.ThrowZ), "a blast throws further with the new look on");
         }
 
         [Test]
