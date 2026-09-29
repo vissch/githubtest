@@ -1,6 +1,6 @@
 // Phase: A5c (2026-09-29, the Dust Front lessons: vehicle weight) — depends on: HullRide, Knobs, TankGunnerySystem.
-// How heavy a machine looks, behind knobs that each draw today's machines at 0, so the owner can judge the captures
-// before any default changes (the fx.deathAbsurd rule):
+// How heavy a machine looks, behind knobs. Each drew the old machines at 0 until the owner had seen the captures (the
+// fx.deathAbsurd rule); the owner set them on (2026-09-29, decisions.md), and 0 still draws the old machines:
 //  - tank.weight: each machine's own ride (TankRenderer.DriveStyle.cs) on an acceleration followed from the sim's own
 //    speed; a walker's kicks and footfalls on layers of their own. Off, every machine rides PlainStyle, as before;
 //  - tank.squat: the share of each style's squat drawn against the sim's held acceleration (0.4, HullRide.SquatShare);
@@ -17,8 +17,11 @@ namespace TW.Presentation.Tactical
 {
     public sealed partial class TankRenderer
     {
-        bool weightOn, calibreRecoil;
-        float shotRockDeg, gunHullFlash, settleDeg, squatShare = HullRide.SquatShare;
+        /// <summary>The defaults the owner set on 2026-09-29: a six-pounder rocks its hull 2 degrees, a gun lights its hull
+        /// at 0.6 of a hit's flash, a slow turret swings 0.6 degrees past its mark.</summary>
+        public const float DefaultShotRock = 2f, DefaultGunHullFlash = 0.6f, DefaultTraverseSettle = 0.6f;
+        bool weightOn = true, calibreRecoil = true;
+        float shotRockDeg = DefaultShotRock, gunHullFlash = DefaultGunHullFlash, settleDeg = DefaultTraverseSettle, squatShare = HullRide.SquatShare;
         int weightKnobs = -1;
 
         /// <summary>Reads the weight knobs when any knob has changed, and re-rides the machines on the field.</summary>
@@ -26,11 +29,11 @@ namespace TW.Presentation.Tactical
         {
             if (weightKnobs == Knobs.Generation) return;
             weightKnobs = Knobs.Generation;
-            weightOn = Knobs.Get("tank.weight", false);
-            calibreRecoil = Knobs.Get("tank.recoil", false);
-            shotRockDeg = Mathf.Max(0f, Knobs.Get("tank.shotRock", 0f));
-            gunHullFlash = Mathf.Clamp01(Knobs.Get("tank.gunHullFlash", 0f));
-            settleDeg = Mathf.Clamp(Knobs.Get("tank.traverseSettle", 0f), 0f, 0.6f);
+            weightOn = Knobs.Get("tank.weight", true);
+            calibreRecoil = Knobs.Get("tank.recoil", true);
+            shotRockDeg = Mathf.Max(0f, Knobs.Get("tank.shotRock", DefaultShotRock));
+            gunHullFlash = Mathf.Clamp01(Knobs.Get("tank.gunHullFlash", DefaultGunHullFlash));
+            settleDeg = Mathf.Clamp(Knobs.Get("tank.traverseSettle", DefaultTraverseSettle), 0f, 0.6f);
             squatShare = Mathf.Clamp(Knobs.Get("tank.squat", HullRide.SquatShare), 0f, 1f);
             foreach (var v in views.Values)
             {
