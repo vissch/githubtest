@@ -64,17 +64,21 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < 2; k++)
                     books.Add(FlipbookFx.Book.WreckSmoke, p + Vector3.up * (r * (0.3f + k * 0.4f)), r * (2.2f + k * 0.3f), 4.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
                         velocity: drift * 1.3f + Vector3.up * 0.4f, grow: 0.8f, alpha: 0.95f * (1f - 0.5f * SceneHooks.CloseUp), pop: 0.2f, delay: 0.05f + k * 0.2f);
-            if (look.Tripwire) Sparks(p + Vector3.up * 0.4f, 40, 14f, 0.14f, salt);   // the charge's casing, day and night
+            if (look.Tripwire)
+            {
+                Sparks(p + Vector3.up * 0.4f, 60, 14f, 0.18f, salt, low: true);   // the charge's casing, flung out low and sideways, day and night
+                books.Add(FlipbookFx.Book.GroundRing, p + Vector3.up * 0.15f, r * 3f, 0.9f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 1f, alpha: 0.85f * (1f - SceneHooks.CloseUp * 0.5f));
+            }
         }
 
         /// <summary>Throw's sparks (kind 3) on FxQuality.Hash in place of the shared stream: out and up, each its own speed and life.</summary>
-        void Sparks(Vector3 at, int count, float speed, float size, uint salt)
+        void Sparks(Vector3 at, int count, float speed, float size, uint salt, bool low = false)
         {
             int most = FxQuality.Now.Cap(MaxChunks);
             for (int k = 0; k < count && chunks.Count < most; k++)
             {
                 uint h = FxQuality.Hash(salt * 97u + (uint)k);
-                float a = FxQuality.Hash01(h) * 6.2832f, up = Mathf.Lerp(0.3f, 1.2f, FxQuality.Hash01(h + 1u)), v = speed * Mathf.Lerp(0.5f, 1.2f, FxQuality.Hash01(h + 2u));
+                float a = FxQuality.Hash01(h) * 6.2832f, up = low ? Mathf.Lerp(0.05f, 0.3f, FxQuality.Hash01(h + 1u)) : Mathf.Lerp(0.3f, 1.2f, FxQuality.Hash01(h + 1u)), v = speed * Mathf.Lerp(0.5f, 1.2f, FxQuality.Hash01(h + 2u));
                 Vector3 dir = new Vector3(Mathf.Cos(a), up, Mathf.Sin(a)).normalized;
                 chunks.Add(new Chunk { Pos = at, Vel = dir * v, Born = Time.time, Life = Mathf.Lerp(0.45f, 1.1f, FxQuality.Hash01(h + 3u)), Size = size * Mathf.Lerp(0.6f, 1.5f, FxQuality.Hash01(h + 4u)), Kind = 3 });
             }
