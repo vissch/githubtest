@@ -322,15 +322,110 @@ namespace TW.Tests
         }
 
         [Test]
-        public void TheDead_CarryNoFightFlags()
+        public void TheWinner_LeavesTheFight_AndTheSlotsNextTenantStartsArmed()
         {
             using var m = Pair(InfantryArchetype.Assault, InfantryArchetype.Rifle, 5f, out int man, out int foe, hp: 20f, foeHp: 2000f);
             var w = m.World;
             Run(m, 600);
             Assert.IsFalse(w.IsAlive(man), "setup: the weak man lost");
-            Assert.AreEqual(0u, w.Flags[man] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed), "no fight flags on a dead man");
-            Assert.AreEqual(-1, m.Melee.Foe[man]);
-            Assert.AreEqual(0u, w.Flags[foe] & (uint)UnitFlags.Melee, "and the winner is out of the fight");
+            Assert.AreEqual(0u, w.Flags[foe] & (uint)UnitFlags.Melee, "the winner is out of the fight");
+            Assert.AreEqual(-1, m.Melee.Foe[foe]); Assert.AreEqual(0, m.Melee.Contact[foe]);
+            // (a dead man's flags are zeroed by Despawn whatever MeleeSystem does: what matters is the next man in his slot)
+            int next = w.Spawn(0, InfantryArchetype.Assault, new float3(40f, 0f, 60f), 100f, 3f, false);
+            Assert.AreEqual(man, next, "setup: the slot is used again");
+            Run(m, 2);
+            Assert.AreEqual(0, m.Melee.Dropped[next], "he comes with his weapon in his hands");
+            Assert.AreEqual(0u, w.Flags[next] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed));
+        }
+
+        [Test]
+        public void AChargingMan_StillThrowsHisBundleAtAMachineBesideHim()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var w = m.World;
+            int man = w.Spawn(0, InfantryArchetype.Rifle, new float3(150f, 0f, 300f), 5000f, 0.001f, false);
+            w.Spawn(1, InfantryArchetype.Medic, new float3(156f, 0f, 300f), 1e6f, 0.001f, false);   // a man to charge
+            int tank = w.Spawn(1, VehicleArchetype.Tusk, new float3(150f, 0f, 305f), RosterEntry.Tusk.Hp, 0f, true);   // and a machine within 8 m
+            bool bundle = false; int charging = 0;
+            // a bundle thrown while the Melee flag was up since the tick before (DirectFire steps before MeleeSystem)
+            bool flagged = false;
+            Run(m, 300, t =>
+            {
+                var ev = w.Events.Events;
+                for (int k = 0; k < ev.Length; k++) if (ev[k].Type == SimEventType.Shot && ev[k].A == man && ev[k].B == tank && ev[k].Scalar == 1f && flagged) bundle = true;
+                flagged = (w.Flags[man] & (uint)UnitFlags.Melee) != 0;
+                if (flagged) charging++;
+            });
+            Assert.Greater(charging, 60, "setup: he was in the fight with the man beside the tank");
+            Assert.IsTrue(bundle, "a grenade bundle at the tank, charge or no charge");
+        }
+
+        [Test]
+        public void AManStabbedFromBehind_TurnsOnTheManWhoStabbedHim()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var w = m.World;
+            // A (team 0) and B (team 1) fight; C (team 1) comes up behind A. A must turn on C when C strikes him, B being
+            // at A already (B's foe is A, so the rule's "his foe is busy with another" is false): give B a second foe D
+            int a = w.Spawn(0, InfantryArchetype.Rifle, new float3(150f, 0f, 300f), 1e6f, 0.001f, false);
+            int b = w.Spawn(1, InfantryArchetype.Rifle, new float3(151.8f, 0f, 300f), 1e6f, 0.001f, false);
+            int d = w.Spawn(0, InfantryArchetype.Rifle, new float3(153.4f, 0f, 300f), 1e6f, 0.001f, false);   // B's other foe, on B's far side
+            int c = w.Spawn(1, InfantryArchetype.Rifle, new float3(148.0f, 0f, 300f), 1e6f, 0.001f, false);   // behind A, farther than B: B is A's first foe
+            bool turned = false;
+            Step(m);
+            Assert.AreEqual(b, m.Melee.Foe[a], "setup: A is at B first");
+            Assert.AreEqual(d, m.Melee.Foe[b], "setup: B is at D");
+            Run(m, 300, t => { if (m.Melee.Foe[a] == c && m.Melee.Contact[a] != 0) turned = true; });
+            Assert.IsTrue(turned, "A turned on the man at his back");
+        }
+
+        [Test]
+        public void AManDownUnderFire_CrawlsOnInsteadOfCharging()
+        {
+            using var m = Pair(InfantryArchetype.Rifle, InfantryArchetype.Medic, 6f, out int man, out int foe, foeHp: 1e6f);
+            var w = m.World;
+            w.Suppression[man] = SuppressionRules.ProneThreshold + 5f;
+            Run(m, 60, t =>
+            {
+                w.Suppression[man] = SuppressionRules.ProneThreshold + 5f;
+                if (m.Movement.Engage[man] == MovementSystem.EngageClose && (w.Flags[man] & (uint)UnitFlags.Melee) != 0) Assert.Fail($"tick {t}: a man pressed flat charged");
+            });
+        }
+
+        [Test]
+        public void AStalledCrab_DoesNotPounce()
+        {
+            using var m = Playtest();
+            var w = m.World;
+            int crab = Crab(m, 0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f));
+            float front = VehicleProfile.ForArchetype(VehicleArchetype.Pincer).HalfLength;
+            w.Spawn(1, InfantryArchetype.Rifle, new float3(30f, 0f, 30f + front + 7f), 100f, 0f, false);
+            // its engine shot out: VehicleModulesSystem rewrites Stalled from it every tick
+            Run(m, 1);
+            m.Modules.Module[crab * (int)VehicleModule.Count + (int)VehicleModule.Engine] = 0.05f;
+            var log = Run(m, 60);
+            Assert.AreNotEqual(0u, w.Flags[crab] & (uint)UnitFlags.Stalled, "setup: it is stalled");
+            Assert.AreEqual(0, Count(log, SimEventType.PounceCrouched, crab), "a stalled machine does not leap");
+        }
+
+        [Test]
+        public void APouncingCrab_SetsOffNoMineUnderItsLeap()
+        {
+            using var m = Playtest();
+            var w = m.World;
+            int crab = Crab(m, 0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f));
+            float front = VehicleProfile.ForArchetype(VehicleArchetype.Pincer).HalfLength;
+            float3 manAt = new float3(30f, 0f, 30f + front + 9f);
+            // an enemy mine half way along its leap, where no foot and no track ever touches the ground; armed first
+            // (MineSystem.ArmTicks), then the man it leaps at
+            m.Mines.Place(w, (new float3(30f, 0f, 30f) + manAt) * 0.5f, new float3(1f, 0f, 0f), 0f, 1, TW.Sim.Combat.MineKind.Mine);
+            Run(m, TW.Sim.Combat.MineSystem.ArmTicks + 5);
+            w.Spawn(1, InfantryArchetype.Rifle, manAt, 100f, 0f, false);
+            var log = Run(m, 40);
+            Assert.AreEqual(1, Count(log, SimEventType.PounceLanded, crab), "setup: it leapt");
+            Assert.AreEqual(0, Count(log, SimEventType.MineTriggered), "nothing went off under it in the air");
         }
 
         [Test]

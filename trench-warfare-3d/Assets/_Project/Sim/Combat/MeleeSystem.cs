@@ -21,8 +21,13 @@
 // Blows: MeleeBlow (a = attacker, b = defender, pos = the attacker, dir.xz = towards the defender, dir.y = the style,
 // scalar = damage, 0 blocked, -1 missed) and, when it lands, the ordinary Hit (so the hit reactions and the impact
 // flash need nothing new); a killing blow despawns the defender with the attacker as his killer.
+// A blow's damage takes the officer's aura, the Hero's and a veteran's share (AuraSystem.DamageMul, as a round's does);
+// a kill counts for the side (DirectFireSystem.Kills) and is listed in Killed for HeroSystem's feats. A man struck by
+// someone other than his foe turns on him when his foe is busy with another (StruckBy): nobody stands being stabbed in
+// the back (critic r2). A man with no weapon (a medic) has nothing to throw down.
 // Found in parallel (each man reads the others and writes only his own entries), resolved on the main thread in slot
-// order (a blow kills; the next man must see it). State: Foe, FoeGen, Contact, Swing, Dropped, Calm, gen; all hashed.
+// order (a blow kills; the next man must see it). State: Foe, FoeGen, Contact, Swing, Dropped, Calm, StruckBy, gen; all
+// hashed.
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -66,8 +71,14 @@ namespace TW.Sim.Combat
         /// <summary>1 while his weapon lies on the ground (a fists man in a fight), and ticks since the fight ended.</summary>
         public NativeArray<byte> Dropped;
         public NativeArray<short> Calm;
+        /// <summary>Who struck him on the last tick (a slot, -1 nobody): FindJob turns him on that man.</summary>
+        public NativeArray<int> StruckBy;
+        /// <summary>This step's kills (x the dead, y the killer), for HeroSystem's feats (read the tick after).</summary>
+        public NativeList<int2> Killed;
         NativeArray<ushort> gen;
         NativeArray<int> found;
+        AuraSystem aura;
+        DirectFireSystem fire;
         NativeArray<float3> towards;   // xz: the unit direction to the foe, y: the distance
 
         public MeleeSystem(MapData map) { this.map = map; }
@@ -87,6 +98,9 @@ namespace TW.Sim.Combat
             Dropped = new NativeArray<byte>(n, Allocator.Persistent);
             Calm = new NativeArray<short>(n, Allocator.Persistent);
             gen = new NativeArray<ushort>(n, Allocator.Persistent);
+            StruckBy = new NativeArray<int>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) StruckBy[i] = -1;
+            Killed = new NativeList<int2>(16, Allocator.Persistent);
             found = new NativeArray<int>(n, Allocator.Persistent);
             towards = new NativeArray<float3>(n, Allocator.Persistent);
         }
@@ -118,13 +132,16 @@ namespace TW.Sim.Combat
         public void Step(SimWorld w)
         {
             int n = w.HighWater;
+            Killed.Clear();
             if (n == 0) return;
+            aura ??= w.GetSystem<AuraSystem>();
+            fire ??= w.GetSystem<DirectFireSystem>();
             // a slot taken by a new man starts out of any fight, armed
             const uint mine = (uint)(UnitFlags.Melee | UnitFlags.Disarmed);
             for (int i = 0; i < n; i++)
             {
                 if (gen[i] == w.Generation[i]) continue;
-                gen[i] = w.Generation[i]; Foe[i] = -1; FoeGen[i] = 0; Contact[i] = 0; Swing[i] = 0; Dropped[i] = 0; Calm[i] = 0;
+                gen[i] = w.Generation[i]; Foe[i] = -1; FoeGen[i] = 0; Contact[i] = 0; Swing[i] = 0; Dropped[i] = 0; Calm[i] = 0; StruckBy[i] = -1;
                 if ((w.Flags[i] & mine) != 0) w.Flags[i] &= ~mine;
             }
             new FindJob
@@ -134,7 +151,7 @@ namespace TW.Sim.Combat
                 Specs = w.Units.Infantry, Weapons = catalogue.Weapon, Goals = fields.Goals, Layers = map.NavLayers,
                 NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Grid = acquisition.Grid, GridW = acquisition.GridW, GridL = acquisition.GridL, CellTrench = map.CellTrenchId,
-                Foe = Foe, FoeGen = FoeGen, Contact = Contact, Found = found, Towards = towards,
+                Foe = Foe, FoeGen = FoeGen, Contact = Contact, StruckBy = StruckBy, Found = found, Towards = towards,
             }.Schedule(n, 64).Complete();
             Resolve(w, n);
         }
@@ -143,6 +160,8 @@ namespace TW.Sim.Combat
         /// weapons, strike.</summary>
         void Resolve(SimWorld w, int n)
         {
+            // FindJob has read last tick's strikes; this tick's blows write their own (a one-tick memory)
+            for (int i = 0; i < n; i++) StruckBy[i] = -1;
             const uint melee = (uint)UnitFlags.Melee, disarmed = (uint)UnitFlags.Disarmed;
             for (int i = 0; i < n; i++)
             {
@@ -179,8 +198,9 @@ namespace TW.Sim.Combat
                 if (foe < 0) { Foe[i] = -1; FoeGen[i] = 0; }
                 f = foe >= 0 ? f | melee : f & ~melee;
 
-                // a fists man throws his weapon down as it comes to blows, and picks it up once it is over
-                if (touching && Dropped[i] == 0 && !KeepsRifle(w.Archetype[i]))
+                // a fists man throws his weapon down as it comes to blows, and picks it up once it is over (a man with
+                // none, a medic, has nothing to throw)
+                if (touching && Dropped[i] == 0 && !KeepsRifle(w.Archetype[i]) && catalogue.Weapon[w.Archetype[i]].Damage > 0f)
                 {
                     Dropped[i] = 1; Calm[i] = 0; f |= disarmed;
                     float3 aside = new float3(-dir.y, 0f, dir.x) * ((i & 1) == 0 ? 1f : -1f);
@@ -210,7 +230,7 @@ namespace TW.Sim.Combat
             var spec = w.Units.Infantry[w.Archetype[i]];
             var weapon = catalogue.Weapon[w.Archetype[i]];
             if (!EngageSystem.Fights(spec, weapon)) return false;
-            // a flamethrower (12 m) would put his weapon down before he could use it: he flames until it comes to blows
+            // a flamethrower (9.6 m) would put his weapon down before he could use it: he flames until it comes to blows
             if (weapon.Mode == FireMode.Cone) return false;
             int goal = w.GoalId[i];
             return goal < 0 || fields.Goals[goal].Kind != GoalKind.Cell;
@@ -232,14 +252,22 @@ namespace TW.Sim.Combat
             {
                 // he turns it aside if he is in the fight too, facing it, with his rifle or his fists up
                 bool guard = Contact[j] != 0 && Foe[j] == i;
-                float block = Dropped[j] != 0 || !KeepsRifle(w.Archetype[j]) ? BlockFists : BlockRifle;
-                damage = guard && dice.NextFloat() < block ? 0f : DamageOf(style);
+                // a rifle or a shield's plate turns a blow better than bare hands
+                bool plate = w.Archetype[j] == InfantryArchetype.Shield;
+                float block = !plate && (Dropped[j] != 0 || !KeepsRifle(w.Archetype[j])) ? BlockFists : BlockRifle;
+                damage = guard && dice.NextFloat() < block ? 0f : DamageOf(style) * (aura != null ? aura.DamageMul[i] : 1f);
             }
+            StruckBy[j] = i;
             w.Events.Add(w.Tick, SimEventType.MeleeBlow, i, j, w.Position[i], at, damage);
             if (damage <= 0f) return;
             w.Hp[j] = w.Hp[j] - damage;
             w.Events.Add(w.Tick, SimEventType.Hit, i, j, w.Position[j], new float3(dir.x, 0f, dir.y), damage);
-            if (w.Hp[j] <= 0f) w.Despawn(j, i, new float3(dir.x, 0f, dir.y), Knock);
+            if (w.Hp[j] <= 0f)
+            {
+                Killed.Add(new int2(j, i));
+                if (fire != null) fire.Kills[w.Team[i] & 1]++;
+                w.Despawn(j, i, new float3(dir.x, 0f, dir.y), Knock);
+            }
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
@@ -262,6 +290,7 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<int> Foe;
             [ReadOnly] public NativeArray<ushort> FoeGen;
             [ReadOnly] public NativeArray<byte> Contact;
+            [ReadOnly] public NativeArray<int> StruckBy;
             // each index writes only its own entry of these
             public NativeArray<int> Found;
             public NativeArray<float3> Towards;
@@ -335,6 +364,14 @@ namespace TW.Sim.Combat
                 }
                 // he keeps the man he is at unless another is clearly nearer
                 if (kept >= 0 && !(best >= 0 && bestD < keptD - 0.5f)) { best = kept; bestD = keptD; }
+                // struck by another while his own foe fights someone else: he turns on the man who struck him
+                int s = StruckBy[i];
+                if (s >= 0 && s != best && Enemy(i, s) && (best < 0 || Foe[best] != i))
+                {
+                    float3 e = Position[s] - p; e.y = 0f;
+                    float d = SimMath.Length(e);
+                    if (d <= BreakRange) { best = s; bestD = d; }
+                }
                 if (best < 0) return;
                 float3 to = Position[best] - p; to.y = 0f;
                 float dist = SimMath.Length(to);
@@ -359,6 +396,7 @@ namespace TW.Sim.Combat
             h = SimHash.Array(Swing, h);
             h = SimHash.Array(Dropped, h);
             h = SimHash.Array(Calm, h);
+            h = SimHash.Array(StruckBy, h);
             return SimHash.Array(gen, h);
         }
 
@@ -371,6 +409,8 @@ namespace TW.Sim.Combat
             if (Dropped.IsCreated) Dropped.Dispose();
             if (Calm.IsCreated) Calm.Dispose();
             if (gen.IsCreated) gen.Dispose();
+            if (StruckBy.IsCreated) StruckBy.Dispose();
+            if (Killed.IsCreated) Killed.Dispose();
             if (found.IsCreated) found.Dispose();
             if (towards.IsCreated) towards.Dispose();
         }
