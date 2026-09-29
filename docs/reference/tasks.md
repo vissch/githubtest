@@ -371,12 +371,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/HullRide.cs` (its pure maths: the exact spring solve, the felt acceleration, shot weights, the
   recoil's shape, kick sizes, a walker's kick layer, a turret's settle),
   `Presentation/Camera/MachineSockets.cs` (a walker answers the first of a numbered socket pair with its one socket),
+  `Presentation/Camera/TankRenderer.Lights.cs` (a machine's own lights, each behind a knob at 0: `tank.lamps` four running
+  lamps on the hull's corners, `tank.lampHue` the side's colour or Dust Front's red, `tank.lampSize`, `tank.exhaustGlow`
+  the exhausts and the Maw's furnace, `tank.lightReach`; glow cards NightLights draws, and with `lights.machinePool` a
+  burning machine's, a cook-off's and the furnace's real lights), `Presentation/Camera/MachineLamps.cs` (where the lamps and
+  the furnace sit, read off the hull in its own frame), `Presentation/Core/MachineLightSlots.cs` (which machine light
+  keeps a slot of the pool: priority, then brightness; the pool is `Presentation/Terrain/NightLights.Machines.cs`),
   `Presentation/Camera/WalkerGait.cs` (planted feet; `SwingScale`, `ArcScale` from the style; `TiltCapPitch`, `TiltCapRoll`), `Shaders/Tank_URP.shader`, `Shaders/TankDisc_URP.shader`,
   import rules `Editor/TankImport.cs`. Infantry riding the machines (a prototype, presentation only):
   `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
   `Presentation/Units/VATRenderer.Extras.cs` (the riders drawn; a seated man is hidden from the normal pass),
   `Editor/RiderLab.cs` (the seat sheet and captures).
-- **Tests:** GaitTests (plus the sim tests above), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
+- **Tests:** GaitTests (plus the sim tests above), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
   for the rig scoreboard in `docs/20-rig-scoreboard.md`.
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
@@ -502,7 +508,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   crater colour texture `colorTex` and uploads it in `Update` whenever a crater painted it),
   `Presentation/Terrain/BattlefieldSurface.cs` (surface kinds; `RefreshHollows` finds where water pools in craters,
   about 11 ms, whole-map and order-dependent, marker `TW.Terrain.Hollows`, run under `HeavyWork`; no test covers it),
-  `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs`,
+  `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs` (with `NightLights.Machines.cs`: the
+  machines' glow cards after the flash pool's, `lights.maxMachineGlows`, and their own light pool, `lights.machinePool`),
   `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs`, `Presentation/Terrain/QuietFog.cs`,
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
