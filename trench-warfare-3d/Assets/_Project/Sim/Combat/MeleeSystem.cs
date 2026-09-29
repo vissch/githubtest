@@ -22,7 +22,9 @@
 // scalar = damage, 0 blocked, -1 missed) and, when it lands, the ordinary Hit (so the hit reactions and the impact
 // flash need nothing new); a killing blow despawns the defender with the attacker as his killer.
 // A blow's damage takes the officer's aura, the Hero's and a veteran's share (AuraSystem.DamageMul, as a round's does);
-// a kill counts for the side (DirectFireSystem.Kills) and is listed in Killed for HeroSystem's feats. A man struck by
+// a rifle that hits harder hits harder with the butt too (WeaponMul: its damage over the rifleman's, 0.75 to 1.25; the
+// Death Battalion); a kill counts for the side (DirectFireSystem.Kills, and KillsWithoutShot) and is listed in Killed
+// for HeroSystem's feats (read the tick after, before its fallen check). A man struck by
 // someone other than his foe turns on him when his foe is busy with another (StruckBy): nobody stands being stabbed in
 // the back (critic r2). A man with no weapon (a medic) has nothing to throw down.
 // Found in parallel (each man reads the others and writes only his own entries), resolved on the main thread in slot
@@ -128,6 +130,12 @@ namespace TW.Sim.Combat
         /// <summary>The damage of a blow of this style.</summary>
         public static float DamageOf(byte style)
             => style == StyleStab ? StabDamage : style == StyleButt ? ButtDamage : style == StyleSmash ? SmashDamage : FistDamage;
+
+        public const float WeaponMulMin = 0.75f, WeaponMulMax = 1.25f;
+        /// <summary>A rifle blow's share of the weapon: its damage per round over the rifleman's, clamped (a sniper's heavy
+        /// rifle no club, a machine gunner's lighter one no twig). Fists are 1.</summary>
+        public static float WeaponMul(float damage, float rifleDamage)
+            => rifleDamage > 0f ? math.clamp(damage / rifleDamage, WeaponMulMin, WeaponMulMax) : 1f;
 
         public void Step(SimWorld w)
         {
@@ -262,7 +270,9 @@ namespace TW.Sim.Combat
                 // a rifle or a shield's plate turns a blow better than bare hands
                 bool plate = w.Archetype[j] == InfantryArchetype.Shield;
                 float block = !plate && (Dropped[j] != 0 || !KeepsRifle(w.Archetype[j])) ? BlockFists : BlockRifle;
-                damage = guard && dice.NextFloat() < block ? 0f : DamageOf(style) * (aura != null ? aura.DamageMul[i] : 1f);
+                float arm = style == StyleFists ? 1f
+                    : WeaponMul(catalogue.Weapon[w.Archetype[i]].Damage, catalogue.Weapon[InfantryArchetype.Rifle].Damage);
+                damage = guard && dice.NextFloat() < block ? 0f : DamageOf(style) * arm * (aura != null ? aura.DamageMul[i] : 1f);
             }
             StruckBy[j] = i;
             w.Events.Add(w.Tick, SimEventType.MeleeBlow, i, j, w.Position[i], at, damage);
@@ -272,7 +282,7 @@ namespace TW.Sim.Combat
             if (w.Hp[j] <= 0f)
             {
                 Killed.Add(new int2(j, i));
-                if (fire != null) fire.Kills[w.Team[i] & 1]++;
+                if (fire != null) { fire.Kills[w.Team[i] & 1]++; fire.KillsWithoutShot[w.Team[i] & 1]++; }
                 w.Despawn(j, i, new float3(dir.x, 0f, dir.y), Knock);
             }
         }

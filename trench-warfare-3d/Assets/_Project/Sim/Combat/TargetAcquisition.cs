@@ -340,6 +340,10 @@ namespace TW.Sim.Combat
                 // three nearest engageable enemies, ordered by (distance, slot)
                 int b0 = -1, b1 = -1, b2 = -1;
                 float d0 = float.MaxValue, d1 = float.MaxValue, d2 = float.MaxValue;
+                // a man charging or fighting hand to hand shoots nothing but the grenade bundle (DirectFire): the nearest
+                // machine within its reach, even with the man he fights nearer (critic r3: a fists man never bundled)
+                bool handToHand = (f & (uint)(UnitFlags.Melee | UnitFlags.Disarmed)) != 0 && (f & (uint)UnitFlags.Vehicle) == 0;
+                int veh = -1; float dv = float.MaxValue;
                 // and, for a man who goes after the enemy, the nearest of them in the open, seen or not
                 bool hunter = Hunts && EngageSystem.Hunter(f, garrison) && EngageSystem.Fights(Specs[Archetype[i]], weapon);
                 int hunt = -1; float huntSq = EngageSystem.HuntRadius * EngageSystem.HuntRadius;
@@ -360,6 +364,8 @@ namespace TW.Sim.Combat
                             if (es < huntSq || (es == huntSq && hunt >= 0 && j < hunt)) { huntSq = es; hunt = j; }
                         }
                         if (!Engageable(i, j, p, myTrench, rangeSq, out float ds)) continue;
+                        if (handToHand && (Flags[j] & (uint)UnitFlags.Vehicle) != 0 && ds <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange
+                            && (ds < dv || (ds == dv && j < veh))) { dv = ds; veh = j; }
                         if (ds < d0 || (ds == d0 && j < b0)) { d2 = d1; b2 = b1; d1 = d0; b1 = b0; d0 = ds; b0 = j; }
                         else if (ds < d1 || (ds == d1 && j < b1)) { d2 = d1; b2 = b1; d1 = ds; b1 = j; }
                         else if (ds < d2 || (ds == d2 && j < b2)) { d2 = ds; b2 = j; }
@@ -370,6 +376,7 @@ namespace TW.Sim.Combat
                 else if (b1 >= 0 && Sees(i, b1, myTrench)) pick = b1;
                 else if (b2 >= 0 && Sees(i, b2, myTrench)) pick = b2;
                 if (pick >= 0 && (Flags[pick] & (uint)UnitFlags.Vehicle) == 0) pick = Shielded(i, pick, p, myTrench, rangeSq);
+                if (veh >= 0 && veh != pick && Sees(i, veh, myTrench)) pick = veh;
                 TargetSlot[i] = pick;
                 if (hunter) { Hunt[i] = hunt; HuntGen[i] = hunt >= 0 ? Generation[hunt] : (ushort)0; }
             }

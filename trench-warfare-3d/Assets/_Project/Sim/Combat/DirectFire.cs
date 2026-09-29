@@ -58,6 +58,9 @@ namespace TW.Sim.Combat
         /// <summary>Totals since the match started, per team: shots fired and kills scored. Derived from hashed state, not hashed itself.</summary>
         public readonly int[] Shots = new int[SimConfig.MaxPlayers];
         public readonly int[] Kills = new int[SimConfig.MaxPlayers];
+        /// <summary>Of <see cref="Kills"/>, those made without a shot (a blow, MeleeSystem; a crab landing, PounceSystem): a
+        /// hit rate is (Kills - KillsWithoutShot) / Shots. Derived, not hashed.</summary>
+        public readonly int[] KillsWithoutShot = new int[SimConfig.MaxPlayers];
 
         public DirectFireSystem(MapData map) { this.map = map; }
 
