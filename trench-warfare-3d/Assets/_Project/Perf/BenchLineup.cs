@@ -28,22 +28,24 @@ namespace TW.Perf
         public static readonly byte[] Machines = { VehicleArchetype.Tusk, VehicleArchetype.Pavise, VehicleArchetype.Kettle, VehicleArchetype.Salvo };
         /// <summary>The bursts in a row beyond the lineup: a shell (the HE barrage), a mine, a tripwire (Explosion.a sources).</summary>
         public static readonly int[] Bursts = { (int)TW.Sim.Match.OffMapAbilityId.HeBarrage, MineSystem.SourceBase + (int)MineKind.Mine, MineSystem.SourceBase + (int)MineKind.Tripwire };
-        public const float Gap = 16f, Spacing = 2.5f, MachinesBack = 10f, MachineSpacing = 7f, BurstRow = 16f, TargetsBeyond = 16f;
+        public const float Gap = 16f, Spacing = 2.5f, MachinesBack = 22f, MachineSpacing = 7f, BurstRow = 16f, TargetsBeyond = 16f;
         /// <summary>Knob: what the lineup fires. 1 the small arms only (a still of the men), 2 the guns and the bursts only,
         /// anything else both.</summary>
         public const string FireKnob = "bench.lineupFire";
 
-        /// <summary>Where man `i` of `team`'s row stands (x, z): the rows run along z, Gap apart across x, player 0 to the west.</summary>
+        /// <summary>Where man `i` of `team`'s row stands (x, z): the rows run along x (the held camera's line of sight, yaw 21),
+        /// Gap apart across z, player 0 to the south, so every man fires ACROSS the view, broadside to the eye. Rows across x
+        /// (la9) fired along the eye's line and drew nearly every flare end-on (critique r9).</summary>
         public static Vector2 Spot(Vector2 focus, byte team, int i) =>
-            focus + new Vector2(team == 0 ? -Gap * 0.5f : Gap * 0.5f, (i - (Men.Length - 1) * 0.5f) * Spacing);
+            focus + new Vector2((i - (Men.Length - 1) * 0.5f) * Spacing, team == 0 ? -Gap * 0.5f : Gap * 0.5f);
 
         public static Vector2 MachineSpot(Vector2 focus, int i) =>
-            focus + new Vector2(-Gap * 0.5f - MachinesBack, (i - (Machines.Length - 1) * 0.5f) * MachineSpacing);
+            focus + new Vector2((i - (Machines.Length - 1) * 0.5f) * MachineSpacing, -Gap * 0.5f - MachinesBack);
 
-        public static Vector2 BurstSpot(Vector2 focus, int i) => focus + new Vector2(Gap * 0.5f + TargetsBeyond, (i - (Bursts.Length - 1) * 0.5f) * 10f + BurstRow);
+        public static Vector2 BurstSpot(Vector2 focus, int i) => focus + new Vector2((i - (Bursts.Length - 1) * 0.5f) * 10f + BurstRow, Gap * 0.5f + TargetsBeyond);
 
         /// <summary>Where machine `i`'s round lands: well past player 1's row, so its burst does not hide the men.</summary>
-        public static Vector2 TargetSpot(Vector2 focus, int i) => focus + new Vector2(Gap * 0.5f + TargetsBeyond, (i - (Machines.Length - 1) * 0.5f) * 10f - BurstRow);
+        public static Vector2 TargetSpot(Vector2 focus, int i) => focus + new Vector2((i - (Machines.Length - 1) * 0.5f) * 10f - BurstRow, Gap * 0.5f + TargetsBeyond);
 
         /// <summary>The window tick (after t0) each thing goes off, about shot_tick `s`: the small arms every tick from s-3 to
         /// s+5; the guns at s-12 and their bursts and the row's at s-11, so the trails, the smoke and the columns have grown by
@@ -77,15 +79,15 @@ namespace TW.Perf
                 }
                 for (int i = 0; i < Men.Length; i++)
                 {
-                    int a = Put(0, Men[i], Spot(view, 0, i), false, Mathf.PI * 0.5f), b = Put(1, Men[i], Spot(view, 1, i), false, -Mathf.PI * 0.5f);
+                    int a = Put(0, Men[i], Spot(view, 0, i), false, 0f), b = Put(1, Men[i], Spot(view, 1, i), false, Mathf.PI);
                     if (local) { show.row0[i] = a; show.row1[i] = b; }
                 }
                 for (int i = 0; i < Machines.Length; i++)
                 {
-                    int s = Put(0, Machines[i], MachineSpot(view, i), true, Mathf.PI * 0.5f);
+                    int s = Put(0, Machines[i], MachineSpot(view, i), true, 0f);
                     if (local) show.machines[i] = s;
                 }
-                int k = Put(1, InfantryArchetype.Rifle, MachineSpot(view, 0) + new Vector2(6f, 0f), false, -Mathf.PI * 0.5f);   // beside the Tusk: its close assault
+                int k = Put(1, InfantryArchetype.Rifle, MachineSpot(view, 0) + new Vector2(0f, 6f), false, Mathf.PI);   // beside the Tusk: its close assault
                 if (local) show.bomber = k;
             });
             if (!wrote) { log.Warnings.Add("lineup: SimHost.WriteWorlds refused (the canary is waiting on the network): nobody spawned"); return null; }
@@ -108,7 +110,7 @@ namespace TW.Perf
                     Fire(frame, w, tick, row1[i], row0[i], i + 7);
                 }
             if (arms && t == s - 3 && Alive(w, bomber) && Alive(w, machines[0]))   // the bundle onto the Tusk
-                frame.Add(new SimEvent { Tick = tick, Type = SimEventType.Shot, A = bomber, B = machines[0], Pos = w.Position[bomber], Dir = new float3(-1f, 0f, 0f), Scalar = 1f });
+                frame.Add(new SimEvent { Tick = tick, Type = SimEventType.Shot, A = bomber, B = machines[0], Pos = w.Position[bomber], Dir = new float3(0f, 0f, -1f), Scalar = 1f });
             if (guns && GunsAt(t, s))
                 for (int i = 0; i < Machines.Length; i++)
                 {
