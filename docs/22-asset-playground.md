@@ -344,8 +344,7 @@ on it, and `A_Gatling_...` checks their mesh's middle does not move while they s
   pumping with the burst, the heat light over the middle of the barrels and a wisp of smoke off them after a burst. A
   barrel set holds until the machine is Damaged (the first 15-damage hit took half its guns at 85 % health). Landing
   dust is a brown haze (`PlaygroundFx.Dust`), a hit's smoke a rising dust puff, the shell burst card lit and rising as
-  the battle draws it. Open: three dense grey smoke cards of the shell burst still read as a blue ball in front of the
-  body at night; the throat swell is small at the default camera distance.
+  the battle draws it. Round g15: the blue ball was the shell burst's own card (its last frames are smoke; drawing the burst without it showed it) and the three smoke cards, untinted under the moon: both now carry moon-divided tints (`TintDust`), the smoke thinner (0.65), after the flash and drifting apart; the throat swells 0.2 hull units for 0.45 s a pulse, weighted and pushed by position from the sac's centre (the normal-based push tore a dark slit at the lip seam once it was deeper).
 - Open before the battle: the eye and the receivers brighten at the 0->1 switch (+29 and +18 luma on the eye's
   blocks). Re-baking LOD1/2 onto their own atlases from LOD0 (fbxlod2.py's bake: fresh UVs, emission, filled misses;
   1024/512 px) measured worse, twice each against the shared atlas: 0->1 block mean 4.70/4.67 against 4.40/4.42 (worst
