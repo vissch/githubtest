@@ -262,6 +262,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
             Shader.SetGlobalFloat(WetLookId, 0f);
             ClearBiome();
+            UnhookFog();
             if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
             if (profile != null) Destroy(profile);
         }
@@ -306,15 +307,10 @@ namespace TW.Presentation.Terrain
             cam.backgroundColor = sky;
             shadeNow = Color.Lerp(ShadeTint, Profile.FlashShade, flash * .4f);
             flashNow = flash;
-            float height = Mathf.Max(1f, cam.transform.position.y);
-            float toFocus = ViewGround.Along(height, cam.transform.forward, 0.12f);   // distance to the ground along the view
-            RenderSettings.fogStartDistance = toFocus * StartFactor;
             // a squall closes the distance in: the far ground sinks into the rain
-            float squall = Rain > 0f ? Mathf.Clamp01(RainNow / (Rain * 1.25f)) : 0f;
-            RenderSettings.fogEndDistance = LiftedFogEnd(toFocus * StartFactor, toFocus * StartFactor + Depth * (1f - .38f * squall) + toFocus, toFocus, liftReach, lifted);
-
-            float water = RenderGround.Map != null && RenderGround.Map.WaterLevel > TW.Sim.Terrain.MapData.NoWater ? RenderGround.Map.WaterLevel : 0f;
-            Shader.SetGlobalVector(MistId, new Vector4(water + MistTop, 1f / Mathf.Max(0.05f, MistDepth), toFocus * 0.8f, 1f / Mathf.Max(10f, toFocus * 0.55f)));
+            fogSquall = Rain > 0f ? Mathf.Clamp01(RainNow / (Rain * 1.25f)) : 0f;
+            fogLifted = lifted;
+            FogDistances(cam);   // and again as the camera renders while lifted (Atmosphere.NightLook.cs)
             Color mist = Lifted(Mist, LiftMist, lifted * liftMist);
             Shader.SetGlobalVector(MistColorId, new Vector4(mist.r, mist.g, mist.b, MistDensity));
 
