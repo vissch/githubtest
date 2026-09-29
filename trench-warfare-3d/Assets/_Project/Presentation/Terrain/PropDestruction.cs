@@ -198,7 +198,7 @@ namespace TW.Presentation.Terrain
             if (loose.Count > 0) Fly(Mathf.Min(Time.deltaTime, 0.05f), now);
             // the tracks: once per sim tick, from the tick state
             var w = Host.Local.World;
-            if (w.Tick != lastCrushTick) { lastCrushTick = w.Tick; Crush(w); }
+            if (w.Tick != lastCrushTick) { lastCrushTick = w.Tick; Crush(w); Ram(w); }   // Ram: heavy machines through walls (props.ram)
             Wear(w);        // and what a stream of bullets has done, every WearTicks of them
             Twitch(now);    // the things a round knocked about, settling back
         }
@@ -449,6 +449,7 @@ namespace TW.Presentation.Terrain
             damage.Remove(key);
             damaged.Remove(key);   // gone is not damaged: SectionsDamaged counted the dead, and they filled the set's cap
             Down(module, page, slot, key);
+            LampOut(module, m);
             if (rule.Kick) { Toss(module, rule, m, origin, power, debris, salt); return; }
             if (!props.Kit.HouseChunkOf.ContainsKey(module) || !Throw(module, rule, m, origin, power, harm, salt))
                 Collapse(module, rule, m, origin, power, debris, salt, shake);
@@ -483,6 +484,7 @@ namespace TW.Presentation.Terrain
                         if (destroyed.Contains(key)) continue;
                         damage.Remove(key);
                         Down(module, page, slot, key);
+                        LampOut(module, m);
                         Flatten(module, rule, m, heading, debris, w.Tick * 41u + (uint)(v * 13 + i));
                         if (rule.Cook) SetOff(m, w.Tick * 43u + (uint)i);
                         Crushed++;
