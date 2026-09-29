@@ -34,7 +34,7 @@ namespace TW.Tests
                 int o = p * RosterEntry.SlotCount;
                 AssertEntry(roster[o + 0], InfantryArchetype.Rifle, 25, 100, 3.0f, 0, false, $"p{p} slot 0");
                 AssertEntry(roster[o + 1], InfantryArchetype.Assault, 40, 90, 4.2f, 0, false, $"p{p} slot 1");
-                AssertEntry(roster[o + 2], InfantryArchetype.Machinegunner, 60, 110, 2.2f, 0, false, $"p{p} slot 2");
+                AssertEntry(roster[o + 2], InfantryArchetype.Machinegunner, 80, 110, 2.2f, 0, false, $"p{p} slot 2");
             }
             AssertEntry(roster[3], InfantryArchetype.Officer, 120, 100, 3.0f, 400, false, "iron slot 3");
             AssertEntry(roster[4], InfantryArchetype.Shield, 70, 140, 3.2f, 0, false, "iron slot 4");
@@ -44,7 +44,7 @@ namespace TW.Tests
             AssertEntry(roster[8], VehicleArchetype.Banner, 400, 1900, 2.4f, 700, true, "iron walker 2");
             AssertEntry(roster[9], VehicleArchetype.Breaker, 380, 2800, 2.2f, 650, true, "iron breaker");
             int b = RosterEntry.SlotCount;
-            AssertEntry(roster[b + 3], InfantryArchetype.Sniper, 90, 80, 3.0f, 200, false, "brass slot 3");
+            AssertEntry(roster[b + 3], InfantryArchetype.Sniper, 140, 80, 3.0f, 200, false, "brass slot 3");
             AssertEntry(roster[b + 4], InfantryArchetype.Medic, 80, 90, 3.2f, 200, false, "brass slot 4");
             AssertEntry(roster[b + 5], InfantryArchetype.Jetpack, 110, 85, 3.6f, 300, false, "brass slot 5");
             AssertEntry(roster[b + 6], VehicleArchetype.Tusk, 260, 2000, 2.4f, 450, true, "brass tank");

@@ -47,8 +47,8 @@ namespace TW.Editor
             // ---- British ----
             var bRifle = Unit(100, "Rifleman", Faction.British, UnitClass.Rifleman, 25, 100, 3.0f, smle, "British");
             var bRaider = Unit(101, "Trench Raider", Faction.British, UnitClass.Assault, 40, 90, 4.2f, webley, "British", secondary: mills, grenade: 20f);
-            var bLewis = Unit(102, "Lewis Gunner", Faction.British, UnitClass.Machinegunner, 60, 110, 2.2f, lewis, "British");
-            var bSniper = Unit(103, "Sniper", Faction.British, UnitClass.Sniper, 90, 80, 3.0f, scopedSmle, "British", cd: 200, trenchHp: 1f, trenchAcc: 0.25f, trenchRange: 0.4f, prio: 1);
+            var bLewis = Unit(102, "Lewis Gunner", Faction.British, UnitClass.Machinegunner, 80, 110, 2.2f, lewis, "British");
+            var bSniper = Unit(103, "Sniper", Faction.British, UnitClass.Sniper, 140, 80, 3.0f, scopedSmle, "British", cd: 200, trenchHp: 1f, trenchAcc: 0.25f, trenchRange: 0.4f, prio: 1);
             var bOfficer = Unit(104, "Officer", Faction.British, UnitClass.Officer, 110, 100, 3.0f, webleyPistol, "British", cd: 300, aura: 15f);
             var bAt = Unit(105, "Anti-Tank Rifleman", Faction.British, UnitClass.AntiTankRifle, 100, 90, 2.8f, tankgewehr, "British", cd: 240);
             var markIvMale = Unit(110, "Mark IV (Male)", Faction.British, UnitClass.Tank, 350, 10000, 1.6f, sixPdr, "British", secondary: vickers, cd: 600, armor: new[] { 12f, 8f, 6f, 6f }, vehicle: true);
@@ -61,11 +61,11 @@ namespace TW.Editor
             // ---- German ----
             var gRifle = Unit(200, "Infanterist", Faction.German, UnitClass.Rifleman, 25, 100, 3.0f, g98, "German");
             var gSturm = Unit(201, "Sturmtruppen", Faction.German, UnitClass.Assault, 40, 90, 4.2f, mp18, "German", secondary: stiel, grenade: 22f);
-            var gMg = Unit(202, "MG 08/15 Schütze", Faction.German, UnitClass.Machinegunner, 60, 110, 2.2f, mg08, "German");
+            var gMg = Unit(202, "MG 08/15 Schütze", Faction.German, UnitClass.Machinegunner, 80, 110, 2.2f, mg08, "German");
             var gAt = Unit(203, "Tankgewehr Schütze", Faction.German, UnitClass.AntiTankRifle, 100, 90, 2.8f, tankgewehr, "German", cd: 240);
             var gSentry = Unit(204, "Grabenposten (Sentry)", Faction.German, UnitClass.Sentry, 125, 300, 1.8f, mg08Sentry, "German", cd: 300, armor: new[] { 8f, 2f, 0f, 0f }, shieldArc: 60f);
             var gFlame = Unit(205, "Flammenwerfer-Trupp", Faction.German, UnitClass.Flamethrower, 120, 100, 3.0f, flammen, "German", cd: 300);
-            var gSniper = Unit(206, "Scharfschütze", Faction.German, UnitClass.Sniper, 90, 80, 3.0f, scopedG98, "German", cd: 200, trenchHp: 1f, trenchAcc: 0.25f, trenchRange: 0.4f, prio: 1);
+            var gSniper = Unit(206, "Scharfschütze", Faction.German, UnitClass.Sniper, 140, 80, 3.0f, scopedG98, "German", cd: 200, trenchHp: 1f, trenchAcc: 0.25f, trenchRange: 0.4f, prio: 1);
             var a7v = Unit(210, "A7V Sturmpanzerwagen", Faction.German, UnitClass.Tank, 400, 12000, 1.8f, kwk57, "German", secondary: mg08, cd: 700, armor: new[] { 30f, 20f, 20f, 6f }, vehicle: true);
             var ehrhardt = Unit(211, "Ehrhardt E-V/4", Faction.German, UnitClass.ArmouredCar, 250, 4000, 4.0f, mg08, "German", cd: 400, armor: new[] { 7f, 7f, 7f, 7f }, vehicle: true);
             var motorcycle = Unit(212, "Kradschützen MG", Faction.German, UnitClass.Motorcycle, 90, 600, 8.0f, mg08, "German", cd: 200, vehicle: true);

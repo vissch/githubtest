@@ -10,12 +10,12 @@ All are `UnitDefinition` fields and will be tuned; 3D columns are new behaviours
 |---|---|---|---|---|---|---|---|
 | Rifleman | 25 | 100 | 25 | 60 | 0.8 | 3.0 | Fire-step firing; prone in open when suppressed; captures objectives |
 | Assault | 40 | 90 | 12 (×burst 5) | 25 | 4 | 4.2 | Sprint vault; auto grenade at ≤ 20 m onto trench cells (arc, ignores LoS); traverse clearing bonus |
-| Machinegunner | 60 | 110 | 18 | 80 | 8 (belt 50, reload 4 s) | 2.2 | Kneel/prone deploy time 1.5 s; enfilade arc 60° sweep; triple suppression gain; cannot fire while moving |
+| Machinegunner | 80 | 110 | 18 | 80 | 8 (belt 50, reload 4 s) | 2.2 | Kneel/prone deploy time 1.5 s; enfilade arc 60° sweep; triple suppression gain; cannot fire while moving |
 
 ### 5.2 Special units (slot 4, faction-specific)
 | Special | Factions (default) | Cost | HP | DMG | Range | 3D behaviours |
 |---|---|---|---|---|---|---|
-| Sniper | British, German, Russian | 90 | 80 | 150 | 80 (+40 % in trench) | Target priority MG > Officer > Sentry; +100 % HP/+25 % acc in trench; reveals from 2 m eye height on fire-step |
+| Sniper | British, German, Russian | 140 | 80 | 150 | 80 (+40 % in trench) | Target priority MG > Officer > Sentry; +100 % HP/+25 % acc in trench; reveals from 2 m eye height on fire-step |
 | Sentry (armoured MG) | German, Austro-Hungarian | 125 | 300 (plate: front 8 mm) | 18 | 60 | Advances in open under rifle fire (rifle pen 4 mm fails frontally, flanks 2 mm succeed → flanking matters); acts as mobile `CoverVolume` for units behind |
 | Mortar team | Russian, Ottoman, French (crapouillot) | 100 | 90 | 120 blast r 6 m | 30–150 | Indirect arc, 6 s cycle, needs stationary 2 s setup; ignores LoS; cannot fire < 30 m |
 | Arditi (mobile mortar) | Italian | 110 | 110 | 90 blast r 5 m | 25–100 | Fires while stationary between sprints; grenades too |

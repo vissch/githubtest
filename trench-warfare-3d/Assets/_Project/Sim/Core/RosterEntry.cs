@@ -57,8 +57,8 @@ namespace TW.Sim
         // ---- infantry (the numbers the Phase 0 roster always had, and the 2026-09-25 units; docs/06) -----------
         public static RosterEntry Rifleman => new RosterEntry { Archetype = InfantryArchetype.Rifle, Cost = 25, Hp = 100, Speed = 3.0f };
         public static RosterEntry Assault => new RosterEntry { Archetype = InfantryArchetype.Assault, Cost = 40, Hp = 90, Speed = 4.2f };
-        public static RosterEntry Machinegunner => new RosterEntry { Archetype = InfantryArchetype.Machinegunner, Cost = 60, Hp = 110, Speed = 2.2f };
-        public static RosterEntry Sniper => new RosterEntry { Archetype = InfantryArchetype.Sniper, Cost = 90, Hp = 80, Speed = 3.0f, CooldownTicks = 200 };
+        public static RosterEntry Machinegunner => new RosterEntry { Archetype = InfantryArchetype.Machinegunner, Cost = 80, Hp = 110, Speed = 2.2f };
+        public static RosterEntry Sniper => new RosterEntry { Archetype = InfantryArchetype.Sniper, Cost = 140, Hp = 80, Speed = 3.0f, CooldownTicks = 200 };
         /// <summary>An aura over the men round him: they hit harder, keep their nerve and never stay pinned.</summary>
         public static RosterEntry Officer => new RosterEntry { Archetype = InfantryArchetype.Officer, Cost = 120, Hp = 100, Speed = 3.0f, CooldownTicks = 400 };
         /// <summary>Walks in front with a plate on his arm and takes the rounds meant for the men behind him.</summary>
