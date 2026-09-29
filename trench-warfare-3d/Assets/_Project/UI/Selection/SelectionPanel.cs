@@ -169,11 +169,14 @@ namespace TW.UI
             if (ordersLine == null) return;
             var g = sel.Garrison;
             bool scoped = sel.ScopedTrench(out int t, out int raw) && g != null && t < g.Trenches;
-            int eff = scoped ? TrenchScope.Effective(raw, TrenchScope.Present(g, t)) : 0;
+            var w = World;
+            int present = scoped ? TrenchScope.Present(g, t) : 0;
+            // who really goes: every category in the groups picked (the sim moves whole groups)
+            int eff = scoped ? TrenchScope.Effective(TrenchScope.Widen(raw, present, a => TrenchScope.GroupOf(w, a)), present) : 0;
             int go = 0, stay = 0;
             if (scoped)
                 for (int a = 0; a <= TrenchScope.MaxMaskArchetype; a++)
-                    if ((raw & (1 << a)) != 0 || eff == 0 && g.TypeCount(t, a) > 0) { go += g.TypeCount(t, a) - g.TypePinned(t, a); stay += g.TypePinned(t, a); }
+                    if ((eff & (1 << a)) != 0 || eff == 0 && g.TypeCount(t, a) > 0) { go += g.TypeCount(t, a) - g.TypePinned(t, a); stay += g.TypePinned(t, a); }
             int key = scoped ? ((t * 31 + eff) * 1000 + go) * 1000 + stay : -1;
             if (key == shownOrdersKey) return;
             shownOrdersKey = key;

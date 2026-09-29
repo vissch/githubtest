@@ -224,7 +224,8 @@ namespace TW.UI
             if (selection != null && selection.ScopedTrench(out int scoped, out _))
             {
                 int mask = type == CommandType.TrenchAdvance ? selection.AdvanceMask(scoped) : 0;
-                if (mask != 0) Order(CommandType.TrenchSelectAdvance, scoped, mask); else Order(type, scoped, 0);
+                var w = Host.Local.World;   // the sim takes order groups, not archetypes (TrenchScope)
+                if (mask != 0) Order(CommandType.TrenchSelectAdvance, scoped, TrenchScope.Groups(mask, a => TrenchScope.GroupOf(w, a))); else Order(type, scoped, 0);
                 return;
             }
             short t = Host.Local.Fields.FrontTrench(0);

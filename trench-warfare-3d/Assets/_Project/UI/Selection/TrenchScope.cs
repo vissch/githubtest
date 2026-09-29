@@ -1,7 +1,11 @@
 // Phase: B6 (implemented) — is the selection "these troop categories of trench t"? (owner, 2026-09-24: pick categories
 // from a trench's chips, and its over the top sends only them.) It is when every selected man is alive, ours, on foot
-// and garrisoned in the same trench; the mask is his archetypes as TrenchSelectAdvance takes them (1 << archetype).
-// The sim moves whole categories, not men: three riflemen picked out of eight send all eight, which the tooltip says.
+// and garrisoned in the same trench; the mask is his archetypes (1 << archetype), which is what the chips show.
+// The sim moves whole ORDER GROUPS, not men and not archetypes: TrenchSelectAdvance takes OrderGroup bits (Line: rifle and
+// assault; Gun: the machine gunners; Marksman; Support; Raider). So three riflemen picked out of eight send all eight,
+// and picking the riflemen sends the assault men too: Widen is every category the order will really move, and Groups
+// is what is sent. Until 2026-09-29 the archetype mask itself was sent, which the sim read as groups: picking the
+// riflemen sent the machine gunners too, and picking the gunners sent the officers and medics instead.
 // A mask that covers every category present is a plain advance (mask 0). Pure rules, tested without a world.
 using System.Collections.Generic;
 using TW.Sim;
@@ -53,5 +57,25 @@ namespace TW.UI
 
         /// <summary>The mask to send: 0 (everyone) when the selection covers every category present.</summary>
         public static int Effective(int mask, int present) => (present & ~mask) == 0 ? 0 : mask;
+
+        /// <summary>The order group a man of this archetype answers to, from the match's unit table.</summary>
+        public static int GroupOf(SimWorld w, int archetype)
+            => w != null && w.Units.Infantry.IsCreated && archetype >= 0 && archetype < w.Units.Infantry.Length ? w.Units.Infantry[archetype].Group : OrderGroup.Line;
+
+        /// <summary>The OrderGroup mask TrenchSelectAdvance is sent for these categories: the groups they belong to.</summary>
+        public static int Groups(int categories, System.Func<int, int> groupOf)
+        {
+            int g = 0;
+            for (int a = 0; a <= MaxMaskArchetype; a++) if ((categories & (1 << a)) != 0) g |= groupOf(a);
+            return g;
+        }
+
+        /// <summary>Every category present that an order for these categories moves: all those in the same groups.</summary>
+        public static int Widen(int categories, int present, System.Func<int, int> groupOf)
+        {
+            int groups = Groups(categories, groupOf), m = 0;
+            for (int a = 0; a <= MaxMaskArchetype; a++) if ((present & (1 << a)) != 0 && (groupOf(a) & groups) != 0) m |= 1 << a;
+            return m;
+        }
     }
 }

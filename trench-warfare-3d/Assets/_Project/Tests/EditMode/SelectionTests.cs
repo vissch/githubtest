@@ -195,6 +195,30 @@ namespace TW.Tests
             Assert.That(m.GroupStamp(2), Is.Not.EqualTo(s0), "assigning is what tells the alerts to start again");
         }
 
+        /// <summary>The chips pick archetypes; the sim moves order groups. Picking the gunners sent the officers and medics
+        /// (bit 2 is Support), and picking the riflemen sent the guns (both were Line), until 2026-09-29.</summary>
+        [Test]
+        public void TheChips_SendTheGroupsOfWhatWasPicked_AndShowEveryoneTheyMove()
+        {
+            System.Func<int, int> groupOf = a => TW.Sim.OrderGroup.Of((byte)a);   // rifle and assault Line, the gunner Gun, officer Support
+            const int rifle = 1 << 0, assault = 1 << 1, gunner = 1 << 2, officer = 1 << 12;
+            int present = rifle | assault | gunner | officer;
+            Assert.That(TrenchScope.Groups(gunner, groupOf), Is.EqualTo(TW.Sim.OrderGroup.Gun), "the gunners are sent as the guns, not as bit 2 (Support)");
+            Assert.That(TrenchScope.Groups(rifle, groupOf), Is.EqualTo(TW.Sim.OrderGroup.Line));
+            Assert.That(TrenchScope.Widen(rifle, present, groupOf), Is.EqualTo(rifle | assault), "the riflemen take the assault men with them, and leave the guns");
+            Assert.That(TrenchScope.Widen(gunner, present, groupOf), Is.EqualTo(gunner), "the guns go alone");
+            Assert.That(TrenchScope.Effective(TrenchScope.Widen(rifle | gunner | officer, present, groupOf), present), Is.EqualTo(0), "everyone: a plain advance");
+        }
+
+        [Test]
+        public void GroupOf_ReadsTheMatchsUnitTable()
+        {
+            using var m = TW.Sim.Match.MatchSim.CreateGreybox(TW.Sim.SimConfig.Default);
+            Assert.That(TrenchScope.GroupOf(m.World, TW.Sim.InfantryArchetype.Machinegunner), Is.EqualTo(TW.Sim.OrderGroup.Gun));
+            Assert.That(TrenchScope.GroupOf(m.World, TW.Sim.InfantryArchetype.Rifle), Is.EqualTo(TW.Sim.OrderGroup.Line));
+            Assert.That(TrenchScope.GroupOf(m.World, TW.Sim.InfantryArchetype.Officer), Is.EqualTo(TW.Sim.OrderGroup.Support));
+        }
+
         [Test]
         public void ASelectionIsScopedToATrenchOnlyWhenEveryManGarrisonsIt()
         {

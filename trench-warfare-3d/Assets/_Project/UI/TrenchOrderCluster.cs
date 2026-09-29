@@ -9,7 +9,7 @@
 // The troop-category chips (owner, 2026-09-24; they took the hold-fire button's place): one per infantry type in the
 // trench, face and count, a red pip when some are pinned, a bright rim when that category of this trench is selected.
 // Click selects that category, Shift+click adds or drops it, a double click also goes there. With a selection scoped
-// to the trench (TrenchScope), over the top sends only those categories (TrenchSelectAdvance). Hold fire is the small
+// to the trench (TrenchScope), over the top sends only those categories' order groups (TrenchSelectAdvance). Hold fire is the small
 // tag beside the men badge now (click or F).
 using System;
 using System.Collections.Generic;
@@ -117,7 +117,8 @@ namespace TW.UI
             c.Advance.clicked += () =>
             {
                 int mask = Selection != null ? Selection.AdvanceMask(t) : 0;
-                if (mask != 0) issue(CommandType.TrenchSelectAdvance, t, mask); else issue(CommandType.TrenchAdvance, t, 0);
+                var w = host.Local.World;   // the sim takes order groups, not archetypes
+                if (mask != 0) issue(CommandType.TrenchSelectAdvance, t, TrenchScope.Groups(mask, a => TrenchScope.GroupOf(w, a))); else issue(CommandType.TrenchAdvance, t, 0);
             };
             c.Lock.clicked += () => issue(CommandType.TrenchLock, t, host.Local.Fields.Trenches[t].Locked != 0 ? 0 : 1);
             c.Advance.RegisterCallback<PointerEnterEvent>(_ => HoveredAdvanceTrench = t);
