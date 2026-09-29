@@ -28,7 +28,7 @@ namespace TW.Perf
         public static readonly byte[] Machines = { VehicleArchetype.Tusk, VehicleArchetype.Pavise, VehicleArchetype.Kettle, VehicleArchetype.Salvo };
         /// <summary>The bursts in a row beyond the lineup: a shell (the HE barrage), a mine, a tripwire (Explosion.a sources).</summary>
         public static readonly int[] Bursts = { (int)TW.Sim.Match.OffMapAbilityId.HeBarrage, MineSystem.SourceBase + (int)MineKind.Mine, MineSystem.SourceBase + (int)MineKind.Tripwire };
-        public const float Gap = 16f, Spacing = 2.5f, MachinesBack = 22f, MachineSpacing = 12f, BurstRow = 16f, TargetsBeyond = 16f;
+        public const float Gap = 16f, Spacing = 3.5f, MachinesBack = 22f, MachineSpacing = 12f, BurstRow = 16f, TargetsBeyond = 16f;
         /// <summary>Knob: what the lineup fires. 1 the small arms only (a still of the men), 2 the guns and the bursts only,
         /// anything else both.</summary>
         public const string FireKnob = "bench.lineupFire";

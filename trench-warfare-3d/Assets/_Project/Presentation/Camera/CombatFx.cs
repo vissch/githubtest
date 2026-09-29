@@ -653,7 +653,9 @@ namespace TW.Presentation.Tactical
                     {
                         // the spike by the weapon that fired it (CombatFx.Close.cs): a sniper's harder than a pistol's
                         var shotBy = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? KindOf(w.Archetype[e.A]) : ArmsKind.Rifle;
-                        books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale * HitFlashOf(shotBy), 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 3.2f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
+                        bool dayHit = classArms > 0f && !SceneMood.Night;   // by day an additive flash this size clips white on snow: the sniper's 2.7 m was the bloom that hid his cross (iso3-5)
+                        books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale * HitFlashOf(shotBy) * (dayHit ? HitFlashDay(SceneHooks.CloseUp) : 1f), 0.09f, roll: UnityEngine.Random.value * 6.2832f,
+                            glow: (SceneMood.Night ? 3.2f : dayHit ? 1.0f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
                         if (e.Scalar > 0f) HitExtras(shotBy, p, toward.normalized, scale, e.Tick * 17u + (uint)e.B);
                     }
                     if (e.Scalar > 0f)
