@@ -331,6 +331,10 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
+| `TW.Editor.WeightLab.Knob(name, value)` | Editor/WeightLab.cs | A knob set in the game on the lab's next frame (Knobs.Set from compiled code). |
+| `TW.Editor.WeightLab.Halt(slot)` | Editor/WeightLab.cs | The machine's drive taken away (its Speed to 0): with momentum it sheds its way at its Brake and runs on to a stop, as at a halt. |
+| `TW.Editor.WeightLab.Trace(slot, csv, seconds)` | Editor/WeightLab.cs | Traces the machine in `slot` for `seconds` of game time into `csv`. |
+| `TW.Editor.WeightLab.TraceStatus()` | Editor/WeightLab.cs | The trace in progress, or, once done, where it went and the stop's numbers: dip, rebound, settled. |
 <!-- /gen:eval-api -->
 
 ## 7. Windows build and benchmark
