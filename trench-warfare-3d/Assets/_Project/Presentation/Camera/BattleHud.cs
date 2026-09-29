@@ -573,7 +573,8 @@ namespace TW.Presentation.Tactical
             if (abilities == null || Panel == null || !OffMapAbilitySystem.TryGetStats((int)id, out var stats)) return;
             int cd = abilities.CooldownOf(0, id);
             bool armed = Panel.Armed == id;
-            bool can = armed || (!over && cd == 0 && w.Silver[0] >= stats.Cost);
+            // a faction without the ability keeps the cell (BarMetrics counts it) but can never press it: Brass alone drops
+            bool can = armed || (!over && cd == 0 && w.Silver[0] >= stats.Cost && FactionRoster.MayCall(w.Config.FactionOf(0), (int)id));
             var r = new Rect(x, y, size, size);
             GUI.enabled = can;
             if (GUI.Button(r, new GUIContent("", $"{tooltip}  ({stats.Cost} silver)"), armed ? slate : stone)) Panel.Arm(armed ? OffMapAbilityId.None : id);

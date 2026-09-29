@@ -294,7 +294,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   rally point, 1 to 10 at a time, and tops up both sides' silver: every model and unit, whatever the rosters hold.
   Editor only; it spawns through `TankCapture.Spawn` into both lockstep worlds and changes no roster or faction.
 - **Trap:** every faction calls the six abilities of the overhaul; Brass alone drops paratroopers (`decisions.md`,
-  2026-09-27). The HUD does not read the faction, so an Iron player sees the drop card and the sim refuses the call.
+  2026-09-27). The HUD offers our seat `HudView.SeatMask` (the launch mask cut to `FactionRoster.AbilityMask`), so an
+  Iron player has no drop card and its key arms nothing; the legacy IMGUI bar keeps the cell, greyed.
 - **Trap:** `VehicleSize` is baked into mesh vertices at load. Every gap authored in the composer depends on it.
 
 ### Sea landing
