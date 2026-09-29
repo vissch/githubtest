@@ -707,7 +707,7 @@ namespace TW.Sim.Nav
             {
                 // a tank not under its own power does not give way (a hulk, a stalled or broken-tracked one, one nosed
                 // into a trench or stuck in mud: moving it would pull it out without its timer knowing)
-                if ((Flags[i] & (uint)(UnitFlags.KnockedOut | UnitFlags.Stalled | UnitFlags.Immobilised | UnitFlags.Bogged | UnitFlags.Charging)) != 0 || DitchTicks[i] > 0 || BogTicks[i] > 0) return;   // a charging Breaker is not shoved off its line
+                if ((Flags[i] & (uint)(UnitFlags.KnockedOut | UnitFlags.Stalled | UnitFlags.Immobilised | UnitFlags.Bogged | UnitFlags.Charging | UnitFlags.Pouncing)) != 0 || DitchTicks[i] > 0 || BogTicks[i] > 0) return;   // a charging Breaker is not shoved off its line, nor a pouncing crab off its leap
                 float3 p = Position[i], q = p + new float3(by.x, 0f, by.y);
                 q.x = math.clamp(q.x, 1f, Size.x - 1f); q.z = math.clamp(q.z, 1f, Size.y - 1f);
                 int from = CellOf(p), to = CellOf(q);

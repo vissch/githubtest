@@ -324,9 +324,11 @@ namespace TW.Sim.Combat
                 {
                     if ((Flags[i] & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
                     if (FireCooldown[i] > 0) { FireCooldown[i]--; continue; }
-                    // charging or fighting hand to hand, or his weapon on the ground (MeleeSystem): no shot
-                    if ((Flags[i] & (uint)(UnitFlags.Melee | UnitFlags.Disarmed)) != 0) continue;
+                    // his weapon on the ground, or charging or fighting hand to hand (MeleeSystem): no shot, except the
+                    // grenade bundle for a machine beside him (a charge made escorted tanks immune to it, critic r2)
+                    if ((Flags[i] & (uint)UnitFlags.Disarmed) != 0) continue;
                     int t = TargetSlot[i];
+                    if ((Flags[i] & (uint)UnitFlags.Melee) != 0 && (t < 0 || (Flags[t] & (uint)UnitFlags.Vehicle) == 0)) continue;
                     if (t < 0) continue;
                     if ((Flags[t] & (uint)UnitFlags.Alive) == 0 || Hp[t] <= 0f) { TargetSlot[i] = -1; continue; }
 
