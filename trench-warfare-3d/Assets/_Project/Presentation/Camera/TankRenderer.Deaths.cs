@@ -208,6 +208,16 @@ namespace TW.Presentation.Tactical
             {
                 books.Add(FlipbookFx.Book.Puff, v.Pos + Vector3.up * 0.3f, v.Model.HalfLength * size, 1.1f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.4f, grow: 0.8f, alpha: 0.6f);
                 if (v.Flops) books.Add(FlipbookFx.Book.Wings, new Vector3(v.Pos.x, Ground(v.Pos.x, v.Pos.z), v.Pos.z), v.Model.HalfLength * 3f, 1.0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.5f, alpha: 0.55f);
+                // a ring of dust pushed out from under its rim (critic round 9: the one puff read as haze, not a ring)
+                if (v.Flops)
+                    for (int k = 0; k < VehicleGags.FlopRing; k++)
+                    {
+                        float b = v.Yaw + k * 2f * Mathf.PI / VehicleGags.FlopRing;
+                        var out1 = new Vector3(Mathf.Sin(b), 0f, Mathf.Cos(b));
+                        Vector3 at = v.Pos + out1 * (v.Model.HalfLength * 0.9f);
+                        at.y = Ground(at.x, at.z) + 0.25f;
+                        books.Add(FlipbookFx.Book.Puff, at, v.Model.HalfLength * 0.8f, 0.9f, velocity: out1 * 3f + Vector3.up * 0.2f, grow: 1f, alpha: 0.7f);
+                    }
             }
             if (v.Flops) Scrap(v.Pos + Vector3.up * 0.5f, 5, 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
             CameraShake.Add(v.Pos, v.Flops ? 6f : 3f);
