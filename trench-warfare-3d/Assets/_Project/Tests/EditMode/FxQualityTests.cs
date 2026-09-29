@@ -194,6 +194,7 @@ namespace TW.Tests
             Assert.AreEqual(FlipbookFx.Book.GunCrack, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Tusk), "the 37 mm: a crack");
             Assert.AreEqual(FlipbookFx.Book.GunLong, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Pavise), "the long gun");
             Assert.AreEqual(FlipbookFx.Book.GunLong, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Banner));
+            Assert.AreEqual(FlipbookFx.Book.GunCrack, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Salvo), "the Salvo's launch: a crack, not a white disc (r19)");
             Assert.AreEqual(FlipbookFx.Book.GunBlast, TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Kettle), "the rest keep the shared blast");
             Assert.AreNotEqual(TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Tusk), TankRenderer.BlastBookOf(TW.Sim.VehicleArchetype.Pavise), "critique r15: they read alike");
         }
