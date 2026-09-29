@@ -2,7 +2,8 @@
 // speed, rhythm, style"). Before this every machine reached full speed in one tick, stopped dead in one, stopped to
 // pivot on any sharp turn, and zig-zagged along the flow field's 45-degree steps. These hold what replaced that
 // (VehicleKinematicsSystem): momentum at the profile's Accel and Brake, a pivot share per machine, and a field read
-// followed a hull length ahead (Steer), and a charge that still ends dead in the trench it hits.
+// followed a hull length ahead (Steer), a hull on its line steered round (Avoid), and a charge that still ends dead
+// in the trench it hits.
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -124,6 +125,35 @@ namespace TW.Tests
             }
             Assert.LessOrEqual(flips, 6, "it holds a line instead of hunting between two field steps");
             Assert.Greater(math.distance(start.xz, m.World.Position[it].xz), 40f, "and it never stalls against an edge");
+        }
+
+        /// <summary>A machine that cannot move stands on another's line (2026-09-29, a study of a real match: a
+        /// Croaker stood 12 s shoving a halted Banner, the two hulls' push apart undoing every step it took, and its
+        /// nose hunted 24 degrees either way the whole time). The one behind goes round.</summary>
+        [TestCase(VehicleArchetype.Maw, 0.5f)]
+        [TestCase(VehicleArchetype.Croaker, 0f)]
+        [TestCase(VehicleArchetype.Tusk, 0f)]
+        public void AMachineGoesRoundOneStandingOnItsLine(byte mover, float offset)
+        {
+            using var m = NewMatch();
+            var start = new float3(120f, 0f, 40f);
+            int it = Spawn(m, mover, start);
+            var e = m.World.Units.Roster[VehicleArchetype.Maw];
+            int wall = m.World.Spawn(0, VehicleArchetype.Maw, new float3(start.x + offset, 0f, 62f), e.Hp, e.Speed, true);
+            m.World.GoalId[wall] = -1;
+            Step(m);   // (a machine's first tick resets its drive state)
+            m.World.GoalId[wall] = -1; m.World.Speed[wall] = 0f; m.Vehicles.HaltTicks[wall] = 100000;
+            m.Vehicles.DitchTicks[wall] = 100000;   // it stands, and gives way to nobody (a ditched machine is not shoved)
+            float blockZ = m.World.Position[wall].z;
+            int stalled = 0;
+            for (int t = 0; t < 1000 && m.World.Position[it].z < blockZ + 8f; t++)
+            {
+                Step(m);
+                if (t > 100 && SpeedOf(m, it) < 0.2f) stalled++;
+            }
+            Assert.AreEqual(62f, m.World.Position[wall].z, 0.5f, "the one in the way stood its ground (else this proves nothing)");
+            Assert.Greater(m.World.Position[it].z, blockZ + 8f, "it got past the one in its way");
+            Assert.Less(stalled, 60, "without standing shoving it (ticks nearly stopped)");
         }
     }
 }

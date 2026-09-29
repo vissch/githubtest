@@ -188,6 +188,9 @@ namespace TW.Sim.Nav
         public NativeArray<float> DriveSpeedMul;  // 1 normally; the Breaker charges at more and backs out at less
         public const byte DriveFlow = 0, DriveStraight = 1, DriveReverse = 2;
         public const float DriveArrive = 1.0f;
+        /// <summary>Avoid: metres beyond two footprints touching that a hull ahead is steered round; the cone it
+        /// looks in (cosine: 0.3 is 72 degrees either side of the line); how hard it bends the line.</summary>
+        public const float AvoidLook = 4f, AvoidCone = 0.3f, AvoidGain = 1.5f;
         public int WireCrushed, TreesPushed, MenCrushed;
         ulong checksum = SimHash.Offset;
 
@@ -485,6 +488,37 @@ namespace TW.Sim.Nav
                 return len < 0.5f ? own : to / len;
             }
 
+            /// <summary>Round another hull on its line (2026-09-29): the field knows the ground, not the machines on it,
+            /// so every machine sent at the same goal drives the same line, and one that met another standing on it
+            /// shoved it until the push apart let it by (a Tusk behind a halted machine stood 16 s; a Croaker in a real
+            /// match 12 s, its nose hunting either way). A hull ahead, within the two footprints and AvoidLook more,
+            /// bends the wanted line away from its side, the harder the nearer; dead ahead, the lower slot keeps
+            /// right (deterministic).</summary>
+            float2 Avoid(int i, float3 p, float2 want, in VehicleProfile prof)
+            {
+                float2 push = float2.zero;
+                float2 side = new float2(want.y, -want.x);   // the right hand of the way it wants to go
+                for (int k = 0; k < Vehicles.Length; k++)
+                {
+                    int j = Vehicles[k];
+                    if (j == i || (Flags[j] & (uint)UnitFlags.Alive) == 0) continue;
+                    float2 d = Position[j].xz - p.xz;
+                    float touch = prof.Radius + Profiles[Archetype[j]].Radius;
+                    float dist = SimMath.Length(new float3(d.x, 0f, d.y));
+                    if (dist >= touch + AvoidLook || dist < 1e-3f) continue;
+                    float ahead = math.dot(d, want) / dist;
+                    if (ahead < AvoidCone) continue;
+                    float across = math.dot(d, side);
+                    float away = math.abs(across) > 0.25f ? -math.sign(across) : (i < j ? 1f : -1f);
+                    float near = math.saturate((touch + AvoidLook - dist) / AvoidLook);
+                    push += side * (away * near * ahead);
+                }
+                if (math.all(push == 0f)) return want;
+                float2 bent = want + push * AvoidGain;
+                float bl = SimMath.Length(new float3(bent.x, 0f, bent.y));
+                return bl < 1e-4f ? want : bent / bl;
+            }
+
             public void Execute()
             {
                 for (int k = 0; k < Vehicles.Length; k++)
@@ -537,7 +571,7 @@ namespace TW.Sim.Nav
                         {
                             step = FlowField.Offset(d);
                             // the line looked ahead along the field, then bent onto its lane (Laned, v18)
-                            want = Laned(i, goal, cell, p, Steer(goal, cell, prof, step), prof);
+                            want = Avoid(i, p, Laned(i, goal, cell, p, Steer(goal, cell, prof, step), prof), prof);
                         }
                     }
                     else if (!stopping)
