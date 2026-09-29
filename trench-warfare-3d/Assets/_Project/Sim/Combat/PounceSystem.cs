@@ -107,7 +107,7 @@ namespace TW.Sim.Combat
                         if (!CanLand(w, i, To[i], drive))
                         {
                             Phase[i] = Idle; Ticks[i] = 0; Cooldown[i] = CooldownTicks / 4; Target[i] = -1;
-                            w.Flags[i] &= ~pouncing; kinematics.HaltTicks[i] = 0;
+                            w.Flags[i] &= ~pouncing;   // (its hold runs out by itself: zeroing it cut a gun's halt short, critic r2)
                             break;
                         }
                         Phase[i] = Airborne; Ticks[i] = AirTicks;
@@ -154,11 +154,17 @@ namespace TW.Sim.Combat
             float edge = drive.Reach;
             if (at.x < edge || at.z < edge || at.x > map.SizeMeters.x - edge || at.z > map.SizeMeters.y - edge) return false;
             const byte closed = (byte)(NavLayer.Blocked | NavLayer.Bunker | NavLayer.Trench | NavLayer.Link);
+            // its footprint as it will come down, facing along its leap (square to the map it missed a nose or tail over
+            // a trench, critic r2)
+            float3 run = at - w.Position[i]; run.y = 0f;
+            float yaw = math.lengthsq(run) > 1e-6f ? SimMath.YawOf(run) : w.Yaw[i];
+            float sn = SimMath.Sin(yaw), cs = SimMath.Cos(yaw);
             for (int k = 0; k < 9; k++)
             {
-                float ox = k == 0 ? 0f : (k % 3 - 1) * drive.HalfWidth * 0.8f, oz = k == 0 ? 0f : (k / 3 - 1) * drive.HalfLength * 0.8f;
-                int cx = math.clamp((int)((at.x + ox) / MapData.NavCellSize), 0, map.NavWidth - 1);
-                int cz = math.clamp((int)((at.z + oz) / MapData.NavCellSize), 0, map.NavLength - 1);
+                float ox = (k % 3 - 1) * drive.HalfWidth, oz = (k / 3 - 1) * drive.HalfLength;
+                float wx = ox * cs + oz * sn, wz = -ox * sn + oz * cs;
+                int cx = math.clamp((int)((at.x + wx) / MapData.NavCellSize), 0, map.NavWidth - 1);
+                int cz = math.clamp((int)((at.z + wz) / MapData.NavCellSize), 0, map.NavLength - 1);
                 if ((map.NavLayers[cz * map.NavWidth + cx] & closed) != 0) return false;
             }
             for (int j = 0; j < w.HighWater; j++)
@@ -187,6 +193,7 @@ namespace TW.Sim.Combat
             for (int j = 0; j < w.HighWater; j++)
             {
                 if (w.Team[j] == w.Team[i] || !MeleeSystem.OnFoot(w.Flags[j])) continue;
+                if ((w.Flags[j] & (uint)UnitFlags.InTrench) != 0 || w.TrenchId[j] >= 0) continue;   // below the parapet, as under a track
                 float3 d = w.Position[j] - at; d.y = 0f;
                 float dist = SimMath.Length(d);
                 if (dist > radius) continue;
@@ -194,7 +201,12 @@ namespace TW.Sim.Combat
                 float3 away = dist > 1e-3f ? d / dist : SimMath.DirFromYaw(w.Yaw[i]);
                 w.Hp[j] = w.Hp[j] - damage;
                 w.Events.Add(w.Tick, SimEventType.Hit, i, j, w.Position[j], away, damage);
-                if (w.Hp[j] <= 0f) w.Despawn(j, i, away, LandKnock);
+                if (w.Hp[j] <= 0f)
+                {
+                    var fire = w.GetSystem<DirectFireSystem>();
+                    if (fire != null) fire.Kills[w.Team[i] & 1]++;
+                    w.Despawn(j, i, away, LandKnock);
+                }
             }
         }
 

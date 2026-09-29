@@ -42,6 +42,7 @@ namespace TW.Sim.Combat
         readonly MapData map;
         FlowFieldManager fields;
         DirectFireSystem fire;
+        MeleeSystem melee;   // found on its first step (registered after this one)
         AuraSystem aura;
         IAuraProvider cover;
 
@@ -150,6 +151,11 @@ namespace TW.Sim.Combat
                     var killed = fire.Killed;
                     for (int k = 0; k < killed.Length; k++)
                         if (killed[k].y == i) { HeroKills[i]++; w.Events.Add(w.Tick, SimEventType.HeroFeat, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]); }
+                    // and with the bayonet (MeleeSystem steps after this one: its kills of the tick before)
+                    melee ??= w.GetSystem<MeleeSystem>();
+                    if (melee != null && melee.Killed.IsCreated)
+                        for (int k = 0; k < melee.Killed.Length; k++)
+                            if (melee.Killed[k].y == i) { HeroKills[i]++; w.Events.Add(w.Tick, SimEventType.HeroFeat, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]); }
                 }
                 if (w.Suppression[i] > HeroRules.SuppressionCap) w.Suppression[i] = HeroRules.SuppressionCap;
                 w.Flags[i] |= (uint)UnitFlags.Hero;
