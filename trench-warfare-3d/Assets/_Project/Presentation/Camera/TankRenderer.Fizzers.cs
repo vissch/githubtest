@@ -29,6 +29,7 @@ namespace TW.Presentation.Tactical
         const float FizzPointEvery = 0.05f;
         /// <summary>Seconds between the puffs a fizzer leaves (critic round 1: its ribbon alone did not read by day).</summary>
         const float FizzPuffEvery = 0.07f;
+        const float FizzFlare = 2.6f;       // the flame card behind a fizzer, metres
         const float FizzScale = 1.4f;       // a fizzer's body against a flying rocket's (bigger: it must read by day)
         /// <summary>Seconds after the death before the first can leave: the first stills lost them in the fireball.</summary>
         const float FizzAfter = 0.5f;
@@ -103,7 +104,8 @@ namespace TW.Presentation.Tactical
                 if (fx)
                 {
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, -way) : 0f;
-                    books.Add(FlipbookFx.Book.Muzzle, tail - way * 0.5f, 1.6f, 0.05f, roll: roll, glow: SceneMood.Night ? 3f : 2.6f);
+                    // critic round 11: at 1.6 m the rockets read as grey sticks in daylight, no flame behind them
+                    books.Add(FlipbookFx.Book.Muzzle, tail - way * 0.8f, FizzFlare, 0.05f, roll: roll, glow: SceneMood.Night ? 3f : 3.4f);
                 }
                 if (now >= f.NextPoint) { f.Trail.P.Add(tail); f.Trail.T.Add(now); f.NextPoint = now + FizzPointEvery; }
                 if (fx && now >= f.NextPuff)
