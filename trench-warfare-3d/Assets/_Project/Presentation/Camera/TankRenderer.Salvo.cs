@@ -139,6 +139,7 @@ namespace TW.Presentation.Tactical
                     if (!views.TryGetValue(r.Slot, out var v) || v.Gen != r.Gen || v.Dead || v.Model.GunPart[0] < 0) { rockets.RemoveAt(i); continue; }
                     r.From = TubeMouth(v, r.Tube, out r.Dir);
                     v.Recoil[0] = Mathf.Min(1f, v.Recoil[0] + LaunchKick);   // each rocket its own kick
+                    RocketRock(v);                                          // and a sway of the hull (tank.shotRock)
                     float ground = new Vector2(r.To.x - r.From.x, r.To.z - r.From.z).magnitude;
                     r.Apex = Mathf.Max(MinApex, ground * ApexShare);
                     r.Flying = true;

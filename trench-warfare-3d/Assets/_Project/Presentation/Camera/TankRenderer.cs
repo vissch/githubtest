@@ -62,18 +62,12 @@ namespace TW.Presentation.Tactical
             }
 
             /// <summary>The same with a damping ratio: at 1 or more the exact critical solve above; below it an
-            /// under-damped spring that overshoots and rocks on (DriveStyle.Zeta), stepped in pieces of at most 0.15
-            /// rad of its cycle so a long frame cannot blow it up.</summary>
+            /// under-damped spring that overshoots and rocks on (DriveStyle.Zeta), also solved exactly (HullRide.Solve),
+            /// so no frame, however long, can blow it up.</summary>
             public void Ride(float target, float dt, float omega, float zeta)
             {
                 if (zeta >= 0.999f) { Step(target, dt, omega); return; }
-                int n = Mathf.Clamp(Mathf.CeilToInt(dt * omega / 0.15f), 1, 32);
-                float h = dt / n;
-                for (int k = 0; k < n; k++)
-                {
-                    Velocity += (-2f * zeta * omega * Velocity - omega * omega * (Value - target)) * h;
-                    Value += Velocity * h;
-                }
+                HullRide.Solve(ref Value, ref Velocity, target, dt, omega, zeta);
             }
         }
 
@@ -85,6 +79,13 @@ namespace TW.Presentation.Tactical
             /// <summary>Its ride (TankRenderer.DriveStyle.cs): the way it is gathering (m/s^2, smoothed), metres
             /// travelled (the running gear's rhythm), and the nod drawn on top of the sprung pitch.</summary>
             public DriveStyle Style; public float Accel, Travel, PitchFx;
+            /// <summary>The weight layer (TankRenderer.Weight.cs): the sim's speed at its last tick and the felt speed
+            /// following it, a walker's kicks on top of its gait, the footfall's dip, each gun's shot weight and return
+            /// time, and a slow turret's settle past its mark.</summary>
+            public uint SimTick = uint.MaxValue; public float SimSpeed;
+            public Spring Felt, KickP, KickR, Foot;
+            public readonly float[] ShotW = { 1f, 1f }, ReturnT = { 0.65f, 0.65f }, LastGunYaw = new float[2], LastGunRate = new float[2];
+            public readonly Spring[] Settle = new Spring[2];
             public Spring Pitch, Roll, Heave;
             public float TreadL, TreadR, WheelL, WheelR;
             public readonly float[] GunYaw = new float[2], GunPitch = new float[2], Recoil = new float[2];
@@ -336,6 +337,7 @@ namespace TW.Presentation.Tactical
             if (Host == null || Host.Local == null || Host.Presenter == null || !Ready) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var match = Host.Local; var w = match.World;
+            WeightKnobs();
             if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); ribbonPool.AddRange(ribbons); ribbons.Clear(); }   // a new match: nothing of the last one flies on
             float dt = Mathf.Max(1e-4f, Time.deltaTime), now = Time.time;
             Capture(match);
@@ -401,7 +403,7 @@ namespace TW.Presentation.Tactical
         View NewView(SimWorld w, int slot, float now)
         {
             var model = ModelFor(w.Archetype[slot]);
-            var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot], Style = StyleFor(w.Archetype[slot]) };
+            var v = new View { Slot = slot, Gen = w.Generation[slot], Team = w.Team[slot], Model = model, Born = now, Archetype = w.Archetype[slot], Style = RideFor(w.Archetype[slot]) };
             int hoverRow = v.Archetype < modelRow.Length ? modelRow[v.Archetype] : -1;
             v.Hover = hoverRow >= 0 && Machines[hoverRow].Hover;
             v.Pos = v.LastPos = (Vector3)(float3)w.Position[slot];
@@ -411,6 +413,7 @@ namespace TW.Presentation.Tactical
             v.Heave.Value = Ground(v.Pos.x, v.Pos.z);
             v.Cupola = v.CupolaWant = 0f;
             var fresh = Machine(w, w.Archetype[slot]);
+            WeighGuns(v, fresh);
             for (int k = 0; k < 2; k++) v.GunYaw[k] = k < fresh.GunCount ? fresh.Gun(k).RestYaw : 0f;
             return v;
         }
@@ -435,6 +438,7 @@ namespace TW.Presentation.Tactical
             v.Accel = Mathf.Lerp(v.Accel, dt > 1e-4f ? (v.Speed - wasSpeed) / dt : 0f, 1f - Mathf.Exp(-dt * 6f));
             v.Travel = Mathf.Repeat(v.Travel + Mathf.Abs(v.Speed) * dt, 1000f);
             v.YawRate = Mathf.Lerp(v.YawRate, yawRate, 1f - Mathf.Exp(-dt * 10f));
+            if (weightOn) FeelTheWay(w, v, dt);   // the acceleration off the sim's own speed, not off the drawn position
 
             // what the sim says about it
             var modules = match.Modules; var kin = match.Vehicles; var gun = match.Gunnery;
@@ -494,7 +498,7 @@ namespace TW.Presentation.Tactical
                 // each footfall thumps the body down a little: a heavy walker's stride is felt, a light one's barely
                 int down = v.Legs.Landed, feet = 0;
                 while (down != 0) { feet += down & 1; down >>= 1; }
-                if (feet > 0) v.Heave.Velocity -= st.Stomp * (feet > 1 ? 1.4f : 1f);
+                if (feet > 0) v.Foot.Velocity -= st.Stomp * (feet > 1 ? 1.4f : 1f);   // its own spring: the riders read the hull's heave to flinch
             }
             float vib = v.Stalled ? 0f : (st.RumbleAmp + st.RumbleThrottle * v.Throttle);
             // A WALKER'S TILT IS NOT SPRUNG. This spring was written for a hull riding on tracks, where `Settle`
@@ -504,13 +508,14 @@ namespace TW.Presentation.Tactical
             // omega 7 costs 0.433 s of extra lag - the pair together take 0.700 s to reach 90% of a new tilt,
             // 0.84 m of travel at 1.2 m/s, and the second filter is 162% of the total. It is lag for nothing, and
             // it is what makes a machine read as a box on a spring rather than a body carried on legs.
-            if (legged) { v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
+            if (legged) { TakeWalkerKicks(v, dt); v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
             else
             {
                 float omega = v.Hover && st.Omega == PlainStyle.Omega ? HoverSettle : st.Omega;
                 v.Pitch.Ride(pitch, dt, omega, st.Zeta); v.Roll.Ride(roll, dt, omega, st.Zeta);
             }
             v.Heave.Step(heave + Mathf.Sin(now * st.RumbleRate + s) * vib, dt, st.HeaveOmega);
+            StepFootfall(v, dt);
             v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + st.Rev * Mathf.Max(0f, v.Accel) + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
             // tracks and wheels: each at the hull's speed plus or minus the turn; stuck, they spin
@@ -541,8 +546,10 @@ namespace TW.Presentation.Tactical
                 if (rack) want = (t >= 0 ? RackFiringPitch : RackRidingPitch) * Mathf.Deg2Rad;
                 if (gun != null && gun.GunHealth[s * TankGunnerySystem.Guns + k] <= 0f) want = -7f * Mathf.Deg2Rad;
                 v.GunPitch[k] = Mathf.MoveTowards(v.GunPitch[k], Mathf.Clamp(want, -8f * Mathf.Deg2Rad, (rack ? RackMaxPitch : 22f) * Mathf.Deg2Rad), dt * (rack ? RackRaiseRate : 12f) * Mathf.Deg2Rad);
-                v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * (rack ? RackRecoilDecay : 2.6f));
+                v.Recoil[k] = Mathf.Max(0f, v.Recoil[k] - dt * (rack ? RackRecoilDecay : RecoilDecay(v, k)));
             }
+
+            SettleTurrets(match, v, spec, dt);
 
             // A machine whose only weapon is small arms (the Skimmer's machine gun) has no TankGun to lay its turret, so
             // TankGunnery never turns it: point it at what the small-arms systems are shooting at (SimWorld.TargetSlot),
@@ -632,7 +639,7 @@ namespace TW.Presentation.Tactical
 
         // ------------------------------------------------------------------ pose
         Quaternion HullRotation(View v)
-            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.PitchFx) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-v.Roll.Value * Mathf.Rad2Deg, Vector3.forward);
+            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.PitchFx + v.KickP.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
         Matrix4x4 PartLocal(View v, TankModel.Part p, int index)
@@ -644,15 +651,15 @@ namespace TW.Presentation.Tactical
                 case TankPartRole.Turret:
                 {
                     int k = p.Side > 0 ? 1 : 0;   // a crab has one turret a side; a tank has one on the centre line
-                    rot *= Quaternion.AngleAxis(v.GunYaw[k] * Mathf.Rad2Deg, Vector3.up);
+                    rot *= Quaternion.AngleAxis((v.GunYaw[k] + v.Settle[k].Value) * Mathf.Rad2Deg, Vector3.up);
                     break;
                 }
                 case TankPartRole.Gun:
                 {
                     int k = p.Gun >= 0 ? p.Gun : 0;
-                    if (p.SelfAimed) rot *= Quaternion.AngleAxis(v.GunYaw[k] * Mathf.Rad2Deg, Vector3.up);   // a mortar on its bed, a gun on its pintle
+                    if (p.SelfAimed) rot *= Quaternion.AngleAxis((v.GunYaw[k] + v.Settle[k].Value) * Mathf.Rad2Deg, Vector3.up);   // a mortar on its bed, a gun on its pintle
                     rot *= Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right);
-                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (Kick(v.Recoil[k]) * (v.Model.IsRack ? RackRecoil : GunRecoil));
+                    pos += p.LocalRot * (Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, Vector3.right) * Vector3.back) * (v.Model.IsRack ? Kick(v.Recoil[k]) * RackRecoil : RecoilShape(v, k) * GunRecoil);
                     break;
                 }
                 // ---- the walkers ----
@@ -679,8 +686,8 @@ namespace TW.Presentation.Tactical
                     int k = Mathf.Max(0, p.Gun);
                     float rest = v.Model.ArtRestYaw[k];
                     Vector3 barrel = new Vector3(Mathf.Sin(rest), 0f, Mathf.Cos(rest)), across = new Vector3(barrel.z, 0f, -barrel.x);
-                    rot *= Quaternion.AngleAxis((v.GunYaw[k] - rest) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, across);
-                    pos += p.LocalRot * (Quaternion.AngleAxis((v.GunYaw[k] - rest) * Mathf.Rad2Deg, Vector3.up) * -barrel) * (Kick(v.Recoil[k]) * 0.3f);
+                    rot *= Quaternion.AngleAxis((v.GunYaw[k] + v.Settle[k].Value - rest) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-v.GunPitch[k] * Mathf.Rad2Deg, across);
+                    pos += p.LocalRot * (Quaternion.AngleAxis((v.GunYaw[k] + v.Settle[k].Value - rest) * Mathf.Rad2Deg, Vector3.up) * -barrel) * (RecoilShape(v, k) * 0.3f);
                     break;
                 }
                 case TankPartRole.Hatch: rot *= Quaternion.AngleAxis(-105f * Mathf.SmoothStep(0f, 1f, v.Hatch), Vector3.right); break;
@@ -719,7 +726,7 @@ namespace TW.Presentation.Tactical
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
-            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob, v.Pos.z), HullRotation(v), Vector3.one);
+            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), Vector3.one);
             // the legs are solved against the body as it is actually sitting, tilt and all, so a machine standing
             // across a slope has its downhill legs reach further rather than its feet float
             if (v.Legs != null && v.Legs.Ready && lod.Legs != null)
@@ -968,6 +975,7 @@ namespace TW.Presentation.Tactical
         {
             if (v.Dead) return;
             v.Dead = true; v.DiedAt = now; v.Scorch = Mathf.Max(v.Scorch, 0.85f); v.Hatch = 1f; v.Throttle = 0f;
+            StillWeight(v);
             v.Burn = Mathf.Max(v.Burn, v.CookOff ? 1f : 0.5f);
             Pose(v, v.Model.Lods[0], v.World);
             if (v.CookOff)
@@ -1076,8 +1084,10 @@ namespace TW.Presentation.Tactical
                     Vector3 muzzle = MuzzleWorld(v, e.B, out Vector3 dir);
                     // the hull answers the shot: rocks back along the barrel
                     Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);
-                    v.Pitch.Velocity += Vector3.Dot(dir, fwd) * 0.35f;
-                    v.Roll.Velocity -= Vector3.Dot(dir, right) * 0.35f;
+                    float kick = ShotKick(v, e.B);
+                    v.Pitch.Velocity += Vector3.Dot(dir, fwd) * kick;
+                    v.Roll.Velocity -= Vector3.Dot(dir, right) * kick;
+                    if (gunHullFlash > 0f) v.Flash = Mathf.Max(v.Flash, gunHullFlash);   // the gun lights its own hull
                     CameraShake.Add(muzzle, 4f);
                     SceneHooks.Flash?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f);   // the gun lights the ground in front of it
                     if (books == null || !books.Ready) break;
@@ -1230,7 +1240,8 @@ namespace TW.Presentation.Tactical
         /// <summary>
         /// A burst near a hull rocks it on its springs and lifts it (the sim only damages it; the push is ours): tipped away
         /// from the burst, the near side up, harder the nearer and the bigger the shell; one right under it heaves it
-        /// straight up. The earth the burst threw comes down on the deck a moment later. Walkers ride the same springs.
+        /// straight up. The earth the burst threw comes down on the deck a moment later. A walker's tilt comes off its feet,
+        /// so its rock is taken on its kick layer (TankRenderer.Weight.cs, tank.weight); without it only the heave shows.
         /// </summary>
         void Blasted(SimEvent e)
         {
