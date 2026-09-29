@@ -94,8 +94,8 @@ namespace TW.Presentation.Tactical
                     if (!booked) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), Mathf.Min(flare * 0.55f, most), 0.13f, roll: spin, glow: glow * 0.9f, delay: delay);
                     // his signature by day, where light does not show on snow: a hard puff of smoke off the muzzle that hangs
                     if (!SceneMood.Night)
-                        books.Add(FlipbookFx.Book.Puff, from + along * (flare * 0.3f) + FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, true), 1.8f * scale, 0.6f, (h & 8u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: barrel * 1.5f + carried, grow: 0.8f, roll: spin, alpha: 0.8f, pop: 0.3f, delay: delay);
+                        books.Add(FlipbookFx.Book.Puff, from + along * (flare * 0.3f) + FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, true), (booked ? 1.1f : 1.8f) * scale, 0.6f, (h & 8u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: barrel * 1.5f + carried, grow: 0.8f, roll: spin, alpha: booked ? 0.5f : 0.8f, pop: 0.3f, delay: delay + (booked ? 0.08f : 0f));   // with the brake book drawn, a thin puff after it (iso3: the full one sat on the book's cross as a white bloom)
                     if (Host != null && Host.Local != null)
                     {
                         Vector3 foot = new Vector3(from.x, RenderGround.Sample(Host.Local.Map, from.x, from.z), from.z);

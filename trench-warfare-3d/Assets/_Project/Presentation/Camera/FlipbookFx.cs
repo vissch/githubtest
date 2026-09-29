@@ -64,6 +64,12 @@ namespace TW.Presentation.Tactical
             MuzzleBurst,  // the SMG: a fat cone opening into petals
             MuzzleCarbine,// the officer's carbine: the cone with three petals, shorter
             MuzzleRifle,  // the rifle by day up close: a plain medium cone, its soot ring the edge on snow
+            // each gun its own blast, and the bursts the critic could not tell apart (loop 2, 2026-09-29; muzzlebooks.py)
+            GunCrack,     // the Tusk's 37 mm: a sharp short star, no body (it read as a small Pavise at z40)
+            GunLong,      // the long guns: a big cone, the brake's side jets, a fat fireball thrown ahead of the barrel
+            RocketHead,   // a Salvo rocket in flight: a hot head at the right, its flame tail back to the root
+            SparkFan,     // a tripwire: thin sparks thrown up in a low fan from a point on the ground
+            MineSmoke,    // a mine's column: the wreck's smoke drawn near black (it read as a shell's grey)
             Count
         }
 
@@ -191,6 +197,11 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "MuzzleBurst", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
             new Sheet { Name = "MuzzleCarbine", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
             new Sheet { Name = "MuzzleRifle", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
+            new Sheet { Name = "GunCrack", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.80f },
+            new Sheet { Name = "GunLong", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.95f },
+            new Sheet { Name = "RocketHead", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.98f },
+            new Sheet { Name = "SparkFan", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.05f, 0.95f), Fill = 0.90f },
+            new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.3f, Lit = 0.5f, RampIn = 0.1f, Tint = new Color(0.21f, 0.2f, 0.19f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },   // MineSmoke
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,

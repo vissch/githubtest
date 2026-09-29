@@ -14,6 +14,9 @@ namespace TW.Presentation
     {
         public readonly List<SimEvent> Frame = new List<SimEvent>(1024);
         public int OverrunTotal;
+        /// <summary>Tooling (the bench lineup's one-class stills): an event this returns true for is dropped at dispatch,
+        /// unheard by every subscriber. Null in play: one null check an event.</summary>
+        public Predicate<SimEvent> Skip;
         /// <summary>Time every subscriber under its own marker. Off by default: two marker calls per event per subscriber.</summary>
         public static bool ProfileSubscribers;
         Action<SimEvent>[] handlers = new Action<SimEvent>[0];
@@ -69,6 +72,7 @@ namespace TW.Presentation
             for (int i = 0; i < Frame.Count; i++)
             {
                 var e = Frame[i];
+                if (Skip != null && Skip(e)) continue;
                 var h = handlers;   // re-read per event: a handler added mid-dispatch hears the next event, as with a delegate
                 if (ProfileSubscribers)
                 {

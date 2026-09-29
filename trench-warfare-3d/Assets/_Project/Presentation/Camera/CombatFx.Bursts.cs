@@ -60,13 +60,16 @@ namespace TW.Presentation.Tactical
                     books.Add(FlipbookFx.Book.DustPuff, p + Vector3.up * 0.2f, r * (look.Tripwire ? 1.5f : 1.2f), 2f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0),
                         velocity: new Vector3(k == 0 ? 1.6f : -1.6f, 0.3f, 0f), alpha: 0.75f, delay: 0.05f);
             }
-            if (look.Mine)   // a buried charge: the black smoke of the explosive (the wreck's black book), standing over the thrown earth
+            if (look.Mine)   // a buried charge: the black smoke of the explosive (MineSmoke: the wreck's book drawn near black), standing over the thrown earth
                 for (int k = 0; k < 2; k++)
-                    books.Add(FlipbookFx.Book.WreckSmoke, p + Vector3.up * (r * (0.3f + k * 0.4f)), r * (2.2f + k * 0.3f), 4.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
+                    books.Add(FlipbookFx.Book.MineSmoke, p + Vector3.up * (r * (0.3f + k * 0.4f)), r * (2.2f + k * 0.3f), 4.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
                         velocity: drift * 1.3f + Vector3.up * 0.4f, grow: 0.8f, alpha: 0.95f * (1f - 0.5f * SceneHooks.CloseUp), pop: 0.2f, delay: 0.05f + k * 0.2f);
+            if (look.Mine)   // a lit crown on the black: the column read as a cut-out, a tree or a man, with no edge (r17)
+                books.Add(FlipbookFx.Book.Smoke, p + Vector3.up * (r * 1.4f), r * 1.5f, 3.5f, FlipbookFx.Kind.None, velocity: drift + Vector3.up * 0.6f, grow: 0.9f, alpha: 0.45f, delay: 0.3f);
             if (look.Tripwire)
             {
                 Sparks(p + Vector3.up * 0.4f, 60, 14f, 0.18f, salt, low: true);   // the charge's casing, flung out low and sideways, day and night
+                books.Add(FlipbookFx.Book.SparkFan, p, r * 3.2f, 0.75f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), glow: (SceneMood.Night ? 2.4f : 1.5f) * glow);   // the fan of it, drawn: the chunks alone read as a small shell at z40 (critique r15)
                 books.Add(FlipbookFx.Book.GroundRing, p + Vector3.up * 0.15f, r * 3f, 0.9f, FlipbookFx.Kind.Flat | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 1f, alpha: 0.85f * (1f - SceneHooks.CloseUp * 0.5f));
             }
         }
