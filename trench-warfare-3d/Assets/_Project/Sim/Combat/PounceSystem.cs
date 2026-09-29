@@ -72,8 +72,9 @@ namespace TW.Sim.Combat
             for (int i = 0; i < n; i++)
             {
                 uint f = w.Flags[i];
+                // a slot's next tenant starts clean, man or machine (a crab killed mid-leap left its leap in the slot)
+                if (gen[i] != w.Generation[i]) { gen[i] = w.Generation[i]; Phase[i] = Idle; Ticks[i] = 0; Cooldown[i] = 0; Target[i] = -1; From[i] = To[i] = float3.zero; }
                 if ((f & (uint)UnitFlags.Vehicle) == 0) continue;
-                if (gen[i] != w.Generation[i]) { gen[i] = w.Generation[i]; Phase[i] = Idle; Ticks[i] = 0; Cooldown[i] = 0; Target[i] = -1; }
                 byte arch = w.Archetype[i];
                 var drive = kinematics.Profiles[arch];
                 var spec = catalogue.Tank[arch];
@@ -176,7 +177,7 @@ namespace TW.Sim.Combat
                     float room = drive.HalfWidth + kinematics.Profiles[w.Archetype[j]].HalfWidth + 1f;
                     if (math.lengthsq(d) < room * room) return false;
                 }
-                else if (w.Team[j] == w.Team[i] && math.lengthsq(d) < LandRadius * LandRadius) return false;   // its own man
+                else if (w.Team[j] == w.Team[i] && math.lengthsq(d) < (edge + 0.5f) * (edge + 0.5f)) return false;   // its own man under any of its hull
             }
             return true;
         }
