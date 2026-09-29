@@ -97,8 +97,8 @@ namespace TW.Presentation.Tactical
                 for (int i = 0; i < segments; i++)
                 {
                     float a = i / (float)segments, b = (i + 1) / (float)segments;
-                    if (!SceneMood.Night)   // at night no tracer: a team-green tube over the arc read as a laser (r19, r20); the head carries it
-                        fx.AddTracer(ArcPoint(from, end, apex, a), ArcPoint(from, end, apex, b), team, Mathf.Min(width, 1.0f), lag + a * ArcSeconds);   // a thread, not a laser: the head and the smoke carry it (r10)
+                    // no tracer on an arc, day or night: a team-green tube read as a laser at night, a wire through the puffs by day
+                    // (r19-r21); the smoke, the rocket head and the mortar's ember carry it   // a thread, not a laser: the head and the smoke carry it (r10)
                     // a rocket leaves its smoke hanging along the way it went, behind a burning head; a mortar round a thin grey thread
                     if (drawn && i > 0)
                     {
@@ -112,9 +112,9 @@ namespace TW.Presentation.Tactical
                                 uint hh = FxQuality.Hash(salt * 131u + (uint)(j * 64 + i * 2 + n));
                                 float u = Mathf.Lerp(a, b, n * 0.5f + (FxQuality.Hash01(hh) - 0.5f) * 0.5f);
                                 Vector3 jit = new Vector3(FxQuality.Hash01(hh + 1u) - 0.5f, FxQuality.Hash01(hh + 2u) - 0.5f, FxQuality.Hash01(hh + 3u) - 0.5f) * 0.6f;
-                                books.Add(FlipbookFx.Book.Smoke, ArcPoint(from, end, apex, u) + jit, RocketTrail * 0.6f * Mathf.Lerp(0.7f, 1.3f, FxQuality.Hash01(hh + 4u)),   // the filled grey puff: the wreck's book is ink rings, a chain in a line (r20)
+                                books.Add(FlipbookFx.Book.Smoke, ArcPoint(from, end, apex, u) + jit, RocketTrail * Mathf.Lerp(0.7f, 1.3f, FxQuality.Hash01(hh + 4u)),   // the filled grey puff: the wreck's book is ink rings, a chain in a line (r20); big enough that neighbours merge (r21)
                                     RocketTrailLife * Mathf.Lerp(0.75f, 1.25f, FxQuality.Hash01(hh + 5u)), (hh & 1u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: wake, grow: 1.4f, alpha: 0.6f * Mathf.Lerp(0.6f, 1f, u), delay: lag + u * ArcSeconds);   // dark (the wreck's book: the Smoke book read as snow haze), it hangs and leans down wind
+                                    velocity: wake, grow: 2.2f, alpha: 0.6f * Mathf.Lerp(0.6f, 1f, u), delay: lag + u * ArcSeconds);   // dark (the wreck's book: the Smoke book read as snow haze), it hangs and leans down wind
                             }
                         }
                         else
@@ -122,12 +122,12 @@ namespace TW.Presentation.Tactical
                                 velocity: Vector3.up * 0.2f, grow: 1.2f, alpha: 0.8f, delay: lag + a * ArcSeconds);   // grey-dark, so it survives the day
                     }
                 }
-                if (!rocket && drawn && SceneMood.Night)   // the mortar round at night: a small ember flying the chord, in place of the tracer
+                if (!rocket && drawn)   // the mortar round: a small ember flying the chord, in place of the tracer (a fire drawing: its soot rim reads on snow)
                 {
                     Vector3 start = ArcPoint(from, end, apex, 0.1f), chord = end - start;
                     var cam = Camera.main;
                     books.Add(FlipbookFx.Book.RocketHead, start, RocketHeadWidth * 0.5f, ArcSeconds * 0.9f, velocity: chord / ArcSeconds,
-                        roll: cam != null ? FlipbookFx.ScreenRoll(cam, chord) : 0f, glow: 1.8f, delay: lag);
+                        roll: cam != null ? FlipbookFx.ScreenRoll(cam, chord) : 0f, glow: SceneMood.Night ? 1.8f : 1.2f, delay: lag);
                 }
                 if (rocket && drawn)
                 {
