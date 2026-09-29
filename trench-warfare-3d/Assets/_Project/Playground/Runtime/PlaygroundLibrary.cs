@@ -17,6 +17,7 @@ namespace TW.Playground
             public TextAsset Manifest;          // tank3.json
             public GameObject[] Lods;           // <Name>_LOD0..n.fbx
             public Texture2D[] Atlas;           // <Name>_LOD<k>_Base.jpg, one per LOD (each LOD has its own UV layout)
+            public TextAsset Legs;              // <Name>_legs.json (Tools/legrig.py): bones and weights for legs welded to the hull
         }
 
         /// <summary>A figure rigged by Tools/frogrig.py: one FBX holding the armature and every LOD mesh.</summary>

@@ -199,6 +199,162 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
 - Scales: the mech 5.8 m tall and the gunship 8 m long at `size 1`, the ambulance 4.6 m long. The battle draws walkers
   2.5x and tanks 1.7x (`VehicleSize`); how big these should be beside them is the owner's call too.
 
+## The Bullfrog: a gatling toad (2026-09-28)
+The owner's `frog+mecha+3d+model` (4,953 tris): a squat four-legged armoured toad with two gatling guns over its back.
+`mecha+frog+3d+model` and its `(1)` copy (identical files) are the same design as a cruder 940-triangle sculpt; only its
+count is used, for LOD2 (derived from LOD0, as decided 2026-09-27). `mechsplit.py TW_KIND=gatling TW_LOD2_TRIS=940`:
+
+| Part | What | Moves |
+|---|---|---|
+| Hull | body, head and all four legs (one welded Tripo piece) | hops (`Runtime/HopDrive.cs`) |
+| Turret | the saddle and brackets over the back | turns (`traverse`) |
+| Gun_L / Gun_R | each housing, horn and fittings; the right one's ammo box and belt | recoil, droops when knocked out |
+| Barrels_L / Barrels_R | six barrels and the clamp rings on each gun's axis | spin up, fire, wind down |
+
+LODs 4,948 / 1,873 / 934 tris. Tripo's flat ground plate and a one-triangle sliver are dropped before the model is
+centred (the plate set the model's bounds). Pieces go to a gun's barrels by their distance from that gun's axis (under
+0.07 model units, ahead of the housing's back), so the spinning part holds only what lies on the axis; the barrels pivot
+on it, and `A_Gatling_...` checks their mesh's middle does not move while they spin.
+
+- **Firing** (`fire`, `VehicleRig.Gatling`): a 2.2 s burst; the barrels spin up in 0.5 s to 1,800 degrees a second
+  (the pair against each other), rounds start at 70 % of that, 24 a second by turns from the two guns (a gun shot off,
+  or its barrels, falls silent), and the barrels wind down over 2 s. Each round is `PlaygroundFx.GatlingShot`: a flash
+  and a star that last 0.08 s (a stream, not a flicker; 0.05 s and a metre across hardly showed in a still), a small
+  puff, a 0.05 s light. Each round warms its gun's barrels (`VehicleRig.Heat`, cools over 4 s) and they glow with it;
+  firing, the body leans back 2 degrees and shudders (`HopDrive`).
+- **Hopping** (`walk <speed> [1]`): crouch, flight (1.3 m at 2 m/s, forward only in the air), landing with dust from
+  each foot. The legs are welded to the body, so on the ground its feet stay on it and the body squashes and stretches
+  instead (`HopDrive.Shape`, the hull's scale with its volume kept, the saddle given the inverse so the guns never shear):
+  it squashes as it gathers, stretches springing and reaching down, squashes to 0.84 on landing and bounces back; the
+  saddle rides a spring (`SaddleHz` 2.2). The first cut sank the body 0.12 m and pitched it 5 degrees, and
+  arriving nose down put the front feet 0.23 m into the ground (the test caught it). Knocked out it slumps onto its
+  belly, over onto the side of a gun it has lost.
+- **Aiming** (`target x y z` | `target near` | `target off`, `VehicleRig.AimAt`, any machine with a Turret and Gun): the
+  turret turns to the point's bearing (150 degrees either side, 90 a second), each gun elevates to it from its own
+  muzzle (-8 to +40 degrees, 50 a second; from the trunnion under the bore a gun 40 m off pointed 3.8 degrees high).
+  Without a target the turret traverses at random as before.
+- **Where the rounds go** (`VehicleRig.Shoot`, its own random stream so the destruction's stays the copies'): at the aim
+  point scattered by 3.5 % of the range across the line of fire (twice that along it) and walked from 5 % of the range
+  on one side to 5 % on the other over the burst (`Sweep`), else along the barrel to the ground, or 250 m up.
+- **Tracers, strikes and cases** (`PlaygroundFx.Fly`, `Case`): each round flies at 700 m/s; every second one draws a
+  streak (CombatFx's instanced box, at least 2 px thick) whose tail lingers 0.12 s shrinking into its strike; each lands
+  as the battle's spurt with a column of earth and clods, a spark for a tracer, and one in three leaves a low dust haze
+  that hangs 2.8 s, so a burst builds a cloud where it falls; a hot brass case and a dark belt link are thrown out of
+  the gun's outer side every round.
+- `model v <Name>` picks a machine by name: the Bullfrog shifted the library's alphabetical indices, and round2.sh's
+  "Croaker 1" would have shot the Bullfrog as the Croaker. round.sh and round2.sh now use names; round2 shoots the
+  Bullfrog firing (close and wide, slowed to a fifth) and hopping.
+- **Critic rounds g1-g3** (`round2.sh gN`, stills and `lodpop` for every machine; the Bullfrog's sheet to a harsh critic):
+  the wide view did not read as firing (rounds in one clump, grey strikes, dark specks for cases): spread 1.5 -> 3.5 %
+  of the range across the line of fire and twice that along it, strikes tinted a dry mud lighter than the night ground
+  with a small column of earth each and three clods, tracers every third round as a bright 1.5 m head on a dimmer 5 m
+  tail (an even bar read as a laser close up; far off both lengthen to stay 30 px), cases glowing hot. The close flash
+  was the cannon's Muzzle card seen side-on (a hook): a Flash and a Star turned at random, a small puff each round.
+  The cook-off threw the small saddle with both guns riding it into the body: the twin guns now go first, 3-5 m out
+  each, and smoulder; the saddle stays on the wreck (thrown alone, its large sparse box toppled corner over corner
+  12.9 m). Knocked out it no longer sinks (feet 0.22 m through the floor) but tips 8-11 degrees onto the side of a gun
+  it has lost, standing on the hull's lowest LOD0 vertices (the box's corners floated it 8 cm). The hop stills were one
+  period (1.15 s) apart, so both showed one moment: `hopphase u` with time frozen shoots chosen moments.
+- **LOD colour**: its switches shifted 3-7 in block colour against the Croaker's 2. Carrying LOD0's normals to the
+  derived LODs (`TW_NORMALS=carry`) measured within the noise and cost IoU (the outline follows the normals): off.
+  A larger share of each derived LOD for the hard-surface parts (`TW_PART_WEIGHT`, guns x1.8, barrels and saddle x1.4),
+  A/B under one protocol, twice each: 0->1 mean 4.33 against 4.41 (worst side 5.5 against 6.45), 1->2 3.2 against 3.1,
+  1->2 IoU 0.951 against 0.958: no gain, off. (A first "4.9 -> 4.3" compared round2.sh's lodpop, taken after a scripted
+  destruction and other shots, with a lodpop on a fresh scene: they differ by about 0.5 on an unchanged model. Compare a
+  change only against a baseline measured the same way.) The remaining shift is the eye and the receivers' texels.
+- **Rounds g3-g5**: a lit card is multiplied by the night's blue moon, so a mud tint came out blue-grey (+25 luma, then
+  +35 with glow): the strikes' tint is pre-divided by the moon and drawn with glow 2.6 at night, and they come out
+  (133, 111, 109) against the ground's (33, 52, 91), red over blue, +59 luma. The cases got a small glint as they leave
+  (a hot shard alone stayed a dark speck). The guns are thrown 2.5-3.5 m/s out and land 3.8-4.5 m from where they stood
+  (4-6 m/s put them 7 m off, where they lay nearer the next wreck); the crouch is nose up, so it no longer reads as the
+  landing. round2.sh waits 2.6 s at a fifth before the close firing still (the rounds start 0.35 s into a burst; at
+  1.3 s it caught none). Verdict after g4/g5: fit for the Playground.
+- **Rounds g6-g9** ("make it even better", the bar a polished unit in a shipped RTS; critic scores g6 -> g8: hop 4 -> 5,
+  firing close 5 -> 6, wide 4 -> 5, silhouette 7, destruction 6, LOD 7; g9 fixed what g8 found but was not re-scored):
+  on the ground the crouch and landing squat were thrown away (`lift = clear`), so three hop stills looked alike: the
+  hull now squashes and stretches, the saddle rides a spring (driven only while hopping: the firing shudder rang it
+  0.1 m, g8), the hop is 1.3 m, and in the air the legs move although they are welded on (the lowest 30 % of the rig's
+  own hull mesh copies bend: hind feet trail back off the take-off, forefeet reach for the landing; the ground clamp
+  bends its foot points the same way). Firing: 24 rounds a second, a tracer every second round at 350 m/s whose tail
+  lingers shrinking into its strike (at 700 m/s neither wide still caught one), bursts that walk across the target,
+  a dust haze that builds where they fall, hot barrels (drawn as soot and burn together: the shader lights embers only
+  in soot), the body leaning and shuddering, belt links with the cases. Destruction: every Playground fire light had
+  burnt at a fifth (`1 - Mathf.SmoothStep(0.8, 1, k)` is 0.2 at k = 0; Unity's SmoothStep interpolates, it is not
+  GLSL's): fires now light the ground, in (1, 0.72, 0.4) since the old red-orange went magenta on the night ground;
+  the one-piece hull chars instead of glowing lava orange; it belly-flops knocked out; rounds cook off out of the wreck.
+  Three SHOW sites read the same SmoothStep way (board finding BUG-laptop-20260928-smoothstep-edges). round2.sh adds a
+  four-frame exposure of the close burst, a still late in the burst for the heat, the landing at phase 0.72 (0.8 fell on
+  the overshoot) and a mid-hop still at the battle's 78 m view.
+- **The legs** (2026-09-28, "also do his legs"): Tripo welded all four legs into the hull, so no part moves them. They
+  are skinned instead. `Tools/legrig.py` (Blender) lays an armature into the hull (per side: Thigh, Shin, Foot from the
+  hip inside the thigh to the knee at the rear bulge, the ankle and the toes; Arm, Fore, Hand from the shoulder down the
+  chest to the fingers; body bones on the spine, head, belly, back, flanks, cheeks and rump), weights each hull LOD with
+  Blender's bone heat on the welded mesh (Unity splits vertices at UV seams; heat on the split mesh treats every UV
+  island as its own piece), fades leg weights out towards the midline so the belly never follows a leg, and writes
+  `Art/Tanks/Bullfrog/Bullfrog_legs.json`. The joints are laid out in the body's own frame: the sculpt stands turned
+  15.3 degrees on its base (the four feet's clusters show it), which the guns and sockets are built around, so it is
+  not re-turned. `Runtime/LegRig.cs` matches each Unity vertex to its welded weights (a vertex more than a millimetre
+  from any: the mesh changed, the legs stay still with a warning, and the hopper test fails) and skins positions and
+  normals of the LOD on show. Every low vertex of a limb past its wrist or ankle (on the digits' side of a plane through
+  it, within 0.65) rides the hand or foot whole: shared with the forearm a finger stretched into a blade, and a capsule
+  along the bone missed the splayed digits (43 of 109 finger vertices kept 30-80 % forearm weight, critic g11; now
+  every mixed low vertex lies behind the wrist or ankle). The thigh and arm weights are averaged with their neighbours
+  (the hip sheared at a narrow seam). `HopDrive.Drives` poses them: the hind legs push off, unfolding against the ground
+  over the last 40 % of the crouch (`Push` 0.4) while leaning back, so it leaves along a diagonal (standing straight up
+  first it looked on stilts); the flight is a parabola from the push's height to the ground (an arc plus a fading
+  offset peaked at a quarter of the flight, then floated and dropped); in the air the thigh swings back first and then
+  the knee opens to 100 degrees, so the leg trails nearly straight behind (unfolding while it swung, or trailing at 20
+  degrees with the nose up, the legs propped the body up to 1.9 m over a 0.55 m arc); the forelegs sweep back under it
+  and reach forward for the landing from a third of the way, and the hind knees fold as it lands; standing it shifts its
+  weight on its haunches, firing the forelegs brace and the haunches pulse with the shudder; knocked out all four
+  sprawl 20 degrees. Measured body lift through a hop, phase: metres, 0.15: 0.58, 0.18: 1.13 (take-off), 0.25: 1.42,
+  0.42: 1.78 (the top), 0.5: 1.53, 0.62: 0.66, 0.72: 0.00. The body stands on the skinned feet
+  and on everything that follows a leg. The forelegs do not fold on the ground (turned about the shoulder the hands left
+  it and the body stood up on its elbows). `legpose e t r s` holds the drives for a still; `dumphull <dir>` writes the hull LODs for
+  legrig.py. After a re-split: `dumphull`, then `blender -b --factory-startup -P Tools/legrig.py -- Bullfrog
+  Art/Tanks/Bullfrog/Bullfrog_legs.json hull0.json hull1.json hull2.json`, then TW/Playground/Build.
+- **Rounds g10-g12** (legs, critic scores g8 -> g11: hop 5 -> 7, legs 5 -> 6, firing close 6, wide 6, silhouette 7,
+  destruction 6, LOD 7; g12 fixed the digits, the push and the arc g11 found, not re-scored): tracer tails were skipped
+  and piled up when no head was in flight (an early return in `FlyRounds`); the "hot" still was taken after its burst
+  ended (now 1.5 s into a second burst on the first one's heat); the wide shots get the same brightest-pixels exposure as
+  the close one. Open: the barrels' heat is one value per part (`_Damage`), so it glows along their whole length, not
+  from the muzzle; that needs the shader to read a position along the barrel.
+- **Life** (2026-09-28, "you can do better than this"): a hit jolts it away from the blow (`HopDrive.Flinch`, from
+  `VehicleRig.Hurt`: rocks up to 7 degrees, squashes 8 %, the legs take it; up in 0.05 s, gone over 0.2 s); it sits
+  0.3 s between hops (`Rest`; hop after hop read as a machine bouncing), keeping its pace; sitting, its throat swells
+  twice every 3.2 s (`LegRig.Throat`: the white under the chin pushed out along its normals, 0.11 hull units, weights
+  found from the body frame at load); knocked out, its legs sprawl 45 degrees so it drops onto its belly and a hind leg
+  kicks three times, weaker each time (1.1, 1.8, 2.6 s), and the cook-off throws the body 0.55 m up off them; the
+  barrels' heat is a small warm light at each tip (`VehicleRig.HeatLamps`, as the square of the heat) with less soot
+  and glow along the whole part, so it builds from the muzzle end. `Tools/playground/seq.sh NAME FRAMES TIMESCALE
+  ["setup"]` records a run of stills at a slowed clock and a GIF, to judge motion rather than poses (stills can hide a
+  pop or a jitter): the hop, a burst and a hit-to-death run were reviewed this way.
+- **Weight** (round g14, from the first critic to see motion, g13: hop 7, firing 6/6, destruction 5): on the ground the
+  body sinks over planted feet (`HopDrive.Fold`: two-bone IK in the body's side plane moves each ankle and wrist up by
+  the sink, the foot or hand keeping its angle, and the clamp lowers the body by as much): -0.15 m in the crouch before
+  the push, -0.12 m landing, a hit drops it (0.25 m times the jolt) and shoves it along the blow, firing it squats 5 cm
+  and is pushed back 4 cm. The belly rests 1 cm above the feet, so it flattens and spreads under the sink
+  (`LegRig.Squash`, the bottom 0.5 hull units by body weight); the palm's heel now rides the hand whole
+  (`legrig.py PALM_BACK` 0.45: shared with the forearm it rose a third as far as the wrist). Knocked out it lies on its
+  belly 0.1 m below its standing height (stood on its sprawled legs it was 0.44 m above, a table): the height comes
+  from the body's underside alone and is kept once it is down (the kicks dropped it 0.21 m and back), the legs roll out
+  before they stretch (together, a shin swung 0.46 m through the ground) and lie on a ground plane (`LegRig.HasGround`)
+  with the roll outside the pitch, so a kick goes out along the ground (it went up over the back like a tail). Firing:
+  lean 4 degrees and shake 1.5 (2 and 0.4 hardly showed), the saddle driven back 3-4.5 cm along its guns, the throat
+  pumping with the burst, the heat light over the middle of the barrels and a wisp of smoke off them after a burst. A
+  barrel set holds until the machine is Damaged (the first 15-damage hit took half its guns at 85 % health). Landing
+  dust is a brown haze (`PlaygroundFx.Dust`), a hit's smoke a rising dust puff, the shell burst card lit and rising as
+  the battle draws it. Open: three dense grey smoke cards of the shell burst still read as a blue ball in front of the
+  body at night; the throat swell is small at the default camera distance.
+- Open before the battle: the eye and the receivers brighten at the 0->1 switch (+29 and +18 luma on the eye's
+  blocks). Re-baking LOD1/2 onto their own atlases from LOD0 (fbxlod2.py's bake: fresh UVs, emission, filled misses;
+  1024/512 px) measured worse, twice each against the shared atlas: 0->1 block mean 4.70/4.67 against 4.40/4.42 (worst
+  side 7.5 against 6.5), 1->2 3.88/4.12 against 3.12/3.10, IoU unchanged. The pop images show the switch is shading:
+  the gun housings' faces go flatter and lighter at LOD1 with or without the bake, as `LodFit`'s note says of what no
+  tint removes. Not kept. With the part weighting and the carried normals above also neutral, the rest is the housings'
+  bevels collapsing into flat faces; nothing tried so far keeps them within the budget.
+- Not done: the battle (a sim archetype and a `Resources/Vehicles` entry).
+
 ## Readability
 `ground mud` swaps the metre grid for a dark warm mud; `team 0|1|split` puts the battle's side colours on (the tank's
 lamps and antenna, where the game paints a tank's horns, and field-grey over the olive for side 1; a light wash on a
