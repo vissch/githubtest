@@ -117,9 +117,12 @@ namespace TW.Presentation.Tactical
 
         /// <summary>A class book's width up close, x its flare: the brake's cross and the MG's tongue a little bigger to read at
         /// 25 px, the pop a little smaller (critique r6).</summary>
+        /// <summary>The widest a class book is drawn, x the men's scale.</summary>
+        public const float ClassBookMost = 2.4f;
+
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
-            float k = book == FlipbookFx.Book.MuzzleBrake ? 1.3f : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
+            float k = book == FlipbookFx.Book.MuzzleBrake ? 1.25f : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
             return Mathf.Lerp(1f, k, closeUp);
         }
 
