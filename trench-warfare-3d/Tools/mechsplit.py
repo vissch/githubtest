@@ -26,6 +26,19 @@
 # (the blades and hub, which spin), Engine, Turret > Gun. The manifest says "hover" (Runtime/FlyerDrive.cs, low).
 # TW_TURN: degrees to turn the LOD0 model about Z first, so its front is -Y like the others.
 #
+# TW_KIND=gatling: a squat four-legged toad carrying two gatling guns over its back (2026-09-28: Downloads/frog+mecha+
+# 3d+model = 4,953 tris; mecha+frog+3d+model = 940, the same design as a cruder sculpt, only its count is used): Hull (the
+# body, head and legs: Tripo welded them into one piece, so it hops rather than walks), Turret (the saddle and brackets
+# over its back) > Gun_L/R (each housing, its horn and fittings, the right one's ammo box and belt) > Barrels_L/R (the six
+# barrels and the clamp rings on them, which spin about the gun's length). Tripo's flat ground plate and a one-triangle
+# sliver are dropped first. Pieces go to a gun's barrels by their distance from its axis (the rings' middle), so the
+# spinning part holds only what lies on that axis. The manifest says "hopper" (Runtime/HopDrive.cs) and each gun has
+# its own muzzle socket (Socket_Muzzle_L/R on the gun, which does not spin).
+# TW_NORMALS=carry (any kind; off by default): LOD0 smoothed with hard edges past 55 degrees (what Unity's import would
+# calculate) and each derived LOD given LOD0's normals by Blender's data transfer; the manifest says "normals": "carried"
+# and PlaygroundImport imports them instead of re-deriving them per LOD. Tried on the Bullfrog for its switches' block
+# colour shift (3-7 against the Croaker's 2, critic g1): 0->1 3.5-7.1 (was 3.1-7.0), 1->2 3.3-4.2 (3.7-4.5), both within
+# the noise, and 0->1's worst IoU fell 0.971 -> 0.963 (the ink outline follows the normals). The shift is the sculpt's.
 # usage: blender -b --factory-startup -P mechsplit.py -- <name> <lod0.fbx> [<lod1.fbx> [<lod2.fbx>]] <outdir> <renderdir>
 import bpy, bmesh, sys, os, math, json, random, glob, shutil
 import numpy as np
@@ -36,8 +49,9 @@ NAME, OUTDIR, RENDERDIR = argv[0], argv[-2], argv[-1]
 FBX = argv[1:-2]
 os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 KIND = os.environ.get("TW_KIND", "walker")
+CARRY = os.environ.get("TW_NORMALS", "calc") == "carry"
 # metres per model unit: the mech stands 0.883 units, 5.8 m; the gunship is 1 unit long, 8 m
-SCALE = float(os.environ.get("TW_SCALE", {"flyer": "8.0", "hover": "7.0"}.get(KIND, "6.6")))
+SCALE = float(os.environ.get("TW_SCALE", {"flyer": "8.0", "hover": "7.0", "gatling": "4.0"}.get(KIND, "6.6")))
 
 PARTS = ["Hull", "Turret", "Gun", "Claw_L", "Claw_R", "Jaw_L", "Jaw_R", "Thigh_L", "Thigh_R", "Shin_L", "Shin_R", "Foot_L", "Foot_R"]
 # destruction (VehicleRig): tier 1 fittings, 2 limbs, 3 the turret and gun, 9 the hull; mass shares
@@ -96,6 +110,37 @@ if KIND == "hover":
         if ax > 0.22 and c.z < 0.26: return "Pod_" + ("F" if c.y < 0 else "R") + ("L" if c.x > 0 else "R")
         return "Hull"
 
+if KIND == "gatling":
+    PARTS = ["Hull", "Turret", "Gun_L", "Gun_R", "Barrels_L", "Barrels_R"]
+    BREAK = {"Barrels_L": dict(tier=1, mass=0.3), "Barrels_R": dict(tier=1, mass=0.3), "Gun_L": dict(tier=3, mass=1.0),
+             "Gun_R": dict(tier=3, mass=1.2), "Turret": dict(tier=3, mass=1.4), "Hull": dict(tier=9, mass=10.0)}
+    PARENT = {"Turret": "Hull", "Gun_L": "Turret", "Gun_R": "Turret", "Barrels_L": "Gun_L", "Barrels_R": "Gun_R"}
+    # measured on the LOD0 model's own frame (before centring): each gun's barrel axis (x, z), the middle of its rings
+    AXIS = {"L": (-0.332, 0.460), "R": (0.103, 0.455)}
+    NORM = [1.0, 0.0, 0.0]   # split() fills in the model frame's size and centre, so the rules read the source's numbers
+    def part_of(c, lo, hi):
+        x, y, z = c.x * NORM[0] + NORM[1], c.y * NORM[0] + NORM[2], c.z * NORM[0]
+        for s in "LR":
+            ax, az = AXIS[s]
+            # on the axis (the barrels 0.04 out, the rings' bolts 0.056) and ahead of the housing's back
+            if math.hypot(x - ax, z - az) < 0.07 and y < 0.07: return "Barrels_" + s
+        if x > 0.17 and z > 0.25: return "Gun_R"   # the ammo box hung outside the right gun, and its belt
+        for s in "LR":
+            if z >= 0.34 and abs(x - AXIS[s][0]) < 0.13: return "Gun_" + s
+        if z > 0.28: return "Turret"
+        return "Hull"
+
+def drop_debris(bm):
+    """Tripo's flat ground plate (no height, at the feet) and one-triangle slivers: not part of the machine."""
+    bm.faces.ensure_lookup_table()
+    lo, hi = bounds(bm); size = max(hi - lo); gone = []
+    for fs in islands(bm):
+        zs = [v.co.z for i in fs for v in bm.faces[i].verts]
+        if len(fs) <= 1 or (max(zs) - min(zs) < 0.002 * size and min(zs) - lo.z < 0.01 * size): gone += fs
+    bmesh.ops.delete(bm, geom=[bm.faces[i] for i in gone], context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    print("dropped %d debris faces" % len(gone))
+
 def load(fbx):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=fbx)
@@ -148,7 +193,9 @@ def split(fbx):
     # the model frame: centred on x and y, feet on z = 0, the widest side 1 unit
     if fbx == FBX[0] and float(os.environ.get("TW_TURN", "0")):
         bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(float(os.environ["TW_TURN"])), 3, 'Z'))
+    if KIND == "gatling": drop_debris(bm)
     lo, hi = bounds(bm); size = max(hi - lo)
+    if KIND == "gatling" and fbx == FBX[0]: NORM[:] = [size, (lo.x + hi.x) / 2, (lo.y + hi.y) / 2]
     bmesh.ops.transform(bm, matrix=Matrix.Scale(1.0 / size, 4) @ Matrix.Translation(-Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))), verts=bm.verts)
     bm.faces.ensure_lookup_table()
     groups = {n: [] for n in PARTS}
@@ -225,7 +272,35 @@ def hover_pivots_and_sockets(P):
     lo, hi = bounds(P["Engine"]); sock["Socket_Exhaust0"] = ("Engine", Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, hi.z)))
     return piv, sock
 
+def gatling_pivots_and_sockets(P):
+    piv = {"Hull": Vector((0, 0, 0))}
+    # the saddle turns about the middle of its underside, over the body's middle
+    lo, hi = bounds(P["Turret"]); hlo, hhi = bounds(P["Hull"])
+    piv["Turret"] = Vector(((hlo.x + hhi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+    sock = {}
+    for s in "LR":
+        blo, bhi = bounds(P["Barrels_" + s])
+        axis = Vector(((blo.x + bhi.x) / 2, 0, (blo.z + bhi.z) / 2))   # six barrels and round rings: the box's middle is the axis
+        # the barrels spin on that axis, from their back; the gun pitches about a trunnion under its axis at its middle
+        piv["Barrels_" + s] = Vector((axis.x, bhi.y, axis.z))
+        glo, ghi = bounds(P["Gun_" + s])
+        piv["Gun_" + s] = Vector((axis.x, (glo.y + ghi.y) / 2, axis.z - 0.4 * (axis.z - glo.z)))
+        # the muzzle on the gun (it does not spin), at the barrels' front on their axis
+        sock["Socket_Muzzle_" + s] = ("Gun_" + s, Vector((axis.x, blo.y, axis.z)))
+    sock["Socket_Muzzle"] = sock["Socket_Muzzle_L"]
+    lo, hi = bounds(P["Hull"]); cx, cy = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2
+    for i, (x, f) in enumerate(((0.0, 0.9), (0.1, 0.6), (-0.1, 0.6))):
+        sock["Socket_Fire%d" % i] = ("Hull", Vector((cx + x, cy, lo.z + f * (hi.z - lo.z))))
+    sock["Socket_Deck"] = ("Hull", Vector((cx, cy, hi.z)))
+    sock["Socket_Exhaust0"] = ("Turret", Vector((piv["Turret"].x, bounds(P["Turret"])[1].y, bounds(P["Turret"])[1].z)))
+    sock["Socket_Eye"] = ("Hull", Vector((cx, lo.y, lo.z + 0.6 * (hi.z - lo.z))))
+    # where a hop lands: the four feet, at the corners of the body's footprint
+    for k, (fx, fy) in {"FL": (1, -1), "FR": (-1, -1), "RL": (1, 1), "RR": (-1, 1)}.items():
+        sock["Socket_Toe_" + k] = ("Hull", Vector((cx + fx * 0.38 * (hi.x - lo.x), cy + fy * 0.38 * (hi.y - lo.y), lo.z)))
+    return piv, sock
+
 def pivots_and_sockets(P):
+    if KIND == "gatling": return gatling_pivots_and_sockets(P)
     if KIND == "flyer": return flyer_pivots_and_sockets(P)
     if KIND == "hover": return hover_pivots_and_sockets(P)
     piv = {}
@@ -260,10 +335,25 @@ def make(lod, P, piv, sock, mat):
         b = P[n].copy()
         bmesh.ops.transform(b, matrix=TURN @ Matrix.Scale(SCALE, 4) @ Matrix.Translation(-piv[n]), verts=b.verts)
         me = bpy.data.meshes.new("%s_LOD%d_%s" % (NAME, lod, n)); b.to_mesh(me); b.free(); me.materials.append(mat)
+        if CARRY:
+            me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
+            if lod == 0: me.set_sharp_from_angle(angle=math.radians(55))
         o = bpy.data.objects.new(n, me); bpy.context.scene.collection.objects.link(o); objs[n] = o
     root = bpy.data.objects.new("%s_LOD%d" % (NAME, lod), None); bpy.context.scene.collection.objects.link(root)
     for n, o in objs.items(): o.parent = root; o.location = (TURN @ piv[n]) * SCALE
+    if CARRY and lod > 0 and LOD0_OBJS:
+        bpy.context.view_layer.update()
+        for n, o in objs.items():
+            src = LOD0_OBJS[n]
+            for x in bpy.context.selected_objects: x.select_set(False)
+            o.select_set(True); bpy.context.view_layer.objects.active = o
+            md = o.modifiers.new("normals", 'DATA_TRANSFER'); md.object = src
+            md.use_loop_data = True; md.data_types_loops = {'CUSTOM_NORMAL'}; md.loop_mapping = 'POLYINTERP_NEAREST'
+            md.use_object_transform = True
+            bpy.ops.object.modifier_apply(modifier=md.name)
     return root, objs
+
+LOD0_OBJS = {}
 
 def export(root, path):
     for o in bpy.context.selected_objects: o.select_set(False)
@@ -320,14 +410,26 @@ for k in (1, 2):
         P, m, b = split(FBX[2]); lods.append(P); mats.append(m); bases.append(b)
         print("LOD2: Tripo's own, %d tris" % sum(tris_of(x) for x in P.values())); continue
     ratio = budget[k] / t0; floor = 64 if k == 1 else 32
+    # TW_PART_WEIGHT "Gun_L=1.8,Gun_R=1.8": a part's share of the budget scaled by its weight, the others scaled down so
+    # the total stays on budget (hard-surface parts lose their edges first when decimated evenly)
+    # Off by default. Tried on the Bullfrog (guns x1.8, barrels and saddle x1.4), measured A/B under one protocol, twice
+    # each (repeats agree to 0.06): 0->1 block colour mean 4.33 against 4.41 unweighted (worst side 5.5 against 6.45),
+    # 1->2 3.2 against 3.1, worst-side IoU 0.969/0.967 and 0.951/0.958 (1->2 worse by just past its 0.006 floor). No gain
+    # overall; an earlier "4.9 -> 4.3" compared a round script's lodpop with a controlled one (critic g3 caught it).
+    wt = {kv.split("=")[0]: float(kv.split("=")[1]) for kv in os.environ.get("TW_PART_WEIGHT", "").split(",") if "=" in kv}
+    if wt:
+        heavy = sum(tris_of(P0[n]) * wt.get(n, 1.0) for n in PARTS)
+        scale = t0 / heavy
     P = {}
     for n in PARTS:
-        have = tris_of(P0[n]); want = max(int(have * ratio), min(have, floor))
+        have = tris_of(P0[n]); r = ratio * (wt.get(n, 1.0) * scale if wt else 1.0)
+        want = min(have, max(int(have * r), min(have, floor)))
         P[n] = decimated(P0[n], want / max(1, have))
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
 piv, sock = pivots_and_sockets(P0)
 manifest = {"source": "Tools/mechsplit.py", "name": NAME, "scale": SCALE, "walker": KIND == "walker", "flyer": KIND in ("flyer", "hover"), "hover": KIND == "hover",
+            "hopper": KIND == "gatling", "normals": "carried" if CARRY else "calculated",
             # a cook-off throws its parts at 0.6 of the tank's speeds: it has no magazine, and at 1.0 an engine landed 29 m off
             "fling": 0.6, "lods": [], "snapped": [],
             "derived": [k for k in (1, 2) if not (k == 2 and LOD2_FROM == "tripo")],
@@ -340,6 +442,7 @@ for lod, P in enumerate(lods):
     tag = "%s_LOD%d" % (NAME, lod)
     render(tag + "_tex", objs, 'TEXTURE'); render(tag + "_parts", objs, 'OBJECT', exploded=0.35)
     for n in PARTS: objs[n].name = n
+    if lod == 0: LOD0_OBJS.update(objs)
     export(root, os.path.join(OUTDIR, tag + ".fbx"))
     for n in PARTS: objs[n].name = "%d|%s" % (lod, n)
     shutil.copyfile(bases[lod], os.path.join(OUTDIR, tag + "_Base.jpg"))
