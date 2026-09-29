@@ -177,6 +177,7 @@ namespace TW.Presentation
         NativeArray<uint> waveAt;
         NativeArray<float> waveR, waveD;
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
+        NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
 
@@ -209,6 +210,7 @@ namespace TW.Presentation
             shotThisTick = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             leftTrench = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
             AllocateDeaths(maxSlots);
@@ -217,7 +219,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
             DisposeDeaths();
         }
 
@@ -283,7 +285,7 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
             crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
@@ -302,6 +304,9 @@ namespace TW.Presentation
                         break;
                     case SimEventType.UnitLeftTrench:
                         if (e.A >= 0 && e.A < count) leftTrench[e.A] = 1;
+                        break;
+                    case SimEventType.GrenadeThrown:
+                        if (e.A >= 0 && e.A < count) { threw[e.A] = 1; shotAt[e.A] = e.B; }
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
@@ -441,7 +446,7 @@ namespace TW.Presentation
             // yaw: the body follows the heading when moving, aim follows the target; standing still with a target
             // within 60 degrees the feet simply come round (Advance eases the shown yaw); beyond that a turn clip plays
             if (speed > 0.15f) s.BodyYaw = math.atan2(step.x, step.z);
-            int aimAt = target >= 0 ? target : shotThisTick[i] != 0 ? shotAt[i] : -1;
+            int aimAt = target >= 0 ? target : shotThisTick[i] != 0 || threw[i] != 0 ? shotAt[i] : -1;
             if (aimAt >= 0 && aimAt < count) { float3 d = w.Position[aimAt] - p; s.AimYaw = math.atan2(d.x, d.z); }
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
 
@@ -639,6 +644,16 @@ namespace TW.Presentation
             // ---- rung 4: actions (the shot first: it cuts an aim-up, a flinch or a duck, never a hit)
             int magazine = arche == 1 ? 20 : arche == 2 ? 50 : 5;
             bool bolt = arche == 0 || arche == 3;   // the rifle and the sniper work a bolt after every shot
+            if (threw[i] != 0 && !prone && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
+            {
+                // the bomb left his hand this tick (CombatFx draws it from there): the clip joins at its swing, so the arm
+                // comes over as it goes (Toss Grenade lets go at about 44 % of its length)
+                s.Routine = 0;
+                if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }
+                Start(i, ref s, Clip.Throw, Rung.Action, (i == FollowSlot ? "throws a bomb at " + shotAt[i] : null), 1f, 0.08f);
+                s.Frame = 0.4f * Clips.Table[(int)Clip.Throw].Seconds;
+                return;
+            }
             if (shotThisTick[i] != 0) { s.Shots++; s.LastShot = tick; s.Aimed = true; }
             if (shotThisTick[i] != 0 && speed < 0.3f && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
             {

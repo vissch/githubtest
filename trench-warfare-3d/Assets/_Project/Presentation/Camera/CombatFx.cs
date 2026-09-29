@@ -614,11 +614,15 @@ namespace TW.Presentation.Tactical
                 case SimEventType.MineCleared:
                     OnMineGone(e, false);   // a crater took it: the mark goes
                     break;
+                case SimEventType.GrenadeThrown:
+                    OnGrenadeThrown(e);   // CombatFx.Grenades.cs: the bomb in the air
+                    break;
                 case SimEventType.Explosion:
                 {
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
                     if (LightBurst(e, p, Time.time)) break;   // a strafe's rounds, a beam's scorch: not a shell (CombatFx.Abilities.cs)
+                    if (e.A == SourceId.Grenade && GrenadeBurst(e, p)) break;   // a hand grenade: not a shell either (CombatFx.Grenades.cs)
                     bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
                     // Water damps a shell; melt does not. IsWater is map data and knows nothing about the
                     // biome, so on the lava field it is true over the river - 11% of the ground, measured -
@@ -890,6 +894,7 @@ namespace TW.Presentation.Tactical
             }
             if (batch.Count > 0) Flush(puff, new RenderParams(smokeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
 
+            DrawBombs();                   // the bombs in the air (CombatFx.Grenades.cs), before the chunks draw them
             DrawChunks(now, bounds);
             flames.SimNow = SimNow;   // the torches expire by the sim's clock (CombatFx.Abilities.cs)
             flames.Update(now, view, books, drawnAt, groundAt);

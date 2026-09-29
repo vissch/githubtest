@@ -18,6 +18,8 @@ For the SHOW lanes:
   `Captures/nav-engage/play-grenade-std.png` on the sim lane's checkout). A small burst of its own, keyed on
   `SourceId.Grenade`, and a throw (an arm, an arc along `dir`) from `GrenadeThrown` would read far better. Nothing in
   SHOW has to change for the sim to run.
+- **Done 2026-09-29** on `lane/show/grenade-look` (over `lane/sim/grenade-flight`, replay v21: the bomb now flies
+  0.5-1.2 s and goes off where it lands): the throw, the bomb in the air with its fuse, and a burst of its own.
 - Bench reports recorded before this lane are not comparable with ones after it.
 
 Delete this note once the lane has landed and every lane has rebased over it.
