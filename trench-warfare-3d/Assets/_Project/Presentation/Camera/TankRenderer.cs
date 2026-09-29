@@ -746,10 +746,12 @@ namespace TW.Presentation.Tactical
             return false;
         }
 
+        /// <summary>A socket on the posed hull (MachineSockets: a walker answers the first of a numbered pair with its one
+        /// socket). A model without it gets the top of its hull, never v.Pos, whose y is 0: under the ground.</summary>
         Vector3 SocketWorld(View v, string name, out bool ok)
         {
-            ok = v.Model.Sockets.TryGetValue(name, out var s);
-            return ok ? v.World[s.part].MultiplyPoint3x4(s.local) : v.Pos;
+            ok = MachineSockets.TryResolve(v.Model, name, out var s);
+            return ok ? v.World[s.part].MultiplyPoint3x4(s.local) : new Vector3(v.Pos.x, v.Heave.Value + v.Model.Height * 0.8f, v.Pos.z);
         }
 
         Vector3 MuzzleWorld(View v, int k, out Vector3 dir)
