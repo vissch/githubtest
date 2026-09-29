@@ -54,13 +54,13 @@ namespace TW.Presentation.Tactical
             switch (archetype)
             {
                 case InfantryArchetype.Assault:   // a submachine gun: small quick flares, short quick rounds
-                    return Look(0.7f, 0.8f, 0.8f, 0.6f, true, 0.18f, 0.6f, 0.45f);
+                    return Look(0.8f, 0.8f, 0.8f, 0.6f, true, 0.18f, 0.6f, 0.45f);
                 case InfantryArchetype.Machinegunner:   // a long flare, a smoking barrel, a broken stream with every third round bright
                     return Stream(Look(1.35f, tracerRound ? 1.3f : 0.7f, 1.1f, 1.3f, true, 0.18f, 1f, 1f), round, tracerRound);
                 case InfantryArchetype.Sniper:   // one big flash, a thin white-hot needle that lingers, a heavy kick of dirt
                     return Look(1.5f, 1.3f, 1.5f, 1.6f, true, 0.22f, 2.2f, 1f);
                 case InfantryArchetype.Officer:  // a carbine: a crisp pop, hardly a wisp
-                    return Look(1.1f, 0.9f, 0.9f, 0.3f, true, 0.12f, 0.8f, 0.7f);
+                    return Look(0.8f, 0.9f, 0.9f, 0.3f, true, 0.085f, 0.8f, 0.7f);   // smaller and quicker than the SMG's cone (critique r7)
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit
                     return Look(0.6f, 0.7f, 0.7f, 0.5f, true, 0.18f, 0.6f, 0.3f);
                 case InfantryArchetype.Jetpack:  // a machine pistol: tiny flares that flicker three times (CombatFx.Close.cs)
@@ -119,7 +119,7 @@ namespace TW.Presentation.Tactical
         /// 25 px, the pop a little smaller (critique r6).</summary>
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
-            float k = book == FlipbookFx.Book.MuzzleBrake ? 1.3f : book == FlipbookFx.Book.MuzzleStream ? 1.2f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
+            float k = book == FlipbookFx.Book.MuzzleBrake ? 1.3f : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
             return Mathf.Lerp(1f, k, closeUp);
         }
 
@@ -133,7 +133,15 @@ namespace TW.Presentation.Tactical
         /// <summary>A man firing away from the eye hides his own flare behind his body (critique la4): up close its card is
         /// pushed further out along the barrel and lifted, in proportion to how squarely he faces away.</summary>
         /// <summary>A flame seen end-on (the barrel along the eye's line) is a sheet edge-on: drawn as a pop (a Star) instead.</summary>
-        public static bool EndOn(Vector3 barrel, Vector3 camForward, bool classLooks) => classLooks && Mathf.Abs(Vector3.Dot(barrel, camForward)) > 0.6f;
+        public static bool EndOn(Vector3 barrel, Vector3 camForward, bool classLooks) => classLooks && Mathf.Abs(Vector3.Dot(barrel, camForward)) > 0.75f;
+
+        /// <summary>A three-quarter view (|dot| 0.6 to 0.75): the class's book drawn foreshortened (x0.6) with a small star on it,
+        /// so the shape survives; past 0.75 only the star (critique r7: end-on stars hid every book for men facing the eye).</summary>
+        public static bool ThreeQuarter(Vector3 barrel, Vector3 camForward, bool classLooks)
+        {
+            float d = Mathf.Abs(Vector3.Dot(barrel, camForward));
+            return classLooks && d > 0.6f && d <= 0.75f;
+        }
 
         public static Vector3 FlareClear(Vector3 barrel, Vector3 camForward, float scale, float flare, float closeUp, bool classLooks)
         {
