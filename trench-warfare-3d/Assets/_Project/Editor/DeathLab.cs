@@ -38,7 +38,7 @@ namespace TW.Editor
         }
 
         /// <summary>n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots.</summary>
-        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f)
+        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f)
         {
             var h = Host; if (h == null) return "no SimHost";
             var sb = new StringBuilder("slots");
@@ -47,7 +47,7 @@ namespace TW.Editor
                 string s = TankCapture.Spawn(team, 0, x + k * spacing, z, 0f);
                 if (!s.StartsWith("slot ")) return s;
                 int slot = int.Parse(s.Substring(5));
-                h.WriteWorlds(m => { m.World.Hp[slot] = hp; m.World.Speed[slot] = 0f; });
+                h.WriteWorlds(m => { m.World.Hp[slot] = hp; m.World.Speed[slot] = 0f; if (maxHp > 0f) m.World.MaxHp[slot] = maxHp; });
                 sb.Append(' ').Append(slot);
             }
             return sb.ToString();
@@ -84,8 +84,9 @@ namespace TW.Editor
             {
                 case "shot": return Row(6, x, z, 0) + "; " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
                 case "mg": return Row(6, x, z, 0) + "; " + TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 30f, 180f);
-                // hit and not killed (CombatFx.HitBlood): men too tough to fall, a machine gun and two rifles on them
-                case "wounds": return Row(6, x, z, 0, 1.6f, 1e6f) + "; " + TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 2f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
+                // hit and not killed (CombatFx.HitBlood, the blood on the uniform): men tough enough to take many hits, their
+                // hp and max hp raised together so the stain grows with what they lose, a machine gun and two rifles on them
+                case "wounds": return Row(6, x, z, 0, 1.6f, 900f, 900f) + "; " + TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 2f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
                 case "shell": return Row(6, x, z, 0, 3f, 100f) + "; " + Shell(x + 7.5f, z - 2f, 8f, 600f);
                 case "heap": return Row(8, x, z, 0, 0.7f, 100f) + "; " + Shell(x + 2.5f, z, 6f, 800f);
                 case "gas": return Row(6, x, z, 1, 1.6f, 30f) + "; " + Call((int)OffMapAbilityId.ChlorineGas, x + 4f, z);   // the enemy's men: player 0 calls it

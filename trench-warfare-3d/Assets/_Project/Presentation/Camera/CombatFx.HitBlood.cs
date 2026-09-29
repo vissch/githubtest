@@ -26,6 +26,7 @@ namespace TW.Presentation.Tactical
         public const int HitSplash = 3;
         public const float HitSplashLife = 0.5f, HitZoomFrom = 12f, HitZoomOver = 15f, HitZoomMost = 2.2f, HitMarkBoostCap = 1.6f;
         int hitMarksFrame = -1, hitMarksThisFrame;
+        static readonly int TWGoreId = Shader.PropertyToID("_TWGore");
 
         /// <summary>A man hit and not killed (the Hit event's b, damage above 0): his blood, at `p` (where the round met him,
         /// his chest as drawn), `toward` the way the round was going (flat, unit), `scale` his drawn size.</summary>

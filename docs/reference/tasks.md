@@ -229,7 +229,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
   with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is packed by `VatTint`: the team
   in bit 0, a fallen man's tumble pitch in bits 1-5, his roll in 6-10, a squash in 11-16 and a feet pivot in 17 (all
-  zero on a living man, so his Tint is his team). Build it with `VatTint.Pack`, never by hand, and never read `Tint`
+  zero on a living man), and the blood on his uniform in 18-23 (0..63: hp lost, `AnimationController.Wound`; a corpse
+  `VatTint.FallenWound`; the shader scales it by `_TWGore`, the GORE slider, which `CombatFx` sets each frame). An
+  unwounded living man's Tint is his team. Build it with `VatTint.Pack`, never by hand, and never read `Tint`
   as the team on the C# side. `VatPad` packs limbs, grime, seed and char into 24 bits: nothing more fits.
 
 ### Animation (which clip a man plays)

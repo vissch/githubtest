@@ -244,7 +244,7 @@ namespace TW.Presentation.Units
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
-                Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes,
+                Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes, Wound = anim != null ? anim.Wound : spareBytes,
                 Hidden = HiddenMask(Host.Local.World.Config.MaxSlots),
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
@@ -363,6 +363,7 @@ namespace TW.Presentation.Units
             [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime;
             [ReadOnly] public NativeArray<byte> Hidden;
             [ReadOnly] public NativeArray<byte> Char;
+            [ReadOnly] public NativeArray<byte> Wound;
             public NativeArray<VatInstance> Instances;
             public NativeArray<byte> FigureOf;
             public NativeArray<float4> Vehicles;
@@ -400,17 +401,17 @@ namespace TW.Presentation.Units
                     }
                     bool distant = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;
                     var map = distant ? FarRowOf : NearRowOf;
-                    int row = p.AnimRow, prevRow = row, seed = 0, chr = 0; float prevT = 0f, blend = 0f, grime = 0f;
+                    int row = p.AnimRow, prevRow = row, seed = 0, chr = 0, wound = 0; float prevT = 0f, blend = 0f, grime = 0f;
                     if (Controlled)
                     {
                         int slot = PoseSlot[i];
-                        grime = Grime[slot]; seed = slot * 37; chr = Char[slot];
+                        grime = Grime[slot]; seed = slot * 37; chr = Char[slot]; wound = Wound[slot];
                         row = map[math.min(row, map.Length - 1)];
                         prevRow = map[math.min(PrevRow[slot], map.Length - 1)]; prevT = PrevPhase[slot]; blend = Blend[slot];
                     }
                     var inst = new VatInstance
                     {
-                        Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = row, AnimT = p.AnimT, Tint = p.Team, Scale = Scale,
+                        Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = row, AnimT = p.AnimT, Tint = wound > 0 ? VatTint.Pack(p.Team, 0, wound: wound) : p.Team, Scale = Scale,
                         PrevRow = prevRow, PrevT = prevT, Blend = blend, Pad = VatPad.Pack(0, grime, seed, chr),
                     };
                     if (distant) Instances[last - far++] = inst;

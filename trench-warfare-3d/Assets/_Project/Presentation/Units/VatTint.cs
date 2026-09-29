@@ -5,23 +5,31 @@
 //   bits 6-10  the roll step, side over side (a cartwheel), 32 a turn
 //   bits 11-16 the squash q, 6 bits two's complement (-32..31): drawn height x (1 + q x SquashStep), width kept by volume
 //   bit 17     turn and squash about his feet (a man lying down, a plank toppling) instead of his middle (0.9 m)
+//   bits 18-23 the wound, 0..63: the blood on his uniform (hp lost, AnimationController.Wound; a corpse FallenWound),
+//              scaled in the shader by the GORE slider (_TWGore)
 // Every new field is 0 on a living man, so his Tint is his team exactly as before, and a fallen man with no gag is
-// team + 2 x pitch step as before. The largest value is 262,143, well inside the 2^24 a float holds exactly.
+// team + 2 x pitch step as before. The largest value is 16,777,215: the 2^24 a float holds exactly.
 // VAT_URP.shader decodes the same arithmetic; VatTintTests holds the two together.
 namespace TW.Presentation.Units
 {
     public static class VatTint
     {
-        public const int PitchShift = 2, RollShift = 64, SquashShift = 2048, FeetShift = 131072;
+        public const int PitchShift = 2, RollShift = 64, SquashShift = 2048, FeetShift = 131072, WoundShift = 262144;
+        /// <summary>The most wound a Tint holds, and what a fallen man wears (his wounds are not carried to his corpse).</summary>
+        public const int WoundMax = 63, FallenWound = 40;
         /// <summary>The drawn height is 1 + q x this: q = -32 is 0.12 (a man under a track), q = +13 is 1.36.</summary>
         public const float SquashStep = 0.0275f;
         public const int SquashMin = -32, SquashMax = 31;
 
-        public static float Pack(int team, int pitch, int roll = 0, int squash = 0, bool feet = false)
+        public static float Pack(int team, int pitch, int roll = 0, int squash = 0, bool feet = false, int wound = 0)
         {
             int q = squash < SquashMin ? SquashMin : squash > SquashMax ? SquashMax : squash;
-            return (team & 1) + PitchShift * (pitch & 31) + RollShift * (roll & 31) + SquashShift * (q & 63) + (feet ? FeetShift : 0);
+            int wd = wound < 0 ? 0 : wound > WoundMax ? WoundMax : wound;
+            return (team & 1) + PitchShift * (pitch & 31) + RollShift * (roll & 31) + SquashShift * (q & 63) + (feet ? FeetShift : 0) + WoundShift * wd;
         }
+
+        /// <summary>The wound a Tint carries, 0..63, as the shader reads it.</summary>
+        public static int Wound(float tint) => (int)System.Math.Floor(System.Math.Floor(tint / 64f) / 4096f);
 
         /// <summary>The same float arithmetic as VAT_URP.shader, so a test can check what the shader will read.</summary>
         public static void Unpack(float tint, out int team, out int pitch, out int roll, out int squash, out bool feet)
@@ -33,7 +41,7 @@ namespace TW.Presentation.Units
             roll = (int)(gag % 32f);
             int q = (int)(System.Math.Floor(gag / 32f) % 64f);
             squash = q > 31 ? q - 64 : q;
-            feet = System.Math.Floor(gag / 2048f) > 0.5f;
+            feet = System.Math.Floor(gag / 2048f) % 2f > 0.5f;
         }
 
         /// <summary>The drawn height factor a squash code stands for.</summary>

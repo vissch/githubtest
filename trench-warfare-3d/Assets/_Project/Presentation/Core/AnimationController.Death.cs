@@ -62,6 +62,11 @@ namespace TW.Presentation
         NativeArray<float> deathSpeed;   // scalar: the knock, m/s
         /// <summary>0..3 how burned a man is drawn (VatPad bits 22-23): 1 a man who has been alight and lives, 3 a man who died alight.</summary>
         public NativeArray<byte> Char;
+        /// <summary>0..63 how much of his hp a living man has lost (VatTint bits 18-23): the blood on his uniform, spreading
+        /// as it rises (VAT_URP). Kept when he dies; a new man in the slot comes up clean.</summary>
+        public NativeArray<byte> Wound;
+        /// <summary>The most Wound holds (6 bits: VatTint.WoundMax, which this assembly cannot see).</summary>
+        public const int WoundMax = 63;
         NativeArray<float4> recent;      // x, z, tick, the standing clip as a float (-1 none): the last RecentDeaths deaths
         int recentCursor;
         NativeArray<DeathRecord> ring;
@@ -78,6 +83,7 @@ namespace TW.Presentation
             deathPos = new NativeArray<float3>(maxSlots, Allocator.Persistent);
             deathSpeed = new NativeArray<float>(maxSlots, Allocator.Persistent);
             Char = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            Wound = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             recent = new NativeArray<float4>(RecentDeaths, Allocator.Persistent);
             for (int k = 0; k < RecentDeaths; k++) recent[k] = new float4(0f, 0f, -1e9f, -1f);
             ring = new NativeArray<DeathRecord>(DeathRingSize, Allocator.Persistent);
@@ -85,7 +91,7 @@ namespace TW.Presentation
 
         void DisposeDeaths()
         {
-            died.Dispose(); clawed.Dispose(); crushSpots.Dispose(); deathB.Dispose(); deathTick.Dispose(); deathDir.Dispose(); deathPos.Dispose(); deathSpeed.Dispose(); Char.Dispose(); recent.Dispose(); ring.Dispose();
+            died.Dispose(); clawed.Dispose(); crushSpots.Dispose(); deathB.Dispose(); deathTick.Dispose(); deathDir.Dispose(); deathPos.Dispose(); deathSpeed.Dispose(); Char.Dispose(); Wound.Dispose(); recent.Dispose(); ring.Dispose();
         }
 
         void LatchDeath(in SimEvent e)

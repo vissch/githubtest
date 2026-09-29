@@ -297,7 +297,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Textures(path, top)` | Editor/CaptureRig.cs | Every texture in memory, largest first, with what it really costs, and a count of the distinct materials and shaders the props are drawn with. |
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
 | `TW.Editor.DeathLab.Absurd(intensity)` | Editor/DeathLab.cs | Pins how absurd the deaths are (0 today's, 1 the new look, 2 ludicrous; negative: the knob decides). |
-| `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
+| `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
 | `TW.Editor.DeathLab.Shell(x, z, radius, damage)` | Editor/DeathLab.cs | One shell, bursting next tick in every world (the men it kills die of it as they would in battle). |
 | `TW.Editor.DeathLab.Fire(x, z, radius)` | Editor/DeathLab.cs | An incendiary burst: the men inside it catch fire and burn to death over the next seconds. |
 | `TW.Editor.DeathLab.Call(ability, x, z, args)` | Editor/DeathLab.cs | A support call for player 0 at a point (silver topped up first); `args` is SimCommand.B (AbilityArgs: a line ability's heading, pattern and length; 0 ... |
