@@ -267,7 +267,7 @@ namespace TW.Sim.Match
         {
             Archetype = InfantryArchetype.Sentry,
             Roster = Man(InfantryArchetype.Sentry, 125, 160f, 2.0f, 200),
-            Infantry = new InfantrySpec { Group = OrderGroup.Line, Braced = true, ShieldPlateMm = 8f, ShieldArcHalf = 60f * InfantrySpec.Deg, ShieldGuardRadius = 0f },
+            Infantry = new InfantrySpec { Group = OrderGroup.Gun, Braced = true, ShieldPlateMm = 8f, ShieldArcHalf = 60f * InfantrySpec.Deg, ShieldGuardRadius = 0f },
             Weapon = Borrowed(InfantryArchetype.Machinegunner, InfantryArchetype.Sentry),
         };
 

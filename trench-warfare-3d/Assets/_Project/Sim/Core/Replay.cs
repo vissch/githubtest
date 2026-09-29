@@ -63,7 +63,9 @@ namespace TW.Sim
         // side's front trench is not a target for a shooter on the far side of it (TargetAcquisition). Layout unchanged.
         // v21 (2026-09-29, the bomb's flight): a thrown bomb is in the air CombatTables.GrenadeFlightTicks and goes off
         // where it lands on that tick (DirectFireSystem hashes the bombs in the air). Layout unchanged.
-        public const ushort FormatVersion = 21;
+        // v22 (2026-09-29, the guns): machine gunners (and the Sentry) answer OrderGroup.Gun, not Line, so a
+        // TrenchSelectAdvance naming the line leaves them in the trench. The unit table's groups are hashed. Layout unchanged.
+        public const ushort FormatVersion = 22;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

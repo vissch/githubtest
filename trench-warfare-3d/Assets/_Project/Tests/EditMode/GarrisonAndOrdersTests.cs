@@ -15,7 +15,7 @@ namespace TW.Tests
 {
     public class GarrisonAndOrdersTests
     {
-        const int Rifleman = 0, Officer = 3, Tank = 6;   // FactionRoster.Slot: 3 is Iron's officer, 6-9 the machines
+        const int Rifleman = 0, Gunner = 2, Officer = 3, Tank = 6;   // FactionRoster.Slot: 2 Iron's machine gunner, 3 its officer, 6-9 the machines
 
         static MatchSim NewMatch(int silver = 100000, uint seed = 0xC0FFEE)
         {
@@ -176,6 +176,39 @@ namespace TW.Tests
 
             Step(m, Order(0, CommandType.TrenchSelectAdvance, 0, OrderGroup.Support));
             Assert.AreEqual(0, Count(w, i => w.TrenchId[i] == 0), "and then the officer went too");
+        }
+
+        /// <summary>The guns (v22): "send the line over" leaves the machine gunners on the parapet to cover it; naming the
+        /// guns sends them; a plain advance sends everyone. They were Line, so the riflemen could not go without them.</summary>
+        [Test]
+        public void SelectAdvance_TheLineGoes_AndTheGunsStayToCoverIt()
+        {
+            using var m = NewMatch();
+            Deploy(m, 0, Rifleman, 6);
+            Deploy(m, 0, Gunner, 2);
+            Run(m, 1400);
+            var w = m.World;
+            Assert.AreEqual(InfantryArchetype.Machinegunner, w.Roster[Gunner].Archetype, "setup: Iron's slot 2 is its machine gunner");
+            Assert.AreEqual(8, Count(w, i => w.TrenchId[i] == 0), "setup: all eight garrison the rear trench");
+
+            Step(m, Order(0, CommandType.TrenchSelectAdvance, 0, OrderGroup.Line));
+            Assert.AreEqual(6, Count(w, i => w.TrenchId[i] < 0 && w.Archetype[i] == InfantryArchetype.Rifle), "the line went over");
+            Assert.AreEqual(2, Count(w, i => w.TrenchId[i] == 0 && w.Archetype[i] == InfantryArchetype.Machinegunner), "the guns stayed");
+
+            Step(m, Order(0, CommandType.TrenchSelectAdvance, 0, OrderGroup.Gun));
+            Assert.AreEqual(0, Count(w, i => w.TrenchId[i] == 0), "and then the guns went too");
+        }
+
+        [Test]
+        public void AnAdvance_SendsTheGunsWithEveryoneElse()
+        {
+            using var m = NewMatch();
+            Deploy(m, 0, Rifleman, 3);
+            Deploy(m, 0, Gunner, 2);
+            Run(m, 1400);
+            var w = m.World;
+            Step(m, Order(0, CommandType.TrenchAdvance, 0));
+            Assert.AreEqual(0, Count(w, i => w.TrenchId[i] == 0), "everyone went");
         }
 
         [Test]

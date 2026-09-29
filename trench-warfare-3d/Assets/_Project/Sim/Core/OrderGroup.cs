@@ -8,16 +8,22 @@
 //
 // So an order names GROUPS. Ids are then free to run to Archetypes.Count, and every table that is indexed by an
 // archetype is sized by that one constant instead of by a number somebody remembered.
+//
+// The guns (2026-09-29, replay v22): machine gunners were Line, so no order could send the riflemen over and keep the
+// guns on the parapet to cover them, the first thing an attack in this war did. They are their own group now. (The
+// HUD's category chips had been sending `1 << archetype` all along, which this reads as groups: a player who picked his
+// riflemen sent the guns too, and one who picked his gunners sent the officers and medics. The chips' side is SHOW.)
 namespace TW.Sim
 {
     /// <summary>What an order may ask for. A mask of these travels in SimCommand.B, so there is room for 32.</summary>
     public static class OrderGroup
     {
-        public const int Line = 1 << 0;        // the rifle, the assault man, the machine gunner: whoever holds the parapet
+        public const int Line = 1 << 0;        // the rifle and the assault man: whoever goes over with the bayonet
         public const int Marksman = 1 << 1;    // snipers and anyone else whose job is one shot at a time
         public const int Support = 1 << 2;      // officer, medic, engineer, shield bearer: the men who keep the others up
         public const int Raider = 1 << 3;       // paratroopers, jetpack men: they arrive behind the line, not over the parapet
-        public const int All = Line | Marksman | Support | Raider;
+        public const int Gun = 1 << 4;          // machine gunners: they cover an advance from the parapet
+        public const int All = Line | Marksman | Support | Raider | Gun;
 
         /// <summary>
         /// Which group a man belongs to. A switch for now; it becomes a UnitSpec field when the data path lands, and
@@ -28,8 +34,8 @@ namespace TW.Sim
             switch (archetype)
             {
                 case InfantryArchetype.Rifle:
-                case InfantryArchetype.Assault:
-                case InfantryArchetype.Machinegunner: return Line;
+                case InfantryArchetype.Assault: return Line;
+                case InfantryArchetype.Machinegunner: return Gun;
                 case InfantryArchetype.Sniper: return Marksman;
                 case InfantryArchetype.Officer:
                 case InfantryArchetype.Shield:

@@ -100,9 +100,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   file 0.44 / 0.47 and 0.21 / 0.16; 3 m strips of the width in use 20 / 19 and 26 / 27 of 30; traffic on the five
   busiest strips 0.57 / 0.56 and 0.37 / 0.28.
 - **Trap:** `StanceSystem` is a stub. Stance is written in `MovementSystem.cs` as `StanceOf[i]`.
-- **Trap:** `CommandType.TrenchSelectAdvance` carries the advancing unit types as a bitmask of archetype ids in an
-  int (`SimCommand.cs`; `TrenchOrders.cs` tests `1 << w.Archetype[i]`), so an archetype id of 31 or more can never
-  be ordered to advance. No UI issues the command yet; GarrisonAndOrdersTests does.
+- **Trap:** `CommandType.TrenchSelectAdvance` carries a mask of `OrderGroup`s in `B` (since A5c, 2026-09-25), NOT of
+  archetype ids: `TrenchOrders.Advance` tests `groupMask & w.Units.Infantry[archetype].Group`. Groups: Line (rifle,
+  assault), Marksman, Support, Raider, and since replay v22 (2026-09-29) Gun (machine gunner, Sentry), so "send the
+  line over" leaves the guns on the parapet to cover it. The HUD's category chips (`TrenchOrderCluster`,
+  `HudController`) sent `1 << archetype` until `lane/show/order-chips`: picking the riflemen sent the guns too, and
+  picking the gunners sent the officers and medics. GarrisonAndOrdersTests.
 
 ### Infantry combat
 - **Files:** `Sim/Combat/TargetAcquisition.cs`, `Sim/Combat/DirectFire.cs`, `Sim/Combat/Suppression.cs`,
