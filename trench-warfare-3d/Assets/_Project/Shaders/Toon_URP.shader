@@ -280,7 +280,11 @@ Shader "TW/Toon (URP)"
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
                 color += lampGlint;
                 // look.pools: the nearest flames' painted pools, past the eight real lights an object may take (TWLightPools.hlsl)
-                if (_TWPoolCount > 0.0) color += max(albedo, 0.16) * TWLightPools(i.positionWS, normalize(i.normalWS)) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
+                // look.poolsThroughHaze: that share of it goes on after the fog below, like the molten glow, so the haze
+                // that lifts the distance does not also put out the lamps in it (the owner's edit keeps far fires bright)
+                half3 poolLight = 0;
+                if (_TWPoolCount > 0.0) poolLight = max(albedo, 0.16) * TWLightPools(i.positionWS, normalize(i.normalWS)) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
+                color += poolLight * (1.0 - _TWPoolsThroughHaze);
                 color += _Emission.rgb;
                 // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
                 // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
@@ -305,6 +309,7 @@ Shader "TW/Toon (URP)"
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
                 color += heat;
+                color += poolLight * _TWPoolsThroughHaze;
                 return half4(color, 1.0);
             }
             ENDHLSL
