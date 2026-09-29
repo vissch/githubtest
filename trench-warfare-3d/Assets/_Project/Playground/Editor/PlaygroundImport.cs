@@ -17,6 +17,14 @@ namespace TW.Playground.Editor
         public const string Art = "Assets/_Project/Playground/Art/";
         public override uint GetVersion() => 4;
         static bool Tank(string p) => p.Replace('\\', '/').StartsWith(Art + "Tanks/");
+        /// <summary>A machine whose tank3.json says "normals": "carried" (mechsplit.py TW_NORMALS=carry, the Bullfrog): its
+        /// derived LODs carry LOD0's normals and must be imported as they are, not re-derived at 55 degrees per LOD.</summary>
+        static bool CarriedNormals(string p)
+        {
+            if (!Tank(p)) return false;
+            string json = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(p), "tank3.json");
+            return System.IO.File.Exists(json) && System.IO.File.ReadAllText(json).Contains("\"normals\": \"carried\"");
+        }
         static bool Unit(string p) => p.Replace('\\', '/').StartsWith(Art + "Units/");
 
         void OnPreprocessModel()
@@ -32,7 +40,7 @@ namespace TW.Playground.Editor
             m.optimizeMeshVertices = true; m.optimizeMeshPolygons = true; m.weldVertices = true;
             // a figure's LODs carry LOD0's smooth normals from frogrig.py: import them, or a coarse LOD re-derives hard
             // edges at 55 degrees, reads as crumpled foil and triples its vertices; a vehicle keeps the hard 55 degree edges
-            m.importNormals = Unit(assetPath) ? ModelImporterNormals.Import : ModelImporterNormals.Calculate; m.normalSmoothingAngle = 55f;
+            m.importNormals = Unit(assetPath) || CarriedNormals(assetPath) ? ModelImporterNormals.Import : ModelImporterNormals.Calculate; m.normalSmoothingAngle = 55f;
             m.importTangents = ModelImporterTangents.None;
             if (Tank(assetPath)) { m.animationType = ModelImporterAnimationType.None; m.importAnimation = false; }
             else
