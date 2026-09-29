@@ -268,7 +268,9 @@ namespace TW.Sim.Combat
                     return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 }
                 if ((fj & (uint)UnitFlags.InTrench) == 0 && TrenchId[j] < 0 && InDeadGround(j, p)) return false;
-                if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
+                // below the rim unless on the fire step, or up fighting hand to hand (a man brawling in his trench with
+                // one at the parapet is no more hidden than one shooting from it)
+                if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep && StanceOf[j] != (byte)Stance.Melee)
                 {
                     short theirs = TrenchAt(Position[j]);
                     bool sameTrench = myTrench >= 0 && theirs == myTrench;
