@@ -28,6 +28,24 @@ namespace TW.Tests
         }
 
         [Test]
+        public void LineupOnlyPicksOneClassOrAll()
+        {
+            for (int i = 0; i < BenchLineup.Men.Length; i++)
+            {
+                Assert.IsTrue(BenchLineup.Fires(i, 0), "0: every class fires");
+                Assert.AreEqual(i == 3, BenchLineup.Fires(i, 4), "4: only the fourth (the sniper) fires");
+                Assert.IsTrue(BenchLineup.Fires(i, 99), "out of range reads as every class, not none");
+            }
+            Assert.AreEqual(InfantryArchetypeSniper, BenchLineup.Men[3], "the knob's numbering is the row order");
+            for (int i = 0; i < BenchLineup.Men.Length; i++)
+                Assert.IsTrue(BenchLineup.FiresAt(i, 19, 20), $"class {i} fires on the tick before the still");
+            Assert.IsFalse(BenchLineup.FiresAt(3, 18, 20), "the sniper not every tick");
+            Assert.IsTrue(BenchLineup.FiresAt(2, 18, 20), "the machine gun every tick");
+        }
+
+        const byte InfantryArchetypeSniper = TW.Sim.InfantryArchetype.Sniper;
+
+        [Test]
         public void UnknownScenarioRunsNoneAndIsRemembered()
         {
             var o = BenchOptions.Parse("scenario=fireworks stress=900");

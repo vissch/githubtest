@@ -86,6 +86,10 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The flare's life and its day glow up close (x 1.45 and 1.6 to 2.6 among the men): additive on snow at 1.6 was erased.</summary>
         public static float FlareLifeAt(float life, float closeUp, bool classLooks) => classLooks ? life * Mathf.Lerp(1f, 1.45f, closeUp) : life;
+        /// <summary>The most a class's muzzle book glows by day: FlareGlow's close-up 2.6 was for the additive Muzzle card; a
+        /// premultiplied fire book at that clips its core, body and fringe to one white bloom on snow (iso4).</summary>
+        public const float ClassBookDayGlow = 1.6f;
+
         public static float FlareGlow(bool night, float closeUp, bool classLooks) => night ? 3.2f : classLooks ? Mathf.Lerp(1.6f, 2.6f, closeUp) : 1.6f;
 
         /// <summary>A heavy round keeps a little weight up close (TracerLook thins every round to 0.3 among the men); x2 made a

@@ -577,6 +577,7 @@ namespace TW.Presentation.Tactical
                             if (quarter) wide *= 0.75f;   // foreshortened, with a small star on it below
                             if (own == FlipbookFx.Book.MuzzleCarbine) flip = ((e.Tick + (uint)e.A) & 1u) == 0u;   // the carbine's three petals alternate shot to shot
                             float glowNow = FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow * graze * (own.HasValue && SceneMood.Night ? 0.62f : 1f);   // a book at night: 2.0, not 3.2 (r13)
+                            if (own.HasValue && !SceneMood.Night) glowNow = Mathf.Min(glowNow, ClassBookDayGlow);   // by day a fire book over 1.6 clips to white on snow (iso4: the sniper's cross was a white bloom)
                             books.Add(book, from + along * (wide * 0.44f) + clear, wide, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                 velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? Mathf.Min(wide * 0.5f, ClassBookTallest * scale) : 0f, delay: delay);   // a class book at its cell's 2:1, whatever the import did (r10: drawn squashed)
                             // a small pop under the class's drawing: the readiest cue that a shot went off (r12)
