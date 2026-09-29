@@ -29,10 +29,29 @@ namespace TW.Presentation.Tactical
         public const int ArcSegments = 8;        // at High; FxQuality.Now.ArcSegments by the tier
         public const float RippleSeconds = 0.18f, RippleSpread = 3f;   // the Salvo: a rocket every 0.18 s, landing within 3 m of the first
         public const float RocketApex = 0.6f;    // a rocket flies flatter than a mortar round
-        public const float RocketTrail = 2.4f, RocketTrailLife = 8f;   // its smoke along the way: wide and long enough to read as a trail (critique lin5)
+        public const float RocketTrail = 2.4f, RocketTrailLife = 8f;
+        public const float RocketHeadWidth = 4f;   // the head book's card: head to tail, a fire drawing (it reads on snow by day)   // its smoke along the way: wide and long enough to read as a trail (critique lin5)
 
         /// <summary>How many rockets of a Salvo's ripple are drawn at a tier (the sim's burst is the first one's).</summary>
         static readonly int WindId = Shader.PropertyToID("_TWWind");
+
+        /// <summary>Which drawing a machine's gun blast is: the Tusk's 37 mm a sharp crack, the long guns a cone with
+        /// brake jets and a fireball ahead, the rest the shared GunBlast (critique r15: the Tusk and Pavise read alike at z40).</summary>
+        public static FlipbookFx.Book BlastBookOf(byte archetype)
+        {
+            switch (archetype)
+            {
+                case VehicleArchetype.Tusk: return FlipbookFx.Book.GunCrack;
+                case VehicleArchetype.Pavise: case VehicleArchetype.Banner: return FlipbookFx.Book.GunLong;
+                default: return FlipbookFx.Book.GunBlast;
+            }
+        }
+
+        /// <summary>A calibre book's width x the gun's Blast: the 37 mm small and sharp, the long gun big (r17: scale contrast,
+        /// the two read as one flash at z40).</summary>
+        public static float CalibreScale(FlipbookFx.Book book) => book == FlipbookFx.Book.GunCrack ? 1.1f : book == FlipbookFx.Book.GunLong ? 1.8f : 1.6f;
+        /// <summary>A calibre book's glow by day: its drawn values, no more (1.4 bloomed it into a white disc on snow, r17).</summary>
+        public const float OwnBlastDayGlow = 1.0f;
 
         public static int RocketsOf(FxTier tier) => tier >= FxTier.High ? 4 : tier == FxTier.Medium ? 2 : 1;
 
@@ -83,8 +102,17 @@ namespace TW.Presentation.Tactical
                         Vector3 at = ArcPoint(from, end, apex, a);
                         if (rocket)
                         {
-                            books.Add(FlipbookFx.Book.WreckSmoke, at, RocketTrail, RocketTrailLife, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: wake, grow: 1.4f, alpha: 0.85f, delay: lag + a * ArcSeconds);   // dark (the wreck's book: the Smoke book read as snow haze), it hangs and leans down wind
+                            // two puffs a segment, each its own size, place and life, the older end thinner: evenly spaced equal
+                            // puffs read as beads on a string (r17)
+                            for (int n = 0; n < 2; n++)
+                            {
+                                uint hh = FxQuality.Hash(salt * 131u + (uint)(j * 64 + i * 2 + n));
+                                float u = Mathf.Lerp(a, b, n * 0.5f + (FxQuality.Hash01(hh) - 0.5f) * 0.3f);
+                                Vector3 jit = new Vector3(FxQuality.Hash01(hh + 1u) - 0.5f, FxQuality.Hash01(hh + 2u) - 0.5f, FxQuality.Hash01(hh + 3u) - 0.5f) * 0.6f;
+                                books.Add(FlipbookFx.Book.WreckSmoke, ArcPoint(from, end, apex, u) + jit, RocketTrail * Mathf.Lerp(0.7f, 1.3f, FxQuality.Hash01(hh + 4u)),
+                                    RocketTrailLife * Mathf.Lerp(0.75f, 1.25f, FxQuality.Hash01(hh + 5u)), (hh & 1u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: wake, grow: 1.4f, alpha: 0.85f * Mathf.Lerp(0.6f, 1f, u), delay: lag + u * ArcSeconds);   // dark (the wreck's book: the Smoke book read as snow haze), it hangs and leans down wind
+                            }
                         }
                         else
                             books.Add(FlipbookFx.Book.WreckSmoke, at, 1.8f, 2.4f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
@@ -92,8 +120,15 @@ namespace TW.Presentation.Tactical
                     }
                 }
                 if (rocket && drawn)
-                    books.Add(FlipbookFx.Book.Muzzle, ArcPoint(from, end, apex, 0.1f), 2.5f, ArcSeconds * 0.9f, velocity: (end - ArcPoint(from, end, apex, 0.1f)) / ArcSeconds,
-                        roll: 0f, glow: SceneMood.Night ? 4.5f : 3f, delay: lag);
+                {
+                    // its burning head: the RocketHead book (a hot head, the tail back to the root) laid along the chord it flies
+                    // (loop 2: the additive Muzzle card rolled flat read as a spark, not a rocket)
+                    Vector3 start = ArcPoint(from, end, apex, 0.1f), chord = end - start;
+                    var cam = Camera.main;
+                    float roll = cam != null ? FlipbookFx.ScreenRoll(cam, chord) : 0f;
+                    books.Add(FlipbookFx.Book.RocketHead, start, RocketHeadWidth, ArcSeconds * 0.9f, velocity: chord / ArcSeconds,
+                        roll: roll, glow: SceneMood.Night ? 2.4f : 1.5f, delay: lag);
+                }
                 if (rocket && drawn && j > 0)
                 {
                     // the rocket's burning head: one flame card flying the chord of its arc (a card flies straight), over the flight
