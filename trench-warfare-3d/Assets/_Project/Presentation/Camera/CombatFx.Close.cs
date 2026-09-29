@@ -84,16 +84,20 @@ namespace TW.Presentation.Tactical
                     for (int s = -1; s <= 1; s += 2)
                     {
                         float side = roll + s * 1.5708f;
-                        books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.3f), Mathf.Min(flare * 0.8f, most), 0.22f,
-                            s > 0 ? FlipbookFx.Kind.None : FlipbookFx.Kind.Mirror, velocity: carried, roll: side, glow: glow, delay: delay);
+                        books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.25f), Mathf.Min(flare * 0.45f, most), 0.16f,
+                            velocity: carried, roll: side, glow: glow, delay: delay);   // a Star, not the Muzzle turned sideways: that lay on the ground as a ribbon (lin8)
                     }
                     books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), Mathf.Min(flare * 0.55f, most), 0.13f, roll: spin, glow: glow * 0.9f, delay: delay);
+                    // his signature by day, where light does not show on snow: a hard puff of smoke off the muzzle that hangs
+                    if (!SceneMood.Night)
+                        books.Add(FlipbookFx.Book.Puff, from + along * (flare * 0.3f) + FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, true), 1.8f * scale, 0.6f, (h & 8u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: barrel * 1.5f + carried, grow: 0.8f, roll: spin, alpha: 0.8f, pop: 0.3f, delay: delay);
                     if (Host != null && Host.Local != null)
                     {
                         Vector3 foot = new Vector3(from.x, RenderGround.Sample(Host.Local.Map, from.x, from.z), from.z);
                         Vector3 kick = new Vector3(barrel.x, 0f, barrel.z) * 0.8f + Vector3.up * 0.25f;
                         books.Add(FlipbookFx.Book.DustPuff, foot + barrel * (0.4f * scale), 1.6f * scale, 1.4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((h & 1u) != 0 ? FlipbookFx.Kind.Mirror : 0),
-                            velocity: kick, grow: 0.4f, alpha: 0.45f, delay: delay);
+                            velocity: kick, grow: 0.4f, alpha: SceneMood.Night ? 0.2f : 0.45f, delay: delay);   // at night the burst light lit it into a yellow smear (la4)
                     }
                     break;
                 case ArmsKind.Mg:
@@ -128,7 +132,7 @@ namespace TW.Presentation.Tactical
             // Epic: the round's smoke as a drawn puff over the ball, which reads as a sphere up close
             if (q.Epic && smoked)
                 books.Add(FlipbookFx.Book.Smoke, from + barrel * (0.35f * scale), 0.7f * scale * smoke, 1.2f, (h & 4u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                    velocity: barrel * 1.1f + Vector3.up * 0.3f + carried, grow: 1.3f, roll: spin, alpha: 0.35f, pop: 0.2f, delay: delay + 0.03f);
+                    velocity: barrel * 1.1f + Vector3.up * 0.3f + carried, grow: 1.3f, roll: spin, alpha: SceneMood.Night ? 0.35f : 0.6f, pop: 0.2f, delay: delay + 0.03f);
         }
 
         /// <summary>A sniper's round up close: the exit spray behind the man it went through.</summary>
