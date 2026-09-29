@@ -23,6 +23,18 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 63dabdf66f891c04dbe56ee6e268aed5, type: 3}
     - {fileID: 2800000, guid: be125ff6e0258954788fc1d7741ac5fd, type: 3}
     - {fileID: 2800000, guid: 9dae998be7b9900498845e708d9eb598, type: 3}
+    Legs: {fileID: 0}
+  - Name: Bullfrog
+    Manifest: {fileID: 4900000, guid: 773c7367e6729eb4aa17e94cd3983d66, type: 3}
+    Lods:
+    - {fileID: 919132149155446097, guid: d9105dfda6e9b36499c9f4b7bebcff9c, type: 3}
+    - {fileID: 919132149155446097, guid: b9e28c93ff16ba2479e9549f2b8132b0, type: 3}
+    - {fileID: 919132149155446097, guid: cec5f694ab3b9c541bcfd916001e57ab, type: 3}
+    Atlas:
+    - {fileID: 2800000, guid: 36082710d53e1cd4cadc5aeec56e68ba, type: 3}
+    - {fileID: 2800000, guid: 78a44de541fe97046a33340351ad77d3, type: 3}
+    - {fileID: 2800000, guid: f14a65abf7943c347b22507d96ad6954, type: 3}
+    Legs: {fileID: 4900000, guid: 0b4010eb1b88fbf4e917cfafb08c5119, type: 3}
   - Name: Croaker
     Manifest: {fileID: 4900000, guid: 02a76c4871053464591e964f009ee2ea, type: 3}
     Lods:
@@ -33,6 +45,7 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 05c5f55e684b30e41845983ae78c499e, type: 3}
     - {fileID: 2800000, guid: fd856a72bab417d4cbd9c2f2ec47709a, type: 3}
     - {fileID: 2800000, guid: 20cff6e18a839a046ba7e41ae323ce09, type: 3}
+    Legs: {fileID: 0}
   - Name: Hopper
     Manifest: {fileID: 4900000, guid: b2b55970043119541824220650326736, type: 3}
     Lods:
@@ -43,6 +56,7 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 8955fd8d02569504287788bcde21b634, type: 3}
     - {fileID: 2800000, guid: 7a08f5d4897541949b5818b9b21dac11, type: 3}
     - {fileID: 2800000, guid: 5308359c3625ae243a7e160338294d70, type: 3}
+    Legs: {fileID: 0}
   - Name: Mercy
     Manifest: {fileID: 4900000, guid: 2d1da6c335d734f4cb7ff6bd0970f0a6, type: 3}
     Lods:
@@ -53,6 +67,7 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 5d3e79a555f09eb46994683d2dd9ec2c, type: 3}
     - {fileID: 2800000, guid: 28c1bc298f75e7a41af001cb94f72448, type: 3}
     - {fileID: 2800000, guid: 997c7a12b6556fa44a5386672f9c080d, type: 3}
+    Legs: {fileID: 0}
   - Name: Skimmer
     Manifest: {fileID: 4900000, guid: fd0662cbfedabee48a516323fe0089f5, type: 3}
     Lods:
@@ -63,6 +78,7 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 5ac2aa9b1f2a9b943819fe34295da95d, type: 3}
     - {fileID: 2800000, guid: ab3dec441675e2d46bf3e23d430b436c, type: 3}
     - {fileID: 2800000, guid: f53737cfc5405734d80df7278d70297f, type: 3}
+    Legs: {fileID: 0}
   Units:
   - Name: Frog
     Model: {fileID: 919132149155446097, guid: 1ffbac77dbd202e4388704cb14017201, type: 3}

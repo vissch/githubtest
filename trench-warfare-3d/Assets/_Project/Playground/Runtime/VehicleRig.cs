@@ -45,6 +45,37 @@ namespace TW.Playground
         public int ForcedLod = -1;
         public WalkerDrive Walker;                      // a machine on legs (tank3.json "walker"): walks it after the pose
         public FlyerDrive Flyer;                        // a flying machine (tank3.json "flyer"): flies its hull after the pose
+        public HopDrive Hopper;                         // a machine that hops (tank3.json "hopper"): hops its hull after the pose
+        /// <summary>A gatling's barrels (parts Barrels_L/R): how fast they turn now (degrees a second), and the rounds each
+        /// gun has fired since it was built (left, right).</summary>
+        public float BarrelSpeed { get; private set; }
+        public readonly int[] RoundsFired = new int[2];
+        // 24 a second between the two guns (at 16, 8 a gun read as a slow machine gun, critic g6)
+        public const float BarrelMax = 1800f, RoundsPerSecond = 24f, Burst = 2.2f;
+        /// <summary>A burst walks across its aim point, from Sweep of the range on one side to Sweep on the other: a burst
+        /// that fell in one spot read as one blob 40 m off, and no player sees a gunner traverse (critic g6).</summary>
+        public const float Sweep = 0.05f;
+        /// <summary>How hot each gun's barrels are (0..1): each round warms them, they cool over four seconds; they glow
+        /// with it (the ember channel).</summary>
+        public float Heat(int side) => heat[side];
+        readonly float[] heat = new float[2];
+        const float HeatPerRound = 0.06f;
+        /// <summary>Firing this frame: a burst on and the barrels up to speed (HopDrive shudders the body with it).</summary>
+        public bool Firing => State < Stage.KnockedOut && burstLeft > 0f && BarrelSpeed >= 0.7f * BarrelMax;
+        float nextCookRound;
+        float barrelAngle, burstLeft, nextRound; int roundSide;
+        /// <summary>A point in the world to aim at (the "target" command), or null: the turret traverses at random then, as
+        /// every machine's does here. The turret turns to it (TurretArc either side, TurretRate), each gun elevates to it.</summary>
+        public Vector3? AimAt;
+        public const float TurretArc = 150f, TurretRate = 90f, GunRate = 50f, GunLow = -8f, GunHigh = 40f;
+        /// <summary>A gatling round's scatter about its aim, as a share of the range, across the line of fire (twice that
+        /// along it): 3.5 m at 100 m. At 1.5 % a burst 40 m off landed in one puff (critic g1).</summary>
+        public const float Spread = 0.035f;
+        /// <summary>Where the last round was sent (world), and whether it met the ground (false: 250 m off into the air).</summary>
+        public Vector3 LastRoundTo { get; private set; }
+        public bool LastRoundLands { get; private set; }
+        float[] gunPitch;
+        System.Random spread;   // its own stream: the destruction's (rng) must stay the same for copies that fired and did not
         public int Lod { get; private set; } = -1;
         public int LodCount { get; private set; }
         // screen-height shares of the bounding sphere (8 m for this tank at 1.7x): LOD0 (7.8k tris, over the 3-5k vehicle
@@ -166,6 +197,7 @@ namespace TW.Playground
             rig.SetLod(0);
             if (rig.Manifest.walker) rig.Walker = root.AddComponent<WalkerDrive>().Init(rig);
             if (rig.Manifest.flyer) rig.Flyer = root.AddComponent<FlyerDrive>().Init(rig);
+            if (rig.Manifest.hopper) rig.Hopper = root.AddComponent<HopDrive>().Init(rig, e.Legs != null ? e.Legs.text : null);
             return rig;
         }
 
@@ -233,7 +265,7 @@ namespace TW.Playground
         {
             get
             {
-                if (Walker != null || Flyer != null)
+                if (Walker != null || Flyer != null || Hopper != null)
                 {
                     var h = Find("Hull");
                     if (h != null && !h.Loose) return h.T.TransformPoint(h.Box.center);
@@ -370,9 +402,13 @@ namespace TW.Playground
         void Hurt(Part p, float damage, Vector3 from, float throwSpeed, bool countsOnHull = true)
         {
             p.Flash = 1f;
+            if (State < Stage.KnockedOut) Hopper?.Flinch(LocalCentre(p) - from, damage / 40f);
             p.Scorch = Mathf.Min(1f, p.Scorch + 0.3f * Mathf.Clamp01(damage / 30f));
             p.Hp -= damage;
             if (countsOnHull) Hp -= damage * (p.Tier >= 3 || p.Name == "Hull" ? 1f : 0.5f);
+            // a gatling's barrels hold until the machine is damaged: the first 15-damage hit took half its firepower away
+            // at 85 % health (critic g13). Until then a hit only scars them
+            if (p.Name.StartsWith("Barrels_") && Hp > 0.5f * MaxHp) p.Hp = Mathf.Max(p.Hp, 1f);
             if (p.Hp <= 0f && !p.Loose && p.Tier >= 1 && p.Tier <= 2)
             {
                 var c = LocalCentre(p);
@@ -435,7 +471,7 @@ namespace TW.Playground
             if (State >= Stage.KnockedOut) return;
             State = Stage.KnockedOut; knockedAt = Time.time; Hp = Mathf.Min(Hp, 0f);
             if (CookDelay >= 0f) cookAt = Time.time + CookDelay;
-            var gun = Find("Gun"); if (gun != null) gun.Droop = 9f;
+            foreach (var g in Parts) if (IsGun(g)) g.Droop = 9f;
             LastEvent = "knocked out" + (CookDelay >= 0f ? $" - cooks off in {CookDelay:0} s" : " - burns out");
         }
 
@@ -447,6 +483,21 @@ namespace TW.Playground
             var deckWorld = Socket("Socket_Deck");
             var deck = SocketLocal("Socket_Deck");
             Fx?.CookOff(deckWorld, Size);
+            // twin guns go first, each out to its own side: riding the turret they flew with it, and a small saddle that
+            // carries two big guns came down inside the body with both still on it (Bullfrog critic g1)
+            // They land 3-5 m out and smoulder: thrown 10 m and burning at half the hull's flame, each wreck showed three
+            // equal fires and its guns lay nearer the next machine than their own (critic g2)
+            bool twin = false;
+            foreach (var p in Parts)
+            {
+                if (p.Loose || !p.Name.StartsWith("Gun_")) continue;
+                twin = true;
+                var side = LocalCentre(p) - deck; side.y = 0f; side = side.sqrMagnitude > 1e-4f ? side.normalized : RSphere();
+                float s = Mathf.Sqrt(Size);
+                // (4-6 m/s out ended them 7 m from where they stood, g3: the toppling after the landing carries them on)
+                Detach(p, side * R(2.5f, 3.5f) * s + Vector3.up * R(4f, 5f) * s, Vector3.Cross(Vector3.up, side) * R(2f, 4f));
+                p.BurnUntil = Time.time + R(2f, 4f); p.Scorch = Mathf.Max(p.Scorch, 0.6f);
+            }
             // the turret goes up the ammunition's own column, the plates blow out from the fighting compartment
             foreach (var p in Parts)
             {
@@ -455,9 +506,13 @@ namespace TW.Playground
                 var out_ = c - deck; out_.y = 0f; out_ = out_.sqrMagnitude > 1e-4f ? out_.normalized : RSphere();
                 float s = Mathf.Sqrt(Size);   // (Detach applies the machine's fling)
                 Vector3 v; Vector3 spin;
+                // a twin gun's saddle, its guns already gone, stays on the wreck: a sparse frame in a big box, thrown it landed
+                // on a corner and toppled corner over corner 12.9 m away (critic g2). The bare saddle on the body and a gun
+                // lying either side of it read as the three pieces they are.
+                if (p.Name == "Turret" && twin) continue;
                 if (p.Name == "Turret") { v = Vector3.up * R(11f, 14f) * s + out_ * R(0.5f, 1.5f); spin = RSphere() * R(2f, 5f); }
                 else if (p.Tier == 4) { v = out_ * R(2.5f, 4f) * s + Vector3.up * R(4f, 7f) * s; spin = Vector3.Cross(Vector3.up, out_) * R(4f, 8f); }
-                else if (p.Name == "Gun") { v = Vector3.forward * R(3f, 5f) * s + Vector3.up * R(5f, 7f) * s; spin = Vector3.right * R(3f, 6f); }
+                else if (IsGun(p)) { v = Vector3.forward * R(3f, 5f) * s + Vector3.up * R(5f, 7f) * s; spin = Vector3.right * R(3f, 6f); }
                 else if (p.Name.StartsWith("Track")) continue;   // the running gear stays on the ground it was on
                 else { v = out_ * R(2f, 4.5f) * s + Vector3.up * R(5f, 9f) * s; spin = RSphere() * R(4f, 10f); }
                 Detach(p, v, spin);
@@ -490,9 +545,14 @@ namespace TW.Playground
             return false;
         }
 
+        /// <summary>The guns: one Gun, or a pair Gun_L/Gun_R (the Bullfrog's gatlings).</summary>
+        static bool IsGun(Part p) => p.Name == "Gun" || p.Name.StartsWith("Gun_");
+
         public void FireGun()
         {
             if (State >= Stage.KnockedOut) return;
+            // a gatling fires a burst: the barrels spin up first, and the rounds come once they are nearly at speed
+            if (Find("Barrels_L") != null || Find("Barrels_R") != null) { burstLeft = Burst; LastEvent = "firing"; return; }
             var gun = Find("Gun"); if (gun == null || gun.Loose) return;
             Fx?.Muzzle(Socket("Socket_Muzzle"), gun.T.forward, Size);
             gun.Recoil = 1f;
@@ -508,6 +568,7 @@ namespace TW.Playground
                 p.T.localPosition = p.RestLocal; p.T.localRotation = p.RestRot; p.T.localScale = Vector3.one;
                 p.Hp = p.MaxHp; p.Fly = default; p.Scorch = p.Ember = p.Flash = p.Recoil = p.Droop = 0f; p.BurnUntil = 0f;
             }
+            BarrelSpeed = barrelAngle = burstLeft = nextRound = 0f; roundSide = 0; gunPitch = null; heat[0] = heat[1] = 0f;
             Hp = MaxHp; State = Stage.Intact; FireLevel = 0f; cookAt = -1f; rng = new System.Random(Seed); LastEvent = "repaired";
             Fx?.ClearCards();
             if (fireLight != null) { Destroy(fireLight.gameObject); fireLight = null; }
@@ -553,9 +614,68 @@ namespace TW.Playground
                 Timers(dt);
                 Burn(dt);
             }
+            Gatling(dt);
             Pose(dt);
             if (Walker != null) Walker.Drive(dt);
             if (Flyer != null) Flyer.Drive(dt);
+            if (Hopper != null) Hopper.Drive(dt);
+        }
+
+        /// <summary>Where a round from muzzle along forward goes: at the aim point (scattered by Spread of the range) when
+        /// there is one, else along the barrel to the ground, or 250 m into the air when it is aimed up.</summary>
+        void Shoot(Vector3 muzzle, Vector3 forward)
+        {
+            if (spread == null) spread = new System.Random(Seed * 7 + 1);
+            float Rnd() => (float)spread.NextDouble() * 2f - 1f;
+            if (AimAt is Vector3 aim)
+            {
+                float range = Vector3.Distance(muzzle, aim), r = Spread * range;
+                var along = new Vector3(aim.x - muzzle.x, 0f, aim.z - muzzle.z).normalized; var across = new Vector3(along.z, 0f, -along.x);
+                float walk = Sweep * range * Mathf.Lerp(-1f, 1f, Mathf.Clamp01((Burst - burstLeft) / Burst));
+                var at = aim + across * (walk + Rnd() * r) + along * (Rnd() * 2f * r);
+                LastRoundTo = new Vector3(at.x, GroundY, at.z); LastRoundLands = true;
+                return;
+            }
+            var dir = (forward + new Vector3(Rnd(), Rnd(), Rnd()) * Spread).normalized;
+            float t = dir.y < -0.01f ? (GroundY - muzzle.y) / dir.y : float.MaxValue;
+            LastRoundLands = t < 250f;
+            LastRoundTo = muzzle + dir * (LastRoundLands ? t : 250f);
+        }
+
+        /// <summary>A gatling's barrels: spin up in half a second while a burst lasts, fire once nearly at speed (the guns
+        /// by turns, RoundsPerSecond between them), and wind down over two seconds after it, or when knocked out. The spin
+        /// only integrates dt, so copies agree.</summary>
+        void Gatling(float dt)
+        {
+            if (Find("Barrels_L") == null && Find("Barrels_R") == null) return;
+            bool firing = State < Stage.KnockedOut && burstLeft > 0f;
+            burstLeft = State < Stage.KnockedOut ? Mathf.Max(0f, burstLeft - dt) : 0f;
+            BarrelSpeed = Mathf.MoveTowards(BarrelSpeed, firing ? BarrelMax : 0f, (firing ? BarrelMax / 0.5f : BarrelMax / 2f) * dt);
+            barrelAngle = Mathf.Repeat(barrelAngle + BarrelSpeed * dt, 360f);
+            for (int k = 0; k < 2; k++) heat[k] = Mathf.Max(0f, heat[k] - dt / 4f);
+            if (!firing || BarrelSpeed < 0.7f * BarrelMax) { nextRound = 0f; return; }
+            nextRound -= dt;
+            while (nextRound <= 0f)
+            {
+                nextRound += 1f / RoundsPerSecond;
+                // the next gun whose barrels are still on it (a gun shot off, or its barrels, stays silent)
+                for (int tries = 0; tries < 2; tries++)
+                {
+                    int s = roundSide; roundSide ^= 1;
+                    var gun = Find(s == 0 ? "Gun_L" : "Gun_R"); var bar = Find(s == 0 ? "Barrels_L" : "Barrels_R");
+                    if (gun == null || gun.Loose || bar == null || bar.Loose) continue;
+                    RoundsFired[s]++;
+                    heat[s] = Mathf.Min(1f, heat[s] + HeatPerRound);
+                    gun.Recoil = Mathf.Max(gun.Recoil, 0.3f);
+                    var muzzle = Socket(s == 0 ? "Socket_Muzzle_L" : "Socket_Muzzle_R");
+                    Shoot(muzzle, gun.T.forward);
+                    Fx?.GatlingShot(muzzle, gun.T.forward, Size);
+                    Fx?.Fly(muzzle, LastRoundTo, RoundsFired[s] % PlaygroundFx.TracerEvery == 1, Size, LastRoundLands);
+                    // the case goes out of the gun's outer side
+                    Fx?.Case(gun.T.TransformPoint(gun.Box.center), gun.T.right * Mathf.Sign(gun.RestLocal.x == 0f ? 1f : gun.RestLocal.x), Size);
+                    break;
+                }
+            }
         }
 
         void Timers(float dt)
@@ -563,7 +683,7 @@ namespace TW.Playground
             if (cookAt > 0f && Time.time >= cookAt) CookOff();
             if (State == Stage.KnockedOut) FireLevel = Mathf.Min(0.75f, FireLevel + dt / 3f);
             else if (State == Stage.CookedOff) FireLevel = 0.3f + 0.7f * Mathf.Exp(-(Time.time - cookedAt) / 8f);   // flares, then burns down to a smoulder
-            if (Traverse && State < Stage.KnockedOut)
+            if (AimAt == null && Traverse && State < Stage.KnockedOut)
             {
                 if (Mathf.Abs(Mathf.DeltaAngle(turretYaw, turretTarget)) < 1f) turretTarget = R(-70f, 70f);
                 turretYaw = Mathf.MoveTowardsAngle(turretYaw, turretTarget, 25f * dt);
@@ -579,7 +699,7 @@ namespace TW.Playground
         /// Walkers and flyers pose their own hull.</summary>
         void Sag(float dt)
         {
-            if (Walker != null || Flyer != null) return;
+            if (Walker != null || Flyer != null || Hopper != null) return;
             var hull = Find("Hull"); if (hull == null || hull.Loose) return;
             Part lost = null;
             var kept = new List<Part>();
@@ -635,14 +755,39 @@ namespace TW.Playground
             {
                 p.Flash = Mathf.Max(0f, p.Flash - dt * 6f);
                 if (p.Loose) continue;
-                if (p.Name == "Turret") p.T.localRotation = p.RestRot * Quaternion.Euler(0f, turretYaw, 0f);
-                if (p.Name == "Gun")
+                if (p.Name == "Turret")
+                {
+                    if (AimAt is Vector3 aim && State < Stage.KnockedOut && p.T.parent != null)
+                    {
+                        // the bearing of the aim point from the turret's ring, in the frame it turns in
+                        var local = p.T.parent.InverseTransformPoint(aim) - p.RestLocal;
+                        float want = Mathf.Clamp(Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg, -TurretArc, TurretArc);
+                        turretYaw = Mathf.MoveTowardsAngle(turretYaw, want, TurretRate * dt);
+                    }
+                    p.T.localRotation = p.RestRot * Quaternion.Euler(0f, turretYaw, 0f);
+                }
+                // the barrels turn about the gun's length, the pair against each other
+                if (p.Name.StartsWith("Barrels_")) p.T.localRotation = p.RestRot * Quaternion.Euler(0f, 0f, p.Name.EndsWith("_L") ? barrelAngle : -barrelAngle);
+                if (IsGun(p))
                 {
                     p.Recoil = Mathf.Max(0f, p.Recoil - dt * 2.5f);
                     float kick = p.Recoil * p.Recoil * 0.35f;
                     p.T.localPosition = p.RestLocal - Vector3.forward * kick;
                     float droop = State >= Stage.KnockedOut ? Mathf.SmoothStep(0f, p.Droop, (Time.time - knockedAt) / 1.2f) : 0f;
-                    p.T.localRotation = p.RestRot * Quaternion.Euler(droop, 0f, 0f);
+                    // elevated to the aim point (from the gun's trunnion, in the turret's frame, which has just turned)
+                    if (gunPitch == null) gunPitch = new float[Parts.Count];
+                    float wantPitch = 0f;
+                    if (AimAt is Vector3 aimG && State < Stage.KnockedOut && p.T.parent != null)
+                    {
+                        // from the muzzle, which lies on the bore (from the trunnion under it, a gun 40 m from its target
+                        // pointed 3.8 degrees high)
+                        string ms = p.Name == "Gun" ? "Socket_Muzzle" : "Socket_Muzzle" + p.Name.Substring(3);
+                        var from = sockets.ContainsKey(ms) ? p.T.parent.InverseTransformPoint(Socket(ms)) : p.RestLocal;
+                        var local = p.T.parent.InverseTransformPoint(aimG) - from;
+                        wantPitch = Mathf.Clamp(Mathf.Atan2(local.y, new Vector2(local.x, local.z).magnitude) * Mathf.Rad2Deg, GunLow, GunHigh);
+                    }
+                    gunPitch[p.Index] = Mathf.MoveTowards(gunPitch[p.Index], wantPitch, GunRate * dt);
+                    p.T.localRotation = p.RestRot * Quaternion.Euler(droop - gunPitch[p.Index], 0f, 0f);
                 }
             }
         }
@@ -670,6 +815,9 @@ namespace TW.Playground
         {
             float now = Time.time;
             if (Fx == null) return;
+            // a gatling's barrels heat from the muzzle end: a small warm light at each tip, as strong as its heat (the
+            // ember channel is one value for the whole part and read as copper paint along it, g10-g11)
+            HeatLamps();
             bool near = Camera.main == null || Vector3.Distance(Camera.main.transform.position, Centre) < 400f;
             if (FireLevel > 0.01f)
             {
@@ -686,8 +834,21 @@ namespace TW.Playground
                     Fx.Flame(foot, V(1.2f, 1.9f) * Size * big * FireLevel, V(2.2f, 3.4f) * Size * big * Mathf.Sqrt(FireLevel), V(0.6f, 0.9f));
                 }
                 // as strong as the fire is big (PlaygroundFx flickers it)
-                if (fireLight == null) fireLight = Fx.Lamp(Socket("Socket_Deck") + Vector3.up * 1.5f * Size, new Color(1f, 0.55f, 0.25f), 8f * Fx.Glow * FireLevel, 14f * Size, 99999f, true, transform);
+                if (fireLight == null) fireLight = Fx.Lamp(Socket("Socket_Deck") + Vector3.up * 1.5f * Size, new Color(1f, 0.72f, 0.4f),   // (1, 0.55, 0.25) on the blue night ground came out magenta (g8)
+                     8f * Fx.Glow * FireLevel, 14f * Size, 99999f, true, transform);
                 else Fx.SetPeak(fireLight, 8f * Fx.Glow * FireLevel);
+            }
+            // a gatling's ammunition cooks off with it: for the first seconds rounds go off out of the wreck every way,
+            // some up into the air, some into the ground (effects only: the parts' destruction keeps its own stream)
+            if (State == Stage.CookedOff && now - cookedAt < 2.8f && now >= nextCookRound && near && (Find("Barrels_L") != null || Find("Barrels_R") != null))
+            {
+                nextCookRound = now + Random.Range(0.04f, 0.16f);
+                var from = Socket("Socket_Deck") + Vector3.up * 0.3f * Size;
+                var dir = Quaternion.Euler(-Random.Range(-15f, 55f), Random.Range(0f, 360f), 0f) * Vector3.forward;
+                float t = dir.y < -0.01f ? (GroundY - from.y) / dir.y : float.MaxValue;
+                bool lands = t < 250f;
+                Fx.Fly(from, from + dir * (lands ? t : 250f), Random.value < 0.5f, Size, lands);
+                if (Random.value < 0.5f) Fx.Spark(from, dir, 0.45f * Size);
             }
             if ((State >= Stage.Damaged || FireLevel > 0f) && now >= nextSmoke && near)
             {
@@ -710,6 +871,8 @@ namespace TW.Playground
                     byFire = Mathf.Clamp01(1f - (dmin * Size - 1f) / 2f);
                 }
                 p.Ember = p.Loose ? (now < p.BurnUntil ? 1f : Mathf.Max(0f, p.Ember - dt * 0.05f)) : FireLevel * byFire;
+                // a hopper's body is one piece: in the fire all of it glowed lava orange end to end (critic g6); it chars
+                if (Hopper != null && p.Name == "Hull") p.Ember = Mathf.Min(p.Ember, 0.3f);
                 if (p.Loose && now < p.BurnUntil && now >= p.NextFlame && near && p.Mass >= 0.5f)
                 {
                     p.NextFlame = now + V(0.25f, 0.45f);
@@ -720,11 +883,40 @@ namespace TW.Playground
             }
         }
 
+        readonly Light[] heatLamp = new Light[2];
+        readonly float[] nextWisp = new float[2];
+
+        void HeatLamps()
+        {
+            for (int s = 0; s < 2; s++)
+            {
+                var gun = Find(s == 0 ? "Gun_L" : "Gun_R"); var bar = Find(s == 0 ? "Barrels_L" : "Barrels_R");
+                bool on = gun != null && !gun.Loose && bar != null && !bar.Loose && heat[s] > 0.02f;
+                if (!on) { if (heatLamp[s] != null) Fx.SetPeak(heatLamp[s], 0f); continue; }
+                // over the middle of the barrels (at the tip it was lost in the muzzle flash, critic g13)
+                var mid = bar.T.TransformPoint(bar.Box.center);
+                var at = mid + Vector3.up * 0.3f * Size;
+                if (heatLamp[s] == null) heatLamp[s] = Fx.Lamp(at, new Color(1f, 0.42f, 0.12f), 0f, 1.3f * Size, 99999f);
+                heatLamp[s].transform.position = at;
+                Fx.SetPeak(heatLamp[s], 5f * Fx.Glow * heat[s] * heat[s]);
+                // and hot barrels smoke once the burst stops, a thin wisp off them every fifth of a second
+                if (!Firing && heat[s] > 0.2f && Time.time >= nextWisp[s])
+                {
+                    nextWisp[s] = Time.time + 0.2f;
+                    Fx.Smoke(mid + gun.T.forward * (0.3f * Size), 0.3f * Size, 0.6f, 0.3f * heat[s], 2.2f);
+                }
+            }
+        }
+
         void Push()
         {
             foreach (var p in Parts)
             {
-                mpb.SetVector("_Damage", new Vector4(p.Scorch, p.Ember * 0.8f, p.Flash, 0f));
+                // a gatling's barrels darken and glow with their heat, as it is now (not kept: they cool back clean). The
+                // shader lights embers only in soot, so heat is drawn as soot and burn together (burn alone showed nothing, g9)
+                float hot = !p.Loose && p.Name.StartsWith("Barrels_") ? heat[p.Name.EndsWith("_L") ? 0 : 1] : 0f;
+                // (soot 0.8 of the heat read as an even copper paint, g10: less soot, more glow in its patches)
+                mpb.SetVector("_Damage", new Vector4(Mathf.Max(p.Scorch, 0.35f * hot), Mathf.Max(p.Ember, 1.0f * hot) * 0.8f, p.Flash, 0f));
                 mpb.SetVector("_Tint", Team == 1 ? new Vector4(0.62f, 0.64f, 0.62f, 0.55f) : new Vector4(1f, 1f, 1f, 0f));
                 bool wears = Team >= 0 && (p.Name.StartsWith("Lamp") || p.Name == "Antenna");
                 var c = Team == 1 ? TankRenderer.TeamB : TankRenderer.TeamA;
