@@ -87,12 +87,17 @@ namespace TW.Presentation.Tactical
                 bool near = VehicleGags.FizzStep(ref f.Pos, ref f.Vel, ref f.Axis, f.Turn, f.Wander, dt, Ground(f.Pos.x, f.Pos.z), f.Home);
                 if (!near || now >= f.PopAt)
                 {
+                    f.Pos += VehicleGags.Helix(f.Vel.sqrMagnitude > 1e-6f ? f.Vel.normalized : Vector3.up, now - f.LaunchAt, f.Turn, out _);
                     FizzOut(f, fx, now);
                     fizzers.RemoveAt(i);
                     continue;
                 }
-                Vector3 way = f.Vel.sqrMagnitude > 1e-6f ? f.Vel.normalized : Vector3.up;
-                Vector3 tail = f.Pos - way * (RocketLength * FizzScale);
+                Vector3 path = f.Vel.sqrMagnitude > 1e-6f ? f.Vel.normalized : Vector3.up;
+                // drawn on its corkscrew about the path (VehicleGags.Helix)
+                Vector3 off = VehicleGags.Helix(path, now - f.LaunchAt, f.Turn, out Vector3 turning);
+                Vector3 at = f.Pos + off, spun = f.Vel + turning;
+                Vector3 way = spun.sqrMagnitude > 1e-6f ? spun.normalized : path;
+                Vector3 tail = at - way * (RocketLength * FizzScale);
                 if (rocketMesh != null && rocketMat != null)
                     Queue(rocketMesh, rocketMat, Matrix4x4.TRS(tail, Quaternion.LookRotation(way), Vector3.one * FizzScale), 0f, Vector4.zero, new Vector4(1f, 1f, 1f, 0f));
                 if (fx)
@@ -115,9 +120,9 @@ namespace TW.Presentation.Tactical
             if (f.Trail != null) { f.Trail.P.Add(f.Pos); f.Trail.T.Add(now); f.Trail.Live = false; }
             if (!fx) return;
             float spin = f.Turn * 1.3f;
-            books.Add(FlipbookFx.Book.Flash, f.Pos, 2.6f, 0.12f, roll: spin, glow: SceneMood.Night ? 3.5f : 2.4f, pop: 0.4f);
-            books.Add(FlipbookFx.Book.Star, f.Pos, 2.0f, 0.14f, roll: spin * 2f, glow: 2.4f);
-            books.Add(FlipbookFx.Book.Smoke, f.Pos, 1.6f, 2.2f, velocity: Vector3.up * 0.6f, grow: 1.2f, alpha: 0.55f);
+            books.Add(FlipbookFx.Book.Flash, f.Pos, 3.0f, 0.25f, roll: spin, glow: SceneMood.Night ? 3.5f : 2.6f, pop: 0.4f);
+            books.Add(FlipbookFx.Book.Star, f.Pos, 2.4f, 0.3f, roll: spin * 2f, glow: 2.6f);
+            books.Add(FlipbookFx.Book.Smoke, f.Pos, 2.4f, 2.6f, velocity: Vector3.up * 0.6f, grow: 1.4f, alpha: 0.7f);   // it lingers: a still can catch it
             SceneHooks.Sparks?.Invoke(f.Pos, 8);
         }
 

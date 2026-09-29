@@ -48,7 +48,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The share of deaths torn in two or blown apart at an intensity, beside `density` others.</summary>
         public static float BurstShare(float intensity, int density)
-            => density >= HeapOfFour ? System.Math.Min(HeapBurstCap, 0.4f * intensity) : System.Math.Min(AloneBurstCap, 0.08f * intensity);
+            => density >= HeapOfFour ? System.Math.Min(HeapBurstCap, 0.5f * intensity) : System.Math.Min(AloneBurstCap, 0.08f * intensity);
 
         /// <summary>What a shell takes off him, at intensity `a` and GORE `gore`, with `density` dead beside him.</summary>
         public static GibPlan Decide(uint seed, float a, float gore, int density)

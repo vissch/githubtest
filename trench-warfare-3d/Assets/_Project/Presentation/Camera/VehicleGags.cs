@@ -22,7 +22,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A walker holds its death pose this long before it drops.</summary>
         public const float WalkerFreeze = 0.35f;
         /// <summary>How far a wheel rolls (m), how hard the ground slows it (m/s²), how many roll away at most.</summary>
-        public const float RollMin = 8f, RollMax = 14f, RollDecel = 2.5f;
+        public const float RollMin = 10f, RollMax = 16f, RollDecel = 2.5f;   // critic round 3: 8 m read as "barely travels" beside a Maw
         public const int MaxRollers = 4;
 
         public struct Leap { public Vector3 Vel; public Vector3 Spin; public float Air; public int Flips; }
@@ -148,6 +148,21 @@ namespace TW.Presentation.Tactical
 
         public struct Fizzer { public Vector3 Vel, Axis; public float Turn, Wander, Life, Delay; }
 
+        /// <summary>The corkscrew a fizzer is drawn on: FizzHelixRadius about its path, turning FizzHelixSpin rad/s (two
+        /// loops a second), so its smoke is a helix (critic round 3: the path's own loops read as straight lines).</summary>
+        public const float FizzHelixRadius = 1.1f, FizzHelixSpin = 13f;
+
+        /// <summary>Where a fizzer is drawn off its path t seconds into its flight (way: its path's direction, unit), and
+        /// that offset's own velocity. Always FizzHelixRadius from the path, square to it.</summary>
+        public static Vector3 Helix(Vector3 way, float t, float phase, out Vector3 turning)
+        {
+            Vector3 u = Vector3.Cross(way, Mathf.Abs(way.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
+            Vector3 w = Vector3.Cross(way, u);
+            float a = phase + FizzHelixSpin * t;
+            turning = (-Mathf.Sin(a) * u + Mathf.Cos(a) * w) * (FizzHelixRadius * FizzHelixSpin);
+            return (Mathf.Cos(a) * u + Mathf.Sin(a) * w) * FizzHelixRadius;
+        }
+
         public static int FizzCount(float intensity, int tubes, float r)
         {
             if (intensity <= 0f || tubes <= 0) return 0;
@@ -188,8 +203,7 @@ namespace TW.Presentation.Tactical
         }
 
         // ------------------------------------------------------------------ a track paying out
-        /// <summary>A track comes off and pays out flat along the ground over UnspoolSeconds: it slides out UnspoolOut hull
-        /// half-gauges to its side, lies down to UnspoolFlat of its height and stretches to UnspoolStretch of its length
+        /// <summary>A track comes off and pays out flat along the ground over UnspoolSeconds: its middle comes to lie UnspoolOut of its own half-widths out past the hull's side, lies down to UnspoolFlat of its height and stretches to UnspoolStretch of its length
         /// (the belt laid out), its links running at UnspoolLinks a second as it goes.</summary>
         public const float UnspoolSeconds = 1.4f, UnspoolOut = 2.4f, UnspoolFlat = 0.14f, UnspoolStretch = 2.6f, UnspoolLinks = 9f;
 

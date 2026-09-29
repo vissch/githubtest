@@ -194,8 +194,9 @@ namespace TW.Presentation.Tactical
             return Matrix4x4.TRS(Vector3.Lerp(from.GetColumn(3), target.GetColumn(3), v.Splay), Quaternion.Slerp(from.rotation, target.rotation, v.Splay), Vector3.one);
         }
 
-        /// <summary>A track comes off and pays out flat beside the hull (a track the sim already threw is left alone; at
-        /// ludicrous both go).</summary>
+        /// <summary>A track comes off and pays out flat beside the hull; one the sim already threw (its module broke in the
+        /// killing shot, as it usually does) is taken over, as the turret's leap takes over a cook-off's throw (critic round
+        /// 3: the Maw's two were always thrown first, so none paid out). At ludicrous both go.</summary>
         void PayOut(View v, ref DebrisRng rng, float a, Vector3 fwd, Vector3 right)
         {
             var lod = v.Model.Lods[0];
@@ -203,29 +204,41 @@ namespace TW.Presentation.Tactical
             if (l < 0 && r < 0) return;
             bool left = rng.Next() < 0.5f;
             int first = left ? l : r, second = left ? r : l;
-            if (first < 0 || v.Off[first]) { first = second; second = -1; }
-            if (first < 0 || v.Off[first]) return;
+            if (first < 0) { first = second; second = -1; }
+            if (first < 0) return;
             StartPayOut(v, first, fwd, right);
-            if (a >= 1.5f && second >= 0 && !v.Off[second]) StartPayOut(v, second, fwd, right);
+            if (a >= 1.5f && second >= 0) StartPayOut(v, second, fwd, right);
         }
 
         void StartPayOut(View v, int i, Vector3 fwd, Vector3 right)
         {
             var p = v.Model.Lods[0].Parts[i];
-            var d = Detach(v, i, v.World[i]);
+            Debris d = null;
+            if (v.Off[i]) { foreach (var q in v.Pieces) if (q.Part == i) d = q; }
+            else d = Detach(v, i, v.World[i]);
+            if (d == null) return;
+            d.Thrown = false; d.Resting = false;   // no longer a track to be put back: it is paying out
             // a wheel that already rolled off is its own piece: it does not ride the belt as well
             var own = new System.Collections.Generic.List<int>();
             foreach (var c in d.Local.Keys) if (v.Off[c]) own.Add(c);
             foreach (int c in own) d.Local.Remove(c);
             float side = p.Side < 0 ? -1f : 1f;
             Vector3 from = d.World.GetColumn(3);
-            Vector3 to = from + right * (side * v.Model.HalfGauge * (VehicleGags.UnspoolOut - 1f))
-                              - fwd * (p.Mesh != null ? p.Mesh.bounds.extents.z * (VehicleGags.UnspoolStretch - 1f) : 0f);
-            float low = p.Mesh != null ? p.Mesh.bounds.min.y : 0f;
-            to.y = Ground(to.x, to.z) - low * VehicleGags.UnspoolFlat + 0.03f;
+            // where it lies is measured from the meshes, not the pivots: the Maw's track pivots sit on its centre line,
+            // and a belt laid out from them lay under its own hull (critic round 2 saw no track)
+            var bounds = p.Mesh != null ? p.Mesh.bounds : new Bounds(Vector3.zero, Vector3.one);
+            var body = v.Model.Lods[0].Parts[0].Mesh;
+            float hullHalf = body != null ? body.bounds.extents.x : v.Model.HalfGauge;
+            Quaternion rot1 = Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up) * p.LocalRot;
+            Vector3 centre = new Vector3(v.Pos.x, 0f, v.Pos.z)
+                             + right * (side * (Mathf.Max(hullHalf, v.Model.HalfGauge) + bounds.extents.x * VehicleGags.UnspoolOut))
+                             - fwd * (bounds.extents.z * (VehicleGags.UnspoolStretch - 1f));
+            Vector3 scaled = new Vector3(bounds.center.x, bounds.center.y * VehicleGags.UnspoolFlat, bounds.center.z * VehicleGags.UnspoolStretch);
+            Vector3 to = centre - rot1 * scaled;
+            to.y = Ground(centre.x, centre.z) - bounds.min.y * VehicleGags.UnspoolFlat + 0.03f;
             d.SpoolFrom = from; d.SpoolTo = to;
             d.SpoolRot0 = d.World.rotation;
-            d.SpoolRot1 = Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up) * p.LocalRot;
+            d.SpoolRot1 = rot1;
             d.Spool = 0f; d.Vel = Vector3.zero; d.Spin = Vector3.zero;
         }
 

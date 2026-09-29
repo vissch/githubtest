@@ -113,7 +113,7 @@ namespace TW.Presentation.Tactical
             {
                 if (k > 0 && !near) break;   // far out, the first landing is all that reads
                 var a = k == 0 ? path.A0 : k == 1 ? path.A1 : path.A2;
-                float s = (k == 0 ? 2.1f : k == 1 ? 1.4f : 1.0f) * size;   // round 2: smaller read as dirty snow
+                float s = (k == 0 ? 2.6f : k == 1 ? 1.7f : 1.2f) * size;   // round 2: smaller read as dirty snow
                 AddGagMark(a.To, rng.Range(0f, 360f), new Vector2(s, s * rng.Range(0.8f, 1.2f)), life, 3, path.Delay + a.End);
             }
             if (path.SkidDur > 0f && gag.Gag != DeathGag.Skid)
