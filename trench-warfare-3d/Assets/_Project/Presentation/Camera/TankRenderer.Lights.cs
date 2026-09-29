@@ -4,7 +4,8 @@
 //  - tank.lamps: four running lamps on the corners of every live machine's hull (MachineLamps), as glow cards that
 //    NightLights draws with its flash glows (no draw call of their own), at night, the nearest machines first; out
 //    when the machine is dead, knocked out or stalled. The rear pair burns brighter than the front, as tail lamps do;
-//  - tank.lampHue: 0 the side's colour, 1 the red Dust Front's hulls carry, for the owner to compare;
+//  - tank.lampHue: 0 the side's colour, 1 the red Dust Front's hulls carry, 2 the lanterns' amber (the owner's reference
+//    edits of 2026-09-29 light the night with warm fire only), for the owner to compare;
 //  - tank.lampSize: a lamp's card across, in metres, never under 0.015 of its distance, so it holds on the screen;
 //  - tank.exhaustGlow: the exhausts glow with the throttle, and the Maw's furnace mouth with its fire;
 //  - tank.lampPull: how far toward the camera a card is drawn, so the hull does not hide it (1 m);
@@ -30,6 +31,8 @@ namespace TW.Presentation.Tactical
         const float CookOffPeak = 30f, CookOffSeconds = 1.2f, MachineLightReach = 10f;
         /// <summary>The red of Dust Front's running lamps (tank.lampHue 1).</summary>
         public static readonly Color TrailerRed = new Color(1f, 0.16f, 0.07f);
+        /// <summary>The lanterns' amber (tank.lampHue 2): NightLights.Lantern, so a machine's lamps burn as the trench's do.</summary>
+        public static readonly Color LampAmber = new Color(1f, 0.60f, 0.26f);
         static readonly Color ExhaustHot = new Color(1f, 0.42f, 0.12f), FurnaceHot = new Color(1f, 0.48f, 0.16f), FireHot = new Color(1f, 0.52f, 0.2f);
         bool lampsOn; float lampHue, lampSize = LampSize, exhaustGlow, lightReach = 110f, lampPull = LampPull;
         int lampKnobs = -1;
@@ -45,15 +48,18 @@ namespace TW.Presentation.Tactical
             if (lampKnobs == Knobs.Generation) return;
             lampKnobs = Knobs.Generation;
             lampsOn = Knobs.Get("tank.lamps", false);
-            lampHue = Mathf.Clamp01(Knobs.Get("tank.lampHue", 0f));
+            lampHue = Mathf.Clamp(Knobs.Get("tank.lampHue", 0f), 0f, 2f);
             lampSize = Mathf.Max(0.05f, Knobs.Get("tank.lampSize", LampSize));
             exhaustGlow = Mathf.Clamp01(Knobs.Get("tank.exhaustGlow", 0f));
             lightReach = Mathf.Max(0f, Knobs.Get("tank.lightReach", 110f));
             lampPull = Mathf.Clamp(Knobs.Get("tank.lampPull", LampPull), 0f, 3f);
         }
 
-        /// <summary>The colour of a side's running lamps: its own colour, or toward Dust Front's red with tank.lampHue.</summary>
-        public static Color LampColour(byte team, float hue) => Color.Lerp(team == 1 ? TeamB : TeamA, TrailerRed, Mathf.Clamp01(hue));
+        /// <summary>The colour of a side's running lamps: its own colour at 0, toward Dust Front's red by 1, on toward the
+        /// lanterns' amber by 2.</summary>
+        public static Color LampColour(byte team, float hue) => hue <= 1f
+            ? Color.Lerp(team == 1 ? TeamB : TeamA, TrailerRed, Mathf.Clamp01(hue))
+            : Color.Lerp(TrailerRed, LampAmber, Mathf.Clamp01(hue - 1f));
 
         /// <summary>How wide a lamp's card is drawn at this distance: its own size, or wider far off, so it stays a point
         /// of light and does not shrink to nothing under the bloom's threshold.</summary>
