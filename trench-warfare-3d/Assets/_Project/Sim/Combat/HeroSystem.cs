@@ -101,6 +101,12 @@ namespace TW.Sim.Combat
 
         public bool IsHero(int slot) => slot >= 0 && slot < HeroTicks.Length && HeroTicks[slot] > 0;
 
+        void Feat(SimWorld w, int i, bool fell)
+        {
+            HeroKills[i]++;
+            if (!fell) w.Events.Add(w.Tick, SimEventType.HeroFeat, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]);
+        }
+
         public void Step(SimWorld w)
         {
             int n = w.HighWater;
@@ -140,22 +146,25 @@ namespace TW.Sim.Combat
             for (int i = 0; i < n; i++)
             {
                 if (HeroTicks[i] <= 0) continue;
-                if (!w.IsAlive(i) || w.Generation[i] != HeroGen[i])
-                {
-                    w.Events.Add(w.Tick, SimEventType.HeroFallen, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]);
-                    HeroTicks[i] = 0; HeroScale[i] = 1f;
-                    continue;
-                }
+                // his kills first, so a hero who fell right after them still has them in HeroFallen; a feat is only
+                // announced for a man still standing
+                bool fell = !w.IsAlive(i) || w.Generation[i] != HeroGen[i];
                 if (fire != null)
                 {
                     var killed = fire.Killed;
                     for (int k = 0; k < killed.Length; k++)
-                        if (killed[k].y == i) { HeroKills[i]++; w.Events.Add(w.Tick, SimEventType.HeroFeat, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]); }
+                        if (killed[k].y == i) Feat(w, i, fell);
                     // and with the bayonet (MeleeSystem steps after this one: its kills of the tick before)
                     melee ??= w.GetSystem<MeleeSystem>();
                     if (melee != null && melee.Killed.IsCreated)
                         for (int k = 0; k < melee.Killed.Length; k++)
-                            if (melee.Killed[k].y == i) { HeroKills[i]++; w.Events.Add(w.Tick, SimEventType.HeroFeat, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]); }
+                            if (melee.Killed[k].y == i) Feat(w, i, fell);
+                }
+                if (fell)
+                {
+                    w.Events.Add(w.Tick, SimEventType.HeroFallen, i, HeroId[i], w.Position[i], new float3(0f, w.Team[i], 0f), HeroKills[i]);
+                    HeroTicks[i] = 0; HeroScale[i] = 1f;
+                    continue;
                 }
                 if (w.Suppression[i] > HeroRules.SuppressionCap) w.Suppression[i] = HeroRules.SuppressionCap;
                 w.Flags[i] |= (uint)UnitFlags.Hero;
