@@ -53,6 +53,14 @@ namespace TW.Presentation
         public int BarrageLeadTicks = 110;
         /// <summary>The tick its planned attack goes over the top, 0 with none planned.</summary>
         public uint PlannedAttack;
+        /// <summary>Defensive fire: an HE line on the player's men in the open coming at its trench (the SOS barrage).</summary>
+        /// Off by default: it is the Hard difficulty's (PeerDefends). One barrage on a bare attack at three to one turned
+        /// seven trenches taken of eight into none (20 of 30 men lost to 26), so on every difficulty it would undo the
+        /// assault ladder while the enemy had 150 silver.
+        public bool Defends;
+        /// <summary>How many of the player's men in the open, how near its front trench, before it calls one.</summary>
+        public int SosMen = 5;
+        public float SosReach = 70f;
         /// <summary>Told each decision it takes, for a test or a log: what it did and on what count.</summary>
         public System.Action<string> Said;
         /// <summary>Stress preset: riflemen a side, deployed 4 a tick by BOTH players; 0 = off.</summary>
@@ -145,6 +153,13 @@ namespace TW.Presentation
                     int held = theirs >= 0 ? view.Fields.Trenches[theirs].GarrisonCount : 0;
                     int army = Mathf.Max(AttackGarrison, Mathf.CeilToInt(Odds * held));
                     int reserve = UsesSupport && t > 600 && MenOf(pw, Side) >= army ? SupportReserve : 0;
+                    // threatened (the player's front garrison is at least eight and no smaller than its own), it keeps an
+                    // SOS barrage's price in hand: spending every coin on men, it never had one when an attack came over
+                    short mineFront = view.Fields.FrontTrench(Side);
+                    int ours = mineFront >= 0 ? view.Fields.Trenches[mineFront].GarrisonCount : 0;
+                    if (UsesSupport && Defends && t > 600 && held >= Mathf.Max(AttackGarrison, ours)
+                        && OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.HeBarrage, out var sos))
+                        reserve = Mathf.Max(reserve, sos.Cost);
                     if (pw.Silver[Side] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, Side, slot));
                 }
             }
@@ -168,6 +183,7 @@ namespace TW.Presentation
                     if (k != front && ts.GarrisonCount > 0) enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = k });
                 }
             }
+            if (UsesSupport && Defends && PlannedAttack == 0 && t % 20 == 10 && view.Abilities != null) Sos(view, enemy, t);
             if (Attacks && PlannedAttack != 0 && t >= PlannedAttack)
             {
                 // the barrage is coming down: over the top now, whatever the count, or the shells were wasted
@@ -226,6 +242,51 @@ namespace TW.Presentation
         /// men that sending them with it did (AssaultLadderTests, behind smoke and a barrage).</summary>
         SimCommand OverTheTop(uint t, short front)
             => new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchSelectAdvance, A = front, B = OrderGroup.All & ~OrderGroup.Gun };
+
+        /// <summary>The middle of a trench along z, NaN when it has no cells.</summary>
+        static float TrenchZ(MatchSim view, short trench)
+        {
+            if (trench < 0) return float.NaN;
+            var def = view.Map.Trenches[trench];
+            return def.CellCount == 0 ? float.NaN : view.Map.NavCellCenter(view.Map.TrenchCells[def.CellStart + def.CellCount / 2]).z;
+        }
+
+        /// <summary>The SOS barrage (2026-09-29): SosMen or more of the player's men on foot in the open between 8 m and
+        /// SosReach in front of its front trench bring an HE line down on them, 60 m across their middle and 10 m nearer
+        /// the trench than they are (the shells take four seconds, and they are coming on), never nearer than 12 m to it.
+        /// It spends the attack's reserve on it: holding the trench comes first. Not while its own attack is planned or
+        /// its own men are out near the mark. Before, it only ever shelled the player's trench, on a timer.</summary>
+        bool Sos(MatchSim view, ICommandSink enemy, uint t)
+        {
+            var pw = view.World;
+            short own = view.Fields.FrontTrench(Side), theirs = view.Fields.FrontTrench(Other);
+            float ownZ = TrenchZ(view, own), theirZ = TrenchZ(view, theirs);
+            if (float.IsNaN(ownZ) || float.IsNaN(theirZ) || Mathf.Abs(theirZ - ownZ) < 1f) return false;
+            if (view.Abilities.CooldownOf(Side, OffMapAbilityId.HeBarrage) != 0) return false;
+            if (!OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.HeBarrage, out var stats) || pw.Silver[Side] < stats.Cost) return false;
+            float toward = Mathf.Sign(theirZ - ownZ);   // out of its trench, into no man's land
+            float sx = 0f, sz = 0f; int n = 0;
+            for (int i = 0; i < pw.HighWater; i++)
+            {
+                uint f = pw.Flags[i];
+                if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0 || pw.Team[i] != Other || pw.TrenchId[i] >= 0) continue;
+                float ahead = (pw.Position[i].z - ownZ) * toward;
+                if (ahead < 8f || ahead > SosReach) continue;
+                sx += pw.Position[i].x; sz += pw.Position[i].z; n++;
+            }
+            if (n < SosMen) return false;
+            sx /= n; sz /= n;
+            float z = ownZ + toward * Mathf.Max(12f, (sz - ownZ) * toward - 10f);
+            for (int i = 0; i < pw.HighWater; i++)
+                if (pw.IsAlive(i) && pw.Team[i] == Side && pw.TrenchId[i] < 0 && Mathf.Abs(pw.Position[i].z - z) < 20f) return false;   // its own men are out there
+            float width = view.Map.SizeMeters.x;
+            float start = Mathf.Clamp(sx - 30f, 0f, Mathf.Max(0f, width - 60f));
+            enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage,
+                                         Pos = new Unity.Mathematics.float3(start, 0f, z), B = AbilityArgs.Pack(90, AbilityPattern.Line, 60) });
+            supportCount++;
+            Said?.Invoke($"{t / 20} s SOS barrage on {n} men coming over");
+            return true;
+        }
 
         /// <summary>Men of <paramref name="team"/> alive on foot.</summary>
         static int MenOf(SimWorld w, int team)

@@ -112,6 +112,11 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   (`CombatTables.RunningTarget`, floor 0.35 past 60 m), a miss at a man on the fire step suppressing him fully, and
   hand grenades (riflemen two, assault men four, thrown at a trench man from 5-22 m, held while a friend is near the
   mark; since 2026-09-29 in the air half a second to 1.2 s before it goes off, so the throw can be drawn). Each is one constant or one rule to turn; the ratios are the thing to judge in play.
+- **The SOS barrage is Hard only (2026-09-29), the agent's choice:** on Hard the enemy brings an HE line down on an
+  attack in the open before its trench. Measured: a bare attack at three to one took 7 trenches of 8 without it and
+  none with it (30 men losing 26). On every difficulty it would undo the assault ladder while the enemy had 150 silver,
+  so Easy and Normal leave it off; against an evenly matched player it rarely has the silver anyway (the script
+  against itself never called one). Turn it on for Normal, or make it weaker (later, smaller), if Hard is too little.
 - **The guns hold the parapet (2026-09-29), the agent's choice:** machine gunners (and the Sentry) are their own order
   group, `OrderGroup.Gun`, so a player can send the riflemen over and keep the guns firing from the trench to cover
   them; a plain "over the top" still sends everyone. They were Line with the riflemen. Found beside it, a bug: the

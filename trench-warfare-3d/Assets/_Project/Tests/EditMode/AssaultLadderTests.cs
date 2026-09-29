@@ -14,6 +14,7 @@ using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
+using TW.Presentation;
 
 namespace TW.Tests
 {
@@ -203,6 +204,67 @@ namespace TW.Tests
             }
             Assert.GreaterOrEqual(takenCover, takenGo, "covering does not cost the trench");
             Assert.Less(cover, 0.8f * go, $"attackers lost over eight seeds: {cover} with the guns covering, {go} with them going over");
+        }
+
+        sealed class Orders : TW.Net.ICommandSink
+        {
+            public readonly List<SimCommand> Given = new List<SimCommand>();
+            public int Player => 1;
+            public void Issue(SimCommand c) => Given.Add(c);
+        }
+
+        /// <summary>The SOS barrage (Hard, ScriptedEnemy.Defends, 2026-09-29): thirty men go over bare at ten riflemen whose
+        /// side is played by the script with 1000 silver (no deploys, no attacks of its own). Bare three to one takes a
+        /// trench (seven in eight on this ground without it); with the barrage on the men in the open it took none.</summary>
+        [Test]
+        public void TheSosBarrage_BreaksABareAttackAtThreeToOne()
+        {
+            int taken = 0, calls = 0;
+            for (uint seed = 1; seed <= 3; seed++)
+            {
+                var cfg = SimConfig.Default; cfg.StartingSilver = 1000; cfg.Seed = seed;
+                var field = BattlefieldParams.ShelledForest(Field); field.Bombardment = 0f;
+                using var m = MatchSim.CreateBattlefield(cfg, field);
+                var w = m.World;
+                short own = m.Fields.FrontTrench(0), theirs = m.Fields.FrontTrench(1);
+                float ownZ = TrenchZ(m, own), theirZ = TrenchZ(m, theirs), width = m.Map.SizeMeters.x;
+                int goalOwn = m.Fields.GetGoal(GoalKey.Trench(own)), goalTheirs = m.Fields.GetGoal(GoalKey.Trench(theirs));
+                for (int k = 0; k < 10; k++)
+                {
+                    var e = w.Roster[1 * RosterEntry.SlotCount + Rifleman];
+                    w.GoalId[w.Spawn(1, e.Archetype, new float3((k + 0.5f) * width / 10, 0f, theirZ + 8f), e.Hp, e.Speed, false)] = goalTheirs;
+                }
+                for (int k = 0; k < 30; k++)
+                {
+                    var e = w.Roster[k % 4 == 3 ? Assault : Rifleman];
+                    w.GoalId[w.Spawn(0, e.Archetype, new float3((k + 0.5f) * width / 30, 0f, ownZ - 8f), e.Hp, e.Speed, false)] = goalOwn;
+                }
+                var cmds = new List<SimCommand>();
+                for (int t = 0; t < 1260; t++)
+                {
+                    for (short tr = 0; tr < m.Map.Trenches.Length; tr++) SetHoldFire(m, tr, 1);
+                    Step(m, cmds);
+                    if (t >= 60 && m.Fields.Trenches[own].GarrisonCount >= 30 && m.Fields.Trenches[theirs].GarrisonCount >= 10) break;
+                }
+                for (short tr = 0; tr < m.Map.Trenches.Length; tr++) SetHoldFire(m, tr, 0);
+                var ai = new ScriptedEnemy { Attacks = false, DeployEveryTicks = 1 << 30, SupportReserve = 900, Defends = true, Said = x => { if (x.Contains("SOS")) calls++; } };
+                var orders = new Orders();
+                cmds.Add(new SimCommand { Tick = w.Tick, Player = 0, Type = CommandType.TrenchAdvance, A = own });
+                Step(m, cmds); cmds.Clear();
+                bool got = false;
+                for (int t = 0; t < 3600 && !got; t++)
+                {
+                    ai.Think(m, m, orders, null);
+                    foreach (var c in orders.Given) { var d = c; d.Tick = w.Tick; cmds.Add(d); }
+                    orders.Given.Clear();
+                    Step(m, cmds); cmds.Clear();
+                    var ev = w.Events.Events;
+                    for (int k = 0; k < ev.Length; k++) if (ev[k].Type == SimEventType.TrenchCaptured && ev[k].B == 0) got = true;
+                }
+                if (got) taken++;
+            }
+            Assert.GreaterOrEqual(calls, 3, "it called the barrage on every attack");
+            Assert.LessOrEqual(taken, 1, "and the attack broke on it");
         }
 
         [Test]

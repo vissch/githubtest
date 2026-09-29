@@ -60,6 +60,8 @@ namespace TW.Presentation
         [Tooltip("Scripted peer shells or gasses your front trench when it can afford it and you have men there.")]
         public bool PeerUsesSupport = true;
         public int PeerSupportReserve = 180;
+        [Tooltip("Scripted peer answers an attack with an SOS barrage on your men in the open before its trench (Hard).")]
+        public bool PeerDefends = false;
         [Tooltip("Stress preset: both players start with enough silver to field this many riflemen each, deployed at 4 per tick.")]
         public int StressUnits = 0;
         [Tooltip("Stress preset: send both garrisons over the top this many ticks after the last deployment.")]
@@ -191,7 +193,7 @@ namespace TW.Presentation
         void SyncEnemy()
         {
             enemy.Enabled = ScriptedPeer; enemy.DeployEveryTicks = PeerDeployEveryTicks; enemy.Attacks = PeerAttacks;
-            enemy.DeploysTanks = PeerDeploysTanks; enemy.AttackGarrison = PeerAttackGarrison; enemy.UsesSupport = PeerUsesSupport;
+            enemy.DeploysTanks = PeerDeploysTanks; enemy.AttackGarrison = PeerAttackGarrison; enemy.UsesSupport = PeerUsesSupport; enemy.Defends = PeerDefends;
             enemy.SupportReserve = PeerSupportReserve; enemy.StressUnits = StressUnits; enemy.StressAdvanceDelayTicks = StressAdvanceDelayTicks;
             enemy.StressSpread = stressSpread;
         }

@@ -15,7 +15,7 @@ namespace TW.UI
     {
         public string Name, Blurb;
         public int PeerDeployEveryTicks = 40, PeerAttackGarrison = 8, PeerSupportReserve = 180;
-        public bool PeerAttacks = true, PeerDeploysTanks, PeerUsesSupport = true;
+        public bool PeerAttacks = true, PeerDeploysTanks, PeerUsesSupport = true, PeerDefends;
         /// <summary>The enemy's upgrade tier (uniform), for the sim's upgrade seam when it lands (docs/21 B1).</summary>
         public int EnemyUpgradeTier;
 
@@ -23,7 +23,7 @@ namespace TW.UI
         {
             new CampaignDifficulty { Name = "EASY", Blurb = "A slow enemy that attacks late and fields no armour or support.", PeerDeployEveryTicks = 60, PeerAttackGarrison = 12, PeerDeploysTanks = false, PeerUsesSupport = false, PeerSupportReserve = 400, EnemyUpgradeTier = 0 },
             new CampaignDifficulty { Name = "NORMAL", Blurb = "Deploys every two seconds, attacks at eight men, shells you when it can.", PeerDeployEveryTicks = 40, PeerAttackGarrison = 8, PeerDeploysTanks = false, PeerUsesSupport = true, PeerSupportReserve = 180, EnemyUpgradeTier = 1 },
-            new CampaignDifficulty { Name = "HARD", Blurb = "Fast deploys, early attacks, tanks whenever it can afford them.", PeerDeployEveryTicks = 28, PeerAttackGarrison = 6, PeerDeploysTanks = true, PeerUsesSupport = true, PeerSupportReserve = 120, EnemyUpgradeTier = 2 },
+            new CampaignDifficulty { Name = "HARD", Blurb = "Fast deploys, early attacks, tanks whenever it can afford them, and a barrage on any attack you make.", PeerDeployEveryTicks = 28, PeerAttackGarrison = 6, PeerDeploysTanks = true, PeerUsesSupport = true, PeerSupportReserve = 120, PeerDefends = true, EnemyUpgradeTier = 2 },
         };
     }
 
@@ -50,7 +50,7 @@ namespace TW.UI
                 GeneratedBattlefield = true, PlaytestMap = false, BattlefieldSeed = Seed, Ground = Ground,
                 Bombardment = Bombardment, ScriptedPeer = true,
                 PeerDeployEveryTicks = Mathf.Max(1, d.PeerDeployEveryTicks), PeerAttacks = d.PeerAttacks, PeerAttackGarrison = d.PeerAttackGarrison,
-                PeerDeploysTanks = d.PeerDeploysTanks, PeerUsesSupport = d.PeerUsesSupport, PeerSupportReserve = d.PeerSupportReserve,
+                PeerDeploysTanks = d.PeerDeploysTanks, PeerUsesSupport = d.PeerUsesSupport, PeerSupportReserve = d.PeerSupportReserve, PeerDefends = d.PeerDefends,
             };
         }
     }

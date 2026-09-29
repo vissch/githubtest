@@ -64,7 +64,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   player's front garrison, or, at `Odds` (two) times, first lays an HE line 60 m along the player's garrison and, if the
   silver runs to it, a 40 m smoke screen just in front of it, and goes `BarrageLeadTicks` later (`PlannedAttack`);
   shells or gasses the player's front only out of silver it has beyond the reserve. When it goes over the top its
-  machine gunners stay on the parapet and fire over the attack (`OverTheTop`: every group but `OrderGroup.Gun`, v22). `Side` is the seat it plays (1;
+  machine gunners stay on the parapet and fire over the attack (`OverTheTop`: every group but `OrderGroup.Gun`, v22).
+  On Hard (`Defends`, `SimHost.PeerDefends`, the missions' and campaign's difficulty) it answers an attack: five or
+  more of the player's men in the open 8-70 m before its front trench bring an HE line down on them (`Sos`, the SOS
+  barrage), and while the player's front garrison is at least eight and no smaller than its own it keeps the
+  barrage's 150 silver in hand. Off on Easy and Normal: one barrage broke a bare three-to-one attack every time
+  (`TheSosBarrage_BreaksABareAttackAtThreeToOne`; seven of eight taken without it). `Side` is the seat it plays (1;
   0 puts it on the player's side). `Said` reports each attack decision with its count.
 - **Why:** the assault ladder says a trench falls at about three to one bare and two to one behind support, and a
   garrison with machine guns falls only behind support (two gunners in ten: bare attacks fail at three to one, two to

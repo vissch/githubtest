@@ -43,13 +43,14 @@ namespace TW.UI
             public bool PeerDeploysTanks = false;
             public bool PeerUsesSupport = true;
             public int PeerSupportReserve = 180;
+            public bool PeerDefends;
         }
 
         public Difficulty[] Difficulties =
         {
             new Difficulty { Name = "EASY", Blurb = "A slow enemy that attacks late and fields no armour or support.", PeerDeployEveryTicks = 60, PeerAttacks = true, PeerAttackGarrison = 12, PeerDeploysTanks = false, PeerUsesSupport = false, PeerSupportReserve = 400 },
             new Difficulty { Name = "NORMAL", Blurb = "Today's opponent: deploys every two seconds, attacks at eight men, shells you when it can.", PeerDeployEveryTicks = 40, PeerAttacks = true, PeerAttackGarrison = 8, PeerDeploysTanks = false, PeerUsesSupport = true, PeerSupportReserve = 180 },
-            new Difficulty { Name = "HARD", Blurb = "Fast deploys, early attacks, tanks whenever it can afford them.", PeerDeployEveryTicks = 28, PeerAttacks = true, PeerAttackGarrison = 6, PeerDeploysTanks = true, PeerUsesSupport = true, PeerSupportReserve = 120 },
+            new Difficulty { Name = "HARD", Blurb = "Fast deploys, early attacks, tanks whenever it can afford them, and a barrage on any attack you make.", PeerDeployEveryTicks = 28, PeerAttacks = true, PeerAttackGarrison = 6, PeerDeploysTanks = true, PeerUsesSupport = true, PeerSupportReserve = 120, PeerDefends = true },
         };
 
         public int DefaultDifficulty = 1;
@@ -66,7 +67,7 @@ namespace TW.UI
                 Ground = Ground,
                 Bombardment = Bombardment, ScriptedPeer = true,
                 PeerDeployEveryTicks = Mathf.Max(1, d.PeerDeployEveryTicks), PeerAttacks = d.PeerAttacks, PeerAttackGarrison = d.PeerAttackGarrison,
-                PeerDeploysTanks = d.PeerDeploysTanks, PeerUsesSupport = d.PeerUsesSupport, PeerSupportReserve = d.PeerSupportReserve,
+                PeerDeploysTanks = d.PeerDeploysTanks, PeerUsesSupport = d.PeerUsesSupport, PeerSupportReserve = d.PeerSupportReserve, PeerDefends = d.PeerDefends,
             };
         }
     }

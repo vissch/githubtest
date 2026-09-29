@@ -61,6 +61,7 @@ namespace TW.Presentation
             public bool PeerDeploysTanks = false;
             public bool PeerUsesSupport = true;
             public int PeerSupportReserve = 180;
+            public bool PeerDefends;
             /// <summary>Campaign (docs/21 phase 6): which support abilities each side may fire (a bit per OffMapAbilityId;
             /// 0 = the faction's default). The sides' factions are FactionA/FactionB above, the same ids (FactionId: Iron 0,
             /// Brass 1) the campaign's FactionBuildings uses. The sim's upgrade seam reads the masks when it lands (B1);
@@ -81,7 +82,7 @@ namespace TW.Presentation
                 Ground = h.Ground,
                 Bombardment = h.BombardmentPerMinute, ScriptedPeer = h.ScriptedPeer, PeerDeployEveryTicks = h.PeerDeployEveryTicks,
                 PeerAttacks = h.PeerAttacks, PeerAttackGarrison = h.PeerAttackGarrison, PeerDeploysTanks = h.PeerDeploysTanks,
-                PeerUsesSupport = h.PeerUsesSupport, PeerSupportReserve = h.PeerSupportReserve,
+                PeerUsesSupport = h.PeerUsesSupport, PeerSupportReserve = h.PeerSupportReserve, PeerDefends = h.PeerDefends,
             };
         }
 
@@ -106,7 +107,7 @@ namespace TW.Presentation
             h.BombardmentPerMinute = r.Bombardment;
             h.ScriptedPeer = r.ScriptedPeer; h.PeerDeployEveryTicks = Mathf.Max(1, r.PeerDeployEveryTicks);   // SimHost divides by it
             h.PeerAttacks = r.PeerAttacks; h.PeerAttackGarrison = r.PeerAttackGarrison; h.PeerDeploysTanks = r.PeerDeploysTanks;
-            h.PeerUsesSupport = r.PeerUsesSupport; h.PeerSupportReserve = r.PeerSupportReserve;
+            h.PeerUsesSupport = r.PeerUsesSupport; h.PeerSupportReserve = r.PeerSupportReserve; h.PeerDefends = r.PeerDefends;
             SimHost.BombardmentOverride = -1f;   // the debug presets never outrank a mission
             Running = r;
         }
