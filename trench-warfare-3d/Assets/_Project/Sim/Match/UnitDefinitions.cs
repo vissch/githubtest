@@ -93,7 +93,7 @@ namespace TW.Sim.Match
         /// <summary>
         /// The Salvo (2026-09-28, the owner's half-track rocket truck: Resources/Vehicles/Salvo, Tools/mechsplit.py
         /// TW_KIND=halftrack). Wheels in front, tracks behind, two clawed legs braced at the tail and a box of rockets on
-        /// a turntable. The box is its one gun: indirect, so it needs no line of sight, blind inside 60 m, and it throws
+        /// a turntable. The box is its one gun: indirect, so it needs no line of sight, blind inside 48 m (60 as designed, x RangeScale), and it throws
         /// the heaviest burst on the field and then takes sixteen seconds to load again. Thin, slow, and full of rockets
         /// that go up when it is holed.
         /// </summary>
