@@ -319,12 +319,16 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/TankRenderer.Weight.cs` (the weight layer, Dust Front lessons Phase 1, every look behind a knob
   that draws today's machines at 0: `tank.weight` rides each machine its own style on an acceleration followed from the
   sim's speed and keeps a walker's kicks and footfalls on layers of their own; `tank.recoil` recoil by the shot's weight;
-  `tank.shotRock` degrees a six-pounder rocks its hull; `tank.gunHullFlash`; `tank.traverseSettle`),
+  `tank.shotRock` degrees a six-pounder rocks its hull; `tank.gunHullFlash`; `tank.traverseSettle`; `tank.squat` the
+  share of each style's squat drawn against the sim's held acceleration, 0.4),
+  `Presentation/Camera/TankRenderer.Probe.cs` (a read-only look at one machine's ride, for `Editor/WeightLab.cs`: traces
+  of a stop, a shot or a walk as CSV, and knobs set from eval), `Presentation/Camera/TrackDust.cs` (each track's dust,
+  a pivot's too; pure, and nothing calls it until `lane/show/pipe-vfx`, which owns the dust, does),
   `Presentation/Camera/HullRide.cs` (its pure maths: the exact spring solve, the felt acceleration, shot weights, the
   recoil's shape, kick sizes, a walker's kick layer, a turret's settle),
   `Presentation/Camera/MachineSockets.cs` (a walker answers the first of a numbered socket pair with its one socket),
   `Presentation/Camera/TankRenderer.Lights.cs` (a machine's own lights, each behind a knob at 0: `tank.lamps` four running
-  lamps on the hull's corners, `tank.lampHue` the side's colour or Dust Front's red, `tank.lampSize`, `tank.exhaustGlow`
+  lamps on the hull's corners, `tank.lampHue` the side's colour or Dust Front's red, `tank.lampSize`, `tank.lampPull`, `tank.exhaustGlow`
   the exhausts and the Maw's furnace, `tank.lightReach`; glow cards NightLights draws, and with `lights.machinePool` a
   burning machine's, a cook-off's and the furnace's real lights), `Presentation/Camera/MachineLamps.cs` (where the lamps and
   the furnace sit, read off the hull in its own frame), `Presentation/Core/MachineLightSlots.cs` (which machine light
@@ -334,7 +338,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/RiderSeats.cs` (seats read off each hull and their way up), `Presentation/Camera/TankRenderer.Riders.cs`,
   `Presentation/Units/VATRenderer.Extras.cs` (the riders drawn; a seated man is hidden from the normal pass),
   `Editor/RiderLab.cs` (the seat sheet and captures).
-- **Tests:** GaitTests (plus the sim tests above), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
+- **Tests:** GaitTests (plus the sim tests above), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), TrackDustTests (a pivot throws dust where the hull-speed gate threw none), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
   for the rig scoreboard in `docs/20-rig-scoreboard.md`.
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
@@ -401,7 +405,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
-  `ZoomShare`), `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class),
+  `ZoomShare`), `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class,
+  with `Presentation/Terrain/PropDestruction.Ram.cs`: `props.ram`, off by default, a heavy machine on the move wears
+  what its footprint covers until its ground-storey house chunks and heavy kit props break, once a tick beside `Crush`;
+  and `LampOut`, a lantern that goes by any cause puts its lamp out through `SceneHooks.LampOut`),
   `Presentation/Terrain/TrenchSection.cs` (`TrenchSectionRules`: a lining section intact -> damaged -> gone, heavy
   ordnance, the pieces' life), `Presentation/Terrain/HouseKit.cs` (chunked buildings, `MaxChunks`, `ChunkMask`).
   Design: `docs/16-destruction.md` ("The lining breaks in two steps").
@@ -671,10 +678,12 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `FireLight` | NightLights | Flamethrower |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
+| `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |
+| `LampOut` | NightLights, NightLights.Machines | PropDestruction.Ram |
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DriveFeelTests, DriveStyleTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
+- **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DriveFeelTests, DriveStyleTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, HullRideTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, MineTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Stills:** WalkerStills
 <!-- /gen:tests -->
