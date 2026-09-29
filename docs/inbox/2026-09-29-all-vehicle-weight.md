@@ -6,8 +6,9 @@ move, fire, light and push through props. It is based on the desktop's rebase of
 (the ride) on **`lane/sim/drive-feel-v20`** (the momentum seam). The Kettle and Redoubt leg joins are
 `lane/show/walker-legs`, not here. Worktree `githubtest-vehicle-weight`. **Waiting for the owner's word to land**.
 
-**Every new look is behind a knob that draws today's picture at 0**, as `fx.deathAbsurd` is (`decisions.md`, 2026-09-28). The owner picks the
-defaults from the captures, and one commit then flips them.
+**Every new look is behind a knob that draws the old picture at 0**, as `fx.deathAbsurd` is (`decisions.md`, 2026-09-28). **The owner set them
+on (2026-09-29)**: weight, calibre recoil, 2° shot rock, 0.6 gun hull flash, 0.6° traverse settle, amber lamps, exhaust glow, a pool of 4
+machine lights, the ram. A capture or test that wants the old machines sets the knob to 0.
 
 | Surface | Change |
 |---|---|

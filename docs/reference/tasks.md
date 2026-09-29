@@ -364,8 +364,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/TankRenderer.DriveStyle.cs` (how each machine rides: `StyleFor` per archetype, its spring and
   damping, squat and dive, turn lean, engine note and beat, the running gear's rhythm, a walker's swing, step height
   and footfall thump; a machine with no row rides `PlainStyle`),
-  `Presentation/Camera/TankRenderer.Weight.cs` (the weight layer, Dust Front lessons Phase 1, every look behind a knob
-  that draws today's machines at 0: `tank.weight` rides each machine its own style on an acceleration followed from the
+  `Presentation/Camera/TankRenderer.Weight.cs` (the weight layer, Dust Front lessons Phase 1, every look behind a knob,
+  on by default since the owner's word of 2026-09-29, 0 the old machines: `tank.weight` rides each machine its own style on an acceleration followed from the
   sim's speed and keeps a walker's kicks and footfalls on layers of their own; `tank.recoil` recoil by the shot's weight;
   `tank.shotRock` degrees a six-pounder rocks its hull; `tank.gunHullFlash`; `tank.traverseSettle`; `tank.squat` the
   share of each style's squat drawn against the sim's held acceleration, 0.4),
@@ -375,9 +375,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/HullRide.cs` (its pure maths: the exact spring solve, the felt acceleration, shot weights, the
   recoil's shape, kick sizes, a walker's kick layer, a turret's settle),
   `Presentation/Camera/MachineSockets.cs` (a walker answers the first of a numbered socket pair with its one socket),
-  `Presentation/Camera/TankRenderer.Lights.cs` (a machine's own lights, each behind a knob at 0: `tank.lamps` four running
-  lamps on the hull's corners, `tank.lampHue` 0 the side's colour, 1 Dust Front's red, 2 the lanterns' amber, `tank.lampSize`, `tank.lampPull`, `tank.exhaustGlow`
-  the exhausts and the Maw's furnace, `tank.lightReach`; glow cards NightLights draws, and with `lights.machinePool` a
+  `Presentation/Camera/TankRenderer.Lights.cs` (a machine's own lights, each behind a knob, on by default (2026-09-29), 0 unlit: `tank.lamps` four running
+  lamps on the hull's corners, `tank.lampHue` 0 the side's colour, 1 Dust Front's red, 2 the lanterns' amber (the default), `tank.lampSize`, `tank.lampPull`, `tank.exhaustGlow`
+  the exhausts and the Maw's furnace, `tank.lightReach`; glow cards NightLights draws, and with `lights.machinePool` (4) a
   burning machine's, a cook-off's and the furnace's real lights), `Presentation/Camera/MachineLamps.cs` (where the lamps and
   the furnace sit, read off the hull in its own frame), `Presentation/Core/MachineLightSlots.cs` (which machine light
   keeps a slot of the pool: priority, then brightness; the pool is `Presentation/Terrain/NightLights.Machines.cs`),
@@ -460,7 +460,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Debris and destruction of props and houses
 - **Files:** `Presentation/Camera/DebrisRenderer.cs` + `Shaders/Debris_URP.shader` (GPU-flown pieces, ring buffers,
   `ZoomShare`), `Presentation/Terrain/PropDestruction.cs` and `Presentation/Terrain/PropWear.cs` (one partial class,
-  with `Presentation/Terrain/PropDestruction.Ram.cs`: `props.ram`, off by default, a heavy machine on the move wears
+  with `Presentation/Terrain/PropDestruction.Ram.cs`: `props.ram`, on by default (2026-09-29), a heavy machine on the move wears
   what its footprint covers until its ground-storey house chunks and heavy kit props break, once a tick beside `Crush`;
   and `LampOut`, a lantern that goes by any cause puts its lamp out through `SceneHooks.LampOut`),
   `Presentation/Terrain/TrenchSection.cs` (`TrenchSectionRules`: a lining section intact -> damaged -> gone, heavy

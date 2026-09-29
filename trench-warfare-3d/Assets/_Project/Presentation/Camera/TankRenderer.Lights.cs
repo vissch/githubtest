@@ -1,6 +1,7 @@
 // Phase: A5c (2026-09-29, the Dust Front lessons: vehicle weight) — depends on: MachineLamps, MachineSockets, SceneHooks
 // (MachineGlows, MachineLight: NightLights.Machines.cs), Knobs.
-// A machine's own lights, behind knobs that draw today's machines at 0 (the fx.deathAbsurd rule):
+// A machine's own lights, behind knobs; 0 draws the old unlit machines. The owner set them on (2026-09-29, decisions.md):
+// lamps in the lanterns' amber, exhausts glowing, a pool of 4 machine lights:
 //  - tank.lamps: four running lamps on the corners of every live machine's hull (MachineLamps), as glow cards that
 //    NightLights draws with its flash glows (no draw call of their own), at night, the nearest machines first; out
 //    when the machine is dead, knocked out or stalled. The rear pair burns brighter than the front, as tail lamps do;
@@ -10,7 +11,7 @@
 //  - tank.exhaustGlow: the exhausts glow with the throttle, and the Maw's furnace mouth with its fire;
 //  - tank.lampPull: how far toward the camera a card is drawn, so the hull does not hide it (1 m);
 //  - tank.lightReach: how far from the camera a machine still shows them (110 m; the standard view stands 77.6 m off).
-// With NightLights' machine pool on (lights.machinePool, 0 by default), real lights of their own: a burning machine's
+// With NightLights' machine pool (lights.machinePool, 4 by default; 0 none), real lights of their own: a burning machine's
 // fire, held while it burns; its cook-off, 1.2 s; the Maw's furnace, held. A gun keeps the shared flash it always had.
 using UnityEngine;
 using TW.Sim;
@@ -34,7 +35,9 @@ namespace TW.Presentation.Tactical
         /// <summary>The lanterns' amber (tank.lampHue 2): NightLights.Lantern, so a machine's lamps burn as the trench's do.</summary>
         public static readonly Color LampAmber = new Color(1f, 0.60f, 0.26f);
         static readonly Color ExhaustHot = new Color(1f, 0.42f, 0.12f), FurnaceHot = new Color(1f, 0.48f, 0.16f), FireHot = new Color(1f, 0.52f, 0.2f);
-        bool lampsOn; float lampHue, lampSize = LampSize, exhaustGlow, lightReach = 110f, lampPull = LampPull;
+        /// <summary>The lamps' colour the owner chose (2026-09-29): the lanterns' amber.</summary>
+        public const float DefaultLampHue = 2f;
+        bool lampsOn = true; float lampHue = DefaultLampHue, lampSize = LampSize, exhaustGlow = 1f, lightReach = 110f, lampPull = LampPull;
         int lampKnobs = -1;
         readonly Vector3[] glowPos = new Vector3[MaxMachineGlows];
         readonly Color[] glowCol = new Color[MaxMachineGlows];
@@ -47,10 +50,10 @@ namespace TW.Presentation.Tactical
         {
             if (lampKnobs == Knobs.Generation) return;
             lampKnobs = Knobs.Generation;
-            lampsOn = Knobs.Get("tank.lamps", false);
-            lampHue = Mathf.Clamp(Knobs.Get("tank.lampHue", 0f), 0f, 2f);
+            lampsOn = Knobs.Get("tank.lamps", true);
+            lampHue = Mathf.Clamp(Knobs.Get("tank.lampHue", DefaultLampHue), 0f, 2f);
             lampSize = Mathf.Max(0.05f, Knobs.Get("tank.lampSize", LampSize));
-            exhaustGlow = Mathf.Clamp01(Knobs.Get("tank.exhaustGlow", 0f));
+            exhaustGlow = Mathf.Clamp01(Knobs.Get("tank.exhaustGlow", 1f));
             lightReach = Mathf.Max(0f, Knobs.Get("tank.lightReach", 110f));
             lampPull = Mathf.Clamp(Knobs.Get("tank.lampPull", LampPull), 0f, 3f);
         }

@@ -1,7 +1,7 @@
 // Phase: A5c (2026-09-29, the Dust Front lessons: vehicle weight) — depends on: PropDestruction (rules, Finish, Chip),
 // VehicleProfile (PushesTrees, Covers, Reach), Knobs, SceneHooks.LampOut (NightLights.Machines.cs).
-// A heavy machine drives through what stands in its way (props.ram, off by default: today a Maw breaks nothing but the
-// light things Crush flattens within 2.4 m of its centre, about a quarter of its hull). Once a sim tick, from the tick
+// A heavy machine drives through what stands in its way (props.ram, on since the owner saw the captures, 2026-09-29; off,
+// a Maw breaks nothing but the light things Crush flattens within 2.4 m of its centre, about a quarter of its hull). Once a sim tick, from the tick
 // state, up to MaxRammers moving machines that push trees over (VehicleProfile.PushesTrees) wear what their footprint
 // and RamMargin round it cover, at RamWear a second times the machine's weight (its footprint against the Maw's) and
 // speed, until Finish ends it as its kind ends: a house's ground-storey chunk is thrown ahead of the hull and what it
@@ -26,7 +26,7 @@ namespace TW.Presentation.Terrain
         /// which it only leans on a wall; how far from a lantern post its lamp is looked for.</summary>
         public const float RamMargin = 0.5f, RamWear = 4f, RamMinSpeed = 0.5f, LampOutReach = 0.9f;
         readonly List<BattlefieldKit.Module> ramable = new List<BattlefieldKit.Module>(128);
-        bool ramOn; int ramKnobs = -1;
+        bool ramOn = true; int ramKnobs = -1;
         /// <summary>Props a machine has driven through, for the capture tools.</summary>
         public int Rammed { get; private set; }
 
@@ -50,7 +50,7 @@ namespace TW.Presentation.Terrain
         /// <summary>The heavy machines on the move, through what their footprint covers. Read from the tick state.</summary>
         void Ram(SimWorld w)
         {
-            if (ramKnobs != Knobs.Generation) { ramKnobs = Knobs.Generation; ramOn = Knobs.Get("props.ram", false); }
+            if (ramKnobs != Knobs.Generation) { ramKnobs = Knobs.Generation; ramOn = Knobs.Get("props.ram", true); }
             if (!ramOn || rules == null || props.Kit == null) return;
             var kin = Host.Local.Vehicles;
             if (kin == null || !kin.Profiles.IsCreated) return;

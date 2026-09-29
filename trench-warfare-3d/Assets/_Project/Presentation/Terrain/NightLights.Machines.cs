@@ -1,7 +1,8 @@
 // Phase: A5c (2026-09-29, the Dust Front lessons: vehicle weight) — depends on: SceneHooks, MachineLightSlots, Knobs.
 // The machines' own lights. Glow cards for their running lamps, hot exhausts and the Maw's furnace ride in the flash-glow
 // mesh after the pool's cards (lights.maxMachineGlows of them, 128), zero-sized until TankRenderer lights one, so they
-// cost no draw call. And a small pool of real lights of their own (lights.machinePool, 0 by default: none, as before):
+// cost no draw call. And a small pool of real lights of their own (lights.machinePool, 4 by default since the owner
+// saw the captures, 2026-09-29; 0 none, as before):
 // a machine's gun, its fire, its cook-off, the Maw's furnace, apart from the shared flash pool, so a barrage cannot take a
 // burning machine's light. The pool follows its knob while the game runs, so a capture can turn it on and off.
 // And a lamp whose lantern post has gone goes out (SceneHooks.LampOut, from PropDestruction).
@@ -11,7 +12,7 @@ namespace TW.Presentation.Terrain
 {
     public sealed partial class NightLights
     {
-        public const int MaxMachineGlows = 128, MaxMachinePool = 8;
+        public const int MaxMachineGlows = 128, MaxMachinePool = 8, DefaultMachinePool = 4;
         int machineCards;                                           // card slots after the pool's, fixed at Start
         Vector3[] mPos; Color[] mCol; float[] mSize; int mCount;    // the cards TankRenderer sent last
         MachineLightSlots machineSlots; Light[] machineLights; int machineKnobs = -1;
@@ -55,7 +56,7 @@ namespace TW.Presentation.Terrain
         {
             if (machineKnobs == Knobs.Generation) return;
             machineKnobs = Knobs.Generation;
-            int want = Mathf.Clamp(Knobs.Get("lights.machinePool", 0), 0, MaxMachinePool);
+            int want = Mathf.Clamp(Knobs.Get("lights.machinePool", DefaultMachinePool), 0, MaxMachinePool);
             int have = machineSlots == null ? 0 : machineSlots.Count;
             if (want == have) return;
             if (machineLights != null) foreach (var l in machineLights) if (l != null) Destroy(l.gameObject);
