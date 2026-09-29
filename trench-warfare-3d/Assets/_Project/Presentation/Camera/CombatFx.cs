@@ -608,7 +608,8 @@ namespace TW.Presentation.Tactical
                             float glowNow = FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow * graze;
                             books.Add(book, from + along * (wide * 0.44f) + clear, wide, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                 velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? wide * 0.5f : 0f, delay: delay);   // a class book at its cell's 2:1, whatever the import did (r10: drawn squashed)
-                            if (quarter) books.Add(FlipbookFx.Book.Star, from + barrel * (flare * 0.15f) + clear, flare * 0.25f, 0.1f, roll: roll, glow: glowNow, delay: delay);
+                            // a small pop under the class's drawing: the readiest cue that a shot went off (r12)
+                            if (own.HasValue || quarter) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f) + clear, Mathf.Min(flare * 0.3f, 0.6f * scale), 0.1f, roll: roll, glow: glowNow, delay: delay);
                         }
                         // among the men, the weapon's own drawing (CombatFx.Close.cs): a sniper's brake, an MG's star, an SMG's flicker
                         if (e.A >= 0 && e.A < w.Archetype.Length)
