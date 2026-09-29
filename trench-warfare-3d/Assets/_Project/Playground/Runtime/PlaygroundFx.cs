@@ -28,10 +28,135 @@ namespace TW.Playground
         {
             Books = new FlipbookFx();
             if (!Books.Ready) Debug.LogWarning("PlaygroundFx: FlipbookFx not ready (TW/Flipbook or a Resources/VFX book missing)");
+            TintDust();
             Debris = gameObject.AddComponent<DebrisRenderer>();
         }
 
-        void OnDestroy() { Books?.Dispose(); if (discMat != null) Destroy(discMat); if (tetherMat != null) Destroy(tetherMat); if (discMesh != null) Destroy(discMesh); }
+        /// <summary>A round's spurt in the mud's colour, as CombatFx tints it from the terrain (untinted it was the grey of
+        /// the hop's dust, and a burst's strikes 40 m off read as one pale puff, Bullfrog critic g1).</summary>
+        /// Dark mud read black on the night ground (critic g2): the dirt a round throws up is lighter than the ground it
+        /// lies on, as it is drier and catches the light.
+        void TintDust()
+        {
+            // pre-divided by the night's blue moon: the lit card multiplies its tint by the light, and a mud tint of
+            // (0.78, 0.64, 0.50) came out (81, 95, 129), blue strongest (critic g4). Out of this it comes out mud-warm.
+            Books?.Tint(Book.Spurt, new Color(1.25f, 0.72f, 0.36f)); Books?.Tint(Book.Column, new Color(1.15f, 0.68f, 0.34f));
+            Books?.Tint(Book.Puff, new Color(0.46f, 0.40f, 0.34f));
+        }
+
+        void OnDestroy() { Books?.Dispose(); if (discMat != null) Destroy(discMat); if (tetherMat != null) Destroy(tetherMat); if (discMesh != null) Destroy(discMesh); if (tracerMat != null) Destroy(tracerMat); if (tailMat != null) Destroy(tailMat); }
+
+        // ------------------------------------------------------------------ rounds in flight (a gatling's)
+        // Each round flies from the muzzle to where it lands at RoundSpeed; one in TracerEvery draws a streak on the way
+        // (a belt's tracers), every one kicks up a spurt of dirt where it lands (and a spark, for a tracer). The streak is
+        // CombatFx's: a thin white-hot box, instanced, stretched along the flight.
+        /// <summary>A tracer: a bright head TracerHead long on a thinner, dimmer tail TracerLength long (metres; an even bar
+        /// 3.5 m long read as a laser close up, critic g2).</summary>
+        // 350 m/s, for the look: at 700 a tracer crossed 40 m in under a tenth of a second and most stills missed it (g8)
+        public const float RoundSpeed = 350f, TracerLength = 5f, TracerHead = 1.5f, TracerWidth = 0.1f;
+        // every second round (one in three was on screen a third of the time: neither wide still caught one, critic g6)
+        public const int TracerEvery = 2;
+        /// <summary>Seconds a tracer's tail stays after it lands, shrinking into the strike: a streak that vanished the
+        /// frame it arrived never joined the gun to where its rounds fell (critic g6).</summary>
+        public const float TracerLinger = 0.12f;
+        struct Round { public Vector3 From, To; public float Born, Flight, Size; public bool Tracer, Landed; }
+        readonly List<Round> rounds = new List<Round>(256);
+        readonly List<Matrix4x4> tracerM = new List<Matrix4x4>(64), tailM = new List<Matrix4x4>(64);
+        Material tracerMat, tailMat;
+        /// <summary>Rounds in the air now (tests, the report).</summary>
+        public int RoundsInFlight => rounds.Count;
+
+        /// <summary>A round from the muzzle to where it lands (to: the ground, or 250 m out into the air: no spurt then).</summary>
+        public void Fly(Vector3 from, Vector3 to, bool tracer, float size, bool lands = true)
+        {
+            if (rounds.Count >= 512) return;
+            rounds.Add(new Round { From = from, To = to, Born = Time.time, Flight = Vector3.Distance(from, to) / RoundSpeed, Size = lands ? size : -size, Tracer = tracer });
+        }
+
+        /// <summary>A spent case, thrown out of the gun's side: a sliver of brass that tumbles and lies a few seconds.</summary>
+        public void Case(Vector3 at, Vector3 outward, float size)
+        {
+            if (Debris == null) return;
+            var rng = new DebrisRng(at, (uint)(Time.frameCount * 131 + rounds.Count));
+            var v = outward.normalized * rng.Range(2.5f, 4f) + Vector3.up * rng.Range(2f, 3.5f);
+            // hot, so it glows as it tumbles (burn): cold brass at night was a dark speck that read as dirt (critic g1), and
+            // at 0.45 its glow did not show either (g2)
+            // 2 s on the ground, not 4: at 24 rounds a second a hundred cooled cases lay in a dark ring round it (g8)
+            Debris.Throw(DebrisRenderer.Piece.Shard, at, v, 0.2f * size, new Color(0.95f, 0.74f, 0.32f), ref rng, 2f, 1f);
+            // and a glint as it leaves: a hot shard alone stayed a dark speck even at full burn (critic g3)
+            Books?.Add(Book.Star, at + outward.normalized * 0.3f * size, 0.35f * size, 0.08f, velocity: v * 0.5f, roll: Random.value * 6.28f, glow: 2.5f * Glow);
+            // and a link of the belt with it, dark steel, a little slower and lower
+            var lv = outward.normalized * rng.Range(1.5f, 2.5f) + Vector3.up * rng.Range(1f, 2f);
+            Debris.Throw(DebrisRenderer.Piece.Shard, at - Vector3.up * 0.1f * size, lv, 0.13f * size, new Color(0.2f, 0.19f, 0.18f), ref rng, 2f, 0f);
+        }
+
+        void FlyRounds()
+        {
+            float now = Time.time;
+            var cam = Camera.main;
+            for (int i = rounds.Count - 1; i >= 0; i--)
+            {
+                var r = rounds[i];
+                float t = now - r.Born;
+                if (t >= r.Flight && !r.Landed)
+                {
+                    // it lands: dirt kicked up (a spurt, a few clods), a spark off a tracer
+                    if (r.Size > 0f && Books != null)
+                    {
+                        float s = r.Size;
+                        // as the battle's own spurt (CombatFx: upright, anchored on the ground, mirrored at random)
+                        // brightened (glow): a lit card is multiplied by the moon, and tinted mud still came out blue-grey,
+                        // 25 luma over the night ground (critic g3); a shell's column is lit by its own burst, a round's is not
+                        float dirt = 1f + 1.6f * Glow;
+                        Books.Add(Book.Spurt, r.To, (1.3f + Random.value * 0.6f) * s, 0.5f, Kind.Upright | Kind.Anchored | (Random.value < 0.5f ? Kind.Mirror : Kind.None), grow: 0.3f, alpha: 0.95f, glow: dirt, pop: 0.3f);
+                        // and a little column of earth that rises and falls back: the spurt alone had no height (critic g2)
+                        Books.Add(Book.Column, r.To, (0.6f + Random.value * 0.3f) * s, 0.55f, Kind.Upright | Kind.Anchored | (Random.value < 0.5f ? Kind.Mirror : Kind.None), alpha: 1f, glow: dirt, pop: 0.2f);
+                        if (r.Tracer) Books.Add(Book.Star, r.To + Vector3.up * 0.1f, 0.7f * s, 0.07f, roll: Random.value * 6.28f, glow: 3f * Glow);
+                        // one round in three leaves a low haze of dust that hangs and spreads: a burst builds a cloud on the
+                        // ground where it falls, which ties the strikes to the ground (they read as a pale blob in the air, g6/g7)
+                        if (Random.value < 0.34f)
+                            Books.Add(Book.Puff, r.To + new Vector3(Random.Range(-0.5f, 0.5f), 0f, Random.Range(-0.5f, 0.5f)) * s, (2.2f + Random.value) * s, 2.8f, Kind.Anchored | (Random.value < 0.5f ? Kind.Mirror : Kind.None), velocity: new Vector3(Random.Range(-0.3f, 0.3f), 0.15f, Random.Range(-0.3f, 0.3f)), grow: 1.8f, alpha: 0.4f, glow: dirt);
+                        if (Debris != null) Debris.Burst(DebrisRenderer.Piece.Clod, r.To, 3, 3.5f, 0.07f * s, new Color(0.52f, 0.42f, 0.32f), 3f, 0f, 1.8f, default, (uint)(i + rounds.Count * 7));
+                    }
+                    r.Landed = true; rounds[i] = r;
+                }
+                if (r.Landed && (!r.Tracer || t - r.Flight >= TracerLinger)) { rounds.RemoveAt(i); continue; }
+                if (!r.Tracer) continue;
+                var dir = (r.To - r.From) / Mathf.Max(1e-4f, r.Flight * RoundSpeed);
+                var head = r.Landed ? r.To : r.From + dir * (RoundSpeed * t);
+                float shrink = r.Landed ? 1f - (t - r.Flight) / TracerLinger : 1f;
+                float px = cam != null ? Vector3.Distance(cam.transform.position, head) * 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Max(1, cam.pixelHeight) : 0.05f;
+                // far off a streak has to be long to be seen at all (it drew 120 px at 40 m, critic g2): at least 30 px
+                float sz = Mathf.Abs(r.Size), grow = Mathf.Max(1f, 30f * px / (TracerLength * sz));
+                float len = Mathf.Min(TracerLength * sz * grow, RoundSpeed * Mathf.Min(t, r.Flight)) * shrink, headLen = r.Landed ? 0f : Mathf.Min(TracerHead * sz * grow, len);
+                // at least ~2 px thick wherever it is (a tracer is a line of light, not a solid); the tail half that
+                float w = Mathf.Max(TracerWidth * sz, 2f * px);
+                var look = Quaternion.LookRotation(dir);
+                if (headLen > 0f) tracerM.Add(Matrix4x4.TRS(head - dir * (headLen * 0.5f), look, new Vector3(w, w, headLen)));
+                // the tail half the head's width close up (as wide, a bright even bar read as a laser, g9), but never under
+                // 2 px: at half width it was a 1 px brown stick at 40 m (critic g8)
+                float wt = Mathf.Max(0.5f * TracerWidth * sz, 2f * px);
+                tailM.Add(Matrix4x4.TRS(head - dir * (len * 0.5f), look, new Vector3(wt, wt, len)));
+            }
+            // (tails alone too: a tail lingering after its head landed was neither drawn nor cleared, and piled up to be
+            // drawn later where it no longer was, critic g10)
+            if (tracerM.Count == 0 && tailM.Count == 0) return;
+            if (tracerMat == null)
+            {
+                var sh = Shader.Find("Universal Render Pipeline/Unlit"); if (sh == null) { tracerM.Clear(); tailM.Clear(); return; }
+                tracerMat = new Material(sh) { enableInstancing = true, name = "Playground tracer", color = new Color(3.4f, 2.4f, 1.1f) };   // the head: orange-white hot
+                tailMat = new Material(sh) { enableInstancing = true, name = "Playground tracer tail", color = new Color(2.6f, 1.4f, 0.45f) };   // the tail: a dimmer orange (1.3, 0.55, 0.15 read brown far off, g8)
+            }
+            var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+            foreach (var (list, mat) in new[] { (tracerM, tracerMat), (tailM, tailMat) })
+            {
+                if (list.Count == 0) continue;
+                if (list.Count == 1) list.Add(Matrix4x4.Scale(Vector3.zero));
+                var rp = new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
+                Graphics.RenderMeshInstanced(rp, cube, 0, list);
+                list.Clear();
+            }
+        }
 
         // ------------------------------------------------------------------ side rings (TankRenderer's disc, same shader)
         /// <summary>Rings under figures too (a playground proposal: the game's figures show their side on their cloth).</summary>
@@ -105,6 +230,7 @@ namespace TW.Playground
 
         void LateUpdate()
         {
+            FlyRounds();
             Books?.Draw(Time.time, Everywhere);
             DrawRings();
             float now = Time.time;
@@ -116,7 +242,9 @@ namespace TW.Playground
                 float k = (now - p.Born) / p.Life;
                 if (k >= 1f || (p.Follow == null && p.Offset.x == float.MaxValue)) { Destroy(p.L.gameObject); lamps.RemoveAt(i); continue; }
                 if (p.Follow != null) p.L.transform.position = p.Follow.TransformPoint(p.Offset);
-                float fade = p.Flicker ? 1f - Mathf.SmoothStep(0.8f, 1f, k) : (1f - k) * (1f - k);
+                // (Mathf.SmoothStep interpolates from its first argument to its second; it is not GLSL's smoothstep(edge0,
+                // edge1, x): SmoothStep(0.8, 1, k) started at 0.8, so every fire burnt its light at a fifth, critic g6)
+                float fade = p.Flicker ? 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.8f, 1f, k)) : (1f - k) * (1f - k);
                 float flick = p.Flicker ? 0.75f + 0.25f * Mathf.PerlinNoise(p.Seed, now * 7f) : 1f;
                 p.L.intensity = p.Peak * fade * flick;
             }
@@ -147,6 +275,8 @@ namespace TW.Playground
         {
             Books?.Dispose();
             Books = new FlipbookFx();
+            TintDust();
+            rounds.Clear();
         }
 
         /// <summary>Everything thrown so far off the ground: the debris pools are rebuilt empty.</summary>
@@ -179,7 +309,8 @@ namespace TW.Playground
             if (Books == null) return;
             Books.Add(Book.Star, at, 1.5f * size, 0.09f, roll: Random.value * 6.28f, glow: 3.5f * Glow);
             Books.Add(Book.Flash, at, 2.2f * size, 0.1f, roll: Random.value * 6.28f, glow: 3f * Glow, pop: 0.5f);
-            Books.Add(Book.Smoke, at, 1.4f * size, 2.2f, velocity: -dir * 0.8f + Vector3.up * 0.8f, grow: 1.4f, alpha: 0.7f);
+            // (dust-brown, thinner and rising: the grey smoke card at 0.7 read as a solid blue ball under the moon, critic g13)
+            Books.Add(Book.Puff, at, 1.4f * size, 1.6f, velocity: -dir * 0.8f + Vector3.up * 1.2f, grow: 1.6f, alpha: 0.4f, glow: 1f + 1.6f * Glow);
             Lamp(at, new Color(1f, 0.75f, 0.45f), 6f * Glow, 6f * size, 0.18f);
         }
 
@@ -187,7 +318,10 @@ namespace TW.Playground
         {
             if (Books == null) return;
             Books.Add(Book.Flash, at + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: Random.value * 6.28f, glow: 7f * Glow, pop: 0.5f);
-            Books.Add(Book.Burst, at + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, Kind.Upright, pop: 0.3f);
+            // lit and rising as the battle draws it (CombatFx: glow 3.4 at night): unlit, the moon made it a solid blue ball
+            // parked in front of the Bullfrog's belly (critic g13)
+            Books.Add(Book.Burst, at + Vector3.up * (r * 0.55f), r * 2.6f, 1.8f, Kind.Upright | (Random.value < 0.5f ? Kind.Mirror : Kind.None),
+                      velocity: Vector3.up * (r * 0.5f), grow: 0.5f, roll: Random.Range(-0.15f, 0.15f), glow: 3.4f * Glow, pop: 0.3f);
             Books.Add(Book.Column, at, r * 1.6f, 1.4f, Kind.Upright | Kind.Anchored);
             for (int k = 0; k < 3; k++)
                 Books.Add(Book.Smoke, at + new Vector3(Random.Range(-0.4f, 0.4f), 0.3f + k * 0.2f, Random.Range(-0.4f, 0.4f)) * r, r * Random.Range(1.1f, 1.6f), Random.Range(4f, 6.5f),
@@ -218,6 +352,14 @@ namespace TW.Playground
                       grow: 2.2f, roll: Random.Range(-0.7f, 0.7f), alpha: alpha, pop: 0.2f);
         }
 
+        /// <summary>Dust kicked off the ground (a hopper landing): a low brown haze thrown out and hanging, not a smoke card.</summary>
+        public void Dust(Vector3 at, Vector3 outward, float width)
+        {
+            if (Books == null) return;
+            Books.Add(Book.Puff, at, width, Random.Range(1.4f, 2f), Kind.Anchored | (Random.value < 0.5f ? Kind.Mirror : Kind.None),
+                      velocity: outward * Random.Range(1f, 1.8f) + Vector3.up * 0.2f, grow: 1.8f, alpha: 0.55f, glow: 1f + 1.6f * Glow);
+        }
+
         /// <summary>A hovercraft's ground effect: a low puff of spray and mud blown out from under a pod, short-lived.</summary>
         public void Spray(Vector3 at, Vector3 outward, float width, float alpha)
         {
@@ -246,6 +388,20 @@ namespace TW.Playground
             if (Books == null) return;
             Books.Add(Book.Muzzle, at + dir * 0.25f, 0.6f, 0.05f, roll: FlipbookFx.ScreenRoll(Camera.main, dir), glow: 2.5f * Glow);
             Books.Add(Book.Smoke, at + dir * 0.3f, 0.35f, 1f, Random.value < 0.5f ? Kind.Mirror : Kind.None, velocity: dir * 0.6f + Vector3.up * 0.3f, grow: 1.4f, alpha: 0.45f);
+        }
+
+        /// <summary>One gatling round: a small flash and a flame card, a thin puff every third round, and a light that lasts
+        /// less than the gap to the next round (16 a second would otherwise pile up lamps).</summary>
+        public void GatlingShot(Vector3 at, Vector3 dir, float size)
+        {
+            if (Books == null) return;
+            // each gun fires every 1/8 s: a flame that lasts 0.08 s is up two thirds of the time, a stream rather than
+            // a flicker (0.05 s and a metre across hardly showed in a still). A star and a flash, each turned at random:
+            // the Muzzle card seen side-on (its drawing is a cannon's plume along the shot) read as a hook (critic g1)
+            Books.Add(Book.Flash, at + dir * 0.35f * size, 1.7f * size, 0.08f, roll: Random.value * 6.28f, glow: 3.5f * Glow, pop: 0.3f);
+            Books.Add(Book.Star, at + dir * 0.55f * size, 1.4f * size, 0.07f, roll: Random.value * 6.28f, glow: 3.5f * Glow);
+            Books.Add(Book.Smoke, at + dir * 0.5f * size, 0.35f * size, 0.6f, Random.value < 0.5f ? Kind.Mirror : Kind.None, velocity: dir * 1.5f + Vector3.up * 0.4f, grow: 1.6f, alpha: 0.4f);
+            Lamp(at, new Color(1f, 0.8f, 0.5f), 5f * Glow, 7f * size, 0.05f);
         }
 
         public void Muzzle(Vector3 at, Vector3 dir, float size)
