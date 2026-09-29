@@ -58,7 +58,7 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Machinegunner:   // a long flare, a smoking barrel, a broken stream with every third round bright
                     return Stream(Look(1.35f, tracerRound ? 1.3f : 0.7f, 1.1f, 1.3f, true, 0.18f, 1f, 1f), round, tracerRound);
                 case InfantryArchetype.Sniper:   // one big flash, a thin white-hot needle that lingers, a heavy kick of dirt
-                    return Look(1.7f, 1.3f, 1.5f, 1.6f, true, 0.22f, 2.2f, 1f);
+                    return Look(1.5f, 1.3f, 1.5f, 1.6f, true, 0.22f, 2.2f, 1f);
                 case InfantryArchetype.Officer:  // a carbine: a crisp pop, hardly a wisp
                     return Look(1.1f, 0.9f, 0.9f, 0.3f, true, 0.12f, 0.8f, 0.7f);
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit
@@ -99,6 +99,32 @@ namespace TW.Presentation.Tactical
         /// Muzzle card is light added to white and vanished (lin5, lin6). Past this closeness only.</summary>
         public const float DayFlareCloseUp = 0.3f;
         public static bool DayFlare(bool night, float closeUp, bool classLooks) => classLooks && !night && closeUp >= DayFlareCloseUp;
+
+        /// <summary>The class's own muzzle book (critique la5: one book scaled can never make classes differ in shape), or
+        /// null for the rifle, which keeps the old flare (Muzzle, or GunBlast by day up close).</summary>
+        public static FlipbookFx.Book? MuzzleBookOf(ArmsKind kind)
+        {
+            switch (kind)
+            {
+                case ArmsKind.Sniper: return FlipbookFx.Book.MuzzleBrake;
+                case ArmsKind.Mg: case ArmsKind.HullMg: return FlipbookFx.Book.MuzzleStream;
+                case ArmsKind.Pistol: case ArmsKind.MachinePistol: return FlipbookFx.Book.MuzzlePop;
+                case ArmsKind.Smg: case ArmsKind.Carbine: return FlipbookFx.Book.MuzzleBurst;
+                default: return null;
+            }
+        }
+
+        /// <summary>A man firing away from the eye hides his own flare behind his body (critique la4): up close its card is
+        /// pushed further out along the barrel and lifted, in proportion to how squarely he faces away.</summary>
+        /// <summary>A flame seen end-on (the barrel along the eye's line) is a sheet edge-on: drawn as a pop (a Star) instead.</summary>
+        public static bool EndOn(Vector3 barrel, Vector3 camForward, bool classLooks) => classLooks && Mathf.Abs(Vector3.Dot(barrel, camForward)) > 0.6f;
+
+        public static Vector3 FlareClear(Vector3 barrel, Vector3 camForward, float scale, float flare, float closeUp, bool classLooks)
+        {
+            if (!classLooks || closeUp <= 0f) return Vector3.zero;
+            float away = Mathf.InverseLerp(0.3f, 0.8f, Vector3.Dot(barrel, camForward)) * closeUp;
+            return Vector3.up * (0.3f * scale * away) + barrel * (flare * 0.45f * away);
+        }
 
         // the view once a frame (task: the shot and hit paths read it per event)
         int viewFrame = -1; Camera viewCam; float viewZoom, viewScale = 1f;
