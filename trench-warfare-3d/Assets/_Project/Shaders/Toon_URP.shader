@@ -112,6 +112,7 @@ Shader "TW/Toon (URP)"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
+            #include "Assets/_Project/Shaders/TWLightPools.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
@@ -247,13 +248,15 @@ Shader "TW/Toon (URP)"
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                     half3 sky = TWSky() * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
-                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7));   // a puddle mirrors at most a third of the sky: dark water, not paper
+                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7) * (1.0 - 0.55 * _TWWetLook));   // look.wet: less of the pale sky in every puddle   // a puddle mirrors at most a third of the sky: dark water, not paper
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                     // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
                     half toLight = saturate(dot(r, mainLight.direction));
                     half mudOnly = 1.0 - saturate(gloss * 2.0 - 1.0) * 0.72;   // the sheen is the mud's; still water only mirrors
                     color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * lerp(0.26, 0.40, close)) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    // look.wet: the flames' own glints on the wet ground (TWLightPools.hlsl), orange near a fire
+                    if (_TWWetLook > 0.0 && _TWPoolCount > 0.0) color += TWPoolGlints(i.positionWS, r) * gloss * mudOnly * _TWWetLook * 0.6;
                     if (_DetailStrength > 0.0 && _TWWet.y > 0.0)
                     {
                         // hard wet glints: a second, much finer read of the slopes tilts tiny facets into the moon, so the
@@ -276,6 +279,8 @@ Shader "TW/Toon (URP)"
                 half3 lampGlint;
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
                 color += lampGlint;
+                // look.pools: the nearest flames' painted pools, past the eight real lights an object may take (TWLightPools.hlsl)
+                if (_TWPoolCount > 0.0) color += max(albedo, 0.16) * TWLightPools(i.positionWS, normalize(i.normalWS)) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
                 color += _Emission.rgb;
                 // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
                 // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
