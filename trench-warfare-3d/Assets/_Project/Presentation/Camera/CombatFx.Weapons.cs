@@ -89,6 +89,10 @@ namespace TW.Presentation.Tactical
         /// <summary>The most a class's muzzle book glows by day: FlareGlow's close-up 2.6 was for the additive Muzzle card; a
         /// premultiplied fire book at that clips its core, body and fringe to one white bloom on snow (iso4).</summary>
         public const float ClassBookDayGlow = 1.6f;
+        /// <summary>The brake's growth by day: with the glow capped its cross shows, 2.5 men wide at 1.25 (r19 "a firework").</summary>
+        public const float BrakeDay = 0.8f;
+        /// <summary>The brake's height by day, x scale: its side jets thrown 3 men wide read as a firework (r20).</summary>
+        public const float BrakeDayTallest = 1.0f;
 
         public static float FlareGlow(bool night, float closeUp, bool classLooks) => night ? 3.2f : classLooks ? Mathf.Lerp(1.6f, 2.6f, closeUp) : 1.6f;
 
@@ -133,7 +137,7 @@ namespace TW.Presentation.Tactical
 
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
-            float k = book == FlipbookFx.Book.MuzzleBrake ? 1.25f : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
+            float k = book == FlipbookFx.Book.MuzzleBrake ? (SceneMood.Night ? 1.25f : BrakeDay) : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
             return Mathf.Lerp(1f, k * (SceneMood.Night ? BookGrowNight : BookGrow), closeUp);
         }
 

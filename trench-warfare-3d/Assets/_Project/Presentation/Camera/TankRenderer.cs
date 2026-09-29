@@ -1128,7 +1128,11 @@ namespace TW.Presentation.Tactical
                     v.Roll.Velocity -= Vector3.Dot(dir, right) * kick;
                     if (gunHullFlash > 0f) v.Flash = Mathf.Max(v.Flash, gunHullFlash);   // the gun lights its own hull
                     CameraShake.Add(muzzle, 4f);
-                    SceneHooks.Flash?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f);   // the gun lights the ground in front of it
+                    // the gun lights the ground in front of it; a gun with its own blast drawing by day through FireLight, whose glow
+                    // card is a fraction of Flash's 2.6 (r19: that card was the white disc over the Tusk's crack and the Salvo)
+                    if (classGuns && !SceneMood.Night && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast)
+                        SceneHooks.FireLight?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f, OwnBlastLightCard);
+                    else SceneHooks.Flash?.Invoke(muzzle + dir * 1.2f, new Color(1f, 0.72f, 0.38f), 34f, 14f, 0.16f);
                     if (books == null || !books.Ready) break;
                     var cam = Camera.main;
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, dir) : 0f;
@@ -1151,7 +1155,7 @@ namespace TW.Presentation.Tactical
                         // its own drawing: pushed off the hull and, by day, no brighter than its fill, so the silhouette - a crack
                         // or a cone with a fireball - survives on snow (r17: both overexposed to the same white disc on the hulls)
                         books.Add(blastBook, muzzle + dir * (own ? blastWide * 0.45f + gun.Blast * 0.5f : gun.Blast * 0.7f), blastWide, own ? 0.75f : 0.45f, roll: roll,
-                            glow: SceneMood.Night ? 2.2f : own ? OwnBlastDayGlow : 1.4f);
+                            glow: SceneMood.Night ? (own ? 1.1f : 2.2f) : own ? OwnBlastDayGlow : 1.4f);   // its own drawing at night at half: 2.2 blew the fireball to a smear (r20)
                         if (!own) books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.5f, gun.Blast * 0.8f, 0.08f, roll: roll, glow: 2f, pop: 0.5f);
                         books.Add(FlipbookFx.Book.Puff, muzzle + dir * 0.6f, gun.Blast * 0.8f, 1.2f, velocity: dir * 1.5f + Vector3.up * 0.4f, grow: 1.2f, alpha: 0.7f, pop: 0.3f);   // the ring of smoke the shot leaves: it still reads in a busy frame
                     }
@@ -1159,7 +1163,7 @@ namespace TW.Presentation.Tactical
                     if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer, v.Archetype == VehicleArchetype.Salvo, e.Tick * 7u + (uint)e.A);   // an indirect round goes up and over; a Salvo's ripple
                     if (classGuns) GunExtras(v.Archetype, muzzle, dir, gun.Blast);   // near the eye, the gun's own piece (TankRenderer.Guns.cs)
                     bool drawnBlast = classGuns && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast && recipes < 0.5f;   // its own drawing carries the day: a small flash, not a bloom over it (r17)
-                    books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, drawnBlast && !SceneMood.Night ? 1.6f : 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : drawnBlast ? 0.8f : 2f, pop: 0.5f);
+                    books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, drawnBlast ? 1.6f : 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: drawnBlast ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f);   // a small flash under its own drawing, night too (r20: a white ball under the Salvo's crack)
                     for (int k = 0; k < 3; k++)
                         books.Add(FlipbookFx.Book.Smoke, muzzle + dir * (0.6f + k * 0.7f), (1.2f + k * 0.4f) * gun.Smoke, 2.5f + k * 0.5f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: dir * (2.5f - k * 0.6f) + Vector3.up * 0.5f, grow: 1.6f, alpha: 0.55f, delay: k * 0.03f);
