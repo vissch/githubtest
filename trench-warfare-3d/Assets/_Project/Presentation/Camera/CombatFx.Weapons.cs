@@ -109,9 +109,25 @@ namespace TW.Presentation.Tactical
                 case ArmsKind.Sniper: return FlipbookFx.Book.MuzzleBrake;
                 case ArmsKind.Mg: case ArmsKind.HullMg: return FlipbookFx.Book.MuzzleStream;
                 case ArmsKind.Pistol: case ArmsKind.MachinePistol: return FlipbookFx.Book.MuzzlePop;
-                case ArmsKind.Smg: case ArmsKind.Carbine: return FlipbookFx.Book.MuzzleBurst;
+                case ArmsKind.Smg: return FlipbookFx.Book.MuzzleBurst;
+                case ArmsKind.Carbine: return FlipbookFx.Book.MuzzleCarbine;
                 default: return null;
             }
+        }
+
+        /// <summary>A class book's width up close, x its flare: the brake's cross and the MG's tongue a little bigger to read at
+        /// 25 px, the pop a little smaller (critique r6).</summary>
+        public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
+        {
+            float k = book == FlipbookFx.Book.MuzzleBrake ? 1.3f : book == FlipbookFx.Book.MuzzleStream ? 1.2f : book == FlipbookFx.Book.MuzzlePop ? 0.9f : 1f;
+            return Mathf.Lerp(1f, k, closeUp);
+        }
+
+        /// <summary>A flame nearly end-on (just short of the Star pop) blooms into a soft ellipse: its glow x0.7 there.</summary>
+        public static float GrazeGlow(Vector3 barrel, Vector3 camForward)
+        {
+            float d = Mathf.Abs(Vector3.Dot(barrel, camForward));
+            return d > 0.45f && d <= 0.6f ? 0.7f : 1f;
         }
 
         /// <summary>A man firing away from the eye hides his own flare behind his body (critique la4): up close its card is
