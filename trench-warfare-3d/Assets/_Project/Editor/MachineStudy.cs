@@ -7,8 +7,10 @@
 //  - spinning: turning in place (under 0.3 m/s, over 0.3 rad/s);
 //  - flips: its turn changing direction at over 14 deg/s, per 100 m driven (a nose hunting either way);
 //  - rubbing: another hull within 70 % of the two half widths.
-// Each jam is logged with its place, the ground under it and what is near. FLAG lines name what is out of bounds.
-// It found the machines shoving one another on a shared line (VehicleKinematics.Avoid).
+// Each jam, and each spin over 1 s, is logged with its place, the ground under it, the nearest machine of either side
+// (where it sits off the nose, how fast it goes) and the nearest enemy. FLAG lines name what is out of bounds.
+// It found the machines shoving one another on a shared line (VehicleKinematics.Avoid), then Avoid swerving a Brute
+// round a column driving on ahead (AvoidPace, AvoidMaxBend).
 //   <Unity.exe> -batchmode -projectPath <p> -executeMethod TW.Editor.MachineStudy.CommandLine -twstudy "<out dir>"
 //       [-twstudyseed <match seed>] [-twstudysec <sim seconds, 150>]
 // Writes machines.csv, jams.txt and summary.txt into the out dir. None of this is part of the game.
@@ -64,7 +66,7 @@ namespace TW.Editor
         sealed class Machine
         {
             public byte Arch, Team; public int Samples;
-            public float Alive, Metres, Jam, JamRun, Spin, Rub, Flips, LastRate, LastYaw;
+            public float Alive, Metres, Jam, JamRun, Spin, SpinRun, Rub, Flips, LastRate, LastYaw;
             public float3 Start, Last; public bool Dead;
         }
 
@@ -132,10 +134,15 @@ namespace TW.Editor
                     {
                         m.JamRun += dt;
                         if (m.JamRun > 2f) m.Jam += dt;
-                        if (m.JamRun > 2f && m.JamRun - dt <= 2f) LogJam(w, map, i, p, (NavLayer)map.NavLayers[cell]);
+                        if (m.JamRun > 2f && m.JamRun - dt <= 2f) LogJam("jammed", w, map, i, p, (NavLayer)map.NavLayers[cell]);
                     }
                     else m.JamRun = 0f;
-                    if (speed < 0.3f && Mathf.Abs(rate) > 0.3f) m.Spin += dt;
+                    if (speed < 0.3f && Mathf.Abs(rate) > 0.3f)
+                    {
+                        m.Spin += dt; m.SpinRun += dt;
+                        if (m.SpinRun > 1f && m.SpinRun - dt <= 1f) LogJam("spinning", w, map, i, p, (NavLayer)map.NavLayers[cell]);
+                    }
+                    else m.SpinRun = 0f;
                     if (Mathf.Abs(rate) > 0.25f)
                     {
                         if (Mathf.Abs(m.LastRate) > 0.25f && Mathf.Sign(rate) != Mathf.Sign(m.LastRate)) m.Flips++;
@@ -151,18 +158,20 @@ namespace TW.Editor
                 }
             }
 
-            void LogJam(SimWorld w, MapData map, int i, float3 p, NavLayer ground)
+            void LogJam(string what, SimWorld w, MapData map, int i, float3 p, NavLayer ground)
             {
                 int foe = -1, mate = -1; float foeD = float.MaxValue, mateD = float.MaxValue;
                 for (int j = 0; j < w.Flags.Length; j++)
                 {
                     if (j == i || (w.Flags[j] & (uint)UnitFlags.Alive) == 0) continue;
                     float d = math.distance(w.Position[j].xz, p.xz);
-                    if (w.Team[j] != w.Team[i]) { if (d < foeD) { foeD = d; foe = j; } }
-                    else if ((w.Flags[j] & (uint)UnitFlags.Vehicle) != 0 && d < mateD) { mateD = d; mate = j; }
+                    if (w.Team[j] != w.Team[i] && d < foeD) { foeD = d; foe = j; }
+                    if ((w.Flags[j] & (uint)UnitFlags.Vehicle) != 0 && d < mateD) { mateD = d; mate = j; }   // either side's: Avoid steers round both
                 }
-                jams.AppendLine($"t {w.Tick * w.Config.TickSeconds:F1} s  {Name(w.Archetype[i])} (team {w.Team[i]}) at ({p.x:F0}, {p.z:F0}) on {ground}; "
-                    + $"nearest machine {(mate >= 0 ? $"{Name(w.Archetype[mate])} {mateD:F1} m" : "none")}, nearest enemy {(foe >= 0 ? $"{foeD:F0} m" : "none")}");
+                float2 nose = new float2(math.sin(w.Yaw[i]), math.cos(w.Yaw[i]));
+                string bearing = mate >= 0 ? $" {math.degrees(math.acos(math.clamp(math.dot(nose, math.normalizesafe(w.Position[mate].xz - p.xz)), -1f, 1f))):F0} deg off its nose, going {math.length(w.Velocity[mate]):F1} m/s" : "";
+                jams.AppendLine($"t {w.Tick * w.Config.TickSeconds:F1} s  {what}  {Name(w.Archetype[i])} (team {w.Team[i]}) at ({p.x:F0}, {p.z:F0}) on {ground}; "
+                    + $"nearest machine {(mate >= 0 ? $"{Name(w.Archetype[mate])} (team {w.Team[mate]}) {mateD:F1} m{bearing}" : "none")}, nearest enemy {(foe >= 0 ? $"{foeD:F0} m" : "none")}");
             }
 
             static string Name(byte archetype)
