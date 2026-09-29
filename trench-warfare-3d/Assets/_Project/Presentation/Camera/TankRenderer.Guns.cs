@@ -29,9 +29,11 @@ namespace TW.Presentation.Tactical
         public const int ArcSegments = 8;        // at High; FxQuality.Now.ArcSegments by the tier
         public const float RippleSeconds = 0.18f, RippleSpread = 3f;   // the Salvo: a rocket every 0.18 s, landing within 3 m of the first
         public const float RocketApex = 0.6f;    // a rocket flies flatter than a mortar round
-        public const float RocketTrail = 2.2f, RocketTrailLife = 4f;   // its smoke along the way: wide and long enough to read as a trail (critique lin5)
+        public const float RocketTrail = 2.4f, RocketTrailLife = 8f;   // its smoke along the way: wide and long enough to read as a trail (critique lin5)
 
         /// <summary>How many rockets of a Salvo's ripple are drawn at a tier (the sim's burst is the first one's).</summary>
+        static readonly int WindId = Shader.PropertyToID("_TWWind");
+
         public static int RocketsOf(FxTier tier) => tier >= FxTier.High ? 4 : tier == FxTier.Medium ? 2 : 1;
 
         public static GunLook GunFor(byte archetype)
@@ -60,6 +62,7 @@ namespace TW.Presentation.Tactical
             var q = FxQuality.Now;
             int segments = Mathf.Max(2, q.ArcSegments), rounds = rocket ? RocketsOf(q.Tier) : 1;
             bool drawn = books != null && books.Ready;
+            Vector4 wind = Shader.GetGlobalVector(WindId); Vector3 wake = new Vector3(wind.x, 0f, wind.y) * 3.5f;   // _TWWind at 0.034 per m/s, as the smoke reads it
             for (int j = 0; j < rounds; j++)
             {
                 float lag = j * RippleSeconds;
@@ -80,8 +83,8 @@ namespace TW.Presentation.Tactical
                         Vector3 at = ArcPoint(from, end, apex, a);
                         if (rocket)
                         {
-                            books.Add(FlipbookFx.Book.Smoke, at, RocketTrail, RocketTrailLife, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: Vector3.up * 0.3f, grow: 1.4f, alpha: 0.8f, delay: lag + a * ArcSeconds);
+                            books.Add(FlipbookFx.Book.WreckSmoke, at, RocketTrail, RocketTrailLife, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: wake, grow: 1.4f, alpha: 0.85f, delay: lag + a * ArcSeconds);   // dark (the wreck's book: the Smoke book read as snow haze), it hangs and leans down wind
                         }
                         else
                             books.Add(FlipbookFx.Book.Smoke, at, 1.4f, 1.8f, (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
@@ -89,8 +92,8 @@ namespace TW.Presentation.Tactical
                     }
                 }
                 if (rocket && drawn)
-                    books.Add(FlipbookFx.Book.Muzzle, ArcPoint(from, end, apex, 0.1f), 1.5f, ArcSeconds * 0.9f, velocity: (end - ArcPoint(from, end, apex, 0.1f)) / ArcSeconds,
-                        roll: 0f, glow: SceneMood.Night ? 3f : 2f, delay: lag);
+                    books.Add(FlipbookFx.Book.Muzzle, ArcPoint(from, end, apex, 0.1f), 2.5f, ArcSeconds * 0.9f, velocity: (end - ArcPoint(from, end, apex, 0.1f)) / ArcSeconds,
+                        roll: 0f, glow: SceneMood.Night ? 4.5f : 3f, delay: lag);
                 if (rocket && drawn && j > 0)
                 {
                     // the rocket's burning head: one flame card flying the chord of its arc (a card flies straight), over the flight
@@ -117,8 +120,8 @@ namespace TW.Presentation.Tactical
                     // the muzzle brake throws the blast out sideways: a jet of dust along the ground either side of the barrel
                     Vector3 side = Vector3.Cross(Vector3.up, flat);
                     for (int s = -1; s <= 1; s += 2)
-                        books.Add(FlipbookFx.Book.DustPuff, new Vector3(muzzle.x, g, muzzle.z) + side * (s * 1.2f) + flat * 0.8f, blast * 0.6f, 1.6f, ground | (s < 0 ? FlipbookFx.Kind.Mirror : 0),
-                            velocity: side * (s * 2.2f) + Vector3.up * 0.3f, grow: 0.5f, alpha: 0.55f);
+                        books.Add(FlipbookFx.Book.DustPuff, new Vector3(muzzle.x, g, muzzle.z) + side * (s * 1.2f) + flat * 0.8f, blast * 0.9f, 1.6f, ground | (s < 0 ? FlipbookFx.Kind.Mirror : 0),
+                            velocity: side * (s * 2.2f) + Vector3.up * 0.3f, grow: 0.5f, alpha: 0.8f);
                     break;
                 }
                 case VehicleArchetype.Kettle:   // the mortar's tube coughs its smoke straight up
