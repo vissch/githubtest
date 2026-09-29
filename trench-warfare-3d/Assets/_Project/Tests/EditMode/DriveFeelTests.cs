@@ -155,5 +155,41 @@ namespace TW.Tests
             Assert.Greater(m.World.Position[it].z, blockZ + 8f, "it got past the one in its way");
             Assert.Less(stalled, 60, "without standing shoving it (ticks nearly stopped)");
         }
+
+        /// <summary>A column: every machine sent at one goal drives one line, so the ones ahead sit in the cone of
+        /// every one behind. Swerving round hulls that are driving on only weaves the followers: in three 150 s studies
+        /// of a real match (MachineStudy) our side spun in place 111 s, the Brute (which keeps 0.08 of its speed
+        /// through a sharp turn) 49 s of it, most 9 m behind a machine going 0.6-1.9 m/s. The study's own start: our
+        /// fifteen machines in two ranks behind the spawn point, all sent forward.</summary>
+        [Test]
+        public void AColumnOfEveryMachineDrivesOnWithoutTurningOnTheSpot()
+        {
+            using var m = NewMatch();
+            byte[] cast = { 4, 5, 18, 6, 7, 8, 9, 10, 11, 19, 20, 21, 22, 23, 24 };
+            var spawn = m.World.Init.SpawnA;
+            var slots = new int[cast.Length];
+            for (int n = 0; n < cast.Length; n++)
+            {
+                var e = m.World.Units.Roster[cast[n]];
+                slots[n] = m.World.Spawn(0, cast[n], new float3(spawn.x + (n % 8 - 3.5f) * 12f, 0f, spawn.z - (n / 8) * 8f), e.Hp, e.Speed, true);
+                m.World.GoalId[slots[n]] = m.Fields.DefaultGoal(0, true);
+            }
+            var yaw = new float[cast.Length]; var spin = new int[cast.Length];
+            for (int n = 0; n < cast.Length; n++) yaw[n] = m.World.Yaw[slots[n]];
+            for (int t = 0; t < 3000; t++)
+            {
+                Step(m);
+                for (int n = 0; n < cast.Length; n++)
+                {
+                    int i = slots[n];
+                    float rate = math.degrees(SimMath.WrapAngle(m.World.Yaw[i] - yaw[n])) / SimConfig.Default.TickSeconds; yaw[n] = m.World.Yaw[i];
+                    if (t > 100 && (m.World.Flags[i] & (uint)UnitFlags.Alive) != 0 && SpeedOf(m, i) < 0.3f && math.abs(rate) > 17f) spin[n]++;
+                }
+            }
+            int total = 0; var line = new System.Text.StringBuilder();
+            for (int n = 0; n < cast.Length; n++) { total += spin[n]; if (spin[n] > 0) line.Append($"{cast[n]}:{spin[n]} "); }
+            TestContext.WriteLine($"spun in place {total} ticks: {line}");
+            Assert.Less(total, 60, "the column spun in place under 3 s between fifteen machines (ticks; 116 when it swerved round every hull ahead)");
+        }
     }
 }

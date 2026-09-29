@@ -189,8 +189,10 @@ namespace TW.Sim.Nav
         public const byte DriveFlow = 0, DriveStraight = 1, DriveReverse = 2;
         public const float DriveArrive = 1.0f;
         /// <summary>Avoid: metres beyond two footprints touching that a hull ahead is steered round; the cone it
-        /// looks in (cosine: 0.3 is 72 degrees either side of the line); how hard it bends the line.</summary>
-        public const float AvoidLook = 4f, AvoidCone = 0.3f, AvoidGain = 1.5f;
+        /// looks in (cosine: 0.3 is 72 degrees either side of the line); how hard it bends the line; the most it bends
+        /// it (radians, under PivotAngle, so a hull ahead never stops a heavy tank to turn on the spot); and a hull
+        /// ahead going the same way at this share of its own speed or more (and over 1 m/s) is followed, not avoided.</summary>
+        public const float AvoidLook = 4f, AvoidCone = 0.3f, AvoidGain = 1.5f, AvoidMaxBend = 0.8f, AvoidPace = 0.8f;
         public int WireCrushed, TreesPushed, MenCrushed;
         ulong checksum = SimHash.Offset;
 
@@ -497,6 +499,7 @@ namespace TW.Sim.Nav
             float2 Avoid(int i, float3 p, float2 want, in VehicleProfile prof)
             {
                 float2 push = float2.zero;
+                float own = SimMath.Length(Velocity[i]);
                 float2 side = new float2(want.y, -want.x);   // the right hand of the way it wants to go
                 for (int k = 0; k < Vehicles.Length; k++)
                 {
@@ -508,6 +511,10 @@ namespace TW.Sim.Nav
                     if (dist >= touch + AvoidLook || dist < 1e-3f) continue;
                     float ahead = math.dot(d, want) / dist;
                     if (ahead < AvoidCone) continue;
+                    // a machine ahead on the same line keeping pace is a column, not a block: swerving round it only
+                    // weaves the one behind (the Brute spun in place 34 s in three studies when it did)
+                    float theirs = math.dot(Velocity[j].xz, want);
+                    if (theirs > 1f && theirs >= AvoidPace * own) continue;
                     float across = math.dot(d, side);
                     float away = math.abs(across) > 0.25f ? -math.sign(across) : (i < j ? 1f : -1f);
                     float near = math.saturate((touch + AvoidLook - dist) / AvoidLook);
@@ -516,7 +523,13 @@ namespace TW.Sim.Nav
                 if (math.all(push == 0f)) return want;
                 float2 bent = want + push * AvoidGain;
                 float bl = SimMath.Length(new float3(bent.x, 0f, bent.y));
-                return bl < 1e-4f ? want : bent / bl;
+                if (bl < 1e-4f) return want;
+                bent /= bl;
+                // never past AvoidMaxBend off the line: two hulls ahead could bend it 70 degrees, past PivotAngle,
+                // and a machine that has to turn that far stops to pivot
+                if (math.dot(bent, want) >= SimMath.Cos(AvoidMaxBend)) return bent;
+                float way = math.dot(bent, side) >= 0f ? 1f : -1f;
+                return want * SimMath.Cos(AvoidMaxBend) + side * (way * SimMath.Sin(AvoidMaxBend));
             }
 
             public void Execute()
