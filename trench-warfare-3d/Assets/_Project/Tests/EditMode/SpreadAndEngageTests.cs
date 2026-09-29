@@ -227,7 +227,7 @@ namespace TW.Tests
 
         /// <summary>Not a claim: the numbers, written where a session can read them (tw-spread-engage.txt in the temp
         /// folder), for three marches and three battles. Run it on both sides of a change to the movement.</summary>
-        [Test]
+        [Test, Explicit("a report, not a claim: 22 s of the gate's 600")]
         public void Report_TheNumbersOfThreeMarchesAndThreeBattles()
         {
             var sb = new StringBuilder();
