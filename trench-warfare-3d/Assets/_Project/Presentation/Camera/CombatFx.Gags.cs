@@ -128,11 +128,11 @@ namespace TW.Presentation.Tactical
             // they string out behind him along the same arc (nothing per frame: each is one debris record)
             if (path.Arcs > 0 && path.Delay <= 0.2f && debris != null && debris.Ready)
             {
-                int lumps = Mathf.RoundToInt(5f * gore * (1f + 0.5f * density) * (near ? DebrisRenderer.ZoomShare : 0f));
+                int lumps = Mathf.RoundToInt(2f * gore * (1f + 0.25f * density) * (near ? DebrisRenderer.ZoomShare : 0f));   // round 6: fewer, so his parts read
                 var a = path.A0;
                 Vector3 v = new Vector3((a.To.x - a.From.x) / a.Dur, path.Gravity * a.Up, (a.To.z - a.From.z) / a.Dur) * Mathf.Sqrt(DebrisMath.Gravity / path.Gravity);
                 for (int k = 0; k < lumps; k++)
-                    debris.Throw(DebrisRenderer.Piece.Clod, a.From + Vector3.up * (1.0f * scale), v * rng.Range(0.85f, 1f) + rng.OnSphere() * 0.6f, rng.Range(0.07f, 0.12f) * scale, Gore, ref rng, 8f);
+                    debris.Throw(DebrisRenderer.Piece.Clod, a.From + Vector3.up * (1.0f * scale), v * rng.Range(0.85f, 1f) + rng.OnSphere() * 0.6f, rng.Range(0.07f, 0.12f) * scale, GoreRed, ref rng, 8f);
             }
             // a card of blood where the round or the claw struck, when the build has the book
             if (bloodBook == -2) bloodBook = System.Enum.TryParse("BloodSpurt", out FlipbookFx.Book found) ? (int)found : -1;
