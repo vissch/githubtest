@@ -67,7 +67,7 @@ namespace TW.Sim
         // TrenchSelectAdvance naming the line leaves them in the trench. The unit table's groups are hashed. Layout unchanged.
         // v23 (2026-09-29, how machines drive): VehicleProfile gains Accel, Brake and PivotSpeed, so the hashed profile
         // table's bytes change; VehicleKinematicsSystem drives with momentum (Velocity carries the way from tick to tick),
-        // follows the field 3-6 cells ahead before its lane bends it, and the Breaker charges where the men are. Same
+        // follows the field 3-6 cells ahead before its lane bends it, steers round a hull on its line, and the Breaker charges where the men are. Same
         // inputs, different tracks: a v19 replay does not replay. Layout and chain unchanged.
         public const ushort FormatVersion = 23;
         public SimConfig Config;
