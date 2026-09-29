@@ -541,14 +541,28 @@ namespace TW.Presentation.Tactical
                         // out down the barrel; half the flares are flipped across the barrel for variety (mirror and half a turn),
                         // never along it. Over-bright at night so the bloom takes it.
                         float flare = FlareBase(UnityEngine.Random.value, SceneHooks.CloseUp, classArms > 0f) * scale * arms.Flare;   // bigger among the men (CombatFx.Weapons.cs)
-                        float roll = FlipbookFx.ScreenRoll(cam, barrel);
+                        // the flare along the round's own path (muzzle to target) with the class looks: the rifle socket's axis is not
+                        // level, and a card laid along it went into the ground and was hidden by the depth test (r12)
+                        float roll = FlipbookFx.ScreenRoll(cam, classArms > 0f ? direction : barrel);
                         Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : barrel;   // the barrel as the screen sees it
                         bool flip = UnityEngine.Random.value < 0.5f;
                         // a machine gun's every second round (CombatFx.Weapons.cs), and far from the eye one in FlareEvery at a low tier
                         // or from the overview (FxQuality.FlareKept); its draws above are taken either way
                         bool flared = arms.Flared && FxQuality.FlareKept(q, CameraShake.DistanceToLook(from), zoom, e.Tick + (uint)e.A);
-                        if (flared && cam != null && EndOn(barrel, cam.transform.forward, classArms > 0f))   // end-on: a pop, not a sheet (critique la5)
-                            books.Add(FlipbookFx.Book.Star, from + barrel * (flare * 0.2f) + FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, true), flare * 0.5f,
+                        // which way he faces the eye, judged on the shot's line and the eye's heading, both flat: the rifle socket's
+                        // axis is not level, and against a pitched camera it scored broadside men as firing away (r11: helmet candles)
+                        Vector3 aim = new Vector3(direction.x, 0f, direction.z).normalized;
+                        Vector3 camFlat = cam != null ? new Vector3(cam.transform.forward.x, 0f, cam.transform.forward.z).normalized : Vector3.forward;
+                        bool endOn = flared && cam != null && EndOn(aim, camFlat, classArms > 0f);
+                        var ownBook = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? MuzzleBookOf(KindOf(w.Archetype[e.A])) : null;
+                        if (endOn && Vector3.Dot(aim, camFlat) > 0.85f)
+                            // firing AWAY from the eye: the muzzle is behind his own body, so the class's drawing goes up over his
+                            // helmet, rolled to point up the screen, smaller (critique r9: the near row showed nothing)
+                            books.Add(ownBook ?? FlipbookFx.Book.MuzzleRifle, from + Vector3.up * (0.5f * scale) + cam.transform.up * (flare * 0.44f), flare,
+                                FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, true), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: carried, roll: Mathf.PI * 0.5f, glow: FlareGlow(SceneMood.Night, SceneHooks.CloseUp, true) * SceneTints.Now.Glow, delay: delay);
+                        else if (endOn)   // toward the eye: a pop, not a sheet (critique la5)
+                            books.Add(FlipbookFx.Book.Star, from + barrel * (flare * 0.2f) + FlareClear(aim, camFlat, scale, flare, SceneHooks.CloseUp, true), flare * 0.5f,
                                 FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, true) * 0.6f, roll: roll, glow: FlareGlow(SceneMood.Night, SceneHooks.CloseUp, true) * SceneTints.Now.Glow * (SceneMood.Night ? 1f : 0.75f), delay: delay);   // by day under the books (r8)
                         else if (flared)
                         {
@@ -557,19 +571,20 @@ namespace TW.Presentation.Tactical
                             bool dayFlare = DayFlare(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f);
                             var book = own ?? (dayFlare ? FlipbookFx.Book.MuzzleRifle : FlipbookFx.Book.Muzzle);   // the rifle by day up close: its own plain cone (critique r8)
                             float wide = flare * (own.HasValue ? MuzzleScale(own.Value, SceneHooks.CloseUp) : dayFlare ? Mathf.Lerp(1f, 1.4f, SceneHooks.CloseUp) : 1f);
-                            Vector3 clear = cam != null ? FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, classArms > 0f) : Vector3.zero;
-                            float graze = cam != null && classArms > 0f ? GrazeGlow(barrel, cam.transform.forward) : 1f;
-                            bool quarter = cam != null && ThreeQuarter(barrel, cam.transform.forward, classArms > 0f);
+                            if (own.HasValue) wide = Mathf.Min(wide, ClassBookMost * scale);   // never wider than 2.4 men (r11: a book 2x a man covered him)
+                            Vector3 clear = cam != null ? FlareClear(aim, camFlat, scale, flare, SceneHooks.CloseUp, classArms > 0f) : Vector3.zero;
+                            float graze = cam != null && classArms > 0f ? GrazeGlow(aim, camFlat) : 1f;
+                            bool quarter = cam != null && ThreeQuarter(aim, camFlat, classArms > 0f);
                             if (quarter) wide *= 0.75f;   // foreshortened, with a small star on it below
                             if (own == FlipbookFx.Book.MuzzleCarbine) flip = ((e.Tick + (uint)e.A) & 1u) == 0u;   // the carbine's three petals alternate shot to shot
                             float glowNow = FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow * graze;
                             books.Add(book, from + along * (wide * 0.44f) + clear, wide, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: glowNow, delay: delay);
+                                velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? wide * 0.5f : 0f, delay: delay);   // a class book at its cell's 2:1, whatever the import did (r10: drawn squashed)
                             if (quarter) books.Add(FlipbookFx.Book.Star, from + barrel * (flare * 0.15f) + clear, flare * 0.25f, 0.1f, roll: roll, glow: glowNow, delay: delay);
                         }
                         // among the men, the weapon's own drawing (CombatFx.Close.cs): a sniper's brake, an MG's star, an SMG's flicker
                         if (e.A >= 0 && e.A < w.Archetype.Length)
-                            ShotExtras(w.Archetype[e.A], cam, from, barrel, roll, flare, carried, delay, scale, e.Tick + (uint)e.A, flared, arms.Smoked, arms.Smoke);
+                            ShotExtras(w.Archetype[e.A], cam, from, barrel, roll, flare, carried, delay, scale, e.Tick + (uint)e.A, flared && !endOn, arms.Smoked, arms.Smoke);   // end-on: no stars stacked on its own (r9)
                     }
                     else if (flashes.Count < 256 && e.Scalar < 0.5f) flashes.Add(new Flash { Pos = from + barrel * (0.1f * scale), Direction = barrel, Born = Time.time + delay });
                     // a rifle leaves a little smoke at the muzzle: one small puff that drifts forward and thins out. Capped well

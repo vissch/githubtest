@@ -72,22 +72,26 @@ namespace TW.Presentation.Tactical
             var q = FxQuality.Now;
             if (classArms <= 0f || cam == null || !CloseEnough(from, q.ExtraReach)) return;
             float glow = (SceneMood.Night ? 3.2f : 1.6f) * SceneTints.Now.Glow;
-            float most = CloseMost * scale;   // no close piece wider than this: a sniper's star at 1.4 x his flare was 7 m, a shell hit (lin6)
+            float most = CloseMost * scale;
+            // a class with its own muzzle book: the book carries the shape, so the stars that stood in for it go (r12: additive
+            // stars at night drowned the books)
+            bool booked = MuzzleBookOf(KindOf(archetype)).HasValue;   // no close piece wider than this: a sniper's star at 1.4 x his flare was 7 m, a shell hit (lin6)
             uint h = FxQuality.Hash(round * 2654435761u + archetype);
             float spin = (h & 0xFFFFu) / 65536f * 6.2832f;
             Vector3 along = ScreenDir(cam, roll);
             switch (KindOf(archetype))
             {
                 case ArmsKind.Sniper:
+                    if (!flared) break;   // end-on (or no flare this round): the drawing carries it, no stars stacked
                     // the muzzle brake: two short jets out either side of the barrel, a crack at the mouth, and the dust his
                     // shot kicks off the ground under the rifle
                     for (int s = -1; s <= 1; s += 2)
                     {
                         float side = roll + s * 1.5708f;
-                        books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.25f), Mathf.Min(flare * 0.45f, most), 0.16f,
+                        if (!booked) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.12f) + ScreenDir(cam, side) * (flare * 0.25f), Mathf.Min(flare * 0.45f, most), 0.16f,
                             velocity: carried, roll: side, glow: glow, delay: delay);   // a Star, not the Muzzle turned sideways: that lay on the ground as a ribbon (lin8)
                     }
-                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), Mathf.Min(flare * 0.55f, most), 0.13f, roll: spin, glow: glow * 0.9f, delay: delay);
+                    if (!booked) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.15f), Mathf.Min(flare * 0.55f, most), 0.13f, roll: spin, glow: glow * 0.9f, delay: delay);
                     // his signature by day, where light does not show on snow: a hard puff of smoke off the muzzle that hangs
                     if (!SceneMood.Night)
                         books.Add(FlipbookFx.Book.Puff, from + along * (flare * 0.3f) + FlareClear(barrel, cam.transform.forward, scale, flare, SceneHooks.CloseUp, true), 1.8f * scale, 0.6f, (h & 8u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
@@ -103,7 +107,7 @@ namespace TW.Presentation.Tactical
                 case ArmsKind.Mg:
                 case ArmsKind.HullMg:
                     // the burning muzzle of a gun at work is a star as much as a flare; at Epic the belt's links spill
-                    if (flared) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.18f), Mathf.Min(flare * 1.0f, most), 0.13f, roll: spin, glow: glow, delay: delay);
+                    if (flared && !booked) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.18f), Mathf.Min(flare * 1.0f, most), 0.13f, roll: spin, glow: glow, delay: delay);
                     if (q.Epic && KindOf(archetype) == ArmsKind.Mg && (round & 1u) == 0u && chunks.Count < q.Cap(600))
                     {
                         Vector3 left = Vector3.Cross(barrel, Vector3.up).normalized;
@@ -119,14 +123,14 @@ namespace TW.Presentation.Tactical
                     {
                         bool smg = KindOf(archetype) == ArmsKind.Smg;
                         for (int n = 1; n <= (smg ? 1 : 2); n++)
-                            books.Add(FlipbookFx.Book.Muzzle, from + along * (flare * 0.4f), flare * (smg ? 0.8f : 0.9f), 0.12f,
+                            books.Add(MuzzleBookOf(KindOf(archetype)) ?? FlipbookFx.Book.Muzzle, from + along * (flare * 0.4f), flare * (smg ? 0.8f : 0.9f), 0.12f,
                                 ((h >> n) & 1u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: carried, roll: roll + (((h >> n) & 1u) != 0 ? Mathf.PI : 0f), glow: glow, delay: delay + n * (smg ? 0.08f : 0.05f));
                     }
                     break;
                 case ArmsKind.Pistol:
                 case ArmsKind.Carbine:
                     // a short barrel: more pop than flame
-                    books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f), Mathf.Min(flare * (KindOf(archetype) == ArmsKind.Pistol ? 0.9f : 1.0f), most), 0.13f, roll: spin, glow: glow * 1.2f, delay: delay);
+                    if (flared && !booked) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f), Mathf.Min(flare * (KindOf(archetype) == ArmsKind.Pistol ? 0.9f : 1.0f), most), 0.13f, roll: spin, glow: glow * 1.2f, delay: delay);
                     break;
             }
             // Epic: the round's smoke as a drawn puff over the ball, which reads as a sphere up close
