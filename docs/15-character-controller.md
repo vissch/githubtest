@@ -158,7 +158,7 @@ on the next cooldown).
 | Fire, kneeling / prone | Shot event | same | `Fire Rifle`, `Prone Firing Rifle`; MG: `Prone Firing Rifle (1)` looped at 7 rps |
 | Reload | presentation counter: rifle 5 shots, assault 20, MG 50, sniper every shot (bolt: `Reloading` at 2x, 1.2 s) | sim magazine (`WeaponDefinition.MagazineRounds/ReloadSeconds` exist, unused): fire pauses, one `Reload` event | by stance: `Reloading`, `Reload` (stoop), `Prone Reloading` |
 | Throw | none (`GrenadeSystem` is a stub) | grenade at ≤ 20 m onto Trench / Crater cells, 6 s cooldown, Shot event with Scalar 1 | `Toss Grenade`, the release frame at 1.4 s spawns the presentation grenade |
-| Melee | none (close assault is vehicles only) | **built (2026-09-28, lane/sim/melee, replay v20; the owner's yes: decisions.md):** `MeleeSystem`: a man charges an enemy man within 8 m and they fight at 2.5 m (`Stance.Melee`), a blow every 1.2 s (`MeleeBlow`: style, damage, 0 blocked, -1 missed), rifle or fists by unit type (`WeaponDropped` / `WeaponPickedUp`); crabs pounce (`PounceSystem`) | `Bayonet Stab` / `Rifle Punch` / `Smash` by seed; `Block With Rifle`; `Upward Rifle Butt Strike` from a crouch |
+| Melee | none (close assault is vehicles only) | **built (2026-09-28, lane/sim/melee, replay v24; the owner's yes: decisions.md):** `MeleeSystem`: a man charges an enemy man within 8 m and they fight at 2.5 m (`Stance.Melee`), a blow every 1.2 s (`MeleeBlow`: style, damage, 0 blocked, -1 missed), rifle or fists by unit type (`WeaponDropped` / `WeaponPickedUp`); crabs pounce (`PounceSystem`) | `Bayonet Stab` / `Rifle Punch` / `Smash` by seed; `Block With Rifle`; `Upward Rifle Butt Strike` from a crouch |
 | Sling | entering the rear trench with no enemy within 120 m; alarm = target or near miss | same | `Rifle Put Away` then the plain `Idle` / `Walking`; `Rifle Pull Out` on alarm |
 
 Until the sim step lands, reload is cosmetic (the sim keeps firing: the controller only plays it when
@@ -277,7 +277,7 @@ figure; vehicles keep their box.
    `ReloadSeconds` → per-unit `RoundsLeft`, a `Reload` event, fire held during the reload. Changes the balance a
    little (the MG's belt change is a real pause). Hashed; replay format unchanged; one test.
 2. **Melee**: built on `lane/sim/melee` (2026-09-28, the owner's yes; `MeleeSystem`, events `MeleeBlow`,
-   `WeaponDropped`, `WeaponPickedUp`; see the v20 row of `docs/02-contracts.md`). The controller's part is tw3d-board
+   `WeaponDropped`, `WeaponPickedUp`; see the v24 row of `docs/02-contracts.md`). The controller's part is tw3d-board
    item `melee`, stage `show`.
 3. **`StanceChanged`** is declared and never emitted; emitting it is free and lets the controller stop diffing.
 4. Nothing for aim yaw (derived from the target), water (derived from the heightfield), cover (`CellCover` exists),
