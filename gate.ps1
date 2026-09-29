@@ -66,10 +66,14 @@ function Report-Run($mode, $code) {
     return $code
 }
 
+# The unity CLI's per-run timeout, in seconds. 900 since 2026-09-29: EditMode ran 576 s of the old 600 on a quiet machine,
+# and a run that hits the limit reports no verdict at all, which three lanes' gates did that day.
+$TestTimeout = 900
+
 function Run-Tests($mode, [string[]]$extra) {
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
     Remove-Item "test-results-$mode.xml" -ErrorAction SilentlyContinue   # a run that writes nothing must not leave the last green copy
-    & $unity test . --mode $mode --timeout 600 @extra | Out-Host
+    & $unity test . --mode $mode --timeout $TestTimeout @extra | Out-Host
     $code = $LASTEXITCODE
     $first = Report-Run $mode $code          # the full run's results stay in test-results-<mode>.xml whatever follows
     if ($code -ne 8) { return $first }
@@ -77,7 +81,7 @@ function Run-Tests($mode, [string[]]$extra) {
     if (-not $noiseOnly) { return $code }
     Write-Host "`nEvery failure is external pipeline noise (see the header of gate.ps1). Rerunning the failed tests once." -ForegroundColor Yellow
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
-    & $unity test . --mode $mode --timeout 600 --rerun-failed @extra | Out-Host
+    & $unity test . --mode $mode --timeout $TestTimeout --rerun-failed @extra | Out-Host
     $code = $LASTEXITCODE
     if ($code -eq 8) { Show-Failures 'test-results.xml' | Out-Null }
     return (Report-Run "$mode-rerun" $code)
