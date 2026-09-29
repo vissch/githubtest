@@ -209,8 +209,8 @@ namespace TW.Presentation.Tactical
                 books.Add(FlipbookFx.Book.Puff, v.Pos + Vector3.up * 0.3f, v.Model.HalfLength * size, 1.1f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.4f, grow: 0.8f, alpha: 0.6f);
                 if (v.Flops) books.Add(FlipbookFx.Book.Wings, new Vector3(v.Pos.x, Ground(v.Pos.x, v.Pos.z), v.Pos.z), v.Model.HalfLength * 3f, 1.0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.5f, alpha: 0.55f);
                 // a ring of dust pushed out from under its rim (critic round 9: the one puff read as haze, not a ring), grey
-                // smoke cards: white puffs vanished on snow (round 11 film)
-                if (v.Flops)
+                // smoke cards: white puffs vanished on snow (round 11 film); a hull landing its hop too (round 13: no thump)
+                if (v.Flops || !v.Hover)
                     for (int k = 0; k < VehicleGags.FlopRing; k++)
                     {
                         float b = v.Yaw + k * 2f * Mathf.PI / VehicleGags.FlopRing;
