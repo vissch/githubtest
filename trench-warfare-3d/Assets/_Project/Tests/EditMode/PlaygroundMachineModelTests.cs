@@ -19,7 +19,9 @@ namespace TW.Tests
 
         static TankModel Load(string name, byte archetype)
         {
-            var m = TankModel.Load(name, archetype, "Hull", 1f);
+            float scale = TankRenderer.ScaleOf(archetype);   // as it is drawn: the Brute at the tanks' size
+            Assert.Greater(scale, 0f, $"{name} has no row of its own in TankRenderer.Machines");
+            var m = TankModel.Load(name, archetype, "Hull", scale);
             Assert.NotNull(m, $"{name} did not load from Resources/Vehicles/{name}");
             return m;
         }
