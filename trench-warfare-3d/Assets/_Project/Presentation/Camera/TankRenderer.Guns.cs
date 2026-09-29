@@ -107,10 +107,14 @@ namespace TW.Presentation.Tactical
                         {
                             // two puffs a segment, each its own size, place and life, the older end thinner: evenly spaced equal
                             // puffs read as beads on a string (r17)
-                            for (int n = 0; n < 2; n++)
+                            // as many puffs as it takes to overlap (spaced at most 0.6 of a puff's width): two a segment still sat
+                            // in clumps along a long arc (r22)
+                            float segLen = Vector3.Distance(ArcPoint(from, end, apex, a), ArcPoint(from, end, apex, b));
+                            int puffs = Mathf.Clamp(Mathf.CeilToInt(segLen / (RocketTrail * 0.6f)), 2, q.Epic ? 5 : q.Tier == FxTier.High ? 3 : 2);   // the tier caps the cards (8 s each)
+                            for (int n = 0; n < puffs; n++)
                             {
-                                uint hh = FxQuality.Hash(salt * 131u + (uint)(j * 64 + i * 2 + n));
-                                float u = Mathf.Lerp(a, b, n * 0.5f + (FxQuality.Hash01(hh) - 0.5f) * 0.5f);
+                                uint hh = FxQuality.Hash(salt * 131u + (uint)(j * 256 + i * 8 + n));
+                                float u = Mathf.Lerp(a, b, (n + 0.5f) / puffs + (FxQuality.Hash01(hh) - 0.5f) * 0.4f / puffs);
                                 Vector3 jit = new Vector3(FxQuality.Hash01(hh + 1u) - 0.5f, FxQuality.Hash01(hh + 2u) - 0.5f, FxQuality.Hash01(hh + 3u) - 0.5f) * 0.6f;
                                 books.Add(FlipbookFx.Book.Smoke, ArcPoint(from, end, apex, u) + jit, RocketTrail * Mathf.Lerp(0.7f, 1.3f, FxQuality.Hash01(hh + 4u)),   // the filled grey puff: the wreck's book is ink rings, a chain in a line (r20); big enough that neighbours merge (r21)
                                     RocketTrailLife * Mathf.Lerp(0.75f, 1.25f, FxQuality.Hash01(hh + 5u)), (hh & 1u) != 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
@@ -126,7 +130,7 @@ namespace TW.Presentation.Tactical
                 {
                     Vector3 start = ArcPoint(from, end, apex, 0.1f), chord = end - start;
                     var cam = Camera.main;
-                    books.Add(FlipbookFx.Book.RocketHead, start, RocketHeadWidth * 0.5f, ArcSeconds * 0.9f, velocity: chord / ArcSeconds,
+                    books.Add(FlipbookFx.Book.RocketHead, start, RocketHeadWidth * (SceneMood.Night ? 0.5f : 0.75f), ArcSeconds * 0.9f, velocity: chord / ArcSeconds,   // by day larger: lost on snow at 0.5 (r22)
                         roll: cam != null ? FlipbookFx.ScreenRoll(cam, chord) : 0f, glow: SceneMood.Night ? 1.8f : 1.2f, delay: lag);
                 }
                 if (rocket && drawn)

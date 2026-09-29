@@ -36,6 +36,10 @@ namespace TW.Presentation.Tactical
 
         /// <summary>A man struck: the spike of light where the round went in, x by the weapon that fired it (a sniper's round
         /// flashes harder than a pistol's).</summary>
+        /// <summary>A hit's flash by day with the class looks on: x0.55 up close. The drawn blood and puff carry the strike;
+        /// the additive flash at full size was a white disc on snow (iso3-5: the sniper's hits bloomed over his row).</summary>
+        public static float HitFlashDay(float closeUp) => Mathf.Lerp(1f, 0.55f, closeUp);
+
         public static float HitFlashOf(ArmsKind kind)
         {
             switch (kind)
