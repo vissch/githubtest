@@ -36,6 +36,21 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheBarFieldsOnlyWhatTheFactionMayCall()
+        {
+            var roster = Roster(0);
+            var iron = BuildBare(roster, HudView.SeatMask(0u, FactionId.Iron));
+            Assert.AreEqual(HudView.SupportAbilities.Length - 1, iron.SupportCards.Count, "a skirmish as Iron: every card but one");
+            Assert.IsFalse(iron.SupportCards.Exists(c => c.Ability == OffMapAbilityId.ParaDrop), "Iron has no paratroopers to drop");
+            var brass = BuildBare(roster, HudView.SeatMask(0u, FactionId.Brass));
+            Assert.AreEqual(HudView.SupportAbilities.Length, brass.SupportCards.Count, "Brass fields every card, the drop too");
+            uint unlocked = (1u << (int)OffMapAbilityId.HeBarrage) | (1u << (int)OffMapAbilityId.ParaDrop);
+            Assert.AreEqual(1, BuildBare(roster, HudView.SeatMask(unlocked, FactionId.Iron)).SupportCards.Count, "a campaign as Iron: its unlocks, less the drop");
+            uint dropOnly = 1u << (int)OffMapAbilityId.ParaDrop;
+            Assert.AreEqual(0, BuildBare(roster, HudView.SeatMask(dropOnly, FactionId.Iron)).SupportCards.Count, "nothing left is no card, not every card");
+        }
+
+        [Test]
         public void ACardShowsItsCostThenItsCooldownThenItsCostAgain()
         {
             var refs = BuildBare(Roster(0));

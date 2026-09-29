@@ -129,7 +129,7 @@ namespace TW.UI
             for (int s = 0; s < roster.Length; s++) roster[s] = w.Roster[s];   // player 0's slots start at 0 (SimWorld.cs:48)
             var costs = new int[HudView.SupportAbilities.Length];
             for (int i = 0; i < costs.Length; i++) costs[i] = OffMapAbilitySystem.TryGetStats((int)HudView.SupportAbilities[i], out var st) ? st.Cost : 0;
-            refs = HudView.Build(root, Resources.Load<VisualTreeAsset>("Hud/UnitCard"), roster, costs, HudView.CurrentMask);
+            refs = HudView.Build(root, Resources.Load<VisualTreeAsset>("Hud/UnitCard"), roster, costs, SeatMask);
             Clock = MatchClock.For(Host);
             tooltip = new HudTooltip(refs.Tooltip, refs.TooltipTitle, refs.TooltipBody, refs.TooltipCost);
             minimap = new HudMinimap(refs, Host, Cam);
@@ -197,10 +197,13 @@ namespace TW.UI
             Host.Issue(SimCommand.Deploy(w.Tick, 0, slot));
         }
 
+        /// <summary>The cards our seat is offered: the match's unlocks and its faction's abilities (HudView.SeatMask).</summary>
+        uint SeatMask => HudView.SeatMask(HudView.CurrentMask, Host.Local.World.Config.FactionOf(0));
+
         public void ToggleArm(OffMapAbilityId id)
         {
             if (!Interactive || Panel == null || Host?.Local == null) return;
-            if (!HudView.Offered(HudView.CurrentMask, id)) return;   // not fielded this match (the Home Front has not unlocked it): no card, no key
+            if (!HudView.Offered(SeatMask, id)) return;   // not fielded this match (the Home Front has not unlocked it, or the faction has none): no card, no key
             if (Panel.Armed == id) { Panel.Arm(OffMapAbilityId.None); return; }
             var w = Host.Local.World;
             if (w.WinnerTeam >= 0 || !OffMapAbilitySystem.TryGetStats((int)id, out var st)) return;

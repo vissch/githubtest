@@ -43,6 +43,7 @@ namespace TW.Presentation.Tactical
             if (id == OffMapAbilityId.None) { aim.Cancel(); return; }
             uint mask = MatchLaunch.Current != null ? MatchLaunch.Current.AbilityMaskA : 0u;
             if (!MatchLaunch.Request.Offered(mask, (int)id)) return;
+            if (Host != null && Host.Local != null && !FactionRoster.MayCall(Host.Local.World.Config.FactionOf(0), (int)id)) return;   // nor round the faction's
             aim.Arm(id);
         }
 

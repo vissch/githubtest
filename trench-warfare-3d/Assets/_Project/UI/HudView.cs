@@ -80,6 +80,16 @@ namespace TW.UI
         public static bool Offered(uint abilityMask, OffMapAbilityId id) => MatchLaunch.Request.Offered(abilityMask, (int)id);
         /// <summary>The mask of the match in flight for our seat (MatchLaunch.Current), 0 when none.</summary>
         public static uint CurrentMask => MatchLaunch.Current != null ? MatchLaunch.Current.AbilityMaskA : 0u;
+        /// <summary>What our seat is offered: the launch mask (0 = every card) cut to what its faction may call
+        /// (FactionRoster.AbilityMask: Brass alone drops paratroopers, and the sim refuses the drop to anyone else, so an
+        /// Iron player had a card that did nothing). Never 0, which would read as every card: with nothing left it is
+        /// None's bit, which no card has.</summary>
+        public static uint SeatMask(uint launchMask, FactionId faction)
+        {
+            uint m = FactionRoster.AbilityMask(faction);
+            if (launchMask != 0) m &= launchMask;
+            return m != 0 ? m : 1u << (int)OffMapAbilityId.None;
+        }
 
         public static HudRefs Build(VisualElement root, VisualTreeAsset cardTemplate, RosterEntry[] roster, int[] supportCosts, uint abilityMask = 0)
         {
