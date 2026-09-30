@@ -300,6 +300,11 @@ Shader "TW/Toon (URP)"
                         poolLight += propRim * _TWPropRim;
                     }
                 }
+                // look.poolUnblue: amber at the pool's edge, not violet. Only the faint edge: where the pool is strong it would strip the
+                // lit sandbags of all their blue and leave acid yellow, so the take fades out as the pool's light grows
+                half poolWarm = poolLight.r * 0.6 + poolLight.g * 0.4;
+                half unblue = poolWarm * _TWPoolUnblue * (1.0 - smoothstep(0.08, 0.30, poolWarm));
+                if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue);
                 color += poolLight * (1.0 - _TWPoolsThroughHaze);
                 color += _Emission.rgb;
                 // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
@@ -325,6 +330,7 @@ Shader "TW/Toon (URP)"
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
                 color += heat;
+                if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue * _TWPoolsThroughHaze);   // and over the haze the fog put back
                 color += poolLight * _TWPoolsThroughHaze;
                 return half4(color, 1.0);
             }
