@@ -114,14 +114,16 @@ namespace TW.Presentation.Units
 
         /// <summary>The figure names, in archetype-map order; the assets are Resources/Units/Figure&lt;Name&gt;.</summary>
         public static readonly string[] FigureNames = { "Soldier", "Sniper", "Frog" };
-        /// <summary>Which figure each archetype is drawn with (the sniper: the hooded man; the Frog, archetype 25: the
-        /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
         /// <summary>Each figure's mid-distance figure, in FigureNames order: Resources/Units/Figure&lt;Name&gt;MidMesh, drawn with the
         /// figure's atlas. The Frog has none yet: it is its own mid.</summary>
         public static readonly string[] MidNames = { "SoldierMid", "SniperMid" };
         /// <summary>Mid figures drawn last frame (a part of DrawnNear).</summary>
         public int DrawnMid { get; private set; }
+        /// <summary>Which figure each archetype is drawn with (the sniper: the hooded man; the Frog, archetype 25: the
+        /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
         public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : 0;
+        /// <summary>The Frog's figure (FigureNames): never swapped for the far tier's soldier.</summary>
+        public const int FrogFigure = 2;
 
         /// <summary>Which loaded bake fills each FigureNames slot: its own (k), else the Soldier's (0, the named
         /// default). -1 in every slot when the Soldier bake itself is missing: the near tier shares one clip->row map
@@ -520,7 +522,7 @@ namespace TW.Presentation.Units
                         continue;
                     }
                     float d2 = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z));
-                    bool distant = d2 > FarSq;
+                    bool distant = FigureOfArchetype(p.Archetype) != FrogFigure && d2 > FarSq;   // a frog is never the far tier's soldier
                     var map = distant ? FarRowOf : NearRowOf;
                     int row = p.AnimRow, prevRow = row, seed = 0, chr = 0, wound = 0; float prevT = 0f, blend = 0f, grime = 0f;
                     if (Controlled)
