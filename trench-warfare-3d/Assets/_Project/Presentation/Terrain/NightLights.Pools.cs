@@ -40,7 +40,8 @@ namespace TW.Presentation.Terrain
         /// <summary>What a pool does to its flame's colour: deeper toward orange. The lantern's own colour on the mud read
         /// as pale sand (Play, 2026-09-29); the owner's edits light the mud orange.</summary>
         public static readonly Vector3 PoolWarmth = new Vector3(1f, 0.74f, 0.5f);
-        static readonly int PropRimId = Shader.PropertyToID("_TWPropRim");
+        static readonly int PropRimId = Shader.PropertyToID("_TWPropRim"), UnblueId = Shader.PropertyToID("_TWPoolUnblue");
+        public const float DefaultPoolUnblue = 0.6f;   // 1.2 tinged the lamp-lit sandbags acid yellow; 0.6 keeps the edge amber
         public const float DefaultPropRim = 0.18f;   // 0.35 blew a concrete slab by a fire to yellow (p995 0.79 -> 0.90); 0.18 keeps it orange
         static readonly int ThroughHazeId = Shader.PropertyToID("_TWPoolsThroughHaze"), PoolSoftId = Shader.PropertyToID("_TWPoolSoft"), PoolShoulderId = Shader.PropertyToID("_TWPoolShoulder");
         /// <summary>look.poolSoft: the bands toward a soft falloff; look.poolShoulder: the roll-off that keeps a fire's pool
@@ -99,6 +100,7 @@ namespace TW.Presentation.Terrain
                 poolReach = Mathf.Clamp(Knobs.Get("look.poolReach", PoolReach), 1f, 20f);
                 firePoolStrength = Mathf.Max(0f, Knobs.Get("look.firePools", 1f));
                 Shader.SetGlobalFloat(ThroughHazeId, Mathf.Clamp01(Knobs.Get("look.poolsThroughHaze", DefaultThroughHaze)));
+                Shader.SetGlobalFloat(UnblueId, Mathf.Clamp(Knobs.Get("look.poolUnblue", DefaultPoolUnblue), 0f, 2f));
                 Shader.SetGlobalFloat(PropRimId, Mathf.Clamp(Knobs.Get("look.propRim", DefaultPropRim), 0f, 2f));
                 Shader.SetGlobalFloat(PoolSoftId, Mathf.Clamp01(Knobs.Get("look.poolSoft", DefaultPoolSoft)));
                 Shader.SetGlobalFloat(PoolShoulderId, Mathf.Clamp(Knobs.Get("look.poolShoulder", DefaultPoolShoulder), 0f, 4f));
@@ -194,7 +196,7 @@ namespace TW.Presentation.Terrain
         {
             if (poolHooked) { RenderPipelineManager.beginCameraRendering -= PoolsFor; poolHooked = false; }
             SceneHooks.FirePool = null;
-            Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f);
+            Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f);
             firePools.Clear();
             Shader.SetGlobalFloat(PoolCountId, 0f);
         }

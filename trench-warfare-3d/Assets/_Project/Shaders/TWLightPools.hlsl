@@ -17,7 +17,9 @@ float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
 float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff (critique round 5: "cut-out discs")
 float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire's pool never clips the ground to flat orange
 float _TWPoolsThroughHaze;
-float _TWPropRim;   // look.propRim: a prop's (not the ground's) warm rim toward the nearest pools, like the men's; 0 = none   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
+float _TWPropRim;
+float _TWPoolUnblue;   // look.poolUnblue: where a pool adds warm light it takes that much blue out of the moonlit ground under it,
+                       // or its thin rim of orange over blue read violet (critique round 15: 1.5 % of pixels violet, all at pool edges)   // look.propRim: a prop's (not the ground's) warm rim toward the nearest pools, like the men's; 0 = none   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
 
 /// A pool's weight at t (0 under the flame, 1 at its rim): the three hard bands, softened toward a smooth falloff by
 /// look.poolSoft (the bands' edges widen and a squared falloff takes over).
