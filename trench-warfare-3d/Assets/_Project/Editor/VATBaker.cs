@@ -50,6 +50,8 @@ namespace TW.Editor
         public const string FrogName = "Frog";
         /// <summary>How much richer the Frog's own colours are baked than its texture (1 = as painted).</summary>
         public const float OwnSaturation = 1.4f;
+        /// <summary>How much darker than painted the Frog's tunic, cap and kit are baked (its green skin is not).</summary>
+        public const float OwnKitShade = 0.62f;
         public const string FrogPath = "Assets/_Project/Playground/Art/Units/Frog/Frog.fbx";
         public const string FrogSkin = "Frog_LOD2";
         public const string FrogAlbedo = "Assets/_Project/Playground/Art/Units/Frog/Frog_LOD2_Base.jpg";
@@ -413,7 +415,16 @@ namespace TW.Editor
                     Color c = draw.Albedo.GetPixelBilinear(uvs[i].x, uvs[i].y);
                     // the Frog keeps its own colours, a little richer (play test, critic round 1: dyed khaki, a frog read as a
                     // stocky man from above): green skin, blue tunic and cap, red trim; the side's tint does not dye it
-                    if (target != null) { float g = c.grayscale; colors[i] = new Color(Mathf.Clamp01(g + (c.r - g) * OwnSaturation), Mathf.Clamp01(g + (c.g - g) * OwnSaturation), Mathf.Clamp01(g + (c.b - g) * OwnSaturation), 0f); }
+                    if (target != null)
+                    {
+                        float g = c.grayscale;
+                        var own = new Color(Mathf.Clamp01(g + (c.r - g) * OwnSaturation), Mathf.Clamp01(g + (c.g - g) * OwnSaturation), Mathf.Clamp01(g + (c.b - g) * OwnSaturation), 0f);
+                        // the skin stays bright; everything else (tunic, cap, kit) is taken down a shade, so the green reads first at the
+                        // play zoom (frog critic round 9: pale blue-grey tunics the colour of the snow, green only a dot)
+                        Color.RGBToHSV(own, out float hue, out float sat, out float val);
+                        bool skin = hue > 0.17f && hue < 0.45f && sat > 0.25f;
+                        colors[i] = skin ? own : new Color(own.r * OwnKitShade, own.g * OwnKitShade, own.b * OwnKitShade, 0f);
+                    }
                     else if (Cloth(bone)) { float lum = Mathf.Clamp(c.grayscale / 0.55f, 0.25f, 1.6f); colors[i] = new Color(lum, lum, lum, 1f); }   // the uniform: brightness only, the team colours it
                     else colors[i] = new Color(c.r, c.g, c.b, 0f);
                 }
