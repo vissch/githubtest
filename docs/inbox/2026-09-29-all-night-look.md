@@ -11,7 +11,7 @@ owner's word to land.**
 | Surface | Change |
 |---|---|
 | Replay format | none: presentation only. |
-| Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.firePools`, `look.poolsThroughHaze`, `look.hazeLight`, `look.inkFade`, `look.grade`, `look.gradeSat`, `look.gradeDark`, `look.puddleSky`, `look.waterDim`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
+| Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.firePools`, `look.poolsThroughHaze`, `look.hazeLight`, `look.inkFade`, `look.grade`, `look.gradeSat`, `look.gradeDark`, `look.puddleSky`, `look.waterDim`, `look.poolSoft`, `look.poolShoulder`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
 | `Atmosphere` | now `partial` (`Atmosphere.NightLook.cs`). Hook lines in `LateUpdate` only: the fog colour, its end, the mist and bank colours go through `Lifted` / `LiftedFogEnd`, which return today's values at 0. New global `_TWWetLook`, cleared in `OnDestroy`. The fog's distances moved into `FogDistances(camera)`: called from `LateUpdate` as before, and while lifted also as the main camera begins to render, so `CaptureRig` stills are fogged for the view they frame (they were fogged for the gameplay view). |
 | Grade | `Atmosphere.BuildGrade` keeps its `ColorAdjustments` and `ShadowsMidtonesHighlights`; `GradeLook()` (LateUpdate) re-tints the shadows toward umber at night when a knob moves. |
 | `NightLights` | now `partial` (`NightLights.Pools.cs`): `PushPools()` in `Update`, `ClearPools()` in `OnDestroy`; a `beginCameraRendering` hook sets `_TWPools`, `_TWPoolTint`, `_TWPoolCount` (0 unless `look.pools` > 0). |
