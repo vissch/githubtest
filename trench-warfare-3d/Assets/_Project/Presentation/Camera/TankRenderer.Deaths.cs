@@ -45,6 +45,10 @@ namespace TW.Presentation.Tactical
 
         /// <summary>How far a falling flyer has nosed over and rolled when it hits the ground (radians).</summary>
         const float FlyerNose = -0.55f, FlyerRoll = 0.45f;
+        /// <summary>A walker whose belly is this far over the ground falls without its pop.</summary>
+        const float TallFall = 1.5f;
+        /// <summary>How much faster than one g a dead flyer comes down.</summary>
+        const float FlyerHaste = 2.2f;
 
         /// <summary>The absurd death, once, as the machine becomes a wreck (Wreckify, fx.deathAbsurd above 0).</summary>
         void DeathGag(View v, float now)
@@ -132,6 +136,12 @@ namespace TW.Presentation.Tactical
                 v.DropTo = Mathf.Min(v.DropFrom, Ground(v.Pos.x, v.Pos.z) - v.Belly - VehicleGags.BellySink * v.Model.Height);
                 v.DropUp = VehicleGags.FlopUp * Mathf.Sqrt(Mathf.Min(a, VehicleGags.HopCap));
                 v.DropAt = now + VehicleGags.WalkerFreeze;
+                if (v.DropFrom - v.DropTo > TallFall)
+                {
+                    // a tall walker (the Croaker, on two long legs) does not pop: its knees go and it drops the height of
+                    // its legs at once (frog round 1: popped up and held, it hung 1.3 s over its shadow in the fire)
+                    v.DropUp = 0f; v.DropAt = now + 0.1f;
+                }
                 v.DropPitch = v.Pitch.Value; v.DropRoll = v.Roll.Value;
             }
         }
@@ -195,6 +205,7 @@ namespace TW.Presentation.Tactical
                 if (!v.Dropping) continue;
                 float t = now - v.DropAt;
                 if (t < 0f) continue;
+                if (v.Lift >= FlyerLift * 0.5f) t *= FlyerHaste;   // a cartoon crash: at one g its 9 m took 1.35 s and read as a hang (round 2)
                 float h = VehicleGags.Drop(v.DropFrom, v.DropTo, v.DropUp, t) - v.DropFrom;
                 v.Heave.Value += h - v.Dropped; v.Dropped = h;
                 if (v.Lift >= FlyingFrom && !v.DropLanded)

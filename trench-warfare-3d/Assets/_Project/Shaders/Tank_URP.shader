@@ -142,7 +142,7 @@ Shader "TW/Tank (URP)"
                 // soot: patches that grow from the low, shadowed places up as the hull is hurt
                 float scorch = i.damage.x;
                 half n = TankNoise(i.positionOS * 1.7) * 0.65 + TankNoise(i.positionOS * 5.3) * 0.35;
-                half soot = saturate((scorch * 1.35 - n) * 4.0);
+                half soot = saturate((scorch * 0.72 - n) * 4.0);   // play test (frog rounds 1-2): at 1.35 a wreck charred all over and read as lava rock, its paint and who it was gone; its paint keeps about 40 %
                 albedo = lerp(albedo, half3(0.22, 0.14, 0.10), soot * 0.85);   // charred warm (burnt metal, not a grey prop), plates still show
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
