@@ -47,7 +47,7 @@ namespace TW.Tests
             switch (scene)
             {
                 case "shell": case "heap": return (26f, 40f, 14f, 4f);
-                case "frogheap": case "frogshell": return (22f, 40f, 32f, 3f);   // steeper: low at 18 deg, a house near the camera hid the row (rounds 5-8)   // closer: at 26 a frog was a speck (round 3)
+                case "frogheap": case "frogshell": return (22f, 220f, 32f, 3f);   // from the other side: from 40 deg a house near the camera hid the row (rounds 5-10)   // steeper: low at 18 deg, a house near the camera hid the row (rounds 5-8)   // closer: at 26 a frog was a speck (round 3)
                 case "frogs": return (28f, 40f, 24f, 4f);   // the Hopper 9 m up in the frame too (round 5: off the top)
                 case "frogshot": case "frogmg": return (22f, 40f, 32f, 1.2f);   // the row and its shooters 18 m off
                 case "crush": return (20f, 40f, 18f, 1.5f);
@@ -56,7 +56,7 @@ namespace TW.Tests
                 case "machine": case "maw": case "salvo": return (30f, 40f, 22f, 6f);  // a turret's leap: wide and low, aimed up so its 14 m peak stays in (critic round 16 found it cut off)
                 case "skimmer": return (40f, 40f, 26f, 2f);   // its fan glides 18-27 m astern
                 case "walker": return (18f, 40f, 20f, 1.5f);  // a belly-flop: close and low
-                case "croaker": return (24f, 40f, 30f, 3f);
+                case "croaker": return (24f, 220f, 30f, 3f);
                 case "hopper": return (36f, 40f, 30f, 4f);   // it flies 9 m up and falls: all of it in (round 1: off the top)
                 default: return (13f, 40f, 20f, 1.2f);
             }

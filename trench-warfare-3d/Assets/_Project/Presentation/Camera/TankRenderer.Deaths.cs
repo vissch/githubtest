@@ -250,8 +250,30 @@ namespace TW.Presentation.Tactical
                     }
             }
             bool crash = v.Lift >= FlyingFrom;
+            if (crash) Shed(v);
             if (v.Flops || crash) Scrap(v.Pos + Vector3.up * 0.5f, crash ? 9 : 5, crash ? 7f : 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
             CameraShake.Add(v.Pos, v.Flops || crash ? 8f : 3f);
+        }
+
+        /// <summary>A flyer hits the ground and breaks up: its engines, wings and tail come off and fly out from the hull,
+        /// tumbling (frog critic rounds 9-10: the Hopper landed whole, one hull with a fire on top).</summary>
+        void Shed(View v)
+        {
+            var parts = v.Model.Lods[0].Parts;
+            var rng = new DebrisRng(v.Pos, 0x5EEDu + (uint)Mathf.Max(0, v.Slot));
+            for (int i = 1; i < parts.Count; i++)
+            {
+                string n = parts[i].Name;
+                if (v.Off[i] || !(n.StartsWith("Engine") || n.StartsWith("Wing") || n.StartsWith("Tail"))) continue;
+                var d = Detach(v, i, v.World[i]);
+                if (d == null) continue;
+                Vector3 out1 = (Vector3)v.World[i].GetColumn(3) - v.Pos; out1.y = 0f;
+                out1 = out1.sqrMagnitude > 1e-4f ? out1.normalized : rng.OnSphere();
+                d.Vel = out1 * rng.Range(4f, 7f) + Vector3.up * rng.Range(3f, 5f);
+                d.Spin = rng.OnSphere() * rng.Range(4f, 8f);
+                d.Resting = false; d.Bounce = 0.35f; d.Bounces = 1;
+                d.Burn = Mathf.Max(d.Burn, v.Burn * 0.6f);
+            }
         }
 
         /// <summary>A walker's belly: the lowest corner of its body's box, in the frame its heave is the height of.</summary>
