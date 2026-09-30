@@ -46,7 +46,8 @@ namespace TW.Tests
         {
             switch (scene)
             {
-                case "shell": case "heap": case "frogheap": case "frogshell": return (26f, 40f, 14f, 4f);
+                case "shell": case "heap": return (26f, 40f, 14f, 4f);
+                case "frogheap": case "frogshell": return (20f, 40f, 18f, 3f);   // closer: at 26 a frog was a speck (round 3)
                 case "frogs": return (22f, 40f, 20f, 2f);
                 case "frogshot": case "frogmg": return (22f, 40f, 32f, 1.2f);   // the row and its shooters 18 m off
                 case "crush": return (20f, 40f, 18f, 1.5f);
