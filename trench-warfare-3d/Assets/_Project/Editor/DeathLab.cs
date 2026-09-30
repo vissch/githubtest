@@ -93,7 +93,7 @@ namespace TW.Editor
                 case "frogheap": return Row(8, x, z, 0, 0.7f, 100f, archetype: InfantryArchetype.Frog) + "; " + Later(0.8f, () => Shell(x + 2.5f, z, 6f, 800f));   // the row seen standing first
                 case "frogshell": return Row(6, x, z, 0, 3f, 100f, archetype: InfantryArchetype.Frog) + "; " + Later(0.8f, () => Shell(x + 7.5f, z - 2f, 8f, 600f));
                 case "frogshot": return Row(6, x, z, 0, 1.6f, 1f, archetype: InfantryArchetype.Frog) + "; " + Tough(TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 4f, z + 18f, 180f)) + " " + Tough(TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 18f, 180f));   // 18 m: at 30 the bank hid them (round 1)
-                case "frogmg": return Row(6, x, z, 0, 1.6f, 900f, 900f, InfantryArchetype.Frog) + "; " + Tough(TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 18f, 180f));
+                case "frogmg": return Row(6, x, z, 0, 1.6f, 200f, 600f, InfantryArchetype.Frog) + "; " + Tough(TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 18f, 180f));
                 case "croaker": return Machine(VehicleArchetype.Croaker, x, z, 0);   // the frog mech: two legs
                 case "hopper": return Machine(VehicleArchetype.Hopper, x, z, 0);     // the frog gunship: drawn flying, a dead one falls
                 case "frogs": return Row(6, x, z, 0, 1.6f, 100f, archetype: InfantryArchetype.Frog) + "; " + TankCapture.Spawn(0, VehicleArchetype.Croaker, x + 2f, z + 9f, 0f) + " " + TankCapture.Spawn(0, VehicleArchetype.Hopper, x + 9f, z + 9f, 0f);
