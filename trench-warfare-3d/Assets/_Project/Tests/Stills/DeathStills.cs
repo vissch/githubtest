@@ -122,7 +122,7 @@ namespace TW.Tests
             for (int i = 0; i < map.Props.Length; i++)
             {
                 var q = map.Props[i].Pos;
-                if (q.x > x - 3f && q.x < x + w + 3f && q.z > z - 4f && q.z < z + 4f) return false;   // only the row's own strip
+                if (q.x > x - 6f && q.x < x + w + 6f && q.z > z - back - 6f && q.z < z + 4f) return false;   // the row's strip and the ground between it and the camera (frog round 4: a wall hid half a row)
             }
             return true;
         }

@@ -308,6 +308,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Tough(spawned)` | Editor/DeathLab.cs | `act` once, `seconds` of play from now (a frame at a time, from the editor's update). |
 | `TW.Editor.DeathLab.Later(seconds, act)` | Editor/DeathLab.cs | (no summary: read the method) |
 | `TW.Editor.DeathLab.Disarm(slot)` | Editor/DeathLab.cs | A machine's guns put out of action (GunHealth 0, as a knocked-out gun) once its gunnery has taken the slot on: the first tick after a spawn sets ... |
+| `TW.Editor.DeathLab.HoldFire(row, at, seconds)` | Editor/DeathLab.cs | The men Row named hold their fire for `seconds` of real time (their weapon's cooldown kept full every frame, in every world), and the shooter spawned ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Setup(archetype, riders, x, z, team, yawDeg, climb)` | Editor/RiderLab.cs | A walker of `archetype` (6 Pincer .. |
