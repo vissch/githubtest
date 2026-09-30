@@ -37,6 +37,7 @@ Shader "TW/Ink Lines (URP)"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
 
             half4 _InkColor;
+            float _TWInkFogFade;   // look.inkFade (Atmosphere.NightLook.cs): the ink fades with the distance fog too; 0 today
             float _Thickness, _Sensitivity, _Threshold, _Strength, _FadeStart, _FadeEnd, _CloseThreshold;
 
             half4 frag(Varyings input) : SV_Target
@@ -57,6 +58,9 @@ Shader "TW/Ink Lines (URP)"
                 float threshold = _Threshold * (1.0 + _TWClose * (_CloseThreshold - 1.0));
                 half ink = smoothstep(threshold, threshold * 1.6, bend * _Sensitivity) * _Strength * fade;
                 if (ink > 0.001 && _TWFieldFogColor.a > 0.0) ink *= saturate(1.0 - 1.15 * FieldFogAmount(ComputeWorldSpacePosition(uv, c, UNITY_MATRIX_I_VP)));
+                // look.inkFade: a line fades as the distance fog closes over what it outlines (linear fog visibility from
+                // the eye depth), or the lifted haze left distant wire and hedgehogs as bare black outlines (critique round 2)
+                if (ink > 0.001 && _TWInkFogFade > 0.0) ink *= lerp(1.0, saturate(eye * unity_FogParams.z + unity_FogParams.w), _TWInkFogFade);
                 color.rgb = lerp(color.rgb, _InkColor.rgb, ink);
                 return color;
             }

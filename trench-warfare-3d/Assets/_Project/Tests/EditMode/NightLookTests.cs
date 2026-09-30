@@ -42,7 +42,8 @@ namespace TW.Tests
         {
             Assert.AreEqual(1f, Atmosphere.DefaultLift); Assert.AreEqual(1f, Atmosphere.DefaultWet); Assert.AreEqual(1f, NightLights.DefaultPools);
             Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");
-            Assert.Less(Atmosphere.LiftReach, 0.3f, "a reach of 0.3 or more left the far third short of the edit's lift (loop round 1)");
+            Assert.AreEqual(1f, Atmosphere.DefaultInkFade, "the ink fades with the haze, or distant wire is bare black outlines");
+            Assert.Greater(Atmosphere.LiftHaze.grayscale, 0.35f, "the haze lighter than the lit ground, so the distance's silhouettes stand dark against it");
         }
 
         [Test]
