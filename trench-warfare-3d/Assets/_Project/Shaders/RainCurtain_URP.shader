@@ -36,6 +36,8 @@ Shader "TW/Rain Curtain (URP)"
             struct Attributes { float4 positionOS : POSITION; float2 corner : TEXCOORD0; };
             struct Varyings { float4 positionCS : SV_POSITION; float4 uv : TEXCOORD0; half2 fade : TEXCOORD1; };
 
+            float4 _TWCurtain;   // look.rainCurtain (Atmosphere.NightLook.cs): x how much paler than the haze, y alpha scale; 0 = as before
+
             float Hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
 
             Varyings vert(Attributes v)
@@ -66,6 +68,8 @@ Shader "TW/Rain Curtain (URP)"
                 half body = saturate(1.0 - i.uv.x * i.uv.x) * smoothstep(0.0, 0.10, i.uv.w) * (1.0 - smoothstep(0.55, 1.0, i.uv.w));
                 half alpha = body * (0.30 + 0.70 * streaks) * (0.5 + 0.8 * veil) * i.fade.x * 0.42;
                 half3 colour = unity_FogColor.rgb * 1.9 + half3(0.03, 0.04, 0.06);   // a little paler than the haze it hangs in
+                // with the night look's lighter haze, 1.9 times it is near white: the curtains stood as stripes over the sky
+                if (_TWCurtain.x > 0.0) { colour = unity_FogColor.rgb * _TWCurtain.x + half3(0.01, 0.015, 0.02); alpha *= _TWCurtain.y; }
                 return half4(MixFog(colour, i.fade.y), alpha);
             }
             ENDHLSL

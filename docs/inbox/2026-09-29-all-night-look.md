@@ -11,7 +11,7 @@ owner's word to land.**
 | Surface | Change |
 |---|---|
 | Replay format | none: presentation only. |
-| Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.firePools`, `look.poolsThroughHaze`, `look.hazeLight`, `look.inkFade`, `look.grade`, `look.gradeSat`, `look.gradeDark`, `look.puddleSky`, `look.waterDim`, `look.poolSoft`, `look.poolShoulder`, `look.horizonFires`, `look.warmFlare`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
+| Knobs | `look.lift`, `look.liftReach`, `look.liftMist`, `look.liftBank`, `look.pools`, `look.poolReach`, `look.firePools`, `look.poolsThroughHaze`, `look.hazeLight`, `look.inkFade`, `look.grade`, `look.gradeSat`, `look.gradeDark`, `look.puddleSky`, `look.waterDim`, `look.poolSoft`, `look.poolShoulder`, `look.horizonFires`, `look.warmFlare`, `look.rainCurtain`, `look.wet` (`tasks.md`: Terrain view, weather, night, biomes). |
 | `Atmosphere` | now `partial` (`Atmosphere.NightLook.cs`). Hook lines in `LateUpdate` only: the fog colour, its end, the mist and bank colours go through `Lifted` / `LiftedFogEnd`, which return today's values at 0. New global `_TWWetLook`, cleared in `OnDestroy`. The fog's distances moved into `FogDistances(camera)`: called from `LateUpdate` as before, and while lifted also as the main camera begins to render, so `CaptureRig` stills are fogged for the view they frame (they were fogged for the gameplay view). |
 | Grade | `Atmosphere.BuildGrade` keeps its `ColorAdjustments` and `ShadowsMidtonesHighlights`; `GradeLook()` (LateUpdate) re-tints the shadows toward umber at night when a knob moves. |
 | `NightLights` | now `partial` (`NightLights.Pools.cs`): `PushPools()` in `Update`, `ClearPools()` in `OnDestroy`; a `beginCameraRendering` hook sets `_TWPools`, `_TWPoolTint`, `_TWPoolCount` (0 unless `look.pools` > 0). |
@@ -19,6 +19,7 @@ owner's word to land.**
 | `VAT_URP.shader`, `Tank_URP.shader` | include `TWLightPools.hlsl`; one block each behind `_TWPoolCount > 0`: the pools, and a warm rim on the edge turned to a fire (`TWPoolsOnFigure`). Wreck lanes editing `Tank_URP` round the lamp lines: expect a small conflict. |
 | `InkLines_URP.shader` | the ink fades with the linear distance fog too (`_TWInkFogFade`, `look.inkFade`), one line. |
 | `Water_URP.shader` | one line: the lit body times `1 - _TWWaterDim` (a global, 0 by day; `look.waterDim` at night). |
+| `RainCurtain_URP.shader` | while lifted, `_TWCurtain` sets the curtains' colour (1.15 x the haze, was 1.9) and alpha (`look.rainCurtain`). |
 | `Toon_URP.shader` | includes `TWLightPools.hlsl`; two added lines behind `_TWPoolCount > 0` / `_TWWetLook > 0`, and the puddle mirror's weight times `1 - 0.55 * _TWWetLook`. |
 | Editor | `LookLab` (knobs set from `unity command eval`). |
 | UI | `ComicWords` (rare comic sound words on the HUD's markers layer, built beside `DeathMarks` in `SelectionController`; `fx.comicWords`, `fx.comicGap`); `.hud-comic` in `BattleHud.uss`. |
