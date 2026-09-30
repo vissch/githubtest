@@ -247,6 +247,15 @@ A/B with no noise to measure. From `trench-warfare-3d/`, this checkout's editor 
   pass on the change and fail on the older copy of the file (HEAD's unless `--old` says), or it guards nothing.
 The study that finds a behaviour problem (MachineStudy, a match in Play at 4x) is not deterministic; decide with these.
 
+**A visual change, A/B.** `python Tools/abtest.py gym --gym "tabs=scenes,units filter=Maw|Kettle|Barrage" --file <file>
+--variant try=<copy>` runs the gym (section 6) on the working tree and on each variant with the same options, prints
+per entry and zoom band the share of pixels that changed and every sidecar number that moved, and writes blind pairs
+(pairs/<variant>/*.jpg, the two sheets stacked in a random order; the key in key.json, apart). `--noise` runs the working tree
+twice first: the floor. The gym runs at a fixed 20 frames a game second (`Gym.CaptureFps`), so the same code draws the
+same entries (2026-10-01, measured twice: units 0.2-1.1 % of a band's pixels, TrenchLine 0, every sidecar number
+equal; BarrageOnTrench still 8 % at the closest band, its effects keeping their own clock). Believe a band that moved
+well past its floor; judge a pair before opening the key, and a second time with the halves swapped.
+
 ### False reds
 - **After Play in the same editor:** statics not reset by `SceneStatics` (the `Explained` list in
   StaticLifecycleTests) survive leaving Play. `RequestScriptReload` and rerun; a red that survives that is real.
