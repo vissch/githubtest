@@ -108,7 +108,9 @@ namespace TW.Sim
         // his suppression and lets it down 2.5 a second, and a man in the open with it up moves in rushes (bent double,
         // then down on his belly) and makes for shell holes ahead; on open ground a man slips past a mate who is down,
         // and the push between two men up has no step at a metre. Hash content changes; the system chain is unchanged.
-        public const ushort FormatVersion = 34;
+        // v35 (2026-09-30, the Bullfrog): VehicleArchetype.Bullfrog 37 in UnitDefinitions.All: the unit table's and the
+        // combat catalogue's fingerprints change. Layout and chain unchanged.
+        public const ushort FormatVersion = 35;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -79,6 +79,28 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheBullfrog_IsInTheMatchTable_AndHosesAManWithItsGatlings()
+        {
+            using var m = NewMatch();
+            var w = m.World;
+            var r = w.Units.Roster[VehicleArchetype.Bullfrog];
+            Assert.Greater(r.Hp, 0f, "the Bullfrog has a line in the match's table");
+            var d = Def(VehicleArchetype.Bullfrog);
+            Assert.IsTrue(d.Drive.Walker && d.Drive.Legs == 0, "it hops: a walker with no legs to lose");
+            int frog = Spawn(m, 0, VehicleArchetype.Bullfrog, new float3(40f, 0f, 40f), 0f);
+            int man = Spawn(m, 1, InfantryArchetype.Rifle, new float3(40f, 0f, 100f), 0f);
+            w.MaxHp[man] = w.Hp[man] = 1e6f;
+            int shots = 0;
+            for (int t = 0; t < 200; t++)
+            {
+                Step(m);
+                var ev = w.Events.Events;
+                for (int k = 0; k < ev.Length; k++) if (ev[k].Type == SimEventType.Shot && ev[k].A == frog && ev[k].B == man) shots++;
+            }
+            Assert.Greater(shots, 60, "two gatlings: a stream of rounds at a man 60 m off (12 a second)");
+        }
+
+        [Test]
         public void EveryProvingGroundUnitIsInTheMatchTableWithItsNumbers()
         {
             using var m = NewMatch();
