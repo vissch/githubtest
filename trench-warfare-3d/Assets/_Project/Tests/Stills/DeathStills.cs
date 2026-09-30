@@ -129,18 +129,6 @@ namespace TW.Tests
 
         /// <summary>The crush machine's road: nothing it cannot drive through (a blocked cell, a bunker) within 4 m of x
         /// from z0 to z1. A trench it bridges and wire it flattens (the first sets asked for open ground and found none).</summary>
-        /// <summary>No standing scenery the map does not hold (a ruin, a house: SceneHooks.Standing) within 2.5 m of any
-        /// point of the box, sampled every 3 m (frog round 5: a ruin between the row and its gunner took the fire, and
-        /// one between the row and the camera hid the dead).</summary>
-        static bool Clear(float x0, float x1, float z0, float z1)
-        {
-            if (TW.Presentation.SceneHooks.Standing == null) return true;
-            for (float zz = z0; zz <= z1; zz += 3f)
-                for (float xx = x0; xx <= x1; xx += 3f)
-                    if (TW.Presentation.SceneHooks.Standing(xx, zz, 8f) < 2.5f) return false;
-            return true;
-        }
-
         /// <summary>A scene whose men are shot by others standing 18-30 m off.</summary>
         static bool Shooters(string scene) => scene == "frogshot" || scene == "frogmg";
 
@@ -208,8 +196,7 @@ namespace TW.Tests
                         // the row's own ground (shooters may stand across a trench); the crush machine drives from 15 m short
                         // of the row, at its middle, so its road must hold nothing it cannot drive through
                         bool road = scene != "crush" || Road(map, xx + 3f, zz - 18f, zz + 6f);
-                        if (Shooters(scene) && !Open(map, xx + 2f, zz + 18f, 4f, 2f, 2f)) road = false;
-                        if (scene.StartsWith("frog") && !Clear(xx - 2f, xx + 16f, zz - 10f, Shooters(scene) ? zz + 20f : zz + 4f)) road = false;   // the shooters' ground and the line to them open too (round 2: few shots came)
+                        if (Shooters(scene) && !Open(map, xx + 2f, zz + 12f, 4f, 2f, 2f)) road = false;
                         if (scene == "beam" && xx < 14f) road = false;   // the beam is called 10 m short of the row: on the map
                         if (clear && road && Open(map, xx, zz, 14f, scene.StartsWith("frog") ? 10f : 5f, 5f)) { x = xx; z = zz; }   // a frog scene keeps 10 m clear toward the camera (round 5: a ruin in front of the MG row)
                     }
@@ -227,7 +214,7 @@ namespace TW.Tests
                     // the base yaw pinned before every shot, as WalkerStills does, or the shot's yaw drifts with the camera's own
                     var fr = scene == "wounds" ? WoundView(k) : Frame(scene);
                     if (tc != null) tc.BaseYaw = -90f;
-                    CaptureRig.Shot(path, x + 4f, z - 2f + (Shooters(scene) && scene != "wounds" ? 8f : 0f), fr.zoom, fr.yaw, fr.pitch, 1280, 720, fr.aim);   // the shooters in the frame too
+                    CaptureRig.Shot(path, x + 4f, z - 2f + (Shooters(scene) && scene != "wounds" ? 5f : 0f), fr.zoom, fr.yaw, fr.pitch, 1280, 720, fr.aim);   // the shooters in the frame too
                     yield return Drain(path);
                     if (File.Exists(path)) written++;
                 }
