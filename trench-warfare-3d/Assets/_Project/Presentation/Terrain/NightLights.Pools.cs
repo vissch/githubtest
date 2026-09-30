@@ -51,7 +51,7 @@ namespace TW.Presentation.Terrain
         static readonly int ThroughHazeId = Shader.PropertyToID("_TWPoolsThroughHaze"), PoolSoftId = Shader.PropertyToID("_TWPoolSoft"), PoolShoulderId = Shader.PropertyToID("_TWPoolShoulder");
         /// <summary>look.poolSoft: the bands toward a soft falloff; look.poolShoulder: the roll-off that keeps a fire's pool
         /// from clipping (critique round 5: "cut-out discs", fire pools clipping).</summary>
-        public const float DefaultPoolSoft = 1f, DefaultPoolShoulder = 0f;
+        public const float DefaultPoolSoft = 1f, DefaultPoolShoulder = 0.4f;   // 0.4 since round 19: at the wide view the lamp-lit mounds clipped to flat yellow domes
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];

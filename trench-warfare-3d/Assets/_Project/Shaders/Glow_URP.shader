@@ -31,7 +31,8 @@ Shader "TW/Glow (URP)"
                 half4 _Tint;
                 float _Squash;
             CBUFFER_END
-            float _TWGlowHue;   // look.glowHue (Atmosphere.NightLook.cs): how far a glow's core keeps its hue as the haze takes it; 0 = as before
+            float _TWGlowHue;
+            float _TWGlowFade;   // look.glowFade: a glow fades out as the haze takes it (orange over the blue haze read mauve far off; critique round 19); 0 = as before   // look.glowHue (Atmosphere.NightLook.cs): how far a glow's core keeps its hue as the haze takes it; 0 = as before
 
             struct Attributes { float4 positionOS : POSITION; float2 corner : TEXCOORD0; float4 shape : TEXCOORD1; half4 color : COLOR; };
             struct Varyings { float4 positionCS : SV_POSITION; float2 corner : TEXCOORD0; half3 color : TEXCOORD1; half haze : TEXCOORD2; };
@@ -49,6 +50,7 @@ Shader "TW/Glow (URP)"
                 float haze = 1.0 - saturate(ComputeFogIntensity(ComputeFogFactor(o.positionCS.z)));   // 0 clear .. 1 lost in haze
                 o.color = v.color.rgb * v.color.a * _Tint.rgb * saturate(flicker) * (1.0 - haze * v.shape.w);
                 o.haze = haze;
+                o.color *= 1.0 - _TWGlowFade * smoothstep(0.30, 0.75, haze);
                 return o;
             }
 
