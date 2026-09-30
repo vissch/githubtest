@@ -36,6 +36,7 @@ Shader "TW/GroundMark (URP)"
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
+            #define BloodNightFloor 0.55   // the least a blood mark is lit: the night field's shade is about 0.2
             CBUFFER_START(UnityPerMaterial)
                 half4 _Color;
                 float _Shape, _Alpha, _FadeFrom, _FadeOver, _DetailFrom, _DetailOver;
@@ -196,6 +197,9 @@ Shader "TW/GroundMark (URP)"
                 half3 trodden = _TWSnowColor.rgb * TWShadeTint() * 0.62;
                 half3 color = lerp(mud, trodden, snowy);
                 if (_Shape > 2.5) color = _Color.rgb * TWShadeTint() * 1.6;   // blood and scorch are what they are, on snow too
+                // blood keeps its red under the night's blue: shaded by how bright the shade is, not its hue, and never
+                // below a floor (frog critic rounds 1-3: at night the splats read as mud)
+                if (_Shape > 2.5 && _Shape < 3.5) color = _Color.rgb * max(dot(TWShadeTint(), half3(0.3, 0.59, 0.11)), BloodNightFloor) * 1.6;
                 // Standing water is a close thing twice over: it wants a view vector per pixel, and at range a rut is
                 // thinner than a pixel, so a sky mirror in it is a white speckle crawling over the field. It keeps a
                 // little of itself far out and comes fully in as the camera does.

@@ -294,7 +294,13 @@ Shader "TW/VAT Infantry (URP)"
                 // Offset per instance, or every soldier wears identical snow on the identical shoulder. The offset is
                 // CONSTANT per man, so it keeps the reason positionOS was used at all: it does not swim as he walks.
                 half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.tint * 13.7 + floor(i.positionWS.xzy * 0.37) * 3.1);
+            #if defined(_TW_LIMBCUT)
+                // the fallen lie face up to the sky, all of them snow's side: at 0.7 a corpse went pale grey all over and
+                // read as nobody in particular (frog critic round 3: the dead frogs lost their green); a dusting only
+                if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.2);
+            #else
                 if (snow > 0.0) albedo = lerp(albedo, _TWSnowColor.rgb, snow * 0.7);   // a man sheds some; he is warm and he moves
+            #endif
                 half3 glow = 0;   // the embers: emitted after the lighting, so they glow in shade and at night, not lit like cloth
                 // burned (AnimationController.Char, VatPad bits 22-23): 1 a man who was alight and lives, singed in
                 // blotches; 2 a charred corpse; 3 the same with the embers still in him, glowing in the cracks
