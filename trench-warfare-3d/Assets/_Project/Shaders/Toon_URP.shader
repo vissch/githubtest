@@ -289,6 +289,14 @@ Shader "TW/Toon (URP)"
                     half3 glints;
                     poolLight = max(albedo, 0.16) * TWPoolsAndGlints(i.positionWS, normalize(i.normalWS), glintR, glintW > 0.0, glints) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
                     color += glints * glintW;
+                    // look.propRim: a stump, a post, a sandbag beside a fire catches its edge warm, as the men do (critique round 13:
+                    // "foreground stumps solid black cutouts"); props only, the ground has _DetailStrength set
+                    if (_TWPropRim > 0.0 && _DetailStrength <= 0.0)
+                    {
+                        half3 propRim;
+                        TWPoolsOnFigure(i.positionWS, normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS), propRim);
+                        poolLight += propRim * _TWPropRim;
+                    }
                 }
                 color += poolLight * (1.0 - _TWPoolsThroughHaze);
                 color += _Emission.rgb;

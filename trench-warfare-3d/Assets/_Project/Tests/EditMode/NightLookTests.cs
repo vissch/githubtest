@@ -43,6 +43,7 @@ namespace TW.Tests
             Assert.AreEqual(1f, Atmosphere.DefaultLift); Assert.AreEqual(1f, Atmosphere.DefaultWet); Assert.AreEqual(1f, NightLights.DefaultPools);
             Assert.That(NightLights.DefaultPoolSoft, Is.InRange(0.01f, 1f), "the pools fall off softly from the lamp");
             Assert.Greater(NightLights.PoolGain, NightLights.FirePoolGain, "a soft falloff spreads a lamp's light thinner, so its gain rose; fires, which already flood the ground, kept theirs");
+            Assert.That(NightLights.DefaultPropRim, Is.InRange(0.05f, 0.3f), "props beside a fire catch a warm edge, but not so strong a flat slab blows to yellow");
             Assert.Greater(NightLights.DefaultMoreFires, 0, "more fires burn in no man's land than carry a real light");
             Assert.Greater(NightLights.FlareGlowWarm.r, NightLights.FlareGlowWarm.b, "the star shell's glow warm, never a stray blue orb (the owner's rule)");
             Assert.GreaterOrEqual(NightLights.FlareNeutral.r, NightLights.FlareNeutral.b, "and the light it throws not blue");
