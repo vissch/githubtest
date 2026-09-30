@@ -31,7 +31,7 @@ namespace TW.Presentation.Terrain
     public sealed partial class NightLights
     {
         public const int MaxPools = 32;   // TW_MAX_POOLS in TWLightPools.hlsl
-        public const float PoolReach = 6.5f, PoolGain = 5.2f, FirePoolGain = 4f;   // lamps 5.2 (6.4 in round 13 went white-hot: critique round 15); fires kept at 4, they already flood
+        public const float PoolReach = 6.5f, PoolGain = 5.2f, FirePoolGain = 3.2f;   // fires 4 -> 3.2 in round 17 (their pools clipped near wrecks)   // lamps 5.2 (6.4 in round 13 went white-hot: critique round 15); fires kept at 4, they already flood
         /// <summary>On by default since the owner's word (2026-09-29); look.pools 0 sets no pool: the old night.</summary>
         public const float DefaultPools = 1f;
         /// <summary>look.poolsThroughHaze: the share of a pool's light the Toon shader adds after the fog (1), so the
@@ -40,6 +40,11 @@ namespace TW.Presentation.Terrain
         /// <summary>What a pool does to its flame's colour: deeper toward orange. The lantern's own colour on the mud read
         /// as pale sand (Play, 2026-09-29); the owner's edits light the mud orange.</summary>
         public static readonly Vector3 PoolWarmth = new Vector3(1f, 0.74f, 0.5f);
+        /// <summary>look.poolAmber (1; 0 PoolWarmth alone): the lamps' pools deeper amber (round 17's critic: "flat cream
+        /// stamps"), and each lamp's reach varied by look.poolVary (+-30 %, seeded by where it hangs) so no two pools match.</summary>
+        public static readonly Vector3 PoolAmber = new Vector3(1f, 0.64f, 0.34f);
+        public const float DefaultPoolAmber = 1f, DefaultPoolVary = 0.3f;
+        float poolAmber = DefaultPoolAmber, poolVary = DefaultPoolVary;
         static readonly int PropRimId = Shader.PropertyToID("_TWPropRim"), UnblueId = Shader.PropertyToID("_TWPoolUnblue");
         public const float DefaultPoolUnblue = 0.6f;   // 1.2 tinged the lamp-lit sandbags acid yellow; 0.6 keeps the edge amber
         public const float DefaultPropRim = 0.18f;   // 0.35 blew a concrete slab by a fire to yellow (p995 0.79 -> 0.90); 0.18 keeps it orange
@@ -99,6 +104,8 @@ namespace TW.Presentation.Terrain
                 poolStrength = Mathf.Max(0f, Knobs.Get("look.pools", DefaultPools));
                 poolReach = Mathf.Clamp(Knobs.Get("look.poolReach", PoolReach), 1f, 20f);
                 firePoolStrength = Mathf.Max(0f, Knobs.Get("look.firePools", 1f));
+                poolAmber = Mathf.Clamp01(Knobs.Get("look.poolAmber", DefaultPoolAmber));
+                poolVary = Mathf.Clamp(Knobs.Get("look.poolVary", DefaultPoolVary), 0f, 0.6f);
                 Shader.SetGlobalFloat(ThroughHazeId, Mathf.Clamp01(Knobs.Get("look.poolsThroughHaze", DefaultThroughHaze)));
                 Shader.SetGlobalFloat(UnblueId, Mathf.Clamp(Knobs.Get("look.poolUnblue", DefaultPoolUnblue), 0f, 2f));
                 Shader.SetGlobalFloat(PropRimId, Mathf.Clamp(Knobs.Get("look.propRim", DefaultPropRim), 0f, 2f));
@@ -122,9 +129,12 @@ namespace TW.Presentation.Terrain
             {
                 var l = lanterns[i];
                 if (l == null || !l.enabled) continue;
-                float reach = poolReach * Mathf.Clamp(l.range / LanternRange, 0.8f, 1.3f);
+                Vector3 at = l.transform.position;
+                float vary = 1f + poolVary * (2f * Hash(Mathf.RoundToInt(at.x * 3f), Mathf.RoundToInt(at.z * 3f)) - 1f);
+                float reach = poolReach * Mathf.Clamp(l.range / LanternRange, 0.8f, 1.3f) * vary;
                 float strength = poolStrength * PoolGain * l.intensity / Mathf.Max(0.01f, LanternIntensity);
-                Keep(ref n, eye, l.transform.position, reach, new Vector3(l.color.r * PoolWarmth.x, l.color.g * PoolWarmth.y, l.color.b * PoolWarmth.z) * strength);
+                Vector3 warmth = Vector3.Lerp(PoolWarmth, PoolAmber, poolAmber);
+                Keep(ref n, eye, at, reach, new Vector3(l.color.r * warmth.x, l.color.g * warmth.y, l.color.b * warmth.z) * strength);
             }
             float fireGain = poolStrength * FirePoolGain * firePoolStrength;
             if (fireGain > 0f)
