@@ -43,6 +43,8 @@ namespace TW.Tests
             Assert.AreEqual(1f, Atmosphere.DefaultLift); Assert.AreEqual(1f, Atmosphere.DefaultWet); Assert.AreEqual(1f, NightLights.DefaultPools);
             Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");
             Assert.AreEqual(1f, Atmosphere.DefaultInkFade, "the ink fades with the haze, or distant wire is bare black outlines");
+            Assert.Less(Atmosphere.DefaultPuddleSky, 1f, "still water mirrors less of the pale sky at night: dark glass, not a pale slab");
+            Assert.Greater(Atmosphere.DefaultWaterDim, 0f, "the flooded ground's water sheet is darker at night");
             Assert.Greater(Atmosphere.DefaultGrade, 0f, "the night grade grounds the shadows in umber");
             Assert.Greater(Atmosphere.GradeUmber.x, Atmosphere.GradeUmber.z, "umber: warmer than the blue it replaces");
             Assert.Greater(Atmosphere.LiftHaze.grayscale, 0.35f, "the haze lighter than the lit ground, so the distance's silhouettes stand dark against it");

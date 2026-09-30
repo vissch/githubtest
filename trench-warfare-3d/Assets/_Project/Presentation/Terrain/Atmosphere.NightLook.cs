@@ -34,6 +34,11 @@
 // drops by look.gradeSat; the fog, lamps and highlights keep their colours. Re-applied to the volume live when a knob moves.
 // Swept at zoom 30 (2026-09-30): at 1 the saturation fell 0.54 -> 0.28, past the edit's 0.49, the blue shadow tint alone
 // doing most of it; 0.35 with no saturation cut gives 0.45-0.48, the near third 0.156 -> 0.145, the far third unchanged.
+// look.puddleSky (critique rounds 1-3, each time second: "pale flat slabs brighter than the mud, ice or plastic"): the
+// puddles mirror NightMud's SkyMirror (0.44, 0.54, 0.74), far lighter than the night ground; at night that mirror is
+// scaled by look.puddleSky, so still water reads as dark glass that shows the lamps' glints and the lightning, not paper.
+// The big pale slabs were the flooded ground's water sheet (Water_URP), bright mostly from its own moonlit body, which a
+// third of mirrored sky barely changes: look.waterDim darkens that body at night (0 by day).
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -134,6 +139,24 @@ namespace TW.Presentation.Terrain
             Vector4 sh = Vector4.Lerp(gradeShadows, GradeUmber, g); sh.w = gradeShadows.w - dark * g;
             gradeTones.shadows.Override(sh);
             gradeAdjust.saturation.Override(saturation - sat * g);
+        }
+
+        public const float DefaultPuddleSky = 0.5f, DefaultWaterDim = 0.45f;
+        static readonly int WaterDimId = Shader.PropertyToID("_TWWaterDim");
+        float puddleSky = DefaultPuddleSky, waterDim = DefaultWaterDim; int puddleKnobs = -1;
+
+        /// <summary>What the puddles mirror of the sky at night (look.puddleSky), 1 by day and on lava.</summary>
+        float PuddleSky()
+        {
+            if (puddleKnobs != Knobs.Generation)
+            {
+                puddleKnobs = Knobs.Generation;
+                puddleSky = Mathf.Clamp(Knobs.Get("look.puddleSky", DefaultPuddleSky), 0.1f, 1f);
+                waterDim = Mathf.Clamp(Knobs.Get("look.waterDim", DefaultWaterDim), 0f, 0.9f);
+            }
+            bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
+            Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
+            return night ? puddleSky : 1f;
         }
 
         /// <summary>A lifted colour at look.hazeLight's lightness.</summary>

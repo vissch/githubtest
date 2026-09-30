@@ -261,7 +261,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
-            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f);
+            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f); Shader.SetGlobalFloat(WaterDimId, 0f);
             ClearBiome();
             UnhookFog();
             if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
@@ -317,7 +317,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, new Vector4(mist.r, mist.g, mist.b, MistDensity));
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
-            Color mirror = Color.Lerp(SkyMirror, Profile.FlashMirror, flashNow * .55f);   // lightning shows in every puddle
+            Color mirror = Color.Lerp(SkyMirror * PuddleSky(), Profile.FlashMirror, flashNow * .55f);   // lightning shows in every puddle; look.puddleSky darkens the rest (Atmosphere.NightLook.cs)
             Shader.SetGlobalVector(SkyId, new Vector4(mirror.r, mirror.g, mirror.b, 1f));
             // Weather: two slow noises make the rain swell to a downpour and slacken to a drizzle over a minute or so, with
             // shorter gusts on top; the wind swings and freshens with it. Everything that shows rain reads the same number.

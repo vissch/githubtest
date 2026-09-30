@@ -56,6 +56,7 @@ Shader "TW/Water (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
+            float _TWWaterDim;   // look.waterDim, a global (Atmosphere.NightLook.cs)
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; };
@@ -135,6 +136,7 @@ Shader "TW/Water (URP)"
 
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);
+                color *= 1.0 - _TWWaterDim;   // look.waterDim (Atmosphere.NightLook.cs): at night still water is dark glass, not a pale slab; 0 by day
 
                 float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
                 float3 n = normalize(float3(slope.x * 0.6, 1.0, slope.y * 0.6));
