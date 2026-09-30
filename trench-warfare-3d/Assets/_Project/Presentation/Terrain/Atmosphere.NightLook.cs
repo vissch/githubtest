@@ -34,6 +34,8 @@
 // drops by look.gradeSat; the fog, lamps and highlights keep their colours. Re-applied to the volume live when a knob moves.
 // Swept at zoom 30 (2026-09-30): at 1 the saturation fell 0.54 -> 0.28, past the edit's 0.49, the blue shadow tint alone
 // doing most of it; 0.35 with no saturation cut gives 0.45-0.48, the near third 0.156 -> 0.145, the far third unchanged.
+// Round 15's critic: the ground still a single lavender blue (blue-cast 0.78-0.87 against the edit's 0.64). 0.5: blue-cast at
+// zoom 30 about 0.05 lower, saturation about 0.03 lower (0.55 took it to 0.39, well under the edit's 0.49).
 // look.puddleSky (critique rounds 1-3, each time second: "pale flat slabs brighter than the mud, ice or plastic"): the
 // puddles mirror NightMud's SkyMirror (0.44, 0.54, 0.74), far lighter than the night ground; at night that mirror is
 // scaled by look.puddleSky, so still water reads as dark glass that shows the lamps' glints and the lightning, not paper.
@@ -132,7 +134,7 @@ namespace TW.Presentation.Terrain
 
         /// <summary>look.grade's shadows: umber-grey, warm against the blue haze (ShadowsMidtonesHighlights weights).</summary>
         public static readonly Vector4 GradeUmber = new Vector4(1.08f, 1.0f, 0.90f, 0f);
-        public const float DefaultGrade = 0.35f, DefaultGradeSat = 0f, DefaultGradeDark = 0.04f;
+        public const float DefaultGrade = 0.5f, DefaultGradeSat = 0f, DefaultGradeDark = 0.04f;
         ColorAdjustments gradeAdjust; ShadowsMidtonesHighlights gradeTones; int gradeLookAt = -1; bool gradeNight;
 
         /// <summary>look.grade on the volume: the shadows toward umber and darker, the saturation down, only on a dark field.</summary>

@@ -64,7 +64,7 @@ half3 TWLightPools(float3 positionWS, half3 normalWS)
 /// TW_FIGURE_POOLS pools only. NightLights sorts them best first for the camera, so these are the ones that light the
 /// most of what it sees; looping all 32 twice over a thousand men cost the GPU 0.8 to 1.6 ms (bench, 2026-09-30).
 #define TW_FIGURE_POOLS 12
-half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3 rimOut)
+half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3 rimOut, half edgeLo = 0.30)
 {
     half3 sum = 0; rimOut = 0;
     half edge = 1.0 - saturate(dot(normalWS, viewWS));
@@ -80,7 +80,7 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
         float tp = t * 1.25;                                                    // the pool's own reach, not the rim's
         half band = tp < 1.0 ? TWPoolBand(tp) : 0.0;
         sum += _TWPoolTint[k].rgb * band * (toward * 0.6 + 0.4);
-        rimOut += _TWPoolTint[k].rgb * smoothstep(0.30, 0.38, edge * toward) * (1.0 - smoothstep(0.45, 1.0, t));
+        rimOut += _TWPoolTint[k].rgb * smoothstep(edgeLo, edgeLo + 0.08, edge * toward) * (1.0 - smoothstep(0.45, 1.0, t));
     }
     return TWPoolRoll(sum);
 }
