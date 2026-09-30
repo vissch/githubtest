@@ -112,9 +112,14 @@ namespace TW.Presentation.Terrain
             glow = new Material(Shader.Find("TW/Glow (URP)")) { hideFlags = HideFlags.HideAndDontSave };
             flareGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
             owned.Add(glow); owned.Add(flareGlow);
+            // look.warmFlare (NightLights.Pools.cs): a neutral light and a smaller, warm glow; the cold 9 m orb read as a stray
+            // blue glow in the lifted haze (critique rounds 1, 5)
+            bool warmFlare = WarmFlareLook;
+            if (warmFlare) Flare = FlareNeutral;
             flareLight = MakeLight("Star shell", Flare, 0f, 95f);
             flare = flareLight.transform; flareLight.enabled = false;
-            AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(9f, .25f, .3f, .2f) }, new[] { new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
+            AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(warmFlare ? 5f : 9f, .25f, .3f, .2f) },
+                new[] { warmFlare ? new Color(FlareGlowWarm.r, FlareGlowWarm.g, FlareGlowWarm.b, 1.4f) : new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
             flareGlow.SetColor("_Tint", Color.black);
             nextFlare = Time.time + 6f;
             // one small mesh holds a card per pooled light; its vertices are rewritten each frame (32 of them), and after
@@ -309,7 +314,9 @@ namespace TW.Presentation.Terrain
                 Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 0f, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 0f, len + 30f + 60f * a);
                 p.y = GreyboxTerrainView.SkirtLevel + .2f * b;
                 fireCentres.Add(p); fireShapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); fireColors.Add(new Color(1f, .55f, .2f, .16f + .1f * a));
+                HorizonCore(p, a, b, k, fireCentres, fireShapes, fireColors);   // look.horizonFires (NightLights.Pools.cs)
             }
+            if (HorizonFiresLook) for (int k = 0; k < fireColors.Count; k += 2) { var c = fireColors[k]; fireColors[k] = new Color(c.r, c.g * .82f, c.b * .6f, c.a * .3f); }   // the wide glow deeper orange and faint: in the lifted haze it floated as a pale sliver
             var fireHost = new GameObject("Horizon fires") { hideFlags = HideFlags.DontSave };
             fireHost.transform.SetParent(transform, false);
             var fireGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
