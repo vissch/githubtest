@@ -241,6 +241,19 @@ An Explicit skip only counts.
 Every EditMode test takes about eleven minutes on the desktop; without the Long tests about four. After a full gate
 `test-results.xml` holds only PlayMode.
 
+**A behaviour change, A/B (2026-10-01).** `BehaviourBenchTests.Report_HowEveryUnitBehaves` (Explicit) plays three
+eight-minute matches with the scene's enemy on both seats and scores every unit (machines jammed, spinning, hunting;
+men stuck, idle under fire, piled up; deaths in clumps), naming the worst. It is deterministic, so two reports are an
+A/B with no noise to measure. From `trench-warfare-3d/`, this checkout's editor closed:
+- `python Tools/abtest.py bench --file trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs --variant try=<copy>.cs`
+  runs it on the working tree ("now") and on each variant, and prints each metric side by side with whether every
+  seed moved the same way. Any report test that writes `<TW_BENCH_OUT>.json` works (`--filter`). The matches are
+  deterministic but chaotic (a change moves every later tick): trust what every seed agrees on, and pass `--seeds
+  1,2,3,4,5,6` or more before believing a match-wide number (deaths, who wins, when).
+- `python Tools/abtest.py fails-on-old --file <changed file> --filter <new test> [--old HEAD~1]`: the new test must
+  pass on the change and fail on the older copy of the file (HEAD's unless `--old` says), or it guards nothing.
+The study that finds a behaviour problem (MachineStudy, a match in Play at 4x) is not deterministic; decide with these.
+
 ### False reds
 - **After Play in the same editor:** statics not reset by `SceneStatics` (the `Explained` list in
   StaticLifecycleTests) survive leaving Play. `RequestScriptReload` and rerun; a red that survives that is real.
