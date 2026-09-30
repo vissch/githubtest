@@ -15,8 +15,8 @@ All three are 23 commits behind origin's integration branch and need a rebase be
 the owner's word.** Landing order: B, then C, then A. After rebasing B, rerun the determinism, replay and hash tests
 (the replay version is set at landing).
 
-`fx.deathAbsurd` (a developer knob) **defaults to 0**, which is exactly today's deaths. It stays at 0 until the owner
-has seen captures and says so. The owner's decisions are in `docs/reference/decisions.md` (2026-09-28): slapstick plus
+`fx.deathAbsurd` (a developer knob) **defaults to 1** since 2026-09-30 (the owner: "turn it on and let me test it";
+`decisions.md` row). 0 is still exactly today's deaths. The owner's decisions are in `docs/reference/decisions.md` (2026-09-28): slapstick plus
 gore, with the GORE slider turning it down; parts cut from existing models only; wrecks damaged by explosions,
 ramming, gunfire and automatic targeting; salvage value kept.
 
@@ -131,3 +131,24 @@ $env:TW_STILLS_DIR="<scratch>\stills-rN"
    - The Skimmer's fan lands pale grey; its material doesn't take the scorch.
    - The laid-out track reads as a plain plank.
    - The rocket pops are small.
+
+## Update 2026-09-30: the frog play test and 13 critic rounds
+
+The owner asked for a level with all the frog units on the player's side, to test the deaths in. It is a **local test
+branch, `test/frog-deaths`, in the worktree `githubtest-frog-test`**: origin's `lane/show/proving-ground` (unlanded:
+the Frog, Croaker and Hopper as battle units, SIM seams, replay v16/v17) with this lane merged in. It never lands.
+The player's ten there default to six Frogs, two Croakers and two Hoppers (`ProvingGround.FrogTen`).
+
+What the loop moved onto this lane (each gated and pushed): blood on the uniform as blotches, not a red dye; the fallen
+take snow at 0.2; blood marks and thrown parts keep their colour at night; the shell smoke lifts off its dead
+(`SmokeLift*`); the fountain fans wider and a beat further apart; torn halves at life size. On the test branch only:
+the Frog baked in its own colours (tunic and kit a shade darker), frog parts cut from `FigureFrog`, the Croaker and
+Hopper atlases pushed to frog green, a dead flyer crashes fast and sheds its engines, wings and tail, wrecks keep some
+paint under the soot, and the staging tools (`DeathLab` frog scenes, `HoldFire`, `Tough`; `DeathStills` framing).
+
+Scores (a blind critic, /100, capped at 49 while any moment fails its readability check): 28, 35, 40, 49, 48, 45, 45,
+47, 48, 49 (52.5 raw), 49 (55 raw), 49 (52.5 raw), 53 (round 13, no readability veto). What the critic still marks down, beyond staging:
+the enemy riflemen are pale specks on snow and rifles carry no day tracer (by design); a machine-gunned row thins
+slowly; the Croaker's wreck ends as a heap (its legs do not visibly splay) under a tall static flame cone; frog corpses
+read khaki at the play zoom; the red cut ends read as caps. The film scripts and rubric are in the session's
+scratchpad (`film.ps1`, `round.ps1`, `bundle.py`, `RUBRIC_frog.md`).
