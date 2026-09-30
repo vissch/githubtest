@@ -143,6 +143,24 @@ namespace TW.Presentation.Terrain
             poolD[at] = d; poolAt[at] = new Vector4(p.x, p.y, p.z, reach); poolTint[at] = new Vector4(tint.x, tint.y, tint.z, 0f);
         }
 
+        /// <summary>look.horizonFires (1; 0 the old): the fires on the horizon read as pale slivers floating in the lifted
+        /// haze (critique round 5), where the owner's edit has far fires as small hot points punching through it. Each gets
+        /// a small orange core standing on its glow, and the wide glow goes deeper orange and fades to a third. Read once, as the lamps are built.</summary>
+        static bool HorizonFiresLook => Knobs.Get("look.horizonFires", 1f) > 0f;
+
+        static void HorizonCore(Vector3 p, float a, float b, int k, List<Vector3> centres, List<Vector4> shapes, List<Color> colors)
+        {
+            if (!HorizonFiresLook) return;
+            centres.Add(p + Vector3.up * (0.6f + 0.5f * b));
+            shapes.Add(new Vector4(1.1f + 0.6f * a, .9f, k * .31f + .5f, .9f));
+            colors.Add(new Color(1f, .5f, .16f, .38f + .12f * b));   // at .75-.95 the core blew out to white
+        }
+
+        /// <summary>look.warmFlare (1; 0 the old): the star shell lights the field neutral white instead of cold blue, and its
+        /// glow card is smaller (5 m, was 9) and warm, so it reads as a burning flare, not a blue orb. Read once, at Start.</summary>
+        static bool WarmFlareLook => Knobs.Get("look.warmFlare", 1f) > 0f;
+        public static readonly Color FlareNeutral = new Color(1f, 0.96f, 0.88f), FlareGlowWarm = new Color(1f, 0.82f, 0.55f);
+
         /// <summary>No pools once the lights are gone.</summary>
         void ClearPools()
         {
