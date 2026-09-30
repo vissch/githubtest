@@ -13,8 +13,10 @@
 //   look.firePools  how strong the pools of the fires that come and go are (1): a burning machine or wreck, a flamethrower's
 //                   fires. Before, only the lamps built with the scene had pools, and a wreck burning for a minute lit
 //                   nothing round it (the owner's colour edit lights the mud round every burning wreck); 0 leaves them out
-//   look.poolSoft   the bands toward a soft falloff (0.35; round 5's critic: "cut-out discs"). At 0.6 the pools lost their
-//                   rim but the light spread thinner: warm pixels 1.9 -> 1.4 % at pose c; 0.35 keeps 1.8 %
+//   look.poolSoft   the bands toward a soft falloff (1; round 5's critic: "cut-out discs"). Soft alone spread the light
+//                   thinner (warm pixels 1.9 -> 1.4 % at pose c), so it waited at 0.35 until round 13's critic asked for a
+//                   hot core fading to the edge: fully soft with the lamps' gain 4 -> 6.4 lifts warm pixels (pose a 2.8 ->
+//                   3.5 %, c 2.2 -> 2.6 %) and the pool falls off from the lamp instead of lying flat
 //   look.poolShoulder  a roll-off for bright sums (0: no fire pool clipped, 0.00 % of pixels over 0.95 at zoom 14)
 //   look.poolsThroughHaze  the share of a pool's light the Toon shader adds after the fog (1): with the haze lifted
 //                   the distance's lamps went out in it (warm pixels 2.8 to 1.6 %, 2026-09-30); 0 fogs them as before
@@ -29,7 +31,7 @@ namespace TW.Presentation.Terrain
     public sealed partial class NightLights
     {
         public const int MaxPools = 32;   // TW_MAX_POOLS in TWLightPools.hlsl
-        public const float PoolReach = 6.5f, PoolGain = 4f;
+        public const float PoolReach = 6.5f, PoolGain = 6.4f, FirePoolGain = 4f;   // lamps 6.4 since round 13 (soft falloff, hot core); fires kept at 4, they already flood
         /// <summary>On by default since the owner's word (2026-09-29); look.pools 0 sets no pool: the old night.</summary>
         public const float DefaultPools = 1f;
         /// <summary>look.poolsThroughHaze: the share of a pool's light the Toon shader adds after the fog (1), so the
@@ -41,7 +43,7 @@ namespace TW.Presentation.Terrain
         static readonly int ThroughHazeId = Shader.PropertyToID("_TWPoolsThroughHaze"), PoolSoftId = Shader.PropertyToID("_TWPoolSoft"), PoolShoulderId = Shader.PropertyToID("_TWPoolShoulder");
         /// <summary>look.poolSoft: the bands toward a soft falloff; look.poolShoulder: the roll-off that keeps a fire's pool
         /// from clipping (critique round 5: "cut-out discs", fire pools clipping).</summary>
-        public const float DefaultPoolSoft = 0.35f, DefaultPoolShoulder = 0f;
+        public const float DefaultPoolSoft = 1f, DefaultPoolShoulder = 0f;
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
@@ -119,7 +121,7 @@ namespace TW.Presentation.Terrain
                 float strength = poolStrength * PoolGain * l.intensity / Mathf.Max(0.01f, LanternIntensity);
                 Keep(ref n, eye, l.transform.position, reach, new Vector3(l.color.r * PoolWarmth.x, l.color.g * PoolWarmth.y, l.color.b * PoolWarmth.z) * strength);
             }
-            float fireGain = poolStrength * PoolGain * firePoolStrength;
+            float fireGain = poolStrength * FirePoolGain * firePoolStrength;
             if (fireGain > 0f)
                 for (int i = 0; i < firePools.Count; i++) { var e = firePools[i]; Keep(ref n, eye, e.At, e.Reach, e.Tint * fireGain); }
             Shader.SetGlobalVectorArray(PoolsId, poolAt);
