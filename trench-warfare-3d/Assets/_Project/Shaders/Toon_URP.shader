@@ -294,7 +294,9 @@ Shader "TW/Toon (URP)"
                     if (_TWPropRim > 0.0 && _DetailStrength <= 0.0)
                     {
                         half3 propRim;
-                        TWPoolsOnFigure(i.positionWS, normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS), propRim);
+                        // a narrower band than the men's (0.52, not 0.30): at 0.30 a big flat face seen at a slant was all "edge"
+                        // and a concrete slab by a fire lit whole (critique round 15)
+                        TWPoolsOnFigure(i.positionWS, normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS), propRim, 0.52);
                         poolLight += propRim * _TWPropRim;
                     }
                 }

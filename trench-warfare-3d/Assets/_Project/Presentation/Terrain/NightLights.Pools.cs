@@ -31,7 +31,7 @@ namespace TW.Presentation.Terrain
     public sealed partial class NightLights
     {
         public const int MaxPools = 32;   // TW_MAX_POOLS in TWLightPools.hlsl
-        public const float PoolReach = 6.5f, PoolGain = 6.4f, FirePoolGain = 4f;   // lamps 6.4 since round 13 (soft falloff, hot core); fires kept at 4, they already flood
+        public const float PoolReach = 6.5f, PoolGain = 5.2f, FirePoolGain = 4f;   // lamps 5.2 (6.4 in round 13 went white-hot: critique round 15); fires kept at 4, they already flood
         /// <summary>On by default since the owner's word (2026-09-29); look.pools 0 sets no pool: the old night.</summary>
         public const float DefaultPools = 1f;
         /// <summary>look.poolsThroughHaze: the share of a pool's light the Toon shader adds after the fog (1), so the
