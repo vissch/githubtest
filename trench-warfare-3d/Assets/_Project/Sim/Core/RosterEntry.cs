@@ -152,6 +152,8 @@ namespace TW.Sim
         public const byte RenaultFT = 32; // Renault FT: the Tusk's turret, a narrower trench
         public const byte Whippet = 33;// Whippet: quick, machine guns only
         public const byte Austin = 34; // Austin armoured car: wheels, two machine guns, ditches in anything
+        public const byte Bullfrog = 37;// the playground's toad mech (2026-09-30): two gatlings over its back; it hops, so it
+                                       // clears trenches and wire and has no legs to lose
         /// <summary>
         /// What kind of machine each SHIPPED id is. This is the seed of RosterEntry.Chassis and nothing else: the
         /// three predicates that used to live here (IsTank, IsWalker, IsArmoured, the last a range check over 6..11)

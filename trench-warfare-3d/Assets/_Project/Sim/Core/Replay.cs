@@ -77,7 +77,9 @@ namespace TW.Sim
         // generation seen) join the chain; MovementSystem.EngageMelee and Stance.Melee; UnitFlags Melee, Disarmed and
         // Pouncing (bits 16-18); events MeleeBlow, WeaponDropped, WeaponPickedUp, PounceCrouched, PounceLanded appended;
         // random streams Melee 23 and Pounce 24.
-        public const ushort FormatVersion = 25;
+        // v26 (2026-09-30, the Bullfrog): VehicleArchetype.Bullfrog 37 in UnitDefinitions.All: the unit table's and the
+        // combat catalogue's fingerprints change. Layout and chain unchanged.
+        public const ushort FormatVersion = 26;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

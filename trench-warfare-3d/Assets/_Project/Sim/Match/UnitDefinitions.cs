@@ -45,6 +45,7 @@ namespace TW.Sim.Match
             // the Proving Ground (2026-09-28): in id order
             Brute, Croaker, Hopper, Mercy, Frog, Sentry, AtRifle, DeathBattalion,
             MarkIV, MarkV, A7V, RenaultFT, Whippet, Austin, Sapper, Flamethrower,
+            Bullfrog,   // 2026-09-30: the playground's toad mech
         };
 
         /// <summary>The ids the Proving Ground added (2026-09-28), for the tests and the tools that list them.</summary>
@@ -429,6 +430,29 @@ namespace TW.Sim.Match
             Roster = Man(InfantryArchetype.Sapper, 70, 100f, 3.0f, 200),
             Infantry = new InfantrySpec { Group = OrderGroup.Support, MineCharges = 2 },
             Weapon = Borrowed(InfantryArchetype.Officer, InfantryArchetype.Sapper),
+        };
+
+        /// <summary>Bullfrog (37): the playground's toad mech (owner, 2026-09-30: "play with all the new models"). Two
+        /// gatlings over its back as one weapon, a fast stream of light rounds that pins men and scratches thin plate. It
+        /// hops rather than walks (its legs are welded into its body), so the sim carries it as the Hopper is carried: a
+        /// walker profile with no legs to lose, clearing trenches and wire, never bogging or ditching, pushing nothing.
+        /// Placeholder numbers between the Whippet and the Croaker. Drawn hopping from its own model (SHOW).</summary>
+        public static UnitDef Bullfrog => new UnitDef
+        {
+            Archetype = VehicleArchetype.Bullfrog,
+            Roster = Machine(VehicleArchetype.Bullfrog, 280, 1600f, 3.4f, 480, ChassisKind.Tracked),
+            Infantry = new InfantrySpec { Group = OrderGroup.Line },
+            Weapon = MachineGun(VehicleArchetype.Bullfrog, 140f, 12f),
+            Machine = new TankSpec
+            {
+                Hull = Plate(12f, 10f, 8f, 6f), Turret = Plate(10f, 8f, 8f, 6f),
+                TurretChance = 0.3f, Crew = 2, GunCount = 0, ShortHalt = false, FuelRisk = 0.25f, AmmoRisk = 0.45f,
+            },
+            Drive = new VehicleProfile
+            {
+                TurnRateRad = 1.4f, TrenchCrossWidth = 4.0f, DitchChance = 0f, SlopeLimit = 0.9f, BogChance = 0f,
+                HalfLength = 1.75f, HalfWidth = 2.0f, PushesTrees = false, Walker = true, Legs = 0,   // its model: 3.5 m long, 4 m across the guns
+            },
         };
 
         /// <summary>Flamethrower (36): a cone of fire to 12 m, four bursts a second, and every hit sets the man and the
