@@ -39,6 +39,8 @@
 // scaled by look.puddleSky, so still water reads as dark glass that shows the lamps' glints and the lightning, not paper.
 // The big pale slabs were the flooded ground's water sheet (Water_URP), bright mostly from its own moonlit body, which a
 // third of mirrored sky barely changes: look.waterDim darkens that body at night (0 by day).
+// Round 7's critic: the big slab still pale at 0.45 / 0.5; at 0.7 / 0.4 it reads as dark water (b_z30 crop p90 0.212 -> 0.200,
+// near third within 0.01); 0.9 / 0.1 darker still.
 // look.rainCurtain (round 7's critic, the loudest defect at the wide view: vertical stripes over the sky): the distant rain
 // curtains are the haze colour times 1.9, near white once the haze was lifted and lightened; while lifted they are 1.15
 // times it at look.rainCurtain of their alpha.
@@ -144,7 +146,7 @@ namespace TW.Presentation.Terrain
             gradeAdjust.saturation.Override(saturation - sat * g);
         }
 
-        public const float DefaultPuddleSky = 0.5f, DefaultWaterDim = 0.45f;
+        public const float DefaultPuddleSky = 0.4f, DefaultWaterDim = 0.7f;
         static readonly int WaterDimId = Shader.PropertyToID("_TWWaterDim"), CurtainId = Shader.PropertyToID("_TWCurtain");
         /// <summary>look.rainCurtain: the distant rain curtains' alpha while lifted (their colour 1.15 times the haze, was 1.9).</summary>
         public const float DefaultCurtain = 0.75f, CurtainPale = 1.15f;
