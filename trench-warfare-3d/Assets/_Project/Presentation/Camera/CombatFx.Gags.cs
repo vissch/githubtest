@@ -89,6 +89,9 @@ namespace TW.Presentation.Tactical
         /// <summary>Blood and scorch marks at once (their own pool: blood never pushes a rut or a boot print out). Past it
         /// the one nearest gone is overwritten.</summary>
         public const int MaxGagMarks = 192;
+        /// <summary>A shell's smoke with the absurd deaths on (CombatFx, the burst): where its puffs start (in blast radii
+        /// up), how fast they climb (m/s; 0.4 at 0) and the share of today's life and opacity they keep.</summary>
+        public const float SmokeLiftBase = 0.9f, SmokeLiftRise = 1.6f, SmokeLiftFade = 0.6f;
         /// <summary>How long a splat lies on mud, and on snow (where nothing closes over it).</summary>
         public const float BloodLife = 45f, BloodLifeSnow = 150f;
         readonly Material[] gagMarkMats = new Material[2];   // shape 3 blood, 4 scorch
