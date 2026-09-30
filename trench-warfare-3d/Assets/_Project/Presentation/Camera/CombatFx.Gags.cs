@@ -91,7 +91,7 @@ namespace TW.Presentation.Tactical
         public const int MaxGagMarks = 192;
         /// <summary>A shell's smoke with the absurd deaths on (CombatFx, the burst): where its puffs start (in blast radii
         /// up), how fast they climb (m/s; 0.4 at 0) and the share of today's life and opacity they keep.</summary>
-        public const float SmokeLiftBase = 0.9f, SmokeLiftRise = 1.6f, SmokeLiftFade = 0.6f;
+        public const float SmokeLiftBase = 1.2f, SmokeLiftRise = 2.2f, SmokeLiftFade = 0.45f;   // frog round 4: at 0.9, 1.6, 0.6 it still hid the shell moment for four stills
         /// <summary>How long a splat lies on mud, and on snow (where nothing closes over it).</summary>
         public const float BloodLife = 45f, BloodLifeSnow = 150f;
         readonly Material[] gagMarkMats = new Material[2];   // shape 3 blood, 4 scorch
