@@ -285,6 +285,7 @@ namespace TW.Presentation.Terrain
                 flameFeet.Add(at + new Vector3(.35f, -.3f, .2f)); flameShapes.Add(new Vector4(.7f, 1.0f, Hash(i, 101), 0f));
                 fires++;
             }
+            MoreFires(map, len, centres, shapes, colors, flameFeet, flameShapes);   // look.moreFires (NightLights.Pools.cs)
             // torches on a stake where a path reaches a dugout
             int torches = 0;
             for (int i = 0; i < sites.Count && torches < maxTorches; i++)

@@ -42,6 +42,7 @@ namespace TW.Tests
         {
             Assert.AreEqual(1f, Atmosphere.DefaultLift); Assert.AreEqual(1f, Atmosphere.DefaultWet); Assert.AreEqual(1f, NightLights.DefaultPools);
             Assert.That(NightLights.DefaultPoolSoft, Is.InRange(0.01f, 0.5f), "softened, but not so far that the pools' warm light spreads thin");
+            Assert.Greater(NightLights.DefaultMoreFires, 0, "more fires burn in no man's land than carry a real light");
             Assert.Greater(NightLights.FlareGlowWarm.r, NightLights.FlareGlowWarm.b, "the star shell's glow warm, never a stray blue orb (the owner's rule)");
             Assert.GreaterOrEqual(NightLights.FlareNeutral.r, NightLights.FlareNeutral.b, "and the light it throws not blue");
             Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");

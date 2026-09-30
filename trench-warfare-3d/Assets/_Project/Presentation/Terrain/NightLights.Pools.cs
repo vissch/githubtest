@@ -161,6 +161,29 @@ namespace TW.Presentation.Terrain
         static bool WarmFlareLook => Knobs.Get("look.warmFlare", 1f) > 0f;
         public static readonly Color FlareNeutral = new Color(1f, 0.96f, 0.88f), FlareGlowWarm = new Color(1f, 0.82f, 0.55f);
 
+        /// <summary>look.moreFires (6; 0 none): burning trees in no man's land past the MaxFires that carry a real light,
+        /// each with its flames, its glow card and a painted pool, but no light: the renderer takes eight an object, and the
+        /// pool is what shows. Round 7's critic: warm light too sparse in an ordinary view (0.7 % against the edit's 2.4 %).</summary>
+        public const int DefaultMoreFires = 6;
+
+        void MoreFires(TW.Sim.Terrain.MapData map, float len, List<Vector3> centres, List<Vector4> shapes, List<Color> colors, List<Vector3> flameFeet, List<Vector4> flameShapes)
+        {
+            int want = Mathf.Clamp((int)Knobs.Get("look.moreFires", (float)DefaultMoreFires), 0, 24), made = 0;
+            for (int i = 0; i < map.Props.Length && made < want; i++)
+            {
+                var prop = map.Props[i];
+                if (prop.Kind != TW.Sim.Terrain.PropKind.BrokenTree && prop.Kind != TW.Sim.Terrain.PropKind.Stump) continue;
+                float h = Hash(i, 61);
+                if (prop.Pos.z < len * .2f || prop.Pos.z > len * .8f || h <= .16f || h > .42f) continue;   // not the lit ones (<= .16)
+                bool stump = prop.Kind == TW.Sim.Terrain.PropKind.Stump;
+                Vector3 at = new Vector3(prop.Pos.x, RenderGround.Sample(map, prop.Pos.x, prop.Pos.z) + (stump ? .5f : 1.3f), prop.Pos.z);
+                centres.Add(at); shapes.Add(new Vector4(2.6f, .6f, i * .173f, .4f)); colors.Add(new Color(1f, .45f, .12f, .75f));
+                flameFeet.Add(at - Vector3.up * .15f); flameShapes.Add(new Vector4(.95f, 1.5f, Hash(i, 97), 0f));
+                AddFirePool(at + Vector3.up * .4f, Burst, 0.9f, 9f, 1e7f);   // held for the scene's life
+                made++;
+            }
+        }
+
         /// <summary>No pools once the lights are gone.</summary>
         void ClearPools()
         {
