@@ -57,7 +57,7 @@ namespace TW.Tests
             return slots.Count == 0 ? -1 : slots[n % slots.Count];
         }
 
-        public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8, System.Action<MatchSim> each = null)
+        public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8, System.Action<MatchSim> each = null, ScriptedEnemy player = null)
         {
             var cfg = SimConfig.Default; cfg.Seed = seed; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2;   // GreyboxCorridor's
             var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 8f;
@@ -66,7 +66,8 @@ namespace TW.Tests
             var said = new StringBuilder();
             var callers = ai.Said;   // a caller's own listener hears it too
             ai.Said = x => { said.AppendLine("  enemy: " + x); callers?.Invoke(x); };
-            var mirror = policy == Policy.Script ? new ScriptedEnemy { Side = 0, Said = x => said.AppendLine("  player: " + x) } : null;
+            var mirror = policy == Policy.Script ? player ?? new ScriptedEnemy { Side = 0 } : null;   // (the behaviour bench seats its own, fielding machines)
+            if (mirror != null) mirror.Said = x => said.AppendLine("  player: " + x);
             var seat = new Seat(session.LocalDriver);
             var m = session.Local; var w = m.World;
             var r = new Report { Winner = -1, AttackAt = attackAt, Deployed = new int[2], ByFire = new int[2], ByBlast = new int[2], ByGas = new int[2], ByOther = new int[2] };
