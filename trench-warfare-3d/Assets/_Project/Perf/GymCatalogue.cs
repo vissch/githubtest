@@ -166,6 +166,7 @@ namespace TW.Perf
                 case SimEventType.LeapStarted: case SimEventType.BreakerPhase: case SimEventType.CriticalHit:
                 case SimEventType.UnitHealed: case SimEventType.VehicleHullMended: case SimEventType.ShieldBlocked:
                 case SimEventType.VehicleFired: case SimEventType.VehicleArmourHit: case SimEventType.VehicleModuleHit:
+                case SimEventType.RocketFired:   // the Salvo's rack, fired at the Units tab's enemy line
                     return (GymExpect.Covered, "the Units tab, staged against an enemy line");
                 // hard to stage alone: replayed into the presentation, marked preview
                 case SimEventType.UnitEnteredTrench: case SimEventType.UnitLeftTrench: case SimEventType.TrenchCaptured:
@@ -179,6 +180,8 @@ namespace TW.Perf
                 case SimEventType.MineCleared: case SimEventType.HeroMoment: case SimEventType.HeroFeat:
                 case SimEventType.HeroSurvived: case SimEventType.HeroFallen: case SimEventType.VeteranDeployed:
                 case SimEventType.WreckRecorded:
+                case SimEventType.SapperOrdered: case SimEventType.SapperLaying:   // a sapper at work needs an order and time
+                case SimEventType.GrenadeThrown:   // a man in the open 5-22 m from a trench: an assault, not a staged line
                     return (GymExpect.Preview, "preview (effects only): replayed into the presentation's frame at a staged unit; the men never see it");
                 // no picture of their own
                 case SimEventType.ObjectiveCaptured: return (GymExpect.Excluded, "HUD only");
