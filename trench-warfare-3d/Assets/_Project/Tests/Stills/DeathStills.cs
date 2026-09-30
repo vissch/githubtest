@@ -208,7 +208,7 @@ namespace TW.Tests
                 string stem = $"a{tag}_{scene}";
                 for (int k = 0; k < frames; k++)
                 {
-                    float due = start + Due(scene, k, seconds, frames);
+                    float due = start + Due(scene, k, seconds, frames) + (scene.StartsWith("frog") && k == 0 ? 0.15f : 0f);   // the first still once the row is drawn (round 6: an empty field)
                     while (Time.time < due) yield return null;
                     string path = Path.Combine(dir, $"{stem}_{k:00}.png");
                     // the base yaw pinned before every shot, as WalkerStills does, or the shot's yaw drifts with the camera's own
