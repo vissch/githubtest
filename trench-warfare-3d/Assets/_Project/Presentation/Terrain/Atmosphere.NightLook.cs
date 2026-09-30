@@ -28,9 +28,16 @@
 // and their ink stayed, bare black outlines. So the haze is thinner (reach 0.5) and 1.45 times lighter, and the ink fades
 // with the distance fog (look.inkFade, InkLines_URP): far third 0.21-0.23 -> 0.25-0.27 (the edit 0.25), edges up at every
 // pose (a_z30 0.081 -> 0.097), the distance's silhouettes darker than the haze behind them. look.hazeLight scales it.
+// look.grade (round 3's critic: "blue down to the shadows"): the owner's colour edit keeps blue for the sky, the haze and
+// the wet sheen and grounds the mud in dark umber-grey; NightMud's grade pushes its shadows blue (0.92, 0.98, 1.12) at
+// saturation +4. At look.grade 1 the shadows turn umber (GradeUmber) and darken by look.gradeDark, and the saturation
+// drops by look.gradeSat; the fog, lamps and highlights keep their colours. Re-applied to the volume live when a knob moves.
+// Swept at zoom 30 (2026-09-30): at 1 the saturation fell 0.54 -> 0.28, past the edit's 0.49, the blue shadow tint alone
+// doing most of it; 0.35 with no saturation cut gives 0.45-0.48, the near third 0.156 -> 0.145, the far third unchanged.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using TW.Presentation;
 
 namespace TW.Presentation.Terrain
@@ -109,6 +116,25 @@ namespace TW.Presentation.Terrain
 
         /// <summary>A haze colour taken toward its lifted one by k (k 0: the colour unchanged).</summary>
         public static Color Lifted(Color c, Color to, float k) => k <= 0f ? c : Color.Lerp(c, to, Mathf.Clamp01(k));
+
+        /// <summary>look.grade's shadows: umber-grey, warm against the blue haze (ShadowsMidtonesHighlights weights).</summary>
+        public static readonly Vector4 GradeUmber = new Vector4(1.08f, 1.0f, 0.90f, 0f);
+        public const float DefaultGrade = 0.35f, DefaultGradeSat = 0f, DefaultGradeDark = 0.04f;
+        ColorAdjustments gradeAdjust; ShadowsMidtonesHighlights gradeTones; int gradeLookAt = -1; bool gradeNight;
+
+        /// <summary>look.grade on the volume: the shadows toward umber and darker, the saturation down, only on a dark field.</summary>
+        void GradeLook()
+        {
+            if (gradeTones == null || gradeAdjust == null) return;
+            bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
+            if (gradeLookAt == Knobs.Generation && gradeNight == night) return;
+            gradeLookAt = Knobs.Generation; gradeNight = night;
+            float g = night ? Mathf.Clamp01(Knobs.Get("look.grade", DefaultGrade)) : 0f;
+            float sat = Knobs.Get("look.gradeSat", DefaultGradeSat), dark = Knobs.Get("look.gradeDark", DefaultGradeDark);
+            Vector4 sh = Vector4.Lerp(gradeShadows, GradeUmber, g); sh.w = gradeShadows.w - dark * g;
+            gradeTones.shadows.Override(sh);
+            gradeAdjust.saturation.Override(saturation - sat * g);
+        }
 
         /// <summary>A lifted colour at look.hazeLight's lightness.</summary>
         Color Light(Color c) => new Color(Mathf.Min(1f, c.r * hazeLight), Mathf.Min(1f, c.g * hazeLight), Mathf.Min(1f, c.b * hazeLight), c.a);

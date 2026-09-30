@@ -222,6 +222,7 @@ namespace TW.Presentation.Terrain
             var adjust = profile.Add<ColorAdjustments>(true);
             adjust.postExposure.Override(exposure); adjust.contrast.Override(contrast); adjust.saturation.Override(saturation);
             var tones = profile.Add<ShadowsMidtonesHighlights>(true);
+            gradeAdjust = adjust; gradeTones = tones; gradeLookAt = -1;   // look.grade re-tints them (Atmosphere.NightLook.cs)
             tones.shadows.Override(gradeShadows);      // day: umber in the dark; night: blue
             tones.midtones.Override(gradeMids);        // day: sepia through the middle
             tones.highlights.Override(gradeHighs);     // day: cold slate on the brightest planes; night: warm, for the lamps
@@ -301,6 +302,7 @@ namespace TW.Presentation.Terrain
                 key.transform.rotation = flash > .02f ? Quaternion.LookRotation(from.normalized) : Quaternion.Euler(KeyEuler);
             }
             float lifted = Lift();   // look.lift: the distance into lighter haze (Atmosphere.NightLook.cs)
+            GradeLook();             // look.grade: umber shadows under the blue (Atmosphere.NightLook.cs)
             Color sky = Color.Lerp(Lifted(Haze, Light(LiftHaze), lifted), Profile.FlashSky, flash * .40f);
             RenderSettings.fogColor = sky;
             cam.clearFlags = CameraClearFlags.SolidColor;
