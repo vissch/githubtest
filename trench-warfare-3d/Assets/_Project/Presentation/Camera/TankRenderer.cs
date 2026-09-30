@@ -105,6 +105,9 @@ namespace TW.Presentation.Tactical
             public float Fan, FanRate;
             /// <summary>A hovering machine's yaw drawn off its heading in a turn (radians), and whether it hovers.</summary>
             public float Drift; public bool Hover;
+            /// <summary>A hopper's place in its hop (0 on the ground .. 1 landing), the nose tilt it gives, and its
+            /// gatlings' spin (0..1, wound up by each round) and angle.</summary>
+            public float HopPhase, HopTilt, Spin, SpinAngle;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -163,6 +166,8 @@ namespace TW.Presentation.Tactical
             ("Brute", VehicleArchetype.Brute, "Hull", BruteScale, 0f),   // a tank with its gun in the hull and a small turret over it
             ("Croaker", VehicleArchetype.Croaker, "Hull", 1f, 0f),   // two legs: WalkerGait walks it as it walks the crabs
             ("Hopper", VehicleArchetype.Hopper, "Hull", 1f, FlyerLift),
+            // 2026-09-30: the playground's toad mech, 4 m long, its legs welded into its body: it hops (HopPose)
+            ("Bullfrog", VehicleArchetype.Bullfrog, "Hull", 1f, 0f),
             ("Mercy", VehicleArchetype.Mercy, "Hull", 1f, 0f),       // four wheels, which roll
         };
 
@@ -588,6 +593,7 @@ namespace TW.Presentation.Tactical
             }
             v.Heave.Step(heave + Mathf.Sin(now * st.RumbleRate + s) * vib, dt, st.HeaveOmega);
             StepFootfall(v, dt);
+            if (v.Archetype == VehicleArchetype.Bullfrog) HopPose(v, dt);
             v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + st.Rev * Mathf.Max(0f, v.Accel) + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
             // tracks and wheels: each at the hull's speed plus or minus the turn; stuck, they spin
@@ -717,7 +723,7 @@ namespace TW.Presentation.Tactical
 
         // ------------------------------------------------------------------ pose
         Quaternion HullRotation(View v)
-            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.PitchFx + v.KickP.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
+            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.HopTilt + v.PitchFx + v.KickP.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
         Matrix4x4 PartLocal(View v, TankModel.Part p, int index)
@@ -774,8 +780,32 @@ namespace TW.Presentation.Tactical
                 case TankPartRole.Cupola: rot *= Quaternion.AngleAxis(v.Cupola, Vector3.up); break;
                 case TankPartRole.Wheel: rot *= Quaternion.AngleAxis((p.Side < 0 ? v.WheelL : v.WheelR) * Mathf.Rad2Deg, Vector3.right); break;
                 case TankPartRole.Fan: rot *= Quaternion.AngleAxis(v.Fan * Mathf.Rad2Deg, Vector3.forward); break;   // about the hull's length
+                case TankPartRole.Other:   // a gatling's six barrels spin about the gun's length (the Bullfrog)
+                    if (v.SpinAngle != 0f && p.Name != null && p.Name.StartsWith("Barrels")) rot *= Quaternion.AngleAxis(v.SpinAngle * Mathf.Rad2Deg, Vector3.forward);
+                    break;
             }
             return Matrix4x4.TRS(pos, rot, Vector3.one);
+        }
+
+        // the Bullfrog's hop (2026-09-30): a hop every HopStride metres it goes, HopHeight at the top, nose up leaving the
+        // ground and down landing; stopped mid-hop, it comes down. Its gatlings spin up with each round and wind down.
+        const float HopStride = 2.6f, HopHeight = 0.75f, HopTiltMax = 9f * Mathf.Deg2Rad, SpinRate = 30f;
+
+        void HopPose(View v, float dt)
+        {
+            if (v.Dead) { v.HopPhase = 0f; v.Bob = 0f; v.HopTilt = 0f; v.Spin = 0f; return; }
+            float moved = new Vector2(v.Pos.x - v.LastPos.x, v.Pos.z - v.LastPos.z).magnitude;
+            bool going = Mathf.Abs(v.Speed) > 0.25f && !v.Stalled;
+            if (going || v.HopPhase > 0f)
+            {
+                v.HopPhase += Mathf.Max(moved / HopStride, going ? 0f : dt * 2.5f);
+                if (v.HopPhase >= 1f) v.HopPhase = going ? v.HopPhase - Mathf.Floor(v.HopPhase) : 0f;
+            }
+            float p = v.HopPhase;
+            v.Bob = HopHeight * 4f * p * (1f - p);
+            v.HopTilt = p > 0f ? HopTiltMax * Mathf.Cos(Mathf.PI * p) : 0f;
+            v.Spin = Mathf.MoveTowards(v.Spin, 0f, dt * 1.2f);
+            if (v.Spin > 0f) v.SpinAngle = Mathf.Repeat(v.SpinAngle + v.Spin * SpinRate * dt, Mathf.PI * 2f);
         }
 
         static float Kick(float r) => r <= 0f ? 0f : Mathf.Sin(Mathf.Clamp01((1f - r) * 6f) * Mathf.PI * 0.5f) * r;   // snaps back, runs out slow
@@ -1175,6 +1205,9 @@ namespace TW.Presentation.Tactical
             switch (e.Type)
             {
                 case SimEventType.RocketFired: RocketFired(e); break;
+                case SimEventType.Shot:   // the Bullfrog's gatlings (its machine-gun Weapon): each round keeps them spinning
+                    if (v != null && !v.Dead && v.Archetype == VehicleArchetype.Bullfrog) v.Spin = 1f;
+                    break;
                 case SimEventType.VehicleFired:
                 {
                     if (v == null || v.Dead || e.B < 0 || e.B > 1) break;
