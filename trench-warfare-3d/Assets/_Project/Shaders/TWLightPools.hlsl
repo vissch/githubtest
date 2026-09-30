@@ -84,6 +84,30 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
     return TWPoolRoll(sum);
 }
 
+/// The ground's pools and, where it is wet (glintOn), the flames' glints in its reflection r, in ONE pass over the pools:
+/// the two separate loops cost the terrain two walks of 32 pools on every wet pixel (round 12: the pool system measured
+/// 0.4-0.5 ms). Same bands, same glints, as TWLightPools and TWPoolGlints.
+half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn, out half3 glints)
+{
+    half3 sum = 0; glints = 0;
+    int count = (int)_TWPoolCount;
+    [loop] for (int k = 0; k < count; k++)
+    {
+        float3 d = _TWPools[k].xyz - positionWS;
+        float reach = _TWPools[k].w;
+        float dist2 = dot(d, d);
+        float glintReach = reach * 1.6;
+        if (dist2 >= glintReach * glintReach) continue;
+        float dist = sqrt(dist2);
+        float3 dn = d / max(dist, 1e-2);
+        if (dist < reach)
+            sum += _TWPoolTint[k].rgb * TWPoolBand(dist / reach) * saturate(dot(normalWS, dn) * 0.6 + 0.4);
+        if (glintOn)
+            glints += _TWPoolTint[k].rgb * smoothstep(0.86, 0.92, dot(r, dn)) * (1.0 - smoothstep(0.55, 1.0, dist / glintReach));
+    }
+    return TWPoolRoll(sum);
+}
+
 /// look.wet: the flames' glints on wet ground. A reflection r that points back at a flame within its pool catches a hard
 /// highlight of its colour, so the mud near a fire sparkles orange and, away from it, only the moon's blue remains.
 half3 TWPoolGlints(float3 positionWS, float3 r)

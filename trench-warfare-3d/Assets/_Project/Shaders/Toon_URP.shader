@@ -230,6 +230,7 @@ Shader "TW/Toon (URP)"
                 half3 shade = TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS));
                 half3 color = albedo * lerp(shade, mainLight.color, band);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
+                float3 glintR = float3(0, 1, 0); half glintW = 0;   // look.wet: the flames' glints on wet ground (TWLightPools.hlsl), orange near a fire
                 if (gloss > 0.01)
                 {
                     float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
@@ -256,7 +257,7 @@ Shader "TW/Toon (URP)"
                     half mudOnly = 1.0 - saturate(gloss * 2.0 - 1.0) * 0.72;   // the sheen is the mud's; still water only mirrors
                     color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * lerp(0.26, 0.40, close)) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     // look.wet: the flames' own glints on the wet ground (TWLightPools.hlsl), orange near a fire
-                    if (_TWWetLook > 0.0 && _TWPoolCount > 0.0) color += TWPoolGlints(i.positionWS, r) * gloss * mudOnly * _TWWetLook * 0.6;
+                    glintR = r; glintW = gloss * mudOnly * _TWWetLook * 0.6;   // applied with the pools below, in one pass (TWPoolsAndGlints)
                     if (_DetailStrength > 0.0 && _TWWet.y > 0.0)
                     {
                         // hard wet glints: a second, much finer read of the slopes tilts tiny facets into the moon, so the
@@ -283,7 +284,12 @@ Shader "TW/Toon (URP)"
                 // look.poolsThroughHaze: that share of it goes on after the fog below, like the molten glow, so the haze
                 // that lifts the distance does not also put out the lamps in it (the owner's edit keeps far fires bright)
                 half3 poolLight = 0;
-                if (_TWPoolCount > 0.0) poolLight = max(albedo, 0.16) * TWLightPools(i.positionWS, normalize(i.normalWS)) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
+                if (_TWPoolCount > 0.0)
+                {
+                    half3 glints;
+                    poolLight = max(albedo, 0.16) * TWPoolsAndGlints(i.positionWS, normalize(i.normalWS), glintR, glintW > 0.0, glints) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
+                    color += glints * glintW;
+                }
                 color += poolLight * (1.0 - _TWPoolsThroughHaze);
                 color += _Emission.rgb;
                 // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
