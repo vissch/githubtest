@@ -7,7 +7,8 @@
 // capture numbers, and for a pinned man the clip he is drawn in. summary.json lists every entry and its flags; the bug
 // catcher reads it (tw-bug-catcher). A flag the kept older run raised on the same entry is "recurring": summary.json lists
 // it and the run appends it to the board's lessons.md (../tw3d-board beside the repo, or TW_BOARD), so a lesson is written
-// without anyone choosing to. A script to diff two runs in full (gymscore) is still to build.
+// without anyone choosing to. Tools/abtest.py gym diffs two runs (each band's changed pixels, every sidecar number, blind
+// pairs); the run is paced in game time (CaptureFps), so the same code draws the same run.
 // Runs are written outside every checkout (an untracked file changes the tree land.py checks):
 // %LOCALAPPDATA%\TrenchWarfare\gym\<yyyyMMdd-HHmm>-<sha>\, or TW_GYM. A run keeps itself and the newest older run and
 // deletes older gym runs (only folders holding gym-run.txt: nothing else is ever touched); it stops when it passes
@@ -194,6 +195,8 @@ namespace TW.Editor
         public string Options = "";
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         const long MaxRunBytes = 1L << 30, MinFreeBytes = 10L << 30;
+        /// <summary>Frames a game second while the gym runs (Time.captureFramerate): one sim tick a frame at 20 Hz.</summary>
+        public const int CaptureFps = 20;
         float deadline = float.MaxValue; bool finished, quitWhenDone;
 
         /// <summary>The watchdog: whatever happens inside the run (an exception that kills the coroutine, a wait that
@@ -212,6 +215,14 @@ namespace TW.Editor
             bool quit = quitWhenDone = Gym.Opt(Options, "quit") == "1";
             float minutes = float.TryParse(Gym.Opt(Options, "minutes"), NumberStyles.Float, Inv, out float mm) ? mm : 45f;
             deadline = Time.realtimeSinceStartup + minutes * 60f;
+            // Paced in game time, not the wall clock (2026-10-01): with a real-time step the sim ran as many ticks a frame
+            // as the machine allowed and every wait was wall seconds, so each entry began, and was shot, at a different
+            // tick on every run (the same code twice: 26-39 % of a machine's close band repainted, a barrage's deaths 1
+            // then 3). A fixed frame step makes the sim, the drawing's own clocks and every wait below the same each run;
+            // the wall clock is left only to the watchdog and the capture timeouts. The presentation's own random numbers
+            // are seeded too.
+            Time.captureFramerate = CaptureFps;
+            UnityEngine.Random.InitState(1917);
             var host = GetComponent<SimHost>();
             float until = Time.realtimeSinceStartup + 30f;
             while ((host.Local == null || host.Local.World.Tick < 60) && Time.realtimeSinceStartup < until) yield return null;
@@ -242,7 +253,7 @@ namespace TW.Editor
                 if (Gym.Size(dir) > MaxRunBytes) { stopped = "the run passed 1 GB"; break; }
 
                 director.Clear();
-                yield return new WaitForSecondsRealtime(1.5f);
+                yield return new WaitForSeconds(1.5f);
                 director.NextStage();
                 var r = director.Begin(e);
                 int pinned = -1, slot = -1;
@@ -261,7 +272,7 @@ namespace TW.Editor
                 // film=<seconds>: a unit fights an enemy rifle line 70 m off its nose (inside every machine's reach), filmed below
                 float film = e.Tab == GymTab.Units && slot >= 0 && float.TryParse(Gym.Opt(Options, "film"), NumberStyles.Float, Inv, out float fs) ? fs : 0f;
                 if (film > 0f) { r.Log.Add("film: " + RiderLab.Stop(slot) + ", " + RiderLab.Enemies(slot, 12, 70f)); }   // held, so the take keeps it (a Salvo drove into a trench)
-                yield return new WaitForSecondsRealtime(wait);
+                yield return new WaitForSeconds(wait);
 
                 var shots = new List<string>(); var jsons = new List<string>();
                 bool capture = e.Expect != GymExpect.Covered && e.Expect != GymExpect.Excluded;
@@ -304,7 +315,7 @@ namespace TW.Editor
                     {
                         string frames = Path.Combine(dir, "Film", Safe(e.Name) + "_" + take);
                         FrameFight(host, cam, slot, take == "wide");
-                        yield return new WaitForSecondsRealtime(0.5f);
+                        yield return new WaitForSeconds(0.5f);
                         r.Log.Add("film: " + RiderLab.Film(frames, film * share, 15, 960, 540));
                         float filmUntil = Time.realtimeSinceStartup + film * share * 6f + 30f;
                         while (!RiderLab.FilmStatus().StartsWith("done") && Time.realtimeSinceStartup < filmUntil) { FrameFight(host, cam, slot, take == "wide"); yield return null; }
@@ -557,6 +568,7 @@ namespace TW.Editor
         {
             if (finished) return;
             finished = true;
+            Time.captureFramerate = 0;
             StopAllCoroutines();
             Destroy(this);
             if (!quit) return;
