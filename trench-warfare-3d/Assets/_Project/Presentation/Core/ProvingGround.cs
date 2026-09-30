@@ -84,6 +84,7 @@ namespace TW.Presentation
         public static UnitStage StatusOf(byte archetype)
         {
             if (archetype >= VehicleArchetype.Brute && archetype <= InfantryArchetype.Frog) return UnitStage.Prototype;   // 21..25
+            if (archetype == VehicleArchetype.Bullfrog) return UnitStage.Prototype;   // 37 (2026-09-30)
             return Array.IndexOf(UnitDefinitions.ProvingGround, archetype) >= 0 ? UnitStage.StandIn : UnitStage.Built;
         }
 
@@ -256,7 +257,7 @@ namespace TW.Presentation
                 new Wave("COMBINED ARMS", "An officer, a medic, a shield, rifles and a Tusk.", S(InfantryArchetype.Officer, 1), S(InfantryArchetype.Medic, 1), S(InfantryArchetype.Shield, 2), S(InfantryArchetype.Rifle, 10), S(VehicleArchetype.Tusk, 1)),
                 new Wave("ARMOUR PUSH", "Two Maws and a Tusk with infantry behind.", S(VehicleArchetype.Maw, 2), S(VehicleArchetype.Tusk, 1), S(InfantryArchetype.Rifle, 8)),
                 new Wave("WALKERS", "A Pincer, a Kettle, a Pavise and a Redoubt.", S(VehicleArchetype.Pincer, 1), S(VehicleArchetype.Kettle, 1), S(VehicleArchetype.Pavise, 1), S(VehicleArchetype.Redoubt, 1)),
-                new Wave("PROTOTYPES", "The playground's five: Brute, Croaker, Hopper, Mercy and six Frogs.", S(VehicleArchetype.Brute, 1), S(VehicleArchetype.Croaker, 1), S(VehicleArchetype.Hopper, 1), S(VehicleArchetype.Mercy, 1), S(InfantryArchetype.Frog, 6)),
+                new Wave("PROTOTYPES", "The playground's six: Brute, Croaker, Hopper, Mercy, Bullfrog and six Frogs.", S(VehicleArchetype.Brute, 1), S(VehicleArchetype.Croaker, 1), S(VehicleArchetype.Bullfrog, 1), S(VehicleArchetype.Hopper, 1), S(VehicleArchetype.Mercy, 1), S(InfantryArchetype.Frog, 6)),
                 new Wave("HISTORICAL ARMOUR", "Mark IV, Mark V, A7V, Renault FT, Whippet and Austin.", S(VehicleArchetype.MarkIV, 1), S(VehicleArchetype.MarkV, 1), S(VehicleArchetype.A7V, 1), S(VehicleArchetype.RenaultFT, 1), S(VehicleArchetype.Whippet, 1), S(VehicleArchetype.Austin, 1)),
                 new Wave("SPECIALISTS", "Sentries, AT rifles, the Death Battalion, sappers and flamethrowers.", S(InfantryArchetype.Sentry, 2), S(InfantryArchetype.AtRifle, 2), S(InfantryArchetype.DeathBattalion, 6), S(InfantryArchetype.Sapper, 1), S(InfantryArchetype.Flamethrower, 2)),
             };
