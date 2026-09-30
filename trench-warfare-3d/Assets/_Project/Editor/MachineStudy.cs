@@ -10,7 +10,8 @@
 // Each jam, and each spin over 1 s, is logged with its place, the ground under it, the nearest machine of either side
 // (where it sits off the nose, how fast it goes) and the nearest enemy. FLAG lines name what is out of bounds.
 // It found the machines shoving one another on a shared line (VehicleKinematics.Avoid), then Avoid swerving a Brute
-// round a column driving on ahead (AvoidPace, AvoidMaxBend).
+// round a column driving on ahead (AvoidMaxBend). A jam also names what the kinematics holds: its trench crossing, halt,
+// ditch and bog timers, its drive, the field's way against its nose and the men within 6 m.
 //   <Unity.exe> -batchmode -projectPath <p> -executeMethod TW.Editor.MachineStudy.CommandLine -twstudy "<out dir>"
 //       [-twstudyseed <match seed>] [-twstudysec <sim seconds, 150>]
 // Writes machines.csv, jams.txt and summary.txt into the out dir. None of this is part of the game.
@@ -171,7 +172,22 @@ namespace TW.Editor
                 float2 nose = new float2(math.sin(w.Yaw[i]), math.cos(w.Yaw[i]));
                 string bearing = mate >= 0 ? $" {math.degrees(math.acos(math.clamp(math.dot(nose, math.normalizesafe(w.Position[mate].xz - p.xz)), -1f, 1f))):F0} deg off its nose, going {math.length(w.Velocity[mate]):F1} m/s" : "";
                 jams.AppendLine($"t {w.Tick * w.Config.TickSeconds:F1} s  {what}  {Name(w.Archetype[i])} (team {w.Team[i]}) at ({p.x:F0}, {p.z:F0}) on {ground}; "
-                    + $"nearest machine {(mate >= 0 ? $"{Name(w.Archetype[mate])} (team {w.Team[mate]}) {mateD:F1} m{bearing}" : "none")}, nearest enemy {(foe >= 0 ? $"{foeD:F0} m" : "none")}");
+                    + $"nearest machine {(mate >= 0 ? $"{Name(w.Archetype[mate])} (team {w.Team[mate]}) {mateD:F1} m{bearing}" : "none")}, nearest enemy {(foe >= 0 ? $"{foeD:F0} m" : "none")}"
+                    + (what == "jammed" ? "; " + State(w, map, i, p, nose) : ""));
+            }
+
+            /// <summary>What the kinematics holds for a jammed machine.</summary>
+            string State(SimWorld w, MapData map, int i, float3 p, float2 nose)
+            {
+                var k = host.Local.Vehicles; var f = host.Local.Fields;
+                int cell = map.NavIndex(map.NavCellOf(p).x, map.NavCellOf(p).y), goal = w.GoalId[i];
+                byte d = goal < 0 ? FlowField.NoDirection : f.Direction[goal * f.CellCount + cell];
+                string way = d == FlowField.NoDirection ? "none" : $"{math.degrees(math.acos(math.clamp(math.dot(nose, math.normalizesafe(FlowField.Offset(d))), -1f, 1f))):F0} deg off its nose";
+                int men = 0;
+                for (int j = 0; j < w.Flags.Length; j++)
+                    if ((w.Flags[j] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == (uint)UnitFlags.Alive && math.distance(w.Position[j].xz, p.xz) < 6f) men++;
+                return $"goal {goal}, field's way {way}, cross {k.CrossTrench[i]}, halt {k.HaltTicks[i]}, ditch {k.DitchTicks[i]}, bog {k.BogTicks[i]}, drive {k.Drive[i]}, "
+                    + $"speed {w.Speed[i]:F1}, factor {k.SpeedFactor[i]:F2}, men within 6 m {men}";
             }
 
             static string Name(byte archetype)
