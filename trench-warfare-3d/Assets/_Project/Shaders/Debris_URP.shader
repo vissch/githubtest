@@ -40,6 +40,7 @@ Shader "TW/Debris (URP)"
             float _OutlineWidth, _Lift;
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
+        #define PartNightFloor 0.5   // the least share of its own colour a man's part keeps on the night field
 
         #define DEBRIS_G 9.8
         #define BOUNCE_KEEP 0.45
@@ -162,6 +163,9 @@ Shader "TW/Debris (URP)"
                 // as it catches the men's (VAT_URP). Only when a mood tints the shade; by day the rim is nothing.
                 half rim = pow(1.0 - saturate(dot(n, normalize(_WorldSpaceCameraPos - i.positionWS))), 2.4);
                 color += (albedo * 0.5 + 0.06) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.2;
+                // a man's part keeps its own colour at night, as blood does (frog critic rounds 10-11: frog heads and limbs and
+                // their red cut ends were near-black specks on the night mud); by day the floor is under the lit colour
+                if (i.flesh > 0.5) color = max(color, albedo * PartNightFloor * saturate(1.0 - dot(TWShadeTint(), half3(0.3, 0.59, 0.11))));
                 if (i.tint.a > 0.0 || _DebrisBiome.a > 0.0)
                 {
                     // hot metal: embers in the dark seams (a cellular pattern on the piece itself), flickering, cooling
