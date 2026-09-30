@@ -22,6 +22,8 @@ namespace TW.Tests
             ("Croaker", VehicleArchetype.Croaker, new[] { "Hull", "Turret", "Gun", "Claw_L", "Claw_R", "Jaw_L", "Jaw_R", "Thigh_L", "Thigh_R", "Shin_L", "Shin_R", "Foot_L", "Foot_R" }),
             ("Hopper", VehicleArchetype.Hopper, new[] { "Hull", "Turret", "Wing_L", "Wing_R", "Engine_L", "Engine_R", "Tail", "Skid_L", "Skid_R" }),
             ("Mercy", VehicleArchetype.Mercy, new[] { "Hull", "Hood", "Cab", "Box_L", "Box_R", "Wheel_FL", "Wheel_FR", "Wheel_RL", "Wheel_RR", "Lamp_L", "Lamp_R", "Stack", "Door_BL", "Door_BR", "Fitting", "Spare" }),
+            // 2026-09-30: the toad mech (Tools/mechsplit.py TW_KIND=gatling TW_BATTLE=1), drawn hopping
+            ("Bullfrog", VehicleArchetype.Bullfrog, new[] { "Hull", "Turret", "Gun_L", "Gun_R", "Barrels_L", "Barrels_R" }),
         };
 
         static TankModel Load(string name, byte archetype)
@@ -204,7 +206,7 @@ namespace TW.Tests
         [Test]
         public void EveryMachineIsDrawnWithAModelSomebodyChose()
         {
-            var own = new HashSet<string> { "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Skimmer", "Salvo", "Brute", "Croaker", "Hopper", "Mercy" };
+            var own = new HashSet<string> { "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Skimmer", "Salvo", "Brute", "Croaker", "Hopper", "Mercy", "Bullfrog" };
             var wears = new Dictionary<byte, string>
             {
                 [VehicleArchetype.MarkIV] = "Maw", [VehicleArchetype.MarkV] = "Maw", [VehicleArchetype.A7V] = "Brute",
