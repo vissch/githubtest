@@ -195,7 +195,7 @@ namespace TW.Tests
                         // the row's own ground (shooters may stand across a trench); the crush machine drives from 15 m short
                         // of the row, at its middle, so its road must hold nothing it cannot drive through
                         bool road = scene != "crush" || Road(map, xx + 3f, zz - 18f, zz + 6f);
-                        if (Shooters(scene) && !Open(map, xx, zz, 14f, 5f, 20f)) road = false;   // the shooters' ground and the line to them open too (round 2: few shots came)
+                        if (Shooters(scene) && !Open(map, xx + 2f, zz + 18f, 4f, 2f, 2f)) road = false;   // the shooters' ground and the line to them open too (round 2: few shots came)
                         if (scene == "beam" && xx < 14f) road = false;   // the beam is called 10 m short of the row: on the map
                         if (clear && road && Open(map, xx, zz, 14f, 5f, 5f)) { x = xx; z = zz; }
                     }
