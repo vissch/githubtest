@@ -144,6 +144,9 @@ namespace TW.Presentation
         /// <summary>How far x, z is from the nearest placed prop a metre tall or more (a ruin, a house, a wall), out to the
         /// last argument: the scenery the sim's map does not hold. (BattlefieldProps fills it; a thrown turret keeps off it.)</summary>
         public static System.Func<float, float, float, float> Standing;
+        /// <summary>The same for a building's height (2.5 m and more: a house, a ruin, a tower), measured to its narrower
+        /// side so a long wall does not claim a circle round it; for staging a filmed scene in the open (DeathStills).</summary>
+        public static System.Func<float, float, float, float> StandingTall;
 
         /// <summary>Nobody is here: every service unset, every flag off. Only when no scene is live
         /// (SceneStatics.ResetSession): on a scene load the new scene's components have already wired theirs.</summary>

@@ -128,7 +128,8 @@ namespace TW.Presentation.Terrain
             kit.ResolveKeysAndRules();   // every module named for the scale table and carrying its rule (docs/21 phase 1)
             groundFn = Ground;
             SceneHooks.Biplane = () => kit.biplane != null ? (kit.biplane.Mesh, kit.biplane.Material, kit.biplane.Size) : (null, null, Vector3.one);   // the strafe's aircraft (CombatFx.Abilities.cs)
-            SceneHooks.Standing = Standing;   // where a thrown turret may come down (TankRenderer.Deaths)
+            SceneHooks.Standing = Standing;
+            SceneHooks.StandingTall = (x, z, within) => Standing(x, z, within, 2.5f, true);   // where a thrown turret may come down (TankRenderer.Deaths)
             foreach (var module in kit.Modules)
             {
                 batches.Add(module, new Batch { Module = module });
@@ -307,7 +308,9 @@ namespace TW.Presentation.Terrain
 
         /// <summary>How far x, z is from the nearest placed prop a metre tall or more, out to `within` (SceneHooks.Standing):
         /// its bounds' middle less its half width. Asked a few times a machine's death, never a frame.</summary>
-        float Standing(float x, float z, float within)
+        float Standing(float x, float z, float within) => Standing(x, z, within, 1f, false);
+
+        float Standing(float x, float z, float within, float tall, bool narrow)
         {
             float best = within;
             for (int i = 0; i < placed.Count; i++)
@@ -318,11 +321,12 @@ namespace TW.Presentation.Terrain
                 else if (p.Module.Mesh != null) b = p.Module.Mesh.bounds;
                 else continue;
                 Vector3 s = p.Matrix.lossyScale;
-                if (b.size.y * Mathf.Abs(s.y) < 1f) continue;
+                if (b.size.y * Mathf.Abs(s.y) < tall) continue;
                 Vector3 c = p.Matrix.MultiplyPoint3x4(b.center);
                 float dx = c.x - x, dz = c.z - z;
                 if (Mathf.Abs(dx) > within + 20f || Mathf.Abs(dz) > within + 20f) continue;
-                float gap = Mathf.Sqrt(dx * dx + dz * dz) - Mathf.Max(b.extents.x * Mathf.Abs(s.x), b.extents.z * Mathf.Abs(s.z));
+                float ex = b.extents.x * Mathf.Abs(s.x), ez = b.extents.z * Mathf.Abs(s.z);
+                float gap = Mathf.Sqrt(dx * dx + dz * dz) - (narrow ? Mathf.Min(ex, ez) : Mathf.Max(ex, ez));
                 if (gap < best) best = gap;
             }
             return best;

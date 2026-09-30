@@ -701,6 +701,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 | `Standing` | BattlefieldProps | TankRenderer.Deaths |
+| `StandingTall` | BattlefieldProps | - |
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->

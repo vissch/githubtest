@@ -47,7 +47,7 @@ namespace TW.Tests
             switch (scene)
             {
                 case "shell": case "heap": return (26f, 40f, 14f, 4f);
-                case "frogheap": case "frogshell": return (20f, 40f, 18f, 3f);   // closer: at 26 a frog was a speck (round 3)
+                case "frogheap": case "frogshell": return (22f, 40f, 32f, 3f);   // steeper: low at 18 deg, a house near the camera hid the row (rounds 5-8)   // closer: at 26 a frog was a speck (round 3)
                 case "frogs": return (28f, 40f, 24f, 4f);   // the Hopper 9 m up in the frame too (round 5: off the top)
                 case "frogshot": case "frogmg": return (22f, 40f, 32f, 1.2f);   // the row and its shooters 18 m off
                 case "crush": return (20f, 40f, 18f, 1.5f);
@@ -56,8 +56,8 @@ namespace TW.Tests
                 case "machine": case "maw": case "salvo": return (30f, 40f, 22f, 6f);  // a turret's leap: wide and low, aimed up so its 14 m peak stays in (critic round 16 found it cut off)
                 case "skimmer": return (40f, 40f, 26f, 2f);   // its fan glides 18-27 m astern
                 case "walker": return (18f, 40f, 20f, 1.5f);  // a belly-flop: close and low
-                case "croaker": return (22f, 40f, 20f, 3f);
-                case "hopper": return (36f, 40f, 24f, 4f);   // it flies 9 m up and falls: all of it in (round 1: off the top)
+                case "croaker": return (24f, 40f, 30f, 3f);
+                case "hopper": return (36f, 40f, 30f, 4f);   // it flies 9 m up and falls: all of it in (round 1: off the top)
                 default: return (13f, 40f, 20f, 1.2f);
             }
         }
@@ -129,6 +129,28 @@ namespace TW.Tests
 
         /// <summary>The crush machine's road: nothing it cannot drive through (a blocked cell, a bunker) within 4 m of x
         /// from z0 to z1. A trench it bridges and wire it flattens (the first sets asked for open ground and found none).</summary>
+        /// <summary>No building (SceneHooks.StandingTall: a house, a ruin) within 3 m of the box, sampled every 3 m: the
+        /// row, the ground between it and the camera, and the line to its shooters (frog rounds 5-7: a black house hid
+        /// the shell scenes, a ruin took the gunner's fire).</summary>
+        static bool Tall(MapData map, float x0, float x1, float z0, float z1)
+        {
+            // the ruins and walls the sim holds (what men take cover behind): a house the prop layer does not know (r8 test)
+            if (map.StaticCover.IsCreated)
+                for (int i = 0; i < map.StaticCover.Length; i++)
+                {
+                    var cv = map.StaticCover[i];
+                    if (cv.OwnerSlot >= 0) continue;
+                    float r = cv.Radius * 0.5f + 2f;
+                    if (cv.Center.x > x0 - r && cv.Center.x < x1 + r && cv.Center.z > z0 - r && cv.Center.z < z1 + r) return false;
+                }
+            var hook = TW.Presentation.SceneHooks.StandingTall;
+            if (hook == null) return true;
+            for (float zz = z0; zz <= z1; zz += 3f)
+                for (float xx = x0; xx <= x1; xx += 3f)
+                    if (hook(xx, zz, 8f) < 3f) return false;
+            return true;
+        }
+
         /// <summary>A scene whose men are shot by others standing 18-30 m off.</summary>
         static bool Shooters(string scene) => scene == "frogshot" || scene == "frogmg";
 
@@ -197,6 +219,7 @@ namespace TW.Tests
                         // of the row, at its middle, so its road must hold nothing it cannot drive through
                         bool road = scene != "crush" || Road(map, xx + 3f, zz - 18f, zz + 6f);
                         if (Shooters(scene) && !Open(map, xx + 2f, zz + 12f, 4f, 2f, 2f)) road = false;
+                        if (scene.StartsWith("frog") && !Tall(map, xx - 16f, xx + 20f, zz - 18f, Shooters(scene) ? zz + 12f : zz + 6f)) road = false;   // the camera looks in on a diagonal from well back: all round
                         if (scene == "beam" && xx < 14f) road = false;   // the beam is called 10 m short of the row: on the map
                         if (clear && road && Open(map, xx, zz, 14f, scene.StartsWith("frog") ? 10f : 5f, 5f)) { x = xx; z = zz; }   // a frog scene keeps 10 m clear toward the camera (round 5: a ruin in front of the MG row)
                     }
