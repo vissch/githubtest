@@ -746,6 +746,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower |
+| `FirePool` | NightLights.Pools | NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 | `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |
