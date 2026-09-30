@@ -138,10 +138,10 @@ namespace TW.Presentation.Tactical
                         debris.Throw(piece, chest + Vector3.up * (0.4f * scale), Topped(vel), scale, Skin, ref rng, 30f);
                         break;
                     case DebrisRenderer.Piece.UpperHalf:
-                        debris.Throw(piece, chest, Topped(Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
+                        debris.Throw(piece, chest, Topped(Reaching(fly, 1f, 1f) + rng.OnSphere() * 0.8f), figure, cloth, ref rng, 40f);   // life-size: at PartScale half a man lay there twice as big as a whole one (frog critic round 6)
                         break;
                     case DebrisRenderer.Piece.LowerHalf:
-                        debris.Throw(piece, at + Vector3.up * (0.6f * scale), Topped(Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f), scale, cloth, ref rng, 40f);
+                        debris.Throw(piece, at + Vector3.up * (0.6f * figure), Topped(Reaching(fly, 0.45f, 0.6f) + rng.OnSphere() * 0.8f), figure, cloth, ref rng, 40f);
                         break;
                     case DebrisRenderer.Piece.Helm:
                         vel = carry + rng.OnSphere() * 4f; vel.y = Mathf.Abs(vel.y) + 4f;
