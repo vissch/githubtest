@@ -250,21 +250,26 @@ namespace TW.Presentation.Tactical
                     }
             }
             bool crash = v.Lift >= FlyingFrom;
-            if (crash) Shed(v);
+            if (crash) Shed(v, FlyerSheds);
+            else if (v.Flops && v.Model.LegCount <= 2) Shed(v, BipedSheds);   // the Croaker: its legs and claws go (frog round 14: it sagged into a heap)
             if (v.Flops || crash) Scrap(v.Pos + Vector3.up * 0.5f, crash ? 9 : 5, crash ? 7f : 5f, 0.3f, v.Burn * 0.5f, 20f, Vector3.zero, (uint)v.Slot);
             CameraShake.Add(v.Pos, v.Flops || crash ? 8f : 3f);
         }
 
         /// <summary>A flyer hits the ground and breaks up: its engines, wings and tail come off and fly out from the hull,
         /// tumbling (frog critic rounds 9-10: the Hopper landed whole, one hull with a fire on top).</summary>
-        void Shed(View v)
+        static readonly string[] FlyerSheds = { "Engine", "Wing", "Tail" }, BipedSheds = { "Thigh", "Claw", "Gun" };
+
+        void Shed(View v, string[] names)
         {
             var parts = v.Model.Lods[0].Parts;
             var rng = new DebrisRng(v.Pos, 0x5EEDu + (uint)Mathf.Max(0, v.Slot));
             for (int i = 1; i < parts.Count; i++)
             {
                 string n = parts[i].Name;
-                if (v.Off[i] || !(n.StartsWith("Engine") || n.StartsWith("Wing") || n.StartsWith("Tail"))) continue;
+                bool named = false;
+                foreach (var start in names) named |= n.StartsWith(start);
+                if (v.Off[i] || !named) continue;
                 var d = Detach(v, i, v.World[i]);
                 if (d == null) continue;
                 Vector3 out1 = (Vector3)v.World[i].GetColumn(3) - v.Pos; out1.y = 0f;
