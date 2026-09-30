@@ -330,6 +330,11 @@ Shader "TW/VAT Infantry (URP)"
                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
                 color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
+            #if defined(_TW_LIMBCUT)
+                // the dead keep their own colour on the night field, as blood and thrown parts do (frog critic round 14: the dead
+                // frogs dissolved into the dark mud, only the red stars showed where they lay); by day the floor is under the light
+                color = max(color, albedo * 0.5 * saturate(1.0 - dot(TWShadeTint(), half3(0.3, 0.59, 0.11))));
+            #endif
                 // a man riding a machine kneels on its dark hull, not on the field: lifted a step, with his side's colour on his
                 // edge, or at night he is olive on olive (critic t2, the Maw's roof)
                 // the cloth colour made a khaki rim on an olive hull (critic t3): the rings' own colour, on a wider edge
