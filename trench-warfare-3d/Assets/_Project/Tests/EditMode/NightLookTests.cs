@@ -53,6 +53,7 @@ namespace TW.Tests
             Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");
             Assert.AreEqual(1f, Atmosphere.DefaultInkFade, "the ink fades with the haze, or distant wire is bare black outlines");
             Assert.Greater(Atmosphere.DefaultMoonSheen, 0.3f, "the near wet mud glints at the play view, not only among the men");
+            Assert.Greater(Atmosphere.DefaultGlowFade, 0f, "a far glow fades with the haze rather than reading mauve over it");
             Assert.Greater(Atmosphere.DefaultGlowHue, 0f, "a distant lamp's glow keeps its colour in the haze, not a grey-white oval");
             Assert.Less(Atmosphere.CurtainPale, 1.9f, "the rain curtains less pale over the lifted haze than the 1.9 that made them white stripes");
             Assert.Less(Atmosphere.DefaultPuddleSky, 1f, "still water mirrors less of the pale sky at night: dark glass, not a pale slab");

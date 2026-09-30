@@ -155,11 +155,12 @@ namespace TW.Presentation.Terrain
         static readonly int GlowHueId = Shader.PropertyToID("_TWGlowHue"), MoonSheenId = Shader.PropertyToID("_TWMoonSheen");
         /// <summary>look.moonSheen: the fine wet sparkle's share at the standard view (0.3 before; round 17's critic: the near
         /// ground between the pools dead, no highlight on the wet mud, where the palette edit's near mud glints cold).</summary>
-        public const float DefaultMoonSheen = 0.6f;   // 0.9 turned the near mud to noisy speckle
+        public const float DefaultMoonSheen = 0.45f;   // 0.9 turned the near mud to noisy speckle; round 19's critic read 0.6 as frost on the open mud
         float moonSheen = DefaultMoonSheen;
         /// <summary>look.glowHue: a distant glow's core keeps its lamp's colour in the haze instead of going white.</summary>
-        public const float DefaultGlowHue = 0.8f;
-        float glowHue = DefaultGlowHue;
+        public const float DefaultGlowHue = 0.8f, DefaultGlowFade = 0.85f;
+        static readonly int GlowFadeId = Shader.PropertyToID("_TWGlowFade");
+        float glowHue = DefaultGlowHue, glowFade = DefaultGlowFade;
         static readonly int WaterDimId = Shader.PropertyToID("_TWWaterDim"), CurtainId = Shader.PropertyToID("_TWCurtain");
         /// <summary>look.rainCurtain: the distant rain curtains' alpha while lifted (their colour 1.15 times the haze, was 1.9).</summary>
         public const float DefaultCurtain = 0.75f, CurtainPale = 1.15f;
@@ -176,11 +177,13 @@ namespace TW.Presentation.Terrain
                 waterDim = Mathf.Clamp(Knobs.Get("look.waterDim", DefaultWaterDim), 0f, 0.9f);
                 curtain = Mathf.Clamp01(Knobs.Get("look.rainCurtain", DefaultCurtain));
                 glowHue = Mathf.Clamp01(Knobs.Get("look.glowHue", DefaultGlowHue));
+                glowFade = Mathf.Clamp01(Knobs.Get("look.glowFade", DefaultGlowFade));
                 moonSheen = Mathf.Clamp(Knobs.Get("look.moonSheen", DefaultMoonSheen), 0.01f, 1f);
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
             Shader.SetGlobalFloat(GlowHueId, night ? glowHue : 0f);
+            Shader.SetGlobalFloat(GlowFadeId, night ? glowFade : 0f);
             Shader.SetGlobalFloat(MoonSheenId, night ? moonSheen : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
