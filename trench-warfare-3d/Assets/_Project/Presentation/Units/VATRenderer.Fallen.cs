@@ -203,7 +203,9 @@ namespace TW.Presentation.Units
                     for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(at) > -2.5f * scale;
                     if (!seen) continue;
                 }
-                bool distant = (at - eye).sqrMagnitude > nearSq;
+                // a frog stays a frog dead at any range: the far tier is the soldier's, and at the play zoom the frogs lay
+                // there as pale dead men (frog critic rounds 12-13)
+                bool distant = f.Figure != FrogFigure && (at - eye).sqrMagnitude > nearSq;
                 if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
                 else fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i);
             }

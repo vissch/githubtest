@@ -95,6 +95,8 @@ namespace TW.Presentation.Units
         /// <summary>Which figure each archetype is drawn with (the sniper: the hooded man; the Frog, archetype 25: the
         /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
         public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : 0;
+        /// <summary>The Frog's figure (FigureNames): never swapped for the far tier's soldier.</summary>
+        public const int FrogFigure = 2;
 
         sealed class Figure
         {
@@ -400,7 +402,7 @@ namespace TW.Presentation.Units
                         Vehicles[v++] = new float4(p.Pos.x, y, p.Pos.z, (p.Yaw + 10f) * (p.Team == 0 ? 1f : -1f));
                         continue;
                     }
-                    bool distant = math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;
+                    bool distant = FigureOfArchetype(p.Archetype) != FrogFigure && math.distancesq(CamPos, new float3(p.Pos.x, y, p.Pos.z)) > FarSq;   // a frog is never the far tier's soldier
                     var map = distant ? FarRowOf : NearRowOf;
                     int row = p.AnimRow, prevRow = row, seed = 0, chr = 0, wound = 0; float prevT = 0f, blend = 0f, grime = 0f;
                     if (Controlled)
