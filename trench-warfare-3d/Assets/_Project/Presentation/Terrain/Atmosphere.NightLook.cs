@@ -24,7 +24,10 @@
 // (lift +0.00 to +0.04 against the edit's +0.106). The shaders' field fog closes far more gently than the linear fog these
 // distances suggest, so a reach of 0.2 lifts the far third 0.14-0.17 to 0.21-0.23 at zoom 30 and 60 with the near third
 // within 0.01; 0.05 to 0.18 all gave the same, 0.3 fell short. The pools go on after the fog (look.poolsThroughHaze), or the
-// haze put the distance's lamps out.
+// haze put the distance's lamps out. Round 2's critic: that was fog opacity, not depth; the fill of distant things went
+// and their ink stayed, bare black outlines. So the haze is thinner (reach 0.5) and 1.45 times lighter, and the ink fades
+// with the distance fog (look.inkFade, InkLines_URP): far third 0.21-0.23 -> 0.25-0.27 (the edit 0.25), edges up at every
+// pose (a_z30 0.081 -> 0.097), the distance's silhouettes darker than the haze behind them. look.hazeLight scales it.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -37,13 +40,17 @@ namespace TW.Presentation.Terrain
         public const string LiftKnob = "look.lift";
         /// <summary>What the haze (the fog and the clear colour), the bank round the field and the low mist become at
         /// look.lift 1: lighter than the night ground and less saturated than today's, still blue.</summary>
-        public static readonly Color LiftHaze = new Color(0.25f, 0.29f, 0.37f), LiftBank = new Color(0.21f, 0.25f, 0.33f), LiftMist = new Color(0.27f, 0.32f, 0.41f);
-        public const float LiftReach = 0.2f, LiftMistShare = 0.3f, LiftBankShare = 0.35f;
+        public static readonly Color LiftHaze = new Color(0.36f, 0.42f, 0.54f), LiftBank = new Color(0.30f, 0.36f, 0.48f), LiftMist = new Color(0.39f, 0.46f, 0.59f);
+        public const float LiftReach = 0.5f, LiftMistShare = 0.3f, LiftBankShare = 0.35f;
         /// <summary>The owner's word (2026-09-29, "its good"): the night look on by default; each knob at 0 is the old night.</summary>
         public const float DefaultLift = 1f, DefaultWet = 1f;
         /// <summary>The view distance at which the reach is LiftReach itself (zoom 30 looks about 28 m), and the most it grows.</summary>
         public const float ReachAt = 30f, ReachGrowMax = 3f;
-        static readonly int WetLookId = Shader.PropertyToID("_TWWetLook");
+        static readonly int WetLookId = Shader.PropertyToID("_TWWetLook"), InkFogFadeId = Shader.PropertyToID("_TWInkFogFade");
+        /// <summary>look.hazeLight: the lifted haze's colours times this (1 = LiftHaze as tuned); look.inkFade: how far the
+        /// ink lines fade with the distance fog (InkLines_URP).</summary>
+        public const float DefaultHazeLight = 1f, DefaultInkFade = 1f;
+        float hazeLight = DefaultHazeLight, inkFade = DefaultInkFade;
         float wetLook;
         float fogSquall, fogLifted; bool fogHooked;
         float lift, liftReach = LiftReach, liftMist = LiftMistShare, liftBank = LiftBankShare; int liftKnobs = -1;
@@ -59,10 +66,13 @@ namespace TW.Presentation.Terrain
                 liftMist = Mathf.Clamp01(Knobs.Get("look.liftMist", LiftMistShare));
                 liftBank = Mathf.Clamp01(Knobs.Get("look.liftBank", LiftBankShare));
                 wetLook = Mathf.Clamp01(Knobs.Get("look.wet", DefaultWet));
+                hazeLight = Mathf.Clamp(Knobs.Get("look.hazeLight", DefaultHazeLight), 0.5f, 2f);
+                inkFade = Mathf.Clamp01(Knobs.Get("look.inkFade", DefaultInkFade));
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             if (!fogHooked && night && lift > 0f) { RenderPipelineManager.beginCameraRendering += FogAtRender; fogHooked = true; }
             Shader.SetGlobalFloat(WetLookId, night ? wetLook : 0f);
+            Shader.SetGlobalFloat(InkFogFadeId, night && lift > 0f ? inkFade : 0f);
             return night ? lift : 0f;
         }
 
@@ -99,5 +109,8 @@ namespace TW.Presentation.Terrain
 
         /// <summary>A haze colour taken toward its lifted one by k (k 0: the colour unchanged).</summary>
         public static Color Lifted(Color c, Color to, float k) => k <= 0f ? c : Color.Lerp(c, to, Mathf.Clamp01(k));
+
+        /// <summary>A lifted colour at look.hazeLight's lightness.</summary>
+        Color Light(Color c) => new Color(Mathf.Min(1f, c.r * hazeLight), Mathf.Min(1f, c.g * hazeLight), Mathf.Min(1f, c.b * hazeLight), c.a);
     }
 }

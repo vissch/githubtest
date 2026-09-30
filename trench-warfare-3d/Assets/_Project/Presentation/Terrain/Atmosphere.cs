@@ -260,7 +260,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
-            Shader.SetGlobalFloat(WetLookId, 0f);
+            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f);
             ClearBiome();
             UnhookFog();
             if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
@@ -301,7 +301,7 @@ namespace TW.Presentation.Terrain
                 key.transform.rotation = flash > .02f ? Quaternion.LookRotation(from.normalized) : Quaternion.Euler(KeyEuler);
             }
             float lifted = Lift();   // look.lift: the distance into lighter haze (Atmosphere.NightLook.cs)
-            Color sky = Color.Lerp(Lifted(Haze, LiftHaze, lifted), Profile.FlashSky, flash * .40f);
+            Color sky = Color.Lerp(Lifted(Haze, Light(LiftHaze), lifted), Profile.FlashSky, flash * .40f);
             RenderSettings.fogColor = sky;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = sky;
@@ -311,7 +311,7 @@ namespace TW.Presentation.Terrain
             fogSquall = Rain > 0f ? Mathf.Clamp01(RainNow / (Rain * 1.25f)) : 0f;
             fogLifted = lifted;
             FogDistances(cam);   // and again as the camera renders while lifted (Atmosphere.NightLook.cs)
-            Color mist = Lifted(Mist, LiftMist, lifted * liftMist);
+            Color mist = Lifted(Mist, Light(LiftMist), lifted * liftMist);
             Shader.SetGlobalVector(MistColorId, new Vector4(mist.r, mist.g, mist.b, MistDensity));
 
             Shader.SetGlobalVector(ShadeTintId, new Vector4(shadeNow.r, shadeNow.g, shadeNow.b, 1f));
@@ -334,7 +334,7 @@ namespace TW.Presentation.Terrain
             var map = RenderGround.Map;
             if (map != null) Shader.SetGlobalVector(FieldId, new Vector4(0f, 0f, map.SizeMeters.x, map.SizeMeters.y));
             Shader.SetGlobalVector(FieldFogId, new Vector4(BankStart, 1f / Mathf.Max(1f, BankRange), BankTop, BankRise));
-            Color bank = Lifted(Bank, LiftBank, lifted * liftBank);
+            Color bank = Lifted(Bank, Light(LiftBank), lifted * liftBank);
             Shader.SetGlobalVector(FieldFogColorId, new Vector4(bank.r, bank.g, bank.b, map != null ? BankDensity : 0f));
         }
     }
