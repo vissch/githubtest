@@ -138,6 +138,7 @@ namespace TW.Presentation
                 // the Proving Ground's machines (2026-09-28)
                 case VehicleArchetype.Brute: return "Brute";
                 case VehicleArchetype.Croaker: return "Croaker";
+                case VehicleArchetype.Bullfrog: return "Bullfrog";
                 case VehicleArchetype.Hopper: return "Hopper";
                 case VehicleArchetype.Mercy: return "Mercy";
                 case VehicleArchetype.MarkIV: return "Mark IV";
@@ -180,6 +181,7 @@ namespace TW.Presentation
                 // the Proving Ground's machines: placeholder numbers (UnitDefinitions), so the words say what to watch for
                 case VehicleArchetype.Brute: return "Brute, prototype heavy tank: the Maw's guns under thicker plate. Slow";
                 case VehicleArchetype.Croaker: return "Croaker, prototype biped: a turret gun and claws at 2.4 m. One leg a side";
+                case VehicleArchetype.Bullfrog: return $"Bullfrog, prototype toad: twin gatlings to {Def(VehicleArchetype.Bullfrog).Weapon.RangeMax:0} m. Hops trenches and wire";
                 case VehicleArchetype.Hopper: return "Hopper, prototype gunship: strides over trenches and wire. No flight in the sim yet";
                 case VehicleArchetype.Mercy: return "Mercy, prototype ambulance: unarmed. Heals the men within 10 m of its hull";
                 case VehicleArchetype.MarkIV: return "Mark IV Male, stand-in: the Maw's numbers under a historical name";
