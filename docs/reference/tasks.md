@@ -1332,6 +1332,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |
 | `LampOut` | NightLights, NightLights.Machines | PropDestruction.Ram |
 | `Standing` | BattlefieldProps | TankRenderer.Deaths |
+| `StandingTall` | BattlefieldProps | - |
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
