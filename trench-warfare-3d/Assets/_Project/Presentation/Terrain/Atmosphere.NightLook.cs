@@ -39,6 +39,9 @@
 // scaled by look.puddleSky, so still water reads as dark glass that shows the lamps' glints and the lightning, not paper.
 // The big pale slabs were the flooded ground's water sheet (Water_URP), bright mostly from its own moonlit body, which a
 // third of mirrored sky barely changes: look.waterDim darkens that body at night (0 by day).
+// look.rainCurtain (round 7's critic, the loudest defect at the wide view: vertical stripes over the sky): the distant rain
+// curtains are the haze colour times 1.9, near white once the haze was lifted and lightened; while lifted they are 1.15
+// times it at look.rainCurtain of their alpha.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -142,7 +145,10 @@ namespace TW.Presentation.Terrain
         }
 
         public const float DefaultPuddleSky = 0.5f, DefaultWaterDim = 0.45f;
-        static readonly int WaterDimId = Shader.PropertyToID("_TWWaterDim");
+        static readonly int WaterDimId = Shader.PropertyToID("_TWWaterDim"), CurtainId = Shader.PropertyToID("_TWCurtain");
+        /// <summary>look.rainCurtain: the distant rain curtains' alpha while lifted (their colour 1.15 times the haze, was 1.9).</summary>
+        public const float DefaultCurtain = 0.75f, CurtainPale = 1.15f;
+        float curtain = DefaultCurtain;
         float puddleSky = DefaultPuddleSky, waterDim = DefaultWaterDim; int puddleKnobs = -1;
 
         /// <summary>What the puddles mirror of the sky at night (look.puddleSky), 1 by day and on lava.</summary>
@@ -153,9 +159,11 @@ namespace TW.Presentation.Terrain
                 puddleKnobs = Knobs.Generation;
                 puddleSky = Mathf.Clamp(Knobs.Get("look.puddleSky", DefaultPuddleSky), 0.1f, 1f);
                 waterDim = Mathf.Clamp(Knobs.Get("look.waterDim", DefaultWaterDim), 0f, 0.9f);
+                curtain = Mathf.Clamp01(Knobs.Get("look.rainCurtain", DefaultCurtain));
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
+            Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }
 
