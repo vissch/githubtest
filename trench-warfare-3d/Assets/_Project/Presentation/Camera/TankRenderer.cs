@@ -847,7 +847,7 @@ namespace TW.Presentation.Tactical
             if (fire > 0.02f)
             {
                 // its pool of firelight on the mud round it, renewed each frame (look.firePools, NightLights.Pools.cs)
-                SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * (v.Model.Height + 0.5f), FirePoolColour, 0.35f + 0.75f * fire, 6f + v.Model.HalfLength * (0.8f + 0.6f * fire), 0f);
+                SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * (v.Model.Height + 0.5f), FirePoolColour, 0.35f + 0.75f * fire, (6f + v.Model.HalfLength * (0.8f + 0.6f * fire)) * 0.75f, 0f);   // a quarter less reach (round 17: it swallowed the men beside it)
                 for (int k = 0; k < 2; k++)
                 {
                     var at = SocketWorld(v, "Socket_Fire" + k, out bool ok);
