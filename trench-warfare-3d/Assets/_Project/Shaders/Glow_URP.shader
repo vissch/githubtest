@@ -31,9 +31,10 @@ Shader "TW/Glow (URP)"
                 half4 _Tint;
                 float _Squash;
             CBUFFER_END
+            float _TWGlowHue;   // look.glowHue (Atmosphere.NightLook.cs): how far a glow's core keeps its hue as the haze takes it; 0 = as before
 
             struct Attributes { float4 positionOS : POSITION; float2 corner : TEXCOORD0; float4 shape : TEXCOORD1; half4 color : COLOR; };
-            struct Varyings { float4 positionCS : SV_POSITION; float2 corner : TEXCOORD0; half3 color : TEXCOORD1; };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 corner : TEXCOORD0; half3 color : TEXCOORD1; half haze : TEXCOORD2; };
 
             Varyings vert(Attributes v)
             {
@@ -47,6 +48,7 @@ Shader "TW/Glow (URP)"
                 o.corner = v.corner;
                 float haze = 1.0 - saturate(ComputeFogIntensity(ComputeFogFactor(o.positionCS.z)));   // 0 clear .. 1 lost in haze
                 o.color = v.color.rgb * v.color.a * _Tint.rgb * saturate(flicker) * (1.0 - haze * v.shape.w);
+                o.haze = haze;
                 return o;
             }
 
@@ -54,7 +56,9 @@ Shader "TW/Glow (URP)"
             {
                 half d = saturate(1.0 - dot(i.corner, i.corner));
                 half peak = max(i.color.r, max(i.color.g, i.color.b));
-                half3 hot = lerp(i.color, peak.xxx, 0.85);                 // nearly white
+                // nearly white; look.glowHue: in the haze the coloured body dims first and the white core was all that was left,
+                // grey-white ovals far off (critique round 10), so there the core keeps the light's own colour
+                half3 hot = lerp(i.color, peak.xxx, 0.85 * (1.0 - _TWGlowHue * saturate(i.haze * 1.6)));
                 half3 deep = i.color * i.color / max(peak, 1e-3);          // same brightness, hue pulled to the strongest channel
                 deep = deep * deep / max(peak, 1e-3);
                 half d2 = d * d, d4 = d2 * d2;

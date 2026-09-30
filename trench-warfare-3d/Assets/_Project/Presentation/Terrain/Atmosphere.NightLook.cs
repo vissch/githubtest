@@ -150,6 +150,10 @@ namespace TW.Presentation.Terrain
         }
 
         public const float DefaultPuddleSky = 0.25f, DefaultWaterDim = 0.85f;
+        static readonly int GlowHueId = Shader.PropertyToID("_TWGlowHue");
+        /// <summary>look.glowHue: a distant glow's core keeps its lamp's colour in the haze instead of going white.</summary>
+        public const float DefaultGlowHue = 0.8f;
+        float glowHue = DefaultGlowHue;
         static readonly int WaterDimId = Shader.PropertyToID("_TWWaterDim"), CurtainId = Shader.PropertyToID("_TWCurtain");
         /// <summary>look.rainCurtain: the distant rain curtains' alpha while lifted (their colour 1.15 times the haze, was 1.9).</summary>
         public const float DefaultCurtain = 0.75f, CurtainPale = 1.15f;
@@ -165,9 +169,11 @@ namespace TW.Presentation.Terrain
                 puddleSky = Mathf.Clamp(Knobs.Get("look.puddleSky", DefaultPuddleSky), 0.1f, 1f);
                 waterDim = Mathf.Clamp(Knobs.Get("look.waterDim", DefaultWaterDim), 0f, 0.9f);
                 curtain = Mathf.Clamp01(Knobs.Get("look.rainCurtain", DefaultCurtain));
+                glowHue = Mathf.Clamp01(Knobs.Get("look.glowHue", DefaultGlowHue));
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
+            Shader.SetGlobalFloat(GlowHueId, night ? glowHue : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }
