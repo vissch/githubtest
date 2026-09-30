@@ -71,7 +71,7 @@ namespace TW.Presentation.Terrain
         static readonly int WetLookId = Shader.PropertyToID("_TWWetLook"), InkFogFadeId = Shader.PropertyToID("_TWInkFogFade");
         /// <summary>look.hazeLight: the lifted haze's colours times this (1 = LiftHaze as tuned); look.inkFade: how far the
         /// ink lines fade with the distance fog (InkLines_URP).</summary>
-        public const float DefaultHazeLight = 1f, DefaultInkFade = 1f;
+        public const float DefaultHazeLight = 0.95f, DefaultInkFade = 1f;   // 0.95 since round 18: the far third read 0.256-0.267, a hair above the edit's 0.250
         float hazeLight = DefaultHazeLight, inkFade = DefaultInkFade;
         float wetLook;
         float fogSquall, fogLifted; bool fogHooked;
@@ -152,7 +152,11 @@ namespace TW.Presentation.Terrain
         }
 
         public const float DefaultPuddleSky = 0.25f, DefaultWaterDim = 0.85f;
-        static readonly int GlowHueId = Shader.PropertyToID("_TWGlowHue");
+        static readonly int GlowHueId = Shader.PropertyToID("_TWGlowHue"), MoonSheenId = Shader.PropertyToID("_TWMoonSheen");
+        /// <summary>look.moonSheen: the fine wet sparkle's share at the standard view (0.3 before; round 17's critic: the near
+        /// ground between the pools dead, no highlight on the wet mud, where the palette edit's near mud glints cold).</summary>
+        public const float DefaultMoonSheen = 0.6f;   // 0.9 turned the near mud to noisy speckle
+        float moonSheen = DefaultMoonSheen;
         /// <summary>look.glowHue: a distant glow's core keeps its lamp's colour in the haze instead of going white.</summary>
         public const float DefaultGlowHue = 0.8f;
         float glowHue = DefaultGlowHue;
@@ -172,10 +176,12 @@ namespace TW.Presentation.Terrain
                 waterDim = Mathf.Clamp(Knobs.Get("look.waterDim", DefaultWaterDim), 0f, 0.9f);
                 curtain = Mathf.Clamp01(Knobs.Get("look.rainCurtain", DefaultCurtain));
                 glowHue = Mathf.Clamp01(Knobs.Get("look.glowHue", DefaultGlowHue));
+                moonSheen = Mathf.Clamp(Knobs.Get("look.moonSheen", DefaultMoonSheen), 0.01f, 1f);
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
             Shader.SetGlobalFloat(GlowHueId, night ? glowHue : 0f);
+            Shader.SetGlobalFloat(MoonSheenId, night ? moonSheen : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }

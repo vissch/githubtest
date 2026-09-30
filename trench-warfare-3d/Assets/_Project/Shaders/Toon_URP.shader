@@ -265,7 +265,7 @@ Shader "TW/Toon (URP)"
                         half2 fine = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale * 4.3 + 0.17).gb - 0.5;
                         float3 facet = normalize(n + float3(fine.x, 0, fine.y) * 1.25);
                         half spark = smoothstep(0.972, 0.984, dot(reflect(-view, facet), mainLight.direction));
-                        color += spark * 1.7 * near * lerp(0.3, 1.0, close) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                        color += spark * 1.7 * near * lerp(_TWMoonSheen > 0.0 ? _TWMoonSheen : 0.3, 1.0, close) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     }
                 }
                 if (_TWWet.z > 0.0)
