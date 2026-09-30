@@ -89,7 +89,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Tests:** SteadyStepTests (over the scripts' own match, no man's step is turned back on the one before: to his post in the trench, closing on an enemy in the open), MatchLoopTests (ten-minute matches against a player who only defends: the enemy keeps deploying, attacks
   only with the odds, never sits on silver while it is short of men for the odds, and breaks him on two seeds of three;
   `Report_TheMatchLoop`, Explicit, prints four policies
-  including the script against itself), CampaignGraphTests (difficulty presets), SinglePlayerEquivalenceTests.
+  including the script against itself), CampaignGraphTests (difficulty presets), SinglePlayerEquivalenceTests,
+  BehaviourBenchTests (`Report_HowEveryUnitBehaves`, Explicit: the script on both seats, fielding machines, three
+  seeds; every unit scored on what a player sees go wrong, worst unit named; deterministic, so two reports are an A/B).
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
