@@ -14,10 +14,31 @@ float4 _TWPools[TW_MAX_POOLS];
 float4 _TWPoolTint[TW_MAX_POOLS];
 float _TWPoolCount;
 float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
+float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff (critique round 5: "cut-out discs")
+float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire's pool never clips the ground to flat orange
 float _TWPoolsThroughHaze;   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
 
-/// The warm light the pools throw on a surface at positionWS facing normalWS: three hard bands, brightest in the middle
-/// third of the reach, falling to a faint rim, and only on the side that faces the flame.
+/// A pool's weight at t (0 under the flame, 1 at its rim): the three hard bands, softened toward a smooth falloff by
+/// look.poolSoft (the bands' edges widen and a squared falloff takes over).
+half TWPoolBand(float t)
+{
+    half hard = 0.45 * (1.0 - smoothstep(0.30, 0.34, t)) + 0.33 * (1.0 - smoothstep(0.62, 0.66, t)) + 0.22 * (1.0 - smoothstep(0.94, 1.0, t));
+    half s = 1.0 - saturate(t);
+    half soft = s * s * (0.55 + 0.45 * (1.0 - smoothstep(0.35, 0.65, t)));
+    return lerp(hard, soft * 1.6, _TWPoolSoft);
+}
+
+/// look.poolShoulder: a sum of pools rolled off so it approaches, never passes, 1/k of a lantern's full light.
+half3 TWPoolRoll(half3 sum)
+{
+    if (_TWPoolShoulder <= 0.0) return sum;
+    half m = max(sum.r, max(sum.g, sum.b));
+    return sum / (1.0 + m * _TWPoolShoulder);
+}
+
+/// The warm light the pools throw on a surface at positionWS facing normalWS: three hard bands (softened by
+/// look.poolSoft), brightest in the middle third of the reach, falling to a faint rim, and only on the side that faces
+/// the flame.
 half3 TWLightPools(float3 positionWS, half3 normalWS)
 {
     half3 sum = 0;
@@ -30,10 +51,9 @@ half3 TWLightPools(float3 positionWS, half3 normalWS)
         if (dist2 >= reach * reach) continue;
         float t = sqrt(dist2) / reach;                                            // 0 under the flame, 1 at the rim
         half facing = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))) * 0.6 + 0.4);
-        half band = 0.45 * (1.0 - smoothstep(0.30, 0.34, t)) + 0.33 * (1.0 - smoothstep(0.62, 0.66, t)) + 0.22 * (1.0 - smoothstep(0.94, 1.0, t));
-        sum += _TWPoolTint[k].rgb * band * facing;
+        sum += _TWPoolTint[k].rgb * TWPoolBand(t) * facing;
     }
-    return sum;
+    return TWPoolRoll(sum);
 }
 
 /// For a figure (a man, a machine): the pools' light and a warm rim together in one pass. The rim: the edge of a figure
@@ -57,11 +77,11 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
         float t = sqrt(dist2) / reach;
         half toward = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))));
         float tp = t * 1.25;                                                    // the pool's own reach, not the rim's
-        half band = tp < 1.0 ? 0.45 * (1.0 - smoothstep(0.30, 0.34, tp)) + 0.33 * (1.0 - smoothstep(0.62, 0.66, tp)) + 0.22 * (1.0 - smoothstep(0.94, 1.0, tp)) : 0.0;
+        half band = tp < 1.0 ? TWPoolBand(tp) : 0.0;
         sum += _TWPoolTint[k].rgb * band * (toward * 0.6 + 0.4);
         rimOut += _TWPoolTint[k].rgb * smoothstep(0.30, 0.38, edge * toward) * (1.0 - smoothstep(0.45, 1.0, t));
     }
-    return sum;
+    return TWPoolRoll(sum);
 }
 
 /// look.wet: the flames' glints on wet ground. A reflection r that points back at a flame within its pool catches a hard
