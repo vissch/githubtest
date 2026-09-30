@@ -261,7 +261,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
-            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f); Shader.SetGlobalFloat(WaterDimId, 0f); Shader.SetGlobalFloat(GlowHueId, 0f); Shader.SetGlobalVector(CurtainId, Vector4.zero);
+            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f); Shader.SetGlobalFloat(WaterDimId, 0f); Shader.SetGlobalFloat(GlowHueId, 0f); Shader.SetGlobalFloat(MoonSheenId, 0f); Shader.SetGlobalVector(CurtainId, Vector4.zero);
             ClearBiome();
             UnhookFog();
             if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
