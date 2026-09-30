@@ -305,7 +305,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Machine(archetype, x, z, team)` | Editor/DeathLab.cs | A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the picture draws it there (a machine killed the ... |
 | `TW.Editor.DeathLab.Parts(x, z)` | Editor/DeathLab.cs | One of each of a man's parts (DebrisRenderer.Figure, cut from his figure) dropped in a row from (x, z) along x, a metre apart and a metre up, in the ... |
 | `TW.Editor.DeathLab.DriveAt(slot, x, z)` | Editor/DeathLab.cs | A machine driven straight at a point (VehicleKinematicsSystem.DriveStraight), not along a flow field (the crush stills' Maw sat still on a field goal ... |
-| `TW.Editor.DeathLab.Later(seconds, act)` | Editor/DeathLab.cs | `act` once, `seconds` of play from now (a frame at a time, from the editor's update). |
+| `TW.Editor.DeathLab.Tough(spawned)` | Editor/DeathLab.cs | `act` once, `seconds` of play from now (a frame at a time, from the editor's update). |
+| `TW.Editor.DeathLab.Later(seconds, act)` | Editor/DeathLab.cs | (no summary: read the method) |
 | `TW.Editor.DeathLab.Disarm(slot)` | Editor/DeathLab.cs | A machine's guns put out of action (GunHealth 0, as a knocked-out gun) once its gunnery has taken the slot on: the first tick after a spawn sets ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
