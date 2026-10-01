@@ -74,6 +74,11 @@ namespace TW.Tests
             float metres = 0f, jam = 0f, spin = 0f, flips = 0f, worstFlip = 0f; string worstFlipOf = "-", worstJamOf = "-", worstSpinOf = "-"; float worstJam = 0f, worstSpin = 0f;
             int machines = 0;
             var kinds = new SortedDictionary<byte, float4>();   // per machine type: count, metres, flips, jammed s
+            // ...and how long that type was alive to do it in. Without this the metres cannot be read: a Pincer that
+            // covered 12 m in an eight-minute match (seed 1, 2026-10-01, against 230-390 m for every other machine)
+            // may have stood still for eight minutes or been destroyed after ten seconds, and the line said the same
+            // either way. Only living units are sampled, so metres and lifetime have to be read together.
+            var aliveOf = new SortedDictionary<byte, float>();
             // men
             float stuck = 0f, idle = 0f, piled = 0f, held = 0f, manSeconds = 0f, worstStuck = 0f, inOpen = 0f, moving = 0f, pinnedS = 0f, proneS = 0f;
             int men = 0;
@@ -84,6 +89,7 @@ namespace TW.Tests
                 {
                     machines++; metres += u.Metres; jam += u.Jam; spin += u.Spin; flips += u.Flips;
                     kinds[u.Arch] = (kinds.TryGetValue(u.Arch, out var kd) ? kd : float4.zero) + new float4(1f, u.Metres, u.Flips, u.Jam);
+                    aliveOf[u.Arch] = (aliveOf.TryGetValue(u.Arch, out float al) ? al : 0f) + u.Alive;
                     float per100 = u.Metres > WorstFloor ? 100f * u.Flips / u.Metres : 0f;
                     if (per100 > worstFlip) { worstFlip = per100; worstFlipOf = $"{Name(u.Arch)} (team {u.Team})"; }
                     if (u.Jam > worstJam) { worstJam = u.Jam; worstJamOf = $"{Name(u.Arch)} (team {u.Team})"; }
@@ -134,9 +140,9 @@ namespace TW.Tests
             // per machine type, the worst first: one bad unit stands out, a whole type that hunts is a profile's fault
             var byFlips = new List<KeyValuePair<byte, float4>>(kinds);
             byFlips.Sort((a, b) => (b.Value.y > 1f ? b.Value.z / b.Value.y : 0f).CompareTo(a.Value.y > 1f ? a.Value.z / a.Value.y : 0f));
-            sb.Append("  by type (flips/100 m, metres, jammed s):");
+            sb.Append("  by type (flips/100 m, metres, jammed s, alive s each):");
             foreach (var kv in byFlips)
-                sb.Append($" {Name(kv.Key)}x{kv.Value.x:F0} {(kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f):F0}/{kv.Value.y:F0}/{kv.Value.w:F0}");
+                sb.Append($" {Name(kv.Key)}x{kv.Value.x:F0} {(kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f):F0}/{kv.Value.y:F0}/{kv.Value.w:F0}/{(aliveOf.TryGetValue(kv.Key, out float al2) && kv.Value.x > 0f ? al2 / kv.Value.x : 0f):F0}");
             sb.AppendLine();
             sb.AppendLine($"  deaths {deaths.Count}: {100f * mx["deaths_in_clumps_share"]:F0} % in clumps of 4+, the biggest {biggest}");
             r.Text = sb.ToString();
