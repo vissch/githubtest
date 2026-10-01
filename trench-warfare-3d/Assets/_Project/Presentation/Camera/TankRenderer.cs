@@ -119,6 +119,8 @@ namespace TW.Presentation.Tactical
             public float PounceAt = -1f, PounceCrouch, PounceAir; public bool PounceUp;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
+            /// <summary>A flyer knocked out in the air and still alive in the sim: 0 flying .. 1 down on the ground.</summary>
+            public float Grounded;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
@@ -230,6 +232,7 @@ namespace TW.Presentation.Tactical
         public const float FlyerLift = 9f;      // metres: over the wire, the parapets and a walker's back; under the camera's near views
         /// <summary>Resources/Vehicles/&lt;Name&gt; + this: the far model's own atlas, where it has one.</summary>
         public const string FarAtlasSuffix = "Atlas_LOD1";
+        const float ForcedLanding = 1.3f;   // seconds a knocked-out flyer takes to come down
         const float WashEvery = 0.09f, WashSpeed = 3.4f;   // a flyer's downwash: seconds between puffs, and how fast they are blown out
         public const float FlyingFrom = 2f;     // a lift from here up is flight: level, and a fall when it dies
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
@@ -357,7 +360,9 @@ namespace TW.Presentation.Tactical
             SceneHooks.DrawnWreck = (x, z) =>
             {
                 foreach (var v in wrecks) if (v.Linked && (v.PropPos.x - x) * (v.PropPos.x - x) + (v.PropPos.z - z) * (v.PropPos.z - z) < 1f) return true;
-                return false;
+                // the wrecks a map starts with are drawn as hulls too (OldWrecks). The field may be composed before this
+                // match's first frame here, so until they are built every wreck on the map is promised
+                return Ready && maw != null && Host != null && Host.Local != null && oldWrecksOf != Host.Local;
             };
             SceneHooks.IsTankSlot = slot => views.TryGetValue(slot, out var tv) && !tv.Dead;
             SceneHooks.VehicleGunPort = slot =>
@@ -425,7 +430,8 @@ namespace TW.Presentation.Tactical
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var match = Host.Local; var w = match.World;
             WeightKnobs();
-            if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); ribbonPool.AddRange(ribbons); ribbons.Clear(); }   // a new match: nothing of the last one flies on
+            if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); ribbonPool.AddRange(ribbons); ribbons.Clear(); }
+            if (oldWrecksOf != match) OldWrecks(match, Time.time);   // a new match: nothing of the last one flies on
             float dt = Mathf.Max(1e-4f, Time.deltaTime), now = Time.time;
             Capture(match);
             foreach (var v in views.Values) v.Seen = false;
@@ -504,6 +510,53 @@ namespace TW.Presentation.Tactical
             WeighGuns(v, fresh);
             for (int k = 0; k < 2; k++) v.GunYaw[k] = k < fresh.GunCount ? fresh.Gun(k).RestYaw : 0f;
             return v;
+        }
+
+        // the wrecks a map starts with (PropKind.Wreck in MapData.Props): the field drew each as four dark cubes, a
+        // greybox stand-in that sat in every picture of the Shelled Forest as a black slab (critic, 2026-10-01). Each is
+        // a tank that died here before the match: a hull of ours, burnt out and cold, settled into the mud at a tilt,
+        // drawn as the wreck of a machine killed in the match is drawn and linked to its prop the same way.
+        TW.Sim.Match.MatchSim oldWrecksOf;
+        public const int OldWreckSlot = -1000;   // an old wreck's slot: OldWreckSlot - its prop's index (no sim slot is negative)
+        public const float OldWreckScorch = 0.6f;   // burnt, and rained on since: not the soot black of a hull still smoking (0.85), which is a hole in a night field
+        static readonly byte[] OldWreckKinds = { VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Maw, VehicleArchetype.Brute };
+
+        /// <summary>Which machine lies at a map wreck, and how it has settled: hashed off the prop, so a map always has
+        /// the same hulks. x = index into OldWreckKinds, y = pitch, z = roll (radians), w = metres sunk.</summary>
+        public static Vector4 OldWreckLie(int prop)
+        {
+            float R(int salt) { uint h = (uint)(prop * 0x9E3779B1u) ^ (uint)(salt * 0x85EBCA77u); h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; return (h & 0xFFFF) / 65535f; }
+            return new Vector4(Mathf.Min(OldWreckKinds.Length - 1, (int)(R(1) * OldWreckKinds.Length)), (R(2) - 0.5f) * 0.16f, (R(3) - 0.5f) * 0.24f, 0.25f + R(4) * 0.3f);
+        }
+
+        void OldWrecks(TW.Sim.Match.MatchSim match, float now)
+        {
+            oldWrecksOf = match;
+            for (int k = wrecks.Count - 1; k >= 0; k--) if (wrecks[k].Slot <= OldWreckSlot) { foreach (var p in wrecks[k].Pieces) debris.Remove(p); wrecks.RemoveAt(k); }
+            var map = match.Map; var w = match.World;
+            for (int i = 0; i < map.Props.Length; i++)
+            {
+                var prop = map.Props[i];
+                if (prop.Kind != TW.Sim.Terrain.PropKind.Wreck) continue;
+                var lie = OldWreckLie(i);
+                byte kind = OldWreckKinds[(int)lie.x];
+                var model = ModelFor(kind);
+                if (model == null) continue;
+                int parts = model.Lods[0].Parts.Count;
+                var v = new View { Slot = OldWreckSlot - i, Team = (byte)(i & 1), Model = model, Born = now - 1000f, Archetype = kind, Style = RideFor(kind), Fresh = false };
+                v.Pos = v.LastPos = new Vector3(prop.Pos.x, 0f, prop.Pos.z);
+                v.Yaw = v.LastYaw = prop.Yaw;
+                v.Off = new bool[parts]; v.World = new Matrix4x4[parts];
+                var fresh = Machine(w, kind);
+                WeighGuns(v, fresh);
+                for (int g = 0; g < 2; g++) { v.GunYaw[g] = g < fresh.GunCount ? fresh.Gun(g).RestYaw : 0f; v.GunPitch[g] = -0.12f; }
+                v.Heave.Value = Ground(v.Pos.x, v.Pos.z) - lie.w;
+                v.Pitch.Value = lie.y; v.Roll.Value = lie.z;
+                v.Dead = true; v.DiedAt = now - 1000f; v.Scorch = OldWreckScorch; v.Hatch = 1f; v.Landed = true;
+                v.Linked = true; v.PropPos = (Vector3)prop.Pos;
+                Pose(v, model.Lods[0], v.World);
+                wrecks.Add(v);
+            }
         }
 
         float Ground(float x, float z) => Host != null && Host.Local != null ? RenderGround.Sample(Host.Local.Map, x, z) : 0f;
@@ -728,7 +781,19 @@ namespace TW.Presentation.Tactical
                 top = Mathf.Max(top, Ground(v.Pos.x + fwd.x * hl * c + right.x * g * s2, v.Pos.z + fwd.z * hl * c + right.z * g * s2));
             }
             float mean = (fl + fr + rl + rr + mid) * 0.2f;
-            heave = Mathf.Max(mean, top - HoverDip) + v.Lift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
+            // a flyer knocked out in the air (its crew dead or gone, the hull still on the field for the sim) comes down:
+            // it hung where it was, black and burning, nine metres up (critic, 2026-10-01). It drops faster as it goes,
+            // lands nose down on one side, and shakes the ground once
+            float aloft = 1f;
+            if (v.Lift >= FlyingFrom)
+            {
+                bool wasUp = v.Grounded < 1f;
+                v.Grounded = Mathf.MoveTowards(v.Grounded, v.State != 0 ? 1f : 0f, dt / (v.State != 0 ? ForcedLanding : ForcedLanding * 2f));
+                aloft = 1f - v.Grounded * v.Grounded;
+                if (v.Grounded > 0f) { pitch = Mathf.Lerp(pitch, -0.16f, v.Grounded); roll = Mathf.Lerp(roll, (v.Slot & 1) == 0 ? 0.2f : -0.2f, v.Grounded); }
+                if (wasUp && v.Grounded >= 1f) { CameraShake.Add(v.Pos, 6f); if (books != null && books.Ready) for (int k = 0; k < 6; k++) { float a = k * Mathf.PI / 3f; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); books.Add(FlipbookFx.Book.Puff, new Vector3(v.Pos.x, mid + 0.3f, v.Pos.z) + o * m.HalfLength * 0.6f, 2f, 1.2f, velocity: o * 3f + Vector3.up * 0.5f, grow: 1.8f, alpha: 0.5f); } }
+            }
+            heave = Mathf.Max(mean, top - HoverDip) + (aloft > 0f ? (v.Lift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f)) * aloft : 0.15f);
             float want = Mathf.Clamp(-v.YawRate * Mathf.Abs(v.Speed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
             v.Drift = Mathf.Lerp(v.Drift, want, 1f - Mathf.Exp(-dt * 2f));
         }
@@ -1050,7 +1115,7 @@ namespace TW.Presentation.Tactical
             // a flyer's downwash (2026-10-01): the Hopper hung over the field with nothing under it but its ring, so
             // nothing said how high it was or what held it up. Dust blown outward from the ground beneath it, rings
             // where that ground is water; a little wider while it is moving
-            if (v.Lift >= FlyingFrom && !v.Dead && near && now >= v.NextWash)
+            if (v.Lift >= FlyingFrom && !v.Dead && v.State == 0 && v.Grounded <= 0f && near && now >= v.NextWash)
             {
                 v.NextWash = now + WashEvery;
                 float a = UnityEngine.Random.value * Mathf.PI * 2f;
