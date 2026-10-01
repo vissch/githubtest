@@ -24,6 +24,7 @@ float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff 
 float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire's pool never clips the ground to flat orange
 float _TWPoolsThroughHaze;
 float _TWFireStreak;   // look.fireStreak: each flame's long broken reflection across the wet mud toward the camera; 0 = none
+float _TWGlintUnblue;   // look.glintUnblue: how much of the ground's blue a flame's glint takes out from under it; 0 = none
 float _TWPropRim;
 float _TWMenSheenCut;   // look.menClose: what the wet sheen loses at the closest view, applied by the shader's own closeness
 float _TWMenRead;   // look.menClose (Atmosphere.NightLook.cs): what a foot figure gains at close range, so he reads
