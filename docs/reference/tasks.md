@@ -94,6 +94,13 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Editor/CaptureRig.cs` (`Bench`, and `Stress`: a rough 2,000-man footprint check).
 - **Tests:** SinglePlayerEquivalenceTests (runs the preset with 60 men a side), BattlefieldLockstepTests,
   StressPresetTests (the player's army spread over its trenches).
+
+### The VFX pass (every effect filmed for a critique, 2026-10-01)
+- **Files (SHOW):** `Editor/VfxLab.cs` (stages one effect at a time by name: a shell, the HE barrage, a machine's
+  cook-off and burning wreck, a machine alight, chlorine, the smoke screen, the beam, the strafe run, an incendiary on
+  a row, a star shell, rain), `Tests/Stills/VfxStills.cs` (films each as a contact sheet and a play-zoom shot;
+  `TW_VFX_SCENES`, `TW_STILLS_FIELD`, `TW_STILLS_DIR`).
+- **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
@@ -756,5 +763,5 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- gen:tests -->
 - **EditMode:** AbilityAimTests, AbilityArgsTests, AirDropTests, AllocProbeSanityTests, AssaultLadderTests, AssetScaleTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BreakerTests, BurningSystemTests, CampaignGraphTests, CampaignProfileTests, ChassisTests, CoastTests, ColumnLightTests, ColumnPlayTests, CombatTests, ComicWordsTests, CommandSeatTests, CommandValidationTests, ComponentLookupAllocationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DefinedUnitTests, DeterminismReplayTests, DirectionalBlastTests, DrainageTests, DriveFeelTests, DriveStyleTests, DynamicGroundTests, EnvAtlasTests, FactionBuildingsTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, FrameBudgetCoverageTests, FreshCloneSetupTests, GaitTests, GameSettingsTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeLookTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, HitchAttributionTests, HollowRescanTests, HomeFrontDioramaTests, HouseKitTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, HullRideTests, JetpackTests, KeyMapTests, KnobsTests, LandingTests, LaneAndEngageRulesTests, LaunchLoadoutTests, LoadoutTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, MatchLoopTests, MineTests, NightLookTests, OfficerTests, PaintedHorizonCompressionTests, PlaytestMapTests, PropWearTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, RiderSeatTests, SapperTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SelectionTests, ShaderInclusionTests, ShellUxmlTests, ShieldTests, ShotLogTests, ShotStaggerTests, SimHashTests, SinglePlayerEquivalenceTests, SkinAssetTests, SmokeScreenTests, SpreadAndEngageTests, StaticLifecycleTests, StrafeRunTests, StrategicMapMeshTests, StressPresetTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TrenchSpreadTests, UnitArtTests, UnitCatalogueTests, UnitDefinitionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerArmamentTests, WinterLevelTests, WinterMapTests, WreckRecordTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
-- **Stills:** WalkerStills
+- **Stills:** VfxStills, WalkerStills
 <!-- /gen:tests -->
