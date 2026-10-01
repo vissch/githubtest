@@ -245,7 +245,7 @@ namespace TW.Tests
                 // the aftermath at the standard view, the zoom the game is played at
                 string wide = Path.Combine(dir, $"{stem}_standard.png");
                 if (tc != null) tc.BaseYaw = -90f;
-                CaptureRig.Shot(wide, x + 4f, z, 30f, 40f, 25f, 1280, 720);
+                CaptureRig.Shot(wide, x + 4f, z + (Shooters(scene) ? 6f : 0f), Shooters(scene) ? 34f : 30f, 40f, 25f, 1280, 720);   // a shot scene's aftermath shows its shooters too (frog round 15)
                 yield return Drain(wide);
                 for (int f = 0; f < 30; f++) yield return null;
             }
