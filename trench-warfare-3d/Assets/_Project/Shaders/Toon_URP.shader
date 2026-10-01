@@ -336,7 +336,7 @@ Shader "TW/Toon (URP)"
                 heat *= max(0.0, 1.0 + crustRelief);
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
-                color = MixFog(color, i.fog);
+                color = TWSilhouetteFog(color, MixFog(color, i.fog), _DetailStrength);
                 color += heat;
                 if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue * _TWPoolsThroughHaze);   // and over the haze the fog put back
                 color += poolLight * _TWPoolsThroughHaze;
@@ -378,7 +378,7 @@ Shader "TW/Toon (URP)"
                 o.fog = ComputeFogFactor(cs.z);
                 return o;
             }
-            half4 frag(Varyings i) : SV_Target { return half4(MixFog(ApplyFieldFog(_OutlineColor.rgb, i.positionWS), i.fog), 1.0); }
+            half4 frag(Varyings i) : SV_Target { half3 c = ApplyFieldFog(_OutlineColor.rgb, i.positionWS); return half4(TWSilhouetteFog(c, MixFog(c, i.fog), _DetailStrength), 1.0); }
             ENDHLSL
         }
 

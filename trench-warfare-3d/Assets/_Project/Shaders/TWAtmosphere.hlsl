@@ -255,6 +255,16 @@ float4 _TWFieldFogColor; // rgb, a = density
 float4 _TWQuiet;         // x density (0 = off), y top height, z 1/height fade
 TEXTURE2D(_TWPresence); SAMPLER(sampler_TWPresence);
 
+float _TWSilhouette;   // look.silhouette (Atmosphere.NightLook.cs): the share of the lifted haze a prop keeps off; 0 = all of it
+
+/// look.silhouette: a prop (anything but the ground) keeps that share of the lifted haze off, so trees, posts and wrecks
+/// stand dark against the lighter distance as in the owner's palette edit, where the haze had washed them into one grey
+/// veil at the wide view (critique rounds 20 and 23). The ground keeps all of it, so the distance still lifts.
+half3 TWSilhouetteFog(half3 color, half3 hazed, float detailStrength)
+{
+    return _TWSilhouette > 0.0 && detailStrength <= 0.0 ? lerp(hazed, color, _TWSilhouette) : hazed;
+}
+
 half3 ApplyMist(half3 color, float3 positionWS)
 {
     float far = saturate((distance(_WorldSpaceCameraPos, positionWS) - _TWMist.z) * _TWMist.w);
