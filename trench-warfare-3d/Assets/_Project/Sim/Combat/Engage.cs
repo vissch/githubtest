@@ -8,7 +8,8 @@
 //    its grid that finds his target; no line of sight needed, he knows where they are);
 //  - farther off than his weapon likes (HoldDistance: half its range, less when he is under a >> order and only
 //    engages within AdvanceFireRange; a braced gun sets up at three quarters), he CLOSES on him, in a straight line,
-//    if the ground between them is open: no wire, no trench, nothing blocked. Otherwise his goal's field knows the way;
+//    if the ground between them is open: no wire, no trench, nothing blocked (every cell the line crosses; once
+//    closing, the next CloseKeep metres, 2026-10-01). Otherwise his goal's field knows the way;
 //  - near enough and seeing him, he HOLDS: stands where he is, kneels, faces him and shoots (MoveJob), which takes
 //    the moving penalty off his rounds. He holds until the man is dead or has gone HoldSlack past that distance,
 //    and only while the ground between them is open: nobody stands to duel across wire or a trench.
@@ -36,6 +37,7 @@ namespace TW.Sim.Combat
         public const float HoldSlack = 1.25f;    // a man who is holding keeps holding until the enemy is this much further
         public const float MinHold = 4f;         // this close he stops whatever his weapon is
         public const float ClearAhead = 48f;     // metres of the way to him that must be open ground
+        public const float CloseKeep = 8f;       // a man already closing keeps on while this much of the way is open
 
         public int Order => SimSystemOrder.Engage;
 
@@ -129,16 +131,29 @@ namespace TW.Sim.Combat
             }
 
             /// <summary>Open ground all the way along <paramref name="dir"/> for <paramref name="length"/> metres.</summary>
+            /// <summary>Is the way `length` metres along `dir` open ground? Every nav cell the line crosses after his own
+            /// (a grid walk, 2026-10-01). It sampled the line a metre apart from where he stood, so a step along it moved
+            /// every sample: by a wire or trench cell's corner the answer changed with a tenth of a metre, and a man
+            /// closed and stopped closing on alternate ticks, zig-zagging where he stood. Walked cell by cell, a step
+            /// along the line crosses the same cells.</summary>
             bool Clear(float3 p, float3 dir, float length)
             {
                 const byte closed = (byte)(NavLayer.Blocked | NavLayer.Wire | NavLayer.Trench | NavLayer.Link | NavLayer.Bunker);
                 length = math.min(length, ClearAhead);
-                for (float s = 1f; s <= length; s += 1f)
+                if (length <= 0f) return true;
+                float cs = MapData.NavCellSize;
+                int x = math.clamp((int)(p.x / cs), 0, NavWidth - 1), z = math.clamp((int)(p.z / cs), 0, NavLength - 1);
+                int sx = dir.x > 0f ? 1 : -1, sz = dir.z > 0f ? 1 : -1;
+                float ax = math.abs(dir.x), az = math.abs(dir.z);
+                float nextX = ax > 1e-6f ? ((sx > 0 ? x + 1 : x) * cs - p.x) / dir.x : float.MaxValue;
+                float nextZ = az > 1e-6f ? ((sz > 0 ? z + 1 : z) * cs - p.z) / dir.z : float.MaxValue;
+                float stepX = ax > 1e-6f ? cs / ax : float.MaxValue, stepZ = az > 1e-6f ? cs / az : float.MaxValue;
+                for (int guard = 0; guard < 128; guard++)
                 {
-                    float3 q = p + dir * s;
-                    int cx = math.clamp((int)(q.x / MapData.NavCellSize), 0, NavWidth - 1);
-                    int cz = math.clamp((int)(q.z / MapData.NavCellSize), 0, NavLength - 1);
-                    byte layer = Layers[cz * NavWidth + cx];
+                    float t;
+                    if (nextX < nextZ) { t = nextX; nextX += stepX; x += sx; } else { t = nextZ; nextZ += stepZ; z += sz; }
+                    if (t > length || x < 0 || z < 0 || x >= NavWidth || z >= NavLength) return true;
+                    byte layer = Layers[z * NavWidth + x];
                     if ((layer & closed) != 0 || (layer & (byte)NavLayer.Surface) == 0) return false;
                 }
                 return true;
@@ -192,7 +207,12 @@ namespace TW.Sim.Combat
                 // wire, a trench or a wall between them: his goal's field knows the way round, and he shoots on the move
                 // as he always did. He does not stand in the open to duel across an obstacle: the men beyond an enemy
                 // trench are not worth being shot from its fire step for.
-                if (!Clear(p, dir, dist - hold * 0.8f)) return;
+                // already closing, he keeps on while the next CloseKeep metres are open (2026-10-01): judged on the whole way
+                // every tick, a step toward him clipped a wire or trench cell on the line, the field took him a step back,
+                // the line was clear again, and he closed and did not on alternate ticks, zig-zagging where he stood
+                float need = dist - hold * 0.8f;
+                if (was == MovementSystem.EngageClose) need = math.min(need, CloseKeep);
+                if (!Clear(p, dir, need)) return;
                 Mode[i] = MovementSystem.EngageClose; Dir[i] = new float2(dir.x, dir.z);
             }
         }

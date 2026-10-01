@@ -17,6 +17,7 @@ using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
+using TW.Presentation;
 
 namespace TW.Tests
 {
@@ -455,6 +456,46 @@ namespace TW.Tests
         public void TheBattle_IsTheSameOnEveryMachine()
         {
             Assert.AreEqual(Battle(24, 1500).Hash, Battle(24, 1500).Hash, "same seed, same lanes, same fight, same hash");
+        }
+
+        /// <summary>A man closing on an enemy does not zig-zag where he stands (2026-10-01). EngageSystem asks whether the
+        /// way to him is open ground; sampled a metre apart from where he stood, the answer by the corner of a wire or
+        /// trench cell changed with a tenth of a metre, so he closed on him one tick and followed his goal's field the
+        /// next, back and forth (the scripts' match, seed 2: one man's steps reversed 34 times in one place, 1.3 reversals
+        /// a man-minute in the open). Now the way is walked cell by cell, and a man already closing keeps on while the
+        /// next CloseKeep metres are open. Counted over the match: a man in the open whose step reversed the one before.</summary>
+        [Test]
+        public void AManClosingOnTheEnemyDoesNotZigZagWhereHeStands()
+        {
+            int reversals = 0; float open = 0f;
+            var last = new Dictionary<long, float2>(); var lastStep = new Dictionary<long, float2>();
+            uint seen = uint.MaxValue;
+            MatchLoopTests.Play(MatchLoopTests.Policy.Script, 8, 2u, new ScriptedEnemy(), 8, m =>
+            {
+                var w = m.World;
+                if (w.Tick == seen) return; seen = w.Tick;
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    if (!w.IsAlive(i) || (w.Flags[i] & (uint)(UnitFlags.Vehicle | UnitFlags.InTrench)) != 0 || w.TrenchId[i] >= 0) continue;
+                    open += w.Config.TickSeconds;
+                    long key = ((long)i << 16) | w.Generation[i];
+                    float2 p = w.Position[i].xz;
+                    if (last.TryGetValue(key, out var q))
+                    {
+                        float2 step = p - q;
+                        if (lastStep.TryGetValue(key, out var ls))
+                        {
+                            float a = math.length(step), b = math.length(ls);
+                            if (a > 0.015f && b > 0.015f && math.dot(step, ls) < -0.5f * a * b) reversals++;
+                        }
+                        lastStep[key] = step;
+                    }
+                    last[key] = p;
+                }
+            });
+            float perMinute = reversals / math.max(1f, open / 60f);
+            TestContext.WriteLine($"men in the open: {open / 60f:F0} man-minutes, {reversals} steps reversed ({perMinute:F2} a man-minute)");
+            Assert.Less(perMinute, 0.8f, "a man closing on an enemy does not close and stop closing on alternate ticks (1.3 a man-minute when the way was sampled a metre apart)");
         }
     }
 }
