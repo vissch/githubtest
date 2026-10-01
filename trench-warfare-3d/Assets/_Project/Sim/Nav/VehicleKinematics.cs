@@ -504,11 +504,17 @@ namespace TW.Sim.Nav
             /// shoved it until the push apart let it by (a Tusk behind a halted machine stood 16 s; a Croaker in a real
             /// match 12 s, its nose hunting either way). A hull ahead, within the two footprints and AvoidLook more,
             /// bends the wanted line away from its side, the harder the nearer; dead ahead, the lower slot keeps
-            /// right (deterministic).</summary>
-            float2 Avoid(int i, float3 p, float2 want, in VehicleProfile prof)
+            /// right (deterministic). The side is read off the machine's own nose, not the wanted line (2026-10-01): a
+            /// hull that cannot move stood where the field funnels every machine through a trench crossing, and the
+            /// one behind, pressed against it, sat across two cells whose field ways differ by 45 degrees. Read
+            /// against the wanted line, the hull ahead changed sides at every cell it crossed and its nose swung 120
+            /// degrees either way until the hull burned out (a Croaker 600 reversals in 80 s, none got past). Read
+            /// off the nose, a turn away keeps the hull on the side it turned from: it goes round.</summary>
+            float2 Avoid(int i, float3 p, float yaw, float2 want, in VehicleProfile prof)
             {
                 float2 push = float2.zero;
                 float2 side = new float2(want.y, -want.x);   // the right hand of the way it wants to go
+                float2 nose = new float2(SimMath.Sin(yaw), SimMath.Cos(yaw)), hand = new float2(nose.y, -nose.x);   // and of its nose
                 for (int k = 0; k < Vehicles.Length; k++)
                 {
                     int j = Vehicles[k];
@@ -519,10 +525,13 @@ namespace TW.Sim.Nav
                     if (dist >= touch + AvoidLook || dist < 1e-3f) continue;
                     float ahead = math.dot(d, want) / dist;
                     if (ahead < AvoidCone) continue;
-                    float across = math.dot(d, side);
+                    float across = math.dot(d, hand);
                     float away = math.abs(across) > 0.25f ? -math.sign(across) : (i < j ? 1f : -1f);
                     float near = math.saturate((touch + AvoidLook - dist) / AvoidLook);
-                    push += side * (away * near * ahead);
+                    // from nothing at the cone's edge to all of it dead ahead: weighted by `ahead` alone, a hull on the
+                    // edge put in 0.3 of a push and took it out again tick by tick, and a Kettle beside a Banner swung its
+                    // nose 24 degrees on alternate ticks (2026-10-01)
+                    push += side * (away * near * ((ahead - AvoidCone) / (1f - AvoidCone)));
                 }
                 if (math.all(push == 0f)) return want;
                 float2 bent = want + push * AvoidGain;
@@ -588,7 +597,7 @@ namespace TW.Sim.Nav
                         {
                             step = FlowField.Offset(d);
                             // the line looked ahead along the field, then bent onto its lane (Laned, v18)
-                            want = Avoid(i, p, Laned(i, goal, cell, p, Steer(goal, cell, prof, step), prof), prof);
+                            want = Avoid(i, p, yaw, Laned(i, goal, cell, p, Steer(goal, cell, prof, step), prof), prof);
                         }
                     }
                     else if (!stopping)

@@ -89,7 +89,11 @@ namespace TW.Sim
         // roll: a miss that would have hit with no cover) wears that wreck by its share of the cover (DirectFire.Wrecks).
         // v30 (2026-09-28, wrecks break in stages: guns turn on them): a gun with nobody to shoot at fires at a wreck that
         // shelters its enemies (Shot.b = PropTarget), keeping their heads down; a machine gun's hits wear it (DirectFire.Wrecks).
-        public const ushort FormatVersion = 30;
+        // v31 (2026-10-01, round a hull that cannot move): Avoid reads which side a hull ahead is on off the machine's
+        // own nose, not the wanted line, so a machine pressed behind a ditched or knocked-out hull goes round it instead
+        // of swinging its nose either way; a hull's push grows from nothing at the cone's edge (it stepped in at 0.3).
+        // Same inputs, different tracks. Layout and chain unchanged.
+        public const ushort FormatVersion = 31;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
