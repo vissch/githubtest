@@ -80,7 +80,8 @@ namespace TW.Sim.Nav
 
             // 2. neighbours
             Spatial.Rebuild(w.Position, w.Flags, n);
-            new SeparationJob { Hash = Spatial, Position = w.Position, Flags = w.Flags, TrenchId = w.TrenchId, Vehicles = Vehicles.AsArray(), Push = push }
+            new SeparationJob { Hash = Spatial, Position = w.Position, Flags = w.Flags, TrenchId = w.TrenchId, Vehicles = Vehicles.AsArray(), Push = push,
+                                PostCell = w.PostCell, NavWidth = map.NavWidth, NavCell = MapData.NavCellSize }
                 .Schedule(n, 64).Complete();
 
             // 3. move
