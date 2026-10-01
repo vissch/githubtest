@@ -336,7 +336,12 @@ namespace TW.Editor
                 catch (System.Exception ex) { Debug.LogException(ex); flags.Add("sheet failed: " + ex.Message); }
                 SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null);
                 foreach (var f in flags) summaryFlags.Add(e + " | " + Regex.Replace(f, @"[0-9.]+", "#"));
-                if (flags.Count == 0) foreach (var f in shots) { TryDelete(f); TryDelete(Path.ChangeExtension(f, ".json")); }
+                // Raw PNGs are thrown away for a clean entry to keep a run small, which is right for a bug catcher and
+                // wrong for judging a LOOK: the pictures you need then are of the units that are BEHAVING, and once the
+                // Units tab stopped flagging there was no full-resolution frame of a man firing left anywhere.
+                // keep=1 holds on to them.
+                if (flags.Count == 0 && Gym.Opt(Options, "keep") != "1")
+                    foreach (var f in shots) { TryDelete(f); TryDelete(Path.ChangeExtension(f, ".json")); }
             }
             director.Clear();
             director.Unquiet();
