@@ -374,6 +374,28 @@ namespace TW.Perf
             return best;
         }
 
+        /// <summary>The point within 40 m of `near` (5 m apart) with the most standing trees (PropKind.Tree, the sim's own:
+        /// the scatter's are drawn only) within 8 m of it.</summary>
+        public Vector2 Thickest(Vector2 near, out int standing)
+        {
+            var map = Host.Local.Map;
+            Vector2 best = near; standing = 0; float bestScore = -1f;
+            for (int cz = -8; cz <= 8; cz++)
+            for (int cx = -8; cx <= 8; cx++)
+            {
+                var p = near + new Vector2(cx, cz) * 5f;
+                int n = 0;
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var pr = map.Props[i];
+                    if (pr.Kind == TW.Sim.Terrain.PropKind.Tree && (new Vector2(pr.Pos.x, pr.Pos.z) - p).sqrMagnitude < 64f) n++;
+                }
+                float score = n - 0.001f * (cx * cx + cz * cz);
+                if (score > bestScore) { bestScore = score; best = p; standing = n; }
+            }
+            return best;
+        }
+
         /// <summary>Up to `count` shell-hole cells (NavLayer.Crater, open ground) within 30 m of `near`, the nearest
         /// first, `spacing` metres or more apart: where CraterMen puts its men.</summary>
         public List<Vector2> Craters(Vector2 near, int count, float spacing)
@@ -499,11 +521,20 @@ namespace TW.Perf
                     r?.Log.Add($"scene: the Maw is {Vector2.Distance(line.from, new Vector2(at.x, at.z)):0} m along");
                     break;
                 }
+                case GymScene.BarrageOnTrees:
+                {
+                    var wood = Thickest(Stage, out int standing);
+                    Ability(OffMapAbilityId.HeBarrage, wood, 0, AbilityPattern.Box);   // the 16 m box: the stand, not the field round it
+                    r?.Log.Add($"scene: the barrage on {standing} standing trees within 8 m of ({wood.x:0},{wood.y:0})");
+                    if (r != null) r.Focus = new float3(wood.x, 0f, wood.y);
+                    yield return new WaitForSeconds(4f);   // the shells are still landing (SpreadTicks): SceneSettle waits out the rest
+                    break;
+                }
             }
         }
 
         /// <summary>Seconds a scene needs after Scene() returns before its pictures mean something.</summary>
-        public static float SceneSettle(GymScene scene) => scene == GymScene.GasOnTrench ? 18f : scene == GymScene.BarrageOnTrench ? 12f : scene == GymScene.MachineFlattens ? 3f : 6f;
+        public static float SceneSettle(GymScene scene) => scene == GymScene.GasOnTrench ? 18f : scene == GymScene.BarrageOnTrench ? 12f : scene == GymScene.MachineFlattens ? 3f : scene == GymScene.BarrageOnTrees ? 10f : 6f;
 
         // ------------------------------------------------------------------------------------------------- camera
         public static void Look(Vector2 focus, float zoom, float yawDeg = 30f)

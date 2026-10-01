@@ -467,6 +467,11 @@ namespace TW.Editor
                         if (r.Count(SimEventType.PropChanged) + r.Count(SimEventType.WireBreached) == 0) flags.Add("the machine flattened nothing");
                         break;
                     }
+                    if ((GymScene)e.Id == GymScene.BarrageOnTrees)
+                    {
+                        if (r.Count(SimEventType.PropChanged) == 0) flags.Add("the barrage broke no tree");
+                        break;
+                    }
                     if (r.Watch.Count == 0) flags.Add("no men staged");
                     else if ((GymScene)e.Id != GymScene.TrenchLine && r.WatchedHits + r.WatchedNearMisses + r.WatchedDeaths + r.WatchedSuppressed == 0)
                         flags.Add("nothing reached the men");
