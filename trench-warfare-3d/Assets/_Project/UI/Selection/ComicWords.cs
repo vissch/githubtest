@@ -25,7 +25,7 @@ namespace TW.UI
         public const float NearMissLiftM = 4.2f, LiftM = 5.2f;
 
         /// <summary>A moment worth a word, weightiest last.</summary>
-        public enum Moment : byte { None, NearMiss, Parry, Blow, BigBurst, Ricochet, Pounce, CookOff }   // hand to hand and the crab's leap: 2026-10-01
+        public enum Moment : byte { None, NearMiss, Parry, Blow, BigBurst, Ricochet, Pounce, CookOff, Hero }   // hand to hand and the crab's leap: 2026-10-01
 
         /// <summary>The word each moment gets.</summary>
         public static string WordFor(Moment m) => m switch
@@ -34,6 +34,7 @@ namespace TW.UI
             Moment.Parry => "CLACK!",
             Moment.Blow => "THWACK!",
             Moment.Pounce => "WHUMP!",
+            Moment.Hero => "HERO!",
             Moment.BigBurst => "KRUMP!",
             Moment.Ricochet => "CLANG!",
             Moment.CookOff => "KA-BOOM!",
@@ -46,7 +47,8 @@ namespace TW.UI
             SimEventType.NearMiss => Moment.NearMiss,
             SimEventType.MeleeBlow when e.Scalar > 0f => Moment.Blow,      // a blow that landed (MeleeSystem: scalar = damage)
             SimEventType.MeleeBlow when e.Scalar == 0f => Moment.Parry,    // one turned aside; a miss (-1) says nothing
-            SimEventType.PounceLanded => Moment.Pounce,                    // a crab comes down (PounceSystem)
+            SimEventType.PounceLanded => Moment.Pounce,
+            SimEventType.HeroMoment => Moment.Hero,                        // the Victoria Cross moment (HeroSystem): the weightiest word there is                    // a crab comes down (PounceSystem)
             SimEventType.Explosion when e.Scalar >= BigBurstM && e.Dir.y < 1.5f => Moment.BigBurst,   // a shell or masonry, not a cook-off (Dir.y 2)
             SimEventType.VehicleArmourHit when e.Scalar < 0f => Moment.Ricochet,                     // negative: the plate stopped it
             SimEventType.VehicleCookOff => Moment.CookOff,
@@ -117,7 +119,7 @@ namespace TW.UI
             var m = Classify(e);
             if (m == Moment.None) return;
             Vector3 p = e.Pos;
-            if (host != null && host.Local != null) p.y = RenderGround.Sample(host.Local.Map, p.x, p.z) + (m == Moment.NearMiss || m == Moment.Blow || m == Moment.Parry ? NearMissLiftM : LiftM);
+            if (host != null && host.Local != null) p.y = RenderGround.Sample(host.Local.Map, p.x, p.z) + (m == Moment.NearMiss || m == Moment.Blow || m == Moment.Parry || m == Moment.Hero ? NearMissLiftM : LiftM);
             if (lastCam != null && !Seen(lastCam.WorldToViewportPoint(p), Vector3.Distance(lastCam.transform.position, p))) return;
             picker.Offer(m, p);
         }

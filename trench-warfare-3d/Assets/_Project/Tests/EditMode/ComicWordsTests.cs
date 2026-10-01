@@ -27,6 +27,8 @@ namespace TW.Tests
             Assert.AreEqual(ComicWords.Moment.None, ComicWords.Classify(E(SimEventType.MeleeBlow, -1f)), "a miss says nothing");
             Assert.AreEqual(ComicWords.Moment.Pounce, ComicWords.Classify(E(SimEventType.PounceLanded, 3f)));
             Assert.AreEqual("THWACK!", ComicWords.WordFor(ComicWords.Moment.Blow));
+            Assert.AreEqual(ComicWords.Moment.Hero, ComicWords.Classify(E(SimEventType.HeroMoment, 5f)));
+            Assert.Greater((int)ComicWords.Moment.Hero, (int)ComicWords.Moment.CookOff, "nothing outweighs the hero's moment");
             Assert.Greater((int)ComicWords.Moment.Pounce, (int)ComicWords.Moment.Blow, "a crab landing outweighs a rifle butt");
             Assert.AreEqual("CRACK!", ComicWords.WordFor(ComicWords.Moment.NearMiss));
         }

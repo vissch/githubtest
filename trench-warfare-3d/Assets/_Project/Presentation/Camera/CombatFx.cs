@@ -148,6 +148,31 @@ namespace TW.Presentation.Tactical
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         readonly HashSet<int> blowStruck = new HashSet<int>(); int blowFrame = -1;   // the men a MeleeBlow landed on this frame
+        /// <summary>The live heroes (slots), from HeroMoment to HeroFallen / HeroSurvived, and their gold.</summary>
+        readonly List<int> heroes = new List<int>(4);
+        static readonly Color HeroGold = new Color(1f, 0.82f, 0.35f);
+        float heroGlint;
+
+        /// <summary>Each live hero carries a pool of gold light over the mud and throws a glint off his helmet now and
+        /// then, so the player can find the man the fight has turned on.</summary>
+        void TickHeroes(float now)
+        {
+            if (heroes.Count == 0 || Host == null || Host.Local == null) return;
+            var w = Host.Local.World;
+            bool glint = now >= heroGlint;
+            if (glint) heroGlint = now + 0.55f;
+            for (int k = heroes.Count - 1; k >= 0; k--)
+            {
+                int s = heroes[k];
+                if (s < 0 || s >= w.HighWater || !w.IsAlive(s) || (w.Flags[s] & (uint)UnitFlags.Hero) == 0) { heroes.RemoveAt(k); continue; }
+                float size = units != null ? units.UnitScale : 1f;
+                Vector3 chest = EstimateChest(s, size);
+                SceneHooks.FirePool?.Invoke(new Vector3(chest.x, chest.y - 1f * size, chest.z), HeroGold, 1.4f, 5.5f, 0f);
+                if (glint && books != null && books.Ready)
+                    books.Add(FlipbookFx.Book.Star, chest + Vector3.up * (1.0f * size), 0.5f * size, 0.45f, velocity: Vector3.up * 1.2f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3f : 1.6f);
+            }
+        }
+
         int hitsThisFrame, healsThisFrame;
         static readonly Color HealGreen = new Color(0.45f, 1f, 0.6f);
         TW.Presentation.Units.VATRenderer units;
@@ -598,6 +623,45 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                // ---- the hero moment (HeroSystem: "losing becomes a story"): the sim made it and nothing drew it ----
+                case SimEventType.HeroMoment:
+                {
+                    // a = the man: a gold flash where he stands up, a ring of glints going up round him, and from now on
+                    // a gold pool on the mud under him (TickHeroes) until he falls or his window closes
+                    if (e.A < 0 || e.A >= w.HighWater) break;
+                    if (!heroes.Contains(e.A)) heroes.Add(e.A);
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 chest = EstimateChest(e.A, size);
+                    SceneHooks.Flash?.Invoke(chest + Vector3.up * 0.5f, HeroGold, 14f, 12f, 0.9f);
+                    CameraShake.Add(chest, 3f);
+                    if (books != null && books.Ready)
+                    {
+                        books.Add(FlipbookFx.Book.Flash, chest + Vector3.up * (0.4f * size), 3.2f * size, 0.22f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 5f : 2.4f, pop: 0.5f);
+                        for (int k = 0; k < 10; k++)
+                        {
+                            float a = k * Mathf.PI / 5f; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                            books.Add(FlipbookFx.Book.Star, chest + o * (1.6f * size), 0.7f * size, 0.9f, velocity: o * 2.4f + Vector3.up * 2.2f, roll: a, glow: SceneMood.Night ? 3.5f : 1.8f, delay: k * 0.015f);
+                        }
+                    }
+                    break;
+                }
+                case SimEventType.HeroFeat:
+                {
+                    // a = the hero, scalar = his tally: each kill glints gold off him
+                    if (books == null || !books.Ready || e.A < 0 || e.A >= w.HighWater) break;
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 chest = EstimateChest(e.A, size);
+                    books.Add(FlipbookFx.Book.Star, chest + Vector3.up * (0.9f * size), 1.1f * size, 0.35f, velocity: Vector3.up * 1.6f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f);
+                    SceneHooks.Flash?.Invoke(chest, HeroGold, 7f, 6f, 0.3f);
+                    break;
+                }
+                case SimEventType.HeroFallen:
+                case SimEventType.HeroSurvived:
+                {
+                    heroes.Remove(e.A);
+                    if (e.Type == SimEventType.HeroFallen) SceneHooks.Flash?.Invoke((Vector3)e.Pos + Vector3.up, HeroGold, 9f, 9f, 0.6f);   // the light goes out with a last flare
+                    break;
+                }
                 case SimEventType.UnitHealed:
                 {
                     // a medic's hands or the ambulance beside him (SupportSystem; a = the healer, b = the patient): nothing
@@ -978,6 +1042,7 @@ namespace TW.Presentation.Tactical
             flames.SimNow = SimNow;   // the torches expire by the sim's clock (CombatFx.Abilities.cs)
             flames.Update(now, view, books, drawnAt, groundAt);
             TickSmoulders(now);
+            TickHeroes(now);
             books?.Draw(now, bounds);
             hitsThisFrame = 0; healsThisFrame = 0;
 
