@@ -1505,6 +1505,55 @@ namespace TW.Presentation.Tactical
                 case SimEventType.VehicleBailedOut:
                     if (v != null && books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, SocketWorld(v, "Socket_Crew", out _), 1.4f, 1f, velocity: Vector3.up, grow: 1f, alpha: 0.6f);
                     break;
+                case SimEventType.VehicleTrackHit:
+                {
+                    // a track shot through and thrown (b = side: 0 left, 1 right). The machine slewed to a stop and nothing
+                    // said why: sparks where the track parted, its links thrown out to that side, the mud it kicks up,
+                    // and the hull lurching onto the side that has gone
+                    if (v == null || v.Dead) break;
+                    Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), right = new Vector3(fwd.z, 0f, -fwd.x);
+                    float side = e.B == 1 ? 1f : -1f;
+                    Vector3 at = v.Pos + right * (side * v.Model.HalfGauge) + fwd * (v.Model.HalfLength * 0.35f);
+                    at.y = Ground(at.x, at.z) + 0.5f;
+                    v.Roll.Velocity -= side * 0.7f;
+                    v.Flash = 1f;
+                    CameraShake.Add(at, 2f);
+                    SceneHooks.Sparks?.Invoke(at, 12);
+                    SceneHooks.Flash?.Invoke(at, new Color(1f, 0.85f, 0.6f), 10f, 5f, 0.1f);
+                    Scrap(at, 6, 5f, 0.26f, 0.2f, 40f, right * (side * 0.8f), e.Tick + (uint)e.A * 7u);   // the links
+                    if (books != null && books.Ready)
+                    {
+                        books.Add(FlipbookFx.Book.Star, at, 1.4f, 0.09f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3f : 1.8f);
+                        books.Add(FlipbookFx.Book.Spurt, new Vector3(at.x, at.y - 0.5f, at.z), 1.5f, 0.6f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored);
+                        books.Add(FlipbookFx.Book.Puff, at, 1.6f, 1.2f, velocity: right * (side * 1.2f) + Vector3.up * 0.4f, grow: 1.3f, alpha: 0.5f);
+                    }
+                    break;
+                }
+                case SimEventType.VehicleModuleHit:
+                {
+                    // a part put out of action (b = which, scalar = what is left: 0). A gun knocked out or an engine
+                    // stopped showed as a gun that drooped or a hull that stood still, with no moment to it: a burst of
+                    // steam, sparks and scrap off the place it was. A track says so itself (VehicleTrackHit).
+                    if (v == null || v.Dead || e.Scalar > 0f) break;
+                    var part = (VehicleModule)e.B;
+                    if (part == VehicleModule.TrackLeft || part == VehicleModule.TrackRight || part == VehicleModule.Crew) break;
+                    Vector3 fwd = new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw));
+                    float along = part == VehicleModule.Engine || part == VehicleModule.Fuel ? -0.5f : part == VehicleModule.Ammo ? 0f : 0.45f;
+                    Vector3 at = v.Pos + fwd * (along * v.Model.HalfLength) + Vector3.up * (v.Heave.Value + Mathf.Max(1.4f, 0.75f * v.Model.Height));
+                    v.Flash = 1f;
+                    SceneHooks.Sparks?.Invoke(at, 9);
+                    SceneHooks.Flash?.Invoke(at, new Color(1f, 0.7f, 0.4f), 12f, 6f, 0.12f);
+                    if (books != null && books.Ready)
+                    {
+                        books.Add(FlipbookFx.Book.Flash, at, 1.6f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: 2f, pop: 0.4f);
+                        // pale steam and dust, not black smoke: black on a dark hull at night showed nothing (seen in Play)
+                        for (int k = 0; k < 4; k++)
+                            books.Add(FlipbookFx.Book.Puff, at + Vector3.up * (0.3f * k), 1.6f + 0.4f * k, 1.6f + 0.3f * k, velocity: Vector3.up * (2.2f + 0.6f * k) + UnityEngine.Random.insideUnitSphere * 0.4f, grow: 1.6f, alpha: 0.7f, delay: 0.06f * k);
+                        books.Add(FlipbookFx.Book.Smoke, at, 1.8f, 3f, velocity: Vector3.up * 1.2f, grow: 1.5f, alpha: 0.7f, delay: 0.3f);
+                    }
+                    Scrap(at, 3, 6f, 0.2f, 0.4f, 40f, Vector3.up * 0.6f, e.Tick + (uint)e.A * 13u + (uint)e.B);   // what was shot off it
+                    break;
+                }
                 case SimEventType.VehicleCookOff:
                     if (v != null)
                     {

@@ -473,6 +473,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   fifteen metres, which was two straight segments (a hard white line that read as a debug line). `Storm.BuildBolt`
   has `BoltSteps` 40 points crowded toward the foot (`BoltFall`), each kink sized to its own segment (`BoltKink`),
   a trunk that thins toward the ground, and two twigs off the last few metres. Tests: `StormBoltTests`.
+  **A part put out of action has its moment** (2026-10-01, same build): `VehicleTrackHit` (sparks where the track
+  parted, its links thrown to that side, mud, the hull lurching onto it) and `VehicleModuleHit` at zero (a burst of
+  steam, sparks and scrap off the gun, the engine or the fuel) in `TankRenderer.OnSimEvent`; before, a gun drooped
+  or a hull stood still and nothing marked when. Seen in Play by raising the events on a tank (a live duel did not
+  break a part in the minute filmed).
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).
