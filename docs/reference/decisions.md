@@ -32,6 +32,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-29 | **Dust Front is a craft reference, not a style reference** (the owner, on the Dust Front RTS 2025 trailer). The 2026-09-21 visual standard stands (painted cartoon mudfield, night by default; target `docs/reference/battlefield-night-game.jpeg`). Borrow its techniques (warm local light, a calmer near-neutral palette, soft smoke and haze, weighty machines, a leaner HUD that moves only to say something); no re-art and no new art pipeline. (AskUserQuestion.) |
 | 2026-09-29 | **The night look is the owner's two edits of a game screenshot: the palette of one, the effects of the other** (an "aligned colours" edit and an "anime VFX" edit, 2026-09-29; the images are not in the repo). From the colour edit: keep today's blue night (saturation about 0.49, blue-cast 64 %, measured), but lift the distance into lighter layered fog with a ruined skyline in silhouette, and spend the highlights on warm fire (warm-lit 2-5 %, ours 0.14 %) and on broken sparkles of wet mud (moonlight blue, orange near a fire), not on big pale surfaces. From the effects edit: flat cel flame tongues with embers, many torches and lanterns each lighting its patch of ground, two-tone smoke lit from below, strong ink outlines kept near. **Every light is warm**; blue is only moonlight and its reflections. **Comic sound words ("CRACK") stay, rarely.** **No stray blue or purple sparkles.** This replaces the "calmer near-neutral palette" in the row above: Dust Front stays a craft reference for motion and UI. (The owner, on the report's analysis.) |
 | 2026-09-29 | **The night look's first part is on by default** (the owner, on the captures: "its good"): `look.lift` 1 (the distance into lighter, greyer blue haze, the fog closing within the view's own distance), `look.pools` 1 (every lantern, lamp, torch and fire paints an orange pool on the ground), `look.wet` 1 (less pale sky in the puddles, flame glints on wet mud). Each knob at 0 draws the old night. It follows the owner's choice of the same day, the palette of their colour edit and the effects of their anime edit (that row rides on `lane/show/vehicle-weight`). |
+| 2026-10-01 | **The fog bank round the field stays as it is from overview and far zoom** (the owner, on the gym's O120/O240/Far shots: "fine"). From 240-600 m up the field floats lit in the night's dark blue; the backdrop under the bank is not lifted. |
+| 2026-10-01 | **Men at night at the close bands stay as they are** (the owner: "that's fine"): no rim or extra fill on the men; a man in a shell hole or on open mud away from a lamp or a flash reads as a dark shape. |
 
 ## Levels
 | Date | Decision |
@@ -101,6 +103,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-28 | **Units spread over the map instead of walking in rows on set paths, and go out of their way to attack each other** (the owner, playing the game). Built on `lane/sim/nav-engage` as lanes, trench walls crossed anywhere, a corrected flow field and `EngageSystem` (`tasks.md`, Movement and Infantry combat; replay v18). The choices made on the way are the agent's and are listed under Open. |
 | 2026-09-28 | **Men are deployed across the whole width of the field** (the owner, told what it costs): reinforcements on foot come up each on his own lane (`Lane.Of` in `SimWorld.Deploy`), and men off a boat fan out to theirs. The cost is accepted: a garrison is thin. Ten men on the greybox field (284 m wide) stand some thirty metres apart in their trench, so what reaches men by radius reaches fewer of them: a hero's rally (20 m) found two of twelve where it found three or more, and a Breaker's guns had the one man before it down before its claws reached him. Two tests had their garrisons made thicker for it (HeroTests forty men, BreakerTests a knot put down behind the trench); the rules themselves are unchanged. |
 | 2026-09-29 | **`lane/show/drive-style` is taken over and built on** (the owner's 2026-09-28 request for vehicles with their own speed, rhythm and style). It lands as the desktop's rebase of it onto the integration branch: its momentum seam (d8c54b0) as `lane/sim/drive-feel-v20` (replay v20), its per-machine ride (de14acb) as `lane/show/drive-style-v20` on top of that, and the Kettle and Redoubt leg joins (c284149) as `lane/show/walker-legs` on top of `lane/show/walker-pivots`. `lane/show/vehicle-weight` (the Dust Front lessons' Phase 1) is based on `lane/show/drive-style-v20`. Its first commit (the Playground's units) is dropped, the landed Proving Ground seam replaced it. `lane/show/drive-style` and `lane/sim/drive-feel` stay as they are until the owner deletes them. (AskUserQuestion.) |
+| 2026-10-01 | **No machine duels across the field from its spawn: the machines' guns reach less** (the owner: "not good, reduce range"; the spawns are about 225 m apart on the Shelled Forest and the guns reached 200-360 m, so the enemy Kettle's mortar knocked our Pincer out 2.3-6 s in on every seed). Built on `lane/sim/machine-range`. |
+| 2026-10-01 | **Men under fire move as realistically as possible** (the owner: "let's make it as realistic as possible"), where they ran upright through fire until suppression passed 60. Built on `lane/sim/men-under-fire`. |
+| 2026-10-01 | **Machines keep the enemy HQ as their goal** (the owner: "fine"): they arrive, park on or round its cells and wait while the infantry take it. |
 
 ## Open: waiting on the owner
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
@@ -178,34 +183,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
   game's machine, left alone). Still to check in Play: rockets reaching the ground on their burst's frame, the trails at
   night (alpha 0.7), the hover over trenches, both far LODs at 170 m, and the ribbon shader in a Windows build.
-- **The battlefield from overview and far zoom at night (2026-10-01, the gym's O120/O240/Far shots):** the fog bank
-  round the battlefield's edges (`Atmosphere`, "closes the view on every side") is the night's dark blue, and from
-  240-600 m up it reads as a void with the lit field floating in it as a slab; the backdrop that runs on past the
-  edges (`BattlefieldBackdrop`: trenches, the wire belt, the skirt to the horizon) is under it. Options: (a) leave it
-  (default taken: nothing changed); (b) thin the bank with the camera's height, so the country round the field shows
-  from the overview up, the haze still closing the far horizon; (c) keep the bank and light what stands under its edge
-  (distant fires, the lines running on) so the void reads as country at night.
-- **Machines duel across the whole field from their spawn (2026-10-01, the behaviour bench and a probe of the first
-  minute):** the spawns are about 225 m apart on the Shelled Forest and the machines' guns reach 200-360 m
-  (`TankSpec.RangeMax`), with line of sight read off the heightfield only, so trees and wrecks do not block it. In the
-  bench (both sides' machines set down at their spawns) AP rounds cross the field at 1.6 s, and the enemy Kettle's
-  mortar knocks our Pincer out 2.3-6 s in, before it has moved 15 m, on 3 seeds of 3. Options: (a) leave it (default
-  taken: nothing changed); (b) shorter ranges, or ranges scaled to the field; (c) props (trees, wrecks, houses) block a
-  machine's line of sight as the terrain does.
-- **Men under fire in the open move upright (2026-10-01, a probe of the scripts' match):** of the time a rifleman in
-  the open is being shot at, he is running upright 68-78 % of it (assault troops and officers 100 %); he goes prone
-  only once suppression passes 60, and a pin lasts about 3 s after the fire moves on (decay 8 a second). Options: (a)
-  leave it (default taken); (b) men under fire in the open crouch-run, or rush from cover to cover; (c) suppression
-  that holds longer.
-- **Machines are sent at the enemy HQ, which only infantry capture (2026-10-01):** a machine's default goal is the
-  enemy HQ objective (`FlowFieldManager.DefaultGoal`); `SectorControlSystem` counts only infantry, so the machines
-  arrive, park on or round its cells and wait, and the last to come shoves at the edge (a Tusk 20 s against a Mercy in
-  one bench seed). Options: (a) leave it (default taken); (b) machines stop short in a support position; (c) machines
-  count towards a capture.
-- **Men are hard to see at night at the close bands (2026-10-01, the gym's T3/T2 stills):** a rifleman in a shell hole
-  or on open mud reads as a dark shape unless a lamp or a flash is near; the clips tab and CraterMen were judged from
-  the sidecars, not the pictures. For the night-look lane (`lane/show/night-look`): a rim or a little more fill on the
-  men at the close bands?
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
