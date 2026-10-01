@@ -478,6 +478,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   steam, sparks and scrap off the gun, the engine or the fuel) in `TankRenderer.OnSimEvent`; before, a gun drooped
   or a hull stood still and nothing marked when. Seen in Play by raising the events on a tank (a live duel did not
   break a part in the minute filmed).
+  **A sapper digs** (2026-10-01, same build): `SapperLaying` throws a spadeful of earth off the spot every
+  `CombatFx.DigEvery` seconds of sim time until the mine is placed (`TickDigs`). Seen in Play on a real order.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).

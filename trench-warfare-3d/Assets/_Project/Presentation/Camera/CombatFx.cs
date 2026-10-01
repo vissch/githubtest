@@ -173,6 +173,32 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        struct Dig { public int Slot; public Vector3 At; public float Until, Next; }
+        readonly List<Dig> digs = new List<Dig>(4);
+        public const float DigEvery = 0.42f;   // seconds between a sapper's spadefuls
+
+        /// <summary>The sappers laying: a spadeful of earth off the spot every DigEvery seconds of sim time, until it is
+        /// placed or he is killed at it.</summary>
+        void TickDigs()
+        {
+            if (digs.Count == 0 || Host == null || Host.Local == null) return;
+            var w = Host.Local.World;
+            float simNow = SimNow;
+            for (int k = digs.Count - 1; k >= 0; k--)
+            {
+                var d = digs[k];
+                if (simNow >= d.Until || d.Slot >= w.HighWater || !w.IsAlive(d.Slot)) { digs.RemoveAt(k); continue; }
+                if (simNow < d.Next) continue;
+                d.Next = simNow + DigEvery; digs[k] = d;
+                if (books == null || !books.Ready || CameraShake.DistanceToLook(d.At) > 80f) continue;
+                Vector3 man = (Vector3)w.Position[d.Slot];
+                Vector3 at = Vector3.Lerp(man, d.At, 0.6f); at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
+                Vector3 toss = new Vector3(UnityEngine.Random.Range(-1f, 1f), 0f, UnityEngine.Random.Range(-1f, 1f)).normalized;
+                books.Add(FlipbookFx.Book.Spurt, at, 0.7f, 0.45f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : 0), velocity: toss * 0.8f);
+                books.Add(FlipbookFx.Book.Puff, at + Vector3.up * 0.2f, 0.7f, 0.7f, velocity: toss * 0.7f + Vector3.up * 0.5f, grow: 1.2f, alpha: 0.35f);
+            }
+        }
+
         /// <summary>The live heroes (slots), from HeroMoment to HeroFallen / HeroSurvived, and their gold.</summary>
         readonly List<int> heroes = new List<int>(4);
         static readonly Color HeroGold = new Color(1f, 0.82f, 0.35f);
@@ -649,6 +675,11 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                case SimEventType.SapperLaying:
+                    // a sapper at work (a = the man, pos = where it goes, scalar = seconds until it is placed): he stood
+                    // still for three seconds and a mine appeared. He digs: the earth he turns flies up at the spot
+                    if (e.A >= 0 && e.A < w.HighWater) digs.Add(new Dig { Slot = e.A, At = (Vector3)e.Pos, Until = SimNow + e.Scalar });
+                    break;
                 case SimEventType.DropInbound: DropInbound(e); break;   // the paratroop drop (CombatFx.Drops.cs)
                 case SimEventType.DropLanded: DropLanded(e); break;
                 case SimEventType.LeapStarted:
@@ -1135,6 +1166,7 @@ namespace TW.Presentation.Tactical
             TickSmoulders(now);
             TickHeroes(now);
             TickJets(now);
+            TickDigs();
             DrawCanopies(SimNow);
             books?.Draw(now, bounds);
             hitsThisFrame = 0; healsThisFrame = 0;
