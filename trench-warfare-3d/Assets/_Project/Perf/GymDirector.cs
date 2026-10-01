@@ -253,6 +253,7 @@ namespace TW.Perf
         {
             int victim = Spawn(1, archetype, at.x, at.y, 180f);   // the enemy side, so our fire and our abilities find him
             if (victim < 0) return -1;
+            Hold(victim);   // where the shells and the gas are sent: he walked for his front trench and the barrage missed him
             if (Current != null) Current.Victim = victim;
             switch (kind)
             {
@@ -260,7 +261,12 @@ namespace TW.Perf
                     Host.WriteWorlds(m => m.World.Hp[victim] = 1f);
                     Row(0, 0, 4, at + new Vector2(0f, -30f), 2f);
                     break;
-                case DeathKind.Blast: Ability(OffMapAbilityId.HeBarrage, at); break;
+                case DeathKind.Blast:
+                    // the 16 m box (pattern 2), on a man with 1 hp left as Shot does: twelve shells over the 25 m disc put
+                    // about one within 8 m of him and he lived through it; any shell that reaches him now kills him
+                    Host.WriteWorlds(m => m.World.Hp[victim] = 1f);
+                    Ability(OffMapAbilityId.HeBarrage, at, 0, AbilityPattern.Box);
+                    break;
                 case DeathKind.Gas: Ability(OffMapAbilityId.ChlorineGas, at); break;
                 case DeathKind.Beam: Ability(OffMapAbilityId.Beam, at + new Vector2(0f, -20f), 0); break;
                 case DeathKind.Burning:
