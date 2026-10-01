@@ -10,6 +10,7 @@
 #define TW_LIGHT_POOLS_INCLUDED
 
 #define TW_MAX_POOLS 32
+#define TW_STREAK_REACH 2.6   // a streak runs out to this many of its flame's pool reaches
 float4 _TWPools[TW_MAX_POOLS];
 float4 _TWPoolTint[TW_MAX_POOLS];
 float _TWPoolCount;
@@ -17,6 +18,7 @@ float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
 float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff (critique round 5: "cut-out discs")
 float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire's pool never clips the ground to flat orange
 float _TWPoolsThroughHaze;
+float _TWFireStreak;   // look.fireStreak: each flame's long broken reflection across the wet mud toward the camera; 0 = none
 float _TWPropRim;
 float _TWMoonSheen;   // look.moonSheen (Atmosphere.NightLook.cs): the standard view's share of the fine wet sparkle (0.3 before); 0 = as before
 float _TWPoolUnblue;   // look.poolUnblue: where a pool adds warm light it takes that much blue out of the moonlit ground under it,
@@ -101,13 +103,31 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
         float reach = _TWPools[k].w;
         float dist2 = dot(d, d);
         float glintReach = reach * 1.6;
-        if (dist2 >= glintReach * glintReach) continue;
+        float cull = glintOn && _TWFireStreak > 0.0 ? reach * TW_STREAK_REACH : glintReach;
+        if (dist2 >= cull * cull) continue;
         float dist = sqrt(dist2);
         float3 dn = d / max(dist, 1e-2);
         if (dist < reach)
             sum += _TWPoolTint[k].rgb * TWPoolBand(dist / reach) * saturate(dot(normalWS, dn) * 0.6 + 0.4);
         if (glintOn)
+        {
             glints += _TWPoolTint[k].rgb * smoothstep(0.86, 0.92, dot(r, dn)) * (1.0 - smoothstep(0.55, 1.0, dist / glintReach));
+            if (_TWFireStreak > 0.0)
+            {
+                // look.fireStreak: wet mud stretches a flame's reflection into a long streak running from under it back
+                // toward the viewer (the owner's colour edit: an orange smear under every burning wreck), where a mirror
+                // would show one point. Measured in the ground plane: this point lies on the streak when the flame stands
+                // ahead of it along the reflected ray (along) and close beside that line (across).
+                float2 rh = r.xz * rsqrt(max(dot(r.xz, r.xz), 1e-4));
+                float along = dot(d.xz, rh);
+                float across = abs(d.x * rh.y - d.z * rh.x);
+                float width = 0.3 + 0.06 * along;   // widens toward the viewer, as a rough mirror's does
+                half s = (1.0 - smoothstep(width * 0.35, width, across)) * smoothstep(0.0, 0.8, along)
+                       * (1.0 - smoothstep(reach * 0.8, reach * TW_STREAK_REACH, along));
+                s *= 0.5 + 0.5 * smoothstep(-0.3, 0.5, sin(along * 3.7 + dot(positionWS.xz, float2(1.3, 0.7))));   // broken into painted dabs
+                glints += _TWPoolTint[k].rgb * s * _TWFireStreak;
+            }
+        }
     }
     return TWPoolRoll(sum);
 }
