@@ -625,3 +625,13 @@ Images `figures/battle-loop/r7-*`; all in GreyboxCorridor, Play, the machines he
 | A thrown Skimmer part glowing (round 6's fix) | - | a live cook-off at night: the burning fan ring is charred and ember-lit, not cream (`r7-cookoff-after.jpg`) |
 
 Not done this round: the Skimmer over craters and wire at full speed.
+
+## Open: the Mercy's panels have holes (2026-10-01)
+From behind and from its left the Mercy shows black triangles on its white panels (the art critic, and Play at zoom 6).
+Measured: no flipped triangles, no black texels under those faces, masks all zero. A Blender render of
+`Resources/Vehicles/Mercy/Mercy_LOD0.fbx` with its atlas shows real triangular holes in the body beside the red cross
+and by the rear door; `Door_BL` has 12 faces against `Door_BR`'s 15 and stops 0.29 m short. The Playground's own
+`Mercy_LOD0.fbx` has the same face counts, so the holes are `jeepsplit.py`'s (or the sculpt's), not `battleform.py`'s
+or `TankImport`'s. Mirroring the right door's bottom strip onto the left at import changed nothing on screen and was
+taken out. The fix is in the split: fill the small boundary loops per part (or across the cut) before export, then
+re-run both forms. The player sees his own ambulance from behind, so it shows.
