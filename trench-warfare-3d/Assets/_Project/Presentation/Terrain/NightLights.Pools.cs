@@ -50,7 +50,7 @@ namespace TW.Presentation.Terrain
         public const float DefaultPoolAmber = 1f, DefaultPoolVary = 0.3f;
         float poolAmber = DefaultPoolAmber, poolVary = DefaultPoolVary;
         static readonly int PropRimId = Shader.PropertyToID("_TWPropRim"), UnblueId = Shader.PropertyToID("_TWPoolUnblue");
-        public const float DefaultPoolUnblue = 0.6f;   // 1.2 tinged the lamp-lit sandbags acid yellow; 0.6 keeps the edge amber
+        public const float DefaultPoolUnblue = 1.2f;   // 1.2 since round 27: the fade on strong pools (round 15) keeps the lit sandbags orange, and the faint pool rims read salmon-pink at 0.6 (far-third pink 1.34 -> 0.82 %, violet a/b/c .35/.58/.78 -> .12/.44/.46 %); before that fade 1.2 tinged the sandbags acid yellow
         public const float DefaultPropRim = 0.18f;   // 0.35 blew a concrete slab by a fire to yellow (p995 0.79 -> 0.90); 0.18 keeps it orange
         static readonly int ThroughHazeId = Shader.PropertyToID("_TWPoolsThroughHaze"), PoolSoftId = Shader.PropertyToID("_TWPoolSoft"), PoolShoulderId = Shader.PropertyToID("_TWPoolShoulder");
         /// <summary>look.poolSoft: the bands toward a soft falloff; look.poolShoulder: the roll-off that keeps a fire's pool
