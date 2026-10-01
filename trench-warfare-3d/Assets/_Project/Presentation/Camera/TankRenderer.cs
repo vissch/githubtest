@@ -108,6 +108,7 @@ namespace TW.Presentation.Tactical
             /// <summary>A hopper's place in its hop (0 on the ground .. 1 landing), the nose tilt it gives, and its
             /// gatlings' spin (0..1, wound up by each round) and angle.</summary>
             public float HopPhase, HopTilt, Spin, SpinAngle;
+            public int BarrelTurn;   // which barrel cluster fires next
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -361,6 +362,9 @@ namespace TW.Presentation.Tactical
             {
                 // the machine guns fire from the Maw's mouth, and beside the Tusk's 37 mm
                 if (!views.TryGetValue(slot, out var v) || v.Dead) return Vector4.zero;
+                // a gatling machine (the Bullfrog): each round leaves the front of a barrel cluster, the two guns in turn
+                // (its Socket_Muzzle sits at the housing's middle, 0.6 m under the barrels: the flash came out of its chin)
+                if (BarrelTip(v, out var tip)) return new Vector4(tip.x, tip.y, tip.z, 1f);
                 var at = SocketWorld(v, v.Model.Sockets.ContainsKey("Socket_HullMG") && v.Model.Archetype == VehicleArchetype.Maw ? "Socket_HullMG" : "Socket_Muzzle", out bool ok);
                 return ok ? new Vector4(at.x, at.y, at.z, 1f) : Vector4.zero;
             };
@@ -808,7 +812,19 @@ namespace TW.Presentation.Tactical
             if (going || v.HopPhase > 0f)
             {
                 v.HopPhase += Mathf.Max(moved / HopStride, going ? 0f : dt * 2.5f);
-                if (v.HopPhase >= 1f) v.HopPhase = going ? v.HopPhase - Mathf.Floor(v.HopPhase) : 0f;
+                if (v.HopPhase >= 1f)
+                {
+                    v.HopPhase = going ? v.HopPhase - Mathf.Floor(v.HopPhase) : 0f;
+                    // it lands: dust thrown out from under each side
+                    if (books != null && books.Ready)
+                    {
+                        Vector3 side = new Vector3(Mathf.Cos(v.Yaw), 0f, -Mathf.Sin(v.Yaw));
+                        float ground = Ground(v.Pos.x, v.Pos.z);
+                        for (int k = -1; k <= 1; k += 2)
+                            books.Add(FlipbookFx.Book.Puff, new Vector3(v.Pos.x, ground + 0.25f, v.Pos.z) + side * (k * 1.2f), 1.5f, 0.9f,
+                                      velocity: side * (k * 1.4f) + Vector3.up * 0.5f, grow: 1.5f, alpha: 0.4f);
+                    }
+                }
             }
             float p = v.HopPhase;
             v.Bob = HopHeight * 4f * p * (1f - p);
@@ -870,6 +886,24 @@ namespace TW.Presentation.Tactical
                 if (j >= 0 && v.Off[j]) return true;
             }
             return false;
+        }
+
+        /// <summary>The front of one of the model's barrel clusters (parts named Barrels*), the next one each call.</summary>
+        bool BarrelTip(View v, out Vector3 tip)
+        {
+            tip = default;
+            var parts = v.Model.Lods[0].Parts;
+            if (v.World == null) return false;
+            int n = 0, pick = -1;
+            for (int i = 0; i < parts.Count; i++) if (parts[i].Name != null && parts[i].Name.StartsWith("Barrels")) n++;
+            if (n == 0) return false;
+            int want = v.BarrelTurn++ % n;
+            for (int i = 0; i < parts.Count; i++)
+                if (parts[i].Name != null && parts[i].Name.StartsWith("Barrels") && want-- == 0) { pick = i; break; }
+            if (pick < 0 || pick >= v.World.Length) return false;
+            var b = parts[pick].Mesh.bounds;
+            tip = v.World[pick].MultiplyPoint3x4(new Vector3(b.center.x, b.center.y, b.max.z));
+            return true;
         }
 
         /// <summary>A socket on the posed hull (MachineSockets: a walker answers the first of a numbered pair with its one
