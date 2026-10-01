@@ -356,6 +356,9 @@ namespace TW.Sim.Combat
                         if (t < 0 || Reload[gi] > 0 || math.abs(SimMath.WrapAngle(rel - cur)) > AimTolerance) continue;
                         if (spec.ShortHalt && moving) { HaltTicks[i] = math.max(HaltTicks[i], HaltForShot); continue; }
                         if (!Sees(i, t, g)) { GunTarget[gi] = -1; continue; }
+                        // a crab wound up to leap, or in the air, holds its guns (PounceSystem): it shelled the man it had
+                        // crouched to land on, and landed on nobody (Play, 2026-10-01)
+                        if ((f & (uint)UnitFlags.Pouncing) != 0) continue;
 
                         // fire
                         Reload[gi] = (int)math.round(g.ReloadSeconds / Dt / math.max(0.25f, CrewFactor[i]));
