@@ -123,7 +123,7 @@ namespace TW.Presentation.Tactical
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
-            public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
+            public float NextExhaust, NextDust, NextSmoke, NextWash, Born, DiedAt;
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
             public Matrix4x4[] World;              // LOD0 part matrices, this frame
             public readonly List<Debris> Pieces = new List<Debris>();
@@ -230,6 +230,7 @@ namespace TW.Presentation.Tactical
         public const float FlyerLift = 9f;      // metres: over the wire, the parapets and a walker's back; under the camera's near views
         /// <summary>Resources/Vehicles/&lt;Name&gt; + this: the far model's own atlas, where it has one.</summary>
         public const string FarAtlasSuffix = "Atlas_LOD1";
+        const float WashEvery = 0.09f, WashSpeed = 3.4f;   // a flyer's downwash: seconds between puffs, and how fast they are blown out
         public const float FlyingFrom = 2f;     // a lift from here up is flight: level, and a fall when it dies
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
         const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
@@ -1046,6 +1047,19 @@ namespace TW.Presentation.Tactical
                     else books.Add(FlipbookFx.Book.Puff, at + Vector3.up * 0.15f, 1.0f, 0.8f, side == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None, velocity: -fwd * 0.5f + Vector3.up * 0.3f, grow: 1.0f, alpha: 0.28f);
                 }
             }
+            // a flyer's downwash (2026-10-01): the Hopper hung over the field with nothing under it but its ring, so
+            // nothing said how high it was or what held it up. Dust blown outward from the ground beneath it, rings
+            // where that ground is water; a little wider while it is moving
+            if (v.Lift >= FlyingFrom && !v.Dead && near && now >= v.NextWash)
+            {
+                v.NextWash = now + WashEvery;
+                float a = UnityEngine.Random.value * Mathf.PI * 2f;
+                var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                Vector3 at = new Vector3(v.Pos.x, 0f, v.Pos.z) + o * (v.Model.HalfLength * 0.45f);
+                at.y = Ground(at.x, at.z) + 0.12f;
+                if (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z)) SceneHooks.AddRing?.Invoke(at.x, at.z, 1.3f);
+                else books.Add(FlipbookFx.Book.Puff, at, 1.5f, 1.0f, FlipbookFx.Kind.None, velocity: o * (WashSpeed + Mathf.Abs(v.Speed) * 0.3f) + Vector3.up * 0.3f, grow: 1.8f, alpha: 0.38f);
+            }
             // fire on the engine deck and smoke off it
             if (v.Fire > 0f || v.State != 0) Burning(v, now, v.Fire, 1f);
         }
@@ -1599,7 +1613,10 @@ namespace TW.Presentation.Tactical
             }
             float w = (halfW + 0.9f) * 2f / 0.72f, l = (halfL + 0.8f) * 2f / 0.72f;   // the ring sits at 0.72 of the quad
             // on the ground the tracks settle on (over a trench that is the lip, not the bottom of the hole between)
-            var at = new Vector3(v.Pos.x, Mathf.Max(Ground(v.Pos.x, v.Pos.z), v.Heave.Value - 0.3f) + 0.12f, v.Pos.z);
+            // (a flyer's ring is on the ground under it, not up at its height: it rode Heave, which carries the lift, so
+            // the Hopper's ring hung nine metres up and nothing on the field said where it was. 2026-10-01)
+            float ride = v.Lift >= FlyingFrom ? v.Heave.Value - v.Lift : v.Heave.Value;
+            var at = new Vector3(v.Pos.x, Mathf.Max(Ground(v.Pos.x, v.Pos.z), ride - 0.3f) + 0.12f, v.Pos.z);
             discM[discCount] = Matrix4x4.TRS(at, Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up), new Vector3(w, 1f, l));
             var c = v.Team == 1 ? TeamB : TeamA;
             discC[discCount] = new Vector4(c.r, c.g, c.b, v.Dead ? WreckRing(v) : 1f);

@@ -454,6 +454,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   thrown back the way the round came; `CriticalHit` is a wide white star and a flash on the man it struck;
   `VehicleHullMended` is weld sparks and a blue-white flicker at the engineer's torch. Seen in Play, no tests of
   their own.
+  **The Hopper over the ground** (2026-10-01, same build): its side ring and contact blob lie on the ground under it
+  (`QueueDisc` rode `Heave`, which carries the lift, so the ring hung nine metres up with the machine), and its
+  downwash blows dust outward from under it (`Effects`, `WashEvery`), rings on water. Seen in Play.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).
