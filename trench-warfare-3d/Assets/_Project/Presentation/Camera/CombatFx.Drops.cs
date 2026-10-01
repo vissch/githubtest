@@ -18,11 +18,14 @@ namespace TW.Presentation.Tactical
         /// <summary>Seconds a canopy takes to come down, the height it opens at, the seconds it takes to fold on the
         /// ground, its radius in metres, and the seconds between one man leaving the aircraft and the next.</summary>
         public const float DropFall = 3.5f, DropHeight = 24f, DropFold = 1.6f, CanopyRadius = 1.9f, DropStagger = 0.06f;
+        /// <summary>How far under the silk's top the man hangs, in canopy radii: his lines are as long as the canopy is wide.</summary>
+        public const float CanopyDrop = 2.9f;
 
-        struct Canopy { public Vector3 Land, Drift; public float JumpAt, Fall, Phase; }
+        struct Canopy { public Vector3 Land, Drift; public float JumpAt, Fall, Phase; public int Team; }
         readonly List<Canopy> canopies = new List<Canopy>(16);
-        Mesh canopyMesh, cordMesh, hangMesh;
-        Material silkMat, cordMat;
+        Mesh canopyMesh, stripeMesh, cordMesh, hangMesh;
+        Material silkMat, cordMat, manMat;
+        readonly Material[] stripeMat = new Material[2];   // every other gore in the side's colour: whose drop it is, and never a puddle
 
         /// <summary>Where the sim will land man <paramref name="k"/> of a drop called at <paramref name="point"/> that
         /// lands on <paramref name="landTick"/>: OffMapAbilitySystem.Land's own die and its own open-ground search.</summary>
@@ -63,7 +66,7 @@ namespace TW.Presentation.Tactical
                 // they leave the aircraft one after another, each later man with less air under him, and the wind
                 // carries each along its heading in to his spot
                 float late = k * DropStagger;
-                canopies.Add(new Canopy { Land = land, Drift = -dir * (10f + k * 1.5f), JumpAt = lands - fall + late, Fall = Mathf.Max(0.5f, fall - late), Phase = k * 2.399963f });
+                canopies.Add(new Canopy { Land = land, Drift = -dir * (10f + k * 1.5f), JumpAt = lands - fall + late, Fall = Mathf.Max(0.5f, fall - late), Phase = k * 2.399963f, Team = e.A == 1 ? 1 : 0 });
             }
         }
 
@@ -80,15 +83,16 @@ namespace TW.Presentation.Tactical
             if (canopies.Count == 0) return;
             if (canopyMesh == null)
             {
-                canopyMesh = BuildCanopy(); cordMesh = BuildCords(); hangMesh = BuildHanging();
+                canopyMesh = BuildCanopy(0); stripeMesh = BuildCanopy(1); cordMesh = BuildCords(); hangMesh = BuildHanging();
                 // the silk is seen from above and from under: one skin drawn on both faces (the toon outline pass
-                // would paint a two-skinned dome black), pale enough to find against a night sky
-                var silk = new Color(0.80f, 0.78f, 0.66f);
-                var lit = Shader.Find("Universal Render Pipeline/Lit"); if (lit == null) lit = Shader.Find("Standard");
-                silkMat = new Material(lit) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
-                silkMat.SetColor("_BaseColor", silk); silkMat.SetFloat("_Cull", 0f); silkMat.SetFloat("_Smoothness", 0.1f);
-                silkMat.EnableKeyword("_EMISSION"); silkMat.SetColor("_EmissionColor", silk * 0.22f);
-                cordMat = Painted(new Color(0.16f, 0.15f, 0.13f), 0f);
+                // would paint a two-skinned dome black), pale enough to find against a night sky. Every other gore is
+                // in the side's colour (critic, 2026-10-01: all pale, a canopy read as a mushroom in the air and as one
+                // more puddle once it was down)
+                silkMat = Silk(new Color(0.84f, 0.82f, 0.70f));
+                stripeMat[0] = Silk(Color.Lerp(TankRenderer.TeamA, Color.black, 0.25f));
+                stripeMat[1] = Silk(Color.Lerp(TankRenderer.TeamB, Color.black, 0.15f));
+                cordMat = Painted(new Color(0.55f, 0.53f, 0.47f), 0f);
+                manMat = Painted(new Color(0.42f, 0.38f, 0.26f), 1.2f);
             }
             float size = units != null ? units.UnitScale : 1f;
             for (int k = canopies.Count - 1; k >= 0; k--)
@@ -108,26 +112,31 @@ namespace TW.Presentation.Tactical
                     // the man hangs a canopy's width below the silk, and both swing about the silk
                     Vector3 man = c.Land + c.Drift * (left * left) + Vector3.up * CanopyHeight(t);
                     var lean = Quaternion.AngleAxis(swing, Vector3.forward) * Quaternion.AngleAxis(Mathf.Cos(simNow * 1.3f + c.Phase) * 6f, Vector3.right);
-                    Vector3 top = man + lean * (Vector3.up * (r * 2.1f));
-                    Graphics.DrawMesh(canopyMesh, Matrix4x4.TRS(top, lean, new Vector3(r * open, r * (0.6f + 0.4f * open), r * open)), silkMat, 0);
-                    Graphics.DrawMesh(cordMesh, Matrix4x4.TRS(top, lean, new Vector3(r * open, r * 2.1f, r * open)), cordMat, 0);
-                    Graphics.DrawMesh(hangMesh, Matrix4x4.TRS(man, lean, Vector3.one * size), cordMat, 0);
+                    Vector3 top = man + lean * (Vector3.up * (r * CanopyDrop));
+                    var silk = Matrix4x4.TRS(top, lean, new Vector3(r * open, r * (0.6f + 0.4f * open), r * open));
+                    Graphics.DrawMesh(canopyMesh, silk, silkMat, 0);
+                    Graphics.DrawMesh(stripeMesh, silk, stripeMat[c.Team], 0);
+                    Graphics.DrawMesh(cordMesh, Matrix4x4.TRS(top, lean, new Vector3(r * open, r * CanopyDrop, r * open)), cordMat, 0);
+                    Graphics.DrawMesh(hangMesh, Matrix4x4.TRS(man, lean, Vector3.one * size), manMat, 0);
                 }
                 else
                 {
                     // down: the silk spills downwind of him, settles flat, and is gathered in
                     float d = Mathf.Clamp01(down * 2.2f);
-                    Vector3 spill = c.Land - wind * (r * 1.3f * d) + Vector3.up * (r * 2.1f * (1f - d) * (1f - d) + 0.62f * r * Mathf.Lerp(1f, 0.22f, d) + 0.05f);
+                    Vector3 spill = c.Land - wind * (r * 1.3f * d) + Vector3.up * (r * CanopyDrop * (1f - d) * (1f - d) + 0.62f * r * Mathf.Lerp(1f, 0.22f, d) + 0.05f);
                     var lay = Quaternion.AngleAxis(Mathf.Lerp(swing, 20f, d), Vector3.Cross(Vector3.up, -wind));
                     float gather = down > 0.7f ? (1f - down) / 0.3f : 1f;
-                    Graphics.DrawMesh(canopyMesh, Matrix4x4.TRS(spill, lay, new Vector3(r * (1f + 0.25f * d), r * Mathf.Lerp(1f, 0.22f, d), r * (1f + 0.25f * d)) * gather), silkMat, 0);
+                    // it does not settle round: it spills long downwind and narrow across, a heap and not a disc
+                    var heap = Matrix4x4.TRS(spill, lay * Quaternion.AngleAxis(c.Phase * Mathf.Rad2Deg, Vector3.up), new Vector3(r * (1f + 0.45f * d), r * Mathf.Lerp(1f, 0.3f, d), r * (1f - 0.35f * d)) * gather);
+                    Graphics.DrawMesh(canopyMesh, heap, silkMat, 0);
+                    Graphics.DrawMesh(stripeMesh, heap, stripeMat[c.Team], 0);
                 }
             }
         }
 
-        /// <summary>A parachute's silk: eight gores of a shallow dome of radius 1, its top at y 0 and its hem at
+        /// <summary>A parachute's silk (every other gore, by parity: the pale ones or the side's): eight gores of a shallow dome of radius 1, its top at y 0 and its hem at
         /// y -0.62, the hem riding up between the cords. One skin: its material draws both faces.</summary>
-        static Mesh BuildCanopy()
+        static Mesh BuildCanopy(int parity)
         {
             const int gores = 8, rings = 3, cuts = 2;   // two segments a gore, so the hem can rise between the cords
             int sides = gores * cuts;
@@ -138,27 +147,36 @@ namespace TW.Presentation.Tactical
                 float a = side * Mathf.PI * 2f / sides, b = ring * (Mathf.PI * 0.5f) / rings;
                 float scallop = ring == rings && side % cuts != 0 ? 0.12f : 0f;
                 vertices.Add(new Vector3(Mathf.Cos(a) * Mathf.Sin(b), Mathf.Cos(b) * 0.62f - 0.62f + scallop, Mathf.Sin(a) * Mathf.Sin(b)));
-                if (ring == rings || side == sides) continue;
+                if (ring == rings || side == sides || ((side / cuts) & 1) != parity) continue;   // every other gore
                 int i = ring * (sides + 1) + side;
                 triangles.Add(i); triangles.Add(i + 1); triangles.Add(i + sides + 1);
                 triangles.Add(i + 1); triangles.Add(i + sides + 2); triangles.Add(i + sides + 1);
             }
-            var mesh = new Mesh { name = "Parachute silk", hideFlags = HideFlags.HideAndDontSave };
+            var mesh = new Mesh { name = parity == 0 ? "Parachute silk" : "Parachute silk, the side's gores", hideFlags = HideFlags.HideAndDontSave };
             mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
 
+        static Material Silk(Color colour)
+        {
+            var lit = Shader.Find("Universal Render Pipeline/Lit"); if (lit == null) lit = Shader.Find("Standard");
+            var m = new Material(lit) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
+            m.SetColor("_BaseColor", colour); m.SetFloat("_Cull", 0f); m.SetFloat("_Smoothness", 0.1f);
+            m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", colour * 0.3f);
+            return m;
+        }
+
         /// <summary>The cords: eight thin blades from the hem to the man. Scaled apart from the silk (x and z by its
-        /// radius, y by the drop from its top to the man), so y runs from the hem at -0.3 to his shoulders at -0.93.</summary>
+        /// radius, y by the drop from its top to the man), so y runs from the hem down to his shoulders, a man's height short of -1.</summary>
         static Mesh BuildCords()
         {
             var vertices = new List<Vector3>(); var triangles = new List<int>();
             for (int g = 0; g < 8; g++)
             {
                 float a = g * Mathf.PI * 0.25f;
-                var hem = new Vector3(Mathf.Cos(a), -0.3f, Mathf.Sin(a));
-                var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a)) * 0.014f;
+                var hem = new Vector3(Mathf.Cos(a), -0.62f / CanopyDrop, Mathf.Sin(a));
+                var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a)) * 0.01f;
                 int i = vertices.Count;
-                vertices.Add(hem - side); vertices.Add(hem + side); vertices.Add(new Vector3(0f, -0.93f, 0f));
+                vertices.Add(hem - side); vertices.Add(hem + side); vertices.Add(new Vector3(0f, -1f + 1.5f / (CanopyDrop * CanopyRadius), 0f));
                 triangles.Add(i); triangles.Add(i + 1); triangles.Add(i + 2);
                 triangles.Add(i); triangles.Add(i + 2); triangles.Add(i + 1);
             }
