@@ -77,5 +77,42 @@ namespace TW.Tests
             float c = CaptureRig.SignedContrast(0.2f, 0f);
             Assert.That(c, Is.GreaterThan(0f).And.LessThan(11f), "0.02 in the denominator caps it");
         }
+        // ---- who the number is about -------------------------------------------------------------------------
+        //
+        // The loop that measures readability filtered on Alive alone, so a WALKER counted as a man and was measured
+        // with a man's geometry: a disc at 1.3 m against a ring at 0.62-1.00 of 2.6 m. A walker is wider than that
+        // ring, so its own hull filled the "ground behind him" sample. Measured 2026-10-01 over 36 walker stills:
+        // 18 counted men while drawing NO infantry, and 10 of those carried "men barely separate from the ground".
+        // Worse, where machines DID share a frame with men they scored well (up to 0.68, 8 of 18 above the 0.12
+        // line) and pulled the median up: excluding them moved those shots from 0.2027 to 0.1225 and took the real
+        // unreadable rate from 3 of 18 to 8 of 18. The number had been flattering the men by averaging in machines.
+
+        [Test]
+        public void AManOnFootIsCounted()
+        {
+            Assert.IsTrue(CaptureRig.CountsAsAMan((uint)TW.Sim.UnitFlags.Alive));
+        }
+
+        [Test]
+        public void AMachineIsNotAMan()
+        {
+            uint walker = (uint)(TW.Sim.UnitFlags.Alive | TW.Sim.UnitFlags.Vehicle);
+            Assert.IsFalse(CaptureRig.CountsAsAMan(walker), "a walker measured as a man fills its own background ring");
+        }
+
+        [Test]
+        public void TheDeadAreNotCounted()
+        {
+            Assert.IsFalse(CaptureRig.CountsAsAMan(0u));
+            Assert.IsFalse(CaptureRig.CountsAsAMan((uint)TW.Sim.UnitFlags.Vehicle), "a dead machine is still not a man");
+        }
+
+        /// <summary>A man in a trench, suppressed, or masked is still a man: only the Vehicle bit disqualifies.</summary>
+        [Test]
+        public void NothingButBeingAMachineDisqualifiesAMan()
+        {
+            uint inTrench = (uint)(TW.Sim.UnitFlags.Alive | TW.Sim.UnitFlags.InTrench | TW.Sim.UnitFlags.Masked | TW.Sim.UnitFlags.Exposed);
+            Assert.IsTrue(CaptureRig.CountsAsAMan(inTrench));
+        }
     }
 }

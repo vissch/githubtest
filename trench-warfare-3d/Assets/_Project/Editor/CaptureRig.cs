@@ -232,7 +232,14 @@ namespace TW.Editor
                 var world = host.Local.World;
                 for (int s = 0; s < world.HighWater; s++)
                 {
-                    if ((world.Flags[s] & 1u) == 0) continue;
+                    // A MACHINE IS NOT A MAN. This loop filtered on Alive alone, so a walker counted as a man and was
+                    // measured with a man's geometry: a disc at 1.3 m and a ring at 0.62-1.00 of 2.6 m. A walker is
+                    // wider than that ring, so the "ground behind him" sample landed on the machine itself, bg came out
+                    // equal to man, and the shot was reported as "men barely separate from the ground: unreadable".
+                    // Measured 2026-10-01: 18 of 36 walker stills counted men while drawing NO infantry at all, and 10
+                    // of those 18 carried that warning, against 3 of the 18 shots that really did draw men. The number
+                    // was mostly reporting machines.
+                    if (!CountsAsAMan(world.Flags[s])) continue;
                     Vector3 chest = (Vector3)host.Presenter.Drawn(s) + Vector3.up * 1.3f;
                     if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
                     Vector3 sp = cam.WorldToScreenPoint(chest);
@@ -354,6 +361,13 @@ namespace TW.Editor
         /// it went, and nothing in the json could say so.
         /// </summary>
         public static float SignedContrast(float man, float bg) => (man - bg) / (bg + 0.02f);
+
+        /// <summary>
+        /// Whether a slot is one of the men the readability number is about: alive, and NOT a machine.
+        /// The machine half is the whole point — see the comment at the call site.
+        /// </summary>
+        public static bool CountsAsAMan(uint flags)
+            => (flags & (uint)TW.Sim.UnitFlags.Alive) != 0 && (flags & (uint)TW.Sim.UnitFlags.Vehicle) == 0;
 
         static float Disc(float[] lum, int w, int h, int cx, int cy, int rIn, int rOut)
         {
