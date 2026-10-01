@@ -9,4 +9,8 @@ Whichever lands second renumbers to v25: its `FormatVersion`, its contracts row 
 No hashed state and no system order change here, so the hash chain pin is untouched; nothing else should conflict
 (`VehicleKinematics.cs` and `DriveFeelTests.cs` only).
 
-Delete this note once both have landed.
+**And v25** is taken by `lane/sim/men-steady`, stacked on `lane/sim/avoid-nose` (a garrison man squeezes past his
+mates to his post: `SeparationJob`, `MovementSystem`, `TrenchSpreadTests`). Landed in that order, melee-v23 takes the
+next free number after whatever has landed before it (v26 after both), with its row and the three pins.
+
+Delete this note once all three have landed.
