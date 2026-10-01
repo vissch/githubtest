@@ -301,6 +301,7 @@ namespace TW.Editor
                 else yield return new WaitForSeconds(wait);
 
                 var shots = new List<string>(); var jsons = new List<string>();
+                if (e.Tab == GymTab.Scenes && (GymScene)e.Id == GymScene.AdvanceUnderFire) director.FocusOnWatched();
                 bool capture = e.Expect != GymExpect.Covered && e.Expect != GymExpect.Excluded;
                 if (capture)
                 {
@@ -525,7 +526,8 @@ namespace TW.Editor
             sb.Append("  \"consequence\": {\"men\": ").Append(r.Watch.Count).Append(", \"hits\": ").Append(r.WatchedHits).Append(", \"near_misses\": ").Append(r.WatchedNearMisses)
               .Append(", \"suppressed\": ").Append(r.WatchedSuppressed).Append(", \"deaths\": ").Append(r.WatchedDeaths)
               .Append(", \"turnabouts_per_man_min\": ").Append((r.WatchedSeconds > 0f ? r.Turnabouts / (r.WatchedSeconds / 60f) : 0f).ToString("0.0", Inv))
-              .Append(", \"worst_man_turnabouts\": ").Append(r.WorstTurnabouts).Append("},\n");
+              .Append(", \"worst_man_turnabouts\": ").Append(r.WorstTurnabouts)
+              .Append(", \"upright_share\": ").Append((r.WatchedSeconds > 0f ? r.UprightSeconds / r.WatchedSeconds : 0f).ToString("0.00", Inv)).Append("},\n");
             sb.Append("  \"events\": {");
             bool first = true;
             foreach (var kv in r.Events) { sb.Append(first ? "" : ", ").Append('"').Append(kv.Key).Append("\": ").Append(kv.Value); first = false; }

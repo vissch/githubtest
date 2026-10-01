@@ -47,6 +47,9 @@ namespace TW.Perf
             /// men watched, and the turn reversals, all and the worst man's: a nose that swings one way and back faster than
             /// TwitchRate reads as a twitch.</summary>
             public float WatchedSeconds; public int Turnabouts, WorstTurnabouts;
+            /// <summary>Of WatchedSeconds, the seconds the sim had the man upright (Standing or Sprint): under fire in the
+            /// open a man runs bent double or lies down (2026-10-01).</summary>
+            public float UprightSeconds;
             public readonly Dictionary<int, float2> Facing = new Dictionary<int, float2>();   // slot -> (last shown yaw, last fast rate)
             public readonly Dictionary<int, int> TurnaboutsOf = new Dictionary<int, int>();
             /// <summary>BarrageOnTrees: the stand's trees (prop index, kind and hp when the barrage was called).</summary>
@@ -335,6 +338,18 @@ namespace TW.Perf
         /// turnabout: a man aiming from one target to the next turns once; a man whose facing swings back and forth twitches.</summary>
         public const float TwitchRate = 1.2f;
 
+        /// <summary>The stills of a scene whose men move are taken where they are now: the entry's focus goes to the
+        /// middle of the living watched men (AdvanceUnderFire: at a fixed point ahead of where they set off the men were
+        /// at the frame's edge, or out of it, by the time the scene had settled).</summary>
+        public void FocusOnWatched()
+        {
+            var r = Current;
+            if (r == null || Host == null || Host.Local == null) return;
+            float3 sum = float3.zero; int n = 0;
+            foreach (int s in r.Watch) if (Alive(s)) { sum += Host.Local.World.Position[s]; n++; }
+            if (n > 0) r.Focus = new float3(sum.x / n, 0f, sum.z / n);
+        }
+
         /// <summary>Once a frame while a scene settles: each living watched man's drawn facing (AnimationController's
         /// ShownYaw, what the figure shows, not the sim's yaw) and its turnabouts.</summary>
         public void SampleFacing(float dt)
@@ -346,6 +361,8 @@ namespace TW.Perf
                 if (!Alive(s)) { r.Facing.Remove(s); continue; }
                 float yaw = Host.Animation.State[s].ShownYaw;
                 r.WatchedSeconds += dt;
+                var st = (TW.Sim.Stance)Host.Local.World.StanceOf[s];
+                if (st == TW.Sim.Stance.Standing || st == TW.Sim.Stance.Sprint) r.UprightSeconds += dt;
                 if (!r.Facing.TryGetValue(s, out var f)) { r.Facing[s] = new float2(yaw, 0f); continue; }
                 float d = yaw - f.x; while (d > math.PI) d -= 2f * math.PI; while (d < -math.PI) d += 2f * math.PI;
                 float rate = d / dt, last = f.y;
@@ -641,6 +658,22 @@ namespace TW.Perf
                     r?.Log.Add($"scene: the Maw is {Vector2.Distance(line.from, new Vector2(at.x, at.z)):0} m along");
                     break;
                 }
+                case GymScene.AdvanceUnderFire:
+                {
+                    // men going forward under fire (2026-10-01, the owner: "as realistic as possible"): a barrage leaves
+                    // shell holes in no man's land, then eight riflemen 25 m out from our front trench make for a point
+                    // 45 m on, through the holes, with an enemy line held 90 m beyond where they set off
+                    var at = OutFront(Stage, 25f);
+                    var toward = Clearest(at, 90f, new Vector2(enemyRally.x, enemyRally.z) - at);
+                    Ability(OffMapAbilityId.HeBarrage, at + toward * 22f);   // the holes on their way
+                    yield return new WaitForSeconds(11f);
+                    var to = at + toward * 45f;
+                    foreach (var s in Row(0, 0, 8, at, 3f)) { GoTo(s, to); r?.Watch.Add(s); }
+                    foreach (var s in Row(1, 0, 6, at + toward * 90f, 3f)) Hold(s);
+                    if (r != null) r.Focus = new float3(at.x + toward.x * 18f, 0f, at.y + toward.y * 18f);
+                    yield return new WaitForSeconds(3f);   // the line finds them and opens fire
+                    break;
+                }
                 case GymScene.BarrageOnTrees:
                 {
                     var wood = Thickest(Stage, out int standing);
@@ -658,7 +691,7 @@ namespace TW.Perf
         }
 
         /// <summary>Seconds a scene needs after Scene() returns before its pictures mean something.</summary>
-        public static float SceneSettle(GymScene scene) => scene == GymScene.GasOnTrench ? 18f : scene == GymScene.BarrageOnTrench ? 12f : scene == GymScene.MachineFlattens ? 3f : scene == GymScene.BarrageOnTrees ? 10f : 6f;
+        public static float SceneSettle(GymScene scene) => scene == GymScene.GasOnTrench ? 18f : scene == GymScene.BarrageOnTrench ? 12f : scene == GymScene.MachineFlattens ? 3f : scene == GymScene.BarrageOnTrees ? 10f : scene == GymScene.AdvanceUnderFire ? 8f : 6f;
 
         // ------------------------------------------------------------------------------------------------- camera
         public static void Look(Vector2 focus, float zoom, float yawDeg = 30f)
