@@ -99,7 +99,7 @@ namespace TW.Tests
                 names[u.Name] = u.Archetype;
                 Assert.AreEqual(r.W.Units.Roster[u.Archetype].IsVehicle, u.Machine);
                 if (u.Machine) machines = true; else Assert.IsFalse(machines, "men first, then machines");
-                var want = u.Archetype >= 21 && u.Archetype <= 25 ? UnitStage.Prototype : u.Archetype >= 26 && u.Archetype <= 36 ? UnitStage.StandIn : UnitStage.Built;
+                var want = (u.Archetype >= 21 && u.Archetype <= 25) || u.Archetype == VehicleArchetype.Bullfrog ? UnitStage.Prototype : u.Archetype >= 26 && u.Archetype <= 36 ? UnitStage.StandIn : UnitStage.Built;
                 Assert.AreEqual(want, u.Status, $"{u.Name} ({u.Archetype})");
             }
             // with no match to ask it says the same
