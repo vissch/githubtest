@@ -116,7 +116,7 @@ namespace TW.Presentation.Tactical
             public float Heel;
             /// <summary>A crab's pounce (PounceSystem): when it crouched (the sim's tick, -1 none) and how long it crouches and
             /// is in the air; the body drops on its legs, then goes over in an arc the sim's straight slide does not have.</summary>
-            public float PounceAt = -1f, PounceCrouch, PounceAir;
+            public float PounceAt = -1f, PounceCrouch, PounceAir; public bool PounceUp;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -818,6 +818,18 @@ namespace TW.Presentation.Tactical
             {
                 float p = (t - v.PounceCrouch) / Mathf.Max(0.01f, v.PounceAir);
                 v.Claw = 1f;   // claws wide and jaws open as it comes over
+                if (!v.PounceUp)
+                {
+                    // it leaves the ground: dust kicked back from under it (without it the leap floated, critic 2026-10-01)
+                    v.PounceUp = true;
+                    if (books != null && books.Ready)
+                    {
+                        Vector3 back = -new Vector3(Mathf.Sin(v.Yaw), 0f, Mathf.Cos(v.Yaw)), side = new Vector3(back.z, 0f, -back.x);
+                        Vector3 foot = new Vector3(v.Pos.x, Ground(v.Pos.x, v.Pos.z) + 0.3f, v.Pos.z);
+                        for (int k = -2; k <= 2; k++)
+                            books.Add(FlipbookFx.Book.Puff, foot + side * (k * 1.1f) + back * 1.5f, 2.4f, 1.0f, velocity: back * 2.2f + side * (k * 0.5f) + Vector3.up * 0.7f, grow: 1.6f, alpha: 0.5f);
+                    }
+                }
                 v.Bob = PounceHeight * 4f * p * (1f - p) - PounceDip * (1f - p);
                 v.HopTilt = PounceTilt * Mathf.Cos(Mathf.PI * p);     // nose up leaving, down coming in
             }
@@ -1297,7 +1309,7 @@ namespace TW.Presentation.Tactical
             {
                 case SimEventType.RocketFired: RocketFired(e); break;
                 case SimEventType.PounceCrouched:   // a = the crab, dir.x / dir.y = ticks crouched / in the air
-                    if (v != null && !v.Dead) { float tick = Host.Local.World.Config.TickSeconds; v.PounceAt = e.Tick; v.PounceCrouch = e.Dir.x * tick; v.PounceAir = e.Dir.y * tick; }
+                    if (v != null && !v.Dead) { float tick = Host.Local.World.Config.TickSeconds; v.PounceUp = false; v.PounceAt = e.Tick; v.PounceCrouch = e.Dir.x * tick; v.PounceAir = e.Dir.y * tick; }
                     break;
                 case SimEventType.PounceLanded:     // a = the crab, pos = where, scalar = the radius its weight fell on
                 {
