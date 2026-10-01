@@ -405,6 +405,40 @@ namespace TW.Editor
         /// on the stage rather than off the end of the corridor. A unit with no weapon at all gets 40 m and flags, which
         /// is the honest answer for the Censer and the Redoubt.
         /// </summary>
+        /// <summary>
+        /// Had this unit anyone to shoot at? A man's target is World.TargetSlot, which TargetAcquisition fills for
+        /// SMALL ARMS. A machine's gun picks its own, in TankGunnerySystem.GunTarget, and reading TargetSlot for a
+        /// walker therefore always says "never acquired" whether it had a target or not - which nearly cost a false
+        /// bug report against the Kettle. Ask both.
+        /// </summary>
+        static bool Acquired(SimHost host, int slot)
+        {
+            var m = host != null ? host.Local : null;
+            if (m == null || slot < 0 || slot >= m.World.HighWater) return false;
+            if (m.World.TargetSlot[slot] >= 0) return true;
+            var g = m.Gunnery;
+            if (g == null || !g.GunTarget.IsCreated) return false;
+            for (int k = 0; k < TW.Sim.Combat.TankGunnerySystem.Guns; k++)
+            {
+                int i = slot * TW.Sim.Combat.TankGunnerySystem.Guns + k;
+                if (i >= 0 && i < g.GunTarget.Length && g.GunTarget[i] >= 0) return true;
+            }
+            return false;
+        }
+
+        /// <summary>The way a staged unit faces. The mark is put on this bearing, so a narrow-arc gun can reach it.</summary>
+        const float SubjectYaw = 30f;
+
+        /// <summary>
+        /// How far off a mark may stand before the battlefield starts hiding it (metres). This is the whole
+        /// reliability of the tab: the stage is a cratered field of trenches, wire and stumps, and at 36 m the MG,
+        /// the sniper, the officer and the Pavise never saw their mark at all. At 24 m, moving every mark down the
+        /// barrel fixed the Kettle and broke the MG and the officer instead - which is not a test, it is a coin toss
+        /// decided by where an entry happens to be staged. At 12 m every unit that could traverse to its mark fired.
+        /// 14 m keeps that margin. A mortar is pushed out to its own RangeMin regardless and does not need to see.
+        /// </summary>
+        const float MarkNear = 14f;
+
         static float TargetRange(GymDirector d, int archetype)
         {
             var cat = d.Host != null && d.Host.Local != null ? d.Host.Local.Catalogue : null;
@@ -428,7 +462,13 @@ namespace TW.Editor
             // fire. Six tenths of the clamp keeps a man comfortably inside it.
             bool onFoot = !ChassisKind.IsArmoured(d.Host.Local.World.ChassisOf((byte)archetype));
             float reach = onFoot ? Mathf.Min(max, TW.Sim.Combat.CombatTables.AdvanceFireRange) : max;
-            return Mathf.Max(Mathf.Min(reach * 0.6f, 90f), min + 8f);
+            // ...and NEAR, because the stage is a battlefield. Measured 2026-10-01: with the mark at six tenths of
+            // each weapon's reach (36 m for most men), the MG, the sniper, the officer and the Pavise never acquired a
+            // target at all; forced to 12 m, 13 of the 14 fired - the MG 46 times. It was never the units. A stage
+            // rotating through trenches, wire and stumps puts a mark 36 m off behind something often enough to make
+            // the tab useless, and Engage will not stand a duel across a trench anyway. Close also frames the subject
+            // and what he is shooting at in the same picture, which is what the tab is for.
+            return Mathf.Max(Mathf.Min(reach * 0.6f, MarkNear), min + 8f);
         }
 
         /// <summary>Put the entry on the stage; seconds to wait before the photographs, or -1 when it cannot be staged.</summary>
@@ -444,11 +484,16 @@ namespace TW.Editor
                     return Mathf.Clamp(Clips.Table[e.Id].Seconds * 0.6f, 0.4f, 4f);   // photographed mid-clip
                 }
                 case GymTab.Units:
-                    slot = d.Spawn(0, e.Id, at.x, at.y, 30f);
+                {
+                    slot = d.Spawn(0, e.Id, at.x, at.y, SubjectYaw);
                     d.Hold(slot);   // seen where it was put, not walking out of the close shot to the front trench
-                    // and someone to shoot at, at a range this unit can actually use. Without him the tab's own
-                    // expectation could not be met by anything.
-                    d.Target(at.x, at.y + TargetRange(d, e.Id));
+                    // and someone to shoot at, at a range this unit can use, DOWN ITS BARREL. The mark used to go
+                    // straight along +z while the subject was spawned facing SubjectYaw, so it stood 30 degrees off
+                    // the nose - outside the Kettle's 24-degree mortar arc (TankSpec.Kettle ArcHalf = 24 deg). The one
+                    // machine that could not traverse to the mark was the one entry that never acquired a target.
+                    float range = TargetRange(d, e.Id), rad = SubjectYaw * Mathf.Deg2Rad;
+                    d.Target(at.x + Mathf.Sin(rad) * range, at.y + Mathf.Cos(rad) * range);
+                }
                     // 8 s, not 4: a sniper fires 0.3 rounds a second and a tank gun reloads slower still, so a
                     // four-second window could not hold one shot even once a target existed.
                     return slot >= 0 ? 8f : -1f;
@@ -505,7 +550,12 @@ namespace TW.Editor
                     if (!d.Alive(slot)) flags.Add("not alive 4 s after spawning");
                     else if (e.Expect == GymExpect.Fires && r.Count(SimEventType.Shot) == 0 && r.Count(SimEventType.VehicleFired) == 0)
                         // Stands is the honest expectation for a unit with no weapon; only Fires is held to this.
-                        flags.Add("expected it to fire; no Shot or VehicleFired in its window");
+                        // Say WHICH half failed. "It did not fire" sent me hunting weapon ranges and engage rules for
+                        // an hour when the question is always one of two: did it ever find anyone, or did it find him
+                        // and not shoot? TargetSlot answers that in one word, and a man who never acquires is a
+                        // sightline or an acquisition problem, not a gunnery one.
+                        flags.Add("expected it to fire; no Shot or VehicleFired in its window ("
+                                  + (Acquired(host, slot) ? "it had a target" : "it never acquired one") + ")");
                     break;
                 case GymTab.Scenes:
                     if (r.Watch.Count == 0) flags.Add("no men staged");
