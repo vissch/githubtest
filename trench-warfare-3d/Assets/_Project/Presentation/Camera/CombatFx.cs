@@ -648,6 +648,8 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                case SimEventType.DropInbound: DropInbound(e); break;   // the paratroop drop (CombatFx.Drops.cs)
+                case SimEventType.DropLanded: DropLanded(e); break;
                 case SimEventType.LeapStarted:
                 {
                     // a jetpack man leaves the ground (a = the man, dir = where he left, scalar = seconds in the air): a
@@ -1088,6 +1090,7 @@ namespace TW.Presentation.Tactical
             TickSmoulders(now);
             TickHeroes(now);
             TickJets(now);
+            DrawCanopies(SimNow);
             books?.Draw(now, bounds);
             hitsThisFrame = 0; healsThisFrame = 0;
 
