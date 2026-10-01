@@ -198,6 +198,7 @@ namespace TW.Editor
         /// <summary>Frames a game second while the gym runs (Time.captureFramerate): one sim tick a frame at 20 Hz.</summary>
         public const int CaptureFps = 20;
         float deadline = float.MaxValue; bool finished, quitWhenDone;
+        TW.Presentation.Terrain.Storm[] storms; float[] stormFreeze;   // the storms' own freeze, put back by Finish
 
         /// <summary>The watchdog: whatever happens inside the run (an exception that kills the coroutine, a wait that
         /// never ends), a batch editor never outlives the wall-clock limit holding the checkout and the GPU.</summary>
@@ -220,9 +221,18 @@ namespace TW.Editor
             // tick on every run (the same code twice: 26-39 % of a machine's close band repainted, a barrage's deaths 1
             // then 3). A fixed frame step makes the sim, the drawing's own clocks and every wait below the same each run;
             // the wall clock is left only to the watchdog and the capture timeouts. The presentation's own random numbers
-            // are seeded too.
+            // are seeded too, and the terrain's millisecond budgets are off, as PerfBench's held clock has them
+            // (2026-10-01): otherwise how much of a crater is painted and dug by a given frame is the machine's.
             Time.captureFramerate = CaptureFps;
             UnityEngine.Random.InitState(1917);
+            TW.Presentation.Terrain.GreyboxTerrainView.Unmetered = true;
+            // and lightning does not freeze the world: a strike's freeze frame stops game time (Time.timeScale 0) for a
+            // second, and strikes are timed from UnityEngine.Random, which the drawing draws from in its own order, so a
+            // freeze in one run and not the next moved every later entry's ticks (2026-10-01: 6-18 ticks from the 14th
+            // entry on, and the units' events with them). The strikes still flash; the run puts the freeze back.
+            storms = Object.FindObjectsByType<TW.Presentation.Terrain.Storm>(FindObjectsSortMode.None);
+            stormFreeze = new float[storms.Length];
+            for (int k = 0; k < storms.Length; k++) { stormFreeze[k] = storms[k].FreezeSeconds; storms[k].FreezeSeconds = 0f; }
             var host = GetComponent<SimHost>();
             float until = Time.realtimeSinceStartup + 30f;
             while ((host.Local == null || host.Local.World.Tick < 60) && Time.realtimeSinceStartup < until) yield return null;
@@ -258,6 +268,8 @@ namespace TW.Editor
 
                 director.Clear();
                 yield return new WaitForSeconds(1.5f);
+                // each entry draws from its own seed, so its pictures do not hang on what the entries before it drew
+                UnityEngine.Random.InitState(Seed(e.Tab + "/" + e.Name));
                 director.NextStage();
                 var r = director.Begin(e);
                 int pinned = -1, slot = -1;
@@ -591,11 +603,21 @@ namespace TW.Editor
 
         static void TryDelete(string f) { try { if (File.Exists(f)) File.Delete(f); } catch { } }
 
+        /// <summary>An entry's seed for the presentation's random numbers: FNV-1a of its name, the same in every run.</summary>
+        static int Seed(string name)
+        {
+            uint h = 2166136261u;
+            foreach (char c in name) { h ^= c; h *= 16777619u; }
+            return (int)h;
+        }
+
         void Finish(bool quit, int code)
         {
             if (finished) return;
             finished = true;
             Time.captureFramerate = 0;
+            TW.Presentation.Terrain.GreyboxTerrainView.Unmetered = false;
+            if (storms != null) for (int k = 0; k < storms.Length; k++) if (storms[k] != null) storms[k].FreezeSeconds = stormFreeze[k];
             StopAllCoroutines();
             Destroy(this);
             if (!quit) return;
