@@ -2,6 +2,10 @@
 // Soft repulsion between infantry within 2r, plus avoidance of vehicles. Each slot reads its own 3x3 hash buckets
 // and the (short) vehicle list and writes only its own velocity adjustment, so the job is parallel and deterministic.
 // A garrison and a man outside the trench never push each other (the trench wall is between them).
+// A garrison man on his way to his post squeezes past his mates (2026-10-01): between him and them the push is the soft
+// one, at a body's width, not the 2 m spacing with its hard core under a metre. Held off at that core by the man at the
+// post ahead of him, he was shoved back a step every few ticks (forward, forward, forward, back) for as long as it took,
+// and drawn turning about on every back-step.
 // Vehicles take no push: they are moved by VehicleKinematicsSystem and shove infantry, not the other way round.
 using Unity.Burst;
 using Unity.Collections;
@@ -21,6 +25,7 @@ namespace TW.Sim.Nav
         public const float SurfaceSpacing = 1.6f;      // men on open ground drift apart until they stand this far apart
         public const float SurfaceStrength = 0.55f;    // softly: the flow and their own drift still decide where they go
         public const float MaxPush = 6f;           // m/s cap, so a dense stack spreads out instead of being fired across the map
+        public const float PostNear = 0.9f;        // MovementSystem's "at his post": nearer than this to its point, or in its cell
 
         [ReadOnly] public SpatialHash Hash;
         [ReadOnly] public NativeArray<float3> Position;
@@ -28,6 +33,21 @@ namespace TW.Sim.Nav
         [ReadOnly] public NativeArray<short> TrenchId;  // garrison trench per slot, -1 none
         [ReadOnly] public NativeArray<int> Vehicles;   // alive vehicle slots (slot order)
         public NativeArray<float3> Push;               // output: additive velocity for this tick
+        [ReadOnly] public NativeArray<int> PostCell;    // his post in the trench (TrenchGarrisonSystem), -1 none
+        public int NavWidth; public float NavCell;
+
+        /// <summary>A garrison man walking to his post, not at it (MovementSystem's atPost, without its ladder case).</summary>
+        bool OnTheWay(int k)
+        {
+            int post = PostCell[k];
+            if (TrenchId[k] < 0 || post < 0) return false;
+            float3 p = Position[k];
+            int cell = (int)(p.z / NavCell) * NavWidth + (int)(p.x / NavCell);
+            if (cell == post) return false;
+            float3 at = new float3((post % NavWidth + 0.5f) * NavCell, 0f, (post / NavWidth + 0.5f) * NavCell) + TrenchPost.Offset(post, NavWidth);
+            float3 d = at - p; d.y = 0f;
+            return SimMath.Length(d) >= PostNear;
+        }
 
         /// <summary>Two units on the same point: opposite directions for the pair (antisymmetric in i, j), and a
         /// different axis per pair so a stack of N fans out instead of moving as one.</summary>
@@ -53,6 +73,7 @@ namespace TW.Sim.Nav
             short garrison = TrenchId[i];
             int cells = 2;   // the hash cell is 1 m; the garrison and surface spacings both reach past the next cell
             bool onSurface = garrison < 0 && (f & (uint)UnitFlags.InTrench) == 0;
+            bool walking = OnTheWay(i);
             for (int dz = -cells; dz <= cells; dz++)
             for (int dx = -cells; dx <= cells; dx++)
             {
@@ -71,11 +92,12 @@ namespace TW.Sim.Nav
                         float dist = SimMath.Length(d);
                         bool mates = garrison >= 0 && TrenchId[j] == garrison;
                         bool open = onSurface && TrenchId[j] < 0 && (Flags[j] & (uint)UnitFlags.InTrench) == 0;
-                        float want = mates ? GarrisonSpacing : open ? SurfaceSpacing : diameter;
+                        bool passing = mates && (walking || OnTheWay(j));   // one of them squeezing past the other to his post
+                        float want = passing ? diameter : mates ? GarrisonSpacing : open ? SurfaceSpacing : diameter;
                         if (dist < want)
                         {
                             float3 n = dist > 1e-4f ? d / dist : CoincidentNormal(i, j);
-                            float strength = dist >= diameter ? (mates ? GarrisonStrength : SurfaceStrength) : Strength;
+                            float strength = passing ? GarrisonStrength : dist >= diameter ? (mates ? GarrisonStrength : SurfaceStrength) : Strength;
                             sum += n * (want - dist) * strength;
                         }
                     } while (Hash.Map.TryGetNextValue(out j, ref it));
