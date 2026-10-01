@@ -769,13 +769,14 @@ namespace TW.Presentation.Tactical
                     if (e.A < 0 || e.A >= w.HighWater || e.B < 0 || e.B >= w.HighWater || CameraShake.DistanceToLook(e.Pos) > 80f) break;
                     float size = units != null ? units.UnitScale : 1f;
                     Vector3 hull = (Vector3)w.Position[e.A], man = (Vector3)w.Position[e.B];
-                    Vector3 to = hull - man; to.y = 0f;
-                    float reach = Mathf.Min(to.magnitude, 0.9f * size);
-                    Vector3 at = man + (to.sqrMagnitude > 1e-4f ? to.normalized * reach : Vector3.zero);
-                    at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.0f * size;
-                    SceneHooks.Sparks?.Invoke(at, 6);
-                    SceneHooks.Flash?.Invoke(at, WeldBlue, 5f, 4.5f, 0.1f);
-                    if (books != null && books.Ready) books.Add(FlipbookFx.Book.Star, at, 0.4f * size, 0.06f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f);
+                    Vector3 to = man - hull; to.y = 0f;
+                    // on the plate facing him, not at his feet: the light has to fall on the machine to read as work on it
+                    float half = SceneHooks.VehicleTracks != null ? SceneHooks.VehicleTracks(e.A).x + 0.3f : 1.2f;
+                    Vector3 at = hull + (to.sqrMagnitude > 1e-4f ? to.normalized * Mathf.Min(half, to.magnitude) : Vector3.zero);
+                    at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.1f * size;
+                    SceneHooks.Sparks?.Invoke(at, 10);
+                    SceneHooks.Flash?.Invoke(at, WeldBlue, 9f, 6f, 0.14f);
+                    if (books != null && books.Ready) books.Add(FlipbookFx.Book.Star, at, 0.55f * size, 0.07f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f);
                     break;
                 }
                 case SimEventType.MeleeBlow:

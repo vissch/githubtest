@@ -448,12 +448,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   **The paratroop drop** (`CombatFx.Drops.cs`, 2026-10-01, laptop, on the local play build): on `DropInbound` the
   aircraft crosses the point as the men jump (`DropFall` 3.5 s before they land) and a canopy comes down for each man
   onto the spot the sim will land him (`CombatFx.DropSpot` repeats the sim's die), swinging on its cords, and folds on
-  the ground beside him over `DropFold`; `DropLanded` kicks up his dust. Timed by `SimNow`. Tests:
-  `ParaDropPictureTests`.
+  the ground beside him over `DropFold`; `DropLanded` kicks up his dust. Timed by `SimNow`. Every other gore is in
+  the side's colour and the man hangs a canopy's width under the silk (`CanopyDrop`): all pale and close, a canopy
+  read as a mushroom in the air and as one more puddle on the ground (critic). Tests: `ParaDropPictureTests`.
   **Three events nothing drew** (2026-10-01, same build): `ShieldBlocked` strikes a spark off the bearer's plate,
   thrown back the way the round came; `CriticalHit` is a wide white star and a flash on the man it struck;
-  `VehicleHullMended` is weld sparks and a blue-white flicker at the engineer's torch. Seen in Play, no tests of
-  their own.
+  `VehicleHullMended` is weld sparks and a blue-white flicker on the plate facing the engineer (on the machine, not
+  at his feet: the light has to fall on the hull to read as work on it). Seen in Play, no tests of their own.
   **The Hopper over the ground** (2026-10-01, same build): its side ring and contact blob lie on the ground under it
   (`QueueDisc` rode `Heave`, which carries the lift, so the ring hung nine metres up with the machine), and its
   downwash blows dust outward from under it (`Effects`, `WashEvery`), rings on water. Seen in Play.
@@ -843,7 +844,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
 | `TanksDrawn` | TankRenderer | CombatFx, CombatFx.Ground, VATRenderer |
-| `VehicleTracks` | TankRenderer | CombatFx.Ground |
+| `VehicleTracks` | TankRenderer | CombatFx, CombatFx.Ground |
 | `VehicleGunPort` | TankRenderer | CombatFx.Bodies |
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
