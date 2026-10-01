@@ -484,6 +484,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Brass (a faction is its default ten and the calls it may make; the tens are handed in, so only the calls change).
   As Iron the DROP card was on the bar and the sim refused it every time. Tests:
   `ProvingGroundTests.TheTesterMayCallEverySupportCardOnTheBar`; seen in Play (our own drop, eight men down).
+  **The beam is a shaft of fire, not a cylinder on a ball** (2026-10-01, same build): `CombatFx.Abilities.cs` drew
+  the sweep as one white box the corridor's width on a white sphere. Now a thin flickering core (`BeamCore`, two
+  boxes crossed) inside a soft sheath (`BeamSheath`), a small hot spot at its foot, a star, sparks and smoke where
+  it burns, and its light on the ground (`SceneHooks.FirePool`). Seen in Play on a real call.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).
@@ -861,7 +865,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx, CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
 | `FireLight` | NightLights | Flamethrower |
-| `FirePool` | NightLights.Pools | CombatFx, NightLights, TankRenderer |
+| `FirePool` | NightLights.Pools | CombatFx, CombatFx.Abilities, NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
 | `MachineLight` | NightLights, NightLights.Machines | TankRenderer.Lights |

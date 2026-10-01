@@ -32,6 +32,9 @@ namespace TW.Presentation.Tactical
         uint thickSmokeTick = uint.MaxValue;
         public const float PlaneSpeed = 40f, PlaneRunIn = 200f, PlaneRunOut = 120f, PlaneHigh = 45f, PlaneLow = 25f;
         public const float BeamChargeSeconds = 4f, BeamFlashEvery = 0.08f, ScorchShakeEvery = 0.3f;
+        /// <summary>The beam's hot core and its soft sheath, in corridor half widths.</summary>
+        public const float BeamCore = 0.45f, BeamSheath = 1.7f;
+        Material beamSheath;
         float nextBeamFlash, nextScorchShake;
 
         /// <summary>The sim's clock in seconds (SimClock): what the aircraft, the beam and the fires are timed by, so a
@@ -160,18 +163,37 @@ namespace TW.Presentation.Tactical
                 var column = flashMat != null ? flashMat : sparkMat != null ? sparkMat : aimMat;
                 if (column != null)
                 {
-                    // the column of fire from above: tall, thin, the width of the corridor; and the glow where it meets the ground
+                    // the column of fire from above. It was one white box the width of the corridor on a white ball: a
+                    // hard cylinder that read as a stand-in (2026-10-01). Now a thin hot core (two boxes crossed, so it
+                    // has no flat face to the camera) that flickers, inside a wide soft sheath, and a small hot spot
+                    // where it meets the ground instead of a ball as wide as the beam
+                    float flick = 0.82f + 0.18f * Mathf.Sin(simNow * 47f) * Mathf.Sin(simNow * 31f + 1.3f);
+                    float core = s.HalfWidth * BeamCore * flick;
+                    var look = Quaternion.LookRotation(s.Dir);
                     batch.Clear();
-                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 30f, Quaternion.LookRotation(s.Dir), new Vector3(s.HalfWidth * 1.2f, 60f, s.HalfWidth * 1.2f)));
+                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 30f, look, new Vector3(core, 60f, core)));
+                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 30f, look * Quaternion.AngleAxis(45f, Vector3.up), new Vector3(core, 60f, core)));
                     Flush(cube, new RenderParams(column) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
                     batch.Clear();
-                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 0.8f, Quaternion.identity, Vector3.one * (s.HalfWidth * 2.4f)));
+                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 0.5f, Quaternion.identity, Vector3.one * (s.HalfWidth * 1.1f * flick)));
                     Flush(sphere, new RenderParams(column) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
+                    if (beamSheath == null) beamSheath = Transparent(Shader.Find("Universal Render Pipeline/Unlit"), new Color(1f, 0.82f, 0.45f, 0.22f));
+                    float wide = s.HalfWidth * BeamSheath * (1.1f - 0.1f * flick);
+                    batch.Clear();
+                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 30f, look, new Vector3(wide, 60f, wide)));
+                    batch.Add(Matrix4x4.TRS(head + Vector3.up * 30f, look * Quaternion.AngleAxis(45f, Vector3.up), new Vector3(wide * 0.8f, 60f, wide * 0.8f)));
+                    Flush(cube, new RenderParams(beamSheath) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off });
+                    SceneHooks.FirePool?.Invoke(head + Vector3.up * 1.5f, new Color(1f, 0.75f, 0.4f), 1.6f, s.HalfWidth * 6f, 0f);
                 }
                 if (running && now >= nextBeamFlash && books != null && books.Ready)
                 {
                     nextBeamFlash = now + BeamFlashEvery;
-                    books.Add(FlipbookFx.Book.Flash, head + Vector3.up * 1.2f, s.HalfWidth * 3f, 0.12f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 3f : 1.6f);
+                    books.Add(FlipbookFx.Book.Flash, head + Vector3.up * 1.2f, s.HalfWidth * 4.2f, 0.12f, FlipbookFx.Kind.Upright, glow: SceneMood.Night ? 3f : 1.6f);
+                    // what it throws off the ground it is burning: a star at its foot, sparks, and the smoke it leaves
+                    books.Add(FlipbookFx.Book.Star, head + Vector3.up * 0.4f, s.HalfWidth * 3.2f, 0.09f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3f : 1.6f);
+                    SceneHooks.Sparks?.Invoke(head + Vector3.up * 0.5f, 5);
+                    if (UnityEngine.Random.value < 0.5f)
+                        books.Add(FlipbookFx.Book.Smoke, head - s.Dir * 1.2f + Vector3.up * 0.6f, s.HalfWidth * 1.6f, 2.2f, velocity: Vector3.up * 2.2f - s.Dir * 0.6f, grow: 1.6f, alpha: 0.55f);
                 }
                 if (running && now >= nextScorchShake) { nextScorchShake = now + ScorchShakeEvery; CameraShake.Add(head, 0.25f); }
             }
