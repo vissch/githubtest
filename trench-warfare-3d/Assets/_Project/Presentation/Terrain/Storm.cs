@@ -96,7 +96,18 @@ namespace TW.Presentation.Terrain
         /// <summary>Thunder from noise: a sharp crack (as much of it as `crack`), then rolling low rumble that swells a few times and dies away.</summary>
         static AudioClip MakeThunder(int variant, float crack, float seconds)
         {
-            const int rate = 22050;
+            var data = ThunderSamples(variant, crack, seconds);
+            var clip = AudioClip.Create("Thunder " + variant, data.Length, 1, ThunderRate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        public const int ThunderRate = 22050;
+
+        /// <summary>The thunder's samples (mono, ThunderRate Hz), pure: SfxTests checks them as it checks every other sound.</summary>
+        public static float[] ThunderSamples(int variant, float crack, float seconds)
+        {
+            const int rate = ThunderRate;
             int n = (int)(rate * seconds);
             var data = new float[n];
             uint seed = 0x9E3779B9u * (uint)(variant + 1);
@@ -119,14 +130,19 @@ namespace TW.Presentation.Terrain
                 float snap = crack * white * Mathf.Exp(-t * 22f) * .9f + crack * low * Mathf.Exp(-t * 6f) * 2.2f;
                 data[i] = (low * 3.2f + lower * 9f) * envelope + snap;
             }
+            // the low rumble's filters leave the wave off centre (a DC offset of 1 %: SfxTests, 2026-10-01): take it out
+            double mean = 0; for (int i = 0; i < n; i++) mean += data[i]; mean /= n;
+            for (int i = 0; i < n; i++) data[i] -= (float)mean;
+            // and no click at either end: the near crack began at full level on its first sample (SfxTests)
+            int fadeIn = rate / 500, fadeOut = rate / 100;
+            for (int i = 0; i < fadeIn && i < n; i++) data[i] *= i / (float)fadeIn;
+            for (int i = 0; i < fadeOut && i < n; i++) data[n - 1 - i] *= i / (float)fadeOut;
             // no hard clipping: round the peaks off (tanh), then bring the loudest sample to 0.9
             float peak = 0f;
             for (int i = 0; i < n; i++) { data[i] = (float)System.Math.Tanh(data[i] * 1.2f); peak = Mathf.Max(peak, Mathf.Abs(data[i])); }
             float gain = peak > 0f ? .9f / peak : 1f;
             for (int i = 0; i < n; i++) data[i] *= gain;
-            var clip = AudioClip.Create("Thunder " + variant, n, 1, rate, false);
-            clip.SetData(data, 0);
-            return clip;
+            return data;
         }
 
         void Strike()
