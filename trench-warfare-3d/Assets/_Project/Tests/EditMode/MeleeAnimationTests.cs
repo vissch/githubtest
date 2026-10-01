@@ -77,6 +77,36 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheStrikerStepsIn_AndTheManStruckGivesGround()
+        {
+            using var r = new Rig();
+            float2 toFoe = math.normalize((r.M.World.Position[r.Foe] - r.M.World.Position[r.Man]).xz);
+            r.Blow(0, 60f);
+            float into = 0f, back = 0f;
+            for (int t = 0; t < 14; t++)
+            {
+                r.Tick();
+                into = math.max(into, math.dot(r.A.Lunge[r.Man], toFoe));
+                back = math.max(back, math.dot(r.A.Lunge[r.Foe], toFoe));
+            }
+            Assert.Greater(into, 0.3f, "the striker is drawn stepping into his blow");
+            Assert.Greater(back, 0.2f, "the man it landed on is drawn driven back, away from him");
+            for (int t = 0; t < 40; t++) r.Tick();
+            Assert.Less(math.length(r.A.Lunge[r.Man]) + math.length(r.A.Lunge[r.Foe]), 0.02f, "and both are back on their places after it");
+        }
+
+        [Test]
+        public void ABlowTurnedAside_DrivesNobodyBack()
+        {
+            using var r = new Rig();
+            float2 toFoe = math.normalize((r.M.World.Position[r.Foe] - r.M.World.Position[r.Man]).xz);
+            r.Blow(0, 0f);
+            float back = 0f;
+            for (int t = 0; t < 14; t++) { r.Tick(); back = math.max(back, math.dot(r.A.Lunge[r.Foe], toFoe)); }
+            Assert.Less(back, 0.02f, "he blocked it: he holds his ground");
+        }
+
+        [Test]
         public void BetweenBlows_HeStandsOnGuard_AndNeverKneels()
         {
             using var r = new Rig();

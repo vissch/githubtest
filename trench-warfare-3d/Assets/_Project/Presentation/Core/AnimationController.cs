@@ -106,6 +106,7 @@ namespace TW.Presentation
     /// <summary>Per slot, what the body is doing (docs/15 section 3).</summary>
     public struct AnimState
     {
+        public uint RecoilTick; public float2 RecoilDir;   // a blow landed on him at this tick, from this way (unit, x z): he gives ground
         public Clip Clip, PrevClip;
         public float Frame, PrevFrame, Blend, Fade, Rate;   // seconds into the clip; the fade-out clip; blend left (s) of Fade; playback rate
         public Rung Rung;
@@ -160,6 +161,9 @@ namespace TW.Presentation
         public NativeArray<float> Yaw;       // the yaw the body is drawn at
         public NativeArray<float> Lift;      // 0..1: how far up the parapet a climbing man is drawn (the sim holds him on the floor)
         public NativeArray<float> Hop;       // m: how far above the ground a man a shell blew off his feet is drawn this frame
+        /// <summary>Metres (x, z) a man is drawn off his place this frame: the step into a blow he strikes, the step back
+        /// from one that lands on him. The sim holds two men in a fight still; drawn still, a brawl was two queues.</summary>
+        public NativeArray<float2> Lunge;
         public NativeArray<float> Grime;     // 0..1: mud and soot the bursts near him have thrown over a man (VATRenderer hands it to the shader)
         public NativeArray<ushort> PrevRow;  // the clip fading out, where it stopped, and its weight (VATRenderer reads these)
         public NativeArray<float> PrevPhase, Blend;
@@ -202,6 +206,7 @@ namespace TW.Presentation
             Blend = new NativeArray<float>(maxSlots, Allocator.Persistent);
             Lift = new NativeArray<float>(maxSlots, Allocator.Persistent);
             Hop = new NativeArray<float>(maxSlots, Allocator.Persistent);
+            Lunge = new NativeArray<float2>(maxSlots, Allocator.Persistent);
             Grime = new NativeArray<float>(maxSlots, Allocator.Persistent);
             waveAt = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             waveR = new NativeArray<float>(maxSlots, Allocator.Persistent);
@@ -223,7 +228,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); blow.Dispose(); blocked.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); shotAt.Dispose();
             DisposeDeaths();
         }
 
@@ -266,7 +271,7 @@ namespace TW.Presentation
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
-            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; Lunge[i] = default; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -286,6 +291,9 @@ namespace TW.Presentation
             if (stray != null && stray.Upcoming(w, out uint at, out float3 pos, out float radius) && at - tick <= DiveLead)
                 incoming.Add(new float4(pos.x, pos.z, radius, at));
         }
+
+        /// <summary>How far a striker steps in, how far a man struck is driven back, and how long he takes to come back.</summary>
+        public const float LungeMetres = 0.45f, RecoilMetres = 0.35f, RecoilSeconds = 0.55f;
 
         void Latch(SimWorld w)
         {
@@ -315,6 +323,7 @@ namespace TW.Presentation
                     case SimEventType.MeleeBlow:   // dir.y = the style, scalar = damage, 0 blocked, -1 missed (MeleeSystem)
                         if (e.A >= 0 && e.A < count) { blow[e.A] = (byte)(1 + math.clamp((int)math.round(e.Dir.y), 0, 3)); shotAt[e.A] = e.B; }
                         if (e.B >= 0 && e.B < count && e.Scalar == 0f) blocked[e.B] = 1;
+                        if (e.B >= 0 && e.B < count && e.Scalar > 0f) { blocked[e.B] = 2; hitDir[e.B] = e.Dir; }   // it landed: he is driven back
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
@@ -682,7 +691,8 @@ namespace TW.Presentation
                 s.Stance = (byte)Stance.Standing;
                 return;
             }
-            if (blocked[i] != 0 && !prone && !(s.Rung == Rung.Action && Playing(s)) && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
+            if (blocked[i] == 2) { s.RecoilTick = tick; float2 away = new float2(hitDir[i].x, hitDir[i].z); s.RecoilDir = math.lengthsq(away) > 1e-4f ? math.normalize(away) : default; }
+            if (blocked[i] == 1 && !prone && !(s.Rung == Rung.Action && Playing(s)) && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
             {
                 s.Routine = 0;
                 Start(i, ref s, Clip.MeleeBlock, Rung.Action, (i == FollowSlot ? "hand to hand: turns a blow aside" : null), 1f, 0.08f);
@@ -958,6 +968,20 @@ namespace TW.Presentation
                     if (u >= 1f) { s.HopHeight = 0f; State[i] = s; }
                 }
                 Hop[i] = hop;
+                // hand to hand: he steps into the blow he strikes and back out of it; struck, he is driven back and recovers
+                float2 lunge = default;
+                if (s.Clip == Clip.MeleeStab || s.Clip == Clip.MeleePunch || s.Clip == Clip.MeleeSmash)
+                {
+                    float u = info.Seconds > 0f ? s.Frame / info.Seconds : 1f;
+                    lunge = new float2(math.sin(s.ShownYaw), math.cos(s.ShownYaw)) * (LungeMetres * math.sin(math.PI * math.saturate((u - 0.08f) / 0.62f)));
+                }
+                if (s.RecoilTick != 0)
+                {
+                    float since = (tick - s.RecoilTick) * tickSeconds;
+                    if (since < RecoilSeconds) { float k = 1f - since / RecoilSeconds; lunge += s.RecoilDir * (RecoilMetres * math.sin(math.PI * math.sqrt(1f - k))); }
+                    else { s.RecoilTick = 0; State[i] = s; }
+                }
+                Lunge[i] = lunge;
                 var prev = Clips.Table[(int)s.PrevClip];
                 PrevRow[i] = (ushort)s.PrevClip;
                 float pp = prev.Seconds > 0f ? s.PrevFrame / prev.Seconds : 0f;
