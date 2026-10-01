@@ -280,7 +280,13 @@ namespace TW.Editor
                 // film=<seconds>: a unit fights an enemy rifle line 70 m off its nose (inside every machine's reach), filmed below
                 float film = e.Tab == GymTab.Units && slot >= 0 && float.TryParse(Gym.Opt(Options, "film"), NumberStyles.Float, Inv, out float fs) ? fs : 0f;
                 if (film > 0f) { r.Log.Add("film: " + RiderLab.Stop(slot) + ", " + RiderLab.Enemies(slot, 12, 70f)); }   // held, so the take keeps it (a Salvo drove into a trench)
-                yield return new WaitForSeconds(wait);
+                if (e.Tab == GymTab.Scenes && r.Watch.Count > 0)
+                {
+                    // the watched men's drawn facing, a frame at a time, while the scene settles (GymDirector.SampleFacing)
+                    float settleUntil = Time.time + wait;
+                    while (Time.time < settleUntil) { yield return null; director.SampleFacing(Time.deltaTime); }
+                }
+                else yield return new WaitForSeconds(wait);
 
                 var shots = new List<string>(); var jsons = new List<string>();
                 bool capture = e.Expect != GymExpect.Covered && e.Expect != GymExpect.Excluded;
@@ -469,7 +475,11 @@ namespace TW.Editor
                     }
                     if ((GymScene)e.Id == GymScene.BarrageOnTrees)
                     {
-                        if (r.Count(SimEventType.PropChanged) == 0) flags.Add("the barrage broke no tree");
+                        // a standing tree takes 220 hp and a shell falls off from its centre, so twelve may break none and that is
+                        // fair; none of them harmed at all is the chain from the blast to the wood broken
+                        d.TreeHarm(r, out int harmed, out int broken);
+                        r.Log.Add($"trees: {r.Trees.Count} in the stand, {harmed} harmed, {broken} broken");
+                        if (r.Trees.Count > 0 && harmed == 0) flags.Add("the barrage did not touch the trees");
                         break;
                     }
                     if (r.Watch.Count == 0) flags.Add("no men staged");
@@ -501,7 +511,9 @@ namespace TW.Editor
               .Append(", \"canary\": ").Append(r.Canary ? "true" : "false").Append(", \"desync\": ").Append(r.Canary ? (r.Desync ? "true" : "false") : "null").Append(",\n");   // a desync is only seen with the canary
             sb.Append("  \"victim\": ").Append(r.Victim).Append(", \"victim_died\": ").Append(r.VictimDied ? "true" : "false").Append(",\n");
             sb.Append("  \"consequence\": {\"men\": ").Append(r.Watch.Count).Append(", \"hits\": ").Append(r.WatchedHits).Append(", \"near_misses\": ").Append(r.WatchedNearMisses)
-              .Append(", \"suppressed\": ").Append(r.WatchedSuppressed).Append(", \"deaths\": ").Append(r.WatchedDeaths).Append("},\n");
+              .Append(", \"suppressed\": ").Append(r.WatchedSuppressed).Append(", \"deaths\": ").Append(r.WatchedDeaths)
+              .Append(", \"turnabouts_per_man_min\": ").Append((r.WatchedSeconds > 0f ? r.Turnabouts / (r.WatchedSeconds / 60f) : 0f).ToString("0.0", Inv))
+              .Append(", \"worst_man_turnabouts\": ").Append(r.WorstTurnabouts).Append("},\n");
             sb.Append("  \"events\": {");
             bool first = true;
             foreach (var kv in r.Events) { sb.Append(first ? "" : ", ").Append('"').Append(kv.Key).Append("\": ").Append(kv.Value); first = false; }
