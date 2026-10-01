@@ -9,6 +9,9 @@
 //  - men: stuck (an order to go, not pinned, not holding, not moving, over 5 s), idle in the open with an enemy
 //    within 120 m, piled up (a friend inside 0.8 m while in the open), and deaths in clumps (4 or more of one side
 //    within 6 m and 3 s: a crowd one shell could take).
+// Men's steps reversed tick to tick, in a trench and in the open (2026-10-01): the trench shuffle (a man shoved back by
+// the man at the post ahead) and the zig-zag in place (closing on the enemy and not, on alternate ticks) both scored 0
+// on stuck, idle and piled; the gym's drawn-facing count found them.
 // Context beside them: machines per type (a whole type hunting is its profile's fault, one unit its situation's), and
 // men's share forced prone and pinned with the count of pins. A pin decays in about 3 s once the fire moves on
 // (SuppressionRules.DecayPerSecond), so the share is small where pins are many: the scripts' match without the
@@ -48,7 +51,8 @@ namespace TW.Tests
         sealed class Unit
         {
             public byte Arch, Team; public bool Vehicle;
-            public float Alive, Metres, Jam, JamRun, Spin, Flips, LastRate, Stuck, StuckRun, Idle, IdleRun, Piled, Held, Open, Moving, Pinned, Prone;
+            public float Alive, Metres, Jam, JamRun, Spin, Flips, LastRate, Stuck, StuckRun, Idle, IdleRun, Piled, Held, Open, Moving, Pinned, Prone, Dug;
+            public float2 LastStep; public int OpenRev, DugRev;
             public float3 Last; public float LastYaw;
         }
 
@@ -76,6 +80,7 @@ namespace TW.Tests
             var kinds = new SortedDictionary<byte, float4>();   // per machine type: count, metres, flips, jammed s
             // men
             float stuck = 0f, idle = 0f, piled = 0f, held = 0f, manSeconds = 0f, worstStuck = 0f, inOpen = 0f, moving = 0f, pinnedS = 0f, proneS = 0f;
+            float dug = 0f, openRev = 0f, dugRev = 0f, worstRev = 0f;
             int men = 0;
             foreach (var u in units.Values)
             {
@@ -92,6 +97,8 @@ namespace TW.Tests
                 else
                 {
                     men++; manSeconds += u.Alive; stuck += u.Stuck; idle += u.Idle; piled += u.Piled; held += u.Held; inOpen += u.Open; moving += u.Moving; pinnedS += u.Pinned; proneS += u.Prone;
+                    dug += u.Dug; openRev += u.OpenRev; dugRev += u.DugRev;
+                    if (u.Alive > 20f) worstRev = math.max(worstRev, (u.OpenRev + u.DugRev) / (u.Alive / 60f));
                     worstStuck = math.max(worstStuck, u.Stuck);
                 }
             }
@@ -123,6 +130,8 @@ namespace TW.Tests
             mx["men_open_share"] = manSeconds > 0f ? inOpen / manSeconds : 0f; mx["men_moving_open_share"] = manSeconds > 0f ? moving / manSeconds : 0f;
             mx["men_pinned_share"] = manSeconds > 0f ? pinnedS / manSeconds : 0f; mx["men_prone_share"] = manSeconds > 0f ? proneS / manSeconds : 0f;
             mx["pins"] = pins[0];
+            mx["men_trench_reversals_per_min"] = dug > 1f ? dugRev / (dug / 60f) : 0f; mx["men_open_reversals_per_min"] = inOpen > 1f ? openRev / (inOpen / 60f) : 0f;
+            mx["men_worst_reversals_per_min"] = worstRev;
             foreach (var kv in kinds) mx[$"flips_per100_{Name(kv.Key)}"] = kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f;
             mx["deaths"] = deaths.Count; mx["deaths_in_clumps_share"] = deaths.Count > 0 ? (float)clumped / deaths.Count : 0f; mx["biggest_clump"] = biggest;
             mx["winner"] = report.Winner; mx["end_s"] = report.EndTick / 20f;
@@ -130,7 +139,8 @@ namespace TW.Tests
                 + $"{mx["machine_flips_per100"]:F1} flips/100 m (worst {worstFlipOf} {worstFlip:F0})");
             sb.AppendLine($"  men {men}: stuck {mx["men_stuck_s_per_man_min"]:F2} s per man-minute (worst {worstStuck:F0} s), idle in the open under fire {100f * mx["men_idle_open_share"]:F1} %, "
                 + $"piled {100f * mx["men_piled_share"]:F1} %, holding {100f * mx["men_holding_share"]:F1} %; of their time {100f * mx["men_open_share"]:F0} % in the open "
-                + $"({100f * mx["men_moving_open_share"]:F0} % moving), {100f * mx["men_prone_share"]:F1} % forced prone, {100f * mx["men_pinned_share"]:F2} % pinned ({pins[0]} pins)");
+                + $"({100f * mx["men_moving_open_share"]:F0} % moving), {100f * mx["men_prone_share"]:F1} % forced prone, {100f * mx["men_pinned_share"]:F2} % pinned ({pins[0]} pins); "
+                + $"steps reversed {mx["men_trench_reversals_per_min"]:F2} a man-minute in trenches, {mx["men_open_reversals_per_min"]:F2} in the open (worst man {worstRev:F0})");
             // per machine type, the worst first: one bad unit stands out, a whole type that hunts is a profile's fault
             var byFlips = new List<KeyValuePair<byte, float4>>(kinds);
             byFlips.Sort((a, b) => (b.Value.y > 1f ? b.Value.z / b.Value.y : 0f).CompareTo(a.Value.y > 1f ? a.Value.z / a.Value.y : 0f));
@@ -180,6 +190,7 @@ namespace TW.Tests
                 bool vehicle = (fl & (uint)UnitFlags.Vehicle) != 0;
                 if (!units.TryGetValue(key, out var u)) { units[key] = new Unit { Arch = w.Archetype[i], Team = w.Team[i], Vehicle = vehicle, Last = p, LastYaw = yaw }; continue; }
                 u.Alive += Dt;
+                float2 stepVec = (p - u.Last).xz;
                 float step = math.length((p - u.Last).xz), speed = step / Dt; u.Metres += step; u.Last = p;
                 float rate = SimMath.WrapAngle(yaw - u.LastYaw) / Dt; u.LastYaw = yaw;
                 int cell = map.NavIndex(map.NavCellOf(p).x, map.NavCellOf(p).y), goal = w.GoalId[i];
@@ -195,7 +206,11 @@ namespace TW.Tests
                 bool open = w.TrenchId[i] < 0 && (fl & (uint)UnitFlags.InTrench) == 0;
                 bool pinned = w.Suppression[i] >= StanceRules.PinnedSuppression;
                 bool holding = m.Movement.Engage[i] == MovementSystem.EngageHold;
-                if (open) { u.Open += Dt; if (speed >= 0.1f) u.Moving += Dt; }
+                if (open) { u.Open += Dt; if (speed >= 0.1f) u.Moving += Dt; } else u.Dug += Dt;
+                // a step reversed against the one before: the trench shuffle and the zig-zag in place (2026-10-01)
+                float sa = math.length(stepVec), sl = math.length(u.LastStep);
+                if (sa > 0.015f && sl > 0.015f && math.dot(stepVec, u.LastStep) < -0.5f * sa * sl) { if (open) u.OpenRev++; else u.DugRev++; }
+                u.LastStep = stepVec;
                 if (pinned) u.Pinned += Dt;
                 if (w.Suppression[i] >= StanceRules.ProneSuppression) u.Prone += Dt;
                 if (holding && open) u.Held += Dt;
