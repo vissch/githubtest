@@ -26,6 +26,9 @@ namespace TW.Perf
         GasOnTrench,
         /// <summary>A barrage makes craters, then six men stand in them facing an enemy line: men in shell holes.</summary>
         CraterMen,
+        /// <summary>A Maw driven 40 m down the line near the stage that crosses the most standing trees and wire: what a
+        /// machine leaves behind it (the owner's Brief 2, the sim's feedback on the battlefield at every zoom).</summary>
+        MachineFlattens,
     }
 
     /// <summary>What the gym expects when it triggers an entry.</summary>
@@ -198,7 +201,8 @@ namespace TW.Perf
             var list = new List<GymEntry>();
             foreach (GymScene sc in Enum.GetValues(typeof(GymScene)))
                 list.Add(new GymEntry { Tab = GymTab.Scenes, Id = (int)sc, Name = sc.ToString(), Expect = GymExpect.Fires,
-                    Note = sc == GymScene.TrenchLine ? "men in our trench, an enemy line at 80 m" : sc == GymScene.CraterMen ? "men in fresh craters, an enemy line at 80 m" : "men in our trench, hit by the enemy" });
+                    Note = sc == GymScene.TrenchLine ? "men in our trench, an enemy line at 80 m" : sc == GymScene.CraterMen ? "men in fresh craters, an enemy line at 80 m"
+                         : sc == GymScene.MachineFlattens ? "a Maw through standing trees and wire" : "men in our trench, hit by the enemy" });
             return list;
         }
 

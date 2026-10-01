@@ -320,6 +320,60 @@ namespace TW.Perf
             return cells.Count > 0;
         }
 
+        /// <summary>Send a unit the gym spawned to `at` (its goal: that nav cell, tracked for a machine).</summary>
+        public void GoTo(int slot, Vector2 at)
+        {
+            if (slot < 0 || Host == null || Host.Local == null) return;
+            Host.WriteWorlds(m =>
+            {
+                var w = m.World; var c = m.Map.NavCellOf(new float3(at.x, 0f, at.y));
+                var mode = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0 ? TW.Sim.Nav.NavMode.Tracked : TW.Sim.Nav.NavMode.Infantry;
+                w.GoalId[slot] = m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(m.Map.NavIndex(c.x, c.y), mode));
+            });
+        }
+
+        /// <summary>Of eight lines through each point within 40 m of `near` (10 m apart), `half` metres either way, the one
+        /// that crosses the most standing trees (within 2.5 m of it) and wire cells, and no blocked cell: MachineFlattens
+        /// drives a Maw down it. (Through the stage alone it found none: the trees round it are the scatter's, drawn only.)</summary>
+        public (Vector2 from, Vector2 to) FlattenLine(Vector2 near, float half, out int trees, out int wire)
+        {
+            var map = Host.Local.Map;
+            float sizeX = map.NavWidth * TW.Sim.Terrain.MapData.NavCellSize, sizeZ = map.NavLength * TW.Sim.Terrain.MapData.NavCellSize;
+            (Vector2, Vector2) best = (near - Vector2.up * half, near + Vector2.up * half); float bestScore = -1f; trees = 0; wire = 0;
+            for (int cz = -4; cz <= 4; cz++)
+            for (int cx = -4; cx <= 4; cx++)
+            for (int k = 0; k < 8; k++)
+            {
+                float a = k * Mathf.PI / 8f;   // half turns only: a line and its reverse cross the same ground
+                var dir = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
+                var mid = near + new Vector2(cx, cz) * 10f;
+                Vector2 from = mid - dir * half, to = mid + dir * half;
+                if (from.x < 6f || from.y < 6f || to.x < 6f || to.y < 6f || from.x > sizeX - 6f || to.x > sizeX - 6f || from.y > sizeZ - 6f || to.y > sizeZ - 6f) continue;
+                int t = 0, wcells = 0; bool blocked = false; int lastCell = -1;
+                for (float s = 0f; s <= 2f * half; s += 1f)
+                {
+                    var p = from + dir * s; var c = map.NavCellOf(new float3(p.x, 0f, p.y)); int i = map.NavIndex(c.x, c.y);
+                    if (i == lastCell) continue;
+                    lastCell = i;
+                    var l = (TW.Sim.Terrain.NavLayer)map.NavLayers[i];
+                    if ((l & TW.Sim.Terrain.NavLayer.Blocked) != 0) { blocked = true; break; }
+                    if ((l & TW.Sim.Terrain.NavLayer.Wire) != 0) wcells++;
+                }
+                if (blocked) continue;
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var pr = map.Props[i];
+                    if (pr.Kind != TW.Sim.Terrain.PropKind.Tree) continue;
+                    var q = new Vector2(pr.Pos.x, pr.Pos.z) - from;
+                    float along = Mathf.Clamp(Vector2.Dot(q, dir), 0f, 2f * half);
+                    if ((q - dir * along).sqrMagnitude < 2.5f * 2.5f) t++;
+                }
+                float score = t + 0.5f * wcells - 0.001f * (cx * cx + cz * cz);   // the nearer of two equal lines
+                if (score > bestScore) { bestScore = score; best = (from, to); trees = t; wire = wcells; }
+            }
+            return best;
+        }
+
         /// <summary>Up to `count` shell-hole cells (NavLayer.Crater, open ground) within 30 m of `near`, the nearest
         /// first, `spacing` metres or more apart: where CraterMen puts its men.</summary>
         public List<Vector2> Craters(Vector2 near, int count, float spacing)
@@ -428,11 +482,28 @@ namespace TW.Perf
                     yield return new WaitForSeconds(3f);   // as the trench scenes: the line finds them and opens fire
                     break;
                 }
+                case GymScene.MachineFlattens:
+                {
+                    var line = FlattenLine(Stage, 20f, out int trees, out int wire);
+                    var way = line.to - line.from;
+                    int maw = Spawn(0, VehicleArchetype.Maw, line.from.x, line.from.y, Mathf.Atan2(way.x, way.y) * Mathf.Rad2Deg);
+                    if (maw < 0) { r?.Log.Add("scene: no Maw"); yield break; }
+                    GoTo(maw, line.to);
+                    r?.Log.Add($"scene: a Maw from ({line.from.x:0},{line.from.y:0}) to ({line.to.x:0},{line.to.y:0}) through {trees} standing trees and {wire} wire cells");
+                    yield return new WaitForSeconds(24f);   // a landship gathers way slowly, and wire and a trench slow it more
+                    // the ground it has crossed, halfway from where it set off to where it is, not the hull itself: what it
+                    // leaves behind (at a fixed share of the line the hull still filled the close shot: it was slower than that)
+                    var at = Host.Local.World.Position[maw];
+                    var behind = Vector2.Lerp(line.from, new Vector2(at.x, at.z), 0.5f);
+                    if (r != null) r.Focus = new float3(behind.x, 0f, behind.y);
+                    r?.Log.Add($"scene: the Maw is {Vector2.Distance(line.from, new Vector2(at.x, at.z)):0} m along");
+                    break;
+                }
             }
         }
 
         /// <summary>Seconds a scene needs after Scene() returns before its pictures mean something.</summary>
-        public static float SceneSettle(GymScene scene) => scene == GymScene.GasOnTrench ? 18f : scene == GymScene.BarrageOnTrench ? 12f : 6f;
+        public static float SceneSettle(GymScene scene) => scene == GymScene.GasOnTrench ? 18f : scene == GymScene.BarrageOnTrench ? 12f : scene == GymScene.MachineFlattens ? 3f : 6f;
 
         // ------------------------------------------------------------------------------------------------- camera
         public static void Look(Vector2 focus, float zoom, float yawDeg = 30f)
