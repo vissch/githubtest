@@ -24,7 +24,7 @@ namespace TW.UI
         {
             "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt",
             "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker", "Cutter", "Sergeant",
-            "Skimmer", "Salvo", "Brute", "Croaker", "Hopper", "Mercy",
+            "Skimmer", "Salvo", "Brute", "Croaker", "Hopper", "Mercy", "Bullfrog",
         };
 
         static readonly Dictionary<string, Texture2D> cache = new Dictionary<string, Texture2D>();
