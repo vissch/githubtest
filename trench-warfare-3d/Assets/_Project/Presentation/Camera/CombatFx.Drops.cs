@@ -77,6 +77,10 @@ namespace TW.Presentation.Tactical
             books.Add(FlipbookFx.Book.Puff, at, 1.6f, 0.8f, velocity: Vector3.up * 0.6f, grow: 1.5f, alpha: 0.45f);
         }
 
+        /// <summary>One piece of a canopy, counted by the frame budget like every other draw.</summary>
+        static void Hang(Mesh mesh, Matrix4x4 at, Material material)
+            => FrameBudget.Draw(new RenderParams(material) { worldBounds = new Bounds(at.GetPosition(), Vector3.one * 16f), shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On, receiveShadows = false }, mesh, 0, at);
+
         /// <summary>The canopies in the air and the ones folding on the ground.</summary>
         void DrawCanopies(float simNow)
         {
@@ -114,10 +118,10 @@ namespace TW.Presentation.Tactical
                     var lean = Quaternion.AngleAxis(swing, Vector3.forward) * Quaternion.AngleAxis(Mathf.Cos(simNow * 1.3f + c.Phase) * 6f, Vector3.right);
                     Vector3 top = man + lean * (Vector3.up * (r * CanopyDrop));
                     var silk = Matrix4x4.TRS(top, lean, new Vector3(r * open, r * (0.6f + 0.4f * open), r * open));
-                    Graphics.DrawMesh(canopyMesh, silk, silkMat, 0);
-                    Graphics.DrawMesh(stripeMesh, silk, stripeMat[c.Team], 0);
-                    Graphics.DrawMesh(cordMesh, Matrix4x4.TRS(top, lean, new Vector3(r * open, r * CanopyDrop, r * open)), cordMat, 0);
-                    Graphics.DrawMesh(hangMesh, Matrix4x4.TRS(man, lean, Vector3.one * size), manMat, 0);
+                    Hang(canopyMesh, silk, silkMat);
+                    Hang(stripeMesh, silk, stripeMat[c.Team]);
+                    Hang(cordMesh, Matrix4x4.TRS(top, lean, new Vector3(r * open, r * CanopyDrop, r * open)), cordMat);
+                    Hang(hangMesh, Matrix4x4.TRS(man, lean, Vector3.one * size), manMat);
                 }
                 else
                 {
@@ -128,8 +132,8 @@ namespace TW.Presentation.Tactical
                     float gather = down > 0.7f ? (1f - down) / 0.3f : 1f;
                     // it does not settle round: it spills long downwind and narrow across, a heap and not a disc
                     var heap = Matrix4x4.TRS(spill, lay * Quaternion.AngleAxis(c.Phase * Mathf.Rad2Deg, Vector3.up), new Vector3(r * (1f + 0.45f * d), r * Mathf.Lerp(1f, 0.3f, d), r * (1f - 0.35f * d)) * gather);
-                    Graphics.DrawMesh(canopyMesh, heap, silkMat, 0);
-                    Graphics.DrawMesh(stripeMesh, heap, stripeMat[c.Team], 0);
+                    Hang(canopyMesh, heap, silkMat);
+                    Hang(stripeMesh, heap, stripeMat[c.Team]);
                 }
             }
         }
