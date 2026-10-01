@@ -450,6 +450,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   onto the spot the sim will land him (`CombatFx.DropSpot` repeats the sim's die), swinging on its cords, and folds on
   the ground beside him over `DropFold`; `DropLanded` kicks up his dust. Timed by `SimNow`. Tests:
   `ParaDropPictureTests`.
+  **Three events nothing drew** (2026-10-01, same build): `ShieldBlocked` strikes a spark off the bearer's plate,
+  thrown back the way the round came; `CriticalHit` is a wide white star and a flash on the man it struck;
+  `VehicleHullMended` is weld sparks and a blue-white flicker at the engineer's torch. Seen in Play, no tests of
+  their own.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).

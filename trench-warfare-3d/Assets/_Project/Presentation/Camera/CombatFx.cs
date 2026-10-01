@@ -176,6 +176,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The live heroes (slots), from HeroMoment to HeroFallen / HeroSurvived, and their gold.</summary>
         readonly List<int> heroes = new List<int>(4);
         static readonly Color HeroGold = new Color(1f, 0.82f, 0.35f);
+        static readonly Color WeldBlue = new Color(0.65f, 0.82f, 1f);
         float heroGlint;
 
         /// <summary>Each live hero carries a pool of gold light over the mud and throws a glint off his helmet now and
@@ -732,6 +733,49 @@ namespace TW.Presentation.Tactical
                     Vector3 hands = EstimateChest(e.A, size);
                     Vector3 toss = new Vector3(e.Dir.x, 0f, e.Dir.z); toss = toss.sqrMagnitude > 1e-4f ? toss.normalized : Vector3.right;
                     debris.Throw(DebrisRenderer.Piece.Rifle, hands, toss * 2.2f + Vector3.up * 1.6f, size, Bark, ref rng, 25f);
+                    break;
+                }
+                case SimEventType.ShieldBlocked:
+                {
+                    // a round stopped by a shield bearer's plate (DirectFire; pos = where it struck, dir = the round's way):
+                    // nothing showed it, so the man behind the plate looked merely lucky. A spark off the steel, thrown back
+                    // the way the round came
+                    if (books == null || !books.Ready || hitsThisFrame >= 40 || CameraShake.DistanceToLook(e.Pos) > 70f) break;
+                    hitsThisFrame++;
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 at = e.A >= 0 && e.A < w.HighWater && w.IsAlive(e.A) ? EstimateChest(e.A, size) : (Vector3)e.Pos;
+                    Vector3 back = new Vector3(-e.Dir.x, 0f, -e.Dir.z); if (back.sqrMagnitude > 1e-4f) at += back.normalized * (0.35f * size);
+                    books.Add(FlipbookFx.Book.Star, at, 0.45f * size, 0.07f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3f : 1.6f);
+                    SceneHooks.Sparks?.Invoke(at, 4);
+                    break;
+                }
+                case SimEventType.CriticalHit:
+                {
+                    // a charging Breaker's round finds the mark (DirectFire; b = the target, scalar = damage): the Hit that
+                    // goes with it is drawn as any other, so the one blow that matters looked like the rest. A wide white
+                    // star and a flash of light on the man it struck
+                    if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater || CameraShake.DistanceToLook(e.Pos) > 80f) break;
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 at = w.IsAlive(e.B) ? EstimateChest(e.B, size) : (Vector3)e.Pos + Vector3.up * (1.1f * size);
+                    books.Add(FlipbookFx.Book.Star, at, 1.5f * size, 0.16f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3.5f : 1.8f, pop: 0.4f);
+                    SceneHooks.Sparks?.Invoke(at, 8);
+                    SceneHooks.Flash?.Invoke(at, new Color(1f, 0.92f, 0.75f), 6f, 6f, 0.12f);
+                    break;
+                }
+                case SimEventType.VehicleHullMended:
+                {
+                    // an engineer at work on a hull (SupportSystem; a = the machine, b = the engineer): the hull's bar crept
+                    // up and nothing else said why. Weld sparks and a blue-white flicker on the plate nearest him
+                    if (e.A < 0 || e.A >= w.HighWater || e.B < 0 || e.B >= w.HighWater || CameraShake.DistanceToLook(e.Pos) > 80f) break;
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 hull = (Vector3)w.Position[e.A], man = (Vector3)w.Position[e.B];
+                    Vector3 to = hull - man; to.y = 0f;
+                    float reach = Mathf.Min(to.magnitude, 0.9f * size);
+                    Vector3 at = man + (to.sqrMagnitude > 1e-4f ? to.normalized * reach : Vector3.zero);
+                    at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 1.0f * size;
+                    SceneHooks.Sparks?.Invoke(at, 6);
+                    SceneHooks.Flash?.Invoke(at, WeldBlue, 5f, 4.5f, 0.1f);
+                    if (books != null && books.Ready) books.Add(FlipbookFx.Book.Star, at, 0.4f * size, 0.06f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f);
                     break;
                 }
                 case SimEventType.MeleeBlow:
