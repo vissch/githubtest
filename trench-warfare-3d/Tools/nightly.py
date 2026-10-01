@@ -17,11 +17,11 @@ The report, against the newest earlier night that has the same part:
   The bench is deterministic but chaotic (BehaviourBenchTests): a number that moved on some seeds and not others is
   the match's own scatter, not a finding;
 - gym: every flag raised tonight that was not raised last time, and per entry and band the share of pixels that changed
-  (abtest.py's measure). The gym draws the same pictures twice (paced in game time, 0.00-0.06 % between runs of one
-  commit), so a change on the same commit is a fault in the gym, and on a new commit is the new commit's to explain.
+  (abtest.py's measure), as information: a scenes-only run draws the same pictures twice (0.00-0.03 %), but a whole run
+  does not yet (2026-10-01: two whole runs of one commit differed by up to 35 % of a close band, from the second entry
+  on, with the same flags), so a picture change is not a finding by itself until the whole run repeats.
 
-Exit 0 nothing new, 2 something to look at (a new flag, a bench regression, a picture that changed on the same
-commit), 1 could not run. Scheduling it is the owner's call, not this tool's; a daily task would be, for example:
+Exit 0 nothing new, 2 something to look at (a new flag, a bench regression), 1 could not run. Scheduling it is the owner's call, not this tool's; a daily task would be, for example:
     schtasks /Create /SC DAILY /ST 03:00 /TN TW3D-nightly /TR "python <checkout>\\trench-warfare-3d\\Tools\\nightly.py"
 """
 import argparse, datetime, json, os, shutil, subprocess, sys
@@ -36,7 +36,7 @@ WORSE_UP = ('machine_jam_s', 'machine_spin_s', 'machine_flips_per100', 'machine_
             'machine_worst_spin_s', 'men_stuck_s_per_man_min', 'men_worst_stuck_s', 'men_idle_open_share', 'men_piled_share',
             'deaths_in_clumps_share', 'biggest_clump',
             'men_trench_reversals_per_min', 'men_open_reversals_per_min', 'men_worst_reversals_per_min')
-SAME_COMMIT_NOISE = 0.002   # a band changed by more than this on an unchanged commit is the gym's fault (measured 0.0006)
+SAME_COMMIT_NOISE = 0.002   # a band changed by more than this is listed (a scenes-only run repeats to 0.0006)
 
 
 def git(*args):
@@ -166,15 +166,12 @@ def main():
                     change = abtest.band_change(base[entry], path, bands)
                     if max(change) > SAME_COMMIT_NOISE:
                         moved.append((entry, change))
-                same_commit = then_sha == sha and not dirty
                 label = ('a different commit' if then_sha != sha else 'the same commit, the tree dirty' if dirty
-                         else 'the same commit: any change is the gym')
+                         else 'the same commit')
+                label += '; a whole run is not yet repeatable, so this is information, not a finding'
                 md += [f'Pictures against {os.path.basename(then_dir)} ({label}): '
                        + (f'{len(moved)} of {len(other)} entries changed.' if moved else 'none changed.'), '']
                 md += [f'- {e}: ' + ', '.join(f'{c:.3f}' for c in ch) for e, ch in moved[:60]] + ([''] if moved else [])
-                if same_commit:
-                    for e, _ in moved:
-                        report['look'].append(f'gym: {e} changed on the same commit')
 
     report['ran'] = ran
     md += ['## To look at', ''] + ([f'- {x}' for x in report['look']] or ['Nothing new.']) + ['']
