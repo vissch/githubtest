@@ -65,15 +65,19 @@ namespace TW.Sim
         // where it lands on that tick (DirectFireSystem hashes the bombs in the air). Layout unchanged.
         // v22 (2026-09-29, the guns): machine gunners (and the Sentry) answer OrderGroup.Gun, not Line, so a
         // TrenchSelectAdvance naming the line leaves them in the trench. The unit table's groups are hashed. Layout unchanged.
+        // v23 (2026-09-29, how machines drive): VehicleProfile gains Accel, Brake and PivotSpeed, so the hashed profile
+        // table's bytes change; VehicleKinematicsSystem drives with momentum (Velocity carries the way from tick to tick),
+        // follows the field 3-6 cells ahead before its lane bends it, steers round a hull on its line, and the Breaker charges where the men are. Same
+        // inputs, different tracks: a v22 replay does not replay. Layout and chain unchanged.
         // v24 (2026-09-28, the range cut, lane/sim/melee): every attack reach at CombatTables.RangeScale 0.8 of its design
         // (weapon and main-gun ranges, minimum ranges, stand-offs, AdvanceFireRange, EngageSystem.HuntRadius): the
         // catalogue fingerprints change. Layout and chain unchanged.
-        // v24 (2026-09-28, hand to hand, lane/sim/melee): MeleeSystem (order 1109: Foe, FoeGen, Contact, Swing, Dropped,
+        // v25 (2026-09-28, hand to hand, lane/sim/melee): MeleeSystem (order 1109: Foe, FoeGen, Contact, Swing, Dropped,
         // Calm, StruckBy, the generation seen) and PounceSystem (order 1125: Phase, Ticks, Cooldown, From, To, Target, the
         // generation seen) join the chain; MovementSystem.EngageMelee and Stance.Melee; UnitFlags Melee, Disarmed and
         // Pouncing (bits 16-18); events MeleeBlow, WeaponDropped, WeaponPickedUp, PounceCrouched, PounceLanded appended;
         // random streams Melee 23 and Pounce 24.
-        public const ushort FormatVersion = 24;
+        public const ushort FormatVersion = 25;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
