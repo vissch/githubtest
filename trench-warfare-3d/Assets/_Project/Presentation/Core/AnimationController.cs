@@ -106,6 +106,7 @@ namespace TW.Presentation
     /// <summary>Per slot, what the body is doing (docs/15 section 3).</summary>
     public struct AnimState
     {
+        public uint LeapTick; public float LeapSeconds, LeapHeight;   // a jetpack leap (LeapStarted): when, how long in the air, how high at the top
         public uint RecoilTick; public float2 RecoilDir;   // a blow landed on him at this tick, from this way (unit, x z): he gives ground
         public Clip Clip, PrevClip;
         public float Frame, PrevFrame, Blend, Fade, Rate;   // seconds into the clip; the fade-out clip; blend left (s) of Fade; playback rate
@@ -182,6 +183,7 @@ namespace TW.Presentation
         NativeArray<float> waveR, waveD;
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
+        NativeArray<float> leapSeconds, leapMetres;   // he left the ground on his jetpack this tick (LeapStarted): seconds in the air, metres over the ground
         NativeArray<byte> blow;         // he struck a blow this tick (MeleeBlow): 1 + its style (stab, butt, smash, fists); shotAt holds whom at
         NativeArray<byte> blocked;      // he turned a blow aside this tick (MeleeBlow with scalar 0)
         TW.Sim.Combat.MeleeSystem melee; bool lookedForMelee;
@@ -219,6 +221,7 @@ namespace TW.Presentation
             leftTrench = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            leapSeconds = new NativeArray<float>(maxSlots, Allocator.Persistent); leapMetres = new NativeArray<float>(maxSlots, Allocator.Persistent);
             blow = new NativeArray<byte>(maxSlots, Allocator.Persistent); blocked = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
@@ -228,7 +231,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); shotAt.Dispose();
             DisposeDeaths();
         }
 
@@ -293,11 +296,13 @@ namespace TW.Presentation
         }
 
         /// <summary>How far a striker steps in, how far a man struck is driven back, and how long he takes to come back.</summary>
+        /// <summary>A jetpack leap's height at the top: this share of the ground it covers, never past LeapTop.</summary>
+        public const float LeapRise = 0.26f, LeapTop = 8f;
         public const float LungeMetres = 0.45f, RecoilMetres = 0.35f, RecoilSeconds = 0.55f;
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; blow[i] = 0; blocked[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; leapSeconds[i] = 0f; blow[i] = 0; blocked[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
             crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
@@ -319,6 +324,9 @@ namespace TW.Presentation
                         break;
                     case SimEventType.GrenadeThrown:
                         if (e.A >= 0 && e.A < count) { threw[e.A] = 1; shotAt[e.A] = e.B; }
+                        break;
+                    case SimEventType.LeapStarted:   // a = the jetpack man, pos = where he lands, dir = where he left, scalar = seconds in the air
+                        if (e.A >= 0 && e.A < count) { leapSeconds[e.A] = math.max(0.1f, e.Scalar); leapMetres[e.A] = math.distance(e.Pos.xz, e.Dir.xz); }
                         break;
                     case SimEventType.MeleeBlow:   // dir.y = the style, scalar = damage, 0 blocked, -1 missed (MeleeSystem)
                         if (e.A >= 0 && e.A < count) { blow[e.A] = (byte)(1 + math.clamp((int)math.round(e.Dir.y), 0, 3)); shotAt[e.A] = e.B; }
@@ -450,6 +458,8 @@ namespace TW.Presentation
             var simStance = (Stance)w.StanceOf[i];
             uint f = w.Flags[i];
             int target = w.TargetSlot[i];
+            // a jetpack leap: the sim flies him in a straight line over wire and walls (LeapSystem); the arc is the picture's
+            if (leapSeconds[i] > 0f) { s.LeapTick = tick; s.LeapSeconds = leapSeconds[i]; s.LeapHeight = math.clamp(leapMetres[i] * LeapRise, 2.5f, LeapTop); }
             // hand to hand (MeleeSystem): he stands and faces the man he fights, whoever his rifle's target is
             bool fighting = simStance == Stance.Melee;
             if (fighting)
@@ -966,6 +976,12 @@ namespace TW.Presentation
                     float u = math.saturate((s.Frame - s.HopFrame) / (HopSeconds * math.max(0.1f, s.Rate)));
                     hop = s.HopHeight * 4f * u * (1f - u);
                     if (u >= 1f) { s.HopHeight = 0f; State[i] = s; }
+                }
+                if (s.LeapTick != 0)
+                {
+                    float u = (tick - s.LeapTick) * tickSeconds / s.LeapSeconds;
+                    if (u < 1f) hop = math.max(hop, s.LeapHeight * 4f * u * (1f - u));
+                    else { s.LeapTick = 0; State[i] = s; }
                 }
                 Hop[i] = hop;
                 // hand to hand: he steps into the blow he strikes and back out of it; struck, he is driven back and recovers

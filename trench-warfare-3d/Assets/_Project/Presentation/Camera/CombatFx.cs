@@ -148,6 +148,31 @@ namespace TW.Presentation.Tactical
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         readonly HashSet<int> blowStruck = new HashSet<int>(); int blowFrame = -1;   // the men a MeleeBlow landed on this frame
+        /// <summary>The jetpack men in the air: x = slot, y = the Time.time he is down by.</summary>
+        readonly List<Vector2> jets = new List<Vector2>(8);
+        float jetNext;
+
+        /// <summary>A flame and a thread of smoke under each man in the air on his jetpack, where he is drawn.</summary>
+        void TickJets(float now)
+        {
+            if (jets.Count == 0 || Host == null || Host.Local == null) return;
+            var w = Host.Local.World; var anim = Host.Animation;
+            bool puff = Time.time >= jetNext;
+            if (puff) jetNext = Time.time + 0.05f;
+            for (int k = jets.Count - 1; k >= 0; k--)
+            {
+                int s = (int)jets[k].x;
+                if (Time.time > jets[k].y || s < 0 || s >= w.HighWater || !w.IsAlive(s)) { jets.RemoveAt(k); continue; }
+                if (!puff || books == null || !books.Ready) continue;
+                float size = units != null ? units.UnitScale : 1f;
+                Vector3 at = Host.Presenter != null ? (Vector3)Host.Presenter.Drawn(s) : (Vector3)w.Position[s];
+                at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + (anim != null && s < anim.Hop.Length ? anim.Hop[s] * size : 0f) + 0.5f * size;
+                books.Add(FlipbookFx.Book.Flash, at, 1.1f * size, 0.06f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
+                books.Add(FlipbookFx.Book.Puff, at - Vector3.up * 0.3f, 0.9f * size, 0.7f, velocity: Vector3.down * 1.5f, grow: 1.4f, alpha: 0.35f);
+                SceneHooks.Flash?.Invoke(at, new Color(1f, 0.6f, 0.25f), 4f, 5f, 0.08f);
+            }
+        }
+
         /// <summary>The live heroes (slots), from HeroMoment to HeroFallen / HeroSurvived, and their gold.</summary>
         readonly List<int> heroes = new List<int>(4);
         static readonly Color HeroGold = new Color(1f, 0.82f, 0.35f);
@@ -623,6 +648,25 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                case SimEventType.LeapStarted:
+                {
+                    // a jetpack man leaves the ground (a = the man, dir = where he left, scalar = seconds in the air): a
+                    // blast of dust and flame where he stood, and a jet under him until he is down (TickJets)
+                    if (e.A < 0 || e.A >= w.HighWater) break;
+                    jets.Add(new Vector2(e.A, Time.time + Mathf.Max(0.2f, e.Scalar) / Mathf.Max(0.05f, Host.TimeScale)));
+                    if (books != null && books.Ready)
+                    {
+                        Vector3 from = (Vector3)e.Dir; from.y = RenderGround.Sample(Host.Local.Map, from.x, from.z) + 0.3f;
+                        books.Add(FlipbookFx.Book.Flash, from, 2.6f, 0.14f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4.5f : 2.2f, pop: 0.5f);
+                        for (int k = 0; k < 6; k++)
+                        {
+                            float a = k * Mathf.PI / 3f; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                            books.Add(FlipbookFx.Book.Puff, from + o * 0.5f, 1.8f, 1.0f, velocity: o * 2.6f + Vector3.up * 0.5f, grow: 1.6f, alpha: 0.5f);
+                        }
+                        SceneHooks.Flash?.Invoke(from, new Color(1f, 0.6f, 0.25f), 10f, 8f, 0.25f);
+                    }
+                    break;
+                }
                 // ---- the hero moment (HeroSystem: "losing becomes a story"): the sim made it and nothing drew it ----
                 case SimEventType.HeroMoment:
                 {
@@ -1043,6 +1087,7 @@ namespace TW.Presentation.Tactical
             flames.Update(now, view, books, drawnAt, groundAt);
             TickSmoulders(now);
             TickHeroes(now);
+            TickJets(now);
             books?.Draw(now, bounds);
             hitsThisFrame = 0; healsThisFrame = 0;
 
