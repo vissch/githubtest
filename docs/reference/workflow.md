@@ -259,9 +259,17 @@ The study that finds a behaviour problem (MachineStudy, a match in Play at 4x) i
 per entry and zoom band the share of pixels that changed and every sidecar number that moved, and writes blind pairs
 (pairs/<variant>/*.jpg, the two sheets stacked in a random order; the key in key.json, apart). `--noise` runs the working tree
 twice first: the floor. The gym runs at a fixed 20 frames a game second (`Gym.CaptureFps`), so the same code draws the
-same entries (2026-10-01, measured twice: units 0.2-1.1 % of a band's pixels, TrenchLine 0, every sidecar number
-equal; BarrageOnTrench still 8 % at the closest band, its effects keeping their own clock). Believe a band that moved
-well past its floor; judge a pair before opening the key, and a second time with the halves swapped.
+same entries (2026-10-01, measured twice: every scenes entry and band 0.00 % of its pixels, the barrage's closest
+band 0.06 %, every sidecar number equal, once the night's star shell and distant guns restarted with the run:
+`NightLights.Rewind`). Believe a band that moved well past its floor; judge a pair before opening the key, and a
+second time with the halves swapped.
+
+**The night's run (2026-10-01).** `python Tools/nightly.py` runs the behaviour bench (six seeds) and every gym tab on
+this checkout, as it stands, and compares them with the night before: each bench metric with whether every seed moved
+the same way (a jam, spin, hunting, stuck, idle, piled or clumps number that rose on every seed is a regression), the
+gym flags that are new, and per entry and band the pixels that changed (on an unchanged commit any change is the
+gym's fault). The report (report.md, report.json) goes to `%LOCALAPPDATA%\TrenchWarfare\nightly\<stamp>-<sha>\`
+(the newest seven kept); exit 0 nothing new, 2 something to look at, 1 could not run. Scheduling it daily is the owner's call.
 
 ### False reds
 - **After Play in the same editor:** statics not reset by `SceneStatics` (the `Explained` list in
