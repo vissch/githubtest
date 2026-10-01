@@ -157,13 +157,59 @@ namespace TW.Tests
             Assert.Less(stalled, 60, "without standing shoving it (ticks nearly stopped)");
         }
 
+        /// <summary>The same where the field funnels every machine through a gap (2026-10-01, the behaviour bench on
+        /// the Shelled Forest, seed 1917): a Mercy ditched 22 s in the trench crossing at (18.7, 214.1), a Censer
+        /// knocked out and burning at (53.1, 31.8). The one behind, pressed against it, sat across two cells whose
+        /// field ways differ by 45 degrees; Avoid read the hull's side against the wanted line, so it changed sides at
+        /// every cell crossed and the nose swung 120 degrees either way: 17-655 reversals by it and none got past in
+        /// 80 s (the Croaker the worst). Read off its own nose, every one goes round with a handful.</summary>
+        [TestCase(VehicleArchetype.Pavise, 14f, 185f, 18.71f, 214.10f)]
+        [TestCase(VehicleArchetype.Croaker, 14f, 185f, 18.71f, 214.10f)]
+        [TestCase(VehicleArchetype.Kettle, 17f, 192f, 18.71f, 214.10f)]
+        [TestCase(VehicleArchetype.Maw, 12f, 190f, 18.71f, 214.10f)]
+        [TestCase(VehicleArchetype.Tusk, 58f, 20f, 53.12f, 31.81f)]
+        [TestCase(VehicleArchetype.Kettle, 55f, 8f, 53.12f, 31.81f)]
+        public void ItGoesRoundAHullStandingWhereTheFieldFunnelsItThrough(byte mover, float fromX, float fromZ, float hullX, float hullZ)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 0f;
+            using var m = MatchSim.CreateBattlefield(cfg, field, false);
+            var w = m.World.Units.Roster[VehicleArchetype.Maw];
+            int wall = m.World.Spawn(0, VehicleArchetype.Maw, new float3(hullX, 0f, hullZ), w.Hp, w.Speed, true);
+            m.World.GoalId[wall] = -1;
+            var e = m.World.Units.Roster[mover];
+            int it = m.World.Spawn(0, mover, new float3(fromX, 0f, fromZ), e.Hp, e.Speed, true);
+            m.World.GoalId[it] = m.Fields.DefaultGoal(0, true);
+            Step(m);   // (a machine's first tick resets its drive state)
+            m.World.GoalId[wall] = -1; m.World.Speed[wall] = 0f; m.Vehicles.HaltTicks[wall] = 100000;
+            m.Vehicles.DitchTicks[wall] = 100000;   // nose down in the trench: it stands, and gives way to nobody
+            float3 hull = m.World.Position[wall];
+            float yaw = m.World.Yaw[it], last = 0f; int near = 0;
+            for (int t = 0; t < 1600; t++)
+            {
+                Step(m);
+                float rate = math.degrees(SimMath.WrapAngle(m.World.Yaw[it] - yaw)) / cfg.TickSeconds; yaw = m.World.Yaw[it];
+                if (math.abs(rate) > 14f)
+                {
+                    if (math.abs(last) > 14f && math.sign(rate) != math.sign(last) && math.distance(m.World.Position[it].xz, hull.xz) < 14f) near++;
+                    last = rate;
+                }
+            }
+            TestContext.WriteLine($"{mover}: {near} reversals within 14 m of the hull, ends at {m.World.Position[it]}");
+            Assert.AreEqual(hullZ, m.World.Position[wall].z, 0.5f, "the hull in the way stood its ground (else this proves nothing)");
+            Assert.Greater(m.World.Position[it].z, hull.z + 8f, "it got past the hull standing in the gap");
+            Assert.Less(near, 12, "without its nose swinging either way beside it (17-655 reversals when its side was read off the field)");
+        }
+
         /// <summary>A column: every machine sent at one goal drives one line, so the ones ahead sit in the cone of
         /// every one behind. Swerving round hulls that are driving on only weaves the followers: in three 150 s studies
         /// of a real match (MachineStudy) our side spun in place 111 s, the Brute (which keeps 0.08 of its speed
         /// through a sharp turn) 49 s of it, most 9 m behind a machine going 0.6-1.9 m/s. The study's own start: our
         /// fifteen machines in two ranks behind the spawn point, all sent forward. Nor does any nose hunt either way:
         /// letting go of a hull ahead whenever it kept pace with the one behind (whose speed drops as it swerves) had
-        /// the Breaker and the Redoubt flip 68 and 72 times per 100 m here; alone, every machine flips none.</summary>
+        /// the Breaker and the Redoubt flip 68 and 72 times per 100 m here; alone, every machine flips none. Nor
+        /// does a hull on the edge of the cone: weighted by how far ahead it stood, it put 0.3 of a push in and took it
+        /// out on alternate ticks, and a Kettle driving beside a Banner flipped 126 times per 100 m (2026-10-01).</summary>
         [Test]
         public void AColumnOfEveryMachineDrivesOnWithoutTurningOnTheSpot()
         {
