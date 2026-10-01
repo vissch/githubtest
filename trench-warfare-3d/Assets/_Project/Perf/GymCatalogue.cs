@@ -29,6 +29,8 @@ namespace TW.Perf
         /// <summary>A Maw driven 40 m down the line near the stage that crosses the most standing trees and wire: what a
         /// machine leaves behind it (the owner's Brief 2, the sim's feedback on the battlefield at every zoom).</summary>
         MachineFlattens,
+        /// <summary>An HE barrage on the thickest stand of standing trees near the stage: shelling breaks the wood.</summary>
+        BarrageOnTrees,
     }
 
     /// <summary>What the gym expects when it triggers an entry.</summary>
@@ -202,7 +204,8 @@ namespace TW.Perf
             foreach (GymScene sc in Enum.GetValues(typeof(GymScene)))
                 list.Add(new GymEntry { Tab = GymTab.Scenes, Id = (int)sc, Name = sc.ToString(), Expect = GymExpect.Fires,
                     Note = sc == GymScene.TrenchLine ? "men in our trench, an enemy line at 80 m" : sc == GymScene.CraterMen ? "men in fresh craters, an enemy line at 80 m"
-                         : sc == GymScene.MachineFlattens ? "a Maw through standing trees and wire" : "men in our trench, hit by the enemy" });
+                         : sc == GymScene.MachineFlattens ? "a Maw through standing trees and wire"
+                         : sc == GymScene.BarrageOnTrees ? "an HE barrage on a stand of trees" : "men in our trench, hit by the enemy" });
             return list;
         }
 
