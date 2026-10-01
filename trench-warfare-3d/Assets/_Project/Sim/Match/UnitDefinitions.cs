@@ -451,7 +451,7 @@ namespace TW.Sim.Match
             Drive = new VehicleProfile
             {
                 TurnRateRad = 1.4f, TrenchCrossWidth = 4.0f, DitchChance = 0f, SlopeLimit = 0.9f, BogChance = 0f,
-                HalfLength = 1.75f, HalfWidth = 2.0f, PushesTrees = false, Walker = true, Legs = 0,   // its model: 3.5 m long, 4 m across the guns
+                HalfLength = 2.8f, HalfWidth = 3.2f, PushesTrees = false, Walker = true, Legs = 0,   // its model, drawn 1.6 times: 5.6 m long, 6.4 m across the guns
             },
         };
 
