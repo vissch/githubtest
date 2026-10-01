@@ -112,6 +112,8 @@ namespace TW.Presentation.Tactical
             /// <summary>A hopper's height as a share of its sculpt's (1 at rest): it flattens as it lands and gathers, stretches
             /// at the top of a hop, and breathes when it sits. Its width and length give way so its bulk stays.</summary>
             public float Squash = 1f;
+            /// <summary>Radians a dead hopper lies heeled over to one side.</summary>
+            public float Heel;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -731,7 +733,7 @@ namespace TW.Presentation.Tactical
 
         // ------------------------------------------------------------------ pose
         Quaternion HullRotation(View v)
-            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.HopTilt + v.PitchFx + v.KickP.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
+            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.HopTilt + v.PitchFx + v.KickP.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.Heel + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
         Matrix4x4 PartLocal(View v, TankModel.Part p, int index)
@@ -799,9 +801,22 @@ namespace TW.Presentation.Tactical
         // ground and down landing; stopped mid-hop, it comes down. Its gatlings spin up with each round and wind down.
         const float HopStride = 2.6f * BullfrogScale, HopHeight = 0.75f * BullfrogScale, HopTiltMax = 9f * Mathf.Deg2Rad, SpinRate = 30f;
 
+        const float DeadSquash = 0.62f, DeadNose = 9f * Mathf.Deg2Rad, DeadHeel = 13f * Mathf.Deg2Rad, DeadGuns = 30f * Mathf.Deg2Rad;
+
         void HopPose(View v, float dt)
         {
-            if (v.Dead) { v.HopPhase = 0f; v.Bob = 0f; v.HopTilt = 0f; v.Spin = 0f; v.Squash = 1f; return; }
+            if (v.Dead)
+            {
+                // a dead toad is not its live pose painted dark (critics 2026-10-01, twice: this ran every frame and stood the
+                // slump Wreckify gave it back up): it goes down on its belly, nose low, heeled to one side, guns dropped
+                float ease = 1f - Mathf.Exp(-dt * 4f);
+                v.HopPhase = 0f; v.Bob = Mathf.Lerp(v.Bob, 0f, ease); v.Spin = 0f;
+                v.Squash = Mathf.Lerp(v.Squash, DeadSquash, ease);
+                v.HopTilt = Mathf.Lerp(v.HopTilt, -DeadNose, ease);
+                v.Heel = Mathf.Lerp(v.Heel, (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel, ease);
+                v.GunPitch[0] = Mathf.Lerp(v.GunPitch[0], -DeadGuns, ease); v.GunPitch[1] = Mathf.Lerp(v.GunPitch[1], -DeadGuns * 0.5f, ease);   // one gun lower than the other
+                return;
+            }
             float moved = new Vector2(v.Pos.x - v.LastPos.x, v.Pos.z - v.LastPos.z).magnitude;
             bool going = Mathf.Abs(v.Speed) > 0.25f && !v.Stalled;
             if (going || v.HopPhase > 0f)
@@ -1141,11 +1156,9 @@ namespace TW.Presentation.Tactical
             v.Burn = Mathf.Max(v.Burn, v.CookOff ? 1f : 0.5f);
             if (v.Archetype == VehicleArchetype.Bullfrog)
             {
-                // a dead toad is not its live pose painted black (critic 2026-10-01): it slumps flat on its belly, heeled
-                // to one side, its guns dropped
-                v.Squash = 0.74f; v.Bob = 0f; v.HopTilt = 0f; v.HopPhase = 0f;
-                v.GunPitch[0] = v.GunPitch[1] = -17f * Mathf.Deg2Rad;
-                v.Roll.Value += ((v.Slot & 1) == 0 ? 8f : -8f) * Mathf.Deg2Rad; v.Roll.Velocity = 0f;
+                // the wreck it leaves keeps the slump HopPose gave the dead toad
+                v.Squash = DeadSquash; v.Bob = 0f; v.HopTilt = -DeadNose; v.HopPhase = 0f; v.Heel = (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel;
+                v.GunPitch[0] = -DeadGuns; v.GunPitch[1] = -DeadGuns * 0.5f;
             }
             Pose(v, v.Model.Lods[0], v.World);
             if (v.CookOff)
@@ -1261,7 +1274,18 @@ namespace TW.Presentation.Tactical
             {
                 case SimEventType.RocketFired: RocketFired(e); break;
                 case SimEventType.Shot:   // the Bullfrog's gatlings (its machine-gun Weapon): each round keeps them spinning
-                    if (v != null && !v.Dead && v.Archetype == VehicleArchetype.Bullfrog) v.Spin = 1f;
+                    if (v != null && !v.Dead && v.Archetype == VehicleArchetype.Bullfrog)
+                    {
+                        v.Spin = 1f;
+                        // and a flame at the mouth of the gun that fired (the small-arms flash is a rifle's: a white dart
+                        // lost under two gatlings, critic 2026-10-01); the same gun CombatFx's tracer leaves this frame
+                        if (books != null && books.Ready && BarrelTip(v, out var tip))
+                        {
+                            Vector3 along = v.World != null && v.World.Length > 0 ? ((Vector3)v.World[0].GetColumn(2)).normalized : Vector3.forward;
+                            books.Add(FlipbookFx.Book.Flash, tip + along * 0.5f, 1.9f, 0.07f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4.5f : 2.2f, pop: 0.5f);
+                            SceneHooks.Flash?.Invoke(tip + along * 1.2f, new Color(1f, 0.7f, 0.36f), 14f, 9f, 0.08f);
+                        }
+                    }
                     break;
                 case SimEventType.VehicleFired:
                 {
