@@ -519,7 +519,7 @@ namespace TW.Presentation.Tactical
         TW.Sim.Match.MatchSim oldWrecksOf;
         public const float KnockedOutRing = 0.3f;   // the side ring's strength under a knocked-out machine
         public const int OldWreckSlot = -1000;   // an old wreck's slot: OldWreckSlot - its prop's index (no sim slot is negative)
-        public const float OldWreckScorch = 0.6f;   // burnt, and rained on since: not the soot black of a hull still smoking (0.85), which is a hole in a night field
+        public const float OldWreckScorch = 0.45f;   // burnt, and rained on since: not the soot black of a hull still smoking (0.85), which is a hole in a night field
         static readonly byte[] OldWreckKinds = { VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Maw, VehicleArchetype.Brute };
 
         /// <summary>Which machine lies at a map wreck, and how it has settled: hashed off the prop, so a map always has
