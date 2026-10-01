@@ -107,6 +107,23 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AJetpackLeap_IsDrawnAsAnArc_NotASkimOverTheGround()
+        {
+            // LeapSystem flies him in a straight line; nothing read LeapStarted, so he slid 28 m along the mud (2026-10-01)
+            using var r = new Rig();
+            var w = r.M.World;
+            w.StanceOf[r.Man] = (byte)Stance.Standing;
+            float3 from = w.Position[r.Man], land = from + new float3(0f, 0f, 24f);
+            w.Events.Add(w.Tick, SimEventType.LeapStarted, r.Man, 0, land, from, 1.0f);
+            float top = 0f;
+            for (int t = 0; t < 20; t++) { r.Tick(); top = math.max(top, r.A.Hop[r.Man]); if (t == 0) Assert.Less(r.A.Hop[r.Man], 1.5f, "he starts from the ground"); }
+            Assert.Greater(top, 4f, "24 m over the ground: some six metres up at the top");
+            Assert.LessOrEqual(top, AnimationController.LeapTop);
+            for (int t = 0; t < 6; t++) r.Tick();
+            Assert.AreEqual(0f, r.A.Hop[r.Man], 1e-4f, "and he is down when the sim says he is");
+        }
+
+        [Test]
         public void BetweenBlows_HeStandsOnGuard_AndNeverKneels()
         {
             using var r = new Rig();
