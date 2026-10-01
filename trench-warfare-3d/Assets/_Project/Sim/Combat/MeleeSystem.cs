@@ -45,7 +45,7 @@ namespace TW.Sim.Combat
         public const float ContactRange = 2.5f;  // and this close they fight
         public const float BreakRange = 3.5f;    // a fight holds until they are this far apart (pushed, knocked back)
         public const float Keep = 1.25f;         // a charge holds until the foe is this many times ChargeRange off
-        public const float StandOff = 1.2f;      // in a fight he steps in to this distance and no nearer
+        public const float StandOff = 1.7f;      // in a fight he steps in to this distance and no nearer (a rifle and bayonet's reach; at 1.2 the drawn figures stood inside each other, 2026-10-01)
         public const int BlowTicks = 24;         // a blow every 1.2 s at 20 Hz ...
         public const int BlowJitter = 8;         // ... give or take up to this many ticks
         public const int PickUpTicks = 30;       // a thrown-down weapon is picked up this long after the fight ends
