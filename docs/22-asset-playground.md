@@ -626,12 +626,15 @@ Images `figures/battle-loop/r7-*`; all in GreyboxCorridor, Play, the machines he
 
 Not done this round: the Skimmer over craters and wire at full speed.
 
-## Open: the Mercy's panels have holes (2026-10-01)
-From behind and from its left the Mercy shows black triangles on its white panels (the art critic, and Play at zoom 6).
-Measured: no flipped triangles, no black texels under those faces, masks all zero. A Blender render of
-`Resources/Vehicles/Mercy/Mercy_LOD0.fbx` with its atlas shows real triangular holes in the body beside the red cross
-and by the rear door; `Door_BL` has 12 faces against `Door_BR`'s 15 and stops 0.29 m short. The Playground's own
-`Mercy_LOD0.fbx` has the same face counts, so the holes are `jeepsplit.py`'s (or the sculpt's), not `battleform.py`'s
-or `TankImport`'s. Mirroring the right door's bottom strip onto the left at import changed nothing on screen and was
-taken out. The fix is in the split: fill the small boundary loops per part (or across the cut) before export, then
-re-run both forms. The player sees his own ambulance from behind, so it shows.
+## Open: the Mercy's stray panel triangles (2026-10-01)
+From behind and from its left the Mercy shows a black triangle on a white panel: one beside the red cross on its left
+side, one on the left rear door (the art critic, and Play at zoom 6). The player sees his own ambulance from behind.
+What it is NOT, each measured: a flipped triangle (none), a cap of `jeepsplit.py` (those lie only on the deck plane),
+a hole (a Blender render of the owner's `ambulance jeep 3d model.fbx` on a magenta ground shows none), a mask or a
+vertex colour (all zero), an importer fault (the Playground's `Mercy_LOD0.fbx` has the same faces).
+What it is: the sculpt's own paint. On the source, each of those white panels is two triangles and one of the two is
+textured with hull green; on the battle atlas the same triangle samples near black. The right side's panel is clean.
+Tried and taken out: mirroring `Door_BR`'s bottom strip onto `Door_BL` at import (no change on screen); a rule that
+re-maps a triangle whose UVs no neighbour shares from its flat neighbour (it found nine triangles, none of these).
+Next: in Blender, select those faces by hand on the source (or copy the right panel's UVs across x), re-run both
+forms of `jeepsplit.py`, and hold it with a test that samples the atlas under the cross panel's two triangles.
