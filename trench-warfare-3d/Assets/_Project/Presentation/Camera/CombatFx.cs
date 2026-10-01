@@ -670,6 +670,23 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                case SimEventType.MeleeBlow:
+                {
+                    // hand to hand (MeleeSystem): a blow that lands is a Hit as well (the spike and the cloud below), and a
+                    // star where it struck; one turned aside strikes sparks between the two; a miss shows nothing
+                    if (books == null || !books.Ready || e.A < 0 || e.B < 0 || e.A >= w.HighWater || e.B >= w.HighWater || e.Scalar < 0f) break;
+                    if (CameraShake.DistanceToLook(w.Position[e.B]) > 60f) break;
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 chest = EstimateChest(e.B, size);
+                    if (e.Scalar > 0f) books.Add(FlipbookFx.Book.Star, chest, 0.9f * size, 0.12f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 2.5f : 1.4f);
+                    else
+                    {
+                        Vector3 mid = Vector3.Lerp(EstimateChest(e.A, size), chest, 0.6f);
+                        books.Add(FlipbookFx.Book.Star, mid, 0.5f * size, 0.08f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 3f : 1.6f);
+                        SceneHooks.Sparks?.Invoke(mid, 5);
+                    }
+                    break;
+                }
                 case SimEventType.Hit:
                 {
                     // a man struck: a spike of light where the round lands and a small cloud off his coat, at chest height for
