@@ -9,6 +9,11 @@
 //  - men: stuck (an order to go, not pinned, not holding, not moving, over 5 s), idle in the open with an enemy
 //    within 120 m, piled up (a friend inside 0.8 m while in the open), and deaths in clumps (4 or more of one side
 //    within 6 m and 3 s: a crowd one shell could take).
+// Context beside them: machines per type (a whole type hunting is its profile's fault, one unit its situation's), and
+// men's share forced prone and pinned with the count of pins. A pin decays in about 3 s once the fire moves on
+// (SuppressionRules.DecayPerSecond), so the share is small where pins are many: the scripts' match without the
+// machines set down had 0.3-1 % and 20-33 pins, this one (over in about four minutes) 0-25 (2026-10-01; printed to
+// whole percent it read 0 and looked like no man was ever pinned).
 // Run by name (Explicit, under a minute a seed): it writes %TEMP%/tw-behaviour-bench.txt and .json, or the paths
 // TW_BENCH_OUT names (a stem), for Tools/abtest.py to diff; TW_BENCH_SEEDS ("1,2,3,4,5,6") picks the seeds.
 // Deterministic but chaotic: any change moves every later tick, so match-wide numbers (deaths, when it ends) scatter
@@ -39,7 +44,7 @@ namespace TW.Tests
         sealed class Unit
         {
             public byte Arch, Team; public bool Vehicle;
-            public float Alive, Metres, Jam, JamRun, Spin, Flips, LastRate, Stuck, StuckRun, Idle, IdleRun, Piled, Held, Open, Moving, Pinned;
+            public float Alive, Metres, Jam, JamRun, Spin, Flips, LastRate, Stuck, StuckRun, Idle, IdleRun, Piled, Held, Open, Moving, Pinned, Prone;
             public float3 Last; public float LastYaw;
         }
 
@@ -53,18 +58,20 @@ namespace TW.Tests
         {
             var units = new Dictionary<long, Unit>();
             var deaths = new List<float4>();   // x, z, team, tick
+            var pins = new int[1];               // Pinned events: a man going down under fire, however briefly
             var enemy = new ScriptedEnemy { DeploysTanks = true };
             var player = new ScriptedEnemy { Side = 0, DeploysTanks = true };
             uint seen = uint.MaxValue;
-            var report = MatchLoopTests.Play(MatchLoopTests.Policy.Script, minutes, seed, enemy, 8, m => { if (m.World.Tick == seen) return; seen = m.World.Tick; if (seen == 1) SetDown(m); Sample(m, units, deaths); }, player);
+            var report = MatchLoopTests.Play(MatchLoopTests.Policy.Script, minutes, seed, enemy, 8, m => { if (m.World.Tick == seen) return; seen = m.World.Tick; if (seen == 1) SetDown(m); Sample(m, units, deaths, pins); }, player);
 
             var r = new Result();
             var sb = new StringBuilder($"seed {seed}: {minutes} min, winner {(report.Winner < 0 ? "none" : report.Winner.ToString())} at {report.EndTick / 20} s, captures {report.CapturedByPlayer}/{report.CapturedByEnemy}\n");
             // machines
             float metres = 0f, jam = 0f, spin = 0f, flips = 0f, worstFlip = 0f; string worstFlipOf = "-", worstJamOf = "-", worstSpinOf = "-"; float worstJam = 0f, worstSpin = 0f;
             int machines = 0;
+            var kinds = new SortedDictionary<byte, float4>();   // per machine type: count, metres, flips, jammed s
             // men
-            float stuck = 0f, idle = 0f, piled = 0f, held = 0f, manSeconds = 0f, worstStuck = 0f, inOpen = 0f, moving = 0f, pinnedS = 0f;
+            float stuck = 0f, idle = 0f, piled = 0f, held = 0f, manSeconds = 0f, worstStuck = 0f, inOpen = 0f, moving = 0f, pinnedS = 0f, proneS = 0f;
             int men = 0;
             foreach (var u in units.Values)
             {
@@ -72,6 +79,7 @@ namespace TW.Tests
                 if (u.Vehicle)
                 {
                     machines++; metres += u.Metres; jam += u.Jam; spin += u.Spin; flips += u.Flips;
+                    kinds[u.Arch] = (kinds.TryGetValue(u.Arch, out var kd) ? kd : float4.zero) + new float4(1f, u.Metres, u.Flips, u.Jam);
                     float per100 = u.Metres > 20f ? 100f * u.Flips / u.Metres : 0f;
                     if (per100 > worstFlip) { worstFlip = per100; worstFlipOf = $"{Name(u.Arch)} (team {u.Team})"; }
                     if (u.Jam > worstJam) { worstJam = u.Jam; worstJamOf = $"{Name(u.Arch)} (team {u.Team})"; }
@@ -79,7 +87,7 @@ namespace TW.Tests
                 }
                 else
                 {
-                    men++; manSeconds += u.Alive; stuck += u.Stuck; idle += u.Idle; piled += u.Piled; held += u.Held; inOpen += u.Open; moving += u.Moving; pinnedS += u.Pinned;
+                    men++; manSeconds += u.Alive; stuck += u.Stuck; idle += u.Idle; piled += u.Piled; held += u.Held; inOpen += u.Open; moving += u.Moving; pinnedS += u.Pinned; proneS += u.Prone;
                     worstStuck = math.max(worstStuck, u.Stuck);
                 }
             }
@@ -109,14 +117,23 @@ namespace TW.Tests
             mx["men_holding_share"] = manSeconds > 0f ? held / manSeconds : 0f;
             // context, so a zero above can be told from a measure that cannot fire
             mx["men_open_share"] = manSeconds > 0f ? inOpen / manSeconds : 0f; mx["men_moving_open_share"] = manSeconds > 0f ? moving / manSeconds : 0f;
-            mx["men_pinned_share"] = manSeconds > 0f ? pinnedS / manSeconds : 0f;
+            mx["men_pinned_share"] = manSeconds > 0f ? pinnedS / manSeconds : 0f; mx["men_prone_share"] = manSeconds > 0f ? proneS / manSeconds : 0f;
+            mx["pins"] = pins[0];
+            foreach (var kv in kinds) mx[$"flips_per100_{Name(kv.Key)}"] = kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f;
             mx["deaths"] = deaths.Count; mx["deaths_in_clumps_share"] = deaths.Count > 0 ? (float)clumped / deaths.Count : 0f; mx["biggest_clump"] = biggest;
             mx["winner"] = report.Winner; mx["end_s"] = report.EndTick / 20f;
             sb.AppendLine($"  machines {machines}: {metres:F0} m, jammed {jam:F0} s (worst {worstJamOf} {worstJam:F0} s), spinning {spin:F0} s (worst {worstSpinOf} {worstSpin:F0} s), "
                 + $"{mx["machine_flips_per100"]:F1} flips/100 m (worst {worstFlipOf} {worstFlip:F0})");
             sb.AppendLine($"  men {men}: stuck {mx["men_stuck_s_per_man_min"]:F2} s per man-minute (worst {worstStuck:F0} s), idle in the open under fire {100f * mx["men_idle_open_share"]:F1} %, "
                 + $"piled {100f * mx["men_piled_share"]:F1} %, holding {100f * mx["men_holding_share"]:F1} %; of their time {100f * mx["men_open_share"]:F0} % in the open "
-                + $"({100f * mx["men_moving_open_share"]:F0} % moving), {100f * mx["men_pinned_share"]:F0} % pinned");
+                + $"({100f * mx["men_moving_open_share"]:F0} % moving), {100f * mx["men_prone_share"]:F1} % forced prone, {100f * mx["men_pinned_share"]:F2} % pinned ({pins[0]} pins)");
+            // per machine type, the worst first: one bad unit stands out, a whole type that hunts is a profile's fault
+            var byFlips = new List<KeyValuePair<byte, float4>>(kinds);
+            byFlips.Sort((a, b) => (b.Value.y > 1f ? b.Value.z / b.Value.y : 0f).CompareTo(a.Value.y > 1f ? a.Value.z / a.Value.y : 0f));
+            sb.Append("  by type (flips/100 m, metres, jammed s):");
+            foreach (var kv in byFlips)
+                sb.Append($" {Name(kv.Key)}x{kv.Value.x:F0} {(kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f):F0}/{kv.Value.y:F0}/{kv.Value.w:F0}");
+            sb.AppendLine();
             sb.AppendLine($"  deaths {deaths.Count}: {100f * mx["deaths_in_clumps_share"]:F0} % in clumps of 4+, the biggest {biggest}");
             r.Text = sb.ToString();
             return r;
@@ -137,13 +154,16 @@ namespace TW.Tests
             }
         }
 
-        static void Sample(MatchSim m, Dictionary<long, Unit> units, List<float4> deaths)
+        static void Sample(MatchSim m, Dictionary<long, Unit> units, List<float4> deaths, int[] pins)
         {
             var w = m.World; var k = m.Vehicles; var f = m.Fields; var map = m.Map;
             var ev = w.Events.Events;
             for (int e = 0; e < ev.Length; e++)
+            {
                 if (ev[e].Type == SimEventType.Death && (w.Flags[ev[e].A] & (uint)UnitFlags.Vehicle) == 0)
                     deaths.Add(new float4(w.Position[ev[e].A].x, w.Position[ev[e].A].z, w.Team[ev[e].A], w.Tick));
+                else if (ev[e].Type == SimEventType.Pinned) pins[0]++;
+            }
             bool second = w.Tick % 20 == 0;   // the O(n^2) looks once a second
             const uint Held = (uint)(UnitFlags.Bogged | UnitFlags.Stalled | UnitFlags.Immobilised | UnitFlags.KnockedOut);
             for (int i = 0; i < w.HighWater; i++)
@@ -173,6 +193,7 @@ namespace TW.Tests
                 bool holding = m.Movement.Engage[i] == MovementSystem.EngageHold;
                 if (open) { u.Open += Dt; if (speed >= 0.1f) u.Moving += Dt; }
                 if (pinned) u.Pinned += Dt;
+                if (w.Suppression[i] >= StanceRules.ProneSuppression) u.Prone += Dt;
                 if (holding && open) u.Held += Dt;
                 if (going && open && !pinned && !holding && speed < 0.1f) { u.StuckRun += Dt; if (u.StuckRun > 5f) u.Stuck += Dt; } else u.StuckRun = 0f;
                 if (!second || !open) { if (!open) u.IdleRun = 0f; continue; }
