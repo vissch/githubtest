@@ -31,6 +31,9 @@ namespace TW.Perf
         MachineFlattens,
         /// <summary>An HE barrage on the thickest stand of standing trees near the stage: shelling breaks the wood.</summary>
         BarrageOnTrees,
+        /// <summary>Eight riflemen go forward across no man's land, through the holes a barrage left, under an enemy line's
+        /// fire: how men move under fire (the owner, 2026-10-01: "as realistic as possible").</summary>
+        AdvanceUnderFire,
     }
 
     /// <summary>What the gym expects when it triggers an entry.</summary>
