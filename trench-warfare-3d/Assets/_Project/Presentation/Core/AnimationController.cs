@@ -187,6 +187,7 @@ namespace TW.Presentation
         NativeArray<byte> act;
         NativeArray<int> actOn;
         float3[] prevPos;
+        float2[] heading;   // the way he has been moving, smoothed over a few ticks: what his body faces (Decide)
 
         // ---- trace: one man followed through his fight
         public int FollowSlot = -1;
@@ -221,7 +222,7 @@ namespace TW.Presentation
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             act = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             actOn = new NativeArray<int>(maxSlots, Allocator.Persistent);
-            prevPos = new float3[maxSlots];
+            prevPos = new float3[maxSlots]; heading = new float2[maxSlots];
             AllocateDeaths(maxSlots);
         }
 
@@ -270,7 +271,7 @@ namespace TW.Presentation
             var s = new AnimState { Clip = Clip.Idle, Rung = Rung.Idle, Rate = 1f, Generation = w.Generation[i], Seed = (uint)i * 2654435761u ^ (uint)w.Generation[i] * 40503u, IdleSince = w.Tick, ClipStart = w.Tick };
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
-            prevPos[i] = w.Position[i];
+            prevPos[i] = w.Position[i]; heading[i] = float2.zero;
             Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0;   // a new man in the slot comes up clean
             return s;
         }
@@ -467,7 +468,13 @@ namespace TW.Presentation
 
             // yaw: the body follows the heading when moving, aim follows the target; standing still with a target
             // within 60 degrees the feet simply come round (Advance eases the shown yaw); beyond that a turn clip plays
-            if (speed > 0.15f) s.BodyYaw = math.atan2(step.x, step.z);
+            // the body faces the way he has been moving, not this tick's step: a man walking to his post down a trench full
+            // of his mates is shoved back a step whenever he closes on the man ahead (forward, forward, forward, back), and
+            // his body swung 180 degrees on every back-step (the gym's facing measure, 2026-10-01: a garrison man under a
+            // barrage reversed 24 times in 15 s). Blended 0.3 a tick, one step back leaves him facing on; a man who really
+            // turns about shows it within two ticks.
+            heading[i] = math.lerp(heading[i], step.xz / tickSeconds, 0.3f);
+            if (speed > 0.15f && math.lengthsq(heading[i]) > 0.15f * 0.15f) s.BodyYaw = math.atan2(heading[i].x, heading[i].y);
             int aimAt = target >= 0 ? target : shotThisTick[i] != 0 || threw[i] != 0 ? shotAt[i] : -1;
             if (aimAt >= 0 && aimAt < count) { float3 d = w.Position[aimAt] - p; s.AimYaw = math.atan2(d.x, d.z); }
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
