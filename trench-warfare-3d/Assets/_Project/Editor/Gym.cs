@@ -277,6 +277,11 @@ namespace TW.Editor
                 float film = e.Tab == GymTab.Units && slot >= 0 && float.TryParse(Gym.Opt(Options, "film"), NumberStyles.Float, Inv, out float fs) ? fs : 0f;
                 if (film > 0f) { r.Log.Add("film: " + RiderLab.Stop(slot) + ", " + RiderLab.Enemies(slot, 12, 70f)); }   // held, so the take keeps it (a Salvo drove into a trench)
                 yield return new WaitForSeconds(wait);
+                // Did it live through its OWN window? Measured here, before the photography. The captures take game
+                // time - seven bands since M60 - and judging this after them meant the live battle round the stage had
+                // those extra seconds to kill a subject that had already done everything the entry asked of it. The
+                // officer started failing the day the mid band was added, which is a capture count, not his conduct.
+                bool survived = slot < 0 || director.Alive(slot);
 
                 var shots = new List<string>(); var jsons = new List<string>();
                 bool capture = e.Expect != GymExpect.Covered && e.Expect != GymExpect.Excluded;
@@ -329,7 +334,7 @@ namespace TW.Editor
                 }
                 director.End();
                 List<string> flags;
-                try { flags = Judge(host, director, e, r, pinned, slot, jsons); }
+                try { flags = Judge(host, director, e, r, pinned, slot, jsons, survived); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags = new List<string> { "judging threw: " + ex.Message }; }
                 string sheet = capture ? Path.Combine(dir, e.Tab.ToString(), Safe(e.Name) + ".jpg") : null;
                 try { if (capture) Gym.Sheet(shots, sheet, e.Tab == GymTab.Clips ? 640 : 480); }
@@ -528,7 +533,7 @@ namespace TW.Editor
         }
 
         /// <summary>The entry's flags: what a person should look at. Empty means it did what the catalogue expects.</summary>
-        static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons)
+        static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons, bool survived)
         {
             var flags = new List<string>();
             if (r.Errors > 0) flags.Add(r.Errors + " log errors");
@@ -552,7 +557,7 @@ namespace TW.Editor
                     // mud doing nothing is precisely what this tab exists to catch, and it was the one tab whose
                     // stated expectation was never tested (Abilities checks AbilityFired, Deaths that the victim
                     // died, Scenes that something reached the men, Clips the clip the pinned man is drawn in).
-                    if (!d.Alive(slot)) flags.Add("not alive 4 s after spawning");
+                    if (!survived) flags.Add("it did not survive its own window");
                     else if (e.Expect == GymExpect.Fires && r.Count(SimEventType.Shot) == 0 && r.Count(SimEventType.VehicleFired) == 0)
                         // Stands is the honest expectation for a unit with no weapon; only Fires is held to this.
                         // Say WHICH half failed. "It did not fire" sent me hunting weapon ranges and engage rules for
