@@ -50,6 +50,63 @@ namespace TW.Tests
             return m.World.Spawn(team, archetype, at, e.Hp, speed < 0f ? e.Speed : speed, ChassisKind.IsArmoured(m.World.ChassisOf(archetype)));
         }
 
+        /// <summary>No machine's gun reaches from its spawn to the enemy's front trench, and every one reaches across no
+        /// man's land from its own front trench (2026-10-01, the owner: "reduce range"). On the Shelled Forest the spawns
+        /// are 228 m apart and the guns reached 200-380 m: in the behaviour bench's start the machines hit each other spawn
+        /// to spawn 1.6-3.7 s in, and five to seven of them were knocked out in the first 30 s. Every machine the match
+        /// table can field, the shipped ones and the defined ones (UnitDefinitions.All).</summary>
+        [Test]
+        public void NoMachineReachesTheEnemysFrontTrenchFromItsSpawn()
+        {
+            var cfg = SimConfig.Default;
+            using var m = MatchSim.CreateBattlefield(cfg, TW.Sim.Terrain.BattlefieldParams.ShelledForest(1917u));
+            UnitDefinitions.Apply(m.World);
+            var w = m.World; var map = m.Map;
+            // each side's front fire trench is its fire trench nearest the other side's spawn
+            float3[] spawn = { w.Init.SpawnA, w.Init.SpawnB };
+            float[] frontZ = { float.NaN, float.NaN }; int[] front = { -1, -1 };
+            for (int t = 0; t < map.Trenches.Length; t++)
+            {
+                var d = map.Trenches[t];
+                if (d.Kind != 0 || d.OwnerTeam > 1 || d.CellCount == 0) continue;
+                float z = 0f;
+                for (int c = 0; c < d.CellCount; c++) z += (map.TrenchCells[d.CellStart + c] / map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize;
+                z /= d.CellCount;
+                float toEnemy = math.abs(z - spawn[1 - d.OwnerTeam].z);
+                if (front[d.OwnerTeam] < 0 || toEnemy < math.abs(frontZ[d.OwnerTeam] - spawn[1 - d.OwnerTeam].z)) { front[d.OwnerTeam] = t; frontZ[d.OwnerTeam] = z; }
+            }
+            Assert.That(front[0], Is.GreaterThanOrEqualTo(0)); Assert.That(front[1], Is.GreaterThanOrEqualTo(0));
+            // the nearest cell of the enemy's front trench to a spawn, and the width of no man's land
+            float reachToFront = float.MaxValue;
+            for (int side = 0; side < 2; side++)
+            {
+                var d = map.Trenches[front[1 - side]];
+                for (int c = 0; c < d.CellCount; c++)
+                {
+                    int idx = map.TrenchCells[d.CellStart + c];
+                    var at = new float2((idx % map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize, (idx / map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize);
+                    reachToFront = math.min(reachToFront, math.distance(at, spawn[side].xz));
+                }
+            }
+            float noMansLand = math.abs(frontZ[1] - frontZ[0]);
+            TestContext.WriteLine($"spawn to the enemy's front trench {reachToFront:F0} m, no man's land {noMansLand:F0} m");
+            int guns = 0;
+            for (int a = 0; a < Archetypes.Count; a++)
+            {
+                if (!w.Units.Roster[a].IsVehicle || !ChassisKind.IsArmoured(w.ChassisOf((byte)a))) continue;
+                var spec = m.Catalogue.Tank[a];
+                for (int k = 0; k < spec.GunCount; k++)
+                {
+                    var g = spec.Gun(k);
+                    TestContext.WriteLine($"machine {a} gun {k}: {g.RangeMax:F0} m");
+                    Assert.Less(g.RangeMax, reachToFront, $"machine {a}'s gun {k} reaches the enemy's front trench from its spawn");
+                    Assert.GreaterOrEqual(g.RangeMax, noMansLand, $"machine {a}'s gun {k} cannot reach across no man's land from its own front trench");
+                    guns++;
+                }
+            }
+            Assert.Greater(guns, 8, "the table's machines were all looked at");
+        }
+
         [Test]
         public void BothAreInTheMatchTableWithTheNumbersTheyWereGiven()
         {
@@ -78,13 +135,13 @@ namespace TW.Tests
             Assert.AreEqual(380, sa.Cost); Assert.AreEqual(2000f, sa.Hp); Assert.AreEqual(1.8f, sa.Speed);
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Salvo));
             Assert.AreEqual(110f, m.Catalogue.Weapon[VehicleArchetype.Salvo].RangeMax, "a hull machine gun for the 60 m its rockets cannot reach");
-            Assert.AreEqual(380f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres);
+            Assert.AreEqual(155f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffMetres, "it holds to fire at its rockets' reach");
             Assert.AreEqual(32f, m.Catalogue.Tank[VehicleArchetype.Salvo].StandOffPatience, "two reloads without a hit and it moves on");
             var rockets = m.Catalogue.Tank[VehicleArchetype.Salvo];
             Assert.AreEqual(1, rockets.GunCount);
             Assert.IsTrue(rockets.Gun0.Indirect, "the rockets need no line of sight");
             Assert.AreEqual(16f, rockets.Gun0.ReloadSeconds, "and are long to reload");
-            Assert.AreEqual(60f, rockets.Gun0.RangeMin); Assert.AreEqual(380f, rockets.Gun0.RangeMax);
+            Assert.AreEqual(60f, rockets.Gun0.RangeMin); Assert.AreEqual(155f, rockets.Gun0.RangeMax);
             Assert.AreEqual(7f, rockets.Gun0.HeRadius, "a wide burst"); Assert.AreEqual(360f, rockets.Gun0.HeDamage);
             Assert.IsTrue(rockets.Gun0.FullCircle, "the box turns all the way round on its turntable");
             Assert.AreEqual(0.5f, m.Vehicles.Profiles[VehicleArchetype.Salvo].TurnRateRad);
@@ -156,7 +213,7 @@ namespace TW.Tests
         public void TheSalvoHoldsWhereItIsOnceItHasATarget()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f));   // at its own speed, heading south
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // at its own speed, heading south
             // men who outlive the rockets (a target that dies lets it drive on, which is right)
             for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 30);
@@ -164,10 +221,10 @@ namespace TW.Tests
             Assert.GreaterOrEqual(m.Gunnery.GunTarget[truck * TankGunnerySystem.Guns], 0, "it has the men as its target");
             Run(m, 20 * 10);
             Assert.Less(math.distance(held, m.World.Position[truck]), 0.5f, "and it holds while it has them");
-            Assert.Greater(math.distance(held.xz, new float2(30f, 20f)), 200f, "from well back: they were in reach where it stood (240 m), so it never closed");
+            Assert.Greater(math.distance(held.xz, new float2(30f, 20f)), 130f, "from well back: they were in reach where it stood (140 m), so it never closed");
 
             using var m2 = NewMatch();
-            int tusk = m2.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 260f), m2.World.Units.Roster[VehicleArchetype.Tusk].Hp, m2.World.Units.Roster[VehicleArchetype.Tusk].Speed, true);
+            int tusk = m2.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 160f), m2.World.Units.Roster[VehicleArchetype.Tusk].Hp, m2.World.Units.Roster[VehicleArchetype.Tusk].Speed, true);
             var start = m2.World.Position[tusk];
             Run(m2, 20 * 40);
             Assert.Greater(math.distance(start, m2.World.Position[tusk]), 60f, "a machine without StandOff drives on (the rule is the Salvo's alone)");
@@ -252,7 +309,7 @@ namespace TW.Tests
         public void TheHoldIsGivenUpOnAMarkItIsNotHurting()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f));
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // 140 m: inside its reach
             int man = m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             Assert.AreEqual(man, m.Gunnery.GunTarget[truck * TankGunnerySystem.Guns]);
@@ -273,14 +330,14 @@ namespace TW.Tests
         public void ANewUnitInADeadSalvosSlotInheritsNoHold()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f), 0f);   // 140 m: inside its reach
             m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             var g = m.Gunnery;
             Assume.That(g.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "it is holding");
             m.World.Despawn(truck, -1, default);
             var tusk = m.World.Units.Roster[VehicleArchetype.Tusk];
-            int next = m.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 260f), tusk.Hp, 0f, true);
+            int next = m.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 160f), tusk.Hp, 0f, true);
             Assume.That(next, Is.EqualTo(truck), "the Tusk took the Salvo's slot");
             Run(m, 1);
             Assert.AreEqual(-1, g.HoldTarget[next], "no mark"); Assert.AreEqual(0, g.HoldTicks[next], "no count");
@@ -295,7 +352,7 @@ namespace TW.Tests
         public void AHeldSalvoSentElsewhereGoes()
         {
             using var m = NewMatch();
-            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 200f));
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // 140 m: inside its reach
             m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             Assume.That(m.Gunnery.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "it is holding");
@@ -356,10 +413,12 @@ namespace TW.Tests
             cfg.LoadoutA = Ten(InfantryArchetype.Rifle);
             cfg.LoadoutB = Ten(VehicleArchetype.Salvo);
             var recorder = new ReplayRecorder(cfg, default, 1);
-            bool inTheAir = false;
+            // the Salvo reaches 155 m (2026-10-01): on the playtest map it fires once it has driven to within that of the
+            // riflemen's trench, a couple of minutes in; recorded until two seconds after its first rack is in the air
+            bool inTheAir = false; int after = 0;
             using (var m = MatchSim.CreatePlaytest(cfg))
             {
-                for (uint t = 0; t < 20 * 30; t++)
+                for (uint t = 0; t < 20 * 180 && after < 40; t++)
                 {
                     var cmds = new List<SimCommand>();
                     if (t == 5) cmds.Add(SimCommand.Deploy(t, 1, 0));
@@ -368,6 +427,7 @@ namespace TW.Tests
                     m.World.HashInterval = 1;
                     m.Step(arr);
                     inTheAir |= m.Gunnery.Rockets.Length > 0;
+                    if (inTheAir) after++;
                     recorder.Record(arr, m.World.LastHash);
                 }
             }

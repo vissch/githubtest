@@ -77,7 +77,11 @@ namespace TW.Sim
         // mates the separation push is the soft one at a body's width, not the 2 m spacing with its hard core; and
         // EngageSystem walks the way to a man's quarry cell by cell, a man already closing keeping on while CloseKeep
         // metres are open. Same inputs, different steps. Layout and chain unchanged.
-        public const ushort FormatVersion = 25;
+        // v26 (2026-10-01, the machines' reach, the owner: "reduce range"): the machines' guns reach 110-150 m and the
+        // Kettle's mortar and the Salvo's rockets 155 m (they reached 200-380 m), so no machine reaches the enemy's front
+        // trench from its spawn; the Salvo holds to fire at 155 m. The hashed hull table's bytes change. Same inputs,
+        // different battles. Layout and chain unchanged.
+        public const ushort FormatVersion = 26;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
