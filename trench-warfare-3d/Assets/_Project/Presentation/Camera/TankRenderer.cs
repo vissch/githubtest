@@ -693,6 +693,7 @@ namespace TW.Presentation.Tactical
         // a tank that died here before the match: a hull of ours, burnt out and cold, settled into the mud at a tilt,
         // drawn as the wreck of a machine killed in the match is drawn and linked to its prop the same way.
         TW.Sim.Match.MatchSim oldWrecksOf;
+        public const float KnockedOutRing = 0.3f;   // the side ring's strength under a knocked-out machine
         public const int OldWreckSlot = -1000;   // an old wreck's slot: OldWreckSlot - its prop's index (no sim slot is negative)
         public const float OldWreckScorch = 0.6f;   // burnt, and rained on since: not the soot black of a hull still smoking (0.85), which is a hole in a night field
         static readonly byte[] OldWreckKinds = { VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Maw, VehicleArchetype.Brute };
@@ -2355,7 +2356,9 @@ namespace TW.Presentation.Tactical
             var at = new Vector3(v.Pos.x, Mathf.Max(Ground(v.Pos.x, v.Pos.z), ride - 0.3f) + 0.12f, v.Pos.z);
             discM[discCount] = Matrix4x4.TRS(at, Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up), new Vector3(w, 1f, l));
             var c = v.Team == 1 ? TeamB : TeamA;
-            discC[discCount] = new Vector4(c.r * RingGlow, c.g * RingGlow, c.b * RingGlow, (v.Dead ? WreckRing(v) : 1f) * RingStrength(Vector3.Distance(eye, at)));
+            // a machine knocked out (crew dead or gone, the hull still on the field) is nobody's to command: its ring
+            // fades to a ghost of itself, where a full ring under a burning hull said it was still in the fight
+            discC[discCount] = new Vector4(c.r * RingGlow, c.g * RingGlow, c.b * RingGlow, (v.Dead ? WreckRing(v) : v.State != 0 ? KnockedOutRing : 1f) * RingStrength(Vector3.Distance(eye, at)));
             discCount++;
             QueuePips(v, at, w, l);   // a wreck too: its riders' row stays a moment, the dead in red
         }
