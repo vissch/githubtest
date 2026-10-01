@@ -24,7 +24,7 @@ namespace TW.Presentation.Tactical
         /// <summary>Blobs in the splash where the round met him, and how long they last; the zoom past which a hit's blood
         /// is drawn larger, over how many zoom units it doubles, the most, and the most for a mark on the ground.</summary>
         public const int HitSplash = 3;
-        public const float HitSplashLife = 0.5f, HitZoomFrom = 12f, HitZoomOver = 15f, HitZoomMost = 2.2f, HitMarkBoostCap = 1.6f;
+        public const float HitSplashLife = 0.5f, HitZoomFrom = 12f, HitZoomOver = 15f, HitZoomMost = 1.6f, HitMarkBoostCap = 1.6f;   // frog critic round 15: at 2.2 the droplets read as red balls at the play zoom
         int hitMarksFrame = -1, hitMarksThisFrame;
         static readonly int TWGoreId = Shader.PropertyToID("_TWGore");
 
