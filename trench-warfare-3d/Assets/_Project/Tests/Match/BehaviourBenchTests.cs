@@ -39,6 +39,10 @@ namespace TW.Tests
         /// scripts spend 300 silver on men, so without these no machine takes part): MachineStudy's cast.</summary>
         public static readonly byte[] Ours = { 4, 5, 18, 6, 7, 8, 9, 10, 11, 19, 20, 21, 22, 23, 24 }, Theirs = { 4, 5, 18, 7, 19, 21 };
         public const int Minutes = 8;
+        /// <summary>Metres a machine must drive before it can be the worst hunter: below 50 a few single reversals in a
+        /// near-standing machine read as hunting (a Brute that drove 22 m with 5 turns was "the worst" at 23 per 100 m,
+        /// 2026-10-01). Its flips still count in the totals.</summary>
+        public const float WorstFloor = 50f;
         const float Dt = 1f / 20f;
 
         sealed class Unit
@@ -80,7 +84,7 @@ namespace TW.Tests
                 {
                     machines++; metres += u.Metres; jam += u.Jam; spin += u.Spin; flips += u.Flips;
                     kinds[u.Arch] = (kinds.TryGetValue(u.Arch, out var kd) ? kd : float4.zero) + new float4(1f, u.Metres, u.Flips, u.Jam);
-                    float per100 = u.Metres > 20f ? 100f * u.Flips / u.Metres : 0f;
+                    float per100 = u.Metres > WorstFloor ? 100f * u.Flips / u.Metres : 0f;
                     if (per100 > worstFlip) { worstFlip = per100; worstFlipOf = $"{Name(u.Arch)} (team {u.Team})"; }
                     if (u.Jam > worstJam) { worstJam = u.Jam; worstJamOf = $"{Name(u.Arch)} (team {u.Team})"; }
                     if (u.Spin > worstSpin) { worstSpin = u.Spin; worstSpinOf = $"{Name(u.Arch)} (team {u.Team})"; }
