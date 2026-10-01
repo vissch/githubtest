@@ -96,7 +96,9 @@ namespace TW.Sim
         // v32 (2026-10-01, a garrison man squeezes past his mates): between a man on his way to his post and his trench
         // mates the separation push is the soft one at a body's width, not the 2 m spacing with its hard core. Same inputs,
         // different steps. Layout and chain unchanged.
-        public const ushort FormatVersion = 32;
+        // mates the separation push is the soft one at a body's width, not the 2 m spacing with its hard core; and
+        // EngageSystem walks the way to a man's quarry cell by cell, a man already closing keeping on while CloseKeep
+        // metres are open. Same inputs, different steps. Layout and chain unchanged.
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
