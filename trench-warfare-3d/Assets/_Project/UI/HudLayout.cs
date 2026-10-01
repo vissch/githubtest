@@ -55,6 +55,7 @@ namespace TW.UI
         public const float MinimapBezelPx = 14f;  // round 7 cut it from 24 to 8; round 11: 14 so the plate's rivets and lit edge show, like the gauges
         public const float TooltipDelaySeconds = 0.35f;
         public const float BannerSeconds = 3f;
+        public const float RejectedSeconds = 2f;   // "can't be called there": a word, gone before the next click
 
         /// <summary>The reference-space width the panel gives a screen of this aspect (height is always ReferenceHeight).</summary>
         public static float ReferenceWidth(float screenW, float screenH) => ReferenceHeight * screenW / screenH;
