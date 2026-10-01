@@ -19,6 +19,7 @@ namespace TW.Presentation
                 case SimEventType.MatchEnded: return MatchEnd;
                 case SimEventType.TrenchCaptured: return Trench;
                 case SimEventType.AbilityFired: return mine ? OwnAbility : EnemyAbility;
+                case SimEventType.CommandRejected: return mine ? OwnAbility : None;   // your own refused order; the enemy's is none of your business
                 default: return None;
             }
         }

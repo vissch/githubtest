@@ -110,6 +110,23 @@ namespace TW.Tests
             Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
         }
 
+        /// <summary>An order of yours the sim refused says so (a drop called on a trench spent nothing, did nothing and
+        /// showed nothing, 2026-10-01); the enemy's refused orders are none of your business.</summary>
+        [Test]
+        public void ARefusedOrderOfYoursSaysSo_AndTheEnemysDoesNot()
+        {
+            foreach (var type in new[] { CommandType.SupportFire, CommandType.DeployUnit, CommandType.UnitAbility, CommandType.TrenchAdvance })
+            {
+                Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.CommandRejected, A = (int)type, B = 0 }, out var text, out float stays, out _, out int rank), type + " refused");
+                Assert.AreEqual(TW.UI.HudText.RejectedBanner(type), text);
+                Assert.LessOrEqual(text.Length, 32, "'" + text + "' fits the banner plate");
+                Assert.LessOrEqual(stays, 2.5f, "a word, not an announcement");
+                Assert.AreEqual(TW.Presentation.BannerRules.OwnAbility, rank, "anything else on the plate matters more");
+                Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.CommandRejected, A = (int)type, B = 1 }, out _, out _, out _, out _), "the enemy's " + type);
+            }
+            Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.CommandRejected, A = (int)CommandType.SetRally, B = 0 }, out _, out _, out _, out _), "a rally point needs no word");
+        }
+
         /// <summary>Both HUDs say the same thing while aiming (the old HUD's hint was a hand copy).</summary>
         [Test]
         public void BothHudsGiveTheSameAimHint()

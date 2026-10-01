@@ -457,6 +457,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   **The Hopper over the ground** (2026-10-01, same build): its side ring and contact blob lie on the ground under it
   (`QueueDisc` rode `Heave`, which carries the lift, so the ring hung nine metres up with the machine), and its
   downwash blows dust outward from under it (`Effects`, `WashEvery`), rings on water. Seen in Play.
+  **A refused order says so** (2026-10-01, same build): `CommandRejected` for the local player raises a two-second
+  banner by the order's kind (`HudText.RejectedBanner`, `ObjectiveTracker.BannerFor`, `BannerRules.Rank`): a drop
+  called on a trench spent nothing, did nothing and showed nothing. Tests: `HudTextTests`.
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).

@@ -123,6 +123,21 @@ namespace TW.UI
         /// <summary>A support ability fired: yours on its way, or the enemy's coming in, named as its card names it.</summary>
         public static string AbilityBanner(TW.Sim.Match.OffMapAbilityId id, bool mine)
             => mine ? Support(id).Name + " on its way" : "INCOMING " + Support(id).Name.ToUpperInvariant();
+        /// <summary>An order of yours the sim refused, by what it was; null for an order that needs no word (a stance, a
+        /// rally point).</summary>
+        public static string RejectedBanner(TW.Sim.CommandType type)
+        {
+            switch (type)
+            {
+                case TW.Sim.CommandType.SupportFire: return "Support can't be called there";
+                case TW.Sim.CommandType.DeployUnit: return "Can't deploy that now";
+                case TW.Sim.CommandType.UnitAbility: return "He can't do that there";
+                case TW.Sim.CommandType.TrenchAdvance:
+                case TW.Sim.CommandType.TrenchSelectAdvance:
+                case TW.Sim.CommandType.TrenchFallback: return "That trench can't take the order";
+                default: return null;
+            }
+        }
         public const string VictoryBanner = "VICTORY: enemy HQ taken";
         public const string DefeatBanner = "DEFEAT: your HQ has fallen";
 

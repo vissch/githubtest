@@ -105,6 +105,13 @@ namespace TW.UI
         {
             bool mine = ev.Type == SimEventType.MatchEnded ? ev.A == 0 : ev.B == 0;
             rank = BannerRules.Rank(ev.Type, mine);
+            // an order of yours the sim refused (2026-10-01): a paratroop drop called on a trench or too near their rear
+            // line, a card played without the silver. It spent nothing and did nothing, and nothing said so
+            if (ev.Type == SimEventType.CommandRejected)
+            {
+                text = mine ? HudText.RejectedBanner((CommandType)ev.A) : null; seconds = HudLayout.RejectedSeconds; cls = "tw-banner--defeat";
+                return text != null;
+            }
             switch (ev.Type)
             {
                 case SimEventType.TrenchCaptured: text = HudText.CapturedBanner(ev.A, mine); seconds = HudLayout.BannerSeconds; break;
