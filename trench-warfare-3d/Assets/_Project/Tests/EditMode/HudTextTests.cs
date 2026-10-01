@@ -257,11 +257,11 @@ namespace TW.Tests
             foreach (byte a in AllArchetypes)
             {
                 var spec = TankSpec.For(a);
-                for (int g = 0; g < spec.GunCount; g++)
-                    if (spec.Gun(g).RangeMax > longest) { longest = spec.Gun(g).RangeMax; holder = a; }
+                for (int g = 0; g < spec.GunCount; g++)   // the direct guns: the tip says "the longest of the direct guns"
+                    if (!spec.Gun(g).Indirect && spec.Gun(g).RangeMax > longest) { longest = spec.Gun(g).RangeMax; holder = a; }
             }
             Assert.That(holder, Is.EqualTo(VehicleArchetype.Pavise),
-                $"the Pavise tooltip claims the longest reach on the field, but archetype {holder} reaches {longest} m");
+                $"the Pavise tooltip claims the longest direct gun on the field, but archetype {holder} reaches {longest} m");
         }
 
         /// <summary>The Pincer's guns are sponson mounts, not turrets. The tooltip says it cannot reach behind

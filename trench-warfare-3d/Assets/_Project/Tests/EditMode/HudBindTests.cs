@@ -190,9 +190,10 @@ namespace TW.Tests
             foreach (byte a in new[] { VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Pincer, VehicleArchetype.Kettle, VehicleArchetype.Censer, VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt })
             {
                 var spec = TankSpec.For(a);
-                for (int g = 0; g < spec.GunCount; g++) if (spec.Gun(g).RangeMax > longest) { longest = spec.Gun(g).RangeMax; holder = a; }
+                // the direct guns: the tip says "the longest of the direct guns", and the mortar's lob is not one
+                for (int g = 0; g < spec.GunCount; g++) if (!spec.Gun(g).Indirect && spec.Gun(g).RangeMax > longest) { longest = spec.Gun(g).RangeMax; holder = a; }
             }
-            Assert.That(holder, Is.EqualTo(VehicleArchetype.Pavise), $"the Pavise tooltip claims the longest reach, but archetype {holder} reaches {longest} m");
+            Assert.That(holder, Is.EqualTo(VehicleArchetype.Pavise), $"the Pavise tooltip claims the longest direct gun, but archetype {holder} reaches {longest} m");
         }
 
         [Test]
