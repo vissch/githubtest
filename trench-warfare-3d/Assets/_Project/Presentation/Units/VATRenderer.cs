@@ -160,6 +160,7 @@ namespace TW.Presentation.Units
         NativeArray<ushort> nearRowOf, farRowOf;   // Clip -> row in the near / far atlas
         NativeArray<ushort> animRowNearOf;   // AnimRow (procedural) -> row in the near atlas, for the no-controller / missed-clip path
         NativeArray<float> spare;                   // stands in for the controller's arrays when there is no controller
+        NativeArray<float2> spareLunge;
         NativeArray<byte> spareBytes;
         readonly Plane[] frustum = new Plane[6];
         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
@@ -322,6 +323,7 @@ namespace TW.Presentation.Units
             group = new NativeArray<int>(figures.Length * 2, Allocator.Persistent);
             planes = new NativeArray<float4>(6, Allocator.Persistent);
             spare = new NativeArray<float>(1, Allocator.Persistent);
+            spareLunge = new NativeArray<float2>(1, Allocator.Persistent);
             spareBytes = new NativeArray<byte>(1, Allocator.Persistent);
             instanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxSlots, 48);
         }
@@ -363,7 +365,7 @@ namespace TW.Presentation.Units
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf, AnimRowNearOf = animRowNearOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
-                Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes, Wound = anim != null ? anim.Wound : spareBytes,
+                Hop = anim != null ? anim.Hop : spare, Lunge = anim != null ? anim.Lunge : spareLunge, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes, Wound = anim != null ? anim.Wound : spareBytes,
                 Hidden = HiddenMask(Host.Local.World.Config.MaxSlots),
             }.Run();
             DrawnNear = counts[0]; DrawnFar = counts[2];
@@ -480,6 +482,7 @@ namespace TW.Presentation.Units
             public bool Controlled;
             [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow, AnimRowNearOf;
             [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime;
+            [ReadOnly] public NativeArray<float2> Lunge;   // AnimationController.Lunge: drawn off his place, into a blow or back from one
             [ReadOnly] public NativeArray<byte> Hidden;
             [ReadOnly] public NativeArray<byte> Char;
             [ReadOnly] public NativeArray<byte> Wound;
@@ -511,6 +514,7 @@ namespace TW.Presentation.Units
                     var p = Poses[i];
                     int hs = PoseSlot[i];
                     if (hs >= 0 && hs < Hidden.Length && Hidden[hs] != 0) continue;   // drawn elsewhere (VATRenderer.Extras: a rider)
+                    if (Controlled && hs >= 0 && hs < Lunge.Length) { float2 l = Lunge[hs]; p.Pos.x += l.x * Scale; p.Pos.z += l.y * Scale; }
                     float original = Height.Sample(p.Pos.x, p.Pos.z);
                     float y = Ground.Sample(p.Pos.x, p.Pos.z, original);
                     if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); y += Hop[PoseSlot[i]] * Scale; }   // climbing: drawn up the trench wall; blown off his feet: in the air
@@ -586,6 +590,7 @@ namespace TW.Presentation.Units
             if (group.IsCreated) group.Dispose();
             if (planes.IsCreated) planes.Dispose();
             if (spare.IsCreated) spare.Dispose();
+            if (spareLunge.IsCreated) spareLunge.Dispose();
             if (spareBytes.IsCreated) spareBytes.Dispose();
             instanceBuffer?.Dispose(); instanceBuffer = null;
         }

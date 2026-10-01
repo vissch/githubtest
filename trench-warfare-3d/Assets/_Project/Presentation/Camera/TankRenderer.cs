@@ -1007,7 +1007,7 @@ namespace TW.Presentation.Tactical
             => HopDown(state, wreck) ? Mathf.Lerp(squash, DeadSquash, 1f - Mathf.Exp(-dt * 4f)) : Mathf.Lerp(squash, shape, 1f - Mathf.Exp(-dt * 14f));
 
         // a crab's pounce: it sinks PounceDip on its legs while it crouches, then rises PounceHeight at the top of its leap
-        const float PounceDip = 0.7f, PounceHeight = 3.2f, PounceTilt = 14f * Mathf.Deg2Rad;
+        const float PounceDip = 1.0f, PounceHeight = 3.4f, PounceTilt = 16f * Mathf.Deg2Rad;   // (a 0.7 m dip did not show at the play view, critic 2026-10-01)
 
         void PouncePose(View v, float now)
         {
@@ -1018,11 +1018,12 @@ namespace TW.Presentation.Tactical
             if (t < v.PounceCrouch)
             {
                 float c = Mathf.SmoothStep(0f, 1f, t / Mathf.Max(0.01f, v.PounceCrouch));
-                v.Bob = -PounceDip * c; v.HopTilt = -0.4f * PounceTilt * c;   // down, nose low: wound up
+                v.Bob = -PounceDip * c; v.HopTilt = -0.8f * PounceTilt * c;   // down, nose low: wound up
             }
             else if (t < v.PounceCrouch + v.PounceAir)
             {
                 float p = (t - v.PounceCrouch) / Mathf.Max(0.01f, v.PounceAir);
+                v.Claw = 1f;   // claws wide and jaws open as it comes over
                 v.Bob = PounceHeight * 4f * p * (1f - p) - PounceDip * (1f - p);
                 v.HopTilt = PounceTilt * Mathf.Cos(Mathf.PI * p);     // nose up leaving, down coming in
             }
