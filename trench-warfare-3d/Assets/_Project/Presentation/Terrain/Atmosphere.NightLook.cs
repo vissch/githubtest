@@ -16,6 +16,8 @@
 // look.wet (0 today, 1 full): the puddles mirror less of the pale sky (big pale patches were where the frame spent its
 // highlights: the report's fingerprint), and the flames' pools throw hard glints of their own colour on the wet ground
 // (TWLightPools.hlsl, with look.pools on), so the mud sparkles orange by a fire and moon-blue away from it.
+// look.silhouette (0.7): a prop keeps that share of the lifted haze off and stands dark against the lighter distance; the
+// ground keeps all of it (critique rounds 20 and 23: the wide view one grey veil).
 // The fog's distances follow the view (how far the camera looks), set in LateUpdate from the camera's pose then. The
 // capture rig poses the main camera after that, last in the frame, so its stills were fogged for the gameplay view
 // (78 m) whatever they framed (Play, 2026-09-29). While lifted, they are set again as the main camera begins to
@@ -167,6 +169,11 @@ namespace TW.Presentation.Terrain
         /// <summary>look.rainCurtain: the distant rain curtains' alpha while lifted (their colour 1.15 times the haze, was 1.9).</summary>
         public const float DefaultCurtain = 0.75f, CurtainPale = 1.15f;
         float curtain = DefaultCurtain;
+        static readonly int SilhouetteId = Shader.PropertyToID("_TWSilhouette");
+        /// <summary>look.silhouette: the share of the lifted haze a prop keeps off, so it stands dark against the lighter
+        /// distance (TWAtmosphere.hlsl); the ground keeps all of it.</summary>
+        public const float DefaultSilhouette = 0.7f;   // round 25: zoom-60 far-third p05 luma .16 -> .14, edges +30-55 %, mean unchanged
+        float silhouette = DefaultSilhouette;
         float puddleSky = DefaultPuddleSky, waterDim = DefaultWaterDim; int puddleKnobs = -1;
 
         /// <summary>What the puddles mirror of the sky at night (look.puddleSky), 1 by day and on lava.</summary>
@@ -181,12 +188,14 @@ namespace TW.Presentation.Terrain
                 glowHue = Mathf.Clamp01(Knobs.Get("look.glowHue", DefaultGlowHue));
                 glowFade = Mathf.Clamp01(Knobs.Get("look.glowFade", DefaultGlowFade));
                 moonSheen = Mathf.Clamp(Knobs.Get("look.moonSheen", DefaultMoonSheen), 0.01f, 1f);
+                silhouette = Mathf.Clamp01(Knobs.Get("look.silhouette", DefaultSilhouette));
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
             Shader.SetGlobalFloat(GlowHueId, night ? glowHue : 0f);
             Shader.SetGlobalFloat(GlowFadeId, night ? glowFade : 0f);
             Shader.SetGlobalFloat(MoonSheenId, night ? moonSheen : 0f);
+            Shader.SetGlobalFloat(SilhouetteId, night && fogLifted > 0f ? silhouette : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }
