@@ -267,8 +267,8 @@ second time with the halves swapped.
 **The night's run (2026-10-01).** `python Tools/nightly.py` runs the behaviour bench (six seeds) and every gym tab on
 this checkout, as it stands, and compares them with the night before: each bench metric with whether every seed moved
 the same way (a jam, spin, hunting, stuck, idle, piled or clumps number that rose on every seed is a regression), the
-gym flags that are new, and per entry and band the pixels that changed (on an unchanged commit any change is the
-gym's fault). The report (report.md, report.json) goes to `%LOCALAPPDATA%\TrenchWarfare\nightly\<stamp>-<sha>\`
+gym flags that are new, and per entry and band the pixels that changed (information only: a scenes-only gym run repeats,
+a whole run does not yet, measured 2026-10-01 at up to 35 % of a close band between two runs of one commit). The report (report.md, report.json) goes to `%LOCALAPPDATA%\TrenchWarfare\nightly\<stamp>-<sha>\`
 (the newest seven kept); exit 0 nothing new, 2 something to look at, 1 could not run. Scheduling it daily is the owner's call.
 
 ### False reds
