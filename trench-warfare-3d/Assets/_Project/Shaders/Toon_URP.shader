@@ -289,6 +289,14 @@ Shader "TW/Toon (URP)"
                     half3 glints;
                     poolLight = max(albedo, 0.16) * TWPoolsAndGlints(i.positionWS, normalize(i.normalWS), glintR, glintW > 0.0, glints) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
                     color += glints * glintW;
+                    // look.glintUnblue: a flame's orange glint laid over the moonlit blue mud read pink-lilac (critique
+                    // round 23; violet pixels halved with the glints off), so a glint takes that much blue out from under it,
+                    // and some green: blue alone turned the white-lilac sheen lemon yellow, not the fire's orange
+                    if (_TWGlintUnblue > 0.0)
+                    {
+                        half take = dot(glints * glintW, half3(0.6, 0.4, 0.0)) * _TWGlintUnblue;
+                        color.gb -= min(color.gb * half2(0.3, 0.7), take * half2(0.45, 1.0));
+                    }
                     // look.propRim: a stump, a post, a sandbag beside a fire catches its edge warm, as the men do (critique round 13:
                     // "foreground stumps solid black cutouts"); props only, the ground has _DetailStrength set
                     if (_TWPropRim > 0.0 && _DetailStrength <= 0.0)

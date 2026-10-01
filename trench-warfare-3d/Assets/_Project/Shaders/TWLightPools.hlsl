@@ -19,6 +19,7 @@ float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff 
 float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire's pool never clips the ground to flat orange
 float _TWPoolsThroughHaze;
 float _TWFireStreak;   // look.fireStreak: each flame's long broken reflection across the wet mud toward the camera; 0 = none
+float _TWGlintUnblue;   // look.glintUnblue: how much of the ground's blue a flame's glint takes out from under it; 0 = none
 float _TWPropRim;
 float _TWMoonSheen;   // look.moonSheen (Atmosphere.NightLook.cs): the standard view's share of the fine wet sparkle (0.3 before); 0 = as before
 float _TWPoolUnblue;   // look.poolUnblue: where a pool adds warm light it takes that much blue out of the moonlit ground under it,
