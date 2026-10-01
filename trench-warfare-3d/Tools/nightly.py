@@ -13,7 +13,7 @@ tab), report.md and report.json.
 
 The report, against the newest earlier night that has the same part:
 - bench: every metric's mean; with the same seeds, whether it moved the same way on every seed. A metric where more is
-  worse (jams, spins, turn reversals, men stuck, idle, piled, deaths in clumps) that rose on every seed is a regression.
+  worse (jams, spins, turn reversals, men stuck, idle, piled, men's steps reversed, deaths in clumps) that rose on every seed is a regression.
   The bench is deterministic but chaotic (BehaviourBenchTests): a number that moved on some seeds and not others is
   the match's own scatter, not a finding;
 - gym: every flag raised tonight that was not raised last time, and per entry and band the share of pixels that changed
@@ -34,7 +34,8 @@ PROJECT, REPO = abtest.PROJECT, abtest.REPO
 # metrics where a higher number is a worse match (BehaviourBenchTests' names); the rest are reported, never judged
 WORSE_UP = ('machine_jam_s', 'machine_spin_s', 'machine_flips_per100', 'machine_worst_flips_per100', 'machine_worst_jam_s',
             'machine_worst_spin_s', 'men_stuck_s_per_man_min', 'men_worst_stuck_s', 'men_idle_open_share', 'men_piled_share',
-            'deaths_in_clumps_share', 'biggest_clump')
+            'deaths_in_clumps_share', 'biggest_clump',
+            'men_trench_reversals_per_min', 'men_open_reversals_per_min', 'men_worst_reversals_per_min')
 SAME_COMMIT_NOISE = 0.002   # a band changed by more than this on an unchanged commit is the gym's fault (measured 0.0006)
 
 
