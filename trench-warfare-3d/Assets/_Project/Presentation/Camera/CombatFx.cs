@@ -596,6 +596,18 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                case SimEventType.WeaponDropped:
+                {
+                    // a fists man throws his weapon down as a fight starts (MeleeSystem; pos = where it falls, dir = the way he
+                    // throws it): a rifle leaves his hands and lies there. It is debris, so it stays while the fight lasts.
+                    if (debris == null || e.A < 0 || e.A >= w.HighWater || CameraShake.DistanceToLook(w.Position[e.A]) > 80f) break;
+                    float size = units != null ? units.UnitScale : 1f;
+                    var rng = new DebrisRng((Vector3)e.Pos, 0x3E1Eu + (uint)e.A);
+                    Vector3 hands = EstimateChest(e.A, size);
+                    Vector3 toss = new Vector3(e.Dir.x, 0f, e.Dir.z); toss = toss.sqrMagnitude > 1e-4f ? toss.normalized : Vector3.right;
+                    debris.Throw(DebrisRenderer.Piece.Rifle, hands, toss * 2.2f + Vector3.up * 1.6f, size, Bark, ref rng, 25f);
+                    break;
+                }
                 case SimEventType.MeleeBlow:
                 {
                     // hand to hand (MeleeSystem): a blow that lands is a Hit as well (the spike and the cloud below), and a
