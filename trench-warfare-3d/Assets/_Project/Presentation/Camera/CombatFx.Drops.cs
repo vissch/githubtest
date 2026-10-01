@@ -92,11 +92,11 @@ namespace TW.Presentation.Tactical
                 // would paint a two-skinned dome black), pale enough to find against a night sky. Every other gore is
                 // in the side's colour (critic, 2026-10-01: all pale, a canopy read as a mushroom in the air and as one
                 // more puddle once it was down)
-                silkMat = Silk(new Color(0.84f, 0.82f, 0.70f));
-                stripeMat[0] = Silk(Color.Lerp(TankRenderer.TeamA, Color.black, 0.25f));
-                stripeMat[1] = Silk(Color.Lerp(TankRenderer.TeamB, Color.black, 0.15f));
+                silkMat = Silk(new Color(0.84f, 0.82f, 0.70f), 0.52f);
+                stripeMat[0] = Silk(Color.Lerp(TankRenderer.TeamA, Color.black, 0.25f), 0.45f);
+                stripeMat[1] = Silk(Color.Lerp(TankRenderer.TeamB, Color.black, 0.15f), 0.45f);
                 cordMat = Painted(new Color(0.55f, 0.53f, 0.47f), 0f);
-                manMat = Painted(new Color(0.42f, 0.38f, 0.26f), 1.2f);
+                manMat = Silk(new Color(0.50f, 0.45f, 0.30f), 0.4f);   // khaki, and seen: a toon figure up there was a black capsule
             }
             float size = units != null ? units.UnitScale : 1f;
             for (int k = canopies.Count - 1; k >= 0; k--)
@@ -160,12 +160,15 @@ namespace TW.Presentation.Tactical
             mesh.SetVertices(vertices); mesh.SetTriangles(triangles, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); return mesh;
         }
 
-        static Material Silk(Color colour)
+        /// <summary>Silk, and the man under it: an unlit colour, drawn on both faces. Nothing lights a canopy twenty
+        /// metres up at night, and a lit one (with emission, which the night grade swallowed) was as black as the sky
+        /// behind it (critic r3, seen in Play); <paramref name="glow"/> is how much of its colour shows at night.</summary>
+        static Material Silk(Color colour, float glow)
         {
-            var lit = Shader.Find("Universal Render Pipeline/Lit"); if (lit == null) lit = Shader.Find("Standard");
-            var m = new Material(lit) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
-            m.SetColor("_BaseColor", colour); m.SetFloat("_Cull", 0f); m.SetFloat("_Smoothness", 0.1f);
-            m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", colour * 0.3f);
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit"); if (unlit == null) unlit = Shader.Find("Unlit/Color");
+            var m = new Material(unlit) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
+            Color shown = colour * (SceneMood.Night ? glow : 0.95f); shown.a = 1f;
+            m.SetColor("_BaseColor", shown); m.SetColor("_Color", shown); m.SetFloat("_Cull", 0f);
             return m;
         }
 
