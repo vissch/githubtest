@@ -108,6 +108,8 @@ namespace TW.UI
                 card.Hotkey.text = HudText.Hotkey(s);
                 card.Label = HudText.Name(e.Archetype).ToUpperInvariant();
                 card.Name.text = card.Label;
+                // a machine's card is narrow: a name past seven letters ("BULLFROG") was cut to "BULLFR..." at 10 px
+                card.Name.EnableInClassList("tw-card__nameplate--long", e.IsVehicle && card.Label.Length > 7);
                 SetPortrait(card, HudText.PortraitName(e.Archetype));
                 SetWeaponBadge(card, e.Archetype);
                 r.Cards.Add(card);
