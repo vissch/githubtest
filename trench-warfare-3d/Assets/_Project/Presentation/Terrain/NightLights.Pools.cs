@@ -56,7 +56,7 @@ namespace TW.Presentation.Terrain
         public const float DefaultPoolSoft = 1f, DefaultPoolShoulder = 0.4f;   // 0.4 since round 19: at the wide view the lamp-lit mounds clipped to flat yellow domes
         static readonly int StreakId = Shader.PropertyToID("_TWFireStreak");
         /// <summary>look.fireStreak: how bright a flame's streak on the wet mud is (TWLightPools.hlsl), 0 none.</summary>
-        public const float DefaultFireStreak = 0.5f;
+        public const float DefaultFireStreak = 1.5f;   // 1 faint once the column was thin and faded (round 23); 2 began to read as dashes
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
