@@ -202,8 +202,24 @@ namespace TW.Perf
         public int PlayClip(int figure, Clip clip, Vector2 at, float rate = 1f)
         {
             int s = Spawn(0, GymCatalogue.ArchetypeForFigure(figure), at.x, at.y, 0f);
+            if (s >= 0) Hold(s);
             if (s >= 0 && Host.Animation != null) Host.Animation.Pin(s, clip, Host.Local.World.Generation[s], rate);
             return s;
+        }
+
+        /// <summary>Keep a spawned unit where it stands: its goal is its own nav cell, so it has arrived. A unit with no
+        /// goal is given its team's front trench, and a clip's man walked out of the close shot while it played (the
+        /// longer half of the clips, deaths, fidgets, the walk, were photographed on empty ground), a rifleman out of
+        /// the Units tab's (2026-10-01).</summary>
+        public void Hold(int slot)
+        {
+            if (slot < 0 || Host == null || Host.Local == null) return;
+            Host.WriteWorlds(m =>
+            {
+                var w = m.World; var c = m.Map.NavCellOf(w.Position[slot]);
+                var mode = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0 ? TW.Sim.Nav.NavMode.Tracked : TW.Sim.Nav.NavMode.Infantry;
+                w.GoalId[slot] = m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(m.Map.NavIndex(c.x, c.y), mode));
+            });
         }
 
         /// <summary>Call an off-map ability from `seat` (-1: the seat that may call it: Brass for ParaDrop, else 0). Top up
