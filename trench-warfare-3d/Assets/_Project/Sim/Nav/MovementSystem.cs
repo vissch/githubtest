@@ -81,7 +81,7 @@ namespace TW.Sim.Nav
             // 2. neighbours
             Spatial.Rebuild(w.Position, w.Flags, n);
             new SeparationJob { Hash = Spatial, Position = w.Position, Flags = w.Flags, TrenchId = w.TrenchId, Vehicles = Vehicles.AsArray(), Push = push,
-                                PostCell = w.PostCell, NavWidth = map.NavWidth, NavCell = MapData.NavCellSize }
+                                PostCell = w.PostCell, NavWidth = map.NavWidth, NavCell = MapData.NavCellSize, StanceOf = w.StanceOf }
                 .Schedule(n, 64).Complete();
 
             // 3. move
@@ -90,7 +90,7 @@ namespace TW.Sim.Nav
                 Position = w.Position, Velocity = w.Velocity, Yaw = w.Yaw, Layer = w.Layer, StanceOf = w.StanceOf, Flags = w.Flags,
                 PostCell = w.PostCell, PostKind = w.PostKind, TrenchDefs = map.Trenches.AsArray(), Team = w.Team,
                 GoalId = w.GoalId, Cooldown = w.Cooldown, Knock = w.Knock, TrenchId = w.TrenchId, ArrivedLocked = arrivedLocked, Garrisoned = garrisoned,
-                Speed = w.Speed, Push = push, Suppression = w.Suppression, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick, Archetype = w.Archetype,
+                Speed = w.Speed, Push = push, Suppression = w.Suppression, Alarm = w.Alarm, TargetSlot = w.TargetSlot, Generation = w.Generation, Tick = w.Tick, Seed = w.Config.Seed, Archetype = w.Archetype,
                 Specs = w.Units.Infantry,
                 Directions = fields.Direction, Integration = fields.Integration, Ready = fields.Ready, Goals = fields.Goals, Trenches = fields.Trenches,
                 Layers = map.NavLayers, CellTrenchId = map.CellTrenchId,
@@ -128,13 +128,14 @@ namespace TW.Sim.Nav
             public NativeArray<short> ArrivedLocked, Garrisoned;
             public NativeArray<int> LeapTicks;
             [ReadOnly] public NativeArray<float3> LeapTarget;
-            [ReadOnly] public NativeArray<float> Speed, Suppression;
+            [ReadOnly] public NativeArray<float> Speed, Suppression, Alarm;
             [ReadOnly] public NativeArray<int> TargetSlot;
             [ReadOnly] public NativeArray<ushort> Generation;
             [ReadOnly] public NativeArray<byte> Archetype;
             [ReadOnly] public NativeArray<InfantrySpec> Specs;   // the match table, by archetype (SimWorld.Units)
             [ReadOnly] public NativeArray<float3> Push;
             public uint Tick;
+            public uint Seed;   // the match's (SimConfig.Seed): a man's rush beat is his slot's in this match, not in every match
             public const float DriftAmount = 0.38f;     // lateral drift as a fraction of the forward speed
             public const float DriftPeriodTicks = 320f; // one wander cycle: 16 s
             public const float KnockDecay = 0.78f;      // per tick: a throw of 9 m/s carries him about 2 m over a second
@@ -291,6 +292,7 @@ namespace TW.Sim.Nav
                 // rear wall, so a trench reads as a firing line with men in support rather than one long queue.
                 float supp = Suppression[i];
                 Stance stance;
+                bool rushing = false, lying = false;
                 bool ladderPost = PostCell[i] >= 0 && (Layers[PostCell[i]] & (byte)NavLayer.Link) != 0;
                 bool atPost = PostCell[i] < 0 || ladderPost || PostCell[i] == cell || SimMath.Length(PostPoint(PostCell[i]) - p) < 0.9f;
                 bool toPost = isGarrisoned && PostCell[i] >= 0 && !atPost && !ladderPost;   // walking to his post: he may cross a ladder, and keeps going across it
@@ -299,10 +301,51 @@ namespace TW.Sim.Nav
                 else if (supp >= StanceRules.PinnedSuppression) stance = Stance.Pinned;
                 else if (inTrench) stance = Stance.Crouch;
                 else if (supp >= StanceRules.ProneSuppression) stance = Stance.Prone;
+                else if (Alarm[i] >= StanceRules.CarefulAlarm)
+                {
+                    // under fire in the open: he moves in rushes, each man on his own beat (StanceRules, 2026-10-01).
+                    // Holding to shoot, he lies down to do it.
+                    uint beat = (Tick + ((uint)i * 2654435761u ^ (uint)Generation[i] * 40503u ^ Seed * 0x9E3779B9u)) % (uint)StanceRules.RushTicks;
+                    // a man with a gun that has to be set up (InfantrySpec.Braced: the machine gunner) does not drop
+                    // between rushes: he carries it forward bent double and lies down behind it only where he holds to
+                    // shoot. Dropping and firing every few seconds, the guns sent over with the line covered it as well
+                    // as guns left on the parapet (AssaultLadderTests: 27 men lost with them going over, 45 before).
+                    rushing = engage != MovementSystem.EngageHold && (Specs[Archetype[i]].Braced || beat < (uint)StanceRules.RushUpTicks);
+                    stance = rushing ? Stance.Crouch : Stance.Prone;
+                    lying = !rushing;
+                }
                 else if (engage == MovementSystem.EngageHold) stance = Stance.Crouch;   // down on one knee to shoot
                 else stance = (f & (uint)UnitFlags.Exposed) != 0 || engage == MovementSystem.EngageClose ? Stance.Sprint : Stance.Standing;
-                float speed = Speed[i] * StanceRules.SpeedMultiplier(stance) * StanceRules.TerrainMultiplier(from);
+                float speed = Speed[i] * (rushing ? StanceRules.RushSpeed : lying ? 0f : StanceRules.SpeedMultiplier(stance)) * StanceRules.TerrainMultiplier(from);
+                if (rushing && math.lengthsq(dir) > 1e-6f && math.lengthsq(Push[i]) < StanceRules.CrowdedPush * StanceRules.CrowdedPush)
+                {
+                    // a shell hole a few strides ahead is where his rush goes: from cover to cover. Each man makes for
+                    // his own spot in it, and a man his mates are already pressing keeps his own line: making for the
+                    // hole's middle, a section bunched in one hole and shoved itself about (the scripts' match, seed 3:
+                    // 47 steps reversed in 33 open man-minutes, 45 of them with a mate within 1.2 m)
+                    uint mine = (uint)i * 747796405u + 2891336453u;
+                    float2 spot = new float2(((mine >> 8) & 0xFF) / 255f - 0.5f, ((mine >> 16) & 0xFF) / 255f - 0.5f) * (NavCell * 0.7f);
+                    float2 way = math.normalize(dir);
+                    int cx = cell % NavWidth, cz = cell / NavWidth, reach = (int)math.ceil(StanceRules.CoverReach / NavCell);
+                    float best = float.MaxValue; float2 bestTo = float2.zero;
+                    for (int dz = -reach; dz <= reach; dz++)
+                        for (int dx = -reach; dx <= reach; dx++)
+                        {
+                            int x = cx + dx, z = cz + dz;
+                            if ((dx == 0 && dz == 0) || x < 0 || z < 0 || x >= NavWidth || z >= NavLength) continue;
+                            if ((Layers[z * NavWidth + x] & (byte)NavLayer.Crater) == 0) continue;
+                            float2 toHole = new float2((x + 0.5f) * NavCell - p.x, (z + 0.5f) * NavCell - p.z) + spot;
+                            float d = math.length(toHole);
+                            if (d < 1f || d > StanceRules.CoverReach) continue;
+                            float along = math.dot(toHole, way) / d;
+                            if (along < 0.5f) continue;              // ahead of him, within 60 degrees of his way
+                            float score = d - 2f * along;            // nearer, and more nearly on his way
+                            if (score < best) { best = score; bestTo = toHole / d; }
+                        }
+                    if (best < float.MaxValue) dir = math.normalize(way + 1.5f * bestTo) * math.length(dir);
+                }
                 float3 v = leaping ? (LeapTarget[i] - p) / (leap * Dt) : isGarrisoned ? Push[i] : new float3(dir.x, 0f, dir.y) * speed + Push[i];   // a garrison only spreads out
+                if (lying) v = Push[i] * StanceRules.LyingYield;   // on his belly he gives way to a mate slowly: he is not shoved about at a run
                 if (isGarrisoned && !leaping)
                 {
                     // he walks to the post he was given and holds it (the parapet, a junction, a dugout mouth), instead of

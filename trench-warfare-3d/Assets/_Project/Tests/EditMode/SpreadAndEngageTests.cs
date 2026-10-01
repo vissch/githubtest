@@ -497,5 +497,126 @@ namespace TW.Tests
             TestContext.WriteLine($"men in the open: {open / 60f:F0} man-minutes, {reversals} steps reversed ({perMinute:F2} a man-minute)");
             Assert.Less(perMinute, 0.8f, "a man closing on an enemy does not close and stop closing on alternate ticks (1.3 a man-minute when the way was sampled a metre apart)");
         }
+
+        /// <summary>Under fire in the open a man goes forward in rushes (2026-10-01, the owner: "as realistic as possible"):
+        /// bent double at a run, then down on his belly where he is, then up again. He ran upright through fire until his
+        /// suppression passed 60 (in the scripts' match men under fire in the open were upright and moving 72-81 % of the
+        /// time). A rifleman with an advance order 70 m short of the enemy trench, fired on (suppression 30) for ten
+        /// seconds: from then until five seconds after it stops he is never upright, he both runs and lies still, and he
+        /// gets forward.</summary>
+        [Test]
+        public void AManFiredOnInTheOpenGoesForwardInRushes()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var w = m.World;
+            float trenchZ = m.Map.NavCellCenter(m.Map.TrenchCells[m.Map.Trenches[1].CellStart]).z;
+            var start = new float3(130f, 0f, trenchZ - 70f);
+            int man = w.Spawn(0, Rifleman, start, 1e6f, 3f, false);
+            w.GoalId[man] = m.Fields.GetGoal(GoalKey.Trench(1));
+            w.Flags[man] |= (uint)UnitFlags.Exposed;
+            int upright = 0, running = 0, lying = 0;
+            float3 last = w.Position[man];
+            for (int t = 0; t < 300; t++)
+            {
+                if (t < 200) w.Suppression[man] = math.max(w.Suppression[man], 30f);   // fired on: below ProneSuppression
+                Step(m);
+                var st = (Stance)w.StanceOf[man];
+                float moved = math.length((w.Position[man] - last).xz); last = w.Position[man];
+                if (t < 20) continue;   // a second to take it in
+                if (st == Stance.Standing || st == Stance.Sprint) upright++;
+                else if (st == Stance.Crouch && moved > 0.05f) running++;
+                else if (st == Stance.Prone && moved < 0.02f) lying++;
+            }
+            TestContext.WriteLine($"of 280 ticks under fire or just after: upright {upright}, running bent double {running}, lying still {lying}; forward {w.Position[man].z - start.z:F0} m");
+            Assert.AreEqual(0, upright, "under fire he is never upright");
+            Assert.Greater(running, 60, "he runs bent double");
+            Assert.Greater(lying, 40, "and lies still between rushes");
+            Assert.Greater(w.Position[man].z - start.z, 12f, "and still gets forward");
+        }
+
+        /// <summary>Running under fire, a man makes for a shell hole a few strides ahead (2026-10-01): his rushes go from
+        /// cover to cover. His own way to the trench is walked first, not fired on, with no holes; then shell holes are put
+        /// three metres to either side of it every eight metres, and he walks it again fired on all the way, and again not
+        /// fired on: fired on he goes through more of the holes than he does running his line.</summary>
+        [Test]
+        public void AManUnderFireRunsFromShellHoleToShellHole()
+        {
+            // holes: null to record his way (a point every 8 m of z), else the holes to dig; returns how many he went into
+            int Walk(bool fired, List<float3> holes, List<float3> way, out string trace)
+            {
+                var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+                using var m = MatchSim.CreateGreybox(cfg);
+                var w = m.World; var map = m.Map;
+                float trenchZ = map.NavCellCenter(map.TrenchCells[map.Trenches[1].CellStart]).z;
+                var start = new float3(131f, 0f, trenchZ - 70f);
+                var dug = new List<float3>();
+                if (holes != null)
+                    foreach (var h in holes)
+                    {
+                        var c = map.NavCellOf(h); int idx = map.NavIndex(c.x, c.y);
+                        if ((map.NavLayers[idx] & (byte)(NavLayer.Trench | NavLayer.Wire | NavLayer.Link)) != 0) continue;
+                        map.NavLayers[idx] |= (byte)NavLayer.Crater;
+                        dug.Add(map.NavCellCenter(idx));
+                    }
+                int man = w.Spawn(0, Rifleman, start, 1e6f, 3f, false);
+                w.GoalId[man] = m.Fields.GetGoal(GoalKey.Trench(1));
+                w.Flags[man] |= (uint)UnitFlags.Exposed;
+                var near = new float[dug.Count];
+                for (int k = 0; k < near.Length; k++) near[k] = float.MaxValue;
+                float next = start.z + 8f;
+                for (int t = 0; t < 900 && w.Position[man].z < start.z + 52f; t++)
+                {
+                    if (fired) w.Suppression[man] = math.max(w.Suppression[man], 30f);
+                    Step(m);
+                    var at = w.Position[man];
+                    if (way != null && at.z >= next) { way.Add(at); next += 8f; }
+                    for (int k = 0; k < dug.Count; k++) near[k] = math.min(near[k], math.distance(at.xz, dug[k].xz));
+                }
+                int n = 0; var sb = new StringBuilder();
+                for (int k = 0; k < dug.Count; k++) { if (near[k] < 1.5f) n++; sb.Append($" {near[k]:F1}"); }   // his own spot in the hole is up to a metre from its middle
+                trace = sb.ToString();
+                return n;
+            }
+            var way = new List<float3>();
+            Walk(false, null, way, out _);
+            Assert.GreaterOrEqual(way.Count, 5, "setup: his way to the trench was walked");
+            var holes = new List<float3>();
+            for (int k = 0; k < way.Count; k++) holes.Add(way[k] + new float3((k & 1) == 0 ? 3f : -3f, 0f, 0f));
+            int calm = Walk(false, holes, null, out var calmTrace), underFire = Walk(true, holes, null, out var fireTrace);
+            TestContext.WriteLine($"{holes.Count} holes 3 m off his way; gone into (within 1.5 m of the middle): not fired on {calm} (nearest{calmTrace}); fired on {underFire} (nearest{fireTrace})");
+            Assert.GreaterOrEqual(underFire, 3, "fired on, he makes for the shell holes by his way");
+            Assert.GreaterOrEqual(underFire, calm + 2, "more of them than running his line");
+        }
+
+        /// <summary>The push that keeps two men apart on open ground has no step at a metre, and a man who is down is
+        /// passed softly (2026-10-01). Men keep 1.6 m apart softly and a body's width apart hard, and the hard push
+        /// replaced the soft one inside the metre: 0.33 m/s at 1.01 m, 2.4 at 0.99. A man running up on another came inside
+        /// it, was thrown out and came on again, tick by tick (the scripts' match with men dropping under fire, seed 2:
+        /// one man's steps reversed 19 times behind a mate who was lying down; and behind men a wire belt had slowed). Two
+        /// men who cannot walk (speed 0), set a given distance apart and stepped once: how fast the first is pushed.</summary>
+        [Test]
+        public void TheSpacingPushOnOpenGroundHasNoStepAtAMetre()
+        {
+            float Pushed(float apart, bool mateDown)
+            {
+                var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+                using var m = MatchSim.CreateGreybox(cfg);
+                var w = m.World;
+                float trenchZ = m.Map.NavCellCenter(m.Map.TrenchCells[m.Map.Trenches[1].CellStart]).z;
+                var at = new float3(131f, 0f, trenchZ - 60f);
+                int man = w.Spawn(0, Rifleman, at, 1e6f, 0f, false);
+                int mate = w.Spawn(0, Rifleman, at + new float3(apart, 0f, 0f), 1e6f, 0f, false);
+                if (mateDown) { w.Suppression[mate] = 95f; w.StanceOf[mate] = (byte)Stance.Pinned; }
+                Step(m);
+                return math.length((w.Position[man] - at).xz) / w.Config.TickSeconds;
+            }
+            float outside = Pushed(1.01f, false), inside = Pushed(0.99f, false), close = Pushed(0.8f, false), pastAManDown = Pushed(0.9f, true);
+            TestContext.WriteLine($"pushed at 1.01 m {outside:F2} m/s, at 0.99 m {inside:F2}, at 0.8 m {close:F2}; 0.9 m from a man who is down {pastAManDown:F2}");
+            Assert.Greater(outside, 0.1f, "setup: men 1.01 m apart on open ground are pushed apart");
+            Assert.Less(inside, outside * 1.5f, "no step at a metre: just inside it the push is about what it is just outside");
+            Assert.Greater(close, inside * 2f, "and it still grows as they overlap");
+            Assert.Less(pastAManDown, 0.3f, "a man who is down is passed softly, at a body's width");
+        }
     }
 }

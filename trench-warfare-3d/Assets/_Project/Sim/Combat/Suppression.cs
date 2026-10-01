@@ -4,6 +4,8 @@
 // the decay itself. Smoke halving is A5.
 // Meter 0..100, decays 8/s. > 60 forces Prone; > 85 Pinned (refuses Advance, auto-Fallback if a friendly trench
 // is within 20 m). MG hits ×3 gain; officer aura and smoke ×0.5. Emits Suppressed / Pinned events on threshold crossings.
+// SimWorld.Alarm (2026-10-01): after the decay it is raised to the man's suppression (held to StanceRules.AlarmCap)
+// and otherwise comes down StanceRules.AlarmDecay a second, so a man stays careful after the fire stops.
 using Unity.Jobs;
 
 namespace TW.Sim.Combat
@@ -31,6 +33,7 @@ namespace TW.Sim.Combat
             {
                 Suppression = w.Suppression, Flags = w.Flags, Archetype = w.Archetype, Specs = w.Units.Infantry,
                 Amount = SuppressionRules.DecayPerSecond * w.Config.TickSeconds,
+                Alarm = w.Alarm, AlarmAmount = StanceRules.AlarmDecay * w.Config.TickSeconds,
             }.Schedule(n, 256).Complete();
             if (aura == null) aura = w.GetSystem<AuraSystem>();
             aura?.Unpin(w);
@@ -40,18 +43,21 @@ namespace TW.Sim.Combat
         struct DecayJob : Unity.Jobs.IJobParallelFor
         {
             public Unity.Collections.NativeArray<float> Suppression;
+            public Unity.Collections.NativeArray<float> Alarm;
+            public float AlarmAmount;
             [Unity.Collections.ReadOnly] public Unity.Collections.NativeArray<uint> Flags;
             [Unity.Collections.ReadOnly] public Unity.Collections.NativeArray<byte> Archetype;
             [Unity.Collections.ReadOnly] public Unity.Collections.NativeArray<InfantrySpec> Specs;   // the match table (SimWorld.Units)
             public float Amount;
             public void Execute(int i)
             {
-                if ((Flags[i] & (uint)UnitFlags.Alive) == 0) { Suppression[i] = 0f; return; }
+                if ((Flags[i] & (uint)UnitFlags.Alive) == 0) { Suppression[i] = 0f; Alarm[i] = 0f; return; }
                 float s = Unity.Mathematics.math.max(0f, Suppression[i] - Amount);
                 // InfantrySpec.NeverPinned (2026-09-28, the Death Battalion): held one below Pinned, where the officer's
                 // aura holds the men round him. Movement, the garrison and the next tick's fire read it after this.
                 if (s > AuraSystem.UnpinTo && Specs[Archetype[i]].NeverPinned) s = AuraSystem.UnpinTo;
                 Suppression[i] = s;
+                Alarm[i] = Unity.Mathematics.math.max(Alarm[i] - AlarmAmount, Unity.Mathematics.math.min(s, StanceRules.AlarmCap));
             }
         }
 

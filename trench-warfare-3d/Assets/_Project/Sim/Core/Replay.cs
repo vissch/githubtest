@@ -81,7 +81,12 @@ namespace TW.Sim
         // Kettle's mortar and the Salvo's rockets 155 m (they reached 200-380 m), so no machine reaches the enemy's front
         // trench from its spawn; the Salvo holds to fire at 155 m. The hashed hull table's bytes change. Same inputs,
         // different battles. Layout and chain unchanged.
-        public const ushort FormatVersion = 26;
+        // v27 (2026-10-01, men under fire, the owner: "as realistic as possible"): SimWorld.Alarm (float per slot, how
+        // lately and how hard he was fired on) is appended to the hashed arrays after Knock; SuppressionSystem raises it to
+        // his suppression and lets it down 2.5 a second, and a man in the open with it up moves in rushes (bent double,
+        // then down on his belly) and makes for shell holes ahead; on open ground a man slips past a mate who is down,
+        // and the push between two men up has no step at a metre. Hash content changes; the system chain is unchanged.
+        public const ushort FormatVersion = 27;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

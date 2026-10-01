@@ -88,6 +88,11 @@ namespace TW.Tests
             using var m = NewMatch();
             short t = EnemyLine(m, 10);
             float z = TrenchZ(m, t);
+            // the garrison's men stand a burst but not a claw (250): ten men on the trench leave one where it strikes, and
+            // whether its guns had him down before its claws reached him turned on a tick (2026-10-01: a change to how men
+            // are spaced on open ground formed the garrison one tick sooner, and he was shot at 16 m, not clawed)
+            for (int i = 0; i < m.World.HighWater; i++)
+                if (m.World.IsAlive(i) && m.World.Team[i] == 1 && (m.World.Flags[i] & (uint)UnitFlags.Vehicle) == 0) { m.World.Hp[i] = 250f; m.World.MaxHp[i] = 250f; }
             int it = SpawnBreaker(m, 0, 120f, z - 42f);
             var spec = TankSpec.For(VehicleArchetype.Breaker);
             float top = 0f, yawAtWithdraw = 0f, zAtWithdraw = 0f; bool sawWindupHalt = false; var lastPhase = BreakerPhase.Approach;
