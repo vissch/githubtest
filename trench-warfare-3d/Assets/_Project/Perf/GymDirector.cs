@@ -298,6 +298,69 @@ namespace TW.Perf
             return cells.Count > 0;
         }
 
+        /// <summary>Up to `count` shell-hole cells (NavLayer.Crater, open ground) within 30 m of `near`, the nearest
+        /// first, `spacing` metres or more apart: where CraterMen puts its men.</summary>
+        public List<Vector2> Craters(Vector2 near, int count, float spacing)
+        {
+            var map = Host.Local.Map;
+            var found = new List<(float, Vector2)>();
+            int r = (int)(30f / TW.Sim.Terrain.MapData.NavCellSize);
+            var c0 = map.NavCellOf(new float3(near.x, 0f, near.y));
+            for (int z = c0.y - r; z <= c0.y + r; z++)
+            for (int x = c0.x - r; x <= c0.x + r; x++)
+            {
+                if (x < 0 || z < 0 || x >= map.NavWidth || z >= map.NavLength) continue;
+                int i = map.NavIndex(x, z);
+                var l = (TW.Sim.Terrain.NavLayer)map.NavLayers[i];
+                if ((l & TW.Sim.Terrain.NavLayer.Crater) == 0) continue;
+                if ((l & (TW.Sim.Terrain.NavLayer.Trench | TW.Sim.Terrain.NavLayer.Blocked | TW.Sim.Terrain.NavLayer.Wire)) != 0) continue;
+                var p = map.NavCellCenter(i);
+                var q = new Vector2(p.x, p.z);
+                float d = (q - near).sqrMagnitude;
+                if (d <= 900f) found.Add((d, q));
+            }
+            found.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+            var picked = new List<Vector2>();
+            foreach (var (_, q) in found)
+            {
+                if (picked.Count >= count) break;
+                bool clear = true;
+                foreach (var o in picked) if ((o - q).sqrMagnitude < spacing * spacing) { clear = false; break; }
+                if (clear) picked.Add(q);
+            }
+            return picked;
+        }
+
+        /// <summary>Of eight ways out of `from`, `prefer` first, the first whose point `distance` on stands well clear
+        /// of every man of ours the gym did not spawn (else the clearest), inside the map: a line of theirs there has
+        /// the gym's men as its nearest targets.</summary>
+        public Vector2 Clearest(Vector2 from, float distance, Vector2 prefer)
+        {
+            var w = Host.Local.World; var map = Host.Local.Map;
+            float sizeX = map.NavWidth * TW.Sim.Terrain.MapData.NavCellSize, sizeZ = map.NavLength * TW.Sim.Terrain.MapData.NavCellSize;
+            float start = Mathf.Atan2(prefer.x, prefer.y);
+            Vector2 best = prefer.sqrMagnitude > 1e-6f ? prefer.normalized : Vector2.up; float bestScore = -1f;
+            for (int k = 0; k < 8; k++)
+            {
+                float a = start + k * Mathf.PI / 4f;
+                var dir = new Vector2(Mathf.Sin(a), Mathf.Cos(a));
+                var q = from + dir * distance;
+                if (q.x < 6f || q.y < 6f || q.x > sizeX - 6f || q.y > sizeZ - 6f) continue;
+                float nearest = float.MaxValue;
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    if (!w.IsAlive(i) || w.Team[i] != 0) continue;
+                    bool ours = false;
+                    foreach (var (s, g) in spawned) if (s == i && w.Generation[i] == g) { ours = true; break; }
+                    if (ours) continue;
+                    nearest = Mathf.Min(nearest, Vector2.Distance(q, new Vector2(w.Position[i].x, w.Position[i].z)));
+                }
+                if (nearest > distance + 25f) return dir;   // the first way (the preferred one, if it will do) where they are clearly nearest
+                if (nearest > bestScore + 1f) { bestScore = nearest; best = dir; }
+            }
+            return best;
+        }
+
         /// <summary>Stage a scene over time (the window starts it as a coroutine; the gym run waits on it). Sets
         /// Current.Focus and Current.Watch.</summary>
         public IEnumerator Scene(GymScene scene)
@@ -327,11 +390,20 @@ namespace TW.Perf
                     var at = Stage;
                     Ability(OffMapAbilityId.HeBarrage, at);   // make the craters first
                     yield return new WaitForSeconds(11f);
-                    var row = Row(0, 0, 6, at, 3f);
-                    foreach (var s in row) r?.Watch.Add(s);
-                    var toward = (new Vector2(enemyRally.x, enemyRally.z) - at).normalized;
-                    Row(1, 0, 6, at + toward * 80f, 3f);
-                    if (r != null) r.Focus = new float3(at.x, 0f, at.y);
+                    // a man in each of the holes it made, the nearest first (a row stood beside them, on the grass);
+                    // a row makes up any it did not make
+                    var holes = Craters(at, 6, 3f);
+                    var men = new List<int>();
+                    foreach (var c in holes) { int s = Spawn(0, 0, c.x, c.y, 0f); if (s >= 0) men.Add(s); }
+                    if (men.Count < 6) men.AddRange(Row(0, 0, 6 - men.Count, at, 3f));
+                    foreach (var s in men) r?.Watch.Add(s);
+                    // their enemy where they are the nearest of ours: toward the enemy's rally the line found our
+                    // front trench's garrison first and shot at it (2026-10-01: 9 rounds, none at the men in the holes)
+                    var centre = at;
+                    if (holes.Count > 0) { centre = Vector2.zero; foreach (var c in holes) centre += c; centre /= holes.Count; }
+                    Row(1, 0, 6, centre + Clearest(centre, 80f, new Vector2(enemyRally.x, enemyRally.z) - centre) * 80f, 3f);
+                    if (r != null) r.Focus = new float3(centre.x, 0f, centre.y);
+                    yield return new WaitForSeconds(3f);   // as the trench scenes: the line finds them and opens fire
                     break;
                 }
             }

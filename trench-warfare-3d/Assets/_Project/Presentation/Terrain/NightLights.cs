@@ -68,6 +68,16 @@ namespace TW.Presentation.Terrain
         /// <summary>Fire a star shell on the next frame instead of waiting for the timer (bench scenarios, captures of
         /// the moment). Presentation only: nothing in the sim sees a star shell.</summary>
         public void FireStarShell() { nextFlare = 0f; }
+
+        /// <summary>Start the night's own clocks again from this frame: the star shell's timer, the distant guns and
+        /// the hashes that place them count from here. For a capture that wants the same pictures twice (the gym,
+        /// 2026-10-01): counted from Start, the frames the scene loaded in at real speed put the star shell over a
+        /// barrage in one run and not the next, and 8 % of the close shot's pixels with it.</summary>
+        public void Rewind()
+        {
+            frame0 = Time.frameCount;
+            nextFlare = Time.time + 6f; flareBorn = -100f; nextGuns = 0f;
+        }
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
         Material glow, flareGlow;
