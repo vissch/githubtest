@@ -226,7 +226,7 @@ namespace TW.Perf
             {
                 var w = m.World; var c = m.Map.NavCellOf(w.Position[slot]);
                 var mode = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0 ? TW.Sim.Nav.NavMode.Tracked : TW.Sim.Nav.NavMode.Infantry;
-                w.GoalId[slot] = m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(m.Map.NavIndex(c.x, c.y), mode));
+                w.GoalId[slot] = CellGoal(m, m.Map.NavIndex(c.x, c.y), mode);
                 // and he is not advancing: a man put down is Exposed (under a >> order), which holds his fire to
                 // AdvanceFireRange (60 m) and sprints him; CraterMen's men and their enemy line, 80 m apart, never fired
                 w.Flags[slot] = w.Flags[slot] & ~(uint)UnitFlags.Exposed;
@@ -363,6 +363,28 @@ namespace TW.Perf
             }
         }
 
+        /// <summary>A cell goal for a unit the gym holds or sends, without filling the flow fields' table (MaxGoals, 32):
+        /// the goal already made for that cell, else a cell goal no living unit follows any more made over for it (as the
+        /// sapper's errands do, SapperSystem.GoalFor), else a new one; -1, never a throw, when the table is full. Each
+        /// held unit asked for a goal of its own: the scenes' held lines and the crater men filled the table, and every
+        /// entry after them failed to stage (2026-10-01, the night's run: 47 entries flagged).</summary>
+        static int CellGoal(MatchSim m, int cell, TW.Sim.Nav.NavMode mode)
+        {
+            var f = m.Fields; var w = m.World;
+            var key = TW.Sim.Nav.GoalKey.Cell(cell, mode);
+            for (int g = 0; g < f.GoalCount; g++) if (f.Goals[g].Equals(key)) return g;
+            for (int g = 0; g < f.GoalCount; g++)
+            {
+                if (f.Goals[g].Kind != TW.Sim.Nav.GoalKind.Cell) continue;
+                bool used = false;
+                for (int i = 0; i < w.HighWater && !used; i++) used = w.IsAlive(i) && w.GoalId[i] == g;
+                if (used) continue;
+                f.Retarget(g, key);
+                return g;
+            }
+            return f.TryGetGoal(key);
+        }
+
         /// <summary>A man the gym put in a trench holds it: his goal is that trench (he garrisons it, below the rim, on the fire
         /// step to shoot), or his own cell where he stands outside one.</summary>
         public void Garrison(int slot)
@@ -372,8 +394,8 @@ namespace TW.Perf
             {
                 var w = m.World; var c = m.Map.NavCellOf(w.Position[slot]); int cell = m.Map.NavIndex(c.x, c.y);
                 short trench = m.Map.CellTrenchId[cell];
-                w.GoalId[slot] = trench >= 0 ? m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Trench(trench))
-                                             : m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(cell, TW.Sim.Nav.NavMode.Infantry));
+                w.GoalId[slot] = trench >= 0 ? m.Fields.TryGetGoal(TW.Sim.Nav.GoalKey.Trench(trench))
+                                             : CellGoal(m, cell, TW.Sim.Nav.NavMode.Infantry);
             });
         }
 
@@ -417,7 +439,7 @@ namespace TW.Perf
             {
                 var w = m.World; var c = m.Map.NavCellOf(new float3(at.x, 0f, at.y));
                 var mode = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0 ? TW.Sim.Nav.NavMode.Tracked : TW.Sim.Nav.NavMode.Infantry;
-                w.GoalId[slot] = m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(m.Map.NavIndex(c.x, c.y), mode));
+                w.GoalId[slot] = CellGoal(m, m.Map.NavIndex(c.x, c.y), mode);
             });
         }
 
