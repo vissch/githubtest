@@ -184,6 +184,27 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (default taken: nothing changed); (b) thin the bank with the camera's height, so the country round the field shows
   from the overview up, the haze still closing the far horizon; (c) keep the bank and light what stands under its edge
   (distant fires, the lines running on) so the void reads as country at night.
+- **Machines duel across the whole field from their spawn (2026-10-01, the behaviour bench and a probe of the first
+  minute):** the spawns are about 225 m apart on the Shelled Forest and the machines' guns reach 200-360 m
+  (`TankSpec.RangeMax`), with line of sight read off the heightfield only, so trees and wrecks do not block it. In the
+  bench (both sides' machines set down at their spawns) AP rounds cross the field at 1.6 s, and the enemy Kettle's
+  mortar knocks our Pincer out 2.3-6 s in, before it has moved 15 m, on 3 seeds of 3. Options: (a) leave it (default
+  taken: nothing changed); (b) shorter ranges, or ranges scaled to the field; (c) props (trees, wrecks, houses) block a
+  machine's line of sight as the terrain does.
+- **Men under fire in the open move upright (2026-10-01, a probe of the scripts' match):** of the time a rifleman in
+  the open is being shot at, he is running upright 68-78 % of it (assault troops and officers 100 %); he goes prone
+  only once suppression passes 60, and a pin lasts about 3 s after the fire moves on (decay 8 a second). Options: (a)
+  leave it (default taken); (b) men under fire in the open crouch-run, or rush from cover to cover; (c) suppression
+  that holds longer.
+- **Machines are sent at the enemy HQ, which only infantry capture (2026-10-01):** a machine's default goal is the
+  enemy HQ objective (`FlowFieldManager.DefaultGoal`); `SectorControlSystem` counts only infantry, so the machines
+  arrive, park on or round its cells and wait, and the last to come shoves at the edge (a Tusk 20 s against a Mercy in
+  one bench seed). Options: (a) leave it (default taken); (b) machines stop short in a support position; (c) machines
+  count towards a capture.
+- **Men are hard to see at night at the close bands (2026-10-01, the gym's T3/T2 stills):** a rifleman in a shell hole
+  or on open mud reads as a dark shape unless a lamp or a flash is near; the clips tab and CraterMen were judged from
+  the sidecars, not the pictures. For the night-look lane (`lane/show/night-look`): a rim or a little more fill on the
+  men at the close bands?
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
