@@ -821,7 +821,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint), TankLodTests (the very-far
   LOD2 past `TankRenderer.FarLodDistance`: `PickLod`, and every machine's `<Name>_LOD2` its own level with every LOD1 part in
   LOD1's place, cheaper than LOD1, on its baked `<Name>Atlas_LOD2`, or LOD1 again when it has no file). WalkerStills (`Tests/Stills`) captures the walkers
-  for the rig scoreboard in `docs/20-rig-scoreboard.md`.
+  for the rig scoreboard in `docs/20-rig-scoreboard.md`, ContrastSignTests (the sign of a man's separation from his
+  ground: `CaptureRig.SignedContrast`. contrast_median is a magnitude, so it could not say whether an unreadable man
+  was too dark for his ground or too bright, and the two want opposite fixes).
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
   moves units to their deploy zone. Freeze with `SimHost.TimeScale = 0` before framing.
 - **Measure behaviour in a match:** `Editor/MachineStudy.cs` (`-executeMethod TW.Editor.MachineStudy.CommandLine -twstudy <dir>`,

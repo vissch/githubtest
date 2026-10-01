@@ -505,6 +505,7 @@ namespace TW.Editor
             // the ratio alone cannot tell dark men on light mud from men the same value as the mud, and the two want
             // opposite fixes (take the haze off them, or move their value). So keep both sides of it.
             var manLumas = new List<float>(); var bgLumas = new List<float>();
+            var signed = new List<float>();      // the same numbers, keeping which side of his ground he is on
             int inFrame = 0;
             float tallest = 0f;    // the biggest figure drawn, in px: turns "a speck on the duckboards" into a number
             var host = Object.FindFirstObjectByType<SimHost>();
@@ -553,6 +554,7 @@ namespace TW.Editor
                     float bg = Ring(lum, w, h, cx, cy, rIn, rOut);            // median, so a neighbour in the ring does not skew it
                     contrasts.Add(Mathf.Abs(man - bg) / (bg + 0.02f));
                     manLumas.Add(man); bgLumas.Add(bg);
+                    signed.Add(SignedContrast(man, bg));
                 }
             }
             contrasts.Sort(); manLumas.Sort(); bgLumas.Sort();
@@ -633,6 +635,10 @@ namespace TW.Editor
                 N(sb, "mark_on_screen", markS.z > 0f && markS.x >= 0f && markS.x <= w && markS.y >= 0f && markS.y <= h ? 1 : 0);
                 N(sb, "mark_depth_m", markS.z);
             }
+            // which WAY the men fail, not just how badly: contrast_median is a magnitude and cannot tell "too dark"
+            // from "too bright", so it cannot say whether to lift a man or deepen the ground he stands on.
+            N(sb, "contrast_signed_median", Med(signed));
+            N(sb, "men_darker_frac", signed.Count > 0 ? Frac(signed) : -1f);
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
@@ -665,6 +671,13 @@ namespace TW.Editor
             if (mean > 0.45f) warn.Add("frame is brighter than a night scene should be");
             if (cMed >= 0f && cMed > 2.0f) warn.Add("men stand more than 2x off their background: pasted on, not lit by the scene");
             if (cMed >= 0f && cMed < 0.12f) warn.Add("men barely separate from the ground: unreadable");
+            // How much that last line is worth. With one or two men measured, contrast_median is not a median at all
+            // but a sample, and it swings: three censer shots moved by up to 0.23 between two runs of the SAME code,
+            // against a noise floor of 0.0007 across shots with a population. Measured 2026-10-01: the unreadable
+            // warning fires on 10 of 18 one-man shots but only 3 of 12 shots with three or more, so a set read without
+            // this line overstates the problem by about half again.
+            if (inFrame > 0 && inFrame < 3)
+                warn.Add("only " + inFrame + " man" + (inFrame == 1 ? "" : "en") + " measured: this shot's contrast is a sample, not a rate");
             sb.Append("  \"warnings\": [");
             for (int i = 0; i < warn.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(warn[i]).Append('"');
             sb.Append("]\n}\n");
@@ -673,6 +686,22 @@ namespace TW.Editor
 
         /// <summary>The middle value of the ring around a man: the ground and kit behind him, unmoved by a neighbour
         /// or a lantern taking up part of it, which a mean would let drag the number anywhere.</summary>
+        /// <summary>Middle value of a list, or -1 for an empty one (no man was measurable in the frame).</summary>
+        static float Med(List<float> v)
+        {
+            if (v.Count == 0) return -1f;
+            var s = new List<float>(v); s.Sort();
+            return s[s.Count / 2];
+        }
+
+        /// <summary>Share of the measured men who are DARKER than the ground behind them.</summary>
+        static float Frac(List<float> signedVals)
+        {
+            int n = 0;
+            for (int i = 0; i < signedVals.Count; i++) if (signedVals[i] < 0f) n++;
+            return n / (float)signedVals.Count;
+        }
+
         static float Ring(float[] lum, int w, int h, int cx, int cy, int rIn, int rOut)
         {
             var vals = new List<float>();
@@ -689,6 +718,18 @@ namespace TW.Editor
             vals.Sort();
             return vals[vals.Count / 2];
         }
+
+        /// <summary>
+        /// A man against the ground behind him, SIGNED: negative when he is darker than his ground, which is the
+        /// night case ("dark shapes on lighter mud"), positive when he is lighter.
+        ///
+        /// Its magnitude is exactly what contrast_median has always reported. The sign is what that number threw away,
+        /// and the sign is the half that says which way to fix a man you cannot see. It is not academic: a lift of the
+        /// unit shaders on 2026-09-27 moved the battle from 0.160 to 0.125 and was reverted. With man &lt; bg, raising
+        /// the man raises him TOWARD his background, so |man - bg| shrinks — the lift was pushing the number the way
+        /// it went, and nothing in the json could say so.
+        /// </summary>
+        public static float SignedContrast(float man, float bg) => (man - bg) / (bg + 0.02f);
 
         static float Disc(float[] lum, int w, int h, int cx, int cy, int rIn, int rOut)
         {
