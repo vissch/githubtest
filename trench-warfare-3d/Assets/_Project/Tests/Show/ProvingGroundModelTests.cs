@@ -56,6 +56,26 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheBullfrogsBarrelsStandOutInFrontOfTheirGuns()
+        {
+            // parts three levels down (Hull > Turret > Gun > Barrels) import displaced unless TankImport.ParentAware names
+            // the model: the barrels sat 1 m behind and 0.4 m over their guns, inside the housings, and every picture
+            // still looked like a gun (2026-10-01)
+            var m = Load("Bullfrog", VehicleArchetype.Bullfrog);
+            float scale = TankRenderer.ScaleOf(VehicleArchetype.Bullfrog);
+            foreach (var l in m.Lods)
+                for (int i = 0; i < l.Parts.Count; i++)
+                {
+                    if (!l.Parts[i].Name.StartsWith("Barrels")) continue;
+                    int gun = l.Parts[i].Parent;
+                    Assert.IsTrue(gun >= 0 && l.Parts[gun].Name.StartsWith("Gun"), $"{l.Parts[i].Name} hangs on {(gun >= 0 ? l.Parts[gun].Name : "nothing")}");
+                    Vector3 barrels = At(l, i) + l.Parts[i].Center, housing = At(l, gun) + l.Parts[gun].Center;
+                    Assert.Greater(barrels.z - housing.z, 0.4f * scale, $"{l.Parts[i].Name}: the barrels stand out in front of the housing");
+                    Assert.Less(Mathf.Abs(barrels.x - At(l, gun).x), 0.3f * scale, $"{l.Parts[i].Name}: on its gun's line");
+                }
+        }
+
+        [Test]
         public void BothLodsLoadWithEveryPartUnderTheHull()
         {
             foreach (var (name, archetype, want) in Four)
