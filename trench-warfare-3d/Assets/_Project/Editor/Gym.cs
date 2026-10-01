@@ -409,6 +409,7 @@ namespace TW.Editor
                 }
                 case GymTab.Units:
                     slot = d.Spawn(0, e.Id, at.x, at.y, 30f);
+                    d.Hold(slot);   // seen where it was put, not walking out of the close shot to the front trench
                     return slot >= 0 ? 4f : -1f;
                 case GymTab.Abilities:
                 {
