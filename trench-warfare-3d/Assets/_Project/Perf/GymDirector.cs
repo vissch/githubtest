@@ -227,6 +227,9 @@ namespace TW.Perf
                 var w = m.World; var c = m.Map.NavCellOf(w.Position[slot]);
                 var mode = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0 ? TW.Sim.Nav.NavMode.Tracked : TW.Sim.Nav.NavMode.Infantry;
                 w.GoalId[slot] = m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(m.Map.NavIndex(c.x, c.y), mode));
+                // and he is not advancing: a man put down is Exposed (under a >> order), which holds his fire to
+                // AdvanceFireRange (60 m) and sprints him; CraterMen's men and their enemy line, 80 m apart, never fired
+                w.Flags[slot] = w.Flags[slot] & ~(uint)UnitFlags.Exposed;
             });
         }
 
@@ -388,6 +391,24 @@ namespace TW.Perf
             }
         }
 
+        /// <summary>`near`'s column, `metres` out from our front trench toward the enemy: no man's land.</summary>
+        public Vector2 OutFront(Vector2 near, float metres)
+        {
+            var map = Host.Local.Map; var w = Host.Local.World;
+            short t = Host.Local.Fields.FrontTrench(0);
+            if (t < 0 || t >= map.Trenches.Length) return near;
+            var def = map.Trenches[t];
+            float bestZ = near.y, best = float.MaxValue;
+            for (int c = 0; c < def.CellCount; c++)
+            {
+                var p = map.NavCellCenter(map.TrenchCells[def.CellStart + c]);
+                float d = Mathf.Abs(p.x - near.x);
+                if (d < best) { best = d; bestZ = p.z; }
+            }
+            float toward = Mathf.Sign(w.Rally[1].z - bestZ);
+            return new Vector2(near.x, bestZ + toward * metres);
+        }
+
         /// <summary>Send a unit the gym spawned to `at` (its goal: that nav cell, tracked for a machine).</summary>
         public void GoTo(int slot, Vector2 at)
         {
@@ -547,7 +568,8 @@ namespace TW.Perf
                     foreach (var c in cells) { int s = Spawn(0, 0, c.x, c.y, 0f); if (s >= 0) { Garrison(s); r?.Watch.Add(s); } }
                     var mid = cells[cells.Count / 2];
                     var toward = (new Vector2(enemyRally.x, enemyRally.z) - mid).normalized;
-                    Row(1, 0, 6, mid + toward * 80f, 3f);
+                    // the enemy line stands where it is put: with no goal it made for its own rear trench, out of range
+                    foreach (var s in Row(1, 0, 6, mid + toward * 80f, 3f)) Hold(s);
                     if (r != null) r.Focus = new float3(mid.x, 0f, mid.y);
                     yield return new WaitForSeconds(3f);
                     if (scene == GymScene.BarrageOnTrench) Ability(OffMapAbilityId.HeBarrage, mid, seat: 1);
@@ -556,7 +578,10 @@ namespace TW.Perf
                 }
                 case GymScene.CraterMen:
                 {
-                    var at = Stage;
+                    // in no man's land, 25 m out from our front trench: behind it the men are dead ground to an enemy
+                    // beyond it (TargetAcquisition, CombatTables.DeadGroundMetres) and nothing reaches them, as the
+                    // stage in our rear had it (2026-10-01); and shell holes are out there
+                    var at = OutFront(Stage, 25f);
                     Ability(OffMapAbilityId.HeBarrage, at);   // make the craters first
                     yield return new WaitForSeconds(11f);
                     // a man in each of the holes it made, the nearest first (a row stood beside them, on the grass);
@@ -565,12 +590,14 @@ namespace TW.Perf
                     var men = new List<int>();
                     foreach (var c in holes) { int s = Spawn(0, 0, c.x, c.y, 0f); if (s >= 0) men.Add(s); }
                     if (men.Count < 6) men.AddRange(Row(0, 0, 6 - men.Count, at, 3f));
-                    foreach (var s in men) r?.Watch.Add(s);
+                    // each stays in his hole (with no goal he made for his side's rear trench, running and dropping into
+                    // it, out of the barrage's holes and out of the line's sight: "nothing reached the men" again)
+                    foreach (var s in men) { Hold(s); r?.Watch.Add(s); }
                     // their enemy where they are the nearest of ours: toward the enemy's rally the line found our
                     // front trench's garrison first and shot at it (2026-10-01: 9 rounds, none at the men in the holes)
                     var centre = at;
                     if (holes.Count > 0) { centre = Vector2.zero; foreach (var c in holes) centre += c; centre /= holes.Count; }
-                    Row(1, 0, 6, centre + Clearest(centre, 80f, new Vector2(enemyRally.x, enemyRally.z) - centre) * 80f, 3f);
+                    foreach (var s in Row(1, 0, 6, centre + Clearest(centre, 60f, new Vector2(enemyRally.x, enemyRally.z) - centre) * 60f, 3f)) Hold(s);
                     if (r != null) r.Focus = new float3(centre.x, 0f, centre.y);
                     yield return new WaitForSeconds(3f);   // as the trench scenes: the line finds them and opens fire
                     break;
