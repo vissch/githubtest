@@ -178,6 +178,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
   game's machine, left alone). Still to check in Play: rockets reaching the ground on their burst's frame, the trails at
   night (alpha 0.7), the hover over trenches, both far LODs at 170 m, and the ribbon shader in a Windows build.
+- **The battlefield from overview and far zoom at night (2026-10-01, the gym's O120/O240/Far shots):** the fog bank
+  round the battlefield's edges (`Atmosphere`, "closes the view on every side") is the night's dark blue, and from
+  240-600 m up it reads as a void with the lit field floating in it as a slab; the backdrop that runs on past the
+  edges (`BattlefieldBackdrop`: trenches, the wire belt, the skirt to the horizon) is under it. Options: (a) leave it
+  (default taken: nothing changed); (b) thin the bank with the camera's height, so the country round the field shows
+  from the overview up, the haze still closing the far horizon; (c) keep the bank and light what stands under its edge
+  (distant fires, the lines running on) so the void reads as country at night.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
