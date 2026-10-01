@@ -117,15 +117,24 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
                 // look.fireStreak: wet mud stretches a flame's reflection into a long streak running from under it back
                 // toward the viewer (the owner's colour edit: an orange smear under every burning wreck), where a mirror
                 // would show one point. Measured in the ground plane: this point lies on the streak when the flame stands
-                // ahead of it along the reflected ray (along) and close beside that line (across).
-                float2 rh = r.xz * rsqrt(max(dot(r.xz, r.xz), 1e-4));
+                // ahead of it on the line from the camera through it (along) and close beside that line (across). The
+                // line is the flat ground's reflected ray, not this pixel's: the soaked mud's bumps scatter r, and a
+                // streak taken from it broke into specks (round 23).
+                float2 rh = positionWS.xz - _WorldSpaceCameraPos.xz;
+                rh *= rsqrt(max(dot(rh, rh), 1e-4));
                 float along = dot(d.xz, rh);
-                float across = abs(d.x * rh.y - d.z * rh.x);
-                float width = 0.3 + 0.06 * along;   // widens toward the viewer, as a rough mirror's does
-                half s = (1.0 - smoothstep(width * 0.35, width, across)) * smoothstep(0.0, 0.8, along)
-                       * (1.0 - smoothstep(reach * 0.8, reach * TW_STREAK_REACH, along));
-                s *= 0.5 + 0.5 * smoothstep(-0.3, 0.5, sin(along * 3.7 + dot(positionWS.xz, float2(1.3, 0.7))));   // broken into painted dabs
-                glints += _TWPoolTint[k].rgb * s * _TWFireStreak;
+                float across = d.x * rh.y - d.z * rh.x;   // signed: the wobble below bends it either way
+                float wob = dot(positionWS.xz, float2(2.3, 1.7));
+                across = abs(across + 0.07 * sin(along * 1.9 + wob));   // the column wanders a little, as ripples bend it
+                float width = 0.10 + 0.02 * along;   // a thin column, a quarter of a fire's width (round 23's critic: "a flat orange flood")
+                half fade = 1.0 - saturate(along / (reach * TW_STREAK_REACH));
+                half s = (1.0 - smoothstep(width * 0.3, width, across)) * smoothstep(0.0, 0.8, along) * fade * fade;
+                // broken by the wet ground's ripples: uneven dark gaps across the column, about half of it (one even
+                // sine read as road markings)
+                half ripple = sin(along * 7.0 + 2.3 * sin(dot(positionWS.xz, float2(6.1, 4.7)))) + 0.8 * sin(along * 2.9 + wob * 1.3);
+                s *= smoothstep(0.1, 0.9, ripple) * 2.0;
+                half3 deep = _TWPoolTint[k].rgb * half3(1.0, 0.62, 0.32);   // deeper orange than the flame: acid yellow on the mud read as paint
+                glints += deep * s * _TWFireStreak;
             }
         }
     }
