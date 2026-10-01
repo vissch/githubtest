@@ -85,7 +85,7 @@ render frame      ──►  SimPresenter.Interpolate ──►  AnimationContro
 | `PrevRow`, `PrevFrame`, `Blend` | the clip being faded out, 0.12 to 0.25 s cross-fade |
 | `Layer` | which ladder rung owns the body right now (see 4) |
 | `Stance`, `WantStance` | the animated stance (may lag the sim's by a transition) |
-| `AimYaw`, `BodyYaw` | where he aims, where his feet point (they differ while a turn clip plays or while firing on the move) |
+| `AimYaw`, `BodyYaw` | where he aims, where his feet point (they differ while a turn clip plays or while firing on the move); moving, the feet point the way he has been going, his steps blended 0.3 a tick (`heading`), so a shove back one step does not turn him about |
 | `IdleSince`, `LastShot`, `LastHit`, `LastNearMiss`, `LastBlast` | ticks, for cooldowns and fidget timers |
 | `Shots` | rounds since the last reload (presentation counter until the sim has magazines) |
 | `Seed` | hash of slot and generation: picks variants |
