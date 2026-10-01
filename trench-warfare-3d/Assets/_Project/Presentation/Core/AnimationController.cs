@@ -178,6 +178,9 @@ namespace TW.Presentation
         NativeArray<float> waveR, waveD;
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
+        NativeArray<byte> blow;         // he struck a blow this tick (MeleeBlow): 1 + its style (stab, butt, smash, fists); shotAt holds whom at
+        NativeArray<byte> blocked;      // he turned a blow aside this tick (MeleeBlow with scalar 0)
+        TW.Sim.Combat.MeleeSystem melee; bool lookedForMelee;
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
 
@@ -211,6 +214,7 @@ namespace TW.Presentation
             leftTrench = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            blow = new NativeArray<byte>(maxSlots, Allocator.Persistent); blocked = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
             AllocateDeaths(maxSlots);
@@ -219,7 +223,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); blow.Dispose(); blocked.Dispose(); shotAt.Dispose();
             DisposeDeaths();
         }
 
@@ -285,7 +289,7 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; blow[i] = 0; blocked[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
             crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
@@ -307,6 +311,10 @@ namespace TW.Presentation
                         break;
                     case SimEventType.GrenadeThrown:
                         if (e.A >= 0 && e.A < count) { threw[e.A] = 1; shotAt[e.A] = e.B; }
+                        break;
+                    case SimEventType.MeleeBlow:   // dir.y = the style, scalar = damage, 0 blocked, -1 missed (MeleeSystem)
+                        if (e.A >= 0 && e.A < count) { blow[e.A] = (byte)(1 + math.clamp((int)math.round(e.Dir.y), 0, 3)); shotAt[e.A] = e.B; }
+                        if (e.B >= 0 && e.B < count && e.Scalar == 0f) blocked[e.B] = 1;
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
@@ -433,6 +441,15 @@ namespace TW.Presentation
             var simStance = (Stance)w.StanceOf[i];
             uint f = w.Flags[i];
             int target = w.TargetSlot[i];
+            // hand to hand (MeleeSystem): he stands and faces the man he fights, whoever his rifle's target is
+            bool fighting = simStance == Stance.Melee;
+            if (fighting)
+            {
+                simStance = Stance.Standing;
+                if (!lookedForMelee) { melee = w.GetSystem<TW.Sim.Combat.MeleeSystem>(); lookedForMelee = true; }
+                int foe = melee != null && melee.Foe.IsCreated ? melee.Foe[i] : -1;
+                if (foe >= 0 && foe < count) target = foe;
+            }
             if (target >= 0) { if (tick - s.LastTarget > 1) s.TargetSince = tick; s.LastTarget = tick; }   // every tick, whatever rung returns below
             float supp = w.Suppression[i];
             byte arche = w.Archetype[i];
@@ -446,7 +463,7 @@ namespace TW.Presentation
             // yaw: the body follows the heading when moving, aim follows the target; standing still with a target
             // within 60 degrees the feet simply come round (Advance eases the shown yaw); beyond that a turn clip plays
             if (speed > 0.15f) s.BodyYaw = math.atan2(step.x, step.z);
-            int aimAt = target >= 0 ? target : shotThisTick[i] != 0 || threw[i] != 0 ? shotAt[i] : -1;
+            int aimAt = blow[i] != 0 ? shotAt[i] : target >= 0 ? target : shotThisTick[i] != 0 || threw[i] != 0 ? shotAt[i] : -1;
             if (aimAt >= 0 && aimAt < count) { float3 d = w.Position[aimAt] - p; s.AimYaw = math.atan2(d.x, d.z); }
             else if (speed > 0.15f) s.AimYaw = s.BodyYaw;
 
@@ -652,6 +669,33 @@ namespace TW.Presentation
                 if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }
                 Start(i, ref s, Clip.Throw, Rung.Action, (i == FollowSlot ? "throws a bomb at " + shotAt[i] : null), 1f, 0.08f);
                 s.Frame = 0.4f * Clips.Table[(int)Clip.Throw].Seconds;
+                return;
+            }
+            // hand to hand: the blow he struck this tick (a stab, the butt, an overhead smash; a fists man swings the butt
+            // clip until he has one of his own), and the block of the man who turned one aside
+            if (blow[i] != 0 && !prone && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
+            {
+                s.Routine = 0;
+                if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }
+                Clip c = blow[i] == 1 ? Clip.MeleeStab : blow[i] == 3 ? Clip.MeleeSmash : Clip.MeleePunch;
+                Start(i, ref s, c, Rung.Action, (i == FollowSlot ? "hand to hand: strikes " + shotAt[i] : null), 1f, 0.08f);
+                s.Stance = (byte)Stance.Standing;
+                return;
+            }
+            if (blocked[i] != 0 && !prone && !(s.Rung == Rung.Action && Playing(s)) && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
+            {
+                s.Routine = 0;
+                Start(i, ref s, Clip.MeleeBlock, Rung.Action, (i == FollowSlot ? "hand to hand: turns a blow aside" : null), 1f, 0.08f);
+                s.Stance = (byte)Stance.Standing;
+                return;
+            }
+            if (fighting && s.Rung == Rung.Action && Playing(s)) return;   // a blow or a block plays out between the sim's swings
+            // between blows he stands on guard, rifle up, facing his man: no kneeling, no fidget, no trench routine
+            if (fighting && speed < 0.3f && !prone && !(s.Rung == Rung.Reaction && Playing(s)))
+            {
+                s.Routine = 0; s.Stance = s.WantStance = (byte)Stance.Standing; s.Aimed = true;
+                if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }
+                if (s.Clip != Clip.AimedIdle) Start(i, ref s, Clip.AimedIdle, Rung.Idle, (i == FollowSlot ? "hand to hand: on guard" : null), 1f, 0.15f);
                 return;
             }
             if (shotThisTick[i] != 0) { s.Shots++; s.LastShot = tick; s.Aimed = true; }
