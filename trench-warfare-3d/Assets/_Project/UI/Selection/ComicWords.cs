@@ -2,7 +2,8 @@
 // The owner's edits of a game screenshot letter a "CRACK" into the night in pale blue with a dark rim. Here a word pops
 // over the field at a notable moment: CRACK where a bullet passes a man close (NearMiss), CLANG where a shell bounces off
 // a hull (VehicleArmourHit, stopped), KRUMP where a big shell bursts (Explosion, radius 6 m or more), KA-BOOM where a
-// machine cooks off (VehicleCookOff). Rare by rule, not by luck: one word at most every fx.comicGap seconds (8), the
+// machine cooks off (VehicleCookOff); and, 2026-10-01, THWACK where a blow lands hand to hand, CLACK where one is turned
+// aside (MeleeBlow), WHUMP where a crab comes down from its leap (PounceLanded). Rare by rule, not by luck: one word at most every fx.comicGap seconds (8), the
 // weightiest of the moments since the last word, never more than MaxLive on screen, and only where the camera sees it
 // (inside the frame's margin, nearer than MaxViewM). fx.comicWords 0 turns them off. No glow: the owner's edit had a
 // magenta one, and the owner kept the letters without it. Drawn on the HUD's markers layer like DeathMarks, pooled.
@@ -24,12 +25,15 @@ namespace TW.UI
         public const float NearMissLiftM = 4.2f, LiftM = 5.2f;
 
         /// <summary>A moment worth a word, weightiest last.</summary>
-        public enum Moment : byte { None, NearMiss, BigBurst, Ricochet, CookOff }
+        public enum Moment : byte { None, NearMiss, Parry, Blow, BigBurst, Ricochet, Pounce, CookOff }   // hand to hand and the crab's leap: 2026-10-01
 
         /// <summary>The word each moment gets.</summary>
         public static string WordFor(Moment m) => m switch
         {
             Moment.NearMiss => "CRACK!",
+            Moment.Parry => "CLACK!",
+            Moment.Blow => "THWACK!",
+            Moment.Pounce => "WHUMP!",
             Moment.BigBurst => "KRUMP!",
             Moment.Ricochet => "CLANG!",
             Moment.CookOff => "KA-BOOM!",
@@ -40,6 +44,9 @@ namespace TW.UI
         public static Moment Classify(SimEvent e) => e.Type switch
         {
             SimEventType.NearMiss => Moment.NearMiss,
+            SimEventType.MeleeBlow when e.Scalar > 0f => Moment.Blow,      // a blow that landed (MeleeSystem: scalar = damage)
+            SimEventType.MeleeBlow when e.Scalar == 0f => Moment.Parry,    // one turned aside; a miss (-1) says nothing
+            SimEventType.PounceLanded => Moment.Pounce,                    // a crab comes down (PounceSystem)
             SimEventType.Explosion when e.Scalar >= BigBurstM && e.Dir.y < 1.5f => Moment.BigBurst,   // a shell or masonry, not a cook-off (Dir.y 2)
             SimEventType.VehicleArmourHit when e.Scalar < 0f => Moment.Ricochet,                     // negative: the plate stopped it
             SimEventType.VehicleCookOff => Moment.CookOff,
@@ -110,7 +117,7 @@ namespace TW.UI
             var m = Classify(e);
             if (m == Moment.None) return;
             Vector3 p = e.Pos;
-            if (host != null && host.Local != null) p.y = RenderGround.Sample(host.Local.Map, p.x, p.z) + (m == Moment.NearMiss ? NearMissLiftM : LiftM);
+            if (host != null && host.Local != null) p.y = RenderGround.Sample(host.Local.Map, p.x, p.z) + (m == Moment.NearMiss || m == Moment.Blow || m == Moment.Parry ? NearMissLiftM : LiftM);
             if (lastCam != null && !Seen(lastCam.WorldToViewportPoint(p), Vector3.Distance(lastCam.transform.position, p))) return;
             picker.Offer(m, p);
         }
