@@ -109,6 +109,9 @@ namespace TW.Presentation.Tactical
             /// gatlings' spin (0..1, wound up by each round) and angle.</summary>
             public float HopPhase, HopTilt, Spin, SpinAngle;
             public int BarrelTurn;   // which barrel cluster fires next
+            /// <summary>A hopper's height as a share of its sculpt's (1 at rest): it flattens as it lands and gathers, stretches
+            /// at the top of a hop, and breathes when it sits. Its width and length give way so its bulk stays.</summary>
+            public float Squash = 1f;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -808,7 +811,7 @@ namespace TW.Presentation.Tactical
 
         void HopPose(View v, float dt)
         {
-            if (v.Dead) { v.HopPhase = 0f; v.Bob = 0f; v.HopTilt = 0f; v.Spin = 0f; return; }
+            if (v.Dead) { v.HopPhase = 0f; v.Bob = 0f; v.HopTilt = 0f; v.Spin = 0f; v.Squash = 1f; return; }
             float moved = new Vector2(v.Pos.x - v.LastPos.x, v.Pos.z - v.LastPos.z).magnitude;
             bool going = Mathf.Abs(v.Speed) > 0.25f && !v.Stalled;
             if (going || v.HopPhase > 0f)
@@ -817,6 +820,7 @@ namespace TW.Presentation.Tactical
                 if (v.HopPhase >= 1f)
                 {
                     v.HopPhase = going ? v.HopPhase - Mathf.Floor(v.HopPhase) : 0f;
+                    v.Squash = 0.82f;   // it lands flat and comes back up
                     // it lands: dust thrown out from under each side
                     if (books != null && books.Ready)
                     {
@@ -831,6 +835,10 @@ namespace TW.Presentation.Tactical
             float p = v.HopPhase;
             v.Bob = HopHeight * 4f * p * (1f - p);
             v.HopTilt = p > 0f ? HopTiltMax * Mathf.Cos(Mathf.PI * p) : 0f;
+            // gathered low as it leaves the ground, long at the top; sitting, a slow breath
+            float shape = p > 0f ? 1f + 0.09f * Mathf.Sin(Mathf.PI * p) - 0.14f * Mathf.Exp(-(p * 9f) * (p * 9f))
+                                 : 1f + 0.012f * Mathf.Sin(Time.time * 1.7f + v.Slot);
+            v.Squash = Mathf.Lerp(v.Squash, shape, 1f - Mathf.Exp(-dt * 14f));
             v.Spin = Mathf.MoveTowards(v.Spin, 0f, dt * 1.2f);
             if (v.Spin > 0f) v.SpinAngle = Mathf.Repeat(v.SpinAngle + v.Spin * SpinRate * dt, Mathf.PI * 2f);
         }
@@ -863,7 +871,8 @@ namespace TW.Presentation.Tactical
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
-            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), Vector3.one);
+            float wide = v.Squash == 1f ? 1f : 1f / Mathf.Sqrt(Mathf.Max(0.5f, v.Squash));
+            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), new Vector3(wide, v.Squash, wide));
             // the legs are solved against the body as it is actually sitting, tilt and all, so a machine standing
             // across a slope has its downhill legs reach further rather than its feet float
             if (v.Legs != null && v.Legs.Ready && lod.Legs != null)
