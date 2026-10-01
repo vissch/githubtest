@@ -36,7 +36,7 @@ The battle's copies, as run 2026-09-28 (the sources unzipped to short paths firs
 
 | Croaker | `steampunk+frog+robot+3d+model.zip`, `mecha frog 3d model.zip`, `mech+robot+3d+model.zip` | `TW_BATTLE=1 TW_LOD2_TRIS=1443 ... mechsplit.py -- Croaker <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/Croaker <renderdir>` | 9,738 / 1,435 |
 | Hopper | `green+tank+3d+model (1).zip`, `green+cartoon+tank+3d+model.zip`, `green+tank+3d+model.zip` | `TW_BATTLE=1 TW_KIND=flyer ... mechsplit.py -- Hopper <lod0.fbx> <lod1.fbx> <lod2.fbx> Assets/_Project/Resources/Vehicles/Hopper <renderdir>` | 5,903 / 985 |
-| Bullfrog | `frog+mecha+3d+model.zip` (one LOD; the far one derived) | `TW_BATTLE=1 TW_KIND=gatling TW_LOD2_TRIS=1200 ... mechsplit.py -- Bullfrog <lod0.fbx> Assets/_Project/Resources/Vehicles/Bullfrog <renderdir>`, then `portraitcut.py` (940 tore the far model: 12.2 % of its edges folded, the test allows 12 %) | 4,948 / 1,193 |
+| Bullfrog | `frog+mecha+3d+model.zip` (one LOD; the far one derived) | `TW_BATTLE=1 TW_KIND=gatling TW_LOD2_TRIS=1200 ... mechsplit.py -- Bullfrog <lod0.fbx> Assets/_Project/Resources/Vehicles/Bullfrog <renderdir>`, then `portraitcut.py` (940 tore the far model: 12.2 % of its edges folded, the test allows 12 %), then `python Tools/atlasgrade.py Assets/_Project/Resources/Vehicles/BullfrogAtlas.jpg` (its pale steel paint, median luminance 0.37 against the Brute's 0.24, down to 0.24 and its greys toward teal: a re-split rewrites the atlas, so grade it again) | 4,948 / 1,193 |
 | Brute | `tank+3d+model.zip`, `(1)`, `(2)`, each unzipped to a folder of its own, the FBX renamed m.fbx, with the four textures of its .fbm folder (the names ending _0_0 to _0_3) beside it as m_tex0_0 to m_tex0_3 (.jpg) | `TW_BATTLE=1 ... tank3split.py -- Brute <b0>/m.fbx <b1>/m.fbx <b2>/m.fbx Assets/_Project/Resources/Vehicles/Brute <renderdir>` | 7,861 / 1,166 |
 | Mercy | `ambulance jeep 3d model.zip`, `green toy jeep 3d model.zip` | `TW_BATTLE=1 ... jeepsplit.py -- Mercy <lod0.fbx> <lower.fbx> Assets/_Project/Resources/Vehicles/Mercy <renderdir>` | 6,984 / 1,214 |
 
@@ -83,6 +83,7 @@ Traps, all silent:
 | Script | Does | Usage |
 |---|---|---|
 | `portraitcut.py` | Cuts a machine's portrait render (`mechsplit.py TW_BATTLE=1`) into `UI/Resources/UnitArt/<Name>.png` (512 px) and `UI/Skin/Portraits/<Name>.png` (256 px): cropped, centred, an ink outline | `python Tools/portraitcut.py <render.png> <Name>` |
+| `atlasgrade.py` | Grades a machine's atlas for the night field: a gamma, a saturation lift and a tint on its near-greys; prints the median luminance before and after | `python Tools/atlasgrade.py <atlas.jpg> [--gamma 1.4] [--sat 1.25] [--tint r,g,b] [--grey 0.18]` |
 
 ## Asset playground (docs/22)
 

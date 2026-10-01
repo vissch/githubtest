@@ -147,6 +147,7 @@ namespace TW.Presentation.Tactical
         Vector3 lastBlast; float lastBlastAt = -10f;   // the newest burst: what broke this tick fell away from it
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
+        readonly HashSet<int> blowStruck = new HashSet<int>(); int blowFrame = -1;   // the men a MeleeBlow landed on this frame
         int hitsThisFrame;
         TW.Presentation.Units.VATRenderer units;
         bool subscribed;
@@ -597,7 +598,7 @@ namespace TW.Presentation.Tactical
                     break;
                 }
                 case SimEventType.WeaponDropped:
-                {
+                {   // (blowStruck / blowFrame: the men a blow landed on this frame, for the Hit that follows it)
                     // a fists man throws his weapon down as a fight starts (MeleeSystem; pos = where it falls, dir = the way he
                     // throws it): a rifle leaves his hands and lies there. It is debris, so it stays while the fight lasts.
                     if (debris == null || e.A < 0 || e.A >= w.HighWater || CameraShake.DistanceToLook(w.Position[e.A]) > 80f) break;
@@ -616,6 +617,7 @@ namespace TW.Presentation.Tactical
                     if (CameraShake.DistanceToLook(w.Position[e.B]) > 60f) break;
                     float size = units != null ? units.UnitScale : 1f;
                     Vector3 chest = EstimateChest(e.B, size);
+                    if (e.Scalar > 0f) { if (blowFrame != Time.frameCount) { blowFrame = Time.frameCount; blowStruck.Clear(); } blowStruck.Add(e.B); }
                     if (e.Scalar > 0f) books.Add(FlipbookFx.Book.Star, chest, 0.9f * size, 0.12f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 2.5f : 1.4f);
                     else
                     {
@@ -649,7 +651,12 @@ namespace TW.Presentation.Tactical
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
                     if (vehicle) books.Add(FlipbookFx.Book.Star, p, 1.5f * scale * UnityEngine.Random.Range(0.8f, 1.2f), 0.07f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 4f : 1.8f) * SceneTints.Now.Glow);
                     else books.Add(FlipbookFx.Book.Flash, p, 2.0f * scale, 0.09f, roll: UnityEngine.Random.value * 6.2832f, glow: (SceneMood.Night ? 3.2f : 1.4f) * SceneTints.Now.Glow, pop: 0.5f);
-                    if (e.Scalar > 0f)
+                    // a blow in a brawl puffs a fistful of dust off his coat, not a round's cloud (it hid the fight, critic 2026-10-01)
+                    bool blow = blowFrame == Time.frameCount && blowStruck.Contains(e.B);
+                    if (e.Scalar > 0f && blow)
+                        books.Add(FlipbookFx.Book.Puff, p, 0.7f * scale, 0.45f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: toward.normalized * 0.9f + Vector3.up * 0.8f, grow: 0.8f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.45f, pop: 0.4f);
+                    else if (e.Scalar > 0f)
                         books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, UnityEngine.Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                             velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: UnityEngine.Random.Range(-0.5f, 0.5f), alpha: 0.85f, pop: 0.4f);
                     if (vehicle && SceneMood.Night) Throw(p, 10, 3, 10f, 0.035f);   // sparks off armour

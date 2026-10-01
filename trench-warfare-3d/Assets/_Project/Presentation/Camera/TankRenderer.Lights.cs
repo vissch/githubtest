@@ -70,7 +70,22 @@ namespace TW.Presentation.Tactical
 
         Vector3[] LampsFor(TankModel m)
         {
-            if (!lampsOf.TryGetValue(m, out var at)) { at = MachineLamps.Place(m); lampsOf[m] = at; }
+            if (!lampsOf.TryGetValue(m, out var at))
+            {
+                at = MachineLamps.Place(m);
+                // the Bullfrog's lamps are its two eyes (measured off its hull: the vertices its atlas paints yellow), each
+                // pair of the four on one eye: four corner lamps sat round its mouth and under its guns, and two toads in
+                // the wide view were a clump of nine orbs (critic 2026-10-01)
+                if (at != null && m.Archetype == VehicleArchetype.Bullfrog && m.Lods[0].Parts.Count > 0)
+                {
+                    var toMesh = MachineLamps.HullFrame(m.Lods[0].Parts[0]).inverse;
+                    float k = BullfrogScale;
+                    Vector3 left = toMesh.MultiplyPoint3x4(new Vector3(-0.66f, 1.74f, 1.2f) * k), right = toMesh.MultiplyPoint3x4(new Vector3(0.66f, 1.74f, 1.2f) * k);
+                    at[MachineLamps.FrontLeft] = at[MachineLamps.RearLeft] = left;
+                    at[MachineLamps.FrontRight] = at[MachineLamps.RearRight] = right;
+                }
+                lampsOf[m] = at;
+            }
             return at;
         }
 

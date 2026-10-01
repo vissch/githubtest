@@ -108,7 +108,7 @@ namespace TW.Presentation.Tactical
             /// <summary>A hopper's place in its hop (0 on the ground .. 1 landing), the nose tilt it gives, and its
             /// gatlings' spin (0..1, wound up by each round) and angle.</summary>
             public float HopPhase, HopTilt, Spin, SpinAngle;
-            public int BarrelTurn;   // which barrel cluster fires next
+            public int BarrelTurn, BarrelFrame;   // which barrel cluster fires, and the frame it last changed
             /// <summary>A hopper's height as a share of its sculpt's (1 at rest): it flattens as it lands and gathers, stretches
             /// at the top of a hop, and breathes when it sits. Its width and length give way so its bulk stays.</summary>
             public float Squash = 1f;
@@ -924,7 +924,10 @@ namespace TW.Presentation.Tactical
             int n = 0, pick = -1;
             for (int i = 0; i < parts.Count; i++) if (parts[i].Name != null && parts[i].Name.StartsWith("Barrels")) n++;
             if (n == 0) return false;
-            int want = v.BarrelTurn++ % n;
+            // one gun for everything a frame asks (the flash and the tracer of one round each ask: counting calls gave the
+            // flash to one gun and the tracer to the other, critic 2026-10-01), the other gun the next frame it fires
+            if (v.BarrelFrame != Time.frameCount) { v.BarrelFrame = Time.frameCount; v.BarrelTurn++; }
+            int want = v.BarrelTurn % n;
             for (int i = 0; i < parts.Count; i++)
                 if (parts[i].Name != null && parts[i].Name.StartsWith("Barrels") && want-- == 0) { pick = i; break; }
             if (pick < 0 || pick >= v.World.Length) return false;
@@ -1161,6 +1164,14 @@ namespace TW.Presentation.Tactical
             v.Dead = true; v.DiedAt = now; v.Scorch = Mathf.Max(v.Scorch, 0.85f); v.Hatch = 1f; v.Throttle = 0f;
             StillWeight(v);
             v.Burn = Mathf.Max(v.Burn, v.CookOff ? 1f : 0.5f);
+            if (v.Archetype == VehicleArchetype.Bullfrog)
+            {
+                // a dead toad is not its live pose painted black (critic 2026-10-01): it slumps flat on its belly, heeled
+                // to one side, its guns dropped
+                v.Squash = 0.74f; v.Bob = 0f; v.HopTilt = 0f; v.HopPhase = 0f;
+                v.GunPitch[0] = v.GunPitch[1] = -17f * Mathf.Deg2Rad;
+                v.Roll.Value += ((v.Slot & 1) == 0 ? 8f : -8f) * Mathf.Deg2Rad; v.Roll.Velocity = 0f;
+            }
             Pose(v, v.Model.Lods[0], v.World);
             if (v.CookOff)
             {
