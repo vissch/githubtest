@@ -56,6 +56,7 @@ namespace TW.Tests
             Assert.AreEqual(1f, NightLights.DefaultThroughHaze, "the lamps shine through the lifted haze");
             Assert.That(NightLights.DefaultFireStreak, Is.InRange(0.5f, 2f), "every flame streaks its reflection across the wet mud, but not so bright the breaks read as road markings");
             Assert.Greater(NightLights.DefaultGlintUnblue, 0f, "a flame's glint warms the wet mud orange, not lilac (the owner's no-purple rule)");
+            Assert.That(Atmosphere.DefaultSilhouette, Is.InRange(0.1f, 0.9f), "props stand dark against the lifted distance, yet still in its haze");
             Assert.AreEqual(1f, Atmosphere.DefaultInkFade, "the ink fades with the haze, or distant wire is bare black outlines");
             Assert.Greater(Atmosphere.DefaultMoonSheen, 0.3f, "the near wet mud glints at the play view, not only among the men");
             Assert.Less(Atmosphere.DefaultMudSheen, 1f, "the mud's moon highlights are below the men's: the highlights go on fire and sparkles, not on big pale surfaces");

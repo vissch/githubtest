@@ -298,7 +298,7 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistId, Vector4.zero);
             Shader.SetGlobalVector(FieldId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogId, Vector4.zero);
-            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f); Shader.SetGlobalFloat(WaterDimId, 0f); Shader.SetGlobalFloat(GlowHueId, 0f); Shader.SetGlobalFloat(GlowFadeId, 0f); Shader.SetGlobalFloat(MoonSheenId, 0f); Shader.SetGlobalFloat(MudSheenId, 0f); Shader.SetGlobalFloat(MudSkyId, 0f); Shader.SetGlobalFloat(MenReadId, 0f); Shader.SetGlobalFloat(MenSheenCutId, 0f); Shader.SetGlobalVector(CurtainId, Vector4.zero);
+            Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f); Shader.SetGlobalFloat(WaterDimId, 0f); Shader.SetGlobalFloat(GlowHueId, 0f); Shader.SetGlobalFloat(GlowFadeId, 0f); Shader.SetGlobalFloat(MoonSheenId, 0f); Shader.SetGlobalFloat(MudSheenId, 0f); Shader.SetGlobalFloat(MudSkyId, 0f); Shader.SetGlobalFloat(MenReadId, 0f); Shader.SetGlobalFloat(MenSheenCutId, 0f); Shader.SetGlobalFloat(SilhouetteId, 0f); Shader.SetGlobalVector(CurtainId, Vector4.zero);
             ClearBiome();
             UnhookFog();
             if (shadowDistanceWas >= 0f && UniversalRenderPipeline.asset != null) UniversalRenderPipeline.asset.shadowDistance = shadowDistanceWas;
