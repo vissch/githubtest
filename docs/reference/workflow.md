@@ -396,6 +396,16 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
+| `TW.Editor.VfxLab.Shell(x, z, radius, damage)` | Editor/VfxLab.cs | One shell, bursting next tick in every world. |
+| `TW.Editor.VfxLab.Fire(x, z, radius)` | Editor/VfxLab.cs | An incendiary burst: the men inside it catch fire. |
+| `TW.Editor.VfxLab.Call(ability, x, z, args)` | Editor/VfxLab.cs | A support call for player 0 at a point (silver topped up first). |
+| `TW.Editor.VfxLab.Men(n, x, z, team, spacing)` | Editor/VfxLab.cs | n riflemen of a side standing still in a line along x from (x, z), facing +z; returns their slots. |
+| `TW.Editor.VfxLab.Wreck(archetype, x, z)` | Editor/VfxLab.cs | A machine held where it stands and shelled to death 1.5 s later. |
+| `TW.Editor.VfxLab.Burning(archetype, x, z)` | Editor/VfxLab.cs | A machine alight and still alive, held where it stands. |
+| `TW.Editor.VfxLab.Flare()` | Editor/VfxLab.cs | A star shell now (night: it lights the field for about 16 s). |
+| `TW.Editor.VfxLab.Rain(amount)` | Editor/VfxLab.cs | Rain on the field, 0..1 (0 off). |
+| `TW.Editor.VfxLab.Later(seconds, act)` | Editor/VfxLab.cs | Something done `seconds` from now (real time in Play), its answer logged. |
+| `TW.Editor.VfxLab.Scene(name, x, z)` | Editor/VfxLab.cs | A whole staging by name at (x, z), the effect's centre. |
 | `TW.Editor.WeightLab.Knob(name, value)` | Editor/WeightLab.cs | A knob set in the game on the lab's next frame (Knobs.Set from compiled code). |
 | `TW.Editor.WeightLab.Halt(slot)` | Editor/WeightLab.cs | The machine's drive taken away (its Speed to 0): with momentum it sheds its way at its Brake and runs on to a stop, as at a halt. |
 | `TW.Editor.WeightLab.Trace(slot, csv, seconds)` | Editor/WeightLab.cs | Traces the machine in `slot` for `seconds` of game time into `csv`. |
