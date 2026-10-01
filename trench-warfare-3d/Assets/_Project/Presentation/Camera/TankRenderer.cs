@@ -1304,7 +1304,9 @@ namespace TW.Presentation.Tactical
                     float b = Mathf.Sin((v.Slot + 1) * 39.3468f + k * 11.135f) * 24634.6345f; b -= Mathf.Floor(b);
                     Vector3 local = new Vector3((a - 0.5f) * hg * 1.2f, 0f, (b - 0.6f) * hl * 1.4f);
                     Vector3 top = hull.MultiplyPoint3x4(local);
-                    top.y = v.Heave.Value + v.Model.Height * (0.75f + 0.1f * a);
+                    // a flyer that came down lies on its side, far lower than its model stands: the tongues on its hull, not
+                    // over it (frog critic round 14: the Hopper's fire hung in the air above its wreck)
+                    top.y = v.Heave.Value + v.Model.Height * (0.75f + 0.1f * a) * (v.Lift >= FlyingFrom && v.Landed ? 0.3f : 1f);
                     bool big = k == 0;
                     flames.Add(new Flame { Foot = OnWhatIsLeft(v, top), Width = (big ? 2.4f : 1.2f) * lit, Height = (big ? 5.4f : 2.8f) * lit, Phase = v.Slot * 0.53f + k * 1.7f });
                 }
