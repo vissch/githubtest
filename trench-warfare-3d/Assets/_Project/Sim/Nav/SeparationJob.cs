@@ -6,6 +6,11 @@
 // one, at a body's width, not the 2 m spacing with its hard core under a metre. Held off at that core by the man at the
 // post ahead of him, he was shoved back a step every few ticks (forward, forward, forward, back) for as long as it took,
 // and drawn turning about on every back-step.
+// A man down on his belly in the open is squeezed past the same way (2026-10-01, men under fire): between him and any
+// man on the surface the push is the soft one at a body's width. With the 1.6 m surface spacing a man running up behind
+// a mate who had dropped stepped from its soft push to the hard core at one metre and back, tick by tick (the scripts'
+// match, seed 2: one man's steps reversed 19 times behind a lying mate), and men down in one shell hole shoved each
+// other about; now a runner slips past a man who is down, and men lying together lie a body's width apart.
 // Vehicles take no push: they are moved by VehicleKinematicsSystem and shove infantry, not the other way round.
 using Unity.Burst;
 using Unity.Collections;
@@ -34,6 +39,7 @@ namespace TW.Sim.Nav
         [ReadOnly] public NativeArray<int> Vehicles;   // alive vehicle slots (slot order)
         public NativeArray<float3> Push;               // output: additive velocity for this tick
         [ReadOnly] public NativeArray<int> PostCell;    // his post in the trench (TrenchGarrisonSystem), -1 none
+        [ReadOnly] public NativeArray<byte> StanceOf;   // last tick's stance: a man down on his belly (Prone, Pinned)
         public int NavWidth; public float NavCell;
 
         /// <summary>A garrison man walking to his post, not at it (MovementSystem's atPost, without its ladder case).</summary>
@@ -92,13 +98,23 @@ namespace TW.Sim.Nav
                         float dist = SimMath.Length(d);
                         bool mates = garrison >= 0 && TrenchId[j] == garrison;
                         bool open = onSurface && TrenchId[j] < 0 && (Flags[j] & (uint)UnitFlags.InTrench) == 0;
-                        bool passing = mates && (walking || OnTheWay(j));   // one of them squeezing past the other to his post
+                        bool down = open && (StanceOf[i] == (byte)Stance.Prone || StanceOf[i] == (byte)Stance.Pinned || StanceOf[j] == (byte)Stance.Prone || StanceOf[j] == (byte)Stance.Pinned);
+                        bool passing = down || (mates && (walking || OnTheWay(j)));   // one of them squeezing past the other: to his post, or past a man lying in the open
                         float want = passing ? diameter : mates ? GarrisonSpacing : open ? SurfaceSpacing : diameter;
                         if (dist < want)
                         {
                             float3 n = dist > 1e-4f ? d / dist : CoincidentNormal(i, j);
-                            float strength = passing ? GarrisonStrength : dist >= diameter ? (mates ? GarrisonStrength : SurfaceStrength) : Strength;
-                            sum += n * (want - dist) * strength;
+                            // two men on open ground: the soft spacing out to SurfaceSpacing, and inside a body's width the
+                            // hard push for the overlap on top of it, so the push has no step at a metre (it went from 0.33
+                            // to 2.4 m/s there, and a man running up on another at a wire belt was thrown back and came
+                            // on again, tick by tick)
+                            if (open && !passing)
+                                sum += n * (dist >= diameter ? (want - dist) * SurfaceStrength : (want - diameter) * SurfaceStrength + (diameter - dist) * Strength);
+                            else
+                            {
+                                float strength = passing ? GarrisonStrength : dist >= diameter ? (mates ? GarrisonStrength : SurfaceStrength) : Strength;
+                                sum += n * (want - dist) * strength;
+                            }
                         }
                     } while (Hash.Map.TryGetNextValue(out j, ref it));
                 }

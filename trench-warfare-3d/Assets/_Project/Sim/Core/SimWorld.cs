@@ -25,6 +25,7 @@ namespace TW.Sim
         public NativeArray<float> Hp;
         public NativeArray<float> MaxHp;
         public NativeArray<float> Suppression;
+        public NativeArray<float> Alarm;        // how lately and how hard he was fired on: follows Suppression up, comes down slower (SuppressionSystem); in the open he moves in rushes while it is up (MovementSystem, v27)
         public NativeArray<float> Speed;
         public NativeArray<byte> StanceOf;
         public NativeArray<byte> Team;
@@ -131,6 +132,7 @@ namespace TW.Sim
             Hp = new NativeArray<float>(n, Allocator.Persistent);
             MaxHp = new NativeArray<float>(n, Allocator.Persistent);
             Suppression = new NativeArray<float>(n, Allocator.Persistent);
+            Alarm = new NativeArray<float>(n, Allocator.Persistent);
             Speed = new NativeArray<float>(n, Allocator.Persistent);
             StanceOf = new NativeArray<byte>(n, Allocator.Persistent);
             PostCell = new NativeArray<int>(n, Allocator.Persistent);
@@ -200,7 +202,7 @@ namespace TW.Sim
             else { if (HighWater >= Config.MaxSlots) return -1; slot = HighWater++; }
 
             Position[slot] = pos; Velocity[slot] = float3.zero; Yaw[slot] = team == 0 ? 0f : SimMath.Pi;
-            Hp[slot] = hp; MaxHp[slot] = hp; Suppression[slot] = 0f; Speed[slot] = speed;
+            Hp[slot] = hp; MaxHp[slot] = hp; Suppression[slot] = 0f; Alarm[slot] = 0f; Speed[slot] = speed;
             StanceOf[slot] = (byte)Stance.Standing; Team[slot] = team; Archetype[slot] = archetype; Layer[slot] = 1;
             TrenchId[slot] = -1; SourceTrench[slot] = -1; TargetSlot[slot] = -1; GoalId[slot] = -1; Cooldown[slot] = 0; FireCooldown[slot] = 0; Knock[slot] = float3.zero;
             PostCell[slot] = -1; PostKind[slot] = 0;
@@ -425,6 +427,7 @@ namespace TW.Sim
             h = SimHash.Array(Cooldown, n, h);
             h = SimHash.Array(FireCooldown, n, h);
             h = SimHash.Array(Knock, n, h);
+            h = SimHash.Array(Alarm, n, h);   // v27
             foreach (var s in systems) h = s.Hash(h);
             return h;
         }
@@ -434,7 +437,7 @@ namespace TW.Sim
             foreach (var s in systems) s.Dispose();
             systems.Clear();
             Units?.Dispose(); Units = null;
-            Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose();
+            Position.Dispose(); Velocity.Dispose(); Yaw.Dispose(); Hp.Dispose(); MaxHp.Dispose(); Suppression.Dispose(); Alarm.Dispose();
             Speed.Dispose(); StanceOf.Dispose(); Team.Dispose(); Archetype.Dispose(); Layer.Dispose(); TrenchId.Dispose(); SourceTrench.Dispose();
             PostCell.Dispose(); PostKind.Dispose();
             TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose(); Knock.Dispose();
