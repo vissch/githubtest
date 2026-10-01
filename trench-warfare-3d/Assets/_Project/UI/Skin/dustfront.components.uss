@@ -272,6 +272,7 @@
 .tw-portrait-Croaker { background-image: url("Portraits/Croaker.png"); }
 .tw-portrait-Hopper { background-image: url("Portraits/Hopper.png"); }
 .tw-portrait-Mercy { background-image: url("Portraits/Mercy.png"); }
+.tw-portrait-Bullfrog { background-image: url("Portraits/Bullfrog.png"); }
 .tw-portrait-HeBarrage { background-image: url("Portraits/HeBarrage.png"); }
 .tw-portrait-ChlorineGas { background-image: url("Portraits/ChlorineGas.png"); }
 .tw-portrait-ParaDrop { background-image: url("Portraits/ParaDrop.png"); }
