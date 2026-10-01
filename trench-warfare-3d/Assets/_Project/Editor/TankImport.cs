@@ -37,7 +37,7 @@ namespace TW.Editor
 
         /// <summary>The models whose nested nodes are put right by the full rule (the header): written by the splitters'
         /// TW_BATTLE=1 on 2026-09-28.</summary>
-        public static readonly string[] ParentAware = { "Brute", "Croaker", "Hopper", "Mercy" };
+        public static readonly string[] ParentAware = { "Brute", "Croaker", "Hopper", "Mercy", "Bullfrog" };   // the Bullfrog (2026-10-01): its barrels, three levels down, sat 1 m behind and 0.4 m over their guns
 
         static bool IsParentAware(string path)
         {
