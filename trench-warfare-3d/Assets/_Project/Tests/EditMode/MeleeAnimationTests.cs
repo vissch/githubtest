@@ -89,7 +89,7 @@ namespace TW.Tests
                 into = math.max(into, math.dot(r.A.Lunge[r.Man], toFoe));
                 back = math.max(back, math.dot(r.A.Lunge[r.Foe], toFoe));
             }
-            Assert.Greater(into, 0.3f, "the striker is drawn stepping into his blow");
+            Assert.Greater(into, 0.2f, "the striker is drawn stepping into his blow (of LungeMetres 0.45: he is still turning to face his man as he goes)");
             Assert.Greater(back, 0.2f, "the man it landed on is drawn driven back, away from him");
             for (int t = 0; t < 40; t++) r.Tick();
             Assert.Less(math.length(r.A.Lunge[r.Man]) + math.length(r.A.Lunge[r.Foe]), 0.02f, "and both are back on their places after it");
