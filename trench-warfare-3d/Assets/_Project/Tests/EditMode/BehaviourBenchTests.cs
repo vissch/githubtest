@@ -71,7 +71,7 @@ namespace TW.Tests
             var r = new Result();
             var sb = new StringBuilder($"seed {seed}: {minutes} min, winner {(report.Winner < 0 ? "none" : report.Winner.ToString())} at {report.EndTick / 20} s, captures {report.CapturedByPlayer}/{report.CapturedByEnemy}\n");
             // machines
-            float metres = 0f, jam = 0f, spin = 0f, flips = 0f, worstFlip = 0f; string worstFlipOf = "-", worstJamOf = "-", worstSpinOf = "-"; float worstJam = 0f, worstSpin = 0f;
+            float metres = 0f, jam = 0f, spin = 0f, flips = 0f, worstFlip = 0f; string worstFlipOf = "-", worstJamOf = "-", worstSpinOf = "-"; float worstJam = 0f, worstSpin = 0f, worstLife = float.MaxValue; string worstLifeOf = "-";
             int machines = 0;
             var kinds = new SortedDictionary<byte, float4>();   // per machine type: count, metres, flips, jammed s
             // ...and how long that type was alive to do it in. Without this the metres cannot be read: a Pincer that
@@ -94,6 +94,10 @@ namespace TW.Tests
                     if (per100 > worstFlip) { worstFlip = per100; worstFlipOf = $"{Name(u.Arch)} (team {u.Team})"; }
                     if (u.Jam > worstJam) { worstJam = u.Jam; worstJamOf = $"{Name(u.Arch)} (team {u.Team})"; }
                     if (u.Spin > worstSpin) { worstSpin = u.Spin; worstSpinOf = $"{Name(u.Arch)} (team {u.Team})"; }
+                    // Which machine went first, and whose it was. The lone Pincer lives 6-22 s where every other
+                    // single machine lasts the whole ~220 s match, and until this line the report could not say which
+                    // side it was on - and dying early is a different story on the losing team than on the winning one.
+                    if (u.Alive < worstLife) { worstLife = u.Alive; worstLifeOf = $"{Name(u.Arch)} (team {u.Team})"; }
                 }
                 else
                 {
@@ -132,7 +136,7 @@ namespace TW.Tests
             foreach (var kv in kinds) mx[$"flips_per100_{Name(kv.Key)}"] = kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f;
             mx["deaths"] = deaths.Count; mx["deaths_in_clumps_share"] = deaths.Count > 0 ? (float)clumped / deaths.Count : 0f; mx["biggest_clump"] = biggest;
             mx["winner"] = report.Winner; mx["end_s"] = report.EndTick / 20f;
-            sb.AppendLine($"  machines {machines}: {metres:F0} m, jammed {jam:F0} s (worst {worstJamOf} {worstJam:F0} s), spinning {spin:F0} s (worst {worstSpinOf} {worstSpin:F0} s), "
+            sb.AppendLine($"  machines {machines}: {metres:F0} m, shortest life {worstLifeOf} {(worstLife < float.MaxValue ? worstLife : 0f):F0} s, jammed {jam:F0} s (worst {worstJamOf} {worstJam:F0} s), spinning {spin:F0} s (worst {worstSpinOf} {worstSpin:F0} s), "
                 + $"{mx["machine_flips_per100"]:F1} flips/100 m (worst {worstFlipOf} {worstFlip:F0})");
             sb.AppendLine($"  men {men}: stuck {mx["men_stuck_s_per_man_min"]:F2} s per man-minute (worst {worstStuck:F0} s), idle in the open under fire {100f * mx["men_idle_open_share"]:F1} %, "
                 + $"piled {100f * mx["men_piled_share"]:F1} %, holding {100f * mx["men_holding_share"]:F1} %; of their time {100f * mx["men_open_share"]:F0} % in the open "
