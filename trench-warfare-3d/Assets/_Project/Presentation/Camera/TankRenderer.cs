@@ -169,8 +169,9 @@ namespace TW.Presentation.Tactical
             ("Brute", VehicleArchetype.Brute, "Hull", BruteScale, 0f),   // a tank with its gun in the hull and a small turret over it
             ("Croaker", VehicleArchetype.Croaker, "Hull", 1f, 0f),   // two legs: WalkerGait walks it as it walks the crabs
             ("Hopper", VehicleArchetype.Hopper, "Hull", 1f, FlyerLift),
-            // 2026-09-30: the playground's toad mech, 4 m long, its legs welded into its body: it hops (HopPose)
-            ("Bullfrog", VehicleArchetype.Bullfrog, "Hull", 1f, 0f),
+            // 2026-09-30: the playground's toad mech, its legs welded into its body: it hops (HopPose). Drawn 1.6 times
+            // its 3.5 m sculpt: at 1 it came up to the Brute's track guard under guns the size of the Brute's (2026-10-01)
+            ("Bullfrog", VehicleArchetype.Bullfrog, "Hull", BullfrogScale, 0f),
             ("Mercy", VehicleArchetype.Mercy, "Hull", 1f, 0f),       // four wheels, which roll
         };
 
@@ -212,6 +213,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The Brute's sculpt is 6.5 m long; the battle's heavy tanks are drawn 1.7 times theirs (the Maw 9.3 m).
         /// At 1.35 it is 8.8 m long and 5.3 m wide, which is the footprint the sim drives it on.</summary>
         public const float BruteScale = 1.35f;
+        public const float BullfrogScale = 1.6f;
 
         /// <summary>How much bigger than its file a machine's model is built (1 for a model written at its size).</summary>
         public static float ScaleOf(byte archetype)
@@ -791,7 +793,7 @@ namespace TW.Presentation.Tactical
 
         // the Bullfrog's hop (2026-09-30): a hop every HopStride metres it goes, HopHeight at the top, nose up leaving the
         // ground and down landing; stopped mid-hop, it comes down. Its gatlings spin up with each round and wind down.
-        const float HopStride = 2.6f, HopHeight = 0.75f, HopTiltMax = 9f * Mathf.Deg2Rad, SpinRate = 30f;
+        const float HopStride = 2.6f * BullfrogScale, HopHeight = 0.75f * BullfrogScale, HopTiltMax = 9f * Mathf.Deg2Rad, SpinRate = 30f;
 
         // a crab's pounce: it sinks PounceDip on its legs while it crouches, then rises PounceHeight at the top of its leap
         const float PounceDip = 0.7f, PounceHeight = 3.2f, PounceTilt = 14f * Mathf.Deg2Rad;
@@ -837,8 +839,8 @@ namespace TW.Presentation.Tactical
                         Vector3 side = new Vector3(Mathf.Cos(v.Yaw), 0f, -Mathf.Sin(v.Yaw));
                         float ground = Ground(v.Pos.x, v.Pos.z);
                         for (int k = -1; k <= 1; k += 2)
-                            books.Add(FlipbookFx.Book.Puff, new Vector3(v.Pos.x, ground + 0.25f, v.Pos.z) + side * (k * 1.2f), 1.5f, 0.9f,
-                                      velocity: side * (k * 1.4f) + Vector3.up * 0.5f, grow: 1.5f, alpha: 0.4f);
+                            books.Add(FlipbookFx.Book.Puff, new Vector3(v.Pos.x, ground + 0.3f, v.Pos.z) + side * (k * 1.2f * BullfrogScale), 2.2f, 0.9f,
+                                      velocity: side * (k * 1.8f) + Vector3.up * 0.6f, grow: 1.5f, alpha: 0.4f);
                     }
                 }
             }
