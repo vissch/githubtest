@@ -293,6 +293,10 @@ namespace TW.Editor
             if (vat != null)
             {
                 N(sb, "drawn_infantry", vat.DrawnInfantry); N(sb, "drawn_near", vat.DrawnNear); N(sb, "drawn_far", vat.DrawnFar);
+                // The MID figure is a part of DrawnNear and was in no capture at all, so nothing could say whether the
+                // mid-distance figure (its own vertices and atlas, fewer triangles) was ever reached in play: near and
+                // far were reported, and the figure between them was invisible to every still the game takes.
+                N(sb, "drawn_mid", vat.DrawnMid);
                 N(sb, "vertices", vat.VerticesThisFrame); N(sb, "shadows", vat.ShadowsThisFrame ? 1 : 0);
                 N(sb, "fallen", vat.FallenCount);
             }

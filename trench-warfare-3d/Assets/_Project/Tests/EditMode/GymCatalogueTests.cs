@@ -62,9 +62,16 @@ namespace TW.Tests
         public void TheBandsGoFromCloseToFar()
         {
             var b = GymCatalogue.Bands;
-            Assert.AreEqual(6, b.Length);
+            Assert.AreEqual(7, b.Length);
             for (int i = 1; i < b.Length; i++) Assert.Greater(b[i].Zoom, b[i - 1].Zoom, b[i].Name);
             Assert.AreEqual(30f, b[2].Zoom, "T1 is the standard view");
+            // A band has to land between the standard view and the first orbit band, or the MID figure is never
+            // photographed at all. A man is drawn with his full mesh inside VATRenderer.MidDistance (75 m), with
+            // his mid mesh - its own bake, the same vertices and about 42 % of the triangles - out to
+            // LodDistance (170 m), and with the box soldier beyond. The bands ran 30 then 120, which is men
+            // inside 75 m and then men past 170 m: drawn_mid was 0 in every capture the game took until M60.
+            Assert.IsTrue(System.Array.Exists(b, x => x.Zoom > b[2].Zoom && x.Zoom < 120f),
+                "a band between the standard view and the first orbit band, for the mid figure");
         }
 
         [Test]

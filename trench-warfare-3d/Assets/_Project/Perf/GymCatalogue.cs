@@ -70,6 +70,12 @@ namespace TW.Perf
         public static readonly GymBand[] Bands =
         {
             new GymBand { Name = "T3", Zoom = 7.5f }, new GymBand { Name = "T2", Zoom = 16f }, new GymBand { Name = "T1", Zoom = 30f },
+            // M60 exists for the MID figure and nothing else. A man is drawn with his near mesh inside
+            // VATRenderer.MidDistance (75 m), with his mid mesh - its own bake, about 42 % of the triangles - from
+            // there to LodDistance (170 m), and with the 264-vertex box soldier beyond. The bands ran 30 then 120,
+            // which is men inside 75 m and then men past 170 m: the whole mid tier fell between two bands and was
+            // never photographed once. Measured 2026-10-01, every band of a Units entry: drawn_mid 0.
+            new GymBand { Name = "M60", Zoom = 60f },
             new GymBand { Name = "O120", Zoom = 120f }, new GymBand { Name = "O240", Zoom = 240f }, new GymBand { Name = "Far", Zoom = 600f },
         };
 
