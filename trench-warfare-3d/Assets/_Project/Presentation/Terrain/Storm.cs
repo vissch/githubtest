@@ -165,6 +165,13 @@ namespace TW.Presentation.Terrain
             Atmosphere.StormLightFrom = (look - (foot + Vector3.up * 70f)).normalized;
         }
 
+        /// <summary>The bolt's segments, and how far across each kink goes for the length of its segment.</summary>
+        public const int BoltSteps = 40;
+        public const float BoltKink = 0.5f;
+        /// <summary>How far down the bolt point <paramref name="k"/> of BoltSteps is (0 at the cloud, 1 at the foot): the
+        /// points crowd toward the ground, where the camera is looking.</summary>
+        public static float BoltFall(int k) => Mathf.Pow(Mathf.Clamp01(k / (float)BoltSteps), .42f);
+
         /// <summary>A random walk from the cloud base to the foot, with two or three branches that fork off downward and die out.</summary>
         void BuildBolt(Vector3 foot, Vector3 eye)
         {
@@ -174,15 +181,29 @@ namespace TW.Presentation.Terrain
             // The camera only ever sees the bottom fifth of the bolt, so that is where the detail goes: the points crowd
             // toward the ground, and the zigzag is a random walk (each kink starts from the last one) with its drift taken
             // back out, so it is as crooked at the foot as in the middle and still lands exactly where it was aimed.
-            const int steps = 24;
+            // (2026-10-01: at a close view the frame holds only the bottom ten or fifteen metres, which was two of the old
+            // 24 segments: a hard white polyline that read as a debug line. More points, crowded harder toward the foot,
+            // and each kink sized to its own segment, so the last ten metres are five or six short crooked strokes.)
+            const int steps = BoltSteps;
             var path = new Vector3[steps + 1]; var wander = new Vector3[steps + 1];
-            for (int k = 1; k <= steps; k++) wander[k] = wander[k - 1] + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * (height * .018f);
+            for (int k = 1; k <= steps; k++) wander[k] = wander[k - 1] + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * (height * (BoltFall(k) - BoltFall(k - 1)) * BoltKink);
             for (int k = 0; k <= steps; k++)
+                path[k] = Vector3.Lerp(top, foot, BoltFall(k)) + wander[k] - wander[steps] * (k / (float)steps);
+            for (int k = 0; k < steps; k++) Ribbon(path[k], path[k + 1], eye, Mathf.Lerp(1.5f, 0.9f, k / (float)steps), 1f);
+            // two twigs off the last few metres, where the camera is looking
+            for (int b = 0; b < 2; b++)
             {
-                float f = Mathf.Pow(k / (float)steps, .55f);
-                path[k] = Vector3.Lerp(top, foot, f) + wander[k] - wander[steps] * (k / (float)steps);
+                int from = Random.Range(steps - 9, steps - 2);
+                Vector3 at = path[from], drift = new Vector3(Random.Range(-1f, 1f), -Random.Range(.3f, .8f), Random.Range(-1f, 1f)).normalized;
+                int length = Random.Range(3, 6);
+                for (int k = 0; k < length; k++)
+                {
+                    Vector3 next = at + (drift + new Vector3(Random.Range(-.5f, .5f), Random.Range(-.3f, .2f), Random.Range(-.5f, .5f))) * Random.Range(1.4f, 2.6f);
+                    if (next.y < foot.y + 0.3f) break;
+                    Ribbon(at, next, eye, .5f * (1f - k / (float)length) + .2f, .45f * (1f - k / (float)length));
+                    at = next;
+                }
             }
-            for (int k = 0; k < steps; k++) Ribbon(path[k], path[k + 1], eye, 1.5f, 1f);
             int branches = Random.Range(2, 4);
             for (int b = 0; b < branches; b++)
             {
