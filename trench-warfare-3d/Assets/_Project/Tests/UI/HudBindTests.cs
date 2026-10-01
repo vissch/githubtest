@@ -169,6 +169,12 @@ namespace TW.Tests
             StringAssert.Contains($"{TankSpec.Kettle.Gun0.RangeMin:0} m", HudText.VehicleTip(VehicleArchetype.Kettle));
             StringAssert.Contains($"{TankSpec.Pavise.Gun0.RangeMax:0} m", HudText.VehicleTip(VehicleArchetype.Pavise));
             StringAssert.Contains($"{TankSpec.Banner.StandardRadius:0} m", HudText.VehicleTip(VehicleArchetype.Banner));
+            // every reach a tip quotes is the spec's (2026-10-01: the machines' ranges were cut, and the tips said 300-380 m)
+            StringAssert.Contains($"to {TankSpec.Kettle.Gun0.RangeMax:0} m", HudText.VehicleTip(VehicleArchetype.Kettle));
+            StringAssert.Contains($"a {TankSpec.Banner.Gun0.RangeMax:0} m gun", HudText.VehicleTip(VehicleArchetype.Banner));
+            StringAssert.Contains($"to {UnitDefinitions.Salvo.Machine.Gun0.RangeMax:0} m", HudText.VehicleTip(VehicleArchetype.Salvo));
+            StringAssert.Contains($"{UnitDefinitions.Salvo.Weapon.RangeMax:0} m machine gun", HudText.VehicleTip(VehicleArchetype.Salvo));
+            StringAssert.Contains($"{UnitDefinitions.Skimmer.Weapon.RangeMax:0} m", HudText.VehicleTip(VehicleArchetype.Skimmer));
             Assert.That(TankSpec.Censer.GunCount, Is.Zero, "the Censer's tooltip says it has no gun");
             Assert.That(TankSpec.Redoubt.GunCount, Is.Zero, "the Redoubt's tooltip says it has no gun");
             Assert.That(OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.HeBarrage, out var s), Is.True);

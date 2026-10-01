@@ -11,6 +11,7 @@
 // engineer in slots 3-5, Brass the sniper, the medic and the jetpack in the same three) a slot index draws Iron's
 // officer for Brass's sniper. Everything below asks what the unit IS.
 using TW.Sim;
+using TW.Sim.Combat;
 using TW.Sim.Match;
 
 namespace TW.Presentation
@@ -102,8 +103,9 @@ namespace TW.Presentation
 
         /// <summary>
         /// What a player needs in order to choose one, not what it is made of. Every number was read back out of the
-        /// sim: the walkers step over wire without slowing or breaking it (VehicleKinematics.cs), the Kettle's RangeMin
-        /// really is 46 m and the Pavise's 360 m really is the longest RangeMax on the field (TankSpec.cs). Two things
+        /// sim: the walkers step over wire without slowing or breaking it (VehicleKinematics.cs), and every reach, radius
+        /// and reload below is read off the machine's own spec (TankSpec.cs, UnitDefinitions.cs) when the tip is asked
+        /// for, so a balance change cannot leave a tip quoting the old number (the ranges were cut on 2026-10-01). Two things
         /// I had wrong before checking, which these must not repeat: the Pincer's guns are sponson mounts like the
         /// Maw's, so they cannot reach behind it; and TankSpec.Unmanned does NOT mean uncrewed — every walker carries
         /// Crew = 2 and a crew hit still calls LoseCrew, and what Unmanned buys is only that nobody bails out when it
@@ -116,14 +118,18 @@ namespace TW.Presentation
                 case VehicleArchetype.Maw: return "Maw, heavy tank: sponson guns, crosses wide trenches, crushes wire";
                 case VehicleArchetype.Tusk: return "Tusk, light tank: turret gun, quick, ditches in wide trenches";
                 case VehicleArchetype.Pincer: return "Pincer, heavy walker: sponson guns that cannot reach behind it, claws at 3 m. Steps over wire";
-                case VehicleArchetype.Kettle: return "Kettle, mortar walker: fires without line of sight at men behind a parapet. Blind inside 46 m";
+                case VehicleArchetype.Kettle: return $"Kettle, mortar walker: lobs shells over a parapet to {TankSpec.Kettle.Gun0.RangeMax:0} m. Blind inside {TankSpec.Kettle.Gun0.RangeMin:0} m";
                 case VehicleArchetype.Censer: return "Censer, gas walker: no gun. Lays chlorine as it walks; the drum is its ammunition and its weak spot";
-                case VehicleArchetype.Pavise: return "Pavise, siege walker: a 360 m gun, the longest reach on the field. Halts to fire, shielded in front";
-                case VehicleArchetype.Banner: return "Banner, command walker: a 300 m gun, and a standard that steadies your men within 26 m. Thin plate";
+                case VehicleArchetype.Pavise: return $"Pavise, siege walker: a {TankSpec.Pavise.Gun0.RangeMax:0} m gun, the longest of the direct guns. Halts to fire, shielded";
+                case VehicleArchetype.Banner: return $"Banner, command walker: a {TankSpec.Banner.Gun0.RangeMax:0} m gun, and a standard that steadies your men within {TankSpec.Banner.StandardRadius:0} m. Thin plate";
                 case VehicleArchetype.Redoubt: return "Redoubt, blockhouse walker: no gun. 38 mm of front plate and the heaviest claws on the field";
                 case VehicleArchetype.Breaker: return "Breaker, assault tank: winds up, charges a trench at 2.5x and strikes. Thin deck once it runs";
-                case VehicleArchetype.Skimmer: return "Skimmer, hovercraft: the fastest machine. 130 m 12 mm gun pierces light hulls. 8 mm";
-                case VehicleArchetype.Salvo: return "Salvo, rocket half-track: 16 rockets to 380 m, 16 s reload. A 110 m machine gun up close";
+                case VehicleArchetype.Skimmer: { var w = UnitDefinitions.Skimmer.Weapon; return $"Skimmer, hovercraft: the fastest machine. {w.RangeMax:0} m {w.PenetrationMm:0} mm gun pierces light hulls. 8 mm"; }
+                case VehicleArchetype.Salvo:
+                {
+                    var d = UnitDefinitions.Salvo;
+                    return $"Salvo, rocket half-track: {d.Machine.Rockets} rockets to {d.Machine.Gun0.RangeMax:0} m, {d.Machine.Gun0.ReloadSeconds:0} s reload. A {d.Weapon.RangeMax:0} m machine gun up close";
+                }
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }
