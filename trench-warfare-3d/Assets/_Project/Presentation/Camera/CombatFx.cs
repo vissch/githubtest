@@ -148,7 +148,8 @@ namespace TW.Presentation.Tactical
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);
         static readonly Color ClothA = new Color(0.60f, 0.53f, 0.33f), ClothB = new Color(0.26f, 0.30f, 0.33f), Steel = new Color(0.27f, 0.30f, 0.26f), Skin = new Color(0.72f, 0.54f, 0.42f), Gore = new Color(0.30f, 0.06f, 0.05f);
         readonly HashSet<int> blowStruck = new HashSet<int>(); int blowFrame = -1;   // the men a MeleeBlow landed on this frame
-        int hitsThisFrame;
+        int hitsThisFrame, healsThisFrame;
+        static readonly Color HealGreen = new Color(0.45f, 1f, 0.6f);
         TW.Presentation.Units.VATRenderer units;
         bool subscribed;
         /// <summary>
@@ -597,6 +598,20 @@ namespace TW.Presentation.Tactical
                     }
                     break;
                 }
+                case SimEventType.UnitHealed:
+                {
+                    // a medic's hands or the ambulance beside him (SupportSystem; a = the healer, b = the patient): nothing
+                    // showed it, so a Mercy parked by a wounded section looked idle. A green glint off the patient and a
+                    // breath of green light on the ground round him, a few a frame at most
+                    if (books == null || !books.Ready || e.B < 0 || e.B >= w.HighWater || healsThisFrame >= 4) break;
+                    if (CameraShake.DistanceToLook(w.Position[e.B]) > 70f) break;
+                    healsThisFrame++;
+                    float size = units != null ? units.UnitScale : 1f;
+                    Vector3 chest = EstimateChest(e.B, size);
+                    books.Add(FlipbookFx.Book.Star, chest + Vector3.up * (0.5f * size), 0.55f * size, 0.5f, velocity: Vector3.up * 0.9f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 2.2f : 1.2f);
+                    SceneHooks.Flash?.Invoke(chest, HealGreen, 3.5f, 3.2f, 0.45f);
+                    break;
+                }
                 case SimEventType.WeaponDropped:
                 {   // (blowStruck / blowFrame: the men a blow landed on this frame, for the Hit that follows it)
                     // a fists man throws his weapon down as a fight starts (MeleeSystem; pos = where it falls, dir = the way he
@@ -964,7 +979,7 @@ namespace TW.Presentation.Tactical
             flames.Update(now, view, books, drawnAt, groundAt);
             TickSmoulders(now);
             books?.Draw(now, bounds);
-            hitsThisFrame = 0;
+            hitsThisFrame = 0; healsThisFrame = 0;
 
             // target markers (both sides see where support fire was called) and the aiming circle
             Prune(markers, now, static (m, at) => at > m.Until);
