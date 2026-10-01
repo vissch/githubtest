@@ -535,6 +535,33 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ACrabWoundUpToPounce_HoldsItsGuns()
+        {
+            // its sponson gun shelled the man it had crouched to leap on, and it landed on nobody (seen in Play, 2026-10-01)
+            using var m = Playtest();
+            var w = m.World;
+            int crab = Crab(m, 0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f));
+            float front = VehicleProfile.ForArchetype(VehicleArchetype.Pincer).HalfLength;
+            Run(m, 80);   // its guns are loaded and laid ahead
+            int man = w.Spawn(1, InfantryArchetype.Rifle, new float3(30f, 0f, 30f + front + 7f), 100f, 0f, false);
+            var log = Run(m, 60);
+            uint crouched = 0, landed = 0;
+            foreach (var e in log)
+            {
+                if (e.Type == SimEventType.PounceCrouched && e.A == crab && crouched == 0) crouched = e.Tick;
+                if (e.Type == SimEventType.PounceLanded && e.A == crab && landed == 0) landed = e.Tick;
+            }
+            Assert.Greater(crouched, 0u, "setup: it crouched to leap");
+            Assert.Greater(landed, crouched, "and it landed");
+            foreach (var e in log)
+                if (e.Type == SimEventType.VehicleFired && e.A == crab && e.Tick >= crouched && e.Tick <= landed)
+                    Assert.Fail($"it fired a gun at tick {e.Tick}, wound up to leap ({crouched}..{landed})");
+            bool underIt = false;
+            foreach (var e in log) if (e.Type == SimEventType.Death && e.A == man && e.B == crab) underIt = true;
+            Assert.IsTrue(underIt, "the man was there to be landed on");
+        }
+
+        [Test]
         public void AStalledCrab_DoesNotPounce()
         {
             using var m = Playtest();
