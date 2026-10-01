@@ -43,6 +43,14 @@ namespace TW.Perf
             /// <summary>The men a scene watches, and what happened to them.</summary>
             public readonly HashSet<int> Watch = new HashSet<int>();
             public int WatchedHits, WatchedNearMisses, WatchedDeaths, WatchedSuppressed;
+            /// <summary>How the watched men's drawn facing behaved while the scene settled (SampleFacing): seconds of living
+            /// men watched, and the turn reversals, all and the worst man's: a nose that swings one way and back faster than
+            /// TwitchRate reads as a twitch.</summary>
+            public float WatchedSeconds; public int Turnabouts, WorstTurnabouts;
+            public readonly Dictionary<int, float2> Facing = new Dictionary<int, float2>();   // slot -> (last shown yaw, last fast rate)
+            public readonly Dictionary<int, int> TurnaboutsOf = new Dictionary<int, int>();
+            /// <summary>BarrageOnTrees: the stand's trees (prop index, kind and hp when the barrage was called).</summary>
+            public readonly List<(int index, TW.Sim.Terrain.PropKind kind, float hp)> Trees = new List<(int, TW.Sim.Terrain.PropKind, float)>();
             public int Count(SimEventType t) => Events.TryGetValue(t, out int n) ? n : 0;
         }
 
@@ -320,6 +328,66 @@ namespace TW.Perf
             return cells.Count > 0;
         }
 
+        /// <summary>A drawn turn faster than this (rad/s, about 70 degrees a second) that reverses the last one counts as a
+        /// turnabout: a man aiming from one target to the next turns once; a man whose facing swings back and forth twitches.</summary>
+        public const float TwitchRate = 1.2f;
+
+        /// <summary>Once a frame while a scene settles: each living watched man's drawn facing (AnimationController's
+        /// ShownYaw, what the figure shows, not the sim's yaw) and its turnabouts.</summary>
+        public void SampleFacing(float dt)
+        {
+            var r = Current;
+            if (r == null || Host == null || Host.Animation == null || dt <= 0f) return;
+            foreach (int s in r.Watch)
+            {
+                if (!Alive(s)) { r.Facing.Remove(s); continue; }
+                float yaw = Host.Animation.State[s].ShownYaw;
+                r.WatchedSeconds += dt;
+                if (!r.Facing.TryGetValue(s, out var f)) { r.Facing[s] = new float2(yaw, 0f); continue; }
+                float d = yaw - f.x; while (d > math.PI) d -= 2f * math.PI; while (d < -math.PI) d += 2f * math.PI;
+                float rate = d / dt, last = f.y;
+                if (math.abs(rate) > TwitchRate)
+                {
+                    if (math.abs(last) > TwitchRate && math.sign(rate) != math.sign(last))
+                    {
+                        r.Turnabouts++;
+                        int n = (r.TurnaboutsOf.TryGetValue(s, out int k) ? k : 0) + 1;
+                        r.TurnaboutsOf[s] = n; r.WorstTurnabouts = math.max(r.WorstTurnabouts, n);
+                    }
+                    last = rate;
+                }
+                r.Facing[s] = new float2(yaw, last);
+            }
+        }
+
+        /// <summary>A man the gym put in a trench holds it: his goal is that trench (he garrisons it, below the rim, on the fire
+        /// step to shoot), or his own cell where he stands outside one.</summary>
+        public void Garrison(int slot)
+        {
+            if (slot < 0 || Host == null || Host.Local == null) return;
+            Host.WriteWorlds(m =>
+            {
+                var w = m.World; var c = m.Map.NavCellOf(w.Position[slot]); int cell = m.Map.NavIndex(c.x, c.y);
+                short trench = m.Map.CellTrenchId[cell];
+                w.GoalId[slot] = trench >= 0 ? m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Trench(trench))
+                                             : m.Fields.GetGoal(TW.Sim.Nav.GoalKey.Cell(cell, TW.Sim.Nav.NavMode.Infantry));
+            });
+        }
+
+        /// <summary>Of the trees a BarrageOnTrees result watched: how many lost hp, and how many broke (changed kind).</summary>
+        public void TreeHarm(Result r, out int harmed, out int broken)
+        {
+            harmed = 0; broken = 0;
+            if (r == null || Host == null || Host.Local == null) return;
+            var props = Host.Local.Map.Props;
+            foreach (var (i, kind, hp) in r.Trees)
+            {
+                if (i >= props.Length) continue;
+                if (props[i].Kind != kind) { broken++; harmed++; }
+                else if (props[i].Hp < hp) harmed++;
+            }
+        }
+
         /// <summary>Send a unit the gym spawned to `at` (its goal: that nav cell, tracked for a machine).</summary>
         public void GoTo(int slot, Vector2 at)
         {
@@ -374,14 +442,14 @@ namespace TW.Perf
             return best;
         }
 
-        /// <summary>The point within 40 m of `near` (5 m apart) with the most standing trees (PropKind.Tree, the sim's own:
-        /// the scatter's are drawn only) within 8 m of it.</summary>
+        /// <summary>The point within 80 m of `near` (5 m apart) with the most standing trees (PropKind.Tree, the sim's own:
+        /// the scatter's are drawn only) within 8 m of it. (Within 40 m, after the trench scenes' barrages, none stood.)</summary>
         public Vector2 Thickest(Vector2 near, out int standing)
         {
             var map = Host.Local.Map;
             Vector2 best = near; standing = 0; float bestScore = -1f;
-            for (int cz = -8; cz <= 8; cz++)
-            for (int cx = -8; cx <= 8; cx++)
+            for (int cz = -16; cz <= 16; cz++)
+            for (int cx = -16; cx <= 16; cx++)
             {
                 var p = near + new Vector2(cx, cz) * 5f;
                 int n = 0;
@@ -473,7 +541,10 @@ namespace TW.Perf
                 case GymScene.GasOnTrench:
                 {
                     if (!TrenchCells(0, Stage, 6, cells)) { r?.Log.Add("scene: no fire trench of ours"); yield break; }
-                    foreach (var c in cells) { int s = Spawn(0, 0, c.x, c.y, 0f); if (s >= 0) r?.Watch.Add(s); }
+                    // each man's goal is the trench he stands in, so he garrisons it as the battle's own garrisons do: with no goal
+                    // he was given his side's rear trench and walked back to it, facing the enemy (drawn in RunBack, his body
+                    // swinging 20-40 degrees either way about once a second: the scene's first turnabout count, 2026-10-01)
+                    foreach (var c in cells) { int s = Spawn(0, 0, c.x, c.y, 0f); if (s >= 0) { Garrison(s); r?.Watch.Add(s); } }
                     var mid = cells[cells.Count / 2];
                     var toward = (new Vector2(enemyRally.x, enemyRally.z) - mid).normalized;
                     Row(1, 0, 6, mid + toward * 80f, 3f);
@@ -524,6 +595,10 @@ namespace TW.Perf
                 case GymScene.BarrageOnTrees:
                 {
                     var wood = Thickest(Stage, out int standing);
+                    var props = Host.Local.Map.Props;
+                    for (int i = 0; i < props.Length; i++)
+                        if (props[i].Kind == TW.Sim.Terrain.PropKind.Tree && (new Vector2(props[i].Pos.x, props[i].Pos.z) - wood).sqrMagnitude < 64f)
+                            r?.Trees.Add((i, props[i].Kind, props[i].Hp));
                     Ability(OffMapAbilityId.HeBarrage, wood, 0, AbilityPattern.Box);   // the 16 m box: the stand, not the field round it
                     r?.Log.Add($"scene: the barrage on {standing} standing trees within 8 m of ({wood.x:0},{wood.y:0})");
                     if (r != null) r.Focus = new float3(wood.x, 0f, wood.y);
