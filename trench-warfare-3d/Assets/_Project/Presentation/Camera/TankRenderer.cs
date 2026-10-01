@@ -109,6 +109,9 @@ namespace TW.Presentation.Tactical
             /// gatlings' spin (0..1, wound up by each round) and angle.</summary>
             public float HopPhase, HopTilt, Spin, SpinAngle;
             public int BarrelTurn;   // which barrel cluster fires next
+            /// <summary>A crab's pounce (PounceSystem): when it crouched (the sim's tick, -1 none) and how long it crouches and
+            /// is in the air; the body drops on its legs, then goes over in an arc the sim's straight slide does not have.</summary>
+            public float PounceAt = -1f, PounceCrouch, PounceAir;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -594,6 +597,7 @@ namespace TW.Presentation.Tactical
             v.Heave.Step(heave + Mathf.Sin(now * st.RumbleRate + s) * vib, dt, st.HeaveOmega);
             StepFootfall(v, dt);
             if (v.Archetype == VehicleArchetype.Bullfrog) HopPose(v, dt);
+            if (v.PounceAt >= 0f) PouncePose(v, now);
             v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + st.Rev * Mathf.Max(0f, v.Accel) + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
             // tracks and wheels: each at the hull's speed plus or minus the turn; stuck, they spin
@@ -788,6 +792,33 @@ namespace TW.Presentation.Tactical
         // the Bullfrog's hop (2026-09-30): a hop every HopStride metres it goes, HopHeight at the top, nose up leaving the
         // ground and down landing; stopped mid-hop, it comes down. Its gatlings spin up with each round and wind down.
         const float HopStride = 2.6f, HopHeight = 0.75f, HopTiltMax = 9f * Mathf.Deg2Rad, SpinRate = 30f;
+
+        // a crab's pounce: it sinks PounceDip on its legs while it crouches, then rises PounceHeight at the top of its leap
+        const float PounceDip = 0.7f, PounceHeight = 3.2f, PounceTilt = 14f * Mathf.Deg2Rad;
+
+        void PouncePose(View v, float now)
+        {
+            // on the sim's clock, not the frame's: at any other match speed the arc ran out before the leap began
+            var cfg = Host.Local.World.Config;
+            float t = (Host.Local.World.Tick + Host.Alpha - v.PounceAt) * cfg.TickSeconds;
+            if (v.Dead || t > v.PounceCrouch + v.PounceAir + 0.4f) { v.PounceAt = -1f; v.Bob = 0f; v.HopTilt = 0f; return; }
+            if (t < v.PounceCrouch)
+            {
+                float c = Mathf.SmoothStep(0f, 1f, t / Mathf.Max(0.01f, v.PounceCrouch));
+                v.Bob = -PounceDip * c; v.HopTilt = -0.4f * PounceTilt * c;   // down, nose low: wound up
+            }
+            else if (t < v.PounceCrouch + v.PounceAir)
+            {
+                float p = (t - v.PounceCrouch) / Mathf.Max(0.01f, v.PounceAir);
+                v.Bob = PounceHeight * 4f * p * (1f - p) - PounceDip * (1f - p);
+                v.HopTilt = PounceTilt * Mathf.Cos(Mathf.PI * p);     // nose up leaving, down coming in
+            }
+            else
+            {
+                float r = (t - v.PounceCrouch - v.PounceAir) / 0.4f;   // it lands heavy and comes back up
+                v.Bob = -PounceDip * 0.8f * (1f - r) * (1f - r); v.HopTilt = 0f;
+            }
+        }
 
         void HopPose(View v, float dt)
         {
@@ -1229,6 +1260,23 @@ namespace TW.Presentation.Tactical
             switch (e.Type)
             {
                 case SimEventType.RocketFired: RocketFired(e); break;
+                case SimEventType.PounceCrouched:   // a = the crab, dir.x / dir.y = ticks crouched / in the air
+                    if (v != null && !v.Dead) { float tick = Host.Local.World.Config.TickSeconds; v.PounceAt = e.Tick; v.PounceCrouch = e.Dir.x * tick; v.PounceAir = e.Dir.y * tick; }
+                    break;
+                case SimEventType.PounceLanded:     // a = the crab, pos = where, scalar = the radius its weight fell on
+                {
+                    CameraShake.Add((Vector3)e.Pos, 9f);
+                    if (books != null && books.Ready)
+                    {
+                        Vector3 at = (Vector3)e.Pos; at.y = Ground(at.x, at.z) + 0.3f;
+                        for (int k = 0; k < 8; k++)
+                        {
+                            float a = k * Mathf.PI / 4f; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                            books.Add(FlipbookFx.Book.Puff, at + o * (e.Scalar * 0.6f), 2.2f, 1.1f, velocity: o * 2.6f + Vector3.up * 0.6f, grow: 1.6f, alpha: 0.5f);
+                        }
+                    }
+                    break;
+                }
                 case SimEventType.Shot:   // the Bullfrog's gatlings (its machine-gun Weapon): each round keeps them spinning
                     if (v != null && !v.Dead && v.Archetype == VehicleArchetype.Bullfrog) v.Spin = 1f;
                     break;
