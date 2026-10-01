@@ -620,6 +620,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   lane/show/agents-wiring-relay`, and, once that worktree is clean, `git worktree remove
   C:/Users/PC/Documents/GitHub/githubtest-agents-wiring-relay` then `git branch -D lane/show/agents-wiring-relay`.
   Default taken: the record is committed, both refs stay until he runs those commands.
+- **The battlefield from overview and far zoom at night (2026-10-01, the gym's O120/O240/Far shots):** the fog bank
+  round the battlefield's edges (`Atmosphere`, "closes the view on every side") is the night's dark blue, and from
+  240-600 m up it reads as a void with the lit field floating in it as a slab; the backdrop that runs on past the
+  edges (`BattlefieldBackdrop`: trenches, the wire belt, the skirt to the horizon) is under it. Options: (a) leave it
+  (default taken: nothing changed); (b) thin the bank with the camera's height, so the country round the field shows
+  from the overview up, the haze still closing the far horizon; (c) keep the bank and light what stands under its edge
+  (distant fires, the lines running on) so the void reads as country at night.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
