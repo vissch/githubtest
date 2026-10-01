@@ -462,6 +462,11 @@ namespace TW.Editor
                     if (!d.Alive(slot)) flags.Add("not alive 4 s after spawning");
                     break;
                 case GymTab.Scenes:
+                    if ((GymScene)e.Id == GymScene.MachineFlattens)
+                    {
+                        if (r.Count(SimEventType.PropChanged) + r.Count(SimEventType.WireBreached) == 0) flags.Add("the machine flattened nothing");
+                        break;
+                    }
                     if (r.Watch.Count == 0) flags.Add("no men staged");
                     else if ((GymScene)e.Id != GymScene.TrenchLine && r.WatchedHits + r.WatchedNearMisses + r.WatchedDeaths + r.WatchedSuppressed == 0)
                         flags.Add("nothing reached the men");
