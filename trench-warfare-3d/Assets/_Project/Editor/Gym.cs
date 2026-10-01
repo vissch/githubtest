@@ -227,6 +227,10 @@ namespace TW.Editor
             float until = Time.realtimeSinceStartup + 30f;
             while ((host.Local == null || host.Local.World.Tick < 60) && Time.realtimeSinceStartup < until) yield return null;
             if (host.Local == null) { Debug.LogError("Gym: the match never started"); Finish(quit, 1); yield break; }
+            // the night's clocks counted from its Start, in frames the scene loaded at real speed: from here on they
+            // count the gym's own frames, so a star shell goes up at the same moment in every run
+            var night = FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            if (night != null) night.Rewind();
 
             string sha = Gym.ShortSha();
             string dir = Gym.Opt(Options, "out") ?? Path.Combine(Gym.Root(), System.DateTime.Now.ToString("yyyyMMdd-HHmm", Inv) + "-" + sha);
