@@ -73,5 +73,27 @@ namespace TW.Tests
             Assert.AreEqual(1, VATRenderer.FigureOfArchetype(GymCatalogue.ArchetypeForFigure(1)));
             Assert.AreEqual(0, VATRenderer.FigureOfArchetype(GymCatalogue.ArchetypeForFigure(0)));
         }
+        /// <summary>
+        /// A unit is expected to do only what it can. Every Units entry was generated with Expect = Fires, including
+        /// the Censer, which lays a drum of chlorine and carries no gun, and the Redoubt, "a blockhouse on six legs:
+        /// no gun at all, armour and claws". The gym therefore reported both as broken for behaving exactly as
+        /// designed, and a tab that cries wolf on two of fourteen entries is a tab people stop reading.
+        /// </summary>
+        [Test]
+        public void OnlyAUnitWithAWeaponIsExpectedToFire()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var list = GymCatalogue.Units(m.World);
+            Assert.IsNotEmpty(list);
+            foreach (var e in list)
+            {
+                bool armed = m.Catalogue.Weapon[e.Id].RangeMax > 0f || m.Catalogue.Tank[e.Id].GunCount > 0;
+                Assert.AreEqual(armed ? GymExpect.Fires : GymExpect.Stands, e.Expect, e.Name + " expects what it can do");
+            }
+            Assert.IsTrue(list.Exists(e => e.Id == VehicleArchetype.Redoubt && e.Expect == GymExpect.Stands), "the Redoubt has no gun at all");
+            Assert.IsTrue(list.Exists(e => e.Id == VehicleArchetype.Censer && e.Expect == GymExpect.Stands), "the Censer carries nothing to shoot with");
+            Assert.IsTrue(list.Exists(e => e.Id == InfantryArchetype.Rifle && e.Expect == GymExpect.Fires), "a rifleman is expected to fire");
+        }
     }
 }

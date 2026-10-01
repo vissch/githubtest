@@ -43,6 +43,12 @@ namespace TW.Perf
         Preview,
         /// <summary>No picture of its own (match state, orders, debug): listed with the reason.</summary>
         Excluded,
+        /// <summary>
+        /// It carries nothing to shoot with: staged and photographed, and firing is not expected of it. The Censer
+        /// lays a drum of chlorine as it walks and the Redoubt is "a blockhouse on six legs: no gun at all, armour and
+        /// claws" - both were listed as Fires, which is simply untrue and made the tab report them as broken.
+        /// </summary>
+        Stands,
     }
 
     public struct GymEntry
@@ -80,6 +86,15 @@ namespace TW.Perf
         }
 
         /// <summary>Every archetype the world's unit table fields (Hp above 0), the Unit Sandbox's rule.</summary>
+        /// <summary>Has it anything to shoot with, by THIS match's tables: a weapon with a reach, or a gun on a hull.</summary>
+        static bool Armed(SimWorld w, int archetype)
+        {
+            var cat = w.GetSystem<TW.Sim.Combat.CombatCatalogueSystem>();
+            if (cat == null) return true;                        // no catalogue to ask: assume it fights, and let the run say otherwise
+            if (cat.Weapon.IsCreated && cat.Weapon[archetype].RangeMax > 0f) return true;
+            return cat.Tank.IsCreated && cat.Tank[archetype].GunCount > 0;
+        }
+
         public static List<GymEntry> Units(SimWorld w)
         {
             var list = new List<GymEntry>();
@@ -89,7 +104,9 @@ namespace TW.Perf
                 if (w.Units.Roster[a].Hp <= 0f) continue;
                 string name = UnitLook.Name((byte)a);
                 if (string.IsNullOrEmpty(name)) continue;
-                list.Add(new GymEntry { Tab = GymTab.Units, Id = a, Name = name, Expect = GymExpect.Fires });
+                // Expect of each unit only what it can do. This said Fires for every one of them, including two that
+                // carry no weapon at all, so the tab accused them of being broken for behaving exactly as designed.
+                list.Add(new GymEntry { Tab = GymTab.Units, Id = a, Name = name, Expect = Armed(w, a) ? GymExpect.Fires : GymExpect.Stands });
             }
             return list;
         }

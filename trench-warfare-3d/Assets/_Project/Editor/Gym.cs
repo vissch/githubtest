@@ -395,6 +395,42 @@ namespace TW.Editor
             return list;
         }
 
+        /// <summary>
+        /// How far off to stand the mark for a Units entry: inside this unit's own reach, and outside a mortar's
+        /// minimum. One fixed distance cannot serve them all - 40 m for every entry put the mark INSIDE the Kettle's
+        /// 46 m RangeMin, so the mortar rightly refused, and well OUTSIDE the shield bearer's 30 m pistol. Both then
+        /// read as "it did not fire" when the staging was at fault.
+        ///
+        /// Six tenths of its longest reach, kept at least 8 m beyond any minimum, and capped at 90 m so the mark stays
+        /// on the stage rather than off the end of the corridor. A unit with no weapon at all gets 40 m and flags, which
+        /// is the honest answer for the Censer and the Redoubt.
+        /// </summary>
+        static float TargetRange(GymDirector d, int archetype)
+        {
+            var cat = d.Host != null && d.Host.Local != null ? d.Host.Local.Catalogue : null;
+            if (cat == null || archetype < 0 || archetype >= Archetypes.Count) return 40f;
+            float max = cat.Weapon.IsCreated ? cat.Weapon[archetype].RangeMax : 0f, min = 0f;
+            if (cat.Tank.IsCreated)
+            {
+                var spec = cat.Tank[archetype];
+                for (int g = 0; g < spec.GunCount && g < TW.Sim.Combat.TankSpec.MaxGuns; g++)
+                {
+                    var gun = spec.Gun(g);
+                    if (gun.RangeMax > max) max = gun.RangeMax;
+                    if (gun.RangeMin > min) min = gun.RangeMin;
+                }
+            }
+            if (max <= 0f) return 40f;
+            // A man standing on the surface is Exposed, and TargetAcquisition clamps an exposed man's reach to
+            // TW.Sim.Combat.CombatTables.AdvanceFireRange (60 m) - "they are running" - whatever his weapon says. Vehicles are
+            // exempt. So a mark placed by weapon range alone put the rifleman at 78 m and the MG and sniper at 90 m,
+            // outside a reach the sim had already cut to 60: all three stood there and the tab called it a failure to
+            // fire. Six tenths of the clamp keeps a man comfortably inside it.
+            bool onFoot = !ChassisKind.IsArmoured(d.Host.Local.World.ChassisOf((byte)archetype));
+            float reach = onFoot ? Mathf.Min(max, TW.Sim.Combat.CombatTables.AdvanceFireRange) : max;
+            return Mathf.Max(Mathf.Min(reach * 0.6f, 90f), min + 8f);
+        }
+
         /// <summary>Put the entry on the stage; seconds to wait before the photographs, or -1 when it cannot be staged.</summary>
         static float Stage(GymDirector d, GymEntry e, ref int pinned, ref int slot)
         {
@@ -410,7 +446,12 @@ namespace TW.Editor
                 case GymTab.Units:
                     slot = d.Spawn(0, e.Id, at.x, at.y, 30f);
                     d.Hold(slot);   // seen where it was put, not walking out of the close shot to the front trench
-                    return slot >= 0 ? 4f : -1f;
+                    // and someone to shoot at, at a range this unit can actually use. Without him the tab's own
+                    // expectation could not be met by anything.
+                    d.Target(at.x, at.y + TargetRange(d, e.Id));
+                    // 8 s, not 4: a sniper fires 0.3 rounds a second and a tank gun reloads slower still, so a
+                    // four-second window could not hold one shot even once a target existed.
+                    return slot >= 0 ? 8f : -1f;
                 case GymTab.Abilities:
                 {
                     var target = at + new Vector2(0f, 30f);
@@ -455,7 +496,16 @@ namespace TW.Editor
                     if (!r.VictimDied) flags.Add("he did not die (only his own Death event counts)");
                     break;
                 case GymTab.Units:
+                    // Every Units entry declares Fires, and until 2026-10-01 nothing checked it: the tab's only test
+                    // was that the unit was still breathing. A run of all 14 on 2026-10-01 recorded NO sim events at
+                    // all for 8 of them - not a shot between them - and reported 0 flagged. A unit that stands in the
+                    // mud doing nothing is precisely what this tab exists to catch, and it was the one tab whose
+                    // stated expectation was never tested (Abilities checks AbilityFired, Deaths that the victim
+                    // died, Scenes that something reached the men, Clips the clip the pinned man is drawn in).
                     if (!d.Alive(slot)) flags.Add("not alive 4 s after spawning");
+                    else if (e.Expect == GymExpect.Fires && r.Count(SimEventType.Shot) == 0 && r.Count(SimEventType.VehicleFired) == 0)
+                        // Stands is the honest expectation for a unit with no weapon; only Fires is held to this.
+                        flags.Add("expected it to fire; no Shot or VehicleFired in its window");
                     break;
                 case GymTab.Scenes:
                     if (r.Watch.Count == 0) flags.Add("no men staged");

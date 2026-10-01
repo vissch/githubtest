@@ -222,6 +222,21 @@ namespace TW.Perf
             });
         }
 
+        /// <summary>
+        /// Something for a Units entry to engage: an enemy rifleman who never shoots back (HoldFire), held where he
+        /// is put. The tab declares that every unit Fires and staged a single unit in an empty field, so the claim
+        /// could not be met by anything - 11 of 14 entries produced not one Shot or VehicleFired between them, and the
+        /// three that passed had found something by chance. He holds his fire so the picture stays a portrait of the
+        /// subject shooting rather than a firefight the subject might lose.
+        /// </summary>
+        public int Target(float x, float z)
+        {
+            int s = Spawn(1, InfantryArchetype.Rifle, x, z, 180f);
+            if (s >= 0) Host.WriteWorlds(m => m.World.Flags[s] |= (uint)UnitFlags.HoldFire);
+            Hold(s);
+            return s;
+        }
+
         /// <summary>Call an off-map ability from `seat` (-1: the seat that may call it: Brass for ParaDrop, else 0). Top up
         /// that side's silver and clear its cooldown (WriteWorlds, as BenchScenarios does), then the order through the
         /// seat's own path.</summary>
