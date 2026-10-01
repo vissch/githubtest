@@ -112,6 +112,7 @@ Shader "TW/Toon (URP)"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
+            #include "Assets/_Project/Shaders/TWLightPools.hlsl"
 
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; float2 chunk : TEXCOORD1; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; half4 color : COLOR; float fog : TEXCOORD3; };
@@ -229,6 +230,7 @@ Shader "TW/Toon (URP)"
                 half3 shade = TWHemisphere(_ShadeColor.rgb * TWShadeTint(), normalize(i.normalWS));
                 half3 color = albedo * lerp(shade, mainLight.color, band);
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation); // contact shadows must survive the toon thresholds
+                float3 glintR = float3(0, 1, 0); half glintW = 0;   // look.wet: the flames' glints on wet ground (TWLightPools.hlsl), orange near a fire
                 if (gloss > 0.01)
                 {
                     float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
@@ -247,13 +249,15 @@ Shader "TW/Toon (URP)"
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                     half3 sky = TWSky() * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
-                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7));   // a puddle mirrors at most a third of the sky: dark water, not paper
+                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7) * (1.0 - 0.55 * _TWWetLook));   // look.wet: less of the pale sky in every puddle   // a puddle mirrors at most a third of the sky: dark water, not paper
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                     // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
                     half toLight = saturate(dot(r, mainLight.direction));
                     half mudOnly = 1.0 - saturate(gloss * 2.0 - 1.0) * 0.72;   // the sheen is the mud's; still water only mirrors
                     color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * lerp(0.26, 0.40, close)) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    // look.wet: the flames' own glints on the wet ground (TWLightPools.hlsl), orange near a fire
+                    glintR = r; glintW = gloss * mudOnly * _TWWetLook * 0.6;   // applied with the pools below, in one pass (TWPoolsAndGlints)
                     if (_DetailStrength > 0.0 && _TWWet.y > 0.0)
                     {
                         // hard wet glints: a second, much finer read of the slopes tilts tiny facets into the moon, so the
@@ -261,7 +265,7 @@ Shader "TW/Toon (URP)"
                         half2 fine = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale * 4.3 + 0.17).gb - 0.5;
                         float3 facet = normalize(n + float3(fine.x, 0, fine.y) * 1.25);
                         half spark = smoothstep(0.972, 0.984, dot(reflect(-view, facet), mainLight.direction));
-                        color += spark * 1.7 * near * lerp(0.3, 1.0, close) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                        color += spark * 1.7 * near * lerp(_TWMoonSheen > 0.0 ? _TWMoonSheen : 0.3, 1.0, close) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     }
                 }
                 if (_TWWet.z > 0.0)
@@ -276,6 +280,32 @@ Shader "TW/Toon (URP)"
                 half3 lampGlint;
                 color += max(albedo, 0.16) * TWLocalLights(i.positionWS, normalize(i.normalWS + float3(slope.x, 0, slope.y) * _DetailBump), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), gloss, lampGlint);
                 color += lampGlint;
+                // look.pools: the nearest flames' painted pools, past the eight real lights an object may take (TWLightPools.hlsl)
+                // look.poolsThroughHaze: that share of it goes on after the fog below, like the molten glow, so the haze
+                // that lifts the distance does not also put out the lamps in it (the owner's edit keeps far fires bright)
+                half3 poolLight = 0;
+                if (_TWPoolCount > 0.0)
+                {
+                    half3 glints;
+                    poolLight = max(albedo, 0.16) * TWPoolsAndGlints(i.positionWS, normalize(i.normalWS), glintR, glintW > 0.0, glints) * (_TWLampScale > 0.0 ? _TWLampScale : 1.0);
+                    color += glints * glintW;
+                    // look.propRim: a stump, a post, a sandbag beside a fire catches its edge warm, as the men do (critique round 13:
+                    // "foreground stumps solid black cutouts"); props only, the ground has _DetailStrength set
+                    if (_TWPropRim > 0.0 && _DetailStrength <= 0.0)
+                    {
+                        half3 propRim;
+                        // a narrower band than the men's (0.52, not 0.30): at 0.30 a big flat face seen at a slant was all "edge"
+                        // and a concrete slab by a fire lit whole (critique round 15)
+                        TWPoolsOnFigure(i.positionWS, normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS), propRim, 0.52);
+                        poolLight += propRim * _TWPropRim;
+                    }
+                }
+                // look.poolUnblue: amber at the pool's edge, not violet. Only the faint edge: where the pool is strong it would strip the
+                // lit sandbags of all their blue and leave acid yellow, so the take fades out as the pool's light grows
+                half poolWarm = poolLight.r * 0.6 + poolLight.g * 0.4;
+                half unblue = poolWarm * _TWPoolUnblue * (1.0 - smoothstep(0.08, 0.30, poolWarm));
+                if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue);
+                color += poolLight * (1.0 - _TWPoolsThroughHaze);
                 color += _Emission.rgb;
                 // molten ground burns up out of its own cracks. Dimmed by whatever is lying on top of it, because
                 // snow and lava never share a field but a mask that ignores the other one is a bug waiting to happen.
@@ -300,6 +330,8 @@ Shader "TW/Toon (URP)"
                 color = ApplyFieldFog(color, i.positionWS);
                 color = MixFog(color, i.fog);
                 color += heat;
+                if (_TWPoolUnblue > 0.0) color.b -= min(color.b * 0.6, unblue * _TWPoolsThroughHaze);   // and over the haze the fog put back
+                color += poolLight * _TWPoolsThroughHaze;
                 return half4(color, 1.0);
             }
             ENDHLSL

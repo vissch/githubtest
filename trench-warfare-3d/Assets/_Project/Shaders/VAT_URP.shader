@@ -165,6 +165,7 @@ Shader "TW/VAT Infantry (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
             #include "Assets/_Project/Shaders/TWLocalLights.hlsl"
+            #include "Assets/_Project/Shaders/TWLightPools.hlsl"
 
             struct Attributes { uint vertexID : SV_VertexID; half4 color : COLOR; float2 limb : TEXCOORD1; };
             struct Varyings { float4 positionCS : SV_POSITION; half4 color : COLOR; float3 normalWS : TEXCOORD1; float3 positionWS : TEXCOORD2; float tint : TEXCOORD3; float3 positionOS : TEXCOORD4; float fog : TEXCOORD5; float gone : TEXCOORD6; float cut : TEXCOORD7; float3 grime : TEXCOORD8; };
@@ -288,6 +289,18 @@ Shader "TW/VAT Infantry (URP)"
                 half3 lampGlint;
                 color += albedo * 1.18 * TWLocalLights(i.positionWS, normalize(i.normalWS), i.positionCS, normalize(_WorldSpaceCameraPos - i.positionWS), 0.25 * _TWWet.x, lampGlint);
                 color += lampGlint;   // wet helmets and shoulders catch the lamps   // a muzzle flash lights the man behind it
+                // look.pools: the flames' pools light him too, and a fire near him rims his edge warm (TWLightPools.hlsl)
+                if (_TWPoolCount > 0.0)
+                {
+                    half3 n = normalize(i.normalWS), toEye = normalize(_WorldSpaceCameraPos - i.positionWS);
+                    half lamps = _TWLampScale > 0.0 ? _TWLampScale : 1.0;
+                    half3 fireRim;
+                    color += albedo * 0.8 * TWPoolsOnFigure(i.positionWS, n, toEye, fireRim) * lamps;
+                    // the rim is painted in the fire's own hue over his edge, not added: added on khaki it read pale yellow
+                    fireRim *= lamps;
+                    half rimA = saturate(max(fireRim.r, max(fireRim.g, fireRim.b)));
+                    color = lerp(color, fireRim / max(rimA, 1e-3) * 0.95, rimA * 0.75);
+                }
                 if (_TWClose > 0.0 && _TWWet.x > 0.0)
                 {
                     // up close the rain is on him too: helmet and shoulders carry a film that mirrors the sky, and drops burst on them

@@ -67,8 +67,10 @@ function Report-Run($mode, $code) {
 }
 
 # The unity CLI's per-run timeout, in seconds. 900 since 2026-09-29: EditMode ran 576 s of the old 600 on a quiet machine,
-# and a run that hits the limit reports no verdict at all, which three lanes' gates did that day.
-$TestTimeout = 900
+# and a run that hits the limit reports no verdict at all, which three lanes' gates did that day. 1800 since 2026-10-01:
+# the laptop ran the whole EditMode suite in 1548 s on integration 600c1a79 (819 s the day before; one test alone at its
+# usual speed), so four gates in a row ended with no verdict at 900.
+$TestTimeout = 1800
 
 function Run-Tests($mode, [string[]]$extra) {
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue

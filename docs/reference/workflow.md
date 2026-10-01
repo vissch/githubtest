@@ -322,6 +322,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.Gym.Run(options)` | Editor/Gym.cs | Play the catalogue unattended. |
 | `TW.Editor.Gym.Root()` | Editor/Gym.cs | The folder gym runs go in: TW_GYM, else %LOCALAPPDATA%\TrenchWarfare\gym. |
 | `TW.Editor.InkLinesSetup.Install()` | Editor/InkLinesSetup.cs | (no summary: read the method) |
+| `TW.Editor.LookLab.Knob(name, value)` | Editor/LookLab.cs | A knob set in the game on the lab's next frame. |
+| `TW.Editor.LookLab.Clear()` | Editor/LookLab.cs | Every knob back to its default on the lab's next frame. |
 | `TW.Editor.RiderLab.Setup(archetype, riders, x, z, team, yawDeg, climb)` | Editor/RiderLab.cs | A walker of `archetype` (6 Pincer .. |
 | `TW.Editor.RiderLab.Climbers(slot, n)` | Editor/RiderLab.cs | `n` riflemen of the machine's team spawn 12-15 m behind it, held, and run in and climb aboard (for a machine that is already standing: spawn it ... |
 | `TW.Editor.RiderLab.BoardMen(slot, men)` | Editor/RiderLab.cs | Real men take these riders' places: board from where they stand. |

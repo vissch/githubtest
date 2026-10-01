@@ -104,6 +104,7 @@ namespace TW.Presentation.Terrain
             SceneHooks.FireLight = (at, color, peak, reach, life, card) =>
             {
                 Flash(at, color, peak, reach, life, card);
+                SceneHooks.FirePool?.Invoke(at, color, peak / Mathf.Max(0.01f, LanternIntensity), reach * 1.3f, life);   // and its pool on the mud (look.firePools)
                 // the strongest one alive also becomes the hearth, which is what lights the smoke standing over it
                 float live = hearthPeak * Mathf.Max(0f, 1f - (Time.time - hearthSeen) / HearthHold);
                 if (peak >= live) { hearthAt = at; hearthPeak = peak; hearthSeen = Time.time; hearthRange = reach * 0.55f; hearthTint = color; }
@@ -121,9 +122,14 @@ namespace TW.Presentation.Terrain
             glow = new Material(Shader.Find("TW/Glow (URP)")) { hideFlags = HideFlags.HideAndDontSave };
             flareGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
             owned.Add(glow); owned.Add(flareGlow);
+            // look.warmFlare (NightLights.Pools.cs): a neutral light and a smaller, warm glow; the cold 9 m orb read as a stray
+            // blue glow in the lifted haze (critique rounds 1, 5)
+            bool warmFlare = WarmFlareLook;
+            if (warmFlare) Flare = FlareNeutral;
             flareLight = MakeLight("Star shell", Flare, 0f, 95f);
             flare = flareLight.transform; flareLight.enabled = false;
-            AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(9f, .25f, .3f, .2f) }, new[] { new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
+            AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(warmFlare ? 5f : 9f, .25f, .3f, .2f) },
+                new[] { warmFlare ? new Color(FlareGlowWarm.r, FlareGlowWarm.g, FlareGlowWarm.b, 1.4f) : new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
             flareGlow.SetColor("_Tint", Color.black);
             nextFlare = Time.time + 6f;
             // one small mesh holds a card per pooled light; its vertices are rewritten each frame (32 of them), and after
@@ -289,6 +295,7 @@ namespace TW.Presentation.Terrain
                 flameFeet.Add(at + new Vector3(.35f, -.3f, .2f)); flameShapes.Add(new Vector4(.7f, 1.0f, Hash(i, 101), 0f));
                 fires++;
             }
+            MoreFires(map, len, centres, shapes, colors, flameFeet, flameShapes);   // look.moreFires (NightLights.Pools.cs)
             // torches on a stake where a path reaches a dugout
             int torches = 0;
             for (int i = 0; i < sites.Count && torches < maxTorches; i++)
@@ -318,7 +325,9 @@ namespace TW.Presentation.Terrain
                 Vector3 p = k < 7 ? new Vector3(-16f - 40f * a, 0f, len * (.05f + .9f * Hash(k, 7))) : new Vector3(w * Hash(k, 9), 0f, len + 30f + 60f * a);
                 p.y = GreyboxTerrainView.SkirtLevel + .2f * b;
                 fireCentres.Add(p); fireShapes.Add(new Vector4(4.5f + 5f * b, .55f, k * .31f, .6f)); fireColors.Add(new Color(1f, .55f, .2f, .16f + .1f * a));
+                HorizonCore(p, a, b, k, fireCentres, fireShapes, fireColors);   // look.horizonFires (NightLights.Pools.cs)
             }
+            if (HorizonFiresLook) for (int k = 0; k < fireColors.Count; k += 2) { var c = fireColors[k]; fireColors[k] = new Color(c.r, c.g * .82f, c.b * .6f, c.a * .3f); }   // the wide glow deeper orange and faint: in the lifted haze it floated as a pale sliver
             var fireHost = new GameObject("Horizon fires") { hideFlags = HideFlags.DontSave };
             fireHost.transform.SetParent(transform, false);
             var fireGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
@@ -400,6 +409,7 @@ namespace TW.Presentation.Terrain
         {
             Shader.SetGlobalColor(BurstColorId, Color.clear);   // nothing is burning once we are gone
             Shader.SetGlobalColor(HearthColorId, Color.clear);
+            ClearPools();
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.SmokeSources.Clear();
             SceneHooks.Flash = null;
@@ -493,6 +503,7 @@ namespace TW.Presentation.Terrain
                 lanterns[i].transform.position = lanternHome[i] + new Vector3(Mathf.Sin(t * .31f) * rock, 0f, Mathf.Cos(t * .23f + 1.7f) * rock);
                 lanterns[i].intensity = lanternBase[i] * (.86f + .10f * Mathf.Sin(t) * Mathf.Sin(t * .43f) + .04f * Mathf.Sin(t * 3.1f));
             }
+            PushPools();   // look.pools: the nearest flames' painted pools (NightLights.Pools.cs)
             for (int i = 0; i < poolSize; i++)
             {
                 float age = pool[i].Light.enabled ? (Time.time - pool[i].Born) / pool[i].Life : 1f;

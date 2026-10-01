@@ -840,10 +840,14 @@ namespace TW.Presentation.Tactical
             if (v.Fire > 0f || v.State != 0) Burning(v, now, v.Fire, 1f);
         }
 
+        static readonly Color FirePoolColour = new Color(1f, 0.5f, 0.2f);   // deeper than a lamp: firelight on the mud reads orange, not cream
+
         void Burning(View v, float now, float fire, float smoke)
         {
             if (fire > 0.02f)
             {
+                // its pool of firelight on the mud round it, renewed each frame (look.firePools, NightLights.Pools.cs)
+                SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * (v.Model.Height + 0.5f), FirePoolColour, 0.35f + 0.75f * fire, (6f + v.Model.HalfLength * (0.8f + 0.6f * fire)) * 0.75f, 0f);   // a quarter less reach (round 17: it swallowed the men beside it)
                 for (int k = 0; k < 2; k++)
                 {
                     var at = SocketWorld(v, "Socket_Fire" + k, out bool ok);
