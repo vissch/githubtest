@@ -480,6 +480,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   break a part in the minute filmed).
   **A sapper digs** (2026-10-01, same build): `SapperLaying` throws a spadeful of earth off the spot every
   `CombatFx.DigEvery` seconds of sim time until the mine is placed (`TickDigs`). Seen in Play on a real order.
+  **Every card on the tester's bar works** (2026-10-01, same build): `ProvingGround.Request` seats both sides as
+  Brass (a faction is its default ten and the calls it may make; the tens are handed in, so only the calls change).
+  As Iron the DROP card was on the bar and the sim refused it every time. Tests:
+  `ProvingGroundTests.TheTesterMayCallEverySupportCardOnTheBar`; seen in Play (our own drop, eight men down).
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height).

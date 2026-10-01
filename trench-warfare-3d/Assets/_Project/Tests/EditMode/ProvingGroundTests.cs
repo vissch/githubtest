@@ -464,5 +464,21 @@ namespace TW.Tests
             var one = Play(); var two = Play();
             for (int t = 0; t < one.Length; t++) Assert.AreEqual(one[t], two[t], $"the worlds part at tick {t}");
         }
+
+        /// <summary>Every support card on the tester's bar can be called: the seat's faction may call them all (as Iron
+        /// the DROP card was shown and the sim refused it every time, 2026-10-01).</summary>
+        [Test]
+        public void TheTesterMayCallEverySupportCardOnTheBar()
+        {
+            var ten = ProvingGround.DefaultTen(FactionId.Iron);
+            var r = ProvingGround.Request(Ground.ShelledForest, 7u, 0f, 50000, ten, (byte[])ten.Clone(), 0);
+            foreach (var id in TW.UI.HudView.SupportAbilities)
+            {
+                Assert.IsTrue(MatchLaunch.Request.Offered(r.AbilityMaskA, (int)id), id + " has its card");
+                Assert.IsTrue(FactionRoster.MayCall(Factions.Of(r.FactionA), (int)id), id + " may be called by the tester's seat");
+                Assert.IsTrue(FactionRoster.MayCall(Factions.Of(r.FactionB), (int)id), id + " may be called by the other seat (the panel calls it for them)");
+            }
+            Assert.That(r.LoadoutA, Is.EqualTo(ten), "and the ten is still the one handed in");
+        }
     }
 }

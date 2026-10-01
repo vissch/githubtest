@@ -136,6 +136,10 @@ namespace TW.Presentation
                 StartingSilver = silver, SilverPerSecond = 2f,
                 LoadoutA = ours, LoadoutB = theirs,
                 AbilityMaskA = 0, AbilityMaskB = 0,
+                // every card on the bar works here. A faction is its default ten and the support it may call; the tens
+                // are given above, so the seat's faction only decides the calls, and Brass may make them all. As Iron
+                // the tester's DROP card was on the bar and the sim refused it every time (2026-10-01).
+                FactionA = (byte)TW.Sim.FactionId.Brass, FactionB = (byte)TW.Sim.FactionId.Brass,
             };
             ApplyAi(ai, r);
             return r;
