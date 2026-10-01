@@ -20,6 +20,8 @@
 //   look.poolShoulder  a roll-off for bright sums (0: no fire pool clipped, 0.00 % of pixels over 0.95 at zoom 14)
 //   look.fireStreak each flame's long, broken reflection across the wet mud toward the camera (the owner's colour edit
 //                   smears orange under every burning wreck; the loop's final critic: glossy mud with fire reflections still missing); 0 only the glints
+//   look.glintUnblue the blue a flame's glint on the wet mud takes out from under it (1): orange laid over the moonlit
+//                   blue read pink-lilac (round 23: violet pixels halved with the glints off); 0 as before
 //   look.poolsThroughHaze  the share of a pool's light the Toon shader adds after the fog (1): with the haze lifted
 //                   the distance's lamps went out in it (warm pixels 2.8 to 1.6 %, 2026-09-30); 0 fogs them as before
 // Fires reach SceneHooks.FirePool; a big fire counts as nearer than a lamp at the same distance, by its reach squared
@@ -57,6 +59,9 @@ namespace TW.Presentation.Terrain
         static readonly int StreakId = Shader.PropertyToID("_TWFireStreak");
         /// <summary>look.fireStreak: how bright a flame's streak on the wet mud is (TWLightPools.hlsl), 0 none.</summary>
         public const float DefaultFireStreak = 1.5f;   // 1 faint once the column was thin and faded (round 23); 2 began to read as dashes
+        static readonly int GlintUnblueId = Shader.PropertyToID("_TWGlintUnblue");
+        /// <summary>look.glintUnblue: a flame's glint on the wet mud warms it orange, not lilac.</summary>
+        public const float DefaultGlintUnblue = 1f;
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
@@ -117,6 +122,7 @@ namespace TW.Presentation.Terrain
                 Shader.SetGlobalFloat(PoolSoftId, Mathf.Clamp01(Knobs.Get("look.poolSoft", DefaultPoolSoft)));
                 Shader.SetGlobalFloat(PoolShoulderId, Mathf.Clamp(Knobs.Get("look.poolShoulder", DefaultPoolShoulder), 0f, 4f));
                 Shader.SetGlobalFloat(StreakId, Mathf.Clamp(Knobs.Get("look.fireStreak", DefaultFireStreak), 0f, 4f));
+                Shader.SetGlobalFloat(GlintUnblueId, Mathf.Clamp(Knobs.Get("look.glintUnblue", DefaultGlintUnblue), 0f, 4f));
             }
             if (poolStrength <= 0f || !SceneMood.Night)
             {
@@ -212,7 +218,7 @@ namespace TW.Presentation.Terrain
         {
             if (poolHooked) { RenderPipelineManager.beginCameraRendering -= PoolsFor; poolHooked = false; }
             SceneHooks.FirePool = null;
-            Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f); Shader.SetGlobalFloat(StreakId, 0f);
+            Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f); Shader.SetGlobalFloat(StreakId, 0f); Shader.SetGlobalFloat(GlintUnblueId, 0f);
             firePools.Clear();
             Shader.SetGlobalFloat(PoolCountId, 0f);
         }
