@@ -115,7 +115,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. |
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. |
 | `Tests/` | NUnit tests, one assembly per module (Tools/gate_scope.py lists them); PlayMode spins real SimHosts. |
-| `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). |
+| `Tests/EditMode/` | The landing folder of the test split: only LandingFolder.cs. A lane cut before 2026-10-02 lands its new tests here, and validate.py says which module folder each goes to. |
 | `Tests/Match/` | EditMode tests of whole matches run through LockstepSession and ScriptedEnemy (Sim + Presentation/Core). Slow. |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. |
 | `Tests/Project/` | EditMode tests that need TW.Editor: a fresh clone sets itself up, the UI skin, shaders kept in builds. |

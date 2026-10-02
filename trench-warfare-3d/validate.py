@@ -23,7 +23,7 @@ CHECKS = root / 'Tools' / 'checks'
 
 # The order the checks run and report in. A file in Tools/checks/ that is not listed here is an error, not a skip.
 ORDER = ['asmdef_json', 'asmdef_refs', 'sim_isolation', 'asmdef_cycles', 'sim_purity', 'phase_header',
-         'brace_balance', 'using_namespace', 'audio_volume', 'codemap_docs']
+         'brace_balance', 'using_namespace', 'audio_volume', 'test_modules', 'codemap_docs']
 
 
 def text(p):

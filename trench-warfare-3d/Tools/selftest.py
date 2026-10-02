@@ -173,6 +173,21 @@ def validate_cases(wt: pathlib.Path):
            lambda: new_cs('Presentation/Core/WrongUsing.cs', '// Phase: x\nusing TW.Sim.Core;\nnamespace TW.Presentation { class WrongUsing { } }\n'))
     expect('audio_volume', 'the project muted in its settings asset', 'm_Volume is 0',
            lambda: edit(proj / 'ProjectSettings/AudioManager.asset', 'm_Volume: 1', 'm_Volume: 0'))
+    test = lambda body: 'using NUnit.Framework;\n' + body + '\nnamespace TW.Tests { public class StrayTests { [Test] public void A() {} } }\n'
+    T = 'Assets/_Project/Tests'
+    expect('test_modules', 'a sim test left in the landing folder, and says where it goes',
+           f'git mv {T}/EditMode/StrayTests.cs {T}/Sim/StrayTests.cs',
+           lambda: new_cs('Tests/EditMode/StrayTests.cs', '// Phase: x\n' + test('using TW.Sim;')))
+    expect('test_modules', 'a UI test left in the landing folder', f'{T}/UI/StrayTests.cs',
+           lambda: new_cs('Tests/EditMode/StrayTests.cs', '// Phase: x\n' + test('using TW.Presentation;\nusing TW.UI;')))
+    expect('test_modules', 'a match test left in the landing folder', f'{T}/Match/StrayTests.cs',
+           lambda: new_cs('Tests/EditMode/StrayTests.cs', '// Phase: x\n' + test('using TW.Presentation;\n// LockstepSession')))
+    expect('test_modules', 'the sim tests referencing an assembly the scoped gate does not watch', 'TW.Tests.Sim reaches TW.UI',
+           lambda: add_ref('Tests/Sim/TW.Tests.Sim.asmdef', 'TW.Data', 'TW.UI'))
+    expect('test_modules', 'a sim test reading project files nobody declared', 'StrayTests.cs: reads project files',
+           lambda: new_cs('Tests/Sim/StrayTests.cs', '// Phase: x\n' + test('// var t = Resources.Load("x");')))
+    expect('test_modules', 'two test files with one name', 'two test files are named MineTests.cs',
+           lambda: new_cs('Tests/Show/MineTests.cs', '// Phase: x\n' + test('')))
     wf = wt / 'docs/reference/workflow.md'
     expect('codemap_docs', 'what codemap --check finds', 'codemap: ',
            lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `Presentation/Core/NoSuchFile.cs`.\n'))

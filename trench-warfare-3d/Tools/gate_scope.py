@@ -50,6 +50,11 @@ NEEDS = {
     'Match': (P + 'Sim/', P + 'Net/', P + 'Data/', P + 'Presentation/Core/', P + 'Tests/Match/'),
 }
 
+# Slow-module tests that read project files by path, and the folder each reads (it must be one of the module's NEEDS).
+READS = {
+    'MineTests': P + 'Sim/',   # one system alone clears the blast list: it greps the sim sources
+}
+
 # A change here can reach any assembly: the build's inputs, and the gate itself.
 EVERYTHING_PREFIXES = ('trench-warfare-3d/Packages/', 'trench-warfare-3d/ProjectSettings/')
 EVERYTHING_FILES = ('gate.ps1', 'trench-warfare-3d/Tools/gate_scope.py')

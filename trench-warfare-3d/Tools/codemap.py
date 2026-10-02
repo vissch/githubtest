@@ -95,7 +95,7 @@ PURPOSE = {
     'Sim/Terrain': 'MapData, heightfield, battlefield generator, craters, wire, mud, props.',
     'Sim/Units': 'Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs.',
     'Tests': 'NUnit tests, one assembly per module (Tools/gate_scope.py lists them); PlayMode spins real SimHosts.',
-    'Tests/EditMode': 'EditMode tests (references every assembly incl. TW.Editor).',
+    'Tests/EditMode': 'The landing folder of the test split: only LandingFolder.cs. A lane cut before 2026-10-02 lands its new tests here, and validate.py says which module folder each goes to.',
     'Tests/Match': 'EditMode tests of whole matches run through LockstepSession and ScriptedEnemy (Sim + Presentation/Core). Slow.',
     'Tests/PlayMode': 'PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router.',
     'Tests/Project': 'EditMode tests that need TW.Editor: a fresh clone sets itself up, the UI skin, shaders kept in builds.',
@@ -111,9 +111,6 @@ PURPOSE = {
     'UI/Shell': 'Menus: router, main menu, mission select, pause, settings, debrief, armoury.',
     'UI/Skin': 'Dust Front skin: SkinSpec (the sprite table), USS tokens, fonts.',
 }
-
-# Folders the next commit creates (the test modules, 2026-10-02): their PURPOSE line may come before the folder does.
-PENDING_FOLDERS = {'Tests/Match', 'Tests/Project', 'Tests/Show', 'Tests/Sim', 'Tests/UI'}
 
 # What each runtime switch does. A switch found in the code with no line here fails --check.
 FLAG_EFFECT = {
@@ -535,7 +532,7 @@ def check(errors, warnings):
     folders = set(project_folders())
     for f in sorted(folders - set(PURPOSE)):
         errors.append(f'Assets/_Project/{f}/ has no purpose line: add it to PURPOSE in Tools/codemap.py')
-    for f in sorted(set(PURPOSE) - folders - PENDING_FOLDERS):
+    for f in sorted(set(PURPOSE) - folders):
         errors.append(f'PURPOSE in Tools/codemap.py names Assets/_Project/{f}/, which no longer exists')
     for k in sorted(set(find_flags()) - set(FLAG_EFFECT)):
         errors.append(f'runtime switch "{k}" is undocumented: add it to FLAG_EFFECT in Tools/codemap.py')
