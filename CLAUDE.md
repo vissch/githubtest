@@ -84,12 +84,12 @@ rebase before it continues. Never bundle a seam change into a feature commit.
 ## Gate
 ```bash
 # from the repo root, this checkout's editor closed
-powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # before every commit: validate + EditMode
-powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # before landing, and after any sim change
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # before every commit: validate + the EditMode test modules your lane's changes can reach
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # before landing, and after any sim change: everything
 ```
 Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no tests ran), 5 validate.py failed
 (printed), 3 project held, 1 unity.exe missing. SIM changes also need the determinism, replay and hash tests green
-(EditMode). SHOW changes also need a look in Play at what changed. False reds: `workflow.md`, section 5.
+(EditMode). SHOW changes also need a look in Play at what changed. Test modules, what `-EditOnly` skips, false reds: `workflow.md`, section 5.
 
 ## Asking and remembering
 - **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into

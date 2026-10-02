@@ -54,7 +54,7 @@ Speed factors: `PickSpeed` 0.88 in a crater; `StepOverSpeed` 0.72 in a trench.
 - **Last fixes, both in WalkerGait:** the ground has the last word on a swinging foot (parapet penetration 1.164 m → 0), and `Urgency` no longer starves long legs.
 - The ladder itself is not in any tool. WalkerStills uses fixed zooms: 26 side-on and 15 walking.
 
-## GaitTests (Tests/EditMode/GaitTests.cs)
+## GaitTests (Tests/Show/GaitTests.cs)
 Every leg rigged with a toe under it · a planted foot stays put · always feet on the ground · feet find the ground · leans to a slope · a foot does not pass through a parapet · a step goes over a parapet · the modelled leg reaches the chosen foot · a lost leg stops and leans into the hole · no sinking on the level (sink < 0.34 m, wander < 0.38 m) · built at the shipped size · a killed walker goes down on its legs · every footfall reported · steps when turning on the spot.
 
 ## WalkerStills (Tests/Stills/WalkerStills.cs; asmdef TW.Tests.Stills; `[UnityTest, Explicit]`, so the gate skips them)

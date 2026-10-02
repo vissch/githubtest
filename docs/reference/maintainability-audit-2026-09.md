@@ -97,6 +97,25 @@ by this pass (see `CLAUDE.md`); the code half is a backlog, in order, at the bot
 11. **R11 CombatFx for real.** After `lane/show/aosa` lands: extract the event handlers (`OnSimEvent`) and
    Birds/Ambient into plain classes owned by `CombatFx`, as `Flamethrower` already is.
 
+## The process, module by module (2026-10-02)
+The owner asked for a more modular process and chose to start with the part every lane pays for on every commit.
+Done on `lane/show/test-modules`: the EditMode tests are one assembly per module, `gate.ps1 -EditOnly` runs only the
+modules a lane's changes can reach, and `validate.py` runs one file per check (`workflow.md`, sections 1 and 5).
+Left for later lanes, because live lanes were adding files in each place on that day (counts from 2026-10-02):
+12. **R12 Split `TW.Editor`** into capture (CaptureRig, TankCapture, HudCapture, SimProbe), labs (RiderLab, WeightLab,
+   LookLab, UnitSandbox, EnvPropEditor) and import/bake assemblies, keeping the `TW.Editor` namespace so every
+   `tw eval` call in `workflow.md` still works. A seam commit. Five lanes were adding lab files.
+13. **R13 One shared module for the Blender splitters.** The five vehicle splitters repeat `unity`, `load`, `join`
+   and `export` in three near-identical families (about 330 lines). The larger gain is recording every `TW_*` flag
+   into the manifest each run writes, which closes risk 10. It needs the source sheets to prove the outputs unchanged.
+14. **R14 `Tools/` by job.** 59 files sit flat. Moving them breaks about twenty scripts that find the project by their
+   own depth and every doc that cites a path; a generated index by job in `pipelines.md` gives most of the gain.
+15. **R15 One shape for the capture-and-score loops.** The playground round (shot list, sidecar per still, contact
+   sheet, scored metrics with noise floors) is the only one written down as files; riders, tanks and the night look
+   each keep theirs in prose or C#.
+R1 (`Presentation/Camera` into Fx, Vehicles and Debug) stays where it is in the list above: six lanes were adding
+partial-class files there, and a partial cannot be left behind in the old folder the way a test file can.
+
 ## When to audit again
 - A file passes 1,000 lines.
 - `StaticLifecycleTests` needs a new entry in its explained list.
