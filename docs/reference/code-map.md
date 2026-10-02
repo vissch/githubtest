@@ -60,11 +60,16 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Sim.Terrain` | `Sim/Terrain/` | `TW.Sim.Terrain` | Sim.Core |
 | `TW.Sim.Units` | `Sim/Units/` | `TW.Sim.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat |
 | `TW.Tests.EditMode` | `Tests/EditMode/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf |
+| `TW.Tests.Match` | `Tests/Match/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Core, Data |
 | `TW.Tests.PlayMode` | `Tests/PlayMode/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Net, Presentation.Core, Sim.Nav, Sim.Combat, Sim.Units, Data, UI, Presentation.Camera, Perf |
+| `TW.Tests.Project` | `Tests/Project/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data, Editor, Perf |
+| `TW.Tests.Show` | `Tests/Show/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Data, Perf |
+| `TW.Tests.Sim` | `Tests/Sim/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Data |
 | `TW.Tests.Stills` | `Tests/Stills/` | `TW.Tests` | Sim.Core, Sim.Match, Sim.Terrain, Sim.Nav, Sim.Units, Net, Data, UI, Presentation.Core, Presentation.Camera, Presentation.Terrain, Editor |
+| `TW.Tests.UI` | `Tests/UI/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
-24 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+29 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -111,8 +116,13 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. |
 | `Tests/` | NUnit tests, one assembly per module (Tools/gate_scope.py lists them); PlayMode spins real SimHosts. |
 | `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). |
+| `Tests/Match/` | EditMode tests of whole matches run through LockstepSession and ScriptedEnemy (Sim + Presentation/Core). Slow. |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. |
+| `Tests/Project/` | EditMode tests that need TW.Editor: a fresh clone sets itself up, the UI skin, shaders kept in builds. |
+| `Tests/Show/` | EditMode tests of Presentation and Perf, and the source-text checks. Fast; every gate runs them. |
+| `Tests/Sim/` | EditMode tests of the sim alone: references only TW.Sim.*, TW.Net, TW.Data. Slow. |
 | `Tests/Stills/` | Walker stills (WalkerStills, its own assembly): held-frame captures of the walkers that docs/20 scores. |
+| `Tests/UI/` | EditMode tests of TW.UI: HUD, shell, selection, campaign tables, settings. |
 | `UI/` | UI Toolkit: the battle HUD (HudController/HudView) and its parts. |
 | `UI/Campaign/` | Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings). |
 | `UI/Missions/` | Mission card assets for the mission select. |

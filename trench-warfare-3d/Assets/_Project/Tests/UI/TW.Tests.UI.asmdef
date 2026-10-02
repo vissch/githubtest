@@ -1,0 +1,41 @@
+{
+  "name": "TW.Tests.UI",
+  "rootNamespace": "TW.Tests",
+  "references": [
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner",
+    "Unity.Burst",
+    "Unity.Collections",
+    "Unity.Mathematics",
+    "TW.Sim.Core",
+    "TW.Sim.Terrain",
+    "TW.Sim.Nav",
+    "TW.Sim.Combat",
+    "TW.Sim.Match",
+    "TW.Net",
+    "TW.Sim.Units",
+    "TW.Presentation.Units",
+    "TW.Presentation.Core",
+    "TW.Presentation.Camera",
+    "TW.Presentation.Terrain",
+    "TW.Presentation.Meta",
+    "TW.UI",
+    "TW.Data",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
