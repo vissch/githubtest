@@ -61,7 +61,7 @@ def site(assets, code, extra, lanes, meta, stage: Path):
 
     funnel = []
     for cat in CATEGORY:
-        group = [a for a in rows if a['category'] == cat and a['kind'] != 'idea']
+        group = [a for a in rows if a['category'] == cat and a['kind'] in ('unit', 'house', 'structure')]   # the ladders of the units and the buildings
         steps = []
         for a in group:
             for s in a['stages']:
