@@ -29,6 +29,11 @@ static class Runner
             catch (Exception e) { Console.WriteLine("ENGINE-INSTALL-FAILED " + e.GetType().Name + ": " + e.Message); }
         }
         var asm = Assembly.LoadFrom(dll);
+        // Unity's editor domain holds every script assembly, whatever the test assembly references. A test that scans
+        // the loaded assemblies (StaticLifecycleTests) must find the same set here, now that a test dll references
+        // only its own module's assemblies.
+        foreach (var other in Directory.GetFiles(Path.GetDirectoryName(Path.GetFullPath(dll)), "TW.*.dll"))
+            if (!Path.GetFileName(other).StartsWith("TW.Tests.")) { try { Assembly.LoadFrom(other); } catch { } }
         Type[] types;
         try { types = asm.GetTypes(); }
         catch (ReflectionTypeLoadException e)
