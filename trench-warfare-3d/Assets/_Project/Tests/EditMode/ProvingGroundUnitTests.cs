@@ -12,7 +12,6 @@ using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Sim.Nav;
-using TW.Presentation;
 
 namespace TW.Tests
 {
