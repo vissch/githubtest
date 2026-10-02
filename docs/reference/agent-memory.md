@@ -137,3 +137,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
   Count events from a log, not from pixels. A knob A/B on held-clock stills settles "is it drawn at all" in one run.
 - **2026-09-25 (AOSA). Normalise sim costs by men alive:** spreading the stress army cut Sim.Step 39% only because more
   men died.
+- **2026-10-03. "Unity cannot run from an administrator session" was believed for four days and was wrong.** Batch mode runs
+  elevated (it logs a warning) and has the graphics card. What hung was a windowed editor with no desktop, and a `unity`
+  launcher ahead of the CLI on PATH. A batch editor left open answers `tw eval`, enters Play and renders (`workflow.md`, section 3).
