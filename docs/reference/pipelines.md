@@ -132,6 +132,24 @@ Placeholder sprites are painted by `Editor/UI/UiSkinGenerator.cs`, which never o
 They are bodies for `tw eval` / `eval_file`, kept for reference. `VisualCapture` is the old capture path; use
 `CaptureRig` instead (`workflow.md`).
 
+## Asset board (every character, vehicle and building, and how far each is)
+
+A static site, built from the code, the files, the branches and the docs, that shows each asset's models, a preview,
+how far it is integrated, how it meets the effects, which levels it is in, what is in flight on which lane, and every
+change to it. It goes to the Drive folder TW3D-pipeline/assets (open index.html there), never into the repo. Five
+buckets: final in the battle, in progress, needs a visual (drawn with another unit's model), ready but not used, idea.
+The rules for each are at the top of Tools/assetboard/model.py.
+
+| Script | Does | Usage |
+|---|---|---|
+| `assetboard/build.py` | Builds the site. `--check` only reads and prints the counts. A code table that changed shape stops it with the file and what it expected; a source this machine lacks (Blender, gym runs, the board) is only a warning on the process page | `python Tools/assetboard/build.py` |
+| `assetboard/test_assetboard.py` | Its tests: the counts and known assets on the real tree, and the rules on fixtures | `python Tools/assetboard/test_assetboard.py` |
+| `assetboard/thumb_blender.py` | The previews, in headless Blender (run by build.py). A building is put together from its chunk files and `houses.json` | not run by hand |
+
+What only a person knows goes in `docs/reference/asset-notes.json`: `priority`, `note`, `wants`, `parked` and
+`model_of` per asset, and a `planned` list for assets that are only an idea. An unknown id or key stops the build.
+A new machine or building needs nothing here: it appears once its files or its id exist.
+
 ## Two-station agent pipeline
 
 Work split between the laptop and the desktop, one stage at a time per item, with staleness worked out from the

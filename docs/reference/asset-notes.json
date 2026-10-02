@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "about": "Hand-kept notes for the asset board (Tools/assetboard). Only what a script cannot know. An unknown asset id or key stops the build.",
+  "assets": {
+    "Rifle": { "model_of": "Soldier" },
+    "Assault": { "model_of": "Soldier" },
+    "Machinegunner": { "model_of": "Soldier" }
+  },
+  "planned": [
+    { "id": "MortarTeam", "category": "character", "name": "Mortar team", "source": "docs/06 5.4b" },
+    { "id": "Arditi", "category": "character", "name": "Arditi", "source": "docs/06 5.4b" },
+    { "id": "FieldGunCrew", "category": "character", "name": "Field gun crew", "source": "docs/06 5.4b" },
+    { "id": "Cavalry", "category": "character", "name": "Cavalry", "source": "docs/06 5.4b" },
+    { "id": "MarkIVFemale", "category": "vehicle", "name": "Mark IV Female", "source": "docs/06 5.4b" },
+    { "id": "SaintChamond", "category": "vehicle", "name": "Saint-Chamond", "source": "docs/06 5.4b" },
+    { "id": "SchneiderCA1", "category": "vehicle", "name": "Schneider CA1", "source": "docs/06 5.4b" },
+    { "id": "GarfordPutilov", "category": "vehicle", "name": "Garford-Putilov", "source": "docs/06 5.4b" },
+    { "id": "Lancia1ZM", "category": "vehicle", "name": "Lancia 1ZM", "source": "docs/06 5.4b" },
+    { "id": "PierceArrow", "category": "vehicle", "name": "Pierce-Arrow", "source": "docs/06 5.4b" },
+    { "id": "MotorcycleMG", "category": "vehicle", "name": "Motorcycle MG", "source": "docs/06 5.4b" },
+    { "id": "Ehrhardt", "category": "vehicle", "name": "Ehrhardt", "source": "docs/06 5.4b" }
+  ],
+  "aliases": {},
+  "ignore": []
+}
