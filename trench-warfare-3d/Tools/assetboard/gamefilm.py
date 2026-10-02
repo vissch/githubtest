@@ -354,7 +354,8 @@ def battle(only):
     men = [(n, k) for n, k in figures() if not only or n in only]
     for i, (name, arch) in enumerate(men):
         print(name)
-        x, z = width * (0.25 + 0.5 * (i + 0.5) / len(men)), depth * 0.42
+        # a row of their own, away from the machines' wrecks; filmed from above (20 degrees put houses in front of them)
+        x, z = width * (0.25 + 0.5 * (i + 0.5) / len(men)), depth * 0.68
         slots = []
         for k in range(6):
             got = str(run(f'return TW.Editor.TankCapture.Spawn(0, {arch}, {x + (k - 2.5) * 2.2:.1f}f, {z - (k % 2) * 2.5:.1f}f, 0f);'))
@@ -365,9 +366,9 @@ def battle(only):
             continue
         lead = slots[len(slots) // 2]
         time.sleep(2.0)
-        run(f'TW.Editor.RiderLab.Panel(false); return TW.Editor.RiderLab.Camera({lead}, 8f, 150f, 20f);')
+        run(f'TW.Editor.RiderLab.Panel(false); return TW.Editor.RiderLab.Camera({lead}, 7f, 150f, 42f);')
         time.sleep(1.0)
-        record(f'{name}.battle.game-battle', 18, battle=dict(slot=lead, zoom=8, yaw=150), cues=[(0.5, f'TW.Editor.RiderLab.Enemies({lead}, 8, 38f, 0f);')])
+        record(f'{name}.battle.game-battle', 18, battle=dict(slot=lead, zoom=7, yaw=150), cues=[(0.5, f'TW.Editor.RiderLab.Enemies({lead}, 8, 38f, 0f);')])
         run(f'return TW.Editor.RiderLab.ClearEnemies({lead}, 120f);')
     return 0
 
