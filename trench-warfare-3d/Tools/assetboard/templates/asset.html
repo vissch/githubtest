@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}{{ a.name }}{% endblock %}
+{% block main %}
+<p class="crumb"><a href="../index.html#{{ a.status }}">Assets</a> / {{ CATEGORY[a.category] }}</p>
+<section class="head s-{{ a.status }}">
+  <div>
+    <h1>{{ a.name }}{% if a.name != a.id %} <span class="id">{{ a.id }}</span>{% endif %}{% if a.archetype is not none %} <span class="id">archetype {{ a.archetype }}</span>{% endif %}</h1>
+    <p class="status"><span class="badge">{{ STATUS_LABEL[a.status] }}</span> {{ a.status_why }}</p>
+    {% if a.blurb %}<p class="blurb">{{ a.blurb }}</p>{% endif %}
+    {% if a.notes.note or a.notes.priority or a.notes.wants or a.notes.source %}
+    <p class="note">{% if a.notes.priority %}<b>Priority {{ a.notes.priority }}.</b> {% endif %}{% if a.notes.wants %}<b>Wants: {{ a.notes.wants }}.</b> {% endif %}{{ a.notes.note }}{% if a.notes.source %} (from {{ a.notes.source }}){% endif %}</p>
+    {% endif %}
+  </div>
+</section>
+
+<section>
+  <h2>Final state</h2>
+  <div class="final">
+    <figure class="hero">
+      {% if a.hero %}<img src="../{{ a.hero }}" alt=""><figcaption>{{ a.hero_what }}</figcaption>
+      {% else %}
+      <div class="novisual big">
+        {% if a.stand_in %}<img src="../{{ a.stand_in }}" alt="">{% endif %}
+        <span>{% if a.kind == 'idea' %}Only an idea: nothing to show{% elif a.kind == 'lane' %}Its files are on a lane, not on integration{% elif a.drawn_as %}No visual of its own. In the game it is drawn as the {{ a.drawn_as }}{% else %}No picture{% endif %}</span>
+      </div>
+      {% endif %}
+    </figure>
+    <div class="side">
+      {% for i in a.images if i.kind in ('unitart', 'portrait') %}
+      <figure><img src="../{{ i.file }}" alt=""><figcaption>{{ i.caption }}</figcaption></figure>
+      {% endfor %}
+      {% for i in a.images if i.kind == 'gym' %}{% if loop.first %}
+      <figure class="wide"><img src="../{{ i.file }}" alt=""><figcaption>{{ i.caption }}</figcaption></figure>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="cols">
+  <div>
+    <h2>How far it is</h2>
+    <ol class="ladder">
+      {% for s in a.stages %}
+      <li class="{{ 'ok' if s.ok else 'no' }}"><b>{{ s.label }}</b><span>{{ s.evidence }}</span></li>
+      {% else %}<li class="no"><b>Nothing yet</b><span></span></li>
+      {% endfor %}
+    </ol>
+  </div>
+  <div>
+    <h2>Levels</h2>
+    {% if a.levels %}<ul class="plain">{% for l in a.levels %}<li>{{ l.text }}</li>{% endfor %}</ul>
+    {% else %}<p class="dim">In no level.</p>{% endif %}
+    {% if a.measurements %}
+    <h2>Measurements</h2>
+    <table class="kv">{% for k, v in a.measurements.items() %}<tr><th>{{ k }}</th><td>{{ v }}</td></tr>{% endfor %}</table>
+    {% endif %}
+  </div>
+</section>
+
+<section>
+  <h2>Models</h2>
+  {% if a.models %}
+  <div class="models">
+    {% for m in a.models %}
+    <div class="model">
+      {% if m.thumb %}<img src="../{{ m.thumb }}" alt="">{% else %}<div class="nothumb">{{ m.thumb_error or 'no preview' }}</div>{% endif %}
+      <div>
+        <h3>{{ {'battle': 'Battle model', 'trial': 'Trial model (playground)', 'procedural': 'Procedural mesh'}[m.form] }}</h3>
+        {% if m.thumb_warn %}<p class="warn">This preview may be wrongly assembled: {{ m.thumb_warn }}.</p>{% endif %}
+        {% if m.thumb_stale %}<p class="warn">The model changed since this preview was rendered.</p>{% endif %}
+        <table class="kv">
+          {% for l in m.lods %}<tr><th>LOD{{ l.lod }}</th><td>{{ l.path }}{% if l.tris %} · {{ l.tris }} triangles{% endif %}</td></tr>{% endfor %}
+          {% if m.chunks %}<tr><th>Chunks</th><td>{{ m.chunks }}</td></tr>{% endif %}
+          {% if m.texture %}<tr><th>Texture</th><td>{{ m.texture }}</td></tr>{% endif %}
+          {% if m.manifest %}<tr><th>Manifest</th><td>{{ m.manifest }}</td></tr>{% endif %}
+          {% if m.source %}<tr><th>Made by</th><td>{{ m.source }}</td></tr>{% endif %}
+          {% if m.bones %}<tr><th>Bones</th><td>{{ m.bones }}</td></tr>{% endif %}
+          {% if m.parts %}<tr><th>Parts</th><td>{{ m.parts|join(', ') }}</td></tr>{% endif %}
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<p class="dim">No model file of its own{% if a.drawn_as %}: the game draws it with the {% if a.drawn_as in assets %}<a href="{{ a.drawn_as }}.html">{{ a.drawn_as }}</a>{% else %}{{ a.drawn_as }}{% endif %}'s model{% endif %}.</p>{% endif %}
+</section>
+
+<section class="cols">
+  <div>
+    <h2>Effects</h2>
+    {% if a.vfx.note %}<p class="warn">{{ a.vfx.note }}</p>{% endif %}
+    {% if a.vfx.rows %}
+    <table class="fx">
+      {% for r in a.vfx.rows %}<tr class="{{ 'ok' if r.ok else 'no' }}"><th>{{ r.effect }}</th><td>{{ 'yes' if r.ok else 'no' }}</td><td>{{ r.detail }}</td></tr>{% endfor %}
+    </table>
+    {% endif %}
+    {% if a.vfx.generic %}<p class="dim">{{ a.vfx.generic }}</p>{% endif %}
+    {% if a.vfx.roles %}<p class="dim">Parts by role: {% for k, v in a.vfx.roles.items() %}{{ k }}{% if v > 1 %} ×{{ v }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+    {% if a.code %}
+    <h3>Presentation code that special-cases it</h3>
+    <ul class="plain small">{% for f, n in a.code.items() %}<li>{{ f }} <span class="dim">×{{ n }}</span></li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  <div>
+    <h2>Tests that name it</h2>
+    {% if a.tests %}<ul class="plain small">{% for t in a.tests %}<li>{{ t.file }} <span class="dim">×{{ t.hits }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="dim">No test names it.</p>{% endif %}
+  </div>
+</section>
+
+<section>
+  <h2>In flight</h2>
+  {% if not a.live_lanes and not a.board and not a.open_questions %}<p class="dim">Nothing in flight touches its art.</p>{% endif %}
+  {% for l in a.live_lanes %}
+  <div class="lane live">
+    <b>{{ l.branch }}</b> <span class="dim">live · {{ l.ahead }} unlanded commits · tip {{ l.tip }}{% if l.worktree %} · checked out in {{ l.worktree }}{% endif %}</span>
+    <ul class="plain small">{% for f in l.files %}<li>{{ f }}</li>{% endfor %}</ul>
+  </div>
+  {% endfor %}
+  {% if a.board %}
+  <h3>Board</h3>
+  <table class="kv">{% for b in a.board %}<tr><th>{{ b.item }} / {{ b.stage }}</th><td><span class="state st-{{ b.state }}">{{ b.state }}</span> {{ b.station }}</td></tr>{% endfor %}</table>
+  {% endif %}
+  {% if a.open_questions %}
+  <h3>Waiting on the owner</h3>
+  <ul class="plain">{% for q in a.open_questions %}<li>{{ q }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if a.other_lanes %}
+  <details><summary>{{ a.other_lanes|length }} other lane{{ 's' if a.other_lanes|length > 1 }} that name it or are parked</summary>
+    <ul class="plain small">{% for l in a.other_lanes %}<li><b>{{ l.branch }}</b> <span class="dim">{{ 'live' if l.live else 'parked' }} · {{ 'touches its art' if l.touches_art else 'names it only' }} · tip {{ l.tip }}</span>{% if l.subjects %}<br><span class="dim">{{ l.subjects[0] }}</span>{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</section>
+
+{% set shots = a.images|rejectattr('kind', 'in', ['unitart', 'portrait'])|list %}
+{% if shots or a.films %}
+<section>
+  <h2>Pictures and films</h2>
+  <div class="shots">
+    {% for i in shots %}
+    <figure class="{{ 'wide' if i.kind in ('gym', 'doc', 'evidence') else '' }}"><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a>
+      <figcaption>{% if i.date %}<b>{{ i.date }}</b> {% endif %}{{ i.caption }}</figcaption></figure>
+    {% endfor %}
+  </div>
+  {% if a.films %}<ul class="plain small">{% for f in a.films %}<li>{% if f.date %}<b>{{ f.date }}</b> {% endif %}<a href="{{ f.link }}">{{ f.name }}</a></li>{% endfor %}</ul>{% endif %}
+</section>
+{% endif %}
+
+<section>
+  <h2>Every change <span class="count">{{ a.history|length }}</span></h2>
+  {% if not a.days %}<p class="dim">No commit, decision or round names it or touches its files.</p>{% endif %}
+  <ol class="timeline">
+    {% for day, entries in a.days %}
+    <li><time>{{ day }}</time>
+      <ul>
+        {% for h in entries %}
+        <li class="k-{{ h.kind }}"><span class="kind">{{ KIND[h.kind] }}</span> {{ h.text }}
+          {% if h.sha or h.lane %}<span class="dim">{% if h.lane %}{{ h.lane }} {% endif %}{{ h.sha or '' }}</span>{% endif %}
+          {% if h.files %}<span class="files">{{ h.files|join(' · ') }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}

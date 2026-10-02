@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Process{% endblock %}
+{% block main %}
+<h1>Process</h1>
+<p class="lede">How far each kind of asset has come through its stages, who is working on what, and what the build could not see.</p>
+
+<section>
+  <h2>Stages</h2>
+  <div class="cols three">
+    {% for f in funnel %}
+    <div>
+      <h3>{{ f.category }} <span class="count">{{ f.total }}</span></h3>
+      <table class="funnel">
+        {% for s in f.steps %}
+        <tr><th>{{ s.label }}</th><td class="bar"><i style="width: {{ (100 * s.ok / s.of)|round|int if s.of else 0 }}%"></i></td><td class="num">{{ s.ok }} / {{ s.of }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2>How a status is decided</h2>
+  <table class="kv">
+    {% for status, group in sections %}<tr class="s-{{ status }}"><th><span class="badge">{{ STATUS_LABEL[status] }}</span> {{ group|length }}</th><td>{{ BLURB[status] }}</td></tr>{% endfor %}
+  </table>
+  <p class="dim">A lane is live when it has commits integration lacks, is the newest of its family (a -v2 or -land copy supersedes the older
+  name) and is checked out on this machine or was committed to in the last 7 days. A live lane on a final asset is a rework, not a change of bucket.</p>
+</section>
+
+<section>
+  <h2>Live lanes <span class="count">{{ live|length }}</span></h2>
+  <table class="lanes">
+    <tr><th>Lane</th><th>Unlanded</th><th>Tip</th><th>Checked out in</th><th>Assets whose art it touches</th></tr>
+    {% for l in live %}
+    <tr><td><b>{{ l.branch }}</b></td><td class="num">{{ l.ahead }}</td><td>{{ l.tip }}</td><td>{{ l.worktree or '' }}</td>
+      <td>{% for x in l.assets if x.touches_art %}<a href="a/{{ x.id }}.html">{{ x.id }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="dim">no art</span>{% endfor %}</td></tr>
+    {% endfor %}
+  </table>
+  <details><summary>{{ parked|length }} parked lanes (superseded or quiet)</summary>
+    <table class="lanes">
+      {% for l in parked %}<tr class="dim"><td>{{ l.branch }}</td><td class="num">{{ l.ahead }}</td><td>{{ l.tip }}</td><td>{{ 'superseded by a newer copy' if not l.newest else 'quiet' }}</td></tr>{% endfor %}
+    </table>
+  </details>
+</section>
+
+<section>
+  <h2>Board <span class="count">{{ board|length }}</span></h2>
+  {% if not board %}<p class="dim">No board on this machine.</p>{% endif %}
+  {% for b in board %}
+  <div class="item">
+    <h3>{{ b.id }} <span class="dim">{{ b.lane }}</span></h3>
+    <p>{{ b.title }}{% if b.assets %} · about {% for x in b.assets %}<a href="a/{{ x }}.html">{{ x }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+    <ol class="stages">{% for s in b.stages %}<li><span class="state st-{{ s.state }}">{{ s.state }}</span> <b>{{ s.id }}</b> <span class="dim">{{ s.station }} · {{ s.role }}{% if s.reason %} · {{ s.reason }}{% endif %}</span></li>{% endfor %}</ol>
+  </div>
+  {% endfor %}
+</section>
+
+<section>
+  <h2>Sim events nothing draws <span class="count">{{ orphans|length }}</span></h2>
+  <p class="dim">The sim raises these, and no file under Presentation or UI reads them by name. Some are meant to be silent; the ones tied to a unit are that unit's missing moment.</p>
+  <p class="events">{% for e in orphans %}<span class="{{ 'own' if e in events else '' }}">{{ e }}{% if e in events %} → <a href="a/{{ events[e] }}.html">{{ events[e] }}</a>{% endif %}</span>{% endfor %}</p>
+</section>
+
+<section>
+  <h2>What this build could see</h2>
+  <table class="kv">
+    {% for name, s in meta.sources.items() %}<tr><th>{{ name }}</th><td>{% for k, v in s.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td></tr>{% endfor %}
+  </table>
+  {% if meta.warnings %}<ul class="plain warn">{% for w in meta.warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% else %}<p class="dim">No warnings.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Asset board{% endblock %} | Trench Warfare 3D</title>
+<link rel="stylesheet" href="{{ root }}site.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="{{ root }}index.html">TW3D <b>Asset board</b></a>
+  <nav>
+    <a href="{{ root }}index.html">Assets</a>
+    <a href="{{ root }}process.html">Process</a>
+  </nav>
+  <span class="built">built {{ meta.built }} on {{ meta.station }} · integration {{ meta.commit }} · remote branches as of {{ meta.refs_as_of }}</span>
+</header>
+<main>
+{% block main %}{% endblock %}
+</main>
+<footer>
+  Derived from the code, the files, the branches and the docs by Tools/assetboard/build.py. Nothing here is typed in by hand
+  except docs/reference/asset-notes.json. Model pictures marked "Blender preview" show the model, not the game's lighting.
+</footer>
+{% block script %}{% endblock %}
+</body>
+</html>

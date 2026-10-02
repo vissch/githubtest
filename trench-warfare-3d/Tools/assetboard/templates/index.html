@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Assets{% endblock %}
+{% block main %}
+<section class="summary">
+  {% for status, group in sections %}
+  <a class="tile s-{{ status }}" href="#{{ status }}">
+    <span class="n" data-count="{{ status }}">{{ group|length }}</span>
+    <span class="l">{{ STATUS_LABEL[status] }}</span>
+  </a>
+  {% endfor %}
+</section>
+
+<section class="filters" aria-label="Filters">
+  <div class="chips" data-filter="cat">
+    <span class="lab">Kind</span>
+    <button class="chip on" data-v="">All</button>
+    {% for key, label in CATEGORY.items() %}<button class="chip" data-v="{{ key }}">{{ label }}</button>{% endfor %}
+  </div>
+  <div class="chips" data-filter="level">
+    <span class="lab">Level</span>
+    <button class="chip on" data-v="">Any</button>
+    {% for l in levels %}<button class="chip" data-v="{{ l }}">{{ l }}</button>{% endfor %}
+  </div>
+  <div class="chips" data-filter="q">
+    <span class="lab">Find</span>
+    <input type="search" id="q" placeholder="name">
+  </div>
+</section>
+
+{% for status, group in sections %}
+<section class="bucket s-{{ status }}" id="{{ status }}">
+  <h2>{{ STATUS_LABEL[status] }} <span class="count" data-count="{{ status }}">{{ group|length }}</span></h2>
+  <p class="lede">{{ BLURB[status] }}</p>
+  <div class="grid">
+    {% for a in group %}
+    <a class="card" href="a/{{ a.id }}.html" data-cat="{{ a.category }}" data-levels="{{ a.level_tags|join(' ') }}" data-name="{{ (a.name ~ ' ' ~ a.id)|lower }}">
+      <div class="pic">
+        {% if a.hero %}<img loading="lazy" src="{{ a.hero }}" alt="">
+        {% else %}
+          <div class="novisual">
+            {% if a.stand_in %}<img loading="lazy" src="{{ a.stand_in }}" alt="">{% endif %}
+            <span>{% if a.kind == 'idea' %}idea{% elif a.kind == 'lane' %}on a lane only{% elif a.drawn_as %}drawn as the {{ a.drawn_as }}{% else %}no picture{% endif %}</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="body">
+        <div class="name">{{ a.name }}{% if a.archetype is not none %} <span class="id">{{ a.archetype }}</span>{% endif %}</div>
+        <div class="cat">{{ a.category }}{% if a.kind == 'extra' %} · not a unit{% endif %}{% if a.set %} · {{ a.set }}{% endif %}</div>
+        <div class="why">{{ a.status_why }}</div>
+        <div class="dots" title="{% for s in a.stages %}{{ s.label }}: {{ 'yes' if s.ok else 'no' }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          {% for s in a.stages %}<i class="{{ 'ok' if s.ok else 'no' }}"></i>{% endfor %}
+        </div>
+        <div class="tags">
+          {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
+          {% if a.notes.priority %}<span class="tag pri">priority {{ a.notes.priority }}</span>{% endif %}
+          {% if a.notes.wants %}<span class="tag">wants {{ a.notes.wants }}</span>{% endif %}
+          {% if a.changes %}<span class="tag">{{ a.changes }} change{{ 's' if a.changes > 1 }}</span>{% endif %}
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  <p class="none" hidden>Nothing here with these filters.</p>
+</section>
+{% endfor %}
+{% endblock %}
+{% block script %}<script src="site.js"></script>{% endblock %}
