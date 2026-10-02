@@ -259,3 +259,45 @@ details.fold > section { padding: 0 12px 12px; }
 .lane-card, .lane-card > *, .worker, .worker .say, .item, .stages { min-width: 0; }
 .lane-card { overflow: hidden; }
 .worker .say, .item > b { overflow-wrap: anywhere; }
+
+/* the crew (crew.js): a frog per worker, tinted by its name, holding the mark of its trade */
+.frog { --s: 56px; --turn: 0deg; position: relative; width: var(--s); height: var(--s); flex: none; }
+.frog img { width: 100%; height: 100%; object-fit: contain; display: block; filter: hue-rotate(var(--turn)) drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+.frog.k-machine img { filter: grayscale(.85) sepia(.25) hue-rotate(160deg) brightness(.95) drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+.frog .prop { --h: 30; position: absolute; right: -4px; bottom: -2px; width: calc(var(--s) * .42); height: calc(var(--s) * .42); display: grid; place-items: center;
+              border-radius: 50%; background: hsl(var(--h) 38% 20%); border: 2px solid hsl(var(--h) 60% 58%); color: hsl(var(--h) 85% 82%); }
+.frog .prop svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.frog.k-session .prop { background: color-mix(in srgb, var(--amber) 30%, #1b1d20); border-color: var(--amber); color: #ffd9a8; }
+.frog.bare { border-radius: 50%; background: #20262a; border: 2px dashed var(--edge); }
+.frog.bare .prop { right: 50%; bottom: 50%; transform: translate(50%, 50%); width: 60%; height: 60%; }
+.frog.working { animation: hop 1.3s ease-in-out infinite; transform-origin: 50% 100%; }
+.frog.working::before { content: ""; position: absolute; left: 12%; right: 12%; bottom: -5px; height: 7px; border-radius: 50%;
+                        background: radial-gradient(color-mix(in srgb, var(--amber) 70%, transparent), transparent 70%); animation: glow 1.3s ease-in-out infinite; }
+.frog.idle img, .frog.resting img { filter: hue-rotate(var(--turn)) grayscale(.3) brightness(.85) drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.frog.idle::after { content: "z z"; position: absolute; right: -10px; top: -14px; font: 700 calc(var(--s) * .2) var(--mono); color: var(--dim); animation: zz 3s ease-in-out infinite; white-space: nowrap; }
+.frog.idle img { animation: breathe 4s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes hop { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-6px) rotate(-3deg); } 60% { transform: translateY(-2px) rotate(3deg); } }
+@keyframes glow { 0%, 100% { opacity: .9; transform: scaleX(1); } 30% { opacity: .4; transform: scaleX(.7); } }
+@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.96); } }
+.worker { grid-template-columns: 52px 1fr; }
+.seat { grid-template-columns: 54px 1fr; }
+
+/* the crew on the overview */
+.crew h2 a { margin-left: 8px; font-weight: 400; }
+.crew-at { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.mate { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: start; background: var(--plate); border: 1px solid var(--edge); border-radius: 10px; padding: 10px; }
+.mate.working { border-color: var(--amber); box-shadow: 0 0 22px -10px var(--amber); }
+.mate .say { position: relative; background: var(--plate2); border: 1px solid var(--edge); border-radius: 8px; padding: 6px 9px; font-size: 12.5px; min-width: 0; }
+.mate .say::before { content: ""; position: absolute; left: -6px; top: 18px; width: 10px; height: 10px; background: var(--plate2); border-left: 1px solid var(--edge); border-bottom: 1px solid var(--edge); transform: rotate(45deg); }
+.mate .say b { color: var(--bright); margin-right: 6px; }
+.mate .say p { margin: 3px 0 0; overflow-wrap: anywhere; }
+.mate .say .where { font: 11.5px var(--mono); color: var(--info); }
+.mate .say .doing { font: 11.5px var(--mono); color: var(--amber-hi); }
+.mate .say .what { color: var(--dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.crew-sleep { display: flex; flex-wrap: wrap; gap: 14px 10px; margin-top: 14px; padding: 12px 10px 8px; border: 1px dashed var(--edge); border-radius: 10px; }
+.nap { display: grid; justify-items: center; gap: 4px; width: 84px; font-size: 11px; color: var(--dim); text-align: center; text-transform: capitalize; }
+.card .pic { position: relative; }
+.card .on-it { position: absolute; left: 6px; bottom: 6px; display: flex; gap: 2px; z-index: 2; pointer-events: none; }
+.card .on-it .more { align-self: center; font: 600 11px var(--mono); color: var(--bright); background: rgba(0,0,0,.6); padding: 1px 5px; border-radius: 6px; }
+.card.worked { border-color: var(--amber); box-shadow: 0 0 0 1px color-mix(in srgb, var(--amber) 40%, transparent); }
+@media (prefers-reduced-motion: reduce) { .frog.working, .frog.working::before, .frog.idle img, .frog.idle::after { animation: none; } }

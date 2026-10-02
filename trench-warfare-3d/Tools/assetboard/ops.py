@@ -10,6 +10,8 @@ JSON, it may load a script). It is written only when it changed. What it reads: 
 """
 import argparse
 import json
+import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -35,8 +37,22 @@ def page(out: Path, meta):
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
     write_if_changed(out / 'floor.html', env.get_template('floor.html').render(root=''))
-    for name in ('floor.js', 'site.css'):
+    for name in ('floor.js', 'crew.js', 'overview.js', 'site.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
+    crew(out)
+
+
+CREW = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'TrenchWarfare' / 'assetboard'
+
+
+def crew(out: Path):
+    """The crew's picture (a frog, crew-head.png) is the owner's and lives outside git, in this station's cache; it is
+    copied into the site when the station has it. Without it crew.js draws each worker as its mark."""
+    src = CREW / 'crew-head.png'
+    dst = out / 'img' / 'crew-head.png'
+    if src.exists() and (not dst.exists() or dst.read_bytes() != src.read_bytes()):
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
 
 
 def once(out: Path):

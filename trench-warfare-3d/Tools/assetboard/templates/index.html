@@ -10,6 +10,13 @@
   {% endfor %}
 </section>
 
+<section class="crew" id="crew" hidden>
+  <h2>The crew <span class="count" id="n-crew"></span> <a class="small" href="floor.html">the floor &rarr;</a></h2>
+  <div class="crew-at" id="crew-at"></div>
+  <div class="crew-sleep" id="crew-sleep"></div>
+  <p class="dim small" id="crew-stamp"></p>
+</section>
+
 <section class="filters" aria-label="Filters">
   <div class="chips" data-filter="cat">
     <span class="lab">Kind</span>
@@ -34,6 +41,7 @@
     {% for a in group %}
     <a class="card" href="a/{{ a.id }}.html" title="{{ a.status_why }}" data-cat="{{ a.category }}" data-levels="{{ a.level_tags|join(' ') }}" data-name="{{ (a.name ~ ' ' ~ a.id)|lower }}">
       <div class="pic">
+        <div class="on-it" data-asset="{{ a.id }}"></div>
         {% if a.reel %}<video loop muted playsinline preload="none" poster="{{ a.reel[0].poster }}" data-src="{{ a.reel[0].file }}"></video>
         {% elif a.hero %}<img loading="lazy" src="{{ a.hero }}" alt="">
         {% else %}
@@ -64,4 +72,4 @@
 </section>
 {% endfor %}
 {% endblock %}
-{% block script %}<script src="site.js"></script>{% endblock %}
+{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="crew.js"></script><script src="overview.js"></script>{% endblock %}
