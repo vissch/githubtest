@@ -125,6 +125,10 @@ def main(argv=None):
         render.site(assets, code, extra, lanes, meta, stage)
     import publish
     written, kept = publish.sync(stage, out)
+    if not args.json_only and not args.no_git:     # the floor page and a first reading of it (ops.py --watch keeps it live)
+        import ops
+        ops.page(out, meta)
+        ops.once(out)
     print(f'assetboard: {written} files written, {kept} unchanged, in {out}')
     for w in warnings:
         print('warning: ' + w)
