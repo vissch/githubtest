@@ -14,6 +14,7 @@ sys.path.insert(0, str(HERE))
 import build      # noqa: E402
 import films      # noqa: E402
 import looks      # noqa: E402
+import src_ops    # noqa: E402
 import model      # noqa: E402
 import src_code   # noqa: E402
 import src_git    # noqa: E402
@@ -100,6 +101,24 @@ def fixtures():
         case('probe: a Clip enum that no longer starts at None stops the build', 'x.cs' in str(e), e)
     case('films: a clip name is written in words', (films.words('FireStand'), films.words('Turn90L'), films.words('FireMG')) == ('Fire stand', 'Turn 90 l', 'Fire mg'),
          (films.words('FireStand'), films.words('Turn90L'), films.words('FireMG')))
+
+    skills = ['tw-balance-sim', 'tw-critic', 'tw-master', 'tw-character-sim', 'tw-destruction-vfx', 'pipeline']
+    got = {r: src_ops.skill_for(r, skills) for r in ('balance-simulator', 'critic', 'master', 'character', 'destruction-vfx-simulator', 'lowpoly', '')}
+    case('floor: a board role finds the skill that plays it, and no skill is made up',
+         got == {'balance-simulator': 'tw-balance-sim', 'critic': 'tw-critic', 'master': 'tw-master', 'character': 'tw-character-sim',
+                 'destruction-vfx-simulator': 'tw-destruction-vfx', 'lowpoly': None, '': None}, got)
+    case('floor: text a transcript holds as cp1252-read UTF-8 is read back', src_ops.fix_text('work\u00e2\u20ac\u00a6') == 'work\u2026',
+         src_ops.fix_text('work\u00e2\u20ac\u00a6'))
+    trees = [tmp / 'a', tmp / 'a-b', tmp / 'a' / 'inner']
+    for t in trees:
+        t.mkdir(parents=True, exist_ok=True)
+    case('floor: a session belongs to the deepest checkout that holds its folder',
+         src_ops.owner_of(tmp / 'a' / 'inner' / 'x', trees) == trees[2] and src_ops.owner_of(tmp / 'a-b', trees) == trees[1]
+         and src_ops.owner_of(tmp / 'elsewhere', trees) is None)
+    people = src_ops.roster(build.REPO)
+    case('real tree: every project skill is on the roster, with what it is for',
+         {'tw-critic', 'tw-master', 'pipeline'} <= {r['id'] for r in people} and all(r['does'] for r in people if r['kind'] == 'skill'),
+         [(r['id'], r['does'][:30]) for r in people])
 
     notes = tmp / 'notes.json'
     notes.write_text('{"assets": {"Maw": {"colour": "red"}}}')

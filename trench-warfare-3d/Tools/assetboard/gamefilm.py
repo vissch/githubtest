@@ -336,8 +336,10 @@ def battle(only):
             continue
         slot = int(got.split()[1])
         time.sleep(2.0)
-        near = min(32.0, max(15.0, 4.6 * reach(name)))
-        far = min(36.0, near * 1.35)
+        # the game draws a machine smaller than it is modelled: 16 frames a walker, 22 the largest hulls (2026-10-03,
+        # by eye: 13 cut the Maw's roof off, 32 made it a toy)
+        near = min(22.0, max(16.0, 2.6 * reach(name)))
+        far = near * 1.3
         run(f'TW.Editor.RiderLab.Panel(false); return TW.Editor.RiderLab.Camera({slot}, {near:.1f}f, 35f, 22f);')
         time.sleep(1.5)
         cam = dict(slot=slot, zoom=near, yaw=35)

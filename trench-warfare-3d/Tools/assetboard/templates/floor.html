@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Floor{% endblock %}
+{% block main %}
+<section class="floor-head">
+  <div class="tiles" id="counts"></div>
+  <p class="dim small" id="stamp">reading the floor…</p>
+</section>
+<section>
+  <h2>At work <span class="count" id="n-busy"></span></h2>
+  <div class="lanes" id="busy"></div>
+</section>
+<section>
+  <h2>The bench <span class="count" id="n-bench"></span></h2>
+  <div class="bench" id="bench"></div>
+</section>
+<section>
+  <h2>Every other branch <span class="count" id="n-quiet"></span></h2>
+  <div class="quiet" id="quiet"></div>
+</section>
+<noscript><p class="warn">The floor is drawn by a script; this page needs it.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="floor.js"></script>{% endblock %}
