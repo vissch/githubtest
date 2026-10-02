@@ -110,6 +110,7 @@ table.kv td { padding: 4px 0; overflow-wrap: anywhere; font: 13px var(--mono); }
 table.fx th { text-align: left; font-weight: 500; padding: 5px 10px 5px 0; }
 table.fx td { padding: 5px 10px 5px 0; font: 12px var(--mono); color: var(--dim); overflow-wrap: anywhere; }
 table.fx tr { border-bottom: 1px solid var(--edge); }
+table.fx td:nth-child(2) { white-space: nowrap; }
 table.fx tr.ok td:nth-child(2) { color: var(--ok); } table.fx tr.no td:nth-child(2) { color: var(--alarm); }
 table.fx tr.no th { color: var(--dim); }
 
