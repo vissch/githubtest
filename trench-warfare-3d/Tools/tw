@@ -20,8 +20,11 @@ PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # both open it can drive the wrong editor (someone else's Play session). --project-path filters by substring.
 WPROJ="$(cygpath -w "$PROJ" 2>/dev/null || echo "$PROJ")"
 export UNITY_PROJECT_PATH="$WPROJ"
-# The unity CLI is not on PATH in a fresh shell on this machine; it lives in %LOCALAPPDATA%/unity/bin.
-command -v unity >/dev/null 2>&1 || PATH="$PATH:$(cygpath "$LOCALAPPDATA" 2>/dev/null)/unity/bin"
+# The unity CLI lives in %LOCALAPPDATA%/unity/bin, and it goes FIRST on PATH: another `unity` may be ahead of it. On
+# this machine ~/.local/bin/unity is a launcher for the Editor itself, so `unity status` through it starts a whole
+# editor ("Unity.exe status --json ...") that sits on a dialog nobody sees and never answers (2026-10-03).
+CLI="$(cygpath "$LOCALAPPDATA" 2>/dev/null)/unity/bin"
+if [ -x "$CLI/unity.exe" ]; then PATH="$CLI:$PATH"; else command -v unity >/dev/null 2>&1 || PATH="$PATH:$CLI"; fi
 U() { unity --no-banner "$@"; }   # global flags FIRST: after a `--` they are read as the command's own args
 
 up() {
