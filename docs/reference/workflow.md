@@ -23,7 +23,9 @@ inbox    7 notes, 1 for you
   treat it as held.
 - `lane NONE`: stop and work out your lane (`CLAUDE.md`).
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
-  (`Tools/codemap.py` explains each rule). After changing any tool under `Tools/`, run
+  (`Tools/codemap.py` explains each rule). `validate.py` runs one file per check from Tools/checks/:
+  `python validate.py --list` says what each is for, `--only <name>` runs one while you fix it, and a new check is
+  a new file there plus its name in `ORDER` in `validate.py`. After changing any tool under `Tools/`, run
   `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
   the exact commit first.

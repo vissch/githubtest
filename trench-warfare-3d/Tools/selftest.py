@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Test the tools that keep this repo honest. Run it after changing any tool here.
 
-WHY. validate.py trusts codemap.py --check, and a merge trusts port_split.py. If an edit to either quietly stops it
-catching anything, every session keeps trusting a check that no longer works. This breaks things on purpose and
-asserts each break is caught, in a throwaway worktree (your checkout is never touched), about a minute.
+WHY. The gate trusts validate.py, validate.py trusts its checks (Tools/checks/, codemap.py --check among them), and a
+merge trusts port_split.py. If an edit to any of them quietly stops it catching anything, every session keeps trusting
+a check that no longer works. This breaks things on purpose and asserts each break is caught, in a throwaway worktree
+(your checkout is never touched), a few minutes.
 
     python Tools/selftest.py        from trench-warfare-3d/; exit 0 = every case behaved
 
 Cases: codemap --check passes on a clean tree, then fails on each of: a command that runs a missing Tools/ script, a
 cited file that does not exist, a folder with no purpose line, an undocumented command-line flag, a test class
-tasks.md never names, an agent-memory.md over its cap. port_split.py, on a small repo built here: an edit to moved
+tasks.md never names, an agent-memory.md over its cap. validate.py prints the two lines its callers read on a clean
+tree, and each check in Tools/checks catches the break it is for, alone (--only), without hiding another check or
+stopping it when it crashes. port_split.py, on a small repo built here: an edit to moved
 code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
 changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file. health.py
 --lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
@@ -113,6 +116,82 @@ def codemap_cases(wt: pathlib.Path):
     mem = wt / 'docs/reference/agent-memory.md'
     expect('agent-memory.md over its cap', 'agent-memory.md is',
            lambda: mem.write_bytes(mem.read_bytes() + b''.join(b'- filler %d\n' % i for i in range(200))))
+
+
+def validate_cases(wt: pathlib.Path):
+    proj = wt / 'trench-warfare-3d'
+    P = proj / 'Assets/_Project'
+    validate = lambda *a: run([sys.executable, 'validate.py', *a], proj)
+    checks = sorted(p.stem for p in (proj / 'Tools/checks').glob('*.py'))
+
+    code, out = validate()
+    lines = out.strip().replace('\r', '').split('\n')
+    case('validate passes on the clean tree, with the two lines its callers read',
+         code == 0 and len(lines) == 2 and lines[0].endswith(' C# files') and ' assemblies, ' in lines[0]
+         and lines[1] == 'validation OK', out)
+    code, out = validate('--list')
+    listed = [l.split()[0] for l in out.strip().split('\n') if l.strip()]
+    case('validate --list names every file in Tools/checks, once', code == 0 and sorted(listed) == checks, out)
+    code, out = validate('--only', 'nope')
+    case('validate --only refuses a check that does not exist', code == 2 and 'no check named nope' in out, out)
+
+    def expect(check, name, needle, breaker):
+        breaker()
+        code, out = validate('--only', check)
+        case(f'validate/{check} catches {name}', code == 1 and needle in out, f'exit {code}, wanted "{needle}" in:\n{out[:1500]}')
+        run(['git', 'checkout', '-q', '--', '.'], wt)
+        run(['git', 'clean', '-qfd'], wt)
+
+    def add_ref(asmdef, after, ref):
+        edit(P / asmdef, f'"{after}"', f'"{after}", "{ref}"')
+    new_cs = lambda rel, body: (P / rel).write_text(body)
+
+    expect('asmdef_json', 'an asmdef that is not JSON', 'invalid JSON',
+           lambda: (P / 'Presentation/VFX/TW.Presentation.VFX.asmdef').write_text('{ not json'))
+    expect('asmdef_refs', 'a reference to an assembly that does not exist', 'TW.Net: unknown reference TW.Nope',
+           lambda: add_ref('Net/TW.Net.asmdef', 'TW.Sim.Core', 'TW.Nope'))
+    expect('sim_isolation', 'a sim assembly referencing presentation', 'TW.Sim.Core: sim assembly must not reference TW.Presentation.Core',
+           lambda: add_ref('Sim/Core/TW.Sim.Core.asmdef', 'Unity.Mathematics', 'TW.Presentation.Core'))
+
+    def cycle():
+        add_ref('Sim/Core/TW.Sim.Core.asmdef', 'Unity.Mathematics', 'TW.Sim.Match')
+    cycle()
+    code, out = validate('--only', 'asmdef_cycles')
+    case('validate/asmdef_cycles catches a cycle, and names each once rather than once per route into it',
+         code == 1 and 'cycle: ' in out and out.count('cycle: ') < 20, f'exit {code}, {out.count("cycle: ")} cycle lines:\n{out[:800]}')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+
+    expect('sim_purity', 'UnityEngine under Sim/', 'UnityEngine used inside a Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nusing UnityEngine;\nnamespace TW.Sim { class Bad { } }\n'))
+    expect('sim_purity', 'a non-deterministic call under Sim/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { float f = Mathf.PI; } }\n'))
+    expect('phase_header', 'a file with no Phase line', 'NoHeader.cs: missing "// Phase:" header',
+           lambda: new_cs('Presentation/Core/NoHeader.cs', 'namespace TW.Presentation { class NoHeader { } }\n'))
+    expect('brace_balance', 'a brace left open', 'Unbalanced.cs: unbalanced braces',
+           lambda: new_cs('Presentation/Core/Unbalanced.cs', '// Phase: x\nnamespace TW.Presentation { class Unbalanced {\n'))
+    expect('using_namespace', 'an assembly name in a using', '`using TW.Sim.Core;` names no namespace that exists',
+           lambda: new_cs('Presentation/Core/WrongUsing.cs', '// Phase: x\nusing TW.Sim.Core;\nnamespace TW.Presentation { class WrongUsing { } }\n'))
+    expect('audio_volume', 'the project muted in its settings asset', 'm_Volume is 0',
+           lambda: edit(proj / 'ProjectSettings/AudioManager.asset', 'm_Volume: 1', 'm_Volume: 0'))
+    wf = wt / 'docs/reference/workflow.md'
+    expect('codemap_docs', 'what codemap --check finds', 'codemap: ',
+           lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `Presentation/Core/NoSuchFile.cs`.\n'))
+
+    # one check must not hide or stop another
+    new_cs('Presentation/Core/Unbalanced.cs', '// Phase: x\nnamespace TW.Presentation { class Unbalanced {\n')
+    code, out = validate('--only', 'phase_header')
+    case('validate --only runs just the checks it names (a brace error does not fail phase_header)', code == 0, out)
+    (proj / 'Tools/checks/audio_volume.py').write_text("WHY = 'x'\ndef run(ctx):\n    raise RuntimeError('boom')\n")
+    code, out = validate('--only', 'audio_volume,brace_balance')
+    case('validate reports a check that crashes as one line, and the other checks still run',
+         code == 1 and 'check audio_volume crashed (RuntimeError: boom)' in out and 'unbalanced braces' in out
+         and 'Traceback' not in out, out)
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
+    (proj / 'Tools/checks/extra.py').write_text("WHY = 'x'\ndef run(ctx):\n    return []\n")
+    code, out = validate('--only', 'phase_header')
+    case('validate fails on a check file nobody listed in ORDER', code == 1 and 'extra.py is not in ORDER' in out, out)
+    run(['git', 'clean', '-qfd'], wt)
 
 
 def port_split_cases(tmp: pathlib.Path):
@@ -402,6 +481,7 @@ def main():
         run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
              '--allow-empty', '--no-verify'], wt)
         codemap_cases(wt)
+        validate_cases(wt)
         port_split_cases(tmp)
         port_split_twin_case(tmp)
         scorecard_cases()
