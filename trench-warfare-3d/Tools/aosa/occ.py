@@ -7,7 +7,7 @@ the command line, otherwise to the built dll in the main clone's Library/ScriptA
 you changed, in dependency order, and the downstream ones see your new symbols rather than yesterday's dll.
 
 Usage:
-  python Tools/aosa/occ.py TW.Presentation.Core TW.Perf TW.Tests.EditMode
+  python Tools/aosa/occ.py TW.Presentation.Core TW.Perf TW.Tests.Show
   python Tools/aosa/occ.py --changed          # every assembly with a .cs changed vs origin, plus its dependents
 Env:
   TW_LIB   folder of built dlls (default: the main clone's trench-warfare-3d/Library/ScriptAssemblies)
