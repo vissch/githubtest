@@ -83,6 +83,17 @@ Tools/tw run open_scene -- --path "Assets/_Project/Scenes/GreyboxCorridor.unity"
 Tools/tw run editor_play          # prints "Entered play mode"
 Tools/tw run editor_stop          # prints "Exited play mode"
 ```
+**No desktop** (a session running as administrator, or one with no screen): a windowed editor never comes up, so `tw up`
+waits for nothing. Start a batch-mode editor instead and leave it running; it has the graphics card unless you pass
+`-nographics`, so cameras render and captures work:
+```bash
+"/c/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe" -batchmode -projectPath "$(pwd -W)" -logFile Logs/batch-editor.log &
+Tools/tw eval 'UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return 1;'
+```
+Verified 2026-10-03 (first import of a new checkout: two minutes). `unity status` does not list a batch editor, so `tw up`
+does not see it: an eval that answers is the test. Close it with `Tools/tw eval 'UnityEditor.EditorApplication.Exit(0); return 0;'`.
+`Tools/assetboard/gamefilm.py` works this way.
+
 Evaluate C# in the editor. There are no `using` directives: fully qualify everything, and `return` a value.
 ```bash
 Tools/tw eval 'var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); return "tick=" + h.Local.World.Tick + " peer=" + (h.Peer!=null);'
