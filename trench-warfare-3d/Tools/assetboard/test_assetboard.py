@@ -120,6 +120,19 @@ def fixtures():
          {'tw-critic', 'tw-master', 'pipeline'} <= {r['id'] for r in people} and all(r['does'] for r in people if r['kind'] == 'skill'),
          [(r['id'], r['does'][:30]) for r in people])
 
+    import ops
+    keep = ops.CREW
+    ops.CREW = tmp / 'cache'
+    site = tmp / 'site'
+    ops.crew(site)
+    nothing = not (site / 'img' / 'crew-head.png').exists()
+    (tmp / 'cache').mkdir(exist_ok=True)
+    (tmp / 'cache' / 'crew-head.png').write_bytes(b'frog')
+    ops.crew(site)
+    ops.CREW = keep
+    case("crew: the frog is copied in when the station has it, and its absence is no error",
+         nothing and (site / 'img' / 'crew-head.png').read_bytes() == b'frog')
+
     notes = tmp / 'notes.json'
     notes.write_text('{"assets": {"Maw": {"colour": "red"}}}')
     try:
