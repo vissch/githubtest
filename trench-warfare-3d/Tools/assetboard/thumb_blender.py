@@ -16,9 +16,6 @@
 import bpy, json, math, os, sys, traceback
 from mathutils import Vector
 
-argv = sys.argv[sys.argv.index("--") + 1:]
-jobs = json.load(open(argv[0], encoding="utf-8"))
-results = {}
 SIZE = 640
 VIEW = Vector((-0.75, 1.0, 0.6)).normalized()     # front-left three-quarter from above (mechsplit.py portrait())
 
@@ -60,9 +57,9 @@ def bring(path, fix):
     return new, roots
 
 
-def render(job):
-    scn, cam = reset()
-    objects = []
+def load(job):
+    """The job's files in the scene, textured and shaded: (every object, the drawn meshes, the top node of each file)."""
+    objects, tops = [], []
     for f in job["files"]:
         new, roots = bring(f["fbx"], job.get("fix", False))
         if f.get("at"):
@@ -70,6 +67,7 @@ def render(job):
             for r in roots:
                 r.location = Vector(r.location) + Vector((x, z, y))
         objects += new
+        tops.append(roots)
     for o in objects:
         name = o.name.split(".")[0]
         if (o.type == 'EMPTY' and name.startswith("Socket_")) or any(h in o.name for h in job.get("hide", [])):
@@ -95,9 +93,20 @@ def render(job):
         except Exception:
             pass
     bpy.context.view_layer.update()
+    return objects, meshes, tops
+
+
+def box(meshes):
     pts = [o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
     lo = Vector([min(p[k] for p in pts) for k in range(3)])
     hi = Vector([max(p[k] for p in pts) for k in range(3)])
+    return lo, hi
+
+
+def render(job):
+    scn, cam = reset()
+    objects, meshes, _ = load(job)
+    lo, hi = box(meshes)
     centre, size = (lo + hi) / 2, hi - lo
     view = Vector(job["view"]).normalized() if job.get("view") else VIEW
     cam.location = centre + view * (size.length * 3 + 10)
@@ -114,9 +123,13 @@ def render(job):
     return out
 
 
-for job in jobs:
-    try:
-        results[job["id"]] = render(job)
-    except Exception as e:
-        results[job["id"]] = {"ok": False, "error": "%s: %s" % (type(e).__name__, e), "trace": traceback.format_exc()[-600:]}
-    json.dump(results, open(argv[1], "w", encoding="utf-8"), indent=1)
+if __name__ == "__main__":        # film_blender.py imports the scene and the loader from here
+    argv = sys.argv[sys.argv.index("--") + 1:]
+    jobs = json.load(open(argv[0], encoding="utf-8"))
+    results = {}
+    for job in jobs:
+        try:
+            results[job["id"]] = render(job)
+        except Exception as e:
+            results[job["id"]] = {"ok": False, "error": "%s: %s" % (type(e).__name__, e), "trace": traceback.format_exc()[-600:]}
+        json.dump(results, open(argv[1], "w", encoding="utf-8"), indent=1)

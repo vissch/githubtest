@@ -5,37 +5,78 @@
 <section class="head s-{{ a.status }}">
   <div>
     <h1>{{ a.name }}{% if a.name != a.id %} <span class="id">{{ a.id }}</span>{% endif %}{% if a.archetype is not none %} <span class="id">archetype {{ a.archetype }}</span>{% endif %}</h1>
-    <p class="status"><span class="badge">{{ STATUS_LABEL[a.status] }}</span> {{ a.status_why }}</p>
-    {% if a.blurb %}<p class="blurb">{{ a.blurb }}</p>{% endif %}
+    <p class="status"><span class="badge">{{ STATUS_LABEL[a.status] }}</span> <span title="{{ a.status_why }}">{{ a.why_short }}</span></p>
     {% if a.notes.note or a.notes.priority or a.notes.wants or a.notes.source %}
     <p class="note">{% if a.notes.priority %}<b>Priority {{ a.notes.priority }}.</b> {% endif %}{% if a.notes.wants %}<b>Wants: {{ a.notes.wants }}.</b> {% endif %}{{ a.notes.note }}{% if a.notes.source %} (from {{ a.notes.source }}){% endif %}</p>
     {% endif %}
   </div>
 </section>
 
-<section>
-  <h2>Final state</h2>
-  <div class="final">
-    <figure class="hero">
-      {% if a.hero %}<img src="../{{ a.hero }}" alt=""><figcaption>{{ a.hero_what }}</figcaption>
-      {% else %}
-      <div class="novisual big">
-        {% if a.stand_in %}<img src="../{{ a.stand_in }}" alt="">{% endif %}
-        <span>{% if a.kind == 'idea' %}Only an idea: nothing to show{% elif a.kind == 'lane' %}Its files are on a lane, not on integration{% elif a.drawn_as %}No visual of its own. In the game it is drawn as the {{ a.drawn_as }}{% else %}No picture{% endif %}</span>
-      </div>
-      {% endif %}
-    </figure>
-    <div class="side">
-      {% for i in a.images if i.kind in ('unitart', 'portrait') %}
-      <figure><img src="../{{ i.file }}" alt=""><figcaption>{{ i.caption }}</figcaption></figure>
-      {% endfor %}
-      {% for i in a.images if i.kind == 'gym' %}{% if loop.first %}
-      <figure class="wide"><img src="../{{ i.file }}" alt=""><figcaption>{{ i.caption }}</figcaption></figure>
-      {% endif %}{% endfor %}
+<section class="reel-wrap">
+  {% set reel = a.reel or a.stand_reel %}
+  {% if reel %}
+  {% if not a.reel %}<p class="borrowed">No visual of its own. In the game it is drawn as the {% if a.drawn_as in assets %}<a href="{{ a.drawn_as }}.html">{{ a.drawn_as }}</a>{% else %}{{ a.drawn_as }}{% endif %}: these are the {{ a.drawn_as }}'s films.</p>{% endif %}
+  <div class="reel{{ ' ghost' if not a.reel }}">
+    <div class="screen">
+      <video id="screen" src="../{{ reel[0].file }}" poster="../{{ reel[0].poster }}" autoplay loop muted playsinline controls></video>
+      <div class="now"><span id="now-title">{{ reel[0].title }}</span> <span class="src" id="now-src">{{ reel[0].what }}</span></div>
     </div>
+    <div class="strip">
+      {% for f in reel %}
+      <button class="clip{{ ' on' if loop.first }}" data-src="../{{ f.file }}" data-poster="../{{ f.poster }}" data-title="{{ f.title }}" data-what="{{ f.what }}">
+        <img loading="lazy" src="../{{ f.poster }}" alt="">
+        <span class="t">{{ f.title }}</span>
+        <span class="d">{{ f.what }}{% if f.seconds %} · {{ f.seconds|round|int }} s{% endif %}{% if f.clips %} · {{ f.clips|length }} clips{% endif %}{% if f.date %} · {{ f.date }}{% endif %}{% if f.form == 'trial' %} · trial model{% endif %}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% elif a.hero %}
+  <figure class="hero"><img src="../{{ a.hero }}" alt=""><figcaption>{{ a.hero_what }}</figcaption></figure>
+  {% else %}
+  <div class="novisual big wide">
+    <span>{% if a.kind == 'idea' %}Only an idea: nothing to show{% elif a.kind == 'lane' %}Its files are on a lane, not on integration{% elif a.drawn_as %}No visual of its own. In the game it is drawn as the {{ a.drawn_as }}{% else %}No picture{% endif %}</span>
+  </div>
+  {% endif %}
+</section>
+
+<section>
+  <ol class="steps">
+    {% for s in a.stages %}<li class="{{ 'ok' if s.ok else 'no' }}" title="{{ s.evidence }}">{{ s.label }}</li>{% endfor %}
+  </ol>
+  <div class="facts">
+    {% for k, v in a.facts %}<span class="fact"><b>{{ v }}</b> {{ k }}</span>{% endfor %}
+    {% for t in a.level_tags %}<span class="fact lvl">{{ t }}</span>{% endfor %}
   </div>
 </section>
 
+{% if a.looks %}
+<section>
+  <h2>How it changed <span class="count">{{ a.looks|length }} versions</span></h2>
+  <div class="looks">
+    {% for l in a.looks %}
+    <figure{{ ' class="latest"'|safe if loop.last }}><a href="../{{ l.file }}"><img loading="lazy" src="../{{ l.file }}" alt=""></a>
+      <figcaption><b>{{ l.date }}</b>{% if loop.last %} · now{% endif %}{% if l.form == 'trial' %} · trial{% endif %}<br>{{ l.subject }}</figcaption></figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% set stills = a.images|rejectattr('kind', 'equalto', 'atlas')|list %}
+{% if stills %}
+<section>
+  <h2>Pictures <span class="count">{{ stills|length }}</span></h2>
+  <div class="shots">
+    {% for i in stills %}
+    <figure class="{{ 'wide' if i.kind in ('gym', 'doc', 'evidence') else '' }}"><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a>
+      <figcaption>{% if i.date %}<b>{{ i.date }}</b> {% endif %}{{ i.caption }}</figcaption></figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<details class="fold">
+<summary>How far it is, levels, measurements</summary>
 <section class="cols">
   <div>
     <h2>How far it is</h2>
@@ -56,7 +97,10 @@
     {% endif %}
   </div>
 </section>
+</details>
 
+<details class="fold">
+<summary>Models and files</summary>
 <section>
   <h2>Models</h2>
   {% if a.models %}
@@ -84,6 +128,10 @@
   {% else %}<p class="dim">No model file of its own{% if a.drawn_as %}: the game draws it with the {% if a.drawn_as in assets %}<a href="{{ a.drawn_as }}.html">{{ a.drawn_as }}</a>{% else %}{{ a.drawn_as }}{% endif %}'s model{% endif %}.</p>{% endif %}
 </section>
 
+</details>
+
+<details class="fold">
+<summary>Effects and tests</summary>
 <section class="cols">
   <div>
     <h2>Effects</h2>
@@ -106,7 +154,10 @@
     {% else %}<p class="dim">No test names it.</p>{% endif %}
   </div>
 </section>
+</details>
 
+<details class="fold">
+<summary>In flight{% if a.live_lanes %} <span class="count">{{ a.live_lanes|length }} live</span>{% endif %}</summary>
 <section>
   <h2>In flight</h2>
   {% if not a.live_lanes and not a.board and not a.open_questions %}<p class="dim">Nothing in flight touches its art.</p>{% endif %}
@@ -131,22 +182,11 @@
   {% endif %}
 </section>
 
-{% set shots = a.images|rejectattr('kind', 'in', ['unitart', 'portrait'])|list %}
-{% if shots or a.films %}
-<section>
-  <h2>Pictures and films</h2>
-  <div class="shots">
-    {% for i in shots %}
-    <figure class="{{ 'wide' if i.kind in ('gym', 'doc', 'evidence') else '' }}"><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a>
-      <figcaption>{% if i.date %}<b>{{ i.date }}</b> {% endif %}{{ i.caption }}</figcaption></figure>
-    {% endfor %}
-  </div>
-  {% if a.films %}<ul class="plain small">{% for f in a.films %}<li>{% if f.date %}<b>{{ f.date }}</b> {% endif %}<a href="{{ f.link }}">{{ f.name }}</a></li>{% endfor %}</ul>{% endif %}
-</section>
-{% endif %}
+</details>
 
+<details class="fold">
+<summary>Every change <span class="count">{{ a.history|length }}</span></summary>
 <section>
-  <h2>Every change <span class="count">{{ a.history|length }}</span></h2>
   {% if not a.days %}<p class="dim">No commit, decision or round names it or touches its files.</p>{% endif %}
   <ol class="timeline">
     {% for day, entries in a.days %}
@@ -162,4 +202,6 @@
     {% endfor %}
   </ol>
 </section>
+</details>
 {% endblock %}
+{% block script %}<script src="../site.js"></script>{% endblock %}

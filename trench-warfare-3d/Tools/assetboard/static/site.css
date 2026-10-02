@@ -157,3 +157,41 @@ table.lanes td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--edge); 
 .events span.own { color: var(--alarm); border-color: var(--alarm); }
 [hidden] { display: none !important; }
 @media (max-width: 700px) { .final { grid-template-columns: 1fr; } .model { grid-template-columns: 1fr; } .built { margin-left: 0; } }
+
+/* films first: the screen, the strip of films beside it, the facts as chips; the tables are folded away */
+.pic video { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--plate); }
+.tag.film { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, var(--edge)); }
+.reel-wrap { margin-top: 12px; }
+.reel { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 12px; align-items: start; }
+.screen { position: relative; background: #111214; border: 1px solid var(--edge); border-radius: 8px; overflow: hidden; }
+.screen video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #1e2024; }
+.now { position: absolute; left: 12px; top: 10px; color: #e8e1d2; font-weight: 600; text-shadow: 0 1px 3px #000; pointer-events: none; }
+.src { font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 4px; padding: 1px 5px; margin-left: 6px; opacity: .8; }
+.strip { display: grid; gap: 8px; max-height: min(72vh, 620px); overflow-y: auto; padding-right: 2px; }
+.clip { display: grid; grid-template-columns: 92px 1fr; grid-template-rows: auto auto; gap: 0 9px; align-items: center; text-align: left; cursor: pointer;
+        background: var(--plate); border: 1px solid var(--edge); border-radius: 7px; padding: 5px; color: var(--text); font: inherit; }
+.clip img { grid-row: span 2; width: 92px; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 4px; background: #1e2024; display: block; }
+.clip .t { color: var(--bright); font-size: 13px; font-weight: 600; align-self: end; line-height: 1.25; }
+.clip .d { color: var(--dim); font: 11px var(--mono); align-self: start; }
+.clip:hover { border-color: var(--line); }
+.clip.on { border-color: var(--amber); box-shadow: inset 3px 0 0 var(--amber); }
+.reel.ghost .screen video { filter: grayscale(.85) brightness(.8); }
+.borrowed { color: var(--amber-hi); font-weight: 600; margin: 0 0 8px; }
+.novisual.wide { aspect-ratio: 16 / 6; border: 1px solid var(--edge); border-radius: 8px; }
+.steps { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 14px 0 8px; padding: 0; }
+.steps li { font-size: 12px; padding: 3px 10px 3px 8px; border: 1px solid var(--edge); border-radius: 999px; color: var(--dim); background: var(--plate); }
+.steps li::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--line); margin-right: 6px; vertical-align: -1px; }
+.steps li.ok { color: var(--bright); border-color: color-mix(in srgb, var(--ok) 55%, var(--edge)); }
+.steps li.ok::before { background: var(--ok); border-color: var(--ok); }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--dim); font-size: 13px; }
+.fact b { color: var(--bright); font: 600 14px var(--mono); }
+.fact.lvl { border: 1px solid var(--edge); border-radius: 5px; padding: 0 7px; font: 12px var(--mono); }
+details.fold { margin-top: 10px; border: 1px solid var(--edge); border-radius: 8px; background: color-mix(in srgb, var(--plate) 55%, transparent); }
+details.fold > summary { padding: 9px 12px; color: var(--bright); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+details.fold > section { padding: 0 12px 12px; }
+@media (max-width: 860px) { .reel { grid-template-columns: 1fr; } .strip { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); max-height: none; } }
+.looks { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(170px, 240px); gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.looks img { width: 100%; aspect-ratio: 1; object-fit: contain; border: 1px solid var(--edge); border-radius: 8px; background: var(--plate); display: block; }
+.looks figure.latest img { border-color: var(--amber); }
+.looks figcaption { font-size: 11.5px; line-height: 1.35; }
+.tags { align-items: center; }

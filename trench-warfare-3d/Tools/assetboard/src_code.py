@@ -188,7 +188,26 @@ def read_all(P: Path):
     if f.exists():
         body = re.sub(r'/\*.*?\*/', '', body_after(read(f), 'enum SimEventType', f.name), flags=re.S)
         t['events'] = [e for e in re.findall(r'^\s*(\w+)\s*(?:=\s*\d+\s*)?,', re.sub(r'//.*', '', body), re.M) if e != 'None']
+
+    f = P / 'Presentation/Core/AnimationController.cs'
+    t['clips'] = clips(read(f), f.name)
     return t
+
+
+def clips(src, where):
+    """The men's clips in the order of the enum, which is the order of a baked atlas's rows: [(name, row, group)].
+    The group is the comment line above (idle, locomotion, fire, ...), up to its first bracket."""
+    out, group = [], ''
+    for line in body_after(src, 'public enum Clip', where).split('\n'):
+        code, _, comment = line.partition('//')
+        if not code.strip() and comment.strip():
+            group = comment.split('(')[0].strip()
+        for name in re.findall(r'\b([A-Za-z_]\w*)\b', code):
+            out.append((name, len(out), group))
+    need([n for n, _, _ in out], 20, where, 'Clip names', ['None', 'Idle', 'Walk', 'FireStand', 'Count'])
+    if out[0][0] != 'None' or out[1][0] != 'Idle' or out[-1][0] != 'Count':
+        raise ProbeError(f'{where}: the Clip enum no longer runs None, Idle, ... Count')
+    return out[:-1]
 
 
 def mentions(P: Path, roots, pattern):

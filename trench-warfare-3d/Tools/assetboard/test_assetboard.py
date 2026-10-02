@@ -12,6 +12,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import build      # noqa: E402
+import films      # noqa: E402
+import looks      # noqa: E402
 import model      # noqa: E402
 import src_code   # noqa: E402
 import src_git    # noqa: E402
@@ -50,6 +52,27 @@ def real_tree():
     case('real tree: the jetpack leap is an event nothing draws', 'LeapStarted' in extra['orphan_events']
          and any(not r['ok'] for r in assets['Jetpack']['vfx']['rows']), extra['orphan_events'])
     case('real tree: an idea from the notes file is a bucket of its own', assets['Arditi']['status'] == 'IDEA')
+    clips = code['clips']
+    groups = []
+    for _, _, g in clips[1:]:
+        if g not in groups:
+            groups.append(g)
+    case('real tree: the men\'s clips are read in the order of the enum, under their seven headings',
+         clips[0] == ('None', 0, '') and clips[1][:2] == ('Idle', 1) and groups == ['idle', 'locomotion', 'fire', 'actions', 'reactions', 'trench and stance', 'deaths'], groups)
+    rows = films.atlas_rows(build.P / 'Resources/Units/FigureSoldierAtlas.bytes')
+    case('real tree: the baked soldier has a row for every clip', rows == len(clips), f'{rows} rows, {len(clips)} clips')
+    jobs = films.jobs_for(build.P, assets, code)
+    by_id = {j['id']: j for j in jobs}
+    case('real tree: three units drawn with the Soldier share one set of films',
+         sorted(a['id'] for a, _ in by_id['FigureSoldier.fire']['models']) == ['Assault', 'Machinegunner', 'Rifle'], [a['id'] for a, _ in by_id['FigureSoldier.fire']['models']])
+    case('real tree: the shooting film holds the fire clips, by their rows', [r['name'] for r in by_id['FigureSoldier.fire']['rows']][:2] == ['Fire stand', 'Fire snap']
+         and by_id['FigureSoldier.fire']['rows'][0]['row'] == dict((n, r) for n, r, _ in clips)['FireStand'], by_id['FigureSoldier.fire']['rows'][:2])
+    vs = looks.versions(build.REPO, [build.P / 'Playground/Art/Tanks/Brute/Brute_LOD0.fbx'])
+    case('real tree: the versions of a model come out of git oldest first, each a different file',
+         len(vs) >= 2 and [v[1] for v in vs] == sorted(v[1] for v in vs) and len({v[3][0] for v in vs}) == len(vs), [(v[0][:8], v[1]) for v in vs])
+    case('real tree: every model is filmed on a turntable, a chunked building also drawn apart',
+         all(f'{n}.turn' in by_id for n in ('Pincer.battle', 'Brute.trial', 'House0', 'Pillbox', 'Frog.trial')) and 'House0.apart' in by_id and 'Pillbox.apart' not in by_id,
+         sorted(by_id))
 
 
 def fixtures():
@@ -65,6 +88,18 @@ def fixtures():
             case(f'probe: {name} stops the build', False, 'no ProbeError')
         except src_code.ProbeError as e:
             case(f'probe: {name} stops the build', 'x.cs' in str(e), e)
+
+    enum = 'public enum Clip : byte\n{\n    None,\n    // idle (standing)\n    Idle, AimedIdle,\n    // fire\n    FireStand,\n    Count\n}\n'
+    filler = ', '.join(f'C{k}' for k in range(20))
+    got = src_code.clips(enum.replace('FireStand,', f'Walk, FireStand, {filler},'), 'x.cs')
+    case('probe: clips carry their row and the heading above them', got[1] == ('Idle', 1, 'idle') and got[4] == ('FireStand', 4, 'fire') and got[-1][0] == 'C19', got[:5])
+    try:
+        src_code.clips(enum.replace('FireStand,', f'Walk, FireStand, {filler},').replace('None,', 'Unset,'), 'x.cs')
+        case('probe: a Clip enum that no longer starts at None stops the build', False, 'no ProbeError')
+    except src_code.ProbeError as e:
+        case('probe: a Clip enum that no longer starts at None stops the build', 'x.cs' in str(e), e)
+    case('films: a clip name is written in words', (films.words('FireStand'), films.words('Turn90L'), films.words('FireMG')) == ('Fire stand', 'Turn 90 l', 'Fire mg'),
+         (films.words('FireStand'), films.words('Turn90L'), films.words('FireMG')))
 
     notes = tmp / 'notes.json'
     notes.write_text('{"assets": {"Maw": {"colour": "red"}}}')

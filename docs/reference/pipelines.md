@@ -145,6 +145,11 @@ The rules for each are at the top of Tools/assetboard/model.py.
 | `assetboard/build.py` | Builds the site. `--check` only reads and prints the counts. A code table that changed shape stops it with the file and what it expected; a source this machine lacks (Blender, gym runs, the board) is only a warning on the process page | `python Tools/assetboard/build.py` |
 | `assetboard/test_assetboard.py` | Its tests: the counts and known assets on the real tree, and the rules on fixtures | `python Tools/assetboard/test_assetboard.py` |
 | `assetboard/thumb_blender.py` | The previews, in headless Blender (run by build.py). A building is put together from its chunk files and `houses.json` | not run by hand |
+| `assetboard/films.py`, `film_blender.py` | The films an asset's page opens on (run by build.py): every model once round on a turntable, the battle figures playing every clip of their baked atlas (the game's own vertex data, decoded as `VatCodec.cs` does), the buildings drawn apart into their chunks. Renders of the model, not the game. A first build is about 25,000 frames, ten minutes; after that only what changed. `--no-films` keeps the films already made | not run by hand |
+| `assetboard/gamefilm.py` | Films of the game itself, into the assetfilm folder of `Captures/`, which build.py picks up. `up` starts a batch-mode editor on this checkout (no window, but it renders). `film` films every playground vehicle and figure (turning, moving and firing, shot to pieces) and every chunked building (turning, shelled). `battle` films every battle machine in a match in GreyboxCorridor (turning, driving at enemy riflemen and firing, destroyed). `down` closes the editor. Frames are taken with `Time.captureFramerate`, so a film does not depend on the machine's frame rate | `python Tools/assetboard/gamefilm.py up`, then `film [NAME ..]` and `battle [NAME ..]`, then `down` |
+
+Films of the game are harvested, not derived: nothing remakes them when a model changes. Run `gamefilm.py` again
+after art changes; the page shows when each was filmed.
 
 What only a person knows goes in `docs/reference/asset-notes.json`: `priority`, `note`, `wants`, `parked` and
 `model_of` per asset, and a `planned` list for assets that are only an idea. An unknown id or key stops the build.

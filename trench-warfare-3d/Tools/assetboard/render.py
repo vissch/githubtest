@@ -33,6 +33,41 @@ def hero(a):
     return None, ''
 
 
+def reel(a):
+    """An asset's films in the order they are shown: a turntable, the game's own films, then the Blender renders."""
+    out = [dict(f, form=m['form']) for m in a['models'] for f in m.get('films', [])]
+    out.sort(key=lambda f: (f['what'] != 'game', f['form'] != 'battle', f.get('order', 0)))
+    out += a.get('earlier', [])                       # what was filmed before, oldest first, after what it is now
+    turn = next((f for f in out if f['file'].endswith(('.game-turn.mp4', '.turn.mp4'))), None)
+    if turn:                                          # a page and a card open on the model going round
+        out.remove(turn)
+        out.insert(0, turn)
+    return out
+
+
+def facts(a):
+    """The numbers of an asset, as a few chips."""
+    out = []
+    for m in a['models']:
+        tris = next((l.get('tris') for l in m.get('lods', []) if l.get('tris')), None)
+        if tris:
+            out.append((f'triangles ({m["form"]})', f'{tris:,}'))
+        if m['form'] != 'procedural' and len(m.get('lods', [])) > 1 and a['category'] == 'vehicle':
+            out.append(('LODs', len(m['lods'])))
+        if m.get('chunks'):
+            out.append(('chunks', m['chunks']))
+        if m.get('sockets'):
+            out.append(('sockets', len(m['sockets'])))
+    rows = a.get('vfx', {}).get('rows') or []
+    if rows:
+        out.append(('effects drawn', f'{sum(1 for r in rows if r["ok"])} of {len(rows)}'))
+    if a.get('measurements', {}).get('Size (m)'):
+        out.append(('m', a['measurements']['Size (m)']))
+    if a['tests']:
+        out.append(('tests', len(a['tests'])))
+    return out
+
+
 def site(assets, code, extra, lanes, meta, stage: Path):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
@@ -49,6 +84,15 @@ def site(assets, code, extra, lanes, meta, stage: Path):
         elif a['drawn_as']:        # a figure (Soldier) that several units share: any unit made for it carries its preview
             a['stand_in'] = next((m.get('thumb') for o in assets.values() if o.get('figure') == a['drawn_as'] and not o['drawn_as']
                                   for m in o['models'] if m.get('thumb')), None)
+        a['reel'], a['facts'], a['stand_reel'] = reel(a), facts(a), []
+        if not a['reel'] and a['drawn_as']:           # the films of the model it borrows, shown as borrowed
+            lender = assets.get(a['drawn_as']) or next((o for o in assets.values() if o.get('figure') == a['drawn_as'] and not o['drawn_as']), None)
+            a['stand_reel'] = reel(lender) if lender else []
+        if a['reel']:
+            a['hero'], a['hero_what'] = a['reel'][0]['poster'], a['reel'][0]['title']
+        a['looks'] = [dict(l, form=m['form']) for m in a['models'] for l in m.get('looks', [])]
+        why = a['status_why'].split(';')[0].split(', lane/')[0]
+        a['why_short'] = why + (f' · {len(a["lanes"])} lanes name it' if 'lane' in a['status_why'] and len(a['lanes']) > 1 else '')
         a['live_lanes'] = [l for l in a['lanes'] if l['live'] and l['touches_art']]
         a['other_lanes'] = [l for l in a['lanes'] if not (l['live'] and l['touches_art'])]
         days = {}
