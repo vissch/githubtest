@@ -94,10 +94,15 @@ PURPOSE = {
     'Sim/Nav': 'Flow fields, movement, separation, spatial hash, vehicle kinematics (VehicleSize lives here).',
     'Sim/Terrain': 'MapData, heightfield, battlefield generator, craters, wire, mud, props.',
     'Sim/Units': 'Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs.',
-    'Tests': 'NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts.',
+    'Tests': 'NUnit tests, one assembly per module (Tools/gate_scope.py lists them); PlayMode spins real SimHosts.',
     'Tests/EditMode': 'EditMode tests (references every assembly incl. TW.Editor).',
+    'Tests/Match': 'EditMode tests of whole matches run through LockstepSession and ScriptedEnemy (Sim + Presentation/Core). Slow.',
     'Tests/PlayMode': 'PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router.',
+    'Tests/Project': 'EditMode tests that need TW.Editor: a fresh clone sets itself up, the UI skin, shaders kept in builds.',
+    'Tests/Show': 'EditMode tests of Presentation and Perf, and the source-text checks. Fast; every gate runs them.',
+    'Tests/Sim': 'EditMode tests of the sim alone: references only TW.Sim.*, TW.Net, TW.Data. Slow.',
     'Tests/Stills': 'Walker stills (WalkerStills, its own assembly): held-frame captures of the walkers that docs/20 scores.',
+    'Tests/UI': 'EditMode tests of TW.UI: HUD, shell, selection, campaign tables, settings.',
     'UI': 'UI Toolkit: the battle HUD (HudController/HudView) and its parts.',
     'UI/Campaign': 'Campaign data tables: country nodes and missions (CampaignGraph), Home Front buildings and upgrade lines (FactionBuildings).',
     'UI/Missions': 'Mission card assets for the mission select.',
@@ -106,6 +111,9 @@ PURPOSE = {
     'UI/Shell': 'Menus: router, main menu, mission select, pause, settings, debrief, armoury.',
     'UI/Skin': 'Dust Front skin: SkinSpec (the sprite table), USS tokens, fonts.',
 }
+
+# Folders the next commit creates (the test modules, 2026-10-02): their PURPOSE line may come before the folder does.
+PENDING_FOLDERS = {'Tests/Match', 'Tests/Project', 'Tests/Show', 'Tests/Sim', 'Tests/UI'}
 
 # What each runtime switch does. A switch found in the code with no line here fails --check.
 FLAG_EFFECT = {
@@ -527,7 +535,7 @@ def check(errors, warnings):
     folders = set(project_folders())
     for f in sorted(folders - set(PURPOSE)):
         errors.append(f'Assets/_Project/{f}/ has no purpose line: add it to PURPOSE in Tools/codemap.py')
-    for f in sorted(set(PURPOSE) - folders):
+    for f in sorted(set(PURPOSE) - folders - PENDING_FOLDERS):
         errors.append(f'PURPOSE in Tools/codemap.py names Assets/_Project/{f}/, which no longer exists')
     for k in sorted(set(find_flags()) - set(FLAG_EFFECT)):
         errors.append(f'runtime switch "{k}" is undocumented: add it to FLAG_EFFECT in Tools/codemap.py')

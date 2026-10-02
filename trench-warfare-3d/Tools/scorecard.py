@@ -81,8 +81,8 @@ def scores(with_selftest):
     refs = {p: len(re.findall(r'\bSceneHooks\.', read(p))) for p in prod}
     s['scenehooks_refs'] = sum(refs.values())
     s['scenehooks_files'] = sum(1 for v in refs.values() if v)
-    lifecycle = PROJ / 'Tests' / 'EditMode' / 'StaticLifecycleTests.cs'
-    s['statics_explained'] = len(re.findall(r'^\s*\["\w+"\]\s*=', read(lifecycle), re.M)) if lifecycle.exists() else -1
+    lifecycle = next((PROJ / 'Tests').rglob('StaticLifecycleTests.cs'), None)   # by name: a test's folder is its module
+    s['statics_explained'] = len(re.findall(r'^\s*\["\w+"\]\s*=', read(lifecycle), re.M)) if lifecycle else -1
     s['stub_systems'] = sum(1 for p in prod if 'NotImplementedException' in read(p))
 
     for mode in ('EditMode', 'PlayMode'):

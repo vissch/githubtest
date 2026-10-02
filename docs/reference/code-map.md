@@ -109,7 +109,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Sim/Nav/` | Flow fields, movement, separation, spatial hash, vehicle kinematics (VehicleSize lives here). |
 | `Sim/Terrain/` | MapData, heightfield, battlefield generator, craters, wire, mud, props. |
 | `Sim/Units/` | Trench garrison and orders, vehicle modules, stats; stance/grenades/abilities are stubs. |
-| `Tests/` | NUnit tests. EditMode is the bulk; PlayMode spins real SimHosts. |
+| `Tests/` | NUnit tests, one assembly per module (Tools/gate_scope.py lists them); PlayMode spins real SimHosts. |
 | `Tests/EditMode/` | EditMode tests (references every assembly incl. TW.Editor). |
 | `Tests/PlayMode/` | PlayMode tests: lockstep loopback, match clock, launch, HUD layout, shell router. |
 | `Tests/Stills/` | Walker stills (WalkerStills, its own assembly): held-frame captures of the walkers that docs/20 scores. |

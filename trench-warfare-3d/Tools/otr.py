@@ -1,4 +1,4 @@
-"""Offline test run (otr): run the EditMode suite outside Unity, on the dlls occ.py built, with a stand-in engine.
+"""Offline test run (otr): run the EditMode test modules outside Unity, on the dlls occ.py built, with a stand-in engine.
 
 Why: the gate needs an editor and ~4 GB free; on a loaded machine nothing runs for days. otr loads the test dll into
 Unity's own Mono (mono-bdwgc) and registers managed stand-ins for the native engine calls the code uses
@@ -19,9 +19,10 @@ What still reports ENGINE: UI Toolkit layout, GameObjects/components, physics, a
 recorders. What otr cannot see: Burst codegen, the job system's threads and race detection, GPU work, pixels. A
 green otr is a strong first filter; the gate stays the verdict.
 
-Usage (after occ.py built every assembly, TW.Tests.EditMode included):
-  python Tools/otr.py                        # every EditMode test class
+Usage (after occ.py built every assembly, the test modules included):
+  python Tools/otr.py                        # every test class of every module under Assets/_Project/Tests
   python Tools/otr.py ScatterRules MineTests # only classes whose name contains one of these
+  python Tools/otr.py --module Sim,Match     # only these modules (the names Tools/gate_scope.py lists)
   python Tools/otr.py -v                     # also list PASS and ENGINE lines
 Env: TW_OTR_ENGINE=0 (no stand-ins), TW_OTR_LOG=1 (echo logs), TW_OTR_TRACE=1 (jobs), TW_OTR_STACK=1 (full stacks),
 TW_OTR_BUILD=<dir> (build the runner elsewhere, for a second run beside one in flight).
@@ -43,6 +44,8 @@ try:
     import occ  # noqa: E402  (OUT, UNITY, MAIN_LIB, PKG_CACHE, nunit)
 except ImportError:
     print("otr: needs Tools/aosa/occ.py (lane/show/aosa) beside it, and its compiled dlls"); sys.exit(2)
+sys.path.insert(0, str(HERE.parent))
+import gate_scope  # noqa: E402  (the test modules: one definition, shared with the gate)
 
 RUNNER_SRC = HERE.parent / "otr" / "Runner.cs"
 ENGINE_SRC = HERE.parent / "otr" / "Engine.cs"
@@ -70,9 +73,26 @@ def build_runner():
 
 def main(argv):
     verbose = "-v" in argv
-    filters = [a for a in argv if a != "-v"]
-    dll = occ.OUT / "TW.Tests.EditMode.dll"
+    argv = [a for a in argv if a != "-v"]
+    wanted = None
+    if "--module" in argv:
+        i = argv.index("--module")
+        if i + 1 >= len(argv):
+            print("otr: --module needs a name (or several, comma-separated)"); return 2
+        wanted = [m.strip().lower() for m in argv[i + 1].split(",") if m.strip()]
+        argv = argv[:i] + argv[i + 2:]
+    filters = argv
     tested = pathlib.Path(occ.PROJ).resolve()
+    # the modules the gate's EditMode pass runs from Assets/_Project/Tests (Stills is [Explicit]; the playground's
+    # tests are all asset imports, which have no stand-in)
+    mods = {m: asm for m, (asm, folder) in gate_scope.modules(tested).items()
+            if folder.startswith("trench-warfare-3d/Assets/_Project/Tests/") and m not in gate_scope.EXPLICIT_ONLY}
+    if wanted is not None:
+        bad = [w for w in wanted if w not in {m.lower() for m in mods}]
+        if bad:
+            print(f"otr: no test module named {', '.join(bad)}. The modules: {', '.join(sorted(mods))}"); return 2
+        mods = {m: asm for m, asm in mods.items() if m.lower() in wanted}
+    dlls = [occ.OUT / (asm + ".dll") for asm in mods.values()]
     print(f"otr: testing {tested} (dlls in {occ.OUT})")
     if tested != pathlib.Path.cwd().resolve():
         print(f"otr: WARNING: run from {pathlib.Path.cwd()}, which is not the checkout under test ({tested}); cd into it")
@@ -84,7 +104,7 @@ def main(argv):
     table = occ.asmdefs()
     dirs = [path.parent for path, _ in table.values()]
     for name, (path, _) in table.items():
-        built = occ.OUT / (name + ".dll")   # not 'dll': that names the test assembly the run loads below
+        built = occ.OUT / (name + ".dll")
         if not name.startswith("TW.") or not built.exists():
             continue
         srcs = occ.sources(path, dirs)
@@ -101,8 +121,9 @@ def main(argv):
             if ref.startswith("TW.") and dep.exists() and dep.stat().st_mtime > built.stat().st_mtime + 1:
                 print(f"otr: {name}.dll was built before {ref}.dll: run occ.py with every assembly; not a verdict")
                 return 2
-    if not dll.exists():
-        print(f"otr: {dll} not built: run occ.py with TW.Tests.EditMode first"); return 2
+    for dll in dlls:
+        if not dll.exists():
+            print(f"otr: {dll} not built: run occ.py with {dll.stem} first"); return 2
     exe = build_runner()
     nunit_dirs = [str(pathlib.Path(p).parent) for p in occ.nunit()]
     # precompiled package plugins (Unity.Burst.Unsafe, Collections' ILSupport, ...): what Unity loads beside ScriptAssemblies
@@ -121,10 +142,10 @@ def main(argv):
             if line.strip() and not line.startswith("#"):
                 name, _, why = line.partition(" ")
                 known[name] = why.strip()
-    runs = filters or [""]
+    runs = [(dll, f) for dll in dlls for f in (filters or [""])]
     bad = False
     tally = {}
-    for f in runs:
+    for dll, f in runs:
         after = ""
         while True:
             r = subprocess.run([str(MONO), str(exe), str(dll), f, after], cwd=str(occ.PROJ), env=env, capture_output=True,

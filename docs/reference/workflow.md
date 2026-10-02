@@ -125,9 +125,10 @@ python Tools/aosa/occ.py TW.Presentation.Core TW.Presentation.Camera
 Name every assembly you changed, in dependency order, or it compiles against yesterday's dlls. It prints
 `occ OK <assembly> (N files)` or the compiler errors. It cannot check shaders, USS or scenes.
 
-Then Tools/otr.py runs the EditMode suite on those dlls in Unity's own Mono with a stand-in engine (Tools/otr/*.cs:
+Then Tools/otr.py runs the EditMode test modules on those dlls in Unity's own Mono with a stand-in engine (Tools/otr/*.cs:
 native memory and jobs, JsonUtility, meshes and FBX import, maths, text assets and .asset files), no editor, no RAM
-(`python Tools/otr.py [ClassNameFilter ...] [-v]`). Nearly all of the sim and presentation suite runs; UI Toolkit
+(`python Tools/otr.py [ClassNameFilter ...] [--module Name,...] [-v]`; `python Tools/gate_scope.py --all` lists the
+modules). Nearly all of the sim and presentation suite runs; UI Toolkit
 layout, GameObjects, physics and audio still report ENGINE. A strong first filter, never the gate's verdict (no Burst,
 no job threads, no pixels). A FAIL caused only by the stand-in goes in `Tools/otr/known.txt` with its reason.
 

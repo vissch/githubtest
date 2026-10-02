@@ -13,7 +13,8 @@ tasks.md never names, an agent-memory.md over its cap. port_split.py, on a small
 code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
 changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file. health.py
 --lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
-counts an unmeasured metric as one.
+counts an unmeasured metric as one. gate_scope.py skips a slow test module only when no changed path can reach it:
+a sim file, a build input, an unknown folder, a file moved out of Sim/ and a missing integration ref all run everything.
 """
 import pathlib
 import shutil
@@ -62,7 +63,7 @@ def codemap_cases(wt: pathlib.Path):
     # the other direction: ordinary edits must not fail the check, or every lane regenerates and conflicts
     sim_host = proj / 'Assets/_Project/Presentation/Core/SimHost.cs'
     sim_host.write_bytes(b'// a harmless comment\n' + sim_host.read_bytes())
-    tests = proj / 'Assets/_Project/Tests/EditMode/EnvAtlasTests.cs'
+    tests = next((proj / 'Assets/_Project/Tests').rglob('EnvAtlasTests.cs'))   # by name: a test's folder is its module
     edit(tests, 'public void The_Packer_And_The_Kit_List_The_Same_Sets_In_The_Same_Order()',
          'public void A_New_Case() { }\n        [Test]\n        public void The_Packer_And_The_Kit_List_The_Same_Sets_In_The_Same_Order()')
     code, out = run(check, proj)
@@ -87,7 +88,7 @@ def codemap_cases(wt: pathlib.Path):
                'namespace TW { static class F { static bool On => System.Array.IndexOf('
                'System.Environment.GetCommandLineArgs(), "-twselftest") >= 0; } }\n'), regen=True)
     expect('a test class tasks.md never names', 'never names test SelfTestProbeTests',
-           lambda: (proj / 'Assets/_Project/Tests/EditMode/SelfTestProbeTests.cs').write_text(
+           lambda: (tests.parent / 'SelfTestProbeTests.cs').write_text(
                'using NUnit.Framework;\nnamespace TW.Tests { public class SelfTestProbeTests { [Test] public void A() {} } }\n'),
            regen=True)
     expect('a production file no agent page names', 'NewHelper.cs is named on no agent page',
@@ -284,6 +285,84 @@ def land_cases(tmp: pathlib.Path):
          code == 1 and 'rebase' in out, out)
 
 
+def gate_scope_cases(tmp: pathlib.Path):
+    sys.path.insert(0, str(HERE))
+    import gate_scope
+    P = gate_scope.P
+    mods = {m: ('TW.Tests.' + m, P + 'Tests/' + m + '/') for m in ('EditMode', 'Match', 'Project', 'Show', 'Sim', 'Stills', 'UI')}
+    fast = ['EditMode', 'Project', 'Show', 'UI']
+
+    def skipped(*changed):
+        ran, skip = gate_scope.scope(list(changed), mods)
+        assert 'Stills' not in ran and all(f in ran for f in fast), ran   # the fast modules always run, Stills never
+        return sorted(skip)
+
+    table = [
+        ('a sim file runs every module', [P + 'Sim/Core/SimWorld.cs'], []),
+        ('a sim test runs the sim tests and skips the match tests', [P + 'Tests/Sim/CombatTests.cs'], ['Match']),
+        ('a Presentation/Core file skips only the sim tests', [P + 'Presentation/Core/SimHost.cs'], ['Sim']),
+        ('UI and docs changes skip both slow modules', [P + 'UI/HudView.cs', 'docs/reference/tasks.md'], ['Match', 'Sim']),
+        ('a tool other than the gate skips both', ['trench-warfare-3d/Tools/codemap.py'], ['Match', 'Sim']),
+        ('one sim file among many others still runs everything', [P + 'UI/HudView.cs', P + 'Net/CommandSeat.cs'], []),
+        ('the .meta of a sim file counts as the file', [P + 'Sim/Core/SimWorld.cs.meta'], []),
+        ('an asmdef anywhere runs everything', [P + 'UI/TW.UI.asmdef'], []),
+        ('a package change runs everything', ['trench-warfare-3d/Packages/manifest.json'], []),
+        ('a project setting runs everything', ['trench-warfare-3d/ProjectSettings/GraphicsSettings.asset'], []),
+        ('the gate itself runs everything', ['gate.ps1'], []),
+        ('a folder the rule has never heard of runs everything', ['trench-warfare-3d/Assets/Plugins/New.cs'], []),
+        ('an unknown file at the repo root runs everything', ['.gitattributes'], []),
+        ('an empty change set runs everything', [], []),
+    ]
+    for name, changed, want in table:
+        got = skipped(*changed)
+        case(f'gate_scope: {name}', got == want, f'skipped {got}, wanted {want}')
+    ran, skip = gate_scope.scope(None, mods)
+    case('gate_scope: an unknown change set runs everything', not skip and 'Sim' in ran and 'Match' in ran, str(skip))
+
+    # against a real repo: the working tree, untracked files and all, measured from the merge-base with integration
+    integ = gate_scope.INTEGRATION
+    origin, work = tmp / 'scope-origin.git', tmp / 'scope-work'
+    run_git = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], work)
+    run(['git', 'init', '-q', '--bare', str(origin)], tmp)
+    run(['git', 'clone', '-q', str(origin), str(work)], tmp)
+    proj = work / 'trench-warfare-3d'
+    (proj / 'Tools').mkdir(parents=True)
+    for tool in ('gate_scope.py', 'land.py'):
+        shutil.copy2(HERE / tool, proj / 'Tools' / tool)
+    for m in ('Sim', 'Match', 'Show'):
+        d = proj / 'Assets/_Project/Tests' / m
+        d.mkdir(parents=True)
+        (d / f'TW.Tests.{m}.asmdef').write_text('{"name": "TW.Tests.%s", "includePlatforms": ["Editor"]}' % m)
+        (d / f'{m}Tests.cs').write_text('namespace TW.Tests { class %sTests { [Test] void A() {} } }\n' % m)
+    for folder in ('Sim', 'UI', 'Presentation/Camera'):
+        (proj / 'Assets/_Project' / folder).mkdir(parents=True)
+        (proj / 'Assets/_Project' / folder / 'A.cs').write_text('class A {}\n')
+    (work / '.gitignore').write_text('__pycache__/\n')   # as in the real repo: running the tool must not count as a change
+    run_git('checkout', '-qb', integ); run_git('add', '.'); run_git('commit', '-qm', 'base')
+    run_git('push', '-q', 'origin', integ); run_git('checkout', '-qb', 'lane/show/t')
+    ask = lambda *extra: run([sys.executable, 'Tools/gate_scope.py', *extra], proj)[1]
+
+    out = ask()
+    case('gate_scope: a lane with no change runs everything', 'scoped: no' in out and 'TW.Tests.Sim' in out, out)
+    (proj / 'Assets/_Project/UI/New.cs').write_text('class New {}\n')   # untracked: the working tree counts, not HEAD
+    out = ask()
+    case('gate_scope: an untracked UI file skips the sim and match tests and still runs the rest',
+         'scoped: yes' in out and 'assemblies: TW.Tests.Show\n' in out.replace('\r', '') and 'classes: TW.Tests.ShowTests' in out, out)
+    run_git('add', '.'); run_git('commit', '-qm', 'ui')
+    run_git('mv', 'trench-warfare-3d/Assets/_Project/Sim/A.cs', 'trench-warfare-3d/Assets/_Project/Presentation/Camera/B.cs')
+    out = ask()
+    case('gate_scope: a file moved out of Sim/ still runs the sim tests (renames do not hide the old path)',
+         'scoped: no' in out and 'TW.Tests.Sim' in out, out)
+    run_git('reset', '-q', '--hard')
+    out = ask('--modules', 'sim')
+    case('gate_scope: --modules runs exactly what it names', 'assemblies: TW.Tests.Sim\n' in out.replace('\r', ''), out)
+    code, out = run([sys.executable, 'Tools/gate_scope.py', '--modules', 'Nope'], proj)
+    case('gate_scope: an unknown module name is refused', code == 2 and 'no test module named Nope' in out, out)
+    run_git('update-ref', '-d', f'refs/remotes/origin/{integ}')
+    out = ask()
+    case('gate_scope: no integration ref to measure from runs everything', 'scoped: no' in out and 'TW.Tests.Sim' in out, out)
+
+
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
     import scorecard
@@ -326,6 +405,7 @@ def main():
         port_split_cases(tmp)
         port_split_twin_case(tmp)
         scorecard_cases()
+        gate_scope_cases(tmp)
         land_cases(tmp)
         code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
