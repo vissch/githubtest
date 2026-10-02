@@ -21,7 +21,8 @@ A NEW SLOW MODULE needs a NEEDS line listing every folder its tests can reach: t
 its own folder, and any file its tests read by path. Tools/checks/test_modules.py holds the slow modules to that.
 
 Output, one `key: value` per line, read by gate.ps1: `scoped` (yes when something is skipped), `assemblies`
-(`;`-joined, what to run), `classes` (`;`-joined full class names, for a runner that selects by name), then one `note`.
+(`;`-joined, what to run), `expect` (those of them that hold a test: what the results must show), `classes`
+(`;`-joined full class names, for a runner that selects by name), then one `note`.
 Exit 0; 2 on an unknown module name.
 """
 import argparse
@@ -183,6 +184,7 @@ def main():
             note = f'every module: the changes since {base} reach all of them'
     print('scoped: ' + ('yes' if set(run) != set(everything) else 'no'))
     print('assemblies: ' + ';'.join(mods[m][0] for m in run))
+    print('expect: ' + ';'.join(mods[m][0] for m in run if classes([m], mods)))   # an assembly with no test is no suite
     print('classes: ' + ';'.join(classes(run, mods)))
     print('note: ' + note)
     return 0

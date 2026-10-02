@@ -155,7 +155,7 @@ STATIC_SWITCHES = [
 # Paths that docs may cite although they are not in the repo (machine-local or produced at run time).
 ALLOW_MISSING = {
     'settings.json', 'editor-slot.json', 'Captures/', 'Builds/', 'Tools/flame-shots/', 'test-results.xml',
-    'test-results-EditMode.xml', 'test-results-PlayMode.xml',
+    'test-results-EditMode.xml', 'test-results-PlayMode.xml', 'test-results-EditMode-scoped.xml',
     'Library/', 'Temp/', 'Temp/UnityLockfile', 'Library/BurstCache', 'Library/ScriptAssemblies', 'Assets/_shots/',
     'Editor.log', 'Tools/aosa', 'Builds/WinBench/', 'Builds/WinBenchDev/', 'build-info.json', 'Captures/playground/',
 }

@@ -18,6 +18,8 @@ changed (or whose lines the other side changed in one of two identical copies) g
 --lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
 counts an unmeasured metric as one. gate_scope.py skips a slow test module only when no changed path can reach it:
 a sim file, a build input, an unknown folder, a file moved out of Sim/ and a missing integration ref all run everything.
+gate.ps1, with a stand-in for Unity that writes canned results: a scoped run is green only when its results hold every
+assembly it asked for, keeps its results apart and never records a tree; only the full run records one.
 """
 import pathlib
 import shutil
@@ -457,6 +459,69 @@ def gate_scope_cases(tmp: pathlib.Path):
     case('gate_scope: no integration ref to measure from runs everything', 'scoped: no' in out and 'TW.Tests.Sim' in out, out)
 
 
+FAKE_UNITY = r'''"""A stand-in for `unity test`: writes the results a run would, as TW_FAKE says. For Tools/selftest.py only."""
+import os, sys
+a = sys.argv[1:]
+mode = a[a.index('--mode') + 1]
+asked = a[a.index('-assemblyNames') + 1].split(';') if '-assemblyNames' in a else []
+every = ['TW.Tests.Sim', 'TW.Tests.Match', 'TW.Tests.Show', 'TW.Tests.UI', 'TW.Tests.Project', 'TW.Tests.Playground']
+how = os.environ.get('TW_FAKE', 'honour')
+suites = ['TW.Tests.PlayMode'] if mode == 'PlayMode' else (asked if asked and how != 'ignore' else every)
+if how == 'fewer':
+    suites = suites[:1]
+failed = 1 if how == 'fail' else 0
+cases = ''.join(f'<test-suite type="Assembly" name="{s}.dll"><test-case fullname="{s}.A" result="Passed"/></test-suite>' for s in suites)
+if failed:
+    cases += '<test-suite type="Assembly" name="X.dll"><test-case fullname="X.B" result="Failed"><failure><message>Expected: 1 But was: 2</message></failure></test-case></test-suite>'
+open('test-results.xml', 'w').write(f'<test-run total="{len(suites) + failed}" passed="{len(suites)}" failed="{failed}" skipped="0" '
+                                    f'result="{"Failed" if failed else "Passed"}">{cases}</test-run>')
+sys.exit(8 if failed else 0)
+'''
+
+
+def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
+    """gate.ps1's own rules, with a stand-in for Unity: what a scoped run may and may not claim."""
+    fake = tmp / 'fake-unity'
+    fake.mkdir()
+    (fake / 'fake_unity.py').write_text(FAKE_UNITY)
+    (fake / 'unity.cmd').write_text(f'@"{sys.executable}" "%~dp0fake_unity.py" %*\r\n')
+    proj = wt / 'trench-warfare-3d'
+    marker = pathlib.Path(run(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green'], wt)[1].strip())
+    scoped, full = proj / 'test-results-EditMode-scoped.xml', proj / 'test-results-EditMode.xml'
+
+    def gate(how, *args):
+        for f in (marker, scoped, full):
+            f.unlink(missing_ok=True)
+        import os
+        env = dict(os.environ, TW_GATE_UNITY=str(fake / 'unity.cmd'), TW_FAKE=how)
+        p = subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(wt / 'gate.ps1'), *args],
+                           cwd=wt, capture_output=True, env=env)
+        return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
+
+    code, out = gate('honour', '-Module', 'Show,UI')
+    case('gate: a scoped run that held what was asked is green, keeps its results apart and records no tree',
+         code == 0 and scoped.exists() and not full.exists() and not marker.exists(), out)
+    code, out = gate('fewer', '-Module', 'Show,UI')
+    case('gate: a scoped run whose results miss an assembly it asked for is no verdict (exit 6)',
+         code == 6 and 'TW.Tests.UI' in out and not marker.exists(), out)
+    code, out = gate('ignore', '-Module', 'Show')
+    case('gate: a selection Unity ignored ran more than asked, which is still a verdict, and it says so',
+         code == 0 and 'wider than asked' in out and not marker.exists(), out)
+    code, out = gate('fail', '-Module', 'Show')
+    case('gate: a failed test fails a scoped run (exit 8)', code == 8 and 'FAILED X.B' in out, out)
+    code, out = gate('honour', '-Module', 'Nope')
+    case('gate: an unknown module runs nothing and is no verdict (exit 6)', code == 6 and 'no test module named Nope' in out, out)
+    code, out = gate('honour', '-EditOnly', '-All')
+    case('gate: -EditOnly -All runs every module and records no tree',
+         code == 0 and full.exists() and not scoped.exists() and not marker.exists() and '-assemblyNames' not in out, out)
+    code, out = gate('honour')
+    tree = run(['git', 'rev-parse', 'HEAD^{tree}'], wt)[1].strip()
+    case('gate: only the full run records the tree it tested, for land.py',
+         code == 0 and marker.exists() and marker.read_text().split()[0] == tree, out)
+    for f in (marker, scoped, full, proj / 'test-results-PlayMode.xml', proj / 'test-results.xml'):
+        f.unlink(missing_ok=True)
+
+
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
     import scorecard
@@ -497,6 +562,7 @@ def main():
              '--allow-empty', '--no-verify'], wt)
         codemap_cases(wt)
         validate_cases(wt)
+        gate_cases(wt, tmp)
         port_split_cases(tmp)
         port_split_twin_case(tmp)
         scorecard_cases()

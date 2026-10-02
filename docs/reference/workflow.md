@@ -152,17 +152,51 @@ Verified 2026-09-25, about 5 s:
 (`TW.Tests.CombatTests.Garrison_ShootsAnAssaultInTheOpen_AndWinsTheExchange`) runs one. PlayMode in the editor: add `--async_tests true`. The in-editor runner has hung the pipeline after about four
 full runs (2026-09-24). Use it for one class at a time; run everything through the gate.
 
+**The test modules.** The EditMode tests are one assembly per folder under `Tests/`, so a run can leave out what a
+change cannot reach. `python Tools/gate_scope.py --all` lists them.
+
+| Module | Holds | Time |
+|---|---|---|
+| `Tests/Sim/` | the sim alone (references only `TW.Sim.*`, `TW.Net`, `TW.Data`) | slow: most of the run |
+| `Tests/Match/` | whole matches through LockstepSession and ScriptedEnemy (adds `Presentation/Core/`) | slow |
+| `Tests/Show/` | Presentation, Perf, the source-text checks | seconds |
+| `Tests/UI/` | `TW.UI` | seconds |
+| `Tests/Project/` | what needs `TW.Editor` (fresh clone, UI skin, shaders kept in builds) | seconds |
+
+A new test goes in the folder of the highest assembly it needs. `Tests/EditMode/` is the landing folder: a lane cut
+before the split (2026-10-02) finds its new tests there after rebasing, they still compile, and `validate.py` prints
+the `git mv` line that puts each in its module. A class is still run by name (`--filter TW.Tests.<Class>`): the
+namespace did not change.
+
 **The gate** (before every commit). It needs this checkout's editor closed. PowerShell refuses unsigned scripts on
 this machine, so call it with a bypass:
 ```bash
-powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1            # validate + EditMode + PlayMode
-powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly  # validate + EditMode
+powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1                    # validate + every EditMode test + PlayMode
+powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly          # validate + the EditMode modules your lane can reach
+powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -All     # validate + every EditMode test
+powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -Module Sim,Match  # validate + exactly these modules
+powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -Plan    # say what would run; run nothing
 ```
+`-EditOnly` skips a slow module only when nothing your lane changed can reach it. It compares the working tree
+with the merge-base on origin's integration branch, so a lane that touched the sim runs the sim tests on every commit:
+
+| Your lane changed | Sim | Match |
+|---|---|---|
+| `Sim/`, `Net/`, `Data/` | runs | runs |
+| `Tests/Sim/` | runs | skipped |
+| `Presentation/Core/`, `Tests/Match/` | skipped | runs |
+| any asmdef, `Packages/`, `ProjectSettings/`, `gate.ps1`, a path the rule does not know | runs | runs |
+| any other Presentation folder, UI, Editor, Perf, Resources, Art, Shaders, Scenes, other tests, docs, tools | skipped | skipped |
+
+Every other module always runs. The rule is `NEEDS` in Tools/gate_scope.py, and `validate.py` (the `test_modules`
+check) fails when a slow module could reach code the rule does not watch. The first line of the gate says what it
+skips and why. A scoped run keeps its results in `test-results-EditMode-scoped.xml`, is no verdict (exit 6) unless
+they hold every assembly it asked for, and never counts for landing: only the full gate records a tree.
 | Exit | Meaning |
 |---|---|
 | 0 | green |
 | 8 | a test failed (the xml decides, even if unity exited 0); each failed test is printed with its message |
-| 6 | no verdict: compile error, licence, or a suite in which no test ran or none passed. Not a pass |
+| 6 | no verdict: compile error, licence, a suite in which no test ran or none passed, an unknown `-Module`, or a scoped run whose results miss an assembly it asked for. Not a pass |
 | 5 | validate.py failed; its lines are printed (`codemap:` lines are docs that no longer match the code) |
 | 3 | the checkout is held by an editor or another batch run |
 | 1 | unity.exe is missing |
