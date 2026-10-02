@@ -79,6 +79,7 @@ def main(argv=None):
     ap.add_argument('--json-only', action='store_true')
     ap.add_argument('--no-thumbs', action='store_true')
     ap.add_argument('--no-images', action='store_true')
+    ap.add_argument('--no-films', action='store_true')
     ap.add_argument('--no-git', action='store_true')
     ap.add_argument('--out', default='')
     args = ap.parse_args(argv)
@@ -110,6 +111,12 @@ def main(argv=None):
         if not args.no_thumbs:
             import thumbs
             thumbs.attach(P, assets, stage, out, LOCAL, meta)
+        if not args.no_thumbs:                       # --no-films keeps the films already made and renders none
+            import films
+            films.attach(P, assets, code, stage, out, LOCAL, meta, only_harvest=args.no_films)
+            if not args.no_git:
+                import looks
+                looks.attach(REPO, P, assets, stage, out, LOCAL, meta)
     (stage / 'data').mkdir(exist_ok=True)
     slim = [{k: v for k, v in a.items() if k not in ('chunk_rows',)} for a in assets.values()]
     (stage / 'data' / 'assets.json').write_text(json.dumps(dict(meta=meta, assets=slim), indent=1, default=str), encoding='utf-8')

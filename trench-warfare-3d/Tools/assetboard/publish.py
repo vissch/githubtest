@@ -1,14 +1,14 @@
 """Copy a built site into its folder, writing only the files whose bytes changed.
 
-The folder is on a synced Drive: every rewrite is an upload, on both stations. Pictures (img/, thumb/) are never
+The folder is on a synced Drive: every rewrite is an upload, on both stations. Pictures and films (img/, thumb/, film/, look/) are never
 deleted here, because the other station may have harvested ones this machine cannot see; pages and data are replaced.
 The site has a budget, so a mistake in a harvest cannot fill the Drive.
 """
 import shutil
 from pathlib import Path
 
-MAX_FILES = 1500
-MAX_BYTES = 60 * 1024 * 1024
+MAX_FILES = 2500
+MAX_BYTES = 400 * 1024 * 1024        # the films are most of it
 
 
 def sync(stage: Path, out: Path):
