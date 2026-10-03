@@ -86,7 +86,9 @@
 // A card's turntable plays while the pointer is on it; nothing is fetched before that.
 document.querySelectorAll('.card video[data-src]').forEach(function (v) {
   var card = v.closest('.card');
+  var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   card.addEventListener('mouseenter', function () {
+    if (calm) return;          // the ring shows; the film waits for a click
     if (!v.src) { v.src = v.dataset.src; v.addEventListener('loadedmetadata', function () { v.currentTime = Math.min(1, v.duration / 4); }, { once: true }); }
     v.play().catch(function () {});
   });

@@ -171,7 +171,7 @@ def sessions(trees, now):
             log = meta.with_name(meta.name[:-len('.meta.json')] + '.jsonl')
             if log.exists() and now - log.stat().st_mtime <= AGENT_FRESH:
                 m = json.loads(meta.read_text(encoding='utf-8'))
-                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=tidy(last_ask(log) or m.get('description', ''))))
+                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=agent_task(last_ask(log), m.get('description', ''))))
         out.append(s)
     return out
 
@@ -184,6 +184,19 @@ def tidy(t: str, n=60):
     if len(t) > n:
         t = t[:n].rsplit(' ', 1)[0] + '\u2026'
     return t
+
+
+def agent_task(last: str, description: str):
+    """What an agent is doing: its last ask as a phrase; when that is too short to say anything ('Round 23'), the
+    description it was spawned with, its number brought up to date ('Score board UI/UX round 1' -> '... round 23')."""
+    t = tidy(last) if last else ''
+    if len(t.split()) >= 3 or not description:
+        return t or tidy(description)
+    n = re.findall(r'\d+', t)
+    d = tidy(description)
+    if n and re.search(r'\d+', d):
+        d = re.sub(r'\d+(?!.*\d)', n[-1], d)
+    return d
 
 
 def last_ask(log: Path):

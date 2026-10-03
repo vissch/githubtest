@@ -145,6 +145,10 @@ def fixtures():
          and src_ops.tidy('Rebuild the site, run the tests on /c/Users/PC/x.py now') == 'Rebuild the site, run the tests on now'
          and len(src_ops.tidy('word ' * 40)) <= 61,
          [src_ops.tidy('Round 21 in C:\\Users\\PC\\AppData\\rounds\\r21\\ (index-fold and the rest)'), src_ops.tidy('Rebuild the site, run the tests on /c/Users/PC/x.py now')])
+    case('floor: a bare "Round 23" keeps the agent\'s description with the number brought up to date',
+         src_ops.agent_task('Round 23 in C:\\x\\y (a, b)', 'Score board UI/UX round 1') == 'Score board UI/UX round 23'
+         and src_ops.agent_task('Rebuild the board and shoot it', 'Score round 1') == 'Rebuild the board and shoot it',
+         src_ops.agent_task('Round 23 in C:\\x\\y (a, b)', 'Score board UI/UX round 1'))
     import ops
     keep = ops.CREW
     ops.CREW = tmp / 'cache'
