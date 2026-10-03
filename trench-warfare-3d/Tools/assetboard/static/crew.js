@@ -51,7 +51,7 @@ window.Crew = (function () {
     b.style.setProperty('--h', hue(w.id || w.name || ''));
     if (m) {
       var v = el('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', '');
-      v.preload = 'none'; v.poster = 'img/crew/' + k + '.jpg';
+      v.preload = 'none'; v.poster = 'img/crew/' + k + (mode === 'doze' && m.sleep ? '.sleep.jpg' : '.jpg');
       if (m[mode] && !still) { v.src = 'img/crew/' + k + '.' + mode + '.mp4'; if (seen) seen.observe(v); else v.autoplay = true; }
       b.appendChild(v);
     } else {

@@ -523,3 +523,56 @@ body.assetpage h2 { justify-content: flex-start; }
   .top::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 36px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
   .k-pulse { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* round 6 (review r5, 7.2/10): the hero weights work over sleep; rooms size to their crew */
+.k-crewrow:not(.asleep) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 0; }
+.k-crewrow.n1:not(.asleep) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.k-mate { width: auto; grid-template-columns: minmax(120px, 44%) minmax(0, 1fr); padding: 10px 18px 10px 10px; border-radius: 26px; align-items: center; }
+.k-mate .k-booth { border-radius: 18px; }
+.k-mate-cap { gap: 6px; }
+.k-mate-cap b { font-size: clamp(17px, 1.5vw, 22px); text-transform: capitalize; }
+.k-mate-task { font: 500 14px/1.35 var(--sans) !important; color: #15803d !important; white-space: normal !important; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.k-mate-where { font: 500 12px var(--mono) !important; color: #888 !important; }
+.k-crewrow .k-more { align-self: center; font: 600 14px var(--sans); color: var(--k-ink); }
+.k-crewrow.asleep { grid-template-columns: repeat(4, minmax(0, 150px)); justify-content: start; gap: 14px; }
+.k-crewrow.asleep .k-asleep-line { grid-column: 5; grid-row: 1; align-self: center; margin-left: 12px; max-width: 26ch; }
+.k-hero h1 { margin-bottom: 20px; }
+/* sleep reads in stills: dimmer, greyer, the z off the face */
+.k-booth.idle video, .k-booth.resting video { filter: saturate(.45) brightness(.82); opacity: .9; }
+.k-booth.k-round::after, .k-booth.k-round::before { display: none; }
+.k-nap { position: relative; }
+.k-nap::after { content: "z"; position: absolute; top: -6px; right: 4px; font: 800 13px var(--sans); color: #9a9a9a; animation: k-zz 2.8s ease-in-out infinite; }
+/* rooms: two or more crew take the row, one takes half */
+.k-rooms { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.k-room.wide { grid-column: 1 / -1; }
+.k-room.half .k-room-body { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); }
+.k-room.half .k-desks { grid-template-columns: 1fr; }
+/* needs you: two lines, no ellipsis */
+.k-list .k-take-top { white-space: normal; text-overflow: clip; -webkit-line-clamp: 2; }
+.k-list .k-take span { overflow: hidden; }
+/* branch strip: numbered bars, names above */
+.k-strip { padding-top: 14px; height: 140px; }
+.k-bar-num { position: absolute; left: 50%; bottom: calc(100% + 3px); transform: translateX(-50%); width: 18px; height: 18px; border-radius: 50%;
+  background: var(--k-fire); color: #fff; font: 700 10.5px/18px var(--sans); text-align: center; }
+.k-strip { overflow: visible; padding-top: 28px; height: 160px; }
+.k-strip-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 10px; font-size: 13px; }
+.k-top3 { display: inline-flex; align-items: center; gap: 7px; background: #fff; border-radius: 999px; padding: 4px 12px 4px 4px; font-weight: 500; }
+.k-top3 b { width: 20px; height: 20px; border-radius: 50%; background: var(--k-fire); color: #fff; font: 700 11px/20px var(--sans); text-align: center; }
+/* asset page */
+body.assetpage details.fold > summary .count { margin-left: 10px; margin-right: auto; }
+.k-busts { margin-top: 14px; }
+.k-busts > summary { list-style: none; display: inline-flex; align-items: center; gap: 12px; background: #fff; border-radius: 999px; padding: 5px 18px 5px 5px; cursor: pointer; font: 600 14px var(--sans); }
+.k-busts > summary::-webkit-details-marker { display: none; }
+.k-busts > summary img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
+.k-busts[open] > summary { margin-bottom: 12px; }
+/* phone */
+@media (max-width: 760px) {
+  .k-crewrow:not(.asleep), .k-crewrow.n1:not(.asleep) { grid-template-columns: 1fr; }
+  .k-crewrow.asleep .k-asleep-line { grid-column: auto; }
+  .k-rooms { grid-template-columns: 1fr; }
+  .k-room.half .k-room-body { grid-template-columns: 1fr; }
+  .k-models { grid-column: 1 / -1; }
+  .top nav a { padding: 7px 9px; font-size: 12.5px; }
+  .top { padding: 10px 12px; gap: 10px; }
+  .brand b { display: none; }
+}
