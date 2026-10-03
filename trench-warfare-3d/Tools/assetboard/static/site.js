@@ -86,7 +86,12 @@
 // A card's turntable plays while the pointer is on it; nothing is fetched before that.
 document.querySelectorAll('.card video[data-src]').forEach(function (v) {
   var card = v.closest('.card');
-  card.addEventListener('mouseenter', function () { if (!v.src) v.src = v.dataset.src; v.play().catch(function () {}); });
+  card.addEventListener('mouseenter', function () {
+    if (!v.src) { v.src = v.dataset.src; v.addEventListener('loadedmetadata', function () { v.currentTime = Math.min(1, v.duration / 4); }, { once: true }); }
+    v.play().catch(function () {});
+  });
+  card.addEventListener('focus', function () { card.dispatchEvent(new MouseEvent('mouseenter')); });
+  card.addEventListener('blur', function () { v.pause(); });
   card.addEventListener('mouseleave', function () { v.pause(); });
 });
 // An asset's films: the strip picks what the screen plays. Left and right step through them.

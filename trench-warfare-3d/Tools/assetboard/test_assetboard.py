@@ -140,6 +140,11 @@ def fixtures():
         {'type': 'user', 'message': {'content': [{'type': 'text', 'text': 'Round 21 is ready in rounds/r21\nmore'}]}}]), encoding='utf-8')
     case('floor: an agent is doing what it was last asked, not what it was first spawned for',
          src_ops.last_ask(lg) == 'Round 21 is ready in rounds/r21', src_ops.last_ask(lg))
+    case('floor: a task line has no paths, no brackets and ends on a word',
+         src_ops.tidy('Round 21 in C:\\Users\\PC\\AppData\\rounds\\r21\\ (index-fold and the rest)') == 'Round 21'
+         and src_ops.tidy('Rebuild the site, run the tests on /c/Users/PC/x.py now') == 'Rebuild the site, run the tests on now'
+         and len(src_ops.tidy('word ' * 40)) <= 61,
+         [src_ops.tidy('Round 21 in C:\\Users\\PC\\AppData\\rounds\\r21\\ (index-fold and the rest)'), src_ops.tidy('Rebuild the site, run the tests on /c/Users/PC/x.py now')])
     import ops
     keep = ops.CREW
     ops.CREW = tmp / 'cache'

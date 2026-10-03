@@ -119,7 +119,8 @@
     }
     if (side.children.length) body.appendChild(side); else body.classList.add('solo');
     r.appendChild(body);
-    if (l.last.length && !onBranches) { var lc = el('p', 'k-last', headline(said(l.last[0].subject)) + ' · ' + ago(l.last[0].date)); lc.title = l.last[0].subject; r.appendChild(lc); }
+    var lk = l.last.filter(function (k) { return !/^(tools|docs)\b/i.test(k.subject); })[0] || l.last[0];
+    if (lk && !onBranches) { var lc = el('p', 'k-last', headline(said(lk.subject)) + ' · ' + ago(lk.date)); lc.title = lk.subject; r.appendChild(lc); }
     return r;
   }
   // a room nobody sits in: one line, and what waits in it
@@ -217,7 +218,8 @@
         var f = el('a', 'k-mate'); f.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.branches[0] || '');
         f.appendChild(C.booth(x.w));
         var cap = el('span', 'k-mate-cap'); var head = el('span', 'k-mate-head'); var nm = el('b', null, C.title(x.w)); head.appendChild(nm); cap.appendChild(head);
-        var task = C.doing(x.w) || (x.w.kind === 'session' ? '' : x.w.what) || '';
+        var lane = o.lanes.filter(function (l) { return l.branch === x.branches[0]; })[0];
+        var task = C.doing(x.w) || (x.w.kind === 'session' ? '' : x.w.what) || (lane && lane.items[0] ? headline(lane.items[0].title || lane.items[0].id) : '') || (lane && lane.last[0] ? headline(said(lane.last[0].subject)) : '');
         if (task) cap.appendChild(el('span', 'k-mate-task', task));
         var foot = el('span', 'k-mate-foot'); foot.appendChild(el('span', 'k-mate-where', shortBranch(x.where))); foot.appendChild(el('span', 'k-open', 'Open room →'));
         cap.appendChild(foot);
