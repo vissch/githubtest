@@ -11,6 +11,16 @@
     <p class="note">{% if a.notes.priority %}<b>Priority {{ a.notes.priority }}.</b> {% endif %}{% if a.notes.wants %}<b>Wants: {{ a.notes.wants }}.</b> {% endif %}{{ a.notes.note }}{% if a.notes.source %} (from {{ a.notes.source }}){% endif %}</p>
     {% endif %}
   </div>
+  <div class="k-head-side">
+  <p class="k-steps-n"><b>{{ a.stages|selectattr('ok')|list|length }} of {{ a.stages|length }}</b> steps done</p>
+  <ol class="steps">
+    {% for s in a.stages %}<li class="{{ 'ok' if s.ok else 'no' }}" title="{{ s.evidence }}">{{ s.label }}</li>{% endfor %}
+  </ol>
+  <div class="facts">
+    {% for k, v in a.facts %}<span class="fact"><b>{{ v }}</b> {{ k }}</span>{% endfor %}
+    {% for t in a.level_tags %}<span class="fact lvl">{{ t }}</span>{% endfor %}
+  </div>
+  </div>
 </section>
 
 <section class="reel-wrap">
@@ -41,16 +51,6 @@
   {% endif %}
 </section>
 
-<section>
-  <p class="k-steps-n"><b>{{ a.stages|selectattr('ok')|list|length }} of {{ a.stages|length }}</b> steps done</p>
-  <ol class="steps">
-    {% for s in a.stages %}<li class="{{ 'ok' if s.ok else 'no' }}" title="{{ s.evidence }}">{{ s.label }}</li>{% endfor %}
-  </ol>
-  <div class="facts">
-    {% for k, v in a.facts %}<span class="fact"><b>{{ v }}</b> {{ k }}</span>{% endfor %}
-    {% for t in a.level_tags %}<span class="fact lvl">{{ t }}</span>{% endfor %}
-  </div>
-</section>
 
 {% if a.looks %}
 <section>

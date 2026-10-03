@@ -107,7 +107,7 @@ def attach(repo: Path, P: Path, assets, stage: Path, out: Path, meta):
         for f in sorted((run / 'Units').glob('*.jpg')):
             for a in by_alias.get(f.stem.lower(), []):
                 if a['kind'] == 'unit':
-                    add(a, f, 'gym', date, f'In the game: gym strip, run {run.name[:13]} at {sha}', 1600)
+                    add(a, f, 'gym', date, 'In the game: gym strip', 1600)
 
     # ---- on this machine: the board's evidence for the items that are about an asset
     board = repo.parent / 'tw3d-board' / 'evidence'
