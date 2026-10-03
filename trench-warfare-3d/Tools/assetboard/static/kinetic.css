@@ -706,3 +706,34 @@ body.page footer details.k-about summary { font: 400 12px var(--sans); color: #8
   .k-crewrow.n1 .k-mate, .k-crewrow .k-mate { grid-template-columns: 110px minmax(0, 1fr); }
   .k-room-body.k-detail, .k-room.half .k-room-body.k-detail { grid-template-columns: 1fr; }
 }
+
+/* round 11 (review r10, 8.0/10): names in full, the phone hero speaks, detail as chips and a timeline */
+.k-mate-head b { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.15; }
+.k-mate-foot .k-typing { margin: 0 2px 0 0; }
+.k-crewrow.n2:not(.asleep) .k-mate { grid-template-columns: minmax(150px, 42%) minmax(0, 1fr); }
+.k-crewrow.n1:not(.asleep) .k-mate { grid-template-columns: 260px minmax(0, 1fr); }
+.k-list .k-take-top { -webkit-line-clamp: 3; }
+.k-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.k-chip { font: 500 12px var(--sans); color: #e8e8e8; background: #333336; border-radius: 999px; padding: 3px 10px 3px 8px; display: inline-flex; align-items: center; gap: 6px; }
+.k-chip::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: #8a8a8a; }
+.k-ext-js::before { background: #facc15; } .k-ext-css::before { background: #38bdf8; } .k-ext-py::before { background: #60a5fa; }
+.k-ext-cs::before { background: #a78bfa; } .k-ext-md::before { background: #e5e5e5; } .k-ext-html::before { background: #fb923c; }
+.k-ext-json::before { background: #4ade80; } .k-more-chip::before { display: none; }
+.k-files { font-family: var(--sans); }
+.k-tl { list-style: none; margin: 2px 0 0; padding: 0 0 0 14px; border-left: 2px solid #3a3a3c; display: grid; gap: 8px; }
+.k-tl li { position: relative; display: grid; gap: 1px; }
+.k-tl li::before { content: ""; position: absolute; left: -19px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--k-work); }
+.k-tl-what { font: 500 13px/1.35 var(--sans); color: #e8e8e8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.k-tl-when { font: 12px var(--sans); color: #8a8a8a; }
+.k-nap-more { justify-items: center; color: #b5b5b5; }
+.k-nap-n { width: 68px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; background: #262628; font: 600 18px var(--sans); color: #e8e8e8; }
+.k-nap-more::after { content: none; }
+.k-assets .novisual { background: #ececec; position: relative; }
+.k-assets .novisual::before { content: ""; width: 34px; height: 34px; opacity: .45; background: #555;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h3l2-3h6l2 3h3v11H4z'/%3E%3Ccircle cx='12' cy='13' r='3.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h3l2-3h6l2 3h3v11H4z'/%3E%3Ccircle cx='12' cy='13' r='3.5'/%3E%3C/svg%3E") center / contain no-repeat; }
+.k-assets .novisual { display: grid; place-items: center; align-content: center; gap: 8px; }
+@media (max-width: 760px) {
+  .k-crewrow:not(.asleep), .k-crewrow.n1:not(.asleep), .k-crewrow.n2:not(.asleep) { grid-template-columns: 1fr; }
+  .k-crewrow .k-mate, .k-crewrow.n1:not(.asleep) .k-mate, .k-crewrow.n2:not(.asleep) .k-mate { grid-template-columns: 96px minmax(0, 1fr); }
+}
