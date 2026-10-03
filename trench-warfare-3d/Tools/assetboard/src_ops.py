@@ -171,9 +171,38 @@ def sessions(trees, now):
             log = meta.with_name(meta.name[:-len('.meta.json')] + '.jsonl')
             if log.exists() and now - log.stat().st_mtime <= AGENT_FRESH:
                 m = json.loads(meta.read_text(encoding='utf-8'))
-                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=short(m.get('description', ''), 90)))
+                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=short(last_ask(log) or m.get('description', ''), 90)))
         out.append(s)
     return out
+
+
+def last_ask(log: Path):
+    """The first line of the last message an agent was given (a resumed agent's new task), read from the end of its
+    log in growing steps (pictures it read make the log's tail megabytes of image data)."""
+    try:
+        size = log.stat().st_size
+    except OSError:
+        return ''
+    for tail in (1 << 20, 8 << 20, 48 << 20):
+        with open(log, 'rb') as fh:
+            fh.seek(max(0, size - tail))
+            lines = fh.read().decode('utf-8', 'replace').splitlines()
+        for line in reversed(lines):
+            if '"type":"user"' not in line.replace(' ', '')[:400]:
+                continue
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            content = (d.get('message') or {}).get('content')
+            texts = [content] if isinstance(content, str) else [c.get('text', '') for c in content or [] if isinstance(c, dict) and c.get('type') == 'text']
+            for t in texts:
+                t = re.sub(r'^The coordinator sent a message while you were working:\s*', '', fix_text(t).strip())
+                if t and not t.startswith(('<', '[Image', '[Request')):
+                    return t.splitlines()[0]
+        if tail >= size:
+            break
+    return ''
 
 
 def machines(trees):

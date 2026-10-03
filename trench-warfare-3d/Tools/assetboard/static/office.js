@@ -187,7 +187,9 @@
     if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
       if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 36); f.title = C.title(x.w); dots.appendChild(f); });
       else if (o.lanes.some(function (l) { return l.last.length; })) {
-        var lastL = o.lanes.filter(function (l) { return l.last.length; }).sort(function (a, b) { return b.last[0].date.localeCompare(a.last[0].date); })[0];
+        var game = function (l) { return l.last.length && !/^(tools|docs)\b/i.test(l.last[0].subject); };
+        var pool = o.lanes.filter(game); if (!pool.length) pool = o.lanes.filter(function (l) { return l.last.length; });
+        var lastL = pool.sort(function (a, b) { return b.last[0].date.localeCompare(a.last[0].date); })[0];
         var nx = el('a', 'k-next'); nx.href = (onBranches ? '' : 'floor.html') + '#' + slug(lastL.branch);
         nx.appendChild(el('span', 'k-soft', 'Last change · ' + shortBranch(lastL.branch) + ' · ' + ago(lastL.last[0].date)));
         nx.appendChild(el('b', null, headline(said(lastL.last[0].subject)))); dots.appendChild(nx); }

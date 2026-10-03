@@ -5,6 +5,7 @@ Two kinds. Against the REAL tree: the counts and a handful of assets whose statu
 moves them is seen. Against FIXTURES: a code table that changed shape must stop the build, the notes file must
 refuse an unknown id, lane families must collapse, and a status must follow its ladder.
 """
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -131,6 +132,14 @@ def fixtures():
     case('reel: a unit drawn with a shared figure opens on its own game film; a model of its own on its turntable',
          render.reel(shared)[0]['file'] == 'film/Rifle.battle.game-battle.mp4' and render.reel(own)[0]['file'] == 'film/Maw.battle.game-turn.mp4',
          [render.reel(shared)[0]['file'], render.reel(own)[0]['file']])
+    lg = tmp / 'agent.jsonl'
+    lg.write_text('\n'.join(json.dumps(x) for x in [
+        {'type': 'user', 'message': {'role': 'user', 'content': 'Score round 1'}},
+        {'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': 'ok'}]}},
+        {'type': 'user', 'message': {'content': [{'type': 'tool_result', 'content': 'x'}]}},
+        {'type': 'user', 'message': {'content': [{'type': 'text', 'text': 'Round 21 is ready in rounds/r21\nmore'}]}}]), encoding='utf-8')
+    case('floor: an agent is doing what it was last asked, not what it was first spawned for',
+         src_ops.last_ask(lg) == 'Round 21 is ready in rounds/r21', src_ops.last_ask(lg))
     import ops
     keep = ops.CREW
     ops.CREW = tmp / 'cache'

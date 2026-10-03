@@ -41,7 +41,8 @@
       g.forEach(function (c, i) { if (i < 12) { var a = document.createElement('a'); a.href = c.getAttribute('href'); a.textContent = c.querySelector('.name').textContent; names.appendChild(a); } if (i) c.classList.add('k-grouped'); });
       if (g.length > 12) { var m = document.createElement('span'); m.textContent = '+' + (g.length - 12); m.title = g.slice(12).map(function (c) { return c.querySelector('.name').textContent; }).join(', '); names.appendChild(m); }
       head.querySelector('.body').appendChild(names);
-      head.querySelector('.name').textContent = g.length + ' units';
+      head.querySelector('.name').textContent = g.length + (k.indexOf('idea') === 0 ? ' ideas' : ' units');
+      if (g.length === bucket.querySelectorAll('.card').length) head.classList.add('k-group-wide');
     });
   });
   // two full rows per group; a group that would leave one card alone on a row shows full rows and a button
