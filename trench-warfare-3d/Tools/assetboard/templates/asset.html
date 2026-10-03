@@ -80,7 +80,7 @@
 {% endif %}
 
 <details class="fold">
-<summary>How far it is, levels, measurements</summary>
+<summary>How far it is, levels, measurements <span class="count">{{ a.stages|selectattr('ok')|list|length }}/{{ a.stages|length }}</span></summary>
 <section class="cols">
   <div>
     <h2>How far it is</h2>
@@ -104,7 +104,7 @@
 </details>
 
 <details class="fold">
-<summary>Models and files</summary>
+<summary>Models and files{% if a.models %} <span class="count">{{ a.models|length }}</span>{% endif %}</summary>
 <section>
   <h2>Models</h2>
   {% if a.models %}
@@ -135,7 +135,7 @@
 </details>
 
 <details class="fold">
-<summary>Effects and tests</summary>
+<summary>Effects and tests{% if a.tests %} <span class="count">{{ a.tests|length }} tests</span>{% endif %}</summary>
 <section class="cols">
   <div>
     <h2>Effects</h2>

@@ -12,6 +12,10 @@
   function shortBranch(b) { return b.replace(/^lane\/(show|sim)\//, ''); }
   function laneKind(b) { var m = /^lane\/(show|sim)\//.exec(b); return m ? m[1] : b.split('/')[0]; }
   function changed(node, sig) { if (!node || node.dataset.sig === sig) return false; node.dataset.sig = sig; node.innerHTML = ''; return true; }
+  function ago(day) {
+    var d = Math.round((Date.now() - new Date(day + 'T12:00:00').getTime()) / 864e5);
+    return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago';
+  }
   function slug(b) { return 'room-' + b.replace(/[^a-z0-9]+/gi, '-'); }
   var onBranches = !!document.getElementById('strip');
   function readyOf(l) { var out = []; l.items.forEach(function (it) { it.stages.forEach(function (s) { if (s.state === 'READY') out.push({ item: it, stage: s, lane: l }); }); }); return out; }
@@ -83,13 +87,17 @@
     if (l.assets.length) side.appendChild(wall(l, 8));
     if (onBranches && l.dirty_files && l.dirty_files.length) {
       var ch = el('div', 'k-files'); ch.appendChild(el('b', null, l.dirty + ' files changing'));
-      l.dirty_files.slice(0, 6).forEach(function (f) { ch.appendChild(el('span', null, f)); });
-      if (l.dirty_files.length > 6) ch.appendChild(el('span', 'k-soft', '+' + (l.dirty_files.length - 6) + ' more'));
+      var chips = el('div', 'k-chips');
+      l.dirty_files.slice(0, 6).forEach(function (f) { var c = el('span', 'k-chip k-ext-' + (f.split('.').pop() || '').toLowerCase(), f.split('/').pop()); c.title = f; chips.appendChild(c); });
+      if (l.dirty_files.length > 6) chips.appendChild(el('span', 'k-chip k-more-chip', '+' + (l.dirty_files.length - 6)));
+      ch.appendChild(chips);
       side.appendChild(ch);
     }
     if (onBranches && l.last.length > 1) {
       var cm = el('div', 'k-files'); cm.appendChild(el('b', null, 'Last commits'));
-      l.last.slice(0, 3).forEach(function (k) { cm.appendChild(el('span', null, k.date + ' · ' + k.subject)); });
+      var tl = el('ol', 'k-tl');
+      l.last.slice(0, 3).forEach(function (k) { var li = el('li'); li.appendChild(el('span', 'k-tl-what', k.subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, ''))); li.appendChild(el('span', 'k-tl-when', ago(k.date))); li.title = k.date + ' · ' + k.subject; tl.appendChild(li); });
+      cm.appendChild(tl);
       side.appendChild(cm);
     }
     if (side.children.length) body.appendChild(side); else body.classList.add('solo');
@@ -182,7 +190,7 @@
         if (task) cap.appendChild(el('span', 'k-mate-task', task));
         var foot = el('span', 'k-mate-foot'); foot.appendChild(el('span', 'k-mate-where', shortBranch(x.where))); foot.appendChild(el('span', 'k-open', 'Open room →'));
         cap.appendChild(foot);
-        var dots3 = el('span', 'k-typing'); dots3.innerHTML = '<i></i><i></i><i></i>'; head.appendChild(dots3);
+        var dots3 = el('span', 'k-typing'); dots3.innerHTML = '<i></i><i></i><i></i>'; foot.insertBefore(dots3, foot.firstChild);
         f.appendChild(cap); f.title = C.title(x.w) + ' · ' + x.where + (x.w.what ? '\n' + x.w.what : '');
         row.appendChild(f);
       });
@@ -224,12 +232,14 @@
     var naps = $('naps');
     var heroSleeps = row && !working.length ? 6 : 0, lounge = all.idle.slice(heroSleeps);
     if (changed(naps, lounge.map(function (r) { return r.id; }).join(','))) {
-      lounge.forEach(function (r) {
+      var capL = onBranches ? lounge.length : 9;
+      lounge.slice(0, capL).forEach(function (r) {
         var n = el('div', 'k-nap'); n.title = C.label(r.name) + ': ' + r.does;
         n.appendChild(C.booth({ id: r.id, kind: r.kind, name: r.name, state: 'idle', what: r.does }, 'k-round'));
         n.appendChild(el('b', null, C.label(r.name)));
         naps.appendChild(n);
       });
+      if (lounge.length > capL) { var mo = el('a', 'k-nap k-nap-more'); mo.href = 'floor.html#lounge'; mo.appendChild(el('span', 'k-nap-n', '+' + (lounge.length - capL))); mo.appendChild(el('b', null, 'more asleep')); naps.appendChild(mo); }
     }
     set('n-lounge', (heroSleeps ? lounge.length + ' more' : all.idle.length) + ' asleep');
     var lg = $('lounge'); if (lg) lg.hidden = !lounge.length;
