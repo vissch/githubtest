@@ -10,9 +10,12 @@
                  (!state.level || (' ' + card.dataset.levels + ' ').indexOf(' ' + state.level + ' ') >= 0) &&
                  (!state.q || card.dataset.name.indexOf(state.q) >= 0);
         card.hidden = !ok;
+        document.body.classList.toggle('filtering', !!(state.cat || state.level || state.q));
         if (ok) shown++;
       });
       bucket.querySelector('.none').hidden = shown > 0;
+      var more = bucket.querySelector('.k-showall');
+      if (more) more.hidden = !!(state.cat || state.level || state.q) || bucket.classList.contains('open') || shown <= 10;
       document.querySelectorAll('[data-count="' + bucket.id + '"]').forEach(function (n) { n.textContent = shown; });
     });
   }
@@ -25,6 +28,15 @@
         apply();
       });
     });
+  });
+  document.querySelectorAll('.bucket').forEach(function (bucket) {
+    var cards = bucket.querySelectorAll('.card');
+    cards.forEach(function (c, i) { if (i >= 10) c.classList.add('k-over'); });
+    if (cards.length <= 10) return;
+    var b = document.createElement('button'); b.className = 'k-showall'; b.type = 'button';
+    b.textContent = 'Show all ' + cards.length + ' →';
+    b.addEventListener('click', function () { bucket.classList.add('open'); b.hidden = true; });
+    bucket.querySelector('.grid').after(b);
   });
   var q = document.getElementById('q');
   if (q) q.addEventListener('input', function () { state.q = q.value.trim().toLowerCase(); apply(); });
