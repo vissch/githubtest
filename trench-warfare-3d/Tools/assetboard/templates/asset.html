@@ -27,7 +27,7 @@
       <button class="clip{{ ' on' if loop.first }}" data-src="../{{ f.file }}" data-poster="../{{ f.poster }}" data-title="{{ f.title }}" data-what="{{ f.what }}">
         <img loading="lazy" src="../{{ f.poster }}" alt="">
         <span class="t">{{ f.title }}</span>
-        <span class="d">{{ f.what }}{% if f.seconds %} · {{ f.seconds|round|int }} s{% endif %}{% if f.clips %} · {{ f.clips|length }} clips{% endif %}{% if f.date %} · {{ f.date }}{% endif %}{% if f.form == 'trial' %} · trial model{% endif %}</span>
+        <span class="d">{{ f.what }}{% if f.seconds %} · {{ f.seconds|round|int }} s{% endif %}{% if f.clips %} · {{ f.clips|length }} clips{% endif %}{% if f.date and f.what != 'earlier' %} · {{ f.date }}{% endif %}{% if f.form == 'trial' %} · trial model{% endif %}</span>
       </button>
       {% endfor %}
     </div>
