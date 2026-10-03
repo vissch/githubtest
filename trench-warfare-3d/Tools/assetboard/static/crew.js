@@ -45,6 +45,7 @@ window.Crew = (function () {
     NotebookEdit: 'editing a notebook', Artifact: 'publishing a page', ScheduleWakeup: 'pacing itself', AskUserQuestion: 'asking the owner' };
   function doing(w) {
     var d = w.doing || '';
+    if (/^(SendMessage|Agent|Task|TodoWrite|ScheduleWakeup|Skill|ToolSearch)$/.test(d)) return '';
     if (/^[A-Z][A-Za-z]+$/.test(d)) return VERB[d] || d.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
     return d;
   }

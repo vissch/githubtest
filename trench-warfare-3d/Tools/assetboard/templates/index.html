@@ -85,10 +85,10 @@
             {% for s in a.stages %}<i class="{{ 'ok' if s.ok else 'no' }}"></i>{% endfor %}
           </div>
           <div class="tags">
-                        {% if a.drawn_as and a.reel %}<span class="tag">drawn as the {{ a.drawn_as }}</span>{% endif %}
-            {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
             {% if a.notes.priority %}<span class="tag pri">priority {{ a.notes.priority }}</span>{% endif %}
             {% if a.notes.wants %}<span class="tag">wants {{ a.notes.wants }}</span>{% endif %}
+            {% if a.drawn_as and a.reel %}<span class="tag">drawn as the {{ a.drawn_as }}</span>{% endif %}
+            {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
           </div>
         </div>
       </a>
