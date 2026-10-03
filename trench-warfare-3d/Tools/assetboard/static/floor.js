@@ -23,7 +23,7 @@ window.drawBranches = (function () {
     // the three that are furthest ahead carry their names
     quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).slice(0, 3).forEach(function (l) {
       var i = quiet.indexOf(l), bar = strip.children[i];
-      if (bar) bar.appendChild(el('span', 'k-bar-name k-lift' + quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).indexOf(l), l.branch.replace(/^lane\/(show|sim)\//, '') + ' · ' + l.ahead));
+      if (bar) bar.appendChild(el('span', 'k-bar-name ' + (i < quiet.length / 2 ? 'k-right' : 'k-left') + ' k-lift' + quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).indexOf(l), l.branch.replace(/^lane\/(show|sim)\//, '') + ' · ' + l.ahead));
     });
     var q = document.getElementById('quiet'); q.innerHTML = '';
     quiet.forEach(function (l) {
