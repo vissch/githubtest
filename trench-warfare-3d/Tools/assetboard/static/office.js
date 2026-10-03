@@ -15,6 +15,7 @@
   // the first phrase of a board item's title, at most ~58 characters, cut at a word
   function headline(t) {
     var h = t.split(/\s\(|,\s|\s[—–]\s|;\s/)[0];
+    var c = h.indexOf(': '); if (c > 0 && h.slice(0, c).split(/\s+/).length >= 4) h = h.slice(0, c);
     if (h.length > 58) h = h.slice(0, 58).replace(/\s+\S*$/, '') + '…';
     return h;
   }
@@ -172,7 +173,8 @@
         var row = el('a', 'k-take'); row.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.lane.branch);
         var what = el('span', 'k-take-what');
         what.appendChild(el('span', 'k-take-top', headline(x.item.title || x.item.id)));
-        what.appendChild(el('span', 'k-take-sub', x.stage.id + ' · ' + shortBranch(x.lane.branch) + ' · for ' + C.label(x.stage.skill || x.stage.role || 'anyone')));
+        var sub = el('span', 'k-take-sub'); sub.appendChild(el('i', 'k-stage-pill', x.stage.id));
+        sub.appendChild(document.createTextNode(shortBranch(x.lane.branch) + ' · for ' + C.label(x.stage.skill || x.stage.role || 'anyone'))); what.appendChild(sub);
         row.appendChild(what); row.appendChild(el('b', null, 'Take →'));
         row.title = (x.item.title || x.item.id) + ': ' + x.stage.id + ' is ready (' + (x.stage.skill || x.stage.role || 'no role') + ')';
         list.appendChild(row);
@@ -183,7 +185,7 @@
     set('p-at', working.length);
     var dots = $('p-at-dots');
     if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
-      if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 30); f.title = C.title(x.w); dots.appendChild(f); });
+      if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 36); f.title = C.title(x.w); dots.appendChild(f); });
       else { all.idle.slice(0, 5).forEach(function (r) { var f = C.frog({ id: r.id, kind: r.kind, name: r.name, state: 'idle' }, 30); f.title = C.label(r.name) + ' (asleep)'; dots.appendChild(f); });
         if (all.idle.length > 5) dots.appendChild(el('span', 'k-dots-more', '+' + (all.idle.length - 5))); }
     }
@@ -254,7 +256,7 @@
     var naps = $('naps');
     var heroSleeps = row && !working.length ? 6 : 0, lounge = all.idle.slice(heroSleeps);
     if (changed(naps, lounge.map(function (r) { return r.id; }).join(','))) {
-      var capL = 9;
+      var capL = heroSleeps ? 0 : 9;
       lounge.slice(0, capL).forEach(function (r) {
         var n = el('div', 'k-nap'); n.title = C.label(r.name) + ': ' + r.does;
         n.appendChild(C.booth({ id: r.id, kind: r.kind, name: r.name, state: 'idle', what: r.does }, 'k-round'));
