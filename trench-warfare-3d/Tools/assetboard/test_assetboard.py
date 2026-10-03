@@ -120,6 +120,9 @@ def fixtures():
          {'tw-critic', 'tw-master', 'pipeline'} <= {r['id'] for r in people} and all(r['does'] for r in people if r['kind'] == 'skill'),
          [(r['id'], r['does'][:30]) for r in people])
 
+    case('films: an earlier film is named by its day and what its folder says',
+         films.earlier_title('2026-09-28-drive-feel/after', 'Maw') == 'Earlier · 28 Sep · drive feel, after'
+         and films.earlier_title('misc', 'Maw_a') == 'Earlier · Maw a', films.earlier_title('2026-09-28-drive-feel/after', 'Maw'))
     import ops
     keep = ops.CREW
     ops.CREW = tmp / 'cache'

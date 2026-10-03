@@ -52,7 +52,12 @@ window.Crew = (function () {
     if (m) {
       var v = el('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', '');
       v.preload = 'none'; v.poster = 'img/crew/' + k + (mode === 'doze' && m.sleep ? '.sleep.jpg' : '.jpg');
-      if (m[mode] && !still) { v.src = 'img/crew/' + k + '.' + mode + '.mp4'; if (seen) seen.observe(v); else v.autoplay = true; }
+      if (m[mode] && !still) {
+        v.src = 'img/crew/' + k + '.' + mode + '.mp4';
+        // a doze loop starts and ends awake (its still is pinned at both ends): start it asleep, at its middle
+        if (mode === 'doze') v.addEventListener('loadedmetadata', function () { v.currentTime = v.duration / 2; }, { once: true });
+        if (seen) seen.observe(v); else v.autoplay = true;
+      }
       b.appendChild(v);
     } else {
       var g = el('div', 'k-mark'); g.innerHTML = mark(GLYPH[w.id] ? w.id : w.kind, 34); b.appendChild(g);
