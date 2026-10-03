@@ -773,3 +773,20 @@ body.assetpage .head { display: grid; grid-template-columns: minmax(0, 1fr) minm
 .k-head-side .steps { margin: 0; }
 body.assetpage .k-head-side .fact { background: #fff; }
 @media (max-width: 900px) { body.assetpage .head { grid-template-columns: 1fr; } }
+
+/* round 14 (review r13, 8.5/10): no stretched emptiness, one left edge, quieter details */
+.k-list .k-take-top { -webkit-line-clamp: 1; }
+.k-stat { display: flex; flex-direction: column; align-items: stretch; }
+.k-stat .k-dots, .k-stat .k-bar { margin-top: auto; }
+.k-stat .k-sub { margin-top: 8px; }
+.k-floorgrid { align-items: start; grid-auto-flow: row dense; }
+.k-floorgrid .k-room.half { grid-row: span 2; }
+.k-mate-foot { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 8px; }
+.k-mate-foot .k-open { grid-column: auto; }
+.k-mate-cap { align-items: flex-start; text-align: left; }
+.k-why { gap: 4px; } .k-why i { font-size: 11.5px; padding: 3px 9px; }
+.k-booth.k-standin { max-width: 120px; }
+.k-desk .k-booth.k-standin { justify-self: start; }
+.k-lounge-pill { margin: 16px 0 0; }
+.k-lounge-pill .k-tag { font-size: 13px; padding: 6px 14px; color: #e8e8e8; }
+.k-lounge-pill .k-tag:hover { border-color: #8a8a8a; }
