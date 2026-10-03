@@ -171,9 +171,19 @@ def sessions(trees, now):
             log = meta.with_name(meta.name[:-len('.meta.json')] + '.jsonl')
             if log.exists() and now - log.stat().st_mtime <= AGENT_FRESH:
                 m = json.loads(meta.read_text(encoding='utf-8'))
-                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=short(last_ask(log) or m.get('description', ''), 90)))
+                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=tidy(last_ask(log) or m.get('description', ''))))
         out.append(s)
     return out
+
+
+def tidy(t: str, n=60):
+    """A task as a short phrase: paths and what is in brackets go, the first clause stays, cut at a word."""
+    t = re.sub(r'\s*\b(in|at|from|to|under)?\s*[A-Za-z]:[\\/]\S*', '', t)
+    t = re.sub(r'\s*\S*/\S+/\S*', '', t)
+    t = re.split(r'\s\(|:\s|;\s|\.\s|\s[\u2014\u2013-]\s', t)[0].strip(' ,.')
+    if len(t) > n:
+        t = t[:n].rsplit(' ', 1)[0] + '\u2026'
+    return t
 
 
 def last_ask(log: Path):
