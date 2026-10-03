@@ -20,7 +20,7 @@
     return h;
   }
   function said(subject) {
-    var w = subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's \w+ review round:\s*/i, '').split(/[,;:]\s/)[0];
+    var w = subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's [\w-]+ review round:\s*/i, '').split(/[,;:]\s/)[0];
     return w.charAt(0).toUpperCase() + w.slice(1);
   }
   function ago(day) {
