@@ -4,25 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Asset board{% endblock %} | Trench Warfare 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="{{ root }}site.css">
+<link rel="stylesheet" href="{{ root }}kinetic.css">
 </head>
-<body>
+<body class="{% block bodyclass %}page{% endblock %}">
 <header class="top">
-  <a class="brand" href="{{ root }}index.html">TW3D <b>Asset board</b></a>
+  <a class="brand" href="{{ root }}index.html"><span class="k-star" aria-hidden="true"></span>TW3D <b>studio</b></a>
   <nav>
-    <a href="{{ root }}index.html">Assets</a>
+    <a href="{{ root }}index.html#top">Overview</a>
+    <a href="{{ root }}index.html#office">Office</a>
+    <a href="{{ root }}index.html#assets">Assets</a>
     <a href="{{ root }}process.html">Process</a>
-    <a href="{{ root }}floor.html">Floor</a>
+    <a href="{{ root }}floor.html">Branches</a>
   </nav>
-  <span class="built">built {{ meta.built }} on {{ meta.station }} · integration {{ meta.commit }} · remote branches as of {{ meta.refs_as_of }}</span>
+  <a class="k-now" id="k-now" href="{{ root }}index.html#office" hidden><span class="k-live" aria-hidden="true"></span><span id="k-now-text"></span></a>
 </header>
 <main>
 {% block main %}{% endblock %}
 </main>
 <footer>
-  Derived from the code, the files, the branches and the docs by Tools/assetboard/build.py. Nothing here is typed in by hand
-  except docs/reference/asset-notes.json. A film marked "game" was recorded from the game itself (Tools/assetboard/gamefilm.py);
-  one marked "render" is the model or its baked animation drawn in Blender, without the game's lighting or effects.
+  <span>Built {{ meta.built }} on {{ meta.station }} · integration {{ meta.commit }} · remote branches as of {{ meta.refs_as_of }}</span>
+  <span>Derived from the code, the files, the branches and the docs by Tools/assetboard/build.py; only docs/reference/asset-notes.json
+  is typed by hand. A film marked "game" was recorded from the game (gamefilm.py); "render" is drawn in Blender without the game's
+  lighting or effects.</span>
 </footer>
 {% block script %}{% endblock %}
 </body>

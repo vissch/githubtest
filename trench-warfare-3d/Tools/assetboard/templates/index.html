@@ -1,75 +1,108 @@
 {% extends "base.html" %}
-{% block title %}Assets{% endblock %}
+{% block title %}Overview{% endblock %}
+{% block bodyclass %}overview{% endblock %}
 {% block main %}
-<section class="summary">
+{% set counts = {} %}{% for status, group in sections %}{% set _ = counts.update({status: group|length}) %}{% endfor %}
+<section class="k-hero" id="top">
+  <div class="k-streaks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="k-hero-text">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Trench Warfare 3D · the studio, live</p>
+    <h1>Who builds what, <span class="k-soft">right now.</span></h1>
+    <div class="k-cta">
+      <a class="k-pill k-pill-go" href="#office"><span class="k-capsule" aria-hidden="true"></span>Into the office</a>
+    </div>
+  </div>
+  <aside class="k-lead" id="lead" hidden></aside>
+  <div class="k-word" aria-hidden="true">studio</div>
+</section>
+
+<section class="k-pulse" aria-label="At a glance">
+  <a class="k-stat k-fire k-needs" href="#office" id="p-needs"><span class="k-l">Needs you</span><span class="k-n" id="p-ready">–</span>
+    <span class="k-l">stages ready to take</span><span class="k-list" id="p-ready-list"></span><span class="k-go">Open the office &rarr;</span></a>
+  <a class="k-stat k-black" href="#office"><span class="k-n"><span class="k-live" aria-hidden="true"></span><span id="p-at">–</span></span><span class="k-l">at work now</span><span class="k-sub" id="p-at-sub"></span></a>
+  <a class="k-stat k-grey" href="#lounge"><span class="k-n" id="p-idle">–</span><span class="k-l">crew asleep</span><span class="k-sub" id="p-idle-sub"></span></a>
+  <a class="k-stat k-grey" href="floor.html"><span class="k-n" id="p-rooms">–</span><span class="k-l">branches open</span><span class="k-sub" id="p-rooms-sub"></span></a>
+  <a class="k-stat k-white k-models" href="#assets"><span class="k-n">{{ counts.get('FINAL', 0) }}<small>/{{ total }}</small></span><span class="k-l">models final, in the battle</span>
+    <span class="k-bar" aria-hidden="true">{% for status, group in sections %}<i class="s-{{ status }}" style="flex:{{ group|length }}"></i>{% endfor %}</span>
+    <span class="k-legend">{% for status, group in sections %}<span class="s-{{ status }}"><i></i>{{ group|length }} {{ STATUS_LABEL[status]|lower }}</span>{% endfor %}</span></a>
+</section>
+
+<section class="k-office" id="office" hidden>
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>The office</p>
+    <h2>Every branch is a room. <span class="k-soft">Who sits where, doing what.</span></h2>
+    <p class="k-stamp"><span class="k-live" aria-hidden="true"></span><span id="stamp">reading the floor…</span> · <a href="floor.html">every branch &rarr;</a></p>
+  </header>
+  <div class="k-rooms" id="rooms"></div>
+  <div class="k-lines" id="rooms-quiet"></div>
+  <div class="k-lounge" id="lounge">
+    <header><h3>The lounge</h3><span class="k-tag" id="n-lounge"></span></header>
+    <div class="k-naps" id="naps"></div>
+  </div>
+</section>
+
+<section class="k-assets" id="assets">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>The assets</p>
+    <h2>Every model, <span class="k-soft">and where it stands.</span></h2>
+  </header>
+  <nav class="k-seg" aria-label="Status">
+    {% for status, group in sections %}
+    <a class="s-{{ status }}" href="#{{ status }}"><i></i>{{ STATUS_LABEL[status] }} <b data-count="{{ status }}">{{ group|length }}</b></a>
+    {% endfor %}
+  </nav>
+  <section class="filters" aria-label="Filters">
+    <div class="chips" data-filter="cat">
+      <span class="lab">Kind</span>
+      <button class="chip on" data-v="">All</button>
+      {% for key, label in CATEGORY.items() %}<button class="chip" data-v="{{ key }}">{{ label }}</button>{% endfor %}
+    </div>
+    <div class="chips" data-filter="level">
+      <span class="lab">Level</span>
+      <button class="chip on" data-v="">Any</button>
+      {% for l in levels %}<button class="chip" data-v="{{ l }}">{{ l }}</button>{% endfor %}
+    </div>
+    <div class="chips" data-filter="q">
+      <input type="search" id="q" placeholder="Find a model">
+    </div>
+  </section>
+
   {% for status, group in sections %}
-  <a class="tile s-{{ status }}" href="#{{ status }}">
-    <span class="n" data-count="{{ status }}">{{ group|length }}</span>
-    <span class="l">{{ STATUS_LABEL[status] }}</span>
-  </a>
+  <section class="bucket s-{{ status }}" id="{{ status }}">
+    <h2 title="{{ BLURB[status] }}"><i class="k-dot"></i>{{ STATUS_LABEL[status] }} <span class="count" data-count="{{ status }}">{{ group|length }}</span></h2>
+    <div class="grid">
+      {% for a in group %}
+      <a class="card" href="a/{{ a.id }}.html" title="{{ a.status_why }}" data-cat="{{ a.category }}" data-levels="{{ a.level_tags|join(' ') }}" data-name="{{ (a.name ~ ' ' ~ a.id)|lower }}">
+        <div class="pic">
+          <div class="on-it" data-asset="{{ a.id }}"></div>
+          {% if a.reel %}<video loop muted playsinline preload="none" poster="{{ a.reel[0].poster }}" data-src="{{ a.reel[0].file }}"></video>
+          {% elif a.hero %}<img loading="lazy" src="{{ a.hero }}" alt="">
+          {% else %}
+            <div class="novisual">
+              {% if a.stand_in %}<img loading="lazy" src="{{ a.stand_in }}" alt="">{% endif %}
+              <span>{% if a.kind == 'idea' %}idea{% elif a.kind == 'lane' %}on a lane only{% elif a.drawn_as %}drawn as the {{ a.drawn_as }}{% else %}no picture{% endif %}</span>
+            </div>
+          {% endif %}
+        </div>
+        <div class="body">
+          <div class="name">{{ a.name }}{% if a.archetype is not none %} <span class="id">{{ a.archetype }}</span>{% endif %}</div>
+          <div class="cat">{{ a.category }}{% if a.kind == 'extra' %} · not a unit{% endif %}{% if a.set %} · {{ a.set }}{% endif %}</div>
+          <div class="dots" title="{% for s in a.stages %}{{ s.label }}: {{ 'yes' if s.ok else 'no' }}{% if not loop.last %}, {% endif %}{% endfor %}">
+            {% for s in a.stages %}<i class="{{ 'ok' if s.ok else 'no' }}"></i>{% endfor %}
+          </div>
+          <div class="tags">
+            {% if a.reel %}<span class="tag film">{{ a.reel|length }} film{{ 's' if a.reel|length > 1 }}</span>{% endif %}
+            {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
+            {% if a.notes.priority %}<span class="tag pri">priority {{ a.notes.priority }}</span>{% endif %}
+            {% if a.notes.wants %}<span class="tag">wants {{ a.notes.wants }}</span>{% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    <p class="none" hidden>Nothing here with these filters.</p>
+  </section>
   {% endfor %}
 </section>
-
-<section class="crew" id="crew" hidden>
-  <h2>The crew <span class="count" id="n-crew"></span> <a class="small" href="floor.html">the floor &rarr;</a></h2>
-  <div class="crew-at" id="crew-at"></div>
-  <div class="crew-sleep" id="crew-sleep"></div>
-  <p class="dim small" id="crew-stamp"></p>
-</section>
-
-<section class="filters" aria-label="Filters">
-  <div class="chips" data-filter="cat">
-    <span class="lab">Kind</span>
-    <button class="chip on" data-v="">All</button>
-    {% for key, label in CATEGORY.items() %}<button class="chip" data-v="{{ key }}">{{ label }}</button>{% endfor %}
-  </div>
-  <div class="chips" data-filter="level">
-    <span class="lab">Level</span>
-    <button class="chip on" data-v="">Any</button>
-    {% for l in levels %}<button class="chip" data-v="{{ l }}">{{ l }}</button>{% endfor %}
-  </div>
-  <div class="chips" data-filter="q">
-    <span class="lab">Find</span>
-    <input type="search" id="q" placeholder="name">
-  </div>
-</section>
-
-{% for status, group in sections %}
-<section class="bucket s-{{ status }}" id="{{ status }}">
-  <h2 title="{{ BLURB[status] }}">{{ STATUS_LABEL[status] }} <span class="count" data-count="{{ status }}">{{ group|length }}</span></h2>
-  <div class="grid">
-    {% for a in group %}
-    <a class="card" href="a/{{ a.id }}.html" title="{{ a.status_why }}" data-cat="{{ a.category }}" data-levels="{{ a.level_tags|join(' ') }}" data-name="{{ (a.name ~ ' ' ~ a.id)|lower }}">
-      <div class="pic">
-        <div class="on-it" data-asset="{{ a.id }}"></div>
-        {% if a.reel %}<video loop muted playsinline preload="none" poster="{{ a.reel[0].poster }}" data-src="{{ a.reel[0].file }}"></video>
-        {% elif a.hero %}<img loading="lazy" src="{{ a.hero }}" alt="">
-        {% else %}
-          <div class="novisual">
-            {% if a.stand_in %}<img loading="lazy" src="{{ a.stand_in }}" alt="">{% endif %}
-            <span>{% if a.kind == 'idea' %}idea{% elif a.kind == 'lane' %}on a lane only{% elif a.drawn_as %}drawn as the {{ a.drawn_as }}{% else %}no picture{% endif %}</span>
-          </div>
-        {% endif %}
-      </div>
-      <div class="body">
-        <div class="name">{{ a.name }}{% if a.archetype is not none %} <span class="id">{{ a.archetype }}</span>{% endif %}</div>
-        <div class="cat">{{ a.category }}{% if a.kind == 'extra' %} · not a unit{% endif %}{% if a.set %} · {{ a.set }}{% endif %}</div>
-        <div class="dots" title="{% for s in a.stages %}{{ s.label }}: {{ 'yes' if s.ok else 'no' }}{% if not loop.last %}, {% endif %}{% endfor %}">
-          {% for s in a.stages %}<i class="{{ 'ok' if s.ok else 'no' }}"></i>{% endfor %}
-        </div>
-        <div class="tags">
-          {% if a.reel %}<span class="tag film">{{ a.reel|length }} film{{ 's' if a.reel|length > 1 }}</span>{% endif %}
-          {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
-          {% if a.notes.priority %}<span class="tag pri">priority {{ a.notes.priority }}</span>{% endif %}
-          {% if a.notes.wants %}<span class="tag">wants {{ a.notes.wants }}</span>{% endif %}
-          {% if a.changes %}<span class="tag">{{ a.changes }} change{{ 's' if a.changes > 1 }}</span>{% endif %}
-        </div>
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-  <p class="none" hidden>Nothing here with these filters.</p>
-</section>
-{% endfor %}
 {% endblock %}
-{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="crew.js"></script><script src="overview.js"></script>{% endblock %}
+{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/crew.js"></script><script src="crew.js"></script><script src="office.js"></script>{% endblock %}

@@ -37,7 +37,7 @@ def page(out: Path, meta):
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
     write_if_changed(out / 'floor.html', env.get_template('floor.html').render(root=''))
-    for name in ('floor.js', 'crew.js', 'overview.js', 'site.css'):
+    for name in ('floor.js', 'crew.js', 'office.js', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
 
@@ -46,13 +46,22 @@ CREW = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'TrenchWarfare' 
 
 
 def crew(out: Path):
-    """The crew's picture (a frog, crew-head.png) is the owner's and lives outside git, in this station's cache; it is
-    copied into the site when the station has it. Without it crew.js draws each worker as its mark."""
-    src = CREW / 'crew-head.png'
-    dst = out / 'img' / 'crew-head.png'
-    if src.exists() and (not dst.exists() or dst.read_bytes() != src.read_bytes()):
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, dst)
+    """The crew's pictures are the owner's and live outside git, in this station's cache: per frog a poster
+    (<key>.jpg, a Krea2 still) and two loops (<key>.busy.mp4 at work, <key>.doze.mp4 idle; Minimax H3). They are
+    copied into the site's img/crew/ when the station has them, and data/crew.js lists what is there. Without
+    them crew.js draws each worker as the mark of its trade."""
+    media = {}
+    src = CREW / 'crew'
+    for f in sorted(src.glob('*.jpg')) if src.is_dir() else []:
+        key = f.stem
+        media[key] = {m: (src / f'{key}.{m}.mp4').exists() for m in ('busy', 'doze')}
+        for g in [f] + [src / f'{key}.{m}.mp4' for m in ('busy', 'doze') if media[key][m]]:
+            dst = out / 'img' / 'crew' / g.name
+            if not dst.exists() or dst.stat().st_size != g.stat().st_size or dst.read_bytes() != g.read_bytes():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(g, dst)
+    write_if_changed(out / 'data' / 'crew.js', f'window.CREW_MEDIA = {json.dumps(media, sort_keys=True)};\n')
+    return media
 
 
 def once(out: Path):
