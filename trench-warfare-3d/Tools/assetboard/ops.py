@@ -68,8 +68,27 @@ def crew(out: Path):
     return media
 
 
+def ready_since(data, store_path: Path):
+    """Stamp each ready stage with the first reading that saw it ready; a stage no longer ready is forgotten."""
+    try:
+        store = json.loads(store_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        store = {}
+    seen = {}
+    for lane in data['lanes']:
+        for it in lane['items']:
+            for st in it['stages']:
+                if st.get('state') == 'READY':
+                    key = f"{lane['branch']}|{it.get('id')}|{st.get('id')}"
+                    st['since'] = seen[key] = store.get(key) or data['now']
+    if seen != store:
+        write_if_changed(store_path, json.dumps(seen, sort_keys=True, indent=0))
+    return seen
+
+
 def once(out: Path):
     data = src_ops.collect(build.REPO, out)
+    ready_since(data, out / 'data' / 'ready-since.json')
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
     body = json.dumps({k: v for k, v in data.items() if k != 'now'}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'

@@ -150,6 +150,14 @@ def fixtures():
          and src_ops.agent_task('Rebuild the board and shoot it', 'Score round 1') == 'Rebuild the board and shoot it',
          src_ops.agent_task('Round 23 in C:\\x\\y (a, b)', 'Score board UI/UX round 1'))
     import ops
+    rs = tmp / 'rs.json'
+    lanes = lambda st: [dict(branch='b', items=[dict(id='i', stages=[dict(id='s', state=st)])])]
+    first = ops.ready_since(dict(now='2026-10-03 01:00:00', lanes=lanes('READY')), rs)
+    later = dict(now='2026-10-03 05:00:00', lanes=lanes('READY')); ops.ready_since(later, rs)
+    gone = ops.ready_since(dict(now='2026-10-03 06:00:00', lanes=lanes('DONE')), rs)
+    case('floor: a ready stage keeps the time it first turned ready, and is forgotten once it is not',
+         first == {'b|i|s': '2026-10-03 01:00:00'} and later['lanes'][0]['items'][0]['stages'][0]['since'] == '2026-10-03 01:00:00' and gone == {},
+         [first, gone])
     keep = ops.CREW
     ops.CREW = tmp / 'cache'
     site = tmp / 'site'

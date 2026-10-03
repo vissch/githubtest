@@ -19,8 +19,14 @@
     if (h.length > 58) h = h.slice(0, 58).replace(/\s+\S*$/, '') + '…';
     return h;
   }
+  // how long a ready stage has waited, from the first reading that saw it ready
+  function waited(since) {
+    if (!since || !window.OPS_NOW) return '';
+    var m = Math.round((new Date(window.OPS_NOW.replace(' ', 'T')) - new Date(since.replace(' ', 'T'))) / 60000);
+    return m < 2 ? ' · just now' : m < 60 ? ' · waiting ' + m + ' min' : m < 2880 ? ' · waiting ' + Math.round(m / 60) + ' h' : ' · waiting ' + Math.round(m / 1440) + ' d';
+  }
   function said(subject) {
-    var w = subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's [\w-]+ review round:\s*/i, '').split(/[,;:]\s/)[0];
+    var w = subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^[\w.\/-]+\.\w{1,5}:\s*/, '').replace(/^the board's [\w-]+ review round:\s*/i, '').split(/[,;:]\s/)[0];
     return w.charAt(0).toUpperCase() + w.slice(1);
   }
   function ago(day) {
@@ -163,6 +169,7 @@
     var working = all.at.filter(function (x) { return x.w.state === 'working'; }).sort(steady);
     var open = o.lanes.filter(function (l) { return l.workers.length || l.items.length || l.dirty; });
     var ready = []; o.lanes.forEach(function (l) { ready = ready.concat(readyOf(l)); });
+    ready.sort(function (a, b) { return (a.stage.since || '~').localeCompare(b.stage.since || '~'); });
 
     // the pulse
     var pr = $('p-ready');
@@ -175,7 +182,7 @@
         var what = el('span', 'k-take-what');
         what.appendChild(el('span', 'k-take-top', headline(x.item.title || x.item.id)));
         var sub = el('span', 'k-take-sub'); sub.appendChild(el('i', 'k-stage-pill', x.stage.id));
-        sub.appendChild(document.createTextNode(shortBranch(x.lane.branch) + ' · for ' + C.label(x.stage.skill || x.stage.role || 'anyone'))); what.appendChild(sub);
+        sub.appendChild(document.createTextNode(shortBranch(x.lane.branch) + ' · for ' + C.label(x.stage.skill || x.stage.role || 'anyone') + waited(x.stage.since))); what.appendChild(sub);
         row.appendChild(what); row.appendChild(el('b', null, 'Take →'));
         row.title = (x.item.title || x.item.id) + ': ' + x.stage.id + ' is ready (' + (x.stage.skill || x.stage.role || 'no role') + ')';
         list.appendChild(row);
