@@ -12,23 +12,20 @@
   function shortBranch(b) { return b.replace(/^lane\/(show|sim)\//, ''); }
   function laneKind(b) { var m = /^lane\/(show|sim)\//.exec(b); return m ? m[1] : b.split('/')[0]; }
   function changed(node, sig) { if (!node || node.dataset.sig === sig) return false; node.dataset.sig = sig; node.innerHTML = ''; return true; }
+  function slug(b) { return 'room-' + b.replace(/[^a-z0-9]+/gi, '-'); }
+  var onBranches = !!document.getElementById('strip');
   function readyOf(l) { var out = []; l.items.forEach(function (it) { it.stages.forEach(function (s) { if (s.state === 'READY') out.push({ item: it, stage: s, lane: l }); }); }); return out; }
 
   function desk(w) {
     var d = el('div', 'k-desk ' + (w.state || 'idle'));
     d.appendChild(C.booth(w));
-    var side = el('div', 'k-desk-text');
     var tag = el('div', 'k-nametag');
     tag.appendChild(el('b', null, C.title(w)));
-    tag.appendChild(el('span', 'k-kind', w.kind === 'session' ? (w.state === 'working' ? 'Claude · at work' : 'Claude · ' + C.ago(w.age || 0)) : w.kind));
-    side.appendChild(tag);
-    if (w.doing || w.what) {
-      var b = el('p', 'k-bubble');
-      if (w.doing) b.appendChild(el('span', 'k-doing', w.doing));
-      if (w.what && w.what !== w.doing) b.appendChild(document.createTextNode(w.what));
-      side.appendChild(b);
-    }
-    d.appendChild(side);
+    var line = w.doing || (w.kind === 'session' ? '' : w.what) || '';
+    tag.appendChild(el('span', 'k-kind', (w.kind === 'session' ? (w.state === 'working' ? 'Claude' : 'Claude · ' + C.ago(w.age || 0)) : w.kind) + (line ? ' · ' : '')));
+    if (line) tag.lastChild.appendChild(el('span', 'k-doing', line));
+    d.appendChild(tag);
+    d.title = C.title(w) + (w.what ? '\n' + w.what : '');
     return d;
   }
   function tags(l, working, ready) {
@@ -75,7 +72,7 @@
   // a room someone works in: full width, the desks large, the board and the wall beside them
   function room(l) {
     var working = l.workers.filter(function (w) { return w.state === 'working'; }).length;
-    var r = el('article', 'k-room' + (working ? ' busy' : ''));
+    var r = el('article', 'k-room' + (working ? ' busy' : '')); r.id = slug(l.branch);
     var h = el('header'); h.appendChild(title(l)); h.appendChild(tags(l, working, readyOf(l).length)); r.appendChild(h);
     var body = el('div', 'k-room-body');
     var desks = el('div', 'k-desks');
@@ -84,15 +81,15 @@
     var side = el('div', 'k-room-side');
     if (l.items.length) side.appendChild(board(l));
     if (l.assets.length) side.appendChild(wall(l, 8));
-    if (l.last.length) side.appendChild(el('p', 'k-last', 'last commit ' + l.last[0].date + ' · ' + l.last[0].subject));
-    body.appendChild(side);
+    if (side.children.length) body.appendChild(side); else body.classList.add('solo');
     r.appendChild(body);
+    if (l.last.length) r.appendChild(el('p', 'k-last', 'last commit ' + l.last[0].date + ' · ' + l.last[0].subject));
     return r;
   }
   // a room nobody sits in: one line, and what waits in it
   function quietRoom(l) {
     var ready = readyOf(l);
-    var r = el('article', 'k-room k-room-line' + (ready.length ? ' waits' : ''));
+    var r = el('article', 'k-room k-room-line' + (ready.length ? ' waits' : '')); r.id = slug(l.branch);
     r.appendChild(title(l));
     r.appendChild(tags(l, 0, ready.length));
     if (ready.length) r.appendChild(el('p', 'k-waits', 'waits on ' + ready.map(function (x) { return x.stage.id; }).join(', ') + ' · ' + (ready[0].item.title || ready[0].item.id)));
@@ -114,10 +111,15 @@
     set('p-ready', ready.length);
     var list = $('p-ready-list');
     if (changed(list, JSON.stringify(ready.map(function (x) { return [x.lane.branch, x.stage.id]; })))) {
-      ready.slice(0, 3).forEach(function (x) { list.appendChild(el('span', null, x.stage.id + ' · ' + shortBranch(x.lane.branch))); });
+      ready.slice(0, 3).forEach(function (x) {
+        var row = el('a', 'k-take'); row.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.lane.branch);
+        row.appendChild(el('span', null, x.stage.id)); row.appendChild(el('span', 'k-soft2', shortBranch(x.lane.branch))); row.appendChild(el('b', null, 'Take →'));
+        row.title = (x.item.title || x.item.id) + ': ' + x.stage.id + ' is ready (' + (x.stage.skill || x.stage.role || 'no role') + ')';
+        list.appendChild(row);
+      });
       if (!ready.length) list.appendChild(el('span', null, 'nothing waits on you'));
     }
-    var needs = $('p-needs'); if (needs) needs.classList.toggle('calm', !ready.length);
+    var needs = $('p-needs'); if (needs) { needs.classList.toggle('calm', !ready.length); needs.href = ready.length ? (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch) : '#office'; }
     set('p-at', working.length);
     var nm = working.filter(function (x) { return x.w.kind === 'machine'; }).length;
     set('p-at-sub', (working.length - nm) + ' crew · ' + nm + ' machine' + (nm === 1 ? '' : 's'));
@@ -127,20 +129,18 @@
     set('p-rooms-sub', o.lanes.filter(function (l) { return l.live; }).length + ' live of ' + o.lanes.length + ' branches');
     set('stamp', 'read ' + window.OPS_NOW + ', every 20 s');
 
-    // the lead: the first session at work, large in the hero
-    var lead = working.filter(function (x) { return x.w.kind === 'session'; })[0] || working[0];
-    var lb = $('lead');
-    if (lb && changed(lb, lead ? lead.w.id + lead.where : '')) {
-      if (lead) {
-        lb.appendChild(C.booth(lead.w, 'k-big'));
-        var cap = el('div', 'k-lead-cap');
-        cap.appendChild(el('span', 'k-tag k-hot', 'at work'));
-        cap.appendChild(el('b', null, C.title(lead.w)));
-        if (lead.w.doing) cap.appendChild(el('span', 'k-doing', lead.w.doing));
-        cap.appendChild(el('span', 'k-where', shortBranch(lead.where)));
-        lb.appendChild(cap);
-      }
-      lb.hidden = !lead;
+    // the hero: everyone at work, a frog each
+    var row = $('crewrow');
+    if (row && changed(row, JSON.stringify(working.map(function (x) { return [x.w.id, x.where, x.w.doing]; })))) {
+      working.slice(0, 4).forEach(function (x) {
+        var f = el('a', 'k-mate'); f.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.branches[0] || '');
+        f.appendChild(C.booth(x.w));
+        var cap = el('span', 'k-mate-cap'); cap.appendChild(el('b', null, C.title(x.w))); cap.appendChild(el('span', null, x.w.doing || shortBranch(x.where)));
+        f.appendChild(cap); f.title = C.title(x.w) + ' · ' + x.where + (x.w.what ? '\n' + x.w.what : '');
+        row.appendChild(f);
+      });
+      if (working.length > 4) row.appendChild(el('span', 'k-more', '+' + (working.length - 4)));
+      if (!working.length) row.appendChild(el('p', 'k-soft', 'Nobody at work right now.'));
     }
 
     // the rooms: worked-in rooms large, the rest one line each, the ones that wait on the owner first
