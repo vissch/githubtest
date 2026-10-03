@@ -186,6 +186,8 @@
     var dots = $('p-at-dots');
     if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
       if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 36); f.title = C.title(x.w); dots.appendChild(f); });
+      else if (ready.length) { var nx = el('a', 'k-next'); nx.href = (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch);
+        nx.appendChild(el('span', 'k-soft', 'Next up')); nx.appendChild(el('b', null, ready[0].stage.id + ' on ' + shortBranch(ready[0].lane.branch) + ' →')); dots.appendChild(nx); }
       else { var nf = matchMedia('(max-width: 760px)').matches ? 3 : 5; all.idle.slice(0, nf).forEach(function (r) { var f = C.frog({ id: r.id, kind: r.kind, name: r.name, state: 'idle' }, 30); f.title = C.label(r.name) + ' (asleep)'; dots.appendChild(f); });
         if (all.idle.length > nf) dots.appendChild(el('span', 'k-dots-more', '+' + (all.idle.length - nf))); }
     }
