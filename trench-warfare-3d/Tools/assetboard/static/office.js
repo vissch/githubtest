@@ -72,7 +72,7 @@
   // a room someone works in: full width, the desks large, the board and the wall beside them
   function room(l) {
     var working = l.workers.filter(function (w) { return w.state === 'working'; }).length;
-    var r = el('article', 'k-room' + (working ? ' busy' : '')); r.id = slug(l.branch);
+    var r = el('article', 'k-room' + (working ? ' busy' : '') + (l.workers.length > 1 ? ' wide' : ' half')); r.id = slug(l.branch);
     var h = el('header'); h.appendChild(title(l)); h.appendChild(tags(l, working, readyOf(l).length)); r.appendChild(h);
     var body = el('div', 'k-room-body');
     var desks = el('div', 'k-desks');
@@ -137,14 +137,18 @@
     var row = $('crewrow');
     if (row && changed(row, JSON.stringify([working.map(function (x) { return [x.w.id, x.where, x.w.doing]; }), working.length ? 0 : all.idle.length, ready.length]))) {
       row.classList.remove('asleep');
-      working.slice(0, 4).forEach(function (x) {
+      row.classList.toggle('n1', working.length === 1);
+      working.slice(0, 3).forEach(function (x) {
         var f = el('a', 'k-mate'); f.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.branches[0] || '');
         f.appendChild(C.booth(x.w));
-        var cap = el('span', 'k-mate-cap'); cap.appendChild(el('b', null, C.title(x.w))); cap.appendChild(el('span', null, x.w.doing || shortBranch(x.where)));
+        var cap = el('span', 'k-mate-cap'); cap.appendChild(el('b', null, C.title(x.w)));
+        var task = x.w.doing || (x.w.kind === 'session' ? '' : x.w.what) || '';
+        if (task) cap.appendChild(el('span', 'k-mate-task', task));
+        cap.appendChild(el('span', 'k-mate-where', shortBranch(x.where)));
         f.appendChild(cap); f.title = C.title(x.w) + ' · ' + x.where + (x.w.what ? '\n' + x.w.what : '');
         row.appendChild(f);
       });
-      if (working.length > 4) row.appendChild(el('span', 'k-more', '+' + (working.length - 4)));
+      if (working.length > 3) row.appendChild(el('a', 'k-more', '+' + (working.length - 3) + ' more at work')).href = '#office';
       if (!working.length) {           // nobody at work: the hero shows the crew asleep, and what waits
         row.classList.add('asleep');
         all.idle.slice(0, 4).forEach(function (r) {

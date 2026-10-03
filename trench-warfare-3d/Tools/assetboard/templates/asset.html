@@ -64,16 +64,19 @@
 </section>
 {% endif %}
 
-{% set stills = a.images|rejectattr('kind', 'equalto', 'atlas')|list %}
-{% if stills %}
+{% set stills_all = a.images|rejectattr('kind', 'equalto', 'atlas')|list %}
+{% set ns = namespace(busts=[], stills=[]) %}{% for i in stills_all %}{% if (i.caption or '').startswith('Mood bust') %}{% set ns.busts = ns.busts + [i] %}{% else %}{% set ns.stills = ns.stills + [i] %}{% endif %}{% endfor %}{% set busts = ns.busts %}{% set stills = ns.stills %}
+{% if stills or busts %}
 <section>
-  <h2>Pictures <span class="count">{{ stills|length }}</span></h2>
+  <h2>Pictures <span class="count">{{ stills_all|length }}</span></h2>
   <div class="shots">
     {% for i in stills %}
     <figure class="{{ 'wide' if i.kind in ('gym', 'doc', 'evidence') else '' }}"><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a>
       <figcaption>{% if i.date %}<b>{{ i.date }}</b> {% endif %}{{ i.caption }}</figcaption></figure>
     {% endfor %}
   </div>
+  {% if busts %}<details class="k-busts"><summary><img src="../{{ busts[0].file }}" alt=""><span>Mood busts <b>&times;{{ busts|length }}</b></span></summary>
+  <div class="shots">{% for i in busts %}<figure><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a><figcaption>{{ i.caption[10:] }}</figcaption></figure>{% endfor %}</div></details>{% endif %}
 </section>
 {% endif %}
 

@@ -53,9 +53,12 @@ def crew(out: Path):
     media = {}
     src = CREW / 'crew'
     for f in sorted(src.glob('*.jpg')) if src.is_dir() else []:
+        if f.stem.endswith('.sleep'):
+            continue
         key = f.stem
         media[key] = {m: (src / f'{key}.{m}.mp4').exists() for m in ('busy', 'doze')}
-        for g in [f] + [src / f'{key}.{m}.mp4' for m in ('busy', 'doze') if media[key][m]]:
+        media[key]['sleep'] = (src / f'{key}.sleep.jpg').exists()
+        for g in [f] + [src / f'{key}.{m}.mp4' for m in ('busy', 'doze') if media[key][m]] + ([src / f'{key}.sleep.jpg'] if media[key]['sleep'] else []):
             dst = out / 'img' / 'crew' / g.name
             if not dst.exists() or dst.stat().st_size != g.stat().st_size or dst.read_bytes() != g.read_bytes():
                 dst.parent.mkdir(parents=True, exist_ok=True)

@@ -23,8 +23,12 @@ window.drawBranches = (function () {
     // the three that are furthest ahead carry their names
     quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).slice(0, 3).forEach(function (l) {
       var i = quiet.indexOf(l), bar = strip.children[i];
-      if (bar) bar.appendChild(el('span', 'k-bar-name ' + (i < quiet.length / 2 ? 'k-right' : 'k-left') + ' k-lift' + quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).indexOf(l), l.branch.replace(/^lane\/(show|sim)\//, '') + ' · ' + l.ahead));
+      if (bar) bar.appendChild(el('span', 'k-bar-num', String(1 + quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).indexOf(l))));
+      if (false) bar.appendChild(el('span', 'k-bar-name ' + (i < quiet.length / 2 ? 'k-right' : 'k-left') + ' k-lift' + quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).indexOf(l), l.branch.replace(/^lane\/(show|sim)\//, '') + ' · ' + l.ahead));
     });
+    var top3 = document.getElementById('strip-top');
+    if (top3) { top3.innerHTML = ''; top3.appendChild(el('span', 'k-soft', 'Furthest ahead')); quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).slice(0, 3).forEach(function (l, n) {
+      var t = el('span', 'k-top3'); t.appendChild(el('b', null, String(n + 1))); t.appendChild(document.createTextNode(l.branch.replace(/^lane\/(show|sim)\//, '') + ' · ' + l.ahead + ' ahead')); top3.appendChild(t); }); }
     var q = document.getElementById('quiet'); q.innerHTML = '';
     quiet.forEach(function (l) {
       var r = el('div', 'qrow' + (l.live ? '' : ' parked')); r.appendChild(el('b', null, l.branch));

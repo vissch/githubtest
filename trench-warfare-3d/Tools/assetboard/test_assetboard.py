@@ -131,7 +131,7 @@ def fixtures():
     got = ops.crew(site)
     ops.CREW = keep
     case("crew: each frog's poster and loops are copied in and listed, and none at all is no error",
-         nothing and got == {'tw-critic': {'busy': True, 'doze': False}} and (site / 'img' / 'crew' / 'tw-critic.busy.mp4').read_bytes() == b'busy', got)
+         nothing and got == {'tw-critic': {'busy': True, 'doze': False, 'sleep': False}} and (site / 'img' / 'crew' / 'tw-critic.busy.mp4').read_bytes() == b'busy', got)
 
     notes = tmp / 'notes.json'
     notes.write_text('{"assets": {"Maw": {"colour": "red"}}}')
