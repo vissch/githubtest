@@ -74,9 +74,8 @@
     <figure class="{{ 'wide' if i.kind in ('gym', 'doc', 'evidence') else '' }}"><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a>
       <figcaption>{% if i.date %}<b>{{ i.date }}</b> {% endif %}{{ i.caption }}</figcaption></figure>
     {% endfor %}
+    {% if busts %}<figure class="k-stack" tabindex="0"><div class="k-stack-pics">{% for i in busts[:3] %}<img loading="lazy" src="../{{ i.file }}" alt="">{% endfor %}</div><figcaption>Mood busts &times;{{ busts|length }}</figcaption><div class="k-stack-all">{% for i in busts %}<a href="../{{ i.file }}" title="{{ i.caption }}"><img loading="lazy" src="../{{ i.file }}" alt=""><span>{{ i.caption[10:] }}</span></a>{% endfor %}</div></figure>{% endif %}
   </div>
-  {% if busts %}<details class="k-busts"><summary><img src="../{{ busts[0].file }}" alt=""><span>Mood busts <b>&times;{{ busts|length }}</b></span></summary>
-  <div class="shots">{% for i in busts %}<figure><a href="../{{ i.file }}"><img loading="lazy" src="../{{ i.file }}" alt=""></a><figcaption>{{ i.caption[10:] }}</figcaption></figure>{% endfor %}</div></details>{% endif %}
 </section>
 {% endif %}
 

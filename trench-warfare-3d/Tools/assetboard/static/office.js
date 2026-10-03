@@ -74,12 +74,12 @@
     var working = l.workers.filter(function (w) { return w.state === 'working'; }).length;
     var r = el('article', 'k-room' + (working ? ' busy' : '') + (l.workers.length > 1 ? ' wide' : ' half')); r.id = slug(l.branch);
     var h = el('header'); h.appendChild(title(l)); h.appendChild(tags(l, working, readyOf(l).length)); r.appendChild(h);
+    if (l.items.length) r.appendChild(board(l));
     var body = el('div', 'k-room-body');
-    var desks = el('div', 'k-desks');
+    var desks = el('div', 'k-desks' + (onBranches ? '' : ' k-desks-sm'));
     l.workers.slice().sort(function (a, b) { return (b.state === 'working') - (a.state === 'working'); }).forEach(function (w) { desks.appendChild(desk(w)); });
     body.appendChild(desks);
     var side = el('div', 'k-room-side');
-    if (l.items.length) side.appendChild(board(l));
     if (l.assets.length) side.appendChild(wall(l, 8));
     if (side.children.length) body.appendChild(side); else body.classList.add('solo');
     r.appendChild(body);
@@ -124,6 +124,10 @@
     }
     var needs = $('p-needs'); if (needs) { needs.classList.toggle('calm', !ready.length); needs.href = ready.length ? (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch) : '#office'; }
     set('p-at', working.length);
+    var dots = $('p-at-dots');
+    if (changed(dots, working.map(function (x) { return x.w.id; }).join(','))) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 30); f.title = C.title(x.w); dots.appendChild(f); });
+    var lb2 = $('p-rooms-bar');
+    if (lb2) { var lv = o.lanes.filter(function (l) { return l.live; }).length; lb2.innerHTML = '<i style="flex:' + open.length + '" class="open"></i><i style="flex:' + Math.max(0, lv - open.length) + '" class="live"></i><i style="flex:' + (o.lanes.length - lv) + '" class="parked"></i>'; }
     var atCard = $('p-at'); if (atCard) atCard.closest('.k-stat').classList.toggle('quiet', !working.length);
     var nm = working.filter(function (x) { return x.w.kind === 'machine'; }).length;
     set('p-at-sub', (working.length - nm) + ' crew · ' + nm + ' machine' + (nm === 1 ? '' : 's') + ' · ' + all.idle.length + ' asleep');
