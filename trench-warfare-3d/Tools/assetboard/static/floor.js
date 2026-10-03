@@ -20,6 +20,11 @@ window.drawBranches = (function () {
       a.title = l.branch + ' · ' + (l.ahead || 0) + ' ahead · tip ' + (l.tip || '?') + (l.live ? '' : ' · parked') + (l.last[0] ? '\n' + l.last[0].subject : '');
       strip.appendChild(a);
     });
+    // the three that are furthest ahead carry their names
+    quiet.slice().sort(function (a, b) { return (b.ahead || 0) - (a.ahead || 0); }).slice(0, 3).forEach(function (l) {
+      var i = quiet.indexOf(l), bar = strip.children[i];
+      if (bar) bar.appendChild(el('span', 'k-bar-name', l.branch.replace(/^lane\/(show|sim)\//, '') + ' · ' + l.ahead));
+    });
     var q = document.getElementById('quiet'); q.innerHTML = '';
     quiet.forEach(function (l) {
       var r = el('div', 'qrow' + (l.live ? '' : ' parked')); r.appendChild(el('b', null, l.branch));

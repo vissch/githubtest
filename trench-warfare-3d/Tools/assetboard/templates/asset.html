@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ a.name }}{% endblock %}
+{% block bodyclass %}page assetpage{% endblock %}
 {% block main %}
 <p class="crumb"><a href="../index.html#{{ a.status }}">Assets</a> / {{ CATEGORY[a.category] }}</p>
 <section class="head s-{{ a.status }}">
