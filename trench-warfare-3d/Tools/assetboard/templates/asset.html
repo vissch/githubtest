@@ -6,7 +6,7 @@
 <section class="head s-{{ a.status }}">
   <div>
     <h1>{{ a.name }}{% if a.name != a.id %} <span class="id">{{ a.id }}</span>{% endif %}{% if a.archetype is not none %} <span class="id">archetype {{ a.archetype }}</span>{% endif %}</h1>
-    <p class="status"><span class="badge">{{ STATUS_LABEL[a.status] }}</span> <span title="{{ a.status_why }}">{{ a.why_short }}</span></p>
+    <p class="status"><span class="badge">{{ STATUS_LABEL[a.status] }}</span> <span class="k-why" title="{{ a.status_why }}">{% for w in a.why_short.split(", ") %}<i>{{ w }}</i>{% endfor %}</span></p>
     {% if a.notes.note or a.notes.priority or a.notes.wants or a.notes.source %}
     <p class="note">{% if a.notes.priority %}<b>Priority {{ a.notes.priority }}.</b> {% endif %}{% if a.notes.wants %}<b>Wants: {{ a.notes.wants }}.</b> {% endif %}{{ a.notes.note }}{% if a.notes.source %} (from {{ a.notes.source }}){% endif %}</p>
     {% endif %}

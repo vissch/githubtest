@@ -497,3 +497,29 @@ body.assetpage .crumb a::after { content: " "; }
 }
 @media (prefers-reduced-motion: reduce) { .k-sleeper .k-booth { animation: none; } }
 .k-stat.quiet .k-live { background: #6b6b6b; animation: none; }
+
+/* round 5 (review r4, 7.2/10): sleep reads as sleep, idle said once, needs-you leads with the item */
+.k-pulse { grid-template-columns: 2fr repeat(3, minmax(0, 1fr)); }
+.k-booth.idle video, .k-booth.resting video { filter: saturate(.55) brightness(.8) contrast(.95); }
+.k-booth.idle::after { content: "z"; top: 6px; right: 10px; font: 800 18px var(--sans); color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5);
+  animation: k-zz 2.8s ease-in-out infinite; }
+.k-booth.idle::before { content: "z"; position: absolute; z-index: 2; top: 20px; right: 22px; font: 800 12px var(--sans); color: #fff; opacity: .8;
+  text-shadow: 0 1px 4px rgba(0,0,0,.5); animation: k-zz 2.8s ease-in-out -1.4s infinite; }
+@keyframes k-zz { 0% { opacity: 0; transform: translate(0, 4px) scale(.8); } 40% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -10px) scale(1.15); } }
+.k-crewrow.asleep { grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: none; gap: 16px; }
+.k-sleeper .k-booth { border-radius: 22px; }
+.k-word { right: 0; font-size: clamp(70px, 10vw, 160px); bottom: -.2em; }
+.k-take-top { font: 600 14px/1.3 var(--sans); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.k-take-sub { font: 500 12px var(--sans); opacity: .95; color: #ffe7da; }
+.k-bar-name.k-right { left: 0; transform: none; } .k-bar-name.k-left { left: auto; right: 0; transform: none; }
+body.assetpage .crumb { display: block; }
+.k-why { display: inline-flex; flex-wrap: wrap; gap: 6px; } .k-why i { font-style: normal; font: 500 13px var(--sans); background: #fff; border-radius: 999px; padding: 4px 11px; color: #444; }
+body.assetpage h2 { justify-content: flex-start; }
+.k-assets .s-NEEDS_VISUAL .novisual { background: repeating-linear-gradient(135deg, #f3e8ff 0 10px, #ead5ff 10px 20px); color: #7e22ce; }
+@media (max-width: 760px) {
+  .k-crewrow.asleep { display: flex; overflow-x: auto; flex-wrap: nowrap; }
+  .k-crewrow.asleep .k-sleeper { flex: 0 0 42%; }
+  .k-asleep-line { flex: 0 0 100%; }
+  .top::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 36px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
+  .k-pulse { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
