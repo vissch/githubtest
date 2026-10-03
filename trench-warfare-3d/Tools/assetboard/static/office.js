@@ -186,8 +186,8 @@
     var dots = $('p-at-dots');
     if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
       if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 36); f.title = C.title(x.w); dots.appendChild(f); });
-      else { all.idle.slice(0, 5).forEach(function (r) { var f = C.frog({ id: r.id, kind: r.kind, name: r.name, state: 'idle' }, 30); f.title = C.label(r.name) + ' (asleep)'; dots.appendChild(f); });
-        if (all.idle.length > 5) dots.appendChild(el('span', 'k-dots-more', '+' + (all.idle.length - 5))); }
+      else { var nf = matchMedia('(max-width: 760px)').matches ? 3 : 5; all.idle.slice(0, nf).forEach(function (r) { var f = C.frog({ id: r.id, kind: r.kind, name: r.name, state: 'idle' }, 30); f.title = C.label(r.name) + ' (asleep)'; dots.appendChild(f); });
+        if (all.idle.length > nf) dots.appendChild(el('span', 'k-dots-more', '+' + (all.idle.length - nf))); }
     }
     var lb2 = $('p-rooms-bar');
     if (lb2) { var lv = o.lanes.filter(function (l) { return l.live; }).length; lb2.innerHTML = '<i style="flex:' + open.length + '" class="open"></i><i style="flex:' + Math.max(0, lv - open.length) + '" class="live"></i><i style="flex:' + (o.lanes.length - lv) + '" class="parked"></i>'; }
@@ -226,6 +226,8 @@
           f.appendChild(C.booth({ id: r.id, kind: r.kind, name: r.name, state: 'idle' })); f.appendChild(el('span', null, C.label(r.name)));
           row.appendChild(f);
         });
+        if (all.idle.length > 6) { var mt = el('a', 'k-sleeper k-sleeper-more'); mt.href = 'floor.html'; mt.title = all.idle.slice(6).map(function (r) { return C.label(r.name); }).join(', ');
+          mt.appendChild(el('span', 'k-nap-n', '+' + (all.idle.length - 6))); mt.appendChild(el('span', null, 'more asleep')); row.appendChild(mt); }
         row.appendChild(el('p', 'k-asleep-line', 'Everyone is asleep' + (ready.length ? ' — ' + ready.length + ' stage' + (ready.length > 1 ? 's wait' : ' waits') + ' for you.' : '.')));
       }
     }
@@ -249,6 +251,7 @@
     var cap = onBranches ? still.length : 3;      // the overview shows the first few; the branches page all
     if (changed(lines, JSON.stringify([still, cap]))) {
       still.slice(0, cap).forEach(function (l) { lines.appendChild(quietRoom(l)); });
+      if (onBranches) { var lng = el('a', 'k-room k-room-line k-room-more'); lng.href = 'index.html#lounge'; lng.appendChild(el('b', null, all.idle.length + ' asleep →')); lng.appendChild(el('span', 'k-waits', 'the lounge, on the overview')); lines.appendChild(lng); }
       if (!onBranches) { var more = el('a', 'k-room k-room-line k-room-more'); more.href = 'floor.html'; more.appendChild(el('b', null, 'All ' + (o.lanes.length) + ' branches →')); more.appendChild(el('span', 'k-waits', (still.length > cap ? (still.length - cap) + ' more open, ' : '') + (o.lanes.length - open.length) + ' quiet')); lines.appendChild(more); }
     }
 
@@ -267,7 +270,7 @@
     }
     set('n-lounge', (heroSleeps ? lounge.length + ' more' : all.idle.length) + ' asleep');
     set('n-asleep', all.idle.length + ' asleep in the lounge →');
-    var lg = $('lounge'); if (lg) lg.hidden = !lounge.length;
+    var lg = $('lounge'); if (lg) lg.hidden = !lounge.length || !!heroSleeps;
 
     // the cards: frogs at work on a branch that touches the asset
     var on = {}, assetsOf = {};

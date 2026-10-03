@@ -15,7 +15,7 @@
       });
       bucket.querySelector('.none').hidden = shown > 0;
       var more = bucket.querySelector('.k-showall');
-      if (more) more.hidden = !!(state.cat || state.level || state.q) || bucket.classList.contains('open') || shown <= 10;
+      if (more) more.hidden = !!(state.cat || state.level || state.q) || bucket.classList.contains('open');
       document.querySelectorAll('[data-count="' + bucket.id + '"]').forEach(function (n) { n.textContent = shown; });
     });
   }
@@ -29,10 +29,28 @@
       });
     });
   });
+  // cards with no picture of their own that say the same thing ("drawn as the Soldier") fold into the first of them
   document.querySelectorAll('.bucket').forEach(function (bucket) {
-    var cards = bucket.querySelectorAll('.card');
-    cards.forEach(function (c, i) { if (i >= 10) c.classList.add('k-over'); });
-    if (cards.length <= 10) return;
+    var same = {};
+    bucket.querySelectorAll('.card .novisual span').forEach(function (sp) { (same[sp.textContent.trim()] = same[sp.textContent.trim()] || []).push(sp.closest('.card')); });
+    Object.keys(same).forEach(function (k) {
+      var g = same[k]; if (g.length < 3) return;
+      var head = g[0]; head.classList.add('k-group');
+      head.querySelector('.novisual span').textContent = k + ' ×' + g.length;
+      var names = document.createElement('div'); names.className = 'k-group-names';
+      g.forEach(function (c, i) { var a = document.createElement('a'); a.href = c.getAttribute('href'); a.textContent = c.querySelector('.name').textContent; names.appendChild(a); if (i) c.classList.add('k-grouped'); });
+      head.querySelector('.body').appendChild(names);
+      head.querySelector('.name').textContent = g.length + ' units';
+    });
+  });
+  // two full rows per group; a group that would leave one card alone on a row shows full rows and a button
+  document.querySelectorAll('.bucket').forEach(function (bucket) {
+    var grid = bucket.querySelector('.grid');
+    var cols = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').length);
+    var cards = Array.prototype.filter.call(bucket.querySelectorAll('.card'), function (c) { return !c.classList.contains('k-grouped'); });
+    var limit = cards.length > cols * 2 ? cols * 2 : (cards.length > cols && cards.length % cols ? Math.floor(cards.length / cols) * cols : cards.length);
+    cards.forEach(function (c, i) { if (i >= limit) c.classList.add('k-over'); });
+    if (cards.length <= limit) return;
     var b = document.createElement('button'); b.className = 'k-showall'; b.type = 'button';
     b.textContent = 'Show all ' + cards.length + ' →';
     b.addEventListener('click', function () { bucket.classList.add('open'); b.hidden = true; });
