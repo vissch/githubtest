@@ -135,7 +135,7 @@
 </details>
 
 <details class="fold">
-<summary>Effects and tests{% if a.tests %} <span class="count">{{ a.tests|length }} tests</span>{% endif %}</summary>
+<summary>Effects and tests{% if a.tests %} <span class="count">{{ a.tests|length }}</span>{% endif %}</summary>
 <section class="cols">
   <div>
     <h2>Effects</h2>
@@ -161,7 +161,7 @@
 </details>
 
 <details class="fold">
-<summary>In flight{% if a.live_lanes %} <span class="count">{{ a.live_lanes|length }} live</span>{% endif %}</summary>
+<summary>In flight <span class="count">{{ a.live_lanes|length + (a.board|length if a.board else 0) or 'none' }}</span></summary>
 <section>
   <h2>In flight</h2>
   {% if not a.live_lanes and not a.board and not a.open_questions %}<p class="dim">Nothing in flight touches its art.</p>{% endif %}
