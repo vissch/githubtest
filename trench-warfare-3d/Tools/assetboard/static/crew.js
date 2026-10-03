@@ -34,7 +34,19 @@ window.Crew = (function () {
     if (w.kind === 'session' || w.kind === 'machine') return w.kind;
     var id = (w.id || w.name || '').replace(/^agent:/, '');
     if (MEDIA[id]) return id;
-    return w.kind === 'agent' ? 'agent' : 'role';
+    var k = w.kind === 'agent' ? 'agent' : 'role';
+    if (MEDIA[k]) return k;
+    return MEDIA.session ? '~session' : k;      // '~': a stand-in, drawn greyed
+  }
+  // what a session's last tool call means, in words
+  var VERB = { Read: 'reading files', Edit: 'editing code', MultiEdit: 'editing code', Write: 'writing a file', Bash: 'running commands',
+    PowerShell: 'running commands', Grep: 'searching the code', Glob: 'looking for files', Agent: 'briefing an agent', Task: 'briefing an agent',
+    WebFetch: 'reading the web', WebSearch: 'searching the web', Skill: 'taking up a skill', TodoWrite: 'planning', SendMessage: 'messaging an agent',
+    NotebookEdit: 'editing a notebook', Artifact: 'publishing a page', ScheduleWakeup: 'pacing itself', AskUserQuestion: 'asking the owner' };
+  function doing(w) {
+    var d = w.doing || '';
+    if (/^[A-Z][A-Za-z]+$/.test(d)) return VERB[d] || d.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+    return d;
   }
   function title(w) { return w.kind === 'session' ? (w.title || 'Claude session') : w.kind === 'machine' ? (w.name || 'machine') : label(w.name || w.id); }
 
@@ -46,8 +58,10 @@ window.Crew = (function () {
 
   // a booth: the frog's loop (or poster, or mark) in a rounded card; w = {id, kind, name, state, ...}
   function booth(w, cls) {
-    var k = key(w), m = MEDIA[k], mode = w.state === 'working' ? 'busy' : 'doze';
-    var b = el('div', 'k-booth ' + (w.state || 'idle') + ' kind-' + w.kind + (cls ? ' ' + cls : ''));
+    var k = key(w), stand = k.charAt(0) === '~'; if (stand) k = k.slice(1);
+    var m = MEDIA[k], mode = w.state === 'working' ? 'busy' : 'doze';
+    var b = el('div', 'k-booth ' + (w.state || 'idle') + ' kind-' + w.kind + (cls ? ' ' + cls : '') + (stand ? ' k-standin' : ''));
+    if (stand) b.appendChild(el('span', 'k-standin-cap', 'portrait rendering'));
     b.style.setProperty('--h', hue(w.id || w.name || ''));
     if (m) {
       var v = el('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', '');
@@ -117,6 +131,6 @@ window.Crew = (function () {
     p.classList.toggle('quiet', !n);
     p.hidden = false;
   }
-  return { GLYPH: GLYPH, MEDIA: MEDIA, hue: hue, el: el, label: label, key: key, title: title, booth: booth, frog: frog,
+  return { doing: doing, GLYPH: GLYPH, MEDIA: MEDIA, hue: hue, el: el, label: label, key: key, title: title, booth: booth, frog: frog,
            token: token, ago: ago, everyone: everyone, live: live, nowPill: nowPill };
 })();
