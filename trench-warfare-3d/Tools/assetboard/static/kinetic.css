@@ -832,3 +832,21 @@ body.filtering .bucket .card.k-over:not([hidden]) { display: flex; }
   .k-assets .filters .chips { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
   .k-assets .bucket h2 { top: 56px; }
 }
+
+/* round 18 (review r17, 8.7/10): one baseline for the pulse, folded twins, no orphans, one-line section heads */
+.k-pulse { align-items: stretch; }
+.k-stat { justify-content: flex-start; }
+.k-crewrow.asleep { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.k-sleeper-more { display: grid; justify-items: center; align-content: center; gap: 6px; color: #6b6b6b; text-decoration: none; }
+.k-sleeper-more .k-nap-n { width: 72%; height: auto; aspect-ratio: 1; border-radius: 22px; background: #fff; font-size: 24px; display: flex !important; align-items: center; justify-content: center; }
+.k-group .novisual span { font-weight: 700; color: #333; }
+.k-group-names { display: flex; flex-wrap: wrap; gap: 3px 8px; margin-top: 6px; font-size: 12px; }
+.k-group-names a { color: #555; text-decoration: underline; text-underline-offset: 2px; }
+.k-assets .card.k-grouped { display: none !important; }
+.k-head h2 { font-size: clamp(28px, 3.2vw, 46px); max-width: none; }
+.k-head h2 .k-soft { white-space: nowrap; }
+@media (max-width: 760px) {
+  .k-assets .tags .tag:nth-child(n+2) { display: none; }
+  .k-dots .k-booth { width: 28px !important; height: 28px !important; }
+  .k-crewrow.asleep .k-sleeper-more { flex: 0 0 30%; }
+}
